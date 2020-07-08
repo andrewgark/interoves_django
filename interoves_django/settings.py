@@ -27,6 +27,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = [
     'interoves-django-env.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
+    'interoves-django.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
     'interoves.ml',
     '127.0.0.1'
 ]
