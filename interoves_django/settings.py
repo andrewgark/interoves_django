@@ -26,7 +26,8 @@ SECRET_KEY = '7h8-u-i6(f6#qpzvy&dkx@gpk)y^2371by7ouvbox=7)o87adv'
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'interoves-django-env.eba-nbcqahns.eu-central-1.elasticbeanstalk.com'
+    'interoves-django-env.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
+    'interoves.ml'
 ]
 
 
