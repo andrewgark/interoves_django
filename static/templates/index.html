@@ -11,10 +11,10 @@
 
 <!-- Favicons
     ================================================== -->
-<link rel="shortcut icon" href="img/favicon.ico" type="image/x-icon">
-<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
-<link rel="apple-touch-icon" sizes="72x72" href="img/apple-touch-icon-72x72.png">
-<link rel="apple-touch-icon" sizes="114x114" href="img/apple-touch-icon-114x114.png">
+<link rel="shortcut icon" href="{% static "img/favicon.ico" %}" type="image/x-icon">
+<link rel="apple-touch-icon" href="{% static "img/apple-touch-icon.png" %}">
+<link rel="apple-touch-icon" sizes="72x72" href="{% static "img/apple-touch-icon-72x72.png" %}">
+<link rel="apple-touch-icon" sizes="114x114" href="{% static "img/apple-touch-icon-114x114.png" %}">
 
 <!-- Bootstrap -->
 <link rel="stylesheet" type="text/css"  href="{% static "css/bootstrap.css" %}">
@@ -50,7 +50,11 @@
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav navbar-right">
         <li><a href="#games" class="page-scroll">Последние игры</a></li>
-        <li><a href="#register" class="page-scroll">Зарегистрироваться</a></li>
+	      {% if user.is_authenticated %}
+        <li><a href="#myteam" class="page-scroll">Моя команда</a></li>
+        {% else %}
+        <li><a href="#myteam" class="page-scroll">Участвовать</a></li>
+        {% endif %}
       </ul>
     </div>
     <!-- /.navbar-collapse --> 
@@ -65,7 +69,7 @@
           <div class="col-md-8 col-md-offset-2 intro-text">
             <h1>inter oves locum praesta<span></span></h1>
             <p>Играем в интеллектуальные игры с разрешенным интернетом.</p>
-            <a href="vk.com/interoveslocumpraesta" class="btn btn-custom btn-lg page-scroll">Группа VK</a> </div>
+            <a href="http://vk.com/interoveslocumpraesta" class="btn btn-custom btn-lg page-scroll">Группа VK</a> </div>
         </div>
       </div>
     </div>
@@ -98,23 +102,23 @@
   </div>
 </div>
 <!-- Contact Section -->
-<div id="register">
+<div id="myteam">
   <div class="container">
     <div class="col-md-8">
-      <div class="row">l
+      <div class="row">
         {% if user.is_authenticated %}
         <div class="section-title">
-          <h2>Личный кабинет</h2>
+          <h2>Моя команда</h2>
           <p>Здесь будет личный кабинет.</p>
         </div>
         <p>Привет, {{ user.username }}!</p>
-	<a href="/accounts/logout">Выйти</a>
+        <a href="/accounts/logout" class="btn btn-custom btn-lg page-scroll">Выйти</a>
         {% else %}
         <div class="section-title">
-          <h2>Регистрация</h2>
-          <p>Если вы хотите первый раз поучаствовать в игре - авторизуйтесь и зарегистрируйтесь.</p>
+          <h2>Участвовать</h2>
+          <p>Чтобы поучаствовать в игре, авторизуйтесь через VK. Зарегистрируйте новую команду или войдите в уже существующую.</p>
         </div>
-        <a href="{% provider_login_url 'vk' %}">Login with Google</a>
+        <a href="{% provider_login_url 'vk' %}" class="btn btn-custom btn-lg page-scroll">Войти через VK</a>
         {% endif %}
       </div>
     </div>

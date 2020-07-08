@@ -234,24 +234,24 @@ header .intro-text {
 	box-shadow: 10px 10px 10px rgba(0,0,0,.05);
 }
 /* Register Section */
-#register {
+#myteam {
 	padding: 100px 0 60px 0;
 	background: linear-gradient(to right, #6372ff 0%, #5ca9fb 100%);
 	color: rgba(255,255,255,.75);
 }
-#register .section-title {
+#myteam .section-title {
 	margin-bottom: 40px;
 }
-#register .section-title p {
+#myteam .section-title p {
 	font-size: 16px;
 }
-#register h2 {
+#myteam h2 {
 	color: #fff;
 	margin-top: 10px;
 	margin-bottom: 15px;
 	padding-bottom: 15px;
 }
-#register .section-title h2::after {
+#myteam .section-title h2::after {
 	position: absolute;
 	content: "";
 	background: rgba(255,255,255,.3);
@@ -260,26 +260,26 @@ header .intro-text {
 	bottom: 0;
 	left: 30px;
 }
-#register h3 {
+#myteam h3 {
 	color: #fff;
 	margin-top: 80px;
 	margin-bottom: 25px;
 	padding-bottom: 20px;
 	font-weight: 400;
 }
-#register form {
+#myteam form {
 	padding-top: 20px;
 }
-#register .text-danger {
+#myteam .text-danger {
 	color: #cc0033;
 	text-align: left;
 }
-#register .btn-custom {
+#myteam .btn-custom {
 	margin: 30px 0;
 	background: transparent;
 	border: 2px solid #fff;
 }
-#register .btn-custom:hover {
+#myteam .btn-custom:hover {
 	color: #1f386e;
 	background: #fff;
 }
@@ -289,7 +289,7 @@ label {
 	font-family: 'Open Sans', sans-serif;
 	float: left;
 }
-#register .form-control {
+#myteam .form-control {
 	display: block;
 	width: 100%;
 	padding: 6px 12px;
@@ -306,7 +306,7 @@ label {
 	-o-transition: none;
 	transition: none;
 }
-#register .form-control:focus {
+#myteam .form-control:focus {
 	border-color: #999;
 	outline: 0;
 	-webkit-box-shadow: transparent;
@@ -324,28 +324,28 @@ color: #777;
 .form-control:-ms-input-placeholder {
 color: #777;
 }
-#register .contact-item {
+#myteam .contact-item {
 	margin: 20px 0;
 }
-#register .contact-item span {
+#myteam .contact-item span {
 	color: rgba(255,255,255,1);
 	margin-bottom: 10px;
 	display: block;
 }
-#register .contact-item i.fa {
+#myteam .contact-item i.fa {
 	margin-right: 10px;
 }
-#register .social {
+#myteam .social {
 	border-top: 1px solid rgba(255,255,255,0.15);
 	padding-top: 50px;
 	margin-top: 50px;
 	text-align: center;
 }
-#register .social ul li {
+#myteam .social ul li {
 	display: inline-block;
 	margin: 0 20px;
 }
-#register .social i.fa {
+#myteam .social i.fa {
 	font-size: 22px;
 	width: 48px;
 	height: 48px;
@@ -355,7 +355,7 @@ color: #777;
 	border-radius: 50%;
 	transition: all 0.3s;
 }
-#register .social i.fa:hover {
+#myteam .social i.fa:hover {
 	color: #608dfd;
 	background: #fff;
 }
