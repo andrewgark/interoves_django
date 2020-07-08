@@ -65,7 +65,7 @@
           <div class="col-md-8 col-md-offset-2 intro-text">
             <h1>inter oves locum praesta<span></span></h1>
             <p>Играем в интеллектуальные игры с разрешенным интернетом.</p>
-            <a href="#vk" class="btn btn-custom btn-lg page-scroll">Группа VK</a> </div>
+            <a href="vk.com/interoveslocumpraesta" class="btn btn-custom btn-lg page-scroll">Группа VK</a> </div>
         </div>
       </div>
     </div>
@@ -108,12 +108,13 @@
           <p>Здесь будет личный кабинет.</p>
         </div>
         <p>Привет, {{ user.username }}!</p>
+	<a href="/accounts/logout">Выйти</a>
         {% else %}
         <div class="section-title">
           <h2>Регистрация</h2>
           <p>Если вы хотите первый раз поучаствовать в игре - авторизуйтесь и зарегистрируйтесь.</p>
         </div>
-        <a href="{% provider_login_url 'google' %}">Login with Google</a>
+        <a href="{% provider_login_url 'vk' %}">Login with Google</a>
         {% endif %}
       </div>
     </div>

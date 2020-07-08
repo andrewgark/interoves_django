@@ -47,7 +47,7 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
-    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.vk',
 ]
 
 MIDDLEWARE = [
@@ -153,10 +153,9 @@ SITE_ID = 1
 LOGIN_REDIRECT_URL = '/'
 
 SOCIALACCOUNT_PROVIDERS = {
-    'google': {
+    'vk': {
         'SCOPE': [
             'profile',
-            'email',
         ],
         'AUTH_PARAMS': {
             'access_type': 'online',
