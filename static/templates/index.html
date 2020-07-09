@@ -111,8 +111,9 @@
           <h2>Моя команда</h2>
           <p>Здесь будет личный кабинет.</p>
         </div>
-        <p>Привет, {{ user.username }}!</p>
-        <a href="/accounts/logout" class="btn btn-custom btn-lg page-scroll">Выйти</a>
+        <img src="{{ user.profile.avatar_url }}">
+        <p>Привет, {{ user.first_name }} {{ user.last_name }}!</p>
+        <a href="/logout" class="btn btn-custom btn-lg page-scroll">Выйти</a>
         {% else %}
         <div class="section-title">
           <h2>Участвовать</h2>
