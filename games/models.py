@@ -8,7 +8,7 @@ from allauth.socialaccount.models import SocialAccount
 
 
 class Team(models.Model):
-    name = models.TextField(primary_key=True)
+    name = models.CharField(primary_key=True, max_length=100)
 
     def __str__(self):
         return self.name
@@ -18,7 +18,7 @@ class Profile(models.Model):
     user = models.OneToOneField(User, related_name='profile', primary_key=True, on_delete=models.CASCADE)
     first_name = models.TextField()
     last_name = models.TextField()
-    avatar_url = models.TextField()
+    avatar_url = models.TextField(blank=True, null=True)
     team_on = models.ForeignKey(Team, related_name='users_on', blank=True, null=True, on_delete=models.CASCADE)
     team_requested = models.ForeignKey(Team, related_name='users_requested', blank=True, null=True, on_delete=models.CASCADE)
 
@@ -30,7 +30,6 @@ class Profile(models.Model):
 
 
 def create_profile(sender, **kw):
-    print('!!!!')
     social_account = kw["instance"]
     if kw["created"]:
         user = social_account.user
