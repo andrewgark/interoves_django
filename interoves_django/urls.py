@@ -38,3 +38,7 @@ urlpatterns = [
     url(r'^confirm_user_joining_team/(?P<user_id>\d+)/$', confirm_user_joining_team),
     url(r'^reject_user_joining_team/(?P<user_id>\d+)/$', reject_user_joining_team),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL,
+                          document_root=settings.MEDIA_ROOT)

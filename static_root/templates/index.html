@@ -20,6 +20,10 @@
 <link rel="stylesheet" type="text/css"  href="{% static "css/bootstrap.css" %}">
 <link rel="stylesheet" type="text/css" href="{% static "fonts/font-awesome/css/font-awesome.css" %}">
 
+<!-- Slick -->
+<link rel="stylesheet" type="text/css" href="{% static "css/slick/slick.css" %}">
+<link rel="stylesheet" type="text/css" href="{% static "css/slick/slick-theme.css" %}">
+
 <!-- Stylesheet
     ================================================== -->
 <link rel="stylesheet" type="text/css" href="{% static "css/style.css" %}">
@@ -81,23 +85,21 @@
     <div class="col-md-10 col-md-offset-1 section-title">
       <h2>Игры</h2>
     </div>
-    <div class="row">
-      <div class="col-xs-6 col-md-3"> <i class="fa fa-comments-o"></i>
-        <h3>Десяточка 11</h3>
-        <p>Автор: команда И-го-го</p>
-      </div>
-      <div class="col-xs-6 col-md-3"> <i class="fa fa-bullhorn"></i>
-        <h3>Десяточка 10</h3>
-        <p>Автор: Андрей Гаркавый</p>
-      </div>
-      <div class="col-xs-6 col-md-3"> <i class="fa fa-group"></i>
-        <h3>Десяточка 9</h3>
-        <p>Автор: Артем Васильев.</p>
-      </div>
-      <div class="col-xs-6 col-md-3"> <i class="fa fa-magic"></i>
-        <h3>Десяточка 8</h3>
-        <p>Автор: Андрей Гаркавый</p>
-      </div>
+  </div>
+  <div class="container">
+      <div class="games-slick" data-slick='{"slidesToShow": 4, "slidesToScroll": 2, "arrows": true}'}>
+        {% for game in games %}
+        <div><div class="col-xs-6 col-md-3">
+          <img src="/media/{{ game.image }}" class="game_icon">
+          <h3>{{ game.name }}</h3>
+          {% if game.theme %} <p>Тема: {{ game.theme }}</p> {% endif %}
+          <p>Автор: {{ game.author }}</p>
+          <p>{{ game.start_time|date:'Y-m-d H:i' }}-{{ game.end_time|date:'H:i' }}</p>
+          {% if game.game_url %} <p><a href="{{ game.game_url}}">Условия</a></p> {% endif %}
+          {% if game.answers_url %} <p><a href="{{ game.answers_url}}">Ответы</a></p> {% endif %}
+          {% if game.standings_url %} <p><a href="{{ game.standings_url}}">Результаты</a></p> {% endif %}
+        </div></div>
+        {% endfor %}
     </div>
   </div>
 </div>
@@ -190,6 +192,15 @@
 <script type="text/javascript" src="{% static "js/SmoothScroll.js" %}"></script> 
 <script type="text/javascript" src="{% static "js/nivo-lightbox.js" %}"></script> 
 <script type="text/javascript" src="{% static "js/jqBootstrapValidation.js" %}"></script> 
+<script type="text/javascript" src="{% static "js/slick.min.js" %}"></script>
 <script type="text/javascript" src="{% static "js/main.js" %}"></script>
+<script type="text/javascript" src="//cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
+
+<script type="text/javascript">
+  $(document).ready(function(){
+    $('.games-slick').slick();
+  });
+</script>
+
 </body>
 </html>

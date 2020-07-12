@@ -1,13 +1,22 @@
 from django.contrib.auth import get_user_model
 from django.shortcuts import render 
-from games.models import Team
+from games.models import Team, Game
 from games.forms import CreateTeamForm, JoinTeamForm
+
+
+def get_games_list():
+    games_list = []
+    for game in Game.objects.all():
+        if game.is_ready:
+            games_list.append(game)
+    return sorted(games_list, key=lambda game: (game.start_time, game.name), reverse=True)
 
 
 def main_page(request):
     return render(request, 'index.html', {
         'create_team_form': CreateTeamForm(),
         'join_team_form': JoinTeamForm(),
+        'games': get_games_list()
     })
 
 def has_profile(user):
