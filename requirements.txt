@@ -17,6 +17,7 @@ msgpack==0.6.2
 oauthlib==3.1.0
 packaging==20.3
 pep517==0.8.2
+Pillow==7.2.0
 progress==1.5
 pyparsing==2.4.6
 python3-openid==3.2.0
