@@ -181,7 +181,7 @@ a:focus, .btn:focus, .btn:active:focus, .btn.active:focus, .btn.focus, .btn:acti
 	display: table;
 	width: 100%;
 	padding: 0;
-	background: url(../img/intro-bg.jpg) center center no-repeat;
+	background: url(../img/intro-bg-2.jpg) center center no-repeat;
 	background-color: #e5e5e5;
 	-webkit-background-size: cover;
 	-moz-background-size: cover;
@@ -212,8 +212,8 @@ a:focus, .btn:focus, .btn:active:focus, .btn.active:focus, .btn.focus, .btn:acti
 	margin-bottom: 60px;
 }
 header .intro-text {
-	padding-top: 350px;
-	padding-bottom: 200px;
+	padding-top: 150px;
+	padding-bottom: 50px;
 	text-align: center;
 }
 /* Games Section */
@@ -359,6 +359,14 @@ color: #777;
 	color: #608dfd;
 	background: #fff;
 }
+input {
+	color: #333;
+}
+select {
+	color: #333;
+}
+
+
 /* Footer Section*/
 #footer {
 	background: #f6f6f6;
@@ -382,6 +390,21 @@ color: #777;
 }
 
 .game_icon {
-    width: 100px;
-    height: 100px;
+    width: 150px;
+	height: 150px;
+	display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.slick-prev:before {
+	content: "<";
+	color: #333;
+	font-size: 70px;
+}
+  
+.slick-next:before {
+	content: ">";
+	color: #333;
+	font-size: 70px;
 }

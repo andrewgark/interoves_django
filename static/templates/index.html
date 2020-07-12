@@ -11,10 +11,19 @@
 
 <!-- Favicons
     ================================================== -->
-<link rel="shortcut icon" href="{% static "img/favicon.ico" %}" type="image/x-icon">
-<link rel="apple-touch-icon" href="{% static "img/apple-touch-icon.png" %}">
-<link rel="apple-touch-icon" sizes="72x72" href="{% static "img/apple-touch-icon-72x72.png" %}">
-<link rel="apple-touch-icon" sizes="114x114" href="{% static "img/apple-touch-icon-114x114.png" %}">
+<link rel="apple-touch-icon" sizes="57x57" href="{% static "img/favicon/apple-icon-57x57.png" %}">
+<link rel="apple-touch-icon" sizes="60x60" href="{% static "img/favicon/apple-icon-60x60.png" %}">
+<link rel="apple-touch-icon" sizes="72x72" href="{% static "img/favicon/apple-icon-72x72.png" %}">
+<link rel="apple-touch-icon" sizes="76x76" href="{% static "img/favicon/apple-icon-76x76.png" %}">
+<link rel="apple-touch-icon" sizes="114x114" href="{% static "img/favicon/apple-icon-114x114.png" %}">
+<link rel="apple-touch-icon" sizes="120x120" href="{% static "img/favicon/apple-icon-120x120.png" %}">
+<link rel="apple-touch-icon" sizes="144x144" href="{% static "img/favicon/apple-icon-144x144.png" %}">
+<link rel="apple-touch-icon" sizes="152x152" href="{% static "img/favicon/apple-icon-152x152.png" %}">
+<link rel="apple-touch-icon" sizes="180x180" href="{% static "img/favicon/apple-icon-180x180.png" %}">
+<link rel="icon" type="image/png" sizes="192x192"  href="{% static "img/favicon/android-icon-192x192.png" %}">
+<link rel="icon" type="image/png" sizes="32x32" href="{% static "img/favicon/favicon-32x32.png" %}">
+<link rel="icon" type="image/png" sizes="96x96" href="{% static "img/favicon/favicon-96x96.png" %}">
+<link rel="icon" type="image/png" sizes="16x16" href="{% static "img/favicon/favicon-16x16.png" %}">
 
 <!-- Bootstrap -->
 <link rel="stylesheet" type="text/css"  href="{% static "css/bootstrap.css" %}">
@@ -71,7 +80,7 @@
       <div class="container">
         <div class="row">
           <div class="col-md-8 col-md-offset-2 intro-text">
-            <h1>inter oves locum praesta<span></span></h1>
+            <h1>inter oves<br>locum praesta<span></span></h1>
             <p>Играем в интеллектуальные игры с разрешенным интернетом.</p>
             <a href="http://vk.com/interoveslocumpraesta" class="btn btn-custom btn-lg page-scroll">Группа VK</a> </div>
         </div>
@@ -89,16 +98,16 @@
   <div class="container">
       <div class="games-slick" data-slick='{"slidesToShow": 4, "slidesToScroll": 2, "arrows": true}'}>
         {% for game in games %}
-        <div><div class="col-xs-6 col-md-3">
+        <div>
           <img src="/media/{{ game.image }}" class="game_icon">
           <h3>{{ game.name }}</h3>
           {% if game.theme %} <p>Тема: {{ game.theme }}</p> {% endif %}
           <p>Автор: {{ game.author }}</p>
-          <p>{{ game.start_time|date:'Y-m-d H:i' }}-{{ game.end_time|date:'H:i' }}</p>
+          <p>{{ game.start_time|date:'d/m/Y' }}<br>{{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }}</p>
           {% if game.game_url %} <p><a href="{{ game.game_url}}">Условия</a></p> {% endif %}
           {% if game.answers_url %} <p><a href="{{ game.answers_url}}">Ответы</a></p> {% endif %}
           {% if game.standings_url %} <p><a href="{{ game.standings_url}}">Результаты</a></p> {% endif %}
-        </div></div>
+        </div>
         {% endfor %}
     </div>
   </div>
@@ -151,18 +160,25 @@
               <a href="/quit_from_team" class="btn btn-custom btn-lg page-scroll">Отменить заявку</a>
               {% else %}
               <h2>У вас нет команды</h2>
-              <p>Создать новую команду с таким названием:</p>
               <form action = "{% url 'create_team' %}" method = "post">
                 {% csrf_token %}
-                {{ create_team_form }}
-                {{ create_team_form.form.errors }}
+                {% for field in create_team_form.visible_fields %}
+                <div class="fieldWrapper">
+                  {{ field.errors }}
+                  {{ field.label_tag }} {{ field }}
+                </div>
+                {% endfor %}
                 <input type="submit" value="Создать команду" class="btn btn-custom btn-lg page-scroll">
               </form>
               <p>Подать заявку в существующую команду:</p>
               <form action = "{% url 'join_team' %}" method = "post">
                 {% csrf_token %}
-                {{ join_team_form }}
-                {{ join_team_form.form.errors }}
+                {% for field in join_team_form.visible_fields %}
+                <div class="fieldWrapper">
+                  {{ field.errors }}
+                  {{ field.label_tag }} {{ field }}
+                </div>
+                {% endfor %}
                 <input type="submit" value="Подать заявку" class="btn btn-custom btn-lg page-scroll">
               </form>
               {% endif %}
