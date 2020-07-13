@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.shortcuts import render 
 from games.models import Team, Game
 from games.forms import CreateTeamForm, JoinTeamForm
-
+from datetime import datetime
 
 def get_games_list():
     games_list = []
@@ -16,7 +16,8 @@ def main_page(request):
     return render(request, 'index.html', {
         'create_team_form': CreateTeamForm(),
         'join_team_form': JoinTeamForm(),
-        'games': get_games_list()
+        'games': get_games_list(),
+        'today': datetime.now()
     })
 
 def has_profile(user):
@@ -73,3 +74,15 @@ def confirm_user_joining_team(request, user_id):
 
 def reject_user_joining_team(request, user_id):
     return process_user_request(request, user_id, 'reject')
+
+def game_page(request, game_id):
+    # добавить сюда обработку ошибки, если такой игры нет
+    game = Game.objects.filter(id=game_id)
+    if game and game[0]:
+        game = game[0]
+        task_groups = sorted(game.task_groups.all(), key=lambda tg: tg.number)
+        return render(request, 'game.html', {
+            'game': game,
+            'task_groups': task_groups,
+        })
+    return main_page(request)

@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>inter oves locum praesta</title>
+<title>{{ game.title }}</title>
 <meta name="description" content="">
 <meta name="author" content="">
 
@@ -27,10 +27,6 @@
 <!-- Bootstrap -->
 <link rel="stylesheet" type="text/css"  href="{% static "css/bootstrap.css" %}">
 <link rel="stylesheet" type="text/css" href="{% static "fonts/font-awesome/css/font-awesome.css" %}">
-
-<!-- Slick -->
-<link rel="stylesheet" type="text/css" href="{% static "css/slick/slick.css" %}">
-<link rel="stylesheet" type="text/css" href="{% static "css/slick/slick-theme.css" %}">
 
 <!-- Stylesheet
     ================================================== -->
@@ -56,55 +52,35 @@
     <!-- Brand and toggle get grouped for better mobile display -->
     <div class="navbar-header">
       <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1"> <span class="sr-only">Toggle navigation</span> <span class="icon-bar"></span> <span class="icon-bar"></span> <span class="icon-bar"></span> </button>
-      <a class="navbar-brand page-scroll" href="#page-top">inter oves locum praesta</a> </div>
+      <a class="navbar-brand page-scroll" href="/">inter oves locum praesta</a> </div>
     
     <!-- Collect the nav links, forms, and other content for toggling -->
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav navbar-right">
-        <li><a href="#games" class="page-scroll">Игры</a></li>
-	      {% if user.is_authenticated %}
-        <li><a href="#myteam" class="page-scroll">Моя команда</a></li>
-        {% else %}
-        <li><a href="#myteam" class="page-scroll">Участвовать</a></li>
-        {% endif %}
+        <li><a href="#pagetop" class="page-scroll">Наверх</a></li>
+        {% for task_group in task_groups %}
+        <li><a href="#task_group_{{ task_group.number }}" class="page-scroll">{{ task_group.number }}. {{ task_group.name}}</a></li>
+        {% endfor %}
       </ul>
     </div>
     <!-- /.navbar-collapse --> 
   </div>
 </nav>
 <!-- Header -->
-<header id="header">
-  <div class="intro">
-    <div class="overlay">
-      <div class="container">
-        <div class="row">
-          <div class="col-md-8 col-md-offset-2 intro-text">
-            <h1>inter oves<br>locum praesta<span></span></h1>
-            <p>Играем в командные интеллектуальные игры, в которых можно пользоваться интернетом.</p>
-            <a href="https://vk.com/interoveslocumpraesta" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Группа VK</a>
-            <a href="https://vk.com/interoveslocumpraesta?w=app6471849_-80749489" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Задонатить</a></div>
-        </div>
+{% for task_group in task_groups %}
+  <div id="games" class="text-center">
+    <div class="container">
+      <div class="col-md-10 col-md-offset-1 section-title">
+        <h2>{{ task_group.name }}</h2>
       </div>
     </div>
-  </div>
-</header>
-<!-- Games Section -->
-<div id="games" class="text-center">
-  <div class="container">
-    <div class="col-md-10 col-md-offset-1 section-title">
-      <h2>Игры</h2>
+    <div class="container">
+      {% for task in task_group.tasks %}
+        <h3>{{ task.number }}. {{task.text}}</h3>
+      {% endfor %}
     </div>
   </div>
-  <div class="container">
-    {% include "games.html" %}
-  </div>
-</div>
-<!-- Team Section -->
-<div id="myteam">
-  <div class="container">
-    {% include "team.html" %}
-  </div>
-</div>
+{% endfor %}
 <!-- Footer Section -->
 <div id="footer">
   <div class="container text-center">
@@ -116,15 +92,6 @@
 <script type="text/javascript" src="{% static "js/SmoothScroll.js" %}"></script> 
 <script type="text/javascript" src="{% static "js/nivo-lightbox.js" %}"></script> 
 <script type="text/javascript" src="{% static "js/jqBootstrapValidation.js" %}"></script> 
-<script type="text/javascript" src="{% static "js/slick.min.js" %}"></script>
 <script type="text/javascript" src="{% static "js/main.js" %}"></script>
-<script type="text/javascript" src="//cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
-
-<script type="text/javascript">
-  $(document).ready(function(){
-    $('.games-slick').slick();
-  });
-</script>
-
 </body>
 </html>

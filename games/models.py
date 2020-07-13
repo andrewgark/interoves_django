@@ -36,7 +36,8 @@ class Checker(models.Model):
 
 
 class Game(models.Model):
-    name = models.CharField(primary_key=True, max_length=100)
+    id = models.CharField(primary_key=True, max_length=100)
+    name = models.CharField(max_length=100)
     image = models.ImageField(null=True, blank=True)
     theme = models.CharField(max_length=100, null=True, blank=True)
     author = models.CharField(max_length=100)
@@ -56,7 +57,7 @@ class Game(models.Model):
 
 class TaskGroup(models.Model):
     name = models.CharField(primary_key=True, max_length=100)
-    # game = models.ForeignKey(Game, related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
+    game = models.ForeignKey(Game, related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
     number = models.IntegerField()    
     rules = models.ForeignKey(HTMLPage, to_field='name', related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)    
 

@@ -1,0 +1,15 @@
+<div class="games-slick" data-slick='{"slidesToShow": 4, "slidesToScroll": 2, "arrows": true}'}>
+  {% for game in games %}
+    <div>
+      <p>{{ game.start_time|date:'d E Y' }}<br>{{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }}</p>
+      <img src="/media/{{ game.image }}" class="game_icon">
+      <h3>{{ game.name }}</h3>
+      {% if game.theme %} <p>Тема: {{ game.theme }}</p> {% endif %}
+      <p>Автор: {{ game.author }}</p>
+      {% if game.is_playable and today|date:"Y-m-d H:i" >= game.start_time|date:"Y-m-d H:i"  %} <p><a href="/games/{{ game.id}}"><b>Играть</b></a></p> {% endif %}
+      {% if game.game_url %} <p><a href="{{ game.game_url}}">Условия</a></p> {% endif %}
+      {% if game.answers_url %} <p><a href="{{ game.answers_url}}">Ответы</a></p> {% endif %}
+      {% if game.standings_url %} <p><a href="{{ game.standings_url}}">Результаты</a></p> {% endif %}
+    </div>
+  {% endfor %}
+</div>

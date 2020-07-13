@@ -20,7 +20,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import TemplateView
 from django.contrib.auth.views import LogoutView
-from games.views import main_page, \
+from games.views import main_page, game_page, \
                         create_team, join_team, quit_from_team, \
                         confirm_user_joining_team, reject_user_joining_team
 # from allauth.account.views import LogoutView
@@ -37,8 +37,9 @@ urlpatterns = [
     path('quit_from_team/', quit_from_team, name='quit_from_team'),
     url(r'^confirm_user_joining_team/(?P<user_id>\d+)/$', confirm_user_joining_team),
     url(r'^reject_user_joining_team/(?P<user_id>\d+)/$', reject_user_joining_team),
+
+    url(r'^games/(?P<game_id>[a-zA-Z0-9_]+)/$', game_page)
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL,
-                          document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

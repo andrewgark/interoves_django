@@ -1,0 +1,86 @@
+{% load socialaccount %}
+<div class="row">
+  {% if user.is_authenticated %}
+    <div class="col-md-10">
+      <div class="section-title">
+        {% if user.profile.team_on %}
+          <h2>Моя команда: <b>{{ user.profile.team_on }}</b></h2>
+          <p>Состав вашей команды:</p>
+          <ul class="list-rectangle team-on-list">
+            {% for team_member in user.profile.team_on.users_on.all %}
+              <li>{{ team_member }}</li>
+            {% endfor %}
+          </ul>
+          {% if user.profile.team_on.users_requested.all %}
+            <br>
+            <p>Заявки на принятие подали:</p>
+            <ul class="list-rectangle team-requested-list">
+              {% for user_requested in user.profile.team_on.users_requested.all %}
+                <li>{{ user_requested }}
+                  {% if user != user_requested %}
+                    <a href="/confirm_user_joining_team/{{ user_requested.user.id }}" class="btn btn-custom btn-custom-sm btn-sm page-scroll">+</a>
+                    <a href="/reject_user_joining_team/{{ user_requested.user.id }}" class="btn btn-custom btn-custom-sm btn-sm page-scroll">-</a>                  
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          <a href="/quit_from_team" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Выйти из команды</a>
+        {% elif user.profile.team_requested  %}
+          <h2>Вы подали заявку в команду: <b>{{ user.profile.team_requested }}</b></h2>
+          {% if user.profile.team_requested.users_on.all %}
+            <p>Состав этой команды:</p>
+            <ul class="list-rectangle team-on-list">
+              {% for team_member in user.profile.team_requested.users_on.all %}
+                <li>{{ team_member }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          <br>
+          <p>Заявки на принятие подали:</p>
+          <ul class="list-rectangle team-requested-list">
+            {% for user_requested in user.profile.team_requested.users_requested.all %}
+              <li>{{ user_requested }}</li>
+            {% endfor %}
+          </ul>
+          <a href="/quit_from_team" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Отменить заявку</a>
+        {% else %}
+          <h2>У вас нет команды</h2>
+          <form action = "{% url 'create_team' %}" method = "post">
+            {% csrf_token %}
+            {% for field in create_team_form.visible_fields %}
+              <div class="fieldWrapper">
+                {{ field }}
+              </div>
+            {% endfor %}
+            <input type="submit" value="Создать новую команду" class="btn btn-custom btn-custom-lg btn-lg page-scroll">
+          </form>
+          <form action = "{% url 'join_team' %}" method = "post">
+            {% csrf_token %}
+            {% for field in join_team_form.visible_fields %}
+              <div class="fieldWrapper">
+                {{ field }}
+              </div>
+            {% endfor %}
+            <input type="submit" value="Подать заявку в команду" class="btn btn-custom btn-custom-lg btn-lg page-scroll">
+          </form>
+        {% endif %}
+      </div>
+    </div>
+    <div class="col">
+      <img src="{{ user.profile.avatar_url }}" class="avatar-img">
+      <p>{{ user.profile }}</p>
+      <a href="/logout" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Выйти</a>
+    </div>
+  {% else %}
+    <div class="col-md-10">
+      <div class="section-title">
+        <h2>Участвовать</h2>
+        <p>Чтобы поучаствовать в игре, авторизуйтесь через VK.</p>
+      </div>
+    </div>
+    <div class="col-md">
+      <a href="{% provider_login_url 'vk' %}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Войти через VK</a>
+    </div>
+  {% endif %}
+</div>

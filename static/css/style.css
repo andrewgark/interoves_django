@@ -222,6 +222,9 @@ header .intro-text {
 	padding-bottom: 50px;
 	text-align: center;
 }
+header .btn-custom {
+	margin: 0px 10px 0px 10px;
+}
 /* Games Section */
 #games {
 	padding: 50px 0;
@@ -460,8 +463,8 @@ select {
 	width: 0.5rem;
 }
 .team-on-list>li::before {
-	background: #e00;
+	background: #fff;
 }
 .team-requested-list>li::before {
-	background: #800;
+	background: #ffa600;
 }
