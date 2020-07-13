@@ -126,7 +126,7 @@ hr {
 	background-color: #608dfd;
 }
 .section-title {
-	margin-bottom: 70px;
+	margin-bottom: 30px;
 }
 .section-title h2 {
 	position: relative;
@@ -152,14 +152,20 @@ hr {
 	color: #fff;
 	background-color: #5ca9fb;
 	background-image: linear-gradient(to right, #5ca9fb 0%, #6372ff 100%);
-	padding: 14px 34px;
 	letter-spacing: 1px;
 	margin: 0;
 	font-size: 15px;
 	font-weight: 500;
-	border-radius: 25px;
 	transition: all 0.5s linear;
 	border: 0;
+}
+.btn-custom-lg {
+	padding: 14px 34px;
+	border-radius: 25px;
+}
+.btn-custom-sm {
+	padding: 0px 10px;
+	border-radius: 10px;
 }
 .btn-custom:hover, .btn-custom:focus, .btn-custom.focus, .btn-custom:active, .btn-custom.active {
 	color: #fff;
@@ -218,7 +224,7 @@ header .intro-text {
 }
 /* Games Section */
 #games {
-	padding: 100px 0;
+	padding: 50px 0;
 	background: #f6f6f6;
 }
 #games i.fa {
@@ -235,7 +241,7 @@ header .intro-text {
 }
 /* Register Section */
 #myteam {
-	padding: 100px 0 60px 0;
+	padding: 50px 0 10px 0;
 	background: linear-gradient(to right, #6372ff 0%, #5ca9fb 100%);
 	color: rgba(255,255,255,.75);
 }
@@ -275,16 +281,21 @@ header .intro-text {
 	text-align: left;
 }
 #myteam .btn-custom {
-	margin: 30px 0;
 	background: transparent;
 	border: 2px solid #fff;
+}
+#myteam .btn-custom-lg {
+	margin: 30px 0;
+}
+#myteam .btn-custom-sm {
+	margin: 0px 0;
 }
 #myteam .btn-custom:hover {
 	color: #1f386e;
 	background: #fff;
 }
 label {
-	font-size: 12px;
+	font-size: 15px;
 	font-weight: 400;
 	font-family: 'Open Sans', sans-serif;
 	float: left;
@@ -359,13 +370,20 @@ color: #777;
 	color: #608dfd;
 	background: #fff;
 }
-input {
+input[type="text"] {
 	color: #333;
+	margin-right: 20px;
+	width: 200px;
 }
 select {
 	color: #333;
+	margin-right: 20px;
+	width: 200px;
 }
-
+.fieldWrapper{
+	width: auto;
+	display: inline-block;
+}
 
 /* Footer Section*/
 #footer {
@@ -407,4 +425,43 @@ select {
 	content: ">";
 	color: #333;
 	font-size: 70px;
+}
+
+.avatar-img {
+	width: 100px;
+	height: 100px;
+	border-radius: 50%;
+	background-position: center center;
+	background-size: cover;
+	margin: 10px 10px 10px 10px
+}
+
+.list-rectangle {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+  }
+.list-rectangle>li {
+	position: relative;
+	display: block;
+	margin-bottom: .25rem;
+	padding: .325rem .825rem .325rem 1.325rem;
+	color: #fff;
+}
+.list-rectangle>li:last-child {
+	margin-bottom: 0;
+}
+.list-rectangle>li::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 0.5rem;
+}
+.team-on-list>li::before {
+	background: #e00;
+}
+.team-requested-list>li::before {
+	background: #800;
 }

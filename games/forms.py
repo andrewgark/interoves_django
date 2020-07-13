@@ -1,11 +1,11 @@
-from django.forms import Form, ModelForm, ChoiceField
+from django.forms import Form, ModelForm, ChoiceField, TextInput
 from games.models import Team
 
 
 class CreateTeamForm(ModelForm):
     def __init__(self, *args, **kwargs): 
         super(ModelForm, self).__init__(*args, **kwargs)
-        self.fields['name'].label = 'Название'
+        self.fields['name'].widget = TextInput(attrs={'placeholder': 'Название команды'})
 
     class Meta:
         model = Team
@@ -22,6 +22,5 @@ class JoinTeamForm(Form):
     name = ChoiceField(
         choices=(),
         initial='Выберите команду',
-        required=True,
-        label='Название'
+        required=True
     )
