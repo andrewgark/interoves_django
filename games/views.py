@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.shortcuts import render 
+from django.template.defaulttags import register
 from games.models import Team, Game
 from games.forms import CreateTeamForm, JoinTeamForm
 from datetime import datetime
@@ -81,8 +82,17 @@ def game_page(request, game_id):
     if game and game[0]:
         game = game[0]
         task_groups = sorted(game.task_groups.all(), key=lambda tg: tg.number)
+        task_group_to_tasks = {}
+        for task_group in task_groups:
+            task_group_to_tasks[task_group.number] = sorted(task_group.tasks.all(), key=lambda t: t.number)
         return render(request, 'game.html', {
             'game': game,
             'task_groups': task_groups,
+            'task_group_to_tasks': task_group_to_tasks,
         })
     return main_page(request)
+
+
+@register.filter
+def get_item(dictionary, key):
+    return dictionary.get(key)
