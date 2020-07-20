@@ -31,17 +31,14 @@ class HTMLPage(models.Model):
     html = models.TextField(null=True, blank=True)
 
     def __str__(self):
-        return self.html
+        return self.name
 
 
 class CheckerType(models.Model):
     id = models.CharField(primary_key=True, max_length=100)
 
-
-class Checker(models.Model):
-    id = models.AutoField(primary_key=True)
-    checker_type = models.ForeignKey(CheckerType, related_name='checkers', blank=True, null=True, on_delete=models.SET_NULL)
-    data = models.TextField()
+    def __str__(self):
+        return self.id
 
 
 class Game(models.Model):
@@ -63,6 +60,9 @@ class Game(models.Model):
 
     rules = models.ForeignKey(HTMLPage, to_field='name', related_name='games', blank=True, null=True, on_delete=models.SET_NULL)
 
+    def __str__(self):
+        return self.name
+
 
 class TaskGroup(models.Model):
     id = models.AutoField(primary_key=True)
@@ -70,9 +70,13 @@ class TaskGroup(models.Model):
     name = models.CharField(max_length=100)
     number = models.IntegerField()    
     rules = models.ForeignKey(HTMLPage, to_field='name', related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)    
-    checker = models.ForeignKey(Checker, related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
+
+    checker = models.ForeignKey(CheckerType, related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
     points = models.DecimalField(default=1, decimal_places=3, max_digits=10, blank=True, null=True)
     max_attempts = models.IntegerField(default=3, blank=True, null=True)
+
+    def __str__(self):
+        return '[{}]: {}. {}'.format(self.game.name, self.number, self.name)
 
 
 class Task(models.Model):
@@ -80,17 +84,32 @@ class Task(models.Model):
     task_group = models.ForeignKey(TaskGroup, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL)
     number = models.IntegerField()
     image = models.ImageField(null=True, blank=True)
-    text = models.TextField()
-    checker = models.ForeignKey(Checker, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL)
+    text = models.TextField(null=True, blank=True)
+    checker_data = models.TextField(null=True, blank=True)
+
+    checker = models.ForeignKey(CheckerType, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL)
     points = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)
     max_attempts = models.IntegerField(blank=True, null=True)
+
+    def __str__(self):
+        return '[{}]: {}.{}'.format(self.task_group.game.name, self.task_group.number, self.number)
+
+
+class AttemptsInfo(models.Model):
+    team = models.ForeignKey(Team, related_name='attempt_infos', blank=True, null=True, on_delete=models.SET_NULL)
+    task = models.ForeignKey(Task, related_name='attempt_infos', blank=True, null=True, on_delete=models.SET_NULL)
+
+    best_attempt = models.ForeignKey('Attempt', blank=True, null=True, on_delete=models.SET_NULL)
 
 
 class Attempt(models.Model):
     team = models.ForeignKey(Team, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
-    task = models.ForeignKey(Task, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)    
-    value = models.TextField()
-    result = models.CharField(max_length=100)
+    task = models.ForeignKey(Task, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
+    attempts_info = models.ForeignKey(AttemptsInfo, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
+
+    text = models.TextField()
+    status = models.CharField(max_length=100)
+    points = models.DecimalField(default=0, decimal_places=3, max_digits=10, blank=True, null=True)
     time = models.DateTimeField(auto_now_add=True, blank=True)
 
 

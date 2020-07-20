@@ -230,7 +230,7 @@ a:focus, .btn:focus, .btn:active:focus, .btn.active:focus, .btn.focus, .btn:acti
 	color: #fff;
 	font-size: 16px;
 	font-weight: 300;
-	float: left;
+	text-align: left;
 }
 
 header .intro-text {
@@ -483,4 +483,50 @@ select {
 }
 .team-requested-list>li::before {
 	background: #ffa600;
+}
+.rules-list>li::before {
+	background: #fff;
+}
+.tasks-list>li::before {
+	background: #ff0000;
+}
+
+.li-task-wrong::before {
+	background: #ff0000;
+}
+.li-task-pending::before {
+	background: #ddbc02;
+}
+.li-task-ok::before {
+	background: #38e282;
+}
+
+/* Game */
+
+#even-task-group {
+	background: linear-gradient(to right, #6372ff 0%, #5ca9fb 100%);
+	color: rgba(255,255,255,.75);
+}
+#even-task-group h2 h4 {
+	color: #fff;
+}
+#even-task-group .section-title h2::after {
+	background: rgba(255,255,255,.3);
+}
+#even-task-group li {
+	color: #fff;
+}
+#odd-task-group li {
+	color: #333;
+}
+.tasks-list {
+	text-align: left;
+}
+.task {	
+	font-size: 16px;
+	font-weight: 300;
+	line-height: 30px;
+	margin-top: 10px;
+	margin-bottom: 10px;
+	padding-bottom: 15px;
 }

@@ -76,23 +76,46 @@
           {% if game.theme %}<h3>Тема: {{ game.theme }}</h3>{% endif %}
           {% if game.author %}<h3>Автор: {{ game.author }}</h3>{% endif %}
             {% autoescape off %}
-            {{ game.rules }}
+            {{ game.rules.html }}
             {% endautoescape %}
       </div>
     </div>
   </div>
 </header>  
 {% for task_group in task_groups %}
-  <div id="games" class="text-center">
+  {% if task_group.number|divisibleby:2 %}
+  <div id="even-task-group" class="text-center task-group">
+  {% else %}
+  <div id="odd-task-group" class="text-center task-group">
+  {% endif %}
     <div class="container">
       <div class="col-md-10 col-md-offset-1 section-title">
-        <h2>{{ task_group.name }}</h2>
+        <h2>{{ task_group.number }}. {{ task_group.name }}</h2>
       </div>
     </div>
     <div class="container">
+      {% autoescape off %}
+      {{ task_group.rules.html }}
+      {% endautoescape %}   
+    </div>
+    <div class="container">
+      <ul class="list-rectangle tasks-list">
       {% for task in task_group_to_tasks|get_item:task_group.number %}
-        <h3>{{ task.number }}. {{task.text}}</h3>
+        {% if task_to_status|get_item:task.id == 'Ok' %}
+        <li class="li-task-ok">
+        {% elif task_to_status|get_item:task.id == 'Pending' %}
+        <li class="li-task-pending">
+        {% else %}
+        <li class="li-task-wrong">
+        {% endif %}
+          <div class="task">
+            <h4>{{ task.number }}.</h4>
+            {% if task.image %}<img src="/media/{{ task.image }}">{% endif %}
+            {{ task.text }}
+          </div>
+        </li>
       {% endfor %}
+      <ul>
     </div>
   </div>
 {% endfor %}
