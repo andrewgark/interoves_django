@@ -37,7 +37,7 @@ class SimpleBoolChecker(BaseChecker):
         if is_ok:
             return 'Ok', 1
         else:
-            return 'Pending', 0
+            return 'Wrong', 0
 
 
 class EqualsChecker(SimpleBoolChecker):
@@ -139,8 +139,8 @@ class MetagramChecker(BaseChecker):
         if best_matching_segment == self.n:
             return 'Ok', 1
         if best_matching_segment * 2 >= self.n:
-            return 'Pending', Decimal(0.5)
-        return 'Pending', 0
+            return 'Partial', Decimal(0.5)
+        return 'Wrong', 0
 
 
 class CheckerFactory:

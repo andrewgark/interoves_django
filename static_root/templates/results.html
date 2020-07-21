@@ -1,10 +1,11 @@
 {% load staticfiles %}
+{% load filters %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>inter oves locum praesta</title>
+<title>Результаты: {{ game.name }}</title>
 <meta name="description" content="">
 <meta name="author" content="">
 
@@ -27,10 +28,6 @@
 <!-- Bootstrap -->
 <link rel="stylesheet" type="text/css"  href="{% static "css/bootstrap.css" %}">
 <link rel="stylesheet" type="text/css" href="{% static "fonts/font-awesome/css/font-awesome.css" %}">
-
-<!-- Slick -->
-<link rel="stylesheet" type="text/css" href="{% static "css/slick/slick.css" %}">
-<link rel="stylesheet" type="text/css" href="{% static "css/slick/slick-theme.css" %}">
 
 <!-- Stylesheet
     ================================================== -->
@@ -56,53 +53,73 @@
     <!-- Brand and toggle get grouped for better mobile display -->
     <div class="navbar-header">
       <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1"> <span class="sr-only">Toggle navigation</span> <span class="icon-bar"></span> <span class="icon-bar"></span> <span class="icon-bar"></span> </button>
-      <a class="navbar-brand page-scroll" href="#page-top">inter oves locum praesta</a> </div>
+      <a class="navbar-brand page-scroll" href="/">inter oves locum praesta</a> </div>
     
     <!-- Collect the nav links, forms, and other content for toggling -->
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav navbar-right">
-        <li><a href="#games" class="page-scroll">Игры</a></li>
-	      {% if user.is_authenticated %}
-        <li><a href="#myteam" class="page-scroll">Моя команда</a></li>
-        {% else %}
-        <li><a href="#myteam" class="page-scroll">Участвовать</a></li>
-        {% endif %}
+        <li><a href="#page-top" class="page-scroll">Наверх</a></li>
       </ul>
     </div>
-    <!-- /.navbar-collapse -->
+    <!-- /.navbar-collapse --> 
   </div>
 </nav>
 <!-- Header -->
 <header id="header">
-  <div class="intro intro-main">
-    <div class="overlay">
-      <div class="container">
-        <div class="row">
-          <div class="col-md-8 col-md-offset-2 intro-text">
-            <h1>inter oves<br>locum praesta<span></span></h1>
-            <p>Играем в командные интеллектуальные игры, в которых можно пользоваться интернетом.</p>
-            <a href="https://vk.com/interoveslocumpraesta" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Группа VK</a>
-            <a href="https://vk.com/interoveslocumpraesta?w=app6471849_-80749489" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Задонатить</a></div>
-        </div>
+  <div class="intro {{ mode }}-results-intro">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-8 col-md-offset-2 intro-text">
+          <h1>Результаты: {{ game.name }}</h1>
+          {% if mode == 'tournament' %}<h3>Турнирная таблица</h3>{% else %}<h3>Общая таблица</h3>{% endif %}
+          {% if game.theme %}<h3>Тема: {{ game.theme }}</h3>{% endif %}
+          {% if game.author %}<h3>Автор: {{ game.author }}</h3>{% endif %}
+          {% if mode == 'tournament' %}
+            В турнирной таблице учитываются только посылки во время игры: с {{ game.start_time|date:'H:i' }} до {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}.
+          {% else %}
+            В общей таблице учитываются все посылки, посланные и во время игры, и после.
+          {% endif %}
       </div>
     </div>
   </div>
-</header>
-<!-- Games Section -->
-<div id="games" class="text-center">
+</header>  
+<div id="results-table">
   <div class="container">
-    <div class="col-md-10 col-md-offset-1 section-title">
-      <h2>Игры</h2>
+    <div class="row">
+      <div class="col-md-12">
+        <table class="table table-bordered table-results">
+          <tr>
+            <th rowspan="2" scope="col" class="cell-header">Команда</th>
+            <th rowspan="2" scope="col" class="cell-header">Сумма</th>
+            <th rowspan="2" scope="col" class="cell-header">Время</th>
+            {% for task_group in task_groups %}
+                <th colspan="{{ task_group.get_n_tasks }}" scope="col" class="cell-header">{{ task_group.number }}. {{ task_group.name }}</th>
+            {% endfor %}
+          </tr>
+          <tr>
+            {% for task_group in task_groups %}
+                {% for task in task_group_to_tasks|get_item:task_group.number %}
+                <th scope="col" class="cell-header">{{ task.number }}</th>
+                {% endfor %}
+            {% endfor %}
+          </tr>
+          {% for team in teams_sorted %}
+            <tr>
+                <td scope="row" class="row-header"> {{ team.name }} </td>
+                <td class="row-header"> {{ team_to_score|get_item:team|minimize_digits }} </td>
+                <td class="row-header"> {{ team_to_max_best_time|get_item:team|date:'H:i' }} </td>
+                {% for attempts_info in team_to_list_attempts_info|get_item:team %}
+                  <td class="cell cell-{% if attempts_info.best_attempt.status %}{{ attempts_info.best_attempt.status|get_lower_status }}{% else %}no{% endif %}">
+                    {% if attempts_info.get_n_attempts > 0 %}
+                      {{ attempts_info.best_attempt.points|minimize_digits }}
+                    {% endif %}
+                  </td>
+                {% endfor %}
+            </tr>
+          {% endfor %}
+        </table>
+      </div>
     </div>
-  </div>
-  <div class="container">
-    {% include "games.html" %}
-  </div>
-</div>
-<!-- Team Section -->
-<div id="myteam">
-  <div class="container">
-    {% include "team.html" %}
   </div>
 </div>
 <!-- Footer Section -->
@@ -116,15 +133,6 @@
 <script type="text/javascript" src="{% static "js/SmoothScroll.js" %}"></script> 
 <script type="text/javascript" src="{% static "js/nivo-lightbox.js" %}"></script> 
 <script type="text/javascript" src="{% static "js/jqBootstrapValidation.js" %}"></script> 
-<script type="text/javascript" src="{% static "js/slick.min.js" %}"></script>
 <script type="text/javascript" src="{% static "js/main.js" %}"></script>
-<script type="text/javascript" src="//cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
-
-<script type="text/javascript">
-  $(document).ready(function(){
-    $('.games-slick').slick();
-  });
-</script>
-
 </body>
 </html>

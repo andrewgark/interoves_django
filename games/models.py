@@ -10,7 +10,7 @@ from allauth.socialaccount.models import SocialAccount
 
 class Team(models.Model):
     name = models.CharField(primary_key=True, max_length=100)
-    is_tester = models.BooleanField()
+    is_tester = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name
@@ -53,9 +53,9 @@ class Game(models.Model):
     start_time = models.DateTimeField(default=timezone.now, blank=True)
     end_time = models.DateTimeField(default=timezone.now, blank=True)
 
-    is_ready = models.BooleanField()
-    is_testing = models.BooleanField()
-    is_playable = models.BooleanField()
+    is_ready = models.BooleanField(default=False)
+    is_testing = models.BooleanField(default=False)
+    is_playable = models.BooleanField(default=False)
     is_tournament = models.BooleanField(default=False)
 
     game_url = models.CharField(max_length=500, null=True, blank=True)
@@ -137,6 +137,9 @@ class TaskGroup(models.Model):
         from games.forms import AttemptForm
         return AttemptForm()
 
+    def get_n_tasks(self):
+        return len(self.tasks.all())
+
 
 class Task(models.Model):
     id = models.AutoField(primary_key=True)
@@ -208,11 +211,15 @@ class Attempt(models.Model):
 
     text = models.TextField()
     status = models.CharField(max_length=100, choices=STATUS_VARIANTS)
+    possible_status = models.CharField(blank=True, null=True, max_length=100, choices=STATUS_VARIANTS)
     points = models.DecimalField(default=0, decimal_places=3, max_digits=10, blank=True, null=True)
     time = models.DateTimeField(auto_now_add=True, blank=True)
 
     def __str__(self):
         return '[{}]: ({}) - {} [{}]'.format(self.team, self.task, self.text, self.status)
+
+    def get_max_points(self):
+        return task.get_max_points()
 
     def get_tournament_attempts_info(self):
         for attempts_info in self.attempts_infos:

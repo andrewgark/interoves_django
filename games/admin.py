@@ -44,6 +44,7 @@ class AttemptAdmin(admin.ModelAdmin):
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }
+    list_display = ['get_max_points']
 
 
 @admin.register(ProxyAttempt)

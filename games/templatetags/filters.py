@@ -37,8 +37,19 @@ def get_parity(n):
 @register.filter
 def get_lower_status(status):
     if not status:
-        return 'wrong'
+        return 'no'
     return status.lower()
+
+
+@register.filter
+def get_ru_status(status):
+    status_to_ru = {
+        'Wrong': 'неверно',
+        'Partial': 'частичное решение',
+        'Pending': 'проверяется ведущим',
+        'Ok': 'верно',
+    }
+    return status_to_ru.get(status, '')
 
 
 @register.filter

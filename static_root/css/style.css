@@ -489,13 +489,16 @@ select {
 	background: #fff;
 }
 .li-wrong::before {
-	background: #ff0000;
+	background: #ffa0a0;
 }
 .li-pending::before {
-	background: #ddbc02;
+	background: #fff070;
+}
+.li-partial::before {
+	background: #8080ff;
 }
 .li-ok::before {
-	background: #38e282;
+	background: #a0ffa0;
 }
 
 /* Game */
@@ -516,6 +519,9 @@ select {
 .even-task-group li {
 	color: #fff;
 }
+.odd-task-group {
+	background: #f6f6f6;
+}
 .odd-task-group li {
 	color: #333;
 }
@@ -532,4 +538,41 @@ select {
 }
 .attempts {
 	margin-left: 5px;
+}
+.even-task-group .btn-custom {
+	background: transparent;
+	border: 2px solid #fff;
+}
+
+/* Table of results */
+#results-table {
+	margin-top: 20px;
+	margin-bottom: 10px;
+	background: #f6f6f6
+}
+.table-results td {
+	text-align: center;
+}
+.table-results th {
+	background: #e8f0ff;
+	text-align: center;
+	vertical-align: center;
+}
+.row-header {
+	background: #d8e8ff;
+}
+.cell-wrong {
+	background: #ffd0d0;
+}
+.cell-pending {
+	background: #fff0b0;
+}
+.cell-partial {
+	background: #e0e0ff;
+}
+.cell-ok {
+	background: #d8ffd8;
+}
+.cell-no {
+	background: #f0f8ff;
 }

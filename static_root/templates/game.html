@@ -1,7 +1,7 @@
 {% load staticfiles %}
 {% load filters %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -90,10 +90,14 @@
         <h2>{{ task_group.number }}. {{ task_group.name }}</h2>
       </div>
     </div>
-    <div class="container rules">
-      {% autoescape off %}
-      {{ task_group.rules.html }}
-      {% endautoescape %}
+    <div class="container">
+      <div class="row">
+        <div class="col-md-8 col-md-offset-2 task-rules">
+          {% autoescape off %}
+        {{ task_group.rules.html }}
+          {% endautoescape %}
+        </div>
+      </div>
     </div>
     <div class="container">
       <ul class="list-rectangle tasks-list">
@@ -112,7 +116,7 @@
                   <div class="fieldWrapper">
                     {{ task_group.get_attempt_form.text }}
                   </div>
-                  <input type="submit" value="Отправить на проверку" class="btn btn-custom page-scroll">
+                  <input type="submit" value="Отправить на проверку" class="btn btn-custom-lg btn-lg btn-custom page-scroll">
                 </form>
               {% else %}
                 <b>Попытки закончились</b>
@@ -130,7 +134,7 @@
                     {% else %}
                     {{ attempt.text }}
                     {% endif %}
-                    ({{ attempt.points|minimize_digits }})
+                    (баллы: {{ attempt.points|minimize_digits }}, статус: {{ attempt.status|get_ru_status }})
                   </li>
                 {% endfor %}
                 </ul>

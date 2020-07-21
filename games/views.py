@@ -62,7 +62,7 @@ def quit_from_team(request):
 
 def process_user_request(request, user_id, action):
     active_user = request.user
-    passive_user = get_object_or_404(get_user_model(), int(user_id))
+    passive_user = get_object_or_404(get_user_model(), id=int(user_id))
     if has_profile(passive_user):
         if has_profile(active_user) and \
            active_user != passive_user and \
@@ -125,29 +125,10 @@ def game_page(request, game_id):
     })
 
 
-def inherite_task_properties(task):
-    task_group = task.task_group
-    if task.checker:
-        checker = task.checker
-    else:
-        checker = task_group.checker
-    
-    if task.points:
-        points = task.points
-    else:
-        points = task_group.points
-
-    if task.max_attempts:
-        max_attempts = task.max_attempts
-    else:
-        max_attempts = task_group.max_attempts
-
-    return checker, points, max_attempts
-
-
 def better_status(first_status, second_status):
     status_to_key = {
-        'Ok': 2,
+        'Ok': 3,
+        'Partial': 2,
         'Pending': 1,
         'Wrong': 0,
     }
@@ -216,6 +197,9 @@ def send_attempt(request, task_id):
 
     checker = CheckerFactory().create_checker(checker_type, attempt.task.checker_data)
     attempt.status, attempt.points = checker.check(attempt.text)
+    if 'tournament' in modes and attempt.status != 'Ok':
+        attempt.possible_status = attempt.status
+        attempt.status = 'Pending'
     attempt.points *= points
     attempt.save(force_insert=True)
 
@@ -238,6 +222,7 @@ def results_page(request, game_id, mode='general'):
     team_to_list_attempts_info = {}
     team_to_score = {}
     team_to_max_best_time = {}
+    team_task_to_attempts_info = {}
 
     task_groups = sorted(game.task_groups.all(), key=lambda tg: tg.number)
     task_group_to_tasks = {}
@@ -254,27 +239,36 @@ def results_page(request, game_id, mode='general'):
                     team_to_score[team] += attempts_info.best_attempt.points
 
                     if team not in team_to_max_best_time:
-                        team_to_max_best_time[team] = max(attempts_info.best_attempt.time)
+                        team_to_max_best_time[team] = attempts_info.best_attempt.time
                     else:
-                        team_to_max_best_time[team] = max(attempts_info.best_attempt.time)
-
-                    if team not in team_to_list_attempts_info:
-                        team_to_list_attempts_info[team] = []
+                        team_to_max_best_time[team] = max(team_to_max_best_time[team], attempts_info.best_attempt.time)
+                    
+                    team_task_to_attempts_info[(team, task)] = attempts_info
+    
+    for team in team_to_score.keys():
+        for task_group in task_groups:
+            for task in task_group_to_tasks[task_group.number]:
+                if team not in team_to_list_attempts_info:
+                    team_to_list_attempts_info[team] = []
+                if (team, task) in team_task_to_attempts_info:
+                    attempts_info = team_task_to_attempts_info[(team, task)]
                     team_to_list_attempts_info[team].append(attempts_info)
+                else:
+                    team_to_list_attempts_info[team].append(None)
 
     teams_sorted = []
     for team in team_to_score.keys():
         score = team_to_score[team]
         max_best_time = team_to_max_best_time[team]
-        teams_sorted.append((score, max_best_time, team))
-    teams_sorted = [team for score, max_best_time, team in sorted(teams_sorted)]
+        teams_sorted.append((-score, max_best_time, team))
+    teams_sorted = [team for anti_score, max_best_time, team in sorted(teams_sorted)]
 
     return render(request, 'results.html', {
         'mode': mode,
         'game': game,
         'task_groups': task_groups,
         'task_group_to_tasks': task_group_to_tasks,
-        'teams': teams,
+        'teams_sorted': teams_sorted,
         'team_to_list_attempts_info': team_to_list_attempts_info,
         'team_to_score': team_to_score,
         'team_to_max_best_time': team_to_max_best_time,
