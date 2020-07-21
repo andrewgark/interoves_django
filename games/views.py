@@ -84,11 +84,11 @@ def reject_user_joining_team(request, user_id):
     return process_user_request(request, user_id, 'reject')
 
 
-def get_task_to_attempts_info(game, team):
+def get_task_to_attempts_info(game, team, mode='general'):
     task_to_attempts_info = {}
     for task_group in game.task_groups.all():
         for task in task_group.tasks.all():
-            attempts_info = AttemptsInfo.objects.filter(team=team, task=task)
+            attempts_info = AttemptsInfo.objects.filter(team=team, task=task, mode=mode)
             if attempts_info and attempts_info[0]:
                 task_to_attempts_info[task.id] = attempts_info[0]
             else:
@@ -97,14 +97,18 @@ def get_task_to_attempts_info(game, team):
 
 
 def game_page(request, game_id):
-    # добавить сюда обработку ошибки, если такой игры нет
     game = get_object_or_404(Game, id=game_id)
     if not has_profile(request.user) or not request.user.profile.team_on:
         return defaults.page_not_found()
     if not game.is_available(request.user.profile.team_on):
         return defaults.page_not_found()
 
-    task_to_attempts_info = get_task_to_attempts_info(game, request.user.profile.team_on)
+    if 'tournament' in game.get_modes(Attempt(time=timezone.now())):
+        mode = 'tournament'
+    else:
+        mode = 'general'
+
+    task_to_attempts_info = get_task_to_attempts_info(game, request.user.profile.team_on, mode)
     
     task_groups = sorted(game.task_groups.all(), key=lambda tg: tg.number)
 
@@ -117,6 +121,7 @@ def game_page(request, game_id):
         'task_groups': task_groups,
         'task_group_to_tasks': task_group_to_tasks,
         'task_to_attempts_info': task_to_attempts_info,
+        'mode': mode,
     })
 
 
@@ -177,6 +182,7 @@ def send_attempt(request, task_id):
     attempt.team = team
     attempt.task = task
     attempt.time = timezone.now()
+
     checker_type = task.get_checker()
     points = task.get_points()
     max_attempts = task.get_max_attempts()
@@ -184,40 +190,96 @@ def send_attempt(request, task_id):
     if checker_type is None or points is None or max_attempts is None:
         return game_page(request, game.id)
 
-    attempts_info_filter = AttemptsInfo.objects.filter(team=team, task=task)
+    modes = game.get_modes(attempt)
+    attempts_infos = []
 
-    n_attempts = 0
-    if attempts_info_filter and attempts_info_filter[0]:
-        attempts_info = attempts_info_filter[0]
-        n_attempts = len(attempts_info.attempts.all())
-    else:
-        attempts_info = AttemptsInfo(task=task, team=team)
+    for mode in modes:
+        attempts_info_filter = AttemptsInfo.objects.filter(team=team, task=task, mode=mode)
 
-    if n_attempts >= max_attempts:
-        # отправлять ошибку, что слишком много посылок
-        return game_page(request, game.id)
+        n_attempts = 0
+        if attempts_info_filter and attempts_info_filter[0]:
+            attempts_info = attempts_info_filter[0]
+            n_attempts = len(attempts_info.attempts.all())
+        else:
+            attempts_info = AttemptsInfo(task=task, team=team, mode=mode)
 
-    for other_attempt in attempts_info.attempts.all():
-        if attempt.text == other_attempt.text:
-            # отправлять ошибку, что это посылка - дубликат
+        if mode == 'tournament' and n_attempts >= max_attempts:
+            # отправлять ошибку, что слишком много посылок
             return game_page(request, game.id)
+
+        if attempts_info_filter:
+            for other_attempt in attempts_info.attempts.all():
+                if attempt.text == other_attempt.text:
+                    # отправлять ошибку, что это посылка - дубликат
+                    return game_page(request, game.id)
+        attempts_infos.append(attempts_info)
 
     checker = CheckerFactory().create_checker(checker_type, attempt.task.checker_data)
     attempt.status, attempt.points = checker.check(attempt.text)
     attempt.points *= points
     attempt.save(force_insert=True)
 
-    update_attempts_info(attempts_info, attempt)
-    
-    attempt.attempts_info = attempts_info
+    for attempts_info in attempts_infos:
+        attempts_info.save()
+        update_attempts_info(attempts_info, attempt)
+        attempt.attempts_infos.add(attempts_info)
+
     attempt.save(force_update=True)
 
     return game_page(request, game.id)
 
 
-def results_page(request, game_id):
-    pass
+def results_page(request, game_id, mode='general'):
+    game = get_object_or_404(Game, id=game_id)
+    if has_profile(request.user) and request.user.profile.team_on and \
+       not game.results_are_available(request.user.profile.team_on, mode):
+        return defaults.page_not_found()
+
+    team_to_list_attempts_info = {}
+    team_to_score = {}
+    team_to_max_best_time = {}
+
+    task_groups = sorted(game.task_groups.all(), key=lambda tg: tg.number)
+    task_group_to_tasks = {}
+
+    for task_group in task_groups:
+        task_group_to_tasks[task_group.number] = sorted(task_group.tasks.all(), key=lambda t: t.number)
+        for task in task_group_to_tasks[task_group.number]:
+            for attempts_info in AttemptsInfo.objects.filter(task=task, mode=mode):
+                if attempts_info.best_attempt:
+                    team = attempts_info.team
+
+                    if team not in team_to_score:
+                        team_to_score[team] = 0
+                    team_to_score[team] += attempts_info.best_attempt.points
+
+                    if team not in team_to_max_best_time:
+                        team_to_max_best_time[team] = max(attempts_info.best_attempt.time)
+                    else:
+                        team_to_max_best_time[team] = max(attempts_info.best_attempt.time)
+
+                    if team not in team_to_list_attempts_info:
+                        team_to_list_attempts_info[team] = []
+                    team_to_list_attempts_info[team].append(attempts_info)
+
+    teams_sorted = []
+    for team in team_to_score.keys():
+        score = team_to_score[team]
+        max_best_time = team_to_max_best_time[team]
+        teams_sorted.append((score, max_best_time, team))
+    teams_sorted = [team for score, max_best_time, team in sorted(teams_sorted)]
+
+    return render(request, 'results.html', {
+        'mode': mode,
+        'game': game,
+        'task_groups': task_groups,
+        'task_group_to_tasks': task_group_to_tasks,
+        'teams': teams,
+        'team_to_list_attempts_info': team_to_list_attempts_info,
+        'team_to_score': team_to_score,
+        'team_to_max_best_time': team_to_max_best_time,
+    })
 
 
 def get_tournament_results(request, game_id):
-    pass
+    return results_page(request, game_id, mode='tournament')

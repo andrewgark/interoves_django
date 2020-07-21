@@ -28,7 +28,7 @@ class JoinTeamForm(Form):
 
 class AttemptForm(ModelForm):
     def __init__(self, *args, **kwargs): 
-        attrs = {'placeholder': 'Название команды'}
+        attrs = {'placeholder': 'Ответ'}
         if kwargs.get('style'):
             attrs['style'] = kwargs['style']
             del kwargs['style']

@@ -73,7 +73,9 @@ class Game(models.Model):
             return True
         return False
 
-    def results_are_available(self, team):
+    def results_are_available(self, team, mode='general'):
+        if mode == 'tournament' and not self.is_tournament:
+            return False
         if not self.is_playable:
             return False
         if self.is_ready and self.has_started():
@@ -83,23 +85,28 @@ class Game(models.Model):
         return False
 
     def tournament_results_are_available(self, team):
-        if not self.is_tournament:
-            return False
-        return self.results_are_available(team)
+        return self.results_are_available(team, mode='tournament')
 
     def is_available(self, team):
         if not team:
             return False
         return self.results_are_available(team)
 
-    def get_results_type(self, attempt):
+    def get_time_reference(self, attempt):
         if attempt.time < self.start_time:
-            return 'Before'
+            return 'before'
         if self.start_time <= attempt.time <= self.end_time:
-            return 'During'
+            return 'during'
         if self.end_time < attempt.time:
-            return 'After'
+            return 'after'
         raise Exception('Impossible situation')
+
+    def get_modes(self, attempt):
+        if self.get_time_reference(attempt) == 'after':
+            return ['general']
+        if self.get_time_reference(attempt) == 'during':
+            return ['general', 'tournament']
+        return []
 
 
 class TaskGroup(models.Model):
@@ -174,8 +181,15 @@ class AttemptsInfo(models.Model):
 
     best_attempt = models.ForeignKey('Attempt', blank=True, null=True, on_delete=models.SET_NULL)
 
+    MODE_VARIANTS = (
+        ('general', 'general'),
+        ('tournament', 'tournament'),
+    )
+
+    mode = models.CharField(default='general', max_length=100, choices=MODE_VARIANTS)
+
     def __str__(self):
-        return '[{}]: ({})'.format(self.team, self.task)
+        return '[{}]: ({}), ({})'.format(self.team, self.task, self.mode)
 
     def get_n_attempts(self):
         return len(self.attempts.all())
@@ -190,7 +204,7 @@ class Attempt(models.Model):
 
     team = models.ForeignKey(Team, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
     task = models.ForeignKey(Task, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
-    attempts_info = models.ForeignKey(AttemptsInfo, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
+    attempts_infos = models.ManyToManyField(AttemptsInfo, related_name='attempts', blank=True)
 
     text = models.TextField()
     status = models.CharField(max_length=100, choices=STATUS_VARIANTS)
@@ -199,6 +213,12 @@ class Attempt(models.Model):
 
     def __str__(self):
         return '[{}]: ({}) - {} [{}]'.format(self.team, self.task, self.text, self.status)
+
+    def get_tournament_attempts_info(self):
+        for attempts_info in self.attempts_infos:
+            if attempts_info.mode == 'tournament':
+                return attempts_info
+        return None
 
 
 class ProxyAttempt(Attempt):

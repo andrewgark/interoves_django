@@ -105,10 +105,10 @@
             {% if task.image %}<img class="task-image" src="/media/{{ task.image }}" width="{{ task.get_image_width }}"><br>{% endif %}
             {{ task.text }}<br>
             {% if attempts_info.best_attempt.status != 'Ok' %}
-              {% if not attempts_info or attempts_info.get_n_attempts < task.get_max_attempts %}
+              {% if not attempts_info or attempts_info.mode == 'general' or attempts_info.get_n_attempts < task.get_max_attempts %}
                 <form action = "/send_attempt/{{ task.id }}/" method = "post">
                   {% csrf_token %}
-                  Попытка {{ attempts_info.get_n_attempts|get_new_attempt_number }}/{{ task.get_max_attempts }}:
+                  Попытка {{ attempts_info.get_n_attempts|get_new_attempt_number }}{% if mode == 'tournament' %}/{{ task.get_max_attempts }}{% endif %}:
                   <div class="fieldWrapper">
                     {{ task_group.get_attempt_form.text }}
                   </div>
