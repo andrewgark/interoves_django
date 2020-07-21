@@ -126,6 +126,7 @@ hr {
 	background-color: #608dfd;
 }
 .section-title {
+	margin-top: 25px;
 	margin-bottom: 30px;
 }
 .section-title h2 {
@@ -487,36 +488,35 @@ select {
 .rules-list>li::before {
 	background: #fff;
 }
-.tasks-list>li::before {
+.li-wrong::before {
 	background: #ff0000;
 }
-
-.li-task-wrong::before {
-	background: #ff0000;
-}
-.li-task-pending::before {
+.li-pending::before {
 	background: #ddbc02;
 }
-.li-task-ok::before {
+.li-ok::before {
 	background: #38e282;
 }
 
 /* Game */
 
-#even-task-group {
+.even-task-group {
 	background: linear-gradient(to right, #6372ff 0%, #5ca9fb 100%);
 	color: rgba(255,255,255,.75);
 }
-#even-task-group h2 h4 {
+.even-task-group h2 {
 	color: #fff;
 }
-#even-task-group .section-title h2::after {
+.even-task-group h4 {
+	color: #fff;
+}
+.even-task-group .section-title h2::after {
 	background: rgba(255,255,255,.3);
 }
-#even-task-group li {
+.even-task-group li {
 	color: #fff;
 }
-#odd-task-group li {
+.odd-task-group li {
 	color: #333;
 }
 .tasks-list {
@@ -529,4 +529,7 @@ select {
 	margin-top: 10px;
 	margin-bottom: 10px;
 	padding-bottom: 15px;
+}
+.attempts {
+	margin-left: 5px;
 }

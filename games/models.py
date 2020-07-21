@@ -4,11 +4,13 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
-from datetime import datetime
+
 
 class Team(models.Model):
     name = models.CharField(primary_key=True, max_length=100)
+    is_tester = models.BooleanField()
 
     def __str__(self):
         return self.name
@@ -48,11 +50,13 @@ class Game(models.Model):
     theme = models.CharField(max_length=100, null=True, blank=True)
     author = models.CharField(max_length=100)
 
-    start_time = models.DateTimeField(default=datetime.now, blank=True)
-    end_time = models.DateTimeField(default=datetime.now, blank=True)
+    start_time = models.DateTimeField(default=timezone.now, blank=True)
+    end_time = models.DateTimeField(default=timezone.now, blank=True)
 
     is_ready = models.BooleanField()
+    is_testing = models.BooleanField()
     is_playable = models.BooleanField()
+    is_tournament = models.BooleanField(default=False)
 
     game_url = models.CharField(max_length=500, null=True, blank=True)
     answers_url = models.CharField(max_length=500, null=True, blank=True)
@@ -63,20 +67,68 @@ class Game(models.Model):
     def __str__(self):
         return self.name
 
+    def has_started(self):
+        now = timezone.now()
+        if self.is_playable and now >= self.start_time:
+            return True
+        return False
+
+    def results_are_available(self, team):
+        if not self.is_playable:
+            return False
+        if self.is_ready and self.has_started():
+            return True
+        if self.is_testing and team.is_tester:
+            return True
+        return False
+
+    def tournament_results_are_available(self, team):
+        if not self.is_tournament:
+            return False
+        return self.results_are_available(team)
+
+    def is_available(self, team):
+        if not team:
+            return False
+        return self.results_are_available(team)
+
+    def get_results_type(self, attempt):
+        if attempt.time < self.start_time:
+            return 'Before'
+        if self.start_time <= attempt.time <= self.end_time:
+            return 'During'
+        if self.end_time < attempt.time:
+            return 'After'
+        raise Exception('Impossible situation')
+
 
 class TaskGroup(models.Model):
     id = models.AutoField(primary_key=True)
     game = models.ForeignKey(Game, related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
     name = models.CharField(max_length=100)
-    number = models.IntegerField()    
-    rules = models.ForeignKey(HTMLPage, to_field='name', related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)    
+    number = models.IntegerField()
+    rules = models.ForeignKey(HTMLPage, to_field='name', related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
 
     checker = models.ForeignKey(CheckerType, related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
     points = models.DecimalField(default=1, decimal_places=3, max_digits=10, blank=True, null=True)
     max_attempts = models.IntegerField(default=3, blank=True, null=True)
+    image_width = models.IntegerField(default=300, null=True, blank=True)
+
+    VIEW_VARIANTS = (
+        ('default', 'default'),
+    )
+
+    view = models.CharField(default='default', max_length=100, choices=VIEW_VARIANTS)
 
     def __str__(self):
         return '[{}]: {}. {}'.format(self.game.name, self.number, self.name)
+
+    def get_li_class(self):
+        return ''
+
+    def get_attempt_form(self):
+        from games.forms import AttemptForm
+        return AttemptForm()
 
 
 class Task(models.Model):
@@ -90,9 +142,30 @@ class Task(models.Model):
     checker = models.ForeignKey(CheckerType, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL)
     points = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)
     max_attempts = models.IntegerField(blank=True, null=True)
+    image_width = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
-        return '[{}]: {}.{}'.format(self.task_group.game.name, self.task_group.number, self.number)
+        return '{}: {}.{}'.format(self.task_group.game.name, self.task_group.number, self.number)
+
+    def get_checker(self):
+        if self.checker:
+            return self.checker
+        return self.task_group.checker
+
+    def get_points(self):
+        if self.points:
+            return self.points
+        return self.task_group.points
+
+    def get_max_attempts(self):
+        if self.max_attempts:
+            return self.max_attempts
+        return self.task_group.max_attempts
+
+    def get_image_width(self):
+        if self.image_width:
+            return self.image_width
+        return self.task_group.image_width
 
 
 class AttemptsInfo(models.Model):
@@ -101,16 +174,36 @@ class AttemptsInfo(models.Model):
 
     best_attempt = models.ForeignKey('Attempt', blank=True, null=True, on_delete=models.SET_NULL)
 
+    def __str__(self):
+        return '[{}]: ({})'.format(self.team, self.task)
+
+    def get_n_attempts(self):
+        return len(self.attempts.all())
+
 
 class Attempt(models.Model):
+    STATUS_VARIANTS = (
+        ('Ok', 'Ok'),
+        ('Pending', 'Pending'),
+        ('Wrong', 'Wrong'),
+    )
+
     team = models.ForeignKey(Team, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
     task = models.ForeignKey(Task, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
     attempts_info = models.ForeignKey(AttemptsInfo, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
 
     text = models.TextField()
-    status = models.CharField(max_length=100)
+    status = models.CharField(max_length=100, choices=STATUS_VARIANTS)
     points = models.DecimalField(default=0, decimal_places=3, max_digits=10, blank=True, null=True)
     time = models.DateTimeField(auto_now_add=True, blank=True)
+
+    def __str__(self):
+        return '[{}]: ({}) - {} [{}]'.format(self.team, self.task, self.text, self.status)
+
+
+class ProxyAttempt(Attempt):
+    class Meta:
+        proxy=True
 
 
 def create_profile(sender, **kw):

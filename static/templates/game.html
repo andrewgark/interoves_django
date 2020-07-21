@@ -1,4 +1,5 @@
 {% load staticfiles %}
+{% load filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -57,9 +58,9 @@
     <!-- Collect the nav links, forms, and other content for toggling -->
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav navbar-right">
-        <li><a href="#pagetop" class="page-scroll">Наверх</a></li>
+        <li><a href="#page-top" class="page-scroll">Наверх</a></li>
         {% for task_group in task_groups %}
-        <li><a href="#task_group_{{ task_group.number }}" class="page-scroll">{{ task_group.number }}. {{ task_group.name}}</a></li>
+        <li><a href="#task-group-{{ task_group.number }}" class="page-scroll">{{ task_group.number }}. {{ task_group.name}}</a></li>
         {% endfor %}
       </ul>
     </div>
@@ -83,37 +84,61 @@
   </div>
 </header>  
 {% for task_group in task_groups %}
-  {% if task_group.number|divisibleby:2 %}
-  <div id="even-task-group" class="text-center task-group">
-  {% else %}
-  <div id="odd-task-group" class="text-center task-group">
-  {% endif %}
+  <div id="task-group-{{ task_group.number }}" class="text-center task-group {{ task_group.number|get_parity }}-task-group">
     <div class="container">
       <div class="col-md-10 col-md-offset-1 section-title">
         <h2>{{ task_group.number }}. {{ task_group.name }}</h2>
       </div>
     </div>
-    <div class="container">
+    <div class="container rules">
       {% autoescape off %}
       {{ task_group.rules.html }}
-      {% endautoescape %}   
+      {% endautoescape %}
     </div>
     <div class="container">
       <ul class="list-rectangle tasks-list">
       {% for task in task_group_to_tasks|get_item:task_group.number %}
-        {% if task_to_status|get_item:task.id == 'Ok' %}
-        <li class="li-task-ok">
-        {% elif task_to_status|get_item:task.id == 'Pending' %}
-        <li class="li-task-pending">
-        {% else %}
-        <li class="li-task-wrong">
-        {% endif %}
+        {% with attempts_info=task_to_attempts_info|get_item:task.id %}
+        <li class="li-task li-{{ attempts_info.best_attempt.status|get_lower_status }} {{ task_group.get_li_class }}">
           <div class="task">
             <h4>{{ task.number }}.</h4>
-            {% if task.image %}<img src="/media/{{ task.image }}">{% endif %}
-            {{ task.text }}
+            {% if task.image %}<img class="task-image" src="/media/{{ task.image }}" width="{{ task.get_image_width }}"><br>{% endif %}
+            {{ task.text }}<br>
+            {% if attempts_info.best_attempt.status != 'Ok' %}
+              {% if not attempts_info or attempts_info.get_n_attempts < task.get_max_attempts %}
+                <form action = "/send_attempt/{{ task.id }}/" method = "post">
+                  {% csrf_token %}
+                  Попытка {{ attempts_info.get_n_attempts|get_new_attempt_number }}/{{ task.get_max_attempts }}:
+                  <div class="fieldWrapper">
+                    {{ task_group.get_attempt_form.text }}
+                  </div>
+                  <input type="submit" value="Отправить на проверку" class="btn btn-custom page-scroll">
+                </form>
+              {% else %}
+                <b>Попытки закончились</b>
+              {% endif %}
+            {% endif %}
+
+            {% if attempts_info %}
+              <div class="attempts">
+                <ul class="list-rectangle">
+                {% for attempt in attempts_info.attempts|order_by:"time" %}
+                  <li class="li-attempt li-{{ attempt.status|get_lower_status }}">
+                    {{ attempt.time|date:'H:i' }}:
+                    {% if attempt.status == 'Ok' %}
+                    <b>{{ attempt.text }}</b>
+                    {% else %}
+                    {{ attempt.text }}
+                    {% endif %}
+                    ({{ attempt.points|minimize_digits }})
+                  </li>
+                {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
           </div>
         </li>
+        {% endwith %}
       {% endfor %}
       <ul>
     </div>

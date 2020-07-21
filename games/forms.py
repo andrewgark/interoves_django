@@ -28,8 +28,12 @@ class JoinTeamForm(Form):
 
 class AttemptForm(ModelForm):
     def __init__(self, *args, **kwargs): 
+        attrs = {'placeholder': 'Название команды'}
+        if kwargs.get('style'):
+            attrs['style'] = kwargs['style']
+            del kwargs['style']
         super(ModelForm, self).__init__(*args, **kwargs)
-        self.fields['name'].widget = TextInput(attrs={'placeholder': 'Текст ответа'})
+        self.fields['text'].widget = TextInput(attrs=attrs)
 
     class Meta:
         model = Attempt

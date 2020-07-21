@@ -6,7 +6,15 @@
       <h3>{{ game.name }}</h3>
       {% if game.theme %} <p>Тема: {{ game.theme }}</p> {% endif %}
       <p>Автор: {{ game.author }}</p>
-      {% if game.is_playable and today|date:"Y-m-d H:i" >= game.start_time|date:"Y-m-d H:i"  %} <p><a href="/games/{{ game.id}}"><b>Играть</b></a></p> {% endif %}
+      {% if game|game_is_available:user.profile.team_on %}
+        <p><a href="/games/{{ game.id }}"><b>Играть</b></a></p>
+      {% endif %}
+      {% if game|tournament_results_are_available:user.profile.team_on  %}
+        <p><a href="/tournament_results/{{ game.id }}"><b>Турнирные результаты</b></a></p>
+      {% endif %}
+      {% if game|results_are_available:user.profile.team_on  %}
+        <p><a href="/results/{{ game.id }}"><b>Общие результаты</b></a></p>
+      {% endif %}
       {% if game.game_url %} <p><a href="{{ game.game_url}}">Условия</a></p> {% endif %}
       {% if game.answers_url %} <p><a href="{{ game.answers_url}}">Ответы</a></p> {% endif %}
       {% if game.standings_url %} <p><a href="{{ game.standings_url}}">Результаты</a></p> {% endif %}
