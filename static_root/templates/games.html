@@ -1,4 +1,4 @@
-<div class="games-slick" data-slick='{"slidesToShow": 4, "slidesToScroll": 2, "arrows": true}'}>
+<div class="games-slick"}>
   {% for game in games %}
     <div>
       <p>{{ game.start_time|date:'d E Y' }}<br>{{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }}</p>

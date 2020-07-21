@@ -438,13 +438,13 @@ select {
 .slick-prev:before {
 	content: "<";
 	color: #333;
-	font-size: 70px;
+	font-size: 30px;
 }
   
 .slick-next:before {
 	content: ">";
 	color: #333;
-	font-size: 70px;
+	font-size: 30px;
 }
 
 .avatar-img {

@@ -5,7 +5,7 @@
       <div class="section-title">
         {% if user.profile.team_on %}
           <h2>Моя команда: <b>{{ user.profile.team_on }}</b></h2>
-          <p>Состав вашей команды:</p>
+          <p>Состав моей команды:</p>
           <ul class="list-rectangle team-on-list">
             {% for team_member in user.profile.team_on.users_on.all %}
               <li>{{ team_member }}</li>
