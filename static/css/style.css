@@ -543,20 +543,17 @@ select {
 	background: transparent;
 	border: 2px solid #fff;
 }
+.even-task-group .btn-custom:hover {
+	color: #1f386e;
+	background: #fff;
+}
 
 /* Table of results */
 #results-table {
-	margin-top: 20px;
-	margin-bottom: 10px;
 	background: #f6f6f6
-}
-.table-results td {
-	text-align: center;
 }
 .table-results th {
 	background: #e8f0ff;
-	text-align: center;
-	vertical-align: center;
 }
 .row-header {
 	background: #d8e8ff;
@@ -575,4 +572,7 @@ select {
 }
 .cell-no {
 	background: #f0f8ff;
+}
+.results-description {
+	margin-bottom: 10px;
 }

@@ -70,20 +70,30 @@
     <div class="container">
       <div class="row">
         <div class="col-md-8 col-md-offset-2 intro-text">
-          <h1>Результаты: {{ game.name }}</h1>
-          {% if mode == 'tournament' %}<h3>Турнирная таблица</h3>{% else %}<h3>Общая таблица</h3>{% endif %}
+          <h1>{{ game.name }}</h1>
           {% if game.theme %}<h3>Тема: {{ game.theme }}</h3>{% endif %}
           {% if game.author %}<h3>Автор: {{ game.author }}</h3>{% endif %}
-          {% if mode == 'tournament' %}
-            В турнирной таблице учитываются только посылки во время игры: с {{ game.start_time|date:'H:i' }} до {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}.
-          {% else %}
-            В общей таблице учитываются все посылки, посланные и во время игры, и после.
-          {% endif %}
       </div>
     </div>
   </div>
 </header>  
-<div id="results-table">
+<div id="results-table" class="text-center">
+  <div class="container">
+    <div class="col-md-10 col-md-offset-1 section-title">
+      <h2>{% if mode == 'tournament' %}Турнирная таблица{% else %}Общая таблица{% endif %}</h2>
+    </div>
+  </div>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-8 col-md-offset-2 results-description">
+        {% if mode == 'tournament' %}
+          В турнирной таблице учитываются только посылки во время игры: с {{ game.start_time|date:'H:i' }} до {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}.
+        {% else %}
+          В общей таблице учитываются все посылки, посланные и во время игры, и после.
+        {% endif %}
+      </div>
+    </div>
+  </div>
   <div class="container">
     <div class="row">
       <div class="col-md-12">

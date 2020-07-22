@@ -84,6 +84,9 @@ class Game(models.Model):
             return True
         return False
 
+    def general_results_are_available(self, team):
+        return self.results_are_available(team, mode='general')
+
     def tournament_results_are_available(self, team):
         return self.results_are_available(team, mode='tournament')
 
@@ -102,11 +105,14 @@ class Game(models.Model):
         raise Exception('Impossible situation')
 
     def get_modes(self, attempt):
+        modes = []
         if self.get_time_reference(attempt) == 'after':
-            return ['general']
+            modes.append('general')
         if self.get_time_reference(attempt) == 'during':
-            return ['general', 'tournament']
-        return []
+            modes.append('general')
+            if self.is_tournaments:
+                modes.append('tournament')
+        return modes
 
 
 class TaskGroup(models.Model):
@@ -148,6 +154,8 @@ class Task(models.Model):
     image = models.ImageField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
     checker_data = models.TextField(null=True, blank=True)
+    answer = models.TextField(null=True, blank=True)
+    answer_comment = models.TextField(null=True, blank=True)
 
     checker = models.ForeignKey(CheckerType, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL)
     points = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)
@@ -218,8 +226,11 @@ class Attempt(models.Model):
     def __str__(self):
         return '[{}]: ({}) - {} [{}]'.format(self.team, self.task, self.text, self.status)
 
+    def get_answer(self):
+        return self.task.answer
+
     def get_max_points(self):
-        return task.get_max_points()
+        return self.task.get_points()
 
     def get_tournament_attempts_info(self):
         for attempts_info in self.attempts_infos:

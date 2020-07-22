@@ -46,6 +46,8 @@ urlpatterns = [
 
     url(r'^results/(?P<game_id>[a-zA-Z0-9_]+)/$', results_page),
     url(r'^tournament_results/(?P<game_id>[a-zA-Z0-9_]+)/$', get_tournament_results),
+
+    url(r'^health/?', include('health_check.urls')),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 if settings.DEBUG:

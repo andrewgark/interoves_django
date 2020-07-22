@@ -60,8 +60,10 @@
       <ul class="nav navbar-nav navbar-right">
         <li><a href="#page-top" class="page-scroll">Наверх</a></li>
         {% for task_group in task_groups %}
-        <li><a href="#task-group-{{ task_group.number }}" class="page-scroll">{{ task_group.number }}. {{ task_group.name}}</a></li>
+          <li><a href="#task-group-{{ task_group.number }}" class="page-scroll">{{ task_group.number }}</a></li>
         {% endfor %}
+        {% if mode == 'tournament' %}<li><a href="/tournament_results/{{ game.id }}/">Результаты</a></li>{% endif %}
+        {% if mode == 'general' %}<li><a href="/results/{{ game.id }}/">Результаты</a></li>{% endif %}
       </ul>
     </div>
     <!-- /.navbar-collapse --> 
@@ -76,6 +78,7 @@
           <h1>{{ game.name }}</h1>
           {% if game.theme %}<h3>Тема: {{ game.theme }}</h3>{% endif %}
           {% if game.author %}<h3>Автор: {{ game.author }}</h3>{% endif %}
+          {% if mode == 'tournament' %}<h3>Время: {{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}</h3>{% endif %}
             {% autoescape off %}
             {{ game.rules.html }}
             {% endautoescape %}

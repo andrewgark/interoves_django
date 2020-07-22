@@ -99,9 +99,9 @@ def get_task_to_attempts_info(game, team, mode='general'):
 def game_page(request, game_id):
     game = get_object_or_404(Game, id=game_id)
     if not has_profile(request.user) or not request.user.profile.team_on:
-        return defaults.page_not_found()
+        return defaults.page_not_found(request)
     if not game.is_available(request.user.profile.team_on):
-        return defaults.page_not_found()
+        return defaults.page_not_found(request)
 
     if 'tournament' in game.get_modes(Attempt(time=timezone.now())):
         mode = 'tournament'
@@ -153,7 +153,7 @@ def send_attempt(request, task_id):
     game = task.task_group.game
 
     if not task.task_group.game.is_available(team):
-        return defaults.page_not_found()
+        return defaults.page_not_found(request)
 
     form = AttemptForm(request.POST)
     if not form.is_valid():
@@ -217,7 +217,7 @@ def results_page(request, game_id, mode='general'):
     game = get_object_or_404(Game, id=game_id)
     if has_profile(request.user) and request.user.profile.team_on and \
        not game.results_are_available(request.user.profile.team_on, mode):
-        return defaults.page_not_found()
+        return defaults.page_not_found(request)
 
     team_to_list_attempts_info = {}
     team_to_score = {}

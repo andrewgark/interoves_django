@@ -28,6 +28,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'interoves-django-env.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
     'interoves-django.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
+    'ec2-35-158-115-233.eu-central-1.compute.amazonaws.com',
     'interoves.ml',
     '127.0.0.1'
 ]
@@ -50,6 +51,11 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.vk',
+
+    'health_check',
+    'health_check.db',
+    'health_check.cache',
+    'health_check.storage',
 ]
 
 MIDDLEWARE = [
