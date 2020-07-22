@@ -64,6 +64,9 @@ class Game(models.Model):
 
     rules = models.ForeignKey(HTMLPage, to_field='name', related_name='games', blank=True, null=True, on_delete=models.SET_NULL)
 
+    tournament_rules = models.ForeignKey(HTMLPage, to_field='name', related_name='games_tournament', blank=True, null=True, on_delete=models.SET_NULL)
+    general_rules = models.ForeignKey(HTMLPage, to_field='name', related_name='games_general', blank=True, null=True, on_delete=models.SET_NULL)
+
     def __str__(self):
         return self.name
 
@@ -168,17 +171,23 @@ class Task(models.Model):
     def get_checker(self):
         if self.checker:
             return self.checker
-        return self.task_group.checker
+        if self.task_group.checker:
+            return self.task_group.checker
+        raise Exception('Task has empty checker')
 
     def get_points(self):
         if self.points:
             return self.points
-        return self.task_group.points
+        if self.task_group.points:
+            return self.task_group.points
+        raise Exception('Task has no points')
 
     def get_max_attempts(self):
         if self.max_attempts:
             return self.max_attempts
-        return self.task_group.max_attempts
+        if self.task_group.max_attempts:
+            return self.task_group.max_attempts
+        raise Exception('Task has no max_attempts')
 
     def get_image_width(self):
         if self.image_width:

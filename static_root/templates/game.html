@@ -81,8 +81,9 @@
           {% if mode == 'tournament' %}<h3>Время: {{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}</h3>{% endif %}
             {% autoescape off %}
             {{ game.rules.html }}
+            {% if mode == 'tournament' %}{{ game.tournament_rules.html }}{% else %}{{ game.general_rules.html }}{% endif %}
             {% endautoescape %}
-      </div>
+          </div>
     </div>
   </div>
 </header>  

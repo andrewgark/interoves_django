@@ -157,7 +157,7 @@ def send_attempt(request, task_id):
 
     form = AttemptForm(request.POST)
     if not form.is_valid():
-        return game_page(request, game.id)
+        return defaults.page_not_found(request)
 
     attempt = form.save(commit=False)
     attempt.team = team
@@ -167,9 +167,6 @@ def send_attempt(request, task_id):
     checker_type = task.get_checker()
     points = task.get_points()
     max_attempts = task.get_max_attempts()
-
-    if checker_type is None or points is None or max_attempts is None:
-        return game_page(request, game.id)
 
     modes = game.get_modes(attempt)
     attempts_infos = []
