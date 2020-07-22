@@ -15,12 +15,17 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+def load_secret(secret):
+    file = open(os.path.join(BASE_DIR, 'secrets', secret))
+    result = file.read().strip()
+    file.close()
+    return result
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '7h8-u-i6(f6#qpzvy&dkx@gpk)y^2371by7ouvbox=7)o87adv'
+SECRET_KEY = load_secret('django_secret_key.txt')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
