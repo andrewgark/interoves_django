@@ -29,6 +29,7 @@ ALLOWED_HOSTS = [
     'interoves-django-env.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
     'interoves-django.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
     'ec2-35-158-115-233.eu-central-1.compute.amazonaws.com',
+    '172.31.43.189',
     'interoves.ml',
     '127.0.0.1'
 ]
@@ -102,6 +103,17 @@ DATABASES = {
     }
 }
 
+if 'RDS_HOSTNAME' in os.environ:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.environ['RDS_DB_NAME'],
+            'USER': os.environ['RDS_USERNAME'],
+            'PASSWORD': os.environ['RDS_PASSWORD'],
+            'HOST': os.environ['RDS_HOSTNAME'],
+            'PORT': os.environ['RDS_PORT'],
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/2.1/ref/settings/#auth-password-validators
