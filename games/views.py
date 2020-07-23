@@ -155,7 +155,7 @@ def process_send_attempt(request, task_id):
     game = task.task_group.game
 
     if not task.task_group.game.is_available(team):
-        return NoGameAccessException('user {} has no access to game {}'.format(request.user.profile, game))
+        return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     form = AttemptForm(request.POST)
     if not form.is_valid():
@@ -232,6 +232,31 @@ def send_attempt(request, task_id):
     except TooManyAttemptsException:
         response = {'status': 'attempt_limit_exceeded'}
     return JsonResponse(response)
+
+
+def get_answer(request, task_id):
+    task = get_object_or_404(Task, id=task_id)
+    if not has_profile(request.user):
+        raise UserHasNoProfileException('User {} has no profile'.format(request.user))
+    if not request.user.profile.team_on:
+        return PlayGameWithoutTeamException('User {} tries to sent attempt but has no team'.format(request.user.profile))
+
+    team = request.user.profile.team_on
+    game = task.task_group.game
+
+    if not task.task_group.game.is_available(team):
+        return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
+
+    mode = game.get_current_mode(Attempt(time=timezone.now()))
+
+    if mode != 'general':
+        return NoAnswerAccessException('User {} has no access to answers to game {} right now'.format(request.user.profile, game))
+
+    return JsonResponse({
+        'html': render(request, 'answer.html', {
+            'task': task,
+        }).content.decode('UTF-8'),
+    })
 
 
 def results_page(request, game_id, mode='general'):

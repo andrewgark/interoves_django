@@ -576,3 +576,48 @@ select {
 .results-description {
 	margin-bottom: 10px;
 }
+
+/* Answer */
+.task .attempt-form #answerWindow {
+	width: max-content; height: max-content;
+	max-width: 60%;
+	max-height: 60%;
+	margin: 0 auto;
+    padding: 18px 9px;
+    border-radius: 4px;
+    background: #fafafa;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    margin: auto;
+    display: none;
+    opacity: 0;
+    z-index: 38;
+	text-align: center;
+	color: #777;
+	overflow-y: scroll;
+}
+.task .attempt-form #answerWindow ul li {
+color: #777;
+}
+
+#answerWindow #answerWindow__close {
+    width: 21px; height: 21px;
+    position: absolute;
+    top: 1px;   right: 11px;
+    cursor: pointer;
+    display: block;
+    font-size: 29px;
+}
+
+#answerOverlay {
+    z-index: 37;
+    position: fixed;
+    background-color: rgba(0,0,0,.7);
+    width: 100%; height: 100%;
+    top: 0; left: 0;
+    cursor: pointer;
+    display: none;
+}
+.answer-comment-list>li::before {
+	background: #a0ffa0;
+}

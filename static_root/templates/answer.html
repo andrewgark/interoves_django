@@ -1,0 +1,10 @@
+<div id="answerWindow">
+  <h3>Ответ: {{ task.answer }}</h3>
+  <div>
+    {% autoescape off %}
+    {{ task.answer_comment }}
+    {% endautoescape %}
+  </div>
+  <span id="answerWindow__close" class="close">ₓ</span>
+</div>
+<div id="answerOverlay"></div>

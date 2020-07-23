@@ -15,3 +15,6 @@ class TooManyAttemptsException(Exception):
 
 class DuplicateAttemptException(Exception):
     pass
+
+class NoAnswerAccessException:
+    pass

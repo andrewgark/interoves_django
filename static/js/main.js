@@ -67,14 +67,10 @@ function submitAttemptForm(event) {
   $.map(raw_form_data, function(n, i){
       form_data[n['name']] = n['value'];
   });
-  json_form_data = JSON.stringify(form_data);
   param_form_data = $.param(form_data)
   var task_id = $(this).children(".attempt-task-id")[0].value;
   var csrf = $(this).children("input[name=csrfmiddlewaretoken]")[0].value;
 
-  console.log('!! task_id = ' + task_id);
-  console.log('!! json = ' + json_form_data);
-  console.log('!! param = ' + param_form_data);
   $.ajaxSetup({
       headers: { "X-CSRFToken": csrf }
   });
@@ -90,8 +86,67 @@ function submitAttemptForm(event) {
   });
 }
 
+function fadeInAnswer(overlay, window) {
+  overlay.fadeIn(297, function(){
+    window
+    .css('display', 'block')
+    .animate({opacity: 1}, 198);
+  });
+}
+
+function processAnswer(parent, data) {
+  var is_first_time_answer_asked = parent.children('#answerOverlay').length == 0;
+  if (is_first_time_answer_asked) {
+    parent.append($(data['html']));
+  }
+  
+  var overlay = $(parent.children('#answerOverlay')[0]);
+  var window = $(parent.children('#answerWindow')[0]);
+  
+  overlay.fadeIn(297, function(){
+    window
+    .css('display', 'block')
+    .animate({opacity: 1}, 198);
+  });
+
+  if (!is_first_time_answer_asked) {
+    return;
+  }
+
+  var close = parent.children('#answerOverlay').add(window.children('#answerWindow__close'));
+
+  close.click( function(){
+    window.animate({opacity: 0}, 198, function(){
+      $(this).css('display', 'none');
+      overlay.fadeOut(297);
+    });
+  });
+
+}
+
+function showAnswer(event) {
+  event.preventDefault();
+  var parent = $($(this).parent());
+  var form = parent;
+  var task_id = form.children(".attempt-task-id")[0].value;
+  var csrf = form.children("input[name=csrfmiddlewaretoken]")[0].value;
+
+  $.ajaxSetup({
+      headers: { "X-CSRFToken": csrf }
+  });
+  $.ajax({
+      type: 'GET',
+      url: '/get_answer/' + task_id + '/',
+      dataType: 'json',
+      success: function(data) {
+          processAnswer(parent, data)
+      }
+  });
+}
+
 $(document).ready(function() {
   $('.attempt-form').on('submit', submitAttemptForm);
+  $('.show-answer').on('click', showAnswer);
 });
 
 }

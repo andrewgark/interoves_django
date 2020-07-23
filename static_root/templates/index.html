@@ -8,38 +8,7 @@
 <meta name="description" content="">
 <meta name="author" content="">
 
-<!-- Favicons
-    ================================================== -->
-<link rel="apple-touch-icon" sizes="57x57" href="{% static "img/favicon/apple-icon-57x57.png" %}">
-<link rel="apple-touch-icon" sizes="60x60" href="{% static "img/favicon/apple-icon-60x60.png" %}">
-<link rel="apple-touch-icon" sizes="72x72" href="{% static "img/favicon/apple-icon-72x72.png" %}">
-<link rel="apple-touch-icon" sizes="76x76" href="{% static "img/favicon/apple-icon-76x76.png" %}">
-<link rel="apple-touch-icon" sizes="114x114" href="{% static "img/favicon/apple-icon-114x114.png" %}">
-<link rel="apple-touch-icon" sizes="120x120" href="{% static "img/favicon/apple-icon-120x120.png" %}">
-<link rel="apple-touch-icon" sizes="144x144" href="{% static "img/favicon/apple-icon-144x144.png" %}">
-<link rel="apple-touch-icon" sizes="152x152" href="{% static "img/favicon/apple-icon-152x152.png" %}">
-<link rel="apple-touch-icon" sizes="180x180" href="{% static "img/favicon/apple-icon-180x180.png" %}">
-<link rel="icon" type="image/png" sizes="192x192"  href="{% static "img/favicon/android-icon-192x192.png" %}">
-<link rel="icon" type="image/png" sizes="32x32" href="{% static "img/favicon/favicon-32x32.png" %}">
-<link rel="icon" type="image/png" sizes="96x96" href="{% static "img/favicon/favicon-96x96.png" %}">
-<link rel="icon" type="image/png" sizes="16x16" href="{% static "img/favicon/favicon-16x16.png" %}">
-
-<!-- Bootstrap -->
-<link rel="stylesheet" type="text/css"  href="{% static "css/bootstrap.css" %}">
-<link rel="stylesheet" type="text/css" href="{% static "fonts/font-awesome/css/font-awesome.css" %}">
-
-<!-- Slick -->
-<link rel="stylesheet" type="text/css" href="{% static "css/slick/slick.css" %}">
-<link rel="stylesheet" type="text/css" href="{% static "css/slick/slick-theme.css" %}">
-
-<!-- Stylesheet
-    ================================================== -->
-<link rel="stylesheet" type="text/css" href="{% static "css/style.css" %}">
-<link rel="stylesheet" type="text/css" href="{% static "css/nivo-lightbox/nivo-lightbox.css" %}">
-<link rel="stylesheet" type="text/css" href="{% static "css/nivo-lightbox/default.css" %}">
-<link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css?family=Lato:400,700" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css?family=Raleway:300,400,500,600,700,800,900" rel="stylesheet">
+{% include "style_header.html" %}
 
 <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
 <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
@@ -106,13 +75,8 @@
   </div>
 </div>
 {% include "footer.html" %}
-<script type="text/javascript" src="{% static "js/jquery.1.11.1.js" %}"></script> 
-<script type="text/javascript" src="{% static "js/bootstrap.js" %}"></script> 
-<script type="text/javascript" src="{% static "js/SmoothScroll.js" %}"></script> 
-<script type="text/javascript" src="{% static "js/nivo-lightbox.js" %}"></script> 
-<script type="text/javascript" src="{% static "js/jqBootstrapValidation.js" %}"></script> 
+{% include "scripts.html" %}
 <script type="text/javascript" src="{% static "js/slick.min.js" %}"></script>
-<script type="text/javascript" src="{% static "js/main.js" %}"></script>
 <script type="text/javascript" src="//cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
 
 <script type="text/javascript">
