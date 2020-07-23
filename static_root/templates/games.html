@@ -2,7 +2,7 @@
   {% for game in games %}
     <div>
       <p>{{ game.start_time|date:'d E Y' }}<br>{{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }}</p>
-      <img src="/media/{{ game.image }}" class="game_icon">
+      <img src="{{ game.image.url }}" class="game_icon">
       <h3>{{ game.name }}</h3>
       {% if game.theme %} <p>Тема: {{ game.theme }}</p> {% endif %}
       <p>Автор: {{ game.author }}</p>

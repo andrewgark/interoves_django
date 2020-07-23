@@ -110,7 +110,7 @@
         <li class="li-task li-{{ attempts_info.best_attempt.status|get_lower_status }} {{ task_group.get_li_class }}">
           <div class="task">
             <h4>{{ task.number }}.</h4>
-            {% if task.image %}<img class="task-image" src="/media/{{ task.image }}" width="{{ task.get_image_width }}"><br>{% endif %}
+            {% if task.image %}<img class="task-image" src="{{ task.image.url }}" width="{{ task.get_image_width }}"><br>{% endif %}
             {{ task.text }}<br>
             {% if attempts_info.best_attempt.status != 'Ok' %}
               {% if not attempts_info or attempts_info.mode == 'general' or attempts_info.get_n_attempts < task.get_max_attempts %}
@@ -152,7 +152,7 @@
     </div>
   </div>
 {% endfor %}
-{% include "header.html" %}
+{% include "footer.html" %}
 <script type="text/javascript" src="{% static "js/jquery.1.11.1.js" %}"></script> 
 <script type="text/javascript" src="{% static "js/bootstrap.js" %}"></script> 
 <script type="text/javascript" src="{% static "js/SmoothScroll.js" %}"></script> 

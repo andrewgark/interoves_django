@@ -1,4 +1,6 @@
 appdirs==1.4.3
+boto3==1.14.26
+botocore==1.17.26
 CacheControl==0.12.6
 certifi==2019.11.28
 chardet==3.0.4
@@ -10,9 +12,12 @@ distro==1.4.0
 Django==2.1.5
 django-allauth==0.42.0
 django-health-check==3.12.1
+django-storages==1.9.1
+docutils==0.15.2
 html5lib==1.0.1
 idna==2.8
 ipaddr==2.2.0
+jmespath==0.10.0
 lockfile==0.12.2
 msgpack==0.6.2
 mysqlclient==2.0.1
@@ -22,12 +27,14 @@ pep517==0.8.2
 Pillow==7.2.0
 progress==1.5
 pyparsing==2.4.6
+python-dateutil==2.8.1
 python3-openid==3.2.0
 pytoml==0.1.21
 pytz==2020.1
 requests==2.22.0
 requests-oauthlib==1.3.0
 retrying==1.3.3
+s3transfer==0.3.3
 six==1.14.0
 urllib3==1.25.8
 webencodings==0.5.1
