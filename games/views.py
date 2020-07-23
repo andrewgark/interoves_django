@@ -1,8 +1,10 @@
 from django.contrib.auth import get_user_model
+from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views import defaults
 from django.utils import timezone
 from games.check import CheckerFactory
+from games.exception import *
 from games.forms import CreateTeamForm, JoinTeamForm, AttemptForm
 from games.models import Team, Game, Attempt, AttemptsInfo, Task
 
@@ -103,10 +105,7 @@ def game_page(request, game_id):
     if not game.is_available(request.user.profile.team_on):
         return defaults.page_not_found(request)
 
-    if 'tournament' in game.get_modes(Attempt(time=timezone.now())):
-        mode = 'tournament'
-    else:
-        mode = 'general'
+    mode = game.get_current_mode(Attempt(time=timezone.now()))
 
     task_to_attempts_info = get_task_to_attempts_info(game, request.user.profile.team_on, mode)
     
@@ -145,19 +144,22 @@ def update_attempts_info(attempts_info, attempt):
     attempts_info.save()
 
 
-def send_attempt(request, task_id):
+def process_send_attempt(request, task_id):
     task = get_object_or_404(Task, id=task_id)
-    if not (has_profile(request.user) and request.user.profile.team_on):
-        return main_page(request)
+    if not has_profile(request.user):
+        raise UserHasNoProfileException('User {} has no profile'.format(request.user))
+    if not request.user.profile.team_on:
+        return PlayGameWithoutTeamException('User {} tries to sent attempt but has no team'.format(request.user.profile))
+
     team = request.user.profile.team_on
     game = task.task_group.game
 
     if not task.task_group.game.is_available(team):
-        return defaults.page_not_found(request)
+        return NoGameAccessException('user {} has no access to game {}'.format(request.user.profile, game))
 
     form = AttemptForm(request.POST)
     if not form.is_valid():
-        return defaults.page_not_found(request)
+        return InvalidFormException('attempt form {} is not valid'.format(form))
 
     attempt = form.save(commit=False)
     attempt.team = team
@@ -170,6 +172,9 @@ def send_attempt(request, task_id):
 
     modes = game.get_modes(attempt)
     attempts_infos = []
+    
+    current_mode = game.get_current_mode(attempt)
+    current_attempts_info = None
 
     for mode in modes:
         attempts_info_filter = AttemptsInfo.objects.filter(team=team, task=task, mode=mode)
@@ -182,15 +187,16 @@ def send_attempt(request, task_id):
             attempts_info = AttemptsInfo(task=task, team=team, mode=mode)
 
         if mode == 'tournament' and n_attempts >= max_attempts:
-            # отправлять ошибку, что слишком много посылок
-            return game_page(request, game.id)
+            raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {}'.format(team, max_attempts, task))
 
         if attempts_info_filter:
             for other_attempt in attempts_info.attempts.all():
                 if attempt.text == other_attempt.text:
-                    # отправлять ошибку, что это посылка - дубликат
-                    return game_page(request, game.id)
+                    raise DuplicateAttemptException('Attempt duplicates one of the previous attempts by this team')
         attempts_infos.append(attempts_info)
+        if mode == current_mode:
+            current_attempts_info = attempts_info
+    assert current_attempts_info is not None
 
     checker = CheckerFactory().create_checker(checker_type, attempt.task.checker_data)
     attempt.status, attempt.points = checker.check(attempt.text)
@@ -206,8 +212,26 @@ def send_attempt(request, task_id):
         attempt.attempts_infos.add(attempts_info)
 
     attempt.save(force_update=True)
+    return {
+        'status': 'ok',
+        'task_id': task.id,
+        'html': render(request, 'task.html', {
+            'task': task,
+            'task_group': task.task_group,
+            'attempts_info': current_attempts_info,
+            'mode': current_mode,
+        }).content.decode('UTF-8'),
+    }
 
-    return game_page(request, game.id)
+
+def send_attempt(request, task_id):
+    try:
+        response = process_send_attempt(request, task_id)
+    except DuplicateAttemptException:
+        response = {'status': 'duplicate'}
+    except TooManyAttemptsException:
+        response = {'status': 'attempt_limit_exceeded'}
+    return JsonResponse(response)
 
 
 def results_page(request, game_id, mode='general'):

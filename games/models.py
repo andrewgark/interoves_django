@@ -117,6 +117,11 @@ class Game(models.Model):
             if self.is_tournaments:
                 modes.append('tournament')
         return modes
+    
+    def get_current_mode(self, attempt):
+        if 'tournament' in self.get_modes(attempt):
+            return 'tournament'
+        return 'general'
 
 
 class TaskGroup(models.Model):
