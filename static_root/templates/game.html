@@ -36,7 +36,13 @@
           <li><a href="#task-group-{{ task_group.number }}" class="page-scroll">{{ task_group.number }}</a></li>
         {% endfor %}
         {% if mode == 'tournament' %}<li><a href="/tournament_results/{{ game.id }}/">Результаты</a></li>{% endif %}
-        {% if mode == 'general' %}<li><a href="/results/{{ game.id }}/">Результаты</a></li>{% endif %}
+        {% if mode == 'general' %}
+          {% if game.is_tournament %}
+            <li><a href="/results/{{ game.id }}/">Общие результаты</a></li>
+            <li><a href="/tournament_results/{{ game.id }}/">Результаты турнира</a></li>
+          {% endif %}
+          <li><a href="/results/{{ game.id }}/">Результаты</a></li>
+        {% endif %}
       </ul>
     </div>
     <!-- /.navbar-collapse --> 

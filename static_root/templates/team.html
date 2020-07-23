@@ -28,6 +28,7 @@
           <a href="/quit_from_team" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Выйти из команды</a>
         {% elif user.profile.team_requested  %}
           <h2>Вы подали заявку в команду: <b>{{ user.profile.team_requested }}</b></h2>
+          <p>Чтобы участвовать в играх, необходимо иметь команду.</p>
           {% if user.profile.team_requested.users_on.all %}
             <p>Состав этой команды:</p>
             <ul class="list-rectangle team-on-list">
@@ -35,6 +36,8 @@
                 <li>{{ team_member }}</li>
               {% endfor %}
             </ul>
+          {% else %}
+            <p>В этой команде никого нет, поэтому никто не сможет подтвердить вашу заявку.</p>
           {% endif %}
           <br>
           <p>Заявки на принятие подали:</p>
@@ -46,6 +49,7 @@
           <a href="/quit_from_team" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Отменить заявку</a>
         {% else %}
           <h2>У вас нет команды</h2>
+          <p>Чтобы участвовать в играх, необходимо иметь команду.</p>
           <form action = "{% url 'create_team' %}" method = "post">
             {% csrf_token %}
             {% for field in create_team_form.visible_fields %}

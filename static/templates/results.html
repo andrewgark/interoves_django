@@ -32,6 +32,15 @@
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav navbar-right">
         <li><a href="#page-top" class="page-scroll">Наверх</a></li>
+        {% if game|game_is_available:user.profile.team_on %}
+          <li><a href="/games/{{ game.id }}/">Игра</a></li>
+        {% endif %}
+        {% if mode == 'tournament' %}
+          <li><a href="/tournament_results/{{ game.id }}/">Общие результаты</a></li>
+        {% endif %}
+        {% if mode == 'general' and game.is_tournament %}
+          <li><a href="/results/{{ game.id }}/">Результаты турнира</a></li>
+        {% endif %}
       </ul>
     </div>
     <!-- /.navbar-collapse --> 

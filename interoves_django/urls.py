@@ -25,7 +25,6 @@ from games.views import main_page, game_page, results_page, \
                         confirm_user_joining_team, reject_user_joining_team, \
                         send_attempt, get_answer, \
                         get_tournament_results
-# from allauth.account.views import LogoutView
 
 
 urlpatterns = [

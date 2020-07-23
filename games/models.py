@@ -15,6 +15,12 @@ class Team(models.Model):
 
     def __str__(self):
         return self.name
+    
+    def get_n_users_on(self):
+        return len(self.users_on.all())
+    
+    def get_n_users_requested(self):
+        return len(self.users_requested.all())
 
 
 class Profile(models.Model):
@@ -22,6 +28,7 @@ class Profile(models.Model):
     first_name = models.TextField()
     last_name = models.TextField()
     avatar_url = models.TextField(blank=True, null=True)
+    vk_url = models.TextField(blank=True, null=True)
     team_on = models.ForeignKey(Team, related_name='users_on', blank=True, null=True, on_delete=models.SET_NULL)
     team_requested = models.ForeignKey(Team, related_name='users_requested', blank=True, null=True, on_delete=models.SET_NULL)
 
@@ -261,13 +268,15 @@ class ProxyAttempt(Attempt):
 
 def create_profile(sender, **kw):
     social_account = kw["instance"]
+    print(social_account.extra_data)
     if kw["created"]:
         user = social_account.user
         profile = Profile(
             user=user,
             first_name=social_account.extra_data['first_name'],
             last_name=social_account.extra_data['last_name'],
-            avatar_url=social_account.extra_data['photo_medium']
+            avatar_url=social_account.extra_data['photo_medium'],
+            vk_url='vk.com/{}'.format(social_account.extra_data['screen_name']),
         )
         profile.save()
 

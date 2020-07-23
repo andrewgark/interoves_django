@@ -4,7 +4,22 @@ from django.db import models
 from games.models import *
 
 
-admin.site.register([Team, Profile, CheckerType, HTMLPage, AttemptsInfo])
+admin.site.register([CheckerType, HTMLPage])
+
+
+@admin.register(Team)
+class TeamAdmin(admin.ModelAdmin):
+    list_display = ['name', 'get_n_users_on', 'get_n_users_requested', 'is_tester', 'is_hidden']
+
+
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ['__str__', 'team_on', 'team_requested', 'vk_url']
+
+
+@admin.register(AttemptsInfo)
+class AttemptsInfoAdmin(admin.ModelAdmin):
+    list_display = ['__str__', 'team', 'task', 'mode', 'get_n_attempts', 'best_attempt']
 
 
 class TaskInline(admin.TabularInline):
