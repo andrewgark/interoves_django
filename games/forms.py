@@ -16,8 +16,9 @@ class JoinTeamForm(Form):
     def __init__(self, *args, **kwargs):
         super(JoinTeamForm, self).__init__(*args, **kwargs)
         self.fields['name'].choices = [('', 'Выберите команду')]
-        for x in sorted(Team.objects.all(), key=lambda t: t.name):
-            self.fields['name'].choices.append((x.name, x.name))
+        for team in sorted(Team.objects.all(), key=lambda t: t.name):
+            if not team.is_hidden:
+                self.fields['name'].choices.append((team.name, team.name))
 
     name = ChoiceField(
         choices=(),

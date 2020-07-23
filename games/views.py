@@ -231,16 +231,17 @@ def results_page(request, game_id, mode='general'):
                 if attempts_info.best_attempt:
                     team = attempts_info.team
 
-                    if team not in team_to_score:
-                        team_to_score[team] = 0
-                    team_to_score[team] += attempts_info.best_attempt.points
+                    if not team.is_hidden:
+                        if team not in team_to_score:
+                            team_to_score[team] = 0
+                        team_to_score[team] += attempts_info.best_attempt.points
 
-                    if team not in team_to_max_best_time:
-                        team_to_max_best_time[team] = attempts_info.best_attempt.time
-                    else:
-                        team_to_max_best_time[team] = max(team_to_max_best_time[team], attempts_info.best_attempt.time)
-                    
-                    team_task_to_attempts_info[(team, task)] = attempts_info
+                        if team not in team_to_max_best_time:
+                            team_to_max_best_time[team] = attempts_info.best_attempt.time
+                        else:
+                            team_to_max_best_time[team] = max(team_to_max_best_time[team], attempts_info.best_attempt.time)
+                        
+                        team_task_to_attempts_info[(team, task)] = attempts_info
     
     for team in team_to_score.keys():
         for task_group in task_groups:

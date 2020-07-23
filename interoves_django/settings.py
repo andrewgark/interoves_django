@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 
 import os
 
+
+IS_PROD = os.getenv('IS_PROD') == 'TRUE'
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -28,7 +31,7 @@ def load_secret(secret):
 SECRET_KEY = load_secret('django_secret_key.txt')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = not IS_PROD
 
 ALLOWED_HOSTS = [
     'interoves-django-env.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
@@ -198,7 +201,11 @@ AUTHENTICATION_BACKENDS = (
  'allauth.account.auth_backends.AuthenticationBackend',
  )
 
-SITE_ID = 2
+if IS_PROD:
+    SITE_ID = 2
+else:
+    SITE_ID = 1
+
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
