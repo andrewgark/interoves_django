@@ -114,7 +114,6 @@ function init() {
              html.offsetHeight <= windowHeight)) {
 
         html.style.height = 'auto';
-        setTimeout(refresh, 10);
 
         // clearfix
         if (root.offsetHeight <= windowHeight) {
@@ -515,8 +514,8 @@ var isChrome = /chrome/i.test(window.navigator.userAgent);
 var isMouseWheelSupported = 'onmousewheel' in document; 
 
 if (isMouseWheelSupported && isChrome) {
-	addEvent("mousedown", mousedown);
-	addEvent("mousewheel", wheel);
+	addEvent("mousedown", mousedown, {'passive': false});
+	addEvent("mousewheel", wheel, {'passive': false});
 	addEvent("load", init);
 };
 
