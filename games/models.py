@@ -145,6 +145,7 @@ class TaskGroup(models.Model):
 
     VIEW_VARIANTS = (
         ('default', 'default'),
+        ('table-3-n', 'table-3-n')
     )
 
     view = models.CharField(default='default', max_length=100, choices=VIEW_VARIANTS)
@@ -153,6 +154,8 @@ class TaskGroup(models.Model):
         return '[{}]: {}. {}'.format(self.game.name, self.number, self.name)
 
     def get_li_class(self):
+        if self.view == 'table-3-n':
+            return 'table-3-n-cell'
         return ''
 
     def get_attempt_form(self):

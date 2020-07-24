@@ -629,3 +629,9 @@ color: #777;
 .answer-comment-list>li::before {
 	background: #a0ffa0;
 }
+
+/* Views */
+.list-rectangle .table-3-n-cell {
+	width: 33%;
+    display: inline-block;
+}
