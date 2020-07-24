@@ -67,9 +67,14 @@ INSTALLED_APPS = [
     'health_check.storage',
 
     'storages',
+
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
+
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -219,3 +224,16 @@ SOCIALACCOUNT_PROVIDERS = {
         }
     }
 }
+
+# CORS Policy
+
+CORS_ORIGIN_ALLOW_ALL = False
+
+CORS_ALLOW_HEADERS = (
+   'Access-Control-Allow-Headers',
+   'Access-Control-Allow-Credentials',
+)
+
+CORS_ORIGIN_WHITELIST = [
+    'https://interoves-django-static.s3.amazonaws.com',
+]

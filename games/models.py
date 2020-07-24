@@ -271,7 +271,6 @@ class ProxyAttempt(Attempt):
 
 def create_profile(sender, **kw):
     social_account = kw["instance"]
-    print(social_account.extra_data)
     if kw["created"]:
         user = social_account.user
         profile = Profile(
