@@ -91,7 +91,7 @@ class Game(models.Model):
             return False
         if self.is_ready and self.has_started():
             return True
-        if self.is_testing and team.is_tester:
+        if self.is_testing and team and team.is_tester and self.has_started():
             return True
         return False
 

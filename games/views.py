@@ -9,10 +9,14 @@ from games.forms import CreateTeamForm, JoinTeamForm, AttemptForm
 from games.models import Team, Game, Attempt, AttemptsInfo, Task
 
 
-def get_games_list():
+def get_games_list(request):
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
+
     games_list = []
     for game in Game.objects.all():
-        if game.is_ready:
+        if game.is_ready or (game.is_testing and team and team.is_tester):
             games_list.append(game)
     return sorted(games_list, key=lambda game: (game.start_time, game.name), reverse=True)
 
@@ -21,13 +25,13 @@ def main_page(request):
     return render(request, 'index.html', {
         'create_team_form': CreateTeamForm(),
         'join_team_form': JoinTeamForm(),
-        'games': get_games_list(),
+        'games': get_games_list(request),
         'today': timezone.now()
     })
 
 
 def has_profile(user):
-    return user and user.profile
+    return user and getattr(user, 'profile', None)
 
 
 def create_team(request):

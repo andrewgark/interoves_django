@@ -45,6 +45,7 @@ a:hover, a:focus {
 	text-decoration: none;
 	color: #608dfd;
 }
+
 ul, ol {
 	list-style: none;
 }
@@ -314,6 +315,13 @@ header .btn-custom {
 	color: #1f386e;
 	background: #fff;
 }
+#myteam a {
+	color: #fff;
+}
+#myteam a:hover, a:focus {
+	color: #fff;
+}
+
 label {
 	font-size: 15px;
 	font-weight: 400;
