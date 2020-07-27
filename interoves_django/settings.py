@@ -45,11 +45,21 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
 ]
 
-ELB_HEALTHCHECK_HOSTNAME = requests.get('http://169.254.169.254/latest/meta-data/local-ipv4', timeout=2).text
-ELB_HEALTHCHECK_HOSTNAMES = [ip for network in 
-    requests.get(os.environ['ECS_CONTAINER_METADATA_URI']).json()['Networks']
-    for ip in network['IPv4Addresses']]
-ALLOWED_HOSTS += ELB_HEALTHCHECK_HOSTNAMES
+def get_ec2_instance_ip():
+    """
+    Try to obtain the IP address of the current EC2 instance in AWS
+    """
+    try:
+        ip = requests.get(
+          'http://169.254.169.254/latest/meta-data/local-ipv4',
+          timeout=0.01
+        ).text
+    except requests.exceptions.ConnectionError:
+        return None
+    return ip
+
+AWS_LOCAL_IP = get_ec2_instance_ip()
+ALLOWED_HOSTS += AWS_LOCAL_IP
 
 # Application definition
 
