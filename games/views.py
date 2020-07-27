@@ -240,6 +240,14 @@ def send_attempt(request, task_id):
     return JsonResponse(response)
 
 
+def task_ok_by_team(task, team, mode):
+    attempts_info_filter = AttemptsInfo.objects.filter(team=team, task=task, mode=mode)
+    if not attempts_info_filter:
+        return False
+    attempts_info = attempts_info_filter[0]
+    return attempts_info and attempts_info.best_attempt and attempts_info.best_attempt.status == 'Ok'
+
+
 def get_answer(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     if not has_profile(request.user):
@@ -255,8 +263,8 @@ def get_answer(request, task_id):
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
 
-    if mode != 'general':
-        return NoAnswerAccessException('User {} has no access to answers to game {} right now'.format(request.user.profile, game))
+    if mode != 'general' and not task_ok_by_team(task, request.user.profile.team_on, mode):
+        return NoAnswerAccessException('User {} has no access to answers to task {} right now'.format(request.user.profile, task))
 
     return JsonResponse({
         'html': render(request, 'answer.html', {

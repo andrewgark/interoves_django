@@ -58,7 +58,7 @@ function processNewAttempt(form, data) {
   var task_html_id = 'task-' + data['task_id'];
   $('#' + task_html_id).replaceWith(data['html']);
   $('#' + task_html_id + ' .attempt-form').on('submit', submitAttemptForm);
-  $('#' + task_html_id + ' .attempt-form .show-answer').on('click', showAnswer);
+  $('#' + task_html_id + ' .show-answer').on('click', showAnswer);
 }
 
 function submitAttemptForm(event) {
@@ -100,7 +100,7 @@ function processAnswer(parent, data) {
   if (is_first_time_answer_asked) {
     parent.append($(data['html']));
   }
-  
+
   var overlay = $(parent.children('#answerOverlay')[0]);
   var window = $(parent.children('#answerWindow')[0]);
   
