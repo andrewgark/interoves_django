@@ -59,7 +59,7 @@ def get_ec2_instance_ip():
     return ip
 
 AWS_LOCAL_IP = get_ec2_instance_ip()
-ALLOWED_HOSTS += AWS_LOCAL_IP
+ALLOWED_HOSTS.append(AWS_LOCAL_IP)
 
 # Application definition
 
