@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
+import requests
 
 
 IS_PROD = os.getenv('IS_PROD') == 'TRUE'
@@ -40,9 +41,15 @@ ALLOWED_HOSTS = [
     'ec2-35-158-115-233.eu-central-1.compute.amazonaws.com',
     '172.31.43.189',
     'interoves.ml',
+    'www.interoves.ml',
     '127.0.0.1',
 ]
 
+ELB_HEALTHCHECK_HOSTNAME = requests.get('http://169.254.169.254/latest/meta-data/local-ipv4', timeout=2).text
+ELB_HEALTHCHECK_HOSTNAMES = [ip for network in 
+    requests.get(os.environ['ECS_CONTAINER_METADATA_URI']).json()['Networks']
+    for ip in network['IPv4Addresses']]
+ALLOWED_HOSTS += ELB_HEALTHCHECK_HOSTNAMES
 
 # Application definition
 
