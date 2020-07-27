@@ -59,63 +59,61 @@
     </div>
   </div>
 </header>
-<div class="results-wrapper">
-  <div id="results-table" class="text-center">
-    <div class="container">
-      <div class="col-md-10 col-md-offset-1 section-title">
-        <h2>{% if mode == 'tournament' %}Турнирная таблица{% else %}Общая таблица{% endif %}</h2>
+<div id="results-section" class="text-center">
+  <div class="container">
+    <div class="col-md-10 col-md-offset-1 section-title">
+      <h2>{% if mode == 'tournament' %}Турнирная таблица{% else %}Общая таблица{% endif %}</h2>
+    </div>
+  </div>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-8 col-md-offset-2 results-description">
+        {% if mode == 'tournament' %}
+          В турнирной таблице учитываются только посылки во время игры: с {{ game.start_time|date:'H:i' }} до {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}.
+        {% else %}
+          В общей таблице учитываются все посылки, посланные и во время игры, и после.
+        {% endif %}
       </div>
     </div>
-    <div class="container">
-      <div class="row">
-        <div class="col-md-8 col-md-offset-2 results-description">
-          {% if mode == 'tournament' %}
-            В турнирной таблице учитываются только посылки во время игры: с {{ game.start_time|date:'H:i' }} до {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}.
-          {% else %}
-            В общей таблице учитываются все посылки, посланные и во время игры, и после.
-          {% endif %}
-        </div>
-      </div>
-    </div>
-    <div class="container">
-      <div class="row">
-        <div class="col-md-12">
-          <table class="table table-bordered table-results">
-            <tr>
-              <th rowspan="2" scope="col" class="cell-header">Команда</th>
-              <th rowspan="2" scope="col" class="cell-header">Сумма</th>
-              {% if mode == 'tournament' %}
-                <th rowspan="2" scope="col" class="cell-header">Время</th>
-              {% endif %}
-              {% for task_group in task_groups %}
-                  <th colspan="{{ task_group.get_n_tasks }}" scope="col" class="cell-header">{{ task_group.number }}. {{ task_group.name }}</th>
-              {% endfor %}
-            </tr>
-            <tr>
-              {% for task_group in task_groups %}
-                  {% for task in task_group_to_tasks|get_item:task_group.number %}
-                  <th scope="col" class="cell-header">{{ task.number }}</th>
-                  {% endfor %}
-              {% endfor %}
-            </tr>
-            {% for team in teams_sorted %}
-              <tr>
-                  <td scope="row" class="row-header"> {{ team.name }} </td>
-                  <td class="row-header"> {{ team_to_score|get_item:team|minimize_digits }} </td>
-                  {% if mode == 'tournament' %}
-                    <td class="row-header"> {{ team_to_max_best_time|get_item:team|date:'H:i' }} </td>
-                  {% endif %}
-                  {% for attempts_info in team_to_list_attempts_info|get_item:team %}
-                    <td class="cell cell-{% if attempts_info.best_attempt.status %}{{ attempts_info.best_attempt.status|get_lower_status }}{% else %}no{% endif %}">
-                      {% if attempts_info.get_n_attempts > 0 %}
-                        {{ attempts_info.best_attempt.points|minimize_digits }}
-                      {% endif %}
-                    </td>
-                  {% endfor %}
-              </tr>
+  </div>
+  <div class="container results-table" data-simplebar>
+    <div class="row">
+      <div class="col-md-12">
+        <table class="table table-bordered table-results">
+          <tr>
+            <th rowspan="2" scope="col" class="cell-header">Команда</th>
+            <th rowspan="2" scope="col" class="cell-header">Сумма</th>
+            {% if mode == 'tournament' %}
+              <th rowspan="2" scope="col" class="cell-header">Время</th>
+            {% endif %}
+            {% for task_group in task_groups %}
+              <th colspan="{{ task_group.get_n_tasks }}" scope="col" class="cell-header">{{ task_group.number }}. {{ task_group.name }}</th>
             {% endfor %}
-          </table>
-        </div>
+          </tr>
+          <tr>
+            {% for task_group in task_groups %}
+                {% for task in task_group_to_tasks|get_item:task_group.number %}
+                <th scope="col" class="cell-header">{{ task.number }}</th>
+                {% endfor %}
+            {% endfor %}
+          </tr>
+          {% for team in teams_sorted %}
+            <tr>
+                <td scope="row" class="row-header"> {{ team.name }} </td>
+                <td class="row-header"> {{ team_to_score|get_item:team|minimize_digits }} </td>
+                {% if mode == 'tournament' %}
+                  <td class="row-header"> {{ team_to_max_best_time|get_item:team|date:'H:i' }} </td>
+                {% endif %}
+                {% for attempts_info in team_to_list_attempts_info|get_item:team %}
+                  <td class="cell cell-{% if attempts_info.best_attempt.status %}{{ attempts_info.best_attempt.status|get_lower_status }}{% else %}no{% endif %}">
+                    {% if attempts_info.get_n_attempts > 0 %}
+                      {{ attempts_info.best_attempt.points|minimize_digits }}
+                    {% endif %}
+                  </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </table>
       </div>
     </div>
   </div>

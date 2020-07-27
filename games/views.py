@@ -321,7 +321,7 @@ def results_page(request, game_id, mode='general'):
     teams_sorted = []
     for team in team_to_score.keys():
         score = team_to_score[team]
-        max_best_time = team_to_max_best_time[team]
+        max_best_time = team_to_max_best_time.get(team, None)
         teams_sorted.append((-score, max_best_time, team))
     teams_sorted = [team for anti_score, max_best_time, team in sorted(teams_sorted)]
 

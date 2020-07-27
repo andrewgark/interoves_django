@@ -1,6 +1,6 @@
 <div id="answerWindow">
   <h3>Ответ: {{ task.answer }}</h3>
-  <div>
+  <div data-simplebar>
     {% autoescape off %}
     {{ task.answer_comment }}
     {% endautoescape %}

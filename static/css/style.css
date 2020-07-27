@@ -579,16 +579,8 @@ select {
 }
 
 /* Table of results */
-#results-table {
+#results-section {
 	background: #f6f6f6;
-	overflow-x: scroll;
-/*	height: 100%;
-	width: 100%;*/
-}
-.results-wrapper {
-/*	height: 100%;
-	width: 100%;
-	position: fixed;*/
 }
 .table-results th {
 	background: #e8f0ff;
@@ -631,9 +623,7 @@ select {
     opacity: 0;
     z-index: 38;
 	text-align: center;
-	color: #777;
-	overflow-y: scroll;
-	
+	color: #777;	
 }
 .task .attempt-form #answerWindow ul li {
 color: #777;
