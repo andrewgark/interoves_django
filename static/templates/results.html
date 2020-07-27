@@ -10,6 +10,7 @@
 <meta name="author" content="">
 
 {% include "style_header.html" %}
+<link rel="stylesheet" href="{% static "css/jquery.stickytable.css" %}">
 
 <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
 <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
@@ -78,41 +79,45 @@
   </div>
   <div class="container results-table" data-simplebar>
     <div class="row">
-      <div class="col-md-12">
+      <div class="col-md-12 sticky-table sticky-headers sticky-ltr-cells">
         <table class="table table-bordered table-results">
-          <tr>
-            <th rowspan="2" scope="col" class="cell-header">Команда</th>
-            <th rowspan="2" scope="col" class="cell-header">Сумма</th>
-            {% if mode == 'tournament' %}
-              <th rowspan="2" scope="col" class="cell-header">Время</th>
-            {% endif %}
-            {% for task_group in task_groups %}
-              <th colspan="{{ task_group.get_n_tasks }}" scope="col" class="cell-header">{{ task_group.number }}. {{ task_group.name }}</th>
-            {% endfor %}
-          </tr>
-          <tr>
-            {% for task_group in task_groups %}
-                {% for task in task_group_to_tasks|get_item:task_group.number %}
-                <th scope="col" class="cell-header">{{ task.number }}</th>
-                {% endfor %}
-            {% endfor %}
-          </tr>
-          {% for team in teams_sorted %}
-            <tr>
-                <td scope="row" class="row-header"> {{ team.name }} </td>
-                <td class="row-header"> {{ team_to_score|get_item:team|minimize_digits }} </td>
-                {% if mode == 'tournament' %}
-                  <td class="row-header"> {{ team_to_max_best_time|get_item:team|date:'H:i' }} </td>
-                {% endif %}
-                {% for attempts_info in team_to_list_attempts_info|get_item:team %}
-                  <td class="cell cell-{% if attempts_info.best_attempt.status %}{{ attempts_info.best_attempt.status|get_lower_status }}{% else %}no{% endif %}">
-                    {% if attempts_info.get_n_attempts > 0 %}
-                      {{ attempts_info.best_attempt.points|minimize_digits }}
-                    {% endif %}
-                  </td>
+          <thead>
+            <tr class="sticky-row">
+              <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Команда</th>
+              <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Сумма</th>
+              {% if mode == 'tournament' %}
+                <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Время</th>
+              {% endif %}
+              {% for task_group in task_groups %}
+                <th colspan="{{ task_group.get_n_tasks }}" scope="col" class="cell-header">{{ task_group.number }}. {{ task_group.name }}</th>
               {% endfor %}
             </tr>
-          {% endfor %}
+            <tr class="sticky-row">
+              {% for task_group in task_groups %}
+                  {% for task in task_group_to_tasks|get_item:task_group.number %}
+                  <th scope="col" class="cell-header">{{ task.number }}</th>
+                  {% endfor %}
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for team in teams_sorted %}
+              <tr>
+                  <th scope="row" class="row-header sticky-cell"> {{ team.name }} </th>
+                  <th scope="row" class="row-header sticky-cell"> {{ team_to_score|get_item:team|minimize_digits }} </th>
+                  {% if mode == 'tournament' %}
+                    <th scope="row" class="row-header sticky-cell"> {{ team_to_max_best_time|get_item:team|date:'H:i' }} </th>
+                  {% endif %}
+                  {% for attempts_info in team_to_list_attempts_info|get_item:team %}
+                    <td class="cell cell-{% if attempts_info.best_attempt.status %}{{ attempts_info.best_attempt.status|get_lower_status }}{% else %}no{% endif %}">
+                      {% if attempts_info.get_n_attempts > 0 %}
+                        {{ attempts_info.best_attempt.points|minimize_digits }}
+                      {% endif %}
+                    </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
         </table>
       </div>
     </div>
@@ -120,5 +125,6 @@
 </div>
 {% include "footer.html" %}
 {% include "scripts.html" %}
+<script src="{% static "js/jquery.stickytable.min.js" %}"></script>
 </body>
 </html>

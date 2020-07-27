@@ -582,10 +582,16 @@ select {
 #results-section {
 	background: #f6f6f6;
 }
-.table-results th {
+.results-table {
+	max-height: 600px;
+}
+.corner-header {
 	background: #e8f0ff;
 }
-.row-header {
+.table-results thead {
+	background: #e8f0ff;
+}
+th.row-header {
 	background: #d8e8ff;
 }
 .cell-wrong {
