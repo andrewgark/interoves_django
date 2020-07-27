@@ -82,7 +82,7 @@
       <div class="col-md-12 sticky-table sticky-headers sticky-ltr-cells">
         <table class="table table-bordered table-results">
           <thead>
-            <tr class="sticky-row">
+            <tr class="sticky-header">
               <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Команда</th>
               <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Сумма</th>
               {% if mode == 'tournament' %}
@@ -92,7 +92,7 @@
                 <th colspan="{{ task_group.get_n_tasks }}" scope="col" class="cell-header">{{ task_group.number }}. {{ task_group.name }}</th>
               {% endfor %}
             </tr>
-            <tr class="sticky-row">
+            <tr class="sticky-header">
               {% for task_group in task_groups %}
                   {% for task in task_group_to_tasks|get_item:task_group.number %}
                   <th scope="col" class="cell-header">{{ task.number }}</th>
@@ -125,6 +125,6 @@
 </div>
 {% include "footer.html" %}
 {% include "scripts.html" %}
-<script src="{% static "js/jquery.stickytable.js" %}"></script>
+<script src="{% static "js/jquery.stickytable.min.js" %}"></script>
 </body>
 </html>

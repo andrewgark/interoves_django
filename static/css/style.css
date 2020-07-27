@@ -588,7 +588,7 @@ select {
 .corner-header {
 	background: #e8f0ff;
 }
-.table-results thead {
+.cell-header {
 	background: #e8f0ff;
 }
 th.row-header {
