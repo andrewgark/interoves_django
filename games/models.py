@@ -84,6 +84,15 @@ class Game(models.Model):
             return True
         return False
 
+    def has_ended(self):
+        now = timezone.now()
+        if self.is_playable and now > self.end_time:
+            return True
+        return False
+
+    def has_started_not_over(self):
+        return self.has_started() and not self.has_ended()
+
     def results_are_available(self, team, mode='general'):
         if mode == 'tournament' and not self.is_tournament:
             return False
@@ -121,7 +130,7 @@ class Game(models.Model):
             modes.append('general')
         if self.get_time_reference(attempt) == 'during':
             modes.append('general')
-            if self.is_tournaments:
+            if self.is_tournament:
                 modes.append('tournament')
         return modes
     
@@ -169,7 +178,7 @@ class TaskGroup(models.Model):
 class Task(models.Model):
     id = models.AutoField(primary_key=True)
     task_group = models.ForeignKey(TaskGroup, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL)
-    number = models.IntegerField()
+    number = models.CharField(max_length=100)
     image = models.ImageField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
     checker_data = models.TextField(null=True, blank=True)
@@ -209,6 +218,12 @@ class Task(models.Model):
         if self.image_width:
             return self.image_width
         return self.task_group.image_width
+    
+    def key_sort(self):
+        try:
+            return tuple([int(x) for x in self.number.split('.')])
+        except:
+            return self.number
 
 
 class AttemptsInfo(models.Model):
@@ -235,6 +250,7 @@ class Attempt(models.Model):
     STATUS_VARIANTS = (
         ('Ok', 'Ok'),
         ('Pending', 'Pending'),
+        ('Partial', 'Partial'),
         ('Wrong', 'Wrong'),
     )
 

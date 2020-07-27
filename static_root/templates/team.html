@@ -1,12 +1,12 @@
 {% load socialaccount %}
 <div class="row">
   {% if user.is_authenticated %}
-    <div class="col-md-10">
+    <div class="col-md-6">
       <div class="section-title">
         {% if user.profile.team_on %}
-          <h2>Моя команда: <b>{{ user.profile.team_on }}</b></h2>
+          <h2>Моя команда:<br><b>{{ user.profile.team_on }}</b></h2>
           <p>
-            Для быстрой связи с ведущим полезно капитану команды присутстовать в чате капитанов в VK.
+            Для быстрой связи с ведущим полезно капитану команды присутствовать в чате капитанов в VK.<br>
             Для этого добавьтесь в друзья к <a href="https://vk.com/andrewgark">ведущему</a> и напишите ему, чтобы он вас добавил в чат капитанов.
           </p>
           <p>Состав моей команды:</p>
@@ -75,19 +75,19 @@
         {% endif %}
       </div>
     </div>
-    <div class="col">
+    <div class="col-md-2 col-md-offset-4">
       <img src="{{ user.profile.avatar_url }}" class="avatar-img">
       <p>{{ user.profile }}</p>
       <a href="/logout" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Выйти</a>
     </div>
   {% else %}
-    <div class="col-md-10">
+    <div class="col-md-6">
       <div class="section-title">
         <h2>Участвовать</h2>
         <p>Чтобы поучаствовать в игре, авторизуйтесь через VK.</p>
       </div>
     </div>
-    <div class="col-md">
+    <div class="col-md-2 col-md-offset-4">
       <a href="{% provider_login_url 'vk' %}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Войти через VK</a>
     </div>
   {% endif %}

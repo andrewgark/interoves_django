@@ -104,10 +104,12 @@ def get_task_to_attempts_info(game, team, mode='general'):
 
 def game_page(request, game_id):
     game = get_object_or_404(Game, id=game_id)
-    if not has_profile(request.user) or not request.user.profile.team_on:
-        return defaults.page_not_found(request)
+    if not has_profile(request.user):
+        raise UserHasNoProfileException('User {} has no profile'.format(request.user))
+    if not request.user.profile.team_on:
+        return PlayGameWithoutTeamException('User {} tries to sent attempt but has no team'.format(request.user.profile))
     if not game.is_available(request.user.profile.team_on):
-        return defaults.page_not_found(request)
+        raise NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
 
@@ -117,7 +119,7 @@ def game_page(request, game_id):
 
     task_group_to_tasks = {}
     for task_group in task_groups:
-        task_group_to_tasks[task_group.number] = sorted(task_group.tasks.all(), key=lambda t: t.number)
+        task_group_to_tasks[task_group.number] = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
     
     return render(request, 'game.html', {
         'game': game,
@@ -278,7 +280,7 @@ def results_page(request, game_id, mode='general'):
     task_group_to_tasks = {}
 
     for task_group in task_groups:
-        task_group_to_tasks[task_group.number] = sorted(task_group.tasks.all(), key=lambda t: t.number)
+        task_group_to_tasks[task_group.number] = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
         for task in task_group_to_tasks[task_group.number]:
             for attempts_info in AttemptsInfo.objects.filter(task=task, mode=mode):
                 if attempts_info.best_attempt:
@@ -289,10 +291,11 @@ def results_page(request, game_id, mode='general'):
                             team_to_score[team] = 0
                         team_to_score[team] += attempts_info.best_attempt.points
 
-                        if team not in team_to_max_best_time:
-                            team_to_max_best_time[team] = attempts_info.best_attempt.time
-                        else:
-                            team_to_max_best_time[team] = max(team_to_max_best_time[team], attempts_info.best_attempt.time)
+                        if attempts_info.best_attempt.points > 0:
+                            if team not in team_to_max_best_time:
+                                team_to_max_best_time[team] = attempts_info.best_attempt.time
+                            else:
+                                team_to_max_best_time[team] = max(team_to_max_best_time[team], attempts_info.best_attempt.time)
                         
                         team_task_to_attempts_info[(team, task)] = attempts_info
     

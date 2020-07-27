@@ -555,10 +555,40 @@ select {
 	color: #1f386e;
 	background: #fff;
 }
+.task-group .btn-custom {
+	margin: 10px 10px 10px 10px;
+}
+.task-rules {
+	text-align: left;
+}
+.attempt-form {
+    margin-top: 5px;
+}
+.attempt-form, .attempts{
+	font-size: 14px;
+}
+.attempt-form .btn-custom {
+	font-size: 14px;
+}
+.task h4 {
+	display: inline;
+}
+.max-points {
+	float: right;
+	font-size: 12px;
+}
 
 /* Table of results */
 #results-table {
-	background: #f6f6f6
+	background: #f6f6f6;
+	overflow-x: scroll;
+/*	height: 100%;
+	width: 100%;*/
+}
+.results-wrapper {
+/*	height: 100%;
+	width: 100%;
+	position: fixed;*/
 }
 .table-results th {
 	background: #e8f0ff;
@@ -603,6 +633,7 @@ select {
 	text-align: center;
 	color: #777;
 	overflow-y: scroll;
+	
 }
 .task .attempt-form #answerWindow ul li {
 color: #777;
@@ -633,5 +664,7 @@ color: #777;
 /* Views */
 .list-rectangle .table-3-n-cell {
 	width: 33%;
-    display: inline-block;
+	display: inline-block;
+	vertical-align: top;
+	border: 1px solid #000;
 }

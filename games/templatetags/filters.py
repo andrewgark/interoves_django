@@ -14,7 +14,10 @@ def order_by(queryset, args):
 
 @register.filter
 def minimize_digits(points):
-    cleaned_points = str(points).strip('0,.')
+    str_points = str(points)
+    cleaned_points = str_points
+    if '.' in str_points or ',' in str_points:
+        cleaned_points = str_points.strip('0').strip('.,')
     if not cleaned_points:
         cleaned_points = '0'
     return cleaned_points

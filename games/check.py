@@ -4,7 +4,7 @@ from decimal import Decimal
 
 def clean(func):
    def func_wrapper(self, text):
-       return func(self, text.lower().strip())
+       return func(self, text.lower().strip().replace("ё", "е"))
    return func_wrapper
 
 
@@ -16,7 +16,7 @@ def delete_spaces(func):
 
 def delete_punctuation(func):
    def func_wrapper(self, text):
-       return func(self, re.sub(r"[.,\/#!$%\^&\*;:{}=\-_`~()]+", "", text))
+       return func(self, re.sub(r"[.,\/#!$%\^&\*;:{}=\-_`~()—]+", "", text))
    return func_wrapper
 
 
@@ -53,11 +53,13 @@ class EqualsChecker(SimpleBoolChecker):
 class EqualsWithPossibleSpacesChecker(SimpleBoolChecker):
     @clean
     @delete_spaces
+    @delete_punctuation
     def __init__(self, data):
         self.data = data
 
     @clean
     @delete_spaces
+    @delete_punctuation
     def bool_check(self, text):
         return text == self.data
 

@@ -1,6 +1,9 @@
 <li class="li-task li-{{ attempts_info.best_attempt.status|get_lower_status }} {{ task_group.get_li_class }}" id="task-{{ task.id }}">
   <div class="task">
     <h4>{{ task.number }}.</h4>
+    <p class="max-points">
+      (Максимум баллов: {{ task.get_points|minimize_digits }})
+    </p>
     {% if task.image %}<img class="task-image" src="{{ task.image.url }}" width="{{ task.get_image_width }}"><br>{% endif %}
     {{ task.text }}<br>
     {% if attempts_info.best_attempt.status != 'Ok' %}

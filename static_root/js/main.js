@@ -58,6 +58,7 @@ function processNewAttempt(form, data) {
   var task_html_id = 'task-' + data['task_id'];
   $('#' + task_html_id).replaceWith(data['html']);
   $('#' + task_html_id + ' .attempt-form').on('submit', submitAttemptForm);
+  $('#' + task_html_id + ' .attempt-form .show-answer').on('click', showAnswer);
 }
 
 function submitAttemptForm(event) {

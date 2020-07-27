@@ -36,10 +36,11 @@ DEBUG = not IS_PROD
 ALLOWED_HOSTS = [
     'interoves-django-env.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
     'interoves-django.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
+    'interoves.eu-central-1.elasticbeanstalk.com',
     'ec2-35-158-115-233.eu-central-1.compute.amazonaws.com',
     '172.31.43.189',
     'interoves.ml',
-    '127.0.0.1'
+    '127.0.0.1',
 ]
 
 
