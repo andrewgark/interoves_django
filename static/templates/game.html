@@ -43,6 +43,7 @@
           {% endif %}
           <li><a href="/results/{{ game.id }}/">Результаты</a></li>
         {% endif %}
+        <li><button class="toggle-ok-tasks" value="0"><i class="icon-ok-tasks fa fa-eye"></i></button></li>
       </ul>
     </div>
     <!-- /.navbar-collapse --> 
@@ -82,7 +83,7 @@
         </div>
       </div>
     </div>
-    <div class="container">
+    <div class="container container-tasks">
       <ul class="list-rectangle tasks-list">
       {% for task in task_group_to_tasks|get_item:task_group.number %}
         {% with attempts_info=task_to_attempts_info|get_item:task.id %}

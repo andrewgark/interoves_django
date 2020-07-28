@@ -41,6 +41,48 @@ function main() {
 		
 }());
 
+function toggleTasksWithPrefix(prefix) {
+  $(prefix + '.li-task.li-ok:not(.table-3-n-cell)').toggleClass('display-none');
+  $(prefix + '.li-task.li-ok.table-3-n-cell').toggleClass('visibility-hidden');
+
+  var taskGroups = $('.task-group');
+  if (prefix.length > 0) {
+    taskGroups = $(prefix).parent().parent().parent();
+  }
+  taskGroups.each(function(index) {
+    var taskGroup = $(this);
+    var taskList = $(taskGroup.children('.container-tasks')[0]).children('.tasks-list')[0];
+    var tasks = $(taskList).children('li').toArray();
+    var visibilityHidden = tasks.map(function(task) {
+      return $(task).hasClass('visibility-hidden');
+    });
+    var i;
+    for (i = 0; 3 * i < visibilityHidden.length; i++) {
+      if (visibilityHidden[3 * i] && visibilityHidden[3 * i + 1] && visibilityHidden[3 * i + 2]) {
+        $(tasks[3 * i]).toggleClass('display-none');
+        $(tasks[3 * i]).toggleClass('visibility-hidden');
+        $(tasks[3 * i + 1]).toggleClass('display-none');
+        $(tasks[3 * i + 1]).toggleClass('visibility-hidden');
+        $(tasks[3 * i + 2]).toggleClass('display-none');
+        $(tasks[3 * i + 2]).toggleClass('visibility-hidden');
+      }
+    }
+  });
+  taskGroups.each(function(index) {
+    var taskGroup = $(this);
+    var taskList = $(taskGroup.children('.container-tasks')[0]).children('.tasks-list')[0];
+    if ($(taskList).children('li').toArray().every(function(task) {
+      return $(task).hasClass('li-ok');
+    })) {
+      taskGroup.toggleClass('display-none');
+    }
+  });
+}
+
+function toggleAllTasks() {
+  toggleTasksWithPrefix("");
+}
+
 function processNewAttempt(form, data) {
   if (data['status'] == 'duplicate') {
     alert('Посылка является копией одной из предудущих посылок.');
@@ -55,10 +97,19 @@ function processNewAttempt(form, data) {
         return;
   }
   
-  var task_html_id = 'task-' + data['task_id'];
-  $('#' + task_html_id).replaceWith(data['html']);
-  $('#' + task_html_id + ' .attempt-form').on('submit', submitAttemptForm);
-  $('#' + task_html_id + ' .show-answer').on('click', showAnswer);
+  var taskHtmlId = '#task-' + data['task_id'];
+  var task = $(taskHtmlId);
+
+  var was_ok = task.hasClass('li-ok');
+  task.replaceWith(data['html']);
+  $(taskHtmlId + ' .attempt-form').on('submit', submitAttemptForm);
+  $(taskHtmlId + ' .show-answer').on('click', showAnswer);
+
+  task = $(taskHtmlId);
+  var is_ok = task.hasClass('li-ok');
+  if ($('.icon-ok-tasks').hasClass('fa-eye-slash') && is_ok != was_ok) {
+    toggleTasksWithPrefix(taskHtmlId);
+  }
 }
 
 function submitAttemptForm(event) {
@@ -145,9 +196,16 @@ function showAnswer(event) {
   });
 }
 
+function toggleOkTasks(event) {
+  $('.icon-ok-tasks').toggleClass('fa-eye-slash');
+  $('.icon-ok-tasks').toggleClass('fa-eye');
+  toggleAllTasks();
+}
+
 $(document).ready(function() {
   $('.attempt-form').on('submit', submitAttemptForm);
   $('.show-answer').on('click', showAnswer);
+  $('.toggle-ok-tasks').on('click', toggleOkTasks);
 });
 
 }
