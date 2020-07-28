@@ -640,8 +640,10 @@ th.row-header {
 /* Answer */
 .task .attempt-form #answerWindow {
 	width: max-content; height: max-content;
-	max-width: 60%;
+	max-width: 90%;
 	max-height: 60%;
+	min-width: 50%;
+	min-height: 20%;
 	margin: 0 auto;
     padding: 18px 9px;
     border-radius: 4px;

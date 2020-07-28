@@ -640,8 +640,10 @@ th.row-header {
 /* Answer */
 .task .attempt-form #answerWindow {
 	width: max-content; height: max-content;
-	max-width: 60%;
+	max-width: 90%;
 	max-height: 60%;
+	min-width: 50%;
+	min-height: 20%;
 	margin: 0 auto;
     padding: 18px 9px;
     border-radius: 4px;
@@ -656,7 +658,7 @@ th.row-header {
 	color: #777;	
 }
 .task .attempt-form #answerWindow ul li {
-color: #777;
+	color: #777;
 }
 
 #answerWindow #answerWindow__close {
