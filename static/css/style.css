@@ -605,6 +605,24 @@ select {
 	margin: 0;
 	max-height: 600px;
 }
+.results-table .my-team-row-header {
+	background: #b0c0ff;
+}
+.results-table .my-team-row-cell.cell-wrong {
+	background: #ffb8b8;
+}
+.results-table .my-team-row-cell.cell-pending {
+	background: #ffff98;
+}
+.results-table .my-team-row-cell.cell-partial {
+	background: #b8b8ff;
+}
+.results-table .my-team-row-cell.cell-ok {
+	background: #c0ffc0;
+}
+.results-table .my-team-row-cell.cell-no {
+	background: #f8ffff;
+}
 .table-results {
 	margin: 0;
 	border: 0;
@@ -658,7 +676,7 @@ th.row-header {
 	color: #777;	
 }
 .task .attempt-form #answerWindow ul li {
-color: #777;
+	color: #777;
 }
 
 #answerWindow #answerWindow__close {

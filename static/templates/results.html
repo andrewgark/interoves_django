@@ -103,13 +103,13 @@
           <tbody>
             {% for team in teams_sorted %}
               <tr>
-                  <th scope="row" class="row-header sticky-cell"> {{ team.name }} </th>
-                  <th scope="row" class="row-header sticky-cell"> {{ team_to_score|get_item:team|minimize_digits }} </th>
+                  <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team.name }} </th>
+                  <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team_to_score|get_item:team|minimize_digits }} </th>
                   {% if mode == 'tournament' %}
-                    <th scope="row" class="row-header sticky-cell"> {{ team_to_max_best_time|get_item:team|date:'H:i' }} </th>
+                    <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team_to_max_best_time|get_item:team|date:'H:i' }} </th>
                   {% endif %}
                   {% for attempts_info in team_to_list_attempts_info|get_item:team %}
-                    <td class="cell cell-{% if attempts_info.best_attempt.status %}{{ attempts_info.best_attempt.status|get_lower_status }}{% else %}no{% endif %}">
+                    <td class="cell cell-{% if attempts_info.best_attempt.status %}{{ attempts_info.best_attempt.status|get_lower_status }}{% else %}no{% endif %} {% if user.profile.team_on == team %}my-team-row-cell{% endif %}">
                       {% if attempts_info.get_n_attempts > 0 %}
                         {{ attempts_info.best_attempt.points|minimize_digits }}
                       {% endif %}
