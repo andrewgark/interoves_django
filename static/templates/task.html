@@ -32,7 +32,7 @@
     {% if attempts_info %}
       <div class="attempts">
         <ul class="list-rectangle">
-          {% for attempt in attempts_info.attempts|order_by:"time" %}
+          {% for attempt in attempts_info.attempts %}
             <li class="li-attempt li-{{ attempt.status|get_lower_status }}">
               {{ attempt.time|date:'H:i' }}:
               {% if attempt.status == 'Ok' %}

@@ -17,11 +17,6 @@ class ProfileAdmin(admin.ModelAdmin):
     list_display = ['__str__', 'team_on', 'team_requested', 'vk_url']
 
 
-@admin.register(AttemptsInfo)
-class AttemptsInfoAdmin(admin.ModelAdmin):
-    list_display = ['__str__', 'team', 'task', 'mode', 'get_n_attempts', 'best_attempt']
-
-
 class TaskInline(admin.TabularInline):
     model = Task
     formfield_overrides = {

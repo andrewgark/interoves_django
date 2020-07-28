@@ -16,7 +16,7 @@ def get_games_list(request):
 
     games_list = []
     for game in Game.objects.all():
-        if game.is_ready or (game.is_testing and team and team.is_tester):
+        if game.has_access('see_game_preview', team=team):
             games_list.append(game)
     return sorted(games_list, key=lambda game: (game.start_time, game.name), reverse=True)
 
@@ -94,11 +94,7 @@ def get_task_to_attempts_info(game, team, mode='general'):
     task_to_attempts_info = {}
     for task_group in game.task_groups.all():
         for task in task_group.tasks.all():
-            attempts_info = AttemptsInfo.objects.filter(team=team, task=task, mode=mode)
-            if attempts_info and attempts_info[0]:
-                task_to_attempts_info[task.id] = attempts_info[0]
-            else:
-                task_to_attempts_info[task.id] = None
+            task_to_attempts_info[task.id] = Attempt.manager.get_attempts_info(team=team, task=task, mode=mode)
     return task_to_attempts_info
 
 
@@ -108,7 +104,7 @@ def game_page(request, game_id):
         raise UserHasNoProfileException('User {} has no profile'.format(request.user))
     if not request.user.profile.team_on:
         return PlayGameWithoutTeamException('User {} tries to sent attempt but has no team'.format(request.user.profile))
-    if not game.is_available(request.user.profile.team_on):
+    if not game.has_access('play_with_team', team=request.user.profile.team_on):
         raise NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
@@ -130,26 +126,6 @@ def game_page(request, game_id):
     })
 
 
-def better_status(first_status, second_status):
-    status_to_key = {
-        'Ok': 3,
-        'Partial': 2,
-        'Pending': 1,
-        'Wrong': 0,
-    }
-    return status_to_key[first_status] > status_to_key[second_status]
-
-
-def update_attempts_info(attempts_info, attempt):
-    attempts_info.best_attempt = attempt
-    list_attempts = sorted(attempts_info.attempts.all(), key=lambda x: x.time)  
-    for attempt in list_attempts:
-        if attempt.points > attempts_info.best_attempt.points or \
-            (attempt.points == attempts_info.best_attempt.points and better_status(attempt.status, attempts_info.best_attempt.status)):
-            attempts_info.best_attempt = attempt
-    attempts_info.save()
-
-
 def process_send_attempt(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     if not has_profile(request.user):
@@ -160,7 +136,7 @@ def process_send_attempt(request, task_id):
     team = request.user.profile.team_on
     game = task.task_group.game
 
-    if not task.task_group.game.is_available(team):
+    if not task.task_group.game.has_access('play_with_team', team=team):
         return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     form = AttemptForm(request.POST)
@@ -172,59 +148,38 @@ def process_send_attempt(request, task_id):
     attempt.task = task
     attempt.time = timezone.now()
 
-    checker_type = task.get_checker()
-    points = task.get_points()
-    max_attempts = task.get_max_attempts()
-
-    modes = game.get_modes(attempt)
-    attempts_infos = []
-    
     current_mode = game.get_current_mode(attempt)
-    current_attempts_info = None
+    modes = ['general']
+    if current_mode == 'tournament':
+        modes.append('tournament')
 
     for mode in modes:
-        attempts_info_filter = AttemptsInfo.objects.filter(team=team, task=task, mode=mode)
+        attempts = Attempt.manager.get_attempts(team, task, mode)
+        n_attempts = len(attempts)
 
-        n_attempts = 0
-        if attempts_info_filter and attempts_info_filter[0]:
-            attempts_info = attempts_info_filter[0]
-            n_attempts = len(attempts_info.attempts.all())
-        else:
-            attempts_info = AttemptsInfo(task=task, team=team, mode=mode)
-
-        if mode == 'tournament' and n_attempts >= max_attempts:
+        if mode == 'tournament' and n_attempts >= task.get_max_attempts():
             raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {}'.format(team, max_attempts, task))
 
-        if attempts_info_filter:
-            for other_attempt in attempts_info.attempts.all():
-                if attempt.text == other_attempt.text:
-                    raise DuplicateAttemptException('Attempt duplicates one of the previous attempts by this team')
-        attempts_infos.append(attempts_info)
-        if mode == current_mode:
-            current_attempts_info = attempts_info
-    assert current_attempts_info is not None
+        for other_attempt in attempts:
+            if attempt.text == other_attempt.text:
+                raise DuplicateAttemptException('Attempt duplicates one of the previous attempts by this team')
 
-    checker = CheckerFactory().create_checker(checker_type, attempt.task.checker_data)
+    checker = CheckerFactory().create_checker(task.get_checker(), task.checker_data)
     attempt.status, attempt.points = checker.check(attempt.text)
     if 'tournament' in modes and attempt.status != 'Ok':
         attempt.possible_status = attempt.status
         attempt.status = 'Pending'
-    attempt.points *= points
-    attempt.save(force_insert=True)
+    attempt.points *= task.get_points()
 
-    for attempts_info in attempts_infos:
-        attempts_info.save()
-        update_attempts_info(attempts_info, attempt)
-        attempt.attempts_infos.add(attempts_info)
+    attempt.save()
 
-    attempt.save(force_update=True)
     return {
         'status': 'ok',
         'task_id': task.id,
         'html': render(request, 'task.html', {
             'task': task,
             'task_group': task.task_group,
-            'attempts_info': current_attempts_info,
+            'attempts_info': Attempt.manager.get_attempts_info(team=team, task=task, mode=current_mode),
             'mode': current_mode,
         }).content.decode('UTF-8'),
     }
@@ -241,11 +196,8 @@ def send_attempt(request, task_id):
 
 
 def task_ok_by_team(task, team, mode):
-    attempts_info_filter = AttemptsInfo.objects.filter(team=team, task=task, mode=mode)
-    if not attempts_info_filter:
-        return False
-    attempts_info = attempts_info_filter[0]
-    return attempts_info and attempts_info.best_attempt and attempts_info.best_attempt.status == 'Ok'
+    best_attempt = Attempt.manager.get_best_attempt(team=team, task=task, mode=mode)
+    return best_attempt and best_attempt.status == 'Ok'
 
 
 def get_answer(request, task_id):
@@ -258,10 +210,10 @@ def get_answer(request, task_id):
     team = request.user.profile.team_on
     game = task.task_group.game
 
-    if not task.task_group.game.is_available(team):
+    if not task.task_group.game.has_access('play_with_team', team=team):
         return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
-    mode = game.get_current_mode(Attempt(time=timezone.now()))
+    mode = game.get_current_mode()
 
     if mode != 'general' and not task_ok_by_team(task, request.user.profile.team_on, mode):
         return NoAnswerAccessException('User {} has no access to answers to task {} right now'.format(request.user.profile, task))
@@ -276,7 +228,7 @@ def get_answer(request, task_id):
 def results_page(request, game_id, mode='general'):
     game = get_object_or_404(Game, id=game_id)
     if has_profile(request.user) and request.user.profile.team_on and \
-       not game.results_are_available(request.user.profile.team_on, mode):
+       not game.has_access('see_results', mode=mode):
         return defaults.page_not_found(request)
 
     team_to_list_attempts_info = {}
@@ -290,9 +242,9 @@ def results_page(request, game_id, mode='general'):
     for task_group in task_groups:
         task_group_to_tasks[task_group.number] = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
         for task in task_group_to_tasks[task_group.number]:
-            for attempts_info in AttemptsInfo.objects.filter(task=task, mode=mode):
+            for attempts_info in Attempt.manager.get_task_attempts_infos(task=task, mode=mode):
                 if attempts_info.best_attempt:
-                    team = attempts_info.team
+                    team = attempts_info.best_attempt.team
 
                     if not team.is_hidden:
                         if team not in team_to_score:

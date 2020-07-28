@@ -1,4 +1,5 @@
 from django.template.defaulttags import register
+from games.access import game_is_going_now
 
 
 @register.filter
@@ -56,15 +57,35 @@ def get_ru_status(status):
 
 
 @register.filter
-def game_is_available(game, team):
-    return game.is_available(team)
+def access_play_without_team(game, team):
+    return game.has_access('play_without_team', team=team)
 
 
 @register.filter
-def results_are_available(game, team):
-    return game.results_are_available(team)
+def access_play_with_team(game, team):
+    return game.has_access('play_with_team', team=team)
 
 
 @register.filter
-def tournament_results_are_available(game, team):
-    return game.tournament_results_are_available(team)
+def access_see_results(game, team):
+    return game.has_access('see_results', team=team)
+
+
+@register.filter
+def access_see_tournament_results(game, team):
+    return game.has_access('see_tournament_results', team=team)
+
+
+@register.filter
+def access_see_answer(game, team):
+    return game.has_access('see_answer', team=team)
+
+
+@register.filter
+def access_read_googledoc(game, team):
+    return game.has_access('read_googledoc', team=team)
+
+
+@register.filter
+def is_going_now(game):
+    return game_is_going_now(game)

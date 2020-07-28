@@ -2,9 +2,10 @@ import os
 
 from django.contrib.auth.models import User
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
+from games.access import get_game_access
 from allauth.socialaccount.models import SocialAccount
 
 
@@ -78,64 +79,11 @@ class Game(models.Model):
     def __str__(self):
         return self.name
 
-    def has_started(self):
-        now = timezone.now()
-        if self.is_playable and now >= self.start_time:
-            return True
-        return False
+    def has_access(self, action, team=None, attempt=None, mode='general'):
+        return get_game_access(game=self, action=action, team=team, attempt=attempt, mode=mode)
 
-    def has_ended(self):
-        now = timezone.now()
-        if self.is_playable and now > self.end_time:
-            return True
-        return False
-
-    def has_started_not_over(self):
-        return self.has_started() and not self.has_ended()
-
-    def results_are_available(self, team, mode='general'):
-        if mode == 'tournament' and not self.is_tournament:
-            return False
-        if not self.is_playable:
-            return False
-        if self.is_ready and self.has_started():
-            return True
-        if self.is_testing and team and team.is_tester and self.has_started():
-            return True
-        return False
-
-    def general_results_are_available(self, team):
-        return self.results_are_available(team, mode='general')
-
-    def tournament_results_are_available(self, team):
-        return self.results_are_available(team, mode='tournament')
-
-    def is_available(self, team):
-        if not team:
-            return False
-        return self.results_are_available(team)
-
-    def get_time_reference(self, attempt):
-        if attempt.time < self.start_time:
-            return 'before'
-        if self.start_time <= attempt.time <= self.end_time:
-            return 'during'
-        if self.end_time < attempt.time:
-            return 'after'
-        raise Exception('Impossible situation')
-
-    def get_modes(self, attempt):
-        modes = []
-        if self.get_time_reference(attempt) == 'after':
-            modes.append('general')
-        if self.get_time_reference(attempt) == 'during':
-            modes.append('general')
-            if self.is_tournament:
-                modes.append('tournament')
-        return modes
-    
-    def get_current_mode(self, attempt):
-        if 'tournament' in self.get_modes(attempt):
+    def get_current_mode(self, attempt=None):
+        if self.has_access(action='attempt_is_tournament', attempt=attempt):
             return 'tournament'
         return 'general'
 
@@ -226,24 +174,77 @@ class Task(models.Model):
             return self.number
 
 
-class AttemptsInfo(models.Model):
-    team = models.ForeignKey(Team, related_name='attempt_infos', blank=True, null=True, on_delete=models.SET_NULL)
-    task = models.ForeignKey(Task, related_name='attempt_infos', blank=True, null=True, on_delete=models.SET_NULL)
+def better_status(first_status, second_status):
+    status_to_key = {
+        'Ok': 3,
+        'Partial': 2,
+        'Pending': 1,
+        'Wrong': 0,
+    }
+    return status_to_key[first_status] > status_to_key[second_status]
 
-    best_attempt = models.ForeignKey('Attempt', blank=True, null=True, on_delete=models.SET_NULL)
 
-    MODE_VARIANTS = (
-        ('general', 'general'),
-        ('tournament', 'tournament'),
-    )
-
-    mode = models.CharField(default='general', max_length=100, choices=MODE_VARIANTS)
-
-    def __str__(self):
-        return '[{}]: ({}), ({})'.format(self.team, self.task, self.mode)
-
+class AttemptsInfo:
+    def __init__(self, best_attempt, attempts):
+        self.best_attempt = best_attempt
+        self.attempts = attempts
+    
     def get_n_attempts(self):
-        return len(self.attempts.all())
+        return len(self.attempts)
+
+
+class AttemptManager(models.Manager):
+    def get_all_task_attempts(self, task):
+        return sorted(super().get_queryset().filter(task=task), key=lambda x: x.time)
+
+    def get_all_attempts(self, team, task):
+        return sorted(super().get_queryset().filter(team=team, task=task), key=lambda x: x.time)
+
+    def filter_attempts_with_mode(self, attempts, mode='general'):
+        if mode == 'general' or not attempts:
+            return attempts
+        if mode == 'tournament':
+            game = attempts[0].task.task_group.game
+            return [attempt for attempt in attempts if game.has_access('attempt_is_tournament', attempt=attempt, team=attempt.team, mode=mode)]
+        raise Exception('Unknown mode: {}'.filter(mode))
+
+    def get_attempts(self, team, task, mode="general"):
+        attempts = self.get_all_attempts(team, task)
+        return self.filter_attempts_with_mode(attempts, mode)
+
+    def get_task_attempts(self, task, mode="general"):
+        attempts = self.get_all_task_attempts(task)
+        return self.filter_attempts_with_mode(attempts, mode)
+
+    def get_best_attempt(self, attempts, mode="general"):
+        best_attempt = None
+        for attempt in attempts:
+            if best_attempt is None or \
+               attempt.points > best_attempt.points or \
+               (attempt.points == best_attempt.points and better_status(attempt.status, best_attempt.status)):
+                best_attempt = attempt
+        return best_attempt
+
+    def get_attempts_info(self, team, task, mode="general"):
+        attempts = self.get_attempts(team, task, mode)
+        if not attempts:
+            return None
+        best_attempt = self.get_best_attempt(attempts, mode)
+        return AttemptsInfo(best_attempt, attempts)
+
+    def get_task_attempts_infos(self, task, mode="general"):
+        attempts = self.get_task_attempts(task, mode)
+        team_to_attempts = {}
+        for attempt in attempts:
+            if attempt.team not in team_to_attempts:
+                team_to_attempts[attempt.team] = []
+            team_to_attempts[attempt.team].append(attempt)
+        attempts_infos = []
+        for attempts in team_to_attempts.values():
+            best_attempt = self.get_best_attempt(attempts, mode)
+            attempts_info = AttemptsInfo(best_attempt, attempts)
+            attempts_infos.append(attempts_info)
+        return attempts_infos
 
 
 class Attempt(models.Model):
@@ -256,7 +257,7 @@ class Attempt(models.Model):
 
     team = models.ForeignKey(Team, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
     task = models.ForeignKey(Task, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
-    attempts_infos = models.ManyToManyField(AttemptsInfo, related_name='attempts', blank=True)
+    manager = AttemptManager()
 
     text = models.TextField()
     status = models.CharField(max_length=100, choices=STATUS_VARIANTS)
@@ -272,12 +273,6 @@ class Attempt(models.Model):
 
     def get_max_points(self):
         return self.task.get_points()
-
-    def get_tournament_attempts_info(self):
-        for attempts_info in self.attempts_infos:
-            if attempts_info.mode == 'tournament':
-                return attempts_info
-        return None
 
 
 class ProxyAttempt(Attempt):
@@ -297,5 +292,6 @@ def create_profile(sender, **kw):
             vk_url='vk.com/{}'.format(social_account.extra_data['screen_name']),
         )
         profile.save()
+
 
 post_save.connect(create_profile, sender=SocialAccount, dispatch_uid="socialaccount-profilecreation-signal")

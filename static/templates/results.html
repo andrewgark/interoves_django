@@ -33,10 +33,10 @@
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav navbar-right">
         <li><a href="#page-top" class="page-scroll">Наверх</a></li>
-        {% if game|game_is_available:user.profile.team_on %}
+        {% if game|access_play_with_team:user.profile.team_on %}
           <li><a href="/games/{{ game.id }}/">Игра</a></li>
         {% endif %}
-        {% if mode == 'tournament' and not game.has_started_not_over %}
+        {% if mode == 'tournament' and not game|is_going_now %}
           <li><a href="/results/{{ game.id }}/">Общие результаты</a></li>
         {% endif %}
         {% if mode == 'general' and game.is_tournament %}

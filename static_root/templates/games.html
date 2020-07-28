@@ -1,29 +1,35 @@
 <div class="games-slick"}>
   {% for game in games %}
     <div>
+      {% with team=user.profile.team_on %}
       <p>{{ game.start_time|date:'d E Y' }}<br>{{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }}</p>
       <img src="{{ game.image.url }}" class="game_icon">
       <h3>{{ game.name }}</h3>
       {% if game.theme %} <p>Тема: {{ game.theme }}</p> {% endif %}
       <p>Автор: {{ game.author }}</p>
-      {% if game|game_is_available:user.profile.team_on %}
+      {% if game|access_play_with_team:team %}
         <p><a href="/games/{{ game.id }}"><b>Играть</b></a></p>
       {% endif %}
-      {% if game|tournament_results_are_available:user.profile.team_on  %}
+      {% if game|access_see_tournament_results:team  %}
         <p><a href="/tournament_results/{{ game.id }}"><b>Турнирные результаты</b></a></p>
       {% endif %}
-      {% if game|results_are_available:user.profile.team_on %}
-        {% if not game.is_tournament or not game.has_started_not_over %}
+      {% if game|access_see_results:team %}
+        {% if not game.is_tournament or not game|is_going_now %}
           <p><a href="/results/{{ game.id }}"><b>Общие результаты</b></a></p>
         {% endif %}
       {% endif %}
       {% if game.game_url %}
-        {% if not game.is_playable or game|game_is_available:user.profile.team_on %}
+        {% if game|access_read_googledoc:team %}
           <p><a href="{{ game.game_url}}">Условия</a></p>
         {% endif %}
       {% endif %}
-      {% if game.answers_url %} <p><a href="{{ game.answers_url}}">Ответы</a></p> {% endif %}
+      {% if game.answers_url %}
+        {% if game|access_see_answer:team %}
+          <p><a href="{{ game.answers_url}}">Ответы</a></p>
+        {% endif %}
+      {% endif %}
       {% if game.standings_url %} <p><a href="{{ game.standings_url}}">Результаты</a></p> {% endif %}
+      {% endwith %}      
     </div>
   {% endfor %}
 </div>
