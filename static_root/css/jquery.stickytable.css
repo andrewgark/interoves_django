@@ -1,11 +1,5 @@
 .sticky-table {
     max-width: 100%;
-    max-height: 80vh;
-    overflow: auto;
-    border-top: 5px solid #ddd;
-    border-bottom: 5px solid #ddd;
-    border-left: 5px solid #ddd;
-    border-right: 5px solid #ddd;
     padding: 0 !important;
     transition: width 2s;
 }
