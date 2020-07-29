@@ -1,5 +1,12 @@
+import json
 from django.template.defaulttags import register
 from games.access import game_is_going_now
+from games.util import clean_text
+
+
+@register.filter(name='one_more')
+def one_more(_1, _2):
+    return _1, _2
 
 
 @register.filter
@@ -89,3 +96,34 @@ def access_read_googledoc(game, team):
 @register.filter
 def is_going_now(game):
     return game_is_going_now(game)
+
+
+@register.filter
+def get_not_guessed_tiles(wall, attempts_info):
+    return wall.get_not_guessed_tiles(attempts_info)
+
+
+@register.filter
+def get_guessed_tiles(wall, attempts_info):
+    return wall.get_guessed_tiles(attempts_info)
+
+
+@register.filter
+def get_wall_attempt_status(attempt):
+    return json.loads(attempt.state)['last_attempt']['status']
+
+
+@register.filter
+def get_wall_attempt_points(attempt):
+    return json.loads(attempt.state)['last_attempt']['points']
+
+
+@register.filter
+def get_exptiles(wall_attempts_info, mode):
+    wall, attempts_info = wall_attempts_info
+    return wall.get_exptiles(attempts_info, mode)
+
+
+@register.filter
+def json_encode(obj):
+    return json.dumps(obj)

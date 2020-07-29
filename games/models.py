@@ -1,3 +1,4 @@
+import json
 import os
 
 from django.contrib.auth.models import User
@@ -6,6 +7,8 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from games.access import get_game_access
+from games.util import better_status
+from games.wall import Wall
 from allauth.socialaccount.models import SocialAccount
 
 
@@ -133,6 +136,13 @@ class Task(models.Model):
     answer = models.TextField(null=True, blank=True)
     answer_comment = models.TextField(null=True, blank=True)
 
+    TASK_TYPE_VARIANTS = (
+        ('default', 'default'),
+        ('wall', 'wall')
+    )
+
+    task_type = models.CharField(default='default', max_length=100, choices=TASK_TYPE_VARIANTS)
+
     checker = models.ForeignKey(CheckerType, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL)
     points = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)
     max_attempts = models.IntegerField(blank=True, null=True)
@@ -173,22 +183,18 @@ class Task(models.Model):
         except:
             return self.number
 
-
-def better_status(first_status, second_status):
-    status_to_key = {
-        'Ok': 3,
-        'Partial': 2,
-        'Pending': 1,
-        'Wrong': 0,
-    }
-    return status_to_key[first_status] > status_to_key[second_status]
+    def get_wall(self):
+        return Wall(self)
 
 
 class AttemptsInfo:
     def __init__(self, best_attempt, attempts):
         self.best_attempt = best_attempt
         self.attempts = attempts
-    
+        self.last_attempt = None
+        if attempts:
+            self.last_attempt = attempts[-1]
+
     def get_n_attempts(self):
         return len(self.attempts)
 
@@ -264,6 +270,7 @@ class Attempt(models.Model):
     possible_status = models.CharField(blank=True, null=True, max_length=100, choices=STATUS_VARIANTS)
     points = models.DecimalField(default=0, decimal_places=3, max_digits=10, blank=True, null=True)
     time = models.DateTimeField(auto_now_add=True, blank=True)
+    state = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return '[{}]: ({}) - {} [{}]'.format(self.team, self.task, self.text, self.status)
@@ -274,6 +281,12 @@ class Attempt(models.Model):
     def get_max_points(self):
         return self.task.get_points()
 
+    def get_pretty_text(self):
+        if self.task.task_type == 'default':
+            return self.text
+        if self.task.task_type == 'wall':
+            return self.task.get_wall().get_attempt_text(json.loads(self.text))
+        raise Exception('Unknown task_type: {}'.format(self.task.task_type))
 
 class ProxyAttempt(Attempt):
     class Meta:

@@ -1,3 +1,4 @@
+import json
 from django.contrib.auth import get_user_model
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
@@ -139,11 +140,27 @@ def process_send_attempt(request, task_id):
     if not task.task_group.game.has_access('play_with_team', team=team):
         return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
-    form = AttemptForm(request.POST)
-    if not form.is_valid():
-        return InvalidFormException('attempt form {} is not valid'.format(form))
+    if task.task_type == 'default':
+        form = AttemptForm(request.POST)
+        if not form.is_valid():
+            return InvalidFormException('attempt form {} is not valid'.format(form))
 
-    attempt = form.save(commit=False)
+        attempt = form.save(commit=False)
+    elif task.task_type == 'wall':
+        if 'text' not in request.POST:            
+            request_data = {
+                'words': sorted(request.POST.getlist('words[]')),
+                'stage': request.POST['stage'],
+            }
+        else:
+            request_data = {
+                'explanation': request.POST['text'],
+                'words': json.loads(request.POST['words']),
+                'stage': request.POST['stage'],
+            }
+        attempt = Attempt(text=json.dumps(request_data))
+    else:
+        raise Exception('Unknown task_type: {}'.format(task.task_type))
     attempt.team = team
     attempt.task = task
     attempt.time = timezone.now()
@@ -153,22 +170,34 @@ def process_send_attempt(request, task_id):
     if current_mode == 'tournament':
         modes.append('tournament')
 
+    last_attempt_state = None
     for mode in modes:
         attempts = Attempt.manager.get_attempts(team, task, mode)
-        n_attempts = len(attempts)
+        if mode == 'general' and attempts:
+            last_attempt_state = attempts[-1].state
 
-        if mode == 'tournament' and n_attempts >= task.get_max_attempts():
-            raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {}'.format(team, max_attempts, task))
+        if mode == 'tournament':
+            if task.task_type == 'wall':
+                validation_data = task.get_wall().validate_max_attempts(attempts, attempt)
+                if validation_data is not None:
+                    stage, n_attempts, max_attempts = validation_data
+                    raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in wall task {} on stage {}'.format(team, max_attempts, task, stage))
+            else:
+                n_attempts = len(attempts)
+                max_attempts = task.get_max_attempts()
+                if n_attempts >= max_attempts:
+                    raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {}'.format(team, max_attempts, task))
 
         for other_attempt in attempts:
             if attempt.text == other_attempt.text:
                 raise DuplicateAttemptException('Attempt duplicates one of the previous attempts by this team')
 
-    checker = CheckerFactory().create_checker(task.get_checker(), task.checker_data)
-    attempt.status, attempt.points = checker.check(attempt.text)
+    checker = CheckerFactory().create_checker(task.get_checker(), task.checker_data, last_attempt_state)
+    check_result = checker.check(attempt.text)
+    attempt.status, attempt.points, attempt.state = check_result.status, check_result.points, check_result.state
     if 'tournament' in modes and attempt.status != 'Ok':
         attempt.possible_status = attempt.status
-        attempt.status = 'Pending'
+        attempt.status = check_result.tournament_status
     attempt.points *= task.get_points()
 
     attempt.save()
@@ -196,7 +225,7 @@ def send_attempt(request, task_id):
 
 
 def task_ok_by_team(task, team, mode):
-    best_attempt = Attempt.manager.get_best_attempt(team=team, task=task, mode=mode)
+    best_attempt = Attempt.manager.get_attempts_info(team=team, task=task, mode=mode).best_attempt
     return best_attempt and best_attempt.status == 'Ok'
 
 

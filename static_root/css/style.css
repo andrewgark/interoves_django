@@ -419,7 +419,7 @@ select {
 	margin-right: 20px;
 	width: 200px;
 }
-.fieldWrapper{
+.field-wrapper{
 	width: auto;
 	display: inline-block;
 }
@@ -557,6 +557,7 @@ select {
 }
 .attempts {
 	margin-left: 5px;
+	clear: both;
 }
 .even-task-group .btn-custom {
 	background: transparent;
@@ -707,4 +708,77 @@ th.row-header {
 	display: inline-block;
 	vertical-align: top;
 	border: 1px solid #000;
+}
+
+/* Wall */
+.wall {
+	width: 760px;
+	/* overflow: auto; */
+}
+.wall-explanations {
+	display: inline-block;
+    float: left;
+    width: 150px;
+	/* overflow: auto; */
+}
+.wall-tiles {
+	width: 605px;
+	display: inline-block;
+	float: left;
+}
+.wall-tile {
+	width: 148px;
+	height: 98px; 
+	text-align: center;
+	line-height: 30px;
+	font-weight: 600;
+	font-size: 16px;
+	border: 2px solid #74708f;
+	border-radius: 4px;
+	padding: 2px;
+	display: inline-block;
+	float: left;
+}
+.wall-tile-guessed {
+	color: #000;
+}
+.wall-tile-not-guessed {
+	background: #e9e8f2;
+	color: #000;
+	cursor: pointer;
+}
+.wall-tile-not-guessed:hover {
+	background:#ffffff;
+}
+.wall-tile-guessed-0 {
+	background: #ff6c6c !important;
+}
+.wall-tile-guessed-1 {
+	background: #89ff6c !important;
+}
+.wall-tile-guessed-2 {
+	background: #6cbdff !important;
+}
+.wall-tile-guessed-3 {
+	background: #c46cff !important;
+}
+.wall-tile-selected {
+	background: #ffd86c;
+}
+.wall-tile-selected:hover {
+	background-color:#ffff98 !important;
+}
+.wall-tile-explanation {
+	display: inline-block;
+	vertical-align: top;
+	float: left;
+	border: 0;
+}
+.wall-tiles .wall-tile p {
+	margin-top:25px;
+}
+.wall-field-wrapper input {
+	height: 30px;
+	width: 120px;
+	margin: 0;
 }

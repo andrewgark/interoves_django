@@ -1,27 +1,38 @@
+import copy
+import json
 import re
 from decimal import Decimal
+from games.util import status_key, clean_text
+
+
+class CheckResult:
+    def __init__(self, status, tournament_status, points, state=None):
+        self.status = status
+        self.tournament_status = tournament_status
+        self.points = points
+        self.state = state
 
 
 def clean(func):
-   def func_wrapper(self, text):
-       return func(self, text.lower().strip().replace("ё", "е"))
+   def func_wrapper(self, text, *args, **kw):
+       return func(self, clean_text(text), *args, **kw)
    return func_wrapper
 
 
 def delete_spaces(func):
-   def func_wrapper(self, text):
-       return func(self, re.sub(r"\s+", "", text))
+   def func_wrapper(self, text, *args, **kw):
+       return func(self, re.sub(r"\s+", "", text), *args, **kw)
    return func_wrapper
 
 
-def delete_punctuation(func):
+def delete_punctuation(func, *args, **kw):
    def func_wrapper(self, text):
-       return func(self, re.sub(r"[.,\/#!$%\^&\*;:{}=\-_`~()—]+", "", text))
+       return func(self, re.sub(r"[.,\/#!$%\^&\*;:{}=\-_`~()—]+", "", text), *args, **kw)
    return func_wrapper
 
 
 class BaseChecker:
-    def __init__(self, data):
+    def __init__(self, data, last_attempt_state=None):
         pass
 
     def check(self, text):
@@ -35,14 +46,14 @@ class SimpleBoolChecker(BaseChecker):
     def check(self, text):
         is_ok = self.bool_check(text)
         if is_ok:
-            return 'Ok', 1
+            return CheckResult('Ok', 'Ok', 1)
         else:
-            return 'Wrong', 0
+            return CheckResult('Wrong', 'Pending', 0)
 
 
 class EqualsChecker(SimpleBoolChecker):
     @clean
-    def __init__(self, data):
+    def __init__(self, data, last_attempt_state=None):
         self.data = data
 
     @clean
@@ -54,7 +65,7 @@ class EqualsWithPossibleSpacesChecker(SimpleBoolChecker):
     @clean
     @delete_spaces
     @delete_punctuation
-    def __init__(self, data):
+    def __init__(self, data, last_attempt_state=None):
         self.data = data
 
     @clean
@@ -65,7 +76,7 @@ class EqualsWithPossibleSpacesChecker(SimpleBoolChecker):
 
 
 class WhiteGrayBlackListChecker(SimpleBoolChecker):
-    def __init__(self, data):
+    def __init__(self, data, last_attempt_state=None):
         self.whitelist = set()
         self.graylist = set()
         self.blacklist = set()
@@ -104,7 +115,7 @@ class WhiteGrayBlackListChecker(SimpleBoolChecker):
 class MetagramChecker(BaseChecker):
     @clean
     @delete_punctuation
-    def __init__(self, data):
+    def __init__(self, data, last_attempt_state=None):
         self.answer_variants = []
         self.n = None
         for line in data.split('\n'):
@@ -128,7 +139,7 @@ class MetagramChecker(BaseChecker):
             if word:
                 words.append(word)
         if len(words) != self.n:
-            return 'Wrong', 0
+            return CheckResult('Wrong', 'Pending', 0)
         best_matching_segment = 0
         for answers in self.answer_variants:
             last_matching_segment = 0
@@ -139,10 +150,104 @@ class MetagramChecker(BaseChecker):
                     last_matching_segment = 0
                 best_matching_segment = max(best_matching_segment, last_matching_segment)
         if best_matching_segment == self.n:
-            return 'Ok', 1
+            return CheckResult('Ok', 'Ok', 1)
         if best_matching_segment * 2 >= self.n:
-            return 'Partial', Decimal(0.5)
-        return 'Wrong', 0
+            return CheckResult('Partial', 'Pending', Decimal(0.5))
+        return CheckResult('Wrong', 'Pending', 0)
+
+
+class WallChecker(BaseChecker):
+    def __init__(self, data, last_attempt_state):
+        self.data = json.loads(data)
+        if last_attempt_state is None:
+            self.last_attempt_state = {
+                'best_status': 'Wrong',
+                'best_points': 0,
+                'guessed_words': [],
+                'guessed_explanations': [],
+            }
+        else:
+            self.last_attempt_state = json.loads(last_attempt_state)
+        for answer in self.data['answers']:
+            answer['words'] = sorted([clean_text(x) for x in answer['words']])
+            answer['checker'] = WhiteGrayBlackListChecker(answer['checker'])
+
+    def get_result(self, state):
+        max_points = (self.data['points_words'] + self.data['points_explanation']) * len(self.data['answers'])
+
+        if state['best_points'] == max_points:
+            state['last_attempt']['points'] += self.data['points_bonus']
+            state['best_points'] += self.data['points_bonus']
+            return CheckResult('Ok', 'Ok', max_points + self.data['points_bonus'], json.dumps(state))
+        if state['best_points'] == 0:
+            return CheckResult('Wrong', 'Wrong', 0, json.dumps(state))
+        if state['last_attempt']['stage'] == 'cat_words':
+            return CheckResult('Partial', 'Partial', state['best_points'], json.dumps(state))
+        if state['last_attempt']['status'] == 'Ok':
+            return CheckResult('Partial', 'Partial', state['best_points'], json.dumps(state))        
+
+        return CheckResult('Partial', 'Pending', state['best_points'], json.dumps(state))
+
+    def update_state(self, attempt, status, points):        
+        new_state = copy.deepcopy(self.last_attempt_state)
+        new_state['last_attempt'] = {}
+        new_state['last_attempt']['status'] = status
+        new_state['last_attempt']['points'] = points
+        new_state['last_attempt']['stage'] = attempt['stage']
+        new_state['last_attempt']['words'] = attempt['words']
+
+        new_state['best_status'] = max(new_state['best_status'], status, key=status_key)
+        new_state['best_points'] = new_state['best_points'] + points
+        return new_state
+
+    def fail(self, attempt):
+        state = self.update_state(attempt, 'Wrong', 0)
+        return self.get_result(state)
+
+    def check_category_words(self, attempt, category):
+        if category['words'] in self.last_attempt_state['guessed_words']:
+            return self.fail(attempt)
+
+        new_state = self.update_state(attempt, 'Ok', self.data['points_words'])
+        new_state['guessed_words'].append(category['words'])
+        if len(new_state['guessed_words']) == len(self.data['answers']) - 1:
+            for answer in self.data['answers']:
+                if answer['words'] not in new_state['guessed_words']:
+                    new_state['guessed_words'].append(answer['words'])
+                    new_state['last_attempt']['points'] += 1
+                    new_state['best_points'] += 1
+                    break
+        return self.get_result(new_state)
+
+    def check_category_explanation(self, attempt, category):
+        if category['words'] not in self.last_attempt_state['guessed_words']:
+            return self.fail(attempt)
+        if category['words'] in self.last_attempt_state['guessed_explanations']:
+            return self.fail(attempt)
+
+        check_result = category['checker'].check(attempt['explanation'])
+        new_state = self.update_state(attempt, check_result.status, check_result.points * self.data['points_explanation'])
+        if check_result.status == 'Ok':
+            new_state['guessed_explanations'].append(category['words'])
+        return self.get_result(new_state)
+
+    def check(self, text):
+        attempt = json.loads(text)
+        words = sorted([clean_text(x) for x in attempt['words']])
+        category = None
+        for answer in self.data['answers']:
+            if answer['words'] == words:
+                category = answer
+        if category is None:
+            return self.fail(attempt)
+
+        if attempt['stage'] == 'cat_words':
+            return self.check_category_words(attempt, category)
+
+        if attempt['stage'] == 'cat_explanation':
+            return self.check_category_explanation(attempt, category)
+
+        raise Exception('Unknown wall stage: {}'.format(attempt['stage']))
 
 
 class CheckerFactory:
@@ -152,7 +257,8 @@ class CheckerFactory:
             'equals_with_possible_spaces': EqualsWithPossibleSpacesChecker,
             'white_gray_black_list': WhiteGrayBlackListChecker,
             'metagram_checker': MetagramChecker,
+            'wall': WallChecker,
         }
     
-    def create_checker(self, checker_type, data):
-        return self.checker_type_to_checker[checker_type.id](data)
+    def create_checker(self, checker_type, data, last_attempt_state=None):
+        return self.checker_type_to_checker[checker_type.id](data, last_attempt_state)

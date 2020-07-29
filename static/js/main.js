@@ -104,6 +104,7 @@ function processNewAttempt(form, data) {
   task.replaceWith(data['html']);
   $(taskHtmlId + ' .attempt-form').on('submit', submitAttemptForm);
   $(taskHtmlId + ' .show-answer').on('click', showAnswer);
+  $(taskHtmlId + ' .wall-tile-not-guessed').on('click', wallTileClick);
 
   task = $(taskHtmlId);
   var is_ok = task.hasClass('li-ok');
@@ -115,11 +116,11 @@ function processNewAttempt(form, data) {
 function submitAttemptForm(event) {
   event.preventDefault();
   var raw_form_data = $(this).serializeArray();
-  var form_data = {}
+  var form_data = {};
   $.map(raw_form_data, function(n, i){
       form_data[n['name']] = n['value'];
   });
-  param_form_data = $.param(form_data)
+  param_form_data = $.param(form_data);
   var task_id = $(this).children(".attempt-task-id")[0].value;
   var csrf = $(this).children("input[name=csrfmiddlewaretoken]")[0].value;
 
@@ -133,7 +134,7 @@ function submitAttemptForm(event) {
       data: param_form_data,
       contentType : 'application/x-www-form-urlencoded',
       success: function(data) {
-          processNewAttempt($(this), data)
+          processNewAttempt($(this), data);
       }
   });
 }
@@ -202,10 +203,47 @@ function toggleOkTasks(event) {
   toggleAllTasks();
 }
 
+function wallTileClick(event) {
+  $(this).toggleClass('wall-tile-selected');
+
+  var wall = $($(this).parent());
+  var task_id = wall.children(".attempt-task-id")[0].value;
+  var csrf = wall.children("input[name=csrfmiddlewaretoken]")[0].value;
+
+  var selectedTiles = $('#task-' + task_id + ' .wall-tile-selected').map(function(){
+    return $(this).children('p')[0].innerText;
+  }).toArray();
+  if (selectedTiles.length != 4) {
+    return;
+  }
+  
+  var form_data = {
+    'words': selectedTiles,
+    'stage': 'cat_words'
+  }
+
+  $('#task-' + task_id + '.wall-tile-selected').toggleClass('wall-tile-selected');
+
+  $.ajaxSetup({
+    headers: { "X-CSRFToken": csrf }
+  });
+  $.ajax({
+    type: 'POST',
+    url: '/send_attempt/' + task_id + '/',
+    dataType: 'json',
+    data: form_data,
+    contentType : 'application/x-www-form-urlencoded',
+    success: function(data) {
+        processNewAttempt($(this), data);
+    }
+  });
+}
+
 $(document).ready(function() {
   $('.attempt-form').on('submit', submitAttemptForm);
   $('.show-answer').on('click', showAnswer);
   $('.toggle-ok-tasks').on('click', toggleOkTasks);
+  $('.wall-tile-not-guessed').on('click', wallTileClick);
 });
 
 }
