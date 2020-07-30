@@ -127,6 +127,49 @@ def game_page(request, game_id):
     })
 
 
+def check_attempt(attempt):
+    task = attempt.task
+    team = attempt.team
+    game = task.task_group.game
+
+    current_mode = game.get_current_mode(attempt)
+    modes = ['general']
+    if current_mode == 'tournament':
+        modes.append('tournament')
+
+    last_attempt_state = None
+    for mode in modes:
+        attempts = Attempt.manager.get_attempts_before(team, task, attempt.time, mode)
+        if mode == 'general' and attempts:
+            last_attempt_state = attempts[-1].state
+
+        if mode == 'tournament':
+            if task.task_type == 'wall':
+                validation_data = task.get_wall().validate_max_attempts(attempts, attempt)
+                if validation_data is not None:
+                    stage, n_attempts, max_attempts = validation_data
+                    raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in wall task {} on stage {}'.format(team, max_attempts, task, stage))
+            else:
+                n_attempts = len(attempts)
+                max_attempts = task.get_max_attempts()
+                if n_attempts >= max_attempts:
+                    raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {}'.format(team, max_attempts, task))
+
+        for other_attempt in attempts:
+            if attempt.text == other_attempt.text:
+                raise DuplicateAttemptException('Attempt duplicates one of the previous attempts by this team')
+
+    checker = CheckerFactory().create_checker(task.get_checker(), task.checker_data, last_attempt_state)
+    check_result = checker.check(attempt.text)
+    attempt.status, attempt.points, attempt.state = check_result.status, check_result.points, check_result.state
+    if 'tournament' in modes and attempt.status != 'Ok':
+        attempt.possible_status = attempt.status
+        attempt.status = check_result.tournament_status
+    attempt.points *= task.get_points()
+
+    attempt.save()
+
+
 def process_send_attempt(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     if not has_profile(request.user):
@@ -166,41 +209,8 @@ def process_send_attempt(request, task_id):
     attempt.time = timezone.now()
 
     current_mode = game.get_current_mode(attempt)
-    modes = ['general']
-    if current_mode == 'tournament':
-        modes.append('tournament')
 
-    last_attempt_state = None
-    for mode in modes:
-        attempts = Attempt.manager.get_attempts(team, task, mode)
-        if mode == 'general' and attempts:
-            last_attempt_state = attempts[-1].state
-
-        if mode == 'tournament':
-            if task.task_type == 'wall':
-                validation_data = task.get_wall().validate_max_attempts(attempts, attempt)
-                if validation_data is not None:
-                    stage, n_attempts, max_attempts = validation_data
-                    raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in wall task {} on stage {}'.format(team, max_attempts, task, stage))
-            else:
-                n_attempts = len(attempts)
-                max_attempts = task.get_max_attempts()
-                if n_attempts >= max_attempts:
-                    raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {}'.format(team, max_attempts, task))
-
-        for other_attempt in attempts:
-            if attempt.text == other_attempt.text:
-                raise DuplicateAttemptException('Attempt duplicates one of the previous attempts by this team')
-
-    checker = CheckerFactory().create_checker(task.get_checker(), task.checker_data, last_attempt_state)
-    check_result = checker.check(attempt.text)
-    attempt.status, attempt.points, attempt.state = check_result.status, check_result.points, check_result.state
-    if 'tournament' in modes and attempt.status != 'Ok':
-        attempt.possible_status = attempt.status
-        attempt.status = check_result.tournament_status
-    attempt.points *= task.get_points()
-
-    attempt.save()
+    check_attempt(attempt)
 
     return {
         'status': 'ok',

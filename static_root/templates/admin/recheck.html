@@ -1,0 +1,8 @@
+{% extends 'admin/change_list.html' %}
+{% block object-tools %}
+  <form action="recheck/" method="POST">
+    {% csrf_token %}
+    <input type="submit" value="Recheck" />
+  </form>
+    {{ block.super }}
+{% endblock %}

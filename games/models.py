@@ -3,7 +3,6 @@ import os
 
 from django.contrib.auth.models import User
 from django.db import models
-from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from games.access import get_game_access
@@ -200,11 +199,35 @@ class AttemptsInfo:
 
 
 class AttemptManager(models.Manager):
-    def get_all_task_attempts(self, task):
-        return sorted(super().get_queryset().filter(task=task), key=lambda x: x.time)
+    def get_all_task_attempts(self, task, exclude_skip=True):
+        queryset = super().get_queryset()
+        if exclude_skip:
+            queryset = queryset.exclude(skip=exclude_skip)
+        return sorted(queryset.filter(task=task), key=lambda x: x.time)
 
-    def get_all_attempts(self, team, task):
-        return sorted(super().get_queryset().filter(team=team, task=task), key=lambda x: x.time)
+    def get_all_attempts(self, team, task, exclude_skip=True):
+        queryset = super().get_queryset()
+        if exclude_skip:
+            queryset = queryset.exclude(skip=exclude_skip)
+        return sorted(queryset.filter(team=team, task=task), key=lambda x: x.time)
+
+    def get_all_attempts_after_equal(self, team, task, time, exclude_skip=True):
+        queryset = super().get_queryset()
+        if exclude_skip:
+            queryset = queryset.exclude(skip=exclude_skip)
+        return sorted(queryset.filter(team=team, task=task, time__gte=time), key=lambda x: x.time)
+
+    def get_all_attempts_after(self, team, task, time, exclude_skip=True):
+        queryset = super().get_queryset()
+        if exclude_skip:
+            queryset = queryset.exclude(skip=exclude_skip)
+        return sorted(queryset.filter(team=team, task=task, time__gt=time), key=lambda x: x.time)
+
+    def get_all_attempts_before(self, team, task, time, exclude_skip=True):
+        queryset = super().get_queryset()
+        if exclude_skip:
+            queryset = queryset.exclude(skip=exclude_skip)
+        return sorted(queryset.filter(team=team, task=task, time__lt=time), key=lambda x: x.time)
 
     def filter_attempts_with_mode(self, attempts, mode='general'):
         if mode == 'general' or not attempts:
@@ -216,6 +239,10 @@ class AttemptManager(models.Manager):
 
     def get_attempts(self, team, task, mode="general"):
         attempts = self.get_all_attempts(team, task)
+        return self.filter_attempts_with_mode(attempts, mode)
+
+    def get_attempts_before(self, team, task, time, mode="general"):
+        attempts = self.get_all_attempts_before(team, task, time)
         return self.filter_attempts_with_mode(attempts, mode)
 
     def get_task_attempts(self, task, mode="general"):
@@ -272,8 +299,10 @@ class Attempt(models.Model):
     time = models.DateTimeField(auto_now_add=True, blank=True)
     state = models.TextField(blank=True, null=True)
 
+    skip = models.BooleanField(default=False)
+
     def __str__(self):
-        return '[{}]: ({}) - {} [{}]'.format(self.team, self.task, self.text, self.status)
+        return '[{}]: ({}) - {} [{}]'.format(self.team, self.task, self.get_pretty_text(), self.status)
 
     def get_answer(self):
         return self.task.answer
@@ -288,23 +317,7 @@ class Attempt(models.Model):
             return self.task.get_wall().get_attempt_text(json.loads(self.text))
         raise Exception('Unknown task_type: {}'.format(self.task.task_type))
 
+
 class ProxyAttempt(Attempt):
     class Meta:
         proxy=True
-
-
-def create_profile(sender, **kw):
-    social_account = kw["instance"]
-    if kw["created"]:
-        user = social_account.user
-        profile = Profile(
-            user=user,
-            first_name=social_account.extra_data['first_name'],
-            last_name=social_account.extra_data['last_name'],
-            avatar_url=social_account.extra_data['photo_medium'],
-            vk_url='vk.com/{}'.format(social_account.extra_data['screen_name']),
-        )
-        profile.save()
-
-
-post_save.connect(create_profile, sender=SocialAccount, dispatch_uid="socialaccount-profilecreation-signal")
