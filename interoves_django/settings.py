@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 
 import os
 import requests
+import sys
 
 
 IS_PROD = os.getenv('IS_PROD') == 'TRUE'
@@ -255,3 +256,22 @@ CORS_ALLOW_HEADERS = (
 CORS_ORIGIN_WHITELIST = [
     'https://interoves-django-static.s3.amazonaws.com',
 ]
+
+# Logging
+
+LOGGING = {
+    'version': 1,
+    'handlers': {
+        'stderr': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'stream': sys.stderr,
+        }
+    },
+    'loggers': {
+        'application': {
+            'handlers': ['stderr'],
+            'level': 'INFO',
+        }
+    }
+}
