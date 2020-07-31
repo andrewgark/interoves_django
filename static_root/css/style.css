@@ -547,6 +547,9 @@ select {
 .tasks-list {
 	text-align: left;
 }
+.li-task {
+	clear: both;
+}
 .task {	
 	font-size: 16px;
 	font-weight: 300;
