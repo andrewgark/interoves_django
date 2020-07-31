@@ -18,12 +18,13 @@ class NormMatcher:
         words = text.strip().split()
         words = [get_norm_form(word) for word in words]
         for variant in self.variants:
+            if len(variant) != len(words):
+                continue
             ok = True
-            if len(variant) == len(words):
-                for variant_word, word in zip(variant, words):
-                    if word != variant_word:
-                        ok = False
-                        break
+            for variant_word, word in zip(variant, words):
+                if word != variant_word:
+                    ok = False
+                    break
             if ok:
                 return True
         return False
