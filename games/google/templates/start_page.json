@@ -1,0 +1,1150 @@
+{"content": [
+    {
+      "endIndex": 1,
+      "sectionBreak": {
+        "sectionStyle": {
+          "columnSeparatorStyle": "NONE",
+          "contentDirection": "LEFT_TO_RIGHT",
+          "sectionType": "CONTINUOUS"
+        }
+      }
+    },
+    {
+      "startIndex": 1,
+      "endIndex": 42,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 1,
+            "endIndex": 42,
+            "textRun": {
+              "content": "$name\u000bв inter oves locum praesta\n",
+              "textStyle": {}
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "headingId": "h.rboni1mclocw",
+          "namedStyleType": "HEADING_1",
+          "alignment": "CENTER",
+          "direction": "LEFT_TO_RIGHT"
+        }
+      }
+    },
+    {
+      "startIndex": 42,
+      "endIndex": 65,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 42,
+            "endIndex": 65,
+            "textRun": {
+              "content": "Автор: $author\n",
+              "textStyle": {}
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "headingId": "h.vwx16wxpccaw",
+          "namedStyleType": "SUBTITLE",
+          "alignment": "CENTER",
+          "direction": "LEFT_TO_RIGHT"
+        }
+      }
+    },
+    {
+      "startIndex": 65,
+      "endIndex": 89,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 65,
+            "endIndex": 89,
+            "textRun": {
+              "content": "Команда: ______________\n",
+              "textStyle": {}
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "headingId": "h.7n3mgwj15ofp",
+          "namedStyleType": "SUBTITLE",
+          "alignment": "CENTER",
+          "direction": "LEFT_TO_RIGHT"
+        }
+      }
+    },
+    {
+      "startIndex": 89,
+      "endIndex": 100,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 89,
+            "endIndex": 100,
+            "textRun": {
+              "content": "26.07.2020\n",
+              "textStyle": {
+                "fontSize": {
+                  "magnitude": 14,
+                  "unit": "PT"
+                }
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "CENTER",
+          "direction": "LEFT_TO_RIGHT"
+        }
+      }
+    },
+    {
+      "startIndex": 100,
+      "endIndex": 114,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 100,
+            "endIndex": 114,
+            "textRun": {
+              "content": "Общие правила\n",
+              "textStyle": {}
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "headingId": "h.ojv92trvykh0",
+          "namedStyleType": "HEADING_3",
+          "alignment": "CENTER",
+          "direction": "LEFT_TO_RIGHT"
+        }
+      }
+    },
+    {
+      "startIndex": 114,
+      "endIndex": 167,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 114,
+            "endIndex": 153,
+            "textRun": {
+              "content": "Начиная с этой игры мы играем на сайте ",
+              "textStyle": {
+                "bold": true,
+                "italic": true
+              }
+            }
+          },
+          {
+            "startIndex": 153,
+            "endIndex": 165,
+            "textRun": {
+              "content": "interoves.ml",
+              "textStyle": {
+                "bold": true,
+                "italic": true,
+                "underline": true,
+                "foregroundColor": {
+                  "color": {
+                    "rgbColor": {
+                      "red": 0.06666667,
+                      "green": 0.33333334,
+                      "blue": 0.8
+                    }
+                  }
+                },
+                "link": {
+                  "url": "http://interoves.ml"
+                }
+              }
+            }
+          },
+          {
+            "startIndex": 165,
+            "endIndex": 167,
+            "textRun": {
+              "content": ".\n",
+              "textStyle": {
+                "bold": true,
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.mhqs3f31zpif",
+          "textStyle": {
+            "bold": true,
+            "italic": true,
+            "underline": false
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 167,
+      "endIndex": 276,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 167,
+            "endIndex": 276,
+            "textRun": {
+              "content": "Войдите туда через VK. Если у вас еще нет команды, создайте новую команду или подайте заявку в существующую.\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 276,
+      "endIndex": 330,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 276,
+            "endIndex": 304,
+            "textRun": {
+              "content": "Играйте по вот этой ссылке: ",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          },
+          {
+            "startIndex": 304,
+            "endIndex": 329,
+            "textRun": {
+              "content": "interoves.ml/games/des14/",
+              "textStyle": {
+                "italic": true,
+                "underline": true,
+                "foregroundColor": {
+                  "color": {
+                    "rgbColor": {
+                      "red": 0.06666667,
+                      "green": 0.33333334,
+                      "blue": 0.8
+                    }
+                  }
+                },
+                "link": {
+                  "url": "http://interoves.ml/games/des14/"
+                }
+              }
+            }
+          },
+          {
+            "startIndex": 329,
+            "endIndex": 330,
+            "textRun": {
+              "content": "\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true,
+            "underline": false
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 330,
+      "endIndex": 457,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 330,
+            "endIndex": 456,
+            "textRun": {
+              "content": "Рекомендуем вашей команде созвониться и сделать копию этого гуглодока, чтобы было удобно в гуглодоке вместе обсуждать задания.",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          },
+          {
+            "startIndex": 456,
+            "endIndex": 457,
+            "textRun": {
+              "content": "\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true,
+            "underline": false
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 457,
+      "endIndex": 616,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 457,
+            "endIndex": 616,
+            "textRun": {
+              "content": "Вы можете отправлять задания на сайте до 21:00 (обратите внимание, дается 3 часа). После этого - тоже можете, но новые посылки не пойдут в турнирную табличку.\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 616,
+      "endIndex": 920,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 616,
+            "endIndex": 920,
+            "textRun": {
+              "content": "Посылки проверяются автоматически на соответствие авторскому ответу. Если совпало - задание зачитывается. Если нет - задание отправляются на проверку ведущему, нет ли там опечаток или альтернативных ответов, возможно даже ведущий поменяет алгоритм проверки, чтобы он учитывал новый альтернативный ответ.\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true,
+            "underline": false
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 920,
+      "endIndex": 1112,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 920,
+            "endIndex": 999,
+            "textRun": {
+              "content": "Можно пользоваться всем, чем угодно: гуглом, переводчиком, картами и так далее.",
+              "textStyle": {
+                "italic": true,
+                "underline": true
+              }
+            }
+          },
+          {
+            "startIndex": 999,
+            "endIndex": 1112,
+            "textRun": {
+              "content": " Мы рассчитываем, что вы ими пользуетесь, многие задания без интернета решить очень тяжело или почти невозможно.\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 1112,
+      "endIndex": 1196,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 1112,
+            "endIndex": 1196,
+            "textRun": {
+              "content": "Задания на русском языке (если не сказано иначе). Буква Ё приравнивается к букве Е.\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 1196,
+      "endIndex": 1319,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 1196,
+            "endIndex": 1280,
+            "textRun": {
+              "content": "Здесь всю игру и после нее будет доступна онлайн-обновляющаяся таблица результатов: ",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          },
+          {
+            "startIndex": 1280,
+            "endIndex": 1318,
+            "textRun": {
+              "content": "interoves.ml/tournament_results/des14/",
+              "textStyle": {
+                "italic": true,
+                "underline": true,
+                "foregroundColor": {
+                  "color": {
+                    "rgbColor": {
+                      "red": 0.06666667,
+                      "green": 0.33333334,
+                      "blue": 0.8
+                    }
+                  }
+                },
+                "link": {
+                  "url": "https://interoves.ml/tournament_results/des14/"
+                }
+              }
+            }
+          },
+          {
+            "startIndex": 1318,
+            "endIndex": 1319,
+            "textRun": {
+              "content": "\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true,
+            "underline": false
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 1319,
+      "endIndex": 1391,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 1319,
+            "endIndex": 1362,
+            "textRun": {
+              "content": "Если вам понравилась игра или сайт, можете ",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          },
+          {
+            "startIndex": 1362,
+            "endIndex": 1372,
+            "textRun": {
+              "content": "задонатить",
+              "textStyle": {
+                "italic": true,
+                "underline": true,
+                "foregroundColor": {
+                  "color": {
+                    "rgbColor": {
+                      "red": 0.06666667,
+                      "green": 0.33333334,
+                      "blue": 0.8
+                    }
+                  }
+                },
+                "link": {
+                  "url": "https://vk.com/im?sel=44164226&w=app6471849_-80749489"
+                }
+              }
+            }
+          },
+          {
+            "startIndex": 1372,
+            "endIndex": 1391,
+            "textRun": {
+              "content": " ведущему денежку.\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 1391,
+      "endIndex": 1414,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 1391,
+            "endIndex": 1413,
+            "textRun": {
+              "content": "Если сайт вдруг упадет",
+              "textStyle": {}
+            }
+          },
+          {
+            "startIndex": 1413,
+            "endIndex": 1414,
+            "textRun": {
+              "content": "\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "headingId": "h.ot6refvecnhn",
+          "namedStyleType": "HEADING_3",
+          "alignment": "CENTER",
+          "direction": "LEFT_TO_RIGHT"
+        }
+      }
+    },
+    {
+      "startIndex": 1414,
+      "endIndex": 1550,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 1414,
+            "endIndex": 1550,
+            "textRun": {
+              "content": "Это первая игра с сайтом, если вдруг будут технические проблемы, то перейдем в старый режим проверки заданий ведущим лично в гуглодоке:\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 1550,
+      "endIndex": 1833,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 1550,
+            "endIndex": 1833,
+            "textRun": {
+              "content": "Капитан может 3 раза послать гуглодок с ответами в личку вк ведущему (Андрею Гаркавому), он постарается как можно быстрее проверить их и написать, что правильно, что нет (возможно даже почему нет). В последние 10-15 минут рассчитывать на то, что он успеет проверить, не рекомендуем.\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 1833,
+      "endIndex": 2009,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 1833,
+            "endIndex": 2009,
+            "textRun": {
+              "content": "Проверяются только ответы в секции “Ответ” (она теперь в каждом задании внутри). Все остальные комментарии, которые вы написали, например, в самом задании, ведущий игнорирует.\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 2009,
+      "endIndex": 2220,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 2009,
+            "endIndex": 2011,
+            "textRun": {
+              "content": "В ",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          },
+          {
+            "startIndex": 2011,
+            "endIndex": 2019,
+            "textRun": {
+              "content": "табличке",
+              "textStyle": {
+                "italic": true,
+                "underline": true,
+                "foregroundColor": {
+                  "color": {
+                    "rgbColor": {
+                      "red": 0.06666667,
+                      "green": 0.33333334,
+                      "blue": 0.8
+                    }
+                  }
+                },
+                "link": {
+                  "url": "https://docs.google.com/spreadsheets/d/12QpFidJ53J1EtxpA-BuMWVSO1JnQUStVUS3RhUwsZ6I/edit?usp=sharing"
+                }
+              }
+            }
+          },
+          {
+            "startIndex": 2019,
+            "endIndex": 2020,
+            "textRun": {
+              "content": " ",
+              "textStyle": {
+                "bold": true,
+                "italic": true
+              }
+            }
+          },
+          {
+            "startIndex": 2020,
+            "endIndex": 2212,
+            "textRun": {
+              "content": "по мере проверки ведущим ваших посылок будут еще в ходе игры появляться результаты команд. В тот же вечер или после конца игры результаты обычно уже окончательно проверяются и выкладываются в ",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          },
+          {
+            "startIndex": 2212,
+            "endIndex": 2218,
+            "textRun": {
+              "content": "паблик",
+              "textStyle": {
+                "italic": true,
+                "underline": true,
+                "foregroundColor": {
+                  "color": {
+                    "rgbColor": {
+                      "red": 0.06666667,
+                      "green": 0.33333334,
+                      "blue": 0.8
+                    }
+                  }
+                },
+                "link": {
+                  "url": "https://vk.com/interoveslocumpraesta"
+                }
+              }
+            }
+          },
+          {
+            "startIndex": 2218,
+            "endIndex": 2220,
+            "textRun": {
+              "content": ".\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.tlbbwzqv5i9z",
+          "textStyle": {
+            "italic": true
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 2220,
+      "endIndex": 2233,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 2220,
+            "endIndex": 2233,
+            "textRun": {
+              "content": "Рекомендации\n",
+              "textStyle": {}
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "headingId": "h.f0q05iook6x5",
+          "namedStyleType": "HEADING_3",
+          "alignment": "CENTER",
+          "direction": "LEFT_TO_RIGHT"
+        }
+      }
+    },
+    {
+      "startIndex": 2233,
+      "endIndex": 2369,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 2233,
+            "endIndex": 2369,
+            "textRun": {
+              "content": "Гуглите почаще, это игра на умение правильно погуглить почти в той же мере, что и думать. За игру вы скорее всего узнаете много нового.\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.e8s2t77c67c5",
+          "textStyle": {
+            "italic": true,
+            "underline": false
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 2369,
+      "endIndex": 2583,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 2369,
+            "endIndex": 2583,
+            "textRun": {
+              "content": "Выписывайте версии всё время. Многие задания делятся на кучу частей - запишите прямо в гуглодоке версии ответов на части задания. Смотря на части, найти общую логику бывает гораздо проще, чем держа части в голове.\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 2583,
+      "endIndex": 2771,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 2583,
+            "endIndex": 2771,
+            "textRun": {
+              "content": "Игра командная, так что можете параллелиться, чтобы все не сидели на одном задании. Но тут делайте как хотите, сидеть на одном задании и вместе раскалывать его тоже может быть эффективно.\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "indentFirstLine": {
+            "magnitude": 18,
+            "unit": "PT"
+          },
+          "indentStart": {
+            "magnitude": 36,
+            "unit": "PT"
+          }
+        },
+        "bullet": {
+          "listId": "kix.3xl2nv74vj8u",
+          "textStyle": {
+            "italic": true
+          }
+        }
+      }
+    },
+    {
+      "startIndex": 2771,
+      "endIndex": 2772,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 2771,
+            "endIndex": 2772,
+            "textRun": {
+              "content": "\n",
+              "textStyle": {
+                "italic": true
+              }
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "namedStyleType": "NORMAL_TEXT",
+          "alignment": "JUSTIFIED",
+          "direction": "LEFT_TO_RIGHT"
+        }
+      }
+    },
+    {
+      "startIndex": 2772,
+      "endIndex": 2774,
+      "paragraph": {
+        "elements": [
+          {
+            "startIndex": 2772,
+            "endIndex": 2773,
+            "pageBreak": {
+              "textStyle": {}
+            }
+          },
+          {
+            "startIndex": 2773,
+            "endIndex": 2774,
+            "textRun": {
+              "content": "\n",
+              "textStyle": {}
+            }
+          }
+        ],
+        "paragraphStyle": {
+          "headingId": "h.xwh5deip80nj",
+          "namedStyleType": "HEADING_1",
+          "alignment": "CENTER",
+          "direction": "LEFT_TO_RIGHT",
+          "spacingMode": "NEVER_COLLAPSE",
+          "spaceBelow": {
+            "unit": "PT"
+          },
+          "borderTop": {
+            "color": {},
+            "width": {
+              "unit": "PT"
+            },
+            "padding": {
+              "unit": "PT"
+            },
+            "dashStyle": "SOLID"
+          },
+          "borderBottom": {
+            "color": {},
+            "width": {
+              "unit": "PT"
+            },
+            "padding": {
+              "magnitude": 5.25,
+              "unit": "PT"
+            },
+            "dashStyle": "SOLID"
+          },
+          "borderRight": {
+            "color": {},
+            "width": {
+              "unit": "PT"
+            },
+            "padding": {
+              "unit": "PT"
+            },
+            "dashStyle": "SOLID"
+          }
+        }
+      }
+    }
+]}

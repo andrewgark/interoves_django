@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.forms import Textarea
 from django.db import models
+from django.shortcuts import get_object_or_404
+from games.google.actions import create_google_doc
 from games.models import *
 from games.recheck import recheck, recheck_full, recheck_queue_from_this, recheck_queue_from_next
 
@@ -37,12 +39,18 @@ class TaskGroupInline(admin.TabularInline):
     model = TaskGroup
 
 
+def create_new_google_doc(modeladmin, request, queryset):
+    for game_id in queryset.values_list('id'):
+        create_google_doc(get_object_or_404(Game, id=game_id[0]))
+
+
 @admin.register(Game)
 class GameAdmin(admin.ModelAdmin):
     inlines = [
         TaskGroupInline
     ]
     list_display = ['__str__', 'name', 'theme', 'author', 'start_time', 'end_time', 'is_ready', 'is_playable', 'is_testing']
+    actions = [create_new_google_doc]
 
 
 @admin.register(Task)

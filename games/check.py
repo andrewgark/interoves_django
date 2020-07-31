@@ -2,6 +2,7 @@ import copy
 import json
 import re
 from decimal import Decimal
+from games.matcher.norm_matcher import NormMatcher
 from games.util import status_key, clean_text
 
 
@@ -25,8 +26,8 @@ def delete_spaces(func):
    return func_wrapper
 
 
-def delete_punctuation(func, *args, **kw):
-   def func_wrapper(self, text):
+def delete_punctuation(func):
+   def func_wrapper(self, text, *args, **kw):
        return func(self, re.sub(r"[.,\/#!$%\^&\*;:{}=\-_`~()—]+", "", text), *args, **kw)
    return func_wrapper
 
@@ -59,6 +60,18 @@ class EqualsChecker(SimpleBoolChecker):
     @clean
     def bool_check(self, text):
         return text == self.data
+
+
+class NormMatcherChecker(SimpleBoolChecker):
+    @clean
+    @delete_punctuation
+    def __init__(self, data, last_attempt_state=None):
+        self.matcher = NormMatcher(data)
+
+    @clean
+    @delete_punctuation
+    def bool_check(self, text):
+        return self.matcher.match(text)
 
 
 class EqualsWithPossibleSpacesChecker(SimpleBoolChecker):
@@ -170,7 +183,7 @@ class WallChecker(BaseChecker):
             self.last_attempt_state = json.loads(last_attempt_state)
         for answer in self.data['answers']:
             answer['words'] = sorted([clean_text(x) for x in answer['words']])
-            answer['checker'] = WhiteGrayBlackListChecker(answer['checker'])
+            answer['checker'] = NormMatcherChecker(answer['checker'])
 
     def get_result(self, state):
         max_points = (self.data['points_words'] + self.data['points_explanation']) * len(self.data['answers'])
@@ -257,6 +270,7 @@ class CheckerFactory:
             'equals_with_possible_spaces': EqualsWithPossibleSpacesChecker,
             'white_gray_black_list': WhiteGrayBlackListChecker,
             'metagram_checker': MetagramChecker,
+            'norm_matcher': NormMatcherChecker,
             'wall': WallChecker,
         }
     
