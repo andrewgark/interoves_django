@@ -88,6 +88,8 @@ INSTALLED_APPS = [
     'storages',
 
     'corsheaders',
+
+    'yet_another_django_profiler',
 ]
 
 MIDDLEWARE = [
@@ -101,6 +103,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    'yet_another_django_profiler.middleware.ProfilerMiddleware',
 ]
 
 ROOT_URLCONF = 'interoves_django.urls'

@@ -30,6 +30,7 @@ idna==2.8
 ipaddr==2.2.0
 jmespath==0.10.0
 lockfile==0.12.2
+mock==4.0.2
 msgpack==0.6.2
 mysqlclient==2.0.1
 oauthlib==3.1.0
@@ -56,3 +57,4 @@ six==1.14.0
 uritemplate==3.0.1
 urllib3==1.25.8
 webencodings==0.5.1
+yet-another-django-profiler==1.1.0
