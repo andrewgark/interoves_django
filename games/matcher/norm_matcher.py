@@ -1,9 +1,11 @@
 import pymorphy2
 
 
+MORPH_ANALYZER = pymorphy2.MorphAnalyzer()
+
+
 def get_norm_form(word):
-    morph = pymorphy2.MorphAnalyzer()
-    return morph.parse(word)[0].normal_form
+    return MORPH_ANALYZER.parse(word)[0].normal_form
 
 
 class NormMatcher:

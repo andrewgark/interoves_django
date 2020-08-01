@@ -6,3 +6,5 @@ class GamesConfig(AppConfig):
 
     def ready(self):
         import games.signals
+        import games.matcher.norm_matcher
+
