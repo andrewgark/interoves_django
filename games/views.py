@@ -267,7 +267,7 @@ def get_answer(request, task_id):
 def results_page(request, game_id, mode='general'):
     game = get_object_or_404(Game, id=game_id)
     if has_profile(request.user) and request.user.profile.team_on and \
-       not game.has_access('see_results', mode=mode):
+       not game.has_access('see_results', mode=mode, team=request.user.profile.team_on):
         return defaults.page_not_found(request)
 
     team_to_list_attempts_info = {}
