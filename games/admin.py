@@ -103,3 +103,4 @@ class PendingAdmin(admin.ModelAdmin):
         return qs.filter(status='Pending')
 
     list_display = ['__str__', 'team', 'task', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points']
+    actions = [recheck_attempt, recheck_full_attempt, recheck_queue_from_this_attempt, recheck_queue_from_next_attempt]
