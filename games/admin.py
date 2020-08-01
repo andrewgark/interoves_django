@@ -102,4 +102,4 @@ class PendingAdmin(admin.ModelAdmin):
         qs = super(PendingAdmin, self).get_queryset(request)
         return qs.filter(status='Pending')
 
-    list_display = ['__str__', 'team', 'task', 'text', 'get_answer', 'status', 'points', 'get_max_points']
+    list_display = ['__str__', 'team', 'task', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points']
