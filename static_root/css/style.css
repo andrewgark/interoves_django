@@ -766,6 +766,9 @@ th.row-header {
 .wall-tile-guessed-3 {
 	background: #c46cff !important;
 }
+.wall-tile-guessed-4 {
+	background: #ffa76c !important;
+}
 .wall-tile-selected {
 	background: #ffd86c;
 }
