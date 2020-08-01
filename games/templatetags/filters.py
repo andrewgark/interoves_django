@@ -110,6 +110,8 @@ def get_guessed_tiles(wall, attempts_info):
 
 @register.filter
 def get_wall_attempt_status(attempt):
+    if attempt.status == 'Pending':
+        return 'Pending'
     return json.loads(attempt.state)['last_attempt']['status']
 
 
