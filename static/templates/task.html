@@ -115,7 +115,7 @@
             {% for attempt in attempts_info.attempts %}
               <li class="li-attempt li-{{ attempt|get_wall_attempt_status|get_lower_status }}">
                 {{ attempt.time|date:'H:i' }}:
-                {% if attempt.status == 'Ok' %}
+                {% if attempt|get_wall_attempt_status == 'Ok' %}
                   <b>{{ attempt.get_pretty_text }}</b>
                 {% else %}
                   {{ attempt.get_pretty_text }}

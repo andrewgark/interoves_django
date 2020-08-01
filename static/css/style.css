@@ -547,6 +547,9 @@ select {
 .tasks-list {
 	text-align: left;
 }
+.li-task {
+	clear: both;
+}
 .task {	
 	font-size: 16px;
 	font-weight: 300;
@@ -554,6 +557,7 @@ select {
 	margin-top: 10px;
 	margin-bottom: 10px;
 	padding-bottom: 15px;
+	clear: both;
 }
 .attempts {
 	margin-left: 5px;
@@ -713,13 +717,12 @@ th.row-header {
 /* Wall */
 .wall {
 	width: 760px;
-	/* overflow: auto; */
+	margin-bottom: 10px;
 }
 .wall-explanations {
 	display: inline-block;
     float: left;
     width: 150px;
-	/* overflow: auto; */
 }
 .wall-tiles {
 	width: 605px;
@@ -761,6 +764,9 @@ th.row-header {
 }
 .wall-tile-guessed-3 {
 	background: #c46cff !important;
+}
+.wall-tile-guessed-4 {
+	background: #ffa76c !important;
 }
 .wall-tile-selected {
 	background: #ffd86c;

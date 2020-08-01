@@ -717,13 +717,11 @@ th.row-header {
 /* Wall */
 .wall {
 	width: 760px;
-	/* overflow: auto; */
 }
 .wall-explanations {
 	display: inline-block;
     float: left;
     width: 150px;
-	/* overflow: auto; */
 }
 .wall-tiles {
 	width: 605px;
