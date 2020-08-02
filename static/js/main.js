@@ -204,6 +204,9 @@ function toggleOkTasks(event) {
 }
 
 function wallTileClick(event) {
+  if ($(this).hasClass('wall-tile-stop-guessing')) {
+    return;
+  }
   $(this).toggleClass('wall-tile-selected');
 
   var wall = $($(this).parent());

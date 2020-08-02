@@ -752,6 +752,9 @@ th.row-header {
 .wall-tile-not-guessed:hover {
 	background:#ffffff;
 }
+.wall-tile-stop-guessing {
+	cursor: default;
+}
 .wall-tile-guessed-0 {
 	background: #ff6c6c !important;
 }

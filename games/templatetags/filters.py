@@ -129,3 +129,10 @@ def get_exptiles(wall_attempts_info, mode):
 @register.filter
 def json_encode(obj):
     return json.dumps(obj)
+
+
+@register.filter
+def get_wall_tile_stop_guessing_class(wall, attempts_info):
+    if wall.guessing_tiles_is_over(attempts_info):
+        return 'wall-tile-stop-guessing'
+    return ''

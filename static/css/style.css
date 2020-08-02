@@ -717,7 +717,6 @@ th.row-header {
 /* Wall */
 .wall {
 	width: 760px;
-	margin-bottom: 10px;
 }
 .wall-explanations {
 	display: inline-block;
@@ -752,6 +751,9 @@ th.row-header {
 }
 .wall-tile-not-guessed:hover {
 	background:#ffffff;
+}
+.wall-tile-stop-guessing {
+	cursor: default;
 }
 .wall-tile-guessed-0 {
 	background: #ff6c6c !important;

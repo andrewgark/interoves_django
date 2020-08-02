@@ -38,6 +38,7 @@ class Wall:
         self.points_words = checker_data['points_words']
         self.points_explanation = checker_data['points_explanation']
         self.points_bonus = checker_data['points_bonus']
+        self.answer_words = [x['words'] for x in checker_data['answers']]
         self.max_points = self.n_cat * (self.points_words + self.points_explanation) + self.points_bonus
 
     def get_tiles(self):
@@ -60,20 +61,15 @@ class Wall:
             'cat_explanation': {
             }
         }
-        for i, max_attempts in enumerate(self.max_attempts):
+        for i, max_attempts in enumerate(self.max_attempts + [1]):
             n_max_attempts_dict['cat_words'][i] = {}
             n_max_attempts_dict['cat_words'][i]['n_attempts'] = 0
             n_max_attempts_dict['cat_words'][i]['max_attempts'] = max_attempts
+            n_max_attempts_dict['cat_words'][i]['guessed'] = False
 
             n_max_attempts_dict['cat_explanation'][i] = {}
             n_max_attempts_dict['cat_explanation'][i]['n_attempts'] = 0
             n_max_attempts_dict['cat_explanation'][i]['max_attempts'] = self.task.get_max_attempts()
-        n_max_attempts_dict['cat_words'][self.n_cat - 1] = {}
-        n_max_attempts_dict['cat_words'][self.n_cat - 1]['n_attempts'] = 0
-        n_max_attempts_dict['cat_words'][self.n_cat - 1]['max_attempts'] = 1
-        n_max_attempts_dict['cat_explanation'][self.n_cat - 1] = {}
-        n_max_attempts_dict['cat_explanation'][self.n_cat - 1]['n_attempts'] = 0
-        n_max_attempts_dict['cat_explanation'][self.n_cat - 1]['max_attempts'] = self.task.get_max_attempts()
 
         for attempt in attempts:
             state = json.loads(attempt.state)
@@ -86,6 +82,7 @@ class Wall:
                     n_max_attempts_dict[stage][n_guessed]['n_attempts'] += 1
                 else:
                     n_max_attempts_dict[stage][n_guessed - 1]['n_attempts'] += 1
+                    n_max_attempts_dict[stage][n_guessed - 1]['guessed'] = True
             else:
                 words = state['last_attempt']['words']
                 words_index = None
@@ -148,9 +145,27 @@ class Wall:
                     guessed_tiles.append(tile)
         return guessed_tiles
 
+    def guessing_tiles_is_over(self, attempts_info):
+        if not attempts_info or not attempts_info.last_attempt:
+            return False
+
+        attempts = []
+        if attempts_info and attempts_info.attempts:
+            attempts = attempts_info.attempts
+
+        state = json.loads(attempts_info.last_attempt.state)
+        if len(state['guessed_words']) == self.n_cat:
+            return True
+
+        n_max_attempts_dict = self.get_n_max_attempts_dict(attempts)
+        for x in n_max_attempts_dict['cat_words'].values():
+            if x['n_attempts'] >= x['max_attempts'] and not x['guessed']:
+                return True
+        return False
+
     def get_exptiles(self, attempts_info, mode):
         attempts = []
-        if attempts_info and attempts_info.last_attempt:
+        if attempts_info and attempts_info.attempts:
             attempts = attempts_info.attempts
         n_max_attempts_dict = self.get_n_max_attempts_dict(attempts)
 
@@ -165,7 +180,7 @@ class Wall:
                 id=i,
             )
             if mode == 'tournament':
-                if n_max_attempts_dict['cat_words'][i]['n_attempts'] >= n_max_attempts_dict['cat_words'][i]['max_attempts']:
+                if n_max_attempts_dict['cat_words'][i]['n_attempts'] >= n_max_attempts_dict['cat_words'][i]['max_attempts'] and not n_max_attempts_dict['cat_words'][i]['guessed']:
                     exptile.type = 'no_more_guesses'
                 if n_max_attempts_dict['cat_explanation'][i]['n_attempts'] >= n_max_attempts_dict['cat_explanation'][i]['max_attempts']:
                     exptile.type = 'no_more_guesses'

@@ -59,11 +59,13 @@
               <p>{{ tile.text }}</p>
             </div>
           {% endfor %}
-          {% for tile in task.get_wall|get_not_guessed_tiles:attempts_info %}
-            <div class="wall-tile wall-tile-not-guessed" id="task-{{ task.id }}-tile-{{ tile.id }}">
-              <p>{{ tile.text }}</p>
-            </div>
-          {% endfor %}
+          {% with wall_tile_stop_guessing=task.get_wall|get_wall_tile_stop_guessing_class:attempts_info %}
+            {% for tile in task.get_wall|get_not_guessed_tiles:attempts_info %}
+              <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
+                <p>{{ tile.text }}</p>
+              </div>
+            {% endfor %}
+          {% endwith %}
         </div>
         <div class="wall-explanations">
           {% for exptile in task.get_wall|one_more:attempts_info|get_exptiles:mode %}
