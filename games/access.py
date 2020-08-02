@@ -25,7 +25,7 @@ def game_is_going_now(game, attempt=None):
 
 def get_game_access(game, action, team=None, attempt=None, mode='general'):
     if action == 'play_with_team':
-        return team  and get_game_access(game, 'play_without_team', team=team, attempt=attempt, mode=mode)
+        return team and get_game_access(game, 'play_without_team', team=team, attempt=attempt, mode=mode)
     if action == 'see_tournament_results':
         return get_game_access(game, 'play_without_team', team=team, mode='tournament')
     if action == 'see_results':
@@ -33,7 +33,7 @@ def get_game_access(game, action, team=None, attempt=None, mode='general'):
     if action == 'see_answer':
         return game_has_ended(game, attempt) and get_game_access(game, 'read_googledoc', team=team, attempt=attempt, mode=mode)
     if action == 'attempt_is_tournament':
-        return not game_has_ended(game, attempt) and get_game_access(game, 'play_without_team', team=team, attempt=attempt, mode=mode)
+        return not game_has_ended(game, attempt) and game_has_started(game, attempt)
     if action == 'see_game_preview':
         if mode == 'tournament' and not game.is_tournament:
             return False
