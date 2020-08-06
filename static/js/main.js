@@ -293,6 +293,7 @@ $(document).ready(function() {
   $('.like-dislike').likeDislike({
     click: clickLikeDislike
   });
+  console.log("!!!!!!!!!");
 });
 
 }
