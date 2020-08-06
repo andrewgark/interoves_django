@@ -1,0 +1,75 @@
+{% load staticfiles %}
+{% load filters %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ game.name }}</title>
+<meta name="description" content="">
+<meta name="author" content="">
+
+{% include "style_header.html" %}
+
+<!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+<!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+<!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+</head>
+<body id="page-top" data-spy="scroll" data-target=".navbar-fixed-top">
+<!-- Navigation
+    ==========================================-->
+<nav id="menu" class="navbar navbar-default navbar-fixed-top">
+  <div class="container"> 
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1"> <span class="sr-only">Toggle navigation</span> <span class="icon-bar"></span> <span class="icon-bar"></span> <span class="icon-bar"></span> </button>
+      <a class="navbar-brand page-scroll" href="/">inter oves locum praesta</a> </div>
+    
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+      <ul class="nav navbar-nav navbar-right">
+        <li><a href="#page-top" class="page-scroll">Наверх</a></li>
+        {% for task_group in task_groups %}
+          <li><a href="#task-group-{{ task_group.number }}" class="page-scroll">{{ task_group.number }}</a></li>
+        {% endfor %}
+        {% if mode == 'tournament' %}<li><a href="/tournament_results/{{ game.id }}/">Результаты</a></li>{% endif %}
+        {% if mode == 'general' %}
+          {% if game.is_tournament %}
+            <li><a href="/results/{{ game.id }}/">Общие результаты</a></li>
+            <li><a href="/tournament_results/{{ game.id }}/">Результаты турнира</a></li>
+          {% endif %}
+          <li><a href="/results/{{ game.id }}/">Результаты</a></li>
+        {% endif %}
+        <li><button class="toggle-ok-tasks" value="0"><i class="icon-ok-tasks fa fa-eye"></i></button></li>
+      </ul>
+    </div>
+    <!-- /.navbar-collapse --> 
+  </div>
+</nav>
+<!-- Header -->
+<header id="header">
+  <div class="intro">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-8 col-md-offset-2 intro-text">
+          <h1>{{ game.name }}</h1>
+          {% if game.theme %}<h3>Тема: {{ game.theme }}</h3>{% endif %}
+          {% if game.author %}<h3>Автор: {{ game.author }}</h3>{% endif %}
+          {% if mode == 'tournament' %}<h3>Время: {{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}</h3>{% endif %}
+          </div>
+    </div>
+  </div>
+</header>  
+<!-- Team Section -->
+<div id="myteam">
+  <div class="container">
+    {% include "team.html" %}
+  </div>
+</div>
+{% include "footer.html" %}
+{% include "scripts.html" %}
+</body>
+</html>

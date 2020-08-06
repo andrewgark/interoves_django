@@ -1,13 +1,31 @@
 import json
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import user_passes_test
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views import defaults
+from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from games.check import CheckerFactory
 from games.exception import *
 from games.forms import CreateTeamForm, JoinTeamForm, AttemptForm
 from games.models import Team, Game, Attempt, AttemptsInfo, Task, Like
+
+
+def profile_required(function=None):
+   def has_profile(user):
+       if user and user.profile:
+           return True
+       return False
+   return user_passes_test(has_profile)
+
+
+def team_required(function=None):
+   def has_team(user):
+       if user and user.profile and user.profile.team_on:
+           return True
+       return False
+   return user_passes_test(has_team)
 
 
 def get_games_list(request):
@@ -35,10 +53,11 @@ def has_profile(user):
     return user and getattr(user, 'profile', None)
 
 
+@profile_required
 def create_team(request):
     user = request.user
     form = CreateTeamForm(request.POST)
-    if form.is_valid() and has_profile(user) and not user.profile.team_on:
+    if form.is_valid() and not user.profile.team_on:
         team = form.save()
         user.profile.team_on = team
         user.profile.team_requested = None
@@ -46,11 +65,11 @@ def create_team(request):
     return main_page(request)
 
 
+@profile_required
 def join_team(request):
     user = request.user
     form = JoinTeamForm(request.POST)
     if form.is_valid() and form.cleaned_data['name'] and \
-       has_profile(user) and \
        not user.profile.team_on and not user.profile.team_requested:
         team = get_object_or_404(Team, name=form.cleaned_data['name'])
         user.profile.team_requested = team
@@ -58,21 +77,21 @@ def join_team(request):
     return main_page(request)
 
 
+@profile_required
 def quit_from_team(request):
     user = request.user
-    if has_profile(user):
-        user.profile.team_on = None
-        user.profile.team_requested = None
-        user.profile.save()
+    user.profile.team_on = None
+    user.profile.team_requested = None
+    user.profile.save()
     return main_page(request)
 
 
+@team_required
 def process_user_request(request, user_id, action):
     active_user = request.user
     passive_user = get_object_or_404(get_user_model(), id=int(user_id))
     if has_profile(passive_user):
-        if has_profile(active_user) and \
-           active_user != passive_user and \
+        if active_user != passive_user and \
            active_user.profile.team_on == passive_user.profile.team_requested:
             passive_user.profile.team_requested = None
             if action == 'confirm':
@@ -99,12 +118,16 @@ def get_task_to_attempts_info(game, team, mode='general'):
     return task_to_attempts_info
 
 
+def get_team_to_play_page(request, game):
+    return render(request, 'get_team_to_play.html', {
+        'game': game,
+    })
+
+
 def game_page(request, game_id):
     game = get_object_or_404(Game, id=game_id)
-    if not has_profile(request.user):
-        raise UserHasNoProfileException('User {} has no profile'.format(request.user))
-    if not request.user.profile.team_on:
-        return PlayGameWithoutTeamException('User {} tries to sent attempt but has no team'.format(request.user.profile))
+    if not has_profile(request.user) or not request.user.profile.team_on:
+        return get_team_to_play_page(request, game)
     if not game.has_access('play_with_team', team=request.user.profile.team_on):
         raise NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
@@ -171,12 +194,9 @@ def check_attempt(attempt):
     attempt.save()
 
 
+@team_required
 def process_send_attempt(request, task_id):
     task = get_object_or_404(Task, id=task_id)
-    if not has_profile(request.user):
-        raise UserHasNoProfileException('User {} has no profile'.format(request.user))
-    if not request.user.profile.team_on:
-        return PlayGameWithoutTeamException('User {} tries to sent attempt but has no team'.format(request.user.profile))
 
     team = request.user.profile.team_on
     game = task.task_group.game
@@ -226,6 +246,7 @@ def process_send_attempt(request, task_id):
     }
 
 
+@team_required
 def send_attempt(request, task_id):
     try:
         response = process_send_attempt(request, task_id)
@@ -241,13 +262,9 @@ def task_ok_by_team(task, team, mode):
     return best_attempt and best_attempt.status == 'Ok'
 
 
+@team_required
 def get_answer(request, task_id):
     task = get_object_or_404(Task, id=task_id)
-    if not has_profile(request.user):
-        raise UserHasNoProfileException('User {} has no profile'.format(request.user))
-    if not request.user.profile.team_on:
-        return PlayGameWithoutTeamException('User {} tries to sent attempt but has no team'.format(request.user.profile))
-
     team = request.user.profile.team_on
     game = task.task_group.game
 
@@ -266,12 +283,9 @@ def get_answer(request, task_id):
     })
 
 
+@team_required
 def like_dislike(request, task_id):
     task = get_object_or_404(Task, id=task_id)
-    if not has_profile(request.user):
-        raise UserHasNoProfileException('User {} has no profile'.format(request.user))
-    if not request.user.profile.team_on:
-        return PlayGameWithoutTeamException('User {} tries to sent attempt but has no team'.format(request.user.profile))
 
     team = request.user.profile.team_on
     game = task.task_group.game

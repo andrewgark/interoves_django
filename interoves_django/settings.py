@@ -29,10 +29,8 @@ def load_secret(secret):
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = load_secret('django_secret_key.txt')
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = not IS_PROD
 
 ALLOWED_HOSTS = [
@@ -247,6 +245,8 @@ SOCIALACCOUNT_PROVIDERS = {
         }
     }
 }
+
+ACCOUNT_ADAPTER = 'games.users.allauth.AccountAdapter'
 
 # CORS Policy
 
