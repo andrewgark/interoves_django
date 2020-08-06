@@ -1,11 +1,20 @@
 <li class="li-task li-{{ attempts_info.best_attempt.status|get_lower_status }} {{ task_group.get_li_class }}" id="task-{{ task.id }}">
   <div class="task">
     <h4>{{ task.number }}.</h4>
-
+    <input type="hidden" class="task-id" name="task-id" value="{{ task.id }}">
+    {% csrf_token %}
     {% if task.task_type == 'default' %}
-      <p class="max-points">
+      <div class="max-points">
         (Максимум баллов: {{ task.get_points|minimize_digits }})
-      </p>
+        <div class="like-dislike">
+            <button class="like-or-dislike dislike {% if task|team_has_dislike:team %}active{% endif %}"><i class="fa fa-thumbs-down"></i>
+              <span class="dislikes">{{ task|get_dislikes }}</span>
+            </button>
+            <button class="like-or-dislike like {% if task|team_has_like:team %}active{% endif %}"><i class="fa fa-thumbs-up"></i>
+              <span class="likes">{{ task|get_likes }}</span>
+            </button>
+        </div>
+      </div>
       {% if task.image %}<img class="task-image" src="{{ task.image.url }}" width="{{ task.get_image_width }}"><br>{% endif %}
       {{ task.text }}<br>
       {% if attempts_info.best_attempt.status != 'Ok' %}
@@ -104,12 +113,20 @@
         </form>
       {% endif %}
 
-      <p class="max-points">
+      <div class="max-points">
         (Один угаданный набор слов стоит: {{ task.get_wall.points_words|minimize_digits }})<br>
         (Одно угаданное объяснение стоит: {{ task.get_wall.points_explanation|minimize_digits }})<br>
         (Бонус за полное угадывание: {{ task.get_wall.points_bonus|minimize_digits }})<br>
-        (Максимум баллов: {{ task.get_wall.max_points|minimize_digits }})<br>
-      </p>
+        (Максимум баллов: {{ task.get_wall.max_points|minimize_digits }})
+        <div class="like-dislike">
+            <button class="like-or-dislike dislike {% if task|team_has_dislike:team %}active{% endif %}"><i class="fa fa-thumbs-down"></i>
+              <span class="dislikes">{{ task|get_dislikes }}</span>
+            </button>
+            <button class="like-or-dislike like {% if task|team_has_like:team %}active{% endif %}"><i class="fa fa-thumbs-up"></i>
+              <span class="likes">{{ task|get_likes }}</span>
+            </button>
+        </div>
+      </div>
 
       {% if attempts_info %}
         <div class="attempts">

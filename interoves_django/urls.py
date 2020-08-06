@@ -23,7 +23,7 @@ from django.contrib.auth.views import LogoutView
 from games.views import main_page, game_page, results_page, \
                         create_team, join_team, quit_from_team, \
                         confirm_user_joining_team, reject_user_joining_team, \
-                        send_attempt, get_answer, \
+                        send_attempt, get_answer, like_dislike, \
                         get_tournament_results
 
 
@@ -43,6 +43,7 @@ urlpatterns = [
 
     url(r'^send_attempt/(?P<task_id>\d+)/$', send_attempt),
     url(r'^get_answer/(?P<task_id>\d+)/$', get_answer),
+    url(r'^like_dislike/(?P<task_id>\d+)/', like_dislike),
 
     url(r'^results/(?P<game_id>[a-zA-Z0-9_]+)/$', results_page),
     url(r'^tournament_results/(?P<game_id>[a-zA-Z0-9_]+)/$', get_tournament_results),

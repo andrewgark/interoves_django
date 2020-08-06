@@ -7,7 +7,7 @@ from django.utils import timezone
 from games.check import CheckerFactory
 from games.exception import *
 from games.forms import CreateTeamForm, JoinTeamForm, AttemptForm
-from games.models import Team, Game, Attempt, AttemptsInfo, Task
+from games.models import Team, Game, Attempt, AttemptsInfo, Task, Like
 
 
 def get_games_list(request):
@@ -119,6 +119,7 @@ def game_page(request, game_id):
         task_group_to_tasks[task_group.number] = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
     
     return render(request, 'game.html', {
+        'team': request.user.profile.team_on,
         'game': game,
         'task_groups': task_groups,
         'task_group_to_tasks': task_group_to_tasks,
@@ -220,6 +221,7 @@ def process_send_attempt(request, task_id):
             'task_group': task.task_group,
             'attempts_info': Attempt.manager.get_attempts_info(team=team, task=task, mode=current_mode),
             'mode': current_mode,
+            'team': team,
         }).content.decode('UTF-8'),
     }
 
@@ -261,6 +263,36 @@ def get_answer(request, task_id):
         'html': render(request, 'answer.html', {
             'task': task,
         }).content.decode('UTF-8'),
+    })
+
+
+def like_dislike(request, task_id):
+    task = get_object_or_404(Task, id=task_id)
+    if not has_profile(request.user):
+        raise UserHasNoProfileException('User {} has no profile'.format(request.user))
+    if not request.user.profile.team_on:
+        return PlayGameWithoutTeamException('User {} tries to sent attempt but has no team'.format(request.user.profile))
+
+    team = request.user.profile.team_on
+    game = task.task_group.game
+
+    if not task.task_group.game.has_access('play_with_team', team=team):
+        return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
+
+    likes = int(request.POST.get('likes', 0))
+    dislikes = int(request.POST.get('dislikes', 0))
+    if likes == 1:
+        Like.manager.add_like(task, team)
+    elif likes == -1:
+        Like.manager.delete_like(task, team)
+    if dislikes == 1:
+        Like.manager.add_dislike(task, team)
+    elif dislikes == -1:
+        Like.manager.delete_dislike(task, team)
+
+    return JsonResponse({
+        'likes': Like.manager.get_likes(task),
+        'dislikes': Like.manager.get_dislikes(task)
     })
 
 

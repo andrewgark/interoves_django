@@ -7,7 +7,7 @@ from games.models import *
 from games.recheck import recheck, recheck_full, recheck_queue_from_this, recheck_queue_from_next
 
 
-admin.site.register([CheckerType, HTMLPage])
+admin.site.register([CheckerType, HTMLPage, Like])
 
 
 @admin.register(Team)

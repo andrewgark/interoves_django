@@ -321,3 +321,57 @@ class Attempt(models.Model):
 class ProxyAttempt(Attempt):
     class Meta:
         proxy=True
+
+
+class LikeManager(models.Manager):
+    def get_likes(self, task, team=None):
+        if team is None:
+            return super().get_queryset().filter(task=task, value=1).count()
+        return super().get_queryset().filter(task=task, team=team, value=1).count()
+
+    def get_dislikes(self, task, team=None):
+        if team is None:
+            return super().get_queryset().filter(task=task, value=-1).count()
+        return super().get_queryset().filter(task=task, team=team, value=-1).count()
+
+    def team_has_like(self, task, team):
+        return self.get_likes(task, team) > 0
+
+    def team_has_dislike(self, task, team):
+        return self.get_dislikes(task, team) > 0
+
+    def add_like(self, task, team):
+        if not self.team_has_like(task, team):
+            like = Like(team=team, task=task, value=1)
+            like.save()
+
+    def add_dislike(self, task, team):
+        if not self.team_has_dislike(task, team):
+            dislike = Like(team=team, task=task, value=-1)
+            dislike.save()
+
+    def delete_like(self, task, team):
+        like_filter = super().get_queryset().filter(task=task, team=team, value=1)
+        if like_filter:
+            like_filter[0].delete()
+
+    def delete_dislike(self, task, team):
+        dislike_filter = super().get_queryset().filter(task=task, team=team, value=-1)
+        if dislike_filter:
+            dislike_filter[0].delete()
+
+
+class Like(models.Model):
+    team = models.ForeignKey(Team, related_name='likes', blank=True, null=True, on_delete=models.SET_NULL)
+    task = models.ForeignKey(Task, related_name='likes', blank=True, null=True, on_delete=models.SET_NULL)
+    value = models.IntegerField()
+    manager = LikeManager()
+
+    def __str__(self):
+        return '{} to task {} by team {}'.format('Like' if self.value == 1 else 'Dislike', self.task, self.team)
+
+
+class Hint(models.Model):
+    task = models.ForeignKey(Task, related_name='hints', blank=True, null=True, on_delete=models.SET_NULL)
+    text = models.TextField(null=True, blank=True)
+    points_penalty = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)

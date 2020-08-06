@@ -105,6 +105,9 @@ function processNewAttempt(form, data) {
   $(taskHtmlId + ' .attempt-form').on('submit', submitAttemptForm);
   $(taskHtmlId + ' .show-answer').on('click', showAnswer);
   $(taskHtmlId + ' .wall-tile-not-guessed').on('click', wallTileClick);
+  $(taskHtmlId + ' .like-dislike').likeDislike({
+    click: clickLikeDislike
+  });
 
   task = $(taskHtmlId);
   var is_ok = task.hasClass('li-ok');
@@ -242,11 +245,54 @@ function wallTileClick(event) {
   });
 }
 
+function clickLikeDislike(btnType, likes, dislikes, event) {
+  var self = this;
+  self.readOnly(true);
+  var task = $(self.element).closest('.task');
+  var task_id = $(task).children('.task-id')[0].value;
+  var csrf = $(task).children("input[name=csrfmiddlewaretoken]")[0].value;
+  var data = {
+    'likes': likes,
+    'dislikes': dislikes,
+  }
+  $.ajaxSetup({
+    headers: { "X-CSRFToken": csrf }
+});
+  $.ajax({
+    url: '/like_dislike/' + task_id + '/',
+    type: 'POST',
+    data: data,
+    success: function (data) {
+      // show new values
+      $(self.element).find('.likes').text(data.likes);
+      $(self.element).find('.dislikes').text(data.dislikes);
+      // unlock the buttons
+      self.readOnly(false);
+    }
+  });
+}
+
+
+// auto update this:
+// $('#like-dislike').likeDislike({
+//   // update like / dislike counters
+//   click:function (btnType, likes, dislikes, event) {
+//       var likesElem = $(this).find('.likes');
+//       var dislikedsElem = $(this).find('.dislikes');
+//       likesElem.text(parseInt(likesElem.text()) + likes);
+//       dislikedsElem.text(parseInt(dislikedsElem.text()) + dislikes);
+//   }
+// });
+
+
 $(document).ready(function() {
   $('.attempt-form').on('submit', submitAttemptForm);
   $('.show-answer').on('click', showAnswer);
   $('.toggle-ok-tasks').on('click', toggleOkTasks);
   $('.wall-tile-not-guessed').on('click', wallTileClick);
+  $('.like-dislike').likeDislike({
+    click: clickLikeDislike
+  });
 });
 
 }

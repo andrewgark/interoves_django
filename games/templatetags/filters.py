@@ -1,6 +1,7 @@
 import json
 from django.template.defaulttags import register
 from games.access import game_is_going_now
+from games.models import Like
 from games.util import clean_text
 
 
@@ -136,3 +137,23 @@ def get_wall_tile_stop_guessing_class(wall, attempts_info):
     if wall.guessing_tiles_is_over(attempts_info):
         return 'wall-tile-stop-guessing'
     return ''
+
+
+@register.filter
+def get_likes(task):
+    return Like.manager.get_likes(task)
+
+
+@register.filter
+def get_dislikes(task):
+    return Like.manager.get_dislikes(task)
+
+
+@register.filter
+def team_has_like(task, team):
+    return Like.manager.team_has_like(task, team)
+
+
+@register.filter
+def team_has_dislike(task, team):
+    return Like.manager.team_has_dislike(task, team)
