@@ -1,7 +1,7 @@
 import json
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import user_passes_test
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.views import defaults
 from django.views.decorators.http import require_http_methods
@@ -12,20 +12,18 @@ from games.forms import CreateTeamForm, JoinTeamForm, AttemptForm
 from games.models import Team, Game, Attempt, AttemptsInfo, Task, Like
 
 
-def profile_required(function=None):
-   def has_profile(user):
-       if user and user.profile:
-           return True
-       return False
-   return user_passes_test(has_profile)
+def has_profile(user):
+    return user and getattr(user, 'profile', None)
 
 
-def team_required(function=None):
-   def has_team(user):
-       if user and user.profile and user.profile.team_on:
-           return True
-       return False
-   return user_passes_test(has_team)
+def has_team(user):
+    return has_profile(user) and user.profile.team_on
+
+
+def redirect_to_referer(request):
+    if 'HTTP_REFERER' not in request.META:
+        return main_page(request)
+    return HttpResponseRedirect(request.META['HTTP_REFERER'])
 
 
 def get_games_list(request):
@@ -49,11 +47,7 @@ def main_page(request):
     })
 
 
-def has_profile(user):
-    return user and getattr(user, 'profile', None)
-
-
-@profile_required
+@user_passes_test(has_profile)
 def create_team(request):
     user = request.user
     form = CreateTeamForm(request.POST)
@@ -62,10 +56,10 @@ def create_team(request):
         user.profile.team_on = team
         user.profile.team_requested = None
         user.profile.save()
-    return main_page(request)
+    return redirect_to_referer(request)
 
 
-@profile_required
+@user_passes_test(has_profile)
 def join_team(request):
     user = request.user
     form = JoinTeamForm(request.POST)
@@ -74,19 +68,19 @@ def join_team(request):
         team = get_object_or_404(Team, name=form.cleaned_data['name'])
         user.profile.team_requested = team
         user.profile.save()
-    return main_page(request)
+    return redirect_to_referer(request)
 
 
-@profile_required
+@user_passes_test(has_profile)
 def quit_from_team(request):
     user = request.user
     user.profile.team_on = None
     user.profile.team_requested = None
     user.profile.save()
-    return main_page(request)
+    return redirect_to_referer(request)
 
 
-@team_required
+@user_passes_test(has_team)
 def process_user_request(request, user_id, action):
     active_user = request.user
     passive_user = get_object_or_404(get_user_model(), id=int(user_id))
@@ -99,7 +93,7 @@ def process_user_request(request, user_id, action):
             else:
                 passive_user.profile.team_on = None
             passive_user.profile.save()
-    return main_page(request)
+    return redirect_to_referer(request)
 
 
 def confirm_user_joining_team(request, user_id):
@@ -121,6 +115,8 @@ def get_task_to_attempts_info(game, team, mode='general'):
 def get_team_to_play_page(request, game):
     return render(request, 'get_team_to_play.html', {
         'game': game,
+        'create_team_form': CreateTeamForm(),
+        'join_team_form': JoinTeamForm(),
     })
 
 
@@ -194,7 +190,7 @@ def check_attempt(attempt):
     attempt.save()
 
 
-@team_required
+@user_passes_test(has_team)
 def process_send_attempt(request, task_id):
     task = get_object_or_404(Task, id=task_id)
 
@@ -246,7 +242,7 @@ def process_send_attempt(request, task_id):
     }
 
 
-@team_required
+@user_passes_test(has_team)
 def send_attempt(request, task_id):
     try:
         response = process_send_attempt(request, task_id)
@@ -262,7 +258,7 @@ def task_ok_by_team(task, team, mode):
     return best_attempt and best_attempt.status == 'Ok'
 
 
-@team_required
+@user_passes_test(has_team)
 def get_answer(request, task_id):
     task = get_object_or_404(Task, id=task_id)
     team = request.user.profile.team_on
@@ -283,7 +279,7 @@ def get_answer(request, task_id):
     })
 
 
-@team_required
+@user_passes_test(has_team)
 def like_dislike(request, task_id):
     task = get_object_or_404(Task, id=task_id)
 
