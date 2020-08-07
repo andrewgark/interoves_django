@@ -60,6 +60,8 @@
 
     {% elif task.task_type == 'wall' %}
       <div class="wall">
+        <p>{{ task.get_wall.text }}</p>
+
         <div class="wall-tiles">
           {% csrf_token %}
           <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">

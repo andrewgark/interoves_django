@@ -40,6 +40,7 @@ class Wall:
         self.points_bonus = checker_data['points_bonus']
         self.answer_words = [x['words'] for x in checker_data['answers']]
         self.max_points = self.n_cat * (self.points_words + self.points_explanation) + self.points_bonus
+        self.text = data.get('text', '')
 
     def get_tiles(self):
         wall_tiles = []
