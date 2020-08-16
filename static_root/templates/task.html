@@ -52,6 +52,7 @@
                   {{ attempt.get_pretty_text }}
                 {% endif %}
                 (баллы: {{ attempt.points|minimize_digits }}, статус: {{ attempt.status|get_ru_status }})
+                {% if attempt.comment %}<div class="custom_tooltip"><i class="fa fa-exclamation-circle"></i><span class="custom_tooltiptext">{{ attempt.comment}}</span></div>{% endif %}
               </li>
             {% endfor %}
           </ul>

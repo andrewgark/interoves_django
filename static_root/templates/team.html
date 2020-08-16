@@ -22,14 +22,14 @@
               {% for user_requested in user.profile.team_on.users_requested.all %}
                 <li>{{ user_requested }}
                   {% if user != user_requested %}
-                    <a href="/confirm_user_joining_team/{{ user_requested.user.id }}" class="btn btn-custom btn-custom-sm btn-sm page-scroll">+</a>
-                    <a href="/reject_user_joining_team/{{ user_requested.user.id }}" class="btn btn-custom btn-custom-sm btn-sm page-scroll">-</a>                  
+                    <a href="/confirm_user_joining_team/{{ user_requested.user.id }}" next="{{ request.path }}" class="btn btn-custom btn-custom-sm btn-sm page-scroll">+</a>
+                    <a href="/reject_user_joining_team/{{ user_requested.user.id }}" next="{{ request.path }}" class="btn btn-custom btn-custom-sm btn-sm page-scroll">-</a>                  
                   {% endif %}
                 </li>
               {% endfor %}
             </ul>
           {% endif %}
-          <a href="/quit_from_team" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Выйти из команды</a>
+          <a href="/quit_from_team"  next="{{ request.path }}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Выйти из команды</a>
         {% elif user.profile.team_requested  %}
           <h2>Вы подали заявку в команду: <b>{{ user.profile.team_requested }}</b></h2>
           <p>Чтобы участвовать в играх, необходимо иметь команду.</p>
@@ -50,11 +50,11 @@
               <li>{{ user_requested }}</li>
             {% endfor %}
           </ul>
-          <a href="/quit_from_team" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Отменить заявку</a>
+          <a href="/quit_from_team" next="{{ request.path }}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Отменить заявку</a>
         {% else %}
           <h2>У вас нет команды</h2>
           <p>Чтобы участвовать в играх, необходимо иметь команду.</p>
-          <form action = "{% url 'create_team' %}" method = "post">
+          <form action = "{% url 'create_team' %}" next="{{ request.path }}" method = "post">
             {% csrf_token %}
             {% for field in create_team_form.visible_fields %}
               <div class="fieldWrapper">
@@ -63,7 +63,7 @@
             {% endfor %}
             <input type="submit" value="Создать новую команду" class="btn btn-custom btn-custom-lg btn-lg page-scroll">
           </form>
-          <form action = "{% url 'join_team' %}" method = "post">
+          <form action = "{% url 'join_team' %}" next="{{ request.path }}" method = "post">
             {% csrf_token %}
             {% for field in join_team_form.visible_fields %}
               <div class="fieldWrapper">
@@ -78,7 +78,7 @@
     <div class="col-md-2 col-md-offset-4">
       <img src="{{ user.profile.avatar_url }}" class="avatar-img">
       <p>{{ user.profile }}</p>
-      <a href="/logout" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Выйти</a>
+      <a href="/logout" next="{{ request.path }}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Выйти</a>
     </div>
   {% else %}
     <div class="col-md-6">
@@ -88,7 +88,7 @@
       </div>
     </div>
     <div class="col-md-2 col-md-offset-4">
-      <a href="{% provider_login_url 'vk' %}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Войти через VK</a>
+      <a href="{% provider_login_url 'vk' %}" next="{{ request.path }}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Войти через VK</a>
     </div>
   {% endif %}
 </div>

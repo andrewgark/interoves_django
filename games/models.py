@@ -299,6 +299,8 @@ class Attempt(models.Model):
     time = models.DateTimeField(auto_now_add=True, blank=True)
     state = models.TextField(blank=True, null=True)
 
+    comment = models.TextField(blank=True, null=True)
+
     skip = models.BooleanField(default=False)
 
     def __str__(self):

@@ -23,7 +23,7 @@ def has_team(user):
 def redirect_to_referer(request):
     if 'HTTP_REFERER' not in request.META:
         return main_page(request)
-    return HttpResponseRedirect(request.META['HTTP_REFERER'])
+    return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
 
 
 def get_games_list(request):

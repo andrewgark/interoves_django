@@ -814,3 +814,26 @@ th.row-header {
 button.active {
 	outline: 2px solid #000;
 }
+
+/* Tooltip */
+.custom_tooltip {
+	position: relative;
+	display: inline-block;
+}
+  
+.custom_tooltip .custom_tooltiptext {
+	visibility: hidden;
+	width: 120px;
+	background-color: black;
+	color: #fff;
+	text-align: center;
+	padding: 5px 0;
+	border-radius: 6px;
+	position: absolute;
+	z-index: 1;
+	margin-left: 5px;
+}
+  
+.custom_tooltip:hover .custom_tooltiptext {
+	visibility: visible;
+}
