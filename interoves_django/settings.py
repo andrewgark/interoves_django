@@ -31,7 +31,7 @@ def load_secret(secret):
 
 SECRET_KEY = load_secret('django_secret_key.txt')
 
-DEBUG = not IS_PROD
+DEBUG = not IS_PROD or os.getenv('DEBUG_ON') == 'TRUE'
 
 ALLOWED_HOSTS = [
     'interoves-django-env.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',

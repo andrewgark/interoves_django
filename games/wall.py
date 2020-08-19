@@ -28,8 +28,14 @@ def get_wall_default_max_attempts(n_cat):
 
 class Wall:
     def __init__(self, task):
-        data = json.loads(task.text)
-        checker_data = json.loads(task.checker_data)
+        try:
+            data = json.loads(task.text)
+        except:
+            data = {}
+        try:
+            checker_data = json.loads(task.checker_data)
+        except:
+            checker_data = {}
         self.task = task
         self.n_cat = data.get('n_cat', 4)
         self.n_words = data.get('n_words', 4)

@@ -28,7 +28,17 @@ def delete_spaces(func):
 
 def delete_punctuation(func):
    def func_wrapper(self, text, *args, **kw):
-       return func(self, re.sub(r"[.,\/#!$%\^&\*;:{}=\"\-_`~()—]+", "", text), *args, **kw)
+       new_text = re.sub(r"[.,\/#!?$%\^&\*;:{}=\"\-_`~()—]+", "", text)
+       new_text = re.sub(r" +", " ", new_text)
+       return func(self, new_text, *args, **kw)
+   return func_wrapper
+
+
+def delete_punctuation_metagram(func):
+   def func_wrapper(self, text, *args, **kw):
+       new_text = re.sub(r"[.,\/#!?$%\^&\*;:{}=\"\-_`~()—]+", " ", text)
+       new_text = re.sub(r" +", " ", new_text)
+       return func(self, new_text, *args, **kw)
    return func_wrapper
 
 
@@ -127,7 +137,7 @@ class WhiteGrayBlackListChecker(SimpleBoolChecker):
 
 class MetagramChecker(BaseChecker):
     @clean
-    @delete_punctuation
+    @delete_punctuation_metagram
     def __init__(self, data, last_attempt_state=None):
         self.answer_variants = []
         self.n = None
@@ -145,7 +155,7 @@ class MetagramChecker(BaseChecker):
                     self.n = len(answers)
 
     @clean
-    @delete_punctuation
+    @delete_punctuation_metagram
     def check(self, text):
         words = []
         for word in text.strip().split():

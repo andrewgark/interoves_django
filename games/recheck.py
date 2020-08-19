@@ -11,7 +11,7 @@ def recheck(_, attempt_id):
         attempt.save()
     except Exception as e:
         print('SKIP Attempt {} while RECHECKING'.format(attempt))
-        print('REASON: {}', e)
+        print('REASON: {}'.format(e))
         attempt.skip = True
         attempt.save()
 
