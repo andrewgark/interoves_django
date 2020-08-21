@@ -76,11 +76,24 @@ def recheck_queue_from_next_attempt(modeladmin, request, queryset):
     for attempt_id in queryset.values_list('id'):
         recheck_queue_from_next(request, attempt_id[0])
 
+def set_ok(modeladmin, request, queryset):
+    for attempt in queryset.all():
+        attempt.points = attempt.get_max_points()
+        attempt.status = 'Ok'
+        attempt.save()
+
+def confirm_prestatus(modeladmin, request, queryset):
+    for attempt in queryset.all():
+        attempt.status = attempt.possible_status
+        attempt.save()
+
 
 recheck_attempt.short_description = "Recheck attempt"
 recheck_full_attempt.short_description = "Recheck all attempts of this task"
 recheck_queue_from_this_attempt.short_description = "Recheck all attempts starting with this"
 recheck_queue_from_next_attempt.short_description = "Recheck all attempts starting with next"
+set_ok.short_description = "Set OK (and max points)"
+confirm_prestatus.short_description = "Confirm Prestatus"
 
 
 @admin.register(Attempt)
@@ -89,7 +102,7 @@ class AttemptAdmin(admin.ModelAdmin):
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }
     list_display = ['__str__', 'team', 'task', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points', 'skip']
-    actions = [recheck_attempt, recheck_full_attempt, recheck_queue_from_this_attempt, recheck_queue_from_next_attempt]
+    actions = [set_ok, confirm_prestatus, recheck_attempt, recheck_full_attempt, recheck_queue_from_this_attempt, recheck_queue_from_next_attempt]
 
 
 @admin.register(ProxyAttempt)
@@ -103,4 +116,4 @@ class PendingAdmin(admin.ModelAdmin):
         return qs.filter(status='Pending')
 
     list_display = ['__str__', 'team', 'task', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points']
-    actions = [recheck_attempt, recheck_full_attempt, recheck_queue_from_this_attempt, recheck_queue_from_next_attempt]
+    actions = [set_ok, confirm_prestatus, recheck_attempt, recheck_full_attempt, recheck_queue_from_this_attempt, recheck_queue_from_next_attempt]
