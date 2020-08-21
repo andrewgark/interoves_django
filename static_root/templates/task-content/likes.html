@@ -1,0 +1,8 @@
+<div class="like-dislike">
+  <button class="like-or-dislike dislike {% if task|team_has_dislike:team %}active{% endif %}"><i class="fa fa-thumbs-down"></i>
+    <span class="dislikes">{{ task|get_dislikes }}</span>
+  </button>
+  <button class="like-or-dislike like {% if task|team_has_like:team %}active{% endif %}"><i class="fa fa-thumbs-up"></i>
+    <span class="likes">{{ task|get_likes }}</span>
+  </button>
+</div>

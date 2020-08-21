@@ -137,7 +137,8 @@ class Task(models.Model):
 
     TASK_TYPE_VARIANTS = (
         ('default', 'default'),
-        ('wall', 'wall')
+        ('wall', 'wall'),
+        ('text_with_forms', 'text_with_forms'),
     )
 
     task_type = models.CharField(default='default', max_length=100, choices=TASK_TYPE_VARIANTS)

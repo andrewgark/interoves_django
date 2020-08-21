@@ -120,6 +120,39 @@ def get_team_to_play_page(request, game):
     })
 
 
+def get_text_with_forms_to_html(request, task_text_with_forms, team, mode):
+    htmls = []
+    normal_tasks = {int(task.number): task for task in task_text_with_forms.task_group.tasks.all()}
+    for i, text_part in enumerate(task_text_with_forms.text.split('______')):
+        htmls.append(text_part)
+        if (i + 1) not in normal_tasks:
+            continue
+        task = normal_tasks[i + 1]
+        htmls.append(
+            render(
+                request, 
+                'task-content/attempt-simple-form.html',
+                {
+                    'task': task,
+                    'attempts_info': Attempt.manager.get_attempts_info(team=team, task=task, mode=mode)
+                }
+            ).content.decode('UTF-8')
+        )
+    return ''.join(htmls)
+
+
+def get_all_text_with_forms_to_html(request, game, team, mode):
+    tasks = []
+    for task_group in game.task_groups.all():
+        tasks.extend(list(task_group.tasks.filter(task_type='text_with_forms')))
+    if not tasks:
+        return {}
+    result = {}
+    for task_text_with_forms in tasks:
+        result[task_text_with_forms.id] = get_text_with_forms_to_html(request, task_text_with_forms, team, mode)
+    return result
+
+
 def game_page(request, game_id):
     game = get_object_or_404(Game, id=game_id)
     if not has_profile(request.user) or not request.user.profile.team_on:
@@ -127,6 +160,7 @@ def game_page(request, game_id):
     if not game.has_access('play_with_team', team=request.user.profile.team_on):
         raise NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
+    team = request.user.profile.team_on
     mode = game.get_current_mode(Attempt(time=timezone.now()))
 
     task_to_attempts_info = get_task_to_attempts_info(game, request.user.profile.team_on, mode)
@@ -138,11 +172,12 @@ def game_page(request, game_id):
         task_group_to_tasks[task_group.number] = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
     
     return render(request, 'game.html', {
-        'team': request.user.profile.team_on,
+        'team': team,
         'game': game,
         'task_groups': task_groups,
         'task_group_to_tasks': task_group_to_tasks,
         'task_to_attempts_info': task_to_attempts_info,
+        'task_text_with_forms_to_html': get_all_text_with_forms_to_html(request, game, team, mode),
         'mode': mode,
     })
 
@@ -190,6 +225,20 @@ def check_attempt(attempt):
     attempt.save()
 
 
+def render_task(task, request, team, current_mode):
+    task_text_with_forms_to_html = {}
+    if task.task_type == 'text_with_forms':
+        task_text_with_forms_to_html = {task.id: get_text_with_forms_to_html(request, task, team, current_mode)}
+    return render(request, 'task.html', {
+        'task': task,
+        'task_group': task.task_group,
+        'attempts_info': Attempt.manager.get_attempts_info(team=team, task=task, mode=current_mode),
+        'mode': current_mode,
+        'team': team,
+        'task_text_with_forms_to_html': task_text_with_forms_to_html,
+    }).content.decode('UTF-8')
+
+
 @user_passes_test(has_team)
 def process_send_attempt(request, task_id):
     task = get_object_or_404(Task, id=task_id)
@@ -229,16 +278,15 @@ def process_send_attempt(request, task_id):
 
     check_attempt(attempt)
 
+    update_extra_tasks = list(task.task_group.tasks.filter(task_type='text_with_forms'))
+
     return {
         'status': 'ok',
         'task_id': task.id,
-        'html': render(request, 'task.html', {
-            'task': task,
-            'task_group': task.task_group,
-            'attempts_info': Attempt.manager.get_attempts_info(team=team, task=task, mode=current_mode),
-            'mode': current_mode,
-            'team': team,
-        }).content.decode('UTF-8'),
+        'update_task_html': {
+            task.id: render_task(task, request, team, current_mode)
+            for task in [task] + update_extra_tasks
+        },
     }
 
 

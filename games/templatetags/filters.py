@@ -110,15 +110,23 @@ def get_guessed_tiles(wall, attempts_info):
 
 
 @register.filter
-def get_wall_attempt_status(attempt):
-    if attempt.status == 'Pending':
-        return 'Pending'
-    return json.loads(attempt.state)['last_attempt']['status']
+def get_show_status(attempt):
+    if attempt.task.task_type == 'default':
+        return attempt.status
+    elif attempt.task.task_type == 'wall':
+        if attempt.status == 'Pending':
+            return 'Pending'
+        return json.loads(attempt.state)['last_attempt']['status']
+    raise Exception('Unknown task_type {}'.format(attempt.task.task_type))
 
 
 @register.filter
-def get_wall_attempt_points(attempt):
-    return json.loads(attempt.state)['last_attempt']['points']
+def get_diff_points(attempt):
+    if attempt.task.task_type == 'default':
+        return 0
+    elif attempt.task.task_type == 'wall':
+        return json.loads(attempt.state)['last_attempt']['points']
+    raise Exception('Unknown task_type {}'.format(attempt.task.task_type))
 
 
 @register.filter

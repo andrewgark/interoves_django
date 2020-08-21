@@ -1,0 +1,67 @@
+
+<div class="wall">
+  <p>{{ task.get_wall.text }}</p>
+  <div class="wall-tiles">
+    {% csrf_token %}
+    <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
+    {% for tile in task.get_wall|get_guessed_tiles:attempts_info %}
+    <div class="wall-tile wall-tile-guessed wall-tile-guessed-{{ tile.category_id }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
+        <p>{{ tile.text }}</p>
+    </div>
+    {% endfor %}
+    {% with wall_tile_stop_guessing=task.get_wall|get_wall_tile_stop_guessing_class:attempts_info %}
+    {% for tile in task.get_wall|get_not_guessed_tiles:attempts_info %}
+        <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
+        <p>{{ tile.text }}</p>
+        </div>
+    {% endfor %}
+    {% endwith %}
+  </div>
+  <div class="wall-explanations">
+    {% for exptile in task.get_wall|one_more:attempts_info|get_exptiles:mode %}
+    <div class="wall-tile wall-tile-guessed-{{ tile.category_id }} wall-tile-explanation">
+        {% if exptile.type == 'explanation_is_guessed' %}
+        <p>OK</p>
+        {% elif exptile.type == 'words_are_guessed' %}
+        <form class="attempt-form wall-attempt-form" action="/send_attempt/{{ task.id }}/" method="post">
+            {% csrf_token %}
+            <input type="hidden" class="attempt-task-id" name="task_id" value="{{ task.id }}">
+            <input type="hidden" name="words" value="{{ exptile.words|json_encode }}">
+            <input type="hidden" name="stage" value="cat_explanation">
+            Попытка: {{ exptile.explanation_n_attempts|get_new_attempt_number }}{% if mode == 'tournament' %} / {{ exptile.explanation_max_attempts }}{% endif %}:
+            <div class="field-wrapper wall-field-wrapper">
+            {{ task.task_group.get_attempt_form.text }}
+            </div>
+            <input type="submit" value="Отправить на проверку" class="btn btn-custom-sm btn-sm btn-custom page-scroll">
+        </form>
+        {% elif exptile.type == 'first_nothing_is_guessed' %}
+        <p>Попытка угадать набор слов: {{ exptile.words_n_attempts|get_new_attempt_number }}{% if mode == 'tournament' %} / {{ exptile.words_max_attempts }}{% endif %}</p>
+        {% elif exptile.type == 'nothing_is_guessed' %}
+        <p>{% if mode == 'tournament' %} Число попыток после {{ exptile.id }} OK: {{ exptile.words_max_attempts }} {% endif %}</p>
+        {% elif exptile.type == 'no_more_guesses' %}
+        <p>Попытки закончились.</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  </div>
+
+  {% if mode == 'general' or attempts_info.best_attempt.status == 'Ok' %}
+  <form class="attempt-form">
+    {% csrf_token %}
+    <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
+    <input type="button" value="Посмотреть ответ" class="btn btn-custom-lg btn-lg btn-custom page-scroll show-answer">
+  </form>
+  {% endif %}
+
+  <div class="max-points">
+    (Один угаданный набор слов стоит: {{ task.get_wall.points_words|minimize_digits }})<br>
+    (Одно угаданное объяснение стоит: {{ task.get_wall.points_explanation|minimize_digits }})<br>
+    (Бонус за полное угадывание: {{ task.get_wall.points_bonus|minimize_digits }})<br>
+    (Максимум баллов: {{ task.get_wall.max_points|minimize_digits }})
+    {% include "task-content/likes.html" %}
+</div>
+
+{% if attempts_info %}
+  {% include "task-content/attempts.html" %}
+{% endif %}

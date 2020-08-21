@@ -97,22 +97,26 @@ function processNewAttempt(form, data) {
         return;
   }
   
-  var taskHtmlId = '#task-' + data['task_id'];
-  var task = $(taskHtmlId);
-
-  var was_ok = task.hasClass('li-ok');
-  task.replaceWith(data['html']);
-  $(taskHtmlId + ' .attempt-form').on('submit', submitAttemptForm);
-  $(taskHtmlId + ' .show-answer').on('click', showAnswer);
-  $(taskHtmlId + ' .wall-tile-not-guessed').on('click', wallTileClick);
-  $(taskHtmlId + ' .like-dislike').likeDislike({
-    click: clickLikeDislike
-  });
-
-  task = $(taskHtmlId);
-  var is_ok = task.hasClass('li-ok');
-  if ($('.icon-ok-tasks').hasClass('fa-eye-slash') && is_ok != was_ok) {
-    toggleTasksWithPrefix(taskHtmlId);
+  for (var task_id in data['update_task_html']) {
+    var html = data['update_task_html'][task_id];
+  
+    var taskHtmlId = '#task-' + task_id;
+    var task = $(taskHtmlId);
+  
+    var was_ok = task.hasClass('li-ok');
+    task.replaceWith(html);
+    $(taskHtmlId + ' .attempt-form').on('submit', submitAttemptForm);
+    $(taskHtmlId + ' .show-answer').on('click', showAnswer);
+    $(taskHtmlId + ' .wall-tile-not-guessed').on('click', wallTileClick);
+    $(taskHtmlId + ' .like-dislike').likeDislike({
+      click: clickLikeDislike
+    });
+  
+    task = $(taskHtmlId);
+    var is_ok = task.hasClass('li-ok');
+    if ($('.icon-ok-tasks').hasClass('fa-eye-slash') && is_ok != was_ok) {
+      toggleTasksWithPrefix(taskHtmlId);
+    }
   }
 }
 

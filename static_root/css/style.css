@@ -837,3 +837,13 @@ button.active {
 .custom_tooltip:hover .custom_tooltiptext {
 	visibility: visible;
 }
+
+/* text_with_forms */
+.attempt-simple-form {
+	margin: 0;
+    display: inline-block;
+}
+
+.attempt-simple-form input {
+	margin: 0;
+}

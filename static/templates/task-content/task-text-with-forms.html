@@ -1,0 +1,5 @@
+{% if task.image %}<img class="task-image" src="{{ task.image.url }}" width="{{ task.get_image_width }}"><br>{% endif %}
+
+{% autoescape off %}
+  {{ task_text_with_forms_to_html|get_item:task.id }}
+{% endautoescape %}
