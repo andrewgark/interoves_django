@@ -120,6 +120,9 @@ class TaskGroup(models.Model):
     def get_n_tasks(self):
         return len(self.tasks.all())
 
+    def get_n_tasks_for_results(self):
+        return len(self.tasks.filter(~models.Q(task_type='text_with_forms')))
+
 
 class Task(models.Model):
     id = models.AutoField(primary_key=True)

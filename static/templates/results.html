@@ -89,7 +89,7 @@
                 <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Время</th>
               {% endif %}
               {% for task_group in task_groups %}
-                <th colspan="{{ task_group.get_n_tasks }}" scope="col" class="cell-header">{{ task_group.number }}. {{ task_group.name }}</th>
+                <th colspan="{{ task_group.get_n_tasks_for_results }}" scope="col" class="cell-header">{{ task_group.number }}. {{ task_group.name }}</th>
               {% endfor %}
             </tr>
             <tr class="sticky-header">
