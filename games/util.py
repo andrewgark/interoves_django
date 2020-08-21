@@ -4,6 +4,7 @@ def status_key(status):
         'Partial': 2,
         'Pending': 1,
         'Wrong': 0,
+        '': -1,
     }
     return status_to_key[status]
 

@@ -1,10 +1,16 @@
-{% if attempts_info.best_attempt.status != 'Ok' %}
-  <form class="attempt-form attempt-simple-form" action="/send_attempt/{{ task.id }}/" method="post">
-    {% csrf_token %}
-    <input type="hidden" class="simple-form-task-id-{{ task.id }}">
-    <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
-    <div class="field-wrapper">
-      {{ task.task_group.get_attempt_form.text }}
-    </div>
-  </form>
-{% else %}<b>{% autoescape off %}{{ task.answer }}{% endautoescape %}</b>{% endif %}
+{% spaceless %}
+  {% if attempts_info.best_attempt.status != 'Ok' %}
+    <form class="attempt-form attempt-simple-form" action="/send_attempt/{{ task.id }}/" method="post">
+      {% csrf_token %}
+      <input type="hidden" class="simple-form-task-id-{{ task.id }}">
+      <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
+      <div class="field-wrapper">
+        {% with form=task|get_text_with_forms_attempt_form %}
+          {{ form.text }}
+        {% endwith %}
+      </div>
+    </form>
+  {% else %}
+    <b>{% autoescape off %}{{ task.answer }}{% endautoescape %}</b>
+  {% endif %}
+{% endspaceless %}

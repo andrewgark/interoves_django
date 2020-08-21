@@ -117,10 +117,6 @@ class TaskGroup(models.Model):
             return 'table-3-n-cell'
         return ''
 
-    def get_attempt_form(self):
-        from games.forms import AttemptForm
-        return AttemptForm()
-
     def get_n_tasks(self):
         return len(self.tasks.all())
 
@@ -185,6 +181,10 @@ class Task(models.Model):
 
     def get_wall(self):
         return Wall(self)
+
+    def get_attempt_form(self, *args, **kwargs):
+        from games.forms import AttemptForm
+        return AttemptForm(*args, **kwargs)
 
 
 class AttemptsInfo:

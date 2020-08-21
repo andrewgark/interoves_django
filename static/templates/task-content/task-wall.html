@@ -30,7 +30,7 @@
             <input type="hidden" name="stage" value="cat_explanation">
             Попытка: {{ exptile.explanation_n_attempts|get_new_attempt_number }}{% if mode == 'tournament' %} / {{ exptile.explanation_max_attempts }}{% endif %}:
             <div class="field-wrapper wall-field-wrapper">
-            {{ task.task_group.get_attempt_form.text }}
+            {{ task.get_attempt_form.text }}
             </div>
             <input type="submit" value="Отправить на проверку" class="btn btn-custom-sm btn-sm btn-custom page-scroll">
         </form>

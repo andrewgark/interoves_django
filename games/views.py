@@ -1,6 +1,7 @@
 import json
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import user_passes_test
+from django.db.models import Q
 from django.http import JsonResponse, HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.views import defaults
@@ -369,7 +370,9 @@ def results_page(request, game_id, mode='general'):
     task_group_to_tasks = {}
 
     for task_group in task_groups:
-        task_group_to_tasks[task_group.number] = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
+        task_group_to_tasks[task_group.number] = sorted(
+            task_group.tasks.filter(~Q(task_type='text_with_forms')) # исключаем задания этого типа из таблички
+        , key=lambda t: t.key_sort())
         for task in task_group_to_tasks[task_group.number]:
             for attempts_info in Attempt.manager.get_task_attempts_infos(task=task, mode=mode):
                 if attempts_info.best_attempt:

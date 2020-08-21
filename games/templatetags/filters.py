@@ -1,8 +1,8 @@
 import json
 from django.template.defaulttags import register
 from games.access import game_is_going_now
-from games.models import Like
-from games.util import clean_text
+from games.models import Like, Attempt
+from games.util import clean_text, better_status
 
 
 @register.filter(name='one_more')
@@ -165,3 +165,27 @@ def team_has_like(task, team):
 @register.filter
 def team_has_dislike(task, team):
     return Like.manager.team_has_dislike(task, team)
+
+
+@register.filter
+def get_task_status(task_team__mode, attempts_info):
+    task_team, mode = task_team__mode
+    task, team = task_team
+    if attempts_info is not None and attempts_info.best_attempt is not None:
+        return attempts_info.best_attempt.status
+    if task.task_type == 'text_with_forms':
+        worst_status = 'Ok'
+        for other_task in task.task_group.tasks.all():
+            attempts_info = Attempt.manager.get_attempts_info(team, other_task, mode)
+            status = ''
+            if attempts_info and attempts_info.best_attempt:
+                status = attempts_info.best_attempt.status
+            if other_task != task and better_status(worst_status, status):
+                worst_status = status
+        return worst_status
+    return ''
+
+
+@register.filter
+def get_text_with_forms_attempt_form(task):
+    return task.get_attempt_form(placeholder='Ответ ({})'.format(task.number))
