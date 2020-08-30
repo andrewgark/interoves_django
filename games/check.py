@@ -22,7 +22,7 @@ def clean(func):
 
 def delete_spaces(func):
    def func_wrapper(self, text, *args, **kw):
-       return func(self, re.sub(r"\s+", "", text), *args, **kw)
+       return func(self, re.sub(r"[^\S\r\n]+", "", text), *args, **kw)
    return func_wrapper
 
 
@@ -89,13 +89,18 @@ class EqualsWithPossibleSpacesChecker(SimpleBoolChecker):
     @delete_spaces
     @delete_punctuation
     def __init__(self, data, last_attempt_state=None):
-        self.data = data
+        self.data = []
+        for line in data.split('\n'):
+            self.data.append(line.strip())
 
     @clean
     @delete_spaces
     @delete_punctuation
     def bool_check(self, text):
-        return text == self.data
+        for line in self.data:
+            if text == line:
+                return True
+        return False
 
 
 class WhiteGrayBlackListChecker(SimpleBoolChecker):
