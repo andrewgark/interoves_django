@@ -60,7 +60,7 @@
           {% if game.theme %}<h3>Тема: {{ game.theme }}</h3>{% endif %}
           {% if game.author %}
             <h3>
-              Автор: {{ game.author }} {% if game.author_extra %}({{ game.author_extra }}){% endif %}
+              Автор: {{ game.author }} {% if game.author_extra %}<br>({{ game.author_extra }}){% endif %}
             </h3>
           {% endif %}
           {% if mode == 'tournament' %}<h3>Время: {{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}</h3>{% endif %}
