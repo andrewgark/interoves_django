@@ -60,6 +60,7 @@ class Game(models.Model):
     image = models.ImageField(null=True, blank=True)
     theme = models.CharField(max_length=100, null=True, blank=True)
     author = models.CharField(max_length=100)
+    author_extra = models.CharField(max_length=500, null=True, blank=True)
 
     start_time = models.DateTimeField(default=timezone.now, blank=True)
     end_time = models.DateTimeField(default=timezone.now, blank=True)
