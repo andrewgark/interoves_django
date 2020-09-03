@@ -28,7 +28,7 @@ def delete_spaces(func):
 
 def delete_punctuation(func):
    def func_wrapper(self, text, *args, **kw):
-       new_text = re.sub(r"[.,\/#!?$%\^&\*;:{}=\"\-_`~()—]+", "", text)
+       new_text = re.sub(r"[.,\/#!?$%\^&\*;:{}=\"\-_`~()—–]+", "", text)
        new_text = re.sub(r" +", " ", new_text)
        return func(self, new_text, *args, **kw)
    return func_wrapper
