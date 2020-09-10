@@ -847,3 +847,21 @@ button.active {
 .attempt-simple-form input {
 	margin: 0;
 }
+
+/* hints */
+.hint-head {
+	display: inline-block;
+}
+
+.hint-body {
+	display: inline-block;
+}
+
+.show-hint {
+
+}
+
+.hint-numbers {
+
+}
+

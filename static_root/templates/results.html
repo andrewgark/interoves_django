@@ -111,7 +111,10 @@
                   {% for attempts_info in team_to_list_attempts_info|get_item:team %}
                     <td class="cell cell-{% if attempts_info.best_attempt.status %}{{ attempts_info.best_attempt.status|get_lower_status }}{% else %}no{% endif %} {% if user.profile.team_on == team %}my-team-row-cell{% endif %}">
                       {% if attempts_info.get_n_attempts > 0 %}
-                        {{ attempts_info.best_attempt.points|minimize_digits }}
+                        {{ attempts_info.get_result_points|minimize_digits }}
+                      {% endif %}
+                      {% if attempts_info.get_hint_attempts %}
+                        <sup class="hint-numbers">{{ attempts_info.get_hint_attempts|get_hint_numbers }}</sup>
                       {% endif %}
                     </td>
                 {% endfor %}

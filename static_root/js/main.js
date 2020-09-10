@@ -83,6 +83,31 @@ function toggleAllTasks() {
   toggleTasksWithPrefix("");
 }
 
+function updateTasks(taskToHtml) {
+  for (var task_id in taskToHtml) {
+    var html = taskToHtml[task_id];
+  
+    var taskHtmlId = '#task-' + task_id;
+    var task = $(taskHtmlId);
+  
+    var was_ok = task.hasClass('li-ok');
+    task.replaceWith(html);
+    $(taskHtmlId + ' .attempt-form').on('submit', submitAttemptForm);
+    $(taskHtmlId + ' .hint-attempt-form').on('submit', submitHintAttemptForm);
+    $(taskHtmlId + ' .show-answer').on('click', showAnswer);
+    $(taskHtmlId + ' .wall-tile-not-guessed').on('click', wallTileClick);
+    $(taskHtmlId + ' .like-dislike').likeDislike({
+      click: clickLikeDislike
+    });
+  
+    task = $(taskHtmlId);
+    var is_ok = task.hasClass('li-ok');
+    if ($('.icon-ok-tasks').hasClass('fa-eye-slash') && is_ok != was_ok) {
+      toggleTasksWithPrefix(taskHtmlId);
+    }
+  }
+}
+
 function processNewAttempt(form, data) {
   if (data['status'] == 'duplicate') {
     alert('Посылка является копией одной из предудущих посылок.');
@@ -97,27 +122,20 @@ function processNewAttempt(form, data) {
         return;
   }
   
-  for (var task_id in data['update_task_html']) {
-    var html = data['update_task_html'][task_id];
-  
-    var taskHtmlId = '#task-' + task_id;
-    var task = $(taskHtmlId);
-  
-    var was_ok = task.hasClass('li-ok');
-    task.replaceWith(html);
-    $(taskHtmlId + ' .attempt-form').on('submit', submitAttemptForm);
-    $(taskHtmlId + ' .show-answer').on('click', showAnswer);
-    $(taskHtmlId + ' .wall-tile-not-guessed').on('click', wallTileClick);
-    $(taskHtmlId + ' .like-dislike').likeDislike({
-      click: clickLikeDislike
-    });
-  
-    task = $(taskHtmlId);
-    var is_ok = task.hasClass('li-ok');
-    if ($('.icon-ok-tasks').hasClass('fa-eye-slash') && is_ok != was_ok) {
-      toggleTasksWithPrefix(taskHtmlId);
-    }
+  updateTasks(data['update_task_html']);
+}
+
+function processNewHintAttempt(form, data) {
+  if (data['status'] == 'duplicate') {
+    alert('Вы уже запрашивали эту подсказку.');
+    return;
   }
+  if (data['status'] != 'ok') {
+        console.log("Unknown status of attempt response: " + data['status']);
+        return;
+  }
+  
+  updateTasks(data['update_task_html']);
 }
 
 function submitAttemptForm(event) {
@@ -145,6 +163,36 @@ function submitAttemptForm(event) {
       }
   });
 }
+
+
+function submitHintAttemptForm(event) {
+  event.preventDefault();
+  var task_id = $(this).children(".hint-task-id")[0].value;
+  var hint_number = $(this).children(".hint-number")[0].value;
+  
+  var csrf = $(this).children("input[name=csrfmiddlewaretoken]")[0].value;
+
+  var form_data = {
+    'hint_number': hint_number
+  };
+  param_form_data = $.param(form_data);
+
+
+  $.ajaxSetup({
+      headers: { "X-CSRFToken": csrf }
+  });
+  $.ajax({
+      type: 'POST',
+      url: '/send_hint_attempt/' + task_id + '/',
+      dataType: 'json',
+      data: param_form_data,
+      contentType : 'application/x-www-form-urlencoded',
+      success: function(data) {
+          processNewHintAttempt($(this), data);
+      }
+  });
+}
+
 
 function fadeInAnswer(overlay, window) {
   overlay.fadeIn(297, function(){
@@ -291,6 +339,7 @@ function clickLikeDislike(btnType, likes, dislikes, event) {
 
 $(document).ready(function() {
   $('.attempt-form').on('submit', submitAttemptForm);
+  $('.hint-attempt-form').on('submit', submitHintAttemptForm);
   $('.show-answer').on('click', showAnswer);
   $('.toggle-ok-tasks').on('click', toggleOkTasks);
   $('.wall-tile-not-guessed').on('click', wallTileClick);

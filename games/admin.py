@@ -44,6 +44,16 @@ def create_new_google_doc(modeladmin, request, queryset):
         create_google_doc(get_object_or_404(Game, id=game_id[0]))
 
 
+@admin.register(Hint)
+class HintAdmin(admin.ModelAdmin):
+    list_display = ['task', 'number', 'text', 'points_penalty']
+
+
+@admin.register(HintAttempt)
+class HintAttemptAdmin(admin.ModelAdmin):
+    list_display = ['team', 'hint', 'time']
+
+
 @admin.register(Game)
 class GameAdmin(admin.ModelAdmin):
     inlines = [
@@ -53,8 +63,18 @@ class GameAdmin(admin.ModelAdmin):
     actions = [create_new_google_doc]
 
 
+class HintInline(admin.TabularInline):
+    model = Hint
+    formfield_overrides = {
+        models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
+    }
+
+
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
+    inlines = [
+        HintInline
+    ]
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }

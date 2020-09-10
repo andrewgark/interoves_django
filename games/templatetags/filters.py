@@ -189,3 +189,24 @@ def get_task_status(task_team__mode, attempts_info):
 @register.filter
 def get_text_with_forms_attempt_form(task):
     return task.get_attempt_form(placeholder='Ответ ({})'.format(task.number))
+
+
+@register.filter
+def hint_was_taken(attempts_info, hint):
+    for hint_attempt in attempts_info.hint_attempts:
+        if hint_attempt.hint == hint:
+            return True
+    return False
+
+
+@register.filter
+def hint_was_really_taken(attempts_info, hint):
+    for hint_attempt in attempts_info.hint_attempts:
+        if hint_attempt.hint == hint and hint_attempt.is_real_request:
+            return True
+    return False
+
+
+@register.filter
+def get_hint_numbers(hint_attempts):
+    return ''.join([str(han) for han in sorted([ha.number for ha in hint_attempts])])

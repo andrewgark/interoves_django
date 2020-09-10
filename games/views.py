@@ -10,7 +10,7 @@ from django.utils import timezone
 from games.check import CheckerFactory
 from games.exception import *
 from games.forms import CreateTeamForm, JoinTeamForm, AttemptForm
-from games.models import Team, Game, Attempt, AttemptsInfo, Task, Like
+from games.models import Team, Game, Attempt, AttemptsInfo, Task, Like, Hint, HintAttempt
 
 
 def has_profile(user):
@@ -302,6 +302,49 @@ def send_attempt(request, task_id):
     return JsonResponse(response)
 
 
+@user_passes_test(has_team)
+def process_send_hint_attempt(request, task_id):
+    task = get_object_or_404(Task, id=task_id)
+
+    team = request.user.profile.team_on
+    game = task.task_group.game
+
+    if not task.task_group.game.has_access('play_with_team', team=team):
+        return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
+
+    hint_number = int(request.POST['hint_number'])
+    hint = get_object_or_404(Hint, task=task, number=hint_number)
+
+    if list(HintAttempt.objects.filter(team=team, hint=hint)):
+        raise DuplicateAttemptException('Вы уже запрашивали эту подсказку')
+
+    hint_attempt = HintAttempt(team=team, hint=hint)
+    hint_attempt.save()
+
+    current_mode = game.get_current_mode(hint_attempt)
+    attempts_info = Attempt.manager.get_attempts_info(team=team, task=task, mode=current_mode)
+
+    hint_attempt.is_real_request = not attempts_info.is_solved()
+    hint_attempt.save()
+
+    return {
+        'status': 'ok',
+        'task_id': task.id,
+        'update_task_html': {
+            task.id: render_task(task, request, team, current_mode)
+        },
+    }
+
+
+@user_passes_test(has_team)
+def send_hint_attempt(request, task_id):
+    try:
+        response = process_send_hint_attempt(request, task_id)
+    except DuplicateAttemptException:
+        response = {'status': 'duplicate'}
+    return JsonResponse(response)
+
+
 def task_ok_by_team(task, team, mode):
     best_attempt = Attempt.manager.get_attempts_info(team=team, task=task, mode=mode).best_attempt
     return best_attempt and best_attempt.status == 'Ok'
@@ -381,14 +424,15 @@ def results_page(request, game_id, mode='general'):
                     if not team.is_hidden:
                         if team not in team_to_score:
                             team_to_score[team] = 0
-                        team_to_score[team] += attempts_info.best_attempt.points
+                        task_points = attempts_info.best_attempt.points
 
                         if attempts_info.best_attempt.points > 0:
+                            team_to_score[team] += max(0, task_points - attempts_info.get_sum_hint_penalty())
                             if team not in team_to_max_best_time:
                                 team_to_max_best_time[team] = attempts_info.best_attempt.time
                             else:
                                 team_to_max_best_time[team] = max(team_to_max_best_time[team], attempts_info.best_attempt.time)
-                        
+
                         team_task_to_attempts_info[(team, task)] = attempts_info
     
     for team in team_to_score.keys():

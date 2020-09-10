@@ -1,0 +1,35 @@
+<div class="hints">
+  <ul class="list-rectangle">
+    {% for hint in task.get_hints %}
+      <li class="li-hint_attempt li-hint">
+        <div class="hint-head">
+          <b>
+            {% if attempts_info|hint_was_really_taken:hint %}
+              <u>Подсказка #{{ hint.number }} (макс. балл уменьшен на -{{ hint.points_penalty|minimize_digits }}):</u>
+            {% elif attempts_info|hint_was_taken:hint %}
+              Подсказка #{{ hint.number }} (стоила -{{ hint.points_penalty|minimize_digits }}):
+            {% else %}
+              Подсказка #{{ hint.number }} (запрос уменьшит макс. балл на -{{ hint.points_penalty|minimize_digits }}):
+            {% endif %}
+          </b>
+        </div>
+        <div class="hint-body">
+          {% if attempts_info and attempts_info|hint_was_taken:hint %}
+            <div class="hint-text">{{ hint.text }}</div>
+          {% else %}
+            <form class="hint-attempt-form">
+              {% csrf_token %}
+              <input type="hidden" class="hint-task-id" name="variable" value="{{ task.id }}">
+              <input type="hidden" class="hint-number" name="variable" value="{{ hint.number }}">
+              {% if not attempts_info.is_solved %}
+                <input type="submit" value="Запросить подсказку" class="btn btn-custom-lg btn-lg btn-custom page-scroll show-hint">
+              {% else %}
+                <input type="submit" value="Открыть подсказку" class="btn btn-custom-lg btn-lg btn-custom page-scroll show-hint">
+              {% endif %}
+            </form>
+          {% endif %}
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+</div>

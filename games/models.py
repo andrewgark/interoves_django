@@ -189,18 +189,41 @@ class Task(models.Model):
     def get_attempt_form(self, *args, **kwargs):
         from games.forms import AttemptForm
         return AttemptForm(*args, **kwargs)
+    
+    def get_hints(self):
+        return list(self.hints.all())
 
 
 class AttemptsInfo:
-    def __init__(self, best_attempt, attempts):
+    def __init__(self, best_attempt, attempts, hint_attempts):
         self.best_attempt = best_attempt
         self.attempts = attempts
+        self.hint_attempts = hint_attempts
         self.last_attempt = None
         if attempts:
             self.last_attempt = attempts[-1]
 
     def get_n_attempts(self):
         return len(self.attempts)
+
+    def is_solved(self):
+        return self.best_attempt and self.best_attempt.status == 'Ok'
+
+    def get_sum_hint_penalty(self):
+        if not self.hint_attempts:
+            return 0
+        return sum([
+            hint_attempt.hint.points_penalty
+            for hint_attempt in self.hint_attempts
+            if hint_attempt.is_real_request
+        ])
+    
+    def get_result_points(self):
+        result_points = 0
+        if self.best_attempt:
+            result_points += self.best_attempt.points
+        print(result_points, self.get_sum_hint_penalty())
+        return max(0, result_points - self.get_sum_hint_penalty())
 
 
 class AttemptManager(models.Manager):
@@ -234,17 +257,26 @@ class AttemptManager(models.Manager):
             queryset = queryset.exclude(skip=exclude_skip)
         return sorted(queryset.filter(team=team, task=task, time__lt=time), key=lambda x: x.time)
 
-    def filter_attempts_with_mode(self, attempts, mode='general'):
+    def filter_attempts_with_mode(self, attempts, mode='general', is_hint_attempts=False):
         if mode == 'general' or not attempts:
             return attempts
         if mode == 'tournament':
-            game = attempts[0].task.task_group.game
+            if not is_hint_attempts:
+                game = attempts[0].task.task_group.game
+            else:
+                game = attempts[0].hint.task.task_group.game
             return [attempt for attempt in attempts if game.has_access('attempt_is_tournament', attempt=attempt, team=attempt.team, mode=mode)]
         raise Exception('Unknown mode: {}'.filter(mode))
 
     def get_attempts(self, team, task, mode="general"):
         attempts = self.get_all_attempts(team, task)
         return self.filter_attempts_with_mode(attempts, mode)
+
+    def get_hint_attempts(self, team, task, mode="general"):
+        hint_attempts = []
+        for hint in task.hints.all():
+            hint_attempts.extend(list(HintAttempt.objects.filter(team=team, hint=hint)))
+        return self.filter_attempts_with_mode(hint_attempts, mode, is_hint_attempts=True)
 
     def get_attempts_before(self, team, task, time, mode="general"):
         attempts = self.get_all_attempts_before(team, task, time)
@@ -253,6 +285,12 @@ class AttemptManager(models.Manager):
     def get_task_attempts(self, task, mode="general"):
         attempts = self.get_all_task_attempts(task)
         return self.filter_attempts_with_mode(attempts, mode)
+
+    def get_task_hint_attempts(self, task, mode="general"):
+        hint_attempts = []
+        for hint in task.hints.all():
+            hint_attempts.extend(list(HintAttempt.objects.filter(hint=hint)))
+        return self.filter_attempts_with_mode(hint_attempts, mode, is_hint_attempts=True)
 
     def get_best_attempt(self, attempts, mode="general"):
         best_attempt = None
@@ -265,22 +303,33 @@ class AttemptManager(models.Manager):
 
     def get_attempts_info(self, team, task, mode="general"):
         attempts = self.get_attempts(team, task, mode)
-        if not attempts:
-            return None
+        hint_attempts = self.get_hint_attempts(team, task, mode)
         best_attempt = self.get_best_attempt(attempts, mode)
-        return AttemptsInfo(best_attempt, attempts)
+        return AttemptsInfo(best_attempt, attempts, hint_attempts)
 
+    # for results page
     def get_task_attempts_infos(self, task, mode="general"):
         attempts = self.get_task_attempts(task, mode)
+        hint_attempts = self.get_task_hint_attempts(task, mode)
+
         team_to_attempts = {}
         for attempt in attempts:
             if attempt.team not in team_to_attempts:
                 team_to_attempts[attempt.team] = []
             team_to_attempts[attempt.team].append(attempt)
+
+        team_to_hint_attempts = {}
+        for hint_attempt in hint_attempts:
+            if hint_attempt.team not in team_to_hint_attempts:
+                team_to_hint_attempts[hint_attempt.team] = []
+            team_to_hint_attempts[hint_attempt.team].append(hint_attempt)
+
         attempts_infos = []
-        for attempts in team_to_attempts.values():
+        for team in team_to_attempts:
+            attempts = team_to_attempts[team]
+            hint_attempts = team_to_hint_attempts.get(team, [])
             best_attempt = self.get_best_attempt(attempts, mode)
-            attempts_info = AttemptsInfo(best_attempt, attempts)
+            attempts_info = AttemptsInfo(best_attempt, attempts, hint_attempts)
             attempts_infos.append(attempts_info)
         return attempts_infos
 
@@ -380,5 +429,22 @@ class Like(models.Model):
 
 class Hint(models.Model):
     task = models.ForeignKey(Task, related_name='hints', blank=True, null=True, on_delete=models.SET_NULL)
+    number = models.IntegerField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
     points_penalty = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)
+
+    def __str__(self):
+        return '{} - Подсказка #{} [-{}]'.format(self.task, self.number, self.points_penalty)
+
+class HintAttempt(models.Model):
+    team = models.ForeignKey(Team, related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
+    hint = models.ForeignKey(Hint, related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
+    time = models.DateTimeField(auto_now_add=True, blank=True)
+    is_real_request = models.BooleanField(default=False)
+
+    def __str__(self):
+        return '{}[{}]: {}'.format(
+            '(just watching)' if self.is_real_request else '',
+            self.team,
+            self.hint
+        )

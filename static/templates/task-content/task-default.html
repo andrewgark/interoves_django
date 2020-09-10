@@ -7,7 +7,7 @@
 
 {{ task.text }}<br>
 
-{% if attempts_info.best_attempt.status != 'Ok' %}
+{% if not attempts_info.is_solved %}
   {% if not attempts_info or mode == 'general' or attempts_info.get_n_attempts < task.get_max_attempts %}
     <form class="attempt-form" action="/send_attempt/{{ task.id }}/" method="post">
       {% csrf_token %}
@@ -28,6 +28,10 @@
     <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
     <input type="button" value="Посмотреть ответ" class="btn btn-custom-lg btn-lg btn-custom page-scroll show-answer">
   </form>
+{% endif %}
+
+{% if task.get_hints %}
+  {% include "task-content/hints.html" %}
 {% endif %}
 
 {% if attempts_info %}
