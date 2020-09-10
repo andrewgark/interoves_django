@@ -217,7 +217,7 @@ def check_attempt(attempt):
 
     checker = CheckerFactory().create_checker(task.get_checker(), task.checker_data, last_attempt_state)
     check_result = checker.check(attempt.text)
-    attempt.status, attempt.points, attempt.state = check_result.status, check_result.points, check_result.state
+    attempt.status, attempt.points, attempt.state, attempt.comment = check_result.status, check_result.points, check_result.state, check_result.comment
     if 'tournament' in modes and attempt.status != 'Ok':
         attempt.possible_status = attempt.status
         attempt.status = check_result.tournament_status

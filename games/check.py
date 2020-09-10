@@ -7,11 +7,12 @@ from games.util import status_key, clean_text
 
 
 class CheckResult:
-    def __init__(self, status, tournament_status, points, state=None):
+    def __init__(self, status, tournament_status, points, state=None, comment=None):
         self.status = status
         self.tournament_status = tournament_status
         self.points = points
         self.state = state
+        self.comment = comment
 
 
 def clean(func):
@@ -182,6 +183,52 @@ class MetagramChecker(BaseChecker):
         if best_matching_segment * 2 >= self.n:
             return CheckResult('Partial', 'Pending', Decimal(0.5))
         return CheckResult('Wrong', 'Pending', 0)
+
+
+class HangmanLettersChecker(BaseChecker):
+    @clean
+    @delete_punctuation
+    def __init__(self, data, last_attempt_state=None):
+        self.n_words = None
+        self.len_words = None
+        self.vocab = set()
+        for i, line in enumerate(data.split('\n')):
+            line = line.strip()
+            if i == 0:
+                x, y = line.split()
+                self.n_words, self.len_words = int(x), int(y)
+                continue
+            self.vocab.add(line)
+        self.ALPHABET = set(list('абвгдежзийклмнопрстуфхцчшщъыьэюя'))
+
+    @clean
+    @delete_punctuation
+    def check(self, text):
+        if len(text.split()) != self.n_words:
+            return CheckResult('Wrong', 'Wrong', 0,
+                comment='Число слов ({}) не равно {}'.format(len(text.split()), self.n_words))
+        has_word_not_from_vocab = False
+        prev_letters = set()
+        for word in text.split():
+            word_letters = set()
+            if len(word) != self.len_words:
+                return CheckResult('Wrong', 'Wrong', 0,
+                    comment='В слове {} число букв ({}) не равно {}'.format(word, len(word), self.len_words))
+            for letter in word:
+                if letter not in self.ALPHABET:
+                    return CheckResult('Wrong', 'Wrong', 0,
+                        comment='В слове {} встречен странный символ: {}'.format(word, letter))
+                if letter in prev_letters:
+                    return CheckResult('Wrong', 'Wrong', 0,
+                        comment='Буква {} встречается в нескольких словах'.format(letter))
+                word_letters.add(letter)
+            for letter in word_letters:
+                prev_letters.add(letter)
+            if word not in self.vocab:
+                has_word_not_from_vocab = True
+        if has_word_not_from_vocab:
+            return CheckResult('Pending', 'Pending', 0)
+        return CheckResult('Ok', 'Pending', 1)
 
 
 class WallChecker(BaseChecker):
