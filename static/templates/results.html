@@ -113,8 +113,8 @@
                       {% if attempts_info.get_n_attempts > 0 %}
                         {{ attempts_info.get_result_points|minimize_digits }}
                       {% endif %}
-                      {% if attempts_info.get_hint_attempts %}
-                        <sup class="hint-numbers">{{ attempts_info.get_hint_attempts|get_hint_numbers }}</sup>
+                      {% if attempts_info|took_at_least_one_hint %}
+                        <sup class="hint-numbers">{{ attempts_info|get_hint_numbers }}</sup>
                       {% endif %}
                     </td>
                 {% endfor %}

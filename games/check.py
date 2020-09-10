@@ -287,6 +287,7 @@ class CheckerFactory:
             'metagram_checker': MetagramChecker,
             'norm_matcher': NormMatcherChecker,
             'wall': WallChecker,
+            'hangman_letters': HangmanLettersChecker
         }
     
     def create_checker(self, checker_type, data, last_attempt_state=None):

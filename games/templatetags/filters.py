@@ -208,5 +208,16 @@ def hint_was_really_taken(attempts_info, hint):
 
 
 @register.filter
-def get_hint_numbers(hint_attempts):
-    return ''.join([str(han) for han in sorted([ha.number for ha in hint_attempts])])
+def took_at_least_one_hint(attempts_info):
+    if not attempts_info:
+        return False
+    for hint_attempt in attempts_info.hint_attempts:
+        if hint_attempt.is_real_request:
+            return True
+    return False
+
+
+@register.filter
+def get_hint_numbers(attempts_info):
+    hint_attempts = [ha for ha in attempts_info.hint_attempts if ha.is_real_request]
+    return ', '.join([str(han) for han in sorted([ha.hint.number for ha in hint_attempts])])
