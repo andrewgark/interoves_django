@@ -192,24 +192,36 @@ class HangmanLettersChecker(BaseChecker):
         self.n_words = None
         self.len_words = None
         self.vocab = set()
+        self.n_words_to_points = {}
         for i, line in enumerate(data.split('\n')):
             line = line.strip()
             if i == 0:
                 x, y = line.split()
                 self.n_words, self.len_words = int(x), int(y)
                 continue
+            if len(line.split()) == 2:
+                try:
+                    n_words, points = [int(x) for x in line.split()]
+                    self.n_words_to_points[n_words] = points
+                    continue
+                except:
+                    pass
             self.vocab.add(line)
+
         self.ALPHABET = set(list('абвгдежзийклмнопрстуфхцчшщъыьэюя'))
 
     @clean
     @delete_punctuation
     def check(self, text):
-        if len(text.split()) != self.n_words:
-            return CheckResult('Wrong', 'Wrong', 0,
-                comment='Число слов ({}) не равно {}'.format(len(text.split()), self.n_words))
+        words = text.split()
+        if len(words) not in self.n_words_to_points:
+            if len(words) > self.n_words:
+                return CheckResult('Wrong', 'Wrong', 0,
+                    comment='Число слов ({}) больше, чем {}'.format(len(words), self.n_words))
+            return CheckResult('Wrong', 'Wrong', 0, comment='Слишком мало слов')
         has_word_not_from_vocab = False
         prev_letters = set()
-        for word in text.split():
+        for word in words:
             word_letters = set()
             if len(word) != self.len_words:
                 return CheckResult('Wrong', 'Wrong', 0,
@@ -226,9 +238,13 @@ class HangmanLettersChecker(BaseChecker):
                 prev_letters.add(letter)
             if word not in self.vocab:
                 has_word_not_from_vocab = True
+        result_status = 'Ok'
+        points = self.n_words_to_points[len(words)]
+        if len(words) != self.n_words:
+            result_status = 'Partial'
         if has_word_not_from_vocab:
-            return CheckResult('Pending', 'Pending', 0)
-        return CheckResult('Ok', 'Pending', 1)
+            result_status = 'Pending'
+        return CheckResult(result_status, result_status, points)
 
 
 class WallChecker(BaseChecker):
