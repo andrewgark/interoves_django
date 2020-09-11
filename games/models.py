@@ -430,6 +430,7 @@ class Like(models.Model):
 class Hint(models.Model):
     task = models.ForeignKey(Task, related_name='hints', blank=True, null=True, on_delete=models.SET_NULL)
     number = models.IntegerField(null=True, blank=True)
+    desc = models.TextField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
     points_penalty = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)
 

@@ -221,3 +221,10 @@ def took_at_least_one_hint(attempts_info):
 def get_hint_numbers(attempts_info):
     hint_attempts = [ha for ha in attempts_info.hint_attempts if ha.is_real_request]
     return ', '.join([str(han) for han in sorted([ha.hint.number for ha in hint_attempts])])
+
+
+@register.filter
+def make_hint_desc_in_brackets(hint_desc):
+    if not hint_desc:
+        return ''
+    return '({}) '.format(hint_desc)

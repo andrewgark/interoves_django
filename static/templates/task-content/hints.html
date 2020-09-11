@@ -4,13 +4,15 @@
       <li class="li-hint_attempt li-hint">
         <div class="hint-head">
           <b>
-            {% if attempts_info|hint_was_really_taken:hint %}
-              <u>Подсказка #{{ hint.number }} (макс. балл уменьшен на -{{ hint.points_penalty|minimize_digits }}):</u>
-            {% elif attempts_info|hint_was_taken:hint %}
-              Подсказка #{{ hint.number }} (стоила -{{ hint.points_penalty|minimize_digits }}):
-            {% else %}
-              Подсказка #{{ hint.number }} (запрос уменьшит макс. балл на -{{ hint.points_penalty|minimize_digits }}):
-            {% endif %}
+            {% with hint_desc=hint.desc|make_hint_desc_in_brackets %}
+              {% if attempts_info|hint_was_really_taken:hint %}
+                <u>Подсказка #{{ hint.number }} {{ hint_desc }}[-{{ hint.points_penalty|minimize_digits }}]:</u>
+              {% elif attempts_info|hint_was_taken:hint %}
+                Подсказка #{{ hint.number }} {{ hint_desc }}[-{{ hint.points_penalty|minimize_digits }}]:
+              {% else %}
+                Подсказка #{{ hint.number }} {{ hint_desc }}[осторожно: -{{ hint.points_penalty|minimize_digits }}]:
+              {% endif %}
+            {% endwith %}
           </b>
         </div>
         <div class="hint-body">
