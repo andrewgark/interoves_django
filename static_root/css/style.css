@@ -851,17 +851,27 @@ button.active {
 /* hints */
 .hint-head {
 	display: inline-block;
+	font-size: 10px;
+	margin: 0 0 0 0;
 }
 
 .hint-body {
 	display: inline-block;
+    font-size: 12px;
+	margin: 0 0 0 0;
 }
 
-.show-hint {
+.btn.show-hint {
+    font-size: 10px;
+	margin: 2px 0 2px 0;
+	line-height: 12px;
+}
 
+li .li-hint {
+	margin: 0 0 0 0;
+	padding: 0 0 0 0;
+	line-height: 12px;
 }
 
 .hint-numbers {
-
 }
-
