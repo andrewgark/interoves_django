@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 from django.contrib.auth.models import User
 from django.db import models
@@ -178,10 +179,11 @@ class Task(models.Model):
         return self.task_group.image_width
     
     def key_sort(self):
+        number = re.sub(r"\*", "", self.number)
         try:
-            return tuple([int(x) for x in self.number.split('.')])
+            return tuple([int(x) for x in number.split('.')])
         except:
-            return self.number
+            return number
 
     def get_wall(self):
         return Wall(self)
