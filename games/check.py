@@ -21,6 +21,12 @@ def clean(func):
    return func_wrapper
 
 
+def clean_but_ё_stays(func):
+   def func_wrapper(self, text, *args, **kw):
+       return func(self, clean_text(text, replace_ё=False), *args, **kw)
+   return func_wrapper
+
+
 def delete_spaces(func):
    def func_wrapper(self, text, *args, **kw):
        return func(self, re.sub(r"[^\S\r\n]+", "", text), *args, **kw)
@@ -186,7 +192,7 @@ class MetagramChecker(BaseChecker):
 
 
 class HangmanLettersChecker(BaseChecker):
-    @clean
+    @clean_but_ё_stays
     @delete_punctuation
     def __init__(self, data, last_attempt_state=None):
         self.n_words = None
@@ -208,9 +214,9 @@ class HangmanLettersChecker(BaseChecker):
                     pass
             self.vocab.add(line)
 
-        self.ALPHABET = set(list('абвгдежзийклмнопрстуфхцчшщъыьэюя'))
+        self.ALPHABET = set(list('абвгдеёжзийклмнопрстуфхцчшщъыьэюя'))
 
-    @clean
+    @clean_but_ё_stays
     @delete_punctuation
     def check(self, text):
         words = text.split()

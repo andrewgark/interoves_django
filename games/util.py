@@ -13,5 +13,8 @@ def better_status(first_status, second_status):
     return status_key(first_status) > status_key(second_status)
 
 
-def clean_text(text):
-    return text.lower().strip().replace("ё", "е")
+def clean_text(text, replace_ё=True):
+    result = text.lower().strip()
+    if replace_ё:
+        result = result.replace("ё", "е")
+    return result
