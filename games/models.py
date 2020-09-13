@@ -222,7 +222,6 @@ class AttemptsInfo:
         result_points = 0
         if self.best_attempt:
             result_points += self.best_attempt.points
-        print(result_points, self.get_sum_hint_penalty())
         return max(0, result_points - self.get_sum_hint_penalty())
 
 
@@ -312,21 +311,25 @@ class AttemptManager(models.Manager):
         attempts = self.get_task_attempts(task, mode)
         hint_attempts = self.get_task_hint_attempts(task, mode)
 
+        teams = set()
+
         team_to_attempts = {}
         for attempt in attempts:
             if attempt.team not in team_to_attempts:
                 team_to_attempts[attempt.team] = []
             team_to_attempts[attempt.team].append(attempt)
+            teams.add(attempt.team)
 
         team_to_hint_attempts = {}
         for hint_attempt in hint_attempts:
             if hint_attempt.team not in team_to_hint_attempts:
                 team_to_hint_attempts[hint_attempt.team] = []
             team_to_hint_attempts[hint_attempt.team].append(hint_attempt)
+            teams.add(hint_attempt.team)
 
         attempts_infos = []
-        for team in team_to_attempts:
-            attempts = team_to_attempts[team]
+        for team in teams:
+            attempts = team_to_attempts.get(team, [])
             hint_attempts = team_to_hint_attempts.get(team, [])
             best_attempt = self.get_best_attempt(attempts, mode)
             attempts_info = AttemptsInfo(best_attempt, attempts, hint_attempts)

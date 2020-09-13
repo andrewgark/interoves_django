@@ -418,15 +418,19 @@ def results_page(request, game_id, mode='general'):
         , key=lambda t: t.key_sort())
         for task in task_group_to_tasks[task_group.number]:
             for attempts_info in Attempt.manager.get_task_attempts_infos(task=task, mode=mode):
-                if attempts_info.best_attempt:
-                    team = attempts_info.best_attempt.team
-
+                if attempts_info.attempts or attempts_info.hint_attempts:
+                    if attempts_info.attempts:
+                        team = attempts_info.attempts[0].team
+                    else:
+                        team = attempts_info.hint_attempts[0].team
                     if not team.is_hidden:
                         if team not in team_to_score:
                             team_to_score[team] = 0
-                        task_points = attempts_info.best_attempt.points
+                        task_points = 0
+                        if attempts_info.best_attempt is not None:
+                            task_points = attempts_info.best_attempt.points
 
-                        if attempts_info.best_attempt.points > 0:
+                        if task_points > 0:
                             team_to_score[team] += max(0, task_points - attempts_info.get_sum_hint_penalty())
                             if team not in team_to_max_best_time:
                                 team_to_max_best_time[team] = attempts_info.best_attempt.time
@@ -434,7 +438,7 @@ def results_page(request, game_id, mode='general'):
                                 team_to_max_best_time[team] = max(team_to_max_best_time[team], attempts_info.best_attempt.time)
 
                         team_task_to_attempts_info[(team, task)] = attempts_info
-    
+
     for team in team_to_score.keys():
         for task_group in task_groups:
             for task in task_group_to_tasks[task_group.number]:
@@ -452,6 +456,8 @@ def results_page(request, game_id, mode='general'):
         max_best_time = team_to_max_best_time.get(team, None)
         teams_sorted.append((-score, max_best_time, team))
     teams_sorted = [team for anti_score, max_best_time, team in sorted(teams_sorted)]
+
+    print(team_to_list_attempts_info)
 
     return render(request, 'results.html', {
         'mode': mode,
