@@ -2,56 +2,57 @@ import json
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import user_passes_test
 from django.db.models import Q
-from django.http import JsonResponse, HttpResponseRedirect
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404
-from django.views import defaults
+from django.views import defaults, View
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
+from django_telegram_login.widgets.constants import SMALL
+from django_telegram_login.widgets.generator import create_callback_login_widget, create_redirect_login_widget
 from games.check import CheckerFactory
 from games.exception import *
-from games.forms import CreateTeamForm, JoinTeamForm, AttemptForm
-from games.models import Team, Game, Attempt, AttemptsInfo, Task, Like, Hint, HintAttempt
+from games.forms import CreateTeamForm, JoinTeamForm, AttemptForm, TicketRequestForm
+from games.models import Team, Game, Attempt, AttemptsInfo, Task, \
+    Like, Hint, HintAttempt, ImageManager, AudioManager, Project
+from games.views.util import redirect_to_referer, has_profile, has_team
+from interoves_django.settings import TELEGRAM_BOT_NAME
 
 
-def has_profile(user):
-    return user and getattr(user, 'profile', None)
+class MainPageView(View):
+    project_name = 'main'
 
+    def get_games_list(self, request):
+        team = None
+        if has_profile(request.user):
+            team = request.user.profile.team_on
 
-def has_team(user):
-    return has_profile(user) and user.profile.team_on
+        games_list = []
 
+        project = get_object_or_404(Project, id=self.project_name)
+        for game in Game.objects.filter(project=project):
+            if game.has_access('see_game_preview', team=team):
+                games_list.append(game)
+        return sorted(games_list, key=lambda game: (game.start_time, game.name), reverse=True)
 
-def redirect_to_referer(request):
-    if 'HTTP_REFERER' not in request.META:
-        return main_page(request)
-    return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
-
-
-def get_games_list(request):
-    team = None
-    if has_profile(request.user):
-        team = request.user.profile.team_on
-
-    games_list = []
-    for game in Game.objects.all():
-        if game.has_access('see_game_preview', team=team):
-            games_list.append(game)
-    return sorted(games_list, key=lambda game: (game.start_time, game.name), reverse=True)
-
-
-def main_page(request):
-    return render(request, 'index.html', {
-        'create_team_form': CreateTeamForm(),
-        'join_team_form': JoinTeamForm(),
-        'games': get_games_list(request),
-        'today': timezone.now()
-    })
+    def get(self, request, *args, **kwargs):
+        project = get_object_or_404(Project, id=self.project_name)
+        return render(request, 'index.html', {
+            'create_team_form': CreateTeamForm(project),
+            'join_team_form': JoinTeamForm(project),
+            'ticket_request_form': TicketRequestForm(),
+            'games': self.get_games_list(request),
+            'today': timezone.now(),
+            'project': project,
+            'telegram_login_widget': create_redirect_login_widget(
+                project.get_url(), TELEGRAM_BOT_NAME, size=SMALL, user_photo=True
+            )
+        })
 
 
 @user_passes_test(has_profile)
 def create_team(request):
     user = request.user
-    form = CreateTeamForm(request.POST)
+    form = CreateTeamForm(project=request.POST.get('project'), data=request.POST)
     if form.is_valid() and not user.profile.team_on:
         team = form.save()
         user.profile.team_on = team
@@ -63,7 +64,7 @@ def create_team(request):
 @user_passes_test(has_profile)
 def join_team(request):
     user = request.user
-    form = JoinTeamForm(request.POST)
+    form = JoinTeamForm(project=request.POST.get('project'), data=request.POST)
     if form.is_valid() and form.cleaned_data['name'] and \
        not user.profile.team_on and not user.profile.team_requested:
         team = get_object_or_404(Team, name=form.cleaned_data['name'])
@@ -116,8 +117,9 @@ def get_task_to_attempts_info(game, team, mode='general'):
 def get_team_to_play_page(request, game):
     return render(request, 'get_team_to_play.html', {
         'game': game,
-        'create_team_form': CreateTeamForm(),
-        'join_team_form': JoinTeamForm(),
+        'create_team_form': CreateTeamForm(game.project),
+        'join_team_form': JoinTeamForm(game.project),
+        'project': game.project
     })
 
 
@@ -158,7 +160,7 @@ def game_page(request, game_id):
     game = get_object_or_404(Game, id=game_id)
     if not has_profile(request.user) or not request.user.profile.team_on:
         return get_team_to_play_page(request, game)
-    if not game.has_access('play_with_team', team=request.user.profile.team_on):
+    if not game.has_access('play', team=request.user.profile.team_on):
         raise NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     team = request.user.profile.team_on
@@ -180,6 +182,8 @@ def game_page(request, game_id):
         'task_to_attempts_info': task_to_attempts_info,
         'task_text_with_forms_to_html': get_all_text_with_forms_to_html(request, game, team, mode),
         'mode': mode,
+        'image_manager': ImageManager(),
+        'audio_manager': AudioManager(),
     })
 
 
@@ -237,6 +241,8 @@ def render_task(task, request, team, current_mode):
         'mode': current_mode,
         'team': team,
         'task_text_with_forms_to_html': task_text_with_forms_to_html,
+        'image_manager': ImageManager(),
+        'audio_manager': AudioManager(),
     }).content.decode('UTF-8')
 
 
@@ -247,7 +253,7 @@ def process_send_attempt(request, task_id):
     team = request.user.profile.team_on
     game = task.task_group.game
 
-    if not task.task_group.game.has_access('play_with_team', team=team):
+    if not task.task_group.game.has_access('play', team=team):
         return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     if task.task_type == 'default':
@@ -309,7 +315,7 @@ def process_send_hint_attempt(request, task_id):
     team = request.user.profile.team_on
     game = task.task_group.game
 
-    if not task.task_group.game.has_access('play_with_team', team=team):
+    if not task.task_group.game.has_access('play', team=team):
         return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     hint_number = int(request.POST['hint_number'])
@@ -317,6 +323,10 @@ def process_send_hint_attempt(request, task_id):
 
     if list(HintAttempt.objects.filter(team=team, hint=hint)):
         raise DuplicateAttemptException('Вы уже запрашивали эту подсказку')
+
+    required_hints = set(hint.required_hints.all())
+    if len(HintAttempt.objects.filter(team=team, hint__in=required_hints)) < len(required_hints):
+        raise NotAllRequiredHintsTakenException('Вы не можете пока взять эту подсказку')
 
     hint_attempt = HintAttempt(team=team, hint=hint)
     hint_attempt.save()
@@ -342,6 +352,8 @@ def send_hint_attempt(request, task_id):
         response = process_send_hint_attempt(request, task_id)
     except DuplicateAttemptException:
         response = {'status': 'duplicate'}
+    except NotAllRequiredHintsTakenException:
+        response = {'status': 'not_all_required_hints_taken'}
     return JsonResponse(response)
 
 
@@ -356,7 +368,7 @@ def get_answer(request, task_id):
     team = request.user.profile.team_on
     game = task.task_group.game
 
-    if not task.task_group.game.has_access('play_with_team', team=team):
+    if not task.task_group.game.has_access('play', team=team):
         return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     mode = game.get_current_mode()
@@ -378,7 +390,7 @@ def like_dislike(request, task_id):
     team = request.user.profile.team_on
     game = task.task_group.game
 
-    if not task.task_group.game.has_access('play_with_team', team=team):
+    if not task.task_group.game.has_access('play', team=team):
         return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     likes = int(request.POST.get('likes', 0))
@@ -455,9 +467,10 @@ def results_page(request, game_id, mode='general'):
         score = team_to_score[team]
         max_best_time = team_to_max_best_time.get(team, None)
         teams_sorted.append((-score, max_best_time, team))
-    teams_sorted = [team for anti_score, max_best_time, team in sorted(teams_sorted)]
-
-    print(team_to_list_attempts_info)
+    teams_sorted = [team for anti_score, max_best_time, team in sorted(
+        teams_sorted,
+        key=lambda t: (t[0], t[1], str(t[2]))
+    )]
 
     return render(request, 'results.html', {
         'mode': mode,
@@ -473,3 +486,8 @@ def results_page(request, game_id, mode='general'):
 
 def get_tournament_results(request, game_id):
     return results_page(request, game_id, mode='tournament')
+
+
+# for game 29 :)
+def return_intentional_503(request):
+    return HttpResponse(status=503)

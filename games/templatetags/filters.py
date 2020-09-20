@@ -1,5 +1,6 @@
 import json
 from django.template.defaulttags import register
+from django.utils import timezone
 from games.access import game_is_going_now
 from games.models import Like, Attempt
 from games.util import clean_text, better_status
@@ -72,6 +73,22 @@ def access_play_without_team(game, team):
 @register.filter
 def access_play_with_team(game, team):
     return game.has_access('play_with_team', team=team)
+
+
+@register.filter
+def access_play(game, team):
+    return game.has_access('play', team=team)
+
+
+@register.filter
+def access_is_registered(game, team):
+    return game.has_access('is_registered', team=team)
+
+
+@register.filter
+def access_register(game, team):
+    return game.has_access('register', team=team)
+
 
 
 @register.filter
@@ -208,6 +225,21 @@ def hint_was_really_taken(attempts_info, hint):
 
 
 @register.filter
+def all_not_taken_required_hints(attempts_info, hint):
+    already_taken = set([hint_attempt.hint for hint_attempt in attempts_info.hint_attempts])
+    res = []
+    for required_hint in hint.required_hints.all():
+        if required_hint not in already_taken:
+            res.append(required_hint)
+    if len(res) == 0:
+        return False
+    if len(res) == 1:
+        return 'подсказки {}'.format(res[0].number)
+    return 'подсказок {}'.format(
+        ', '.join([str(x) for x in sorted([h.number for h in res])])
+    )
+
+@register.filter
 def took_at_least_one_hint(attempts_info):
     if not attempts_info:
         return False
@@ -228,3 +260,62 @@ def make_hint_desc_in_brackets(hint_desc):
     if not hint_desc:
         return ''
     return '({}) '.format(hint_desc)
+
+
+@register.filter
+def wall_tile_has_image(tile_text):
+    return tile_text.startswith('IMAGE_ID=') or tile_text.startswith('image_id=')
+
+
+@register.filter
+def get_wall_tile_image(tile_text, image_manager):
+    image_id = tile_text[len('IMAGE_ID='):]
+    return image_manager.get_image(image_id)
+
+
+@register.filter
+def wall_tile_has_audio(tile_text):
+    return tile_text.startswith('AUDIO_ID=') or tile_text.startswith('audio_id=')
+
+
+@register.filter
+def get_wall_tile_audio(tile_text, audio_manager):
+    audio_id = tile_text[len('AUDIO_ID='):]
+    return audio_manager.get_audio(audio_id)
+
+
+@register.filter
+def get_future_games_js_list(games):
+    if not games:
+        return '[]'
+    now = timezone.now()
+    games_list = [
+        '{{"id": "{id}", "title": "{title}", "startTime": new Date("{start_time}"), "endTime": new Date("{end_time}"), "imgSrc": "{img_src}"}}'.format(
+            id=game.id,
+            title=game.name,
+            img_src=game.image.url,
+            start_time=game.start_time.isoformat(),
+            end_time=game.end_time.isoformat()
+        )
+        for game in games
+        if game.start_time > now
+    ]
+    games_joined = ', '.join(games_list)
+    return '[{}]'.format(games_joined)
+
+
+@register.filter
+def get_ongoing_game_js(game):
+    if not game:
+        return 'null'
+    return '{{"id": "{id}", "title": "{title}", "startTime": new Date("{start_time}"), "endTime": new Date("{end_time}"), "imgSrc": "{img_src}"}}'.format(
+        id=game.id,
+        title=game.name,
+        img_src=game.image.url,
+        start_time=game.start_time.isoformat(),
+        end_time=game.end_time.isoformat()
+    )
+
+@register.filter
+def sorted_ticket_requests(team):
+    return sorted(team.ticket_requests.all(), key=lambda x: x.time)

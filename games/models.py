@@ -3,6 +3,7 @@ import os
 import re
 
 from django.contrib.auth.models import User
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.dispatch import receiver
 from django.utils import timezone
@@ -12,10 +13,36 @@ from games.wall import Wall
 from allauth.socialaccount.models import SocialAccount
 
 
+class Project(models.Model):
+    id = models.CharField(primary_key=True, max_length=100)
+
+    background = models.ImageField(null=True, blank=True)
+    logo = models.ImageField(null=True, blank=True)
+
+    def __str__(self):
+        return self.id
+    
+    def is_main(self):
+        return self.id == 'main'
+
+    def get_url(self):
+        if self.is_main():
+            return '/'
+        return '/{}'.format(self.id)
+
+
 class Team(models.Model):
     name = models.CharField(primary_key=True, max_length=100)
     is_tester = models.BooleanField(default=False)
     is_hidden = models.BooleanField(default=False)
+
+    project = models.ForeignKey(
+        Project, related_name='teams',
+        default='main', on_delete=models.CASCADE
+    )
+
+    tickets = models.IntegerField(default=0)
+    ticket_price = models.IntegerField(default=500)
 
     def __str__(self):
         return self.name
@@ -66,19 +93,37 @@ class Game(models.Model):
     start_time = models.DateTimeField(default=timezone.now, blank=True)
     end_time = models.DateTimeField(default=timezone.now, blank=True)
 
+    project = models.ForeignKey(
+        Project, related_name='games',
+        default='main', on_delete=models.CASCADE
+    )
+
     is_ready = models.BooleanField(default=False)
     is_testing = models.BooleanField(default=False)
-    is_playable = models.BooleanField(default=False)
-    is_tournament = models.BooleanField(default=False)
+    is_registrable = models.BooleanField(default=True)
+    is_playable = models.BooleanField(default=True)
+    is_tournament = models.BooleanField(default=True)
 
     game_url = models.CharField(max_length=500, null=True, blank=True)
     answers_url = models.CharField(max_length=500, null=True, blank=True)
     standings_url = models.CharField(max_length=500, null=True, blank=True)
 
-    rules = models.ForeignKey(HTMLPage, to_field='name', related_name='games', blank=True, null=True, on_delete=models.SET_NULL)
+    rules = models.ForeignKey(
+        HTMLPage, to_field='name', related_name='games',
+        blank=True, null=True, on_delete=models.SET_NULL,
+        default="Правила Десяточки"
+    )
 
-    tournament_rules = models.ForeignKey(HTMLPage, to_field='name', related_name='games_tournament', blank=True, null=True, on_delete=models.SET_NULL)
-    general_rules = models.ForeignKey(HTMLPage, to_field='name', related_name='games_general', blank=True, null=True, on_delete=models.SET_NULL)
+    tournament_rules = models.ForeignKey(
+        HTMLPage, to_field='name', related_name='games_tournament',
+        blank=True, null=True, on_delete=models.SET_NULL,
+        default="Правила турнирного режима"
+    )
+    general_rules = models.ForeignKey(
+        HTMLPage, to_field='name', related_name='games_general',
+        blank=True, null=True, on_delete=models.SET_NULL,
+        default="Правила тренировочного режима"
+    )
 
     def __str__(self):
         return self.name
@@ -90,6 +135,12 @@ class Game(models.Model):
         if self.has_access(action='attempt_is_tournament', attempt=attempt):
             return 'tournament'
         return 'general'
+
+    def has_registered(self, team):
+        for reg in self.registrations.all():
+            if reg.team == team:
+                return True
+        return False
 
 
 class TaskGroup(models.Model):
@@ -148,6 +199,7 @@ class Task(models.Model):
     points = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)
     max_attempts = models.IntegerField(blank=True, null=True)
     image_width = models.IntegerField(null=True, blank=True)
+    field_text_width = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
         return '{}: {}.{}'.format(self.task_group.game.name, self.task_group.number, self.number)
@@ -177,8 +229,13 @@ class Task(models.Model):
         if self.image_width:
             return self.image_width
         return self.task_group.image_width
-    
+
     def key_sort(self):
+        if self.number[-1] in ('В', 'Г'): # for crossword
+            if self.number[-1] == 'Г':
+                return (0, int(self.number[:-1]))
+            if self.number[-1] == 'В':
+                return (1, int(self.number[:-1]))
         number = re.sub(r"\*", "", self.number)
         try:
             return tuple([int(x) for x in number.split('.')])
@@ -190,6 +247,7 @@ class Task(models.Model):
 
     def get_attempt_form(self, *args, **kwargs):
         from games.forms import AttemptForm
+        kwargs['field_text_width'] = self.field_text_width
         return AttemptForm(*args, **kwargs)
     
     def get_hints(self):
@@ -366,20 +424,30 @@ class Attempt(models.Model):
         return '[{}]: ({}) - {} [{}]'.format(self.team, self.task, self.get_pretty_text(), self.status)
 
     def get_answer(self):
+        if self.task is None:
+            return 'DELETED'
         return self.task.answer
 
     def get_max_points(self):
+        if self.task is None:
+            return 'DELETED'
         return self.task.get_points()
 
     def get_pretty_text(self):
+        if self.task is None:
+            return 'DELETED TASK'
         if self.task.task_type == 'default':
             return self.text
         if self.task.task_type == 'wall':
-            return self.task.get_wall().get_attempt_text(json.loads(self.text))
+            return self.task.get_wall().get_attempt_text(
+                json.loads(self.text),
+                ImageManager(),
+                AudioManager()
+            )
         raise Exception('Unknown task_type: {}'.format(self.task.task_type))
 
 
-class ProxyAttempt(Attempt):
+class PendingAttempt(Attempt):
     class Meta:
         proxy=True
 
@@ -438,6 +506,7 @@ class Hint(models.Model):
     desc = models.TextField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
     points_penalty = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)
+    required_hints = models.ManyToManyField('Hint', blank=True)
 
     def __str__(self):
         return '{} - Подсказка #{} [-{}]'.format(self.task, self.number, self.points_penalty)
@@ -453,4 +522,66 @@ class HintAttempt(models.Model):
             '(just watching)' if self.is_real_request else '',
             self.team,
             self.hint
+        )
+
+
+class ImageManager(models.Manager):
+    def get_image(self, id):
+        img = Image.objects.filter(id=id)[0]
+        return img
+
+
+class Image(models.Model):
+    id = models.CharField(primary_key=True, max_length=100)
+    image = models.ImageField(null=True, blank=True)
+
+
+class AudioManager(models.Manager):
+    def get_audio(self, id):
+        audio = Audio.objects.filter(id=id)[0]
+        return audio
+
+
+class Audio(models.Model):
+    id = models.CharField(primary_key=True, max_length=100)
+    audio = models.FileField()
+    title = models.TextField(null=True, blank=True)
+
+
+class TicketRequest(models.Model):
+    team = models.ForeignKey(Team, related_name='ticket_requests', blank=True, null=True, on_delete=models.SET_NULL)
+    money = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    tickets = models.IntegerField(default=0, validators=[MinValueValidator(1),MaxValueValidator(20)])
+    time = models.DateTimeField(auto_now_add=True)
+
+    TICKER_REQUEST_STATUS_VARIANTS = (
+        ('Pending', 'Pending'),
+        ('Accepted', 'Accepted'),
+        ('Rejected', 'Rejected'),
+    )
+
+    status = models.CharField(default='Pending', max_length=100, choices=TICKER_REQUEST_STATUS_VARIANTS)
+
+    def __str__(self):
+        return '{}: [{}] Сумма: {} р. - Билетов: {} - Команда: {}'.format(
+            self.time.strftime('%Y-%m-%d %H:%M:%S'),
+            self.status,
+            self.money,
+            self.tickets,
+            self.team
+        )
+
+
+class PendingTicketRequest(TicketRequest):
+    class Meta:
+        proxy=True
+
+
+class Registration(models.Model):
+    team = models.ForeignKey(Team, related_name='registrations', blank=True, null=True, on_delete=models.SET_NULL)
+    game = models.ForeignKey(Game, related_name='registrations', blank=True, null=True, on_delete=models.SET_NULL)
+    def __str__(self):
+        return '{} --- {}'.format(
+            self.game,
+            self.team
         )

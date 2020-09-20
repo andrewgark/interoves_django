@@ -95,10 +95,14 @@ function updateTasks(taskToHtml) {
     $(taskHtmlId + ' .attempt-form').on('submit', submitAttemptForm);
     $(taskHtmlId + ' .hint-attempt-form').on('submit', submitHintAttemptForm);
     $(taskHtmlId + ' .show-answer').on('click', showAnswer);
-    $(taskHtmlId + ' .wall-tile-not-guessed').on('click', wallTileClick);
+    $(taskHtmlId + ' .wall-tile-not-guessed').on('click', wallTileClick).on('click', 'div', function(e) {
+      // clicked on descendant div
+      e.stopPropagation();
+    });
     $(taskHtmlId + ' .like-dislike').likeDislike({
       click: clickLikeDislike
     });
+    initAudioButton(taskHtmlId);
   
     task = $(taskHtmlId);
     var is_ok = task.hasClass('li-ok');
@@ -128,6 +132,10 @@ function processNewAttempt(form, data) {
 function processNewHintAttempt(form, data) {
   if (data['status'] == 'duplicate') {
     alert('Вы уже запрашивали эту подсказку.');
+    return;
+  }
+  if (data['status'] == 'not_all_required_hints_taken') {
+    alert('Вы не можете пока взять эту подсказку.');
     return;
   }
   if (data['status'] != 'ok') {
@@ -252,10 +260,17 @@ function showAnswer(event) {
   });
 }
 
-function toggleOkTasks(event) {
+function toggleOkTasks(event, changeLocalStorage=true) {
   $('.icon-ok-tasks').toggleClass('fa-eye-slash');
   $('.icon-ok-tasks').toggleClass('fa-eye');
   toggleAllTasks();
+  if (changeLocalStorage) {
+    if (localStorage.getItem('toggleOkTasks')) {
+      localStorage.removeItem('toggleOkTasks');
+    } else {
+      localStorage.setItem('toggleOkTasks', true);
+    }
+  }
 }
 
 function wallTileClick(event) {
@@ -269,7 +284,7 @@ function wallTileClick(event) {
   var csrf = wall.children("input[name=csrfmiddlewaretoken]")[0].value;
 
   var selectedTiles = $('#task-' + task_id + ' .wall-tile-selected').map(function(){
-    return $(this).children('p')[0].innerText;
+    return $(this).children(".wall-tile-text")[0].value;
   }).toArray();
   if (selectedTiles.length != 4) {
     return;
@@ -309,7 +324,7 @@ function clickLikeDislike(btnType, likes, dislikes, event) {
   }
   $.ajaxSetup({
     headers: { "X-CSRFToken": csrf }
-});
+  });
   $.ajax({
     url: '/like_dislike/' + task_id + '/',
     type: 'POST',
@@ -337,12 +352,117 @@ function clickLikeDislike(btnType, likes, dislikes, event) {
 // });
 
 
+function secondsTimeSpanToHMS(s) {
+	var h = Math.floor(s / 3600); //Get whole hours
+	s -= h * 3600;
+	var m = Math.floor(s / 60); //Get remaining minutes
+	s -= m * 60;
+	return h + ":" + (m < 10 ? '0' + m : m) + ":" + (s < 10 ? '0' + s : s); //zero padding on minutes and seconds
+};
+
+function initAudioButton(prefix) {
+  var selectorString = prefix + ' .audio-player-link';
+  $(selectorString).magnificPopup({
+    type: 'inline',
+    delegate: 'button',
+    midClick: true,
+    fixedContentPos: false,
+    callbacks: {
+      elementParse: function(item) {
+        var audioUrl = $(item.el[0]).attr('audio-url');
+        var audioTitle = $(item.el[0]).attr('audio-title');
+
+        var hiddenPlayer = $('#hidden-player');
+        var title = $('#player .title');
+
+        hiddenPlayer.attr("src", audioUrl);
+        title.html(audioTitle);
+      },
+      beforeClose: function() {
+        var hiddenPlayer = $('#hidden-player');
+        var playButton = $('#player .play-button');
+        if (!playButton.hasClass("paused")) {
+          hiddenPlayer[0].pause();
+        }
+      },
+      open: function() {
+        jQuery('body').addClass('magnificpopupnoscroll');
+      },
+      close: function() {
+        jQuery('body').removeClass('magnificpopupnoscroll');
+      }
+    }
+  });
+}
+
+function initAudioPlayer() {
+  var hiddenPlayer = $('#hidden-player');
+  var playButton = $('#player .play-button');
+
+  playButton.click(function() {
+    $(this).toggleClass("paused");
+    if ($(this).hasClass("paused")) {
+      hiddenPlayer[0].pause();
+    } else {
+      hiddenPlayer[0].play();
+    }
+  });
+  
+  hiddenPlayer.on('timeupdate', function() {
+    var songLength = secondsTimeSpanToHMS(this.duration)
+    var songLengthParse = songLength.split(".")[0];
+    $('.time-finish').html(songLengthParse);
+  
+    var songCurrent = secondsTimeSpanToHMS(this.currentTime)
+    var songCurrentParse = songCurrent.split(".")[0];
+    $('.time-now').html(songCurrentParse);
+    $('progress').attr("value", this.currentTime / this.duration);
+  
+    if (!hiddenPlayer[0].paused) {
+      $(".play-button").removeClass('paused');
+      $('progress').css('cursor', 'pointer');
+      
+      $('progress').on('click', function(e) {
+        var parentOffset = $(this).parent().offset(); 
+        var relX = e.pageX - parentOffset.left;
+        var percPos = relX * 100 / 355;
+        var second = hiddenPlayer[0].duration * parseInt(percPos) / 100;
+        hiddenPlayer[0].currentTime = second;
+      })
+    }
+    
+    if (this.currentTime == this.duration) {
+      playButton.trigger('click');
+    }
+  });
+  initAudioButton("");
+}
+
+
+function initTicketRequests() {
+  $('.request-tickets-link').magnificPopup({
+    type: 'inline',
+    midClick: true,
+    fixedContentPos: false,
+  });
+}
+
+
 $(document).ready(function() {
+  if (localStorage.getItem('toggleOkTasks')) {
+    toggleOkTasks(null, false);
+  }
   $('.attempt-form').on('submit', submitAttemptForm);
   $('.hint-attempt-form').on('submit', submitHintAttemptForm);
   $('.show-answer').on('click', showAnswer);
   $('.toggle-ok-tasks').on('click', toggleOkTasks);
-  $('.wall-tile-not-guessed').on('click', wallTileClick);
+  $('.wall-tile-not-guessed').on('click', wallTileClick).on('click', 'div', function(e) {
+    // clicked on descendant div
+    e.stopPropagation();
+  });
+  initAudioPlayer();
+  initTicketRequests();
+  
   $('.like-dislike').likeDislike({
     click: clickLikeDislike
   });

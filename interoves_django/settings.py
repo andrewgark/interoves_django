@@ -20,11 +20,13 @@ IS_PROD = os.getenv('IS_PROD') == 'TRUE'
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
 def load_secret(secret):
     file = open(os.path.join(BASE_DIR, 'secrets', secret))
     result = file.read().strip()
     file.close()
     return result
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
@@ -43,6 +45,7 @@ ALLOWED_HOSTS = [
     'interoves.ml',
     'www.interoves.ml',
     '127.0.0.1',
+    'fat-owl-8.loca.lt'
 ]
 
 def get_ec2_instance_ip():
@@ -78,6 +81,9 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.vk',
+    'games.telegram',
+
+    'django_telegram_login',
 
     'health_check',
     'health_check.db',
@@ -89,6 +95,8 @@ INSTALLED_APPS = [
     'corsheaders',
 
     'yet_another_django_profiler',
+
+    'inlineedit',
 ]
 
 MIDDLEWARE = [
@@ -198,7 +206,7 @@ if USE_S3:
     AWS_DEFAULT_ACL = 'public-read'
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
-# s3 static settings
+    # s3 static settings
     STATIC_LOCATION = 'static'
     STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{STATIC_LOCATION}/'
     STATICFILES_STORAGE = 'games.storage_backends.StaticStorage'
@@ -244,10 +252,28 @@ SOCIALACCOUNT_PROVIDERS = {
         'AUTH_PARAMS': {
             'access_type': 'online',
         }
+    },
+    'interoves-telegram': {
+        'TOKEN': load_secret('telegram_token.txt'),
+        'domain': 'https://fat-owl-8.loca.lt/',
+        'size': 'small',
+        'request_access': 'write'
     }
 }
 
+TELEGRAM_BOT_NAME = 'interoves_bot'
+TELEGRAM_BOT_TOKEN = load_secret('telegram_token.txt')
+TELEGRAM_LOGIN_REDIRECT_URL = 'fat-owl-8.loca.lt'
+
 ACCOUNT_ADAPTER = 'games.users.allauth.AccountAdapter'
+
+TEMPLATE_CONTEXT_PROCESSORS = (
+    "django.core.context_processors.auth",
+    "django.core.context_processors.debug",
+    "django.core.context_processors.i18n",
+    "django.core.context_processors.media",
+    "django.core.context_processors.request",
+)
 
 # CORS Policy
 
@@ -279,4 +305,9 @@ LOGGING = {
             'level': 'INFO',
         }
     }
+}
+
+# Inline Editor
+INLINEEDIT_ADAPTORS = {
+    "person-adaptor": "games.adaptors.PersonAdaptor",
 }

@@ -3,10 +3,20 @@
     {% for attempt in attempts_info.attempts %}
       <li class="li-attempt li-{{ attempt|get_show_status|get_lower_status }}">
         {{ attempt.time|date:'H:i' }}:
-        {% if attempt|get_show_status == 'Ok' %}
-          <b>{{ attempt.get_pretty_text }}</b>
+        {% if task.task_type == 'wall' %}
+          {% autoescape off %}{% spaceless %}
+          {% if attempt|get_show_status == 'Ok' %}
+            <b>{{ attempt.get_pretty_text }}</b>
+          {% else %}
+            {{ attempt.get_pretty_text }}
+          {% endif %}
+          {% endspaceless %}{% endautoescape %}
         {% else %}
-          {{ attempt.get_pretty_text }}
+          {% if attempt|get_show_status == 'Ok' %}
+            <b>{{ attempt.get_pretty_text }}</b>
+          {% else %}
+            {{ attempt.get_pretty_text }}
+          {% endif %}
         {% endif %}
         (баллы: {{ attempt.points|minimize_digits }} {% if attempt|get_diff_points > 0 %}(+{{ attempt|get_diff_points|minimize_digits }}){% endif %},
         статус: {{ attempt|get_show_status|get_ru_status }})

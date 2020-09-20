@@ -1,0 +1,29 @@
+<div id="request-tickets-popup" class="white-popup mfp-hide">
+    <div class="request-tickets-container">
+        <h2>Приобретение билетов</h2>
+        <p>Вы можете приобрести билеты на игры, чтобы получить возможность играть в турнирном режиме. Такие игры проходят по вечерам воскресений, вы можете сами выбирать, в каких участвовать и тратить билет, в каких нет.</p>
+        <p>Цена билета на игру для вас: <b>{{ user.profile.team_on.ticket_price }} р.</b></p>
+        <p>Если вы хотите играть, но вам тяжело платить такую сумму, вы можете написать <a href="https://vk.com/andrewgark">Андрею Гаркавому</a>, можем сделать вашей команде льготную скидку. Возможные причины для льгот: все в команде - школьники/студенты, или просто тяжелое материальное положение.</p>
+        <hr>
+        <p>Чтобы приобрести билеты, <u>переведите деньги на карту Тинькофф <b>5536 9138 0059 7797</b>, указав название команды ({{ user.profile.team_on.name }}) в подписи</u>.</p>
+        <p>После перевода заполните форму ниже, спустя некоторое время мы обработаем вашу оплату и у вашей команда добавятся нужные билеты.</b></p>
+        <script>
+            function updateTicketsNumber() {
+                var money = parseInt($('#money').val());
+                $('#tickets').val(Math.floor(money / {{ user.profile.team_on.ticket_price }}));
+            }
+            function updateMoney() {
+                var tickets = parseInt($('#tickets').val());
+                $('#money').val(tickets * {{ user.profile.team_on.ticket_price }});
+            }
+        </script>
+        <form action = "{% url 'request_ticket' %}" next="{{ request.path }}" method = "post" class="request-tickets-form">
+            {% csrf_token %}
+            <label for="money">Сумма: </label><br>
+            <input id="money" type="text" name="money" value="{{ user.profile.team_on.ticket_price }}" oninput="updateTicketsNumber()"><br>
+            <label for="tickets">Билетов (до 20): </label><br>
+            <input id="tickets" type="text" name="tickets" value="1" oninput="updateMoney()">
+            <input type="submit" value="Приобрести билеты" class="btn btn-custom btn-custom-lg btn-lg page-scroll ticket-money-sent-button">
+        </form>
+    </div>
+</div>

@@ -1,6 +1,7 @@
 import json
+from django.template import Context
+from django.template.loader import get_template
 from games.util import clean_text
-
 
 class WallTile:
     def __init__(self, id, text):
@@ -55,11 +56,20 @@ class Wall:
             last_id += 1
             wall_tiles.append(WallTile(last_id, word))
         return wall_tiles
-
-    def get_attempt_text(self, data):
+    
+    def get_attempt_text(self, data, image_manager, audio_manager):
+        template = get_template('task-content/wall-attempt-tile.html')
+        word_http_list = [
+            template.render({
+                'tile': WallTile(None, word),
+                'image_manager': image_manager,
+                'audio_manager': audio_manager
+            })
+            for word in data['words']
+        ]
         if 'explanation' in data:
-            return "{} ({})".format(data['explanation'], ", ".join(sorted(data['words'])))
-        return ", ".join(sorted(data['words']))
+            return "{} ({})".format(data['explanation'], ", ".join(word_http_list))
+        return ", ".join(word_http_list)
 
     def get_n_max_attempts_dict(self, attempts=None):
         n_max_attempts_dict = {

@@ -1,9 +1,21 @@
 {% load staticfiles %}
-<script type="text/javascript" src="{% static "js/jquery.1.11.1.js" %}"></script> 
-<script type="text/javascript" src="{% static "js/bootstrap.js" %}"></script> 
-<script type="text/javascript" src="{% static "js/SmoothScroll.js" %}"></script> 
-<script type="text/javascript" src="{% static "js/nivo-lightbox.js" %}"></script> 
-<script type="text/javascript" src="{% static "js/jqBootstrapValidation.js" %}"></script> 
-<script type="text/javascript" src="{% static "js/main.js" %}?1"></script>
+{% load inlineedit %}
+<script type="text/javascript" src="{% static "js/jquery.1.11.1.js" %}"></script>
+<script type="text/javascript" src="{% static "js/bootstrap.js" %}"></script>
+<script type="text/javascript" src="{% static "js/SmoothScroll.js" %}"></script>
+<script type="text/javascript" src="{% static "js/nivo-lightbox.js" %}"></script>
+<script type="text/javascript" src="{% static "js/jqBootstrapValidation.js" %}"></script>
+<script type="text/javascript" src="{% static "js/main.js" %}?5"></script>
+<script type="text/javascript" src="{% static "js/clock.js" %}?1"></script>
+<script type="text/javascript" src="{% static "js/magnific-popup.min.js" %}"></script>
+<script>
+    var serverTime = {% now "U" %};
+    var futureGames = {{ games|get_future_games_js_list | safe }};
+    var ongoingGame = {{ game|get_ongoing_game_js | safe }};
+    $(window).on('load', function() {
+        doClock(serverTime, futureGames, ongoingGame);
+    })
+</script>
 <script type="text/javascript" src="{% static "js/simplebar.min.js" %}"></script>
 <script type="text/javascript" src="{% static "js/like-dislike.js" %}"></script>
+{% inlineedit_script %}

@@ -1,0 +1,16 @@
+{% if tile.text|wall_tile_has_image %}
+  {% with tile_image=tile.text|get_wall_tile_image:image_manager %}
+    <img src="{{ tile_image.image.url }}" class="wall-tile-image">
+  {% endwith %}
+{% elif tile.text|wall_tile_has_audio %}
+  {% with tile_audio=tile.text|get_wall_tile_audio:audio_manager %}
+    <div class="audio-player-link">
+      <button href="#audio-player-popup" type="button" class="btn btn-default btn-sm" audio-url="{{ tile_audio.audio.url }}" audio-title="{{ tile_audio.title }}">
+        <i class="fa fa-play"></i> {{ tile_audio.title }}
+      </button>
+    </div>
+  {% endwith %}
+{% else %}
+  <p>{{ tile.text }}</p>
+{% endif %}
+<input type="hidden" class="wall-tile-text" name="variable" value="{{ tile.text }}">

@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from games.models import Attempt
-from games.views import check_attempt
+from games.views.views import check_attempt
 
 
 def recheck(_, attempt_id):

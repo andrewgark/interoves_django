@@ -20,18 +20,22 @@ from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import TemplateView
 from django.contrib.auth.views import LogoutView
-from games.views import main_page, game_page, results_page, \
+from games.views.views import MainPageView, game_page, results_page, \
                         create_team, join_team, quit_from_team, \
                         confirm_user_joining_team, reject_user_joining_team, \
                         send_attempt, send_hint_attempt, get_answer, like_dislike, \
-                        get_tournament_results
+                        get_tournament_results, return_intentional_503
+from games.views.ticket import request_ticket
+from games.views.registration import register_to_game
 
 
 urlpatterns = [
-    path('', main_page),
+    path('', MainPageView.as_view(project_name='main')),
+    path('main/', MainPageView.as_view(project_name='main')),
+    path('glowbyte/', MainPageView.as_view(project_name='glowbyte')),
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
-    path('logout/', LogoutView.as_view(), {'next_page': '/'}, name='logout'),
+    path('logout/', LogoutView.as_view(), name='logout'),
 
     path('create_team/', create_team, name='create_team'),
     path('join_team/', join_team, name='join_team'),
@@ -46,10 +50,17 @@ urlpatterns = [
     url(r'^get_answer/(?P<task_id>\d+)/$', get_answer),
     url(r'^like_dislike/(?P<task_id>\d+)/', like_dislike),
 
+    url(r'^register/(?P<game_id>[a-zA-Z0-9_]+)/$', register_to_game),
+    url(r'^request_ticket/', request_ticket, name='request_ticket'),
+
     url(r'^results/(?P<game_id>[a-zA-Z0-9_]+)/$', results_page),
     url(r'^tournament_results/(?P<game_id>[a-zA-Z0-9_]+)/$', get_tournament_results),
 
+    url('cw_hint', return_intentional_503),
+
     url(r'^health/?', include('health_check.urls')),
+
+    path('inline-edit', include('inlineedit.urls'))
 ]
 
 if settings.DEBUG:

@@ -7,12 +7,12 @@ from games.models import *
 from games.recheck import recheck, recheck_full, recheck_queue_from_this, recheck_queue_from_next
 
 
-admin.site.register([CheckerType, HTMLPage, Like])
+admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration, TicketRequest])
 
 
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
-    list_display = ['name', 'get_n_users_on', 'get_n_users_requested', 'is_tester', 'is_hidden']
+    list_display = ['name', 'project', 'get_n_users_on', 'get_n_users_requested', 'is_tester', 'is_hidden']
 
 
 @admin.register(Profile)
@@ -125,15 +125,47 @@ class AttemptAdmin(admin.ModelAdmin):
     actions = [set_ok, confirm_prestatus, recheck_attempt, recheck_full_attempt, recheck_queue_from_this_attempt, recheck_queue_from_next_attempt]
 
 
-@admin.register(ProxyAttempt)
-class PendingAdmin(admin.ModelAdmin):
+@admin.register(PendingAttempt)
+class PendingAttemptsAdmin(admin.ModelAdmin):
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }
 
     def get_queryset(self, request):
-        qs = super(PendingAdmin, self).get_queryset(request)
+        qs = super(PendingAttemptsAdmin, self).get_queryset(request)
         return qs.filter(status='Pending')
 
     list_display = ['__str__', 'team', 'task', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points']
     actions = [set_ok, confirm_prestatus, recheck_attempt, recheck_full_attempt, recheck_queue_from_this_attempt, recheck_queue_from_next_attempt]
+
+
+def confirm_ticket_request(modeladmin, request, queryset):
+    for ticket_request in queryset.all():
+        ticket_request.status = 'Accepted'
+        ticket_request.save()
+        ticket_request.team.tickets += ticket_request.tickets
+        ticket_request.team.save()
+
+
+def reject_ticket_request(modeladmin, request, queryset):
+    for ticket_request in queryset.all():
+        ticket_request.status = 'Rejected'
+        ticket_request.save()
+
+
+confirm_ticket_request.short_description = "Confirm Ticket Request"
+reject_ticket_request.short_description = "Reject Ticket Request"
+
+
+@admin.register(PendingTicketRequest)
+class PendingTicketRequestAdmin(admin.ModelAdmin):
+    formfield_overrides = {
+        models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
+    }
+
+    def get_queryset(self, request):
+        qs = super(PendingTicketRequestAdmin, self).get_queryset(request)
+        return qs.filter(status='Pending')
+
+    list_display = ['__str__', 'team', 'tickets', 'money', 'status', 'time']
+    actions = [confirm_ticket_request, reject_ticket_request]

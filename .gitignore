@@ -1,5 +1,6 @@
 db.sqlite3
 *.pyc
+google_token.pickle
 secrets
 
 # Elastic Beanstalk Files

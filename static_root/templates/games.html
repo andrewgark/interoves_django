@@ -7,8 +7,16 @@
       <h3>{{ game.name }}</h3>
       {% if game.theme %} <p>Тема: {{ game.theme }}</p> {% endif %}
       <p>Автор: {{ game.author }}</p>
-      {% if game|access_play_with_team:team %}
+      {% if game|access_play:team %}
         <p><a href="/games/{{ game.id }}"><b>Играть</b></a></p>
+      {% elif game|access_is_registered:team %}
+        <p><b>Вы зарегистрированы</b></p>
+      {% elif game|access_register:team %}
+        {% if team.tickets > 0 %}
+          <p><a href="/register/{{ game.id }}" next="{{ request.path }}"><b>Зарегистрироваться<br>(потратить билет)</b></a></p>
+        {% else %}
+          <p><a href="#request-tickets-popup" class="request-tickets-link"><b>Приобрести билет</b></a></p>
+        {% endif %}
       {% endif %}
       {% if game|access_see_tournament_results:team  %}
         <p><a href="/tournament_results/{{ game.id }}"><b>Турнирные результаты</b></a></p>

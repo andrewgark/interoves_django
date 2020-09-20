@@ -27,13 +27,16 @@
     <!-- Brand and toggle get grouped for better mobile display -->
     <div class="navbar-header">
       <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1"> <span class="sr-only">Toggle navigation</span> <span class="icon-bar"></span> <span class="icon-bar"></span> <span class="icon-bar"></span> </button>
-      <a class="navbar-brand page-scroll" href="/">inter oves locum praesta</a> </div>
-    
+      <a class="navbar-brand page-scroll" href="{{ game.project.get_url }}">inter oves {% if game.project.is_main %}locum praesta{% endif %}</a>
+      {% if not game.project.is_main %}
+        <a href="{{ game.project.get_url }}"><img src="{{ game.project.logo.url }}" class="project-logo-menu"></a>
+      {% endif %}
+    </div>
     <!-- Collect the nav links, forms, and other content for toggling -->
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav navbar-right">
         <li><a href="#page-top" class="page-scroll">Наверх</a></li>
-        {% if game|access_play_with_team:user.profile.team_on %}
+        {% if game|access_play:user.profile.team_on %}
           <li><a href="/games/{{ game.id }}/">Игра</a></li>
         {% endif %}
         {% if mode == 'tournament' and not game|is_going_now %}

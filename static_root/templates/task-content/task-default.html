@@ -5,7 +5,12 @@
 
 {% if task.image %}<img class="task-image" src="{{ task.image.url }}" width="{{ task.get_image_width }}"><br>{% endif %}
 
-{{ task.text }}<br>
+
+{% autoescape off %}
+{{ task.text }}
+{% endautoescape %}
+
+<br>
 
 {% if not attempts_info.is_solved %}
   {% if not attempts_info or mode == 'general' or attempts_info.get_n_attempts < task.get_max_attempts %}

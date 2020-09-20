@@ -24,8 +24,27 @@ def game_is_going_now(game, attempt=None):
 
 
 def get_game_access(game, action, team=None, attempt=None, mode='general'):
+    if action == 'play':
+        if not get_game_access(game, 'play_with_team', team=team, attempt=attempt, mode=mode):
+            return False
+        if get_game_access(game, 'needs_registration', team=team, attempt=attempt, mode=mode):
+            return game.has_registered(team)
+        return True
+    if action == 'is_registered':
+        return team and \
+               get_game_access(game, 'needs_registration', team=team, attempt=attempt, mode=mode) and \
+               game.has_registered(team)
     if action == 'play_with_team':
         return team and get_game_access(game, 'play_without_team', team=team, attempt=attempt, mode=mode)
+    if action == 'register':
+        return team and \
+               get_game_access(game, 'needs_registration', team=team, attempt=attempt, mode=mode) and \
+               not game.has_registered(team)
+    if action == 'needs_registration':
+        return game.is_tournament and \
+               game.is_ready and \
+               game.is_registrable and \
+               not game_has_ended(game, attempt)
     if action == 'see_tournament_results':
         return get_game_access(game, 'play_without_team', team=team, mode='tournament')
     if action == 'see_results':
