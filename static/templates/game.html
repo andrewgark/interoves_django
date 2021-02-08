@@ -79,7 +79,7 @@
   <div id="task-group-{{ task_group.number }}" class="text-center task-group {{ task_group.number|get_parity }}-task-group">
     <div class="container">
       <div class="col-md-10 col-md-offset-1 section-title">
-        <h2>{{ task_group.number }}. {{ task_group.name }}</h2>
+        <h2><a href="/games/{{ game.id }}/{{ task_group.number }}" class="task_group_link">{{ task_group.number }}. {{ task_group.name }}</a></h2>
       </div>
     </div>
     <div class="container">
