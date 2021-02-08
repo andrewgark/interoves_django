@@ -237,6 +237,8 @@ AUTHENTICATION_BACKENDS = (
  'allauth.account.auth_backends.AuthenticationBackend',
  )
 
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
+
 if IS_PROD:
     SITE_ID = 2
 else:
