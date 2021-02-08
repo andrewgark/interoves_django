@@ -37,7 +37,7 @@ p.intro {
 	margin: 12px 0 0;
 	line-height: 24px;
 }
-a {
+a:not(.task_group_link):not(.task_link) {
 	color: #608dfd;
 	font-weight: 400;
 }
@@ -541,7 +541,7 @@ select {
 .odd-task-group {
 	background: #f6f6f6;
 }
-.odd-task-group li {
+.odd-task-group li, .odd-task-group .task_group_link, .odd-task-group .task_link {
 	color: #333;
 }
 .tasks-list {

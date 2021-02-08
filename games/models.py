@@ -60,6 +60,7 @@ class Profile(models.Model):
     last_name = models.TextField()
     avatar_url = models.TextField(blank=True, null=True)
     vk_url = models.TextField(blank=True, null=True)
+    email = models.TextField(blank=True, null=True)
     team_on = models.ForeignKey(Team, related_name='users_on', blank=True, null=True, on_delete=models.SET_NULL)
     team_requested = models.ForeignKey(Team, related_name='users_requested', blank=True, null=True, on_delete=models.SET_NULL)
 

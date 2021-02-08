@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.vk',
+    'allauth.socialaccount.providers.google',
     'games.telegram',
 
     'django_telegram_login',
@@ -258,6 +259,15 @@ SOCIALACCOUNT_PROVIDERS = {
         'domain': 'https://fat-owl-8.loca.lt/',
         'size': 'small',
         'request_access': 'write'
+    },
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
     }
 }
 
@@ -266,6 +276,8 @@ TELEGRAM_BOT_TOKEN = load_secret('telegram_token.txt')
 TELEGRAM_LOGIN_REDIRECT_URL = 'fat-owl-8.loca.lt'
 
 ACCOUNT_ADAPTER = 'games.users.allauth.AccountAdapter'
+SOCIALACCOUNT_ADAPTER = "games.users.allauth.SocialAccountAdapter"
+SOCIALACCOUNT_AUTO_SIGNUP = True
 
 TEMPLATE_CONTEXT_PROCESSORS = (
     "django.core.context_processors.auth",
