@@ -37,7 +37,7 @@ p.intro {
 	margin: 12px 0 0;
 	line-height: 24px;
 }
-a:not(.task_group_link):not(.task_link) {
+a:not(.task_group_link):not(.task_link):not(.btn-custom) {
 	color: #608dfd;
 	font-weight: 400;
 }
@@ -249,7 +249,7 @@ header .intro-text {
 	text-align: center;
 }
 header .btn-custom {
-	margin: 0px 10px 0px 10px;
+	margin: 5px 5px 5px 5px;
 }
 /* Games Section */
 #games {

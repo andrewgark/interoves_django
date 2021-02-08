@@ -37,7 +37,7 @@ p.intro {
 	margin: 12px 0 0;
 	line-height: 24px;
 }
-a:not(.task_group_link):not(.task_link) {
+a:not(.task_group_link):not(.task_link):not(.btn-custom) {
 	color: #608dfd;
 	font-weight: 400;
 }

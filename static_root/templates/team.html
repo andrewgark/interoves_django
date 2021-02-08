@@ -7,7 +7,6 @@
         {% if user.profile.team_on %}
           <h2>Моя команда:<br><b>{{ user.profile.team_on }}</b></h2>
           {% if project.is_main %}
-            <a href="https://vk.me/join/SexI2iBlVC9F3X7MI4LP9Y_tdOUxrO4sXb4=" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Чат участников</a><br>
             {% if user.profile.team_on.ticket_requests.all %}
               <details>
                 <summary>История запросов билетов</summary>
