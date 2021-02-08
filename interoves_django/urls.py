@@ -37,6 +37,9 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')),
     path('logout/', LogoutView.as_view(), name='logout'),
 
+    path('privacy-policy/', TemplateView.as_view(template_name="privacy-policy.html")),
+    path('terms-of-use/', TemplateView.as_view(template_name="terms-of-use.html")),
+
     path('create_team/', create_team, name='create_team'),
     path('join_team/', join_team, name='join_team'),
     path('quit_from_team/', quit_from_team, name='quit_from_team'),

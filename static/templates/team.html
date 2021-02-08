@@ -105,8 +105,11 @@
         <p>Чтобы поучаствовать в игре, авторизуйтесь через VK.</p>
       </div>
     </div>
-    <div class="col-md-2 col-md-offset-4">
+    <div class="col-md-2 col-md-offset-3">
       <a href="{% provider_login_url 'vk' next=request.path %}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Войти через VK</a>
+      <a href="{% provider_login_url 'google' next=request.path %}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Войти через Google</a>
+      {% include "privacy-policy.html" %}
+      {% include "terms-of-use.html" %}
     </div>
   {% endif %}
 </div>
