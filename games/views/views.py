@@ -156,7 +156,7 @@ def get_all_text_with_forms_to_html(request, game, team, mode):
     return result
 
 
-def game_page(request, game_id):
+def game_page(request, game_id, task_group=None, task=None):
     game = get_object_or_404(Game, id=game_id)
     if not has_profile(request.user) or not request.user.profile.team_on:
         return get_team_to_play_page(request, game)
@@ -168,11 +168,17 @@ def game_page(request, game_id):
 
     task_to_attempts_info = get_task_to_attempts_info(game, request.user.profile.team_on, mode)
     
-    task_groups = sorted(game.task_groups.all(), key=lambda tg: tg.number)
+    task_groups = sorted(
+        game.task_groups.all() if task_group is None else game.task_groups.filter(number=task_group),
+        key=lambda tg: tg.number
+    )
 
     task_group_to_tasks = {}
     for task_group in task_groups:
-        task_group_to_tasks[task_group.number] = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
+        task_group_to_tasks[task_group.number] = sorted(
+            task_group.tasks.all() if task is None else task_group.tasks.filter(number=task),
+            key=lambda t: t.key_sort()
+        )
     
     return render(request, 'game.html', {
         'team': team,

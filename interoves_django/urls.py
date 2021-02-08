@@ -44,6 +44,8 @@ urlpatterns = [
     url(r'^reject_user_joining_team/(?P<user_id>\d+)/$', reject_user_joining_team),
 
     url(r'^games/(?P<game_id>[a-zA-Z0-9_]+)/$', game_page),
+    url(r'^games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group>[0-9]+)$', game_page),
+    url(r'^games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group>[0-9]+)/(?P<task>[0-9.a-zA-Zа-яА-Я]+)$', game_page),
 
     url(r'^send_attempt/(?P<task_id>\d+)/$', send_attempt),
     url(r'^send_hint_attempt/(?P<task_id>\d+)/$', send_hint_attempt),
