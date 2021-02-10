@@ -47,7 +47,9 @@
             <li><a href="/results/{{ game.id }}/">Результаты</a></li>
           {% endif %}
         {% endif %}
-        <li><button class="toggle-ok-tasks" value="0"><i class="icon-ok-tasks fa fa-eye"></i></button></li>
+        {% if not is_one_task %}
+          <li><button class="toggle-ok-tasks" value="0"><i class="icon-ok-tasks fa fa-eye"></i></button></li>
+        {% endif %}
       </ul>
     </div>
     <!-- /.navbar-collapse --> 

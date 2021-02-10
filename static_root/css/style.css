@@ -524,7 +524,7 @@ select {
 	color: rgba(255,255,255,.75);
 }
 .even-task-group a {
-	color: #fff;
+	color: #fff  !important;
 }
 .even-task-group h2 {
 	color: #fff;

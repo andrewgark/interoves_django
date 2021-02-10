@@ -192,6 +192,7 @@ def game_page(request, game_id, task_group=None, task=None):
         'mode': mode,
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
+        'is_one_task': task is not None
     })
 
 
