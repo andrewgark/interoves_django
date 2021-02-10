@@ -65,7 +65,9 @@ urlpatterns = [
 
     url(r'^health/?', include('health_check.urls')),
 
-    path('inline-edit', include('inlineedit.urls'))
+    path('inline-edit', include('inlineedit.urls')),
+
+    path('explorer/', include('explorer.urls')),
 ]
 
 if settings.DEBUG:

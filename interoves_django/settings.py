@@ -95,9 +95,11 @@ INSTALLED_APPS = [
 
     'corsheaders',
 
-    'yet_another_django_profiler',
+    # 'yet_another_django_profiler',
 
     'inlineedit',
+
+    'explorer',
 ]
 
 MIDDLEWARE = [
@@ -112,7 +114,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    'yet_another_django_profiler.middleware.ProfilerMiddleware',
+    # 'yet_another_django_profiler.middleware.ProfilerMiddleware',
 ]
 
 ROOT_URLCONF = 'interoves_django.urls'
@@ -328,3 +330,7 @@ LOGGING = {
 INLINEEDIT_ADAPTORS = {
     "person-adaptor": "games.adaptors.PersonAdaptor",
 }
+
+# SQL-Explorer
+EXPLORER_CONNECTIONS = { 'Default': 'default' }
+EXPLORER_DEFAULT_CONNECTION = 'default'
