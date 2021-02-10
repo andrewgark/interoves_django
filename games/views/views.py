@@ -158,15 +158,17 @@ def get_all_text_with_forms_to_html(request, game, team, mode):
 
 def game_page(request, game_id, task_group=None, task=None):
     game = get_object_or_404(Game, id=game_id)
-    if not has_profile(request.user) or not request.user.profile.team_on:
-        return get_team_to_play_page(request, game)
-    if not game.has_access('play', team=request.user.profile.team_on):
+    # if not has_profile(request.user) or not request.user.profile.team_on:
+        # return get_team_to_play_page(request, game)
+    team = None
+    if has_team(request.user):
+        team = request.user.profile.team_on
+    if not game.has_access('play', team=team):
         raise NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
-    team = request.user.profile.team_on
     mode = game.get_current_mode(Attempt(time=timezone.now()))
 
-    task_to_attempts_info = get_task_to_attempts_info(game, request.user.profile.team_on, mode)
+    task_to_attempts_info = get_task_to_attempts_info(game, team, mode)
     
     task_groups = sorted(
         game.task_groups.all() if task_group is None else game.task_groups.filter(number=task_group),
@@ -259,7 +261,7 @@ def process_send_attempt(request, task_id):
     team = request.user.profile.team_on
     game = task.task_group.game
 
-    if not task.task_group.game.has_access('play', team=team):
+    if not task.task_group.game.has_access('send_attempt', team=team):
         return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     if task.task_type == 'default':
@@ -321,7 +323,7 @@ def process_send_hint_attempt(request, task_id):
     team = request.user.profile.team_on
     game = task.task_group.game
 
-    if not task.task_group.game.has_access('play', team=team):
+    if not task.task_group.game.has_access('send_attempt', team=team):
         return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     hint_number = int(request.POST['hint_number'])
@@ -368,10 +370,11 @@ def task_ok_by_team(task, team, mode):
     return best_attempt and best_attempt.status == 'Ok'
 
 
-@user_passes_test(has_team)
 def get_answer(request, task_id):
     task = get_object_or_404(Task, id=task_id)
-    team = request.user.profile.team_on
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
     game = task.task_group.game
 
     if not task.task_group.game.has_access('play', team=team):
@@ -396,7 +399,7 @@ def like_dislike(request, task_id):
     team = request.user.profile.team_on
     game = task.task_group.game
 
-    if not task.task_group.game.has_access('play', team=team):
+    if not task.task_group.game.has_access('send_attempt', team=team):
         return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     likes = int(request.POST.get('likes', 0))

@@ -24,8 +24,14 @@ def game_is_going_now(game, attempt=None):
 
 
 def get_game_access(game, action, team=None, attempt=None, mode='general'):
-    if action == 'play':
+    if action == 'send_attempt':
         if not get_game_access(game, 'play_with_team', team=team, attempt=attempt, mode=mode):
+            return False
+        if get_game_access(game, 'needs_registration', team=team, attempt=attempt, mode=mode):
+            return game.has_registered(team)
+        return True
+    if action == 'play':
+        if not get_game_access(game, 'play_without_team', team=team, attempt=attempt, mode=mode):
             return False
         if get_game_access(game, 'needs_registration', team=team, attempt=attempt, mode=mode):
             return game.has_registered(team)

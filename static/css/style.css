@@ -1162,3 +1162,11 @@ form.request-tickets-form input#tickets {
 .ticket-money-sent-button{
 	float: right;
 }
+/* hide */
+.hide-team-inside-game {
+	display: none;
+  }
+  
+.task:hover .hide-team-inside-game {
+	display: block;
+}
