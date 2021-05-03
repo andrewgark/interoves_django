@@ -16,6 +16,9 @@ from games.models import Team, Game, Attempt, AttemptsInfo, Task, \
     Like, Hint, HintAttempt, ImageManager, AudioManager, Project
 from games.views.util import redirect_to_referer, has_profile, has_team
 from interoves_django.settings import TELEGRAM_BOT_NAME
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from games.views.track import track_channel_name
 
 
 class MainPageView(View):
@@ -296,13 +299,26 @@ def process_send_attempt(request, task_id):
 
     update_extra_tasks = list(task.task_group.tasks.filter(task_type='text_with_forms'))
 
+    update_task_html = {
+                    task.id: render_task(task, request, team, current_mode)
+                    for task in [task] + update_extra_tasks
+                }
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+           track_channel_name(game.id, request.user.profile.team_on_id),
+            {
+                'type': 'task.changed',
+                'task': task_id,
+                'changed_by': 'me',
+                'update_task_html': update_task_html,
+            },
+        )
+
     return {
         'status': 'ok',
         'task_id': task.id,
-        'update_task_html': {
-            task.id: render_task(task, request, team, current_mode)
-            for task in [task] + update_extra_tasks
-        },
+        'update_task_html': update_task_html,
     }
 
 

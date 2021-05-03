@@ -339,7 +339,6 @@ function clickLikeDislike(btnType, likes, dislikes, event) {
   });
 }
 
-
 // auto update this:
 // $('#like-dislike').likeDislike({
 //   // update like / dislike counters
@@ -447,6 +446,26 @@ function initTicketRequests() {
   });
 }
 
+function setupWebsocket() {
+  const regexp = /^\/games\/(\w+)\/?$/;
+
+  if (!regexp.test(window.location.pathname)) {
+    return;
+  }
+
+  const game_id = window.location.pathname.match(regexp)[1];
+
+  let protocol = 'ws';
+  if (window.location.protocol === 'https:') {
+    protocol = 'wss';
+  }
+
+  const socket = new WebSocket(`${protocol}://${window.location.host}/games/${game_id}/track`);
+  socket.onmessage = function({ data }) {
+    const event = JSON.parse(data);
+    updateTasks(event.update_task_html);
+  }
+}
 
 $(document).ready(function() {
   if (localStorage.getItem('toggleOkTasks')) {
@@ -462,6 +481,7 @@ $(document).ready(function() {
   });
   initAudioPlayer();
   initTicketRequests();
+  setupWebsocket();
   
   $('.like-dislike').likeDislike({
     click: clickLikeDislike
