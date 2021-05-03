@@ -100,6 +100,7 @@ INSTALLED_APPS = [
     'inlineedit',
 
     'explorer',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -139,7 +140,31 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'interoves_django.wsgi.application'
+ASGI_APPLICATION = 'interoves_django.asgi.application'
 
+CHANNEL_LAYERS = {
+    "default": {
+        # this can only be used in single-replica deployments
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
+
+if 'REDIS_HOST' in os.environ:
+    redis_host = os.environ['REDIS_HOST']
+
+    try:
+        redis_port = int(os.environ['REDIS_PORT'])
+    except(KeyError, ValueError):
+        redis_port = 6379
+    
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [(redis_host, redis_port)],
+            },
+        },
+    }
 
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
@@ -150,6 +175,7 @@ DATABASES = {
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
+
 
 if 'RDS_HOSTNAME' in os.environ:
     DATABASES = {
