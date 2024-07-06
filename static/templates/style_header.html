@@ -1,4 +1,21 @@
-{% load staticfiles %}
+{% load static %}
+
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript" >
+  (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+  m[i].l=1*new Date();k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+  (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
+
+  ym(69002776, "init", {
+       clickmap:true,
+       trackLinks:true,
+       accurateTrackBounce:true,
+       webvisor:true
+  });
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/69002776" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+
 <!-- Favicons    ================================================== -->
 <link rel="apple-touch-icon" sizes="57x57" href="{% static "img/favicon/apple-icon-57x57.png" %}">
 <link rel="apple-touch-icon" sizes="60x60" href="{% static "img/favicon/apple-icon-60x60.png" %}">
@@ -24,13 +41,14 @@
 
 <!-- Stylesheet
     ================================================== -->
-<link rel="stylesheet" type="text/css" href="{% static "css/style.css" %}?1">
+<link rel="stylesheet" type="text/css" href="{% static "css/style.css" %}?23">
 <link rel="stylesheet" type="text/css" href="{% static "css/nivo-lightbox/nivo-lightbox.css" %}">
 <link rel="stylesheet" type="text/css" href="{% static "css/nivo-lightbox/default.css" %}">
 <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css?family=Lato:400,700" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css?family=Raleway:300,400,500,600,700,800,900" rel="stylesheet">
-<link rel="stylesheet" href="{% static "css/simplebar.css" %}"/>
+<link rel="stylesheet" type="text/css" href="{% static "css/simplebar.css" %}"/>
+<link rel="stylesheet" type="text/css" href="{% static "css/magnific-popup.css" %}">
 <noscript>
   <style>
     [data-simplebar] {

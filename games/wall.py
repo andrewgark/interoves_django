@@ -1,11 +1,14 @@
+from collections import Counter
 import json
+from django.template import Context
+from django.template.loader import get_template
 from games.util import clean_text
-
 
 class WallTile:
     def __init__(self, id, text):
         self.id = id
         self.text = text
+        self.category_id = None
 
 
 class ExpTile:
@@ -47,6 +50,10 @@ class Wall:
         self.answer_words = [x['words'] for x in checker_data['answers']]
         self.max_points = self.n_cat * (self.points_words + self.points_explanation) + self.points_bonus
         self.text = data.get('text', '')
+        self.fontsize = data.get('fontsize', '15px')
+        self.line_height = data.get('line-height', '30px')
+        self.image_height = data.get('image-height', '90px')
+        self.tile_height = data.get('tile-height', '98px')
 
     def get_tiles(self):
         wall_tiles = []
@@ -55,11 +62,20 @@ class Wall:
             last_id += 1
             wall_tiles.append(WallTile(last_id, word))
         return wall_tiles
-
-    def get_attempt_text(self, data):
+    
+    def get_attempt_text(self, data, image_manager, audio_manager):
+        template = get_template('task-content/wall-attempt-tile.html')
+        word_http_list = [
+            template.render({
+                'tile': WallTile(None, word),
+                'image_manager': image_manager,
+                'audio_manager': audio_manager
+            })
+            for word in data['words']
+        ]
         if 'explanation' in data:
-            return "{} ({})".format(data['explanation'], ", ".join(sorted(data['words'])))
-        return ", ".join(sorted(data['words']))
+            return "{} ({})".format(data['explanation'], ", ".join(word_http_list))
+        return ", ".join(word_http_list)
 
     def get_n_max_attempts_dict(self, attempts=None):
         n_max_attempts_dict = {
@@ -130,11 +146,15 @@ class Wall:
             return tiles
         guessed_cats = json.loads(attempts_info.last_attempt.state).get('guessed_words', [])
         not_guessed_tiles = []
+        category_counters = [Counter(category) for category in guessed_cats]
         for tile in tiles:
+            text = clean_text(tile.text)
             is_guessed = False
-            for category in guessed_cats:    
-                if clean_text(tile.text) in category:
+            for i, category in enumerate(guessed_cats):
+                if (text in category) and (category_counters[i][text] > 0):
                     is_guessed = True
+                    category_counters[i][text] -= 1
+                    break
             if not is_guessed:
                 not_guessed_tiles.append(tile)
         return not_guessed_tiles
@@ -146,10 +166,13 @@ class Wall:
         guessed_cats = json.loads(attempts_info.last_attempt.state).get('guessed_words', [])
         guessed_tiles = []
         for i, category in enumerate(guessed_cats):
+            category_counter = Counter(category)
             for tile in tiles:
-                if clean_text(tile.text) in category:
+                text = clean_text(tile.text)
+                if (tile.category_id is None) and (text in category) and (category_counter[text] > 0):
                     tile.category_id = i
                     guessed_tiles.append(tile)
+                    category_counter[text] -= 1
         return guessed_tiles
 
     def guessing_tiles_is_over(self, attempts_info):

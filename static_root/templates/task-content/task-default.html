@@ -5,7 +5,25 @@
 
 {% if task.image %}<img class="task-image" src="{{ task.image.url }}" width="{{ task.get_image_width }}"><br>{% endif %}
 
-{{ task.text }}<br>
+{% if task.task_type == 'default' or task.task_type == 'autohint' %}
+    {% autoescape off %}
+    {{ task.text }}
+    {% endautoescape %}
+{% elif task.task_type == 'with_tag' %}
+    {% if task|team_tagged %}
+        {% with author_team=task|team_tagged %}
+          <h4>(Команда: {{ author_team.visible_name }})</h4><br>
+        {% endwith %}
+    {% endif %}
+    {% autoescape off %}
+    {{ task.text }}
+    {% endautoescape %}
+{% elif task.task_type == 'distribute_to_teams' %}
+    {% autoescape off %}
+    {{ task|distribute_text_to_team:team }}
+    {% endautoescape %}
+{% endif %}
+<br>
 
 {% if not attempts_info.is_solved %}
   {% if not attempts_info or mode == 'general' or attempts_info.get_n_attempts < task.get_max_attempts %}

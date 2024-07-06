@@ -1,11 +1,11 @@
-{% load staticfiles %}
+{% load static %}
 {% load filters %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Результаты: {{ game.name }}</title>
+<title>Результаты: {% if game.outside_name %}{{ game.outside_name }}{% else %}{{ game.name }}{% endif %}</title>
 <meta name="description" content="">
 <meta name="author" content="">
 
@@ -27,13 +27,16 @@
     <!-- Brand and toggle get grouped for better mobile display -->
     <div class="navbar-header">
       <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1"> <span class="sr-only">Toggle navigation</span> <span class="icon-bar"></span> <span class="icon-bar"></span> <span class="icon-bar"></span> </button>
-      <a class="navbar-brand page-scroll" href="/">inter oves locum praesta</a> </div>
-    
+      <a class="navbar-brand page-scroll" href="{{ game.project.get_url }}">inter oves {% if game.project.is_main %}locum praesta{% endif %}</a>
+      {% if not game.project.is_main %}
+        <a href="{{ game.project.get_url }}"><img src="{{ game.project.logo.url }}" class="project-logo-menu"></a>
+      {% endif %}
+    </div>
     <!-- Collect the nav links, forms, and other content for toggling -->
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav navbar-right">
         <li><a href="#page-top" class="page-scroll">Наверх</a></li>
-        {% if game|access_play_with_team:user.profile.team_on %}
+        {% if game|access_play:user.profile.team_on %}
           <li><a href="/games/{{ game.id }}/">Игра</a></li>
         {% endif %}
         {% if mode == 'tournament' and not game|is_going_now %}
@@ -53,7 +56,7 @@
     <div class="container">
       <div class="row">
         <div class="col-md-8 col-md-offset-2 intro-text">
-          <h1>{{ game.name }}</h1>
+          <h1>{% if game.outside_name %}{{ game.outside_name }}{% else %}{{ game.name }}{% endif %}</h1>
           {% if game.theme %}<h3>Тема: {{ game.theme }}</h3>{% endif %}
           {% if game.author %}<h3>Автор: {{ game.author }}</h3>{% endif %}
       </div>
@@ -70,26 +73,35 @@
     <div class="row">
       <div class="col-md-8 col-md-offset-2 results-description">
         {% if mode == 'tournament' %}
-          В турнирной таблице учитываются только посылки во время игры: с {{ game.start_time|date:'H:i' }} до {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}.
+	  {% if game.project.id == 'umind' %}
+	  В турнирной таблице учитываются только посылки во время игры:<br>с 21:00 до 23:00 по Томскому времени 6 марта 2022.
+	  {% else %}
+	  В турнирной таблице учитываются только посылки во время игры: с {{ game.start_time|date:'H:i' }} до {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}
+	  {% endif %}
         {% else %}
           В общей таблице учитываются все посылки, посланные и во время игры, и после.
         {% endif %}
       </div>
     </div>
   </div>
-  <div class="container results-table">
+  <div class="container-fluid results-table">
     <div class="row results-row-table">
       <div class="col sticky-table sticky-headers sticky-ltr-cells table-wrapper" data-simplebar>
         <table class="table table-bordered table-results">
           <thead>
             <tr class="sticky-header">
+              <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">#</th>
               <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Команда</th>
               <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Сумма</th>
               {% if mode == 'tournament' %}
                 <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Время</th>
               {% endif %}
               {% for task_group in task_groups %}
-                <th colspan="{{ task_group.get_n_tasks_for_results }}" scope="col" class="cell-header">{{ task_group.number }}. {{ task_group.name }}</th>
+                <th colspan="{{ task_group.get_n_tasks_for_results }}" scope="col" class="cell-header">
+		  {% autoescape off %}
+		    {{ task_group.number }}. {{ task_group.name }}
+		  {% endautoescape %}
+		</th>
               {% endfor %}
             </tr>
             <tr class="sticky-header">
@@ -103,8 +115,9 @@
           <tbody>
             {% for team in teams_sorted %}
               <tr>
-                  <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team.name }} </th>
-                  <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team_to_score|get_item:team|minimize_digits }} </th>
+                <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team_to_place|get_item:team }} </th>
+                <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team.visible_name }} </th>
+                <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team_to_score|get_item:team|minimize_digits }} </th>
                   {% if mode == 'tournament' %}
                     <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team_to_max_best_time|get_item:team|date:'H:i' }} </th>
                   {% endif %}

@@ -5,21 +5,21 @@
     {% csrf_token %}
     <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
     {% for tile in task.get_wall|get_guessed_tiles:attempts_info %}
-    <div class="wall-tile wall-tile-guessed wall-tile-guessed-{{ tile.category_id }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
-        <p>{{ tile.text }}</p>
-    </div>
+      <div class="wall-tile wall-tile-guessed wall-tile-guessed-{{ tile.category_id }}" id="task-{{ task.id }}-tile-{{ tile.id }}" style="height:{{ task.get_wall.tile_height }}">
+        {% include "task-content/wall-tile.html" %}
+      </div>
     {% endfor %}
     {% with wall_tile_stop_guessing=task.get_wall|get_wall_tile_stop_guessing_class:attempts_info %}
     {% for tile in task.get_wall|get_not_guessed_tiles:attempts_info %}
-        <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
-        <p>{{ tile.text }}</p>
-        </div>
+      <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}" style="height:{{ task.get_wall.tile_height }}">
+        {% include "task-content/wall-tile.html" %}
+      </div>
     {% endfor %}
     {% endwith %}
   </div>
   <div class="wall-explanations">
     {% for exptile in task.get_wall|one_more:attempts_info|get_exptiles:mode %}
-    <div class="wall-tile wall-tile-guessed-{{ tile.category_id }} wall-tile-explanation">
+    <div class="wall-tile wall-tile-guessed-{{ tile.category_id }} wall-tile-explanation" style="height:{{ task.get_wall.tile_height }}">
         {% if exptile.type == 'explanation_is_guessed' %}
         <p>OK</p>
         {% elif exptile.type == 'words_are_guessed' %}
@@ -61,6 +61,10 @@
     (Максимум баллов: {{ task.get_wall.max_points|minimize_digits }})
     {% include "task-content/likes.html" %}
 </div>
+
+{% if task.get_hints %}
+  {% include "task-content/hints.html" %}
+{% endif %}
 
 {% if attempts_info %}
   {% include "task-content/attempts.html" %}

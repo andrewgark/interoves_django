@@ -1,0 +1,7 @@
+{% if "text_with_forms_in_name" in game.tags %}
+  {% autoescape off %}
+    {{ game_text_with_forms_to_html }}
+  {% endautoescape %}
+{% else %}
+  {{ game.name }}
+{% endif %}

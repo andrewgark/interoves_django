@@ -4,6 +4,8 @@ import re
 from decimal import Decimal
 from games.matcher.norm_matcher import NormMatcher
 from games.util import status_key, clean_text
+from games.models import Task, Attempt
+from games.wordle import convert_words_wordle, read_wordle_dict, color_tiles
 
 
 class CheckResult:
@@ -22,38 +24,46 @@ def clean(func):
 
 
 def clean_but_ё_stays(func):
-   def func_wrapper(self, text, *args, **kw):
-       return func(self, clean_text(text, replace_ё=False), *args, **kw)
-   return func_wrapper
+    def func_wrapper(self, text, *args, **kw):
+        return func(self, clean_text(text, replace_ё=False), *args, **kw)
+    return func_wrapper
 
 
 def delete_spaces(func):
-   def func_wrapper(self, text, *args, **kw):
-       return func(self, re.sub(r"[^\S\r\n]+", "", text), *args, **kw)
-   return func_wrapper
+    def func_wrapper(self, text, *args, **kw):
+        return func(self, re.sub(r"[^\S\r\n]+", "", text), *args, **kw)
+    return func_wrapper
 
 
 def delete_punctuation(func):
-   def func_wrapper(self, text, *args, **kw):
-       new_text = re.sub(r"[.,\/#!?$%\^&\*;:{}=\"\-_`~()—–]+", "", text)
-       new_text = re.sub(r" +", " ", new_text)
-       return func(self, new_text, *args, **kw)
-   return func_wrapper
+    def func_wrapper(self, text, *args, **kw):
+        result = []
+        for line in text.split('\n'):
+            line = line.strip()
+            if len(line) != 1:
+                new_line = re.sub(r"[.,\/#!?$%\^&\*;:{}=\"\-_`~()—–]+", "", line)
+                new_line = re.sub(r" +", " ", new_line)
+                result.append(new_line)
+            else:
+                result.append(line) # односимвольную пунктуацию не нужно удалять
+        new_text = '\n'.join(result)
+        return func(self, new_text, *args, **kw)
+    return func_wrapper
 
 
 def delete_punctuation_metagram(func):
-   def func_wrapper(self, text, *args, **kw):
-       new_text = re.sub(r"[.,\/#!?$%\^&\*;:{}=\"\-_`~()—]+", " ", text)
-       new_text = re.sub(r" +", " ", new_text)
-       return func(self, new_text, *args, **kw)
-   return func_wrapper
+    def func_wrapper(self, text, *args, **kw):
+        new_text = re.sub(r"[.,\/#!?$%\^&\*;:{}=\"\-_`~()—]+", " ", text)
+        new_text = re.sub(r" +", " ", new_text)
+        return func(self, new_text, *args, **kw)
+    return func_wrapper
 
 
 class BaseChecker:
     def __init__(self, data, last_attempt_state=None):
         pass
 
-    def check(self, text):
+    def check(self, text, attempt):
         pass
 
 
@@ -61,7 +71,7 @@ class SimpleBoolChecker(BaseChecker):
     def bool_check(self, text):
         pass
 
-    def check(self, text):
+    def check(self, text, attempt):
         is_ok = self.bool_check(text)
         if is_ok:
             return CheckResult('Ok', 'Ok', 1)
@@ -147,6 +157,57 @@ class WhiteGrayBlackListChecker(SimpleBoolChecker):
         return has_whitelist_word
 
 
+class RegexpChecker(SimpleBoolChecker):
+    def __init__(self, data, last_attempt_state=None):
+        self.regexp = re.compile(data.strip())
+
+    @clean
+    @delete_punctuation
+    def bool_check(self, text):
+        if self.regexp.findall(text):
+            return True
+        return False
+
+
+class AnyAnswerChecker(SimpleBoolChecker):
+    def bool_check(self, text):
+        return True
+
+
+class NumberWithErrorChecker(SimpleBoolChecker):
+    def __init__(self, data, last_attempt_state=None):
+        self.number, self.error = [int(s.strip()) for s in data.split('\n')]
+
+    @clean
+    @delete_punctuation
+    def bool_check(self, text):
+        try:
+            answer = int(text)
+            return (self.number - self.error <= answer <= self.number + self.error)
+        except:
+            return False
+
+
+class SeveralAnswersChecker(BaseChecker):
+    @clean
+    def __init__(self, data, last_attempt_state=None):
+        self.answers = {}
+        for line in data.split('\n'):
+            line_split = line.strip().split()
+            points = int(line_split[0])
+            answer = ' '.join(line_split[1:])
+            self.answers[answer] = points
+    
+    @clean
+    def check(self, text, attempt):
+        if text not in self.answers:
+            return CheckResult('Wrong', 'Pending', 0)
+        points = self.answers[text]
+        if points == 100:
+            return CheckResult('Ok', 'Ok', 1)
+        return CheckResult('Partial', 'Partial', Decimal(points) / Decimal(100))
+
+
 class MetagramChecker(BaseChecker):
     @clean
     @delete_punctuation_metagram
@@ -168,7 +229,7 @@ class MetagramChecker(BaseChecker):
 
     @clean
     @delete_punctuation_metagram
-    def check(self, text):
+    def check(self, text, attempt):
         words = []
         for word in text.strip().split():
             if word:
@@ -188,6 +249,58 @@ class MetagramChecker(BaseChecker):
             return CheckResult('Ok', 'Ok', 1)
         if best_matching_segment * 2 >= self.n:
             return CheckResult('Partial', 'Pending', Decimal(0.5))
+        return CheckResult('Wrong', 'Pending', 0)
+
+
+class LongStringChecker(BaseChecker):
+    @clean
+    @delete_punctuation_metagram
+    def __init__(self, data, last_attempt_state=None):
+        self.answer_variants = []
+        self.n = None
+        for line in data.split('\n'):
+            answers = []
+            line_split = line.strip().split()
+            for word in line_split:
+                if word:
+                    answers.append(word)
+            if answers:
+                self.answer_variants.append(answers)
+                if self.n is not None:
+                    assert self.n == len(answers)
+                else:
+                    self.n = len(answers)
+
+    @clean
+    @delete_punctuation_metagram
+    def check(self, text, attempt):
+        words = []
+        for word in text.strip().split():
+            if word:
+                words.append(word)
+        if len(words) > self.n:
+            return CheckResult('Wrong', 'Pending', 0)
+        best_matching_segment = 0
+        for answers in self.answer_variants:
+
+            def NVP(words, answers):
+                n = len(answers)
+                m = len(words)
+                dp = [[0] * (n + 1) for _ in range(m + 1)]
+                for i in range(1, m + 1):
+                    for j in range(1, n + 1):
+                        if words[i - 1] == answers[j - 1]:
+                            dp[i][j] = 1 + dp[i - 1][j - 1]
+                        else:
+                            dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
+                return dp[m][n]
+
+            last_matching_segment = NVP(words, answers)
+            best_matching_segment = max(best_matching_segment, last_matching_segment)
+        if best_matching_segment == self.n:
+            return CheckResult('Ok', 'Ok', 1)
+        if best_matching_segment > 0:
+            return CheckResult('Partial', 'Pending', Decimal(best_matching_segment / self.n))
         return CheckResult('Wrong', 'Pending', 0)
 
 
@@ -218,7 +331,7 @@ class HangmanLettersChecker(BaseChecker):
 
     @clean_but_ё_stays
     @delete_punctuation
-    def check(self, text):
+    def check(self, text, attempt):
         words = text.split()
         if len(words) not in self.n_words_to_points:
             if len(words) > self.n_words:
@@ -251,6 +364,31 @@ class HangmanLettersChecker(BaseChecker):
         if has_word_not_from_vocab:
             result_status = 'Pending'
         return CheckResult(result_status, result_status, points)
+
+
+class AntiwordleChecker(BaseChecker):
+    @clean
+    @delete_punctuation
+    def __init__(self, data, last_attempt_state=None):
+        self.dictionary = read_wordle_dict()
+        self.colors = data.split('\n')
+        self.word_number = len(self.colors)
+
+    @clean
+    @delete_punctuation
+    def check(self, text, attempt):
+        words = [x.strip() for x in text.split()]
+        answer = text.split()[-1].strip()
+
+        status, data = convert_words_wordle(words, self.dictionary, self.word_number)
+        if status == 'error':
+            return CheckResult('Wrong', 'Wrong', 0, comment=data)
+        words = data
+        for i, word in enumerate(words):
+            colors = color_tiles(word, answer)
+            if colors != self.colors[i]: 
+                return CheckResult('Wrong', 'Wrong', 0, comment='Цвета не совпадают в строке {}'.format(i + 1))
+        return CheckResult('Ok', 'Ok', 1)
 
 
 class WallChecker(BaseChecker):
@@ -322,13 +460,13 @@ class WallChecker(BaseChecker):
         if category['words'] in self.last_attempt_state['guessed_explanations']:
             return self.fail(attempt)
 
-        check_result = category['checker'].check(attempt['explanation'])
+        check_result = category['checker'].check(attempt['explanation'], None)
         new_state = self.update_state(attempt, check_result.status, check_result.points * self.data['points_explanation'])
         if check_result.status == 'Ok':
             new_state['guessed_explanations'].append(category['words'])
         return self.get_result(new_state)
 
-    def check(self, text):
+    def check(self, text, attempt):
         attempt = json.loads(text)
         words = sorted([clean_text(x) for x in attempt['words']])
         category = None
@@ -347,6 +485,40 @@ class WallChecker(BaseChecker):
         raise Exception('Unknown wall stage: {}'.format(attempt['stage']))
 
 
+class SolutionsTagNumber:
+    def __init__(self, data, last_attempt_state=None):
+        self.data = json.loads(data)
+        self.task_tag = self.data.get('tag', '')
+        self.points_multiplier = self.data.get('points_multiplier', 1)
+
+    def check(self, text, attempt):        
+        try:
+            task = Task.objects.get(
+                    task_group=attempt.task.task_group,
+                    tags__team=attempt.team.name,
+                    tags__task=self.task_tag
+                )
+        except Task.DoesNotExist:
+            return CheckResult('Wrong', 'Pending', 0)
+        attempts_infos = Attempt.manager.get_task_attempts_infos(task, mode="tournament")
+        total_points = 0
+        for attempts_info in attempts_infos:
+            if not attempts_info.attempts:
+                continue
+            team = attempts_info.attempts[0].team
+            if team.is_hidden:
+                continue
+            if attempts_info.best_attempt is None:
+                continue
+            task_points = attempts_info.best_attempt.points
+            if task_points > 0:
+                total_points += task_points
+        return CheckResult(
+            'Ok', 'Ok',
+            total_points * self.points_multiplier
+        )
+
+
 class CheckerFactory:
     def __init__(self):
         self.checker_type_to_checker = {
@@ -356,7 +528,14 @@ class CheckerFactory:
             'metagram_checker': MetagramChecker,
             'norm_matcher': NormMatcherChecker,
             'wall': WallChecker,
-            'hangman_letters': HangmanLettersChecker
+            'hangman_letters': HangmanLettersChecker,
+            'solutions_tag_number': SolutionsTagNumber,
+            'regexp': RegexpChecker,
+            'any_answer': AnyAnswerChecker,
+            'number_with_error': NumberWithErrorChecker,
+            'long_string': LongStringChecker,
+            'antiwordle': AntiwordleChecker,
+            'several_answers': SeveralAnswersChecker,
         }
     
     def create_checker(self, checker_type, data, last_attempt_state=None):

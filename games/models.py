@@ -3,6 +3,7 @@ import os
 import re
 
 from django.contrib.auth.models import User
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.dispatch import receiver
 from django.utils import timezone
@@ -12,19 +13,63 @@ from games.wall import Wall
 from allauth.socialaccount.models import SocialAccount
 
 
+class Project(models.Model):
+    id = models.CharField(primary_key=True, max_length=100)
+
+    background = models.ImageField(null=True, blank=True)
+    logo = models.ImageField(null=True, blank=True)
+
+    def __str__(self):
+        return self.id
+    
+    def is_main(self):
+        return self.id == 'main'
+
+    def get_url(self):
+        if self.is_main():
+            return '/'
+        return '/{}'.format(self.id)
+
+
 class Team(models.Model):
     name = models.CharField(primary_key=True, max_length=100)
+    visible_name = models.TextField(blank=True, null=True)
     is_tester = models.BooleanField(default=False)
     is_hidden = models.BooleanField(default=False)
 
+    project = models.ForeignKey(
+        Project, related_name='teams',
+        default='main', on_delete=models.CASCADE
+    )
+
+    tickets = models.IntegerField(default=0)
+    ticket_price = models.IntegerField(default=1000)
+
+    referer = models.ForeignKey('Team', related_name='referents', blank=True, null=True, on_delete=models.SET_NULL)
+
+    def save(self, *args, **kwargs):
+        if not self.visible_name:
+            self.visible_name = self.name
+        super(Team, self).save(*args, **kwargs)
+
     def __str__(self):
-        return self.name
+        return self.visible_name
     
     def get_n_users_on(self):
         return len(self.users_on.all())
     
     def get_n_users_requested(self):
         return len(self.users_requested.all())
+
+    def get_team_reg_number(self, game):
+        regs = [reg for reg in Registration.objects.filter(game=game) if not reg.team.is_hidden]
+        regs.sort(key=lambda r: r.time)
+        team_number = None
+        for i, reg in enumerate(regs):
+            if self == reg.team:
+                team_number = i
+                break
+        return team_number
 
 
 class Profile(models.Model):
@@ -33,6 +78,7 @@ class Profile(models.Model):
     last_name = models.TextField()
     avatar_url = models.TextField(blank=True, null=True)
     vk_url = models.TextField(blank=True, null=True)
+    email = models.TextField(blank=True, null=True)
     team_on = models.ForeignKey(Team, related_name='users_on', blank=True, null=True, on_delete=models.SET_NULL)
     team_requested = models.ForeignKey(Team, related_name='users_requested', blank=True, null=True, on_delete=models.SET_NULL)
 
@@ -58,6 +104,7 @@ class CheckerType(models.Model):
 class Game(models.Model):
     id = models.CharField(primary_key=True, max_length=100)
     name = models.CharField(max_length=100)
+    outside_name = models.CharField(null=True, blank=True, max_length=100)
     image = models.ImageField(null=True, blank=True)
     theme = models.CharField(max_length=100, null=True, blank=True)
     author = models.CharField(max_length=100)
@@ -66,19 +113,46 @@ class Game(models.Model):
     start_time = models.DateTimeField(default=timezone.now, blank=True)
     end_time = models.DateTimeField(default=timezone.now, blank=True)
 
+    project = models.ForeignKey(
+        Project, related_name='games',
+        default='main', on_delete=models.CASCADE
+    )
+
     is_ready = models.BooleanField(default=False)
     is_testing = models.BooleanField(default=False)
-    is_playable = models.BooleanField(default=False)
-    is_tournament = models.BooleanField(default=False)
+    is_registrable = models.BooleanField(default=True)
+    requires_ticket = models.BooleanField(default=True)
+    is_playable = models.BooleanField(default=True)
+    is_tournament = models.BooleanField(default=True)
 
     game_url = models.CharField(max_length=500, null=True, blank=True)
     answers_url = models.CharField(max_length=500, null=True, blank=True)
     standings_url = models.CharField(max_length=500, null=True, blank=True)
 
-    rules = models.ForeignKey(HTMLPage, to_field='name', related_name='games', blank=True, null=True, on_delete=models.SET_NULL)
+    rules = models.ForeignKey(
+        HTMLPage, to_field='name', related_name='games',
+        blank=True, null=True, on_delete=models.SET_NULL,
+        default="Правила Десяточки"
+    )
 
-    tournament_rules = models.ForeignKey(HTMLPage, to_field='name', related_name='games_tournament', blank=True, null=True, on_delete=models.SET_NULL)
-    general_rules = models.ForeignKey(HTMLPage, to_field='name', related_name='games_general', blank=True, null=True, on_delete=models.SET_NULL)
+    tournament_rules = models.ForeignKey(
+        HTMLPage, to_field='name', related_name='games_tournament',
+        blank=True, null=True, on_delete=models.SET_NULL,
+        default="Правила турнирного режима"
+    )
+    general_rules = models.ForeignKey(
+        HTMLPage, to_field='name', related_name='games_general',
+        blank=True, null=True, on_delete=models.SET_NULL,
+        default="Правила тренировочного режима"
+    )
+
+    note = models.ForeignKey(
+        HTMLPage, to_field='name', related_name='games_note',
+        blank=True, null=True, on_delete=models.SET_NULL
+    )
+
+    results = models.TextField(null=True, blank=True)
+    tags = models.JSONField(default=dict, null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -91,6 +165,12 @@ class Game(models.Model):
             return 'tournament'
         return 'general'
 
+    def has_registered(self, team):
+        for reg in self.registrations.all():
+            if reg.team == team:
+                return True
+        return False
+
 
 class TaskGroup(models.Model):
     id = models.AutoField(primary_key=True)
@@ -98,15 +178,18 @@ class TaskGroup(models.Model):
     name = models.CharField(max_length=100)
     number = models.IntegerField()
     rules = models.ForeignKey(HTMLPage, to_field='name', related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
+    text = models.TextField(null=True, blank=True)
 
     checker = models.ForeignKey(CheckerType, related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
     points = models.DecimalField(default=1, decimal_places=3, max_digits=10, blank=True, null=True)
     max_attempts = models.IntegerField(default=3, blank=True, null=True)
     image_width = models.IntegerField(default=300, null=True, blank=True)
+    tags = models.JSONField(default=dict, null=True, blank=True)
 
     VIEW_VARIANTS = (
         ('default', 'default'),
-        ('table-3-n', 'table-3-n')
+        ('table-3-n', 'table-3-n'),
+        ('table-4-n', 'table-4-n')
     )
 
     view = models.CharField(default='default', max_length=100, choices=VIEW_VARIANTS)
@@ -117,6 +200,8 @@ class TaskGroup(models.Model):
     def get_li_class(self):
         if self.view == 'table-3-n':
             return 'table-3-n-cell'
+        if self.view == 'table-4-n':
+            return 'table-4-n-cell'
         return ''
 
     def get_n_tasks(self):
@@ -140,6 +225,9 @@ class Task(models.Model):
         ('default', 'default'),
         ('wall', 'wall'),
         ('text_with_forms', 'text_with_forms'),
+        ('distribute_to_teams', 'distribute_to_teams'),
+        ('with_tag', 'with_tag'),
+        ('autohint', 'autohint'),
     )
 
     task_type = models.CharField(default='default', max_length=100, choices=TASK_TYPE_VARIANTS)
@@ -148,9 +236,17 @@ class Task(models.Model):
     points = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)
     max_attempts = models.IntegerField(blank=True, null=True)
     image_width = models.IntegerField(null=True, blank=True)
+    field_text_width = models.IntegerField(null=True, blank=True)
+    tags = models.JSONField(default=dict, null=True, blank=True)
 
     def __str__(self):
-        return '{}: {}.{}'.format(self.task_group.game.name, self.task_group.number, self.number)
+        game_name = 'NONE'
+        if self.task_group is not None and self.task_group.game is not None:
+            game_name = self.task_group.game.name
+        task_group_number = 'NONE'
+        if self.task_group is not None:
+            task_group_number = self.task_group.number
+        return '{}: {}.{}'.format(game_name, task_group_number, self.number)
 
     def get_checker(self):
         if self.checker:
@@ -164,7 +260,7 @@ class Task(models.Model):
             return self.points
         if self.task_group.points:
             return self.task_group.points
-        raise Exception('Task has no points')
+        return 0
 
     def get_max_attempts(self):
         if self.max_attempts:
@@ -177,8 +273,14 @@ class Task(models.Model):
         if self.image_width:
             return self.image_width
         return self.task_group.image_width
-    
+
     def key_sort(self):
+        if 'Г' in str(self.number): # for crossword
+            key = re.sub(r"Г", "", self.number)
+            return tuple([0] + [int(x) for x in key.split('.')])
+        if 'В' in str(self.number): # for crossword
+            key = re.sub(r"В", "", self.number)
+            return tuple([1] + [int(x) for x in key.split('.')])
         number = re.sub(r"\*", "", self.number)
         try:
             return tuple([int(x) for x in number.split('.')])
@@ -190,6 +292,7 @@ class Task(models.Model):
 
     def get_attempt_form(self, *args, **kwargs):
         from games.forms import AttemptForm
+        kwargs['field_text_width'] = self.field_text_width
         return AttemptForm(*args, **kwargs)
     
     def get_hints(self):
@@ -355,7 +458,7 @@ class Attempt(models.Model):
     status = models.CharField(max_length=100, choices=STATUS_VARIANTS)
     possible_status = models.CharField(blank=True, null=True, max_length=100, choices=STATUS_VARIANTS)
     points = models.DecimalField(default=0, decimal_places=3, max_digits=10, blank=True, null=True)
-    time = models.DateTimeField(auto_now_add=True, blank=True)
+    time = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     state = models.TextField(blank=True, null=True)
 
     comment = models.TextField(blank=True, null=True)
@@ -363,23 +466,45 @@ class Attempt(models.Model):
     skip = models.BooleanField(default=False)
 
     def __str__(self):
-        return '[{}]: ({}) - {} [{}]'.format(self.team, self.task, self.get_pretty_text(), self.status)
+        return '[{}]: ({}) - {} [{}] ({})'.format(
+            self.team, self.task, self.get_pretty_text(), self.status,
+            self.time.strftime('%Y-%m-%d %H:%M:%S')
+        )
 
     def get_answer(self):
+        if self.task is None:
+            return 'DELETED'
         return self.task.answer
 
     def get_max_points(self):
+        if self.task is None:
+            return 'DELETED'
         return self.task.get_points()
 
     def get_pretty_text(self):
-        if self.task.task_type == 'default':
+        if self.task is None:
+            return 'DELETED TASK'
+        if self.task.task_type in ('default', 'with_tag', 'text_with_forms', 'autohint'):
             return self.text
         if self.task.task_type == 'wall':
-            return self.task.get_wall().get_attempt_text(json.loads(self.text))
+            return self.task.get_wall().get_attempt_text(
+                json.loads(self.text),
+                ImageManager(),
+                AudioManager()
+            )
+        if self.task.task_type == 'distribute_to_teams':
+            try:
+                distr_text = json.loads(self.task.text)['list'][self.team.get_team_reg_number(self.task.task_group.game)]
+            except Exception as e:
+                distr_text = 'ERROR: {}'.format(e)
+            return '{} ({})'.format(
+                self.text,
+                distr_text
+            )
         raise Exception('Unknown task_type: {}'.format(self.task.task_type))
 
 
-class ProxyAttempt(Attempt):
+class PendingAttempt(Attempt):
     class Meta:
         proxy=True
 
@@ -438,6 +563,7 @@ class Hint(models.Model):
     desc = models.TextField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
     points_penalty = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)
+    required_hints = models.ManyToManyField('Hint', blank=True)
 
     def __str__(self):
         return '{} - Подсказка #{} [-{}]'.format(self.task, self.number, self.points_penalty)
@@ -453,4 +579,71 @@ class HintAttempt(models.Model):
             '(just watching)' if self.is_real_request else '',
             self.team,
             self.hint
+        )
+
+
+class ImageManager(models.Manager):
+    def get_image(self, id):
+        img = Image.objects.filter(id=id)[0]
+        return img
+
+
+class Image(models.Model):
+    id = models.CharField(primary_key=True, max_length=100)
+    image = models.ImageField(null=True, blank=True)
+
+
+class AudioManager(models.Manager):
+    def get_audio(self, id):
+        audio = Audio.objects.filter(id=id)[0]
+        return audio
+
+
+class Audio(models.Model):
+    id = models.CharField(primary_key=True, max_length=100)
+    audio = models.FileField()
+    title = models.TextField(null=True, blank=True)
+
+
+class TicketRequest(models.Model):
+    team = models.ForeignKey(Team, related_name='ticket_requests', blank=True, null=True, on_delete=models.SET_NULL)
+    money = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    tickets = models.IntegerField(default=0, validators=[MinValueValidator(1),MaxValueValidator(20)])
+    time = models.DateTimeField(auto_now_add=True, blank=True)
+    yookassa_id = models.TextField(null=True, blank=True)
+
+    TICKER_REQUEST_STATUS_VARIANTS = (
+        ('Pending', 'Pending'),
+        ('Accepted', 'Accepted'),
+        ('Rejected', 'Rejected'),
+    )
+
+    status = models.CharField(default='Pending', max_length=100, choices=TICKER_REQUEST_STATUS_VARIANTS)
+
+    def __str__(self):
+        return '{}: [{}] Сумма: {} р. - Билетов: {} - Команда: {}'.format(
+            self.time.strftime('%Y-%m-%d %H:%M:%S'),
+            self.status,
+            self.money,
+            self.tickets,
+            self.team
+        )
+
+
+class PendingTicketRequest(TicketRequest):
+    class Meta:
+        proxy=True
+
+
+class Registration(models.Model):
+    team = models.ForeignKey(Team, related_name='registrations', blank=True, null=True, on_delete=models.SET_NULL)
+    game = models.ForeignKey(Game, related_name='registrations', blank=True, null=True, on_delete=models.SET_NULL)
+    time = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    with_referent = models.ForeignKey(Team, related_name='registrations_with_referent', blank=True, null=True, on_delete=models.SET_NULL)
+    def __str__(self):
+        return '{} --- {} ({}){}'.format(
+            self.game,
+            self.team,
+            self.time.strftime('%Y-%m-%d %H:%M:%S'),
+            ' [with referent {}]'.format(self.with_referent) if self.with_referent is not None else ''
         )

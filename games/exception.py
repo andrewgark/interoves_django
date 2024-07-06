@@ -16,5 +16,14 @@ class TooManyAttemptsException(Exception):
 class DuplicateAttemptException(Exception):
     pass
 
-class NoAnswerAccessException:
+class NotAllRequiredHintsTakenException(Exception):
+    pass
+
+class NoAnswerAccessException(Exception):
+    pass
+
+class CantRegisterException(Exception):
+    pass
+
+class NoTicketsException(Exception):
     pass

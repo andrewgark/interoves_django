@@ -1,0 +1,7 @@
+{% autoescape off %}
+  {% if "text_with_forms_in_name" in task_group.tags %}
+    <a href="/games/{{ game.id }}/{{ task_group.number }}" class="task_group_link"></a>{{ task_group.number }}. {{ task_group_text_with_forms_to_html|get_item:task_group.number }}
+  {% else %}
+    <a href="/games/{{ game.id }}/{{ task_group.number }}" class="task_group_link">{{ task_group.number }}. {{ task_group.name }}</a>
+  {% endif %}
+{% endautoescape %}

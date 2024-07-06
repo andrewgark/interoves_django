@@ -1,6 +1,11 @@
 <!-- Footer Section -->
 <div id="footer">
   <div class="container text-center">
-    <p>&copy; 2020 inter oves locum praesta. По всем вопросам обращаться к <a href="https://vk.com/andrewgark">Андрею Гаркавому</a>.
+    <p>
+        &copy; 2024 inter oves locum praesta. По всем вопросам обращаться к <a href="https://vk.com/andrewgark">Андрею Гаркавому</a>.
+    </p>
+    {% if project.id != 'umind' and game.project.id != 'umind' %}
+    <div id="clock"></div>
+    {% endif %}
   </div>
 </div>

@@ -1,0 +1,7 @@
+{% for task in left_answers_tasks %}
+  {% with attempts_info=task_to_attempts_info|get_item:task.id %}
+    {% if attempts_info.best_attempt.status != 'Ok' %}
+    - {% autoescape off %}{{ task.answer }}{% endautoescape %}<br>
+    {% endif %}
+  {% endwith %}
+{% endfor %}

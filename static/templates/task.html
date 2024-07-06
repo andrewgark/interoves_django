@@ -1,14 +1,22 @@
 <li class="li-task li-{{ task|one_more:team|one_more:mode|get_task_status:attempts_info|get_lower_status }} {{ task_group.get_li_class }}" id="task-{{ task.id }}">
   <div class="task">
-    <h4>{{ task.number }}.</h4>
+    <h4><a href="/games/{{ task.task_group.game.id }}/{{ task.task_group.number }}/{{ task.number }}" class="task_link">{{ task.number }}.</a></h4>
     <input type="hidden" class="task-id" name="task-id" value="{{ task.id }}">
+    {% if task|one_more:team|one_more:mode|task_should_be_hidden:task_to_attempts_info %}
+    {% else %}
     {% csrf_token %}
-    {% if task.task_type == 'default' %}
+    {% if task.task_type == 'default' or task.task_type == 'distribute_to_teams' or task.task_type == 'with_tag' or task.task_type == 'autohint' %}
       {% include "task-content/task-default.html" %}
     {% elif task.task_type == 'wall' %}
       {% include "task-content/task-wall.html" %}
     {% elif task.task_type == 'text_with_forms' %}
       {% include "task-content/task-text-with-forms.html" %}
+    {% endif %}
+    {% if not team %}
+      <div class="hide-team-inside-game">
+        {% include "team.html" %}
+      </div>
+    {% endif %}
     {% endif %}
   </div>
 </li>

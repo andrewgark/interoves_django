@@ -1,0 +1,55 @@
+<div id="request-tickets-popup" class="white-popup mfp-hide">
+    <div class="request-tickets-container">
+        <h2>Приобретение билетов</h2>
+        <p>Вы можете приобрести билеты на игры, чтобы получить возможность играть в турнирном режиме. Такие игры проходят по вечерам воскресений, вы можете сами выбирать, в каких участвовать и тратить билет, в каких нет.</p>
+        <p>Цена билета на игру для вас: <b>{{ user.profile.team_on.ticket_price }} р.</b></p>
+        <p>Если вы хотите играть, но вам тяжело платить такую сумму, вы можете написать <a href="https://vk.com/andrewgark">Андрею Гаркавому</a>.</p>
+        <hr>
+        <div id="payment-form"></div>
+        <script>
+            //Инициализация виджета. Все параметры обязательные.
+            const checkout = new window.YooMoneyCheckoutWidget({
+                confirmation_token: 'ct-287e0c37-000f-5000-8000-16961d35b0fd', //Токен, который перед проведением оплаты нужно получить от ЮKassa
+                return_url: 'https://example.com/', //Ссылка на страницу завершения оплаты, это может быть любая ваша страница
+          
+                //При необходимости можно изменить цвета виджета, подробные настройки см. в документации
+                 //customization: {
+                  //Настройка цветовой схемы, минимум один параметр, значения цветов в HEX
+                  //colors: {
+                      //Цвет акцентных элементов: кнопка Заплатить, выбранные переключатели, опции и текстовые поля
+                      //controlPrimary: '#00BF96', //Значение цвета в HEX
+          
+                      //Цвет платежной формы и ее элементов
+                      //background: '#F2F3F5' //Значение цвета в HEX
+                  //}
+                //},
+                error_callback: function(error) {
+                    console.log(error)
+                }
+            });
+          
+            //Отображение платежной формы в контейнере
+            checkout.render('payment-form');
+        </script>
+<!--        <p>Чтобы приобрести билеты, <u>переведите деньги на карту Тинькофф <b>5536 9138 0059 7797</b>, указав название команды ({{ user.profile.team_on.visible_name }}) в подписи</u>.</p>
+        <p>После перевода заполните форму ниже, спустя некоторое время мы обработаем вашу оплату и у вашей команда добавятся нужные билеты.</b></p>
+        <script>
+            function updateTicketsNumber() {
+                var money = parseInt($('#money').val());
+                $('#tickets').val(Math.floor(money / {{ user.profile.team_on.ticket_price }}));
+            }
+            function updateMoney() {
+                var tickets = parseInt($('#tickets').val());
+                $('#money').val(tickets * {{ user.profile.team_on.ticket_price }});
+            }
+        </script>
+        <form action = "{% url 'request_ticket' %}" next="{{ request.path }}" method = "post" class="request-tickets-form">
+            {% csrf_token %}
+            <label for="money">Сумма: </label><br>
+            <input id="money" type="text" name="money" value="{{ user.profile.team_on.ticket_price }}" oninput="updateTicketsNumber()"><br>
+            <label for="tickets">Билетов (до 20): </label><br>
+            <input id="tickets" type="text" name="tickets" value="1" oninput="updateMoney()">
+            <input type="submit" value="Приобрести билеты" class="btn btn-custom btn-custom-lg btn-lg page-scroll ticket-money-sent-button">
+        </form>-->
+    </div>
+</div>

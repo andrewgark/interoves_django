@@ -4,29 +4,45 @@
       <li class="li-hint_attempt li-hint">
         <div class="hint-head">
           <b>
+	    {% autoescape off %}
             {% with hint_desc=hint.desc|make_hint_desc_in_brackets %}
               {% if attempts_info|hint_was_really_taken:hint %}
                 <u>Подсказка #{{ hint.number }} {{ hint_desc }}[-{{ hint.points_penalty|minimize_digits }}]:</u>
               {% elif attempts_info|hint_was_taken:hint %}
                 Подсказка #{{ hint.number }} {{ hint_desc }}[-{{ hint.points_penalty|minimize_digits }}]:
+              {% elif attempts_info.is_solved %}
+                Подсказка #{{ hint.number }} {{ hint_desc }}[-{{ hint.points_penalty|minimize_digits }}]:
               {% else %}
                 Подсказка #{{ hint.number }} {{ hint_desc }}[осторожно: -{{ hint.points_penalty|minimize_digits }}]:
               {% endif %}
             {% endwith %}
+	    {% endautoescape %}
           </b>
         </div>
         <div class="hint-body">
           {% if attempts_info and attempts_info|hint_was_taken:hint %}
-            <div class="hint-text">{{ hint.text }}</div>
+            <div class="hint-text">
+              {% autoescape off %}
+              {{ hint.text }}
+              {% endautoescape %}
+            </div>
           {% else %}
             <form class="hint-attempt-form">
               {% csrf_token %}
               <input type="hidden" class="hint-task-id" name="variable" value="{{ task.id }}">
               <input type="hidden" class="hint-number" name="variable" value="{{ hint.number }}">
-              {% if not attempts_info.is_solved %}
-                <input type="submit" value="Запросить подсказку" class="btn btn-sm btn-custom page-scroll show-hint">
+              {% if attempts_info|all_not_taken_required_hints:hint %}
+                  Подсказка доступна только после {{ attempts_info|all_not_taken_required_hints:hint }}.
               {% else %}
-                <input type="submit" value="Открыть подсказку" class="btn btn-sm btn-custom page-scroll show-hint">
+	        {% if task.task_type != 'autohint' %}
+                  {% if not attempts_info.is_solved %}
+                    <input type="submit" value="Запросить подсказку" class="btn btn-sm btn-custom page-scroll show-hint">
+                  {% else %}
+                    <input type="submit" value="Безопасно посмотреть подсказку" class="btn btn-sm btn-custom page-scroll show-hint">
+                  {% endif %}
+		{% else %}
+		  (N-ая подсказка будет доступна после вашей N-ой попытки)
+		{% endif %}
               {% endif %}
             </form>
           {% endif %}

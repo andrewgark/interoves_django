@@ -1,0 +1,94 @@
+{% load static %}
+{% load filters %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сводные результаты</title>
+<meta name="description" content="">
+<meta name="author" content="">
+
+{% include "style_header.html" %}
+<link rel="stylesheet" href="{% static "css/jquery.stickytable.css" %}">
+
+<!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+<!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+<!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+</head>
+<body id="page-top" data-spy="scroll" data-target=".navbar-fixed-top">
+<!-- Navigation
+    ==========================================-->
+<nav id="menu" class="navbar navbar-default navbar-fixed-top">
+  <div class="container"> 
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1"> <span class="sr-only">Toggle navigation</span> <span class="icon-bar"></span> <span class="icon-bar"></span> <span class="icon-bar"></span> </button>
+      <a class="navbar-brand page-scroll" href="{{ project.get_url }}">inter oves {% if project.is_main %}locum praesta{% endif %}</a>
+      {% if not project.is_main %}
+        <a href="{{ project.get_url }}"><img src="{{ project.logo.url }}" class="project-logo-menu"></a>
+      {% endif %}
+    </div>
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+      <ul class="nav navbar-nav navbar-right">
+        <li><a href="#page-top" class="page-scroll">Наверх</a></li>
+      </ul>
+    </div>
+    <!-- /.navbar-collapse --> 
+  </div>
+</nav>
+<header id="header">
+  <div class="intro">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-8 col-md-offset-2 intro-text">
+      </div>
+    </div>
+  </div>
+</header>
+<div id="results-section" class="text-center">
+  <div class="container">
+    <div class="col-md-10 col-md-offset-1 section-title">
+      <h2>Сводные результаты по всем десяточкам</h2>
+    </div>
+  </div>
+  <div class="container-fluid results-table">
+    <div class="row results-row-table">
+      <div class="col sticky-table sticky-headers sticky-ltr-cells table-wrapper" data-simplebar>
+        <table class="table table-bordered table-results">
+          <thead>
+            <tr class="sticky-header">
+              <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Команда</th>
+              <th rowspan="2" scope="col" class="cell-header sticky-cell">&#129351;</th>
+              <th rowspan="2" scope="col" class="cell-header sticky-cell">&#129352;</th>
+              <th rowspan="2" scope="col" class="cell-header sticky-cell">&#129353;</th>
+              <th rowspan="2" scope="col" class="cell-header sticky-cell">Число игр</th>
+              <th rowspan="2" scope="col" class="cell-header sticky-cell">Сумма баллов</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for team in teams_sorted %}
+              <tr>
+                  <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team.visible_name }} </th>
+                  <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team_to_results|get_item:team|get_item:'place1' }} </th>
+                  <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team_to_results|get_item:team|get_item:'place2' }} </th>
+                  <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team_to_results|get_item:team|get_item:'place3' }} </th>
+                  <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team_to_results|get_item:team|get_item:'n_games' }} </th>
+                  <th scope="row" class="row-header sticky-cell {% if user.profile.team_on == team %}my-team-row-header{% endif %}"> {{ team_to_results|get_item:team|get_item:'n_points'|minimize_digits }} </th>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% include "footer.html" %}
+{% include "scripts.html" %}
+<script src="{% static "js/jquery.stickytable.min.js" %}"></script>
+</body>
+</html>

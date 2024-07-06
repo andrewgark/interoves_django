@@ -1,9 +1,15 @@
 from allauth.account.adapter import DefaultAccountAdapter
-from games.views import redirect_to_referer
+from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 
 
 class AccountAdapter(DefaultAccountAdapter):
-    def get_login_redirect_url(self, request):
-        if 'HTTP_REFERER' not in request.META:
-            return '/'
-        return request.META.get('HTTP_REFERER')
+    pass
+
+
+class SocialAccountAdapter(DefaultSocialAccountAdapter):
+    def authentication_error(self, request, provider_id, error, exception, extra_context):
+        print(
+            'SocialAccount authentication error!',
+            'error',
+            {'provider_id': provider_id, 'error': error.__str__(), 'exception': exception.__str__(), 'extra_context': extra_context},
+        )

@@ -2,13 +2,32 @@
   {% for game in games %}
     <div>
       {% with team=user.profile.team_on %}
+      {% if game.project.id == 'umind' %}
+      <p>6 марта 2022<br>21:00 - 23:00 по Томскому времени</p>
+      {% else %}
       <p>{{ game.start_time|date:'d E Y' }}<br>{{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }}</p>
+      {% endif %}
       <img src="{{ game.image.url }}" class="game_icon">
-      <h3>{{ game.name }}</h3>
+      <h3>{% if game.outside_name %}{{ game.outside_name }}{% else %}{{ game.name }}{% endif %}</h3>
       {% if game.theme %} <p>Тема: {{ game.theme }}</p> {% endif %}
       <p>Автор: {{ game.author }}</p>
-      {% if game|access_play_with_team:team %}
+      {% if game|access_play:team %}
         <p><a href="/games/{{ game.id }}"><b>Играть</b></a></p>
+      {% elif game|access_is_registered:team %}
+        <p><b>Вы зарегистрированы</b></p>
+      {% elif game|access_register:team %}
+        {% if game.requires_ticket %}
+          {% if team.tickets > 0 %}
+            <p><a href="/register/{{ game.id }}" next="{{ request.path }}"><b>Зарегистрироваться<br>(потратить билет)</b></a></p>
+          {% else %}
+            <p><a href="/tickets"><b>Приобрести билет</b></a></p>
+          {% endif %}
+	  {% for referent in game|get_available_referents:team %}
+	    <p><a href="/register/{{ game.id }}?with_referent={{ referent.name }}" next="{{ request.path }}"><b>Зарегистрироваться<br>(с помощью приглашенной команды "{{ referent.visible_name }}")</b></a></p>
+	  {% endfor %}
+        {% else %}
+          <p><a href="/register/{{ game.id }}" next="{{ request.path }}"><b>Зарегистрироваться</b></a></p>
+        {% endif %}
       {% endif %}
       {% if game|access_see_tournament_results:team  %}
         <p><a href="/tournament_results/{{ game.id }}"><b>Турнирные результаты</b></a></p>
@@ -20,7 +39,7 @@
       {% endif %}
       {% if game.game_url %}
         {% if game|access_read_googledoc:team %}
-          <p><a href="{{ game.game_url}}">Условия</a></p>
+	  <p><a href="{{ game.game_url }}">Условия</a> <a href="{{ game.game_url|replace_edit_copy }}"><img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz48c3ZnIHZlcnNpb249IjEuMSIgaWQ9IkxheWVyXzEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHg9IjBweCIgeT0iMHB4IiB2aWV3Qm94PSIwIDAgMTE1Ljc3IDEyMi44OCIgc3R5bGU9ImVuYWJsZS1iYWNrZ3JvdW5kOm5ldyAwIDAgMTE1Ljc3IDEyMi44OCIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSI+PHN0eWxlIHR5cGU9InRleHQvY3NzIj4uc3Qwe2ZpbGwtcnVsZTpldmVub2RkO2NsaXAtcnVsZTpldmVub2RkO308L3N0eWxlPjxnPjxwYXRoIGNsYXNzPSJzdDAiIGQ9Ik04OS42MiwxMy45NnY3LjczaDEyLjE5aDAuMDF2MC4wMmMzLjg1LDAuMDEsNy4zNCwxLjU3LDkuODYsNC4xYzIuNSwyLjUxLDQuMDYsNS45OCw0LjA3LDkuODJoMC4wMnYwLjAyIHY3My4yN3YwLjAxaC0wLjAyYy0wLjAxLDMuODQtMS41Nyw3LjMzLTQuMSw5Ljg2Yy0yLjUxLDIuNS01Ljk4LDQuMDYtOS44Miw0LjA3djAuMDJoLTAuMDJoLTYxLjdINDAuMXYtMC4wMiBjLTMuODQtMC4wMS03LjM0LTEuNTctOS44Ni00LjFjLTIuNS0yLjUxLTQuMDYtNS45OC00LjA3LTkuODJoLTAuMDJ2LTAuMDJWOTIuNTFIMTMuOTZoLTAuMDF2LTAuMDJjLTMuODQtMC4wMS03LjM0LTEuNTctOS44Ni00LjEgYy0yLjUtMi41MS00LjA2LTUuOTgtNC4wNy05LjgySDB2LTAuMDJWMTMuOTZ2LTAuMDFoMC4wMmMwLjAxLTMuODUsMS41OC03LjM0LDQuMS05Ljg2YzIuNTEtMi41LDUuOTgtNC4wNiw5LjgyLTQuMDdWMGgwLjAyaDYxLjcgaDAuMDF2MC4wMmMzLjg1LDAuMDEsNy4zNCwxLjU3LDkuODYsNC4xYzIuNSwyLjUxLDQuMDYsNS45OCw0LjA3LDkuODJoMC4wMlYxMy45Nkw4OS42MiwxMy45NnogTTc5LjA0LDIxLjY5di03Ljczdi0wLjAyaDAuMDIgYzAtMC45MS0wLjM5LTEuNzUtMS4wMS0yLjM3Yy0wLjYxLTAuNjEtMS40Ni0xLTIuMzctMXYwLjAyaC0wLjAxaC02MS43aC0wLjAydi0wLjAyYy0wLjkxLDAtMS43NSwwLjM5LTIuMzcsMS4wMSBjLTAuNjEsMC42MS0xLDEuNDYtMSwyLjM3aDAuMDJ2MC4wMXY2NC41OXYwLjAyaC0wLjAyYzAsMC45MSwwLjM5LDEuNzUsMS4wMSwyLjM3YzAuNjEsMC42MSwxLjQ2LDEsMi4zNywxdi0wLjAyaDAuMDFoMTIuMTlWMzUuNjUgdi0wLjAxaDAuMDJjMC4wMS0zLjg1LDEuNTgtNy4zNCw0LjEtOS44NmMyLjUxLTIuNSw1Ljk4LTQuMDYsOS44Mi00LjA3di0wLjAyaDAuMDJINzkuMDRMNzkuMDQsMjEuNjl6IE0xMDUuMTgsMTA4LjkyVjM1LjY1di0wLjAyIGgwLjAyYzAtMC45MS0wLjM5LTEuNzUtMS4wMS0yLjM3Yy0wLjYxLTAuNjEtMS40Ni0xLTIuMzctMXYwLjAyaC0wLjAxaC02MS43aC0wLjAydi0wLjAyYy0wLjkxLDAtMS43NSwwLjM5LTIuMzcsMS4wMSBjLTAuNjEsMC42MS0xLDEuNDYtMSwyLjM3aDAuMDJ2MC4wMXY3My4yN3YwLjAyaC0wLjAyYzAsMC45MSwwLjM5LDEuNzUsMS4wMSwyLjM3YzAuNjEsMC42MSwxLjQ2LDEsMi4zNywxdi0wLjAyaDAuMDFoNjEuN2gwLjAyIHYwLjAyYzAuOTEsMCwxLjc1LTAuMzksMi4zNy0xLjAxYzAuNjEtMC42MSwxLTEuNDYsMS0yLjM3aC0wLjAyVjEwOC45MkwxMDUuMTgsMTA4LjkyeiIvPjwvZz48L3N2Zz4=" alt="(скопировать)" height=16 width=16 style="display:inline"></a></p>
         {% endif %}
       {% endif %}
       {% if game.answers_url %}

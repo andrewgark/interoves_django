@@ -20,11 +20,13 @@ IS_PROD = os.getenv('IS_PROD') == 'TRUE'
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
 def load_secret(secret):
     file = open(os.path.join(BASE_DIR, 'secrets', secret))
     result = file.read().strip()
     file.close()
     return result
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
@@ -37,12 +39,19 @@ ALLOWED_HOSTS = [
     'interoves-django-env.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
     'interoves-django.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
     'interoves.eu-central-1.elasticbeanstalk.com',
+    'interoves-prod.eu-central-1.elasticbeanstalk.com',
     'interoves-django-env.eu-central-1.elasticbeanstalk.com',
+    'interoves-dev.eu-central-1.elasticbeanstalk.com',
+    'interoves-env.eu-central-1.elasticbeanstalk.com',
     'ec2-35-158-115-233.eu-central-1.compute.amazonaws.com',
     '172.31.43.189',
     'interoves.ml',
     'www.interoves.ml',
+    'interoves.com',
+    'www.interoves.com',
     '127.0.0.1',
+    'fat-owl-8.loca.lt',
+    '3.122.72.107'
 ]
 
 def get_ec2_instance_ip():
@@ -54,7 +63,7 @@ def get_ec2_instance_ip():
           'http://169.254.169.254/latest/meta-data/local-ipv4',
           timeout=0.01
         ).text
-    except requests.exceptions.ConnectionError:
+    except:
         return None
     return ip
 
@@ -65,6 +74,8 @@ ALLOWED_HOSTS.append(AWS_LOCAL_IP)
 
 INSTALLED_APPS = [
     'games',
+
+    'djcelery',
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -78,6 +89,10 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.vk',
+    'allauth.socialaccount.providers.google',
+    'games.telegram',
+
+    'django_telegram_login',
 
     'health_check',
     'health_check.db',
@@ -88,7 +103,11 @@ INSTALLED_APPS = [
 
     'corsheaders',
 
-    'yet_another_django_profiler',
+    # 'yet_another_django_profiler',
+
+    'inlineedit',
+
+    'explorer',
 ]
 
 MIDDLEWARE = [
@@ -103,7 +122,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    'yet_another_django_profiler.middleware.ProfilerMiddleware',
+    # 'yet_another_django_profiler.middleware.ProfilerMiddleware',
 ]
 
 ROOT_URLCONF = 'interoves_django.urls'
@@ -198,7 +217,7 @@ if USE_S3:
     AWS_DEFAULT_ACL = 'public-read'
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
-# s3 static settings
+    # s3 static settings
     STATIC_LOCATION = 'static'
     STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{STATIC_LOCATION}/'
     STATICFILES_STORAGE = 'games.storage_backends.StaticStorage'
@@ -229,6 +248,11 @@ AUTHENTICATION_BACKENDS = (
  )
 
 if IS_PROD:
+    ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https'
+else:
+    ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http'
+
+if IS_PROD:
     SITE_ID = 2
 else:
     SITE_ID = 1
@@ -244,10 +268,39 @@ SOCIALACCOUNT_PROVIDERS = {
         'AUTH_PARAMS': {
             'access_type': 'online',
         }
+    },
+    'interoves-telegram': {
+        'TOKEN': load_secret('telegram_token.txt'),
+        'domain': 'https://fat-owl-8.loca.lt/',
+        'size': 'small',
+        'request_access': 'write'
+    },
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
     }
 }
 
+TELEGRAM_BOT_NAME = 'interoves_bot'
+TELEGRAM_BOT_TOKEN = load_secret('telegram_token.txt')
+TELEGRAM_LOGIN_REDIRECT_URL = 'fat-owl-8.loca.lt'
+
 ACCOUNT_ADAPTER = 'games.users.allauth.AccountAdapter'
+SOCIALACCOUNT_ADAPTER = "games.users.allauth.SocialAccountAdapter"
+SOCIALACCOUNT_AUTO_SIGNUP = True
+
+TEMPLATE_CONTEXT_PROCESSORS = (
+    "django.core.context_processors.auth",
+    "django.core.context_processors.debug",
+    "django.core.context_processors.i18n",
+    "django.core.context_processors.media",
+    "django.core.context_processors.request",
+)
 
 # CORS Policy
 
@@ -280,3 +333,23 @@ LOGGING = {
         }
     }
 }
+
+# Inline Editor
+INLINEEDIT_ADAPTORS = {
+    "person-adaptor": "games.adaptors.PersonAdaptor",
+}
+
+# SQL-Explorer
+EXPLORER_CONNECTIONS = { 'Default': 'default' }
+EXPLORER_DEFAULT_CONNECTION = 'default'
+
+# Celery
+BROKER_URL = 'amqp://'
+CELERY_ACCEPT_CONTENT = ['pickle']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+CELERY_RESULT_BACKEND = 'djcelery.backends.database:DatabaseBackend'
+CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
+
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 3000

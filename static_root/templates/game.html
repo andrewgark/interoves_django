@@ -1,11 +1,11 @@
-{% load staticfiles %}
+{% load static %}
 {% load filters %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{ game.name }}</title>
+<title>{% if game.outside_name %}{{ game.outside_name }}{% else %}{{ game.name }}{% endif %}</title>
 <meta name="description" content="">
 <meta name="author" content="">
 
@@ -19,6 +19,10 @@
     <![endif]-->
 </head>
 <body id="page-top" data-spy="scroll" data-target=".navbar-fixed-top">
+{% now "Y-m-d" as current_date %}
+{% if current_date == "2021-05-02" %}
+  <div class="flier"><a href="/easter_egg_2021"><img style="width:30px" src="/static/img/easter_egg.png"></a></div>
+{% endif %}
 <!-- Navigation
     ==========================================-->
 <nav id="menu" class="navbar navbar-default navbar-fixed-top">
@@ -26,8 +30,11 @@
     <!-- Brand and toggle get grouped for better mobile display -->
     <div class="navbar-header">
       <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1"> <span class="sr-only">Toggle navigation</span> <span class="icon-bar"></span> <span class="icon-bar"></span> <span class="icon-bar"></span> </button>
-      <a class="navbar-brand page-scroll" href="/">inter oves locum praesta</a> </div>
-    
+      <a class="navbar-brand page-scroll" href="{{ game.project.get_url }}">inter oves {% if game.project.is_main %}locum praesta{% endif %}</a>
+      {% if not game.project.is_main %}
+        <a href="{{ game.project.get_url }}"><img src="{{ game.project.logo.url }}" class="project-logo-menu"></a>
+      {% endif %}
+    </div>
     <!-- Collect the nav links, forms, and other content for toggling -->
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav navbar-right">
@@ -44,7 +51,9 @@
             <li><a href="/results/{{ game.id }}/">Результаты</a></li>
           {% endif %}
         {% endif %}
-        <li><button class="toggle-ok-tasks" value="0"><i class="icon-ok-tasks fa fa-eye"></i></button></li>
+        {% if not is_one_task %}
+          <li><button class="toggle-ok-tasks" value="0"><i class="icon-ok-tasks fa fa-eye"></i></button></li>
+        {% endif %}
       </ul>
     </div>
     <!-- /.navbar-collapse --> 
@@ -56,17 +65,20 @@
     <div class="container">
       <div class="row">
         <div class="col-md-8 col-md-offset-2 intro-text">
-          <h1>{{ game.name }}</h1>
+          <h1>
+            {% include "game-title.html" %}
+	  </h1>
           {% if game.theme %}<h3>Тема: {{ game.theme }}</h3>{% endif %}
           {% if game.author %}
             <h3>
               Автор: {{ game.author }} {% if game.author_extra %}<br>({{ game.author_extra }}){% endif %}
             </h3>
           {% endif %}
-          {% if mode == 'tournament' %}<h3>Время: {{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}</h3>{% endif %}
+          {% if mode == 'tournament' and game.project.id != 'umind' %}<h3>Время: {{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}</h3>{% endif %}
             {% autoescape off %}
             {{ game.rules.html }}
             {% if mode == 'tournament' %}{{ game.tournament_rules.html }}{% else %}{{ game.general_rules.html }}{% endif %}
+            {% if game.note %}{{ game.note.html }}{% endif %}
             {% endautoescape %}
           </div>
     </div>
@@ -76,7 +88,9 @@
   <div id="task-group-{{ task_group.number }}" class="text-center task-group {{ task_group.number|get_parity }}-task-group">
     <div class="container">
       <div class="col-md-10 col-md-offset-1 section-title">
-        <h2>{{ task_group.number }}. {{ task_group.name }}</h2>
+        <h2>
+          {% include "task-group-title.html" %}
+        </h2>
       </div>
     </div>
     <div class="container">
@@ -84,6 +98,10 @@
         <div class="col-md-8 col-md-offset-2 task-rules">
           {% autoescape off %}
           {{ task_group.rules.html }}
+          {% if task_group.text %}
+            <br>
+            {{ task_group.text }}
+          {% endif%}
           {% endautoescape %}
         </div>
       </div>
@@ -99,6 +117,7 @@
     </div>
   </div>
 {% endfor %}
+{% include "audio-player.html" %}
 {% include "footer.html" %}
 {% include "scripts.html" %}
 </body>
