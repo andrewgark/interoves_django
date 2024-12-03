@@ -51,7 +51,8 @@ ALLOWED_HOSTS = [
     'www.interoves.com',
     '127.0.0.1',
     'fat-owl-8.loca.lt',
-    '3.122.72.107'
+    '3.122.72.107',
+    '3.123.113.139',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
