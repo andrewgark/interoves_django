@@ -105,7 +105,6 @@ Markdown==3.3
 markdown-it-py==3.0.0
 MarkupSafe==2.1.5
 mdurl==0.1.2
-ml-dtypes==0.4.0
 mock==4.0.2
 msgpack==0.6.2
 mysqlclient==2.0.1
