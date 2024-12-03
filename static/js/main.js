@@ -302,11 +302,12 @@ function wallTileClick(event) {
   var wall = $($(this).parent());
   var task_id = wall.children(".attempt-task-id")[0].value;
   var csrf = wall.children("input[name=csrfmiddlewaretoken]")[0].value;
+  var n_words = wall.children(".n-words-in-category")[0].value;
 
   var selectedTiles = $('#task-' + task_id + ' .wall-tile-selected').map(function(){
     return $(this).children(".wall-tile-text")[0].value;
   }).toArray();
-  if (selectedTiles.length != 4) {
+  if (selectedTiles.length != n_words) {
     return;
   }
   

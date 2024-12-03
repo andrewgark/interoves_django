@@ -405,3 +405,4 @@ def get_available_referents(game, team):
             if len(referent_registrations) < 3:
                 referents.append(referent)
     return referents
+

@@ -76,7 +76,7 @@
 	  {% if game.project.id == 'umind' %}
 	  В турнирной таблице учитываются только посылки во время игры:<br>с 21:00 до 23:00 по Томскому времени 6 марта 2022.
 	  {% else %}
-	  В турнирной таблице учитываются только посылки во время игры: с {{ game.start_time|date:'H:i' }} до {{ game.end_time|date:'H:i' }} {{ game.start_time|date:'d E Y' }}
+	  В турнирной таблице учитываются только посылки во время игры: с {{ game.get_visible_start_time|date:'H:i' }} до {{ game.get_visible_end_time|date:'H:i' }} {{ game.get_visible_start_time|date:'d E Y' }}
 	  {% endif %}
         {% else %}
           В общей таблице учитываются все посылки, посланные и во время игры, и после.

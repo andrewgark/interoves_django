@@ -5,7 +5,7 @@
       {% if game.project.id == 'umind' %}
       <p>6 марта 2022<br>21:00 - 23:00 по Томскому времени</p>
       {% else %}
-      <p>{{ game.start_time|date:'d E Y' }}<br>{{ game.start_time|date:'H:i' }} - {{ game.end_time|date:'H:i' }}</p>
+      <p>{{ game.get_visible_start_time|date:'d E Y' }}<br>{{ game.get_visible_start_time|date:'H:i' }} - {{ game.get_visible_end_time|date:'H:i' }}</p>
       {% endif %}
       <img src="{{ game.image.url }}" class="game_icon">
       <h3>{% if game.outside_name %}{{ game.outside_name }}{% else %}{{ game.name }}{% endif %}</h3>

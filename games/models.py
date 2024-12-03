@@ -103,8 +103,8 @@ class CheckerType(models.Model):
 
 class Game(models.Model):
     id = models.CharField(primary_key=True, max_length=100)
-    name = models.CharField(max_length=100)
-    outside_name = models.CharField(null=True, blank=True, max_length=100)
+    name = models.TextField()
+    outside_name = models.TextField(null=True, blank=True)
     image = models.ImageField(null=True, blank=True)
     theme = models.CharField(max_length=100, null=True, blank=True)
     author = models.CharField(max_length=100)
@@ -112,6 +112,8 @@ class Game(models.Model):
 
     start_time = models.DateTimeField(default=timezone.now, blank=True)
     end_time = models.DateTimeField(default=timezone.now, blank=True)
+    visible_start_time = models.DateTimeField(null=True, blank=True)
+    visible_end_time = models.DateTimeField(null=True, blank=True)
 
     project = models.ForeignKey(
         Project, related_name='games',
@@ -170,6 +172,12 @@ class Game(models.Model):
             if reg.team == team:
                 return True
         return False
+
+    def get_visible_start_time(self):
+        return self.visible_start_time if self.visible_start_time is not None else self.start_time
+
+    def get_visible_end_time(self):
+        return self.visible_end_time if self.visible_end_time is not None else self.end_time
 
 
 class TaskGroup(models.Model):

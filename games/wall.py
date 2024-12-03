@@ -54,6 +54,7 @@ class Wall:
         self.line_height = data.get('line-height', '30px')
         self.image_height = data.get('image-height', '90px')
         self.tile_height = data.get('tile-height', '98px')
+        self.tile_width = data.get('tile-width', '148px')
 
     def get_tiles(self):
         wall_tiles = []

@@ -3,15 +3,16 @@
   <p>{{ task.get_wall.text }}</p>
   <div class="wall-tiles">
     {% csrf_token %}
+    <input type="hidden" class="n-words-in-category" name="variable" value={{ task.get_wall.n_words }}>
     <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
     {% for tile in task.get_wall|get_guessed_tiles:attempts_info %}
-      <div class="wall-tile wall-tile-guessed wall-tile-guessed-{{ tile.category_id }}" id="task-{{ task.id }}-tile-{{ tile.id }}" style="height:{{ task.get_wall.tile_height }}">
+      <div class="wall-tile wall-tile-guessed wall-tile-guessed-{{ tile.category_id }}" id="task-{{ task.id }}-tile-{{ tile.id }}" style="height:{{ task.get_wall.tile_height }};width:{{ task.get_wall.tile_width }}">
         {% include "task-content/wall-tile.html" %}
       </div>
     {% endfor %}
     {% with wall_tile_stop_guessing=task.get_wall|get_wall_tile_stop_guessing_class:attempts_info %}
     {% for tile in task.get_wall|get_not_guessed_tiles:attempts_info %}
-      <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}" style="height:{{ task.get_wall.tile_height }}">
+      <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}" style="height:{{ task.get_wall.tile_height }};width:{{ task.get_wall.tile_width }}">
         {% include "task-content/wall-tile.html" %}
       </div>
     {% endfor %}
@@ -19,7 +20,7 @@
   </div>
   <div class="wall-explanations">
     {% for exptile in task.get_wall|one_more:attempts_info|get_exptiles:mode %}
-    <div class="wall-tile wall-tile-guessed-{{ tile.category_id }} wall-tile-explanation" style="height:{{ task.get_wall.tile_height }}">
+    <div class="wall-tile wall-tile-guessed-{{ tile.category_id }} wall-tile-explanation" style="height:{{ task.get_wall.tile_height }};width:{{ task.get_wall.tile_width }}">
         {% if exptile.type == 'explanation_is_guessed' %}
         <p>OK</p>
         {% elif exptile.type == 'words_are_guessed' %}

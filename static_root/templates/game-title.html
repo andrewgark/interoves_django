@@ -3,5 +3,11 @@
     {{ game_text_with_forms_to_html }}
   {% endautoescape %}
 {% else %}
-  {{ game.name }}
+  {% if "html_in_title" in game.tags %}
+    {% autoescape off %}
+      {{ game.tags }}
+    {% endautoescape %}
+  {% else %}
+    {{ game.name }}
+  {% endif %}
 {% endif %}
