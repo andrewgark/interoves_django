@@ -20,6 +20,9 @@ from games.models import Team, Game, Attempt, AttemptsInfo, Task, TaskGroup, \
     Like, Hint, HintAttempt, ImageManager, AudioManager, Project
 from games.views.util import redirect_to_referer, has_profile, has_team
 from interoves_django.settings import TELEGRAM_BOT_NAME
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from games.views.track import track_channel_name
 
 
 class MainPageView(View):
@@ -440,17 +443,33 @@ def process_send_attempt(request, task_id):
         if "should_be_hidden_if_not_solved" in extra_task.tags:
             update_extra_tasks.append(extra_task)
 
+    update_task_html = {
+        task.id: render_task(task, request, team, current_mode)
+        for task in [task] + update_extra_tasks
+    }
+    update_game_title_html = render_game_title(task.task_group.game, request, team, current_mode)
+    update_task_group_title_html = {
+        task.task_group.number: render_task_group_title(task.task_group, request, team, current_mode)
+    }
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        track_channel_name(game.id, request.user.profile.team_on.get_name_hash()), {
+            'type': 'task.changed',
+            'task': task_id,
+            'changed_by': 'me',
+            'update_task_html': update_task_html,
+            'update_game_title_html': update_game_title_html,
+            'update_task_group_title_html': update_task_group_title_html
+        },
+    )
+
     return {
         'status': 'ok',
         'task_id': task.id,
-        'update_task_html': {
-            task.id: render_task(task, request, team, current_mode)
-            for task in [task] + update_extra_tasks
-        },
-        'update_game_title_html': render_game_title(task.task_group.game, request, team, current_mode),
-        'update_task_group_title_html': {
-            task.task_group.number: render_task_group_title(task.task_group, request, team, current_mode),
-        }
+        'update_task_html': update_task_html,
+        'update_game_title_html': update_game_title_html,
+        'update_task_group_title_html': update_task_group_title_html
     }
 
 

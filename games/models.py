@@ -1,3 +1,5 @@
+import hashlib
+import uuid
 import json
 import os
 import re
@@ -32,8 +34,9 @@ class Project(models.Model):
 
 
 class Team(models.Model):
-    name = models.CharField(primary_key=True, max_length=100)
+    name = models.CharField(max_length=100, primary_key=True)
     visible_name = models.TextField(blank=True, null=True)
+    name_hash = models.CharField(max_length=256, null=True)
     is_tester = models.BooleanField(default=False)
     is_hidden = models.BooleanField(default=False)
 
@@ -47,9 +50,19 @@ class Team(models.Model):
 
     referer = models.ForeignKey('Team', related_name='referents', blank=True, null=True, on_delete=models.SET_NULL)
 
+
+    def save_name_hash(self):
+        self.name_hash = hashlib.sha512((self.name + 'salt').encode()).hexdigest()[:50]
+
+    def get_name_hash(self):
+        # if self.name_hash is None:
+        self.save_name_hash()
+        return str(self.name_hash)
+
     def save(self, *args, **kwargs):
         if not self.visible_name:
             self.visible_name = self.name
+        self.save_name_hash()
         super(Team, self).save(*args, **kwargs)
 
     def __str__(self):
@@ -458,6 +471,7 @@ class Attempt(models.Model):
         ('Wrong', 'Wrong'),
     )
 
+    id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
     task = models.ForeignKey(Task, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
     manager = AttemptManager()
@@ -556,6 +570,7 @@ class LikeManager(models.Manager):
 
 
 class Like(models.Model):
+    id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='likes', blank=True, null=True, on_delete=models.SET_NULL)
     task = models.ForeignKey(Task, related_name='likes', blank=True, null=True, on_delete=models.SET_NULL)
     value = models.IntegerField()
@@ -566,6 +581,7 @@ class Like(models.Model):
 
 
 class Hint(models.Model):
+    id = models.AutoField(primary_key=True)
     task = models.ForeignKey(Task, related_name='hints', blank=True, null=True, on_delete=models.SET_NULL)
     number = models.IntegerField(null=True, blank=True)
     desc = models.TextField(null=True, blank=True)
@@ -577,6 +593,7 @@ class Hint(models.Model):
         return '{} - Подсказка #{} [-{}]'.format(self.task, self.number, self.points_penalty)
 
 class HintAttempt(models.Model):
+    id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
     hint = models.ForeignKey(Hint, related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
     time = models.DateTimeField(auto_now_add=True, blank=True)
@@ -614,6 +631,7 @@ class Audio(models.Model):
 
 
 class TicketRequest(models.Model):
+    id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='ticket_requests', blank=True, null=True, on_delete=models.SET_NULL)
     money = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     tickets = models.IntegerField(default=0, validators=[MinValueValidator(1),MaxValueValidator(20)])
@@ -644,6 +662,7 @@ class PendingTicketRequest(TicketRequest):
 
 
 class Registration(models.Model):
+    id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='registrations', blank=True, null=True, on_delete=models.SET_NULL)
     game = models.ForeignKey(Game, related_name='registrations', blank=True, null=True, on_delete=models.SET_NULL)
     time = models.DateTimeField(auto_now_add=True, blank=True, null=True)

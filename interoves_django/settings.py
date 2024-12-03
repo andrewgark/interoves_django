@@ -73,9 +73,9 @@ ALLOWED_HOSTS.append(AWS_LOCAL_IP)
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'games',
-
-    'djcelery',
+    # 'djcelery',
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -108,6 +108,7 @@ INSTALLED_APPS = [
     'inlineedit',
 
     'explorer',
+    # 'channels',
 ]
 
 MIDDLEWARE = [
@@ -123,6 +124,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     # 'yet_another_django_profiler.middleware.ProfilerMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'interoves_django.urls'
@@ -147,7 +149,31 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'interoves_django.wsgi.application'
+ASGI_APPLICATION = 'interoves_django.asgi.application'
 
+CHANNEL_LAYERS = {
+    "default": {
+        # this can only be used in single-replica deployments
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
+
+if 'REDIS_HOST' in os.environ:
+    redis_host = os.environ['REDIS_HOST']
+
+    try:
+        redis_port = int(os.environ['REDIS_PORT'])
+    except(KeyError, ValueError):
+        redis_port = 6379
+
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [(redis_host, redis_port)],
+            },
+        },
+    }
 
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
@@ -328,6 +354,10 @@ LOGGING = {
     },
     'loggers': {
         'application': {
+            'handlers': ['stderr'],
+            'level': 'INFO',
+        },
+        'daphne': {
             'handlers': ['stderr'],
             'level': 'INFO',
         }
