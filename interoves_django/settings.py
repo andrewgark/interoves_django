@@ -54,6 +54,11 @@ ALLOWED_HOSTS = [
     '3.122.72.107'
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://interoves.com',
+    'https://www.interoves.com',
+]
+
 def get_ec2_instance_ip():
     """
     Try to obtain the IP address of the current EC2 instance in AWS
