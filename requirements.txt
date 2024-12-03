@@ -155,7 +155,6 @@ rsa==4.6
 russtress==0.1.4
 Rx==1.6.1
 s3transfer==0.6.0
-scipy==1.13.1
 semantic-version==2.5.0
 service-identity==24.2.0
 six==1.16.0
@@ -165,7 +164,6 @@ sqlparse==0.4.1
 starlette==0.13.6
 tensorboard==2.17.0
 tensorboard-data-server==0.7.2
-tensorflow==2.17.0
 tensorflow-io-gcs-filesystem==0.37.1
 termcolor==1.1.0
 text-unidecode==1.3
