@@ -53,6 +53,7 @@ ALLOWED_HOSTS = [
     'fat-owl-8.loca.lt',
     '3.122.72.107',
     '3.123.113.139',
+    '35.158.81.206',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
