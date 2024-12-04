@@ -487,6 +487,8 @@ function setupWebsocket() {
   socket.onmessage = function({ data }) {
     const event = JSON.parse(data);
     updateTasks(event.update_task_html);
+    updateTaskGroupTitle(event.update_task_group_title_html);
+    updateGameTitle(event.update_game_title_html);
   }
 }
 

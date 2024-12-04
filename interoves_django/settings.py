@@ -361,6 +361,7 @@ CORS_ORIGIN_WHITELIST = [
 
 LOGGING = {
     'version': 1,
+    'disable_existing_loggers': False,
     'handlers': {
         'stderr': {
             'level': 'INFO',
