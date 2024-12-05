@@ -1,7 +1,4 @@
 from django.shortcuts import render, get_object_or_404
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
-from games.views.track import track_channel_name
 from games.models import Attempt, TaskGroup, ImageManager, AudioManager
 
 
@@ -145,10 +142,14 @@ def render_game_title(game, request, team, current_mode):
     }).content.decode('UTF-8')
 
 
-def update_tasks_as_channel_event(request, task, team, current_mode, update_extra_tasks=None):
+def update_task_html(request, task, team, current_mode):
     game = task.task_group.game
-    if update_extra_tasks is None:
-        update_extra_tasks = []
+    
+    update_extra_tasks = list(task.task_group.tasks.filter(task_type='text_with_forms'))
+    for extra_task in task.task_group.tasks.all():
+        if "should_be_hidden_if_not_solved" in extra_task.tags:
+            update_extra_tasks.append(extra_task)
+
     update_html = {
         'update_task_html': {
             t.id: render_task(t, request, team, current_mode)
@@ -159,13 +160,4 @@ def update_tasks_as_channel_event(request, task, team, current_mode, update_extr
         },
         'update_game_title_html': render_game_title(game, request, team, current_mode),
     }
-    channel_event = {
-        'type': 'task.changed',
-        'task': task.id,
-        'changed_by': 'me'
-    }
-    channel_event.update(update_html)
-
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(track_channel_name(task.task_group.game.id, team.get_name_hash()), channel_event)
     return update_html

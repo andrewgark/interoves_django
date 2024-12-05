@@ -19,7 +19,8 @@ from games.forms import CreateTeamForm, JoinTeamForm, AttemptForm, TicketRequest
 from games.models import Team, Game, Attempt, AttemptsInfo, Task, TaskGroup, \
     Like, Hint, HintAttempt, ImageManager, AudioManager, Project
 from games.views.util import redirect_to_referer, has_profile, has_team
-from games.views.render_task import get_task_to_attempts_info, get_all_text_with_forms_to_html, update_tasks_as_channel_event
+from games.views.render_task import get_task_to_attempts_info, get_all_text_with_forms_to_html, update_task_html
+from games.views.track import track_task_change
 from interoves_django.settings import TELEGRAM_BOT_NAME
 
 
@@ -296,16 +297,12 @@ def process_send_attempt(request, task_id):
         if hint is not None:
             create_hint_attempt(hint, team)
 
-    update_extra_tasks = list(task.task_group.tasks.filter(task_type='text_with_forms'))
-    for extra_task in task.task_group.tasks.all():
-        if "should_be_hidden_if_not_solved" in extra_task.tags:
-            update_extra_tasks.append(extra_task)
-
     result = {
         'status': 'ok',
         'task_id': task.id,
     }
-    update_html = update_tasks_as_channel_event(request, task, team, current_mode, update_extra_tasks=update_extra_tasks)
+    update_html = update_task_html(request, task, team, current_mode)
+    track_task_change(task, team, current_mode, update_html=update_html, request=request)
     result.update(update_html)
     return result
 
@@ -365,7 +362,8 @@ def process_send_hint_attempt(request, task_id):
         'status': 'ok',
         'task_id': task.id,
     }
-    update_html = update_tasks_as_channel_event(request, task, team, current_mode)
+    update_html = update_task_html(request, task, team, current_mode)
+    track_task_change(task, team, current_mode, update_html=update_html, request=request)
     result.update(update_html)
     return result
 

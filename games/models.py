@@ -269,6 +269,11 @@ class Task(models.Model):
             task_group_number = self.task_group.number
         return '{}: {}.{}'.format(game_name, task_group_number, self.number)
 
+    def save(self, *args, **kwargs):
+        from games.views.track import track_task_change
+        track_task_change(self)
+        super(Task, self).save(*args, **kwargs)
+
     def get_checker(self):
         if self.checker:
             return self.checker
@@ -493,6 +498,11 @@ class Attempt(models.Model):
             self.time.strftime('%Y-%m-%d %H:%M:%S')
         )
 
+    def save(self, *args, **kwargs):
+        from games.views.track import track_task_change
+        track_task_change(self.task)
+        super(Attempt, self).save(*args, **kwargs)
+
     def get_answer(self):
         if self.task is None:
             return 'DELETED'
@@ -592,6 +602,11 @@ class Hint(models.Model):
     def __str__(self):
         return '{} - Подсказка #{} [-{}]'.format(self.task, self.number, self.points_penalty)
 
+    def save(self, *args, **kwargs):
+        from games.views.track import track_task_change
+        track_task_change(self.task)
+        super(Hint, self).save(*args, **kwargs)
+
 class HintAttempt(models.Model):
     id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
@@ -605,6 +620,11 @@ class HintAttempt(models.Model):
             self.team,
             self.hint
         )
+
+    def save(self, *args, **kwargs):
+        from games.views.track import track_task_change
+        track_task_change(self.hint.task)
+        super(HintAttempt, self).save(*args, **kwargs)
 
 
 class ImageManager(models.Manager):
