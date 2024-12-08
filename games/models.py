@@ -170,9 +170,6 @@ class Game(models.Model):
     results = models.TextField(null=True, blank=True)
     tags = models.JSONField(default=dict, null=True, blank=True)
 
-    def __str__(self):
-        return self.name
-
     def get_outside_name(self):
         if self.outside_name:
             return self.outside_name
@@ -182,6 +179,9 @@ class Game(models.Model):
         if self.no_html_name:
             return self.no_html_name
         return self.name
+
+    def __str__(self):
+        return self.get_no_html_name()
 
     def has_access(self, action, team=None, attempt=None, mode='general'):
         return get_game_access(game=self, action=action, team=team, attempt=attempt, mode=mode)
