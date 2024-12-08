@@ -7,18 +7,26 @@ import django
 # from channels.http import AsgiHandler
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
-from django.urls import re_path
+from django.urls import re_path, path
 from django.core.asgi import get_asgi_application
-from games.views.track import TrackGame
+from games.views.track.track_game import TrackGame
+from games.views.track.track_project import TrackProject
+from interoves_django.projects import PROJECTS
 
 
 django.setup()
 
+
+asgi_urls = [
+    re_path(r'^games/(?P<game_id>[a-zA-Z0-9_]+)/track/?$', TrackGame.as_asgi()),
+]
+for project in PROJECTS:
+    asgi_urls.append(path(f'{project}/', TrackProject.as_asgi()))
+
+
 application = ProtocolTypeRouter({
   "http":  django_asgi_app,
   "websocket": AuthMiddlewareStack(
-        URLRouter([
-            re_path(r'^games/(?P<game_id>[a-zA-Z0-9_]+)/track/?$', TrackGame.as_asgi()),
-        ])
+        URLRouter(asgi_urls)
     )
 })

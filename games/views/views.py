@@ -20,7 +20,7 @@ from games.models import Team, Game, Attempt, AttemptsInfo, Task, TaskGroup, \
     Like, Hint, HintAttempt, ImageManager, AudioManager, Project
 from games.views.util import redirect_to_referer, has_profile, has_team
 from games.views.render_task import get_task_to_attempts_info, get_all_text_with_forms_to_html, update_task_html
-from games.views.track import track_task_change
+from games.views.track.track_game import track_task_change
 from interoves_django.settings import TELEGRAM_BOT_NAME
 
 
@@ -302,7 +302,7 @@ def process_send_attempt(request, task_id):
         'task_id': task.id,
     }
     update_html = update_task_html(request, task, team, current_mode)
-    track_task_change(task, team, current_mode, update_html=update_html, request=request)
+    track_task_change(task=task, request=request, team=team, current_mode=current_mode, update_html=update_html)
     result.update(update_html)
     return result
 
@@ -363,7 +363,7 @@ def process_send_hint_attempt(request, task_id):
         'task_id': task.id,
     }
     update_html = update_task_html(request, task, team, current_mode)
-    track_task_change(task, team, current_mode, update_html=update_html, request=request)
+    track_task_change(task=task, request=request, team=team, current_mode=current_mode, update_html=update_html)
     result.update(update_html)
     return result
 

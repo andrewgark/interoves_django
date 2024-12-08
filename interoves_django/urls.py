@@ -27,17 +27,11 @@ from games.views.views import MainPageView, game_page, results_page, total_resul
 from games.views.meta_http import countries_task_100, capitals_task_100 
 from games.views.ticket import request_ticket, check_order
 from games.views.registration import register_to_game
+from interoves_django.projects import PROJECTS
 
 
 urlpatterns = [
     path('', MainPageView.as_view(project_name='main')),
-    path('main/', MainPageView.as_view(project_name='main')),
-    path('glowbyte/', MainPageView.as_view(project_name='glowbyte')),
-    path('tinkoff/', MainPageView.as_view(project_name='tinkoff')),
-    path('lksh/', MainPageView.as_view(project_name='lksh')),
-    path('tennet/', MainPageView.as_view(project_name='tennet')),
-    path('tinkoffgeneration/', MainPageView.as_view(project_name='tinkoffgeneration')),
-    path('umind/', MainPageView.as_view(project_name='umind')),
 
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
@@ -83,6 +77,11 @@ urlpatterns = [
 
     path('explorer/', include('explorer.urls')),
 ]
+
+for project in PROJECTS:
+    urlpatterns.append(
+        path(f'{project}/', MainPageView.as_view(project_name=project))
+    )
 
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
