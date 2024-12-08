@@ -8,7 +8,13 @@
       <p>{{ game.get_visible_start_time|date:'d E Y' }}<br>{{ game.get_visible_start_time|date:'H:i' }} - {{ game.get_visible_end_time|date:'H:i' }}</p>
       {% endif %}
       <img src="{{ game.image.url }}" class="game_icon">
-      <h3>{% if game.outside_name %}{{ game.outside_name }}{% else %}{{ game.name }}{% endif %}</h3>
+      <h3>{% if "html_in_title" in game.tags %}
+	          {% autoescape off %}
+	            {{ game.get_outside_name }}
+	          {% endautoescape %}
+          {% else %}
+            {{ game.get_outside_name }}
+          {% endif %}</h3>
       {% if game.theme %} <p>Тема: {{ game.theme }}</p> {% endif %}
       <p>Автор: {{ game.author }}</p>
       {% if game|access_play:team %}

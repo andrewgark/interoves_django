@@ -9,19 +9,11 @@
       {% endif %}
       <img src="{{ game.image.url }}" class="game_icon">
       <h3>{% if "html_in_title" in game.tags %}
-	    {% autoescape off %}
-	      {% if game.outside_name %}
-	        {{ game.outside_name }}
-	      {% else %}
-	        {{ game.name }}
-	      {% endif %}
-	    {% endautoescape %}
+	          {% autoescape off %}
+	            {{ game.get_outside_name }}
+	          {% endautoescape %}
           {% else %}
-	    {% if game.outside_name %}
-              {{ game.outside_name }}
-            {% else %}
-              {{ game.name }}
-            {% endif %}
+            {{ game.get_outside_name }}
           {% endif %}</h3>
       {% if game.theme %} <p>Тема: {{ game.theme }}</p> {% endif %}
       <p>Автор: {{ game.author }}</p>

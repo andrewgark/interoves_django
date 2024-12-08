@@ -5,7 +5,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Результаты: {% if game.outside_name %}{{ game.outside_name }}{% else %}{{ game.name }}{% endif %}</title>
+<title>Результаты: {{ game.get_no_html_name }}</title>
 <meta name="description" content="">
 <meta name="author" content="">
 
@@ -56,7 +56,13 @@
     <div class="container">
       <div class="row">
         <div class="col-md-8 col-md-offset-2 intro-text">
-          <h1>{% if game.outside_name %}{{ game.outside_name }}{% else %}{{ game.name }}{% endif %}</h1>
+          <h1>{% if "html_in_title" in game.tags %}
+	              {% autoescape off %}
+	                {{ game.get_outside_name }}
+	              {% endautoescape %}
+                  {% else %}
+                {{ game.get_outside_name }}
+              {% endif %}</h1>
           {% if game.theme %}<h3>Тема: {{ game.theme }}</h3>{% endif %}
           {% if game.author %}<h3>Автор: {{ game.author }}</h3>{% endif %}
       </div>

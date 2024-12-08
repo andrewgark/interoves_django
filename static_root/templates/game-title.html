@@ -5,7 +5,7 @@
 {% else %}
   {% if "html_in_title" in game.tags %}
     {% autoescape off %}
-      {{ game.tags }}
+      {{ game.name }}
     {% endautoescape %}
   {% else %}
     {{ game.name }}

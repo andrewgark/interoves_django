@@ -5,7 +5,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% if game.outside_name %}{{ game.outside_name }}{% else %}{{ game.name }}{% endif %}</title>
+<title>{{ game.get_no_html_name }}</title>
 <meta name="description" content="">
 <meta name="author" content="">
 

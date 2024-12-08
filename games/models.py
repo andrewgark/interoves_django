@@ -118,6 +118,7 @@ class Game(models.Model):
     id = models.CharField(primary_key=True, max_length=100)
     name = models.TextField()
     outside_name = models.TextField(null=True, blank=True)
+    no_html_name = models.TextField(null=True, blank=True)
     image = models.ImageField(null=True, blank=True)
     theme = models.CharField(max_length=100, null=True, blank=True)
     author = models.CharField(max_length=100)
@@ -170,6 +171,16 @@ class Game(models.Model):
     tags = models.JSONField(default=dict, null=True, blank=True)
 
     def __str__(self):
+        return self.name
+
+    def get_outside_name(self):
+        if self.outside_name:
+            return self.outside_name
+        return self.name
+
+    def get_no_html_name(self):
+        if self.no_html_name:
+            return self.no_html_name
         return self.name
 
     def has_access(self, action, team=None, attempt=None, mode='general'):
