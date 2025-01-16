@@ -499,7 +499,7 @@ class Attempt(models.Model):
         )
 
     def save(self, *args, **kwargs):
-        from games.views.track import track_task_change
+        from games.views.track.track_game import track_task_change
         track_task_change(self.task)
         super(Attempt, self).save(*args, **kwargs)
 

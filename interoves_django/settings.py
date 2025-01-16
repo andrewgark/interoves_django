@@ -400,3 +400,11 @@ CELERY_RESULT_BACKEND = 'djcelery.backends.database:DatabaseBackend'
 CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 3000
+
+ENABLE_CHANNEL_GROUPS = {
+    'game': os.environ.get('ENABLE_CG_GAME', 'True').lower() == 'true',
+    'game_team': os.environ.get('ENABLE_CG_GAME_TEAM', 'True').lower() == 'true',
+    'project': os.environ.get('ENABLE_CG_PROJECT', 'True').lower() == 'true',
+    'game_results': os.environ.get('ENABLE_CG_GAME_RESULTS', 'True').lower() == 'true',
+    'total_results': os.environ.get('ENABLE_CG_TOTAL_RESULTS', 'True').lower() == 'true',
+}
