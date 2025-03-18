@@ -36,7 +36,7 @@ class Project(models.Model):
 class Team(models.Model):
     name = models.CharField(max_length=100, primary_key=True)
     visible_name = models.TextField(blank=True, null=True)
-    name_hash = models.CharField(max_length=256, null=True)
+    name_hash = models.CharField(max_length=256, editable=False, null=True)
     is_tester = models.BooleanField(default=False)
     is_hidden = models.BooleanField(default=False)
 
@@ -46,7 +46,7 @@ class Team(models.Model):
     )
 
     tickets = models.IntegerField(default=0)
-    ticket_price = models.IntegerField(default=1000)
+    ticket_price = models.IntegerField(default=2000)
 
     referer = models.ForeignKey('Team', related_name='referents', blank=True, null=True, on_delete=models.SET_NULL)
 
@@ -55,7 +55,6 @@ class Team(models.Model):
         self.name_hash = hashlib.sha512((self.name + 'salt').encode()).hexdigest()[:50]
 
     def get_name_hash(self):
-        # if self.name_hash is None:
         self.save_name_hash()
         return str(self.name_hash)
 
