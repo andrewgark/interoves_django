@@ -405,7 +405,7 @@ class WallChecker(BaseChecker):
             self.last_attempt_state = json.loads(last_attempt_state)
         for answer in self.data['answers']:
             answer['words'] = sorted([clean_text(x) for x in answer['words']])
-            answer['checker'] = NormMatcherChecker(answer['checker'])
+            answer['checker'] = EqualsWithPossibleSpacesChecker(answer['checker'])
 
     def get_result(self, state):
         max_points = (self.data['points_words'] + self.data['points_explanation']) * len(self.data['answers'])
