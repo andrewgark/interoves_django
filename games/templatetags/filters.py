@@ -7,6 +7,12 @@ from games.models import Like, Attempt, Team, Task, Registration
 from games.util import clean_text, better_status
 
 
+@register.simple_tag
+def current_year():
+    """Returns the current year as an integer."""
+    return timezone.now().year
+
+
 @register.filter(name='one_more')
 def one_more(_1, _2):
     return _1, _2
