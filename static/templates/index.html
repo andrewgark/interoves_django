@@ -77,8 +77,28 @@
       <h2>Игры</h2>
     </div>
   </div>
-  <div class="container">
-    {% include "games.html" %}
+  <div class="games-container">
+    <div class="games-grid" id="gamesGrid" data-total-games="{{ total_games }}" data-games-per-page="{{ games_per_page }}">
+      {% include "games_grid.html" %}
+    </div>
+    
+    <!-- Smart Scrollbar -->
+    <div class="smart-scrollbar-container">
+      <div class="smart-scrollbar" id="smartScrollbar">
+        <div class="smart-scrollbar-track" id="scrollbarTrack">
+          <div class="smart-scrollbar-thumb" id="scrollbarThumb"></div>
+        </div>
+      </div>
+      <div class="scrollbar-info" id="scrollbarInfo">
+        Показано {{ games|length }} из {{ total_games }} игр
+      </div>
+    </div>
+    
+    <!-- Loading Indicator -->
+    <div class="loading-indicator" id="loadingIndicator" style="display: none;">
+      <div class="spinner"></div>
+      <span>Загрузка игр...</span>
+    </div>
   </div>
 </div>
 {% include "popup-game.html" %}
@@ -91,42 +111,6 @@
 </div>
 {% include "footer.html" %}
 {% include "scripts.html" %}
-<script type="text/javascript" src="{% static "js/slick.min.js" %}"></script>
-<script type="text/javascript" src="//cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
-
-<script type="text/javascript">
-  $(document).ready(function(){
-    $('.games-slick').slick({
-      speed: 300,
-      slidesToShow: 4,
-      slidesToScroll: 4,
-      infinite: false,
-      responsive: [
-        {
-          breakpoint: 1024,
-          settings: {
-            slidesToShow: 3,
-            slidesToScroll: 3,
-          }
-        },
-        {
-          breakpoint: 600,
-          settings: {
-            slidesToShow: 2,
-            slidesToScroll: 2
-          }
-        },
-        {
-          breakpoint: 480,
-          settings: {
-            slidesToShow: 1,
-            slidesToScroll: 1
-          }
-        }
-      ]
-    });
-  });
-</script>
 
 </body>
 </html>

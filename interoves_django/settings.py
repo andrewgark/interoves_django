@@ -269,9 +269,13 @@ if USE_S3:
     STORAGES['default']['BACKEND'] = 'games.storage_backends.PublicMediaStorage'
 else:
     STATIC_URL = '/static/'
-    STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
     MEDIA_URL = '/media/'
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
+
+STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, 'static'),
+)
 
 STATICFILES_FINDERS = (
     'django.contrib.staticfiles.finders.FileSystemFinder',
@@ -298,6 +302,14 @@ else:
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
+SOCIALACCOUNT_LOGIN_ON_GET = True
+
+# allauth account settings to enable seamless social auto-signup
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+
 SOCIALACCOUNT_PROVIDERS = {
     'vk': {
         'SCOPE': [
@@ -305,6 +317,7 @@ SOCIALACCOUNT_PROVIDERS = {
         ],
         'AUTH_PARAMS': {
             'access_type': 'online',
+            'display': 'popup',
         }
     },
     'interoves-telegram': {
