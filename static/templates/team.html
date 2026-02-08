@@ -57,7 +57,7 @@
             <p>В этой команде никого нет, поэтому никто не сможет подтвердить вашу заявку.</p>
           {% endif %}
           <br>
-          <p>Заявки на принятие подали:</p>
+          <p>Заявки подали:</p>
           <ul class="list-rectangle team-requested-list">
             {% for user_requested in user.profile.team_requested.users_requested.all %}
               <li>{{ user_requested }}</li>

@@ -40,16 +40,16 @@
         {% if game.requires_ticket %}
           {% if team.tickets > 0 %}
             <div class="game-actions-row">
-              <a href="/register/{{ game.id }}?next={{ request.path }}" class="btn btn-warning btn-sm">Зарегистрироваться (билет)</a>
+              <a href="/register/{{ game.id }}?next={{ request.path }}" class="btn btn-warning btn-sm">Зарегистрироваться (-1 билет)</a>
             </div>
           {% else %}
             <div class="game-actions-row">
-              <a href="/tickets" class="btn btn-info btn-sm">Приобрести билет</a>
+              <a href="/tickets" class="btn btn-warning btn-sm">Приобрести билет</a>
             </div>
           {% endif %}
           {% for referent in game|get_available_referents:team %}
             <div class="game-actions-row">
-              <a href="/register/{{ game.id }}?with_referent={{ referent.name }}&next={{ request.path }}" class="btn btn-warning btn-sm">С приглашением "{{ referent.visible_name }}"</a>
+              <a href="/register/{{ game.id }}?with_referent={{ referent.name }}&next={{ request.path }}" class="btn btn-warning btn-sm">Зарегистрироваться, используя приглашение команды "{{ referent.visible_name }}"</a>
             </div>
           {% endfor %}
         {% else %}
