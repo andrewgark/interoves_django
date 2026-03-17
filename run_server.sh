@@ -1,6 +1,6 @@
-source ../virt3/bin/activate
+# Use Python from venv (no activation needed)
+PYTHON="../venv/interoves_django/bin/python3"
 sudo ntpdate ntp.ubuntu.com
-python3 manage.py makemigrations games 
-python3 manage.py migrate
-# python3 manage.py collectstatic --no-input 
-python3 manage.py runserver
+"$PYTHON" manage.py makemigrations games
+"$PYTHON" manage.py migrate
+"$PYTHON" manage.py runserver

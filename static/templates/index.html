@@ -48,7 +48,7 @@
 </nav>
 <!-- Header -->
 <header id="header">
-  <div class="intro intro-main" style="background: url('{{ project.background.url }}') center center no-repeat">
+  <div class="intro intro-main"{% if project.background %} style="background: url('{{ project.background.url }}') center center no-repeat; background-size: cover;"{% endif %}>
     <div class="overlay">
       <div class="container">
         <div class="row">

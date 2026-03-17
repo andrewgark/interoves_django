@@ -1,7 +1,7 @@
-import pymorphy2
+import pymorphy3
 
 
-MORPH_ANALYZER = pymorphy2.MorphAnalyzer()
+MORPH_ANALYZER = pymorphy3.MorphAnalyzer()
 
 
 def get_norm_form(word):

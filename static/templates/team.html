@@ -1,4 +1,5 @@
 {% load socialaccount %}
+{% load filters %}
 {% load inlineedit %}
 <div class="row">
   {% if user.is_authenticated %}
@@ -105,17 +106,19 @@
       <div class="section-title">
         <h2>Участвовать</h2>
         {% if project.id != 'glowbyte' %}
-          <p>Чтобы поучаствовать в игре, авторизуйтесь через VK или Google.</p>
+          <p>Чтобы поучаствовать в игре, авторизуйтесь{% if 'vk'|social_app_configured %} через VK или{% endif %} через Google.</p>
         {% else %}
           <p>Чтобы поучаствовать в игре, авторизуйтесь через Google с помощью рабочей почты "...@glowbyteconsulting.com".</p>
         {% endif %}
       </div>
     </div>
     <div class="col-md-2 col-md-offset-3">
-      {% if project.id != 'glowbyte' %}
+      {% if project.id != 'glowbyte' and 'vk'|social_app_configured %}
         <a href="{% provider_login_url 'vk' next=request.path %}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Войти через VK</a>
       {% endif %}
+      {% if 'google'|social_app_configured %}
         <a href="{% provider_login_url 'google' process='login' next=request.path %}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Войти через Google</a>
+      {% endif %}
       {% include "privacy-policy.html" %}<br>
       {% include "terms-of-use-link.html" %}
     </div>

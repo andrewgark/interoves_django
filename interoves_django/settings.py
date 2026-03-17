@@ -97,9 +97,9 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'allauth.socialaccount.providers.vk',
     'allauth.socialaccount.providers.google',
-    'games.telegram',
+    # 'games.telegram',
 
-    'django_telegram_login',
+    # 'django_telegram_login',
 
     'health_check',
     'health_check.db',
@@ -320,12 +320,12 @@ SOCIALACCOUNT_PROVIDERS = {
             'display': 'popup',
         }
     },
-    'interoves-telegram': {
-        'TOKEN': load_secret('telegram_token.txt'),
-        'domain': 'https://fat-owl-8.loca.lt/',
-        'size': 'small',
-        'request_access': 'write'
-    },
+    # 'interoves-telegram': {
+    #     'TOKEN': load_secret('telegram_token.txt'),
+    #     'domain': 'https://fat-owl-8.loca.lt/',
+    #     'size': 'small',
+    #     'request_access': 'write'
+    # },
     'google': {
         'SCOPE': [
             'profile',
@@ -337,9 +337,9 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
-TELEGRAM_BOT_NAME = 'interoves_bot'
-TELEGRAM_BOT_TOKEN = load_secret('telegram_token.txt')
-TELEGRAM_LOGIN_REDIRECT_URL = 'fat-owl-8.loca.lt'
+# TELEGRAM_BOT_NAME = 'interoves_bot'
+# TELEGRAM_BOT_TOKEN = load_secret('telegram_token.txt')
+# TELEGRAM_LOGIN_REDIRECT_URL = 'fat-owl-8.loca.lt'
 
 ACCOUNT_ADAPTER = 'games.users.allauth.AccountAdapter'
 SOCIALACCOUNT_ADAPTER = "games.users.allauth.SocialAccountAdapter"

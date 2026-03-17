@@ -3,12 +3,12 @@ from django.views import View
 from django.utils import timezone
 from django.http import JsonResponse
 from django.core.paginator import Paginator
-from django_telegram_login.widgets.constants import SMALL
-from django_telegram_login.widgets.generator import create_redirect_login_widget
+# from django_telegram_login.widgets.constants import SMALL
+# from django_telegram_login.widgets.generator import create_redirect_login_widget
 from games.forms import CreateTeamForm, JoinTeamForm, TicketRequestForm
 from games.models import Game, Project
 from games.views.util import has_profile, has_team
-from interoves_django.settings import TELEGRAM_BOT_NAME
+# from interoves_django.settings import TELEGRAM_BOT_NAME
 
 
 class MainPageView(View):
@@ -48,9 +48,9 @@ class MainPageView(View):
             'games_per_page': self.games_per_page,
             'today': timezone.now(),
             'project': project,
-            'telegram_login_widget': create_redirect_login_widget(
-                project.get_url(), TELEGRAM_BOT_NAME, size=SMALL, user_photo=True
-            )
+#            'telegram_login_widget': create_redirect_login_widget(
+#                project.get_url(), TELEGRAM_BOT_NAME, size=SMALL, user_photo=True
+#            )
         })
 
     def get_games_ajax(self, request):
