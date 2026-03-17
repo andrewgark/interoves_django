@@ -1,6 +1,6 @@
 {% if tile.text|wall_tile_has_image %}
   {% with tile_image=tile.text|get_wall_tile_image:image_manager %}
-    <img src="{{ tile_image.image.url }}" class="wall-tile-image" style="max-height:{{ task.get_wall.image_height }}">
+    <img src="{{ tile_image.image.url }}" class="wall-tile-image">
   {% endwith %}
 {% elif tile.text|wall_tile_has_audio %}
   {% with tile_audio=tile.text|get_wall_tile_audio:audio_manager %}

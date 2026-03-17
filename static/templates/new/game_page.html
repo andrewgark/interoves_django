@@ -1,0 +1,251 @@
+{% extends "new/base.html" %}
+{% load tz filters %}
+
+{% block title %}{{ page_title|default:game.get_outside_name|default:game.outside_name|default:game.name }}{% endblock %}
+
+{% block extrahead %}
+  {% if show_palindrome_rules %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <div class="new-ui new-ui--section">
+    <p style="margin:0 0 0.75rem">
+      <a href="{{ back_url|default:'/new/' }}" class="new-btn new-btn--ghost">← Игры</a>
+    </p>
+
+    {% if is_main_game %}
+      <div class="new-section-header">
+        {% if game.image %}
+          <div class="new-section-header__logo"><img src="{{ game.image.url }}" alt="" /></div>
+        {% endif %}
+        <div class="new-section-header__meta">
+          <div class="new-section-header__title">{{ game.get_outside_name|default:game.outside_name|default:game.name }}</div>
+          <div class="new-section-header__sub">
+            <span class="new-pill">
+              {% timezone user_timezone %}
+                {{ game.get_visible_start_time|date:'d E Y' }}<br>
+                {{ game.get_visible_start_time|date:'H:i' }} – {{ game.get_visible_end_time|date:'H:i' }}
+              {% endtimezone %}
+            </span>
+            {% if current_mode %}
+              {% if current_mode == 'tournament' %}
+                <span class="new-pill" title="Турнирный режим: важны ограничения по времени и попыткам; ответы учитываются в турнирной таблице.">Турнирный</span>
+              {% else %}
+                <span class="new-pill" title="Общий режим: обычная игра без турнирной специфики.">Общий</span>
+              {% endif %}
+            {% endif %}
+            {% if game.theme %}<span class="new-pill">{{ game.theme }}</span>{% endif %}
+            {% if game.author %}<span class="new-pill">Автор: {{ game.author }}</span>{% endif %}
+          </div>
+          <div class="new-section-header__sub" style="margin-top:0.5rem">
+            {% if game.game_url and game|access_read_googledoc:team %}
+              <a href="{{ game.game_url }}" class="new-btn new-btn--ghost new-btn--mini">Условия</a>
+            {% endif %}
+            {% if game.answers_url and game|access_see_answer:team %}
+              <a href="{{ game.answers_url }}" class="new-btn new-btn--ghost new-btn--mini">Ответы</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {% if actor_value %}
+        <div class="new-card" style="margin-top:0.6rem">
+          <div class="new-card__text" style="margin:0">
+            <span class="new-pill" style="margin-right:0.35rem">Вы:</span>
+            {% if play_mode == 'team' %}
+              <strong>{{ actor_value }}</strong>
+            {% else %}
+              <strong style="color:#b61f1f">{{ actor_value }}</strong>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
+      {% if play_mode != 'team' %}
+        <div class="new-card new-card--warn">
+          <div class="new-card__title">Вы точно хотите играть лично, а не в команде?</div>
+          <div class="new-card__text">
+            В личном режиме решения и подсказки не будут общими для команды.
+            Если вы хотели играть в команде — переключите режим в меню сверху (👥/👤).
+          </div>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="new-section-header">
+        <h1 class="new-heading" style="margin:0">{{ game.get_outside_name|default:game.outside_name|default:game.name }}</h1>
+        <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle>
+          <i class="fa fa-eye" aria-hidden="true"></i>
+        </button>
+        {% if show_palindrome_rules or game.theme %}
+          <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open>?</button>
+        {% endif %}
+      </div>
+      {% if game.theme and not show_palindrome_rules %}
+        <p class="new-login-hint" style="margin-top:0">{{ game.theme }}</p>
+      {% endif %}
+
+      {% if show_palindrome_rules %}
+        {# same modal as before #}
+        <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+          <div class="new-rules-overlay" data-rules-close></div>
+          <div class="new-rules-modal__box pal-card">
+            <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
+            <p class="pal-kicker">Палиндромы</p>
+            <h2 id="rules-modal-title" class="pal-title">почти палиндром</h2>
+            <p class="pal-lead">
+              Перед вами почти палиндром: фразу испортили подбором синонимов.
+              Ваша цель — восстановить настоящий палиндром.
+            </p>
+            <div class="pal-example-box">
+              <h3 class="pal-example-title">пример</h3>
+              <div class="pal-example-grid">
+                <div class="pal-example-item">
+                  <div class="pal-label">в задании (подсказка)</div>
+                  <div class="pal-text">Правитель Афродите не мешал</div>
+                </div>
+                <div class="pal-example-item">
+                  <div class="pal-label">правильная фраза-палиндром</div>
+                  <div class="pal-text">Лидер Венере не вредил</div>
+                </div>
+              </div>
+              <p class="pal-note">
+                Слова заменены по смыслу
+                (<em>правитель → лидер</em>, <em>Афродита → Венера</em>),
+                а сама фраза читается зеркально по буквам.
+              </p>
+            </div>
+            <div class="pal-rules">
+              <div class="pal-rule">
+                <div class="pal-rule-number">1</div>
+                <div class="pal-rule-text">
+                  Настоящая фраза — <strong>палиндром по буквам</strong>:
+                  если убрать пробелы, она читается одинаково слева направо и справа налево.
+                </div>
+              </div>
+              <div class="pal-rule">
+                <div class="pal-rule-number">2</div>
+                <div class="pal-rule-text">
+                  В задании <strong>каждое слово заменено</strong> на другое, близкое по смыслу.
+                  <strong>Порядок слов</strong> в исходной фразе при этом не менялся.
+                </div>
+              </div>
+              <div class="pal-rule">
+                <div class="pal-rule-number">3</div>
+                <div class="pal-rule-text">
+                  Не обязательно менять все слова:
+                  иногда уместно <strong>оставить предлог или короткое слово как есть</strong>.
+                </div>
+              </div>
+              <div class="pal-rule">
+                <div class="pal-rule-number">4</div>
+                <div class="pal-rule-text">
+                  Можно использовать <strong>однокоренные слова</strong>.
+                  Ответ <strong>с запятыми или без</strong> — оба варианта обычно принимаются.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% elif game.theme %}
+        <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+          <div class="new-rules-overlay" data-rules-close></div>
+          <div class="new-rules-modal__box pal-card">
+            <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
+            <h2 id="rules-modal-title" class="pal-title">{{ game.get_outside_name|default:game.name }}</h2>
+            <p class="pal-lead">{{ game.theme }}</p>
+          </div>
+        </div>
+      {% endif %}
+    {% endif %}
+
+    {% include "new/_task_group_rows.html" with heading=task_groups_heading empty_text=task_groups_empty_text %}
+
+    {% if is_main_game %}
+      <h2 class="new-heading" style="margin-top:1.75rem">Результаты</h2>
+      <div class="new-card" style="margin-top:0.75rem">
+        <div class="new-card__text" style="margin:0">
+          {% if game|access_see_tournament_results:team %}
+            <a href="{% url 'new_tournament_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Турнирные результаты</a>
+          {% endif %}
+          {% if game|access_see_results:team %}
+            <a href="{% url 'new_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Общие результаты</a>
+          {% endif %}
+          {% if game.standings_url %}
+            <a href="{{ game.standings_url }}" class="new-btn new-btn--ghost new-btn--mini">Результаты</a>
+          {% endif %}
+          {% if not game.standings_url and not game|access_see_tournament_results:team and not game|access_see_results:team %}
+            <span class="new-login-hint" style="margin:0">Пока нет доступных результатов.</span>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  {% if not is_main_game %}
+    {% if show_palindrome_rules or game.theme %}
+      <script>
+      (function () {
+        var modal = document.getElementById('rules-modal');
+        var storageKey = 'section_rules_seen_{{ game.id|escapejs }}';
+        function openRules() {
+          if (!modal) return;
+          modal.removeAttribute('hidden');
+          modal.classList.add('is-open');
+          document.body.style.overflow = 'hidden';
+        }
+        function closeRules() {
+          if (!modal) return;
+          modal.setAttribute('hidden', '');
+          modal.classList.remove('is-open');
+          document.body.style.overflow = '';
+          try { localStorage.setItem(storageKey, '1'); } catch (e) {}
+        }
+        document.querySelectorAll('[data-rules-open]').forEach(function (btn) {
+          btn.addEventListener('click', openRules);
+        });
+        document.querySelectorAll('[data-rules-close]').forEach(function (el) {
+          el.addEventListener('click', closeRules);
+        });
+        if (modal) {
+          modal.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeRules();
+          });
+        }
+        try {
+          if (!localStorage.getItem(storageKey)) openRules();
+        } catch (e) {}
+      })();
+      </script>
+    {% endif %}
+
+    <script>
+    (function () {
+      var HIDE_KEY = 'new_hide_solved';
+      function applyHideSolved() {
+        var hide = false;
+        try { hide = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) {}
+        document.querySelectorAll('.new-task[data-fully-solved=\"1\"]').forEach(function (el) {
+          el.classList.toggle('is-hidden', hide);
+        });
+        var btn = document.querySelector('[data-hide-solved-toggle]');
+        if (btn) btn.innerHTML = hide ? '<i class="fa fa-eye-slash" aria-hidden="true"></i>' : '<i class="fa fa-eye" aria-hidden="true"></i>';
+      }
+      document.querySelectorAll('[data-hide-solved-toggle]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          try {
+            var cur = localStorage.getItem(HIDE_KEY) === '1';
+            localStorage.setItem(HIDE_KEY, cur ? '0' : '1');
+          } catch (e) {}
+          applyHideSolved();
+        });
+      });
+      applyHideSolved();
+    })();
+    </script>
+  {% endif %}
+{% endblock %}
+

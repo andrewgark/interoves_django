@@ -1,0 +1,421 @@
+{% extends "new/base.html" %}
+{% load filters %}
+{% block title %}Команда{% endblock %}
+{% block content %}
+<h1 class="new-heading" style="margin-top:0">Команда</h1>
+{% if user.is_authenticated %}
+  {% if user.profile.team_on %}
+  <div class="new-team-block">
+    <h2>Вы в команде: <strong>{{ user.profile.team_on }}</strong></h2>
+    <p style="margin:0.5rem 0 0.75rem">
+      <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-rename-open>Изменить название</button>
+    </p>
+    <form action="{% url 'new_team_rename' %}" method="post" class="new-form" data-team-rename-form hidden>
+      {% csrf_token %}
+      <label for="new-team-visible-name">Название команды</label>
+      <input id="new-team-visible-name" type="text" name="visible_name" value="{{ user.profile.team_on.visible_name|default:user.profile.team_on.name }}">
+      <button type="submit" class="new-btn new-btn--mini">Сохранить</button>
+    </form>
+    {% if project.is_main %}
+      {% if user.profile.team_on.ticket_requests.all %}
+      <details style="margin:1rem 0">
+        <summary style="cursor:pointer;color:var(--muted)">История запросов билетов</summary>
+        <ul class="new-list">
+        {% for ticket_request in user.profile.team_on|sorted_ticket_requests %}
+          <li>{{ ticket_request }}</li>
+        {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+      <p>Билеты: {{ user.profile.team_on.tickets }}</p>
+      <p><a href="/tickets/">Приобрести билеты</a></p>
+    {% endif %}
+    <p><strong>Состав:</strong></p>
+    <ul class="new-list">
+      {% for team_member in user.profile.team_on.users_on.all %}
+      <li>
+        👤 {{ team_member }}
+        {% if user != team_member %}
+        <a class="new-mini" href="/kick_out_user/{{ team_member.user.id }}/" data-confirm-kick>Исключить</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% if user.profile.team_on.users_requested.all %}
+    <p><strong>Заявки:</strong></p>
+    <ul class="new-list">
+      {% for user_requested in user.profile.team_on.users_requested.all %}
+      <li>
+        {{ user_requested }}
+        {% if user != user_requested %}
+        <a class="new-mini" href="/confirm_user_joining_team/{{ user_requested.user.id }}/">Принять</a>
+        <a class="new-mini" href="/reject_user_joining_team/{{ user_requested.user.id }}/">Отклонить</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <form action="{% url 'quit_from_team' %}" method="post" style="margin-top:1rem" data-confirm-quit>
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ new_team_url }}">
+      <button type="submit" class="new-btn new-btn--danger">Выйти из команды</button>
+    </form>
+
+    <details style="margin-top:1.25rem">
+      <summary style="cursor:pointer;color:var(--muted)">Пароль команды</summary>
+      <div class="new-card" style="margin-top:0.75rem">
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center">
+          <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-pass-reveal>Показать</button>
+          <input type="text" class="new-team-pass" value="" placeholder="пароль" style="flex:1 1 12rem" disabled>
+          <button type="button" class="new-btn new-btn--mini" data-team-pass-save disabled>Сохранить</button>
+        </div>
+        <p class="new-login-hint" style="margin:0.75rem 0 0">Этот пароль позволяет вступить в команду напрямую.</p>
+      </div>
+    </details>
+  </div>
+  {% elif user.profile.team_requested %}
+  <div class="new-team-block">
+    <h2>Заявка в команду: {{ user.profile.team_requested }}</h2>
+    {% if user.profile.team_requested.users_on.all %}
+    <ul class="new-list">
+      {% for team_member in user.profile.team_requested.users_on.all %}
+      <li>{{ team_member }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="new-login-hint">В команде пока никого нет — заявку не подтвердят.</p>
+    {% endif %}
+    <form action="{% url 'quit_from_team' %}" method="post">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ new_team_url }}">
+      <button type="submit" class="new-btn new-btn--ghost">Отменить заявку</button>
+    </form>
+  </div>
+  {% else %}
+  <div class="new-team-switch">
+    <button type="button" class="new-switchbtn is-active" data-team-tab="create">Создать новую команду</button>
+    <button type="button" class="new-switchbtn" data-team-tab="join">Присоединиться к существующей</button>
+  </div>
+
+  <div class="new-team-panels">
+    <div class="new-team-block" data-team-panel="create">
+      <h2>Создать новую команду</h2>
+      <form action="{% url 'new_team_create' %}" method="post" class="new-form" id="new-create-team-form">
+        {% csrf_token %}
+        <label for="new-team-create-name">Название</label>
+        <div class="new-inline-check">
+          <input id="new-team-create-name" name="name" type="text" autocomplete="off" placeholder="Название команды">
+          <span class="new-checkmark" data-create-name-status style="display:none"></span>
+        </div>
+        <div class="new-login-hint" style="margin-top:0.35rem" data-create-name-hint></div>
+
+        <div class="new-create-actions">
+          <button type="button" class="new-link-muted" data-referer-toggle>Хочу указать команду-реферера</button>
+          <button type="submit" class="new-btn" disabled data-create-submit>Создать</button>
+        </div>
+        <div class="new-referer" hidden>
+          <label for="new-team-referer">Команда-реферер</label>
+          <input id="new-team-referer" type="text" name="referer" list="new-team-referers" placeholder="Выберите (необязательно)">
+          <datalist id="new-team-referers">
+            {% for t in teams %}<option value="{{ t.name }}">{{ t.visible_name }}</option>{% endfor %}
+          </datalist>
+        </div>
+      </form>
+    </div>
+
+    <div class="new-team-block" data-team-panel="join" hidden>
+      <h2>Присоединиться к существующей</h2>
+      <form action="{% url 'new_team_request_join' %}" method="post" class="new-form" id="new-join-team-form">
+        {% csrf_token %}
+        <label for="new-team-join-name">Команда</label>
+        <input id="new-team-join-name" type="text" name="name" list="new-team-list" placeholder="Начните вводить название команды" autocomplete="off">
+        <datalist id="new-team-list">
+          {% for t in teams %}<option value="{{ t.name }}">{{ t.visible_name }}</option>{% endfor %}
+        </datalist>
+        <div class="new-login-hint" style="margin-top:0.35rem" data-join-info></div>
+        <button type="submit" class="new-btn new-btn--ghost" disabled data-join-request>Подать заявку</button>
+        <div class="new-join-actions">
+          <button type="button" class="new-link-muted" data-know-password>Я знаю пароль</button>
+        </div>
+        <div class="new-join-pass" hidden>
+          <label for="new-team-join-pass">Пароль</label>
+          <input id="new-team-join-pass" name="password" type="text" placeholder="Введите пароль">
+          <button type="submit" formaction="{% url 'new_team_join_by_password' %}" class="new-btn" disabled data-join-by-pass>Вступить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+{% else %}
+  <p class="new-login-hint">Войдите, чтобы управлять командой.</p>
+{% endif %}
+<p style="margin-top:2rem"><a href="{% url 'new_hub' %}" class="new-btn new-btn--ghost">← Игры</a></p>
+
+<div id="new-confirm-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-confirm-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-confirm-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-confirm-close>×</button>
+    <h2 id="new-confirm-title" class="pal-title">Вы уверены?</h2>
+    {% if user.is_authenticated and user.profile and user.profile.team_on and user.profile.team_on.users_on.all|length == 1 %}
+      <p class="new-login-hint" style="margin-top:0;color:#c94a4a;font-weight:700">
+        В команде больше никого нет. Если вы выйдете, в команде никого не останется.
+      </p>
+    {% endif %}
+    <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1rem">
+      <button type="button" class="new-btn new-btn--danger" data-confirm-yes>Да</button>
+      <button type="button" class="new-btn new-btn--ghost" data-confirm-close>Нет</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  function qs(sel) { return document.querySelector(sel); }
+  function setHidden(el, hidden) { if (!el) return; el.hidden = hidden; }
+  var csrfEl = document.querySelector('input[name=csrfmiddlewaretoken]');
+  function csrf() { return csrfEl ? csrfEl.value : ''; }
+
+  // Create: name availability
+  var createName = qs('#new-team-create-name');
+  var createHint = document.querySelector('[data-create-name-hint]');
+  var createStatus = document.querySelector('[data-create-name-status]');
+  var createSubmit = document.querySelector('[data-create-submit]');
+  var createTimer = null;
+  function updateCreateUI(available) {
+    if (!createStatus) return;
+    createStatus.style.display = 'inline-flex';
+    createStatus.textContent = available ? '✓' : '×';
+    createStatus.classList.toggle('ok', !!available);
+    createStatus.classList.toggle('bad', !available);
+    if (createSubmit) createSubmit.disabled = !available;
+  }
+  function checkCreateName() {
+    var name = (createName && createName.value || '').trim();
+    if (!name) {
+      if (createHint) createHint.textContent = '';
+      if (createStatus) { createStatus.textContent = ''; createStatus.style.display = 'none'; }
+      if (createSubmit) createSubmit.disabled = true;
+      return;
+    }
+    fetch("{% url 'new_team_name_check' %}?name=" + encodeURIComponent(name), { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.ok) return;
+        updateCreateUI(!!data.available);
+        if (createHint) createHint.textContent = data.available ? 'Название свободно' : 'Такое название уже занято';
+      })
+      .catch(function () {});
+  }
+  if (createName) {
+    createName.addEventListener('input', function () {
+      if (createTimer) clearTimeout(createTimer);
+      createTimer = setTimeout(checkCreateName, 250);
+    });
+  }
+
+  // Create: referer toggle
+  var refToggle = document.querySelector('[data-referer-toggle]');
+  var refBox = document.querySelector('.new-referer');
+  if (refToggle && refBox) {
+    refToggle.addEventListener('click', function () {
+      refBox.hidden = !refBox.hidden;
+    });
+  }
+
+  // Join: team info
+  var joinName = qs('#new-team-join-name');
+  var joinInfo = document.querySelector('[data-join-info]');
+  var joinReq = document.querySelector('[data-join-request]');
+  var joinPassBox = document.querySelector('.new-join-pass');
+  var joinPassToggle = document.querySelector('[data-know-password]');
+  var joinPassInput = qs('#new-team-join-pass');
+  var joinByPassBtn = document.querySelector('[data-join-by-pass]');
+  var joinTimer = null;
+  var joinForm = document.getElementById('new-join-team-form');
+  function updateJoinButtons(exists) {
+    if (joinReq) joinReq.disabled = !exists;
+    if (joinByPassBtn) joinByPassBtn.disabled = !(exists && (joinPassInput && joinPassInput.value || '').trim());
+  }
+  function checkJoinTeam() {
+    var name = (joinName && joinName.value || '').trim();
+    if (!name) {
+      if (joinInfo) joinInfo.textContent = '';
+      updateJoinButtons(false);
+      return;
+    }
+    fetch("{% url 'new_team_info' %}?name=" + encodeURIComponent(name), { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.ok || !data.exists) {
+          if (joinInfo) joinInfo.textContent = 'Команда не найдена';
+          updateJoinButtons(false);
+          return;
+        }
+        if (joinInfo) joinInfo.textContent = 'Сейчас в команде: ' + data.n_users;
+        updateJoinButtons(true);
+      })
+      .catch(function () {});
+  }
+  if (joinName) {
+    joinName.addEventListener('input', function () {
+      if (joinTimer) clearTimeout(joinTimer);
+      joinTimer = setTimeout(checkJoinTeam, 200);
+    });
+  }
+  if (joinPassToggle && joinPassBox) {
+    joinPassToggle.addEventListener('click', function () {
+      joinPassBox.hidden = !joinPassBox.hidden;
+      if (!joinPassBox.hidden && joinPassInput) joinPassInput.focus();
+      checkJoinTeam();
+    });
+  }
+  if (joinPassInput) {
+    joinPassInput.addEventListener('input', function () {
+      checkJoinTeam();
+    });
+  }
+
+  // Prevent submitting "join by password" without a team name
+  if (joinForm && joinByPassBtn) {
+    joinByPassBtn.addEventListener('click', function (e) {
+      var name = (joinName && joinName.value || '').trim();
+      if (!name) {
+        e.preventDefault();
+        if (joinInfo) joinInfo.textContent = 'Сначала выберите название команды.';
+        if (joinName) joinName.focus();
+        return;
+      }
+      var pass = (joinPassInput && joinPassInput.value || '').trim();
+      if (!pass) {
+        e.preventDefault();
+        if (joinInfo) joinInfo.textContent = 'Введите пароль команды.';
+        if (joinPassInput) joinPassInput.focus();
+        return;
+      }
+    });
+  }
+
+  // Team password reveal/edit (only when in team)
+  var revealBtn = document.querySelector('[data-team-pass-reveal]');
+  var passInput = document.querySelector('.new-team-pass');
+  var saveBtn = document.querySelector('[data-team-pass-save]');
+  if (revealBtn && passInput && saveBtn) {
+    revealBtn.addEventListener('click', function () {
+      fetch("{% url 'new_team_password' %}", { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || !data.ok) return;
+          passInput.value = data.password || '';
+          passInput.disabled = false;
+          saveBtn.disabled = false;
+          passInput.focus();
+        })
+        .catch(function () {});
+    });
+    saveBtn.addEventListener('click', function () {
+      var body = new URLSearchParams();
+      body.set('password', passInput.value || '');
+      fetch("{% url 'new_team_password' %}", {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrf(),
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        },
+        body: body.toString(),
+        credentials: 'same-origin',
+      }).then(function (r) { return r.json(); })
+        .then(function () {})
+        .catch(function () {});
+    });
+  }
+
+  // Tabs (create/join) — one visible at a time
+  var TAB_KEY = 'new_team_tab';
+  function setTab(tab) {
+    document.querySelectorAll('[data-team-tab]').forEach(function (b) {
+      b.classList.toggle('is-active', b.getAttribute('data-team-tab') === tab);
+    });
+    document.querySelectorAll('[data-team-panel]').forEach(function (p) {
+      p.hidden = p.getAttribute('data-team-panel') !== tab;
+    });
+    try { localStorage.setItem(TAB_KEY, tab); } catch (e) {}
+  }
+  document.querySelectorAll('[data-team-tab]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      setTab(b.getAttribute('data-team-tab'));
+    });
+  });
+  try {
+    var saved = localStorage.getItem(TAB_KEY);
+    if (saved === 'join' || saved === 'create') setTab(saved);
+  } catch (e) {}
+
+  // Confirm actions: kick out / quit
+  var confirmModal = document.getElementById('new-confirm-modal');
+  var confirmYes = confirmModal ? confirmModal.querySelector('[data-confirm-yes]') : null;
+  var pending = null; // { type: 'href'|'submit', value: string|HTMLFormElement }
+  function openConfirm(payload) {
+    if (!confirmModal) return;
+    pending = payload;
+    confirmModal.removeAttribute('hidden');
+    confirmModal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeConfirm() {
+    if (!confirmModal) return;
+    pending = null;
+    confirmModal.setAttribute('hidden', '');
+    confirmModal.classList.remove('is-open');
+    document.body.style.overflow = '';
+  }
+  document.querySelectorAll('[data-confirm-close]').forEach(function (el) {
+    el.addEventListener('click', closeConfirm);
+  });
+  if (confirmModal) {
+    confirmModal.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeConfirm();
+    });
+  }
+  if (confirmYes) {
+    confirmYes.addEventListener('click', function () {
+      if (!pending) return closeConfirm();
+      var p = pending;
+      closeConfirm();
+      if (p.type === 'href') {
+        window.location.href = p.value;
+        return;
+      }
+      if (p.type === 'submit') {
+        p.value.submit();
+      }
+    });
+  }
+  document.querySelectorAll('[data-confirm-kick]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      openConfirm({ type: 'href', value: a.getAttribute('href') });
+    });
+  });
+  document.querySelectorAll('form[data-confirm-quit]').forEach(function (f) {
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      openConfirm({ type: 'submit', value: f });
+    });
+  });
+
+  // Rename team visible name toggle
+  var renameBtn = document.querySelector('[data-team-rename-open]');
+  var renameForm = document.querySelector('[data-team-rename-form]');
+  if (renameBtn && renameForm) {
+    renameBtn.addEventListener('click', function () {
+      renameForm.hidden = !renameForm.hidden;
+      if (!renameForm.hidden) {
+        var inp = renameForm.querySelector('input[name=visible_name]');
+        if (inp) inp.focus();
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

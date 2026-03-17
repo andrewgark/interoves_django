@@ -1,0 +1,119 @@
+{% extends "new/base.html" %}
+{% load tz %}
+{% block title %}Десяточки{% endblock %}
+{% block content %}
+<h1 class="new-heading" style="margin-top:0">Десяточки</h1>
+<div class="new-games-list-wrap">
+  <div class="new-games-list" id="newGamesList" data-total-games="{{ total_games }}" data-games-per-page="{{ games_per_page }}">
+    {% include "new/games_list_items.html" with games=games %}
+  </div>
+  <div class="new-smart-scrollbar-container">
+    <div class="new-smart-scrollbar" id="newSmartScrollbar">
+      <div class="new-smart-scrollbar-track" id="newScrollbarTrack">
+        <div class="new-smart-scrollbar-thumb" id="newScrollbarThumb"></div>
+      </div>
+    </div>
+    <div class="new-scrollbar-info" id="newScrollbarInfo">Показано {{ games|length }} из {{ total_games }} игр</div>
+    <div class="new-loading" id="newLoading" hidden>Загрузка…</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var list = document.getElementById('newGamesList');
+  var totalGames = parseInt(list.dataset.totalGames || '0', 10);
+  var perPage = parseInt(list.dataset.gamesPerPage || '20', 10);
+  var totalPages = Math.ceil(totalGames / perPage);
+  var currentPage = 1;
+  var loadedPages = new Set([1]);
+  var isLoading = false;
+
+  var scrollbar = document.getElementById('newSmartScrollbar');
+  var track = document.getElementById('newScrollbarTrack');
+  var thumb = document.getElementById('newScrollbarThumb');
+  var info = document.getElementById('newScrollbarInfo');
+  var loading = document.getElementById('newLoading');
+
+  function showLoading() { isLoading = true; if (loading) loading.hidden = false; }
+  function hideLoading() { isLoading = false; if (loading) loading.hidden = true; }
+
+  function updateScrollbar() {
+    var pct = currentPage / totalPages;
+    track.style.height = (pct * 100) + '%';
+    var loaded = Math.min(currentPage * perPage, totalGames);
+    if (info) info.textContent = 'Показано ' + loaded + ' из ' + totalGames + ' игр';
+  }
+
+  async function loadPage(page) {
+    if (loadedPages.has(page)) return;
+    showLoading();
+    try {
+      var r = await fetch(window.location.pathname + '?page=' + page, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+      var data = await r.json();
+      if (data.games_html) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = data.games_html;
+        while (tmp.firstChild) list.appendChild(tmp.firstChild);
+        loadedPages.add(page);
+      }
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function loadNextIfNeeded() {
+    if (isLoading || currentPage >= totalPages) return;
+    var nearBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 500;
+    if (!nearBottom) return;
+    await loadPage(currentPage + 1);
+    currentPage += 1;
+    updateScrollbar();
+  }
+
+  function jumpToPage(targetPage) {
+    targetPage = Math.max(1, Math.min(totalPages, targetPage));
+    // ensure pages loaded
+    var promise = Promise.resolve();
+    for (var p = 1; p <= targetPage; p++) {
+      (function (pp) { promise = promise.then(function () { return loadPage(pp); }); })(p);
+    }
+    promise.then(function () {
+      currentPage = targetPage;
+      updateScrollbar();
+      // scroll approximately to element index
+      var idx = (targetPage - 1) * perPage;
+      var el = list.children[idx];
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  // Vertical scrollbar interactions
+  if (scrollbar && thumb) {
+    scrollbar.addEventListener('click', function (e) {
+      if (isLoading) return;
+      var rect = scrollbar.getBoundingClientRect();
+      var clickY = e.clientY - rect.top;
+      var pct = clickY / rect.height;
+      var targetPage = Math.ceil(pct * totalPages);
+      jumpToPage(targetPage);
+    });
+    var dragging = false;
+    thumb.addEventListener('mousedown', function (e) { dragging = true; e.preventDefault(); });
+    document.addEventListener('mousemove', function (e) {
+      if (!dragging) return;
+      var rect = scrollbar.getBoundingClientRect();
+      var y = e.clientY - rect.top;
+      var pct = Math.max(0, Math.min(1, y / rect.height));
+      var targetPage = Math.ceil(pct * totalPages);
+      jumpToPage(targetPage);
+    });
+    document.addEventListener('mouseup', function () { dragging = false; });
+  }
+
+  updateScrollbar();
+  window.addEventListener('scroll', function () { loadNextIfNeeded(); });
+})();
+</script>
+
+<p style="margin-top:2rem"><a href="{% url 'new_hub' %}" class="new-btn new-btn--ghost">← Игры</a></p>
+{% endblock %}

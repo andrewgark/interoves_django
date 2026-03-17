@@ -19,6 +19,7 @@ from django.contrib import admin
 from django.urls import path, include, re_path as url
 from django.views.generic import TemplateView
 from django.contrib.auth.views import LogoutView
+from django.shortcuts import redirect
 from games.views.views import MainPageView, game_page, results_page, total_results_page, \
                         create_team, join_team, quit_from_team, \
                         confirm_user_joining_team, reject_user_joining_team, kick_out_user, \
@@ -39,7 +40,10 @@ urlpatterns = [
     path('tinkoffgeneration/', MainPageView.as_view(project_name='tinkoffgeneration')),
     path('umind/', MainPageView.as_view(project_name='umind')),
 
+    path('new/', include('games.new_urls')),
+
     path('admin/', admin.site.urls),
+    path('accounts/login/', lambda request: redirect('/new/?login=1' + ('&next=' + request.GET.get('next') if request.GET.get('next') else ''))),
     path('accounts/', include('allauth.urls')),
     path('logout/', LogoutView.as_view(), name='logout'),
 

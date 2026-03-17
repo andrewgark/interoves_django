@@ -1,0 +1,611 @@
+{% extends "new/base.html" %}
+{% load filters %}
+{% block title %}{{ game.outside_name|default:game.name }} · {{ task_group.name }}{% endblock %}
+{% block content %}
+<p style="margin:0 0 0.75rem">
+  <a href="{{ back_url }}" class="new-btn new-btn--ghost">← Назад</a>
+</p>
+
+<div class="new-section-header">
+  <div>
+    <div class="new-login-hint" style="margin:0">Игра</div>
+    <h1 class="new-heading" style="margin:0">{{ game.outside_name|default:game.name }}</h1>
+  </div>
+  <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle><i class="fa fa-eye" aria-hidden="true"></i></button>
+  {% if show_palindrome_rules or game.theme %}
+  <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open>?</button>
+  {% endif %}
+</div>
+
+<p class="new-login-hint" style="margin:0.25rem 0 0.75rem">
+  Группа {{ task_group.number }} · <strong>{{ task_group.name }}</strong>
+</p>
+
+{% if show_palindrome_rules %}
+<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-rules-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
+    <p class="pal-kicker">Палиндромы</p>
+    <h2 id="rules-modal-title" class="pal-title">почти палиндром</h2>
+    <p class="pal-lead">
+      Перед вами почти палиндром: фразу испортили подбором синонимов.
+      Ваша цель — восстановить настоящий палиндром.
+    </p>
+    <div class="pal-example-box">
+      <h3 class="pal-example-title">пример</h3>
+      <div class="pal-example-grid">
+        <div class="pal-example-item">
+          <div class="pal-label">в задании (подсказка)</div>
+          <div class="pal-text">Правитель Афродите не мешал</div>
+        </div>
+        <div class="pal-example-item">
+          <div class="pal-label">правильная фраза-палиндром</div>
+          <div class="pal-text">Лидер Венере не вредил</div>
+        </div>
+      </div>
+      <p class="pal-note">
+        Слова заменены по смыслу
+        (<em>правитель → лидер</em>, <em>Афродита → Венера</em>),
+        а сама фраза читается зеркально по буквам.
+      </p>
+    </div>
+    <div class="pal-rules">
+      <div class="pal-rule">
+        <div class="pal-rule-number">1</div>
+        <div class="pal-rule-text">
+          Настоящая фраза — <strong>палиндром по буквам</strong>:
+          если убрать пробелы, она читается одинаково слева направо и справа налево.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">2</div>
+        <div class="pal-rule-text">
+          В задании <strong>каждое слово заменено</strong> на другое, близкое по смыслу.
+          <strong>Порядок слов</strong> в исходной фразе при этом не менялся.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">3</div>
+        <div class="pal-rule-text">
+          Не обязательно менять все слова:
+          иногда уместно <strong>оставить предлог или короткое слово как есть</strong>.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">4</div>
+        <div class="pal-rule-text">
+          Можно использовать <strong>однокоренные слова</strong>.
+          Ответ <strong>с запятыми или без</strong> — оба варианта обычно принимаются.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% elif game.theme %}
+<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-rules-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
+    <h2 id="rules-modal-title" class="pal-title">{{ game.outside_name|default:game.name }}</h2>
+    <p class="pal-lead">{{ game.theme }}</p>
+  </div>
+</div>
+{% endif %}
+
+{% if task_group.text %}
+<div class="new-card">
+  {% autoescape off %}{{ task_group.text }}{% endautoescape %}
+</div>
+{% endif %}
+
+<h2 class="new-heading">Задания</h2>
+
+{% if not user.is_authenticated %}
+<script>
+(function () {
+  // Для анонимного режима сервер должен знать anon_key, иначе после перезагрузки
+  // не будут видны попытки/подсказки и номер попытки не обновится.
+  try {
+    var key = localStorage.getItem('interoves_anon_key');
+    if (!key) return;
+    var url = new URL(window.location.href);
+    if (url.searchParams.get('anon') !== key) {
+      url.searchParams.set('anon', key);
+      window.location.replace(url.toString());
+    }
+  } catch (e) {}
+})();
+</script>
+{% endif %}
+
+{% if show_palindrome_rules or game.theme %}
+<script>
+(function () {
+  var modal = document.getElementById('rules-modal');
+  var storageKey = 'section_rules_seen_{{ game.id|escapejs }}';
+  function openRules() {
+    if (!modal) return;
+    modal.removeAttribute('hidden');
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeRules() {
+    if (!modal) return;
+    modal.setAttribute('hidden', '');
+    modal.classList.remove('is-open');
+    document.body.style.overflow = '';
+    try { localStorage.setItem(storageKey, '1'); } catch (e) {}
+  }
+  document.querySelectorAll('[data-rules-open]').forEach(function (btn) {
+    btn.addEventListener('click', openRules);
+  });
+  document.querySelectorAll('[data-rules-close]').forEach(function (el) {
+    el.addEventListener('click', closeRules);
+  });
+  if (modal) {
+    modal.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeRules();
+    });
+  }
+  try {
+    if (!localStorage.getItem(storageKey)) openRules();
+  } catch (e) {}
+})();
+</script>
+{% endif %}
+
+{% for task in tasks %}
+  {% with ai=attempts_info_by_task_id|get_item:task.id %}
+  <div class="new-taskcard" id="new-task-{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}">
+    <div class="new-taskcard__head">
+      <div class="new-taskcard__num">{{ task.number }}.</div>
+      <div class="new-taskcard__status">
+        {% if ai.is_solved %}
+          <span class="new-pill new-pill--ok">Решено</span>
+        {% else %}
+          <span class="new-pill">Попытка {{ ai.get_n_attempts|get_new_attempt_number }}{% if mode == 'tournament' %}/{{ task.get_max_attempts }}{% endif %}</span>
+        {% endif %}
+        <span class="new-pill">Макс. {{ task.get_points|minimize_digits }} {{ task.get_points|ru_points_word }}</span>
+      </div>
+    </div>
+
+    <div class="new-taskcard__body">
+      {% if ai.best_attempt %}
+        <div class="new-taskcard__points">
+          <span class="new-attempts__points">{{ ai.get_result_points|minimize_digits }} {{ ai.get_result_points|ru_points_word }}</span>
+          {% if ai.get_sum_hint_penalty %}
+            <span class="new-taskcard__penalty">(штраф за подсказки: -{{ ai.get_sum_hint_penalty|minimize_digits }})</span>
+          {% endif %}
+        </div>
+      {% endif %}
+      {% if ai.attempts %}
+        <details class="new-attempts">
+          <summary class="new-attempts__summary">Попытки ({{ ai.get_n_attempts }})</summary>
+          <div class="new-attempts__list">
+            {% for a in ai.attempts %}
+              <div class="new-attempts__row">
+                <div class="new-attempts__meta">
+                  <span class="new-pill {% if a.status == 'Ok' %}new-pill--ok{% endif %}">
+                    {% if a.status == 'Ok' %}Верно{% elif a.status == 'Wrong' %}Неверно{% elif a.status == 'Partial' %}Частично{% elif a.status == 'Pending' %}Ожидает{% else %}{{ a.status }}{% endif %}
+                  </span>
+                  <small class="new-task__meta">{{ a.time|date:"d.m H:i" }}</small>
+                  <small class="new-attempts__points">{{ a.points|minimize_digits }} {{ a.points|ru_points_word }}</small>
+                </div>
+                <div class="new-attempts__text">{% autoescape off %}{{ a.get_pretty_text }}{% endautoescape %}</div>
+                {% if a.comment %}<div class="new-attempts__comment">{{ a.comment }}</div>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        </details>
+      {% endif %}
+      {% if task.task_type == 'wall' %}
+        {% with attempts_info=ai task_to_attempts_info=attempts_info_by_task_id wall_new_ui=True %}
+          <div class="new-taskcard__text">
+            {% include "task-content/task-wall.html" %}
+          </div>
+        {% endwith %}
+      {% elif task.task_type == 'default' or task.task_type == 'autohint' or task.task_type == 'with_tag' or task.task_type == 'distribute_to_teams' %}
+        {% if task.image %}
+          <div class="new-taskcard__img">
+            <img src="{{ task.image.url }}" alt="" style="max-width:100%; height:auto" width="{{ task.get_image_width }}">
+          </div>
+        {% endif %}
+        <div class="new-taskcard__text">
+          {% if task.task_type == 'distribute_to_teams' %}
+            {% autoescape off %}{{ task|distribute_text_to_team:request.user.profile.team_on }}{% endautoescape %}
+          {% else %}
+            {% autoescape off %}{{ task.text }}{% endautoescape %}
+          {% endif %}
+        </div>
+
+        {% if ai.is_solved %}
+          <div class="new-taskcard__answer">
+            <strong>Ответ:</strong> {% autoescape off %}{{ task.answer }}{% endautoescape %}
+          </div>
+        {% else %}
+          <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
+            {% csrf_token %}
+            <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+            <div class="new-attempt-row">
+              {{ task.get_attempt_form.text }}
+              <button type="submit" class="new-btn new-btn--mini">Проверить</button>
+            </div>
+            <div class="new-attempt-msg" aria-live="polite"></div>
+          </form>
+        {% endif %}
+      {% else %}
+        <p class="new-login-hint" style="margin:0">
+          Этот тип задания пока не поддержан в новом UI.
+          Откройте в старом интерфейсе: <a href="/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}">/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}</a>
+        </p>
+      {% endif %}
+
+      {% if task.get_hints %}
+        <div class="new-hints">
+          <div class="new-hints__title">
+            <button type="button" class="new-action-link" data-hints-toggle data-task-id="{{ task.id }}">Подсказки</button>
+          </div>
+          <div class="new-hints__body" data-hints-body="{{ task.id }}" hidden>
+            {% for hint in task.get_hints %}
+              <div class="new-hint">
+                <div class="new-hint__head">
+                  <strong>Подсказка #{{ hint.number }}</strong>
+                  <span class="new-hint__penalty">−{{ hint.points_penalty|minimize_digits }}</span>
+                </div>
+                {% if ai|hint_was_taken:hint %}
+                  <div class="new-hint__text">{% autoescape off %}{{ hint.text }}{% endautoescape %}</div>
+                {% elif task.task_type == 'autohint' %}
+                  <div class="new-login-hint" style="margin:0.25rem 0 0">(Подсказки появляются автоматически после попыток)</div>
+                {% else %}
+                  {% if ai|all_not_taken_required_hints:hint %}
+                    <div class="new-login-hint" style="margin:0.25rem 0 0">Доступна только после {{ ai|all_not_taken_required_hints:hint }}.</div>
+                  {% else %}
+                    <form class="new-hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post">
+                      {% csrf_token %}
+                      <input type="hidden" name="hint_number" value="{{ hint.number }}">
+                      <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+                      <button type="submit" class="new-btn new-btn--ghost new-btn--mini">Показать подсказку</button>
+                      <div class="new-attempt-msg" aria-live="polite"></div>
+                    </form>
+                  {% endif %}
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
+      {% if task.task_type == 'wall' or task.task_type == 'default' or task.task_type == 'autohint' or task.task_type == 'with_tag' or task.task_type == 'distribute_to_teams' %}
+        <div class="new-task-actions">
+          <div class="new-task-actions__left">
+            {% if user.is_authenticated and has_profile_user %}
+              <button type="button" class="new-action-link" data-answer-open data-task-id="{{ task.id }}">Ответ</button>
+            {% endif %}
+          </div>
+
+          {% with lm=likes_meta_by_task_id|get_item:task.id %}
+            {% if lm %}
+            <div class="new-like-dislike" aria-label="Лайки и дизлайки">
+              <button type="button" class="new-likebtn new-likebtn--dislike" data-dislike-btn data-task-id="{{ task.id }}" data-disliked="{% if lm.disliked %}1{% else %}0{% endif %}">
+                <span class="new-likebtn__icon"><i class="fa fa-thumbs-down" aria-hidden="true"></i></span>
+                <span class="new-likebtn__count" data-dislike-count="{{ task.id }}">{{ lm.dislikes }}</span>
+              </button>
+              <button type="button" class="new-likebtn new-likebtn--like" data-like-btn data-task-id="{{ task.id }}" data-liked="{% if lm.liked %}1{% else %}0{% endif %}">
+                <span class="new-likebtn__icon"><i class="fa fa-thumbs-up" aria-hidden="true"></i></span>
+                <span class="new-likebtn__count" data-like-count="{{ task.id }}">{{ lm.likes }}</span>
+              </button>
+            </div>
+            {% endif %}
+          {% endwith %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endwith %}
+{% endfor %}
+
+<div id="new-answer-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-answer-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-answer-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-answer-close>×</button>
+    <h2 id="new-answer-title" class="pal-title">Ответ</h2>
+    <div id="new-answer-box"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';
+  var playMode = "{{ play_mode|escapejs }}";
+  function getAnonKey() {
+    try {
+      var key = localStorage.getItem('interoves_anon_key');
+      if (!key) {
+        key = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + '-' + String(Math.random()).slice(2);
+        localStorage.setItem('interoves_anon_key', key);
+      }
+      return key;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  var anonKey = getAnonKey();
+  document.querySelectorAll('input.new-anon-key-field').forEach(function (el) {
+    el.value = anonKey;
+  });
+
+  function postForm(form) {
+    var msg = form.querySelector('.new-attempt-msg');
+    if (msg) msg.textContent = 'Проверяем…';
+    fetch(form.action, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: new FormData(form),
+      credentials: 'same-origin',
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.status) {
+          if (msg) msg.textContent = 'Ошибка: пустой ответ.';
+          return;
+        }
+        if (data.status === 'ok') {
+          window.location.reload();
+          return;
+        }
+        if (data.status === 'no_profile') {
+          if (msg) msg.textContent = 'Нужно заполнить профиль.';
+          return;
+        }
+        if (data.status === 'no_team') {
+          if (msg) msg.textContent = 'Для командного режима нужна команда.';
+          return;
+        }
+        if (data.status === 'no_anon') {
+          if (msg) msg.textContent = 'Ошибка: не удалось сохранить анонимный ключ.';
+          return;
+        }
+        if (data.status === 'not_all_required_hints_taken') {
+          if (msg) msg.textContent = 'Сначала возьмите требуемые подсказки.';
+          return;
+        }
+        if (data.status === 'duplicate') {
+          if (msg) msg.textContent = 'Вы уже отправляли такой ответ.';
+          return;
+        }
+        if (data.status === 'attempt_limit_exceeded') {
+          if (msg) msg.textContent = 'Попытки закончились.';
+          return;
+        }
+        if (msg) msg.textContent = 'Не удалось отправить: ' + data.status;
+      })
+      .catch(function () {
+        if (msg) msg.textContent = 'Ошибка сети.';
+      });
+  }
+
+  document.querySelectorAll('form.new-attempt-form').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      postForm(form);
+    });
+  });
+
+  document.querySelectorAll('form.new-hint-form').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      postForm(form);
+    });
+  });
+
+  function openAnswer(html) {
+    var answerModal = document.getElementById('new-answer-modal');
+    var answerBox = document.getElementById('new-answer-box');
+    if (!answerModal || !answerBox) return;
+    answerBox.innerHTML = html;
+    answerModal.removeAttribute('hidden');
+    answerModal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeAnswer() {
+    var answerModal = document.getElementById('new-answer-modal');
+    if (!answerModal) return;
+    answerModal.setAttribute('hidden', '');
+    answerModal.classList.remove('is-open');
+    document.body.style.overflow = '';
+  }
+  document.querySelectorAll('[data-answer-close]').forEach(function (el) {
+    el.addEventListener('click', closeAnswer);
+  });
+  document.querySelectorAll('[data-answer-open]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var taskId = btn.getAttribute('data-task-id');
+      var url = "{% url 'new_get_answer' 0 %}".replace('/0/', '/' + taskId + '/');
+      try {
+        var u = new URL(url, window.location.origin);
+        if (!isAuthenticated) {
+          var ak = '';
+          try { ak = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
+          if (ak) u.searchParams.set('anon', ak);
+        }
+        url = u.toString();
+      } catch (e) {}
+      fetch(url, {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+      }).then(function (r) { return r.json(); })
+        .then(function (data) { openAnswer(data.html || '<div class=\"new-login-hint\">Нет ответа.</div>'); })
+        .catch(function () { openAnswer('<div class=\"new-login-hint\">Не удалось получить ответ.</div>'); });
+    });
+  });
+
+  // Like/dislike (пер-режим)
+  function csrf() {
+    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+  function postLike(taskId, likesDelta, dislikesDelta) {
+    var body = new URLSearchParams();
+    body.set('likes', String(likesDelta));
+    body.set('dislikes', String(dislikesDelta));
+    body.set('anon_key', anonKey);
+    var url = "{% url 'new_like_dislike' 0 %}".replace('/0/', '/' + taskId + '/');
+    return fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': csrf(),
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      },
+      body: body.toString(),
+      credentials: 'same-origin',
+    }).then(function (r) { return r.json(); });
+  }
+  function applyLikeUI(taskId, data) {
+    var likeBtn = document.querySelector('[data-like-btn][data-task-id=\"' + taskId + '\"]');
+    var dislikeBtn = document.querySelector('[data-dislike-btn][data-task-id=\"' + taskId + '\"]');
+    var likeCount = document.querySelector('[data-like-count=\"' + taskId + '\"]');
+    var dislikeCount = document.querySelector('[data-dislike-count=\"' + taskId + '\"]');
+    if (likeCount && typeof data.likes !== 'undefined') likeCount.textContent = data.likes;
+    if (dislikeCount && typeof data.dislikes !== 'undefined') dislikeCount.textContent = data.dislikes;
+    if (likeBtn && typeof data.liked !== 'undefined') {
+      likeBtn.setAttribute('data-liked', data.liked ? '1' : '0');
+      likeBtn.classList.toggle('is-active', !!data.liked);
+    }
+    if (dislikeBtn && typeof data.disliked !== 'undefined') {
+      dislikeBtn.setAttribute('data-disliked', data.disliked ? '1' : '0');
+      dislikeBtn.classList.toggle('is-active', !!data.disliked);
+    }
+  }
+  document.querySelectorAll('[data-like-btn]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var taskId = btn.getAttribute('data-task-id');
+      var liked = btn.getAttribute('data-liked') === '1';
+      postLike(taskId, liked ? -1 : 1, 0).then(function (data) {
+        applyLikeUI(taskId, data);
+      }).catch(function () {});
+    });
+  });
+  document.querySelectorAll('[data-dislike-btn]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var taskId = btn.getAttribute('data-task-id');
+      var disliked = btn.getAttribute('data-disliked') === '1';
+      postLike(taskId, 0, disliked ? -1 : 1).then(function (data) {
+        applyLikeUI(taskId, data);
+      }).catch(function () {});
+    });
+  });
+
+  // Hide solved toggle (persisted across pages)
+  var HIDE_KEY = 'new_hide_solved';
+  function applyHideSolved() {
+    var hide = false;
+    try { hide = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) {}
+    document.querySelectorAll('.new-taskcard[data-solved=\"1\"]').forEach(function (el) {
+      el.classList.toggle('is-hidden', hide);
+    });
+    var btn = document.querySelector('[data-hide-solved-toggle]');
+    if (btn) btn.innerHTML = hide ? '<i class=\"fa fa-eye-slash\" aria-hidden=\"true\"></i>' : '<i class=\"fa fa-eye\" aria-hidden=\"true\"></i>';
+  }
+  document.querySelectorAll('[data-hide-solved-toggle]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      try {
+        var cur = localStorage.getItem(HIDE_KEY) === '1';
+        localStorage.setItem(HIDE_KEY, cur ? '0' : '1');
+      } catch (e) {}
+      applyHideSolved();
+    });
+  });
+  applyHideSolved();
+
+  // Hints toggle (per task)
+  document.querySelectorAll('[data-hints-toggle]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var taskId = btn.getAttribute('data-task-id');
+      var body = document.querySelector('[data-hints-body=\"' + taskId + '\"]');
+      if (!body) return;
+      body.hidden = !body.hidden;
+      btn.textContent = body.hidden ? 'Подсказки' : 'Скрыть подсказки';
+    });
+  });
+
+  // Wall: click tiles & submit explanation forms (no jQuery here)
+  function wallCsrf(fromEl) {
+    var el = null;
+    if (fromEl) el = fromEl.querySelector('input[name=csrfmiddlewaretoken]');
+    if (!el) el = document.querySelector('input[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+  function postWall(taskId, params, csrfToken) {
+    params.set('anon_key', anonKey);
+    return fetch('/send_attempt/' + taskId + '/', {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': csrfToken,
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      },
+      body: params.toString(),
+      credentials: 'same-origin',
+    }).then(function (r) { return r.json(); });
+  }
+
+  document.querySelectorAll('.wall-tiles').forEach(function (wall) {
+    wall.addEventListener('click', function (e) {
+      var tile = e.target.closest('.wall-tile-not-guessed');
+      if (!tile || !wall.contains(tile)) return;
+      if (tile.classList.contains('wall-tile-stop-guessing')) return;
+      tile.classList.toggle('wall-tile-selected');
+
+      var taskIdEl = wall.querySelector('.attempt-task-id');
+      var nWordsEl = wall.querySelector('.n-words-in-category');
+      if (!taskIdEl || !nWordsEl) return;
+      var taskId = taskIdEl.value;
+      var nWords = parseInt(nWordsEl.value || '0', 10) || 0;
+
+      var selected = wall.querySelectorAll('.wall-tile-selected .wall-tile-text');
+      if (selected.length !== nWords) return;
+
+      var words = [];
+      selected.forEach(function (inp) { words.push(inp.value); });
+      words.sort();
+      wall.querySelectorAll('.wall-tile-selected').forEach(function (t) { t.classList.remove('wall-tile-selected'); });
+
+      var params = new URLSearchParams();
+      words.forEach(function (w) { params.append('words[]', w); });
+      params.set('stage', 'cat_words');
+      postWall(taskId, params, wallCsrf(wall)).then(function (data) {
+        if (data && data.status === 'ok') window.location.reload();
+      }).catch(function () {});
+    });
+  });
+
+  document.querySelectorAll('form.wall-attempt-form').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var taskIdEl = form.querySelector('.attempt-task-id');
+      if (!taskIdEl) return;
+      var taskId = taskIdEl.value;
+      postWall(taskId, new URLSearchParams(new FormData(form)), wallCsrf(form)).then(function (data) {
+        if (data && data.status === 'ok') window.location.reload();
+      }).catch(function () {});
+    });
+  });
+})();
+</script>
+
+<div class="new-tg-nav">
+  {% if prev_task_group_url %}
+    <a class="new-btn new-btn--ghost" href="{{ prev_task_group_url }}{% if not user.is_authenticated %}?anon={{ request.GET.anon|urlencode }}{% endif %}">← Назад</a>
+  {% else %}
+    <span></span>
+  {% endif %}
+  {% if next_task_group_url %}
+    <a class="new-btn new-btn--ghost" href="{{ next_task_group_url }}{% if not user.is_authenticated %}?anon={{ request.GET.anon|urlencode }}{% endif %}">Дальше →</a>
+  {% endif %}
+</div>
+{% endblock %}
+

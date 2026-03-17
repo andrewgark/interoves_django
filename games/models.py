@@ -1,4 +1,5 @@
 import hashlib
+import secrets
 import uuid
 import json
 import os
@@ -49,6 +50,7 @@ class Team(models.Model):
     ticket_price = models.IntegerField(default=2000)
 
     referer = models.ForeignKey('Team', related_name='referents', blank=True, null=True, on_delete=models.SET_NULL)
+    join_password = models.CharField(max_length=32, blank=True, null=True)
 
 
     def save_name_hash(self):
@@ -61,6 +63,9 @@ class Team(models.Model):
     def save(self, *args, **kwargs):
         if not self.visible_name:
             self.visible_name = self.name
+        if not self.join_password:
+            # короткий пароль "для своих" — можно менять в /new/team/
+            self.join_password = secrets.token_hex(4)  # 8 hex chars
         self.save_name_hash()
         super(Team, self).save(*args, **kwargs)
 
@@ -89,6 +94,7 @@ class Profile(models.Model):
     first_name = models.TextField()
     last_name = models.TextField()
     avatar_url = models.TextField(blank=True, null=True)
+    timezone = models.CharField(max_length=64, default='Europe/Moscow')
     vk_url = models.TextField(blank=True, null=True)
     email = models.TextField(blank=True, null=True)
     team_on = models.ForeignKey(Team, related_name='users_on', blank=True, null=True, on_delete=models.SET_NULL)
@@ -211,7 +217,10 @@ class TaskGroup(models.Model):
     rules = models.ForeignKey(HTMLPage, to_field='name', related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
     text = models.TextField(null=True, blank=True)
 
-    checker = models.ForeignKey(CheckerType, related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
+    checker = models.ForeignKey(
+        CheckerType, related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL,
+        default='equals_with_possible_spaces',
+    )
     points = models.DecimalField(default=1, decimal_places=3, max_digits=10, blank=True, null=True)
     max_attempts = models.IntegerField(default=3, blank=True, null=True)
     image_width = models.IntegerField(default=300, null=True, blank=True)
@@ -263,7 +272,10 @@ class Task(models.Model):
 
     task_type = models.CharField(default='default', max_length=100, choices=TASK_TYPE_VARIANTS)
 
-    checker = models.ForeignKey(CheckerType, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL)
+    checker = models.ForeignKey(
+        CheckerType, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL,
+        default='equals_with_possible_spaces',
+    )
     points = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)
     max_attempts = models.IntegerField(blank=True, null=True)
     image_width = models.IntegerField(null=True, blank=True)
@@ -373,29 +385,42 @@ class AttemptManager(models.Manager):
             queryset = queryset.exclude(skip=exclude_skip)
         return sorted(queryset.filter(task=task), key=lambda x: x.time)
 
-    def get_all_attempts(self, team, task, exclude_skip=True):
-        queryset = super().get_queryset()
-        if exclude_skip:
-            queryset = queryset.exclude(skip=exclude_skip)
-        return sorted(queryset.filter(team=team, task=task), key=lambda x: x.time)
+    def _filter_by_actor(self, queryset, team=None, user=None, anon_key=None):
+        if team is not None:
+            return queryset.filter(team=team, user__isnull=True, anon_key__isnull=True)
+        if user is not None:
+            return queryset.filter(user=user, team__isnull=True, anon_key__isnull=True)
+        if anon_key is not None:
+            return queryset.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
+        return queryset.none()
 
-    def get_all_attempts_after_equal(self, team, task, time, exclude_skip=True):
+    def get_all_attempts(self, team, task, exclude_skip=True, user=None, anon_key=None):
         queryset = super().get_queryset()
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
-        return sorted(queryset.filter(team=team, task=task, time__gte=time), key=lambda x: x.time)
+        queryset = self._filter_by_actor(queryset, team=team, user=user, anon_key=anon_key)
+        return sorted(queryset.filter(task=task), key=lambda x: x.time)
 
-    def get_all_attempts_after(self, team, task, time, exclude_skip=True):
+    def get_all_attempts_after_equal(self, team, task, time, exclude_skip=True, user=None, anon_key=None):
         queryset = super().get_queryset()
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
-        return sorted(queryset.filter(team=team, task=task, time__gt=time), key=lambda x: x.time)
+        queryset = self._filter_by_actor(queryset, team=team, user=user, anon_key=anon_key)
+        return sorted(queryset.filter(task=task, time__gte=time), key=lambda x: x.time)
 
-    def get_all_attempts_before(self, team, task, time, exclude_skip=True):
+    def get_all_attempts_after(self, team, task, time, exclude_skip=True, user=None, anon_key=None):
         queryset = super().get_queryset()
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
-        return sorted(queryset.filter(team=team, task=task, time__lt=time), key=lambda x: x.time)
+        queryset = self._filter_by_actor(queryset, team=team, user=user, anon_key=anon_key)
+        return sorted(queryset.filter(task=task, time__gt=time), key=lambda x: x.time)
+
+    def get_all_attempts_before(self, team, task, time, exclude_skip=True, user=None, anon_key=None):
+        queryset = super().get_queryset()
+        if exclude_skip:
+            queryset = queryset.exclude(skip=exclude_skip)
+        queryset = self._filter_by_actor(queryset, team=team, user=user, anon_key=anon_key)
+        return sorted(queryset.filter(task=task, time__lt=time), key=lambda x: x.time)
 
     def filter_attempts_with_mode(self, attempts, mode='general', is_hint_attempts=False):
         if mode == 'general' or not attempts:
@@ -408,18 +433,23 @@ class AttemptManager(models.Manager):
             return [attempt for attempt in attempts if game.has_access('attempt_is_tournament', attempt=attempt, team=attempt.team, mode=mode)]
         raise Exception('Unknown mode: {}'.filter(mode))
 
-    def get_attempts(self, team, task, mode="general"):
-        attempts = self.get_all_attempts(team, task)
+    def get_attempts(self, team, task, mode="general", user=None, anon_key=None):
+        attempts = self.get_all_attempts(team, task, user=user, anon_key=anon_key)
         return self.filter_attempts_with_mode(attempts, mode)
 
-    def get_hint_attempts(self, team, task, mode="general"):
+    def get_hint_attempts(self, team, task, mode="general", user=None, anon_key=None):
         hint_attempts = []
         for hint in task.hints.all():
-            hint_attempts.extend(list(HintAttempt.objects.filter(team=team, hint=hint)))
+            if team is not None:
+                hint_attempts.extend(list(HintAttempt.objects.filter(team=team, user__isnull=True, anon_key__isnull=True, hint=hint)))
+            elif user is not None:
+                hint_attempts.extend(list(HintAttempt.objects.filter(user=user, team__isnull=True, anon_key__isnull=True, hint=hint)))
+            elif anon_key is not None:
+                hint_attempts.extend(list(HintAttempt.objects.filter(anon_key=anon_key, team__isnull=True, user__isnull=True, hint=hint)))
         return self.filter_attempts_with_mode(hint_attempts, mode, is_hint_attempts=True)
 
-    def get_attempts_before(self, team, task, time, mode="general"):
-        attempts = self.get_all_attempts_before(team, task, time)
+    def get_attempts_before(self, team, task, time, mode="general", user=None, anon_key=None):
+        attempts = self.get_all_attempts_before(team, task, time, user=user, anon_key=anon_key)
         return self.filter_attempts_with_mode(attempts, mode)
 
     def get_task_attempts(self, task, mode="general"):
@@ -441,9 +471,9 @@ class AttemptManager(models.Manager):
                 best_attempt = attempt
         return best_attempt
 
-    def get_attempts_info(self, team, task, mode="general"):
-        attempts = self.get_attempts(team, task, mode)
-        hint_attempts = self.get_hint_attempts(team, task, mode)
+    def get_attempts_info(self, team, task, mode="general", user=None, anon_key=None):
+        attempts = self.get_attempts(team, task, mode, user=user, anon_key=anon_key)
+        hint_attempts = self.get_hint_attempts(team, task, mode, user=user, anon_key=anon_key)
         best_attempt = self.get_best_attempt(attempts, mode)
         return AttemptsInfo(best_attempt, attempts, hint_attempts)
 
@@ -488,6 +518,8 @@ class Attempt(models.Model):
 
     id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
+    user = models.ForeignKey('auth.User', related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     task = models.ForeignKey(Task, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
     manager = AttemptManager()
 
@@ -503,8 +535,9 @@ class Attempt(models.Model):
     skip = models.BooleanField(default=False)
 
     def __str__(self):
+        actor = self.team if self.team is not None else (self.user if self.user is not None else self.anon_key)
         return '[{}]: ({}) - {} [{}] ({})'.format(
-            self.team, self.task, self.get_pretty_text(), self.status,
+            actor, self.task, self.get_pretty_text(), self.status,
             self.time.strftime('%Y-%m-%d %H:%M:%S')
         )
 
@@ -552,21 +585,42 @@ class PendingAttempt(Attempt):
 
 
 class LikeManager(models.Manager):
+    def _actor_filter(self, team=None, user=None, anon_key=None):
+        if team is not None:
+            return {'team': team, 'user__isnull': True, 'anon_key__isnull': True}
+        if user is not None:
+            return {'user': user, 'team__isnull': True, 'anon_key__isnull': True}
+        return {'anon_key': anon_key, 'team__isnull': True, 'user__isnull': True}
+
     def get_likes(self, task, team=None):
+        # По умолчанию показываем сумму КОМАНДНЫХ лайков (как раньше).
         if team is None:
-            return super().get_queryset().filter(task=task, value=1).count()
-        return super().get_queryset().filter(task=task, team=team, value=1).count()
+            return super().get_queryset().filter(task=task, value=1, team__isnull=False, user__isnull=True, anon_key__isnull=True).count()
+        return super().get_queryset().filter(task=task, value=1, **self._actor_filter(team=team)).count()
 
     def get_dislikes(self, task, team=None):
+        # По умолчанию показываем сумму КОМАНДНЫХ дизлайков (как раньше).
         if team is None:
-            return super().get_queryset().filter(task=task, value=-1).count()
-        return super().get_queryset().filter(task=task, team=team, value=-1).count()
+            return super().get_queryset().filter(task=task, value=-1, team__isnull=False, user__isnull=True, anon_key__isnull=True).count()
+        return super().get_queryset().filter(task=task, value=-1, **self._actor_filter(team=team)).count()
+
+    def get_total_likes(self, task):
+        return super().get_queryset().filter(task=task, value=1).count()
+
+    def get_total_dislikes(self, task):
+        return super().get_queryset().filter(task=task, value=-1).count()
 
     def team_has_like(self, task, team):
         return self.get_likes(task, team) > 0
 
     def team_has_dislike(self, task, team):
         return self.get_dislikes(task, team) > 0
+
+    def actor_has_like(self, task, team=None, user=None, anon_key=None):
+        return super().get_queryset().filter(task=task, value=1, **self._actor_filter(team=team, user=user, anon_key=anon_key)).exists()
+
+    def actor_has_dislike(self, task, team=None, user=None, anon_key=None):
+        return super().get_queryset().filter(task=task, value=-1, **self._actor_filter(team=team, user=user, anon_key=anon_key)).exists()
 
     def add_like(self, task, team):
         if not self.team_has_like(task, team):
@@ -588,16 +642,39 @@ class LikeManager(models.Manager):
         if dislike_filter:
             dislike_filter[0].delete()
 
+    def add_like_actor(self, task, team=None, user=None, anon_key=None):
+        if not self.actor_has_like(task, team=team, user=user, anon_key=anon_key):
+            like = Like(team=team, user=user, anon_key=anon_key, task=task, value=1)
+            like.save()
+
+    def add_dislike_actor(self, task, team=None, user=None, anon_key=None):
+        if not self.actor_has_dislike(task, team=team, user=user, anon_key=anon_key):
+            dislike = Like(team=team, user=user, anon_key=anon_key, task=task, value=-1)
+            dislike.save()
+
+    def delete_like_actor(self, task, team=None, user=None, anon_key=None):
+        qs = super().get_queryset().filter(task=task, value=1, **self._actor_filter(team=team, user=user, anon_key=anon_key))
+        if qs:
+            qs[0].delete()
+
+    def delete_dislike_actor(self, task, team=None, user=None, anon_key=None):
+        qs = super().get_queryset().filter(task=task, value=-1, **self._actor_filter(team=team, user=user, anon_key=anon_key))
+        if qs:
+            qs[0].delete()
+
 
 class Like(models.Model):
     id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='likes', blank=True, null=True, on_delete=models.SET_NULL)
+    user = models.ForeignKey('auth.User', related_name='likes', blank=True, null=True, on_delete=models.SET_NULL)
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     task = models.ForeignKey(Task, related_name='likes', blank=True, null=True, on_delete=models.SET_NULL)
     value = models.IntegerField()
     manager = LikeManager()
 
     def __str__(self):
-        return '{} to task {} by team {}'.format('Like' if self.value == 1 else 'Dislike', self.task, self.team)
+        actor = self.team if self.team is not None else (self.user if self.user is not None else self.anon_key)
+        return '{} to task {} by {}'.format('Like' if self.value == 1 else 'Dislike', self.task, actor)
 
 
 class Hint(models.Model):
@@ -620,14 +697,17 @@ class Hint(models.Model):
 class HintAttempt(models.Model):
     id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
+    user = models.ForeignKey('auth.User', related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     hint = models.ForeignKey(Hint, related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
     time = models.DateTimeField(auto_now_add=True, blank=True)
     is_real_request = models.BooleanField(default=False)
 
     def __str__(self):
+        actor = self.team if self.team is not None else (self.user if self.user is not None else self.anon_key)
         return '{}[{}]: {}'.format(
             '(just watching)' if self.is_real_request else '',
-            self.team,
+            actor,
             self.hint
         )
 

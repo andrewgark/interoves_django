@@ -97,6 +97,11 @@ class GameAdmin(admin.ModelAdmin):
     list_display = ['__str__', 'name', 'theme', 'author', 'start_time', 'end_time', 'is_ready', 'is_playable', 'is_testing', 'is_registrable', 'requires_ticket']
     actions = [copy_game, create_new_google_doc]
 
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == 'image':
+            kwargs['required'] = False
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+
 
 class HintInline(admin.TabularInline):
     model = Hint

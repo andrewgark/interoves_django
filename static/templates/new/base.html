@@ -1,0 +1,208 @@
+{% load static socialaccount %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ page_title|default:"Interoves" }}{% endblock %} · Interoves</title>
+  <link rel="stylesheet" href="{% static "css/new.css" %}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  {% block extrahead %}{% endblock %}
+</head>
+<body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}">
+  <nav class="new-nav" aria-label="Главное меню">
+    <div class="new-nav__inner">
+      <a class="new-nav__brand" href="{% url 'new_hub' %}">Интеровес</a>
+      <div class="new-nav__links">
+        <span class="new-clock" aria-label="Текущее время">
+          <i class="fa fa-clock-o" aria-hidden="true"></i>
+          <span data-clock-text>--:--</span>
+        </span>
+        <a href="{% url 'new_hub' %}" {% if request.resolver_match.url_name == 'new_hub' %}aria-current="page"{% endif %}>Игры</a>
+        <a href="{% url 'new_folder' 'games' %}" {% if request.resolver_match.url_name == 'new_folder' and request.resolver_match.kwargs.slug == 'games' %}aria-current="page"{% endif %}>🔟 Десяточки</a>
+        {% for game in section_games %}
+        <a href="{% url 'new_section_game' game.id %}" {% if request.resolver_match.url_name == 'new_section_game' and request.resolver_match.kwargs.game_id == game.id %}aria-current="page"{% endif %}>
+          {% if game.id == 'palindromes' %}🪞{% elif game.id == 'walls' %}🧱{% elif game.id == 'replacements' %}🔄{% endif %}
+          {{ game.outside_name|default:game.name }}
+        </a>
+        {% endfor %}
+        {% if play_mode and user.is_authenticated %}
+          {% if play_mode == 'team' %}
+            <a class="new-mode-toggle" title="Сейчас: режим «В команде» — решения и подсказки общие для вашей команды. Нажмите, чтобы переключиться на личный режим." href="{% url 'new_set_play_mode' %}?mode=personal&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}">👥 В команде</a>
+          {% else %}
+            <a class="new-mode-toggle" title="Сейчас: личный режим — решения и подсказки только для вас в этом браузере/аккаунте. Нажмите, чтобы переключиться на режим «В команде»." href="{% url 'new_set_play_mode' %}?mode=team&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}">👤 Лично</a>
+          {% endif %}
+        {% endif %}
+        {% if user.is_authenticated %}
+        <a href="{% url 'new_profile' %}" {% if request.resolver_match.url_name == 'new_profile' %}aria-current="page"{% endif %}>Профиль</a>
+        <a href="{% url 'new_team' %}" {% if request.resolver_match.url_name == 'new_team' %}aria-current="page"{% endif %}>Команда</a>
+        <a href="{% url 'logout' %}?next={{ request.path|urlencode }}">Выйти</a>
+        {% else %}
+        <button type="button" class="new-nav__loginbtn" data-login-open>Войти</button>
+        <noscript><a href="/accounts/login/?next={{ request.path|urlencode }}">Войти</a></noscript>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+  {% if not user.is_authenticated %}
+  <div id="new-login-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-login-title" aria-modal="true" hidden>
+    <div class="new-rules-overlay" data-login-close></div>
+    <div class="new-rules-modal__box pal-card">
+      <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-login-close>×</button>
+      <h2 id="new-login-title" class="pal-title">Войти</h2>
+      <p class="pal-lead" style="margin-bottom: 1rem">Выберите способ входа.</p>
+      <div style="display:flex; gap:0.75rem; flex-wrap:wrap">
+        <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path %}">Войти через Google</a>
+        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' next=request.get_full_path %}">Войти через VK</a>
+      </div>
+      <p class="new-login-hint" style="margin-bottom:0">
+        Если окно не открылось автоматически, нажмите “Войти” в меню.
+      </p>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var modal = document.getElementById('new-login-modal');
+    function open() {
+      if (!modal) return;
+      modal.removeAttribute('hidden');
+      modal.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+    }
+    function close() {
+      if (!modal) return;
+      modal.setAttribute('hidden', '');
+      modal.classList.remove('is-open');
+      document.body.style.overflow = '';
+    }
+    document.querySelectorAll('[data-login-open]').forEach(function (btn) {
+      btn.addEventListener('click', open);
+    });
+    document.querySelectorAll('[data-login-close]').forEach(function (el) {
+      el.addEventListener('click', close);
+    });
+    if (modal) {
+      modal.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') close();
+      });
+    }
+    try {
+      var url = new URL(window.location.href);
+      if (url.searchParams.get('login') === '1') open();
+    } catch (e) {}
+  })();
+  </script>
+  {% endif %}
+  <form style="display:none">{% csrf_token %}</form>
+  {% if user.is_authenticated %}
+  <div id="new-migrate-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-migrate-title" aria-modal="true" hidden>
+    <div class="new-rules-overlay" data-migrate-close></div>
+    <div class="new-rules-modal__box pal-card">
+      <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-migrate-close>×</button>
+      <h2 id="new-migrate-title" class="pal-title">Перенести ваши анонимные решения?</h2>
+      <p class="pal-lead" style="margin-bottom: 1rem">
+        Похоже, вы решали задания до входа. Можем перенести эти попытки в ваш аккаунт (в личный режим).
+      </p>
+      <div style="display:flex; gap:0.75rem; flex-wrap:wrap">
+        <button type="button" class="new-btn" data-migrate-confirm>Перенести</button>
+        <button type="button" class="new-btn new-btn--ghost" data-migrate-close>Не сейчас</button>
+      </div>
+      <p class="new-login-hint" style="margin-bottom:0">Это предложение показывается один раз для текущего браузера.</p>
+    </div>
+  </div>
+  <script>
+  (function () {
+    function getAnonKey() {
+      try { return localStorage.getItem('interoves_anon_key') || ''; } catch (e) { return ''; }
+    }
+    function markDone() {
+      try { localStorage.setItem('interoves_anon_migrate_prompted', '1'); } catch (e) {}
+    }
+    function shouldPrompt() {
+      try { return localStorage.getItem('interoves_anon_migrate_prompted') !== '1'; } catch (e) { return false; }
+    }
+    var anonKey = getAnonKey();
+    if (!anonKey || !shouldPrompt()) return;
+
+    // Быстрый эвристический триггер: если пользователь когда-либо отправлял попытки анонимно,
+    // то в localStorage ключ есть. Показ модалки и перенос делаем по явному подтверждению.
+    var modal = document.getElementById('new-migrate-modal');
+    if (!modal) return;
+    function open() {
+      modal.removeAttribute('hidden');
+      modal.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+    }
+    function close() {
+      modal.setAttribute('hidden', '');
+      modal.classList.remove('is-open');
+      document.body.style.overflow = '';
+      markDone();
+    }
+    function postCSRF() {
+      var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+      return el ? el.value : '';
+    }
+    function migrate() {
+      fetch("{% url 'new_migrate_anon_attempts' %}", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': postCSRF(),
+        },
+        body: "anon_key=" + encodeURIComponent(anonKey),
+        credentials: 'same-origin',
+      }).then(function (r) { return r.json(); })
+        .then(function () { close(); window.location.reload(); })
+        .catch(function () { close(); });
+    }
+    document.querySelectorAll('[data-migrate-close]').forEach(function (el) {
+      el.addEventListener('click', close);
+    });
+    var btn = modal.querySelector('[data-migrate-confirm]');
+    if (btn) btn.addEventListener('click', migrate);
+
+    open();
+  })();
+  </script>
+  {% endif %}
+  <main class="new-wrap">
+    {% if messages %}
+    <ul class="new-messages">
+      {% for message in messages %}
+      <li class="{{ message.tags }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <script>
+  (function () {
+    var el = document.querySelector('[data-clock-text]');
+    var wrap = el ? el.closest('.new-clock') : null;
+    if (!el || !wrap) return;
+    var tz = (document.body && document.body.dataset && document.body.dataset.timezone) || 'Europe/Moscow';
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function fmtParts(d) {
+      // Use Intl for timezone conversion, fallback to local time if unsupported.
+      try {
+        var opts = { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+        var s = new Intl.DateTimeFormat('ru-RU', opts).format(d);
+        return s;
+      } catch (e) {
+        var h = pad(d.getHours()), m = pad(d.getMinutes()), s2 = pad(d.getSeconds());
+        return (h + ':' + m + ':' + s2);
+      }
+    }
+    function tick() {
+      var now = new Date();
+      el.textContent = fmtParts(now);
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
+  </script>
+</body>
+</html>

@@ -1,5 +1,4 @@
 import json
-from django.contrib.auth.decorators import user_passes_test
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -9,12 +8,14 @@ from games.forms import AttemptForm
 from games.models import Attempt, Task, Team
 from games.views.render_task import update_task_html
 from games.views.track import track_task_change
-from games.views.util import has_team
+from games.views.util import has_profile, has_team
 
 
 def check_attempt(attempt):
     task = attempt.task
     team = attempt.team
+    user = getattr(attempt, 'user', None)
+    anon_key = getattr(attempt, 'anon_key', None)
     game = task.task_group.game
 
     current_mode = game.get_current_mode(attempt)
@@ -24,7 +25,7 @@ def check_attempt(attempt):
 
     last_attempt_state = None
     for mode in modes:
-        attempts = Attempt.manager.get_attempts_before(team, task, attempt.time, mode)
+        attempts = Attempt.manager.get_attempts_before(team, task, attempt.time, mode, user=user, anon_key=anon_key)
         if mode == 'general' and attempts:
             last_attempt_state = attempts[-1].state
 
@@ -81,15 +82,58 @@ def get_first_new_hint(task, team):
     return None
 
 
-@user_passes_test(has_team)
+def get_first_new_hint_actor(task, team=None, user=None, anon_key=None):
+    from games.models import Hint, HintAttempt
+    hints = Hint.objects.filter(task=task)
+    hints = sorted(hints, key=lambda h: h.number)
+    for hint in hints:
+        if team is not None:
+            exists = HintAttempt.objects.filter(team=team, user__isnull=True, anon_key__isnull=True, hint=hint).exists()
+        elif user is not None:
+            exists = HintAttempt.objects.filter(user=user, team__isnull=True, anon_key__isnull=True, hint=hint).exists()
+        else:
+            exists = HintAttempt.objects.filter(anon_key=anon_key, team__isnull=True, user__isnull=True, hint=hint).exists()
+        if not exists:
+            return hint
+    return None
+
+
+def _get_play_mode(request, game):
+    mode = request.session.get('play_mode_{}'.format(game.project_id or 'main'))
+    if mode in ('team', 'personal'):
+        return mode
+    return 'personal' if game.project_id == 'sections' else 'team'
+
+
 def process_send_attempt(request, task_id):
     task = get_object_or_404(Task, id=task_id)
 
-    team = request.user.profile.team_on
     game = task.task_group.game
+    play_mode = _get_play_mode(request, game)
 
-    if not task.task_group.game.has_access('send_attempt', team=team):
-        return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
+    team = None
+    user = None
+    anon_key = None
+    if play_mode == 'team':
+        if not request.user.is_authenticated or not has_team(request.user):
+            return {'status': 'no_team'}
+        team = request.user.profile.team_on
+    else:
+        if request.user.is_authenticated:
+            if not has_profile(request.user):
+                return {'status': 'no_profile'}
+            user = request.user
+        else:
+            anon_key = request.POST.get('anon_key') or request.headers.get('X-Interoves-Anon')
+            if not anon_key:
+                return {'status': 'no_anon'}
+
+    if play_mode == 'team':
+        if not task.task_group.game.has_access('send_attempt', team=team):
+            return NoGameAccessException('User has no access to game {}'.format(game))
+    else:
+        if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
+            return NoGameAccessException('User has no access to game {}'.format(game))
 
     if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint'):
         form = AttemptForm(request.POST)
@@ -113,6 +157,8 @@ def process_send_attempt(request, task_id):
     else:
         raise Exception('Unknown task_type: {}'.format(task.task_type))
     attempt.team = team
+    attempt.user = user
+    attempt.anon_key = anon_key
     attempt.task = task
     attempt.time = timezone.now()
 
@@ -121,10 +167,10 @@ def process_send_attempt(request, task_id):
     check_attempt(attempt)
 
     if task.task_type == 'autohint' and attempt.status in ('Pending', 'Wrong'):
-        hint = get_first_new_hint(task, team)
+        hint = get_first_new_hint_actor(task, team=team, user=user, anon_key=anon_key)
         if hint is not None:
             from games.views.hint_views import create_hint_attempt
-            create_hint_attempt(hint, team)
+            create_hint_attempt(hint, team=team, user=user, anon_key=anon_key)
 
     result = {
         'status': 'ok',
@@ -136,7 +182,6 @@ def process_send_attempt(request, task_id):
     return result
 
 
-@user_passes_test(has_team)
 def send_attempt(request, task_id):
     try:
         response = process_send_attempt(request, task_id)

@@ -1,0 +1,44 @@
+{% extends "new/base.html" %}
+{% block title %}Игры{% endblock %}
+{% block content %}
+<h1 class="new-heading" style="margin-top:0">Игры</h1>
+{% for folder in folders %}
+<a class="new-tile" href="{% url 'new_folder' folder.slug %}">
+  <h2>{% if folder.slug == 'games' %}🔟 {% endif %}{{ folder.title }}</h2>
+  <p>{{ folder.description }}</p>
+</a>
+{% endfor %}
+{% for game in section_games %}
+<a class="new-tile" href="{% url 'new_section_game' game.id %}">
+  <h2>
+    {% if game.id == 'palindromes' %}🪞{% elif game.id == 'walls' %}🧱{% elif game.id == 'replacements' %}🔄{% endif %}
+    {{ game.outside_name|default:game.name }}
+  </h2>
+  <p>{{ game.theme|default:"" }}</p>
+</a>
+{% endfor %}
+
+<h1 class="new-heading" style="margin-top:2rem">Сообщество</h1>
+<div class="new-community-links">
+  <a class="new-link-dotted new-community-link" href="https://t.me/interoves" target="_blank" rel="noopener noreferrer">
+    <i class="fa fa-telegram" aria-hidden="true"></i>
+    Телеграм-канал
+  </a>
+  <a class="new-link-dotted new-community-link" href="https://t.me/+rhsbkEuU4-ExOWEy" target="_blank" rel="noopener noreferrer">
+    <i class="fa fa-telegram" aria-hidden="true"></i>
+    Чат участников
+  </a>
+  <a class="new-link-dotted new-community-link" href="https://t.me/+GPR22w8MdLEyNzIy" target="_blank" rel="noopener noreferrer">
+    <i class="fa fa-telegram" aria-hidden="true"></i>
+    Чат решающих PuzzleHunts
+  </a>
+  <a class="new-link-dotted new-community-link" href="https://t.me/andrewgark" target="_blank" rel="noopener noreferrer">
+    <i class="fa fa-telegram" aria-hidden="true"></i>
+    Разработчик: Андрей
+  </a>
+  <a class="new-link-dotted new-community-link" href="https://interoves.tilda.ws" target="_blank" rel="noopener noreferrer">
+    <i class="fa fa-external-link" aria-hidden="true"></i>
+    Заказать игру в офис
+  </a>
+</div>
+{% endblock %}

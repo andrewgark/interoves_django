@@ -53,6 +53,70 @@ def minimize_digits(points):
     return cleaned_points
 
 
+def _ru_plural_form_int(n, one, few, many):
+    n = abs(int(n))
+    n_mod_100 = n % 100
+    if 11 <= n_mod_100 <= 14:
+        return many
+    n_mod_10 = n % 10
+    if n_mod_10 == 1:
+        return one
+    if 2 <= n_mod_10 <= 4:
+        return few
+    return many
+
+
+@register.filter
+def ru_points_word(points):
+    """
+    Русское склонение для "балл".
+    - целые: 1 балл / 2-4 балла / 5+ баллов (с 11-14 исключением)
+    - дробные: 1.5 балла, 0.5 балла, 2.1 балла
+    """
+    if points is None:
+        return 'баллов'
+    s = str(points).strip().replace(',', '.')
+    # Для дробных чисел в русском обычно используется род. ед.: "балла"
+    if '.' in s:
+        try:
+            # если после чистки это всё же целое (например "2.0") — склоняем как целое
+            if float(s).is_integer():
+                return _ru_plural_form_int(int(float(s)), 'балл', 'балла', 'баллов')
+        except Exception:
+            pass
+        return 'балла'
+    try:
+        return _ru_plural_form_int(int(s), 'балл', 'балла', 'баллов')
+    except Exception:
+        return 'баллов'
+
+
+@register.filter
+def ru_punkt_word(n):
+    """
+    Русское склонение для "пункт" по целому числу: 1 пункт / 2-4 пункта / 5+ пунктов (11-14 исключение).
+    """
+    try:
+        return _ru_plural_form_int(int(n), 'пункт', 'пункта', 'пунктов')
+    except Exception:
+        return 'пунктов'
+
+
+@register.filter
+def ru_iz_punkt_word(n):
+    """
+    Русское склонение для "из N пунктов" (родительный падеж):
+    - 1: "пункта"
+    - 2-4: "пунктов"
+    - 5+: "пунктов"
+    (11-14 исключение тоже даёт "пунктов")
+    """
+    try:
+        return _ru_plural_form_int(int(n), 'пункта', 'пунктов', 'пунктов')
+    except Exception:
+        return 'пунктов'
+
+
 @register.filter
 def get_new_attempt_number(n):
     if not n:
@@ -325,6 +389,10 @@ def get_wall_tile_link_html(tile_text):
     return f'<a href="{link}" style="text-decoration: underline blue;color: blue !important;font-size: 30px;line-height:80px;">{element_id}</a>'
 
 
+def _game_image_url(game):
+    return game.image.url if game.image else ''
+
+
 @register.filter
 def get_future_games_js_list(games):
     if not games:
@@ -334,7 +402,7 @@ def get_future_games_js_list(games):
         '{{"id": "{id}", "title": "{title}", "startTime": new Date("{start_time}"), "endTime": new Date("{end_time}"), "imgSrc": "{img_src}"}}'.format(
             id=game.id,
             title=game.name,
-            img_src=game.image.url,
+            img_src=_game_image_url(game),
             start_time=game.start_time.isoformat(),
             end_time=game.end_time.isoformat()
         )
@@ -352,7 +420,7 @@ def get_ongoing_game_js(game):
     return '{{"id": "{id}", "title": "{title}", "startTime": new Date("{start_time}"), "endTime": new Date("{end_time}"), "imgSrc": "{img_src}"}}'.format(
         id=game.id,
         title=game.name,
-        img_src=game.image.url,
+        img_src=_game_image_url(game),
         start_time=game.start_time.isoformat(),
         end_time=game.end_time.isoformat()
     )

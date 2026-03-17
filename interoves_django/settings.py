@@ -150,6 +150,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'games.context_processors.new_ui_section_games',
             ],
         },
     },

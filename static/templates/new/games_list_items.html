@@ -1,0 +1,67 @@
+{% load filters tz %}
+{% for game in games %}
+  {% with team=user.profile.team_on %}
+  <div class="new-game-card">
+    <div class="new-game-card__left">
+      <div class="new-game-card__time">
+        {% timezone user_timezone %}
+          {{ game.get_visible_start_time|date:'d E Y' }}<br>
+          {{ game.get_visible_start_time|date:'H:i' }} – {{ game.get_visible_end_time|date:'H:i' }}
+        {% endtimezone %}
+      </div>
+      <div class="new-game-card__logo">
+        {% if game.image %}<img src="{{ game.image.url }}" alt="{{ game.get_outside_name }}">{% endif %}
+      </div>
+    </div>
+    <div class="new-game-card__main">
+      <div class="new-game-card__title">{{ game.get_outside_name }}</div>
+      {% if game.theme %}<div class="new-game-card__meta">Тема: {{ game.theme }}</div>{% endif %}
+      <div class="new-game-card__meta">Автор: {{ game.author }}</div>
+
+      <div class="new-game-card__actions">
+        {% if game|access_play:team %}
+          <a href="{% url 'new_main_game' game.id %}" class="new-btn new-btn--mini">Играть</a>
+        {% elif game|access_is_registered:team %}
+          <span class="new-pill new-pill--ok">Вы зарегистрированы</span>
+        {% elif game|access_register:team %}
+          {% if game.requires_ticket %}
+            {% if team and team.tickets > 0 %}
+              <a href="/register/{{ game.id }}?next={{ request.path }}" class="new-btn new-btn--mini">Зарегистрироваться (-1 билет)</a>
+            {% else %}
+              <a href="/tickets" class="new-btn new-btn--ghost new-btn--mini">Приобрести билет</a>
+            {% endif %}
+            {% if team %}
+              {% for referent in game|get_available_referents:team %}
+                <a href="/register/{{ game.id }}?with_referent={{ referent.name }}&next={{ request.path }}" class="new-btn new-btn--ghost new-btn--mini">
+                  Зарегистрироваться по приглашению «{{ referent.visible_name }}»
+                </a>
+              {% endfor %}
+            {% endif %}
+          {% else %}
+            <a href="/register/{{ game.id }}?next={{ request.path }}" class="new-btn new-btn--mini">Зарегистрироваться</a>
+          {% endif %}
+        {% endif %}
+
+        {% if game|access_see_tournament_results:team %}
+          <a href="{% url 'new_tournament_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Турнирные результаты</a>
+        {% endif %}
+        {% if game|access_see_results:team %}
+          {% if not game.is_tournament or not game|is_going_now %}
+            <a href="{% url 'new_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Общие результаты</a>
+          {% endif %}
+        {% endif %}
+        {% if game.game_url and game|access_read_googledoc:team %}
+          <a href="{{ game.game_url }}" class="new-btn new-btn--ghost new-btn--mini">Условия</a>
+        {% endif %}
+        {% if game.answers_url and game|access_see_answer:team %}
+          <a href="{{ game.answers_url }}" class="new-btn new-btn--ghost new-btn--mini">Ответы</a>
+        {% endif %}
+        {% if game.standings_url %}
+          <a href="{{ game.standings_url }}" class="new-btn new-btn--ghost new-btn--mini">Результаты</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endwith %}
+{% endfor %}
+

@@ -144,7 +144,7 @@ def render_game_title(game, request, team, current_mode):
 
 def update_task_html(request, task, team, current_mode):
     game = task.task_group.game
-    
+
     update_extra_tasks = list(task.task_group.tasks.filter(task_type='text_with_forms'))
     for extra_task in task.task_group.tasks.all():
         if "should_be_hidden_if_not_solved" in extra_task.tags:

@@ -3,32 +3,48 @@
   <p>{{ task.get_wall.text }}</p>
   <div class="wall-tiles">
     {% csrf_token %}
+    <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
     <input type="hidden" class="n-words-in-category" name="variable" value={{ task.get_wall.n_words }}>
     <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
     {% for tile in task.get_wall|get_guessed_tiles:attempts_info %}
-      <div class="wall-tile wall-tile-guessed wall-tile-guessed-{{ tile.category_id }}" id="task-{{ task.id }}-tile-{{ tile.id }}" style="height:{{ task.get_wall.tile_height }};width:{{ task.get_wall.tile_width }}">
-        {% include "task-content/wall-tile.html" %}
-      </div>
+      {% if wall_new_ui %}
+        <div class="wall-tile wall-tile-guessed wall-tile-guessed-{{ tile.category_id }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
+          {% include "task-content/wall-tile.html" %}
+        </div>
+      {% else %}
+        <div class="wall-tile wall-tile-guessed wall-tile-guessed-{{ tile.category_id }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
+          {% include "task-content/wall-tile.html" %}
+        </div>
+      {% endif %}
     {% endfor %}
     {% with wall_tile_stop_guessing=task.get_wall|get_wall_tile_stop_guessing_class:attempts_info %}
     {% for tile in task.get_wall|get_not_guessed_tiles:attempts_info %}
-      <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}" style="height:{{ task.get_wall.tile_height }};width:{{ task.get_wall.tile_width }}">
-        {% include "task-content/wall-tile.html" %}
-      </div>
+      {% if wall_new_ui %}
+        <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
+          {% include "task-content/wall-tile.html" %}
+        </div>
+      {% else %}
+        <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
+          {% include "task-content/wall-tile.html" %}
+        </div>
+      {% endif %}
     {% endfor %}
     {% endwith %}
   </div>
   <div class="wall-explanations">
     {% for exptile in task.get_wall|one_more:attempts_info|get_exptiles:mode %}
-    <div class="wall-tile wall-tile-guessed-{{ tile.category_id }} wall-tile-explanation" style="height:{{ task.get_wall.tile_height }};width:{{ task.get_wall.tile_width }}">
+    {% if exptile.type != 'nothing_is_guessed' and exptile.type != 'first_nothing_is_guessed' %}
+    <div class="wall-tile wall-tile-guessed-{{ tile.category_id }} wall-tile-explanation">
         {% if exptile.type == 'explanation_is_guessed' %}
         <p>OK</p>
         {% elif exptile.type == 'words_are_guessed' %}
         <form class="attempt-form wall-attempt-form" action="/send_attempt/{{ task.id }}/" method="post">
             {% csrf_token %}
+            <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
             <input type="hidden" class="attempt-task-id" name="task_id" value="{{ task.id }}">
             <input type="hidden" name="words" value="{{ exptile.words|json_encode }}">
             <input type="hidden" name="stage" value="cat_explanation">
+            <div style="font-weight:700; margin-bottom:0.25rem">Категория {{ exptile.id|add:"1" }}</div>
             Попытка: {{ exptile.explanation_n_attempts|get_new_attempt_number }}{% if mode == 'tournament' %} / {{ exptile.explanation_max_attempts }}{% endif %}:
             <div class="field-wrapper wall-field-wrapper">
             {{ task.get_attempt_form.text }}
@@ -43,13 +59,16 @@
         <p>Попытки закончились.</p>
         {% endif %}
     </div>
+    {% endif %}
     {% endfor %}
   </div>
   </div>
 
+  {% if not wall_new_ui %}
   {% if mode == 'general' or attempts_info.best_attempt.status == 'Ok' %}
   <form class="attempt-form">
     {% csrf_token %}
+    <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
     <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
     <input type="button" value="Посмотреть ответ" class="btn btn-custom-lg btn-lg btn-custom page-scroll show-answer">
   </form>
@@ -70,3 +89,4 @@
 {% if attempts_info %}
   {% include "task-content/attempts.html" %}
 {% endif %}
+  {% endif %}

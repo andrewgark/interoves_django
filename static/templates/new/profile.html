@@ -1,0 +1,103 @@
+{% extends "new/base.html" %}
+{% load socialaccount %}
+{% block title %}Профиль{% endblock %}
+{% block content %}
+<h1 class="new-heading" style="margin-top:0">Профиль</h1>
+<form method="post" class="new-form">
+  {% csrf_token %}
+  <div class="new-profile-head">
+    <button type="button" class="new-avatar" aria-label="Фото профиля" title="Нажмите, чтобы изменить фото" data-avatar-open
+      {% if form.instance.avatar_url %}style="background-image:url('{{ form.instance.avatar_url|escape }}')" {% endif %}
+    >
+      {% if not form.instance.avatar_url %}<span>Фото</span>{% endif %}
+    </button>
+    <div class="new-profile-names">
+      <div class="new-two">
+        <div>
+          <label for="{{ form.first_name.id_for_label }}">Имя</label>
+          {{ form.first_name }}
+          {% if form.first_name.errors %}<span class="new-field-error">{{ form.first_name.errors }}</span>{% endif %}
+        </div>
+        <div>
+          <label for="{{ form.last_name.id_for_label }}">Фамилия</label>
+          {{ form.last_name }}
+          {% if form.last_name.errors %}<span class="new-field-error">{{ form.last_name.errors }}</span>{% endif %}
+        </div>
+      </div>
+      <div style="margin-top:0.75rem">
+        <label for="{{ form.timezone.id_for_label }}">Таймзона</label>
+        {{ form.timezone }}
+        <datalist id="tz-list">
+          {% for tz, label in tz_options %}
+            <option value="{{ label }}"></option>
+          {% endfor %}
+        </datalist>
+        {% if form.timezone.errors %}<span class="new-field-error">{{ form.timezone.errors }}</span>{% endif %}
+        <p class="new-login-hint" style="margin:0.35rem 0 0">
+          Используется для времени в меню и дат игр.
+          <span id="tz-offset-hint"></span>
+        </p>
+      </div>
+      <div class="new-avatar-edit" hidden>
+        <label for="{{ form.avatar_url.id_for_label }}">Ссылка на фото</label>
+        {{ form.avatar_url }}
+        {% if form.avatar_url.errors %}<span class="new-field-error">{{ form.avatar_url.errors }}</span>{% endif %}
+        <p class="new-login-hint" style="margin:0.5rem 0 0">Можно вставить URL картинки (Google/VK обычно ставятся автоматически).</p>
+      </div>
+    </div>
+  </div>
+  <button type="submit" class="new-btn">Сохранить</button>
+</form>
+
+<h2 class="new-heading">Аккаунты</h2>
+<div class="new-card">
+  <p class="new-login-hint" style="margin-top:0">Можно привязать второй способ входа, чтобы заходить через любой.</p>
+  <div class="new-two" style="margin-top:0.5rem">
+    <div>
+      {% if 'google' in connected_providers %}
+        <span class="new-pill new-pill--ok">Google привязан</span>
+      {% else %}
+        <a class="new-btn" href="{% provider_login_url 'google' process='connect' next=request.get_full_path %}">Привязать аккаунт Google</a>
+      {% endif %}
+    </div>
+    <div>
+      {% if 'vk' in connected_providers %}
+        <span class="new-pill new-pill--ok">VK привязан</span>
+      {% else %}
+        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' process='connect' next=request.get_full_path %}">Привязать аккаунт VK</a>
+      {% endif %}
+    </div>
+  </div>
+  <p class="new-login-hint" style="margin-bottom:0">Если выбранный аккаунт уже привязан к другому профилю, привязка будет отклонена.</p>
+</div>
+
+<script>
+(function () {
+  var btn = document.querySelector('[data-avatar-open]');
+  var box = document.querySelector('.new-avatar-edit');
+  if (!btn || !box) return;
+  btn.addEventListener('click', function () {
+    box.hidden = !box.hidden;
+    if (!box.hidden) {
+      var input = box.querySelector('input');
+      if (input) input.focus();
+    }
+  });
+})();
+</script>
+<script>
+(function () {
+  var input = document.getElementById('{{ form.timezone.id_for_label|escapejs }}');
+  var hint = document.getElementById('tz-offset-hint');
+  if (!input || !hint) return;
+  function update() {
+    var v = (input.value || '').trim();
+    var m = v.match(/\(UTC[+-]\d{2}:\d{2}\)/);
+    hint.textContent = m ? (' Сейчас: ' + m[0]) : '';
+  }
+  input.addEventListener('input', update);
+  update();
+})();
+</script>
+<p style="margin-top:2rem"><a href="{% url 'new_hub' %}" class="new-btn new-btn--ghost">← Игры</a></p>
+{% endblock %}
