@@ -1076,9 +1076,15 @@ def new_pay_page(request):
     recent_requests = []
     if team:
         recent_requests = list(TicketRequest.objects.filter(team=team).order_by('-time')[:20])
+    raw_price = getattr(team, 'ticket_price', 2000) if team else 2000
+    try:
+        ticket_price_int = int(raw_price)
+    except (TypeError, ValueError):
+        ticket_price_int = 2000
     return render(request, 'ui/pay.html', {
         'team': team,
-        'ticket_price': getattr(team, 'ticket_price', 2000) if team else 2000,
+        'ticket_price': ticket_price_int,
+        'show_school_discount_hint': ticket_price_int == 2000,
         'team_tickets': team.tickets if team else 0,
         'recent_ticket_requests': recent_requests,
         'page_title': 'Оплата',

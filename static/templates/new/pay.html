@@ -12,7 +12,18 @@
 <div class="new-card" style="margin-top:0.75rem">
   <div class="new-card__title new-pay-title">Билет для команды</div>
   <div class="new-card__text">
-    <p style="margin:0.35rem 0">Цена билета: <strong>{{ ticket_price }}</strong> ₽.</p>
+    <p class="new-pay-line new-pay-line--price" style="margin:0.35rem 0">
+      Цена билета: <strong>{{ ticket_price }}</strong> ₽.
+      {% if show_school_discount_hint %}
+      <details class="new-pay-discount">
+        <summary class="new-pay-discount__trigger">скидка?</summary>
+        <div class="new-pay-discount__tip" role="tooltip">
+          Если ваша команда школьная или студенческая, цену билетов можно снизить до <strong>500&nbsp;₽</strong>.
+          Напишите <a href="https://t.me/andrewgark" target="_blank" rel="noopener noreferrer">Андрею в Telegram</a>.
+        </div>
+      </details>
+      {% endif %}
+    </p>
     <p style="margin:0.35rem 0">Команда: <strong>{% if team %}{{ team.visible_name|default:team.name }}{% else %}—{% endif %}</strong>.</p>
     <p style="margin:0.35rem 0">Билетов сейчас: <strong>{{ team_tickets }}</strong>.</p>
     <p class="new-login-hint" style="margin:0.5rem 0 0">
