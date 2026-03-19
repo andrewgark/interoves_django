@@ -41,6 +41,8 @@ urlpatterns = [
 
     path('explorer/', include('explorer.urls')),
 
+    # Main UI still POSTs to /send_attempt/, links to /games/..., /register/, team moderation URLs.
+    path('', include('games.root_shared_urls')),
     path('old/', include('games.old_urls')),
     path('', include('games.ui_urls')),
     path('', include('games.new_urls')),
