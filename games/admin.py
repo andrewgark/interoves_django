@@ -104,16 +104,15 @@ def freeze_results_general(modeladmin, request, queryset):
 
 @admin.action(description='Freeze tournament results (ALL games)')
 def freeze_results_all_games(modeladmin, request, queryset):
-    # ignore queryset: freeze for all games that don't have snapshots yet
-    created = 0
-    skipped = 0
-    for game in Game.objects.all():
-        _, did = freeze_game_results(game, mode='tournament', overwrite=False)
-        if did:
-            created += 1
-        else:
-            skipped += 1
-    modeladmin.message_user(request, f'Frozen tournament results for ALL games: {created} created, {skipped} skipped.')
+    # This can be extremely slow on large datasets and will block the HTTP request.
+    # Use the management command instead:
+    #   python manage.py freeze_results_snapshots --mode tournament --only-missing
+    modeladmin.message_user(
+        request,
+        "Refused: freezing ALL games can take a long time and may hang the admin request. "
+        "Run: python manage.py freeze_results_snapshots --mode tournament --only-missing",
+        level='warning',
+    )
 
 
 @admin.register(Hint)

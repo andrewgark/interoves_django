@@ -15,25 +15,48 @@ import requests
 import sys
 
 
-IS_PROD = os.getenv('IS_PROD') == 'TRUE'
+def _env_flag(name: str) -> bool:
+    """True if env var is a common affirmative value (handles EB / console quirks)."""
+    v = (os.getenv(name) or "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+IS_PROD = _env_flag("IS_PROD")
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def load_secret(secret):
-    file = open(os.path.join(BASE_DIR, 'secrets', secret))
-    result = file.read().strip()
-    file.close()
-    return result
+def load_secret(secret_filename: str, *, env_var: str | None = None, default: str | None = None) -> str:
+    """
+    Load a secret from either an environment variable (preferred on Elastic Beanstalk)
+    or from a file under BASE_DIR/secrets (useful for local dev).
+    """
+    if env_var:
+        value = os.getenv(env_var)
+        if value is not None and value != "":
+            return value.strip()
+
+    path = os.path.join(BASE_DIR, "secrets", secret_filename)
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        if default is not None:
+            return default
+        raise
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
 
-SECRET_KEY = load_secret('django_secret_key.txt')
+SECRET_KEY = load_secret("django_secret_key.txt", env_var="DJANGO_SECRET_KEY")
 
-DEBUG = not IS_PROD or os.getenv('DEBUG_ON') == 'TRUE'
+# Production: DEBUG only when explicitly enabled. Dev: DEBUG on unless DEBUG_ON is "false".
+if IS_PROD:
+    DEBUG = _env_flag("DEBUG_ON")
+else:
+    DEBUG = not _env_flag("DEBUG_OFF")
 
 ALLOWED_HOSTS = [
     'interoves-django-env.eba-nbcqahns.eu-central-1.elasticbeanstalk.com',
@@ -148,7 +171,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'games.context_processors.new_ui_section_games',
+                'games.context_processors.ui_section_games',
             ],
         },
     },
@@ -235,6 +258,8 @@ USE_L10N = True
 
 USE_TZ = True
 
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
@@ -248,13 +273,24 @@ STORAGES = {
     },
 }
 
-USE_S3 = os.getenv('USE_S3') == 'TRUE'
+USE_S3 = _env_flag("USE_S3")
 
 if USE_S3:
-    # aws settings
-    AWS_ACCESS_KEY_ID = load_secret('aws_s3_access_key_id.txt')
-    AWS_SECRET_ACCESS_KEY = load_secret('aws_s3_secret_access_key.txt')
-    AWS_STORAGE_BUCKET_NAME = load_secret('aws_s3_storage_bucket_name.txt')
+    # Prefer IAM role credentials on Elastic Beanstalk.
+    # If explicit keys are provided (env or local secrets files), boto3 will use them.
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID") or None
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY") or None
+
+    try:
+        AWS_STORAGE_BUCKET_NAME = load_secret(
+            "aws_s3_storage_bucket_name.txt",
+            env_var="AWS_STORAGE_BUCKET_NAME",
+        )
+    except FileNotFoundError:
+        # Without a bucket name we can't construct media/static URLs.
+        USE_S3 = False
+
+if USE_S3:
     AWS_DEFAULT_ACL = 'public-read'
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
@@ -264,8 +300,9 @@ if USE_S3:
     STORAGES['staticfiles']['BACKEND'] = 'games.storage_backends.StaticStorage'
     # s3 public media settings
     PUBLIC_MEDIA_LOCATION = 'media'
-    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{PUBLIC_MEDIA_LOCATION}/'
-    STORAGES['default']['BACKEND'] = 'games.storage_backends.PublicMediaStorage'
+    # Media files are stored in S3 but served via /media/... through Nginx reverse-proxy.
+    MEDIA_URL = '/media/'
+    STORAGES['default']['BACKEND'] = 'games.storage_backends.ProxyMediaStorage'
 else:
     STATIC_URL = '/static/'
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')

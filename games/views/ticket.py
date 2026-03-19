@@ -1,7 +1,4 @@
 import json
-import os
-import uuid
-from pathlib import Path
 
 from django.contrib.auth.decorators import user_passes_test
 from django.db import transaction
@@ -13,8 +10,9 @@ from games.exception import InvalidFormException
 from games.forms import TicketRequestForm
 from games.models import TicketRequest
 from games.views.util import has_team, redirect_to_referer
+from games.yookassa_util import configure_yookassa_from_env
 
-from yookassa import Configuration, Payment
+from yookassa import Payment
 
 
 @user_passes_test(has_team)
@@ -49,26 +47,6 @@ def check_order(request):
     return HttpResponse(status=200)
 
 
-def _configure_yookassa_from_env():
-    shop_id = os.environ.get('YOOKASSA_SHOP_ID') or os.environ.get('YOO_KASSA_SHOP_ID')
-    secret_key = os.environ.get('YOOKASSA_SECRET_KEY') or os.environ.get('YOO_KASSA_SECRET_KEY')
-
-    if not shop_id:
-        try:
-            shop_id = Path('secrets/yookassa_shop_id.txt').read_text(encoding='utf-8').strip()
-        except Exception:
-            shop_id = shop_id or None
-    if not secret_key:
-        try:
-            secret_key = Path('secrets/yookassa_secret_key.txt').read_text(encoding='utf-8').strip()
-        except Exception:
-            secret_key = secret_key or None
-
-    if not shop_id or not secret_key:
-        raise RuntimeError('Missing YooKassa credentials in env: YOOKASSA_SHOP_ID/YOOKASSA_SECRET_KEY')
-    Configuration.configure(shop_id, secret_key)
-
-
 @csrf_exempt
 def yookassa_webhook(request):
     """
@@ -95,7 +73,7 @@ def yookassa_webhook(request):
         return HttpResponse(status=200)
 
     try:
-        _configure_yookassa_from_env()
+        configure_yookassa_from_env()
         payment = Payment.find_one(payment_id)
         payment_data = dict(payment)
     except Exception:

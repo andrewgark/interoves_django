@@ -1,10 +1,10 @@
-"""Minimal /new/ UI: hub, games folder, profile, team."""
+"""Main UI: hub, games folder, profile, team."""
 import datetime
 import json
+import logging
 import os
 import uuid
 from collections import OrderedDict
-from pathlib import Path
 
 import pytz
 from django.contrib import messages
@@ -33,8 +33,11 @@ from games.replacements_lines import parse_replacements_lines_text
 from games.views.main_page import MainPageView
 from games.views.util import has_profile, has_team
 from games.results_snapshot import snapshot_to_results_context
+from games.yookassa_util import configure_yookassa_from_env
 
-from yookassa import Configuration, Payment
+from yookassa import Payment
+
+logger = logging.getLogger(__name__)
 
 
 def _ru_plural_form_int(n, one, few, many):
@@ -144,7 +147,7 @@ def _folder_by_slug(slug):
 
 def new_hub(request):
     section_games = get_section_games(request)
-    return render(request, 'new/hub.html', {
+    return render(request, 'ui/hub.html', {
         'folders': NEW_UI_FOLDERS,
         'section_games': section_games,
         'page_title': 'Interoves',
@@ -172,8 +175,9 @@ def _new_folder_games(request):
         page = int(request.GET.get('page', 1))
         paginator = Paginator(all_games, view.games_per_page)
         games_page = paginator.get_page(page)
-        games_html = render(request, 'new/games_list_items.html', {
+        games_html = render(request, 'ui/games_list_items.html', {
             'games': games_page,
+            'game_list_offset': (page - 1) * view.games_per_page,
         }).content.decode('utf-8')
         return JsonResponse({
             'games_html': games_html,
@@ -184,7 +188,7 @@ def _new_folder_games(request):
         })
 
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
-    return render(request, 'new/folder_games.html', {
+    return render(request, 'ui/folder_games.html', {
         'project': project,
         'games': all_games[:view.games_per_page],
         'total_games': len(all_games),
@@ -255,7 +259,7 @@ def new_section_game_page(request, game_id):
             'game': game,
             'n_tasks': tg.n_tasks,
             'n_solved': n_solved,
-            'play_url': '/new/games/{}/{}'.format(game_id, tg.number),
+            'play_url': '/games/{}/{}'.format(game_id, tg.number),
             'is_fully_solved': is_fully_solved,
             'row_class': row_class,
             'title': tg.name,
@@ -269,7 +273,7 @@ def new_section_game_page(request, game_id):
             section_tutorial_html = page.html or ''
         except HTMLPage.DoesNotExist:
             pass
-    return render(request, 'new/game_page.html', {
+    return render(request, 'ui/game_page.html', {
         'game': game,
         'task_group_rows': task_group_rows,
         'play_mode': play_mode,
@@ -281,7 +285,7 @@ def new_section_game_page(request, game_id):
         'is_main_game': False,
         'task_groups_heading': 'Наборы заданий',
         'task_groups_empty_text': 'В этом разделе пока нет групп заданий. Добавьте их в админке.',
-        'back_url': '/new/',
+        'back_url': '/',
     })
 
 
@@ -349,13 +353,13 @@ def new_main_game_page(request, game_id):
             'task_group': tg,
             'n_tasks': tg.n_tasks,
             'n_solved': n_solved,
-            'play_url': '/new/games/{}/{}'.format(game.id, tg.number),
+            'play_url': '/games/{}/{}'.format(game.id, tg.number),
             'is_fully_solved': bool(tg.n_tasks) and n_solved >= tg.n_tasks,
             'row_class': row_class,
             'title': 'Группа {} · {}'.format(tg.number, tg.name),
             'progress_text': '{} из {} {} решено'.format(n_solved, tg.n_tasks, _ru_iz_punkt_word(tg.n_tasks)),
         })
-    return render(request, 'new/game_page.html', {
+    return render(request, 'ui/game_page.html', {
         'game': game,
         'task_group_rows': task_group_rows,
         'play_mode': play_mode,
@@ -369,7 +373,7 @@ def new_main_game_page(request, game_id):
         'is_main_game': True,
         'task_groups_heading': 'Задания',
         'task_groups_empty_text': 'В этой игре пока нет групп заданий.',
-        'back_url': '/new/games/',
+        'back_url': '/games/',
     })
 
 
@@ -501,9 +505,10 @@ def new_results_page(request, game_id):
     game = get_object_or_404(Game, id=game_id)
     if game.project_id != NEW_UI_PROJECT:
         raise Http404()
-    if not has_profile(request.user) or not request.user.profile.team_on:
-        raise Http404()
-    team = request.user.profile.team_on
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
+    # Results are viewable without being logged in; permissions are enforced by access rules.
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
 
@@ -512,11 +517,11 @@ def new_results_page(request, game_id):
         data = snapshot_to_results_context(game, snap.payload)
     else:
         data = _new_results_compute(game, mode='general')
-    return render(request, 'new/results.html', {
+    return render(request, 'ui/results.html', {
         'mode': 'general',
         'game': game,
         'team': team,
-        'back_url': '/new/games/{}/'.format(game.id),
+        'back_url': '/games/{}/'.format(game.id),
         **data,
         'play_mode': _get_play_mode(request, game.project_id)[0],
         'play_mode_project_id': game.project_id,
@@ -528,10 +533,11 @@ def new_tournament_results_page(request, game_id):
     game = get_object_or_404(Game, id=game_id)
     if game.project_id != NEW_UI_PROJECT:
         raise Http404()
-    if not has_profile(request.user) or not request.user.profile.team_on:
-        raise Http404()
-    team = request.user.profile.team_on
-    if not game.has_access('see_results', mode='tournament', team=team):
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
+    # Tournament results are viewable without being logged in; permissions are enforced by access rules.
+    if not game.has_access('see_tournament_results', team=team):
         raise Http404()
 
     snap = GameResultsSnapshot.objects.filter(game=game, mode='tournament').first()
@@ -539,11 +545,11 @@ def new_tournament_results_page(request, game_id):
         data = snapshot_to_results_context(game, snap.payload)
     else:
         data = _new_results_compute(game, mode='tournament')
-    return render(request, 'new/results.html', {
+    return render(request, 'ui/results.html', {
         'mode': 'tournament',
         'game': game,
         'team': team,
-        'back_url': '/new/games/{}/'.format(game.id),
+        'back_url': '/games/{}/'.format(game.id),
         **data,
         'play_mode': _get_play_mode(request, game.project_id)[0],
         'play_mode_project_id': game.project_id,
@@ -755,7 +761,7 @@ def new_task_group_page(request, game_id, task_group_number):
                 'max_attempts': t.get_max_attempts(),
                 'max_points_total': t.get_points() * n_lines,
             }
-    return render(request, 'new/task_group.html', {
+    return render(request, 'ui/task_group.html', {
         'game': game,
         'task_group': task_group,
         'tasks': tasks,
@@ -773,15 +779,15 @@ def new_task_group_page(request, game_id, task_group_number):
         'show_palindrome_rules': game.id == PALINDROMES_GAME_ID,
         'section_rules_type': section_rules_type,
         'section_tutorial_html': section_tutorial_html,
-        'prev_task_group_url': '/new/games/{}/{}/'.format(game.id, prev_tg.number) if prev_tg else None,
-        'next_task_group_url': '/new/games/{}/{}/'.format(game.id, next_tg.number) if next_tg else None,
+        'prev_task_group_url': '/games/{}/{}/'.format(game.id, prev_tg.number) if prev_tg else None,
+        'next_task_group_url': '/games/{}/{}/'.format(game.id, next_tg.number) if next_tg else None,
         'back_url': (
-            '/new/section/{}/'.format(game.id)
+            '/section/{}/'.format(game.id)
             if game.project_id == NEW_UI_SECTIONS_PROJECT
             else (
-                '/new/games/{}/'.format(game.id)
+                '/games/{}/'.format(game.id)
                 if game.project_id == NEW_UI_PROJECT
-                else '/new/'
+                else '/'
             )
         ),
         'page_title': '{} · {}'.format(game.outside_name or game.name, task_group.name),
@@ -924,7 +930,7 @@ def new_set_play_mode(request):
     if mode in ('team', 'personal'):
         project_id = request.GET.get('project') or NEW_UI_PROJECT
         request.session[_session_play_mode_key(project_id)] = mode
-    next_url = request.GET.get('next') or '/new/'
+    next_url = request.GET.get('next') or '/'
     return redirect(next_url)
 
 
@@ -1034,7 +1040,7 @@ def new_profile(request):
 
     tz_options = [(tz, _utc_offset_label(tz)) for tz in pytz.common_timezones]
 
-    return render(request, 'new/profile.html', {
+    return render(request, 'ui/profile.html', {
         'form': form,
         'connected_providers': connected,
         'tz_options': tz_options,
@@ -1049,9 +1055,9 @@ def new_team(request):
         messages.error(request, 'Сначала войдите и создайте профиль.')
         return redirect('new_hub')
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
-    back = request.build_absolute_uri('/new/team/')
+    back = request.build_absolute_uri('/team/')
     teams = sorted(Team.objects.filter(project=project, is_hidden=False), key=lambda t: t.visible_name)
-    return render(request, 'new/team.html', {
+    return render(request, 'ui/team.html', {
         'project': project,
         'teams': teams,
         'page_title': 'Команда',
@@ -1070,7 +1076,7 @@ def new_pay_page(request):
     recent_requests = []
     if team:
         recent_requests = list(TicketRequest.objects.filter(team=team).order_by('-time')[:20])
-    return render(request, 'new/pay.html', {
+    return render(request, 'ui/pay.html', {
         'team': team,
         'ticket_price': getattr(team, 'ticket_price', 2000) if team else 2000,
         'team_tickets': team.tickets if team else 0,
@@ -1079,33 +1085,27 @@ def new_pay_page(request):
     })
 
 
-def _configure_yookassa_from_env():
-    shop_id = os.environ.get('YOOKASSA_SHOP_ID') or os.environ.get('YOO_KASSA_SHOP_ID')
-    secret_key = os.environ.get('YOOKASSA_SECRET_KEY') or os.environ.get('YOO_KASSA_SECRET_KEY')
-    if not shop_id:
-        try:
-            shop_id = Path('secrets/yookassa_shop_id.txt').read_text(encoding='utf-8').strip()
-        except Exception:
-            shop_id = shop_id or None
-    if not secret_key:
-        try:
-            secret_key = Path('secrets/yookassa_secret_key.txt').read_text(encoding='utf-8').strip()
-        except Exception:
-            secret_key = secret_key or None
-    if not shop_id or not secret_key:
-        raise RuntimeError('Missing YooKassa credentials in env: YOOKASSA_SHOP_ID/YOOKASSA_SECRET_KEY')
-    Configuration.configure(shop_id, secret_key)
-
-
-@login_required
 @require_http_methods(['POST'])
 def new_create_ticket_payment(request):
+    """
+    Called via fetch() from /new/pay/ — must always return JSON so the client can r.json().
+    (Redirects/HTML from @login_required or redirect() break fetch and show «Ошибка сети».)
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {'status': 'error', 'reason': 'login', 'message': 'Сессия истекла. Войдите снова и повторите оплату.'},
+            status=401,
+        )
     if not has_profile(request.user):
-        messages.error(request, 'Сначала войдите и создайте профиль.')
-        return redirect('new_hub')
+        return JsonResponse(
+            {'status': 'error', 'reason': 'profile', 'message': 'Сначала войдите и создайте профиль.'},
+            status=403,
+        )
     if not has_team(request.user):
-        messages.error(request, 'Нужно создать или вступить в команду, чтобы купить билет.')
-        return redirect('new_team')
+        return JsonResponse(
+            {'status': 'error', 'reason': 'team', 'message': 'Нужно создать или вступить в команду, чтобы купить билет.'},
+            status=403,
+        )
 
     team = request.user.profile.team_on
     try:
@@ -1113,21 +1113,29 @@ def new_create_ticket_payment(request):
     except Exception:
         tickets = 0
     if tickets < 1 or tickets > 20:
-        messages.error(request, 'Введите число билетов от 1 до 20.')
-        return redirect('new_pay')
+        return JsonResponse(
+            {'status': 'error', 'reason': 'tickets', 'message': 'Введите число билетов от 1 до 20.'},
+            status=400,
+        )
 
     ticket_price = int(getattr(team, 'ticket_price', 2000) or 2000)
     amount_rub = int(tickets * ticket_price)
 
-    ticket_request = TicketRequest.objects.create(
-        team=team,
-        money=amount_rub,
-        tickets=tickets,
-        status='Pending',
-    )
-
+    ticket_request = None
     try:
-        _configure_yookassa_from_env()
+        ticket_request = TicketRequest.objects.create(
+            team=team,
+            money=amount_rub,
+            tickets=tickets,
+            status='Pending',
+        )
+
+        # YooKassa: description max 128 characters
+        team_label = (getattr(team, 'visible_name', None) or getattr(team, 'name', None) or str(team.pk))
+        payment_description = f'Билеты для команды {team_label} (request {ticket_request.id})'
+        payment_description = payment_description[:128]
+
+        configure_yookassa_from_env()
         payment = Payment.create({
             'amount': {
                 'value': f'{amount_rub:.2f}',
@@ -1137,10 +1145,10 @@ def new_create_ticket_payment(request):
                 'type': 'embedded',
             },
             'capture': True,
-            'description': f'Билеты для команды {team.visible_name or team.name} (request {ticket_request.id})',
+            'description': payment_description,
             'metadata': {
                 'ticket_request_id': str(ticket_request.id),
-                'team_id': str(team.id),
+                'team_id': str(team.pk),
                 'tickets': str(tickets),
                 'kind': 'team_ticket',
             },
@@ -1151,13 +1159,63 @@ def new_create_ticket_payment(request):
         confirmation_token = (payment_data.get('confirmation') or {}).get('confirmation_token')
         if not confirmation_token:
             raise RuntimeError('Missing confirmation_token from YooKassa')
+    except RuntimeError as exc:
+        if ticket_request is not None and 'Missing YooKassa credentials' in str(exc):
+            logger.error('new_create_ticket_payment: %s', exc)
+        else:
+            logger.exception(
+                'new_create_ticket_payment failed ticket_request_id=%s team_id=%s amount_rub=%s',
+                getattr(ticket_request, 'id', None),
+                team.pk,
+                amount_rub,
+            )
+        if 'Missing YooKassa credentials' in str(exc):
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'reason': 'yookassa_config',
+                    'message': 'Оплата не настроена на сервере (ключи YooKassa). Обратитесь к администратору.',
+                },
+                status=503,
+            )
+        if ticket_request is None:
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'reason': 'order',
+                    'message': 'Не удалось создать заказ. Попробуйте позже.',
+                },
+                status=500,
+            )
+        return JsonResponse(
+            {'status': 'error', 'reason': 'yookassa', 'message': 'Не получилось создать платёж. Попробуйте позже.'},
+            status=502,
+        )
     except Exception:
-        return JsonResponse({'status': 'error'})
+        logger.exception(
+            'new_create_ticket_payment failed ticket_request_id=%s team_id=%s amount_rub=%s',
+            getattr(ticket_request, 'id', None),
+            team.pk,
+            amount_rub,
+        )
+        if ticket_request is None:
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'reason': 'db',
+                    'message': 'Не удалось сохранить заказ (база данных). Попробуйте позже.',
+                },
+                status=500,
+            )
+        return JsonResponse(
+            {'status': 'error', 'reason': 'yookassa', 'message': 'Не получилось создать платёж. Попробуйте позже.'},
+            status=502,
+        )
 
     return JsonResponse({
         'status': 'ok',
         'confirmation_token': confirmation_token,
-        'return_url': request.build_absolute_uri('/new/pay/?payment=return'),
+        'return_url': request.build_absolute_uri('/pay/?payment=return'),
     })
 
 

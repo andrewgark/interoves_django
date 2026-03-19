@@ -1,6 +1,12 @@
 {% extends "new/base.html" %}
 {% load filters %}
-{% block title %}{{ game.outside_name|default:game.name }} · {{ task_group.name }}{% endblock %}
+{% block title %}
+  {% if "html_in_title" in game.tags %}
+    {% autoescape off %}{{ page_title }}{% endautoescape %}
+  {% else %}
+    {{ page_title }}
+  {% endif %}
+{% endblock %}
 {% block content %}
 <p style="margin:0 0 0.75rem">
   <a href="{{ back_url }}" class="new-btn new-btn--ghost">← Назад</a>
@@ -9,7 +15,13 @@
 <div class="new-section-header">
   <div>
     <div class="new-login-hint" style="margin:0">Игра</div>
-    <h1 class="new-heading" style="margin:0">{{ game.outside_name|default:game.name }}</h1>
+    <h1 class="new-heading" style="margin:0">
+      {% if "html_in_title" in game.tags %}
+        {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
+      {% else %}
+        {{ game.get_outside_name|default:game.outside_name|default:game.name }}
+      {% endif %}
+    </h1>
   </div>
   <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle><i class="fa fa-eye" aria-hidden="true"></i></button>
   {% if section_tutorial_html or show_palindrome_rules or section_rules_type or game.theme %}
@@ -158,7 +170,13 @@
   <div class="new-rules-overlay" data-rules-close></div>
   <div class="new-rules-modal__box pal-card">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
-    <h2 id="rules-modal-title" class="pal-title">{{ game.outside_name|default:game.name }}</h2>
+    <h2 id="rules-modal-title" class="pal-title">
+      {% if "html_in_title" in game.tags %}
+        {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
+      {% else %}
+        {{ game.get_outside_name|default:game.outside_name|default:game.name }}
+      {% endif %}
+    </h2>
     <p class="pal-lead">{{ game.theme }}</p>
   </div>
 </div>
@@ -226,6 +244,7 @@
 </script>
 {% endif %}
 
+<div class="new-taskgrid {% if task_group.view == 'table-3-n' %}new-taskgrid--3{% elif task_group.view == 'table-4-n' %}new-taskgrid--4{% endif %}">
 {% for task in tasks %}
   {% with ai=attempts_info_by_task_id|get_item:task.id %}
   <div class="new-taskcard" id="new-task-{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}">
@@ -464,6 +483,7 @@
   </div>
   {% endwith %}
 {% endfor %}
+</div>
 
 <div id="new-answer-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-answer-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-answer-close></div>
@@ -846,9 +866,38 @@
   function applyHideSolved() {
     var hide = false;
     try { hide = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) {}
-    document.querySelectorAll('.new-taskcard[data-solved=\"1\"]').forEach(function (el) {
-      el.classList.toggle('is-hidden', hide);
+    var grid = document.querySelector('.new-taskgrid');
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.new-taskcard'));
+    // First pass: hide solved as gaps.
+    cards.forEach(function (el) {
+      var solved = el.getAttribute('data-solved') === '1';
+      el.classList.toggle('is-solved-hidden', hide && solved);
+      el.classList.remove('is-hidden-row');
     });
+    // Second pass: if a whole visual row is solved, remove it completely.
+    if (hide && grid && cards.length) {
+      var cols = 1;
+      try {
+        var gtc = window.getComputedStyle(grid).gridTemplateColumns || '';
+        var parts = gtc.split(' ').filter(function (p) { return p && p !== '/'; });
+        cols = Math.max(1, parts.length);
+      } catch (e) {}
+      for (var i = 0; i < cards.length; i += cols) {
+        var row = cards.slice(i, i + cols);
+        var any = false;
+        var allSolved = true;
+        row.forEach(function (el) {
+          any = true;
+          if (el.getAttribute('data-solved') !== '1') allSolved = false;
+        });
+        if (any && allSolved) {
+          row.forEach(function (el) {
+            el.classList.add('is-hidden-row');
+            el.classList.remove('is-solved-hidden');
+          });
+        }
+      }
+    }
     var btn = document.querySelector('[data-hide-solved-toggle]');
     if (btn) btn.innerHTML = hide ? '<i class=\"fa fa-eye-slash\" aria-hidden=\"true\"></i>' : '<i class=\"fa fa-eye\" aria-hidden=\"true\"></i>';
   }

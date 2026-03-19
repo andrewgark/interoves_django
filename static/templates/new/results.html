@@ -1,7 +1,14 @@
 {% extends "new/base.html" %}
 {% load filters tz %}
 
-{% block title %}Результаты · {{ game.get_outside_name|default:game.name }}{% endblock %}
+{% block title %}
+  Результаты ·
+  {% if "html_in_title" in game.tags %}
+    {% autoescape off %}{{ game.get_outside_name|default:game.name }}{% endautoescape %}
+  {% else %}
+    {{ game.get_outside_name|default:game.name }}
+  {% endif %}
+{% endblock %}
 
 {% block content %}
   <div class="new-ui new-ui--section">
@@ -12,7 +19,13 @@
     <div class="new-section-header" style="margin-bottom:0.75rem">
       <div>
         <div class="new-login-hint" style="margin:0">{% if mode == 'tournament' %}Турнирная таблица{% else %}Общая таблица{% endif %}</div>
-        <h1 class="new-heading" style="margin:0">{{ game.get_outside_name|default:game.name }}</h1>
+        <h1 class="new-heading" style="margin:0">
+          {% if "html_in_title" in game.tags %}
+            {% autoescape off %}{{ game.get_outside_name|default:game.name }}{% endautoescape %}
+          {% else %}
+            {{ game.get_outside_name|default:game.name }}
+          {% endif %}
+        </h1>
       </div>
     </div>
 
@@ -90,5 +103,25 @@
       </div>
     </div>
   </div>
+  <script>
+  (function () {
+    var table = document.querySelector('.new-results-table');
+    if (!table) return;
+    var row1 = table.querySelector('thead tr:first-child');
+    if (!row1) return;
+    function syncStickyHeaderOffset() {
+      var h = row1.getBoundingClientRect().height;
+      table.style.setProperty('--results-sticky-row1-height', h + 'px');
+    }
+    syncStickyHeaderOffset();
+    window.addEventListener('resize', syncStickyHeaderOffset);
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(syncStickyHeaderOffset).observe(row1);
+    }
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(syncStickyHeaderOffset);
+    }
+  })();
+  </script>
 {% endblock %}
 

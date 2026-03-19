@@ -1,7 +1,13 @@
 {% extends "new/base.html" %}
 {% load tz filters %}
 
-{% block title %}{{ page_title|default:game.get_outside_name|default:game.outside_name|default:game.name }}{% endblock %}
+{% block title %}
+  {% if "html_in_title" in game.tags %}
+    {% autoescape off %}{{ page_title|default:game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
+  {% else %}
+    {{ page_title|default:game.get_outside_name|default:game.outside_name|default:game.name }}
+  {% endif %}
+{% endblock %}
 
 {% block extrahead %}
   {% if show_palindrome_rules %}
@@ -14,7 +20,7 @@
 {% block content %}
   <div class="new-ui new-ui--section">
     <p style="margin:0 0 0.75rem">
-      <a href="{{ back_url|default:'/new/' }}" class="new-btn new-btn--ghost">← Игры</a>
+      <a href="{{ back_url|default:'/' }}" class="new-btn new-btn--ghost">← Игры</a>
     </p>
 
     {% if is_main_game %}
@@ -23,7 +29,13 @@
           <div class="new-section-header__logo"><img src="{{ game.image.url }}" alt="" /></div>
         {% endif %}
         <div class="new-section-header__meta">
-          <div class="new-section-header__title">{{ game.get_outside_name|default:game.outside_name|default:game.name }}</div>
+          <div class="new-section-header__title">
+            {% if "html_in_title" in game.tags %}
+              {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
+            {% else %}
+              {{ game.get_outside_name|default:game.outside_name|default:game.name }}
+            {% endif %}
+          </div>
           <div class="new-section-header__sub">
             <span class="new-pill">
               {% timezone user_timezone %}
@@ -43,7 +55,10 @@
           </div>
           <div class="new-section-header__sub" style="margin-top:0.5rem">
             {% if game.game_url and game|access_read_googledoc:team %}
-              <a href="{{ game.game_url }}" class="new-btn new-btn--ghost new-btn--mini">Условия</a>
+              <span class="new-game-card__rowactions">
+                <a href="{{ game.game_url }}" class="new-btn new-btn--ghost new-btn--mini">Условия</a>
+                <button type="button" class="new-btn new-btn--ghost new-btn--mini new-copybtn" data-gdoc-copy-url="{{ game.game_url }}">Копия</button>
+              </span>
             {% endif %}
             {% if game.answers_url and game|access_see_answer:team %}
               <a href="{{ game.answers_url }}" class="new-btn new-btn--ghost new-btn--mini">Ответы</a>
@@ -65,18 +80,38 @@
         </div>
       {% endif %}
 
-      {% if play_mode != 'team' %}
+      {% if user.is_authenticated %}
+        {% if play_mode != 'team' %}
+          <div class="new-card new-card--warn">
+            <div class="new-card__title">Вы точно хотите играть лично, а не в команде?</div>
+            <div class="new-card__text">
+              В личном режиме решения и подсказки не будут общими для команды.
+              Если вы хотели играть в команде — переключите режим в меню сверху (👥/👤).
+            </div>
+          </div>
+        {% endif %}
+      {% else %}
         <div class="new-card new-card--warn">
-          <div class="new-card__title">Вы точно хотите играть лично, а не в команде?</div>
+          <div class="new-card__title">Хотите сохранять результаты?</div>
           <div class="new-card__text">
-            В личном режиме решения и подсказки не будут общими для команды.
-            Если вы хотели играть в команде — переключите режим в меню сверху (👥/👤).
+            Войдите, чтобы ваши решения сохранялись и были доступны с других устройств.
+            А ещё можно создать команду и решать вместе с друзьями.
+          </div>
+          <div class="new-card__text" style="margin-top:0.6rem">
+            <a class="new-btn new-btn--mini" href="/?login=1&next={{ request.get_full_path|urlencode }}">Войти</a>
+            <a class="new-btn new-btn--ghost new-btn--mini" href="/team/?next={{ request.get_full_path|urlencode }}">Команда</a>
           </div>
         </div>
       {% endif %}
     {% else %}
       <div class="new-section-header">
-        <h1 class="new-heading" style="margin:0">{{ game.get_outside_name|default:game.outside_name|default:game.name }}</h1>
+        <h1 class="new-heading" style="margin:0">
+          {% if "html_in_title" in game.tags %}
+            {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
+          {% else %}
+            {{ game.get_outside_name|default:game.outside_name|default:game.name }}
+          {% endif %}
+        </h1>
         <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle>
           <i class="fa fa-eye" aria-hidden="true"></i>
         </button>

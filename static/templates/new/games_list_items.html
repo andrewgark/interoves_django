@@ -1,7 +1,7 @@
 {% load filters tz %}
 {% for game in games %}
   {% with team=user.profile.team_on %}
-  <div class="new-game-card">
+  <div class="new-game-card" data-game-list-index="{{ forloop.counter0|add:game_list_offset }}">
     <div class="new-game-card__left">
       <div class="new-game-card__time">
         {% timezone user_timezone %}
@@ -10,11 +10,21 @@
         {% endtimezone %}
       </div>
       <div class="new-game-card__logo">
-        {% if game.image %}<img src="{{ game.image.url }}" alt="{{ game.get_outside_name }}">{% endif %}
+        {% if game.image %}
+          <img src="{{ game.image.url }}" alt="{{ game.get_outside_name }}">
+        {% endif %}
       </div>
     </div>
     <div class="new-game-card__main">
-      <div class="new-game-card__title">{{ game.get_outside_name }}</div>
+      <div class="new-game-card__title">
+        {% if "html_in_title" in game.tags %}
+          {% autoescape off %}
+            {{ game.get_outside_name }}
+          {% endautoescape %}
+        {% else %}
+          {{ game.get_outside_name }}
+        {% endif %}
+      </div>
       {% if game.theme %}<div class="new-game-card__meta">Тема: {{ game.theme }}</div>{% endif %}
       <div class="new-game-card__meta">Автор: {{ game.author }}</div>
 
@@ -51,7 +61,10 @@
           {% endif %}
         {% endif %}
         {% if game.game_url and game|access_read_googledoc:team %}
-          <a href="{{ game.game_url }}" class="new-btn new-btn--ghost new-btn--mini">Условия</a>
+          <div class="new-game-card__rowactions">
+            <a href="{{ game.game_url }}" class="new-btn new-btn--ghost new-btn--mini">Условия</a>
+            <button type="button" class="new-btn new-btn--ghost new-btn--mini new-copybtn" data-gdoc-copy-url="{{ game.game_url }}">Копия</button>
+          </div>
         {% endif %}
         {% if game.answers_url and game|access_see_answer:team %}
           <a href="{{ game.answers_url }}" class="new-btn new-btn--ghost new-btn--mini">Ответы</a>

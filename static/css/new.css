@@ -573,6 +573,34 @@ body.new-ui {
   margin-bottom: 0.75rem;
 }
 
+.new-taskgrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+/* Table views for TaskGroup.view: show tasks as 3 or 4 per row on wide screens. */
+@media (min-width: 500px) {
+  .new-taskgrid--3,
+  .new-taskgrid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 800px) {
+  .new-taskgrid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .new-taskgrid--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* In grid mode, cards shouldn't have their own vertical margin. */
+.new-taskgrid .new-taskcard {
+  margin-bottom: 0;
+}
+
 .new-taskcard__head {
   display: flex;
   align-items: center;
@@ -824,11 +852,21 @@ body.new-ui {
   flex-direction: column;
   gap: 0.45rem;
   flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.new-game-card__rowactions{
+  display: inline-flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .new-game-card__actions .new-btn--mini {
   padding: 0.55rem 0.8rem;
   font-size: 0.85rem;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .new-smart-scrollbar-container {
@@ -853,9 +891,11 @@ body.new-ui {
   border-radius: 999px;
   position: absolute;
   left: 0;
-  bottom: 0;
+  top: 0;
   height: 10%;
-  transition: height 0.25s ease;
+  z-index: 0;
+  pointer-events: none;
+  /* высота задаётся из JS при скролле — без transition, чтобы полоска не отставала */
 }
 
 .new-smart-scrollbar-thumb {
@@ -867,6 +907,7 @@ body.new-ui {
   background: var(--accent-hover);
   border-radius: 999px;
   cursor: grab;
+  z-index: 1;
 }
 
 .new-smart-scrollbar-thumb:active { cursor: grabbing; }
@@ -1386,9 +1427,10 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   top: 0;
   z-index: 5;
 }
+/* Second frozen row: top must match real height of first thead row (set via --results-sticky-row1-height in results template). */
 .new-results-table .is-sticky-top-2{
   position: sticky;
-  top: 2.15rem;
+  top: var(--results-sticky-row1-height, 2.15rem);
   z-index: 5;
 }
 
@@ -1475,6 +1517,16 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 }
 
 .is-hidden {
+  display: none !important;
+}
+
+/* When hiding solved tasks, keep their grid cell to avoid reflow/jumps. */
+.new-taskcard.is-solved-hidden {
+  visibility: hidden;
+}
+
+/* But if an entire row is solved, remove it completely. */
+.new-taskcard.is-hidden-row {
   display: none !important;
 }
 

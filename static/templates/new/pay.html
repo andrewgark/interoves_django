@@ -51,7 +51,9 @@
     </div>
   </form>
 
+  <br>
   <div id="new-yookassa-widget" style="margin-top:0.75rem"></div>
+  <br>
   <div id="new-yookassa-msg" class="new-login-hint" style="margin:0.5rem 0 0"></div>
 
   <script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
@@ -64,6 +66,11 @@
 
     var checkout = null;
     function setMsg(t) { if (msg) msg.textContent = t || ''; }
+
+    function getCsrfToken() {
+      var match = document.cookie.match(/csrftoken=([^;]+)/);
+      return match ? decodeURIComponent(match[1].trim()) : '';
+    }
 
     function clampTickets(v) {
       var n = Number(v || 0);
@@ -102,14 +109,31 @@
       if (btn) btn.disabled = true;
       fetch(form.action, {
         method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': getCsrfToken(),
+        },
         body: new FormData(form),
         credentials: 'same-origin',
-      }).then(function (r) { return r.json(); })
-        .then(function (data) {
+      }).then(function (r) {
+        return r.text().then(function (text) {
+          var data = null;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch (e) {
+            data = null;
+          }
+          return { r: r, data: data, nonJson: !data };
+        });
+      }).then(function (res) {
           if (btn) btn.disabled = false;
+          var data = res.data;
+          if (res.nonJson) {
+            setMsg('Сервер вернул неожиданный ответ (код ' + res.r.status + '). Обновите страницу и попробуйте снова.');
+            return;
+          }
           if (!data || data.status !== 'ok' || !data.confirmation_token) {
-            setMsg('Не получилось создать платёж. Попробуйте позже.');
+            setMsg((data && data.message) ? data.message : 'Не получилось создать платёж. Попробуйте позже.');
             return;
           }
           setMsg('');

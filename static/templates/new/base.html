@@ -204,5 +204,70 @@
     setInterval(tick, 1000);
   })();
   </script>
+  <script>
+  (function () {
+    function fallbackCopy(text) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      ta.style.left = '-1000px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    function makeGoogleCopyUrl(url) {
+      // Common Google Docs/Sheets/Slides pattern: /edit -> /copy
+      // Preserve query string so "usp=sharing" etc. stay.
+      try {
+        var u = new URL(url, window.location.href);
+        var path = u.pathname || '';
+        if (path.indexOf('/copy') !== -1) return u.toString();
+        if (path.indexOf('/edit') !== -1) {
+          u.pathname = path.replace(/\/edit\/?$/, '/copy');
+          return u.toString();
+        }
+        // Fallback: append /copy if it looks like a Google docs URL
+        if (/^\/(document|spreadsheets|presentation)\//.test(path)) {
+          u.pathname = path.replace(/\/$/, '') + '/copy';
+          return u.toString();
+        }
+        return url;
+      } catch (e) {
+        return url;
+      }
+    }
+
+    document.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('[data-copy-text],[data-gdoc-copy-url]') : null;
+      if (!btn) return;
+      var text = '';
+      var isGdocCopy = btn.hasAttribute('data-gdoc-copy-url');
+      if (isGdocCopy) {
+        var src = btn.getAttribute('data-gdoc-copy-url') || '';
+        if (!src) return;
+        var copyUrl = makeGoogleCopyUrl(src);
+        e.preventDefault();
+        window.open(copyUrl, '_blank', 'noopener');
+        return;
+      } else {
+        text = btn.getAttribute('data-copy-text') || '';
+        if (!text) return;
+      }
+      e.preventDefault();
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () {}).catch(function () {
+          fallbackCopy(text);
+        });
+      } else {
+        fallbackCopy(text);
+      }
+    });
+  })();
+  </script>
 </body>
 </html>
