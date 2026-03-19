@@ -143,7 +143,7 @@
             "startIndex": 153,
             "endIndex": 165,
             "textRun": {
-              "content": "interoves.ml",
+              "content": "interoves.com",
               "textStyle": {
                 "bold": true,
                 "italic": true,
@@ -158,7 +158,7 @@
                   }
                 },
                 "link": {
-                  "url": "http://interoves.ml"
+                  "url": "https://interoves.com"
                 }
               }
             }
@@ -255,7 +255,7 @@
             "startIndex": 304,
             "endIndex": 329,
             "textRun": {
-              "content": "interoves.ml/games/des14/",
+              "content": "interoves.com/games/des14/",
               "textStyle": {
                 "italic": true,
                 "underline": true,
@@ -269,7 +269,7 @@
                   }
                 },
                 "link": {
-                  "url": "http://interoves.ml/games/des14/"
+                  "url": "https://interoves.com/games/des14/"
                 }
               }
             }
@@ -539,7 +539,7 @@
             "startIndex": 1280,
             "endIndex": 1318,
             "textRun": {
-              "content": "interoves.ml/tournament_results/des14/",
+              "content": "interoves.com/tournament_results/des14/",
               "textStyle": {
                 "italic": true,
                 "underline": true,
@@ -553,7 +553,7 @@
                   }
                 },
                 "link": {
-                  "url": "https://interoves.ml/tournament_results/des14/"
+                  "url": "https://interoves.com/tournament_results/des14/"
                 }
               }
             }

@@ -80,7 +80,7 @@
         <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle>
           <i class="fa fa-eye" aria-hidden="true"></i>
         </button>
-        {% if show_palindrome_rules or game.theme %}
+        {% if section_tutorial_html or show_palindrome_rules or section_rules_type or game.theme %}
           <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open>?</button>
         {% endif %}
       </div>
@@ -88,8 +88,14 @@
         <p class="new-login-hint" style="margin-top:0">{{ game.theme }}</p>
       {% endif %}
 
-      {% if show_palindrome_rules %}
-        {# same modal as before #}
+      {% if section_tutorial_html %}
+        <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+          <div class="new-rules-overlay" data-rules-close></div>
+          <div class="new-rules-modal__box pal-card">
+            {% autoescape off %}{{ section_tutorial_html }}{% endautoescape %}
+          </div>
+        </div>
+      {% elif show_palindrome_rules %}
         <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
           <div class="new-rules-overlay" data-rules-close></div>
           <div class="new-rules-modal__box pal-card">
@@ -150,6 +156,70 @@
             </div>
           </div>
         </div>
+      {% elif section_rules_type == 'replacements' %}
+        <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+          <div class="new-rules-overlay" data-rules-close></div>
+          <div class="new-rules-modal__box pal-card">
+            <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
+            <p class="pal-kicker">Замены</p>
+            <h2 id="rules-modal-title" class="pal-title">как играть</h2>
+            <p class="pal-lead">
+              В заданиях этого раздела нужно превратить одно слово или фразу в другую, делая <strong>замены</strong> по указанным правилам.
+            </p>
+            <div class="pal-rules">
+              <div class="pal-rule">
+                <div class="pal-rule-number">1</div>
+                <div class="pal-rule-text">
+                  В каждом задании даны <strong>исходное и целевое</strong> выражение. Нужно перейти от одного к другому, меняя по одному элементу за раз (букву, слог, слово — в зависимости от формулировки).
+                </div>
+              </div>
+              <div class="pal-rule">
+                <div class="pal-rule-number">2</div>
+                <div class="pal-rule-text">
+                  Правила замен (что именно можно менять и как) указаны в условии группы или в самом задании.
+                </div>
+              </div>
+              <div class="pal-rule">
+                <div class="pal-rule-number">3</div>
+                <div class="pal-rule-text">
+                  Ответом обычно является <strong>целевая фраза или слово</strong> в правильном виде. Следуйте подсказкам в задании.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% elif section_rules_type == 'walls' %}
+        <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+          <div class="new-rules-overlay" data-rules-close></div>
+          <div class="new-rules-modal__box pal-card">
+            <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
+            <p class="pal-kicker">Стены</p>
+            <h2 id="rules-modal-title" class="pal-title">как играть</h2>
+            <p class="pal-lead">
+              «Стена» — это набор слов или фраз, разбитых на группы по общему принципу. Ваша цель — найти этот принцип и дать ответ по условию задания.
+            </p>
+            <div class="pal-rules">
+              <div class="pal-rule">
+                <div class="pal-rule-number">1</div>
+                <div class="pal-rule-text">
+                  Элементы в стене объединены в <strong>несколько групп</strong> (рядов, столбцов или блоков). У каждой группы есть общий признак — тема, категория, правило.
+                </div>
+              </div>
+              <div class="pal-rule">
+                <div class="pal-rule-number">2</div>
+                <div class="pal-rule-text">
+                  Нужно понять, по какому принципу проведено разбиение, и вписать ответ: название группы, недостающий элемент, связующую фразу или то, что просят в условии.
+                </div>
+              </div>
+              <div class="pal-rule">
+                <div class="pal-rule-number">3</div>
+                <div class="pal-rule-text">
+                  Условие группы или подсказки в задании подсказывают формат ответа. Запятые, порядок слов и правописание могут учитываться при проверке.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       {% elif game.theme %}
         <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
           <div class="new-rules-overlay" data-rules-close></div>
@@ -186,7 +256,7 @@
   </div>
 
   {% if not is_main_game %}
-    {% if show_palindrome_rules or game.theme %}
+    {% if section_tutorial_html or show_palindrome_rules or section_rules_type or game.theme %}
       <script>
       (function () {
         var modal = document.getElementById('rules-modal');

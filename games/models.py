@@ -209,6 +209,25 @@ class Game(models.Model):
         return self.visible_end_time if self.visible_end_time is not None else self.end_time
 
 
+class GameResultsSnapshot(models.Model):
+    """
+    Frozen results table for a game.
+
+    Stores computed results (including hint penalties) so later task/checker changes
+    do not affect already finished tournaments.
+    """
+    game = models.ForeignKey(Game, related_name='results_snapshots', on_delete=models.CASCADE)
+    mode = models.CharField(max_length=32, default='tournament')  # 'general' | 'tournament'
+    created_at = models.DateTimeField(auto_now_add=True)
+    payload = models.JSONField(default=dict)
+
+    class Meta:
+        unique_together = (('game', 'mode'),)
+
+    def __str__(self):
+        return f'{self.game_id} [{self.mode}] @ {self.created_at:%Y-%m-%d %H:%M:%S}'
+
+
 class TaskGroup(models.Model):
     id = models.AutoField(primary_key=True)
     game = models.ForeignKey(Game, related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
@@ -265,6 +284,7 @@ class Task(models.Model):
         ('default', 'default'),
         ('wall', 'wall'),
         ('text_with_forms', 'text_with_forms'),
+        ('replacements_lines', 'replacements_lines'),
         ('distribute_to_teams', 'distribute_to_teams'),
         ('with_tag', 'with_tag'),
         ('autohint', 'autohint'),
@@ -561,6 +581,14 @@ class Attempt(models.Model):
             return 'DELETED TASK'
         if self.task.task_type in ('default', 'with_tag', 'text_with_forms', 'autohint'):
             return self.text
+        if self.task.task_type == 'replacements_lines':
+            try:
+                p = json.loads(self.text)
+                line_idx = p.get('line_index', 0)
+                answers = p.get('answers', [])
+                return 'Строка {}: {}'.format(line_idx + 1, ' '.join(answers))
+            except (ValueError, TypeError):
+                return self.text
         if self.task.task_type == 'wall':
             return self.task.get_wall().get_attempt_text(
                 json.loads(self.text),

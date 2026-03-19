@@ -64,7 +64,7 @@
           </thead>
           <tbody>
             {% for t in teams_sorted %}
-              <tr class="{% if team == t %}is-me{% endif %}">
+              <tr class="{% if team and team.pk == t.pk %}is-me{% endif %}">
                 <th class="is-sticky-left">{{ team_to_place|get_item:t }}</th>
                 <th class="is-sticky-left-2 col-team">{{ t.visible_name }}</th>
                 <th class="is-sticky-left-3 col-score">{{ team_to_score|get_item:t|minimize_digits }}</th>

@@ -1,0 +1,82 @@
+{% load filters %}
+<table class="new-replacements-table" role="presentation">
+  <colgroup>
+    <col class="new-replacements-col--left">
+    <col class="new-replacements-col--check">
+    <col class="new-replacements-col--right">
+  </colgroup>
+  <tbody>
+  {% for line_tokens in rld.parsed.right_tokens %}
+    {% with line_idx=forloop.counter0 %}
+    <tr class="new-replacements-row {% if rld.line_done|get_item:line_idx %}new-replacements-row--solved{% endif %}" data-line-index="{{ line_idx }}" data-task-id="{{ task.id }}">
+      <td class="new-replacements-block__left {% if rld.line_done|get_item:line_idx %}new-replacements-block__left--solved{% endif %}">
+        {{ rld.parsed.left_lines|get_item:line_idx }}
+      </td>
+      <td class="new-replacements-block__check">
+        {% if rld.line_done|get_item:line_idx %}
+          <span class="new-replacements-check-btn new-replacements-check-btn--done" title="Верно">✓</span>
+          <span class="new-replacements-line__attempts">
+            <span class="new-replacements-line__attempts-num">{{ rld.line_attempts|get_item:line_idx }}</span>{% if mode == 'tournament' %}/{{ rld.max_attempts }}{% endif %}
+          </span>
+          {% if user.is_authenticated and has_profile_user %}
+            <button type="button" class="new-action-link new-repl-line-answer" data-repl-answer-open data-task-id="{{ task.id }}" data-line-index="{{ line_idx }}">Ответ</button>
+          {% endif %}
+        {% else %}
+          <form class="new-replacements-line-form new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-line-index="{{ line_idx }}" id="repl-form-{{ task.id }}-{{ line_idx }}">
+            {% csrf_token %}
+            <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+            <input type="hidden" name="line_index" value="{{ line_idx }}">
+            <button type="submit" class="new-replacements-check-btn" title="Проверить" aria-label="Проверить строку {{ forloop.counter }}">✓</button>
+          </form>
+          <span class="new-replacements-line__attempts" title="Попытки по этой строке">
+            <span class="new-replacements-line__attempts-num">{{ rld.line_attempts|get_item:line_idx }}</span>{% if mode == 'tournament' %}/{{ rld.max_attempts }}{% endif %}
+          </span>
+          {% if user.is_authenticated and has_profile_user and mode != 'tournament' %}
+            <button type="button" class="new-action-link new-repl-line-answer" data-repl-answer-open data-task-id="{{ task.id }}" data-line-index="{{ line_idx }}">Ответ</button>
+          {% endif %}
+        {% endif %}
+      </td>
+      <td class="new-replacements-block__right {% if rld.line_done|get_item:line_idx %}new-replacements-block__right--solved{% endif %}">
+        {% if rld.line_done|get_item:line_idx %}
+          <span class="new-replacements-line__solved-text">
+            {% for token in line_tokens %}{% if token.type == 'slot' %}{% with correct_word=rld.parsed.answers|get_item:line_idx|get_item:token.slot_index %}<strong>{{ correct_word }}</strong>{% endwith %}{% else %}<span class="new-replacements-static">{{ token.text }}</span>{% endif %}{% endfor %}
+          </span>
+        {% else %}
+          <span class="new-replacements-line__inputs">
+            {% for token in line_tokens %}
+              {% if token.type == 'slot' %}
+                {% with is_correct=rld.slot_correct|get_item:line_idx|get_item:token.slot_index %}
+                  {% if is_correct %}
+                    {% with correct_word=rld.parsed.answers|get_item:line_idx|get_item:token.slot_index %}
+                      <strong class="new-replacements-partial-answer">{{ correct_word }}</strong>
+                      <input type="hidden" name="answers[]" form="repl-form-{{ task.id }}-{{ line_idx }}" value="{{ correct_word }}">
+                    {% endwith %}
+                  {% else %}
+                    {% with correct_word=rld.parsed.answers|get_item:line_idx|get_item:token.slot_index %}
+                      {% with l=correct_word|length %}
+                        {% if l <= 4 %}
+                          <input type="text" name="answers[]" class="new-replacements-input" form="repl-form-{{ task.id }}-{{ line_idx }}" data-slot="{{ token.slot_index }}" autocomplete="off" size="4">
+                        {% elif l <= 8 %}
+                          <input type="text" name="answers[]" class="new-replacements-input" form="repl-form-{{ task.id }}-{{ line_idx }}" data-slot="{{ token.slot_index }}" autocomplete="off" size="8">
+                        {% elif l <= 12 %}
+                          <input type="text" name="answers[]" class="new-replacements-input" form="repl-form-{{ task.id }}-{{ line_idx }}" data-slot="{{ token.slot_index }}" autocomplete="off" size="12">
+                        {% else %}
+                          <input type="text" name="answers[]" class="new-replacements-input" form="repl-form-{{ task.id }}-{{ line_idx }}" data-slot="{{ token.slot_index }}" autocomplete="off" size="16">
+                        {% endif %}
+                      {% endwith %}
+                    {% endwith %}
+                  {% endif %}
+                {% endwith %}
+              {% else %}
+                <span class="new-replacements-static">{{ token.text }}</span>
+              {% endif %}
+            {% endfor %}
+          </span>
+          <div class="new-attempt-msg new-replacements-line-msg" aria-live="polite" data-msg-for="repl-form-{{ task.id }}-{{ line_idx }}"></div>
+        {% endif %}
+      </td>
+    </tr>
+    {% endwith %}
+  {% endfor %}
+  </tbody>
+</table>

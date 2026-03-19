@@ -7,6 +7,7 @@ urlpatterns = [
     path('play-mode/', new_ui.new_set_play_mode, name='new_set_play_mode'),
     path('migrate-anon-attempts/', new_ui.new_migrate_anon_attempts, name='new_migrate_anon_attempts'),
     path('answer/<int:task_id>/', new_ui.new_get_answer, name='new_get_answer'),
+    path('answer/<int:task_id>/<int:line_index>/', new_ui.new_get_replacements_line_answer, name='new_get_replacements_line_answer'),
     path('like-dislike/<int:task_id>/', new_ui.new_like_dislike, name='new_like_dislike'),
     path('games/<str:game_id>/', new_ui.new_main_game_page, name='new_main_game'),
     path('games/<str:game_id>/results/', new_ui.new_results_page, name='new_results'),
@@ -22,5 +23,7 @@ urlpatterns = [
     path('section/<str:game_id>/', new_ui.new_section_game_page, name='new_section_game'),
     path('profile/', new_ui.new_profile, name='new_profile'),
     path('team/', new_ui.new_team, name='new_team'),
+    path('pay/', new_ui.new_pay_page, name='new_pay'),
+    path('pay/create-ticket-payment/', new_ui.new_create_ticket_payment, name='new_create_ticket_payment'),
     path('<slug>/', new_ui.new_folder, name='new_folder'),
 ]

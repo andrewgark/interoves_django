@@ -12,7 +12,7 @@
     <h1 class="new-heading" style="margin:0">{{ game.outside_name|default:game.name }}</h1>
   </div>
   <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle><i class="fa fa-eye" aria-hidden="true"></i></button>
-  {% if show_palindrome_rules or game.theme %}
+  {% if section_tutorial_html or show_palindrome_rules or section_rules_type or game.theme %}
   <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open>?</button>
   {% endif %}
 </div>
@@ -21,7 +21,14 @@
   Группа {{ task_group.number }} · <strong>{{ task_group.name }}</strong>
 </p>
 
-{% if show_palindrome_rules %}
+{% if section_tutorial_html %}
+<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-rules-close></div>
+  <div class="new-rules-modal__box pal-card">
+    {% autoescape off %}{{ section_tutorial_html }}{% endautoescape %}
+  </div>
+</div>
+{% elif show_palindrome_rules %}
 <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-rules-close></div>
   <div class="new-rules-modal__box pal-card">
@@ -82,6 +89,70 @@
     </div>
   </div>
 </div>
+{% elif section_rules_type == 'replacements' %}
+<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-rules-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
+    <p class="pal-kicker">Замены</p>
+    <h2 id="rules-modal-title" class="pal-title">как играть</h2>
+    <p class="pal-lead">
+      В заданиях этого раздела нужно превратить одно слово или фразу в другую, делая <strong>замены</strong> по указанным правилам.
+    </p>
+    <div class="pal-rules">
+      <div class="pal-rule">
+        <div class="pal-rule-number">1</div>
+        <div class="pal-rule-text">
+          В каждом задании даны <strong>исходное и целевое</strong> выражение. Нужно перейти от одного к другому, меняя по одному элементу за раз (букву, слог, слово — в зависимости от формулировки).
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">2</div>
+        <div class="pal-rule-text">
+          Правила замен (что именно можно менять и как) указаны в условии группы или в самом задании.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">3</div>
+        <div class="pal-rule-text">
+          Ответом обычно является <strong>целевая фраза или слово</strong> в правильном виде. Следуйте подсказкам в задании.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% elif section_rules_type == 'walls' %}
+<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-rules-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
+    <p class="pal-kicker">Стены</p>
+    <h2 id="rules-modal-title" class="pal-title">как играть</h2>
+    <p class="pal-lead">
+      «Стена» — это набор слов или фраз, разбитых на группы по общему принципу. Ваша цель — найти этот принцип и дать ответ по условию задания.
+    </p>
+    <div class="pal-rules">
+      <div class="pal-rule">
+        <div class="pal-rule-number">1</div>
+        <div class="pal-rule-text">
+          Элементы в стене объединены в <strong>несколько групп</strong> (рядов, столбцов или блоков). У каждой группы есть общий признак — тема, категория, правило.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">2</div>
+        <div class="pal-rule-text">
+          Нужно понять, по какому принципу проведено разбиение, и вписать ответ: название группы, недостающий элемент, связующую фразу или то, что просят в условии.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">3</div>
+        <div class="pal-rule-text">
+          Условие группы или подсказки в задании подсказывают формат ответа. Запятые, порядок слов и правописание могут учитываться при проверке.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% elif game.theme %}
 <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-rules-close></div>
@@ -119,7 +190,7 @@
 </script>
 {% endif %}
 
-{% if show_palindrome_rules or game.theme %}
+{% if section_tutorial_html or show_palindrome_rules or section_rules_type or game.theme %}
 <script>
 (function () {
   var modal = document.getElementById('rules-modal');
@@ -166,7 +237,55 @@
         {% else %}
           <span class="new-pill">Попытка {{ ai.get_n_attempts|get_new_attempt_number }}{% if mode == 'tournament' %}/{{ task.get_max_attempts }}{% endif %}</span>
         {% endif %}
-        <span class="new-pill">Макс. {{ task.get_points|minimize_digits }} {{ task.get_points|ru_points_word }}</span>
+        {% if task.task_type == 'replacements_lines' %}
+          {% with rld=replacements_lines_data|get_item:task.id %}
+            {% if rld %}
+              {% with base_max=rld.max_points_total %}
+                {% if ai.get_sum_hint_penalty %}
+                  <span class="new-pill">Макс. <span class="new-max-points new-max-points--reduced">{{ base_max|sub_clamp0:ai.get_sum_hint_penalty|minimize_digits }}/{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}</span>
+                {% else %}
+                  <span class="new-pill">Макс. {{ base_max|minimize_digits }} {{ base_max|ru_points_word }}</span>
+                {% endif %}
+              {% endwith %}
+            {% else %}
+              {% with base_max=task.get_points %}
+                {% if ai.get_sum_hint_penalty %}
+                  <span class="new-pill">Макс. <span class="new-max-points new-max-points--reduced">{{ base_max|sub_clamp0:ai.get_sum_hint_penalty|minimize_digits }}/{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}</span>
+                {% else %}
+                  <span class="new-pill">Макс. {{ base_max|minimize_digits }} {{ base_max|ru_points_word }}</span>
+                {% endif %}
+              {% endwith %}
+            {% endif %}
+          {% endwith %}
+        {% elif task.task_type == 'wall' %}
+          {% with mp=wall_max_points_meta_by_task_id|get_item:task.id %}
+            {% if mp %}
+              {% with base_max=mp.total %}
+                {% if ai.get_sum_hint_penalty %}
+                  <span class="new-pill" title="{{ mp.title }}">Макс. <span class="new-max-points new-max-points--reduced">{{ base_max|sub_clamp0:ai.get_sum_hint_penalty|minimize_digits }}/{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}</span>
+                {% else %}
+                  <span class="new-pill" title="{{ mp.title }}">Макс. {{ base_max|minimize_digits }} {{ base_max|ru_points_word }}</span>
+                {% endif %}
+              {% endwith %}
+            {% else %}
+              {% with base_max=task.get_points %}
+                {% if ai.get_sum_hint_penalty %}
+                  <span class="new-pill">Макс. <span class="new-max-points new-max-points--reduced">{{ base_max|sub_clamp0:ai.get_sum_hint_penalty|minimize_digits }}/{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}</span>
+                {% else %}
+                  <span class="new-pill">Макс. {{ base_max|minimize_digits }} {{ base_max|ru_points_word }}</span>
+                {% endif %}
+              {% endwith %}
+            {% endif %}
+          {% endwith %}
+        {% else %}
+          {% with base_max=task.get_points %}
+            {% if ai.get_sum_hint_penalty %}
+              <span class="new-pill">Макс. <span class="new-max-points new-max-points--reduced">{{ base_max|sub_clamp0:ai.get_sum_hint_penalty|minimize_digits }}/{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}</span>
+            {% else %}
+              <span class="new-pill">Макс. {{ base_max|minimize_digits }} {{ base_max|ru_points_word }}</span>
+            {% endif %}
+          {% endwith %}
+        {% endif %}
       </div>
     </div>
 
@@ -205,6 +324,16 @@
             {% include "task-content/task-wall.html" %}
           </div>
         {% endwith %}
+      {% elif task.task_type == 'replacements_lines' %}
+        {% with rld=replacements_lines_data|get_item:task.id %}
+        {% if rld %}
+          <div class="new-taskcard__text">
+            {% include "task-content/task-replacements-lines.html" with task=task mode=mode %}
+          </div>
+        {% else %}
+          <p class="new-login-hint" style="margin:0">Ошибка отображения задания (нет данных).</p>
+        {% endif %}
+        {% endwith %}
       {% elif task.task_type == 'default' or task.task_type == 'autohint' or task.task_type == 'with_tag' or task.task_type == 'distribute_to_teams' %}
         {% if task.image %}
           <div class="new-taskcard__img">
@@ -234,10 +363,15 @@
             <div class="new-attempt-msg" aria-live="polite"></div>
           </form>
         {% endif %}
-      {% else %}
+      {% elif task.task_type == 'text_with_forms' %}
         <p class="new-login-hint" style="margin:0">
           Этот тип задания пока не поддержан в новом UI.
           Откройте в старом интерфейсе: <a href="/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}">/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}</a>
+        </p>
+      {% else %}
+        <p class="new-login-hint" style="margin:0">
+          Тип задания «{{ task.task_type }}» не поддержан в новом UI.
+          <a href="/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}">Открыть в старом интерфейсе</a>
         </p>
       {% endif %}
 
@@ -250,7 +384,7 @@
             {% for hint in task.get_hints %}
               <div class="new-hint">
                 <div class="new-hint__head">
-                  <strong>Подсказка #{{ hint.number }}</strong>
+                  <strong>Подсказка #{{ hint.number }}{% if hint.desc %} ({{ hint.desc }}){% endif %}</strong>
                   <span class="new-hint__penalty">−{{ hint.points_penalty|minimize_digits }}</span>
                 </div>
                 {% if ai|hint_was_taken:hint %}
@@ -261,11 +395,35 @@
                   {% if ai|all_not_taken_required_hints:hint %}
                     <div class="new-login-hint" style="margin:0.25rem 0 0">Доступна только после {{ ai|all_not_taken_required_hints:hint }}.</div>
                   {% else %}
-                    <form class="new-hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post">
+                    <form class="new-hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
                       {% csrf_token %}
                       <input type="hidden" name="hint_number" value="{{ hint.number }}">
                       <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+                      <input type="hidden" name="__ui_hint_penalty" value="{{ hint.points_penalty }}">
+                      {% if task.task_type == 'replacements_lines' %}
+                        {% with rld=replacements_lines_data|get_item:task.id %}
+                          {% if rld %}
+                            <input type="hidden" name="__ui_base_max" value="{{ rld.max_points_total|minimize_digits }}">
+                          {% else %}
+                            <input type="hidden" name="__ui_base_max" value="{{ task.get_points|minimize_digits }}">
+                          {% endif %}
+                        {% endwith %}
+                      {% elif task.task_type == 'wall' %}
+                        {% with mp=wall_max_points_meta_by_task_id|get_item:task.id %}
+                          {% if mp %}
+                            <input type="hidden" name="__ui_base_max" value="{{ mp.total|minimize_digits }}">
+                          {% else %}
+                            <input type="hidden" name="__ui_base_max" value="{{ task.get_points|minimize_digits }}">
+                          {% endif %}
+                        {% endwith %}
+                      {% else %}
+                        <input type="hidden" name="__ui_base_max" value="{{ task.get_points|minimize_digits }}">
+                      {% endif %}
+                      <input type="hidden" name="__ui_current_penalty" value="{{ ai.get_sum_hint_penalty|minimize_digits }}">
                       <button type="submit" class="new-btn new-btn--ghost new-btn--mini">Показать подсказку</button>
+                      {% if ai.is_solved %}
+                        <span class="new-hint-safe">можно брать безопасно — задание уже решено</span>
+                      {% endif %}
                       <div class="new-attempt-msg" aria-live="polite"></div>
                     </form>
                   {% endif %}
@@ -280,7 +438,9 @@
         <div class="new-task-actions">
           <div class="new-task-actions__left">
             {% if user.is_authenticated and has_profile_user %}
-              <button type="button" class="new-action-link" data-answer-open data-task-id="{{ task.id }}">Ответ</button>
+              {% if mode != 'tournament' or ai.is_solved %}
+                <button type="button" class="new-action-link" data-answer-open data-task-id="{{ task.id }}">Ответ</button>
+              {% endif %}
             {% endif %}
           </div>
 
@@ -314,6 +474,19 @@
   </div>
 </div>
 
+<div id="new-hint-confirm-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-hint-confirm-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-hint-confirm-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-hint-confirm-close>×</button>
+    <h2 id="new-hint-confirm-title" class="pal-title">Вы уверены?</h2>
+    <div id="new-hint-confirm-text" class="new-login-hint" style="margin:0.5rem 0 0"></div>
+    <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1rem">
+      <button type="button" class="new-btn" data-hint-confirm-yes>Взять подсказку</button>
+      <button type="button" class="new-btn new-btn--ghost" data-hint-confirm-close>Отмена</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';
@@ -337,7 +510,17 @@
   });
 
   function postForm(form) {
+    if (form && form.dataset && form.dataset.submitting === '1') return;
+    if (form && form.dataset) form.dataset.submitting = '1';
+    var submitBtn = form.querySelector('button[type=submit]');
+    if (submitBtn) submitBtn.disabled = true;
     var msg = form.querySelector('.new-attempt-msg');
+    if (!msg && form.id) {
+      msg = document.querySelector('[data-msg-for="' + form.id + '"]');
+    }
+    if (msg && msg.classList && msg.classList.contains('new-replacements-line-msg')) {
+      msg.style.display = 'block';
+    }
     if (msg) msg.textContent = 'Проверяем…';
     fetch(form.action, {
       method: 'POST',
@@ -347,11 +530,26 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        if (form && form.dataset) form.dataset.submitting = '0';
+        if (submitBtn) submitBtn.disabled = false;
         if (!data || !data.status) {
           if (msg) msg.textContent = 'Ошибка: пустой ответ.';
           return;
         }
         if (data.status === 'ok') {
+          // For hints: keep hints panel open after reload.
+          if (form && form.classList && form.classList.contains('new-hint-form')) {
+            var tid = form.getAttribute('data-task-id') || '';
+            if (tid) {
+              try {
+                var u2 = new URL(window.location.href);
+                u2.searchParams.set('hints_open', tid);
+                u2.hash = 'new-task-' + tid;
+                window.location.replace(u2.toString());
+                return;
+              } catch (e) {}
+            }
+          }
           window.location.reload();
           return;
         }
@@ -367,21 +565,27 @@
           if (msg) msg.textContent = 'Ошибка: не удалось сохранить анонимный ключ.';
           return;
         }
-        if (data.status === 'not_all_required_hints_taken') {
-          if (msg) msg.textContent = 'Сначала возьмите требуемые подсказки.';
-          return;
-        }
         if (data.status === 'duplicate') {
           if (msg) msg.textContent = 'Вы уже отправляли такой ответ.';
+          return;
+        }
+        if (data.status === 'not_all_required_hints_taken') {
+          if (msg) msg.textContent = 'Сначала возьмите требуемые подсказки.';
           return;
         }
         if (data.status === 'attempt_limit_exceeded') {
           if (msg) msg.textContent = 'Попытки закончились.';
           return;
         }
+        if (data.status === 'empty') {
+          if (msg) msg.textContent = 'Пустой ответ. Заполните хотя бы одно слово в строке.';
+          return;
+        }
         if (msg) msg.textContent = 'Не удалось отправить: ' + data.status;
       })
       .catch(function () {
+        if (form && form.dataset) form.dataset.submitting = '0';
+        if (submitBtn) submitBtn.disabled = false;
         if (msg) msg.textContent = 'Ошибка сети.';
       });
   }
@@ -396,9 +600,122 @@
   document.querySelectorAll('form.new-hint-form').forEach(function (form) {
     form.addEventListener('submit', function (e) {
       e.preventDefault();
-      postForm(form);
+      var taskCard = form.closest('.new-taskcard');
+      var isSolved = taskCard && taskCard.getAttribute('data-solved') === '1';
+      if (isSolved) {
+        postForm(form);
+        return;
+      }
+      // confirm if not solved (hint reduces max points)
+      var modal = document.getElementById('new-hint-confirm-modal');
+      var box = document.getElementById('new-hint-confirm-text');
+      if (!modal || !box) {
+        postForm(form);
+        return;
+      }
+      function normNumberString(s) {
+        s = String(s || '').trim().replace(',', '.');
+        if (!s) return '0';
+        if (s.indexOf('.') !== -1) {
+          s = s.replace(/0+$/g, '').replace(/\.$/g, '');
+        }
+        return s || '0';
+      }
+      function toNum(s) {
+        var n = Number(String(s || '').trim().replace(',', '.'));
+        return isFinite(n) ? n : 0;
+      }
+
+      var penaltyEl = form.querySelector('input[name="__ui_hint_penalty"]');
+      var penaltyRaw = penaltyEl ? normNumberString(penaltyEl.value) : '0';
+      var penalty = toNum(penaltyRaw);
+      var baseEl = form.querySelector('input[name="__ui_base_max"]');
+      var baseRaw = baseEl ? normNumberString(baseEl.value) : '0';
+      var base = toNum(baseRaw);
+      var curEl = form.querySelector('input[name="__ui_current_penalty"]');
+      var curRaw = curEl ? normNumberString(curEl.value) : '0';
+      var cur = toNum(curRaw);
+      var fromVal = Math.max(0, base - cur);
+      var toVal = Math.max(0, base - (cur + penalty));
+      function fmt(n) {
+        // show up to 3 decimals, strip trailing zeros
+        var s = String(Math.round(n * 1000) / 1000);
+        return normNumberString(s);
+      }
+      if (!isFinite(penalty)) penalty = 0;
+      var maxPill = taskCard ? taskCard.querySelector('.new-taskcard__status .new-pill') : null;
+      // We cannot reliably parse base max from DOM; show penalty explicitly and rely on reload to update max.
+      box.textContent = 'Макс. балл за задание для вас понизится с ' + fmt(fromVal) + ' до ' + fmt(toVal) + ' (−' + penaltyRaw + ').';
+      modal.removeAttribute('hidden');
+      modal.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+      var yes = modal.querySelector('[data-hint-confirm-yes]');
+      if (yes) {
+        yes.onclick = function () {
+          modal.setAttribute('hidden', '');
+          modal.classList.remove('is-open');
+          document.body.style.overflow = '';
+          postForm(form);
+        };
+      }
     });
   });
+
+  function closeHintConfirm() {
+    var m = document.getElementById('new-hint-confirm-modal');
+    if (!m) return;
+    m.setAttribute('hidden', '');
+    m.classList.remove('is-open');
+    document.body.style.overflow = '';
+  }
+  document.querySelectorAll('[data-hint-confirm-close]').forEach(function (el) {
+    el.addEventListener('click', closeHintConfirm);
+  });
+
+  (function replacementsLinesStorage() {
+    var STORAGE_PREFIX = 'replacements_lines_';
+    function key(taskId, lineIndex) {
+      return STORAGE_PREFIX + taskId + '_' + lineIndex;
+    }
+    document.querySelectorAll('form.new-replacements-line-form').forEach(function (form) {
+      var taskId = form.getAttribute('data-task-id');
+      var lineIndex = form.getAttribute('data-line-index');
+      if (!taskId || lineIndex === null) return;
+      var inputs = form.id
+        ? document.querySelectorAll('input.new-replacements-input[form="' + form.id + '"]')
+        : form.querySelectorAll('input.new-replacements-input');
+      try {
+        var saved = localStorage.getItem(key(taskId, lineIndex));
+        if (saved) {
+          var parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            // Устаревший формат (массив по порядку DOM мог сдвинуться после частичных подстановок).
+            // Не восстанавливаем, чтобы не портить соответствие слот->инпут.
+            try { localStorage.removeItem(key(taskId, lineIndex)); } catch (e) {}
+          } else if (parsed && typeof parsed === 'object') {
+            inputs.forEach(function (inp) {
+              var slot = inp.getAttribute('data-slot');
+              if (!slot) return;
+              if (parsed[slot] !== undefined && parsed[slot] !== null) inp.value = parsed[slot];
+            });
+          }
+        }
+      } catch (e) {}
+      function save() {
+        var obj = {};
+        inputs.forEach(function (inp) {
+          var slot = inp.getAttribute('data-slot');
+          if (!slot) return;
+          obj[slot] = inp.value;
+        });
+        try { localStorage.setItem(key(taskId, lineIndex), JSON.stringify(obj)); } catch (e) {}
+      }
+      inputs.forEach(function (inp) {
+        inp.addEventListener('input', save);
+        inp.addEventListener('change', save);
+      });
+    });
+  })();
 
   function openAnswer(html) {
     var answerModal = document.getElementById('new-answer-modal');
@@ -423,6 +740,31 @@
     btn.addEventListener('click', function () {
       var taskId = btn.getAttribute('data-task-id');
       var url = "{% url 'new_get_answer' 0 %}".replace('/0/', '/' + taskId + '/');
+      try {
+        var u = new URL(url, window.location.origin);
+        if (!isAuthenticated) {
+          var ak = '';
+          try { ak = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
+          if (ak) u.searchParams.set('anon', ak);
+        }
+        url = u.toString();
+      } catch (e) {}
+      fetch(url, {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+      }).then(function (r) { return r.json(); })
+        .then(function (data) { openAnswer(data.html || '<div class=\"new-login-hint\">Нет ответа.</div>'); })
+        .catch(function () { openAnswer('<div class=\"new-login-hint\">Не удалось получить ответ.</div>'); });
+    });
+  });
+
+  document.querySelectorAll('[data-repl-answer-open]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var taskId = btn.getAttribute('data-task-id');
+      var lineIndex = btn.getAttribute('data-line-index');
+      var url = "{% url 'new_get_replacements_line_answer' 0 0 %}"
+        .replace('/0/0/', '/' + taskId + '/' + lineIndex + '/');
       try {
         var u = new URL(url, window.location.origin);
         if (!isAuthenticated) {
@@ -531,6 +873,25 @@
       btn.textContent = body.hidden ? 'Подсказки' : 'Скрыть подсказки';
     });
   });
+
+  // If we came back after taking a hint, keep that hints section open.
+  (function openHintsFromQuery() {
+    var taskId = '';
+    try {
+      var u = new URL(window.location.href);
+      taskId = u.searchParams.get('hints_open') || '';
+      if (!taskId) return;
+      // Clear param for nice URLs
+      u.searchParams.delete('hints_open');
+      window.history.replaceState({}, '', u.toString());
+    } catch (e) {}
+    if (!taskId) return;
+    var body = document.querySelector('[data-hints-body=\"' + taskId + '\"]');
+    var btn = document.querySelector('[data-hints-toggle][data-task-id=\"' + taskId + '\"]');
+    if (!body) return;
+    body.hidden = false;
+    if (btn) btn.textContent = 'Скрыть подсказки';
+  })();
 
   // Wall: click tiles & submit explanation forms (no jQuery here)
   function wallCsrf(fromEl) {

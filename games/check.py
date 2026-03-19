@@ -5,6 +5,7 @@ from decimal import Decimal
 from games.matcher.norm_matcher import NormMatcher
 from games.util import status_key, clean_text
 from games.models import Task, Attempt
+from games.replacements_lines import parse_replacements_lines_text
 from games.wordle import convert_words_wordle, read_wordle_dict, color_tiles
 
 
@@ -485,6 +486,74 @@ class WallChecker(BaseChecker):
         raise Exception('Unknown wall stage: {}'.format(attempt['stage']))
 
 
+class ReplacementsLinesChecker(BaseChecker):
+    """Проверяет одну строчку: attempt.text = JSON {"line_index": int, "answers": [str, ...]}."""
+
+    def __init__(self, data, last_attempt_state=None):
+        self.lines = []
+        self.last_state = None
+        if last_attempt_state:
+            try:
+                self.last_state = json.loads(last_attempt_state)
+            except (ValueError, TypeError):
+                self.last_state = None
+        if data and data.strip():
+            try:
+                self.lines = json.loads(data).get('lines', [])
+            except (ValueError, TypeError):
+                # В новом формате data может быть просто output-текст по строкам
+                self.lines = []
+
+    def check(self, text, attempt):
+        # Если data не содержит JSON lines — берём ответы из task.checker_data (output-текст)
+        if not self.lines and attempt and getattr(attempt, 'task', None) and attempt.task.text:
+            answer_text = (getattr(attempt.task, 'checker_data', None) or '').strip() or None
+            parsed = parse_replacements_lines_text(attempt.task.text, answer_text)
+            self.lines = parsed.get('answers', [])
+        try:
+            payload = json.loads(text)
+            line_index = int(payload.get('line_index', 0))
+            user_answers = payload.get('answers', [])
+        except (ValueError, TypeError):
+            return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат ответа')
+        if line_index < 0 or line_index >= len(self.lines):
+            return CheckResult('Wrong', 'Pending', 0, comment='Неверный номер строки')
+        correct = self.lines[line_index]
+        if len(user_answers) != len(correct):
+            # Не меняем накопленное состояние
+            state = self.last_state or {'solved_lines': [], 'total': 0}
+            total = int(state.get('total', 0) or 0)
+            solved = set(state.get('solved_lines', []) or [])
+            status = 'Partial' if solved else 'Wrong'
+            tournament_status = 'Pending' if status != 'Ok' else 'Ok'
+            return CheckResult(status, tournament_status, total, state=json.dumps({'solved_lines': sorted(list(solved)), 'total': total}, ensure_ascii=False))
+
+        is_correct = True
+        for u, c in zip(user_answers, correct):
+            if clean_text(u) != clean_text(c):
+                is_correct = False
+                break
+
+        state = self.last_state or {'solved_lines': [], 'total': 0}
+        solved = set(state.get('solved_lines', []) or [])
+        total = int(state.get('total', 0) or 0)
+
+        if is_correct and line_index not in solved:
+            solved.add(line_index)
+            total += 1
+
+        all_lines = len(self.lines)
+        if all_lines and len(solved) >= all_lines:
+            status = 'Ok'
+            tournament_status = 'Ok'
+        else:
+            status = 'Partial' if solved else 'Wrong'
+            tournament_status = 'Pending'
+
+        new_state = {'solved_lines': sorted(list(solved)), 'total': total}
+        return CheckResult(status, tournament_status, total, state=json.dumps(new_state, ensure_ascii=False))
+
+
 class SolutionsTagNumber:
     def __init__(self, data, last_attempt_state=None):
         self.data = json.loads(data)
@@ -536,6 +605,7 @@ class CheckerFactory:
             'long_string': LongStringChecker,
             'antiwordle': AntiwordleChecker,
             'several_answers': SeveralAnswersChecker,
+            'replacements_lines': ReplacementsLinesChecker,
         }
     
     def create_checker(self, checker_type, data, last_attempt_state=None):

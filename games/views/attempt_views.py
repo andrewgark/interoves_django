@@ -5,7 +5,7 @@ from django.utils import timezone
 from games.check import CheckerFactory
 from games.exception import DuplicateAttemptException, TooManyAttemptsException, InvalidFormException, NoGameAccessException
 from games.forms import AttemptForm
-from games.models import Attempt, Task, Team
+from games.models import Attempt, CheckerType, Task, Team
 from games.views.render_task import update_task_html
 from games.views.track import track_task_change
 from games.views.util import has_profile, has_team
@@ -24,10 +24,19 @@ def check_attempt(attempt):
         modes.append('tournament')
 
     last_attempt_state = None
+    if task.task_type == 'replacements_lines':
+        # Для replacements_lines состояние (накопленные очки/решённые строки) должно быть
+        # из текущего режима, иначе в турнире очки не будут накапливаться.
+        prev_attempts_cur_mode = Attempt.manager.get_attempts_before(
+            team, task, attempt.time, current_mode, user=user, anon_key=anon_key
+        )
+        if prev_attempts_cur_mode:
+            last_attempt_state = prev_attempts_cur_mode[-1].state
     for mode in modes:
         attempts = Attempt.manager.get_attempts_before(team, task, attempt.time, mode, user=user, anon_key=anon_key)
         if mode == 'general' and attempts:
-            last_attempt_state = attempts[-1].state
+            if last_attempt_state is None:
+                last_attempt_state = attempts[-1].state
 
         if mode == 'tournament':
             if task.task_type == 'wall':
@@ -35,6 +44,23 @@ def check_attempt(attempt):
                 if validation_data is not None:
                     stage, n_attempts, max_attempts = validation_data
                     raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in wall task {} on stage {}'.format(team, max_attempts, task, stage))
+            elif task.task_type == 'replacements_lines':
+                try:
+                    current_payload = json.loads(attempt.text)
+                    current_line = int(current_payload.get('line_index', -1))
+                except (ValueError, TypeError):
+                    current_line = -1
+                n_attempts_this_line = 0
+                for a in attempts:
+                    try:
+                        p = json.loads(a.text)
+                        if int(p.get('line_index', -1)) == current_line:
+                            n_attempts_this_line += 1
+                    except (ValueError, TypeError):
+                        pass
+                max_attempts = task.get_max_attempts()
+                if n_attempts_this_line >= max_attempts:
+                    raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {} for line {}'.format(team, max_attempts, task, current_line + 1))
             else:
                 n_attempts = len(attempts)
                 max_attempts = task.get_max_attempts()
@@ -45,7 +71,12 @@ def check_attempt(attempt):
             if attempt.text == other_attempt.text:
                 raise DuplicateAttemptException('Attempt duplicates one of the previous attempts by this team')
 
-    checker = CheckerFactory().create_checker(task.get_checker(), task.checker_data, last_attempt_state)
+    checker_type = task.get_checker()
+    if task.task_type == 'replacements_lines':
+        # Для нового типа задания всегда используем свой чекер,
+        # чтобы не зависеть от настроек в админке/дефолтов.
+        checker_type = CheckerType.objects.get(id='replacements_lines')
+    checker = CheckerFactory().create_checker(checker_type, task.checker_data, last_attempt_state)
     check_result = checker.check(attempt.text, attempt)
     attempt.status, attempt.points, attempt.state, attempt.comment = check_result.status, check_result.points, check_result.state, check_result.comment
     if 'tournament' in modes and attempt.status != 'Ok':
@@ -154,6 +185,20 @@ def process_send_attempt(request, task_id):
                 'stage': request.POST['stage'],
             }
         attempt = Attempt(text=json.dumps(request_data))
+    elif task.task_type == 'replacements_lines':
+        line_index = int(request.POST.get('line_index', 0))
+        answers_raw = request.POST.get('answers')
+        if answers_raw is not None:
+            try:
+                answers = json.loads(answers_raw)
+            except (ValueError, TypeError):
+                answers = request.POST.getlist('answers[]')
+        else:
+            answers = request.POST.getlist('answers[]')
+        answers = list(answers)
+        if not answers or all(str(a).strip() == '' for a in answers):
+            return {'status': 'empty'}
+        attempt = Attempt(text=json.dumps({'line_index': line_index, 'answers': answers}))
     else:
         raise Exception('Unknown task_type: {}'.format(task.task_type))
     attempt.team = team

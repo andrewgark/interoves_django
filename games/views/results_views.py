@@ -3,8 +3,9 @@ import json
 from django.db.models import Q
 from django.shortcuts import render, get_object_or_404
 from django.views import defaults
-from games.models import Game, Team
+from games.models import Game, Team, GameResultsSnapshot
 from games.views.util import has_profile, has_team
+from games.results_snapshot import snapshot_to_results_context
 
 
 def results_page(request, game_id, mode='general'):
@@ -12,6 +13,15 @@ def results_page(request, game_id, mode='general'):
     if has_profile(request.user) and request.user.profile.team_on and \
        not game.has_access('see_results', mode=mode, team=request.user.profile.team_on):
         return defaults.page_not_found(request)
+
+    snap = GameResultsSnapshot.objects.filter(game=game, mode=mode).first()
+    if snap and snap.payload:
+        data = snapshot_to_results_context(game, snap.payload)
+        return render(request, 'results.html', {
+            'mode': mode,
+            'game': game,
+            **data,
+        })
 
     team_to_list_attempts_info = {}
     team_to_score = {}

@@ -28,7 +28,9 @@
       </details>
       {% endif %}
       <p>Билеты: {{ user.profile.team_on.tickets }}</p>
-      <p><a href="/tickets/">Приобрести билеты</a></p>
+      <p style="margin:0.75rem 0 0">
+        <a href="{% url 'new_pay' %}" class="new-btn">Приобрести билеты</a>
+      </p>
     {% endif %}
     <p><strong>Состав:</strong></p>
     <ul class="new-list">

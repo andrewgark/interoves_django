@@ -27,7 +27,12 @@ def one_more(_1, _2):
 
 @register.filter
 def get_item(dictionary, key):
-    return dictionary.get(key)
+    if hasattr(dictionary, 'get'):
+        return dictionary.get(key)
+    try:
+        return dictionary[key]
+    except (TypeError, KeyError, IndexError):
+        return None
 
 
 @register.filter
@@ -51,6 +56,30 @@ def minimize_digits(points):
     if not cleaned_points:
         cleaned_points = '0'
     return cleaned_points
+
+
+@register.filter
+def sub_clamp0(a, b):
+    """
+    a - b, clamped to 0. Works with Decimal/int/str (comma or dot).
+    """
+    if a is None:
+        a = 0
+    if b is None:
+        b = 0
+    try:
+        # Decimal-safe when possible
+        return max(0, a - b)
+    except Exception:
+        try:
+            af = float(str(a).strip().replace(',', '.'))
+        except Exception:
+            af = 0.0
+        try:
+            bf = float(str(b).strip().replace(',', '.'))
+        except Exception:
+            bf = 0.0
+        return max(0, af - bf)
 
 
 def _ru_plural_form_int(n, one, few, many):

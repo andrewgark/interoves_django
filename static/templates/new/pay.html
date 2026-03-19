@@ -1,0 +1,176 @@
+{% extends "new/base.html" %}
+{% load static %}
+{% block title %}Оплата{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 0.75rem">
+  <a href="{% url 'new_team' %}" class="new-btn new-btn--ghost">← Команда</a>
+</p>
+
+<h1 class="new-heading" style="margin-top:0">Оплата</h1>
+
+<div class="new-card" style="margin-top:0.75rem">
+  <div class="new-card__title new-pay-title">Билет для команды</div>
+  <div class="new-card__text">
+    <p style="margin:0.35rem 0">Цена билета: <strong>{{ ticket_price }}</strong> ₽.</p>
+    <p style="margin:0.35rem 0">Команда: <strong>{% if team %}{{ team.visible_name|default:team.name }}{% else %}—{% endif %}</strong>.</p>
+    <p style="margin:0.35rem 0">Билетов сейчас: <strong>{{ team_tickets }}</strong>.</p>
+    <p class="new-login-hint" style="margin:0.5rem 0 0">
+      После оплаты билеты появятся у команды автоматически (обычно быстро, иногда с задержкой в пару минут).
+      Билет можно использовать для участия команды в любой командной игре — можно купить билеты впрок на будущее.
+    </p>
+  </div>
+
+  {% if team %}
+  <link rel="stylesheet" href="https://yookassa.ru/integration/simplepay/css/yookassa_construct_form.css">
+  <form id="new-pay-ticket-form" class="yoomoney-payment-form" method="post" action="{% url 'new_create_ticket_payment' %}" style="margin-top:0.75rem">
+    {% csrf_token %}
+    <div class="ym-products" style="margin-top:0">
+      <div class="ym-block-title ym-products-title">Товары</div>
+      <div class="ym-product">
+        <div class="ym-product-line">
+          <span class="ym-product-description">Билет для команды</span>
+          <span class="ym-product-price" data-price="{{ ticket_price }}">{{ ticket_price }},00&nbsp;₽</span>
+        </div>
+        <div class="ym-product-line ym-align-items-center">
+          <span class="ym-label-text">Количество</span>
+          <div class="ym-count-input">
+            <input class="ym-input" value="1" type="number" step="1" min="1" max="20" name="tickets" required>
+            <span class="ym-count-control ym-count-plus"></span>
+            <span class="ym-count-control ym-count-minus"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ym-payment-btn-block ym-before-line ym-align-space-between" style="padding-top:0.75rem">
+      <button type="submit" class="ym-btn-pay ym-result-price" data-text="Оплатить">
+        <span class="ym-text-crop">Оплатить</span>
+        <span class="ym-price-output">{{ ticket_price }},00&nbsp;₽</span>
+      </button>
+    </div>
+  </form>
+
+  <div id="new-yookassa-widget" style="margin-top:0.75rem"></div>
+  <div id="new-yookassa-msg" class="new-login-hint" style="margin:0.5rem 0 0"></div>
+
+  <script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
+  <script>
+  (function () {
+    var form = document.getElementById('new-pay-ticket-form');
+    var mount = document.getElementById('new-yookassa-widget');
+    var msg = document.getElementById('new-yookassa-msg');
+    if (!form || !mount) return;
+
+    var checkout = null;
+    function setMsg(t) { if (msg) msg.textContent = t || ''; }
+
+    function clampTickets(v) {
+      var n = Number(v || 0);
+      if (!isFinite(n)) n = 1;
+      n = Math.max(1, Math.min(20, Math.round(n)));
+      return n;
+    }
+
+    // Keep "pretty" total like old form.
+    (function bindQtyUi() {
+      var qty = form.querySelector('input[name="tickets"]');
+      var priceEl = form.querySelector('.ym-product-price');
+      var out = form.querySelector('.ym-price-output');
+      var plus = form.querySelector('.ym-count-plus');
+      var minus = form.querySelector('.ym-count-minus');
+      var unit = priceEl ? Number(priceEl.getAttribute('data-price') || 0) : 0;
+      function render() {
+        if (!qty || !priceEl) return;
+        var q = clampTickets(qty.value);
+        qty.value = String(q);
+        var total = unit ? (q * unit) : 0;
+        var txt = String(total) + ',00\u00A0₽';
+        if (out) out.textContent = txt;
+        priceEl.textContent = String(unit) + ',00\u00A0₽';
+      }
+      if (qty) qty.addEventListener('input', render);
+      if (plus) plus.addEventListener('click', function () { qty.value = String(clampTickets(Number(qty.value) + 1)); render(); });
+      if (minus) minus.addEventListener('click', function () { qty.value = String(clampTickets(Number(qty.value) - 1)); render(); });
+      render();
+    })();
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      setMsg('Создаём платёж…');
+      var btn = form.querySelector('button[type=submit]');
+      if (btn) btn.disabled = true;
+      fetch(form.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: new FormData(form),
+        credentials: 'same-origin',
+      }).then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (btn) btn.disabled = false;
+          if (!data || data.status !== 'ok' || !data.confirmation_token) {
+            setMsg('Не получилось создать платёж. Попробуйте позже.');
+            return;
+          }
+          setMsg('');
+          mount.innerHTML = '';
+          try {
+            checkout = new window.YooMoneyCheckoutWidget({
+              confirmation_token: data.confirmation_token,
+              return_url: data.return_url || window.location.href,
+              error_callback: function (err) {
+                setMsg('Ошибка оплаты. Попробуйте ещё раз.');
+              },
+            });
+            checkout.render('new-yookassa-widget');
+          } catch (err) {
+            setMsg('Не удалось загрузить виджет оплаты.');
+          }
+        })
+        .catch(function () {
+          if (btn) btn.disabled = false;
+          setMsg('Ошибка сети.');
+        });
+    });
+  })();
+  </script>
+  {% else %}
+    <p class="new-login-hint" style="margin-top:0.75rem">Нужно создать или вступить в команду, чтобы купить билет.</p>
+  {% endif %}
+
+  {% if team and recent_ticket_requests %}
+  <div class="new-card__text" style="margin-top:0.75rem">
+    <div style="font-weight:700; margin:0 0 0.25rem">Последние запросы</div>
+    <div class="new-login-hint" style="margin:0 0 0.5rem">Если оплатили, но билеты не появились — подождите немного и обновите страницу. Если есть проблемы с оплатой, напишите <a href="https://t.me/andrewgark">Андрею</a>.</div>
+    <div style="display:grid; gap:0.25rem">
+      {% for tr in recent_ticket_requests %}
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap">
+          <span>{{ tr.time|date:"d.m H:i" }}</span>
+          <span>— {{ tr.tickets }} шт.</span>
+          <span>— {{ tr.money }} ₽</span>
+          <span>— <strong>{{ tr.status }}</strong></span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="new-card__text" style="margin-top:0.75rem">
+    <div class="new-pay-links">
+      <a class="new-pay-link" href="/ticket-agreement/">Пользовательское соглашение</a>
+      <a class="new-pay-link" href="/terms-of-use/">Terms of Use</a>
+      <a class="new-pay-link" href="/privacy-policy/">Privacy Policy</a>
+    </div>
+  </div>
+</div>
+
+<div class="new-card" style="margin-top:1rem">
+  <div class="new-card__title new-pay-title">Interoves+ (личная подписка)</div>
+  <div class="new-card__text">
+    <p style="margin:0.35rem 0">Даст возможность решать больше заданий в личном режиме.</p>
+    <p class="new-login-hint" style="margin:0.35rem 0 0">Пока в разработке — оплаты и активации ещё нет.</p>
+    <button type="button" class="new-btn new-btn--ghost" disabled style="margin-top:0.75rem">Скоро</button>
+  </div>
+</div>
+{% endblock %}
+

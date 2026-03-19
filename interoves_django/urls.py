@@ -26,7 +26,7 @@ from games.views.views import MainPageView, game_page, results_page, total_resul
                         send_attempt, send_hint_attempt, get_answer, like_dislike, \
                         get_tournament_results, return_intentional_503, easter_egg_2021
 from games.views.meta_http import countries_task_100, capitals_task_100 
-from games.views.ticket import request_ticket, check_order
+from games.views.ticket import request_ticket, check_order, yookassa_webhook
 from games.views.registration import register_to_game
 
 
@@ -47,7 +47,7 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')),
     path('logout/', LogoutView.as_view(), name='logout'),
 
-    path('privacy-policy/', TemplateView.as_view(template_name="privacy-policy.html")),
+    path('privacy-policy/', lambda request: redirect('https://www.iubenda.com/privacy-policy/73503867')),
     path('terms-of-use/', TemplateView.as_view(template_name="terms-of-use.html")),
     path('tickets/', TemplateView.as_view(template_name="tickets.html")),
     path('ticket-agreement/', TemplateView.as_view(template_name="ticket-agreement.html")),
@@ -71,6 +71,7 @@ urlpatterns = [
     url(r'^register/(?P<game_id>[a-zA-Z0-9_]+)/$', register_to_game),
     url(r'^request_ticket/', request_ticket, name='request_ticket'),
     url(r'^check-order/', check_order, name='check_order'),
+    path('yookassa/webhook/', yookassa_webhook, name='yookassa_webhook'),
 
     url(r'^results/(?P<game_id>[a-zA-Z0-9_]+)/$', results_page),
     url(r'^tournament_results/(?P<game_id>[a-zA-Z0-9_]+)/$', get_tournament_results),

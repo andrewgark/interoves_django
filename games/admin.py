@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404
 from games.google.actions import create_google_doc
 from games.models import *
 from games.recheck import recheck, recheck_full, recheck_queue_from_this, recheck_queue_from_next
+from games.results_snapshot import freeze_game_results
 
 
 admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration, TicketRequest])
@@ -18,7 +19,8 @@ admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registr
 def hintform_factory(task):
     class HintForm(ModelForm):
         required_hints = ModelMultipleChoiceField(
-            queryset=Hint.objects.filter(task=task)
+            queryset=Hint.objects.filter(task=task),
+            required=False,
         )
     return HintForm
 
@@ -74,6 +76,46 @@ def copy_game(modeladmin, request, queryset):
                     hint.save()
 
 
+@admin.action(description='Freeze tournament results (selected games)')
+def freeze_results_tournament(modeladmin, request, queryset):
+    created = 0
+    skipped = 0
+    for game in queryset.all():
+        _, did = freeze_game_results(game, mode='tournament', overwrite=False)
+        if did:
+            created += 1
+        else:
+            skipped += 1
+    modeladmin.message_user(request, f'Frozen tournament results: {created} created, {skipped} skipped.')
+
+
+@admin.action(description='Freeze general results (selected games)')
+def freeze_results_general(modeladmin, request, queryset):
+    created = 0
+    skipped = 0
+    for game in queryset.all():
+        _, did = freeze_game_results(game, mode='general', overwrite=False)
+        if did:
+            created += 1
+        else:
+            skipped += 1
+    modeladmin.message_user(request, f'Frozen general results: {created} created, {skipped} skipped.')
+
+
+@admin.action(description='Freeze tournament results (ALL games)')
+def freeze_results_all_games(modeladmin, request, queryset):
+    # ignore queryset: freeze for all games that don't have snapshots yet
+    created = 0
+    skipped = 0
+    for game in Game.objects.all():
+        _, did = freeze_game_results(game, mode='tournament', overwrite=False)
+        if did:
+            created += 1
+        else:
+            skipped += 1
+    modeladmin.message_user(request, f'Frozen tournament results for ALL games: {created} created, {skipped} skipped.')
+
+
 @admin.register(Hint)
 class HintAdmin(admin.ModelAdmin):
     list_display = ['task', 'number', 'text', 'points_penalty']
@@ -95,7 +137,7 @@ class GameAdmin(admin.ModelAdmin):
         TaskGroupInline
     ]
     list_display = ['__str__', 'name', 'theme', 'author', 'start_time', 'end_time', 'is_ready', 'is_playable', 'is_testing', 'is_registrable', 'requires_ticket']
-    actions = [copy_game, create_new_google_doc]
+    actions = [copy_game, create_new_google_doc, freeze_results_tournament, freeze_results_general, freeze_results_all_games]
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name == 'image':

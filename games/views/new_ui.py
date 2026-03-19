@@ -1,7 +1,10 @@
 """Minimal /new/ UI: hub, games folder, profile, team."""
 import datetime
 import json
+import os
+import uuid
 from collections import OrderedDict
+from pathlib import Path
 
 import pytz
 from django.contrib import messages
@@ -11,6 +14,7 @@ from django.core.exceptions import ValidationError
 from django.http import Http404
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.html import escape
 from django.views.decorators.http import require_http_methods
 
 from games.forms import CreateTeamForm, JoinTeamForm
@@ -22,9 +26,15 @@ from allauth.socialaccount.models import SocialAccount
 
 from games.access import game_has_started
 from games.exception import NoGameAccessException
-from games.models import Attempt, AudioManager, Game, HintAttempt, ImageManager, Like, Profile, Project, Task, TaskGroup, Team
+from games.models import Attempt, AudioManager, Game, HintAttempt, HTMLPage, ImageManager, Like, Profile, Project, Task, TaskGroup, Team, TicketRequest
+from games.models import GameResultsSnapshot
+from games.util import clean_text
+from games.replacements_lines import parse_replacements_lines_text
 from games.views.main_page import MainPageView
 from games.views.util import has_profile, has_team
+from games.results_snapshot import snapshot_to_results_context
+
+from yookassa import Configuration, Payment
 
 
 def _ru_plural_form_int(n, one, few, many):
@@ -80,6 +90,8 @@ def _compute_solved_task_ids(game, task_groups, team=None, user=None, anon_key=N
 NEW_UI_PROJECT = 'main'
 NEW_UI_SECTIONS_PROJECT = 'sections'
 PALINDROMES_GAME_ID = 'palindromes'
+# Разделы с собственным туториалом (модалка правил)
+SECTION_RULES_GAME_IDS = ('palindromes', 'replacements', 'walls')
 
 
 def _session_play_mode_key(project_id):
@@ -249,6 +261,14 @@ def new_section_game_page(request, game_id):
             'title': tg.name,
             'progress_text': '{} из {} {} решено'.format(n_solved, tg.n_tasks, _ru_iz_punkt_word(tg.n_tasks)),
         })
+    section_rules_type = game_id if game_id in SECTION_RULES_GAME_IDS else None
+    section_tutorial_html = None
+    if section_rules_type:
+        try:
+            page = HTMLPage.objects.get(name='section_tutorial_' + section_rules_type)
+            section_tutorial_html = page.html or ''
+        except HTMLPage.DoesNotExist:
+            pass
     return render(request, 'new/game_page.html', {
         'game': game,
         'task_group_rows': task_group_rows,
@@ -256,6 +276,8 @@ def new_section_game_page(request, game_id):
         'play_mode_project_id': game.project_id,
         'page_title': game.outside_name or game.name,
         'show_palindrome_rules': game_id == PALINDROMES_GAME_ID,
+        'section_rules_type': section_rules_type,
+        'section_tutorial_html': section_tutorial_html,
         'is_main_game': False,
         'task_groups_heading': 'Наборы заданий',
         'task_groups_empty_text': 'В этом разделе пока нет групп заданий. Добавьте их в админке.',
@@ -485,7 +507,11 @@ def new_results_page(request, game_id):
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
 
-    data = _new_results_compute(game, mode='general')
+    snap = GameResultsSnapshot.objects.filter(game=game, mode='general').first()
+    if snap and snap.payload:
+        data = snapshot_to_results_context(game, snap.payload)
+    else:
+        data = _new_results_compute(game, mode='general')
     return render(request, 'new/results.html', {
         'mode': 'general',
         'game': game,
@@ -508,7 +534,11 @@ def new_tournament_results_page(request, game_id):
     if not game.has_access('see_results', mode='tournament', team=team):
         raise Http404()
 
-    data = _new_results_compute(game, mode='tournament')
+    snap = GameResultsSnapshot.objects.filter(game=game, mode='tournament').first()
+    if snap and snap.payload:
+        data = snapshot_to_results_context(game, snap.payload)
+    else:
+        data = _new_results_compute(game, mode='tournament')
     return render(request, 'new/results.html', {
         'mode': 'tournament',
         'game': game,
@@ -582,6 +612,77 @@ def new_task_group_page(request, game_id, task_group_number):
         t.id: Attempt.manager.get_attempts_info(team=team, task=t, mode=mode, user=user, anon_key=anon_key)
         for t in tasks
     }
+    wall_max_points_meta_by_task_id = {}
+    for t in tasks:
+        if t.task_type != 'wall':
+            continue
+        try:
+            wall = t.get_wall()
+            base_max = getattr(wall, 'max_points', None)
+            if base_max is None:
+                continue
+            total = base_max * t.get_points()
+            try:
+                n_cat = int(getattr(wall, 'n_cat', 0))
+                pw = int(getattr(wall, 'points_words', 0))
+                pe = int(getattr(wall, 'points_explanation', 0))
+                pb = int(getattr(wall, 'points_bonus', 0))
+            except Exception:
+                n_cat, pw, pe, pb = 0, 0, 0, 0
+            base_parts_words = n_cat * pw
+            base_parts_expl = n_cat * pe
+            base = base_parts_words + base_parts_expl + pb
+            mul = t.get_points()
+            # total may be Decimal; show without trailing .000
+            try:
+                total_int = int(total)
+                total_str = str(total_int) if total == total_int else str(total).rstrip('0').rstrip('.')
+            except Exception:
+                total_str = str(total).rstrip('0').rstrip('.')
+            if mul == 1:
+                title = '{total} = {w} за состав категорий + {e} за смысл категорий + {b} за полное решение'.format(
+                    total=total_str,
+                    w=base_parts_words,
+                    e=base_parts_expl,
+                    b=pb,
+                )
+            else:
+                try:
+                    mul_int = int(mul)
+                    mul_str = str(mul_int) if mul == mul_int else str(mul).rstrip('0').rstrip('.')
+                except Exception:
+                    mul_str = str(mul).rstrip('0').rstrip('.')
+                # Расписываем подробно: (w + e + b) × mul = w*mul + e*mul + b*mul
+                try:
+                    w_mul = base_parts_words * mul
+                    e_mul = base_parts_expl * mul
+                    b_mul = pb * mul
+                    w_mul_int = int(w_mul)
+                    e_mul_int = int(e_mul)
+                    b_mul_int = int(b_mul)
+                    w_mul_str = str(w_mul_int) if w_mul == w_mul_int else str(w_mul).rstrip('0').rstrip('.')
+                    e_mul_str = str(e_mul_int) if e_mul == e_mul_int else str(e_mul).rstrip('0').rstrip('.')
+                    b_mul_str = str(b_mul_int) if b_mul == b_mul_int else str(b_mul).rstrip('0').rstrip('.')
+                except Exception:
+                    w_mul_str = str(base_parts_words)
+                    e_mul_str = str(base_parts_expl)
+                    b_mul_str = str(pb)
+                title = (
+                    '{total} = ({w} за состав + {e} за смысл + {b} за бонус) × {mul} '
+                    '= {w2} + {e2} + {b2}'
+                ).format(
+                    total=total_str,
+                    w=base_parts_words,
+                    e=base_parts_expl,
+                    b=pb,
+                    mul=mul_str,
+                    w2=w_mul_str,
+                    e2=e_mul_str,
+                    b2=b_mul_str,
+                )
+            wall_max_points_meta_by_task_id[t.id] = {'total': total, 'title': title}
+        except Exception:
+            pass
     likes_meta_by_task_id = {}
     for t in tasks:
         likes_meta_by_task_id[t.id] = {
@@ -592,11 +693,75 @@ def new_task_group_page(request, game_id, task_group_number):
             'liked': Like.manager.actor_has_like(t, team=team, user=user, anon_key=anon_key),
             'disliked': Like.manager.actor_has_dislike(t, team=team, user=user, anon_key=anon_key),
         }
+    section_rules_type = game.id if game.id in SECTION_RULES_GAME_IDS else None
+    section_tutorial_html = None
+    if section_rules_type:
+        try:
+            page = HTMLPage.objects.get(name='section_tutorial_' + section_rules_type)
+            section_tutorial_html = page.html or ''
+        except HTMLPage.DoesNotExist:
+            pass
+    replacements_lines_data = {}
+    for t in tasks:
+        if t.task_type == 'replacements_lines':
+            parsed = parse_replacements_lines_text(t.text, (t.checker_data or '').strip() or None)
+            n_lines = len(parsed['left_lines'])
+            line_solved = [False] * n_lines
+            line_attempts = [0] * n_lines
+            answers_by_line = parsed.get('answers', [])
+            slot_correct = [
+                [False] * len(answers_by_line[i]) for i in range(n_lines)
+            ]
+            line_done = [False] * n_lines
+            solved_lines_from_state = set()
+            ai = attempts_info_by_task_id.get(t.id)
+            if ai and ai.attempts:
+                for a in ai.attempts:
+                    try:
+                        p = json.loads(a.text)
+                        idx = int(p.get('line_index', -1))
+                        if 0 <= idx < n_lines:
+                            line_attempts[idx] += 1
+                            user_answers = p.get('answers', []) or []
+                            correct_answers = answers_by_line[idx] if idx < len(answers_by_line) else []
+                            for j in range(min(len(user_answers), len(correct_answers))):
+                                if clean_text(user_answers[j]) == clean_text(correct_answers[j]):
+                                    slot_correct[idx][j] = True
+                    except (ValueError, TypeError):
+                        pass
+                    # Состояние накопительных очков/решённых строк хранится в a.state
+                    if a.state:
+                        try:
+                            st = json.loads(a.state)
+                            solved_lines_from_state = set(st.get('solved_lines', []) or [])
+                        except (ValueError, TypeError):
+                            pass
+            for i in range(n_lines):
+                if i in solved_lines_from_state:
+                    line_done[i] = True
+            for i in range(n_lines):
+                # Строка считается завершённой, если либо была попытка Ok,
+                # либо уже все слоты совпали (по накопленным slot_correct).
+                if not line_done[i]:
+                    # fallback для старых данных без state: если все слоты совпали по компонентам
+                    line_done[i] = bool(slot_correct[i]) and all(slot_correct[i])
+            replacements_lines_data[t.id] = {
+                'parsed': parsed,
+                'line_solved': line_solved,
+                'line_done': line_done,
+                'line_attempts': line_attempts,
+                'slot_correct': slot_correct,
+                'n_lines': n_lines,
+                'max_attempts': t.get_max_attempts(),
+                'max_points_total': t.get_points() * n_lines,
+            }
     return render(request, 'new/task_group.html', {
         'game': game,
         'task_group': task_group,
         'tasks': tasks,
         'attempts_info_by_task_id': attempts_info_by_task_id,
+        'replacements_lines_data': replacements_lines_data,
+        'wall_max_points_meta_by_task_id': wall_max_points_meta_by_task_id,
         'likes_meta_by_task_id': likes_meta_by_task_id,
         'can_like': True,
         'has_profile_user': has_profile(request.user),
@@ -606,6 +771,8 @@ def new_task_group_page(request, game_id, task_group_number):
         'anon_key': anon_key,
         'team': team,
         'show_palindrome_rules': game.id == PALINDROMES_GAME_ID,
+        'section_rules_type': section_rules_type,
+        'section_tutorial_html': section_tutorial_html,
         'prev_task_group_url': '/new/games/{}/{}/'.format(game.id, prev_tg.number) if prev_tg else None,
         'next_task_group_url': '/new/games/{}/{}/'.format(game.id, next_tg.number) if next_tg else None,
         'back_url': (
@@ -657,6 +824,49 @@ def new_get_answer(request, task_id):
 
     html = '<div style="font-weight:700">{}</div>'.format(task.answer or '')
     return JsonResponse({'html': html})
+
+
+@require_http_methods(['GET'])
+def new_get_replacements_line_answer(request, task_id, line_index):
+    task = get_object_or_404(Task, id=task_id)
+    game = task.task_group.game
+
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    team = None
+    user = None
+    anon_key = None
+    if play_mode == 'team':
+        if not has_profile(request.user) or not request.user.profile.team_on:
+            raise Http404()
+        team = request.user.profile.team_on
+        if not game.has_access('play', team=team):
+            raise Http404()
+    else:
+        if request.user.is_authenticated:
+            if not has_profile(request.user):
+                raise Http404()
+            user = request.user
+        else:
+            anon_key = request.GET.get('anon') or request.GET.get('anon_key')
+            if not anon_key:
+                raise Http404()
+        if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
+            raise Http404()
+
+    mode = game.get_current_mode(Attempt(time=timezone.now()))
+    attempts_info = Attempt.manager.get_attempts_info(team=team, user=user, anon_key=anon_key, task=task, mode=mode)
+    if mode != 'general' and not attempts_info.is_solved():
+        return JsonResponse({'html': '<div class="new-login-hint">Ответ доступен после верного решения.</div>'})
+
+    # Для replacements_lines ответы живут в checker_data (output-текст).
+    lines = (task.checker_data or '').splitlines()
+    try:
+        text = lines[int(line_index)]
+    except Exception:
+        text = ''
+    if not text.strip():
+        return JsonResponse({'html': '<div class="new-login-hint">Нет ответа.</div>'})
+    return JsonResponse({'html': '<div style="font-weight:700">{}</div>'.format(escape(text))})
 
 
 @require_http_methods(['POST'])
@@ -846,6 +1056,108 @@ def new_team(request):
         'teams': teams,
         'page_title': 'Команда',
         'new_team_url': back,
+    })
+
+
+@login_required
+@require_http_methods(['GET'])
+def new_pay_page(request):
+    """Новая страница оплаты: билеты команде (как /tickets/) + Interoves+ (пока скоро)."""
+    if not has_profile(request.user):
+        messages.error(request, 'Сначала войдите и создайте профиль.')
+        return redirect('new_hub')
+    team = request.user.profile.team_on
+    recent_requests = []
+    if team:
+        recent_requests = list(TicketRequest.objects.filter(team=team).order_by('-time')[:20])
+    return render(request, 'new/pay.html', {
+        'team': team,
+        'ticket_price': getattr(team, 'ticket_price', 2000) if team else 2000,
+        'team_tickets': team.tickets if team else 0,
+        'recent_ticket_requests': recent_requests,
+        'page_title': 'Оплата',
+    })
+
+
+def _configure_yookassa_from_env():
+    shop_id = os.environ.get('YOOKASSA_SHOP_ID') or os.environ.get('YOO_KASSA_SHOP_ID')
+    secret_key = os.environ.get('YOOKASSA_SECRET_KEY') or os.environ.get('YOO_KASSA_SECRET_KEY')
+    if not shop_id:
+        try:
+            shop_id = Path('secrets/yookassa_shop_id.txt').read_text(encoding='utf-8').strip()
+        except Exception:
+            shop_id = shop_id or None
+    if not secret_key:
+        try:
+            secret_key = Path('secrets/yookassa_secret_key.txt').read_text(encoding='utf-8').strip()
+        except Exception:
+            secret_key = secret_key or None
+    if not shop_id or not secret_key:
+        raise RuntimeError('Missing YooKassa credentials in env: YOOKASSA_SHOP_ID/YOOKASSA_SECRET_KEY')
+    Configuration.configure(shop_id, secret_key)
+
+
+@login_required
+@require_http_methods(['POST'])
+def new_create_ticket_payment(request):
+    if not has_profile(request.user):
+        messages.error(request, 'Сначала войдите и создайте профиль.')
+        return redirect('new_hub')
+    if not has_team(request.user):
+        messages.error(request, 'Нужно создать или вступить в команду, чтобы купить билет.')
+        return redirect('new_team')
+
+    team = request.user.profile.team_on
+    try:
+        tickets = int((request.POST.get('tickets') or '').strip())
+    except Exception:
+        tickets = 0
+    if tickets < 1 or tickets > 20:
+        messages.error(request, 'Введите число билетов от 1 до 20.')
+        return redirect('new_pay')
+
+    ticket_price = int(getattr(team, 'ticket_price', 2000) or 2000)
+    amount_rub = int(tickets * ticket_price)
+
+    ticket_request = TicketRequest.objects.create(
+        team=team,
+        money=amount_rub,
+        tickets=tickets,
+        status='Pending',
+    )
+
+    try:
+        _configure_yookassa_from_env()
+        payment = Payment.create({
+            'amount': {
+                'value': f'{amount_rub:.2f}',
+                'currency': 'RUB',
+            },
+            'confirmation': {
+                'type': 'embedded',
+            },
+            'capture': True,
+            'description': f'Билеты для команды {team.visible_name or team.name} (request {ticket_request.id})',
+            'metadata': {
+                'ticket_request_id': str(ticket_request.id),
+                'team_id': str(team.id),
+                'tickets': str(tickets),
+                'kind': 'team_ticket',
+            },
+        }, uuid.uuid4().hex)
+        payment_data = dict(payment)
+        ticket_request.yookassa_id = payment_data.get('id') or ticket_request.yookassa_id
+        ticket_request.save(update_fields=['yookassa_id'])
+        confirmation_token = (payment_data.get('confirmation') or {}).get('confirmation_token')
+        if not confirmation_token:
+            raise RuntimeError('Missing confirmation_token from YooKassa')
+    except Exception:
+        return JsonResponse({'status': 'error'})
+
+    return JsonResponse({
+        'status': 'ok',
+        'confirmation_token': confirmation_token,
+        'return_url': request.build_absolute_uri('/new/pay/?payment=return'),
     })
 
 

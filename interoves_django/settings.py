@@ -45,8 +45,6 @@ ALLOWED_HOSTS = [
     'interoves-env.eu-central-1.elasticbeanstalk.com',
     'ec2-35-158-115-233.eu-central-1.compute.amazonaws.com',
     '172.31.43.189',
-    'interoves.ml',
-    'www.interoves.ml',
     'interoves.com',
     'www.interoves.com',
     '127.0.0.1',
