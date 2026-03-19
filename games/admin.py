@@ -76,30 +76,56 @@ def copy_game(modeladmin, request, queryset):
                     hint.save()
 
 
+def _freeze_results_message(mode_label, created, unchanged):
+    """
+    `unchanged` = snapshot already existed and was not overwritten (admin never overwrites).
+    """
+    parts = []
+    if created:
+        parts.append(f'{created} game(s): snapshot written')
+    if unchanged:
+        parts.append(
+            f'{unchanged} game(s): already had a frozen {mode_label} snapshot (left unchanged)'
+        )
+    msg = 'Results freeze — ' + ('; '.join(parts) if parts else 'nothing to do')
+    if unchanged:
+        msg += (
+            '. To replace existing snapshots, run: '
+            f'python manage.py freeze_results_snapshots --mode {mode_label} --game-id <id> --overwrite'
+        )
+    return msg
+
+
 @admin.action(description='Freeze tournament results (selected games)')
 def freeze_results_tournament(modeladmin, request, queryset):
     created = 0
-    skipped = 0
+    unchanged = 0
     for game in queryset.all():
         _, did = freeze_game_results(game, mode='tournament', overwrite=False)
         if did:
             created += 1
         else:
-            skipped += 1
-    modeladmin.message_user(request, f'Frozen tournament results: {created} created, {skipped} skipped.')
+            unchanged += 1
+    modeladmin.message_user(
+        request,
+        _freeze_results_message('tournament', created, unchanged),
+    )
 
 
 @admin.action(description='Freeze general results (selected games)')
 def freeze_results_general(modeladmin, request, queryset):
     created = 0
-    skipped = 0
+    unchanged = 0
     for game in queryset.all():
         _, did = freeze_game_results(game, mode='general', overwrite=False)
         if did:
             created += 1
         else:
-            skipped += 1
-    modeladmin.message_user(request, f'Frozen general results: {created} created, {skipped} skipped.')
+            unchanged += 1
+    modeladmin.message_user(
+        request,
+        _freeze_results_message('general', created, unchanged),
+    )
 
 
 @admin.action(description='Freeze tournament results (ALL games)')

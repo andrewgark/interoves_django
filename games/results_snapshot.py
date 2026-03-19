@@ -282,10 +282,11 @@ def build_results_snapshot_payload(game, mode='tournament'):
 
 
 def freeze_game_results(game, mode='tournament', overwrite=False):
-    payload = build_results_snapshot_payload(game, mode=mode)
     obj = GameResultsSnapshot.objects.filter(game=game, mode=mode).first()
     if obj and not overwrite:
+        # Snapshot already frozen; do not rebuild payload (expensive) or overwrite.
         return obj, False
+    payload = build_results_snapshot_payload(game, mode=mode)
     if not obj:
         obj = GameResultsSnapshot(game=game, mode=mode)
     obj.payload = payload
