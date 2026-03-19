@@ -1,9 +1,11 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
 from games.views import ui
 
 urlpatterns = [
     path('', ui.hub, name='ui_hub'),
+    path('sections/', RedirectView.as_view(url='/', query_string=True), name='ui_sections'),
     path('play-mode/', ui.set_play_mode, name='ui_set_play_mode'),
     path('migrate-anon-attempts/', ui.migrate_anon_attempts, name='ui_migrate_anon_attempts'),
     path('answer/<int:task_id>/', ui.get_answer, name='ui_get_answer'),

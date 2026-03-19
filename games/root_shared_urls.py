@@ -27,9 +27,8 @@ urlpatterns = [
     url(r"^get_answer/(?P<task_id>\d+)/$", get_answer),
     url(r"^like_dislike/(?P<task_id>\d+)/", like_dislike),
     url(r"^register/(?P<game_id>[a-zA-Z0-9_]+)/$", register_to_game),
-    # Do not register /games/<id>/ here — that path is the main UI hub (games/ui_urls.py).
-    # Only legacy deep links (task group / task) for "open in old interface".
-    url(r"^games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group>[0-9]+)$", game_page),
+    # Do not register /games/<id>/ or /games/<id>/<n> here — those are the main UI (games/ui_urls.py).
+    # Only legacy deep link to a single task in the old interface (three path segments, no trailing slash).
     url(
         r"^games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group>[0-9]+)/(?P<task>[0-9.a-zA-Zа-яА-Я]+)$",
         game_page,

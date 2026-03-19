@@ -22,9 +22,12 @@
         {{ game.get_outside_name|default:game.outside_name|default:game.name }}
       {% endif %}
     </h1>
+    {% if game.theme %}
+    <p class="new-login-hint" style="margin:0.35rem 0 0">{{ game.theme }}</p>
+    {% endif %}
   </div>
   <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle><i class="fa fa-eye" aria-hidden="true"></i></button>
-  {% if section_tutorial_html or show_palindrome_rules or section_rules_type or game.theme %}
+  {% if section_tutorial_html or show_palindrome_rules or section_rules_type %}
   <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open>?</button>
   {% endif %}
 </div>
@@ -165,21 +168,6 @@
     </div>
   </div>
 </div>
-{% elif game.theme %}
-<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
-  <div class="new-rules-overlay" data-rules-close></div>
-  <div class="new-rules-modal__box pal-card">
-    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
-    <h2 id="rules-modal-title" class="pal-title">
-      {% if "html_in_title" in game.tags %}
-        {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
-      {% else %}
-        {{ game.get_outside_name|default:game.outside_name|default:game.name }}
-      {% endif %}
-    </h2>
-    <p class="pal-lead">{{ game.theme }}</p>
-  </div>
-</div>
 {% endif %}
 
 {% if task_group.text %}
@@ -208,7 +196,7 @@
 </script>
 {% endif %}
 
-{% if section_tutorial_html or show_palindrome_rules or section_rules_type or game.theme %}
+{% if section_tutorial_html or show_palindrome_rules or section_rules_type %}
 <script>
 (function () {
   var modal = document.getElementById('rules-modal');
@@ -466,11 +454,11 @@
           {% with lm=likes_meta_by_task_id|get_item:task.id %}
             {% if lm %}
             <div class="new-like-dislike" aria-label="Лайки и дизлайки">
-              <button type="button" class="new-likebtn new-likebtn--dislike" data-dislike-btn data-task-id="{{ task.id }}" data-disliked="{% if lm.disliked %}1{% else %}0{% endif %}">
+              <button type="button" class="new-likebtn new-likebtn--dislike{% if lm.disliked %} is-active{% endif %}" data-dislike-btn data-task-id="{{ task.id }}" data-disliked="{% if lm.disliked %}1{% else %}0{% endif %}">
                 <span class="new-likebtn__icon"><i class="fa fa-thumbs-down" aria-hidden="true"></i></span>
                 <span class="new-likebtn__count" data-dislike-count="{{ task.id }}">{{ lm.dislikes }}</span>
               </button>
-              <button type="button" class="new-likebtn new-likebtn--like" data-like-btn data-task-id="{{ task.id }}" data-liked="{% if lm.liked %}1{% else %}0{% endif %}">
+              <button type="button" class="new-likebtn new-likebtn--like{% if lm.liked %} is-active{% endif %}" data-like-btn data-task-id="{{ task.id }}" data-liked="{% if lm.liked %}1{% else %}0{% endif %}">
                 <span class="new-likebtn__icon"><i class="fa fa-thumbs-up" aria-hidden="true"></i></span>
                 <span class="new-likebtn__count" data-like-count="{{ task.id }}">{{ lm.likes }}</span>
               </button>
@@ -802,6 +790,14 @@
         .then(function (data) { openAnswer(data.html || '<div class=\"new-login-hint\">Нет ответа.</div>'); })
         .catch(function () { openAnswer('<div class=\"new-login-hint\">Не удалось получить ответ.</div>'); });
     });
+  });
+
+  // Подсветка лайков/дизлайков с сервера (data-* → .is-active); без этого после F5 кнопки не зелёные.
+  document.querySelectorAll('[data-like-btn]').forEach(function (btn) {
+    btn.classList.toggle('is-active', btn.getAttribute('data-liked') === '1');
+  });
+  document.querySelectorAll('[data-dislike-btn]').forEach(function (btn) {
+    btn.classList.toggle('is-active', btn.getAttribute('data-disliked') === '1');
   });
 
   // Like/dislike (пер-режим)

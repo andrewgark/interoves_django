@@ -115,12 +115,12 @@
         <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle>
           <i class="fa fa-eye" aria-hidden="true"></i>
         </button>
-        {% if section_tutorial_html or show_palindrome_rules or section_rules_type or game.theme %}
+        {% if section_tutorial_html or show_palindrome_rules or section_rules_type %}
           <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open>?</button>
         {% endif %}
       </div>
-      {% if game.theme and not show_palindrome_rules %}
-        <p class="new-login-hint" style="margin-top:0">{{ game.theme }}</p>
+      {% if game.theme %}
+        <p class="new-login-hint" style="margin-top:0.35rem">{{ game.theme }}</p>
       {% endif %}
 
       {% if section_tutorial_html %}
@@ -255,15 +255,6 @@
             </div>
           </div>
         </div>
-      {% elif game.theme %}
-        <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
-          <div class="new-rules-overlay" data-rules-close></div>
-          <div class="new-rules-modal__box pal-card">
-            <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
-            <h2 id="rules-modal-title" class="pal-title">{{ game.get_outside_name|default:game.name }}</h2>
-            <p class="pal-lead">{{ game.theme }}</p>
-          </div>
-        </div>
       {% endif %}
     {% endif %}
 
@@ -291,7 +282,7 @@
   </div>
 
   {% if not is_main_game %}
-    {% if section_tutorial_html or show_palindrome_rules or section_rules_type or game.theme %}
+    {% if section_tutorial_html or show_palindrome_rules or section_rules_type %}
       <script>
       (function () {
         var modal = document.getElementById('rules-modal');
