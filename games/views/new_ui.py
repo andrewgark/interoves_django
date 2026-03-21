@@ -26,12 +26,12 @@ from allauth.socialaccount.models import SocialAccount
 
 from games.access import game_has_started
 from games.exception import NoGameAccessException
-from games.models import Attempt, AudioManager, Game, HintAttempt, HTMLPage, ImageManager, Like, Profile, Project, Task, TaskGroup, Team, TicketRequest
+from games.models import Attempt, AudioManager, Game, HintAttempt, HTMLPage, ImageManager, Like, PersonalResultsParticipant, Profile, Project, Task, TaskGroup, Team, TicketRequest
 from games.models import GameResultsSnapshot
 from games.util import clean_text
 from games.replacements_lines import parse_replacements_lines_text
 from games.views.main_page import MainPageView
-from games.views.util import has_profile, has_team
+from games.views.util import effective_play_mode, has_profile, has_team, personal_play_mode_locked
 from games.results_snapshot import snapshot_to_results_context
 from games.yookassa_util import configure_yookassa_from_env
 
@@ -216,6 +216,7 @@ def new_section_game_page(request, game_id):
         .order_by('number')
     )
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
 
     # Для скрытия полностью решённых групп нужно быстро понять, какие задачи решены в текущем режиме.
     mode = game.get_current_mode(Attempt(time=timezone.now()))
@@ -286,6 +287,7 @@ def new_section_game_page(request, game_id):
         'task_groups_heading': 'Наборы заданий',
         'task_groups_empty_text': 'В этом разделе пока нет групп заданий. Добавьте их в админке.',
         'back_url': '/',
+        'lock_personal_play_mode': personal_play_mode_locked(game),
     })
 
 
@@ -295,8 +297,9 @@ def new_main_game_page(request, game_id):
         raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
-    if not request.user.is_authenticated:
+    if not request.user.is_authenticated and not personal_play_mode_locked(game):
         play_mode = 'personal'
+    play_mode = effective_play_mode(play_mode, game)
     anon_key = request.GET.get('anon') if not request.user.is_authenticated else None
     team = None
     user = request.user if request.user.is_authenticated else None
@@ -356,7 +359,7 @@ def new_main_game_page(request, game_id):
             'play_url': '/games/{}/{}/'.format(game.id, tg.number),
             'is_fully_solved': bool(tg.n_tasks) and n_solved >= tg.n_tasks,
             'row_class': row_class,
-            'title': 'Группа {} · {}'.format(tg.number, tg.name),
+            'title': 'Задание {} · {}'.format(tg.number, tg.name),
             'progress_text': '{} из {} {} решено'.format(n_solved, tg.n_tasks, _ru_iz_punkt_word(tg.n_tasks)),
         })
     return render(request, 'ui/game_page.html', {
@@ -374,6 +377,7 @@ def new_main_game_page(request, game_id):
         'task_groups_heading': 'Задания',
         'task_groups_empty_text': 'В этой игре пока нет групп заданий.',
         'back_url': '/games/',
+        'lock_personal_play_mode': personal_play_mode_locked(game),
     })
 
 
@@ -391,32 +395,40 @@ def _new_results_compute(game, mode):
             key=lambda t: t.key_sort()
         )
         for task in task_group_to_tasks[task_group.number]:
-            for attempts_info in Attempt.manager.get_task_attempts_infos(task=task, mode=mode):
+            if mode == 'general':
+                actor_rows = Attempt.manager.get_general_results_task_actor_rows(task=task)
+            else:
+                actor_rows = []
+                for attempts_info in Attempt.manager.get_task_attempts_infos(task=task, mode=mode):
+                    if not (attempts_info.attempts or attempts_info.hint_attempts):
+                        continue
+                    tteam = None
+                    if attempts_info.attempts:
+                        tteam = attempts_info.attempts[0].team
+                    elif attempts_info.hint_attempts:
+                        tteam = attempts_info.hint_attempts[0].team
+                    if not tteam or tteam.is_hidden:
+                        continue
+                    actor_rows.append((tteam, attempts_info))
+
+            for participant, attempts_info in actor_rows:
                 if not (attempts_info.attempts or attempts_info.hint_attempts):
                     continue
-                # Результаты в старом интерфейсе — командные. Сохраняем то же поведение.
-                team = None
-                if attempts_info.attempts:
-                    team = attempts_info.attempts[0].team
-                elif attempts_info.hint_attempts:
-                    team = attempts_info.hint_attempts[0].team
-                if not team or team.is_hidden:
-                    continue
 
-                if team not in team_to_score:
-                    team_to_score[team] = 0
+                if participant not in team_to_score:
+                    team_to_score[participant] = 0
 
                 task_points = 0
                 if attempts_info.best_attempt is not None:
                     task_points = attempts_info.best_attempt.points
                 if task_points and task_points > 0:
-                    team_to_score[team] += max(0, task_points - attempts_info.get_sum_hint_penalty())
-                    if team not in team_to_max_best_time:
-                        team_to_max_best_time[team] = attempts_info.best_attempt.time
+                    team_to_score[participant] += max(0, task_points - attempts_info.get_sum_hint_penalty())
+                    if participant not in team_to_max_best_time:
+                        team_to_max_best_time[participant] = attempts_info.best_attempt.time
                     else:
-                        team_to_max_best_time[team] = max(team_to_max_best_time[team], attempts_info.best_attempt.time)
+                        team_to_max_best_time[participant] = max(team_to_max_best_time[participant], attempts_info.best_attempt.time)
 
-                team_task_to_attempts_info[(team, task)] = attempts_info
+                team_task_to_attempts_info[(participant, task)] = attempts_info
 
     for team in team_to_score.keys():
         for task_group in task_groups:
@@ -425,22 +437,22 @@ def _new_results_compute(game, mode):
                 team_to_list_attempts_info[team].append(team_task_to_attempts_info.get((team, task)))
 
     teams_sorted = []
-    for team, score in team_to_score.items():
-        max_best_time = team_to_max_best_time.get(team, datetime.datetime.now())
-        teams_sorted.append((-score, max_best_time, team))
-    teams_sorted = [team for anti_score, max_best_time, team in sorted(teams_sorted, key=lambda t: (t[0], t[1], str(t[2])))]
+    for participant, score in team_to_score.items():
+        max_best_time = team_to_max_best_time.get(participant, datetime.datetime.now())
+        teams_sorted.append((-score, max_best_time, participant))
+    teams_sorted = [p for anti_score, max_best_time, p in sorted(teams_sorted, key=lambda t: (t[0], t[1], str(t[2])))]
 
     team_to_place = {}
-    for i, team in enumerate(teams_sorted):
-        team_to_place[team] = 1 + i
+    for i, participant in enumerate(teams_sorted):
+        team_to_place[participant] = 1 + i
         if i:
-            prev_team = teams_sorted[i - 1]
-            if team_to_score[team] == team_to_score[prev_team]:
-                team_to_place[team] = team_to_place[prev_team]
+            prev = teams_sorted[i - 1]
+            if team_to_score[participant] == team_to_score[prev]:
+                team_to_place[participant] = team_to_place[prev]
 
     if mode == 'tournament':
         game.results = json.dumps({
-            team.name: {'score': str(score), 'place': team_to_place[team]} for team, score in team_to_score.items()
+            p.name: {'score': str(score), 'place': team_to_place[p]} for p, score in team_to_score.items() if isinstance(p, Team)
         })
         game.save(update_fields=['results'])
 
@@ -457,9 +469,9 @@ def _new_results_compute(game, mode):
             return 0.0
 
     team_to_cells = {}
-    for team in teams_sorted:
+    for participant in teams_sorted:
         cells = []
-        attempts_list = team_to_list_attempts_info.get(team, [])
+        attempts_list = team_to_list_attempts_info.get(participant, [])
         for idx, task in enumerate(tasks_flat):
             ai = attempts_list[idx] if idx < len(attempts_list) else None
             max_points = _to_float(getattr(task, 'get_points', None)() if hasattr(task, 'get_points') else getattr(task, 'points', 0))
@@ -487,7 +499,7 @@ def _new_results_compute(game, mode):
                 'ai': ai,
                 'cls': cls,
             })
-        team_to_cells[team] = cells
+        team_to_cells[participant] = cells
 
     return {
         'task_groups': task_groups,
@@ -517,15 +529,28 @@ def new_results_page(request, game_id):
         data = snapshot_to_results_context(game, snap.payload)
     else:
         data = _new_results_compute(game, mode='general')
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
+    me_personal = None
+    me_anon_participant = None
+    if play_mode == 'personal':
+        if request.user.is_authenticated:
+            me_personal = PersonalResultsParticipant(user=request.user)
+        ak = request.GET.get('anon') or request.COOKIES.get('interoves_anon')
+        if ak:
+            me_anon_participant = PersonalResultsParticipant(anon_key=ak)
     return render(request, 'ui/results.html', {
         'mode': 'general',
         'game': game,
         'team': team,
+        'me_personal': me_personal,
+        'me_anon_participant': me_anon_participant,
         'back_url': '/games/{}/'.format(game.id),
         **data,
-        'play_mode': _get_play_mode(request, game.project_id)[0],
+        'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
+        'lock_personal_play_mode': personal_play_mode_locked(game),
     })
 
 
@@ -549,21 +574,73 @@ def new_tournament_results_page(request, game_id):
         'mode': 'tournament',
         'game': game,
         'team': team,
+        'me_personal': None,
+        'me_anon_participant': None,
         'back_url': '/games/{}/'.format(game.id),
         **data,
-        'play_mode': _get_play_mode(request, game.project_id)[0],
+        'play_mode': effective_play_mode(_get_play_mode(request, game.project_id)[0], game),
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты турнира: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
+        'lock_personal_play_mode': personal_play_mode_locked(game),
+    })
+
+
+def new_section_results_page(request, game_id):
+    """Результаты игры из project «sections»: одна таблица, без турнира/«общего»."""
+    project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
+    if not project:
+        raise Http404()
+    game = Game.objects.filter(project=project, id=game_id).first()
+    if not game:
+        raise Http404()
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
+    if not game.has_access('see_results', mode='general', team=team):
+        raise Http404()
+
+    snap = GameResultsSnapshot.objects.filter(game=game, mode='general').first()
+    if snap and snap.payload:
+        data = snapshot_to_results_context(game, snap.payload)
+    else:
+        data = _new_results_compute(game, mode='general')
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
+    me_personal = None
+    me_anon_participant = None
+    if play_mode == 'personal':
+        if request.user.is_authenticated:
+            me_personal = PersonalResultsParticipant(user=request.user)
+        ak = request.GET.get('anon') or request.COOKIES.get('interoves_anon')
+        if ak:
+            me_anon_participant = PersonalResultsParticipant(anon_key=ak)
+    return render(request, 'ui/results.html', {
+        'mode': 'general',
+        'section_results': True,
+        'game': game,
+        'team': team,
+        'me_personal': me_personal,
+        'me_anon_participant': me_anon_participant,
+        'back_url': '/section/{}/'.format(game.id),
+        **data,
+        'play_mode': play_mode,
+        'play_mode_project_id': game.project_id,
+        'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
+        'lock_personal_play_mode': personal_play_mode_locked(game),
     })
 
 
 def new_task_group_page(request, game_id, task_group_number):
     game = get_object_or_404(Game, id=game_id)
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
     anon_key = None
 
     if not request.user.is_authenticated:
-        # До логина разрешаем только личный режим.
+        if personal_play_mode_locked(game):
+            from urllib.parse import quote
+            return redirect('/accounts/login/?next={}'.format(quote(request.get_full_path())))
+        # До логина разрешаем только личный режим (не в турнире).
         play_mode = 'personal'
         anon_key = request.GET.get('anon') or request.COOKIES.get('interoves_anon')  # fallback, основной — localStorage
     else:
@@ -602,7 +679,7 @@ def new_task_group_page(request, game_id, task_group_number):
                 raise Http404()
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
-    task_group = TaskGroup.objects.filter(game=game, number=task_group_number).first()
+    task_group = TaskGroup.objects.select_related('rules').filter(game=game, number=task_group_number).first()
     if not task_group:
         # Если пользователь открыл несуществующий номер группы — перенаправим на ближайшую существующую.
         next_tg = TaskGroup.objects.filter(game=game, number__gt=task_group_number).order_by('number').first()
@@ -793,6 +870,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'page_title': '{} · {}'.format(game.outside_name or game.name, task_group.name),
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
+        'lock_personal_play_mode': personal_play_mode_locked(game),
     })
 
 
@@ -802,6 +880,7 @@ def new_get_answer(request, task_id):
     game = task.task_group.game
 
     play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
     team = None
     user = None
     anon_key = None
@@ -838,6 +917,7 @@ def new_get_replacements_line_answer(request, task_id, line_index):
     game = task.task_group.game
 
     play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
     team = None
     user = None
     anon_key = None
@@ -881,6 +961,7 @@ def new_like_dislike(request, task_id):
     game = task.task_group.game
 
     play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
     team = None
     user = None
     anon_key = None
@@ -924,13 +1005,33 @@ def new_like_dislike(request, task_id):
     })
 
 
+def _game_from_next_path(path):
+    """Если next ведёт на страницу игры — вернуть Game или None."""
+    if not path:
+        return None
+    from urllib.parse import urlparse
+    from django.urls import Resolver404, resolve
+    try:
+        match = resolve(urlparse(path).path)
+    except Resolver404:
+        return None
+    game_id = match.kwargs.get('game_id')
+    if not game_id:
+        return None
+    return Game.objects.filter(pk=game_id).first()
+
+
 @require_http_methods(['GET'])
 def new_set_play_mode(request):
     mode = request.GET.get('mode')
-    if mode in ('team', 'personal'):
-        project_id = request.GET.get('project') or NEW_UI_PROJECT
-        request.session[_session_play_mode_key(project_id)] = mode
     next_url = request.GET.get('next') or '/'
+    project_id = request.GET.get('project') or NEW_UI_PROJECT
+    if mode == 'personal':
+        g = _game_from_next_path(next_url)
+        if g is not None and personal_play_mode_locked(g):
+            mode = 'team'
+    if mode in ('team', 'personal'):
+        request.session[_session_play_mode_key(project_id)] = mode
     return redirect(next_url)
 
 

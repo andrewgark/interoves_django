@@ -159,7 +159,7 @@
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-confirm-close>×</button>
     <h2 id="new-confirm-title" class="pal-title">Вы уверены?</h2>
     {% if user.is_authenticated and user.profile and user.profile.team_on and user.profile.team_on.users_on.all|length == 1 %}
-      <p class="new-login-hint" style="margin-top:0;color:#c94a4a;font-weight:700">
+      <p class="new-login-hint new-text-danger" style="margin-top:0">
         В команде больше никого нет. Если вы выйдете, в команде никого не останется.
       </p>
     {% endif %}

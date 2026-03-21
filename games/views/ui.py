@@ -6,6 +6,7 @@ from games.views.new_ui import *  # noqa: F401,F403
 hub = new_hub
 folder = new_folder
 section_game_page = new_section_game_page
+section_results_page = new_section_results_page
 main_game_page = new_main_game_page
 results_page = new_results_page
 tournament_results_page = new_tournament_results_page

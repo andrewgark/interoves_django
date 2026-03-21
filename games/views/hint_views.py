@@ -5,14 +5,14 @@ from games.exception import DuplicateAttemptException, NotAllRequiredHintsTakenE
 from games.models import Hint, HintAttempt, Task, Attempt
 from games.views.render_task import update_task_html
 from games.views.track import track_task_change
-from games.views.util import has_profile, has_team
+from games.views.util import effective_play_mode, has_profile, has_team
 
 
 def _get_play_mode(request, game):
     mode = request.session.get('play_mode_{}'.format(game.project_id or 'main'))
-    if mode in ('team', 'personal'):
-        return mode
-    return 'personal' if game.project_id == 'sections' else 'team'
+    if mode not in ('team', 'personal'):
+        mode = 'personal' if game.project_id == 'sections' else 'team'
+    return effective_play_mode(mode, game)
 
 
 def _hintattempt_filter(team=None, user=None, anon_key=None):

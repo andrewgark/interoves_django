@@ -88,6 +88,76 @@ class Team(models.Model):
                 break
         return team_number
 
+    # Для шаблона общих результатов (команда vs личный участник)
+    is_team_results_row = True
+
+
+class PersonalResultsParticipant:
+    """
+    Участник общей таблицы результатов без команды (личный или анонимный режим).
+    Не модель БД — только для отображения и ключей в dict.
+    """
+
+    __slots__ = ('_user', 'user_id', 'anon_key', '_display_name_override')
+
+    def __init__(self, *, user=None, user_id=None, anon_key=None, display_name=None):
+        self._display_name_override = display_name
+        if user is not None:
+            self._user = user
+            self.user_id = user.pk
+            self.anon_key = None
+            if user_id is not None and int(user_id) != int(user.pk):
+                raise ValueError('user_id does not match user.pk')
+        elif user_id is not None:
+            self._user = None
+            self.user_id = int(user_id)
+            self.anon_key = None
+        elif anon_key is not None and str(anon_key).strip() != '':
+            self._user = None
+            self.user_id = None
+            self.anon_key = str(anon_key)
+        else:
+            raise ValueError('Pass user=, user_id=, or anon_key=')
+
+    @property
+    def pk(self):
+        if self.user_id is not None:
+            return 'personal:user:{}'.format(self.user_id)
+        return 'personal:anon:{}'.format(self.anon_key)
+
+    @property
+    def visible_name(self):
+        if self._display_name_override:
+            return self._display_name_override
+        if self._user is not None:
+            u = self._user
+            try:
+                p = u.profile
+            except Exception:
+                p = None
+            if p is not None:
+                label = ('{} {}'.format(p.first_name or '', p.last_name or '')).strip()
+                if label:
+                    return label
+            full = (u.get_full_name() or '').strip()
+            if full:
+                return full
+            return u.get_username()
+        tail = self.anon_key[-4:] if len(self.anon_key) >= 4 else self.anon_key
+        return 'Аноним ··{}'.format(tail)
+
+    is_team_results_row = False
+
+    def __eq__(self, other):
+        if not isinstance(other, PersonalResultsParticipant):
+            return False
+        return self.user_id == other.user_id and self.anon_key == other.anon_key
+
+    def __hash__(self):
+        if self.user_id is not None:
+            return hash(('PersonalResultsParticipant', 'u', self.user_id))
+        return hash(('PersonalResultsParticipant', 'a', self.anon_key))
+
 
 class Profile(models.Model):
     user = models.OneToOneField(User, related_name='profile', primary_key=True, on_delete=models.CASCADE)
@@ -526,6 +596,61 @@ class AttemptManager(models.Manager):
             attempts_info = AttemptsInfo(best_attempt, attempts, hint_attempts)
             attempts_infos.append(attempts_info)
         return attempts_infos
+
+    def _general_results_actor_bucket(self, attempt_or_hint):
+        if attempt_or_hint.team_id:
+            return ('team', attempt_or_hint.team_id)
+        uid = getattr(attempt_or_hint, 'user_id', None)
+        if uid:
+            return ('user', uid)
+        ak = getattr(attempt_or_hint, 'anon_key', None)
+        if ak:
+            return ('anon', str(ak))
+        return None
+
+    def get_general_results_task_actor_rows(self, task):
+        """
+        Для общей таблицы: по одному AttemptsInfo на команду или на личного/анонимного участника.
+        """
+        attempts = self.get_task_attempts(task, mode='general')
+        hint_attempts = self.get_task_hint_attempts(task, mode='general')
+
+        buckets = {}
+        for attempt in attempts:
+            b = self._general_results_actor_bucket(attempt)
+            if b is None:
+                continue
+            buckets.setdefault(b, {'attempts': [], 'hints': []})
+            buckets[b]['attempts'].append(attempt)
+
+        for ha in hint_attempts:
+            b = self._general_results_actor_bucket(ha)
+            if b is None:
+                continue
+            buckets.setdefault(b, {'attempts': [], 'hints': []})
+            buckets[b]['hints'].append(ha)
+
+        rows = []
+        for b, data in buckets.items():
+            att = data['attempts']
+            hints = data['hints']
+            if not att and not hints:
+                continue
+            best_attempt = self.get_best_attempt(att, mode='general')
+            ai = AttemptsInfo(best_attempt, att, hints)
+            kind, key = b
+            if kind == 'team':
+                team = att[0].team if att else hints[0].team
+                if team is None or team.is_hidden:
+                    continue
+                actor = team
+            elif kind == 'user':
+                user = att[0].user if att else hints[0].user
+                actor = PersonalResultsParticipant(user=user)
+            else:
+                actor = PersonalResultsParticipant(anon_key=key)
+            rows.append((actor, ai))
+        return rows
 
 
 class Attempt(models.Model):

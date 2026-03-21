@@ -1,6 +1,6 @@
 import datetime
 
-from games.models import Attempt, GameResultsSnapshot
+from games.models import Attempt, GameResultsSnapshot, PersonalResultsParticipant, Team
 
 
 def _json_num(x):
@@ -89,14 +89,41 @@ def snapshot_to_results_context(game, payload):
         task_group_to_tasks[tg_obj.number] = tasks
         tasks_flat.extend(tasks)
 
-    # Teams: use real Team objects for name/links, but keep order from snapshot
-    from games.models import Team
     rows = payload.get('rows') or []
-    team_ids = [r.get('team_id') for r in rows if r.get('team_id')]
+    team_ids = []
+    for r in rows:
+        rk = r.get('row_kind')
+        if rk is None and r.get('team_id'):
+            rk = 'team'
+        if rk == 'team' and r.get('team_id'):
+            team_ids.append(r['team_id'])
     teams_qs = Team.objects.filter(name__in=team_ids)
     teams_by_id = {t.pk: t for t in teams_qs}
-    teams_sorted = [teams_by_id.get(tid) for tid in team_ids if tid in teams_by_id]
 
+    def _row_to_participant(row):
+        rk = row.get('row_kind')
+        if rk is None:
+            if row.get('team_id'):
+                rk = 'team'
+            elif row.get('user_id') is not None:
+                rk = 'personal_user'
+            elif row.get('anon_key'):
+                rk = 'personal_anon'
+        if rk == 'team':
+            return teams_by_id.get(row.get('team_id'))
+        if rk == 'personal_user':
+            return PersonalResultsParticipant(
+                user_id=row['user_id'],
+                display_name=row.get('display_name'),
+            )
+        if rk == 'personal_anon':
+            return PersonalResultsParticipant(
+                anon_key=row['anon_key'],
+                display_name=row.get('display_name'),
+            )
+        return None
+
+    teams_sorted = []
     team_to_score = {}
     team_to_place = {}
     team_to_max_best_time = {}
@@ -104,16 +131,16 @@ def snapshot_to_results_context(game, payload):
     team_to_cells = {}
 
     for row in rows:
-        tid = row.get('team_id')
-        team = teams_by_id.get(tid)
-        if not team:
+        participant = _row_to_participant(row)
+        if not participant:
             continue
-        team_to_score[team] = row.get('score') or 0
-        team_to_place[team] = row.get('place') or 0
+        teams_sorted.append(participant)
+        team_to_score[participant] = row.get('score') or 0
+        team_to_place[participant] = row.get('place') or 0
         t_iso = row.get('max_best_time')
         if t_iso:
             try:
-                team_to_max_best_time[team] = datetime.datetime.fromisoformat(t_iso)
+                team_to_max_best_time[participant] = datetime.datetime.fromisoformat(t_iso)
             except Exception:
                 pass
 
@@ -134,8 +161,8 @@ def snapshot_to_results_context(game, payload):
             ais.append(ai_obj)
             cells.append({'ai': ai_obj, 'cls': cell.get('cls') or 'cell-no'})
 
-        team_to_list_attempts_info[team] = ais
-        team_to_cells[team] = cells
+        team_to_list_attempts_info[participant] = ais
+        team_to_cells[participant] = cells
 
     return {
         'task_groups': task_groups,
@@ -175,24 +202,34 @@ def build_results_snapshot_payload(game, mode='tournament'):
         for t in tasks:
             tasks_flat.append(t)
 
-    team_to_score = {}  # {team_pk: score}
-    team_to_max_best_time = {}  # {team_pk: datetime}
-    team_task_to_cell = {}  # {(team_pk, task_id): cell}
+    participant_to_score = {}
+    participant_to_max_best_time = {}
+    participant_task_to_cell = {}
 
     for task in tasks_flat:
-        for ai in Attempt.manager.get_task_attempts_infos(task=task, mode=mode):
+        if mode == 'general':
+            actor_rows = Attempt.manager.get_general_results_task_actor_rows(task=task)
+        else:
+            actor_rows = []
+            for ai in Attempt.manager.get_task_attempts_infos(task=task, mode=mode):
+                if not (ai.attempts or ai.hint_attempts):
+                    continue
+                team = None
+                if ai.attempts:
+                    team = ai.attempts[0].team
+                elif ai.hint_attempts:
+                    team = ai.hint_attempts[0].team
+                if not team or team.is_hidden:
+                    continue
+                actor_rows.append((team, ai))
+
+        for participant, ai in actor_rows:
+            if isinstance(participant, Team) and participant.is_hidden:
+                continue
             if not (ai.attempts or ai.hint_attempts):
                 continue
-            team = None
-            if ai.attempts:
-                team = ai.attempts[0].team
-            elif ai.hint_attempts:
-                team = ai.hint_attempts[0].team
-            if not team or team.is_hidden:
-                continue
 
-            team_pk = team.pk
-            team_to_score.setdefault(team_pk, 0)
+            participant_to_score.setdefault(participant, 0)
             task_points = 0
             best_status = None
             best_time = None
@@ -206,7 +243,6 @@ def build_results_snapshot_payload(game, mode='tournament'):
             n_attempts = ai.get_n_attempts()
             hint_numbers = sorted([ha.hint.number for ha in ai.hint_attempts if ha.is_real_request]) if ai.hint_attempts else []
 
-            # For new UI results table coloring (cell-full/cell-some/...)
             try:
                 max_points = float(task.get_points())
             except Exception:
@@ -221,12 +257,14 @@ def build_results_snapshot_payload(game, mode='tournament'):
                 cls = 'cell-zero'
 
             if task_points and task_points > 0:
-                team_to_score[team_pk] = _json_num(team_to_score.get(team_pk, 0) + max(0, _json_num(task_points) - _json_num(sum_hint_penalty)))
+                participant_to_score[participant] = _json_num(
+                    participant_to_score.get(participant, 0) + max(0, _json_num(task_points) - _json_num(sum_hint_penalty))
+                )
                 if best_time is not None:
-                    prev = team_to_max_best_time.get(team_pk)
-                    team_to_max_best_time[team_pk] = best_time if prev is None else max(prev, best_time)
+                    prev = participant_to_max_best_time.get(participant)
+                    participant_to_max_best_time[participant] = best_time if prev is None else max(prev, best_time)
 
-            team_task_to_cell[(team_pk, task.id)] = {
+            participant_task_to_cell[(participant, task.id)] = {
                 'best_status': best_status,
                 'n_attempts': n_attempts,
                 'result_points': _json_num(result_points),
@@ -235,41 +273,49 @@ def build_results_snapshot_payload(game, mode='tournament'):
                 'cls': cls,
             }
 
-    # Sort teams by (-score, max_best_time, name)
-    team_ids = list(team_to_score.keys())
-    # Query only teams that appear in results
-    from games.models import Team
-    teams_qs = Team.objects.filter(name__in=team_ids)
-    teams_by_id = {t.pk: t for t in teams_qs}
+    participants = list(participant_to_score.keys())
 
-    def _team_sort_key(team_pk):
-        team = teams_by_id.get(team_pk)
-        score = _json_num(team_to_score.get(team_pk, 0))
-        max_t = team_to_max_best_time.get(team_pk)
+    def _participant_sort_key(p):
+        score = _json_num(participant_to_score.get(p, 0))
+        max_t = participant_to_max_best_time.get(p)
         if max_t is None:
             max_t = datetime.datetime.now()
-        return (-score, max_t, str(team) if team is not None else str(team_pk))
+        label = p.visible_name if hasattr(p, 'visible_name') else str(p)
+        return (-score, max_t, label)
 
-    teams_sorted_ids = sorted(team_ids, key=_team_sort_key)
+    participants_sorted = sorted(participants, key=_participant_sort_key)
 
-    team_to_place = {}
-    for i, tid in enumerate(teams_sorted_ids):
-        team_to_place[tid] = 1 + i
+    participant_to_place = {}
+    for i, p in enumerate(participants_sorted):
+        participant_to_place[p] = 1 + i
         if i:
-            prev = teams_sorted_ids[i - 1]
-            if team_to_score.get(tid, 0) == team_to_score.get(prev, 0):
-                team_to_place[tid] = team_to_place[prev]
+            prev = participants_sorted[i - 1]
+            if participant_to_score.get(p, 0) == participant_to_score.get(prev, 0):
+                participant_to_place[p] = participant_to_place[prev]
 
-    # Build rows
     rows = []
-    for tid in teams_sorted_ids:
-        rows.append({
-            'team_id': tid,
-            'score': _json_num(team_to_score.get(tid, 0)),
-            'place': team_to_place.get(tid, 0),
-            'max_best_time': (team_to_max_best_time.get(tid).isoformat() if team_to_max_best_time.get(tid) else None),
-            'cells': [team_task_to_cell.get((tid, task.id)) for task in tasks_flat],
-        })
+    for p in participants_sorted:
+        row = {
+            'score': _json_num(participant_to_score.get(p, 0)),
+            'place': participant_to_place.get(p, 0),
+            'max_best_time': (
+                participant_to_max_best_time.get(p).isoformat() if participant_to_max_best_time.get(p) else None
+            ),
+            'cells': [participant_task_to_cell.get((p, task.id)) for task in tasks_flat],
+        }
+        if isinstance(p, Team):
+            row['row_kind'] = 'team'
+            row['team_id'] = p.pk
+            row['display_name'] = p.visible_name
+        elif isinstance(p, PersonalResultsParticipant):
+            row['display_name'] = p.visible_name
+            if p.user_id is not None:
+                row['row_kind'] = 'personal_user'
+                row['user_id'] = p.user_id
+            else:
+                row['row_kind'] = 'personal_anon'
+                row['anon_key'] = p.anon_key
+        rows.append(row)
 
     return {
         'mode': mode,

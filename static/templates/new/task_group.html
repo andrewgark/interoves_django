@@ -2,10 +2,11 @@
 {% load filters %}
 {% block title %}
   {% if "html_in_title" in game.tags %}
-    {% autoescape off %}{{ page_title }}{% endautoescape %}
+    {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
   {% else %}
-    {{ page_title }}
+    {{ game.get_outside_name|default:game.outside_name|default:game.name }}
   {% endif %}
+  · {% autoescape off %}{{ task_group.name }}{% endautoescape %}
 {% endblock %}
 {% block content %}
 <p style="margin:0 0 0.75rem">
@@ -27,26 +28,22 @@
     {% endif %}
   </div>
   <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle><i class="fa fa-eye" aria-hidden="true"></i></button>
-  {% if section_tutorial_html or show_palindrome_rules or section_rules_type %}
+  {% if section_tutorial_html or show_palindrome_rules or section_rules_type or task_group.rules %}
   <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open>?</button>
   {% endif %}
 </div>
 
 <p class="new-login-hint" style="margin:0.25rem 0 0.75rem">
-  Группа {{ task_group.number }} · <strong>{{ task_group.name }}</strong>
+  Задание {{ task_group.number }} · <strong>{% autoescape off %}{{ task_group.name }}{% endautoescape %}</strong>
 </p>
 
-{% if section_tutorial_html %}
-<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+{% if section_tutorial_html or show_palindrome_rules or section_rules_type or task_group.rules %}
+<div id="rules-modal" class="new-rules-modal" role="dialog" {% if section_tutorial_html or show_palindrome_rules or section_rules_type %}aria-labelledby="rules-modal-title"{% else %}aria-label="Правила"{% endif %} aria-modal="true" hidden>
   <div class="new-rules-overlay" data-rules-close></div>
   <div class="new-rules-modal__box pal-card">
-    {% autoescape off %}{{ section_tutorial_html }}{% endautoescape %}
-  </div>
-</div>
-{% elif show_palindrome_rules %}
-<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
-  <div class="new-rules-overlay" data-rules-close></div>
-  <div class="new-rules-modal__box pal-card">
+    {% if section_tutorial_html %}
+      {% autoescape off %}{{ section_tutorial_html }}{% endautoescape %}
+    {% elif show_palindrome_rules %}
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
     <p class="pal-kicker">Палиндромы</p>
     <h2 id="rules-modal-title" class="pal-title">почти палиндром</h2>
@@ -102,12 +99,7 @@
         </div>
       </div>
     </div>
-  </div>
-</div>
-{% elif section_rules_type == 'replacements' %}
-<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
-  <div class="new-rules-overlay" data-rules-close></div>
-  <div class="new-rules-modal__box pal-card">
+    {% elif section_rules_type == 'replacements' %}
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
     <p class="pal-kicker">Замены</p>
     <h2 id="rules-modal-title" class="pal-title">как играть</h2>
@@ -134,12 +126,7 @@
         </div>
       </div>
     </div>
-  </div>
-</div>
-{% elif section_rules_type == 'walls' %}
-<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
-  <div class="new-rules-overlay" data-rules-close></div>
-  <div class="new-rules-modal__box pal-card">
+    {% elif section_rules_type == 'walls' %}
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close>×</button>
     <p class="pal-kicker">Стены</p>
     <h2 id="rules-modal-title" class="pal-title">как играть</h2>
@@ -166,6 +153,13 @@
         </div>
       </div>
     </div>
+    {% endif %}
+    {% if task_group.rules %}
+      {% if section_tutorial_html or show_palindrome_rules or section_rules_type %}
+    <div class="new-taskgroup-rules-divider" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px dashed var(--border)"></div>
+      {% endif %}
+      {% autoescape off %}{{ task_group.rules.html }}{% endautoescape %}
+    {% endif %}
   </div>
 </div>
 {% endif %}
@@ -196,7 +190,7 @@
 </script>
 {% endif %}
 
-{% if section_tutorial_html or show_palindrome_rules or section_rules_type %}
+{% if section_tutorial_html or show_palindrome_rules or section_rules_type or task_group.rules %}
 <script>
 (function () {
   var modal = document.getElementById('rules-modal');
@@ -344,7 +338,7 @@
       {% elif task.task_type == 'default' or task.task_type == 'autohint' or task.task_type == 'with_tag' or task.task_type == 'distribute_to_teams' %}
         {% if task.image %}
           <div class="new-taskcard__img">
-            <img src="{{ task.image.url }}" alt="" style="max-width:100%; height:auto" width="{{ task.get_image_width }}">
+            <img src="{{ task.image.url }}" alt="" width="{{ task.get_image_width }}">
           </div>
         {% endif %}
         <div class="new-taskcard__text">
@@ -383,7 +377,7 @@
       {% endif %}
 
       {% if task.get_hints %}
-        <div class="new-hints">
+        <div class="new-hints" id="new-task-hints-{{ task.id }}">
           <div class="new-hints__title">
             <button type="button" class="new-action-link" data-hints-toggle data-task-id="{{ task.id }}">Подсказки</button>
           </div>
@@ -552,7 +546,7 @@
               try {
                 var u2 = new URL(window.location.href);
                 u2.searchParams.set('hints_open', tid);
-                u2.hash = 'new-task-' + tid;
+                u2.hash = 'new-task-hints-' + tid;
                 window.location.replace(u2.toString());
                 return;
               } catch (e) {}
@@ -936,6 +930,12 @@
     if (!body) return;
     body.hidden = false;
     if (btn) btn.textContent = 'Скрыть подсказки';
+    var hintsRoot = document.getElementById('new-task-hints-' + taskId);
+    if (hintsRoot) {
+      requestAnimationFrame(function () {
+        hintsRoot.scrollIntoView({ block: 'start', behavior: 'auto' });
+      });
+    }
   })();
 
   // Wall: click tiles & submit explanation forms (no jQuery here)

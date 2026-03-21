@@ -54,6 +54,9 @@ def get_game_access(game, action, team=None, attempt=None, mode='general'):
     if action == 'see_tournament_results':
         return get_game_access(game, 'play_without_team', team=team, mode='tournament')
     if action == 'see_results':
+        # Разделы (project «sections»): таблица без турнира/старта игры как у основных игр.
+        if getattr(game, 'project_id', None) == 'sections':
+            return get_game_access(game, 'see_game_preview', team=team, mode=mode)
         return get_game_access(game, 'play_without_team', team=team, mode=mode)
     if action == 'see_answer':
         return game_has_ended(game, attempt) and get_game_access(game, 'read_googledoc', team=team, attempt=attempt, mode=mode)

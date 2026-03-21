@@ -4,6 +4,43 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+  (function () {
+    var KEY = 'interoves_color_theme';
+    function readStored() {
+      try { return localStorage.getItem(KEY); } catch (e) { return null; }
+    }
+    function prefersDark() {
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    function effectiveDark(mode) {
+      if (mode === 'light') return false;
+      if (mode === 'dark') return true;
+      return prefersDark();
+    }
+    window.interovesColorTheme = {
+      KEY: KEY,
+      readStored: readStored,
+      prefersDark: prefersDark,
+      effectiveDark: effectiveDark,
+      apply: function (mode) {
+        var m = mode;
+        if (m == null || m === '') m = readStored();
+        if (m !== 'light' && m !== 'dark' && m !== 'auto') m = 'auto';
+        document.documentElement.classList.toggle('new-ui-dark', effectiveDark(m));
+        document.documentElement.setAttribute('data-color-theme', m);
+      }
+    };
+    window.interovesColorTheme.apply();
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+        var s = readStored();
+        if (s === 'light' || s === 'dark') return;
+        window.interovesColorTheme.apply('auto');
+      });
+    }
+  })();
+  </script>
   <title>{% block title %}{{ page_title|default:"Interoves" }}{% endblock %} · Interoves</title>
   <link rel="stylesheet" href="{% static "css/new.css" %}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
@@ -18,6 +55,11 @@
           <i class="fa fa-clock-o" aria-hidden="true"></i>
           <span data-clock-text>--:--</span>
         </span>
+        <div class="new-theme-switch" role="group" aria-label="Тема оформления">
+          <button type="button" class="new-theme-switch__btn" data-theme-choice="light" title="Светлая тема" aria-pressed="false">☀️</button>
+          <button type="button" class="new-theme-switch__btn" data-theme-choice="dark" title="Тёмная тема" aria-pressed="false">🌙</button>
+          <button type="button" class="new-theme-switch__btn" data-theme-choice="auto" title="Как в системе" aria-pressed="false">💻</button>
+        </div>
         <a href="{% url 'new_hub' %}" {% if request.resolver_match.url_name == 'new_hub' %}aria-current="page"{% endif %}>Игры</a>
         <a href="{% url 'new_folder' 'games' %}" {% if request.resolver_match.url_name == 'new_folder' and request.resolver_match.kwargs.slug == 'games' %}aria-current="page"{% endif %}>🔟 Десяточки</a>
         {% for game in section_games %}
@@ -27,7 +69,9 @@
         </a>
         {% endfor %}
         {% if play_mode and user.is_authenticated %}
-          {% if play_mode == 'team' %}
+          {% if lock_personal_play_mode %}
+            <span class="new-mode-toggle new-mode-toggle--locked" title="В турнирной игре доступен только командный режим.">👥 В команде</span>
+          {% elif play_mode == 'team' %}
             <a class="new-mode-toggle" title="Сейчас: режим «В команде» — решения и подсказки общие для вашей команды. Нажмите, чтобы переключиться на личный режим." href="{% url 'new_set_play_mode' %}?mode=personal&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}">👥 В команде</a>
           {% else %}
             <a class="new-mode-toggle" title="Сейчас: личный режим — решения и подсказки только для вас в этом браузере/аккаунте. Нажмите, чтобы переключиться на режим «В команде»." href="{% url 'new_set_play_mode' %}?mode=team&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}">👤 Лично</a>
@@ -178,6 +222,38 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  <script>
+  (function () {
+    var KEY = (window.interovesColorTheme && window.interovesColorTheme.KEY) || 'interoves_color_theme';
+    function readStored() {
+      try { return localStorage.getItem(KEY); } catch (e) { return null; }
+    }
+    function syncThemeButtons() {
+      var mode = readStored();
+      if (mode !== 'light' && mode !== 'dark') mode = 'auto';
+      document.querySelectorAll('[data-theme-choice]').forEach(function (btn) {
+        var v = btn.getAttribute('data-theme-choice');
+        var on = v === mode;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+    document.querySelectorAll('[data-theme-choice]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var v = btn.getAttribute('data-theme-choice');
+        try {
+          if (v === 'auto') localStorage.removeItem(KEY);
+          else localStorage.setItem(KEY, v);
+        } catch (e) {}
+        if (window.interovesColorTheme && window.interovesColorTheme.apply) {
+          window.interovesColorTheme.apply(v === 'auto' ? 'auto' : v);
+        }
+        syncThemeButtons();
+      });
+    });
+    syncThemeButtons();
+  })();
+  </script>
   <script>
   (function () {
     var el = document.querySelector('[data-clock-text]');

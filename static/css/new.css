@@ -23,6 +23,8 @@
   --results-cell-no-fg: var(--text);
   --results-row-me-bg: #b0c0ff;
   --results-row-me-fg: #1637b3;
+  /* Якоря / scrollIntoView: запас под sticky-шапку (.new-nav) */
+  --new-ui-scroll-margin-top: 5.5rem;
   font-size: 16px;
 }
 
@@ -749,6 +751,7 @@ html.new-ui-dark body.new-ui {
   border-radius: 6px;
   padding: 0.9rem 1rem;
   margin-bottom: 0.75rem;
+  scroll-margin-top: var(--new-ui-scroll-margin-top);
   /* В grid/flex иначе min-content ширины ломают колонку и контент вылезает */
   min-width: 0;
 }
@@ -1157,6 +1160,7 @@ html.new-ui-dark body.new-ui {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px dashed var(--border);
+  scroll-margin-top: var(--new-ui-scroll-margin-top);
 }
 
 .new-hints__title {
@@ -1345,6 +1349,10 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 }
 
 @media (max-width: 480px) {
+  :root {
+    /* На узком экране навигация в несколько строк — больше запас */
+    --new-ui-scroll-margin-top: 7rem;
+  }
   .new-nav__inner {
     flex-direction: column;
     align-items: flex-start;

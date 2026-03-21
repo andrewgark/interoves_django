@@ -18,7 +18,7 @@
 
     <div class="new-section-header" style="margin-bottom:0.75rem">
       <div>
-        <div class="new-login-hint" style="margin:0">{% if mode == 'tournament' %}Турнирная таблица{% else %}Общая таблица{% endif %}</div>
+        <div class="new-login-hint" style="margin:0">{% if section_results %}Результаты{% elif mode == 'tournament' %}Турнирная таблица{% else %}Общая таблица{% endif %}</div>
         <h1 class="new-heading" style="margin:0">
           {% if "html_in_title" in game.tags %}
             {% autoescape off %}{{ game.get_outside_name|default:game.name }}{% endautoescape %}
@@ -29,6 +29,7 @@
       </div>
     </div>
 
+    {% if not section_results %}
     <div class="new-card" style="margin-top:0.75rem">
       <div class="new-card__text" style="margin:0">
         {% if mode == 'tournament' %}
@@ -41,6 +42,7 @@
         {% endif %}
       </div>
     </div>
+    {% endif %}
 
   </div>
 
@@ -50,7 +52,7 @@
           <thead>
             <tr>
               <th class="is-sticky-left is-sticky-top">#</th>
-              <th class="is-sticky-left-2 is-sticky-top col-team">Команда</th>
+              <th class="is-sticky-left-2 is-sticky-top col-team">{% if section_results %}Участник{% elif mode == 'general' %}Команда / участник{% else %}Команда{% endif %}</th>
               <th class="is-sticky-left-3 is-sticky-top col-score">Сумма</th>
               {% if mode == 'tournament' %}
                 <th class="is-sticky-left-4 is-sticky-top">Время</th>
@@ -77,9 +79,9 @@
           </thead>
           <tbody>
             {% for t in teams_sorted %}
-              <tr class="{% if team and team.pk == t.pk %}is-me{% endif %}">
+              <tr class="{% if team and team == t %}is-me{% elif me_personal and me_personal == t %}is-me{% elif me_anon_participant and me_anon_participant == t %}is-me{% endif %}">
                 <th class="is-sticky-left">{{ team_to_place|get_item:t }}</th>
-                <th class="is-sticky-left-2 col-team">{{ t.visible_name }}</th>
+                <th class="is-sticky-left-2 col-team">{% if t.is_team_results_row %}👥 {% else %}👤 {% endif %}{{ t.visible_name }}</th>
                 <th class="is-sticky-left-3 col-score">{{ team_to_score|get_item:t|minimize_digits }}</th>
                 {% if mode == 'tournament' %}
                   <th class="is-sticky-left-4">{{ team_to_max_best_time|get_item:t|date:'H:i' }}</th>

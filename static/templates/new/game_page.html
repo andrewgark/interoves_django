@@ -74,7 +74,7 @@
             {% if play_mode == 'team' %}
               <strong>{{ actor_value }}</strong>
             {% else %}
-              <strong style="color:#b61f1f">{{ actor_value }}</strong>
+              <strong style="color:var(--danger)">{{ actor_value }}</strong>
             {% endif %}
           </div>
         </div>
@@ -259,6 +259,15 @@
     {% endif %}
 
     {% include "new/_task_group_rows.html" with heading=task_groups_heading empty_text=task_groups_empty_text %}
+
+    {% if not is_main_game and game|access_see_results:team %}
+      <h2 class="new-heading" style="margin-top:1.75rem">Результаты</h2>
+      <div class="new-card" style="margin-top:0.75rem">
+        <div class="new-card__text" style="margin:0">
+          <a href="{% url 'new_section_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Результаты</a>
+        </div>
+      </div>
+    {% endif %}
 
     {% if is_main_game %}
       <h2 class="new-heading" style="margin-top:1.75rem">Результаты</h2>

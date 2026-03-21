@@ -7,9 +7,9 @@
     <a class="new-task {{ row.row_class|default:'' }}" href="{{ row.play_url }}" data-fully-solved="{% if row.is_fully_solved %}1{% else %}0{% endif %}">
       <span>
         {% if row.title %}
-          <strong>{{ row.title }}</strong>
+          <strong>{% autoescape off %}{{ row.title }}{% endautoescape %}</strong>
         {% else %}
-          <strong>{{ row.task_group.name }}</strong>
+          <strong>{% autoescape off %}{{ row.task_group.name }}{% endautoescape %}</strong>
         {% endif %}
         {% if row.progress_text %}
           <small class="new-task__meta">{{ row.progress_text }}</small>

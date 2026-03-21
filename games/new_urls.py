@@ -22,6 +22,7 @@ urlpatterns = [
     path('team/password/', ui.team_password, name='new_team_password'),
     path('team/rename/', ui.team_rename, name='new_team_rename'),
     path('games/<str:game_id>/<int:task_group_number>/', ui.task_group_page, name='new_task_group'),
+    path('section/<str:game_id>/results/', ui.section_results_page, name='new_section_results'),
     path('section/<str:game_id>/', ui.section_game_page, name='new_section_game'),
     path('profile/', ui.profile, name='new_profile'),
     path('team/', ui.team, name='new_team'),
