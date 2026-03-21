@@ -8,20 +8,48 @@
   --accent-hover: #538d4e;
   --border: #d3d6da;
   --tile: #e8e8e8;
+  --danger: #b61f1f;
+  --danger-soft: rgba(182, 31, 31, 0.1);
+  --success-soft-bg: rgba(106, 170, 100, 0.12);
+  --success-soft-border: rgba(106, 170, 100, 0.35);
+  /* Таблица результатов: фон + цвет текста в ячейках */
+  --results-cell-full-bg: #d8ffd8;
+  --results-cell-full-fg: var(--text);
+  --results-cell-some-bg: #fff0b0;
+  --results-cell-some-fg: var(--text);
+  --results-cell-zero-bg: #ffd0d0;
+  --results-cell-zero-fg: var(--text);
+  --results-cell-no-bg: #f0f8ff;
+  --results-cell-no-fg: var(--text);
+  --results-row-me-bg: #b0c0ff;
+  --results-row-me-fg: #1637b3;
   font-size: 16px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121213;
-    --surface: #1a1a1b;
-    --text: #d7dadc;
-    --muted: #818384;
-    --accent: #6aaa64;
-    --accent-hover: #7bc96f;
-    --border: #3a3a3c;
-    --tile: #2d2d2f;
-  }
+/* Тёмная палитра: только при классе .new-ui-dark (ставится скриптом из меню / системы) */
+html.new-ui-dark {
+  --bg: #121213;
+  --surface: #1a1a1b;
+  --text: #d7dadc;
+  --muted: #a0a3a8;
+  --accent: #6aaa64;
+  --accent-hover: #7bc96f;
+  --border: #3a3a3c;
+  --tile: #2d2d2f;
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+  --success-soft-bg: rgba(106, 170, 100, 0.18);
+  --success-soft-border: rgba(106, 170, 100, 0.42);
+  --results-cell-full-bg: #1a3022;
+  --results-cell-full-fg: #c8f0d0;
+  --results-cell-some-bg: #3d3518;
+  --results-cell-some-fg: #f5e7a8;
+  --results-cell-zero-bg: #3d2226;
+  --results-cell-zero-fg: #f8c4c8;
+  --results-cell-no-bg: #1c2433;
+  --results-cell-no-fg: #b8d7f2;
+  --results-row-me-bg: #2a3558;
+  --results-row-me-fg: #e4e9ff;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -34,6 +62,11 @@ body.new-ui {
   color: var(--text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  color-scheme: light;
+}
+
+html.new-ui-dark body.new-ui {
+  color-scheme: dark;
 }
 
 .new-wrap {
@@ -103,6 +136,44 @@ body.new-ui {
   background: var(--surface);
 }
 
+/* Переключатель темы (☀️ / 🌙 / 💻 = системная) */
+.new-theme-switch {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.new-theme-switch__btn {
+  appearance: none;
+  margin: 0;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0.25rem 0.45rem;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.new-theme-switch__btn:last-child {
+  border-right: none;
+}
+
+.new-theme-switch__btn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.new-theme-switch__btn.is-active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+}
+
 .new-nav__links a {
   color: var(--muted);
   text-decoration: none;
@@ -161,6 +232,7 @@ body.new-ui {
   margin: 0 0 0.35rem;
   font-size: 1.1rem;
   font-weight: 700;
+  color: var(--text);
 }
 
 .new-tile p {
@@ -195,6 +267,14 @@ body.new-ui {
   text-decoration: none;
   color: var(--text);
   font-weight: 600;
+  min-width: 0;
+}
+
+.new-task > span {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .new-task:hover {
@@ -246,7 +326,7 @@ body.new-ui {
 
 .new-field-error {
   display: block;
-  color: #c94a4a;
+  color: var(--danger);
   font-size: 0.85rem;
   margin-top: 0.25rem;
 }
@@ -327,8 +407,8 @@ body.new-ui {
 
 .new-btn--danger {
   background: transparent;
-  color: #c94a4a;
-  border: 2px solid #c94a4a;
+  color: var(--danger);
+  border: 2px solid var(--danger);
   margin-top: 0.5rem;
 }
 
@@ -345,8 +425,16 @@ body.new-ui {
   font-size: 0.9rem;
 }
 
-.new-messages .success { background: rgba(106, 170, 100, 0.2); }
-.new-messages .error { background: rgba(201, 74, 74, 0.15); }
+.new-messages .success {
+  background: var(--success-soft-bg);
+  color: var(--text);
+  border: 1px solid var(--success-soft-border);
+}
+.new-messages .error {
+  background: var(--danger-soft);
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, transparent);
+}
 
 .new-team-block {
   margin-bottom: 1.75rem;
@@ -415,8 +503,8 @@ body.new-ui {
 }
 
 .new-checkmark.bad {
-  border-color: rgba(201, 74, 74, 0.8);
-  color: rgba(201, 74, 74, 0.95);
+  border-color: color-mix(in srgb, var(--danger) 75%, var(--border));
+  color: var(--danger);
 }
 
 .new-link-muted {
@@ -464,6 +552,11 @@ body.new-ui {
   align-items: center;
   gap: 0.45rem;
   width: fit-content;
+}
+
+.new-community-link .fa {
+  color: var(--accent);
+  opacity: 0.92;
 }
 
 .new-create-actions {
@@ -519,6 +612,11 @@ body.new-ui {
   margin: 1rem 0;
 }
 
+.new-text-danger {
+  color: var(--danger);
+  font-weight: 700;
+}
+
 /* New UI: карточки заданий/описаний */
 .new-card {
   background: var(--surface);
@@ -526,6 +624,18 @@ body.new-ui {
   border-radius: 4px;
   padding: 0.9rem 1rem;
   margin: 0.75rem 0 1.25rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.new-card__title {
+  color: var(--text);
+}
+
+.new-card__text {
+  color: var(--text);
 }
 
 .new-pay-title {
@@ -639,6 +749,8 @@ body.new-ui {
   border-radius: 6px;
   padding: 0.9rem 1rem;
   margin-bottom: 0.75rem;
+  /* В grid/flex иначе min-content ширины ломают колонку и контент вылезает */
+  min-width: 0;
 }
 
 .new-taskgrid {
@@ -675,22 +787,56 @@ body.new-ui {
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .new-taskcard__num {
   font-weight: 800;
   color: var(--text);
+  flex-shrink: 0;
+}
+
+.new-taskcard__status {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.new-taskcard__body {
+  min-width: 0;
 }
 
 .new-taskcard__text {
   margin: 0 0 0.75rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.new-taskcard__img{
-  margin: 0.35rem 0 0.65rem;
+.new-taskcard__text img,
+.new-card img {
+  max-width: 100%;
+  height: auto;
 }
-.new-taskcard__img img{
+
+.new-taskcard__img {
+  margin: 0.35rem 0 0.65rem;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Не задавать width/max-width в CSS так, чтобы перебить атрибут width и get_image_width() */
+.new-taskcard__img img {
   display: block;
+  max-width: 100%;
+  height: auto;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--tile);
@@ -712,7 +858,7 @@ body.new-ui {
 }
 
 .new-max-points--reduced {
-  color: #b61f1f;
+  color: var(--danger);
 }
 
 .new-hint-safe {
@@ -724,9 +870,14 @@ body.new-ui {
 .new-taskcard__answer {
   margin-top: 0.5rem;
   padding: 0.6rem 0.75rem;
-  background: rgba(106, 170, 100, 0.12);
-  border: 1px solid rgba(106, 170, 100, 0.35);
+  background: var(--success-soft-bg);
+  border: 1px solid var(--success-soft-border);
   border-radius: 6px;
+  color: var(--text);
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .new-pill {
@@ -740,20 +891,21 @@ body.new-ui {
 }
 
 .new-pill--danger{
-  background: rgba(255, 70, 70, 0.12);
-  color: #b61f1f;
-  border: 1px solid rgba(182, 31, 31, 0.25);
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
 .new-card--warn{
-  border: 1px solid rgba(182, 31, 31, 0.25);
-  background: rgba(255, 70, 70, 0.06);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+  background: var(--danger-soft);
+  color: var(--text);
 }
 
 .new-pill--ok {
   color: var(--accent);
-  border-color: rgba(106, 170, 100, 0.55);
-  background: rgba(106, 170, 100, 0.10);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
 }
 
 .new-task-actions {
@@ -814,26 +966,20 @@ body.new-ui {
 }
 
 .new-likebtn.is-active {
-  border-color: rgba(106, 170, 100, 0.55);
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
   color: var(--accent);
-  background: rgba(106, 170, 100, 0.10);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
 }
 
 .new-likebtn--dislike.is-active {
-  border-color: rgba(201, 74, 74, 0.65);
-  color: rgba(201, 74, 74, 0.95);
-  background: rgba(201, 74, 74, 0.10);
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 .new-likebtn__count {
   font-weight: 700;
   color: inherit;
-}
-
-.new-likebtn--dislike.is-active {
-  border-color: rgba(201, 74, 74, 0.65);
-  color: rgba(201, 74, 74, 0.95);
-  background: rgba(201, 74, 74, 0.10);
 }
 
 .new-attempt-row {
@@ -907,6 +1053,7 @@ body.new-ui {
 .new-game-card__title {
   font-weight: 800;
   margin-bottom: 0.25rem;
+  color: var(--text);
 }
 
 .new-game-card__meta {
@@ -1036,7 +1183,7 @@ body.new-ui {
   border-radius: 6px;
   padding: 0.65rem 0.75rem;
   margin-bottom: 0.5rem;
-  background: rgba(0, 0, 0, 0.02);
+  background: color-mix(in srgb, var(--text) 4%, var(--surface));
 }
 
 .new-hint__head {
@@ -1052,9 +1199,9 @@ body.new-ui {
   gap: 0.25rem;
   padding: 0.12rem 0.45rem;
   border-radius: 999px;
-  border: 1px solid rgba(182, 31, 31, 0.25);
-  background: rgba(255, 70, 70, 0.10);
-  color: #b61f1f;
+  border: 1px solid color-mix(in srgb, var(--danger) 38%, transparent);
+  background: var(--danger-soft);
+  color: var(--danger);
   font-weight: 800;
   font-size: 0.85rem;
   white-space: nowrap;
@@ -1062,6 +1209,10 @@ body.new-ui {
 
 .new-hint__text {
   margin-top: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Wall (порт из старого интерфейса, чуть адаптирован) */
@@ -1173,6 +1324,10 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 
 .new-attempts__text {
   font-weight: 600;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .new-attempts__comment {
@@ -1375,13 +1530,13 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 }
 
 .new-task.new-task--partial{
-  background: rgba(255, 196, 58, 0.16);
-  border-color: rgba(255, 196, 58, 0.45);
+  background: color-mix(in srgb, #e8b923 22%, var(--surface));
+  border-color: color-mix(in srgb, #e8b923 48%, var(--border));
 }
 
 .new-task.new-task--solved{
-  background: rgba(38, 185, 120, 0.16);
-  border-color: rgba(38, 185, 120, 0.45);
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
 }
 
 /* Заголовок раздела с кнопкой «Правила» */
@@ -1439,6 +1594,11 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 }
 
 .new-results-table{
+  /* Ширины первых колонок — переменные, на узких экранах уменьшаются (ниже). */
+  --results-col-rank: 3.1rem;
+  --results-col-team: 12.5rem;
+  --results-col-score: 5.7rem;
+  --results-col-time: 4.8rem;
   border-collapse: separate;
   border-spacing: 0;
   width: max-content;
@@ -1462,20 +1622,33 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 
 .new-results-table tr.is-me th,
 .new-results-table tr.is-me td{
-  background: #b0c0ff;
+  background: var(--results-row-me-bg);
   font-weight: 800;
-  color: #1637b3;
+  color: var(--results-row-me-fg);
 }
 
-.new-results-table td.cell-full{ background: #d8ffd8; }
-.new-results-table td.cell-some{ background: #fff0b0; }
-.new-results-table td.cell-zero{ background: #ffd0d0; }
-.new-results-table td.cell-no{ background: #f0f8ff; }
+.new-results-table td.cell-full{
+  background: var(--results-cell-full-bg);
+  color: var(--results-cell-full-fg);
+}
+.new-results-table td.cell-some{
+  background: var(--results-cell-some-bg);
+  color: var(--results-cell-some-fg);
+}
+.new-results-table td.cell-zero{
+  background: var(--results-cell-zero-bg);
+  color: var(--results-cell-zero-fg);
+}
+.new-results-table td.cell-no{
+  background: var(--results-cell-no-bg);
+  color: var(--results-cell-no-fg);
+}
 
 .new-results-table .hint-numbers{
-  color: var(--muted);
   margin-left: 0.15rem;
   font-size: 0.8em;
+  color: inherit;
+  opacity: 0.78;
 }
 
 .new-results-table th.col-score,
@@ -1485,7 +1658,7 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 
 .new-results-table th.col-team{
   text-align: left;
-  max-width: 12.5rem;
+  max-width: var(--results-col-team);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1506,30 +1679,30 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   position: sticky;
   left: 0;
   z-index: 6;
-  width: 3.1rem;
-  min-width: 3.1rem;
+  width: var(--results-col-rank);
+  min-width: var(--results-col-rank);
 }
 .new-results-table .is-sticky-left-2{
   position: sticky;
-  left: 3.1rem;
+  left: var(--results-col-rank);
   z-index: 6;
-  width: 12.5rem;
-  min-width: 12.5rem;
-  max-width: 12.5rem;
+  width: var(--results-col-team);
+  min-width: var(--results-col-team);
+  max-width: var(--results-col-team);
 }
 .new-results-table .is-sticky-left-3{
   position: sticky;
-  left: 15.6rem;
+  left: calc(var(--results-col-rank) + var(--results-col-team));
   z-index: 6;
-  width: 5.7rem;
-  min-width: 5.7rem;
+  width: var(--results-col-score);
+  min-width: var(--results-col-score);
 }
 .new-results-table .is-sticky-left-4{
   position: sticky;
-  left: 21.3rem;
+  left: calc(var(--results-col-rank) + var(--results-col-team) + var(--results-col-score));
   z-index: 6;
-  width: 4.8rem;
-  min-width: 4.8rem;
+  width: var(--results-col-time);
+  min-width: var(--results-col-time);
 }
 
 .new-results-table thead .is-sticky-left,
@@ -1537,6 +1710,37 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 .new-results-table thead .is-sticky-left-3,
 .new-results-table thead .is-sticky-left-4{
   z-index: 7;
+}
+
+/* Узкий экран: уже «замороженные» колонки, чтобы оставалось место для горизонтального скролла задач */
+@media (max-width: 640px) {
+  .new-results-fullbleed {
+    padding-left: 0.45rem;
+    padding-right: 0.45rem;
+  }
+  .new-results-wrap {
+    max-width: 100%;
+  }
+  .new-results-table {
+    font-size: 0.76rem;
+    --results-col-rank: 2rem;
+    --results-col-team: 6.25rem;
+    --results-col-score: 3.15rem;
+    --results-col-time: 2.85rem;
+  }
+  .new-results-table th,
+  .new-results-table td {
+    padding: 0.22rem 0.28rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .new-results-table {
+    --results-col-rank: 1.75rem;
+    --results-col-team: 5.25rem;
+    --results-col-score: 2.85rem;
+    --results-col-time: 2.6rem;
+  }
 }
 
 .new-rules-trigger {
@@ -1684,7 +1888,11 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 .new-replacements-table .new-replacements-col--right { width: calc((100% - 72px) / 2); }
 
 .new-replacements-table .new-replacements-block__left {
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: normal;
+  overflow-x: auto;
+  max-width: 100%;
+  vertical-align: top;
 }
 .new-replacements-table .new-replacements-block__check {
   text-align: center;
@@ -1702,14 +1910,17 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 }
 .new-replacements-table .new-replacements-block__right {
   white-space: normal;
-  overflow-x: visible;
-  overflow-wrap: break-word;
+  overflow-x: auto;
+  overflow-wrap: normal;
+  word-break: normal;
+  max-width: 100%;
+  vertical-align: top;
 }
 .new-replacements-block__left--solved {
-  background: rgba(106, 170, 100, 0.08);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
 .new-replacements-block__right--solved {
-  background: rgba(106, 170, 100, 0.12);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
 }
 .new-replacements-block__right form.new-replacements-line-form {
   display: inline;
@@ -1812,4 +2023,229 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   margin-top: 0.2rem;
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+/* ─── Тёмная тема: pal-*, стена, оплата (только html.new-ui-dark) ─── */
+html.new-ui-dark .pal-fullbleed {
+  background: var(--bg);
+}
+
+html.new-ui-dark .pal-card {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+html.new-ui-dark .pal-kicker {
+  color: var(--muted);
+}
+
+html.new-ui-dark .pal-title {
+  color: var(--text);
+}
+
+html.new-ui-dark .pal-lead {
+  color: var(--muted);
+}
+
+html.new-ui-dark .pal-rule {
+  background: color-mix(in srgb, var(--text) 5%, var(--surface));
+  border-color: var(--border);
+}
+
+html.new-ui-dark .pal-rule-text {
+  color: var(--text);
+}
+
+html.new-ui-dark .pal-rule-number {
+  background: #3b5bdb;
+  box-shadow: 0 6px 18px rgba(59, 91, 219, 0.35);
+}
+
+html.new-ui-dark .pal-example-box {
+  background: color-mix(in srgb, #60a5fa 12%, var(--surface));
+  border-color: color-mix(in srgb, #60a5fa 35%, var(--border));
+}
+
+html.new-ui-dark .pal-example-title {
+  color: #93c5fd;
+}
+
+html.new-ui-dark .pal-example-item {
+  background: color-mix(in srgb, var(--text) 6%, var(--surface));
+  border-color: var(--border);
+}
+
+html.new-ui-dark .pal-label {
+  color: #93c5fd;
+}
+
+html.new-ui-dark .pal-text {
+  color: var(--text);
+}
+
+html.new-ui-dark .pal-note {
+  color: var(--muted);
+}
+
+/* Стена: не неоновые зелёные плитки, читаемый текст */
+html.new-ui-dark .wall-tile {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html.new-ui-dark .wall-tile-not-guessed {
+  background: color-mix(in srgb, var(--tile) 80%, var(--bg));
+}
+
+html.new-ui-dark .wall-tile-not-guessed:hover {
+  background: color-mix(in srgb, var(--surface) 70%, var(--tile));
+}
+
+html.new-ui-dark .wall-tile-selected {
+  background: #6b4c0a;
+  color: #fff8e1;
+}
+
+html.new-ui-dark .wall-tile-selected:hover {
+  background: #7d5a12;
+  color: #fffef5;
+}
+
+html.new-ui-dark .wall-tile-guessed-0 {
+  background: #1a4d32 !important;
+  color: #9ef0b4 !important;
+}
+html.new-ui-dark .wall-tile-guessed-1 {
+  background: #1f5238 !important;
+  color: #8ee8a8 !important;
+}
+html.new-ui-dark .wall-tile-guessed-2 {
+  background: #245a3e !important;
+  color: #7fd99a !important;
+}
+html.new-ui-dark .wall-tile-guessed-3 {
+  background: #2a6248 !important;
+  color: #7dceb0 !important;
+}
+html.new-ui-dark .wall-tile-guessed-4 {
+  background: #1e3d32 !important;
+  color: #e2f5ef !important;
+}
+
+/* Хаб / десяточки: заголовки секций чуть ярче серого */
+html.new-ui-dark .new-heading {
+  color: color-mix(in srgb, var(--text) 72%, var(--muted));
+}
+
+/* Вертикальный скроллбар списка игр — меньше «кислотного» залива */
+html.new-ui-dark .new-smart-scrollbar-track {
+  background: color-mix(in srgb, var(--accent) 42%, var(--tile));
+}
+
+html.new-ui-dark .new-smart-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 88%, #1a1a1a);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+html.new-ui-dark .new-pay-discount__tip {
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55);
+  border-color: var(--border);
+}
+
+/* Контейнер виджета ЮKassa (iframe внутри не красим) */
+html.new-ui-dark #new-yookassa-widget {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  min-height: 2rem;
+  overflow: hidden;
+}
+
+/*
+ * Форма оплаты: yookassa_construct_form.css задаёт #000 / #fff.
+ * Перекрываем только в тёмной теме под переменные new-ui.
+ */
+html.new-ui-dark body.new-ui .yoomoney-payment-form {
+  color: var(--text) !important;
+  font-family: inherit !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-block-title,
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-products-title {
+  color: var(--text) !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-label-text {
+  color: var(--muted) !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-products {
+  color: var(--text) !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-products .ym-product:after,
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-before-line:before {
+  background: color-mix(in srgb, var(--text) 12%, transparent) !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-product-description .ym-product-count {
+  color: var(--muted) !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-product-description,
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-product-price {
+  color: var(--text) !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-input,
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-textarea {
+  background: var(--tile) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-input::placeholder,
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-textarea::placeholder {
+  color: var(--muted) !important;
+  opacity: 1 !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-count-input input {
+  background: var(--tile) !important;
+  color: var(--text) !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-count-input .ym-count-minus,
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-count-input .ym-count-plus {
+  filter: invert(1) brightness(1.15);
+  opacity: 0.75;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-payment-btn-block .ym-btn-pay {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border: 1px solid color-mix(in srgb, var(--accent) 65%, #000) !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-payment-btn-block .ym-btn-pay:hover {
+  background: var(--accent-hover) !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-payment-btn-block .ym-disabled-btn {
+  background: var(--tile) !important;
+  color: var(--muted) !important;
+  opacity: 0.65 !important;
+  border: 1px solid var(--border) !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-input-icon-rub:after {
+  color: var(--muted) !important;
+}
+
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-block-with-hint .ym-hint,
+html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-block-with-hint .ym-hint:before {
+  background: var(--danger) !important;
+  color: #fff !important;
 }
