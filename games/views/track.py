@@ -4,7 +4,7 @@ Live updates over WebSocket (TrackGame) + channel layer.
 Roadmap (idiomatic next steps):
 - Add typed event names and small payloads where full HTML is not needed.
 - user.{id} group for private signals (game start, shipment status).
-- Keep group_send inside transaction.on_commit (see track_task_change).
+- Keep group_send inside transaction.on_commit; defer Redis work to a thread so ASGI is not blocked (DEFER_CHANNEL_BROADCAST).
 - TrackGame is AsyncJsonWebsocketConsumer; ORM in connect/task_changed uses database_sync_to_async.
 
 Groups:
@@ -14,17 +14,48 @@ Groups:
 
 Messages include monotonic seq per namespace (Django cache) so the client can ignore stale payloads.
 """
+import logging
+import threading
+
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from asgiref.sync import async_to_sync
 
+from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from games.models import Attempt, Task
 from games.views.render_task import update_task_html
+
+logger = logging.getLogger(__name__)
+
+
+def _schedule_channel_broadcast(fn):
+    """
+    Run fn after DB commit. Default: fn runs in a daemon thread so async_to_sync(group_send)
+    does not block the Daphne/ASGI loop waiting on Redis (production symptom: POST hangs, :6379 in stack).
+    """
+
+    def run_safe():
+        try:
+            fn()
+        except Exception:
+            logger.exception('Channel broadcast failed')
+
+    def after_commit():
+        if getattr(settings, 'DEFER_CHANNEL_BROADCAST', True):
+            threading.Thread(
+                target=run_safe,
+                daemon=True,
+                name='interoves_channel_broadcast',
+            ).start()
+        else:
+            run_safe()
+
+    transaction.on_commit(after_commit)
 
 
 CHANNEL_GROUPS = {
@@ -80,7 +111,7 @@ def _broadcast_game_track_event_commit(game_id: str, event_name: str, payload: d
             body,
         )
 
-    transaction.on_commit(send)
+    _schedule_channel_broadcast(send)
 
 
 def notify_registered_users_game_lifecycle_changed(old_game, new_game):
@@ -179,7 +210,7 @@ def notify_user_after_commit(user_id, body, *, seq_namespace=None):
             payload,
         )
 
-    transaction.on_commit(send)
+    _schedule_channel_broadcast(send)
 
 
 def build_event_task_change(task, team=None, current_mode=None, update_html=None, request=None):
@@ -234,7 +265,7 @@ def track_task_change(task, team=None, current_mode=None, update_html=None, requ
                 channel_event,
             )
 
-    transaction.on_commit(send)
+    _schedule_channel_broadcast(send)
 
 
 class TrackGame(AsyncJsonWebsocketConsumer):

@@ -83,7 +83,9 @@ class TrackGameFixtureMixin:
         )
 
 
+@override_settings(DEFER_CHANNEL_BROADCAST=False)
 class TrackChannelTests(TrackGameFixtureMixin, TestCase):
+    """Синхронная отправка в Channels, чтобы captureOnCommitCallbacks видел group_send сразу."""
 
     def test_channel_group_names(self):
         self.assertEqual(CHANNEL_GROUPS['game']('g1'), 'track.game.g1')

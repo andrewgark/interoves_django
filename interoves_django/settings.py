@@ -114,6 +114,15 @@ ALLOWED_HOSTS = [
     '35.158.81.206',
 ]
 
+# Доп. хосты из EB (через запятую), например публичный Elastic IP, если запросы идут с Host: IP.
+# Не открывайте слепой '*' — только известные IP (health / прямой доступ).
+_extra_hosts = (os.environ.get('EXTRA_ALLOWED_HOSTS') or '').strip()
+if _extra_hosts:
+    for _h in _extra_hosts.split(','):
+        _h = _h.strip()
+        if _h and _h not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_h)
+
 CSRF_TRUSTED_ORIGINS = [
     'https://interoves.com',
     'https://www.interoves.com',
@@ -133,7 +142,8 @@ def get_ec2_instance_ip():
     return ip
 
 AWS_LOCAL_IP = get_ec2_instance_ip()
-ALLOWED_HOSTS.append(AWS_LOCAL_IP)
+if AWS_LOCAL_IP and AWS_LOCAL_IP not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(AWS_LOCAL_IP)
 
 # Application definition
 
@@ -218,6 +228,15 @@ TEMPLATES = [
 WSGI_APPLICATION = 'interoves_django.wsgi.application'
 ASGI_APPLICATION = 'interoves_django.asgi.application'
 
+# После commit не блокировать Daphne/ASGI ожиданием Redis (channels group_send).
+# На EB в логах: POST /send_attempt/ и /ws/track/ «took too long to shut down», wait_for :6379.
+# DEFER_CHANNEL_BROADCAST=0 — синхронная отправка (тесты с captureOnCommitCallbacks).
+DEFER_CHANNEL_BROADCAST = os.environ.get('DEFER_CHANNEL_BROADCAST', '1').strip().lower() not in (
+    '0',
+    'false',
+    'no',
+)
+
 CHANNEL_LAYERS = {
     "default": {
         # this can only be used in single-replica deployments
@@ -236,6 +255,20 @@ if 'REDIS_HOST' in os.environ:
     redis_password = os.environ.get('REDIS_PASSWORD', '')
     redis_use_tls = os.environ.get('REDIS_TLS', '').lower() in ('1', 'true', 'yes')
 
+    # redis.asyncio: при недоступном ElastiCache/SG — Timeout connecting to server в channels_redis.receive.
+    try:
+        _redis_socket_connect_timeout = float(os.environ.get('REDIS_SOCKET_CONNECT_TIMEOUT', '5'))
+    except ValueError:
+        _redis_socket_connect_timeout = 5.0
+    try:
+        _redis_socket_timeout = float(os.environ.get('REDIS_SOCKET_TIMEOUT', '15'))
+    except ValueError:
+        _redis_socket_timeout = 15.0
+    _redis_conn_kwargs = {
+        'socket_connect_timeout': _redis_socket_connect_timeout,
+        'socket_timeout': _redis_socket_timeout,
+    }
+
     # channels_redis: hosts as (host, port), redis:// URI, or dict (redis-py connection).
     # ElastiCache transit encryption: set REDIS_TLS=1 → rediss:// (see channels_redis README).
     from urllib.parse import quote
@@ -243,15 +276,15 @@ if 'REDIS_HOST' in os.environ:
     if redis_use_tls:
         pw = quote(redis_password, safe='') if redis_password else ''
         auth = f':{pw}@' if pw else ''
-        _host_entry = {'address': f'rediss://{auth}{redis_host}:{redis_port}'}
+        _host_entry = {'address': f'rediss://{auth}{redis_host}:{redis_port}', **_redis_conn_kwargs}
         if os.environ.get('REDIS_SSL_CERT_REQS', '').strip().lower() == 'none':
             _host_entry['ssl_cert_reqs'] = None
         redis_hosts = [_host_entry]
     elif redis_password:
         pw = quote(redis_password, safe='')
-        redis_hosts = [f'redis://:{pw}@{redis_host}:{redis_port}']
+        redis_hosts = [{'address': f'redis://:{pw}@{redis_host}:{redis_port}', **_redis_conn_kwargs}]
     else:
-        redis_hosts = [(redis_host, redis_port)]
+        redis_hosts = [{'host': redis_host, 'port': redis_port, **_redis_conn_kwargs}]
 
     CHANNEL_LAYERS = {
         "default": {
