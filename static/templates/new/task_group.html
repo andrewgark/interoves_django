@@ -828,9 +828,14 @@
 
   document.addEventListener('submit', function (e) {
     var form = e.target && e.target.closest ? e.target.closest('form.new-hint-form') : null;
-    if (!form || !form.closest('.new-taskcard')) return;
+    // Обычные задания: форма внутри .new-taskcard; пропорции: подсказки в таблице .new-proportions-matrix без .new-taskcard.
+    var inNewUi =
+      form &&
+      (form.closest('.new-taskcard') || form.closest('.new-proportions-matrix'));
+    if (!form || !inNewUi) return;
     e.preventDefault();
-    var taskCard = form.closest('.new-taskcard');
+    var taskCard =
+      form.closest('.new-taskcard') || form.closest('.new-proportions-matrix__meta-row');
     var isSolved = taskCard && taskCard.getAttribute('data-solved') === '1';
     if (isSolved) {
       postForm(form);
