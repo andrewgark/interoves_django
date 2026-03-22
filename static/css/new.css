@@ -2370,6 +2370,15 @@ html.new-ui-dark .new-proportions-pool-sticky {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
+/* Телефон / узкий экран: не фиксируем пул с подсказками — иначе при скролле занимает весь экран */
+@media (max-width: 48rem) {
+  .new-proportions-pool-sticky {
+    position: static;
+    top: auto;
+    z-index: auto;
+  }
+}
+
 /* Proportions task group: shared pool + two drop slots per task */
 .new-proportions-pool {
   display: flex;

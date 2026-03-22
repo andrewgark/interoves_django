@@ -52,9 +52,9 @@ class ProportionsChipsTest(SimpleTestCase):
             _FakeTask('proportions', 'a / b', pk=2),
         ]
         chips = build_proportions_chips_for_tasks(tasks)
-        self.assertEqual([c['label'] for c in chips], ['a', 'b', 'a', 'b'])
+        self.assertEqual([c['label'] for c in chips], ['a', 'a', 'b', 'b'])
         self.assertEqual([c['id'] for c in chips], [0, 1, 2, 3])
-        self.assertEqual([c['task_id'] for c in chips], [1, 1, 2, 2])
+        self.assertEqual([c['task_id'] for c in chips], [1, 2, 1, 2])
 
 
 def _ensure_checker_and_project():

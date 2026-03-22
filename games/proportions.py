@@ -26,7 +26,8 @@ def parse_proportions_pair(answer):
 def build_proportions_chips_for_tasks(tasks):
     """
     Flat pool: for each proportions-task in order, append left then right label.
-    Each chip has a unique integer id (stable for drag state / localStorage).
+    Then sort all chips alphabetically by label (case-insensitive), reassign ids 0..n-1.
+    Each chip has a unique integer id (drag state / localStorage).
     task_id — задание, из ответа которого взят объект (два чипа на одно задание).
     """
     chips = []
@@ -43,4 +44,7 @@ def build_proportions_chips_for_tasks(tasks):
         for label in pair:
             chips.append({'id': idx, 'label': label, 'task_id': task_pk})
             idx += 1
+    chips.sort(key=lambda c: (c['label'].lower(), c['id']))
+    for i, c in enumerate(chips):
+        c['id'] = i
     return chips

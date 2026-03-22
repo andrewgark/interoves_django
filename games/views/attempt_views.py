@@ -167,15 +167,15 @@ def process_send_attempt(request, task_id):
 
     if play_mode == 'team':
         if not task.task_group.game.has_access('send_attempt', team=team):
-            return NoGameAccessException('User has no access to game {}'.format(game))
+            raise NoGameAccessException('User has no access to game {}'.format(game))
     else:
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
-            return NoGameAccessException('User has no access to game {}'.format(game))
+            raise NoGameAccessException('User has no access to game {}'.format(game))
 
     if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         form = AttemptForm(request.POST)
         if not form.is_valid():
-            return InvalidFormException('attempt form {} is not valid'.format(form))
+            raise InvalidFormException('attempt form {} is not valid'.format(form))
 
         attempt = form.save(commit=False)
     elif task.task_type == 'wall':
@@ -240,4 +240,8 @@ def send_attempt(request, task_id):
         response = {'status': 'duplicate'}
     except TooManyAttemptsException:
         response = {'status': 'attempt_limit_exceeded'}
+    except InvalidFormException:
+        response = {'status': 'invalid_form'}
+    except NoGameAccessException:
+        response = {'status': 'no_access'}
     return JsonResponse(response) 

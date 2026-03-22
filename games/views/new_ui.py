@@ -15,7 +15,8 @@ from django.core.exceptions import ValidationError
 from django.http import Http404
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.html import escape
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_http_methods
 
 from games.forms import CreateTeamForm, JoinTeamForm
@@ -934,6 +935,19 @@ def new_task_group_page(request, game_id, task_group_number):
     })
 
 
+def _answer_popup_html(answer_text, answer_comment=None):
+    """HTML for the new-task answer modal: bold answer plus optional comment (HTML allowed in comment, like legacy answer.html)."""
+    c = (answer_comment or '').strip()
+    if c:
+        return format_html(
+            '<div style="font-weight:700">{}</div>'
+            '<div class="new-login-hint new-answer-comment" style="margin-top:0.75rem">{}</div>',
+            answer_text or '',
+            mark_safe(c),
+        )
+    return format_html('<div style="font-weight:700">{}</div>', answer_text or '')
+
+
 @require_http_methods(['GET'])
 def new_get_answer(request, task_id):
     task = get_object_or_404(Task, id=task_id)
@@ -975,8 +989,7 @@ def new_get_answer(request, task_id):
             ),
         })
 
-    html = '<div style="font-weight:700">{}</div>'.format(escape(task.answer or ''))
-    return JsonResponse({'html': html})
+    return JsonResponse({'html': _answer_popup_html(task.answer, task.answer_comment)})
 
 
 @require_http_methods(['GET'])
@@ -1021,7 +1034,7 @@ def new_get_replacements_line_answer(request, task_id, line_index):
     text = canonical_replacements_checker_line(raw)
     if not text.strip():
         return JsonResponse({'html': '<div class="new-login-hint">Нет ответа.</div>'})
-    return JsonResponse({'html': '<div style="font-weight:700">{}</div>'.format(escape(text))})
+    return JsonResponse({'html': _answer_popup_html(text, task.answer_comment)})
 
 
 @require_http_methods(['POST'])
