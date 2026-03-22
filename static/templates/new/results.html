@@ -37,6 +37,8 @@
           {% timezone user_timezone %}
             с {{ game.get_visible_start_time|date:'H:i' }} до {{ game.get_visible_end_time|date:'H:i' }} {{ game.get_visible_start_time|date:'d.m.Y' }}.
           {% endtimezone %}
+          Сюда попадают только команды (режим «В команде»). Личные посылки в турнир не входят — смотрите
+          <a href="{% url 'new_results' game.id %}">общую таблицу результатов</a>.
         {% else %}
           В общей таблице учитываются все посылки — и во время игры, и после.
         {% endif %}

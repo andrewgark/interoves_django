@@ -351,9 +351,14 @@ def new_main_game_page(request, game_id):
     if has_profile_user:
         team = request.user.profile.team_on
 
-    # Page is accessible for preview; "Играть" button in list is shown only when access_play is true.
     if not game.has_access('see_game_preview', team=team):
         raise Http404()
+
+    # Как в new_task_group_page: обычные игры до start_time — 404 (прямой URL не даёт «превью» списка заданий).
+    # Разделы (sections): страница игры доступна без ограничения по времени старта.
+    if game.project_id != NEW_UI_SECTIONS_PROJECT:
+        if not game_has_started(game):
+            raise Http404()
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
 

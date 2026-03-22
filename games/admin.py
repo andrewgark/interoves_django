@@ -128,6 +128,19 @@ def freeze_results_general(modeladmin, request, queryset):
     )
 
 
+@admin.action(description='Разморозить результаты (удалить снимки турнира и общей таблицы)')
+def unfreeze_results_snapshots(modeladmin, request, queryset):
+    """Удаляет GameResultsSnapshot — страницы результатов снова считаются на лету."""
+    total = 0
+    for game in queryset.all():
+        n, _ = GameResultsSnapshot.objects.filter(game=game).delete()
+        total += n
+    modeladmin.message_user(
+        request,
+        f'Разморозка: удалено записей снимков: {total} (выбрано игр: {queryset.count()}).',
+    )
+
+
 @admin.action(description='Freeze tournament results (ALL games)')
 def freeze_results_all_games(modeladmin, request, queryset):
     # This can be extremely slow on large datasets and will block the HTTP request.
@@ -162,7 +175,14 @@ class GameAdmin(admin.ModelAdmin):
         TaskGroupInline
     ]
     list_display = ['__str__', 'name', 'theme', 'author', 'start_time', 'end_time', 'is_ready', 'is_playable', 'is_testing', 'is_registrable', 'requires_ticket']
-    actions = [copy_game, create_new_google_doc, freeze_results_tournament, freeze_results_general, freeze_results_all_games]
+    actions = [
+        copy_game,
+        create_new_google_doc,
+        freeze_results_tournament,
+        freeze_results_general,
+        unfreeze_results_snapshots,
+        freeze_results_all_games,
+    ]
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         if db_field.name == 'image':
