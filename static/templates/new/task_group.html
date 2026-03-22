@@ -278,9 +278,6 @@
           <div class="new-taskcard__answer">
             <strong>Ответ:</strong> {% autoescape off %}{{ task.answer }}{% endautoescape %}
           </div>
-          {% if task.answer_comment %}
-          <div class="new-taskcard__answer-comment new-login-hint" style="margin-top:0.35rem">{% autoescape off %}{{ task.answer_comment }}{% endautoescape %}</div>
-          {% endif %}
         {% else %}
           <p class="new-login-hint" style="margin:0 0 0.5rem">
             Для перетаскивания объектов у группы заданий в админке выберите вид «Пропорции».

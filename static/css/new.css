@@ -2379,6 +2379,39 @@ html.new-ui-dark .new-proportions-pool-sticky {
   }
 }
 
+/* Якорь: прокрутка к пулу с учётом липкой шапки new-ui */
+#new-proportions-pool {
+  scroll-margin-top: calc(var(--new-ui-scroll-margin-top, 5.5rem) + 0.5rem);
+}
+
+a.new-proportions-pool-return-link {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.15rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--surface) 85%, var(--accent));
+  color: var(--accent);
+  font-weight: 600;
+  font-size: inherit;
+  line-height: 1.25;
+  text-decoration: none;
+  vertical-align: baseline;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+
+a.new-proportions-pool-return-link:hover {
+  background: color-mix(in srgb, var(--surface) 70%, var(--accent));
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+}
+
+a.new-proportions-pool-return-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Proportions task group: shared pool + two drop slots per task */
 .new-proportions-pool {
   display: flex;

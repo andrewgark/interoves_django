@@ -8,7 +8,8 @@
 
   <div class="new-proportions-pool-sticky">
     <p class="new-login-hint new-proportions-sheet__pool-lead" style="margin:0.75rem 0 0.5rem">
-      Список ответов из всех заданий. Перетащите их в ответ слева или справа от «/». Можно вернуть сюда.
+      Список ответов из всех заданий. Перетащите их в ответ слева или справа от «/».
+      <a href="#new-proportions-pool" class="new-proportions-pool-return-link">Можно вернуть сюда</a>.
     </p>
     <div class="new-proportions-pool" id="new-proportions-pool" data-proportions-pool>
       {% for chip in proportions_chips %}
@@ -177,9 +178,6 @@
           {% if ai.is_solved %}
           <div class="new-proportions-matrix__solved-answer">
             {% autoescape off %}{{ task.answer }}{% endautoescape %}
-            {% if task.answer_comment %}
-            <div class="new-taskcard__answer-comment new-login-hint" style="margin-top:0.35rem">{% autoescape off %}{{ task.answer_comment }}{% endautoescape %}</div>
-            {% endif %}
           </div>
           {% elif task_group.view == 'proportions' and proportions_chips %}
           <form id="new-proportions-form-{{ task.id }}" class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-proportions-form="1">
