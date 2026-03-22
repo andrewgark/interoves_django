@@ -21,6 +21,13 @@
     if (h != null && h !== '') {
       return String(h).trim();
     }
+    var meta = document.querySelector('meta[name="interoves-deploy-version"]');
+    if (meta) {
+      var mc = meta.getAttribute('content');
+      if (mc != null && mc !== '') {
+        return String(mc).trim();
+      }
+    }
     var el = document.getElementById('interoves-site-deploy');
     if (el) {
       return String(el.getAttribute('data-v') || '').trim();
@@ -51,7 +58,11 @@
     fetch(URL, {
       credentials: 'same-origin',
       cache: 'no-store',
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
     })
       .then(function (r) {
         return r.json();
@@ -127,4 +138,11 @@
   } else {
     run();
   }
+
+  // Mobile Safari restores from bfcache without re-running scripts; re-check deploy id.
+  window.addEventListener('pageshow', function (ev) {
+    if (ev.persisted) {
+      run();
+    }
+  });
 })();

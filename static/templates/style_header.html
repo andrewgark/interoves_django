@@ -1,4 +1,6 @@
 {% load static %}
+{% include "partials/deploy_version_meta.html" %}
+<script src="{% static "js/deploy_version_check.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 
 <!-- Yandex.Metrika counter -->
 <script type="text/javascript" >
