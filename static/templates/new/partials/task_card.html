@@ -1,0 +1,180 @@
+{% load filters %}
+{% with ai=attempts_info_by_task_id|get_item:task.id %}
+<div class="new-taskcard" id="new-task-{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}">
+  {% if task.task_type == 'replacements_lines' %}
+    {% with rld=replacements_lines_data|get_item:task.id %}
+      {% if rld %}
+        {% with base_max=rld.max_points_total wall_max_title="" %}
+          {% include "new/task-content/task-meta-bar.html" %}
+        {% endwith %}
+      {% else %}
+        {% with base_max=task.get_points wall_max_title="" %}
+          {% include "new/task-content/task-meta-bar.html" %}
+        {% endwith %}
+      {% endif %}
+    {% endwith %}
+  {% elif task.task_type == 'wall' %}
+    {% with mp=wall_max_points_meta_by_task_id|get_item:task.id %}
+      {% if mp %}
+        {% with base_max=mp.total wall_max_title=mp.title %}
+          {% include "new/task-content/task-meta-bar.html" %}
+        {% endwith %}
+      {% else %}
+        {% with base_max=task.get_points wall_max_title="" %}
+          {% include "new/task-content/task-meta-bar.html" %}
+        {% endwith %}
+      {% endif %}
+    {% endwith %}
+  {% else %}
+    {% with base_max=task.get_points wall_max_title="" %}
+      {% include "new/task-content/task-meta-bar.html" %}
+    {% endwith %}
+  {% endif %}
+
+  <div class="new-taskcard__body">
+    {% if task.task_type == 'wall' %}
+      {% with attempts_info=ai task_to_attempts_info=attempts_info_by_task_id wall_new_ui=True %}
+        <div class="new-taskcard__text">
+          {% include "task-content/task-wall.html" %}
+        </div>
+      {% endwith %}
+    {% elif task.task_type == 'replacements_lines' %}
+      {% with rld=replacements_lines_data|get_item:task.id %}
+      {% if rld %}
+        <div class="new-taskcard__text">
+          {% include "task-content/task-replacements-lines.html" with task=task mode=mode %}
+        </div>
+      {% else %}
+        <p class="new-login-hint" style="margin:0">Ошибка отображения задания (нет данных).</p>
+      {% endif %}
+      {% endwith %}
+    {% elif task.task_type == 'proportions' %}
+      {% if task.image %}
+        <div class="new-taskcard__img">
+          <img src="{{ task.image.url }}" alt="" width="{{ task.get_image_width }}">
+        </div>
+      {% endif %}
+      <div class="new-taskcard__text">
+        {% autoescape off %}{{ task.text }}{% endautoescape %}
+      </div>
+      {% if ai.is_solved %}
+        <div class="new-taskcard__answer">
+          <strong>Ответ:</strong> {% autoescape off %}{{ task.answer }}{% endautoescape %}
+        </div>
+      {% else %}
+        <p class="new-login-hint" style="margin:0 0 0.5rem">
+          Для перетаскивания объектов у группы заданий в админке выберите вид «Пропорции».
+        </p>
+        <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
+          {% csrf_token %}
+          <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+          <div class="new-attempt-row">
+            {{ task.get_attempt_form.text }}
+            <button type="submit" class="new-btn new-btn--mini">Проверить</button>
+          </div>
+          <div class="new-attempt-msg" aria-live="polite"></div>
+        </form>
+      {% endif %}
+    {% elif task.task_type == 'default' or task.task_type == 'autohint' or task.task_type == 'with_tag' or task.task_type == 'distribute_to_teams' %}
+      {% if task.image %}
+        <div class="new-taskcard__img">
+          <img src="{{ task.image.url }}" alt="" width="{{ task.get_image_width }}">
+        </div>
+      {% endif %}
+      <div class="new-taskcard__text">
+        {% if task.task_type == 'distribute_to_teams' %}
+          {% autoescape off %}{{ task|distribute_text_to_team:request.user.profile.team_on }}{% endautoescape %}
+        {% else %}
+          {% autoescape off %}{{ task.text }}{% endautoescape %}
+        {% endif %}
+      </div>
+
+      {% if ai.is_solved %}
+        <div class="new-taskcard__answer">
+          <strong>Ответ:</strong> {% autoescape off %}{{ task.answer }}{% endautoescape %}
+        </div>
+        {% if task.answer_comment %}
+        <div class="new-taskcard__answer-comment new-login-hint" style="margin-top:0.35rem">{% autoescape off %}{{ task.answer_comment }}{% endautoescape %}</div>
+        {% endif %}
+      {% else %}
+        <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
+          {% csrf_token %}
+          <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+          <div class="new-attempt-row">
+            {{ task.get_attempt_form.text }}
+            <button type="submit" class="new-btn new-btn--mini">Проверить</button>
+          </div>
+          <div class="new-attempt-msg" aria-live="polite"></div>
+        </form>
+      {% endif %}
+    {% elif task.task_type == 'text_with_forms' %}
+      <p class="new-login-hint" style="margin:0">
+        Этот тип задания пока не поддержан в новом UI.
+        Откройте в старом интерфейсе: <a href="/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}">/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}</a>
+      </p>
+    {% else %}
+      <p class="new-login-hint" style="margin:0">
+        Тип задания «{{ task.task_type }}» не поддержан в новом UI.
+        <a href="/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}">Открыть в старом интерфейсе</a>
+      </p>
+    {% endif %}
+
+    {% if task.get_hints %}
+      <div class="new-hints new-hints--compact" id="new-task-hints-{{ task.id }}">
+        <div class="new-hints__body" data-hints-body="{{ task.id }}" hidden>
+          {% for hint in task.get_hints %}
+            <div class="new-hint">
+              <div class="new-hint__head">
+                <strong>Подсказка #{{ hint.number }}{% if hint.desc %} ({{ hint.desc }}){% endif %}</strong>
+                <span class="new-hint__penalty">−{{ hint.points_penalty|minimize_digits }}</span>
+              </div>
+              {% if ai|hint_was_taken:hint %}
+                <div class="new-hint__text">{% autoescape off %}{{ hint.text }}{% endautoescape %}</div>
+              {% elif task.task_type == 'autohint' %}
+                <div class="new-login-hint" style="margin:0.25rem 0 0">(Подсказки появляются автоматически после попыток)</div>
+              {% else %}
+                {% if ai|all_not_taken_required_hints:hint %}
+                  <div class="new-login-hint" style="margin:0.25rem 0 0">Доступна только после {{ ai|all_not_taken_required_hints:hint }}.</div>
+                {% else %}
+                  <form class="new-hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="hint_number" value="{{ hint.number }}">
+                    <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+                    <input type="hidden" name="__ui_hint_penalty" value="{{ hint.points_penalty }}">
+                    {% if task.task_type == 'replacements_lines' %}
+                      {% with rld=replacements_lines_data|get_item:task.id %}
+                        {% if rld %}
+                          <input type="hidden" name="__ui_base_max" value="{{ rld.max_points_total|minimize_digits }}">
+                        {% else %}
+                          <input type="hidden" name="__ui_base_max" value="{{ task.get_points|minimize_digits }}">
+                        {% endif %}
+                      {% endwith %}
+                    {% elif task.task_type == 'wall' %}
+                      {% with mp=wall_max_points_meta_by_task_id|get_item:task.id %}
+                        {% if mp %}
+                          <input type="hidden" name="__ui_base_max" value="{{ mp.total|minimize_digits }}">
+                        {% else %}
+                          <input type="hidden" name="__ui_base_max" value="{{ task.get_points|minimize_digits }}">
+                        {% endif %}
+                      {% endwith %}
+                    {% else %}
+                      <input type="hidden" name="__ui_base_max" value="{{ task.get_points|minimize_digits }}">
+                    {% endif %}
+                    <input type="hidden" name="__ui_current_penalty" value="{{ ai.get_sum_hint_penalty|minimize_digits }}">
+                    <button type="submit" class="new-btn new-btn--ghost new-btn--mini">Показать подсказку</button>
+                    {% if ai.is_solved %}
+                      <span class="new-hint-safe">можно брать безопасно — задание уже решено</span>
+                    {% endif %}
+                    <div class="new-attempt-msg" aria-live="polite"></div>
+                  </form>
+                {% endif %}
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endwith %}

@@ -32,7 +32,9 @@
   }
 
   function applyTaskUpdates(msg) {
-    if (msg.update_task_html && typeof global.updateTasks === 'function') {
+    if (msg.update_task_html_new && typeof global.applyNewUiTaskHtml === 'function') {
+      global.applyNewUiTaskHtml(msg.update_task_html_new);
+    } else if (msg.update_task_html && typeof global.updateTasks === 'function') {
       global.updateTasks(msg.update_task_html);
     }
     if (msg.update_task_group_title_html && typeof global.updateTaskGroupTitle === 'function') {

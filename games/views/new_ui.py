@@ -676,67 +676,11 @@ def new_section_results_page(request, game_id):
     })
 
 
-def new_task_group_page(request, game_id, task_group_number):
-    game = get_object_or_404(Game, id=game_id)
-    play_mode, play_mode_key = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
-    anon_key = None
-
-    if not request.user.is_authenticated:
-        if personal_play_mode_locked(game):
-            from urllib.parse import quote
-            return redirect('/accounts/login/?next={}'.format(quote(request.get_full_path())))
-        # До логина разрешаем только личный режим (не в турнире).
-        play_mode = 'personal'
-        anon_key = _anon_key_from_request(request)
-    else:
-        if play_mode == 'personal' and not has_profile(request.user):
-            raise Http404()
-
-    team = None
-    user = None
-    if play_mode == 'team':
-        if not request.user.profile.team_on:
-            raise Http404()
-        team = request.user.profile.team_on if has_team(request.user) else None
-    else:
-        user = request.user if request.user.is_authenticated else None
-
-    # Для игр-разделов (project sections) хотим давать доступ всегда, без привязки к start_time.
-    if game.project_id == NEW_UI_SECTIONS_PROJECT:
-        preview_team = None
-        if has_profile(request.user):
-            preview_team = request.user.profile.team_on
-        if not game.has_access('see_game_preview', team=preview_team):
-            raise Http404()
-    else:
-        # Для "обычных" игр сохраняем старое поведение.
-        if not game_has_started(game):
-            raise Http404()
-        if play_mode == 'team':
-            if game.has_access('needs_registration', team=team) and not game.has_access('is_registered', team=team):
-                raise Http404()
-            if not game.has_access('play', team=team):
-                raise NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
-        else:
-            if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
-                raise Http404()
-            if not game.is_playable:
-                raise Http404()
-
-    mode = game.get_current_mode(Attempt(time=timezone.now()))
-    task_group = TaskGroup.objects.select_related('rules').filter(game=game, number=task_group_number).first()
-    if not task_group:
-        # Если пользователь открыл несуществующий номер группы — перенаправим на ближайшую существующую.
-        next_tg = TaskGroup.objects.filter(game=game, number__gt=task_group_number).order_by('number').first()
-        prev_tg = TaskGroup.objects.filter(game=game, number__lt=task_group_number).order_by('-number').first()
-        fallback = next_tg or prev_tg
-        if fallback:
-            return redirect('new_task_group', game_id=game.id, task_group_number=fallback.number)
-        raise Http404()
-    prev_tg = TaskGroup.objects.filter(game=game, number__lt=task_group.number).order_by('-number').first()
-    next_tg = TaskGroup.objects.filter(game=game, number__gt=task_group.number).order_by('number').first()
-    tasks = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
+def build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode):
+    """
+    Shared context for task_group.html and new/partials/task_card.html
+    (attempts, walls, replacements_lines, likes, proportions pool).
+    """
     attempts_info_by_task_id = {
         t.id: Attempt.manager.get_attempts_info(team=team, task=t, mode=mode, user=user, anon_key=anon_key)
         for t in tasks
@@ -822,14 +766,6 @@ def new_task_group_page(request, game_id, task_group_number):
             'liked': Like.manager.actor_has_like(t, team=team, user=user, anon_key=anon_key),
             'disliked': Like.manager.actor_has_dislike(t, team=team, user=user, anon_key=anon_key),
         }
-    section_rules_type = game.id if game.id in SECTION_RULES_GAME_IDS else None
-    section_tutorial_html = None
-    if section_rules_type:
-        try:
-            page = HTMLPage.objects.get(name='section_tutorial_' + section_rules_type)
-            section_tutorial_html = page.html or ''
-        except HTMLPage.DoesNotExist:
-            pass
     replacements_lines_data = {}
     for t in tasks:
         if t.task_type == 'replacements_lines':
@@ -898,15 +834,94 @@ def new_task_group_page(request, game_id, task_group_number):
             tid = c.get('task_id')
             ai = attempts_info_by_task_id.get(tid) if tid is not None else None
             c['hide_from_pool'] = bool(ai and ai.is_solved())
+    return {
+        'attempts_info_by_task_id': attempts_info_by_task_id,
+        'wall_max_points_meta_by_task_id': wall_max_points_meta_by_task_id,
+        'likes_meta_by_task_id': likes_meta_by_task_id,
+        'replacements_lines_data': replacements_lines_data,
+        'proportions_chips': proportions_chips,
+    }
+
+
+def new_task_group_page(request, game_id, task_group_number):
+    game = get_object_or_404(Game, id=game_id)
+    play_mode, play_mode_key = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
+    anon_key = None
+
+    if not request.user.is_authenticated:
+        if personal_play_mode_locked(game):
+            from urllib.parse import quote
+            return redirect('/accounts/login/?next={}'.format(quote(request.get_full_path())))
+        # До логина разрешаем только личный режим (не в турнире).
+        play_mode = 'personal'
+        anon_key = _anon_key_from_request(request)
+    else:
+        if play_mode == 'personal' and not has_profile(request.user):
+            raise Http404()
+
+    team = None
+    user = None
+    if play_mode == 'team':
+        if not request.user.profile.team_on:
+            raise Http404()
+        team = request.user.profile.team_on if has_team(request.user) else None
+    else:
+        user = request.user if request.user.is_authenticated else None
+
+    # Для игр-разделов (project sections) хотим давать доступ всегда, без привязки к start_time.
+    if game.project_id == NEW_UI_SECTIONS_PROJECT:
+        preview_team = None
+        if has_profile(request.user):
+            preview_team = request.user.profile.team_on
+        if not game.has_access('see_game_preview', team=preview_team):
+            raise Http404()
+    else:
+        # Для "обычных" игр сохраняем старое поведение.
+        if not game_has_started(game):
+            raise Http404()
+        if play_mode == 'team':
+            if game.has_access('needs_registration', team=team) and not game.has_access('is_registered', team=team):
+                raise Http404()
+            if not game.has_access('play', team=team):
+                raise NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
+        else:
+            if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
+                raise Http404()
+            if not game.is_playable:
+                raise Http404()
+
+    mode = game.get_current_mode(Attempt(time=timezone.now()))
+    task_group = TaskGroup.objects.select_related('rules').filter(game=game, number=task_group_number).first()
+    if not task_group:
+        # Если пользователь открыл несуществующий номер группы — перенаправим на ближайшую существующую.
+        next_tg = TaskGroup.objects.filter(game=game, number__gt=task_group_number).order_by('number').first()
+        prev_tg = TaskGroup.objects.filter(game=game, number__lt=task_group_number).order_by('-number').first()
+        fallback = next_tg or prev_tg
+        if fallback:
+            return redirect('new_task_group', game_id=game.id, task_group_number=fallback.number)
+        raise Http404()
+    prev_tg = TaskGroup.objects.filter(game=game, number__lt=task_group.number).order_by('-number').first()
+    next_tg = TaskGroup.objects.filter(game=game, number__gt=task_group.number).order_by('number').first()
+    tasks = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
+    section_rules_type = game.id if game.id in SECTION_RULES_GAME_IDS else None
+    section_tutorial_html = None
+    if section_rules_type:
+        try:
+            page = HTMLPage.objects.get(name='section_tutorial_' + section_rules_type)
+            section_tutorial_html = page.html or ''
+        except HTMLPage.DoesNotExist:
+            pass
+    ctx_dicts = build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode)
     return render(request, 'ui/task_group.html', {
         'game': game,
         'task_group': task_group,
         'tasks': tasks,
-        'attempts_info_by_task_id': attempts_info_by_task_id,
-        'replacements_lines_data': replacements_lines_data,
-        'proportions_chips': proportions_chips,
-        'wall_max_points_meta_by_task_id': wall_max_points_meta_by_task_id,
-        'likes_meta_by_task_id': likes_meta_by_task_id,
+        'attempts_info_by_task_id': ctx_dicts['attempts_info_by_task_id'],
+        'replacements_lines_data': ctx_dicts['replacements_lines_data'],
+        'proportions_chips': ctx_dicts['proportions_chips'],
+        'wall_max_points_meta_by_task_id': ctx_dicts['wall_max_points_meta_by_task_id'],
+        'likes_meta_by_task_id': ctx_dicts['likes_meta_by_task_id'],
         'can_like': True,
         'has_profile_user': has_profile(request.user),
         'mode': mode,

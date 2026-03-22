@@ -216,185 +216,7 @@
 {% for task in tasks %}
   {% if task_group.view == 'proportions' and task.task_type == 'proportions' %}
   {% else %}
-  {% with ai=attempts_info_by_task_id|get_item:task.id %}
-  <div class="new-taskcard" id="new-task-{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}">
-    {% if task.task_type == 'replacements_lines' %}
-      {% with rld=replacements_lines_data|get_item:task.id %}
-        {% if rld %}
-          {% with base_max=rld.max_points_total wall_max_title="" %}
-            {% include "new/task-content/task-meta-bar.html" %}
-          {% endwith %}
-        {% else %}
-          {% with base_max=task.get_points wall_max_title="" %}
-            {% include "new/task-content/task-meta-bar.html" %}
-          {% endwith %}
-        {% endif %}
-      {% endwith %}
-    {% elif task.task_type == 'wall' %}
-      {% with mp=wall_max_points_meta_by_task_id|get_item:task.id %}
-        {% if mp %}
-          {% with base_max=mp.total wall_max_title=mp.title %}
-            {% include "new/task-content/task-meta-bar.html" %}
-          {% endwith %}
-        {% else %}
-          {% with base_max=task.get_points wall_max_title="" %}
-            {% include "new/task-content/task-meta-bar.html" %}
-          {% endwith %}
-        {% endif %}
-      {% endwith %}
-    {% else %}
-      {% with base_max=task.get_points wall_max_title="" %}
-        {% include "new/task-content/task-meta-bar.html" %}
-      {% endwith %}
-    {% endif %}
-
-    <div class="new-taskcard__body">
-      {% if task.task_type == 'wall' %}
-        {% with attempts_info=ai task_to_attempts_info=attempts_info_by_task_id wall_new_ui=True %}
-          <div class="new-taskcard__text">
-            {% include "task-content/task-wall.html" %}
-          </div>
-        {% endwith %}
-      {% elif task.task_type == 'replacements_lines' %}
-        {% with rld=replacements_lines_data|get_item:task.id %}
-        {% if rld %}
-          <div class="new-taskcard__text">
-            {% include "task-content/task-replacements-lines.html" with task=task mode=mode %}
-          </div>
-        {% else %}
-          <p class="new-login-hint" style="margin:0">Ошибка отображения задания (нет данных).</p>
-        {% endif %}
-        {% endwith %}
-      {% elif task.task_type == 'proportions' %}
-        {% if task.image %}
-          <div class="new-taskcard__img">
-            <img src="{{ task.image.url }}" alt="" width="{{ task.get_image_width }}">
-          </div>
-        {% endif %}
-        <div class="new-taskcard__text">
-          {% autoescape off %}{{ task.text }}{% endautoescape %}
-        </div>
-        {% if ai.is_solved %}
-          <div class="new-taskcard__answer">
-            <strong>Ответ:</strong> {% autoescape off %}{{ task.answer }}{% endautoescape %}
-          </div>
-        {% else %}
-          <p class="new-login-hint" style="margin:0 0 0.5rem">
-            Для перетаскивания объектов у группы заданий в админке выберите вид «Пропорции».
-          </p>
-          <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
-            {% csrf_token %}
-            <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
-            <div class="new-attempt-row">
-              {{ task.get_attempt_form.text }}
-              <button type="submit" class="new-btn new-btn--mini">Проверить</button>
-            </div>
-            <div class="new-attempt-msg" aria-live="polite"></div>
-          </form>
-        {% endif %}
-      {% elif task.task_type == 'default' or task.task_type == 'autohint' or task.task_type == 'with_tag' or task.task_type == 'distribute_to_teams' %}
-        {% if task.image %}
-          <div class="new-taskcard__img">
-            <img src="{{ task.image.url }}" alt="" width="{{ task.get_image_width }}">
-          </div>
-        {% endif %}
-        <div class="new-taskcard__text">
-          {% if task.task_type == 'distribute_to_teams' %}
-            {% autoescape off %}{{ task|distribute_text_to_team:request.user.profile.team_on }}{% endautoescape %}
-          {% else %}
-            {% autoescape off %}{{ task.text }}{% endautoescape %}
-          {% endif %}
-        </div>
-
-        {% if ai.is_solved %}
-          <div class="new-taskcard__answer">
-            <strong>Ответ:</strong> {% autoescape off %}{{ task.answer }}{% endautoescape %}
-          </div>
-          {% if task.answer_comment %}
-          <div class="new-taskcard__answer-comment new-login-hint" style="margin-top:0.35rem">{% autoescape off %}{{ task.answer_comment }}{% endautoescape %}</div>
-          {% endif %}
-        {% else %}
-          <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
-            {% csrf_token %}
-            <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
-            <div class="new-attempt-row">
-              {{ task.get_attempt_form.text }}
-              <button type="submit" class="new-btn new-btn--mini">Проверить</button>
-            </div>
-            <div class="new-attempt-msg" aria-live="polite"></div>
-          </form>
-        {% endif %}
-      {% elif task.task_type == 'text_with_forms' %}
-        <p class="new-login-hint" style="margin:0">
-          Этот тип задания пока не поддержан в новом UI.
-          Откройте в старом интерфейсе: <a href="/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}">/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}</a>
-        </p>
-      {% else %}
-        <p class="new-login-hint" style="margin:0">
-          Тип задания «{{ task.task_type }}» не поддержан в новом UI.
-          <a href="/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}">Открыть в старом интерфейсе</a>
-        </p>
-      {% endif %}
-
-      {% if task.get_hints %}
-        <div class="new-hints new-hints--compact" id="new-task-hints-{{ task.id }}">
-          <div class="new-hints__body" data-hints-body="{{ task.id }}" hidden>
-            {% for hint in task.get_hints %}
-              <div class="new-hint">
-                <div class="new-hint__head">
-                  <strong>Подсказка #{{ hint.number }}{% if hint.desc %} ({{ hint.desc }}){% endif %}</strong>
-                  <span class="new-hint__penalty">−{{ hint.points_penalty|minimize_digits }}</span>
-                </div>
-                {% if ai|hint_was_taken:hint %}
-                  <div class="new-hint__text">{% autoescape off %}{{ hint.text }}{% endautoescape %}</div>
-                {% elif task.task_type == 'autohint' %}
-                  <div class="new-login-hint" style="margin:0.25rem 0 0">(Подсказки появляются автоматически после попыток)</div>
-                {% else %}
-                  {% if ai|all_not_taken_required_hints:hint %}
-                    <div class="new-login-hint" style="margin:0.25rem 0 0">Доступна только после {{ ai|all_not_taken_required_hints:hint }}.</div>
-                  {% else %}
-                    <form class="new-hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
-                      {% csrf_token %}
-                      <input type="hidden" name="hint_number" value="{{ hint.number }}">
-                      <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
-                      <input type="hidden" name="__ui_hint_penalty" value="{{ hint.points_penalty }}">
-                      {% if task.task_type == 'replacements_lines' %}
-                        {% with rld=replacements_lines_data|get_item:task.id %}
-                          {% if rld %}
-                            <input type="hidden" name="__ui_base_max" value="{{ rld.max_points_total|minimize_digits }}">
-                          {% else %}
-                            <input type="hidden" name="__ui_base_max" value="{{ task.get_points|minimize_digits }}">
-                          {% endif %}
-                        {% endwith %}
-                      {% elif task.task_type == 'wall' %}
-                        {% with mp=wall_max_points_meta_by_task_id|get_item:task.id %}
-                          {% if mp %}
-                            <input type="hidden" name="__ui_base_max" value="{{ mp.total|minimize_digits }}">
-                          {% else %}
-                            <input type="hidden" name="__ui_base_max" value="{{ task.get_points|minimize_digits }}">
-                          {% endif %}
-                        {% endwith %}
-                      {% else %}
-                        <input type="hidden" name="__ui_base_max" value="{{ task.get_points|minimize_digits }}">
-                      {% endif %}
-                      <input type="hidden" name="__ui_current_penalty" value="{{ ai.get_sum_hint_penalty|minimize_digits }}">
-                      <button type="submit" class="new-btn new-btn--ghost new-btn--mini">Показать подсказку</button>
-                      {% if ai.is_solved %}
-                        <span class="new-hint-safe">можно брать безопасно — задание уже решено</span>
-                      {% endif %}
-                      <div class="new-attempt-msg" aria-live="polite"></div>
-                    </form>
-                  {% endif %}
-                {% endif %}
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-      {% endif %}
-
-    </div>
-  </div>
-  {% endwith %}
+  {% include "new/partials/task_card.html" %}
   {% endif %}
 {% endfor %}
 </div>
@@ -518,6 +340,10 @@
                 return;
               } catch (e) {}
             }
+          }
+          if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+            applyNewUiTaskHtml(data.update_task_html_new);
+            return;
           }
           window.location.reload();
           return;
@@ -668,47 +494,48 @@
     });
   })();
 
-  document.querySelectorAll('form.new-attempt-form').forEach(function (form) {
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      if (form.classList.contains('new-replacements-line-form')) {
-        if (form.getAttribute('data-repl-line-confirm') !== '1') {
-          var skipConfirm = false;
-          try {
-            skipConfirm = localStorage.getItem(REPL_LINE_CONFIRM_SKIP_KEY) === '1';
-          } catch (e) {}
-          if (skipConfirm) {
-            form.setAttribute('data-repl-line-confirm', '1');
-          } else {
-            openReplLineConfirmModal(form);
-            return;
-          }
-        }
-        form.removeAttribute('data-repl-line-confirm');
-      }
-      if (form.getAttribute('data-proportions-form') === '1') {
-        var msg = form.querySelector('.new-attempt-msg');
-        var row = form.querySelector('.new-proportions-answer-row');
-        var leftSlot = row && row.querySelector('[data-side="left"]');
-        var rightSlot = row && row.querySelector('[data-side="right"]');
-        var left = proportionsChipLabel(leftSlot);
-        var right = proportionsChipLabel(rightSlot);
-        if (!left || !right) {
-          if (msg) msg.textContent = 'Перетащите объекты в оба поля по бокам от «/».';
+  document.addEventListener('submit', function (e) {
+    var form = e.target && e.target.closest ? e.target.closest('form.new-attempt-form') : null;
+    if (!form) return;
+    if (!form.closest('.new-taskgrid') && !form.closest('.new-proportions-sheet')) return;
+    e.preventDefault();
+    if (form.classList.contains('new-replacements-line-form')) {
+      if (form.getAttribute('data-repl-line-confirm') !== '1') {
+        var skipConfirm = false;
+        try {
+          skipConfirm = localStorage.getItem(REPL_LINE_CONFIRM_SKIP_KEY) === '1';
+        } catch (err) {}
+        if (skipConfirm) {
+          form.setAttribute('data-repl-line-confirm', '1');
+        } else {
+          openReplLineConfirmModal(form);
           return;
         }
-        var hidden = form.querySelector('input.new-proportions-text-input');
-        if (hidden) hidden.value = left + ' / ' + right;
       }
-      postForm(form);
-    });
-  });
+      form.removeAttribute('data-repl-line-confirm');
+    }
+    if (form.getAttribute('data-proportions-form') === '1') {
+      var pmsg = form.querySelector('.new-attempt-msg');
+      var row = form.querySelector('.new-proportions-answer-row');
+      var leftSlot = row && row.querySelector('[data-side="left"]');
+      var rightSlot = row && row.querySelector('[data-side="right"]');
+      var left = proportionsChipLabel(leftSlot);
+      var right = proportionsChipLabel(rightSlot);
+      if (!left || !right) {
+        if (pmsg) pmsg.textContent = 'Перетащите объекты в оба поля по бокам от «/».';
+        return;
+      }
+      var hidden = form.querySelector('input.new-proportions-text-input');
+      if (hidden) hidden.value = left + ' / ' + right;
+    }
+    postForm(form);
+  }, true);
 
   (function proportionsDragDrop() {
     var pool = document.getElementById('new-proportions-pool');
     if (!pool) return;
 
-    var PROPORTIONS_LS = 'interoves_proportions_slots_v1_';
+    var PROPORTIONS_LS = 'interoves_proportions_slots_v2_';
     var suppressProportionsPersist = false;
 
     function proportionsLayoutStorageKey() {
@@ -999,68 +826,65 @@
     });
   })();
 
-  document.querySelectorAll('form.new-hint-form').forEach(function (form) {
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var taskCard = form.closest('.new-taskcard');
-      var isSolved = taskCard && taskCard.getAttribute('data-solved') === '1';
-      if (isSolved) {
-        postForm(form);
-        return;
+  document.addEventListener('submit', function (e) {
+    var form = e.target && e.target.closest ? e.target.closest('form.new-hint-form') : null;
+    if (!form || !form.closest('.new-taskcard')) return;
+    e.preventDefault();
+    var taskCard = form.closest('.new-taskcard');
+    var isSolved = taskCard && taskCard.getAttribute('data-solved') === '1';
+    if (isSolved) {
+      postForm(form);
+      return;
+    }
+    var modal = document.getElementById('new-hint-confirm-modal');
+    var box = document.getElementById('new-hint-confirm-text');
+    if (!modal || !box) {
+      postForm(form);
+      return;
+    }
+    function normNumberString(s) {
+      s = String(s || '').trim().replace(',', '.');
+      if (!s) return '0';
+      if (s.indexOf('.') !== -1) {
+        s = s.replace(/0+$/g, '').replace(/\.$/g, '');
       }
-      // confirm if not solved (hint reduces max points)
-      var modal = document.getElementById('new-hint-confirm-modal');
-      var box = document.getElementById('new-hint-confirm-text');
-      if (!modal || !box) {
-        postForm(form);
-        return;
-      }
-      function normNumberString(s) {
-        s = String(s || '').trim().replace(',', '.');
-        if (!s) return '0';
-        if (s.indexOf('.') !== -1) {
-          s = s.replace(/0+$/g, '').replace(/\.$/g, '');
-        }
-        return s || '0';
-      }
-      function toNum(s) {
-        var n = Number(String(s || '').trim().replace(',', '.'));
-        return isFinite(n) ? n : 0;
-      }
+      return s || '0';
+    }
+    function toNum(s) {
+      var n = Number(String(s || '').trim().replace(',', '.'));
+      return isFinite(n) ? n : 0;
+    }
 
-      var penaltyEl = form.querySelector('input[name="__ui_hint_penalty"]');
-      var penaltyRaw = penaltyEl ? normNumberString(penaltyEl.value) : '0';
-      var penalty = toNum(penaltyRaw);
-      var baseEl = form.querySelector('input[name="__ui_base_max"]');
-      var baseRaw = baseEl ? normNumberString(baseEl.value) : '0';
-      var base = toNum(baseRaw);
-      var curEl = form.querySelector('input[name="__ui_current_penalty"]');
-      var curRaw = curEl ? normNumberString(curEl.value) : '0';
-      var cur = toNum(curRaw);
-      var fromVal = Math.max(0, base - cur);
-      var toVal = Math.max(0, base - (cur + penalty));
-      function fmt(n) {
-        // show up to 3 decimals, strip trailing zeros
-        var s = String(Math.round(n * 1000) / 1000);
-        return normNumberString(s);
-      }
-      if (!isFinite(penalty)) penalty = 0;
-      // We cannot reliably parse base max from DOM; show penalty explicitly and rely on reload to update max.
-      box.textContent = 'Макс. балл за задание для вас понизится с ' + fmt(fromVal) + ' до ' + fmt(toVal) + ' (−' + penaltyRaw + ').';
-      modal.removeAttribute('hidden');
-      modal.classList.add('is-open');
-      document.body.style.overflow = 'hidden';
-      var yes = modal.querySelector('[data-hint-confirm-yes]');
-      if (yes) {
-        yes.onclick = function () {
-          modal.setAttribute('hidden', '');
-          modal.classList.remove('is-open');
-          document.body.style.overflow = '';
-          postForm(form);
-        };
-      }
-    });
-  });
+    var penaltyEl = form.querySelector('input[name="__ui_hint_penalty"]');
+    var penaltyRaw = penaltyEl ? normNumberString(penaltyEl.value) : '0';
+    var penalty = toNum(penaltyRaw);
+    var baseEl = form.querySelector('input[name="__ui_base_max"]');
+    var baseRaw = baseEl ? normNumberString(baseEl.value) : '0';
+    var base = toNum(baseRaw);
+    var curEl = form.querySelector('input[name="__ui_current_penalty"]');
+    var curRaw = curEl ? normNumberString(curEl.value) : '0';
+    var cur = toNum(curRaw);
+    var fromVal = Math.max(0, base - cur);
+    var toVal = Math.max(0, base - (cur + penalty));
+    function fmt(n) {
+      var s = String(Math.round(n * 1000) / 1000);
+      return normNumberString(s);
+    }
+    if (!isFinite(penalty)) penalty = 0;
+    box.textContent = 'Макс. балл за задание для вас понизится с ' + fmt(fromVal) + ' до ' + fmt(toVal) + ' (−' + penaltyRaw + ').';
+    modal.removeAttribute('hidden');
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    var yes = modal.querySelector('[data-hint-confirm-yes]');
+    if (yes) {
+      yes.onclick = function () {
+        modal.setAttribute('hidden', '');
+        modal.classList.remove('is-open');
+        document.body.style.overflow = '';
+        postForm(form);
+      };
+    }
+  }, true);
 
   function closeHintConfirm() {
     var m = document.getElementById('new-hint-confirm-modal');
@@ -1231,24 +1055,27 @@
       dislikeBtn.classList.toggle('is-active', !!data.disliked);
     }
   }
-  document.querySelectorAll('[data-like-btn]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var taskId = btn.getAttribute('data-task-id');
-      var liked = btn.getAttribute('data-liked') === '1';
-      postLike(taskId, liked ? -1 : 1, 0).then(function (data) {
-        applyLikeUI(taskId, data);
+  document.addEventListener('click', function (e) {
+    var likeBtn = e.target && e.target.closest ? e.target.closest('[data-like-btn]') : null;
+    if (likeBtn) {
+      e.preventDefault();
+      var ltid = likeBtn.getAttribute('data-task-id');
+      var liked = likeBtn.getAttribute('data-liked') === '1';
+      postLike(ltid, liked ? -1 : 1, 0).then(function (data) {
+        applyLikeUI(ltid, data);
       }).catch(function () {});
-    });
-  });
-  document.querySelectorAll('[data-dislike-btn]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var taskId = btn.getAttribute('data-task-id');
-      var disliked = btn.getAttribute('data-disliked') === '1';
-      postLike(taskId, 0, disliked ? -1 : 1).then(function (data) {
-        applyLikeUI(taskId, data);
+      return;
+    }
+    var dislikeBtn = e.target && e.target.closest ? e.target.closest('[data-dislike-btn]') : null;
+    if (dislikeBtn) {
+      e.preventDefault();
+      var dtid = dislikeBtn.getAttribute('data-task-id');
+      var disliked = dislikeBtn.getAttribute('data-disliked') === '1';
+      postLike(dtid, 0, disliked ? -1 : 1).then(function (data) {
+        applyLikeUI(dtid, data);
       }).catch(function () {});
-    });
-  });
+    }
+  }, true);
 
   // Hide solved toggle (persisted across pages)
   var HIDE_KEY = 'new_hide_solved';
@@ -1301,6 +1128,28 @@
     var btn = document.querySelector('[data-hide-solved-toggle]');
     if (btn) btn.innerHTML = hide ? '<i class=\"fa fa-eye-slash\" aria-hidden=\"true\"></i>' : '<i class=\"fa fa-eye\" aria-hidden=\"true\"></i>';
   }
+
+  function applyNewUiTaskHtml(map) {
+    if (!map) return;
+    Object.keys(map).forEach(function (tid) {
+      var html = map[tid];
+      var el = document.getElementById('new-task-' + tid);
+      if (!el || !html) return;
+      el.outerHTML = html;
+    });
+    document.querySelectorAll('input.new-anon-key-field').forEach(function (inp) {
+      try { inp.value = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
+    });
+    applyHideSolved();
+    document.querySelectorAll('[data-like-btn]').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-liked') === '1');
+    });
+    document.querySelectorAll('[data-dislike-btn]').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-disliked') === '1');
+    });
+  }
+  window.applyNewUiTaskHtml = applyNewUiTaskHtml;
+
   document.querySelectorAll('[data-hide-solved-toggle]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       try {
@@ -1312,16 +1161,15 @@
   });
   applyHideSolved();
 
-  // Hints toggle (per task)
-  document.querySelectorAll('[data-hints-toggle]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var taskId = btn.getAttribute('data-task-id');
-      var body = document.querySelector('[data-hints-body=\"' + taskId + '\"]');
-      if (!body) return;
-      body.hidden = !body.hidden;
-      btn.textContent = body.hidden ? 'подсказки' : 'скрыть подсказки';
-    });
-  });
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('[data-hints-toggle]') : null;
+    if (!btn) return;
+    var taskId = btn.getAttribute('data-task-id');
+    var body = document.querySelector('[data-hints-body=\"' + taskId + '\"]');
+    if (!body) return;
+    body.hidden = !body.hidden;
+    btn.textContent = body.hidden ? 'подсказки' : 'скрыть подсказки';
+  }, true);
 
   // If we came back after taking a hint, keep that hints section open.
   (function openHintsFromQuery() {
@@ -1369,47 +1217,59 @@
     }).then(function (r) { return r.json(); });
   }
 
-  document.querySelectorAll('.wall-tiles').forEach(function (wall) {
-    wall.addEventListener('click', function (e) {
-      var tile = e.target.closest('.wall-tile-not-guessed');
-      if (!tile || !wall.contains(tile)) return;
-      if (tile.classList.contains('wall-tile-stop-guessing')) return;
-      tile.classList.toggle('wall-tile-selected');
+  document.addEventListener('click', function (e) {
+    var tile = e.target && e.target.closest ? e.target.closest('.wall-tile-not-guessed') : null;
+    if (!tile) return;
+    var wall = tile.closest('.wall-tiles');
+    if (!wall) return;
+    if (tile.classList.contains('wall-tile-stop-guessing')) return;
+    tile.classList.toggle('wall-tile-selected');
 
-      var taskIdEl = wall.querySelector('.attempt-task-id');
-      var nWordsEl = wall.querySelector('.n-words-in-category');
-      if (!taskIdEl || !nWordsEl) return;
-      var taskId = taskIdEl.value;
-      var nWords = parseInt(nWordsEl.value || '0', 10) || 0;
+    var taskIdEl = wall.querySelector('.attempt-task-id');
+    var nWordsEl = wall.querySelector('.n-words-in-category');
+    if (!taskIdEl || !nWordsEl) return;
+    var taskId = taskIdEl.value;
+    var nWords = parseInt(nWordsEl.value || '0', 10) || 0;
 
-      var selected = wall.querySelectorAll('.wall-tile-selected .wall-tile-text');
-      if (selected.length !== nWords) return;
+    var selected = wall.querySelectorAll('.wall-tile-selected .wall-tile-text');
+    if (selected.length !== nWords) return;
 
-      var words = [];
-      selected.forEach(function (inp) { words.push(inp.value); });
-      words.sort();
-      wall.querySelectorAll('.wall-tile-selected').forEach(function (t) { t.classList.remove('wall-tile-selected'); });
+    var words = [];
+    selected.forEach(function (inp) { words.push(inp.value); });
+    words.sort();
+    wall.querySelectorAll('.wall-tile-selected').forEach(function (t) { t.classList.remove('wall-tile-selected'); });
 
-      var params = new URLSearchParams();
-      words.forEach(function (w) { params.append('words[]', w); });
-      params.set('stage', 'cat_words');
-      postWall(taskId, params, wallCsrf(wall)).then(function (data) {
-        if (data && data.status === 'ok') window.location.reload();
-      }).catch(function () {});
-    });
-  });
+    var params = new URLSearchParams();
+    words.forEach(function (w) { params.append('words[]', w); });
+    params.set('stage', 'cat_words');
+    postWall(taskId, params, wallCsrf(wall)).then(function (data) {
+      if (data && data.status === 'ok') {
+        if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+          applyNewUiTaskHtml(data.update_task_html_new);
+        } else {
+          window.location.reload();
+        }
+      }
+    }).catch(function () {});
+  }, true);
 
-  document.querySelectorAll('form.wall-attempt-form').forEach(function (form) {
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var taskIdEl = form.querySelector('.attempt-task-id');
-      if (!taskIdEl) return;
-      var taskId = taskIdEl.value;
-      postWall(taskId, new URLSearchParams(new FormData(form)), wallCsrf(form)).then(function (data) {
-        if (data && data.status === 'ok') window.location.reload();
-      }).catch(function () {});
-    });
-  });
+  document.addEventListener('submit', function (e) {
+    var form = e.target && e.target.closest ? e.target.closest('form.wall-attempt-form') : null;
+    if (!form) return;
+    e.preventDefault();
+    var taskIdEl = form.querySelector('.attempt-task-id');
+    if (!taskIdEl) return;
+    var taskId = taskIdEl.value;
+    postWall(taskId, new URLSearchParams(new FormData(form)), wallCsrf(form)).then(function (data) {
+      if (data && data.status === 'ok') {
+        if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+          applyNewUiTaskHtml(data.update_task_html_new);
+        } else {
+          window.location.reload();
+        }
+      }
+    }).catch(function () {});
+  }, true);
 })();
 </script>
 

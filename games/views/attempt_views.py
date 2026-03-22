@@ -227,7 +227,7 @@ def process_send_attempt(request, task_id):
         'status': 'ok',
         'task_id': task.id,
     }
-    update_html = update_task_html(request, task, team, current_mode)
+    update_html = update_task_html(request, task, team, current_mode, user=user, anon_key=anon_key)
     track_task_change(task, team, current_mode, update_html=update_html, request=request)
     result.update(update_html)
     return result

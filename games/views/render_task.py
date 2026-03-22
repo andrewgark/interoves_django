@@ -1,4 +1,11 @@
 from django.shortcuts import render, get_object_or_404
+
+from games.views.new_ui import (
+    NEW_UI_PROJECT,
+    NEW_UI_SECTIONS_PROJECT,
+    build_task_group_task_context_dicts,
+)
+from games.views.util import has_profile
 from games.models import Attempt, TaskGroup, ImageManager, AudioManager
 
 
@@ -142,7 +149,32 @@ def render_game_title(game, request, team, current_mode):
     }).content.decode('UTF-8')
 
 
-def update_task_html(request, task, team, current_mode):
+def render_new_ui_task_card_html(request, task, team, current_mode, user=None, anon_key=None):
+    """
+    HTML for one new-UI task card (#new-task-{id}). Used in JSON + WebSocket to avoid full page reload.
+    Returns None when this page is not the new UI or when the task is rendered only inside proportions sheet.
+    """
+    game = task.task_group.game
+    if game.project_id not in (NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT):
+        return None
+    task_group = task.task_group
+    if task_group.view == 'proportions' and task.task_type == 'proportions':
+        return None
+    tasks = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
+    ctx_dicts = build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, current_mode)
+    return render(request, 'new/partials/task_card.html', {
+        'game': game,
+        'task_group': task_group,
+        'task': task,
+        'mode': current_mode,
+        'team': team,
+        'request': request,
+        'has_profile_user': has_profile(request.user),
+        **ctx_dicts,
+    }).content.decode('UTF-8')
+
+
+def update_task_html(request, task, team, current_mode, user=None, anon_key=None):
     game = task.task_group.game
 
     update_extra_tasks = list(task.task_group.tasks.filter(task_type='text_with_forms'))
@@ -150,14 +182,22 @@ def update_task_html(request, task, team, current_mode):
         if "should_be_hidden_if_not_solved" in extra_task.tags:
             update_extra_tasks.append(extra_task)
 
+    tasks_to_patch = update_extra_tasks + [task]
     update_html = {
         'update_task_html': {
             t.id: render_task(t, request, team, current_mode)
-            for t in update_extra_tasks + [task]
+            for t in tasks_to_patch
         },
         'update_task_group_title_html': {
             task.task_group.number: render_task_group_title(task.task_group, request, team, current_mode)
         },
         'update_game_title_html': render_game_title(game, request, team, current_mode),
     }
+    new_fragments = {}
+    for t in tasks_to_patch:
+        frag = render_new_ui_task_card_html(request, t, team, current_mode, user=user, anon_key=anon_key)
+        if frag:
+            new_fragments[t.id] = frag
+    if new_fragments:
+        update_html['update_task_html_new'] = new_fragments
     return update_html
