@@ -1,5 +1,13 @@
 """Context for main UI templates (root URLs)."""
 
+from django.conf import settings
+
+
+def site_deploy_version(_request):
+    """Expose SITE_DEPLOY_VERSION for deploy_version_check.js (HTML vs live API)."""
+    v = getattr(settings, "SITE_DEPLOY_VERSION", "") or ""
+    return {"site_deploy_version": str(v).strip()}
+
 
 def ui_section_games(request):
     match = getattr(request, "resolver_match", None)

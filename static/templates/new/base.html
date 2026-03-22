@@ -1,6 +1,6 @@
 {% load static socialaccount %}
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-site-deploy-version="{{ site_deploy_version|default:''|escape }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -383,7 +383,7 @@
     });
   })();
   </script>
-  <script src="{% static "js/deploy_version_check.js" %}?2" defer></script>
+  <script src="{% static "js/deploy_version_check.js" %}?3" defer></script>
   <script src="{% static "js/track_ws.js" %}?2"></script>
   <script>
   (function () {

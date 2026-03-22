@@ -3,6 +3,10 @@
  * cache-busting query param so the browser fetches a fresh HTML document.
  * Set SITE_DEPLOY_VERSION on each deploy (EB env). Empty version disables checks.
  *
+ * Compares the version embedded in this HTML (data-site-deploy-version / #interoves-site-deploy)
+ * with GET /meta/deploy-version/ so a cached document from an older build still triggers a reload
+ * even when localStorage was never set.
+ *
  * Note: this is the strongest refresh we can do from JS; it is not identical to
  * Ctrl+F5 for every cached subresource, but usually fixes stale HTML/entry JS.
  */
@@ -11,6 +15,18 @@
 
   var KEY = 'interoves_deploy_v';
   var URL = '/meta/deploy-version/';
+
+  function embeddedVersion() {
+    var h = document.documentElement.getAttribute('data-site-deploy-version');
+    if (h != null && h !== '') {
+      return String(h).trim();
+    }
+    var el = document.getElementById('interoves-site-deploy');
+    if (el) {
+      return String(el.getAttribute('data-v') || '').trim();
+    }
+    return '';
+  }
 
   function stripCacheBustQuery(search) {
     if (!search || search === '?') {
@@ -45,12 +61,33 @@
         if (!serverV) {
           return;
         }
+        var embeddedV = embeddedVersion();
         var storedV;
         try {
           storedV = localStorage.getItem(KEY);
         } catch (e) {
           return;
         }
+
+        // Cached HTML from an older build: embed disagrees with live version
+        if (embeddedV && serverV && embeddedV !== serverV) {
+          var ok1 = false;
+          try {
+            localStorage.setItem(KEY, serverV);
+            ok1 = true;
+          } catch (e2) {}
+          if (!ok1) {
+            try {
+              if (sessionStorage.getItem('interoves_deploy_rl') === serverV) {
+                return;
+              }
+              sessionStorage.setItem('interoves_deploy_rl', serverV);
+            } catch (e4) {}
+          }
+          hardNavigate();
+          return;
+        }
+
         if (storedV === null || storedV === '') {
           try {
             localStorage.setItem(KEY, serverV);
@@ -60,6 +97,7 @@
         if (storedV === serverV) {
           return;
         }
+
         var persisted = false;
         try {
           localStorage.setItem(KEY, serverV);
@@ -73,6 +111,12 @@
             sessionStorage.setItem('interoves_deploy_rl', serverV);
           } catch (e4) {}
         }
+
+        // Fresh document: embedded version matches server — only storage was stale
+        if (embeddedV && embeddedV === serverV) {
+          return;
+        }
+
         hardNavigate();
       })
       .catch(function () {});

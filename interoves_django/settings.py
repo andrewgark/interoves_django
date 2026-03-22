@@ -209,6 +209,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'games.context_processors.ui_section_games',
+                'games.context_processors.site_deploy_version',
             ],
         },
     },

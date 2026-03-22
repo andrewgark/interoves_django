@@ -1,5 +1,6 @@
 {% load static %}
 {% load inlineedit %}
+<span id="interoves-site-deploy" data-v="{{ site_deploy_version|default:''|escape }}" hidden aria-hidden="true"></span>
 <script type="text/javascript" src="{% static "js/jquery.1.11.1.js" %}"></script>
 <script type="text/javascript" src="{% static "js/bootstrap.js" %}"></script>
 <!--<script type="text/javascript" src="{% static "js/SmoothScroll.js" %}"></script>-->
@@ -19,5 +20,5 @@
 <script type="text/javascript" src="{% static "js/simplebar.min.js" %}"></script>
 <script type="text/javascript" src="{% static "js/like-dislike.js" %}"></script>
 <script type="text/javascript" src="{% static "js/games_grid.js" %}?2"></script>
-<script type="text/javascript" src="{% static "js/deploy_version_check.js" %}?2" defer></script>
+<script type="text/javascript" src="{% static "js/deploy_version_check.js" %}?3" defer></script>
 {% inlineedit_script %}
