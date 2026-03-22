@@ -470,22 +470,43 @@ function initTicketRequests() {
 
 
 function setupWebsocket() {
-  const regexp = /^\/games\/(\w+)\/?$/;
-
-  if (!regexp.test(window.location.pathname)) {
-    return;
-  }
-
-  const game_id = window.location.pathname.match(regexp)[1];
+  const path = window.location.pathname;
+  let game_id = null;
+  const mOld = path.match(/^\/games\/(\w+)\/?$/);
+  const mNew = path.match(/^\/new\/games\/(\w+)\/?$/);
+  if (mOld) game_id = mOld[1];
+  else if (mNew) game_id = mNew[1];
+  if (!game_id) return;
 
   let protocol = 'ws';
   if (window.location.protocol === 'https:') {
     protocol = 'wss';
   }
 
+  let lastReloadKey = '';
+  let lastReloadAt = 0;
+  function reloadTrackEventOnce(key) {
+    const now = Date.now();
+    if (key === lastReloadKey && now - lastReloadAt < 2000) return;
+    lastReloadKey = key;
+    lastReloadAt = now;
+    window.location.reload();
+  }
+
   const socket = new WebSocket(`${protocol}://${window.location.host}/games/${game_id}/track`);
   socket.onmessage = function({ data }) {
     const event = JSON.parse(data);
+    if (event.type === 'track.event') {
+      if (
+        event.event === 'game.play_available' ||
+        event.event === 'game.started' ||
+        event.event === 'game.ended'
+      ) {
+        const gid = (event.payload && event.payload.game_id) || game_id;
+        reloadTrackEventOnce(event.event + ':' + gid);
+      }
+      return;
+    }
     updateTasks(event.update_task_html);
     updateTaskGroupTitle(event.update_task_group_title_html);
     updateGameTitle(event.update_game_title_html);

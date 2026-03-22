@@ -102,6 +102,7 @@ ALLOWED_HOSTS.append(AWS_LOCAL_IP)
 
 INSTALLED_APPS = [
     'daphne',
+    'channels',
     'games',
     # 'djcelery',
 
@@ -136,7 +137,6 @@ INSTALLED_APPS = [
     'inlineedit',
 
     'explorer',
-    # 'channels',
 ]
 
 MIDDLEWARE = [
@@ -195,11 +195,31 @@ if 'REDIS_HOST' in os.environ:
     except(KeyError, ValueError):
         redis_port = 6379
 
+    redis_password = os.environ.get('REDIS_PASSWORD', '')
+    redis_use_tls = os.environ.get('REDIS_TLS', '').lower() in ('1', 'true', 'yes')
+
+    # channels_redis: hosts as (host, port), redis:// URI, or dict (redis-py connection).
+    # ElastiCache transit encryption: set REDIS_TLS=1 → rediss:// (see channels_redis README).
+    from urllib.parse import quote
+
+    if redis_use_tls:
+        pw = quote(redis_password, safe='') if redis_password else ''
+        auth = f':{pw}@' if pw else ''
+        _host_entry = {'address': f'rediss://{auth}{redis_host}:{redis_port}'}
+        if os.environ.get('REDIS_SSL_CERT_REQS', '').strip().lower() == 'none':
+            _host_entry['ssl_cert_reqs'] = None
+        redis_hosts = [_host_entry]
+    elif redis_password:
+        pw = quote(redis_password, safe='')
+        redis_hosts = [f'redis://:{pw}@{redis_host}:{redis_port}']
+    else:
+        redis_hosts = [(redis_host, redis_port)]
+
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
-                "hosts": [(redis_host, redis_port)],
+                "hosts": redis_hosts,
             },
         },
     }

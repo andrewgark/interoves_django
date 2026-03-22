@@ -1,3 +1,6 @@
+# Local venv (canonical dev venv: ../venv/interoves_django — see run_server.sh / run_tests.sh)
+.venv/
+
 db.sqlite3
 *.pyc
 google_token.pickle

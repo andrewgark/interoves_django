@@ -46,7 +46,40 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
   {% block extrahead %}{% endblock %}
 </head>
-<body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}">
+<body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}" {% block body_attrs %}{% endblock %}>
+  {% if not user.is_authenticated %}
+  <script>
+  (function () {
+    function ensureAnonKey() {
+      try {
+        var key = localStorage.getItem('interoves_anon_key');
+        if (!key) {
+          key = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + '-' + String(Math.random()).slice(2);
+          localStorage.setItem('interoves_anon_key', key);
+        }
+        return key;
+      } catch (e) {
+        return '';
+      }
+    }
+    function setAnonCookie(key) {
+      try {
+        document.cookie = 'interoves_anon=' + encodeURIComponent(key) + '; path=/; SameSite=Lax; max-age=31622400';
+      } catch (e) {}
+    }
+    try {
+      var key = ensureAnonKey();
+      if (!key) return;
+      setAnonCookie(key);
+      var url = new URL(window.location.href);
+      if (url.searchParams.get('anon') !== key) {
+        url.searchParams.set('anon', key);
+        window.location.replace(url.toString());
+      }
+    } catch (e) {}
+  })();
+  </script>
+  {% endif %}
   <nav class="new-nav" aria-label="Главное меню">
     <div class="new-nav__inner">
       <a class="new-nav__brand" href="{% url 'new_hub' %}">Интеровес</a>
@@ -344,6 +377,19 @@
         fallbackCopy(text);
       }
     });
+  })();
+  </script>
+  <script src="{% static "js/track_ws.js" %}?2"></script>
+  <script>
+  (function () {
+    if (document.body.getAttribute('data-authenticated') !== '1') return;
+    if (!window.InterovesTrack) return;
+    var gid = document.body.getAttribute('data-track-game-id');
+    if (gid) {
+      window.InterovesTrack.connectGame(gid);
+    } else {
+      window.InterovesTrack.connectUserHub();
+    }
   })();
   </script>
 </body>

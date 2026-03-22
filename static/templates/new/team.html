@@ -134,6 +134,7 @@
         <datalist id="new-team-list">
           {% for t in teams %}<option value="{{ t.name }}">{{ t.visible_name }}</option>{% endfor %}
         </datalist>
+        <p class="new-login-hint new-text-danger" style="margin-top:0.35rem" data-join-pick-team-error hidden role="alert"></p>
         <div class="new-login-hint" style="margin-top:0.35rem" data-join-info></div>
         <button type="submit" class="new-btn new-btn--ghost" disabled data-join-request>Подать заявку</button>
         <div class="new-join-actions">
@@ -234,13 +235,29 @@
   var joinByPassBtn = document.querySelector('[data-join-by-pass]');
   var joinTimer = null;
   var joinForm = document.getElementById('new-join-team-form');
-  function updateJoinButtons(exists) {
-    if (joinReq) joinReq.disabled = !exists;
-    if (joinByPassBtn) joinByPassBtn.disabled = !(exists && (joinPassInput && joinPassInput.value || '').trim());
+  var joinPickTeamErr = document.querySelector('[data-join-pick-team-error]');
+  var joinTeamResolved = false;
+  function hideJoinPickTeamErr() {
+    if (!joinPickTeamErr) return;
+    joinPickTeamErr.textContent = '';
+    joinPickTeamErr.hidden = true;
+  }
+  function showJoinPickTeamErr(msg) {
+    if (!joinPickTeamErr) return;
+    joinPickTeamErr.textContent = msg;
+    joinPickTeamErr.hidden = false;
+  }
+  function updateJoinButtons(teamExists) {
+    if (joinReq) joinReq.disabled = !teamExists;
+    // «Вступить» не отключаем из‑за команды: иначе клик не доходит до submit и не показать красную подсказку.
+    var passTrim = (joinPassInput && joinPassInput.value || '').trim();
+    if (joinByPassBtn) joinByPassBtn.disabled = !passTrim;
   }
   function checkJoinTeam() {
     var name = (joinName && joinName.value || '').trim();
     if (!name) {
+      joinTeamResolved = false;
+      hideJoinPickTeamErr();
       if (joinInfo) joinInfo.textContent = '';
       updateJoinButtons(false);
       return;
@@ -248,6 +265,8 @@
     fetch("{% url 'new_team_info' %}?name=" + encodeURIComponent(name), { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        joinTeamResolved = !!(data && data.ok && data.exists);
+        if (joinTeamResolved) hideJoinPickTeamErr();
         if (!data || !data.ok || !data.exists) {
           if (joinInfo) joinInfo.textContent = 'Команда не найдена';
           updateJoinButtons(false);
@@ -256,10 +275,16 @@
         if (joinInfo) joinInfo.textContent = 'Сейчас в команде: ' + data.n_users;
         updateJoinButtons(true);
       })
-      .catch(function () {});
+      .catch(function () {
+        joinTeamResolved = false;
+        updateJoinButtons(false);
+      });
   }
   if (joinName) {
     joinName.addEventListener('input', function () {
+      hideJoinPickTeamErr();
+      joinTeamResolved = false;
+      updateJoinButtons(false);
       if (joinTimer) clearTimeout(joinTimer);
       joinTimer = setTimeout(checkJoinTeam, 200);
     });
@@ -277,22 +302,34 @@
     });
   }
 
-  // Prevent submitting "join by password" without a team name
-  if (joinForm && joinByPassBtn) {
-    joinByPassBtn.addEventListener('click', function (e) {
+  // Вступить по паролю: только после подтверждения команды (и перехват Enter из поля пароля)
+  if (joinForm) {
+    joinForm.addEventListener('submit', function (e) {
+      var sub = e.submitter;
+      var passJoin = sub && sub.hasAttribute('data-join-by-pass');
+      if (!passJoin && joinPassBox && !joinPassBox.hidden && joinPassInput && document.activeElement === joinPassInput) {
+        passJoin = true;
+      }
+      if (!passJoin) return;
       var name = (joinName && joinName.value || '').trim();
+      var pass = (joinPassInput && joinPassInput.value || '').trim();
       if (!name) {
         e.preventDefault();
-        if (joinInfo) joinInfo.textContent = 'Сначала выберите название команды.';
+        showJoinPickTeamErr('Сначала выберите команду из подсказки или введите отображаемое название.');
         if (joinName) joinName.focus();
         return;
       }
-      var pass = (joinPassInput && joinPassInput.value || '').trim();
+      if (!joinTeamResolved) {
+        e.preventDefault();
+        showJoinPickTeamErr('Команда не подтверждена. Дождитесь строки «Сейчас в команде: …» под полем или выберите вариант из подсказки.');
+        if (joinName) joinName.focus();
+        return;
+      }
       if (!pass) {
         e.preventDefault();
+        hideJoinPickTeamErr();
         if (joinInfo) joinInfo.textContent = 'Введите пароль команды.';
         if (joinPassInput) joinPassInput.focus();
-        return;
       }
     });
   }

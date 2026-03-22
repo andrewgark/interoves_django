@@ -1,5 +1,6 @@
 """Main UI: hub, games folder, profile, team."""
 import datetime
+import hmac
 import json
 import logging
 import os
@@ -38,6 +39,17 @@ from games.yookassa_util import configure_yookassa_from_env
 from yookassa import Payment
 
 logger = logging.getLogger(__name__)
+
+
+def _anon_key_from_request(request):
+    """Идентификатор анонимного игрока в личном режиме: ?anon= / ?anon_key= или cookie interoves_anon (ставится JS в base)."""
+    if request.user.is_authenticated:
+        return None
+    return (
+        request.GET.get('anon')
+        or request.GET.get('anon_key')
+        or request.COOKIES.get('interoves_anon')
+    )
 
 
 def _ru_plural_form_int(n, one, few, many):
@@ -230,7 +242,7 @@ def new_section_game_page(request, game_id):
         if request.user.is_authenticated and has_profile(request.user):
             user = request.user
         else:
-            anon_key = request.GET.get('anon')
+            anon_key = _anon_key_from_request(request)
 
     solved_task_ids, tg_to_task_ids = _compute_solved_task_ids(
         game=game,
@@ -300,7 +312,7 @@ def new_main_game_page(request, game_id):
     if not request.user.is_authenticated and not personal_play_mode_locked(game):
         play_mode = 'personal'
     play_mode = effective_play_mode(play_mode, game)
-    anon_key = request.GET.get('anon') if not request.user.is_authenticated else None
+    anon_key = _anon_key_from_request(request)
     team = None
     user = request.user if request.user.is_authenticated else None
     has_profile_user = has_profile(request.user)
@@ -536,9 +548,10 @@ def new_results_page(request, game_id):
     if play_mode == 'personal':
         if request.user.is_authenticated:
             me_personal = PersonalResultsParticipant(user=request.user)
-        ak = request.GET.get('anon') or request.COOKIES.get('interoves_anon')
-        if ak:
-            me_anon_participant = PersonalResultsParticipant(anon_key=ak)
+        else:
+            ak = _anon_key_from_request(request)
+            if ak:
+                me_anon_participant = PersonalResultsParticipant(anon_key=ak)
     return render(request, 'ui/results.html', {
         'mode': 'general',
         'game': game,
@@ -611,9 +624,10 @@ def new_section_results_page(request, game_id):
     if play_mode == 'personal':
         if request.user.is_authenticated:
             me_personal = PersonalResultsParticipant(user=request.user)
-        ak = request.GET.get('anon') or request.COOKIES.get('interoves_anon')
-        if ak:
-            me_anon_participant = PersonalResultsParticipant(anon_key=ak)
+        else:
+            ak = _anon_key_from_request(request)
+            if ak:
+                me_anon_participant = PersonalResultsParticipant(anon_key=ak)
     return render(request, 'ui/results.html', {
         'mode': 'general',
         'section_results': True,
@@ -642,7 +656,7 @@ def new_task_group_page(request, game_id, task_group_number):
             return redirect('/accounts/login/?next={}'.format(quote(request.get_full_path())))
         # До логина разрешаем только личный режим (не в турнире).
         play_mode = 'personal'
-        anon_key = request.GET.get('anon') or request.COOKIES.get('interoves_anon')  # fallback, основной — localStorage
+        anon_key = _anon_key_from_request(request)
     else:
         if play_mode == 'personal' and not has_profile(request.user):
             raise Http404()
@@ -896,7 +910,7 @@ def new_get_answer(request, task_id):
                 raise Http404()
             user = request.user
         else:
-            anon_key = request.GET.get('anon') or request.GET.get('anon_key')
+            anon_key = _anon_key_from_request(request)
             if not anon_key:
                 raise Http404()
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
@@ -933,7 +947,7 @@ def new_get_replacements_line_answer(request, task_id, line_index):
                 raise Http404()
             user = request.user
         else:
-            anon_key = request.GET.get('anon') or request.GET.get('anon_key')
+            anon_key = _anon_key_from_request(request)
             if not anon_key:
                 raise Http404()
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
@@ -1390,6 +1404,15 @@ def new_team_request_join(request):
     return redirect('new_team')
 
 
+def _team_join_password_matches(stored, provided):
+    """Case-insensitive compare; join codes are hex from secrets.token_hex (lowercase)."""
+    if not stored or not provided:
+        return False
+    a = stored.strip().lower().encode('utf-8')
+    b = provided.strip().lower().encode('utf-8')
+    return hmac.compare_digest(a, b)
+
+
 @login_required
 @require_http_methods(['POST'])
 def new_team_join_by_password(request):
@@ -1405,7 +1428,14 @@ def new_team_join_by_password(request):
     if not team:
         messages.error(request, 'Команда не найдена.')
         return redirect('new_team')
-    if not password or team.join_password != password:
+    stored = (team.join_password or '').strip()
+    if not stored:
+        messages.error(
+            request,
+            'У команды не задан код для быстрого входа. Капитан может задать его на странице команды.',
+        )
+        return redirect('new_team')
+    if not password or not _team_join_password_matches(stored, password):
         messages.error(request, 'Неверный пароль.')
         return redirect('new_team')
     request.user.profile.team_on = team

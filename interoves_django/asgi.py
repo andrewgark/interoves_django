@@ -9,7 +9,7 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from django.urls import re_path
 from django.core.asgi import get_asgi_application
-from games.views.track import TrackGame
+from games.views.track import TrackGame, UserTrackConsumer
 
 
 django.setup()
@@ -18,6 +18,7 @@ application = ProtocolTypeRouter({
   "http":  django_asgi_app,
   "websocket": AuthMiddlewareStack(
         URLRouter([
+            re_path(r'^ws/track/?$', UserTrackConsumer.as_asgi()),
             re_path(r'^games/(?P<game_id>[a-zA-Z0-9_]+)/track/?$', TrackGame.as_asgi()),
         ])
     )

@@ -172,24 +172,6 @@
 
 <h2 class="new-heading">Задания</h2>
 
-{% if not user.is_authenticated %}
-<script>
-(function () {
-  // Для анонимного режима сервер должен знать anon_key, иначе после перезагрузки
-  // не будут видны попытки/подсказки и номер попытки не обновится.
-  try {
-    var key = localStorage.getItem('interoves_anon_key');
-    if (!key) return;
-    var url = new URL(window.location.href);
-    if (url.searchParams.get('anon') !== key) {
-      url.searchParams.set('anon', key);
-      window.location.replace(url.toString());
-    }
-  } catch (e) {}
-})();
-</script>
-{% endif %}
-
 {% if section_tutorial_html or show_palindrome_rules or section_rules_type or task_group.rules %}
 <script>
 (function () {

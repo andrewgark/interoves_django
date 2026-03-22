@@ -9,6 +9,8 @@
   {% endif %}
 {% endblock %}
 
+{% block body_attrs %}data-track-game-id="{{ game.id }}"{% endblock %}
+
 {% block extrahead %}
   {% if show_palindrome_rules %}
     <link rel="preconnect" href="https://fonts.googleapis.com">
