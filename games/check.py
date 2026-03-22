@@ -535,13 +535,24 @@ class ReplacementsLinesChecker(BaseChecker):
             return CheckResult('Wrong', 'Pending', 0, comment='Неверный номер строки')
         correct = canonical_rows[line_index]
         opts_row = accept_rows[line_index] if line_index < len(accept_rows) else [[c] for c in correct]
+
+        def _answer_has_empty_slot(answers, n_slots):
+            """Незаполненный слот: не хватает ячеек или есть пустая строка."""
+            if len(answers) < n_slots:
+                return True
+            return any(not str(u).strip() for u in answers)
+
         if len(user_answers) != len(correct):
             # Не меняем накопленное состояние
             state = self.last_state or {'solved_lines': [], 'total': 0}
             total = int(state.get('total', 0) or 0)
             solved = set(state.get('solved_lines', []) or [])
             status = 'Partial' if solved else 'Wrong'
-            tournament_status = 'Pending' if status != 'Ok' else 'Ok'
+            # Не хватает ячеек — как «ещё не готово», не уводим в Pending турнира
+            incomplete = len(user_answers) < len(correct)
+            tournament_status = (
+                'Ok' if (status == 'Ok' or incomplete) else 'Pending'
+            )
             return CheckResult(status, tournament_status, total, state=json.dumps({'solved_lines': sorted(list(solved)), 'total': total}, ensure_ascii=False))
 
         is_correct = True
@@ -564,7 +575,10 @@ class ReplacementsLinesChecker(BaseChecker):
             tournament_status = 'Ok'
         else:
             status = 'Partial' if solved else 'Wrong'
-            tournament_status = 'Pending'
+            # Полностью верная строка или есть пустые ячейки — в турнире не Pending
+            # (иначе частичный ввод уходит «на проверку»).
+            has_empty = _answer_has_empty_slot(user_answers, len(correct))
+            tournament_status = 'Ok' if (is_correct or has_empty) else 'Pending'
 
         new_state = {'solved_lines': sorted(list(solved)), 'total': total}
         return CheckResult(status, tournament_status, total, state=json.dumps(new_state, ensure_ascii=False))

@@ -160,6 +160,47 @@ class ReplacementsLinesCheckerTests(SimpleTestCase):
         r = ch.check(payload, att)
         self.assertEqual(r.status, 'Ok')
 
+    def test_tournament_ok_when_line_correct_but_task_not_complete(self):
+        """Полностью верная строка не должна давать tournament_status Pending в турнире."""
+        checker_data = json.dumps({'lines': [['a'], ['b']]})
+        ch = ReplacementsLinesChecker(checker_data, None)
+        att = self._attempt('', '')
+        r = ch.check('{"line_index": 0, "answers": ["a"]}', att)
+        self.assertEqual(r.status, 'Partial')
+        self.assertEqual(r.tournament_status, 'Ok')
+
+    def test_tournament_pending_when_line_wrong_but_task_not_complete(self):
+        checker_data = json.dumps({'lines': [['a'], ['b']]})
+        ch = ReplacementsLinesChecker(checker_data, None)
+        att = self._attempt('', '')
+        r = ch.check('{"line_index": 0, "answers": ["wrong"]}', att)
+        self.assertNotEqual(r.status, 'Ok')
+        self.assertEqual(r.tournament_status, 'Pending')
+
+    def test_tournament_ok_when_fewer_answers_than_slots(self):
+        checker_data = json.dumps({'lines': [['a', 'b'], ['x']]})
+        ch = ReplacementsLinesChecker(checker_data, None)
+        att = self._attempt('', '')
+        r = ch.check('{"line_index": 0, "answers": ["a"]}', att)
+        self.assertNotEqual(r.status, 'Ok')
+        self.assertEqual(r.tournament_status, 'Ok')
+
+    def test_tournament_ok_when_empty_cell_in_line(self):
+        checker_data = json.dumps({'lines': [['a', 'b'], ['x']]})
+        ch = ReplacementsLinesChecker(checker_data, None)
+        att = self._attempt('', '')
+        r = ch.check('{"line_index": 0, "answers": ["a", ""]}', att)
+        self.assertNotEqual(r.status, 'Ok')
+        self.assertEqual(r.tournament_status, 'Ok')
+
+    def test_tournament_ok_when_whitespace_only_cell(self):
+        checker_data = json.dumps({'lines': [['a', 'b'], ['x']]})
+        ch = ReplacementsLinesChecker(checker_data, None)
+        att = self._attempt('', '')
+        r = ch.check('{"line_index": 0, "answers": ["a", "   "]}', att)
+        self.assertNotEqual(r.status, 'Ok')
+        self.assertEqual(r.tournament_status, 'Ok')
+
 
 class CleanTextLatinDiaeresisTests(SimpleTestCase):
     def test_citroen_lowercase_stable_for_comparison(self):

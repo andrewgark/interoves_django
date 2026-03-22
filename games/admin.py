@@ -9,7 +9,13 @@ from django.db import models
 from django.shortcuts import get_object_or_404
 from games.google.actions import create_google_doc
 from games.models import *
-from games.recheck import recheck, recheck_full, recheck_queue_from_this, recheck_queue_from_next
+from games.recheck import (
+    recheck,
+    recheck_full,
+    recheck_queue_from_this,
+    recheck_queue_from_next,
+    recheck_team_task_all_chronological,
+)
 from games.results_snapshot import freeze_game_results
 
 
@@ -260,6 +266,11 @@ def recheck_queue_from_next_attempt(modeladmin, request, queryset):
         recheck_queue_from_next(request, attempt_id[0])
 
 
+def recheck_team_task_all_chronological_action(modeladmin, request, queryset):
+    for attempt_id in queryset.values_list('id'):
+        recheck_team_task_all_chronological(request, attempt_id[0])
+
+
 def _set_ok(attempt):
     attempt.points = attempt.get_max_points()
     attempt.status = 'Ok'
@@ -344,9 +355,15 @@ def confirm_prestatus(modeladmin, request, queryset):
 
 
 recheck_attempt.short_description = "Recheck attempt"
-recheck_full_attempt.short_description = "Recheck all attempts of this task"
-recheck_queue_from_this_attempt.short_description = "Recheck wall attempt"
-recheck_queue_from_next_attempt.short_description = "Recheck all attempts starting with next"
+recheck_full_attempt.short_description = "Recheck all attempts of this task (all teams)"
+recheck_queue_from_this_attempt.short_description = (
+    "Recheck this and later attempts (same team/user, same task; chronological). "
+    "For replacements_lines state chain, prefer «all chronological» if checker changed earlier."
+)
+recheck_queue_from_next_attempt.short_description = "Recheck attempts strictly after this one (same team & task)"
+recheck_team_task_all_chronological_action.short_description = (
+    "Recheck all attempts by this actor on this task (chronological, same team/user)"
+)
 set_ok.short_description = "Set OK (and max points)"
 add_to_checker.short_description = "Add to checker"
 add_to_checker_and_recheck.short_description = "Add to checker and recheck"
@@ -360,7 +377,17 @@ class AttemptAdmin(admin.ModelAdmin):
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }
     list_display = ['__str__', 'team', 'task', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points', 'skip', 'time']
-    actions = [set_ok, confirm_prestatus, add_to_checker, add_to_checker_and_recheck, recheck_attempt, recheck_full_attempt, recheck_queue_from_this_attempt, set_ok_and_create_new_task]
+    actions = [
+        set_ok,
+        confirm_prestatus,
+        add_to_checker,
+        add_to_checker_and_recheck,
+        recheck_attempt,
+        recheck_full_attempt,
+        recheck_queue_from_this_attempt,
+        recheck_team_task_all_chronological_action,
+        set_ok_and_create_new_task,
+    ]
 
 
 @admin.register(PendingAttempt)
@@ -374,7 +401,17 @@ class PendingAttemptsAdmin(admin.ModelAdmin):
         return qs.filter(status='Pending')
 
     list_display = ['__str__', 'team', 'task', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points', 'time']
-    actions = [set_ok, confirm_prestatus, add_to_checker, add_to_checker_and_recheck, recheck_attempt, recheck_full_attempt, recheck_queue_from_this_attempt, set_ok_and_create_new_task]
+    actions = [
+        set_ok,
+        confirm_prestatus,
+        add_to_checker,
+        add_to_checker_and_recheck,
+        recheck_attempt,
+        recheck_full_attempt,
+        recheck_queue_from_this_attempt,
+        recheck_team_task_all_chronological_action,
+        set_ok_and_create_new_task,
+    ]
 
 
 def confirm_ticket_request(modeladmin, request, queryset):
