@@ -20,6 +20,7 @@ from django.urls import path, include
 from django.views.generic import TemplateView
 from django.contrib.auth.views import LogoutView
 from django.shortcuts import redirect
+from games.views.meta_http import deploy_version
 from games.views.ticket import yookassa_webhook
 
 
@@ -36,6 +37,7 @@ urlpatterns = [
 
     path('yookassa/webhook/', yookassa_webhook, name='yookassa_webhook'),
     path('health/', include('health_check.urls')),
+    path('meta/deploy-version/', deploy_version, name='deploy_version'),
 
     path('inline-edit', include('inlineedit.urls')),
 

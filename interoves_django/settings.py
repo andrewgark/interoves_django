@@ -23,8 +23,45 @@ def _env_flag(name: str) -> bool:
 
 IS_PROD = _env_flag("IS_PROD")
 
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _get_site_deploy_version() -> str:
+    """
+    Version string exposed at /meta/deploy-version/ for deploy_version_check.js.
+
+    Order:
+    1. SITE_DEPLOY_VERSION env (override on EB or CI).
+    2. interoves_django/deploy_version.txt — write before packaging (see scripts/write_deploy_version.sh).
+    3. git rev-parse --short HEAD when .git is present (local dev).
+    """
+    v = (os.environ.get('SITE_DEPLOY_VERSION') or '').strip()
+    if v:
+        return v
+    path = os.path.join(BASE_DIR, 'interoves_django', 'deploy_version.txt')
+    try:
+        with open(path, encoding='utf-8') as f:
+            w = f.read().strip()
+        if w:
+            return w
+    except OSError:
+        pass
+    try:
+        import subprocess
+
+        sha = subprocess.check_output(
+            ['git', '-C', BASE_DIR, 'rev-parse', '--short', 'HEAD'],
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        ).decode('ascii', errors='ignore').strip()
+        if sha:
+            return sha
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        pass
+    return ''
+
+
+SITE_DEPLOY_VERSION = _get_site_deploy_version()
 
 
 def load_secret(secret_filename: str, *, env_var: str | None = None, default: str | None = None) -> str:

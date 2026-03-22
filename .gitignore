@@ -10,6 +10,9 @@ secrets
 __pycache__
 media
 
+# Generated before eb deploy / packaging (see scripts/write_deploy_version.sh)
+interoves_django/deploy_version.txt
+
 # Elastic Beanstalk Files
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml

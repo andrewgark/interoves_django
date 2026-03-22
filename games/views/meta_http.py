@@ -1,4 +1,6 @@
 import json
+
+from django.conf import settings
 from django.http import JsonResponse
 
 
@@ -82,3 +84,13 @@ def capitals_task_100(request):
     if len(key) == 23:
         return JsonResponse({'status': 'OK', 'code': 'CAPITALS_23_YEAH', 'comment': 'This code is worth 1/10 points. It is possible to find shorter key to get better code.'})
     return JsonResponse({'error': 'unintended error, please write @andrewgark about this error'})
+
+
+def deploy_version(request):
+    """
+    Uncached JSON for clients to detect a new deploy (SITE_DEPLOY_VERSION on EB).
+    """
+    v = getattr(settings, 'SITE_DEPLOY_VERSION', '') or ''
+    resp = JsonResponse({'version': str(v).strip()})
+    resp['Cache-Control'] = 'no-store, max-age=0, must-revalidate'
+    return resp

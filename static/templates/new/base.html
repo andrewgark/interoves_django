@@ -153,8 +153,12 @@
       modal.classList.remove('is-open');
       document.body.style.overflow = '';
     }
-    document.querySelectorAll('[data-login-open]').forEach(function (btn) {
-      btn.addEventListener('click', open);
+    /* Делегирование: блок content ниже по DOM, кнопки с data-login-open в карточках и после AJAX ещё не существовали при querySelectorAll. */
+    document.body.addEventListener('click', function (e) {
+      var opener = e.target.closest('[data-login-open]');
+      if (!opener) return;
+      e.preventDefault();
+      open();
     });
     document.querySelectorAll('[data-login-close]').forEach(function (el) {
       el.addEventListener('click', close);
@@ -379,6 +383,7 @@
     });
   })();
   </script>
+  <script src="{% static "js/deploy_version_check.js" %}?2" defer></script>
   <script src="{% static "js/track_ws.js" %}?2"></script>
   <script>
   (function () {
