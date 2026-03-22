@@ -8,6 +8,7 @@ urlpatterns = [
     path('', ui.hub, name='new_hub'),
     path('play-mode/', ui.set_play_mode, name='new_set_play_mode'),
     path('migrate-anon-attempts/', ui.migrate_anon_attempts, name='new_migrate_anon_attempts'),
+    path('anon-migrate-count/', ui.anon_migrate_count, name='new_anon_migrate_count'),
     path('answer/<int:task_id>/', ui.get_answer, name='new_get_answer'),
     path('answer/<int:task_id>/<int:line_index>/', ui.get_replacements_line_answer, name='new_get_replacements_line_answer'),
     path('like-dislike/<int:task_id>/', ui.like_dislike, name='new_like_dislike'),

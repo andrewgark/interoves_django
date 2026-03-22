@@ -1192,6 +1192,28 @@ def new_set_play_mode(request):
     return redirect(next_url)
 
 
+# Модалка «перенести анонимные решения» показывается только при достаточном числе посылок,
+# иначе ключ interoves_anon_key есть у любого гостя до входа.
+MIN_ANON_MIGRATE_PROMPT_ATTEMPTS = 10
+
+
+@login_required
+@require_http_methods(['GET'])
+def new_anon_migrate_count(request):
+    if not has_profile(request.user):
+        raise Http404()
+    anon_key = request.GET.get('anon_key')
+    if not anon_key:
+        return JsonResponse({'attempts': 0, 'show_prompt': False})
+    n = Attempt.objects.filter(
+        anon_key=anon_key, user__isnull=True, team__isnull=True
+    ).count()
+    return JsonResponse({
+        'attempts': n,
+        'show_prompt': n >= MIN_ANON_MIGRATE_PROMPT_ATTEMPTS,
+    })
+
+
 @login_required
 @require_http_methods(['POST'])
 def new_migrate_anon_attempts(request):

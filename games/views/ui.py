@@ -16,6 +16,7 @@ get_replacements_line_answer = new_get_replacements_line_answer
 like_dislike = new_like_dislike
 set_play_mode = new_set_play_mode
 migrate_anon_attempts = new_migrate_anon_attempts
+anon_migrate_count = new_anon_migrate_count
 profile = new_profile
 team = new_team
 pay_page = new_pay_page

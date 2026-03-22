@@ -205,7 +205,7 @@
         <button type="button" class="new-btn" data-migrate-confirm>Перенести</button>
         <button type="button" class="new-btn new-btn--ghost" data-migrate-close>Не сейчас</button>
       </div>
-      <p class="new-login-hint" style="margin-bottom:0">Это предложение показывается один раз для текущего браузера.</p>
+      <p class="new-login-hint" style="margin-bottom:0">Показываем один раз для этого браузера, если до входа было не меньше десяти посылок с этой анонимной сессии.</p>
     </div>
   </div>
   <script>
@@ -261,7 +261,15 @@
     var btn = modal.querySelector('[data-migrate-confirm]');
     if (btn) btn.addEventListener('click', migrate);
 
-    open();
+    fetch("{% url 'new_anon_migrate_count' %}?anon_key=" + encodeURIComponent(anonKey), {
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.show_prompt) open();
+      })
+      .catch(function () {});
   })();
   </script>
   {% endif %}

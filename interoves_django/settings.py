@@ -130,16 +130,18 @@ CSRF_TRUSTED_ORIGINS = [
 
 def get_ec2_instance_ip():
     """
-    Try to obtain the IP address of the current EC2 instance in AWS
+    Private IP of this EC2 instance (IMDS). ALB target health checks often send
+    Host: <this IP>; it must be in ALLOWED_HOSTS. A too-short timeout caused
+    flaky reads and DisallowedHost + HTTP 400 on ELB-HealthChecker.
     """
     try:
         ip = requests.get(
-          'http://169.254.169.254/latest/meta-data/local-ipv4',
-          timeout=0.01
-        ).text
-    except:
+            'http://169.254.169.254/latest/meta-data/local-ipv4',
+            timeout=2.0,
+        ).text.strip()
+    except Exception:
         return None
-    return ip
+    return ip or None
 
 AWS_LOCAL_IP = get_ec2_instance_ip()
 if AWS_LOCAL_IP and AWS_LOCAL_IP not in ALLOWED_HOSTS:
