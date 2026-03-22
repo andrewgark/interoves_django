@@ -935,6 +935,57 @@ def new_task_group_page(request, game_id, task_group_number):
     })
 
 
+def _replacements_lines_line_done_list(task, attempts_info):
+    """
+    Какие строки задания «Замены» считаются сданными для актора (как rld.line_done в new_task_group_page).
+    """
+    if task.task_type != 'replacements_lines':
+        return []
+    parsed = parse_replacements_lines_text(task.text, (task.checker_data or '').strip() or None)
+    n_lines = len(parsed['left_lines'])
+    if not n_lines:
+        return []
+    answers_by_line = parsed.get('answers', [])
+    accept_by_line = parsed.get('answer_accept') or []
+    slot_correct = [
+        [False] * len(answers_by_line[i]) for i in range(n_lines)
+    ]
+    line_done = [False] * n_lines
+    solved_lines_from_state = set()
+    attempts = attempts_info.attempts if attempts_info else []
+    for a in attempts:
+        try:
+            p = json.loads(a.text)
+            idx = int(p.get('line_index', -1))
+            if 0 <= idx < n_lines:
+                user_answers = p.get('answers', []) or []
+                correct_answers = answers_by_line[idx] if idx < len(answers_by_line) else []
+                opts_row = (
+                    accept_by_line[idx]
+                    if idx < len(accept_by_line)
+                    else [[c] for c in correct_answers]
+                )
+                for j in range(min(len(user_answers), len(correct_answers))):
+                    opts = opts_row[j] if j < len(opts_row) else [correct_answers[j]]
+                    if any(clean_text(user_answers[j]) == clean_text(o) for o in opts):
+                        slot_correct[idx][j] = True
+        except (ValueError, TypeError):
+            pass
+        if a.state:
+            try:
+                st = json.loads(a.state)
+                solved_lines_from_state = set(st.get('solved_lines', []) or [])
+            except (ValueError, TypeError):
+                pass
+    for i in range(n_lines):
+        if i in solved_lines_from_state:
+            line_done[i] = True
+    for i in range(n_lines):
+        if not line_done[i]:
+            line_done[i] = bool(slot_correct[i]) and all(slot_correct[i])
+    return line_done
+
+
 def _answer_popup_html(answer_text, answer_comment=None):
     """HTML for the new-task answer modal: bold answer plus optional comment (HTML allowed in comment, like legacy answer.html)."""
     c = (answer_comment or '').strip()
@@ -995,6 +1046,8 @@ def new_get_answer(request, task_id):
 @require_http_methods(['GET'])
 def new_get_replacements_line_answer(request, task_id, line_index):
     task = get_object_or_404(Task, id=task_id)
+    if task.task_type != 'replacements_lines':
+        raise Http404()
     game = task.task_group.game
 
     play_mode, _ = _get_play_mode(request, game.project_id)
@@ -1022,15 +1075,22 @@ def new_get_replacements_line_answer(request, task_id, line_index):
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
     attempts_info = Attempt.manager.get_attempts_info(team=team, user=user, anon_key=anon_key, task=task, mode=mode)
-    if mode != 'general' and not attempts_info.is_solved():
-        return JsonResponse({'html': '<div class="new-login-hint">Ответ доступен после верного решения.</div>'})
+    try:
+        line_index_int = int(line_index)
+    except (TypeError, ValueError):
+        line_index_int = -1
+    line_done_list = _replacements_lines_line_done_list(task, attempts_info)
+    if mode != 'general':
+        if not attempts_info.is_solved():
+            if line_index_int < 0 or line_index_int >= len(line_done_list) or not line_done_list[line_index_int]:
+                return JsonResponse({'html': '<div class="new-login-hint">Ответ доступен после верного решения.</div>'})
 
     # Для replacements_lines ответы живут в checker_data (output-текст).
     lines = (task.checker_data or '').splitlines()
-    try:
-        raw = lines[int(line_index)]
-    except Exception:
+    if line_index_int < 0 or line_index_int >= len(lines):
         raw = ''
+    else:
+        raw = lines[line_index_int]
     text = canonical_replacements_checker_line(raw)
     if not text.strip():
         return JsonResponse({'html': '<div class="new-login-hint">Нет ответа.</div>'})

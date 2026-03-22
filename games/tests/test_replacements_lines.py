@@ -1,9 +1,11 @@
 from django.test import SimpleTestCase
 
 from games.check import ReplacementsLinesChecker
+from games.util import clean_text
 from games.replacements_lines import (
     canonical_replacements_checker_line,
     parse_replacements_lines_text,
+    replacements_strip_literal_numeric_underscores,
     split_slot_answer_alternatives,
 )
 
@@ -34,6 +36,39 @@ class ParseReplacementsLinesTextTests(SimpleTestCase):
         self.assertEqual(p['answers'], [['A', 'B']])
         self.assertEqual(p['answer_accept'], [[['A', 'a'], ['B']]])
 
+    def test_numeric_underscore_is_literal_not_slot(self):
+        left = 'ПРАВО на СВЯЩЁНА было по _76_ серии.'
+        p = parse_replacements_lines_text(left, '')
+        self.assertEqual(
+            p['left_lines'][0],
+            'ПРАВО на СВЯЩЁНА было по 76 серии.',
+        )
+        # два капс-слота; _76_ не третий слот
+        self.assertEqual(len(p['answers'][0]), 2)
+
+
+class CapsSlotUnicodeTests(SimpleTestCase):
+    def test_taifoen_one_slot_with_latin_e_diaeresis(self):
+        left = 'TAIFOËN - это ТЕЛЕВИЗОР.'
+        p = parse_replacements_lines_text(left, '')
+        self.assertEqual(len(p['answers'][0]), 2)
+        self.assertEqual(p['answers'][0][0], 'TAIFOËN')
+        self.assertEqual(p['answers'][0][1], 'ТЕЛЕВИЗОР')
+
+
+class StripLiteralNumericUnderscoresTests(SimpleTestCase):
+    def test_strip(self):
+        self.assertEqual(
+            replacements_strip_literal_numeric_underscores('по _76_ серии'),
+            'по 76 серии',
+        )
+
+    def test_underscore_word_slot_unchanged(self):
+        self.assertEqual(
+            replacements_strip_literal_numeric_underscores('_КОТ_'),
+            '_КОТ_',
+        )
+
 
 class ReplacementsLinesCheckerTests(SimpleTestCase):
     def _attempt(self, task_text, checker_data, last_state=None):
@@ -57,3 +92,35 @@ class ReplacementsLinesCheckerTests(SimpleTestCase):
         payload = '{"line_index": 0, "answers": ["другое"]}'
         r = ch.check(payload, att)
         self.assertNotEqual(r.status, 'Ok')
+
+    def test_accepts_citroen_caps_slot_exact(self):
+        task_text = 'CITROËN'
+        checker_data = 'CITROËN'
+        ch = ReplacementsLinesChecker('', None)
+        att = self._attempt(task_text, checker_data)
+        payload = '{"line_index": 0, "answers": ["CITROËN"]}'
+        r = ch.check(payload, att)
+        self.assertEqual(r.status, 'Ok')
+
+    def test_accepts_citroen_caps_slot_case_insensitive(self):
+        task_text = 'CITROËN'
+        checker_data = 'CITROËN'
+        ch = ReplacementsLinesChecker('', None)
+        att = self._attempt(task_text, checker_data)
+        payload = '{"line_index": 0, "answers": ["citroën"]}'
+        r = ch.check(payload, att)
+        self.assertEqual(r.status, 'Ok')
+
+    def test_accepts_citroen_underscore_slot(self):
+        task_text = '_МАРКА_'
+        checker_data = '_CITROËN_'
+        ch = ReplacementsLinesChecker('', None)
+        att = self._attempt(task_text, checker_data)
+        payload = '{"line_index": 0, "answers": ["CITROËN"]}'
+        r = ch.check(payload, att)
+        self.assertEqual(r.status, 'Ok')
+
+
+class CleanTextLatinDiaeresisTests(SimpleTestCase):
+    def test_citroen_lowercase_stable_for_comparison(self):
+        self.assertEqual(clean_text('CITROËN'), clean_text('citroën'))

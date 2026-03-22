@@ -13,6 +13,7 @@
     </span>
     {% endwith %}
     {% endwith %}
+    {% if task.task_type != 'replacements_lines' %}
     {% with n=ai.get_n_attempts %}
     {% if ai.attempts %}
     <button type="button" class="new-proportions-compact-textbtn new-proportions-compact-textbtn--success" popovertarget="prop-attempts-{{ task.id }}" title="Открыть список отправленных ответов" aria-label="Список попыток: {{ n }}">
@@ -42,6 +43,7 @@
     </span>
     {% endif %}
     {% endwith %}
+    {% endif %}
   </div>
   <span class="new-proportions-compact-bar__fill" aria-hidden="true"></span>
   {% if task.get_hints %}
