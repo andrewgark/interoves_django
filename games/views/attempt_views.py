@@ -76,7 +76,13 @@ def check_attempt(attempt):
         # Для нового типа задания всегда используем свой чекер,
         # чтобы не зависеть от настроек в админке/дефолтов.
         checker_type = CheckerType.objects.get(id='replacements_lines')
-    checker = CheckerFactory().create_checker(checker_type, task.checker_data, last_attempt_state)
+    checker_data = task.checker_data or ''
+    # equals / equals_with_possible_spaces читают эталон из checker_data; для «Пропорций»
+    # и обычных заданий ответ часто задают только в answer — тогда дублируем его сюда.
+    if checker_type.id in ('equals', 'equals_with_possible_spaces'):
+        if not checker_data.strip() and (task.answer or '').strip():
+            checker_data = task.answer
+    checker = CheckerFactory().create_checker(checker_type, checker_data, last_attempt_state)
     check_result = checker.check(attempt.text, attempt)
     attempt.status, attempt.points, attempt.state, attempt.comment = check_result.status, check_result.points, check_result.state, check_result.comment
     if 'tournament' in modes and attempt.status != 'Ok':
@@ -166,7 +172,7 @@ def process_send_attempt(request, task_id):
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
             return NoGameAccessException('User has no access to game {}'.format(game))
 
-    if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint'):
+    if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         form = AttemptForm(request.POST)
         if not form.is_valid():
             return InvalidFormException('attempt form {} is not valid'.format(form))

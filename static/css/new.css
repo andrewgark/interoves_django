@@ -875,29 +875,14 @@ html.new-ui-dark .new-team-switcher-active-box {
   margin-bottom: 0;
 }
 
-.new-taskcard__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
-  flex-wrap: wrap;
+/* Мета-полоса карточки (как в пропорциях): номер, баллы, попытки, подсказки, ответ, лайки */
+.new-taskcard__meta-bar.new-proportions-compact-bar {
+  margin: 0 0 0.6rem;
+  padding: 0.28rem 0.45rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tile) 35%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
   min-width: 0;
-}
-
-.new-taskcard__num {
-  font-weight: 800;
-  color: var(--text);
-  flex-shrink: 0;
-}
-
-.new-taskcard__status {
-  min-width: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  justify-content: flex-end;
 }
 
 .new-taskcard__body {
@@ -1000,15 +985,6 @@ html.new-ui-dark .new-team-switcher-active-box {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-}
-
-.new-task-actions {
-  margin-top: 0.75rem;
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
 }
 
 .new-action-link {
@@ -2363,4 +2339,502 @@ html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-block-with-hint .ym-hint
 html.new-ui-dark body.new-ui .yoomoney-payment-form .ym-block-with-hint .ym-hint:before {
   background: var(--danger) !important;
   color: #fff !important;
+}
+
+/* Пропорции: карточка-лист — overflow не трогаем, иначе ломается sticky у пула */
+.new-card.new-proportions-sheet {
+  overflow: visible;
+}
+
+.new-proportions-matrix-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  margin-top: 0.25rem;
+}
+
+/* Липкий пул объектов под шапкой new-ui */
+.new-proportions-pool-sticky {
+  position: sticky;
+  top: calc(var(--new-ui-scroll-margin-top, 5.5rem) + 0.35rem);
+  z-index: 8;
+  margin: 0 -0.35rem;
+  padding: 0.5rem 0.5rem 0.65rem;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--text) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+html.new-ui-dark .new-proportions-pool-sticky {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Proportions task group: shared pool + two drop slots per task */
+.new-proportions-pool {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--tile));
+  touch-action: manipulation;
+}
+
+.new-proportions-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.2;
+  cursor: grab;
+  user-select: none;
+  max-width: 100%;
+  word-break: break-word;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
+  touch-action: manipulation;
+}
+
+.new-proportions-chip:active {
+  cursor: grabbing;
+}
+
+.new-proportions-chip--picked {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.new-proportions-answer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.new-proportions-slot {
+  flex: 1 1 6rem;
+  min-height: 2.6rem;
+  min-width: 5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.4rem;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--tile));
+  transition: border-color 0.15s ease, background 0.15s ease;
+  touch-action: manipulation;
+}
+
+.new-proportions-slot--filled {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: var(--success-soft-bg);
+}
+
+.new-proportions-slot .new-proportions-chip {
+  width: 100%;
+  text-align: center;
+}
+
+.new-proportions-slash {
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+
+.new-proportions-submit-row {
+  margin-top: 0.75rem;
+}
+
+.new-proportions-submit-row .new-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.new-proportions-touch-hint {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .new-proportions-touch-hint {
+    display: block;
+  }
+}
+
+/* Пропорции: один лист — таблица как у «Замен» (условие | = | слоты) */
+.new-proportions-sheet__intro + .new-login-hint {
+  margin-top: 0.25rem;
+}
+
+.new-proportions-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.35rem;
+  table-layout: fixed;
+}
+
+.new-proportions-matrix tr.new-proportions-matrix__meta-row {
+  vertical-align: top;
+}
+
+.new-proportions-matrix tr.new-proportions-matrix__row {
+  vertical-align: middle;
+}
+
+.new-proportions-matrix tr.new-proportions-matrix__row > td {
+  vertical-align: middle;
+}
+
+.new-proportions-matrix td {
+  padding: 0.35rem 0.45rem;
+  line-height: 1.35;
+  border-bottom: 1px solid var(--border);
+}
+
+.new-proportions-matrix tr:last-child td {
+  border-bottom: none;
+}
+
+.new-proportions-matrix__col--eq {
+  width: 1.85rem;
+}
+
+.new-proportions-matrix__col--submit {
+  width: 2.65rem;
+}
+
+.new-proportions-matrix__col--prompt,
+.new-proportions-matrix__col--slots {
+  width: calc((100% - 1.85rem - 2.65rem) / 2);
+}
+
+.new-proportions-matrix__prompt {
+  word-break: normal;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+.new-proportions-matrix__task-text {
+  text-align: right;
+}
+
+.new-proportions-matrix__task-text > :first-child {
+  margin-top: 0;
+}
+
+.new-proportions-matrix__task-text > :last-child {
+  margin-bottom: 0;
+}
+
+.new-proportions-matrix__prompt--solved {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.new-proportions-matrix__eq {
+  text-align: center;
+  white-space: nowrap;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+}
+
+.new-proportions-matrix__equals {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--muted);
+  line-height: 1;
+  position: relative;
+  top: -0.26em;
+}
+
+.new-proportions-matrix__submit {
+  text-align: center;
+  white-space: nowrap;
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+}
+
+.new-proportions-matrix__submit .new-replacements-check-btn,
+.new-proportions-matrix__submit .new-proportions-matrix__check-done {
+  width: 1.35rem;
+  height: 1.35rem;
+  font-size: 0.82rem;
+  position: relative;
+  top: -0.26em;
+}
+
+.new-proportions-matrix__check-done {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+.new-proportions-matrix__slots-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.new-proportions-matrix__slots-inner .new-proportions-answer-row--matrix {
+  position: relative;
+  top: 0.26em;
+}
+
+.new-proportions-matrix__slots--solved .new-proportions-matrix__slots-inner {
+  justify-content: center;
+  align-items: stretch;
+}
+
+.new-proportions-matrix__slots-inner .new-proportions-matrix__solved-answer {
+  position: relative;
+  top: -0.35em;
+  font-weight: 700;
+  text-align: left;
+  width: 100%;
+  line-height: 1.35;
+}
+
+.new-proportions-matrix__slots--solved {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+
+/* Компактная полоса: номер, попытки, баллы, подсказки, ответ, лайки */
+.new-proportions-matrix__meta-row td,
+.new-proportions-matrix__meta-cell {
+  padding: 0.28rem 0.4rem 0.32rem;
+  border-bottom: none;
+  background: color-mix(in srgb, var(--tile) 35%, var(--surface));
+}
+
+.new-proportions-compact-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.45rem;
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.new-proportions-compact-bar__num {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.new-proportions-compact-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* «ок» в пропорциях: как new-pill, но явный зелёный акцент */
+.new-proportions-compact-badge--ok-strong.new-pill--ok {
+  color: var(--success);
+  border-width: 2px;
+  border-color: var(--success-soft-border);
+  background: var(--success-soft-bg);
+  font-weight: 800;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.55rem;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--success) 22%, transparent);
+}
+
+.new-proportions-compact-points-pill {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.08rem 0.2rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 92%, var(--text));
+  background: color-mix(in srgb, var(--tile) 50%, var(--surface));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent),
+    0 1px 2px color-mix(in srgb, var(--text) 6%, transparent);
+  font-size: 0.78rem;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.new-proportions-compact-stat {
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.new-proportions-compact-points-pill .new-proportions-compact-stat__nums,
+.new-proportions-compact-stat__nums {
+  font-weight: 800;
+}
+
+.new-proportions-compact-stat__sep {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.new-proportions-compact-stat__paren {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.new-proportions-compact-stat--plain {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.new-proportions-attempts-popover {
+  margin: 0 !important;
+  padding: 0.5rem 0.6rem 0.55rem;
+  max-width: min(24rem, calc(100vw - 1rem));
+  max-height: min(70vh, 20rem);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 12px 40px color-mix(in srgb, var(--text) 18%, transparent);
+  position: fixed;
+  inset: auto;
+  width: max-content;
+  min-width: min(12rem, 100vw - 1rem);
+}
+
+.new-proportions-attempts-popover::backdrop {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+html.new-ui-dark .new-proportions-attempts-popover::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.new-proportions-attempts-popover__title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 0 0 0.4rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.new-proportions-attempts-popover__list {
+  margin: 0;
+}
+
+.new-proportions-compact-textbtn {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.1rem 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.78rem;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.new-proportions-compact-textbtn:hover {
+  color: var(--text);
+}
+
+.new-proportions-compact-textbtn--success {
+  color: var(--success);
+  text-decoration-color: color-mix(in srgb, var(--success) 55%, transparent);
+}
+
+.new-proportions-compact-textbtn--success:hover {
+  color: color-mix(in srgb, var(--success) 82%, var(--text));
+  text-decoration-color: color-mix(in srgb, var(--success) 40%, transparent);
+}
+
+.new-like-dislike--compact-bar {
+  margin-left: 0;
+  gap: 0.28rem;
+}
+
+.new-like-dislike--compact-bar .new-likebtn {
+  padding: 0.12rem 0.38rem;
+  font-size: 0.74rem;
+  gap: 0.22rem;
+  border-radius: 999px;
+}
+
+.new-like-dislike--compact-bar .new-likebtn__icon {
+  font-size: 0.8rem;
+}
+
+.new-like-dislike--compact-bar .new-likebtn__count {
+  font-size: 0.74rem;
+}
+
+.new-proportions-compact-bar__fill {
+  flex: 1 1 auto;
+  min-width: 0.25rem;
+}
+
+.new-proportions-compact-img {
+  margin-top: 0.35rem;
+}
+
+.new-proportions-compact-img img {
+  display: block;
+  max-width: 100%;
+  max-height: 5rem;
+  width: auto;
+  height: auto;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.new-hints--compact {
+  margin-top: 0.35rem;
+}
+
+.new-hints--compact .new-hints__body:not([hidden]) {
+  padding: 0.35rem 0;
+}
+
+/* Компактные слоты в строке уравнения */
+.new-proportions-answer-row--matrix.new-proportions-answer-row {
+  margin-top: 0;
+  gap: 0.35rem 0.45rem;
+}
+
+.new-attempt-row--matrix-fallback {
+  margin-top: 0;
+}
+
+.new-proportions-matrix .new-proportions-slot {
+  min-height: 2rem;
+  min-width: 3.5rem;
+  padding: 0.15rem 0.3rem;
+}
+
+.new-proportions-matrix .new-proportions-slash {
+  font-size: 1rem;
+}
+
+tr.new-proportions-matrix__row.is-solved-hidden,
+tr.new-proportions-matrix__meta-row.is-solved-hidden {
+  display: none !important;
 }

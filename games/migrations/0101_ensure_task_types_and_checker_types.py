@@ -11,6 +11,7 @@ IMPLEMENTED_TASK_TYPES = [
     'distribute_to_teams',
     'with_tag',
     'autohint',
+    'proportions',
 ]
 
 # Все типы чекеров из games.check.CheckerFactory

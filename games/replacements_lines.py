@@ -3,6 +3,8 @@
 # Input: текст, где слоты — (1) слова 2+ букв капсом (2+ заглавных букв подряд),
 #                         (2) слова в _таком_ виде.
 # Output (task.checker_data): тот же объём строк, на месте слотов — правильные ответы.
+# Несколько допустимых вариантов в одном слоте: _КАНОН|вариант2|вариант3_
+# (в показе решения — только канон до первого |, без подчёркиваний вокруг слота).
 #
 # Для UI right_tokens хранит не None, а токены:
 #   - {'type': 'text', 'text': '...'}
@@ -46,9 +48,42 @@ def _segments_and_slot_values(line):
     return tokens, slot_values
 
 
+def split_slot_answer_alternatives(content):
+    """Разбор значения слота из checker_data: первая часть — канон (авторский ответ), все части — допустимы при проверке."""
+    if content is None:
+        content = ''
+    parts = [p.strip() for p in str(content).split('|')]
+    parts = [p for p in parts if p]
+    if not parts:
+        return '', ['']
+    return parts[0], parts
+
+
+def canonical_replacements_checker_line(line):
+    """Строка ответа из checker_data без альтернатив после | (для показа решения).
+
+    Слоты _такие_ в выводе не сохраняют подчёркивания — только подставленное слово
+    (как для капс-слотов), чтобы текст читался как готовая фраза.
+    """
+    if not line:
+        return ''
+    slots = _find_slots_in_order(line)
+    out = []
+    pos = 0
+    for start, end, content in slots:
+        if start > pos:
+            out.append(line[pos:start])
+        first, _ = split_slot_answer_alternatives(content)
+        out.append(first)
+        pos = end
+    if pos < len(line):
+        out.append(line[pos:])
+    return ''.join(out)
+
+
 def parse_replacements_lines_text(input_text, answer_text=None):
     if not input_text:
-        return {'left_lines': [], 'right_tokens': [], 'answers': []}
+        return {'left_lines': [], 'right_tokens': [], 'answers': [], 'answer_accept': []}
 
     input_lines = [ln.rstrip('\r') for ln in input_text.split('\n')]
     answer_lines = []
@@ -62,6 +97,7 @@ def parse_replacements_lines_text(input_text, answer_text=None):
     left_lines = []
     right_tokens = []
     answers = []
+    answer_accept = []
 
     for i in range(n):
         line = input_lines[i]
@@ -75,10 +111,20 @@ def parse_replacements_lines_text(input_text, answer_text=None):
         if ans_line:
             _, answer_values = _segments_and_slot_values(ans_line)
             if len(answer_values) >= n_slots:
-                answers.append(answer_values[:n_slots])
+                raw_slots = answer_values[:n_slots]
             else:
-                answers.append(answer_values + hint_values[len(answer_values):])
+                raw_slots = answer_values + hint_values[len(answer_values):]
         else:
-            answers.append(hint_values)  # fallback: подсказки как "ответы" для отображения
+            raw_slots = hint_values  # fallback: подсказки как "ответы" для отображения
 
-    return {'left_lines': left_lines, 'right_tokens': right_tokens, 'answers': answers}
+        line_canon = []
+        line_accept = []
+        for k in range(n_slots):
+            raw = raw_slots[k] if k < len(raw_slots) else hint_values[k]
+            canon, opts = split_slot_answer_alternatives(raw)
+            line_canon.append(canon)
+            line_accept.append(opts)
+        answers.append(line_canon)
+        answer_accept.append(line_accept)
+
+    return {'left_lines': left_lines, 'right_tokens': right_tokens, 'answers': answers, 'answer_accept': answer_accept}

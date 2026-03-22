@@ -164,13 +164,17 @@
 </div>
 {% endif %}
 
-{% if task_group.text %}
+{% if task_group.view == 'proportions' %}
+  {% include "new/task-content/task-proportions-sheet.html" %}
+{% elif task_group.text %}
 <div class="new-card">
   {% autoescape off %}{{ task_group.text }}{% endautoescape %}
 </div>
 {% endif %}
 
+{% if task_group.view != 'proportions' %}
 <h2 class="new-heading">Задания</h2>
+{% endif %}
 
 {% if section_tutorial_html or show_palindrome_rules or section_rules_type or task_group.rules %}
 <script>
@@ -210,97 +214,41 @@
 
 <div class="new-taskgrid {% if task_group.view == 'table-3-n' %}new-taskgrid--3{% elif task_group.view == 'table-4-n' %}new-taskgrid--4{% endif %}">
 {% for task in tasks %}
+  {% if task_group.view == 'proportions' and task.task_type == 'proportions' %}
+  {% else %}
   {% with ai=attempts_info_by_task_id|get_item:task.id %}
   <div class="new-taskcard" id="new-task-{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}">
-    <div class="new-taskcard__head">
-      <div class="new-taskcard__num">{{ task.number }}.</div>
-      <div class="new-taskcard__status">
-        {% if ai.is_solved %}
-          <span class="new-pill new-pill--ok">Решено</span>
-        {% else %}
-          <span class="new-pill">Попытка {{ ai.get_n_attempts|get_new_attempt_number }}{% if mode == 'tournament' %}/{{ task.get_max_attempts }}{% endif %}</span>
-        {% endif %}
-        {% if task.task_type == 'replacements_lines' %}
-          {% with rld=replacements_lines_data|get_item:task.id %}
-            {% if rld %}
-              {% with base_max=rld.max_points_total %}
-                {% if ai.get_sum_hint_penalty %}
-                  <span class="new-pill">Макс. <span class="new-max-points new-max-points--reduced">{{ base_max|sub_clamp0:ai.get_sum_hint_penalty|minimize_digits }}/{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}</span>
-                {% else %}
-                  <span class="new-pill">Макс. {{ base_max|minimize_digits }} {{ base_max|ru_points_word }}</span>
-                {% endif %}
-              {% endwith %}
-            {% else %}
-              {% with base_max=task.get_points %}
-                {% if ai.get_sum_hint_penalty %}
-                  <span class="new-pill">Макс. <span class="new-max-points new-max-points--reduced">{{ base_max|sub_clamp0:ai.get_sum_hint_penalty|minimize_digits }}/{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}</span>
-                {% else %}
-                  <span class="new-pill">Макс. {{ base_max|minimize_digits }} {{ base_max|ru_points_word }}</span>
-                {% endif %}
-              {% endwith %}
-            {% endif %}
-          {% endwith %}
-        {% elif task.task_type == 'wall' %}
-          {% with mp=wall_max_points_meta_by_task_id|get_item:task.id %}
-            {% if mp %}
-              {% with base_max=mp.total %}
-                {% if ai.get_sum_hint_penalty %}
-                  <span class="new-pill" title="{{ mp.title }}">Макс. <span class="new-max-points new-max-points--reduced">{{ base_max|sub_clamp0:ai.get_sum_hint_penalty|minimize_digits }}/{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}</span>
-                {% else %}
-                  <span class="new-pill" title="{{ mp.title }}">Макс. {{ base_max|minimize_digits }} {{ base_max|ru_points_word }}</span>
-                {% endif %}
-              {% endwith %}
-            {% else %}
-              {% with base_max=task.get_points %}
-                {% if ai.get_sum_hint_penalty %}
-                  <span class="new-pill">Макс. <span class="new-max-points new-max-points--reduced">{{ base_max|sub_clamp0:ai.get_sum_hint_penalty|minimize_digits }}/{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}</span>
-                {% else %}
-                  <span class="new-pill">Макс. {{ base_max|minimize_digits }} {{ base_max|ru_points_word }}</span>
-                {% endif %}
-              {% endwith %}
-            {% endif %}
+    {% if task.task_type == 'replacements_lines' %}
+      {% with rld=replacements_lines_data|get_item:task.id %}
+        {% if rld %}
+          {% with base_max=rld.max_points_total wall_max_title="" %}
+            {% include "new/task-content/task-meta-bar.html" %}
           {% endwith %}
         {% else %}
-          {% with base_max=task.get_points %}
-            {% if ai.get_sum_hint_penalty %}
-              <span class="new-pill">Макс. <span class="new-max-points new-max-points--reduced">{{ base_max|sub_clamp0:ai.get_sum_hint_penalty|minimize_digits }}/{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}</span>
-            {% else %}
-              <span class="new-pill">Макс. {{ base_max|minimize_digits }} {{ base_max|ru_points_word }}</span>
-            {% endif %}
+          {% with base_max=task.get_points wall_max_title="" %}
+            {% include "new/task-content/task-meta-bar.html" %}
           {% endwith %}
         {% endif %}
-      </div>
-    </div>
+      {% endwith %}
+    {% elif task.task_type == 'wall' %}
+      {% with mp=wall_max_points_meta_by_task_id|get_item:task.id %}
+        {% if mp %}
+          {% with base_max=mp.total wall_max_title=mp.title %}
+            {% include "new/task-content/task-meta-bar.html" %}
+          {% endwith %}
+        {% else %}
+          {% with base_max=task.get_points wall_max_title="" %}
+            {% include "new/task-content/task-meta-bar.html" %}
+          {% endwith %}
+        {% endif %}
+      {% endwith %}
+    {% else %}
+      {% with base_max=task.get_points wall_max_title="" %}
+        {% include "new/task-content/task-meta-bar.html" %}
+      {% endwith %}
+    {% endif %}
 
     <div class="new-taskcard__body">
-      {% if ai.best_attempt %}
-        <div class="new-taskcard__points">
-          <span class="new-attempts__points">{{ ai.get_result_points|minimize_digits }} {{ ai.get_result_points|ru_points_word }}</span>
-          {% if ai.get_sum_hint_penalty %}
-            <span class="new-taskcard__penalty">(штраф за подсказки: -{{ ai.get_sum_hint_penalty|minimize_digits }})</span>
-          {% endif %}
-        </div>
-      {% endif %}
-      {% if ai.attempts %}
-        <details class="new-attempts">
-          <summary class="new-attempts__summary">Попытки ({{ ai.get_n_attempts }})</summary>
-          <div class="new-attempts__list">
-            {% for a in ai.attempts %}
-              <div class="new-attempts__row">
-                <div class="new-attempts__meta">
-                  <span class="new-pill {% if a.status == 'Ok' %}new-pill--ok{% endif %}">
-                    {% if a.status == 'Ok' %}Верно{% elif a.status == 'Wrong' %}Неверно{% elif a.status == 'Partial' %}Частично{% elif a.status == 'Pending' %}Ожидает{% else %}{{ a.status }}{% endif %}
-                  </span>
-                  <small class="new-task__meta">{{ a.time|date:"d.m H:i" }}</small>
-                  <small class="new-attempts__points">{{ a.points|minimize_digits }} {{ a.points|ru_points_word }}</small>
-                </div>
-                <div class="new-attempts__text">{% autoescape off %}{{ a.get_pretty_text }}{% endautoescape %}</div>
-                {% if a.comment %}<div class="new-attempts__comment">{{ a.comment }}</div>{% endif %}
-              </div>
-            {% endfor %}
-          </div>
-        </details>
-      {% endif %}
       {% if task.task_type == 'wall' %}
         {% with attempts_info=ai task_to_attempts_info=attempts_info_by_task_id wall_new_ui=True %}
           <div class="new-taskcard__text">
@@ -317,6 +265,33 @@
           <p class="new-login-hint" style="margin:0">Ошибка отображения задания (нет данных).</p>
         {% endif %}
         {% endwith %}
+      {% elif task.task_type == 'proportions' %}
+        {% if task.image %}
+          <div class="new-taskcard__img">
+            <img src="{{ task.image.url }}" alt="" width="{{ task.get_image_width }}">
+          </div>
+        {% endif %}
+        <div class="new-taskcard__text">
+          {% autoescape off %}{{ task.text }}{% endautoescape %}
+        </div>
+        {% if ai.is_solved %}
+          <div class="new-taskcard__answer">
+            <strong>Ответ:</strong> {% autoescape off %}{{ task.answer }}{% endautoescape %}
+          </div>
+        {% else %}
+          <p class="new-login-hint" style="margin:0 0 0.5rem">
+            Для перетаскивания объектов у группы заданий в админке выберите вид «Пропорции».
+          </p>
+          <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
+            {% csrf_token %}
+            <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+            <div class="new-attempt-row">
+              {{ task.get_attempt_form.text }}
+              <button type="submit" class="new-btn new-btn--mini">Проверить</button>
+            </div>
+            <div class="new-attempt-msg" aria-live="polite"></div>
+          </form>
+        {% endif %}
       {% elif task.task_type == 'default' or task.task_type == 'autohint' or task.task_type == 'with_tag' or task.task_type == 'distribute_to_teams' %}
         {% if task.image %}
           <div class="new-taskcard__img">
@@ -359,10 +334,7 @@
       {% endif %}
 
       {% if task.get_hints %}
-        <div class="new-hints" id="new-task-hints-{{ task.id }}">
-          <div class="new-hints__title">
-            <button type="button" class="new-action-link" data-hints-toggle data-task-id="{{ task.id }}">Подсказки</button>
-          </div>
+        <div class="new-hints new-hints--compact" id="new-task-hints-{{ task.id }}">
           <div class="new-hints__body" data-hints-body="{{ task.id }}" hidden>
             {% for hint in task.get_hints %}
               <div class="new-hint">
@@ -417,35 +389,10 @@
         </div>
       {% endif %}
 
-      {% if task.task_type == 'wall' or task.task_type == 'default' or task.task_type == 'autohint' or task.task_type == 'with_tag' or task.task_type == 'distribute_to_teams' %}
-        <div class="new-task-actions">
-          <div class="new-task-actions__left">
-            {% if user.is_authenticated and has_profile_user %}
-              {% if mode != 'tournament' or ai.is_solved %}
-                <button type="button" class="new-action-link" data-answer-open data-task-id="{{ task.id }}">Ответ</button>
-              {% endif %}
-            {% endif %}
-          </div>
-
-          {% with lm=likes_meta_by_task_id|get_item:task.id %}
-            {% if lm %}
-            <div class="new-like-dislike" aria-label="Лайки и дизлайки">
-              <button type="button" class="new-likebtn new-likebtn--dislike{% if lm.disliked %} is-active{% endif %}" data-dislike-btn data-task-id="{{ task.id }}" data-disliked="{% if lm.disliked %}1{% else %}0{% endif %}">
-                <span class="new-likebtn__icon"><i class="fa fa-thumbs-down" aria-hidden="true"></i></span>
-                <span class="new-likebtn__count" data-dislike-count="{{ task.id }}">{{ lm.dislikes }}</span>
-              </button>
-              <button type="button" class="new-likebtn new-likebtn--like{% if lm.liked %} is-active{% endif %}" data-like-btn data-task-id="{{ task.id }}" data-liked="{% if lm.liked %}1{% else %}0{% endif %}">
-                <span class="new-likebtn__icon"><i class="fa fa-thumbs-up" aria-hidden="true"></i></span>
-                <span class="new-likebtn__count" data-like-count="{{ task.id }}">{{ lm.likes }}</span>
-              </button>
-            </div>
-            {% endif %}
-          {% endwith %}
-        </div>
-      {% endif %}
     </div>
   </div>
   {% endwith %}
+  {% endif %}
 {% endfor %}
 </div>
 
@@ -497,6 +444,9 @@
     if (form && form.dataset && form.dataset.submitting === '1') return;
     if (form && form.dataset) form.dataset.submitting = '1';
     var submitBtn = form.querySelector('button[type=submit]');
+    if (!submitBtn && form.id) {
+      submitBtn = document.querySelector('button[type="submit"][form="' + form.id + '"]');
+    }
     if (submitBtn) submitBtn.disabled = true;
     var msg = form.querySelector('.new-attempt-msg');
     if (!msg && form.id) {
@@ -574,12 +524,327 @@
       });
   }
 
+  function proportionsChipLabel(slot) {
+    if (!slot) return '';
+    var chip = slot.querySelector('.new-proportions-chip');
+    if (!chip) return '';
+    return (chip.getAttribute('data-label') || chip.textContent || '').trim();
+  }
+  function refreshProportionsSubmit(form) {
+    if (!form || form.getAttribute('data-proportions-form') !== '1') return;
+    var row = form.querySelector('.new-proportions-answer-row');
+    if (!row) return;
+    var left = row.querySelector('[data-side="left"]');
+    var right = row.querySelector('[data-side="right"]');
+    var btn = null;
+    if (form.id) {
+      btn = document.querySelector('button[type="submit"][data-proportions-submit][form="' + form.id + '"]');
+    }
+    if (!btn) btn = form.querySelector('[data-proportions-submit]');
+    if (btn) btn.disabled = !(proportionsChipLabel(left) && proportionsChipLabel(right));
+  }
+  function refreshAllProportionsSubmits() {
+    document.querySelectorAll('form.new-attempt-form[data-proportions-form="1"]').forEach(refreshProportionsSubmit);
+  }
+
   document.querySelectorAll('form.new-attempt-form').forEach(function (form) {
     form.addEventListener('submit', function (e) {
       e.preventDefault();
+      if (form.getAttribute('data-proportions-form') === '1') {
+        var msg = form.querySelector('.new-attempt-msg');
+        var row = form.querySelector('.new-proportions-answer-row');
+        var leftSlot = row && row.querySelector('[data-side="left"]');
+        var rightSlot = row && row.querySelector('[data-side="right"]');
+        var left = proportionsChipLabel(leftSlot);
+        var right = proportionsChipLabel(rightSlot);
+        if (!left || !right) {
+          if (msg) msg.textContent = 'Перетащите объекты в оба поля по бокам от «/».';
+          return;
+        }
+        var hidden = form.querySelector('input.new-proportions-text-input');
+        if (hidden) hidden.value = left + ' / ' + right;
+      }
       postForm(form);
     });
   });
+
+  (function proportionsDragDrop() {
+    var pool = document.getElementById('new-proportions-pool');
+    if (!pool) return;
+
+    var PROPORTIONS_LS = 'interoves_proportions_slots_v1_';
+    var suppressProportionsPersist = false;
+
+    function proportionsLayoutStorageKey() {
+      var root = document.querySelector('.new-proportions-sheet[data-proportions-storage]');
+      if (!root) return null;
+      return root.getAttribute('data-proportions-storage') || null;
+    }
+
+    function readProportionsLayout() {
+      var sk = proportionsLayoutStorageKey();
+      if (!sk) return {};
+      try {
+        var raw = localStorage.getItem(PROPORTIONS_LS + sk);
+        if (!raw) return {};
+        var o = JSON.parse(raw);
+        return o && typeof o === 'object' ? o : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function writeProportionsLayout(layout) {
+      var sk = proportionsLayoutStorageKey();
+      if (!sk) return;
+      try {
+        localStorage.setItem(PROPORTIONS_LS + sk, JSON.stringify(layout || {}));
+      } catch (e) {}
+    }
+
+    function collectProportionsLayout() {
+      var out = {};
+      document.querySelectorAll('form.new-attempt-form[data-proportions-form="1"]').forEach(function (form) {
+        var tid = form.getAttribute('data-task-id');
+        if (!tid) return;
+        var row = form.querySelector('.new-proportions-answer-row');
+        if (!row) return;
+        var leftSlot = row.querySelector('[data-side="left"]');
+        var rightSlot = row.querySelector('[data-side="right"]');
+        var lc = leftSlot && leftSlot.querySelector('.new-proportions-chip');
+        var rc = rightSlot && rightSlot.querySelector('.new-proportions-chip');
+        out[tid] = {
+          left: lc ? lc.getAttribute('data-chip-id') : null,
+          right: rc ? rc.getAttribute('data-chip-id') : null,
+        };
+      });
+      return out;
+    }
+
+    function persistProportionsLayout() {
+      if (suppressProportionsPersist) return;
+      var layout = collectProportionsLayout();
+      var pruned = {};
+      Object.keys(layout).forEach(function (tid) {
+        if (document.querySelector('form.new-attempt-form[data-proportions-form="1"][data-task-id="' + tid + '"]')) {
+          pruned[tid] = layout[tid];
+        }
+      });
+      writeProportionsLayout(pruned);
+    }
+
+    function restoreProportionsLayout() {
+      var layout = readProportionsLayout();
+      if (!layout || !Object.keys(layout).length) return;
+      suppressProportionsPersist = true;
+      try {
+        Object.keys(layout).forEach(function (tid) {
+          var form = document.querySelector('form.new-attempt-form[data-proportions-form="1"][data-task-id="' + tid + '"]');
+          if (!form) return;
+          var row = form.querySelector('.new-proportions-answer-row');
+          if (!row) return;
+          var leftSlot = row.querySelector('[data-side="left"]');
+          var rightSlot = row.querySelector('[data-side="right"]');
+          var spec = layout[tid];
+          if (!spec || typeof spec !== 'object') return;
+          ['left', 'right'].forEach(function (side) {
+            var id = spec[side];
+            if (id === undefined || id === null || id === '') return;
+            var slot = side === 'left' ? leftSlot : rightSlot;
+            if (!slot) return;
+            var chip = document.querySelector('.new-proportions-chip[data-chip-id="' + id + '"]');
+            if (!chip) return;
+            var prev = slot.querySelector('.new-proportions-chip');
+            if (prev && prev !== chip) {
+              pool.appendChild(prev);
+              slot.classList.remove('new-proportions-slot--filled');
+            }
+            if (chip.parentElement && chip.parentElement.classList && chip.parentElement.classList.contains('new-proportions-slot')) {
+              chip.parentElement.classList.remove('new-proportions-slot--filled');
+            }
+            slot.appendChild(chip);
+            slot.classList.add('new-proportions-slot--filled');
+          });
+        });
+      } finally {
+        suppressProportionsPersist = false;
+        persistProportionsLayout();
+      }
+    }
+
+    var useTapPlace = false;
+    try {
+      useTapPlace = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    } catch (err) {
+      useTapPlace = false;
+    }
+
+    var pickedChip = null;
+    function pickChip(chip) {
+      if (pickedChip) pickedChip.classList.remove('new-proportions-chip--picked');
+      pickedChip = chip || null;
+      if (pickedChip) pickedChip.classList.add('new-proportions-chip--picked');
+    }
+
+    function moveChipToContainer(chip, container) {
+      if (!chip || !container) return;
+      var prevSlot = chip.parentElement;
+      if (prevSlot && prevSlot.classList && prevSlot.classList.contains('new-proportions-slot')) {
+        prevSlot.classList.remove('new-proportions-slot--filled');
+      }
+      container.appendChild(chip);
+      if (container.classList && container.classList.contains('new-proportions-slot')) {
+        container.classList.add('new-proportions-slot--filled');
+      }
+      if (pickedChip === chip && container !== pool) pickChip(null);
+      refreshAllProportionsSubmits();
+      persistProportionsLayout();
+    }
+
+    function clearSlotReturnChip(slot) {
+      var chip = slot.querySelector('.new-proportions-chip');
+      if (chip) moveChipToContainer(chip, pool);
+    }
+
+    if (useTapPlace) {
+      document.querySelectorAll('.new-proportions-chip').forEach(function (c) {
+        c.draggable = false;
+      });
+    }
+
+    pool.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+    pool.addEventListener('drop', function (e) {
+      e.preventDefault();
+      var id = e.dataTransfer.getData('text/plain');
+      if (!id) return;
+      var chip = document.querySelector('.new-proportions-chip[data-chip-id="' + id + '"]');
+      if (!chip) return;
+      moveChipToContainer(chip, pool);
+    });
+
+    document.querySelectorAll('.new-proportions-slot[data-proportions-drop="1"]').forEach(function (slot) {
+      slot.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      });
+      slot.addEventListener('drop', function (e) {
+        e.preventDefault();
+        var id = e.dataTransfer.getData('text/plain');
+        if (!id) return;
+        var chip = document.querySelector('.new-proportions-chip[data-chip-id="' + id + '"]');
+        if (!chip) return;
+        clearSlotReturnChip(slot);
+        moveChipToContainer(chip, slot);
+      });
+    });
+
+    document.addEventListener('dragstart', function (e) {
+      var chip = e.target.closest('.new-proportions-chip');
+      if (!chip || chip.draggable === false) return;
+      try {
+        var cid = chip.getAttribute('data-chip-id') || '';
+        e.dataTransfer.setData('text/plain', cid);
+        e.dataTransfer.setData('application/x-interoves-chip-id', cid);
+      } catch (err2) {
+        e.dataTransfer.setData('text/plain', chip.getAttribute('data-chip-id') || '');
+      }
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    document.addEventListener('dragend', function () {
+      refreshAllProportionsSubmits();
+    });
+
+    if (useTapPlace) {
+      pool.addEventListener('click', function (e) {
+        var t = e.target;
+        var chip = t.closest ? t.closest('.new-proportions-chip') : null;
+        if (chip && pool.contains(chip)) {
+          e.preventDefault();
+          if (pickedChip === chip) pickChip(null);
+          else pickChip(chip);
+          return;
+        }
+        if (pickedChip) {
+          e.preventDefault();
+          moveChipToContainer(pickedChip, pool);
+          pickChip(null);
+        }
+      });
+      document.querySelectorAll('.new-proportions-slot[data-proportions-drop="1"]').forEach(function (slot) {
+        slot.addEventListener('click', function (e) {
+          var inner = e.target.closest && e.target.closest('.new-proportions-chip');
+          if (inner) {
+            e.preventDefault();
+            if (pickedChip === inner) pickChip(null);
+            else pickChip(inner);
+            return;
+          }
+          if (!pickedChip) return;
+          e.preventDefault();
+          clearSlotReturnChip(slot);
+          moveChipToContainer(pickedChip, slot);
+          pickChip(null);
+        });
+      });
+    }
+
+    restoreProportionsLayout();
+    refreshAllProportionsSubmits();
+  })();
+
+  (function proportionsAttemptsPopoverPosition() {
+    function anchorForPop(pop) {
+      if (!pop || !pop.id) return null;
+      return document.querySelector('[popovertarget="' + pop.id + '"]');
+    }
+    function place(pop, anchor) {
+      if (!pop || !anchor) return;
+      var pad = 8;
+      var rect = anchor.getBoundingClientRect();
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+      var maxW = Math.min(384, vw - 2 * pad);
+      var maxH = Math.min(Math.floor(vh * 0.58), 360);
+      pop.style.position = 'fixed';
+      pop.style.margin = '0';
+      pop.style.inset = 'auto';
+      pop.style.right = 'auto';
+      pop.style.bottom = 'auto';
+      pop.style.maxWidth = maxW + 'px';
+      pop.style.maxHeight = maxH + 'px';
+      var top = rect.bottom + pad;
+      var left = rect.left;
+      function commit() {
+        var w = pop.offsetWidth || 300;
+        var h = pop.offsetHeight || 200;
+        if (left + w > vw - pad) left = vw - w - pad;
+        if (left < pad) left = pad;
+        if (top + h > vh - pad) top = rect.top - h - pad;
+        if (top < pad) top = pad;
+        pop.style.left = left + 'px';
+        pop.style.top = top + 'px';
+      }
+      requestAnimationFrame(function () {
+        requestAnimationFrame(commit);
+      });
+    }
+    document.querySelectorAll('.new-proportions-attempts-popover').forEach(function (pop) {
+      pop.addEventListener('beforetoggle', function (e) {
+        if (e.newState === 'open') place(pop, anchorForPop(pop));
+      });
+    });
+    window.addEventListener('resize', function () {
+      document.querySelectorAll('.new-proportions-attempts-popover').forEach(function (pop) {
+        try {
+          if (pop.matches(':popover-open')) place(pop, anchorForPop(pop));
+        } catch (err) {}
+      });
+    });
+  })();
 
   document.querySelectorAll('form.new-hint-form').forEach(function (form) {
     form.addEventListener('submit', function (e) {
@@ -627,7 +892,6 @@
         return normNumberString(s);
       }
       if (!isFinite(penalty)) penalty = 0;
-      var maxPill = taskCard ? taskCard.querySelector('.new-taskcard__status .new-pill') : null;
       // We cannot reliably parse base max from DOM; show penalty explicitly and rely on reload to update max.
       box.textContent = 'Макс. балл за задание для вас понизится с ' + fmt(fromVal) + ' до ' + fmt(toVal) + ' (−' + penaltyRaw + ').';
       modal.removeAttribute('hidden');
@@ -846,6 +1110,17 @@
       el.classList.toggle('is-solved-hidden', hide && solved);
       el.classList.remove('is-hidden-row');
     });
+    document.querySelectorAll('tr.new-proportions-matrix__meta-row').forEach(function (meta) {
+      var tid = meta.getAttribute('data-task-id');
+      if (!tid) return;
+      var solved = meta.getAttribute('data-solved') === '1';
+      var eqRow = document.querySelector('tr.new-proportions-matrix__row[data-task-id="' + tid + '"]');
+      [meta, eqRow].forEach(function (tr) {
+        if (!tr) return;
+        tr.classList.toggle('is-solved-hidden', hide && solved);
+        tr.classList.remove('is-hidden-row');
+      });
+    });
     // Second pass: if a whole visual row is solved, remove it completely.
     if (hide && grid && cards.length) {
       var cols = 1;
@@ -891,7 +1166,7 @@
       var body = document.querySelector('[data-hints-body=\"' + taskId + '\"]');
       if (!body) return;
       body.hidden = !body.hidden;
-      btn.textContent = body.hidden ? 'Подсказки' : 'Скрыть подсказки';
+      btn.textContent = body.hidden ? 'подсказки' : 'скрыть подсказки';
     });
   });
 
@@ -911,7 +1186,7 @@
     var btn = document.querySelector('[data-hints-toggle][data-task-id=\"' + taskId + '\"]');
     if (!body) return;
     body.hidden = false;
-    if (btn) btn.textContent = 'Скрыть подсказки';
+    if (btn) btn.textContent = 'скрыть подсказки';
     var hintsRoot = document.getElementById('new-task-hints-' + taskId);
     if (hintsRoot) {
       requestAnimationFrame(function () {

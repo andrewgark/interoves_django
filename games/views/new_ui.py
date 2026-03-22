@@ -46,7 +46,8 @@ from games.models import (
 )
 from games.models import GameResultsSnapshot
 from games.util import clean_text
-from games.replacements_lines import parse_replacements_lines_text
+from games.replacements_lines import canonical_replacements_checker_line, parse_replacements_lines_text
+from games.proportions import build_proportions_chips_for_tasks
 from games.views.main_page import MainPageView
 from games.views.util import effective_play_mode, has_profile, has_team, personal_play_mode_locked
 from games.results_snapshot import snapshot_to_results_context
@@ -836,6 +837,7 @@ def new_task_group_page(request, game_id, task_group_number):
             line_solved = [False] * n_lines
             line_attempts = [0] * n_lines
             answers_by_line = parsed.get('answers', [])
+            accept_by_line = parsed.get('answer_accept') or []
             slot_correct = [
                 [False] * len(answers_by_line[i]) for i in range(n_lines)
             ]
@@ -851,8 +853,14 @@ def new_task_group_page(request, game_id, task_group_number):
                             line_attempts[idx] += 1
                             user_answers = p.get('answers', []) or []
                             correct_answers = answers_by_line[idx] if idx < len(answers_by_line) else []
+                            opts_row = (
+                                accept_by_line[idx]
+                                if idx < len(accept_by_line)
+                                else [[c] for c in correct_answers]
+                            )
                             for j in range(min(len(user_answers), len(correct_answers))):
-                                if clean_text(user_answers[j]) == clean_text(correct_answers[j]):
+                                opts = opts_row[j] if j < len(opts_row) else [correct_answers[j]]
+                                if any(clean_text(user_answers[j]) == clean_text(o) for o in opts):
                                     slot_correct[idx][j] = True
                     except (ValueError, TypeError):
                         pass
@@ -882,12 +890,20 @@ def new_task_group_page(request, game_id, task_group_number):
                 'max_attempts': t.get_max_attempts(),
                 'max_points_total': t.get_points() * n_lines,
             }
+    proportions_chips = []
+    if task_group.view == 'proportions':
+        proportions_chips = build_proportions_chips_for_tasks(tasks)
+        for c in proportions_chips:
+            tid = c.get('task_id')
+            ai = attempts_info_by_task_id.get(tid) if tid is not None else None
+            c['hide_from_pool'] = bool(ai and ai.is_solved())
     return render(request, 'ui/task_group.html', {
         'game': game,
         'task_group': task_group,
         'tasks': tasks,
         'attempts_info_by_task_id': attempts_info_by_task_id,
         'replacements_lines_data': replacements_lines_data,
+        'proportions_chips': proportions_chips,
         'wall_max_points_meta_by_task_id': wall_max_points_meta_by_task_id,
         'likes_meta_by_task_id': likes_meta_by_task_id,
         'can_like': True,
@@ -951,7 +967,15 @@ def new_get_answer(request, task_id):
     if mode != 'general' and not attempts_info.is_solved():
         return JsonResponse({'html': '<div class="new-login-hint">Ответ доступен после верного решения.</div>'})
 
-    html = '<div style="font-weight:700">{}</div>'.format(task.answer or '')
+    if task.task_type == 'replacements_lines':
+        return JsonResponse({
+            'html': (
+                '<div class="new-login-hint">Для замен ответ показывается отдельно по каждой строке '
+                '(кнопка «Ответ» у строки после её решения).</div>'
+            ),
+        })
+
+    html = '<div style="font-weight:700">{}</div>'.format(escape(task.answer or ''))
     return JsonResponse({'html': html})
 
 
@@ -991,9 +1015,10 @@ def new_get_replacements_line_answer(request, task_id, line_index):
     # Для replacements_lines ответы живут в checker_data (output-текст).
     lines = (task.checker_data or '').splitlines()
     try:
-        text = lines[int(line_index)]
+        raw = lines[int(line_index)]
     except Exception:
-        text = ''
+        raw = ''
+    text = canonical_replacements_checker_line(raw)
     if not text.strip():
         return JsonResponse({'html': '<div class="new-login-hint">Нет ответа.</div>'})
     return JsonResponse({'html': '<div style="font-weight:700">{}</div>'.format(escape(text))})

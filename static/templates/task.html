@@ -5,7 +5,7 @@
     {% if task|one_more:team|one_more:mode|task_should_be_hidden:task_to_attempts_info %}
     {% else %}
     {% csrf_token %}
-    {% if task.task_type == 'default' or task.task_type == 'distribute_to_teams' or task.task_type == 'with_tag' or task.task_type == 'autohint' %}
+    {% if task.task_type == 'default' or task.task_type == 'distribute_to_teams' or task.task_type == 'with_tag' or task.task_type == 'autohint' or task.task_type == 'proportions' %}
       {% include "task-content/task-default.html" %}
     {% elif task.task_type == 'wall' %}
       {% include "task-content/task-wall.html" %}

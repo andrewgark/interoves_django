@@ -5,7 +5,7 @@ from decimal import Decimal
 from games.matcher.norm_matcher import NormMatcher
 from games.util import status_key, clean_text
 from games.models import Task, Attempt
-from games.replacements_lines import parse_replacements_lines_text
+from games.replacements_lines import parse_replacements_lines_text, split_slot_answer_alternatives
 from games.wordle import convert_words_wordle, read_wordle_dict, color_tiles
 
 
@@ -490,35 +490,63 @@ class ReplacementsLinesChecker(BaseChecker):
     """Проверяет одну строчку: attempt.text = JSON {"line_index": int, "answers": [str, ...]}."""
 
     def __init__(self, data, last_attempt_state=None):
-        self.lines = []
+        self._raw_checker_data = data or ''
         self.last_state = None
         if last_attempt_state:
             try:
                 self.last_state = json.loads(last_attempt_state)
             except (ValueError, TypeError):
                 self.last_state = None
-        if data and data.strip():
+
+    def _resolve_answer_rows(self, attempt):
+        """(canonical_per_line, accept_lists_per_line) или (None, None) если нечего проверять."""
+        raw = (self._raw_checker_data or '').strip()
+        if raw:
             try:
-                self.lines = json.loads(data).get('lines', [])
+                jl = json.loads(raw).get('lines')
+                if isinstance(jl, list) and jl:
+                    canonical_rows = []
+                    accept_rows = []
+                    for row in jl:
+                        if not isinstance(row, list):
+                            continue
+                        cr, ar = [], []
+                        for cell in row:
+                            cn, opts = split_slot_answer_alternatives(str(cell))
+                            cr.append(cn)
+                            ar.append(opts)
+                        canonical_rows.append(cr)
+                        accept_rows.append(ar)
+                    if canonical_rows:
+                        return canonical_rows, accept_rows
             except (ValueError, TypeError):
-                # В новом формате data может быть просто output-текст по строкам
-                self.lines = []
+                pass
+        task = getattr(attempt, 'task', None) if attempt else None
+        if task and task.text:
+            answer_text = (getattr(task, 'checker_data', None) or '').strip() or None
+            parsed = parse_replacements_lines_text(task.text, answer_text)
+            canonical_rows = parsed.get('answers', [])
+            accept_rows = parsed.get('answer_accept') or []
+            if canonical_rows and not accept_rows:
+                accept_rows = [[[c] for c in row] for row in canonical_rows]
+            if canonical_rows:
+                return canonical_rows, accept_rows
+        return None, None
 
     def check(self, text, attempt):
-        # Если data не содержит JSON lines — берём ответы из task.checker_data (output-текст)
-        if not self.lines and attempt and getattr(attempt, 'task', None) and attempt.task.text:
-            answer_text = (getattr(attempt.task, 'checker_data', None) or '').strip() or None
-            parsed = parse_replacements_lines_text(attempt.task.text, answer_text)
-            self.lines = parsed.get('answers', [])
+        canonical_rows, accept_rows = self._resolve_answer_rows(attempt)
+        if not canonical_rows:
+            return CheckResult('Wrong', 'Pending', 0, comment='Нет данных для проверки')
         try:
             payload = json.loads(text)
             line_index = int(payload.get('line_index', 0))
             user_answers = payload.get('answers', [])
         except (ValueError, TypeError):
             return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат ответа')
-        if line_index < 0 or line_index >= len(self.lines):
+        if line_index < 0 or line_index >= len(canonical_rows):
             return CheckResult('Wrong', 'Pending', 0, comment='Неверный номер строки')
-        correct = self.lines[line_index]
+        correct = canonical_rows[line_index]
+        opts_row = accept_rows[line_index] if line_index < len(accept_rows) else [[c] for c in correct]
         if len(user_answers) != len(correct):
             # Не меняем накопленное состояние
             state = self.last_state or {'solved_lines': [], 'total': 0}
@@ -529,8 +557,8 @@ class ReplacementsLinesChecker(BaseChecker):
             return CheckResult(status, tournament_status, total, state=json.dumps({'solved_lines': sorted(list(solved)), 'total': total}, ensure_ascii=False))
 
         is_correct = True
-        for u, c in zip(user_answers, correct):
-            if clean_text(u) != clean_text(c):
+        for u, opts in zip(user_answers, opts_row):
+            if not any(clean_text(u) == clean_text(o) for o in opts):
                 is_correct = False
                 break
 
@@ -542,7 +570,7 @@ class ReplacementsLinesChecker(BaseChecker):
             solved.add(line_index)
             total += 1
 
-        all_lines = len(self.lines)
+        all_lines = len(canonical_rows)
         if all_lines and len(solved) >= all_lines:
             status = 'Ok'
             tournament_status = 'Ok'

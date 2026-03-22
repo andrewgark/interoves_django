@@ -406,7 +406,8 @@ class TaskGroup(models.Model):
     VIEW_VARIANTS = (
         ('default', 'default'),
         ('table-3-n', 'table-3-n'),
-        ('table-4-n', 'table-4-n')
+        ('table-4-n', 'table-4-n'),
+        ('proportions', 'Пропорции'),
     )
 
     view = models.CharField(default='default', max_length=100, choices=VIEW_VARIANTS)
@@ -446,6 +447,7 @@ class Task(models.Model):
         ('distribute_to_teams', 'distribute_to_teams'),
         ('with_tag', 'with_tag'),
         ('autohint', 'autohint'),
+        ('proportions', 'Пропорции'),
     )
 
     task_type = models.CharField(default='default', max_length=100, choices=TASK_TYPE_VARIANTS)
@@ -792,7 +794,7 @@ class Attempt(models.Model):
     def get_pretty_text(self):
         if self.task is None:
             return 'DELETED TASK'
-        if self.task.task_type in ('default', 'with_tag', 'text_with_forms', 'autohint'):
+        if self.task.task_type in ('default', 'with_tag', 'text_with_forms', 'autohint', 'proportions'):
             return self.text
         if self.task.task_type == 'replacements_lines':
             try:

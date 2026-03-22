@@ -1,0 +1,219 @@
+{% load filters %}
+<div class="new-card new-proportions-sheet" data-proportions-storage="{{ game.id }}_{{ task_group.number }}">
+  {% if task_group.text %}
+  <div class="new-proportions-sheet__intro new-taskcard__text">
+    {% autoescape off %}{{ task_group.text }}{% endautoescape %}
+  </div>
+  {% endif %}
+
+  <div class="new-proportions-pool-sticky">
+    <p class="new-login-hint new-proportions-sheet__pool-lead" style="margin:0.75rem 0 0.5rem">
+      Объекты из всех заданий этой группы. Перетащите их в пару в строке справа (слева и справа от «/»); можно вернуть сюда.
+    </p>
+    <div class="new-proportions-pool" id="new-proportions-pool" data-proportions-pool>
+      {% for chip in proportions_chips %}
+        {% if not chip.hide_from_pool %}
+        <span class="new-proportions-chip" draggable="true" id="new-proportions-chip-{{ chip.id }}" data-chip-id="{{ chip.id }}" data-origin-task-id="{{ chip.task_id }}" data-label="{{ chip.label|escape }}">{{ chip.label }}</span>
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% if not proportions_chips %}
+    <p class="new-login-hint" style="margin:0.35rem 0 0">
+      Пул пуст: для заданий с типом «Пропорции» задайте ответ в админке в виде <code>объект1 / объект2</code>.
+    </p>
+    {% endif %}
+    {% if proportions_chips %}
+    <p class="new-proportions-touch-hint new-login-hint" style="margin:0.5rem 0 0">
+      На сенсорном экране: нажмите объект, затем ячейку слева или справа от «/»; чтобы вернуть в пул — нажмите объект, затем свободное место в области объектов выше.
+    </p>
+    {% endif %}
+  </div>
+
+  <h2 class="new-heading new-proportions-sheet__tasks-heading">Задания</h2>
+
+  <div class="new-proportions-matrix-scroll">
+  <table class="new-proportions-matrix" role="presentation">
+    <colgroup>
+      <col class="new-proportions-matrix__col--prompt">
+      <col class="new-proportions-matrix__col--eq">
+      <col class="new-proportions-matrix__col--submit">
+      <col class="new-proportions-matrix__col--slots">
+    </colgroup>
+    <tbody>
+    {% for task in tasks %}
+      {% if task.task_type == 'proportions' %}
+      {% with ai=attempts_info_by_task_id|get_item:task.id %}
+      <tr class="new-proportions-matrix__meta-row" data-task-id="{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}">
+        <td colspan="4" class="new-proportions-matrix__meta-cell">
+          <div class="new-proportions-compact-bar">
+            <span class="new-proportions-compact-bar__num">{{ task.number }}.</span>
+            <div class="new-proportions-compact-stats">
+              {% if ai.is_solved %}
+              <span class="new-pill new-pill--ok new-proportions-compact-badge--ok-strong" title="Задание решено">ок</span>
+              {% endif %}
+              {% with base_max=task.get_points hp=ai.get_sum_hint_penalty %}
+              {% with max_raw=base_max|sub_clamp0:hp %}
+              <span class="new-proportions-compact-points-pill" title="Начислено сейчас / максимум с учётом подсказок">
+                <span class="new-proportions-compact-stat__paren">(</span><span class="new-proportions-compact-stat__nums">{{ ai.get_result_points|minimize_digits }}</span> {{ ai.get_result_points|ru_points_word }}<span class="new-proportions-compact-stat__sep"> / </span><span class="new-proportions-compact-stat__nums">{{ max_raw|minimize_digits }}</span> {{ max_raw|ru_points_word }}<span class="new-proportions-compact-stat__paren">)</span>
+              </span>
+              {% endwith %}
+              {% endwith %}
+              {% with n=ai.get_n_attempts %}
+              {% if ai.attempts %}
+              <button type="button" class="new-proportions-compact-textbtn new-proportions-compact-textbtn--success" popovertarget="prop-attempts-{{ task.id }}" title="Открыть список отправленных ответов" aria-label="Список попыток: {{ n }}">
+                <span class="new-proportions-compact-stat__paren">(</span>{{ n }} {{ n|ru_attempt_word }}{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }}{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
+              </button>
+              <div id="prop-attempts-{{ task.id }}" popover="auto" class="new-proportions-attempts-popover">
+                <div class="new-proportions-attempts-popover__title">Попытки</div>
+                <div class="new-attempts__list new-proportions-attempts-popover__list">
+                  {% for a in ai.attempts %}
+                  <div class="new-attempts__row">
+                    <div class="new-attempts__meta">
+                      <span class="new-pill {% if a.status == 'Ok' %}new-pill--ok{% endif %}">
+                        {% if a.status == 'Ok' %}✓{% elif a.status == 'Wrong' %}✗{% else %}…{% endif %}
+                      </span>
+                      <small class="new-task__meta">{{ a.time|date:"d.m H:i" }}</small>
+                    </div>
+                    <div class="new-attempts__text">{% autoescape off %}{{ a.get_pretty_text }}{% endautoescape %}</div>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              {% else %}
+              <span class="new-proportions-compact-stat new-proportions-compact-stat--plain" title="Пока без попыток">
+                <span class="new-proportions-compact-stat__paren">(</span>{{ n }} {{ n|ru_attempt_word }}{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }}{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
+              </span>
+              {% endif %}
+              {% endwith %}
+            </div>
+            <span class="new-proportions-compact-bar__fill" aria-hidden="true"></span>
+            {% if task.get_hints %}
+            <button type="button" class="new-proportions-compact-textbtn" data-hints-toggle data-task-id="{{ task.id }}" title="подсказки">подсказки</button>
+            {% endif %}
+            {% if user.is_authenticated and has_profile_user %}
+              {% if mode != 'tournament' or ai.is_solved %}
+              <button type="button" class="new-proportions-compact-textbtn" data-answer-open data-task-id="{{ task.id }}" title="Показать ответ">ответ</button>
+              {% endif %}
+            {% endif %}
+            {% with lm=likes_meta_by_task_id|get_item:task.id %}
+              {% if lm %}
+              <div class="new-like-dislike new-like-dislike--compact-bar" aria-label="Лайки и дизлайки">
+                <button type="button" class="new-likebtn new-likebtn--dislike{% if lm.disliked %} is-active{% endif %}" data-dislike-btn data-task-id="{{ task.id }}" data-disliked="{% if lm.disliked %}1{% else %}0{% endif %}" title="Дизлайк">
+                  <span class="new-likebtn__icon"><i class="fa fa-thumbs-down" aria-hidden="true"></i></span>
+                  <span class="new-likebtn__count" data-dislike-count="{{ task.id }}">{{ lm.dislikes }}</span>
+                </button>
+                <button type="button" class="new-likebtn new-likebtn--like{% if lm.liked %} is-active{% endif %}" data-like-btn data-task-id="{{ task.id }}" data-liked="{% if lm.liked %}1{% else %}0{% endif %}" title="Лайк">
+                  <span class="new-likebtn__icon"><i class="fa fa-thumbs-up" aria-hidden="true"></i></span>
+                  <span class="new-likebtn__count" data-like-count="{{ task.id }}">{{ lm.likes }}</span>
+                </button>
+              </div>
+              {% endif %}
+            {% endwith %}
+          </div>
+          {% if task.image %}
+          <div class="new-proportions-compact-img">
+            <img src="{{ task.image.url }}" alt="" loading="lazy">
+          </div>
+          {% endif %}
+          {% if task.get_hints %}
+          <div class="new-hints new-hints--compact" id="new-task-hints-{{ task.id }}">
+            <div class="new-hints__body" data-hints-body="{{ task.id }}" hidden>
+              {% for hint in task.get_hints %}
+              <div class="new-hint">
+                <div class="new-hint__head">
+                  <strong>#{{ hint.number }}{% if hint.desc %} {{ hint.desc }}{% endif %}</strong>
+                  <span class="new-hint__penalty">−{{ hint.points_penalty|minimize_digits }}</span>
+                </div>
+                {% if ai|hint_was_taken:hint %}
+                  <div class="new-hint__text">{% autoescape off %}{{ hint.text }}{% endautoescape %}</div>
+                {% elif task.task_type == 'autohint' %}
+                  <div class="new-login-hint" style="margin:0.25rem 0 0">(авто)</div>
+                {% else %}
+                  {% if ai|all_not_taken_required_hints:hint %}
+                    <div class="new-login-hint" style="margin:0.25rem 0 0">После {{ ai|all_not_taken_required_hints:hint }}.</div>
+                  {% else %}
+                    <form class="new-hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
+                      {% csrf_token %}
+                      <input type="hidden" name="hint_number" value="{{ hint.number }}">
+                      <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+                      <input type="hidden" name="__ui_hint_penalty" value="{{ hint.points_penalty }}">
+                      <input type="hidden" name="__ui_base_max" value="{{ task.get_points|minimize_digits }}">
+                      <input type="hidden" name="__ui_current_penalty" value="{{ ai.get_sum_hint_penalty|minimize_digits }}">
+                      <button type="submit" class="new-btn new-btn--ghost new-btn--mini">Взять</button>
+                      {% if ai.is_solved %}
+                        <span class="new-hint-safe">безопасно</span>
+                      {% endif %}
+                      <div class="new-attempt-msg" aria-live="polite"></div>
+                    </form>
+                  {% endif %}
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      <tr class="new-proportions-matrix__row {% if ai.is_solved %}new-proportions-matrix__row--solved{% endif %}" id="new-task-{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}" data-task-id="{{ task.id }}">
+        <td class="new-proportions-matrix__prompt {% if ai.is_solved %}new-proportions-matrix__prompt--solved{% endif %}">
+          <div class="new-proportions-matrix__task-text new-taskcard__text">
+            {% autoescape off %}{{ task.text }}{% endautoescape %}
+          </div>
+        </td>
+        <td class="new-proportions-matrix__eq">
+          <span class="new-proportions-matrix__equals" aria-hidden="true">=</span>
+        </td>
+        <td class="new-proportions-matrix__submit">
+          {% if ai.is_solved %}
+          <span class="new-replacements-check-btn new-replacements-check-btn--done new-proportions-matrix__check-done" title="Верно">✓</span>
+          {% elif proportions_chips %}
+          <button type="submit" class="new-replacements-check-btn" form="new-proportions-form-{{ task.id }}" data-proportions-submit disabled title="Проверить" aria-label="Проверить задание {{ task.number }}">✓</button>
+          {% else %}
+          <button type="submit" class="new-replacements-check-btn" form="new-proportions-fallback-{{ task.id }}" title="Проверить" aria-label="Проверить задание {{ task.number }}">✓</button>
+          {% endif %}
+        </td>
+        <td class="new-proportions-matrix__slots {% if ai.is_solved %}new-proportions-matrix__slots--solved{% endif %}">
+          <div class="new-proportions-matrix__slots-inner">
+          {% if ai.is_solved %}
+          <div class="new-proportions-matrix__solved-answer">
+            {% autoescape off %}{{ task.answer }}{% endautoescape %}
+          </div>
+          {% elif task_group.view == 'proportions' and proportions_chips %}
+          <form id="new-proportions-form-{{ task.id }}" class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-proportions-form="1">
+            {% csrf_token %}
+            <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+            <input type="hidden" name="text" value="" class="new-proportions-text-input" autocomplete="off">
+            <div class="new-proportions-answer-row new-proportions-answer-row--matrix" data-proportions-task-row="{{ task.id }}">
+              <div class="new-proportions-slot" data-proportions-drop="1" data-side="left" aria-label="Первый объект"></div>
+              <span class="new-proportions-slash" aria-hidden="true">/</span>
+              <div class="new-proportions-slot" data-proportions-drop="1" data-side="right" aria-label="Второй объект"></div>
+            </div>
+            <div class="new-attempt-msg" aria-live="polite"></div>
+          </form>
+          {% else %}
+          <p class="new-login-hint" style="margin:0 0 0.35rem;font-size:0.8rem">
+            {% if task_group.view != 'proportions' %}
+              Вид группы «Пропорции» в админке.
+            {% else %}
+              Нет пула — ввод текста.
+            {% endif %}
+          </p>
+          <form id="new-proportions-fallback-{{ task.id }}" class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
+            {% csrf_token %}
+            <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+            <div class="new-attempt-row new-attempt-row--matrix-fallback">
+              {{ task.get_attempt_form.text }}
+            </div>
+            <div class="new-attempt-msg" aria-live="polite"></div>
+          </form>
+          {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endwith %}
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>

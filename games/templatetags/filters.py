@@ -132,6 +132,15 @@ def ru_punkt_word(n):
 
 
 @register.filter
+def ru_attempt_word(n):
+    """1 попытка / 2–4 попытки / 5+ попыток (11–14 — попыток)."""
+    try:
+        return _ru_plural_form_int(int(n), 'попытка', 'попытки', 'попыток')
+    except Exception:
+        return 'попыток'
+
+
+@register.filter
 def ru_iz_punkt_word(n):
     """
     Русское склонение для "из N пунктов" (родительный падеж):
@@ -246,7 +255,7 @@ def get_guessed_tiles(wall, attempts_info):
 
 @register.filter
 def get_show_status(attempt):
-    if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint'):
+    if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         return attempt.status
     elif attempt.task.task_type == 'wall':
         if attempt.status == 'Pending':
@@ -257,7 +266,7 @@ def get_show_status(attempt):
 
 @register.filter
 def get_diff_points(attempt):
-    if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint'):
+    if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         return 0
     elif attempt.task.task_type == 'wall':
         return json.loads(attempt.state)['last_attempt']['points']
