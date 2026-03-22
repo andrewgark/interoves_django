@@ -902,17 +902,20 @@
     el.addEventListener('click', closeHintConfirm);
   });
 
-  (function replacementsLinesStorage() {
+  function initReplacementsLinesStorage(root) {
+    var scope = root || document;
     var STORAGE_PREFIX = 'replacements_lines_';
     function key(taskId, lineIndex) {
       return STORAGE_PREFIX + taskId + '_' + lineIndex;
     }
-    document.querySelectorAll('form.new-replacements-line-form').forEach(function (form) {
+    scope.querySelectorAll('form.new-replacements-line-form').forEach(function (form) {
+      if (form.getAttribute('data-repl-lines-storage-bound') === '1') return;
+      form.setAttribute('data-repl-lines-storage-bound', '1');
       var taskId = form.getAttribute('data-task-id');
       var lineIndex = form.getAttribute('data-line-index');
       if (!taskId || lineIndex === null) return;
       var inputs = form.id
-        ? document.querySelectorAll('input.new-replacements-input[form="' + form.id + '"]')
+        ? scope.querySelectorAll('input.new-replacements-input[form="' + form.id + '"]')
         : form.querySelectorAll('input.new-replacements-input');
       try {
         var saved = localStorage.getItem(key(taskId, lineIndex));
@@ -945,7 +948,8 @@
         inp.addEventListener('change', save);
       });
     });
-  })();
+  }
+  initReplacementsLinesStorage(document);
 
   function openAnswer(html) {
     var answerModal = document.getElementById('new-answer-modal');
@@ -1141,6 +1145,8 @@
       var el = document.getElementById('new-task-' + tid);
       if (!el || !html) return;
       el.outerHTML = html;
+      var fresh = document.getElementById('new-task-' + tid);
+      if (fresh) initReplacementsLinesStorage(fresh);
     });
     document.querySelectorAll('input.new-anon-key-field').forEach(function (inp) {
       try { inp.value = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
