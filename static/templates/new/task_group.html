@@ -418,6 +418,27 @@
   </div>
 </div>
 
+<div id="new-repl-line-confirm-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-repl-line-confirm-title" aria-describedby="new-repl-line-confirm-preview-block" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-repl-line-confirm-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-repl-line-confirm-close>×</button>
+    <h2 id="new-repl-line-confirm-title" class="pal-title">Отправить строку?</h2>
+    <p class="new-login-hint" style="margin:0.5rem 0 0">Сейчас будет отправлена <strong>вся строка целиком</strong>. Если заполнены не все поля, пустые уйдут как пустые ответы. Продолжить?</p>
+    <div id="new-repl-line-confirm-preview-block" class="new-login-hint" style="margin:0.65rem 0 0">
+      <span style="display:block;font-size:0.8rem;color:var(--muted, inherit);margin-bottom:0.25rem">Будет отправлено:</span>
+      <div id="new-repl-line-confirm-preview" style="font-weight:600;word-break:break-word;line-height:1.45;white-space:pre-wrap"></div>
+    </div>
+    <label class="new-repl-line-confirm-dont-show" for="new-repl-line-confirm-dont-show-input" style="display:flex; align-items:flex-start; gap:0.45rem; margin:0.75rem 0 0; cursor:pointer; font-size:0.92rem; color:var(--muted, inherit)">
+      <input type="checkbox" id="new-repl-line-confirm-dont-show-input" data-repl-line-confirm-dont-show autocomplete="off" />
+      <span>Больше не показывать</span>
+    </label>
+    <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1rem">
+      <button type="button" class="new-btn" data-repl-line-confirm-yes>Отправить</button>
+      <button type="button" class="new-btn new-btn--ghost" data-repl-line-confirm-close>Отмена</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';
@@ -547,9 +568,102 @@
     document.querySelectorAll('form.new-attempt-form[data-proportions-form="1"]').forEach(refreshProportionsSubmit);
   }
 
+  var REPL_LINE_CONFIRM_SKIP_KEY = 'interoves_repl_line_confirm_skip';
+  var pendingReplLineForm = null;
+  function buildReplacementsLinePreviewFromForm(form) {
+    var row = form && form.closest ? form.closest('tr') : null;
+    if (!row) return '';
+    var container = row.querySelector('.new-replacements-line__inputs');
+    if (!container) return '';
+    var parts = [];
+    var children = container.children;
+    for (var i = 0; i < children.length; i++) {
+      var el = children[i];
+      if (el.classList && el.classList.contains('new-replacements-static')) {
+        parts.push(el.textContent || '');
+      } else if (el.classList && el.classList.contains('new-replacements-partial-answer')) {
+        parts.push(el.textContent || '');
+      } else if (el.tagName === 'INPUT' && el.name === 'answers[]') {
+        if (el.type === 'hidden') continue;
+        parts.push(el.value || '');
+      }
+    }
+    return parts.join('');
+  }
+  function closeReplLineConfirmModal() {
+    var modal = document.getElementById('new-repl-line-confirm-modal');
+    pendingReplLineForm = null;
+    if (!modal) return;
+    modal.setAttribute('hidden', '');
+    modal.classList.remove('is-open');
+    document.body.style.overflow = '';
+  }
+  function openReplLineConfirmModal(form) {
+    var modal = document.getElementById('new-repl-line-confirm-modal');
+    if (!modal) return;
+    pendingReplLineForm = form;
+    var previewEl = document.getElementById('new-repl-line-confirm-preview');
+    if (previewEl) {
+      var line = buildReplacementsLinePreviewFromForm(form);
+      previewEl.textContent = line.length ? line : '—';
+    }
+    var dontShow = modal.querySelector('[data-repl-line-confirm-dont-show]');
+    if (dontShow) dontShow.checked = false;
+    modal.removeAttribute('hidden');
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    var yesBtn = modal.querySelector('[data-repl-line-confirm-yes]');
+    if (yesBtn) yesBtn.focus();
+  }
+  function confirmReplLineSubmit() {
+    var form = pendingReplLineForm;
+    var modal = document.getElementById('new-repl-line-confirm-modal');
+    var chk = modal && modal.querySelector('[data-repl-line-confirm-dont-show]');
+    var saveDontShow = chk && chk.checked;
+    closeReplLineConfirmModal();
+    if (saveDontShow) {
+      try {
+        localStorage.setItem(REPL_LINE_CONFIRM_SKIP_KEY, '1');
+      } catch (e) {}
+    }
+    if (!form) return;
+    form.setAttribute('data-repl-line-confirm', '1');
+    form.requestSubmit();
+  }
+  (function replLineConfirmModalUi() {
+    var modal = document.getElementById('new-repl-line-confirm-modal');
+    if (!modal) return;
+    document.querySelectorAll('[data-repl-line-confirm-close]').forEach(function (el) {
+      el.addEventListener('click', closeReplLineConfirmModal);
+    });
+    var yes = modal.querySelector('[data-repl-line-confirm-yes]');
+    if (yes) yes.addEventListener('click', confirmReplLineSubmit);
+    modal.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeReplLineConfirmModal();
+      }
+    });
+  })();
+
   document.querySelectorAll('form.new-attempt-form').forEach(function (form) {
     form.addEventListener('submit', function (e) {
       e.preventDefault();
+      if (form.classList.contains('new-replacements-line-form')) {
+        if (form.getAttribute('data-repl-line-confirm') !== '1') {
+          var skipConfirm = false;
+          try {
+            skipConfirm = localStorage.getItem(REPL_LINE_CONFIRM_SKIP_KEY) === '1';
+          } catch (e) {}
+          if (skipConfirm) {
+            form.setAttribute('data-repl-line-confirm', '1');
+          } else {
+            openReplLineConfirmModal(form);
+            return;
+          }
+        }
+        form.removeAttribute('data-repl-line-confirm');
+      }
       if (form.getAttribute('data-proportions-form') === '1') {
         var msg = form.querySelector('.new-attempt-msg');
         var row = form.querySelector('.new-proportions-answer-row');
