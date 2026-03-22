@@ -7,12 +7,14 @@ cd "$REPO_ROOT"
 if command -v ntpdate >/dev/null 2>&1; then
   sudo ntpdate ntp.ubuntu.com
 fi
-if [[ -f "$REPO_ROOT/use_aws_profile_default.sh" ]]; then
-  # shellcheck source=use_aws_profile_default.sh
-  source "$REPO_ROOT/use_aws_profile_default.sh"
-fi
 EB_BIN="${EB_BIN:-eb}"
-if ! command -v "$EB_BIN" >/dev/null 2>&1 && [[ ! -x "$EB_BIN" ]]; then
+eb_ok=0
+if command -v "$EB_BIN" >/dev/null 2>&1; then
+  eb_ok=1
+elif [[ -x "$EB_BIN" ]]; then
+  eb_ok=1
+fi
+if [[ "$eb_ok" -ne 1 ]]; then
   echo "Elastic Beanstalk CLI not found. Install 'eb' or set EB_BIN to its path." >&2
   exit 1
 fi
