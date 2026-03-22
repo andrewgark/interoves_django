@@ -43,6 +43,8 @@ class ProportionsChipsTest(SimpleTestCase):
         self.assertEqual(len(chips), 2)
         self.assertEqual(chips[0]['label'], 'лев')
         self.assertEqual(chips[1]['label'], 'тигр')
+        self.assertEqual(chips[0]['id'], '20_0')
+        self.assertEqual(chips[1]['id'], '20_1')
         self.assertEqual(chips[0]['task_id'], 20)
         self.assertEqual(chips[1]['task_id'], 20)
 
@@ -53,7 +55,7 @@ class ProportionsChipsTest(SimpleTestCase):
         ]
         chips = build_proportions_chips_for_tasks(tasks)
         self.assertEqual([c['label'] for c in chips], ['a', 'a', 'b', 'b'])
-        self.assertEqual([c['id'] for c in chips], [0, 1, 2, 3])
+        self.assertEqual([c['id'] for c in chips], ['1_0', '2_0', '1_1', '2_1'])
         self.assertEqual([c['task_id'] for c in chips], [1, 2, 1, 2])
 
 

@@ -25,13 +25,12 @@ def parse_proportions_pair(answer):
 
 def build_proportions_chips_for_tasks(tasks):
     """
-    Flat pool: for each proportions-task in order, append left then right label.
-    Then sort all chips alphabetically by label (case-insensitive), reassign ids 0..n-1.
-    Each chip has a unique integer id (drag state / localStorage).
-    task_id — задание, из ответа которого взят объект (два чипа на одно задание).
+    Flat pool: for each proportions-task, left then right label from its answer pair.
+    id стабилен: «{task_pk}_0» / «{task_pk}_1» — не меняется при решении других заданий
+    (раньше были 0..n-1 после сортировки и ломали localStorage / перетаскивание при дубликатах подписей).
+    Порядок в пуле — сортировка по подписи, затем по task_id.
     """
     chips = []
-    idx = 0
     for t in tasks:
         if getattr(t, 'task_type', None) != 'proportions':
             continue
@@ -41,10 +40,11 @@ def build_proportions_chips_for_tasks(tasks):
         task_pk = getattr(t, 'pk', None)
         if task_pk is None:
             task_pk = getattr(t, 'id', None)
-        for label in pair:
-            chips.append({'id': idx, 'label': label, 'task_id': task_pk})
-            idx += 1
-    chips.sort(key=lambda c: (c['label'].lower(), c['id']))
-    for i, c in enumerate(chips):
-        c['id'] = i
+        for side, label in enumerate(pair):
+            chips.append({
+                'id': '{}_{}'.format(task_pk, side),
+                'label': label,
+                'task_id': task_pk,
+            })
+    chips.sort(key=lambda c: (c['label'].lower(), str(c['task_id']), c['id']))
     return chips
