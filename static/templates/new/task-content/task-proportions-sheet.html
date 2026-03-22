@@ -9,7 +9,7 @@
   <div class="new-proportions-pool-sticky">
     <p class="new-login-hint new-proportions-sheet__pool-lead" style="margin:0.75rem 0 0.5rem">
       Список ответов из всех заданий. Перетащите их в ответ слева или справа от «/».
-      <a href="#new-proportions-pool" class="new-proportions-pool-return-link">Можно вернуть сюда</a>.
+      <button type="button" class="new-proportions-pool-return-link" data-proportions-return-all aria-label="Вернуть объекты из нерешённых заданий в пул">Можно вернуть сюда</button>.
     </p>
     <div class="new-proportions-pool" id="new-proportions-pool" data-proportions-pool>
       {% for chip in proportions_chips %}

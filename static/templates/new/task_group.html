@@ -842,6 +842,23 @@
       if (chip) moveChipToContainer(chip, pool);
     }
 
+    function returnAllProportionsChipsToPool() {
+      document.querySelectorAll('form.new-attempt-form[data-proportions-form="1"] .new-proportions-slot').forEach(function (slot) {
+        clearSlotReturnChip(slot);
+      });
+      pickChip(null);
+      refreshAllProportionsSubmits();
+      persistProportionsLayout();
+    }
+
+    var returnAllBtn = document.querySelector('[data-proportions-return-all]');
+    if (returnAllBtn) {
+      returnAllBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        returnAllProportionsChipsToPool();
+      });
+    }
+
     if (useTapPlace) {
       document.querySelectorAll('.new-proportions-chip').forEach(function (c) {
         c.draggable = false;
