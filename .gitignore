@@ -6,6 +6,7 @@ db.sqlite3
 google_token.pickle
 secrets
 .vscode
+.cursor/
 __pycache__
 media
 
