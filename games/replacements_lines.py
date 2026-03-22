@@ -1,8 +1,9 @@
 # Парсинг заданий типа "Замены" (replacements_lines).
 #
 # Input: текст, где слоты — (1) слова из 2+ подряд символов Unicode Lu (ALL CAPS, в т.ч. Ë, Ä, А-Я),
-#                         (2) слова в _таком_ виде.
-# Фрагменты вида _только_цифры_ (например _76_) — не слоты: в тексте показываются как 76.
+#                         (2) любой фрагмент _между подчёркиваниями_, в т.ч. _23_ или _76_.
+# Число без слота: просто 76 в тексте (без _…_). Слева в задании _76_ для читаемости снимаются в 76
+# (см. left_lines), справа слот остаётся отдельным полем ввода.
 # Output (task.checker_data): тот же объём строк, на месте слотов — правильные ответы.
 # Несколько допустимых вариантов в одном слоте: _КАНОН|вариант2|вариант3_
 # (в показе решения — только канон до первого |, без подчёркиваний вокруг слота).
@@ -11,10 +12,11 @@
 #   - {'type': 'text', 'text': '...'}
 #   - {'type': 'slot', 'slot_index': 0..N-1}
 
+import json
 import re
 import unicodedata
 
-# Литеральное число в подчёркиваниях — не слот (отображается без _)
+# Только для колонки «условие» слева: _76_ → 76 (слоты на правой стороне не трогаем).
 _LITERAL_NUMERIC_UNDERSCORE = re.compile(r'_(\d+)_')
 
 # Слот: _непустая_ последовательность_
@@ -60,7 +62,7 @@ _SLOT_CAPS = re.compile(
 
 
 def replacements_strip_literal_numeric_underscores(line):
-    """_76_ → 76; слоты с буквами и _12|34_ не трогаем."""
+    """Только для left_lines: _76_ → 76. _12|34_ и буквенные _КОТ_ не трогаем."""
     if not line:
         return line
     return _LITERAL_NUMERIC_UNDERSCORE.sub(r'\1', line)
@@ -80,7 +82,8 @@ def _find_slots_in_order(line):
 
 
 def _segments_and_slot_values(line):
-    base = replacements_strip_literal_numeric_underscores(line)
+    # Без снятия _цифр_: иначе _23_ не становится отдельным слотом.
+    base = line
     slots = _find_slots_in_order(base)
     tokens = []
     slot_values = []
@@ -108,6 +111,39 @@ def split_slot_answer_alternatives(content):
     return parts[0], parts
 
 
+def parse_replacements_checker_json_lines(checker_data):
+    """
+    checker_data в формате {"lines": [[ячейка, ...], ...]} — как в ReplacementsLinesChecker.
+    Возвращает (canonical_rows, accept_rows) или None, если это не JSON-ответ.
+    Не передавать такой JSON в _segments_and_slot_values: из строки JSON вытаскиваются
+    случайные CAPS-токены (в т.ч. из соседних строк) и ломают ответы по строкам.
+    """
+    raw = (checker_data or '').strip()
+    if not raw:
+        return None
+    try:
+        jl = json.loads(raw).get('lines')
+        if not isinstance(jl, list) or not jl:
+            return None
+        canonical_rows = []
+        accept_rows = []
+        for row in jl:
+            if not isinstance(row, list):
+                continue
+            cr, ar = [], []
+            for cell in row:
+                cn, opts = split_slot_answer_alternatives(str(cell))
+                cr.append(cn)
+                ar.append(opts)
+            canonical_rows.append(cr)
+            accept_rows.append(ar)
+        if not canonical_rows:
+            return None
+        return canonical_rows, accept_rows
+    except (ValueError, TypeError):
+        return None
+
+
 def canonical_replacements_checker_line(line):
     """Строка ответа из checker_data без альтернатив после | (для показа решения).
 
@@ -116,7 +152,7 @@ def canonical_replacements_checker_line(line):
     """
     if not line:
         return ''
-    base = replacements_strip_literal_numeric_underscores(line)
+    base = line
     slots = _find_slots_in_order(base)
     out = []
     pos = 0
@@ -144,6 +180,10 @@ def parse_replacements_lines_text(input_text, answer_text=None):
     while len(answer_lines) < n:
         answer_lines.append('')
 
+    json_lines_data = (
+        parse_replacements_checker_json_lines(answer_text) if answer_text else None
+    )
+
     left_lines = []
     right_tokens = []
     answers = []
@@ -157,23 +197,41 @@ def parse_replacements_lines_text(input_text, answer_text=None):
         right_tokens.append(tokens)
         n_slots = len(hint_values)
 
-        ans_line = answer_lines[i] if i < len(answer_lines) else ''
-        if ans_line:
-            _, answer_values = _segments_and_slot_values(ans_line)
-            if len(answer_values) >= n_slots:
-                raw_slots = answer_values[:n_slots]
-            else:
-                raw_slots = answer_values + hint_values[len(answer_values):]
-        else:
-            raw_slots = hint_values  # fallback: подсказки как "ответы" для отображения
-
         line_canon = []
         line_accept = []
-        for k in range(n_slots):
-            raw = raw_slots[k] if k < len(raw_slots) else hint_values[k]
-            canon, opts = split_slot_answer_alternatives(raw)
-            line_canon.append(canon)
-            line_accept.append(opts)
+
+        if json_lines_data is not None:
+            canonical_rows, json_accept_rows = json_lines_data
+            if i < len(canonical_rows):
+                cr = canonical_rows[i]
+                ar = json_accept_rows[i]
+            else:
+                cr, ar = [], []
+            for k in range(n_slots):
+                if k < len(cr):
+                    line_canon.append(cr[k])
+                    line_accept.append(ar[k])
+                else:
+                    cn, opts = split_slot_answer_alternatives(hint_values[k])
+                    line_canon.append(cn)
+                    line_accept.append(opts)
+        else:
+            ans_line = answer_lines[i] if i < len(answer_lines) else ''
+            if ans_line:
+                _, answer_values = _segments_and_slot_values(ans_line)
+                if len(answer_values) >= n_slots:
+                    raw_slots = answer_values[:n_slots]
+                else:
+                    raw_slots = answer_values + hint_values[len(answer_values):]
+            else:
+                raw_slots = hint_values  # fallback: подсказки как "ответы" для отображения
+
+            for k in range(n_slots):
+                raw = raw_slots[k] if k < len(raw_slots) else hint_values[k]
+                canon, opts = split_slot_answer_alternatives(raw)
+                line_canon.append(canon)
+                line_accept.append(opts)
+
         answers.append(line_canon)
         answer_accept.append(line_accept)
 

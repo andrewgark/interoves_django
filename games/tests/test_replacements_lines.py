@@ -2,8 +2,11 @@ from django.test import SimpleTestCase
 
 from games.check import ReplacementsLinesChecker
 from games.util import clean_text
+import json
+
 from games.replacements_lines import (
     canonical_replacements_checker_line,
+    parse_replacements_checker_json_lines,
     parse_replacements_lines_text,
     replacements_strip_literal_numeric_underscores,
     split_slot_answer_alternatives,
@@ -29,6 +32,34 @@ class CanonicalReplacementsCheckerLineTests(SimpleTestCase):
 
 
 class ParseReplacementsLinesTextTests(SimpleTestCase):
+    def test_json_checker_lines_not_parsed_as_caps_from_whole_blob(self):
+        """JSON checker_data не должен прогоняться через _segments_and_slot_values целиком."""
+        left = (
+            'FAR _23_ - ЖЕЛЕЗНАЯ ПРОМ-ЗОНА из ЕВРОДЫ\n'
+            'SUM _41_ - ИЗВЕСТНАЯ РОК-ГРУППА из КАНАДЫ'
+        )
+        checker = json.dumps(
+            {
+                'lines': [
+                    ['a', 'b', 'c', 'd', 'e', 'f'],
+                    ['x', 'y', 'z', 'w', 'v', 'u'],
+                ]
+            },
+            ensure_ascii=False,
+        )
+        p = parse_replacements_lines_text(left, checker)
+        self.assertEqual(p['answers'][0][0], 'a')
+        self.assertEqual(p['answers'][1][0], 'x')
+        self.assertNotIn('SUM', p['answers'][0])
+
+    def test_parse_replacements_checker_json_lines_matches_checker(self):
+        raw = json.dumps({'lines': [['КОТ|кот']]})
+        pr = parse_replacements_checker_json_lines(raw)
+        self.assertIsNotNone(pr)
+        canon, accept = pr
+        self.assertEqual(canon[0][0], 'КОТ')
+        self.assertEqual(accept[0][0], ['КОТ', 'кот'])
+
     def test_answer_accept_parallel_to_answers(self):
         left = '_X_ _Y_'
         ans = '_A|a_ _B_'
@@ -36,15 +67,24 @@ class ParseReplacementsLinesTextTests(SimpleTestCase):
         self.assertEqual(p['answers'], [['A', 'B']])
         self.assertEqual(p['answer_accept'], [[['A', 'a'], ['B']]])
 
-    def test_numeric_underscore_is_literal_not_slot(self):
+    def test_far_numeric_underscore_is_second_slot(self):
+        left = 'FAR _23_ - ЖЕЛЕЗНАЯ'
+        p = parse_replacements_lines_text(left, '')
+        self.assertEqual(len(p['answers'][0]), 3)
+        self.assertEqual(p['answers'][0][0], 'FAR')
+        self.assertEqual(p['answers'][0][1], '23')
+        self.assertEqual(p['answers'][0][2], 'ЖЕЛЕЗНАЯ')
+
+    def test_numeric_underscore_is_separate_slot_left_still_pretty(self):
         left = 'ПРАВО на СВЯЩЁНА было по _76_ серии.'
         p = parse_replacements_lines_text(left, '')
         self.assertEqual(
             p['left_lines'][0],
             'ПРАВО на СВЯЩЁНА было по 76 серии.',
         )
-        # два капс-слота; _76_ не третий слот
-        self.assertEqual(len(p['answers'][0]), 2)
+        # два капс-слота + _76_ как отдельный слот
+        self.assertEqual(len(p['answers'][0]), 3)
+        self.assertEqual(p['answers'][0][2], '76')
 
 
 class CapsSlotUnicodeTests(SimpleTestCase):

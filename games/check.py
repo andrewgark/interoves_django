@@ -5,7 +5,11 @@ from decimal import Decimal
 from games.matcher.norm_matcher import NormMatcher
 from games.util import status_key, clean_text
 from games.models import Task, Attempt
-from games.replacements_lines import parse_replacements_lines_text, split_slot_answer_alternatives
+from games.replacements_lines import (
+    parse_replacements_checker_json_lines,
+    parse_replacements_lines_text,
+    split_slot_answer_alternatives,
+)
 from games.wordle import convert_words_wordle, read_wordle_dict, color_tiles
 
 
@@ -502,25 +506,9 @@ class ReplacementsLinesChecker(BaseChecker):
         """(canonical_per_line, accept_lists_per_line) или (None, None) если нечего проверять."""
         raw = (self._raw_checker_data or '').strip()
         if raw:
-            try:
-                jl = json.loads(raw).get('lines')
-                if isinstance(jl, list) and jl:
-                    canonical_rows = []
-                    accept_rows = []
-                    for row in jl:
-                        if not isinstance(row, list):
-                            continue
-                        cr, ar = [], []
-                        for cell in row:
-                            cn, opts = split_slot_answer_alternatives(str(cell))
-                            cr.append(cn)
-                            ar.append(opts)
-                        canonical_rows.append(cr)
-                        accept_rows.append(ar)
-                    if canonical_rows:
-                        return canonical_rows, accept_rows
-            except (ValueError, TypeError):
-                pass
+            json_rows = parse_replacements_checker_json_lines(raw)
+            if json_rows:
+                return json_rows
         task = getattr(attempt, 'task', None) if attempt else None
         if task and task.text:
             answer_text = (getattr(task, 'checker_data', None) or '').strip() or None
