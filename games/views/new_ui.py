@@ -523,7 +523,15 @@ def _new_results_compute(game, mode):
         attempts_list = team_to_list_attempts_info.get(participant, [])
         for idx, task in enumerate(tasks_flat):
             ai = attempts_list[idx] if idx < len(attempts_list) else None
-            max_points = _to_float(getattr(task, 'get_points', None)() if hasattr(task, 'get_points') else getattr(task, 'points', 0))
+            max_points = _to_float(
+                task.get_results_max_points()
+                if hasattr(task, 'get_results_max_points')
+                else (
+                    getattr(task, 'get_points', None)()
+                    if hasattr(task, 'get_points')
+                    else getattr(task, 'points', 0)
+                )
+            )
             points = 0.0
             has_attempts = False
             if ai:
@@ -830,7 +838,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 'slot_correct': slot_correct,
                 'n_lines': n_lines,
                 'max_attempts': t.get_max_attempts(),
-                'max_points_total': t.get_points() * n_lines,
+                'max_points_total': t.get_results_max_points(),
             }
     proportions_chips = []
     if task_group.view == 'proportions':

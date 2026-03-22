@@ -244,7 +244,7 @@ def build_results_snapshot_payload(game, mode='tournament'):
             hint_numbers = sorted([ha.hint.number for ha in ai.hint_attempts if ha.is_real_request]) if ai.hint_attempts else []
 
             try:
-                max_points = float(task.get_points())
+                max_points = float(task.get_results_max_points())
             except Exception:
                 max_points = 0.0
             has_attempts = bool(n_attempts) or bool(hint_numbers)

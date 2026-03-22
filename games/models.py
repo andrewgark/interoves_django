@@ -490,6 +490,46 @@ class Task(models.Model):
             return self.task_group.points
         return 0
 
+    def _replacements_lines_n_answer_rows(self):
+        """Число строк ответа (как в ReplacementsLinesChecker._resolve_answer_rows)."""
+        from games.replacements_lines import parse_replacements_checker_json_lines, parse_replacements_lines_text
+
+        raw = (self.checker_data or '').strip()
+        if raw:
+            parsed = parse_replacements_checker_json_lines(raw)
+            if parsed:
+                canonical_rows, _ = parsed
+                return len(canonical_rows)
+        pt = parse_replacements_lines_text(self.text or '', raw or None)
+        return len(pt.get('left_lines') or [])
+
+    def get_results_max_points(self):
+        """
+        Максимум баллов для сравнения в таблице результатов (зелёная ячейка = набрано не меньше этого).
+        Для стены и замен совпадает с тем, как после check_attempt копятся attempt.points
+        (внутренний разбал × множитель задания; для замен — строки × множитель).
+        """
+        mul = self.get_points()
+        try:
+            m = float(mul)
+        except (TypeError, ValueError):
+            m = 0.0
+        if self.task_type == 'wall':
+            try:
+                w = self.get_wall()
+                base = getattr(w, 'max_points', None)
+                if base is not None:
+                    return float(base) * m
+            except Exception:
+                pass
+            return m
+        if self.task_type == 'replacements_lines':
+            n = self._replacements_lines_n_answer_rows()
+            if n > 0:
+                return m * n
+            return m
+        return m
+
     def get_max_attempts(self):
         if self.max_attempts:
             return self.max_attempts
