@@ -201,15 +201,22 @@ class TaskAdmin(admin.ModelAdmin):
 
 def confirm_profile_team_request(modeladmin, request, queryset):
     for profile in queryset:
-        profile.team_on = profile.team_requested
+        if not profile.team_requested:
+            continue
+        team = profile.team_requested
+        mk_primary = profile.join_accept_as_primary
         profile.team_requested = None
-        profile.save()
+        profile.join_accept_as_primary = True
+        profile.save(update_fields=['team_requested', 'join_accept_as_primary'])
+        profile.add_team_membership(team, make_primary=mk_primary)
 
 
 def clear_profile_team(modeladmin, request, queryset):
     for profile in queryset:
+        ProfileTeamMembership.objects.filter(profile=profile).delete()
         profile.team_on = None
         profile.team_requested = None
+        profile.join_accept_as_primary = True
         profile.save()
 
 

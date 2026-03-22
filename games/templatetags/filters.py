@@ -203,6 +203,11 @@ def access_register(game, team):
     return game.has_access('register', team=team)
 
 
+@register.filter
+def access_needs_registration(game):
+    """Турнир с регистрацией, игра ещё не закончилась (не зависит от команды)."""
+    return game.has_access('needs_registration', team=None)
+
 
 @register.filter
 def access_see_results(game, team):

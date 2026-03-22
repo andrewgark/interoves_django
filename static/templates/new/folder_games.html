@@ -7,6 +7,9 @@
   <div class="new-games-list" id="newGamesList" data-total-games="{{ total_games }}" data-games-per-page="{{ games_per_page }}">
     {% include "new/games_list_items.html" with games=games game_list_offset=0 %}
   </div>
+  {% comment %}
+  Кастомный скроллбар списка игр (отключён): вернуть вместе с закомментированным CSS в new.css
+  и блоком JS в конце <script> ниже. Тогда info/loading перенести в колонку справа, id счётчика — newScrollbarInfo.
   <div class="new-smart-scrollbar-container">
     <div class="new-smart-scrollbar" id="newSmartScrollbar">
       <div class="new-smart-scrollbar-track" id="newScrollbarTrack" aria-hidden="true"></div>
@@ -15,9 +18,85 @@
     <div class="new-scrollbar-info" id="newScrollbarInfo">Показано {{ games|length }} из {{ total_games }} игр</div>
     <div class="new-loading" id="newLoading" hidden>Загрузка…</div>
   </div>
+  {% endcomment %}
+  <div class="new-games-list-footer">
+    <div class="new-scrollbar-info" id="newGamesListInfo">Показано {{ games|length }} из {{ total_games }} игр</div>
+    <div class="new-loading" id="newLoading" hidden>Загрузка…</div>
+  </div>
 </div>
 
 <script>
+(function () {
+  var list = document.getElementById('newGamesList');
+  var totalGames = parseInt(list.dataset.totalGames || '0', 10);
+  var perPage = parseInt(list.dataset.gamesPerPage || '20', 10);
+  var totalPages = Math.max(1, Math.ceil(totalGames / perPage));
+  var currentPage = 1;
+  var loadedPages = new Set([1]);
+  var isLoading = false;
+
+  var info = document.getElementById('newGamesListInfo');
+  var loading = document.getElementById('newLoading');
+
+  function showLoading() { isLoading = true; if (loading) loading.hidden = false; }
+  function hideLoading() { isLoading = false; if (loading) loading.hidden = true; }
+
+  function updateLoadedInfo() {
+    var loaded = Math.min(currentPage * perPage, totalGames);
+    if (info) info.textContent = 'Показано ' + loaded + ' из ' + totalGames + ' игр';
+  }
+
+  var scrollRaf = null;
+  function onWindowScroll() {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(function () {
+      scrollRaf = null;
+      loadNextIfNeeded();
+    });
+  }
+
+  async function loadPage(page) {
+    if (loadedPages.has(page)) return;
+    showLoading();
+    try {
+      var r = await fetch(window.location.pathname + '?page=' + page, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+      var data = await r.json();
+      if (data.games_html) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = data.games_html;
+        var newImgs = tmp.querySelectorAll('img[src]');
+        for (var i = 0; i < newImgs.length; i++) {
+          try {
+            newImgs[i].setAttribute('loading', 'eager');
+            var pre = new Image();
+            pre.src = newImgs[i].currentSrc || newImgs[i].src;
+          } catch (e) {}
+        }
+        while (tmp.firstChild) list.appendChild(tmp.firstChild);
+        loadedPages.add(page);
+      }
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function loadNextIfNeeded() {
+    if (isLoading || currentPage >= totalPages) return;
+    var nearBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 500;
+    if (!nearBottom) return;
+    await loadPage(currentPage + 1);
+    currentPage += 1;
+    updateLoadedInfo();
+  }
+
+  updateLoadedInfo();
+  window.addEventListener('scroll', onWindowScroll, { passive: true });
+})();
+
+/*
+ * Кастомный скроллбар (отключён): раскомментировать разметку колонки скролла (блок comment/endcomment выше), CSS в new.css,
+ * заменить активный IIFE на скрипт ниже; убрать .new-games-list-footer или оставить только loading в колонке.
+ *
 (function () {
   var list = document.getElementById('newGamesList');
   var totalGames = parseInt(list.dataset.totalGames || '0', 10);
@@ -41,10 +120,6 @@
     if (info) info.textContent = 'Показано ' + loaded + ' из ' + totalGames + ' игр';
   }
 
-  /**
-   * Доля прокрутки среди ВСЕХ игр (по индексу карточки у верхней части экрана),
-   * а не только среди уже подгруженных в DOM (иначе середина скроллбара «врёт»).
-   */
   function getProgressAmongAllGames() {
     if (totalGames <= 1) return 0;
     var cards = list.querySelectorAll('.new-game-card[data-game-list-index]');
@@ -71,11 +146,9 @@
   function pctAlongBarToGameIndex(pct) {
     if (totalGames <= 1) return 0;
     pct = Math.max(0, Math.min(1, pct));
-    /* Середина полосы ≈ середина списка: ceil(pct*N)-1 (а не страница из totalPages). */
     return Math.max(0, Math.min(totalGames - 1, Math.ceil(pct * totalGames) - 1));
   }
 
-  /** Ползунок и заливка трека по позиции среди всех игр. */
   function syncScrollThumb() {
     if (!scrollbar || !thumb || !track) return;
     var h = scrollbar.getBoundingClientRect().height || 0;
@@ -106,8 +179,6 @@
       if (data.games_html) {
         var tmp = document.createElement('div');
         tmp.innerHTML = data.games_html;
-        // Prefetch images for newly appended cards.
-        // Some browsers heuristically defer offscreen image loads; this makes scroll UX stable.
         var newImgs = tmp.querySelectorAll('img[src]');
         for (var i = 0; i < newImgs.length; i++) {
           try {
@@ -150,7 +221,6 @@
     });
   }
 
-  // Vertical scrollbar interactions
   if (scrollbar && thumb) {
     scrollbar.addEventListener('click', function (e) {
       if (isLoading) return;
@@ -180,6 +250,7 @@
     syncScrollThumb();
   });
 })();
+ */
 </script>
 
 <p style="margin-top:2rem"><a href="{% url 'new_hub' %}" class="new-btn new-btn--ghost">← Игры</a></p>

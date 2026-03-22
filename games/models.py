@@ -73,10 +73,15 @@ class Team(models.Model):
         return self.visible_name
     
     def get_n_users_on(self):
-        return len(self.users_on.all())
-    
+        return self.member_links.count()
+
     def get_n_users_requested(self):
         return len(self.users_requested.all())
+
+    @property
+    def roster_profiles(self):
+        """Все участники команды (многокомандность через ProfileTeamMembership)."""
+        return Profile.objects.filter(team_memberships__team=self).select_related('user').order_by('pk')
 
     def get_team_reg_number(self, game):
         regs = [reg for reg in Registration.objects.filter(game=game) if not reg.team.is_hidden]
@@ -159,6 +164,21 @@ class PersonalResultsParticipant:
         return hash(('PersonalResultsParticipant', 'a', self.anon_key))
 
 
+class ProfileTeamMembership(models.Model):
+    """Участие профиля в команде (полный состав). Активная команда для игр — Profile.team_on."""
+
+    profile = models.ForeignKey('Profile', related_name='team_memberships', on_delete=models.CASCADE)
+    team = models.ForeignKey(Team, related_name='member_links', on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=('profile', 'team'), name='games_profileteammembership_uniq_profile_team'),
+        ]
+
+    def __str__(self):
+        return '{} @ {}'.format(self.profile, self.team)
+
+
 class Profile(models.Model):
     user = models.OneToOneField(User, related_name='profile', primary_key=True, on_delete=models.CASCADE)
     first_name = models.TextField()
@@ -167,11 +187,79 @@ class Profile(models.Model):
     timezone = models.CharField(max_length=64, default='Europe/Moscow')
     vk_url = models.TextField(blank=True, null=True)
     email = models.TextField(blank=True, null=True)
-    team_on = models.ForeignKey(Team, related_name='users_on', blank=True, null=True, on_delete=models.SET_NULL)
+    team_on = models.ForeignKey(
+        Team, related_name='primary_profiles', blank=True, null=True, on_delete=models.SET_NULL
+    )
     team_requested = models.ForeignKey(Team, related_name='users_requested', blank=True, null=True, on_delete=models.SET_NULL)
+    # При подаче заявки в команду: сделать принятую команду активной (учитывается в confirm).
+    join_accept_as_primary = models.BooleanField(default=True)
 
     def __str__(self):
         return self.first_name + ' ' + self.last_name
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.team_on_id:
+            ProfileTeamMembership.objects.get_or_create(profile=self, team_id=self.team_on_id)
+
+    def repair_primary_team(self):
+        """Есть членства, но team_on пустой или не из списка — выставить детерминированно."""
+        ids = list(ProfileTeamMembership.objects.filter(profile=self).values_list('team_id', flat=True))
+        if not ids:
+            if self.team_on_id is not None:
+                Profile.objects.filter(pk=self.pk).update(team_on=None)
+                self.team_on_id = None
+            return
+        id_set = frozenset(ids)
+        if self.team_on_id is None or self.team_on_id not in id_set:
+            chosen = sorted(id_set)[0]
+            Profile.objects.filter(pk=self.pk).update(team_on_id=chosen)
+            self.team_on_id = chosen
+
+    def sync_membership_for_team_on(self):
+        """Если задана активная команда — гарантировать строку членства (админка, миграции)."""
+        if self.team_on_id:
+            ProfileTeamMembership.objects.get_or_create(profile=self, team_id=self.team_on_id)
+
+    def add_team_membership(self, team, *, make_primary=False):
+        from django.db import transaction
+        with transaction.atomic():
+            ProfileTeamMembership.objects.get_or_create(profile=self, team=team)
+            if make_primary or not self.team_on_id:
+                Profile.objects.filter(pk=self.pk).update(team_on=team)
+                self.team_on_id = team.pk
+
+    def remove_team_membership(self, team):
+        from django.db import transaction
+        with transaction.atomic():
+            ProfileTeamMembership.objects.filter(profile=self, team=team).delete()
+            next_id = (
+                ProfileTeamMembership.objects.filter(profile=self)
+                .order_by('team_id')
+                .values_list('team_id', flat=True)
+                .first()
+            )
+            Profile.objects.filter(pk=self.pk).update(team_on_id=next_id)
+            self.team_on_id = next_id
+
+    def set_primary_team(self, team):
+        if not ProfileTeamMembership.objects.filter(profile=self, team=team).exists():
+            return False
+        if self.team_on_id != team.pk:
+            Profile.objects.filter(pk=self.pk).update(team_on=team)
+            self.team_on_id = team.pk
+        return True
+
+    def other_member_teams(self):
+        """Команды членства кроме активной (для UI «второстепенных»)."""
+        if not self.team_on_id:
+            return Team.objects.filter(member_links__profile=self).order_by('visible_name', 'name').distinct()
+        return (
+            Team.objects.filter(member_links__profile=self)
+            .exclude(pk=self.team_on_id)
+            .order_by('visible_name', 'name')
+            .distinct()
+        )
 
 
 class HTMLPage(models.Model):

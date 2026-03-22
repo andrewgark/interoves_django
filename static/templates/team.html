@@ -23,9 +23,9 @@
           {% endif %}
           <p>Состав моей команды:</p>
           <ul class="list-rectangle team-on-list">
-            {% for team_member in user.profile.team_on.users_on.all %}
+            {% for team_member in user.profile.team_on.roster_profiles %}
               <li>{{ team_member }}
-                <a href="/kick_out_user/{{ team_member.user.id }}" next="{{ request.path }}" class="btn btn-custom btn-custom-sm btn-sm page-scroll">-</a>    
+                <a href="/kick_out_user/{{ team_member.user.id }}/?team={{ user.profile.team_on.pk }}" next="{{ request.path }}" class="btn btn-custom btn-custom-sm btn-sm page-scroll">-</a>    
               </li>
             {% endfor %}
           </ul>
@@ -47,10 +47,10 @@
         {% elif user.profile.team_requested  %}
           <h2>Вы подали заявку в команду: <b>{{ user.profile.team_requested }}</b></h2>
           <p>Чтобы участвовать в играх, необходимо иметь команду.</p>
-          {% if user.profile.team_requested.users_on.all %}
+          {% if user.profile.team_requested.roster_profiles %}
             <p>Состав этой команды:</p>
             <ul class="list-rectangle team-on-list">
-              {% for team_member in user.profile.team_requested.users_on.all %}
+              {% for team_member in user.profile.team_requested.roster_profiles %}
                 <li>{{ team_member }}</li>
               {% endfor %}
             </ul>

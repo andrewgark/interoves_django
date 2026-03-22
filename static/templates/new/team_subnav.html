@@ -1,0 +1,6 @@
+{# Ожидает в контексте: team_section — 'hub' | 'create' | 'join' #}
+<nav class="new-team-switch new-team-subnav" role="navigation" aria-label="Разделы команды" style="margin-bottom:1.25rem">
+  <a href="{% url 'new_team' %}" class="new-switchbtn{% if team_section == 'hub' %} is-active{% endif %}">Мои команды</a>
+  <a href="{% url 'new_team_create' %}" class="new-switchbtn{% if team_section == 'create' %} is-active{% endif %}">Создать команду</a>
+  <a href="{% url 'new_team_join_page' %}" class="new-switchbtn{% if team_section == 'join' %} is-active{% endif %}">Вступить</a>
+</nav>

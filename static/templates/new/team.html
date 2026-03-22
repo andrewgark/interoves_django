@@ -1,165 +1,254 @@
 {% extends "new/base.html" %}
 {% load filters %}
-{% block title %}Команда{% endblock %}
+{% block title %}{{ page_title|default:"Команда" }}{% endblock %}
 {% block content %}
-<h1 class="new-heading" style="margin-top:0">Команда</h1>
+<h1 class="new-heading" style="margin-top:0">{{ page_title|default:"Команда" }}</h1>
 {% if user.is_authenticated %}
-  {% if user.profile.team_on %}
-  <div class="new-team-block">
-    <h2>Вы в команде: <strong>{{ user.profile.team_on }}</strong></h2>
-    <p style="margin:0.5rem 0 0.75rem">
-      <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-rename-open>Изменить название</button>
-    </p>
-    <form action="{% url 'new_team_rename' %}" method="post" class="new-form" data-team-rename-form hidden>
-      {% csrf_token %}
-      <label for="new-team-visible-name">Название команды</label>
-      <input id="new-team-visible-name" type="text" name="visible_name" value="{{ user.profile.team_on.visible_name|default:user.profile.team_on.name }}">
-      <button type="submit" class="new-btn new-btn--mini">Сохранить</button>
-    </form>
-    {% if project.is_main %}
-      {% if user.profile.team_on.ticket_requests.all %}
-      <details style="margin:1rem 0">
-        <summary style="cursor:pointer;color:var(--muted)">История запросов билетов</summary>
-        <ul class="new-list">
-        {% for ticket_request in user.profile.team_on|sorted_ticket_requests %}
-          <li>{{ ticket_request }}</li>
-        {% endfor %}
-        </ul>
-      </details>
-      {% endif %}
-      <p>Билеты: {{ user.profile.team_on.tickets }}</p>
-      <p style="margin:0.75rem 0 0">
-        <a href="{% url 'new_pay' %}" class="new-btn">Приобрести билеты</a>
-      </p>
-    {% endif %}
-    <p><strong>Состав:</strong></p>
-    <ul class="new-list">
-      {% for team_member in user.profile.team_on.users_on.all %}
-      <li>
-        👤 {{ team_member }}
-        {% if user != team_member %}
-        <a class="new-mini" href="/kick_out_user/{{ team_member.user.id }}/" data-confirm-kick>Исключить</a>
-        {% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    {% if user.profile.team_on.users_requested.all %}
-    <p><strong>Заявки:</strong></p>
-    <ul class="new-list">
-      {% for user_requested in user.profile.team_on.users_requested.all %}
-      <li>
-        {{ user_requested }}
-        {% if user != user_requested %}
-        <a class="new-mini" href="/confirm_user_joining_team/{{ user_requested.user.id }}/">Принять</a>
-        <a class="new-mini" href="/reject_user_joining_team/{{ user_requested.user.id }}/">Отклонить</a>
-        {% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-    <form action="{% url 'quit_from_team' %}" method="post" style="margin-top:1rem" data-confirm-quit>
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ new_team_url }}">
-      <button type="submit" class="new-btn new-btn--danger">Выйти из команды</button>
-    </form>
+  {% include "new/team_subnav.html" %}
 
-    <details style="margin-top:1.25rem">
-      <summary style="cursor:pointer;color:var(--muted)">Пароль команды</summary>
-      <div class="new-card" style="margin-top:0.75rem">
-        <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center">
-          <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-pass-reveal>Показать</button>
-          <input type="text" class="new-team-pass" value="" placeholder="пароль" style="flex:1 1 12rem" disabled>
-          <button type="button" class="new-btn new-btn--mini" data-team-pass-save disabled>Сохранить</button>
+  {% if team_section == 'hub' %}
+    {% if user.profile.team_on %}
+    {% if member_teams|length > 1 %}
+    <section class="new-team-hub-section" aria-labelledby="team-switcher-heading">
+      <h2 id="team-switcher-heading" class="new-team-hub-section__title">Несколько команд: активная — та, с которой вы играете и платите за билеты.</h2>
+      <div class="new-team-switcher-active-box">
+        <p class="new-team-switcher-subheading">Сейчас активна</p>
+        <div class="new-team-switcher-active-row">
+          <strong>{{ user.profile.team_on }}</strong>
         </div>
-        <p class="new-login-hint" style="margin:0.75rem 0 0">Этот пароль позволяет вступить в команду напрямую.</p>
       </div>
-    </details>
-  </div>
-  {% elif user.profile.team_requested %}
-  <div class="new-team-block">
-    <h2>Заявка в команду: {{ user.profile.team_requested }}</h2>
-    {% if user.profile.team_requested.users_on.all %}
-    <ul class="new-list">
-      {% for team_member in user.profile.team_requested.users_on.all %}
-      <li>{{ team_member }}</li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="new-login-hint">В команде пока никого нет — заявку не подтвердят.</p>
+      {% if member_teams_others %}
+      <div class="new-team-switcher-others-box">
+        <p class="new-team-switcher-others-label">Переключиться на другую команду</p>
+        <ul class="new-team-switcher-list">
+          {% for t in member_teams_others %}
+          <li>
+            <span>{{ t }}</span>
+            <form action="{% url 'new_team_set_primary' %}" method="post" style="margin:0;display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="team" value="{{ t.pk }}">
+              <button type="submit" class="new-btn new-btn--ghost new-btn--mini">Сделать активной</button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </section>
     {% endif %}
-    <form action="{% url 'quit_from_team' %}" method="post">
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ new_team_url }}">
-      <button type="submit" class="new-btn new-btn--ghost">Отменить заявку</button>
-    </form>
-  </div>
-  {% else %}
-  <div class="new-team-switch">
-    <button type="button" class="new-switchbtn is-active" data-team-tab="create">Создать новую команду</button>
-    <button type="button" class="new-switchbtn" data-team-tab="join">Присоединиться к существующей</button>
-  </div>
-
-  <div class="new-team-panels">
-    <div class="new-team-block" data-team-panel="create">
-      <h2>Создать новую команду</h2>
-      <form action="{% url 'new_team_create' %}" method="post" class="new-form" id="new-create-team-form">
+    <section class="new-team-hub-section new-team-hub-section--primary" aria-labelledby="team-primary-heading">
+      {% if member_teams|length > 1 %}
+      <h2 id="team-primary-heading" class="new-team-hub-heading">Активная сейчас: <strong>{{ user.profile.team_on }}</strong></h2>
+      {% else %}
+      <h2 id="team-primary-heading" class="new-team-hub-heading new-team-hub-heading--solo">Ваша команда: <strong>{{ user.profile.team_on }}</strong></h2>
+      <p class="new-login-hint" style="margin:0 0 1rem">При желании, можно иметь большой одной команды и переключаться между ними.</p>
+      {% endif %}
+      <p style="margin:0.5rem 0 0.75rem">
+        <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-rename-open>Изменить название</button>
+      </p>
+      <form action="{% url 'new_team_rename' %}" method="post" class="new-form" data-team-rename-form hidden>
         {% csrf_token %}
-        <label for="new-team-create-name">Название</label>
-        <div class="new-inline-check">
-          <input id="new-team-create-name" name="name" type="text" autocomplete="off" placeholder="Название команды">
-          <span class="new-checkmark" data-create-name-status style="display:none"></span>
+        <label for="new-team-visible-name">Название команды</label>
+        <input id="new-team-visible-name" type="text" name="visible_name" value="{{ user.profile.team_on.visible_name|default:user.profile.team_on.name }}">
+        <button type="submit" class="new-btn new-btn--mini">Сохранить</button>
+      </form>
+      {% if project.is_main %}
+        {% if user.profile.team_on.ticket_requests.all %}
+        <details style="margin:1rem 0">
+          <summary style="cursor:pointer;color:var(--muted)">История запросов билетов</summary>
+          <ul class="new-list">
+          {% for ticket_request in user.profile.team_on|sorted_ticket_requests %}
+            <li>{{ ticket_request }}</li>
+          {% endfor %}
+          </ul>
+        </details>
+        {% endif %}
+        <p>Билеты: {{ user.profile.team_on.tickets }}</p>
+        <p style="margin:0.75rem 0 0">
+          <a href="{% url 'new_pay' %}" class="new-btn">Приобрести билеты</a>
+        </p>
+      {% endif %}
+      <p><strong>{% if member_teams|length > 1 %}Состав этой команды:{% else %}Состав:{% endif %}</strong></p>
+      <ul class="new-list">
+        {% for team_member in user.profile.team_on.roster_profiles %}
+        <li>
+          👤 {{ team_member }}
+          {% if user != team_member %}
+          <a class="new-mini" href="/kick_out_user/{{ team_member.user.id }}/?team={{ user.profile.team_on.pk }}" data-confirm-kick>Исключить</a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% if user.profile.team_on.users_requested.all %}
+      <p><strong>Заявки:</strong></p>
+      <ul class="new-list">
+        {% for user_requested in user.profile.team_on.users_requested.all %}
+        <li>
+          {{ user_requested }}
+          {% if user != user_requested %}
+          <a class="new-mini" href="/confirm_user_joining_team/{{ user_requested.user.id }}/">Принять</a>
+          <a class="new-mini" href="/reject_user_joining_team/{{ user_requested.user.id }}/">Отклонить</a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <form action="{% url 'quit_from_team' %}" method="post" style="margin-top:1rem" data-confirm-quit>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ new_team_url }}">
+        <input type="hidden" name="team" value="{{ user.profile.team_on.pk }}">
+        <button type="submit" class="new-btn new-btn--danger">{% if member_teams|length > 1 %}Выйти из этой (активной) команды{% else %}Выйти из команды{% endif %}</button>
+      </form>
+      <details style="margin-top:1.25rem">
+        <summary style="cursor:pointer;color:var(--muted)">Пароль команды</summary>
+        <div class="new-card" style="margin-top:0.75rem">
+          <div style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center">
+            <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-pass-reveal>Показать</button>
+            <input type="text" class="new-team-pass" value="" placeholder="пароль" style="flex:1 1 12rem" disabled>
+            <button type="button" class="new-btn new-btn--mini" data-team-pass-save disabled>Сохранить</button>
+          </div>
+          <p class="new-login-hint" style="margin:0.75rem 0 0">Этот пароль позволяет вступить в команду напрямую.</p>
         </div>
-        <div class="new-login-hint" style="margin-top:0.35rem" data-create-name-hint></div>
+      </details>
+    </section>
 
-        <div class="new-create-actions">
-          <button type="button" class="new-link-muted" data-referer-toggle>Хочу указать команду-реферера</button>
-          <button type="submit" class="new-btn" disabled data-create-submit>Создать</button>
-        </div>
-        <div class="new-referer" hidden>
-          <label for="new-team-referer">Команда-реферер</label>
-          <input id="new-team-referer" type="text" name="referer" list="new-team-referers" placeholder="Выберите (необязательно)">
-          <datalist id="new-team-referers">
-            {% for t in teams %}<option value="{{ t.name }}">{{ t.visible_name }}</option>{% endfor %}
-          </datalist>
-        </div>
+      {% for sec_team in secondary_teams %}
+      <section class="new-team-hub-section new-team-hub-section--secondary" aria-labelledby="sec-team-{{ sec_team.pk }}">
+        <h3 id="sec-team-{{ sec_team.pk }}" class="new-team-hub-heading" style="font-size:1.1rem">Другая команда: <strong>{{ sec_team }}</strong></h3>
+        <p class="new-login-hint" style="margin:0 0 0.75rem">Сейчас неактивна: игры и билеты — от имени активной команды (блок выше).</p>
+        <p><strong>Состав:</strong></p>
+        <ul class="new-list">
+          {% for team_member in sec_team.roster_profiles %}
+          <li>
+            👤 {{ team_member }}
+            {% if user != team_member %}
+            <a class="new-mini" href="/kick_out_user/{{ team_member.user.id }}/?team={{ sec_team.pk }}" data-confirm-kick>Исключить</a>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        <form action="{% url 'quit_from_team' %}" method="post" style="margin-top:0.75rem" data-confirm-quit>
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ new_team_url }}">
+          <input type="hidden" name="team" value="{{ sec_team.pk }}">
+          <button type="submit" class="new-btn new-btn--ghost">Выйти из этой команды</button>
+        </form>
+      </section>
+      {% endfor %}
+    {% elif user.profile.team_requested %}
+    <div class="new-team-block">
+      <h2>Заявка в команду: {{ user.profile.team_requested }}</h2>
+      {% if user.profile.team_requested.roster_profiles %}
+      <ul class="new-list">
+        {% for team_member in user.profile.team_requested.roster_profiles %}
+        <li>{{ team_member }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="new-login-hint">В команде пока никого нет — заявку не подтвердят.</p>
+      {% endif %}
+      <form action="{% url 'quit_from_team' %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ new_team_url }}">
+        <input type="hidden" name="cancel_request" value="1">
+        <button type="submit" class="new-btn new-btn--ghost">Отменить заявку</button>
       </form>
     </div>
+    {% else %}
+    <div class="new-team-block">
+      <p>У вас пока нет команды.</p>
+      <p class="new-login-hint" style="margin-top:0.75rem">Создайте новую или вступите в существующую — вкладки <strong>Создать команду</strong> и <strong>Вступить</strong> выше.</p>
+    </div>
+    {% endif %}
 
-    <div class="new-team-block" data-team-panel="join" hidden>
-      <h2>Присоединиться к существующей</h2>
-      <form action="{% url 'new_team_request_join' %}" method="post" class="new-form" id="new-join-team-form">
-        {% csrf_token %}
-        <label for="new-team-join-name">Команда</label>
-        <input id="new-team-join-name" type="text" name="name" list="new-team-list" placeholder="Начните вводить название команды" autocomplete="off">
-        <datalist id="new-team-list">
+  {% elif team_section == 'create' %}
+  <div class="new-team-block">
+    <h2 style="margin-top:0">Создать новую команду</h2>
+    <p class="new-login-hint" style="margin-bottom:1rem">Можно создать новую команду.{% if team_primary_modal %} Вы всегда сможете переключаться между командами.{% endif %}</p>
+    <form action="{% url 'new_team_create' %}" method="post" class="new-form" id="new-create-team-form"{% if team_primary_modal %} data-team-primary-modal="1"{% endif %}>
+      {% csrf_token %}
+      <input type="hidden" name="make_primary" value="1" data-team-make-primary>
+      <label for="new-team-create-name">Название</label>
+      <div class="new-inline-check">
+        <input id="new-team-create-name" name="name" type="text" autocomplete="off" placeholder="Название команды">
+        <span class="new-checkmark" data-create-name-status style="display:none"></span>
+      </div>
+      <div class="new-login-hint" style="margin-top:0.35rem" data-create-name-hint></div>
+
+      <div class="new-create-actions">
+        <button type="button" class="new-link-muted" data-referer-toggle>Хочу указать команду-реферера</button>
+        <button type="submit" class="new-btn" disabled data-create-submit>Создать</button>
+      </div>
+      <div class="new-referer" hidden>
+        <label for="new-team-referer">Команда-реферер</label>
+        <input id="new-team-referer" type="text" name="referer" list="new-team-referers" placeholder="Выберите (необязательно)">
+        <datalist id="new-team-referers">
           {% for t in teams %}<option value="{{ t.name }}">{{ t.visible_name }}</option>{% endfor %}
         </datalist>
-        <p class="new-login-hint new-text-danger" style="margin-top:0.35rem" data-join-pick-team-error hidden role="alert"></p>
-        <div class="new-login-hint" style="margin-top:0.35rem" data-join-info></div>
-        <button type="submit" class="new-btn new-btn--ghost" disabled data-join-request>Подать заявку</button>
-        <div class="new-join-actions">
-          <button type="button" class="new-link-muted" data-know-password>Я знаю пароль</button>
-        </div>
-        <div class="new-join-pass" hidden>
-          <label for="new-team-join-pass">Пароль</label>
-          <input id="new-team-join-pass" name="password" type="text" placeholder="Введите пароль">
-          <button type="submit" formaction="{% url 'new_team_join_by_password' %}" class="new-btn" disabled data-join-by-pass>Вступить</button>
-        </div>
-      </form>
-    </div>
+      </div>
+    </form>
+  </div>
+
+  {% elif team_section == 'join' %}
+  <div class="new-team-block">
+    <h2 style="margin-top:0">Вступить в команду</h2>
+    <p class="new-login-hint" style="margin-bottom:1rem">Нужно подтверждение членов команды или пароль.{% if team_primary_modal %} Вы всегда сможете переключаться между командами.{% endif %}</p>
+    <form action="{% url 'new_team_request_join' %}" method="post" class="new-form" id="new-join-team-form"{% if team_primary_modal %} data-team-primary-modal="1"{% endif %}>
+      {% csrf_token %}
+      <input type="hidden" name="make_primary" value="1" data-team-make-primary>
+      <label for="new-team-join-name">Команда</label>
+      <input id="new-team-join-name" type="text" name="name" list="new-team-list" placeholder="Начните вводить название команды" autocomplete="off">
+      <datalist id="new-team-list">
+        {% for t in teams %}<option value="{{ t.name }}">{{ t.visible_name }}</option>{% endfor %}
+      </datalist>
+      <p class="new-login-hint new-text-danger" style="margin-top:0.35rem" data-join-pick-team-error hidden role="alert"></p>
+      <div class="new-login-hint" style="margin-top:0.35rem" data-join-info></div>
+      <button type="submit" class="new-btn new-btn--ghost" disabled data-join-request>Подать заявку</button>
+      <div class="new-join-actions">
+        <button type="button" class="new-link-muted" data-know-password>Я знаю пароль</button>
+      </div>
+      <div class="new-join-pass" hidden>
+        <label for="new-team-join-pass">Пароль</label>
+        <input id="new-team-join-pass" name="password" type="text" placeholder="Введите пароль">
+        <button type="submit" formaction="{% url 'new_team_join_by_password' %}" class="new-btn" disabled data-join-by-pass>Вступить</button>
+      </div>
+    </form>
   </div>
   {% endif %}
+
 {% else %}
   <p class="new-login-hint">Войдите, чтобы управлять командой.</p>
 {% endif %}
 <p style="margin-top:2rem"><a href="{% url 'new_hub' %}" class="new-btn new-btn--ghost">← Игры</a></p>
 
+{% if user.is_authenticated and team_primary_modal %}
+{% if team_section == 'create' or team_section == 'join' %}
+<div id="new-team-primary-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-team-primary-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-primary-modal-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-primary-modal-close>×</button>
+    <h2 id="new-team-primary-title" class="pal-title">Сделать новую команду активной?</h2>
+    <p class="new-login-hint" style="margin-top:0.75rem;line-height:1.5">
+      <strong>Активная команда</strong> — та, от имени которой вы играете, покупаете билеты и видите общие посылки в командном режиме.
+      Вы всегда можете сделать другую вашу команду активной.
+    </p>
+    <p class="new-login-hint" style="margin-top:0.5rem">Что сделать с новой командой после создания или вступления?</p>
+    <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:1rem">
+      <button type="button" class="new-btn" data-primary-modal-yes>Да, сделать новую команду активной</button>
+      <button type="button" class="new-btn new-btn--ghost" data-primary-modal-no>Нет, оставить текущую активной</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+{% if team_section == 'hub' %}
 <div id="new-confirm-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-confirm-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-confirm-close></div>
   <div class="new-rules-modal__box pal-card">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-confirm-close>×</button>
     <h2 id="new-confirm-title" class="pal-title">Вы уверены?</h2>
-    {% if user.is_authenticated and user.profile and user.profile.team_on and user.profile.team_on.users_on.all|length == 1 %}
+    {% if user.is_authenticated and user.profile and user.profile.team_on and user.profile.team_on.roster_profiles|length == 1 %}
       <p class="new-login-hint new-text-danger" style="margin-top:0">
         В команде больше никого нет. Если вы выйдете, в команде никого не останется.
       </p>
@@ -170,15 +259,15 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <script>
 (function () {
   function qs(sel) { return document.querySelector(sel); }
-  function setHidden(el, hidden) { if (!el) return; el.hidden = hidden; }
   var csrfEl = document.querySelector('input[name=csrfmiddlewaretoken]');
   function csrf() { return csrfEl ? csrfEl.value : ''; }
 
-  // Create: name availability
+{% if team_section == 'create' %}
   var createName = qs('#new-team-create-name');
   var createHint = document.querySelector('[data-create-name-hint]');
   var createStatus = document.querySelector('[data-create-name-status]');
@@ -215,8 +304,6 @@
       createTimer = setTimeout(checkCreateName, 250);
     });
   }
-
-  // Create: referer toggle
   var refToggle = document.querySelector('[data-referer-toggle]');
   var refBox = document.querySelector('.new-referer');
   if (refToggle && refBox) {
@@ -224,8 +311,9 @@
       refBox.hidden = !refBox.hidden;
     });
   }
+{% endif %}
 
-  // Join: team info
+{% if team_section == 'join' %}
   var joinName = qs('#new-team-join-name');
   var joinInfo = document.querySelector('[data-join-info]');
   var joinReq = document.querySelector('[data-join-request]');
@@ -249,7 +337,6 @@
   }
   function updateJoinButtons(teamExists) {
     if (joinReq) joinReq.disabled = !teamExists;
-    // «Вступить» не отключаем из‑за команды: иначе клик не доходит до submit и не показать красную подсказку.
     var passTrim = (joinPassInput && joinPassInput.value || '').trim();
     if (joinByPassBtn) joinByPassBtn.disabled = !passTrim;
   }
@@ -301,8 +388,6 @@
       checkJoinTeam();
     });
   }
-
-  // Вступить по паролю: только после подтверждения команды (и перехват Enter из поля пароля)
   if (joinForm) {
     joinForm.addEventListener('submit', function (e) {
       var sub = e.submitter;
@@ -321,7 +406,7 @@
       }
       if (!joinTeamResolved) {
         e.preventDefault();
-        showJoinPickTeamErr('Команда не подтверждена. Дождитесь строки «Сейчас в команде: …» под полем или выберите вариант из подсказки.');
+        showJoinPickTeamErr('Такой команды нет. Выберите вариант из подсказки.');
         if (joinName) joinName.focus();
         return;
       }
@@ -333,8 +418,9 @@
       }
     });
   }
+{% endif %}
 
-  // Team password reveal/edit (only when in team)
+{% if team_section == 'hub' and user.is_authenticated and user.profile.team_on %}
   var revealBtn = document.querySelector('[data-team-pass-reveal]');
   var passInput = document.querySelector('.new-team-pass');
   var saveBtn = document.querySelector('[data-team-pass-save]');
@@ -369,31 +455,9 @@
     });
   }
 
-  // Tabs (create/join) — one visible at a time
-  var TAB_KEY = 'new_team_tab';
-  function setTab(tab) {
-    document.querySelectorAll('[data-team-tab]').forEach(function (b) {
-      b.classList.toggle('is-active', b.getAttribute('data-team-tab') === tab);
-    });
-    document.querySelectorAll('[data-team-panel]').forEach(function (p) {
-      p.hidden = p.getAttribute('data-team-panel') !== tab;
-    });
-    try { localStorage.setItem(TAB_KEY, tab); } catch (e) {}
-  }
-  document.querySelectorAll('[data-team-tab]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      setTab(b.getAttribute('data-team-tab'));
-    });
-  });
-  try {
-    var saved = localStorage.getItem(TAB_KEY);
-    if (saved === 'join' || saved === 'create') setTab(saved);
-  } catch (e) {}
-
-  // Confirm actions: kick out / quit
   var confirmModal = document.getElementById('new-confirm-modal');
   var confirmYes = confirmModal ? confirmModal.querySelector('[data-confirm-yes]') : null;
-  var pending = null; // { type: 'href'|'submit', value: string|HTMLFormElement }
+  var pending = null;
   function openConfirm(payload) {
     if (!confirmModal) return;
     pending = payload;
@@ -443,7 +507,6 @@
     });
   });
 
-  // Rename team visible name toggle
   var renameBtn = document.querySelector('[data-team-rename-open]');
   var renameForm = document.querySelector('[data-team-rename-form]');
   if (renameBtn && renameForm) {
@@ -455,6 +518,56 @@
       }
     });
   }
+{% endif %}
+
+{% if team_primary_modal %}
+{% if team_section == 'create' or team_section == 'join' %}
+  (function () {
+    var form = document.getElementById('new-create-team-form') || document.getElementById('new-join-team-form');
+    var modal = document.getElementById('new-team-primary-modal');
+    if (!form || !modal || form.getAttribute('data-team-primary-modal') !== '1') return;
+    var hidden = form.querySelector('[data-team-make-primary]');
+    if (!hidden) return;
+    function closeModal() {
+      modal.setAttribute('hidden', '');
+      modal.classList.remove('is-open');
+      document.body.style.overflow = '';
+    }
+    function openModal() {
+      modal.removeAttribute('hidden');
+      modal.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+    }
+    modal.querySelectorAll('[data-primary-modal-close]').forEach(function (el) {
+      el.addEventListener('click', closeModal);
+    });
+    modal.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeModal();
+    });
+    function submitWithPrimary(val) {
+      hidden.value = val;
+      form.setAttribute('data-primary-modal-skipped', '1');
+      closeModal();
+      form.submit();
+    }
+    modal.querySelector('[data-primary-modal-yes]').addEventListener('click', function () {
+      submitWithPrimary('1');
+    });
+    modal.querySelector('[data-primary-modal-no]').addEventListener('click', function () {
+      submitWithPrimary('0');
+    });
+    form.addEventListener('submit', function (e) {
+      if (e.defaultPrevented) return;
+      if (form.getAttribute('data-primary-modal-skipped') === '1') {
+        form.removeAttribute('data-primary-modal-skipped');
+        return;
+      }
+      e.preventDefault();
+      openModal();
+    });
+  })();
+{% endif %}
+{% endif %}
 })();
 </script>
 {% endblock %}

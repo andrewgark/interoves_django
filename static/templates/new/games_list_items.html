@@ -1,6 +1,6 @@
 {% load filters tz %}
 {% for game in games %}
-  {% with team=user.profile.team_on %}
+  {% with team=games_card_team %}
   <div class="new-game-card" data-game-list-index="{{ forloop.counter0|add:game_list_offset }}">
     <div class="new-game-card__left">
       <div class="new-game-card__time">
@@ -29,6 +29,14 @@
       <div class="new-game-card__meta">Автор: {{ game.author }}</div>
 
       <div class="new-game-card__actions">
+        {% if game|access_needs_registration %}
+          {% if not user.is_authenticated %}
+            <button type="button" class="new-btn new-btn--mini" data-login-open>Войти</button>
+          {% elif not games_card_has_team %}
+            <a href="{% url 'new_team_create' %}?next={{ request.path|urlencode }}" class="new-btn new-btn--mini">Создать команду</a>
+            <a href="{% url 'new_team_join_page' %}?next={{ request.path|urlencode }}" class="new-btn new-btn--ghost new-btn--mini">Вступить в команду</a>
+          {% endif %}
+        {% endif %}
         {% if game|access_play:team %}
           <a href="{% url 'new_main_game' game.id %}" class="new-btn new-btn--mini">Играть</a>
         {% elif game|access_is_registered:team %}

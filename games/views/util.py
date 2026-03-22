@@ -6,9 +6,11 @@ from games.access import game_is_going_now
 def redirect_to_referer(request):
     if 'HTTP_REFERER' in request.META:
         return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
-    if 'next' in request.POST:
+    if 'next' in request.POST and request.POST.get('next'):
         return HttpResponseRedirect(request.POST.get('next'))
-    return 
+    if 'next' in request.GET and request.GET.get('next'):
+        return HttpResponseRedirect(request.GET.get('next'))
+    return HttpResponseRedirect('/')
 
 
 def has_profile(user):
@@ -16,7 +18,10 @@ def has_profile(user):
 
 
 def has_team(user):
-    return has_profile(user) and user.profile.team_on
+    if not has_profile(user):
+        return False
+    user.profile.repair_primary_team()
+    return user.profile.team_on_id is not None
 
 
 # Личный режим отключаем только в турнирных играх проекта «Десяточки».

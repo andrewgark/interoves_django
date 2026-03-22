@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from games.models import Profile, Project, Team
+from games.models import Profile, ProfileTeamMembership, Project, Team
 
 
 class JoinByPasswordTests(TestCase):
@@ -31,6 +31,9 @@ class JoinByPasswordTests(TestCase):
         self.assertEqual(resp.status_code, 302)
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.team_on_id, self.team.pk)
+        self.assertTrue(
+            ProfileTeamMembership.objects.filter(profile=self.user.profile, team=self.team).exists()
+        )
 
     def test_join_by_visible_name_and_mixed_case_password(self):
         url = reverse('new_team_join_by_password')

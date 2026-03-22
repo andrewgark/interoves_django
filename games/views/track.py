@@ -115,7 +115,7 @@ def notify_registered_users_game_lifecycle_changed(old_game, new_game):
             team = reg.team
             if team is None:
                 continue
-            for profile in team.users_on.all():
+            for profile in team.roster_profiles:
                 uid = profile.user_id
                 if uid in notified:
                     continue
@@ -144,7 +144,7 @@ def notify_registered_users_play_access_changed(old_game, new_game):
             continue
         if old_game.has_access('play', team=team) or not new_game.has_access('play', team=team):
             continue
-        for profile in team.users_on.all():
+        for profile in team.roster_profiles:
             uid = profile.user_id
             if uid in notified:
                 continue
@@ -191,7 +191,7 @@ def build_event_task_change(task, team=None, current_mode=None, update_html=None
     if request is None and team is not None:
         from django.test.client import RequestFactory
         request = RequestFactory().get(f'/games/{game.id}')
-        request.user = team.users_on.all()[:1].get().user
+        request.user = team.roster_profiles.first().user
 
     if update_html is None and request is not None:
         update_html = update_task_html(request, task, team, current_mode)

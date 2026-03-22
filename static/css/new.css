@@ -442,6 +442,97 @@ html.new-ui-dark body.new-ui {
   margin-bottom: 1.75rem;
 }
 
+/* Страница «Мои команды»: крупные блоки (не тонкие линии между секциями) */
+.new-team-hub-section {
+  margin-top: 1.35rem;
+  padding: 1.2rem 1.15rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.055);
+}
+html.new-ui-dark .new-team-hub-section {
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.4);
+}
+.new-team-hub-section:first-of-type {
+  margin-top: 0;
+}
+.new-team-hub-section__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+/* Переключатель команд: активная — отдельный подблок сверху */
+.new-team-switcher-active-box {
+  margin-top: 0.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+html.new-ui-dark .new-team-switcher-active-box {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+.new-team-switcher-subheading {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.new-team-switcher-active-row {
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+.new-team-switcher-others-box {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+}
+.new-team-switcher-others-label {
+  margin: 0 0 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+/* Список остальных команд — разделитель только между строками */
+.new-team-switcher-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.new-team-switcher-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0;
+}
+.new-team-switcher-list > li:first-child {
+  padding-top: 0;
+}
+.new-team-switcher-list > li + li {
+  border-top: 1px dashed color-mix(in srgb, var(--border) 75%, transparent);
+}
+/* Активная команда — акцент слева; неактивные — нейтральная полоса */
+.new-team-hub-section--primary {
+  border-left: 4px solid var(--accent);
+}
+.new-team-hub-section--secondary {
+  border-left: 4px solid color-mix(in srgb, var(--muted) 50%, var(--border));
+}
+.new-team-hub-heading {
+  margin: 0 0 0.65rem;
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+.new-team-hub-heading--solo {
+  margin-bottom: 0.35rem;
+}
+
 .new-team-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1016,11 +1107,77 @@ html.new-ui-dark body.new-ui {
 
 /* New: Десяточки list */
 .new-games-list-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/*
+ * --- Кастомный скроллбар списка игр (отключён; вернуть вместе с разметкой и JS в folder_games.html) ---
+.new-games-list-wrap {
   display: grid;
   grid-template-columns: 1fr 18px;
   gap: 0.75rem;
   align-items: start;
 }
+
+.new-smart-scrollbar-container {
+  position: sticky;
+  top: 4.25rem;
+}
+
+.new-smart-scrollbar {
+  width: 12px;
+  height: 220px;
+  background: var(--tile);
+  border-radius: 999px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.new-smart-scrollbar-track {
+  width: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 10%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.new-smart-scrollbar-thumb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 22px;
+  background: var(--accent-hover);
+  border-radius: 999px;
+  cursor: grab;
+  z-index: 1;
+}
+
+.new-smart-scrollbar-thumb:active { cursor: grabbing; }
+
+@media (max-width: 720px) {
+  .new-games-list-wrap { grid-template-columns: 1fr; }
+  .new-smart-scrollbar-container { display: none; }
+}
+
+html.new-ui-dark .new-smart-scrollbar-track {
+  background: color-mix(in srgb, var(--accent) 42%, var(--tile));
+}
+
+html.new-ui-dark .new-smart-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 88%, #1a1a1a);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent);
+}
+--- конец закомментированного кастомного скролла ---
+*/
 
 .new-games-list {
   display: grid;
@@ -1087,54 +1244,16 @@ html.new-ui-dark body.new-ui {
   max-width: 100%;
 }
 
-.new-smart-scrollbar-container {
-  position: sticky;
-  top: 4.25rem;
+.new-games-list-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
-
-.new-smart-scrollbar {
-  width: 12px;
-  height: 220px;
-  background: var(--tile);
-  border-radius: 999px;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-.new-smart-scrollbar-track {
-  width: 100%;
-  background: var(--accent);
-  border-radius: 999px;
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 10%;
-  z-index: 0;
-  pointer-events: none;
-  /* высота задаётся из JS при скролле — без transition, чтобы полоска не отставала */
-}
-
-.new-smart-scrollbar-thumb {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 22px;
-  background: var(--accent-hover);
-  border-radius: 999px;
-  cursor: grab;
-  z-index: 1;
-}
-
-.new-smart-scrollbar-thumb:active { cursor: grabbing; }
 
 .new-scrollbar-info {
-  margin-top: 0.5rem;
   color: var(--muted);
   font-size: 0.85rem;
-  white-space: nowrap;
+  /* при кастомном скролле в колонке справа: margin-top: 0.5rem; white-space: nowrap; */
 }
 
 .new-loading {
@@ -1144,8 +1263,6 @@ html.new-ui-dark body.new-ui {
 }
 
 @media (max-width: 720px) {
-  .new-games-list-wrap { grid-template-columns: 1fr; }
-  .new-smart-scrollbar-container { display: none; }
   .new-game-card { grid-template-columns: 1fr; }
 }
 
@@ -2145,16 +2262,6 @@ html.new-ui-dark .wall-tile-guessed-4 {
 /* Хаб / десяточки: заголовки секций чуть ярче серого */
 html.new-ui-dark .new-heading {
   color: color-mix(in srgb, var(--text) 72%, var(--muted));
-}
-
-/* Вертикальный скроллбар списка игр — меньше «кислотного» залива */
-html.new-ui-dark .new-smart-scrollbar-track {
-  background: color-mix(in srgb, var(--accent) 42%, var(--tile));
-}
-
-html.new-ui-dark .new-smart-scrollbar-thumb {
-  background: color-mix(in srgb, var(--accent) 88%, #1a1a1a);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent);
 }
 
 html.new-ui-dark .new-pay-discount__tip {

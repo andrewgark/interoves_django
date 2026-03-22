@@ -27,7 +27,23 @@ from allauth.socialaccount.models import SocialAccount
 
 from games.access import game_has_started
 from games.exception import NoGameAccessException
-from games.models import Attempt, AudioManager, Game, HintAttempt, HTMLPage, ImageManager, Like, PersonalResultsParticipant, Profile, Project, Task, TaskGroup, Team, TicketRequest
+from games.models import (
+    Attempt,
+    AudioManager,
+    Game,
+    HintAttempt,
+    HTMLPage,
+    ImageManager,
+    Like,
+    PersonalResultsParticipant,
+    Profile,
+    ProfileTeamMembership,
+    Project,
+    Task,
+    TaskGroup,
+    Team,
+    TicketRequest,
+)
 from games.models import GameResultsSnapshot
 from games.util import clean_text
 from games.replacements_lines import parse_replacements_lines_text
@@ -175,13 +191,25 @@ def new_folder(request, slug):
     raise Http404()
 
 
+def _games_list_card_context(request):
+    """Контекст для new/games_list_items: безопасно для анонима, team согласован с has_team."""
+    if not request.user.is_authenticated or not has_profile(request.user):
+        return {'games_card_team': None, 'games_card_has_team': False}
+    has_t = has_team(request.user)
+    return {
+        'games_card_team': request.user.profile.team_on if has_t else None,
+        'games_card_has_team': has_t,
+    }
+
+
 def _new_folder_games(request):
     view = MainPageView()
     view.project_name = NEW_UI_PROJECT
     view.games_per_page = 20
     all_games = view.get_games_list(request)
+    card_ctx = _games_list_card_context(request)
 
-    # AJAX pagination (same shape as old index smart-scrollbar)
+    # AJAX pagination (append cards on window scroll near bottom)
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         from django.core.paginator import Paginator
         page = int(request.GET.get('page', 1))
@@ -190,6 +218,7 @@ def _new_folder_games(request):
         games_html = render(request, 'ui/games_list_items.html', {
             'games': games_page,
             'game_list_offset': (page - 1) * view.games_per_page,
+            **card_ctx,
         }).content.decode('utf-8')
         return JsonResponse({
             'games_html': games_html,
@@ -206,6 +235,7 @@ def _new_folder_games(request):
         'total_games': len(all_games),
         'games_per_page': view.games_per_page,
         'page_title': 'Десяточки',
+        **card_ctx,
     })
 
 
@@ -1163,21 +1193,68 @@ def new_profile(request):
     })
 
 
+def _post_make_new_team_primary(request):
+    """POST make_primary: 1 / true — новая команда активна; 0 / false — оставить текущую."""
+    v = (request.POST.get('make_primary') or '1').strip().lower()
+    return v not in ('0', 'false', 'no', 'off')
+
+
+def _member_teams_active_first(profile):
+    """Все команды членства; активная первая (для переключателя на странице команды)."""
+    rows = list(
+        Team.objects.filter(member_links__profile=profile).distinct().order_by('visible_name', 'name')
+    )
+    tid = profile.team_on_id
+    if not tid:
+        return rows, []
+    primary = next((t for t in rows if t.pk == tid), None)
+    if not primary:
+        return rows, []
+    others = [t for t in rows if t.pk != tid]
+    return [primary] + others, others
+
+
+def _new_team_ui_context(request):
+    project = get_object_or_404(Project, id=NEW_UI_PROJECT)
+    back = request.build_absolute_uri('/team/')
+    teams = sorted(Team.objects.filter(project=project, is_hidden=False), key=lambda t: t.visible_name)
+    profile = request.user.profile
+    profile.repair_primary_team()
+    member_teams, member_teams_others = _member_teams_active_first(profile)
+    secondary_teams = list(profile.other_member_teams()) if profile.team_on_id else []
+    return {
+        'project': project,
+        'teams': teams,
+        'new_team_url': back,
+        'member_teams': member_teams,
+        'member_teams_others': member_teams_others,
+        'secondary_teams': secondary_teams,
+        'team_primary_modal': len(member_teams) > 0,
+    }
+
+
 @login_required
 @require_http_methods(['GET'])
 def new_team(request):
     if not has_profile(request.user):
         messages.error(request, 'Сначала войдите и создайте профиль.')
         return redirect('new_hub')
-    project = get_object_or_404(Project, id=NEW_UI_PROJECT)
-    back = request.build_absolute_uri('/team/')
-    teams = sorted(Team.objects.filter(project=project, is_hidden=False), key=lambda t: t.visible_name)
-    return render(request, 'ui/team.html', {
-        'project': project,
-        'teams': teams,
-        'page_title': 'Команда',
-        'new_team_url': back,
-    })
+    ctx = _new_team_ui_context(request)
+    ctx['team_section'] = 'hub'
+    ctx['page_title'] = 'Команда'
+    return render(request, 'ui/team.html', ctx)
+
+
+@login_required
+@require_http_methods(['GET'])
+def new_team_join_page(request):
+    if not has_profile(request.user):
+        messages.error(request, 'Сначала войдите и создайте профиль.')
+        return redirect('new_hub')
+    ctx = _new_team_ui_context(request)
+    ctx['team_section'] = 'join'
+    ctx['page_title'] = 'Вступить в команду'
+    return render(request, 'ui/team.html', ctx)
 
 
 @login_required
@@ -1365,10 +1442,15 @@ def new_team_info(request):
 
 
 @login_required
-@require_http_methods(['POST'])
+@require_http_methods(['GET', 'POST'])
 def new_team_create(request):
-    if not has_profile(request.user) or request.user.profile.team_on:
+    if not has_profile(request.user):
         raise Http404()
+    if request.method == 'GET':
+        ctx = _new_team_ui_context(request)
+        ctx['team_section'] = 'create'
+        ctx['page_title'] = 'Создать команду'
+        return render(request, 'ui/team.html', ctx)
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     name = (request.POST.get('name') or '').strip()
     if not name:
@@ -1381,16 +1463,17 @@ def new_team_create(request):
         referer = Team.objects.filter(project=project, name=referer_name).first()
     team = Team(name=name, project=project, referer=referer)
     team.save()
-    request.user.profile.team_on = team
+    request.user.profile.add_team_membership(team, make_primary=_post_make_new_team_primary(request))
     request.user.profile.team_requested = None
-    request.user.profile.save()
+    request.user.profile.join_accept_as_primary = True
+    request.user.profile.save(update_fields=['team_requested', 'join_accept_as_primary'])
     return redirect('new_team')
 
 
 @login_required
 @require_http_methods(['POST'])
 def new_team_request_join(request):
-    if not has_profile(request.user) or request.user.profile.team_on or request.user.profile.team_requested:
+    if not has_profile(request.user) or request.user.profile.team_requested:
         raise Http404()
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     name = (request.POST.get('name') or '').strip()
@@ -1399,8 +1482,13 @@ def new_team_request_join(request):
         team = Team.objects.filter(project=project, visible_name__iexact=name).first()
     if not team:
         raise Http404()
-    request.user.profile.team_requested = team
-    request.user.profile.save()
+    if ProfileTeamMembership.objects.filter(profile=request.user.profile, team=team).exists():
+        messages.error(request, 'Вы уже в этой команде.')
+        return redirect('new_team_join_page')
+    profile = request.user.profile
+    profile.join_accept_as_primary = _post_make_new_team_primary(request)
+    profile.team_requested = team
+    profile.save(update_fields=['team_requested', 'join_accept_as_primary'])
     return redirect('new_team')
 
 
@@ -1416,9 +1504,9 @@ def _team_join_password_matches(stored, provided):
 @login_required
 @require_http_methods(['POST'])
 def new_team_join_by_password(request):
-    if not has_profile(request.user) or request.user.profile.team_on:
+    if not has_profile(request.user):
         messages.error(request, 'Нельзя вступить в команду сейчас.')
-        return redirect('new_team')
+        return redirect('new_team_join_page')
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     name = (request.POST.get('name') or '').strip()
     password = (request.POST.get('password') or '').strip()
@@ -1427,21 +1515,40 @@ def new_team_join_by_password(request):
         team = Team.objects.filter(project=project, visible_name__iexact=name).first()
     if not team:
         messages.error(request, 'Команда не найдена.')
-        return redirect('new_team')
+        return redirect('new_team_join_page')
     stored = (team.join_password or '').strip()
     if not stored:
         messages.error(
             request,
             'У команды не задан код для быстрого входа. Капитан может задать его на странице команды.',
         )
-        return redirect('new_team')
+        return redirect('new_team_join_page')
     if not password or not _team_join_password_matches(stored, password):
         messages.error(request, 'Неверный пароль.')
-        return redirect('new_team')
-    request.user.profile.team_on = team
+        return redirect('new_team_join_page')
+    if ProfileTeamMembership.objects.filter(profile=request.user.profile, team=team).exists():
+        messages.info(request, 'Вы уже в этой команде.')
+        return redirect('new_team_join_page')
+    request.user.profile.add_team_membership(team, make_primary=_post_make_new_team_primary(request))
     request.user.profile.team_requested = None
-    request.user.profile.save()
+    request.user.profile.join_accept_as_primary = True
+    request.user.profile.save(update_fields=['team_requested', 'join_accept_as_primary'])
     messages.success(request, 'Вы вступили в команду.')
+    return redirect('new_team')
+
+
+@login_required
+@require_http_methods(['POST'])
+def new_team_set_primary(request):
+    if not has_profile(request.user):
+        raise Http404()
+    project = get_object_or_404(Project, id=NEW_UI_PROJECT)
+    team_pk = (request.POST.get('team') or '').strip()
+    team = get_object_or_404(Team, pk=team_pk)
+    if team.project_id != project.id:
+        raise Http404()
+    if not request.user.profile.set_primary_team(team):
+        messages.error(request, 'Нет доступа к этой команде.')
     return redirect('new_team')
 
 
