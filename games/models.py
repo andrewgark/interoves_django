@@ -809,6 +809,14 @@ class Attempt(models.Model):
 
     skip = models.BooleanField(default=False)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['task', 'team', 'time']),
+            models.Index(fields=['task', 'user', 'time']),
+            models.Index(fields=['task', 'anon_key', 'time']),
+            models.Index(fields=['task', 'status']),
+        ]
+
     def __str__(self):
         actor = self.team if self.team is not None else (self.user if self.user is not None else self.anon_key)
         return '[{}]: ({}) - {} [{}] ({})'.format(
@@ -985,6 +993,14 @@ class HintAttempt(models.Model):
     hint = models.ForeignKey(Hint, related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
     time = models.DateTimeField(auto_now_add=True, blank=True)
     is_real_request = models.BooleanField(default=False)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['hint', 'team', 'time']),
+            models.Index(fields=['hint', 'user', 'time']),
+            models.Index(fields=['hint', 'anon_key', 'time']),
+            models.Index(fields=['hint', 'is_real_request']),
+        ]
 
     def __str__(self):
         actor = self.team if self.team is not None else (self.user if self.user is not None else self.anon_key)

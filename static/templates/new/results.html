@@ -90,11 +90,11 @@
                 {% endif %}
                 {% for cell in team_to_cells|get_item:t %}
                   <td class="{{ cell.cls }}">
-                    {% if cell.ai and cell.ai.get_n_attempts > 0 %}
-                      {{ cell.ai.get_result_points|minimize_digits }}
+                    {% if cell.n_attempts|default:0 > 0 %}
+                      {{ cell.result_points|minimize_digits }}
                     {% endif %}
-                    {% if cell.ai and cell.ai|took_at_least_one_hint %}
-                      <sup class="hint-numbers">{{ cell.ai|get_hint_numbers }}</sup>
+                    {% if cell.hint_numbers %}
+                      <sup class="hint-numbers">{{ cell.hint_numbers|join:", " }}</sup>
                     {% endif %}
                   </td>
                 {% endfor %}

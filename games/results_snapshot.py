@@ -144,24 +144,20 @@ def snapshot_to_results_context(game, payload):
             except Exception:
                 pass
 
-        ais = []
         cells = []
         for cell in (row.get('cells') or []):
             if not cell:
-                ais.append(None)
-                cells.append({'ai': None, 'cls': ''})
+                cells.append({'cls': '', 'n_attempts': 0, 'result_points': 0, 'hint_numbers': []})
                 continue
-            ai_obj = _SnapAttemptsInfo(
-                best_status=cell.get('best_status'),
-                n_attempts=cell.get('n_attempts'),
-                result_points=cell.get('result_points'),
-                sum_hint_penalty=cell.get('sum_hint_penalty'),
-                hint_numbers=cell.get('hint_numbers') or [],
-            )
-            ais.append(ai_obj)
-            cells.append({'ai': ai_obj, 'cls': cell.get('cls') or ''})
+            cells.append({
+                'cls': cell.get('cls') or '',
+                'n_attempts': int(cell.get('n_attempts') or 0),
+                'result_points': cell.get('result_points') or 0,
+                'hint_numbers': cell.get('hint_numbers') or [],
+            })
 
-        team_to_list_attempts_info[participant] = ais
+        # Kept for backward compatibility; templates should prefer team_to_cells.
+        team_to_list_attempts_info[participant] = [None] * len(cells)
         team_to_cells[participant] = cells
 
     return {

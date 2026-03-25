@@ -389,6 +389,10 @@ class AttemptAdmin(admin.ModelAdmin):
         set_ok_and_create_new_task,
     ]
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('team', 'task', 'user')
+
 
 @admin.register(PendingAttempt)
 class PendingAttemptsAdmin(admin.ModelAdmin):
@@ -398,7 +402,7 @@ class PendingAttemptsAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super(PendingAttemptsAdmin, self).get_queryset(request)
-        return qs.filter(status='Pending')
+        return qs.select_related('team', 'task', 'user').filter(status='Pending')
 
     list_display = ['__str__', 'team', 'task', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points', 'time']
     actions = [

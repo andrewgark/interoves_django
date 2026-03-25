@@ -118,15 +118,27 @@ def results_page(request, game_id, mode='general'):
             max_points = _to_float(getattr(task, 'get_results_max_points', lambda: getattr(task, 'points', 0))())
             points = 0.0
             has_attempts = False
+            n_attempts = 0
+            hint_numbers = []
             if ai:
                 try:
-                    has_attempts = ai.get_n_attempts() > 0
+                    n_attempts = int(ai.get_n_attempts() or 0)
+                    has_attempts = n_attempts > 0
                 except Exception:
                     has_attempts = False
+                    n_attempts = 0
                 try:
                     points = _to_float(ai.get_result_points())
                 except Exception:
                     points = 0.0
+                try:
+                    hint_numbers = sorted([
+                        ha.hint.number
+                        for ha in (getattr(ai, 'hint_attempts', None) or [])
+                        if getattr(ha, 'is_real_request', False)
+                    ])
+                except Exception:
+                    hint_numbers = []
 
             cls = ''
             if has_attempts:
@@ -138,7 +150,12 @@ def results_page(request, game_id, mode='general'):
                     cls = 'cell-pending'
                 else:
                     cls = 'cell-partial'
-            cells.append({'ai': ai, 'cls': cls})
+            cells.append({
+                'cls': cls,
+                'n_attempts': n_attempts,
+                'result_points': points,
+                'hint_numbers': hint_numbers,
+            })
         team_to_cells[team] = cells
 
     if mode == 'tournament':

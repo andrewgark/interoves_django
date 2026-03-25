@@ -544,15 +544,31 @@ def _new_results_compute(game, mode):
             )
             points = 0.0
             has_attempts = False
+            n_attempts = 0
+            hint_numbers = []
             if ai:
                 try:
-                    has_attempts = (ai.get_n_attempts() if callable(getattr(ai, 'get_n_attempts', None)) else ai.get_n_attempts) > 0
+                    n_attempts = int(
+                        ai.get_n_attempts()
+                        if callable(getattr(ai, 'get_n_attempts', None))
+                        else (ai.get_n_attempts or 0)
+                    )
+                    has_attempts = n_attempts > 0
                 except Exception:
                     has_attempts = False
+                    n_attempts = 0
                 try:
                     points = _to_float(ai.get_result_points())
                 except Exception:
                     points = 0.0
+                try:
+                    hint_numbers = sorted([
+                        ha.hint.number
+                        for ha in (getattr(ai, 'hint_attempts', None) or [])
+                        if getattr(ha, 'is_real_request', False)
+                    ])
+                except Exception:
+                    hint_numbers = []
 
             cls = ''
             if has_attempts:
@@ -566,8 +582,10 @@ def _new_results_compute(game, mode):
                     cls = 'cell-partial'
 
             cells.append({
-                'ai': ai,
                 'cls': cls,
+                'n_attempts': n_attempts,
+                'result_points': points,
+                'hint_numbers': hint_numbers,
             })
         team_to_cells[participant] = cells
 
