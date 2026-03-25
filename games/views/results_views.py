@@ -87,6 +87,60 @@ def results_page(request, game_id, mode='general'):
             if team_to_score[team] == team_to_score[prev_team]:
                 team_to_place[team] = team_to_place[prev_team]
 
+    # Per-cell CSS class for results table coloring.
+    def _to_float(x):
+        try:
+            return float(x)
+        except Exception:
+            return 0.0
+
+    def _has_pending(ai):
+        try:
+            attempts = getattr(ai, 'attempts', None) or []
+            for a in attempts:
+                if getattr(a, 'status', None) == 'Pending':
+                    return True
+        except Exception:
+            pass
+        return False
+
+    tasks_flat = []
+    for tg in task_groups:
+        for task in task_group_to_tasks[tg.number]:
+            tasks_flat.append(task)
+
+    team_to_cells = {}
+    for team in teams_sorted:
+        cells = []
+        attempts_list = team_to_list_attempts_info.get(team, [])
+        for idx, task in enumerate(tasks_flat):
+            ai = attempts_list[idx] if idx < len(attempts_list) else None
+            max_points = _to_float(getattr(task, 'get_results_max_points', lambda: getattr(task, 'points', 0))())
+            points = 0.0
+            has_attempts = False
+            if ai:
+                try:
+                    has_attempts = ai.get_n_attempts() > 0
+                except Exception:
+                    has_attempts = False
+                try:
+                    points = _to_float(ai.get_result_points())
+                except Exception:
+                    points = 0.0
+
+            cls = ''
+            if has_attempts:
+                if max_points > 0 and points >= max_points - 1e-9:
+                    cls = 'cell-ok'
+                elif points <= 0:
+                    cls = 'cell-wrong'
+                elif _has_pending(ai):
+                    cls = 'cell-pending'
+                else:
+                    cls = 'cell-partial'
+            cells.append({'ai': ai, 'cls': cls})
+        team_to_cells[team] = cells
+
     if mode == 'tournament':
         game.results = json.dumps({
             team.name: {'score': str(score), 'place': team_to_place[team]} for team, score in team_to_score.items()
@@ -100,6 +154,7 @@ def results_page(request, game_id, mode='general'):
         'task_group_to_tasks': task_group_to_tasks,
         'teams_sorted': teams_sorted,
         'team_to_list_attempts_info': team_to_list_attempts_info,
+        'team_to_cells': team_to_cells,
         'team_to_score': team_to_score,
         'team_to_place': team_to_place,
         'team_to_max_best_time': team_to_max_best_time,

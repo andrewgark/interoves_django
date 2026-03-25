@@ -17,6 +17,8 @@
   --results-cell-full-fg: var(--text);
   --results-cell-some-bg: #fff0b0;
   --results-cell-some-fg: var(--text);
+  --results-cell-partial-bg: #e0e0ff;
+  --results-cell-partial-fg: var(--text);
   --results-cell-zero-bg: #ffd0d0;
   --results-cell-zero-fg: var(--text);
   --results-cell-no-bg: #f0f8ff;
@@ -46,6 +48,8 @@ html.new-ui-dark {
   --results-cell-full-fg: #c8f0d0;
   --results-cell-some-bg: #3d3518;
   --results-cell-some-fg: #f5e7a8;
+  --results-cell-partial-bg: #242b45;
+  --results-cell-partial-fg: #cbd6ff;
   --results-cell-zero-bg: #3d2226;
   --results-cell-zero-fg: #f8c4c8;
   --results-cell-no-bg: #1c2433;
@@ -1735,6 +1739,10 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 .new-results-table td.cell-some{
   background: var(--results-cell-some-bg);
   color: var(--results-cell-some-fg);
+}
+.new-results-table td.cell-partial{
+  background: var(--results-cell-partial-bg);
+  color: var(--results-cell-partial-fg);
 }
 .new-results-table td.cell-zero{
   background: var(--results-cell-zero-bg);

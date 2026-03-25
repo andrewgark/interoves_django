@@ -149,7 +149,7 @@ def snapshot_to_results_context(game, payload):
         for cell in (row.get('cells') or []):
             if not cell:
                 ais.append(None)
-                cells.append({'ai': None, 'cls': 'cell-no'})
+                cells.append({'ai': None, 'cls': ''})
                 continue
             ai_obj = _SnapAttemptsInfo(
                 best_status=cell.get('best_status'),
@@ -159,7 +159,7 @@ def snapshot_to_results_context(game, payload):
                 hint_numbers=cell.get('hint_numbers') or [],
             )
             ais.append(ai_obj)
-            cells.append({'ai': ai_obj, 'cls': cell.get('cls') or 'cell-no'})
+            cells.append({'ai': ai_obj, 'cls': cell.get('cls') or ''})
 
         team_to_list_attempts_info[participant] = ais
         team_to_cells[participant] = cells
@@ -248,13 +248,25 @@ def build_results_snapshot_payload(game, mode='tournament'):
             except Exception:
                 max_points = 0.0
             has_attempts = bool(n_attempts) or bool(hint_numbers)
-            cls = 'cell-no'
-            if max_points > 0 and float(result_points) >= max_points - 1e-9:
-                cls = 'cell-full'
-            elif float(result_points) > 0:
-                cls = 'cell-some'
-            elif has_attempts:
-                cls = 'cell-zero'
+            has_pending = False
+            try:
+                for a in (ai.attempts or []):
+                    if getattr(a, 'status', None) == 'Pending':
+                        has_pending = True
+                        break
+            except Exception:
+                has_pending = False
+
+            cls = ''
+            if has_attempts:
+                if max_points > 0 and float(result_points) >= max_points - 1e-9:
+                    cls = 'cell-full'
+                elif float(result_points) <= 0:
+                    cls = 'cell-zero'
+                elif has_pending:
+                    cls = 'cell-some'
+                else:
+                    cls = 'cell-partial'
 
             if task_points and task_points > 0:
                 participant_to_score[participant] = _json_num(
