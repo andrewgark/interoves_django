@@ -783,6 +783,95 @@ class AttemptManager(models.Manager):
         return rows
 
 
+CHAIN_TASK_TYPES = ('wall', 'replacements_lines')
+
+
+class ChainTaskState(models.Model):
+    """
+    Authoritative accumulated chain state for wall and replacements_lines tasks.
+
+    One row per (actor, task, game_mode).  Protected by SELECT FOR UPDATE during
+    attempt submission so concurrent submissions for the same actor+task+mode are
+    serialised at the DB level and cannot corrupt each other's chain.
+
+    game_mode mirrors game.get_current_mode() at submission time:
+      'general'    – outside tournament window (includes all historical attempts)
+      'tournament' – inside tournament window (fresh start, independent chain)
+
+    Both wall and replacements_lines use current_mode as the key, so tournament
+    progress is always isolated from general progress.
+    """
+    team = models.ForeignKey(
+        Team, related_name='chain_task_states',
+        blank=True, null=True, on_delete=models.CASCADE,
+    )
+    user = models.ForeignKey(
+        'auth.User', related_name='chain_task_states',
+        blank=True, null=True, on_delete=models.CASCADE,
+    )
+    anon_key = models.CharField(max_length=64, blank=True, null=True)
+    task = models.ForeignKey(
+        Task, related_name='chain_task_states',
+        blank=True, null=True, on_delete=models.CASCADE,
+    )
+    game_mode = models.CharField(max_length=20)   # 'general' | 'tournament'
+
+    state = models.TextField(blank=True, null=True)
+    last_attempt = models.ForeignKey(
+        'Attempt', blank=True, null=True,
+        on_delete=models.SET_NULL, related_name='+',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        # Partial unique indexes per actor type: correct NULL handling on all DBs.
+        constraints = [
+            models.UniqueConstraint(
+                fields=['team', 'task', 'game_mode'],
+                condition=models.Q(team__isnull=False),
+                name='unique_chain_state_team',
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'task', 'game_mode'],
+                condition=models.Q(user__isnull=False),
+                name='unique_chain_state_user',
+            ),
+            models.UniqueConstraint(
+                fields=['anon_key', 'task', 'game_mode'],
+                condition=models.Q(anon_key__isnull=False),
+                name='unique_chain_state_anon_key',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['team', 'task', 'game_mode']),
+            models.Index(fields=['user', 'task', 'game_mode']),
+            models.Index(fields=['anon_key', 'task', 'game_mode']),
+        ]
+
+    def __str__(self):
+        actor = self.team if self.team_id else (self.user if self.user_id else self.anon_key)
+        return 'ChainTaskState[{}][{}][{}]'.format(actor, self.task, self.game_mode)
+
+    def state_summary(self):
+        if not self.state:
+            return '—'
+        try:
+            s = json.loads(self.state)
+            task = self.task
+            if task and task.task_type == 'replacements_lines':
+                solved = len(s.get('solved_lines', []))
+                total = s.get('total', '?')
+                return '{} lines solved ({} pts)'.format(solved, total)
+            if task and task.task_type == 'wall':
+                pts = s.get('best_points', 0)
+                stage = s.get('last_attempt', {}).get('stage', '?')
+                guessed = len(s.get('guessed_words', []))
+                return 'stage={}, pts={}, guessed={} cats'.format(stage, pts, guessed)
+        except Exception:
+            pass
+        return (self.state or '')[:100]
+
+
 class Attempt(models.Model):
     STATUS_VARIANTS = (
         ('Ok', 'Ok'),

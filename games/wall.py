@@ -117,15 +117,28 @@ class Wall:
                     n_max_attempts_dict[stage][words_index]['n_attempts'] += 1
         return n_max_attempts_dict
     
-    def validate_max_attempts(self, attempts, attempt):
-        if not attempts:
+    def validate_max_attempts(self, attempts, attempt, current_state=None):
+        """
+        Return (stage, n_attempts, max_attempts) if the attempt exceeds the limit,
+        or None if it is allowed.
+
+        current_state: JSON string from ChainTaskState (preferred source for the
+        accumulated guessed_words list).  Falls back to attempts[-1].state when
+        not provided, for backward compatibility during backfill/recheck.
+        """
+        if not attempts and current_state is None:
             return None
 
         n_max_attempts_dict = self.get_n_max_attempts_dict(attempts)
 
         attempt_data = json.loads(attempt.text)
         stage = attempt_data['stage']
-        state = json.loads(attempts[-1].state)
+        if current_state is not None:
+            state = json.loads(current_state)
+        elif attempts:
+            state = json.loads(attempts[-1].state)
+        else:
+            return None
         if stage == 'cat_words':
             index = len(state['guessed_words'])
         else:

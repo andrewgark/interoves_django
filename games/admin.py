@@ -11,6 +11,7 @@ from games.google.actions import create_google_doc
 from games.models import *
 from games.recheck import (
     recheck,
+    recheck_chain_task,
     recheck_full,
     recheck_queue_from_this,
     recheck_queue_from_next,
@@ -416,6 +417,39 @@ class PendingAttemptsAdmin(admin.ModelAdmin):
         recheck_team_task_all_chronological_action,
         set_ok_and_create_new_task,
     ]
+
+
+def recheck_chain_task_action(modeladmin, request, queryset):
+    for state_row in queryset.select_related('task', 'team', 'user'):
+        recheck_chain_task(
+            task=state_row.task,
+            team=state_row.team,
+            user=state_row.user if state_row.user_id else None,
+            anon_key=state_row.anon_key,
+        )
+
+
+recheck_chain_task_action.short_description = 'Recheck full chain (rebuild ChainTaskState from all attempts)'
+
+
+@admin.register(ChainTaskState)
+class ChainTaskStateAdmin(admin.ModelAdmin):
+    list_display = [
+        '__str__', 'team', 'user', 'task', 'game_mode',
+        'state_summary_display', 'updated_at', 'last_attempt',
+    ]
+    list_filter = ['game_mode', 'task__task_type', 'task__task_group__game']
+    raw_id_fields = ['team', 'task', 'last_attempt', 'user']
+    readonly_fields = ['state_summary_display', 'updated_at']
+    actions = [recheck_chain_task_action]
+
+    def state_summary_display(self, obj):
+        return obj.state_summary()
+
+    state_summary_display.short_description = 'State summary'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('team', 'task', 'user', 'last_attempt')
 
 
 def confirm_ticket_request(modeladmin, request, queryset):
