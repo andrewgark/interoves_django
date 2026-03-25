@@ -18,4 +18,5 @@ if [[ "$eb_ok" -ne 1 ]]; then
   echo "Elastic Beanstalk CLI not found. Install 'eb' or set EB_BIN to its path." >&2
   exit 1
 fi
-"$EB_BIN" deploy
+# Default EB CLI wait is 10 minutes; migrations / slow instance updates can exceed it.
+"$EB_BIN" deploy --timeout 60
