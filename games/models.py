@@ -737,6 +737,119 @@ class AttemptManager(models.Manager):
             return ('anon', str(ak))
         return None
 
+    def get_bulk_game_actor_rows(self, task_ids, mode='general', game=None):
+        """
+        O(1) bulk alternative to calling get_general_results_task_actor_rows or
+        get_task_attempts_infos for every task individually.
+
+        Loads all attempts + hint attempts for the given task IDs in exactly
+        2 queries, groups by (task_id, actor) in Python, and returns:
+            {task_id: [(actor, AttemptsInfo), ...]}
+
+        Hidden teams are already filtered out.  For 'general' mode all actor
+        types (team / personal user / anon) are returned; for 'tournament' mode
+        personal rows are included but callers typically filter them.
+
+        Pass ``game`` when the caller already has the Game object — this avoids
+        the costly task__task_group__game JOIN chain used by filter_attempts_with_mode
+        to look up the tournament window.
+        """
+        from collections import defaultdict
+
+        if not task_ids:
+            return {}
+
+        # 1 query: all attempts for all tasks.
+        # join task__task_group__game only when we don't already have the game object.
+        attempt_related = ['team', 'user']
+        if mode == 'tournament' and game is None:
+            attempt_related.append('task__task_group__game')
+        all_attempts = list(
+            self.filter(task_id__in=task_ids, skip=False)
+            .select_related(*attempt_related)
+            .order_by('time')
+        )
+        if mode == 'tournament':
+            _game = game if game is not None else (
+                all_attempts[0].task.task_group.game if all_attempts else None
+            )
+            if _game is not None:
+                all_attempts = [
+                    a for a in all_attempts
+                    if _game.has_access('attempt_is_tournament', attempt=a, team=a.team, mode=mode)
+                ]
+
+        # 1 query: all hint attempts for all hints in these tasks.
+        # hint is always needed; only join up to game when we don't have it.
+        hint_related = ['hint', 'team', 'user']
+        if mode == 'tournament' and game is None:
+            hint_related[0] = 'hint__task__task_group__game'
+        all_hint_attempts = list(
+            HintAttempt.objects.filter(hint__task_id__in=task_ids)
+            .select_related(*hint_related)
+        )
+        if mode == 'tournament':
+            _game = game if game is not None else (
+                all_hint_attempts[0].hint.task.task_group.game if all_hint_attempts else None
+            )
+            if _game is not None:
+                all_hint_attempts = [
+                    ha for ha in all_hint_attempts
+                    if _game.has_access('attempt_is_tournament', attempt=ha, team=ha.team, mode=mode)
+                ]
+
+        # Group by (task_id, actor_bucket) in Python
+        task_actor_attempts = defaultdict(lambda: defaultdict(list))
+        task_actor_hints = defaultdict(lambda: defaultdict(list))
+        actor_obj_cache = {}  # bucket -> Team / User object / anon_key string
+
+        for a in all_attempts:
+            b = self._general_results_actor_bucket(a)
+            if b is None:
+                continue
+            task_actor_attempts[a.task_id][b].append(a)
+            if b not in actor_obj_cache:
+                kind, _ = b
+                actor_obj_cache[b] = a.team if kind == 'team' else (a.user if kind == 'user' else a.anon_key)
+
+        for ha in all_hint_attempts:
+            b = self._general_results_actor_bucket(ha)
+            if b is None:
+                continue
+            task_actor_hints[ha.hint.task_id][b].append(ha)
+            if b not in actor_obj_cache:
+                kind, _ = b
+                actor_obj_cache[b] = ha.team if kind == 'team' else (ha.user if kind == 'user' else ha.anon_key)
+
+        # Build {task_id: [(actor, AttemptsInfo), ...]}
+        result = {}
+        for task_id in task_ids:
+            all_buckets = (
+                set(task_actor_attempts[task_id].keys())
+                | set(task_actor_hints[task_id].keys())
+            )
+            rows = []
+            for b in all_buckets:
+                att = task_actor_attempts[task_id].get(b, [])
+                hints = task_actor_hints[task_id].get(b, [])
+                if not att and not hints:
+                    continue
+                best = self.get_best_attempt(att)
+                ai = AttemptsInfo(best, att, hints)
+                kind, key = b
+                obj = actor_obj_cache.get(b)
+                if kind == 'team':
+                    if obj is None or obj.is_hidden:
+                        continue
+                    rows.append((obj, ai))
+                elif kind == 'user':
+                    rows.append((PersonalResultsParticipant(user=obj), ai))
+                else:
+                    rows.append((PersonalResultsParticipant(anon_key=key), ai))
+            result[task_id] = rows
+
+        return result
+
     def get_general_results_task_actor_rows(self, task):
         """
         Для общей таблицы: по одному AttemptsInfo на команду или на личного/анонимного участника.

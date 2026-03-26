@@ -21,7 +21,7 @@ from django.views.decorators.http import require_http_methods
 
 from games.forms import CreateTeamForm, JoinTeamForm
 
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
 
 from allauth.socialaccount.models import SocialAccount
@@ -436,48 +436,50 @@ def _new_results_compute(game, mode):
     team_to_max_best_time = {}
     team_task_to_attempts_info = {}
 
-    task_groups = sorted(game.task_groups.all(), key=lambda tg: tg.number)
+    # 2 queries: task groups + tasks (prefetched together)
+    task_groups = sorted(
+        game.task_groups.prefetch_related(
+            Prefetch(
+                'tasks',
+                queryset=Task.objects.filter(~Q(task_type='text_with_forms')),
+                to_attr='result_tasks',
+            )
+        ),
+        key=lambda tg: tg.number,
+    )
     task_group_to_tasks = {}
     for task_group in task_groups:
         task_group_to_tasks[task_group.number] = sorted(
-            task_group.tasks.filter(~Q(task_type='text_with_forms')),
-            key=lambda t: t.key_sort()
+            task_group.result_tasks, key=lambda t: t.key_sort()
         )
-        for task in task_group_to_tasks[task_group.number]:
-            if mode == 'general':
-                actor_rows = Attempt.manager.get_general_results_task_actor_rows(task=task)
-            else:
-                actor_rows = []
-                for attempts_info in Attempt.manager.get_task_attempts_infos(task=task, mode=mode):
-                    if not (attempts_info.attempts or attempts_info.hint_attempts):
-                        continue
-                    tteam = None
-                    if attempts_info.attempts:
-                        tteam = attempts_info.attempts[0].team
-                    elif attempts_info.hint_attempts:
-                        tteam = attempts_info.hint_attempts[0].team
-                    if not tteam or tteam.is_hidden:
-                        continue
-                    actor_rows.append((tteam, attempts_info))
 
-            for participant, attempts_info in actor_rows:
-                if not (attempts_info.attempts or attempts_info.hint_attempts):
-                    continue
+    tasks_flat = [t for tg in task_groups for t in task_group_to_tasks[tg.number]]
+    task_ids = [t.id for t in tasks_flat]
 
-                if participant not in team_to_score:
-                    team_to_score[participant] = 0
+    # 2 queries: all attempts + all hint attempts for the whole game at once
+    bulk_rows = Attempt.manager.get_bulk_game_actor_rows(task_ids, mode=mode, game=game)
 
-                task_points = 0
-                if attempts_info.best_attempt is not None:
-                    task_points = attempts_info.best_attempt.points
-                if task_points and task_points > 0:
-                    team_to_score[participant] += max(0, task_points - attempts_info.get_sum_hint_penalty())
-                    if participant not in team_to_max_best_time:
-                        team_to_max_best_time[participant] = attempts_info.best_attempt.time
-                    else:
-                        team_to_max_best_time[participant] = max(team_to_max_best_time[participant], attempts_info.best_attempt.time)
+    for task in tasks_flat:
+        for participant, attempts_info in bulk_rows.get(task.id, []):
+            if mode == 'tournament' and not isinstance(participant, Team):
+                continue
+            if not (attempts_info.attempts or attempts_info.hint_attempts):
+                continue
 
-                team_task_to_attempts_info[(participant, task)] = attempts_info
+            if participant not in team_to_score:
+                team_to_score[participant] = 0
+
+            task_points = 0
+            if attempts_info.best_attempt is not None:
+                task_points = attempts_info.best_attempt.points
+            if task_points and task_points > 0:
+                team_to_score[participant] += max(0, task_points - attempts_info.get_sum_hint_penalty())
+                if participant not in team_to_max_best_time:
+                    team_to_max_best_time[participant] = attempts_info.best_attempt.time
+                else:
+                    team_to_max_best_time[participant] = max(team_to_max_best_time[participant], attempts_info.best_attempt.time)
+
+            team_task_to_attempts_info[(participant, task)] = attempts_info
 
     for team in team_to_score.keys():
         for task_group in task_groups:
