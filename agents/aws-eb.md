@@ -53,26 +53,22 @@ aws iam put-role-policy \
 
 ## Connecting to RDS from local machine
 
-RDS security group only allows the EB EC2 SG. To run management commands locally:
+Use `scripts/with_rds.sh` — opens port 3306 for your current IP, runs the command
+with prod credentials from `secrets/rds.env`, then closes the port automatically
+(via `trap EXIT`, even on Ctrl-C or error).
 
 ```bash
-MY_IP=$(curl -s https://checkip.amazonaws.com)
-# Open
-aws ec2 authorize-security-group-ingress --region eu-central-1 \
-  --group-id sg-0631c0b9e45b0f6b3 --protocol tcp --port 3306 --cidr "${MY_IP}/32"
+# Any management command:
+./scripts/with_rds.sh manage.py check_background_migrations
+./scripts/with_rds.sh manage.py migrate --plan
+./scripts/with_rds.sh manage.py shell
 
-# ... do your work ...
-
-# Close
-aws ec2 revoke-security-group-ingress --region eu-central-1 \
-  --group-id sg-0631c0b9e45b0f6b3 --protocol tcp --port 3306 --cidr "${MY_IP}/32"
+# Raw mysql client (fetches password from Secrets Manager):
+./scripts/with_rds.sh --raw ./scripts/rds_mysql.sh -e "SHOW TABLES"
 ```
 
-Load prod creds from `secrets/rds.env` (not tracked by git):
-```bash
-set -a && source secrets/rds.env && set +a
-../venv/interoves_django/bin/python manage.py <command>
-```
+**Agents**: always use `./scripts/with_rds.sh` when running management commands
+against prod. Requires `required_permissions: ["all"]` in the Shell tool call.
 
 ## Slow / blocking migrations — background pattern
 
