@@ -98,7 +98,7 @@ class ResultsTableCellColorsTest(TestCase):
         t2_idx = 1  # second task
 
         self.assertEqual(data['team_to_cells'][self.team_max][0]['cls'], 'cell-full')
-        self.assertEqual(data['team_to_cells'][self.team_pending][0]['cls'], 'cell-some')
+        self.assertEqual(data['team_to_cells'][self.team_pending][0]['cls'], 'cell-partial')
         self.assertEqual(data['team_to_cells'][self.team_partial][0]['cls'], 'cell-partial')
         self.assertEqual(data['team_to_cells'][self.team_zero][0]['cls'], 'cell-zero')
 

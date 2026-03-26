@@ -513,16 +513,6 @@ def _new_results_compute(game, mode):
         except Exception:
             return 0.0
 
-    def _has_pending(ai):
-        try:
-            attempts = getattr(ai, 'attempts', None) or []
-            for a in attempts:
-                if getattr(a, 'status', None) == 'Pending':
-                    return True
-        except Exception:
-            pass
-        return False
-
     # Precompute once per task — get_results_max_points() can be expensive
     # (e.g. replacements_lines tasks run a regex parse on every call).
     task_max_points = {}
@@ -576,8 +566,6 @@ def _new_results_compute(game, mode):
                     cls = 'cell-full'
                 elif points <= 0:
                     cls = 'cell-zero'
-                elif _has_pending(ai):
-                    cls = 'cell-some'
                 else:
                     cls = 'cell-partial'
 
