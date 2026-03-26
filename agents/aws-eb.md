@@ -75,16 +75,20 @@ No security group changes. No static secrets. Just IAM.
 **Agents**: use `./scripts/eb_run.sh` for all prod management commands.
 Requires `required_permissions: ["all"]` in the Shell tool call.
 
-## Connecting to RDS from local machine (fallback)
+## Connecting to RDS from local machine — `with_rds.sh`
 
-When `eb_run.sh` isn't suitable (e.g. raw MySQL client), use `scripts/with_rds.sh` —
-opens port 3306 for your current IP, runs the command with creds from `secrets/rds.env`,
-closes the port on exit via `trap`.
+Uses **SSM port forwarding**: tunnels `localhost:13306 → EC2 instance → RDS:3306`
+via the SSM session. No security group changes, auth is IAM.
+Requires `session-manager-plugin` on PATH (`sudo dpkg -i session-manager-plugin.deb`).
 
 ```bash
 ./scripts/with_rds.sh manage.py check_background_migrations
+./scripts/with_rds.sh manage.py dbshell
 ./scripts/with_rds.sh --raw ./scripts/rds_mysql.sh -e "SHOW TABLES"
 ```
+
+Django's `RDS_HOSTNAME` / `RDS_PORT` are overridden to `127.0.0.1:13306` automatically
+so no code changes are needed.
 
 ## Slow / blocking migrations — background pattern
 
