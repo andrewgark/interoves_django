@@ -3,7 +3,9 @@ from django.core.management import call_command
 
 
 def backfill_chain_states(apps, schema_editor):
-    call_command('backfill_chain_task_states')
+    # No-op during migrate — backfill is run in the background by
+    # .platform/hooks/postdeploy/02_background_migrations.sh after the app is up.
+    pass
 
 
 def reverse_backfill(apps, schema_editor):

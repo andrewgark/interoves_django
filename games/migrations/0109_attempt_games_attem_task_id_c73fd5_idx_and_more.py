@@ -147,6 +147,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # database_operations=[] → migrate finishes instantly; indexes are created
+        # in the background by .platform/hooks/postdeploy/02_background_migrations.sh
+        # using ALGORITHM=INPLACE LOCK=NONE so live traffic is never blocked.
         migrations.SeparateDatabaseAndState(
             state_operations=[
                 migrations.AddIndex(
@@ -182,8 +185,6 @@ class Migration(migrations.Migration):
                     index=models.Index(fields=['hint', 'is_real_request'], name='games_hinta_hint_id_a6f474_idx'),
                 ),
             ],
-            database_operations=[
-                migrations.RunPython(_add_indexes_forwards, _add_indexes_backwards),
-            ],
+            database_operations=[],
         ),
     ]
