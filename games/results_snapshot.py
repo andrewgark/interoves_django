@@ -259,8 +259,6 @@ def build_results_snapshot_payload(game, mode='tournament'):
                     cls = 'cell-full'
                 elif float(result_points) <= 0:
                     cls = 'cell-zero'
-                elif has_pending:
-                    cls = 'cell-some'
                 else:
                     cls = 'cell-partial'
 
