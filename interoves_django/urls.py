@@ -34,6 +34,7 @@ urlpatterns = [
     path('terms-of-use/', TemplateView.as_view(template_name="terms-of-use.html")),
     path('tickets/', TemplateView.as_view(template_name="tickets.html")),
     path('ticket-agreement/', TemplateView.as_view(template_name="ticket-agreement.html")),
+    path('vpn/', TemplateView.as_view(template_name="new/pigeon_vpn.html"), name='pigeon_vpn'),
 
     path('yookassa/webhook/', yookassa_webhook, name='yookassa_webhook'),
     path('health/', include('health_check.urls')),

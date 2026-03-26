@@ -1,0 +1,80 @@
+{% extends "new/base.html" %}
+{% block title %}VPN от наших друзей{% endblock %}
+{% block content %}
+<h1 class="new-heading" style="margin-top:0">VPN от наших друзей — Pigeon VPN 🐦</h1>
+
+<section style="max-width:640px">
+
+  <div class="pal-card" style="margin-bottom:1.5rem; padding:1.25rem 1.5rem">
+    <h2 style="font-size:1.1rem; font-weight:700; margin:0 0 0.75rem">
+      🔑 Бесплатная подписка на время Десяточек
+    </h2>
+    <p style="color:var(--muted); margin:0 0 1rem; font-size:0.95rem">
+      Это ссылка-подписка: VPN-клиент сам загрузит по ней список серверов и будет автоматически его обновлять.
+      Работает бесплатно в период проведения Десяточек.
+    </p>
+
+    <div style="display:flex; gap:0.5rem; align-items:stretch; flex-wrap:wrap; margin-bottom:1.25rem">
+      <code style="
+        flex:1;
+        min-width:0;
+        display:block;
+        background:var(--surface);
+        border:1.5px solid var(--border);
+        border-radius:4px;
+        padding:0.6rem 0.75rem;
+        font-size:0.78rem;
+        word-break:break-all;
+        color:var(--text);
+        line-height:1.4;
+      ">http://fr.pigeon-vpn.ru:8001/sub/MTBvNEthLDE3NzQ0NTIxMTI9jPHMxncwO</code>
+      <button
+        class="new-btn"
+        data-copy-text="http://fr.pigeon-vpn.ru:8001/sub/MTBvNEthLDE3NzQ0NTIxMTI9jPHMxncwO"
+        style="flex-shrink:0; align-self:stretch"
+        title="Скопировать ссылку-подписку"
+      >Скопировать</button>
+    </div>
+
+    <h3 style="font-size:0.95rem; font-weight:700; margin:0 0 0.5rem; color:var(--text)">Как подключить:</h3>
+    <ol style="margin:0; padding-left:1.35rem; color:var(--muted); font-size:0.92rem; line-height:1.8">
+      <li>Скачайте VPN-клиент с поддержкой подписок:
+        <br>
+        <strong style="color:var(--text)">Hiddify</strong> — Android / iOS / Windows / Mac
+        (<a class="new-link-dotted" href="https://hiddify.com/app/" target="_blank" rel="noopener noreferrer">hiddify.com/app</a>)
+        <br>
+        <strong style="color:var(--text)">v2rayNG</strong> — Android
+        (<a class="new-link-dotted" href="https://play.google.com/store/apps/details?id=com.v2ray.ang" target="_blank" rel="noopener noreferrer">Google Play</a>)
+      </li>
+      <li>Скопируйте ссылку выше.</li>
+      <li>В приложении найдите <strong style="color:var(--text)">«Добавить подписку»</strong> (Add subscription / Import from URL) и вставьте ссылку.</li>
+      <li>Клиент загрузит список серверов — выберите любой и включите VPN.</li>
+    </ol>
+  </div>
+
+  <div class="pal-card" style="margin-bottom:1.5rem; padding:1.25rem 1.5rem">
+    <h2 style="font-size:1.1rem; font-weight:700; margin:0 0 0.75rem">
+      ✈️ Бесплатный прокси для Телеграма
+    </h2>
+    <p style="color:var(--muted); margin:0 0 1rem; font-size:0.95rem">
+      Если нужен только Телеграм — получите бесплатный MTProxy прямо на сайте Pigeon VPN.
+    </p>
+    <a class="new-btn new-btn--ghost" href="https://pigeon-vpn.ru" target="_blank" rel="noopener noreferrer">
+      Получить бесплатный прокси для Телеграма →
+    </a>
+  </div>
+
+  <div class="pal-card" style="margin-bottom:1.5rem; padding:1.25rem 1.5rem">
+    <h2 style="font-size:1.1rem; font-weight:700; margin:0 0 0.75rem">
+      🔒 Постоянный VPN
+    </h2>
+    <p style="color:var(--muted); margin:0 0 1rem; font-size:0.95rem">
+      Нужен надёжный VPN без ограничений по времени? Pigeon VPN предлагает доступные тарифы.
+    </p>
+    <a class="new-btn" href="https://pigeon-vpn.ru" target="_blank" rel="noopener noreferrer">
+      Купить постоянный VPN на pigeon-vpn.ru →
+    </a>
+  </div>
+
+</section>
+{% endblock %}
