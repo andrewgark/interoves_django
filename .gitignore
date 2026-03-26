@@ -4,7 +4,11 @@
 db.sqlite3
 *.pyc
 google_token.pickle
-secrets
+# Real credentials and downloads under secrets/ (see secrets/README.md).
+secrets/*
+!secrets/README.md
+!secrets/rds.env.example
+!secrets/rds.elasticbeanstalk-env.example
 .vscode
 .cursor/
 __pycache__
