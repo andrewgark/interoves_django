@@ -308,12 +308,32 @@ DATABASES = {
 }
 
 if 'RDS_HOSTNAME' in os.environ:
+    _rds_password = os.environ.get('RDS_PASSWORD', '')
+    _rds_secret_arn = os.environ.get('RDS_SECRET_ARN', '')
+    if _rds_secret_arn:
+        try:
+            import json
+            import boto3
+            _sm = boto3.client(
+                'secretsmanager',
+                region_name=os.environ.get('AWS_DEFAULT_REGION', 'eu-central-1'),
+            )
+            _secret = json.loads(
+                _sm.get_secret_value(SecretId=_rds_secret_arn)['SecretString']
+            )
+            _rds_password = _secret['password']
+        except Exception as _e:
+            import logging
+            logging.getLogger(__name__).warning(
+                'Could not fetch RDS password from Secrets Manager (%s); '
+                'falling back to RDS_PASSWORD env var', _e
+            )
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
             'NAME': os.environ['RDS_DB_NAME'],
             'USER': os.environ['RDS_USERNAME'],
-            'PASSWORD': os.environ['RDS_PASSWORD'],
+            'PASSWORD': _rds_password,
             'HOST': os.environ['RDS_HOSTNAME'],
             'PORT': os.environ['RDS_PORT'],
         }
