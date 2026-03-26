@@ -523,21 +523,25 @@ def _new_results_compute(game, mode):
             pass
         return False
 
+    # Precompute once per task — get_results_max_points() can be expensive
+    # (e.g. replacements_lines tasks run a regex parse on every call).
+    task_max_points = {}
+    for task in tasks_flat:
+        try:
+            mp = (task.get_results_max_points() if hasattr(task, 'get_results_max_points')
+                  else getattr(task, 'get_points', None)() if hasattr(task, 'get_points')
+                  else getattr(task, 'points', 0))
+            task_max_points[task.id] = _to_float(mp)
+        except Exception:
+            task_max_points[task.id] = 0.0
+
     team_to_cells = {}
     for participant in teams_sorted:
         cells = []
         attempts_list = team_to_list_attempts_info.get(participant, [])
         for idx, task in enumerate(tasks_flat):
             ai = attempts_list[idx] if idx < len(attempts_list) else None
-            max_points = _to_float(
-                task.get_results_max_points()
-                if hasattr(task, 'get_results_max_points')
-                else (
-                    getattr(task, 'get_points', None)()
-                    if hasattr(task, 'get_points')
-                    else getattr(task, 'points', 0)
-                )
-            )
+            max_points = task_max_points[task.id]
             points = 0.0
             has_attempts = False
             n_attempts = 0
