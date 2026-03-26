@@ -54,23 +54,48 @@ aws ec2-instance-connect send-ssh-public-key \
     --region "$REGION" \
     --instance-id "$INSTANCE_ID" \
     --instance-os-user "$OS_USER" \
-    --ssh-public-key "file://${KEY_FILE}.pub" \
-    --output text --query 'Success' | grep -q true \
+    --ssh-public-key "file://${KEY_FILE}.pub" > /dev/null \
     && echo "SSH key pushed (60 s window)" \
     || { echo "Failed to push SSH key" >&2; exit 1; }
 
-# ---- Build remote command ---------------------------------------------------
-if [[ $RAW -eq 1 ]]; then
-    REMOTE_CMD="$*"
-else
-    # The venv path has a random suffix; resolve it with a glob on the instance.
-    REMOTE_CMD="cd ${APP_DIR} && PYTHON=\$(ls /var/app/venv/*/bin/python | head -1) && \"\$PYTHON\" $*"
-fi
+# ---- SSH helper (no host-key prompts) ---------------------------------------
+SSH="ssh -i ${KEY_FILE} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=10 ${OS_USER}@${INSTANCE_IP}"
 
-# ---- SSH and run ------------------------------------------------------------
-ssh -i "$KEY_FILE" \
-    -o StrictHostKeyChecking=no \
-    -o UserKnownHostsFile=/dev/null \
-    -o LogLevel=ERROR \
-    -o ConnectTimeout=10 \
-    "${OS_USER}@${INSTANCE_IP}" "$REMOTE_CMD"
+# ---- Build and run remote command -------------------------------------------
+# Pipe a Python script over stdin so we never need to escape arguments for bash.
+# The script reads env vars from the running Daphne process's /proc entry
+# (avoids parsing the EB env file, which has unquoted special chars).
+
+ARGS_JSON=$(python3 -c "import json, sys; print(json.dumps(sys.argv[1:]))" -- "$@")
+
+if [[ $RAW -eq 1 ]]; then
+    # Raw mode: run a shell command with the EB env injected
+    RAW_CMD="$*"
+    $SSH "sudo python3" <<PYEOF
+import os, subprocess, sys, json
+pid = subprocess.check_output(['pgrep','-of','daphne'], text=True).strip()
+env = dict(os.environ)
+if pid:
+    with open(f'/proc/{pid}/environ') as f:
+        for kv in f.read().split(chr(0)):
+            if '=' in kv:
+                k, _, v = kv.partition('='); env[k] = v
+sys.exit(subprocess.call(['bash', '-c', ${RAW_CMD@Q}], env=env))
+PYEOF
+else
+    # manage.py mode: discover venv Python and run manage.py with prod env
+    $SSH "sudo python3" <<PYEOF
+import os, subprocess, sys, glob, json
+args = json.loads('${ARGS_JSON}')
+pid = subprocess.check_output(['pgrep','-of','daphne'], text=True).strip()
+env = dict(os.environ)
+if pid:
+    with open(f'/proc/{pid}/environ') as f:
+        for kv in f.read().split(chr(0)):
+            if '=' in kv:
+                k, _, v = kv.partition('='); env[k] = v
+os.chdir('${APP_DIR}')
+python = sorted(glob.glob('/var/app/venv/*/bin/python'))[-1]
+sys.exit(subprocess.call([python] + args, env=env))
+PYEOF
+fi

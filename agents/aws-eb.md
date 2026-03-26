@@ -51,24 +51,40 @@ aws iam put-role-policy \
                   "Resource":"<secret-arn>"}]}'
 ```
 
-## Connecting to RDS from local machine
+## Reaching prod from local — `eb_run.sh` (preferred)
 
-Use `scripts/with_rds.sh` — opens port 3306 for your current IP, runs the command
-with prod credentials from `secrets/rds.env`, then closes the port automatically
-(via `trap EXIT`, even on Ctrl-C or error).
+`scripts/eb_run.sh` uses **EC2 Instance Connect** — the proper "IAM as the key" approach:
+1. Generates a throw-away RSA key pair
+2. Pushes the public half to the instance for 60 s via `aws ec2-instance-connect send-ssh-public-key` (IAM-authenticated)
+3. SSHes in, pipes a Python script over stdin, reads env from the running Daphne process's `/proc` entry (avoids quoting issues in the EB env file)
+4. Temp key is deleted on exit via `trap`
+
+No security group changes. No static secrets. Just IAM.
 
 ```bash
-# Any management command:
-./scripts/with_rds.sh manage.py check_background_migrations
-./scripts/with_rds.sh manage.py migrate --plan
-./scripts/with_rds.sh manage.py shell
+# Management commands (prod env injected automatically):
+./scripts/eb_run.sh manage.py check_background_migrations
+./scripts/eb_run.sh manage.py migrate --plan
+./scripts/eb_run.sh manage.py shell
 
-# Raw mysql client (fetches password from Secrets Manager):
-./scripts/with_rds.sh --raw ./scripts/rds_mysql.sh -e "SHOW TABLES"
+# Raw shell (read logs, run anything):
+./scripts/eb_run.sh --raw "cat /var/log/app/background_migrations.log"
+./scripts/eb_run.sh --raw "tail -50 /var/log/web.stdout.log"
 ```
 
-**Agents**: always use `./scripts/with_rds.sh` when running management commands
-against prod. Requires `required_permissions: ["all"]` in the Shell tool call.
+**Agents**: use `./scripts/eb_run.sh` for all prod management commands.
+Requires `required_permissions: ["all"]` in the Shell tool call.
+
+## Connecting to RDS from local machine (fallback)
+
+When `eb_run.sh` isn't suitable (e.g. raw MySQL client), use `scripts/with_rds.sh` —
+opens port 3306 for your current IP, runs the command with creds from `secrets/rds.env`,
+closes the port on exit via `trap`.
+
+```bash
+./scripts/with_rds.sh manage.py check_background_migrations
+./scripts/with_rds.sh --raw ./scripts/rds_mysql.sh -e "SHOW TABLES"
+```
 
 ## Slow / blocking migrations — background pattern
 
