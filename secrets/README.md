@@ -26,7 +26,7 @@ mysql --ssl-mode=VERIFY_CA --ssl-ca=secrets/global-bundle.pem -h "$RDS_HOSTNAME"
    cp secrets/rds.elasticbeanstalk-env.example secrets/rds.env
    ```
 
-2. Edit `secrets/rds.env` and set `RDS_PASSWORD`.
+2. Edit `secrets/rds.env` and set `RDS_PASSWORD`. **Wrap the value in single quotes** if it contains shell-special characters such as `( ) | $ < > [ ] * ?`. Example: `RDS_PASSWORD='…'`. If the password itself contains a single quote, use the bash form `RDS_PASSWORD='foo'\''bar'` (that is one quoted string).
 
 3. Load before Django / `manage.py` against RDS:
 
