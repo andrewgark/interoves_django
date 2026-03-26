@@ -377,6 +377,7 @@ class AttemptAdmin(admin.ModelAdmin):
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }
+    raw_id_fields = ['task', 'team', 'user']
     list_display = ['__str__', 'team', 'task', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points', 'skip', 'time']
     actions = [
         set_ok,
@@ -400,6 +401,7 @@ class PendingAttemptsAdmin(admin.ModelAdmin):
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }
+    raw_id_fields = ['task', 'team', 'user']
 
     def get_queryset(self, request):
         qs = super(PendingAttemptsAdmin, self).get_queryset(request)

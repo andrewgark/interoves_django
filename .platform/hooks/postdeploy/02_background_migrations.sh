@@ -73,6 +73,10 @@ with connection.cursor() as c:
     log "  $name launched (PID $!)"
 }
 
+INDEXES_REGISTRATION=(
+    "games_reg_game_team_idx|CREATE INDEX games_reg_game_team_idx ON games_registration (game_id, team_id) ALGORITHM=INPLACE LOCK=NONE"
+)
+
 log "=== 02_background_migrations start ==="
 
 log "--- 0109: checking/creating indexes ---"
@@ -85,6 +89,16 @@ for entry in "${INDEXES_HINT[@]}"; do
     name="${entry%%|*}"
     sql="${entry#*|}"
     create_index_bg "$name" "$sql" "games_hintattempt"
+done
+
+# ---------------------------------------------------------------------------
+# 0112 — composite index on games_registration(game_id, team_id)
+# ---------------------------------------------------------------------------
+log "--- 0112: checking/creating Registration index ---"
+for entry in "${INDEXES_REGISTRATION[@]}"; do
+    name="${entry%%|*}"
+    sql="${entry#*|}"
+    create_index_bg "$name" "$sql" "games_registration"
 done
 
 # ---------------------------------------------------------------------------

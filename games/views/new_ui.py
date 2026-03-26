@@ -499,12 +499,6 @@ def _new_results_compute(game, mode):
             if team_to_score[participant] == team_to_score[prev]:
                 team_to_place[participant] = team_to_place[prev]
 
-    if mode == 'tournament':
-        game.results = json.dumps({
-            p.name: {'score': str(score), 'place': team_to_place[p]} for p, score in team_to_score.items() if isinstance(p, Team)
-        })
-        game.save(update_fields=['results'])
-
     # Prepare per-cell metadata for templates: color by points vs max.
     tasks_flat = []
     for tg in task_groups:

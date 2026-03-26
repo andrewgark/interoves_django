@@ -355,10 +355,9 @@ class Game(models.Model):
         return 'general'
 
     def has_registered(self, team):
-        for reg in self.registrations.all():
-            if reg.team == team:
-                return True
-        return False
+        if team is None:
+            return False
+        return self.registrations.filter(team_id=team.pk).exists()
 
     def get_visible_start_time(self):
         return self.visible_start_time if self.visible_start_time is not None else self.start_time
@@ -600,10 +599,10 @@ class AttemptsInfo:
 
 class AttemptManager(models.Manager):
     def get_all_task_attempts(self, task, exclude_skip=True):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().filter(task=task).select_related('team', 'user')
         if exclude_skip:
-            queryset = queryset.exclude(skip=exclude_skip)
-        return sorted(queryset.filter(task=task), key=lambda x: x.time)
+            queryset = queryset.exclude(skip=True)
+        return sorted(queryset, key=lambda x: x.time)
 
     def _filter_by_actor(self, queryset, team=None, user=None, anon_key=None):
         if team is not None:
@@ -677,9 +676,9 @@ class AttemptManager(models.Manager):
         return self.filter_attempts_with_mode(attempts, mode)
 
     def get_task_hint_attempts(self, task, mode="general"):
-        hint_attempts = []
-        for hint in task.hints.all():
-            hint_attempts.extend(list(HintAttempt.objects.filter(hint=hint)))
+        hint_attempts = list(
+            HintAttempt.objects.filter(hint__task=task).select_related('hint', 'team', 'user')
+        )
         return self.filter_attempts_with_mode(hint_attempts, mode, is_hint_attempts=True)
 
     def get_best_attempt(self, attempts, mode="general"):
@@ -1165,6 +1164,12 @@ class Registration(models.Model):
     game = models.ForeignKey(Game, related_name='registrations', blank=True, null=True, on_delete=models.SET_NULL)
     time = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     with_referent = models.ForeignKey(Team, related_name='registrations_with_referent', blank=True, null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['game', 'team'], name='games_reg_game_team_idx'),
+        ]
+
     def __str__(self):
         return '{} --- {} ({}){}'.format(
             self.game,
