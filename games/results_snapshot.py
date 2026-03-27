@@ -149,8 +149,11 @@ def snapshot_to_results_context(game, payload):
             if not cell:
                 cells.append({'cls': '', 'n_attempts': 0, 'result_points': 0, 'hint_numbers': []})
                 continue
+            cell_cls = cell.get('cls') or ''
+            if cell_cls == 'cell-some':
+                cell_cls = 'cell-partial'
             cells.append({
-                'cls': cell.get('cls') or '',
+                'cls': cell_cls,
                 'n_attempts': int(cell.get('n_attempts') or 0),
                 'result_points': cell.get('result_points') or 0,
                 'hint_numbers': cell.get('hint_numbers') or [],
