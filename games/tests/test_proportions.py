@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
-from games.models import Attempt, CheckerType, Game, HTMLPage, Project, Task, TaskGroup, Team
+from games.models import Attempt, CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Team
 from games.proportions import build_proportions_chips_for_tasks, parse_proportions_pair
 from games.views.attempt_views import check_attempt
 
@@ -82,7 +82,8 @@ class ProportionsCheckerUsesAnswerTest(TestCase):
             author='a',
             author_extra='',
         )
-        cls.tg = TaskGroup.objects.create(game=cls.game, name='tg', number=1)
+        cls.tg = TaskGroup.objects.create(label='tg')
+        GameTaskGroup.objects.create(game=cls.game, task_group=cls.tg, number=1, name='tg')
         with patch('games.views.track.track_task_change'):
             cls.task = Task.objects.create(
                 task_group=cls.tg,
@@ -99,6 +100,7 @@ class ProportionsCheckerUsesAnswerTest(TestCase):
             task=self.task,
             team=self.team,
             time=timezone.now(),
+            game=self.game,
         )
         with patch('games.views.track.track_task_change'):
             check_attempt(attempt)

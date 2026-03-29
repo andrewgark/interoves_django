@@ -6,7 +6,8 @@ from django.utils import timezone
 from games.check import CheckerFactory
 from games.exception import DuplicateAttemptException, TooManyAttemptsException, InvalidFormException, NoGameAccessException
 from games.forms import AttemptForm
-from games.models import Attempt, ChainTaskState, CheckerType, Task, Team, CHAIN_TASK_TYPES
+from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, Team, CHAIN_TASK_TYPES
+from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
 from games.views.track import track_task_change
 from games.views.util import effective_play_mode, has_profile, has_team
@@ -17,7 +18,9 @@ def check_attempt(attempt):
     team = attempt.team
     user = getattr(attempt, 'user', None)
     anon_key = getattr(attempt, 'anon_key', None)
-    game = task.task_group.game
+    game = attempt.game or GameTaskGroup.resolve_game_for_task(task)
+    if game is None:
+        raise Exception('Cannot resolve game for attempt (set Attempt.game or use a single-linked task group)')
 
     current_mode = game.get_current_mode(attempt)
     modes = ['general']
@@ -35,17 +38,19 @@ def check_attempt(attempt):
             # Two-step pattern avoids needing a single unique_together over nullable fields.
             ChainTaskState.objects.get_or_create(
                 team=team, user=user, anon_key=anon_key,
-                task=task, game_mode=current_mode,
+                task=task, game=game, game_mode=current_mode,
                 defaults={'state': None},
             )
             chain_state_row = ChainTaskState.objects.select_for_update().get(
                 team=team, user=user, anon_key=anon_key,
-                task=task, game_mode=current_mode,
+                task=task, game=game, game_mode=current_mode,
             )
             last_attempt_state = chain_state_row.state
 
         for mode in modes:
-            attempts = Attempt.manager.get_attempts_before(team, task, attempt.time, mode, user=user, anon_key=anon_key)
+            attempts = Attempt.manager.get_attempts_before(
+                team, task, attempt.time, mode, user=user, anon_key=anon_key, game=game,
+            )
 
             if not is_chain_task and mode == 'general' and attempts:
                 if last_attempt_state is None:
@@ -130,8 +135,8 @@ def check_attempt(attempt):
         except:
             return
 
-        for attempt in Attempt.manager.filter(task=tag_task, team=tag_team):
-            check_attempt(attempt)
+        for tag_attempt in Attempt.manager.filter(task=tag_task, team=tag_team, game=game):
+            check_attempt(tag_attempt)
 
 
 def get_first_new_hint(task, team):
@@ -170,7 +175,9 @@ def _get_play_mode(request, game):
 def process_send_attempt(request, task_id):
     task = get_object_or_404(Task, id=task_id)
 
-    game = task.task_group.game
+    game = game_from_request_for_task(request, task)
+    if game is None:
+        return {'status': 'ambiguous_game'}
     play_mode = _get_play_mode(request, game)
 
     team = None
@@ -191,7 +198,7 @@ def process_send_attempt(request, task_id):
                 return {'status': 'no_anon'}
 
     if play_mode == 'team':
-        if not task.task_group.game.has_access('send_attempt', team=team):
+        if not game.has_access('send_attempt', team=team):
             raise NoGameAccessException('User has no access to game {}'.format(game))
     else:
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
@@ -237,6 +244,7 @@ def process_send_attempt(request, task_id):
     attempt.anon_key = anon_key
     attempt.task = task
     attempt.time = timezone.now()
+    attempt.game = game
 
     current_mode = game.get_current_mode(attempt)
 
@@ -246,14 +254,18 @@ def process_send_attempt(request, task_id):
         hint = get_first_new_hint_actor(task, team=team, user=user, anon_key=anon_key)
         if hint is not None:
             from games.views.hint_views import create_hint_attempt
-            create_hint_attempt(hint, team=team, user=user, anon_key=anon_key)
+            create_hint_attempt(hint, team=team, user=user, anon_key=anon_key, game=game)
 
     result = {
         'status': 'ok',
         'task_id': task.id,
     }
-    update_html = update_task_html(request, task, team, current_mode, user=user, anon_key=anon_key)
-    track_task_change(task, team, current_mode, update_html=update_html, request=request)
+    update_html = update_task_html(
+        request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+    )
+    track_task_change(
+        task, team, current_mode, update_html=update_html, request=request, game=game,
+    )
     result.update(update_html)
     return result
 

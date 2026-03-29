@@ -8,7 +8,30 @@ from django.forms.models import BaseInlineFormSet
 from django.db import models
 from django.shortcuts import get_object_or_404
 from games.google.actions import create_google_doc
-from games.models import *
+from games.models import (
+    Attempt,
+    Audio,
+    ChainTaskState,
+    CheckerType,
+    Game,
+    GameResultsSnapshot,
+    GameTaskGroup,
+    Hint,
+    HintAttempt,
+    HTMLPage,
+    Image,
+    Like,
+    PendingAttempt,
+    PendingTicketRequest,
+    Profile,
+    ProfileTeamMembership,
+    Project,
+    Registration,
+    Task,
+    TaskGroup,
+    Team,
+    TicketRequest,
+)
 from games.recheck import (
     recheck,
     recheck_chain_task,
@@ -45,16 +68,29 @@ class TaskInline(admin.TabularInline):
     }
 
 
+class GameTaskGroupInlineOnTaskGroup(admin.TabularInline):
+    model = GameTaskGroup
+    fk_name = 'task_group'
+    autocomplete_fields = ['game']
+    extra = 0
+
+
 @admin.register(TaskGroup)
 class TaskGroupAdmin(admin.ModelAdmin):
     inlines = [
+        GameTaskGroupInlineOnTaskGroup,
         TaskInline,
     ]
-    list_display = ['__str__', 'game', 'number', 'name']
+    list_display = ['__str__', 'label']
+    search_fields = ['label', 'id']
 
 
 class TaskGroupInline(admin.TabularInline):
-    model = TaskGroup
+    """Deprecated: use GameTaskGroup on Game. Kept as alias for migration period."""
+    model = GameTaskGroup
+    fk_name = 'game'
+    autocomplete_fields = ['task_group']
+    extra = 0
 
 
 def create_new_google_doc(modeladmin, request, queryset):
@@ -64,18 +100,36 @@ def create_new_google_doc(modeladmin, request, queryset):
 
 def copy_game(modeladmin, request, queryset):
     for game in queryset.all():
-        old_task_groups = game.task_groups.all()
+        old_links = list(
+            GameTaskGroup.objects.filter(game=game).select_related('task_group')
+        )
         game.id = game.id + '_copy'
         game.save()
-        for task_group in old_task_groups:
-            old_tasks = task_group.tasks.all()
-            task_group.pk = None
-            task_group.game = game
-            task_group.save()
+        for link in old_links:
+            old_tg = link.task_group
+            old_tasks = list(old_tg.tasks.all())
+            new_tg = TaskGroup(
+                label=old_tg.label,
+                rules=old_tg.rules,
+                text=old_tg.text,
+                checker=old_tg.checker,
+                points=old_tg.points,
+                max_attempts=old_tg.max_attempts,
+                image_width=old_tg.image_width,
+                tags=dict(old_tg.tags or {}),
+                view=old_tg.view,
+            )
+            new_tg.save()
+            GameTaskGroup.objects.create(
+                game=game,
+                task_group=new_tg,
+                number=link.number,
+                name=link.name,
+            )
             for task in old_tasks:
-                old_hints = task.hints.all()
+                old_hints = list(task.hints.all())
                 task.pk = None
-                task.task_group = task_group
+                task.task_group = new_tg
                 task.save()
                 for hint in old_hints:
                     hint.pk = None
@@ -179,8 +233,9 @@ class HintAttemptAdmin(admin.ModelAdmin):
 @admin.register(Game)
 class GameAdmin(admin.ModelAdmin):
     inlines = [
-        TaskGroupInline
+        TaskGroupInline,
     ]
+    search_fields = ['id', 'name', 'outside_name']
     list_display = ['__str__', 'name', 'theme', 'author', 'start_time', 'end_time', 'is_ready', 'is_playable', 'is_testing', 'is_registrable', 'requires_ticket']
     actions = [
         copy_game,
@@ -320,7 +375,8 @@ def set_ok_and_create_new_task(modeladmin, request, queryset):
     for attempt in queryset.all():
         attempt.status = 'Ok'
         attempt.save()
-        team_number = attempt.team.get_team_reg_number(attempt.task.task_group.game)
+        g = attempt.game or GameTaskGroup.resolve_game_for_task(attempt.task)
+        team_number = attempt.team.get_team_reg_number(g)
         if team_number is None:
             continue
         task = attempt.task
@@ -377,8 +433,8 @@ class AttemptAdmin(admin.ModelAdmin):
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }
-    raw_id_fields = ['task', 'team', 'user']
-    list_display = ['__str__', 'team', 'task', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points', 'skip', 'time']
+    raw_id_fields = ['task', 'team', 'user', 'game']
+    list_display = ['__str__', 'team', 'task', 'game', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points', 'skip', 'time']
     actions = [
         set_ok,
         confirm_prestatus,
@@ -422,12 +478,13 @@ class PendingAttemptsAdmin(admin.ModelAdmin):
 
 
 def recheck_chain_task_action(modeladmin, request, queryset):
-    for state_row in queryset.select_related('task', 'team', 'user'):
+    for state_row in queryset.select_related('task', 'team', 'user', 'game'):
         recheck_chain_task(
             task=state_row.task,
             team=state_row.team,
             user=state_row.user if state_row.user_id else None,
             anon_key=state_row.anon_key,
+            game=state_row.game,
         )
 
 
@@ -440,7 +497,7 @@ class ChainTaskStateAdmin(admin.ModelAdmin):
         '__str__', 'team', 'user', 'task', 'game_mode',
         'state_summary_display', 'updated_at', 'last_attempt',
     ]
-    list_filter = ['game_mode', 'task__task_type', 'task__task_group__game']
+    list_filter = ['game_mode', 'task__task_type', 'game']
     raw_id_fields = ['team', 'task', 'last_attempt', 'user']
     readonly_fields = ['state_summary_display', 'updated_at']
     actions = [recheck_chain_task_action]

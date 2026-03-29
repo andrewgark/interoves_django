@@ -32,6 +32,7 @@ from games.models import (
     Attempt,
     AudioManager,
     Game,
+    GameTaskGroup,
     HintAttempt,
     HTMLPage,
     ImageManager,
@@ -49,6 +50,7 @@ from games.models import GameResultsSnapshot
 from games.util import clean_text
 from games.replacements_lines import canonical_replacements_checker_line, parse_replacements_lines_text
 from games.proportions import build_proportions_chips_for_tasks
+from games.views.game_context import game_from_request_for_task
 from games.views.main_page import MainPageView
 from games.views.util import effective_play_mode, has_profile, has_team, personal_play_mode_locked
 from games.results_snapshot import snapshot_to_results_context
@@ -88,6 +90,20 @@ def _ru_iz_punkt_word(n):
     return _ru_plural_form_int(n, 'пункта', 'пунктов', 'пунктов')
 
 
+class _ResultsTaskGroupHeader:
+    """Заголовок столбца результатов: номер/название из GameTaskGroup."""
+
+    __slots__ = ('number', 'name', '_n_tasks')
+
+    def __init__(self, number, name, n_tasks):
+        self.number = number
+        self.name = name
+        self._n_tasks = n_tasks
+
+    def get_n_tasks_for_results(self):
+        return self._n_tasks
+
+
 def _compute_solved_task_ids(game, task_groups, team=None, user=None, anon_key=None, mode='general'):
     """
     Returns:
@@ -100,7 +116,7 @@ def _compute_solved_task_ids(game, task_groups, team=None, user=None, anon_key=N
 
     solved_task_ids = set()
     if task_ids:
-        ok_attempts = Attempt.manager.filter(task_id__in=task_ids, status='Ok')
+        ok_attempts = Attempt.manager.filter(task_id__in=task_ids, status='Ok', game=game)
         if team is not None:
             ok_attempts = ok_attempts.filter(team=team, user__isnull=True, anon_key__isnull=True)
         elif user is not None:
@@ -255,8 +271,9 @@ def new_section_game_page(request, game_id):
     if not game.has_access('see_game_preview', team=team):
         raise Http404()
     task_groups = (
-        TaskGroup.objects.filter(game=game)
-        .annotate(n_tasks=Count('tasks'))
+        GameTaskGroup.objects.filter(game=game)
+        .select_related('task_group')
+        .annotate(n_tasks=Count('task_group__tasks'))
         .order_by('number')
     )
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
@@ -276,9 +293,10 @@ def new_section_game_page(request, game_id):
         else:
             anon_key = _anon_key_from_request(request)
 
+    canonical_groups = [p.task_group for p in task_groups]
     solved_task_ids, tg_to_task_ids = _compute_solved_task_ids(
         game=game,
-        task_groups=task_groups,
+        task_groups=canonical_groups,
         team=team,
         user=user,
         anon_key=anon_key,
@@ -286,12 +304,13 @@ def new_section_game_page(request, game_id):
     )
 
     task_group_rows = []
-    for tg in task_groups:
+    for p in task_groups:
+        tg = p.task_group
         tg_task_ids = tg_to_task_ids.get(tg.id, [])
         n_solved = len([tid for tid in tg_task_ids if tid in solved_task_ids])
         is_fully_solved = bool(tg_task_ids) and n_solved >= len(tg_task_ids)
         row_class = ''
-        if tg.n_tasks and n_solved >= tg.n_tasks:
+        if p.n_tasks and n_solved >= p.n_tasks:
             row_class = 'new-task--solved'
         elif n_solved:
             row_class = 'new-task--partial'
@@ -302,13 +321,13 @@ def new_section_game_page(request, game_id):
         task_group_rows.append({
             'task_group': tg,
             'game': game,
-            'n_tasks': tg.n_tasks,
+            'n_tasks': p.n_tasks,
             'n_solved': n_solved,
-            'play_url': '/games/{}/{}/'.format(game_id, tg.number),
+            'play_url': '/games/{}/{}/'.format(game_id, p.number),
             'is_fully_solved': is_fully_solved,
             'row_class': row_class,
-            'title': tg.name,
-            'progress_text': '{} из {} {} решено'.format(n_solved, tg.n_tasks, _ru_iz_punkt_word(tg.n_tasks)),
+            'title': p.name,
+            'progress_text': '{} из {} {} решено'.format(n_solved, p.n_tasks, _ru_iz_punkt_word(p.n_tasks)),
         })
     section_rules_type = game_id if game_id in SECTION_RULES_GAME_IDS else None
     section_tutorial_html = None
@@ -379,14 +398,16 @@ def new_main_game_page(request, game_id):
             actor_value = request.user.get_username()
 
     task_groups = (
-        TaskGroup.objects.filter(game=game)
-        .annotate(n_tasks=Count('tasks'))
+        GameTaskGroup.objects.filter(game=game)
+        .select_related('task_group')
+        .annotate(n_tasks=Count('task_group__tasks'))
         .order_by('number')
     )
 
+    canonical_groups = [p.task_group for p in task_groups]
     solved_task_ids, tg_to_task_ids = _compute_solved_task_ids(
         game=game,
-        task_groups=task_groups,
+        task_groups=canonical_groups,
         team=team if play_mode == 'team' else None,
         user=user if play_mode != 'team' else None,
         anon_key=anon_key if play_mode != 'team' else None,
@@ -394,22 +415,23 @@ def new_main_game_page(request, game_id):
     )
 
     task_group_rows = []
-    for tg in task_groups:
+    for p in task_groups:
+        tg = p.task_group
         n_solved = len([tid for tid in tg_to_task_ids.get(tg.id, []) if tid in solved_task_ids])
         row_class = ''
-        if tg.n_tasks and n_solved >= tg.n_tasks:
+        if p.n_tasks and n_solved >= p.n_tasks:
             row_class = 'new-task--solved'
         elif n_solved:
             row_class = 'new-task--partial'
         task_group_rows.append({
             'task_group': tg,
-            'n_tasks': tg.n_tasks,
+            'n_tasks': p.n_tasks,
             'n_solved': n_solved,
-            'play_url': '/games/{}/{}/'.format(game.id, tg.number),
-            'is_fully_solved': bool(tg.n_tasks) and n_solved >= tg.n_tasks,
+            'play_url': '/games/{}/{}/'.format(game.id, p.number),
+            'is_fully_solved': bool(p.n_tasks) and n_solved >= p.n_tasks,
             'row_class': row_class,
-            'title': 'Задание {} · {}'.format(tg.number, tg.name),
-            'progress_text': '{} из {} {} решено'.format(n_solved, tg.n_tasks, _ru_iz_punkt_word(tg.n_tasks)),
+            'title': 'Задание {} · {}'.format(p.number, p.name),
+            'progress_text': '{} из {} {} решено'.format(n_solved, p.n_tasks, _ru_iz_punkt_word(p.n_tasks)),
         })
     return render(request, 'ui/game_page.html', {
         'game': game,
@@ -436,24 +458,25 @@ def _new_results_compute(game, mode):
     team_to_max_best_time = {}
     team_task_to_attempts_info = {}
 
-    # 2 queries: task groups + tasks (prefetched together)
-    task_groups = sorted(
-        game.task_groups.prefetch_related(
+    # 2 queries: placements + tasks (prefetched on canonical task_group)
+    placements = sorted(
+        game.task_group_links.select_related('task_group').prefetch_related(
             Prefetch(
-                'tasks',
+                'task_group__tasks',
                 queryset=Task.objects.filter(~Q(task_type='text_with_forms')),
                 to_attr='result_tasks',
             )
         ),
-        key=lambda tg: tg.number,
+        key=lambda p: p.number,
     )
     task_group_to_tasks = {}
-    for task_group in task_groups:
-        task_group_to_tasks[task_group.number] = sorted(
-            task_group.result_tasks, key=lambda t: t.key_sort()
+    for p in placements:
+        tg = p.task_group
+        task_group_to_tasks[p.number] = sorted(
+            getattr(tg, 'result_tasks', []) or [], key=lambda t: t.key_sort()
         )
 
-    tasks_flat = [t for tg in task_groups for t in task_group_to_tasks[tg.number]]
+    tasks_flat = [t for p in placements for t in task_group_to_tasks[p.number]]
     task_ids = [t.id for t in tasks_flat]
 
     # 2 queries: all attempts + all hint attempts for the whole game at once
@@ -482,8 +505,8 @@ def _new_results_compute(game, mode):
             team_task_to_attempts_info[(participant, task)] = attempts_info
 
     for team in team_to_score.keys():
-        for task_group in task_groups:
-            for task in task_group_to_tasks[task_group.number]:
+        for p in placements:
+            for task in task_group_to_tasks[p.number]:
                 team_to_list_attempts_info.setdefault(team, [])
                 team_to_list_attempts_info[team].append(team_task_to_attempts_info.get((team, task)))
 
@@ -503,8 +526,8 @@ def _new_results_compute(game, mode):
 
     # Prepare per-cell metadata for templates: color by points vs max.
     tasks_flat = []
-    for tg in task_groups:
-        for task in task_group_to_tasks[tg.number]:
+    for p in placements:
+        for task in task_group_to_tasks[p.number]:
             tasks_flat.append(task)
 
     def _to_float(x):
@@ -577,8 +600,13 @@ def _new_results_compute(game, mode):
             })
         team_to_cells[participant] = cells
 
+    task_group_headers = [
+        _ResultsTaskGroupHeader(p.number, p.name, len(task_group_to_tasks[p.number]))
+        for p in placements
+    ]
+
     return {
-        'task_groups': task_groups,
+        'task_groups': task_group_headers,
         'task_group_to_tasks': task_group_to_tasks,
         'teams_sorted': teams_sorted,
         'team_to_list_attempts_info': team_to_list_attempts_info,
@@ -714,7 +742,9 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
     (attempts, walls, replacements_lines, likes, proportions pool).
     """
     attempts_info_by_task_id = {
-        t.id: Attempt.manager.get_attempts_info(team=team, task=t, mode=mode, user=user, anon_key=anon_key)
+        t.id: Attempt.manager.get_attempts_info(
+            team=team, task=t, mode=mode, user=user, anon_key=anon_key, game=game,
+        )
         for t in tasks
     }
     wall_max_points_meta_by_task_id = {}
@@ -924,17 +954,33 @@ def new_task_group_page(request, game_id, task_group_number):
                 raise Http404()
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
-    task_group = TaskGroup.objects.select_related('rules').filter(game=game, number=task_group_number).first()
-    if not task_group:
-        # Если пользователь открыл несуществующий номер группы — перенаправим на ближайшую существующую.
-        next_tg = TaskGroup.objects.filter(game=game, number__gt=task_group_number).order_by('number').first()
-        prev_tg = TaskGroup.objects.filter(game=game, number__lt=task_group_number).order_by('-number').first()
-        fallback = next_tg or prev_tg
+    placement = (
+        GameTaskGroup.objects.select_related('task_group', 'task_group__rules')
+        .filter(game=game, number=task_group_number)
+        .first()
+    )
+    if not placement:
+        next_p = (
+            GameTaskGroup.objects.filter(game=game, number__gt=task_group_number)
+            .order_by('number')
+            .first()
+        )
+        prev_p = (
+            GameTaskGroup.objects.filter(game=game, number__lt=task_group_number)
+            .order_by('-number')
+            .first()
+        )
+        fallback = next_p or prev_p
         if fallback:
             return redirect('new_task_group', game_id=game.id, task_group_number=fallback.number)
         raise Http404()
-    prev_tg = TaskGroup.objects.filter(game=game, number__lt=task_group.number).order_by('-number').first()
-    next_tg = TaskGroup.objects.filter(game=game, number__gt=task_group.number).order_by('number').first()
+    task_group = placement.task_group
+    prev_tg = (
+        GameTaskGroup.objects.filter(game=game, number__lt=placement.number).order_by('-number').first()
+    )
+    next_tg = (
+        GameTaskGroup.objects.filter(game=game, number__gt=placement.number).order_by('number').first()
+    )
     tasks = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
     section_rules_type = game.id if game.id in SECTION_RULES_GAME_IDS else None
     section_tutorial_html = None
@@ -966,6 +1012,8 @@ def new_task_group_page(request, game_id, task_group_number):
         'section_tutorial_html': section_tutorial_html,
         'prev_task_group_url': '/games/{}/{}/'.format(game.id, prev_tg.number) if prev_tg else None,
         'next_task_group_url': '/games/{}/{}/'.format(game.id, next_tg.number) if next_tg else None,
+        'tg_number': placement.number,
+        'tg_name': placement.name,
         'back_url': (
             '/section/{}/'.format(game.id)
             if game.project_id == NEW_UI_SECTIONS_PROJECT
@@ -975,7 +1023,7 @@ def new_task_group_page(request, game_id, task_group_number):
                 else '/'
             )
         ),
-        'page_title': '{} · {}'.format(game.outside_name or game.name, task_group.name),
+        'page_title': '{} · {}'.format(game.outside_name or game.name, placement.name),
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
         'lock_personal_play_mode': personal_play_mode_locked(game),
@@ -1049,7 +1097,9 @@ def _answer_popup_html(answer_text, answer_comment=None):
 @require_http_methods(['GET'])
 def new_get_answer(request, task_id):
     task = get_object_or_404(Task, id=task_id)
-    game = task.task_group.game
+    game = game_from_request_for_task(request, task)
+    if game is None:
+        raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
@@ -1095,7 +1145,9 @@ def new_get_replacements_line_answer(request, task_id, line_index):
     task = get_object_or_404(Task, id=task_id)
     if task.task_type != 'replacements_lines':
         raise Http404()
-    game = task.task_group.game
+    game = game_from_request_for_task(request, task)
+    if game is None:
+        raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
@@ -1147,7 +1199,9 @@ def new_get_replacements_line_answer(request, task_id, line_index):
 @require_http_methods(['POST'])
 def new_like_dislike(request, task_id):
     task = get_object_or_404(Task, id=task_id)
-    game = task.task_group.game
+    game = game_from_request_for_task(request, task)
+    if game is None:
+        raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)

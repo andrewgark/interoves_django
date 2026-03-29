@@ -1,6 +1,6 @@
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from games.models import Attempt, ChainTaskState, CHAIN_TASK_TYPES
+from games.models import Attempt, ChainTaskState, CHAIN_TASK_TYPES, GameTaskGroup
 from games.views.views import check_attempt
 
 
@@ -59,7 +59,9 @@ def recheck_team_task_all_chronological(_, attempt_id):
     anon_key = this_attempt.anon_key
 
     if task.task_type in CHAIN_TASK_TYPES:
-        recheck_chain_task(task=task, team=team, user=user, anon_key=anon_key)
+        recheck_chain_task(
+            task=task, team=team, user=user, anon_key=anon_key, game=this_attempt.game,
+        )
         return
 
     attempts = Attempt.manager.get_all_attempts(
@@ -69,7 +71,7 @@ def recheck_team_task_all_chronological(_, attempt_id):
         recheck(None, attempt.id)
 
 
-def recheck_chain_task(task, team=None, user=None, anon_key=None):
+def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None):
     """
     Optimised full recheck for wall / replacements_lines.
 
@@ -83,20 +85,23 @@ def recheck_chain_task(task, team=None, user=None, anon_key=None):
     """
     from games.check import CheckerFactory
 
-    game = task.task_group.game
+    if game is None:
+        game = GameTaskGroup.resolve_game_for_task(task)
+    if game is None:
+        raise ValueError('recheck_chain_task: pass game= for tasks in multiple games')
 
     with transaction.atomic():
         # Lock (and create if missing) both possible ChainTaskState rows upfront.
         for mode in ('general', 'tournament'):
             ChainTaskState.objects.get_or_create(
                 team=team, user=user, anon_key=anon_key,
-                task=task, game_mode=mode,
+                task=task, game=game, game_mode=mode,
                 defaults={'state': None},
             )
         locked_rows = {
             row.game_mode: row
             for row in ChainTaskState.objects.select_for_update().filter(
-                team=team, user=user, anon_key=anon_key, task=task,
+                team=team, user=user, anon_key=anon_key, task=task, game=game,
             )
         }
         # Reset both chains.
@@ -111,7 +116,7 @@ def recheck_chain_task(task, team=None, user=None, anon_key=None):
         states = {'general': None, 'tournament': None}
 
         attempts = Attempt.manager.get_all_attempts(
-            team, task, exclude_skip=False, user=user, anon_key=anon_key,
+            team, task, exclude_skip=False, user=user, anon_key=anon_key, game=game,
         )
 
         for attempt in attempts:

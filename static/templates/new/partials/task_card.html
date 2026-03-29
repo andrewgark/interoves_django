@@ -67,6 +67,7 @@
         </p>
         <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
           {% csrf_token %}
+          <input type="hidden" name="game_id" value="{{ game.id }}">
           <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
           <div class="new-attempt-row">
             {{ task.get_attempt_form.text }}
@@ -83,7 +84,7 @@
       {% endif %}
       <div class="new-taskcard__text">
         {% if task.task_type == 'distribute_to_teams' %}
-          {% autoescape off %}{{ task|distribute_text_to_team:request.user.profile.team_on }}{% endautoescape %}
+          {% autoescape off %}{% distribute_text_to_team_tag task request.user.profile.team_on game %}{% endautoescape %}
         {% else %}
           {% autoescape off %}{{ task.text }}{% endautoescape %}
         {% endif %}
@@ -99,6 +100,7 @@
       {% else %}
         <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
           {% csrf_token %}
+          <input type="hidden" name="game_id" value="{{ game.id }}">
           <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
           <div class="new-attempt-row">
             {{ task.get_attempt_form.text }}
@@ -110,12 +112,12 @@
     {% elif task.task_type == 'text_with_forms' %}
       <p class="new-login-hint" style="margin:0">
         Этот тип задания пока не поддержан в новом UI.
-        Откройте в старом интерфейсе: <a href="/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}">/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}</a>
+        Откройте в старом интерфейсе: <a href="/games/{{ game.id }}/{{ tg_number }}/{{ task.number }}">/games/{{ game.id }}/{{ tg_number }}/{{ task.number }}</a>
       </p>
     {% else %}
       <p class="new-login-hint" style="margin:0">
         Тип задания «{{ task.task_type }}» не поддержан в новом UI.
-        <a href="/games/{{ game.id }}/{{ task_group.number }}/{{ task.number }}">Открыть в старом интерфейсе</a>
+        <a href="/games/{{ game.id }}/{{ tg_number }}/{{ task.number }}">Открыть в старом интерфейсе</a>
       </p>
     {% endif %}
 
@@ -138,6 +140,7 @@
                 {% else %}
                   <form class="new-hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
                     {% csrf_token %}
+                    <input type="hidden" name="game_id" value="{{ game.id }}">
                     <input type="hidden" name="hint_number" value="{{ hint.number }}">
                     <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                     <input type="hidden" name="__ui_hint_penalty" value="{{ hint.points_penalty }}">

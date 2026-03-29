@@ -28,16 +28,34 @@ def results_page(request, game_id, mode='general'):
     team_to_max_best_time = {}
     team_task_to_attempts_info = {}
 
-    task_groups = sorted(game.task_groups.all(), key=lambda tg: tg.number)
+    class _ResultCol:
+        __slots__ = ('number', 'name', '_n')
+
+        def __init__(self, number, name, n_tasks):
+            self.number = number
+            self.name = name
+            self._n = n_tasks
+
+        def get_n_tasks_for_results(self):
+            return self._n
+
+    placements = sorted(
+        game.task_group_links.select_related('task_group'),
+        key=lambda p: p.number,
+    )
     task_group_to_tasks = {}
 
-    for task_group in task_groups:
-        task_group_to_tasks[task_group.number] = sorted(
-            task_group.tasks.filter(~Q(task_type='text_with_forms')) # исключаем задания этого типа из таблички
-        , key=lambda t: t.key_sort())
-        for task in task_group_to_tasks[task_group.number]:
+    for p in placements:
+        tg = p.task_group
+        task_group_to_tasks[p.number] = sorted(
+            tg.tasks.filter(~Q(task_type='text_with_forms')),
+            key=lambda t: t.key_sort(),
+        )
+        for task in task_group_to_tasks[p.number]:
             from games.models import Attempt
-            for attempts_info in Attempt.manager.get_task_attempts_infos(task=task, mode=mode):
+            for attempts_info in Attempt.manager.get_task_attempts_infos(
+                task=task, mode=mode, game=game,
+            ):
                 if attempts_info.attempts or attempts_info.hint_attempts:
                     if attempts_info.attempts:
                         team = attempts_info.attempts[0].team
@@ -60,8 +78,8 @@ def results_page(request, game_id, mode='general'):
                         team_task_to_attempts_info[(team, task)] = attempts_info
 
     for team in team_to_score.keys():
-        for task_group in task_groups:
-            for task in task_group_to_tasks[task_group.number]:
+        for p in placements:
+            for task in task_group_to_tasks[p.number]:
                 if team not in team_to_list_attempts_info:
                     team_to_list_attempts_info[team] = []
                 if (team, task) in team_task_to_attempts_info:
@@ -105,9 +123,14 @@ def results_page(request, game_id, mode='general'):
         return False
 
     tasks_flat = []
-    for tg in task_groups:
-        for task in task_group_to_tasks[tg.number]:
+    for p in placements:
+        for task in task_group_to_tasks[p.number]:
             tasks_flat.append(task)
+
+    task_groups = [
+        _ResultCol(p.number, p.name, len(task_group_to_tasks[p.number]))
+        for p in placements
+    ]
 
     team_to_cells = {}
     for team in teams_sorted:

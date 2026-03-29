@@ -1,3 +1,4 @@
+{% load filters %}
 <div class="max-points">
   (Максимум баллов: {{ task.get_points|minimize_digits }})
   {% include "task-content/likes.html" %}
@@ -20,7 +21,7 @@
     {% endautoescape %}
 {% elif task.task_type == 'distribute_to_teams' %}
     {% autoescape off %}
-    {{ task|distribute_text_to_team:team }}
+    {% distribute_text_to_team_tag task team game %}
     {% endautoescape %}
 {% endif %}
 <br>
@@ -29,6 +30,7 @@
   {% if not attempts_info or mode == 'general' or attempts_info.get_n_attempts < task.get_max_attempts %}
     <form class="attempt-form" action="/send_attempt/{{ task.id }}/" method="post">
       {% csrf_token %}
+      {% if game %}<input type="hidden" name="game_id" value="{{ game.id }}">{% endif %}
       <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
       Попытка {{ attempts_info.get_n_attempts|get_new_attempt_number }}{% if mode == 'tournament' %}/{{ task.get_max_attempts }}{% endif %}:
       <div class="field-wrapper">

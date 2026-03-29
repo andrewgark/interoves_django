@@ -4,7 +4,7 @@ from django.template.defaulttags import register
 from allauth.socialaccount.models import SocialApp
 from django.utils import timezone
 from games.access import game_is_going_now
-from games.models import Like, Attempt, Team, Task, Registration
+from games.models import GameTaskGroup, Like, Attempt, Team, Task, Registration
 from games.util import clean_text, better_status
 
 
@@ -473,12 +473,13 @@ def sorted_ticket_requests(team):
     return sorted(team.ticket_requests.all(), key=lambda x: x.time)
 
 
-@register.filter
-def distribute_text_to_team(task, team):
+@register.simple_tag
+def distribute_text_to_team_tag(task, team, game=None):
     data = json.loads(task.text)
+    g = game or GameTaskGroup.resolve_game_for_task(task)
     team_number = None
-    if team is not None:
-        team_number = team.get_team_reg_number(task.task_group.game)
+    if team is not None and g is not None:
+        team_number = team.get_team_reg_number(g)
     if team_number is None:
         distr_text = 'Увидеть уникальную раздатку могут только зарегистрированные во время игры команды.'
     elif team_number > len(data['list']):

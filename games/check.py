@@ -599,7 +599,9 @@ class SolutionsTagNumber:
                 )
         except Task.DoesNotExist:
             return CheckResult('Wrong', 'Pending', 0)
-        attempts_infos = Attempt.manager.get_task_attempts_infos(task, mode="tournament")
+        attempts_infos = Attempt.manager.get_task_attempts_infos(
+            task, mode="tournament", game=attempt.game,
+        )
         total_points = 0
         for attempts_info in attempts_infos:
             if not attempts_info.attempts:

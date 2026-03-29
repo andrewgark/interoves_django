@@ -27,7 +27,7 @@ from django.core.cache import cache
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from games.models import Attempt, Task
+from games.models import Attempt, GameTaskGroup, Task
 from games.views.render_task import update_task_html
 
 logger = logging.getLogger(__name__)
@@ -213,8 +213,11 @@ def notify_user_after_commit(user_id, body, *, seq_namespace=None):
     _schedule_channel_broadcast(send)
 
 
-def build_event_task_change(task, team=None, current_mode=None, update_html=None, request=None):
-    game = task.task_group.game
+def build_event_task_change(task, team=None, current_mode=None, update_html=None, request=None, game=None):
+    if game is None:
+        game = GameTaskGroup.resolve_game_for_task(task)
+    if game is None:
+        return {'type': 'task.changed', 'task': task.id, 'by': 'team' if team is not None else 'admin'}
     if team is not None and current_mode is None:
         attempt = Attempt(task=task, team=team, time=timezone.now())
         current_mode = game.get_current_mode(attempt)
@@ -225,7 +228,7 @@ def build_event_task_change(task, team=None, current_mode=None, update_html=None
         request.user = team.roster_profiles.first().user
 
     if update_html is None and request is not None:
-        update_html = update_task_html(request, task, team, current_mode)
+        update_html = update_task_html(request, task, team, current_mode, game=game)
     if update_html is None:
         update_html = {}
 
@@ -238,32 +241,40 @@ def build_event_task_change(task, team=None, current_mode=None, update_html=None
     return channel_event
 
 
-def track_task_change(task, team=None, current_mode=None, update_html=None, request=None):
+def track_task_change(task, team=None, current_mode=None, update_html=None, request=None, game=None):
     """
     Notify subscribers after the DB transaction commits so clients never read stale rows.
     build_event_task_change runs inside the callback so Task.save() can schedule an update
     before super().save() (the task row exists when the callback runs).
     """
-    game = task.task_group.game
+    target_games = []
+    if game is not None:
+        target_games.append(game)
+    else:
+        target_games = list(
+            GameTaskGroup.objects.filter(task_group_id=task.task_group_id).select_related('game')
+        )
+        target_games = [x.game for x in target_games]
 
     def send():
-        channel_event = envelope_track_message(
-            build_event_task_change(task, team, current_mode, update_html, request),
-            game.id,
-        )
         channel_layer = get_channel_layer()
         if channel_layer is None:
             return
-        if team is not None:
-            async_to_sync(channel_layer.group_send)(
-                CHANNEL_GROUPS['game_team'](game.id, team.get_name_hash()),
-                channel_event,
+        for g in target_games:
+            channel_event = envelope_track_message(
+                build_event_task_change(task, team, current_mode, update_html, request, game=g),
+                g.id,
             )
-        else:
-            async_to_sync(channel_layer.group_send)(
-                CHANNEL_GROUPS['game'](game.id),
-                channel_event,
-            )
+            if team is not None:
+                async_to_sync(channel_layer.group_send)(
+                    CHANNEL_GROUPS['game_team'](g.id, team.get_name_hash()),
+                    channel_event,
+                )
+            else:
+                async_to_sync(channel_layer.group_send)(
+                    CHANNEL_GROUPS['game'](g.id),
+                    channel_event,
+                )
 
     _schedule_channel_broadcast(send)
 

@@ -11,7 +11,7 @@ Usage:
 """
 from django.core.management.base import BaseCommand
 
-from games.models import Attempt, CHAIN_TASK_TYPES
+from games.models import Attempt, CHAIN_TASK_TYPES, GameTaskGroup
 from games.recheck import recheck_chain_task
 
 
@@ -43,22 +43,29 @@ class Command(BaseCommand):
         seen = set()
         combos = []
         for attempt in qs.iterator():
-            key = (attempt.team_id, attempt.user_id, attempt.anon_key, attempt.task_id)
+            key = (attempt.team_id, attempt.user_id, attempt.anon_key, attempt.task_id, attempt.game_id)
             if key in seen:
                 continue
             seen.add(key)
+            g = attempt.game
+            if g is None:
+                g = GameTaskGroup.resolve_game_for_task(attempt.task)
+            if g is None:
+                continue
             combos.append({
                 'task': attempt.task,
                 'team': attempt.team,
                 'user': attempt.user if attempt.user_id else None,
                 'anon_key': attempt.anon_key,
+                'game': g,
             })
 
         self.stdout.write('Found {} actor+task combination(s) to backfill.'.format(len(combos)))
 
         for i, combo in enumerate(combos, 1):
-            label = 'task={} team={} user={} anon={}'.format(
+            label = 'task={} game={} team={} user={} anon={}'.format(
                 combo['task'].pk,
+                combo['game'].pk,
                 combo['team'].pk if combo['team'] else None,
                 combo['user'].pk if combo['user'] else None,
                 combo['anon_key'],

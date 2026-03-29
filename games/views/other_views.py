@@ -3,6 +3,7 @@ from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404
 from games.exception import NoGameAccessException
 from games.models import Like, Task
+from games.views.game_context import game_from_request_for_task
 from games.views.util import has_team
 
 
@@ -11,9 +12,11 @@ def like_dislike(request, task_id):
     task = get_object_or_404(Task, id=task_id)
 
     team = request.user.profile.team_on
-    game = task.task_group.game
+    game = game_from_request_for_task(request, task)
+    if game is None:
+        return NoGameAccessException('Cannot resolve game for task {}'.format(task.id))
 
-    if not task.task_group.game.has_access('send_attempt', team=team):
+    if not game.has_access('send_attempt', team=team):
         return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     likes = int(request.POST.get('likes', 0))

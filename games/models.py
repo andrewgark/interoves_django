@@ -8,6 +8,8 @@ import re
 from django.contrib.auth.models import User
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import F
+from django.db.models.functions import Coalesce
 from django.dispatch import receiver
 from django.utils import timezone
 from games.access import get_game_access
@@ -386,10 +388,17 @@ class GameResultsSnapshot(models.Model):
 
 
 class TaskGroup(models.Model):
+    """
+    Канонический набор заданий (задачи, чекер, вид). Привязка к играм с номером/названием — GameTaskGroup.
+    """
     id = models.AutoField(primary_key=True)
-    game = models.ForeignKey(Game, related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
-    name = models.CharField(max_length=100)
-    number = models.IntegerField()
+    label = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        verbose_name='Подпись (админка)',
+        help_text='Для списков в админке; игрокам не показывается.',
+    )
     rules = models.ForeignKey(HTMLPage, to_field='name', related_name='task_groups', blank=True, null=True, on_delete=models.SET_NULL)
     text = models.TextField(null=True, blank=True)
 
@@ -411,8 +420,38 @@ class TaskGroup(models.Model):
 
     view = models.CharField(default='default', max_length=100, choices=VIEW_VARIANTS)
 
+    def get_derived_title(self):
+        """
+        Подпись как у старого TaskGroup: «[игра] N. название» по самой ранней по времени игре
+        среди вхождений (visible_start_time или start_time, затем id игры и номер круга).
+        """
+        link = (
+            GameTaskGroup.objects.filter(task_group_id=self.pk)
+            .select_related('game')
+            .annotate(
+                _eg_sort=Coalesce(
+                    F('game__visible_start_time'),
+                    F('game__start_time'),
+                )
+            )
+            .order_by('_eg_sort', 'game_id', 'number', 'pk')
+            .first()
+        )
+        if link is None:
+            return None
+        return '[{}] {}. {}'.format(
+            link.game.get_no_html_name(),
+            link.number,
+            link.name,
+        ).strip()
+
     def __str__(self):
-        return '[{}]: {}. {}'.format(self.game.name, self.number, self.name)
+        if self.label:
+            return self.label
+        derived = self.get_derived_title()
+        if derived:
+            return derived
+        return 'Набор заданий #{}'.format(self.pk)
 
     def get_li_class(self):
         if self.view == 'table-3-n':
@@ -426,6 +465,47 @@ class TaskGroup(models.Model):
 
     def get_n_tasks_for_results(self):
         return len(self.tasks.filter(~models.Q(task_type='text_with_forms')))
+
+
+class GameTaskGroup(models.Model):
+    """Вхождение набора заданий в игру: свой номер и название для каждой игры."""
+
+    id = models.AutoField(primary_key=True)
+    game = models.ForeignKey(Game, related_name='task_group_links', on_delete=models.CASCADE)
+    task_group = models.ForeignKey(TaskGroup, related_name='game_links', on_delete=models.CASCADE)
+    number = models.IntegerField()
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['game', 'task_group'],
+                name='unique_gametaskgroup_game_taskgroup',
+            ),
+            models.UniqueConstraint(
+                fields=['game', 'number'],
+                name='unique_gametaskgroup_game_number',
+            ),
+        ]
+        ordering = ['number']
+
+    def __str__(self):
+        return '[{}] {}. {}'.format(self.game_id, self.number, self.name)
+
+    @staticmethod
+    def resolve_game_for_task(task, game_id=None):
+        """
+        Игра в контексте задания: явный game_id, иначе единственная привязанная игра.
+        """
+        if task is None or task.task_group_id is None:
+            return None
+        qs = GameTaskGroup.objects.filter(task_group_id=task.task_group_id).select_related('game')
+        if game_id:
+            row = qs.filter(game_id=game_id).first()
+            return row.game if row else None
+        if qs.count() == 1:
+            return qs.first().game
+        return None
 
 
 class Task(models.Model):
@@ -463,12 +543,17 @@ class Task(models.Model):
 
     def __str__(self):
         game_name = 'NONE'
-        if self.task_group is not None and self.task_group.game is not None:
-            game_name = self.task_group.game.name
-        task_group_number = 'NONE'
+        g = GameTaskGroup.resolve_game_for_task(self)
+        if g is not None:
+            game_name = g.name
+        tg_label = 'NONE'
         if self.task_group is not None:
-            task_group_number = self.task_group.number
-        return '{}: {}.{}'.format(game_name, task_group_number, self.number)
+            tg_label = (
+                self.task_group.label
+                or self.task_group.get_derived_title()
+                or str(self.task_group_id)
+            )
+        return '{}: {}.{}'.format(game_name, tg_label, self.number)
 
     def save(self, *args, **kwargs):
         from games.views.track import track_task_change
@@ -598,8 +683,10 @@ class AttemptsInfo:
 
 
 class AttemptManager(models.Manager):
-    def get_all_task_attempts(self, task, exclude_skip=True):
+    def get_all_task_attempts(self, task, exclude_skip=True, game=None):
         queryset = super().get_queryset().filter(task=task).select_related('team', 'user')
+        if game is not None:
+            queryset = queryset.filter(game=game)
         if exclude_skip:
             queryset = queryset.exclude(skip=True)
         return sorted(queryset, key=lambda x: x.time)
@@ -613,50 +700,73 @@ class AttemptManager(models.Manager):
             return queryset.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
         return queryset.none()
 
-    def get_all_attempts(self, team, task, exclude_skip=True, user=None, anon_key=None):
+    def _attempt_row_game(self, row, hint_game=None):
+        """Game for tournament filtering: Attempt.game, or HintAttempt + hint_game context."""
+        if isinstance(row, Attempt):
+            if row.game_id:
+                return row.game
+            return GameTaskGroup.resolve_game_for_task(row.task)
+        if hint_game is not None:
+            return hint_game
+        return GameTaskGroup.resolve_game_for_task(row.hint.task)
+
+    def get_all_attempts(self, team, task, exclude_skip=True, user=None, anon_key=None, game=None):
         queryset = super().get_queryset()
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
         queryset = self._filter_by_actor(queryset, team=team, user=user, anon_key=anon_key)
-        return sorted(queryset.filter(task=task), key=lambda x: x.time)
+        queryset = queryset.filter(task=task)
+        if game is not None:
+            queryset = queryset.filter(game=game)
+        return sorted(queryset, key=lambda x: x.time)
 
-    def get_all_attempts_after_equal(self, team, task, time, exclude_skip=True, user=None, anon_key=None):
+    def get_all_attempts_after_equal(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None):
         queryset = super().get_queryset()
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
         queryset = self._filter_by_actor(queryset, team=team, user=user, anon_key=anon_key)
-        return sorted(queryset.filter(task=task, time__gte=time), key=lambda x: x.time)
+        queryset = queryset.filter(task=task, time__gte=time)
+        if game is not None:
+            queryset = queryset.filter(game=game)
+        return sorted(queryset, key=lambda x: x.time)
 
-    def get_all_attempts_after(self, team, task, time, exclude_skip=True, user=None, anon_key=None):
+    def get_all_attempts_after(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None):
         queryset = super().get_queryset()
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
         queryset = self._filter_by_actor(queryset, team=team, user=user, anon_key=anon_key)
-        return sorted(queryset.filter(task=task, time__gt=time), key=lambda x: x.time)
+        queryset = queryset.filter(task=task, time__gt=time)
+        if game is not None:
+            queryset = queryset.filter(game=game)
+        return sorted(queryset, key=lambda x: x.time)
 
-    def get_all_attempts_before(self, team, task, time, exclude_skip=True, user=None, anon_key=None):
+    def get_all_attempts_before(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None):
         queryset = super().get_queryset()
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
         queryset = self._filter_by_actor(queryset, team=team, user=user, anon_key=anon_key)
-        return sorted(queryset.filter(task=task, time__lt=time), key=lambda x: x.time)
+        queryset = queryset.filter(task=task, time__lt=time)
+        if game is not None:
+            queryset = queryset.filter(game=game)
+        return sorted(queryset, key=lambda x: x.time)
 
-    def filter_attempts_with_mode(self, attempts, mode='general', is_hint_attempts=False):
+    def filter_attempts_with_mode(self, attempts, mode='general', is_hint_attempts=False, hint_game=None):
         if mode == 'general' or not attempts:
             return attempts
         if mode == 'tournament':
-            if not is_hint_attempts:
-                game = attempts[0].task.task_group.game
-            else:
-                game = attempts[0].hint.task.task_group.game
-            return [attempt for attempt in attempts if game.has_access('attempt_is_tournament', attempt=attempt, team=attempt.team, mode=mode)]
-        raise Exception('Unknown mode: {}'.filter(mode))
+            return [
+                attempt for attempt in attempts
+                if self._attempt_row_game(attempt, hint_game=hint_game).has_access(
+                    'attempt_is_tournament', attempt=attempt, team=attempt.team, mode=mode,
+                )
+            ]
+        raise Exception('Unknown mode: {}'.format(mode))
 
-    def get_attempts(self, team, task, mode="general", user=None, anon_key=None):
-        attempts = self.get_all_attempts(team, task, user=user, anon_key=anon_key)
-        return self.filter_attempts_with_mode(attempts, mode)
+    def get_attempts(self, team, task, mode="general", user=None, anon_key=None, game=None):
+        attempts = self.get_all_attempts(team, task, user=user, anon_key=anon_key, game=game)
+        return self.filter_attempts_with_mode(attempts, mode, hint_game=game)
 
-    def get_hint_attempts(self, team, task, mode="general", user=None, anon_key=None):
+    def get_hint_attempts(self, team, task, mode="general", user=None, anon_key=None, game=None):
         hint_attempts = []
         for hint in task.hints.all():
             if team is not None:
@@ -665,21 +775,21 @@ class AttemptManager(models.Manager):
                 hint_attempts.extend(list(HintAttempt.objects.filter(user=user, team__isnull=True, anon_key__isnull=True, hint=hint)))
             elif anon_key is not None:
                 hint_attempts.extend(list(HintAttempt.objects.filter(anon_key=anon_key, team__isnull=True, user__isnull=True, hint=hint)))
-        return self.filter_attempts_with_mode(hint_attempts, mode, is_hint_attempts=True)
+        return self.filter_attempts_with_mode(hint_attempts, mode, is_hint_attempts=True, hint_game=game)
 
-    def get_attempts_before(self, team, task, time, mode="general", user=None, anon_key=None):
-        attempts = self.get_all_attempts_before(team, task, time, user=user, anon_key=anon_key)
+    def get_attempts_before(self, team, task, time, mode="general", user=None, anon_key=None, game=None):
+        attempts = self.get_all_attempts_before(team, task, time, user=user, anon_key=anon_key, game=game)
+        return self.filter_attempts_with_mode(attempts, mode, hint_game=game)
+
+    def get_task_attempts(self, task, mode="general", game=None):
+        attempts = self.get_all_task_attempts(task, game=game)
         return self.filter_attempts_with_mode(attempts, mode)
 
-    def get_task_attempts(self, task, mode="general"):
-        attempts = self.get_all_task_attempts(task)
-        return self.filter_attempts_with_mode(attempts, mode)
-
-    def get_task_hint_attempts(self, task, mode="general"):
+    def get_task_hint_attempts(self, task, mode="general", game=None):
         hint_attempts = list(
             HintAttempt.objects.filter(hint__task=task).select_related('hint', 'team', 'user')
         )
-        return self.filter_attempts_with_mode(hint_attempts, mode, is_hint_attempts=True)
+        return self.filter_attempts_with_mode(hint_attempts, mode, is_hint_attempts=True, hint_game=game)
 
     def get_best_attempt(self, attempts, mode="general"):
         best_attempt = None
@@ -690,16 +800,16 @@ class AttemptManager(models.Manager):
                 best_attempt = attempt
         return best_attempt
 
-    def get_attempts_info(self, team, task, mode="general", user=None, anon_key=None):
-        attempts = self.get_attempts(team, task, mode, user=user, anon_key=anon_key)
-        hint_attempts = self.get_hint_attempts(team, task, mode, user=user, anon_key=anon_key)
+    def get_attempts_info(self, team, task, mode="general", user=None, anon_key=None, game=None):
+        attempts = self.get_attempts(team, task, mode, user=user, anon_key=anon_key, game=game)
+        hint_attempts = self.get_hint_attempts(team, task, mode, user=user, anon_key=anon_key, game=game)
         best_attempt = self.get_best_attempt(attempts, mode)
         return AttemptsInfo(best_attempt, attempts, hint_attempts)
 
     # for results page
-    def get_task_attempts_infos(self, task, mode="general"):
-        attempts = self.get_task_attempts(task, mode)
-        hint_attempts = self.get_task_hint_attempts(task, mode)
+    def get_task_attempts_infos(self, task, mode="general", game=None):
+        attempts = self.get_task_attempts(task, mode, game=game)
+        hint_attempts = self.get_task_hint_attempts(task, mode, game=game)
 
         teams = set()
 
@@ -759,44 +869,25 @@ class AttemptManager(models.Manager):
         if not task_ids:
             return {}
 
-        # 1 query: all attempts for all tasks.
-        # join task__task_group__game only when we don't already have the game object.
-        attempt_related = ['team', 'user']
-        if mode == 'tournament' and game is None:
-            attempt_related.append('task__task_group__game')
-        all_attempts = list(
-            self.filter(task_id__in=task_ids, skip=False)
-            .select_related(*attempt_related)
-            .order_by('time')
-        )
+        # 1 query: all attempts for all tasks (optionally scoped to one game).
+        attempt_related = ['team', 'user', 'game']
+        attempt_qs = self.filter(task_id__in=task_ids, skip=False).select_related(*attempt_related).order_by('time')
+        if game is not None:
+            attempt_qs = attempt_qs.filter(game=game)
+        all_attempts = list(attempt_qs)
         if mode == 'tournament':
-            _game = game if game is not None else (
-                all_attempts[0].task.task_group.game if all_attempts else None
-            )
-            if _game is not None:
-                all_attempts = [
-                    a for a in all_attempts
-                    if _game.has_access('attempt_is_tournament', attempt=a, team=a.team, mode=mode)
-                ]
+            all_attempts = self.filter_attempts_with_mode(all_attempts, mode)
 
         # 1 query: all hint attempts for all hints in these tasks.
-        # hint is always needed; only join up to game when we don't have it.
         hint_related = ['hint', 'team', 'user']
-        if mode == 'tournament' and game is None:
-            hint_related[0] = 'hint__task__task_group__game'
         all_hint_attempts = list(
             HintAttempt.objects.filter(hint__task_id__in=task_ids)
             .select_related(*hint_related)
         )
         if mode == 'tournament':
-            _game = game if game is not None else (
-                all_hint_attempts[0].hint.task.task_group.game if all_hint_attempts else None
+            all_hint_attempts = self.filter_attempts_with_mode(
+                all_hint_attempts, mode, is_hint_attempts=True, hint_game=game,
             )
-            if _game is not None:
-                all_hint_attempts = [
-                    ha for ha in all_hint_attempts
-                    if _game.has_access('attempt_is_tournament', attempt=ha, team=ha.team, mode=mode)
-                ]
 
         # Group by (task_id, actor_bucket) in Python
         task_actor_attempts = defaultdict(lambda: defaultdict(list))
@@ -850,12 +941,12 @@ class AttemptManager(models.Manager):
 
         return result
 
-    def get_general_results_task_actor_rows(self, task):
+    def get_general_results_task_actor_rows(self, task, game=None):
         """
         Для общей таблицы: по одному AttemptsInfo на команду или на личного/анонимного участника.
         """
-        attempts = self.get_task_attempts(task, mode='general')
-        hint_attempts = self.get_task_hint_attempts(task, mode='general')
+        attempts = self.get_task_attempts(task, mode='general', game=game)
+        hint_attempts = self.get_task_hint_attempts(task, mode='general', game=game)
 
         buckets = {}
         for attempt in attempts:
@@ -902,7 +993,7 @@ class ChainTaskState(models.Model):
     """
     Authoritative accumulated chain state for wall and replacements_lines tasks.
 
-    One row per (actor, task, game_mode).  Protected by SELECT FOR UPDATE during
+    One row per (actor, task, game, game_mode).  Protected by SELECT FOR UPDATE during
     attempt submission so concurrent submissions for the same actor+task+mode are
     serialised at the DB level and cannot corrupt each other's chain.
 
@@ -926,6 +1017,10 @@ class ChainTaskState(models.Model):
         Task, related_name='chain_task_states',
         blank=True, null=True, on_delete=models.CASCADE,
     )
+    game = models.ForeignKey(
+        Game, related_name='chain_task_states',
+        on_delete=models.CASCADE,
+    )
     game_mode = models.CharField(max_length=20)   # 'general' | 'tournament'
 
     state = models.TextField(blank=True, null=True)
@@ -939,25 +1034,25 @@ class ChainTaskState(models.Model):
         # Partial unique indexes per actor type: correct NULL handling on all DBs.
         constraints = [
             models.UniqueConstraint(
-                fields=['team', 'task', 'game_mode'],
+                fields=['team', 'task', 'game', 'game_mode'],
                 condition=models.Q(team__isnull=False),
-                name='unique_chain_state_team',
+                name='unique_chain_state_team_game',
             ),
             models.UniqueConstraint(
-                fields=['user', 'task', 'game_mode'],
+                fields=['user', 'task', 'game', 'game_mode'],
                 condition=models.Q(user__isnull=False),
-                name='unique_chain_state_user',
+                name='unique_chain_state_user_game',
             ),
             models.UniqueConstraint(
-                fields=['anon_key', 'task', 'game_mode'],
+                fields=['anon_key', 'task', 'game', 'game_mode'],
                 condition=models.Q(anon_key__isnull=False),
-                name='unique_chain_state_anon_key',
+                name='unique_chain_state_anon_key_game',
             ),
         ]
         indexes = [
-            models.Index(fields=['team', 'task', 'game_mode']),
-            models.Index(fields=['user', 'task', 'game_mode']),
-            models.Index(fields=['anon_key', 'task', 'game_mode']),
+            models.Index(fields=['team', 'task', 'game', 'game_mode']),
+            models.Index(fields=['user', 'task', 'game', 'game_mode']),
+            models.Index(fields=['anon_key', 'task', 'game', 'game_mode']),
         ]
 
     def __str__(self):
@@ -997,6 +1092,10 @@ class Attempt(models.Model):
     user = models.ForeignKey('auth.User', related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
     anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     task = models.ForeignKey(Task, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
+    game = models.ForeignKey(
+        Game, related_name='game_attempts',
+        blank=True, null=True, on_delete=models.SET_NULL,
+    )
     manager = AttemptManager()
 
     text = models.TextField()
@@ -1061,7 +1160,8 @@ class Attempt(models.Model):
             )
         if self.task.task_type == 'distribute_to_teams':
             try:
-                distr_text = json.loads(self.task.text)['list'][self.team.get_team_reg_number(self.task.task_group.game)]
+                g = self.game_id and self.game or GameTaskGroup.resolve_game_for_task(self.task)
+                distr_text = json.loads(self.task.text)['list'][self.team.get_team_reg_number(g)]
             except Exception as e:
                 distr_text = 'ERROR: {}'.format(e)
             return '{} ({})'.format(

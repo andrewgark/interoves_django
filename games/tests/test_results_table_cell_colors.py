@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.test import Client, TestCase
 from django.utils import timezone
 
-from games.models import Attempt, CheckerType, Game, HTMLPage, Project, Task, TaskGroup, Team
+from games.models import Attempt, CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Team
 from games.views.new_ui import _new_results_compute
 from games.results_snapshot import build_results_snapshot_payload, snapshot_to_results_context
 
@@ -29,7 +29,8 @@ class ResultsTableCellColorsTest(TestCase):
             author='a',
             author_extra='',
         )
-        cls.tg = TaskGroup.objects.create(game=cls.game, name='tg', number=1)
+        cls.tg = TaskGroup.objects.create(label='tg')
+        GameTaskGroup.objects.create(game=cls.game, task_group=cls.tg, number=1, name='tg')
         with patch('games.views.track.track_task_change'):
             cls.task1 = Task.objects.create(
                 task_group=cls.tg,
@@ -63,6 +64,7 @@ class ResultsTableCellColorsTest(TestCase):
                 time=now,
                 task=cls.task1,
                 team=cls.team_max,
+                game=cls.game,
             )
             # Non-max + Pending exists -> yellow
             Attempt.manager.create(
@@ -72,6 +74,7 @@ class ResultsTableCellColorsTest(TestCase):
                 time=now,
                 task=cls.task1,
                 team=cls.team_pending,
+                game=cls.game,
             )
             # Non-max + non-zero + no Pending -> blue (old partial shade)
             Attempt.manager.create(
@@ -81,6 +84,7 @@ class ResultsTableCellColorsTest(TestCase):
                 time=now,
                 task=cls.task1,
                 team=cls.team_partial,
+                game=cls.game,
             )
             # Has at least one attempt + result zero -> red
             Attempt.manager.create(
@@ -90,6 +94,7 @@ class ResultsTableCellColorsTest(TestCase):
                 time=now,
                 task=cls.task1,
                 team=cls.team_zero,
+                game=cls.game,
             )
             # Note: no attempts for task2 for any team -> empty cells for column 2.
 

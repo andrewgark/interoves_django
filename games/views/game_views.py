@@ -40,15 +40,16 @@ def game_page(request, game_id, task_group=None, task=None):
 
     task_to_attempts_info = get_task_to_attempts_info(game, team, mode)
     
-    task_groups = sorted(
-        game.task_groups.all() if task_group is None else game.task_groups.filter(number=task_group),
-        key=lambda tg: tg.number
-    )
+    links_qs = game.task_group_links.select_related('task_group')
+    if task_group is not None:
+        links_qs = links_qs.filter(number=task_group)
+    task_group_placements = sorted(links_qs, key=lambda p: p.number)
 
     task_group_to_tasks = {}
-    for task_group in task_groups:
-        task_group_to_tasks[task_group.number] = sorted(
-            task_group.tasks.all() if task is None else task_group.tasks.filter(number=task),
+    for placement in task_group_placements:
+        tg = placement.task_group
+        task_group_to_tasks[placement.number] = sorted(
+            tg.tasks.all() if task is None else tg.tasks.filter(number=task),
             key=lambda t: t.key_sort()
         )
 
@@ -56,7 +57,7 @@ def game_page(request, game_id, task_group=None, task=None):
     return render(request, 'game.html', {
         'team': team,
         'game': game,
-        'task_groups': task_groups,
+        'task_group_placements': task_group_placements,
         'task_group_to_tasks': task_group_to_tasks,
         'task_to_attempts_info': task_to_attempts_info,
         'task_text_with_forms_to_html': text_with_forms_to_html["tasks"],

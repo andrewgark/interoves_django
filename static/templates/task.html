@@ -1,6 +1,6 @@
 <li class="li-task li-{{ task|one_more:team|one_more:mode|get_task_status:attempts_info|get_lower_status }} {{ task_group.get_li_class }}" id="task-{{ task.id }}">
   <div class="task">
-    <h4><a href="/games/{{ task.task_group.game.id }}/{{ task.task_group.number }}/{{ task.number }}" class="task_link">{{ task.number }}.</a></h4>
+    <h4><a href="/games/{{ game.id }}/{{ tg_number }}/{{ task.number }}" class="task_link">{{ task.number }}.</a></h4>
     <input type="hidden" class="task-id" name="task-id" value="{{ task.id }}">
     {% if task|one_more:team|one_more:mode|task_should_be_hidden:task_to_attempts_info %}
     {% else %}

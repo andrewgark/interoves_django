@@ -18,6 +18,7 @@ from datetime import timedelta
 from games.models import (
     CheckerType,
     Game,
+    GameTaskGroup,
     HTMLPage,
     Profile,
     Project,
@@ -62,10 +63,9 @@ class TrackGameFixtureMixin:
                 'author_extra': '',
             },
         )
-        cls.task_group = TaskGroup.objects.create(
-            game=cls.game,
-            name='tg',
-            number=1,
+        cls.task_group = TaskGroup.objects.create(label='tg')
+        GameTaskGroup.objects.create(
+            game=cls.game, task_group=cls.task_group, number=1, name='tg',
         )
         with patch('games.views.track.track_task_change'):
             cls.task = Task.objects.create(

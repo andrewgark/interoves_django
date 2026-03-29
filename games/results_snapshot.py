@@ -187,15 +187,19 @@ def build_results_snapshot_payload(game, mode='tournament'):
     # Use the same ordering/filtering rules as results pages.
     from django.db.models import Q
 
-    task_groups = sorted(game.task_groups.all(), key=lambda tg: tg.number)
+    placements = sorted(
+        game.task_group_links.select_related('task_group'),
+        key=lambda p: p.number,
+    )
     task_group_headers = []
     tasks_flat = []
-    for tg in task_groups:
+    for p in placements:
+        tg = p.task_group
         tasks = sorted(tg.tasks.filter(~Q(task_type='text_with_forms')), key=lambda t: t.key_sort())
         task_group_headers.append({
-            'number': tg.number,
-            'name': tg.name,
-            'n_tasks_for_results': tg.get_n_tasks_for_results(),
+            'number': p.number,
+            'name': p.name,
+            'n_tasks_for_results': len(tasks),
             'tasks': [{'number': t.number} for t in tasks],
         })
         for t in tasks:
@@ -207,10 +211,10 @@ def build_results_snapshot_payload(game, mode='tournament'):
 
     for task in tasks_flat:
         if mode == 'general':
-            actor_rows = Attempt.manager.get_general_results_task_actor_rows(task=task)
+            actor_rows = Attempt.manager.get_general_results_task_actor_rows(task=task, game=game)
         else:
             actor_rows = []
-            for ai in Attempt.manager.get_task_attempts_infos(task=task, mode=mode):
+            for ai in Attempt.manager.get_task_attempts_infos(task=task, mode=mode, game=game):
                 if not (ai.attempts or ai.hint_attempts):
                     continue
                 team = None

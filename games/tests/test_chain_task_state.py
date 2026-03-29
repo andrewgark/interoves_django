@@ -13,7 +13,7 @@ from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
 from games.models import (
-    Attempt, ChainTaskState, CheckerType, Game, HTMLPage,
+    Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, HTMLPage,
     Project, Task, TaskGroup, Team, CHAIN_TASK_TYPES,
 )
 from games.recheck import recheck_chain_task
@@ -75,7 +75,10 @@ def _make_game(suffix=''):
 
 def _make_wall_task(game, suffix=''):
     with patch('games.views.track.track_task_change'):
-        tg = TaskGroup.objects.create(game=game, name='tg_wall' + suffix, number=1, points=1)
+        tg = TaskGroup.objects.create(label='tg_wall' + suffix, points=1)
+        GameTaskGroup.objects.create(
+            game=game, task_group=tg, number=1, name='tg_wall' + suffix,
+        )
         checker = CheckerType.objects.get(pk='wall')
         task = Task.objects.create(
             task_group=tg,
@@ -90,7 +93,10 @@ def _make_wall_task(game, suffix=''):
 
 def _make_replacements_task(game, suffix=''):
     with patch('games.views.track.track_task_change'):
-        tg = TaskGroup.objects.create(game=game, name='tg_repl' + suffix, number=2, points=1)
+        tg = TaskGroup.objects.create(label='tg_repl' + suffix, points=1)
+        GameTaskGroup.objects.create(
+            game=game, task_group=tg, number=2, name='tg_repl' + suffix,
+        )
         task = Task.objects.create(
             task_group=tg,
             number='1',
@@ -100,12 +106,15 @@ def _make_replacements_task(game, suffix=''):
     return task
 
 
-def _make_attempt(task, team, text, dt=None):
+def _make_attempt(task, team, text, dt=None, game=None):
+    if game is None:
+        game = GameTaskGroup.objects.get(task_group=task.task_group).game
     return Attempt(
         task=task,
         team=team,
         text=text,
         time=dt or timezone.now(),
+        game=game,
     )
 
 
@@ -288,8 +297,8 @@ class ModeIsolationTests(_ChainFixture, TestCase):
 
     def _patch_tournament(self, task):
         """Context manager: force game.get_current_mode to return 'tournament'."""
-        game = task.task_group.game
-        return patch.object(game, 'get_current_mode', return_value='tournament')
+        # Patch on the model class so it applies to any Game instance loaded from FKs.
+        return patch.object(Game, 'get_current_mode', return_value='tournament')
 
     def test_tournament_attempt_creates_separate_row(self):
         a1 = _make_attempt(self.repl_task, self.team, _repl_text(0, ['answer1']))
@@ -538,8 +547,9 @@ class EdgeCaseTests(_ChainFixture, TestCase):
     def test_non_chain_task_does_not_create_chain_state(self):
         """default task type must not touch ChainTaskState."""
         with patch('games.views.track.track_task_change'):
-            tg = TaskGroup.objects.create(
-                game=self.game, name='tg_default', number=99, points=1,
+            tg = TaskGroup.objects.create(label='tg_default', points=1)
+            GameTaskGroup.objects.create(
+                game=self.game, task_group=tg, number=99, name='tg_default',
             )
             checker = CheckerType.objects.get(pk='equals_with_possible_spaces')
             default_task = Task.objects.create(

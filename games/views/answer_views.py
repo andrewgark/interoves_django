@@ -2,6 +2,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from games.exception import NoGameAccessException, NoAnswerAccessException
 from games.models import Task
+from games.views.game_context import game_from_request_for_task
 from games.views.util import has_profile, has_team
 
 
@@ -16,9 +17,11 @@ def get_answer(request, task_id):
     team = None
     if has_profile(request.user):
         team = request.user.profile.team_on
-    game = task.task_group.game
+    game = game_from_request_for_task(request, task)
+    if game is None:
+        return NoGameAccessException('Cannot resolve game for task {}'.format(task.id))
 
-    if not task.task_group.game.has_access('play', team=team):
+    if not game.has_access('play', team=team):
         return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
 
     mode = game.get_current_mode()

@@ -39,8 +39,8 @@
     <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
       <ul class="nav navbar-nav navbar-right">
         <li><a href="#page-top" class="page-scroll">Наверх</a></li>
-        {% for task_group in task_groups %}
-          <li><a href="#task-group-{{ task_group.number }}" class="page-scroll">{{ task_group.number }}</a></li>
+        {% for placement in task_group_placements %}
+          <li><a href="#task-group-{{ placement.number }}" class="page-scroll">{{ placement.number }}</a></li>
         {% endfor %}
         {% if mode == 'tournament' %}<li><a href="/tournament_results/{{ game.id }}/">Результаты</a></li>{% endif %}
         {% if mode == 'general' %}
@@ -84,8 +84,9 @@
     </div>
   </div>
 </header>  
-{% for task_group in task_groups %}
-  <div id="task-group-{{ task_group.number }}" class="text-center task-group {{ task_group.number|get_parity }}-task-group">
+{% for placement in task_group_placements %}
+  {% with task_group=placement.task_group tg_number=placement.number tg_name=placement.name %}
+  <div id="task-group-{{ tg_number }}" class="text-center task-group {{ tg_number|get_parity }}-task-group">
     <div class="container">
       <div class="col-md-10 col-md-offset-1 section-title">
         <h2>
@@ -108,7 +109,7 @@
     </div>
     <div class="container container-tasks">
       <ul class="list-rectangle tasks-list">
-      {% for task in task_group_to_tasks|get_item:task_group.number %}
+      {% for task in task_group_to_tasks|get_item:tg_number %}
         {% with attempts_info=task_to_attempts_info|get_item:task.id %}
           {% include "task.html" %}
         {% endwith %}
@@ -116,6 +117,7 @@
       <ul>
     </div>
   </div>
+  {% endwith %}
 {% endfor %}
 {% include "audio-player.html" %}
 {% include "footer.html" %}

@@ -6,7 +6,7 @@
   {% else %}
     {{ game.get_outside_name|default:game.outside_name|default:game.name }}
   {% endif %}
-  · {% autoescape off %}{{ task_group.name }}{% endautoescape %}
+  · {% autoescape off %}{{ tg_name }}{% endautoescape %}
 {% endblock %}
 {% block content %}
 <p style="margin:0 0 0.75rem">
@@ -34,7 +34,7 @@
 </div>
 
 <p class="new-login-hint" style="margin:0.25rem 0 0.75rem">
-  Задание {{ task_group.number }} · <strong>{% autoescape off %}{{ task_group.name }}{% endautoescape %}</strong>
+  Задание {{ tg_number }} · <strong>{% autoescape off %}{{ tg_name }}{% endautoescape %}</strong>
 </p>
 
 {% if section_tutorial_html or show_palindrome_rules or section_rules_type or task_group.rules %}
@@ -976,6 +976,7 @@
       var url = "{% url 'new_get_answer' 0 %}".replace('/0/', '/' + taskId + '/');
       try {
         var u = new URL(url, window.location.origin);
+        u.searchParams.set('game_id', '{{ game.id }}');
         if (!isAuthenticated) {
           var ak = '';
           try { ak = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
@@ -1001,6 +1002,7 @@
         .replace('/0/0/', '/' + taskId + '/' + lineIndex + '/');
       try {
         var u = new URL(url, window.location.origin);
+        u.searchParams.set('game_id', '{{ game.id }}');
         if (!isAuthenticated) {
           var ak = '';
           try { ak = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
@@ -1035,6 +1037,7 @@
     var body = new URLSearchParams();
     body.set('likes', String(likesDelta));
     body.set('dislikes', String(dislikesDelta));
+    body.set('game_id', '{{ game.id }}');
     body.set('anon_key', anonKey);
     var url = "{% url 'new_like_dislike' 0 %}".replace('/0/', '/' + taskId + '/');
     return fetch(url, {
@@ -1216,6 +1219,7 @@
   }
   function postWall(taskId, params, csrfToken) {
     params.set('anon_key', anonKey);
+    params.set('game_id', '{{ game.id }}');
     return fetch('/send_attempt/' + taskId + '/', {
       method: 'POST',
       headers: {

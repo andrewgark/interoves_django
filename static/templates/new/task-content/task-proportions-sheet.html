@@ -1,5 +1,5 @@
 {% load filters %}
-<div class="new-card new-proportions-sheet" data-proportions-storage="{{ game.id }}_{{ task_group.number }}">
+<div class="new-card new-proportions-sheet" data-proportions-storage="{{ game.id }}_{{ tg_number }}">
   {% if task_group.text %}
   <div class="new-proportions-sheet__intro new-taskcard__text">
     {% autoescape off %}{{ task_group.text }}{% endautoescape %}
@@ -135,6 +135,7 @@
                   {% else %}
                     <form class="new-hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
                       {% csrf_token %}
+                      <input type="hidden" name="game_id" value="{{ game.id }}">
                       <input type="hidden" name="hint_number" value="{{ hint.number }}">
                       <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                       <input type="hidden" name="__ui_hint_penalty" value="{{ hint.points_penalty }}">
@@ -182,6 +183,7 @@
           {% elif task_group.view == 'proportions' and proportions_chips %}
           <form id="new-proportions-form-{{ task.id }}" class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-proportions-form="1">
             {% csrf_token %}
+            <input type="hidden" name="game_id" value="{{ game.id }}">
             <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
             <input type="hidden" name="text" value="" class="new-proportions-text-input" autocomplete="off">
             <div class="new-proportions-answer-row new-proportions-answer-row--matrix" data-proportions-task-row="{{ task.id }}">
@@ -201,6 +203,7 @@
           </p>
           <form id="new-proportions-fallback-{{ task.id }}" class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
             {% csrf_token %}
+            <input type="hidden" name="game_id" value="{{ game.id }}">
             <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
             <div class="new-attempt-row new-attempt-row--matrix-fallback">
               {{ task.get_attempt_form.text }}
