@@ -592,7 +592,7 @@ class SolutionsTagNumber:
 
     def check(self, text, attempt):        
         try:
-            task = Task.objects.get(
+            task = Task.objects.visible().get(
                     task_group=attempt.task.task_group,
                     tags__team=attempt.team.name,
                     tags__task=self.task_tag

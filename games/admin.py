@@ -269,6 +269,8 @@ class HintInline(admin.TabularInline):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
+    list_display = ['id', '__str__', 'task_group', 'number', 'is_removed']
+    list_filter = ['is_removed']
     inlines = [
         HintInline
     ]

@@ -1,6 +1,14 @@
 from django.http import HttpResponseRedirect, HttpResponse
+from django.shortcuts import get_object_or_404
 
 from games.access import game_is_going_now
+
+
+def get_public_task_or_404(task_id):
+    """Задание для публичных вьюх: скрытые (is_removed) дают 404."""
+    from games.models import Task
+
+    return get_object_or_404(Task.objects.visible(), pk=task_id)
 
 
 def redirect_to_referer(request):

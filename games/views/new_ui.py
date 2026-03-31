@@ -52,7 +52,13 @@ from games.replacements_lines import canonical_replacements_checker_line, parse_
 from games.proportions import build_proportions_chips_for_tasks
 from games.views.game_context import game_from_request_for_task
 from games.views.main_page import MainPageView
-from games.views.util import effective_play_mode, has_profile, has_team, personal_play_mode_locked
+from games.views.util import (
+    effective_play_mode,
+    get_public_task_or_404,
+    has_profile,
+    has_team,
+    personal_play_mode_locked,
+)
 from games.results_snapshot import snapshot_to_results_context
 from games.yookassa_util import configure_yookassa_from_env
 
@@ -111,7 +117,7 @@ def _compute_solved_task_ids(game, task_groups, team=None, user=None, anon_key=N
       - tg_to_task_ids: {task_group_id: [task_id, ...]} (for computing per-group stats)
     """
     tg_ids = [tg.id for tg in task_groups]
-    tasks_qs = Task.objects.filter(task_group_id__in=tg_ids).values('id', 'task_group_id')
+    tasks_qs = Task.objects.filter(task_group_id__in=tg_ids).visible().values('id', 'task_group_id')
     task_ids = [t['id'] for t in tasks_qs]
 
     solved_task_ids = set()
@@ -273,7 +279,7 @@ def new_section_game_page(request, game_id):
     task_groups = (
         GameTaskGroup.objects.filter(game=game)
         .select_related('task_group')
-        .annotate(n_tasks=Count('task_group__tasks'))
+        .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
         .order_by('number')
     )
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
@@ -400,7 +406,7 @@ def new_main_game_page(request, game_id):
     task_groups = (
         GameTaskGroup.objects.filter(game=game)
         .select_related('task_group')
-        .annotate(n_tasks=Count('task_group__tasks'))
+        .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
         .order_by('number')
     )
 
@@ -463,7 +469,7 @@ def _new_results_compute(game, mode):
         game.task_group_links.select_related('task_group').prefetch_related(
             Prefetch(
                 'task_group__tasks',
-                queryset=Task.objects.filter(~Q(task_type='text_with_forms')),
+                queryset=Task.objects.visible().filter(~Q(task_type='text_with_forms')),
                 to_attr='result_tasks',
             )
         ),
@@ -981,7 +987,7 @@ def new_task_group_page(request, game_id, task_group_number):
     next_tg = (
         GameTaskGroup.objects.filter(game=game, number__gt=placement.number).order_by('number').first()
     )
-    tasks = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
+    tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     section_rules_type = game.id if game.id in SECTION_RULES_GAME_IDS else None
     section_tutorial_html = None
     if section_rules_type:
@@ -1096,7 +1102,7 @@ def _answer_popup_html(answer_text, answer_comment=None):
 
 @require_http_methods(['GET'])
 def new_get_answer(request, task_id):
-    task = get_object_or_404(Task, id=task_id)
+    task = get_public_task_or_404(task_id)
     game = game_from_request_for_task(request, task)
     if game is None:
         raise Http404()
@@ -1142,7 +1148,7 @@ def new_get_answer(request, task_id):
 
 @require_http_methods(['GET'])
 def new_get_replacements_line_answer(request, task_id, line_index):
-    task = get_object_or_404(Task, id=task_id)
+    task = get_public_task_or_404(task_id)
     if task.task_type != 'replacements_lines':
         raise Http404()
     game = game_from_request_for_task(request, task)
@@ -1198,7 +1204,7 @@ def new_get_replacements_line_answer(request, task_id, line_index):
 
 @require_http_methods(['POST'])
 def new_like_dislike(request, task_id):
-    task = get_object_or_404(Task, id=task_id)
+    task = get_public_task_or_404(task_id)
     game = game_from_request_for_task(request, task)
     if game is None:
         raise Http404()

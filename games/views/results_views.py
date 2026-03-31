@@ -48,7 +48,7 @@ def results_page(request, game_id, mode='general'):
     for p in placements:
         tg = p.task_group
         task_group_to_tasks[p.number] = sorted(
-            tg.tasks.filter(~Q(task_type='text_with_forms')),
+            tg.tasks.visible().filter(~Q(task_type='text_with_forms')),
             key=lambda t: t.key_sort(),
         )
         for task in task_group_to_tasks[p.number]:

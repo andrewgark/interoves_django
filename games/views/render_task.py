@@ -13,7 +13,7 @@ def get_task_to_attempts_info(game, team, mode='general'):
     task_to_attempts_info = {}
     for link in game.task_group_links.select_related('task_group').order_by('number'):
         tg = link.task_group
-        for task in tg.tasks.all():
+        for task in tg.tasks.visible():
             task_to_attempts_info[task.id] = Attempt.manager.get_attempts_info(
                 team=team, task=task, mode=mode, game=game,
             )
@@ -69,7 +69,7 @@ def get_task_text_with_forms_to_html(request, task, team, mode, game=None):
     if game is None:
         game = GameTaskGroup.resolve_game_for_task(task)
     normal_tasks = sorted(
-        task.task_group.tasks.all(),
+        task.task_group.tasks.visible(),
         key=lambda t: t.key_sort()
     )
     return get_text_with_forms_to_html(request, task.text, normal_tasks, team, mode, game=game)
@@ -79,7 +79,7 @@ def get_task_group_title_text_with_forms_to_html(request, game, task_group, team
     assert "text_with_forms_in_name" in task_group.tags
     link = get_object_or_404(GameTaskGroup, game=game, task_group=task_group)
     normal_tasks = sorted(
-        task_group.tasks.all(),
+        task_group.tasks.visible(),
         key=lambda t: t.key_sort()
     )
     return get_text_with_forms_to_html(
@@ -97,7 +97,7 @@ def get_game_title_text_with_forms_to_html(request, game, team, mode):
     )
     task_group = link.task_group
     normal_tasks = sorted(
-        task_group.tasks.all(),
+        task_group.tasks.visible(),
         key=lambda t: t.key_sort()
     )
     return get_text_with_forms_to_html(request, game.name, normal_tasks, team, mode, skip_zero=False, game=game)
@@ -106,7 +106,7 @@ def get_game_title_text_with_forms_to_html(request, game, team, mode):
 def get_all_text_with_forms_to_html(request, game, team, mode):
     tasks = []
     for link in game.task_group_links.select_related('task_group'):
-        tasks.extend(list(link.task_group.tasks.filter(task_type='text_with_forms')))
+        tasks.extend(list(link.task_group.tasks.visible().filter(task_type='text_with_forms')))
     result = {"tasks": {}, "task_groups": {}}
     for task in tasks:
         result["tasks"][task.id] = get_task_text_with_forms_to_html(
@@ -195,7 +195,7 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
     task_group = task.task_group
     if task_group.view == 'proportions' and task.task_type == 'proportions':
         return None
-    tasks = sorted(task_group.tasks.all(), key=lambda t: t.key_sort())
+    tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     ctx_dicts = build_task_group_task_context_dicts(
         game, task_group, tasks, team, user, anon_key, current_mode,
     )
@@ -222,8 +222,8 @@ def update_task_html(request, task, team, current_mode, user=None, anon_key=None
     if game is None:
         return {}
 
-    update_extra_tasks = list(task.task_group.tasks.filter(task_type='text_with_forms'))
-    for extra_task in task.task_group.tasks.all():
+    update_extra_tasks = list(task.task_group.tasks.visible().filter(task_type='text_with_forms'))
+    for extra_task in task.task_group.tasks.visible():
         if "should_be_hidden_if_not_solved" in extra_task.tags:
             update_extra_tasks.append(extra_task)
 

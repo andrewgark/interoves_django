@@ -1,9 +1,8 @@
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from games.exception import NoGameAccessException, NoAnswerAccessException
-from games.models import Task
 from games.views.game_context import game_from_request_for_task
-from games.views.util import has_profile, has_team
+from games.views.util import get_public_task_or_404, has_profile, has_team
 
 
 def task_ok_by_team(task, team, mode):
@@ -13,7 +12,7 @@ def task_ok_by_team(task, team, mode):
 
 
 def get_answer(request, task_id):
-    task = get_object_or_404(Task, id=task_id)
+    task = get_public_task_or_404(task_id)
     team = None
     if has_profile(request.user):
         team = request.user.profile.team_on

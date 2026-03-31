@@ -1,5 +1,4 @@
 import json
-from django.shortcuts import get_object_or_404
 from django.template.defaulttags import register
 from allauth.socialaccount.models import SocialApp
 from django.utils import timezone
@@ -319,7 +318,7 @@ def get_task_status(task_team__mode, attempts_info):
         return attempts_info.best_attempt.status
     if task.task_type == 'text_with_forms':
         worst_status = 'Ok'
-        for other_task in task.task_group.tasks.all():
+        for other_task in task.task_group.tasks.visible():
             attempts_info = Attempt.manager.get_attempts_info(team, other_task, mode)
             status = ''
             if attempts_info and attempts_info.best_attempt:
@@ -510,7 +509,10 @@ def task_should_be_hidden(task_team__mode, task_to_attempts_info):
     if team is None:
         return True
     ref_task_ids = task.tags["should_be_hidden_if_not_solved"]
-    ref_tasks = [get_object_or_404(Task, id=x) for x in ref_task_ids]
+    by_id = {t.id: t for t in Task.objects.visible().filter(id__in=ref_task_ids)}
+    ref_tasks = [by_id[i] for i in ref_task_ids if i in by_id]
+    if not ref_tasks:
+        return False
     statuses = [get_task_status(((ref_task, team), mode), task_to_attempts_info[ref_task.id]) for ref_task in ref_tasks]
     return statuses != ["Ok"] * len(ref_tasks)
 

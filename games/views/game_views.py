@@ -49,7 +49,7 @@ def game_page(request, game_id, task_group=None, task=None):
     for placement in task_group_placements:
         tg = placement.task_group
         task_group_to_tasks[placement.number] = sorted(
-            tg.tasks.all() if task is None else tg.tasks.filter(number=task),
+            tg.tasks.visible() if task is None else tg.tasks.visible().filter(number=task),
             key=lambda t: t.key_sort()
         )
 

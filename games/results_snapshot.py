@@ -195,7 +195,10 @@ def build_results_snapshot_payload(game, mode='tournament'):
     tasks_flat = []
     for p in placements:
         tg = p.task_group
-        tasks = sorted(tg.tasks.filter(~Q(task_type='text_with_forms')), key=lambda t: t.key_sort())
+        tasks = sorted(
+            tg.tasks.visible().filter(~Q(task_type='text_with_forms')),
+            key=lambda t: t.key_sort(),
+        )
         task_group_headers.append({
             'number': p.number,
             'name': p.name,

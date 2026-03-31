@@ -461,10 +461,10 @@ class TaskGroup(models.Model):
         return ''
 
     def get_n_tasks(self):
-        return len(self.tasks.all())
+        return len(self.tasks.visible())
 
     def get_n_tasks_for_results(self):
-        return len(self.tasks.filter(~models.Q(task_type='text_with_forms')))
+        return len(self.tasks.visible().filter(~models.Q(task_type='text_with_forms')))
 
 
 class GameTaskGroup(models.Model):
@@ -508,6 +508,13 @@ class GameTaskGroup(models.Model):
         return None
 
 
+class TaskQuerySet(models.QuerySet):
+    """Задания с is_removed=True скрыты из игры и результатов, в админке видны все."""
+
+    def visible(self):
+        return self.filter(is_removed=False)
+
+
 class Task(models.Model):
     id = models.AutoField(primary_key=True)
     task_group = models.ForeignKey(TaskGroup, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL)
@@ -540,6 +547,13 @@ class Task(models.Model):
     image_width = models.IntegerField(null=True, blank=True)
     field_text_width = models.IntegerField(null=True, blank=True)
     tags = models.JSONField(default=dict, null=True, blank=True)
+    is_removed = models.BooleanField(
+        default=False,
+        verbose_name='Скрыто из игры и результатов',
+        help_text='Не удаляет задание из БД; скрывает везде, кроме админки.',
+    )
+
+    objects = TaskQuerySet.as_manager()
 
     def __str__(self):
         game_name = 'NONE'

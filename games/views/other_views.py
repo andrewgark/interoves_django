@@ -2,14 +2,14 @@ from django.contrib.auth.decorators import user_passes_test
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404
 from games.exception import NoGameAccessException
-from games.models import Like, Task
+from games.models import Like
 from games.views.game_context import game_from_request_for_task
-from games.views.util import has_team
+from games.views.util import get_public_task_or_404, has_team
 
 
 @user_passes_test(has_team)
 def like_dislike(request, task_id):
-    task = get_object_or_404(Task, id=task_id)
+    task = get_public_task_or_404(task_id)
 
     team = request.user.profile.team_on
     game = game_from_request_for_task(request, task)

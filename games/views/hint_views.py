@@ -1,12 +1,13 @@
 from django.utils import timezone
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+
 from games.exception import DuplicateAttemptException, NotAllRequiredHintsTakenException, NoGameAccessException
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
 from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
 from games.views.track import track_task_change
-from games.views.util import effective_play_mode, has_profile, has_team
+from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
 
 
 def _get_play_mode(request, game):
@@ -52,7 +53,7 @@ def create_hint_attempt(hint, team=None, user=None, anon_key=None, game=None):
    
 
 def process_send_hint_attempt(request, task_id):
-    task = get_object_or_404(Task, id=task_id)
+    task = get_public_task_or_404(task_id)
     game = game_from_request_for_task(request, task)
     if game is None:
         return {'status': 'ambiguous_game'}
