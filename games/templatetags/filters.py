@@ -477,8 +477,10 @@ def distribute_text_to_team_tag(task, team, game=None):
     data = json.loads(task.text)
     g = game or GameTaskGroup.resolve_game_for_task(task)
     team_number = None
-    if team is not None and g is not None:
-        team_number = team.get_team_reg_number(g)
+    # Missing template variables (e.g. anon user → no profile) resolve to '' — not None.
+    reg_fn = getattr(team, 'get_team_reg_number', None)
+    if g is not None and callable(reg_fn):
+        team_number = reg_fn(g)
     if team_number is None:
         distr_text = 'Увидеть уникальную раздатку могут только зарегистрированные во время игры команды.'
     elif team_number > len(data['list']):
