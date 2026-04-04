@@ -133,12 +133,31 @@ def get_ec2_instance_ip():
     Private IP of this EC2 instance (IMDS). ALB target health checks often send
     Host: <this IP>; it must be in ALLOWED_HOSTS. A too-short timeout caused
     flaky reads and DisallowedHost + HTTP 400 on ELB-HealthChecker.
+
+    EC2 may require IMDSv2 (IMDSv1 disabled on the launch template). Plain GET
+    to meta-data then returns 401 and the IP is never added — both targets unhealthy.
     """
+    base = 'http://169.254.169.254/latest'
     try:
-        ip = requests.get(
-            'http://169.254.169.254/latest/meta-data/local-ipv4',
+        token = requests.put(
+            f'{base}/api/token',
+            headers={'X-aws-ec2-metadata-token-ttl-seconds': '21600'},
             timeout=2.0,
-        ).text.strip()
+        )
+        if token.status_code == 200 and token.text:
+            r = requests.get(
+                f'{base}/meta-data/local-ipv4',
+                headers={'X-aws-ec2-metadata-token': token.text.strip()},
+                timeout=2.0,
+            )
+            if r.status_code == 200:
+                ip = r.text.strip()
+                if ip:
+                    return ip
+    except Exception:
+        pass
+    try:
+        ip = requests.get(f'{base}/meta-data/local-ipv4', timeout=2.0).text.strip()
     except Exception:
         return None
     return ip or None

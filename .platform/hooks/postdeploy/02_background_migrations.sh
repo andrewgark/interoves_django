@@ -12,6 +12,14 @@ mkdir -p /var/log/app
 
 log() { echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') $*" | tee -a "$LOG"; }
 
+# t3.nano (~0.5 GiB) OOMs or hits ErrorCode 0000000001 during this hook; t3.small is fine.
+# Idempotent DB work will run on a larger instance in the same env.
+MEM_KB=$(awk '/MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)
+if [ "${MEM_KB:-0}" -lt 900000 ]; then
+  log "skip 02_background_migrations: MemTotal ${MEM_KB}kB < 900000 (need t3.small+)"
+  exit 0
+fi
+
 # ---------------------------------------------------------------------------
 # Helper: run a Python snippet via manage.py shell and return its stdout
 # ---------------------------------------------------------------------------
