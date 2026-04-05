@@ -1,5 +1,5 @@
 {% extends "new/base.html" %}
-{% load filters %}
+{% load filters static %}
 {% block title %}
   {% if "html_in_title" in game.tags %}
     {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
@@ -264,6 +264,7 @@
   </div>
 </div>
 
+<script src="{% static 'js/replacements_input_parse.js' %}"></script>
 <script>
 (function () {
   var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';
@@ -418,6 +419,402 @@
 
   var REPL_LINE_CONFIRM_SKIP_KEY = 'interoves_repl_line_confirm_skip';
   var pendingReplLineForm = null;
+
+  function replUiModeKey(taskId) {
+    return 'replacements_lines_ui_mode_' + taskId;
+  }
+  function replWholeDraftKey(taskId) {
+    return 'replacements_lines_whole_' + taskId;
+  }
+  function replLinePastesKey(taskId) {
+    return 'replacements_lines_linepaste_' + taskId;
+  }
+  var ReplParse = window.ReplacementsInputParse;
+  if (!ReplParse) {
+    console.error('replacements_input_parse.js not loaded');
+  }
+  function splitWholeLines(text) {
+    return ReplParse ? ReplParse.splitWholeLines(text) : String(text || '').split(/\r?\n/);
+  }
+  function normPasteText(s) {
+    return ReplParse ? ReplParse.normPasteText(s) : String(s || '').replace(/\u00a0/g, ' ').replace(/\r\n/g, '\n');
+  }
+  function parseReplLineAnswersSmart(container, raw, nSlots) {
+    if (!ReplParse) return null;
+    return ReplParse.parseReplLineAnswersSmart(container, raw, nSlots);
+  }
+  function buildFullAnswerLineFromWordsRow(row) {
+    var container = row.querySelector('[data-repl-words-wrap]');
+    if (!container) return '';
+    var parts = [];
+    var children = container.children;
+    for (var i = 0; i < children.length; i++) {
+      var el = children[i];
+      if (el.classList && el.classList.contains('new-replacements-static')) {
+        parts.push(normPasteText(el.textContent || ''));
+      } else if (el.classList && el.classList.contains('new-replacements-partial-answer')) {
+        parts.push(normPasteText(el.textContent || ''));
+      } else if (el.tagName === 'INPUT' && el.name === 'answers[]') {
+        parts.push(el.value || '');
+      }
+    }
+    return parts.join('');
+  }
+  function forEachReplUnsolvedRow(taskRoot, fn) {
+    taskRoot.querySelectorAll('tr.new-replacements-row:not(.new-replacements-row--solved)').forEach(fn);
+  }
+  function collectRowAnswersInOrder(row) {
+    var out = [];
+    row.querySelectorAll('input[name="answers[]"]').forEach(function (inp) {
+      out.push((inp.value || '').trim());
+    });
+    return out;
+  }
+  /** В режиме «по строкам» проверку разрешаем только если значения уже в полях answers[] (после «Подставить» или ввода в «по словам»), а не только в строке ввода. */
+  function replRowAllEditableWordSlotsFilled(row) {
+    if (!row) return false;
+    var hasEditable = false;
+    var ok = true;
+    row.querySelectorAll('input[name="answers[]"]').forEach(function (inp) {
+      if (inp.type === 'hidden') return;
+      hasEditable = true;
+      if (!(inp.value || '').trim()) ok = false;
+    });
+    return hasEditable && ok;
+  }
+  function syncLinePasteFromWords(row) {
+    var parts = collectRowAnswersInOrder(row);
+    var pf = row.querySelector('[data-line-paste]');
+    if (pf) pf.value = parts.join('\t');
+  }
+  function syncWordsFromLinePaste(row) {
+    var pf = row.querySelector('[data-line-paste]');
+    var n = parseInt(row.getAttribute('data-slot-count'), 10) || 0;
+    var container = row.querySelector('[data-repl-words-wrap]');
+    var parsed = parseReplLineAnswersSmart(container, pf ? pf.value : '', n);
+    if (!parsed) return;
+    fillRowWordInputsFromParsed(row, parsed);
+  }
+  function fillRowWordInputsFromParsed(row, parsed) {
+    if (!parsed || !row) return false;
+    var inputs = row.querySelectorAll('input[name="answers[]"]');
+    for (var i = 0; i < Math.min(inputs.length, parsed.length); i++) {
+      inputs[i].value = parsed[i];
+    }
+    return true;
+  }
+  function replacementsApplyFillOneLineRow(row, taskRoot) {
+    var pf = row.querySelector('[data-line-paste]');
+    var n = parseInt(row.getAttribute('data-slot-count'), 10) || 0;
+    var container = row.querySelector('[data-repl-words-wrap]');
+    var form = row.querySelector('form.new-replacements-line-form');
+    var msg = form && form.id ? document.querySelector('[data-msg-for="' + form.id + '"]') : null;
+    var parsed = parseReplLineAnswersSmart(container, pf ? pf.value : '', n);
+    if (!parsed) {
+      if (msg) {
+        msg.style.display = 'block';
+        msg.textContent = 'Не удалось разобрать строку. Кавычки "…"/«…», Tab или целая строка как справа в «по словам».';
+      }
+      return;
+    }
+    fillRowWordInputsFromParsed(row, parsed);
+    row.querySelectorAll('input[name="answers[]"]').forEach(function (inp) {
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      inp.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    saveReplLinePastesDraft(taskRoot);
+    if (msg) {
+      msg.style.display = 'block';
+      msg.textContent = 'Подставлено. Нажмите ✓ для проверки.';
+    }
+  }
+  function replacementsApplyFillWords(taskRoot) {
+    var mode = taskRoot.getAttribute('data-ui-mode') || 'words';
+    var msgEl = taskRoot.querySelector('[data-repl-fill-msg]');
+    function setMsg(text, isErr) {
+      if (!msgEl) return;
+      msgEl.textContent = text || '';
+      msgEl.hidden = !text;
+      msgEl.classList.toggle('is-error', !!isErr);
+    }
+    setMsg('', false);
+    if (mode !== 'whole') {
+      setMsg('Эта кнопка только в режиме «Весь текст». В режиме «По строкам» используйте «Подставить» у каждой строки.', true);
+      return;
+    }
+    var badLines = [];
+    var ta = taskRoot.querySelector('.new-replacements-whole__textarea');
+    var lines = ta ? splitWholeLines(ta.value) : [];
+    forEachReplUnsolvedRow(taskRoot, function (row) {
+      var li = parseInt(row.getAttribute('data-line-index'), 10);
+      var n = parseInt(row.getAttribute('data-slot-count'), 10) || 0;
+      var raw = !isNaN(li) && lines[li] !== undefined ? lines[li] : '';
+      var container = row.querySelector('[data-repl-words-wrap]');
+      var parsed = parseReplLineAnswersSmart(container, raw, n);
+      if (!parsed) badLines.push(isNaN(li) ? '?' : String(li + 1));
+      else fillRowWordInputsFromParsed(row, parsed);
+    });
+    if (badLines.length) {
+      setMsg(
+        'Не удалось разобрать строки № ' + badLines.join(', ') + '. Попробуйте кавычки "…" или «…» вокруг каждого ответа, Tab между ячейками или целую строку как в режиме «по словам».',
+        true,
+      );
+      return;
+    }
+    forEachReplUnsolvedRow(taskRoot, function (row) {
+      row.querySelectorAll('input[name="answers[]"]').forEach(function (inp) {
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
+    try {
+      localStorage.setItem(replUiModeKey(taskRoot.getAttribute('data-task-id')), 'words');
+    } catch (e) {}
+    setReplUiMode(taskRoot, 'words', true);
+    forEachReplUnsolvedRow(taskRoot, syncLinePasteFromWords);
+    saveReplLinePastesDraft(taskRoot);
+    saveReplWholeDraft(taskRoot);
+    setMsg('Ответы перенесены в поля по словам. Нажмите ✓ у нужных строк.', false);
+  }
+  function syncWholeTextareaFromLinePastes(taskRoot) {
+    var rows = taskRoot.querySelectorAll('tr.new-replacements-row');
+    var parts = [];
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      if (row.classList.contains('new-replacements-row--solved')) {
+        parts.push('');
+        continue;
+      }
+      var hasWordVals = false;
+      row.querySelectorAll('input[name="answers[]"]').forEach(function (inp) {
+        if ((inp.value || '').trim()) hasWordVals = true;
+      });
+      if (hasWordVals) {
+        parts.push(buildFullAnswerLineFromWordsRow(row));
+      } else {
+        var pf = row.querySelector('[data-line-paste]');
+        parts.push(pf ? pf.value : '');
+      }
+    }
+    var ta = taskRoot.querySelector('.new-replacements-whole__textarea');
+    if (ta) ta.value = parts.join('\n');
+  }
+  function syncLinePastesFromWhole(taskRoot) {
+    var ta = taskRoot.querySelector('.new-replacements-whole__textarea');
+    if (!ta) return;
+    var lines = splitWholeLines(ta.value);
+    var rows = taskRoot.querySelectorAll('tr.new-replacements-row');
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r];
+      if (row.classList.contains('new-replacements-row--solved')) continue;
+      var pf = row.querySelector('[data-line-paste]');
+      if (pf) pf.value = lines[r] !== undefined ? lines[r] : '';
+    }
+  }
+  function applyReplModeVisibility(taskRoot) {
+    var mode = taskRoot.getAttribute('data-ui-mode') || 'words';
+    taskRoot.querySelectorAll('[data-repl-words-wrap]').forEach(function (el) {
+      el.hidden = mode !== 'words';
+    });
+    taskRoot.querySelectorAll('[data-repl-lines-only]').forEach(function (el) {
+      el.hidden = mode !== 'lines';
+    });
+    taskRoot.querySelectorAll('[data-repl-whole-only]').forEach(function (el) {
+      el.hidden = mode !== 'whole';
+    });
+    taskRoot.querySelectorAll('[data-repl-fill-words]').forEach(function (btn) {
+      btn.hidden = mode !== 'whole';
+    });
+    taskRoot.querySelectorAll('[data-repl-fill-line]').forEach(function (btn) {
+      btn.hidden = mode !== 'lines';
+    });
+    var fillMsgTop = taskRoot.querySelector('[data-repl-fill-msg]');
+    if (fillMsgTop && mode !== 'whole') {
+      fillMsgTop.hidden = true;
+      fillMsgTop.textContent = '';
+      fillMsgTop.classList.remove('is-error');
+    }
+  }
+  function setReplUiMode(taskRoot, mode, isInitial) {
+    if (mode !== 'words' && mode !== 'lines' && mode !== 'whole') mode = 'words';
+    taskRoot.setAttribute('data-ui-mode', mode);
+    taskRoot.querySelectorAll('[data-repl-mode-btn]').forEach(function (btn) {
+      var m = btn.getAttribute('data-repl-mode-btn');
+      var on = m === mode;
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    applyReplModeVisibility(taskRoot);
+    if (!isInitial) {
+      try {
+        localStorage.setItem(replUiModeKey(taskRoot.getAttribute('data-task-id')), mode);
+      } catch (e) {}
+    }
+  }
+  function switchReplUiMode(taskRoot, newMode) {
+    var fillMsg = taskRoot.querySelector('[data-repl-fill-msg]');
+    if (fillMsg) {
+      fillMsg.textContent = '';
+      fillMsg.hidden = true;
+      fillMsg.classList.remove('is-error');
+    }
+    var old = taskRoot.getAttribute('data-ui-mode') || 'words';
+    if (old === newMode) return;
+    if (old === 'words' && newMode === 'lines') {
+      forEachReplUnsolvedRow(taskRoot, syncLinePasteFromWords);
+    } else if (old === 'words' && newMode === 'whole') {
+      forEachReplUnsolvedRow(taskRoot, syncLinePasteFromWords);
+      syncWholeTextareaFromLinePastes(taskRoot);
+    } else if (old === 'lines' && newMode === 'whole') {
+      syncWholeTextareaFromLinePastes(taskRoot);
+    } else if (old === 'lines' && newMode === 'words') {
+      forEachReplUnsolvedRow(taskRoot, syncWordsFromLinePaste);
+    } else if (old === 'whole' && newMode === 'words') {
+      syncLinePastesFromWhole(taskRoot);
+      forEachReplUnsolvedRow(taskRoot, syncWordsFromLinePaste);
+    } else if (old === 'whole' && newMode === 'lines') {
+      syncLinePastesFromWhole(taskRoot);
+    }
+    setReplUiMode(taskRoot, newMode, false);
+  }
+  function saveReplWholeDraft(taskRoot) {
+    var tid = taskRoot.getAttribute('data-task-id');
+    var ta = taskRoot.querySelector('.new-replacements-whole__textarea');
+    if (!tid || !ta) return;
+    try {
+      localStorage.setItem(replWholeDraftKey(tid), ta.value);
+    } catch (e) {}
+  }
+  function saveReplLinePastesDraft(taskRoot) {
+    var tid = taskRoot.getAttribute('data-task-id');
+    if (!tid) return;
+    var o = {};
+    taskRoot.querySelectorAll('[data-line-paste]').forEach(function (pf) {
+      var row = pf.closest('tr');
+      if (!row || row.classList.contains('new-replacements-row--solved')) return;
+      var idx = row.getAttribute('data-line-index');
+      if (idx !== null) o[idx] = pf.value;
+    });
+    try {
+      localStorage.setItem(replLinePastesKey(tid), JSON.stringify(o));
+    } catch (e) {}
+  }
+  function restoreReplLinePastesDraft(taskRoot) {
+    var tid = taskRoot.getAttribute('data-task-id');
+    if (!tid) return;
+    try {
+      var raw = localStorage.getItem(replLinePastesKey(tid));
+      if (!raw) return;
+      var o = JSON.parse(raw);
+      if (!o || typeof o !== 'object') return;
+      taskRoot.querySelectorAll('[data-line-paste]').forEach(function (pf) {
+        var row = pf.closest('tr');
+        if (!row) return;
+        var idx = row.getAttribute('data-line-index');
+        if (idx !== null && o[idx] !== undefined) pf.value = o[idx];
+      });
+    } catch (e) {}
+  }
+  function restoreReplWholeDraft(taskRoot) {
+    var tid = taskRoot.getAttribute('data-task-id');
+    var ta = taskRoot.querySelector('.new-replacements-whole__textarea');
+    if (!tid || !ta) return;
+    try {
+      var v = localStorage.getItem(replWholeDraftKey(tid));
+      if (v !== null) ta.value = v;
+    } catch (e) {}
+  }
+  function initReplacementsLinesUi(root) {
+    var scope = root || document;
+    scope.querySelectorAll('.new-replacements-task').forEach(function (taskRoot) {
+      if (taskRoot.getAttribute('data-repl-ui-bound') === '1') return;
+      taskRoot.setAttribute('data-repl-ui-bound', '1');
+      var tid = taskRoot.getAttribute('data-task-id');
+      restoreReplLinePastesDraft(taskRoot);
+      restoreReplWholeDraft(taskRoot);
+      var mode = 'words';
+      try {
+        mode = localStorage.getItem(replUiModeKey(tid)) || 'words';
+      } catch (e) {}
+      setReplUiMode(taskRoot, mode, true);
+      taskRoot.querySelectorAll('[data-repl-mode-btn]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var m = btn.getAttribute('data-repl-mode-btn');
+          if (m) switchReplUiMode(taskRoot, m);
+        });
+      });
+      taskRoot.querySelectorAll('[data-repl-fill-words]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          replacementsApplyFillWords(taskRoot);
+        });
+      });
+      taskRoot.addEventListener('click', function (e) {
+        var b = e.target && e.target.closest && e.target.closest('[data-repl-fill-line]');
+        if (!b || !taskRoot.contains(b)) return;
+        var row = b.closest('tr.new-replacements-row');
+        if (row) replacementsApplyFillOneLineRow(row, taskRoot);
+      });
+      var ta = taskRoot.querySelector('.new-replacements-whole__textarea');
+      if (ta) {
+        ta.addEventListener('input', function () { saveReplWholeDraft(taskRoot); });
+        ta.addEventListener('change', function () { saveReplWholeDraft(taskRoot); });
+      }
+      taskRoot.querySelectorAll('[data-line-paste]').forEach(function (pf) {
+        pf.addEventListener('input', function () { saveReplLinePastesDraft(taskRoot); });
+        pf.addEventListener('change', function () { saveReplLinePastesDraft(taskRoot); });
+      });
+      taskRoot.addEventListener('paste', function (e) {
+        if ((taskRoot.getAttribute('data-ui-mode') || 'words') !== 'words') return;
+        var t = e.target;
+        if (!t || !t.closest || !t.closest('[data-repl-words-wrap]')) return;
+        if (t.tagName !== 'INPUT' || !t.classList.contains('new-replacements-input')) return;
+        var row = t.closest('tr');
+        var container = row && row.querySelector('[data-repl-words-wrap]');
+        if (!row || !container) return;
+        var clip = e.clipboardData && e.clipboardData.getData('text/plain');
+        if (!clip || !String(clip).trim()) return;
+        var n = parseInt(row.getAttribute('data-slot-count'), 10) || 0;
+        var parsed = parseReplLineAnswersSmart(container, clip, n);
+        if (!parsed) return;
+        e.preventDefault();
+        row.querySelectorAll('input[name="answers[]"]').forEach(function (inp, idx) {
+          if (idx < parsed.length) inp.value = parsed[idx];
+          inp.dispatchEvent(new Event('input', { bubbles: true }));
+          inp.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      }, true);
+    });
+  }
+  window.initReplacementsLinesUi = initReplacementsLinesUi;
+
+  function prepareReplacementsJsonAnswers(form) {
+    var row = form.closest('tr');
+    var taskRoot = form.closest('.new-replacements-task');
+    if (!row || !taskRoot) return true;
+    form.querySelectorAll('input[name="answers"][data-repl-json]').forEach(function (n) { n.remove(); });
+    var mode = taskRoot.getAttribute('data-ui-mode') || 'words';
+    var rowInputs = row.querySelectorAll('input[name="answers[]"]');
+    rowInputs.forEach(function (inp) { inp.disabled = false; });
+    var msg = form.id ? document.querySelector('[data-msg-for="' + form.id + '"]') : null;
+    if (mode === 'whole') {
+      if (msg) {
+        msg.style.display = 'block';
+        msg.textContent = 'Сначала нажмите «Подставить» сверху, затем переключитесь на «По словам» или «По строкам» и проверьте строку (✓ или Enter).';
+      }
+      return false;
+    }
+    if (mode === 'lines') {
+      if (!replRowAllEditableWordSlotsFilled(row)) {
+        if (msg) {
+          msg.style.display = 'block';
+          msg.textContent = 'Сначала нажмите «Подставить» у этой строки, чтобы перенести ответы в поля (или введите в «По словам»), затем нажмите ✓.';
+        }
+        return false;
+      }
+    }
+    return true;
+  }
+
   function buildReplacementsLinePreviewFromForm(form) {
     var row = form && form.closest ? form.closest('tr') : null;
     if (!row) return '';
@@ -513,6 +910,7 @@
         }
       }
       form.removeAttribute('data-repl-line-confirm');
+      if (!prepareReplacementsJsonAnswers(form)) return;
     }
     if (form.getAttribute('data-proportions-form') === '1') {
       var pmsg = form.querySelector('.new-attempt-msg');
@@ -950,6 +1348,7 @@
     });
   }
   initReplacementsLinesStorage(document);
+  initReplacementsLinesUi(document);
 
   function openAnswer(html) {
     var answerModal = document.getElementById('new-answer-modal');
@@ -1149,7 +1548,10 @@
       if (!el || !html) return;
       el.outerHTML = html;
       var fresh = document.getElementById('new-task-' + tid);
-      if (fresh) initReplacementsLinesStorage(fresh);
+      if (fresh) {
+        initReplacementsLinesStorage(fresh);
+        if (typeof initReplacementsLinesUi === 'function') initReplacementsLinesUi(fresh);
+      }
     });
     document.querySelectorAll('input.new-anon-key-field').forEach(function (inp) {
       try { inp.value = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}

@@ -1,5 +1,20 @@
 {% load filters %}
-<table class="new-replacements-table" role="presentation">
+<div class="new-replacements-task" data-task-id="{{ task.id }}" data-repl-n-lines="{{ rld.n_lines }}">
+  <div class="new-replacements-mode-bar" role="toolbar" aria-label="Формат ввода ответов">
+    <span class="new-replacements-mode-bar__label">Ввод</span>
+    <div class="new-replacements-mode-bar__btns">
+      <button type="button" class="new-replacements-mode-btn is-active" data-repl-mode-btn="words" aria-pressed="true">По словам</button>
+      <button type="button" class="new-replacements-mode-btn" data-repl-mode-btn="lines" aria-pressed="false">По строкам</button>
+      <button type="button" class="new-replacements-mode-btn" data-repl-mode-btn="whole" aria-pressed="false">Весь текст</button>
+      <button type="button" class="new-replacements-fill-btn" data-repl-fill-words hidden>Подставить</button>
+    </div>
+  </div>
+  <p class="new-replacements-fill-msg" data-repl-fill-msg aria-live="polite" hidden></p>
+  <div class="new-replacements-whole-panel" data-repl-whole-only hidden>
+    <p class="new-replacements-whole-hint">Одна строка ответа на каждую строку задания. Нажмите «Подставить» сверху.</p>
+    <textarea class="new-replacements-whole__textarea" rows="{% if rld.n_lines < 4 %}4{% else %}{{ rld.n_lines }}{% endif %}" autocomplete="off" aria-label="Ответы всех строк"></textarea>
+  </div>
+  <table class="new-replacements-table" role="presentation">
   <colgroup>
     <col class="new-replacements-col--left">
     <col class="new-replacements-col--check">
@@ -8,7 +23,7 @@
   <tbody>
   {% for line_tokens in rld.parsed.right_tokens %}
     {% with line_idx=forloop.counter0 %}
-    <tr class="new-replacements-row {% if rld.line_done|get_item:line_idx %}new-replacements-row--solved{% endif %}" data-line-index="{{ line_idx }}" data-task-id="{{ task.id }}">
+    <tr class="new-replacements-row {% if rld.line_done|get_item:line_idx %}new-replacements-row--solved{% endif %}" data-line-index="{{ line_idx }}" data-task-id="{{ task.id }}" data-slot-count="{{ rld.slot_counts|get_item:line_idx }}">
       <td class="new-replacements-block__left {% if rld.line_done|get_item:line_idx %}new-replacements-block__left--solved{% endif %}">
         {{ rld.parsed.left_lines|get_item:line_idx }}
       </td>
@@ -43,7 +58,7 @@
             {% for token in line_tokens %}{% if token.type == 'slot' %}{% with correct_word=rld.parsed.answers|get_item:line_idx|get_item:token.slot_index %}<strong>{{ correct_word }}</strong>{% endwith %}{% else %}<span class="new-replacements-static">{{ token.text }}</span>{% endif %}{% endfor %}
           </span>
         {% else %}
-          <span class="new-replacements-line__inputs">
+          <span class="new-replacements-line__inputs" data-repl-words-wrap>
             {% for token in line_tokens %}
               {% if token.type == 'slot' %}
                 {% with is_correct=rld.slot_correct|get_item:line_idx|get_item:token.slot_index %}
@@ -73,6 +88,12 @@
               {% endif %}
             {% endfor %}
           </span>
+          <div class="new-replacements-line__paste-row" data-repl-lines-only hidden>
+            <div class="new-replacements-line-paste-row__inner">
+              <input type="text" class="new-replacements-line-paste-field" data-line-paste autocomplete="off" placeholder="Tab, кавычки или целая строка">
+              <button type="button" class="new-replacements-fill-btn new-replacements-fill-btn--inline" data-repl-fill-line>Подставить</button>
+            </div>
+          </div>
           <div class="new-attempt-msg new-replacements-line-msg" aria-live="polite" data-msg-for="repl-form-{{ task.id }}-{{ line_idx }}"></div>
         {% endif %}
       </td>
@@ -81,3 +102,4 @@
   {% endfor %}
   </tbody>
 </table>
+</div>

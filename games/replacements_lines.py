@@ -4,6 +4,7 @@
 #                         (2) любой фрагмент _между подчёркиваниями_, в т.ч. _23_ или _76_.
 # Число без слота: просто 76 в тексте (без _…_). Слева в задании _76_ для читаемости снимаются в 76
 # (см. left_lines), справа слот остаётся отдельным полем ввода.
+# Литерал из капса без слота: |DC|, |OK| — вертикальные черты (не подчёркивания); в показе черты снимаются.
 # Output (task.checker_data): тот же объём строк, на месте слотов — правильные ответы.
 # Несколько допустимых вариантов в одном слоте: _КАНОН|вариант2|вариант3_
 # (в показе решения — только канон до первого |, без подчёркиваний вокруг слота).
@@ -21,6 +22,9 @@ _LITERAL_NUMERIC_UNDERSCORE = re.compile(r'_(\d+)_')
 
 # Слот: _непустая_ последовательность_
 _SLOT_UNDERSCORE = re.compile(r'_([^_]+)_')
+
+# Литерал «как в тексте», не слот: |DC| — не путать с _A|B_ (альтернативы только внутри _…_).
+_PIPE_LITERAL = re.compile(r'\|([^|]+)\|')
 
 
 def _chars_with_unicode_categories(categories):
@@ -68,15 +72,44 @@ def replacements_strip_literal_numeric_underscores(line):
     return _LITERAL_NUMERIC_UNDERSCORE.sub(r'\1', line)
 
 
+def replacements_strip_pipe_literals(line):
+    """|DC| → DC (и для left_lines, и для фрагментов между слотами)."""
+    if not line:
+        return line
+    return _PIPE_LITERAL.sub(r'\1', line)
+
+
+def _pipe_literal_inner_spans(line):
+    """Интервалы [start, end) внутри строки, где капс-регекс не должен выделять слот."""
+    spans = []
+    for m in _PIPE_LITERAL.finditer(line):
+        inner_start = m.start() + 1
+        inner_end = m.end() - 1
+        if inner_start < inner_end:
+            spans.append((inner_start, inner_end))
+    return spans
+
+
+def _caps_match_in_pipe_literal(m_start, m_end, inner_spans):
+    for a, b in inner_spans:
+        if m_start >= a and m_end <= b:
+            return True
+    return False
+
+
 def _find_slots_in_order(line):
     # Возвращает (start, end, content) в порядке появления
     slots = []
+    pipe_inners = _pipe_literal_inner_spans(line)
     for m in _SLOT_UNDERSCORE.finditer(line):
         slots.append((m.start(), m.end(), m.group(1).strip()))
     for m in _SLOT_CAPS.finditer(line):
         # не считаем капс-слот внутри уже найденного _X_
-        if not any(s[0] < m.end() and s[1] > m.start() for s in slots):
-            slots.append((m.start(), m.end(), m.group(1)))
+        if any(s[0] < m.end() and s[1] > m.start() for s in slots):
+            continue
+        if _caps_match_in_pipe_literal(m.start(), m.end(), pipe_inners):
+            continue
+        slots.append((m.start(), m.end(), m.group(1)))
     slots.sort(key=lambda x: x[0])
     return slots
 
@@ -97,6 +130,9 @@ def _segments_and_slot_values(line):
         pos = end
     if pos < len(base):
         tokens.append({'type': 'text', 'text': base[pos:]})
+    for t in tokens:
+        if t['type'] == 'text':
+            t['text'] = replacements_strip_pipe_literals(t['text'])
     return tokens, slot_values
 
 
@@ -158,12 +194,12 @@ def canonical_replacements_checker_line(line):
     pos = 0
     for start, end, content in slots:
         if start > pos:
-            out.append(base[pos:start])
+            out.append(replacements_strip_pipe_literals(base[pos:start]))
         first, _ = split_slot_answer_alternatives(content)
         out.append(first)
         pos = end
     if pos < len(base):
-        out.append(base[pos:])
+        out.append(replacements_strip_pipe_literals(base[pos:]))
     return ''.join(out)
 
 
@@ -191,7 +227,11 @@ def parse_replacements_lines_text(input_text, answer_text=None):
 
     for i in range(n):
         line = input_lines[i]
-        left_lines.append(replacements_strip_literal_numeric_underscores(line))
+        left_lines.append(
+            replacements_strip_pipe_literals(
+                replacements_strip_literal_numeric_underscores(line)
+            )
+        )
 
         tokens, hint_values = _segments_and_slot_values(line)
         right_tokens.append(tokens)
@@ -236,3 +276,32 @@ def parse_replacements_lines_text(input_text, answer_text=None):
         answer_accept.append(line_accept)
 
     return {'left_lines': left_lines, 'right_tokens': right_tokens, 'answers': answers, 'answer_accept': answer_accept}
+
+
+def task_replacements_canonical_answer_row(task, line_index):
+    """
+    Канонические ответы по слотам для одной строки задания replacements_lines.
+    Источник данных совпадает с ReplacementsLinesChecker._resolve_answer_rows (checker_data JSON
+    или пара task.text + checker_data).
+    """
+    if getattr(task, 'task_type', None) != 'replacements_lines':
+        return None
+    try:
+        line_index = int(line_index)
+    except (TypeError, ValueError):
+        return None
+    if line_index < 0:
+        return None
+    raw = (getattr(task, 'checker_data', None) or '').strip()
+    if raw:
+        jl = parse_replacements_checker_json_lines(raw)
+        if jl:
+            canonical_rows, _ = jl
+            if line_index < len(canonical_rows):
+                return list(canonical_rows[line_index])
+            return None
+    pt = parse_replacements_lines_text(task.text or '', raw or None)
+    rows = pt.get('answers') or []
+    if line_index < len(rows):
+        return list(rows[line_index])
+    return None

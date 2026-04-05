@@ -885,6 +885,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 if not line_done[i]:
                     # fallback для старых данных без state: если все слоты совпали по компонентам
                     line_done[i] = bool(slot_correct[i]) and all(slot_correct[i])
+            slot_counts = [len(answers_by_line[i]) for i in range(n_lines)]
             replacements_lines_data[t.id] = {
                 'parsed': parsed,
                 'line_solved': line_solved,
@@ -892,6 +893,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 'line_attempts': line_attempts,
                 'slot_correct': slot_correct,
                 'n_lines': n_lines,
+                'slot_counts': slot_counts,
                 'max_attempts': t.get_max_attempts(),
                 'max_points_total': t.get_results_max_points(),
             }

@@ -1974,6 +1974,130 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   color: var(--text);
 }
 
+/* Замены: переключатель режима ввода (слова / строка / весь текст) */
+.new-replacements-task {
+  margin-top: 0.25rem;
+}
+.new-replacements-mode-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.new-replacements-mode-bar__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.new-replacements-mode-bar__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.new-replacements-mode-btn {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  line-height: 1.3;
+}
+.new-replacements-mode-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.new-replacements-mode-btn.is-active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.new-replacements-fill-btn {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.45rem;
+  margin-left: 0.15rem;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1.3;
+}
+.new-replacements-fill-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.new-replacements-fill-msg {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.new-replacements-fill-msg.is-error {
+  color: #b42318;
+}
+html.new-ui-dark .new-replacements-fill-msg.is-error {
+  color: #f5a5a0;
+}
+/* Панель «весь текст»: авторский display у textarea ломает атрибут hidden без !important */
+.new-replacements-whole-panel[hidden] {
+  display: none !important;
+}
+.new-replacements-whole-hint {
+  margin: 0 0 0.4rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.new-replacements-whole__textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  padding: 0.45rem 0.55rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+  min-height: 5rem;
+}
+.new-replacements-line__paste-row {
+  margin-top: 0.15rem;
+}
+.new-replacements-line-paste-row__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.new-replacements-fill-btn--inline {
+  flex-shrink: 0;
+  margin-left: 0;
+}
+.new-replacements-line-paste-field {
+  font: inherit;
+  font-size: 0.95rem;
+  flex: 1 1 12rem;
+  min-width: 8rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+}
+
 /* Замены (replacements_lines): таблица — левый и правый столбцы, строчки напротив друг друга */
 .new-replacements-table {
   width: 100%;

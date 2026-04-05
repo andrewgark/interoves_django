@@ -1146,6 +1146,18 @@ class Attempt(models.Model):
     def get_answer(self):
         if self.task is None:
             return 'DELETED'
+        if self.task.task_type == 'replacements_lines':
+            from games.replacements_lines import task_replacements_canonical_answer_row
+
+            try:
+                payload = json.loads(self.text)
+                line_idx = int(payload.get('line_index', -1))
+            except (ValueError, TypeError):
+                return self.task.answer or ''
+            row = task_replacements_canonical_answer_row(self.task, line_idx)
+            if row is None:
+                return '—'
+            return ' | '.join(str(c) for c in row)
         return self.task.answer
 
     def get_max_points(self):
@@ -1161,9 +1173,14 @@ class Attempt(models.Model):
         if self.task.task_type == 'replacements_lines':
             try:
                 p = json.loads(self.text)
-                line_idx = p.get('line_index', 0)
+                line_idx = int(p.get('line_index', -1))
                 answers = p.get('answers', [])
-                return 'Строка {}: {}'.format(line_idx + 1, ' '.join(answers))
+                if not isinstance(answers, list):
+                    answers = []
+                shown = ' | '.join(str(a) for a in answers)
+                if line_idx >= 0:
+                    return 'Строка {}: {}'.format(line_idx + 1, shown)
+                return shown or self.text
             except (ValueError, TypeError):
                 return self.text
         if self.task.task_type == 'wall':

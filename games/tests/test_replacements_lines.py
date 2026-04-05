@@ -9,7 +9,9 @@ from games.replacements_lines import (
     parse_replacements_checker_json_lines,
     parse_replacements_lines_text,
     replacements_strip_literal_numeric_underscores,
+    replacements_strip_pipe_literals,
     split_slot_answer_alternatives,
+    task_replacements_canonical_answer_row,
 )
 
 
@@ -94,6 +96,26 @@ class CapsSlotUnicodeTests(SimpleTestCase):
         self.assertEqual(len(p['answers'][0]), 2)
         self.assertEqual(p['answers'][0][0], 'TAIFOËN')
         self.assertEqual(p['answers'][0][1], 'ТЕЛЕВИЗОР')
+
+    def test_pipe_literal_dc_not_a_slot(self):
+        left = 'БЕЛЫЕ РОЗЫ - СЮЗАННА ВОРОН от АРТИСТА |DC|'
+        p = parse_replacements_lines_text(left, '')
+        self.assertEqual(len(p['answers'][0]), 5)
+        self.assertEqual(p['answers'][0][-1], 'АРТИСТА')
+        self.assertNotIn('DC', p['answers'][0])
+        self.assertEqual(p['left_lines'][0], left.replace('|', ''))
+        # right_tokens: после последнего слота — « от DC» (| сняты)
+        tail = p['right_tokens'][0][-1]['text']
+        self.assertTrue(tail.rstrip().endswith('DC'))
+        self.assertNotIn('|', tail)
+
+
+class PipeLiteralStripTests(SimpleTestCase):
+    def test_strip(self):
+        self.assertEqual(replacements_strip_pipe_literals('от |DC|'), 'от DC')
+
+    def test_underscore_slot_pipe_alternatives_unchanged(self):
+        self.assertEqual(replacements_strip_pipe_literals('_КОТ|котик_'), '_КОТ|котик_')
 
 
 class StripLiteralNumericUnderscoresTests(SimpleTestCase):
@@ -205,3 +227,124 @@ class ReplacementsLinesCheckerTests(SimpleTestCase):
 class CleanTextLatinDiaeresisTests(SimpleTestCase):
     def test_citroen_lowercase_stable_for_comparison(self):
         self.assertEqual(clean_text('CITROËN'), clean_text('citroën'))
+
+
+# Два предложения из авторского примера («Кто лица?» / «Как дела?» + DC).
+_REPL_USER_LANG_LEFT = (
+    '"СЮЗ ЛОШАДЬ", "ХУ СПИЧ КИНГИСЕН" и "ХУ ПИРУ СПИЧ ПИРУ " - примерно так звучит '
+    '"КТО ЛИЦА?" на разных языках.'
+)
+_REPL_USER_LANG_CHECKER_PLAIN = (
+    '"_КОМАН|КАМАН|КОМОН|КАМАН_ СОВА", "ХАУ Ю ФИЛИН" и "ХАУ ДЮ Ю ДЮ" - примерно так звучит '
+    '"КАК ДЕЛА?" на разных языках.'
+)
+_REPL_USER_DC_LEFT = 'БЕЛЫЕ РОЗЫ - СЮЗАННА ВОРОН от АРТИСТА |DC|'
+_REPL_USER_DC_CHECKER_PLAIN = 'ХИЩНЫЕ ПТИЦЫ - КОМАНДА ГЕРОЕВ от СТУДИИ |DC|'
+# JSON: 11 слотов в первой строке (совпадает с капс-разбором условия); вторая — 5.
+_REPL_USER_JSON_CHECKER = json.dumps(
+    {
+        'lines': [
+            [
+                'КОМАН|КАМАН|КОМОН|КАМАН',
+                'СОВА',
+                'ХАУ',
+                'Ю',
+                'ФИЛИН',
+                'ХАУ',
+                'ДЮ',
+                'Ю',
+                'ДЮ',
+                'КАК',
+                'ДЕЛА',
+            ],
+            ['ХИЩНЫЕ', 'ПТИЦЫ', 'КОМАНДА', 'ГЕРОЕВ', 'СТУДИИ'],
+        ]
+    },
+    ensure_ascii=False,
+)
+
+
+class UserReplacementsExampleTests(SimpleTestCase):
+    """Пример с продакшена: первая строка — много капс-слотов; вторая — |DC|."""
+
+    def test_lang_line_has_eleven_caps_slots(self):
+        p = parse_replacements_lines_text(_REPL_USER_LANG_LEFT, '')
+        self.assertEqual(len(p['answers'][0]), 11)
+        self.assertEqual(
+            p['answers'][0],
+            [
+                'СЮЗ',
+                'ЛОШАДЬ',
+                'ХУ',
+                'СПИЧ',
+                'КИНГИСЕН',
+                'ХУ',
+                'ПИРУ',
+                'СПИЧ',
+                'ПИРУ',
+                'КТО',
+                'ЛИЦА',
+            ],
+        )
+
+    def test_lang_plain_checker_has_only_nine_slots_misaligns_with_left(self):
+        """Текстовый checker из примера: «Ю» одной буквой не слот → 9≠11, хвост из подсказок слева."""
+        checker_only = parse_replacements_lines_text(_REPL_USER_LANG_CHECKER_PLAIN, '')
+        self.assertEqual(len(checker_only['answers'][0]), 9)
+        merged = parse_replacements_lines_text(_REPL_USER_LANG_LEFT, _REPL_USER_LANG_CHECKER_PLAIN)
+        self.assertEqual(len(merged['answers'][0]), 11)
+        self.assertEqual(merged['answers'][0][9], 'КТО')
+        self.assertEqual(merged['answers'][0][10], 'ЛИЦА')
+
+    def test_dc_line_plain_checker_five_slots_and_checker_ok(self):
+        p = parse_replacements_lines_text(_REPL_USER_DC_LEFT, _REPL_USER_DC_CHECKER_PLAIN)
+        self.assertEqual(len(p['answers'][0]), 5)
+        ch = ReplacementsLinesChecker('', None)
+        task = type('Task', (), {'text': _REPL_USER_DC_LEFT, 'checker_data': _REPL_USER_DC_CHECKER_PLAIN})()
+        att = type('Attempt', (), {'task': task})()
+        payload = json.dumps(
+            {'line_index': 0, 'answers': ['ХИЩНЫЕ', 'ПТИЦЫ', 'КОМАНДА', 'ГЕРОЕВ', 'СТУДИИ']},
+            ensure_ascii=False,
+        )
+        r = ch.check(payload, att)
+        self.assertEqual(r.status, 'Ok')
+
+    def test_both_lines_json_checker_matches_slot_counts(self):
+        text = _REPL_USER_LANG_LEFT + '\n' + _REPL_USER_DC_LEFT
+        p = parse_replacements_lines_text(text, _REPL_USER_JSON_CHECKER)
+        self.assertEqual(len(p['answers'][0]), 11)
+        self.assertEqual(len(p['answers'][1]), 5)
+        self.assertEqual(p['answers'][0][0], 'КОМАН')
+        self.assertEqual(p['answers'][1][-1], 'СТУДИИ')
+
+    def test_both_lines_json_checker_accepts_kaman_alternative_and_full_answers(self):
+        ch = ReplacementsLinesChecker('', None)
+        task = type('Task', (), {'text': _REPL_USER_LANG_LEFT + '\n' + _REPL_USER_DC_LEFT, 'checker_data': _REPL_USER_JSON_CHECKER})()
+        att = type('Attempt', (), {'task': task})()
+        a1 = ['КАМАН', 'СОВА', 'ХАУ', 'Ю', 'ФИЛИН', 'ХАУ', 'ДЮ', 'Ю', 'ДЮ', 'КАК', 'ДЕЛА']
+        a2 = ['ХИЩНЫЕ', 'ПТИЦЫ', 'КОМАНДА', 'ГЕРОЕВ', 'СТУДИИ']
+        r0 = ch.check(json.dumps({'line_index': 0, 'answers': a1}, ensure_ascii=False), att)
+        r1 = ch.check(json.dumps({'line_index': 1, 'answers': a2}, ensure_ascii=False), att)
+        self.assertEqual(r0.status, 'Partial')
+        self.assertEqual(r1.status, 'Partial')
+        self.assertEqual(r0.tournament_status, 'Ok')
+        self.assertEqual(r1.tournament_status, 'Ok')
+
+
+class TaskReplacementsCanonicalAnswerRowTests(SimpleTestCase):
+    def test_json_checker_matches_checker_rows(self):
+        task = type(
+            'Task',
+            (),
+            {
+                'task_type': 'replacements_lines',
+                'text': _REPL_USER_LANG_LEFT + '\n' + _REPL_USER_DC_LEFT,
+                'checker_data': _REPL_USER_JSON_CHECKER,
+            },
+        )()
+        row0 = task_replacements_canonical_answer_row(task, 0)
+        row1 = task_replacements_canonical_answer_row(task, 1)
+        self.assertEqual(len(row0), 11)
+        self.assertEqual(len(row1), 5)
+        self.assertEqual(row0[0], 'КОМАН')
+        self.assertEqual(row1[-1], 'СТУДИИ')
