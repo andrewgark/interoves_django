@@ -1,7 +1,7 @@
 
 <div class="wall">
   <p>{{ task.get_wall.text }}</p>
-  <div class="wall-tiles">
+  <div class="wall-tiles" style="--wall-cols: {{ task.get_wall.n_words }};">
     {% csrf_token %}
     <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
     <input type="hidden" class="n-words-in-category" name="variable" value={{ task.get_wall.n_words }}>

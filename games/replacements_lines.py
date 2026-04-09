@@ -4,7 +4,7 @@
 #                         (2) любой фрагмент _между подчёркиваниями_, в т.ч. _23_ или _76_.
 # Число без слота: просто 76 в тексте (без _…_). Слева в задании _76_ для читаемости снимаются в 76
 # (см. left_lines), справа слот остаётся отдельным полем ввода.
-# Литерал из капса без слота: |DC|, |OK| — вертикальные черты (не подчёркивания); в показе черты снимаются.
+# Литерал из капса без слота: #DC#, #OK# — в показе решётки снимаются (не путать с | внутри _А|Б_).
 # Output (task.checker_data): тот же объём строк, на месте слотов — правильные ответы.
 # Несколько допустимых вариантов в одном слоте: _КАНОН|вариант2|вариант3_
 # (в показе решения — только канон до первого |, без подчёркиваний вокруг слота).
@@ -23,8 +23,8 @@ _LITERAL_NUMERIC_UNDERSCORE = re.compile(r'_(\d+)_')
 # Слот: _непустая_ последовательность_
 _SLOT_UNDERSCORE = re.compile(r'_([^_]+)_')
 
-# Литерал «как в тексте», не слот: |DC| — не путать с _A|B_ (альтернативы только внутри _…_).
-_PIPE_LITERAL = re.compile(r'\|([^|]+)\|')
+# Литерал «как в тексте», не слот: #DC# — не путать с _A|B_ (альтернативы только внутри _…_).
+_HASH_LITERAL = re.compile(r'#([^#]+)#')
 
 
 def _chars_with_unicode_categories(categories):
@@ -72,17 +72,17 @@ def replacements_strip_literal_numeric_underscores(line):
     return _LITERAL_NUMERIC_UNDERSCORE.sub(r'\1', line)
 
 
-def replacements_strip_pipe_literals(line):
-    """|DC| → DC (и для left_lines, и для фрагментов между слотами)."""
+def replacements_strip_hash_literals(line):
+    """#DC# → DC (и для left_lines, и для фрагментов между слотами)."""
     if not line:
         return line
-    return _PIPE_LITERAL.sub(r'\1', line)
+    return _HASH_LITERAL.sub(r'\1', line)
 
 
-def _pipe_literal_inner_spans(line):
+def _hash_literal_inner_spans(line):
     """Интервалы [start, end) внутри строки, где капс-регекс не должен выделять слот."""
     spans = []
-    for m in _PIPE_LITERAL.finditer(line):
+    for m in _HASH_LITERAL.finditer(line):
         inner_start = m.start() + 1
         inner_end = m.end() - 1
         if inner_start < inner_end:
@@ -90,7 +90,7 @@ def _pipe_literal_inner_spans(line):
     return spans
 
 
-def _caps_match_in_pipe_literal(m_start, m_end, inner_spans):
+def _caps_match_in_hash_literal(m_start, m_end, inner_spans):
     for a, b in inner_spans:
         if m_start >= a and m_end <= b:
             return True
@@ -100,14 +100,14 @@ def _caps_match_in_pipe_literal(m_start, m_end, inner_spans):
 def _find_slots_in_order(line):
     # Возвращает (start, end, content) в порядке появления
     slots = []
-    pipe_inners = _pipe_literal_inner_spans(line)
+    hash_inners = _hash_literal_inner_spans(line)
     for m in _SLOT_UNDERSCORE.finditer(line):
         slots.append((m.start(), m.end(), m.group(1).strip()))
     for m in _SLOT_CAPS.finditer(line):
         # не считаем капс-слот внутри уже найденного _X_
         if any(s[0] < m.end() and s[1] > m.start() for s in slots):
             continue
-        if _caps_match_in_pipe_literal(m.start(), m.end(), pipe_inners):
+        if _caps_match_in_hash_literal(m.start(), m.end(), hash_inners):
             continue
         slots.append((m.start(), m.end(), m.group(1)))
     slots.sort(key=lambda x: x[0])
@@ -132,7 +132,7 @@ def _segments_and_slot_values(line):
         tokens.append({'type': 'text', 'text': base[pos:]})
     for t in tokens:
         if t['type'] == 'text':
-            t['text'] = replacements_strip_pipe_literals(t['text'])
+            t['text'] = replacements_strip_hash_literals(t['text'])
     return tokens, slot_values
 
 
@@ -194,12 +194,12 @@ def canonical_replacements_checker_line(line):
     pos = 0
     for start, end, content in slots:
         if start > pos:
-            out.append(replacements_strip_pipe_literals(base[pos:start]))
+            out.append(replacements_strip_hash_literals(base[pos:start]))
         first, _ = split_slot_answer_alternatives(content)
         out.append(first)
         pos = end
     if pos < len(base):
-        out.append(replacements_strip_pipe_literals(base[pos:]))
+        out.append(replacements_strip_hash_literals(base[pos:]))
     return ''.join(out)
 
 
@@ -228,7 +228,7 @@ def parse_replacements_lines_text(input_text, answer_text=None):
     for i in range(n):
         line = input_lines[i]
         left_lines.append(
-            replacements_strip_pipe_literals(
+            replacements_strip_hash_literals(
                 replacements_strip_literal_numeric_underscores(line)
             )
         )

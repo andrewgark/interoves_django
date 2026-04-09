@@ -9,7 +9,7 @@ from games.replacements_lines import (
     parse_replacements_checker_json_lines,
     parse_replacements_lines_text,
     replacements_strip_literal_numeric_underscores,
-    replacements_strip_pipe_literals,
+    replacements_strip_hash_literals,
     split_slot_answer_alternatives,
     task_replacements_canonical_answer_row,
 )
@@ -97,25 +97,25 @@ class CapsSlotUnicodeTests(SimpleTestCase):
         self.assertEqual(p['answers'][0][0], 'TAIFOËN')
         self.assertEqual(p['answers'][0][1], 'ТЕЛЕВИЗОР')
 
-    def test_pipe_literal_dc_not_a_slot(self):
-        left = 'БЕЛЫЕ РОЗЫ - СЮЗАННА ВОРОН от АРТИСТА |DC|'
+    def test_hash_literal_dc_not_a_slot(self):
+        left = 'БЕЛЫЕ РОЗЫ - СЮЗАННА ВОРОН от АРТИСТА #DC#'
         p = parse_replacements_lines_text(left, '')
         self.assertEqual(len(p['answers'][0]), 5)
         self.assertEqual(p['answers'][0][-1], 'АРТИСТА')
         self.assertNotIn('DC', p['answers'][0])
-        self.assertEqual(p['left_lines'][0], left.replace('|', ''))
-        # right_tokens: после последнего слота — « от DC» (| сняты)
+        self.assertEqual(p['left_lines'][0], left.replace('#', ''))
+        # right_tokens: после последнего слота — « от DC» (# сняты)
         tail = p['right_tokens'][0][-1]['text']
         self.assertTrue(tail.rstrip().endswith('DC'))
-        self.assertNotIn('|', tail)
+        self.assertNotIn('#', tail)
 
 
-class PipeLiteralStripTests(SimpleTestCase):
+class HashLiteralStripTests(SimpleTestCase):
     def test_strip(self):
-        self.assertEqual(replacements_strip_pipe_literals('от |DC|'), 'от DC')
+        self.assertEqual(replacements_strip_hash_literals('от #DC#'), 'от DC')
 
     def test_underscore_slot_pipe_alternatives_unchanged(self):
-        self.assertEqual(replacements_strip_pipe_literals('_КОТ|котик_'), '_КОТ|котик_')
+        self.assertEqual(replacements_strip_hash_literals('_КОТ|котик_'), '_КОТ|котик_')
 
 
 class StripLiteralNumericUnderscoresTests(SimpleTestCase):
@@ -238,8 +238,8 @@ _REPL_USER_LANG_CHECKER_PLAIN = (
     '"_КОМАН|КАМАН|КОМОН|КАМАН_ СОВА", "ХАУ Ю ФИЛИН" и "ХАУ ДЮ Ю ДЮ" - примерно так звучит '
     '"КАК ДЕЛА?" на разных языках.'
 )
-_REPL_USER_DC_LEFT = 'БЕЛЫЕ РОЗЫ - СЮЗАННА ВОРОН от АРТИСТА |DC|'
-_REPL_USER_DC_CHECKER_PLAIN = 'ХИЩНЫЕ ПТИЦЫ - КОМАНДА ГЕРОЕВ от СТУДИИ |DC|'
+_REPL_USER_DC_LEFT = 'БЕЛЫЕ РОЗЫ - СЮЗАННА ВОРОН от АРТИСТА #DC#'
+_REPL_USER_DC_CHECKER_PLAIN = 'ХИЩНЫЕ ПТИЦЫ - КОМАНДА ГЕРОЕВ от СТУДИИ #DC#'
 # JSON: 11 слотов в первой строке (совпадает с капс-разбором условия); вторая — 5.
 _REPL_USER_JSON_CHECKER = json.dumps(
     {
@@ -265,7 +265,7 @@ _REPL_USER_JSON_CHECKER = json.dumps(
 
 
 class UserReplacementsExampleTests(SimpleTestCase):
-    """Пример с продакшена: первая строка — много капс-слотов; вторая — |DC|."""
+    """Пример с продакшена: первая строка — много капс-слотов; вторая — #DC#."""
 
     def test_lang_line_has_eleven_caps_slots(self):
         p = parse_replacements_lines_text(_REPL_USER_LANG_LEFT, '')

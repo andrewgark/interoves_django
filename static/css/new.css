@@ -1324,7 +1324,7 @@ html.new-ui-dark .new-smart-scrollbar-thumb {
 }
 .wall-tiles{
   display: grid;
-  grid-template-columns: repeat(4, 148px);
+  grid-template-columns: repeat(var(--wall-cols, 4), 148px);
   gap: 0.5rem;
   width: max-content;
   margin: 0 auto;
