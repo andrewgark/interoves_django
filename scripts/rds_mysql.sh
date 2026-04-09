@@ -9,6 +9,9 @@
 #
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${REPO_ROOT}/scripts/interoves_aws_bootstrap.sh"
+interoves_aws_bootstrap "$REPO_ROOT"
 cd "$REPO_ROOT"
 
 SECRET_ARN="${RDS_SECRET_ARN:-arn:aws:secretsmanager:eu-central-1:916000456640:secret:rds!db-ce1a594a-9964-4a32-a9d3-9483ada5368c-0O6ead}"

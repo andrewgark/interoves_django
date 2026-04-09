@@ -9,6 +9,7 @@ secrets/*
 !secrets/README.md
 !secrets/rds.env.example
 !secrets/rds.elasticbeanstalk-env.example
+!secrets/aws.env.example
 .vscode
 .cursor/
 __pycache__

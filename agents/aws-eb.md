@@ -1,5 +1,53 @@
 # AWS / Elastic Beanstalk — lifehacks & useful commands
 
+## Agent playbook (Cursor / automation)
+
+Use this order when operating on **prod** (account `916000456640`, region **`eu-central-1`**).
+
+### Prerequisites
+
+1. **Python:** `../venv/interoves_django/bin/python` (see [`agents/AGENTS.md`](AGENTS.md)).
+2. **AWS credentials:** `secrets/aws.env` (gitignored) — at minimum `export AWS_PROFILE=interoves` and `export INTEROVES_AWS_ROLE_ARN=arn:aws:iam::916000456640:role/ai-bot`. Scripts `with_rds.sh`, `eb_run.sh`, `rds_mysql.sh` call `scripts/interoves_aws_bootstrap.sh`, which loads `secrets/aws.env` and **assumes `ai-bot`** when base credentials allow.
+3. **Tooling:** Shell commands that hit AWS, SSM, or SSH need **`required_permissions: ["network", "all"]`** in Cursor.
+
+### Two IAM identities
+
+| Identity | When |
+|----------|------|
+| **`interoves` IAM user** | Credentials in `~/.aws/credentials` / SSO profile. |
+| **`ai-bot` role** (assumed) | After bootstrap; `aws sts get-caller-identity` shows `assumed-role/ai-bot/...`. Same policies are attached to **`ai-bot`** for EB/RDS/SSM so `./scripts/aws_with_role.sh eb status` works. |
+
+### What to run for what
+
+| Goal | Command |
+|------|---------|
+| **AWS CLI / EB** (as `ai-bot`) | `./scripts/aws_with_role.sh aws …` or `./scripts/aws_with_role.sh eb status` |
+| **Same AWS CLI as `interoves` only** (no assume-role) | `AWS_PROFILE=interoves aws …` or `eb` after `export AWS_PROFILE=interoves` |
+| **Prod Django + RDS** (same env as Daphne on the instance) **— preferred** | `./scripts/eb_run.sh manage.py check --database default`, `migrate --plan`, `shell`, etc. |
+| **RDS from laptop** (SSM tunnel `localhost:13306`) | `./scripts/with_rds.sh manage.py dbshell` — requires `secrets/rds.env` with `RDS_HOSTNAME` + **`RDS_SECRET_ARN`** (same as EB `eb printenv`). Boto3 must resolve credentials (bootstrap + profile). |
+| **MySQL one-off** (password from Secrets Manager) | `./scripts/rds_mysql.sh -e "SELECT 1"` (direct to RDS host; often blocked by SG from home — use **`with_rds`** or **`eb_run`** instead). |
+
+### RDS access — verified pattern
+
+- **Reliable:** `./scripts/eb_run.sh manage.py check --database default` — confirms MySQL from the EB app host (Secrets Manager + RDS in VPC).
+- **`with_rds.sh`:** Can fail with MySQL **2013** / TLS handshake over the tunnel if Django does not use RDS SSL options for the tunneled path; if that happens, use **`eb_run`** for DB checks or run Django with MySQL SSL options for `127.0.0.1:13306` (advanced).
+
+### Redis (ElastiCache) — “red” / channel layer
+
+- **Not** exposed to the public internet. `REDIS_HOST` / `REDIS_TLS` / `REDIS_PORT` exist only on EB (`eb printenv`).
+- **From an agent:** do **not** expect a Redis tunnel like `with_rds`. Use **`./scripts/eb_run.sh manage.py shell`** (or code paths that hit Redis on the instance) to validate behavior, or inspect Redis from a component inside the VPC.
+- If Channels/WebSockets misbehave, check **`eb_run`** logs and `REDIS_*` env on the instance.
+
+## AWS role for local CLI / agents
+
+`secrets/aws.env` (copy from `secrets/aws.env.example`) can set `INTEROVES_AWS_ROLE_ARN` and a base `AWS_PROFILE` or keys. Scripts call `interoves_aws_bootstrap` to `sts:AssumeRole` before using the AWS CLI. Ad-hoc:
+
+```bash
+./scripts/aws_with_role.sh aws sts get-caller-identity
+```
+
+See `secrets/README.md`.
+
 ## Environment basics
 
 ```bash

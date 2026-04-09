@@ -17,6 +17,10 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${REPO_ROOT}/scripts/interoves_aws_bootstrap.sh"
+interoves_aws_bootstrap "$REPO_ROOT"
+
 PYTHON="${REPO_ROOT}/../venv/interoves_django/bin/python"
 ENV_FILE="${REPO_ROOT}/secrets/rds.env"
 REGION="eu-central-1"

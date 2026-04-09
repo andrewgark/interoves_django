@@ -29,6 +29,10 @@ Or without activating:
 
 The same requirement is mirrored in `.cursor/rules/python-venv.mdc` (`alwaysApply: true`).
 
+## AWS / prod access (agents)
+
+For Elastic Beanstalk, RDS, Redis (ElastiCache), IAM, and local AWS CLI with the **`ai-bot`** role, read **[agents/aws-eb.md](aws-eb.md)** — especially **Agent playbook** and **RDS / Redis**. Use `required_permissions: ["network", "all"]` when running AWS/SSH scripts from tools.
+
 ## Modals / popups (new UI)
 
 For **new** pages under `static/templates/new/`, use **one** pattern: the `new-rules-modal` stack (see `static/css/new.css` and examples in `new/base.html`, `new/team.html`, `new/task_group.html`).

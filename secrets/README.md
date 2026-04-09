@@ -55,3 +55,26 @@ Or run the helper script from the repo root (same defaults as EB dev RDS; overri
    ```
 
 `secrets/rds.env` is ignored by git (everything under `secrets/*` except the whitelisted examples and this README).
+
+## AWS CLI / boto3 — automation role (`secrets/aws.env`)
+
+For a consistent IAM role (e.g. `ai-bot`) without pasting ARNs into every command:
+
+1. Copy the template and set a **base** identity that is allowed to `sts:AssumeRole` that role (SSO profile or IAM user keys — never commit keys):
+
+   ```bash
+   cp secrets/aws.env.example secrets/aws.env
+   ```
+
+2. Edit `secrets/aws.env`: set `INTEROVES_AWS_ROLE_ARN` and uncomment `AWS_PROFILE` or access keys.
+
+3. Repo scripts run `scripts/interoves_aws_bootstrap.sh` automatically (`with_rds.sh`, `eb_run.sh`, `rds_mysql.sh`). For ad-hoc commands:
+
+   ```bash
+   ./scripts/aws_with_role.sh aws sts get-caller-identity
+   ./scripts/aws_with_role.sh eb status
+   ```
+
+SSO users still run `aws sso login` when the refresh token expires; after that, bootstrap assumes `ai-bot` for each script invocation.
+
+Full matrix (RDS vs Redis, `eb_run` vs `with_rds`, Cursor permissions): **[`agents/aws-eb.md`](../agents/aws-eb.md)** → **Agent playbook**.

@@ -14,6 +14,11 @@
 
 set -euo pipefail
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${REPO_ROOT}/scripts/interoves_aws_bootstrap.sh"
+interoves_aws_bootstrap "$REPO_ROOT"
+
 REGION="eu-central-1"
 ENV_NAME="interoves-env"
 OS_USER="ec2-user"
