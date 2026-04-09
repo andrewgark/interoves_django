@@ -14,6 +14,8 @@ import os
 import requests
 import sys
 
+from django.core.exceptions import ImproperlyConfigured
+
 
 def _env_flag(name: str) -> bool:
     """True if env var is a common affirmative value (handles EB / console quirks)."""
@@ -328,7 +330,7 @@ DATABASES = {
 
 if 'RDS_HOSTNAME' in os.environ:
     _rds_password = os.environ.get('RDS_PASSWORD', '')
-    _rds_secret_arn = os.environ.get('RDS_SECRET_ARN', '')
+    _rds_secret_arn = (os.environ.get('RDS_SECRET_ARN') or '').strip()
     if _rds_secret_arn:
         try:
             import json
@@ -342,11 +344,16 @@ if 'RDS_HOSTNAME' in os.environ:
             )
             _rds_password = _secret['password']
         except Exception as _e:
-            import logging
-            logging.getLogger(__name__).warning(
-                'Could not fetch RDS password from Secrets Manager (%s); '
-                'falling back to RDS_PASSWORD env var', _e
-            )
+            raise ImproperlyConfigured(
+                'RDS_SECRET_ARN is set but the password could not be loaded from '
+                'AWS Secrets Manager. Refusing to use RDS_PASSWORD (Elastic Beanstalk '
+                'often injects a stale value). Fix IAM (secretsmanager:GetSecretValue '
+                'for this secret) or the ARN/region.'
+            ) from _e
+    elif not _rds_password:
+        raise ImproperlyConfigured(
+            'RDS_HOSTNAME is set but neither RDS_SECRET_ARN nor RDS_PASSWORD is set.'
+        )
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',

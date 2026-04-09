@@ -87,6 +87,11 @@ if 'RDS_HOSTNAME' in os.environ:
 Set `RDS_SECRET_ARN` via `option_settings` in `.ebextensions/django.config` so it
 survives every deploy.
 
+If `RDS_SECRET_ARN` is set, **`interoves_django/settings.py` refuses to fall back to
+`RDS_PASSWORD`** when Secrets Manager fails (so a bad/stale EB password cannot silently
+take effect). Fix IAM or the ARN; for local tunnel use without AWS creds, omit
+`RDS_SECRET_ARN` and use `RDS_PASSWORD` in `secrets/rds.env` only.
+
 ## EC2 IAM role — grant Secrets Manager access
 
 ```bash
