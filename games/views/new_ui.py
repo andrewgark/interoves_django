@@ -303,6 +303,9 @@ def new_section_game_page(request, game_id):
         team = request.user.profile.team_on
     if not game.has_access('see_game_preview', team=team):
         raise Http404()
+    # Шаблон game_page использует team в фильтрах access_see_results и т.д.;
+    # должен совпадать с командой для see_game_preview (ниже team перезаписывается под play_mode).
+    team_for_access = team
     task_groups = (
         GameTaskGroup.objects.filter(game=game)
         .select_related('task_group', 'task_group__rules')
@@ -392,6 +395,7 @@ def new_section_game_page(request, game_id):
         'task_groups_empty_text': 'В этом разделе пока нет групп заданий. Добавьте их в админке.',
         'back_url': '/',
         'lock_personal_play_mode': personal_play_mode_locked(game),
+        'team': team_for_access,
     })
 
 
