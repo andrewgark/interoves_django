@@ -29,7 +29,13 @@
       </div>
     </div>
 
-    {% if not section_results %}
+    {% if section_results %}
+    <div class="new-card" style="margin-top:0.75rem">
+      <div class="new-card__text" style="margin:0">
+        Учитываются все посылки по заданиям этого раздела — и во время игры, и после.
+      </div>
+    </div>
+    {% else %}
     <div class="new-card" style="margin-top:0.75rem">
       <div class="new-card__text" style="margin:0">
         {% if mode == 'tournament' %}
