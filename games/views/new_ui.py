@@ -149,6 +149,33 @@ PALINDROMES_GAME_ID = 'palindromes'
 SECTION_RULES_GAME_IDS = ('palindromes', 'replacements', 'walls')
 
 
+def _section_task_groups_rules_modal_html(task_groups):
+    """
+    HTML для модалки «Правила» на странице раздела: непустые rules у канонических TaskGroup.
+    Если есть хотя бы один блок — возвращаем разметку; иначе None (тогда остаются туториалы/хардкод).
+    """
+    parts = []
+    for i, p in enumerate(task_groups):
+        tg = p.task_group
+        rules = getattr(tg, 'rules', None)
+        if not rules:
+            continue
+        html = (rules.html or '').strip()
+        if not html:
+            continue
+        margin = 'margin-top:0' if i == 0 else 'margin-top:1.25rem'
+        heading = format_html(
+            '<h3 class="new-heading" style="font-size:1.1rem;{}">{} · {}</h3>',
+            margin,
+            p.number,
+            p.name,
+        )
+        parts.append(format_html('<div class="new-section-rules-block">{}</div>', heading + mark_safe(html)))
+    if not parts:
+        return None
+    return mark_safe(''.join(str(x) for x in parts))
+
+
 def _session_play_mode_key(project_id):
     return 'play_mode_{}'.format(project_id or 'main')
 
@@ -278,7 +305,7 @@ def new_section_game_page(request, game_id):
         raise Http404()
     task_groups = (
         GameTaskGroup.objects.filter(game=game)
-        .select_related('task_group')
+        .select_related('task_group', 'task_group__rules')
         .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
         .order_by('number')
     )
@@ -332,26 +359,34 @@ def new_section_game_page(request, game_id):
             'play_url': '/games/{}/{}/'.format(game_id, p.number),
             'is_fully_solved': is_fully_solved,
             'row_class': row_class,
-            'title': p.name,
+            'title': '{} · {}'.format(p.number, p.name),
             'progress_text': '{} из {} {} решено'.format(n_solved, p.n_tasks, _ru_iz_punkt_word(p.n_tasks)),
         })
-    section_rules_type = game_id if game_id in SECTION_RULES_GAME_IDS else None
-    section_tutorial_html = None
-    if section_rules_type:
-        try:
-            page = HTMLPage.objects.get(name='section_tutorial_' + section_rules_type)
-            section_tutorial_html = page.html or ''
-        except HTMLPage.DoesNotExist:
-            pass
+    section_task_groups_rules_html = _section_task_groups_rules_modal_html(task_groups)
+    if section_task_groups_rules_html:
+        section_rules_type = None
+        section_tutorial_html = None
+        show_palindrome_rules = False
+    else:
+        section_rules_type = game_id if game_id in SECTION_RULES_GAME_IDS else None
+        section_tutorial_html = None
+        if section_rules_type:
+            try:
+                page = HTMLPage.objects.get(name='section_tutorial_' + section_rules_type)
+                section_tutorial_html = page.html or ''
+            except HTMLPage.DoesNotExist:
+                pass
+        show_palindrome_rules = game_id == PALINDROMES_GAME_ID
     return render(request, 'ui/game_page.html', {
         'game': game,
         'task_group_rows': task_group_rows,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'page_title': game.outside_name or game.name,
-        'show_palindrome_rules': game_id == PALINDROMES_GAME_ID,
+        'show_palindrome_rules': show_palindrome_rules,
         'section_rules_type': section_rules_type,
         'section_tutorial_html': section_tutorial_html,
+        'section_task_groups_rules_html': section_task_groups_rules_html,
         'is_main_game': False,
         'task_groups_heading': 'Наборы заданий',
         'task_groups_empty_text': 'В этом разделе пока нет групп заданий. Добавьте их в админке.',
@@ -436,7 +471,7 @@ def new_main_game_page(request, game_id):
             'play_url': '/games/{}/{}/'.format(game.id, p.number),
             'is_fully_solved': bool(p.n_tasks) and n_solved >= p.n_tasks,
             'row_class': row_class,
-            'title': 'Задание {} · {}'.format(p.number, p.name),
+            'title': '{} · {}'.format(p.number, p.name),
             'progress_text': '{} из {} {} решено'.format(n_solved, p.n_tasks, _ru_iz_punkt_word(p.n_tasks)),
         })
     return render(request, 'ui/game_page.html', {
@@ -998,6 +1033,13 @@ def new_task_group_page(request, game_id, task_group_number):
             section_tutorial_html = page.html or ''
         except HTMLPage.DoesNotExist:
             pass
+    show_palindrome_rules = game.id == PALINDROMES_GAME_ID
+    if game.project_id == NEW_UI_SECTIONS_PROJECT:
+        tg_rules = placement.task_group.rules
+        if tg_rules and (tg_rules.html or '').strip():
+            section_rules_type = None
+            section_tutorial_html = None
+            show_palindrome_rules = False
     ctx_dicts = build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode)
     return render(request, 'ui/task_group.html', {
         'game': game,
@@ -1015,7 +1057,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'play_mode_project_id': game.project_id,
         'anon_key': anon_key,
         'team': team,
-        'show_palindrome_rules': game.id == PALINDROMES_GAME_ID,
+        'show_palindrome_rules': show_palindrome_rules,
         'section_rules_type': section_rules_type,
         'section_tutorial_html': section_tutorial_html,
         'prev_task_group_url': '/games/{}/{}/'.format(game.id, prev_tg.number) if prev_tg else None,
