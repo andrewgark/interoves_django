@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError
 from django.http import Http404
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_http_methods
@@ -186,6 +187,80 @@ def _project_urls_context(project_id: str | None):
         'ui_project_profile_url': (base + '/profile/') if base else '/profile/',
         'ui_project_pay_url': (base + '/pay/') if base else '/pay/',
     }
+
+
+def _scoped_project_id(request) -> str | None:
+    """Non-main project id when current URL is under /<project_id>/… (e.g. glowbyte)."""
+    match = getattr(request, 'resolver_match', None)
+    if not match:
+        return None
+    pid = (match.kwargs or {}).get('project_id')
+    if not pid:
+        return None
+    pid = str(pid).strip()
+    return pid or None
+
+
+def _main_team_page_urls():
+    return {
+        'ui_team_url_hub': reverse('new_team'),
+        'ui_team_url_create': reverse('new_team_create'),
+        'ui_team_url_join': reverse('new_team_join_page'),
+        'ui_team_url_name_check': reverse('new_team_name_check'),
+        'ui_team_url_info': reverse('new_team_info'),
+        'ui_team_url_request_join': reverse('new_team_request_join'),
+        'ui_team_url_join_by_password': reverse('new_team_join_by_password'),
+        'ui_team_url_password': reverse('new_team_password'),
+        'ui_team_url_rename': reverse('new_team_rename'),
+        'ui_team_url_set_primary': reverse('new_team_set_primary'),
+    }
+
+
+def _project_team_page_urls(project_id: str):
+    k = {'project_id': project_id}
+    return {
+        'ui_team_url_hub': reverse('project_team', kwargs=k),
+        'ui_team_url_create': reverse('project_team_create', kwargs=k),
+        'ui_team_url_join': reverse('project_team_join_page', kwargs=k),
+        'ui_team_url_name_check': reverse('project_team_name_check', kwargs=k),
+        'ui_team_url_info': reverse('project_team_info', kwargs=k),
+        'ui_team_url_request_join': reverse('project_team_request_join', kwargs=k),
+        'ui_team_url_join_by_password': reverse('project_team_join_by_password', kwargs=k),
+        'ui_team_url_password': reverse('project_team_password', kwargs=k),
+        'ui_team_url_rename': reverse('project_team_rename', kwargs=k),
+        'ui_team_url_set_primary': reverse('project_team_set_primary', kwargs=k),
+    }
+
+
+def _merge_nav_project_for_scope(ctx: dict, request, scoped_id: str | None):
+    """Header logo: scoped project; team hub still uses main project in `project` for tickets/teams DB."""
+    if not scoped_id:
+        return ctx
+    nav_project = get_object_or_404(Project, id=scoped_id)
+    ctx['nav_project'] = nav_project
+    ctx.update(_project_urls_context(scoped_id))
+    return ctx
+
+
+def _profile_redirect(request):
+    scoped = _scoped_project_id(request)
+    if scoped:
+        return redirect('project_profile', project_id=scoped)
+    return redirect('new_profile')
+
+
+def _team_redirect(request):
+    scoped = _scoped_project_id(request)
+    if scoped:
+        return redirect('project_team', project_id=scoped)
+    return redirect('new_team')
+
+
+def _team_join_redirect(request):
+    scoped = _scoped_project_id(request)
+    if scoped:
+        return redirect('project_team_join_page', project_id=scoped)
+    return redirect('new_team_join_page')
 
 
 def _section_task_groups_rules_modal_html(task_groups):
@@ -928,8 +1003,15 @@ def _new_results_compute(game, mode):
     tasks_flat = [t for p in placements for t in task_group_to_tasks[p.number]]
     task_ids = [t.id for t in tasks_flat]
 
-    # 2 queries: all attempts + all hint attempts for the whole game at once
-    bulk_rows = Attempt.manager.get_bulk_game_actor_rows(task_ids, mode=mode, game=game)
+    # 2 queries: all attempts + all hint attempts for the whole game at once.
+    # Sections (general): same TaskGroup can appear in several games; attempts are stored
+    # with Attempt.game set to the game where the player submitted. HintAttempt has no
+    # game FK, so filtering attempts by game=current hid cross-game team attempts while
+    # hints still showed — unify by not scoping attempts to one game here.
+    bulk_game = game
+    if mode == 'general' and getattr(game, 'project_id', None) == NEW_UI_SECTIONS_PROJECT:
+        bulk_game = None
+    bulk_rows = Attempt.manager.get_bulk_game_actor_rows(task_ids, mode=mode, game=bulk_game)
 
     for task in tasks_flat:
         for participant, attempts_info in bulk_rows.get(task.id, []):

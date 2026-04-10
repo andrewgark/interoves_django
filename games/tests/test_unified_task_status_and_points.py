@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from games.admin import _set_ok
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Team, Attempt
-from games.views.new_ui import _compute_solved_task_ids
+from games.views.new_ui import _compute_solved_task_ids, _new_results_compute
 
 
 def _ensure_min_fixtures():
@@ -129,4 +129,39 @@ class UnifiedStatusAndPointsTests(TestCase):
             mode='general',
         )
         self.assertIn(task.id, solved_task_ids)
+
+    def test_section_results_table_counts_attempts_from_other_game_same_task_group(self):
+        """
+        Results table for a section game must aggregate Attempt rows from any linked game;
+        HintAttempt was never game-scoped, so without this fix teams saw hints but n_attempts=0.
+        """
+        g1 = Game.objects.create(id='u4_g1', name='g1', author='a', author_extra='', project_id='sections')
+        g2 = Game.objects.create(id='u4_g2', name='g2', author='a', author_extra='', project_id='sections')
+        team = Team.objects.create(name='u4_team', visible_name='T')
+
+        with patch('games.views.track.track_task_change'):
+            tg = TaskGroup.objects.create(label='tg4')
+            GameTaskGroup.objects.create(game=g1, task_group=tg, number=1, name='tg')
+            GameTaskGroup.objects.create(game=g2, task_group=tg, number=1, name='tg')
+            checker = CheckerType.objects.get(pk='equals_with_possible_spaces')
+            task = Task.objects.create(
+                task_group=tg,
+                number='1',
+                task_type='default',
+                checker=checker,
+                points=2,
+                checker_data='',
+                text='',
+                answer='ok',
+            )
+
+        with patch('games.views.track.track_task_change'):
+            Attempt.manager.create(task=task, team=team, game=g1, text='ok', status='Ok', points=2)
+
+        data = _new_results_compute(g2, mode='general')
+        self.assertIn(team, data['team_to_score'])
+        cells = data['team_to_cells'][team]
+        self.assertEqual(len(cells), 1)
+        self.assertEqual(cells[0]['n_attempts'], 1)
+        self.assertGreaterEqual(float(cells[0]['result_points']), 2.0)
 

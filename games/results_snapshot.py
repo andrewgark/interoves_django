@@ -212,9 +212,17 @@ def build_results_snapshot_payload(game, mode='tournament'):
     participant_to_max_best_time = {}
     participant_task_to_cell = {}
 
+    # Sections general results: include attempts from any game that uses this TaskGroup
+    # (Attempt.game may differ; hints were never game-scoped).
+    results_scope_game = game
+    if mode == 'general' and getattr(game, 'project_id', None) == 'sections':
+        results_scope_game = None
+
     for task in tasks_flat:
         if mode == 'general':
-            actor_rows = Attempt.manager.get_general_results_task_actor_rows(task=task, game=game)
+            actor_rows = Attempt.manager.get_general_results_task_actor_rows(
+                task=task, game=results_scope_game,
+            )
         else:
             actor_rows = []
             for ai in Attempt.manager.get_task_attempts_infos(task=task, mode=mode, game=game):
