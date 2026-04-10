@@ -1922,7 +1922,7 @@ class ProfileSettingsForm(ModelForm):
 
 @login_required
 @require_http_methods(['GET', 'POST'])
-def new_profile(request):
+def new_profile(request, project_id=None):
     if not has_profile(request.user):
         messages.error(request, 'Профиль недоступен.')
         scoped = _scoped_project_id(request)
@@ -2020,7 +2020,7 @@ def _new_team_ui_context(request):
 
 @login_required
 @require_http_methods(['GET'])
-def new_team(request):
+def new_team(request, project_id=None):
     if not has_profile(request.user):
         messages.error(request, 'Сначала войдите и создайте профиль.')
         scoped = _scoped_project_id(request)
@@ -2035,7 +2035,7 @@ def new_team(request):
 
 @login_required
 @require_http_methods(['GET'])
-def new_team_join_page(request):
+def new_team_join_page(request, project_id=None):
     if not has_profile(request.user):
         messages.error(request, 'Сначала войдите и создайте профиль.')
         scoped = _scoped_project_id(request)
@@ -2210,7 +2210,7 @@ def new_create_ticket_payment(request):
 
 @login_required
 @require_http_methods(['GET'])
-def new_team_name_check(request):
+def new_team_name_check(request, project_id=None):
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     name = (request.GET.get('name') or '').strip()
     if not name:
@@ -2221,7 +2221,7 @@ def new_team_name_check(request):
 
 @login_required
 @require_http_methods(['GET'])
-def new_team_info(request):
+def new_team_info(request, project_id=None):
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     name = (request.GET.get('name') or '').strip()
     team = Team.objects.filter(project=project, name=name).first()
@@ -2234,7 +2234,7 @@ def new_team_info(request):
 
 @login_required
 @require_http_methods(['GET', 'POST'])
-def new_team_create(request):
+def new_team_create(request, project_id=None):
     if not has_profile(request.user):
         raise Http404()
     if request.method == 'GET':
@@ -2263,7 +2263,7 @@ def new_team_create(request):
 
 @login_required
 @require_http_methods(['POST'])
-def new_team_request_join(request):
+def new_team_request_join(request, project_id=None):
     if not has_profile(request.user) or request.user.profile.team_requested:
         raise Http404()
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
@@ -2294,7 +2294,7 @@ def _team_join_password_matches(stored, provided):
 
 @login_required
 @require_http_methods(['POST'])
-def new_team_join_by_password(request):
+def new_team_join_by_password(request, project_id=None):
     if not has_profile(request.user):
         messages.error(request, 'Нельзя вступить в команду сейчас.')
         return _team_join_redirect(request)
@@ -2330,7 +2330,7 @@ def new_team_join_by_password(request):
 
 @login_required
 @require_http_methods(['POST'])
-def new_team_set_primary(request):
+def new_team_set_primary(request, project_id=None):
     if not has_profile(request.user):
         raise Http404()
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
@@ -2345,7 +2345,7 @@ def new_team_set_primary(request):
 
 @login_required
 @require_http_methods(['GET', 'POST'])
-def new_team_password(request):
+def new_team_password(request, project_id=None):
     if not has_profile(request.user) or not request.user.profile.team_on:
         raise Http404()
     team = request.user.profile.team_on
@@ -2361,7 +2361,7 @@ def new_team_password(request):
 
 @login_required
 @require_http_methods(['POST'])
-def new_team_rename(request):
+def new_team_rename(request, project_id=None):
     if not has_profile(request.user) or not request.user.profile.team_on:
         raise Http404()
     team = request.user.profile.team_on
