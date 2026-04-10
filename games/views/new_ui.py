@@ -156,6 +156,38 @@ PALINDROMES_GAME_ID = 'palindromes'
 SECTION_RULES_GAME_IDS = ('palindromes', 'replacements', 'walls')
 
 
+def _project_base(project_id: str | None) -> str:
+    """
+    URL base prefix for project-scoped UI.
+
+    - main project lives at site root -> ""
+    - other projects live under "/<project_id>" -> "/glowbyte"
+    """
+    pid = (project_id or '').strip()
+    if not pid or pid == NEW_UI_PROJECT:
+        return ''
+    # Project ids in this repo are simple slugs, but keep it defensive.
+    if '/' in pid:
+        pid = pid.replace('/', '')
+    return '/' + pid
+
+
+def _project_urls_context(project_id: str | None):
+    """
+    Common URLs for templates to keep navigation inside current project scope.
+    """
+    base = _project_base(project_id)
+    return {
+        'ui_project_id': project_id or NEW_UI_PROJECT,
+        'ui_project_base': base,  # no trailing slash
+        'ui_project_home_url': (base + '/') or '/',
+        'ui_project_games_url': (base + '/games/') if base else '/games/',
+        'ui_project_team_url': (base + '/team/') if base else '/team/',
+        'ui_project_profile_url': (base + '/profile/') if base else '/profile/',
+        'ui_project_pay_url': (base + '/pay/') if base else '/pay/',
+    }
+
+
 def _section_task_groups_rules_modal_html(task_groups):
     """
     HTML для модалки «Правила» на странице раздела: непустые rules у канонических TaskGroup.
@@ -232,11 +264,22 @@ def _folder_by_slug(slug):
 
 
 def new_hub(request):
+    project = Project.objects.filter(id=NEW_UI_PROJECT).first()
     section_games = get_section_games(request)
     return render(request, 'ui/hub.html', {
+        'project': project,
         'folders': NEW_UI_FOLDERS,
         'section_games': section_games,
         'page_title': 'Interoves',
+        'show_sections_nav': True,
+        'community_links': [
+            {'kind': 'telegram', 'title': 'Телеграм-канал', 'href': 'https://t.me/interoves'},
+            {'kind': 'telegram', 'title': 'Чат участников', 'href': 'https://t.me/+rhsbkEuU4-ExOWEy'},
+            {'kind': 'telegram', 'title': 'Чат решающих PuzzleHunts', 'href': 'https://t.me/+GPR22w8MdLEyNzIy'},
+            {'kind': 'telegram', 'title': 'Разработчик: Андрей', 'href': 'https://t.me/andrewgark'},
+            {'kind': 'vpn', 'title': 'VPN от наших друзей', 'href': '/vpn/'},
+        ],
+        **_project_urls_context(NEW_UI_PROJECT),
     })
 
 
@@ -294,6 +337,356 @@ def _new_folder_games(request):
         'games_per_page': view.games_per_page,
         'page_title': 'Десяточки',
         **card_ctx,
+        'show_sections_nav': True,
+        **_project_urls_context(project.id),
+    })
+
+
+def project_hub(request, project_id):
+    """
+    Entry point for project-scoped UI, e.g. /glowbyte/
+    """
+    project_id = (project_id or '').strip()
+    project = get_object_or_404(Project, id=project_id)
+    base = _project_base(project.id)
+    return render(request, 'ui/hub.html', {
+        'project': project,
+        'folders': [{'slug': 'games', 'title': 'Десяточки', 'description': 'Игры проекта', 'type': 'games'}],
+        'section_games': [],
+        'page_title': project.id,
+        'show_sections_nav': False,
+        'community_links': (
+            [{'kind': 'telegram', 'title': 'Чат участников', 'href': 'https://t.me/joinchat/RUpU9KKhgLI4NDQy'}]
+            if project.id == 'glowbyte'
+            else []
+        ),
+        **_project_urls_context(project.id),
+    })
+
+
+def project_folder_games(request, project_id):
+    """
+    Games list inside a project scope, e.g. /glowbyte/games/ (same UI as /games/).
+    """
+    project_id = (project_id or '').strip()
+    project = get_object_or_404(Project, id=project_id)
+    base = _project_base(project.id)
+
+    view = MainPageView()
+    view.project_name = project.id
+    view.games_per_page = 20
+    all_games = view.get_games_list(request)
+    card_ctx = _games_list_card_context(request)
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        from django.core.paginator import Paginator
+        page = int(request.GET.get('page', 1))
+        paginator = Paginator(all_games, view.games_per_page)
+        games_page = paginator.get_page(page)
+        games_html = render(request, 'ui/games_list_items.html', {
+            'games': games_page,
+            'game_list_offset': (page - 1) * view.games_per_page,
+            **card_ctx,
+            **_project_urls_context(project.id),
+        }).content.decode('utf-8')
+        return JsonResponse({
+            'games_html': games_html,
+            'page': page,
+            'has_next': games_page.has_next(),
+            'total_pages': paginator.num_pages,
+            'total_games': len(all_games),
+        })
+
+    return render(request, 'ui/folder_games.html', {
+        'project': project,
+        'games': all_games[:view.games_per_page],
+        'total_games': len(all_games),
+        'games_per_page': view.games_per_page,
+        'page_title': project.visible_name if getattr(project, 'visible_name', None) else 'Десяточки',
+        **card_ctx,
+        # In other projects we do not show main "sections" in the top nav.
+        'section_games': [],
+        'show_sections_nav': False,
+        **_project_urls_context(project.id),
+    })
+
+
+def project_main_game_page(request, project_id, game_id):
+    project_id = (project_id or '').strip()
+    project = get_object_or_404(Project, id=project_id)
+    base = _project_base(project.id)
+    game = get_object_or_404(Game, id=game_id, project=project)
+
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    if not request.user.is_authenticated and not personal_play_mode_locked(game):
+        play_mode = 'personal'
+    play_mode = effective_play_mode(play_mode, game)
+    anon_key = _anon_key_from_request(request)
+    team = None
+    user = request.user if request.user.is_authenticated else None
+    has_profile_user = has_profile(request.user)
+    if has_profile_user:
+        team = request.user.profile.team_on
+
+    if not game.has_access('see_game_preview', team=team):
+        raise Http404()
+    if not game_has_started(game):
+        raise Http404()
+
+    mode = game.get_current_mode(Attempt(time=timezone.now()))
+
+    actor_label = 'Вы'
+    actor_value = 'гость'
+    if play_mode == 'team':
+        actor_value = ('команда {}'.format(team.visible_name)) if team else 'команда'
+    else:
+        if has_profile(request.user):
+            fn = (request.user.profile.first_name or '').strip()
+            ln = (request.user.profile.last_name or '').strip()
+            name = ('{} {}'.format(fn, ln)).strip()
+            actor_value = name or request.user.get_username()
+        elif request.user.is_authenticated:
+            actor_value = request.user.get_username()
+
+    task_groups = (
+        GameTaskGroup.objects.filter(game=game)
+        .select_related('task_group')
+        .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
+        .order_by('number')
+    )
+
+    canonical_groups = [p.task_group for p in task_groups]
+    solved_task_ids, tg_to_task_ids = _compute_solved_task_ids(
+        game=game,
+        task_groups=canonical_groups,
+        team=team if play_mode == 'team' else None,
+        user=user if play_mode != 'team' else None,
+        anon_key=anon_key if play_mode != 'team' else None,
+        mode=mode,
+    )
+
+    task_group_rows = []
+    for p in task_groups:
+        tg = p.task_group
+        n_solved = len([tid for tid in tg_to_task_ids.get(tg.id, []) if tid in solved_task_ids])
+        row_class = ''
+        if p.n_tasks and n_solved >= p.n_tasks:
+            row_class = 'new-task--solved'
+        elif n_solved:
+            row_class = 'new-task--partial'
+        task_group_rows.append({
+            'task_group': tg,
+            'n_tasks': p.n_tasks,
+            'n_solved': n_solved,
+            'play_url': '{}/games/{}/{}/'.format(base, game.id, p.number),
+            'is_fully_solved': bool(p.n_tasks) and n_solved >= p.n_tasks,
+            'row_class': row_class,
+            'title': '{} · {}'.format(p.number, p.name),
+            'progress_text': '{} из {} {} решено'.format(n_solved, p.n_tasks, _ru_iz_punkt_word(p.n_tasks)),
+        })
+
+    return render(request, 'ui/game_page.html', {
+        'project': project,
+        'game': game,
+        'task_group_rows': task_group_rows,
+        'play_mode': play_mode,
+        'play_mode_project_id': game.project_id,
+        'current_mode': mode,
+        'actor_label': actor_label,
+        'actor_value': actor_value,
+        'team': team,
+        'has_profile_user': has_profile_user,
+        'page_title': game.get_outside_name() if hasattr(game, 'get_outside_name') else (game.outside_name or game.name),
+        'is_main_game': True,
+        'task_groups_heading': 'Задания',
+        'task_groups_empty_text': 'В этой игре пока нет групп заданий.',
+        'back_url': (base + '/games/') if base else '/games/',
+        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'section_games': [],
+        'show_sections_nav': False,
+        **_project_urls_context(project.id),
+    })
+
+
+def project_results_page(request, project_id, game_id):
+    project_id = (project_id or '').strip()
+    project = get_object_or_404(Project, id=project_id)
+    base = _project_base(project.id)
+    game = get_object_or_404(Game, id=game_id, project=project)
+    team = request.user.profile.team_on if has_profile(request.user) else None
+    if not game.has_access('see_results', mode='general', team=team):
+        raise Http404()
+    snap = GameResultsSnapshot.objects.filter(game=game, mode='general').first()
+    if snap and snap.payload:
+        data = snapshot_to_results_context(game, snap.payload)
+    else:
+        data = _new_results_compute(game, mode='general')
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
+    me_personal = None
+    me_anon_participant = None
+    if play_mode == 'personal':
+        if request.user.is_authenticated:
+            me_personal = PersonalResultsParticipant(user=request.user)
+        else:
+            ak = _anon_key_from_request(request)
+            if ak:
+                me_anon_participant = PersonalResultsParticipant(anon_key=ak)
+    return render(request, 'ui/results.html', {
+        'project': project,
+        'mode': 'general',
+        'game': game,
+        'team': team,
+        'me_personal': me_personal,
+        'me_anon_participant': me_anon_participant,
+        'back_url': '{}/games/{}/'.format(base, game.id),
+        **data,
+        'play_mode': play_mode,
+        'play_mode_project_id': game.project_id,
+        'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
+        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'section_games': [],
+        'show_sections_nav': False,
+        **_project_urls_context(project.id),
+    })
+
+
+def project_tournament_results_page(request, project_id, game_id):
+    project_id = (project_id or '').strip()
+    project = get_object_or_404(Project, id=project_id)
+    base = _project_base(project.id)
+    game = get_object_or_404(Game, id=game_id, project=project)
+    team = request.user.profile.team_on if has_profile(request.user) else None
+    if not game.has_access('see_tournament_results', team=team):
+        raise Http404()
+    snap = GameResultsSnapshot.objects.filter(game=game, mode='tournament').first()
+    if snap and snap.payload:
+        data = snapshot_to_results_context(game, snap.payload)
+    else:
+        data = _new_results_compute(game, mode='tournament')
+    return render(request, 'ui/results.html', {
+        'project': project,
+        'mode': 'tournament',
+        'game': game,
+        'team': team,
+        'me_personal': None,
+        'me_anon_participant': None,
+        'back_url': '{}/games/{}/'.format(base, game.id),
+        **data,
+        'play_mode': effective_play_mode(_get_play_mode(request, game.project_id)[0], game),
+        'play_mode_project_id': game.project_id,
+        'page_title': 'Результаты турнира: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
+        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'section_games': [],
+        'show_sections_nav': False,
+        **_project_urls_context(project.id),
+    })
+
+
+def project_task_group_page(request, project_id, game_id, task_group_number):
+    project_id = (project_id or '').strip()
+    project = get_object_or_404(Project, id=project_id)
+    base = _project_base(project.id)
+    game = get_object_or_404(Game, id=game_id, project=project)
+
+    play_mode, play_mode_key = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
+    anon_key = None
+
+    if not request.user.is_authenticated:
+        if personal_play_mode_locked(game):
+            from urllib.parse import quote
+            return redirect('/accounts/login/?next={}'.format(quote(request.get_full_path())))
+        play_mode = 'personal'
+        anon_key = _anon_key_from_request(request)
+    else:
+        if play_mode == 'personal' and not has_profile(request.user):
+            raise Http404()
+
+    team = None
+    user = None
+    if play_mode == 'team':
+        if not request.user.profile.team_on:
+            raise Http404()
+        team = request.user.profile.team_on if has_team(request.user) else None
+    else:
+        user = request.user if request.user.is_authenticated else None
+
+    if not game_has_started(game):
+        raise Http404()
+    if play_mode == 'team':
+        if game.has_access('needs_registration', team=team) and not game.has_access('is_registered', team=team):
+            raise Http404()
+        if not game.has_access('play', team=team):
+            raise NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
+    else:
+        if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
+            raise Http404()
+        if not game.is_playable:
+            raise Http404()
+
+    mode = game.get_current_mode(Attempt(time=timezone.now()))
+    placement = (
+        GameTaskGroup.objects.select_related('task_group', 'task_group__rules')
+        .filter(game=game, number=task_group_number)
+        .first()
+    )
+    if not placement:
+        next_p = (
+            GameTaskGroup.objects.filter(game=game, number__gt=task_group_number)
+            .order_by('number')
+            .first()
+        )
+        prev_p = (
+            GameTaskGroup.objects.filter(game=game, number__lt=task_group_number)
+            .order_by('-number')
+            .first()
+        )
+        fallback = next_p or prev_p
+        if fallback:
+            return redirect('project_task_group', project_id=project.id, game_id=game.id, task_group_number=fallback.number)
+        raise Http404()
+    task_group = placement.task_group
+    prev_tg = (
+        GameTaskGroup.objects.filter(game=game, number__lt=placement.number).order_by('-number').first()
+    )
+    next_tg = (
+        GameTaskGroup.objects.filter(game=game, number__gt=placement.number).order_by('number').first()
+    )
+    tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
+    ctx_dicts = build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode)
+    return render(request, 'ui/task_group.html', {
+        'project': project,
+        'game': game,
+        'task_group': task_group,
+        'tasks': tasks,
+        'attempts_info_by_task_id': ctx_dicts['attempts_info_by_task_id'],
+        'replacements_lines_data': ctx_dicts['replacements_lines_data'],
+        'proportions_chips': ctx_dicts['proportions_chips'],
+        'wall_max_points_meta_by_task_id': ctx_dicts['wall_max_points_meta_by_task_id'],
+        'likes_meta_by_task_id': ctx_dicts['likes_meta_by_task_id'],
+        'can_like': True,
+        'has_profile_user': has_profile(request.user),
+        'mode': mode,
+        'play_mode': play_mode,
+        'play_mode_project_id': game.project_id,
+        'anon_key': anon_key,
+        'team': team,
+        'show_palindrome_rules': False,
+        'section_rules_type': None,
+        'section_tutorial_html': None,
+        'prev_task_group_url': '{}/games/{}/{}/'.format(base, game.id, prev_tg.number) if prev_tg else None,
+        'next_task_group_url': '{}/games/{}/{}/'.format(base, game.id, next_tg.number) if next_tg else None,
+        'tg_number': placement.number,
+        'tg_name': placement.name,
+        'back_url': '{}/games/{}/'.format(base, game.id),
+        'page_title': '{} · {}'.format(game.outside_name or game.name, placement.name),
+        'image_manager': ImageManager(),
+        'audio_manager': AudioManager(),
+        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'section_games': [],
+        'show_sections_nav': False,
+        **_project_urls_context(project.id),
     })
 
 
@@ -403,6 +796,8 @@ def new_section_game_page(request, game_id):
         'back_url': '/',
         'lock_personal_play_mode': personal_play_mode_locked(game),
         'team': team_for_access,
+        'show_sections_nav': True,
+        **_project_urls_context(NEW_UI_PROJECT),
     })
 
 
@@ -501,6 +896,8 @@ def new_main_game_page(request, game_id):
         'task_groups_empty_text': 'В этой игре пока нет групп заданий.',
         'back_url': '/games/',
         'lock_personal_play_mode': personal_play_mode_locked(game),
+        'show_sections_nav': True,
+        **_project_urls_context(game.project_id),
     })
 
 
@@ -708,6 +1105,8 @@ def new_results_page(request, game_id):
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
         'lock_personal_play_mode': personal_play_mode_locked(game),
+        'show_sections_nav': True,
+        **_project_urls_context(game.project_id),
     })
 
 
@@ -739,6 +1138,8 @@ def new_tournament_results_page(request, game_id):
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты турнира: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
         'lock_personal_play_mode': personal_play_mode_locked(game),
+        'show_sections_nav': True,
+        **_project_urls_context(game.project_id),
     })
 
 
@@ -785,6 +1186,8 @@ def new_section_results_page(request, game_id):
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
         'lock_personal_play_mode': personal_play_mode_locked(game),
+        'show_sections_nav': True,
+        **_project_urls_context(NEW_UI_PROJECT),
     })
 
 
@@ -1088,6 +1491,8 @@ def new_task_group_page(request, game_id, task_group_number):
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
         'lock_personal_play_mode': personal_play_mode_locked(game),
+        'show_sections_nav': True,
+        **_project_urls_context(game.project_id),
     })
 
 

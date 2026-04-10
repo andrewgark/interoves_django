@@ -253,5 +253,5 @@
  */
 </script>
 
-<p style="margin-top:2rem"><a href="{% url 'new_hub' %}" class="new-btn new-btn--ghost">← Игры</a></p>
+<p style="margin-top:2rem"><a href="{{ ui_project_home_url|default:'/' }}" class="new-btn new-btn--ghost">← Игры</a></p>
 {% endblock %}

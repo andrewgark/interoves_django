@@ -1,9 +1,32 @@
-from django.urls import path
+from django.urls import path, re_path
 from django.views.generic import RedirectView
 
 from games.views import ui
+from games.views.registration import register_to_game
+from games.views.views import (
+    confirm_user_joining_team,
+    kick_out_user,
+    reject_user_joining_team,
+)
+
+
+# Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|team|profile|pay|answer|like-dislike|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|yookassa|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|logout)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
+    # Project-scoped "new UI" pages (isolated navigation per project).
+    re_path(r'^' + _PROJECT_ID_RE + r'/$', ui.project_hub, name='project_hub'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/games/$', ui.project_folder_games, name='project_folder_games'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/$', ui.project_main_game_page, name='project_main_game'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/results/$', ui.project_results_page, name='project_results'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/tournament-results/$', ui.project_tournament_results_page, name='project_tournament_results'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group_number>\d+)/$', ui.project_task_group_page, name='project_task_group'),
+    # Legacy but needed actions/pages referenced by UI (keep inside project prefix).
+    re_path(r'^' + _PROJECT_ID_RE + r'/register/(?P<game_id>[a-zA-Z0-9_]+)/$', register_to_game),
+    re_path(r'^' + _PROJECT_ID_RE + r'/confirm_user_joining_team/(?P<user_id>\d+)/$', confirm_user_joining_team),
+    re_path(r'^' + _PROJECT_ID_RE + r'/reject_user_joining_team/(?P<user_id>\d+)/$', reject_user_joining_team),
+    re_path(r'^' + _PROJECT_ID_RE + r'/kick_out_user/(?P<user_id>\d+)/$', kick_out_user),
+
     path('', ui.hub, name='ui_hub'),
     path('sections/', RedirectView.as_view(url='/', query_string=True), name='ui_sections'),
     path('play-mode/', ui.set_play_mode, name='ui_set_play_mode'),

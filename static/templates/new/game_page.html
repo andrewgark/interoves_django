@@ -100,8 +100,10 @@
             А ещё можно создать команду и решать вместе с друзьями.
           </div>
           <div class="new-card__text" style="margin-top:0.6rem">
-            <a class="new-btn new-btn--mini" href="/?login=1&next={{ request.get_full_path|urlencode }}">Войти</a>
-            <a class="new-btn new-btn--ghost new-btn--mini" href="/team/?next={{ request.get_full_path|urlencode }}">Команда</a>
+            <a class="new-btn new-btn--mini" href="{{ ui_project_home_url|default:'/' }}?login=1&next={{ request.get_full_path|urlencode }}">Войти</a>
+            {% if not ui_project_base %}
+              <a class="new-btn new-btn--ghost new-btn--mini" href="/team/?next={{ request.get_full_path|urlencode }}">Команда</a>
+            {% endif %}
           </div>
         </div>
       {% endif %}

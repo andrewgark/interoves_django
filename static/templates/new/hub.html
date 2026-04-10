@@ -20,25 +20,15 @@
 
 <h1 class="new-heading" style="margin-top:2rem">Сообщество</h1>
 <div class="new-community-links">
-  <a class="new-link-dotted new-community-link" href="https://t.me/interoves" target="_blank" rel="noopener noreferrer">
-    <i class="fa fa-telegram" aria-hidden="true"></i>
-    Телеграм-канал
-  </a>
-  <a class="new-link-dotted new-community-link" href="https://t.me/+rhsbkEuU4-ExOWEy" target="_blank" rel="noopener noreferrer">
-    <i class="fa fa-telegram" aria-hidden="true"></i>
-    Чат участников
-  </a>
-  <a class="new-link-dotted new-community-link" href="https://t.me/+GPR22w8MdLEyNzIy" target="_blank" rel="noopener noreferrer">
-    <i class="fa fa-telegram" aria-hidden="true"></i>
-    Чат решающих PuzzleHunts
-  </a>
-  <a class="new-link-dotted new-community-link" href="https://t.me/andrewgark" target="_blank" rel="noopener noreferrer">
-    <i class="fa fa-telegram" aria-hidden="true"></i>
-    Разработчик: Андрей
-  </a>
-  <a class="new-link-dotted new-community-link" href="{% url 'pigeon_vpn' %}">
-    <i class="fa fa-shield" aria-hidden="true"></i>
-    VPN от наших друзей
-  </a>
+  {% for link in community_links %}
+    <a class="new-link-dotted new-community-link" href="{{ link.href }}" {% if link.href|slice:":4" == "http" %}target="_blank" rel="noopener noreferrer"{% endif %}>
+      {% if link.kind == 'telegram' %}
+        <i class="fa fa-telegram" aria-hidden="true"></i>
+      {% elif link.kind == 'vpn' %}
+        <i class="fa fa-shield" aria-hidden="true"></i>
+      {% endif %}
+      {{ link.title }}
+    </a>
+  {% endfor %}
 </div>
 {% endblock %}

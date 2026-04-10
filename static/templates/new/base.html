@@ -113,7 +113,13 @@
   {% endif %}
   <nav class="new-nav" aria-label="Главное меню">
     <div class="new-nav__inner">
-      <a class="new-nav__brand" href="{% url 'new_hub' %}">Интеровес</a>
+      <a class="new-nav__brand" href="{{ ui_project_home_url|default:'/' }}">
+        {% if project and not project.is_main and project.logo %}
+          <img src="{{ project.logo.url }}" alt="{{ project.id }}" style="height:22px; vertical-align:middle">
+        {% else %}
+          Интеровес
+        {% endif %}
+      </a>
       <div class="new-nav__links">
         <span class="new-clock" aria-label="Текущее время">
           <i class="fa fa-clock-o" aria-hidden="true"></i>
@@ -124,14 +130,16 @@
           <button type="button" class="new-theme-switch__btn" data-theme-choice="dark" title="Тёмная тема" aria-pressed="false">🌙</button>
           <button type="button" class="new-theme-switch__btn" data-theme-choice="auto" title="Как в системе" aria-pressed="false">💻</button>
         </div>
-        <a href="{% url 'new_hub' %}" {% if request.resolver_match.url_name == 'new_hub' %}aria-current="page"{% endif %}>Игры</a>
-        <a href="{% url 'new_folder' 'games' %}" {% if request.resolver_match.url_name == 'new_folder' and request.resolver_match.kwargs.slug == 'games' %}aria-current="page"{% endif %}>🔟 Десяточки</a>
-        {% for game in section_games %}
-        <a href="{% url 'new_section_game' game.id %}" {% if request.resolver_match.url_name == 'new_section_game' and request.resolver_match.kwargs.game_id == game.id %}aria-current="page"{% endif %}>
-          {% if game.id == 'palindromes' %}🪞{% elif game.id == 'walls' %}🧱{% elif game.id == 'replacements' %}🔄{% endif %}
-          {{ game.outside_name|default:game.name }}
-        </a>
-        {% endfor %}
+        <a href="{{ ui_project_home_url|default:'/' }}">Игры</a>
+        <a href="{{ ui_project_games_url|default:'/games/' }}">🔟 Десяточки</a>
+        {% if show_sections_nav %}
+          {% for game in section_games %}
+          <a href="{% url 'new_section_game' game.id %}" {% if request.resolver_match.url_name == 'new_section_game' and request.resolver_match.kwargs.game_id == game.id %}aria-current="page"{% endif %}>
+            {% if game.id == 'palindromes' %}🪞{% elif game.id == 'walls' %}🧱{% elif game.id == 'replacements' %}🔄{% endif %}
+            {{ game.outside_name|default:game.name }}
+          </a>
+          {% endfor %}
+        {% endif %}
         {% if play_mode and user.is_authenticated %}
           {% if lock_personal_play_mode %}
             <span class="new-mode-toggle new-mode-toggle--locked" title="В турнирной игре доступен только командный режим.">👥 В команде</span>
@@ -142,10 +150,12 @@
           {% endif %}
         {% endif %}
         {% if user.is_authenticated %}
-        <a href="{% url 'new_profile' %}" {% if request.resolver_match.url_name == 'new_profile' %}aria-current="page"{% endif %}>Профиль</a>
-        <a href="{% url 'new_team' %}" {% if request.resolver_match.url_name == 'new_team' or request.resolver_match.url_name == 'new_team_join_page' or request.resolver_match.url_name == 'new_team_create' %}aria-current="page"{% endif %}>Команда</a>
-        <a href="{% url 'new_pay' %}" {% if request.resolver_match.url_name == 'new_pay' or request.resolver_match.url_name == 'ui_pay' %}aria-current="page"{% endif %}>Оплата</a>
-        <a href="{% url 'logout' %}?next={{ request.path|urlencode }}">Выйти</a>
+          {% if not ui_project_base %}
+            <a href="{% url 'new_profile' %}" {% if request.resolver_match.url_name == 'new_profile' %}aria-current="page"{% endif %}>Профиль</a>
+            <a href="{% url 'new_team' %}" {% if request.resolver_match.url_name == 'new_team' or request.resolver_match.url_name == 'new_team_join_page' or request.resolver_match.url_name == 'new_team_create' %}aria-current="page"{% endif %}>Команда</a>
+            <a href="{% url 'new_pay' %}" {% if request.resolver_match.url_name == 'new_pay' or request.resolver_match.url_name == 'ui_pay' %}aria-current="page"{% endif %}>Оплата</a>
+          {% endif %}
+          <a href="{% url 'logout' %}?next={{ request.path|urlencode }}">Выйти</a>
         {% else %}
         <button type="button" class="new-nav__loginbtn" data-login-open>Войти</button>
         <noscript><a href="/accounts/login/?next={{ request.path|urlencode }}">Войти</a></noscript>
@@ -288,6 +298,24 @@
   })();
   </script>
   {% endif %}
+  <div id="new-audio-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-audio-title" aria-modal="true" hidden>
+    <div class="new-rules-overlay" data-audio-close></div>
+    <div class="new-rules-modal__box pal-card">
+      <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-audio-close>×</button>
+      <h2 id="new-audio-title" class="pal-title" style="margin-top:0">Аудио</h2>
+      <div class="new-login-hint" style="margin:0.25rem 0 0.75rem" data-audio-track-title>—</div>
+      <audio id="new-audio-el" preload="metadata"></audio>
+      <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap">
+        <button type="button" class="new-btn" data-audio-toggle>▶︎ / ❚❚</button>
+        <div class="new-login-hint" style="margin:0">
+          <span data-audio-now>0:00</span>
+          <span style="opacity:0.5">/</span>
+          <span data-audio-dur>0:00</span>
+        </div>
+      </div>
+      <progress data-audio-progress value="0" max="1" style="width:100%; height:10px; margin-top:0.75rem; cursor:pointer"></progress>
+    </div>
+  </div>
   <main class="new-wrap">
     {% if messages %}
     <ul class="new-messages">
@@ -433,6 +461,111 @@
     } else {
       window.InterovesTrack.connectUserHub();
     }
+  })();
+  </script>
+  <script>
+  (function () {
+    var modal = document.getElementById('new-audio-modal');
+    var audio = document.getElementById('new-audio-el');
+    var titleEl = modal ? modal.querySelector('[data-audio-track-title]') : null;
+    var nowEl = modal ? modal.querySelector('[data-audio-now]') : null;
+    var durEl = modal ? modal.querySelector('[data-audio-dur]') : null;
+    var prog = modal ? modal.querySelector('[data-audio-progress]') : null;
+    var toggleBtn = modal ? modal.querySelector('[data-audio-toggle]') : null;
+    if (!modal || !audio) return;
+
+    function fmtTime(sec) {
+      sec = Math.max(0, sec || 0);
+      if (!isFinite(sec)) return '0:00';
+      var s = Math.floor(sec % 60);
+      var m = Math.floor((sec / 60) % 60);
+      var h = Math.floor(sec / 3600);
+      function pad2(n) { return (n < 10 ? '0' : '') + n; }
+      if (h > 0) return h + ':' + pad2(m) + ':' + pad2(s);
+      return m + ':' + pad2(s);
+    }
+
+    function openAudio(url, t) {
+      try { audio.pause(); } catch (e) {}
+      audio.currentTime = 0;
+      audio.src = url || '';
+      if (titleEl) titleEl.textContent = t || 'Аудио';
+      if (nowEl) nowEl.textContent = '0:00';
+      if (durEl) durEl.textContent = '0:00';
+      if (prog) prog.value = 0;
+      modal.removeAttribute('hidden');
+      modal.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+      // Autoplay may be blocked; we still try.
+      var p = null;
+      try { p = audio.play(); } catch (e2) {}
+      if (p && typeof p.catch === 'function') p.catch(function () {});
+      if (toggleBtn) toggleBtn.focus();
+    }
+
+    function closeAudio() {
+      try { audio.pause(); } catch (e) {}
+      modal.setAttribute('hidden', '');
+      modal.classList.remove('is-open');
+      document.body.style.overflow = '';
+    }
+
+    document.querySelectorAll('[data-audio-close]').forEach(function (el) {
+      el.addEventListener('click', closeAudio);
+    });
+    modal.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeAudio();
+      }
+    });
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', function () {
+        if (audio.paused) {
+          var p = null;
+          try { p = audio.play(); } catch (e) {}
+          if (p && typeof p.catch === 'function') p.catch(function () {});
+        } else {
+          try { audio.pause(); } catch (e2) {}
+        }
+      });
+    }
+
+    audio.addEventListener('loadedmetadata', function () {
+      if (durEl) durEl.textContent = fmtTime(audio.duration);
+    });
+    audio.addEventListener('timeupdate', function () {
+      if (nowEl) nowEl.textContent = fmtTime(audio.currentTime);
+      if (durEl) durEl.textContent = fmtTime(audio.duration);
+      if (prog) prog.value = (audio.duration && isFinite(audio.duration)) ? (audio.currentTime / audio.duration) : 0;
+    });
+    audio.addEventListener('ended', function () {
+      // keep modal open; just reset UI
+      if (prog) prog.value = 1;
+    });
+
+    if (prog) {
+      prog.addEventListener('click', function (e) {
+        if (!audio.duration || !isFinite(audio.duration)) return;
+        var rect = prog.getBoundingClientRect();
+        var x = e.clientX - rect.left;
+        var ratio = rect.width ? (x / rect.width) : 0;
+        ratio = Math.max(0, Math.min(1, ratio));
+        audio.currentTime = ratio * audio.duration;
+      });
+    }
+
+    // Delegated open handler: supports content that appears after AJAX updates.
+    document.body.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('.audio-player-link button,[audio-url]') : null;
+      if (!btn) return;
+      var url = btn.getAttribute('audio-url') || btn.getAttribute('data-audio-url') || '';
+      if (!url) return;
+      e.preventDefault();
+      var t = btn.getAttribute('audio-title') || btn.getAttribute('data-audio-title') || btn.textContent || 'Аудио';
+      openAudio(url, String(t || '').trim());
+    }, true);
   })();
   </script>
 </body>

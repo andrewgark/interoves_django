@@ -5,8 +5,13 @@
     <div class="new-game-card__left">
       <div class="new-game-card__time">
         {% timezone user_timezone %}
-          {{ game.get_visible_start_time|date:'d E Y' }}<br>
-          {{ game.get_visible_start_time|date:'H:i' }} – {{ game.get_visible_end_time|date:'H:i' }}
+          {% if game.project.id == 'umind' %}
+            6 марта 2022<br>
+            21:00 – 23:00 по Томскому времени
+          {% else %}
+            {{ game.get_visible_start_time|date:'d E Y' }}<br>
+            {{ game.get_visible_start_time|date:'H:i' }} – {{ game.get_visible_end_time|date:'H:i' }}
+          {% endif %}
         {% endtimezone %}
       </div>
       <div class="new-game-card__logo">
@@ -32,40 +37,40 @@
         {% if game|access_needs_registration %}
           {% if not user.is_authenticated %}
             <button type="button" class="new-btn new-btn--mini" data-login-open>Войти</button>
-          {% elif not games_card_has_team %}
+          {% elif not games_card_has_team and not ui_project_base %}
             <a href="{% url 'new_team_create' %}?next={{ request.path|urlencode }}" class="new-btn new-btn--mini">Создать команду</a>
             <a href="{% url 'new_team_join_page' %}?next={{ request.path|urlencode }}" class="new-btn new-btn--ghost new-btn--mini">Вступить в команду</a>
           {% endif %}
         {% endif %}
         {% if game|access_play:team %}
-          <a href="{% url 'new_main_game' game.id %}" class="new-btn new-btn--mini">Играть</a>
+          <a href="{{ ui_project_games_url|default:'/games/' }}{{ game.id }}/" class="new-btn new-btn--mini">Играть</a>
         {% elif game|access_is_registered:team %}
           <span class="new-pill new-pill--ok">Вы зарегистрированы</span>
         {% elif game|access_register:team %}
           {% if game.requires_ticket %}
             {% if team and team.tickets > 0 %}
-              <a href="/register/{{ game.id }}?next={{ request.path }}" class="new-btn new-btn--mini">Зарегистрироваться (-1 билет)</a>
+              <a href="{{ ui_project_home_url|default:'/' }}register/{{ game.id }}/?next={{ request.path }}" class="new-btn new-btn--mini">Зарегистрироваться (-1 билет)</a>
             {% else %}
-              <a href="/tickets" class="new-btn new-btn--ghost new-btn--mini">Приобрести билет</a>
+              <a href="{{ ui_project_home_url|default:'/' }}tickets/" class="new-btn new-btn--ghost new-btn--mini">Приобрести билет</a>
             {% endif %}
             {% if team %}
               {% for referent in game|get_available_referents:team %}
-                <a href="/register/{{ game.id }}?with_referent={{ referent.name }}&next={{ request.path }}" class="new-btn new-btn--ghost new-btn--mini">
+                <a href="{{ ui_project_home_url|default:'/' }}register/{{ game.id }}/?with_referent={{ referent.name }}&next={{ request.path }}" class="new-btn new-btn--ghost new-btn--mini">
                   Зарегистрироваться по приглашению «{{ referent.visible_name }}»
                 </a>
               {% endfor %}
             {% endif %}
           {% else %}
-            <a href="/register/{{ game.id }}?next={{ request.path }}" class="new-btn new-btn--mini">Зарегистрироваться</a>
+            <a href="{{ ui_project_home_url|default:'/' }}register/{{ game.id }}/?next={{ request.path }}" class="new-btn new-btn--mini">Зарегистрироваться</a>
           {% endif %}
         {% endif %}
 
         {% if game|access_see_tournament_results:team %}
-          <a href="{% url 'new_tournament_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Турнирные результаты</a>
+          <a href="{{ ui_project_games_url|default:'/games/' }}{{ game.id }}/tournament-results/" class="new-btn new-btn--ghost new-btn--mini">Турнирные результаты</a>
         {% endif %}
         {% if game|access_see_results:team %}
           {% if not game.is_tournament or not game|is_going_now %}
-            <a href="{% url 'new_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Общие результаты</a>
+            <a href="{{ ui_project_games_url|default:'/games/' }}{{ game.id }}/results/" class="new-btn new-btn--ghost new-btn--mini">Общие результаты</a>
           {% endif %}
         {% endif %}
         {% if game.game_url and game|access_read_googledoc:team %}
