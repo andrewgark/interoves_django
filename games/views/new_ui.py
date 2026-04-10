@@ -402,7 +402,7 @@ def project_folder_games(request, project_id):
         'games': all_games[:view.games_per_page],
         'total_games': len(all_games),
         'games_per_page': view.games_per_page,
-        'page_title': project.visible_name if getattr(project, 'visible_name', None) else 'Десяточки',
+        'page_title': 'Десяточки',
         **card_ctx,
         # In other projects we do not show main "sections" in the top nav.
         'section_games': [],

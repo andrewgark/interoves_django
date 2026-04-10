@@ -3,7 +3,7 @@
 {% block content %}
 <h1 class="new-heading" style="margin-top:0">Игры</h1>
 {% for folder in folders %}
-<a class="new-tile" href="{% url 'new_folder' folder.slug %}">
+<a class="new-tile" href="{% if folder.slug == 'games' %}{% if ui_project_base %}{% url 'project_folder_games' project_id=project.id %}{% else %}{% url 'new_folder' folder.slug %}{% endif %}{% else %}{% url 'new_folder' folder.slug %}{% endif %}">
   <h2>{% if folder.slug == 'games' %}🔟 {% endif %}{{ folder.title }}</h2>
   <p>{{ folder.description }}</p>
 </a>
