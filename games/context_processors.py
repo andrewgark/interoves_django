@@ -14,7 +14,11 @@ def ui_section_games(request):
     if not match:
         return {}
     url_name = match.url_name or ""
-    if not (url_name.startswith("ui_") or url_name.startswith("new_")):
+    if not (
+        url_name.startswith("ui_")
+        or url_name.startswith("new_")
+        or url_name.startswith("project_")
+    ):
         return {}
     from games.views.ui import get_section_games
     tz = 'Europe/Moscow'
