@@ -116,25 +116,32 @@ def _compute_solved_task_ids(game, task_groups, team=None, user=None, anon_key=N
       - solved_task_ids: set(task_id) solved by current actor
       - tg_to_task_ids: {task_group_id: [task_id, ...]} (for computing per-group stats)
     """
+    from games.scoring import Actor, bulk_actor_solved_task_ids
+
     tg_ids = [tg.id for tg in task_groups]
     tasks_qs = Task.objects.filter(task_group_id__in=tg_ids).visible().values('id', 'task_group_id')
     task_ids = [t['id'] for t in tasks_qs]
 
     solved_task_ids = set()
     if task_ids:
-        ok_attempts = Attempt.manager.filter(task_id__in=task_ids, status='Ok', game=game)
+        actor = None
         if team is not None:
-            ok_attempts = ok_attempts.filter(team=team, user__isnull=True, anon_key__isnull=True)
+            actor = Actor(team_id=team.pk)
         elif user is not None:
-            ok_attempts = ok_attempts.filter(user=user, team__isnull=True, anon_key__isnull=True)
+            actor = Actor(user_id=user.pk)
         elif anon_key is not None:
-            ok_attempts = ok_attempts.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
-        else:
-            ok_attempts = ok_attempts.none()
-        # Approximate tournament filter similarly to sections page.
-        if mode == 'tournament':
-            ok_attempts = ok_attempts.filter(time__lte=game.end_time)
-        solved_task_ids = set(ok_attempts.values_list('task_id', flat=True))
+            actor = Actor(anon_key=str(anon_key))
+        if actor is not None:
+            # For "sections" (training) we treat a task solved if it was solved in ANY game
+            # that references the same canonical TaskGroup (same Task rows, different Game).
+            include_other_games = game.project_id == NEW_UI_SECTIONS_PROJECT
+            solved_task_ids = bulk_actor_solved_task_ids(
+                tasks=Task.objects.filter(id__in=task_ids).visible(),
+                actor=actor,
+                mode=mode,
+                game=game,
+                include_other_games=include_other_games,
+            )
 
     tg_to_task_ids = {}
     for t in tasks_qs:

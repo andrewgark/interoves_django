@@ -330,7 +330,14 @@ def recheck_team_task_all_chronological_action(modeladmin, request, queryset):
 
 
 def _set_ok(attempt):
-    attempt.points = attempt.get_max_points()
+    # "max points" for wall/replacements_lines is derived (not just task.points multiplier).
+    try:
+        if attempt.task and attempt.task.task_type in ('wall', 'replacements_lines'):
+            attempt.points = attempt.task.get_results_max_points()
+        else:
+            attempt.points = attempt.get_max_points()
+    except Exception:
+        attempt.points = attempt.get_max_points()
     attempt.status = 'Ok'
     if attempt.task.task_type == 'autohint':
         hints = set(Hint.objects.filter(task=attempt.task))
