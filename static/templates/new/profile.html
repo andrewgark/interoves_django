@@ -51,7 +51,7 @@
 
 <h2 class="new-heading">Аккаунты</h2>
 <div class="new-card">
-  {% if request.path == '/glowbyte' or request.path.startswith('/glowbyte/') %}
+  {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}
   <p class="new-login-hint" style="margin-top:0">Для входа в этот раздел используется только Google с почтой <strong>@glowbyteconsulting.com</strong>.</p>
   <div class="new-two" style="margin-top:0.5rem">
     <div>

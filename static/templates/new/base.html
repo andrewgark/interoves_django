@@ -176,7 +176,7 @@
     <div class="new-rules-modal__box pal-card">
       <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-login-close>×</button>
       <h2 id="new-login-title" class="pal-title">Войти</h2>
-      {% if request.path == '/glowbyte' or request.path.startswith('/glowbyte/') %}
+      {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}
       <p class="pal-lead" style="margin-bottom: 1rem">Вход только через Google с рабочей почтой <strong>@glowbyteconsulting.com</strong>.</p>
       <div style="display:flex; gap:0.75rem; flex-wrap:wrap">
         <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Войти через Google</a>
