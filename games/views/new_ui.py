@@ -1925,6 +1925,9 @@ class ProfileSettingsForm(ModelForm):
 def new_profile(request):
     if not has_profile(request.user):
         messages.error(request, 'Профиль недоступен.')
+        scoped = _scoped_project_id(request)
+        if scoped:
+            return redirect('project_hub', project_id=scoped)
         return redirect('new_hub')
     profile = request.user.profile
     connected = set(SocialAccount.objects.filter(user=request.user).values_list('provider', flat=True))
@@ -1933,7 +1936,7 @@ def new_profile(request):
         if form.is_valid():
             form.save()
             messages.success(request, 'Профиль сохранён.')
-            return redirect('new_profile')
+            return _profile_redirect(request)
     else:
         form = ProfileSettingsForm(instance=profile)
     def _utc_offset_label(tz_name):
@@ -1954,12 +1957,15 @@ def new_profile(request):
 
     tz_options = [(tz, _utc_offset_label(tz)) for tz in pytz.common_timezones]
 
-    return render(request, 'ui/profile.html', {
+    scoped = _scoped_project_id(request)
+    ctx = {
         'form': form,
         'connected_providers': connected,
         'tz_options': tz_options,
         'page_title': 'Профиль',
-    })
+    }
+    _merge_nav_project_for_scope(ctx, request, scoped)
+    return render(request, 'ui/profile.html', ctx)
 
 
 def _post_make_new_team_primary(request):
@@ -1985,13 +1991,21 @@ def _member_teams_active_first(profile):
 
 def _new_team_ui_context(request):
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
-    back = request.build_absolute_uri('/team/')
+    scoped = _scoped_project_id(request)
+    if scoped:
+        get_object_or_404(Project, id=scoped)
+        base = _project_base(scoped)
+        back = request.build_absolute_uri(base + '/team/')
+        url_map = _project_team_page_urls(scoped)
+    else:
+        back = request.build_absolute_uri('/team/')
+        url_map = _main_team_page_urls()
     teams = sorted(Team.objects.filter(project=project, is_hidden=False), key=lambda t: t.visible_name)
     profile = request.user.profile
     profile.repair_primary_team()
     member_teams, member_teams_others = _member_teams_active_first(profile)
     secondary_teams = list(profile.other_member_teams()) if profile.team_on_id else []
-    return {
+    ctx = {
         'project': project,
         'teams': teams,
         'new_team_url': back,
@@ -1999,7 +2013,9 @@ def _new_team_ui_context(request):
         'member_teams_others': member_teams_others,
         'secondary_teams': secondary_teams,
         'team_primary_modal': len(member_teams) > 0,
+        **url_map,
     }
+    return _merge_nav_project_for_scope(ctx, request, scoped)
 
 
 @login_required
@@ -2007,6 +2023,9 @@ def _new_team_ui_context(request):
 def new_team(request):
     if not has_profile(request.user):
         messages.error(request, 'Сначала войдите и создайте профиль.')
+        scoped = _scoped_project_id(request)
+        if scoped:
+            return redirect('project_hub', project_id=scoped)
         return redirect('new_hub')
     ctx = _new_team_ui_context(request)
     ctx['team_section'] = 'hub'
@@ -2019,6 +2038,9 @@ def new_team(request):
 def new_team_join_page(request):
     if not has_profile(request.user):
         messages.error(request, 'Сначала войдите и создайте профиль.')
+        scoped = _scoped_project_id(request)
+        if scoped:
+            return redirect('project_hub', project_id=scoped)
         return redirect('new_hub')
     ctx = _new_team_ui_context(request)
     ctx['team_section'] = 'join'
@@ -2236,7 +2258,7 @@ def new_team_create(request):
     request.user.profile.team_requested = None
     request.user.profile.join_accept_as_primary = True
     request.user.profile.save(update_fields=['team_requested', 'join_accept_as_primary'])
-    return redirect('new_team')
+    return _team_redirect(request)
 
 
 @login_required
@@ -2253,12 +2275,12 @@ def new_team_request_join(request):
         raise Http404()
     if ProfileTeamMembership.objects.filter(profile=request.user.profile, team=team).exists():
         messages.error(request, 'Вы уже в этой команде.')
-        return redirect('new_team_join_page')
+        return _team_join_redirect(request)
     profile = request.user.profile
     profile.join_accept_as_primary = _post_make_new_team_primary(request)
     profile.team_requested = team
     profile.save(update_fields=['team_requested', 'join_accept_as_primary'])
-    return redirect('new_team')
+    return _team_redirect(request)
 
 
 def _team_join_password_matches(stored, provided):
@@ -2275,7 +2297,7 @@ def _team_join_password_matches(stored, provided):
 def new_team_join_by_password(request):
     if not has_profile(request.user):
         messages.error(request, 'Нельзя вступить в команду сейчас.')
-        return redirect('new_team_join_page')
+        return _team_join_redirect(request)
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     name = (request.POST.get('name') or '').strip()
     password = (request.POST.get('password') or '').strip()
@@ -2284,26 +2306,26 @@ def new_team_join_by_password(request):
         team = Team.objects.filter(project=project, visible_name__iexact=name).first()
     if not team:
         messages.error(request, 'Команда не найдена.')
-        return redirect('new_team_join_page')
+        return _team_join_redirect(request)
     stored = (team.join_password or '').strip()
     if not stored:
         messages.error(
             request,
             'У команды не задан код для быстрого входа. Капитан может задать его на странице команды.',
         )
-        return redirect('new_team_join_page')
+        return _team_join_redirect(request)
     if not password or not _team_join_password_matches(stored, password):
         messages.error(request, 'Неверный пароль.')
-        return redirect('new_team_join_page')
+        return _team_join_redirect(request)
     if ProfileTeamMembership.objects.filter(profile=request.user.profile, team=team).exists():
         messages.info(request, 'Вы уже в этой команде.')
-        return redirect('new_team_join_page')
+        return _team_join_redirect(request)
     request.user.profile.add_team_membership(team, make_primary=_post_make_new_team_primary(request))
     request.user.profile.team_requested = None
     request.user.profile.join_accept_as_primary = True
     request.user.profile.save(update_fields=['team_requested', 'join_accept_as_primary'])
     messages.success(request, 'Вы вступили в команду.')
-    return redirect('new_team')
+    return _team_redirect(request)
 
 
 @login_required
@@ -2318,7 +2340,7 @@ def new_team_set_primary(request):
         raise Http404()
     if not request.user.profile.set_primary_team(team):
         messages.error(request, 'Нет доступа к этой команде.')
-    return redirect('new_team')
+    return _team_redirect(request)
 
 
 @login_required
@@ -2346,8 +2368,8 @@ def new_team_rename(request):
     visible_name = (request.POST.get('visible_name') or '').strip()
     if not visible_name:
         messages.error(request, 'Название не может быть пустым.')
-        return redirect('new_team')
+        return _team_redirect(request)
     team.visible_name = visible_name
     team.save(update_fields=['visible_name'])
     messages.success(request, 'Название команды обновлено.')
-    return redirect('new_team')
+    return _team_redirect(request)

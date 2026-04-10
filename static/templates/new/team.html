@@ -24,7 +24,7 @@
           {% for t in member_teams_others %}
           <li>
             <span>{{ t }}</span>
-            <form action="{% url 'new_team_set_primary' %}" method="post" style="margin:0;display:inline">
+            <form action="{{ ui_team_url_set_primary }}" method="post" style="margin:0;display:inline">
               {% csrf_token %}
               <input type="hidden" name="team" value="{{ t.pk }}">
               <button type="submit" class="new-btn new-btn--ghost new-btn--mini">Сделать активной</button>
@@ -46,7 +46,7 @@
       <p style="margin:0.5rem 0 0.75rem">
         <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-rename-open>Изменить название</button>
       </p>
-      <form action="{% url 'new_team_rename' %}" method="post" class="new-form" data-team-rename-form hidden>
+      <form action="{{ ui_team_url_rename }}" method="post" class="new-form" data-team-rename-form hidden>
         {% csrf_token %}
         <label for="new-team-visible-name">Название команды</label>
         <input id="new-team-visible-name" type="text" name="visible_name" value="{{ user.profile.team_on.visible_name|default:user.profile.team_on.name }}">
@@ -74,7 +74,7 @@
         <li>
           👤 {{ team_member }}
           {% if user != team_member %}
-          <a class="new-mini" href="/kick_out_user/{{ team_member.user.id }}/?team={{ user.profile.team_on.pk }}" data-confirm-kick>Исключить</a>
+          <a class="new-mini" href="{% if ui_project_base %}{{ ui_project_base }}{% endif %}/kick_out_user/{{ team_member.user.id }}/?team={{ user.profile.team_on.pk }}" data-confirm-kick>Исключить</a>
           {% endif %}
         </li>
         {% endfor %}
@@ -86,8 +86,8 @@
         <li>
           {{ user_requested }}
           {% if user != user_requested %}
-          <a class="new-mini" href="/confirm_user_joining_team/{{ user_requested.user.id }}/">Принять</a>
-          <a class="new-mini" href="/reject_user_joining_team/{{ user_requested.user.id }}/">Отклонить</a>
+          <a class="new-mini" href="{% if ui_project_base %}{{ ui_project_base }}{% endif %}/confirm_user_joining_team/{{ user_requested.user.id }}/">Принять</a>
+          <a class="new-mini" href="{% if ui_project_base %}{{ ui_project_base }}{% endif %}/reject_user_joining_team/{{ user_requested.user.id }}/">Отклонить</a>
           {% endif %}
         </li>
         {% endfor %}
@@ -122,7 +122,7 @@
           <li>
             👤 {{ team_member }}
             {% if user != team_member %}
-            <a class="new-mini" href="/kick_out_user/{{ team_member.user.id }}/?team={{ sec_team.pk }}" data-confirm-kick>Исключить</a>
+            <a class="new-mini" href="{% if ui_project_base %}{{ ui_project_base }}{% endif %}/kick_out_user/{{ team_member.user.id }}/?team={{ sec_team.pk }}" data-confirm-kick>Исключить</a>
             {% endif %}
           </li>
           {% endfor %}
@@ -165,7 +165,7 @@
   <div class="new-team-block">
     <h2 style="margin-top:0">Создать новую команду</h2>
     <p class="new-login-hint" style="margin-bottom:1rem">Можно создать новую команду.{% if team_primary_modal %} Вы всегда сможете переключаться между командами.{% endif %}</p>
-    <form action="{% url 'new_team_create' %}" method="post" class="new-form" id="new-create-team-form"{% if team_primary_modal %} data-team-primary-modal="1"{% endif %}>
+    <form action="{{ ui_team_url_create }}" method="post" class="new-form" id="new-create-team-form"{% if team_primary_modal %} data-team-primary-modal="1"{% endif %}>
       {% csrf_token %}
       <input type="hidden" name="make_primary" value="1" data-team-make-primary>
       <label for="new-team-create-name">Название</label>
@@ -193,7 +193,7 @@
   <div class="new-team-block">
     <h2 style="margin-top:0">Вступить в команду</h2>
     <p class="new-login-hint" style="margin-bottom:1rem">Нужно подтверждение членов команды или пароль.{% if team_primary_modal %} Вы всегда сможете переключаться между командами.{% endif %}</p>
-    <form action="{% url 'new_team_request_join' %}" method="post" class="new-form" id="new-join-team-form"{% if team_primary_modal %} data-team-primary-modal="1"{% endif %}>
+    <form action="{{ ui_team_url_request_join }}" method="post" class="new-form" id="new-join-team-form"{% if team_primary_modal %} data-team-primary-modal="1"{% endif %}>
       {% csrf_token %}
       <input type="hidden" name="make_primary" value="1" data-team-make-primary>
       <label for="new-team-join-name">Команда</label>
@@ -210,7 +210,7 @@
       <div class="new-join-pass" hidden>
         <label for="new-team-join-pass">Пароль</label>
         <input id="new-team-join-pass" name="password" type="text" placeholder="Введите пароль">
-        <button type="submit" formaction="{% url 'new_team_join_by_password' %}" class="new-btn" disabled data-join-by-pass>Вступить</button>
+        <button type="submit" formaction="{{ ui_team_url_join_by_password }}" class="new-btn" disabled data-join-by-pass>Вступить</button>
       </div>
     </form>
   </div>
@@ -219,7 +219,7 @@
 {% else %}
   <p class="new-login-hint">Войдите, чтобы управлять командой.</p>
 {% endif %}
-<p style="margin-top:2rem"><a href="{% url 'new_hub' %}" class="new-btn new-btn--ghost">← Игры</a></p>
+<p style="margin-top:2rem"><a href="{{ ui_project_home_url|default:'/' }}" class="new-btn new-btn--ghost">← Игры</a></p>
 
 {% if user.is_authenticated and team_primary_modal %}
 {% if team_section == 'create' or team_section == 'join' %}
@@ -289,7 +289,7 @@
       if (createSubmit) createSubmit.disabled = true;
       return;
     }
-    fetch("{% url 'new_team_name_check' %}?name=" + encodeURIComponent(name), { credentials: 'same-origin' })
+    fetch("{{ ui_team_url_name_check }}?name=" + encodeURIComponent(name), { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data || !data.ok) return;
@@ -349,7 +349,7 @@
       updateJoinButtons(false);
       return;
     }
-    fetch("{% url 'new_team_info' %}?name=" + encodeURIComponent(name), { credentials: 'same-origin' })
+    fetch("{{ ui_team_url_info }}?name=" + encodeURIComponent(name), { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         joinTeamResolved = !!(data && data.ok && data.exists);
@@ -426,7 +426,7 @@
   var saveBtn = document.querySelector('[data-team-pass-save]');
   if (revealBtn && passInput && saveBtn) {
     revealBtn.addEventListener('click', function () {
-      fetch("{% url 'new_team_password' %}", { credentials: 'same-origin' })
+      fetch("{{ ui_team_url_password }}", { credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
         .then(function (data) {
           if (!data || !data.ok) return;
@@ -440,7 +440,7 @@
     saveBtn.addEventListener('click', function () {
       var body = new URLSearchParams();
       body.set('password', passInput.value || '');
-      fetch("{% url 'new_team_password' %}", {
+      fetch("{{ ui_team_url_password }}", {
         method: 'POST',
         headers: {
           'X-Requested-With': 'XMLHttpRequest',

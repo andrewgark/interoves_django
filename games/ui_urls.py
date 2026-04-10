@@ -27,6 +27,19 @@ urlpatterns = [
     re_path(r'^' + _PROJECT_ID_RE + r'/reject_user_joining_team/(?P<user_id>\d+)/$', reject_user_joining_team),
     re_path(r'^' + _PROJECT_ID_RE + r'/kick_out_user/(?P<user_id>\d+)/$', kick_out_user),
 
+    # Profile & team under project prefix (same handlers as root /profile/, /team/...).
+    re_path(r'^' + _PROJECT_ID_RE + r'/profile/$', ui.profile, name='project_profile'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/team/$', ui.team, name='project_team'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/team/create/$', ui.team_create, name='project_team_create'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/team/join/$', ui.team_join_page, name='project_team_join_page'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/team/name-check/$', ui.team_name_check, name='project_team_name_check'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/team/info/$', ui.team_info, name='project_team_info'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/team/request-join/$', ui.team_request_join, name='project_team_request_join'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/team/join-by-password/$', ui.team_join_by_password, name='project_team_join_by_password'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/team/password/$', ui.team_password, name='project_team_password'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/team/rename/$', ui.team_rename, name='project_team_rename'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/team/set-primary/$', ui.team_set_primary, name='project_team_set_primary'),
+
     path('', ui.hub, name='ui_hub'),
     path('sections/', RedirectView.as_view(url='/', query_string=True), name='ui_sections'),
     path('play-mode/', ui.set_play_mode, name='ui_set_play_mode'),

@@ -114,7 +114,9 @@
   <nav class="new-nav" aria-label="Главное меню">
     <div class="new-nav__inner">
       <a class="new-nav__brand" href="{{ ui_project_home_url|default:'/' }}">
-        {% if project and not project.is_main and project.logo %}
+        {% if nav_project and not nav_project.is_main and nav_project.logo %}
+          <img src="{{ nav_project.logo.url }}" alt="{{ nav_project.id }}" style="height:22px; vertical-align:middle">
+        {% elif project and not project.is_main and project.logo %}
           <img src="{{ project.logo.url }}" alt="{{ project.id }}" style="height:22px; vertical-align:middle">
         {% else %}
           Интеровес
@@ -150,11 +152,16 @@
           {% endif %}
         {% endif %}
         {% if user.is_authenticated %}
-          {% if not ui_project_base %}
-            <a href="{% url 'new_profile' %}" {% if request.resolver_match.url_name == 'new_profile' %}aria-current="page"{% endif %}>Профиль</a>
-            <a href="{% url 'new_team' %}" {% if request.resolver_match.url_name == 'new_team' or request.resolver_match.url_name == 'new_team_join_page' or request.resolver_match.url_name == 'new_team_create' %}aria-current="page"{% endif %}>Команда</a>
-            <a href="{% url 'new_pay' %}" {% if request.resolver_match.url_name == 'new_pay' or request.resolver_match.url_name == 'ui_pay' %}aria-current="page"{% endif %}>Оплата</a>
+          {% with un=request.resolver_match.url_name %}
+          {% if ui_project_base %}
+            <a href="{{ ui_project_profile_url }}" {% if un == 'project_profile' %}aria-current="page"{% endif %}>Профиль</a>
+            <a href="{{ ui_project_team_url }}" {% if un == 'project_team' or un == 'project_team_join_page' or un == 'project_team_create' %}aria-current="page"{% endif %}>Команда</a>
+          {% else %}
+            <a href="{% url 'new_profile' %}" {% if un == 'new_profile' %}aria-current="page"{% endif %}>Профиль</a>
+            <a href="{% url 'new_team' %}" {% if un == 'new_team' or un == 'new_team_join_page' or un == 'new_team_create' %}aria-current="page"{% endif %}>Команда</a>
+            <a href="{% url 'new_pay' %}" {% if un == 'new_pay' or un == 'ui_pay' %}aria-current="page"{% endif %}>Оплата</a>
           {% endif %}
+          {% endwith %}
           <a href="{% url 'logout' %}?next={{ request.path|urlencode }}">Выйти</a>
         {% else %}
         <button type="button" class="new-nav__loginbtn" data-login-open>Войти</button>
@@ -169,11 +176,18 @@
     <div class="new-rules-modal__box pal-card">
       <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-login-close>×</button>
       <h2 id="new-login-title" class="pal-title">Войти</h2>
+      {% if request.path == '/glowbyte' or request.path.startswith('/glowbyte/') %}
+      <p class="pal-lead" style="margin-bottom: 1rem">Вход только через Google с рабочей почтой <strong>@glowbyteconsulting.com</strong>.</p>
+      <div style="display:flex; gap:0.75rem; flex-wrap:wrap">
+        <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Войти через Google</a>
+      </div>
+      {% else %}
       <p class="pal-lead" style="margin-bottom: 1rem">Выберите способ входа.</p>
       <div style="display:flex; gap:0.75rem; flex-wrap:wrap">
         <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path %}">Войти через Google</a>
         <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' next=request.get_full_path %}">Войти через VK</a>
       </div>
+      {% endif %}
       <p class="new-login-hint" style="margin-bottom:0">
         Если окно не открылось автоматически, нажмите “Войти” в меню.
       </p>
