@@ -1635,6 +1635,8 @@
   document.addEventListener('click', function (e) {
     var tile = e.target && e.target.closest ? e.target.closest('.wall-tile-not-guessed') : null;
     if (!tile) return;
+    // Не выделять клетку при клике по мини-плееру / кнопке с аудио внутри плитки
+    if (e.target && e.target.closest && e.target.closest('.audio-player-link, [audio-url]')) return;
     var wall = tile.closest('.wall-tiles');
     if (!wall) return;
     if (tile.classList.contains('wall-tile-stop-guessing')) return;
