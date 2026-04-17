@@ -12,6 +12,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.forms import ChoiceField, ModelForm, TextInput
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.http import Http404
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -596,6 +597,7 @@ def project_results_page(request, project_id, game_id):
         data = snapshot_to_results_context(game, snap.payload)
     else:
         data = _new_results_compute(game, mode='general')
+    data = _paginate_results_rows(request, data, per_page=50)
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
     me_personal = None
@@ -639,6 +641,7 @@ def project_tournament_results_page(request, project_id, game_id):
         data = snapshot_to_results_context(game, snap.payload)
     else:
         data = _new_results_compute(game, mode='tournament')
+    data = _paginate_results_rows(request, data, per_page=50)
     return render(request, 'ui/results.html', {
         'project': project,
         'mode': 'tournament',
@@ -1148,6 +1151,34 @@ def _new_results_compute(game, mode):
     }
 
 
+def _paginate_results_rows(request, data, per_page=50):
+    """
+    Paginate the results rows (teams_sorted) without touching score/place dicts.
+    Places remain global (computed for full list), only the rendered rows are sliced.
+    """
+    rows = list(data.get('teams_sorted') or [])
+    paginator = Paginator(rows, per_page)
+    page_obj = paginator.get_page(request.GET.get('page') or 1)
+
+    # Keep templates working by slicing teams_sorted to the visible page.
+    out = dict(data)
+    out['teams_sorted'] = list(page_obj.object_list)
+    out['page_obj'] = page_obj
+    out['paginator'] = paginator
+    out['is_paginated'] = paginator.num_pages > 1
+
+    qs = request.GET.copy()
+    try:
+        qs.pop('page', None)
+    except Exception:
+        pass
+    rest = qs.urlencode()
+    out['page_qs_prefix'] = ('?' + rest + '&') if rest else '?'
+    out['page_size'] = per_page
+    out['page_total_rows'] = paginator.count
+    return out
+
+
 def new_results_page(request, game_id):
     game = get_object_or_404(Game, id=game_id)
     if game.project_id != NEW_UI_PROJECT:
@@ -1164,6 +1195,7 @@ def new_results_page(request, game_id):
         data = snapshot_to_results_context(game, snap.payload)
     else:
         data = _new_results_compute(game, mode='general')
+    data = _paginate_results_rows(request, data, per_page=50)
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
     me_personal = None

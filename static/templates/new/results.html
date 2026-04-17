@@ -52,6 +52,30 @@
     </div>
     {% endif %}
 
+    {% if is_paginated %}
+      <div class="new-card" style="margin-top:0.75rem">
+        <div class="new-card__text" style="margin:0; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap">
+          <span>Показаны {{ page_obj.start_index }}–{{ page_obj.end_index }} из {{ page_total_rows }} (по {{ page_size }} на страницу)</span>
+          <span style="opacity:.6">·</span>
+          <span>Страница {{ page_obj.number }} / {{ paginator.num_pages }}</span>
+
+          <span style="flex:1 1 auto"></span>
+
+          {% if page_obj.has_previous %}
+            <a class="new-btn new-btn--ghost" href="{{ page_qs_prefix }}page={{ page_obj.previous_page_number }}">← Предыдущая</a>
+          {% else %}
+            <span class="new-btn new-btn--ghost" style="pointer-events:none; opacity:.5">← Предыдущая</span>
+          {% endif %}
+
+          {% if page_obj.has_next %}
+            <a class="new-btn new-btn--ghost" href="{{ page_qs_prefix }}page={{ page_obj.next_page_number }}">Следующая →</a>
+          {% else %}
+            <span class="new-btn new-btn--ghost" style="pointer-events:none; opacity:.5">Следующая →</span>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
   </div>
 
   <div class="new-results-fullbleed">
