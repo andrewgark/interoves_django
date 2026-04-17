@@ -329,37 +329,26 @@ DATABASES = {
 }
 
 if 'RDS_HOSTNAME' in os.environ:
-    _rds_password = os.environ.get('RDS_PASSWORD', '')
     _rds_secret_arn = (os.environ.get('RDS_SECRET_ARN') or '').strip()
-    if _rds_secret_arn:
-        try:
-            import json
-            import boto3
-            _sm = boto3.client(
-                'secretsmanager',
-                region_name=os.environ.get('AWS_DEFAULT_REGION', 'eu-central-1'),
-            )
-            _secret = json.loads(
-                _sm.get_secret_value(SecretId=_rds_secret_arn)['SecretString']
-            )
-            _rds_password = _secret['password']
-        except Exception as _e:
-            raise ImproperlyConfigured(
-                'RDS_SECRET_ARN is set but the password could not be loaded from '
-                'AWS Secrets Manager. Refusing to use RDS_PASSWORD (Elastic Beanstalk '
-                'often injects a stale value). Fix IAM (secretsmanager:GetSecretValue '
-                'for this secret) or the ARN/region.'
-            ) from _e
-    elif not _rds_password:
+    _rds_password = os.environ.get('RDS_PASSWORD', '')
+    if not _rds_secret_arn and not _rds_password:
         raise ImproperlyConfigured(
             'RDS_HOSTNAME is set but neither RDS_SECRET_ARN nor RDS_PASSWORD is set.'
         )
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.mysql',
+            # If RDS_SECRET_ARN is set, use a backend that fetches the password
+            # from Secrets Manager at connection time, so secret rotation doesn't
+            # require an app restart to recover.
+            'ENGINE': (
+                'interoves_django.db.backends.mysql_secret'
+                if _rds_secret_arn
+                else 'django.db.backends.mysql'
+            ),
             'NAME': os.environ['RDS_DB_NAME'],
             'USER': os.environ['RDS_USERNAME'],
-            'PASSWORD': _rds_password,
+            # When using Secrets Manager, the backend supplies the password dynamically.
+            'PASSWORD': '' if _rds_secret_arn else _rds_password,
             'HOST': os.environ['RDS_HOSTNAME'],
             'PORT': os.environ['RDS_PORT'],
         }
