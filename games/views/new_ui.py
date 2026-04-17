@@ -1046,9 +1046,13 @@ def _new_results_compute(game, mode):
 
     teams_sorted = []
     for participant, score in team_to_score.items():
-        max_best_time = team_to_max_best_time.get(participant, datetime.datetime.now())
-        teams_sorted.append((-score, max_best_time, participant))
-    teams_sorted = [p for anti_score, max_best_time, p in sorted(teams_sorted, key=lambda t: (t[0], t[1], str(t[2])))]
+        # `Attempt.time` is typically timezone-aware; using naive `datetime.now()`
+        # as a fallback can make sorting crash with "can't compare offset-naive and offset-aware datetimes".
+        max_best_time = team_to_max_best_time.get(participant) or timezone.now()
+        # Sort by a comparable primitive to avoid tz-awareness issues.
+        max_best_time_ts = max_best_time.timestamp() if hasattr(max_best_time, "timestamp") else float("inf")
+        teams_sorted.append((-score, max_best_time_ts, participant))
+    teams_sorted = [p for anti_score, max_best_time_ts, p in sorted(teams_sorted, key=lambda t: (t[0], t[1], str(t[2])))]
 
     team_to_place = {}
     for i, participant in enumerate(teams_sorted):

@@ -5,7 +5,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
 ./scripts/write_deploy_version.sh
 if command -v ntpdate >/dev/null 2>&1; then
-  sudo ntpdate ntp.ubuntu.com
+  # `sudo` may be non-interactive (e.g. when run from automation). Don't fail deploy on time sync.
+  sudo -n ntpdate ntp.ubuntu.com || true
 fi
 EB_BIN="${EB_BIN:-eb}"
 eb_ok=0
