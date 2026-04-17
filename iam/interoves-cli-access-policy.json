@@ -1,0 +1,70 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AssumeAiBot",
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Resource": "arn:aws:iam::916000456640:role/ai-bot"
+    },
+    {
+      "Sid": "SecretsManagerRDS",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ],
+      "Resource": "arn:aws:secretsmanager:eu-central-1:916000456640:secret:rds!db-*"
+    },
+    {
+      "Sid": "EC2InstanceConnect",
+      "Effect": "Allow",
+      "Action": "ec2-instance-connect:SendSSHPublicKey",
+      "Resource": "arn:aws:ec2:eu-central-1:916000456640:instance/*"
+    },
+    {
+      "Sid": "SSMSessionManager",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:StartSession",
+        "ssm:TerminateSession",
+        "ssm:ResumeSession",
+        "ssm:DescribeSessions",
+        "ssm:GetConnectionStatus"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "eu-central-1"
+        }
+      }
+    },
+    {
+      "Sid": "SSMPortForwardDocument",
+      "Effect": "Allow",
+      "Action": "ssm:StartSession",
+      "Resource": [
+        "arn:aws:ssm:eu-central-1::document/AWS-StartPortForwardingSessionToRemoteHost",
+        "arn:aws:ssm:eu-central-1::document/AWS-StartSSHSession"
+      ]
+    },
+    {
+      "Sid": "ElasticBeanstalkStagingBucket",
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::elasticbeanstalk-eu-central-1-916000456640",
+        "arn:aws:s3:::elasticbeanstalk-eu-central-1-916000456640/*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchLogsElasticBeanstalkTail",
+      "Effect": "Allow",
+      "Action": [
+        "logs:GetLogEvents",
+        "logs:FilterLogEvents"
+      ],
+      "Resource": "arn:aws:logs:eu-central-1:916000456640:log-group:/aws/elasticbeanstalk/*:*"
+    }
+  ]
+}
