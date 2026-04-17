@@ -1276,6 +1276,8 @@ def new_section_results_page(request, game_id):
         data = snapshot_to_results_context(game, snap.payload)
     else:
         data = _new_results_compute(game, mode='general')
+    # Section results can have many participants; paginate to keep requests fast.
+    data = _paginate_results_rows(request, data, per_page=50)
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
     me_personal = None
