@@ -80,20 +80,6 @@
 
   <div class="new-results-fullbleed">
     <div class="new-results-wrap" role="region" aria-label="Таблица результатов">
-      {% if progressive_results %}
-        <div class="new-ui" style="padding:0 0 0.75rem">
-          <div class="new-card">
-            <div class="new-card__text" style="margin:0; display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap">
-              <strong>Результаты</strong>
-              <span style="opacity:.7">Загружаются по {{ progressive_page_size }} строк</span>
-              <span style="flex:1 1 auto"></span>
-              <button type="button" class="new-btn new-btn--ghost" id="results-load-more">
-                Показать
-              </button>
-            </div>
-          </div>
-        </div>
-      {% endif %}
       <table class="new-results-table">
           <thead>
             <tr>
@@ -134,6 +120,9 @@
             {% endif %}
           </tbody>
         </table>
+        {% if progressive_results %}
+          <div id="results-sentinel" aria-hidden="true" style="height:1px"></div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -160,24 +149,15 @@
   {% if progressive_results %}
   <script>
   (function () {
-    var btn = document.getElementById('results-load-more');
     var tbody = document.getElementById('results-tbody');
-    if (!btn || !tbody) return;
+    if (!tbody) return;
 
     var nextPage = 1;
     var loading = false;
 
-    function setBtn(label, disabled) {
-      btn.textContent = label;
-      btn.disabled = !!disabled;
-      btn.style.pointerEvents = disabled ? 'none' : '';
-      btn.style.opacity = disabled ? '.6' : '';
-    }
-
     async function loadNext() {
       if (loading || !nextPage) return;
       loading = true;
-      setBtn('Загрузка…', true);
       try {
         var url = new URL(window.location.href);
         url.searchParams.set('page', String(nextPage));
@@ -205,22 +185,51 @@
           tbody.innerHTML = '<tr><td colspan="999">Пока нет результатов.</td></tr>';
           nextPage = '';
         }
-
-        if (nextPage) {
-          setBtn('Показать ещё', false);
-        } else {
-          setBtn('Готово', true);
-        }
       } catch (e) {
-        setBtn('Ошибка загрузки (повторить)', false);
+        // keep nextPage as-is; allow retry on next trigger
       } finally {
         loading = false;
       }
     }
 
-    // Start with 0 pages loaded: user clicks to begin.
-    setBtn('Показать', false);
-    btn.addEventListener('click', loadNext);
+    async function fillViewport() {
+      // Keep loading until the table is taller than the viewport (with a small buffer),
+      // or until there are no more pages. Safety cap prevents runaway loading.
+      var maxPages = 25;
+      var pagesLoaded = 0;
+      var doc = document.documentElement;
+      while (nextPage && pagesLoaded < maxPages && (doc.scrollHeight - window.innerHeight) < 400) {
+        await loadNext();
+        pagesLoaded += 1;
+        // Allow layout to settle before re-checking height.
+        await new Promise(function (resolve) { setTimeout(resolve, 0); });
+      }
+    }
+
+    function maybeLoadOnScroll() {
+      // If user is near the bottom, try to load more.
+      if (!nextPage || loading) return;
+      var doc = document.documentElement;
+      var remaining = doc.scrollHeight - (window.scrollY + window.innerHeight);
+      if (remaining < 800) loadNext();
+    }
+
+    // Start with 0 pages loaded: auto-load until viewport is filled.
+    fillViewport();
+
+    var sentinel = document.getElementById('results-sentinel');
+    if (sentinel && typeof IntersectionObserver !== 'undefined') {
+      var io = new IntersectionObserver(function (entries) {
+        for (var i = 0; i < entries.length; i++) {
+          if (entries[i].isIntersecting) loadNext();
+        }
+      }, { root: null, rootMargin: '1200px 0px 1200px 0px', threshold: 0 });
+      io.observe(sentinel);
+    } else {
+      window.addEventListener('scroll', maybeLoadOnScroll, { passive: true });
+      window.addEventListener('resize', maybeLoadOnScroll);
+      maybeLoadOnScroll();
+    }
   })();
   </script>
   {% endif %}
