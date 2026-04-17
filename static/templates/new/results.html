@@ -52,7 +52,7 @@
     </div>
     {% endif %}
 
-    {% if is_paginated %}
+    {% if is_paginated and not progressive_results %}
       <div class="new-card" style="margin-top:0.75rem">
         <div class="new-card__text" style="margin:0; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap">
           <span>Показаны {{ page_obj.start_index }}–{{ page_obj.end_index }} из {{ page_total_rows }} (по {{ page_size }} на страницу)</span>
@@ -80,6 +80,20 @@
 
   <div class="new-results-fullbleed">
     <div class="new-results-wrap" role="region" aria-label="Таблица результатов">
+      {% if progressive_results %}
+        <div class="new-ui" style="padding:0 0 0.75rem">
+          <div class="new-card">
+            <div class="new-card__text" style="margin:0; display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap">
+              <strong>Результаты</strong>
+              <span style="opacity:.7">Загружаются по {{ progressive_page_size }} строк</span>
+              <span style="flex:1 1 auto"></span>
+              <button type="button" class="new-btn new-btn--ghost" id="results-load-more">
+                Показать
+              </button>
+            </div>
+          </div>
+        </div>
+      {% endif %}
       <table class="new-results-table">
           <thead>
             <tr>
@@ -109,29 +123,15 @@
               {% endfor %}
             </tr>
           </thead>
-          <tbody>
-            {% for t in teams_sorted %}
-              <tr class="{% if team and team == t %}is-me{% elif me_personal and me_personal == t %}is-me{% elif me_anon_participant and me_anon_participant == t %}is-me{% endif %}">
-                <th class="is-sticky-left">{{ team_to_place|get_item:t }}</th>
-                <th class="is-sticky-left-2 col-team" title="{{ t.visible_name|escape }}">{% if t.is_team_results_row %}👥 {% else %}👤 {% endif %}{{ t.visible_name }}</th>
-                <th class="is-sticky-left-3 col-score">{{ team_to_score|get_item:t|minimize_digits }}</th>
-                {% if mode == 'tournament' %}
-                  <th class="is-sticky-left-4">{{ team_to_max_best_time|get_item:t|date:'H:i' }}</th>
-                {% endif %}
-                {% for cell in team_to_cells|get_item:t %}
-                  <td class="{{ cell.cls }}">
-                    {% if cell.n_attempts|default:0 > 0 %}
-                      {{ cell.result_points|minimize_digits }}
-                    {% endif %}
-                    {% if cell.hint_numbers %}
-                      <sup class="hint-numbers">{{ cell.hint_numbers|join:", " }}</sup>
-                    {% endif %}
-                  </td>
-                {% endfor %}
-              </tr>
-            {% empty %}
-              <tr><td colspan="999">Пока нет результатов.</td></tr>
-            {% endfor %}
+          <tbody id="results-tbody">
+            {% if progressive_results %}
+              {# start with 0 pages loaded #}
+            {% else %}
+              {% include "new/partials/results_rows.html" %}
+              {% if not teams_sorted %}
+                <tr><td colspan="999">Пока нет результатов.</td></tr>
+              {% endif %}
+            {% endif %}
           </tbody>
         </table>
       </div>
@@ -157,5 +157,72 @@
     }
   })();
   </script>
+  {% if progressive_results %}
+  <script>
+  (function () {
+    var btn = document.getElementById('results-load-more');
+    var tbody = document.getElementById('results-tbody');
+    if (!btn || !tbody) return;
+
+    var nextPage = 1;
+    var loading = false;
+
+    function setBtn(label, disabled) {
+      btn.textContent = label;
+      btn.disabled = !!disabled;
+      btn.style.pointerEvents = disabled ? 'none' : '';
+      btn.style.opacity = disabled ? '.6' : '';
+    }
+
+    async function loadNext() {
+      if (loading || !nextPage) return;
+      loading = true;
+      setBtn('Загрузка…', true);
+      try {
+        var url = new URL(window.location.href);
+        url.searchParams.set('page', String(nextPage));
+        url.searchParams.set('partial', '1');
+        var resp = await fetch(url.toString(), { credentials: 'same-origin' });
+        var html = await resp.text();
+        var tmp = document.createElement('tbody');
+        tmp.innerHTML = html;
+
+        var meta = tmp.querySelector('template[data-results-meta="1"]');
+        if (meta) {
+          var hasNext = meta.getAttribute('data-has-next') === '1';
+          nextPage = hasNext ? (meta.getAttribute('data-next-page') || '') : '';
+        } else {
+          nextPage = '';
+        }
+
+        // Append rows (skip <template>)
+        Array.prototype.slice.call(tmp.children).forEach(function (node) {
+          if (node.tagName && node.tagName.toLowerCase() === 'template') return;
+          tbody.appendChild(node);
+        });
+
+        if (!tbody.children.length) {
+          tbody.innerHTML = '<tr><td colspan="999">Пока нет результатов.</td></tr>';
+          nextPage = '';
+        }
+
+        if (nextPage) {
+          setBtn('Показать ещё', false);
+        } else {
+          setBtn('Готово', true);
+        }
+      } catch (e) {
+        setBtn('Ошибка загрузки (повторить)', false);
+      } finally {
+        loading = false;
+      }
+    }
+
+    // Start with 0 pages loaded: user clicks to begin.
+    setBtn('Показать', false);
+    btn.addEventListener('click', loadNext);
+  })();
+  </script>
+  {% endif %}
 {% endblock %}
 

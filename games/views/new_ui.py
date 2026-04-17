@@ -1276,8 +1276,20 @@ def new_section_results_page(request, game_id):
         data = snapshot_to_results_context(game, snap.payload)
     else:
         data = _new_results_compute(game, mode='general')
-    # Section results can have many participants; paginate to keep requests fast.
-    data = _paginate_results_rows(request, data, per_page=50)
+    # Section results can have many participants. Support progressive loading
+    # (10 rows per page) so the HTML page can build incrementally.
+    progressive_page_size = 10
+    data = _paginate_results_rows(request, data, per_page=progressive_page_size)
+    if request.GET.get('partial') == '1':
+        return render(request, 'new/partials/results_rows.html', {
+            'mode': 'general',
+            'section_results': True,
+            'game': game,
+            'team': team,
+            'me_personal': None,
+            'me_anon_participant': None,
+            **data,
+        })
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
     me_personal = None
@@ -1297,6 +1309,8 @@ def new_section_results_page(request, game_id):
         'me_personal': me_personal,
         'me_anon_participant': me_anon_participant,
         'back_url': '/section/{}/'.format(game.id),
+        'progressive_results': True,
+        'progressive_page_size': progressive_page_size,
         **data,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
