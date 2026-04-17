@@ -28,12 +28,10 @@ class DatabaseWrapper(MySQLDatabaseWrapper):
 
     def get_connection_params(self):
         conn_params = super().get_connection_params()
-        # Django's MySQL backend uses 'passwd' for mysqlclient; keep compatibility
+        # Ensure mysqlclient receives a password even if Django omitted the key
+        # because settings.PASSWORD was empty.
         password = get_rds_password()
-        if "passwd" in conn_params:
-            conn_params["passwd"] = password
-        elif "password" in conn_params:
-            conn_params["password"] = password
+        conn_params["passwd"] = password
         return conn_params
 
     def get_new_connection(self, conn_params):
@@ -45,9 +43,6 @@ class DatabaseWrapper(MySQLDatabaseWrapper):
             # Secret may have rotated; refresh and retry once.
             password = get_rds_password(force_refresh=True)
             conn_params = dict(conn_params)
-            if "passwd" in conn_params:
-                conn_params["passwd"] = password
-            elif "password" in conn_params:
-                conn_params["password"] = password
+            conn_params["passwd"] = password
             return super().get_new_connection(conn_params)
 

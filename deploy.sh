@@ -20,4 +20,4 @@ if [[ "$eb_ok" -ne 1 ]]; then
 fi
 # How long the EB CLI waits for the environment update (minutes). Long migrations may
 # still run on AWS after this returns; use `eb status` / console events to confirm.
-"$EB_BIN" deploy --timeout 15
+./scripts/aws_with_role.sh "$EB_BIN" deploy --timeout 15
