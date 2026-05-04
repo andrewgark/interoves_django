@@ -147,6 +147,43 @@
     .embed-wrap {
       margin-top: 0.75rem;
     }
+    /* Mobile browsers usually cannot show PDFs inline in iframes and may prompt
+       to download (worse with several sections each loading a PDF). */
+    .pdf-mobile-fallback {
+      display: none;
+      margin-top: 0.75rem;
+      padding: 1rem 1.1rem;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .pdf-open-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.55rem 1rem;
+      border-radius: 8px;
+      background: rgba(138, 180, 248, 0.15);
+      color: var(--link);
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid rgba(138, 180, 248, 0.35);
+    }
+    .pdf-open-tab:hover {
+      background: rgba(138, 180, 248, 0.22);
+      color: var(--text);
+    }
+    @media (max-width: 42rem) {
+      .embed-wrap {
+        display: none;
+      }
+      .pdf-mobile-fallback {
+        display: block;
+      }
+    }
     .embed {
       border: 0;
       width: 100%;
@@ -227,8 +264,11 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
         </a>
       </div>
+      <div class="pdf-mobile-fallback" role="region" aria-label="Просмотр PDF на телефоне">
+        <a class="pdf-open-tab" href="{{ section.pdf_ru_url }}" target="_blank" rel="noopener noreferrer">Открыть PDF (RU)</a>
+      </div>
       <div class="embed-wrap">
-        <iframe class="embed pdf-frame" title="{{ section.title }}" src="{{ section.pdf_ru_url }}"></iframe>
+        <iframe class="embed pdf-frame" title="{{ section.title }}" src="about:blank" data-initial-lang="ru"></iframe>
       </div>
     </section>
     {% endfor %}
@@ -250,24 +290,53 @@
         }
       }
 
+      /** Inline iframe PDF works on many desktops; on narrow viewports skip loading to avoid download prompts. */
+      var useInlinePdf = window.matchMedia("(min-width: 42.01rem)");
+
       document.querySelectorAll("section.booklet-section").forEach(function (section) {
         var ru = section.getAttribute("data-pdf-ru");
         var en = section.getAttribute("data-pdf-en");
         var iframe = section.querySelector(".pdf-frame");
         var download = section.querySelector(".download-btn");
+        var openTab = section.querySelector(".pdf-open-tab");
         var buttons = section.querySelectorAll(".lang-toggle button");
+        var lang = (iframe && iframe.getAttribute("data-initial-lang")) || "ru";
 
-        function pickLang(lang) {
+        function syncIframeSrc(url) {
+          if (!iframe) return;
+          iframe.src = useInlinePdf.matches ? url : "about:blank";
+        }
+
+        function pickLang(nextLang) {
+          lang = nextLang;
           var url = lang === "en" ? en : ru;
           buttons.forEach(function (btn) {
             btn.classList.toggle("active", btn.getAttribute("data-lang") === lang);
           });
-          iframe.src = url;
+          syncIframeSrc(url);
           if (download) {
             download.href = url;
             download.download = filenameFromUrl(url);
             download.setAttribute("title", "Скачать PDF");
           }
+          if (openTab) {
+            openTab.href = url;
+            openTab.textContent = lang === "en" ? "Открыть PDF (EN)" : "Открыть PDF (RU)";
+          }
+        }
+
+        pickLang(lang);
+
+        if (useInlinePdf.addEventListener) {
+          useInlinePdf.addEventListener("change", function () {
+            var url = lang === "en" ? en : ru;
+            syncIframeSrc(url);
+          });
+        } else if (useInlinePdf.addListener) {
+          useInlinePdf.addListener(function () {
+            var url = lang === "en" ? en : ru;
+            syncIframeSrc(url);
+          });
         }
 
         buttons.forEach(function (btn) {
