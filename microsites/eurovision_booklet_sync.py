@@ -41,12 +41,22 @@ BOOKLET_PDF_FILENAMES: tuple[str, ...] = (
 BOOKLET_MINISITE_SECTIONS: tuple[tuple[str, str, str, str], ...] = (
     (
         "overall-pre",
-        "Все страны",
+        "All countries",
         "eurovision2026_ru.pdf",
         "eurovision2026_en.pdf",
     ),
-    ("semi-1", "Полуфинал 1", "eurovision2026_sf1_ru.pdf", "eurovision2026_sf1_en.pdf"),
-    ("semi-2", "Полуфинал 2", "eurovision2026_sf2_ru.pdf", "eurovision2026_sf2_en.pdf"),
+    (
+        "semi-1",
+        "Semi-final 1",
+        "eurovision2026_sf1_ru.pdf",
+        "eurovision2026_sf1_en.pdf",
+    ),
+    (
+        "semi-2",
+        "Semi-final 2",
+        "eurovision2026_sf2_ru.pdf",
+        "eurovision2026_sf2_en.pdf",
+    ),
 )
 
 

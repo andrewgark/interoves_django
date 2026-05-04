@@ -1,9 +1,10 @@
+{% load i18n %}
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Евровидение 2026 — буклет</title>
+  <title>Eurovision 2026 — Booklet</title>
   <style>
     :root {
       --bg: #0f1114;
@@ -22,7 +23,7 @@
       color: var(--text);
       line-height: 1.5;
     }
-    .wrap { max-width: 44rem; margin: 0 auto; padding: 5.5rem 1.25rem 3rem; }
+    .wrap { max-width: 44rem; margin: 0 auto; padding: 2.75rem 1.25rem 3rem; }
     h1 { font-size: 1.75rem; font-weight: 600; margin: 0; }
     .booklet-page-head {
       margin-bottom: 2rem;
@@ -55,37 +56,13 @@
       color: inherit;
       font-weight: 400;
     }
-    .section-nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 20;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.35rem 0.65rem;
-      justify-content: center;
-      align-items: center;
-      padding: 0.6rem 1rem;
-      background: rgba(15, 17, 20, 0.92);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-    .section-nav a {
-      color: var(--muted);
-      text-decoration: none;
-      font-size: 0.8rem;
-      font-weight: 500;
-      padding: 0.25rem 0;
-    }
-    .section-nav a:hover { color: var(--link); }
     section.booklet-section {
       background: var(--card);
       border-radius: 10px;
       padding: 1.25rem 1.5rem;
       margin-bottom: 1.25rem;
       border: 1px solid rgba(255,255,255,0.06);
-      scroll-margin-top: 4.5rem;
+      scroll-margin-top: 1rem;
     }
     section.booklet-section h2 {
       font-size: 1.1rem;
@@ -93,36 +70,53 @@
       color: var(--accent);
       font-weight: 600;
     }
-    .toolbar {
+    .pdf-versions {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .pdf-version-row {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 0.75rem;
-    }
-    .lang-toggle {
-      display: inline-flex;
+      gap: 0.75rem 1rem;
+      padding: 0.85rem 1rem;
+      background: rgba(0, 0, 0, 0.22);
       border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .pdf-version-heading {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      min-width: 0;
+      flex: 1 1 11rem;
+    }
+    .flag-circle {
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 50%;
       overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.12);
+      flex-shrink: 0;
+      border: 2px solid rgba(255,255,255,0.14);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
     }
-    .lang-toggle button {
-      margin: 0;
-      border: 0;
-      padding: 0.5rem 1rem;
-      font-size: 0.85rem;
+    .flag-circle svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .pdf-version-label {
+      font-size: 0.95rem;
       font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      background: rgba(255,255,255,0.04);
-      color: var(--muted);
-    }
-    .lang-toggle button:hover {
-      background: rgba(255,255,255,0.08);
       color: var(--text);
+      letter-spacing: 0.01em;
     }
-    .lang-toggle button.active {
-      background: rgba(201, 162, 39, 0.25);
-      color: var(--accent);
+    .pdf-version-actions {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.65rem;
     }
     .download-btn {
       display: inline-flex;
@@ -144,52 +138,23 @@
       width: 1.15rem;
       height: 1.15rem;
     }
-    .embed-wrap {
-      margin-top: 0.75rem;
-    }
-    /* Mobile browsers usually cannot show PDFs inline in iframes and may prompt
-       to download (worse with several sections each loading a PDF). */
-    .pdf-mobile-fallback {
-      display: none;
-      margin-top: 0.75rem;
-      padding: 1rem 1.1rem;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      font-size: 0.9rem;
-      color: var(--muted);
-      line-height: 1.5;
-    }
     .pdf-open-tab {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0.55rem 1rem;
+      padding: 0.5rem 1rem;
       border-radius: 8px;
       background: rgba(138, 180, 248, 0.15);
       color: var(--link);
+      font-size: 0.85rem;
       font-weight: 600;
+      font-family: inherit;
       text-decoration: none;
       border: 1px solid rgba(138, 180, 248, 0.35);
     }
     .pdf-open-tab:hover {
       background: rgba(138, 180, 248, 0.22);
       color: var(--text);
-    }
-    @media (max-width: 42rem) {
-      .embed-wrap {
-        display: none;
-      }
-      .pdf-mobile-fallback {
-        display: block;
-      }
-    }
-    .embed {
-      border: 0;
-      width: 100%;
-      min-height: 28rem;
-      border-radius: 8px;
-      background: #111;
     }
     .pdf-commit-meta {
       margin: 0.6rem 0 0;
@@ -216,25 +181,20 @@
   </style>
 </head>
 <body>
-  <nav class="section-nav" aria-label="Разделы буклета">
-    {% for section in booklet_sections %}
-    <a href="#{{ section.id }}">{{ section.title }}</a>
-    {% endfor %}
-  </nav>
-
+  {% language "en" %}
   <div class="wrap">
     <header class="booklet-page-head">
-      <h1>Евровидение 2026 — буклет</h1>
+      <h1>Eurovision 2026 — Booklet</h1>
       {% if booklet_source_url or booklet_last_updated %}
       <div class="booklet-page-sub">
         {% if booklet_source_url %}
         <p class="booklet-source meta-sub">
-          <a href="{{ booklet_source_url }}" rel="noopener noreferrer" target="_blank">Booklet Source Code</a>
+          <a href="{{ booklet_source_url }}" rel="noopener noreferrer" target="_blank">Booklet source (repository)</a>
         </p>
         {% endif %}
         {% if booklet_last_updated %}
         <p class="booklet-last-updated meta-sub">
-          Последнее обновление:
+          Last updated:
           <time datetime="{{ booklet_last_updated.iso }}">{{ booklet_last_updated.dt|date:"j E Y, H:i e" }}</time>
         </p>
         {% endif %}
@@ -243,109 +203,65 @@
     </header>
 
     {% for section in booklet_sections %}
-    <section id="{{ section.id }}" class="booklet-section" data-pdf-ru="{{ section.pdf_ru_url }}" data-pdf-en="{{ section.pdf_en_url }}">
+    <section id="{{ section.id }}" class="booklet-section">
       <h2>{{ section.title }}</h2>
       {% if section.meta_ru or section.meta_en %}
-      <p class="pdf-commit-meta" aria-label="Дата коммита для PDF в репозитории">
+      <p class="pdf-commit-meta" aria-label="PDF commit timestamps in the booklet repository">
         {% if section.meta_ru %}
-        <span>RU PDF, коммит <time datetime="{{ section.meta_ru.commit_iso }}">{{ section.meta_ru.commit_date|date:"j E Y, H:i e" }}</time>{% if section.meta_en %} · {% endif %}</span>
+        <span>Russian PDF, commit <time datetime="{{ section.meta_ru.commit_iso }}">{{ section.meta_ru.commit_date|date:"j E Y, H:i e" }}</time>{% if section.meta_en %} · {% endif %}</span>
         {% endif %}
         {% if section.meta_en %}
-        <span>EN PDF, коммит <time datetime="{{ section.meta_en.commit_iso }}">{{ section.meta_en.commit_date|date:"j E Y, H:i e" }}</time></span>
+        <span>English PDF, commit <time datetime="{{ section.meta_en.commit_iso }}">{{ section.meta_en.commit_date|date:"j E Y, H:i e" }}</time></span>
         {% endif %}
       </p>
       {% endif %}
-      <div class="toolbar">
-        <div class="lang-toggle" role="group" aria-label="Язык PDF для просмотра">
-          <button type="button" class="active" data-lang="ru">RU</button>
-          <button type="button" data-lang="en">EN</button>
+      <div class="pdf-versions">
+        <div class="pdf-version-row">
+          <div class="pdf-version-heading">
+            <span class="flag-circle" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect width="60" height="30" fill="#012169"/>
+                <path stroke="#fff" stroke-width="6" d="M0 0 60 30M60 0 0 30"/>
+                <path stroke="#C8102E" stroke-width="4" d="M0 0 60 30M60 0 0 30"/>
+                <path stroke="#fff" stroke-width="10" d="M30 0v30M0 15h60"/>
+                <path stroke="#C8102E" stroke-width="6" d="M30 0v30M0 15h60"/>
+              </svg>
+            </span>
+            <span class="pdf-version-label">English Version</span>
+          </div>
+          <div class="pdf-version-actions">
+            <a class="pdf-open-tab" href="{{ section.pdf_en_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open English PDF in new tab">Open PDF</a>
+            <a class="download-btn" href="{{ section.pdf_en_url }}" download aria-label="Download English PDF" title="Download English PDF">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            </a>
+          </div>
         </div>
-        <a class="download-btn" href="{{ section.pdf_ru_url }}" download aria-label="Скачать PDF" title="Скачать PDF">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-        </a>
-      </div>
-      <div class="pdf-mobile-fallback" role="region" aria-label="Просмотр PDF на телефоне">
-        <a class="pdf-open-tab" href="{{ section.pdf_ru_url }}" target="_blank" rel="noopener noreferrer">Открыть PDF (RU)</a>
-      </div>
-      <div class="embed-wrap">
-        <iframe class="embed pdf-frame" title="{{ section.title }}" src="about:blank" data-initial-lang="ru"></iframe>
+        <div class="pdf-version-row">
+          <div class="pdf-version-heading">
+            <span class="flag-circle" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 6" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect fill="#ffffff" width="9" height="2"/>
+                <rect fill="#0039a6" y="2" width="9" height="2"/>
+                <rect fill="#d52b1e" y="4" width="9" height="2"/>
+              </svg>
+            </span>
+            <span class="pdf-version-label">Russian Version</span>
+          </div>
+          <div class="pdf-version-actions">
+            <a class="pdf-open-tab" href="{{ section.pdf_ru_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open Russian PDF in new tab">Open PDF</a>
+            <a class="download-btn" href="{{ section.pdf_ru_url }}" download aria-label="Download Russian PDF" title="Download Russian PDF">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            </a>
+          </div>
+        </div>
       </div>
     </section>
     {% endfor %}
 
     <footer class="site-footer">
-      Made by <a href="https://interoves.com/" rel="noopener">interoves.com</a> — Community of Russian-speaking puzzle games fans
+      Made by <a href="https://interoves.com/" rel="noopener">interoves.com</a> — Community for Russian-speaking fans of puzzle games
     </footer>
   </div>
-
-  <script>
-    (function () {
-      function filenameFromUrl(url) {
-        try {
-          var path = new URL(url, window.location.origin).pathname;
-          var base = path.split("/").pop() || "booklet.pdf";
-          return decodeURIComponent(base);
-        } catch (e) {
-          return "booklet.pdf";
-        }
-      }
-
-      /** Inline iframe PDF works on many desktops; on narrow viewports skip loading to avoid download prompts. */
-      var useInlinePdf = window.matchMedia("(min-width: 42.01rem)");
-
-      document.querySelectorAll("section.booklet-section").forEach(function (section) {
-        var ru = section.getAttribute("data-pdf-ru");
-        var en = section.getAttribute("data-pdf-en");
-        var iframe = section.querySelector(".pdf-frame");
-        var download = section.querySelector(".download-btn");
-        var openTab = section.querySelector(".pdf-open-tab");
-        var buttons = section.querySelectorAll(".lang-toggle button");
-        var lang = (iframe && iframe.getAttribute("data-initial-lang")) || "ru";
-
-        function syncIframeSrc(url) {
-          if (!iframe) return;
-          iframe.src = useInlinePdf.matches ? url : "about:blank";
-        }
-
-        function pickLang(nextLang) {
-          lang = nextLang;
-          var url = lang === "en" ? en : ru;
-          buttons.forEach(function (btn) {
-            btn.classList.toggle("active", btn.getAttribute("data-lang") === lang);
-          });
-          syncIframeSrc(url);
-          if (download) {
-            download.href = url;
-            download.download = filenameFromUrl(url);
-            download.setAttribute("title", "Скачать PDF");
-          }
-          if (openTab) {
-            openTab.href = url;
-            openTab.textContent = lang === "en" ? "Открыть PDF (EN)" : "Открыть PDF (RU)";
-          }
-        }
-
-        pickLang(lang);
-
-        if (useInlinePdf.addEventListener) {
-          useInlinePdf.addEventListener("change", function () {
-            var url = lang === "en" ? en : ru;
-            syncIframeSrc(url);
-          });
-        } else if (useInlinePdf.addListener) {
-          useInlinePdf.addListener(function () {
-            var url = lang === "en" ? en : ru;
-            syncIframeSrc(url);
-          });
-        }
-
-        buttons.forEach(function (btn) {
-          btn.addEventListener("click", function () {
-            pickLang(btn.getAttribute("data-lang"));
-          });
-        });
-      });
-    })();
-  </script>
+  {% endlanguage %}
 </body>
 </html>
