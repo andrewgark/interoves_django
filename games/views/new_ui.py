@@ -264,33 +264,6 @@ def _team_join_redirect(request):
     return redirect('new_team_join_page')
 
 
-def _section_task_groups_rules_modal_html(task_groups):
-    """
-    HTML для модалки «Правила» на странице раздела: непустые rules у канонических TaskGroup.
-    Если есть хотя бы один блок — возвращаем разметку; иначе None (тогда остаются туториалы/хардкод).
-    """
-    parts = []
-    for i, p in enumerate(task_groups):
-        tg = p.task_group
-        rules = getattr(tg, 'rules', None)
-        if not rules:
-            continue
-        html = (rules.html or '').strip()
-        if not html:
-            continue
-        margin = 'margin-top:0' if i == 0 else 'margin-top:1.25rem'
-        heading = format_html(
-            '<h3 class="new-heading" style="font-size:1.1rem;{}">{} · {}</h3>',
-            margin,
-            p.number,
-            p.name,
-        )
-        parts.append(format_html('<div class="new-section-rules-block">{}</div>', heading + mark_safe(html)))
-    if not parts:
-        return None
-    return mark_safe(''.join(str(x) for x in parts))
-
-
 def _session_play_mode_key(project_id):
     return 'play_mode_{}'.format(project_id or 'main')
 
@@ -350,6 +323,8 @@ def new_hub(request):
         'show_sections_nav': True,
         'community_links': [
             {'kind': 'telegram', 'title': 'Телеграм-канал', 'href': 'https://t.me/interoves'},
+            {'kind': 'twitter', 'title': 'X (Twitter)', 'href': 'https://x.com/interoves'},
+            {'kind': 'instagram', 'title': 'Instagram', 'href': 'https://www.instagram.com/interoveslocumpraesta/'},
             {'kind': 'telegram', 'title': 'Чат участников', 'href': 'https://t.me/+rhsbkEuU4-ExOWEy'},
             {'kind': 'telegram', 'title': 'Чат решающих PuzzleHunts', 'href': 'https://t.me/+GPR22w8MdLEyNzIy'},
             {'kind': 'telegram', 'title': 'Разработчик: Андрей', 'href': 'https://t.me/andrewgark'},
@@ -773,7 +748,11 @@ def new_section_game_page(request, game_id):
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
     if not project:
         raise Http404()
-    game = Game.objects.filter(project=project, id=game_id).first()
+    game = (
+        Game.objects.filter(project=project, id=game_id)
+        .select_related('section_default_rules')
+        .first()
+    )
     if not game:
         raise Http404()
     team = None
@@ -786,7 +765,7 @@ def new_section_game_page(request, game_id):
     team_for_access = team
     task_groups = (
         GameTaskGroup.objects.filter(game=game)
-        .select_related('task_group', 'task_group__rules')
+        .select_related('task_group')
         .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
         .order_by('number')
     )
@@ -843,7 +822,10 @@ def new_section_game_page(request, game_id):
             'title': '{} · {}'.format(p.number, p.name),
             'progress_text': '{} из {} {} решено'.format(n_solved, p.n_tasks, _ru_iz_punkt_word(p.n_tasks)),
         })
-    section_task_groups_rules_html = _section_task_groups_rules_modal_html(task_groups)
+    section_task_groups_rules_html = None
+    rules_page = game.section_default_rules
+    if rules_page and (rules_page.html or '').strip():
+        section_task_groups_rules_html = mark_safe((rules_page.html or '').strip())
     if section_task_groups_rules_html:
         section_rules_type = None
         section_tutorial_html = None

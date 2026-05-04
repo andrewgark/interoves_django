@@ -65,6 +65,36 @@ def _get_site_deploy_version() -> str:
 
 SITE_DEPLOY_VERSION = _get_site_deploy_version()
 
+# Nutrimatic (Russian Wikipedia index): directory with build/find-expr, *.index,
+# and cgi_scripts/cgi-search.py. Override with NUTRIMATIC_ROOT on EB.
+def _resolve_nutrimatic_root() -> str:
+    explicit = (os.environ.get("NUTRIMATIC_ROOT") or "").strip()
+    if explicit:
+        return explicit
+    # Bundle wins when both exist (typical local + EB layout). Sync cgi_scripts from
+    # ~/nutrimatic-ru with scripts/bundle_microsites.sh so the home page examples match the fork.
+    for d in (
+        os.path.join(BASE_DIR, "nutrimatic_bundle"),
+        os.path.expanduser("~/nutrimatic-ru"),
+    ):
+        if os.path.isfile(os.path.join(d, "build", "find-expr")):
+            return d
+    return ""
+
+
+NUTRIMATIC_ROOT = _resolve_nutrimatic_root()
+NUTRIMATIC_FIND_EXPR = (os.environ.get("NUTRIMATIC_FIND_EXPR") or "").strip()
+NUTRIMATIC_INDEX = (os.environ.get("NUTRIMATIC_INDEX") or "").strip()
+NUTRIMATIC_CGI_SCRIPT = (os.environ.get("NUTRIMATIC_CGI_SCRIPT") or "").strip()
+# Optional: large .index on S3 — downloaded to nutrimatic_bundle/.s3_index_cache/ (find-expr still needs a local path).
+NUTRIMATIC_INDEX_S3_BUCKET = (os.environ.get("NUTRIMATIC_INDEX_S3_BUCKET") or "").strip()
+NUTRIMATIC_INDEX_S3_KEY = (os.environ.get("NUTRIMATIC_INDEX_S3_KEY") or "").strip()
+NUTRIMATIC_INDEX_S3_REGION = (
+    os.environ.get("NUTRIMATIC_INDEX_S3_REGION")
+    or os.environ.get("AWS_DEFAULT_REGION")
+    or "eu-central-1"
+).strip()
+
 
 def load_secret(secret_filename: str, *, env_var: str | None = None, default: str | None = None) -> str:
     """
@@ -174,6 +204,7 @@ INSTALLED_APPS = [
     'daphne',
     'channels',
     'games',
+    'microsites.apps.MicrositesConfig',
     # 'djcelery',
 
     'django.contrib.admin',

@@ -11,7 +11,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|team|profile|pay|answer|like-dislike|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|yookassa|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|logout)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|team|profile|pay|answer|like-dislike|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|yookassa|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|logout|nutrimatic-ru|eurovision_booklet)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     # Project-scoped "new UI" pages (isolated navigation per project).

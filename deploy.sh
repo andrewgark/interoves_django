@@ -3,6 +3,7 @@
 # Optional: set EB_BIN to full path to eb if it is not on PATH.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
+./scripts/bundle_microsites.sh
 ./scripts/write_deploy_version.sh
 if command -v ntpdate >/dev/null 2>&1; then
   # `sudo` may be non-interactive (e.g. when run from automation). Don't fail deploy on time sync.

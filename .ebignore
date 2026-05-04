@@ -2,3 +2,7 @@
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
+
+# nutrimatic_bundle may contain a ~350MB wiki-merged.index; keep it out of the app zip when the index
+# is loaded from S3 (NUTRIMATIC_INDEX_S3_*). Remove these lines if you must ship the index in the bundle.
+nutrimatic_bundle/*.index

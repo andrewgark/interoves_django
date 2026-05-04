@@ -235,6 +235,7 @@ class GameAdmin(admin.ModelAdmin):
     inlines = [
         TaskGroupInline,
     ]
+    raw_id_fields = ['section_default_rules']
     search_fields = ['id', 'name', 'outside_name']
     list_display = ['__str__', 'name', 'theme', 'author', 'start_time', 'end_time', 'is_ready', 'is_playable', 'is_testing', 'is_registrable', 'requires_ticket']
     actions = [

@@ -18,7 +18,9 @@ media
 # Generated before eb deploy / packaging (see scripts/write_deploy_version.sh)
 interoves_django/deploy_version.txt
 
-# Elastic Beanstalk Files
+# Nutrimatic runtime bundle (binary + index + cgi); not committed — see scripts/bundle_microsites.sh
+nutrimatic_bundle/
+
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml

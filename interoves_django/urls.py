@@ -14,14 +14,35 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
-from django.views.generic import TemplateView
 from django.contrib.auth.views import LogoutView
+from django.urls import path, include, re_path
 from django.shortcuts import redirect
+from django.views.generic import RedirectView, TemplateView
+
+from microsites import views as microsites_views
 from games.views.meta_http import deploy_version
 from games.views.ticket import yookassa_webhook
+
+nutrimatic_patterns = [
+    path("", microsites_views.nutrimatic_search, name="nutrimatic_home"),
+    re_path(
+        r"^(?P<rel_path>[-a-zA-Z0-9_.]+)$",
+        microsites_views.nutrimatic_web_file,
+    ),
+]
+
+eurovision_booklet_patterns = [
+    path(
+        "",
+        RedirectView.as_view(url="/eurovision_booklet/2026/", permanent=False),
+    ),
+    path(
+        "2026/",
+        microsites_views.eurovision_booklet_2026,
+        name="eurovision_booklet_2026",
+    ),
+]
 
 
 urlpatterns = [
@@ -44,6 +65,9 @@ urlpatterns = [
 
     path('explorer/', include('explorer.urls')),
 
+    path("nutrimatic-ru/", include(nutrimatic_patterns)),
+    path("eurovision_booklet/", include(eurovision_booklet_patterns)),
+
     # Main UI still POSTs to /send_attempt/, links to /games/..., /register/, team moderation URLs.
     path('', include('games.root_shared_urls')),
     path('old/', include('games.old_urls')),
@@ -51,8 +75,9 @@ urlpatterns = [
     path('', include('games.new_urls')),
 ]
 
-# Never serve user-uploaded media from Django in this project.
-# In production it must be served by Nginx (reverse proxy) and/or S3.
-# In development, use your storage backend directly (S3) or run a separate static file server.
+# In development, serve from STATICFILES_DIRS and app static (not only STATIC_ROOT).
+# Plain static(STATIC_URL, STATIC_ROOT) misses files that exist only under static/ until collectstatic.
 if settings.DEBUG and not getattr(settings, "IS_PROD", False):
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+
+    urlpatterns += staticfiles_urlpatterns()

@@ -332,6 +332,12 @@ class Game(models.Model):
         blank=True, null=True, on_delete=models.SET_NULL
     )
 
+    # Модалка «Правила» на странице раздела (project sections): один HTMLPage, без склейки по TaskGroup.
+    section_default_rules = models.ForeignKey(
+        HTMLPage, to_field='name', related_name='games_section_default_rules',
+        blank=True, null=True, on_delete=models.SET_NULL,
+    )
+
     results = models.TextField(null=True, blank=True)
     tags = models.JSONField(default=dict, null=True, blank=True)
 

@@ -1,0 +1,246 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Eurovision 2026 — буклет</title>
+  <style>
+    :root {
+      --bg: #0f1114;
+      --card: #1a1e24;
+      --text: #e8eaed;
+      --muted: #9aa0a6;
+      --accent: #c9a227;
+      --link: #8ab4f8;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, "Segoe UI", Roboto, Ubuntu, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap { max-width: 44rem; margin: 0 auto; padding: 5.5rem 1.25rem 3rem; }
+    h1 { font-size: 1.75rem; font-weight: 600; margin: 0 0 2rem; }
+    .section-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.65rem;
+      justify-content: center;
+      align-items: center;
+      padding: 0.6rem 1rem;
+      background: rgba(15, 17, 20, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .section-nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 0.25rem 0;
+    }
+    .section-nav a:hover { color: var(--link); }
+    section.booklet-section {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+      border: 1px solid rgba(255,255,255,0.06);
+      scroll-margin-top: 4.5rem;
+    }
+    section.booklet-section h2 {
+      font-size: 1.1rem;
+      margin: 0 0 1rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .lang-toggle {
+      display: inline-flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .lang-toggle button {
+      margin: 0;
+      border: 0;
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+    }
+    .lang-toggle button:hover {
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+    }
+    .lang-toggle button.active {
+      background: rgba(201, 162, 39, 0.25);
+      color: var(--accent);
+    }
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.35rem;
+      height: 2.35rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05);
+      color: var(--link);
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .download-btn:hover {
+      background: rgba(255,255,255,0.09);
+    }
+    .download-btn svg {
+      width: 1.15rem;
+      height: 1.15rem;
+    }
+    .embed-wrap {
+      margin-top: 0.75rem;
+    }
+    .embed {
+      border: 0;
+      width: 100%;
+      min-height: 28rem;
+      border-radius: 8px;
+      background: #111;
+    }
+    .site-footer {
+      margin-top: 2rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .site-footer a {
+      color: var(--link);
+      text-decoration: none;
+    }
+    .site-footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <nav class="section-nav" aria-label="Разделы буклета">
+    <a href="#overall-pre">Все страны</a>
+    <a href="#semi-1">Полуфинал 1</a>
+    <a href="#semi-2">Полуфинал 2</a>
+  </nav>
+
+  <div class="wrap">
+    <h1>Eurovision 2026 — буклет</h1>
+
+    <section id="overall-pre" class="booklet-section" data-pdf-ru="{% static 'microsites/eurovision_booklet/2026/booklet_overall_pre_ru.pdf' %}" data-pdf-en="{% static 'microsites/eurovision_booklet/2026/booklet_overall_pre_en.pdf' %}">
+      <h2>Все страны</h2>
+      <div class="toolbar">
+        <div class="lang-toggle" role="group" aria-label="Язык PDF для просмотра">
+          <button type="button" class="active" data-lang="ru">RU</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
+        <a class="download-btn" href="{% static 'microsites/eurovision_booklet/2026/booklet_overall_pre_ru.pdf' %}" download aria-label="Скачать PDF" title="Скачать PDF">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        </a>
+      </div>
+      <div class="embed-wrap">
+        <iframe class="embed pdf-frame" title="Буклет: все страны" src="{% static 'microsites/eurovision_booklet/2026/booklet_overall_pre_ru.pdf' %}"></iframe>
+      </div>
+    </section>
+
+    <section id="semi-1" class="booklet-section" data-pdf-ru="{% static 'microsites/eurovision_booklet/2026/booklet_sf1_ru.pdf' %}" data-pdf-en="{% static 'microsites/eurovision_booklet/2026/booklet_sf1_en.pdf' %}">
+      <h2>Полуфинал 1</h2>
+      <div class="toolbar">
+        <div class="lang-toggle" role="group" aria-label="Язык PDF для просмотра">
+          <button type="button" class="active" data-lang="ru">RU</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
+        <a class="download-btn" href="{% static 'microsites/eurovision_booklet/2026/booklet_sf1_ru.pdf' %}" download aria-label="Скачать PDF" title="Скачать PDF">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        </a>
+      </div>
+      <div class="embed-wrap">
+        <iframe class="embed pdf-frame" title="Полуфинал 1" src="{% static 'microsites/eurovision_booklet/2026/booklet_sf1_ru.pdf' %}"></iframe>
+      </div>
+    </section>
+
+    <section id="semi-2" class="booklet-section" data-pdf-ru="{% static 'microsites/eurovision_booklet/2026/booklet_sf2_ru.pdf' %}" data-pdf-en="{% static 'microsites/eurovision_booklet/2026/booklet_sf2_en.pdf' %}">
+      <h2>Полуфинал 2</h2>
+      <div class="toolbar">
+        <div class="lang-toggle" role="group" aria-label="Язык PDF для просмотра">
+          <button type="button" class="active" data-lang="ru">RU</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
+        <a class="download-btn" href="{% static 'microsites/eurovision_booklet/2026/booklet_sf2_ru.pdf' %}" download aria-label="Скачать PDF" title="Скачать PDF">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        </a>
+      </div>
+      <div class="embed-wrap">
+        <iframe class="embed pdf-frame" title="Полуфинал 2" src="{% static 'microsites/eurovision_booklet/2026/booklet_sf2_ru.pdf' %}"></iframe>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      Made by <a href="https://interoves.com/" rel="noopener">interoves.com</a> — Community of Russian-speaking puzzle games fans
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      function filenameFromUrl(url) {
+        try {
+          var path = new URL(url, window.location.origin).pathname;
+          var base = path.split("/").pop() || "booklet.pdf";
+          return decodeURIComponent(base);
+        } catch (e) {
+          return "booklet.pdf";
+        }
+      }
+
+      document.querySelectorAll("section.booklet-section").forEach(function (section) {
+        var ru = section.getAttribute("data-pdf-ru");
+        var en = section.getAttribute("data-pdf-en");
+        var iframe = section.querySelector(".pdf-frame");
+        var download = section.querySelector(".download-btn");
+        var buttons = section.querySelectorAll(".lang-toggle button");
+
+        function pickLang(lang) {
+          var url = lang === "en" ? en : ru;
+          buttons.forEach(function (btn) {
+            btn.classList.toggle("active", btn.getAttribute("data-lang") === lang);
+          });
+          iframe.src = url;
+          if (download) {
+            download.href = url;
+            download.download = filenameFromUrl(url);
+            download.setAttribute("title", "Скачать PDF");
+          }
+        }
+
+        buttons.forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            pickLang(btn.getAttribute("data-lang"));
+          });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

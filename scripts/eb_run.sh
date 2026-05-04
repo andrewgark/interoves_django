@@ -71,13 +71,14 @@ SSH="ssh -i ${KEY_FILE} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/n
 # The script reads env vars from the running Daphne process's /proc entry
 # (avoids parsing the EB env file, which has unquoted special chars).
 
-ARGS_JSON=$(python3 -c "import json, sys; print(json.dumps(sys.argv[1:]))" -- "$@")
+ARGS_B64=$(python3 -c "import base64, json, sys; print(base64.b64encode(json.dumps(sys.argv[1:]).encode()).decode())" -- "$@")
 
 if [[ $RAW -eq 1 ]]; then
     # Raw mode: run a shell command with the EB env injected
     RAW_CMD="$*"
+    RAW_CMD_B64=$(python3 -c "import base64, sys; print(base64.b64encode(sys.argv[1].encode()).decode())" -- "$RAW_CMD")
     $SSH "sudo python3" <<PYEOF
-import os, subprocess, sys, json
+import base64, os, subprocess, sys
 pid = subprocess.check_output(['pgrep','-of','daphne'], text=True).strip()
 env = dict(os.environ)
 if pid:
@@ -85,13 +86,14 @@ if pid:
         for kv in f.read().split(chr(0)):
             if '=' in kv:
                 k, _, v = kv.partition('='); env[k] = v
-sys.exit(subprocess.call(['bash', '-c', ${RAW_CMD@Q}], env=env))
+raw_cmd = base64.b64decode('${RAW_CMD_B64}').decode()
+sys.exit(subprocess.call(['bash', '-c', raw_cmd], env=env))
 PYEOF
 else
     # manage.py mode: discover venv Python and run manage.py with prod env
     $SSH "sudo python3" <<PYEOF
-import os, subprocess, sys, glob, json
-args = json.loads('${ARGS_JSON}')
+import base64, glob, json, os, subprocess, sys
+args = json.loads(base64.b64decode('${ARGS_B64}').decode())
 pid = subprocess.check_output(['pgrep','-of','daphne'], text=True).strip()
 env = dict(os.environ)
 if pid:
