@@ -38,6 +38,11 @@ eurovision_booklet_patterns = [
         RedirectView.as_view(url="/eurovision_booklet/2026/", permanent=False),
     ),
     path(
+        "2026/pdf/<str:filename>",
+        microsites_views.eurovision_booklet_pdf,
+        name="eurovision_booklet_pdf",
+    ),
+    path(
         "2026/",
         microsites_views.eurovision_booklet_2026,
         name="eurovision_booklet_2026",

@@ -95,6 +95,40 @@ NUTRIMATIC_INDEX_S3_REGION = (
     or "eu-central-1"
 ).strip()
 
+# Eurovision 2026 booklet: keep PDFs in sync with a git source (local clone takes
+# precedence over GitHub). Cached copies + manifest: BASE_DIR/var/eurovision_booklet/2026/
+EUROVISION_BOOKLET_REPO_PATH = (os.environ.get("EUROVISION_BOOKLET_REPO_PATH") or "").strip()
+EUROVISION_BOOKLET_GITHUB_REPO = (
+    os.environ.get("EUROVISION_BOOKLET_GITHUB_REPO") or ""
+).strip()
+EUROVISION_BOOKLET_GITHUB_TOKEN = (os.environ.get("EUROVISION_BOOKLET_GITHUB_TOKEN") or "").strip()
+EUROVISION_BOOKLET_GIT_REMOTE = (os.environ.get("EUROVISION_BOOKLET_GIT_REMOTE") or "origin").strip()
+EUROVISION_BOOKLET_GIT_BRANCH = (os.environ.get("EUROVISION_BOOKLET_GIT_BRANCH") or "main").strip()
+EUROVISION_BOOKLET_DIST_PATH = (os.environ.get("EUROVISION_BOOKLET_DIST_PATH") or "dist").strip()
+EUROVISION_BOOKLET_HTTP_TIMEOUT = float(
+    os.environ.get("EUROVISION_BOOKLET_HTTP_TIMEOUT") or 60.0
+)
+# Minimum seconds between remote checks (GitHub rate limits). 0 = every request.
+EUROVISION_BOOKLET_SYNC_MIN_INTERVAL_SEC = int(
+    os.environ.get("EUROVISION_BOOKLET_SYNC_MIN_INTERVAL_SEC") or 120
+)
+_eurovision_booklet_source_url = (
+    os.environ.get("EUROVISION_BOOKLET_SOURCE_URL") or ""
+).strip()
+if _eurovision_booklet_source_url:
+    EUROVISION_BOOKLET_SOURCE_URL = _eurovision_booklet_source_url
+elif "/" in EUROVISION_BOOKLET_GITHUB_REPO:
+    EUROVISION_BOOKLET_SOURCE_URL = (
+        f"https://github.com/{EUROVISION_BOOKLET_GITHUB_REPO}"
+    )
+else:
+    # «Booklet Source Code» on the minisite when sync env is unset.
+    # Public repo: https://github.com/andrewgark/eurovision2026booklet
+    # Override with EUROVISION_BOOKLET_SOURCE_URL or EUROVISION_BOOKLET_GITHUB_REPO if needed.
+    EUROVISION_BOOKLET_SOURCE_URL = (
+        "https://github.com/andrewgark/eurovision2026booklet"
+    )
+
 
 def load_secret(secret_filename: str, *, env_var: str | None = None, default: str | None = None) -> str:
     """

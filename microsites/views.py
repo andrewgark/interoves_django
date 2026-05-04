@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import sys
+from datetime import datetime, timezone as dt_timezone
 from pathlib import Path
 
 from django.conf import settings
@@ -10,6 +11,15 @@ from django.contrib.staticfiles import finders
 from django.http import Http404, HttpResponse, FileResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
+
+from microsites.eurovision_booklet_sync import (
+    BOOKLET_MINISITE_SECTIONS,
+    BOOKLET_PDF_FILENAMES,
+    ensure_eurovision_booklet_sync,
+    meta_for_filename,
+    pdf_url_for,
+    sync_configured,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +155,140 @@ def nutrimatic_web_file(request, rel_path):
     return FileResponse(open(absolute_path, "rb"))
 
 
+def _parse_booklet_synced_at(s: str) -> datetime | None:
+    s = (s or "").strip()
+    if not s:
+        return None
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt_timezone.utc)
+    return parsed
+
+
+def _booklet_cached_pdfs_latest_mtime() -> datetime | None:
+    base = Path(settings.BASE_DIR) / "var" / "eurovision_booklet" / "2026"
+    latest: datetime | None = None
+    for _sid, _title, ru, en in BOOKLET_MINISITE_SECTIONS:
+        for name in (ru, en):
+            p = base / name
+            if p.is_file():
+                d = datetime.fromtimestamp(p.stat().st_mtime, tz=dt_timezone.utc)
+                if latest is None or d > latest:
+                    latest = d
+    return latest
+
+
+def _booklet_static_pdfs_latest_mtime() -> datetime | None:
+    latest: datetime | None = None
+    for _sid, _title, ru, en in BOOKLET_MINISITE_SECTIONS:
+        for name in (ru, en):
+            absolute_path = finders.find(
+                f"microsites/eurovision_booklet/2026/{name}"
+            )
+            if absolute_path:
+                d = datetime.fromtimestamp(
+                    os.path.getmtime(absolute_path),
+                    tz=dt_timezone.utc,
+                )
+                if latest is None or d > latest:
+                    latest = d
+    return latest
+
+
+def _booklet_latest_git_commit_datetime(manifest: dict) -> datetime | None:
+    """Newest PDF commit timestamp from the sync manifest (Git/GitHub), if any."""
+    latest: datetime | None = None
+    for name in BOOKLET_PDF_FILENAMES:
+        m = meta_for_filename(manifest, name)
+        if m is None:
+            continue
+        if latest is None or m.commit_date > latest:
+            latest = m.commit_date
+    return latest
+
+
+def _booklet_last_updated_display(manifest: dict) -> dict | None:
+    # Prefer real content age from git (per-file last-changing commits), not
+    # manifest "synced_at" (that is only when this server last ran a sync).
+    dt = _booklet_latest_git_commit_datetime(manifest)
+    if dt is None:
+        dt = _parse_booklet_synced_at((manifest or {}).get("synced_at") or "")
+    if dt is None:
+        dt = _booklet_cached_pdfs_latest_mtime()
+    if dt is None:
+        dt = _booklet_static_pdfs_latest_mtime()
+    if dt is None:
+        return None
+    return {"dt": dt, "iso": dt.isoformat()}
+
+
+def _booklet_meta_dict(manifest: dict, filename: str) -> dict | None:
+    m = meta_for_filename(manifest, filename)
+    if not m:
+        return None
+    return {
+        "commit": m.commit,
+        "commit_date": m.commit_date,
+        "commit_iso": m.commit_date.isoformat(),
+    }
+
+
 @require_GET
 def eurovision_booklet_2026(request):
-    return render(request, "microsites/eurovision_booklet_2026.html")
+    sync_on = sync_configured(settings)
+    manifest = {}
+    if sync_on:
+        manifest = ensure_eurovision_booklet_sync(settings)
+
+    sections = []
+    for sid, title, ru_name, en_name in BOOKLET_MINISITE_SECTIONS:
+        sections.append(
+            {
+                "id": sid,
+                "title": title,
+                "pdf_ru_url": pdf_url_for(settings, manifest, ru_name),
+                "pdf_en_url": pdf_url_for(settings, manifest, en_name),
+                "meta_ru": _booklet_meta_dict(manifest, ru_name),
+                "meta_en": _booklet_meta_dict(manifest, en_name),
+            }
+        )
+
+    ctx = {
+        "booklet_sections": sections,
+        "booklet_sync_configured": sync_on,
+        "booklet_branch_tip": (manifest or {}).get("branch_tip", ""),
+        "booklet_synced_at": (manifest or {}).get("synced_at", ""),
+        "booklet_last_updated": _booklet_last_updated_display(manifest),
+        "booklet_source_url": (
+            getattr(settings, "EUROVISION_BOOKLET_SOURCE_URL", "") or ""
+        ).strip(),
+    }
+    return render(request, "microsites/eurovision_booklet_2026.html", ctx)
+
+
+@require_GET
+def eurovision_booklet_pdf(request, filename: str):
+    if filename not in BOOKLET_PDF_FILENAMES:
+        raise Http404()
+    cache_path = (
+        Path(settings.BASE_DIR) / "var" / "eurovision_booklet" / "2026" / filename
+    )
+    if cache_path.is_file():
+        return FileResponse(
+            cache_path.open("rb"),
+            content_type="application/pdf",
+        )
+    absolute_path = finders.find(
+        f"microsites/eurovision_booklet/2026/{filename}"
+    )
+    if not absolute_path:
+        raise Http404()
+    return FileResponse(
+        open(absolute_path, "rb"),
+        content_type="application/pdf",
+    )

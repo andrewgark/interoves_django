@@ -1,10 +1,9 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Eurovision 2026 — буклет</title>
+  <title>Евровидение 2026 — буклет</title>
   <style>
     :root {
       --bg: #0f1114;
@@ -24,7 +23,38 @@
       line-height: 1.5;
     }
     .wrap { max-width: 44rem; margin: 0 auto; padding: 5.5rem 1.25rem 3rem; }
-    h1 { font-size: 1.75rem; font-weight: 600; margin: 0 0 2rem; }
+    h1 { font-size: 1.75rem; font-weight: 600; margin: 0; }
+    .booklet-page-head {
+      margin-bottom: 2rem;
+    }
+    .booklet-page-sub {
+      margin-top: 0.45rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .booklet-page-sub p {
+      margin: 0;
+    }
+    .booklet-source.meta-sub,
+    .booklet-last-updated.meta-sub {
+      font-size: 0.82rem;
+      color: rgba(154, 160, 166, 0.72);
+      line-height: 1.45;
+    }
+    .booklet-source.meta-sub a {
+      color: rgba(138, 180, 248, 0.72);
+      text-decoration: none;
+      font-weight: 400;
+    }
+    .booklet-source.meta-sub a:hover {
+      color: var(--link);
+      text-decoration: underline;
+    }
+    .booklet-last-updated.meta-sub time {
+      color: inherit;
+      font-weight: 400;
+    }
     .section-nav {
       position: fixed;
       top: 0;
@@ -124,6 +154,15 @@
       border-radius: 8px;
       background: #111;
     }
+    .pdf-commit-meta {
+      margin: 0.6rem 0 0;
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .pdf-commit-meta time {
+      color: var(--muted);
+    }
     .site-footer {
       margin-top: 2rem;
       padding-top: 1.25rem;
@@ -141,61 +180,58 @@
 </head>
 <body>
   <nav class="section-nav" aria-label="Разделы буклета">
-    <a href="#overall-pre">Все страны</a>
-    <a href="#semi-1">Полуфинал 1</a>
-    <a href="#semi-2">Полуфинал 2</a>
+    {% for section in booklet_sections %}
+    <a href="#{{ section.id }}">{{ section.title }}</a>
+    {% endfor %}
   </nav>
 
   <div class="wrap">
-    <h1>Eurovision 2026 — буклет</h1>
+    <header class="booklet-page-head">
+      <h1>Евровидение 2026 — буклет</h1>
+      {% if booklet_source_url or booklet_last_updated %}
+      <div class="booklet-page-sub">
+        {% if booklet_source_url %}
+        <p class="booklet-source meta-sub">
+          <a href="{{ booklet_source_url }}" rel="noopener noreferrer" target="_blank">Booklet Source Code</a>
+        </p>
+        {% endif %}
+        {% if booklet_last_updated %}
+        <p class="booklet-last-updated meta-sub">
+          Последнее обновление:
+          <time datetime="{{ booklet_last_updated.iso }}">{{ booklet_last_updated.dt|date:"j E Y, H:i e" }}</time>
+        </p>
+        {% endif %}
+      </div>
+      {% endif %}
+    </header>
 
-    <section id="overall-pre" class="booklet-section" data-pdf-ru="{% static 'microsites/eurovision_booklet/2026/booklet_overall_pre_ru.pdf' %}" data-pdf-en="{% static 'microsites/eurovision_booklet/2026/booklet_overall_pre_en.pdf' %}">
-      <h2>Все страны</h2>
+    {% for section in booklet_sections %}
+    <section id="{{ section.id }}" class="booklet-section" data-pdf-ru="{{ section.pdf_ru_url }}" data-pdf-en="{{ section.pdf_en_url }}">
+      <h2>{{ section.title }}</h2>
+      {% if section.meta_ru or section.meta_en %}
+      <p class="pdf-commit-meta" aria-label="Дата коммита для PDF в репозитории">
+        {% if section.meta_ru %}
+        <span>RU PDF, коммит <time datetime="{{ section.meta_ru.commit_iso }}">{{ section.meta_ru.commit_date|date:"j E Y, H:i e" }}</time>{% if section.meta_en %} · {% endif %}</span>
+        {% endif %}
+        {% if section.meta_en %}
+        <span>EN PDF, коммит <time datetime="{{ section.meta_en.commit_iso }}">{{ section.meta_en.commit_date|date:"j E Y, H:i e" }}</time></span>
+        {% endif %}
+      </p>
+      {% endif %}
       <div class="toolbar">
         <div class="lang-toggle" role="group" aria-label="Язык PDF для просмотра">
           <button type="button" class="active" data-lang="ru">RU</button>
           <button type="button" data-lang="en">EN</button>
         </div>
-        <a class="download-btn" href="{% static 'microsites/eurovision_booklet/2026/booklet_overall_pre_ru.pdf' %}" download aria-label="Скачать PDF" title="Скачать PDF">
+        <a class="download-btn" href="{{ section.pdf_ru_url }}" download aria-label="Скачать PDF" title="Скачать PDF">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
         </a>
       </div>
       <div class="embed-wrap">
-        <iframe class="embed pdf-frame" title="Буклет: все страны" src="{% static 'microsites/eurovision_booklet/2026/booklet_overall_pre_ru.pdf' %}"></iframe>
+        <iframe class="embed pdf-frame" title="{{ section.title }}" src="{{ section.pdf_ru_url }}"></iframe>
       </div>
     </section>
-
-    <section id="semi-1" class="booklet-section" data-pdf-ru="{% static 'microsites/eurovision_booklet/2026/booklet_sf1_ru.pdf' %}" data-pdf-en="{% static 'microsites/eurovision_booklet/2026/booklet_sf1_en.pdf' %}">
-      <h2>Полуфинал 1</h2>
-      <div class="toolbar">
-        <div class="lang-toggle" role="group" aria-label="Язык PDF для просмотра">
-          <button type="button" class="active" data-lang="ru">RU</button>
-          <button type="button" data-lang="en">EN</button>
-        </div>
-        <a class="download-btn" href="{% static 'microsites/eurovision_booklet/2026/booklet_sf1_ru.pdf' %}" download aria-label="Скачать PDF" title="Скачать PDF">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-        </a>
-      </div>
-      <div class="embed-wrap">
-        <iframe class="embed pdf-frame" title="Полуфинал 1" src="{% static 'microsites/eurovision_booklet/2026/booklet_sf1_ru.pdf' %}"></iframe>
-      </div>
-    </section>
-
-    <section id="semi-2" class="booklet-section" data-pdf-ru="{% static 'microsites/eurovision_booklet/2026/booklet_sf2_ru.pdf' %}" data-pdf-en="{% static 'microsites/eurovision_booklet/2026/booklet_sf2_en.pdf' %}">
-      <h2>Полуфинал 2</h2>
-      <div class="toolbar">
-        <div class="lang-toggle" role="group" aria-label="Язык PDF для просмотра">
-          <button type="button" class="active" data-lang="ru">RU</button>
-          <button type="button" data-lang="en">EN</button>
-        </div>
-        <a class="download-btn" href="{% static 'microsites/eurovision_booklet/2026/booklet_sf2_ru.pdf' %}" download aria-label="Скачать PDF" title="Скачать PDF">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-        </a>
-      </div>
-      <div class="embed-wrap">
-        <iframe class="embed pdf-frame" title="Полуфинал 2" src="{% static 'microsites/eurovision_booklet/2026/booklet_sf2_ru.pdf' %}"></iframe>
-      </div>
-    </section>
+    {% endfor %}
 
     <footer class="site-footer">
       Made by <a href="https://interoves.com/" rel="noopener">interoves.com</a> — Community of Russian-speaking puzzle games fans

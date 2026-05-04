@@ -15,6 +15,9 @@ secrets/*
 __pycache__
 media
 
+# Eurovision booklet: runtime sync cache (PDFs + manifest from git)
+var/eurovision_booklet/
+
 # Generated before eb deploy / packaging (see scripts/write_deploy_version.sh)
 interoves_django/deploy_version.txt
 

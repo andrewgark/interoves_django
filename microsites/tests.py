@@ -1,4 +1,4 @@
-from django.test import SimpleTestCase
+from django.test import Client, SimpleTestCase
 from django.urls import resolve, reverse
 
 
@@ -20,3 +20,19 @@ class MicrositesUrlTests(SimpleTestCase):
             reverse("eurovision_booklet_2026"),
             "/eurovision_booklet/2026/",
         )
+
+    def test_eurovision_booklet_pdf_reverse(self):
+        self.assertEqual(
+            reverse(
+                "eurovision_booklet_pdf",
+                kwargs={"filename": "eurovision2026_sf1_ru.pdf"},
+            ),
+            "/eurovision_booklet/2026/pdf/eurovision2026_sf1_ru.pdf",
+        )
+
+    def test_eurovision_booklet_200_and_pdf_404(self):
+        c = Client()
+        r = c.get("/eurovision_booklet/2026/")
+        self.assertEqual(r.status_code, 200)
+        bad = c.get("/eurovision_booklet/2026/pdf/not-a-booklet.pdf")
+        self.assertEqual(bad.status_code, 404)
