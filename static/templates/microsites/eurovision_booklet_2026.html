@@ -156,15 +156,6 @@
       background: rgba(138, 180, 248, 0.22);
       color: var(--text);
     }
-    .pdf-commit-meta {
-      margin: 0.6rem 0 0;
-      font-size: 0.78rem;
-      color: var(--muted);
-      line-height: 1.45;
-    }
-    .pdf-commit-meta time {
-      color: var(--muted);
-    }
     .site-footer {
       margin-top: 2rem;
       padding-top: 1.25rem;
@@ -205,16 +196,6 @@
     {% for section in booklet_sections %}
     <section id="{{ section.id }}" class="booklet-section">
       <h2>{{ section.title }}</h2>
-      {% if section.meta_ru or section.meta_en %}
-      <p class="pdf-commit-meta" aria-label="PDF commit timestamps in the booklet repository">
-        {% if section.meta_ru %}
-        <span>Russian PDF, commit <time datetime="{{ section.meta_ru.commit_iso }}">{{ section.meta_ru.commit_date|date:"j E Y, H:i e" }}</time>{% if section.meta_en %} · {% endif %}</span>
-        {% endif %}
-        {% if section.meta_en %}
-        <span>English PDF, commit <time datetime="{{ section.meta_en.commit_iso }}">{{ section.meta_en.commit_date|date:"j E Y, H:i e" }}</time></span>
-        {% endif %}
-      </p>
-      {% endif %}
       <div class="pdf-versions">
         <div class="pdf-version-row">
           <div class="pdf-version-heading">

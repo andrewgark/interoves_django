@@ -227,17 +227,6 @@ def _booklet_last_updated_display(manifest: dict) -> dict | None:
     return {"dt": dt, "iso": dt.isoformat()}
 
 
-def _booklet_meta_dict(manifest: dict, filename: str) -> dict | None:
-    m = meta_for_filename(manifest, filename)
-    if not m:
-        return None
-    return {
-        "commit": m.commit,
-        "commit_date": m.commit_date,
-        "commit_iso": m.commit_date.isoformat(),
-    }
-
-
 @require_GET
 def eurovision_booklet_2026(request):
     sync_on = sync_configured(settings)
@@ -253,8 +242,6 @@ def eurovision_booklet_2026(request):
                 "title": title,
                 "pdf_ru_url": pdf_url_for(settings, manifest, ru_name),
                 "pdf_en_url": pdf_url_for(settings, manifest, en_name),
-                "meta_ru": _booklet_meta_dict(manifest, ru_name),
-                "meta_en": _booklet_meta_dict(manifest, en_name),
             }
         )
 
