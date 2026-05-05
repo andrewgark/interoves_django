@@ -6,6 +6,15 @@ class StaticStorage(S3Boto3Storage):
     location = 'static'
     default_acl = 'public-read'
 
+    def url(self, name, parameters=None, expire=None, http_method=None):
+        """
+        Public links must follow STATIC_URL (e.g. https://interoves.com/static/…),
+        not AWS_S3_CUSTOM_DOMAIN — nginx proxies /static/ to the bucket.
+        """
+        name = (name or "").lstrip("/")
+        base = (settings.STATIC_URL or "/static/").rstrip("/")
+        return f"{base}/{name}"
+
 
 class PublicMediaStorage(S3Boto3Storage):
     location = 'media'

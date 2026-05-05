@@ -47,13 +47,13 @@ BOOKLET_MINISITE_SECTIONS: tuple[tuple[str, str, str, str], ...] = (
     ),
     (
         "semi-1",
-        "Semi-final 1",
+        "First Semi-Final",
         "eurovision2026_sf1_ru.pdf",
         "eurovision2026_sf1_en.pdf",
     ),
     (
         "semi-2",
-        "Semi-final 2",
+        "Second Semi-Final",
         "eurovision2026_sf2_ru.pdf",
         "eurovision2026_sf2_en.pdf",
     ),

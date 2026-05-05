@@ -489,7 +489,16 @@ if USE_S3:
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
     # s3 static settings
     STATIC_LOCATION = 'static'
-    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{STATIC_LOCATION}/'
+    # Templates use STATIC_URL; uploads still go to S3 (StaticStorage). Prod serves
+    # the same objects under interoves.com/static/… (proxy/CDN). Optional override for
+    # non-prod S3 envs: DJANGO_STATIC_URL=https://host/static
+    _django_static_url = (os.environ.get("DJANGO_STATIC_URL") or "").strip().rstrip("/")
+    if _django_static_url:
+        STATIC_URL = f"{_django_static_url}/"
+    elif IS_PROD:
+        STATIC_URL = "https://interoves.com/static/"
+    else:
+        STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATIC_LOCATION}/"
     STORAGES['staticfiles']['BACKEND'] = 'games.storage_backends.StaticStorage'
     # s3 public media settings
     PUBLIC_MEDIA_LOCATION = 'media'
