@@ -10,6 +10,7 @@ from django.conf import settings
 from django.contrib.staticfiles import finders
 from django.http import Http404, HttpResponse, FileResponse
 from django.shortcuts import render
+from django.utils.http import http_date
 from django.views.decorators.http import require_GET
 
 from microsites.eurovision_booklet_sync import (
@@ -266,16 +267,26 @@ def eurovision_booklet_pdf(request, filename: str):
         Path(settings.BASE_DIR) / "var" / "eurovision_booklet" / "2026" / filename
     )
     if cache_path.is_file():
-        return FileResponse(
+        resp = FileResponse(
             cache_path.open("rb"),
             content_type="application/pdf",
         )
+        stat = cache_path.stat()
+        resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+        resp["Last-Modified"] = http_date(stat.st_mtime)
+        resp["ETag"] = f'W/"{stat.st_size:x}-{int(stat.st_mtime):x}"'
+        return resp
     absolute_path = finders.find(
         f"microsites/eurovision_booklet/2026/{filename}"
     )
     if not absolute_path:
         raise Http404()
-    return FileResponse(
-        open(absolute_path, "rb"),
-        content_type="application/pdf",
-    )
+    resp = FileResponse(open(absolute_path, "rb"), content_type="application/pdf")
+    try:
+        st = os.stat(absolute_path)
+        resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+        resp["Last-Modified"] = http_date(st.st_mtime)
+        resp["ETag"] = f'W/"{st.st_size:x}-{int(st.st_mtime):x}"'
+    except OSError:
+        resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+    return resp
