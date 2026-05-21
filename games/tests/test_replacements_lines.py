@@ -90,6 +90,18 @@ class ParseReplacementsLinesTextTests(SimpleTestCase):
 
 
 class CapsSlotUnicodeTests(SimpleTestCase):
+    def test_businessman_caps_prefix_is_slot_trailing_man_is_literal(self):
+        left = 'В ЛИБЕРТИ-СИТИ также проводится ежегодный турнир BUSINESSman'
+        p = parse_replacements_lines_text(left, '')
+        self.assertEqual(len(p['answers'][0]), 3)
+        self.assertEqual(p['answers'][0][0], 'ЛИБЕРТИ')
+        self.assertEqual(p['answers'][0][1], 'СИТИ')
+        self.assertEqual(p['answers'][0][2], 'BUSINESS')
+        tail = ''.join(
+            t['text'] for t in p['right_tokens'][0] if t['type'] == 'text'
+        )
+        self.assertTrue(tail.endswith('man'))
+
     def test_taifoen_one_slot_with_latin_e_diaeresis(self):
         left = 'TAIFOËN - это ТЕЛЕВИЗОР.'
         p = parse_replacements_lines_text(left, '')

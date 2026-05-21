@@ -46,44 +46,48 @@ class ReplacementsTaskGroup156WholeTextTests(SimpleTestCase):
     """Строки 3, 6, 15 — типичные сбои при вставке целых фраз в «Весь текст»."""
 
     def test_line3_user_decoded_phrase_with_cobaltman(self):
-        """Расшифровка: другое слово вместо BUSINESSman в хвосте — не слот."""
+        """Третий слот — капс-префикс BUSINESS/COBALT, «man» остаётся литералом."""
         L, n = _line_literals_and_slots(2)
+        self.assertEqual(n, 3)
         phrase = 'В ЛЭЙК-ПЛЭСИД также проводится ежегодный турнир COBALTman'
         self.assertEqual(
             parse_repl_line_answers_smart(phrase, n, L),
-            ['ЛЭЙК', 'ПЛЭСИД'],
+            ['ЛЭЙК', 'ПЛЭСИД', 'COBALT'],
         )
 
     def test_line3_hyphen_or_space_in_compound(self):
         L, n = _line_literals_and_slots(2)
-        self.assertEqual(n, 2)
+        self.assertEqual(n, 3)
         full = (
             'В STATEN-ISLAND также проводится ежегодный турнир BUSINESSman'
         )
         self.assertEqual(
             parse_repl_line_answers_smart(full, n, L),
-            ['STATEN', 'ISLAND'],
+            ['STATEN', 'ISLAND', 'BUSINESS'],
         )
         with_space = (
             'В STATEN ISLAND также проводится ежегодный турнир BUSINESSman'
         )
         self.assertEqual(
             parse_repl_line_answers_smart(with_space, n, L),
-            ['STATEN', 'ISLAND'],
+            ['STATEN', 'ISLAND', 'BUSINESS'],
         )
 
     def test_line3_answer_only_tokens_or_full_phrase(self):
         L, n = _line_literals_and_slots(2)
-        self.assertEqual(parse_repl_line_answers_smart('LIBERTY\tCITY', n, L), ['LIBERTY', 'CITY'])
         self.assertEqual(
-            parse_repl_line_answers_smart('LIBERTY CITY', n, L),
-            ['LIBERTY', 'CITY'],
+            parse_repl_line_answers_smart('LIBERTY\tCITY\tCOBALT', n, L),
+            ['LIBERTY', 'CITY', 'COBALT'],
+        )
+        self.assertEqual(
+            parse_repl_line_answers_smart('LIBERTY CITY COBALT', n, L),
+            ['LIBERTY', 'CITY', 'COBALT'],
         )
         self.assertEqual(
             parse_repl_line_answers_smart(
-                'В LIBERTY CITY также проводится ежегодный турнир BUSINESSman', n, L
+                'В LIBERTY CITY также проводится ежегодный турнир COBALTman', n, L
             ),
-            ['LIBERTY', 'CITY'],
+            ['LIBERTY', 'CITY', 'COBALT'],
         )
 
     def test_line6_ascii_dash_before_imena(self):

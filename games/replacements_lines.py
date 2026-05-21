@@ -63,6 +63,12 @@ _UCC = _regex_char_class(_UPPER_CHARS)
 _SLOT_CAPS = re.compile(
     '(?<![' + _LCC + '])([' + _UCC + ']{2,})(?![' + _LCC + '])'
 )
+# Капс-префикс перед строчным хвостом: BUSINESSman → слот BUSINESS, литерал «man».
+_LOWER_CHARS = _chars_with_unicode_categories(frozenset({'Ll'}))
+_LLC_LOWER = _regex_char_class(_LOWER_CHARS) if _LOWER_CHARS else 'a-z'
+_SLOT_CAPS_CAMEL = re.compile(
+    '(?<![' + _LCC + '])([' + _UCC + ']{2,})(?=[' + _LLC_LOWER + '])'
+)
 
 
 def replacements_strip_literal_numeric_underscores(line):
@@ -97,6 +103,10 @@ def _caps_match_in_hash_literal(m_start, m_end, inner_spans):
     return False
 
 
+def _slot_span_overlaps(slots, start, end):
+    return any(s[0] < end and s[1] > start for s in slots)
+
+
 def _find_slots_in_order(line):
     # Возвращает (start, end, content) в порядке появления
     slots = []
@@ -104,12 +114,19 @@ def _find_slots_in_order(line):
     for m in _SLOT_UNDERSCORE.finditer(line):
         slots.append((m.start(), m.end(), m.group(1).strip()))
     for m in _SLOT_CAPS.finditer(line):
-        # не считаем капс-слот внутри уже найденного _X_
-        if any(s[0] < m.end() and s[1] > m.start() for s in slots):
+        if _slot_span_overlaps(slots, m.start(), m.end()):
             continue
         if _caps_match_in_hash_literal(m.start(), m.end(), hash_inners):
             continue
         slots.append((m.start(), m.end(), m.group(1)))
+    for m in _SLOT_CAPS_CAMEL.finditer(line):
+        start = m.start()
+        end = start + len(m.group(1))
+        if _slot_span_overlaps(slots, start, end):
+            continue
+        if _caps_match_in_hash_literal(start, end, hash_inners):
+            continue
+        slots.append((start, end, m.group(1)))
     slots.sort(key=lambda x: x[0])
     return slots
 

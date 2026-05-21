@@ -28,13 +28,40 @@
   /** Буквы и цифры (латиница + кириллица); пунктуация не входит в токен. */
   var LETTER_RUN_RE = /[A-Za-z0-9\u0400-\u04FF\u0500-\u052F]+/g;
 
+  function isUpperLetter(ch) {
+    var c = ch.charCodeAt(0);
+    return (c >= 65 && c <= 90) || (c >= 1040 && c <= 1071);
+  }
+
+  function isLowerLetter(ch) {
+    var c = ch.charCodeAt(0);
+    return (c >= 97 && c <= 122) || (c >= 1072 && c <= 1103) || c === 1105;
+  }
+
+  function splitCapsLowerSuffixToken(orig) {
+    if (orig.length < 3) return [orig];
+    var k;
+    for (k = orig.length - 1; k > 0; k--) {
+      if (!isLowerLetter(orig.charAt(k))) continue;
+      var prefix = orig.slice(0, k);
+      var suffix = orig.slice(k);
+      if (prefix.length >= 2 && suffix && /^[A-Z\u0410-\u042F\u0401]+$/.test(prefix)) {
+        if (/^[a-z\u0430-\u044f\u0451]+$/.test(suffix)) return [prefix, suffix];
+      }
+    }
+    return [orig];
+  }
+
   function letterTokenSpans(s) {
     var text = normPasteText(String(s));
     var out = [];
     var m;
     LETTER_RUN_RE.lastIndex = 0;
     while ((m = LETTER_RUN_RE.exec(text)) !== null) {
-      out.push({ orig: m[0], low: m[0].toLowerCase() });
+      var parts = splitCapsLowerSuffixToken(m[0]);
+      for (var pi = 0; pi < parts.length; pi++) {
+        out.push({ orig: parts[pi], low: parts[pi].toLowerCase() });
+      }
     }
     return out;
   }

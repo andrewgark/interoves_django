@@ -61,16 +61,16 @@ testTypographicQuotesNormalized();
 })();
 
 (function testTokenAlign() {
-  var L3 = ['В ', '-', ' также проводится ежегодный турнир BUSINESSman'];
+  var L3 = ['В ', '-', ' также проводится ежегодный турнир ', 'man'];
   assert.deepStrictEqual(
-    P.parseReplTokenLine('В A B также проводится ежегодный турнир BUSINESSman', L3, 2),
-    ['A', 'B'],
+    P.parseReplTokenLine('В A B также проводится ежегодный турнир COBALTman', L3, 3),
+    ['A', 'B', 'COBALT'],
   );
-  assert.deepStrictEqual(
-    P.parseReplTokenLine('В ЛЭЙК-ПЛЭСИД также проводится ежегодный турнир COBALTman', L3, 2),
-    ['ЛЭЙК', 'ПЛЭСИД'],
-  );
-  assert.deepStrictEqual(P.parseReplLineAnswersSmart(null, 'LIBERTY\tCITY', 2), ['LIBERTY', 'CITY']);
+  assert.deepStrictEqual(P.parseReplLineAnswersSmart(null, 'LIBERTY\tCITY\tCOBALT', 3), [
+    'LIBERTY',
+    'CITY',
+    'COBALT',
+  ]);
   var L4 = ['На ', ' можно получить ', ' ', '.'];
   assert.deepStrictEqual(P.parseReplTokenLine('На X можно получить Y Z!!!', L4, 3), ['X', 'Y', 'Z']);
   var L6 = [

@@ -34,6 +34,28 @@ def _is_answer_token_char(ch):
     return ch.isalpha() or ch.isdigit()
 
 
+def _is_upper_letter(ch):
+    return ch.isupper() if ch.isascii() else __import__('unicodedata').category(ch) == 'Lu'
+
+
+def _is_lower_letter(ch):
+    return ch.islower() if ch.isascii() else __import__('unicodedata').category(ch) == 'Ll'
+
+
+def _split_caps_lower_suffix_token(orig):
+    """BUSINESSman → BUSINESS + man (как в слотах задания)."""
+    if len(orig) < 3:
+        return [orig]
+    for k in range(len(orig) - 1, 0, -1):
+        if not _is_lower_letter(orig[k]):
+            continue
+        prefix, suffix = orig[:k], orig[k:]
+        if len(prefix) >= 2 and suffix and all(_is_upper_letter(c) for c in prefix):
+            if all(_is_lower_letter(c) for c in suffix):
+                return [prefix, suffix]
+    return [orig]
+
+
 def letter_token_spans(s):
     """Фрагменты из букв/цифр (как в вставке, lower для сопоставления). Пунктуация игнорируется."""
     tokens = []
@@ -45,8 +67,8 @@ def letter_token_spans(s):
             j = i + 1
             while j < n and _is_answer_token_char(text[j]):
                 j += 1
-            orig = text[i:j]
-            tokens.append((orig, orig.lower()))
+            for part in _split_caps_lower_suffix_token(text[i:j]):
+                tokens.append((part, part.lower()))
             i = j
         else:
             i += 1
@@ -118,6 +140,15 @@ def parse_repl_token_line(raw, literals, n_slots):
     return align_answers_to_template(pattern, user)
 
 
+def _normalize_answer_cell(s):
+    """Ячейка Tab/;: — снять хвост «man» у COBALTman, если есть."""
+    s = (s or '').strip()
+    if not s:
+        return s
+    parts = _split_caps_lower_suffix_token(s)
+    return parts[0]
+
+
 def parse_repl_tab_line(raw, n_slots):
     n = int(n_slots) if n_slots else 0
     raw = (raw or '').strip()
@@ -126,13 +157,13 @@ def parse_repl_tab_line(raw, n_slots):
     if not raw:
         return None
     if n == 1:
-        return [raw]
+        return [_normalize_answer_cell(raw)]
     tab = raw.split('\t')
     if len(tab) == n:
-        return [x.strip() for x in tab]
+        return [_normalize_answer_cell(x) for x in tab]
     semi = re.split(r'\s*;\s*', raw)
     if len(semi) == n:
-        return [x.strip() for x in semi]
+        return [_normalize_answer_cell(x) for x in semi]
     return None
 
 
