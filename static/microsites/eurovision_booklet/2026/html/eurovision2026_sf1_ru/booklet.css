@@ -771,6 +771,13 @@ html[lang="en"] .qual-stamp__label {
   margin-top: 1rem;
   font-size: 0.8rem;
 }
+.footer-links__sep {
+  display: inline-block;
+  margin: 0 0.35rem;
+  color: var(--muted);
+  font-weight: 400;
+  user-select: none;
+}
 .footer-links a {
   color: var(--accent);
   margin-right: 0.65rem;
@@ -779,6 +786,12 @@ html[lang="en"] .qual-stamp__label {
   display: inline-flex;
   align-items: center;
   color: var(--youtube);
+}
+
+.footer-links a.yt--sf {
+  font-weight: 900;
+  font-size: 0.92rem;
+  letter-spacing: 0.01em;
 }
 
 /* YouTube mark (links to youtube.com / youtu.be) */
