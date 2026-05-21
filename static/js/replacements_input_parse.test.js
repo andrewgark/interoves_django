@@ -66,6 +66,10 @@ testTypographicQuotesNormalized();
     P.parseReplTokenLine('В A B также проводится ежегодный турнир BUSINESSman', L3, 2),
     ['A', 'B'],
   );
+  assert.deepStrictEqual(
+    P.parseReplTokenLine('В ЛЭЙК-ПЛЭСИД также проводится ежегодный турнир COBALTman', L3, 2),
+    ['ЛЭЙК', 'ПЛЭСИД'],
+  );
   assert.deepStrictEqual(P.parseReplLineAnswersSmart(null, 'LIBERTY\tCITY', 2), ['LIBERTY', 'CITY']);
   var L4 = ['На ', ' можно получить ', ' ', '.'];
   assert.deepStrictEqual(P.parseReplTokenLine('На X можно получить Y Z!!!', L4, 3), ['X', 'Y', 'Z']);

@@ -71,6 +71,7 @@
         out.push(userSpans[j].orig);
         j++;
       } else {
+        if (out.length >= nSlots) continue;
         while (j < userSpans.length && userSpans[j].low !== pattern[si]) j++;
         if (j >= userSpans.length || userSpans[j].low !== pattern[si]) return null;
         j++;

@@ -71,6 +71,8 @@ def align_answers_to_template(pattern, user_spans):
     """
     Сопоставить вставку с шаблоном: литералы по lower, в слоты — следующее слово.
     Лишние слова во вставке перед литералом пропускаются.
+    Литералы после последнего слота не обязательны (в шаблоне остаётся текст
+    вроде BUSINESSman, в расшифровке — другое слово той же позиции).
     """
     if not pattern or not user_spans:
         return None
@@ -87,6 +89,8 @@ def align_answers_to_template(pattern, user_spans):
             out.append(user_spans[j][0])
             j += 1
         else:
+            if len(out) >= n_slots:
+                continue
             while j < n_user and user_spans[j][1] != p:
                 j += 1
             if j >= n_user or user_spans[j][1] != p:

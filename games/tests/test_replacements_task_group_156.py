@@ -45,6 +45,15 @@ def _line_literals_and_slots(line_idx):
 class ReplacementsTaskGroup156WholeTextTests(SimpleTestCase):
     """Строки 3, 6, 15 — типичные сбои при вставке целых фраз в «Весь текст»."""
 
+    def test_line3_user_decoded_phrase_with_cobaltman(self):
+        """Расшифровка: другое слово вместо BUSINESSman в хвосте — не слот."""
+        L, n = _line_literals_and_slots(2)
+        phrase = 'В ЛЭЙК-ПЛЭСИД также проводится ежегодный турнир COBALTman'
+        self.assertEqual(
+            parse_repl_line_answers_smart(phrase, n, L),
+            ['ЛЭЙК', 'ПЛЭСИД'],
+        )
+
     def test_line3_hyphen_or_space_in_compound(self):
         L, n = _line_literals_and_slots(2)
         self.assertEqual(n, 2)
