@@ -25,6 +25,71 @@
     return '';
   }
 
+  /** Буквы и цифры (латиница + кириллица); пунктуация не входит в токен. */
+  var LETTER_RUN_RE = /[A-Za-z0-9\u0400-\u04FF\u0500-\u052F]+/g;
+
+  function letterTokenSpans(s) {
+    var text = normPasteText(String(s));
+    var out = [];
+    var m;
+    LETTER_RUN_RE.lastIndex = 0;
+    while ((m = LETTER_RUN_RE.exec(text)) !== null) {
+      out.push({ orig: m[0], low: m[0].toLowerCase() });
+    }
+    return out;
+  }
+
+  function templateTokenPattern(L, nSlots) {
+    if (!L || L.length !== nSlots + 1) return null;
+    var pattern = [];
+    var i;
+    for (i = 0; i <= nSlots; i++) {
+      var spans = letterTokenSpans(L[i]);
+      for (var t = 0; t < spans.length; t++) pattern.push(spans[t].low);
+      if (i < nSlots) pattern.push(null);
+    }
+    return pattern;
+  }
+
+  function alignAnswersToTemplate(pattern, userSpans) {
+    if (!pattern || !userSpans || !userSpans.length) return null;
+    var nSlots = 0;
+    var si;
+    for (si = 0; si < pattern.length; si++) {
+      if (pattern[si] === null) nSlots++;
+    }
+    if (userSpans.length === nSlots) {
+      var only = [];
+      for (si = 0; si < userSpans.length; si++) only.push(userSpans[si].orig);
+      return only;
+    }
+    var out = [];
+    var j = 0;
+    for (si = 0; si < pattern.length; si++) {
+      if (pattern[si] === null) {
+        if (j >= userSpans.length) return null;
+        out.push(userSpans[j].orig);
+        j++;
+      } else {
+        while (j < userSpans.length && userSpans[j].low !== pattern[si]) j++;
+        if (j >= userSpans.length || userSpans[j].low !== pattern[si]) return null;
+        j++;
+      }
+    }
+    return out.length === nSlots ? out : null;
+  }
+
+  function parseReplTokenLine(raw, L, nSlots) {
+    if (nSlots <= 0) return [];
+    var first = firstNonEmptyLineInRaw(raw);
+    if (!String(first).replace(/\s/g, '')) return null;
+    var user = letterTokenSpans(first);
+    if (!user.length) return null;
+    var pattern = templateTokenPattern(L, nSlots);
+    if (!pattern) return null;
+    return alignAnswersToTemplate(pattern, user);
+  }
+
   function parseReplTabLine(raw, nSlots) {
     var n = parseInt(nSlots, 10) || 0;
     raw = (raw || '').trim();
@@ -252,18 +317,12 @@
   }
 
   function parseReplCompactFallbackLine(firstLine, nSlots) {
-    var t = (firstLine || '').replace(/^\s+|\s+$/g, '');
-    if (!t) return null;
-    var tabbed = parseReplTabLine(t, nSlots);
-    if (tabbed) return tabbed;
-    if (nSlots === 2) {
-      var hm = t.match(/^([^-\t\u2013\u2014]+)[-\u2013\u2014]([^-\t\u2013\u2014]+)$/);
-      if (hm) return [hm[1].replace(/^\s+|\s+$/g, ''), hm[2].replace(/^\s+|\s+$/g, '')];
-      var w2 = t.split(/\s+/);
-      if (w2.length === 2) return w2;
+    var user = letterTokenSpans(firstLine || '');
+    if (user.length === nSlots) {
+      var out = [];
+      for (var i = 0; i < user.length; i++) out.push(user[i].orig);
+      return out;
     }
-    var words = t.split(/\s+/);
-    if (words.length === nSlots) return words;
     return null;
   }
 
@@ -345,8 +404,8 @@
     if (container) {
       var ex = extractReplWordsLiterals(container);
       if (ex.nSlots === nSlots) {
-        var litParsed = parseFullLineByLiterals(firstLine, ex.literals, nSlots);
-        if (litParsed) return litParsed;
+        var tok = parseReplTokenLine(firstLine, ex.literals, nSlots);
+        if (tok) return tok;
       }
     }
     return parseReplCompactFallbackLine(firstLine, nSlots);
@@ -363,6 +422,10 @@
     parseReplQuotedDoubleLine: parseReplQuotedDoubleLine,
     parseReplGuillemetLine: parseReplGuillemetLine,
     extractReplWordsLiterals: extractReplWordsLiterals,
+    letterTokenSpans: letterTokenSpans,
+    templateTokenPattern: templateTokenPattern,
+    alignAnswersToTemplate: alignAnswersToTemplate,
+    parseReplTokenLine: parseReplTokenLine,
     parseFullLineByLiterals: parseFullLineByLiterals,
     sliceBeforeSuffix: sliceBeforeSuffix,
     parseReplLineAnswersSmart: parseReplLineAnswersSmart,

@@ -30,6 +30,90 @@ def first_non_empty_line_in_raw(raw):
     return ''
 
 
+def _is_answer_token_char(ch):
+    return ch.isalpha() or ch.isdigit()
+
+
+def letter_token_spans(s):
+    """Фрагменты из букв/цифр (как в вставке, lower для сопоставления). Пунктуация игнорируется."""
+    tokens = []
+    text = norm_paste_text(str(s))
+    i = 0
+    n = len(text)
+    while i < n:
+        if _is_answer_token_char(text[i]):
+            j = i + 1
+            while j < n and _is_answer_token_char(text[j]):
+                j += 1
+            orig = text[i:j]
+            tokens.append((orig, orig.lower()))
+            i = j
+        else:
+            i += 1
+    return tokens
+
+
+def template_token_pattern(literals, n_slots):
+    """Шаблон строки: lower-слова из статического текста и None на месте каждого слота."""
+    n = int(n_slots) if n_slots else 0
+    if not literals or len(literals) != n + 1:
+        return None
+    pattern = []
+    for i in range(n + 1):
+        for _orig, low in letter_token_spans(literals[i]):
+            pattern.append(low)
+        if i < n:
+            pattern.append(None)
+    return pattern
+
+
+def align_answers_to_template(pattern, user_spans):
+    """
+    Сопоставить вставку с шаблоном: литералы по lower, в слоты — следующее слово.
+    Лишние слова во вставке перед литералом пропускаются.
+    """
+    if not pattern or not user_spans:
+        return None
+    n_slots = sum(1 for p in pattern if p is None)
+    if len(user_spans) == n_slots:
+        return [orig for orig, _low in user_spans]
+    out = []
+    j = 0
+    n_user = len(user_spans)
+    for p in pattern:
+        if p is None:
+            if j >= n_user:
+                return None
+            out.append(user_spans[j][0])
+            j += 1
+        else:
+            while j < n_user and user_spans[j][1] != p:
+                j += 1
+            if j >= n_user or user_spans[j][1] != p:
+                return None
+            j += 1
+    if len(out) != n_slots:
+        return None
+    return out
+
+
+def parse_repl_token_line(raw, literals, n_slots):
+    """Разбор строки: только буквы, lower, пробелы/переводы строк."""
+    n = int(n_slots) if n_slots else 0
+    if n <= 0:
+        return []
+    first = first_non_empty_line_in_raw(raw)
+    if not first.strip():
+        return None
+    user = letter_token_spans(first)
+    if not user:
+        return None
+    pattern = template_token_pattern(literals, n)
+    if pattern is None:
+        return None
+    return align_answers_to_template(pattern, user)
+
+
 def parse_repl_tab_line(raw, n_slots):
     n = int(n_slots) if n_slots else 0
     raw = (raw or '').strip()
@@ -259,28 +343,13 @@ def _try_hyphen_pair_without_char(rem, next_lit):
 
 
 def parse_repl_compact_fallback_line(first_line, n_slots):
-    """
-    Строка только из ответов: Tab/;, ровно N слов, или одно слово с дефисом при N=2.
-    """
+    """Строка только из ответов: ровно N буквенных токенов."""
     n = int(n_slots) if n_slots else 0
     if n <= 0:
         return []
-    t = (first_line or '').strip()
-    if not t:
-        return None
-    tabbed = parse_repl_tab_line(t, n)
-    if tabbed is not None:
-        return tabbed
-    if n == 2:
-        m = re.match(r'^([^-\t\u2013\u2014]+)[-\u2013\u2014]([^-\t\u2013\u2014]+)$', t)
-        if m:
-            return [m.group(1).strip(), m.group(2).strip()]
-        words = t.split()
-        if len(words) == 2:
-            return words
-    words = t.split()
-    if len(words) == n:
-        return words
+    user = letter_token_spans(first_line or '')
+    if len(user) == n:
+        return [orig for orig, _low in user]
     return None
 
 
@@ -353,14 +422,14 @@ def literals_from_right_tokens(line_tokens):
 
 
 def parse_repl_line_answers_smart(raw, n_slots, literals=None):
-    """Таб/кавычки, затем разбор по литералам шаблона строки."""
+    """Tab/; → сопоставление буквенных токенов (без пунктуации, lower)."""
     raw_norm = norm_paste_text(raw)
     first_line = first_non_empty_line_in_raw(raw_norm).rstrip()
     r = parse_repl_line_answers_smart_no_dom(raw, n_slots)
     if r is not None:
         return r
     if literals is not None:
-        r = parse_full_line_by_literals(raw, literals, n_slots)
+        r = parse_repl_token_line(raw, literals, n_slots)
         if r is not None:
             return r
     return parse_repl_compact_fallback_line(first_line, n_slots)

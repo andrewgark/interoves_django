@@ -63,11 +63,17 @@ class ReplacementsTaskGroup156WholeTextTests(SimpleTestCase):
             ['STATEN', 'ISLAND'],
         )
 
-    def test_line3_compact_hyphen_token_or_short_phrase(self):
+    def test_line3_answer_only_tokens_or_full_phrase(self):
         L, n = _line_literals_and_slots(2)
-        self.assertEqual(parse_repl_line_answers_smart('LIBERTY-CITY', n, L), ['LIBERTY', 'CITY'])
+        self.assertEqual(parse_repl_line_answers_smart('LIBERTY\tCITY', n, L), ['LIBERTY', 'CITY'])
         self.assertEqual(
-            parse_repl_line_answers_smart('В LIBERTY-CITY', n, L),
+            parse_repl_line_answers_smart('LIBERTY CITY', n, L),
+            ['LIBERTY', 'CITY'],
+        )
+        self.assertEqual(
+            parse_repl_line_answers_smart(
+                'В LIBERTY CITY также проводится ежегодный турнир BUSINESSman', n, L
+            ),
             ['LIBERTY', 'CITY'],
         )
 
