@@ -192,6 +192,42 @@
     return null;
   }
 
+  var OPTIONAL_SUFFIX_RE = /^[\s.,;:!?)»"']+$/;
+  var HYPHEN_LITERALS = { '-': true, '\u2013': true, '\u2014': true };
+
+  function sliceBeforeSuffix(rem, after) {
+    if (!after) return rem.trim();
+    if (rem.endsWith(after)) return rem.slice(0, rem.length - after.length).trim();
+    if (OPTIONAL_SUFFIX_RE.test(after)) {
+      var r = rem.replace(/\s+$/, '');
+      var suf = after.replace(/^\s+|\s+$/g, '');
+      while (suf.length) {
+        if (r.endsWith(suf)) return r.slice(0, r.length - suf.length).trim();
+        suf = suf.slice(0, -1);
+      }
+      return r.trim();
+    }
+    var tr = rem.replace(/\s+$/, '');
+    var ta = after.replace(/\s+$/, '');
+    if (tr.endsWith(ta)) return tr.slice(0, tr.length - ta.length).trim();
+    return null;
+  }
+
+  function nextSignificantLiteral(L, startIdx) {
+    for (var j = startIdx; j < L.length; j++) {
+      if (L[j] && !HYPHEN_LITERALS[L[j]]) return L[j];
+    }
+    return '';
+  }
+
+  function tryHyphenPairWithoutChar(rem, nextLit) {
+    var pos = rem.indexOf(nextLit);
+    if (pos < 0) return null;
+    var words = rem.slice(0, pos).trim().split(/\s+/);
+    if (words.length !== 2) return null;
+    return { w0: words[0], w1: words[1], rest: rem.slice(pos) };
+  }
+
   function parseFullLineByLiterals(fullRaw, L, nSlots) {
     if (!nSlots) return [];
     if (!L || L.length !== nSlots + 1) return null;
@@ -199,31 +235,39 @@
     var rem = consumeLiteralPrefix(first, L[0]);
     if (rem === null) return null;
     var out = [];
-    for (var i = 0; i < nSlots; i++) {
+    var i = 0;
+    while (i < nSlots) {
       if (i === nSlots - 1) {
-        var after = L[nSlots] || '';
-        if (after) {
-          var val;
-          if (rem.endsWith(after)) {
-            val = rem.slice(0, rem.length - after.length);
-          } else {
-            var tr = rem.trimEnd();
-            var ta = after.trimEnd();
-            if (!tr.endsWith(ta)) return null;
-            val = tr.slice(0, tr.length - ta.length);
-          }
-          out.push(val.trim());
-        } else {
-          out.push(rem.trim());
-        }
+        var val = sliceBeforeSuffix(rem, L[nSlots] || '');
+        if (val === null) return null;
+        out.push(val);
         break;
       }
       var nextLit = L[i + 1];
+      if (HYPHEN_LITERALS[nextLit]) {
+        var hpos = rem.indexOf(nextLit);
+        if (hpos >= 0) {
+          out.push(rem.slice(0, hpos).trim());
+          rem = rem.slice(hpos + nextLit.length);
+          i += 1;
+          continue;
+        }
+        var sigLit = nextSignificantLiteral(L, i + 2);
+        if (!sigLit) return null;
+        var pair = tryHyphenPairWithoutChar(rem, sigLit);
+        if (!pair) return null;
+        out.push(pair.w0);
+        out.push(pair.w1);
+        rem = pair.rest;
+        i += 2;
+        continue;
+      }
       if (nextLit === '') return null;
       var pos = rem.indexOf(nextLit);
       if (pos < 0) return null;
       out.push(rem.slice(0, pos).trim());
       rem = rem.slice(pos + nextLit.length);
+      i += 1;
     }
     if (out.length !== nSlots) return null;
     return out;
@@ -265,6 +309,7 @@
     parseReplGuillemetLine: parseReplGuillemetLine,
     extractReplWordsLiterals: extractReplWordsLiterals,
     parseFullLineByLiterals: parseFullLineByLiterals,
+    sliceBeforeSuffix: sliceBeforeSuffix,
     parseReplLineAnswersSmart: parseReplLineAnswersSmart,
   };
 

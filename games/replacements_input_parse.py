@@ -166,6 +166,136 @@ def parse_repl_guillemet_line(raw, n_slots):
     return None
 
 
+_OPTIONAL_SUFFIX_RE = re.compile(r'^[\s.,;:!?)»"\']+$')
+_HYPHEN_LITERALS = frozenset({'-', '–', '—'})
+
+
+def _consume_literal_prefix(rem, lit):
+    if not lit or not re.sub(r'\s', '', lit):
+        return rem
+    if rem.startswith(lit):
+        return rem[len(lit) :]
+    r0 = rem.lstrip()
+    l0 = lit.lstrip()
+    if l0 and r0.startswith(l0):
+        return rem[len(rem) - len(r0) + len(l0) :]
+    return None
+
+
+def _slice_before_suffix(rem, after):
+    """Значение перед хвостовым литералом; пунктуацию в suffix можно не копировать."""
+    if not after:
+        return rem.strip()
+    if rem.endswith(after):
+        return rem[:-len(after)].strip()
+    if _OPTIONAL_SUFFIX_RE.match(after):
+        r = rem.rstrip()
+        suf = after.strip()
+        while suf:
+            if r.endswith(suf):
+                return r[: -len(suf)].strip()
+            suf = suf[:-1]
+        return r.strip()
+    tr = rem.rstrip()
+    ta = after.rstrip()
+    if tr.endswith(ta):
+        return tr[: -len(ta)].strip()
+    return None
+
+
+def _next_significant_literal(literals, start_idx):
+    for j in range(start_idx, len(literals)):
+        lit = literals[j]
+        if lit and lit not in _HYPHEN_LITERALS:
+            return lit
+    return ''
+
+
+def _try_hyphen_pair_without_char(rem, next_lit):
+    pos = rem.find(next_lit)
+    if pos < 0:
+        return None
+    words = rem[:pos].split()
+    if len(words) != 2:
+        return None
+    return words[0], words[1], rem[pos:]
+
+
+def parse_full_line_by_literals(full_raw, literals, n_slots):
+    """Разбор целой строки ответа по литералам из DOM (режим «по словам» / «весь текст»)."""
+    n = int(n_slots) if n_slots else 0
+    if n <= 0:
+        return []
+    if not literals or len(literals) != n + 1:
+        return None
+    first = str(full_raw).split('\n')[0].rstrip()
+    rem = _consume_literal_prefix(first, literals[0])
+    if rem is None:
+        return None
+    out = []
+    i = 0
+    while i < n:
+        if i == n - 1:
+            val = _slice_before_suffix(rem, literals[n] or '')
+            if val is None:
+                return None
+            out.append(val)
+            break
+        nl = literals[i + 1]
+        if nl in _HYPHEN_LITERALS:
+            pos = rem.find(nl)
+            if pos >= 0:
+                out.append(rem[:pos].strip())
+                rem = rem[pos + len(nl) :]
+                i += 1
+                continue
+            next_lit = _next_significant_literal(literals, i + 2)
+            if not next_lit:
+                return None
+            pair = _try_hyphen_pair_without_char(rem, next_lit)
+            if pair is None:
+                return None
+            out.extend([pair[0], pair[1]])
+            rem = pair[2]
+            i += 2
+            continue
+        if nl == '':
+            return None
+        pos = rem.find(nl)
+        if pos < 0:
+            return None
+        out.append(rem[:pos].strip())
+        rem = rem[pos + len(nl) :]
+        i += 1
+    if len(out) != n:
+        return None
+    return out
+
+
+def literals_from_right_tokens(line_tokens):
+    """Список литералов между слотами (как extractReplWordsLiterals в JS)."""
+    L = []
+    buf = ''
+    for tok in line_tokens:
+        if tok.get('type') == 'text':
+            buf += tok.get('text') or ''
+        elif tok.get('type') == 'slot':
+            L.append(buf)
+            buf = ''
+    L.append(buf)
+    return L
+
+
+def parse_repl_line_answers_smart(raw, n_slots, literals=None):
+    """Таб/кавычки, затем разбор по литералам шаблона строки."""
+    r = parse_repl_line_answers_smart_no_dom(raw, n_slots)
+    if r is not None:
+        return r
+    if literals is not None:
+        return parse_full_line_by_literals(raw, literals, n_slots)
+    return None
+
+
 def parse_repl_line_answers_smart_no_dom(raw, n_slots):
     """Без разбора по литералам из DOM (только таб/кавычки/«»)."""
     if n_slots <= 0:

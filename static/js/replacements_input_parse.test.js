@@ -60,4 +60,19 @@ testTypographicQuotesNormalized();
   ]);
 })();
 
+(function testOptionalSuffixAndHyphenSpace() {
+  var L3 = ['В ', '-', ' также проводится ежегодный турнир BUSINESSman'];
+  assert.deepStrictEqual(
+    P.parseFullLineByLiterals('В A B также проводится ежегодный турнир BUSINESSman', L3, 2),
+    ['A', 'B'],
+  );
+  var L4 = ['На ', ' можно получить ', ' ', '.'];
+  assert.deepStrictEqual(P.parseFullLineByLiterals('На X можно получить Y Z', L4, 3), ['X', 'Y', 'Z']);
+  var L15 = ['В ', ' ', ' можно нанять ', ' (', ' ', ').'];
+  assert.deepStrictEqual(
+    P.parseFullLineByLiterals('В A B можно нанять C (D E)', L15, 5),
+    ['A', 'B', 'C', 'D', 'E'],
+  );
+})();
+
 console.log('replacements_input_parse.test.js: ok');
