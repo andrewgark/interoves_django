@@ -16,6 +16,7 @@ from games.models import (
     Game,
     GameResultsSnapshot,
     GameTaskGroup,
+    HiddenAnonKey,
     Hint,
     HintAttempt,
     HTMLPage,
@@ -58,6 +59,12 @@ def hintform_factory(task):
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
     list_display = ['visible_name', 'project', 'get_n_users_on', 'get_n_users_requested', 'is_tester', 'is_hidden']
+
+
+@admin.register(HiddenAnonKey)
+class HiddenAnonKeyAdmin(admin.ModelAdmin):
+    list_display = ['anon_key', 'note']
+    search_fields = ['anon_key', 'note']
 
 
 class TaskInline(admin.TabularInline):

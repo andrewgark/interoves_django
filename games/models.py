@@ -99,6 +99,31 @@ class Team(models.Model):
     is_team_results_row = True
 
 
+class HiddenAnonKey(models.Model):
+    """anon_key, скрытый из общих результатов (аналог Team.is_hidden)."""
+
+    anon_key = models.CharField(max_length=64, unique=True, db_index=True)
+    note = models.CharField(max_length=200, blank=True, default='')
+
+    class Meta:
+        verbose_name = 'Скрытый аноним'
+        verbose_name_plural = 'Скрытые анонимы'
+
+    def __str__(self):
+        tail = self.anon_key[-4:] if len(self.anon_key) >= 4 else self.anon_key
+        return 'Аноним ··{}'.format(tail)
+
+
+def hidden_anon_keys():
+    return set(HiddenAnonKey.objects.values_list('anon_key', flat=True))
+
+
+def anon_key_is_hidden(anon_key):
+    if not anon_key:
+        return False
+    return HiddenAnonKey.objects.filter(anon_key=str(anon_key)).exists()
+
+
 class PersonalResultsParticipant:
     """
     Участник общей таблицы результатов без команды (личный или анонимный режим).
@@ -889,6 +914,8 @@ class AttemptManager(models.Manager):
         if not task_ids:
             return {}
 
+        hidden_anons = hidden_anon_keys()
+
         # 1 query: all attempts for all tasks (optionally scoped to one game).
         attempt_related = ['team', 'user', 'game']
         attempt_qs = self.filter(task_id__in=task_ids, skip=False).select_related(*attempt_related).order_by('time')
@@ -956,6 +983,8 @@ class AttemptManager(models.Manager):
                 elif kind == 'user':
                     rows.append((PersonalResultsParticipant(user=obj), ai))
                 else:
+                    if key in hidden_anons:
+                        continue
                     rows.append((PersonalResultsParticipant(anon_key=key), ai))
             result[task_id] = rows
 
@@ -983,6 +1012,7 @@ class AttemptManager(models.Manager):
             buckets.setdefault(b, {'attempts': [], 'hints': []})
             buckets[b]['hints'].append(ha)
 
+        hidden_anons = hidden_anon_keys()
         rows = []
         for b, data in buckets.items():
             att = data['attempts']
@@ -1001,6 +1031,8 @@ class AttemptManager(models.Manager):
                 user = att[0].user if att else hints[0].user
                 actor = PersonalResultsParticipant(user=user)
             else:
+                if key in hidden_anons:
+                    continue
                 actor = PersonalResultsParticipant(anon_key=key)
             rows.append((actor, ai))
         return rows

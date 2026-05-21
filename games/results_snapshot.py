@@ -1,6 +1,12 @@
 import datetime
 
-from games.models import Attempt, GameResultsSnapshot, PersonalResultsParticipant, Team
+from games.models import (
+    Attempt,
+    GameResultsSnapshot,
+    PersonalResultsParticipant,
+    Team,
+    anon_key_is_hidden,
+)
 
 
 def _json_num(x):
@@ -117,8 +123,11 @@ def snapshot_to_results_context(game, payload):
                 display_name=row.get('display_name'),
             )
         if rk == 'personal_anon':
+            ak = row.get('anon_key')
+            if ak and anon_key_is_hidden(ak):
+                return None
             return PersonalResultsParticipant(
-                anon_key=row['anon_key'],
+                anon_key=ak,
                 display_name=row.get('display_name'),
             )
         return None
