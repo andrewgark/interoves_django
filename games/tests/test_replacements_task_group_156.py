@@ -43,7 +43,7 @@ def _line_literals_and_slots(line_idx):
 
 
 class ReplacementsTaskGroup156WholeTextTests(SimpleTestCase):
-    """Строки 3, 4, 7, 15 — типичные сбои при вставке целых фраз в «Весь текст»."""
+    """Строки 3, 6, 15 — типичные сбои при вставке целых фраз в «Весь текст»."""
 
     def test_line3_hyphen_or_space_in_compound(self):
         L, n = _line_literals_and_slots(2)
@@ -61,6 +61,41 @@ class ReplacementsTaskGroup156WholeTextTests(SimpleTestCase):
         self.assertEqual(
             parse_repl_line_answers_smart(with_space, n, L),
             ['STATEN', 'ISLAND'],
+        )
+
+    def test_line3_compact_hyphen_token_or_short_phrase(self):
+        L, n = _line_literals_and_slots(2)
+        self.assertEqual(parse_repl_line_answers_smart('LIBERTY-CITY', n, L), ['LIBERTY', 'CITY'])
+        self.assertEqual(
+            parse_repl_line_answers_smart('В LIBERTY-CITY', n, L),
+            ['LIBERTY', 'CITY'],
+        )
+
+    def test_line6_ascii_dash_before_imena(self):
+        L, n = _line_literals_and_slots(5)
+        self.assertEqual(n, 4)
+        ascii_dash = (
+            'Одно из значений слов от которых произошли названия «a» и «b»'
+            ' - имена c d'
+        )
+        en_dash = (
+            'Одно из значений слов от которых произошли названия «a» и «b»'
+            ' – имена c d'
+        )
+        self.assertEqual(
+            parse_repl_line_answers_smart(ascii_dash, n, L),
+            ['a', 'b', 'c', 'd'],
+        )
+        self.assertEqual(
+            parse_repl_line_answers_smart(en_dash, n, L),
+            ['a', 'b', 'c', 'd'],
+        )
+
+    def test_line6_four_words_only(self):
+        L, n = _line_literals_and_slots(5)
+        self.assertEqual(
+            parse_repl_line_answers_smart('w1 w2 w3 w4', n, L),
+            ['w1', 'w2', 'w3', 'w4'],
         )
 
     def test_line4_optional_trailing_period(self):

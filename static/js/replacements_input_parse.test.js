@@ -66,13 +66,30 @@ testTypographicQuotesNormalized();
     P.parseFullLineByLiterals('В A B также проводится ежегодный турнир BUSINESSman', L3, 2),
     ['A', 'B'],
   );
+  assert.deepStrictEqual(P.parseReplLineAnswersSmart(null, 'LIBERTY-CITY', 2), ['LIBERTY', 'CITY']);
   var L4 = ['На ', ' можно получить ', ' ', '.'];
   assert.deepStrictEqual(P.parseFullLineByLiterals('На X можно получить Y Z', L4, 3), ['X', 'Y', 'Z']);
+  var L6 = [
+    'Одно из значений слов от которых произошли названия «',
+    '» и «',
+    '» – имена ',
+    ' ',
+    '',
+  ];
+  assert.deepStrictEqual(
+    P.parseFullLineByLiterals(
+      'Одно из значений слов от которых произошли названия «a» и «b» - имена c d',
+      L6,
+      4,
+    ),
+    ['a', 'b', 'c', 'd'],
+  );
   var L15 = ['В ', ' ', ' можно нанять ', ' (', ' ', ').'];
   assert.deepStrictEqual(
     P.parseFullLineByLiterals('В A B можно нанять C (D E)', L15, 5),
     ['A', 'B', 'C', 'D', 'E'],
   );
+  assert.deepStrictEqual(P.parseReplLineAnswersSmart(null, 'a b c d e', 5), ['a', 'b', 'c', 'd', 'e']);
 })();
 
 console.log('replacements_input_parse.test.js: ok');

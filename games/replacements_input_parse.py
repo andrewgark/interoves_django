@@ -168,6 +168,33 @@ def parse_repl_guillemet_line(raw, n_slots):
 
 _OPTIONAL_SUFFIX_RE = re.compile(r'^[\s.,;:!?)»"\']+$')
 _HYPHEN_LITERALS = frozenset({'-', '–', '—'})
+_LONG_OPTIONAL_SUFFIX_LEN = 20
+
+
+def _norm_literal_match(s):
+    """Дефисы в шаблоне и вставке: -, –, — считаем одним символом."""
+    return (s or '').replace('\u2013', '-').replace('\u2014', '-')
+
+
+def _find_literal(rem, lit):
+    if not lit:
+        return 0
+    pos = rem.find(lit)
+    if pos >= 0:
+        return pos
+    return _norm_literal_match(rem).find(_norm_literal_match(lit))
+
+
+def _skip_literal(rem, lit):
+    if not lit:
+        return rem
+    if rem.startswith(lit):
+        return rem[len(lit) :]
+    nr = _norm_literal_match(rem)
+    nl = _norm_literal_match(lit)
+    if nl and nr.startswith(nl):
+        return rem[len(nl) :]
+    return rem
 
 
 def _consume_literal_prefix(rem, lit):
@@ -179,6 +206,10 @@ def _consume_literal_prefix(rem, lit):
     l0 = lit.lstrip()
     if l0 and r0.startswith(l0):
         return rem[len(rem) - len(r0) + len(l0) :]
+    nr = _norm_literal_match(rem.lstrip())
+    nl = _norm_literal_match(lit.lstrip())
+    if nl and nr.startswith(nl):
+        return rem[len(rem.lstrip()) - len(nr) + len(nl) :]
     return None
 
 
@@ -188,6 +219,12 @@ def _slice_before_suffix(rem, after):
         return rem.strip()
     if rem.endswith(after):
         return rem[:-len(after)].strip()
+    na = _norm_literal_match(after)
+    nr = _norm_literal_match(rem)
+    if na and nr.endswith(na):
+        return rem[: len(rem) - len(after)].strip() if rem.endswith(after) else rem[
+            : len(nr) - len(na)
+        ].strip()
     if _OPTIONAL_SUFFIX_RE.match(after):
         r = rem.rstrip()
         suf = after.strip()
@@ -212,13 +249,39 @@ def _next_significant_literal(literals, start_idx):
 
 
 def _try_hyphen_pair_without_char(rem, next_lit):
-    pos = rem.find(next_lit)
+    pos = _find_literal(rem, next_lit)
     if pos < 0:
         return None
     words = rem[:pos].split()
     if len(words) != 2:
         return None
     return words[0], words[1], rem[pos:]
+
+
+def parse_repl_compact_fallback_line(first_line, n_slots):
+    """
+    Строка только из ответов: Tab/;, ровно N слов, или одно слово с дефисом при N=2.
+    """
+    n = int(n_slots) if n_slots else 0
+    if n <= 0:
+        return []
+    t = (first_line or '').strip()
+    if not t:
+        return None
+    tabbed = parse_repl_tab_line(t, n)
+    if tabbed is not None:
+        return tabbed
+    if n == 2:
+        m = re.match(r'^([^-\t\u2013\u2014]+)[-\u2013\u2014]([^-\t\u2013\u2014]+)$', t)
+        if m:
+            return [m.group(1).strip(), m.group(2).strip()]
+        words = t.split()
+        if len(words) == 2:
+            return words
+    words = t.split()
+    if len(words) == n:
+        return words
+    return None
 
 
 def parse_full_line_by_literals(full_raw, literals, n_slots):
@@ -236,17 +299,20 @@ def parse_full_line_by_literals(full_raw, literals, n_slots):
     i = 0
     while i < n:
         if i == n - 1:
-            val = _slice_before_suffix(rem, literals[n] or '')
+            after = literals[n] or ''
+            val = _slice_before_suffix(rem, after)
+            if val is None and len(after.strip()) >= _LONG_OPTIONAL_SUFFIX_LEN:
+                val = rem.strip()
             if val is None:
                 return None
             out.append(val)
             break
         nl = literals[i + 1]
         if nl in _HYPHEN_LITERALS:
-            pos = rem.find(nl)
+            pos = _find_literal(rem, nl)
             if pos >= 0:
                 out.append(rem[:pos].strip())
-                rem = rem[pos + len(nl) :]
+                rem = _skip_literal(rem[pos:], nl)
                 i += 1
                 continue
             next_lit = _next_significant_literal(literals, i + 2)
@@ -261,11 +327,11 @@ def parse_full_line_by_literals(full_raw, literals, n_slots):
             continue
         if nl == '':
             return None
-        pos = rem.find(nl)
+        pos = _find_literal(rem, nl)
         if pos < 0:
             return None
         out.append(rem[:pos].strip())
-        rem = rem[pos + len(nl) :]
+        rem = _skip_literal(rem[pos:], nl)
         i += 1
     if len(out) != n:
         return None
@@ -288,12 +354,16 @@ def literals_from_right_tokens(line_tokens):
 
 def parse_repl_line_answers_smart(raw, n_slots, literals=None):
     """Таб/кавычки, затем разбор по литералам шаблона строки."""
+    raw_norm = norm_paste_text(raw)
+    first_line = first_non_empty_line_in_raw(raw_norm).rstrip()
     r = parse_repl_line_answers_smart_no_dom(raw, n_slots)
     if r is not None:
         return r
     if literals is not None:
-        return parse_full_line_by_literals(raw, literals, n_slots)
-    return None
+        r = parse_full_line_by_literals(raw, literals, n_slots)
+        if r is not None:
+            return r
+    return parse_repl_compact_fallback_line(first_line, n_slots)
 
 
 def parse_repl_line_answers_smart_no_dom(raw, n_slots):

@@ -181,6 +181,26 @@
     return { literals: L, nSlots: nSlots };
   }
 
+  function normLiteralMatch(s) {
+    return String(s || '').replace(/\u2013/g, '-').replace(/\u2014/g, '-');
+  }
+
+  function findLiteral(rem, lit) {
+    if (!lit) return 0;
+    var pos = rem.indexOf(lit);
+    if (pos >= 0) return pos;
+    return normLiteralMatch(rem).indexOf(normLiteralMatch(lit));
+  }
+
+  function skipLiteral(rem, lit) {
+    if (!lit) return rem;
+    if (rem.indexOf(lit) === 0) return rem.slice(lit.length);
+    var nr = normLiteralMatch(rem);
+    var nl = normLiteralMatch(lit);
+    if (nl && nr.indexOf(nl) === 0) return rem.slice(nl.length);
+    return rem;
+  }
+
   function consumeLiteralPrefix(rem, lit) {
     if (!lit || !lit.replace(/\s/g, '')) return rem;
     if (rem.indexOf(lit) === 0) return rem.slice(lit.length);
@@ -189,15 +209,26 @@
     if (l0 && r0.indexOf(l0) === 0) {
       return rem.slice(rem.length - r0.length + l0.length);
     }
+    var nr = normLiteralMatch(rem.replace(/^\s+/, ''));
+    var nl = normLiteralMatch(lit.replace(/^\s+/, ''));
+    if (nl && nr.indexOf(nl) === 0) {
+      return rem.slice(rem.length - rem.replace(/^\s+/, '').length + nl.length);
+    }
     return null;
   }
 
   var OPTIONAL_SUFFIX_RE = /^[\s.,;:!?)»"']+$/;
   var HYPHEN_LITERALS = { '-': true, '\u2013': true, '\u2014': true };
+  var LONG_OPTIONAL_SUFFIX_LEN = 20;
 
   function sliceBeforeSuffix(rem, after) {
     if (!after) return rem.trim();
     if (rem.endsWith(after)) return rem.slice(0, rem.length - after.length).trim();
+    var na = normLiteralMatch(after);
+    var nr = normLiteralMatch(rem);
+    if (na && nr.endsWith(na)) {
+      return rem.slice(0, rem.length - (rem.endsWith(after) ? after.length : na.length)).trim();
+    }
     if (OPTIONAL_SUFFIX_RE.test(after)) {
       var r = rem.replace(/\s+$/, '');
       var suf = after.replace(/^\s+|\s+$/g, '');
@@ -220,8 +251,24 @@
     return '';
   }
 
+  function parseReplCompactFallbackLine(firstLine, nSlots) {
+    var t = (firstLine || '').replace(/^\s+|\s+$/g, '');
+    if (!t) return null;
+    var tabbed = parseReplTabLine(t, nSlots);
+    if (tabbed) return tabbed;
+    if (nSlots === 2) {
+      var hm = t.match(/^([^-\t\u2013\u2014]+)[-\u2013\u2014]([^-\t\u2013\u2014]+)$/);
+      if (hm) return [hm[1].replace(/^\s+|\s+$/g, ''), hm[2].replace(/^\s+|\s+$/g, '')];
+      var w2 = t.split(/\s+/);
+      if (w2.length === 2) return w2;
+    }
+    var words = t.split(/\s+/);
+    if (words.length === nSlots) return words;
+    return null;
+  }
+
   function tryHyphenPairWithoutChar(rem, nextLit) {
-    var pos = rem.indexOf(nextLit);
+    var pos = findLiteral(rem, nextLit);
     if (pos < 0) return null;
     var words = rem.slice(0, pos).trim().split(/\s+/);
     if (words.length !== 2) return null;
@@ -238,17 +285,21 @@
     var i = 0;
     while (i < nSlots) {
       if (i === nSlots - 1) {
-        var val = sliceBeforeSuffix(rem, L[nSlots] || '');
+        var afterLast = L[nSlots] || '';
+        var val = sliceBeforeSuffix(rem, afterLast);
+        if (val === null && afterLast.replace(/^\s+|\s+$/g, '').length >= LONG_OPTIONAL_SUFFIX_LEN) {
+          val = rem.replace(/^\s+|\s+$/g, '');
+        }
         if (val === null) return null;
         out.push(val);
         break;
       }
       var nextLit = L[i + 1];
       if (HYPHEN_LITERALS[nextLit]) {
-        var hpos = rem.indexOf(nextLit);
+        var hpos = findLiteral(rem, nextLit);
         if (hpos >= 0) {
           out.push(rem.slice(0, hpos).trim());
-          rem = rem.slice(hpos + nextLit.length);
+          rem = skipLiteral(rem.slice(hpos), nextLit);
           i += 1;
           continue;
         }
@@ -263,10 +314,10 @@
         continue;
       }
       if (nextLit === '') return null;
-      var pos = rem.indexOf(nextLit);
+      var pos = findLiteral(rem, nextLit);
       if (pos < 0) return null;
       out.push(rem.slice(0, pos).trim());
-      rem = rem.slice(pos + nextLit.length);
+      rem = skipLiteral(rem.slice(pos), nextLit);
       i += 1;
     }
     if (out.length !== nSlots) return null;
@@ -291,10 +342,14 @@
     if (qd) return qd;
     var qg = parseReplGuillemetLine(firstLine, nSlots);
     if (qg) return qg;
-    if (!container) return null;
-    var ex = extractReplWordsLiterals(container);
-    if (ex.nSlots !== nSlots) return null;
-    return parseFullLineByLiterals(firstLine, ex.literals, nSlots);
+    if (container) {
+      var ex = extractReplWordsLiterals(container);
+      if (ex.nSlots === nSlots) {
+        var litParsed = parseFullLineByLiterals(firstLine, ex.literals, nSlots);
+        if (litParsed) return litParsed;
+      }
+    }
+    return parseReplCompactFallbackLine(firstLine, nSlots);
   }
 
   var api = {
