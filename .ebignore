@@ -15,3 +15,5 @@ nutrimatic_bundle/*.index
 # On EB/prod we prefer runtime sync from GitHub into BASE_DIR/var/eurovision_booklet/2026/
 # (see EUROVISION_BOOKLET_* env vars and microsites/eurovision_booklet_sync.py).
 static/microsites/eurovision_booklet/2026/*.pdf
+static/microsites/eurovision_booklet/2026/html/
+static/microsites/eurovision_booklet/2026/assets/

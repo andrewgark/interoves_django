@@ -1,22 +1,30 @@
+import json
 import logging
+import mimetypes
 import os
 import re
 import subprocess
 import sys
 from datetime import datetime, timezone as dt_timezone
+from io import BytesIO
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.contrib.staticfiles import finders
-from django.http import Http404, HttpResponse, FileResponse
+from django.http import Http404, HttpResponse, HttpResponseRedirect, FileResponse
 from django.shortcuts import render
 from django.utils.http import http_date
 from django.views.decorators.http import require_GET
 
 from microsites.eurovision_booklet_sync import (
+    BOOKLET_HTML_SLUGS,
     BOOKLET_MINISITE_SECTIONS,
     BOOKLET_PDF_FILENAMES,
     ensure_eurovision_booklet_sync,
+    html_url_for,
     meta_for_filename,
     pdf_url_for,
     sync_configured,
@@ -156,6 +164,17 @@ def nutrimatic_web_file(request, rel_path):
     return FileResponse(open(absolute_path, "rb"))
 
 
+def _read_booklet_manifest_json() -> dict:
+    """Manifest on disk when in-memory sync result is empty (throttle, errors)."""
+    p = Path(settings.BASE_DIR) / "var" / "eurovision_booklet" / "2026" / "manifest.json"
+    if not p.is_file():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+
+
 def _parse_booklet_synced_at(s: str) -> datetime | None:
     s = (s or "").strip()
     if not s:
@@ -171,33 +190,64 @@ def _parse_booklet_synced_at(s: str) -> datetime | None:
     return parsed
 
 
-def _booklet_cached_pdfs_latest_mtime() -> datetime | None:
+def _booklet_cached_artifacts_latest_mtime() -> datetime | None:
+    """Latest mtime among cached PDFs, all HTML bundle files, and shared assets/."""
     base = Path(settings.BASE_DIR) / "var" / "eurovision_booklet" / "2026"
     latest: datetime | None = None
-    for _sid, _title, ru, en in BOOKLET_MINISITE_SECTIONS:
-        for name in (ru, en):
-            p = base / name
-            if p.is_file():
-                d = datetime.fromtimestamp(p.stat().st_mtime, tz=dt_timezone.utc)
-                if latest is None or d > latest:
-                    latest = d
+    for name in BOOKLET_PDF_FILENAMES:
+        p = base / name
+        if p.is_file():
+            d = datetime.fromtimestamp(p.stat().st_mtime, tz=dt_timezone.utc)
+            if latest is None or d > latest:
+                latest = d
+    for slug in BOOKLET_HTML_SLUGS:
+        root = base / "html" / slug
+        if not root.is_dir():
+            continue
+        try:
+            for p in root.rglob("*"):
+                if p.is_file():
+                    d = datetime.fromtimestamp(p.stat().st_mtime, tz=dt_timezone.utc)
+                    if latest is None or d > latest:
+                        latest = d
+        except OSError:
+            continue
+    assets = base / "assets"
+    if assets.is_dir():
+        try:
+            for p in assets.rglob("*"):
+                if p.is_file():
+                    d = datetime.fromtimestamp(p.stat().st_mtime, tz=dt_timezone.utc)
+                    if latest is None or d > latest:
+                        latest = d
+        except OSError:
+            pass
     return latest
 
 
-def _booklet_static_pdfs_latest_mtime() -> datetime | None:
+def _booklet_static_artifacts_latest_mtime() -> datetime | None:
     latest: datetime | None = None
-    for _sid, _title, ru, en in BOOKLET_MINISITE_SECTIONS:
-        for name in (ru, en):
-            absolute_path = finders.find(
-                f"microsites/eurovision_booklet/2026/{name}"
+    for name in BOOKLET_PDF_FILENAMES:
+        absolute_path = finders.find(
+            f"microsites/eurovision_booklet/2026/{name}"
+        )
+        if absolute_path:
+            d = datetime.fromtimestamp(
+                os.path.getmtime(absolute_path),
+                tz=dt_timezone.utc,
             )
-            if absolute_path:
-                d = datetime.fromtimestamp(
-                    os.path.getmtime(absolute_path),
-                    tz=dt_timezone.utc,
-                )
-                if latest is None or d > latest:
-                    latest = d
+            if latest is None or d > latest:
+                latest = d
+    for slug in BOOKLET_HTML_SLUGS:
+        rel = f"microsites/eurovision_booklet/2026/html/{slug}/index.html"
+        absolute_path = finders.find(rel)
+        if absolute_path:
+            d = datetime.fromtimestamp(
+                os.path.getmtime(absolute_path),
+                tz=dt_timezone.utc,
+            )
+            if latest is None or d > latest:
+                latest = d
     return latest
 
 
@@ -213,16 +263,37 @@ def _booklet_latest_git_commit_datetime(manifest: dict) -> datetime | None:
     return latest
 
 
+def _touch_eurovision_booklet_sync() -> None:
+    """Pull PDFs + web bundles from GitHub/git into var/ when configured.
+
+    Must run on HTML/asset/PDF views too — not only the landing page — or direct
+    links to /eurovision_booklet/2026/html/… never populate the cache.
+    """
+    if sync_configured(settings):
+        ensure_eurovision_booklet_sync(settings)
+
+
 def _booklet_last_updated_display(manifest: dict) -> dict | None:
-    # Prefer real content age from git (per-file last-changing commits), not
-    # manifest "synced_at" (that is only when this server last ran a sync).
-    dt = _booklet_latest_git_commit_datetime(manifest)
+    # Git dates in manifest are only recorded for PDFs; HTML-only pushes do not
+    # move that clock. Combine with real file mtimes under var/ so "Last updated"
+    # reflects synced web bundles and inner pages, not only PDF commit metadata.
+    m = manifest or {}
+    dt_git = _booklet_latest_git_commit_datetime(m)
+    dt_disk = _booklet_cached_artifacts_latest_mtime()
+    dt = None
+    for cand in (dt_git, dt_disk):
+        if cand is None:
+            continue
+        if dt is None or cand > dt:
+            dt = cand
     if dt is None:
-        dt = _parse_booklet_synced_at((manifest or {}).get("synced_at") or "")
+        dt = _parse_booklet_synced_at((m.get("synced_at") or ""))
     if dt is None:
-        dt = _booklet_cached_pdfs_latest_mtime()
+        dt = _booklet_static_artifacts_latest_mtime()
     if dt is None:
-        dt = _booklet_static_pdfs_latest_mtime()
+        mp = Path(settings.BASE_DIR) / "var" / "eurovision_booklet" / "2026" / "manifest.json"
+        if mp.is_file():
+            dt = datetime.fromtimestamp(mp.stat().st_mtime, tz=dt_timezone.utc)
     if dt is None:
         return None
     return {"dt": dt, "iso": dt.isoformat()}
@@ -234,6 +305,8 @@ def eurovision_booklet_2026(request):
     manifest = {}
     if sync_on:
         manifest = ensure_eurovision_booklet_sync(settings)
+    disk_manifest = _read_booklet_manifest_json()
+    manifest_display = {**(disk_manifest or {}), **manifest}
 
     sections = []
     for sid, title, ru_name, en_name in BOOKLET_MINISITE_SECTIONS:
@@ -241,17 +314,19 @@ def eurovision_booklet_2026(request):
             {
                 "id": sid,
                 "title": title,
-                "pdf_ru_url": pdf_url_for(settings, manifest, ru_name),
-                "pdf_en_url": pdf_url_for(settings, manifest, en_name),
+                "pdf_ru_url": pdf_url_for(settings, manifest_display, ru_name),
+                "pdf_en_url": pdf_url_for(settings, manifest_display, en_name),
+                "html_ru_url": html_url_for(settings, manifest_display, ru_name[:-4]),
+                "html_en_url": html_url_for(settings, manifest_display, en_name[:-4]),
             }
         )
 
     ctx = {
         "booklet_sections": sections,
         "booklet_sync_configured": sync_on,
-        "booklet_branch_tip": (manifest or {}).get("branch_tip", ""),
-        "booklet_synced_at": (manifest or {}).get("synced_at", ""),
-        "booklet_last_updated": _booklet_last_updated_display(manifest),
+        "booklet_branch_tip": (manifest_display or {}).get("branch_tip", ""),
+        "booklet_synced_at": (manifest_display or {}).get("synced_at", ""),
+        "booklet_last_updated": _booklet_last_updated_display(manifest_display),
         "booklet_source_url": (
             getattr(settings, "EUROVISION_BOOKLET_SOURCE_URL", "") or ""
         ).strip(),
@@ -261,6 +336,7 @@ def eurovision_booklet_2026(request):
 
 @require_GET
 def eurovision_booklet_pdf(request, filename: str):
+    _touch_eurovision_booklet_sync()
     if filename not in BOOKLET_PDF_FILENAMES:
         raise Http404()
     cache_path = (
@@ -280,6 +356,18 @@ def eurovision_booklet_pdf(request, filename: str):
         f"microsites/eurovision_booklet/2026/{filename}"
     )
     if not absolute_path:
+        dist = _booklet_dist_prefix(settings)
+        fetched = _fetch_github_raw_booklet(settings, f"{dist}/{filename}")
+        if fetched is not None:
+            body, _ctype = fetched
+            resp = FileResponse(
+                BytesIO(body),
+                content_type="application/pdf",
+                as_attachment=False,
+                filename=filename,
+            )
+            resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+            return resp
         raise Http404()
     resp = FileResponse(open(absolute_path, "rb"), content_type="application/pdf")
     try:
@@ -290,3 +378,231 @@ def eurovision_booklet_pdf(request, filename: str):
     except OSError:
         resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
     return resp
+
+
+def _booklet_local_html_root(settings) -> Path | None:
+    raw = (getattr(settings, "EUROVISION_BOOKLET_LOCAL_HTML_DIR", None) or "").strip()
+    if not raw:
+        return None
+    p = Path(expanduser_maybe(raw))
+    return p if p.is_dir() else None
+
+
+def _booklet_dist_prefix(settings) -> str:
+    return (getattr(settings, "EUROVISION_BOOKLET_DIST_PATH", None) or "dist").strip().strip(
+        "/"
+    )
+
+
+def _booklet_github_raw_url(settings, repo_relpath: str) -> str | None:
+    """https://raw.githubusercontent.com/owner/repo/branch/path — only when repo is configured."""
+    gh = (getattr(settings, "EUROVISION_BOOKLET_GITHUB_REPO", None) or "").strip()
+    if "/" not in gh:
+        return None
+    owner, _, repo = gh.partition("/")
+    if not owner or not repo:
+        return None
+    branch = (getattr(settings, "EUROVISION_BOOKLET_GIT_BRANCH", None) or "main").strip()
+    rel = repo_relpath.strip().strip("/")
+    if not rel or ".." in Path(rel).parts:
+        return None
+    parts = [quote(seg, safe="") for seg in rel.split("/")]
+    return f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{'/'.join(parts)}"
+
+
+def _fetch_github_raw_booklet(
+    settings, repo_relpath: str
+) -> tuple[bytes, str] | None:
+    """GET repo file from raw.githubusercontent.com (same-origin proxy for HTML/CSS)."""
+    url = _booklet_github_raw_url(settings, repo_relpath)
+    if not url:
+        return None
+    timeout = float(getattr(settings, "EUROVISION_BOOKLET_HTTP_TIMEOUT", 60.0))
+    timeout = max(1.0, min(timeout, 120.0))
+    req = Request(url, headers={"User-Agent": "interoves-django (eurovision-booklet)"})
+    try:
+        with urlopen(req, timeout=timeout) as resp:
+            code = getattr(resp, "status", resp.getcode())
+            if code != 200:
+                return None
+            body = resp.read()
+            ctype_header = resp.headers.get("Content-Type") or ""
+            header_base = ctype_header.split(";")[0].strip().lower()
+            basename = Path(repo_relpath).name
+            suf = Path(repo_relpath).suffix.lower()
+            # GitHub raw uses text/plain for .html/.css etc.; browsers must see real types.
+            if suf in (".html", ".htm"):
+                ctype = "text/html; charset=utf-8"
+            elif suf == ".css":
+                ctype = "text/css; charset=utf-8"
+            elif suf in (".js", ".mjs"):
+                ctype = "text/javascript; charset=utf-8"
+            elif suf == ".svg":
+                ctype = "image/svg+xml; charset=utf-8"
+            elif suf == ".pdf":
+                ctype = "application/pdf"
+            else:
+                ctype = ctype_header.split(";")[0].strip()
+                if not ctype or ctype.lower() == "application/octet-stream":
+                    guessed, _enc = mimetypes.guess_type(basename)
+                    if guessed:
+                        ctype = guessed
+                if header_base == "text/plain" and ctype.lower() in (
+                    "text/plain",
+                    "application/octet-stream",
+                ):
+                    guessed, _enc = mimetypes.guess_type(basename)
+                    if guessed and guessed != "text/plain":
+                        ctype = guessed
+                if ctype == "text/html":
+                    ctype = "text/html; charset=utf-8"
+                elif ctype == "text/css":
+                    ctype = "text/css; charset=utf-8"
+                elif ctype in ("application/javascript", "text/javascript"):
+                    ctype = "text/javascript; charset=utf-8"
+            return body, ctype or "application/octet-stream"
+    except HTTPError as e:
+        if e.code != 404:
+            logger.info("Eurovision booklet: raw HTTP %s %s", e.code, url)
+        return None
+    except (URLError, OSError, TimeoutError, ValueError) as e:
+        logger.info("Eurovision booklet: raw fetch failed %s: %s", url, e)
+        return None
+
+
+def _booklet_local_assets_root(settings) -> Path | None:
+    """Booklet repo `assets/` (flags, artists, …). HTML uses ../../../assets/... → /eurovision_booklet/assets/..."""
+    raw = (getattr(settings, "EUROVISION_BOOKLET_LOCAL_ASSETS_DIR", None) or "").strip()
+    if raw:
+        p = Path(expanduser_maybe(raw))
+        if p.is_dir():
+            return p
+    html_root = _booklet_local_html_root(settings)
+    if html_root is None:
+        return None
+    # …/dist/html → …/assets
+    cand = html_root.parent.parent / "assets"
+    return cand if cand.is_dir() else None
+
+
+def _safe_booklet_bundle_file(root: Path, relpath: str) -> Path | None:
+    if ".." in Path(relpath).parts:
+        return None
+    try:
+        cand = (root / relpath).resolve()
+        root = root.resolve()
+    except OSError:
+        return None
+    try:
+        cand.relative_to(root)
+    except ValueError:
+        return None
+    return cand if cand.is_file() else None
+
+
+def _resolve_booklet_html_bundle_file(settings, slug: str, relpath: str) -> Path | None:
+    rel = relpath.strip().strip("/") or "index.html"
+    cache_root = Path(settings.BASE_DIR) / "var" / "eurovision_booklet" / "2026" / "html" / slug
+    hit = _safe_booklet_bundle_file(cache_root, rel)
+    if hit is not None:
+        return hit
+    lr = _booklet_local_html_root(settings)
+    if lr is not None:
+        hit = _safe_booklet_bundle_file(lr / slug, rel)
+        if hit is not None:
+            return hit
+    static_rel = f"microsites/eurovision_booklet/2026/html/{slug}/{rel}"
+    found = finders.find(static_rel)
+    if found:
+        return Path(found)
+    return None
+
+
+def _file_response_booklet_asset(path: Path) -> FileResponse:
+    ctype, _enc = mimetypes.guess_type(path.name)
+    if not ctype:
+        ctype = "application/octet-stream"
+    if ctype == "text/html":
+        ctype = "text/html; charset=utf-8"
+    elif ctype == "text/css":
+        ctype = "text/css; charset=utf-8"
+    elif ctype == "application/javascript":
+        ctype = "text/javascript; charset=utf-8"
+    resp = FileResponse(path.open("rb"), content_type=ctype)
+    stat = path.stat()
+    resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+    resp["Last-Modified"] = http_date(stat.st_mtime)
+    resp["ETag"] = f'W/"{stat.st_size:x}-{int(stat.st_mtime):x}"'
+    return resp
+
+
+@require_GET
+def eurovision_booklet_html_bundle(request, slug: str, relpath: str = "index.html"):
+    _touch_eurovision_booklet_sync()
+    if slug not in BOOKLET_HTML_SLUGS:
+        raise Http404()
+    rel = (relpath or "").strip().strip("/") or "index.html"
+    resolved = _resolve_booklet_html_bundle_file(settings, slug, rel)
+    if resolved is not None:
+        return _file_response_booklet_asset(resolved)
+    base = (getattr(settings, "EUROVISION_BOOKLET_HTML_BASE_URL", None) or "").strip().rstrip("/")
+    if base:
+        return HttpResponseRedirect(f"{base}/{slug}/{rel}")
+    dist = _booklet_dist_prefix(settings)
+    gh_rel = f"{dist}/html/{slug}/{rel}"
+    fetched = _fetch_github_raw_booklet(settings, gh_rel)
+    if fetched is not None:
+        body, ctype = fetched
+        resp = HttpResponse(body, content_type=ctype)
+        resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+        return resp
+    probe = (
+        Path(settings.BASE_DIR)
+        / "var"
+        / "eurovision_booklet"
+        / "2026"
+        / "html"
+        / slug
+        / "index.html"
+    )
+    logger.warning(
+        "Eurovision booklet: missing HTML bundle slug=%s rel=%s (expected %s). "
+        "Publish dist/html/ to EUROVISION_BOOKLET_GITHUB_REPO or set EUROVISION_BOOKLET_HTML_BASE_URL.",
+        slug,
+        rel,
+        probe,
+    )
+    raise Http404()
+
+
+def _resolve_booklet_shared_asset_file(settings, relpath: str) -> Path | None:
+    rel = relpath.strip().strip("/")
+    if not rel or ".." in Path(rel).parts:
+        return None
+    var_root = Path(settings.BASE_DIR) / "var" / "eurovision_booklet" / "2026" / "assets"
+    hit = _safe_booklet_bundle_file(var_root, rel)
+    if hit is not None:
+        return hit
+    static_rel = f"microsites/eurovision_booklet/2026/assets/{rel}"
+    found = finders.find(static_rel)
+    if found:
+        return Path(found)
+    ar = _booklet_local_assets_root(settings)
+    if ar is not None:
+        return _safe_booklet_bundle_file(ar, rel)
+    return None
+
+
+@require_GET
+def eurovision_booklet_shared_assets(request, relpath: str):
+    """Serve booklet `assets/` (flags, photos) for relative URLs ../../../assets/… in HTML."""
+    _touch_eurovision_booklet_sync()
+    resolved = _resolve_booklet_shared_asset_file(settings, relpath)
+    if resolved is not None:
+        return _file_response_booklet_asset(resolved)
+    rel = relpath.strip().strip("/")
+    if rel and ".." not in Path(rel).parts:
+        raw_url = _booklet_github_raw_url(settings, f"assets/{rel}")
+        if raw_url:
+            return HttpResponseRedirect(raw_url)
+    raise Http404()

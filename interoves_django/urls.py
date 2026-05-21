@@ -38,9 +38,25 @@ eurovision_booklet_patterns = [
         RedirectView.as_view(url="/eurovision_booklet/2026/", permanent=False),
     ),
     path(
+        "assets/<path:relpath>",
+        microsites_views.eurovision_booklet_shared_assets,
+        name="eurovision_booklet_assets",
+    ),
+    path(
         "2026/pdf/<str:filename>",
         microsites_views.eurovision_booklet_pdf,
         name="eurovision_booklet_pdf",
+    ),
+    path(
+        "2026/html/<slug:slug>/<path:relpath>",
+        microsites_views.eurovision_booklet_html_bundle,
+        name="eurovision_booklet_html_asset",
+    ),
+    path(
+        "2026/html/<slug:slug>/",
+        microsites_views.eurovision_booklet_html_bundle,
+        kwargs={"relpath": "index.html"},
+        name="eurovision_booklet_html",
     ),
     path(
         "2026/",

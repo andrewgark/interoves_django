@@ -95,7 +95,7 @@ NUTRIMATIC_INDEX_S3_REGION = (
     or "eu-central-1"
 ).strip()
 
-# Eurovision 2026 booklet: keep PDFs in sync with a git source (local clone takes
+# Eurovision 2026 booklet: keep PDFs and dist/html/*.html in sync with a git source (local clone takes
 # precedence over GitHub). Cached copies + manifest: BASE_DIR/var/eurovision_booklet/2026/
 EUROVISION_BOOKLET_REPO_PATH = (os.environ.get("EUROVISION_BOOKLET_REPO_PATH") or "").strip()
 EUROVISION_BOOKLET_GITHUB_REPO = (
@@ -105,6 +105,20 @@ EUROVISION_BOOKLET_GITHUB_TOKEN = (os.environ.get("EUROVISION_BOOKLET_GITHUB_TOK
 EUROVISION_BOOKLET_GIT_REMOTE = (os.environ.get("EUROVISION_BOOKLET_GIT_REMOTE") or "origin").strip()
 EUROVISION_BOOKLET_GIT_BRANCH = (os.environ.get("EUROVISION_BOOKLET_GIT_BRANCH") or "main").strip()
 EUROVISION_BOOKLET_DIST_PATH = (os.environ.get("EUROVISION_BOOKLET_DIST_PATH") or "dist").strip()
+# Dev: path to booklet repo's dist/html (e.g. ~/eurovision2026booklet/dist/html) so /eurovision_booklet/2026/html/… works without copying into static/.
+EUROVISION_BOOKLET_LOCAL_HTML_DIR = (
+    os.environ.get("EUROVISION_BOOKLET_LOCAL_HTML_DIR") or ""
+).strip()
+# Optional public base for HTML (no trailing slash). If unset and GitHub has no
+# dist/html/ tree, /eurovision_booklet/2026/html/<slug>/ returns 404. Point this
+# at any origin that mirrors dist/html/<slug>/ (S3, Pages, CDN).
+EUROVISION_BOOKLET_HTML_BASE_URL = (
+    os.environ.get("EUROVISION_BOOKLET_HTML_BASE_URL") or ""
+).strip().rstrip("/")
+# Shared images etc. (booklet repo `assets/`). If unset, derived as <parent of dist>/assets when LOCAL_HTML_DIR is .../dist/html.
+EUROVISION_BOOKLET_LOCAL_ASSETS_DIR = (
+    os.environ.get("EUROVISION_BOOKLET_LOCAL_ASSETS_DIR") or ""
+).strip()
 EUROVISION_BOOKLET_HTTP_TIMEOUT = float(
     os.environ.get("EUROVISION_BOOKLET_HTTP_TIMEOUT") or 60.0
 )

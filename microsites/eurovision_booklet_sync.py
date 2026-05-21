@@ -1,8 +1,10 @@
 """
-Sync Eurovision booklet PDFs from git (local clone or GitHub API).
+Sync Eurovision booklet PDFs and web assets (HTML bundles + shared images) from
+git (local clone or GitHub API).
 
-See EUROVISION_BOOKLET_* settings. Cached files and manifest live under
-BASE_DIR/var/eurovision_booklet/2026/ (overridable).
+HTML lives under dist/html/<slug>/; shared images under assets/ at the booklet
+repo root. Cached copies: BASE_DIR/var/eurovision_booklet/2026/ (PDFs, html/,
+assets/). See EUROVISION_BOOKLET_* settings and microsites.views.
 """
 
 from __future__ import annotations
@@ -10,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -37,25 +40,234 @@ BOOKLET_PDF_FILENAMES: tuple[str, ...] = (
     "eurovision2026_sf2_ru.pdf",
 )
 
+# Web HTML bundles use the same stem as each PDF (folder dist/html/<stem>/ in the booklet repo).
+BOOKLET_HTML_SLUGS: tuple[str, ...] = tuple(n[:-4] for n in BOOKLET_PDF_FILENAMES)
+
+
+def _booklet_web_bundles_present(cache_dir: Path) -> bool:
+    """True if every HTML bundle folder has index.html under var/.../html/<slug>/."""
+    html_root = cache_dir / "html"
+    if not html_root.is_dir():
+        return False
+    for slug in BOOKLET_HTML_SLUGS:
+        if not (html_root / slug / "index.html").is_file():
+            return False
+    return True
+
+
+def _booklet_pdf_files_present(cache_dir: Path) -> bool:
+    """True if all PDFs exist in var cache (same dir as manifest)."""
+    for name in BOOKLET_PDF_FILENAMES:
+        if not (cache_dir / name).is_file():
+            return False
+    return True
+
+
+def _booklet_pdf_repo_paths(dist_path: str) -> list[tuple[str, str]]:
+    """(cache_basename, path_in_repo) for each PDF."""
+    dist_path = dist_path.strip().strip("/")
+    return [(n, f"{dist_path}/{n}") for n in BOOKLET_PDF_FILENAMES]
+
+
+def _cache_web_dest_path(cache_dir: Path, dist_path_n: str, repo_path: str) -> Path | None:
+    """Map booklet repo path to var/.../2026/html/... or var/.../2026/assets/..."""
+    pfx_html = f"{dist_path_n}/html/"
+    if repo_path.startswith(pfx_html):
+        rest = repo_path[len(pfx_html) :].lstrip("/")
+        if not rest:
+            return None
+        return cache_dir.joinpath("html", *Path(rest).parts)
+    if repo_path.startswith("assets/"):
+        return cache_dir.joinpath(*Path(repo_path).parts)
+    return None
+
+
+def _download_github_booklet_web(
+    *,
+    base_api: str,
+    owner: str,
+    repo: str,
+    tip: str,
+    dist_path_n: str,
+    token: str | None,
+    cache_dir: Path,
+    timeout: float,
+    paths_only: set[str] | None,
+) -> None:
+    """Populate var/.../html and .../assets from GitHub. paths_only=None means full tree."""
+    if paths_only:
+        n_ok = 0
+        raw_base = f"https://raw.githubusercontent.com/{owner}/{repo}/{tip}/"
+        for path in sorted(paths_only):
+            dest = _cache_web_dest_path(cache_dir, dist_path_n, path)
+            if dest is None:
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            url = raw_base + quote(path, safe="/")
+            try:
+                _, content = _github_request(url, token, timeout=min(timeout, 45.0))
+            except HTTPError as e:
+                if e.code == 404:
+                    logger.info(
+                        "Eurovision booklet: web file missing on GitHub, skip: %s", path
+                    )
+                    continue
+                raise
+            dest.write_bytes(content)
+            n_ok += 1
+        logger.info(
+            "Eurovision booklet: patched %s / %s web files from GitHub (incremental)",
+            n_ok,
+            len(paths_only),
+        )
+        return
+
+    _, body = _github_request(f"{base_api}/commits/{tip}", token, timeout)
+    tree_sha = json.loads(body.decode("utf-8"))["commit"]["tree"]["sha"]
+    _, tbody = _github_request(
+        f"{base_api}/git/trees/{tree_sha}?recursive=1", token, timeout
+    )
+    tree = json.loads(tbody.decode("utf-8"))
+    if tree.get("truncated"):
+        logger.warning(
+            "Eurovision booklet: GitHub tree response truncated; web sync may be incomplete",
+        )
+    html_prefix = f"{dist_path_n}/html/"
+    paths: list[str] = []
+    for item in tree.get("tree", []):
+        if item.get("type") != "blob":
+            continue
+        path = (item.get("path") or "").strip()
+        if path.startswith(html_prefix) or path.startswith("assets/"):
+            paths.append(path)
+    if not paths:
+        logger.warning(
+            "Eurovision booklet: GitHub tree has no %s/html/ or assets/ blobs at %s — "
+            "commit and push the booklet web build (%s/html/<slug>/…, assets/) or set "
+            "EUROVISION_BOOKLET_HTML_BASE_URL on the server.",
+            dist_path_n,
+            tip[:7],
+            dist_path_n,
+        )
+        return
+    shutil.rmtree(cache_dir / "html", ignore_errors=True)
+    shutil.rmtree(cache_dir / "assets", ignore_errors=True)
+    raw_base = f"https://raw.githubusercontent.com/{owner}/{repo}/{tip}/"
+    n_ok = 0
+    for path in paths:
+        dest = _cache_web_dest_path(cache_dir, dist_path_n, path)
+        if dest is None:
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        url = raw_base + quote(path, safe="/")
+        try:
+            _, content = _github_request(url, token, timeout=min(timeout, 45.0))
+        except HTTPError as e:
+            if e.code == 404:
+                logger.info(
+                    "Eurovision booklet: web file missing on GitHub, skip: %s", path
+                )
+                continue
+            raise
+        dest.write_bytes(content)
+        n_ok += 1
+    logger.info(
+        "Eurovision booklet: synced %s / %s web files from GitHub (full)",
+        n_ok,
+        len(paths),
+    )
+
+
+def _download_local_git_booklet_web(
+    *,
+    repo: Path,
+    tip: str,
+    dist_path: str,
+    cache_dir: Path,
+    timeout: float,
+    paths_only: set[str] | None,
+) -> None:
+    """paths_only=None → replace entire html/ + assets/ from git ls-tree."""
+    if paths_only:
+        n_ok = 0
+        for rel_repo in sorted(paths_only):
+            dest = _cache_web_dest_path(cache_dir, dist_path, rel_repo)
+            if dest is None:
+                continue
+            show = subprocess.run(
+                ["git", "-C", str(repo), "show", f"{tip}:{rel_repo}"],
+                capture_output=True,
+                timeout=min(timeout, 120.0),
+            )
+            if show.returncode != 0 or not show.stdout:
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(show.stdout)
+            n_ok += 1
+        logger.info(
+            "Eurovision booklet: patched %s web files from local git (incremental)",
+            n_ok,
+        )
+        return
+
+    shutil.rmtree(cache_dir / "html", ignore_errors=True)
+    shutil.rmtree(cache_dir / "assets", ignore_errors=True)
+    n_ok = 0
+    for spec in (f"{dist_path}/html", "assets"):
+        ls = _git_run(
+            repo,
+            ["ls-tree", "-r", "--name-only", tip, "--", spec],
+            timeout=timeout,
+        )
+        if ls.returncode != 0:
+            continue
+        for line in ls.stdout.splitlines():
+            rel_repo = line.strip()
+            if not rel_repo:
+                continue
+            dest = _cache_web_dest_path(cache_dir, dist_path, rel_repo)
+            if dest is None:
+                continue
+            show = subprocess.run(
+                ["git", "-C", str(repo), "show", f"{tip}:{rel_repo}"],
+                capture_output=True,
+                timeout=min(timeout, 120.0),
+            )
+            if show.returncode != 0 or not show.stdout:
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(show.stdout)
+            n_ok += 1
+    logger.info(
+        "Eurovision booklet: synced %s web files from local git (full)",
+        n_ok,
+    )
+
 # Sections on the public minisite (subset of BOOKLET_PDF_FILENAMES).
 BOOKLET_MINISITE_SECTIONS: tuple[tuple[str, str, str, str], ...] = (
     (
-        "overall-pre",
-        "All countries",
-        "eurovision2026_ru.pdf",
-        "eurovision2026_en.pdf",
+        "final",
+        "Final",
+        "eurovision2026_final_ru.pdf",
+        "eurovision2026_final_en.pdf",
     ),
     (
         "semi-1",
-        "First Semi-Final",
+        "Semi-Final 1",
         "eurovision2026_sf1_ru.pdf",
         "eurovision2026_sf1_en.pdf",
     ),
     (
         "semi-2",
-        "Second Semi-Final",
+        "Semi-Final 2",
         "eurovision2026_sf2_ru.pdf",
         "eurovision2026_sf2_en.pdf",
+    ),
+    (
+        "all-countries",
+        "All countries",
+        "eurovision2026_ru.pdf",
+        "eurovision2026_en.pdf",
     ),
 )
 
@@ -138,14 +350,33 @@ def _sync_github(
     tip = json.loads(body.decode("utf-8"))["commit"]["sha"]
     old_tip = (manifest.get("branch_tip") or "").strip()
 
-    if old_tip == tip:
-        manifest.setdefault("branch_tip", tip)
-        return manifest
+    dist_path_n = dist_path.strip().strip("/")
+    allowed = set(BOOKLET_PDF_FILENAMES)
+    web_changed_paths: set[str] = set()
 
-    changed: set[str]
-    if not old_tip:
-        changed = set(BOOKLET_PDF_FILENAMES)
+    # Same commit as manifest — usually skip work, unless this instance's disk is
+    # incomplete (new EB instance, failed prior web sync, etc.).
+    if old_tip == tip:
+        pdf_ok = _booklet_pdf_files_present(cache_dir)
+        web_ok = _booklet_web_bundles_present(cache_dir)
+        if pdf_ok and web_ok:
+            manifest.setdefault("branch_tip", tip)
+            return manifest
+        logger.info(
+            "Eurovision booklet: GitHub tip %s equals manifest but local cache incomplete "
+            "(pdf=%s web=%s) — refilling",
+            tip[:7],
+            pdf_ok,
+            web_ok,
+        )
+        changed = {n for n in allowed if not (cache_dir / n).is_file()}
+        web_dirty = not web_ok
+        web_changed_paths = set()
+    elif not old_tip:
+        changed = set(allowed)
+        web_dirty = True
     else:
+        web_dirty = False
         compare_url = f"{base_api}/compare/{old_tip}...{tip}"
         try:
             _, cbody = _github_request(compare_url, token, timeout)
@@ -156,14 +387,18 @@ def _sync_github(
                     "Eurovision booklet: unexpected compare status %s; refreshing all PDFs",
                     status,
                 )
-                changed = set(BOOKLET_PDF_FILENAMES)
+                changed = set(allowed)
+                web_dirty = True
             else:
                 names = set()
                 for f in cmp.get("files") or []:
                     fn = f.get("filename") or ""
                     if fn.lower().endswith(".pdf"):
                         names.add(Path(fn).name)
-                changed = names & set(BOOKLET_PDF_FILENAMES)
+                    if fn.startswith(f"{dist_path_n}/html/") or fn.startswith("assets/"):
+                        web_dirty = True
+                        web_changed_paths.add(fn)
+                changed = names & allowed
         except HTTPError as e:
             if e.code == 404:
                 logger.warning(
@@ -171,11 +406,12 @@ def _sync_github(
                     old_tip[:7],
                     tip[:7],
                 )
-                changed = set(BOOKLET_PDF_FILENAMES)
+                changed = set(allowed)
+                web_dirty = True
             else:
                 raise
 
-    if old_tip and not changed:
+    if old_tip and not changed and not web_dirty:
         manifest["branch_tip"] = tip
         manifest["backend"] = "github"
         manifest["synced_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -183,10 +419,9 @@ def _sync_github(
 
     files_meta: dict[str, Any] = dict(manifest.get("files") or {})
 
-    for name in BOOKLET_PDF_FILENAMES:
+    for name, rel in _booklet_pdf_repo_paths(dist_path_n):
         if name not in changed:
             continue
-        rel = f"{dist_path.strip().strip('/')}/{name}"
         path_query = quote(rel, safe="")
         hist_url = f"{base_api}/commits?path={path_query}&sha={tip}&per_page=1"
         try:
@@ -205,16 +440,36 @@ def _sync_github(
         date_s = c0["commit"]["committer"]["date"]
         raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{tip}/{rel}"
         try:
-            _, pdf_bytes = _github_request(raw_url, token, timeout)
+            _, file_bytes = _github_request(raw_url, token, timeout)
         except HTTPError as e:
             if e.code == 404:
-                logger.info("Eurovision booklet: raw %s missing — skipping", name)
+                logger.info("Eurovision booklet: raw %s missing — skipping", rel)
                 continue
             raise
         out = cache_dir / name
-        out.write_bytes(pdf_bytes)
+        out.write_bytes(file_bytes)
         files_meta[name] = {"commit": sha, "commit_date": date_s}
         logger.info("Eurovision booklet: updated %s from GitHub", name)
+
+    if web_dirty:
+        if not old_tip or not web_changed_paths or changed == allowed:
+            web_paths_only: set[str] | None = None
+        else:
+            web_paths_only = set(web_changed_paths)
+        try:
+            _download_github_booklet_web(
+                base_api=base_api,
+                owner=owner,
+                repo=repo,
+                tip=tip,
+                dist_path_n=dist_path_n,
+                token=token,
+                cache_dir=cache_dir,
+                timeout=timeout,
+                paths_only=web_paths_only,
+            )
+        except Exception:
+            logger.exception("Eurovision booklet: GitHub web bundle sync failed")
 
     manifest["branch_tip"] = tip
     manifest["backend"] = "github"
@@ -266,16 +521,33 @@ def _sync_local_git(
     tip = tip_proc.stdout.strip()
     old_tip = (manifest.get("branch_tip") or "").strip()
 
-    if old_tip == tip:
-        manifest.setdefault("branch_tip", tip)
-        return manifest
+    allowed = set(BOOKLET_PDF_FILENAMES)
+    web_changed_paths: set[str] = set()
 
-    if not old_tip:
-        changed = set(BOOKLET_PDF_FILENAMES)
+    if old_tip == tip:
+        pdf_ok = _booklet_pdf_files_present(cache_dir)
+        web_ok = _booklet_web_bundles_present(cache_dir)
+        if pdf_ok and web_ok:
+            manifest.setdefault("branch_tip", tip)
+            return manifest
+        logger.info(
+            "Eurovision booklet: local git tip %s equals manifest but cache incomplete "
+            "(pdf=%s web=%s) — refilling",
+            tip[:7],
+            pdf_ok,
+            web_ok,
+        )
+        changed = {n for n in allowed if not (cache_dir / n).is_file()}
+        web_dirty = not web_ok
+        web_changed_paths = set()
+    elif not old_tip:
+        changed = set(allowed)
+        web_dirty = True
     else:
+        web_dirty = False
         diff = _git_run(
             repo,
-            ["diff", "--name-only", old_tip, tip, "--", dist_path],
+            ["diff", "--name-only", old_tip, tip, "--", dist_path, "assets"],
             timeout=timeout,
         )
         if diff.returncode != 0:
@@ -284,16 +556,20 @@ def _sync_local_git(
                 old_tip[:7],
                 tip[:7],
             )
-            changed = set(BOOKLET_PDF_FILENAMES)
+            changed = set(allowed)
+            web_dirty = True
         else:
             changed = set()
             for line in diff.stdout.splitlines():
                 line = line.strip()
                 if line.lower().endswith(".pdf"):
                     changed.add(Path(line).name)
-            changed &= set(BOOKLET_PDF_FILENAMES)
+                if line.startswith(f"{dist_path}/html/") or line.startswith("assets/"):
+                    web_dirty = True
+                    web_changed_paths.add(line)
+            changed &= allowed
 
-    if old_tip and not changed:
+    if old_tip and not changed and not web_dirty:
         manifest["branch_tip"] = tip
         manifest["backend"] = "git_local"
         manifest["synced_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -301,10 +577,9 @@ def _sync_local_git(
 
     files_meta: dict[str, Any] = dict(manifest.get("files") or {})
 
-    for name in BOOKLET_PDF_FILENAMES:
+    for name, rel in _booklet_pdf_repo_paths(dist_path):
         if name not in changed:
             continue
-        rel = f"{dist_path}/{name}"
         show = subprocess.run(
             ["git", "-C", str(repo), "show", f"{tip}:{rel}"],
             capture_output=True,
@@ -333,6 +608,23 @@ def _sync_local_git(
         files_meta[name] = {"commit": sha, "commit_date": date_s}
         logger.info("Eurovision booklet: updated %s from local git", name)
 
+    if web_dirty:
+        if not old_tip or not web_changed_paths or changed == allowed:
+            web_paths_only = None
+        else:
+            web_paths_only = set(web_changed_paths)
+        try:
+            _download_local_git_booklet_web(
+                repo=repo,
+                tip=tip,
+                dist_path=dist_path,
+                cache_dir=cache_dir,
+                timeout=timeout,
+                paths_only=web_paths_only,
+            )
+        except Exception:
+            logger.exception("Eurovision booklet: local git web bundle sync failed")
+
     manifest["branch_tip"] = tip
     manifest["backend"] = "git_local"
     manifest["files"] = files_meta
@@ -346,8 +638,17 @@ def sync_configured(settings) -> bool:
     return bool(gh or loc)
 
 
-def should_skip_throttle(settings) -> bool:
-    """Use Django cache so throttling works across workers."""
+def should_skip_throttle(settings, cache_dir: Path) -> bool:
+    """Skip remote sync if interval elapsed — unless this instance lacks local cache.
+
+    Cache key is global (Redis); EB instances have separate disks. Another instance
+    may have synced recently and set the cooldown while this host still has an
+    empty var/. In that case we must not skip.
+    """
+    if not _booklet_web_bundles_present(cache_dir):
+        return False
+    if not _booklet_pdf_files_present(cache_dir):
+        return False
     interval = int(getattr(settings, "EUROVISION_BOOKLET_SYNC_MIN_INTERVAL_SEC", 120))
     if interval <= 0:
         return False
@@ -355,14 +656,17 @@ def should_skip_throttle(settings) -> bool:
         from django.core.cache import cache
     except Exception:
         return False
-    # add() returns True only if the key did not exist.
     return not cache.add("eurovision_booklet:sync_cooldown", 1, timeout=interval)
 
 
 def ensure_eurovision_booklet_sync(settings) -> dict[str, Any]:
     """
-    Update cached PDFs if the remote branch tip changed; refresh only PDFs that
-    differ between the previous tip and the current tip.
+    Update cached PDFs and web bundles (dist/html + assets) when the remote
+    branch tip changed.
+
+    PDFs: refresh only files that differ between the previous tip and the
+    current tip. Web: full tree on first sync or after a broad refresh;
+    otherwise patch only paths touched in the compare range.
 
     Returns the manifest dict (possibly unchanged). On error, returns the last
     known manifest or {}.
@@ -375,7 +679,7 @@ def ensure_eurovision_booklet_sync(settings) -> dict[str, Any]:
     cache_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = _manifest_path(base_dir)
     manifest = _read_json(manifest_path)
-    if should_skip_throttle(settings):
+    if should_skip_throttle(settings, cache_dir):
         return _read_json(manifest_path)
 
     timeout = float(getattr(settings, "EUROVISION_BOOKLET_HTTP_TIMEOUT", 60.0))
@@ -479,17 +783,25 @@ def meta_for_filename(manifest: dict[str, Any], name: str) -> PdfMeta | None:
 
 
 def pdf_url_for(
-    settings,
-    manifest: dict[str, Any],
+    _settings,
+    _manifest: dict[str, Any],
     filename: str,
 ) -> str:
-    from django.templatetags.static import static
+    """URL for a booklet PDF. Always uses the named route so the view can serve
+    from var cache or staticfiles finders (avoids broken /static/... when files
+    are not collected under STATIC_URL).
+    """
     from django.urls import reverse
 
-    cache_path = _cache_root(Path(settings.BASE_DIR)) / filename
-    if cache_path.is_file():
-        return reverse(
-            "eurovision_booklet_pdf",
-            kwargs={"filename": filename},
-        )
-    return static(f"microsites/eurovision_booklet/2026/{filename}")
+    return reverse("eurovision_booklet_pdf", kwargs={"filename": filename})
+
+
+def html_url_for(
+    _settings,
+    _manifest: dict[str, Any],
+    slug: str,
+) -> str:
+    """Canonical URL for the web bundle (folder dist/html/<slug>/, index at trailing /)."""
+    from django.urls import reverse
+
+    return reverse("eurovision_booklet_html", kwargs={"slug": slug})

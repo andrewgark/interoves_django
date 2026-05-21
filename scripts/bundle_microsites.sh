@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copy nutrimatic-ru runtime bundle and Eurovision booklet PDFs into this repo
+# Copy nutrimatic-ru runtime bundle and Eurovision booklet PDFs + HTML into this repo
 # before `eb deploy`. Override sources with env vars.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -34,8 +34,11 @@ else
 fi
 
 DEST_PDF="$ROOT/static/microsites/eurovision_booklet/2026"
+BOOKLET_HTML_SRC="${BOOKLET_HTML_SRC:-$BOOKLET_SRC/html}"
 if [[ -d "$BOOKLET_SRC" ]]; then
   mkdir -p "$DEST_PDF"
+  # Mirror dist/*.pdf exactly (remove stale names no longer produced by the booklet build).
+  rm -f "$DEST_PDF"/*.pdf
   shopt -s nullglob
   for pdf in "$BOOKLET_SRC"/*.pdf; do
     install -m0644 "$pdf" "$DEST_PDF/"
@@ -44,4 +47,21 @@ if [[ -d "$BOOKLET_SRC" ]]; then
   echo "Booklet PDFs copied to static/microsites/eurovision_booklet/2026/"
 else
   echo "Skip booklet PDFs: $BOOKLET_SRC not found"
+fi
+if [[ -d "$BOOKLET_HTML_SRC" ]]; then
+  mkdir -p "$DEST_PDF/html"
+  rm -rf "$DEST_PDF/html"/*
+  cp -a "$BOOKLET_HTML_SRC"/. "$DEST_PDF/html/"
+  echo "Booklet HTML bundles copied to static/microsites/eurovision_booklet/2026/html/"
+else
+  echo "Skip booklet HTML: $BOOKLET_HTML_SRC not found"
+fi
+BOOKLET_REPO="${BOOKLET_REPO:-$(cd "$BOOKLET_SRC/.." 2>/dev/null && pwd || true)}"
+if [[ -n "${BOOKLET_REPO:-}" && -d "$BOOKLET_REPO/assets" ]]; then
+  mkdir -p "$DEST_PDF/assets"
+  rm -rf "$DEST_PDF/assets"/*
+  cp -a "$BOOKLET_REPO/assets"/. "$DEST_PDF/assets/"
+  echo "Booklet shared assets copied to static/microsites/eurovision_booklet/2026/assets/"
+else
+  echo "Skip booklet assets: $BOOKLET_REPO/assets not found"
 fi
