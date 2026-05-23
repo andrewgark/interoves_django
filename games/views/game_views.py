@@ -43,7 +43,7 @@ def game_page(request, game_id, task_group=None, task=None):
     links_qs = game.task_group_links.select_related('task_group')
     if task_group is not None:
         links_qs = links_qs.filter(number=task_group)
-    task_group_placements = sorted(links_qs, key=lambda p: p.number)
+    task_group_placements = sorted(links_qs, key=lambda p: p.key_sort())
 
     task_group_to_tasks = {}
     for placement in task_group_placements:

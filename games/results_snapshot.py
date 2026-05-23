@@ -196,9 +196,10 @@ def build_results_snapshot_payload(game, mode='tournament'):
     # Use the same ordering/filtering rules as results pages.
     from django.db.models import Q
 
-    placements = sorted(
+    from games.models import GameTaskGroup
+
+    placements = GameTaskGroup.sorted_links(
         game.task_group_links.select_related('task_group'),
-        key=lambda p: p.number,
     )
     task_group_headers = []
     tasks_flat = []

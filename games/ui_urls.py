@@ -20,7 +20,7 @@ urlpatterns = [
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/$', ui.project_main_game_page, name='project_main_game'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/results/$', ui.project_results_page, name='project_results'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/tournament-results/$', ui.project_tournament_results_page, name='project_tournament_results'),
-    re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group_number>\d+)/$', ui.project_task_group_page, name='project_task_group'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group_number>\d+(?:\.\d+)?)/$', ui.project_task_group_page, name='project_task_group'),
     # Legacy but needed actions/pages referenced by UI (keep inside project prefix).
     re_path(r'^' + _PROJECT_ID_RE + r'/register/(?P<game_id>[a-zA-Z0-9_]+)/$', register_to_game),
     re_path(r'^' + _PROJECT_ID_RE + r'/confirm_user_joining_team/(?P<user_id>\d+)/$', confirm_user_joining_team),
@@ -57,7 +57,7 @@ urlpatterns = [
     path('team/join-by-password/', ui.team_join_by_password, name='ui_team_join_by_password'),
     path('team/password/', ui.team_password, name='ui_team_password'),
     path('team/rename/', ui.team_rename, name='ui_team_rename'),
-    path('games/<str:game_id>/<int:task_group_number>/', ui.task_group_page, name='ui_task_group'),
+    path('games/<str:game_id>/<str:task_group_number>/', ui.task_group_page, name='ui_task_group'),
     path('section/<str:game_id>/results/', ui.section_results_page, name='ui_section_results'),
     path('section/<str:game_id>/', ui.section_game_page, name='ui_section_game'),
     path('profile/', ui.profile, name='ui_profile'),

@@ -6,7 +6,7 @@ import os
 import re
 
 from django.contrib.auth.models import User
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models import F
 from django.db.models.functions import Coalesce
@@ -498,13 +498,19 @@ class TaskGroup(models.Model):
         return len(self.tasks.visible().filter(~models.Q(task_type='text_with_forms')))
 
 
+GAME_TASK_GROUP_NUMBER_VALIDATOR = RegexValidator(
+    regex=r'^\d+(?:\.\d+)?$',
+    message='Номер круга: целое число или число с точкой (например 1 или 1.5).',
+)
+
+
 class GameTaskGroup(models.Model):
     """Вхождение набора заданий в игру: свой номер и название для каждой игры."""
 
     id = models.AutoField(primary_key=True)
     game = models.ForeignKey(Game, related_name='task_group_links', on_delete=models.CASCADE)
     task_group = models.ForeignKey(TaskGroup, related_name='game_links', on_delete=models.CASCADE)
-    number = models.IntegerField()
+    number = models.CharField(max_length=20, validators=[GAME_TASK_GROUP_NUMBER_VALIDATOR])
     name = models.CharField(max_length=100)
 
     class Meta:
@@ -522,6 +528,48 @@ class GameTaskGroup(models.Model):
 
     def __str__(self):
         return '[{}] {}. {}'.format(self.game_id, self.number, self.name)
+
+    @staticmethod
+    def number_key(number):
+        return tuple(int(x) for x in str(number).split('.'))
+
+    def key_sort(self):
+        return self.number_key(self.number)
+
+    @classmethod
+    def sorted_links(cls, queryset=None, *, game=None):
+        if queryset is None:
+            queryset = cls.objects.filter(game=game)
+        return sorted(queryset, key=lambda link: link.key_sort())
+
+    @classmethod
+    def get_by_number(cls, game, number):
+        return cls.objects.filter(game=game, number=str(number)).first()
+
+    @classmethod
+    def nearest_by_number(cls, game, number):
+        """Ближайший круг по порядку, если точного номера нет."""
+        ordered = cls.sorted_links(game=game)
+        if not ordered:
+            return None
+        key = cls.number_key(number)
+        placement = next((p for p in ordered if p.number == str(number)), None)
+        if placement:
+            return placement
+        after = [p for p in ordered if p.key_sort() > key]
+        before = [p for p in ordered if p.key_sort() < key]
+        return (after[0] if after else None) or (before[-1] if before else None)
+
+    @classmethod
+    def prev_next_for(cls, game, placement):
+        ordered = cls.sorted_links(game=game)
+        try:
+            idx = ordered.index(placement)
+        except ValueError:
+            return None, None
+        prev_link = ordered[idx - 1] if idx > 0 else None
+        next_link = ordered[idx + 1] if idx + 1 < len(ordered) else None
+        return prev_link, next_link
 
     @staticmethod
     def resolve_game_for_task(task, game_id=None):

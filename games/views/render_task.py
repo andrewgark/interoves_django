@@ -11,7 +11,7 @@ from games.models import Attempt, GameTaskGroup, ImageManager, AudioManager
 
 def get_task_to_attempts_info(game, team, mode='general'):
     task_to_attempts_info = {}
-    for link in game.task_group_links.select_related('task_group').order_by('number'):
+    for link in GameTaskGroup.sorted_links(game.task_group_links.select_related('task_group')):
         tg = link.task_group
         for task in tg.tasks.visible():
             task_to_attempts_info[task.id] = Attempt.manager.get_attempts_info(
@@ -93,7 +93,7 @@ def get_game_title_text_with_forms_to_html(request, game, team, mode):
     link = get_object_or_404(
         GameTaskGroup,
         game=game,
-        number=game.tags["text_with_forms_task_group_number"],
+        number=str(game.tags["text_with_forms_task_group_number"]),
     )
     task_group = link.task_group
     normal_tasks = sorted(

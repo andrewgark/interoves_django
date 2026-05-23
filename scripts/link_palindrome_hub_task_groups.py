@@ -104,7 +104,7 @@ def run(*, dry_run: bool) -> int:
             game=hub,
             task_group_id=gtg.task_group_id,
             defaults={
-                "number": new_number,
+                "number": str(new_number),
                 "name": gtg.name,
             },
         )

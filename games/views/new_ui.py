@@ -499,11 +499,10 @@ def project_main_game_page(request, project_id, game_id):
         elif request.user.is_authenticated:
             actor_value = request.user.get_username()
 
-    task_groups = (
+    task_groups = GameTaskGroup.sorted_links(
         GameTaskGroup.objects.filter(game=game)
         .select_related('task_group')
         .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
-        .order_by('number')
     )
 
     canonical_groups = [p.task_group for p in task_groups]
@@ -681,31 +680,16 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
     mode = game.get_current_mode(Attempt(time=timezone.now()))
     placement = (
         GameTaskGroup.objects.select_related('task_group', 'task_group__rules')
-        .filter(game=game, number=task_group_number)
+        .filter(game=game, number=str(task_group_number))
         .first()
     )
     if not placement:
-        next_p = (
-            GameTaskGroup.objects.filter(game=game, number__gt=task_group_number)
-            .order_by('number')
-            .first()
-        )
-        prev_p = (
-            GameTaskGroup.objects.filter(game=game, number__lt=task_group_number)
-            .order_by('-number')
-            .first()
-        )
-        fallback = next_p or prev_p
+        fallback = GameTaskGroup.nearest_by_number(game, task_group_number)
         if fallback:
             return redirect('project_task_group', project_id=project.id, game_id=game.id, task_group_number=fallback.number)
         raise Http404()
     task_group = placement.task_group
-    prev_tg = (
-        GameTaskGroup.objects.filter(game=game, number__lt=placement.number).order_by('-number').first()
-    )
-    next_tg = (
-        GameTaskGroup.objects.filter(game=game, number__gt=placement.number).order_by('number').first()
-    )
+    prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     ctx_dicts = build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode)
     return render(request, 'ui/task_group.html', {
@@ -763,11 +747,10 @@ def new_section_game_page(request, game_id):
     # Шаблон game_page использует team в фильтрах access_see_results и т.д.;
     # должен совпадать с командой для see_game_preview (ниже team перезаписывается под play_mode).
     team_for_access = team
-    task_groups = (
+    task_groups = GameTaskGroup.sorted_links(
         GameTaskGroup.objects.filter(game=game)
         .select_related('task_group')
         .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
-        .order_by('number')
     )
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
@@ -904,11 +887,10 @@ def new_main_game_page(request, game_id):
         elif request.user.is_authenticated:
             actor_value = request.user.get_username()
 
-    task_groups = (
+    task_groups = GameTaskGroup.sorted_links(
         GameTaskGroup.objects.filter(game=game)
         .select_related('task_group')
         .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
-        .order_by('number')
     )
 
     canonical_groups = [p.task_group for p in task_groups]
@@ -1529,31 +1511,16 @@ def new_task_group_page(request, game_id, task_group_number):
     mode = game.get_current_mode(Attempt(time=timezone.now()))
     placement = (
         GameTaskGroup.objects.select_related('task_group', 'task_group__rules')
-        .filter(game=game, number=task_group_number)
+        .filter(game=game, number=str(task_group_number))
         .first()
     )
     if not placement:
-        next_p = (
-            GameTaskGroup.objects.filter(game=game, number__gt=task_group_number)
-            .order_by('number')
-            .first()
-        )
-        prev_p = (
-            GameTaskGroup.objects.filter(game=game, number__lt=task_group_number)
-            .order_by('-number')
-            .first()
-        )
-        fallback = next_p or prev_p
+        fallback = GameTaskGroup.nearest_by_number(game, task_group_number)
         if fallback:
             return redirect('new_task_group', game_id=game.id, task_group_number=fallback.number)
         raise Http404()
     task_group = placement.task_group
-    prev_tg = (
-        GameTaskGroup.objects.filter(game=game, number__lt=placement.number).order_by('-number').first()
-    )
-    next_tg = (
-        GameTaskGroup.objects.filter(game=game, number__gt=placement.number).order_by('number').first()
-    )
+    prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     section_rules_type = game.id if game.id in SECTION_RULES_GAME_IDS else None
     section_tutorial_html = None
