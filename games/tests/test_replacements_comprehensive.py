@@ -114,7 +114,7 @@ class MixedCapsUnderscoreHashLiteralTests(SimpleTestCase):
         line = '_A|B_ #DC# WORD'
         p = parse_replacements_lines_text(line, '')
         self.assertEqual(_n_slots(line), 2)
-        self.assertEqual(p['left_lines'][0], '_A|B_ DC WORD')
+        self.assertEqual(p['left_lines'][0], 'A|B DC WORD')
 
     def test_underscore_slot_preserves_pipe_chars_in_content(self):
         """Содержимое слота 'A|B' — одна строка до split_slot_answer_alternatives."""

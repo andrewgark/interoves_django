@@ -2,8 +2,8 @@
 #
 # Input: текст, где слоты — (1) слова из 2+ подряд символов Unicode Lu (ALL CAPS, в т.ч. Ë, Ä, А-Я),
 #                         (2) любой фрагмент _между подчёркиваниями_, в т.ч. _23_ или _76_.
-# Число без слота: просто 76 в тексте (без _…_). Слева в задании _76_ для читаемости снимаются в 76
-# (см. left_lines), справа слот остаётся отдельным полем ввода.
+# Число без слота: просто 76 в тексте (без _…_). Слева в задании разметка _…_ снимается:
+# _76_ → 76, _Б_ → Б, _КОТ|кот_ → КОТ|кот (см. left_lines); справа — поле ввода.
 # Литерал из капса без слота: #DC#, #OK# — в показе решётки снимаются (не путать с | внутри _А|Б_).
 # Output (task.checker_data): тот же объём строк, на месте слотов — правильные ответы.
 # Несколько допустимых вариантов в одном слоте: _КАНОН|вариант2|вариант3_
@@ -79,14 +79,21 @@ _SLOT_CAPS_CAMEL = re.compile(
 
 
 def replacements_strip_literal_numeric_underscores(line):
-    """Только для left_lines: _76_ → 76. _12|34_ и буквенные _КОТ_ не трогаем."""
+    """Только для left_lines: _76_ → 76 (чисто цифры; остальные _…_ — см. strip_underscore_slot_markers)."""
     if not line:
         return line
     return _LITERAL_NUMERIC_UNDERSCORE.sub(r'\1', line)
 
 
+def replacements_strip_underscore_slot_markers(line):
+    """Только для left_lines: _Б_ → Б, _КОТ_ → КОТ, _12|34_ → 12|34."""
+    if not line:
+        return line
+    return _SLOT_UNDERSCORE.sub(r'\1', line)
+
+
 def replacements_strip_literal_entity_underscores(line):
-    """Только для left_lines: _&#128019;_ → 🐀 (как _76_ → 76). Буквенные _КОТ_ не трогаем."""
+    """Только для left_lines: _&#128019;_ → 🐀 (как _76_ → 76)."""
     if not line:
         return line
     return _LITERAL_ENTITY_UNDERSCORE.sub(lambda m: html.unescape(m.group(1)), line)
@@ -106,8 +113,10 @@ def replacements_format_left_line(line):
     # Сущности до #литералов#: иначе _&#128019;_ + _&#128018;_ схлопывается в один «#…#».
     return replacements_decode_html_entities(
         replacements_strip_hash_literals(
-            replacements_strip_literal_entity_underscores(
-                replacements_strip_literal_numeric_underscores(line)
+            replacements_strip_underscore_slot_markers(
+                replacements_strip_literal_entity_underscores(
+                    replacements_strip_literal_numeric_underscores(line)
+                )
             )
         )
     )
@@ -142,11 +151,6 @@ def _slot_span_overlaps(slots, start, end):
     return any(s[0] < end and s[1] > start for s in slots)
 
 
-def _underscore_slot_spans(line):
-    """Интервалы (start, end) слотов из разметки _…_ (не капс-слоты)."""
-    return {(m.start(), m.end()) for m in _SLOT_UNDERSCORE.finditer(line or '')}
-
-
 def _find_slots_in_order(line):
     # Возвращает (start, end, content) в порядке появления
     slots = []
@@ -175,7 +179,6 @@ def _segments_and_slot_values(line):
     # Без снятия _цифр_: иначе _23_ не становится отдельным слотом.
     base = line
     slots = _find_slots_in_order(base)
-    us_spans = _underscore_slot_spans(base)
     tokens = []
     slot_values = []
     pos = 0
@@ -183,10 +186,7 @@ def _segments_and_slot_values(line):
         if start > pos:
             tokens.append({'type': 'text', 'text': base[pos:start]})
         slot_idx = len(slot_values)
-        tok = {'type': 'slot', 'slot_index': slot_idx}
-        if (start, end) in us_spans:
-            tok['underscore'] = True
-        tokens.append(tok)
+        tokens.append({'type': 'slot', 'slot_index': slot_idx})
         slot_values.append(content)
         pos = end
     if pos < len(base):
@@ -197,35 +197,6 @@ def _segments_and_slot_values(line):
                 replacements_strip_hash_literals(t['text'])
             )
     return tokens, slot_values
-
-
-def _build_left_tokens(line):
-    """Токены для колонки условия: пропуски _…_ выделяются отдельным типом gap."""
-    if not line:
-        return []
-    base = line
-    slots = _find_slots_in_order(base)
-    us_spans = _underscore_slot_spans(base)
-    tokens = []
-    pos = 0
-    for start, end, _content in slots:
-        if start > pos:
-            tokens.append({
-                'type': 'text',
-                'text': replacements_format_left_line(base[pos:start]),
-            })
-        formatted = replacements_format_left_line(base[start:end])
-        if (start, end) in us_spans:
-            tokens.append({'type': 'gap', 'text': formatted})
-        else:
-            tokens.append({'type': 'text', 'text': formatted})
-        pos = end
-    if pos < len(base):
-        tokens.append({
-            'type': 'text',
-            'text': replacements_format_left_line(base[pos:]),
-        })
-    return tokens
 
 
 def split_slot_answer_alternatives(content):
@@ -297,13 +268,7 @@ def canonical_replacements_checker_line(line):
 
 def parse_replacements_lines_text(input_text, answer_text=None):
     if not input_text:
-        return {
-            'left_lines': [],
-            'left_tokens': [],
-            'right_tokens': [],
-            'answers': [],
-            'answer_accept': [],
-        }
+        return {'left_lines': [], 'right_tokens': [], 'answers': [], 'answer_accept': []}
 
     input_lines = [ln.rstrip('\r') for ln in input_text.split('\n')]
     answer_lines = []
@@ -319,7 +284,6 @@ def parse_replacements_lines_text(input_text, answer_text=None):
     )
 
     left_lines = []
-    left_tokens = []
     right_tokens = []
     answers = []
     answer_accept = []
@@ -327,7 +291,6 @@ def parse_replacements_lines_text(input_text, answer_text=None):
     for i in range(n):
         line = input_lines[i]
         left_lines.append(replacements_format_left_line(line))
-        left_tokens.append(_build_left_tokens(line))
 
         tokens, hint_values = _segments_and_slot_values(line)
         right_tokens.append(tokens)
@@ -371,13 +334,7 @@ def parse_replacements_lines_text(input_text, answer_text=None):
         answers.append(line_canon)
         answer_accept.append(line_accept)
 
-    return {
-        'left_lines': left_lines,
-        'left_tokens': left_tokens,
-        'right_tokens': right_tokens,
-        'answers': answers,
-        'answer_accept': answer_accept,
-    }
+    return {'left_lines': left_lines, 'right_tokens': right_tokens, 'answers': answers, 'answer_accept': answer_accept}
 
 
 def task_replacements_canonical_answer_row(task, line_index):

@@ -2149,30 +2149,6 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   max-width: 100%;
   vertical-align: top;
 }
-.new-replacements-gap-mark {
-  font-weight: 700;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-  border-radius: 3px;
-  padding: 0 0.12em;
-  white-space: nowrap;
-}
-.new-replacements-underscore-slot {
-  display: inline;
-  white-space: nowrap;
-  font-size: 1rem;
-}
-.new-replacements-underscore-slot__mark {
-  font-weight: 600;
-  color: var(--accent);
-  user-select: none;
-}
-.new-replacements-input--underscore {
-  min-width: 2.5ch;
-  margin-left: 0;
-  margin-right: 0;
-  text-align: center;
-}
 .new-replacements-block__left--solved {
   background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
@@ -2235,9 +2211,7 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
 }
 .new-replacements-line__inputs .new-replacements-static,
 .new-replacements-line__inputs .new-replacements-partial-answer,
-.new-replacements-line__inputs .new-replacements-input,
-.new-replacements-line__inputs .new-replacements-underscore-slot,
-.new-replacements-line__inputs .new-replacements-underscore-slot__mark {
+.new-replacements-line__inputs .new-replacements-input {
   font-size: 1rem;
 }
 .new-replacements-line__inputs input {
@@ -2269,14 +2243,6 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   font-size: 1rem;
   font-weight: 800;
 }
-.new-replacements-line__solved-text .new-replacements-underscore-slot,
-.new-replacements-line__solved-text .new-replacements-underscore-slot__mark {
-  font-size: 1rem;
-}
-.new-replacements-line__solved-text .new-replacements-underscore-slot strong {
-  text-transform: none;
-}
-
 .new-replacements-partial-answer {
   font-weight: 800;
   text-transform: uppercase;
