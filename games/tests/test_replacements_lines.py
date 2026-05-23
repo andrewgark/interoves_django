@@ -8,6 +8,9 @@ from games.replacements_lines import (
     canonical_replacements_checker_line,
     parse_replacements_checker_json_lines,
     parse_replacements_lines_text,
+    replacements_decode_html_entities,
+    replacements_format_left_line,
+    replacements_strip_literal_entity_underscores,
     replacements_strip_literal_numeric_underscores,
     replacements_strip_hash_literals,
     split_slot_answer_alternatives,
@@ -141,6 +144,48 @@ class StripLiteralNumericUnderscoresTests(SimpleTestCase):
         self.assertEqual(
             replacements_strip_literal_numeric_underscores('_КОТ_'),
             '_КОТ_',
+        )
+
+
+class HtmlEntityDisplayTests(SimpleTestCase):
+    def test_entity_underscore_left_shows_emoji(self):
+        left = 'ЧИСТЫЙ _&#128019;_-ый'
+        self.assertEqual(
+            replacements_format_left_line(left),
+            'ЧИСТЫЙ 🐓-ый',
+        )
+
+    def test_entity_hex_underscore(self):
+        self.assertEqual(
+            replacements_strip_literal_entity_underscores('_&#x1F600;_'),
+            '😀',
+        )
+
+    def test_letter_underscore_slot_unchanged_on_left(self):
+        self.assertEqual(
+            replacements_strip_literal_entity_underscores('_КОТ_'),
+            '_КОТ_',
+        )
+
+    def test_parse_left_line_entity_slot_still_separate(self):
+        left = 'ЧИСТЫЙ _&#128019;_-ый ЖУК'
+        p = parse_replacements_lines_text(left, '')
+        self.assertEqual(p['left_lines'][0], 'ЧИСТЫЙ 🐓-ый ЖУК')
+        self.assertEqual(len(p['answers'][0]), 3)
+        self.assertEqual(p['answers'][0][0], 'ЧИСТЫЙ')
+        self.assertEqual(p['answers'][0][1], '&#128019;')
+        self.assertEqual(p['answers'][0][2], 'ЖУК')
+
+    def test_canonical_line_decodes_entities(self):
+        self.assertEqual(
+            canonical_replacements_checker_line('был _&#128019;_ тут'),
+            'был 🐓 тут',
+        )
+
+    def test_decode_named_entity(self):
+        self.assertEqual(
+            replacements_decode_html_entities('A &amp; B'),
+            'A & B',
         )
 
 

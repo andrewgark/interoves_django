@@ -13,12 +13,19 @@
 #   - {'type': 'text', 'text': '...'}
 #   - {'type': 'slot', 'slot_index': 0..N-1}
 
+import html
 import json
 import re
 import unicodedata
 
 # Только для колонки «условие» слева: _76_ → 76 (слоты на правой стороне не трогаем).
 _LITERAL_NUMERIC_UNDERSCORE = re.compile(r'_(\d+)_')
+
+# Слева: _&#128019;_ → символ (эмодзи и т.п.); на правой стороне слот остаётся.
+_LITERAL_ENTITY_UNDERSCORE = re.compile(
+    r'_(&#(?:\d+|x[0-9a-fA-F]+);)_',
+    re.IGNORECASE,
+)
 
 # Слот: _непустая_ последовательность_
 _SLOT_UNDERSCORE = re.compile(r'_([^_]+)_')
@@ -76,6 +83,33 @@ def replacements_strip_literal_numeric_underscores(line):
     if not line:
         return line
     return _LITERAL_NUMERIC_UNDERSCORE.sub(r'\1', line)
+
+
+def replacements_strip_literal_entity_underscores(line):
+    """Только для left_lines: _&#128019;_ → 🐀 (как _76_ → 76). Буквенные _КОТ_ не трогаем."""
+    if not line:
+        return line
+    return _LITERAL_ENTITY_UNDERSCORE.sub(lambda m: html.unescape(m.group(1)), line)
+
+
+def replacements_decode_html_entities(line):
+    """&#128019; → символ Unicode для показа (остальные HTML-сущности тоже)."""
+    if not line:
+        return line
+    return html.unescape(line)
+
+
+def replacements_format_left_line(line):
+    """Колонка «условие»: числа, #литералы#, HTML-сущности в _…_, прочие &#…;."""
+    if not line:
+        return line
+    return replacements_decode_html_entities(
+        replacements_strip_literal_entity_underscores(
+            replacements_strip_hash_literals(
+                replacements_strip_literal_numeric_underscores(line)
+            )
+        )
+    )
 
 
 def replacements_strip_hash_literals(line):
@@ -149,7 +183,9 @@ def _segments_and_slot_values(line):
         tokens.append({'type': 'text', 'text': base[pos:]})
     for t in tokens:
         if t['type'] == 'text':
-            t['text'] = replacements_strip_hash_literals(t['text'])
+            t['text'] = replacements_decode_html_entities(
+                replacements_strip_hash_literals(t['text'])
+            )
     return tokens, slot_values
 
 
@@ -217,7 +253,7 @@ def canonical_replacements_checker_line(line):
         pos = end
     if pos < len(base):
         out.append(replacements_strip_hash_literals(base[pos:]))
-    return ''.join(out)
+    return replacements_decode_html_entities(''.join(out))
 
 
 def parse_replacements_lines_text(input_text, answer_text=None):
@@ -244,11 +280,7 @@ def parse_replacements_lines_text(input_text, answer_text=None):
 
     for i in range(n):
         line = input_lines[i]
-        left_lines.append(
-            replacements_strip_hash_literals(
-                replacements_strip_literal_numeric_underscores(line)
-            )
-        )
+        left_lines.append(replacements_format_left_line(line))
 
         tokens, hint_values = _segments_and_slot_values(line)
         right_tokens.append(tokens)
