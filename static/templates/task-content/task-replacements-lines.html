@@ -25,7 +25,7 @@
     {% with line_idx=forloop.counter0 %}
     <tr class="new-replacements-row {% if rld.line_done|get_item:line_idx %}new-replacements-row--solved{% endif %}" data-line-index="{{ line_idx }}" data-task-id="{{ task.id }}" data-slot-count="{{ rld.slot_counts|get_item:line_idx }}">
       <td class="new-replacements-block__left {% if rld.line_done|get_item:line_idx %}new-replacements-block__left--solved{% endif %}">
-        {{ rld.parsed.left_lines|get_item:line_idx }}
+        {% for token in rld.parsed.left_tokens|get_item:line_idx %}{% if token.type == 'gap' %}<span class="new-replacements-gap-mark">{{ token.text }}</span>{% else %}{{ token.text }}{% endif %}{% endfor %}
       </td>
       <td class="new-replacements-block__check">
         {% if rld.line_done|get_item:line_idx %}
@@ -55,7 +55,7 @@
       <td class="new-replacements-block__right {% if rld.line_done|get_item:line_idx %}new-replacements-block__right--solved{% endif %}">
         {% if rld.line_done|get_item:line_idx %}
           <span class="new-replacements-line__solved-text">
-            {% for token in line_tokens %}{% if token.type == 'slot' %}{% with correct_word=rld.parsed.answers|get_item:line_idx|get_item:token.slot_index %}<strong>{{ correct_word }}</strong>{% endwith %}{% else %}<span class="new-replacements-static">{{ token.text }}</span>{% endif %}{% endfor %}
+            {% for token in line_tokens %}{% if token.type == 'slot' %}{% with correct_word=rld.parsed.answers|get_item:line_idx|get_item:token.slot_index %}{% if token.underscore %}<span class="new-replacements-underscore-slot"><span class="new-replacements-underscore-slot__mark">_</span><strong>{{ correct_word }}</strong><span class="new-replacements-underscore-slot__mark">_</span></span>{% else %}<strong>{{ correct_word }}</strong>{% endif %}{% endwith %}{% else %}<span class="new-replacements-static">{{ token.text }}</span>{% endif %}{% endfor %}
           </span>
         {% else %}
           <span class="new-replacements-line__inputs" data-repl-words-wrap>
@@ -64,21 +64,23 @@
                 {% with is_correct=rld.slot_correct|get_item:line_idx|get_item:token.slot_index %}
                   {% if is_correct %}
                     {% with correct_word=rld.parsed.answers|get_item:line_idx|get_item:token.slot_index %}
-                      <strong class="new-replacements-partial-answer">{{ correct_word }}</strong>
+                      {% if token.underscore %}<span class="new-replacements-underscore-slot"><span class="new-replacements-underscore-slot__mark">_</span><strong class="new-replacements-partial-answer">{{ correct_word }}</strong><span class="new-replacements-underscore-slot__mark">_</span></span>{% else %}<strong class="new-replacements-partial-answer">{{ correct_word }}</strong>{% endif %}
                       <input type="hidden" name="answers[]" form="repl-form-{{ task.id }}-{{ line_idx }}" value="{{ correct_word }}">
                     {% endwith %}
                   {% else %}
                     {% with correct_word=rld.parsed.answers|get_item:line_idx|get_item:token.slot_index %}
                       {% with l=correct_word|length %}
+                        {% if token.underscore %}<span class="new-replacements-underscore-slot"><span class="new-replacements-underscore-slot__mark">_</span>{% endif %}
                         {% if l <= 4 %}
-                          <input type="text" name="answers[]" class="new-replacements-input" form="repl-form-{{ task.id }}-{{ line_idx }}" data-slot="{{ token.slot_index }}" autocomplete="off" size="4">
+                          <input type="text" name="answers[]" class="new-replacements-input{% if token.underscore %} new-replacements-input--underscore{% endif %}" form="repl-form-{{ task.id }}-{{ line_idx }}" data-slot="{{ token.slot_index }}" autocomplete="off" size="4">
                         {% elif l <= 8 %}
-                          <input type="text" name="answers[]" class="new-replacements-input" form="repl-form-{{ task.id }}-{{ line_idx }}" data-slot="{{ token.slot_index }}" autocomplete="off" size="8">
+                          <input type="text" name="answers[]" class="new-replacements-input{% if token.underscore %} new-replacements-input--underscore{% endif %}" form="repl-form-{{ task.id }}-{{ line_idx }}" data-slot="{{ token.slot_index }}" autocomplete="off" size="8">
                         {% elif l <= 12 %}
-                          <input type="text" name="answers[]" class="new-replacements-input" form="repl-form-{{ task.id }}-{{ line_idx }}" data-slot="{{ token.slot_index }}" autocomplete="off" size="12">
+                          <input type="text" name="answers[]" class="new-replacements-input{% if token.underscore %} new-replacements-input--underscore{% endif %}" form="repl-form-{{ task.id }}-{{ line_idx }}" data-slot="{{ token.slot_index }}" autocomplete="off" size="12">
                         {% else %}
-                          <input type="text" name="answers[]" class="new-replacements-input" form="repl-form-{{ task.id }}-{{ line_idx }}" data-slot="{{ token.slot_index }}" autocomplete="off" size="16">
+                          <input type="text" name="answers[]" class="new-replacements-input{% if token.underscore %} new-replacements-input--underscore{% endif %}" form="repl-form-{{ task.id }}-{{ line_idx }}" data-slot="{{ token.slot_index }}" autocomplete="off" size="16">
                         {% endif %}
+                        {% if token.underscore %}<span class="new-replacements-underscore-slot__mark">_</span></span>{% endif %}
                       {% endwith %}
                     {% endwith %}
                   {% endif %}

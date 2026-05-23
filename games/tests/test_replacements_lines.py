@@ -18,6 +18,27 @@ from games.replacements_lines import (
 )
 
 
+class UnderscoreSlotUiTokensTests(SimpleTestCase):
+    def test_b_69_line_marks_underscore_slot(self):
+        left = 'В XXX году выпустили ЧЕЛОВЕКА "_Б_-69".'
+        p = parse_replacements_lines_text(left, '')
+        rt = p['right_tokens'][0]
+        self.assertTrue(rt[5].get('underscore'))
+        self.assertEqual(rt[5]['slot_index'], 2)
+        gaps = [t for t in p['left_tokens'][0] if t['type'] == 'gap']
+        self.assertEqual(len(gaps), 1)
+        self.assertEqual(gaps[0]['text'], '_Б_')
+
+    def test_caps_slot_has_no_underscore_flag(self):
+        left = 'FAR _23_ - ЖЕЛЕЗНАЯ'
+        p = parse_replacements_lines_text(left, '')
+        rt = p['right_tokens'][0]
+        self.assertFalse(rt[0].get('underscore'))
+        self.assertTrue(rt[2].get('underscore'))
+        gaps = [t for t in p['left_tokens'][0] if t['type'] == 'gap']
+        self.assertEqual([g['text'] for g in gaps], ['23'])
+
+
 class SplitSlotAnswerAlternativesTests(SimpleTestCase):
     def test_single(self):
         self.assertEqual(split_slot_answer_alternatives('  КОТ  '), ('КОТ', ['КОТ']))

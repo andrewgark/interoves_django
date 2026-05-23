@@ -142,6 +142,11 @@ def _slot_span_overlaps(slots, start, end):
     return any(s[0] < end and s[1] > start for s in slots)
 
 
+def _underscore_slot_spans(line):
+    """Интервалы (start, end) слотов из разметки _…_ (не капс-слоты)."""
+    return {(m.start(), m.end()) for m in _SLOT_UNDERSCORE.finditer(line or '')}
+
+
 def _find_slots_in_order(line):
     # Возвращает (start, end, content) в порядке появления
     slots = []
@@ -170,6 +175,7 @@ def _segments_and_slot_values(line):
     # Без снятия _цифр_: иначе _23_ не становится отдельным слотом.
     base = line
     slots = _find_slots_in_order(base)
+    us_spans = _underscore_slot_spans(base)
     tokens = []
     slot_values = []
     pos = 0
@@ -177,7 +183,10 @@ def _segments_and_slot_values(line):
         if start > pos:
             tokens.append({'type': 'text', 'text': base[pos:start]})
         slot_idx = len(slot_values)
-        tokens.append({'type': 'slot', 'slot_index': slot_idx})
+        tok = {'type': 'slot', 'slot_index': slot_idx}
+        if (start, end) in us_spans:
+            tok['underscore'] = True
+        tokens.append(tok)
         slot_values.append(content)
         pos = end
     if pos < len(base):
@@ -188,6 +197,35 @@ def _segments_and_slot_values(line):
                 replacements_strip_hash_literals(t['text'])
             )
     return tokens, slot_values
+
+
+def _build_left_tokens(line):
+    """Токены для колонки условия: пропуски _…_ выделяются отдельным типом gap."""
+    if not line:
+        return []
+    base = line
+    slots = _find_slots_in_order(base)
+    us_spans = _underscore_slot_spans(base)
+    tokens = []
+    pos = 0
+    for start, end, _content in slots:
+        if start > pos:
+            tokens.append({
+                'type': 'text',
+                'text': replacements_format_left_line(base[pos:start]),
+            })
+        formatted = replacements_format_left_line(base[start:end])
+        if (start, end) in us_spans:
+            tokens.append({'type': 'gap', 'text': formatted})
+        else:
+            tokens.append({'type': 'text', 'text': formatted})
+        pos = end
+    if pos < len(base):
+        tokens.append({
+            'type': 'text',
+            'text': replacements_format_left_line(base[pos:]),
+        })
+    return tokens
 
 
 def split_slot_answer_alternatives(content):
@@ -259,7 +297,13 @@ def canonical_replacements_checker_line(line):
 
 def parse_replacements_lines_text(input_text, answer_text=None):
     if not input_text:
-        return {'left_lines': [], 'right_tokens': [], 'answers': [], 'answer_accept': []}
+        return {
+            'left_lines': [],
+            'left_tokens': [],
+            'right_tokens': [],
+            'answers': [],
+            'answer_accept': [],
+        }
 
     input_lines = [ln.rstrip('\r') for ln in input_text.split('\n')]
     answer_lines = []
@@ -275,6 +319,7 @@ def parse_replacements_lines_text(input_text, answer_text=None):
     )
 
     left_lines = []
+    left_tokens = []
     right_tokens = []
     answers = []
     answer_accept = []
@@ -282,6 +327,7 @@ def parse_replacements_lines_text(input_text, answer_text=None):
     for i in range(n):
         line = input_lines[i]
         left_lines.append(replacements_format_left_line(line))
+        left_tokens.append(_build_left_tokens(line))
 
         tokens, hint_values = _segments_and_slot_values(line)
         right_tokens.append(tokens)
@@ -325,7 +371,13 @@ def parse_replacements_lines_text(input_text, answer_text=None):
         answers.append(line_canon)
         answer_accept.append(line_accept)
 
-    return {'left_lines': left_lines, 'right_tokens': right_tokens, 'answers': answers, 'answer_accept': answer_accept}
+    return {
+        'left_lines': left_lines,
+        'left_tokens': left_tokens,
+        'right_tokens': right_tokens,
+        'answers': answers,
+        'answer_accept': answer_accept,
+    }
 
 
 def task_replacements_canonical_answer_row(task, line_index):
