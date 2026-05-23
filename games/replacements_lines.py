@@ -30,8 +30,8 @@ _LITERAL_ENTITY_UNDERSCORE = re.compile(
 # Слот: _непустая_ последовательность_
 _SLOT_UNDERSCORE = re.compile(r'_([^_]+)_')
 
-# Литерал «как в тексте», не слот: #DC# — не путать с _A|B_ (альтернативы только внутри _…_).
-_HASH_LITERAL = re.compile(r'#([^#]+)#')
+# Литерал «как в тексте», не слот: #DC# — не путать с _A|B_ и не с &#128019;.
+_HASH_LITERAL = re.compile(r'(?<!&)#([^#]+)#(?!\d)')
 
 
 def _chars_with_unicode_categories(categories):
@@ -103,9 +103,10 @@ def replacements_format_left_line(line):
     """Колонка «условие»: числа, #литералы#, HTML-сущности в _…_, прочие &#…;."""
     if not line:
         return line
+    # Сущности до #литералов#: иначе _&#128019;_ + _&#128018;_ схлопывается в один «#…#».
     return replacements_decode_html_entities(
-        replacements_strip_literal_entity_underscores(
-            replacements_strip_hash_literals(
+        replacements_strip_hash_literals(
+            replacements_strip_literal_entity_underscores(
                 replacements_strip_literal_numeric_underscores(line)
             )
         )

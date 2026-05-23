@@ -188,6 +188,22 @@ class HtmlEntityDisplayTests(SimpleTestCase):
             'A & B',
         )
 
+    def test_multiple_entity_underscores_on_one_line(self):
+        left = '_&#128019;_ + _&#128018;_ = _&#128055;_'
+        self.assertEqual(
+            replacements_format_left_line(left),
+            '🐓 + 🐒 = 🐷',
+        )
+        p = parse_replacements_lines_text(left, '')
+        self.assertEqual(p['left_lines'][0], '🐓 + 🐒 = 🐷')
+
+    def test_hash_literal_strip_does_not_break_html_entities(self):
+        line = '_&#128019;_ + _&#128018;_'
+        self.assertEqual(
+            replacements_strip_hash_literals(line),
+            line,
+        )
+
 
 class ReplacementsLinesCheckerTests(SimpleTestCase):
     def _attempt(self, task_text, checker_data, last_state=None):
