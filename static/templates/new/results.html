@@ -111,7 +111,9 @@
           </thead>
           <tbody id="results-tbody">
             {% if progressive_results %}
-              {# start with 0 pages loaded #}
+              <tr id="results-loading-row" class="results-loading-row">
+                <td colspan="999">Загрузка результатов…</td>
+              </tr>
             {% else %}
               {% include "new/partials/results_rows.html" %}
               {% if not teams_sorted %}
@@ -174,6 +176,9 @@
         } else {
           nextPage = '';
         }
+
+        var loadingRow = document.getElementById('results-loading-row');
+        if (loadingRow) loadingRow.remove();
 
         // Append rows (skip <template>)
         Array.prototype.slice.call(tmp.children).forEach(function (node) {

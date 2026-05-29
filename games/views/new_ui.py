@@ -61,7 +61,7 @@ from games.views.util import (
     has_team,
     personal_play_mode_locked,
 )
-from games.results_snapshot import snapshot_to_results_context
+from games.results_snapshot import snapshot_headers_context, snapshot_to_results_context
 from games.yookassa_util import configure_yookassa_from_env
 
 from yookassa import Payment
@@ -150,6 +150,147 @@ def _compute_solved_task_ids(game, task_groups, team=None, user=None, anon_key=N
         tg_to_task_ids.setdefault(t['task_group_id'], []).append(t['id'])
 
     return solved_task_ids, tg_to_task_ids
+
+
+def _game_task_group_links(game):
+    return GameTaskGroup.sorted_links(
+        GameTaskGroup.objects.filter(game=game)
+        .select_related('task_group')
+        .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
+    )
+
+
+def _resolve_game_page_actor(request, play_mode):
+    """Team/user/anon_key for personal progress on game hub pages."""
+    team = user = anon_key = None
+    if play_mode == 'team':
+        if has_profile(request.user):
+            team = request.user.profile.team_on
+    else:
+        if request.user.is_authenticated and has_profile(request.user):
+            user = request.user
+        else:
+            anon_key = _anon_key_from_request(request)
+    return team, user, anon_key
+
+
+def _play_url_for_task_group(game, number, *, project_base=''):
+    if project_base:
+        return '{}/games/{}/{}/'.format(project_base, game.id, number)
+    return '/games/{}/{}/'.format(game.id, number)
+
+
+def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
+    """Task group list for game hub pages; actor progress is loaded separately."""
+    return [
+        {
+            'task_group': p.task_group,
+            'game': game,
+            'number': p.number,
+            'n_tasks': p.n_tasks,
+            'n_solved': None,
+            'play_url': _play_url_for_task_group(game, p.number, project_base=project_base),
+            'is_fully_solved': False,
+            'row_class': '',
+            'title': '{} · {}'.format(p.number, p.name),
+            'progress_text': None,
+        }
+        for p in task_groups
+    ]
+
+
+def _task_group_progress_payload(game, task_groups, *, team=None, user=None, anon_key=None, mode='general'):
+    canonical_groups = [p.task_group for p in task_groups]
+    solved_task_ids, tg_to_task_ids = _compute_solved_task_ids(
+        game=game,
+        task_groups=canonical_groups,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        mode=mode,
+    )
+    rows = {}
+    for p in task_groups:
+        tg = p.task_group
+        tg_task_ids = tg_to_task_ids.get(tg.id, [])
+        n_solved = len([tid for tid in tg_task_ids if tid in solved_task_ids])
+        row_class = ''
+        if p.n_tasks and n_solved >= p.n_tasks:
+            row_class = 'new-task--solved'
+        elif n_solved:
+            row_class = 'new-task--partial'
+        is_fully_solved = bool(p.n_tasks) and n_solved >= p.n_tasks
+        rows[str(p.number)] = {
+            'n_solved': n_solved,
+            'n_tasks': p.n_tasks,
+            'is_fully_solved': is_fully_solved,
+            'row_class': row_class,
+            'progress_text': '{} из {} {} решено'.format(
+                n_solved, p.n_tasks, _ru_iz_punkt_word(p.n_tasks),
+            ),
+        }
+    return rows
+
+
+def _game_page_progress_context(request, game, play_mode):
+    """Template flags/URL for lazy per-actor progress on game hub pages."""
+    team, user, anon_key = _resolve_game_page_actor(request, play_mode)
+    load = (play_mode == 'team' and team is not None) or (
+        play_mode != 'team' and (user is not None or anon_key is not None)
+    )
+    url = None
+    if load:
+        # Sections and main games use site-root /games/… URLs; other projects are scoped.
+        if game.project_id not in (NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT):
+            url = reverse('project_game_progress', kwargs={
+                'project_id': game.project_id,
+                'game_id': game.id,
+            })
+        else:
+            url = reverse('ui_game_progress', kwargs={'game_id': game.id})
+    return {
+        'load_task_group_progress': load,
+        'task_group_progress_url': url,
+    }
+
+
+def _game_task_group_progress_response(request, game):
+    team_for_access = request.user.profile.team_on if has_profile(request.user) else None
+    if not game.has_access('see_game_preview', team=team_for_access):
+        raise Http404()
+    if game.project_id != NEW_UI_SECTIONS_PROJECT and not game_has_started(game):
+        raise Http404()
+
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
+    team, user, anon_key = _resolve_game_page_actor(request, play_mode)
+    if play_mode == 'team' and team is None:
+        return JsonResponse({'rows': {}})
+    if play_mode != 'team' and user is None and anon_key is None:
+        return JsonResponse({'rows': {}})
+
+    task_groups = _game_task_group_links(game)
+    mode = game.get_current_mode(Attempt(time=timezone.now()))
+    rows = _task_group_progress_payload(
+        game,
+        task_groups,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        mode=mode,
+    )
+    return JsonResponse({'rows': rows})
+
+
+def new_game_task_group_progress(request, game_id):
+    game = get_object_or_404(Game, id=game_id)
+    return _game_task_group_progress_response(request, game)
+
+
+def project_game_task_group_progress(request, project_id, game_id):
+    project = get_object_or_404(Project, id=(project_id or '').strip())
+    game = get_object_or_404(Game, id=game_id, project=project)
+    return _game_task_group_progress_response(request, game)
 
 NEW_UI_PROJECT = 'main'
 NEW_UI_SECTIONS_PROJECT = 'sections'
@@ -472,9 +613,7 @@ def project_main_game_page(request, project_id, game_id):
     if not request.user.is_authenticated and not personal_play_mode_locked(game):
         play_mode = 'personal'
     play_mode = effective_play_mode(play_mode, game)
-    anon_key = _anon_key_from_request(request)
     team = None
-    user = request.user if request.user.is_authenticated else None
     has_profile_user = has_profile(request.user)
     if has_profile_user:
         team = request.user.profile.team_on
@@ -499,41 +638,8 @@ def project_main_game_page(request, project_id, game_id):
         elif request.user.is_authenticated:
             actor_value = request.user.get_username()
 
-    task_groups = GameTaskGroup.sorted_links(
-        GameTaskGroup.objects.filter(game=game)
-        .select_related('task_group')
-        .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
-    )
-
-    canonical_groups = [p.task_group for p in task_groups]
-    solved_task_ids, tg_to_task_ids = _compute_solved_task_ids(
-        game=game,
-        task_groups=canonical_groups,
-        team=team if play_mode == 'team' else None,
-        user=user if play_mode != 'team' else None,
-        anon_key=anon_key if play_mode != 'team' else None,
-        mode=mode,
-    )
-
-    task_group_rows = []
-    for p in task_groups:
-        tg = p.task_group
-        n_solved = len([tid for tid in tg_to_task_ids.get(tg.id, []) if tid in solved_task_ids])
-        row_class = ''
-        if p.n_tasks and n_solved >= p.n_tasks:
-            row_class = 'new-task--solved'
-        elif n_solved:
-            row_class = 'new-task--partial'
-        task_group_rows.append({
-            'task_group': tg,
-            'n_tasks': p.n_tasks,
-            'n_solved': n_solved,
-            'play_url': '{}/games/{}/{}/'.format(base, game.id, p.number),
-            'is_fully_solved': bool(p.n_tasks) and n_solved >= p.n_tasks,
-            'row_class': row_class,
-            'title': '{} · {}'.format(p.number, p.name),
-            'progress_text': '{} из {} {} решено'.format(n_solved, p.n_tasks, _ru_iz_punkt_word(p.n_tasks)),
-        })
+    task_groups = _game_task_group_links(game)
+    task_group_rows = _task_group_rows_skeleton(task_groups, game, project_base=base)
 
     return render(request, 'ui/game_page.html', {
         'project': project,
@@ -555,6 +661,7 @@ def project_main_game_page(request, project_id, game_id):
         'section_games': [],
         'show_sections_nav': False,
         **_project_urls_context(project.id),
+        **_game_page_progress_context(request, game, play_mode),
     })
 
 
@@ -747,64 +854,11 @@ def new_section_game_page(request, game_id):
     # Шаблон game_page использует team в фильтрах access_see_results и т.д.;
     # должен совпадать с командой для see_game_preview (ниже team перезаписывается под play_mode).
     team_for_access = team
-    task_groups = GameTaskGroup.sorted_links(
-        GameTaskGroup.objects.filter(game=game)
-        .select_related('task_group')
-        .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
-    )
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
+    task_groups = _game_task_group_links(game)
+    task_group_rows = _task_group_rows_skeleton(task_groups, game)
 
-    # Для скрытия полностью решённых групп нужно быстро понять, какие задачи решены в текущем режиме.
-    mode = game.get_current_mode(Attempt(time=timezone.now()))
-    team = None
-    user = None
-    anon_key = None
-    if play_mode == 'team':
-        if has_profile(request.user):
-            team = request.user.profile.team_on
-    else:
-        if request.user.is_authenticated and has_profile(request.user):
-            user = request.user
-        else:
-            anon_key = _anon_key_from_request(request)
-
-    canonical_groups = [p.task_group for p in task_groups]
-    solved_task_ids, tg_to_task_ids = _compute_solved_task_ids(
-        game=game,
-        task_groups=canonical_groups,
-        team=team,
-        user=user,
-        anon_key=anon_key,
-        mode=mode,
-    )
-
-    task_group_rows = []
-    for p in task_groups:
-        tg = p.task_group
-        tg_task_ids = tg_to_task_ids.get(tg.id, [])
-        n_solved = len([tid for tid in tg_task_ids if tid in solved_task_ids])
-        is_fully_solved = bool(tg_task_ids) and n_solved >= len(tg_task_ids)
-        row_class = ''
-        if p.n_tasks and n_solved >= p.n_tasks:
-            row_class = 'new-task--solved'
-        elif n_solved:
-            row_class = 'new-task--partial'
-
-        is_fully_solved = bool(tg_task_ids) and all(
-            tid in solved_task_ids for tid in tg_to_task_ids.get(tg.id, [])
-        )
-        task_group_rows.append({
-            'task_group': tg,
-            'game': game,
-            'n_tasks': p.n_tasks,
-            'n_solved': n_solved,
-            'play_url': '/games/{}/{}/'.format(game_id, p.number),
-            'is_fully_solved': is_fully_solved,
-            'row_class': row_class,
-            'title': '{} · {}'.format(p.number, p.name),
-            'progress_text': '{} из {} {} решено'.format(n_solved, p.n_tasks, _ru_iz_punkt_word(p.n_tasks)),
-        })
     section_task_groups_rules_html = None
     rules_page = game.section_default_rules
     if rules_page and (rules_page.html or '').strip():
@@ -841,6 +895,7 @@ def new_section_game_page(request, game_id):
         'team': team_for_access,
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
+        **_game_page_progress_context(request, game, play_mode),
     })
 
 
@@ -853,9 +908,7 @@ def new_main_game_page(request, game_id):
     if not request.user.is_authenticated and not personal_play_mode_locked(game):
         play_mode = 'personal'
     play_mode = effective_play_mode(play_mode, game)
-    anon_key = _anon_key_from_request(request)
     team = None
-    user = request.user if request.user.is_authenticated else None
     has_profile_user = has_profile(request.user)
     if has_profile_user:
         team = request.user.profile.team_on
@@ -887,41 +940,9 @@ def new_main_game_page(request, game_id):
         elif request.user.is_authenticated:
             actor_value = request.user.get_username()
 
-    task_groups = GameTaskGroup.sorted_links(
-        GameTaskGroup.objects.filter(game=game)
-        .select_related('task_group')
-        .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
-    )
+    task_groups = _game_task_group_links(game)
+    task_group_rows = _task_group_rows_skeleton(task_groups, game)
 
-    canonical_groups = [p.task_group for p in task_groups]
-    solved_task_ids, tg_to_task_ids = _compute_solved_task_ids(
-        game=game,
-        task_groups=canonical_groups,
-        team=team if play_mode == 'team' else None,
-        user=user if play_mode != 'team' else None,
-        anon_key=anon_key if play_mode != 'team' else None,
-        mode=mode,
-    )
-
-    task_group_rows = []
-    for p in task_groups:
-        tg = p.task_group
-        n_solved = len([tid for tid in tg_to_task_ids.get(tg.id, []) if tid in solved_task_ids])
-        row_class = ''
-        if p.n_tasks and n_solved >= p.n_tasks:
-            row_class = 'new-task--solved'
-        elif n_solved:
-            row_class = 'new-task--partial'
-        task_group_rows.append({
-            'task_group': tg,
-            'n_tasks': p.n_tasks,
-            'n_solved': n_solved,
-            'play_url': '/games/{}/{}/'.format(game.id, p.number),
-            'is_fully_solved': bool(p.n_tasks) and n_solved >= p.n_tasks,
-            'row_class': row_class,
-            'title': '{} · {}'.format(p.number, p.name),
-            'progress_text': '{} из {} {} решено'.format(n_solved, p.n_tasks, _ru_iz_punkt_word(p.n_tasks)),
-        })
     return render(request, 'ui/game_page.html', {
         'game': game,
         'task_group_rows': task_group_rows,
@@ -940,16 +961,12 @@ def new_main_game_page(request, game_id):
         'lock_personal_play_mode': personal_play_mode_locked(game),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
+        **_game_page_progress_context(request, game, play_mode),
     })
 
 
-def _new_results_compute(game, mode):
-    team_to_list_attempts_info = {}
-    team_to_score = {}
-    team_to_max_best_time = {}
-    team_task_to_attempts_info = {}
-
-    # 2 queries: placements + tasks (prefetched on canonical task_group)
+def _load_results_placements_and_tasks(game):
+    """Placements + visible tasks for results table (headers and full compute)."""
     placements = sorted(
         game.task_group_links.select_related('task_group').prefetch_related(
             Prefetch(
@@ -966,9 +983,66 @@ def _new_results_compute(game, mode):
         task_group_to_tasks[p.number] = sorted(
             getattr(tg, 'result_tasks', []) or [], key=lambda t: t.key_sort()
         )
-
     tasks_flat = [t for p in placements for t in task_group_to_tasks[p.number]]
     task_ids = [t.id for t in tasks_flat]
+    task_group_headers = [
+        _ResultsTaskGroupHeader(p.number, p.name, len(task_group_to_tasks[p.number]))
+        for p in placements
+    ]
+    return placements, task_group_to_tasks, tasks_flat, task_ids, task_group_headers
+
+
+def _results_table_headers_context(game):
+    """Fast context for results table thead only."""
+    _placements, task_group_to_tasks, _tasks_flat, _task_ids, task_group_headers = (
+        _load_results_placements_and_tasks(game)
+    )
+    return {
+        'task_groups': task_group_headers,
+        'task_group_to_tasks': task_group_to_tasks,
+    }
+
+
+def _results_rows_empty_context():
+    return {
+        'teams_sorted': [],
+        'team_to_list_attempts_info': {},
+        'team_to_cells': {},
+        'team_to_score': {},
+        'team_to_place': {},
+        'team_to_max_best_time': {},
+    }
+
+
+def _load_game_results_data(game, mode):
+    snap = GameResultsSnapshot.objects.filter(game=game, mode=mode).first()
+    if snap and snap.payload:
+        return snapshot_to_results_context(game, snap.payload)
+    return _new_results_compute(game, mode=mode)
+
+
+def _results_me_participants(request, play_mode):
+    me_personal = None
+    me_anon_participant = None
+    if play_mode == 'personal':
+        if request.user.is_authenticated:
+            me_personal = PersonalResultsParticipant(user=request.user)
+        else:
+            ak = _anon_key_from_request(request)
+            if ak:
+                me_anon_participant = PersonalResultsParticipant(anon_key=ak)
+    return me_personal, me_anon_participant
+
+
+def _new_results_compute(game, mode):
+    team_to_list_attempts_info = {}
+    team_to_score = {}
+    team_to_max_best_time = {}
+    team_task_to_attempts_info = {}
+
+    placements, task_group_to_tasks, tasks_flat, task_ids, task_group_headers = (
+        _load_results_placements_and_tasks(game)
+    )
 
     # 2 queries: all attempts + all hint attempts for the whole game at once.
     # Sections (general): same TaskGroup can appear in several games; attempts are stored
@@ -1102,11 +1176,6 @@ def _new_results_compute(game, mode):
             })
         team_to_cells[participant] = cells
 
-    task_group_headers = [
-        _ResultsTaskGroupHeader(p.number, p.name, len(task_group_to_tasks[p.number]))
-        for p in placements
-    ]
-
     return {
         'task_groups': task_group_headers,
         'task_group_to_tasks': task_group_to_tasks,
@@ -1239,36 +1308,32 @@ def new_section_results_page(request, game_id):
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
 
-    snap = GameResultsSnapshot.objects.filter(game=game, mode='general').first()
-    if snap and snap.payload:
-        data = snapshot_to_results_context(game, snap.payload)
-    else:
-        data = _new_results_compute(game, mode='general')
-    # Section results can have many participants. Support progressive loading
-    # (10 rows per page) so the HTML page can build incrementally.
     progressive_page_size = 10
-    data = _paginate_results_rows(request, data, per_page=progressive_page_size)
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
+    me_personal, me_anon_participant = _results_me_participants(request, play_mode)
+
+    # Row data is loaded incrementally (?partial=1); initial response is headers only.
     if request.GET.get('partial') == '1':
+        data = _load_game_results_data(game, mode='general')
+        data = _paginate_results_rows(request, data, per_page=progressive_page_size)
         return render(request, 'new/partials/results_rows.html', {
             'mode': 'general',
             'section_results': True,
             'game': game,
             'team': team,
-            'me_personal': None,
-            'me_anon_participant': None,
+            'me_personal': me_personal,
+            'me_anon_participant': me_anon_participant,
             **data,
         })
-    play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
-    me_personal = None
-    me_anon_participant = None
-    if play_mode == 'personal':
-        if request.user.is_authenticated:
-            me_personal = PersonalResultsParticipant(user=request.user)
-        else:
-            ak = _anon_key_from_request(request)
-            if ak:
-                me_anon_participant = PersonalResultsParticipant(anon_key=ak)
+
+    snap = GameResultsSnapshot.objects.filter(game=game, mode='general').first()
+    if snap and snap.payload:
+        header_data = snapshot_headers_context(snap.payload)
+    else:
+        header_data = _results_table_headers_context(game)
+    data = {**header_data, **_results_rows_empty_context()}
+
     return render(request, 'ui/results.html', {
         'mode': 'general',
         'section_results': True,

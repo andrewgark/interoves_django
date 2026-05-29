@@ -17,6 +17,7 @@ urlpatterns = [
     # Project-scoped "new UI" pages (isolated navigation per project).
     re_path(r'^' + _PROJECT_ID_RE + r'/$', ui.project_hub, name='project_hub'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/$', ui.project_folder_games, name='project_folder_games'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/progress/$', ui.project_game_task_group_progress, name='project_game_progress'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/$', ui.project_main_game_page, name='project_main_game'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/results/$', ui.project_results_page, name='project_results'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/tournament-results/$', ui.project_tournament_results_page, name='project_tournament_results'),
@@ -47,6 +48,7 @@ urlpatterns = [
     path('answer/<int:task_id>/', ui.get_answer, name='ui_get_answer'),
     path('answer/<int:task_id>/<int:line_index>/', ui.get_replacements_line_answer, name='ui_get_replacements_line_answer'),
     path('like-dislike/<int:task_id>/', ui.like_dislike, name='ui_like_dislike'),
+    path('games/<str:game_id>/progress/', ui.game_task_group_progress, name='ui_game_progress'),
     path('games/<str:game_id>/', ui.main_game_page, name='ui_main_game'),
     path('games/<str:game_id>/results/', ui.results_page, name='ui_results'),
     path('games/<str:game_id>/tournament-results/', ui.tournament_results_page, name='ui_tournament_results'),

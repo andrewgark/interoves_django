@@ -199,8 +199,12 @@ def bulk_actor_solved_task_ids(
     )
     solved: Set[int] = set()
     for t in tasks:
-        mp = task_effective_max_points(t)
         pts, _ = pts_map.get(t.id, (0.0, False))
+        # get_results_max_points() parses replacements_lines text (~60ms/task on prod).
+        # Skip when the actor has no scored progress on this task.
+        if pts <= EPS:
+            continue
+        mp = task_effective_max_points(t)
         if mp > 0 and pts >= mp - EPS:
             solved.add(t.id)
     return solved

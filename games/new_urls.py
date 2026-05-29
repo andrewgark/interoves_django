@@ -12,6 +12,7 @@ urlpatterns = [
     path('answer/<int:task_id>/', ui.get_answer, name='new_get_answer'),
     path('answer/<int:task_id>/<int:line_index>/', ui.get_replacements_line_answer, name='new_get_replacements_line_answer'),
     path('like-dislike/<int:task_id>/', ui.like_dislike, name='new_like_dislike'),
+    path('games/<str:game_id>/progress/', ui.game_task_group_progress, name='new_game_progress'),
     path('games/<str:game_id>/', ui.main_game_page, name='new_main_game'),
     path('games/<str:game_id>/results/', ui.results_page, name='new_results'),
     path('games/<str:game_id>/tournament-results/', ui.tournament_results_page, name='new_tournament_results'),

@@ -364,6 +364,41 @@
         });
       });
       applyHideSolved();
+      window.interovesApplyHideSolved = applyHideSolved;
+    })();
+    </script>
+  {% endif %}
+  {% if load_task_group_progress and task_group_progress_url %}
+    <script>
+    (function () {
+      var url = '{{ task_group_progress_url|escapejs }}';
+      if (!url) return;
+      fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+        .then(function (r) {
+          if (!r.ok) throw new Error('progress ' + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          var rows = (data && data.rows) || {};
+          document.querySelectorAll('.new-task[data-task-group-number]').forEach(function (el) {
+            var num = el.getAttribute('data-task-group-number');
+            var row = rows[num];
+            if (!row) return;
+            el.classList.remove('new-task--solved', 'new-task--partial');
+            if (row.row_class) el.classList.add(row.row_class);
+            el.setAttribute('data-fully-solved', row.is_fully_solved ? '1' : '0');
+            var meta = el.querySelector('[data-progress-meta]');
+            if (meta) {
+              meta.textContent = row.progress_text || '';
+              meta.removeAttribute('aria-hidden');
+              meta.classList.remove('new-task__meta--loading');
+            }
+          });
+          if (typeof window.interovesApplyHideSolved === 'function') {
+            window.interovesApplyHideSolved();
+          }
+        })
+        .catch(function () {});
     })();
     </script>
   {% endif %}

@@ -79,20 +79,31 @@ class _SnapAttemptsInfo:
         return max(0, (self._sum_hint_penalty or 0))
 
 
-def snapshot_to_results_context(game, payload):
-    """
-    Convert snapshot payload into the same shape that results templates expect.
-    Uses lightweight objects for AttemptsInfo and headers.
-    """
-    # Headers
+def snapshot_headers_context(payload):
+    """Table column headers only (no participant rows). For fast initial results page paint."""
     task_groups = []
     task_group_to_tasks = {}
-    tasks_flat = []
     for tg in payload.get('task_groups') or []:
         tasks = [_SnapTask(t.get('number')) for t in (tg.get('tasks') or [])]
         tg_obj = _SnapTaskGroup(tg.get('number'), tg.get('name'), tasks)
         task_groups.append(tg_obj)
         task_group_to_tasks[tg_obj.number] = tasks
+    return {
+        'task_groups': task_groups,
+        'task_group_to_tasks': task_group_to_tasks,
+    }
+
+
+def snapshot_to_results_context(game, payload):
+    """
+    Convert snapshot payload into the same shape that results templates expect.
+    Uses lightweight objects for AttemptsInfo and headers.
+    """
+    header_data = snapshot_headers_context(payload)
+    task_groups = header_data['task_groups']
+    task_group_to_tasks = header_data['task_group_to_tasks']
+    tasks_flat = []
+    for tasks in task_group_to_tasks.values():
         tasks_flat.extend(tasks)
 
     rows = payload.get('rows') or []
