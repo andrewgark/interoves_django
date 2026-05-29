@@ -18,6 +18,7 @@
 </a>
 {% endfor %}
 
+{% if community_links %}
 <h1 class="new-heading" style="margin-top:2rem">Сообщество</h1>
 <div class="new-community-links">
   {% for link in community_links %}
@@ -35,4 +36,5 @@
     </a>
   {% endfor %}
 </div>
+{% endif %}
 {% endblock %}
