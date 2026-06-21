@@ -307,7 +307,8 @@ def _project_base(project_id: str | None) -> str:
     - other projects live under "/<project_id>" -> "/glowbyte"
     """
     pid = (project_id or '').strip()
-    if not pid or pid == NEW_UI_PROJECT:
+    # "sections" is a DB project for hub tiles (/section/<id>/), not a URL prefix like /glowbyte/.
+    if not pid or pid in (NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT):
         return ''
     # Project ids in this repo are simple slugs, but keep it defensive.
     if '/' in pid:

@@ -11,7 +11,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|team|profile|pay|answer|like-dislike|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|yookassa|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|logout|nutrimatic-ru|eurovision_booklet)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|team|profile|pay|answer|like-dislike|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|yookassa|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|corporate|logout|nutrimatic-ru|eurovision_booklet)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     # Project-scoped "new UI" pages (isolated navigation per project).
@@ -43,6 +43,7 @@ urlpatterns = [
 
     path('', ui.hub, name='ui_hub'),
     path('sections/', RedirectView.as_view(url='/', query_string=True), name='ui_sections'),
+    path('sections/games/', RedirectView.as_view(url='/games/', query_string=True), name='ui_sections_games'),
     path('play-mode/', ui.set_play_mode, name='ui_set_play_mode'),
     path('migrate-anon-attempts/', ui.migrate_anon_attempts, name='ui_migrate_anon_attempts'),
     path('answer/<int:task_id>/', ui.get_answer, name='ui_get_answer'),
