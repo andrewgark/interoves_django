@@ -18,6 +18,7 @@ from games.models import (
 )
 from games.recheck import recheck_chain_task
 from games.views.attempt_views import check_attempt
+from games.wall import Wall
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +285,34 @@ class WallChainTests(_ChainFixture, TestCase):
         row = ChainTaskState.objects.get(task=self.wall_task, team=self.team)
         state = json.loads(row.state)
         self.assertGreater(state['best_points'], 0)
+
+    def test_get_n_max_attempts_dict_handles_all_words_guessed_wrong_retry(self):
+        """Auto-fill can leave guessed_words at n_cat; a later wrong cat_words must not 500."""
+        a1 = _make_attempt(self.wall_task, self.team, _wall_text(['A', 'B', 'C', 'D']))
+        check_attempt(a1)
+        a2 = _make_attempt(self.wall_task, self.team, _wall_text(['E', 'F', 'G', 'H']))
+        check_attempt(a2)
+        a3 = _make_attempt(self.wall_task, self.team, _wall_text(['I', 'J', 'K', 'L']))
+        check_attempt(a3)
+        row = ChainTaskState.objects.get(task=self.wall_task, team=self.team)
+        state = json.loads(row.state)
+        self.assertEqual(len(state['guessed_words']), 4)
+
+        a4 = _make_attempt(self.wall_task, self.team, _wall_text(['M', 'N', 'O', 'P']))
+        check_attempt(a4)
+        row.refresh_from_db()
+        state = json.loads(row.state)
+        self.assertEqual(len(state['guessed_words']), 4)
+
+        wall = Wall(self.wall_task)
+        attempts = Attempt.manager.get_all_attempts(self.team, self.wall_task)
+        # Must not raise KeyError when rendering exptiles for this state.
+        wall.get_exptiles(
+            Attempt.manager.get_attempts_info(
+                team=self.team, task=self.wall_task, mode='general', game=self.game,
+            ),
+            'general',
+        )
 
 
 # ===========================================================================

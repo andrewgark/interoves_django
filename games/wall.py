@@ -78,6 +78,12 @@ class Wall:
             return "{} ({})".format(data['explanation'], ", ".join(word_http_list))
         return ", ".join(word_http_list)
 
+    def _cat_words_slot_index(self, n_guessed, *, after_ok=False):
+        """Map guessed_words length to a cat_words counter index (0 .. n_cat - 1)."""
+        idx = (n_guessed - 1) if after_ok else n_guessed
+        max_idx = len(self.max_attempts)  # n_cat - 1
+        return max(0, min(idx, max_idx))
+
     def get_n_max_attempts_dict(self, attempts=None):
         n_max_attempts_dict = {
             'cat_words': {
@@ -95,7 +101,7 @@ class Wall:
             n_max_attempts_dict['cat_explanation'][i]['n_attempts'] = 0
             n_max_attempts_dict['cat_explanation'][i]['max_attempts'] = self.task.get_max_attempts()
 
-        for attempt in attempts:
+        for attempt in attempts or []:
             state = json.loads(attempt.state)
             
             stage = state['last_attempt']['stage']
@@ -103,17 +109,18 @@ class Wall:
                 n_guessed = len(state['guessed_words'])
                 status = state['last_attempt']['status']
                 if status != 'Ok':
-                    n_max_attempts_dict[stage][n_guessed]['n_attempts'] += 1
+                    idx = self._cat_words_slot_index(n_guessed, after_ok=False)
                 else:
-                    n_max_attempts_dict[stage][n_guessed - 1]['n_attempts'] += 1
-                    n_max_attempts_dict[stage][n_guessed - 1]['guessed'] = True
+                    idx = self._cat_words_slot_index(n_guessed, after_ok=True)
+                    n_max_attempts_dict[stage][idx]['guessed'] = True
+                n_max_attempts_dict[stage][idx]['n_attempts'] += 1
             else:
                 words = state['last_attempt']['words']
                 words_index = None
                 for i, other_words in enumerate(state['guessed_words']):
                     if words == other_words:
                         words_index = i
-                if words_index is not None:
+                if words_index is not None and words_index in n_max_attempts_dict[stage]:
                     n_max_attempts_dict[stage][words_index]['n_attempts'] += 1
         return n_max_attempts_dict
     
@@ -140,7 +147,7 @@ class Wall:
         else:
             return None
         if stage == 'cat_words':
-            index = len(state['guessed_words'])
+            index = self._cat_words_slot_index(len(state['guessed_words']), after_ok=False)
         else:
             words = attempt_data['words']
             index = None
