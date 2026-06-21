@@ -1488,6 +1488,27 @@ class PendingTicketRequest(TicketRequest):
         proxy=True
 
 
+class CorporateGameOrder(models.Model):
+    id = models.AutoField(primary_key=True)
+    company_name = models.CharField(max_length=200)
+    contact_name = models.CharField(max_length=200)
+    email = models.EmailField()
+    phone = models.CharField(max_length=100, blank=True, default='')
+    team_size = models.CharField(max_length=100, blank=True, default='')
+    preferred_date = models.CharField(max_length=200, blank=True, default='')
+    message = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    email_sent = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'заявка на корпоративную игру'
+        verbose_name_plural = 'заявки на корпоративные игры'
+
+    def __str__(self):
+        return '{} — {} ({})'.format(self.company_name, self.contact_name, self.created_at.strftime('%Y-%m-%d %H:%M'))
+
+
 class Registration(models.Model):
     id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='registrations', blank=True, null=True, on_delete=models.SET_NULL)

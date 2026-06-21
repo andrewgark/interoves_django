@@ -607,6 +607,20 @@ TEMPLATE_CONTEXT_PROCESSORS = (
 
 # CORS Policy
 
+CORPORATE_ORDER_EMAIL = (os.environ.get('CORPORATE_ORDER_EMAIL') or 'andrewgarkavyy@gmail.com').strip()
+DEFAULT_FROM_EMAIL = (os.environ.get('DEFAULT_FROM_EMAIL') or 'noreply@interoves.com').strip()
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+if IS_PROD:
+    EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+    EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+    EMAIL_USE_TLS = _env_flag('EMAIL_USE_TLS') if os.environ.get('EMAIL_USE_TLS') is not None else True
+    EMAIL_HOST_USER = (os.environ.get('EMAIL_HOST_USER') or '').strip()
+    EMAIL_HOST_PASSWORD = (os.environ.get('EMAIL_HOST_PASSWORD') or '').strip()
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
 CORS_ORIGIN_ALLOW_ALL = False
 
 CORS_ALLOW_HEADERS = (

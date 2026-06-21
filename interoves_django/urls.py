@@ -23,6 +23,7 @@ from django.views.generic import RedirectView, TemplateView
 from microsites import views as microsites_views
 from games.views.meta_http import deploy_version
 from games.views.ticket import yookassa_webhook
+from games.views.corporate_landing import corporate_landing
 
 nutrimatic_patterns = [
     path("", microsites_views.nutrimatic_search, name="nutrimatic_home"),
@@ -77,6 +78,7 @@ urlpatterns = [
     path('tickets/', TemplateView.as_view(template_name="tickets.html")),
     path('ticket-agreement/', TemplateView.as_view(template_name="ticket-agreement.html")),
     path('vpn/', TemplateView.as_view(template_name="new/pigeon_vpn.html"), name='pigeon_vpn'),
+    path('corporate/', corporate_landing, name='corporate_landing'),
 
     path('yookassa/webhook/', yookassa_webhook, name='yookassa_webhook'),
     path('health/', include('health_check.urls')),

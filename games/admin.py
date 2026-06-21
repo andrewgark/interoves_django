@@ -13,6 +13,7 @@ from games.models import (
     Audio,
     ChainTaskState,
     CheckerType,
+    CorporateGameOrder,
     Game,
     GameResultsSnapshot,
     GameTaskGroup,
@@ -45,6 +46,14 @@ from games.results_snapshot import freeze_game_results
 
 
 admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration, TicketRequest])
+
+
+@admin.register(CorporateGameOrder)
+class CorporateGameOrderAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'company_name', 'contact_name', 'email', 'team_size', 'email_sent')
+    list_filter = ('email_sent',)
+    search_fields = ('company_name', 'contact_name', 'email', 'message')
+    readonly_fields = ('created_at', 'email_sent')
 
 
 def hintform_factory(task):

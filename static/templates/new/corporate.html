@@ -1,0 +1,269 @@
+{% extends "new/base.html" %}
+{% load static %}
+{% block title %}{{ page_title|default:"Игры для компаний" }}{% endblock %}
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/corporate.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+{% endblock %}
+{% block content %}
+<div class="corporate-page">
+
+<section class="corp-hero" id="top">
+  <p class="corp-hero__kicker">Корпоративные интеллектуальные игры</p>
+  <h1 class="corp-hero__title">Командная онлайн-игра, которую ваши сотрудники будут обсуждать ещё неделю</h1>
+  <p class="corp-hero__lead">
+  Мы делаем сложные командные игры в духе олимпиадных задач и пазлхантов — без викторинных «угадайку» и без тупых вопросов на эрудицию.
+  Google и&nbsp;ИИ разрешены и&nbsp;часто нужны. Все задания открыты сразу, порядок решения — любой, результаты всех команд видны онлайн в&nbsp;реальном времени.
+  </p>
+  <div class="corp-hero__actions">
+    <a class="new-btn" href="#order">Заказать игру</a>
+    <a class="new-btn new-btn--ghost" href="/games/">Посмотреть примеры игр</a>
+  </div>
+</section>
+
+<div class="corp-stats" aria-label="Цифры">
+  <div class="corp-stat">
+    <strong>150+</strong>
+    <span>проведённых игр</span>
+  </div>
+  <div class="corp-stat">
+    <strong>100+</strong>
+    <span>регулярных игроков в&nbsp;турнирном режиме</span>
+  </div>
+  <div class="corp-stat">
+    <strong>4+</strong>
+    <span>крупных IT-компаний среди заказчиков</span>
+  </div>
+</div>
+
+<section class="corp-section">
+  <p class="corp-section__title">Нам доверяют</p>
+  <h2>Корпоративные игры для сильных команд</h2>
+  <div class="corp-clients">
+    <span class="corp-client">Pinely</span>
+    <span class="corp-client">Glowbyte</span>
+    <span class="corp-client">Tinkoff</span>
+    <span class="corp-client">Yandex</span>
+  </div>
+  <p style="margin:1rem 0 0; font-size:0.92rem; color:var(--muted); line-height:1.55">
+  Для каждой компании — отдельный закрытый раздел на&nbsp;сайте, брендирование, настройка размера команд и&nbsp;расписания под ваш офлайн/онлайн-ивент.
+  </p>
+</section>
+
+<section class="corp-section">
+  <p class="corp-section__title">Почему это работает</p>
+  <h2>Не квиз. Не квест в&nbsp;подвале. Интеллектуальная игра нового типа</h2>
+  <div class="corp-grid corp-grid--2">
+    <article class="corp-card">
+      <div class="corp-card__icon">🌐</div>
+      <h3>Только онлайн</h3>
+      <p>Команды играют из&nbsp;офиса, дома или гибридно. Не&nbsp;нужны локации, реквизит и&nbsp;актеры.</p>
+    </article>
+    <article class="corp-card">
+      <div class="corp-card__icon">👥</div>
+      <h3>Командный формат</h3>
+      <p>Игра заточена под совместное мышление. Размер команды настраивается — часто 4–6 человек, но&nbsp;можно и&nbsp;больше.</p>
+    </article>
+    <article class="corp-card">
+      <div class="corp-card__icon">🧠</div>
+      <h3>Логика и&nbsp;исследование</h3>
+      <p>Задачи на&nbsp;дедукцию, поиск закономерностей, работу с&nbsp;данными — а&nbsp;не&nbsp;на&nbsp;зазубривание фактов.</p>
+    </article>
+    <article class="corp-card">
+      <div class="corp-card__icon">🔍</div>
+      <h3>Google и&nbsp;ИИ — можно</h3>
+      <p>Мы&nbsp;проектируем задания так, чтобы поиск в&nbsp;интернете и&nbsp;нейросети были частью решения, а&nbsp;не&nbsp;читерством.</p>
+    </article>
+    <article class="corp-card">
+      <div class="corp-card__icon">📋</div>
+      <h3>Все задания сразу</h3>
+      <p>Нет линейного сюжета с&nbsp;бутылочным горлышком. Команда сама выбирает, с&nbsp;чего начать и&nbsp;как распределить силы.</p>
+    </article>
+    <article class="corp-card">
+      <div class="corp-card__icon">⚡</div>
+      <h3>Мгновенная проверка</h3>
+      <p>Правильный ответ засчитывается сразу. Спорные случаи перепроверяет автор. Таблица результатов обновляется онлайн для всех.</p>
+    </article>
+  </div>
+</section>
+
+<section class="corp-section">
+  <p class="corp-section__title">Сложность</p>
+  <h2>Уровень олимпиады и&nbsp;пазлханта</h2>
+  <div class="corp-highlight">
+    <p>
+    Это одна из&nbsp;самых редких ниш на&nbsp;рынке корпоративных развлечений:
+    <strong>задачи действительно сложные</strong> — ближе к&nbsp;олимпиадной информатике, математическим головоломкам и&nbsp;международным puzzle hunt'ам, чем к&nbsp;типичному тимбилдингу.
+    Сотрудники, которым скучны обычные квизы, здесь включаются по-настоящему.
+    </p>
+  </div>
+</section>
+
+<section class="corp-section">
+  <p class="corp-section__title">Форматы заданий</p>
+  <h2>Каждая игра — микс разных механик</h2>
+  <div class="corp-examples">
+    <div class="corp-example">
+      <span class="corp-example__tag">Стены</span>
+      <div>
+        <strong>16 слов — 4 скрытые темы</strong>
+        <p>Распределите слова по&nbsp;группам, как в&nbsp;Connections, но&nbsp;с&nbsp;неочевидными связями и&nbsp;ложными подсказками. Ошибка «срывает» попытку.</p>
+      </div>
+    </div>
+    <div class="corp-example">
+      <span class="corp-example__tag">Замены</span>
+      <div>
+        <strong>Цепочка взаимосвязанных подсказок</strong>
+        <p>Ответ на&nbsp;одну строку меняет формулировку следующей. Нужно видеть структуру целиком и&nbsp;работать параллельно.</p>
+      </div>
+    </div>
+    <div class="corp-example">
+      <span class="corp-example__tag">Палиндромы</span>
+      <div>
+        <strong>Фраза, которая читается одинаково в&nbsp;обе стороны</strong>
+        <p>От&nbsp;«химических палиндромов» до&nbsp;«городских» — задачи на&nbsp;язык, культуру и&nbsp;нестандартное мышление.</p>
+      </div>
+    </div>
+    <div class="corp-example">
+      <span class="corp-example__tag">Пазлхант</span>
+      <div>
+        <strong>Многослойная загадка с&nbsp;картами и&nbsp;координатами</strong>
+        <p>Исследование реальных объектов, видеоигр, фильмов или инженерных систем. Часто нужен глубокий поиск в&nbsp;интернете.</p>
+      </div>
+    </div>
+    <div class="corp-example">
+      <span class="corp-example__tag">Пропорции</span>
+      <div>
+        <strong>Логика соотношений и&nbsp;точные вычисления</strong>
+        <p>Задачи, где нужно построить модель, проверить гипотезу и&nbsp;получить один конкретный ответ.</p>
+      </div>
+    </div>
+    <div class="corp-example">
+      <span class="corp-example__tag">Мета / слова</span>
+      <div>
+        <strong>Метаграммы, antiwordle, цепочки букв</strong>
+        <p>Словесные головоломки с&nbsp;нестандартной автоматической проверкой — не&nbsp;просто «впишите слово».</p>
+      </div>
+    </div>
+    <div class="corp-example">
+      <span class="corp-example__tag">Распределение</span>
+      <div>
+        <strong>Разные куски головоломки — разным людям</strong>
+        <p>Часть информации видит только часть команды. Нужна синхронизация в&nbsp;чате или на&nbsp;общем экране.</p>
+      </div>
+    </div>
+    <div class="corp-example">
+      <span class="corp-example__tag">Десяточки</span>
+      <div>
+        <strong>Флагманский формат: ~10 блоков заданий за&nbsp;вечер</strong>
+        <p>Тематические игры — от&nbsp;видеоигр до&nbsp;«Матрицы» и&nbsp;чистого пазлханта. <a class="new-link-dotted" href="/games/">169 игр в&nbsp;архиве</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="corp-section">
+  <p class="corp-section__title">Сообщество</p>
+  <h2>Игры, которые любят сильные решатели</h2>
+  <div class="corp-community">
+    <p class="corp-community__names">
+    Помимо корпоративных заказов, у&nbsp;нас живое турнирное сообщество:
+    по&nbsp;вечерам воскресений проходят открытые <strong>Десяточки</strong>, в&nbsp;которых регулярно играют сотни сильных участников.
+    Среди них — победители и&nbsp;призёры <strong>ACM ICPC</strong> (в&nbsp;том числе Гена Короткевич и&nbsp;Алексей Данилюк),
+    призёры спортивной версии <strong>«Что? Где? Когда?»</strong> и&nbsp;другие люди, для которых обычные квизы слишком просты.
+    </p>
+    <div class="corp-link-row">
+      <a href="https://t.me/interoves" target="_blank" rel="noopener noreferrer">Телеграм-канал →</a>
+      <a href="/games/">Архив игр →</a>
+      <a href="/section/palindromes/">Палиндромы →</a>
+      <a href="/section/walls/">Стены →</a>
+    </div>
+  </div>
+</section>
+
+<section class="corp-section">
+  <p class="corp-section__title">Стоимость</p>
+  <h2>Индивидуальный расчёт под ваш ивент</h2>
+  <div class="corp-price">
+    <div class="corp-price__amount">
+      ~100&nbsp;000&nbsp;₽
+      <small>за игру, ориентир</small>
+    </div>
+    <p class="corp-price__note">
+    Точная цена зависит от&nbsp;размера команд, даты, темы, длительности и&nbsp;формата (разовый ивент или серия).
+    Напишите — предложим варианты и&nbsp;покажем примеры игр, близких к&nbsp;вашему запросу.
+    </p>
+  </div>
+</section>
+
+<section class="corp-section" id="order">
+  <p class="corp-section__title">Заявка</p>
+  <h2>Заказать корпоративную игру</h2>
+
+  {% if submitted %}
+  <div class="corp-success" role="status">
+    <p><strong>Спасибо!</strong> Заявка отправлена. Мы свяжемся с&nbsp;вами по&nbsp;указанному email в&nbsp;ближайшее время.</p>
+  </div>
+  {% endif %}
+
+  <div class="corp-form-wrap">
+    <form class="new-form" method="post" action="#order" novalidate>
+      {% csrf_token %}
+      <div class="corp-form__honeypot" aria-hidden="true">
+        <label for="id_website">Website</label>
+        {{ form.website }}
+      </div>
+      <div class="new-two">
+        <div>
+          <label for="id_company_name">{{ form.company_name.label }}</label>
+          {{ form.company_name }}
+          {% if form.company_name.errors %}<span class="new-field-error">{{ form.company_name.errors.0 }}</span>{% endif %}
+        </div>
+        <div>
+          <label for="id_contact_name">{{ form.contact_name.label }}</label>
+          {{ form.contact_name }}
+          {% if form.contact_name.errors %}<span class="new-field-error">{{ form.contact_name.errors.0 }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="new-two">
+        <div>
+          <label for="id_email">{{ form.email.label }}</label>
+          {{ form.email }}
+          {% if form.email.errors %}<span class="new-field-error">{{ form.email.errors.0 }}</span>{% endif %}
+        </div>
+        <div>
+          <label for="id_phone">{{ form.phone.label }}</label>
+          {{ form.phone }}
+        </div>
+      </div>
+      <div class="new-two">
+        <div>
+          <label for="id_team_size">{{ form.team_size.label }}</label>
+          {{ form.team_size }}
+        </div>
+        <div>
+          <label for="id_preferred_date">{{ form.preferred_date.label }}</label>
+          {{ form.preferred_date }}
+        </div>
+      </div>
+      <div>
+        <label for="id_message">{{ form.message.label }}</label>
+        {{ form.message }}
+      </div>
+      {% if form.non_field_errors %}
+      <p class="new-field-error" style="margin-top:1rem">{{ form.non_field_errors.0 }}</p>
+      {% endif %}
+      <p style="margin-top:1.25rem">
+        <button type="submit" class="new-btn">Отправить заявку</button>
+      </p>
+    </form>
+  </div>
+</section>
+
+<p class="corp-footer-note">
+  Или напишите напрямую:
+  <a href="mailto:andrewgarkavyy@gmail.com">andrewgarkavyy@gmail.com</a>
+  ·   <a href="https://t.me/interoves" target="_blank" rel="noopener noreferrer">Telegram</a>
+</p>
+
+</div>
+{% endblock %}

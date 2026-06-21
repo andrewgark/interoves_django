@@ -1,4 +1,5 @@
 from django.forms import Form, ModelForm, ChoiceField, TextInput, HiddenInput, BooleanField
+from django import forms
 from games.models import *
 
 
@@ -65,4 +66,35 @@ class TicketRequestForm(ModelForm):
     class Meta:
         model = TicketRequest
         fields = ['money', 'tickets', 'yookassa_id']
+
+
+class CorporateGameOrderForm(ModelForm):
+    website = forms.CharField(required=False, widget=forms.HiddenInput, label='')
+
+    class Meta:
+        model = CorporateGameOrder
+        fields = ['company_name', 'contact_name', 'email', 'phone', 'team_size', 'preferred_date', 'message']
+        widgets = {
+            'company_name': TextInput(attrs={'placeholder': 'Название компании'}),
+            'contact_name': TextInput(attrs={'placeholder': 'Ваше имя'}),
+            'email': TextInput(attrs={'placeholder': 'email@company.com', 'type': 'email'}),
+            'phone': TextInput(attrs={'placeholder': '+7 …'}),
+            'team_size': TextInput(attrs={'placeholder': 'Например, 6–20 человек'}),
+            'preferred_date': TextInput(attrs={'placeholder': 'Желаемая дата или период'}),
+            'message': forms.Textarea(attrs={'placeholder': 'Тема, формат, особые пожелания…', 'rows': 4}),
+        }
+        labels = {
+            'company_name': 'Компания',
+            'contact_name': 'Контактное лицо',
+            'email': 'Email',
+            'phone': 'Телефон',
+            'team_size': 'Размер команды',
+            'preferred_date': 'Когда провести',
+            'message': 'Комментарий',
+        }
+
+    def clean_website(self):
+        if self.cleaned_data.get('website'):
+            raise forms.ValidationError('Spam detected.')
+        return ''
         
