@@ -97,7 +97,7 @@ class TaskGroupAdmin(admin.ModelAdmin):
         GameTaskGroupInlineOnTaskGroup,
         TaskInline,
     ]
-    list_display = ['__str__', 'label']
+    list_display = ['__str__', 'label', 'is_18_plus']
     search_fields = ['label', 'id']
 
 
@@ -134,6 +134,7 @@ def copy_game(modeladmin, request, queryset):
                 image_width=old_tg.image_width,
                 tags=dict(old_tg.tags or {}),
                 view=old_tg.view,
+                is_18_plus=old_tg.is_18_plus,
             )
             new_tg.save()
             GameTaskGroup.objects.create(
@@ -253,7 +254,7 @@ class GameAdmin(admin.ModelAdmin):
     ]
     raw_id_fields = ['section_default_rules']
     search_fields = ['id', 'name', 'outside_name']
-    list_display = ['__str__', 'name', 'theme', 'author', 'start_time', 'end_time', 'is_ready', 'is_playable', 'is_testing', 'is_registrable', 'requires_ticket']
+    list_display = ['__str__', 'name', 'theme', 'author', 'start_time', 'end_time', 'is_ready', 'is_playable', 'is_testing', 'is_registrable', 'requires_ticket', 'is_18_plus']
     actions = [
         copy_game,
         create_new_google_doc,

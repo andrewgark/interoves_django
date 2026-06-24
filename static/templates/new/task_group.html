@@ -8,6 +8,9 @@
   {% endif %}
   · {% autoescape off %}{{ tg_name }}{% endautoescape %}
 {% endblock %}
+{% block extrahead %}
+  {% include "new/_18plus_gate_early.html" %}
+{% endblock %}
 {% block content %}
 <p style="margin:0 0 0.75rem">
   <a href="{{ back_url }}" class="new-btn new-btn--ghost">← Назад</a>
@@ -1700,5 +1703,6 @@
     <a class="new-btn new-btn--ghost" href="{{ next_task_group_url }}{% if not user.is_authenticated %}?anon={{ request.GET.anon|urlencode }}{% endif %}">Дальше →</a>
   {% endif %}
 </div>
+{% include "new/_18plus_gate.html" %}
 {% endblock %}
 

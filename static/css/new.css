@@ -1974,6 +1974,29 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   color: var(--text);
 }
 
+/* 18+ age gate: blur page until confirmed once per game/task group (localStorage). */
+body.is-age-gated .new-nav,
+body.is-age-gated .new-wrap,
+html.is-age-gated .new-nav,
+html.is-age-gated .new-wrap {
+  filter: blur(10px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.new-18plus-modal {
+  z-index: 200;
+}
+
+.new-18plus-overlay {
+  cursor: default;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.new-18plus-modal__box {
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.35);
+}
+
 /* Замены: переключатель режима ввода (слова / строка / весь текст) */
 .new-replacements-task {
   margin-top: 0.25rem;

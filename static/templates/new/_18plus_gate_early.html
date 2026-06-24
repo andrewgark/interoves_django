@@ -1,0 +1,13 @@
+{% if show_18plus_gate %}
+<script>
+(function () {
+  var key = '{{ age_gate_storage_key|escapejs }}';
+  if (!key) return;
+  try {
+    if (localStorage.getItem(key) !== '1') {
+      document.documentElement.classList.add('is-age-gated');
+    }
+  } catch (e) {}
+})();
+</script>
+{% endif %}

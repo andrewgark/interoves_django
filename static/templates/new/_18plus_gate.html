@@ -1,0 +1,76 @@
+{% if show_18plus_gate %}
+<div id="new-18plus-modal" class="new-rules-modal new-18plus-modal" role="dialog" aria-labelledby="new-18plus-title" aria-modal="true" hidden data-age-gate-key="{{ age_gate_storage_key|escape }}">
+  <div class="new-rules-overlay new-18plus-overlay" aria-hidden="true"></div>
+  <div class="new-rules-modal__box pal-card new-18plus-modal__box">
+    <h2 id="new-18plus-title" class="pal-title" style="margin-top:0">Контент 18+</h2>
+    <p class="pal-lead" style="margin-bottom:1rem">
+      Этот материал предназначен для лиц старше 18 лет.
+      Подтвердите, что вам исполнилось 18 лет, чтобы продолжить.
+    </p>
+    <div style="display:flex; gap:0.75rem; flex-wrap:wrap">
+      <button type="button" class="new-btn" data-age-gate-confirm>Мне есть 18 лет</button>
+      <a href="{{ age_gate_back_url|default:'/' }}" class="new-btn new-btn--ghost">Уйти</a>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('new-18plus-modal');
+  if (!modal) return;
+  if (modal.parentNode !== document.body) {
+    document.body.appendChild(modal);
+  }
+  var key = modal.getAttribute('data-age-gate-key') || '';
+  if (!key) return;
+
+  function isConfirmed() {
+    try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
+  }
+  function markConfirmed() {
+    try { localStorage.setItem(key, '1'); } catch (e) {}
+  }
+  function setGated(on) {
+    document.body.classList.toggle('is-age-gated', on);
+    document.documentElement.classList.toggle('is-age-gated', on);
+    if (on) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+  }
+  function openGate() {
+    modal.removeAttribute('hidden');
+    modal.classList.add('is-open');
+    setGated(true);
+  }
+  function closeGate() {
+    modal.setAttribute('hidden', '');
+    modal.classList.remove('is-open');
+    setGated(false);
+  }
+
+  if (isConfirmed()) {
+    document.documentElement.classList.remove('is-age-gated');
+    return;
+  }
+
+  openGate();
+
+  var confirmBtn = modal.querySelector('[data-age-gate-confirm]');
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', function () {
+      markConfirmed();
+      closeGate();
+      if (confirmBtn) confirmBtn.focus();
+    });
+  }
+
+  modal.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  });
+})();
+</script>
+{% endif %}

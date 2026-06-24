@@ -330,6 +330,11 @@ class Game(models.Model):
     requires_ticket = models.BooleanField(default=True)
     is_playable = models.BooleanField(default=True)
     is_tournament = models.BooleanField(default=True)
+    is_18_plus = models.BooleanField(
+        default=False,
+        verbose_name='18+',
+        help_text='Контент для лиц старше 18 лет: при открытии игры показывается подтверждение возраста.',
+    )
 
     game_url = models.CharField(max_length=500, null=True, blank=True)
     answers_url = models.CharField(max_length=500, null=True, blank=True)
@@ -450,6 +455,11 @@ class TaskGroup(models.Model):
     )
 
     view = models.CharField(default='default', max_length=100, choices=VIEW_VARIANTS)
+    is_18_plus = models.BooleanField(
+        default=False,
+        verbose_name='18+',
+        help_text='Контент для лиц старше 18 лет: при открытии набора заданий показывается подтверждение возраста.',
+    )
 
     def get_derived_title(self):
         """

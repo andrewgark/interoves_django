@@ -80,6 +80,23 @@ def _anon_key_from_request(request):
     )
 
 
+def _age_gate_context(game, task_group=None, *, back_url='/'):
+    """Client-side 18+ gate: localStorage key + back link for the leave button."""
+    game_flag = bool(getattr(game, 'is_18_plus', False))
+    tg_flag = bool(task_group and getattr(task_group, 'is_18_plus', False))
+    if not game_flag and not tg_flag:
+        return {}
+    if game_flag:
+        storage_key = 'interoves_18plus_game_{}'.format(game.id)
+    else:
+        storage_key = 'interoves_18plus_tg_{}'.format(task_group.id)
+    return {
+        'show_18plus_gate': True,
+        'age_gate_storage_key': storage_key,
+        'age_gate_back_url': back_url,
+    }
+
+
 def _ru_plural_form_int(n, one, few, many):
     n = abs(int(n))
     n_mod_100 = n % 100
@@ -663,6 +680,7 @@ def project_main_game_page(request, project_id, game_id):
         'show_sections_nav': False,
         **_project_urls_context(project.id),
         **_game_page_progress_context(request, game, play_mode),
+        **_age_gate_context(game, back_url=(base + '/games/') if base else '/games/'),
     })
 
 
@@ -832,6 +850,11 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'section_games': [],
         'show_sections_nav': False,
         **_project_urls_context(project.id),
+        **_age_gate_context(
+            game,
+            task_group=task_group,
+            back_url='{}/games/{}/'.format(base, game.id),
+        ),
     })
 
 
@@ -897,6 +920,7 @@ def new_section_game_page(request, game_id):
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
         **_game_page_progress_context(request, game, play_mode),
+        **_age_gate_context(game, back_url='/'),
     })
 
 
@@ -963,6 +987,7 @@ def new_main_game_page(request, game_id):
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
         **_game_page_progress_context(request, game, play_mode),
+        **_age_gate_context(game, back_url='/games/'),
     })
 
 
@@ -1642,6 +1667,19 @@ def new_task_group_page(request, game_id, task_group_number):
         'lock_personal_play_mode': personal_play_mode_locked(game),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
+        **_age_gate_context(
+            game,
+            task_group=task_group,
+            back_url=(
+                '/section/{}/'.format(game.id)
+                if game.project_id == NEW_UI_SECTIONS_PROJECT
+                else (
+                    '/games/{}/'.format(game.id)
+                    if game.project_id == NEW_UI_PROJECT
+                    else '/'
+                )
+            ),
+        ),
     })
 
 

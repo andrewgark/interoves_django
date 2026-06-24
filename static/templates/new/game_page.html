@@ -12,6 +12,7 @@
 {% block body_attrs %}data-track-game-id="{{ game.id }}"{% endblock %}
 
 {% block extrahead %}
+  {% include "new/_18plus_gate_early.html" %}
   {% if show_palindrome_rules %}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -402,5 +403,6 @@
     })();
     </script>
   {% endif %}
+  {% include "new/_18plus_gate.html" %}
 {% endblock %}
 
