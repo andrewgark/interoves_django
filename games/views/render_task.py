@@ -212,6 +212,8 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
         'team': team,
         'request': request,
         'has_profile_user': has_profile(request.user),
+        'image_manager': ImageManager(),
+        'audio_manager': AudioManager(),
         **ctx_dicts,
     }).content.decode('UTF-8')
 
