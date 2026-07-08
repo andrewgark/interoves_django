@@ -2,10 +2,12 @@
 {% load static %}
 {% block title %}{{ page_title|default:"Игры для компаний" }}{% endblock %}
 {% block extrahead %}
-<link rel="stylesheet" href="{% static 'css/corporate.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+<link rel="stylesheet" href="{% static 'css/order_game.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+<script src="{% static 'js/order_game_reviews.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+<script src="{% static 'js/order_game_form.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 {% endblock %}
 {% block content %}
-<div class="corporate-page">
+<div class="order-game-page">
 
 <section class="corp-hero" id="top">
   <p class="corp-hero__kicker">Корпоративные интеллектуальные игры</p>
@@ -29,25 +31,49 @@
     <strong>100+</strong>
     <span>регулярных игроков в&nbsp;турнирном режиме</span>
   </div>
-  <div class="corp-stat">
-    <strong>4+</strong>
-    <span>крупных IT-компаний среди заказчиков</span>
-  </div>
 </div>
 
-<section class="corp-section">
-  <p class="corp-section__title">Нам доверяют</p>
-  <h2>Корпоративные игры для сильных команд</h2>
-  <div class="corp-clients">
-    <span class="corp-client">Pinely</span>
-    <span class="corp-client">Glowbyte</span>
-    <span class="corp-client">Tinkoff</span>
-    <span class="corp-client">Yandex</span>
+<section class="corp-section corp-section--clients">
+  <h2 class="corp-clients-showcase__title">Наши клиенты</h2>
+  {% if clients %}
+  <div class="corp-clients-showcase" aria-label="Наши клиенты">
+    {% for client in clients %}
+    <div class="corp-clients-showcase__item">
+      <img class="corp-clients-showcase__logo" src="{{ client.logo_url }}" alt="{{ client.company_name }}" loading="lazy">
+    </div>
+    {% endfor %}
   </div>
-  <p style="margin:1rem 0 0; font-size:0.92rem; color:var(--muted); line-height:1.55">
+  {% endif %}
+  <p class="corp-clients-showcase__note">
   Для каждой компании — отдельный закрытый раздел на&nbsp;сайте, брендирование, настройка размера команд и&nbsp;расписания под ваш офлайн/онлайн-ивент.
   </p>
 </section>
+
+{% if reviews %}
+<section class="corp-section">
+  <p class="corp-section__title">Отзывы</p>
+  <h2>Что говорят участники</h2>
+  <div class="corp-reviews-carousel" data-corp-reviews-carousel>
+    <button type="button" class="corp-reviews-carousel__btn corp-reviews-carousel__btn--prev" data-corp-reviews-prev aria-label="Предыдущие отзывы">‹</button>
+    <div class="corp-reviews-carousel__viewport" data-corp-reviews-viewport tabindex="0">
+      <div class="corp-reviews-carousel__track" data-corp-reviews-track>
+        {% for review in reviews %}
+        <article class="corp-review-card">
+          {% if review.photo_url %}
+          <img class="corp-review-card__photo" src="{{ review.photo_url }}" alt="" loading="lazy">
+          {% endif %}
+          <div class="corp-review-card__body">
+            <p class="corp-review-card__text">{{ review.text|linebreaksbr }}</p>
+            <footer class="corp-review-card__author"><strong>{{ review.name }}</strong>{% if review.caption %}, {{ review.caption }}{% endif %}</footer>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+    <button type="button" class="corp-reviews-carousel__btn corp-reviews-carousel__btn--next" data-corp-reviews-next aria-label="Следующие отзывы">›</button>
+  </div>
+</section>
+{% endif %}
 
 <section class="corp-section">
   <p class="corp-section__title">Почему это работает</p>
@@ -168,7 +194,7 @@
     <p class="corp-community__names">
     Помимо корпоративных заказов, у&nbsp;нас живое турнирное сообщество:
     по&nbsp;вечерам воскресений проходят открытые <strong>Десяточки</strong>, в&nbsp;которых регулярно играют сотни сильных участников.
-    Среди них — победители и&nbsp;призёры <strong>ACM ICPC</strong> (в&nbsp;том числе Гена Короткевич и&nbsp;Алексей Данилюк),
+    Среди них — победители и&nbsp;призёры <strong>ACM ICPC</strong>,
     призёры спортивной версии <strong>«Что? Где? Когда?»</strong> и&nbsp;другие люди, для которых обычные квизы слишком просты.
     </p>
     <div class="corp-link-row">
@@ -201,7 +227,7 @@
 
   {% if submitted %}
   <div class="corp-success" role="status">
-    <p><strong>Спасибо!</strong> Заявка отправлена. Мы свяжемся с&nbsp;вами по&nbsp;указанному email в&nbsp;ближайшее время.</p>
+    <p><strong>Спасибо!</strong> Заявка отправлена. Мы свяжемся с&nbsp;вами в&nbsp;ближайшее время.</p>
   </div>
   {% endif %}
 
@@ -213,39 +239,63 @@
         {{ form.website }}
       </div>
       <div class="new-two">
-        <div>
+        <div class="corp-form__field">
           <label for="id_company_name">{{ form.company_name.label }}</label>
           {{ form.company_name }}
           {% if form.company_name.errors %}<span class="new-field-error">{{ form.company_name.errors.0 }}</span>{% endif %}
         </div>
-        <div>
+        <div class="corp-form__field">
           <label for="id_contact_name">{{ form.contact_name.label }}</label>
           {{ form.contact_name }}
           {% if form.contact_name.errors %}<span class="new-field-error">{{ form.contact_name.errors.0 }}</span>{% endif %}
         </div>
       </div>
-      <div class="new-two">
-        <div>
-          <label for="id_email">{{ form.email.label }}</label>
-          {{ form.email }}
-          {% if form.email.errors %}<span class="new-field-error">{{ form.email.errors.0 }}</span>{% endif %}
+      <fieldset class="corp-form__contact">
+        <legend class="corp-form__contact-legend">Связь с вами</legend>
+        <div class="corp-form__pref">
+          <label class="corp-form__pref-label" id="contact-method-label">{{ form.contact_method.label }}</label>
+          <div class="corp-form__seg" role="radiogroup" aria-labelledby="contact-method-label">
+            {% for radio in form.contact_method %}
+            <label class="corp-form__seg-btn corp-form__seg-btn--{{ radio.data.value }}" for="{{ radio.id_for_label }}">
+              {{ radio.tag }}
+              <span class="corp-form__seg-icon" aria-hidden="true">
+                {% if radio.data.value == 'telegram' %}
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M9.78 15.53 9.4 19.3c.55 0 .79-.24 1.08-.53l2.59-2.48 5.37 3.94c.99.55 1.69.26 1.96-.9l3.53-16.58h.01c.32-1.48-.53-2.06-1.5-1.7L2.1 9.77c-1.45.57-1.43 1.38-.25 1.75l4.98 1.55L18.9 6.1c.66-.43 1.26-.19.77.27"/></svg>
+                {% elif radio.data.value == 'email' %}
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                {% else %}
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/></svg>
+                {% endif %}
+              </span>
+              <span class="corp-form__seg-text">{{ radio.choice_label }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          {% if form.contact_method.errors %}<span class="new-field-error">{{ form.contact_method.errors.0 }}</span>{% endif %}
         </div>
-        <div>
-          <label for="id_phone">{{ form.phone.label }}</label>
-          {{ form.phone }}
+        <div class="corp-form__field">
+          <label for="id_contact_value">{{ form.contact_value.label }}</label>
+          {{ form.contact_value }}
+          {% if form.contact_value.errors %}<span class="new-field-error">{{ form.contact_value.errors.0 }}</span>{% endif %}
         </div>
-      </div>
+        <div class="corp-form__field corp-form__field--other-type">
+          <label for="id_contact_other_label">{{ form.contact_other_label.label }}</label>
+          {{ form.contact_other_label }}
+          <span class="corp-form__field-hint">Например: WhatsApp, VK, телефон</span>
+          {% if form.contact_other_label.errors %}<span class="new-field-error">{{ form.contact_other_label.errors.0 }}</span>{% endif %}
+        </div>
+      </fieldset>
       <div class="new-two">
-        <div>
+        <div class="corp-form__field">
           <label for="id_team_size">{{ form.team_size.label }}</label>
           {{ form.team_size }}
         </div>
-        <div>
+        <div class="corp-form__field">
           <label for="id_preferred_date">{{ form.preferred_date.label }}</label>
           {{ form.preferred_date }}
         </div>
       </div>
-      <div>
+      <div class="corp-form__field">
         <label for="id_message">{{ form.message.label }}</label>
         {{ form.message }}
       </div>

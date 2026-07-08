@@ -126,12 +126,15 @@ def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None):
                 from games.models import CheckerType as CT
                 if task.task_type == 'replacements_lines':
                     ct = CT.objects.get(id='replacements_lines')
+                elif task.task_type == 'raddle':
+                    ct = CT.objects.get(id='raddle')
                 else:
                     ct = checker_type
                 checker = CheckerFactory().create_checker(ct, checker_data, last_state)
                 result = checker.check(attempt.text, attempt)
                 attempt.status = result.status
-                attempt.points = result.points * task.get_points()
+                from decimal import Decimal
+                attempt.points = Decimal(str(result.points or 0)) * task.get_points()
                 attempt.state = result.state
                 attempt.skip = False
             except Exception as e:

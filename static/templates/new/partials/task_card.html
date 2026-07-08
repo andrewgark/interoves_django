@@ -13,6 +13,18 @@
         {% endwith %}
       {% endif %}
     {% endwith %}
+  {% elif task.task_type == 'raddle' %}
+    {% with rd=raddle_data|get_item:task.id %}
+      {% if rd %}
+        {% with base_max=rd.max_points_total wall_max_title="" %}
+          {% include "new/task-content/task-meta-bar.html" %}
+        {% endwith %}
+      {% else %}
+        {% with base_max=task.get_points wall_max_title="" %}
+          {% include "new/task-content/task-meta-bar.html" %}
+        {% endwith %}
+      {% endif %}
+    {% endwith %}
   {% elif task.task_type == 'wall' %}
     {% with mp=wall_max_points_meta_by_task_id|get_item:task.id %}
       {% if mp %}
@@ -46,6 +58,16 @@
         </div>
       {% else %}
         <p class="new-login-hint" style="margin:0">Ошибка отображения задания (нет данных).</p>
+      {% endif %}
+      {% endwith %}
+    {% elif task.task_type == 'raddle' %}
+      {% with rd=raddle_data|get_item:task.id %}
+      {% if rd %}
+        <div class="new-taskcard__text">
+          {% include "task-content/task-raddle.html" with task=task mode=mode rd=rd game=game user=user has_profile_user=has_profile_user %}
+        </div>
+      {% else %}
+        <p class="new-login-hint" style="margin:0">Ошибка отображения задания (нет данных raddle).</p>
       {% endif %}
       {% endwith %}
     {% elif task.task_type == 'proportions' %}
@@ -121,10 +143,10 @@
       </p>
     {% endif %}
 
-    {% if task.get_hints %}
+    {% if task.get_player_hints %}
       <div class="new-hints new-hints--compact" id="new-task-hints-{{ task.id }}">
         <div class="new-hints__body" data-hints-body="{{ task.id }}" hidden>
-          {% for hint in task.get_hints %}
+          {% for hint in task.get_player_hints %}
             <div class="new-hint">
               <div class="new-hint__head">
                 <strong>Подсказка #{{ hint.number }}{% if hint.desc %} ({{ hint.desc }}){% endif %}</strong>
@@ -148,6 +170,14 @@
                       {% with rld=replacements_lines_data|get_item:task.id %}
                         {% if rld %}
                           <input type="hidden" name="__ui_base_max" value="{{ rld.max_points_total|minimize_digits }}">
+                        {% else %}
+                          <input type="hidden" name="__ui_base_max" value="{{ task.get_points|minimize_digits }}">
+                        {% endif %}
+                      {% endwith %}
+                    {% elif task.task_type == 'raddle' %}
+                      {% with rd=raddle_data|get_item:task.id %}
+                        {% if rd %}
+                          <input type="hidden" name="__ui_base_max" value="{{ rd.max_points_total|minimize_digits }}">
                         {% else %}
                           <input type="hidden" name="__ui_base_max" value="{{ task.get_points|minimize_digits }}">
                         {% endif %}

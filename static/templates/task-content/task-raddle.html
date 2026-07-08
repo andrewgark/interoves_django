@@ -1,0 +1,117 @@
+{% load filters %}
+<div class="new-raddle-task" data-task-id="{{ task.id }}" data-raddle-n-words="{{ rd.ui.n_words }}" data-default-focus="{{ rd.ui.default_focus_index|default_if_none:'' }}" data-default-ref-word="{{ rd.ui.default_ref_word|default:'' }}">
+  {% if task.text %}
+  <div class="new-raddle-task__intro">{% autoescape off %}{{ task.text }}{% endautoescape %}</div>
+  {% endif %}
+  <div class="new-raddle-layout">
+    <div class="new-raddle-ladder">
+      <p class="new-raddle-ladder__title">
+        От <strong>{{ rd.ui.title_from }}</strong> до <strong>{{ rd.ui.title_to }}</strong>
+      </p>
+      <table class="new-raddle-table" role="presentation">
+        <colgroup>
+          <col class="new-raddle-col--word">
+          <col class="new-raddle-col--check">
+        </colgroup>
+        <tbody>
+        {% for row in rd.ui.rows %}
+          <tr class="new-raddle-row {% if row.is_solved %}new-raddle-row--solved{% elif row.attempts_exhausted %}new-raddle-row--exhausted{% elif row.is_playable %}new-raddle-row--playable{% else %}new-raddle-row--locked{% endif %}{% if row.is_default_focus %} new-raddle-row--focus{% if row.focus_pair_role %} new-raddle-row--as-{{ row.focus_pair_role }}{% endif %}{% endif %}{% if row.is_default_ref %} new-raddle-row--ref{% if row.ref_pair_role %} new-raddle-row--as-{{ row.ref_pair_role }}{% endif %}{% endif %}" data-word-index="{{ row.index }}" data-task-id="{{ task.id }}"{% if row.is_playable %} data-ref-word="{{ row.ref_word }}" data-ref-word-index="{{ row.ref_word_index|default_if_none:'' }}" data-ref-role="{{ row.ref_role|default:'' }}" data-focus-pair-role="{{ row.focus_pair_role|default:'' }}" data-ref-pair-role="{{ row.ref_pair_role|default:'' }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}"{% endif %}>
+            <td class="new-raddle-block__word {% if row.is_solved %}new-raddle-block__word--solved{% endif %}">
+              <div class="new-raddle-word-cell">
+                {% if row.is_solved %}
+                  <span class="new-raddle-line__solved-text"><strong>{{ row.word }}</strong></span>
+                {% elif row.revealed_answer %}
+                  <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" maxlength="{{ row.max_length }}" style="--raddle-len: {{ row.mask_slots }}" aria-label="Слово {{ row.index|add:1 }}" value="{{ row.revealed_answer }}" placeholder="{{ row.mask_placeholder }}"{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}>
+                {% elif row.is_playable %}
+                  <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" maxlength="{{ row.max_length }}" style="--raddle-len: {{ row.mask_slots }}" aria-label="Слово {{ row.index|add:1 }}" placeholder="{{ row.mask_placeholder }}" data-raddle-focus-input{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}>
+                {% elif row.attempts_exhausted %}
+                  <span class="new-raddle-line__mask">{{ row.mask_html }}</span>
+                  <span class="new-login-hint new-raddle-line__no-guesses">Попытки закончились.</span>
+                {% else %}
+                  <span class="new-raddle-line__mask">{{ row.mask_html }}</span>
+                {% endif %}
+                <span class="new-raddle-line__len">({{ row.length_label }})</span>
+              </div>
+              {% if row.is_playable %}
+              <div class="new-attempt-msg new-raddle-word-msg" aria-live="polite" data-msg-for="raddle-form-{{ task.id }}-{{ row.index }}"></div>
+              {% endif %}
+            </td>
+            <td class="new-raddle-block__check">
+              {% if row.is_solved and not row.is_given %}
+              <div class="new-raddle-actions">
+                <span class="new-replacements-check-btn new-replacements-check-btn--done" title="Верно">✓</span>
+              </div>
+              {% elif row.is_playable %}
+              <div class="new-raddle-actions">
+                <form class="new-raddle-line-form new-attempt-form{% if not rd.ui.is_tournament %} new-raddle-auto-form{% endif %}" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" id="raddle-form-{{ task.id }}-{{ row.index }}">
+                  {% csrf_token %}
+                  <input type="hidden" name="game_id" value="{{ game.id }}">
+                  <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+                  <input type="hidden" name="word_index" value="{{ row.index }}">
+                  {% if rd.ui.is_tournament %}
+                  <button type="submit" class="new-replacements-check-btn" title="Проверить" aria-label="Проверить слово {{ row.index|add:1 }}">✓</button>
+                  {% endif %}
+                </form>
+                {% if not rd.ui.is_tournament %}
+                <span class="new-raddle-wrong-mark" aria-hidden="true" title="Неверно">❌</span>
+                {% endif %}
+                {% if row.can_clue_assist %}
+                <form class="new-raddle-assist-form" action="/send_raddle_assist/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}">
+                  {% csrf_token %}
+                  <input type="hidden" name="game_id" value="{{ game.id }}">
+                  <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+                  <input type="hidden" name="word_index" value="{{ row.index }}">
+                  <input type="hidden" name="tier" value="1">
+                  <button type="submit" class="new-raddle-assist-btn" title="Показать подсказку к этому слову">💡</button>
+                </form>
+                {% elif row.can_answer_assist %}
+                <form class="new-raddle-assist-form" action="/send_raddle_assist/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}">
+                  {% csrf_token %}
+                  <input type="hidden" name="game_id" value="{{ game.id }}">
+                  <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+                  <input type="hidden" name="word_index" value="{{ row.index }}">
+                  <input type="hidden" name="tier" value="2">
+                  <button type="submit" class="new-raddle-assist-btn new-raddle-assist-btn--answer" title="Показать слово">💡💡</button>
+                </form>
+                {% endif %}
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <aside class="new-raddle-clues">
+      {% if rd.ui.unused_hints %}
+      <h4 class="new-raddle-clues__subtitle">Подсказки, не по порядку</h4>
+      <ul class="new-raddle-clues__list new-raddle-clues__list--unused" data-raddle-unused-clues>
+        {% for hint in rd.ui.unused_hints %}
+        <li class="new-raddle-clue{% if hint.is_revealed %} new-raddle-clue--revealed{% endif %}"
+            data-hint-index="{{ hint.index }}"
+            data-blank-template="{{ hint.blank_template|escape }}"
+            data-prev-word="{{ hint.prev_word|escape }}"
+            data-next-word="{{ hint.next_word|escape }}"
+            data-prev-solved="{% if hint.prev_solved %}1{% else %}0{% endif %}"
+            data-next-solved="{% if hint.next_solved %}1{% else %}0{% endif %}"
+            data-has-next-slot="{% if hint.has_next_slot %}1{% else %}0{% endif %}">
+          <span class="new-raddle-clue__text">{% autoescape off %}{{ hint.display_html }}{% endautoescape %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="new-login-hint new-raddle-clues__empty">Все подсказки использованы.</p>
+      {% endif %}
+      {% if rd.ui.used_hints %}
+      <h4 class="new-raddle-clues__subtitle">Использованные</h4>
+      <ul class="new-raddle-clues__list new-raddle-clues__list--used">
+        {% for hint in rd.ui.used_hints %}
+        <li class="new-raddle-clue new-raddle-clue--used" data-hint-index="{{ hint.index }}">
+          <span class="new-raddle-clue__text">{% autoescape off %}{{ hint.display_html }}{% endautoescape %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </aside>
+  </div>
+</div>

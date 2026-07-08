@@ -547,10 +547,25 @@ class GameTaskGroup(models.Model):
         return self.number_key(self.number)
 
     @classmethod
-    def sorted_links(cls, queryset=None, *, game=None):
+    def sorted_links(cls, queryset=None, *, game=None, reverse=False):
         if queryset is None:
             queryset = cls.objects.filter(game=game)
-        return sorted(queryset, key=lambda link: link.key_sort())
+        links = sorted(queryset, key=lambda link: link.key_sort(), reverse=reverse)
+        return links
+
+    @classmethod
+    def order_queryset_by_number(cls, queryset, *, reverse=False):
+        """Числовая сортировка номера круга (1, 2, …, 10), не лексикографическая."""
+        links = list(queryset)
+        if not links:
+            return queryset.none()
+        links.sort(key=lambda link: link.key_sort(), reverse=reverse)
+        ordered_pks = [link.pk for link in links]
+        preserved = models.Case(
+            *[models.When(pk=pk, then=pos) for pos, pk in enumerate(ordered_pks)],
+            output_field=models.IntegerField(),
+        )
+        return queryset.filter(pk__in=ordered_pks).order_by(preserved)
 
     @classmethod
     def get_by_number(cls, game, number):
@@ -623,6 +638,7 @@ class Task(models.Model):
         ('with_tag', 'with_tag'),
         ('autohint', 'autohint'),
         ('proportions', 'Пропорции'),
+        ('raddle', 'raddle'),
     )
 
     task_type = models.CharField(default='default', max_length=100, choices=TASK_TYPE_VARIANTS)
@@ -715,6 +731,14 @@ class Task(models.Model):
             if n > 0:
                 return m * n
             return m
+        if self.task_type == 'raddle':
+            from games.raddle import parse_raddle_data
+            parsed = parse_raddle_data(self)
+            if parsed:
+                middle = max(0, parsed['n_words'] - 2)
+                if middle > 0:
+                    return m * middle
+            return m
         return m
 
     def get_max_attempts(self):
@@ -753,6 +777,14 @@ class Task(models.Model):
     def get_hints(self):
         return list(self.hints.all())
 
+    def get_player_hints(self):
+        """Подсказки для панели игрока (без in-game raddle_clue/answer)."""
+        hints = self.get_hints()
+        if self.task_type == 'raddle':
+            from games.raddle import is_raddle_in_game_assist_hint
+            return [h for h in hints if not is_raddle_in_game_assist_hint(h)]
+        return hints
+
 
 class AttemptsInfo:
     def __init__(self, best_attempt, attempts, hint_attempts):
@@ -772,11 +804,18 @@ class AttemptsInfo:
     def get_sum_hint_penalty(self):
         if not self.hint_attempts:
             return 0
-        return sum([
-            hint_attempt.hint.points_penalty
-            for hint_attempt in self.hint_attempts
-            if hint_attempt.is_real_request
-        ])
+        from games.raddle import is_raddle_in_game_assist_hint
+        total = 0
+        for hint_attempt in self.hint_attempts:
+            if not hint_attempt.is_real_request:
+                continue
+            hint = hint_attempt.hint
+            if hint is None:
+                continue
+            if is_raddle_in_game_assist_hint(hint):
+                continue
+            total += hint.points_penalty or 0
+        return total
     
     def get_result_points(self):
         result_points = 0
@@ -1096,7 +1135,7 @@ class AttemptManager(models.Manager):
         return rows
 
 
-CHAIN_TASK_TYPES = ('wall', 'replacements_lines')
+CHAIN_TASK_TYPES = ('wall', 'replacements_lines', 'raddle')
 
 
 class ChainTaskState(models.Model):
@@ -1179,6 +1218,10 @@ class ChainTaskState(models.Model):
                 solved = len(s.get('solved_lines', []))
                 total = s.get('total', '?')
                 return '{} lines solved ({} pts)'.format(solved, total)
+            if task and task.task_type == 'raddle':
+                solved = len(s.get('solved_indices', []))
+                total = s.get('total', '?')
+                return '{} words solved ({} pts)'.format(solved, total)
             if task and task.task_type == 'wall':
                 pts = s.get('best_points', 0)
                 stage = s.get('last_attempt', {}).get('stage', '?')
@@ -1254,6 +1297,17 @@ class Attempt(models.Model):
             if row is None:
                 return '—'
             return ' | '.join(str(c) for c in row)
+        if self.task.task_type == 'raddle':
+            try:
+                payload = json.loads(self.text)
+                idx = int(payload.get('word_index', -1))
+            except (ValueError, TypeError):
+                return self.task.answer or ''
+            from games.raddle import parse_raddle_data
+            parsed = parse_raddle_data(self.task)
+            if parsed and 0 <= idx < parsed['n_words']:
+                return parsed['words'][idx]
+            return '—'
         return self.task.answer
 
     def get_max_points(self):
@@ -1277,6 +1331,16 @@ class Attempt(models.Model):
                 if line_idx >= 0:
                     return 'Строка {}: {}'.format(line_idx + 1, shown)
                 return shown or self.text
+            except (ValueError, TypeError):
+                return self.text
+        if self.task.task_type == 'raddle':
+            try:
+                p = json.loads(self.text)
+                idx = int(p.get('word_index', -1))
+                word = p.get('word', '')
+                if idx >= 0:
+                    return 'Слово {}: {}'.format(idx + 1, word)
+                return str(word) or self.text
             except (ValueError, TypeError):
                 return self.text
         if self.task.task_type == 'wall':
@@ -1402,7 +1466,7 @@ class Hint(models.Model):
     number = models.IntegerField(null=True, blank=True)
     desc = models.TextField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
-    points_penalty = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True)
+    points_penalty = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True, default=1)
     required_hints = models.ManyToManyField('Hint', blank=True)
 
     def __str__(self):
@@ -1498,12 +1562,71 @@ class PendingTicketRequest(TicketRequest):
         proxy=True
 
 
+class OrderGameClient(models.Model):
+    id = models.AutoField(primary_key=True)
+    company_name = models.CharField(max_length=200)
+    logo_url = models.URLField(max_length=500)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    is_published = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['sort_order', 'id']
+        verbose_name = 'клиент (заказ игры)'
+        verbose_name_plural = 'клиенты (заказ игры)'
+
+    def __str__(self):
+        return self.company_name
+
+
+class OrderGameReview(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=120, verbose_name='имя')
+    caption = models.CharField(
+        max_length=200,
+        blank=True,
+        default='',
+        verbose_name='как подписать',
+        help_text='Например: 31 годик, оператор ЭВМ',
+    )
+    photo_url = models.URLField(max_length=500, blank=True, default='')
+    text = models.TextField()
+    is_important = models.BooleanField(default=False, help_text='Важные отзывы показываются чуть чаще')
+    is_published = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-is_important', 'id']
+        verbose_name = 'отзыв (заказ игры)'
+        verbose_name_plural = 'отзывы (заказ игры)'
+
+    def __str__(self):
+        if self.caption:
+            return '{}, {}'.format(self.name, self.caption)
+        return self.name
+
+
 class CorporateGameOrder(models.Model):
+    class ContactMethod(models.TextChoices):
+        TELEGRAM = 'telegram', 'Telegram'
+        EMAIL = 'email', 'Email'
+        OTHER = 'other', 'Другое'
+
     id = models.AutoField(primary_key=True)
     company_name = models.CharField(max_length=200)
     contact_name = models.CharField(max_length=200)
-    email = models.EmailField()
-    phone = models.CharField(max_length=100, blank=True, default='')
+    contact_method = models.CharField(
+        max_length=20,
+        choices=ContactMethod.choices,
+        default=ContactMethod.TELEGRAM,
+        verbose_name='способ связи',
+    )
+    contact_value = models.CharField(max_length=254, verbose_name='контакт')
+    contact_other_label = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        verbose_name='тип контакта',
+        help_text='Для «Другое»: WhatsApp, VK и т.п.',
+    )
     team_size = models.CharField(max_length=100, blank=True, default='')
     preferred_date = models.CharField(max_length=200, blank=True, default='')
     message = models.TextField(blank=True, default='')

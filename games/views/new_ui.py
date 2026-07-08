@@ -30,6 +30,15 @@ from allauth.socialaccount.models import SocialAccount
 
 from games.access import game_has_started
 from games.exception import NoGameAccessException
+from games.ladder_daily import (
+    LADDER_GAME_ID,
+    current_ladder_number,
+    filter_published_ladder_links,
+    get_ladder_hub_context,
+    is_ladder_number_published,
+    sort_ladder_links_newest_first,
+    visible_ladder_links,
+)
 from games.models import (
     Attempt,
     AudioManager,
@@ -51,6 +60,12 @@ from games.models import (
 from games.models import GameResultsSnapshot
 from games.util import clean_text
 from games.replacements_lines import canonical_replacements_checker_line, parse_replacements_lines_text
+from games.raddle import (
+    build_raddle_ui_context,
+    load_raddle_state,
+    parse_raddle_data,
+    raddle_word_solved_list,
+)
 from games.proportions import build_proportions_chips_for_tasks
 from games.views.game_context import game_from_request_for_task
 from games.views.main_page import MainPageView
@@ -177,6 +192,14 @@ def _game_task_group_links(game):
     )
 
 
+def _player_visible_task_group_links(game):
+    """Круги, видимые игроку (для лесенки — только уже вышедшие)."""
+    links = _game_task_group_links(game)
+    if game.id == LADDER_GAME_ID:
+        return visible_ladder_links(links, game, reverse=True)
+    return links
+
+
 def _resolve_game_page_actor(request, play_mode):
     """Team/user/anon_key for personal progress on game hub pages."""
     team = user = anon_key = None
@@ -286,7 +309,7 @@ def _game_task_group_progress_response(request, game):
     if play_mode != 'team' and user is None and anon_key is None:
         return JsonResponse({'rows': {}})
 
-    task_groups = _game_task_group_links(game)
+    task_groups = _player_visible_task_group_links(game)
     mode = game.get_current_mode(Attempt(time=timezone.now()))
     rows = _task_group_progress_payload(
         game,
@@ -313,7 +336,7 @@ NEW_UI_PROJECT = 'main'
 NEW_UI_SECTIONS_PROJECT = 'sections'
 PALINDROMES_GAME_ID = 'palindromes'
 # Разделы с собственным туториалом (модалка правил)
-SECTION_RULES_GAME_IDS = ('palindromes', 'replacements', 'walls')
+SECTION_RULES_GAME_IDS = ('palindromes', 'replacements', 'walls', 'ladder')
 
 
 def _project_base(project_id: str | None) -> str:
@@ -459,9 +482,40 @@ def get_section_games(request):
         team = request.user.profile.team_on
     games_list = [
         g for g in Game.objects.filter(project=project)
-        if g.has_access('see_game_preview', team=team)
+        if g.id != LADDER_GAME_ID and g.has_access('see_game_preview', team=team)
     ]
     return sorted(games_list, key=lambda g: (g.start_time, g.name), reverse=True)
+
+
+def _get_ladder_game():
+    return (
+        Game.objects.filter(id=LADDER_GAME_ID, project_id=NEW_UI_SECTIONS_PROJECT)
+        .first()
+    )
+
+
+def _ladder_published_numbers(game):
+    return {link.number for link in filter_published_ladder_links(_game_task_group_links(game), game)}
+
+
+def _ladder_task_group_rows(task_groups, game, *, today_number=None):
+    rows = []
+    for p in task_groups:
+        is_today = today_number is not None and str(p.number) == str(today_number)
+        title = 'Сегодня · №{}'.format(p.number) if is_today else '№{} · {}'.format(p.number, p.name)
+        rows.append({
+            'task_group': p.task_group,
+            'game': game,
+            'number': p.number,
+            'n_tasks': p.n_tasks,
+            'n_solved': None,
+            'play_url': _play_url_for_task_group(game, p.number),
+            'is_fully_solved': False,
+            'row_class': 'new-task--today' if is_today else '',
+            'title': title,
+            'progress_text': None,
+        })
+    return rows
 
 
 def _folder_by_slug(slug):
@@ -474,12 +528,27 @@ def _folder_by_slug(slug):
 def new_hub(request):
     project = Project.objects.filter(id=NEW_UI_PROJECT).first()
     section_games = get_section_games(request)
+    ladder_game = _get_ladder_game()
+    ladder_ctx = {}
+    if ladder_game:
+        team = None
+        if has_profile(request.user):
+            team = request.user.profile.team_on
+        if ladder_game.has_access('see_game_preview', team=team):
+            ladder_ctx = get_ladder_hub_context(
+                ladder_game,
+                published_numbers=_ladder_published_numbers(ladder_game),
+            )
+            play_mode, _ = _get_play_mode(request, ladder_game.project_id)
+            play_mode = effective_play_mode(play_mode, ladder_game)
+            ladder_ctx.update(_game_page_progress_context(request, ladder_game, play_mode))
     return render(request, 'ui/hub.html', {
         'project': project,
         'folders': NEW_UI_FOLDERS,
         'section_games': section_games,
         'page_title': 'Interoves',
         'show_sections_nav': True,
+        **ladder_ctx,
         'community_links': [
             {'kind': 'telegram', 'title': 'Телеграм-канал', 'href': 'https://t.me/interoves'},
             {'kind': 'twitter', 'title': 'X (Twitter)', 'href': 'https://x.com/interoves'},
@@ -825,6 +894,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'tasks': tasks,
         'attempts_info_by_task_id': ctx_dicts['attempts_info_by_task_id'],
         'replacements_lines_data': ctx_dicts['replacements_lines_data'],
+        'raddle_data': ctx_dicts['raddle_data'],
         'proportions_chips': ctx_dicts['proportions_chips'],
         'wall_max_points_meta_by_task_id': ctx_dicts['wall_max_points_meta_by_task_id'],
         'likes_meta_by_task_id': ctx_dicts['likes_meta_by_task_id'],
@@ -858,6 +928,26 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
     })
 
 
+def new_ladder_today_page(request):
+    """Редирект на сегодняшнюю (или последнюю опубликованную) лесенку."""
+    ladder_game = _get_ladder_game()
+    if not ladder_game:
+        raise Http404()
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
+    if not ladder_game.has_access('see_game_preview', team=team):
+        raise Http404()
+    ctx = get_ladder_hub_context(
+        ladder_game,
+        published_numbers=_ladder_published_numbers(ladder_game),
+    )
+    play_url = ctx.get('ladder_play_url')
+    if not play_url:
+        return redirect('ui_section_game', game_id=LADDER_GAME_ID)
+    return redirect(play_url)
+
+
 def new_section_game_page(request, game_id):
     """Страница раздела (игра из project sections) в новом UI: правила при необходимости + список групп заданий."""
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
@@ -881,7 +971,19 @@ def new_section_game_page(request, game_id):
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
     task_groups = _game_task_group_links(game)
-    task_group_rows = _task_group_rows_skeleton(task_groups, game)
+    if game_id == LADDER_GAME_ID:
+        task_groups = _player_visible_task_group_links(game)
+        today_number = current_ladder_number(game)
+        task_group_rows = _ladder_task_group_rows(
+            task_groups, game, today_number=today_number,
+        )
+        task_groups_heading = 'Архив'
+        task_groups_empty_text = 'Лесенки скоро появятся — следите за обновлениями.'
+    else:
+        today_number = None
+        task_group_rows = _task_group_rows_skeleton(task_groups, game)
+        task_groups_heading = 'Наборы заданий'
+        task_groups_empty_text = 'В этом разделе пока нет групп заданий. Добавьте их в админке.'
 
     section_task_groups_rules_html = None
     rules_page = game.section_default_rules
@@ -912,8 +1014,17 @@ def new_section_game_page(request, game_id):
         'section_tutorial_html': section_tutorial_html,
         'section_task_groups_rules_html': section_task_groups_rules_html,
         'is_main_game': False,
-        'task_groups_heading': 'Наборы заданий',
-        'task_groups_empty_text': 'В этом разделе пока нет групп заданий. Добавьте их в админке.',
+        'task_groups_heading': task_groups_heading,
+        'task_groups_empty_text': task_groups_empty_text,
+        'is_ladder_section': game_id == LADDER_GAME_ID,
+        'ladder_today_number': today_number if game_id == LADDER_GAME_ID else None,
+        'ladder_today_play_url': (
+            _play_url_for_task_group(game, today_number)
+            if game_id == LADDER_GAME_ID
+            and today_number is not None
+            and is_ladder_number_published(game, today_number)
+            else None
+        ),
         'back_url': '/',
         'lock_personal_play_mode': personal_play_mode_locked(game),
         'team': team_for_access,
@@ -993,16 +1104,19 @@ def new_main_game_page(request, game_id):
 
 def _load_results_placements_and_tasks(game):
     """Placements + visible tasks for results table (headers and full compute)."""
-    placements = sorted(
+    links = list(
         game.task_group_links.select_related('task_group').prefetch_related(
             Prefetch(
                 'task_group__tasks',
                 queryset=Task.objects.visible().filter(~Q(task_type='text_with_forms')),
                 to_attr='result_tasks',
             )
-        ),
-        key=lambda p: p.number,
+        )
     )
+    if game.id == LADDER_GAME_ID:
+        placements = visible_ladder_links(links, game, reverse=False)
+    else:
+        placements = sorted(links, key=lambda p: p.key_sort())
     task_group_to_tasks = {}
     for p in placements:
         tg = p.task_group
@@ -1487,6 +1601,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             line_done = [False] * n_lines
             solved_lines_from_state = set()
             ai = attempts_info_by_task_id.get(t.id)
+            hint_attempts = ai.hint_attempts if ai else []
             if ai and ai.attempts:
                 for a in ai.attempts:
                     try:
@@ -1535,6 +1650,31 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 'max_attempts': t.get_max_attempts(),
                 'max_points_total': t.get_results_max_points(),
             }
+    raddle_data = {}
+    for t in tasks:
+        if t.task_type == 'raddle':
+            parsed = parse_raddle_data(t)
+            if not parsed:
+                continue
+            ai = attempts_info_by_task_id.get(t.id)
+            raddle_hint_attempts = ai.hint_attempts if ai else []
+            state = load_raddle_state(None, parsed['n_words'])
+            if ai and ai.attempts:
+                for a in reversed(ai.attempts):
+                    if a.state:
+                        state = load_raddle_state(a.state, parsed['n_words'])
+                        break
+            ui = build_raddle_ui_context(
+                parsed, state, ai.attempts if ai else [],
+                max_attempts=t.get_max_attempts(), mode=mode,
+                hint_attempts=raddle_hint_attempts,
+            )
+            raddle_data[t.id] = {
+                'parsed': parsed,
+                'ui': ui,
+                'max_attempts': t.get_max_attempts(),
+                'max_points_total': t.get_results_max_points(),
+            }
     proportions_chips = []
     if task_group.view == 'proportions':
         proportions_chips = build_proportions_chips_for_tasks(tasks)
@@ -1547,6 +1687,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
         'wall_max_points_meta_by_task_id': wall_max_points_meta_by_task_id,
         'likes_meta_by_task_id': likes_meta_by_task_id,
         'replacements_lines_data': replacements_lines_data,
+        'raddle_data': raddle_data,
         'proportions_chips': proportions_chips,
     }
 
@@ -1583,6 +1724,8 @@ def new_task_group_page(request, game_id, task_group_number):
         if has_profile(request.user):
             preview_team = request.user.profile.team_on
         if not game.has_access('see_game_preview', team=preview_team):
+            raise Http404()
+        if game_id == LADDER_GAME_ID and not is_ladder_number_published(game, task_group_number):
             raise Http404()
     else:
         # Для "обычных" игр сохраняем старое поведение.
@@ -1635,6 +1778,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'tasks': tasks,
         'attempts_info_by_task_id': ctx_dicts['attempts_info_by_task_id'],
         'replacements_lines_data': ctx_dicts['replacements_lines_data'],
+        'raddle_data': ctx_dicts['raddle_data'],
         'proportions_chips': ctx_dicts['proportions_chips'],
         'wall_max_points_meta_by_task_id': ctx_dicts['wall_max_points_meta_by_task_id'],
         'likes_meta_by_task_id': ctx_dicts['likes_meta_by_task_id'],
@@ -1790,6 +1934,14 @@ def new_get_answer(request, task_id):
             ),
         })
 
+    if task.task_type == 'raddle':
+        return JsonResponse({
+            'html': (
+                '<div class="new-login-hint">Для raddle ответ показывается у каждого '
+                'решённого слова (кнопка «Ответ»).</div>'
+            ),
+        })
+
     return JsonResponse({'html': _answer_popup_html(task.answer, task.answer_comment)})
 
 
@@ -1844,6 +1996,68 @@ def new_get_replacements_line_answer(request, task_id, line_index):
     else:
         raw = lines[line_index_int]
     text = canonical_replacements_checker_line(raw)
+    if not text.strip():
+        return JsonResponse({'html': '<div class="new-login-hint">Нет ответа.</div>'})
+    return JsonResponse({'html': _answer_popup_html(text, task.answer_comment)})
+
+
+@require_http_methods(['GET'])
+def new_get_raddle_word_answer(request, task_id, word_index):
+    task = get_public_task_or_404(task_id)
+    if task.task_type != 'raddle':
+        raise Http404()
+    game = game_from_request_for_task(request, task)
+    if game is None:
+        raise Http404()
+
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
+    team = None
+    user = None
+    anon_key = None
+    if play_mode == 'team':
+        if not has_profile(request.user) or not request.user.profile.team_on:
+            raise Http404()
+        team = request.user.profile.team_on
+        if not game.has_access('play', team=team):
+            raise Http404()
+    else:
+        if request.user.is_authenticated:
+            if not has_profile(request.user):
+                raise Http404()
+            user = request.user
+        else:
+            anon_key = _anon_key_from_request(request)
+            if not anon_key:
+                raise Http404()
+        if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
+            raise Http404()
+
+    mode = game.get_current_mode(Attempt(time=timezone.now()))
+    attempts_info = Attempt.manager.get_attempts_info(team=team, user=user, anon_key=anon_key, task=task, mode=mode)
+    try:
+        word_index_int = int(word_index)
+    except (TypeError, ValueError):
+        word_index_int = -1
+    word_done_list = []
+    parsed = parse_raddle_data(task)
+    if parsed:
+        word_done_list = raddle_word_solved_list(
+            parsed, attempts_info.attempts if attempts_info else [],
+        )
+    if mode != 'general':
+        if not attempts_info.is_solved():
+            if (
+                word_index_int < 0
+                or word_index_int >= len(word_done_list)
+                or not word_done_list[word_index_int]
+            ):
+                return JsonResponse({'html': '<div class="new-login-hint">Ответ доступен после верного решения.</div>'})
+
+    parsed = parse_raddle_data(task)
+    if not parsed or word_index_int < 0 or word_index_int >= parsed['n_words']:
+        return JsonResponse({'html': '<div class="new-login-hint">Нет ответа.</div>'})
+    text = parsed['words'][word_index_int]
     if not text.strip():
         return JsonResponse({'html': '<div class="new-login-hint">Нет ответа.</div>'})
     return JsonResponse({'html': _answer_popup_html(text, task.answer_comment)})

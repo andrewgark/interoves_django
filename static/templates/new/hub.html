@@ -8,6 +8,54 @@
   <p>{{ folder.description }}</p>
 </a>
 {% endfor %}
+
+{% if ladder_game %}
+<section class="new-daily-ladder{% if ladder_is_today %} new-daily-ladder--today{% endif %}" aria-labelledby="ladder-heading">
+  <div class="new-daily-ladder__head">
+    <h2 id="ladder-heading" class="new-daily-ladder__title">🪜 Лесенка</h2>
+    {% if ladder_today_label %}
+      <span class="new-pill{% if ladder_is_today %} new-daily-ladder__badge-today{% endif %}">{{ ladder_today_label }}</span>
+    {% endif %}
+  </div>
+  <p class="new-daily-ladder__desc">Одна лестница слов в день — соберите цепочку с двух концов.</p>
+  {% if ladder_play_url %}
+    <a class="new-btn new-btn--primary new-daily-ladder__cta" href="{{ ladder_play_url }}" data-ladder-cta data-ladder-number="{{ ladder_cta_number }}">
+      {{ ladder_cta_label }}
+    </a>
+    <p class="new-daily-ladder__status" data-ladder-progress hidden></p>
+  {% elif ladder_status == 'coming_soon' %}
+    <p class="new-daily-ladder__soon">Первая лесенка появится в полночь по Москве.</p>
+  {% endif %}
+  <p class="new-daily-ladder__footer">
+    <a class="new-link-dotted" href="{{ ladder_section_url }}">Все лесенки →</a>
+  </p>
+</section>
+{% if load_task_group_progress and task_group_progress_url and ladder_cta_number %}
+<script>
+(function () {
+  var url = '{{ task_group_progress_url|escapejs }}';
+  var num = '{{ ladder_cta_number|escapejs }}';
+  var statusEl = document.querySelector('[data-ladder-progress]');
+  if (!url || !statusEl) return;
+  fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (data) {
+      var row = data && data.rows && data.rows[num];
+      if (!row || !row.progress_text) return;
+      statusEl.textContent = row.progress_text;
+      statusEl.hidden = false;
+      if (row.is_fully_solved) {
+        var cta = document.querySelector('[data-ladder-cta]');
+        if (cta) cta.classList.add('new-daily-ladder__cta--solved');
+      }
+    })
+    .catch(function () {});
+})();
+</script>
+{% endif %}
+<h1 class="new-heading">Тренировка</h1>
+{% endif %}
+
 {% for game in section_games %}
 <a class="new-tile" href="{% url 'new_section_game' game.id %}">
   <h2>

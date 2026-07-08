@@ -10,6 +10,16 @@ from games.replacements_lines import (
     parse_replacements_lines_text,
     split_slot_answer_alternatives,
 )
+from games.raddle import (
+    clue_index_for_playable_word,
+    load_raddle_state,
+    parse_raddle_data,
+    playable_word_indices,
+    resolve_assist_tiers,
+    word_length_matches,
+    word_matches,
+    word_solve_credit,
+)
 from games.wordle import convert_words_wordle, read_wordle_dict, color_tiles
 
 
@@ -584,6 +594,112 @@ class ReplacementsLinesChecker(BaseChecker):
         return CheckResult(status, tournament_status, total, state=json.dumps(new_state, ensure_ascii=False))
 
 
+class RaddleChecker(BaseChecker):
+    """Проверяет одно слово лестницы: attempt.text = JSON {"word_index": int, "word": str}."""
+
+    def __init__(self, data, last_attempt_state=None):
+        self._raw_checker_data = data or ''
+        self.last_state = None
+        if last_attempt_state:
+            try:
+                self.last_state = json.loads(last_attempt_state)
+            except (ValueError, TypeError):
+                self.last_state = None
+
+    def _parsed(self, attempt):
+        task = getattr(attempt, 'task', None) if attempt else None
+        if not task:
+            return None
+        return parse_raddle_data(task)
+
+    def check(self, text, attempt):
+        parsed = self._parsed(attempt)
+        if not parsed:
+            return CheckResult('Wrong', 'Pending', 0, comment='Нет данных для проверки')
+        n = parsed['n_words']
+        state = load_raddle_state(
+            json.dumps(self.last_state) if self.last_state else None,
+            n,
+        )
+        try:
+            payload = json.loads(text)
+            word_index = int(payload.get('word_index', -1))
+            user_word = str(payload.get('word', '') or '').strip()
+        except (ValueError, TypeError):
+            return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат ответа')
+        if not user_word:
+            return CheckResult(
+                'Wrong', 'Pending', 0,
+                comment='Пустой ответ',
+                state=json.dumps(state, ensure_ascii=False),
+            )
+        if word_index < 0 or word_index >= n:
+            return CheckResult(
+                'Wrong', 'Pending', 0,
+                comment='Неверный индекс слова',
+                state=json.dumps(state, ensure_ascii=False),
+            )
+        if word_index in set(state.get('solved_indices') or []):
+            return CheckResult(
+                'Wrong', 'Pending', 0,
+                comment='Это слово уже решено',
+                state=json.dumps(state, ensure_ascii=False),
+            )
+        playable = playable_word_indices(state, n)
+        if word_index not in playable:
+            return CheckResult(
+                'Wrong', 'Pending', 0,
+                comment='Сейчас можно сдавать только крайние нерешённые слова',
+                state=json.dumps(state, ensure_ascii=False),
+            )
+        mask = parsed['masks'][word_index]
+        if not word_length_matches(user_word, mask):
+            return CheckResult(
+                'Wrong', 'Pending', 0,
+                comment='Длина слова не совпадает с маской',
+                state=json.dumps(state, ensure_ascii=False),
+            )
+        accept = parsed['word_accept'][word_index]
+        is_correct = word_matches(user_word, accept)
+        solved = set(state.get('solved_indices') or [])
+        used_hints = set(state.get('used_hints') or [])
+        try:
+            total = Decimal(str(state.get('total', 0) or 0))
+        except (ArithmeticError, ValueError, TypeError):
+            total = Decimal('0')
+        assist_tiers = resolve_assist_tiers(state)
+        assist_cfg = (parsed.get('assist') or {}) if parsed else {}
+        if is_correct:
+            # Какая подсказка «закрылась»: сверху — prev→слово, снизу — слово→next.
+            # Считаем до добавления word_index в solved (нужен известный сосед).
+            hi = clue_index_for_playable_word(word_index, solved, n)
+            solved.add(word_index)
+            if hi is not None and 0 <= hi < len(parsed['hints']):
+                used_hints.add(hi)
+            if word_index not in (0, n - 1):
+                tier = assist_tiers.get(word_index, 0)
+                total += word_solve_credit(tier, assist_cfg)
+        middle_total = max(0, n - 2)
+        solved_middle = len(solved) - (2 if n >= 2 else len(solved))
+        if middle_total and solved_middle >= middle_total:
+            status = 'Ok'
+            tournament_status = 'Ok'
+        else:
+            status = 'Partial' if solved_middle > 0 else 'Wrong'
+            tournament_status = 'Ok' if is_correct else 'Pending'
+        # JSON: float, so client/state round-trips stay simple; CheckResult.points stays Decimal.
+        new_state = {
+            'solved_indices': sorted(solved),
+            'used_hints': sorted(used_hints),
+            'assist_tier': state.get('assist_tier') or {},
+            'total': float(total),
+        }
+        return CheckResult(
+            status, tournament_status, total,
+            state=json.dumps(new_state, ensure_ascii=False),
+        )
+
+
 class SolutionsTagNumber:
     def __init__(self, data, last_attempt_state=None):
         self.data = json.loads(data)
@@ -638,6 +754,7 @@ class CheckerFactory:
             'antiwordle': AntiwordleChecker,
             'several_answers': SeveralAnswersChecker,
             'replacements_lines': ReplacementsLinesChecker,
+            'raddle': RaddleChecker,
         }
     
     def create_checker(self, checker_type, data, last_attempt_state=None):

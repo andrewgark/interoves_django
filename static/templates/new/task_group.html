@@ -288,6 +288,40 @@
     el.value = anonKey;
   });
 
+  function isRaddleLineForm(form) {
+    return form && form.classList && form.classList.contains('new-raddle-line-form');
+  }
+
+  function prepareRaddleLineForm(form) {
+    var msg = form.querySelector('.new-attempt-msg');
+    if (!msg && form.id) {
+      msg = document.querySelector('[data-msg-for="' + form.id + '"]');
+    }
+    var wordInput = document.querySelector('input[name="word"][form="' + form.id + '"]');
+    if (!wordInput || !String(wordInput.value || '').trim()) {
+      if (msg) {
+        if (msg.classList && msg.classList.contains('new-raddle-word-msg')) {
+          msg.style.display = 'block';
+        }
+        msg.textContent = 'Пустой ответ.';
+      }
+      return false;
+    }
+    return true;
+  }
+
+  function formPostBody(form) {
+    if (isRaddleLineForm(form)) {
+      var fd = new FormData(form);
+      var wordInput = document.querySelector('input[name="word"][form="' + form.id + '"]');
+      if (wordInput) {
+        fd.set('word', wordInput.value);
+      }
+      return fd;
+    }
+    return new FormData(form);
+  }
+
   function postForm(form) {
     if (form && form.dataset && form.dataset.submitting === '1') return;
     if (form && form.getAttribute('data-proportions-form') === '1') {
@@ -311,14 +345,14 @@
     if (!msg && form.id) {
       msg = document.querySelector('[data-msg-for="' + form.id + '"]');
     }
-    if (msg && msg.classList && msg.classList.contains('new-replacements-line-msg')) {
+    if (msg && msg.classList && (msg.classList.contains('new-replacements-line-msg') || msg.classList.contains('new-raddle-word-msg'))) {
       msg.style.display = 'block';
     }
     if (msg) msg.textContent = 'Проверяем…';
     fetch(form.action, {
       method: 'POST',
       headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      body: new FormData(form),
+      body: formPostBody(form),
       credentials: 'same-origin',
     })
       .then(function (r) { return r.json(); })
@@ -363,7 +397,11 @@
           return;
         }
         if (data.status === 'duplicate') {
-          if (msg) msg.textContent = 'Вы уже отправляли такой ответ.';
+          if (msg) {
+            msg.textContent = isRaddleLineForm(form)
+              ? 'Вы уже отправляли это слово.'
+              : 'Вы уже отправляли такой ответ.';
+          }
           return;
         }
         if (data.status === 'not_all_required_hints_taken') {
@@ -371,11 +409,19 @@
           return;
         }
         if (data.status === 'attempt_limit_exceeded') {
-          if (msg) msg.textContent = 'Попытки закончились.';
+          if (msg) {
+            msg.textContent = isRaddleLineForm(form)
+              ? 'Попытки по этому слову закончились.'
+              : 'Попытки закончились.';
+          }
           return;
         }
         if (data.status === 'empty') {
-          if (msg) msg.textContent = 'Пустой ответ. Заполните хотя бы одно слово в строке.';
+          if (msg) {
+            msg.textContent = isRaddleLineForm(form)
+              ? 'Пустой ответ.'
+              : 'Пустой ответ. Заполните хотя бы одно слово в строке.';
+          }
           return;
         }
         if (data.status === 'invalid_form') {
@@ -892,11 +938,224 @@
     });
   })();
 
+  function highlightRaddleClue(taskRoot, hintIndex) {
+    if (!taskRoot) return;
+    taskRoot.querySelectorAll('.new-raddle-clue--active').forEach(function (el) {
+      el.classList.remove('new-raddle-clue--active');
+    });
+    if (hintIndex === null || hintIndex === undefined || hintIndex === '') return;
+    var clue = taskRoot.querySelector('.new-raddle-clue[data-hint-index="' + hintIndex + '"]');
+    if (!clue) return;
+    clue.classList.add('new-raddle-clue--active');
+    try {
+      clue.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } catch (err) {}
+  }
+
+  function postRaddleAssistForm(form) {
+    if (form && form.dataset && form.dataset.submitting === '1') return;
+    var taskRoot = form.closest('.new-raddle-task');
+    var wordIdx = form.getAttribute('data-word-index');
+    var clueHintIndex = form.getAttribute('data-clue-hint-index');
+    var tierInput = form.querySelector('input[name="tier"]');
+    var tier = tierInput ? tierInput.value : '1';
+    // 💡 повторно: только подсветка, без запроса
+    if (tier === '1' && form.getAttribute('data-clue-already-taken') === '1') {
+      if (taskRoot) {
+        setRaddleFocus(taskRoot, wordIdx);
+        highlightRaddleClue(taskRoot, clueHintIndex);
+      }
+      return;
+    }
+    if (form && form.dataset) form.dataset.submitting = '1';
+    var taskId = form.getAttribute('data-task-id');
+    var msg = document.querySelector('[data-msg-for="raddle-form-' + taskId + '-' + wordIdx + '"]');
+    if (msg && tier !== '1') {
+      msg.style.display = 'block';
+      msg.textContent = '…';
+    }
+    fetch(form.action, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: new FormData(form),
+      credentials: 'same-origin',
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (form && form.dataset) form.dataset.submitting = '0';
+        if (!data || !data.status) {
+          if (msg) {
+            msg.style.display = 'block';
+            msg.textContent = 'Ошибка ответа.';
+          }
+          return;
+        }
+        // 💡: ok или duplicate → подсветить; при ok обновить HTML
+        if (tier === '1' && (data.status === 'ok' || data.status === 'duplicate')) {
+          if (data.status === 'ok' && data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+            applyNewUiTaskHtml(data.update_task_html_new);
+            var fresh = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
+            if (fresh) {
+              setRaddleFocus(fresh, wordIdx);
+              highlightRaddleClue(fresh, clueHintIndex);
+            }
+            return;
+          }
+          if (taskRoot) {
+            setRaddleFocus(taskRoot, wordIdx);
+            highlightRaddleClue(taskRoot, clueHintIndex);
+            var clue = taskRoot.querySelector('.new-raddle-clue[data-hint-index="' + clueHintIndex + '"]');
+            if (clue) clue.classList.add('new-raddle-clue--revealed');
+          }
+          if (msg) {
+            msg.textContent = '';
+            msg.style.display = 'none';
+          }
+          return;
+        }
+        if (data.status === 'ok') {
+          if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+            applyNewUiTaskHtml(data.update_task_html_new);
+            return;
+          }
+          window.location.reload();
+          return;
+        }
+        var texts = {
+          duplicate: 'Подсказка уже использована.',
+          need_clue_first: 'Сначала возьмите подсказку 💡.',
+          not_playable: 'Это слово сейчас нельзя подсказать.',
+          already_solved: 'Слово уже решено.',
+          disabled: 'Подсказки отключены.',
+          no_access: 'Нет доступа.',
+        };
+        if (msg) {
+          msg.style.display = 'block';
+          msg.textContent = texts[data.status] || ('Не удалось: ' + data.status);
+        }
+      })
+      .catch(function () {
+        if (form && form.dataset) form.dataset.submitting = '0';
+        if (msg) {
+          msg.style.display = 'block';
+          msg.textContent = 'Ошибка сети.';
+        }
+      });
+  }
+
+  function raddleStatusText(status) {
+    var texts = {
+      duplicate: 'Вы уже отправляли это слово.',
+      empty: 'Пустой ответ.',
+      no_team: 'Для командного режима нужна команда.',
+      no_profile: 'Нужно заполнить профиль.',
+      no_anon: 'Не удалось сохранить анонимный ключ.',
+      no_access: 'Нет доступа к отправке.',
+      invalid_form: 'Не удалось отправить ответ.',
+    };
+    return texts[status] || ('Не удалось отправить: ' + status);
+  }
+
+  function clearRaddleWrong(row) {
+    if (row) row.classList.remove('new-raddle-row--wrong');
+  }
+
+  function markRaddleWrong(row, input) {
+    if (row) row.classList.add('new-raddle-row--wrong');
+    if (input) { try { input.focus(); } catch (e) {} }
+  }
+
+  // Авто-режим (не турнир): нет кнопки, ответ уходит когда набрано нужное число символов.
+  function postRaddleAutoForm(form, input) {
+    if (!form || (form.dataset && form.dataset.submitting === '1')) return;
+    if (form.dataset) form.dataset.submitting = '1';
+    var row = input ? input.closest('.new-raddle-row') : null;
+    var wordIdx = form.getAttribute('data-word-index');
+    var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
+    fetch(form.action, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: formPostBody(form),
+      credentials: 'same-origin',
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (form.dataset) form.dataset.submitting = '0';
+        if (!data || !data.status) {
+          if (msg) { msg.style.display = 'block'; msg.textContent = 'Ошибка ответа.'; }
+          return;
+        }
+        if (data.status === 'ok' && data.raddle_correct) {
+          if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+            applyNewUiTaskHtml(data.update_task_html_new);
+            return;
+          }
+          window.location.reload();
+          return;
+        }
+        // Неверно (ok без raddle_correct) или duplicate — показываем красным, поле не трогаем.
+        if (data.status === 'ok' || data.status === 'duplicate') {
+          markRaddleWrong(row, input);
+          if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
+          return;
+        }
+        if (msg) { msg.style.display = 'block'; msg.textContent = raddleStatusText(data.status); }
+      })
+      .catch(function () {
+        if (form.dataset) form.dataset.submitting = '0';
+        if (msg) { msg.style.display = 'block'; msg.textContent = 'Ошибка сети.'; }
+      });
+  }
+
+  function submitRaddleAuto(input, val) {
+    if (!input) return;
+    if (input.dataset.raddleLast === val) return;
+    var formId = input.getAttribute('form');
+    var form = formId ? document.getElementById(formId) : null;
+    if (!form) return;
+    input.dataset.raddleLast = val;
+    postRaddleAutoForm(form, input);
+  }
+
+  function raddleAutoInput(input) {
+    var row = input.closest('.new-raddle-row');
+    var target = parseInt(input.getAttribute('maxlength') || '0', 10);
+    var val = String(input.value || '').trim();
+    // Число букв ушло от правильного — снимаем «неверно».
+    if (!target || val.length !== target) {
+      clearRaddleWrong(row);
+      return;
+    }
+    submitRaddleAuto(input, val);
+  }
+
+  document.addEventListener('input', function (e) {
+    var input = e.target && e.target.closest ? e.target.closest('input[name="word"][data-raddle-auto]') : null;
+    if (!input) return;
+    raddleAutoInput(input);
+  });
+
   document.addEventListener('submit', function (e) {
+    var assistForm = e.target && e.target.closest ? e.target.closest('form.new-raddle-assist-form') : null;
+    if (assistForm) {
+      if (!assistForm.closest('.new-taskgrid') && !assistForm.closest('.new-proportions-sheet')) return;
+      e.preventDefault();
+      postRaddleAssistForm(assistForm);
+      return;
+    }
     var form = e.target && e.target.closest ? e.target.closest('form.new-attempt-form') : null;
     if (!form) return;
     if (!form.closest('.new-taskgrid') && !form.closest('.new-proportions-sheet')) return;
     e.preventDefault();
+    // Авто-форма (не турнир): Enter/сабмит отправляет текущее значение без перерисовки на неверный.
+    if (form.classList.contains('new-raddle-auto-form')) {
+      var autoInput = document.querySelector('input[name="word"][form="' + form.id + '"]');
+      if (autoInput) {
+        var av = String(autoInput.value || '').trim();
+        if (av) { autoInput.dataset.raddleLast = ''; submitRaddleAuto(autoInput, av); }
+      }
+      return;
+    }
     if (form.classList.contains('new-replacements-line-form')) {
       if (form.getAttribute('data-repl-line-confirm') !== '1') {
         var skipConfirm = false;
@@ -912,6 +1171,9 @@
       }
       form.removeAttribute('data-repl-line-confirm');
       if (!prepareReplacementsJsonAnswers(form)) return;
+    }
+    if (form.classList.contains('new-raddle-line-form')) {
+      if (!prepareRaddleLineForm(form)) return;
     }
     if (form.getAttribute('data-proportions-form') === '1') {
       var pmsg = form.querySelector('.new-attempt-msg');
@@ -1351,6 +1613,129 @@
   initReplacementsLinesStorage(document);
   initReplacementsLinesUi(document);
 
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function raddleClueChip(word, kind) {
+    var cls = kind === 'next' ? 'new-raddle-clue-next' : 'new-raddle-clue-ref';
+    return '<strong class="' + cls + '">' + escapeHtml(word) + '</strong>';
+  }
+
+  function raddleRenderTransitionClue(li, focusRefWord, focusRefRole) {
+    // Неиспользованные: без спойлера по отгаданным словам.
+    // Сосед сверху (prev) → во все ____ (жёлтый);
+    // сосед снизу (next) → во все ... / «→» (зелёный).
+    var tpl = String(li.getAttribute('data-blank-template') || '');
+    var hasNextSlot = li.getAttribute('data-has-next-slot') === '1';
+    var out = escapeHtml(tpl);
+    var word = String(focusRefWord || '').trim();
+    if (!word) return out;
+    if (focusRefRole === 'next') {
+      if (hasNextSlot && /(?:\.{3}|…)/.test(out)) {
+        out = out.replace(/\.{3}|…/g, raddleClueChip(word, 'next'));
+      } else {
+        out = out.replace(/\s+$/, '');
+        if (out.endsWith('.')) out = out.slice(0, -1).replace(/\s+$/, '');
+        out = out + ' → ' + raddleClueChip(word, 'next');
+      }
+    } else {
+      out = out.replace(/_{2,}/g, raddleClueChip(word, 'prev'));
+    }
+    return out;
+  }
+
+  function setRaddleFocus(taskRoot, wordIndex) {
+    if (!taskRoot) return;
+    var rows = taskRoot.querySelectorAll('.new-raddle-row[data-word-index]');
+    var focusRow = null;
+    rows.forEach(function (row) {
+      row.classList.remove(
+        'new-raddle-row--focus', 'new-raddle-row--ref',
+        'new-raddle-row--as-prev', 'new-raddle-row--as-next'
+      );
+      if (String(row.getAttribute('data-word-index')) === String(wordIndex)) {
+        focusRow = row;
+      }
+    });
+    if (!focusRow || !focusRow.classList.contains('new-raddle-row--playable')) {
+      focusRow = taskRoot.querySelector('.new-raddle-row--playable');
+      if (!focusRow) return;
+      wordIndex = focusRow.getAttribute('data-word-index');
+    }
+    focusRow.classList.add('new-raddle-row--focus');
+    var refIdx = focusRow.getAttribute('data-ref-word-index');
+    var refWord = focusRow.getAttribute('data-ref-word') || '';
+    var refRole = focusRow.getAttribute('data-ref-role') || 'prev';
+    var focusPairRole = focusRow.getAttribute('data-focus-pair-role') || '';
+    var refPairRole = focusRow.getAttribute('data-ref-pair-role') || '';
+    if (focusPairRole) focusRow.classList.add('new-raddle-row--as-' + focusPairRole);
+    if (refIdx !== null && refIdx !== '') {
+      var refRow = taskRoot.querySelector('.new-raddle-row[data-word-index="' + refIdx + '"]');
+      if (refRow) {
+        refRow.classList.add('new-raddle-row--ref');
+        if (refPairRole) refRow.classList.add('new-raddle-row--as-' + refPairRole);
+      }
+    }
+    taskRoot.querySelectorAll('[data-raddle-unused-clues] .new-raddle-clue').forEach(function (li) {
+      var textEl = li.querySelector('.new-raddle-clue__text');
+      if (textEl) textEl.innerHTML = raddleRenderTransitionClue(li, refWord, refRole);
+    });
+    // Синяя подсветка «правильной» подсказки — только после взятия 💡 (иначе спойлер)
+    var clueIdx = focusRow.getAttribute('data-clue-hint-index');
+    var revealed = clueIdx && taskRoot.querySelector(
+      '.new-raddle-clue--revealed[data-hint-index="' + clueIdx + '"]'
+    );
+    // 💡💡 после первой подсказки — значит tip уже взят
+    var tipTaken = !!focusRow.querySelector('.new-raddle-assist-btn--answer');
+    if (tipTaken || revealed) {
+      highlightRaddleClue(taskRoot, clueIdx);
+    } else {
+      highlightRaddleClue(taskRoot, '');
+    }
+  }
+
+  function initRaddleUi(root) {
+    var scope = root || document;
+    scope.querySelectorAll('.new-raddle-task').forEach(function (taskRoot) {
+      var focus = taskRoot.getAttribute('data-default-focus');
+      if (focus !== null && focus !== '') {
+        setRaddleFocus(taskRoot, focus);
+      } else {
+        setRaddleFocus(taskRoot, null);
+      }
+    });
+  }
+  window.initRaddleUi = initRaddleUi;
+  window.setRaddleFocus = setRaddleFocus;
+  initRaddleUi(document);
+
+  document.addEventListener('focusin', function (e) {
+    var input = e.target && e.target.closest ? e.target.closest('[data-raddle-focus-input]') : null;
+    if (!input) return;
+    var row = input.closest('.new-raddle-row');
+    var taskRoot = input.closest('.new-raddle-task');
+    if (!row || !taskRoot) return;
+    setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
+  });
+
+  document.addEventListener('click', function (e) {
+    var row = e.target && e.target.closest ? e.target.closest('.new-raddle-row--playable') : null;
+    if (!row) return;
+    var taskRoot = row.closest('.new-raddle-task');
+    if (!taskRoot) return;
+    setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
+    var input = row.querySelector('[data-raddle-focus-input]');
+    if (input && document.activeElement !== input) {
+      try { input.focus(); } catch (err) {}
+    }
+  });
+
   function openAnswer(html) {
     var answerModal = document.getElementById('new-answer-modal');
     var answerBox = document.getElementById('new-answer-box');
@@ -1418,6 +1803,32 @@
         .then(function (data) { openAnswer(data.html || '<div class=\"new-login-hint\">Нет ответа.</div>'); })
         .catch(function () { openAnswer('<div class=\"new-login-hint\">Не удалось получить ответ.</div>'); });
     });
+  });
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('[data-raddle-answer-open]') : null;
+    if (!btn) return;
+    var taskId = btn.getAttribute('data-task-id');
+    var wordIndex = btn.getAttribute('data-word-index');
+    var url = "{% url 'new_get_raddle_word_answer' 0 0 %}"
+      .replace('/0/word/0/', '/' + taskId + '/word/' + wordIndex + '/');
+    try {
+      var u = new URL(url, window.location.origin);
+      u.searchParams.set('game_id', '{{ game.id }}');
+      if (!isAuthenticated) {
+        var ak = '';
+        try { ak = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
+        if (ak) u.searchParams.set('anon', ak);
+      }
+      url = u.toString();
+    } catch (e) {}
+    fetch(url, {
+      method: 'GET',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    }).then(function (r) { return r.json(); })
+      .then(function (data) { openAnswer(data.html || '<div class=\"new-login-hint\">Нет ответа.</div>'); })
+      .catch(function () { openAnswer('<div class=\"new-login-hint\">Не удалось получить ответ.</div>'); });
   });
 
   // Подсветка лайков/дизлайков с сервера (data-* → .is-active); без этого после F5 кнопки не зелёные.
@@ -1552,6 +1963,7 @@
       if (fresh) {
         initReplacementsLinesStorage(fresh);
         if (typeof initReplacementsLinesUi === 'function') initReplacementsLinesUi(fresh);
+        if (typeof initRaddleUi === 'function') initRaddleUi(fresh);
       }
     });
     document.querySelectorAll('input.new-anon-key-field').forEach(function (inp) {

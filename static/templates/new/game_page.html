@@ -129,6 +129,11 @@
       {% if game.theme %}
         <p class="new-login-hint" style="margin-top:0.35rem">{{ game.theme }}</p>
       {% endif %}
+      {% if is_ladder_section and ladder_today_play_url %}
+        <p style="margin-top:0.75rem">
+          <a class="new-btn new-btn--primary" href="{{ ladder_today_play_url }}">Сегодняшняя лесенка</a>
+        </p>
+      {% endif %}
 
       {% if section_task_groups_rules_html %}
         <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>

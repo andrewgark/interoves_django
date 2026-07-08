@@ -2,7 +2,7 @@ import chardet
 from collections import OrderedDict
 import json
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.forms import Textarea, ModelForm, ModelMultipleChoiceField
 from django.forms.models import BaseInlineFormSet
 from django.db import models
@@ -23,6 +23,8 @@ from games.models import (
     HTMLPage,
     Image,
     Like,
+    OrderGameClient,
+    OrderGameReview,
     PendingAttempt,
     PendingTicketRequest,
     Profile,
@@ -50,10 +52,25 @@ admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registr
 
 @admin.register(CorporateGameOrder)
 class CorporateGameOrderAdmin(admin.ModelAdmin):
-    list_display = ('created_at', 'company_name', 'contact_name', 'email', 'team_size', 'email_sent')
-    list_filter = ('email_sent',)
-    search_fields = ('company_name', 'contact_name', 'email', 'message')
+    list_display = ('created_at', 'company_name', 'contact_name', 'contact_method', 'contact_value', 'email_sent')
+    list_filter = ('email_sent', 'contact_method')
+    search_fields = ('company_name', 'contact_name', 'contact_value', 'contact_other_label', 'message')
     readonly_fields = ('created_at', 'email_sent')
+
+
+@admin.register(OrderGameClient)
+class OrderGameClientAdmin(admin.ModelAdmin):
+    list_display = ('company_name', 'sort_order', 'is_published')
+    list_editable = ('sort_order', 'is_published')
+    search_fields = ('company_name',)
+
+
+@admin.register(OrderGameReview)
+class OrderGameReviewAdmin(admin.ModelAdmin):
+    list_display = ('name', 'caption', 'is_important', 'is_published')
+    list_filter = ('is_important', 'is_published')
+    list_editable = ('is_important', 'is_published')
+    search_fields = ('name', 'caption', 'text')
 
 
 def hintform_factory(task):
@@ -90,6 +107,10 @@ class GameTaskGroupInlineOnTaskGroup(admin.TabularInline):
     autocomplete_fields = ['game']
     extra = 0
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return GameTaskGroup.order_queryset_by_number(qs)
+
 
 @admin.register(TaskGroup)
 class TaskGroupAdmin(admin.ModelAdmin):
@@ -107,6 +128,10 @@ class TaskGroupInline(admin.TabularInline):
     fk_name = 'game'
     autocomplete_fields = ['task_group']
     extra = 0
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return GameTaskGroup.order_queryset_by_number(qs)
 
 
 def create_new_google_doc(modeladmin, request, queryset):
@@ -300,6 +325,16 @@ class TaskAdmin(admin.ModelAdmin):
         request._obj_ = obj
         return super(TaskAdmin, self).get_form(request, obj, **kwargs)
 
+    def save_model(self, request, obj, form, change):
+        if obj.task_type == 'raddle':
+            from games.raddle import validate_raddle_checker_data
+            errors = validate_raddle_checker_data(obj.checker_data, obj.answer)
+            if errors:
+                for err in errors:
+                    messages.error(request, 'Raddle: {}'.format(err))
+                return
+        super(TaskAdmin, self).save_model(request, obj, form, change)
+
 
 def confirm_profile_team_request(modeladmin, request, queryset):
     for profile in queryset:
@@ -350,7 +385,7 @@ def recheck_team_task_all_chronological_action(modeladmin, request, queryset):
 def _set_ok(attempt):
     # "max points" for wall/replacements_lines is derived (not just task.points multiplier).
     try:
-        if attempt.task and attempt.task.task_type in ('wall', 'replacements_lines'):
+        if attempt.task and attempt.task.task_type in ('wall', 'replacements_lines', 'raddle'):
             attempt.points = attempt.task.get_results_max_points()
         else:
             attempt.points = attempt.get_max_points()

@@ -82,6 +82,23 @@ def check_attempt(attempt):
                     max_attempts = task.get_max_attempts()
                     if n_attempts_this_line >= max_attempts:
                         raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {} for line {}'.format(team, max_attempts, task, current_line + 1))
+                elif task.task_type == 'raddle':
+                    try:
+                        current_payload = json.loads(attempt.text)
+                        current_word = int(current_payload.get('word_index', -1))
+                    except (ValueError, TypeError):
+                        current_word = -1
+                    n_attempts_this_word = 0
+                    for a in attempts:
+                        try:
+                            p = json.loads(a.text)
+                            if int(p.get('word_index', -1)) == current_word:
+                                n_attempts_this_word += 1
+                        except (ValueError, TypeError):
+                            pass
+                    max_attempts = task.get_max_attempts()
+                    if n_attempts_this_word >= max_attempts:
+                        raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {} for word {}'.format(team, max_attempts, task, current_word + 1))
                 else:
                     n_attempts = len(attempts)
                     max_attempts = task.get_max_attempts()
@@ -95,6 +112,8 @@ def check_attempt(attempt):
         checker_type = task.get_checker()
         if task.task_type == 'replacements_lines':
             checker_type = CheckerType.objects.get(id='replacements_lines')
+        if task.task_type == 'raddle':
+            checker_type = CheckerType.objects.get(id='raddle')
         checker_data = task.checker_data or ''
         # equals / equals_with_possible_spaces читают эталон из checker_data; для «Пропорций»
         # и обычных заданий ответ часто задают только в answer — тогда дублируем его сюда.
@@ -107,7 +126,8 @@ def check_attempt(attempt):
         if 'tournament' in modes and attempt.status != 'Ok':
             attempt.possible_status = attempt.status
             attempt.status = check_result.tournament_status
-        attempt.points *= task.get_points()
+        from decimal import Decimal
+        attempt.points = Decimal(str(attempt.points or 0)) * task.get_points()
 
         attempt.save()
 
@@ -239,6 +259,12 @@ def process_send_attempt(request, task_id):
         if not answers or all(str(a).strip() == '' for a in answers):
             return {'status': 'empty'}
         attempt = Attempt(text=json.dumps({'line_index': line_index, 'answers': answers}))
+    elif task.task_type == 'raddle':
+        word_index = int(request.POST.get('word_index', 0))
+        word = (request.POST.get('word') or '').strip()
+        if not word:
+            return {'status': 'empty'}
+        attempt = Attempt(text=json.dumps({'word_index': word_index, 'word': word}))
     else:
         raise Exception('Unknown task_type: {}'.format(task.task_type))
     attempt.team = team
@@ -262,6 +288,13 @@ def process_send_attempt(request, task_id):
         'status': 'ok',
         'task_id': task.id,
     }
+    if task.task_type == 'raddle':
+        try:
+            st = json.loads(attempt.state or '{}')
+            result['raddle_correct'] = word_index in set(st.get('solved_indices') or [])
+        except (ValueError, TypeError):
+            result['raddle_correct'] = False
+        result['raddle_word_index'] = word_index
     update_html = update_task_html(
         request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
     )

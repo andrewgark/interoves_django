@@ -57,6 +57,7 @@ def _best_attempt(attempts: Iterable[Attempt]) -> Optional[Attempt]:
 
 
 def _sum_hint_penalty(hint_attempts: Iterable[HintAttempt]) -> float:
+    from games.raddle import is_raddle_in_game_assist_hint
     total = 0.0
     for ha in hint_attempts or []:
         try:
@@ -64,6 +65,8 @@ def _sum_hint_penalty(hint_attempts: Iterable[HintAttempt]) -> float:
                 continue
             hint = getattr(ha, "hint", None)
             if hint is None:
+                continue
+            if is_raddle_in_game_assist_hint(hint):
                 continue
             total += float(getattr(hint, "points_penalty", 0) or 0)
         except Exception:
