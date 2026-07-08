@@ -407,7 +407,21 @@
             }
           }
           if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+            var raddleFocusInfo = null;
+            if (isRaddleLineForm(form) && data.raddle_correct) {
+              var wi = document.querySelector('input[name="word"][form="' + form.id + '"]');
+              var rrow = wi ? wi.closest('.new-raddle-row') : null;
+              raddleFocusInfo = {
+                taskId: form.getAttribute('data-task-id'),
+                idx: (data.raddle_word_index !== undefined && data.raddle_word_index !== null)
+                  ? data.raddle_word_index : form.getAttribute('data-word-index'),
+                refRole: rrow ? (rrow.getAttribute('data-ref-role') || 'prev') : 'prev',
+              };
+            }
             applyNewUiTaskHtml(data.update_task_html_new);
+            if (raddleFocusInfo && typeof focusRaddleNext === 'function') {
+              focusRaddleNext(raddleFocusInfo.taskId, raddleFocusInfo.idx, raddleFocusInfo.refRole);
+            }
             return;
           }
           window.location.reload();
@@ -1115,8 +1129,12 @@
           return;
         }
         if (data.status === 'ok' && data.raddle_correct) {
+          var refRole = row ? (row.getAttribute('data-ref-role') || 'prev') : 'prev';
+          var solvedIdx = (data.raddle_word_index !== undefined && data.raddle_word_index !== null)
+            ? data.raddle_word_index : wordIdx;
           if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
             applyNewUiTaskHtml(data.update_task_html_new);
+            focusRaddleNext(form.getAttribute('data-task-id'), solvedIdx, refRole);
             return;
           }
           window.location.reload();
@@ -1739,6 +1757,24 @@
       highlightRaddleClue(taskRoot, '');
     }
   }
+
+  // После верной посылки переводим фокус на следующую ступеньку: если решали
+  // верхнее поле (известный сосед сверху, ref-role=prev) — вниз (index+1),
+  // если нижнее (ref-role=next) — вверх (index-1). Если целевое поле не
+  // играбельно, setRaddleFocus сам выберет доступное.
+  function focusRaddleNext(taskId, solvedIndex, refRole) {
+    if (taskId === null || taskId === undefined) return;
+    var fresh = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
+    if (!fresh) return;
+    var idx = parseInt(solvedIndex, 10);
+    if (isNaN(idx)) { setRaddleFocus(fresh, null); return; }
+    var target = (refRole === 'next') ? (idx - 1) : (idx + 1);
+    setRaddleFocus(fresh, target);
+    var focusRow = fresh.querySelector('.new-raddle-row--focus');
+    var input = focusRow && focusRow.querySelector('[data-raddle-focus-input]');
+    if (input) { try { input.focus(); } catch (e) {} }
+  }
+  window.focusRaddleNext = focusRaddleNext;
 
   function initRaddleUi(root) {
     var scope = root || document;
