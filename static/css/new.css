@@ -2415,6 +2415,32 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
 .new-raddle-clue-next {
   background: color-mix(in srgb, #6aaa64 36%, var(--surface));
 }
+.new-raddle-tutorial-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.new-raddle-tutorial-table th,
+.new-raddle-tutorial-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+}
+.new-raddle-tutorial-table thead th {
+  font-weight: 700;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--text) 4%, var(--surface));
+}
+.new-raddle-tutorial-table td:first-child {
+  width: 40%;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .new-raddle-tutorial-table td:first-child { white-space: normal; }
+}
 .new-raddle-ladder__title strong {
   color: var(--text);
   letter-spacing: 0.04em;
