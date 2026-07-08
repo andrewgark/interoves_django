@@ -1800,23 +1800,23 @@
     setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
   });
 
-  // Копирование результата (как в Wordle): заголовок + квадратики + ссылка.
+  // Копирование результата (как в Wordle): копируем ровно то, что показано в блоке.
   document.addEventListener('click', function (e) {
-    var btn = e.target && e.target.closest ? e.target.closest('[data-raddle-share]') : null;
+    var btn = e.target && e.target.closest ? e.target.closest('.new-raddle-result__copy') : null;
     if (!btn) return;
     e.preventDefault();
-    var squares = btn.getAttribute('data-raddle-share') || '';
-    var title = btn.getAttribute('data-share-title') || '';
-    if (!title) title = (document.title || '').replace(/\s*·\s*Interoves\s*$/i, '').trim();
-    var url = '';
-    try {
-      url = window.location.host + window.location.pathname.replace(/\/+$/, '');
-    } catch (e2) {}
-    var parts = [];
-    if (title) parts.push(title);
-    if (squares) parts.push(squares);
-    if (url) parts.push(url);
-    var text = parts.join('\n');
+    var block = btn.closest('[data-raddle-result]');
+    var el = block && block.querySelector('[data-raddle-share-text]');
+    if (!el) return;
+    var lines = [];
+    el.querySelectorAll('div').forEach(function (d) {
+      var t = (d.textContent || '').trim();
+      if (t) lines.push(t);
+    });
+    var text = lines.length
+      ? lines.join('\n')
+      : (el.innerText || el.textContent || '').trim();
+    if (!text) return;
     function flash() {
       if (!btn.getAttribute('data-copy-label')) {
         btn.setAttribute('data-copy-label', btn.textContent);

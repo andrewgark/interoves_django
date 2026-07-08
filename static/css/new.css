@@ -2416,25 +2416,27 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   background: color-mix(in srgb, #6aaa64 36%, var(--surface));
 }
 .new-raddle-result {
-  display: inline-block;
-  margin: 1rem 0 0;
-  padding: 0.55rem 0.7rem;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 1.25rem auto 0;
+  padding: 0.7rem 0.95rem;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: color-mix(in srgb, var(--text) 3%, var(--surface));
-  max-width: 100%;
+  text-align: center;
 }
 .new-raddle-result__head {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.6rem;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.5rem;
 }
 .new-raddle-result__label {
   font-weight: 700;
   font-size: 0.85rem;
   color: var(--muted);
-  margin-right: auto;
 }
 .new-raddle-result__copy {
   flex-shrink: 0;
@@ -2443,7 +2445,7 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   background: var(--surface);
   color: var(--accent);
   cursor: pointer;
-  padding: 0.2rem 0.6rem;
+  padding: 0.2rem 0.7rem;
   font-size: 0.8rem;
   font-weight: 600;
   line-height: 1.2;
@@ -2451,11 +2453,20 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
 .new-raddle-result__copy:hover {
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
 }
+.new-raddle-result__share {
+  line-height: 1.4;
+  word-break: break-word;
+}
+.new-raddle-result__title {
+  font-weight: 700;
+}
 .new-raddle-result__squares {
   font-size: 1.05rem;
-  line-height: 1.15;
   letter-spacing: 0.02em;
-  word-break: break-word;
+}
+.new-raddle-result__link {
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 .new-raddle-tutorial-table {
   width: 100%;
