@@ -264,6 +264,47 @@ def get_show_status(attempt):
 
 
 @register.filter
+def attempts_with_status(attempts):
+    """
+    Помечает попытки для списка: 'ok' / 'partial' / 'wrong' / 'pending'.
+    Для цепочечных заданий (raddle/wall/replacements) статус часто «...», поэтому
+    считаем частичным верным ту попытку, которая добавила баллы (cumulative points выросли).
+    """
+    from decimal import Decimal
+    from games.models import CHAIN_TASK_TYPES
+
+    items = list(attempts or [])
+    gained_ids = set()
+    order = sorted(range(len(items)), key=lambda i: getattr(items[i], 'time', None) or 0)
+    best = Decimal('0')
+    for i in order:
+        a = items[i]
+        if getattr(a.task, 'task_type', None) not in CHAIN_TASK_TYPES:
+            continue
+        try:
+            pts = Decimal(str(a.points or 0))
+        except (ArithmeticError, ValueError, TypeError):
+            pts = Decimal('0')
+        if pts > best:
+            gained_ids.add(id(a))
+            best = pts
+
+    result = []
+    for a in items:
+        is_chain = getattr(a.task, 'task_type', None) in CHAIN_TASK_TYPES
+        if a.status == 'Ok':
+            mark = 'ok'
+        elif is_chain:
+            mark = 'partial' if id(a) in gained_ids else 'wrong'
+        elif a.status == 'Wrong':
+            mark = 'wrong'
+        else:
+            mark = 'pending'
+        result.append({'attempt': a, 'mark': mark})
+    return result
+
+
+@register.filter
 def get_diff_points(attempt):
     if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         return 0

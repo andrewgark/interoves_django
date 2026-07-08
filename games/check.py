@@ -670,12 +670,15 @@ class RaddleChecker(BaseChecker):
         assist_tiers = resolve_assist_tiers(state)
         assist_cfg = (parsed.get('assist') or {}) if parsed else {}
         if is_correct:
-            # Какая подсказка «закрылась»: сверху — prev→слово, снизу — слово→next.
-            # Считаем до добавления word_index в solved (нужен известный сосед).
-            hi = clue_index_for_playable_word(word_index, solved, n)
+            # Закрываем подсказки к обоим известным соседям: сверху prev→слово (hints[i-1]),
+            # снизу слово→next (hints[i]). У последнего слова известны оба — уходят обе.
+            solved_before = set(solved)
             solved.add(word_index)
-            if hi is not None and 0 <= hi < len(parsed['hints']):
-                used_hints.add(hi)
+            n_hints = len(parsed['hints'])
+            if (word_index - 1) in solved_before and 0 <= word_index - 1 < n_hints:
+                used_hints.add(word_index - 1)
+            if (word_index + 1) in solved_before and 0 <= word_index < n_hints:
+                used_hints.add(word_index)
             if word_index not in (0, n - 1):
                 tier = assist_tiers.get(word_index, 0)
                 total += word_solve_credit(tier, assist_cfg)

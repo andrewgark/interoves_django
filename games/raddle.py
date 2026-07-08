@@ -24,7 +24,7 @@ _LENGTH_PARTS = re.compile(r'^(\d+)\s*-\s*(\d+)$')
 _RADDLE_ASSIST_CLUE_DESC = re.compile(r'^raddle_clue:(\d+)$', re.I)
 _RADDLE_ASSIST_ANSWER_DESC = re.compile(r'^raddle_answer:(\d+)$', re.I)
 
-DEFAULT_RADDLE_ASSIST_FRACTIONS = [1, 0.4, 0]
+DEFAULT_RADDLE_ASSIST_FRACTIONS = [1, 0.5, 0]
 
 
 def parse_length_mask(value):

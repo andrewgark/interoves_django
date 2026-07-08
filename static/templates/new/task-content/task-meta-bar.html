@@ -22,11 +22,12 @@
     <div id="prop-attempts-{{ task.id }}" popover="auto" class="new-proportions-attempts-popover">
       <div class="new-proportions-attempts-popover__title">Попытки</div>
       <div class="new-attempts__list new-proportions-attempts-popover__list">
-        {% for a in ai.attempts %}
+        {% for item in ai.attempts|attempts_with_status %}
+        {% with a=item.attempt %}
         <div class="new-attempts__row">
           <div class="new-attempts__meta">
-            <span class="new-pill {% if a.status == 'Ok' %}new-pill--ok{% endif %}">
-              {% if a.status == 'Ok' %}✓{% elif a.status == 'Wrong' %}✗{% else %}…{% endif %}
+            <span class="new-pill {% if item.mark == 'ok' %}new-pill--ok{% elif item.mark == 'partial' %}new-pill--partial{% endif %}">
+              {% if item.mark == 'ok' %}✓{% elif item.mark == 'partial' %}✓{% elif item.mark == 'wrong' %}✗{% else %}…{% endif %}
             </span>
             <small class="new-task__meta">{{ a.time|date:"d.m H:i" }}</small>
             <small class="new-attempts__points">{{ a.points|minimize_digits }} {{ a.points|ru_points_word }}</small>
@@ -34,6 +35,7 @@
           <div class="new-attempts__text">{% autoescape off %}{{ a.get_pretty_text }}{% endautoescape %}</div>
           {% if a.comment %}<div class="new-attempts__comment">{{ a.comment }}</div>{% endif %}
         </div>
+        {% endwith %}
         {% endfor %}
       </div>
     </div>

@@ -183,10 +183,10 @@ class RaddleCheckerTests(SimpleTestCase):
             self._attempt(1, 'ПАРИЖАНИН'),
         )
         st = json.loads(r.state)
-        self.assertAlmostEqual(st['total'], 0.4)
+        self.assertAlmostEqual(st['total'], 0.5)
         self.assertIsInstance(r.points, Decimal)
         # Must multiply with task.get_points() (DecimalField) without TypeError.
-        self.assertEqual(r.points * Decimal('1'), Decimal('0.4'))
+        self.assertEqual(r.points * Decimal('1'), Decimal('0.5'))
 
 
 class RaddleUiContextTests(SimpleTestCase):

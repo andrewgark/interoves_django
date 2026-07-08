@@ -113,7 +113,7 @@ def _build_checker_data(words: list[dict]) -> dict:
         "lengths": lengths,
         "hints": hints,
         "words": word_list,
-        "raddle_assist": {"enabled": True, "fractions": [1, 0.4, 0]},
+        "raddle_assist": {"enabled": True, "fractions": [1, 0.5, 0]},
     }
 
 

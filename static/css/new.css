@@ -1062,6 +1062,12 @@ html.new-ui-dark .new-team-switcher-active-box {
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
 }
 
+.new-pill--partial {
+  color: #a16207;
+  border-color: color-mix(in srgb, #eab308 55%, var(--border));
+  background: color-mix(in srgb, #eab308 16%, var(--surface));
+}
+
 .new-action-link {
   border: none;
   background: transparent;
@@ -2298,6 +2304,17 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   border-color: var(--accent);
   cursor: default;
 }
+/* Цвет галочки по числу взятых подсказок: 0 → зелёный, 1 → жёлтый (0.5), 2 → красный (0) */
+.new-raddle-check--tier1 {
+  background: #eab308;
+  border-color: #eab308;
+  color: #1f2937;
+}
+.new-raddle-check--tier2 {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: white;
+}
 .new-replacements-line__attempts {
   font-size: 0.75rem;
   color: var(--muted);
@@ -2362,7 +2379,7 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
 }
 .new-raddle-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 340px);
+  grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
   gap: 1.25rem;
   align-items: start;
 }
@@ -2421,8 +2438,8 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
 .new-raddle-table tr:last-child td {
   border-bottom: none;
 }
-.new-raddle-table .new-raddle-col--check { width: 148px; }
-.new-raddle-table .new-raddle-col--word { width: calc(100% - 148px); }
+.new-raddle-table .new-raddle-col--check { width: 104px; }
+.new-raddle-table .new-raddle-col--word { width: calc(100% - 104px); }
 .new-raddle-block__word {
   background: var(--surface);
   text-align: center;
