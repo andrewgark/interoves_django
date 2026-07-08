@@ -200,6 +200,19 @@ def _player_visible_task_group_links(game):
     return links
 
 
+def _neighbors_by_pk(links, placement):
+    """Предыдущая/следующая ссылка в упорядоченном списке по pk placement."""
+    links = list(links)
+    pks = [l.pk for l in links]
+    try:
+        idx = pks.index(placement.pk)
+    except ValueError:
+        return None, None
+    prev_l = links[idx - 1] if idx > 0 else None
+    next_l = links[idx + 1] if idx + 1 < len(links) else None
+    return prev_l, next_l
+
+
 def _resolve_game_page_actor(request, play_mode):
     """Team/user/anon_key for personal progress on game hub pages."""
     team = user = anon_key = None
@@ -260,14 +273,19 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
         elif n_solved:
             row_class = 'new-task--partial'
         is_fully_solved = bool(p.n_tasks) and n_solved >= p.n_tasks
+        # Пишем «N из M решено» только при частичном прогрессе (0 < N < M).
+        if n_solved and p.n_tasks and n_solved < p.n_tasks:
+            progress_text = '{} из {} {} решено'.format(
+                n_solved, p.n_tasks, _ru_iz_punkt_word(p.n_tasks),
+            )
+        else:
+            progress_text = None
         rows[str(p.number)] = {
             'n_solved': n_solved,
             'n_tasks': p.n_tasks,
             'is_fully_solved': is_fully_solved,
             'row_class': row_class,
-            'progress_text': '{} из {} {} решено'.format(
-                n_solved, p.n_tasks, _ru_iz_punkt_word(p.n_tasks),
-            ),
+            'progress_text': progress_text,
         }
     return rows
 
@@ -1754,7 +1772,12 @@ def new_task_group_page(request, game_id, task_group_number):
             return redirect('new_task_group', game_id=game.id, task_group_number=fallback.number)
         raise Http404()
     task_group = placement.task_group
-    prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
+    if game.id == LADDER_GAME_ID:
+        # Соседи только среди уже вышедших лесенок (не показываем «Дальше» на неопубликованную).
+        visible_links = list(visible_ladder_links(_game_task_group_links(game), game))
+        prev_tg, next_tg = _neighbors_by_pk(visible_links, placement)
+    else:
+        prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     section_rules_type = game.id if game.id in SECTION_RULES_GAME_IDS else None
     section_tutorial_html = None

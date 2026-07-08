@@ -101,7 +101,8 @@ class GameTaskGroupProgressTests(TestCase):
         row = resp.json()['rows']['2']
         self.assertEqual(row['n_solved'], 1)
         self.assertTrue(row['is_fully_solved'])
-        self.assertIn('1 из 1', row['progress_text'])
+        # Полностью решено — прогресс-текст не пишем.
+        self.assertIsNone(row['progress_text'])
 
     def test_progress_api_without_actor_returns_empty(self):
         game = self._create_section_game('sec_prog3')

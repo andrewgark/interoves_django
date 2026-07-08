@@ -22,7 +22,6 @@
     <a class="new-btn new-btn--primary new-daily-ladder__cta" href="{{ ladder_play_url }}" data-ladder-cta data-ladder-number="{{ ladder_cta_number }}">
       {{ ladder_cta_label }}
     </a>
-    <p class="new-daily-ladder__status" data-ladder-progress hidden></p>
   {% elif ladder_status == 'coming_soon' %}
     <p class="new-daily-ladder__soon">Первая лесенка появится в полночь по Москве.</p>
   {% endif %}
@@ -35,15 +34,12 @@
 (function () {
   var url = '{{ task_group_progress_url|escapejs }}';
   var num = '{{ ladder_cta_number|escapejs }}';
-  var statusEl = document.querySelector('[data-ladder-progress]');
-  if (!url || !statusEl) return;
+  if (!url) return;
   fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (data) {
       var row = data && data.rows && data.rows[num];
-      if (!row || !row.progress_text) return;
-      statusEl.textContent = row.progress_text;
-      statusEl.hidden = false;
+      if (!row) return;
       if (row.is_fully_solved) {
         var cta = document.querySelector('[data-ladder-cta]');
         if (cta) cta.classList.add('new-daily-ladder__cta--solved');

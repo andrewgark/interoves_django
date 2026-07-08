@@ -1437,11 +1437,12 @@
     refreshAllProportionsSubmits();
   })();
 
-  (function proportionsAttemptsPopoverPosition() {
-    function anchorForPop(pop) {
-      if (!pop || !pop.id) return null;
-      return document.querySelector('[popovertarget="' + pop.id + '"]');
-    }
+  function anchorForPop(pop) {
+    if (!pop || !pop.id) return null;
+    return document.querySelector('[popovertarget="' + pop.id + '"]');
+  }
+  function initAttemptsPopovers(scope) {
+    var root = scope || document;
     function place(pop, anchor) {
       if (!pop || !anchor) return;
       var pad = 8;
@@ -1473,19 +1474,26 @@
         requestAnimationFrame(commit);
       });
     }
-    document.querySelectorAll('.new-proportions-attempts-popover').forEach(function (pop) {
+    root.querySelectorAll('.new-proportions-attempts-popover').forEach(function (pop) {
+      if (pop.dataset.popoverPositioned === '1') return;
+      pop.dataset.popoverPositioned = '1';
+      pop.__place = place;
       pop.addEventListener('beforetoggle', function (e) {
         if (e.newState === 'open') place(pop, anchorForPop(pop));
       });
     });
-    window.addEventListener('resize', function () {
-      document.querySelectorAll('.new-proportions-attempts-popover').forEach(function (pop) {
-        try {
-          if (pop.matches(':popover-open')) place(pop, anchorForPop(pop));
-        } catch (err) {}
-      });
+  }
+  window.initAttemptsPopovers = initAttemptsPopovers;
+  initAttemptsPopovers(document);
+  window.addEventListener('resize', function () {
+    document.querySelectorAll('.new-proportions-attempts-popover').forEach(function (pop) {
+      try {
+        if (pop.matches(':popover-open') && typeof pop.__place === 'function') {
+          pop.__place(pop, anchorForPop(pop));
+        }
+      } catch (err) {}
     });
-  })();
+  });
 
   document.addEventListener('submit', function (e) {
     var form = e.target && e.target.closest ? e.target.closest('form.new-hint-form') : null;
@@ -1964,6 +1972,7 @@
         initReplacementsLinesStorage(fresh);
         if (typeof initReplacementsLinesUi === 'function') initReplacementsLinesUi(fresh);
         if (typeof initRaddleUi === 'function') initRaddleUi(fresh);
+        if (typeof initAttemptsPopovers === 'function') initAttemptsPopovers(fresh);
       }
     });
     document.querySelectorAll('input.new-anon-key-field').forEach(function (inp) {
