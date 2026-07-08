@@ -314,8 +314,8 @@ html.new-ui-dark body.new-ui {
 }
 
 .new-task.new-task--today {
-  border-color: #6aaa64;
-  background: color-mix(in srgb, #6aaa64 12%, var(--surface));
+  border-color: #3b82f6;
+  background: color-mix(in srgb, #3b82f6 12%, var(--surface));
 }
 
 .new-heading {
@@ -2379,7 +2379,7 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
 }
 .new-raddle-layout {
   display: grid;
-  grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
   gap: 1.25rem;
   align-items: start;
 }
@@ -2438,8 +2438,8 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
 .new-raddle-table tr:last-child td {
   border-bottom: none;
 }
-.new-raddle-table .new-raddle-col--check { width: 104px; }
-.new-raddle-table .new-raddle-col--word { width: calc(100% - 104px); }
+.new-raddle-table .new-raddle-col--check { width: 92px; }
+.new-raddle-table .new-raddle-col--word { width: calc(100% - 92px); }
 .new-raddle-block__word {
   background: var(--surface);
   text-align: center;
@@ -2544,6 +2544,7 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   font-size: 0.82rem;
   color: var(--muted);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .new-raddle-line__no-guesses {
   margin: 0;

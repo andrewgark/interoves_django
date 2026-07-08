@@ -1460,6 +1460,9 @@
       pop.style.maxHeight = maxH + 'px';
       var top = rect.bottom + pad;
       var left = rect.left;
+      // Ставим позицию сразу (до первого кадра), чтобы окошко не мелькало в углу.
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
       function commit() {
         var w = pop.offsetWidth || 300;
         var h = pop.offsetHeight || 200;
