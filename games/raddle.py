@@ -745,6 +745,21 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
     unused.sort(key=lambda x: x['display'].lower())
 
     middle_total = max(0, n - 2)
+    is_complete = middle_total == 0 or len(solved) >= n
+    # Результат для шаринга (как в Wordle): по одному квадрату на слово-ступеньку
+    # (без крайних открытых слов), сверху вниз. 1 балл → 🟩, 0.5 → 🟨, 0 → 🟥.
+    result_squares = ''
+    if is_complete and middle_total > 0:
+        squares = []
+        for i in range(1, n - 1):
+            tier = assist_tiers.get(i, 0)
+            if tier >= 2:
+                squares.append('🟥')
+            elif tier == 1:
+                squares.append('🟨')
+            else:
+                squares.append('🟩')
+        result_squares = ''.join(squares)
     return {
         'rows': rows,
         'unused_hints': unused,
@@ -759,7 +774,8 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         'default_ref_index': default_ref_idx,
         'default_ref_word': default_ref_word,
         'default_ref_role': default_ref_role,
-        'is_complete': middle_total == 0 or len(solved) >= n,
+        'is_complete': is_complete,
+        'result_squares': result_squares,
         'assist_enabled': assist_enabled,
         'assist_fractions': assist_cfg.get('fractions', DEFAULT_RADDLE_ASSIST_FRACTIONS),
         'is_tournament': tournament,

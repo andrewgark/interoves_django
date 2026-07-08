@@ -1800,6 +1800,50 @@
     setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
   });
 
+  // Копирование результата (как в Wordle): заголовок + квадратики + ссылка.
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('[data-raddle-share]') : null;
+    if (!btn) return;
+    e.preventDefault();
+    var squares = btn.getAttribute('data-raddle-share') || '';
+    var title = (document.title || '').replace(/\s*·\s*Interoves\s*$/i, '').trim();
+    var url = '';
+    try { url = window.location.origin + window.location.pathname; } catch (e2) {}
+    var parts = [];
+    if (title) parts.push(title);
+    if (squares) parts.push(squares);
+    if (url) parts.push(url);
+    var text = parts.join('\n');
+    function flash() {
+      if (!btn.getAttribute('data-copy-label')) {
+        btn.setAttribute('data-copy-label', btn.textContent);
+      }
+      btn.textContent = 'Скопировано ✓';
+      setTimeout(function () {
+        btn.textContent = btn.getAttribute('data-copy-label') || 'Скопировать';
+      }, 1600);
+    }
+    function fallback() {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'absolute';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        flash();
+      } catch (err) {}
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(flash).catch(fallback);
+    } else {
+      fallback();
+    }
+  });
+
   document.addEventListener('click', function (e) {
     var row = e.target && e.target.closest ? e.target.closest('.new-raddle-row--playable') : null;
     if (!row) return;

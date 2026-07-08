@@ -118,4 +118,13 @@
       {% endif %}
     </aside>
   </div>
+  {% if rd.ui.is_complete and rd.ui.result_squares %}
+  <div class="new-raddle-result" data-raddle-result>
+    <div class="new-raddle-result__head">
+      <span class="new-raddle-result__label">Результат</span>
+      <button type="button" class="new-btn new-btn--ghost new-raddle-result__copy" data-raddle-share="{{ rd.ui.result_squares }}">Скопировать</button>
+    </div>
+    <div class="new-raddle-result__squares">{{ rd.ui.result_squares }}</div>
+  </div>
+  {% endif %}
 </div>
