@@ -1806,9 +1806,12 @@
     if (!btn) return;
     e.preventDefault();
     var squares = btn.getAttribute('data-raddle-share') || '';
-    var title = (document.title || '').replace(/\s*·\s*Interoves\s*$/i, '').trim();
+    var title = btn.getAttribute('data-share-title') || '';
+    if (!title) title = (document.title || '').replace(/\s*·\s*Interoves\s*$/i, '').trim();
     var url = '';
-    try { url = window.location.origin + window.location.pathname; } catch (e2) {}
+    try {
+      url = window.location.host + window.location.pathname.replace(/\/+$/, '');
+    } catch (e2) {}
     var parts = [];
     if (title) parts.push(title);
     if (squares) parts.push(squares);
