@@ -2592,6 +2592,20 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   text-transform: none;
   font-size: 0.82em;
 }
+/* На узких экранах ужимаем колонку слова, чтобы длинные слова (10+ букв) влезали. */
+@media (max-width: 560px) {
+  .new-raddle-table .new-raddle-col--check { width: 74px; }
+  .new-raddle-table .new-raddle-col--word { width: calc(100% - 74px); }
+  .new-raddle-word-cell { gap: 0.2rem; padding: 0.3rem 0.3rem; }
+  .new-raddle-line__len { font-size: 0.72rem; }
+  .new-raddle-input {
+    width: calc(var(--raddle-len, 5) * 1.05em + 0.4rem);
+    min-width: 0;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+  }
+  .new-raddle-block__check { padding: 0 0.2rem; }
+}
 .new-raddle-word-msg {
   display: none;
   width: 100%;

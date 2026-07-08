@@ -70,7 +70,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="{% static "img/favicon/favicon-32x32.png" %}">
   <link rel="icon" type="image/png" sizes="96x96" href="{% static "img/favicon/favicon-96x96.png" %}">
   <link rel="icon" type="image/png" sizes="16x16" href="{% static "img/favicon/favicon-16x16.png" %}">
-  <link rel="stylesheet" href="{% static "css/new.css" %}">
+  <link rel="stylesheet" href="{% static "css/new.css" %}?v={{ site_deploy_version|default:'0'|urlencode }}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
   {% block extrahead %}{% endblock %}
 </head>
