@@ -81,17 +81,35 @@
   {% if not user.is_authenticated %}
   <script>
   (function () {
-    function ensureAnonKey() {
+    function genKey() {
       try {
-        var key = localStorage.getItem('interoves_anon_key');
-        if (!key) {
-          key = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + '-' + String(Math.random()).slice(2);
-          localStorage.setItem('interoves_anon_key', key);
-        }
-        return key;
-      } catch (e) {
-        return '';
-      }
+        if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+      } catch (e) {}
+      return String(Date.now()) + '-' + String(Math.random()).slice(2);
+    }
+    function readAnonCookie() {
+      try {
+        var m = document.cookie.match(/(?:^|;\s*)interoves_anon=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
+      } catch (e) { return ''; }
+    }
+    function readAnonParam() {
+      try {
+        var u = new URL(window.location.href);
+        return u.searchParams.get('anon') || u.searchParams.get('anon_key') || '';
+      } catch (e) { return ''; }
+    }
+    // Устойчивый ключ: localStorage → cookie → ?anon в URL → генерация.
+    // Учёт URL-параметра важен: если и localStorage, и cookie заблокированы
+    // (приватный режим, встроенные браузеры), это предотвращает цикл редиректов.
+    function ensureAnonKey() {
+      var key = '';
+      try { key = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
+      if (!key) key = readAnonCookie();
+      if (!key) key = readAnonParam();
+      if (!key) key = genKey();
+      try { localStorage.setItem('interoves_anon_key', key); } catch (e) {}
+      return key;
     }
     function setAnonCookie(key) {
       try {

@@ -270,17 +270,46 @@
 (function () {
   var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';
   var playMode = "{{ play_mode|escapejs }}";
-  function getAnonKey() {
+  var ANON_KEY_NAME = 'interoves_anon_key';
+  var ANON_COOKIE_NAME = 'interoves_anon';
+  var anonKeyMem = null;
+  function genAnonKey() {
     try {
-      var key = localStorage.getItem('interoves_anon_key');
-      if (!key) {
-        key = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + '-' + String(Math.random()).slice(2);
-        localStorage.setItem('interoves_anon_key', key);
-      }
-      return key;
-    } catch (e) {
-      return '';
-    }
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    } catch (e) {}
+    return String(Date.now()) + '-' + String(Math.random()).slice(2);
+  }
+  function readAnonCookie() {
+    try {
+      var m = document.cookie.match(/(?:^|;\s*)interoves_anon=([^;]+)/);
+      return m ? decodeURIComponent(m[1]) : '';
+    } catch (e) { return ''; }
+  }
+  function persistAnonKey(key) {
+    try { localStorage.setItem(ANON_KEY_NAME, key); } catch (e) {}
+    try {
+      document.cookie = ANON_COOKIE_NAME + '=' + encodeURIComponent(key) +
+        '; path=/; max-age=' + (60 * 60 * 24 * 365 * 2) + '; SameSite=Lax';
+    } catch (e) {}
+  }
+  // Возвращаем ключ, устойчивый к заблокированному localStorage (приватный режим,
+  // встроенные браузеры Telegram/VK/Instagram): localStorage → cookie → память.
+  function readAnonParam() {
+    try {
+      var u = new URL(window.location.href);
+      return u.searchParams.get('anon') || u.searchParams.get('anon_key') || '';
+    } catch (e) { return ''; }
+  }
+  function getAnonKey() {
+    if (anonKeyMem) return anonKeyMem;
+    var key = '';
+    try { key = localStorage.getItem(ANON_KEY_NAME) || ''; } catch (e) {}
+    if (!key) key = readAnonCookie();
+    if (!key) key = readAnonParam();
+    if (!key) key = genAnonKey();
+    anonKeyMem = key;
+    persistAnonKey(key);
+    return key;
   }
 
   var anonKey = getAnonKey();
@@ -1773,11 +1802,7 @@
       try {
         var u = new URL(url, window.location.origin);
         u.searchParams.set('game_id', '{{ game.id }}');
-        if (!isAuthenticated) {
-          var ak = '';
-          try { ak = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
-          if (ak) u.searchParams.set('anon', ak);
-        }
+        if (!isAuthenticated && anonKey) u.searchParams.set('anon', anonKey);
         url = u.toString();
       } catch (e) {}
       fetch(url, {
@@ -1799,11 +1824,7 @@
       try {
         var u = new URL(url, window.location.origin);
         u.searchParams.set('game_id', '{{ game.id }}');
-        if (!isAuthenticated) {
-          var ak = '';
-          try { ak = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
-          if (ak) u.searchParams.set('anon', ak);
-        }
+        if (!isAuthenticated && anonKey) u.searchParams.set('anon', anonKey);
         url = u.toString();
       } catch (e) {}
       fetch(url, {
@@ -1826,11 +1847,7 @@
     try {
       var u = new URL(url, window.location.origin);
       u.searchParams.set('game_id', '{{ game.id }}');
-      if (!isAuthenticated) {
-        var ak = '';
-        try { ak = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
-        if (ak) u.searchParams.set('anon', ak);
-      }
+      if (!isAuthenticated && anonKey) u.searchParams.set('anon', anonKey);
       url = u.toString();
     } catch (e) {}
     fetch(url, {
@@ -1979,7 +1996,7 @@
       }
     });
     document.querySelectorAll('input.new-anon-key-field').forEach(function (inp) {
-      try { inp.value = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
+      inp.value = anonKey;
     });
     applyHideSolved();
     document.querySelectorAll('[data-like-btn]').forEach(function (btn) {
