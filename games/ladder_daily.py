@@ -79,6 +79,14 @@ def is_ladder_number_published(game, number: int | str, now: datetime | None = N
 def filter_published_ladder_links(links, game, now: datetime | None = None):
     """GameTaskGroup rows, у которых наступила дата публикации."""
     now = now or timezone.now()
+    if hasattr(links, 'filter'):
+        published_pks = [
+            link.pk for link in links
+            if is_ladder_number_published(game, link.number, now)
+        ]
+        if not published_pks:
+            return links.none()
+        return links.filter(pk__in=published_pks)
     return [link for link in links if is_ladder_number_published(game, link.number, now)]
 
 

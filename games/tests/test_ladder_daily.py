@@ -90,6 +90,42 @@ class GameTaskGroupNumberOrderTests(TestCase):
         game.delete()
 
 
+class FilterPublishedLadderLinksTests(TestCase):
+    def test_returns_queryset_compatible_with_order_queryset_by_number(self):
+        from datetime import datetime
+        from unittest.mock import patch
+        from zoneinfo import ZoneInfo
+
+        from games import ladder_daily
+        from games.ladder_daily import filter_published_ladder_links
+        from games.models import GameTaskGroup
+
+        game = Game.objects.get(id='ladder', project_id='sections')
+        game.tags = {'ladder_publish_start': '2026-07-08T00:00:00+03:00'}
+        game.save(update_fields=['tags'])
+        GameTaskGroup.objects.filter(game=game).delete()
+        for n in (1, 2):
+            tg = TaskGroup.objects.create(label=f'f{n}')
+            GameTaskGroup.objects.create(game=game, task_group=tg, number=str(n), name=f'#{n}')
+
+        qs = GameTaskGroup.objects.filter(game=game)
+        before = datetime(2026, 7, 8, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
+        with patch.object(ladder_daily.timezone, 'now', return_value=before):
+            published = filter_published_ladder_links(qs, game)
+        self.assertTrue(hasattr(published, 'filter'))
+        ordered = GameTaskGroup.order_queryset_by_number(published, reverse=True)
+        self.assertEqual(list(ordered.values_list('number', flat=True)), ['1'])
+
+
+class LadderSectionPageTests(TestCase):
+    def test_hub_section_task_group_links_ladder_does_not_crash(self):
+        from games.views.new_ui import _hub_section_task_group_links
+
+        game = Game.objects.filter(id='ladder', project_id='sections').first()
+        self.assertIsNotNone(game)
+        list(_hub_section_task_group_links(game))
+
+
 class LadderResultsVisibilityTests(TestCase):
     def test_results_headers_exclude_unpublished_ladders(self):
         from datetime import datetime
