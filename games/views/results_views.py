@@ -155,11 +155,16 @@ def results_page(request, game_id, mode='general'):
                 except Exception:
                     points = 0.0
                 try:
-                    hint_numbers = sorted([
+                    hint_numbers = [
                         ha.hint.number
-                        for ha in (getattr(ai, 'hint_attempts', None) or [])
-                        if getattr(ha, 'is_real_request', False)
-                    ])
+                        for ha in sorted(
+                            [
+                                ha for ha in (getattr(ai, 'hint_attempts', None) or [])
+                                if getattr(ha, 'is_real_request', False)
+                            ],
+                            key=lambda ha: ha.hint.key_sort(),
+                        )
+                    ]
                 except Exception:
                     hint_numbers = []
 

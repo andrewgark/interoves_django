@@ -25,6 +25,7 @@ from games.telegram.config import (
 )
 from games.telegram.game_urls import admin_url, game_site_url
 from games.telegram.notify import REGISTRATION_MILESTONES, _escape, _join_lines, send_admin_message
+from games.ticket_service import build_stuck_tickets_alert, stuck_pending_ticket_count, stuck_pending_ticket_requests
 
 
 def _help_text() -> str:
@@ -109,6 +110,7 @@ def _cmd_status(_args) -> str:
 
     pending_bugs = BugReport.objects.filter(status='Pending').count()
     pending_tickets = TicketRequest.objects.filter(status='Pending').count()
+    stuck_tickets = stuck_pending_ticket_count()
     pending_orders = CorporateGameOrder.objects.filter(email_sent=False).count()
 
     db_ok = True
@@ -129,6 +131,7 @@ def _cmd_status(_args) -> str:
         'DB: {}'.format('OK' if db_ok else 'FAIL'),
         'Admin mute: {}'.format(mute),
         'Pending: 🐞 {} · 🎫 {} · 🏢 {}'.format(pending_bugs, pending_tickets, pending_orders),
+        'Stuck tickets (&gt;30m): {}'.format(stuck_tickets),
         'Announce chats: {}'.format(len(announce_chat_ids())),
         'Webhook: {}'.format(_escape(webhook.get('url') or '—')),
     ])
@@ -150,6 +153,17 @@ def _cmd_pending(_args) -> str:
         lines.append('')
 
     tickets = TicketRequest.objects.filter(status='Pending').order_by('-time')[:5]
+    stuck = list(stuck_pending_ticket_requests()[:5])
+    if stuck:
+        lines.append('<b>Зависшие билеты (&gt;30 мин):</b>')
+        for ticket in stuck:
+            team = getattr(ticket.team, 'visible_name', None) or ticket.team_id or '—'
+            lines.append('#{} · {} · {} ₽'.format(ticket.pk, _escape(team), ticket.money))
+        extra_stuck = stuck_pending_ticket_count() - len(stuck)
+        if extra_stuck > 0:
+            lines.append('… и ещё {}'.format(extra_stuck))
+        lines.append('')
+
     if tickets:
         lines.append('<b>Билеты:</b>')
         for ticket in tickets:

@@ -100,8 +100,8 @@
       } catch (e) { return ''; }
     }
     // Устойчивый ключ: localStorage → cookie → ?anon в URL → генерация.
-    // Учёт URL-параметра важен: если и localStorage, и cookie заблокированы
-    // (приватный режим, встроенные браузеры), это предотвращает цикл редиректов.
+    // ?anon= в URL — только fallback, когда cookie не сохраняется
+    // (приватный режим, встроенные браузеры); иначе достаточно cookie.
     function ensureAnonKey() {
       var key = '';
       try { key = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
@@ -116,13 +116,25 @@
         document.cookie = 'interoves_anon=' + encodeURIComponent(key) + '; path=/; SameSite=Lax; max-age=31622400';
       } catch (e) {}
     }
+    function anonCookieWorks(key) {
+      setAnonCookie(key);
+      return readAnonCookie() === key;
+    }
     try {
       var key = ensureAnonKey();
       if (!key) return;
-      setAnonCookie(key);
+      var cookieOk = anonCookieWorks(key);
       var url = new URL(window.location.href);
-      if (url.searchParams.get('anon') !== key) {
+      var urlAnon = url.searchParams.get('anon') || url.searchParams.get('anon_key') || '';
+      if (cookieOk) {
+        if (url.searchParams.has('anon') || url.searchParams.has('anon_key')) {
+          url.searchParams.delete('anon');
+          url.searchParams.delete('anon_key');
+          window.location.replace(url.toString());
+        }
+      } else if (urlAnon !== key) {
         url.searchParams.set('anon', key);
+        url.searchParams.delete('anon_key');
         window.location.replace(url.toString());
       }
     } catch (e) {}

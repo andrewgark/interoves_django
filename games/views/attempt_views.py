@@ -164,7 +164,7 @@ def check_attempt(attempt):
 def get_first_new_hint(task, team):
     from games.models import Hint, HintAttempt
     hints = Hint.objects.filter(task=task)
-    hints = sorted(hints, key=lambda h: h.number)
+    hints = sorted(hints, key=lambda h: h.key_sort())
     for hint in hints:
         if len(HintAttempt.objects.filter(team=team, hint=hint)) == 0:
             return hint
@@ -174,7 +174,7 @@ def get_first_new_hint(task, team):
 def get_first_new_hint_actor(task, team=None, user=None, anon_key=None):
     from games.models import Hint, HintAttempt
     hints = Hint.objects.filter(task=task)
-    hints = sorted(hints, key=lambda h: h.number)
+    hints = sorted(hints, key=lambda h: h.key_sort())
     for hint in hints:
         if team is not None:
             exists = HintAttempt.objects.filter(team=team, user__isnull=True, anon_key__isnull=True, hint=hint).exists()

@@ -5,9 +5,13 @@ import json
 from django.contrib import admin, messages
 from django.forms import Textarea, ModelForm, ModelMultipleChoiceField
 from django.forms.models import BaseInlineFormSet
-from django.db import models
+from django.db import models, transaction
 from django.shortcuts import get_object_or_404
 from games.google.actions import create_google_doc
+from games.ticket_service import (
+    accept_ticket_request as accept_ticket_request_record,
+    reject_ticket_request as reject_ticket_request_record,
+)
 from games.models import (
     Attempt,
     Audio,
@@ -577,16 +581,16 @@ class ChainTaskStateAdmin(admin.ModelAdmin):
 
 def confirm_ticket_request(modeladmin, request, queryset):
     for ticket_request in queryset.all():
-        ticket_request.status = 'Accepted'
-        ticket_request.save()
-        ticket_request.team.tickets += ticket_request.tickets
-        ticket_request.team.save()
+        with transaction.atomic():
+            locked = TicketRequest.objects.select_for_update().select_related('team').get(pk=ticket_request.pk)
+            accept_ticket_request_record(locked, source='admin')
 
 
 def reject_ticket_request(modeladmin, request, queryset):
     for ticket_request in queryset.all():
-        ticket_request.status = 'Rejected'
-        ticket_request.save()
+        with transaction.atomic():
+            locked = TicketRequest.objects.select_for_update().get(pk=ticket_request.pk)
+            reject_ticket_request_record(locked, source='admin')
 
 
 confirm_profile_team_request.short_description = "Confirm Team Request"

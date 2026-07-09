@@ -83,7 +83,7 @@ def process_send_hint_attempt(request, task_id):
     if task.task_type == 'autohint':
         return Exception('Hints in this task can only be taken by answer submit')
 
-    hint_number = int(request.POST['hint_number'])
+    hint_number = str(request.POST['hint_number']).strip()
     hint = get_object_or_404(Hint, task=task, number=hint_number)
 
     hint_attempt, current_mode = create_hint_attempt(

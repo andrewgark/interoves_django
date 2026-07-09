@@ -27,7 +27,7 @@
     </p>
 
     {% if is_main_game %}
-      <div class="new-section-header">
+      <div class="new-section-header new-section-header--main-game">
         {% if game.image %}
           <div class="new-section-header__logo"><img src="{{ game.image.url }}" alt="" /></div>
         {% endif %}
@@ -39,24 +39,24 @@
               {{ game.get_outside_name|default:game.outside_name|default:game.name }}
             {% endif %}
           </div>
-          <div class="new-section-header__sub">
-            <span class="new-pill">
-              {% timezone user_timezone %}
-                {{ game.get_visible_start_time|date:'d E Y' }}<br>
-                {{ game.get_visible_start_time|date:'H:i' }} – {{ game.get_visible_end_time|date:'H:i' }}
-              {% endtimezone %}
-            </span>
-            {% if current_mode %}
-              {% if current_mode == 'tournament' %}
-                <span class="new-pill" title="Турнирный режим: важны ограничения по времени и попыткам; ответы учитываются в турнирной таблице.">Турнирный</span>
-              {% else %}
-                <span class="new-pill" title="Общий режим: обычная игра без турнирной специфики.">Общий</span>
-              {% endif %}
-            {% endif %}
-            {% if game.theme %}<span class="new-pill">{{ game.theme }}</span>{% endif %}
-            {% if game.author %}<span class="new-pill">Автор: {{ game.author }}</span>{% endif %}
+          <div class="new-game-schedule">
+            {% timezone user_timezone %}
+              <time class="new-game-schedule__when" datetime="{{ game.get_visible_start_time|date:'c' }}">
+                {{ game.get_visible_start_time|date:'d E Y' }} · {{ game.get_visible_start_time|date:'H:i' }} – {{ game.get_visible_end_time|date:'H:i' }}
+              </time>
+            {% endtimezone %}
           </div>
-          <div class="new-section-header__sub" style="margin-top:0.5rem">
+          {% if game.theme or game.author %}
+            <div class="new-game-lead">
+              {% if game.theme %}
+                <p class="new-game-lead__line"><span class="new-game-lead__label">Тема:</span> {{ game.theme }}</p>
+              {% endif %}
+              {% if game.author %}
+                <p class="new-game-lead__line"><span class="new-game-lead__label">Автор:</span> {{ game.author }}</p>
+              {% endif %}
+            </div>
+          {% endif %}
+          <div class="new-section-header__actions">
             {% if game.game_url and game|access_read_googledoc:team %}
               <span class="new-game-card__rowactions">
                 <a href="{{ game.game_url }}" class="new-btn new-btn--ghost new-btn--mini">Условия</a>

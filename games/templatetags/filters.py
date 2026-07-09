@@ -407,7 +407,7 @@ def all_not_taken_required_hints(attempts_info, hint):
     if len(res) == 1:
         return 'подсказки {}'.format(res[0].number)
     return 'подсказок {}'.format(
-        ', '.join([str(x) for x in sorted([h.number for h in res])])
+        ', '.join([str(x.number) for x in sorted(res, key=lambda h: h.key_sort())])
     )
 
 @register.filter
@@ -423,7 +423,10 @@ def took_at_least_one_hint(attempts_info):
 @register.filter
 def get_hint_numbers(attempts_info):
     hint_attempts = [ha for ha in attempts_info.hint_attempts if ha.is_real_request]
-    return ', '.join([str(han) for han in sorted([ha.hint.number for ha in hint_attempts])])
+    return ', '.join([
+        str(ha.hint.number)
+        for ha in sorted(hint_attempts, key=lambda ha: ha.hint.key_sort())
+    ])
 
 
 @register.filter

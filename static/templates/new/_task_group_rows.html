@@ -5,7 +5,7 @@
   <h2 class="new-heading" style="margin-top:1.5rem">{{ heading|default:"Задания" }}</h2>
   {% for row in task_group_rows %}
     <a class="new-task {{ row.row_class|default:'' }}" href="{{ row.play_url }}" data-task-group-number="{{ row.number }}" data-fully-solved="{% if row.is_fully_solved %}1{% else %}0{% endif %}">
-      <span>
+      <span class="new-task__body">
         {% if row.title %}
           <strong>{% autoescape off %}{{ row.title }}{% endautoescape %}</strong>
         {% else %}

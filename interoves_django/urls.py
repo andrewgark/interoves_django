@@ -76,7 +76,7 @@ urlpatterns = [
 
     path('privacy-policy/', lambda request: redirect('https://www.iubenda.com/privacy-policy/73503867')),
     path('terms-of-use/', TemplateView.as_view(template_name="terms-of-use.html")),
-    path('tickets/', TemplateView.as_view(template_name="tickets.html")),
+    path('tickets/', RedirectView.as_view(url='/pay/', permanent=True), name='legacy_tickets'),
     path('ticket-agreement/', TemplateView.as_view(template_name="ticket-agreement.html")),
     path('vpn/', TemplateView.as_view(template_name="new/pigeon_vpn.html"), name='pigeon_vpn'),
     path('order-game/', order_game_landing, name='order_game_landing'),

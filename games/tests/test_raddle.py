@@ -418,3 +418,32 @@ class RaddleUiContextTests(SimpleTestCase):
 class ChainTaskTypeTests(SimpleTestCase):
     def test_raddle_in_chain_types(self):
         self.assertIn('raddle', CHAIN_TASK_TYPES)
+
+
+class HintNumberSortTests(SimpleTestCase):
+    def test_number_key_sorts_by_segments(self):
+        from games.models import Hint
+
+        self.assertEqual(Hint.number_key('1.10'), (1, 10))
+        self.assertLess(Hint.number_key('1.2'), Hint.number_key('1.10'))
+        self.assertLess(Hint.number_key('1.9'), Hint.number_key('2.1'))
+
+
+class EnsureRaddleAssistHintsTests(TestCase):
+    def test_creates_dotted_hint_numbers(self):
+        from games.models import CheckerType, Hint, TaskGroup
+        from games.raddle import ensure_raddle_assist_hints
+
+        CheckerType.objects.get_or_create(pk='raddle')
+        tg = TaskGroup.objects.create(label='tg-raddle-hints')
+        task = _task(task_group=tg)
+        task.save()
+
+        created = ensure_raddle_assist_hints(task)
+        self.assertGreater(created, 0)
+
+        hints = {h.desc: h.number for h in Hint.objects.filter(task=task)}
+        self.assertEqual(hints.get('raddle_clue:1'), '1.1')
+        self.assertEqual(hints.get('raddle_clue:2'), '1.2')
+        self.assertEqual(hints.get('raddle_answer:1'), '2.1')
+        self.assertEqual(hints.get('raddle_answer:10'), '2.10')

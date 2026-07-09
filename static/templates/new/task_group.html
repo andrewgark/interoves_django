@@ -333,6 +333,29 @@
     el.value = anonKey;
   });
 
+  function anonCookieWorks() {
+    return !!anonKey && readAnonCookie() === anonKey;
+  }
+  function anonFetchHeaders(extra) {
+    var h = extra || {};
+    h['X-Requested-With'] = 'XMLHttpRequest';
+    if (!isAuthenticated && anonKey) h['X-Interoves-Anon'] = anonKey;
+    return h;
+  }
+  function appendAnonToPagerLinks() {
+    if (isAuthenticated || anonCookieWorks()) return;
+    document.querySelectorAll('.new-tg-pager__link[href]').forEach(function (a) {
+      try {
+        var u = new URL(a.href, window.location.origin);
+        if (u.searchParams.get('anon') !== anonKey) {
+          u.searchParams.set('anon', anonKey);
+          a.href = u.toString();
+        }
+      } catch (e) {}
+    });
+  }
+  appendAnonToPagerLinks();
+
   function isRaddleLineForm(form) {
     return form && form.classList && form.classList.contains('new-raddle-line-form');
   }
@@ -1902,12 +1925,11 @@
     try {
       var u = new URL(url, window.location.origin);
       u.searchParams.set('game_id', '{{ game.id }}');
-      if (!isAuthenticated && anonKey) u.searchParams.set('anon', anonKey);
       url = u.toString();
     } catch (e) {}
     fetch(url, {
       method: 'GET',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      headers: anonFetchHeaders(),
       credentials: 'same-origin',
     }).then(function (r) { return r.json(); })
       .then(function (data) { openAnswer(data.html || '<div class=\"new-login-hint\">Нет ответа.</div>'); })
@@ -1924,12 +1946,11 @@
     try {
       var u = new URL(url, window.location.origin);
       u.searchParams.set('game_id', '{{ game.id }}');
-      if (!isAuthenticated && anonKey) u.searchParams.set('anon', anonKey);
       url = u.toString();
     } catch (e) {}
     fetch(url, {
       method: 'GET',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      headers: anonFetchHeaders(),
       credentials: 'same-origin',
     }).then(function (r) { return r.json(); })
       .then(function (data) { openAnswer(data.html || '<div class=\"new-login-hint\">Нет ответа.</div>'); })
@@ -1946,12 +1967,11 @@
     try {
       var u = new URL(url, window.location.origin);
       u.searchParams.set('game_id', '{{ game.id }}');
-      if (!isAuthenticated && anonKey) u.searchParams.set('anon', anonKey);
       url = u.toString();
     } catch (e) {}
     fetch(url, {
       method: 'GET',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      headers: anonFetchHeaders(),
       credentials: 'same-origin',
     }).then(function (r) { return r.json(); })
       .then(function (data) { openAnswer(data.html || '<div class=\"new-login-hint\">Нет ответа.</div>'); })
@@ -2336,7 +2356,7 @@
 {% if prev_task_group_url or next_task_group_url %}
 <nav class="new-tg-pager" aria-label="Переход между кругами">
   {% if prev_task_group_url %}
-    <a class="new-tg-pager__link new-tg-pager__link--prev" href="{{ prev_task_group_url }}{% if not user.is_authenticated %}?anon={{ request.GET.anon|urlencode }}{% endif %}">
+    <a class="new-tg-pager__link new-tg-pager__link--prev" href="{{ prev_task_group_url }}">
       <span class="new-tg-pager__dir">← Назад</span>
       <span class="new-tg-pager__label">№{{ prev_task_group_number }} · {% autoescape off %}{{ prev_task_group_name }}{% endautoescape %}</span>
     </a>
@@ -2344,7 +2364,7 @@
     <span class="new-tg-pager__spacer" aria-hidden="true"></span>
   {% endif %}
   {% if next_task_group_url %}
-    <a class="new-tg-pager__link new-tg-pager__link--next" href="{{ next_task_group_url }}{% if not user.is_authenticated %}?anon={{ request.GET.anon|urlencode }}{% endif %}">
+    <a class="new-tg-pager__link new-tg-pager__link--next" href="{{ next_task_group_url }}">
       <span class="new-tg-pager__dir">Дальше →</span>
       <span class="new-tg-pager__label">№{{ next_task_group_number }} · {% autoescape off %}{{ next_task_group_name }}{% endautoescape %}</span>
     </a>

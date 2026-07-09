@@ -192,9 +192,9 @@ def ensure_raddle_assist_hints(task):
     }
     created = 0
     for wi in range(1, n - 1):
-        for tier, prefix, num_base in (
-            (1, 'raddle_clue', 1000),
-            (2, 'raddle_answer', 2000),
+        for tier, prefix in (
+            (1, 'raddle_clue'),
+            (2, 'raddle_answer'),
         ):
             desc = '{}:{}'.format(prefix, wi)
             key = desc.lower()
@@ -202,7 +202,7 @@ def ensure_raddle_assist_hints(task):
                 continue
             Hint.objects.create(
                 task=task,
-                number=num_base + wi,
+                number='{}.{}'.format(tier, wi),
                 desc=desc,
                 text='',
                 points_penalty=0,

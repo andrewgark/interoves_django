@@ -276,7 +276,13 @@ def build_results_snapshot_payload(game, mode='tournament'):
             sum_hint_penalty = _json_num(ai.get_sum_hint_penalty())
             result_points = _json_num(ai.get_result_points())
             n_attempts = ai.get_n_attempts()
-            hint_numbers = sorted([ha.hint.number for ha in ai.hint_attempts if ha.is_real_request]) if ai.hint_attempts else []
+            hint_numbers = [
+                ha.hint.number
+                for ha in sorted(
+                    [ha for ha in ai.hint_attempts if ha.is_real_request],
+                    key=lambda ha: ha.hint.key_sort(),
+                )
+            ] if ai.hint_attempts else []
 
             try:
                 max_points = float(task.get_results_max_points())

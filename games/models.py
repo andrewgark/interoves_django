@@ -1460,10 +1460,16 @@ class Like(models.Model):
         return '{} to task {} by {}'.format('Like' if self.value == 1 else 'Dislike', self.task, actor)
 
 
+HINT_NUMBER_VALIDATOR = RegexValidator(
+    regex=r'^\d+(?:\.\d+)?$',
+    message='Номер подсказки: целое число или число с точкой (например 1 или 1.5).',
+)
+
+
 class Hint(models.Model):
     id = models.AutoField(primary_key=True)
     task = models.ForeignKey(Task, related_name='hints', blank=True, null=True, on_delete=models.SET_NULL)
-    number = models.IntegerField(null=True, blank=True)
+    number = models.CharField(max_length=20, null=True, blank=True, validators=[HINT_NUMBER_VALIDATOR])
     desc = models.TextField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
     points_penalty = models.DecimalField(decimal_places=3, max_digits=10, blank=True, null=True, default=1)
@@ -1471,6 +1477,15 @@ class Hint(models.Model):
 
     def __str__(self):
         return '{} - Подсказка #{} [-{}]'.format(self.task, self.number, self.points_penalty)
+
+    @staticmethod
+    def number_key(number):
+        return GameTaskGroup.number_key(number)
+
+    def key_sort(self):
+        if self.number is None:
+            return ()
+        return self.number_key(self.number)
 
     def save(self, *args, **kwargs):
         from games.views.track import track_task_change
@@ -1531,6 +1546,10 @@ class Audio(models.Model):
     title = models.TextField(null=True, blank=True)
 
 
+RECENT_TICKET_REQUESTS_LIMIT = 10
+TICKET_REQUESTS_PAGE_SIZE = 10
+
+
 class TicketRequest(models.Model):
     id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='ticket_requests', blank=True, null=True, on_delete=models.SET_NULL)
@@ -1555,6 +1574,13 @@ class TicketRequest(models.Model):
             self.tickets,
             self.team
         )
+
+    @classmethod
+    def recent_for_team(cls, team, limit=None):
+        if not team:
+            return []
+        n = RECENT_TICKET_REQUESTS_LIMIT if limit is None else limit
+        return list(cls.objects.filter(team=team).order_by('-time')[:n])
 
 
 class PendingTicketRequest(TicketRequest):

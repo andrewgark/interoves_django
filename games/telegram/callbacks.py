@@ -1,6 +1,9 @@
+from django.db import transaction
+
 from games.models import BugReport, TicketRequest
 from games.telegram.api import answer_callback_query, edit_message_reply_markup
 from games.telegram.notify import send_admin_message
+from games.ticket_service import accept_ticket_request, reject_ticket_request
 
 
 def handle_callback_query(callback_query: dict) -> None:
@@ -65,17 +68,25 @@ def _handle_ticket(action: str, ticket_id: int, callback_id, chat_id, message_id
         return
 
     if action == 'accept':
-        if ticket.status != 'Accepted':
-            ticket.status = 'Accepted'
-            ticket.save(update_fields=['status'])
-        answer_callback_query(callback_id, 'Accepted')
+        with transaction.atomic():
+            locked = TicketRequest.objects.select_for_update().select_related('team').get(pk=ticket_id)
+            result = accept_ticket_request(locked, source='telegram')
+        if result.credited:
+            answer_callback_query(callback_id, 'Accepted, tickets credited')
+        elif result.already_accepted:
+            answer_callback_query(callback_id, 'Already accepted')
+        else:
+            answer_callback_query(callback_id, 'Accepted')
         send_admin_message('Ticket #{} → Accepted'.format(ticket_id), force=True)
     elif action == 'reject':
-        if ticket.status != 'Rejected':
-            ticket.status = 'Rejected'
-            ticket.save(update_fields=['status'])
-        answer_callback_query(callback_id, 'Rejected')
-        send_admin_message('Ticket #{} → Rejected'.format(ticket_id), force=True)
+        with transaction.atomic():
+            locked = TicketRequest.objects.select_for_update().get(pk=ticket_id)
+            result = reject_ticket_request(locked, source='telegram')
+        if result.changed:
+            answer_callback_query(callback_id, 'Rejected')
+            send_admin_message('Ticket #{} → Rejected'.format(ticket_id), force=True)
+        else:
+            answer_callback_query(callback_id, 'Already finalized')
     else:
         answer_callback_query(callback_id, 'Unknown action')
         return

@@ -64,7 +64,7 @@ from games.models import (
     Team,
     TicketRequest,
 )
-from games.models import GameResultsSnapshot
+from games.models import GameResultsSnapshot, TICKET_REQUESTS_PAGE_SIZE
 from games.util import clean_text
 from games.replacements_lines import canonical_replacements_checker_line, parse_replacements_lines_text
 from games.raddle import (
@@ -93,13 +93,14 @@ logger = logging.getLogger(__name__)
 
 
 def _anon_key_from_request(request):
-    """Идентификатор анонимного игрока в личном режиме: ?anon= / ?anon_key= или cookie interoves_anon (ставится JS в base)."""
+    """Идентификатор анонимного игрока в личном режиме: ?anon= / ?anon_key=, cookie interoves_anon или X-Interoves-Anon."""
     if request.user.is_authenticated:
         return None
     return (
         request.GET.get('anon')
         or request.GET.get('anon_key')
         or request.COOKIES.get('interoves_anon')
+        or request.headers.get('X-Interoves-Anon')
     )
 
 
@@ -1399,11 +1400,16 @@ def _new_results_compute(game, mode):
                 except Exception:
                     points = 0.0
                 try:
-                    hint_numbers = sorted([
+                    hint_numbers = [
                         ha.hint.number
-                        for ha in (getattr(ai, 'hint_attempts', None) or [])
-                        if getattr(ha, 'is_real_request', False)
-                    ])
+                        for ha in sorted(
+                            [
+                                ha for ha in (getattr(ai, 'hint_attempts', None) or [])
+                                if getattr(ha, 'is_real_request', False)
+                            ],
+                            key=lambda ha: ha.hint.key_sort(),
+                        )
+                    ]
                 except Exception:
                     hint_numbers = []
 
@@ -2469,6 +2475,40 @@ def _member_teams_active_first(profile):
     return [primary] + others, others
 
 
+def _team_ticket_requests_page(request, team, *, page_param='tr_page', per_page=TICKET_REQUESTS_PAGE_SIZE):
+    empty = {
+        'ticket_requests_page': None,
+        'ticket_requests_paginator': None,
+        'ticket_requests_is_paginated': False,
+        'ticket_requests_page_qs_prefix': '?',
+        'ticket_requests_page_size': per_page,
+        'ticket_requests_total': 0,
+        'ticket_requests_page_param': page_param,
+    }
+    if not team:
+        return empty
+    paginator = Paginator(
+        TicketRequest.objects.filter(team=team).order_by('-time'),
+        per_page,
+    )
+    page_obj = paginator.get_page(request.GET.get(page_param) or 1)
+    qs = request.GET.copy()
+    try:
+        qs.pop(page_param, None)
+    except Exception:
+        pass
+    rest = qs.urlencode()
+    return {
+        'ticket_requests_page': page_obj,
+        'ticket_requests_paginator': paginator,
+        'ticket_requests_is_paginated': paginator.num_pages > 1,
+        'ticket_requests_page_qs_prefix': ('?' + rest + '&') if rest else '?',
+        'ticket_requests_page_size': per_page,
+        'ticket_requests_total': paginator.count,
+        'ticket_requests_page_param': page_param,
+    }
+
+
 def _new_team_ui_context(request):
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     scoped = _scoped_project_id(request)
@@ -2510,6 +2550,9 @@ def new_team(request, project_id=None):
     ctx = _new_team_ui_context(request)
     ctx['team_section'] = 'hub'
     ctx['page_title'] = 'Команда'
+    team = request.user.profile.team_on
+    if team:
+        ctx.update(_team_ticket_requests_page(request, team))
     return render(request, 'ui/team.html', ctx)
 
 
@@ -2536,9 +2579,7 @@ def new_pay_page(request):
         messages.error(request, 'Сначала войдите и создайте профиль.')
         return redirect('new_hub')
     team = request.user.profile.team_on
-    recent_requests = []
-    if team:
-        recent_requests = list(TicketRequest.objects.filter(team=team).order_by('-time')[:20])
+    recent_requests = TicketRequest.recent_for_team(team) if team else []
     raw_price = getattr(team, 'ticket_price', 2000) if team else 2000
     try:
         ticket_price_int = int(raw_price)

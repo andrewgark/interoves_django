@@ -5,6 +5,7 @@ from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 from games.models import Attempt, BugReport, CorporateGameOrder, Game, HintAttempt, Registration, TicketRequest
+from games.ticket_service import stuck_pending_ticket_count
 from games.telegram.notify import _escape, _join_lines
 
 DIGEST_TOP_GAMES = 5
@@ -135,6 +136,7 @@ def collect_daily_digest_stats(since=None) -> dict:
         'corporate_orders': CorporateGameOrder.objects.filter(created_at__gte=since).count(),
         'pending_bugs_now': BugReport.objects.filter(status='Pending').count(),
         'pending_tickets_now': TicketRequest.objects.filter(status='Pending').count(),
+        'stuck_tickets_now': stuck_pending_ticket_count(),
     }
 
 
@@ -194,7 +196,15 @@ def build_daily_digest(since=None) -> str:
             stats['pending_bugs_now'],
             stats['pending_tickets_now'],
         ),
+    ]
+    if stats['stuck_tickets_now']:
+        lines.extend([
+            '⚠️ Зависшие билеты (pending + yookassa_id &gt; 30 мин): <b>{}</b>'.format(
+                stats['stuck_tickets_now'],
+            ),
+        ])
+    lines.extend([
         '',
         'Сгенерировано: {}'.format(timezone.localtime(stats['until']).strftime('%d.%m.%Y %H:%M')),
-    ]
+    ])
     return _join_lines(lines)
