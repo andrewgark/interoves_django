@@ -437,6 +437,19 @@ html.new-ui-dark body.new-ui {
   font-size: 0.8rem;
 }
 
+.new-task__action {
+  flex: 0 0 auto;
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.new-task__action .new-pill {
+  font-size: 0.75rem;
+  text-transform: lowercase;
+}
+
 /* Forms */
 .new-form label {
   display: block;
@@ -1675,12 +1688,88 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   font-size: 0.9rem;
 }
 
-.new-tg-nav {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
+.new-tg-back {
+  margin: 0 0 0.75rem;
+}
+
+.new-tg-back__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.new-tg-back__link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.new-tg-pager {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.65rem;
   margin-top: 2rem;
-  flex-wrap: wrap;
+}
+
+.new-tg-pager__link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  text-decoration: none;
+  color: var(--text);
+  min-width: 0;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.new-tg-pager__link:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+
+.new-tg-pager__link--next {
+  text-align: right;
+  align-items: flex-end;
+}
+
+.new-tg-pager__dir {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.new-tg-pager__label {
+  font-size: 0.92rem;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.new-tg-pager__spacer {
+  display: block;
+  min-height: 1px;
+}
+
+@media (max-width: 560px) {
+  .new-tg-pager {
+    grid-template-columns: 1fr;
+  }
+
+  .new-tg-pager__link--next {
+    text-align: left;
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1870,6 +1959,12 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   display: block;
   margin-top: 0.25rem;
   font-weight: 400;
+}
+
+.new-task__squares {
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
 }
 
 .new-task.new-task--partial{

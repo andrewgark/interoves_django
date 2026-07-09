@@ -12,8 +12,8 @@
   {% include "new/_18plus_gate_early.html" %}
 {% endblock %}
 {% block content %}
-<p style="margin:0 0 0.75rem">
-  <a href="{{ back_url }}" class="new-btn new-btn--ghost">← Назад</a>
+<p class="new-tg-back">
+  <a href="{{ back_url }}" class="new-tg-back__link"><span aria-hidden="true">←</span> {{ back_label|default:"К списку" }}</a>
 </p>
 
 <div class="new-section-header">
@@ -2333,16 +2333,24 @@
 })();
 </script>
 
-<div class="new-tg-nav">
+{% if prev_task_group_url or next_task_group_url %}
+<nav class="new-tg-pager" aria-label="Переход между кругами">
   {% if prev_task_group_url %}
-    <a class="new-btn new-btn--ghost" href="{{ prev_task_group_url }}{% if not user.is_authenticated %}?anon={{ request.GET.anon|urlencode }}{% endif %}">← Назад</a>
+    <a class="new-tg-pager__link new-tg-pager__link--prev" href="{{ prev_task_group_url }}{% if not user.is_authenticated %}?anon={{ request.GET.anon|urlencode }}{% endif %}">
+      <span class="new-tg-pager__dir">← Назад</span>
+      <span class="new-tg-pager__label">№{{ prev_task_group_number }} · {% autoescape off %}{{ prev_task_group_name }}{% endautoescape %}</span>
+    </a>
   {% else %}
-    <span></span>
+    <span class="new-tg-pager__spacer" aria-hidden="true"></span>
   {% endif %}
   {% if next_task_group_url %}
-    <a class="new-btn new-btn--ghost" href="{{ next_task_group_url }}{% if not user.is_authenticated %}?anon={{ request.GET.anon|urlencode }}{% endif %}">Дальше →</a>
+    <a class="new-tg-pager__link new-tg-pager__link--next" href="{{ next_task_group_url }}{% if not user.is_authenticated %}?anon={{ request.GET.anon|urlencode }}{% endif %}">
+      <span class="new-tg-pager__dir">Дальше →</span>
+      <span class="new-tg-pager__label">№{{ next_task_group_number }} · {% autoescape off %}{{ next_task_group_name }}{% endautoescape %}</span>
+    </a>
   {% endif %}
-</div>
+</nav>
+{% endif %}
 {% include "new/_18plus_gate.html" %}
 {% endblock %}
 

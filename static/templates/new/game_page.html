@@ -393,11 +393,26 @@
             el.classList.remove('new-task--solved', 'new-task--partial');
             if (row.row_class) el.classList.add(row.row_class);
             el.setAttribute('data-fully-solved', row.is_fully_solved ? '1' : '0');
+            var action = el.querySelector('[data-task-action]');
+            if (action) {
+              if (row.is_fully_solved) {
+                action.innerHTML = '<span class="new-pill new-pill--ok" title="Решено">ок</span>';
+              } else {
+                action.textContent = 'Открыть';
+              }
+            }
             var meta = el.querySelector('[data-progress-meta]');
             if (meta) {
-              meta.textContent = row.progress_text || '';
+              if (row.result_squares) {
+                meta.textContent = row.result_squares;
+                meta.classList.add('new-task__squares');
+              } else {
+                meta.textContent = row.progress_text || '';
+                meta.classList.remove('new-task__squares');
+              }
               meta.removeAttribute('aria-hidden');
               meta.classList.remove('new-task__meta--loading');
+              meta.hidden = !meta.textContent;
             }
           });
           if (typeof window.interovesApplyHideSolved === 'function') {

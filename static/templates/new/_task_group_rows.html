@@ -11,13 +11,21 @@
         {% else %}
           <strong>{% autoescape off %}{{ row.task_group.name }}{% endautoescape %}</strong>
         {% endif %}
-        {% if row.progress_text %}
+        {% if row.result_squares %}
+          <small class="new-task__meta new-task__squares">{{ row.result_squares }}</small>
+        {% elif row.progress_text %}
           <small class="new-task__meta">{{ row.progress_text }}</small>
         {% elif load_task_group_progress %}
           <small class="new-task__meta new-task__meta--loading" data-progress-meta aria-hidden="true"></small>
         {% endif %}
       </span>
-      <small>Открыть</small>
+      <span class="new-task__action" data-task-action>
+        {% if row.is_fully_solved %}
+          <span class="new-pill new-pill--ok" title="Решено">ок</span>
+        {% else %}
+          Открыть
+        {% endif %}
+      </span>
     </a>
   {% endfor %}
 {% else %}

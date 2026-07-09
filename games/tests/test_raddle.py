@@ -371,6 +371,33 @@ class RaddleUiContextTests(SimpleTestCase):
         tiers = resolve_assist_tiers(state, [_HA()])
         self.assertEqual(tiers.get(3), 1)
 
+    def test_result_squares_all_green_when_no_assist(self):
+        from games.raddle import raddle_result_squares
+
+        parsed = parse_raddle_data(_task())
+        state = {
+            'solved_indices': list(range(13)),
+            'used_hints': [],
+            'assist_tier': {},
+            'total': 11.0,
+        }
+        squares = raddle_result_squares(parsed, state)
+        self.assertEqual(squares, '🟩' * 11)
+
+    def test_result_squares_mixed_tiers(self):
+        from games.raddle import raddle_result_squares
+
+        parsed = parse_raddle_data(_task())
+        state = {
+            'solved_indices': list(range(13)),
+            'used_hints': [],
+            'assist_tier': {'1': 2, '2': 1},
+            'total': 9.0,
+        }
+        squares = raddle_result_squares(parsed, state)
+        self.assertTrue(squares.startswith('🟥🟨'))
+        self.assertEqual(len(squares), 11)
+
     def test_validate_checker_data_ok(self):
         self.assertEqual(validate_raddle_checker_data(json.dumps(PARIS_LADDER, ensure_ascii=False)), [])
 

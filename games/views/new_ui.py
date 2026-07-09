@@ -71,6 +71,7 @@ from games.raddle import (
     build_raddle_ui_context,
     load_raddle_state,
     parse_raddle_data,
+    raddle_result_squares_for_actor,
     raddle_word_solved_list,
 )
 from games.proportions import build_proportions_chips_for_tasks
@@ -240,6 +241,23 @@ def _play_url_for_task_group(game, number, *, project_base=''):
     return '/games/{}/{}/'.format(game.id, number)
 
 
+def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
+    """Подписи верхнего «назад к списку» и нижнего пейджера кругов."""
+    if game.project_id == NEW_UI_SECTIONS_PROJECT:
+        back_label = 'К списку'
+    elif game.project_id == NEW_UI_PROJECT:
+        back_label = 'К игре'
+    else:
+        back_label = 'Назад'
+    return {
+        'back_label': back_label,
+        'prev_task_group_number': prev_tg.number if prev_tg else None,
+        'prev_task_group_name': prev_tg.name if prev_tg else None,
+        'next_task_group_number': next_tg.number if next_tg else None,
+        'next_task_group_name': next_tg.name if next_tg else None,
+    }
+
+
 def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
     """Task group list for game hub pages; actor progress is loaded separately."""
     return [
@@ -269,6 +287,31 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
         anon_key=anon_key,
         mode=mode,
     )
+    result_squares_by_number = {}
+    if game.id == LADDER_GAME_ID and (team is not None or user is not None or anon_key is not None):
+        tg_ids = [tg.id for tg in canonical_groups]
+        raddle_tasks = list(
+            Task.objects.filter(task_group_id__in=tg_ids, task_type='raddle').visible()
+        )
+        tg_to_raddle_task = {}
+        for task in raddle_tasks:
+            tg_to_raddle_task.setdefault(task.task_group_id, task)
+        include_other_games = game.project_id == NEW_UI_SECTIONS_PROJECT
+        for p in task_groups:
+            task = tg_to_raddle_task.get(p.task_group_id)
+            if not task:
+                continue
+            squares = raddle_result_squares_for_actor(
+                task,
+                team=team,
+                user=user,
+                anon_key=anon_key,
+                mode=mode,
+                game=game,
+                include_other_games=include_other_games,
+            )
+            if squares:
+                result_squares_by_number[str(p.number)] = squares
     rows = {}
     for p in task_groups:
         tg = p.task_group
@@ -287,12 +330,14 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
             )
         else:
             progress_text = None
+        result_squares = result_squares_by_number.get(str(p.number)) if is_fully_solved else None
         rows[str(p.number)] = {
             'n_solved': n_solved,
             'n_tasks': p.n_tasks,
             'is_fully_solved': is_fully_solved,
             'row_class': row_class,
             'progress_text': progress_text,
+            'result_squares': result_squares,
         }
     return rows
 
@@ -975,6 +1020,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'tg_number': placement.number,
         'tg_name': placement.name,
         'back_url': '{}/games/{}/'.format(base, game.id),
+        **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
         'page_title': '{} · {}'.format(game.outside_name or game.name, placement.name),
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
@@ -1872,6 +1918,7 @@ def new_task_group_page(request, game_id, task_group_number):
                 else '/'
             )
         ),
+        **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
         'page_title': '{} · {}'.format(game.outside_name or game.name, placement.name),
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),

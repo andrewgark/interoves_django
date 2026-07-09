@@ -599,6 +599,67 @@ def reference_role_for_playable(word_index, solved, n_words):
     return None
 
 
+def raddle_result_squares(parsed, state, *, hint_attempts=None):
+    """
+    Wordle-style строка для завершённой лесенки: по квадрату на среднее слово.
+    1 балл → 🟩, 0.5 → 🟨, 0 → 🟥.
+    """
+    n = parsed['n_words']
+    middle_total = max(0, n - 2)
+    if middle_total == 0:
+        return ''
+    solved = set(state.get('solved_indices') or [])
+    if len(solved) < n:
+        return ''
+    assist_tiers = resolve_assist_tiers(state, hint_attempts)
+    squares = []
+    for i in range(1, n - 1):
+        tier = assist_tiers.get(i, 0)
+        if tier >= 2:
+            squares.append('🟥')
+        elif tier == 1:
+            squares.append('🟨')
+        else:
+            squares.append('🟩')
+    return ''.join(squares)
+
+
+def raddle_result_squares_for_actor(
+    task,
+    *,
+    team=None,
+    user=None,
+    anon_key=None,
+    mode='general',
+    game=None,
+    include_other_games=False,
+):
+    """Строка квадратов для решённого raddle-задания текущего актора."""
+    from games.models import Attempt
+
+    parsed = parse_raddle_data(task)
+    if not parsed:
+        return ''
+    game_arg = None if include_other_games else game
+    ai = Attempt.manager.get_attempts_info(
+        team=team,
+        task=task,
+        mode=mode,
+        user=user,
+        anon_key=anon_key,
+        game=game_arg,
+    )
+    if not ai.is_solved():
+        return ''
+    state = load_raddle_state(None, parsed['n_words'])
+    if ai.attempts:
+        for a in reversed(ai.attempts):
+            if a.state:
+                state = load_raddle_state(a.state, parsed['n_words'])
+                break
+    return raddle_result_squares(parsed, state, hint_attempts=ai.hint_attempts)
+
+
 def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mode=None, hint_attempts=None):
     """Контекст для шаблона: строки лестницы, подсказки, попытки по словам."""
     n = parsed['n_words']
@@ -746,20 +807,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
 
     middle_total = max(0, n - 2)
     is_complete = middle_total == 0 or len(solved) >= n
-    # Результат для шаринга (как в Wordle): по одному квадрату на слово-ступеньку
-    # (без крайних открытых слов), сверху вниз. 1 балл → 🟩, 0.5 → 🟨, 0 → 🟥.
-    result_squares = ''
-    if is_complete and middle_total > 0:
-        squares = []
-        for i in range(1, n - 1):
-            tier = assist_tiers.get(i, 0)
-            if tier >= 2:
-                squares.append('🟥')
-            elif tier == 1:
-                squares.append('🟨')
-            else:
-                squares.append('🟩')
-        result_squares = ''.join(squares)
+    result_squares = raddle_result_squares(parsed, state, hint_attempts=hint_attempts) if is_complete else ''
     return {
         'rows': rows,
         'unused_hints': unused,
