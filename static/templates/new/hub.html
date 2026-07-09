@@ -2,65 +2,75 @@
 {% block title %}Игры{% endblock %}
 {% block content %}
 <h1 class="new-heading" style="margin-top:0">Игры</h1>
-{% for folder in folders %}
-<a class="new-tile" href="{% if folder.slug == 'games' %}{% if ui_project_base %}{% url 'project_folder_games' project_id=project.id %}{% else %}{% url 'new_folder' folder.slug %}{% endif %}{% else %}{% url 'new_folder' folder.slug %}{% endif %}">
-  <h2>{% if folder.slug == 'games' %}🔟 {% endif %}{{ folder.title }}</h2>
-  <p>{{ folder.description }}</p>
-</a>
-{% endfor %}
 
-{% if ladder_game %}
-<section class="new-daily-ladder{% if ladder_is_today %} new-daily-ladder--today{% endif %}" aria-labelledby="ladder-heading">
-  <div class="new-daily-ladder__head">
-    <h2 id="ladder-heading" class="new-daily-ladder__title">🪜 Лесенка</h2>
-    {% if ladder_today_label %}
-      <span class="new-pill{% if ladder_is_today %} new-daily-ladder__badge-today{% endif %}">{{ ladder_today_label }}</span>
-    {% endif %}
+{% if desyatochki_card %}
+<section class="new-hub-section new-hub-section--wide{% if desyatochki_card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="desyatochki-heading">
+  <div class="new-hub-section__head">
+    <h2 id="desyatochki-heading" class="new-hub-section__title">{{ desyatochki_card.icon }} {{ desyatochki_card.title }}</h2>
   </div>
-  <p class="new-daily-ladder__desc">Одна лестница слов в день — соберите цепочку с двух концов.</p>
-  {% if ladder_play_url %}
-    <a class="new-btn new-btn--primary new-daily-ladder__cta" href="{{ ladder_play_url }}" data-ladder-cta data-ladder-number="{{ ladder_cta_number }}">
-      {{ ladder_cta_label }}
+  <p class="new-hub-section__desc">{{ desyatochki_card.description }}</p>
+  {% if desyatochki_card.play_url %}
+    <a class="new-btn new-hub-section__cta{% if desyatochki_card.is_today %} new-hub-section__cta--today{% else %} new-hub-section__cta--latest{% endif %}" href="{{ desyatochki_card.play_url }}">
+      {{ desyatochki_card.cta_label }}
     </a>
-  {% elif ladder_status == 'coming_soon' %}
-    <p class="new-daily-ladder__soon">Первая лесенка появится в полночь по Москве.</p>
   {% endif %}
-  <p class="new-daily-ladder__footer">
-    <a class="new-link-dotted" href="{{ ladder_section_url }}">Все лесенки →</a>
+  <p class="new-hub-section__footer">
+    <a class="new-link-dotted" href="{{ desyatochki_card.section_url }}">{{ desyatochki_card.all_link_label }}</a>
   </p>
 </section>
-{% if load_task_group_progress and task_group_progress_url and ladder_cta_number %}
+{% endif %}
+
+{% if hub_section_cards %}
+<div class="new-hub-sections-grid">
+  {% for card in hub_section_cards %}
+  <section class="new-hub-section{% if card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="hub-section-{{ card.id }}">
+    <div class="new-hub-section__head">
+      <h2 id="hub-section-{{ card.id }}" class="new-hub-section__title">{{ card.icon }} {{ card.title }}</h2>
+      {% if card.today_label %}
+        <span class="new-pill{% if card.is_today %} new-hub-section__badge-today{% endif %}">{{ card.today_label }}</span>
+      {% endif %}
+    </div>
+    <p class="new-hub-section__desc">{{ card.description }}</p>
+    {% if card.play_url %}
+      <a class="new-btn new-hub-section__cta{% if card.is_today %} new-hub-section__cta--today{% elif card.cta_label %} new-hub-section__cta--latest{% endif %}"
+         href="{{ card.play_url }}"
+         data-hub-section-cta
+         data-cta-number="{{ card.cta_number|default:'' }}"
+         {% if card.load_task_group_progress and card.task_group_progress_url %}data-progress-url="{{ card.task_group_progress_url }}"{% endif %}>
+        {{ card.cta_label }}
+      </a>
+    {% elif card.status == 'coming_soon' %}
+      <p class="new-hub-section__soon">Первая лесенка появится в полночь по Москве.</p>
+    {% endif %}
+    <p class="new-hub-section__footer">
+      <a class="new-link-dotted" href="{{ card.section_url }}">{{ card.all_link_label }}</a>
+    </p>
+  </section>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if hub_section_cards %}
 <script>
 (function () {
-  var url = '{{ task_group_progress_url|escapejs }}';
-  var num = '{{ ladder_cta_number|escapejs }}';
-  if (!url) return;
-  fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (data) {
-      var row = data && data.rows && data.rows[num];
-      if (!row) return;
-      if (row.is_fully_solved) {
-        var cta = document.querySelector('[data-ladder-cta]');
-        if (cta) cta.classList.add('new-daily-ladder__cta--solved');
-      }
-    })
-    .catch(function () {});
+  document.querySelectorAll('[data-hub-section-cta][data-progress-url]').forEach(function (cta) {
+    var url = cta.getAttribute('data-progress-url');
+    var num = cta.getAttribute('data-cta-number');
+    if (!url || !num) return;
+    fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var row = data && data.rows && data.rows[num];
+        if (!row) return;
+        if (row.is_fully_solved) {
+          cta.classList.add('new-hub-section__cta--solved');
+        }
+      })
+      .catch(function () {});
+  });
 })();
 </script>
 {% endif %}
-<h1 class="new-heading">Тренировка</h1>
-{% endif %}
-
-{% for game in section_games %}
-<a class="new-tile" href="{% url 'new_section_game' game.id %}">
-  <h2>
-    {% if game.id == 'palindromes' %}🪞{% elif game.id == 'walls' %}🧱{% elif game.id == 'replacements' %}🔄{% endif %}
-    {{ game.outside_name|default:game.name }}
-  </h2>
-  <p>{{ game.theme|default:"" }}</p>
-</a>
-{% endfor %}
 
 {% if community_links %}
 <h1 class="new-heading" style="margin-top:2rem">Сообщество</h1>

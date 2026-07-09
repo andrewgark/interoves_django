@@ -247,7 +247,107 @@ html.new-ui-dark body.new-ui {
   color: var(--muted);
 }
 
-/* Лесенка дня (главная) */
+/* Карточки разделов на главной */
+.new-hub-sections-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .new-hub-sections-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.new-hub-section {
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  padding: 1.25rem 1rem;
+  margin-bottom: 0;
+  background: var(--surface);
+}
+
+.new-hub-section--wide {
+  margin-bottom: 1.5rem;
+}
+
+.new-hub-section--today {
+  border-color: #6aaa64;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #6aaa64 25%, transparent);
+}
+
+.new-hub-section__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.35rem;
+}
+
+.new-hub-section__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.new-hub-section__badge-today {
+  background: #6aaa64;
+  color: #fff;
+  border-color: #6aaa64;
+}
+
+.new-hub-section__desc {
+  margin: 0 0 0.85rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.new-hub-section__cta {
+  display: inline-block;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.new-hub-section__cta--today {
+  background: #6aaa64;
+  border: 2px solid #6aaa64;
+}
+
+.new-hub-section__cta--today:hover {
+  background: color-mix(in srgb, #6aaa64 85%, #000);
+  border-color: color-mix(in srgb, #6aaa64 85%, #000);
+}
+
+.new-hub-section__cta--latest {
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid #6aaa64;
+}
+
+.new-hub-section__cta--latest:hover {
+  background: color-mix(in srgb, #6aaa64 12%, var(--surface));
+  color: var(--text);
+}
+
+.new-hub-section__cta--solved {
+  background: color-mix(in srgb, #6aaa64 75%, var(--surface));
+  border-color: #6aaa64;
+  color: var(--text);
+}
+
+.new-hub-section__soon {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.new-hub-section__footer {
+  margin: 0.35rem 0 0;
+}
+
+/* Лесенка дня (главная) — алиасы для совместимости */
 .new-daily-ladder {
   border: 2px solid var(--border);
   border-radius: 4px;

@@ -39,6 +39,12 @@ from games.ladder_daily import (
     sort_ladder_links_newest_first,
     visible_ladder_links,
 )
+from games.section_hub import (
+    SECTION_HUB_ORDER,
+    get_desyatochki_hub_context,
+    get_ladder_section_hub_card,
+    get_training_section_hub_context,
+)
 from games.models import (
     Attempt,
     AudioManager,
@@ -491,8 +497,15 @@ NEW_UI_FOLDERS = [
 ]
 
 
+_SECTION_NAV_ORDER = {
+    'replacements': 0,
+    'walls': 1,
+    'palindromes': 2,
+}
+
+
 def get_section_games(request):
-    """Игры из project 'sections' с доступом на превью (для плиток Разделов и навигации)."""
+    """Игры из project 'sections' с доступом на превью (навигация; без лесенки)."""
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
     if not project:
         return []
@@ -503,7 +516,43 @@ def get_section_games(request):
         g for g in Game.objects.filter(project=project)
         if g.id != LADDER_GAME_ID and g.has_access('see_game_preview', team=team)
     ]
-    return sorted(games_list, key=lambda g: (g.start_time, g.name), reverse=True)
+    return sorted(games_list, key=lambda g: _SECTION_NAV_ORDER.get(g.id, 99))
+
+
+def _hub_section_task_group_links(game):
+    """Круги раздела для списка на странице — новые сверху."""
+    qs = (
+        GameTaskGroup.objects.filter(game=game)
+        .select_related('task_group')
+        .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
+    )
+    if game.id == LADDER_GAME_ID:
+        published = filter_published_ladder_links(qs, game)
+        return GameTaskGroup.order_queryset_by_number(published, reverse=True)
+    return GameTaskGroup.order_queryset_by_number(qs, reverse=True)
+
+
+def _build_hub_section_cards(request, *, team):
+    project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
+    if not project:
+        return []
+    cards = []
+    for game_id in SECTION_HUB_ORDER:
+        game = Game.objects.filter(id=game_id, project=project).first()
+        if not game or not game.has_access('see_game_preview', team=team):
+            continue
+        if game_id == LADDER_GAME_ID:
+            card = get_ladder_section_hub_card(
+                game,
+                published_numbers=_ladder_published_numbers(game),
+            )
+        else:
+            card = get_training_section_hub_context(game)
+        play_mode, _ = _get_play_mode(request, game.project_id)
+        play_mode = effective_play_mode(play_mode, game)
+        card.update(_game_page_progress_context(request, game, play_mode))
+        cards.append(card)
+    return cards
 
 
 def _get_ladder_game():
@@ -547,27 +596,21 @@ def _folder_by_slug(slug):
 def new_hub(request):
     project = Project.objects.filter(id=NEW_UI_PROJECT).first()
     section_games = get_section_games(request)
-    ladder_game = _get_ladder_game()
-    ladder_ctx = {}
-    if ladder_game:
-        team = None
-        if has_profile(request.user):
-            team = request.user.profile.team_on
-        if ladder_game.has_access('see_game_preview', team=team):
-            ladder_ctx = get_ladder_hub_context(
-                ladder_game,
-                published_numbers=_ladder_published_numbers(ladder_game),
-            )
-            play_mode, _ = _get_play_mode(request, ladder_game.project_id)
-            play_mode = effective_play_mode(play_mode, ladder_game)
-            ladder_ctx.update(_game_page_progress_context(request, ladder_game, play_mode))
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
+    hub_section_cards = _build_hub_section_cards(request, team=team)
+    view = MainPageView()
+    view.project_name = NEW_UI_PROJECT
+    desyatochki_games = view.get_games_list(request)
+    desyatochki_card = get_desyatochki_hub_context(desyatochki_games)
     return render(request, 'ui/hub.html', {
         'project': project,
-        'folders': NEW_UI_FOLDERS,
         'section_games': section_games,
+        'hub_section_cards': hub_section_cards,
+        'desyatochki_card': desyatochki_card,
         'page_title': 'Interoves',
         'show_sections_nav': True,
-        **ladder_ctx,
         'community_links': [
             {'kind': 'telegram', 'title': 'Телеграм-канал', 'href': 'https://t.me/interoves'},
             {'kind': 'twitter', 'title': 'X (Twitter)', 'href': 'https://x.com/interoves'},
@@ -989,9 +1032,8 @@ def new_section_game_page(request, game_id):
     team_for_access = team
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
-    task_groups = _game_task_group_links(game)
     if game_id == LADDER_GAME_ID:
-        task_groups = _player_visible_task_group_links(game)
+        task_groups = _hub_section_task_group_links(game)
         today_number = current_ladder_number(game)
         task_group_rows = _ladder_task_group_rows(
             task_groups, game, today_number=today_number,
@@ -1000,6 +1042,7 @@ def new_section_game_page(request, game_id):
         task_groups_empty_text = 'Лесенки скоро появятся — следите за обновлениями.'
     else:
         today_number = None
+        task_groups = _hub_section_task_group_links(game)
         task_group_rows = _task_group_rows_skeleton(task_groups, game)
         task_groups_heading = 'Наборы заданий'
         task_groups_empty_text = 'В этом разделе пока нет групп заданий. Добавьте их в админке.'
