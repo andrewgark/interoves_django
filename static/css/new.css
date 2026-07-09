@@ -2729,6 +2729,14 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   font-weight: 600;
   color: var(--muted);
 }
+.new-raddle-clues__divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.75rem 0 0;
+}
+.new-raddle-clues__divider + .new-raddle-clues__subtitle {
+  margin-top: 0.55rem;
+}
 .new-raddle-clues__list {
   list-style: none;
   margin: 0;
