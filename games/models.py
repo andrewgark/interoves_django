@@ -1562,6 +1562,44 @@ class PendingTicketRequest(TicketRequest):
         proxy=True
 
 
+class BugReport(models.Model):
+    id = models.AutoField(primary_key=True)
+    task = models.ForeignKey(Task, related_name='bug_reports', on_delete=models.CASCADE)
+    game = models.ForeignKey(Game, related_name='bug_reports', on_delete=models.CASCADE)
+    team = models.ForeignKey(Team, related_name='bug_reports', blank=True, null=True, on_delete=models.SET_NULL)
+    user = models.ForeignKey('auth.User', related_name='bug_reports', blank=True, null=True, on_delete=models.SET_NULL)
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    text = models.TextField()
+    page_url = models.CharField(max_length=500, blank=True, default='')
+    time = models.DateTimeField(auto_now_add=True, blank=True)
+
+    BUG_REPORT_STATUS_VARIANTS = (
+        ('Pending', 'Pending'),
+        ('Reviewed', 'Reviewed'),
+        ('Dismissed', 'Dismissed'),
+    )
+
+    status = models.CharField(default='Pending', max_length=100, choices=BUG_REPORT_STATUS_VARIANTS)
+    admin_notes = models.TextField(blank=True, default='')
+
+    class Meta:
+        ordering = ['-time']
+
+    def __str__(self):
+        excerpt = self.text.replace('\n', ' ')[:80]
+        return '{}: [{}] {} — {}'.format(
+            self.time.strftime('%Y-%m-%d %H:%M:%S'),
+            self.status,
+            self.task,
+            excerpt,
+        )
+
+
+class PendingBugReport(BugReport):
+    class Meta:
+        proxy = True
+
+
 class OrderGameClient(models.Model):
     id = models.AutoField(primary_key=True)
     company_name = models.CharField(max_length=200)

@@ -13,6 +13,7 @@ urlpatterns = [
     path('answer/<int:task_id>/<int:line_index>/', ui.get_replacements_line_answer, name='new_get_replacements_line_answer'),
     path('answer/<int:task_id>/word/<int:word_index>/', ui.get_raddle_word_answer, name='new_get_raddle_word_answer'),
     path('like-dislike/<int:task_id>/', ui.like_dislike, name='new_like_dislike'),
+    path('bug-report/<int:task_id>/', ui.bug_report, name='new_bug_report'),
     path('games/ladder/today/', ui.ladder_today_page, name='new_ladder_today'),
     path('games/<str:game_id>/progress/', ui.game_task_group_progress, name='new_game_progress'),
     path('games/<str:game_id>/', ui.main_game_page, name='new_main_game'),

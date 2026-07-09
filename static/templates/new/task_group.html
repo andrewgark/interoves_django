@@ -265,6 +265,22 @@
   </div>
 </div>
 
+<div id="new-bug-report-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-bug-report-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-bug-report-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-bug-report-close>×</button>
+    <h2 id="new-bug-report-title" class="pal-title">Сообщить о проблеме</h2>
+    <p class="new-login-hint" style="margin:0.35rem 0 0.75rem">Задание <strong id="new-bug-report-task-label"></strong>. Опишите, что не так: опечатка, баг в проверке, непонятная формулировка и т.п.</p>
+    <textarea id="new-bug-report-text" class="new-bug-report-textarea" rows="5" maxlength="5000" placeholder="Что именно пошло не так?"></textarea>
+    <p id="new-bug-report-error" class="new-bug-report-error" hidden></p>
+    <p id="new-bug-report-success" class="new-bug-report-success" hidden>Спасибо! Репорт отправлен.</p>
+    <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1rem">
+      <button type="button" class="new-btn" data-bug-report-submit>Отправить</button>
+      <button type="button" class="new-btn new-btn--ghost" data-bug-report-close>Отмена</button>
+    </div>
+  </div>
+</div>
+
 <script src="{% static 'js/replacements_input_parse.js' %}"></script>
 <script>
 (function () {
@@ -1878,46 +1894,46 @@
   document.querySelectorAll('[data-answer-close]').forEach(function (el) {
     el.addEventListener('click', closeAnswer);
   });
-  document.querySelectorAll('[data-answer-open]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var taskId = btn.getAttribute('data-task-id');
-      var url = "{% url 'new_get_answer' 0 %}".replace('/0/', '/' + taskId + '/');
-      try {
-        var u = new URL(url, window.location.origin);
-        u.searchParams.set('game_id', '{{ game.id }}');
-        if (!isAuthenticated && anonKey) u.searchParams.set('anon', anonKey);
-        url = u.toString();
-      } catch (e) {}
-      fetch(url, {
-        method: 'GET',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        credentials: 'same-origin',
-      }).then(function (r) { return r.json(); })
-        .then(function (data) { openAnswer(data.html || '<div class=\"new-login-hint\">Нет ответа.</div>'); })
-        .catch(function () { openAnswer('<div class=\"new-login-hint\">Не удалось получить ответ.</div>'); });
-    });
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('[data-answer-open]') : null;
+    if (!btn) return;
+    var taskId = btn.getAttribute('data-task-id');
+    var url = "{% url 'new_get_answer' 0 %}".replace('/0/', '/' + taskId + '/');
+    try {
+      var u = new URL(url, window.location.origin);
+      u.searchParams.set('game_id', '{{ game.id }}');
+      if (!isAuthenticated && anonKey) u.searchParams.set('anon', anonKey);
+      url = u.toString();
+    } catch (e) {}
+    fetch(url, {
+      method: 'GET',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    }).then(function (r) { return r.json(); })
+      .then(function (data) { openAnswer(data.html || '<div class=\"new-login-hint\">Нет ответа.</div>'); })
+      .catch(function () { openAnswer('<div class=\"new-login-hint\">Не удалось получить ответ.</div>'); });
   });
 
-  document.querySelectorAll('[data-repl-answer-open]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var taskId = btn.getAttribute('data-task-id');
-      var lineIndex = btn.getAttribute('data-line-index');
-      var url = "{% url 'new_get_replacements_line_answer' 0 0 %}"
-        .replace('/0/0/', '/' + taskId + '/' + lineIndex + '/');
-      try {
-        var u = new URL(url, window.location.origin);
-        u.searchParams.set('game_id', '{{ game.id }}');
-        if (!isAuthenticated && anonKey) u.searchParams.set('anon', anonKey);
-        url = u.toString();
-      } catch (e) {}
-      fetch(url, {
-        method: 'GET',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        credentials: 'same-origin',
-      }).then(function (r) { return r.json(); })
-        .then(function (data) { openAnswer(data.html || '<div class=\"new-login-hint\">Нет ответа.</div>'); })
-        .catch(function () { openAnswer('<div class=\"new-login-hint\">Не удалось получить ответ.</div>'); });
-    });
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('[data-repl-answer-open]') : null;
+    if (!btn) return;
+    var taskId = btn.getAttribute('data-task-id');
+    var lineIndex = btn.getAttribute('data-line-index');
+    var url = "{% url 'new_get_replacements_line_answer' 0 0 %}"
+      .replace('/0/0/', '/' + taskId + '/' + lineIndex + '/');
+    try {
+      var u = new URL(url, window.location.origin);
+      u.searchParams.set('game_id', '{{ game.id }}');
+      if (!isAuthenticated && anonKey) u.searchParams.set('anon', anonKey);
+      url = u.toString();
+    } catch (e) {}
+    fetch(url, {
+      method: 'GET',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin',
+    }).then(function (r) { return r.json(); })
+      .then(function (data) { openAnswer(data.html || '<div class=\"new-login-hint\">Нет ответа.</div>'); })
+      .catch(function () { openAnswer('<div class=\"new-login-hint\">Не удалось получить ответ.</div>'); });
   });
 
   document.addEventListener('click', function (e) {
@@ -2010,6 +2026,106 @@
       }).catch(function () {});
     }
   }, true);
+
+  // Bug report modal
+  (function () {
+    var modal = document.getElementById('new-bug-report-modal');
+    var textEl = document.getElementById('new-bug-report-text');
+    var labelEl = document.getElementById('new-bug-report-task-label');
+    var errorEl = document.getElementById('new-bug-report-error');
+    var successEl = document.getElementById('new-bug-report-success');
+    var submitBtn = document.querySelector('[data-bug-report-submit]');
+    var currentTaskId = null;
+
+    function resetBugReportForm() {
+      if (textEl) textEl.value = '';
+      if (errorEl) { errorEl.textContent = ''; errorEl.hidden = true; }
+      if (successEl) successEl.hidden = true;
+      if (submitBtn) submitBtn.disabled = false;
+    }
+
+    function openBugReport(taskId, taskNumber) {
+      if (!modal) return;
+      currentTaskId = taskId;
+      resetBugReportForm();
+      if (labelEl) labelEl.textContent = '#' + (taskNumber || taskId);
+      modal.removeAttribute('hidden');
+      modal.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+      if (textEl) textEl.focus();
+    }
+
+    function closeBugReport() {
+      if (!modal) return;
+      modal.setAttribute('hidden', '');
+      modal.classList.remove('is-open');
+      document.body.style.overflow = '';
+      currentTaskId = null;
+    }
+
+    function postBugReport() {
+      if (!currentTaskId || !textEl) return Promise.reject();
+      var body = new URLSearchParams();
+      body.set('text', textEl.value.trim());
+      body.set('game_id', '{{ game.id }}');
+      body.set('anon_key', anonKey);
+      var url = "{% url 'new_bug_report' 0 %}".replace('/0/', '/' + currentTaskId + '/');
+      return fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrf(),
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        },
+        body: body.toString(),
+        credentials: 'same-origin',
+      }).then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok) throw data;
+          return data;
+        });
+      });
+    }
+
+    document.addEventListener('click', function (e) {
+      var openBtn = e.target && e.target.closest ? e.target.closest('[data-bug-report-open]') : null;
+      if (openBtn) {
+        e.preventDefault();
+        openBugReport(openBtn.getAttribute('data-task-id'), openBtn.getAttribute('data-task-number'));
+        return;
+      }
+      if (e.target && e.target.closest && e.target.closest('[data-bug-report-close]')) {
+        closeBugReport();
+        return;
+      }
+      if (e.target && e.target.closest && e.target.closest('[data-bug-report-submit]')) {
+        e.preventDefault();
+        if (!textEl || !textEl.value.trim()) {
+          if (errorEl) { errorEl.textContent = 'Опишите проблему.'; errorEl.hidden = false; }
+          return;
+        }
+        if (submitBtn) submitBtn.disabled = true;
+        if (errorEl) errorEl.hidden = true;
+        postBugReport().then(function () {
+          if (successEl) successEl.hidden = false;
+          if (submitBtn) submitBtn.disabled = true;
+          window.setTimeout(closeBugReport, 1400);
+        }).catch(function (err) {
+          if (submitBtn) submitBtn.disabled = false;
+          if (errorEl) {
+            errorEl.textContent = (err && err.error) ? err.error : 'Не удалось отправить. Попробуйте ещё раз.';
+            errorEl.hidden = false;
+          }
+        });
+      }
+    });
+
+    if (modal) {
+      modal.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeBugReport();
+      });
+    }
+  })();
 
   // Hide solved toggle (persisted across pages)
   var HIDE_KEY = 'new_hide_solved';

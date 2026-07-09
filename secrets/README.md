@@ -78,3 +78,19 @@ For a consistent IAM role (e.g. `ai-bot`) without pasting ARNs into every comman
 SSO users still run `aws sso login` when the refresh token expires; after that, bootstrap assumes `ai-bot` for each script invocation.
 
 Full matrix (RDS vs Redis, `eb_run` vs `with_rds`, Cursor permissions): **[`agents/aws-eb.md`](../agents/aws-eb.md)** → **Agent playbook**.
+
+## Telegram admin notifications
+
+Copy `secrets/telegram.env.example` and follow the steps inside. Minimum:
+
+1. Create a bot via `@BotFather`, save token to `secrets/telegram_bot_token.txt` (or `TELEGRAM_BOT_TOKEN` on EB).
+2. Send `/start` to the bot from your personal Telegram account.
+3. `../venv/interoves_django/bin/python manage.py telegram_notify_chat_id` — copy your `chat_id`.
+4. Save it to `secrets/telegram_notify_chat_id.txt` (or `TELEGRAM_NOTIFY_CHAT_ID` on EB).
+5. `../venv/interoves_django/bin/python manage.py telegram_notify_test`
+
+On prod after deploy:
+
+```bash
+eb setenv TELEGRAM_BOT_TOKEN='...' TELEGRAM_NOTIFY_CHAT_ID='...'
+```

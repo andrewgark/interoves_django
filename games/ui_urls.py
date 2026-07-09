@@ -11,7 +11,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|team|profile|pay|answer|like-dislike|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|yookassa|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|yookassa|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     # Project-scoped "new UI" pages (isolated navigation per project).
@@ -50,6 +50,7 @@ urlpatterns = [
     path('answer/<int:task_id>/<int:line_index>/', ui.get_replacements_line_answer, name='ui_get_replacements_line_answer'),
     path('answer/<int:task_id>/word/<int:word_index>/', ui.get_raddle_word_answer, name='ui_get_raddle_word_answer'),
     path('like-dislike/<int:task_id>/', ui.like_dislike, name='ui_like_dislike'),
+    path('bug-report/<int:task_id>/', ui.bug_report, name='ui_bug_report'),
     path('games/ladder/today/', ui.ladder_today_page, name='ui_ladder_today'),
     path('games/<str:game_id>/progress/', ui.game_task_group_progress, name='ui_game_progress'),
     path('games/<str:game_id>/', ui.main_game_page, name='ui_main_game'),

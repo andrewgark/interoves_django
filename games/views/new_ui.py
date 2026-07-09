@@ -42,6 +42,7 @@ from games.ladder_daily import (
 from games.models import (
     Attempt,
     AudioManager,
+    BugReport,
     Game,
     GameTaskGroup,
     HintAttempt,
@@ -2136,6 +2137,53 @@ def new_like_dislike(request, task_id):
         'liked': Like.manager.actor_has_like(task, team=team, user=user, anon_key=anon_key),
         'disliked': Like.manager.actor_has_dislike(task, team=team, user=user, anon_key=anon_key),
     })
+
+
+@require_http_methods(['POST'])
+def new_bug_report(request, task_id):
+    task = get_public_task_or_404(task_id)
+    game = game_from_request_for_task(request, task)
+    if game is None:
+        raise Http404()
+
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
+    team = None
+    user = None
+    anon_key = None
+    if play_mode == 'team':
+        if not has_profile(request.user) or not request.user.profile.team_on:
+            raise Http404()
+        team = request.user.profile.team_on
+        if not game.has_access('send_attempt', team=team):
+            raise Http404()
+    else:
+        if request.user.is_authenticated:
+            user = request.user
+        else:
+            anon_key = request.POST.get('anon_key')
+            if not anon_key:
+                raise Http404()
+        if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
+            raise Http404()
+
+    text = (request.POST.get('text') or '').strip()
+    if not text:
+        return JsonResponse({'ok': False, 'error': 'Опишите проблему.'}, status=400)
+    if len(text) > 5000:
+        return JsonResponse({'ok': False, 'error': 'Слишком длинное сообщение.'}, status=400)
+
+    BugReport.objects.create(
+        task=task,
+        game=game,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        text=text,
+        page_url=request.build_absolute_uri(),
+        status='Pending',
+    )
+    return JsonResponse({'ok': True})
 
 
 def _game_from_next_path(path):

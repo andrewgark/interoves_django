@@ -18,6 +18,7 @@ get_answer = new_get_answer
 get_replacements_line_answer = new_get_replacements_line_answer
 get_raddle_word_answer = new_get_raddle_word_answer
 like_dislike = new_like_dislike
+bug_report = new_bug_report
 set_play_mode = new_set_play_mode
 migrate_anon_attempts = new_migrate_anon_attempts
 anon_migrate_count = new_anon_migrate_count

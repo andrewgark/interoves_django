@@ -25,7 +25,9 @@ from games.models import (
     Like,
     OrderGameClient,
     OrderGameReview,
+    BugReport,
     PendingAttempt,
+    PendingBugReport,
     PendingTicketRequest,
     Profile,
     ProfileTeamMembership,
@@ -47,7 +49,7 @@ from games.recheck import (
 from games.results_snapshot import freeze_game_results
 
 
-admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration, TicketRequest])
+admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration, TicketRequest, BugReport])
 
 
 @admin.register(CorporateGameOrder)
@@ -611,3 +613,32 @@ class PendingTicketRequestAdmin(admin.ModelAdmin):
 
     list_display = ['__str__', 'team', 'tickets', 'money', 'status', 'time']
     actions = [confirm_ticket_request, reject_ticket_request]
+
+
+def mark_bug_report_reviewed(modeladmin, request, queryset):
+    queryset.update(status='Reviewed')
+
+
+def mark_bug_report_dismissed(modeladmin, request, queryset):
+    queryset.update(status='Dismissed')
+
+
+mark_bug_report_reviewed.short_description = 'Mark Reviewed'
+mark_bug_report_dismissed.short_description = 'Mark Dismissed'
+
+
+@admin.register(PendingBugReport)
+class PendingBugReportAdmin(admin.ModelAdmin):
+    formfield_overrides = {
+        models.TextField: {'widget': Textarea(attrs={'rows': 4, 'cols': 60})},
+    }
+    raw_id_fields = ['task', 'game', 'team', 'user']
+    readonly_fields = ['time', 'page_url', 'anon_key']
+
+    def get_queryset(self, request):
+        qs = super(PendingBugReportAdmin, self).get_queryset(request)
+        return qs.select_related('task', 'game', 'team', 'user').filter(status='Pending')
+
+    list_display = ['__str__', 'game', 'task', 'team', 'user', 'time']
+    search_fields = ['text', 'task__number', 'game__id', 'game__name']
+    actions = [mark_bug_report_reviewed, mark_bug_report_dismissed]

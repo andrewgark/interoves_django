@@ -611,6 +611,10 @@ CORPORATE_ORDER_EMAIL = (os.environ.get('CORPORATE_ORDER_EMAIL') or 'andrewgarka
 DEFAULT_FROM_EMAIL = (os.environ.get('DEFAULT_FROM_EMAIL') or 'noreply@interoves.com').strip()
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
+SITE_BASE_URL = (os.environ.get('SITE_BASE_URL') or 'https://interoves.com').strip().rstrip('/')
+TELEGRAM_BOT_TOKEN = load_secret('telegram_bot_token.txt', env_var='TELEGRAM_BOT_TOKEN', default='')
+TELEGRAM_NOTIFY_CHAT_ID = load_secret('telegram_notify_chat_id.txt', env_var='TELEGRAM_NOTIFY_CHAT_ID', default='')
+
 if IS_PROD:
     EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
     EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')

@@ -1,6 +1,7 @@
 {% load filters %}
 {% with ai=attempts_info_by_task_id|get_item:task.id %}
 <div class="new-taskcard" id="new-task-{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}">
+  <button type="button" class="new-taskcard__bug-btn" data-bug-report-open data-task-id="{{ task.id }}" data-task-number="{{ task.number }}" aria-label="Сообщить о проблеме в задании {{ task.number }}" title="Сообщить о проблеме">🐞</button>
   {% if task.task_type == 'replacements_lines' %}
     {% with rld=replacements_lines_data|get_item:task.id %}
       {% if rld %}
