@@ -1,10 +1,12 @@
 from unittest.mock import patch
 
+from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from games.models import BugReport, Game, HTMLPage, Project, Registration, Task, TaskGroup, Team, TicketRequest
+from games.models import Attempt, BugReport, Game, HTMLPage, Project, Registration, Task, TaskGroup, Team, TicketRequest
 from games.telegram.admin_commands import handle_admin_command, registration_milestone_reached
+from games.telegram.digest import build_daily_digest, collect_daily_digest_stats
 from games.telegram.announcements import (
     format_game_end_announcement,
     format_game_end_soon_announcement,
@@ -179,3 +181,46 @@ class TelegramCommandTests(TestCase):
     def test_unknown_command(self):
         text = handle_admin_command('/nope')
         self.assertIn('Неизвестная', text)
+
+
+class TelegramDigestTests(TestCase):
+    def setUp(self):
+        _ensure_reference_rows()
+        self.game_a = Game.objects.create(id='digest_a', name='Digest A', author='a')
+        self.game_b = Game.objects.create(id='digest_b', name='Digest B', author='a')
+        self.task_group = TaskGroup.objects.create(label='digest tg')
+        self.task = Task.objects.create(task_group=self.task_group, number='1', text='task')
+        self.team = Team.objects.create(name='digest_team', visible_name='Digest Team')
+        self.user = User.objects.create_user(username='digest_user', password='x')
+        self.user2 = User.objects.create_user(username='digest_user2', password='x')
+
+    def test_digest_counts_attempts_and_top_games(self):
+        now = timezone.now()
+        Attempt.manager.create(
+            game=self.game_a, task=self.task, team=self.team, user=self.user,
+            text='a', status='Ok', time=now,
+        )
+        Attempt.manager.create(
+            game=self.game_a, task=self.task, team=self.team, user=self.user2,
+            text='b', status='Wrong', time=now,
+        )
+        Attempt.manager.create(
+            game=self.game_b, task=self.task, team=self.team, user=self.user,
+            text='c', status='Ok', time=now,
+        )
+
+        stats = collect_daily_digest_stats(since=now - timezone.timedelta(hours=1))
+        self.assertEqual(stats['attempts_total'], 3)
+        self.assertEqual(stats['active_users'], 2)
+        self.assertEqual(stats['top_games_attempts'][0]['game_id'], 'digest_a')
+        self.assertEqual(stats['top_games_attempts'][0]['attempts'], 2)
+
+        text = build_daily_digest(since=now - timezone.timedelta(hours=1))
+        self.assertIn('Посылки', text)
+        self.assertIn('Digest A', text)
+        self.assertIn('2 пользов.', text)
+
+    def test_digest_command(self):
+        text = handle_admin_command('/digest')
+        self.assertIn('Дайджест', text)
+        self.assertIn('Посылки', text)
