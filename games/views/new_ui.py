@@ -2484,6 +2484,7 @@ def _team_ticket_requests_page(request, team, *, page_param='tr_page', per_page=
         'ticket_requests_page_size': per_page,
         'ticket_requests_total': 0,
         'ticket_requests_page_param': page_param,
+        'ticket_requests_open': False,
     }
     if not team:
         return empty
@@ -2506,7 +2507,25 @@ def _team_ticket_requests_page(request, team, *, page_param='tr_page', per_page=
         'ticket_requests_page_size': per_page,
         'ticket_requests_total': paginator.count,
         'ticket_requests_page_param': page_param,
+        'ticket_requests_open': bool(request.GET.get(page_param)),
     }
+
+
+def _team_ticket_requests_ajax_response(request, team):
+    """Partial HTML for ticket-request history pagination (no full page reload)."""
+    ctx = _team_ticket_requests_page(request, team)
+    if not ctx.get('ticket_requests_page'):
+        return JsonResponse({'html': ''})
+    html = render(request, 'ui/team_ticket_requests.html', ctx).content.decode('utf-8')
+    page_obj = ctx['ticket_requests_page']
+    return JsonResponse({
+        'html': html,
+        'page': page_obj.number,
+        'has_previous': page_obj.has_previous(),
+        'has_next': page_obj.has_next(),
+        'num_pages': ctx['ticket_requests_paginator'].num_pages,
+        'total': ctx['ticket_requests_total'],
+    })
 
 
 def _new_team_ui_context(request):
@@ -2547,10 +2566,14 @@ def new_team(request, project_id=None):
         if scoped:
             return redirect('project_hub', project_id=scoped)
         return redirect('new_hub')
+    team = request.user.profile.team_on
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' and request.GET.get('tr_page'):
+        if not team:
+            return JsonResponse({'html': ''})
+        return _team_ticket_requests_ajax_response(request, team)
     ctx = _new_team_ui_context(request)
     ctx['team_section'] = 'hub'
     ctx['page_title'] = 'Команда'
-    team = request.user.profile.team_on
     if team:
         ctx.update(_team_ticket_requests_page(request, team))
     return render(request, 'ui/team.html', ctx)

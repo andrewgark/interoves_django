@@ -1,0 +1,24 @@
+<ul class="new-list" id="team-ticket-requests-list">
+{% for ticket_request in ticket_requests_page %}
+  <li>{{ ticket_request }}</li>
+{% endfor %}
+</ul>
+{% if ticket_requests_is_paginated %}
+<div class="new-card__text" id="team-ticket-requests-pager" style="margin:0.75rem 0 0; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap">
+  <span class="new-login-hint" style="margin:0">
+    {{ ticket_requests_page.start_index }}–{{ ticket_requests_page.end_index }} из {{ ticket_requests_total }}
+    · стр. {{ ticket_requests_page.number }}/{{ ticket_requests_paginator.num_pages }}
+  </span>
+  <span style="flex:1 1 auto"></span>
+  {% if ticket_requests_page.has_previous %}
+    <a class="new-btn new-btn--ghost new-btn--mini" href="{{ ticket_requests_page_qs_prefix }}{{ ticket_requests_page_param }}={{ ticket_requests_page.previous_page_number }}" data-tr-page="{{ ticket_requests_page.previous_page_number }}">←</a>
+  {% else %}
+    <span class="new-btn new-btn--ghost new-btn--mini" style="pointer-events:none; opacity:.5">←</span>
+  {% endif %}
+  {% if ticket_requests_page.has_next %}
+    <a class="new-btn new-btn--ghost new-btn--mini" href="{{ ticket_requests_page_qs_prefix }}{{ ticket_requests_page_param }}={{ ticket_requests_page.next_page_number }}" data-tr-page="{{ ticket_requests_page.next_page_number }}">→</a>
+  {% else %}
+    <span class="new-btn new-btn--ghost new-btn--mini" style="pointer-events:none; opacity:.5">→</span>
+  {% endif %}
+</div>
+{% endif %}

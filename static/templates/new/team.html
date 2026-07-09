@@ -54,32 +54,11 @@
       </form>
       {% if project.is_main %}
         {% if ticket_requests_total %}
-        <details style="margin:1rem 0"{% if ticket_requests_page.number > 1 %} open{% endif %}>
+        <details id="team-ticket-requests" style="margin:1rem 0"{% if ticket_requests_open %} open{% endif %}>
           <summary style="cursor:pointer;color:var(--muted)">История запросов билетов</summary>
-          <ul class="new-list">
-          {% for ticket_request in ticket_requests_page %}
-            <li>{{ ticket_request }}</li>
-          {% endfor %}
-          </ul>
-          {% if ticket_requests_is_paginated %}
-          <div class="new-card__text" style="margin:0.75rem 0 0; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap">
-            <span class="new-login-hint" style="margin:0">
-              {{ ticket_requests_page.start_index }}–{{ ticket_requests_page.end_index }} из {{ ticket_requests_total }}
-              · стр. {{ ticket_requests_page.number }}/{{ ticket_requests_paginator.num_pages }}
-            </span>
-            <span style="flex:1 1 auto"></span>
-            {% if ticket_requests_page.has_previous %}
-              <a class="new-btn new-btn--ghost new-btn--mini" href="{{ ticket_requests_page_qs_prefix }}{{ ticket_requests_page_param }}={{ ticket_requests_page.previous_page_number }}">←</a>
-            {% else %}
-              <span class="new-btn new-btn--ghost new-btn--mini" style="pointer-events:none; opacity:.5">←</span>
-            {% endif %}
-            {% if ticket_requests_page.has_next %}
-              <a class="new-btn new-btn--ghost new-btn--mini" href="{{ ticket_requests_page_qs_prefix }}{{ ticket_requests_page_param }}={{ ticket_requests_page.next_page_number }}">→</a>
-            {% else %}
-              <span class="new-btn new-btn--ghost new-btn--mini" style="pointer-events:none; opacity:.5">→</span>
-            {% endif %}
+          <div id="team-ticket-requests-body">
+          {% include "new/team_ticket_requests.html" %}
           </div>
-          {% endif %}
         </details>
         {% endif %}
         <p>Билеты: {{ user.profile.team_on.tickets }}</p>
@@ -537,6 +516,53 @@
       }
     });
   }
+
+  (function () {
+    var details = document.getElementById('team-ticket-requests');
+    var body = document.getElementById('team-ticket-requests-body');
+    if (!details || !body) return;
+
+    function trPageParam() {
+      return '{{ ticket_requests_page_param|default:"tr_page" }}';
+    }
+
+    function updateUrl(page) {
+      var url = new URL(window.location.href);
+      if (page <= 1) {
+        url.searchParams.delete(trPageParam());
+      } else {
+        url.searchParams.set(trPageParam(), String(page));
+      }
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    }
+
+    function bindPager() {
+      body.querySelectorAll('[data-tr-page]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+          e.preventDefault();
+          var page = parseInt(link.getAttribute('data-tr-page'), 10);
+          if (!page || page < 1) return;
+          if (!details.open) details.open = true;
+          var url = new URL(window.location.href);
+          url.searchParams.set(trPageParam(), String(page));
+          fetch(url.pathname + url.search, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (!data || !data.html) return;
+              body.innerHTML = data.html;
+              updateUrl(data.page || page);
+              bindPager();
+            })
+            .catch(function () {});
+        });
+      });
+    }
+
+    bindPager();
+  })();
 {% endif %}
 
 {% if team_primary_modal %}
