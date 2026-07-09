@@ -2825,10 +2825,23 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   text-align: center;
 }
 .new-raddle-clues {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+.new-raddle-clues__section {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.75rem 0.85rem;
   background: var(--surface);
+}
+.new-raddle-clues__section--used {
+  background: color-mix(in srgb, var(--muted) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--muted) 28%, var(--border));
 }
 .new-raddle-clues__subtitle {
   margin: 0.85rem 0 0.45rem;
@@ -2836,13 +2849,12 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   font-weight: 600;
   color: var(--muted);
 }
-.new-raddle-clues__divider {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 0.75rem 0 0;
+.new-raddle-clues__section > .new-raddle-clues__subtitle:first-child {
+  margin-top: 0;
 }
-.new-raddle-clues__divider + .new-raddle-clues__subtitle {
-  margin-top: 0.55rem;
+.new-raddle-clues__section--used > .new-raddle-clues__subtitle {
+  color: var(--text);
+  opacity: 0.72;
 }
 .new-raddle-clues__list {
   list-style: none;
