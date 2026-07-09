@@ -611,9 +611,35 @@ CORPORATE_ORDER_EMAIL = (os.environ.get('CORPORATE_ORDER_EMAIL') or 'andrewgarka
 DEFAULT_FROM_EMAIL = (os.environ.get('DEFAULT_FROM_EMAIL') or 'noreply@interoves.com').strip()
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
+def _load_telegram_admin_chat_id() -> str:
+    for env_var in ('TELEGRAM_ADMIN_CHAT_ID', 'TELEGRAM_NOTIFY_CHAT_ID'):
+        value = (os.environ.get(env_var) or '').strip()
+        if value:
+            return value
+    for filename in ('telegram_admin_chat_id.txt', 'telegram_notify_chat_id.txt'):
+        try:
+            return load_secret(filename)
+        except FileNotFoundError:
+            continue
+    return ''
+
+
+def _load_telegram_announce_chat_ids() -> list[str]:
+    raw = (os.environ.get('TELEGRAM_ANNOUNCE_CHAT_IDS') or '').strip()
+    if not raw:
+        try:
+            raw = load_secret('telegram_announce_chat_ids.txt', default='')
+        except FileNotFoundError:
+            raw = ''
+    return [part.strip() for part in raw.replace('\n', ',').split(',') if part.strip()]
+
+
 SITE_BASE_URL = (os.environ.get('SITE_BASE_URL') or 'https://interoves.com').strip().rstrip('/')
 TELEGRAM_BOT_TOKEN = load_secret('telegram_bot_token.txt', env_var='TELEGRAM_BOT_TOKEN', default='')
-TELEGRAM_NOTIFY_CHAT_ID = load_secret('telegram_notify_chat_id.txt', env_var='TELEGRAM_NOTIFY_CHAT_ID', default='')
+TELEGRAM_ADMIN_CHAT_ID = _load_telegram_admin_chat_id()
+TELEGRAM_NOTIFY_CHAT_ID = TELEGRAM_ADMIN_CHAT_ID
+TELEGRAM_ANNOUNCE_CHAT_IDS = _load_telegram_announce_chat_ids()
+TELEGRAM_WEBHOOK_SECRET = load_secret('telegram_webhook_secret.txt', env_var='TELEGRAM_WEBHOOK_SECRET', default='')
 
 if IS_PROD:
     EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')

@@ -93,12 +93,12 @@ def yookassa_webhook(request):
     if not ticket_request_id:
         return HttpResponse(status=200)
 
+    notify_event = None
     with transaction.atomic():
         ticket_request = TicketRequest.objects.select_for_update().filter(id=ticket_request_id).first()
         if not ticket_request:
             return HttpResponse(status=200)
 
-        # Store payment id for debugging / reconciliation
         if not ticket_request.yookassa_id:
             ticket_request.yookassa_id = payment_id
 
@@ -106,17 +106,21 @@ def yookassa_webhook(request):
             if ticket_request.status == 'Pending':
                 ticket_request.status = 'Rejected'
                 ticket_request.save()
-            return HttpResponse(status=200)
+                notify_event = event
+        elif ticket_request.status != 'Accepted':
+            ticket_request.status = 'Accepted'
+            ticket_request.save()
+            if ticket_request.team_id:
+                team = ticket_request.team
+                team.tickets = (team.tickets or 0) + int(ticket_request.tickets or 0)
+                team.save(update_fields=['tickets'])
+            notify_event = event
 
-        # payment.succeeded
-        if ticket_request.status == 'Accepted':
-            return HttpResponse(status=200)
+    if notify_event:
+        from games.telegram.notify import notify_payment_event
 
-        ticket_request.status = 'Accepted'
-        ticket_request.save()
-        if ticket_request.team_id:
-            team = ticket_request.team
-            team.tickets = (team.tickets or 0) + int(ticket_request.tickets or 0)
-            team.save(update_fields=['tickets'])
+        ticket_request = TicketRequest.objects.filter(id=ticket_request_id).first()
+        if ticket_request is not None:
+            transaction.on_commit(lambda tr=ticket_request, ev=notify_event: notify_payment_event(tr, ev))
 
     return HttpResponse(status=200)

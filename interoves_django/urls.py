@@ -24,6 +24,7 @@ from microsites import views as microsites_views
 from games.views.meta_http import deploy_version
 from games.views.ticket import yookassa_webhook
 from games.views.order_game_landing import order_game_landing
+from games.telegram.urls import urlpatterns as telegram_urlpatterns
 
 nutrimatic_patterns = [
     path("", microsites_views.nutrimatic_search, name="nutrimatic_home"),
@@ -82,6 +83,7 @@ urlpatterns = [
     path('corporate/', RedirectView.as_view(url='/order-game/', permanent=True), name='corporate_landing'),
 
     path('yookassa/webhook/', yookassa_webhook, name='yookassa_webhook'),
+    path('telegram/', include(telegram_urlpatterns)),
     path('health/', include('health_check.urls')),
     path('meta/deploy-version/', deploy_version, name='deploy_version'),
 

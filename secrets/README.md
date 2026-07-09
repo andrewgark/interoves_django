@@ -79,18 +79,24 @@ SSO users still run `aws sso login` when the refresh token expires; after that, 
 
 Full matrix (RDS vs Redis, `eb_run` vs `with_rds`, Cursor permissions): **[`agents/aws-eb.md`](../agents/aws-eb.md)** → **Agent playbook**.
 
-## Telegram admin notifications
+## Telegram bot (admin + announce chats)
 
-Copy `secrets/telegram.env.example` and follow the steps inside. Minimum:
+Copy `secrets/telegram.env.example` and follow the steps inside. Minimum for **admin mode**:
 
 1. Create a bot via `@BotFather`, save token to `secrets/telegram_bot_token.txt` (or `TELEGRAM_BOT_TOKEN` on EB).
 2. Send `/start` to the bot from your personal Telegram account.
 3. `../venv/interoves_django/bin/python manage.py telegram_notify_chat_id` — copy your `chat_id`.
-4. Save it to `secrets/telegram_notify_chat_id.txt` (or `TELEGRAM_NOTIFY_CHAT_ID` on EB).
-5. `../venv/interoves_django/bin/python manage.py telegram_notify_test`
+4. Save it to `secrets/telegram_notify_chat_id.txt` (or `TELEGRAM_ADMIN_CHAT_ID` on EB).
+5. `../venv/interoves_django/bin/python manage.py telegram_notify_test --admin-only`
+6. Set `secrets/telegram_webhook_secret.txt`, then `manage.py telegram_set_webhook`.
+
+**Chat mode** (group «Десяточек, посылка»): add the bot to the group, run step 3 again, put the group `chat_id` into `secrets/telegram_announce_chat_ids.txt`. Enable per game: `tags.telegram_announce = true` in Django admin.
+
+Scheduled jobs: `telegram_game_announcements` (every minute), `telegram_daily_digest` (daily).
 
 On prod after deploy:
 
 ```bash
-eb setenv TELEGRAM_BOT_TOKEN='...' TELEGRAM_NOTIFY_CHAT_ID='...'
+eb setenv TELEGRAM_BOT_TOKEN='...' TELEGRAM_ADMIN_CHAT_ID='...' \
+  TELEGRAM_ANNOUNCE_CHAT_IDS='-100...' TELEGRAM_WEBHOOK_SECRET='...'
 ```

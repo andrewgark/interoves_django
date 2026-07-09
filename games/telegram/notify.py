@@ -1,36 +1,29 @@
 import html
 import logging
 from typing import Iterable
-from urllib.parse import urljoin
 
-import requests
 from django.conf import settings
 
 from games.models import BugReport, CorporateGameOrder, TicketRequest
+from games.telegram.api import send_message
+from games.telegram.config import (
+    admin_chat_id,
+    admin_is_muted,
+    announce_chat_ids,
+    telegram_admin_configured,
+    telegram_bot_configured,
+)
+from games.telegram.game_urls import admin_url, game_site_url
 
 logger = logging.getLogger('application')
 
-TELEGRAM_API_TIMEOUT = 10
-
 CONTACT_METHOD_LABELS = dict(CorporateGameOrder.ContactMethod.choices)
 
-
-def _contact_method_label(order: CorporateGameOrder) -> str:
-    if order.contact_method == CorporateGameOrder.ContactMethod.OTHER and order.contact_other_label:
-        return 'Другое ({})'.format(order.contact_other_label)
-    return CONTACT_METHOD_LABELS.get(order.contact_method, order.contact_method)
+REGISTRATION_MILESTONES = (10, 25, 50, 100, 150, 200)
 
 
 def telegram_notify_configured() -> bool:
-    return bool(settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_NOTIFY_CHAT_ID)
-
-
-def _site_base_url() -> str:
-    return getattr(settings, 'SITE_BASE_URL', 'https://interoves.com').rstrip('/')
-
-
-def _admin_url(path: str) -> str:
-    return urljoin(_site_base_url() + '/', path.lstrip('/'))
+    return telegram_admin_configured()
 
 
 def _escape(text) -> str:
@@ -43,29 +36,43 @@ def _join_lines(lines: Iterable[str]) -> str:
     return '\n'.join(line for line in lines if line is not None)
 
 
-def send_telegram_message(text: str) -> bool:
-    if not telegram_notify_configured():
-        logger.debug('Telegram notify skipped: TELEGRAM_BOT_TOKEN or TELEGRAM_NOTIFY_CHAT_ID is empty')
+def send_admin_message(text: str, *, reply_markup: dict | None = None, force: bool = False) -> bool:
+    if not telegram_admin_configured():
+        logger.debug('Telegram admin notify skipped: bot token or admin chat id is empty')
         return False
+    if not force and admin_is_muted():
+        logger.debug('Telegram admin notify skipped: muted')
+        return False
+    return send_message(admin_chat_id(), text, reply_markup=reply_markup)
 
-    url = 'https://api.telegram.org/bot{}/sendMessage'.format(settings.TELEGRAM_BOT_TOKEN)
-    payload = {
-        'chat_id': settings.TELEGRAM_NOTIFY_CHAT_ID,
-        'text': text,
-        'parse_mode': 'HTML',
-        'disable_web_page_preview': True,
-    }
-    try:
-        response = requests.post(url, json=payload, timeout=TELEGRAM_API_TIMEOUT)
-        response.raise_for_status()
-        body = response.json()
-        if not body.get('ok'):
-            logger.error('Telegram API error: %s', body)
-            return False
-        return True
-    except Exception:
-        logger.exception('Failed to send Telegram notification')
+
+def send_announce_message(text: str, *, reply_markup: dict | None = None) -> bool:
+    if not telegram_bot_configured():
         return False
+    chat_ids = announce_chat_ids()
+    if not chat_ids:
+        logger.debug('Telegram announce skipped: TELEGRAM_ANNOUNCE_CHAT_IDS is empty')
+        return False
+    ok = False
+    for chat_id in chat_ids:
+        if send_message(chat_id, text, reply_markup=reply_markup):
+            ok = True
+    return ok
+
+
+def send_telegram_message(text: str) -> bool:
+    """Backward-compatible alias for admin notifications."""
+    return send_admin_message(text)
+
+
+def _admin_link(path: str) -> str:
+    return admin_url(path)
+
+
+def _contact_method_label(order: CorporateGameOrder) -> str:
+    if order.contact_method == CorporateGameOrder.ContactMethod.OTHER and order.contact_other_label:
+        return 'Другое ({})'.format(order.contact_other_label)
+    return CONTACT_METHOD_LABELS.get(order.contact_method, order.contact_method)
 
 
 def _bug_report_reporter(report: BugReport) -> str:
@@ -85,16 +92,31 @@ def _bug_report_reporter(report: BugReport) -> str:
     return 'неизвестно'
 
 
+def bug_report_keyboard(report_id: int) -> dict:
+    return {
+        'inline_keyboard': [[
+            {'text': 'Reviewed', 'callback_data': 'bug:reviewed:{}'.format(report_id)},
+            {'text': 'Dismiss', 'callback_data': 'bug:dismiss:{}'.format(report_id)},
+        ]],
+    }
+
+
+def ticket_request_keyboard(ticket_id: int) -> dict:
+    return {
+        'inline_keyboard': [[
+            {'text': 'Accept', 'callback_data': 'ticket:accept:{}'.format(ticket_id)},
+            {'text': 'Reject', 'callback_data': 'ticket:reject:{}'.format(ticket_id)},
+        ]],
+    }
+
+
 def format_bug_report_message(report: BugReport) -> str:
     task = report.task
     game = report.game
     task_label = getattr(task, 'number', None) or task.pk
     game_label = getattr(game, 'name', None) or game.pk
-    text_excerpt = _escape(report.text.replace('\n', ' ')[:500])
-    if len(report.text) > 500:
-        text_excerpt += '…'
-    admin_link = _admin_url('/admin/games/bugreport/{}/change/'.format(report.pk))
-    queue_link = _admin_url('/admin/games/pendingbugreport/')
+    admin_link = _admin_link('/admin/games/bugreport/{}/change/'.format(report.pk))
+    queue_link = _admin_link('/admin/games/pendingbugreport/')
     return _join_lines([
         '🐞 <b>Новый репорт о баге</b>',
         '',
@@ -104,7 +126,7 @@ def format_bug_report_message(report: BugReport) -> str:
         '',
         _escape(report.text[:3500]),
         '',
-        '<a href="{}">Открыть в админке</a> · <a href="{}">Очередь</a>'.format(admin_link, queue_link),
+        '<a href="{}">Админка</a> · <a href="{}">Очередь</a>'.format(admin_link, queue_link),
     ])
 
 
@@ -113,8 +135,8 @@ def format_ticket_request_message(ticket_request: TicketRequest) -> str:
     team_label = '—'
     if team is not None:
         team_label = getattr(team, 'visible_name', None) or getattr(team, 'name', None) or str(team.pk)
-    admin_link = _admin_url('/admin/games/ticketrequest/{}/change/'.format(ticket_request.pk))
-    queue_link = _admin_url('/admin/games/pendingticketrequest/')
+    admin_link = _admin_link('/admin/games/ticketrequest/{}/change/'.format(ticket_request.pk))
+    queue_link = _admin_link('/admin/games/pendingticketrequest/')
     return _join_lines([
         '🎫 <b>Новая заявка на билеты</b>',
         '',
@@ -123,13 +145,13 @@ def format_ticket_request_message(ticket_request: TicketRequest) -> str:
         'Сумма: {} ₽'.format(ticket_request.money),
         'Статус: {}'.format(_escape(ticket_request.status)),
         '',
-        '<a href="{}">Открыть в админке</a> · <a href="{}">Очередь</a>'.format(admin_link, queue_link),
+        '<a href="{}">Админка</a> · <a href="{}">Очередь</a>'.format(admin_link, queue_link),
     ])
 
 
 def format_corporate_order_message(order: CorporateGameOrder) -> str:
-    admin_link = _admin_url('/admin/games/corporategameorder/{}/change/'.format(order.pk))
-    queue_link = _admin_url('/admin/games/corporategameorder/')
+    admin_link = _admin_link('/admin/games/corporategameorder/{}/change/'.format(order.pk))
+    queue_link = _admin_link('/admin/games/corporategameorder/')
     lines = [
         '🏢 <b>Новая заявка на корпоративную игру</b>',
         '',
@@ -146,29 +168,101 @@ def format_corporate_order_message(order: CorporateGameOrder) -> str:
         lines.extend(['', _escape(order.message[:3500])])
     lines.extend([
         '',
-        '<a href="{}">Открыть в админке</a> · <a href="{}">Все заявки</a>'.format(admin_link, queue_link),
+        '<a href="{}">Админка</a> · <a href="{}">Все заявки</a>'.format(admin_link, queue_link),
     ])
     return _join_lines(lines)
 
 
+def format_payment_message(ticket_request: TicketRequest, event: str) -> str:
+    team = ticket_request.team
+    team_label = '—'
+    if team is not None:
+        team_label = getattr(team, 'visible_name', None) or getattr(team, 'name', None) or str(team.pk)
+    if event == 'payment.succeeded':
+        title = '✅ <b>Оплата билетов прошла</b>'
+    else:
+        title = '❌ <b>Оплата билетов отменена</b>'
+    admin_link = _admin_link('/admin/games/ticketrequest/{}/change/'.format(ticket_request.pk))
+    return _join_lines([
+        title,
+        '',
+        'Команда: {}'.format(_escape(team_label)),
+        'Билетов: {}'.format(ticket_request.tickets),
+        'Сумма: {} ₽'.format(ticket_request.money),
+        'Статус: {}'.format(_escape(ticket_request.status)),
+        '',
+        '<a href="{}">Открыть в админке</a>'.format(admin_link),
+    ])
+
+
+def format_admin_game_lifecycle_message(game, event: str) -> str:
+    from django.utils import timezone
+
+    name = _escape(game.get_no_html_name())
+    start = timezone.localtime(game.get_visible_start_time()).strftime('%d.%m.%Y %H:%M')
+    end = timezone.localtime(game.get_visible_end_time()).strftime('%d.%m.%Y %H:%M')
+    site = game_site_url(game)
+    admin_game = _admin_link('/admin/games/game/{}/change/'.format(game.id))
+
+    if event == 'start_soon':
+        title = '⏰ <b>Через час начинается игра</b>'
+    elif event == 'started':
+        title = '🟢 <b>Игра началась</b>'
+    elif event == 'ended':
+        title = '🔴 <b>Игра завершилась</b>'
+    else:
+        title = 'ℹ️ <b>Игра: {}</b>'.format(_escape(event))
+
+    return _join_lines([
+        title,
+        '',
+        '«{}»'.format(name),
+        'Старт: {}'.format(start),
+        'Конец: {}'.format(end),
+        '',
+        '<a href="{}">Сайт</a> · <a href="{}">Админка</a>'.format(_escape(site), admin_game),
+    ])
+
+
+def format_admin_registration_milestone_message(game, count: int) -> str:
+    return _join_lines([
+        '📈 <b>Регистрации на игру</b>',
+        '',
+        '«{}»: <b>{}</b> команд'.format(_escape(game.get_no_html_name()), count),
+        '<a href="{}">Админка</a>'.format(_admin_link('/admin/games/game/{}/change/'.format(game.id))),
+    ])
+
+
 def notify_new_bug_report(report: BugReport) -> bool:
-    return send_telegram_message(format_bug_report_message(report))
+    return send_admin_message(
+        format_bug_report_message(report),
+        reply_markup=bug_report_keyboard(report.pk),
+    )
 
 
 def notify_new_ticket_request(ticket_request: TicketRequest) -> bool:
-    return send_telegram_message(format_ticket_request_message(ticket_request))
+    return send_admin_message(
+        format_ticket_request_message(ticket_request),
+        reply_markup=ticket_request_keyboard(ticket_request.pk),
+    )
 
 
 def notify_new_corporate_order(order: CorporateGameOrder) -> bool:
-    return send_telegram_message(format_corporate_order_message(order))
+    return send_admin_message(format_corporate_order_message(order))
+
+
+def notify_payment_event(ticket_request: TicketRequest, event: str) -> bool:
+    return send_admin_message(format_payment_message(ticket_request, event))
 
 
 def fetch_recent_telegram_chat_ids() -> list[dict]:
+    import requests
+
     if not settings.TELEGRAM_BOT_TOKEN:
         raise ValueError('TELEGRAM_BOT_TOKEN is not configured')
 
     url = 'https://api.telegram.org/bot{}/getUpdates'.format(settings.TELEGRAM_BOT_TOKEN)
-    response = requests.get(url, timeout=TELEGRAM_API_TIMEOUT)
+    response = requests.get(url, timeout=10)
     response.raise_for_status()
     body = response.json()
     if not body.get('ok'):
