@@ -289,12 +289,15 @@ def process_send_attempt(request, task_id):
         'task_id': task.id,
     }
     if task.task_type == 'raddle':
-        try:
-            st = json.loads(attempt.state or '{}')
-            result['raddle_correct'] = word_index in set(st.get('solved_indices') or [])
-        except (ValueError, TypeError):
-            result['raddle_correct'] = False
+        result['raddle_correct'] = attempt.status in ('Partial', 'Ok')
         result['raddle_word_index'] = word_index
+        if not result['raddle_correct']:
+            try:
+                st = json.loads(attempt.state or '{}')
+                if word_index in set(st.get('solved_indices') or []):
+                    result['raddle_needs_sync'] = True
+            except (ValueError, TypeError):
+                pass
     update_html = update_task_html(
         request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
     )
@@ -305,11 +308,41 @@ def process_send_attempt(request, task_id):
     return result
 
 
+def _raddle_duplicate_sync_html(request, task_id):
+    """Свежее HTML задания при duplicate: первая посылка могла сохраниться при лаге сети."""
+    task = get_public_task_or_404(task_id)
+    if task.task_type != 'raddle':
+        return {}
+    game = game_from_request_for_task(request, task)
+    if game is None:
+        return {}
+    play_mode = _get_play_mode(request, game)
+    team = user = anon_key = None
+    if play_mode == 'team':
+        if not request.user.is_authenticated or not has_team(request.user):
+            return {}
+        team = request.user.profile.team_on
+    else:
+        if request.user.is_authenticated:
+            if not has_profile(request.user):
+                return {}
+            user = request.user
+        else:
+            anon_key = request.POST.get('anon_key') or request.headers.get('X-Interoves-Anon')
+            if not anon_key:
+                return {}
+    current_mode = game.get_current_mode(Attempt(time=timezone.now()))
+    return update_task_html(
+        request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+    )
+
+
 def send_attempt(request, task_id):
     try:
         response = process_send_attempt(request, task_id)
     except DuplicateAttemptException:
         response = {'status': 'duplicate'}
+        response.update(_raddle_duplicate_sync_html(request, task_id))
     except TooManyAttemptsException:
         response = {'status': 'attempt_limit_exceeded'}
     except InvalidFormException:

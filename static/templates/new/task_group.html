@@ -1148,12 +1148,80 @@
   }
 
   // Авто-режим (не турнир): нет кнопки, ответ уходит когда набрано нужное число символов.
+  function setRaddleInputBusy(input, busy) {
+    if (!input) return;
+    if (busy) {
+      input.setAttribute('data-raddle-busy', '1');
+      input.setAttribute('aria-busy', 'true');
+    } else {
+      input.removeAttribute('data-raddle-busy');
+      input.removeAttribute('aria-busy');
+    }
+  }
+
+  function applyRaddleAttemptResponse(form, input, row, data, wordIdx) {
+    var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
+    if (!data || !data.status) {
+      if (msg) { msg.style.display = 'block'; msg.textContent = 'Ошибка ответа.'; }
+      return;
+    }
+    if (data.status === 'ok' && data.raddle_correct) {
+      var refRole = row ? (row.getAttribute('data-ref-role') || 'prev') : 'prev';
+      var solvedIdx = (data.raddle_word_index !== undefined && data.raddle_word_index !== null)
+        ? data.raddle_word_index : wordIdx;
+      if (input) delete input.dataset.raddleLast;
+      if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+        applyNewUiTaskHtml(data.update_task_html_new);
+        focusRaddleNext(form.getAttribute('data-task-id'), solvedIdx, refRole);
+        return;
+      }
+      window.location.reload();
+      return;
+    }
+    if (data.status === 'ok' && data.raddle_needs_sync) {
+      if (input) delete input.dataset.raddleLast;
+      if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+        applyNewUiTaskHtml(data.update_task_html_new);
+        var syncIdx = (data.raddle_word_index !== undefined && data.raddle_word_index !== null)
+          ? data.raddle_word_index : wordIdx;
+        var syncRole = row ? (row.getAttribute('data-ref-role') || 'prev') : 'prev';
+        focusRaddleNext(form.getAttribute('data-task-id'), syncIdx, syncRole);
+        if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
+        return;
+      }
+      window.location.reload();
+      return;
+    }
+    if (data.status === 'duplicate') {
+      if (input) delete input.dataset.raddleLast;
+      if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+        applyNewUiTaskHtml(data.update_task_html_new);
+        var dupIdx = (data.raddle_word_index !== undefined && data.raddle_word_index !== null)
+          ? data.raddle_word_index : wordIdx;
+        var dupRole = row ? (row.getAttribute('data-ref-role') || 'prev') : 'prev';
+        focusRaddleNext(form.getAttribute('data-task-id'), dupIdx, dupRole);
+        if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
+        return;
+      }
+      markRaddleWrong(row, input);
+      if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
+      return;
+    }
+    // Неверно (ok без raddle_correct) — показываем красным, поле не трогаем.
+    if (data.status === 'ok') {
+      markRaddleWrong(row, input);
+      if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
+      return;
+    }
+    if (msg) { msg.style.display = 'block'; msg.textContent = raddleStatusText(data.status); }
+  }
+
   function postRaddleAutoForm(form, input) {
-    if (!form || (form.dataset && form.dataset.submitting === '1')) return;
+    if (!form || (form.dataset && form.dataset.submitting === '1')) return false;
     if (form.dataset) form.dataset.submitting = '1';
+    setRaddleInputBusy(input, true);
     var row = input ? input.closest('.new-raddle-row') : null;
     var wordIdx = form.getAttribute('data-word-index');
-    var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
     fetch(form.action, {
       method: 'POST',
       headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -1163,53 +1231,37 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (form.dataset) form.dataset.submitting = '0';
-        if (!data || !data.status) {
-          if (msg) { msg.style.display = 'block'; msg.textContent = 'Ошибка ответа.'; }
-          return;
-        }
-        if (data.status === 'ok' && data.raddle_correct) {
-          var refRole = row ? (row.getAttribute('data-ref-role') || 'prev') : 'prev';
-          var solvedIdx = (data.raddle_word_index !== undefined && data.raddle_word_index !== null)
-            ? data.raddle_word_index : wordIdx;
-          if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-            applyNewUiTaskHtml(data.update_task_html_new);
-            focusRaddleNext(form.getAttribute('data-task-id'), solvedIdx, refRole);
-            return;
-          }
-          window.location.reload();
-          return;
-        }
-        // Неверно (ok без raddle_correct) или duplicate — показываем красным, поле не трогаем.
-        if (data.status === 'ok' || data.status === 'duplicate') {
-          markRaddleWrong(row, input);
-          if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
-          return;
-        }
-        if (msg) { msg.style.display = 'block'; msg.textContent = raddleStatusText(data.status); }
+        setRaddleInputBusy(input, false);
+        applyRaddleAttemptResponse(form, input, row, data, wordIdx);
       })
       .catch(function () {
         if (form.dataset) form.dataset.submitting = '0';
+        setRaddleInputBusy(input, false);
+        if (input) delete input.dataset.raddleLast;
+        var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
         if (msg) { msg.style.display = 'block'; msg.textContent = 'Ошибка сети.'; }
       });
+    return true;
   }
 
   function submitRaddleAuto(input, val) {
-    if (!input) return;
+    if (!input || input.getAttribute('data-raddle-busy') === '1') return;
     if (input.dataset.raddleLast === val) return;
     var formId = input.getAttribute('form');
     var form = formId ? document.getElementById(formId) : null;
     if (!form) return;
+    if (!postRaddleAutoForm(form, input)) return;
     input.dataset.raddleLast = val;
-    postRaddleAutoForm(form, input);
   }
 
   function raddleAutoInput(input) {
     var row = input.closest('.new-raddle-row');
     var target = parseInt(input.getAttribute('maxlength') || '0', 10);
     var val = String(input.value || '').trim();
-    // Число букв ушло от правильного — снимаем «неверно».
+    // Число букв ушло от правильного — снимаем «неверно» и разрешаем повторную отправку.
     if (!target || val.length !== target) {
       clearRaddleWrong(row);
+      delete input.dataset.raddleLast;
       return;
     }
     submitRaddleAuto(input, val);
@@ -1219,6 +1271,12 @@
     var input = e.target && e.target.closest ? e.target.closest('input[name="word"][data-raddle-auto]') : null;
     if (!input) return;
     raddleAutoInput(input);
+  });
+
+  document.addEventListener('paste', function (e) {
+    var input = e.target && e.target.closest ? e.target.closest('input[name="word"][data-raddle-auto]') : null;
+    if (!input) return;
+    setTimeout(function () { raddleAutoInput(input); }, 0);
   });
 
   document.addEventListener('submit', function (e) {

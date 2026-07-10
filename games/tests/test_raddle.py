@@ -136,6 +136,21 @@ class RaddleCheckerTests(SimpleTestCase):
         self.assertIn(11, st['used_hints'])  # hints[11]: МАЛИ → ДАКАР
         self.assertNotIn(10, st['used_hints'])
 
+    def test_already_solved_word(self):
+        state = json.dumps({
+            'solved_indices': [0, 1, 12],
+            'used_hints': [0],
+            'assist_tier': {},
+            'total': 1.0,
+        })
+        ch = RaddleChecker(json.dumps(PARIS_LADDER, ensure_ascii=False), state)
+        r = ch.check(
+            json.dumps({'word_index': 1, 'word': 'ПАРИЖАНИН'}),
+            self._attempt(1, 'ПАРИЖАНИН'),
+        )
+        self.assertEqual(r.status, 'Wrong')
+        self.assertIn('уже решено', (r.comment or '').lower())
+
     def test_wrong_word(self):
         ch = self._checker()
         r = ch.check(
