@@ -27,6 +27,13 @@
   --results-row-me-fg: #1637b3;
   /* Якоря / scrollIntoView: запас под sticky-шапку (.new-nav) */
   --new-ui-scroll-margin-top: 5.5rem;
+  /* Responsive new UI — источник правды; см. agents/AGENTS.md */
+  --new-break-wide: 920px;
+  --new-wrap-narrow: 36rem;
+  --new-wrap-wide: 60rem;
+  --raddle-ladder-max: 26rem;
+  --raddle-clues-min: 12rem;
+  --raddle-layout-stack: 40rem;
   font-size: 16px;
 }
 
@@ -76,14 +83,15 @@ html.new-ui-dark body.new-ui {
 }
 
 .new-wrap {
-  max-width: 36rem;
+  max-width: var(--new-wrap-narrow);
   margin: 0 auto;
   padding: 1rem 1.25rem 3rem;
 }
 
+/* min-width must match --new-break-wide (lint: scripts/lint_new_ui_responsive.sh) */
 @media (min-width: 920px) {
   .new-wrap {
-    max-width: 60rem;
+    max-width: var(--new-wrap-wide);
     padding-left: 1.5rem;
     padding-right: 1.5rem;
   }
@@ -2669,19 +2677,33 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
 }
 
 /* ─── Raddle (лестница слов) ─── */
+.new-raddle-task {
+  container-type: inline-size;
+  container-name: raddle-task;
+}
 .new-raddle-task__intro {
   margin-bottom: 0.75rem;
 }
 .new-raddle-layout {
   display: grid;
-  grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, var(--raddle-ladder-max)) minmax(var(--raddle-clues-min), 1fr);
   gap: 1.25rem;
   align-items: start;
 }
-@media (max-width: 720px) {
+/* Узкая карточка (multi-column grid и т.п.) — стек по ширине контейнера. */
+@container raddle-task (max-width: var(--raddle-layout-stack)) {
   .new-raddle-layout {
     grid-template-columns: 1fr;
   }
+}
+/* До --new-break-wide .new-wrap узкий — стек по viewport (lint: scripts/lint_new_ui_responsive.sh). */
+@media (max-width: 919px) {
+  .new-raddle-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.new-raddle-layout > * {
+  min-width: 0;
 }
 .new-raddle-ladder__title,
 .new-raddle-clues__title {
@@ -2817,6 +2839,7 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
 .new-raddle-block__word {
   background: var(--surface);
   text-align: center;
+  min-width: 0;
 }
 .new-raddle-word-cell {
   display: flex;
@@ -2824,6 +2847,7 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   justify-content: center;
   gap: 0.35rem;
   min-height: 3rem;
+  min-width: 0;
   padding: 0.35rem 0.55rem;
   box-sizing: border-box;
 }
@@ -2913,6 +2937,8 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1;
+  min-width: 0;
+  max-width: 100%;
 }
 .new-raddle-line__len {
   font-size: 0.82rem;
@@ -2925,11 +2951,12 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   font-size: 0.78rem;
 }
 .new-raddle-input {
+  flex: 1 1 auto;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   /* плейсхолдер ◼️ шире обычной буквы — ширина от числа слотов маски */
   width: calc(var(--raddle-len, 5) * 1.2em + 0.85rem);
-  min-width: calc(var(--raddle-len, 5) * 1.2em + 0.85rem);
+  min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -2940,17 +2967,24 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   text-transform: none;
   font-size: 0.82em;
 }
-/* На узких экранах ужимаем колонку слова, чтобы длинные слова (10+ букв) влезали. */
+/* На узком .new-wrap (≤919px) и телефонах ужимаем поля, чтобы длинные слова влезали. */
+@media (max-width: 919px) {
+  .new-raddle-input {
+    width: calc(var(--raddle-len, 5) * 1.05em + 0.4rem);
+    letter-spacing: 0.02em;
+  }
+  .new-raddle-clue__text {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+}
 @media (max-width: 560px) {
   .new-raddle-table .new-raddle-col--check { width: 74px; }
   .new-raddle-table .new-raddle-col--word { width: calc(100% - 74px); }
   .new-raddle-word-cell { gap: 0.2rem; padding: 0.3rem 0.3rem; }
   .new-raddle-line__len { font-size: 0.72rem; }
   .new-raddle-input {
-    width: calc(var(--raddle-len, 5) * 1.05em + 0.4rem);
-    min-width: 0;
     font-size: 0.95rem;
-    letter-spacing: 0.02em;
   }
   .new-raddle-block__check { padding: 0 0.2rem; }
 }
@@ -3005,6 +3039,7 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   border-bottom: 1px solid var(--border);
   font-size: 0.92rem;
   line-height: 1.35;
+  overflow-wrap: break-word;
 }
 .new-raddle-clue:last-child {
   border-bottom: none;

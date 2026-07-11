@@ -1159,6 +1159,34 @@
     }
   }
 
+  // Raddle auto-submit — контракт: agents/raddle.md, games/raddle_response_contract.py
+  function syncRaddleUiAfterAdvance(form, data, row, input, wordIdx) {
+    var refRole = row ? (row.getAttribute('data-ref-role') || 'prev') : 'prev';
+    var solvedIdx = (data.raddle_word_index !== undefined && data.raddle_word_index !== null)
+      ? data.raddle_word_index : wordIdx;
+    if (input) delete input.dataset.raddleLast;
+    if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+      applyNewUiTaskHtml(data.update_task_html_new);
+      focusRaddleNext(form.getAttribute('data-task-id'), solvedIdx, refRole);
+      return true;
+    }
+    window.location.reload();
+    return true;
+  }
+
+  function showRaddleWrongFeedback(row, input, msg, messageText) {
+    markRaddleWrong(row, input);
+    if (msg) {
+      if (messageText) {
+        msg.style.display = 'block';
+        msg.textContent = messageText;
+      } else {
+        msg.textContent = '';
+        msg.style.display = 'none';
+      }
+    }
+  }
+
   function applyRaddleAttemptResponse(form, input, row, data, wordIdx) {
     var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
     if (!data || !data.status) {
@@ -1166,51 +1194,26 @@
       return;
     }
     if (data.status === 'ok' && data.raddle_correct) {
-      var refRole = row ? (row.getAttribute('data-ref-role') || 'prev') : 'prev';
-      var solvedIdx = (data.raddle_word_index !== undefined && data.raddle_word_index !== null)
-        ? data.raddle_word_index : wordIdx;
-      if (input) delete input.dataset.raddleLast;
-      if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-        applyNewUiTaskHtml(data.update_task_html_new);
-        focusRaddleNext(form.getAttribute('data-task-id'), solvedIdx, refRole);
-        return;
-      }
-      window.location.reload();
+      syncRaddleUiAfterAdvance(form, data, row, input, wordIdx);
       return;
     }
     if (data.status === 'ok' && data.raddle_needs_sync) {
-      if (input) delete input.dataset.raddleLast;
-      if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-        applyNewUiTaskHtml(data.update_task_html_new);
-        var syncIdx = (data.raddle_word_index !== undefined && data.raddle_word_index !== null)
-          ? data.raddle_word_index : wordIdx;
-        var syncRole = row ? (row.getAttribute('data-ref-role') || 'prev') : 'prev';
-        focusRaddleNext(form.getAttribute('data-task-id'), syncIdx, syncRole);
-        if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
-        return;
-      }
-      window.location.reload();
+      syncRaddleUiAfterAdvance(form, data, row, input, wordIdx);
+      if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
       return;
     }
     if (data.status === 'duplicate') {
       if (input) delete input.dataset.raddleLast;
-      if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-        applyNewUiTaskHtml(data.update_task_html_new);
-        var dupIdx = (data.raddle_word_index !== undefined && data.raddle_word_index !== null)
-          ? data.raddle_word_index : wordIdx;
-        var dupRole = row ? (row.getAttribute('data-ref-role') || 'prev') : 'prev';
-        focusRaddleNext(form.getAttribute('data-task-id'), dupIdx, dupRole);
+      if (data.raddle_duplicate_solved) {
+        syncRaddleUiAfterAdvance(form, data, row, input, wordIdx);
         if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
         return;
       }
-      markRaddleWrong(row, input);
-      if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
+      showRaddleWrongFeedback(row, input, msg, raddleStatusText('duplicate'));
       return;
     }
-    // Неверно (ok без raddle_correct) — показываем красным, поле не трогаем.
     if (data.status === 'ok') {
-      markRaddleWrong(row, input);
-      if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
+      showRaddleWrongFeedback(row, input, msg, '');
       return;
     }
     if (msg) { msg.style.display = 'block'; msg.textContent = raddleStatusText(data.status); }
@@ -1250,11 +1253,14 @@
     var formId = input.getAttribute('form');
     var form = formId ? document.getElementById(formId) : null;
     if (!form) return;
-    if (!postRaddleAutoForm(form, input)) return;
     input.dataset.raddleLast = val;
+    if (!postRaddleAutoForm(form, input)) {
+      delete input.dataset.raddleLast;
+    }
   }
 
   function raddleAutoInput(input) {
+    if (input.getAttribute('data-raddle-busy') === '1') return;
     var row = input.closest('.new-raddle-row');
     var target = parseInt(input.getAttribute('maxlength') || '0', 10);
     var val = String(input.value || '').trim();
@@ -1276,7 +1282,12 @@
   document.addEventListener('paste', function (e) {
     var input = e.target && e.target.closest ? e.target.closest('input[name="word"][data-raddle-auto]') : null;
     if (!input) return;
-    setTimeout(function () { raddleAutoInput(input); }, 0);
+    // input-событие после вставки обычно уже отправляет ответ; fallback только если не ушло.
+    setTimeout(function () {
+      if (input.getAttribute('data-raddle-busy') === '1') return;
+      if (input.dataset.raddleLast === String(input.value || '').trim()) return;
+      raddleAutoInput(input);
+    }, 0);
   });
 
   document.addEventListener('submit', function (e) {

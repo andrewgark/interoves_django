@@ -10,6 +10,7 @@ from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Ta
 from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
 from games.views.track import track_task_change
+from games.raddle import load_raddle_state, parse_raddle_data
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
 
 
@@ -308,33 +309,58 @@ def process_send_attempt(request, task_id):
     return result
 
 
-def _raddle_duplicate_sync_html(request, task_id):
-    """Свежее HTML задания при duplicate: первая посылка могла сохраниться при лаге сети."""
+def _raddle_duplicate_response(request, task_id):
+    """Duplicate для raddle: синхронизируем UI только если слово уже решено (лаг сети)."""
     task = get_public_task_or_404(task_id)
     if task.task_type != 'raddle':
         return {}
+    try:
+        word_index = int(request.POST.get('word_index', -1))
+    except (TypeError, ValueError):
+        word_index = -1
+
     game = game_from_request_for_task(request, task)
     if game is None:
-        return {}
+        return {'raddle_word_index': word_index}
     play_mode = _get_play_mode(request, game)
     team = user = anon_key = None
     if play_mode == 'team':
         if not request.user.is_authenticated or not has_team(request.user):
-            return {}
+            return {'raddle_word_index': word_index}
         team = request.user.profile.team_on
     else:
         if request.user.is_authenticated:
             if not has_profile(request.user):
-                return {}
+                return {'raddle_word_index': word_index}
             user = request.user
         else:
             anon_key = request.POST.get('anon_key') or request.headers.get('X-Interoves-Anon')
             if not anon_key:
-                return {}
+                return {'raddle_word_index': word_index}
     current_mode = game.get_current_mode(Attempt(time=timezone.now()))
-    return update_task_html(
-        request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
-    )
+
+    parsed = parse_raddle_data(task)
+    solved = False
+    if parsed and word_index >= 0:
+        chain_row = ChainTaskState.objects.filter(
+            team=team, user=user, anon_key=anon_key,
+            task=task, game=game, game_mode=current_mode,
+        ).first()
+        state = load_raddle_state(
+            chain_row.state if chain_row else None,
+            parsed['n_words'],
+        )
+        solved = word_index in set(state.get('solved_indices') or [])
+
+    result = {
+        'raddle_word_index': word_index,
+        'raddle_duplicate_solved': solved,
+    }
+    if solved:
+        result.update(update_task_html(
+            request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+        ))
+    return result
 
 
 def send_attempt(request, task_id):
@@ -342,7 +368,7 @@ def send_attempt(request, task_id):
         response = process_send_attempt(request, task_id)
     except DuplicateAttemptException:
         response = {'status': 'duplicate'}
-        response.update(_raddle_duplicate_sync_html(request, task_id))
+        response.update(_raddle_duplicate_response(request, task_id))
     except TooManyAttemptsException:
         response = {'status': 'attempt_limit_exceeded'}
     except InvalidFormException:
