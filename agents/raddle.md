@@ -24,7 +24,7 @@
 
 ### Сервер
 
-- `raddle_correct` = `attempt.status in ('Partial', 'Ok')` — только **эта** попытка зачла слово.
+- `raddle_correct` = слово из посылки совпало с эталоном **и** попало в `solved_indices` (не путать с `Partial` — это статус прогресса по всему заданию).
 - `raddle_needs_sync` — попытка не зачла, но слово уже в `solved_indices` (повтор после лага).
 - При `DuplicateAttemptException` для raddle: `raddle_duplicate_solved` по chain state; `update_task_html_new` **только** если solved.
 

@@ -10,7 +10,7 @@ from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Ta
 from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
 from games.views.track import track_task_change
-from games.raddle import load_raddle_state, parse_raddle_data
+from games.raddle import load_raddle_state, parse_raddle_data, word_matches
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
 
 
@@ -290,7 +290,17 @@ def process_send_attempt(request, task_id):
         'task_id': task.id,
     }
     if task.task_type == 'raddle':
-        result['raddle_correct'] = attempt.status in ('Partial', 'Ok')
+        # Partial = «есть прогресс по заданию», не «эта попытка верна».
+        raddle_correct = False
+        try:
+            st = json.loads(attempt.state or '{}')
+            solved = set(st.get('solved_indices') or [])
+            parsed = parse_raddle_data(task)
+            if word_index in solved and parsed:
+                raddle_correct = word_matches(word, parsed['word_accept'][word_index])
+        except (ValueError, TypeError, IndexError, KeyError):
+            pass
+        result['raddle_correct'] = raddle_correct
         result['raddle_word_index'] = word_index
         if not result['raddle_correct']:
             try:
