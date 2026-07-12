@@ -2951,7 +2951,7 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   font-size: 0.78rem;
 }
 .new-raddle-input {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   /* плейсхолдер ◼️ шире обычной буквы — ширина от числа слотов маски */

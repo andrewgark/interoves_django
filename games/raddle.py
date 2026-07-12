@@ -23,6 +23,37 @@ from games.util import clean_text
 _LENGTH_PARTS = re.compile(r'^(\d+)\s*-\s*(\d+)$')
 _RADDLE_ASSIST_CLUE_DESC = re.compile(r'^raddle_clue:(\d+)$', re.I)
 _RADDLE_ASSIST_ANSWER_DESC = re.compile(r'^raddle_answer:(\d+)$', re.I)
+_RADDLE_LETTER_RE = re.compile(r'[^0-9a-zа-яё]', re.I)
+_RADDLE_IS_LETTER_RE = re.compile(r'^[0-9a-zа-яё]$', re.I)
+RADDLE_INPUT_FORMAT_SLOT = '#'
+
+
+def raddle_word_core(word):
+    """Буквы и цифры без пробелов, дефисов и прочей пунктуации (для сравнения и длины)."""
+    return clean_text(_RADDLE_LETTER_RE.sub('', str(word or '')))
+
+
+def raddle_input_format(canonical_word=None, mask=None):
+    """
+    Шаблон ввода для клиента: # — слот буквы, остальное — литералы (дефис, пробел…).
+    Структура ответа без раскрытия букв.
+    """
+    if canonical_word:
+        return ''.join(
+            RADDLE_INPUT_FORMAT_SLOT
+            if _RADDLE_IS_LETTER_RE.match(ch)
+            else ch
+            for ch in canonical_word
+        )
+    if mask and mask.get('type') == 'parts':
+        a, b = mask['parts']
+        return (
+            (RADDLE_INPUT_FORMAT_SLOT * a) + '-'
+            + (RADDLE_INPUT_FORMAT_SLOT * b)
+        )
+    if mask and mask.get('type') == 'fixed':
+        return RADDLE_INPUT_FORMAT_SLOT * mask['length']
+    return RADDLE_INPUT_FORMAT_SLOT * 5
 
 DEFAULT_RADDLE_ASSIST_FRACTIONS = [1, 0.5, 0]
 
@@ -53,14 +84,12 @@ def split_word_alternatives(raw):
 
 
 def word_length_matches(word, mask):
+    core = raddle_word_core(word)
     if mask['type'] == 'fixed':
-        return len(word) == mask['length']
+        return len(core) == mask['length']
     if mask['type'] == 'parts':
-        chunks = word.split('-')
-        if len(chunks) != 2:
-            return False
         a, b = mask['parts']
-        return len(chunks[0]) == a and len(chunks[1]) == b
+        return len(core) == a + b
     return True
 
 
@@ -384,19 +413,19 @@ def clue_index_for_playable_word(word_index, solved, n_words):
 
 
 def word_matches(user_word, accept_list):
-    u = clean_text(user_word)
-    return any(clean_text(opt) == u for opt in accept_list)
+    u = raddle_word_core(user_word)
+    return any(raddle_word_core(opt) == u for opt in accept_list)
 
 
 def mask_slot_count(mask, canonical_word=None):
-    """Сколько позиций в маске (для ширины инпута / maxlength)."""
+    """Сколько букв нужно ввести (для ширины инпута / maxlength)."""
     if canonical_word:
-        return len(canonical_word)
+        return len(raddle_word_core(canonical_word))
     if mask['type'] == 'fixed':
         return mask['length']
     if mask['type'] == 'parts':
         a, b = mask['parts']
-        return a + b + 1  # дефис
+        return a + b
     return 12
 
 
@@ -729,6 +758,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         elif is_playable and ref_role == 'next':
             focus_pair_role = 'prev'  # вводим предыдущее
             ref_pair_role = 'next'
+        inp_fmt = raddle_input_format(parsed['words'][i], mask)
         rows.append({
             'index': i,
             'word': parsed['words'][i] if is_solved else '',
@@ -737,6 +767,8 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             'length_label': mask['label'],
             'mask_slots': mask_slot_count(mask, parsed['words'][i]),
             'max_length': mask_slot_count(mask, parsed['words'][i]),
+            'input_format': inp_fmt,
+            'input_format_len': len(inp_fmt),
             'input_size': input_size_for_mask(mask, parsed['words'][i]),
             'is_solved': is_solved,
             'is_playable': is_playable,

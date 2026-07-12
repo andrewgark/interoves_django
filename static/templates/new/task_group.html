@@ -282,6 +282,7 @@
 </div>
 
 <script src="{% static 'js/replacements_input_parse.js' %}"></script>
+<script src="{% static 'js/raddle_masked_input.js' %}"></script>
 <script>
 (function () {
   var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';
@@ -360,13 +361,21 @@
     return form && form.classList && form.classList.contains('new-raddle-line-form');
   }
 
+  function raddleInputValue(input) {
+    if (!input) return '';
+    if (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.getSubmitValue) {
+      return RaddleMaskedInput.getSubmitValue(input);
+    }
+    return String(input.value || '').trim();
+  }
+
   function prepareRaddleLineForm(form) {
     var msg = form.querySelector('.new-attempt-msg');
     if (!msg && form.id) {
       msg = document.querySelector('[data-msg-for="' + form.id + '"]');
     }
     var wordInput = document.querySelector('input[name="word"][form="' + form.id + '"]');
-    if (!wordInput || !String(wordInput.value || '').trim()) {
+    if (!wordInput || !raddleInputValue(wordInput)) {
       if (msg) {
         if (msg.classList && msg.classList.contains('new-raddle-word-msg')) {
           msg.style.display = 'block';
@@ -383,7 +392,10 @@
       var fd = new FormData(form);
       var wordInput = document.querySelector('input[name="word"][form="' + form.id + '"]');
       if (wordInput) {
-        fd.set('word', wordInput.value);
+        var wordVal = (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.getSubmitValue)
+          ? RaddleMaskedInput.getSubmitValue(wordInput)
+          : wordInput.value;
+        fd.set('word', wordVal);
       }
       return fd;
     }
@@ -1267,6 +1279,31 @@
     return true;
   }
 
+  function raddleMaskedHooks() {
+    return {
+      onChange: function (input, letters) {
+        if (!input || input.getAttribute('data-raddle-auto') !== '1') return;
+        var row = input.closest('.new-raddle-row');
+        var fmt = input.getAttribute('data-raddle-format') || '';
+        var target = (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.slotCount)
+          ? RaddleMaskedInput.slotCount(fmt) : 0;
+        if (!target || letters.length !== target) {
+          clearRaddleWrong(row);
+          delete input.dataset.raddleLast;
+        }
+      },
+      onComplete: function (input, letters) {
+        if (!input || input.getAttribute('data-raddle-auto') !== '1') return;
+        submitRaddleAuto(input, letters);
+      },
+    };
+  }
+
+  function bindRaddleMaskedInputs(root) {
+    if (typeof RaddleMaskedInput === 'undefined' || !RaddleMaskedInput.bindAll) return;
+    RaddleMaskedInput.bindAll(root || document, raddleMaskedHooks());
+  }
+
   function submitRaddleAuto(input, val) {
     if (!input || input.getAttribute('data-raddle-busy') === '1') return;
     if (input.dataset.raddleLast === val) return;
@@ -1278,37 +1315,6 @@
       delete input.dataset.raddleLast;
     }
   }
-
-  function raddleAutoInput(input) {
-    if (input.getAttribute('data-raddle-busy') === '1') return;
-    var row = input.closest('.new-raddle-row');
-    var target = parseInt(input.getAttribute('maxlength') || '0', 10);
-    var val = String(input.value || '').trim();
-    // Число букв ушло от правильного — снимаем «неверно» и разрешаем повторную отправку.
-    if (!target || val.length !== target) {
-      clearRaddleWrong(row);
-      delete input.dataset.raddleLast;
-      return;
-    }
-    submitRaddleAuto(input, val);
-  }
-
-  document.addEventListener('input', function (e) {
-    var input = e.target && e.target.closest ? e.target.closest('input[name="word"][data-raddle-auto]') : null;
-    if (!input) return;
-    raddleAutoInput(input);
-  });
-
-  document.addEventListener('paste', function (e) {
-    var input = e.target && e.target.closest ? e.target.closest('input[name="word"][data-raddle-auto]') : null;
-    if (!input) return;
-    // input-событие после вставки обычно уже отправляет ответ; fallback только если не ушло.
-    setTimeout(function () {
-      if (input.getAttribute('data-raddle-busy') === '1') return;
-      if (input.dataset.raddleLast === String(input.value || '').trim()) return;
-      raddleAutoInput(input);
-    }, 0);
-  });
 
   document.addEventListener('submit', function (e) {
     var assistForm = e.target && e.target.closest ? e.target.closest('form.new-raddle-assist-form') : null;
@@ -1326,7 +1332,7 @@
     if (form.classList.contains('new-raddle-auto-form')) {
       var autoInput = document.querySelector('input[name="word"][form="' + form.id + '"]');
       if (autoInput) {
-        var av = String(autoInput.value || '').trim();
+        var av = raddleInputValue(autoInput);
         if (av) { autoInput.dataset.raddleLast = ''; submitRaddleAuto(autoInput, av); }
       }
       return;
@@ -1906,6 +1912,7 @@
 
   function initRaddleUi(root) {
     var scope = root || document;
+    bindRaddleMaskedInputs(scope);
     scope.querySelectorAll('.new-raddle-task').forEach(function (taskRoot) {
       var focus = taskRoot.getAttribute('data-default-focus');
       if (focus !== null && focus !== '') {

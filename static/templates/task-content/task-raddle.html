@@ -21,9 +21,9 @@
                 {% if row.is_solved %}
                   <span class="new-raddle-line__solved-text"><strong>{{ row.word }}</strong></span>
                 {% elif row.revealed_answer %}
-                  <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" maxlength="{{ row.max_length }}" style="--raddle-len: {{ row.mask_slots }}" aria-label="Слово {{ row.index|add:1 }}" value="{{ row.revealed_answer }}" placeholder="{{ row.mask_placeholder }}"{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}>
+                  <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}" style="--raddle-len: {{ row.input_format_len }}" aria-label="Слово {{ row.index|add:1 }}" value="{{ row.revealed_answer }}" placeholder="{{ row.mask_placeholder }}"{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}>
                 {% elif row.is_playable %}
-                  <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" maxlength="{{ row.max_length }}" style="--raddle-len: {{ row.mask_slots }}" aria-label="Слово {{ row.index|add:1 }}" placeholder="{{ row.mask_placeholder }}" data-raddle-focus-input{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}>
+                  <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}" style="--raddle-len: {{ row.input_format_len }}" aria-label="Слово {{ row.index|add:1 }}" placeholder="{{ row.mask_placeholder }}" data-raddle-focus-input{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}>
                 {% elif row.attempts_exhausted %}
                   <span class="new-raddle-line__mask">{{ row.mask_html }}</span>
                   <span class="new-login-hint new-raddle-line__no-guesses">Попытки закончились.</span>

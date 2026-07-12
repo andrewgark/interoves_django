@@ -10,13 +10,17 @@ from games.raddle import (
     default_raddle_state,
     input_size_for_mask,
     load_raddle_state,
+    mask_slot_count,
     parse_length_mask,
     parse_raddle_data,
     playable_word_indices,
+    RADDLE_INPUT_FORMAT_SLOT,
     raddle_word_solved_list,
     render_raddle_clue,
     resolve_assist_tiers,
     validate_raddle_checker_data,
+    raddle_input_format,
+    raddle_word_core,
     word_length_matches,
     word_matches,
 )
@@ -98,8 +102,128 @@ class WordLengthTests(SimpleTestCase):
     def test_hyphenated(self):
         m = parse_length_mask('5-9')
         self.assertTrue(word_length_matches('САНКТ-ПЕТЕРБУРГ', m))
+        self.assertTrue(word_length_matches('САНКТПЕТЕРБУРГ', m))
         m2 = parse_length_mask('3-4')
         self.assertTrue(word_length_matches('НЬЮ-ЙОРК', m2))
+        self.assertTrue(word_length_matches('НЬЮЙОРК', m2))
+
+    def test_word_core_strips_punctuation(self):
+        self.assertEqual(raddle_word_core('САНКТ-ПЕТЕРБУРГ'), 'санктпетербург')
+        self.assertEqual(raddle_word_core('НЬЮ ЙОРК'), 'ньюйорк')
+
+    def test_input_format_from_word(self):
+        self.assertEqual(raddle_input_format('САНКТ-ПЕТЕРБУРГ'), '#####' + '-' + '#########')
+        self.assertEqual(raddle_input_format('ПАРИЖАНИН'), '#' * 9)
+        self.assertEqual(
+            raddle_input_format('НЬЮ-ЙОРК'),
+            '###' + '-' + '####',
+        )
+
+    def test_input_format_from_mask_only(self):
+        self.assertEqual(raddle_input_format(mask=parse_length_mask('5-9')), '#####' + '-' + '#########')
+
+    def test_word_matches_without_separators(self):
+        self.assertTrue(word_matches('САНКТПЕТЕРБУРГ', ['САНКТ-ПЕТЕРБУРГ']))
+        self.assertTrue(word_matches('НЬЮЙОРК', ['НЬЮ-ЙОРК']))
+
+
+class RaddleInputEdgeTests(SimpleTestCase):
+    def test_format_space_comma_apostrophe(self):
+        self.assertEqual(raddle_input_format('НЬЮ ЙОРК'), '### ####')
+        self.assertEqual(raddle_input_format('А,Б'), '#,#')
+        self.assertEqual(raddle_input_format("О'КЕЙ"), "#'###")
+
+    def test_format_multiple_hyphens(self):
+        fmt = raddle_input_format('АБВ-ГДЕ-ЖЗИ')
+        self.assertEqual(fmt, '###-###-###')
+        self.assertEqual(fmt.count(RADDLE_INPUT_FORMAT_SLOT), 9)
+
+    def test_format_slots_match_mask_slots_for_paris_ladder(self):
+        for word, length_raw in zip(PARIS_LADDER['words'], PARIS_LADDER['lengths']):
+            mask = parse_length_mask(length_raw)
+            fmt = raddle_input_format(word, mask)
+            self.assertEqual(
+                fmt.count(RADDLE_INPUT_FORMAT_SLOT),
+                mask_slot_count(mask, word),
+                msg=word,
+            )
+
+    def test_yo_matches_e_on_server(self):
+        self.assertTrue(word_matches('ЕЛКА', ['ЁЛКА']))
+        self.assertTrue(word_matches('ЁЛКА', ['ЕЛКА']))
+
+    def test_word_core_ignores_nbsp_and_quotes(self):
+        self.assertEqual(raddle_word_core('«САНКТ»\u00a0—\u00a0ПЕТЕРБУРГ'), 'санктпетербург')
+
+    def test_length_mismatch_rejects_extra_letters(self):
+        m = parse_length_mask(5)
+        self.assertFalse(word_length_matches('АБВГДЕ', m))
+        self.assertTrue(word_length_matches('АБВГ-Д', m))
+
+    def test_alternative_answer_without_punctuation(self):
+        self.assertTrue(word_matches('НЬЮЙОРК', ['НЬЮ-ЙОРК', 'НЬЮ ЙОРК']))
+
+    def test_checker_accepts_letters_only_hyphenated(self):
+        state = json.dumps({
+            'solved_indices': [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12],
+            'used_hints': [],
+            'assist_tier': {},
+            'total': 0.0,
+        })
+        ch = RaddleChecker(json.dumps(PARIS_LADDER, ensure_ascii=False), state)
+        r = ch.check(
+            json.dumps({'word_index': 5, 'word': 'САНКТПЕТЕРБУРГ'}),
+            Attempt(
+                text=json.dumps({'word_index': 5, 'word': 'САНКТПЕТЕРБУРГ'}),
+                task=_task(),
+            ),
+        )
+        self.assertIn(r.status, ('Partial', 'Ok'))
+        self.assertIn(5, json.loads(r.state)['solved_indices'])
+
+    def test_checker_rejects_wrong_length_letters_only(self):
+        ch = RaddleChecker(json.dumps(PARIS_LADDER, ensure_ascii=False))
+        r = ch.check(
+            json.dumps({'word_index': 1, 'word': 'ПАРИЖАНИ'}),
+            Attempt(
+                text=json.dumps({'word_index': 1, 'word': 'ПАРИЖАНИ'}),
+                task=_task(),
+            ),
+        )
+        self.assertEqual(r.status, 'Wrong')
+        self.assertIn('длина', (r.comment or '').lower())
+
+    def test_checker_rejects_punctuation_only_submission(self):
+        ch = RaddleChecker(json.dumps(PARIS_LADDER, ensure_ascii=False))
+        r = ch.check(
+            json.dumps({'word_index': 1, 'word': '---'}),
+            Attempt(
+                text=json.dumps({'word_index': 1, 'word': '---'}),
+                task=_task(),
+            ),
+        )
+        self.assertEqual(r.status, 'Wrong')
+
+    def test_ui_context_input_format_on_all_rows(self):
+        parsed = parse_raddle_data(_task())
+        ctx = build_raddle_ui_context(parsed, default_raddle_state(13))
+        for row in ctx['rows']:
+            self.assertTrue(row['input_format'])
+            self.assertGreater(row['input_format_len'], 0)
+            self.assertGreaterEqual(
+                row['input_format_len'],
+                row['mask_slots'],
+            )
+
+    def test_format_prefers_canonical_over_mask(self):
+        word = 'НЬЮ ЙОРК'
+        mask = parse_length_mask(7)
+        self.assertEqual(raddle_input_format(word, mask), '### ####')
+        self.assertEqual(raddle_input_format(mask=mask), '#' * 7)
+
+    def test_server_accepts_digits_in_answer(self):
+        self.assertTrue(word_matches('ТОП3', ['ТОП3']))
+        self.assertEqual(raddle_word_core('ТОП-3'), 'топ3')
 
 
 class RaddleCheckerTests(SimpleTestCase):
@@ -121,6 +245,22 @@ class RaddleCheckerTests(SimpleTestCase):
         st = json.loads(r.state)
         self.assertIn(1, st['solved_indices'])
         self.assertIn(0, st['used_hints'])
+
+    def test_correct_hyphenated_without_separator(self):
+        state = json.dumps({
+            'solved_indices': [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12],
+            'used_hints': [],
+            'assist_tier': {},
+            'total': 0.0,
+        })
+        ch = RaddleChecker(json.dumps(PARIS_LADDER, ensure_ascii=False), state)
+        r = ch.check(
+            json.dumps({'word_index': 5, 'word': 'САНКТПЕТЕРБУРГ'}),
+            self._attempt(5, 'САНКТПЕТЕРБУРГ'),
+        )
+        self.assertIn(r.status, ('Partial', 'Ok'))
+        st = json.loads(r.state)
+        self.assertIn(5, st['solved_indices'])
 
     def test_correct_bottom_open_word_uses_last_hint(self):
         """Нижнее слово: переход к последнему данному → последняя подсказка (не предпоследняя)."""
@@ -176,6 +316,22 @@ class RaddleCheckerTests(SimpleTestCase):
         order = [1, 11, 2, 10, 3, 9, 4, 8, 5, 7, 6]
         for idx in order:
             word = PARIS_LADDER['words'][idx]
+            ch = RaddleChecker(json.dumps(PARIS_LADDER, ensure_ascii=False), state)
+            r = ch.check(
+                json.dumps({'word_index': idx, 'word': word}),
+                self._attempt(idx, word),
+            )
+            state = r.state
+        self.assertEqual(r.status, 'Ok')
+
+    def test_complete_ladder_letters_only(self):
+        from games.raddle import raddle_word_core
+
+        ch = self._checker()
+        state = None
+        order = [1, 11, 2, 10, 3, 9, 4, 8, 5, 7, 6]
+        for idx in order:
+            word = raddle_word_core(PARIS_LADDER['words'][idx]).upper()
             ch = RaddleChecker(json.dumps(PARIS_LADDER, ensure_ascii=False), state)
             r = ch.check(
                 json.dumps({'word_index': idx, 'word': word}),
@@ -341,16 +497,20 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertEqual(input_size_for_mask(parse_length_mask(4)), 8)
         self.assertEqual(input_size_for_mask(parse_length_mask(5)), 10)
         self.assertEqual(input_size_for_mask(parse_length_mask(9)), 18)
-        self.assertEqual(input_size_for_mask(parse_length_mask('5-9')), 30)
+        self.assertEqual(input_size_for_mask(parse_length_mask('5-9')), 28)
 
     def test_row_input_size_in_context(self):
         parsed = parse_raddle_data(_task())
         ctx = build_raddle_ui_context(parsed, default_raddle_state(13))
-        # ПАРИЖАНИН (9) → size 18; САНКТ-ПЕТЕРБУРГ mask 5-9 → 15 slots → 30
+        # ПАРИЖАНИН (9) → size 18; САНКТ-ПЕТЕРБУРГ mask 5-9 → 14 букв, формат 15 символов
         self.assertEqual(ctx['rows'][1]['input_size'], 18)
         self.assertEqual(ctx['rows'][1]['mask_slots'], 9)
-        self.assertEqual(ctx['rows'][5]['input_size'], 30)
-        self.assertEqual(ctx['rows'][5]['mask_slots'], 15)
+        self.assertEqual(ctx['rows'][1]['input_format'], '#' * 9)
+        self.assertEqual(ctx['rows'][1]['input_format_len'], 9)
+        self.assertEqual(ctx['rows'][5]['input_size'], 28)
+        self.assertEqual(ctx['rows'][5]['mask_slots'], 14)
+        self.assertEqual(ctx['rows'][5]['input_format'], '#####' + '-' + '#########')
+        self.assertEqual(ctx['rows'][5]['input_format_len'], 15)
 
     def test_word_solved_list_from_state(self):
         parsed = parse_raddle_data(_task())
