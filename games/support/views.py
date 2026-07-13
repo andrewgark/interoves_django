@@ -1,5 +1,7 @@
+from django.contrib.auth.views import LoginView
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
+from django.urls import reverse
 
 from games.models import Game, Team
 from games.support.access import support_console_required
@@ -10,6 +12,7 @@ from games.support.services.actor import (
     build_user_context,
 )
 from games.support.services.chain import build_chain_context, format_chain_state
+from games.support.services.games import get_all_games_by_project
 from games.support.services.live import get_live_feed
 from games.support.services.preview import (
     ActorSpec,
@@ -19,7 +22,17 @@ from games.support.services.preview import (
 )
 from games.support.services.pending import get_pending_queue
 from games.support.services.search import search
+from games.support.services.sections import get_sections_dashboard
+from games.support.services.stats import collect_support_stats
 from games.support.services.stuck import get_stuck_teams
+
+
+class SupportLoginView(LoginView):
+    template_name = 'support/login.html'
+    redirect_authenticated_user = True
+
+    def get_success_url(self):
+        return self.get_redirect_url() or reverse('support:hub')
 
 
 def _feed_kwargs_from_request(request):
@@ -36,14 +49,27 @@ def _feed_kwargs_from_request(request):
             hours = int(hours_raw)
         except (TypeError, ValueError):
             hours = None
-    limit_raw = request.GET.get('limit')
-    limit = 100
-    if limit_raw:
+    per_page = 50
+    per_page_raw = request.GET.get('per_page')
+    if per_page_raw:
         try:
-            limit = min(500, max(10, int(limit_raw)))
+            per_page = min(200, max(10, int(per_page_raw)))
         except (TypeError, ValueError):
             pass
-    return {'kind': kind, 'status': status, 'hours': hours, 'limit': limit}
+    page = 1
+    page_raw = request.GET.get('page')
+    if page_raw:
+        try:
+            page = max(1, int(page_raw))
+        except (TypeError, ValueError):
+            pass
+    return {
+        'kind': kind,
+        'status': status,
+        'hours': hours,
+        'page': page,
+        'per_page': per_page,
+    }
 
 
 def _feed_filters(request):
@@ -51,7 +77,8 @@ def _feed_filters(request):
         'kind': request.GET.get('kind', 'all'),
         'status': request.GET.get('status', ''),
         'hours': request.GET.get('hours', ''),
-        'limit': request.GET.get('limit', ''),
+        'page': request.GET.get('page', ''),
+        'per_page': request.GET.get('per_page', ''),
     }
 
 
@@ -63,6 +90,38 @@ def hub(request):
         'page_title': 'Support',
         'query': query,
         'results': results,
+    })
+
+
+@support_console_required
+def games_browse(request):
+    project_id = (request.GET.get('project') or '').strip() or None
+    return render(request, 'support/games.html', {
+        'page_title': 'Игры',
+        'game_groups': get_all_games_by_project(project_id=project_id),
+        'project_id': project_id or '',
+    })
+
+
+@support_console_required
+def sections_dashboard(request):
+    return render(request, 'support/sections.html', {
+        'page_title': 'Разделы',
+        'sections': get_sections_dashboard(),
+    })
+
+
+@support_console_required
+def stats_dashboard(request):
+    hours_raw = request.GET.get('hours', '24')
+    try:
+        hours = max(1, min(168, int(hours_raw)))
+    except (TypeError, ValueError):
+        hours = 24
+    return render(request, 'support/stats.html', {
+        'page_title': 'Статистика',
+        'stats': collect_support_stats(hours=hours),
+        'hours': hours,
     })
 
 

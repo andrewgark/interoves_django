@@ -64,7 +64,13 @@ class SupportAccessTests(TestCase):
     def test_anonymous_redirected_to_login(self):
         response = self.client.get(reverse('support:hub'))
         self.assertEqual(response.status_code, 302)
-        self.assertIn('/accounts/login/', response.url)
+        self.assertIn('/support/login/', response.url)
+
+    def test_support_login_page_renders(self):
+        response = self.client.get(reverse('support:login'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Support Console')
+        self.assertContains(response, 'username')
 
     def test_user_without_group_gets_403(self):
         self.assertTrue(self.client.login(username='support_other', password='secret'))
@@ -371,3 +377,71 @@ class SupportPhase4Tests(TestCase):
         self.assertContains(response, 'chain replay')
         self.assertContains(response, 'Посылка')
         self.assertContains(response, 'Ответ')
+
+
+class SupportBrowseTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        _ensure_reference_rows()
+        Project.objects.get_or_create(pk='sections', defaults={})
+        now = timezone.now()
+        cls.main_game = Game.objects.create(
+            id='browse_main',
+            name='Main Browse',
+            author='test',
+            start_time=now - timedelta(days=1),
+        )
+        cls.section_game, _ = Game.objects.get_or_create(
+            id='ladder',
+            defaults={
+                'name': 'Ladder',
+                'author': 'test',
+                'project_id': 'sections',
+                'start_time': now,
+            },
+        )
+        cls.staff = User.objects.create_user('browse_staff', 'browse@example.com', 'secret')
+        Profile.objects.create(user=cls.staff, first_name='B', last_name='S')
+        group, _ = Group.objects.get_or_create(name=SUPPORT_CONSOLE_GROUP)
+        group.user_set.add(cls.staff)
+
+    def setUp(self):
+        self.client = Client()
+        self.assertTrue(self.client.login(username='browse_staff', password='secret'))
+
+    def test_games_browse_groups_by_project(self):
+        response = self.client.get(reverse('support:games'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Десяточки')
+        self.assertContains(response, 'browse_main')
+
+    def test_sections_dashboard(self):
+        response = self.client.get(reverse('support:sections'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Лесенка')
+
+    def test_stats_dashboard(self):
+        response = self.client.get(reverse('support:stats'), {'hours': 24})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Посылки')
+
+    def test_actor_feed_pagination(self):
+        team = Team.objects.create(name='paginate_team', visible_name='Paginate')
+        task_group = TaskGroup.objects.create(label='Paginate TG')
+        task = Task.objects.create(task_group=task_group, number='1', text='Q', checker_data='')
+        for i in range(55):
+            Attempt.manager.create(
+                team=team,
+                task=task,
+                game=self.main_game,
+                text='answer{}'.format(i),
+                status='Ok',
+                points=1,
+            )
+        url = reverse('support:actor_team', kwargs={'team_name': 'paginate_team'})
+        response = self.client.get(url, {'per_page': 20, 'page': 1})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'стр. 1 / 3')
+        response2 = self.client.get(url, {'per_page': 20, 'page': 2})
+        self.assertEqual(response2.status_code, 200)
+        self.assertContains(response2, 'стр. 2 / 3')

@@ -1,0 +1,49 @@
+{% extends "support/base.html" %}
+
+{% block support_content %}
+<h1 class="support-page-title">Разделы</h1>
+<p class="support-lead">Лесенка, замены, стены, палиндромы — ежедневные секции.</p>
+
+<section class="pal-card support-card">
+  <div class="support-table-wrap">
+    <table class="support-table">
+      <thead>
+        <tr>
+          <th>Раздел</th>
+          <th>Последний круг</th>
+          <th>Кругов</th>
+          <th>Pending</th>
+          <th>24 ч</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in sections %}
+          <tr>
+            <td>
+              <strong>{{ row.icon }} {{ row.title }}</strong>
+              <div class="support-results-list__detail">{{ row.description }}</div>
+            </td>
+            <td class="support-cell-mono">
+              {% if row.latest_number %}
+                #{{ row.latest_number }}{% if row.latest_name %} · {{ row.latest_name }}{% endif %}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="support-cell-mono">{{ row.task_group_count }}</td>
+            <td class="support-cell-mono">{{ row.pending_count }}</td>
+            <td class="support-cell-mono">{{ row.attempts_24h }} пос. · {{ row.hint_requests_24h }} подск.</td>
+            <td>
+              <div class="support-action-row">
+                <a href="{% url 'support:game' row.game_id %}" class="new-btn new-btn--mini new-btn--ghost">dashboard</a>
+                <a href="/section/{{ row.game_id }}/" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost">сайт</a>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

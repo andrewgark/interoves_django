@@ -6,6 +6,31 @@ from django.utils import timezone
 
 
 @dataclass(frozen=True)
+class FeedPage:
+    items: List['FeedItem']
+    page: int
+    per_page: int
+    total_count: int
+    num_pages: int
+
+    @property
+    def has_previous(self) -> bool:
+        return self.page > 1
+
+    @property
+    def has_next(self) -> bool:
+        return self.page < self.num_pages
+
+    @property
+    def previous_page(self) -> int:
+        return max(1, self.page - 1)
+
+    @property
+    def next_page(self) -> int:
+        return min(self.num_pages, self.page + 1)
+
+
+@dataclass(frozen=True)
 class FeedItem:
     time: object
     kind: str
@@ -172,102 +197,166 @@ def get_activity_feed(
     status: Optional[str] = None,
     hours: Optional[int] = None,
     limit: int = 100,
-) -> List[FeedItem]:
-    from games.models import Attempt, HintAttempt
-
+    page: int = 1,
+    per_page: Optional[int] = None,
+) -> FeedPage:
+    if per_page is None:
+        per_page = limit
+    per_page = min(200, max(10, per_page))
+    page = max(1, page)
     since = None
     if hours:
         since = timezone.now() - timedelta(hours=hours)
 
+    attempt_count = 0
+    hint_count = 0
+    if kind in ('all', 'attempts'):
+        attempt_count = _count_attempts(
+            team=team, user=user, anon_key=anon_key, game_id=game_id,
+            status=status, since=since,
+        )
+    if kind in ('all', 'hints'):
+        hint_count = _count_hints(
+            team=team, user=user, anon_key=anon_key, game_id=game_id, since=since,
+        )
+    total_count = attempt_count + hint_count if kind == 'all' else (
+        attempt_count if kind == 'attempts' else hint_count
+    )
+    num_pages = max(1, (total_count + per_page - 1) // per_page) if total_count else 1
+    page = min(page, num_pages)
+
+    fetch_limit = page * per_page
     items: List[FeedItem] = []
 
     if kind in ('all', 'attempts'):
-        attempt_qs = _actor_attempt_filter(team=team, user=user, anon_key=anon_key)
-        if game_id:
-            attempt_qs = Attempt.manager.filter(game_id=game_id)
-            if team is not None:
-                attempt_qs = attempt_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
-            elif user is not None:
-                attempt_qs = attempt_qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
-            elif anon_key:
-                attempt_qs = attempt_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
-        if status:
-            attempt_qs = attempt_qs.filter(status=status)
-        if since:
-            attempt_qs = attempt_qs.filter(time__gte=since)
-        attempt_qs = attempt_qs.select_related('team', 'user', 'user__profile', 'task', 'task__task_group', 'game')
-        attempt_qs = attempt_qs.order_by('-time')[:limit]
-
-        for attempt in attempt_qs:
-            task = attempt.task
-            chain_url = None
-            if task and task.task_type in ('wall', 'replacements_lines', 'raddle'):
-                from django.urls import reverse
-                chain_url = reverse('support:chain', kwargs={'attempt_id': attempt.pk})
-            items.append(FeedItem(
-                time=attempt.time,
-                kind='attempt',
-                actor_kind=actor_kind_for_attempt(attempt),
-                actor_label=actor_label_for_attempt(attempt),
-                actor_url=actor_url_for_attempt(attempt),
-                game_id=attempt.game_id,
-                game_url=_game_url(attempt.game_id),
-                task_id=attempt.task_id,
-                task_number=task.number if task else None,
-                task_group_label=(task.task_group.label if task and task.task_group else None),
-                status=attempt.status,
-                points=str(attempt.points) if attempt.points is not None else None,
-                detail=preview_text(attempt.text),
-                object_id=attempt.pk,
-                chain_url=chain_url,
-                submission_text=attempt_submission_text(attempt),
-                correct_answer=attempt_correct_answer(attempt),
-            ))
+        attempt_qs = _attempt_queryset(
+            team=team, user=user, anon_key=anon_key, game_id=game_id,
+            status=status, since=since,
+        )
+        for attempt in attempt_qs[:fetch_limit]:
+            items.append(_feed_item_for_attempt(attempt))
 
     if kind in ('all', 'hints'):
-        hint_qs = _actor_hint_filter(team=team, user=user, anon_key=anon_key)
-        if game_id:
-            task_ids = list(_task_ids_for_game(game_id))
-            hint_qs = HintAttempt.objects.filter(hint__task_id__in=task_ids)
-            if team is not None:
-                hint_qs = hint_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
-            elif user is not None:
-                hint_qs = hint_qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
-            elif anon_key:
-                hint_qs = hint_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
-        if since:
-            hint_qs = hint_qs.filter(time__gte=since)
-        hint_qs = hint_qs.select_related(
-            'team', 'user', 'user__profile', 'hint', 'hint__task', 'hint__task__task_group',
+        hint_qs = _hint_queryset(
+            team=team, user=user, anon_key=anon_key, game_id=game_id, since=since,
         )
-        hint_qs = hint_qs.order_by('-time')[:limit]
-
-        for ha in hint_qs:
-            hint = ha.hint
-            task = hint.task if hint else None
-            penalty = ''
-            if hint and hint.points_penalty:
-                penalty = '−{}'.format(hint.points_penalty)
-            real = '' if ha.is_real_request else ' (не реальный запрос)'
-            items.append(FeedItem(
-                time=ha.time,
-                kind='hint',
-                actor_kind=actor_kind_for_hint_attempt(ha),
-                actor_label=actor_label_for_hint_attempt(ha),
-                actor_url=actor_url_for_hint_attempt(ha),
-                game_id=game_id,
-                game_url=_game_url(game_id),
-                task_id=task.pk if task else None,
-                task_number=task.number if task else None,
-                task_group_label=(task.task_group.label if task and task.task_group else None),
-                status='Hint',
-                points=penalty or None,
-                detail='Подсказка #{}{}'.format(hint.number if hint else '?', real),
-                object_id=ha.pk,
-            ))
+        for ha in hint_qs[:fetch_limit]:
+            items.append(_feed_item_for_hint(ha, game_id=game_id))
 
     items.sort(key=lambda item: item.time or timezone.now(), reverse=True)
-    return items[:limit]
+    start = (page - 1) * per_page
+    end = start + per_page
+    return FeedPage(
+        items=items[start:end],
+        page=page,
+        per_page=per_page,
+        total_count=total_count,
+        num_pages=num_pages,
+    )
+
+
+def _count_attempts(*, team=None, user=None, anon_key=None, game_id=None, status=None, since=None) -> int:
+    return _attempt_queryset(
+        team=team, user=user, anon_key=anon_key, game_id=game_id,
+        status=status, since=since,
+    ).count()
+
+
+def _count_hints(*, team=None, user=None, anon_key=None, game_id=None, since=None) -> int:
+    return _hint_queryset(
+        team=team, user=user, anon_key=anon_key, game_id=game_id, since=since,
+    ).count()
+
+
+def _attempt_queryset(*, team=None, user=None, anon_key=None, game_id=None, status=None, since=None):
+    from games.models import Attempt
+
+    attempt_qs = _actor_attempt_filter(team=team, user=user, anon_key=anon_key)
+    if game_id:
+        attempt_qs = Attempt.manager.filter(game_id=game_id)
+        if team is not None:
+            attempt_qs = attempt_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
+        elif user is not None:
+            attempt_qs = attempt_qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
+        elif anon_key:
+            attempt_qs = attempt_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
+    if status:
+        attempt_qs = attempt_qs.filter(status=status)
+    if since:
+        attempt_qs = attempt_qs.filter(time__gte=since)
+    return attempt_qs.select_related('team', 'user', 'user__profile', 'task', 'task__task_group', 'game').order_by('-time')
+
+
+def _hint_queryset(*, team=None, user=None, anon_key=None, game_id=None, since=None):
+    from games.models import HintAttempt
+
+    hint_qs = _actor_hint_filter(team=team, user=user, anon_key=anon_key)
+    if game_id:
+        task_ids = list(_task_ids_for_game(game_id))
+        hint_qs = HintAttempt.objects.filter(hint__task_id__in=task_ids)
+        if team is not None:
+            hint_qs = hint_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
+        elif user is not None:
+            hint_qs = hint_qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
+        elif anon_key:
+            hint_qs = hint_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
+    if since:
+        hint_qs = hint_qs.filter(time__gte=since)
+    return hint_qs.select_related(
+        'team', 'user', 'user__profile', 'hint', 'hint__task', 'hint__task__task_group',
+    ).order_by('-time')
+
+
+def _feed_item_for_attempt(attempt) -> FeedItem:
+    task = attempt.task
+    chain_url = None
+    if task and task.task_type in ('wall', 'replacements_lines', 'raddle'):
+        from django.urls import reverse
+        chain_url = reverse('support:chain', kwargs={'attempt_id': attempt.pk})
+    return FeedItem(
+        time=attempt.time,
+        kind='attempt',
+        actor_kind=actor_kind_for_attempt(attempt),
+        actor_label=actor_label_for_attempt(attempt),
+        actor_url=actor_url_for_attempt(attempt),
+        game_id=attempt.game_id,
+        game_url=_game_url(attempt.game_id),
+        task_id=attempt.task_id,
+        task_number=task.number if task else None,
+        task_group_label=(task.task_group.label if task and task.task_group else None),
+        status=attempt.status,
+        points=str(attempt.points) if attempt.points is not None else None,
+        detail=preview_text(attempt.text),
+        object_id=attempt.pk,
+        chain_url=chain_url,
+        submission_text=attempt_submission_text(attempt),
+        correct_answer=attempt_correct_answer(attempt),
+    )
+
+
+def _feed_item_for_hint(ha, *, game_id=None) -> FeedItem:
+    hint = ha.hint
+    task = hint.task if hint else None
+    penalty = ''
+    if hint and hint.points_penalty:
+        penalty = '−{}'.format(hint.points_penalty)
+    real = '' if ha.is_real_request else ' (не реальный запрос)'
+    return FeedItem(
+        time=ha.time,
+        kind='hint',
+        actor_kind=actor_kind_for_hint_attempt(ha),
+        actor_label=actor_label_for_hint_attempt(ha),
+        actor_url=actor_url_for_hint_attempt(ha),
+        game_id=game_id,
+        game_url=_game_url(game_id),
+        task_id=task.pk if task else None,
+        task_number=task.number if task else None,
+        task_group_label=(task.task_group.label if task and task.task_group else None),
+        status='Hint',
+        points=penalty or None,
+        detail='Подсказка #{}{}'.format(hint.number if hint else '?', real),
+        object_id=ha.pk,
+    )
 
 
 def distinct_game_ids_for_actor(*, team=None, user=None, anon_key=None) -> List[str]:

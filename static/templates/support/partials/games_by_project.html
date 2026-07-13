@@ -1,0 +1,37 @@
+{% if game_groups %}
+  {% for group in game_groups %}
+    <div class="support-project-group">
+      <h3 class="support-project-group__title">{{ group.project_label }}</h3>
+      <div class="support-table-wrap">
+        <table class="support-table support-table--compact">
+          <thead>
+            <tr>
+              <th>Игра</th>
+              <th>Дата</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for game in group.games %}
+              <tr>
+                <td>
+                  <a href="{% url 'support:game' game.id %}">{{ game.outside_name|default:game.name|default:game.id }}</a>
+                  <div class="support-results-list__detail">{{ game.id }}</div>
+                </td>
+                <td class="support-cell-mono">{{ game.start_time|date:"d.m.Y" }}</td>
+                <td>
+                  <div class="support-action-row">
+                    <a href="{% url 'support:game' game.id %}" class="new-btn new-btn--mini new-btn--ghost">dashboard</a>
+                    {% if actor_spec %}
+                      <a href="{% url 'support:preview_game' game.id %}?{% if actor_spec.kind == 'team' %}team={{ actor_spec.team_name|urlencode }}&amp;mode=team{% elif actor_spec.kind == 'user' %}user={{ actor_spec.user_id }}&amp;mode=personal{% elif actor_spec.kind == 'anon' %}anon={{ actor_spec.anon_key|urlencode }}&amp;mode=personal{% endif %}" class="new-btn new-btn--mini new-btn--ghost">preview</a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endfor %}
+{% endif %}

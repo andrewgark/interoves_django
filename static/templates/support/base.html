@@ -13,9 +13,13 @@
   <div class="support-bar__inner">
     <span class="support-bar__tag">Support</span>
     <a href="{% url 'support:hub' %}" {% if request.resolver_match.url_name == 'hub' %}aria-current="page"{% endif %}>Поиск</a>
+    <a href="{% url 'support:games' %}" {% if request.resolver_match.url_name == 'games' %}aria-current="page"{% endif %}>Игры</a>
+    <a href="{% url 'support:sections' %}" {% if request.resolver_match.url_name == 'sections' %}aria-current="page"{% endif %}>Разделы</a>
+    <a href="{% url 'support:stats' %}" {% if request.resolver_match.url_name == 'stats' %}aria-current="page"{% endif %}>Статистика</a>
     <a href="{% url 'support:pending' %}" {% if request.resolver_match.url_name == 'pending' %}aria-current="page"{% endif %}>Pending</a>
     <a href="{% url 'support:live' %}" {% if request.resolver_match.url_name == 'live' %}aria-current="page"{% endif %}>Live</a>
     <a href="/admin/">Django admin</a>
+    <a href="{% url 'support:logout' %}">Выйти</a>
   </div>
 </div>
 <div class="new-wrap">

@@ -41,17 +41,10 @@
   {% endif %}
 </section>
 
-{% if games %}
+{% if game_groups %}
 <section class="pal-card support-card">
   <h2 class="pal-title">Игры</h2>
-  <div class="support-links">
-    {% for game in games %}
-      <a href="{% url 'support:game' game.id %}">{{ game.outside_name|default:game.name|default:game.id }}</a>
-      {% if actor_spec %}
-        <a href="{% url 'support:preview_game' game.id %}?{% if actor_spec.kind == 'team' %}team={{ actor_spec.team_name|urlencode }}&amp;mode=team{% elif actor_spec.kind == 'user' %}user={{ actor_spec.user_id }}&amp;mode=personal{% elif actor_spec.kind == 'anon' %}anon={{ actor_spec.anon_key|urlencode }}&amp;mode=personal{% endif %}">preview</a>
-      {% endif %}
-    {% endfor %}
-  </div>
+  {% include "support/partials/games_by_project.html" %}
 </section>
 {% endif %}
 
@@ -59,5 +52,6 @@
   <h2 class="pal-title">Активность</h2>
   {% include "support/partials/feed_filters.html" with action_url=request.path %}
   {% include "support/partials/feed_table.html" with show_actor_column=False show_actions=True %}
+  {% include "support/partials/feed_pagination.html" %}
 </section>
 {% endblock %}

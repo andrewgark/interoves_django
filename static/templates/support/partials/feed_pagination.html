@@ -1,0 +1,15 @@
+{% if feed_page and feed_page.num_pages > 1 %}
+<nav class="support-pagination" aria-label="Страницы активности">
+  <span class="support-pagination__info">
+    {{ feed_page.total_count }} событий · стр. {{ feed_page.page }} / {{ feed_page.num_pages }}
+  </span>
+  <div class="support-pagination__links">
+    {% if feed_page.has_previous %}
+      <a href="?{% if feed_filters.kind and feed_filters.kind != 'all' %}kind={{ feed_filters.kind }}&amp;{% endif %}{% if feed_filters.status %}status={{ feed_filters.status }}&amp;{% endif %}{% if feed_filters.hours %}hours={{ feed_filters.hours }}&amp;{% endif %}page={{ feed_page.previous_page }}" class="new-btn new-btn--mini new-btn--ghost">← Назад</a>
+    {% endif %}
+    {% if feed_page.has_next %}
+      <a href="?{% if feed_filters.kind and feed_filters.kind != 'all' %}kind={{ feed_filters.kind }}&amp;{% endif %}{% if feed_filters.status %}status={{ feed_filters.status }}&amp;{% endif %}{% if feed_filters.hours %}hours={{ feed_filters.hours }}&amp;{% endif %}page={{ feed_page.next_page }}" class="new-btn new-btn--mini new-btn--ghost">Вперёд →</a>
+    {% endif %}
+  </div>
+</nav>
+{% endif %}

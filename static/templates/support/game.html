@@ -85,7 +85,9 @@
 </section>
 
 <section class="pal-card support-card">
+  <h2 class="pal-title">Активность</h2>
   {% include "support/partials/feed_filters.html" with action_url=request.path %}
   {% include "support/partials/feed_table.html" with show_actor_column=True show_actions=True %}
+  {% include "support/partials/feed_pagination.html" %}
 </section>
 {% endblock %}

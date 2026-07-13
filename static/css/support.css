@@ -361,3 +361,125 @@ html.new-ui-dark .support-preview-banner {
     font-size: 0.8rem;
   }
 }
+
+/* Login */
+.support-login-body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.support-login {
+  width: 100%;
+  max-width: 24rem;
+  padding: 1rem;
+}
+
+.support-login__card {
+  padding: 1.5rem;
+}
+
+.support-login__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.35rem;
+}
+
+.support-login__lead {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.support-login__error {
+  color: var(--danger, #c00);
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+
+.support-login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.support-login__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.support-login__label input {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.support-login__hint {
+  margin: 1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* Project game groups */
+.support-project-group {
+  margin-bottom: 1rem;
+}
+
+.support-project-group:last-child {
+  margin-bottom: 0;
+}
+
+.support-project-group__title {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.support-table--compact td,
+.support-table--compact th {
+  padding: 0.35rem 0.5rem;
+}
+
+/* Pagination */
+.support-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.support-pagination__info {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.support-pagination__links {
+  display: flex;
+  gap: 0.35rem;
+}
+
+/* Stats */
+.support-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.support-stat-big {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}

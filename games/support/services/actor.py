@@ -1,11 +1,16 @@
-from games.support.services.feed import distinct_game_ids_for_actor, get_activity_feed
+from games.support.services.feed import get_activity_feed
+from games.support.services.games import games_for_actor
+
+
+def _feed_context(feed_kwargs):
+    feed_page = get_activity_feed(**feed_kwargs)
+    return {
+        'feed': feed_page.items,
+        'feed_page': feed_page,
+    }
 
 
 def build_team_context(team, *, feed_kwargs):
-    from games.models import Game
-
-    game_ids = distinct_game_ids_for_actor(team=team)
-    games = list(Game.objects.filter(id__in=game_ids).order_by('-start_time'))
     return {
         'actor_kind': 'team',
         'actor_title': team.visible_name or team.name,
@@ -13,17 +18,13 @@ def build_team_context(team, *, feed_kwargs):
         'team': team,
         'members': list(team.roster_profiles),
         'flags': _team_flags(team),
-        'games': games,
-        'feed': get_activity_feed(team=team, **feed_kwargs),
+        'game_groups': games_for_actor(team=team),
+        **_feed_context(feed_kwargs),
     }
 
 
 def build_user_context(user, *, feed_kwargs):
-    from games.models import Game
-
     profile = getattr(user, 'profile', None)
-    game_ids = distinct_game_ids_for_actor(user=user)
-    games = list(Game.objects.filter(id__in=game_ids).order_by('-start_time'))
     if profile:
         title = '{} {}'.format(profile.first_name, profile.last_name).strip()
     else:
@@ -36,16 +37,14 @@ def build_user_context(user, *, feed_kwargs):
         'profile': profile,
         'members': [],
         'flags': _user_flags(user, profile),
-        'games': games,
-        'feed': get_activity_feed(user=user, **feed_kwargs),
+        'game_groups': games_for_actor(user=user),
+        **_feed_context(feed_kwargs),
     }
 
 
 def build_anon_context(anon_key, *, feed_kwargs):
-    from games.models import Attempt, Game, HiddenAnonKey
+    from games.models import Attempt, HiddenAnonKey
 
-    game_ids = distinct_game_ids_for_actor(anon_key=anon_key)
-    games = list(Game.objects.filter(id__in=game_ids).order_by('-start_time'))
     first_seen = (
         Attempt.manager.filter(anon_key=anon_key)
         .order_by('time')
@@ -63,8 +62,8 @@ def build_anon_context(anon_key, *, feed_kwargs):
         'hidden_note': hidden.note if hidden else None,
         'members': [],
         'flags': _anon_flags(hidden),
-        'games': games,
-        'feed': get_activity_feed(anon_key=anon_key, **feed_kwargs),
+        'game_groups': games_for_actor(anon_key=anon_key),
+        **_feed_context(feed_kwargs),
     }
 
 
@@ -88,9 +87,9 @@ def build_game_context(game, *, feed_kwargs):
         'task_groups': task_groups,
         'pending_count': pending_count,
         'hint_count': hint_count,
-        'feed': get_activity_feed(game_id=game.id, **feed_kwargs),
+        **_feed_context({**feed_kwargs, 'game_id': game.id}),
         'admin_game_url': reverse('admin:games_game_change', args=[game.pk]),
-        'site_game_url': '/games/{}/'.format(game.id),
+        'site_game_url': '/games/{}/'.format(game.id) if game.project_id == 'main' else '/section/{}/'.format(game.id),
     }
 
 

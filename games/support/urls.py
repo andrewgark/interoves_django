@@ -1,3 +1,4 @@
+from django.contrib.auth.views import LogoutView
 from django.urls import path
 
 from games.support import actions
@@ -6,7 +7,12 @@ from games.support import views
 app_name = 'support'
 
 urlpatterns = [
+    path('login/', views.SupportLoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(next_page='support:login'), name='logout'),
     path('', views.hub, name='hub'),
+    path('games/', views.games_browse, name='games'),
+    path('sections/', views.sections_dashboard, name='sections'),
+    path('stats/', views.stats_dashboard, name='stats'),
     path('pending/', views.pending_queue, name='pending'),
     path('live/', views.live_dashboard, name='live'),
     path('live/feed.json', views.live_feed_json, name='live_feed_json'),

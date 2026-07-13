@@ -1,0 +1,106 @@
+{% extends "support/base.html" %}
+
+{% block support_content %}
+<h1 class="support-page-title">Статистика</h1>
+<p class="support-lead">
+  {{ stats.since|date:"d.m.Y H:i" }} — {{ stats.until|date:"d.m.Y H:i" }}
+</p>
+
+<form class="support-filters" method="get" action="{% url 'support:stats' %}">
+  <label>
+    Период
+    <select name="hours" onchange="this.form.submit()">
+      <option value="6" {% if hours == 6 %}selected{% endif %}>6 часов</option>
+      <option value="24" {% if hours == 24 %}selected{% endif %}>24 часа</option>
+      <option value="72" {% if hours == 72 %}selected{% endif %}>3 дня</option>
+      <option value="168" {% if hours == 168 %}selected{% endif %}>7 дней</option>
+    </select>
+  </label>
+</form>
+
+<div class="support-stats-grid">
+  <section class="pal-card support-card">
+    <h2 class="pal-title">Посылки</h2>
+    <p class="support-stat-big">{{ stats.attempts_total }}</p>
+    <div class="support-meta">
+      {% for key, label in stats.attempts_by_status.items %}
+        <span class="support-flag support-flag--{{ key }}">{{ key }}: {{ label }}</span>
+      {% empty %}
+        <span class="support-flag">—</span>
+      {% endfor %}
+    </div>
+    <p class="support-hint">
+      Активных: {{ stats.active_users }} пользователей · {{ stats.active_teams }} команд · {{ stats.active_anon }} анонимов
+    </p>
+    <p class="support-hint">
+      Подсказки: {{ stats.hint_total }} запросов · {{ stats.hint_users }} пользователей
+    </p>
+  </section>
+
+  <section class="pal-card support-card">
+    <h2 class="pal-title">Очереди сейчас</h2>
+    <div class="support-meta">
+      <span class="support-flag support-flag--Pending">баги: {{ stats.pending_bugs_now }}</span>
+      <span class="support-flag support-flag--Pending">билеты: {{ stats.pending_tickets_now }}</span>
+      {% if stats.stuck_tickets_now %}
+        <span class="support-flag support-flag--warn">зависшие: {{ stats.stuck_tickets_now }}</span>
+      {% endif %}
+    </div>
+    <p class="support-hint">
+      За период: {{ stats.bugs_total }} багов ({{ stats.bugs_pending }} pending) ·
+      {{ stats.tickets_pending }} pending билетов · {{ stats.tickets_accepted }} accepted ·
+      {{ stats.tickets_revenue }} ₽
+    </p>
+    <p class="support-hint">
+      Регистрации: {{ stats.registrations }} · новые аккаунты: {{ stats.new_accounts }} ·
+      корп. заявки: {{ stats.corporate_orders }}
+    </p>
+  </section>
+</div>
+
+<section class="pal-card support-card">
+  <h2 class="pal-title">Топ игр · посылки</h2>
+  <div class="support-table-wrap">
+    <table class="support-table">
+      <thead>
+        <tr><th>#</th><th>Игра</th><th>Посылки</th><th>Пользователи</th></tr>
+      </thead>
+      <tbody>
+        {% for row in stats.top_games_attempts %}
+          <tr>
+            <td class="support-cell-mono">{{ forloop.counter }}</td>
+            <td><a href="{{ row.game_url }}">{{ row.game_label }}</a><div class="support-results-list__detail">{{ row.game_id }}</div></td>
+            <td class="support-cell-mono">{{ row.primary_value }}</td>
+            <td class="support-cell-mono">{{ row.secondary_value }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="support-empty">Нет данных</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="pal-card support-card">
+  <h2 class="pal-title">Топ игр · игроки</h2>
+  <div class="support-table-wrap">
+    <table class="support-table">
+      <thead>
+        <tr><th>#</th><th>Игра</th><th>Пользователи</th><th>Посылки</th></tr>
+      </thead>
+      <tbody>
+        {% for row in stats.top_games_users %}
+          <tr>
+            <td class="support-cell-mono">{{ forloop.counter }}</td>
+            <td><a href="{{ row.game_url }}">{{ row.game_label }}</a><div class="support-results-list__detail">{{ row.game_id }}</div></td>
+            <td class="support-cell-mono">{{ row.primary_value }}</td>
+            <td class="support-cell-mono">{{ row.secondary_value }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4" class="support-empty">Нет данных</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

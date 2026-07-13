@@ -31,6 +31,6 @@ def get_live_feed(*, hours: int = 2, limit: int = 80, game_id: Optional[str] = N
 
     items = []
     for gid in game_ids:
-        items.extend(get_activity_feed(game_id=gid, hours=hours, limit=limit))
+        items.extend(get_activity_feed(game_id=gid, hours=hours, limit=limit).items)
     items.sort(key=lambda row: row.time or timezone.now(), reverse=True)
     return get_live_games(), items[:limit]

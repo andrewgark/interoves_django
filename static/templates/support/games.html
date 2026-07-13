@@ -1,0 +1,24 @@
+{% extends "support/base.html" %}
+
+{% block support_content %}
+<h1 class="support-page-title">Игры</h1>
+<p class="support-lead">Все игры по проектам, от новых к старым.</p>
+
+<form class="support-filters" method="get" action="{% url 'support:games' %}">
+  <label>
+    Проект
+    <select name="project" onchange="this.form.submit()">
+      <option value="" {% if not project_id %}selected{% endif %}>все проекты</option>
+      <option value="main" {% if project_id == 'main' %}selected{% endif %}>Десяточки</option>
+      <option value="sections" {% if project_id == 'sections' %}selected{% endif %}>Разделы</option>
+      <option value="glowbyte" {% if project_id == 'glowbyte' %}selected{% endif %}>Glowbyte</option>
+    </select>
+  </label>
+</form>
+
+{% if game_groups %}
+  {% include "support/partials/games_by_project.html" %}
+{% else %}
+  <p class="support-empty">Игр не найдено.</p>
+{% endif %}
+{% endblock %}
