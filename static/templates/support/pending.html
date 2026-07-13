@@ -7,7 +7,7 @@
 <section class="pal-card support-card">
   {% if items %}
     <div class="support-table-wrap">
-      <table class="support-table">
+      <table class="support-table support-table--feed">
         <thead>
           <tr>
             <th>Время</th>
@@ -15,14 +15,12 @@
             <th>Объект</th>
             <th>Актор</th>
             <th>Игра</th>
-            <th>Посылка</th>
-            <th>Ответ</th>
             <th>Действия</th>
           </tr>
         </thead>
         <tbody>
           {% for item in items %}
-            <tr>
+            <tr class="support-feed-meta">
               <td class="support-cell-mono">{% if item.time %}{{ item.time|date:"d.m H:i:s" }}{% else %}—{% endif %}</td>
               <td>{{ item.kind }}</td>
               <td>
@@ -37,12 +35,6 @@
                   —
                 {% endif %}
               </td>
-              <td class="support-cell-detail">
-                {% if item.kind == 'attempt' %}{{ item.submission_text|default:"—" }}{% else %}—{% endif %}
-              </td>
-              <td class="support-cell-detail support-cell-answer">
-                {% if item.kind == 'attempt' %}{{ item.correct_answer|default:"—" }}{% else %}—{% endif %}
-              </td>
               <td>
                 <div class="support-action-row">
                   {% for action in item.actions %}
@@ -51,6 +43,13 @@
                 </div>
               </td>
             </tr>
+            {% if item.kind == 'attempt' %}
+              <tr class="support-feed-content">
+                <td colspan="99">
+                  {% include "support/partials/attempt_compare.html" with submission_text=item.submission_text correct_answer=item.correct_answer %}
+                </td>
+              </tr>
+            {% endif %}
           {% endfor %}
         </tbody>
       </table>

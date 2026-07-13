@@ -36,7 +36,7 @@
   <h2 class="pal-title">Попытки (хронология)</h2>
   {% if attempt_rows %}
     <div class="support-table-wrap">
-      <table class="support-table">
+      <table class="support-table support-table--feed">
         <thead>
           <tr>
             <th>#</th>
@@ -44,22 +44,23 @@
             <th>Статус</th>
             <th>Очки</th>
             <th>skip</th>
-            <th>Посылка</th>
-            <th>Ответ</th>
             <th>state</th>
           </tr>
         </thead>
         <tbody>
           {% for row in attempt_rows %}
-            <tr>
+            <tr class="support-feed-meta">
               <td class="support-cell-mono">{{ row.attempt_id }}</td>
               <td class="support-cell-mono">{% if row.time %}{{ row.time|date:"d.m H:i:s" }}{% else %}—{% endif %}</td>
               <td><span class="support-badge support-badge--{{ row.status }}">{{ row.status }}</span></td>
               <td class="support-cell-mono">{{ row.points }}</td>
               <td>{{ row.skip|yesno:"yes,no" }}</td>
-              <td class="support-cell-detail">{{ row.submission_text }}</td>
-              <td class="support-cell-detail support-cell-answer">{{ row.correct_answer }}</td>
               <td class="support-cell-detail">{{ row.state_preview }}</td>
+            </tr>
+            <tr class="support-feed-content">
+              <td colspan="99">
+                {% include "support/partials/attempt_compare.html" with submission_text=row.submission_text correct_answer=row.correct_answer %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>

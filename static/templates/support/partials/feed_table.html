@@ -1,6 +1,6 @@
 {% if feed %}
   <div class="support-table-wrap">
-    <table class="support-table">
+    <table class="support-table support-table--feed">
       <thead>
         <tr>
           <th>Время</th>
@@ -12,8 +12,6 @@
           <th>Задание</th>
           <th>Статус</th>
           <th>Очки</th>
-          <th>Посылка</th>
-          <th>Ответ</th>
           {% if show_actions %}
             <th>Действия</th>
           {% endif %}
@@ -21,7 +19,7 @@
       </thead>
       <tbody>
         {% for item in feed %}
-          <tr>
+          <tr class="support-feed-meta">
             <td class="support-cell-mono">{% if item.time %}{{ item.time|date:"d.m H:i:s" }}{% else %}—{% endif %}</td>
             <td>{{ item.kind }}</td>
             {% if show_actor_column %}
@@ -46,20 +44,6 @@
               {% endif %}
             </td>
             <td class="support-cell-mono">{{ item.points|default:"—" }}</td>
-            <td class="support-cell-detail">
-              {% if item.kind == 'attempt' %}
-                {{ item.submission_text|default:item.detail }}
-              {% else %}
-                {{ item.detail }}
-              {% endif %}
-            </td>
-            <td class="support-cell-detail support-cell-answer">
-              {% if item.kind == 'attempt' %}
-                {{ item.correct_answer|default:"—" }}
-              {% else %}
-                —
-              {% endif %}
-            </td>
             {% if show_actions %}
               <td>
                 {% if item.kind == 'attempt' %}
@@ -78,6 +62,20 @@
                 {% endif %}
               </td>
             {% endif %}
+          </tr>
+          <tr class="support-feed-content">
+            <td colspan="99">
+              {% if item.kind == 'attempt' %}
+                {% include "support/partials/attempt_compare.html" with submission_text=item.submission_text|default:item.detail correct_answer=item.correct_answer %}
+              {% else %}
+                <div class="support-compare support-compare--single">
+                  <div class="support-compare__col">
+                    <span class="support-compare__label">Детали</span>
+                    <div class="support-compare__text">{{ item.detail }}</div>
+                  </div>
+                </div>
+              {% endif %}
+            </td>
           </tr>
         {% endfor %}
       </tbody>
