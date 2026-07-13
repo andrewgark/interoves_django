@@ -1,0 +1,33 @@
+{% extends "support/base.html" %}
+
+{% block support_content %}
+<h1 class="support-page-title">Support Console</h1>
+<p class="support-lead">Поиск команд, игроков, анонимов, игр и посылок. Только просмотр.</p>
+
+<form class="support-search" method="get" action="{% url 'support:hub' %}" role="search">
+  <input type="search" name="q" value="{{ query }}" placeholder="команда, email, anon:…, game:…, attempt:123" autofocus>
+  <button type="submit" class="new-btn">Найти</button>
+</form>
+<p class="support-hint">Префиксы: <code>team:</code> <code>user:</code> <code>anon:</code> <code>game:</code> <code>attempt:</code> <code>task:</code></p>
+
+{% if query %}
+  <section class="pal-card support-card">
+    <h2 class="pal-title">Результаты</h2>
+    {% if results %}
+      <ul class="support-results-list">
+        {% for hit in results %}
+          <li>
+            <a href="{{ hit.url }}">
+              <div class="support-results-list__kind">{{ hit.kind }}</div>
+              <strong>{{ hit.label }}</strong>
+              <div class="support-results-list__detail">{{ hit.detail }}</div>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="support-empty">Ничего не найдено по запросу «{{ query }}».</p>
+    {% endif %}
+  </section>
+{% endif %}
+{% endblock %}

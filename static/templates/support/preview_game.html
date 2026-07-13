@@ -1,0 +1,39 @@
+{% extends "support/base.html" %}
+
+{% block support_content %}
+<h1 class="support-page-title">Preview · {{ game.outside_name|default:game.name|default:game.id }}</h1>
+<p class="support-lead">Глазами: <strong>{{ actor_label }}</strong> (mode={{ actor_spec.play_mode }})</p>
+
+<section class="pal-card support-card">
+  <h2 class="pal-title">Task groups</h2>
+  {% if rows %}
+    <div class="support-table-wrap">
+      <table class="support-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Название</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td class="support-cell-mono">{{ row.number }}</td>
+              <td>{{ row.name|default:"—" }} <span class="support-results-list__detail">· {{ row.label }}</span></td>
+              <td><a href="{{ row.preview_url }}">Открыть preview</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="support-empty">Нет task groups для этой игры.</p>
+  {% endif %}
+</section>
+
+<div class="support-links">
+  <a href="{{ actor_dashboard_url }}">← Актор в support</a>
+  <a href="{% url 'support:game' game.id %}">Игра в support</a>
+</div>
+{% endblock %}

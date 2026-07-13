@@ -1,0 +1,91 @@
+{% extends "support/base.html" %}
+
+{% block support_content %}
+<h1 class="support-page-title">{{ game.outside_name|default:game.name|default:game.id }}</h1>
+<p class="support-lead">Игра · {{ game.id }}</p>
+
+<section class="pal-card support-card">
+  <h2 class="pal-title">Сводка</h2>
+  <div class="support-meta">
+    {% if game.is_ready %}<span class="support-flag support-flag--ok">ready</span>{% endif %}
+    {% if game.is_testing %}<span class="support-flag">testing</span>{% endif %}
+    {% if game.is_tournament %}<span class="support-flag">tournament</span>{% endif %}
+    <span class="support-flag">pending:{{ pending_count }}</span>
+  </div>
+  <p class="support-hint">
+    {{ game.start_time|date:"d.m.Y H:i" }} — {{ game.end_time|date:"d.m.Y H:i" }}
+  </p>
+  <div class="support-links">
+    <a href="{{ site_game_url }}" target="_blank" rel="noopener">Открыть на сайте</a>
+    <a href="{{ admin_game_url }}" target="_blank" rel="noopener">Django admin</a>
+  </div>
+</section>
+
+{% if game.task_groups %}
+<section class="pal-card support-card">
+  <h2 class="pal-title">Task groups</h2>
+  <div class="support-table-wrap">
+    <table class="support-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Название</th>
+          <th>Task group</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for gtg in task_groups %}
+          <tr>
+            <td class="support-cell-mono">{{ gtg.number }}</td>
+            <td>{{ gtg.name|default:"—" }}</td>
+            <td class="support-cell-mono">{{ gtg.task_group.label|default:gtg.task_group_id }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="pal-card support-card">
+  <h2 class="pal-title">Застряли</h2>
+  <p class="support-hint">Зарегистрированы, но без Ok-посылок за последние {{ stuck_minutes }} мин.</p>
+  <form class="support-filters" method="get" action="{% url 'support:game' game.id %}">
+    <label>
+      Минут
+      <input type="number" name="stuck_minutes" value="{{ stuck_minutes }}" min="5" max="240" style="width:5rem">
+    </label>
+    {% if feed_filters.kind %}<input type="hidden" name="kind" value="{{ feed_filters.kind }}">{% endif %}
+    {% if feed_filters.status %}<input type="hidden" name="status" value="{{ feed_filters.status }}">{% endif %}
+    {% if feed_filters.hours %}<input type="hidden" name="hours" value="{{ feed_filters.hours }}">{% endif %}
+    <button type="submit" class="new-btn new-btn--mini">Обновить</button>
+  </form>
+  {% if stuck_teams %}
+    <div class="support-table-wrap">
+      <table class="support-table">
+        <thead>
+          <tr>
+            <th>Команда</th>
+            <th>Последняя посылка</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in stuck_teams %}
+            <tr>
+              <td><a href="{{ row.actor_url }}">{{ row.team_label }}</a></td>
+              <td class="support-cell-mono">{% if row.last_attempt_time %}{{ row.last_attempt_time|date:"d.m H:i" }}{% else %}—{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="support-empty">Все активные команды с недавним прогрессом.</p>
+  {% endif %}
+</section>
+
+<section class="pal-card support-card">
+  {% include "support/partials/feed_filters.html" with action_url=request.path %}
+  {% include "support/partials/feed_table.html" with show_actor_column=True show_actions=True %}
+</section>
+{% endblock %}

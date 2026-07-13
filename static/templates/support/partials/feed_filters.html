@@ -1,0 +1,31 @@
+<form class="support-filters" method="get" action="{{ action_url }}">
+  <label>
+    События
+    <select name="kind">
+      <option value="all" {% if feed_filters.kind == 'all' or not feed_filters.kind %}selected{% endif %}>все</option>
+      <option value="attempts" {% if feed_filters.kind == 'attempts' %}selected{% endif %}>посылки</option>
+      <option value="hints" {% if feed_filters.kind == 'hints' %}selected{% endif %}>подсказки</option>
+    </select>
+  </label>
+  <label>
+    Статус
+    <select name="status">
+      <option value="" {% if not feed_filters.status %}selected{% endif %}>любой</option>
+      <option value="Pending" {% if feed_filters.status == 'Pending' %}selected{% endif %}>Pending</option>
+      <option value="Ok" {% if feed_filters.status == 'Ok' %}selected{% endif %}>Ok</option>
+      <option value="Partial" {% if feed_filters.status == 'Partial' %}selected{% endif %}>Partial</option>
+      <option value="Wrong" {% if feed_filters.status == 'Wrong' %}selected{% endif %}>Wrong</option>
+    </select>
+  </label>
+  <label>
+    Часы
+    <select name="hours">
+      <option value="" {% if not feed_filters.hours %}selected{% endif %}>всё время</option>
+      <option value="1" {% if feed_filters.hours == '1' %}selected{% endif %}>1 ч</option>
+      <option value="6" {% if feed_filters.hours == '6' %}selected{% endif %}>6 ч</option>
+      <option value="24" {% if feed_filters.hours == '24' %}selected{% endif %}>24 ч</option>
+      <option value="72" {% if feed_filters.hours == '72' %}selected{% endif %}>72 ч</option>
+    </select>
+  </label>
+  <button type="submit" class="new-btn new-btn--mini">Применить</button>
+</form>

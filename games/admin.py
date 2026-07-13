@@ -5,12 +5,18 @@ import json
 from django.contrib import admin, messages
 from django.forms import Textarea, ModelForm, ModelMultipleChoiceField
 from django.forms.models import BaseInlineFormSet
-from django.db import models, transaction
+from django.db import models
 from django.shortcuts import get_object_or_404
 from games.google.actions import create_google_doc
-from games.ticket_service import (
-    accept_ticket_request as accept_ticket_request_record,
-    reject_ticket_request as reject_ticket_request_record,
+from games.ops_actions import (
+    accept_ticket,
+    add_attempt_to_checker,
+    confirm_attempt_prestatus,
+    reject_ticket,
+    run_recheck,
+    run_recheck_after_add_to_checker,
+    set_attempt_ok,
+    set_ok_and_create_new_task,
 )
 from games.models import (
     Attempt,
@@ -43,7 +49,6 @@ from games.models import (
     TicketRequest,
 )
 from games.recheck import (
-    recheck,
     recheck_chain_task,
     recheck_full,
     recheck_queue_from_this,
@@ -365,7 +370,7 @@ def clear_profile_team(modeladmin, request, queryset):
 
 def recheck_attempt(modeladmin, request, queryset):
     for attempt_id in queryset.values_list('id'):
-        recheck(request, attempt_id[0])
+        run_recheck(attempt_id[0])
 
 
 def recheck_full_attempt(modeladmin, request, queryset):
@@ -389,94 +394,36 @@ def recheck_team_task_all_chronological_action(modeladmin, request, queryset):
 
 
 def _set_ok(attempt):
-    # "max points" for wall/replacements_lines is derived (not just task.points multiplier).
-    try:
-        if attempt.task and attempt.task.task_type in ('wall', 'replacements_lines', 'raddle'):
-            attempt.points = attempt.task.get_results_max_points()
-        else:
-            attempt.points = attempt.get_max_points()
-    except Exception:
-        attempt.points = attempt.get_max_points()
-    attempt.status = 'Ok'
-    if attempt.task.task_type == 'autohint':
-        hints = set(Hint.objects.filter(task=attempt.task))
-        hint_attempts = HintAttempt.objects.filter(team=attempt.team, hint__in=hints)
-        hint_attempts = sorted(hint_attempts, key=lambda h: h.time, reverse=True)
-        if len(hint_attempts) != 0:
-            last_hint_attempt = hint_attempts[0]
-            last_hint_attempt.is_real_request = False
-            last_hint_attempt.save()
-    attempt.save()
+    set_attempt_ok(attempt)
 
 
 def set_ok(modeladmin, request, queryset):
     for attempt in queryset.all():
-        _set_ok(attempt)
+        set_attempt_ok(attempt)
 
 
 def _add_to_checker(attempt):
-    if attempt.task.task_type != 'wall':
-        attempt.task.checker_data = attempt.task.checker_data + '\n' + attempt.text
-        attempt.task.save()
-        return
-    json_data = json.loads(attempt.task.checker_data)
-    json_attempt = json.loads(attempt.text)
-    for category in json_data['answers']:
-        if sorted([x.lower() for x in category['words']]) == sorted([x.lower() for x in json_attempt['words']]):
-            category['checker'] = category['checker'] + '\n' + json_attempt['explanation']
-    attempt.task.checker_data = json.dumps(json_data)
-    attempt.task.save()
+    add_attempt_to_checker(attempt)
 
 
 def add_to_checker(modeladmin, request, queryset):
     for attempt in queryset.all():
-        _add_to_checker(attempt)
+        add_attempt_to_checker(attempt)
 
 
 def add_to_checker_and_recheck(modeladmin, request, queryset):
     for attempt in queryset.all():
-        _add_to_checker(attempt)
-        recheck(request, attempt.id)
+        run_recheck_after_add_to_checker(attempt.id)
 
 
-def set_ok_and_create_new_task(modeladmin, request, queryset):
+def set_ok_and_create_new_task_action(modeladmin, request, queryset):
     for attempt in queryset.all():
-        attempt.status = 'Ok'
-        attempt.save()
-        g = attempt.game or GameTaskGroup.resolve_game_for_task(attempt.task)
-        team_number = attempt.team.get_team_reg_number(g)
-        if team_number is None:
-            continue
-        task = attempt.task
-        task_data = json.loads(task.text)
-        task_checker_data = json.loads(task.checker_data)
-        try:
-            max_number = max([
-                int(x.number.split('.')[1])
-                for x in Task.objects.filter(task_group=task.task_group)
-                if x.number.startswith('2.')
-            ])
-        except:
-            max_number = 0
-        new_task = Task(
-            number='2.{}'.format(max_number + 1),
-            task_group=task.task_group,
-            tags={'team': attempt.team.name, 'task': task_checker_data['tag']},
-            text='{}<br><br><b>{}</b>'.format(task_checker_data.get('tag_text'), attempt.text),
-            checker_data=task_data['list'][team_number],
-            answer=task_data['list'][team_number],
-            answer_comment='',
-            task_type='with_tag',
-            checker=CheckerType('equals_with_possible_spaces'),
-            points=1
-        )
-        new_task.save()
+        set_ok_and_create_new_task(attempt)
 
 
 def confirm_prestatus(modeladmin, request, queryset):
     for attempt in queryset.all():
-        attempt.status = attempt.possible_status
-        attempt.save()
+        confirm_attempt_prestatus(attempt)
 
 
 recheck_attempt.short_description = "Recheck attempt"
@@ -492,7 +439,7 @@ recheck_team_task_all_chronological_action.short_description = (
 set_ok.short_description = "Set OK (and max points)"
 add_to_checker.short_description = "Add to checker"
 add_to_checker_and_recheck.short_description = "Add to checker and recheck"
-set_ok_and_create_new_task.short_description = "Set OK and create new task (Game 49)"
+set_ok_and_create_new_task_action.short_description = "Set OK and create new task (Game 49)"
 confirm_prestatus.short_description = "Confirm Prestatus"
 
 
@@ -512,7 +459,7 @@ class AttemptAdmin(admin.ModelAdmin):
         recheck_full_attempt,
         recheck_queue_from_this_attempt,
         recheck_team_task_all_chronological_action,
-        set_ok_and_create_new_task,
+        set_ok_and_create_new_task_action,
     ]
 
     def get_queryset(self, request):
@@ -541,7 +488,7 @@ class PendingAttemptsAdmin(admin.ModelAdmin):
         recheck_full_attempt,
         recheck_queue_from_this_attempt,
         recheck_team_task_all_chronological_action,
-        set_ok_and_create_new_task,
+        set_ok_and_create_new_task_action,
     ]
 
 
@@ -581,16 +528,12 @@ class ChainTaskStateAdmin(admin.ModelAdmin):
 
 def confirm_ticket_request(modeladmin, request, queryset):
     for ticket_request in queryset.all():
-        with transaction.atomic():
-            locked = TicketRequest.objects.select_for_update().select_related('team').get(pk=ticket_request.pk)
-            accept_ticket_request_record(locked, source='admin')
+        accept_ticket(ticket_request.pk, source='admin')
 
 
 def reject_ticket_request(modeladmin, request, queryset):
     for ticket_request in queryset.all():
-        with transaction.atomic():
-            locked = TicketRequest.objects.select_for_update().get(pk=ticket_request.pk)
-            reject_ticket_request_record(locked, source='admin')
+        reject_ticket(ticket_request.pk, source='admin')
 
 
 confirm_profile_team_request.short_description = "Confirm Team Request"

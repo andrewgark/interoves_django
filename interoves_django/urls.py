@@ -91,6 +91,8 @@ urlpatterns = [
 
     path('explorer/', include('explorer.urls')),
 
+    path('support/', include('games.support.urls')),
+
     path("nutrimatic-ru/", include(nutrimatic_patterns)),
     path("eurovision_booklet/", include(eurovision_booklet_patterns)),
 

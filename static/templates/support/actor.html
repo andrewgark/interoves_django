@@ -1,0 +1,63 @@
+{% extends "support/base.html" %}
+
+{% block support_content %}
+<h1 class="support-page-title">{{ actor_title }}</h1>
+<p class="support-lead">{{ actor_subtitle }}</p>
+
+<section class="pal-card support-card">
+  <h2 class="pal-title">Сводка</h2>
+  <div class="support-meta">
+    <span class="support-flag">{{ actor_kind }}</span>
+    {% for flag in flags %}
+      <span class="support-flag{% if flag == 'hidden' or flag == 'staff' %} support-flag--warn{% elif flag == 'tester' %} support-flag--ok{% endif %}">{{ flag }}</span>
+    {% endfor %}
+  </div>
+
+  {% if actor_kind == 'team' and members %}
+    <ul class="support-member-list">
+      {% for profile in members %}
+        <li>
+          <a href="{% url 'support:actor_user' profile.user_id %}">{{ profile.first_name }} {{ profile.last_name }}</a>
+          {% if profile.user.email %} · {{ profile.user.email }}{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if actor_kind == 'user' and profile %}
+    <div class="support-links">
+      {% if profile.email %}<span>{{ profile.email }}</span>{% endif %}
+      {% if profile.team_on_id %}
+        <a href="{% url 'support:actor_team' profile.team_on_id %}">Активная команда: {{ profile.team_on_id }}</a>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if actor_kind == 'anon' and first_seen %}
+    <p class="support-hint">Первая активность: {{ first_seen|date:"d.m.Y H:i" }}</p>
+  {% endif %}
+  {% if hidden_note %}
+    <p class="support-hint">Скрыт из результатов: {{ hidden_note }}</p>
+  {% endif %}
+</section>
+
+{% if games %}
+<section class="pal-card support-card">
+  <h2 class="pal-title">Игры</h2>
+  <div class="support-links">
+    {% for game in games %}
+      <a href="{% url 'support:game' game.id %}">{{ game.outside_name|default:game.name|default:game.id }}</a>
+      {% if actor_spec %}
+        <a href="{% url 'support:preview_game' game.id %}?{% if actor_spec.kind == 'team' %}team={{ actor_spec.team_name|urlencode }}&amp;mode=team{% elif actor_spec.kind == 'user' %}user={{ actor_spec.user_id }}&amp;mode=personal{% elif actor_spec.kind == 'anon' %}anon={{ actor_spec.anon_key|urlencode }}&amp;mode=personal{% endif %}">preview</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="pal-card support-card">
+  <h2 class="pal-title">Активность</h2>
+  {% include "support/partials/feed_filters.html" with action_url=request.path %}
+  {% include "support/partials/feed_table.html" with show_actor_column=False show_actions=True %}
+</section>
+{% endblock %}

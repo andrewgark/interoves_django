@@ -1,0 +1,74 @@
+{% if feed %}
+  <div class="support-table-wrap">
+    <table class="support-table">
+      <thead>
+        <tr>
+          <th>Время</th>
+          <th>Тип</th>
+          {% if show_actor_column %}
+            <th>Актор</th>
+          {% endif %}
+          <th>Игра</th>
+          <th>Задание</th>
+          <th>Статус</th>
+          <th>Очки</th>
+          <th>Детали</th>
+          {% if show_actions %}
+            <th>Действия</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in feed %}
+          <tr>
+            <td class="support-cell-mono">{% if item.time %}{{ item.time|date:"d.m H:i:s" }}{% else %}—{% endif %}</td>
+            <td>{{ item.kind }}</td>
+            {% if show_actor_column %}
+              <td><a href="{{ item.actor_url }}">{{ item.actor_label }}</a></td>
+            {% endif %}
+            <td>
+              {% if item.game_url and item.game_id %}
+                <a href="{{ item.game_url }}">{{ item.game_id }}</a>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="support-cell-mono">
+              {% if item.task_number %}{{ item.task_number }}{% else %}—{% endif %}
+              {% if item.task_group_label %}<span class="support-results-list__detail"> · {{ item.task_group_label }}</span>{% endif %}
+            </td>
+            <td>
+              {% if item.status %}
+                <span class="support-badge support-badge--{{ item.status }}">{{ item.status }}</span>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="support-cell-mono">{{ item.points|default:"—" }}</td>
+            <td class="support-cell-detail">{{ item.detail }}</td>
+            {% if show_actions %}
+              <td>
+                {% if item.kind == 'attempt' %}
+                  <div class="support-action-row">
+                    {% if item.chain_url %}<a href="{{ item.chain_url }}" class="new-btn new-btn--mini new-btn--ghost">chain</a>{% endif %}
+                    {% include "support/partials/action_form.html" with kind='attempt' object_id=item.object_id action='recheck' next_url=request.get_full_path %}
+                    {% if item.status != 'Ok' %}
+                      {% include "support/partials/action_form.html" with kind='attempt' object_id=item.object_id action='set_ok' next_url=request.get_full_path %}
+                    {% endif %}
+                    {% if item.chain_url %}
+                      {% include "support/partials/action_form.html" with kind='attempt' object_id=item.object_id action='chain_replay' next_url=request.get_full_path %}
+                    {% endif %}
+                  </div>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+            {% endif %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="support-empty">Нет событий по выбранным фильтрам.</p>
+{% endif %}

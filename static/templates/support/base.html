@@ -1,0 +1,24 @@
+{% extends "new/base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title|default:"Support" }}{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+{% endblock %}
+
+{% block content %}
+<div class="support-bar">
+  <div class="support-bar__inner">
+    <span class="support-bar__tag">Support</span>
+    <a href="{% url 'support:hub' %}" {% if request.resolver_match.url_name == 'hub' %}aria-current="page"{% endif %}>Поиск</a>
+    <a href="{% url 'support:pending' %}" {% if request.resolver_match.url_name == 'pending' %}aria-current="page"{% endif %}>Pending</a>
+    <a href="{% url 'support:live' %}" {% if request.resolver_match.url_name == 'live' %}aria-current="page"{% endif %}>Live</a>
+    <a href="/admin/">Django admin</a>
+  </div>
+</div>
+<div class="new-wrap">
+  {% block support_content %}{% endblock %}
+</div>
+{% endblock %}

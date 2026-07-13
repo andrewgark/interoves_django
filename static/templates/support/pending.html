@@ -1,0 +1,55 @@
+{% extends "support/base.html" %}
+
+{% block support_content %}
+<h1 class="support-page-title">Pending</h1>
+<p class="support-lead">Посылки, билеты и баги, ожидающие обработки.</p>
+
+<section class="pal-card support-card">
+  {% if items %}
+    <div class="support-table-wrap">
+      <table class="support-table">
+        <thead>
+          <tr>
+            <th>Время</th>
+            <th>Тип</th>
+            <th>Объект</th>
+            <th>Актор</th>
+            <th>Игра</th>
+            <th>Детали</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+            <tr>
+              <td class="support-cell-mono">{% if item.time %}{{ item.time|date:"d.m H:i:s" }}{% else %}—{% endif %}</td>
+              <td>{{ item.kind }}</td>
+              <td>
+                <a href="{{ item.admin_url }}" target="_blank" rel="noopener">{{ item.title }}</a>
+              </td>
+              <td><a href="{{ item.actor_url }}">{{ item.actor_label }}</a></td>
+              <td>
+                {% if item.game_url %}
+                  <a href="{{ item.game_url }}">{{ item.game_id }}</a>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="support-cell-detail">{{ item.detail }}</td>
+              <td>
+                <div class="support-action-row">
+                  {% for action in item.actions %}
+                    {% include "support/partials/action_form.html" with kind=item.kind object_id=item.object_id action=action next_url=request.get_full_path %}
+                  {% endfor %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="support-empty">Очередь пуста.</p>
+  {% endif %}
+</section>
+{% endblock %}

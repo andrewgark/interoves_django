@@ -1,0 +1,70 @@
+{% extends "support/base.html" %}
+{% load filters %}
+
+{% block support_content %}
+<h1 class="support-page-title">{{ page_title }}</h1>
+<p class="support-lead">
+  <a href="{{ actor_url }}">{{ actor_label }}</a>
+  · {{ game.id }} · task {{ task.number }} ({{ task.task_type }})
+</p>
+
+<div class="support-links">
+  {% if preview_url %}<a href="{{ preview_url }}" target="_blank" rel="noopener">Preview TG</a>{% endif %}
+  <a href="{{ admin_attempt_url }}" target="_blank" rel="noopener">Django admin</a>
+  <a href="{% url 'support:game' game.id %}">Игра в support</a>
+</div>
+
+<section class="pal-card support-card">
+  <h2 class="pal-title">ChainTaskState</h2>
+  {% if chain_rows %}
+    {% for row in chain_rows %}
+      <h3 class="support-hint" style="margin-top:0.75rem">mode={{ row.game_mode }} · updated {{ row.updated_at|date:"d.m H:i:s" }}</h3>
+      <pre class="support-state-pre">{{ formatted_chain_states|get_item:row.game_mode }}</pre>
+      {% if row.last_attempt_id %}
+        <p class="support-hint">last_attempt: #{{ row.last_attempt_id }}</p>
+      {% endif %}
+    {% endfor %}
+  {% else %}
+    <p class="support-empty">Нет строк ChainTaskState.</p>
+  {% endif %}
+  <div class="support-action-row" style="margin-top:0.75rem">
+    {% include "support/partials/action_form.html" with kind='attempt' object_id=attempt.pk action='chain_replay' next_url=request.get_full_path %}
+  </div>
+</section>
+
+<section class="pal-card support-card">
+  <h2 class="pal-title">Попытки (хронология)</h2>
+  {% if attempt_rows %}
+    <div class="support-table-wrap">
+      <table class="support-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Время</th>
+            <th>Статус</th>
+            <th>Очки</th>
+            <th>skip</th>
+            <th>text</th>
+            <th>state</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in attempt_rows %}
+            <tr>
+              <td class="support-cell-mono">{{ row.attempt_id }}</td>
+              <td class="support-cell-mono">{% if row.time %}{{ row.time|date:"d.m H:i:s" }}{% else %}—{% endif %}</td>
+              <td><span class="support-badge support-badge--{{ row.status }}">{{ row.status }}</span></td>
+              <td class="support-cell-mono">{{ row.points }}</td>
+              <td>{{ row.skip|yesno:"yes,no" }}</td>
+              <td class="support-cell-detail">{{ row.text_preview }}</td>
+              <td class="support-cell-detail">{{ row.state_preview }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="support-empty">Нет попыток.</p>
+  {% endif %}
+</section>
+{% endblock %}

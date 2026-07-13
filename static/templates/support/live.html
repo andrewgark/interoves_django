@@ -1,0 +1,89 @@
+{% extends "support/base.html" %}
+
+{% block support_content %}
+<h1 class="support-page-title">Live</h1>
+<p class="support-lead">Последние события по активным играм{% if poll_seconds %} · обновление каждые {{ poll_seconds }} с{% endif %}.</p>
+
+<form class="support-filters" method="get" action="{% url 'support:live' %}">
+  <label>
+    Часы
+    <select name="hours">
+      <option value="1" {% if hours == 1 %}selected{% endif %}>1</option>
+      <option value="2" {% if hours == 2 %}selected{% endif %}>2</option>
+      <option value="6" {% if hours == 6 %}selected{% endif %}>6</option>
+      <option value="12" {% if hours == 12 %}selected{% endif %}>12</option>
+    </select>
+  </label>
+  <label>
+    Игра
+    <select name="game">
+      <option value="" {% if not game_id %}selected{% endif %}>все live</option>
+      {% for game in games %}
+        <option value="{{ game.id }}" {% if game_id == game.id %}selected{% endif %}>{{ game.outside_name|default:game.name|default:game.id }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    Poll (сек)
+    <input type="number" name="poll" value="{{ poll_seconds }}" min="0" max="300" style="width:5rem">
+  </label>
+  <button type="submit" class="new-btn new-btn--mini">Применить</button>
+</form>
+
+{% if games %}
+  <p class="support-hint">Активные игры: {% for game in games %}<a href="{% url 'support:game' game.id %}">{{ game.id }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+{% else %}
+  <p class="support-hint">Сейчас нет игр в live-окне (start ≤ now ≤ end).</p>
+{% endif %}
+
+<section class="pal-card support-card" id="support-live-feed">
+  {% include "support/partials/feed_table.html" with show_actor_column=True show_actions=True %}
+</section>
+
+{% if poll_seconds %}
+<script>
+(function () {
+  var poll = {{ poll_seconds|default:0 }} * 1000;
+  if (!poll) return;
+  var params = new URLSearchParams(window.location.search);
+  var feedUrl = '{% url "support:live_feed_json" %}?' + params.toString();
+  var container = document.getElementById('support-live-feed');
+  function esc(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function renderRows(rows) {
+    if (!rows.length) {
+      container.innerHTML = '<p class="support-empty">Нет событий.</p>';
+      return;
+    }
+    var html = '<div class="support-table-wrap"><table class="support-table"><thead><tr>' +
+      '<th>Время</th><th>Тип</th><th>Актор</th><th>Игра</th><th>Задание</th><th>Статус</th><th>Очки</th><th>Детали</th><th>Действия</th>' +
+      '</tr></thead><tbody>';
+    rows.forEach(function (row) {
+      var t = row.time ? new Date(row.time) : null;
+      var ts = t ? ('0'+t.getDate()).slice(-2)+'.'+('0'+(t.getMonth()+1)).slice(-2)+' '+('0'+t.getHours()).slice(-2)+':'+('0'+t.getMinutes()).slice(-2)+':'+('0'+t.getSeconds()).slice(-2) : '—';
+      html += '<tr><td class="support-cell-mono">'+esc(ts)+'</td><td>'+esc(row.kind)+'</td>';
+      html += '<td><a href="'+esc(row.actor_url)+'">'+esc(row.actor_label)+'</a></td>';
+      html += '<td>'+(row.game_id ? '<a href="/support/game/'+esc(row.game_id)+'/">'+esc(row.game_id)+'</a>' : '—')+'</td>';
+      html += '<td>—</td><td>'+esc(row.status || '—')+'</td><td>—</td>';
+      html += '<td class="support-cell-detail">'+esc(row.detail)+'</td><td>';
+      if (row.kind === 'attempt' && row.chain_url) {
+        html += '<a href="'+esc(row.chain_url)+'">chain</a> ';
+      }
+      html += '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  }
+  function refresh() {
+    fetch(feedUrl, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) { renderRows(data.rows || []); })
+      .catch(function () {});
+  }
+  setInterval(refresh, poll);
+})();
+</script>
+{% endif %}
+{% endblock %}
