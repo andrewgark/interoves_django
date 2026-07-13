@@ -29,11 +29,37 @@
 }
 
 .corp-hero__lead {
-  margin: 0 0 1.5rem;
+  margin: 0 0 1.25rem;
   max-width: 42rem;
   font-size: 1.12rem;
   line-height: 1.65;
   color: var(--muted);
+}
+
+.corp-hero__scope {
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+  max-width: 42rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.corp-hero__scope li {
+  margin: 0;
+  padding-left: 1.35rem;
+  position: relative;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.corp-hero__scope li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .corp-hero__actions {
