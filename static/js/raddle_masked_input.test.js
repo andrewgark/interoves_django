@@ -1,8 +1,10 @@
 'use strict';
 
 var assert = require('assert');
+require('./imask.min.js');
 require('./raddle_masked_input.js');
 var M = global.RaddleMaskedInput;
+var IMask = global.IMask;
 
 function testSlotCount() {
   assert.strictEqual(M.slotCount('#####-#########'), 14);
@@ -49,7 +51,7 @@ function testLettersToDisplayCommaAndApostrophe() {
 
 function testLettersToDisplayLeadingSeparator() {
   var fmt = '-###';
-  assert.strictEqual(M.lettersToDisplay(fmt, ''), '-');
+  assert.strictEqual(M.lettersToDisplay(fmt, ''), '');
   assert.strictEqual(M.lettersToDisplay(fmt, 'А'), '-А');
 }
 
@@ -69,6 +71,11 @@ function testSetLettersCapsAtMax() {
   });
   assert.strictEqual(input.dataset.raddleLetters, 'АБВГ');
   assert.strictEqual(input.value, 'АБВГ');
+  assert.strictEqual(completed.length, 1);
+  completed.length = 0;
+  M.setLetters(input, 'АБ', {
+    onComplete: function (_input, letters) { completed.push(letters); },
+  });
   assert.strictEqual(completed.length, 0);
   M.setLetters(input, 'АБВГ', {
     onComplete: function (_input, letters) { completed.push(letters); },
@@ -91,67 +98,73 @@ function testPasteOverflowTruncates() {
   assert.strictEqual(input.value, 'САН');
 }
 
-function makeBoundInputMock(fmt) {
-  var events = {};
-  return {
-    input: {
-      value: '',
-      dataset: {},
-      selectionStart: 0,
-      selectionEnd: 0,
-      getAttribute: function (name) {
-        if (name === 'data-raddle-format') return fmt;
-        return null;
-      },
-      setAttribute: function () {},
-      removeAttribute: function () {},
-      setSelectionRange: function (start, end) {
-        this.selectionStart = start;
-        this.selectionEnd = end;
-      },
-      addEventListener: function (type, fn) {
-        events[type] = fn;
-      },
+function makeImaskInput(fmt) {
+  var el = {
+    type: 'text',
+    value: '',
+    selectionStart: 0,
+    selectionEnd: 0,
+    dataset: {},
+    _attrs: { 'data-raddle-format': fmt },
+    getAttribute: function (name) {
+      return this._attrs[name] || null;
     },
-    fireKeydown: function (key) {
-      events.keydown({
-        key: key,
-        ctrlKey: false,
-        metaKey: false,
-        altKey: false,
-        preventDefault: function () {},
-      });
+    setAttribute: function (name, val) {
+      this._attrs[name] = val;
     },
+    removeAttribute: function (name) {
+      delete this._attrs[name];
+    },
+    setSelectionRange: function (start, end) {
+      this.selectionStart = start;
+      this.selectionEnd = end;
+    },
+    addEventListener: function () {},
+    removeEventListener: function () {},
+    focus: function () {},
+    blur: function () {},
+    ownerDocument: { activeElement: null },
+    getRootNode: function () { return { activeElement: null }; },
   };
+  return el;
 }
 
-function testClearOnSelectionDelete() {
-  var mock = makeBoundInputMock('#####');
-  M.bindInput(mock.input, {});
-  M.setLetters(mock.input, 'САНКТ', {});
-  mock.input.selectionStart = 0;
-  mock.input.selectionEnd = mock.input.value.length;
-  mock.fireKeydown('Delete');
-  assert.strictEqual(mock.input.dataset.raddleLetters, '');
-  assert.strictEqual(mock.input.value, '');
+function testImaskFormatsMatchServerTemplate() {
+  var cases = [
+    ['#####-#########', 'САНКТПЕТЕРБУРГ', 'САНКТ-ПЕТЕРБУРГ'],
+    ['### ####', 'НЬЮЙОРК', 'НЬЮ ЙОРК'],
+    ['#,#', 'АБ', 'А,Б'],
+    ["#'###", 'ОКЕЙ', "О'КЕЙ"],
+  ];
+  cases.forEach(function (item) {
+    var mask = IMask.createMask(M.buildMaskOptions(item[0]));
+    mask.unmaskedValue = item[1];
+    assert.strictEqual(mask.value, item[2], item[0]);
+    assert.strictEqual(mask.unmaskedValue, item[1], item[0] + ' unmasked');
+  });
 }
 
-function testClearOnSelectionBackspace() {
-  var mock = makeBoundInputMock('#####');
-  M.bindInput(mock.input, {});
-  M.setLetters(mock.input, 'САНК', {});
-  mock.input.selectionStart = 0;
-  mock.input.selectionEnd = mock.input.value.length;
-  mock.fireKeydown('Backspace');
-  assert.strictEqual(mock.input.dataset.raddleLetters, '');
+function testBindInputUsesImaskForEditing() {
+  var input = makeImaskInput('#####');
+  M.bindInput(input, {});
+  M.setLetters(input, 'САНКТ', {});
+  assert.strictEqual(M.getSubmitValue(input), 'САНКТ');
+  assert.strictEqual(input.value, 'САНКТ');
+
+  M.setLetters(input, 'САТ', {});
+  assert.strictEqual(M.getSubmitValue(input), 'САТ');
+  assert.strictEqual(input.value, 'САТ');
+
+  M.setLetters(input, '', {});
+  assert.strictEqual(M.getSubmitValue(input), '');
+  assert.strictEqual(input.value, '');
 }
 
-function testBackspaceWithoutSelectionRemovesOne() {
-  var mock = makeBoundInputMock('#####');
-  M.bindInput(mock.input, {});
-  M.setLetters(mock.input, 'САНК', {});
-  mock.fireKeydown('Backspace');
-  assert.strictEqual(mock.input.dataset.raddleLetters, 'САН');
+function testBindInputNormalizesYo() {
+  var input = makeImaskInput('###');
+  M.bindInput(input, {});
+  M.setLetters(input, 'ёжик', {});
+  assert.strictEqual(M.getSubmitValue(input), 'ЕЖИ');
 }
 
 testSlotCount();
@@ -162,8 +175,8 @@ testLettersToDisplayCommaAndApostrophe();
 testLettersToDisplayLeadingSeparator();
 testSetLettersCapsAtMax();
 testPasteOverflowTruncates();
-testClearOnSelectionDelete();
-testClearOnSelectionBackspace();
-testBackspaceWithoutSelectionRemovesOne();
+testImaskFormatsMatchServerTemplate();
+testBindInputUsesImaskForEditing();
+testBindInputNormalizesYo();
 
 console.log('raddle_masked_input.test.js: ok');
