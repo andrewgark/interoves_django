@@ -343,6 +343,18 @@ class SupportPhase4Tests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn('rows', data)
+        attempt_rows = [r for r in data['rows'] if r.get('kind') == 'attempt']
+        self.assertTrue(attempt_rows)
+        row = attempt_rows[0]
+        self.assertIn('submission_text', row)
+        self.assertIn('correct_answer', row)
+        self.assertTrue(row['submission_text'])
+
+    def test_live_page_shows_submission_columns(self):
+        response = self.client.get(reverse('support:live'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Посылка')
+        self.assertContains(response, 'Ответ')
 
     def test_stuck_teams_on_game_page(self):
         url = reverse('support:game', kwargs={'game_id': 'live_game'})
@@ -357,3 +369,5 @@ class SupportPhase4Tests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'ChainTaskState')
         self.assertContains(response, 'chain replay')
+        self.assertContains(response, 'Посылка')
+        self.assertContains(response, 'Ответ')

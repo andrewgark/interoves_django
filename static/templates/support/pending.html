@@ -15,7 +15,8 @@
             <th>Объект</th>
             <th>Актор</th>
             <th>Игра</th>
-            <th>Детали</th>
+            <th>Посылка</th>
+            <th>Ответ</th>
             <th>Действия</th>
           </tr>
         </thead>
@@ -26,6 +27,7 @@
               <td>{{ item.kind }}</td>
               <td>
                 <a href="{{ item.admin_url }}" target="_blank" rel="noopener">{{ item.title }}</a>
+                {% if item.kind != 'attempt' %}<div class="support-results-list__detail">{{ item.detail }}</div>{% endif %}
               </td>
               <td><a href="{{ item.actor_url }}">{{ item.actor_label }}</a></td>
               <td>
@@ -35,7 +37,12 @@
                   —
                 {% endif %}
               </td>
-              <td class="support-cell-detail">{{ item.detail }}</td>
+              <td class="support-cell-detail">
+                {% if item.kind == 'attempt' %}{{ item.submission_text|default:"—" }}{% else %}—{% endif %}
+              </td>
+              <td class="support-cell-detail support-cell-answer">
+                {% if item.kind == 'attempt' %}{{ item.correct_answer|default:"—" }}{% else %}—{% endif %}
+              </td>
               <td>
                 <div class="support-action-row">
                   {% for action in item.actions %}

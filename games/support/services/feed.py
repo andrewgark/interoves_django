@@ -22,6 +22,22 @@ class FeedItem:
     detail: str
     object_id: int
     chain_url: Optional[str] = None
+    submission_text: Optional[str] = None
+    correct_answer: Optional[str] = None
+
+
+def attempt_submission_text(attempt, *, max_len: int = 300) -> str:
+    try:
+        return preview_text(attempt.get_pretty_text(), max_len=max_len)
+    except Exception:
+        return preview_text(attempt.text, max_len=max_len)
+
+
+def attempt_correct_answer(attempt, *, max_len: int = 300) -> str:
+    try:
+        return preview_text(str(attempt.get_answer() or '—'), max_len=max_len)
+    except Exception:
+        return '—'
 
 
 def preview_text(text: str, *, max_len: int = 100) -> str:
@@ -204,6 +220,8 @@ def get_activity_feed(
                 detail=preview_text(attempt.text),
                 object_id=attempt.pk,
                 chain_url=chain_url,
+                submission_text=attempt_submission_text(attempt),
+                correct_answer=attempt_correct_answer(attempt),
             ))
 
     if kind in ('all', 'hints'):

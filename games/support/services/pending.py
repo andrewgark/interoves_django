@@ -6,6 +6,8 @@ from django.urls import reverse
 from games.support.services.feed import (
     actor_label_for_attempt,
     actor_url_for_attempt,
+    attempt_correct_answer,
+    attempt_submission_text,
     preview_text,
 )
 
@@ -23,6 +25,8 @@ class PendingItem:
     game_url: Optional[str]
     admin_url: str
     actions: tuple
+    submission_text: Optional[str] = None
+    correct_answer: Optional[str] = None
 
 
 def _game_url(game_id: Optional[str]) -> Optional[str]:
@@ -48,11 +52,12 @@ def get_pending_queue(*, limit: int = 100) -> List[PendingItem]:
             kind='attempt',
             object_id=attempt.pk,
             title='Посылка #{}'.format(attempt.pk),
-            detail='{} · {} · {}'.format(
+            detail='{} · {}'.format(
                 attempt.game_id or '—',
                 task.number if task else '—',
-                preview_text(attempt.text, max_len=80),
             ),
+            submission_text=attempt_submission_text(attempt),
+            correct_answer=attempt_correct_answer(attempt),
             actor_label=actor_label_for_attempt(attempt),
             actor_url=actor_url_for_attempt(attempt),
             game_id=attempt.game_id,

@@ -58,7 +58,7 @@
       return;
     }
     var html = '<div class="support-table-wrap"><table class="support-table"><thead><tr>' +
-      '<th>Время</th><th>Тип</th><th>Актор</th><th>Игра</th><th>Задание</th><th>Статус</th><th>Очки</th><th>Детали</th><th>Действия</th>' +
+      '<th>Время</th><th>Тип</th><th>Актор</th><th>Игра</th><th>Задание</th><th>Статус</th><th>Очки</th><th>Посылка</th><th>Ответ</th><th>Действия</th>' +
       '</tr></thead><tbody>';
     rows.forEach(function (row) {
       var t = row.time ? new Date(row.time) : null;
@@ -67,7 +67,10 @@
       html += '<td><a href="'+esc(row.actor_url)+'">'+esc(row.actor_label)+'</a></td>';
       html += '<td>'+(row.game_id ? '<a href="/support/game/'+esc(row.game_id)+'/">'+esc(row.game_id)+'</a>' : '—')+'</td>';
       html += '<td>—</td><td>'+esc(row.status || '—')+'</td><td>—</td>';
-      html += '<td class="support-cell-detail">'+esc(row.detail)+'</td><td>';
+      var submission = row.kind === 'attempt' ? (row.submission_text || row.detail || '—') : (row.detail || '—');
+      var answer = row.kind === 'attempt' ? (row.correct_answer || '—') : '—';
+      html += '<td class="support-cell-detail">'+esc(submission)+'</td>';
+      html += '<td class="support-cell-detail support-cell-answer">'+esc(answer)+'</td><td>';
       if (row.kind === 'attempt' && row.chain_url) {
         html += '<a href="'+esc(row.chain_url)+'">chain</a> ';
       }

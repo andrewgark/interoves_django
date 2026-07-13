@@ -201,6 +201,8 @@ def live_feed_json(request):
             'game_id': item.game_id,
             'status': item.status,
             'detail': item.detail,
+            'submission_text': item.submission_text,
+            'correct_answer': item.correct_answer,
             'object_id': item.object_id,
             'chain_url': item.chain_url,
         })

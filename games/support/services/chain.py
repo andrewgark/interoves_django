@@ -14,13 +14,9 @@ class ChainAttemptRow:
     status: str
     points: str
     skip: bool
-    text_preview: str
+    submission_text: str
+    correct_answer: str
     state_preview: str
-
-
-def is_chain_task(attempt: Attempt) -> bool:
-    task = attempt.task
-    return bool(task and task.task_type in CHAIN_TASK_TYPES)
 
 
 def _parse_state_preview(raw: Optional[str], *, max_len: int = 120) -> str:
@@ -33,6 +29,21 @@ def _parse_state_preview(raw: Optional[str], *, max_len: int = 120) -> str:
     if len(compact) <= max_len:
         return compact
     return compact[: max_len - 1] + '…'
+
+
+def is_chain_task(attempt: Attempt) -> bool:
+    task = attempt.task
+    return bool(task and task.task_type in CHAIN_TASK_TYPES)
+
+
+def _attempt_display(attempt: Attempt) -> str:
+    from games.support.services.feed import attempt_submission_text
+    return attempt_submission_text(attempt, max_len=500)
+
+
+def _attempt_answer(attempt: Attempt) -> str:
+    from games.support.services.feed import attempt_correct_answer
+    return attempt_correct_answer(attempt, max_len=500)
 
 
 def build_chain_context(attempt_id: int) -> Dict:
@@ -74,7 +85,8 @@ def build_chain_context(attempt_id: int) -> Dict:
             status=a.status,
             points=str(a.points) if a.points is not None else '—',
             skip=bool(a.skip),
-            text_preview=(a.text or '').replace('\n', ' ')[:100],
+            submission_text=_attempt_display(a),
+            correct_answer=_attempt_answer(a),
             state_preview=_parse_state_preview(a.state),
         )
         for a in attempts

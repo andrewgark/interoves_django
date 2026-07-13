@@ -12,7 +12,8 @@
           <th>Задание</th>
           <th>Статус</th>
           <th>Очки</th>
-          <th>Детали</th>
+          <th>Посылка</th>
+          <th>Ответ</th>
           {% if show_actions %}
             <th>Действия</th>
           {% endif %}
@@ -45,7 +46,20 @@
               {% endif %}
             </td>
             <td class="support-cell-mono">{{ item.points|default:"—" }}</td>
-            <td class="support-cell-detail">{{ item.detail }}</td>
+            <td class="support-cell-detail">
+              {% if item.kind == 'attempt' %}
+                {{ item.submission_text|default:item.detail }}
+              {% else %}
+                {{ item.detail }}
+              {% endif %}
+            </td>
+            <td class="support-cell-detail support-cell-answer">
+              {% if item.kind == 'attempt' %}
+                {{ item.correct_answer|default:"—" }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
             {% if show_actions %}
               <td>
                 {% if item.kind == 'attempt' %}
