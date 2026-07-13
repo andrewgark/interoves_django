@@ -91,6 +91,69 @@ function testPasteOverflowTruncates() {
   assert.strictEqual(input.value, 'САН');
 }
 
+function makeBoundInputMock(fmt) {
+  var events = {};
+  return {
+    input: {
+      value: '',
+      dataset: {},
+      selectionStart: 0,
+      selectionEnd: 0,
+      getAttribute: function (name) {
+        if (name === 'data-raddle-format') return fmt;
+        return null;
+      },
+      setAttribute: function () {},
+      removeAttribute: function () {},
+      setSelectionRange: function (start, end) {
+        this.selectionStart = start;
+        this.selectionEnd = end;
+      },
+      addEventListener: function (type, fn) {
+        events[type] = fn;
+      },
+    },
+    fireKeydown: function (key) {
+      events.keydown({
+        key: key,
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+        preventDefault: function () {},
+      });
+    },
+  };
+}
+
+function testClearOnSelectionDelete() {
+  var mock = makeBoundInputMock('#####');
+  M.bindInput(mock.input, {});
+  M.setLetters(mock.input, 'САНКТ', {});
+  mock.input.selectionStart = 0;
+  mock.input.selectionEnd = mock.input.value.length;
+  mock.fireKeydown('Delete');
+  assert.strictEqual(mock.input.dataset.raddleLetters, '');
+  assert.strictEqual(mock.input.value, '');
+}
+
+function testClearOnSelectionBackspace() {
+  var mock = makeBoundInputMock('#####');
+  M.bindInput(mock.input, {});
+  M.setLetters(mock.input, 'САНК', {});
+  mock.input.selectionStart = 0;
+  mock.input.selectionEnd = mock.input.value.length;
+  mock.fireKeydown('Backspace');
+  assert.strictEqual(mock.input.dataset.raddleLetters, '');
+}
+
+function testBackspaceWithoutSelectionRemovesOne() {
+  var mock = makeBoundInputMock('#####');
+  M.bindInput(mock.input, {});
+  M.setLetters(mock.input, 'САНК', {});
+  mock.fireKeydown('Backspace');
+  assert.strictEqual(mock.input.dataset.raddleLetters, 'САН');
+}
+
 testSlotCount();
 testExtractRussianLetters();
 testLettersToDisplayHyphenAfterFive();
@@ -99,5 +162,8 @@ testLettersToDisplayCommaAndApostrophe();
 testLettersToDisplayLeadingSeparator();
 testSetLettersCapsAtMax();
 testPasteOverflowTruncates();
+testClearOnSelectionDelete();
+testClearOnSelectionBackspace();
+testBackspaceWithoutSelectionRemovesOne();
 
 console.log('raddle_masked_input.test.js: ok');

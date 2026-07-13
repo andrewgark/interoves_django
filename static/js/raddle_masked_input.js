@@ -78,6 +78,12 @@
     return String(input.value || '').trim();
   }
 
+  function hasTextSelection(input) {
+    var start = input.selectionStart;
+    var end = input.selectionEnd;
+    return typeof start === 'number' && typeof end === 'number' && start !== end;
+  }
+
   function bindInput(input, hooks) {
     if (!input || input.getAttribute(BOUND) === '1') return;
     var fmt = input.getAttribute('data-raddle-format') || '';
@@ -126,13 +132,13 @@
       var letters = getLetters(input);
       var max = slotCount(fmt);
 
-      if (e.key === 'Backspace') {
+      if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
-        if (letters.length) setLetters(input, letters.slice(0, -1), hooks);
-        return;
-      }
-      if (e.key === 'Delete') {
-        e.preventDefault();
+        if (hasTextSelection(input)) {
+          setLetters(input, '', hooks);
+        } else if (e.key === 'Backspace' && letters.length) {
+          setLetters(input, letters.slice(0, -1), hooks);
+        }
         return;
       }
       if (e.key.length === 1) {
