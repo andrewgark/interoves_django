@@ -120,6 +120,15 @@ def get_ladder_section_hub_card(game, *, published_numbers, now=None):
     }
 
 
+def _first_announced_desyatochka(games, *, now=None):
+    """Ближайшая публично видимая игра, чей start_time ещё не наступил."""
+    now = now or timezone.now()
+    for game in games:
+        if now < game.start_time:
+            return game
+    return None
+
+
 def get_desyatochki_hub_context(games, *, now=None):
     """Карточка десяточек: последняя/сегодняшняя игра по start_time."""
     meta = DESYATOCHKI_HUB_META
@@ -135,9 +144,12 @@ def get_desyatochki_hub_context(games, *, now=None):
             'section_url': '/games/',
             'all_link_label': meta['all_link_label'],
             'status': 'empty',
+            'announced_game': None,
+            'announced_games': [],
         }
 
     latest = games[0]
+    announced_game = _first_announced_desyatochka(games, now=now)
     today_msk = now.astimezone(MOSCOW).date()
     start_msk = latest.start_time.astimezone(MOSCOW).date()
     is_today = start_msk == today_msk
@@ -153,5 +165,7 @@ def get_desyatochki_hub_context(games, *, now=None):
         'all_link_label': meta['all_link_label'],
         'status': 'today' if is_today else 'latest',
         'game': latest,
+        'announced_game': announced_game,
+        'announced_games': [announced_game] if announced_game else [],
     }
 

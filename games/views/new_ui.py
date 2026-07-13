@@ -655,6 +655,7 @@ def new_hub(request):
         'section_games': section_games,
         'hub_section_cards': hub_section_cards,
         'desyatochki_card': desyatochki_card,
+        **_games_list_card_context(request),
         'page_title': 'Interoves',
         'show_sections_nav': True,
         'community_links': [

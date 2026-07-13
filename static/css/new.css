@@ -255,6 +255,57 @@ html.new-ui-dark body.new-ui {
   color: var(--muted);
 }
 
+/* Баннер «Заказать игру» на главной */
+.new-hub-order-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 1.25rem;
+  flex-wrap: wrap;
+  margin: 0 0 1.5rem;
+  padding: 1.1rem 1.25rem;
+  border: 2px solid var(--accent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.new-hub-order-banner__text {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.new-hub-order-banner__kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.new-hub-order-banner__desc {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.new-hub-order-banner__cta {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.85rem 1.5rem;
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .new-hub-order-banner__cta {
+    width: 100%;
+    text-align: center;
+  }
+}
+
 /* Карточки разделов на главной */
 .new-hub-sections-grid {
   display: grid;
@@ -326,6 +377,14 @@ html.new-ui-dark body.new-ui {
 
 .new-hub-section__footer {
   margin: 0.35rem 0 0;
+}
+
+.new-hub-section__announce {
+  margin-top: 0.85rem;
+}
+
+.new-hub-section__announce .new-game-card {
+  margin-bottom: 0;
 }
 
 /* Лесенка дня (главная) — алиасы для совместимости */

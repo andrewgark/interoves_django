@@ -14,6 +14,11 @@
       {{ desyatochki_card.cta_label }}
     </a>
   {% endif %}
+  {% if desyatochki_card.announced_game %}
+    <div class="new-hub-section__announce">
+      {% include "new/games_list_items.html" with games=desyatochki_card.announced_games game_list_offset=0 %}
+    </div>
+  {% endif %}
   <p class="new-hub-section__footer">
     <a class="new-link-dotted" href="{{ desyatochki_card.section_url }}">{{ desyatochki_card.all_link_label }}</a>
   </p>
@@ -71,6 +76,14 @@
 })();
 </script>
 {% endif %}
+
+<section class="new-hub-order-banner" aria-label="Корпоративные игры">
+  <div class="new-hub-order-banner__text">
+    <p class="new-hub-order-banner__kicker">Для компаний</p>
+    <p class="new-hub-order-banner__desc">Корпоративные интеллектуальные игры — офлайн и&nbsp;онлайн, под ваш бренд и&nbsp;расписание.</p>
+  </div>
+  <a class="new-btn new-hub-order-banner__cta" href="{% url 'order_game_landing' %}">Заказать игру</a>
+</section>
 
 {% if community_links %}
 <h1 class="new-heading" style="margin-top:2rem">Сообщество</h1>

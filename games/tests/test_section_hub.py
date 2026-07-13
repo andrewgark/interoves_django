@@ -87,3 +87,22 @@ class DesyatochkiHubContextTests(SimpleTestCase):
         ctx = get_desyatochki_hub_context(games, now=now)
         self.assertFalse(ctx['is_today'])
         self.assertEqual(ctx['cta_label'], 'Последняя Десяточка')
+        self.assertIsNone(ctx['announced_game'])
+
+    def test_announced_future_game(self):
+        now = datetime(2026, 7, 10, 15, 0, tzinfo=ZoneInfo('Europe/Moscow'))
+        games = [
+            self._game('future', '2026-07-20T18:00:00+03:00'),
+            self._game('past', '2026-07-03T18:00:00+03:00'),
+        ]
+        ctx = get_desyatochki_hub_context(games, now=now)
+        self.assertEqual(ctx['announced_game'].id, 'future')
+        self.assertEqual(ctx['announced_games'], [ctx['announced_game']])
+        self.assertEqual(ctx['play_url'], '/games/future/')
+
+    def test_started_game_not_announced(self):
+        now = datetime(2026, 7, 10, 20, 0, tzinfo=ZoneInfo('Europe/Moscow'))
+        games = [self._game('g1', '2026-07-10T18:00:00+03:00')]
+        ctx = get_desyatochki_hub_context(games, now=now)
+        self.assertIsNone(ctx['announced_game'])
+        self.assertEqual(ctx['announced_games'], [])
