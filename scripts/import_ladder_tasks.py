@@ -60,7 +60,8 @@ def _normalize_length(raw: str):
         return f"{m.group(1)}-{m.group(2)}"
     m = re.match(r"^(\d+)\s+(\d+)$", s)
     if m:
-        return f"{m.group(1)}-{m.group(2)}"
+        # Пробел в длине ≠ дефис: «РОБИН ГУД» → «5 3», не «5-3».
+        return f"{m.group(1)} {m.group(2)}"
     return s
 
 
@@ -98,6 +99,16 @@ def _parse_rows(csv_text: str) -> dict[int, list[dict]]:
     return ladders
 
 
+def _length_from_word(word: str):
+    """Длина из структуры слова: пробел → «5 3», дефис → «5-9», иначе int."""
+    from games.raddle import length_label_from_word
+
+    label = length_label_from_word(word)
+    if re.match(r"^\d+$", label):
+        return int(label)
+    return label
+
+
 def _build_checker_data(words: list[dict]) -> dict:
     # Подсказка на строке слова N связывает слова N → N+1 (как в таблице и raddle.quest).
     # У последнего слова подсказки нет.
@@ -105,9 +116,8 @@ def _build_checker_data(words: list[dict]) -> dict:
     word_list = [w["word"] for w in words_sorted]
     lengths = []
     for w in words_sorted:
-        if w["length"] is None:
-            raise ValueError(f"missing length for word {w['word']!r}")
-        lengths.append(w["length"])
+        # Разделитель (пробел/дефис) — из слова: колонка N часто путает «5 3» и «5-3».
+        lengths.append(_length_from_word(w["word"]))
     hints = [(w.get("hint") or "").strip() for w in words_sorted[:-1]]
     return {
         "lengths": lengths,

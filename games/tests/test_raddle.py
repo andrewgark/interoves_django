@@ -9,6 +9,8 @@ from games.raddle import (
     clue_display_for_hint,
     default_raddle_state,
     input_size_for_mask,
+    length_label_from_word,
+    length_mask_display,
     load_raddle_state,
     mask_slot_count,
     parse_length_mask,
@@ -63,10 +65,36 @@ class ParseLengthMaskTests(SimpleTestCase):
         self.assertEqual(parse_length_mask(5)['type'], 'fixed')
         self.assertEqual(parse_length_mask('9')['length'], 9)
 
-    def test_parts(self):
+    def test_parts_hyphen(self):
         m = parse_length_mask('5-9')
         self.assertEqual(m['type'], 'parts')
         self.assertEqual(m['parts'], (5, 9))
+        self.assertEqual(m['sep'], '-')
+        self.assertEqual(m['label'], '5-9')
+
+    def test_parts_space(self):
+        m = parse_length_mask('5 3')
+        self.assertEqual(m['type'], 'parts')
+        self.assertEqual(m['parts'], (5, 3))
+        self.assertEqual(m['sep'], ' ')
+        self.assertEqual(m['label'], '5 3')
+
+
+class LengthLabelFromWordTests(SimpleTestCase):
+    def test_space_vs_hyphen(self):
+        self.assertEqual(length_label_from_word('РОБИН ГУД'), '5 3')
+        self.assertEqual(length_label_from_word('САНКТ-ПЕТЕРБУРГ'), '5-9')
+        self.assertEqual(length_label_from_word('ПАРИЖ'), '5')
+
+    def test_mask_display_follows_word_separator(self):
+        self.assertEqual(
+            length_mask_display(parse_length_mask('5-3'), 'РОБИН ГУД'),
+            '◼️◼️◼️◼️◼️ ◼️◼️◼️',
+        )
+        self.assertEqual(
+            length_mask_display(parse_length_mask('5 3')),
+            '◼️◼️◼️◼️◼️ ◼️◼️◼️',
+        )
 
 
 class ParseRaddleDataTests(SimpleTestCase):
@@ -121,6 +149,7 @@ class WordLengthTests(SimpleTestCase):
 
     def test_input_format_from_mask_only(self):
         self.assertEqual(raddle_input_format(mask=parse_length_mask('5-9')), '#####' + '-' + '#########')
+        self.assertEqual(raddle_input_format(mask=parse_length_mask('5 3')), '##### ###')
 
     def test_word_matches_without_separators(self):
         self.assertTrue(word_matches('САНКТПЕТЕРБУРГ', ['САНКТ-ПЕТЕРБУРГ']))
@@ -459,9 +488,24 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertIn('ПАРИЖАНИН', ctx['used_hints'][0]['display'])
 
     def test_mask_uses_squares(self):
-        from games.raddle import length_mask_display
         self.assertEqual(length_mask_display(parse_length_mask(4)), '◼️◼️◼️◼️')
         self.assertEqual(length_mask_display(parse_length_mask('5-9')), '◼️◼️◼️◼️◼️-◼️◼️◼️◼️◼️◼️◼️◼️◼️')
+
+    def test_spaced_word_length_label_not_hyphen(self):
+        """Даже если в lengths ошибочно «5-3», UI показывает «5 3» по пробелу в слове."""
+        data = {
+            'lengths': [5, '5-3', 4],
+            'hints': ['a', 'b'],
+            'words': ['СТАРТ', 'РОБИН ГУД', 'ФИНИ'],
+            'raddle_assist': {'enabled': False, 'fractions': [1, 0.5, 0]},
+        }
+        parsed = parse_raddle_data(_task(checker_data=json.dumps(data, ensure_ascii=False)))
+        ctx = build_raddle_ui_context(parsed, default_raddle_state(3))
+        row = ctx['rows'][1]
+        self.assertEqual(row['length_label'], '5 3')
+        self.assertEqual(row['input_format'], '##### ###')
+        self.assertIn(' ', row['mask_html'])
+        self.assertNotIn('-', row['mask_html'])
 
     def test_attempts_exhausted_in_tournament(self):
         parsed = parse_raddle_data(_task())

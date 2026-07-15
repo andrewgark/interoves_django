@@ -2,7 +2,7 @@
 #
 # checker_data (JSON):
 #   {
-#     "lengths": [5, 9, 7, "5-9", ...],   # int или str ("5", "5-9")
+#     "lengths": [5, 9, 7, "5-9", "5 3", ...],   # int или str ("5", "5-9", "5 3")
 #     "hints": ["Житель ____а", "____ без двух первых букв", ...],
 #     # Ровно len(lengths)-1 подсказок: hints[i] — переход words[i] → words[i+1].
 #     # В тексте: ____ / {prev}/{word}/{from} = предыдущее слово;
@@ -20,7 +20,8 @@ import re
 
 from games.util import clean_text
 
-_LENGTH_PARTS = re.compile(r'^(\d+)\s*-\s*(\d+)$')
+_LENGTH_PARTS_HYPHEN = re.compile(r'^(\d+)\s*-\s*(\d+)$')
+_LENGTH_PARTS_SPACE = re.compile(r'^(\d+)\s+(\d+)$')
 _RADDLE_ASSIST_CLUE_DESC = re.compile(r'^raddle_clue:(\d+)$', re.I)
 _RADDLE_ASSIST_ANSWER_DESC = re.compile(r'^raddle_answer:(\d+)$', re.I)
 _RADDLE_LETTER_RE = re.compile(r'[^0-9a-zа-яё]', re.I)
@@ -47,8 +48,9 @@ def raddle_input_format(canonical_word=None, mask=None):
         )
     if mask and mask.get('type') == 'parts':
         a, b = mask['parts']
+        sep = mask.get('sep', '-')
         return (
-            (RADDLE_INPUT_FORMAT_SLOT * a) + '-'
+            (RADDLE_INPUT_FORMAT_SLOT * a) + sep
             + (RADDLE_INPUT_FORMAT_SLOT * b)
         )
     if mask and mask.get('type') == 'fixed':
@@ -59,7 +61,7 @@ DEFAULT_RADDLE_ASSIST_FRACTIONS = [1, 0.5, 0]
 
 
 def parse_length_mask(value):
-    """Разбор маски длины: число или «a-b» для слова из двух частей через дефис."""
+    """Разбор маски длины: число, «a-b» (дефис) или «a b» (пробел)."""
     if isinstance(value, bool):
         return {'type': 'unknown', 'label': str(value)}
     if isinstance(value, int):
@@ -68,11 +70,32 @@ def parse_length_mask(value):
     if re.match(r'^\d+$', s):
         n = int(s)
         return {'type': 'fixed', 'length': n, 'label': s}
-    m = _LENGTH_PARTS.match(s)
+    m = _LENGTH_PARTS_HYPHEN.match(s)
     if m:
         a, b = int(m.group(1)), int(m.group(2))
-        return {'type': 'parts', 'parts': (a, b), 'label': s}
+        return {'type': 'parts', 'parts': (a, b), 'sep': '-', 'label': '{}-{}'.format(a, b)}
+    m = _LENGTH_PARTS_SPACE.match(s)
+    if m:
+        a, b = int(m.group(1)), int(m.group(2))
+        return {'type': 'parts', 'parts': (a, b), 'sep': ' ', 'label': '{} {}'.format(a, b)}
     return {'type': 'unknown', 'label': s}
+
+
+def length_label_from_word(word):
+    """Подпись длины по структуре слова: «РОБИН ГУД» → «5 3», «САНКТ-ПЕТЕРБУРГ» → «5-9»."""
+    out = []
+    n = 0
+    for ch in str(word or ''):
+        if _RADDLE_IS_LETTER_RE.match(ch):
+            n += 1
+        else:
+            if n:
+                out.append(str(n))
+                n = 0
+            out.append(ch)
+    if n:
+        out.append(str(n))
+    return ''.join(out) if out else '0'
 
 
 def split_word_alternatives(raw):
@@ -96,10 +119,15 @@ def word_length_matches(word, mask):
 _MASK_SQUARE = '◼️'
 
 
-def length_mask_display(mask):
+def length_mask_display(mask, canonical_word=None):
+    if canonical_word:
+        return raddle_input_format(canonical_word).replace(
+            RADDLE_INPUT_FORMAT_SLOT, _MASK_SQUARE
+        )
     if mask['type'] == 'parts':
         a, b = mask['parts']
-        return (_MASK_SQUARE * a) + '-' + (_MASK_SQUARE * b)
+        sep = mask.get('sep', '-')
+        return (_MASK_SQUARE * a) + sep + (_MASK_SQUARE * b)
     if mask['type'] == 'fixed':
         return _MASK_SQUARE * mask['length']
     return _MASK_SQUARE * 5
@@ -746,7 +774,10 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         clue_hi = (
             clue_index_for_playable_word(i, solved, n) if is_playable else None
         )
-        mask_html = length_mask_display(mask).strip()
+        canon = parsed['words'][i]
+        # Подпись и квадраты — по структуре ответа (пробел ≠ дефис), не по строке lengths.
+        mask_html = length_mask_display(mask, canon).strip()
+        length_label = length_label_from_word(canon) if canon else mask['label']
         ref_idx = reference_word_for_playable(i, solved, n) if is_playable else None
         ref_role = reference_role_for_playable(i, solved, n) if is_playable else None
         # Цвета пары: prev=жёлтый, next=зелёный
@@ -758,18 +789,18 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         elif is_playable and ref_role == 'next':
             focus_pair_role = 'prev'  # вводим предыдущее
             ref_pair_role = 'next'
-        inp_fmt = raddle_input_format(parsed['words'][i], mask)
+        inp_fmt = raddle_input_format(canon, mask)
         rows.append({
             'index': i,
-            'word': parsed['words'][i] if is_solved else '',
+            'word': canon if is_solved else '',
             'mask_html': mask_html,
             'mask_placeholder': mask_html,
-            'length_label': mask['label'],
-            'mask_slots': mask_slot_count(mask, parsed['words'][i]),
-            'max_length': mask_slot_count(mask, parsed['words'][i]),
+            'length_label': length_label,
+            'mask_slots': mask_slot_count(mask, canon),
+            'max_length': mask_slot_count(mask, canon),
             'input_format': inp_fmt,
             'input_format_len': len(inp_fmt),
-            'input_size': input_size_for_mask(mask, parsed['words'][i]),
+            'input_size': input_size_for_mask(mask, canon),
             'is_solved': is_solved,
             'is_playable': is_playable,
             'attempts_exhausted': is_open and attempts_exhausted,
@@ -784,7 +815,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             'ref_pair_role': ref_pair_role,
             'attempts': word_attempts[i],
             'assist_tier': tier,
-            'revealed_answer': parsed['words'][i] if tier >= 2 and not is_solved else '',
+            'revealed_answer': canon if tier >= 2 and not is_solved else '',
             'clue_hint_index': clue_hi,
             # 💡 всегда видна на playable: первый раз берёт подсказку, далее только подсвечивает
             'show_clue_btn': assist_enabled and is_playable and clue_hi is not None,
