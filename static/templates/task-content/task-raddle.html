@@ -15,7 +15,7 @@
         </colgroup>
         <tbody>
         {% for row in rd.ui.rows %}
-          <tr class="new-raddle-row {% if row.is_solved %}new-raddle-row--solved{% elif row.attempts_exhausted %}new-raddle-row--exhausted{% elif row.is_playable %}new-raddle-row--playable{% else %}new-raddle-row--locked{% endif %}{% if row.is_default_focus %} new-raddle-row--focus{% if row.focus_pair_role %} new-raddle-row--as-{{ row.focus_pair_role }}{% endif %}{% endif %}{% if row.is_default_ref %} new-raddle-row--ref{% if row.ref_pair_role %} new-raddle-row--as-{{ row.ref_pair_role }}{% endif %}{% endif %}" data-word-index="{{ row.index }}" data-task-id="{{ task.id }}"{% if row.is_playable %} data-ref-word="{{ row.ref_word }}" data-ref-word-index="{{ row.ref_word_index|default_if_none:'' }}" data-ref-role="{{ row.ref_role|default:'' }}" data-focus-pair-role="{{ row.focus_pair_role|default:'' }}" data-ref-pair-role="{{ row.ref_pair_role|default:'' }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}"{% endif %}>
+          <tr class="new-raddle-row {% if row.is_solved %}new-raddle-row--solved{% elif row.attempts_exhausted %}new-raddle-row--exhausted{% elif row.is_playable %}new-raddle-row--playable{% else %}new-raddle-row--locked{% endif %}{% if row.is_default_focus %} new-raddle-row--focus{% endif %}{% if row.last_word_role %} new-raddle-row--as-{{ row.last_word_role }}{% elif row.is_default_focus and row.focus_pair_role %} new-raddle-row--as-{{ row.focus_pair_role }}{% endif %}{% if row.is_default_ref and row.ref_pair_role and not row.last_word_role %} new-raddle-row--as-{{ row.ref_pair_role }}{% endif %}" data-word-index="{{ row.index }}" data-task-id="{{ task.id }}"{% if row.is_playable %} data-ref-word="{{ row.ref_word }}" data-ref-word-index="{{ row.ref_word_index|default_if_none:'' }}" data-ref-role="{{ row.ref_role|default:'' }}" data-focus-pair-role="{{ row.focus_pair_role|default:'' }}" data-ref-pair-role="{{ row.ref_pair_role|default:'' }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}"{% if row.dual_neighbors %} data-dual-neighbors="1" data-prev-neighbor="{{ row.prev_neighbor_word|escape }}" data-next-neighbor="{{ row.next_neighbor_word|escape }}"{% endif %}{% endif %}{% if row.last_word_role %} data-last-word-role="{{ row.last_word_role }}"{% endif %}>
             <td class="new-raddle-block__word {% if row.is_solved %}new-raddle-block__word--solved{% endif %}">
               <div class="new-raddle-word-cell">
                 {% if row.is_solved %}
@@ -89,7 +89,25 @@
       </table>
     </div>
     <aside class="new-raddle-clues">
-      {% if rd.ui.unused_hints %}
+      {% if rd.ui.last_word_clue_options %}
+      <section class="new-raddle-clues__section new-raddle-clues__section--unused new-raddle-clues__section--last-word">
+      <h4 class="new-raddle-clues__subtitle">Два варианта расстановки</h4>
+      {% for option in rd.ui.last_word_clue_options %}
+      {% if not forloop.first %}
+      <p class="new-raddle-clues__or" role="separator">или</p>
+      {% endif %}
+      <ul class="new-raddle-clues__list new-raddle-clues__list--option" data-raddle-clue-option="{{ option.id }}">
+        {% for hint in option.hints %}
+        <li class="new-raddle-clue{% if hint.is_revealed %} new-raddle-clue--revealed{% endif %}"
+            data-hint-index="{{ hint.index }}"
+            data-clue-pair="{{ hint.pair }}">
+          <span class="new-raddle-clue__text">{% autoescape off %}{{ hint.display_html }}{% endautoescape %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endfor %}
+      </section>
+      {% elif rd.ui.unused_hints %}
       <section class="new-raddle-clues__section new-raddle-clues__section--unused">
       <h4 class="new-raddle-clues__subtitle">Подсказки, не по порядку</h4>
       <ul class="new-raddle-clues__list new-raddle-clues__list--unused" data-raddle-unused-clues>
@@ -101,7 +119,8 @@
             data-next-word="{{ hint.next_word|escape }}"
             data-prev-solved="{% if hint.prev_solved %}1{% else %}0{% endif %}"
             data-next-solved="{% if hint.next_solved %}1{% else %}0{% endif %}"
-            data-has-next-slot="{% if hint.has_next_slot %}1{% else %}0{% endif %}">
+            data-has-next-slot="{% if hint.has_next_slot %}1{% else %}0{% endif %}"
+            {% if hint.clue_variant %}data-clue-variant="{{ hint.clue_variant }}"{% endif %}>
           <span class="new-raddle-clue__text">{% autoescape off %}{{ hint.display_html }}{% endautoescape %}</span>
         </li>
         {% endfor %}

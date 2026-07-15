@@ -487,6 +487,46 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertIn('→', ctx['used_hints'][0]['display'])
         self.assertIn('ПАРИЖАНИН', ctx['used_hints'][0]['display'])
 
+    def test_last_word_shows_two_clue_layouts(self):
+        """Одно оставшееся слово: два варианта (А+Б, Б+В) или (Б+В, А+Б)."""
+        parsed = parse_raddle_data(_task())
+        # Осталось слово index=6 (ГОЛЛАНДИЯ); соседи 5 и 7 решены.
+        solved = list(range(0, 6)) + list(range(7, 13))
+        used = list(range(0, 5)) + list(range(7, 12))
+        state = {
+            'solved_indices': solved,
+            'used_hints': used,
+            'total': 10,
+        }
+        ctx = build_raddle_ui_context(parsed, state)
+        self.assertTrue(ctx['last_word_dual_clues'])
+        self.assertEqual(ctx['default_focus_index'], 6)
+        self.assertEqual(ctx['unused_hints'], [])
+        options = ctx['last_word_clue_options']
+        self.assertEqual(len(options), 2)
+        self.assertEqual(options[0]['id'], 'ab-bc')
+        self.assertEqual(options[1]['id'], 'bc-ab')
+        self.assertEqual([h['pair'] for h in options[0]['hints']], ['ab', 'bc'])
+        self.assertEqual([h['pair'] for h in options[1]['hints']], ['bc', 'ab'])
+        before_word = parsed['words'][5]  # САНКТ-ПЕТЕРБУРГ
+        focus_word = parsed['words'][6]   # ГОЛЛАНДИЯ
+        after_word = parsed['words'][7]   # АМСТЕРДАМ
+        ab_html = options[0]['hints'][0]['display_html']
+        bc_html = options[0]['hints'][1]['display_html']
+        self.assertIn(before_word, str(ab_html))
+        self.assertIn(focus_word, str(ab_html))
+        self.assertIn(focus_word, str(bc_html))
+        self.assertIn(after_word, str(bc_html))
+        self.assertIn('new-raddle-clue-before', str(ab_html))
+        self.assertIn('new-raddle-clue-focus', str(ab_html))
+        self.assertIn('new-raddle-clue-after', str(bc_html))
+        row_before = next(r for r in ctx['rows'] if r['index'] == 5)
+        row_focus = next(r for r in ctx['rows'] if r['index'] == 6)
+        row_after = next(r for r in ctx['rows'] if r['index'] == 7)
+        self.assertEqual(row_before['last_word_role'], 'before')
+        self.assertEqual(row_focus['last_word_role'], 'focus')
+        self.assertEqual(row_after['last_word_role'], 'after')
+
     def test_mask_uses_squares(self):
         self.assertEqual(length_mask_display(parse_length_mask(4)), '◼️◼️◼️◼️')
         self.assertEqual(length_mask_display(parse_length_mask('5-9')), '◼️◼️◼️◼️◼️-◼️◼️◼️◼️◼️◼️◼️◼️◼️')

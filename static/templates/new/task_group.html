@@ -1046,11 +1046,13 @@
       el.classList.remove('new-raddle-clue--active');
     });
     if (hintIndex === null || hintIndex === undefined || hintIndex === '') return;
-    var clue = taskRoot.querySelector('.new-raddle-clue[data-hint-index="' + hintIndex + '"]');
-    if (!clue) return;
-    clue.classList.add('new-raddle-clue--active');
+    var clues = taskRoot.querySelectorAll('.new-raddle-clue[data-hint-index="' + hintIndex + '"]');
+    if (!clues.length) return;
+    clues.forEach(function (clue) {
+      clue.classList.add('new-raddle-clue--active');
+    });
     try {
-      clue.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      clues[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     } catch (err) {}
   }
 
@@ -1106,8 +1108,11 @@
           if (taskRoot) {
             setRaddleFocus(taskRoot, wordIdx);
             highlightRaddleClue(taskRoot, clueHintIndex);
-            var clue = taskRoot.querySelector('.new-raddle-clue[data-hint-index="' + clueHintIndex + '"]');
-            if (clue) clue.classList.add('new-raddle-clue--revealed');
+            taskRoot.querySelectorAll(
+              '.new-raddle-clue[data-hint-index="' + clueHintIndex + '"]'
+            ).forEach(function (clue) {
+              clue.classList.add('new-raddle-clue--revealed');
+            });
           }
           if (msg) {
             msg.textContent = '';
@@ -1850,7 +1855,8 @@
     rows.forEach(function (row) {
       row.classList.remove(
         'new-raddle-row--focus', 'new-raddle-row--ref',
-        'new-raddle-row--as-prev', 'new-raddle-row--as-next'
+        'new-raddle-row--as-prev', 'new-raddle-row--as-next',
+        'new-raddle-row--as-before', 'new-raddle-row--as-focus', 'new-raddle-row--as-after'
       );
       if (String(row.getAttribute('data-word-index')) === String(wordIndex)) {
         focusRow = row;
@@ -1861,24 +1867,36 @@
       if (!focusRow) return;
       wordIndex = focusRow.getAttribute('data-word-index');
     }
-    focusRow.classList.add('new-raddle-row--focus');
-    var refIdx = focusRow.getAttribute('data-ref-word-index');
-    var refWord = focusRow.getAttribute('data-ref-word') || '';
-    var refRole = focusRow.getAttribute('data-ref-role') || 'prev';
-    var focusPairRole = focusRow.getAttribute('data-focus-pair-role') || '';
-    var refPairRole = focusRow.getAttribute('data-ref-pair-role') || '';
-    if (focusPairRole) focusRow.classList.add('new-raddle-row--as-' + focusPairRole);
-    if (refIdx !== null && refIdx !== '') {
-      var refRow = taskRoot.querySelector('.new-raddle-row[data-word-index="' + refIdx + '"]');
-      if (refRow) {
-        refRow.classList.add('new-raddle-row--ref');
-        if (refPairRole) refRow.classList.add('new-raddle-row--as-' + refPairRole);
+    var dualNeighbors = focusRow.getAttribute('data-dual-neighbors') === '1';
+    var focusIdx = parseInt(focusRow.getAttribute('data-word-index'), 10);
+    if (dualNeighbors && !isNaN(focusIdx)) {
+      rows.forEach(function (row) {
+        var idx = parseInt(row.getAttribute('data-word-index'), 10);
+        if (idx === focusIdx - 1) row.classList.add('new-raddle-row--as-before');
+        else if (idx === focusIdx) {
+          row.classList.add('new-raddle-row--as-focus', 'new-raddle-row--focus');
+        } else if (idx === focusIdx + 1) row.classList.add('new-raddle-row--as-after');
+      });
+    } else {
+      focusRow.classList.add('new-raddle-row--focus');
+      var refIdx = focusRow.getAttribute('data-ref-word-index');
+      var refRole = focusRow.getAttribute('data-ref-role') || 'prev';
+      var focusPairRole = focusRow.getAttribute('data-focus-pair-role') || '';
+      var refPairRole = focusRow.getAttribute('data-ref-pair-role') || '';
+      if (focusPairRole) focusRow.classList.add('new-raddle-row--as-' + focusPairRole);
+      if (refIdx !== null && refIdx !== '') {
+        var refRow = taskRoot.querySelector('.new-raddle-row[data-word-index="' + refIdx + '"]');
+        if (refRow) {
+          refRow.classList.add('new-raddle-row--ref');
+          if (refPairRole) refRow.classList.add('new-raddle-row--as-' + refPairRole);
+        }
       }
+      var refWord = focusRow.getAttribute('data-ref-word') || '';
+      taskRoot.querySelectorAll('[data-raddle-unused-clues] .new-raddle-clue').forEach(function (li) {
+        var textEl = li.querySelector('.new-raddle-clue__text');
+        if (textEl) textEl.innerHTML = raddleRenderTransitionClue(li, refWord, refRole);
+      });
     }
-    taskRoot.querySelectorAll('[data-raddle-unused-clues] .new-raddle-clue').forEach(function (li) {
-      var textEl = li.querySelector('.new-raddle-clue__text');
-      if (textEl) textEl.innerHTML = raddleRenderTransitionClue(li, refWord, refRole);
-    });
     // Синяя подсветка «правильной» подсказки — только после взятия 💡 (иначе спойлер)
     var clueIdx = focusRow.getAttribute('data-clue-hint-index');
     var revealed = clueIdx && taskRoot.querySelector(

@@ -517,10 +517,22 @@ def clue_blank_template(hint_text):
     return text
 
 
+_CLUE_KIND_CLASS = {
+    'ref': 'new-raddle-clue-ref',
+    'next': 'new-raddle-clue-next',
+    'before': 'new-raddle-clue-before',
+    'focus': 'new-raddle-clue-focus',
+    'after': 'new-raddle-clue-after',
+}
+
+
 def _clue_ref_html(word, *, kind='ref'):
-    """kind=ref — жёлтый (активный конец); kind=next — зелёный (слово после → в used)."""
+    """
+    kind=ref — жёлтый; kind=next — зелёный (legacy / used).
+    Финал лесенки: before=зелёный (А), focus=жёлтый (Б), after=оранжевый (В).
+    """
     from django.utils.html import escape
-    cls = 'new-raddle-clue-next' if kind == 'next' else 'new-raddle-clue-ref'
+    cls = _CLUE_KIND_CLASS.get(kind, 'new-raddle-clue-ref')
     return '<strong class="{}">{}</strong>'.format(cls, escape(word))
 
 
@@ -533,6 +545,8 @@ def render_transition_clue(
     next_known=False,
     html=False,
     next_as_solved=False,
+    prev_kind='ref',
+    next_kind=None,
 ):
     """
     Подсказка перехода prev → next.
@@ -552,11 +566,13 @@ def render_transition_clue(
         out = template
 
     if prev_known and prev_word:
-        repl = _clue_ref_html(prev_word, kind='ref') if html else str(prev_word)
+        pk = prev_kind if prev_kind != 'ref' else 'ref'
+        repl = _clue_ref_html(prev_word, kind=pk) if html else str(prev_word)
         out = _CLUE_BLANK_RE.sub(repl, out)
 
     if next_known and next_word:
-        next_kind = 'next' if next_as_solved else 'ref'
+        if next_kind is None:
+            next_kind = 'next' if next_as_solved else 'ref'
         repl = _clue_ref_html(next_word, kind=next_kind) if html else str(next_word)
         if has_next_slot:
             out = _CLUE_ELLIPSIS_RE.sub(repl, out)
@@ -654,6 +670,102 @@ def reference_role_for_playable(word_index, solved, n_words):
     if word_index + 1 < n_words and (word_index + 1) in solved:
         return 'next'
     return None
+
+
+def both_neighbors_solved(word_index, solved, n_words):
+    """У playable-слова известны и верхний, и нижний сосед (осталось одно слово)."""
+    if word_index is None or word_index <= 0 or word_index >= n_words - 1:
+        return False
+    solved = set(solved or [])
+    return (word_index - 1) in solved and (word_index + 1) in solved
+
+
+def last_word_role_for_index(word_index, focus_index, *, dual_clues):
+    """
+    Роль строки в финале (А — зелёный, Б — жёлтый, В — оранжевый).
+    """
+    if not dual_clues or focus_index is None:
+        return ''
+    if word_index == focus_index - 1:
+        return 'before'
+    if word_index == focus_index:
+        return 'focus'
+    if word_index == focus_index + 1:
+        return 'after'
+    return ''
+
+
+def render_last_word_transition_clue(hint_text, before_word, focus_word, after_word, *, pair):
+    """
+    Подсказка с подстановкой А+Б или Б+В и цветами before/focus/after.
+    pair='ab' → А (зелёный) + Б (жёлтый); pair='bc' → Б (жёлтый) + В (оранжевый).
+    """
+    if pair == 'ab':
+        return render_transition_clue(
+            hint_text,
+            prev_word=before_word,
+            next_word=focus_word,
+            prev_known=True,
+            next_known=True,
+            html=True,
+            prev_kind='before',
+            next_kind='focus',
+        )
+    return render_transition_clue(
+        hint_text,
+        prev_word=focus_word,
+        next_word=after_word,
+        prev_known=True,
+        next_known=True,
+        html=True,
+        prev_kind='focus',
+        next_kind='after',
+    )
+
+
+def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
+    """
+    Два варианта расстановки двух оставшихся подсказок:
+      1) А+Б, затем Б+В
+      2) Б+В, затем А+Б
+    """
+    words = parsed['words']
+    hints = parsed['hints']
+    before_word = words[focus_index - 1]
+    focus_word = words[focus_index]
+    after_word = words[focus_index + 1]
+    hint_ab_idx = focus_index - 1
+    hint_bc_idx = focus_index
+    hint_ab = hints[hint_ab_idx]
+    hint_bc = hints[hint_bc_idx]
+
+    def _item(hint_index, hint_text, pair):
+        return {
+            'index': hint_index,
+            'text': hint_text,
+            'pair': pair,
+            'is_revealed': hint_index in revealed_clue_indices,
+            'display_html': render_last_word_transition_clue(
+                hint_text, before_word, focus_word, after_word, pair=pair,
+            ),
+        }
+
+    return [
+        {
+            'id': 'ab-bc',
+            'hints': [
+                _item(hint_ab_idx, hint_ab, 'ab'),
+                _item(hint_bc_idx, hint_bc, 'bc'),
+            ],
+        },
+        {
+            'id': 'bc-ab',
+            'hints': [
+                _item(hint_bc_idx, hint_bc, 'bc'),
+                _item(hint_ab_idx, hint_ab, 'ab'),
+            ],
+        },
+    ]
 
 
 def raddle_result_squares(parsed, state, *, hint_attempts=None):
@@ -758,6 +870,13 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         reference_role_for_playable(default_focus, solved, n)
         if default_focus is not None else None
     )
+    # Одно оставшееся слово: оба соседа известны → каждую unused-подсказку
+    # показываем в вариантах «до» (prev) и «после» (next).
+    last_word_dual_clues = (
+        default_focus is not None
+        and len(playable_sorted) == 1
+        and both_neighbors_solved(default_focus, solved, n)
+    )
 
     rows = []
     for i in range(n):
@@ -780,15 +899,20 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         length_label = length_label_from_word(canon) if canon else mask['label']
         ref_idx = reference_word_for_playable(i, solved, n) if is_playable else None
         ref_role = reference_role_for_playable(i, solved, n) if is_playable else None
-        # Цвета пары: prev=жёлтый, next=зелёный
+        dual_neighbors = is_playable and both_neighbors_solved(i, solved, n)
+        last_word_role = last_word_role_for_index(
+            i, default_focus, dual_clues=last_word_dual_clues,
+        )
+        # Цвета пары: prev=жёлтый, next=зелёный (обычный режим)
         focus_pair_role = None
         ref_pair_role = None
-        if is_playable and ref_role == 'prev':
-            focus_pair_role = 'next'  # вводим следующее
-            ref_pair_role = 'prev'
-        elif is_playable and ref_role == 'next':
-            focus_pair_role = 'prev'  # вводим предыдущее
-            ref_pair_role = 'next'
+        if not last_word_role:
+            if is_playable and ref_role == 'prev':
+                focus_pair_role = 'next'  # вводим следующее
+                ref_pair_role = 'prev'
+            elif is_playable and ref_role == 'next':
+                focus_pair_role = 'prev'  # вводим предыдущее
+                ref_pair_role = 'next'
         inp_fmt = raddle_input_format(canon, mask)
         rows.append({
             'index': i,
@@ -813,6 +937,14 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             'ref_role': ref_role,
             'focus_pair_role': focus_pair_role,
             'ref_pair_role': ref_pair_role,
+            'dual_neighbors': dual_neighbors,
+            'last_word_role': last_word_role,
+            'prev_neighbor_word': (
+                parsed['words'][i - 1] if dual_neighbors else ''
+            ),
+            'next_neighbor_word': (
+                parsed['words'][i + 1] if dual_neighbors else ''
+            ),
             'attempts': word_attempts[i],
             'assist_tier': tier,
             'revealed_answer': canon if tier >= 2 and not is_solved else '',
@@ -828,6 +960,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
 
     unused = []
     used = []
+    last_word_clue_options = []
     for hi, hint in enumerate(parsed['hints']):
         blank_tpl = clue_blank_template(hint)
         prev_w = parsed['words'][hi] if hi < n else ''
@@ -842,6 +975,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             'next_solved': (hi + 1) in solved,
             'has_next_slot': clue_has_next_slot(hint),
             'is_revealed': hi in revealed_clue_indices,
+            'clue_variant': '',
         }
         if hi in used_hints:
             item = {
@@ -850,7 +984,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
                 'display_html': used_clue_display(hint, hi, parsed['words'], html=True),
             }
             used.append(item)
-        else:
+        elif not last_word_dual_clues:
             item = {
                 **base,
                 'display': clue_display_for_hint(
@@ -866,7 +1000,12 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
                 ),
             }
             unused.append(item)
-    unused.sort(key=lambda x: x['display'].lower())
+    if last_word_dual_clues:
+        last_word_clue_options = build_last_word_clue_options(
+            parsed, default_focus, revealed_clue_indices=revealed_clue_indices,
+        )
+    else:
+        unused.sort(key=lambda x: x['display'].lower())
 
     middle_total = max(0, n - 2)
     is_complete = middle_total == 0 or len(solved) >= n
@@ -885,6 +1024,8 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         'default_ref_index': default_ref_idx,
         'default_ref_word': default_ref_word,
         'default_ref_role': default_ref_role,
+        'last_word_dual_clues': last_word_dual_clues,
+        'last_word_clue_options': last_word_clue_options,
         'is_complete': is_complete,
         'result_squares': result_squares,
         'assist_enabled': assist_enabled,
