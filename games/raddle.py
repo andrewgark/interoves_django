@@ -529,7 +529,7 @@ _CLUE_KIND_CLASS = {
 def _clue_ref_html(word, *, kind='ref'):
     """
     kind=ref — жёлтый; kind=next — зелёный (legacy / used).
-    Финал лесенки: before=зелёный (А), focus=жёлтый (Б), after=оранжевый (В).
+    Финал лесенки: before=жёлтый (А), focus=зелёный (Б), after=синий (В).
     """
     from django.utils.html import escape
     cls = _CLUE_KIND_CLASS.get(kind, 'new-raddle-clue-ref')
@@ -682,7 +682,7 @@ def both_neighbors_solved(word_index, solved, n_words):
 
 def last_word_role_for_index(word_index, focus_index, *, dual_clues):
     """
-    Роль строки в финале (А — зелёный, Б — жёлтый, В — оранжевый).
+    Роль строки в финале (А — жёлтый, Б — зелёный, В — синий).
     """
     if not dual_clues or focus_index is None:
         return ''
@@ -695,44 +695,42 @@ def last_word_role_for_index(word_index, focus_index, *, dual_clues):
     return ''
 
 
-def render_last_word_transition_clue(hint_text, before_word, focus_word, after_word, *, pair):
+def render_last_word_transition_clue(hint_text, before_word, after_word, *, pair):
     """
-    Подсказка с подстановкой А+Б или Б+В и цветами before/focus/after.
-    pair='ab' → А (зелёный) + Б (жёлтый); pair='bc' → Б (жёлтый) + В (оранжевый).
+    Подсказка финала: подставляем только известные А и В; Б не показываем.
+    pair='ab' → А (жёлтый) в ____, слот Б остаётся пустым;
+    pair='bc' → слот Б пустой, В (синий) в ... / «→».
     """
     if pair == 'ab':
         return render_transition_clue(
             hint_text,
             prev_word=before_word,
-            next_word=focus_word,
             prev_known=True,
-            next_known=True,
             html=True,
             prev_kind='before',
-            next_kind='focus',
         )
     return render_transition_clue(
         hint_text,
-        prev_word=focus_word,
         next_word=after_word,
-        prev_known=True,
         next_known=True,
         html=True,
-        prev_kind='focus',
         next_kind='after',
     )
 
 
 def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
     """
-    Два варианта расстановки двух оставшихся подсказок:
-      1) А+Б, затем Б+В
-      2) Б+В, затем А+Б
+    Два варианта расстановки двух оставшихся подсказок.
+
+    Оба варианта показывают одни и те же тексты подсказок в одном порядке,
+    но с разной привязкой переходов (иначе получается одно и то же содержимое):
+
+      1) подсказка А→Б как ab, подсказка Б→В как bc
+      2) та же первая подсказка как bc, вторая как ab
     """
     words = parsed['words']
     hints = parsed['hints']
     before_word = words[focus_index - 1]
-    focus_word = words[focus_index]
     after_word = words[focus_index + 1]
     hint_ab_idx = focus_index - 1
     hint_bc_idx = focus_index
@@ -746,7 +744,7 @@ def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
             'pair': pair,
             'is_revealed': hint_index in revealed_clue_indices,
             'display_html': render_last_word_transition_clue(
-                hint_text, before_word, focus_word, after_word, pair=pair,
+                hint_text, before_word, after_word, pair=pair,
             ),
         }
 
@@ -761,8 +759,8 @@ def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
         {
             'id': 'bc-ab',
             'hints': [
-                _item(hint_bc_idx, hint_bc, 'bc'),
-                _item(hint_ab_idx, hint_ab, 'ab'),
+                _item(hint_ab_idx, hint_ab, 'bc'),
+                _item(hint_bc_idx, hint_bc, 'ab'),
             ],
         },
     ]

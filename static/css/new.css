@@ -34,9 +34,9 @@
   --raddle-ladder-max: 26rem;
   --raddle-clues-min: 12rem;
   --raddle-layout-stack: 40rem;
-  --raddle-before: #6aaa64;
-  --raddle-focus: #eab308;
-  --raddle-after: #f59e0b;
+  --raddle-before: #eab308;
+  --raddle-focus: #6aaa64;
+  --raddle-after: #3b82f6;
   font-size: 16px;
 }
 
@@ -2968,7 +2968,7 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   background: color-mix(in srgb, #6aaa64 18%, var(--surface));
   box-shadow: inset 3px 0 0 color-mix(in srgb, #6aaa64 70%, transparent);
 }
-/* Финал: А=зелёный, Б=жёлтый, В=оранжевый */
+/* Финал: А=жёлтый, Б=зелёный, В=синий */
 .new-raddle-row--as-before .new-raddle-block__word,
 .new-raddle-row--as-before .new-raddle-block__check {
   background: color-mix(in srgb, var(--raddle-before) 20%, var(--surface));
