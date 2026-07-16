@@ -33,9 +33,7 @@
           <span class="new-replacements-line__attempts">
             <span class="new-replacements-line__attempts-num">{{ rld.line_attempts|get_item:line_idx }}</span>{% if mode == 'tournament' %}/{{ rld.max_attempts }}{% endif %}
           </span>
-          {% if user.is_authenticated and has_profile_user %}
-            <button type="button" class="new-action-link new-repl-line-answer" data-repl-answer-open data-task-id="{{ task.id }}" data-line-index="{{ line_idx }}">Ответ</button>
-          {% endif %}
+          <button type="button" class="new-action-link new-repl-line-answer" data-repl-answer-open data-task-id="{{ task.id }}" data-line-index="{{ line_idx }}">Ответ</button>
         {% else %}
           <form class="new-replacements-line-form new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-line-index="{{ line_idx }}" id="repl-form-{{ task.id }}-{{ line_idx }}">
             {% csrf_token %}
@@ -47,7 +45,7 @@
           <span class="new-replacements-line__attempts" title="Попытки по этой строке">
             <span class="new-replacements-line__attempts-num">{{ rld.line_attempts|get_item:line_idx }}</span>{% if mode == 'tournament' %}/{{ rld.max_attempts }}{% endif %}
           </span>
-          {% if user.is_authenticated and has_profile_user and mode != 'tournament' %}
+          {% if mode != 'tournament' %}
             <button type="button" class="new-action-link new-repl-line-answer" data-repl-answer-open data-task-id="{{ task.id }}" data-line-index="{{ line_idx }}">Ответ</button>
           {% endif %}
         {% endif %}
