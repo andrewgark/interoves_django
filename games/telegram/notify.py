@@ -13,7 +13,14 @@ from games.telegram.config import (
     telegram_admin_configured,
     telegram_bot_configured,
 )
-from games.telegram.game_urls import admin_url, game_site_url
+from games.telegram.game_urls import (
+    admin_url,
+    game_admin_url,
+    game_site_url,
+    task_admin_url,
+    task_group_admin_url,
+    task_play_url,
+)
 
 logger = logging.getLogger('application')
 
@@ -114,19 +121,37 @@ def format_bug_report_message(report: BugReport) -> str:
     task = report.task
     game = report.game
     task_label = getattr(task, 'number', None) or task.pk
-    game_label = getattr(game, 'name', None) or game.pk
-    admin_link = _admin_link('/admin/games/bugreport/{}/change/'.format(report.pk))
+    if hasattr(game, 'get_no_html_name'):
+        game_label = game.get_no_html_name()
+    else:
+        game_label = getattr(game, 'name', None) or game.pk
+    task_site = task_play_url(game, task)
+    game_site = game_site_url(game)
+    report_admin = _admin_link('/admin/games/bugreport/{}/change/'.format(report.pk))
     queue_link = _admin_link('/admin/games/pendingbugreport/')
+    task_admin = task_admin_url(task)
+    game_admin = game_admin_url(game)
+    task_group = getattr(task, 'task_group', None)
+    task_group_admin = task_group_admin_url(task_group) if task_group is not None else ''
+
+    task_admin_links = ['<a href="{}">task</a>'.format(_escape(task_admin))]
+    if task_group_admin:
+        task_admin_links.append('<a href="{}">taskgroup</a>'.format(_escape(task_group_admin)))
+
     return _join_lines([
         '🐞 <b>Новый репорт о баге</b>',
         '',
-        'Игра: {}'.format(_escape(game_label)),
-        'Задание: #{}'.format(_escape(task_label)),
+        'Игра: <a href="{}">{}</a> · <a href="{}">админка</a>'.format(
+            _escape(game_site), _escape(game_label), _escape(game_admin),
+        ),
+        'Задание: <a href="{}">#{}</a> · {}'.format(
+            _escape(task_site), _escape(task_label), ' · '.join(task_admin_links),
+        ),
         'Автор: {}'.format(_escape(_bug_report_reporter(report))),
         '',
         _escape(report.text[:3500]),
         '',
-        '<a href="{}">Админка</a> · <a href="{}">Очередь</a>'.format(admin_link, queue_link),
+        '<a href="{}">Репорт</a> · <a href="{}">Очередь</a>'.format(report_admin, queue_link),
     ])
 
 
@@ -234,6 +259,11 @@ def format_admin_registration_milestone_message(game, count: int) -> str:
 
 
 def notify_new_bug_report(report: BugReport) -> bool:
+    report = (
+        BugReport.objects
+        .select_related('task', 'task__task_group', 'game', 'game__project', 'team', 'user')
+        .get(pk=report.pk)
+    )
     return send_admin_message(
         format_bug_report_message(report),
         reply_markup=bug_report_keyboard(report.pk),

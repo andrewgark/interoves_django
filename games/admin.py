@@ -58,7 +58,7 @@ from games.recheck import (
 from games.results_snapshot import freeze_game_results
 
 
-admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration, TicketRequest, BugReport])
+admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration, TicketRequest])
 
 
 @admin.register(CorporateGameOrder)
@@ -574,18 +574,78 @@ mark_bug_report_reviewed.short_description = 'Mark Reviewed'
 mark_bug_report_dismissed.short_description = 'Mark Dismissed'
 
 
-@admin.register(PendingBugReport)
-class PendingBugReportAdmin(admin.ModelAdmin):
+class BugReportAdminBase(admin.ModelAdmin):
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 4, 'cols': 60})},
     }
     raw_id_fields = ['task', 'game', 'team', 'user']
-    readonly_fields = ['time', 'page_url', 'anon_key']
-
-    def get_queryset(self, request):
-        qs = super(PendingBugReportAdmin, self).get_queryset(request)
-        return qs.select_related('task', 'game', 'team', 'user').filter(status='Pending')
-
-    list_display = ['__str__', 'game', 'task', 'team', 'user', 'time']
+    readonly_fields = ['time', 'page_url', 'anon_key', 'context_links']
+    fields = [
+        'status',
+        'text',
+        'admin_notes',
+        'context_links',
+        'task',
+        'game',
+        'team',
+        'user',
+        'anon_key',
+        'page_url',
+        'time',
+    ]
+    list_display = ['__str__', 'game', 'task', 'team', 'user', 'status', 'time']
+    list_filter = ['status']
     search_fields = ['text', 'task__number', 'game__id', 'game__name']
     actions = [mark_bug_report_reviewed, mark_bug_report_dismissed]
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('task', 'task__task_group', 'game', 'game__project', 'team', 'user')
+
+    def context_links(self, obj):
+        from django.utils.html import format_html, format_html_join
+        from games.telegram.game_urls import (
+            game_admin_url,
+            game_site_url,
+            task_admin_url,
+            task_group_admin_url,
+            task_play_url,
+        )
+
+        if obj is None or not obj.pk:
+            return '—'
+        rows = []
+        if obj.game_id:
+            rows.append(('Игра на сайте', game_site_url(obj.game)))
+            rows.append(('Игра в админке', game_admin_url(obj.game)))
+        if obj.task_id:
+            rows.append(('Задание на сайте', task_play_url(obj.game, obj.task)))
+            rows.append(('Task в админке', task_admin_url(obj.task)))
+            if obj.task.task_group_id:
+                rows.append(('TaskGroup в админке', task_group_admin_url(obj.task.task_group)))
+        if obj.page_url:
+            rows.append(('page_url', obj.page_url))
+        if not rows:
+            return '—'
+        return format_html(
+            '<ul style="margin:0;padding-left:1.2em">{}</ul>',
+            format_html_join(
+                '',
+                '<li><a href="{}" target="_blank" rel="noopener">{}</a></li>',
+                ((url, label) for label, url in rows),
+            ),
+        )
+
+    context_links.short_description = 'Ссылки'
+
+
+@admin.register(BugReport)
+class BugReportAdmin(BugReportAdminBase):
+    pass
+
+
+@admin.register(PendingBugReport)
+class PendingBugReportAdmin(BugReportAdminBase):
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(status='Pending')

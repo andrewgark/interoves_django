@@ -2284,6 +2284,8 @@ def new_bug_report(request, task_id):
     if len(text) > 5000:
         return JsonResponse({'ok': False, 'error': 'Слишком длинное сообщение.'}, status=400)
 
+    from games.telegram.game_urls import task_play_url
+
     BugReport.objects.create(
         task=task,
         game=game,
@@ -2291,7 +2293,7 @@ def new_bug_report(request, task_id):
         user=user,
         anon_key=anon_key,
         text=text,
-        page_url=request.build_absolute_uri(),
+        page_url=task_play_url(game, task),
         status='Pending',
     )
     return JsonResponse({'ok': True})

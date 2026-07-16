@@ -58,6 +58,10 @@ class TelegramNotifyTests(TestCase):
     @patch('games.telegram.notify.send_message')
     def test_notify_bug_report_with_keyboard(self, send_message_mock):
         send_message_mock.return_value = True
+        from games.models import GameTaskGroup
+        GameTaskGroup.objects.create(
+            game=self.game, task_group=self.task_group, number='1', name='Section',
+        )
         report = BugReport.objects.create(
             game=self.game,
             task=self.task,
@@ -68,7 +72,35 @@ class TelegramNotifyTests(TestCase):
         send_message_mock.assert_called_once()
         kwargs = send_message_mock.call_args.kwargs
         self.assertIn('inline_keyboard', kwargs['reply_markup'])
-        self.assertIn('Something broke', send_message_mock.call_args.args[1])
+        text = send_message_mock.call_args.args[1]
+        self.assertIn('Something broke', text)
+        self.assertIn('/games/{}/1/#new-task-{}'.format(self.game.id, self.task.pk), text)
+        self.assertIn('/admin/games/task/{}/change/'.format(self.task.pk), text)
+
+    def test_format_bug_report_message_links(self):
+        from games.models import GameTaskGroup
+        GameTaskGroup.objects.create(
+            game=self.game, task_group=self.task_group, number='2', name='Round 2',
+        )
+        report = BugReport.objects.create(
+            game=self.game,
+            task=self.task,
+            team=self.team,
+            text='Broken image',
+        )
+        text = format_bug_report_message(report)
+        self.assertIn('href="https://interoves.com/games/{}/2/#new-task-{}"'.format(
+            self.game.id, self.task.pk,
+        ), text)
+        self.assertIn('href="https://interoves.com/admin/games/task/{}/change/"'.format(
+            self.task.pk,
+        ), text)
+        self.assertIn('href="https://interoves.com/admin/games/taskgroup/{}/change/"'.format(
+            self.task_group.pk,
+        ), text)
+        self.assertIn('href="https://interoves.com/admin/games/game/{}/change/"'.format(
+            self.game.id,
+        ), text)
 
     @patch('games.telegram.notify.send_message')
     def test_send_admin_message_respects_mute(self, send_message_mock):
