@@ -100,7 +100,8 @@ def actor_task_result_points(
     )
     if not task_ids:
         return 0.0, False
-    return out.get(task.id, (0.0, False))
+    pts, has_any, _status = out.get(task.id, (0.0, False, None))
+    return pts, has_any
 
 
 def bulk_actor_task_result_points(
@@ -110,11 +111,11 @@ def bulk_actor_task_result_points(
     mode: str = "general",
     game=None,
     include_other_games: bool = False,
-) -> Dict[int, Tuple[float, bool]]:
+) -> Dict[int, Tuple[float, bool, Optional[str]]]:
     """
     Bulk compute per-task result points for one actor.
 
-    Returns: {task_id: (result_points, has_attempts_or_hints)}.
+    Returns: {task_id: (result_points, has_attempts_or_hints, best_status)}.
     """
     task_ids = [int(tid) for tid in (task_ids or []) if tid is not None]
     if not task_ids:
@@ -168,16 +169,17 @@ def bulk_actor_task_result_points(
             task_to_hints[tid].append(ha)
 
     # Compute points
-    result: Dict[int, Tuple[float, bool]] = {}
+    result: Dict[int, Tuple[float, bool, Optional[str]]] = {}
     for tid in task_ids:
         att = task_to_attempts.get(tid, [])
         hints = task_to_hints.get(tid, [])
         best = _best_attempt(att)
         best_points = float(getattr(best, "points", 0) or 0) if best is not None else 0.0
+        best_status = getattr(best, "status", None) if best is not None else None
         penalty = _sum_hint_penalty(hints)
         pts = max(0.0, best_points - penalty)
         has_any = bool(att) or bool(hints)
-        result[tid] = (pts, has_any)
+        result[tid] = (pts, has_any, best_status)
     return result
 
 
@@ -202,7 +204,12 @@ def bulk_actor_solved_task_ids(
     )
     solved: Set[int] = set()
     for t in tasks:
-        pts, _ = pts_map.get(t.id, (0.0, False))
+        pts, _has_any, best_status = pts_map.get(t.id, (0.0, False, None))
+        # Raddle: «решено» = все слова закрыты (status Ok), даже если очки < max
+        # из‑за подсказок (🟨/🟥). Иначе на странице секции пропадают квадраты и зелёная подсветка.
+        if getattr(t, "task_type", None) == "raddle" and best_status == "Ok":
+            solved.add(t.id)
+            continue
         # get_results_max_points() parses replacements_lines text (~60ms/task on prod).
         # Skip when the actor has no scored progress on this task.
         if pts <= EPS:

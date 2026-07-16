@@ -62,7 +62,12 @@
     var url = cta.getAttribute('data-progress-url');
     var num = cta.getAttribute('data-cta-number');
     if (!url || !num) return;
-    fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+    var headers = { 'Accept': 'application/json' };
+    try {
+      var anon = localStorage.getItem('interoves_anon_key') || '';
+      if (anon) headers['X-Interoves-Anon'] = anon;
+    } catch (e) {}
+    fetch(url, { credentials: 'same-origin', headers: headers })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         var row = data && data.rows && data.rows[num];

@@ -331,7 +331,17 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
             )
         else:
             progress_text = None
-        result_squares = result_squares_by_number.get(str(p.number)) if is_fully_solved else None
+        # Квадраты есть только у завершённой лесенки (status Ok). Подстраховка на случай,
+        # если points-based solved ещё не совпал с Ok (ассисты / гонка).
+        result_squares = result_squares_by_number.get(str(p.number))
+        if result_squares:
+            is_fully_solved = True
+            row_class = 'new-task--solved'
+            progress_text = None
+            if p.n_tasks:
+                n_solved = max(n_solved, p.n_tasks)
+        elif not is_fully_solved:
+            result_squares = None
         rows[str(p.number)] = {
             'n_solved': n_solved,
             'n_tasks': p.n_tasks,

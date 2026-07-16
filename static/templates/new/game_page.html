@@ -379,7 +379,12 @@
     (function () {
       var url = '{{ task_group_progress_url|escapejs }}';
       if (!url) return;
-      fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      var headers = { 'Accept': 'application/json' };
+      try {
+        var anon = localStorage.getItem('interoves_anon_key') || '';
+        if (anon) headers['X-Interoves-Anon'] = anon;
+      } catch (e) {}
+      fetch(url, { credentials: 'same-origin', headers: headers })
         .then(function (r) {
           if (!r.ok) throw new Error('progress ' + r.status);
           return r.json();
