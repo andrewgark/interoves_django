@@ -213,3 +213,54 @@ class GameTaskGroupProgressTests(TestCase):
         row = resp.json()['rows']['1']
         self.assertTrue(row['is_fully_solved'])
         self.assertEqual(row['result_squares'], '🟨')
+
+    def test_ladder_progress_partial_shows_white_squares(self):
+        from games.ladder_daily import LADDER_PUBLISH_START_TAG
+
+        game = Game.objects.filter(id='ladder', project_id='sections').first()
+        self.assertIsNotNone(game)
+        game.tags = {LADDER_PUBLISH_START_TAG: '2026-07-08T00:00:00+03:00'}
+        game.save(update_fields=['tags'])
+
+        anon_key = 'test-anon-ladder-partial'
+        # 5 words → 3 middle squares
+        raddle_json = json.dumps({
+            'lengths': [3, 3, 3, 3, 3],
+            'hints': ['a', 'b', 'c', 'd'],
+            'words': ['AAA', 'BBB', 'CCC', 'DDD', 'EEE'],
+        }, ensure_ascii=False)
+        with patch('games.views.track.track_task_change'):
+            tg = TaskGroup.objects.create(label='ladder_tg_partial')
+            GameTaskGroup.objects.filter(game=game).delete()
+            GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='L1')
+            task = Task.objects.create(
+                task_group=tg,
+                number='1',
+                task_type='raddle',
+                points=1,
+                checker_data=raddle_json,
+                answer='AAA\nBBB\nCCC\nDDD\nEEE',
+            )
+            Attempt.manager.create(
+                task=task,
+                anon_key=anon_key,
+                game=game,
+                text=json.dumps({'word_index': 1, 'word': 'BBB'}),
+                status='Partial',
+                points=1,
+                state=json.dumps({
+                    'solved_indices': [0, 1, 4],
+                    'used_hints': [],
+                    'assist_tier': {},
+                    'total': 1.0,
+                }, ensure_ascii=False),
+            )
+
+        self.client.cookies['interoves_anon'] = anon_key
+        resp = self.client.get('/games/ladder/progress/')
+        self.assertEqual(resp.status_code, 200)
+        row = resp.json()['rows']['1']
+        self.assertFalse(row['is_fully_solved'])
+        self.assertEqual(row['row_class'], 'new-task--partial')
+        self.assertEqual(row['result_squares'], '🟩⬜⬜')
+        self.assertIsNone(row['progress_text'])

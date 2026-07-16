@@ -310,6 +310,7 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
                 mode=mode,
                 game=game,
                 include_other_games=include_other_games,
+                allow_partial=True,
             )
             if squares:
                 result_squares_by_number[str(p.number)] = squares
@@ -331,15 +332,18 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
             )
         else:
             progress_text = None
-        # Квадраты есть только у завершённой лесенки (status Ok). Подстраховка на случай,
-        # если points-based solved ещё не совпал с Ok (ассисты / гонка).
+        # Лесенка: квадраты (🟩/🟨/🟥/⬜). Полные → зелёный; с ⬜ → жёлтый partial.
         result_squares = result_squares_by_number.get(str(p.number))
         if result_squares:
-            is_fully_solved = True
-            row_class = 'new-task--solved'
             progress_text = None
-            if p.n_tasks:
-                n_solved = max(n_solved, p.n_tasks)
+            if '⬜' in result_squares:
+                is_fully_solved = False
+                row_class = 'new-task--partial'
+            else:
+                is_fully_solved = True
+                row_class = 'new-task--solved'
+                if p.n_tasks:
+                    n_solved = max(n_solved, p.n_tasks)
         elif not is_fully_solved:
             result_squares = None
         rows[str(p.number)] = {

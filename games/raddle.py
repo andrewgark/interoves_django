@@ -766,21 +766,27 @@ def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
     ]
 
 
-def raddle_result_squares(parsed, state, *, hint_attempts=None):
+def raddle_result_squares(parsed, state, *, hint_attempts=None, allow_partial=False):
     """
-    Wordle-style строка для завершённой лесенки: по квадрату на среднее слово.
-    1 балл → 🟩, 0.5 → 🟨, 0 → 🟥.
+    Wordle-style строка: по квадрату на среднее слово.
+    1 балл → 🟩, 0.5 → 🟨, 0 → 🟥; неотгаданные при allow_partial → ⬜.
+    Без allow_partial возвращает строку только для полностью решённой лесенки.
     """
     n = parsed['n_words']
     middle_total = max(0, n - 2)
     if middle_total == 0:
         return ''
     solved = set(state.get('solved_indices') or [])
+    middle_solved = any(i in solved for i in range(1, n - 1))
     if len(solved) < n:
-        return ''
+        if not allow_partial or not middle_solved:
+            return ''
     assist_tiers = resolve_assist_tiers(state, hint_attempts)
     squares = []
     for i in range(1, n - 1):
+        if i not in solved:
+            squares.append('⬜')
+            continue
         tier = assist_tiers.get(i, 0)
         if tier >= 2:
             squares.append('🟥')
@@ -800,8 +806,9 @@ def raddle_result_squares_for_actor(
     mode='general',
     game=None,
     include_other_games=False,
+    allow_partial=False,
 ):
-    """Строка квадратов для решённого raddle-задания текущего актора."""
+    """Строка квадратов для raddle-задания текущего актора (полное или частичное)."""
     from games.models import Attempt
 
     parsed = parse_raddle_data(task)
@@ -816,15 +823,18 @@ def raddle_result_squares_for_actor(
         anon_key=anon_key,
         game=game_arg,
     )
-    if not ai.is_solved():
+    if not allow_partial and not ai.is_solved():
+        return ''
+    if not ai.attempts:
         return ''
     state = load_raddle_state(None, parsed['n_words'])
-    if ai.attempts:
-        for a in reversed(ai.attempts):
-            if a.state:
-                state = load_raddle_state(a.state, parsed['n_words'])
-                break
-    return raddle_result_squares(parsed, state, hint_attempts=ai.hint_attempts)
+    for a in reversed(ai.attempts):
+        if a.state:
+            state = load_raddle_state(a.state, parsed['n_words'])
+            break
+    return raddle_result_squares(
+        parsed, state, hint_attempts=ai.hint_attempts, allow_partial=allow_partial,
+    )
 
 
 def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mode=None, hint_attempts=None):

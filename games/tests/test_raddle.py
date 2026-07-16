@@ -697,6 +697,35 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertTrue(squares.startswith('🟥🟨'))
         self.assertEqual(len(squares), 11)
 
+    def test_result_squares_partial_uses_white(self):
+        from games.raddle import raddle_result_squares
+
+        parsed = parse_raddle_data(_task())
+        # endpoints + first two middle words
+        state = {
+            'solved_indices': [0, 1, 2, 12],
+            'used_hints': [],
+            'assist_tier': {'1': 0, '2': 1},
+            'total': 1.5,
+        }
+        self.assertEqual(raddle_result_squares(parsed, state), '')
+        squares = raddle_result_squares(parsed, state, allow_partial=True)
+        self.assertTrue(squares.startswith('🟩🟨'))
+        self.assertEqual(squares.count('⬜'), 9)
+        self.assertEqual(len(squares), 11)
+
+    def test_result_squares_partial_empty_without_middle_progress(self):
+        from games.raddle import raddle_result_squares
+
+        parsed = parse_raddle_data(_task())
+        state = {
+            'solved_indices': [0, 12],
+            'used_hints': [],
+            'assist_tier': {},
+            'total': 0.0,
+        }
+        self.assertEqual(raddle_result_squares(parsed, state, allow_partial=True), '')
+
     def test_validate_checker_data_ok(self):
         self.assertEqual(validate_raddle_checker_data(json.dumps(PARIS_LADDER, ensure_ascii=False)), [])
 
