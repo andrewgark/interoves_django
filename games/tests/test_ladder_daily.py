@@ -48,6 +48,7 @@ class LadderDailyLogicTests(SimpleTestCase):
         self.assertEqual(ctx['ladder_cta_number'], '1')
         self.assertTrue(ctx['ladder_is_today'])
         self.assertEqual(ctx['ladder_status'], 'today')
+        self.assertEqual(ctx['ladder_section_url'], '/games/ladder/')
 
     def test_hub_context_latest_when_today_missing(self):
         game = self._game()
@@ -124,6 +125,71 @@ class LadderSectionPageTests(TestCase):
         game = Game.objects.filter(id='ladder', project_id='sections').first()
         self.assertIsNotNone(game)
         list(_hub_section_task_group_links(game))
+
+    def test_games_ladder_hub_renders_archive(self):
+        from allauth.socialaccount.models import SocialApp
+        from django.contrib.sites.models import Site
+
+        site = Site.objects.get_current()
+        for provider in ('google', 'vk'):
+            app, _ = SocialApp.objects.get_or_create(
+                provider=provider,
+                defaults={'name': provider, 'client_id': 'test', 'secret': 'test'},
+            )
+            app.sites.add(site)
+
+        game = Game.objects.filter(id='ladder', project_id='sections').first()
+        self.assertIsNotNone(game)
+        resp = self.client.get('/games/ladder/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.context['is_ladder_section'])
+        self.assertEqual(resp.context['task_groups_heading'], 'Архив')
+
+    def test_section_ladder_redirects_to_games_ladder(self):
+        resp = self.client.get('/section/ladder/')
+        self.assertEqual(resp.status_code, 301)
+        self.assertEqual(resp['Location'], '/games/ladder/')
+
+    def test_ladder_last_redirects_to_latest_published(self):
+        from datetime import datetime
+        from unittest.mock import patch
+        from zoneinfo import ZoneInfo
+
+        from games import ladder_daily
+        from games.models import GameTaskGroup
+
+        game = Game.objects.get(id='ladder', project_id='sections')
+        game.tags = {'ladder_publish_start': '2026-07-08T00:00:00+03:00'}
+        game.save(update_fields=['tags'])
+        GameTaskGroup.objects.filter(game=game).delete()
+        for n in (1, 2):
+            tg = TaskGroup.objects.create(label=f'last{n}')
+            GameTaskGroup.objects.create(game=game, task_group=tg, number=str(n), name=f'#{n}')
+
+        now = datetime(2026, 7, 9, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
+        with patch.object(ladder_daily.timezone, 'now', return_value=now):
+            resp = self.client.get('/games/ladder/last/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp['Location'], '/games/ladder/2/')
+
+    def test_ladder_last_without_published_goes_to_hub(self):
+        from datetime import datetime
+        from unittest.mock import patch
+        from zoneinfo import ZoneInfo
+
+        from games import ladder_daily
+        from games.models import GameTaskGroup
+
+        game = Game.objects.get(id='ladder', project_id='sections')
+        game.tags = {'ladder_publish_start': '2026-07-08T00:00:00+03:00'}
+        game.save(update_fields=['tags'])
+        GameTaskGroup.objects.filter(game=game).delete()
+
+        before = datetime(2026, 7, 7, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
+        with patch.object(ladder_daily.timezone, 'now', return_value=before):
+            resp = self.client.get('/games/ladder/last/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp['Location'], '/games/ladder/')
 
 
 class LadderResultsVisibilityTests(TestCase):

@@ -622,8 +622,26 @@ def _get_ladder_game():
     )
 
 
+def _sections_hub_url(game_id):
+    """Canonical public URL for a sections-project game hub."""
+    if game_id == LADDER_GAME_ID:
+        return '/games/{}/'.format(LADDER_GAME_ID)
+    return '/section/{}/'.format(game_id)
+
+
 def _ladder_published_numbers(game):
     return {link.number for link in filter_published_ladder_links(_game_task_group_links(game), game)}
+
+
+def _ladder_latest_play_url(game):
+    """URL of the newest published ladder, or None if none exist yet."""
+    numbers = [
+        int(n) for n in _ladder_published_numbers(game)
+        if str(n).isdigit() and is_ladder_number_published(game, n)
+    ]
+    if not numbers:
+        return None
+    return _play_url_for_task_group(game, max(numbers))
 
 
 def _ladder_task_group_rows(task_groups, game, *, today_number=None):
@@ -1068,12 +1086,39 @@ def new_ladder_today_page(request):
     )
     play_url = ctx.get('ladder_play_url')
     if not play_url:
-        return redirect('ui_section_game', game_id=LADDER_GAME_ID)
+        return redirect('ui_ladder_hub')
     return redirect(play_url)
+
+
+def new_ladder_last_page(request):
+    """Редирект на последнюю опубликованную лесенку."""
+    ladder_game = _get_ladder_game()
+    if not ladder_game:
+        raise Http404()
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
+    if not ladder_game.has_access('see_game_preview', team=team):
+        raise Http404()
+    play_url = _ladder_latest_play_url(ladder_game)
+    if not play_url:
+        return redirect('ui_ladder_hub')
+    return redirect(play_url)
+
+
+def new_ladder_hub_page(request):
+    """Архив лесенок: /games/ladder/ (канонический URL вместо /section/ladder/)."""
+    return _render_section_game_page(request, LADDER_GAME_ID)
 
 
 def new_section_game_page(request, game_id):
     """Страница раздела (игра из project sections) в новом UI: правила при необходимости + список групп заданий."""
+    if game_id == LADDER_GAME_ID:
+        return redirect('ui_ladder_hub', permanent=True)
+    return _render_section_game_page(request, game_id)
+
+
+def _render_section_game_page(request, game_id):
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
     if not project:
         raise Http404()
@@ -1610,7 +1655,7 @@ def new_section_results_page(request, game_id):
         'team': team,
         'me_personal': me_personal,
         'me_anon_participant': me_anon_participant,
-        'back_url': '/section/{}/'.format(game.id),
+        'back_url': _sections_hub_url(game.id),
         'progressive_results': True,
         'progressive_page_size': progressive_page_size,
         **data,
@@ -1931,7 +1976,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'tg_number': placement.number,
         'tg_name': placement.name,
         'back_url': (
-            '/section/{}/'.format(game.id)
+            _sections_hub_url(game.id)
             if game.project_id == NEW_UI_SECTIONS_PROJECT
             else (
                 '/games/{}/'.format(game.id)
@@ -1950,7 +1995,7 @@ def new_task_group_page(request, game_id, task_group_number):
             game,
             task_group=task_group,
             back_url=(
-                '/section/{}/'.format(game.id)
+                _sections_hub_url(game.id)
                 if game.project_id == NEW_UI_SECTIONS_PROJECT
                 else (
                     '/games/{}/'.format(game.id)

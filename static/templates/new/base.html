@@ -165,7 +165,7 @@
         <a href="{{ ui_project_home_url|default:'/' }}">Игры</a>
         <a href="{{ ui_project_games_url|default:'/games/' }}">🔟 Десяточки</a>
         {% if show_sections_nav %}
-          <a href="{% url 'new_section_game' 'ladder' %}" title="Лесенка" aria-label="Лесенка" {% if request.resolver_match.url_name == 'new_section_game' and request.resolver_match.kwargs.game_id == 'ladder' %}aria-current="page"{% endif %}>🪜</a>
+          <a href="{% url 'new_ladder_hub' %}" title="Лесенка" aria-label="Лесенка" {% if request.resolver_match.kwargs.game_id == 'ladder' or request.resolver_match.url_name == 'new_ladder_hub' or request.resolver_match.url_name == 'ui_ladder_hub' %}aria-current="page"{% endif %}>🪜</a>
           {% for game in section_games %}
           <a href="{% url 'new_section_game' game.id %}" title="{{ game.outside_name|default:game.name }}" aria-label="{{ game.outside_name|default:game.name }}" {% if request.resolver_match.url_name == 'new_section_game' and request.resolver_match.kwargs.game_id == game.id %}aria-current="page"{% endif %}>
             {% if game.id == 'palindromes' %}🪞{% elif game.id == 'walls' %}🧱{% elif game.id == 'replacements' %}🔄{% endif %}

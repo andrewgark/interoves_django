@@ -142,7 +142,7 @@ def get_ladder_hub_context(game, *, published_numbers: set[str] | None = None, n
         status = 'coming_soon'
 
     play_url = f'/games/{LADDER_GAME_ID}/{cta_number}/' if cta_number else None
-    section_url = f'/section/{LADDER_GAME_ID}/'
+    section_url = f'/games/{LADDER_GAME_ID}/'
 
     today_label = None
     if today_num is not None:
