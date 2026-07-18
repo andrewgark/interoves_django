@@ -5,6 +5,10 @@ git (local clone or GitHub API).
 HTML lives under dist/html/<slug>/; shared images under assets/ at the booklet
 repo root. Cached copies: BASE_DIR/var/eurovision_booklet/2026/ (PDFs, html/,
 assets/). See EUROVISION_BOOKLET_* settings and microsites.views.
+
+When EUROVISION_BOOKLET_PINNED_REF is set, artifacts are frozen at that commit:
+no branch-tip polling. EUROVISION_BOOKLET_AUTO_SYNC=False skips update checks;
+with a pin, an empty/incomplete var/ cache may still be filled once from the pin.
 """
 
 from __future__ import annotations
@@ -344,10 +348,17 @@ def _sync_github(
     cache_dir: Path,
     manifest: dict[str, Any],
     timeout: float,
+    pinned_ref: str = "",
 ) -> dict[str, Any]:
     base_api = f"https://api.github.com/repos/{owner}/{repo}"
-    _, body = _github_request(f"{base_api}/branches/{quote(branch)}", token, timeout)
-    tip = json.loads(body.decode("utf-8"))["commit"]["sha"]
+    pinned = (pinned_ref or "").strip()
+    if pinned:
+        tip = pinned
+    else:
+        _, body = _github_request(
+            f"{base_api}/branches/{quote(branch)}", token, timeout
+        )
+        tip = json.loads(body.decode("utf-8"))["commit"]["sha"]
     old_tip = (manifest.get("branch_tip") or "").strip()
 
     dist_path_n = dist_path.strip().strip("/")
@@ -502,23 +513,33 @@ def _sync_local_git(
     cache_dir: Path,
     manifest: dict[str, Any],
     timeout: float,
+    pinned_ref: str = "",
 ) -> dict[str, Any]:
     dist_path = dist_path.strip().strip("/")
-    fetch = _git_run(repo, ["fetch", remote, branch], timeout=timeout)
-    if fetch.returncode != 0:
-        msg = (fetch.stderr or fetch.stdout or "").strip()
-        raise RuntimeError(f"git fetch failed: {msg}")
+    pinned = (pinned_ref or "").strip()
+    if pinned:
+        tip_proc = _git_run(repo, ["rev-parse", pinned], timeout=timeout)
+        if tip_proc.returncode != 0:
+            raise RuntimeError(
+                f"git rev-parse pinned ref failed: {(tip_proc.stderr or '').strip()}"
+            )
+        tip = tip_proc.stdout.strip()
+    else:
+        fetch = _git_run(repo, ["fetch", remote, branch], timeout=timeout)
+        if fetch.returncode != 0:
+            msg = (fetch.stderr or fetch.stdout or "").strip()
+            raise RuntimeError(f"git fetch failed: {msg}")
 
-    tip_proc = _git_run(
-        repo,
-        ["rev-parse", f"{remote}/{branch}"],
-        timeout=timeout,
-    )
-    if tip_proc.returncode != 0:
-        raise RuntimeError(
-            f"git rev-parse failed: {(tip_proc.stderr or '').strip()}"
+        tip_proc = _git_run(
+            repo,
+            ["rev-parse", f"{remote}/{branch}"],
+            timeout=timeout,
         )
-    tip = tip_proc.stdout.strip()
+        if tip_proc.returncode != 0:
+            raise RuntimeError(
+                f"git rev-parse failed: {(tip_proc.stderr or '').strip()}"
+            )
+        tip = tip_proc.stdout.strip()
     old_tip = (manifest.get("branch_tip") or "").strip()
 
     allowed = set(BOOKLET_PDF_FILENAMES)
@@ -638,6 +659,36 @@ def sync_configured(settings) -> bool:
     return bool(gh or loc)
 
 
+def booklet_pinned_ref(settings) -> str:
+    return (getattr(settings, "EUROVISION_BOOKLET_PINNED_REF", None) or "").strip()
+
+
+def booklet_auto_sync_enabled(settings) -> bool:
+    return bool(getattr(settings, "EUROVISION_BOOKLET_AUTO_SYNC", True))
+
+
+def booklet_is_frozen(settings) -> bool:
+    """Pinned commit and/or auto-sync off → no live tracking of main; long cache OK."""
+    return bool(booklet_pinned_ref(settings)) or not booklet_auto_sync_enabled(settings)
+
+
+def booklet_cache_control(settings) -> str:
+    if booklet_is_frozen(settings):
+        # Frozen artifacts: allow browsers/CDNs to keep a copy (1 week).
+        return "public, max-age=604800, immutable"
+    return "no-store, max-age=0, must-revalidate"
+
+
+def _cache_matches_pin(cache_dir: Path, manifest: dict[str, Any], pinned: str) -> bool:
+    if not pinned:
+        return False
+    if (manifest.get("branch_tip") or "").strip() != pinned:
+        return False
+    return _booklet_pdf_files_present(cache_dir) and _booklet_web_bundles_present(
+        cache_dir
+    )
+
+
 def should_skip_throttle(settings, cache_dir: Path) -> bool:
     """Skip remote sync if interval elapsed — unless this instance lacks local cache.
 
@@ -662,11 +713,13 @@ def should_skip_throttle(settings, cache_dir: Path) -> bool:
 def ensure_eurovision_booklet_sync(settings) -> dict[str, Any]:
     """
     Update cached PDFs and web bundles (dist/html + assets) when the remote
-    branch tip changed.
+    tip changed — unless frozen.
 
-    PDFs: refresh only files that differ between the previous tip and the
-    current tip. Web: full tree on first sync or after a broad refresh;
-    otherwise patch only paths touched in the compare range.
+    With EUROVISION_BOOKLET_PINNED_REF: never follow branch tip; only ensure the
+    local cache matches that commit (one-time fill if incomplete).
+
+    With EUROVISION_BOOKLET_AUTO_SYNC=False and no pin: no-op (serve static/var).
+    With AUTO_SYNC=False and a pin: fill incomplete cache once, then idle.
 
     Returns the manifest dict (possibly unchanged). On error, returns the last
     known manifest or {}.
@@ -679,7 +732,23 @@ def ensure_eurovision_booklet_sync(settings) -> dict[str, Any]:
     cache_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = _manifest_path(base_dir)
     manifest = _read_json(manifest_path)
-    if should_skip_throttle(settings, cache_dir):
+    pinned = booklet_pinned_ref(settings)
+    auto = booklet_auto_sync_enabled(settings)
+
+    if pinned and _cache_matches_pin(cache_dir, manifest, pinned):
+        return manifest
+
+    pdf_ok = _booklet_pdf_files_present(cache_dir)
+    web_ok = _booklet_web_bundles_present(cache_dir)
+    if not auto:
+        if not pinned:
+            return manifest
+        if pdf_ok and web_ok:
+            # Cache present but tip not recorded as pin yet — still skip network;
+            # a later sync with AUTO_SYNC on can rewrite the tip if desired.
+            return manifest
+
+    if not pinned and should_skip_throttle(settings, cache_dir):
         return _read_json(manifest_path)
 
     timeout = float(getattr(settings, "EUROVISION_BOOKLET_HTTP_TIMEOUT", 60.0))
@@ -702,6 +771,11 @@ def ensure_eurovision_booklet_sync(settings) -> dict[str, Any]:
             pass
 
     try:
+        # Re-check under lock (another worker may have finished the fill).
+        manifest = _read_json(manifest_path)
+        if pinned and _cache_matches_pin(cache_dir, manifest, pinned):
+            return manifest
+
         repo_path = (getattr(settings, "EUROVISION_BOOKLET_REPO_PATH", None) or "").strip()
         if repo_path:
             repo = Path(os.path.expanduser(repo_path))
@@ -724,6 +798,7 @@ def ensure_eurovision_booklet_sync(settings) -> dict[str, Any]:
                     cache_dir=cache_dir,
                     manifest=manifest,
                     timeout=timeout,
+                    pinned_ref=pinned,
                 )
             except Exception:
                 logger.exception("Eurovision booklet: local git sync failed")
@@ -747,6 +822,7 @@ def ensure_eurovision_booklet_sync(settings) -> dict[str, Any]:
                     cache_dir=cache_dir,
                     manifest=manifest,
                     timeout=timeout,
+                    pinned_ref=pinned,
                 )
             except (HTTPError, URLError, OSError, KeyError, ValueError, json.JSONDecodeError):
                 logger.exception("Eurovision booklet: GitHub sync failed")

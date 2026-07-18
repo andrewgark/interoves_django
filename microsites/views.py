@@ -23,6 +23,9 @@ from microsites.eurovision_booklet_sync import (
     BOOKLET_HTML_SLUGS,
     BOOKLET_MINISITE_SECTIONS,
     BOOKLET_PDF_FILENAMES,
+    booklet_auto_sync_enabled,
+    booklet_cache_control,
+    booklet_pinned_ref,
     ensure_eurovision_booklet_sync,
     html_url_for,
     meta_for_filename,
@@ -268,9 +271,16 @@ def _touch_eurovision_booklet_sync() -> None:
 
     Must run on HTML/asset/PDF views too — not only the landing page — or direct
     links to /eurovision_booklet/2026/html/… never populate the cache.
+
+    Frozen mode (pin + AUTO_SYNC=False): no tip polling; at most a one-time fill
+    of an empty var/ from EUROVISION_BOOKLET_PINNED_REF.
     """
-    if sync_configured(settings):
-        ensure_eurovision_booklet_sync(settings)
+    if not sync_configured(settings):
+        return
+    # Hard off without a pin: never hit the network from request paths.
+    if not booklet_auto_sync_enabled(settings) and not booklet_pinned_ref(settings):
+        return
+    ensure_eurovision_booklet_sync(settings)
 
 
 def _booklet_last_updated_display(manifest: dict) -> dict | None:
@@ -303,7 +313,9 @@ def _booklet_last_updated_display(manifest: dict) -> dict | None:
 def eurovision_booklet_2026(request):
     sync_on = sync_configured(settings)
     manifest = {}
-    if sync_on:
+    if sync_on and (
+        booklet_auto_sync_enabled(settings) or booklet_pinned_ref(settings)
+    ):
         manifest = ensure_eurovision_booklet_sync(settings)
     disk_manifest = _read_booklet_manifest_json()
     manifest_display = {**(disk_manifest or {}), **manifest}
@@ -342,13 +354,14 @@ def eurovision_booklet_pdf(request, filename: str):
     cache_path = (
         Path(settings.BASE_DIR) / "var" / "eurovision_booklet" / "2026" / filename
     )
+    cc = booklet_cache_control(settings)
     if cache_path.is_file():
         resp = FileResponse(
             cache_path.open("rb"),
             content_type="application/pdf",
         )
         stat = cache_path.stat()
-        resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+        resp["Cache-Control"] = cc
         resp["Last-Modified"] = http_date(stat.st_mtime)
         resp["ETag"] = f'W/"{stat.st_size:x}-{int(stat.st_mtime):x}"'
         return resp
@@ -366,17 +379,17 @@ def eurovision_booklet_pdf(request, filename: str):
                 as_attachment=False,
                 filename=filename,
             )
-            resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+            resp["Cache-Control"] = cc
             return resp
         raise Http404()
     resp = FileResponse(open(absolute_path, "rb"), content_type="application/pdf")
     try:
         st = os.stat(absolute_path)
-        resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+        resp["Cache-Control"] = cc
         resp["Last-Modified"] = http_date(st.st_mtime)
         resp["ETag"] = f'W/"{st.st_size:x}-{int(st.st_mtime):x}"'
     except OSError:
-        resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+        resp["Cache-Control"] = cc
     return resp
 
 
@@ -395,19 +408,24 @@ def _booklet_dist_prefix(settings) -> str:
 
 
 def _booklet_github_raw_url(settings, repo_relpath: str) -> str | None:
-    """https://raw.githubusercontent.com/owner/repo/branch/path — only when repo is configured."""
+    """https://raw.githubusercontent.com/owner/repo/<ref>/path — only when repo is configured.
+
+    Uses EUROVISION_BOOKLET_PINNED_REF when set so fallbacks do not float with main.
+    """
     gh = (getattr(settings, "EUROVISION_BOOKLET_GITHUB_REPO", None) or "").strip()
     if "/" not in gh:
         return None
     owner, _, repo = gh.partition("/")
     if not owner or not repo:
         return None
-    branch = (getattr(settings, "EUROVISION_BOOKLET_GIT_BRANCH", None) or "main").strip()
+    ref = booklet_pinned_ref(settings) or (
+        getattr(settings, "EUROVISION_BOOKLET_GIT_BRANCH", None) or "main"
+    ).strip()
     rel = repo_relpath.strip().strip("/")
     if not rel or ".." in Path(rel).parts:
         return None
     parts = [quote(seg, safe="") for seg in rel.split("/")]
-    return f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{'/'.join(parts)}"
+    return f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{'/'.join(parts)}"
 
 
 def _fetch_github_raw_booklet(
@@ -530,7 +548,7 @@ def _file_response_booklet_asset(path: Path) -> FileResponse:
         ctype = "text/javascript; charset=utf-8"
     resp = FileResponse(path.open("rb"), content_type=ctype)
     stat = path.stat()
-    resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+    resp["Cache-Control"] = booklet_cache_control(settings)
     resp["Last-Modified"] = http_date(stat.st_mtime)
     resp["ETag"] = f'W/"{stat.st_size:x}-{int(stat.st_mtime):x}"'
     return resp
@@ -554,7 +572,7 @@ def eurovision_booklet_html_bundle(request, slug: str, relpath: str = "index.htm
     if fetched is not None:
         body, ctype = fetched
         resp = HttpResponse(body, content_type=ctype)
-        resp["Cache-Control"] = "no-store, max-age=0, must-revalidate"
+        resp["Cache-Control"] = booklet_cache_control(settings)
         return resp
     probe = (
         Path(settings.BASE_DIR)

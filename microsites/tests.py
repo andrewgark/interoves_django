@@ -10,6 +10,10 @@ from django.urls import resolve, reverse
 from microsites.eurovision_booklet_sync import (
     BOOKLET_HTML_SLUGS,
     BOOKLET_MINISITE_SECTIONS,
+    BOOKLET_PDF_FILENAMES,
+    booklet_cache_control,
+    booklet_is_frozen,
+    ensure_eurovision_booklet_sync,
 )
 from microsites.views import _booklet_github_raw_url, _fetch_github_raw_booklet
 
@@ -19,6 +23,7 @@ class BookletGithubFallbackTests(SimpleTestCase):
         class _S:
             EUROVISION_BOOKLET_GITHUB_REPO = ""
             EUROVISION_BOOKLET_GIT_BRANCH = "main"
+            EUROVISION_BOOKLET_PINNED_REF = ""
 
         self.assertIsNone(_booklet_github_raw_url(_S(), "dist/x.pdf"))
 
@@ -26,11 +31,24 @@ class BookletGithubFallbackTests(SimpleTestCase):
         class _S:
             EUROVISION_BOOKLET_GITHUB_REPO = "owner/repo-name"
             EUROVISION_BOOKLET_GIT_BRANCH = "main"
+            EUROVISION_BOOKLET_PINNED_REF = ""
 
         u = _booklet_github_raw_url(_S(), "dist/html/eurovision2026_en/index.html")
         self.assertEqual(
             u,
             "https://raw.githubusercontent.com/owner/repo-name/main/dist/html/eurovision2026_en/index.html",
+        )
+
+    def test_booklet_github_raw_url_prefers_pinned_ref(self):
+        class _S:
+            EUROVISION_BOOKLET_GITHUB_REPO = "owner/repo-name"
+            EUROVISION_BOOKLET_GIT_BRANCH = "main"
+            EUROVISION_BOOKLET_PINNED_REF = "abc123def456"
+
+        u = _booklet_github_raw_url(_S(), "dist/eurovision2026_en.pdf")
+        self.assertEqual(
+            u,
+            "https://raw.githubusercontent.com/owner/repo-name/abc123def456/dist/eurovision2026_en.pdf",
         )
 
     @patch("microsites.views._resolve_booklet_html_bundle_file", return_value=None)
@@ -169,13 +187,32 @@ class MicrositesUrlTests(SimpleTestCase):
         self.assertEqual(bad_html.status_code, 404)
 
     def test_eurovision_booklet_pdf_has_no_store_cache_headers(self):
-        c = Client()
-        r = c.get("/eurovision_booklet/2026/pdf/eurovision2026_sf1_ru.pdf")
+        hosts = list(dj_settings.ALLOWED_HOSTS) + ["testserver"]
+        with override_settings(
+            ALLOWED_HOSTS=hosts,
+            EUROVISION_BOOKLET_PINNED_REF="",
+            EUROVISION_BOOKLET_AUTO_SYNC=True,
+        ):
+            c = Client()
+            r = c.get("/eurovision_booklet/2026/pdf/eurovision2026_sf1_ru.pdf")
         # May 404 if PDFs are not bundled in test env; only assert headers when it exists.
         if r.status_code == 200:
             self.assertIn("no-store", r["Cache-Control"])
             self.assertTrue(r.get("ETag"))
             self.assertTrue(r.get("Last-Modified"))
+
+    def test_eurovision_booklet_pdf_frozen_uses_long_cache(self):
+        hosts = list(dj_settings.ALLOWED_HOSTS) + ["testserver"]
+        with override_settings(
+            ALLOWED_HOSTS=hosts,
+            EUROVISION_BOOKLET_PINNED_REF="23be3106b745af459479f9f3d97579e74ecbe939",
+            EUROVISION_BOOKLET_AUTO_SYNC=False,
+        ):
+            c = Client()
+            r = c.get("/eurovision_booklet/2026/pdf/eurovision2026_sf1_ru.pdf")
+        if r.status_code == 200:
+            self.assertIn("max-age=604800", r["Cache-Control"])
+            self.assertNotIn("no-store", r["Cache-Control"])
 
     def test_eurovision_booklet_assets_resolves(self):
         m = resolve("/eurovision_booklet/assets/flags/png/AL.png")
@@ -198,6 +235,8 @@ class MicrositesUrlTests(SimpleTestCase):
         with override_settings(
             ALLOWED_HOSTS=hosts,
             EUROVISION_BOOKLET_LOCAL_ASSETS_DIR=str(td),
+            EUROVISION_BOOKLET_PINNED_REF="",
+            EUROVISION_BOOKLET_AUTO_SYNC=True,
         ):
             c = Client()
             r = c.get("/eurovision_booklet/assets/flags/png/AL.png")
@@ -216,6 +255,8 @@ class MicrositesUrlTests(SimpleTestCase):
         with override_settings(
             ALLOWED_HOSTS=hosts,
             EUROVISION_BOOKLET_LOCAL_HTML_DIR=str(td),
+            EUROVISION_BOOKLET_PINNED_REF="",
+            EUROVISION_BOOKLET_AUTO_SYNC=True,
         ):
             c = Client()
             r = c.get("/eurovision_booklet/2026/html/eurovision2026_sf1_ru/")
@@ -226,3 +267,82 @@ class MicrositesUrlTests(SimpleTestCase):
             rc = c.get("/eurovision_booklet/2026/html/eurovision2026_sf1_ru/booklet.css")
             self.assertEqual(rc.status_code, 200)
             self.assertIn("no-store", rc["Cache-Control"])
+
+
+class BookletFreezeTests(SimpleTestCase):
+    def test_frozen_when_pinned_or_auto_sync_off(self):
+        class _Pinned:
+            EUROVISION_BOOKLET_PINNED_REF = "abc"
+            EUROVISION_BOOKLET_AUTO_SYNC = True
+
+        class _Off:
+            EUROVISION_BOOKLET_PINNED_REF = ""
+            EUROVISION_BOOKLET_AUTO_SYNC = False
+
+        class _Live:
+            EUROVISION_BOOKLET_PINNED_REF = ""
+            EUROVISION_BOOKLET_AUTO_SYNC = True
+
+        self.assertTrue(booklet_is_frozen(_Pinned()))
+        self.assertTrue(booklet_is_frozen(_Off()))
+        self.assertFalse(booklet_is_frozen(_Live()))
+        self.assertIn("immutable", booklet_cache_control(_Pinned()))
+        self.assertIn("no-store", booklet_cache_control(_Live()))
+
+    def test_ensure_skips_network_when_pin_cache_complete(self):
+        td = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: shutil.rmtree(td, ignore_errors=True))
+        cache = td / "var" / "eurovision_booklet" / "2026"
+        cache.mkdir(parents=True)
+        for name in BOOKLET_PDF_FILENAMES:
+            (cache / name).write_bytes(b"%PDF-1.4\n")
+        for slug in BOOKLET_HTML_SLUGS:
+            d = cache / "html" / slug
+            d.mkdir(parents=True)
+            (d / "index.html").write_bytes(b"<html></html>")
+        pin = "23be3106b745af459479f9f3d97579e74ecbe939"
+        (cache / "manifest.json").write_text(
+            '{"branch_tip": "%s", "files": {}}' % pin,
+            encoding="utf-8",
+        )
+
+        class _S:
+            BASE_DIR = str(td)
+            EUROVISION_BOOKLET_GITHUB_REPO = "owner/repo"
+            EUROVISION_BOOKLET_REPO_PATH = ""
+            EUROVISION_BOOKLET_PINNED_REF = pin
+            EUROVISION_BOOKLET_AUTO_SYNC = False
+            EUROVISION_BOOKLET_SYNC_MIN_INTERVAL_SEC = 0
+            EUROVISION_BOOKLET_HTTP_TIMEOUT = 5.0
+            EUROVISION_BOOKLET_DIST_PATH = "dist"
+
+        with patch(
+            "microsites.eurovision_booklet_sync._sync_github"
+        ) as mock_gh, patch(
+            "microsites.eurovision_booklet_sync._sync_local_git"
+        ) as mock_local:
+            m = ensure_eurovision_booklet_sync(_S())
+        self.assertEqual(m.get("branch_tip"), pin)
+        mock_gh.assert_not_called()
+        mock_local.assert_not_called()
+
+    def test_ensure_noop_when_auto_sync_off_without_pin(self):
+        td = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: shutil.rmtree(td, ignore_errors=True))
+
+        class _S:
+            BASE_DIR = str(td)
+            EUROVISION_BOOKLET_GITHUB_REPO = "owner/repo"
+            EUROVISION_BOOKLET_REPO_PATH = ""
+            EUROVISION_BOOKLET_PINNED_REF = ""
+            EUROVISION_BOOKLET_AUTO_SYNC = False
+            EUROVISION_BOOKLET_SYNC_MIN_INTERVAL_SEC = 0
+            EUROVISION_BOOKLET_HTTP_TIMEOUT = 5.0
+            EUROVISION_BOOKLET_DIST_PATH = "dist"
+
+        with patch(
+            "microsites.eurovision_booklet_sync._sync_github"
+        ) as mock_gh:
+            m = ensure_eurovision_booklet_sync(_S())
+        self.assertEqual(m, {})
+        mock_gh.assert_not_called()

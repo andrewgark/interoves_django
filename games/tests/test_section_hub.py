@@ -71,7 +71,7 @@ class DesyatochkiHubContextTests(SimpleTestCase):
         })()
 
     def test_today_game(self):
-        now = datetime(2026, 7, 10, 15, 0, tzinfo=ZoneInfo('Europe/Moscow'))
+        now = datetime(2026, 7, 10, 20, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         games = [
             self._game('g2', '2026-07-10T18:00:00+03:00'),
             self._game('g1', '2026-07-03T18:00:00+03:00'),
@@ -80,6 +80,19 @@ class DesyatochkiHubContextTests(SimpleTestCase):
         self.assertTrue(ctx['is_today'])
         self.assertEqual(ctx['cta_label'], 'Сегодняшняя Десяточка')
         self.assertEqual(ctx['play_url'], '/games/g2/')
+        self.assertIsNone(ctx['announced_game'])
+
+    def test_today_game_not_started_yet_cta_points_to_latest_started(self):
+        now = datetime(2026, 7, 10, 15, 0, tzinfo=ZoneInfo('Europe/Moscow'))
+        games = [
+            self._game('g2', '2026-07-10T18:00:00+03:00'),
+            self._game('g1', '2026-07-03T18:00:00+03:00'),
+        ]
+        ctx = get_desyatochki_hub_context(games, now=now)
+        self.assertFalse(ctx['is_today'])
+        self.assertEqual(ctx['cta_label'], 'Последняя Десяточка')
+        self.assertEqual(ctx['play_url'], '/games/g1/')
+        self.assertEqual(ctx['announced_game'].id, 'g2')
 
     def test_latest_game(self):
         now = datetime(2026, 7, 10, 15, 0, tzinfo=ZoneInfo('Europe/Moscow'))
@@ -98,7 +111,9 @@ class DesyatochkiHubContextTests(SimpleTestCase):
         ctx = get_desyatochki_hub_context(games, now=now)
         self.assertEqual(ctx['announced_game'].id, 'future')
         self.assertEqual(ctx['announced_games'], [ctx['announced_game']])
-        self.assertEqual(ctx['play_url'], '/games/future/')
+        self.assertEqual(ctx['play_url'], '/games/past/')
+        self.assertEqual(ctx['cta_label'], 'Последняя Десяточка')
+        self.assertFalse(ctx['is_today'])
 
     def test_started_game_not_announced(self):
         now = datetime(2026, 7, 10, 20, 0, tzinfo=ZoneInfo('Europe/Moscow'))

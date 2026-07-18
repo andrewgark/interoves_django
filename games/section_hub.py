@@ -129,8 +129,17 @@ def _first_announced_desyatochka(games, *, now=None):
     return None
 
 
+def _latest_started_desyatochka(games, *, now=None):
+    """Самая новая игра, которая уже началась (доступна по прямому URL)."""
+    now = now or timezone.now()
+    for game in games:
+        if now >= game.start_time:
+            return game
+    return None
+
+
 def get_desyatochki_hub_context(games, *, now=None):
-    """Карточка десяточек: последняя/сегодняшняя игра по start_time."""
+    """Карточка десяточек: последняя/сегодняшняя доступная игра по start_time."""
     meta = DESYATOCHKI_HUB_META
     now = now or timezone.now()
     if not games:
@@ -148,8 +157,23 @@ def get_desyatochki_hub_context(games, *, now=None):
             'announced_games': [],
         }
 
-    latest = games[0]
     announced_game = _first_announced_desyatochka(games, now=now)
+    latest = _latest_started_desyatochka(games, now=now)
+    if not latest:
+        return {
+            'icon': meta['icon'],
+            'title': meta['title'],
+            'description': meta['description'],
+            'cta_label': '',
+            'is_today': False,
+            'play_url': None,
+            'section_url': '/games/',
+            'all_link_label': meta['all_link_label'],
+            'status': 'empty',
+            'announced_game': announced_game,
+            'announced_games': [announced_game] if announced_game else [],
+        }
+
     today_msk = now.astimezone(MOSCOW).date()
     start_msk = latest.start_time.astimezone(MOSCOW).date()
     is_today = start_msk == today_msk

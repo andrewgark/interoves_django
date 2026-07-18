@@ -23,6 +23,19 @@ def _env_flag(name: str) -> bool:
     return v in ("1", "true", "yes", "on")
 
 
+def _env_flag_default(name: str, default: bool) -> bool:
+    """Like _env_flag, but use *default* when the env var is unset/empty."""
+    raw = os.getenv(name)
+    if raw is None or not str(raw).strip():
+        return default
+    v = str(raw).strip().lower()
+    if v in ("1", "true", "yes", "on"):
+        return True
+    if v in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
 IS_PROD = _env_flag("IS_PROD")
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -95,8 +108,12 @@ NUTRIMATIC_INDEX_S3_REGION = (
     or "eu-central-1"
 ).strip()
 
-# Eurovision 2026 booklet: keep PDFs and dist/html/*.html in sync with a git source (local clone takes
-# precedence over GitHub). Cached copies + manifest: BASE_DIR/var/eurovision_booklet/2026/
+# Eurovision 2026 booklet: optional sync of PDFs + dist/html from a git source (local clone
+# takes precedence over GitHub). Cached copies + manifest: BASE_DIR/var/eurovision_booklet/2026/
+#
+# Freeze (default on prod via .ebextensions): set EUROVISION_BOOKLET_PINNED_REF to a commit SHA
+# and EUROVISION_BOOKLET_AUTO_SYNC=FALSE. Then we do not follow main / poll for updates; at most
+# a one-time fill of an empty var/ cache from the pinned commit. Responses use long-lived cache.
 EUROVISION_BOOKLET_REPO_PATH = (os.environ.get("EUROVISION_BOOKLET_REPO_PATH") or "").strip()
 EUROVISION_BOOKLET_GITHUB_REPO = (
     os.environ.get("EUROVISION_BOOKLET_GITHUB_REPO") or ""
@@ -104,6 +121,13 @@ EUROVISION_BOOKLET_GITHUB_REPO = (
 EUROVISION_BOOKLET_GITHUB_TOKEN = (os.environ.get("EUROVISION_BOOKLET_GITHUB_TOKEN") or "").strip()
 EUROVISION_BOOKLET_GIT_REMOTE = (os.environ.get("EUROVISION_BOOKLET_GIT_REMOTE") or "origin").strip()
 EUROVISION_BOOKLET_GIT_BRANCH = (os.environ.get("EUROVISION_BOOKLET_GIT_BRANCH") or "main").strip()
+# Full commit SHA (or any git ref) to freeze booklet artifacts. Empty = follow GIT_BRANCH tip.
+EUROVISION_BOOKLET_PINNED_REF = (
+    os.environ.get("EUROVISION_BOOKLET_PINNED_REF") or ""
+).strip()
+# When False: do not poll for newer commits. With PINNED_REF set, still allow one-time fill
+# if the local var/ cache is incomplete. Default True for local/dev.
+EUROVISION_BOOKLET_AUTO_SYNC = _env_flag_default("EUROVISION_BOOKLET_AUTO_SYNC", True)
 EUROVISION_BOOKLET_DIST_PATH = (os.environ.get("EUROVISION_BOOKLET_DIST_PATH") or "dist").strip()
 # Dev: path to booklet repo's dist/html (e.g. ~/eurovision2026booklet/dist/html) so /eurovision_booklet/2026/html/… works without copying into static/.
 EUROVISION_BOOKLET_LOCAL_HTML_DIR = (
@@ -123,6 +147,7 @@ EUROVISION_BOOKLET_HTTP_TIMEOUT = float(
     os.environ.get("EUROVISION_BOOKLET_HTTP_TIMEOUT") or 60.0
 )
 # Minimum seconds between remote checks (GitHub rate limits). 0 = every request.
+# Ignored when PINNED_REF is set and the local cache already matches that tip.
 EUROVISION_BOOKLET_SYNC_MIN_INTERVAL_SEC = int(
     os.environ.get("EUROVISION_BOOKLET_SYNC_MIN_INTERVAL_SEC") or 120
 )

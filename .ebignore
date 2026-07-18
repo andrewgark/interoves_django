@@ -11,9 +11,9 @@
 # is loaded from S3 (NUTRIMATIC_INDEX_S3_*). Remove these lines if you must ship the index in the bundle.
 nutrimatic_bundle/*.index
 
-# Eurovision booklet PDFs are large and can push EB app archives over 512MB.
-# On EB/prod we prefer runtime sync from GitHub into BASE_DIR/var/eurovision_booklet/2026/
-# (see EUROVISION_BOOKLET_* env vars and microsites/eurovision_booklet_sync.py).
+# Eurovision booklet PDFs/HTML are large and can push EB app archives over 512MB.
+# Prod serves from var/eurovision_booklet/2026/ (one-time fill from EUROVISION_BOOKLET_PINNED_REF;
+# AUTO_SYNC is off — see .ebextensions/django.config and microsites/eurovision_booklet_sync.py).
 static/microsites/eurovision_booklet/2026/*.pdf
 static/microsites/eurovision_booklet/2026/html/
 static/microsites/eurovision_booklet/2026/assets/
