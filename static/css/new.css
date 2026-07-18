@@ -2921,6 +2921,9 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   min-width: 0;
 }
 .new-raddle-word-cell {
+  --raddle-len: 5;
+  container-type: inline-size;
+  container-name: raddle-word;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2929,6 +2932,16 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   min-width: 0;
   padding: 0.35rem 0.55rem;
   box-sizing: border-box;
+}
+/* Длинные маски (9 7 и т.п.): уменьшаем шрифт, чтобы N слотов + (len) влезали в ячейку. */
+.new-raddle-input,
+.new-raddle-line__mask,
+.new-raddle-line__solved-text {
+  font-size: clamp(
+    0.7rem,
+    calc((100cqi - 4rem) / (var(--raddle-len, 5) * 1.2)),
+    1rem
+  );
 }
 .new-raddle-block__check {
   text-align: center;
@@ -3030,7 +3043,6 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   letter-spacing: 0.06em;
   color: var(--muted);
-  font-size: 0.82rem;
   line-height: 1;
   min-width: 0;
   max-width: 100%;
@@ -3046,11 +3058,11 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   font-size: 0.78rem;
 }
 .new-raddle-input {
-  flex: 0 0 auto;
-  letter-spacing: 0.06em;
+  flex: 0 1 auto;
+  letter-spacing: clamp(0.01em, calc(0.1em - 0.005em * var(--raddle-len, 5)), 0.06em);
   text-transform: uppercase;
-  /* плейсхолдер ◼️ шире обычной буквы — ширина от числа слотов маски */
-  width: calc(var(--raddle-len, 5) * 1.2em + 0.85rem);
+  /* плейсхолдер ◼️ шире обычной буквы — ширина от числа слотов маски (em следит за font-size) */
+  width: calc(var(--raddle-len, 5) * 1.2em + 0.5rem);
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
@@ -3062,11 +3074,19 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   text-transform: none;
   font-size: 0.82em;
 }
-/* На узком .new-wrap (≤919px) и телефонах ужимаем поля, чтобы длинные слова влезали. */
+/* На узком .new-wrap (≤919px) чуть плотнее слоты; масштаб шрифта — через cqi выше. */
 @media (max-width: 919px) {
   .new-raddle-input {
-    width: calc(var(--raddle-len, 5) * 1.05em + 0.4rem);
-    letter-spacing: 0.02em;
+    width: calc(var(--raddle-len, 5) * 1.05em + 0.35rem);
+  }
+  .new-raddle-input,
+  .new-raddle-line__mask,
+  .new-raddle-line__solved-text {
+    font-size: clamp(
+      0.68rem,
+      calc((100cqi - 3.5rem) / (var(--raddle-len, 5) * 1.15)),
+      1rem
+    );
   }
   .new-raddle-clue__text {
     overflow-wrap: break-word;
@@ -3078,8 +3098,14 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   .new-raddle-table .new-raddle-col--word { width: calc(100% - 74px); }
   .new-raddle-word-cell { gap: 0.2rem; padding: 0.3rem 0.3rem; }
   .new-raddle-line__len { font-size: 0.72rem; }
-  .new-raddle-input {
-    font-size: 0.95rem;
+  .new-raddle-input,
+  .new-raddle-line__mask,
+  .new-raddle-line__solved-text {
+    font-size: clamp(
+      0.65rem,
+      calc((100cqi - 3.25rem) / (var(--raddle-len, 5) * 1.1)),
+      0.95rem
+    );
   }
   .new-raddle-block__check { padding: 0 0.2rem; }
 }
