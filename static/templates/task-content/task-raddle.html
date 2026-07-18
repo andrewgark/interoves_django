@@ -1,5 +1,8 @@
 {% load filters %}
 <div class="new-raddle-task" data-task-id="{{ task.id }}" data-raddle-n-words="{{ rd.ui.n_words }}" data-default-focus="{{ rd.ui.default_focus_index|default_if_none:'' }}" data-default-ref-word="{{ rd.ui.default_ref_word|default:'' }}">
+  {% if task.tags.author %}
+  <p class="new-raddle-task__author">Автор лесенки: {{ task.tags.author }}</p>
+  {% endif %}
   {% if task.text %}
   <div class="new-raddle-task__intro">{% autoescape off %}{{ task.text }}{% endautoescape %}</div>
   {% endif %}

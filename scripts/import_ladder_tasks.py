@@ -4,13 +4,19 @@
 
 Таблица: https://docs.google.com/spreadsheets/d/1Ru3idvJOss9n70HpAUl18AC9XLEHY8cZfGnrGqsLphQ/
 
-Колонки: # (номер лесенки), ## (позиция слова), Слово, N (длина), Подсказка.
+Колонки: #, ##, Слово, N, Подсказка, [Автор].
+
+Автор пишется в ``Task.tags['author']`` (если колонка заполнена).
+Текст перед лесенкой — ``Task.text`` (через ``--intro N=текст`` или пусто).
 
 Использование (из корня репозитория)::
 
     ../venv/interoves_django/bin/python scripts/import_ladder_tasks.py
     ../venv/interoves_django/bin/python scripts/import_ladder_tasks.py --dry-run
     ../venv/interoves_django/bin/python scripts/import_ladder_tasks.py --csv /path/to.csv
+    ../venv/interoves_django/bin/python scripts/import_ladder_tasks.py \\
+        --only 12-15 --skip-publish-start \\
+        --intro '13=Как я оказался у холодильника?'
 
 На проде::
 
@@ -46,7 +52,13 @@ SHEET_CSV_URL = (
     "https://docs.google.com/spreadsheets/d/"
     "1Ru3idvJOss9n70HpAUl18AC9XLEHY8cZfGnrGqsLphQ/export?format=csv&gid=0"
 )
+# Лист с гостевыми лесенками (колонка «Автор»).
+GUEST_SHEET_CSV_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1Ru3idvJOss9n70HpAUl18AC9XLEHY8cZfGnrGqsLphQ/export?format=csv&gid=1938330259"
+)
 DEFAULT_PUBLISH_START = "2026-07-08T00:00:00+03:00"
+AUTHOR_TAG = "author"
 
 
 def _normalize_length(raw: str):
@@ -70,12 +82,53 @@ def _fetch_csv(url: str) -> str:
         return resp.read().decode("utf-8-sig")
 
 
-def _parse_rows(csv_text: str) -> dict[int, list[dict]]:
+def _parse_only_spec(spec: str | None) -> set[int] | None:
+    """'12-15,20' → {12,13,14,15,20}; None → без фильтра."""
+    if not spec or not spec.strip():
+        return None
+    out: set[int] = set()
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            a, b = part.split("-", 1)
+            lo, hi = int(a.strip()), int(b.strip())
+            out.update(range(lo, hi + 1))
+        else:
+            out.add(int(part))
+    return out
+
+
+def _parse_intro_args(items: list[str] | None) -> dict[int, str]:
+    """['13=Как я…', '15=…'] → {13: '…', 15: '…'}."""
+    out: dict[int, str] = {}
+    for item in items or []:
+        if "=" not in item:
+            raise ValueError(f"--intro expected N=text, got {item!r}")
+        num_s, text = item.split("=", 1)
+        out[int(num_s.strip())] = text.strip()
+    return out
+
+
+def _parse_rows(csv_text: str) -> dict[int, dict]:
+    """num → {'words': [...], 'author': str|None}."""
     reader = csv.reader(io.StringIO(csv_text))
     header = next(reader, None)
     if not header:
         return {}
+    header_l = [h.strip().lower() for h in header]
+    author_col = None
+    for i, h in enumerate(header_l):
+        if h in ("автор", "author"):
+            author_col = i
+            break
+    # Fallback: 6-я колонка (индекс 5), если заголовок без имени.
+    if author_col is None and len(header) >= 6:
+        author_col = 5
+
     ladders: dict[int, list[dict]] = defaultdict(list)
+    authors: dict[int, str] = {}
     for row in reader:
         if not row or not row[0].strip():
             continue
@@ -96,7 +149,14 @@ def _parse_rows(csv_text: str) -> dict[int, list[dict]]:
             "length": length,
             "hint": hint,
         })
-    return ladders
+        if author_col is not None and len(row) > author_col:
+            author = (row[author_col] or "").strip()
+            if author and ladder_num not in authors:
+                authors[ladder_num] = author
+    return {
+        num: {"words": words, "author": authors.get(num)}
+        for num, words in ladders.items()
+    }
 
 
 def _length_from_word(word: str):
@@ -138,8 +198,11 @@ def run(
     *,
     dry_run: bool,
     csv_path: str | None,
-    publish_start: str,
+    publish_start: str | None,
     sheet_url: str,
+    only: set[int] | None,
+    intros: dict[int, str],
+    skip_publish_start: bool,
 ) -> int:
     try:
         hub = Game.objects.get(pk=LADDER_GAME_ID)
@@ -154,6 +217,8 @@ def run(
         csv_text = _fetch_csv(sheet_url)
 
     ladders = _parse_rows(csv_text)
+    if only is not None:
+        ladders = {n: v for n, v in ladders.items() if n in only}
     if not ladders:
         print("No ladders parsed.", file=sys.stderr)
         return 1
@@ -161,23 +226,34 @@ def run(
     checker = CheckerType.objects.get(id="raddle")
     planned = []
     for num in sorted(ladders):
-        data = _build_checker_data(ladders[num])
+        entry = ladders[num]
+        data = _build_checker_data(entry["words"])
         _validate_ladder(num, data)
-        planned.append((num, data))
+        planned.append((num, data, entry.get("author"), intros.get(num, "")))
 
     if dry_run:
-        for num, data in planned:
-            print(f"would import ladder #{num}: {len(data['words'])} words")
+        for num, data, author, intro in planned:
+            extra = []
+            if author:
+                extra.append(f"author={author!r}")
+            if intro:
+                extra.append(f"intro={intro!r}")
+            suffix = f" ({', '.join(extra)})" if extra else ""
+            print(f"would import ladder #{num}: {len(data['words'])} words{suffix}")
         print(f"DRY RUN: {len(planned)} ladder(s)")
         return 0
 
-    tags = dict(hub.tags or {})
-    tags[LADDER_PUBLISH_START_TAG] = publish_start
-    hub.tags = tags
-    hub.save(update_fields=["tags"])
+    if not skip_publish_start:
+        if not publish_start:
+            print("--publish-start required unless --skip-publish-start", file=sys.stderr)
+            return 1
+        tags = dict(hub.tags or {})
+        tags[LADDER_PUBLISH_START_TAG] = publish_start
+        hub.tags = tags
+        hub.save(update_fields=["tags"])
 
     created_tg = updated_tg = created_link = updated_link = created_task = updated_task = 0
-    for num, data in planned:
+    for num, data, author, intro in planned:
         number = str(num)
         link = (
             GameTaskGroup.objects.filter(game=hub, number=number)
@@ -202,6 +278,10 @@ def run(
             task_group.max_attempts = 3
             task_group.save(update_fields=["max_attempts"])
 
+        task_tags = {}
+        if author:
+            task_tags[AUTHOR_TAG] = author
+
         task, task_created = Task.objects.update_or_create(
             task_group=task_group,
             number="1",
@@ -210,7 +290,8 @@ def run(
                 "checker": checker,
                 "checker_data": checker_data,
                 "answer": answer,
-                "text": f"Лесенка #{num}",
+                "text": intro or "",
+                "tags": task_tags,
                 "points": 1,
                 "max_attempts": None,
                 "is_removed": False,
@@ -235,9 +316,18 @@ def run(
         else:
             updated_link += 1
 
+        extras = []
+        if author:
+            extras.append(f"author={author}")
+        if intro:
+            extras.append(f"intro={intro!r}")
+        extra_s = f" ({', '.join(extras)})" if extras else ""
+        print(f"imported #{num}: {len(data['words'])} words{extra_s}")
+
+    pub = publish_start if not skip_publish_start else "(unchanged)"
     print(
         f"hub={LADDER_GAME_ID!r} ladders={len(planned)} "
-        f"publish_start={publish_start!r}; "
+        f"publish_start={pub!r}; "
         f"task_groups created={created_tg} updated={updated_tg}; "
         f"tasks created={created_task} updated={updated_task}; "
         f"links created={created_link} updated={updated_link}"
@@ -254,13 +344,45 @@ def main() -> int:
         default=DEFAULT_PUBLISH_START,
         help=f"полночь МСК первой лесенки (default: {DEFAULT_PUBLISH_START})",
     )
+    p.add_argument(
+        "--skip-publish-start",
+        action="store_true",
+        help="не трогать Game.tags[ladder_publish_start]",
+    )
     p.add_argument("--sheet-url", default=SHEET_CSV_URL)
+    p.add_argument(
+        "--guest-sheet",
+        action="store_true",
+        help=f"взять CSV с листа gid=1938330259 ({GUEST_SHEET_CSV_URL})",
+    )
+    p.add_argument(
+        "--only",
+        metavar="SPEC",
+        help="импортировать только номера, напр. 12-15 или 12,13,20",
+    )
+    p.add_argument(
+        "--intro",
+        action="append",
+        default=[],
+        metavar="N=TEXT",
+        help="текст перед лесенкой (можно несколько раз)",
+    )
     args = p.parse_args()
+    sheet_url = GUEST_SHEET_CSV_URL if args.guest_sheet else args.sheet_url
+    try:
+        intros = _parse_intro_args(args.intro)
+        only = _parse_only_spec(args.only)
+    except ValueError as e:
+        print(e, file=sys.stderr)
+        return 1
     return run(
         dry_run=args.dry_run,
         csv_path=args.csv,
-        publish_start=args.publish_start,
-        sheet_url=args.sheet_url,
+        publish_start=None if args.skip_publish_start else args.publish_start,
+        sheet_url=sheet_url,
+        only=only,
+        intros=intros,
+        skip_publish_start=args.skip_publish_start,
     )
 
 

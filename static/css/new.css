@@ -2743,6 +2743,11 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   container-type: inline-size;
   container-name: raddle-task;
 }
+.new-raddle-task__author {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  color: var(--new-muted, #5c6570);
+}
 .new-raddle-task__intro {
   margin-bottom: 0.75rem;
 }
