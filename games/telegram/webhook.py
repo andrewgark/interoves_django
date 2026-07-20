@@ -8,6 +8,7 @@ from games.telegram.admin_commands import handle_admin_command
 from games.telegram.api import send_message
 from games.telegram.callbacks import handle_callback_query
 from games.telegram.config import is_admin_chat
+from games.telegram.public_commands import handle_public_command, parse_public_command
 
 logger = logging.getLogger('application')
 
@@ -62,12 +63,16 @@ def _dispatch_update(update: dict) -> None:
     if not text:
         return
 
-    if not is_admin_chat(chat_id):
-        if text.startswith('/'):
-            send_message(chat_id, 'Этот бот принимает команды только в admin-чате.')
+    if not text.startswith('/'):
         return
 
-    if not text.startswith('/'):
+    public_command = parse_public_command(text)
+    if public_command:
+        handle_public_command(public_command, chat_id)
+        return
+
+    if not is_admin_chat(chat_id):
+        send_message(chat_id, 'Этот бот принимает команды только в admin-чате.')
         return
 
     reply = handle_admin_command(text)

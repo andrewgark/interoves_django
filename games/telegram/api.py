@@ -72,6 +72,17 @@ def send_message(
     return _post('sendMessage', payload) is not None
 
 
+def _photo_content_type(filename: str) -> str:
+    lower = (filename or '').lower()
+    if lower.endswith(('.jpg', '.jpeg')):
+        return 'image/jpeg'
+    if lower.endswith('.webp'):
+        return 'image/webp'
+    if lower.endswith('.gif'):
+        return 'image/gif'
+    return 'image/png'
+
+
 def send_photo(
     chat_id,
     photo_bytes: bytes,
@@ -89,7 +100,7 @@ def send_photo(
     if reply_markup is not None:
         import json
         data['reply_markup'] = json.dumps(reply_markup)
-    files = {'photo': (filename, photo_bytes, 'image/png')}
+    files = {'photo': (filename, photo_bytes, _photo_content_type(filename))}
     body = _post_multipart('sendPhoto', data, files)
     if not body:
         return None

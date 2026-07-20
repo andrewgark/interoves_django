@@ -48,6 +48,7 @@ def _help_text() -> str:
         '/mute &lt;мин&gt; — заглушить рутину',
         '/unmute — включить уведомления',
         '',
+        'Публичные (личка и чаты): /des, /des_results',
         'Чат-мод: бот шлёт анонсы в группы из TELEGRAM_ANNOUNCE_CHAT_IDS.',
         'Включить анонсы игры: tags.telegram_announce = true в админке.',
     ])
