@@ -455,6 +455,11 @@ if 'RDS_HOSTNAME' in os.environ:
             'PASSWORD': '' if _rds_secret_arn else _rds_password,
             'HOST': os.environ['RDS_HOSTNAME'],
             'PORT': os.environ['RDS_PORT'],
+            # Default mysqlclient connection is utf8mb3; 4-byte emoji (🪜 etc.)
+            # would be stored/sent as "????" without utf8mb4.
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+            },
         }
     }
 
