@@ -125,14 +125,11 @@ def format_game_end_announcement(game) -> str:
 def format_all_solved_announcement(game, team) -> str:
     name = _escape(game.get_no_html_name())
     team_name = _escape(team_display_name(team))
-    emojis = random_congrats_emojis(6)
     return _join_lines([
-        '{}'.format(emojis),
-        '',
         '🎉 Команда <b>{}</b> решила все задания в «{}»!'.format(team_name, name),
         '',
         'Поздравляем!',
-        '{}'.format(emojis),
+        random_congrats_emojis(6),
     ])
 
 
@@ -144,11 +141,8 @@ def format_game_results_announcement(game, podium: dict[int, list]) -> str:
     name = _escape(game.get_no_html_name())
     results_url = game_tournament_results_url(game)
     first = podium.get(1) or []
-    emojis = random_congrats_emojis(6)
 
     lines = [
-        '{}'.format(emojis),
-        '',
         '🏆 <b>Результаты «{}»</b>'.format(name),
         '',
     ]
@@ -180,8 +174,7 @@ def format_game_results_announcement(game, podium: dict[int, list]) -> str:
         lines.extend(['', 'Поздравляем!'])
 
     lines.extend([
-        '',
-        '{}'.format(emojis),
+        random_congrats_emojis(6),
         '',
         _link('Таблица результатов', results_url),
     ])

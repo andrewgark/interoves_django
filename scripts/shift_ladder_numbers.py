@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """
-Сдвиг номеров лесенок в разделе ``ladder`` (GameTaskGroup.number и связанные label/name/text).
+Сдвиг / перестановка номеров лесенок в разделе ``ladder``
+(GameTaskGroup.number и связанные label/name/text).
 
 Пример — сдвинуть будущие 12–39 на +4 (→ 16–43), чтобы освободить слоты 12–15::
 
     ../venv/interoves_django/bin/python scripts/shift_ladder_numbers.py --from 12 --to 39 --by 4 --dry-run
     ../venv/interoves_django/bin/python scripts/shift_ladder_numbers.py --from 12 --to 39 --by 4
 
-На проде::
+Перестановка (старый→новый), например::
+
+    ../venv/interoves_django/bin/python scripts/shift_ladder_numbers.py \\
+        --remap 13:14,14:16,15:18,16:13,17:15,18:17 --dry-run
+
+На проде (код на инстансе может быть старым — для remap удобнее manage.py shell)::
 
     ./scripts/eb_run.sh scripts/shift_ladder_numbers.py --from 12 --to 39 --by 4
 """
@@ -44,7 +50,63 @@ def _apply_title(old: str, new_num: int) -> str:
     return old
 
 
-def run(*, from_num: int, to_num: int, by: int, dry_run: bool) -> int:
+def _parse_remap(spec: str) -> dict[int, int]:
+    """Parse ``13:14,14:16,...`` into {old: new}."""
+    mapping: dict[int, int] = {}
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if ":" not in part:
+            raise ValueError(f"bad remap token {part!r}, expected OLD:NEW")
+        a, _, b = part.partition(":")
+        old, new = int(a.strip()), int(b.strip())
+        if old in mapping:
+            raise ValueError(f"duplicate old number {old}")
+        mapping[old] = new
+    news = list(mapping.values())
+    if len(set(news)) != len(news):
+        raise ValueError("remap has duplicate target numbers")
+    return mapping
+
+
+def _apply_planned(planned: list[tuple[int, int, GameTaskGroup]], *, dry_run: bool) -> int:
+    if dry_run:
+        for old, new, link in planned:
+            print(f"would rename #{old} → #{new} (gtg={link.pk}, tg={link.task_group_id})")
+        print(f"DRY RUN: {len(planned)} ladder(s)")
+        return 0
+
+    with transaction.atomic():
+        # Двухфазно через временные номера (permutation / shift — оба безопасны).
+        temp_base = 10_000
+        for i, (old, new, link) in enumerate(planned):
+            temp = str(temp_base + i)
+            tg = link.task_group
+            link.number = temp
+            if _TITLE_RE.match((link.name or "").strip()):
+                link.name = f"Лесенка #{new}"
+            link.save(update_fields=["number", "name"])
+            if (tg.label or "").startswith("ladder:"):
+                tg.label = f"ladder:{new}"
+                tg.save(update_fields=["label"])
+            task = Task.objects.filter(task_group=tg, number="1").first()
+            if task and task.text:
+                new_text = _apply_title(task.text, new)
+                if new_text != task.text:
+                    task.text = new_text
+                    task.save(update_fields=["text"])
+
+        for old, new, link in planned:
+            link.number = str(new)
+            link.save(update_fields=["number"])
+            print(f"#{old} → #{new}")
+
+    print(f"updated {len(planned)} ladder(s)")
+    return 0
+
+
+def run_shift(*, from_num: int, to_num: int, by: int, dry_run: bool) -> int:
     if from_num > to_num:
         print("--from must be <= --to", file=sys.stderr)
         return 1
@@ -80,49 +142,67 @@ def run(*, from_num: int, to_num: int, by: int, dry_run: bool) -> int:
             return 1
         planned.append((old, new, link))
 
-    if dry_run:
-        for old, new, link in planned:
-            print(f"would rename #{old} → #{new} (gtg={link.pk}, tg={link.task_group_id})")
-        print(f"DRY RUN: {len(planned)} ladder(s)")
-        return 0
+    return _apply_planned(planned, dry_run=dry_run)
 
-    with transaction.atomic():
-        # Двухфазно через временные номера, если внутри диапазона возможны коллизии
-        # при одношаговом update (на практике high→low при +by достаточно; temp надёжнее).
-        temp_base = 10_000
-        for i, (old, new, link) in enumerate(planned):
-            temp = str(temp_base + i)
-            tg = link.task_group
-            link.number = temp
-            link.name = _apply_title(link.name or "", new)
-            link.save(update_fields=["number", "name"])
-            if (tg.label or "").startswith("ladder:"):
-                tg.label = f"ladder:{new}"
-                tg.save(update_fields=["label"])
-            task = Task.objects.filter(task_group=tg, number="1").first()
-            if task and task.text:
-                new_text = _apply_title(task.text, new)
-                if new_text != task.text:
-                    task.text = new_text
-                    task.save(update_fields=["text"])
 
-        for i, (old, new, link) in enumerate(planned):
-            link.number = str(new)
-            link.save(update_fields=["number"])
-            print(f"#{old} → #{new}")
+def run_remap(*, mapping: dict[int, int], dry_run: bool) -> int:
+    try:
+        hub = Game.objects.get(pk=LADDER_GAME_ID)
+    except Game.DoesNotExist:
+        print(f"Game {LADDER_GAME_ID!r} not found", file=sys.stderr)
+        return 1
 
-    print(f"shifted {len(planned)} ladder(s) by {by:+d}")
-    return 0
+    olds = set(mapping)
+    news = set(mapping.values())
+    # Targets outside the old set must be free.
+    for new in sorted(news - olds):
+        if GameTaskGroup.objects.filter(game=hub, number=str(new)).exists():
+            print(f"conflict: target #{new} already occupied outside remap set", file=sys.stderr)
+            return 1
+
+    planned = []
+    for old in sorted(mapping):
+        link = (
+            GameTaskGroup.objects.filter(game=hub, number=str(old))
+            .select_related("task_group")
+            .first()
+        )
+        if not link:
+            print(f"missing #{old}", file=sys.stderr)
+            return 1
+        planned.append((old, mapping[old], link))
+
+    return _apply_planned(planned, dry_run=dry_run)
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--from", dest="from_num", type=int, required=True)
-    p.add_argument("--to", dest="to_num", type=int, required=True)
-    p.add_argument("--by", type=int, required=True, help="сдвиг номера (например 4)")
+    p.add_argument("--from", dest="from_num", type=int, help="начало диапазона (режим --by)")
+    p.add_argument("--to", dest="to_num", type=int, help="конец диапазона (режим --by)")
+    p.add_argument("--by", type=int, help="сдвиг номера (например 4)")
+    p.add_argument(
+        "--remap",
+        type=str,
+        help="перестановка OLD:NEW,... например 13:14,14:16,15:18,16:13,17:15,18:17",
+    )
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
-    return run(
+
+    if args.remap:
+        if args.from_num is not None or args.to_num is not None or args.by is not None:
+            print("use either --remap or --from/--to/--by, not both", file=sys.stderr)
+            return 1
+        try:
+            mapping = _parse_remap(args.remap)
+        except ValueError as e:
+            print(str(e), file=sys.stderr)
+            return 1
+        return run_remap(mapping=mapping, dry_run=args.dry_run)
+
+    if args.from_num is None or args.to_num is None or args.by is None:
+        print("need --remap OLD:NEW,... or --from/--to/--by", file=sys.stderr)
+        return 1
+    return run_shift(
         from_num=args.from_num,
         to_num=args.to_num,
         by=args.by,
