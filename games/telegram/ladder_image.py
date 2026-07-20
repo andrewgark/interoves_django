@@ -123,9 +123,9 @@ def _paint_mask_squares_for_screenshot(page) -> None:
           });
           document.querySelectorAll('input.new-raddle-input').forEach((el) => {
             const fake = document.createElement('div');
-            fake.className = (el.className || '').replace(/\\bnew-raddle-input\\b/g, 'new-raddle-input') + ' tg-shot-fake-input';
-            fake.style.width = getComputedStyle(el).width;
+            fake.className = (el.className || '') + ' tg-shot-fake-input';
             fake.style.maxWidth = '100%';
+            fake.style.width = 'max-content';
             const cell = el.closest('.new-raddle-word-cell');
             if (cell) {
               const v = getComputedStyle(cell).getPropertyValue('--raddle-len');
