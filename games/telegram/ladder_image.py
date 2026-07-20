@@ -31,6 +31,16 @@ _FONT_DIRS = (
 
 # Public page that redirects to the latest published ladder.
 LADDER_LAST_PATH = '/games/ladder/last/'
+_EMOJI_FONT_URL = 'https://interoves.local/telegram-shot/NotoColorEmoji.ttf'
+
+_EMOJI_FONT_CANDIDATES = (
+    os.path.expanduser('~/.fonts/NotoColorEmoji.ttf'),
+    '/home/webapp/.fonts/NotoColorEmoji.ttf',
+    '/usr/share/fonts/google-noto-emoji/NotoColorEmoji.ttf',
+    '/usr/share/fonts/noto/NotoColorEmoji.ttf',
+    '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf',
+    '/usr/share/fonts/truetype/noto-color-emoji/NotoColorEmoji.ttf',
+)
 
 _SCREENSHOT_HIDE_CSS = '''
   .new-nav,
@@ -52,91 +62,44 @@ _SCREENSHOT_HIDE_CSS = '''
   html, body {
     overflow: visible !important;
   }
-  /* CSS squares — px so size is not crushed by raddle clamp()/cqi font-size. */
-  .tg-shot-sq {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    margin: 0 2px 0 0;
-    background: #4b5563;
-    border-radius: 2.5px;
-    vertical-align: middle;
-    flex-shrink: 0;
+  @font-face {
+    font-family: "NotoColorEmojiShot";
+    src: url("''' + _EMOJI_FONT_URL + '''") format("truetype");
+    font-display: block;
   }
-  .tg-shot-fake-input {
-    display: inline-flex !important;
-    flex-wrap: nowrap;
-    align-items: center;
-    box-sizing: border-box;
-    min-height: 36px;
-    padding: 6px 10px !important;
-    border: 1.5px solid #8b949e !important;
-    border-radius: 5px !important;
-    background: #ffffff !important;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
-    font: inherit;
-    letter-spacing: normal !important;
-    text-transform: none !important;
-  }
-  .new-raddle-line__mask {
-    display: inline-flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    letter-spacing: normal !important;
-    font-size: 1rem !important;
+  /* Keep real ◼️ glyphs at site sizes — only force a working emoji font. */
+  .new-raddle-line__mask,
+  input.new-raddle-input::placeholder {
+    font-family: "NotoColorEmojiShot", "Noto Color Emoji", "Apple Color Emoji",
+      "Segoe UI Emoji", ui-monospace, monospace !important;
   }
 '''
 
 
-def _paint_mask_squares_for_screenshot(page) -> None:
-    """
-    Replace emoji/mask glyphs with CSS squares and turn playable inputs into
-    bordered fake-inputs filled with the same squares (screenshot only).
-    """
+def _find_emoji_font() -> str | None:
+    for path in _EMOJI_FONT_CANDIDATES:
+        if path and os.path.isfile(path):
+            return path
+    return None
+
+
+def _install_emoji_font_route(page, font_path: str) -> None:
+    def _fulfill(route):
+        route.fulfill(path=font_path, content_type='font/ttf')
+
+    page.route('**/telegram-shot/NotoColorEmoji.ttf', _fulfill)
+
+
+def _wait_for_emoji_font(page) -> None:
     page.evaluate(
-        """() => {
-          const isSq = (ch) => {
-            const c = ch.codePointAt(0);
-            return (
-              c === 0x25FE || c === 0x25A0 || c === 0x25FC || c === 0x25AA ||
-              c === 0x25AB || c === 0x2B1B || c === 0x2B1C || c === 0x25FB ||
-              c === 0x25A1 || c === 0x25A3
-            );
-          };
-          const fill = (node, raw) => {
-            node.textContent = '';
-            for (const ch of (raw || '')) {
-              const c = ch.codePointAt(0);
-              if (c === 0xFE0F || c === 0xFE0E) continue;
-              if (isSq(ch)) {
-                const s = document.createElement('span');
-                s.className = 'tg-shot-sq';
-                s.setAttribute('aria-hidden', 'true');
-                node.appendChild(s);
-              } else {
-                node.appendChild(document.createTextNode(ch));
-              }
-            }
-          };
-          document.querySelectorAll('.new-raddle-line__mask').forEach((el) => {
-            fill(el, el.textContent);
-          });
-          document.querySelectorAll('input.new-raddle-input').forEach((el) => {
-            const fake = document.createElement('div');
-            fake.className = (el.className || '') + ' tg-shot-fake-input';
-            fake.style.maxWidth = '100%';
-            fake.style.width = 'max-content';
-            const cell = el.closest('.new-raddle-word-cell');
-            if (cell) {
-              const v = getComputedStyle(cell).getPropertyValue('--raddle-len');
-              if (v) fake.style.setProperty('--raddle-len', v.trim());
-            }
-            fill(fake, el.getAttribute('placeholder') || el.placeholder || '');
-            el.replaceWith(fake);
-          });
+        """async () => {
+          try {
+            await document.fonts.load('24px NotoColorEmojiShot');
+            await document.fonts.ready;
+          } catch (e) {}
         }"""
     )
-
+    page.wait_for_timeout(250)
 
 @lru_cache(maxsize=8)
 def _load_font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
@@ -190,6 +153,10 @@ def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 
     from playwright.sync_api import sync_playwright
 
     target = url or ladder_last_screenshot_url()
+    emoji_font = _find_emoji_font()
+    if not emoji_font:
+        logger.warning('NotoColorEmoji.ttf not found; ◼️ masks may be missing in screenshot')
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         try:
@@ -197,6 +164,8 @@ def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 
                 viewport={'width': viewport_width, 'height': 1600},
                 device_scale_factor=2,
             )
+            if emoji_font:
+                _install_emoji_font_route(page, emoji_font)
             page.goto(target, wait_until='networkidle', timeout=60000)
             # Dismiss 18+ gate if present (ladder itself is not 18+, but modal may show).
             confirm = page.locator('[data-age-gate-confirm]')
@@ -204,7 +173,8 @@ def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 
                 confirm.first.click()
                 page.wait_for_timeout(200)
             page.add_style_tag(content=_SCREENSHOT_HIDE_CSS)
-            _paint_mask_squares_for_screenshot(page)
+            if emoji_font:
+                _wait_for_emoji_font(page)
             page.wait_for_timeout(150)
 
             raw = None
