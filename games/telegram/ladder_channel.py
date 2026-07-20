@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from games.ladder_daily import (
@@ -24,10 +25,14 @@ from games.telegram.config import (
     telegram_admin_configured,
     telegram_channel_configured,
 )
-from games.telegram.game_urls import admin_url, task_group_play_path
+from games.telegram.game_urls import admin_url
 from games.telegram.ladder_image import render_ladder_teaser_png
 from games.telegram.models import TelegramLadderChannelPost
-from games.telegram.mtproto import schedule_channel_photo_sync, telegram_user_configured
+from games.telegram.mtproto import (
+    delete_channel_messages_sync,
+    schedule_channel_photo_sync,
+    telegram_user_configured,
+)
 
 logger = logging.getLogger('application')
 
@@ -94,7 +99,8 @@ def resolve_today_ladder(now: datetime | None = None) -> TodayLadder | None:
         )
     if task is None:
         return None
-    play_url = admin_url(task_group_play_path(game, number))
+    # Canonical public URL (not /sections/… from game.project).
+    play_url = admin_url('/games/ladder/{}/'.format(number))
     return TodayLadder(
         game=game,
         number=number,
@@ -192,6 +198,57 @@ def schedule_ladder_channel_post(
         TelegramLadderChannelPost.STATUS_SENT,
     ) and not force:
         return existing
+    # Another instance may be mid-flight (multi-instance ASG + cron on each host).
+    if (
+        existing
+        and not force
+        and existing.status == TelegramLadderChannelPost.STATUS_FAILED
+        and existing.error == 'preparing'
+        and (timezone.now() - existing.prepared_at) < timedelta(minutes=2)
+    ):
+        return existing
+
+    # Claim the calendar day before talking to Telegram (unique ladder_date).
+    if existing is None:
+        try:
+            with transaction.atomic():
+                existing = TelegramLadderChannelPost.objects.create(
+                    ladder_date=ladder.ladder_date,
+                    ladder_number=ladder.number,
+                    play_url=ladder.play_url,
+                    caption='',
+                    image_png=b'',
+                    status=TelegramLadderChannelPost.STATUS_FAILED,
+                    error='preparing',
+                )
+        except IntegrityError:
+            existing = TelegramLadderChannelPost.objects.filter(
+                ladder_date=ladder.ladder_date,
+            ).first()
+            if existing and existing.status in (
+                TelegramLadderChannelPost.STATUS_SCHEDULED,
+                TelegramLadderChannelPost.STATUS_SENT,
+            ) and not force:
+                return existing
+            if (
+                existing
+                and not force
+                and existing.status == TelegramLadderChannelPost.STATUS_FAILED
+                and existing.error == 'preparing'
+            ):
+                return existing
+
+    if force and existing and existing.telegram_message_id:
+        try:
+            delete_channel_messages_sync(
+                chat=channel_chat_id(),
+                message_ids=[int(existing.telegram_message_id)],
+            )
+        except Exception:
+            logger.exception(
+                'Failed to delete previous ladder channel message_id=%s',
+                existing.telegram_message_id,
+            )
 
     try:
         image_png = render_ladder_teaser_png(ladder.task, ladder_number=ladder.number)

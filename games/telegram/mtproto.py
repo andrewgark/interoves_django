@@ -88,3 +88,21 @@ async def schedule_channel_photo(
 
 def schedule_channel_photo_sync(**kwargs) -> dict[str, Any]:
     return run_sync(lambda: schedule_channel_photo(**kwargs))
+
+
+async def delete_channel_messages(*, chat: str, message_ids: list[int]) -> int:
+    """Delete channel messages (including items in the scheduled queue)."""
+    if not message_ids:
+        return 0
+    if not telegram_user_configured():
+        raise RuntimeError('TELEGRAM_API_ID / TELEGRAM_API_HASH / TELEGRAM_USER_SESSION not configured')
+
+    client = _build_client()
+    async with client:
+        entity = await client.get_entity(chat)
+        ok = await client.delete_messages(entity, message_ids)
+        return int(ok or 0)
+
+
+def delete_channel_messages_sync(*, chat: str, message_ids: list[int]) -> int:
+    return run_sync(lambda: delete_channel_messages(chat=chat, message_ids=message_ids))
