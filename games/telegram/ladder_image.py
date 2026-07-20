@@ -52,16 +52,25 @@ _SCREENSHOT_HIDE_CSS = '''
   html, body {
     overflow: visible !important;
   }
-  /* Headless Chromium often has no emoji font — prefer Noto, fall back to geometric ■ via JS. */
+  /* Headless Chromium often has no emoji font — prefer Noto; JS may swap to ■. */
   .new-raddle-line__mask,
   input.new-raddle-input::placeholder {
     font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji",
       ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
   }
+  /* Site uses 0.82em because emoji ◼️ is oversized; geometric ■ needs full size. */
+  input.new-raddle-input::placeholder {
+    font-size: 1em !important;
+    letter-spacing: 0.06em !important;
+    line-height: 1 !important;
+  }
 '''
 
 def _fix_mask_emojis_for_screenshot(page) -> None:
-    """Swap emoji squares for U+25A0 ■ so masks render without a color-emoji font."""
+    """
+    Swap emoji squares for U+25A0 ■ and turn playable inputs into mask spans
+    so placeholder sizing matches locked rows (screenshot only).
+    """
     page.evaluate(
         """([fromChars, toChar]) => {
           const repl = (s) => {
@@ -74,8 +83,11 @@ def _fix_mask_emojis_for_screenshot(page) -> None:
           document.querySelectorAll('.new-raddle-line__mask').forEach((el) => {
             el.textContent = repl(el.textContent);
           });
-          document.querySelectorAll('input.new-raddle-input[placeholder]').forEach((el) => {
-            el.placeholder = repl(el.placeholder);
+          document.querySelectorAll('input.new-raddle-input').forEach((el) => {
+            const span = document.createElement('span');
+            span.className = 'new-raddle-line__mask';
+            span.textContent = repl(el.getAttribute('placeholder') || el.placeholder || '');
+            el.replaceWith(span);
           });
         }""",
         [['◼️', '◾', '▪', '⬛', '\u25fe\ufe0f', '\u25fe', '\u2b1b', '\u25a0\ufe0f'], '■'],
