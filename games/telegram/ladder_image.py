@@ -52,7 +52,34 @@ _SCREENSHOT_HIDE_CSS = '''
   html, body {
     overflow: visible !important;
   }
+  /* Headless Chromium often has no emoji font — prefer Noto, fall back to geometric ■ via JS. */
+  .new-raddle-line__mask,
+  input.new-raddle-input::placeholder {
+    font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji",
+      ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  }
 '''
+
+def _fix_mask_emojis_for_screenshot(page) -> None:
+    """Swap emoji squares for U+25A0 ■ so masks render without a color-emoji font."""
+    page.evaluate(
+        """([fromChars, toChar]) => {
+          const repl = (s) => {
+            let out = s || '';
+            for (const ch of fromChars) {
+              out = out.split(ch).join(toChar);
+            }
+            return out;
+          };
+          document.querySelectorAll('.new-raddle-line__mask').forEach((el) => {
+            el.textContent = repl(el.textContent);
+          });
+          document.querySelectorAll('input.new-raddle-input[placeholder]').forEach((el) => {
+            el.placeholder = repl(el.placeholder);
+          });
+        }""",
+        [['◼️', '◾', '▪', '⬛', '\u25fe\ufe0f', '\u25fe', '\u2b1b', '\u25a0\ufe0f'], '■'],
+    )
 
 
 @lru_cache(maxsize=8)
@@ -121,6 +148,7 @@ def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 
                 confirm.first.click()
                 page.wait_for_timeout(200)
             page.add_style_tag(content=_SCREENSHOT_HIDE_CSS)
+            _fix_mask_emojis_for_screenshot(page)
             page.wait_for_timeout(150)
 
             raw = None
