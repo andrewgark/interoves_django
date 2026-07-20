@@ -91,6 +91,18 @@ def select_desyatka_for_public(*, now=None) -> Game | None:
     return None
 
 
+def _ru_plural(n: int, one: str, few: str, many: str) -> str:
+    n = abs(int(n))
+    if 11 <= n % 100 <= 14:
+        return many
+    rem = n % 10
+    if rem == 1:
+        return one
+    if 2 <= rem <= 4:
+        return few
+    return many
+
+
 def format_duration(delta: timedelta) -> str:
     total = int(delta.total_seconds())
     if total < 0:
@@ -100,17 +112,17 @@ def format_duration(delta: timedelta) -> str:
     minutes = rem // 60
     parts = []
     if days:
-        parts.append('{} д.'.format(days))
+        parts.append('{} {}'.format(days, _ru_plural(days, 'день', 'дня', 'дней')))
     if hours or days:
-        parts.append('{} ч.'.format(hours))
-    parts.append('{} мин.'.format(minutes))
+        parts.append('{} {}'.format(hours, _ru_plural(hours, 'час', 'часа', 'часов')))
+    parts.append('{} {}'.format(minutes, _ru_plural(minutes, 'минута', 'минуты', 'минут')))
     return ' '.join(parts)
 
 
 def format_des_status_line(game: Game, *, now=None) -> str:
     now = now or timezone.now()
     if now < game.start_time:
-        return 'До начала: через {}'.format(format_duration(game.start_time - now))
+        return 'До начала: {}'.format(format_duration(game.start_time - now))
     if now <= game.end_time:
         return 'Идёт уже {}, осталось {}'.format(
             format_duration(now - game.start_time),

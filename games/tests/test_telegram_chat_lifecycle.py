@@ -235,7 +235,7 @@ class ChatAllSolvedAndResultsTests(TestCase):
         ]
         podium = {1: teams}
         text = format_game_results_announcement(self.game, podium)
-        self.assertIn('1 место (4 команд)', text)
+        self.assertIn('1 место (4 команды)', text)
         self.assertNotIn('2 место', text)
 
     def test_results_formatter_podium(self):
@@ -257,7 +257,8 @@ class ChatAllSolvedAndResultsTests(TestCase):
         day = format_game_day_before_announcement(self.game)
         hour = format_game_hour_before_announcement(self.game)
         self.assertIn('билеты', day)
-        self.assertIn('билеты', hour)
+        self.assertNotIn('билеты', hour)
+        self.assertNotIn('зарегистрировать', hour)
         self.assertIn('Через час', hour)
 
     def test_build_podium(self):

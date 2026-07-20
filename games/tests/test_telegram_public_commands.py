@@ -144,12 +144,20 @@ class PublicDesFormattingTests(TestCase):
         )
 
     def test_format_duration(self):
-        self.assertEqual(format_duration(timedelta(days=1, hours=2, minutes=5)), '1 д. 2 ч. 5 мин.')
-        self.assertEqual(format_duration(timedelta(minutes=40)), '40 мин.')
+        self.assertEqual(
+            format_duration(timedelta(days=1, hours=2, minutes=5)),
+            '1 день 2 часа 5 минут',
+        )
+        self.assertEqual(format_duration(timedelta(minutes=40)), '40 минут')
+        self.assertEqual(
+            format_duration(timedelta(days=5, hours=18, minutes=59)),
+            '5 дней 18 часов 59 минут',
+        )
 
     def test_status_upcoming(self):
         text = format_des_status_line(self.game, now=self.now)
-        self.assertTrue(text.startswith('До начала: через '))
+        self.assertTrue(text.startswith('До начала: '))
+        self.assertNotIn('через', text)
 
     def test_status_live(self):
         self.game.start_time = self.now - timedelta(hours=1)
@@ -172,7 +180,8 @@ class PublicDesFormattingTests(TestCase):
         self.assertIn('Десяточка №999', caption)
         self.assertIn('Тема: Палиндромы', caption)
         self.assertIn('Автор: Тестер', caption)
-        self.assertIn('До начала: через', caption)
+        self.assertIn('До начала:', caption)
+        self.assertNotIn('через', caption)
 
 
 @override_settings(

@@ -45,6 +45,22 @@ def team_display_name(team) -> str:
     return (getattr(team, 'visible_name', None) or getattr(team, 'name', None) or str(team))
 
 
+def _ru_plural(n: int, one: str, few: str, many: str) -> str:
+    n = abs(int(n))
+    if 11 <= n % 100 <= 14:
+        return many
+    rem = n % 10
+    if rem == 1:
+        return one
+    if 2 <= rem <= 4:
+        return few
+    return many
+
+
+def _teams_count_label(n: int) -> str:
+    return '{} {}'.format(n, _ru_plural(n, 'команда', 'команды', 'команд'))
+
+
 def random_congrats_emojis(n: int = 6) -> str:
     n = max(5, min(n, len(CONGRATS_EMOJI_POOL)))
     return ''.join(random.sample(CONGRATS_EMOJI_POOL, n))
@@ -65,7 +81,6 @@ def format_game_hour_before_announcement(game) -> str:
     return _join_lines([
         '⏰ <b>Через час начинается «{}»!</b>'.format(name),
         '',
-        'Не забудьте зарегистрировать команду и купить билеты.',
         _link('Открыть игру', game_site_url(game)),
     ])
 
@@ -150,7 +165,7 @@ def format_game_results_announcement(game, podium: dict[int, list]) -> str:
     if not first:
         lines.append('Пока нет результатов.')
     elif len(first) >= 3:
-        lines.append('1 место ({} команд):'.format(len(first)))
+        lines.append('1 место ({}):'.format(_teams_count_label(len(first))))
         for team in first:
             lines.append('• <b>{}</b>'.format(_escape(team_display_name(team))))
         lines.extend(['', 'Поздравляем всех победителей!'])
