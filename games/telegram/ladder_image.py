@@ -55,11 +55,11 @@ _SCREENSHOT_HIDE_CSS = '''
   /* CSS squares — px so size is not crushed by raddle clamp()/cqi font-size. */
   .tg-shot-sq {
     display: inline-block;
-    width: 20px;
-    height: 20px;
-    margin: 0 3px 0 0;
+    width: 14px;
+    height: 14px;
+    margin: 0 2px 0 0;
     background: #4b5563;
-    border-radius: 3px;
+    border-radius: 2.5px;
     vertical-align: middle;
     flex-shrink: 0;
   }
@@ -68,12 +68,12 @@ _SCREENSHOT_HIDE_CSS = '''
     flex-wrap: nowrap;
     align-items: center;
     box-sizing: border-box;
-    min-height: 48px;
-    padding: 10px 14px !important;
-    border: 2px solid #6b7280 !important;
-    border-radius: 6px !important;
+    min-height: 36px;
+    padding: 6px 10px !important;
+    border: 1.5px solid #8b949e !important;
+    border-radius: 5px !important;
     background: #ffffff !important;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
     font: inherit;
     letter-spacing: normal !important;
     text-transform: none !important;
