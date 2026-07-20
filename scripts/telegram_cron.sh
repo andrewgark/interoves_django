@@ -1,6 +1,8 @@
 #!/bin/bash
 # Minute cron on Elastic Beanstalk: load env, run Telegram announcement tick
 # (includes ladder channel schedule window at 00:15 MSK).
+# Canonical install path on EB: /opt/interoves/telegram_cron.sh
+# (content is embedded in .ebextensions/telegram_cron.config — keep in sync).
 set -euo pipefail
 
 APP_DIR=/var/app/current
