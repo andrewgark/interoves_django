@@ -9,7 +9,9 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         stats = process_game_announcements()
         self.stdout.write(
-            'Announcements sent: start={start}, end_soon_30={end_soon_30}, end={end}, admin_start_soon={admin_start_soon}'.format(
-                **stats,
+            'Announcements sent: start={start}, end_soon_30={end_soon_30}, end={end}, '
+            'admin_start_soon={admin_start_soon}, ladder_scheduled={ladder_scheduled}'.format(
+                ladder_scheduled=stats.get('ladder_scheduled', 0),
+                **{k: stats[k] for k in ('start', 'end_soon_30', 'end', 'admin_start_soon')},
             )
         )

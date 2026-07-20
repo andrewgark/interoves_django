@@ -21,6 +21,18 @@ def telegram_announce_configured() -> bool:
     return telegram_bot_configured() and bool(getattr(settings, 'TELEGRAM_ANNOUNCE_CHAT_IDS', []))
 
 
+def telegram_channel_configured() -> bool:
+    return bool(getattr(settings, 'TELEGRAM_CHANNEL_CHAT_ID', ''))
+
+
+def telegram_user_mtproto_configured() -> bool:
+    return bool(
+        getattr(settings, 'TELEGRAM_API_ID', 0)
+        and getattr(settings, 'TELEGRAM_API_HASH', '')
+        and getattr(settings, 'TELEGRAM_USER_SESSION', '')
+    )
+
+
 def admin_chat_id() -> str:
     return str(getattr(settings, 'TELEGRAM_ADMIN_CHAT_ID', '') or '')
 
@@ -28,6 +40,9 @@ def admin_chat_id() -> str:
 def announce_chat_ids() -> list[str]:
     return [str(chat_id) for chat_id in getattr(settings, 'TELEGRAM_ANNOUNCE_CHAT_IDS', [])]
 
+
+def channel_chat_id() -> str:
+    return str(getattr(settings, 'TELEGRAM_CHANNEL_CHAT_ID', '') or '')
 
 def is_admin_chat(chat_id) -> bool:
     configured = admin_chat_id()

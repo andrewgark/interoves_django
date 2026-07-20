@@ -659,12 +659,42 @@ def _load_telegram_announce_chat_ids() -> list[str]:
     return [part.strip() for part in raw.replace('\n', ',').split(',') if part.strip()]
 
 
+def _load_telegram_channel_chat_id() -> str:
+    value = (os.environ.get('TELEGRAM_CHANNEL_CHAT_ID') or '').strip()
+    if value:
+        return value
+    try:
+        return load_secret('telegram_channel_chat_id.txt', default='')
+    except FileNotFoundError:
+        return ''
+
+
+def _load_telegram_api_id() -> int:
+    raw = (os.environ.get('TELEGRAM_API_ID') or '').strip()
+    if not raw:
+        try:
+            raw = load_secret('telegram_api_id.txt', default='')
+        except FileNotFoundError:
+            raw = ''
+    try:
+        return int(raw) if raw else 0
+    except ValueError:
+        return 0
+
+
 SITE_BASE_URL = (os.environ.get('SITE_BASE_URL') or 'https://interoves.com').strip().rstrip('/')
 TELEGRAM_BOT_TOKEN = load_secret('telegram_bot_token.txt', env_var='TELEGRAM_BOT_TOKEN', default='')
 TELEGRAM_ADMIN_CHAT_ID = _load_telegram_admin_chat_id()
 TELEGRAM_NOTIFY_CHAT_ID = TELEGRAM_ADMIN_CHAT_ID
 TELEGRAM_ANNOUNCE_CHAT_IDS = _load_telegram_announce_chat_ids()
+TELEGRAM_CHANNEL_CHAT_ID = _load_telegram_channel_chat_id()
 TELEGRAM_WEBHOOK_SECRET = load_secret('telegram_webhook_secret.txt', env_var='TELEGRAM_WEBHOOK_SECRET', default='')
+# User MTProto (Telethon) for channel schedule_date — not the bot token.
+TELEGRAM_API_ID = _load_telegram_api_id()
+TELEGRAM_API_HASH = load_secret('telegram_api_hash.txt', env_var='TELEGRAM_API_HASH', default='')
+TELEGRAM_USER_SESSION = load_secret('telegram_user_session.txt', env_var='TELEGRAM_USER_SESSION', default='')
+# Real site screenshot for ladder posts (Playwright/Chromium). Set FALSE to force Pillow.
+TELEGRAM_LADDER_SCREENSHOT = _env_flag_default('TELEGRAM_LADDER_SCREENSHOT', True)
 
 if IS_PROD:
     EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')

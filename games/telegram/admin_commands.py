@@ -44,6 +44,7 @@ def _help_text() -> str:
         '/db — размер БД и фоновые миграции',
         '/infra — webhook и чаты бота',
         '/digest — дайджест за сутки',
+        '/ladder — превью сегодняшней лесенки (картинка в этот чат)',
         '/mute &lt;мин&gt; — заглушить рутину',
         '/unmute — включить уведомления',
         '',
@@ -85,6 +86,7 @@ def handle_admin_command(text: str) -> str:
         '/db': _cmd_db,
         '/infra': _cmd_infra,
         '/digest': _cmd_digest,
+        '/ladder': _cmd_ladder,
         '/mute': _cmd_mute,
         '/unmute': _cmd_unmute,
     }
@@ -424,6 +426,15 @@ def _cmd_digest(_args) -> str:
     from games.telegram.digest import build_daily_digest
 
     return build_daily_digest()
+
+
+def _cmd_ladder(_args) -> str:
+    from games.telegram.ladder_channel import preview_ladder_to_admin
+
+    ok, message = preview_ladder_to_admin()
+    if ok:
+        return 'Превью отправлено в этот чат.\n{}'.format(message)
+    return 'Не удалось: {}'.format(message)
 
 
 def _cmd_mute(args) -> str:

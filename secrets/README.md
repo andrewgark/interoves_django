@@ -92,11 +92,15 @@ Copy `secrets/telegram.env.example` and follow the steps inside. Minimum for **a
 
 **Chat mode** (group «Десяточек, посылка»): add the bot to the group, run step 3 again, put the group `chat_id` into `secrets/telegram_announce_chat_ids.txt`. Enable per game: `tags.telegram_announce = true` in Django admin.
 
-Scheduled jobs: `telegram_game_announcements` (every minute), `telegram_daily_digest` (daily).
+**Channel** (t.me/interoves, daily ladder in «Отложенные»): Bot API cannot use `schedule_date`. Use a **user** MTProto session (Telethon) of a channel admin. Set `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` (my.telegram.org), `TELEGRAM_CHANNEL_CHAT_ID=@interoves`, run `manage.py telegram_user_login` → `TELEGRAM_USER_SESSION`. At 00:15 MSK the minute cron schedules the post for 16:30 MSK. Image = Playwright screenshot of `SITE_BASE_URL/games/ladder/last/` (needs `playwright install chromium` on the host). Smoke: `manage.py telegram_ladder_admin_preview`, `manage.py telegram_ladder_channel_post schedule`.
+
+Scheduled jobs: `telegram_game_announcements` (every minute; also ladder channel at 00:15 MSK), `telegram_daily_digest` (daily).
 
 On prod after deploy:
 
 ```bash
 eb setenv TELEGRAM_BOT_TOKEN='...' TELEGRAM_ADMIN_CHAT_ID='...' \
-  TELEGRAM_ANNOUNCE_CHAT_IDS='-100...' TELEGRAM_WEBHOOK_SECRET='...'
+  TELEGRAM_ANNOUNCE_CHAT_IDS='-100...' TELEGRAM_CHANNEL_CHAT_ID='@interoves' \
+  TELEGRAM_API_ID='...' TELEGRAM_API_HASH='...' TELEGRAM_USER_SESSION='...' \
+  TELEGRAM_WEBHOOK_SECRET='...'
 ```

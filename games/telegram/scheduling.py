@@ -61,9 +61,17 @@ def process_game_announcements(now=None) -> dict[str, int]:
                 stats['admin_start_soon'] += 1
                 notify_admin_game_lifecycle(game, 'start_soon')
 
+    try:
+        from games.telegram.ladder_channel import process_ladder_channel_tick
+        ladder_stats = process_ladder_channel_tick(now=now)
+        stats['ladder_scheduled'] = ladder_stats.get('scheduled', 0)
+    except Exception:
+        # Never break game announcements because of the ladder channel job.
+        import logging
+        logging.getLogger('application').exception('Ladder channel tick failed')
+        stats['ladder_scheduled'] = 0
+
     return stats
-
-
 def _should_admin_start_soon(game: Game, now) -> bool:
     start = game.get_visible_start_time()
     if start is None:
