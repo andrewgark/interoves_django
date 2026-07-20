@@ -9,6 +9,7 @@ from games.telegram.admin_commands import handle_admin_command, registration_mil
 from games.telegram.digest import build_daily_digest, collect_daily_digest_stats
 from games.telegram.announcements import (
     format_game_end_announcement,
+    format_game_end_soon_15_announcement,
     format_game_end_soon_announcement,
     format_game_start_announcement,
 )
@@ -118,13 +119,17 @@ class TelegramNotifyTests(TestCase):
 
     def test_announcement_messages_include_links(self):
         start = format_game_start_announcement(self.game)
-        self.assertIn('началась', start)
+        self.assertIn('Начали!', start)
         self.assertIn('conditions', start)
+        self.assertIn('Сайт', start)
         end_soon = format_game_end_soon_announcement(self.game)
         self.assertIn('30 минут', end_soon)
+        end_soon_15 = format_game_end_soon_15_announcement(self.game)
+        self.assertIn('15 минут', end_soon_15)
         end = format_game_end_announcement(self.game)
         self.assertIn('завершилась', end)
         self.assertIn('answers', end)
+        self.assertNotIn('Таблица результатов', end)
 
     def test_registration_milestone(self):
         self.assertEqual(registration_milestone_reached(9, 10), 10)

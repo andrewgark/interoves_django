@@ -5,7 +5,7 @@ from typing import Iterable
 from django.conf import settings
 
 from games.models import BugReport, CorporateGameOrder, TicketRequest
-from games.telegram.api import send_message
+from games.telegram.api import send_message, send_photo
 from games.telegram.config import (
     admin_chat_id,
     admin_is_muted,
@@ -63,6 +63,32 @@ def send_announce_message(text: str, *, reply_markup: dict | None = None) -> boo
     ok = False
     for chat_id in chat_ids:
         if send_message(chat_id, text, reply_markup=reply_markup):
+            ok = True
+    return ok
+
+
+def send_announce_photo(
+    photo_bytes: bytes,
+    *,
+    caption: str = '',
+    filename: str = 'photo.png',
+    reply_markup: dict | None = None,
+) -> bool:
+    if not telegram_bot_configured():
+        return False
+    chat_ids = announce_chat_ids()
+    if not chat_ids:
+        logger.debug('Telegram announce photo skipped: TELEGRAM_ANNOUNCE_CHAT_IDS is empty')
+        return False
+    ok = False
+    for chat_id in chat_ids:
+        if send_photo(
+            chat_id,
+            photo_bytes,
+            caption=caption,
+            filename=filename,
+            reply_markup=reply_markup,
+        ):
             ok = True
     return ok
 
