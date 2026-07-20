@@ -723,6 +723,24 @@ def _games_list_card_context(request):
     }
 
 
+def _announced_game_page_response(request, game, *, back_url, show_sections_nav=True, project=None):
+    """Анонсированная игра до start_time: та же карточка, что в списке десяточек."""
+    page_title = game.get_outside_name() if hasattr(game, 'get_outside_name') else (game.outside_name or game.name)
+    ctx = {
+        'game': game,
+        'games': [game],
+        'page_title': page_title,
+        'back_url': back_url,
+        'show_sections_nav': show_sections_nav,
+        **_games_list_card_context(request),
+        **_project_urls_context(game.project_id),
+        **_age_gate_context(game, back_url=back_url),
+    }
+    if project is not None:
+        ctx['project'] = project
+    return render(request, 'ui/game_announce_page.html', ctx)
+
+
 def _new_folder_games(request):
     view = MainPageView()
     view.project_name = NEW_UI_PROJECT
@@ -849,7 +867,13 @@ def project_main_game_page(request, project_id, game_id):
     if not game.has_access('see_game_preview', team=team):
         raise Http404()
     if not game_has_started(game):
-        raise Http404()
+        return _announced_game_page_response(
+            request,
+            game,
+            back_url=(base + '/games/') if base else '/games/',
+            show_sections_nav=False,
+            project=project,
+        )
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
 
@@ -1221,11 +1245,15 @@ def new_main_game_page(request, game_id):
     if not game.has_access('see_game_preview', team=team):
         raise Http404()
 
-    # Как в new_task_group_page: обычные игры до start_time — 404 (прямой URL не даёт «превью» списка заданий).
+    # До start_time — карточка анонса (как в списке десяточек), без списка заданий.
     # Разделы (sections): страница игры доступна без ограничения по времени старта.
-    if game.project_id != NEW_UI_SECTIONS_PROJECT:
-        if not game_has_started(game):
-            raise Http404()
+    if game.project_id != NEW_UI_SECTIONS_PROJECT and not game_has_started(game):
+        return _announced_game_page_response(
+            request,
+            game,
+            back_url='/games/',
+            show_sections_nav=True,
+        )
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
 

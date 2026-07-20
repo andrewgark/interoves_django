@@ -1,0 +1,26 @@
+{% extends "new/base.html" %}
+
+{% block title %}
+  {% if "html_in_title" in game.tags %}
+    {% autoescape off %}{{ page_title|default:game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
+  {% else %}
+    {{ page_title|default:game.get_outside_name|default:game.outside_name|default:game.name }}
+  {% endif %}
+{% endblock %}
+
+{% block body_attrs %}data-track-game-id="{{ game.id }}"{% endblock %}
+
+{% block extrahead %}
+  {% include "new/_18plus_gate_early.html" %}
+{% endblock %}
+
+{% block content %}
+  <div class="new-ui">
+    <p style="margin:0 0 0.75rem">
+      <a href="{{ back_url|default:'/games/' }}" class="new-btn new-btn--ghost">← Десяточки</a>
+    </p>
+    <div class="new-games-list">
+      {% include "new/games_list_items.html" with games=games game_list_offset=0 %}
+    </div>
+  </div>
+{% endblock %}
