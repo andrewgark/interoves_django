@@ -52,45 +52,89 @@ _SCREENSHOT_HIDE_CSS = '''
   html, body {
     overflow: visible !important;
   }
-  /* Headless Chromium often has no emoji font — prefer Noto; JS may swap to ■. */
-  .new-raddle-line__mask,
-  input.new-raddle-input::placeholder {
-    font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji",
-      ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  /* CSS squares — px so size is not crushed by raddle clamp()/cqi font-size. */
+  .tg-shot-sq {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    margin: 0 3px 0 0;
+    background: #4b5563;
+    border-radius: 3px;
+    vertical-align: middle;
+    flex-shrink: 0;
   }
-  /* Site uses 0.82em because emoji ◼️ is oversized; geometric ■ needs full size. */
-  input.new-raddle-input::placeholder {
-    font-size: 1em !important;
-    letter-spacing: 0.06em !important;
-    line-height: 1 !important;
+  .tg-shot-fake-input {
+    display: inline-flex !important;
+    flex-wrap: nowrap;
+    align-items: center;
+    box-sizing: border-box;
+    min-height: 48px;
+    padding: 10px 14px !important;
+    border: 2px solid #6b7280 !important;
+    border-radius: 6px !important;
+    background: #ffffff !important;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    font: inherit;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+  }
+  .new-raddle-line__mask {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    letter-spacing: normal !important;
+    font-size: 1rem !important;
   }
 '''
 
-def _fix_mask_emojis_for_screenshot(page) -> None:
+
+def _paint_mask_squares_for_screenshot(page) -> None:
     """
-    Swap emoji squares for U+25A0 ■ and turn playable inputs into mask spans
-    so placeholder sizing matches locked rows (screenshot only).
+    Replace emoji/mask glyphs with CSS squares and turn playable inputs into
+    bordered fake-inputs filled with the same squares (screenshot only).
     """
     page.evaluate(
-        """([fromChars, toChar]) => {
-          const repl = (s) => {
-            let out = s || '';
-            for (const ch of fromChars) {
-              out = out.split(ch).join(toChar);
+        """() => {
+          const isSq = (ch) => {
+            const c = ch.codePointAt(0);
+            return (
+              c === 0x25FE || c === 0x25A0 || c === 0x25FC || c === 0x25AA ||
+              c === 0x25AB || c === 0x2B1B || c === 0x2B1C || c === 0x25FB ||
+              c === 0x25A1 || c === 0x25A3
+            );
+          };
+          const fill = (node, raw) => {
+            node.textContent = '';
+            for (const ch of (raw || '')) {
+              const c = ch.codePointAt(0);
+              if (c === 0xFE0F || c === 0xFE0E) continue;
+              if (isSq(ch)) {
+                const s = document.createElement('span');
+                s.className = 'tg-shot-sq';
+                s.setAttribute('aria-hidden', 'true');
+                node.appendChild(s);
+              } else {
+                node.appendChild(document.createTextNode(ch));
+              }
             }
-            return out;
           };
           document.querySelectorAll('.new-raddle-line__mask').forEach((el) => {
-            el.textContent = repl(el.textContent);
+            fill(el, el.textContent);
           });
           document.querySelectorAll('input.new-raddle-input').forEach((el) => {
-            const span = document.createElement('span');
-            span.className = 'new-raddle-line__mask';
-            span.textContent = repl(el.getAttribute('placeholder') || el.placeholder || '');
-            el.replaceWith(span);
+            const fake = document.createElement('div');
+            fake.className = (el.className || '').replace(/\\bnew-raddle-input\\b/g, 'new-raddle-input') + ' tg-shot-fake-input';
+            fake.style.width = getComputedStyle(el).width;
+            fake.style.maxWidth = '100%';
+            const cell = el.closest('.new-raddle-word-cell');
+            if (cell) {
+              const v = getComputedStyle(cell).getPropertyValue('--raddle-len');
+              if (v) fake.style.setProperty('--raddle-len', v.trim());
+            }
+            fill(fake, el.getAttribute('placeholder') || el.placeholder || '');
+            el.replaceWith(fake);
           });
-        }""",
-        [['◼️', '◾', '▪', '⬛', '\u25fe\ufe0f', '\u25fe', '\u2b1b', '\u25a0\ufe0f'], '■'],
+        }"""
     )
 
 
@@ -160,7 +204,7 @@ def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 
                 confirm.first.click()
                 page.wait_for_timeout(200)
             page.add_style_tag(content=_SCREENSHOT_HIDE_CSS)
-            _fix_mask_emojis_for_screenshot(page)
+            _paint_mask_squares_for_screenshot(page)
             page.wait_for_timeout(150)
 
             raw = None
