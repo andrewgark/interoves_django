@@ -25,9 +25,13 @@ _MASK_CHAR = '■'
 
 _FONT_DIRS = (
     '/usr/share/fonts/truetype/dejavu',
+    '/usr/share/fonts/dejavu',
     '/usr/share/fonts/TTF',
     '/usr/share/fonts/truetype',
 )
+
+# EB installs Chromium for the webapp user; cron often runs as root.
+_EB_PLAYWRIGHT_BROWSERS_PATH = '/home/webapp/.cache/ms-playwright'
 
 # Public page that redirects to the latest published ladder.
 LADDER_LAST_PATH = '/games/ladder/last/'
@@ -41,6 +45,19 @@ _EMOJI_FONT_CANDIDATES = (
     '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf',
     '/usr/share/fonts/truetype/noto-color-emoji/NotoColorEmoji.ttf',
 )
+
+
+def _ensure_playwright_browsers_path() -> None:
+    """
+    Point Playwright at the EB webapp browser cache when cron/root has none.
+
+    Without this, root cron looks in /root/.cache/ms-playwright, launch fails,
+    and we fall back to a Pillow schematic (wrong look + missing Cyrillic).
+    """
+    if os.environ.get('PLAYWRIGHT_BROWSERS_PATH'):
+        return
+    if os.path.isdir(_EB_PLAYWRIGHT_BROWSERS_PATH):
+        os.environ['PLAYWRIGHT_BROWSERS_PATH'] = _EB_PLAYWRIGHT_BROWSERS_PATH
 
 _SCREENSHOT_HIDE_CSS = '''
   .new-nav,
@@ -152,6 +169,7 @@ def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 
     """
     from playwright.sync_api import sync_playwright
 
+    _ensure_playwright_browsers_path()
     target = url or ladder_last_screenshot_url()
     emoji_font = _find_emoji_font()
     if not emoji_font:

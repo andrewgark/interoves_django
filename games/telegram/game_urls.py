@@ -20,9 +20,13 @@ def game_site_url(game) -> str:
 
 def game_play_path(game) -> str:
     """Relative play URL for a game hub page (project-scoped when needed)."""
-    project = getattr(game, 'project', None)
-    if project is not None and not project.is_main():
-        return '/{}/games/{}/'.format(project.id, game.id)
+    project_id = getattr(game, 'project_id', None)
+    if project_id is None:
+        project = getattr(game, 'project', None)
+        project_id = getattr(project, 'id', None)
+    # "sections" is a DB project for hub tiles, not a URL prefix like /glowbyte/.
+    if project_id and project_id not in ('main', 'sections'):
+        return '/{}/games/{}/'.format(project_id, game.id)
     return '/games/{}/'.format(game.id)
 
 

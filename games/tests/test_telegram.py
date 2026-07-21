@@ -103,6 +103,50 @@ class TelegramNotifyTests(TestCase):
             self.game.id,
         ), text)
 
+    def test_format_bug_report_message_sections_game_uses_root_games_url(self):
+        from games.models import GameTaskGroup
+        from games.telegram.game_urls import game_play_path, task_play_url
+
+        Project.objects.get_or_create(pk='sections', defaults={})
+        Project.objects.get_or_create(pk='glowbyte', defaults={})
+        section_game = Game.objects.create(
+            id='tg_replacements',
+            name='Замены',
+            author='a',
+            author_extra='',
+            project_id='sections',
+        )
+        scoped_game = Game.objects.create(
+            id='tg_corp',
+            name='Corp',
+            author='a',
+            author_extra='',
+            project_id='glowbyte',
+        )
+        tg = TaskGroup.objects.create(label='sec tg')
+        task = Task.objects.create(task_group=tg, number='1', text='t')
+        GameTaskGroup.objects.create(game=section_game, task_group=tg, number='91', name='R91')
+
+        self.assertEqual(game_play_path(section_game), '/games/tg_replacements/')
+        self.assertEqual(
+            task_play_url(section_game, task),
+            'https://interoves.com/games/tg_replacements/91/#new-task-{}'.format(task.pk),
+        )
+        self.assertEqual(game_play_path(scoped_game), '/glowbyte/games/tg_corp/')
+
+        report = BugReport.objects.create(
+            game=section_game,
+            task=task,
+            team=self.team,
+            text='Broken replacements link',
+        )
+        text = format_bug_report_message(report)
+        self.assertIn(
+            'href="https://interoves.com/games/tg_replacements/91/#new-task-{}"'.format(task.pk),
+            text,
+        )
+        self.assertNotIn('/sections/', text)
+
     @patch('games.telegram.notify.send_message')
     def test_send_admin_message_respects_mute(self, send_message_mock):
         from games.telegram.config import set_admin_mute

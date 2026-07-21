@@ -24,6 +24,9 @@ for key, value in env.items():
 cd "$APP_DIR"
 # shellcheck disable=SC1091
 source /var/app/venv/*/bin/activate
+# Cron runs as root; Playwright Chromium is installed for webapp (see .ebextensions/playwright.config).
+# Without this, screenshot falls back to Pillow → broken Cyrillic / wrong styles in ladder posts.
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/home/webapp/.cache/ms-playwright}"
 {
   echo "---- $(date -Is) telegram_game_announcements ----"
   python manage.py telegram_game_announcements

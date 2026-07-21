@@ -2748,6 +2748,19 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   font-size: 0.95rem;
   color: var(--new-muted, #5c6570);
 }
+.new-raddle-task__credit {
+  margin: 1rem 0 0;
+  font-size: 0.85rem;
+  color: var(--new-muted, #5c6570);
+}
+.new-raddle-task__credit a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+.new-raddle-task__credit a:hover {
+  color: var(--accent, #2a6f97);
+}
 .new-raddle-task__intro {
   margin-bottom: 0.75rem;
 }

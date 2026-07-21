@@ -46,6 +46,9 @@ def screenshot_tournament_results_png(game, *, url: str | None = None, viewport_
     """
     from playwright.sync_api import sync_playwright
 
+    from games.telegram.ladder_image import _ensure_playwright_browsers_path
+
+    _ensure_playwright_browsers_path()
     target = url or game_tournament_results_url(game)
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)

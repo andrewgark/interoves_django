@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
@@ -137,3 +138,25 @@ class LadderChannelScheduleTests(TestCase):
         self.assertEqual(post.status, TelegramLadderChannelPost.STATUS_FAILED)
         self.assertIn('refusing to post immediately', post.error)
         mtproto_mock.assert_not_called()
+
+
+class EnsurePlaywrightBrowsersPathTests(TestCase):
+    def test_sets_eb_webapp_cache_when_env_missing(self):
+        from games.telegram import ladder_image as li
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('PLAYWRIGHT_BROWSERS_PATH', None)
+            with patch.object(li.os.path, 'isdir', return_value=True):
+                li._ensure_playwright_browsers_path()
+            self.assertEqual(
+                os.environ.get('PLAYWRIGHT_BROWSERS_PATH'),
+                '/home/webapp/.cache/ms-playwright',
+            )
+
+    def test_does_not_override_existing_env(self):
+        from games.telegram import ladder_image as li
+
+        with patch.dict(os.environ, {'PLAYWRIGHT_BROWSERS_PATH': '/custom/browsers'}):
+            with patch.object(li.os.path, 'isdir', return_value=True):
+                li._ensure_playwright_browsers_path()
+            self.assertEqual(os.environ.get('PLAYWRIGHT_BROWSERS_PATH'), '/custom/browsers')
