@@ -37,6 +37,9 @@
             <td>
               <div class="support-action-row">
                 <a href="{% url 'support:game' row.game_id %}" class="new-btn new-btn--mini new-btn--ghost">dashboard</a>
+                {% if row.game_id == 'ladder' %}
+                  <a href="{% url 'support:ladders' %}" class="new-btn new-btn--mini new-btn--ghost">порядок</a>
+                {% endif %}
                 <a href="{% if row.game_id == 'ladder' %}/games/ladder/{% else %}/section/{{ row.game_id }}/{% endif %}" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost">сайт</a>
               </div>
             </td>

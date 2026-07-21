@@ -1,7 +1,10 @@
+import json
+
 from django.contrib.auth.views import LoginView
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
+from django.views.decorators.http import require_GET, require_POST
 
 from games.models import Game, Team
 from games.support.access import support_console_required
@@ -13,6 +16,15 @@ from games.support.services.actor import (
 )
 from games.support.services.chain import build_chain_context, format_chain_state
 from games.support.services.games import get_all_games_by_project
+from games.support.services.ladders import (
+    LadderSupportError,
+    create_ladder,
+    dashboard_context as ladders_dashboard_context,
+    get_ladder_detail,
+    reorder_ladders,
+    set_publish_start,
+    update_ladder,
+)
 from games.support.services.live import get_live_feed
 from games.support.services.preview import (
     ActorSpec,
@@ -25,6 +37,17 @@ from games.support.services.search import search
 from games.support.services.sections import get_sections_dashboard
 from games.support.services.stats import collect_support_stats
 from games.support.services.stuck import get_stuck_teams
+
+
+def _json_body(request):
+    try:
+        return json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, TypeError, UnicodeDecodeError):
+        return None
+
+
+def _ladder_error_response(exc: LadderSupportError, status=400):
+    return JsonResponse({'ok': False, 'error': str(exc)}, status=status)
 
 
 class SupportLoginView(LoginView):
@@ -282,3 +305,130 @@ def chain_attempt(request, attempt_id):
         for row in ctx['chain_rows']
     }
     return render(request, 'support/chain.html', ctx)
+
+
+@support_console_required
+def ladders_dashboard(request):
+    ctx = ladders_dashboard_context()
+    ctx['page_title'] = 'Лесенки'
+    return render(request, 'support/ladders.html', ctx)
+
+
+@support_console_required
+@require_GET
+def ladders_detail_json(request, link_id):
+    try:
+        detail = get_ladder_detail(int(link_id))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)
+    except LadderSupportError as exc:
+        return _ladder_error_response(exc, status=404)
+    return JsonResponse({'ok': True, 'ladder': detail})
+
+
+@support_console_required
+@require_POST
+def ladders_reorder(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    order = body.get('order')
+    if not isinstance(order, list):
+        return JsonResponse({'ok': False, 'error': 'Нужен order: [link_id, …]'}, status=400)
+    try:
+        ordered_ids = [int(x) for x in order]
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'order должен быть списком int'}, status=400)
+    try:
+        rows = reorder_ladders(ordered_ids)
+    except LadderSupportError as exc:
+        return _ladder_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'ladders': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def ladders_create(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    try:
+        at_number = int(body.get('at_number'))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Нужен at_number'}, status=400)
+    words = body.get('words')
+    hints = body.get('hints')
+    if words is not None and not isinstance(words, list):
+        return JsonResponse({'ok': False, 'error': 'words должен быть списком'}, status=400)
+    if hints is not None and not isinstance(hints, list):
+        return JsonResponse({'ok': False, 'error': 'hints должен быть списком'}, status=400)
+    try:
+        detail = create_ladder(
+            at_number=at_number,
+            words=words,
+            hints=hints,
+            intro=str(body.get('intro') or ''),
+            author=str(body.get('author') or ''),
+        )
+        rows = ladders_dashboard_context()['ladders']
+    except LadderSupportError as exc:
+        return _ladder_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'ladder': detail,
+        'ladders': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def ladders_update(request, link_id):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    words = body.get('words')
+    hints = body.get('hints')
+    if not isinstance(words, list) or not isinstance(hints, list):
+        return JsonResponse({'ok': False, 'error': 'Нужны words и hints (списки)'}, status=400)
+    try:
+        detail = update_ladder(
+            int(link_id),
+            words=words,
+            hints=hints,
+            intro=str(body.get('intro') or ''),
+            author=str(body.get('author') or ''),
+        )
+        rows = ladders_dashboard_context()['ladders']
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)
+    except LadderSupportError as exc:
+        return _ladder_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'ladder': detail,
+        'ladders': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def ladders_set_publish_start(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    date_iso = body.get('publish_start') or body.get('date')
+    if not date_iso:
+        return JsonResponse({'ok': False, 'error': 'Нужна publish_start (YYYY-MM-DD)'}, status=400)
+    try:
+        new_date = set_publish_start(str(date_iso))
+        rows = ladders_dashboard_context()['ladders']
+    except LadderSupportError as exc:
+        return _ladder_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'publish_start': new_date,
+        'ladders': [r.to_dict() for r in rows],
+    })
