@@ -66,6 +66,13 @@ class TelegramLadderChannelPost(models.Model):
         help_text='X tweet id if also posted at 00:15 prepare (immediate; X has no schedule)',
     )
     twitter_error = models.TextField(blank=True, default='')
+    instagram_media_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        help_text='Instagram media id if also posted at 00:15 prepare (immediate)',
+    )
+    instagram_error = models.TextField(blank=True, default='')
     error = models.TextField(blank=True, default='')
 
     class Meta:

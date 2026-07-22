@@ -79,11 +79,12 @@ class LadderChannelScheduleTests(TestCase):
         png = render_ladder_teaser_png_pillow(self.task, ladder_number=1)
         self.assertTrue(png.startswith(b'\x89PNG'))
 
+    @patch('games.telegram.ladder_channel._maybe_post_ladder_to_instagram')
     @patch('games.telegram.ladder_channel._maybe_post_ladder_to_twitter')
     @patch('games.telegram.ladder_channel.send_photo')
     @patch('games.telegram.ladder_channel.schedule_channel_photo_sync')
     def test_schedule_uses_mtproto_schedule_date(
-        self, mtproto_mock, admin_photo_mock, twitter_mock
+        self, mtproto_mock, admin_photo_mock, twitter_mock, _instagram_mock
     ):
         mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
         admin_photo_mock.return_value = {'message_id': 1}
@@ -110,10 +111,13 @@ class LadderChannelScheduleTests(TestCase):
         mtproto_mock.assert_not_called()
         twitter_mock.assert_called_once_with(again, force=False)
 
+    @patch('games.telegram.ladder_channel._maybe_post_ladder_to_instagram')
     @patch('games.telegram.ladder_channel._maybe_post_ladder_to_twitter')
     @patch('games.telegram.ladder_channel.send_photo')
     @patch('games.telegram.ladder_channel.schedule_channel_photo_sync')
-    def test_tick_only_in_0015_window(self, mtproto_mock, _admin_photo_mock, _twitter_mock):
+    def test_tick_only_in_0015_window(
+        self, mtproto_mock, _admin_photo_mock, _twitter_mock, _instagram_mock
+    ):
         mtproto_mock.return_value = {'message_id': 7, 'scheduled': True}
         outside = datetime(2026, 7, 8, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         stats = process_ladder_channel_tick(now=outside)
@@ -137,9 +141,10 @@ class LadderChannelScheduleTests(TestCase):
         self.assertTrue(send_photo_mock.call_args.args[1].startswith(b'\x89PNG'))
         self.assertIn('Лесенка №1', kwargs['caption'])
 
+    @patch('games.telegram.ladder_channel._maybe_post_ladder_to_instagram')
     @patch('games.telegram.ladder_channel._maybe_post_ladder_to_twitter')
     @patch('games.telegram.ladder_channel.schedule_channel_photo_sync')
-    def test_schedule_refuses_after_1630(self, mtproto_mock, twitter_mock):
+    def test_schedule_refuses_after_1630(self, mtproto_mock, twitter_mock, _instagram_mock):
         late = datetime(2026, 7, 8, 19, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         post = schedule_ladder_channel_post(now=late, force=True, notify_admin=False)
         self.assertIsNotNone(post)
@@ -148,12 +153,13 @@ class LadderChannelScheduleTests(TestCase):
         mtproto_mock.assert_not_called()
         twitter_mock.assert_not_called()
 
+    @patch('games.telegram.ladder_channel._maybe_post_ladder_to_instagram')
     @patch('games.telegram.ladder_channel.post_tweet_with_image')
     @patch('games.telegram.ladder_channel.twitter_configured', return_value=True)
     @patch('games.telegram.ladder_channel.send_photo')
     @patch('games.telegram.ladder_channel.schedule_channel_photo_sync')
     def test_schedule_also_tweets(
-        self, mtproto_mock, _admin_photo_mock, _tw_cfg, tweet_mock
+        self, mtproto_mock, _admin_photo_mock, _tw_cfg, tweet_mock, _instagram_mock
     ):
         mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
         tweet_mock.return_value = {'data': {'id': '999888777'}}
@@ -170,6 +176,30 @@ class LadderChannelScheduleTests(TestCase):
         tweet_mock.reset_mock()
         schedule_ladder_channel_post(now=self.now, force=False, notify_admin=False)
         tweet_mock.assert_not_called()
+
+    @patch('games.telegram.ladder_channel.publish_image_url')
+    @patch('games.telegram.ladder_channel.publish_configured', return_value=True)
+    @patch('games.telegram.ladder_channel._maybe_post_ladder_to_twitter')
+    @patch('games.telegram.ladder_channel.send_photo')
+    @patch('games.telegram.ladder_channel.schedule_channel_photo_sync')
+    def test_schedule_also_posts_instagram(
+        self, mtproto_mock, _admin_photo_mock, _twitter_mock, _ig_cfg, publish_mock
+    ):
+        mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
+        publish_mock.return_value = '17999000111'
+        post = schedule_ladder_channel_post(now=self.now, force=True, notify_admin=False)
+        self.assertEqual(post.instagram_media_id, '17999000111')
+        self.assertEqual(post.instagram_error, '')
+        publish_mock.assert_called_once()
+        image_url, caption = publish_mock.call_args.args[0], publish_mock.call_args.args[1]
+        self.assertIn('/ladder/1/teaser.jpg', image_url)
+        self.assertIn('Лесенка №1', caption)
+        self.assertNotIn('<b>', caption)
+
+        # Idempotent: already posted to Instagram
+        publish_mock.reset_mock()
+        schedule_ladder_channel_post(now=self.now, force=False, notify_admin=False)
+        publish_mock.assert_not_called()
 
 
 class EnsurePlaywrightBrowsersPathTests(TestCase):

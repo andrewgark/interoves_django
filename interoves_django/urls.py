@@ -24,6 +24,7 @@ from microsites import views as microsites_views
 from games.views.meta_http import deploy_version
 from games.views.ticket import yookassa_webhook
 from games.views.order_game_landing import order_game_landing
+from games.views.instagram_feed import instagram_feed, ladder_teaser_jpg
 from games.telegram.urls import urlpatterns as telegram_urlpatterns
 
 nutrimatic_patterns = [
@@ -79,6 +80,8 @@ urlpatterns = [
     path('tickets/', RedirectView.as_view(url='/pay/', permanent=True), name='legacy_tickets'),
     path('ticket-agreement/', TemplateView.as_view(template_name="ticket-agreement.html")),
     path('vpn/', TemplateView.as_view(template_name="new/pigeon_vpn.html"), name='pigeon_vpn'),
+    path('instagram/', instagram_feed, name='instagram_feed'),
+    path('ladder/<int:number>/teaser.jpg', ladder_teaser_jpg, name='ladder_teaser_jpg'),
     path('order-game/', order_game_landing, name='order_game_landing'),
     path('corporate/', RedirectView.as_view(url='/order-game/', permanent=True), name='corporate_landing'),
 

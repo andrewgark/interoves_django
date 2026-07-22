@@ -38,6 +38,7 @@ from games.twitter.api import (
     post_tweet_with_image,
     twitter_configured,
 )
+from games.instagram.api import publish_configured, publish_image_url
 
 logger = logging.getLogger('application')
 
@@ -105,6 +106,49 @@ def resolve_today_ladder(now: datetime | None = None) -> TodayLadder | None:
     if task is None:
         return None
     # Canonical public URL (not /sections/… from game.project).
+    play_url = admin_url('/games/ladder/{}/'.format(number))
+    return TodayLadder(
+        game=game,
+        number=number,
+        link=link,
+        task=task,
+        play_url=play_url,
+        ladder_date=msk.date(),
+    )
+
+
+def resolve_ladder_by_number(number: int, now: datetime | None = None) -> TodayLadder | None:
+    """Like resolve_today_ladder but for a specific (published) ladder number."""
+    now = now or timezone.now()
+    msk = moscow_now(now)
+    game = Game.objects.filter(id=LADDER_GAME_ID).first()
+    if game is None:
+        return None
+    if not is_ladder_number_published(game, number, now):
+        return None
+    link = (
+        GameTaskGroup.objects
+        .filter(game=game, number=str(number))
+        .select_related('task_group')
+        .first()
+    )
+    if link is None or link.task_group_id is None:
+        return None
+    task = (
+        Task.objects
+        .filter(task_group_id=link.task_group_id, task_type='raddle')
+        .order_by('id')
+        .first()
+    )
+    if task is None:
+        task = (
+            Task.objects
+            .filter(task_group_id=link.task_group_id)
+            .order_by('id')
+            .first()
+        )
+    if task is None:
+        return None
     play_url = admin_url('/games/ladder/{}/'.format(number))
     return TodayLadder(
         game=game,
@@ -203,6 +247,7 @@ def schedule_ladder_channel_post(
         TelegramLadderChannelPost.STATUS_SENT,
     ) and not force:
         _maybe_post_ladder_to_twitter(existing, force=False)
+        _maybe_post_ladder_to_instagram(existing, force=False)
         return existing
     # Another instance may be mid-flight (multi-instance ASG + cron on each host).
     if (
@@ -236,6 +281,7 @@ def schedule_ladder_channel_post(
                 TelegramLadderChannelPost.STATUS_SENT,
             ) and not force:
                 _maybe_post_ladder_to_twitter(existing, force=False)
+                _maybe_post_ladder_to_instagram(existing, force=False)
                 return existing
             if (
                 existing
@@ -379,6 +425,7 @@ def schedule_ladder_channel_post(
     # X has no organic schedule: tweet immediately when we queue Telegram for 16:30
     # (same 00:15 MSK cron). Failures are recorded but do not roll back Telegram.
     _maybe_post_ladder_to_twitter(post, force=force)
+    _maybe_post_ladder_to_instagram(post, force=force)
     return post
 
 
@@ -420,6 +467,51 @@ def _maybe_post_ladder_to_twitter(
         logger.exception('Ladder №%s Twitter post failed', post.ladder_number)
         post.twitter_error = str(exc)[:500]
         post.save(update_fields=['twitter_error'])
+
+
+def _maybe_post_ladder_to_instagram(
+    post: TelegramLadderChannelPost,
+    *,
+    force: bool = False,
+) -> None:
+    """Publish the same teaser to Instagram (@interoveslocumpraesta) immediately.
+
+    Like X, Instagram has no organic schedule, so we post now when we queue Telegram for
+    16:30 (same 00:15 MSK cron). Instagram fetches the image from a public URL, so we point
+    it at the on-site JPEG teaser endpoint. Failures are recorded, never roll back Telegram.
+    """
+    from django.conf import settings
+    from django.urls import reverse
+
+    if post.status not in (
+        TelegramLadderChannelPost.STATUS_SCHEDULED,
+        TelegramLadderChannelPost.STATUS_SENT,
+    ):
+        return
+    if post.instagram_media_id and not force:
+        return
+    if not publish_configured():
+        logger.info(
+            'Ladder №%s: Instagram skipped (INSTAGRAM_ACCESS_TOKEN not configured)',
+            post.ladder_number,
+        )
+        return
+    caption = html_caption_to_plain(post.caption)
+    if not caption:
+        caption = 'Лесенка №{}\n{}'.format(post.ladder_number, post.play_url)
+    image_url = settings.SITE_BASE_URL + reverse(
+        'ladder_teaser_jpg', args=[post.ladder_number]
+    )
+    try:
+        media_id = publish_image_url(image_url, caption)
+        post.instagram_media_id = media_id
+        post.instagram_error = ''
+        post.save(update_fields=['instagram_media_id', 'instagram_error'])
+        logger.info('Ladder №%s posted to Instagram id=%s', post.ladder_number, media_id)
+    except Exception as exc:
+        logger.exception('Ladder №%s Instagram post failed', post.ladder_number)
+        post.instagram_error = str(exc)[:500]
+        post.save(update_fields=['instagram_error'])
 
 
 # Backward-compatible aliases used by the management command.

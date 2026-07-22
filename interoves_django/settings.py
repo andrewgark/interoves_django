@@ -714,6 +714,21 @@ TWITTER_ACCESS_TOKEN_SECRET = load_secret(
 )
 TWITTER_HANDLE = (os.environ.get('TWITTER_HANDLE') or 'interoves').strip() or 'interoves'
 
+# Instagram (@interoveslocumpraesta) — Instagram API with Instagram Login (graph.instagram.com).
+# INSTAGRAM_ACCESS_TOKEN is a long-lived (60-day) Instagram User token; refresh it before it
+# expires with `manage.py instagram_refresh_token`. App ID is public; App Secret is sensitive.
+INSTAGRAM_APP_ID = load_secret('instagram_app_id.txt', env_var='INSTAGRAM_APP_ID', default='')
+INSTAGRAM_APP_SECRET = load_secret('instagram_app_secret.txt', env_var='INSTAGRAM_APP_SECRET', default='')
+INSTAGRAM_ACCESS_TOKEN = load_secret(
+    'instagram_access_token.txt', env_var='INSTAGRAM_ACCESS_TOKEN', default=''
+)
+INSTAGRAM_USERNAME = (os.environ.get('INSTAGRAM_USERNAME') or 'interoveslocumpraesta').strip()
+# Seconds to cache the fetched feed (avoid hitting the Graph API on every page view).
+try:
+    INSTAGRAM_FEED_CACHE_SECONDS = int(os.environ.get('INSTAGRAM_FEED_CACHE_SECONDS') or 600)
+except ValueError:
+    INSTAGRAM_FEED_CACHE_SECONDS = 600
+
 if IS_PROD:
     EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
     EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
