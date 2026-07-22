@@ -37,6 +37,15 @@ from games.support.services.search import search
 from games.support.services.sections import get_sections_dashboard
 from games.support.services.stats import collect_support_stats
 from games.support.services.stuck import get_stuck_teams
+from games.support.services.social import (
+    SocialSupportError,
+    create_post as social_create_post,
+    get_post as social_get_post,
+    list_posts as social_list_posts,
+    publish_network as social_publish_network,
+    serialize_post as social_serialize_post,
+    update_post as social_update_post,
+)
 
 
 def _json_body(request):
@@ -434,3 +443,73 @@ def ladders_set_publish_start(request):
         'publish_start': new_date,
         'ladders': [r.to_dict() for r in rows],
     })
+
+
+def _social_error_response(exc: SocialSupportError, status=400):
+    return JsonResponse({'ok': False, 'error': str(exc)}, status=status)
+
+
+@support_console_required
+def social_dashboard(request):
+    posts = social_list_posts()
+    return render(request, 'support/social.html', {
+        'page_title': 'Посты',
+        'posts_json': posts,
+    })
+
+
+@support_console_required
+@require_POST
+def social_create(request):
+    caption = (request.POST.get('caption') or '').strip()
+    image = request.FILES.get('image')
+    try:
+        post = social_create_post(caption=caption, image_file=image)
+    except SocialSupportError as exc:
+        return _social_error_response(exc)
+    return JsonResponse({'ok': True, 'post': social_serialize_post(post)})
+
+
+@support_console_required
+@require_POST
+def social_update(request, post_id):
+    try:
+        post = social_get_post(post_id)
+    except SocialSupportError as exc:
+        return _social_error_response(exc, status=404)
+    caption = request.POST.get('caption')
+    image = request.FILES.get('image')
+    # JSON body fallback for caption-only edits
+    if caption is None and not request.FILES:
+        body = _json_body(request)
+        if body is not None:
+            caption = body.get('caption')
+    try:
+        post = social_update_post(
+            post,
+            caption=caption if caption is not None else None,
+            image_file=image,
+        )
+    except SocialSupportError as exc:
+        return _social_error_response(exc)
+    return JsonResponse({'ok': True, 'post': social_serialize_post(post)})
+
+
+@support_console_required
+@require_POST
+def social_publish(request, post_id):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    try:
+        post = social_get_post(post_id)
+        post = social_publish_network(
+            post,
+            str(body.get('network') or ''),
+            force=bool(body.get('force')),
+            immediate=bool(body.get('immediate', True)),
+            schedule_at=body.get('schedule_at'),
+        )
+    except SocialSupportError as exc:
+        return _social_error_response(exc, status=404 if 'not found' in str(exc).lower() else 400)
+    return JsonResponse({'ok': True, 'post': social_serialize_post(post)})

@@ -25,6 +25,7 @@ from games.views.meta_http import deploy_version
 from games.views.ticket import yookassa_webhook
 from games.views.order_game_landing import order_game_landing
 from games.views.instagram_feed import instagram_feed, ladder_teaser_jpg
+from games.social.views import social_queue_instagram_jpg
 from games.telegram.urls import urlpatterns as telegram_urlpatterns
 
 nutrimatic_patterns = [
@@ -82,6 +83,11 @@ urlpatterns = [
     path('vpn/', TemplateView.as_view(template_name="new/pigeon_vpn.html"), name='pigeon_vpn'),
     path('instagram/', instagram_feed, name='instagram_feed'),
     path('ladder/<int:number>/teaser.jpg', ladder_teaser_jpg, name='ladder_teaser_jpg'),
+    path(
+        'social/queue/<int:pk>/instagram.jpg',
+        social_queue_instagram_jpg,
+        name='social_queue_instagram_jpg',
+    ),
     path('order-game/', order_game_landing, name='order_game_landing'),
     path('corporate/', RedirectView.as_view(url='/order-game/', permanent=True), name='corporate_landing'),
 
@@ -109,6 +115,9 @@ urlpatterns = [
 # In development, serve from STATICFILES_DIRS and app static (not only STATIC_ROOT).
 # Plain static(STATIC_URL, STATIC_ROOT) misses files that exist only under static/ until collectstatic.
 if settings.DEBUG and not getattr(settings, "IS_PROD", False):
+    from django.conf.urls.static import static
     from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
     urlpatterns += staticfiles_urlpatterns()
+    if getattr(settings, 'MEDIA_ROOT', None):
+        urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

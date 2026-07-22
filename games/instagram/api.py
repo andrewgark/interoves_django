@@ -219,23 +219,39 @@ def get_user_id() -> str:
     return uid
 
 
-def png_to_instagram_jpeg(png_bytes: bytes, *, bg: tuple[int, int, int] = (247, 244, 239)) -> bytes:
-    """Convert a PNG to a square JPEG on a solid background.
+# Instagram content publishing accepts JPEG with aspect ratio in [4:5, 1.91:1].
+_IG_RATIO_MIN = 4 / 5  # 0.8 (portrait)
+_IG_RATIO_MAX = 1.91   # landscape
 
-    Instagram's content-publishing API only accepts JPEG and requires an aspect ratio
-    between 4:5 and 1.91:1; padding to a square (1:1) is always within range regardless
-    of the teaser's dimensions.
+
+def to_instagram_jpeg(image_bytes: bytes, *, bg: tuple[int, int, int] = (247, 244, 239)) -> bytes:
+    """Convert an image to JPEG for Instagram, padding to square only if ratio is out of range.
+
+    Valid ratios (width/height) are 4:5 … 1.91:1. Images already in range keep their
+    proportions; others are centered on a square canvas.
     """
     from PIL import Image
 
-    im = Image.open(io.BytesIO(png_bytes)).convert('RGB')
+    im = Image.open(io.BytesIO(image_bytes)).convert('RGB')
     w, h = im.size
+    if w > 0 and h > 0:
+        ratio = w / h
+        if _IG_RATIO_MIN <= ratio <= _IG_RATIO_MAX:
+            out = io.BytesIO()
+            im.save(out, format='JPEG', quality=90)
+            return out.getvalue()
+
     side = max(w, h)
     canvas = Image.new('RGB', (side, side), bg)
     canvas.paste(im, ((side - w) // 2, (side - h) // 2))
     out = io.BytesIO()
     canvas.save(out, format='JPEG', quality=90)
     return out.getvalue()
+
+
+def png_to_instagram_jpeg(png_bytes: bytes, *, bg: tuple[int, int, int] = (247, 244, 239)) -> bytes:
+    """Backward-compatible alias for :func:`to_instagram_jpeg`."""
+    return to_instagram_jpeg(png_bytes, bg=bg)
 
 
 def publish_image_url(image_url: str, caption: str, *, wait_seconds: int = 60) -> str:

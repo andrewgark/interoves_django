@@ -1,23 +1,20 @@
 """Post a ladder teaser to Instagram now (manual test / catch-up).
 
-Defaults to today's published ladder. Publishes immediately to @interoveslocumpraesta and,
-if a TelegramLadderChannelPost row exists for that day, records the media id on it. This is
-the same publishing path the 00:15 MSK cron uses (via _maybe_post_ladder_to_instagram), so
-it's a faithful test of the cron behaviour.
+Defaults to today's published ladder. Uses SocialQueuePost when present (same path as
+the 00:15 MSK cron); otherwise creates/updates a ladder queue row and publishes.
 """
 
-from django.conf import settings
 from django.core.management.base import BaseCommand
-from django.urls import reverse
 
-from games.instagram.api import publish_configured, publish_image_url
-from games.twitter.api import html_caption_to_plain
+from games.instagram.api import publish_configured
+from games.social.models import SocialQueuePost
+from games.social.publish import publish_instagram
 from games.telegram.ladder_channel import (
     build_caption,
     resolve_ladder_by_number,
     resolve_today_ladder,
 )
-from games.telegram.models import TelegramLadderChannelPost
+from games.telegram.ladder_image import render_ladder_teaser_png
 
 
 class Command(BaseCommand):
@@ -25,6 +22,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--number', type=int, help='Ladder number (default: today).')
+        parser.add_argument(
+            '--force',
+            action='store_true',
+            help='Repost even if already recorded as sent',
+        )
 
     def handle(self, *args, **options):
         if not publish_configured():
@@ -32,6 +34,7 @@ class Command(BaseCommand):
             return
 
         number = options.get('number')
+        force = options.get('force')
         ladder = resolve_ladder_by_number(number) if number else resolve_today_ladder()
         if ladder is None:
             self.stderr.write(
@@ -41,34 +44,39 @@ class Command(BaseCommand):
             )
             return
 
-        caption = html_caption_to_plain(build_caption(ladder))
-        if not caption:
-            caption = 'Лесенка №{}\n{}'.format(ladder.number, ladder.play_url)
-        image_url = settings.SITE_BASE_URL + reverse(
-            'ladder_teaser_jpg', args=[ladder.number]
-        )
-        self.stdout.write('Image URL: {}'.format(image_url))
+        post = SocialQueuePost.objects.filter(
+            source=SocialQueuePost.SOURCE_LADDER,
+            ladder_date=ladder.ladder_date,
+        ).first()
+        if post is None:
+            post = SocialQueuePost(
+                source=SocialQueuePost.SOURCE_LADDER,
+                ladder_date=ladder.ladder_date,
+                ladder_number=ladder.number,
+                play_url=ladder.play_url,
+            )
+        post.ladder_number = ladder.number
+        post.play_url = ladder.play_url
+        if not post.caption:
+            post.caption = build_caption(ladder)
+        if not post.image:
+            png = render_ladder_teaser_png(ladder.task, ladder_number=ladder.number)
+            post.set_image_bytes(png, filename='ladder-{}.png'.format(ladder.number))
+        post.save()
 
-        try:
-            media_id = publish_image_url(image_url, caption)
-        except RuntimeError as exc:
-            self.stderr.write('Instagram publish failed: {}'.format(exc))
-            return
-
-        self.stdout.write(
-            self.style.SUCCESS(
-                'Published ladder №{} to Instagram; media_id={}'.format(
-                    ladder.number, media_id
+        publish_instagram(post, force=force)
+        post.refresh_from_db()
+        if post.instagram_status == SocialQueuePost.STATUS_SENT:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    'Published ladder №{} to Instagram; media_id={}'.format(
+                        post.ladder_number, post.instagram_external_id,
+                    )
                 )
             )
-        )
-
-        # Best-effort: record on today's channel post if it exists.
-        post = TelegramLadderChannelPost.objects.filter(
-            ladder_date=ladder.ladder_date
-        ).first()
-        if post is not None:
-            post.instagram_media_id = media_id
-            post.instagram_error = ''
-            post.save(update_fields=['instagram_media_id', 'instagram_error'])
-            self.stdout.write('Recorded media id on TelegramLadderChannelPost.')
+        else:
+            self.stderr.write(
+                'Instagram status={} error={}'.format(
+                    post.instagram_status, post.instagram_error,
+                )
+            )

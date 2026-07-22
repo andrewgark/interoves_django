@@ -1,0 +1,263 @@
+{% extends "support/base.html" %}
+{% load static %}
+
+{% block support_content %}
+{% csrf_token %}
+{{ posts_json|json_script:"social-bootstrap" }}
+<h1 class="support-page-title">Посты</h1>
+<p class="support-lead">
+  Очередь картинка + текст для Telegram / X / Instagram.
+  Вставьте картинку из буфера (Ctrl+V) в зону ниже или выберите файл.
+  По каждой сети — статус и кнопка повторной отправки.
+</p>
+
+<section class="pal-card support-card support-social-create">
+  <h2 class="support-social-h2">Новый пост</h2>
+  <label class="support-ladders-field">
+    <span>Подпись</span>
+    <textarea id="social-caption" rows="4" placeholder="Текст поста…"></textarea>
+  </label>
+  <div
+    class="support-social-drop"
+    id="social-drop"
+    tabindex="0"
+    role="button"
+    aria-label="Вставить или выбрать картинку"
+  >
+    <img id="social-preview" alt="" hidden>
+    <p class="support-hint" id="social-drop-hint">
+      Ctrl+V — вставить из буфера · или клик / перетащите файл
+    </p>
+    <input type="file" id="social-file" accept="image/*" hidden>
+  </div>
+  <div class="support-action-row" style="margin-top:0.85rem">
+    <button type="button" class="new-btn" id="social-create-btn">Создать</button>
+    <span class="support-hint" id="social-create-status"></span>
+  </div>
+</section>
+
+<section class="pal-card support-card">
+  <div class="support-social-list" id="social-list" aria-label="Очередь постов"></div>
+</section>
+
+<script>
+(function () {
+  var posts = JSON.parse(document.getElementById('social-bootstrap').textContent || '[]');
+  var endpoints = {
+    create: "{% url 'support:social_create' %}",
+    updateTpl: "{% url 'support:social_update' 0 %}".replace('/0/', '/{id}/'),
+    publishTpl: "{% url 'support:social_publish' 0 %}".replace('/0/', '/{id}/')
+  };
+  var listEl = document.getElementById('social-list');
+  var captionEl = document.getElementById('social-caption');
+  var dropEl = document.getElementById('social-drop');
+  var previewEl = document.getElementById('social-preview');
+  var hintEl = document.getElementById('social-drop-hint');
+  var fileEl = document.getElementById('social-file');
+  var statusEl = document.getElementById('social-create-status');
+  var pendingFile = null;
+
+  function csrf() {
+    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+
+  function setPendingFile(file) {
+    pendingFile = file || null;
+    if (!pendingFile) {
+      previewEl.hidden = true;
+      previewEl.removeAttribute('src');
+      hintEl.hidden = false;
+      return;
+    }
+    hintEl.hidden = true;
+    previewEl.hidden = false;
+    previewEl.src = URL.createObjectURL(pendingFile);
+  }
+
+  function extractImageFromClipboard(e) {
+    var items = (e.clipboardData && e.clipboardData.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf('image/') === 0) {
+        return items[i].getAsFile();
+      }
+    }
+    var files = (e.clipboardData && e.clipboardData.files) || [];
+    for (var j = 0; j < files.length; j++) {
+      if (files[j].type && files[j].type.indexOf('image/') === 0) {
+        return files[j];
+      }
+    }
+    return null;
+  }
+
+  dropEl.addEventListener('click', function () { fileEl.click(); });
+  fileEl.addEventListener('change', function () {
+    if (fileEl.files && fileEl.files[0]) setPendingFile(fileEl.files[0]);
+  });
+  dropEl.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    dropEl.classList.add('is-drag');
+  });
+  dropEl.addEventListener('dragleave', function () {
+    dropEl.classList.remove('is-drag');
+  });
+  dropEl.addEventListener('drop', function (e) {
+    e.preventDefault();
+    dropEl.classList.remove('is-drag');
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) setPendingFile(f);
+  });
+  document.addEventListener('paste', function (e) {
+    var img = extractImageFromClipboard(e);
+    if (!img) return;
+    e.preventDefault();
+    setPendingFile(img);
+    dropEl.focus();
+  });
+
+  function statusBadge(network, info) {
+    var st = (info && info.status) || 'pending';
+    var cls = 'support-social-badge support-social-badge--' + st;
+    var label = network.toUpperCase() + ': ' + st;
+    var title = (info && info.error) ? info.error : ((info && info.external_id) || '');
+    return '<span class="' + cls + '" title="' + (title || '').replace(/"/g, '&quot;') + '">' + label + '</span>';
+  }
+
+  function networkRow(post, network, info) {
+    var done = info.status === 'sent' || info.status === 'scheduled';
+    var failed = info.status === 'failed';
+    var btnLabel = done || failed ? 'Ещё раз' : 'Отправить';
+    var force = done || failed;
+    var extra = '';
+    if (network === 'telegram') {
+      extra =
+        '<label class="support-social-schedule">' +
+        '<span>отложка</span>' +
+        '<input type="datetime-local" data-schedule="' + post.id + '">' +
+        '</label>';
+    }
+    return (
+      '<div class="support-social-net">' +
+        statusBadge(network, info) +
+        (info.error ? '<span class="support-hint support-social-err">' + escapeHtml(info.error) + '</span>' : '') +
+        extra +
+        '<button type="button" class="new-btn new-btn--mini" data-publish="' + post.id +
+          '" data-network="' + network + '" data-force="' + (force ? '1' : '0') + '">' +
+          btnLabel +
+        '</button>' +
+      '</div>'
+    );
+  }
+
+  function escapeHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function render() {
+    if (!posts.length) {
+      listEl.innerHTML = '<p class="support-hint">Пока пусто.</p>';
+      return;
+    }
+    listEl.innerHTML = posts.map(function (p) {
+      var cap = escapeHtml((p.caption || '').slice(0, 220));
+      var srcLabel = p.source === 'ladder'
+        ? ('лесенка №' + (p.ladder_number || '?'))
+        : 'ручной';
+      var img = p.image_url
+        ? '<img class="support-social-thumb" src="' + escapeHtml(p.image_url) + '" alt="">'
+        : '<div class="support-social-thumb support-social-thumb--empty">нет фото</div>';
+      return (
+        '<article class="support-social-item" data-id="' + p.id + '">' +
+          img +
+          '<div class="support-social-item__body">' +
+            '<div class="support-social-item__meta">#' + p.id + ' · ' + srcLabel + '</div>' +
+            '<div class="support-social-item__caption">' + (cap || '<span class="support-hint">без подписи</span>') + '</div>' +
+            networkRow(p, 'telegram', p.telegram) +
+            networkRow(p, 'twitter', p.twitter) +
+            networkRow(p, 'instagram', p.instagram) +
+          '</div>' +
+        '</article>'
+      );
+    }).join('');
+  }
+
+  function upsertPost(post) {
+    var idx = -1;
+    for (var i = 0; i < posts.length; i++) {
+      if (posts[i].id === post.id) { idx = i; break; }
+    }
+    if (idx >= 0) posts[idx] = post;
+    else posts.unshift(post);
+    render();
+  }
+
+  document.getElementById('social-create-btn').addEventListener('click', function () {
+    statusEl.textContent = '…';
+    var fd = new FormData();
+    fd.append('caption', captionEl.value || '');
+    if (pendingFile) fd.append('image', pendingFile, pendingFile.name || 'paste.png');
+    fetch(endpoints.create, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrf() },
+      body: fd
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data.ok) {
+        statusEl.textContent = data.error || 'ошибка';
+        return;
+      }
+      statusEl.textContent = 'создано #' + data.post.id;
+      captionEl.value = '';
+      setPendingFile(null);
+      fileEl.value = '';
+      upsertPost(data.post);
+    }).catch(function (err) {
+      statusEl.textContent = String(err);
+    });
+  });
+
+  listEl.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-publish]');
+    if (!btn) return;
+    var id = btn.getAttribute('data-publish');
+    var network = btn.getAttribute('data-network');
+    var force = btn.getAttribute('data-force') === '1';
+    var body = { network: network, force: force, immediate: true };
+    if (network === 'telegram') {
+      var schedInput = listEl.querySelector('input[data-schedule="' + id + '"]');
+      if (schedInput && schedInput.value) {
+        body.immediate = false;
+        body.schedule_at = schedInput.value.length === 16
+          ? schedInput.value + ':00'
+          : schedInput.value;
+      }
+    }
+    btn.disabled = true;
+    fetch(endpoints.publishTpl.replace('{id}', id), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf()
+      },
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      btn.disabled = false;
+      if (!data.ok) {
+        alert(data.error || 'ошибка');
+        return;
+      }
+      upsertPost(data.post);
+    }).catch(function (err) {
+      btn.disabled = false;
+      alert(String(err));
+    });
+  });
+
+  render();
+})();
+</script>
+{% endblock %}

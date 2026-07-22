@@ -16,6 +16,7 @@
     <a href="{% url 'support:games' %}" {% if request.resolver_match.url_name == 'games' %}aria-current="page"{% endif %}>Игры</a>
     <a href="{% url 'support:sections' %}" {% if request.resolver_match.url_name == 'sections' %}aria-current="page"{% endif %}>Разделы</a>
     <a href="{% url 'support:ladders' %}" {% if request.resolver_match.url_name == 'ladders' %}aria-current="page"{% endif %}>Лесенки</a>
+    <a href="{% url 'support:social' %}" {% if request.resolver_match.url_name == 'social' %}aria-current="page"{% endif %}>Посты</a>
     <a href="{% url 'support:stats' %}" {% if request.resolver_match.url_name == 'stats' %}aria-current="page"{% endif %}>Статистика</a>
     <a href="{% url 'support:pending' %}" {% if request.resolver_match.url_name == 'pending' %}aria-current="page"{% endif %}>Pending</a>
     <a href="{% url 'support:live' %}" {% if request.resolver_match.url_name == 'live' %}aria-current="page"{% endif %}>Live</a>

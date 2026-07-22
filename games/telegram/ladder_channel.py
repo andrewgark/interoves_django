@@ -1,4 +1,4 @@
-"""Daily ladder post for the public Telegram channel via MTProto schedule_date."""
+"""Daily ladder post for the public Telegram channel via SocialQueuePost."""
 
 from __future__ import annotations
 
@@ -18,27 +18,17 @@ from games.ladder_daily import (
     is_ladder_number_published,
 )
 from games.models import Game, GameTaskGroup, Task
+from games.social.models import SocialQueuePost
+from games.social.publish import publish_instagram, publish_telegram, publish_twitter
 from games.telegram.api import send_photo
 from games.telegram.config import (
     admin_chat_id,
-    channel_chat_id,
     telegram_admin_configured,
     telegram_channel_configured,
 )
 from games.telegram.game_urls import admin_url
 from games.telegram.ladder_image import render_ladder_teaser_png
-from games.telegram.models import TelegramLadderChannelPost
-from games.telegram.mtproto import (
-    delete_channel_messages_sync,
-    schedule_channel_photo_sync,
-    telegram_user_configured,
-)
-from games.twitter.api import (
-    html_caption_to_plain,
-    post_tweet_with_image,
-    twitter_configured,
-)
-from games.instagram.api import publish_configured, publish_image_url
+from games.telegram.mtproto import telegram_user_configured
 
 logger = logging.getLogger('application')
 
@@ -105,7 +95,6 @@ def resolve_today_ladder(now: datetime | None = None) -> TodayLadder | None:
         )
     if task is None:
         return None
-    # Canonical public URL (not /sections/… from game.project).
     play_url = admin_url('/games/ladder/{}/'.format(number))
     return TodayLadder(
         game=game,
@@ -185,10 +174,7 @@ def ladder_channel_ready() -> bool:
 
 
 def preview_ladder_to_admin(*, now: datetime | None = None) -> tuple[bool, str]:
-    """
-    Render today's ladder teaser and send it to the admin bot chat only
-    (never to the public channel).
-    """
+    """Render today's ladder teaser and send it to the admin bot chat only."""
     if not telegram_admin_configured():
         return False, 'TELEGRAM_ADMIN_CHAT_ID / bot token not configured'
 
@@ -216,19 +202,30 @@ def preview_ladder_to_admin(*, now: datetime | None = None) -> tuple[bool, str]:
     )
 
 
+def _is_preparing(post: SocialQueuePost) -> bool:
+    return (
+        post.telegram_status == SocialQueuePost.STATUS_PENDING
+        and post.telegram_error == 'preparing'
+    )
+
+
+def _maybe_finish_other_networks(post: SocialQueuePost, *, force: bool = False) -> None:
+    if not post.telegram_ok:
+        return
+    publish_twitter(post, force=force)
+    publish_instagram(post, force=force)
+
+
 def schedule_ladder_channel_post(
     *,
     now: datetime | None = None,
     force: bool = False,
     immediate: bool = False,
     notify_admin: bool = True,
-) -> TelegramLadderChannelPost | None:
+) -> SocialQueuePost | None:
     """
-    At ~00:15 MSK: render today's ladder and put a photo into the channel's
-    Telegram scheduled queue for 16:30 MSK (MTProto schedule_date via Telethon).
-
-    Requires a *user* session that can post to the channel — bots get
-    SCHEDULE_BOT_NOT_ALLOWED even over MTProto.
+    At ~00:15 MSK: render today's ladder into a SocialQueuePost and schedule Telegram
+    for 16:30 MSK; post X and Instagram immediately.
     """
     if not ladder_channel_ready():
         logger.debug(
@@ -241,67 +238,43 @@ def schedule_ladder_channel_post(
         logger.warning('Ladder channel schedule skipped: no published ladder for today')
         return None
 
-    existing = TelegramLadderChannelPost.objects.filter(ladder_date=ladder.ladder_date).first()
-    if existing and existing.status in (
-        TelegramLadderChannelPost.STATUS_SCHEDULED,
-        TelegramLadderChannelPost.STATUS_SENT,
-    ) and not force:
-        _maybe_post_ladder_to_twitter(existing, force=False)
-        _maybe_post_ladder_to_instagram(existing, force=False)
+    existing = SocialQueuePost.objects.filter(
+        source=SocialQueuePost.SOURCE_LADDER,
+        ladder_date=ladder.ladder_date,
+    ).first()
+    if existing and existing.telegram_ok and not force:
+        _maybe_finish_other_networks(existing, force=False)
         return existing
-    # Another instance may be mid-flight (multi-instance ASG + cron on each host).
     if (
         existing
         and not force
-        and existing.status == TelegramLadderChannelPost.STATUS_FAILED
-        and existing.error == 'preparing'
-        and (timezone.now() - existing.prepared_at) < timedelta(minutes=2)
+        and _is_preparing(existing)
+        and (timezone.now() - existing.created_at) < timedelta(minutes=2)
     ):
         return existing
 
-    # Claim the calendar day before talking to Telegram (unique ladder_date).
     if existing is None:
         try:
             with transaction.atomic():
-                existing = TelegramLadderChannelPost.objects.create(
+                existing = SocialQueuePost.objects.create(
+                    source=SocialQueuePost.SOURCE_LADDER,
                     ladder_date=ladder.ladder_date,
                     ladder_number=ladder.number,
                     play_url=ladder.play_url,
                     caption='',
-                    image_png=b'',
-                    status=TelegramLadderChannelPost.STATUS_FAILED,
-                    error='preparing',
+                    telegram_status=SocialQueuePost.STATUS_PENDING,
+                    telegram_error='preparing',
                 )
         except IntegrityError:
-            existing = TelegramLadderChannelPost.objects.filter(
+            existing = SocialQueuePost.objects.filter(
+                source=SocialQueuePost.SOURCE_LADDER,
                 ladder_date=ladder.ladder_date,
             ).first()
-            if existing and existing.status in (
-                TelegramLadderChannelPost.STATUS_SCHEDULED,
-                TelegramLadderChannelPost.STATUS_SENT,
-            ) and not force:
-                _maybe_post_ladder_to_twitter(existing, force=False)
-                _maybe_post_ladder_to_instagram(existing, force=False)
+            if existing and existing.telegram_ok and not force:
+                _maybe_finish_other_networks(existing, force=False)
                 return existing
-            if (
-                existing
-                and not force
-                and existing.status == TelegramLadderChannelPost.STATUS_FAILED
-                and existing.error == 'preparing'
-            ):
+            if existing and not force and _is_preparing(existing):
                 return existing
-
-    if force and existing and existing.telegram_message_id:
-        try:
-            delete_channel_messages_sync(
-                chat=channel_chat_id(),
-                message_ids=[int(existing.telegram_message_id)],
-            )
-        except Exception:
-            logger.exception(
-                'Failed to delete previous ladder channel message_id=%s',
-                existing.telegram_message_id,
-            )
 
     try:
         image_png = render_ladder_teaser_png(ladder.task, ladder_number=ladder.number)
@@ -309,212 +282,73 @@ def schedule_ladder_channel_post(
     except Exception:
         logger.exception('Ladder channel render failed for №%s', ladder.number)
         if existing:
-            existing.status = TelegramLadderChannelPost.STATUS_FAILED
-            existing.error = 'render failed'
-            existing.save(update_fields=['status', 'error'])
+            existing.ladder_number = ladder.number
+            existing.play_url = ladder.play_url
+            existing.telegram_status = SocialQueuePost.STATUS_FAILED
+            existing.telegram_error = 'render failed'
+            existing.save(update_fields=[
+                'ladder_number', 'play_url', 'telegram_status', 'telegram_error', 'updated_at',
+            ])
             return existing
         return None
+
+    existing.ladder_number = ladder.number
+    existing.play_url = ladder.play_url
+    existing.caption = caption
+    existing.set_image_bytes(image_png, filename='ladder-{}.png'.format(ladder.number))
+    existing.telegram_error = ''
+    existing.save()
 
     schedule_at = None if immediate else publish_at_for_date(ladder.ladder_date)
     msk = moscow_now(now)
     if schedule_at is not None and schedule_at <= msk + timedelta(seconds=10):
-        # Never auto-publish: if 16:30 MSK already passed, skip (use --now only if intentional).
         error = (
             '16:30 MSK already passed for {}; refusing to post immediately. '
             'Use --now only if you really want to publish now.'.format(ladder.ladder_date)
         )
         logger.warning(error)
-        if existing:
-            existing.ladder_number = ladder.number
-            existing.play_url = ladder.play_url
-            existing.caption = caption
-            existing.image_png = image_png
-            existing.status = TelegramLadderChannelPost.STATUS_FAILED
-            existing.error = error
-            existing.scheduled_for = schedule_at
-            existing.save()
-            return existing
-        return TelegramLadderChannelPost.objects.create(
-            ladder_date=ladder.ladder_date,
-            ladder_number=ladder.number,
-            play_url=ladder.play_url,
-            caption=caption,
-            image_png=image_png,
-            status=TelegramLadderChannelPost.STATUS_FAILED,
-            error=error,
-            scheduled_for=schedule_at,
-        )
+        existing.telegram_status = SocialQueuePost.STATUS_FAILED
+        existing.telegram_error = error
+        existing.telegram_scheduled_for = schedule_at
+        existing.save(update_fields=[
+            'telegram_status', 'telegram_error', 'telegram_scheduled_for', 'updated_at',
+        ])
+        return existing
 
-    try:
-        result = schedule_channel_photo_sync(
-            chat=channel_chat_id(),
-            photo_bytes=image_png,
-            caption=caption,
-            schedule_at=schedule_at,
-            filename='ladder-{}.png'.format(ladder.number),
-        )
-    except Exception as exc:
-        logger.exception('Ladder channel MTProto schedule failed for №%s', ladder.number)
-        error = str(exc)[:500]
-        if existing:
-            existing.ladder_number = ladder.number
-            existing.play_url = ladder.play_url
-            existing.caption = caption
-            existing.image_png = image_png
-            existing.status = TelegramLadderChannelPost.STATUS_FAILED
-            existing.error = error
-            existing.save()
-            return existing
-        return TelegramLadderChannelPost.objects.create(
-            ladder_date=ladder.ladder_date,
-            ladder_number=ladder.number,
-            play_url=ladder.play_url,
-            caption=caption,
-            image_png=image_png,
-            status=TelegramLadderChannelPost.STATUS_FAILED,
-            error=error,
-            scheduled_for=schedule_at,
-        )
-
-    status = (
-        TelegramLadderChannelPost.STATUS_SENT
-        if immediate or schedule_at is None
-        else TelegramLadderChannelPost.STATUS_SCHEDULED
+    publish_telegram(
+        existing,
+        immediate=immediate,
+        schedule_at=schedule_at,
+        force=force,
     )
-    fields = {
-        'ladder_number': ladder.number,
-        'play_url': ladder.play_url,
-        'caption': caption,
-        'image_png': image_png,
-        'status': status,
-        'error': '',
-        'telegram_message_id': result.get('message_id'),
-        'scheduled_for': schedule_at,
-        'sent_at': timezone.now() if status == TelegramLadderChannelPost.STATUS_SENT else None,
-    }
-    if existing:
-        for key, value in fields.items():
-            setattr(existing, key, value)
-        existing.save()
-        post = existing
-    else:
-        post = TelegramLadderChannelPost.objects.create(
-            ladder_date=ladder.ladder_date,
-            **fields,
-        )
+    existing.refresh_from_db()
 
-    if notify_admin and telegram_admin_configured():
+    if notify_admin and telegram_admin_configured() and existing.telegram_ok:
         when = (
             'сразу'
-            if status == TelegramLadderChannelPost.STATUS_SENT
+            if existing.telegram_status == SocialQueuePost.STATUS_SENT
             else 'в отложенные на 16:30 МСК'
         )
         preview = 'Канал @interoves: лесенка №{} — {}\n\n{}'.format(
-            post.ladder_number, when, caption,
+            existing.ladder_number, when, caption,
         )
         try:
             send_photo(
                 admin_chat_id(),
-                bytes(post.image_png),
+                existing.image_bytes(),
                 caption=preview,
-                filename='ladder-{}.png'.format(post.ladder_number),
+                filename='ladder-{}.png'.format(existing.ladder_number),
             )
         except Exception:
             logger.exception('Admin preview for ladder channel post failed')
 
-    # X has no organic schedule: tweet immediately when we queue Telegram for 16:30
-    # (same 00:15 MSK cron). Failures are recorded but do not roll back Telegram.
-    _maybe_post_ladder_to_twitter(post, force=force)
-    _maybe_post_ladder_to_instagram(post, force=force)
-    return post
+    if existing.telegram_ok:
+        publish_twitter(existing, force=force)
+        publish_instagram(existing, force=force)
+        existing.refresh_from_db()
+    return existing
 
 
-def _maybe_post_ladder_to_twitter(
-    post: TelegramLadderChannelPost,
-    *,
-    force: bool = False,
-) -> None:
-    if post.status not in (
-        TelegramLadderChannelPost.STATUS_SCHEDULED,
-        TelegramLadderChannelPost.STATUS_SENT,
-    ):
-        return
-    if post.twitter_tweet_id and not force:
-        return
-    if not twitter_configured():
-        logger.info(
-            'Ladder №%s: Twitter skipped (TWITTER_* credentials not configured)',
-            post.ladder_number,
-        )
-        return
-    text = html_caption_to_plain(post.caption)
-    if not text:
-        text = 'Лесенка №{}\n{}'.format(post.ladder_number, post.play_url)
-    try:
-        result = post_tweet_with_image(
-            text=text,
-            image_bytes=bytes(post.image_png),
-            filename='ladder-{}.png'.format(post.ladder_number),
-        )
-        tweet_id = str((result.get('data') or {}).get('id') or '')
-        if not tweet_id:
-            raise RuntimeError('Twitter response missing tweet id: {}'.format(result)[:400])
-        post.twitter_tweet_id = tweet_id
-        post.twitter_error = ''
-        post.save(update_fields=['twitter_tweet_id', 'twitter_error'])
-        logger.info('Ladder №%s tweeted id=%s', post.ladder_number, tweet_id)
-    except Exception as exc:
-        logger.exception('Ladder №%s Twitter post failed', post.ladder_number)
-        post.twitter_error = str(exc)[:500]
-        post.save(update_fields=['twitter_error'])
-
-
-def _maybe_post_ladder_to_instagram(
-    post: TelegramLadderChannelPost,
-    *,
-    force: bool = False,
-) -> None:
-    """Publish the same teaser to Instagram (@interoveslocumpraesta) immediately.
-
-    Like X, Instagram has no organic schedule, so we post now when we queue Telegram for
-    16:30 (same 00:15 MSK cron). Instagram fetches the image from a public URL, so we point
-    it at the on-site JPEG teaser endpoint. Failures are recorded, never roll back Telegram.
-    """
-    from django.conf import settings
-    from django.urls import reverse
-
-    if post.status not in (
-        TelegramLadderChannelPost.STATUS_SCHEDULED,
-        TelegramLadderChannelPost.STATUS_SENT,
-    ):
-        return
-    if post.instagram_media_id and not force:
-        return
-    if not publish_configured():
-        logger.info(
-            'Ladder №%s: Instagram skipped (INSTAGRAM_ACCESS_TOKEN not configured)',
-            post.ladder_number,
-        )
-        return
-    caption = html_caption_to_plain(post.caption)
-    if not caption:
-        caption = 'Лесенка №{}\n{}'.format(post.ladder_number, post.play_url)
-    image_url = settings.SITE_BASE_URL + reverse(
-        'ladder_teaser_jpg', args=[post.ladder_number]
-    )
-    try:
-        media_id = publish_image_url(image_url, caption)
-        post.instagram_media_id = media_id
-        post.instagram_error = ''
-        post.save(update_fields=['instagram_media_id', 'instagram_error'])
-        logger.info('Ladder №%s posted to Instagram id=%s', post.ladder_number, media_id)
-    except Exception as exc:
-        logger.exception('Ladder №%s Instagram post failed', post.ladder_number)
-        post.instagram_error = str(exc)[:500]
-        post.save(update_fields=['instagram_error'])
-
-
-# Backward-compatible aliases used by the management command.
 def prepare_ladder_channel_post(**kwargs):
     return schedule_ladder_channel_post(**kwargs)
 
@@ -541,18 +375,16 @@ def process_ladder_channel_tick(now: datetime | None = None) -> dict[str, Any]:
     if not _in_window(msk, PREPARE_HOUR, PREPARE_MINUTE):
         return stats
 
-    before = TelegramLadderChannelPost.objects.filter(
+    before = SocialQueuePost.objects.filter(
+        source=SocialQueuePost.SOURCE_LADDER,
         ladder_date=msk.date(),
-        status__in=(
-            TelegramLadderChannelPost.STATUS_SCHEDULED,
-            TelegramLadderChannelPost.STATUS_SENT,
+        telegram_status__in=(
+            SocialQueuePost.STATUS_SCHEDULED,
+            SocialQueuePost.STATUS_SENT,
         ),
     ).exists()
     post = schedule_ladder_channel_post(now=now, force=False, notify_admin=True)
-    if post and post.status in (
-        TelegramLadderChannelPost.STATUS_SCHEDULED,
-        TelegramLadderChannelPost.STATUS_SENT,
-    ) and not before:
+    if post and post.telegram_ok and not before:
         stats['scheduled'] = 1
         stats['skipped'] = 0
     return stats

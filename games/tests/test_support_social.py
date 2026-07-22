@@ -1,0 +1,85 @@
+from io import BytesIO
+
+from django.contrib.auth.models import Group, User
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client, TestCase, override_settings
+from django.urls import reverse
+from PIL import Image
+from unittest.mock import patch
+
+from games.models import HTMLPage, Profile, Project
+from games.social.models import SocialQueuePost
+from games.support.constants import SUPPORT_CONSOLE_GROUP
+
+
+def _png_upload(name='paste.png', size=(32, 40)):
+    buf = BytesIO()
+    Image.new('RGB', size, (10, 20, 30)).save(buf, format='PNG')
+    return SimpleUploadedFile(name, buf.getvalue(), content_type='image/png')
+
+
+@override_settings(MEDIA_ROOT='/tmp/interoves_test_media_social')
+class SupportSocialQueueTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        Project.objects.get_or_create(pk='main', defaults={})
+        for name in (
+            'Правила Десяточки',
+            'Правила турнирного режима',
+            'Правила тренировочного режима',
+        ):
+            HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
+        cls.staff = User.objects.create_user('social_staff', 's@example.com', 'secret')
+        Profile.objects.create(user=cls.staff, first_name='S', last_name='T')
+        group, _ = Group.objects.get_or_create(name=SUPPORT_CONSOLE_GROUP)
+        group.user_set.add(cls.staff)
+
+    def setUp(self):
+        self.client = Client()
+        self.assertTrue(self.client.login(username='social_staff', password='secret'))
+
+    def test_dashboard_renders(self):
+        response = self.client.get(reverse('support:social'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Посты')
+        self.assertContains(response, 'Ctrl+V')
+
+    def test_create_with_image_upload(self):
+        response = self.client.post(
+            reverse('support:social_create'),
+            {
+                'caption': 'тест из буфера',
+                'image': _png_upload(),
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['ok'])
+        self.assertEqual(data['post']['caption'], 'тест из буфера')
+        self.assertTrue(data['post']['image_url'])
+        post = SocialQueuePost.objects.get(pk=data['post']['id'])
+        self.assertEqual(post.source, SocialQueuePost.SOURCE_MANUAL)
+        self.assertTrue(post.image)
+
+    @patch('games.support.services.social.publish_twitter')
+    def test_publish_endpoint_calls_network(self, tw_mock):
+        post = SocialQueuePost.objects.create(caption='x', source=SocialQueuePost.SOURCE_MANUAL)
+        post.image.save('a.png', _png_upload(), save=True)
+
+        def _side_effect(p, force=False):
+            p.twitter_status = SocialQueuePost.STATUS_SENT
+            p.twitter_external_id = '99'
+            p.save(update_fields=['twitter_status', 'twitter_external_id'])
+            return p
+
+        tw_mock.side_effect = _side_effect
+        response = self.client.post(
+            reverse('support:social_publish', args=[post.pk]),
+            data='{"network":"twitter","force":false}',
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['ok'])
+        self.assertEqual(data['post']['twitter']['status'], 'sent')
+        tw_mock.assert_called_once()

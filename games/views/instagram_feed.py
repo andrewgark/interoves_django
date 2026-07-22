@@ -5,7 +5,7 @@ from django.core.cache import cache
 from django.http import Http404, HttpResponse
 from django.shortcuts import render
 
-from games.instagram.api import fetch_media, instagram_configured, png_to_instagram_jpeg
+from games.instagram.api import fetch_media, instagram_configured, to_instagram_jpeg
 
 
 def instagram_feed(request):
@@ -21,23 +21,44 @@ def instagram_feed(request):
 
 
 def ladder_teaser_jpg(request, number):
-    """Public JPEG of a published ladder teaser — the image Instagram fetches on publish.
+    """Public JPEG of a published ladder teaser (legacy URL).
 
-    Rendered from the ladder task (independent of any Telegram post record), padded to a
-    square JPEG (Instagram content-publishing requires JPEG within a 4:5..1.91:1 ratio),
-    and cached. 404 for unpublished/unknown numbers so future ladders aren't leaked.
+    Prefers the stored SocialQueuePost image for that ladder number; otherwise renders
+    from the ladder task. 404 for unpublished/unknown numbers.
     """
+    from games.social.models import SocialQueuePost
     from games.telegram.ladder_channel import resolve_ladder_by_number
     from games.telegram.ladder_image import render_ladder_teaser_png
+
+    number = int(number)
+    post = (
+        SocialQueuePost.objects
+        .filter(source=SocialQueuePost.SOURCE_LADDER, ladder_number=number)
+        .exclude(image__isnull=True)
+        .exclude(image='')
+        .order_by('-created_at')
+        .first()
+    )
+    if post and post.image:
+        cache_key = 'ladder_teaser_jpg:post:{}:{}'.format(
+            post.pk, post.updated_at.timestamp(),
+        )
+        data = cache.get(cache_key)
+        if data is None:
+            data = to_instagram_jpeg(post.image_bytes())
+            cache.set(cache_key, data, 3600)
+        response = HttpResponse(data, content_type='image/jpeg')
+        response['Cache-Control'] = 'public, max-age=3600'
+        return response
 
     cache_key = f'ladder_teaser_jpg:{number}'
     data = cache.get(cache_key)
     if data is None:
-        ladder = resolve_ladder_by_number(int(number))
+        ladder = resolve_ladder_by_number(number)
         if ladder is None:
             raise Http404('ladder not published')
         png = render_ladder_teaser_png(ladder.task, ladder_number=ladder.number)
-        data = png_to_instagram_jpeg(png)
+        data = to_instagram_jpeg(png)
         cache.set(cache_key, data, 3600)
     response = HttpResponse(data, content_type='image/jpeg')
     response['Cache-Control'] = 'public, max-age=3600'

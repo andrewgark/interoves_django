@@ -55,7 +55,7 @@ class Command(BaseCommand):
                 self.stderr.write('Publish failed (no today ladder / channel?).')
                 return
             self.stdout.write('Published ladder №{} status={} message_id={}'.format(
-                post.ladder_number, post.status, post.telegram_message_id,
+                post.ladder_number, post.telegram_status, post.telegram_external_id,
             ))
             return
 
@@ -67,14 +67,14 @@ class Command(BaseCommand):
             self.stdout.write(
                 'Ladder №{} status={} scheduled_for={} message_id={}'.format(
                     post.ladder_number,
-                    post.status,
-                    post.scheduled_for,
-                    post.telegram_message_id,
+                    post.telegram_status,
+                    post.telegram_scheduled_for,
+                    post.telegram_external_id,
                 )
             )
-            if post.error:
-                self.stderr.write(post.error)
-            if post.status == 'failed':
+            if post.telegram_error:
+                self.stderr.write(post.telegram_error)
+            if post.telegram_status == 'failed':
                 return
             return
 
