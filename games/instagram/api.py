@@ -35,8 +35,26 @@ _FEED_CACHE_KEY = 'instagram_feed_v1'
 _HTTP_TIMEOUT = 15
 
 
+def current_access_token() -> str:
+    """The live access token: DB row (source of truth after refresh) with settings fallback.
+
+    The DB is authoritative because the refresh cron writes the rotated token there; the
+    INSTAGRAM_ACCESS_TOKEN env/settings value only seeds it (and covers the window before
+    the InstagramToken table/row exists, e.g. during migrate).
+    """
+    try:
+        from games.instagram.models import InstagramToken
+
+        row = InstagramToken.get()
+        if row and row.access_token:
+            return row.access_token
+    except Exception:
+        logger.debug('InstagramToken lookup failed; using settings token', exc_info=True)
+    return (getattr(settings, 'INSTAGRAM_ACCESS_TOKEN', '') or '').strip()
+
+
 def instagram_configured() -> bool:
-    return bool(getattr(settings, 'INSTAGRAM_ACCESS_TOKEN', ''))
+    return bool(current_access_token())
 
 
 def _display_url(item: dict[str, Any]) -> str | None:
@@ -92,7 +110,7 @@ def fetch_media(limit: int = 12, *, use_cache: bool = True) -> list[dict[str, An
             params={
                 'fields': MEDIA_FIELDS,
                 'limit': limit,
-                'access_token': settings.INSTAGRAM_ACCESS_TOKEN,
+                'access_token': current_access_token(),
             },
             timeout=_HTTP_TIMEOUT,
         )
@@ -122,14 +140,15 @@ def refresh_access_token() -> dict[str, Any]:
     "expires_in": 5183944}. Raises RuntimeError on failure. The token must still be valid
     (and at least 24h old) for this to succeed, so run it well before expiry.
     """
-    if not instagram_configured():
-        raise RuntimeError('INSTAGRAM_ACCESS_TOKEN is not configured')
+    token = current_access_token()
+    if not token:
+        raise RuntimeError('No Instagram access token configured')
 
     response = requests.get(
         f'{GRAPH_BASE}/refresh_access_token',
         params={
             'grant_type': 'ig_refresh_token',
-            'access_token': settings.INSTAGRAM_ACCESS_TOKEN,
+            'access_token': token,
         },
         timeout=_HTTP_TIMEOUT,
     )
@@ -138,6 +157,30 @@ def refresh_access_token() -> dict[str, Any]:
             f'Instagram token refresh failed: {response.status_code} {response.text[:500]}'
         )
     return response.json()
+
+
+def refresh_and_persist() -> dict[str, Any]:
+    """Refresh the token and store the new value in the DB (source of truth). Returns payload."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from games.instagram.models import InstagramToken
+
+    payload = refresh_access_token()
+    new_token = payload.get('access_token')
+    if not new_token:
+        raise RuntimeError(f'Instagram refresh response missing access_token: {payload}')
+
+    expires_in = payload.get('expires_in')
+    row = InstagramToken.get() or InstagramToken()
+    row.access_token = new_token
+    row.expires_at = (
+        timezone.now() + timedelta(seconds=int(expires_in)) if expires_in else None
+    )
+    row.save()
+    clear_feed_cache()
+    return payload
 
 
 def clear_feed_cache() -> None:
@@ -149,7 +192,7 @@ def clear_feed_cache() -> None:
 
 def publish_configured() -> bool:
     """Publishing needs the same token; content_publish scope is checked at call time."""
-    return bool(getattr(settings, 'INSTAGRAM_ACCESS_TOKEN', ''))
+    return bool(current_access_token())
 
 
 def get_user_id() -> str:
@@ -162,7 +205,7 @@ def get_user_id() -> str:
         return cached
     response = requests.get(
         f'{GRAPH_BASE}/me',
-        params={'fields': 'id', 'access_token': settings.INSTAGRAM_ACCESS_TOKEN},
+        params={'fields': 'id', 'access_token': current_access_token()},
         timeout=_HTTP_TIMEOUT,
     )
     if response.status_code >= 400:
@@ -204,7 +247,7 @@ def publish_image_url(image_url: str, caption: str, *, wait_seconds: int = 60) -
     if not publish_configured():
         raise RuntimeError('Instagram publishing not configured (no access token)')
 
-    token = settings.INSTAGRAM_ACCESS_TOKEN
+    token = current_access_token()
     user_id = get_user_id()
     base = f'{GRAPH_BASE}/{GRAPH_VERSION}/{user_id}'
 

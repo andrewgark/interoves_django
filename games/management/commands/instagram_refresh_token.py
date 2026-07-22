@@ -1,61 +1,74 @@
-"""Refresh the long-lived Instagram access token (run well before its 60-day expiry).
+"""Keep the long-lived Instagram token alive (safe to run daily via cron).
 
-The Instagram API with Instagram Login issues long-lived tokens that expire after 60 days.
-A fresh token can be requested any time the current one is still valid (and >24h old); the
-new token resets the clock to ~60 days. Schedule this (e.g. weekly cron / EB scheduled task)
-so the feed never goes dark.
+Instagram long-lived tokens expire after 60 days; refreshing (while still valid and >24h
+old) resets the clock ~60 days and yields a *new* token string. We persist the live token
+in the DB (InstagramToken) so a refresh doesn't require rewriting the EB env var / a
+redeploy — runtime reads the DB token first (see games.instagram.api.current_access_token).
 
-Locally (secrets/ present) the new token is written back to
-``secrets/instagram_access_token.txt`` automatically. On Elastic Beanstalk the token comes
-from the INSTAGRAM_ACCESS_TOKEN env var, so the command prints the new value and you update
-the env var (the command cannot self-mutate EB configuration).
+Behaviour:
+- First run with no DB row: seed it from INSTAGRAM_ACCESS_TOKEN (no API call).
+- Otherwise: refresh only if the stored token is older than --max-age-days (default 30),
+  so a daily cron actually hits the API roughly monthly — well within the 60-day window.
+- --force refreshes regardless of age.
 """
-
-import os
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
-from games.instagram.api import clear_feed_cache, instagram_configured, refresh_access_token
+from games.instagram.api import refresh_and_persist
+from games.instagram.models import InstagramToken
 
 
 class Command(BaseCommand):
-    help = 'Refresh the long-lived Instagram access token before it expires.'
+    help = 'Refresh/seed the long-lived Instagram token in the DB (safe to run daily).'
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--no-write',
+            '--force',
             action='store_true',
-            help='Do not write the new token to secrets/instagram_access_token.txt.',
+            help='Refresh via the API regardless of token age.',
+        )
+        parser.add_argument(
+            '--max-age-days',
+            type=int,
+            default=30,
+            help='Only refresh if the stored token is older than this many days (default 30).',
         )
 
     def handle(self, *args, **options):
-        if not instagram_configured():
-            self.stderr.write('INSTAGRAM_ACCESS_TOKEN is not configured; nothing to refresh.')
+        row = InstagramToken.get()
+
+        if row is None:
+            seed = (getattr(settings, 'INSTAGRAM_ACCESS_TOKEN', '') or '').strip()
+            if not seed:
+                self.stderr.write(
+                    'No DB token and INSTAGRAM_ACCESS_TOKEN is unset; nothing to seed.'
+                )
+                return
+            InstagramToken.objects.create(access_token=seed)
+            self.stdout.write('Seeded Instagram token in DB from INSTAGRAM_ACCESS_TOKEN.')
+            if not options['force']:
+                return
+            row = InstagramToken.get()
+
+        age_days = (timezone.now() - row.refreshed_at).days
+        if not options['force'] and age_days < options['max_age_days']:
+            self.stdout.write(
+                'Token refreshed {}d ago (< {}d); skipping.'.format(
+                    age_days, options['max_age_days']
+                )
+            )
             return
 
         try:
-            payload = refresh_access_token()
+            payload = refresh_and_persist()
         except RuntimeError as exc:
-            self.stderr.write(str(exc))
+            self.stderr.write('Instagram token refresh failed: {}'.format(exc))
             return
 
-        new_token = payload.get('access_token')
         expires_in = payload.get('expires_in')
-        if not new_token:
-            self.stderr.write(f'Unexpected refresh response: {payload}')
-            return
-
         days = round(int(expires_in) / 86400) if expires_in else '?'
-        self.stdout.write(self.style.SUCCESS(f'Token refreshed; valid ~{days} more days.'))
-
-        secrets_path = os.path.join(settings.BASE_DIR, 'secrets', 'instagram_access_token.txt')
-        if not options['no_write'] and os.path.isdir(os.path.dirname(secrets_path)):
-            with open(secrets_path, 'w', encoding='utf-8') as f:
-                f.write(new_token + '\n')
-            self.stdout.write(f'Wrote new token to {secrets_path}')
-        else:
-            self.stdout.write('New token (set INSTAGRAM_ACCESS_TOKEN to this value):')
-            self.stdout.write(new_token)
-
-        clear_feed_cache()
+        self.stdout.write(
+            self.style.SUCCESS('Instagram token refreshed; valid ~{} more days.'.format(days))
+        )

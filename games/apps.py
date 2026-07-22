@@ -7,6 +7,7 @@ class GamesConfig(AppConfig):
     def ready(self):
         import games.signals
         import games.telegram.models  # noqa: F401
+        import games.instagram.models  # noqa: F401
         import games.telegram.signals
         import games.matcher.norm_matcher
 
