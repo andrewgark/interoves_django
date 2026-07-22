@@ -50,6 +50,7 @@ class SupportSocialQueueTests(TestCase):
             {
                 'caption': 'тест из буфера',
                 'image': _png_upload(),
+                'mode': 'draft',
             },
         )
         self.assertEqual(response.status_code, 200)
@@ -60,6 +61,47 @@ class SupportSocialQueueTests(TestCase):
         post = SocialQueuePost.objects.get(pk=data['post']['id'])
         self.assertEqual(post.source, SocialQueuePost.SOURCE_MANUAL)
         self.assertTrue(post.image)
+        self.assertEqual(post.telegram_status, SocialQueuePost.STATUS_PENDING)
+        self.assertEqual(post.twitter_status, SocialQueuePost.STATUS_PENDING)
+        self.assertEqual(post.instagram_status, SocialQueuePost.STATUS_PENDING)
+
+    def test_create_draft_does_not_publish(self):
+        with patch('games.support.services.social.publish_twitter') as tw:
+            with patch('games.support.services.social.publish_telegram') as tg:
+                with patch('games.support.services.social.publish_instagram') as ig:
+                    response = self.client.post(
+                        reverse('support:social_create'),
+                        {
+                            'caption': 'draft only',
+                            'image': _png_upload(),
+                            'mode': 'draft',
+                            'networks': ['telegram', 'twitter', 'instagram'],
+                        },
+                    )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        tw.assert_not_called()
+        tg.assert_not_called()
+        ig.assert_not_called()
+
+    def test_create_internal_queues_selected(self):
+        response = self.client.post(
+            reverse('support:social_create'),
+            {
+                'caption': 'queued',
+                'image': _png_upload(),
+                'mode': 'internal',
+                'schedule_at': '2026-07-08T16:30:00',
+                'networks': ['twitter', 'instagram'],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['ok'])
+        post = SocialQueuePost.objects.get(pk=data['post']['id'])
+        self.assertEqual(post.twitter_status, SocialQueuePost.STATUS_QUEUED)
+        self.assertEqual(post.instagram_status, SocialQueuePost.STATUS_QUEUED)
+        self.assertEqual(post.telegram_status, SocialQueuePost.STATUS_PENDING)
 
     @patch('games.support.services.social.publish_twitter')
     def test_publish_endpoint_calls_network(self, tw_mock):
@@ -75,7 +117,7 @@ class SupportSocialQueueTests(TestCase):
         tw_mock.side_effect = _side_effect
         response = self.client.post(
             reverse('support:social_publish', args=[post.pk]),
-            data='{"network":"twitter","force":false}',
+            data='{"network":"twitter","force":false,"action":"publish"}',
             content_type='application/json',
         )
         self.assertEqual(response.status_code, 200)
@@ -83,3 +125,32 @@ class SupportSocialQueueTests(TestCase):
         self.assertTrue(data['ok'])
         self.assertEqual(data['post']['twitter']['status'], 'sent')
         tw_mock.assert_called_once()
+
+    def test_delete_post(self):
+        post = SocialQueuePost.objects.create(caption='bye', source=SocialQueuePost.SOURCE_MANUAL)
+        post.image.save('a.png', _png_upload(), save=True)
+        pk = post.pk
+        response = self.client.post(reverse('support:social_delete', args=[pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        self.assertFalse(SocialQueuePost.objects.filter(pk=pk).exists())
+
+    def test_queue_endpoint_sets_internal_schedule(self):
+        post = SocialQueuePost.objects.create(caption='q', source=SocialQueuePost.SOURCE_MANUAL)
+        post.image.save('a.png', _png_upload(), save=True)
+        response = self.client.post(
+            reverse('support:social_publish', args=[post.pk]),
+            data=(
+                '{"network":"twitter","action":"queue",'
+                '"schedule_at":"2026-07-08T16:30:00"}'
+            ),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['ok'])
+        self.assertEqual(data['post']['twitter']['status'], 'queued')
+        self.assertTrue(data['post']['twitter']['queued_for'])
+        post.refresh_from_db()
+        self.assertEqual(post.twitter_status, SocialQueuePost.STATUS_QUEUED)
+        self.assertIsNotNone(post.twitter_queued_for)

@@ -7,15 +7,19 @@
 <h1 class="support-page-title">Посты</h1>
 <p class="support-lead">
   Очередь картинка + текст для Telegram / X / Instagram.
-  Вставьте картинку из буфера (Ctrl+V) в зону ниже или выберите файл.
-  По каждой сети — статус и кнопка повторной отправки.
+  Вставьте картинку из буфера (Ctrl+V) или выберите файл.
+  «В очередь» — внутреннее расписание (minute cron); у Telegram отдельно
+  «В отложенные TG» (нативная отложка канала). Статусы: queued ≠ scheduled.
 </p>
 
 <section class="pal-card support-card support-social-create">
   <h2 class="support-social-h2">Новый пост</h2>
+  <p class="support-hint" style="margin-top:0">
+    По умолчанию — только черновик, никуда не уходит. Постинг только если выбрать режим ниже.
+  </p>
   <label class="support-ladders-field">
     <span>Подпись</span>
-    <textarea id="social-caption" rows="4" placeholder="Текст поста…"></textarea>
+    <textarea id="social-caption" rows="4" placeholder="Текст поста… (для TG можно HTML: &lt;b&gt;, ссылки)"></textarea>
   </label>
   <div
     class="support-social-drop"
@@ -30,6 +34,38 @@
     </p>
     <input type="file" id="social-file" accept="image/*" hidden>
   </div>
+
+  <fieldset class="support-social-fieldset">
+    <legend>Соцсети</legend>
+    <label class="support-social-check"><input type="checkbox" name="networks" value="telegram" id="net-tg"> Telegram</label>
+    <label class="support-social-check"><input type="checkbox" name="networks" value="twitter" id="net-x"> X</label>
+    <label class="support-social-check"><input type="checkbox" name="networks" value="instagram" id="net-ig"> Instagram</label>
+  </fieldset>
+
+  <fieldset class="support-social-fieldset">
+    <legend>Когда постить</legend>
+    <label class="support-social-radio">
+      <input type="radio" name="mode" value="draft" id="mode-draft" checked>
+      Только черновик (ничего не слать)
+    </label>
+    <label class="support-social-radio">
+      <input type="radio" name="mode" value="now" id="mode-now">
+      Сейчас в выбранные сети
+    </label>
+    <label class="support-social-radio">
+      <input type="radio" name="mode" value="internal" id="mode-internal">
+      Во внутреннюю очередь на дату/время (все выбранные)
+    </label>
+    <label class="support-social-radio">
+      <input type="radio" name="mode" value="tg_defer" id="mode-tg-defer">
+      TG в отложенные канала; X/IG — во внутреннюю очередь (одна дата/время)
+    </label>
+    <label class="support-ladders-field support-social-when" id="create-when-wrap" hidden>
+      <span>Дата и время (МСК)</span>
+      <input type="datetime-local" id="social-schedule-at">
+    </label>
+  </fieldset>
+
   <div class="support-action-row" style="margin-top:0.85rem">
     <button type="button" class="new-btn" id="social-create-btn">Создать</button>
     <span class="support-hint" id="social-create-status"></span>
@@ -46,7 +82,8 @@
   var endpoints = {
     create: "{% url 'support:social_create' %}",
     updateTpl: "{% url 'support:social_update' 0 %}".replace('/0/', '/{id}/'),
-    publishTpl: "{% url 'support:social_publish' 0 %}".replace('/0/', '/{id}/')
+    publishTpl: "{% url 'support:social_publish' 0 %}".replace('/0/', '/{id}/'),
+    deleteTpl: "{% url 'support:social_delete' 0 %}".replace('/0/', '/{id}/')
   };
   var listEl = document.getElementById('social-list');
   var captionEl = document.getElementById('social-caption');
@@ -120,32 +157,56 @@
     var st = (info && info.status) || 'pending';
     var cls = 'support-social-badge support-social-badge--' + st;
     var label = network.toUpperCase() + ': ' + st;
-    var title = (info && info.error) ? info.error : ((info && info.external_id) || '');
-    return '<span class="' + cls + '" title="' + (title || '').replace(/"/g, '&quot;') + '">' + label + '</span>';
+    var bits = [];
+    if (info && info.queued_for) bits.push('внутр. ' + info.queued_for);
+    if (info && info.scheduled_for) bits.push('TG ' + info.scheduled_for);
+    if (info && info.error) bits.push(info.error);
+    else if (info && info.external_id) bits.push(info.external_id);
+    var title = bits.join(' · ');
+    return '<span class="' + cls + '" title="' + title.replace(/"/g, '&quot;') + '">' + label + '</span>';
+  }
+
+  function whenInput(postId, network) {
+    return (
+      '<label class="support-social-schedule">' +
+        '<span>когда</span>' +
+        '<input type="datetime-local" data-when="' + postId + '" data-network="' + network + '">' +
+      '</label>'
+    );
   }
 
   function networkRow(post, network, info) {
     var done = info.status === 'sent' || info.status === 'scheduled';
+    var queued = info.status === 'queued';
     var failed = info.status === 'failed';
-    var btnLabel = done || failed ? 'Ещё раз' : 'Отправить';
-    var force = done || failed;
-    var extra = '';
+    var force = done || failed || queued;
+    var meta = '';
+    if (info.queued_for) {
+      meta += '<span class="support-hint">внутр.: ' + escapeHtml(info.queued_for) + '</span>';
+    }
+    if (info.scheduled_for) {
+      meta += '<span class="support-hint">TG отл.: ' + escapeHtml(info.scheduled_for) + '</span>';
+    }
+    var buttons =
+      '<button type="button" class="new-btn new-btn--mini" data-action="publish" data-publish="' +
+        post.id + '" data-network="' + network + '" data-force="' + (force ? '1' : '0') + '">' +
+        (done || failed ? 'Ещё раз сейчас' : 'Сейчас') +
+      '</button>' +
+      '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-action="queue" data-publish="' +
+        post.id + '" data-network="' + network + '">В очередь</button>';
     if (network === 'telegram') {
-      extra =
-        '<label class="support-social-schedule">' +
-        '<span>отложка</span>' +
-        '<input type="datetime-local" data-schedule="' + post.id + '">' +
-        '</label>';
+      buttons +=
+        '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-action="tg_defer" data-publish="' +
+          post.id + '" data-network="telegram" data-force="' + (force ? '1' : '0') +
+          '">В отложенные TG</button>';
     }
     return (
       '<div class="support-social-net">' +
         statusBadge(network, info) +
         (info.error ? '<span class="support-hint support-social-err">' + escapeHtml(info.error) + '</span>' : '') +
-        extra +
-        '<button type="button" class="new-btn new-btn--mini" data-publish="' + post.id +
-          '" data-network="' + network + '" data-force="' + (force ? '1' : '0') + '">' +
-          btnLabel +
-        '</button>' +
+        meta +
+        whenInput(post.id, network) +
+        buttons +
       '</div>'
     );
   }
@@ -175,7 +236,11 @@
         '<article class="support-social-item" data-id="' + p.id + '">' +
           img +
           '<div class="support-social-item__body">' +
-            '<div class="support-social-item__meta">#' + p.id + ' · ' + srcLabel + '</div>' +
+            '<div class="support-social-item__head">' +
+              '<div class="support-social-item__meta">#' + p.id + ' · ' + srcLabel + '</div>' +
+              '<button type="button" class="support-social-delete" data-delete="' + p.id +
+                '" title="Удалить пост" aria-label="Удалить пост">×</button>' +
+            '</div>' +
             '<div class="support-social-item__caption">' + (cap || '<span class="support-hint">без подписи</span>') + '</div>' +
             networkRow(p, 'telegram', p.telegram) +
             networkRow(p, 'twitter', p.twitter) +
@@ -196,10 +261,60 @@
     render();
   }
 
+  function removePost(id) {
+    posts = posts.filter(function (p) { return p.id !== id; });
+    render();
+  }
+
+  function selectedMode() {
+    var el = document.querySelector('input[name="mode"]:checked');
+    return el ? el.value : 'draft';
+  }
+
+  function selectedNetworks() {
+    return Array.prototype.map.call(
+      document.querySelectorAll('input[name="networks"]:checked'),
+      function (el) { return el.value; }
+    );
+  }
+
+  function syncWhenVisibility() {
+    var mode = selectedMode();
+    var wrap = document.getElementById('create-when-wrap');
+    wrap.hidden = !(mode === 'internal' || mode === 'tg_defer');
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="mode"]'), function (el) {
+    el.addEventListener('change', syncWhenVisibility);
+  });
+  syncWhenVisibility();
+
   document.getElementById('social-create-btn').addEventListener('click', function () {
     statusEl.textContent = '…';
+    var mode = selectedMode();
+    var networks = selectedNetworks();
+    var whenEl = document.getElementById('social-schedule-at');
+    var when = whenEl && whenEl.value
+      ? (whenEl.value.length === 16 ? whenEl.value + ':00' : whenEl.value)
+      : '';
+
+    if (mode !== 'draft' && !networks.length) {
+      statusEl.textContent = 'выберите соцсети или режим «черновик»';
+      return;
+    }
+    if ((mode === 'internal' || mode === 'tg_defer') && !when) {
+      statusEl.textContent = 'укажите дату и время';
+      return;
+    }
+    if (mode === 'tg_defer' && networks.indexOf('telegram') < 0) {
+      statusEl.textContent = 'для отложенных TG нужен Telegram';
+      return;
+    }
+
     var fd = new FormData();
     fd.append('caption', captionEl.value || '');
+    fd.append('mode', mode);
+    if (when) fd.append('schedule_at', when);
+    networks.forEach(function (n) { fd.append('networks', n); });
     if (pendingFile) fd.append('image', pendingFile, pendingFile.name || 'paste.png');
     fetch(endpoints.create, {
       method: 'POST',
@@ -210,31 +325,64 @@
         statusEl.textContent = data.error || 'ошибка';
         return;
       }
-      statusEl.textContent = 'создано #' + data.post.id;
+      statusEl.textContent = 'создано #' + data.post.id + (mode === 'draft' ? ' (черновик)' : '');
       captionEl.value = '';
       setPendingFile(null);
       fileEl.value = '';
+      document.getElementById('mode-draft').checked = true;
+      syncWhenVisibility();
       upsertPost(data.post);
     }).catch(function (err) {
       statusEl.textContent = String(err);
     });
   });
 
+  function readWhen(id, network) {
+    var el = listEl.querySelector('input[data-when="' + id + '"][data-network="' + network + '"]');
+    if (!el || !el.value) return null;
+    return el.value.length === 16 ? el.value + ':00' : el.value;
+  }
+
   listEl.addEventListener('click', function (e) {
+    var delBtn = e.target.closest('[data-delete]');
+    if (delBtn) {
+      var delId = parseInt(delBtn.getAttribute('data-delete'), 10);
+      if (!window.confirm('Удалить пост #' + delId + '? Это только запись в очереди, не посты в соцсетях.')) {
+        return;
+      }
+      delBtn.disabled = true;
+      fetch(endpoints.deleteTpl.replace('{id}', delId), {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf() }
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (!data.ok) {
+          delBtn.disabled = false;
+          alert(data.error || 'ошибка');
+          return;
+        }
+        removePost(delId);
+      }).catch(function (err) {
+        delBtn.disabled = false;
+        alert(String(err));
+      });
+      return;
+    }
+
     var btn = e.target.closest('[data-publish]');
     if (!btn) return;
     var id = btn.getAttribute('data-publish');
     var network = btn.getAttribute('data-network');
+    var action = btn.getAttribute('data-action') || 'publish';
     var force = btn.getAttribute('data-force') === '1';
-    var body = { network: network, force: force, immediate: true };
-    if (network === 'telegram') {
-      var schedInput = listEl.querySelector('input[data-schedule="' + id + '"]');
-      if (schedInput && schedInput.value) {
-        body.immediate = false;
-        body.schedule_at = schedInput.value.length === 16
-          ? schedInput.value + ':00'
-          : schedInput.value;
+    var when = readWhen(id, network);
+    var body = { network: network, force: force, action: action, immediate: true };
+    if (action === 'queue' || action === 'tg_defer') {
+      if (!when) {
+        alert('Укажите дату/время в поле «когда»');
+        return;
       }
+      body.schedule_at = when;
+      body.immediate = false;
     }
     btn.disabled = true;
     fetch(endpoints.publishTpl.replace('{id}', id), {

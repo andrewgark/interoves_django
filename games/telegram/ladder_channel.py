@@ -19,7 +19,7 @@ from games.ladder_daily import (
 )
 from games.models import Game, GameTaskGroup, Task
 from games.social.models import SocialQueuePost
-from games.social.publish import publish_instagram, publish_telegram, publish_twitter
+from games.social.publish import publish_telegram, queue_network
 from games.telegram.api import send_photo
 from games.telegram.config import (
     admin_chat_id,
@@ -209,11 +209,44 @@ def _is_preparing(post: SocialQueuePost) -> bool:
     )
 
 
+def _queue_x_ig_for_ladder(
+    post: SocialQueuePost,
+    run_at: datetime,
+    *,
+    force: bool = False,
+) -> None:
+    """Put X/IG on the internal schedule for run_at (usually 16:30 MSK)."""
+    post.refresh_from_db()
+    if force or post.twitter_status not in (
+        SocialQueuePost.STATUS_SENT,
+        SocialQueuePost.STATUS_SKIPPED,
+    ):
+        if force or post.twitter_status != SocialQueuePost.STATUS_QUEUED or not post.twitter_queued_for:
+            queue_network(post, 'twitter', run_at)
+            post.refresh_from_db()
+    if force or post.instagram_status not in (
+        SocialQueuePost.STATUS_SENT,
+        SocialQueuePost.STATUS_SKIPPED,
+    ):
+        if (
+            force
+            or post.instagram_status != SocialQueuePost.STATUS_QUEUED
+            or not post.instagram_queued_for
+        ):
+            queue_network(post, 'instagram', run_at)
+
+
 def _maybe_finish_other_networks(post: SocialQueuePost, *, force: bool = False) -> None:
+    """Ensure X/IG are queued for 16:30 when TG is already ok (idempotent morning retry)."""
     if not post.telegram_ok:
         return
-    publish_twitter(post, force=force)
-    publish_instagram(post, force=force)
+    run_at = post.telegram_scheduled_for or (
+        publish_at_for_date(post.ladder_date) if post.ladder_date else None
+    )
+    if run_at is None:
+        return
+    post.refresh_from_db()
+    _queue_x_ig_for_ladder(post, run_at, force=force)
 
 
 def schedule_ladder_channel_post(
@@ -224,8 +257,8 @@ def schedule_ladder_channel_post(
     notify_admin: bool = True,
 ) -> SocialQueuePost | None:
     """
-    At ~00:15 MSK: render today's ladder into a SocialQueuePost and schedule Telegram
-    for 16:30 MSK; post X and Instagram immediately.
+    At ~00:15 MSK: render today's ladder into a SocialQueuePost, put Telegram into
+    native deferred for 16:30 MSK, and queue X/IG internally for the same time.
     """
     if not ladder_channel_ready():
         logger.debug(
@@ -343,8 +376,14 @@ def schedule_ladder_channel_post(
             logger.exception('Admin preview for ladder channel post failed')
 
     if existing.telegram_ok:
-        publish_twitter(existing, force=force)
-        publish_instagram(existing, force=force)
+        if immediate:
+            from games.social.publish import publish_instagram, publish_twitter
+
+            publish_twitter(existing, force=force)
+            publish_instagram(existing, force=force)
+        else:
+            run_at = schedule_at or publish_at_for_date(ladder.ladder_date)
+            _queue_x_ig_for_ladder(existing, run_at, force=force)
         existing.refresh_from_db()
     return existing
 

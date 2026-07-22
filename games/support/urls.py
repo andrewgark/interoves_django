@@ -22,6 +22,7 @@ urlpatterns = [
     path('social/create/', views.social_create, name='social_create'),
     path('social/<int:post_id>/', views.social_update, name='social_update'),
     path('social/<int:post_id>/publish/', views.social_publish, name='social_publish'),
+    path('social/<int:post_id>/delete/', views.social_delete, name='social_delete'),
     path('stats/', views.stats_dashboard, name='stats'),
     path('pending/', views.pending_queue, name='pending'),
     path('live/', views.live_dashboard, name='live'),

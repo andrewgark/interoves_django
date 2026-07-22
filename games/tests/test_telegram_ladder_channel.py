@@ -88,13 +88,9 @@ class LadderChannelScheduleTests(TestCase):
         png = render_ladder_teaser_png_pillow(self.task, ladder_number=1)
         self.assertTrue(png.startswith(b'\x89PNG'))
 
-    @patch('games.telegram.ladder_channel.publish_instagram')
-    @patch('games.telegram.ladder_channel.publish_twitter')
     @patch('games.telegram.ladder_channel.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    def test_schedule_uses_mtproto_schedule_date(
-        self, mtproto_mock, admin_photo_mock, twitter_mock, _instagram_mock
-    ):
+    def test_schedule_uses_mtproto_schedule_date(self, mtproto_mock, admin_photo_mock):
         mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
         admin_photo_mock.return_value = {'message_id': 1}
 
@@ -106,6 +102,12 @@ class LadderChannelScheduleTests(TestCase):
         self.assertEqual(scheduled_msk.hour, 16)
         self.assertEqual(scheduled_msk.minute, 30)
         self.assertEqual(post.source, SocialQueuePost.SOURCE_LADDER)
+        self.assertEqual(post.twitter_status, SocialQueuePost.STATUS_QUEUED)
+        self.assertEqual(post.instagram_status, SocialQueuePost.STATUS_QUEUED)
+        tw_msk = post.twitter_queued_for.astimezone(ZoneInfo('Europe/Moscow'))
+        self.assertEqual((tw_msk.hour, tw_msk.minute), (16, 30))
+        ig_msk = post.instagram_queued_for.astimezone(ZoneInfo('Europe/Moscow'))
+        self.assertEqual((ig_msk.hour, ig_msk.minute), (16, 30))
 
         kwargs = mtproto_mock.call_args.kwargs
         self.assertEqual(kwargs['chat'], '@interoves')
@@ -115,22 +117,17 @@ class LadderChannelScheduleTests(TestCase):
         )
         self.assertTrue(kwargs['photo_bytes'].startswith(b'\x89PNG'))
         admin_photo_mock.assert_called_once()
-        twitter_mock.assert_called_once()
 
         mtproto_mock.reset_mock()
-        twitter_mock.reset_mock()
         again = schedule_ladder_channel_post(now=self.now, force=False)
         self.assertEqual(again.pk, post.pk)
         mtproto_mock.assert_not_called()
-        twitter_mock.assert_called_once()
+        self.assertEqual(again.twitter_status, SocialQueuePost.STATUS_QUEUED)
+        self.assertEqual(again.instagram_status, SocialQueuePost.STATUS_QUEUED)
 
-    @patch('games.telegram.ladder_channel.publish_instagram')
-    @patch('games.telegram.ladder_channel.publish_twitter')
     @patch('games.telegram.ladder_channel.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    def test_tick_only_in_0015_window(
-        self, mtproto_mock, _admin_photo_mock, _twitter_mock, _instagram_mock
-    ):
+    def test_tick_only_in_0015_window(self, mtproto_mock, _admin_photo_mock):
         mtproto_mock.return_value = {'message_id': 7, 'scheduled': True}
         outside = datetime(2026, 7, 8, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         stats = process_ladder_channel_tick(now=outside)
@@ -154,65 +151,59 @@ class LadderChannelScheduleTests(TestCase):
         self.assertTrue(send_photo_mock.call_args.args[1].startswith(b'\x89PNG'))
         self.assertIn('Лесенка №1', kwargs['caption'])
 
-    @patch('games.telegram.ladder_channel.publish_instagram')
-    @patch('games.telegram.ladder_channel.publish_twitter')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    def test_schedule_refuses_after_1630(self, mtproto_mock, twitter_mock, _instagram_mock):
+    def test_schedule_refuses_after_1630(self, mtproto_mock):
         late = datetime(2026, 7, 8, 19, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         post = schedule_ladder_channel_post(now=late, force=True, notify_admin=False)
         self.assertIsNotNone(post)
         self.assertEqual(post.telegram_status, SocialQueuePost.STATUS_FAILED)
         self.assertIn('refusing to post immediately', post.telegram_error)
         mtproto_mock.assert_not_called()
-        twitter_mock.assert_not_called()
 
-    @patch('games.telegram.ladder_channel.publish_instagram')
     @patch('games.social.publish.post_tweet_with_image')
     @patch('games.social.publish.twitter_configured', return_value=True)
-    @patch('games.telegram.ladder_channel.send_photo')
-    @patch('games.social.publish.schedule_channel_photo_sync')
-    def test_schedule_also_tweets(
-        self, mtproto_mock, _admin_photo_mock, _tw_cfg, tweet_mock, _instagram_mock
-    ):
-        mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
-        tweet_mock.return_value = {'data': {'id': '999888777'}}
-        post = schedule_ladder_channel_post(now=self.now, force=True, notify_admin=False)
-        self.assertEqual(post.twitter_external_id, '999888777')
-        self.assertEqual(post.twitter_status, SocialQueuePost.STATUS_SENT)
-        self.assertEqual(post.twitter_error, '')
-        tweet_mock.assert_called_once()
-        text = tweet_mock.call_args.kwargs['text']
-        self.assertIn('Лесенка №1', text)
-        self.assertNotIn('<b>', text)
-        self.assertTrue(tweet_mock.call_args.kwargs['image_bytes'].startswith(b'\x89PNG'))
-
-        tweet_mock.reset_mock()
-        schedule_ladder_channel_post(now=self.now, force=False, notify_admin=False)
-        tweet_mock.assert_not_called()
-
     @patch('games.social.publish.publish_image_url')
     @patch('games.social.publish.publish_configured', return_value=True)
-    @patch('games.telegram.ladder_channel.publish_twitter')
     @patch('games.telegram.ladder_channel.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    def test_schedule_also_posts_instagram(
-        self, mtproto_mock, _admin_photo_mock, _twitter_mock, _ig_cfg, publish_mock
+    def test_queue_then_tick_publishes_x_ig(
+        self,
+        mtproto_mock,
+        _admin_photo_mock,
+        _ig_cfg,
+        publish_mock,
+        _tw_cfg,
+        tweet_mock,
     ):
-        mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
-        publish_mock.return_value = '17999000111'
-        post = schedule_ladder_channel_post(now=self.now, force=True, notify_admin=False)
-        self.assertEqual(post.instagram_external_id, '17999000111')
-        self.assertEqual(post.instagram_status, SocialQueuePost.STATUS_SENT)
-        self.assertEqual(post.instagram_error, '')
-        publish_mock.assert_called_once()
-        image_url, caption = publish_mock.call_args.args[0], publish_mock.call_args.args[1]
-        self.assertIn('/social/queue/{}/instagram.jpg'.format(post.pk), image_url)
-        self.assertIn('Лесенка №1', caption)
-        self.assertNotIn('<b>', caption)
+        from games.social.publish import process_social_queue_tick
 
-        publish_mock.reset_mock()
-        schedule_ladder_channel_post(now=self.now, force=False, notify_admin=False)
+        mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
+        tweet_mock.return_value = {'data': {'id': '999888777'}}
+        publish_mock.return_value = '17999000111'
+
+        post = schedule_ladder_channel_post(now=self.now, force=True, notify_admin=False)
+        self.assertEqual(post.twitter_status, SocialQueuePost.STATUS_QUEUED)
+        self.assertEqual(post.instagram_status, SocialQueuePost.STATUS_QUEUED)
+        tweet_mock.assert_not_called()
         publish_mock.assert_not_called()
+
+        # Before 16:30 — tick does nothing for these
+        noon = datetime(2026, 7, 8, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
+        process_social_queue_tick(now=noon)
+        post.refresh_from_db()
+        self.assertEqual(post.twitter_status, SocialQueuePost.STATUS_QUEUED)
+        tweet_mock.assert_not_called()
+
+        at_1630 = datetime(2026, 7, 8, 16, 30, tzinfo=ZoneInfo('Europe/Moscow'))
+        process_social_queue_tick(now=at_1630)
+        post.refresh_from_db()
+        self.assertEqual(post.twitter_status, SocialQueuePost.STATUS_SENT)
+        self.assertEqual(post.twitter_external_id, '999888777')
+        self.assertEqual(post.instagram_status, SocialQueuePost.STATUS_SENT)
+        self.assertEqual(post.instagram_external_id, '17999000111')
+        tweet_mock.assert_called_once()
+        publish_mock.assert_called_once()
+        self.assertIn('/social/queue/{}/instagram.jpg'.format(post.pk), publish_mock.call_args.args[0])
 
 
 class InstagramJpegRatioTests(TestCase):

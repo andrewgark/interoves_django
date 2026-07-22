@@ -208,6 +208,15 @@ def process_game_announcements(now=None) -> dict[str, int]:
         logger.exception('Ladder channel tick failed')
         stats['ladder_scheduled'] = 0
 
+    try:
+        from games.social.publish import process_social_queue_tick
+
+        queue_stats = process_social_queue_tick(now=now)
+        stats['social_queue'] = queue_stats
+    except Exception:
+        logger.exception('Social queue tick failed')
+        stats['social_queue'] = {'errors': 1}
+
     return stats
 
 

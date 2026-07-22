@@ -814,6 +814,32 @@ html.new-ui-dark .support-ladder-item__mixed {
   font-size: 1.05rem;
 }
 
+.support-social-fieldset {
+  margin: 0.85rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.support-social-fieldset legend {
+  padding: 0 0.35rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.support-social-check,
+.support-social-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0.35rem 0;
+  font-size: 0.9rem;
+}
+
+.support-social-when {
+  margin-top: 0.65rem;
+}
+
 .support-social-create textarea {
   width: 100%;
   padding: 0.5rem 0.65rem;
@@ -892,10 +918,32 @@ html.new-ui-dark .support-ladder-item__mixed {
   border: 1px dashed var(--border);
 }
 
+.support-social-item__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
 .support-social-item__meta {
   font-size: 0.75rem;
   color: var(--muted);
-  margin-bottom: 0.25rem;
+}
+
+.support-social-delete {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.2rem;
+}
+
+.support-social-delete:hover {
+  color: #fca5a5;
 }
 
 .support-social-item__caption {
@@ -935,6 +983,11 @@ html.new-ui-dark .support-ladder-item__mixed {
 .support-social-badge--pending {
   background: rgba(148, 163, 184, 0.2);
   color: #cbd5e1;
+}
+
+.support-social-badge--queued {
+  background: rgba(56, 189, 248, 0.2);
+  color: #7dd3fc;
 }
 
 .support-social-badge--skipped {

@@ -39,7 +39,8 @@ from games.support.services.stats import collect_support_stats
 from games.support.services.stuck import get_stuck_teams
 from games.support.services.social import (
     SocialSupportError,
-    create_post as social_create_post,
+    create_post_with_plan as social_create_post_with_plan,
+    delete_post as social_delete_post,
     get_post as social_get_post,
     list_posts as social_list_posts,
     publish_network as social_publish_network,
@@ -463,8 +464,20 @@ def social_dashboard(request):
 def social_create(request):
     caption = (request.POST.get('caption') or '').strip()
     image = request.FILES.get('image')
+    mode = (request.POST.get('mode') or 'draft').strip().lower()
+    schedule_at = request.POST.get('schedule_at') or None
+    networks = request.POST.getlist('networks')
+    if not networks:
+        raw = request.POST.get('networks') or ''
+        networks = [n.strip() for n in raw.split(',') if n.strip()]
     try:
-        post = social_create_post(caption=caption, image_file=image)
+        post = social_create_post_with_plan(
+            caption=caption,
+            image_file=image,
+            networks=networks,
+            mode=mode,
+            schedule_at=schedule_at,
+        )
     except SocialSupportError as exc:
         return _social_error_response(exc)
     return JsonResponse({'ok': True, 'post': social_serialize_post(post)})
@@ -508,8 +521,20 @@ def social_publish(request, post_id):
             str(body.get('network') or ''),
             force=bool(body.get('force')),
             immediate=bool(body.get('immediate', True)),
-            schedule_at=body.get('schedule_at'),
+            schedule_at=body.get('schedule_at') or body.get('queued_for'),
+            action=str(body.get('action') or 'publish'),
         )
     except SocialSupportError as exc:
         return _social_error_response(exc, status=404 if 'not found' in str(exc).lower() else 400)
     return JsonResponse({'ok': True, 'post': social_serialize_post(post)})
+
+
+@support_console_required
+@require_POST
+def social_delete(request, post_id):
+    try:
+        post = social_get_post(post_id)
+        social_delete_post(post)
+    except SocialSupportError as exc:
+        return _social_error_response(exc, status=404)
+    return JsonResponse({'ok': True, 'id': post_id})

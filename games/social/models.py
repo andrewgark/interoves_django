@@ -14,6 +14,7 @@ class SocialQueuePost(models.Model):
     )
 
     STATUS_PENDING = 'pending'
+    STATUS_QUEUED = 'queued'
     STATUS_SCHEDULED = 'scheduled'
     STATUS_SENT = 'sent'
     STATUS_FAILED = 'failed'
@@ -21,6 +22,7 @@ class SocialQueuePost(models.Model):
 
     TELEGRAM_STATUS_CHOICES = (
         (STATUS_PENDING, 'Pending'),
+        (STATUS_QUEUED, 'Queued (internal schedule)'),
         (STATUS_SCHEDULED, 'Scheduled in Telegram'),
         (STATUS_SENT, 'Sent'),
         (STATUS_FAILED, 'Failed'),
@@ -28,6 +30,7 @@ class SocialQueuePost(models.Model):
     )
     NETWORK_STATUS_CHOICES = (
         (STATUS_PENDING, 'Pending'),
+        (STATUS_QUEUED, 'Queued (internal schedule)'),
         (STATUS_SENT, 'Sent'),
         (STATUS_FAILED, 'Failed'),
         (STATUS_SKIPPED, 'Skipped'),
@@ -53,7 +56,16 @@ class SocialQueuePost(models.Model):
     telegram_external_id = models.CharField(max_length=64, blank=True, default='')
     telegram_error = models.TextField(blank=True, default='')
     telegram_at = models.DateTimeField(null=True, blank=True)
-    telegram_scheduled_for = models.DateTimeField(null=True, blank=True)
+    telegram_scheduled_for = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the post sits in Telegram native deferred messages',
+    )
+    telegram_queued_for = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Internal schedule: minute cron publishes to the channel at this time',
+    )
 
     twitter_status = models.CharField(
         max_length=16, choices=NETWORK_STATUS_CHOICES, default=STATUS_PENDING,
@@ -61,6 +73,7 @@ class SocialQueuePost(models.Model):
     twitter_external_id = models.CharField(max_length=64, blank=True, default='')
     twitter_error = models.TextField(blank=True, default='')
     twitter_at = models.DateTimeField(null=True, blank=True)
+    twitter_queued_for = models.DateTimeField(null=True, blank=True)
 
     instagram_status = models.CharField(
         max_length=16, choices=NETWORK_STATUS_CHOICES, default=STATUS_PENDING,
@@ -68,6 +81,7 @@ class SocialQueuePost(models.Model):
     instagram_external_id = models.CharField(max_length=64, blank=True, default='')
     instagram_error = models.TextField(blank=True, default='')
     instagram_at = models.DateTimeField(null=True, blank=True)
+    instagram_queued_for = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ('-created_at',)

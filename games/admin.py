@@ -57,6 +57,7 @@ from games.recheck import (
     recheck_team_task_all_chronological,
 )
 from games.results_snapshot import freeze_game_results
+from games.social.models import SocialQueuePost
 
 
 admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration, TicketRequest])
@@ -650,6 +651,39 @@ class PendingBugReportAdmin(BugReportAdminBase):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.filter(status='Pending')
+
+
+@admin.register(SocialQueuePost)
+class SocialQueuePostAdmin(admin.ModelAdmin):
+    list_display = [
+        'id',
+        'source',
+        'ladder_number',
+        'caption_short',
+        'telegram_status',
+        'twitter_status',
+        'instagram_status',
+        'telegram_queued_for',
+        'twitter_queued_for',
+        'instagram_queued_for',
+        'telegram_scheduled_for',
+        'created_at',
+    ]
+    list_filter = [
+        'source',
+        'telegram_status',
+        'twitter_status',
+        'instagram_status',
+    ]
+    search_fields = ['caption', 'ladder_number', 'play_url', 'telegram_external_id', 'twitter_external_id']
+    readonly_fields = ['created_at', 'updated_at']
+    date_hierarchy = 'created_at'
+
+    def caption_short(self, obj):
+        text = (obj.caption or '').replace('\n', ' ')
+        return text[:60] + ('…' if len(text) > 60 else '')
+
+    caption_short.short_description = 'caption'
 
 
 @admin.register(StatisticsEvent)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from typing import Any
 
 from django.conf import settings
 from django.urls import reverse
@@ -114,6 +115,99 @@ def publish_telegram(
         'updated_at',
     ])
     return post
+
+
+def queue_network(post: SocialQueuePost, network: str, run_at: datetime) -> SocialQueuePost:
+    """Put a network on the internal schedule (status=queued)."""
+    network = (network or '').strip().lower()
+    if timezone.is_naive(run_at):
+        run_at = timezone.make_aware(run_at, timezone.get_current_timezone())
+    if network == 'telegram':
+        post.telegram_status = SocialQueuePost.STATUS_QUEUED
+        post.telegram_queued_for = run_at
+        post.telegram_error = ''
+        post.save(update_fields=[
+            'telegram_status', 'telegram_queued_for', 'telegram_error', 'updated_at',
+        ])
+        return post
+    if network == 'twitter':
+        post.twitter_status = SocialQueuePost.STATUS_QUEUED
+        post.twitter_queued_for = run_at
+        post.twitter_error = ''
+        post.save(update_fields=[
+            'twitter_status', 'twitter_queued_for', 'twitter_error', 'updated_at',
+        ])
+        return post
+    if network == 'instagram':
+        post.instagram_status = SocialQueuePost.STATUS_QUEUED
+        post.instagram_queued_for = run_at
+        post.instagram_error = ''
+        post.save(update_fields=[
+            'instagram_status', 'instagram_queued_for', 'instagram_error', 'updated_at',
+        ])
+        return post
+    raise ValueError('Unknown network: {}'.format(network))
+
+
+def process_social_queue_tick(now: datetime | None = None) -> dict[str, Any]:
+    """Publish networks whose internal queued_for time has arrived."""
+    now = now or timezone.now()
+    stats = {'telegram': 0, 'twitter': 0, 'instagram': 0, 'errors': 0}
+
+    tg_ids = list(
+        SocialQueuePost.objects.filter(
+            telegram_status=SocialQueuePost.STATUS_QUEUED,
+            telegram_queued_for__lte=now,
+        ).values_list('pk', flat=True)[:50]
+    )
+    for pk in tg_ids:
+        post = SocialQueuePost.objects.filter(pk=pk).first()
+        if post is None:
+            continue
+        try:
+            publish_telegram(post, immediate=True, force=False)
+            stats['telegram'] += 1
+        except Exception:
+            logger.exception('Social queue tick telegram failed pk=%s', pk)
+            stats['errors'] += 1
+
+    tw_ids = list(
+        SocialQueuePost.objects.filter(
+            twitter_status=SocialQueuePost.STATUS_QUEUED,
+            twitter_queued_for__lte=now,
+        ).values_list('pk', flat=True)[:50]
+    )
+    for pk in tw_ids:
+        post = SocialQueuePost.objects.filter(pk=pk).first()
+        if post is None:
+            continue
+        try:
+            publish_twitter(post, force=False)
+            stats['twitter'] += 1
+        except Exception:
+            logger.exception('Social queue tick twitter failed pk=%s', pk)
+            stats['errors'] += 1
+
+    ig_ids = list(
+        SocialQueuePost.objects.filter(
+            instagram_status=SocialQueuePost.STATUS_QUEUED,
+            instagram_queued_for__lte=now,
+        ).values_list('pk', flat=True)[:50]
+    )
+    for pk in ig_ids:
+        post = SocialQueuePost.objects.filter(pk=pk).first()
+        if post is None:
+            continue
+        try:
+            publish_instagram(post, force=False)
+            stats['instagram'] += 1
+        except Exception:
+            logger.exception('Social queue tick instagram failed pk=%s', pk)
+            stats['errors'] += 1
+
+    if stats['telegram'] or stats['twitter'] or stats['instagram'] or stats['errors']:
+        logger.info('Social queue tick: %s', stats)
+    return stats
 
 
 def publish_twitter(post: SocialQueuePost, *, force: bool = False) -> SocialQueuePost:

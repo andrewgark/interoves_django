@@ -8,11 +8,27 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from games.social.models import SocialQueuePost
-from games.social.publish import publish_instagram, publish_telegram, publish_twitter
+from games.social.publish import (
+    publish_instagram,
+    publish_telegram,
+    publish_twitter,
+    queue_network as publish_queue_network,
+)
 
 
 class SocialSupportError(Exception):
     pass
+
+
+def _net_blob(status, external_id, error, at, queued_for=None, scheduled_for=None):
+    return {
+        'status': status,
+        'external_id': external_id,
+        'error': error,
+        'at': at.isoformat() if at else '',
+        'queued_for': queued_for.isoformat() if queued_for else '',
+        'scheduled_for': scheduled_for.isoformat() if scheduled_for else '',
+    }
 
 
 def serialize_post(post: SocialQueuePost) -> dict:
@@ -25,28 +41,28 @@ def serialize_post(post: SocialQueuePost) -> dict:
         'play_url': post.play_url or '',
         'image_url': post.image.url if post.image else '',
         'created_at': post.created_at.isoformat() if post.created_at else '',
-        'telegram': {
-            'status': post.telegram_status,
-            'external_id': post.telegram_external_id,
-            'error': post.telegram_error,
-            'at': post.telegram_at.isoformat() if post.telegram_at else '',
-            'scheduled_for': (
-                post.telegram_scheduled_for.isoformat()
-                if post.telegram_scheduled_for else ''
-            ),
-        },
-        'twitter': {
-            'status': post.twitter_status,
-            'external_id': post.twitter_external_id,
-            'error': post.twitter_error,
-            'at': post.twitter_at.isoformat() if post.twitter_at else '',
-        },
-        'instagram': {
-            'status': post.instagram_status,
-            'external_id': post.instagram_external_id,
-            'error': post.instagram_error,
-            'at': post.instagram_at.isoformat() if post.instagram_at else '',
-        },
+        'telegram': _net_blob(
+            post.telegram_status,
+            post.telegram_external_id,
+            post.telegram_error,
+            post.telegram_at,
+            queued_for=post.telegram_queued_for,
+            scheduled_for=post.telegram_scheduled_for,
+        ),
+        'twitter': _net_blob(
+            post.twitter_status,
+            post.twitter_external_id,
+            post.twitter_error,
+            post.twitter_at,
+            queued_for=post.twitter_queued_for,
+        ),
+        'instagram': _net_blob(
+            post.instagram_status,
+            post.instagram_external_id,
+            post.instagram_error,
+            post.instagram_at,
+            queued_for=post.instagram_queued_for,
+        ),
     }
 
 
@@ -73,6 +89,72 @@ def create_post(*, caption: str = '', image_file=None) -> SocialQueuePost:
     return post
 
 
+def create_post_with_plan(
+    *,
+    caption: str = '',
+    image_file=None,
+    networks: list[str] | None = None,
+    mode: str = 'draft',
+    schedule_at=None,
+) -> SocialQueuePost:
+    """
+    Create a draft, optionally schedule/publish to selected networks.
+
+    mode:
+      - draft: save only (default; never posts)
+      - now: publish selected networks immediately
+      - internal: queue selected on internal schedule (needs schedule_at)
+      - tg_defer: Telegram → native deferred; other selected → internal queue
+        (needs schedule_at)
+    """
+    post = create_post(caption=caption, image_file=image_file)
+    mode = (mode or 'draft').strip().lower()
+    if mode == 'draft':
+        return post
+
+    selected = {
+        (n or '').strip().lower()
+        for n in (networks or [])
+        if (n or '').strip().lower() in ('telegram', 'twitter', 'instagram')
+    }
+    if not selected:
+        raise SocialSupportError('Выберите хотя бы одну соцсеть')
+
+    sched = _parse_schedule(schedule_at)
+    if mode in ('internal', 'tg_defer') and sched is None:
+        raise SocialSupportError('Укажите дату и время')
+
+    if mode == 'now':
+        for network in selected:
+            publish_network(post, network, force=False, immediate=True, action='publish')
+            post.refresh_from_db()
+        return post
+
+    if mode == 'internal':
+        for network in selected:
+            publish_network(
+                post, network, action='queue', schedule_at=sched, force=False,
+            )
+            post.refresh_from_db()
+        return post
+
+    if mode == 'tg_defer':
+        if 'telegram' not in selected:
+            raise SocialSupportError('Режим «отложенные TG» требует Telegram')
+        publish_network(
+            post, 'telegram', action='tg_defer', schedule_at=sched, force=False,
+        )
+        post.refresh_from_db()
+        for network in selected - {'telegram'}:
+            publish_network(
+                post, network, action='queue', schedule_at=sched, force=False,
+            )
+            post.refresh_from_db()
+        return post
+
+    raise SocialSupportError('Неизвестный mode: {}'.format(mode))
+
+
 def update_post(
     post: SocialQueuePost,
     *,
@@ -85,6 +167,12 @@ def update_post(
         post.image = image_file
     post.save()
     return post
+
+
+def delete_post(post: SocialQueuePost) -> None:
+    if post.image:
+        post.image.delete(save=False)
+    post.delete()
 
 
 def _parse_schedule(value) -> datetime | None:
@@ -108,16 +196,36 @@ def publish_network(
     force: bool = False,
     immediate: bool = True,
     schedule_at=None,
+    action: str = 'publish',
 ) -> SocialQueuePost:
+    """
+    action:
+      - publish: send now (or TG native deferred if schedule_at and not immediate)
+      - queue: put on internal schedule (requires schedule_at / queued_for)
+      - tg_defer: Telegram native deferred (requires schedule_at)
+    """
     network = (network or '').strip().lower()
+    action = (action or 'publish').strip().lower()
+    sched = _parse_schedule(schedule_at)
+
+    if action == 'queue':
+        if sched is None:
+            raise SocialSupportError('Нужна дата/время для внутренней очереди')
+        if network not in ('telegram', 'twitter', 'instagram'):
+            raise SocialSupportError('Unknown network: {}'.format(network))
+        return publish_queue_network(post, network, sched)
+
+    if action == 'tg_defer':
+        if network != 'telegram':
+            raise SocialSupportError('tg_defer только для telegram')
+        if sched is None:
+            raise SocialSupportError('Нужна дата/время для отложенных Telegram')
+        return publish_telegram(post, immediate=False, schedule_at=sched, force=force)
+
     if network == 'telegram':
-        sched = _parse_schedule(schedule_at)
-        return publish_telegram(
-            post,
-            immediate=immediate if sched is None else False,
-            schedule_at=sched,
-            force=force,
-        )
+        if sched is not None and not immediate:
+            return publish_telegram(post, immediate=False, schedule_at=sched, force=force)
+        return publish_telegram(post, immediate=True, force=force)
     if network == 'twitter':
         return publish_twitter(post, force=force)
     if network == 'instagram':
