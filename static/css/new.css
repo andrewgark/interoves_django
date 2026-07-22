@@ -2748,6 +2748,11 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   font-size: 0.95rem;
   color: var(--new-muted, #5c6570);
 }
+.new-raddle-task__mixed-script {
+  margin: 0 0 0.75rem;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
 .new-raddle-task__credit {
   margin: 1rem 0 0;
   font-size: 0.85rem;

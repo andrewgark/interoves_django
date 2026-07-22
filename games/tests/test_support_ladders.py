@@ -177,8 +177,36 @@ class LadderSupportServiceTests(TestCase):
         self.assertEqual(detail['words'], ['МОРЕ', 'ГОРЕ'])
         self.assertEqual(detail['author'], 'Тест')
         self.assertEqual(detail['intro'], 'гостевая')
+        self.assertFalse(detail['mixed_script'])
         task = Task.objects.get(pk=detail['task_id'])
         self.assertEqual(task.tags.get('author'), 'Тест')
+
+    def test_update_mixed_script_flag(self):
+        created = ladder_svc.create_ladder(
+            at_number=1, words=['СТАРТ', 'HELLO', 'ФИНИШ'], hints=['a', 'b']
+        )
+        self.assertFalse(created['mixed_script'])
+        detail = ladder_svc.update_ladder(
+            created['link_id'],
+            words=['СТАРТ', 'HELLO', 'ФИНИШ'],
+            hints=['a', 'b'],
+            mixed_script=True,
+        )
+        self.assertTrue(detail['mixed_script'])
+        task = Task.objects.get(pk=detail['task_id'])
+        data = json.loads(task.checker_data)
+        self.assertTrue(data.get('mixed_script'))
+        rows = ladder_svc.list_ladder_rows()
+        self.assertTrue(any(r.number == created['number'] and r.mixed_script for r in rows))
+        detail2 = ladder_svc.update_ladder(
+            created['link_id'],
+            words=['СТАРТ', 'HELLO', 'ФИНИШ'],
+            hints=['a', 'b'],
+            mixed_script=False,
+        )
+        self.assertFalse(detail2['mixed_script'])
+        data2 = json.loads(Task.objects.get(pk=detail2['task_id']).checker_data)
+        self.assertNotIn('mixed_script', data2)
 
     def test_set_publish_start_shifts_dates(self):
         ladder_svc.create_ladder(at_number=1, words=['А', 'Б'], hints=['x'])

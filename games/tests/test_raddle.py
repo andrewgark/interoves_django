@@ -24,6 +24,7 @@ from games.raddle import (
     raddle_input_format,
     raddle_word_core,
     raddle_word_is_latin,
+    mixed_script_notice,
     word_length_matches,
     word_matches,
 )
@@ -108,6 +109,21 @@ class RaddleWordIsLatinTests(SimpleTestCase):
         self.assertFalse(raddle_word_is_latin('HELLO ПРИВЕТ'))
         self.assertFalse(raddle_word_is_latin('123'))
         self.assertFalse(raddle_word_is_latin(''))
+
+    def test_mixed_script_notice_forms(self):
+        self.assertEqual(
+            mixed_script_notice(1),
+            '1 слово должно быть написано на латинице, остальное на кириллице',
+        )
+        self.assertEqual(
+            mixed_script_notice(2),
+            '2 слова должны быть написаны на латинице, остальное на кириллице',
+        )
+        self.assertEqual(
+            mixed_script_notice(5),
+            '5 слов должны быть написаны на латинице, остальное на кириллице',
+        )
+        self.assertEqual(mixed_script_notice(0), '')
 
 
 class ParseRaddleDataTests(SimpleTestCase):
@@ -611,8 +627,36 @@ class RaddleUiContextTests(SimpleTestCase):
         parsed = parse_raddle_data(_task(checker_data=json.dumps(data, ensure_ascii=False)))
         ctx = build_raddle_ui_context(parsed, default_raddle_state(3))
         self.assertTrue(ctx['rows'][0]['is_latin'])
+        self.assertTrue(ctx['rows'][0]['show_latin_flag'])
+        self.assertEqual(ctx['rows'][0]['input_script'], 'latin')
         self.assertTrue(ctx['rows'][1]['is_latin'])
         self.assertEqual(ctx['rows'][1]['length_label'], '5')
+        self.assertFalse(ctx['mixed_script'])
+        self.assertEqual(ctx['mixed_script_notice'], '')
+
+    def test_mixed_script_hides_flag_and_allows_both(self):
+        data = {
+            'lengths': [5, 5, 5],
+            'hints': ['a', 'b'],
+            'words': ['СТАРТ', 'HELLO', 'ФИНИШ'],
+            'mixed_script': True,
+            'raddle_assist': {'enabled': False, 'fractions': [1, 0.5, 0]},
+        }
+        parsed = parse_raddle_data(_task(checker_data=json.dumps(data, ensure_ascii=False)))
+        self.assertTrue(parsed['mixed_script'])
+        ctx = build_raddle_ui_context(parsed, default_raddle_state(3))
+        self.assertTrue(ctx['mixed_script'])
+        self.assertEqual(ctx['latin_word_count'], 1)
+        self.assertEqual(
+            ctx['mixed_script_notice'],
+            '1 слово должно быть написано на латинице, остальное на кириллице',
+        )
+        self.assertFalse(ctx['rows'][0]['is_latin'])
+        self.assertFalse(ctx['rows'][0]['show_latin_flag'])
+        self.assertEqual(ctx['rows'][0]['input_script'], 'mixed')
+        self.assertTrue(ctx['rows'][1]['is_latin'])
+        self.assertFalse(ctx['rows'][1]['show_latin_flag'])
+        self.assertEqual(ctx['rows'][1]['input_script'], 'mixed')
 
     def test_attempts_exhausted_in_tournament(self):
         parsed = parse_raddle_data(_task())

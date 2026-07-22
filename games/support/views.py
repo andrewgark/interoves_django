@@ -372,6 +372,7 @@ def ladders_create(request):
             hints=hints,
             intro=str(body.get('intro') or ''),
             author=str(body.get('author') or ''),
+            mixed_script=bool(body.get('mixed_script')),
         )
         rows = ladders_dashboard_context()['ladders']
     except LadderSupportError as exc:
@@ -400,6 +401,7 @@ def ladders_update(request, link_id):
             hints=hints,
             intro=str(body.get('intro') or ''),
             author=str(body.get('author') or ''),
+            mixed_script=bool(body.get('mixed_script')),
         )
         rows = ladders_dashboard_context()['ladders']
     except (TypeError, ValueError):

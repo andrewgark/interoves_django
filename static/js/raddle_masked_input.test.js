@@ -188,6 +188,17 @@ function testBindInputLatinRejectsCyrillic() {
   assert.strictEqual(input.value, '');
 }
 
+function testBindInputMixedAllowsBoth() {
+  var input = makeImaskInput('#####', 'mixed');
+  M.bindInput(input, {});
+  M.setLetters(input, 'hello', {});
+  assert.strictEqual(M.getSubmitValue(input), 'HELLO');
+  M.setLetters(input, 'привет', {});
+  assert.strictEqual(M.getSubmitValue(input), 'ПРИВЕ');
+  M.setLetters(input, 'heлlo', {});
+  assert.strictEqual(M.getSubmitValue(input), 'HEЛLO');
+}
+
 function testBindInputNormalizesYo() {
   var input = makeImaskInput('###');
   M.bindInput(input, {});
@@ -208,6 +219,7 @@ testImaskFormatsMatchServerTemplate();
 testImaskLatinFormats();
 testBindInputUsesImaskForEditing();
 testBindInputLatinRejectsCyrillic();
+testBindInputMixedAllowsBoth();
 testBindInputNormalizesYo();
 
 console.log('raddle_masked_input.test.js: ok');

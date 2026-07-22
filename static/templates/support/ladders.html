@@ -51,6 +51,10 @@
       <span>Автор</span>
       <input type="text" id="ladder-edit-author" autocomplete="off">
     </label>
+    <label class="support-ladders-field support-ladders-field--check">
+      <input type="checkbox" id="ladder-edit-mixed-script">
+      <span>И кириллица, и латиница разрешена</span>
+    </label>
     <div class="support-ladder-words-head">
       <span>Слова и подсказки (подсказка — переход к следующему слову)</span>
       <button type="button" class="new-btn new-btn--mini new-btn--ghost" id="ladder-add-word">+ слово</button>
@@ -188,6 +192,9 @@
             ' · id ' + row.link_id +
             (row.author ? ' · ' + escapeHtml(row.author) : '') +
             ' · ' + row.word_count + ' сл.' +
+            (row.mixed_script
+              ? ' · <span class="support-ladder-item__mixed" title="И кириллица, и латиница разрешена">кир+лат</span>'
+              : '') +
           '</div>' +
           '<div class="support-ladder-item__preview">' + escapeHtml(row.words_preview || '') + '</div>' +
         '</div>' +
@@ -438,6 +445,7 @@
         'id ' + ladder.link_id + (ladder.publish_date ? ' · выход ' + ladder.publish_date : '');
       document.getElementById('ladder-edit-intro').value = ladder.intro || '';
       document.getElementById('ladder-edit-author').value = ladder.author || '';
+      document.getElementById('ladder-edit-mixed-script').checked = !!ladder.mixed_script;
       renderWordRows(ladder.words || [], ladder.hints || []);
       var prev = document.getElementById('ladder-edit-preview');
       prev.href = ladder.play_url || '#';
@@ -468,7 +476,8 @@
       words: cur.words,
       hints: cur.hints,
       intro: document.getElementById('ladder-edit-intro').value,
-      author: document.getElementById('ladder-edit-author').value
+      author: document.getElementById('ladder-edit-author').value,
+      mixed_script: document.getElementById('ladder-edit-mixed-script').checked
     })
       .then(function (data) {
         renderList(data.ladders);

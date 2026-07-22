@@ -3,6 +3,9 @@
   {% if task.tags.author %}
   <p class="new-raddle-task__author">Автор лесенки: {{ task.tags.author }}</p>
   {% endif %}
+  {% if rd.ui.mixed_script_notice %}
+  <p class="new-raddle-task__mixed-script"><strong>{{ rd.ui.mixed_script_notice }}</strong></p>
+  {% endif %}
   {% if task.text %}
   <div class="new-raddle-task__intro">{% autoescape off %}{{ task.text }}{% endautoescape %}</div>
   {% endif %}
@@ -24,16 +27,16 @@
                 {% if row.is_solved %}
                   <span class="new-raddle-line__solved-text"><strong>{{ row.word }}</strong></span>
                 {% elif row.revealed_answer %}
-                  <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.is_latin %} data-raddle-script="latin" lang="en"{% endif %} aria-label="Слово {{ row.index|add:1 }}" value="{{ row.revealed_answer }}" placeholder="{{ row.mask_placeholder }}"{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}>
+                  <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }}" value="{{ row.revealed_answer }}" placeholder="{{ row.mask_placeholder }}"{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}>
                 {% elif row.is_playable %}
-                  <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.is_latin %} data-raddle-script="latin" lang="en"{% endif %} aria-label="Слово {{ row.index|add:1 }}" placeholder="{{ row.mask_placeholder }}" data-raddle-focus-input{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}>
+                  <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }}" placeholder="{{ row.mask_placeholder }}" data-raddle-focus-input{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}>
                 {% elif row.attempts_exhausted %}
                   <span class="new-raddle-line__mask">{{ row.mask_html }}</span>
                   <span class="new-login-hint new-raddle-line__no-guesses">Попытки закончились.</span>
                 {% else %}
                   <span class="new-raddle-line__mask">{{ row.mask_html }}</span>
                 {% endif %}
-                <span class="new-raddle-line__len">({{ row.length_label }}){% if row.is_latin %}, <span class="new-raddle-latin-flag" title="на латинице" aria-label="на латинице">🇬🇧</span>{% endif %}</span>
+                <span class="new-raddle-line__len">({{ row.length_label }}){% if row.show_latin_flag %}, <span class="new-raddle-latin-flag" title="на латинице" aria-label="на латинице">🇬🇧</span>{% endif %}</span>
               </div>
               {% if row.is_playable %}
               <div class="new-attempt-msg new-raddle-word-msg" aria-live="polite" data-msg-for="raddle-form-{{ task.id }}-{{ row.index }}"></div>

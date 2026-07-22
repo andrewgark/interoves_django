@@ -10,6 +10,9 @@
 #     # Если слота для следующего нет — при известном next дописывается « → NEXT».
 #     "raddle_assist": { "enabled": true, "fractions": [1, 0.4, 0] }
 #     # In-game 💡: Hint.desc = raddle_clue:N / raddle_answer:N (points_penalty=0, баллы через fractions)
+#     "mixed_script": true
+#     # Разрешены и кириллица, и латиница во всех полях; UK-флаг не показывают
+#     # (какие слова на латинице — секрет); сверху — сколько слов на латинице.
 #   }
 #
 # Первое и последнее слово показываются сразу; игрок может сдавать только первое и
@@ -40,6 +43,34 @@ def raddle_word_is_latin(word):
     """Ответ на латинице: есть латинские буквы и нет кириллицы (пунктуация/цифры не мешают)."""
     s = str(word or '')
     return bool(_RADDLE_HAS_LATIN_RE.search(s)) and not bool(_RADDLE_HAS_CYRILLIC_RE.search(s))
+
+
+def count_latin_raddle_words(words):
+    return sum(1 for w in (words or []) if raddle_word_is_latin(w))
+
+
+def mixed_script_notice(latin_count):
+    """
+    Жирное предупреждение для mixed_script:
+    «N слово/слова/слов должно/должны быть написано/написаны на латинице…»
+    """
+    n = int(latin_count or 0)
+    if n <= 0:
+        return ''
+    mod10 = n % 10
+    mod100 = n % 100
+    if mod10 == 1 and mod100 != 11:
+        word_form = 'слово'
+        verb = 'должно быть написано'
+    elif mod10 in (2, 3, 4) and mod100 not in (12, 13, 14):
+        word_form = 'слова'
+        verb = 'должны быть написаны'
+    else:
+        word_form = 'слов'
+        verb = 'должны быть написаны'
+    return (
+        '{} {} {} на латинице, остальное на кириллице'.format(n, word_form, verb)
+    )
 
 
 def raddle_input_format(canonical_word=None, mask=None):
@@ -182,6 +213,7 @@ def parse_raddle_data(task):
         word_accept.append(opts)
     masks = [parse_length_mask(x) for x in lengths_raw]
     assist = _parse_raddle_assist_block(data.get('raddle_assist'))
+    mixed_script = bool(data.get('mixed_script'))
     return {
         'lengths': lengths_raw,
         'hints': list(hints),
@@ -190,6 +222,7 @@ def parse_raddle_data(task):
         'masks': masks,
         'n_words': n,
         'assist': assist,
+        'mixed_script': mixed_script,
     }
 
 
@@ -850,6 +883,11 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
     n = parsed['n_words']
     assist_cfg = parsed.get('assist') or _parse_raddle_assist_block(None)
     assist_enabled = assist_cfg.get('enabled', True)
+    mixed_script = bool(parsed.get('mixed_script'))
+    latin_word_count = count_latin_raddle_words(parsed.get('words') or [])
+    mixed_script_notice_text = (
+        mixed_script_notice(latin_word_count) if mixed_script else ''
+    )
     solved = set(state.get('solved_indices') or [])
     playable = playable_word_indices(state, n)
     used_hints = set(state.get('used_hints') or [])
@@ -914,6 +952,14 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         mask_html = length_mask_display(mask, canon).strip()
         length_label = length_label_from_word(canon) if canon else mask['label']
         is_latin = raddle_word_is_latin(canon) if canon else False
+        show_latin_flag = is_latin and not mixed_script
+        # В mixed_script все поля принимают оба алфавита; иначе — по языку ответа.
+        if mixed_script:
+            input_script = 'mixed'
+        elif is_latin:
+            input_script = 'latin'
+        else:
+            input_script = 'cyrillic'
         ref_idx = reference_word_for_playable(i, solved, n) if is_playable else None
         ref_role = reference_role_for_playable(i, solved, n) if is_playable else None
         dual_neighbors = is_playable and both_neighbors_solved(i, solved, n)
@@ -938,6 +984,8 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             'mask_placeholder': mask_html,
             'length_label': length_label,
             'is_latin': is_latin,
+            'show_latin_flag': show_latin_flag,
+            'input_script': input_script,
             'mask_slots': mask_slot_count(mask, canon),
             'max_length': mask_slot_count(mask, canon),
             'input_format': inp_fmt,
@@ -1049,4 +1097,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         'assist_enabled': assist_enabled,
         'assist_fractions': assist_cfg.get('fractions', DEFAULT_RADDLE_ASSIST_FRACTIONS),
         'is_tournament': tournament,
+        'mixed_script': mixed_script,
+        'latin_word_count': latin_word_count,
+        'mixed_script_notice': mixed_script_notice_text,
     }

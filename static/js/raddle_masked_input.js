@@ -12,6 +12,8 @@
   var CYRILLIC_EXTRACT_RE = /[а-яёА-ЯЁ]/g;
   var LATIN_LETTER_RE = /[a-zA-Z]/;
   var LATIN_EXTRACT_RE = /[a-zA-Z]/g;
+  var MIXED_LETTER_RE = /[a-zA-Zа-яёА-ЯЁ]/;
+  var MIXED_EXTRACT_RE = /[a-zA-Zа-яёА-ЯЁ]/g;
   var BOUND = 'data-raddle-mask-bound';
   var maskByInput = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
   var maskByInputFallback = null;
@@ -26,16 +28,23 @@
 
   function inputScript(input) {
     if (!input || typeof input.getAttribute !== 'function') return 'cyrillic';
-    return input.getAttribute('data-raddle-script') === 'latin' ? 'latin' : 'cyrillic';
+    var s = input.getAttribute('data-raddle-script');
+    if (s === 'latin' || s === 'mixed') return s;
+    return 'cyrillic';
   }
 
   function isLatinScript(script) {
     return script === 'latin';
   }
 
+  function isMixedScript(script) {
+    return script === 'mixed';
+  }
+
   function normalizeLetter(ch, script) {
     var s = String(ch || '');
     if (isLatinScript(script)) return s.toUpperCase();
+    // mixed и cyrillic: ё→е для кириллицы, латиница просто upper
     return s.replace(/ё/gi, function (m) {
       return m === 'ё' ? 'е' : 'Е';
     }).toUpperCase();
@@ -53,8 +62,16 @@
     return m.map(function (ch) { return normalizeLetter(ch, 'latin'); }).join('');
   }
 
+  function extractMixedLetters(text) {
+    var m = String(text || '').match(MIXED_EXTRACT_RE);
+    if (!m) return '';
+    return m.map(function (ch) { return normalizeLetter(ch, 'mixed'); }).join('');
+  }
+
   function extractLetters(text, script) {
-    return isLatinScript(script) ? extractLatinLetters(text) : extractRussianLetters(text);
+    if (isLatinScript(script)) return extractLatinLetters(text);
+    if (isMixedScript(script)) return extractMixedLetters(text);
+    return extractRussianLetters(text);
   }
 
   function lettersToDisplay(fmt, letters) {
@@ -92,8 +109,14 @@
     maskByInputFallback.set(input, mask);
   }
 
+  function letterReForScript(script) {
+    if (isLatinScript(script)) return LATIN_LETTER_RE;
+    if (isMixedScript(script)) return MIXED_LETTER_RE;
+    return CYRILLIC_LETTER_RE;
+  }
+
   function buildMaskOptions(fmt, script) {
-    var letterRe = isLatinScript(script) ? LATIN_LETTER_RE : CYRILLIC_LETTER_RE;
+    var letterRe = letterReForScript(script);
     return {
       mask: fmt,
       definitions: (function () {
@@ -198,6 +221,7 @@
     slotCount: slotCount,
     extractRussianLetters: extractRussianLetters,
     extractLatinLetters: extractLatinLetters,
+    extractMixedLetters: extractMixedLetters,
     extractLetters: extractLetters,
     lettersToDisplay: lettersToDisplay,
     buildMaskOptions: buildMaskOptions,

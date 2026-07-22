@@ -59,6 +59,7 @@ class LadderRow:
     author: str
     intro: str
     play_url: str
+    mixed_script: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -78,7 +79,12 @@ def _length_from_word(word: str):
     return label
 
 
-def build_checker_payload(words: list[str], hints: list[str]) -> dict:
+def build_checker_payload(
+    words: list[str],
+    hints: list[str],
+    *,
+    mixed_script: bool = False,
+) -> dict:
     word_list = [str(w or '').strip().upper() for w in words]
     word_list = [w for w in word_list if w]
     hint_list = [str(h or '').strip() for h in hints]
@@ -86,16 +92,24 @@ def build_checker_payload(words: list[str], hints: list[str]) -> dict:
         hint_list = hint_list[: max(0, len(word_list) - 1)]
     while len(hint_list) < max(0, len(word_list) - 1):
         hint_list.append('')
-    return {
+    payload = {
         'lengths': [_length_from_word(w) for w in word_list],
         'hints': hint_list,
         'words': word_list,
         'raddle_assist': {'enabled': True, 'fractions': [1, 0.5, 0]},
     }
+    if mixed_script:
+        payload['mixed_script'] = True
+    return payload
 
 
-def validate_ladder_content(words: list[str], hints: list[str]) -> list[str]:
-    payload = build_checker_payload(words, hints)
+def validate_ladder_content(
+    words: list[str],
+    hints: list[str],
+    *,
+    mixed_script: bool = False,
+) -> list[str]:
+    payload = build_checker_payload(words, hints, mixed_script=mixed_script)
     raw = json.dumps(payload, ensure_ascii=False)
     return validate_raddle_checker_data(raw, answer_text='\n'.join(payload['words']))
 
@@ -149,11 +163,13 @@ def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
             'hints': [],
             'author': '',
             'intro': '',
+            'mixed_script': False,
             'word_count': 0,
             'words_preview': '',
         }
     words: list[str] = []
     hints: list[str] = []
+    mixed_script = False
     raw = (task.checker_data or '').strip()
     if raw:
         try:
@@ -161,6 +177,7 @@ def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
             if isinstance(data, dict):
                 words = [str(w) for w in (data.get('words') or [])]
                 hints = [str(h) for h in (data.get('hints') or [])]
+                mixed_script = bool(data.get('mixed_script'))
         except (ValueError, TypeError):
             pass
     if not words and (task.answer or '').strip():
@@ -176,6 +193,7 @@ def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
         'hints': hints,
         'author': author,
         'intro': intro,
+        'mixed_script': mixed_script,
         'word_count': len(words),
         'words_preview': preview,
     }
@@ -215,6 +233,7 @@ def list_ladder_rows(*, now: datetime | None = None) -> list[LadderRow]:
             author=payload['author'],
             intro=payload['intro'],
             play_url=f'/games/{LADDER_GAME_ID}/{number}/',
+            mixed_script=bool(payload.get('mixed_script')),
         ))
     return rows
 
@@ -246,6 +265,7 @@ def get_ladder_detail(link_id: int) -> dict[str, Any]:
         'author': payload['author'],
         'words': payload['words'],
         'hints': payload['hints'],
+        'mixed_script': payload['mixed_script'],
         'play_url': f'/games/{LADDER_GAME_ID}/{number}/',
     }
 
@@ -336,11 +356,12 @@ def _create_task_group_and_task(
     hints: list[str],
     intro: str,
     author: str,
+    mixed_script: bool = False,
 ) -> GameTaskGroup:
-    errors = validate_ladder_content(words, hints)
+    errors = validate_ladder_content(words, hints, mixed_script=mixed_script)
     if errors:
         raise LadderSupportError('; '.join(errors))
-    payload = build_checker_payload(words, hints)
+    payload = build_checker_payload(words, hints, mixed_script=mixed_script)
     checker = CheckerType.objects.get(id='raddle')
     game = get_ladder_game()
     task_group = TaskGroup.objects.create(
@@ -383,6 +404,7 @@ def create_ladder(
     hints: list[str] | None = None,
     intro: str = '',
     author: str = '',
+    mixed_script: bool = False,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Вставить лесенку с публичным номером at_number; сдвинуть остальные вверх.
@@ -440,6 +462,7 @@ def create_ladder(
         hints=use_hints,
         intro=intro,
         author=author,
+        mixed_script=mixed_script,
     )
     return get_ladder_detail(link.pk)
 
@@ -452,6 +475,7 @@ def update_ladder(
     hints: list[str],
     intro: str = '',
     author: str = '',
+    mixed_script: bool = False,
 ) -> dict[str, Any]:
     game = get_ladder_game()
     link = (
@@ -461,10 +485,10 @@ def update_ladder(
     )
     if link is None:
         raise LadderSupportError('Лесенка не найдена')
-    errors = validate_ladder_content(words, hints)
+    errors = validate_ladder_content(words, hints, mixed_script=mixed_script)
     if errors:
         raise LadderSupportError('; '.join(errors))
-    payload = build_checker_payload(words, hints)
+    payload = build_checker_payload(words, hints, mixed_script=mixed_script)
     checker = CheckerType.objects.get(id='raddle')
     tags = {}
     if author.strip():
