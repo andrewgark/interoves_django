@@ -46,6 +46,7 @@ urlpatterns = [
     path('sections/games/', RedirectView.as_view(url='/games/', query_string=True), name='ui_sections_games'),
     path('play-mode/', ui.set_play_mode, name='ui_set_play_mode'),
     path('migrate-anon-attempts/', ui.migrate_anon_attempts, name='ui_migrate_anon_attempts'),
+    path('anon-migrate-count/', ui.anon_migrate_count, name='ui_anon_migrate_count'),
     path('answer/<int:task_id>/', ui.get_answer, name='ui_get_answer'),
     path('answer/<int:task_id>/<int:line_index>/', ui.get_replacements_line_answer, name='ui_get_replacements_line_answer'),
     path('answer/<int:task_id>/word/<int:word_index>/', ui.get_raddle_word_answer, name='ui_get_raddle_word_answer'),

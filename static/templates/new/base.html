@@ -266,15 +266,14 @@
     <div class="new-rules-overlay" data-migrate-close></div>
     <div class="new-rules-modal__box pal-card">
       <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-migrate-close>×</button>
-      <h2 id="new-migrate-title" class="pal-title">Перенести ваши анонимные решения?</h2>
-      <p class="pal-lead" style="margin-bottom: 1rem">
-        Похоже, вы решали задания до входа. Можем перенести эти попытки в ваш аккаунт (в личный режим).
+      <h2 id="new-migrate-title" class="pal-title">Восстановить ваши решения?</h2>
+      <p class="pal-lead" style="margin-bottom: 1rem" data-migrate-lead>
+        Похоже, перед авторизацией на сайте вы успели порешать какие-то задания в качестве неавторизованного гостя. Вы хотите восстановить эти посылки?
       </p>
       <div style="display:flex; gap:0.75rem; flex-wrap:wrap">
-        <button type="button" class="new-btn" data-migrate-confirm>Перенести</button>
+        <button type="button" class="new-btn" data-migrate-confirm>Восстановить</button>
         <button type="button" class="new-btn new-btn--ghost" data-migrate-close>Не сейчас</button>
       </div>
-      <p class="new-login-hint" style="margin-bottom:0">Показываем один раз для этого браузера, если до входа было не меньше десяти посылок с этой анонимной сессии.</p>
     </div>
   </div>
   <script>
@@ -336,7 +335,20 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (data && data.show_prompt) open();
+        if (!data || !data.show_prompt) return;
+        if (data.example_url) {
+          var lead = modal.querySelector('[data-migrate-lead]');
+          if (lead) {
+            lead.textContent = '';
+            lead.appendChild(document.createTextNode('Похоже, перед авторизацией на сайте вы успели порешать какие-то задания (например, '));
+            var a = document.createElement('a');
+            a.href = data.example_url;
+            a.textContent = data.example_label || 'вот это';
+            lead.appendChild(a);
+            lead.appendChild(document.createTextNode(') в качестве неавторизованного гостя. Вы хотите восстановить эти посылки?'));
+          }
+        }
+        open();
       })
       .catch(function () {});
   })();

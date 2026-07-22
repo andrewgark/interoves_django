@@ -1626,6 +1626,49 @@ class PendingBugReport(BugReport):
         proxy = True
 
 
+class StatisticsEvent(models.Model):
+    """Generic product/ops analytics row (who / when / what / payload)."""
+
+    KIND_ANON_ATTEMPTS_MIGRATED = 'anon_attempts_migrated'
+
+    KIND_CHOICES = (
+        (KIND_ANON_ATTEMPTS_MIGRATED, 'Перенос анонимных попыток'),
+    )
+
+    id = models.AutoField(primary_key=True)
+    # Known values: see KIND_* constants / KIND_CHOICES (choices not enforced in DB).
+    kind = models.CharField(max_length=64, db_index=True)
+    time = models.DateTimeField(auto_now_add=True, db_index=True)
+    user = models.ForeignKey(
+        'auth.User',
+        related_name='statistics_events',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    payload = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['-time']
+        indexes = [
+            models.Index(fields=['kind', 'time'], name='games_stat_kind_time_idx'),
+        ]
+        verbose_name = 'событие статистики'
+        verbose_name_plural = 'события статистики'
+
+    def __str__(self):
+        who = self.user_id or '—'
+        return '{} [{}] user={}'.format(
+            self.time.strftime('%Y-%m-%d %H:%M:%S') if self.time else '—',
+            self.kind,
+            who,
+        )
+
+    @classmethod
+    def record(cls, kind, user=None, **payload):
+        return cls.objects.create(kind=kind, user=user, payload=payload or {})
+
+
 class OrderGameClient(models.Model):
     id = models.AutoField(primary_key=True)
     company_name = models.CharField(max_length=200)

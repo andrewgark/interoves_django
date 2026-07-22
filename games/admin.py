@@ -43,6 +43,7 @@ from games.models import (
     ProfileTeamMembership,
     Project,
     Registration,
+    StatisticsEvent,
     Task,
     TaskGroup,
     Team,
@@ -649,3 +650,34 @@ class PendingBugReportAdmin(BugReportAdminBase):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.filter(status='Pending')
+
+
+@admin.register(StatisticsEvent)
+class StatisticsEventAdmin(admin.ModelAdmin):
+    formfield_overrides = {
+        models.JSONField: {'widget': Textarea(attrs={'rows': 4, 'cols': 60})},
+    }
+    raw_id_fields = ['user']
+    readonly_fields = ['time']
+    list_display = ['time', 'kind', 'user', 'payload_summary']
+    list_filter = ['kind']
+    search_fields = ['kind', 'user__username', 'user__email', 'payload']
+    fields = ['kind', 'user', 'payload', 'time']
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user')
+
+    def payload_summary(self, obj):
+        payload = obj.payload or {}
+        if obj.kind == StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED:
+            return 'moved={} hints={} anon={}'.format(
+                payload.get('moved'),
+                payload.get('moved_hints'),
+                (payload.get('anon_key') or '')[:12],
+            )
+        try:
+            return json.dumps(payload, ensure_ascii=False)[:120]
+        except TypeError:
+            return str(payload)[:120]
+
+    payload_summary.short_description = 'payload'

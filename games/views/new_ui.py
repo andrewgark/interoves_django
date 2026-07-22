@@ -59,6 +59,7 @@ from games.models import (
     Profile,
     ProfileTeamMembership,
     Project,
+    StatisticsEvent,
     Task,
     TaskGroup,
     Team,
@@ -2407,6 +2408,33 @@ def new_set_play_mode(request):
 MIN_ANON_MIGRATE_PROMPT_ATTEMPTS = 10
 
 
+def _anon_task_group_link(attempt):
+    """Ссылка (url, label) на круг с этим заданием, либо None, если её не построить.
+
+    У нас нет отдельных страниц заданий — ведём на страницу круга (task group).
+    """
+    task = attempt.task
+    if task is None or task.task_group_id is None:
+        return None
+    game = attempt.game or GameTaskGroup.resolve_game_for_task(task)
+    if game is None:
+        return None
+    gtg = GameTaskGroup.objects.filter(
+        game=game, task_group_id=task.task_group_id
+    ).first()
+    if gtg is None:
+        return None
+    try:
+        url = reverse('new_task_group', kwargs={
+            'game_id': game.id,
+            'task_group_number': gtg.number,
+        })
+    except Exception:
+        return None
+    label = (gtg.name or '').strip() or (game.name or '').strip()
+    return url, label
+
+
 @login_required
 @require_http_methods(['GET'])
 def new_anon_migrate_count(request):
@@ -2415,13 +2443,40 @@ def new_anon_migrate_count(request):
     anon_key = request.GET.get('anon_key')
     if not anon_key:
         return JsonResponse({'attempts': 0, 'show_prompt': False})
-    n = Attempt.objects.filter(
-        anon_key=anon_key, user__isnull=True, team__isnull=True
-    ).count()
-    return JsonResponse({
-        'attempts': n,
-        'show_prompt': n >= MIN_ANON_MIGRATE_PROMPT_ATTEMPTS,
-    })
+
+    # Задания, уже сданные на OK на авторизованном профиле (личный режим),
+    # не учитываем — их посылки восстанавливать незачем.
+    solved_task_ids = set(
+        Attempt.manager.filter(
+            user=request.user, team__isnull=True, anon_key__isnull=True, status='Ok',
+        ).values_list('task_id', flat=True)
+    )
+
+    anon_attempts = (
+        Attempt.manager.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True, task__isnull=False,
+        )
+        .select_related('task', 'game')
+        .order_by('time')
+    )
+
+    n = 0
+    example = None
+    for attempt in anon_attempts:
+        if attempt.task_id in solved_task_ids:
+            continue
+        n += 1
+        if example is None:
+            example = _anon_task_group_link(attempt)
+
+    # Показываем модалку, только если посылок достаточно И есть реальная
+    # ссылка на пример несданного задания.
+    show_prompt = n >= MIN_ANON_MIGRATE_PROMPT_ATTEMPTS and example is not None
+    payload = {'attempts': n, 'show_prompt': show_prompt}
+    if example is not None:
+        payload['example_url'] = example[0]
+        payload['example_label'] = example[1]
+    return JsonResponse(payload)
 
 
 @login_required
@@ -2432,7 +2487,7 @@ def new_migrate_anon_attempts(request):
     anon_key = request.POST.get('anon_key')
     if not anon_key:
         raise Http404()
-    moved = Attempt.objects.filter(anon_key=anon_key, user__isnull=True, team__isnull=True).update(
+    moved = Attempt.manager.filter(anon_key=anon_key, user__isnull=True, team__isnull=True).update(
         user=request.user,
         anon_key=None,
     )
@@ -2440,6 +2495,14 @@ def new_migrate_anon_attempts(request):
         user=request.user,
         anon_key=None,
     )
+    if moved or moved_hints:
+        StatisticsEvent.record(
+            StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
+            user=request.user,
+            anon_key=anon_key,
+            moved=moved,
+            moved_hints=moved_hints,
+        )
     return JsonResponse({'status': 'ok', 'moved': moved, 'moved_hints': moved_hints})
 
 
