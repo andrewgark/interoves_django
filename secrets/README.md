@@ -92,7 +92,7 @@ Copy `secrets/telegram.env.example` and follow the steps inside. Minimum for **a
 
 **Chat mode** (group «Десяточек, посылка»): add the bot to the group, run step 3 again, put the group `chat_id` into `secrets/telegram_announce_chat_ids.txt`. Enable per game: `tags.telegram_announce = true` in Django admin.
 
-**Channel** (t.me/interoves, daily ladder in «Отложенные»): Bot API cannot use `schedule_date`. Use a **user** MTProto session (Telethon) of a channel admin. Set `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` (my.telegram.org), `TELEGRAM_CHANNEL_CHAT_ID=@interoves`, run `manage.py telegram_user_login` → `TELEGRAM_USER_SESSION`. At 00:15 MSK the minute cron schedules the post for 16:30 MSK. Image = Playwright screenshot of `SITE_BASE_URL/games/ladder/last/` (needs `playwright install chromium` under `/home/webapp/.cache/ms-playwright`; cron exports `PLAYWRIGHT_BROWSERS_PATH` because it runs as root). Smoke: `manage.py telegram_ladder_admin_preview`, `manage.py telegram_ladder_channel_post schedule`.
+**Channel** (t.me/interoves, daily ladder in «Отложенные»): Bot API cannot use `schedule_date`. Use a **user** MTProto session (Telethon) of a channel admin. Set `TELEGRAM_API_ID` / `TELEGRAM_API_HASH` (my.telegram.org), `TELEGRAM_CHANNEL_CHAT_ID=@interoves`, run `manage.py telegram_user_login` → `TELEGRAM_USER_SESSION`. At 00:15 MSK the minute cron schedules the post for 16:30 MSK **and tweets the same teaser to X immediately** (needs `TWITTER_*` secrets). Image = Playwright screenshot of `SITE_BASE_URL/games/ladder/last/` (needs `playwright install chromium` under `/home/webapp/.cache/ms-playwright`; cron exports `PLAYWRIGHT_BROWSERS_PATH` because it runs as root). Smoke: `manage.py telegram_ladder_admin_preview`, `manage.py telegram_ladder_channel_post schedule`.
 
 Scheduled jobs (EB cron via `.ebextensions/telegram_cron.config`): `telegram_game_announcements` every minute (also ladder channel at 00:15 MSK). Log: `/var/log/telegram_cron.log`. Also `telegram_daily_digest` (daily; set separately if needed).
 
@@ -102,5 +102,24 @@ On prod after deploy:
 eb setenv TELEGRAM_BOT_TOKEN='...' TELEGRAM_ADMIN_CHAT_ID='...' \
   TELEGRAM_ANNOUNCE_CHAT_IDS='-100...' TELEGRAM_CHANNEL_CHAT_ID='@interoves' \
   TELEGRAM_API_ID='...' TELEGRAM_API_HASH='...' TELEGRAM_USER_SESSION='...' \
-  TELEGRAM_WEBHOOK_SECRET='...'
+  TELEGRAM_WEBHOOK_SECRET='...' \
+  TWITTER_API_KEY='...' TWITTER_API_SECRET='...' \
+  TWITTER_ACCESS_TOKEN='...' TWITTER_ACCESS_TOKEN_SECRET='...'
 ```
+
+## X / Twitter (@interoves)
+
+Used by the 00:15 MSK ladder cron: when the Telegram channel post is queued for 16:30, the same teaser is **tweeted immediately** (X has no organic schedule).
+
+Local files (or EB env vars):
+
+- `twitter_api_key.txt` / `TWITTER_API_KEY`
+- `twitter_api_secret.txt` / `TWITTER_API_SECRET`
+- `twitter_access_token.txt` / `TWITTER_ACCESS_TOKEN`
+- `twitter_access_token_secret.txt` / `TWITTER_ACCESS_TOKEN_SECRET`
+
+```bash
+eb setenv TWITTER_API_KEY='...' TWITTER_API_SECRET='...'   TWITTER_ACCESS_TOKEN='...' TWITTER_ACCESS_TOKEN_SECRET='...'
+```
+
+

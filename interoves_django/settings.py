@@ -701,6 +701,19 @@ TELEGRAM_USER_SESSION = load_secret('telegram_user_session.txt', env_var='TELEGR
 # Real site screenshot for ladder posts (Playwright/Chromium). Set FALSE to force Pillow.
 TELEGRAM_LADDER_SCREENSHOT = _env_flag_default('TELEGRAM_LADDER_SCREENSHOT', True)
 
+# X / Twitter (@interoves) — OAuth 1.0a user tokens for ladder channel cron tweets.
+TWITTER_API_KEY = load_secret('twitter_api_key.txt', env_var='TWITTER_API_KEY', default='')
+TWITTER_API_SECRET = load_secret('twitter_api_secret.txt', env_var='TWITTER_API_SECRET', default='')
+TWITTER_ACCESS_TOKEN = load_secret(
+    'twitter_access_token.txt', env_var='TWITTER_ACCESS_TOKEN', default=''
+)
+TWITTER_ACCESS_TOKEN_SECRET = load_secret(
+    'twitter_access_token_secret.txt',
+    env_var='TWITTER_ACCESS_TOKEN_SECRET',
+    default='',
+)
+TWITTER_HANDLE = (os.environ.get('TWITTER_HANDLE') or 'interoves').strip() or 'interoves'
+
 if IS_PROD:
     EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
     EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')

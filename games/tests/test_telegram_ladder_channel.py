@@ -79,9 +79,12 @@ class LadderChannelScheduleTests(TestCase):
         png = render_ladder_teaser_png_pillow(self.task, ladder_number=1)
         self.assertTrue(png.startswith(b'\x89PNG'))
 
+    @patch('games.telegram.ladder_channel._maybe_post_ladder_to_twitter')
     @patch('games.telegram.ladder_channel.send_photo')
     @patch('games.telegram.ladder_channel.schedule_channel_photo_sync')
-    def test_schedule_uses_mtproto_schedule_date(self, mtproto_mock, admin_photo_mock):
+    def test_schedule_uses_mtproto_schedule_date(
+        self, mtproto_mock, admin_photo_mock, twitter_mock
+    ):
         mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
         admin_photo_mock.return_value = {'message_id': 1}
 
@@ -97,16 +100,20 @@ class LadderChannelScheduleTests(TestCase):
         self.assertEqual(kwargs['schedule_at'], post.scheduled_for)
         self.assertTrue(kwargs['photo_bytes'].startswith(b'\x89PNG'))
         admin_photo_mock.assert_called_once()
+        twitter_mock.assert_called_once()
 
-        # Idempotent
+        # Idempotent Telegram schedule; Twitter helper still runs to retry if needed
         mtproto_mock.reset_mock()
+        twitter_mock.reset_mock()
         again = schedule_ladder_channel_post(now=self.now, force=False)
         self.assertEqual(again.pk, post.pk)
         mtproto_mock.assert_not_called()
+        twitter_mock.assert_called_once_with(again, force=False)
 
+    @patch('games.telegram.ladder_channel._maybe_post_ladder_to_twitter')
     @patch('games.telegram.ladder_channel.send_photo')
     @patch('games.telegram.ladder_channel.schedule_channel_photo_sync')
-    def test_tick_only_in_0015_window(self, mtproto_mock, _admin_photo_mock):
+    def test_tick_only_in_0015_window(self, mtproto_mock, _admin_photo_mock, _twitter_mock):
         mtproto_mock.return_value = {'message_id': 7, 'scheduled': True}
         outside = datetime(2026, 7, 8, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         stats = process_ladder_channel_tick(now=outside)
@@ -130,14 +137,39 @@ class LadderChannelScheduleTests(TestCase):
         self.assertTrue(send_photo_mock.call_args.args[1].startswith(b'\x89PNG'))
         self.assertIn('Лесенка №1', kwargs['caption'])
 
+    @patch('games.telegram.ladder_channel._maybe_post_ladder_to_twitter')
     @patch('games.telegram.ladder_channel.schedule_channel_photo_sync')
-    def test_schedule_refuses_after_1630(self, mtproto_mock):
+    def test_schedule_refuses_after_1630(self, mtproto_mock, twitter_mock):
         late = datetime(2026, 7, 8, 19, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         post = schedule_ladder_channel_post(now=late, force=True, notify_admin=False)
         self.assertIsNotNone(post)
         self.assertEqual(post.status, TelegramLadderChannelPost.STATUS_FAILED)
         self.assertIn('refusing to post immediately', post.error)
         mtproto_mock.assert_not_called()
+        twitter_mock.assert_not_called()
+
+    @patch('games.telegram.ladder_channel.post_tweet_with_image')
+    @patch('games.telegram.ladder_channel.twitter_configured', return_value=True)
+    @patch('games.telegram.ladder_channel.send_photo')
+    @patch('games.telegram.ladder_channel.schedule_channel_photo_sync')
+    def test_schedule_also_tweets(
+        self, mtproto_mock, _admin_photo_mock, _tw_cfg, tweet_mock
+    ):
+        mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
+        tweet_mock.return_value = {'data': {'id': '999888777'}}
+        post = schedule_ladder_channel_post(now=self.now, force=True, notify_admin=False)
+        self.assertEqual(post.twitter_tweet_id, '999888777')
+        self.assertEqual(post.twitter_error, '')
+        tweet_mock.assert_called_once()
+        text = tweet_mock.call_args.kwargs['text']
+        self.assertIn('Лесенка №1', text)
+        self.assertNotIn('<b>', text)
+        self.assertTrue(tweet_mock.call_args.kwargs['image_bytes'].startswith(b'\x89PNG'))
+
+        # Idempotent: already tweeted
+        tweet_mock.reset_mock()
+        schedule_ladder_channel_post(now=self.now, force=False, notify_admin=False)
+        tweet_mock.assert_not_called()
 
 
 class EnsurePlaywrightBrowsersPathTests(TestCase):

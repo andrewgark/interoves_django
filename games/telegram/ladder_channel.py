@@ -33,6 +33,11 @@ from games.telegram.mtproto import (
     schedule_channel_photo_sync,
     telegram_user_configured,
 )
+from games.twitter.api import (
+    html_caption_to_plain,
+    post_tweet_with_image,
+    twitter_configured,
+)
 
 logger = logging.getLogger('application')
 
@@ -197,6 +202,7 @@ def schedule_ladder_channel_post(
         TelegramLadderChannelPost.STATUS_SCHEDULED,
         TelegramLadderChannelPost.STATUS_SENT,
     ) and not force:
+        _maybe_post_ladder_to_twitter(existing, force=False)
         return existing
     # Another instance may be mid-flight (multi-instance ASG + cron on each host).
     if (
@@ -229,6 +235,7 @@ def schedule_ladder_channel_post(
                 TelegramLadderChannelPost.STATUS_SCHEDULED,
                 TelegramLadderChannelPost.STATUS_SENT,
             ) and not force:
+                _maybe_post_ladder_to_twitter(existing, force=False)
                 return existing
             if (
                 existing
@@ -368,7 +375,51 @@ def schedule_ladder_channel_post(
             )
         except Exception:
             logger.exception('Admin preview for ladder channel post failed')
+
+    # X has no organic schedule: tweet immediately when we queue Telegram for 16:30
+    # (same 00:15 MSK cron). Failures are recorded but do not roll back Telegram.
+    _maybe_post_ladder_to_twitter(post, force=force)
     return post
+
+
+def _maybe_post_ladder_to_twitter(
+    post: TelegramLadderChannelPost,
+    *,
+    force: bool = False,
+) -> None:
+    if post.status not in (
+        TelegramLadderChannelPost.STATUS_SCHEDULED,
+        TelegramLadderChannelPost.STATUS_SENT,
+    ):
+        return
+    if post.twitter_tweet_id and not force:
+        return
+    if not twitter_configured():
+        logger.info(
+            'Ladder №%s: Twitter skipped (TWITTER_* credentials not configured)',
+            post.ladder_number,
+        )
+        return
+    text = html_caption_to_plain(post.caption)
+    if not text:
+        text = 'Лесенка №{}\n{}'.format(post.ladder_number, post.play_url)
+    try:
+        result = post_tweet_with_image(
+            text=text,
+            image_bytes=bytes(post.image_png),
+            filename='ladder-{}.png'.format(post.ladder_number),
+        )
+        tweet_id = str((result.get('data') or {}).get('id') or '')
+        if not tweet_id:
+            raise RuntimeError('Twitter response missing tweet id: {}'.format(result)[:400])
+        post.twitter_tweet_id = tweet_id
+        post.twitter_error = ''
+        post.save(update_fields=['twitter_tweet_id', 'twitter_error'])
+        logger.info('Ladder №%s tweeted id=%s', post.ladder_number, tweet_id)
+    except Exception as exc:
+        logger.exception('Ladder №%s Twitter post failed', post.ladder_number)
+        post.twitter_error = str(exc)[:500]
+        post.save(update_fields=['twitter_error'])
 
 
 # Backward-compatible aliases used by the management command.

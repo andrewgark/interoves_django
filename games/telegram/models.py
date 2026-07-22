@@ -59,6 +59,13 @@ class TelegramLadderChannelPost(models.Model):
     prepared_at = models.DateTimeField(auto_now_add=True)
     sent_at = models.DateTimeField(null=True, blank=True)
     telegram_message_id = models.BigIntegerField(null=True, blank=True)
+    twitter_tweet_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        help_text='X tweet id if also posted at 00:15 prepare (immediate; X has no schedule)',
+    )
+    twitter_error = models.TextField(blank=True, default='')
     error = models.TextField(blank=True, default='')
 
     class Meta:
