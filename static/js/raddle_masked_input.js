@@ -1,6 +1,7 @@
 /**
  * Маскированный ввод для лесенки (raddle): IMask.js + шаблон с сервера.
  * Шаблон: # — слот буквы, остальные символы — фиксированные литералы (дефис, пробел…).
+ * data-raddle-script="latin" — только латиница; иначе кириллица.
  * Локальная проверка: node static/js/raddle_masked_input.test.js
  */
 (function (global) {
@@ -9,6 +10,8 @@
   var SLOT = '#';
   var CYRILLIC_LETTER_RE = /[а-яёА-ЯЁ]/;
   var CYRILLIC_EXTRACT_RE = /[а-яёА-ЯЁ]/g;
+  var LATIN_LETTER_RE = /[a-zA-Z]/;
+  var LATIN_EXTRACT_RE = /[a-zA-Z]/g;
   var BOUND = 'data-raddle-mask-bound';
   var maskByInput = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
   var maskByInputFallback = null;
@@ -21,8 +24,19 @@
     return n;
   }
 
-  function normalizeLetter(ch) {
-    return String(ch || '').replace(/ё/gi, function (m) {
+  function inputScript(input) {
+    if (!input || typeof input.getAttribute !== 'function') return 'cyrillic';
+    return input.getAttribute('data-raddle-script') === 'latin' ? 'latin' : 'cyrillic';
+  }
+
+  function isLatinScript(script) {
+    return script === 'latin';
+  }
+
+  function normalizeLetter(ch, script) {
+    var s = String(ch || '');
+    if (isLatinScript(script)) return s.toUpperCase();
+    return s.replace(/ё/gi, function (m) {
       return m === 'ё' ? 'е' : 'Е';
     }).toUpperCase();
   }
@@ -30,7 +44,17 @@
   function extractRussianLetters(text) {
     var m = String(text || '').match(CYRILLIC_EXTRACT_RE);
     if (!m) return '';
-    return m.map(normalizeLetter).join('');
+    return m.map(function (ch) { return normalizeLetter(ch, 'cyrillic'); }).join('');
+  }
+
+  function extractLatinLetters(text) {
+    var m = String(text || '').match(LATIN_EXTRACT_RE);
+    if (!m) return '';
+    return m.map(function (ch) { return normalizeLetter(ch, 'latin'); }).join('');
+  }
+
+  function extractLetters(text, script) {
+    return isLatinScript(script) ? extractLatinLetters(text) : extractRussianLetters(text);
   }
 
   function lettersToDisplay(fmt, letters) {
@@ -68,15 +92,18 @@
     maskByInputFallback.set(input, mask);
   }
 
-  function buildMaskOptions(fmt) {
+  function buildMaskOptions(fmt, script) {
+    var letterRe = isLatinScript(script) ? LATIN_LETTER_RE : CYRILLIC_LETTER_RE;
     return {
       mask: fmt,
       definitions: (function () {
         var defs = {};
-        defs[SLOT] = CYRILLIC_LETTER_RE;
+        defs[SLOT] = letterRe;
         return defs;
       })(),
-      prepareChar: normalizeLetter,
+      prepareChar: function (ch) {
+        return normalizeLetter(ch, script);
+      },
       lazy: true,
     };
   }
@@ -90,8 +117,9 @@
   function setLetters(input, letters, opts) {
     opts = opts || {};
     var fmt = input.getAttribute('data-raddle-format') || '';
+    var script = inputScript(input);
     var max = slotCount(fmt);
-    var clean = extractRussianLetters(letters).slice(0, max);
+    var clean = extractLetters(letters, script).slice(0, max);
     var mask = getMaskInstance(input);
     if (mask) {
       mask.unmaskedValue = clean;
@@ -121,6 +149,7 @@
     if (!fmt) return;
     if (typeof IMask === 'undefined') return;
 
+    var script = inputScript(input);
     input.setAttribute(BOUND, '1');
     input.setAttribute('inputmode', 'text');
     input.setAttribute('autocapitalize', 'characters');
@@ -129,7 +158,7 @@
     var initial = input.getAttribute('value') || input.value || '';
     input.removeAttribute('value');
 
-    var mask = IMask(input, buildMaskOptions(fmt));
+    var mask = IMask(input, buildMaskOptions(fmt, script));
     setMaskInstance(input, mask);
 
     function syncDataset() {
@@ -151,7 +180,7 @@
     });
 
     if (initial) {
-      mask.unmaskedValue = extractRussianLetters(initial);
+      mask.unmaskedValue = extractLetters(initial, script);
     } else {
       syncDataset();
     }
@@ -168,6 +197,8 @@
     SLOT: SLOT,
     slotCount: slotCount,
     extractRussianLetters: extractRussianLetters,
+    extractLatinLetters: extractLatinLetters,
+    extractLetters: extractLetters,
     lettersToDisplay: lettersToDisplay,
     buildMaskOptions: buildMaskOptions,
     getLetters: getLetters,

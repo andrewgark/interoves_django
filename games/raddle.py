@@ -26,12 +26,20 @@ _RADDLE_ASSIST_CLUE_DESC = re.compile(r'^raddle_clue:(\d+)$', re.I)
 _RADDLE_ASSIST_ANSWER_DESC = re.compile(r'^raddle_answer:(\d+)$', re.I)
 _RADDLE_LETTER_RE = re.compile(r'[^0-9a-zа-яё]', re.I)
 _RADDLE_IS_LETTER_RE = re.compile(r'^[0-9a-zа-яё]$', re.I)
+_RADDLE_HAS_LATIN_RE = re.compile(r'[a-z]', re.I)
+_RADDLE_HAS_CYRILLIC_RE = re.compile(r'[а-яё]', re.I)
 RADDLE_INPUT_FORMAT_SLOT = '#'
 
 
 def raddle_word_core(word):
     """Буквы и цифры без пробелов, дефисов и прочей пунктуации (для сравнения и длины)."""
     return clean_text(_RADDLE_LETTER_RE.sub('', str(word or '')))
+
+
+def raddle_word_is_latin(word):
+    """Ответ на латинице: есть латинские буквы и нет кириллицы (пунктуация/цифры не мешают)."""
+    s = str(word or '')
+    return bool(_RADDLE_HAS_LATIN_RE.search(s)) and not bool(_RADDLE_HAS_CYRILLIC_RE.search(s))
 
 
 def raddle_input_format(canonical_word=None, mask=None):
@@ -905,6 +913,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         # Подпись и квадраты — по структуре ответа (пробел ≠ дефис), не по строке lengths.
         mask_html = length_mask_display(mask, canon).strip()
         length_label = length_label_from_word(canon) if canon else mask['label']
+        is_latin = raddle_word_is_latin(canon) if canon else False
         ref_idx = reference_word_for_playable(i, solved, n) if is_playable else None
         ref_role = reference_role_for_playable(i, solved, n) if is_playable else None
         dual_neighbors = is_playable and both_neighbors_solved(i, solved, n)
@@ -928,6 +937,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             'mask_html': mask_html,
             'mask_placeholder': mask_html,
             'length_label': length_label,
+            'is_latin': is_latin,
             'mask_slots': mask_slot_count(mask, canon),
             'max_length': mask_slot_count(mask, canon),
             'input_format': inp_fmt,

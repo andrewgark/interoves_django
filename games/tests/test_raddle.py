@@ -23,6 +23,7 @@ from games.raddle import (
     validate_raddle_checker_data,
     raddle_input_format,
     raddle_word_core,
+    raddle_word_is_latin,
     word_length_matches,
     word_matches,
 )
@@ -95,6 +96,18 @@ class LengthLabelFromWordTests(SimpleTestCase):
             length_mask_display(parse_length_mask('5 3')),
             '◼️◼️◼️◼️◼️ ◼️◼️◼️',
         )
+
+
+class RaddleWordIsLatinTests(SimpleTestCase):
+    def test_latin_and_cyrillic(self):
+        self.assertTrue(raddle_word_is_latin('HELLO'))
+        self.assertTrue(raddle_word_is_latin('NEW-YORK'))
+        self.assertTrue(raddle_word_is_latin("O'KAY"))
+        self.assertFalse(raddle_word_is_latin('ПАРИЖ'))
+        self.assertFalse(raddle_word_is_latin('НЬЮ-ЙОРК'))
+        self.assertFalse(raddle_word_is_latin('HELLO ПРИВЕТ'))
+        self.assertFalse(raddle_word_is_latin('123'))
+        self.assertFalse(raddle_word_is_latin(''))
 
 
 class ParseRaddleDataTests(SimpleTestCase):
@@ -584,8 +597,22 @@ class RaddleUiContextTests(SimpleTestCase):
         row = ctx['rows'][1]
         self.assertEqual(row['length_label'], '5 3')
         self.assertEqual(row['input_format'], '##### ###')
+        self.assertFalse(row['is_latin'])
         self.assertIn(' ', row['mask_html'])
         self.assertNotIn('-', row['mask_html'])
+
+    def test_latin_word_marks_is_latin(self):
+        data = {
+            'lengths': [5, 5, 5],
+            'hints': ['a', 'b'],
+            'words': ['START', 'HELLO', 'FINISH'],
+            'raddle_assist': {'enabled': False, 'fractions': [1, 0.5, 0]},
+        }
+        parsed = parse_raddle_data(_task(checker_data=json.dumps(data, ensure_ascii=False)))
+        ctx = build_raddle_ui_context(parsed, default_raddle_state(3))
+        self.assertTrue(ctx['rows'][0]['is_latin'])
+        self.assertTrue(ctx['rows'][1]['is_latin'])
+        self.assertEqual(ctx['rows'][1]['length_label'], '5')
 
     def test_attempts_exhausted_in_tournament(self):
         parsed = parse_raddle_data(_task())

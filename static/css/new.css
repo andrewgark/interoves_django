@@ -3066,6 +3066,12 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   white-space: nowrap;
   flex-shrink: 0;
 }
+.new-raddle-latin-flag {
+  font-size: 0.78em;
+  line-height: 1;
+  vertical-align: 0.05em;
+  cursor: help;
+}
 .new-raddle-line__no-guesses {
   margin: 0;
   font-size: 0.78rem;

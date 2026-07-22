@@ -20,6 +20,15 @@ function testExtractRussianLetters() {
   assert.strictEqual(M.extractRussianLetters('Hello world'), '');
 }
 
+function testExtractLatinLetters() {
+  assert.strictEqual(M.extractLatinLetters('NEW-YORK'), 'NEWYORK');
+  assert.strictEqual(M.extractLatinLetters('abc ПРИВЕТ 123'), 'ABC');
+  assert.strictEqual(M.extractLatinLetters("o'kay"), 'OKAY');
+  assert.strictEqual(M.extractLatinLetters(''), '');
+  assert.strictEqual(M.extractLetters('hello', 'latin'), 'HELLO');
+  assert.strictEqual(M.extractLetters('привет', 'cyrillic'), 'ПРИВЕТ');
+}
+
 function testLettersToDisplayHyphenAfterFive() {
   var fmt = '#####' + '-' + '#########';
   assert.strictEqual(M.lettersToDisplay(fmt, ''), '');
@@ -98,7 +107,7 @@ function testPasteOverflowTruncates() {
   assert.strictEqual(input.value, 'САН');
 }
 
-function makeImaskInput(fmt) {
+function makeImaskInput(fmt, script) {
   var el = {
     type: 'text',
     value: '',
@@ -126,6 +135,7 @@ function makeImaskInput(fmt) {
     ownerDocument: { activeElement: null },
     getRootNode: function () { return { activeElement: null }; },
   };
+  if (script) el._attrs['data-raddle-script'] = script;
   return el;
 }
 
@@ -144,6 +154,13 @@ function testImaskFormatsMatchServerTemplate() {
   });
 }
 
+function testImaskLatinFormats() {
+  var mask = IMask.createMask(M.buildMaskOptions('###-####', 'latin'));
+  mask.unmaskedValue = 'NEWYORK';
+  assert.strictEqual(mask.value, 'NEW-YORK');
+  assert.strictEqual(mask.unmaskedValue, 'NEWYORK');
+}
+
 function testBindInputUsesImaskForEditing() {
   var input = makeImaskInput('#####');
   M.bindInput(input, {});
@@ -160,6 +177,17 @@ function testBindInputUsesImaskForEditing() {
   assert.strictEqual(input.value, '');
 }
 
+function testBindInputLatinRejectsCyrillic() {
+  var input = makeImaskInput('#####', 'latin');
+  M.bindInput(input, {});
+  M.setLetters(input, 'hello', {});
+  assert.strictEqual(M.getSubmitValue(input), 'HELLO');
+  assert.strictEqual(input.value, 'HELLO');
+  M.setLetters(input, 'привет', {});
+  assert.strictEqual(M.getSubmitValue(input), '');
+  assert.strictEqual(input.value, '');
+}
+
 function testBindInputNormalizesYo() {
   var input = makeImaskInput('###');
   M.bindInput(input, {});
@@ -169,6 +197,7 @@ function testBindInputNormalizesYo() {
 
 testSlotCount();
 testExtractRussianLetters();
+testExtractLatinLetters();
 testLettersToDisplayHyphenAfterFive();
 testLettersToDisplaySpace();
 testLettersToDisplayCommaAndApostrophe();
@@ -176,7 +205,9 @@ testLettersToDisplayLeadingSeparator();
 testSetLettersCapsAtMax();
 testPasteOverflowTruncates();
 testImaskFormatsMatchServerTemplate();
+testImaskLatinFormats();
 testBindInputUsesImaskForEditing();
+testBindInputLatinRejectsCyrillic();
 testBindInputNormalizesYo();
 
 console.log('raddle_masked_input.test.js: ok');
