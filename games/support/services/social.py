@@ -14,6 +14,11 @@ from games.social.publish import (
     publish_twitter,
     queue_network as publish_queue_network,
 )
+from games.telegram.config import channel_chat_id, telegram_channel_configured
+from games.telegram.mtproto import (
+    fetch_scheduled_message_sync,
+    telegram_user_configured,
+)
 
 
 class SocialSupportError(Exception):
@@ -166,6 +171,36 @@ def update_post(
     if image_file is not None:
         post.image = image_file
     post.save()
+    return post
+
+
+def sync_from_telegram(post: SocialQueuePost) -> SocialQueuePost:
+    """Pull the (possibly edited) caption from the Telegram scheduled post.
+
+    Only updates ``post.caption`` in the DB — no re-posting. Queued X/Instagram
+    posts read the caption when the cron fires, so they pick up the new text
+    automatically as long as they haven't been published yet.
+    """
+    if not post.telegram_external_id:
+        raise SocialSupportError('Пост не привязан к сообщению Telegram')
+    if not (telegram_user_configured() and telegram_channel_configured()):
+        raise SocialSupportError('Telegram канал / user session не настроены')
+    try:
+        data = fetch_scheduled_message_sync(
+            chat=channel_chat_id(),
+            message_id=int(post.telegram_external_id),
+        )
+    except SocialSupportError:
+        raise
+    except Exception as exc:
+        raise SocialSupportError('Ошибка чтения из Telegram: {}'.format(exc))
+    if not data:
+        raise SocialSupportError(
+            'Сообщение не найдено в отложенных Telegram '
+            '(возможно, уже опубликовано или удалено)'
+        )
+    post.caption = data.get('caption') or ''
+    post.save(update_fields=['caption', 'updated_at'])
     return post
 
 

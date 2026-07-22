@@ -135,6 +135,65 @@ class SupportSocialQueueTests(TestCase):
         self.assertTrue(response.json()['ok'])
         self.assertFalse(SocialQueuePost.objects.filter(pk=pk).exists())
 
+    @override_settings(
+        TELEGRAM_API_ID=1, TELEGRAM_API_HASH='h', TELEGRAM_USER_SESSION='s',
+        TELEGRAM_CHANNEL_CHAT_ID='@chan',
+    )
+    @patch('games.support.services.social.fetch_scheduled_message_sync')
+    def test_sync_telegram_pulls_caption(self, fetch_mock):
+        post = SocialQueuePost.objects.create(
+            caption='старый текст',
+            source=SocialQueuePost.SOURCE_MANUAL,
+            telegram_status=SocialQueuePost.STATUS_SCHEDULED,
+            telegram_external_id='4242',
+        )
+        fetch_mock.return_value = {
+            'message_id': 4242,
+            'caption': 'новый текст из телеги',
+            'caption_plain': 'новый текст из телеги',
+            'date': None,
+        }
+        response = self.client.post(
+            reverse('support:social_sync_telegram', args=[post.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['ok'])
+        self.assertEqual(data['post']['caption'], 'новый текст из телеги')
+        fetch_mock.assert_called_once()
+        self.assertEqual(fetch_mock.call_args.kwargs['message_id'], 4242)
+        post.refresh_from_db()
+        self.assertEqual(post.caption, 'новый текст из телеги')
+
+    def test_sync_telegram_requires_external_id(self):
+        post = SocialQueuePost.objects.create(
+            caption='no tg', source=SocialQueuePost.SOURCE_MANUAL,
+        )
+        response = self.client.post(
+            reverse('support:social_sync_telegram', args=[post.pk])
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()['ok'])
+
+    @override_settings(
+        TELEGRAM_API_ID=1, TELEGRAM_API_HASH='h', TELEGRAM_USER_SESSION='s',
+        TELEGRAM_CHANNEL_CHAT_ID='@chan',
+    )
+    @patch('games.support.services.social.fetch_scheduled_message_sync')
+    def test_sync_telegram_not_found_returns_error(self, fetch_mock):
+        post = SocialQueuePost.objects.create(
+            caption='gone',
+            source=SocialQueuePost.SOURCE_MANUAL,
+            telegram_status=SocialQueuePost.STATUS_SCHEDULED,
+            telegram_external_id='7',
+        )
+        fetch_mock.return_value = None
+        response = self.client.post(
+            reverse('support:social_sync_telegram', args=[post.pk])
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()['ok'])
+
     def test_queue_endpoint_sets_internal_schedule(self):
         post = SocialQueuePost.objects.create(caption='q', source=SocialQueuePost.SOURCE_MANUAL)
         post.image.save('a.png', _png_upload(), save=True)

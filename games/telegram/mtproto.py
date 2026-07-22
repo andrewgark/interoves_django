@@ -106,3 +106,50 @@ async def delete_channel_messages(*, chat: str, message_ids: list[int]) -> int:
 
 def delete_channel_messages_sync(*, chat: str, message_ids: list[int]) -> int:
     return run_sync(lambda: delete_channel_messages(chat=chat, message_ids=message_ids))
+
+
+async def fetch_scheduled_message(*, chat: str, message_id: int) -> dict[str, Any] | None:
+    """Read one message from the channel's scheduled («Отложенные») queue.
+
+    Returns the current caption (as HTML, reconstructed from message entities so
+    formatting/links survive) or None if the message is no longer scheduled
+    (e.g. already published or deleted).
+    """
+    if not telegram_user_configured():
+        raise RuntimeError('TELEGRAM_API_ID / TELEGRAM_API_HASH / TELEGRAM_USER_SESSION not configured')
+
+    from telethon.extensions import html as tl_html
+    from telethon.tl.functions.messages import GetScheduledMessagesRequest
+
+    client = _build_client()
+    async with client:
+        entity = await client.get_entity(chat)
+        result = await client(
+            GetScheduledMessagesRequest(peer=entity, id=[int(message_id)])
+        )
+        messages = getattr(result, 'messages', None) or []
+        message = None
+        for candidate in messages:
+            if getattr(candidate, 'id', None) == int(message_id):
+                message = candidate
+                break
+        if message is None:
+            return None
+
+        raw_text = getattr(message, 'message', '') or ''
+        entities = getattr(message, 'entities', None)
+        try:
+            caption_html = tl_html.unparse(raw_text, entities)
+        except Exception:
+            caption_html = raw_text
+
+        return {
+            'message_id': getattr(message, 'id', message_id),
+            'caption': caption_html,
+            'caption_plain': raw_text,
+            'date': getattr(message, 'date', None),
+        }
+
+
+def fetch_scheduled_message_sync(*, chat: str, message_id: int) -> dict[str, Any] | None:
+    return run_sync(lambda: fetch_scheduled_message(chat=chat, message_id=message_id))

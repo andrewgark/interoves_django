@@ -83,6 +83,7 @@
     create: "{% url 'support:social_create' %}",
     updateTpl: "{% url 'support:social_update' 0 %}".replace('/0/', '/{id}/'),
     publishTpl: "{% url 'support:social_publish' 0 %}".replace('/0/', '/{id}/'),
+    syncTgTpl: "{% url 'support:social_sync_telegram' 0 %}".replace('/0/', '/{id}/'),
     deleteTpl: "{% url 'support:social_delete' 0 %}".replace('/0/', '/{id}/')
   };
   var listEl = document.getElementById('social-list');
@@ -211,6 +212,11 @@
     );
   }
 
+  function canPullFromTelegram(post) {
+    var tg = post && post.telegram;
+    return !!(tg && tg.status === 'scheduled' && tg.external_id);
+  }
+
   function escapeHtml(s) {
     return String(s || '')
       .replace(/&/g, '&amp;')
@@ -238,10 +244,33 @@
           '<div class="support-social-item__body">' +
             '<div class="support-social-item__head">' +
               '<div class="support-social-item__meta">#' + p.id + ' · ' + srcLabel + '</div>' +
-              '<button type="button" class="support-social-delete" data-delete="' + p.id +
-                '" title="Удалить пост" aria-label="Удалить пост">×</button>' +
+              '<div class="support-social-item__actions">' +
+                (canPullFromTelegram(p)
+                  ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-sync-tg="' + p.id +
+                      '" title="Подтянуть текст из отложенного поста Telegram (X/Insta в очереди обновятся сами)">Подтянуть из TG</button>'
+                  : '') +
+                '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-edit="' + p.id +
+                  '" title="Редактировать пост (только запись, без постинга)">Редактировать</button>' +
+                '<button type="button" class="support-social-delete" data-delete="' + p.id +
+                  '" title="Удалить пост" aria-label="Удалить пост">×</button>' +
+              '</div>' +
             '</div>' +
-            '<div class="support-social-item__caption">' + (cap || '<span class="support-hint">без подписи</span>') + '</div>' +
+            '<div class="support-social-item__caption" data-caption="' + p.id + '">' + (cap || '<span class="support-hint">без подписи</span>') + '</div>' +
+            '<div class="support-social-edit" data-edit-form="' + p.id + '" hidden>' +
+              '<label class="support-ladders-field">' +
+                '<span>Подпись</span>' +
+                '<textarea class="support-social-edit-caption" rows="4">' + escapeHtml(p.caption || '') + '</textarea>' +
+              '</label>' +
+              '<label class="support-hint support-social-edit-filerow">' +
+                'Заменить картинку (необязательно): ' +
+                '<input type="file" class="support-social-edit-file" accept="image/*">' +
+              '</label>' +
+              '<div class="support-action-row">' +
+                '<button type="button" class="new-btn new-btn--mini" data-edit-save="' + p.id + '">Сохранить</button>' +
+                '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-edit-cancel="' + p.id + '">Отмена</button>' +
+                '<span class="support-hint" data-edit-status="' + p.id + '"></span>' +
+              '</div>' +
+            '</div>' +
             networkRow(p, 'telegram', p.telegram) +
             networkRow(p, 'twitter', p.twitter) +
             networkRow(p, 'instagram', p.instagram) +
@@ -337,6 +366,17 @@
     });
   });
 
+  function toggleEdit(id, on) {
+    var form = listEl.querySelector('[data-edit-form="' + id + '"]');
+    var caption = listEl.querySelector('[data-caption="' + id + '"]');
+    if (form) form.hidden = !on;
+    if (caption) caption.hidden = !!on;
+    if (on && form) {
+      var capEl = form.querySelector('.support-social-edit-caption');
+      if (capEl) capEl.focus();
+    }
+  }
+
   function readWhen(id, network) {
     var el = listEl.querySelector('input[data-when="' + id + '"][data-network="' + network + '"]');
     if (!el || !el.value) return null;
@@ -364,6 +404,76 @@
       }).catch(function (err) {
         delBtn.disabled = false;
         alert(String(err));
+      });
+      return;
+    }
+
+    var syncBtn = e.target.closest('[data-sync-tg]');
+    if (syncBtn) {
+      var syncId = syncBtn.getAttribute('data-sync-tg');
+      var prevLabel = syncBtn.textContent;
+      syncBtn.disabled = true;
+      syncBtn.textContent = '…';
+      fetch(endpoints.syncTgTpl.replace('{id}', syncId), {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf() }
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (!data.ok) {
+          syncBtn.disabled = false;
+          syncBtn.textContent = prevLabel;
+          alert(data.error || 'ошибка');
+          return;
+        }
+        upsertPost(data.post);
+      }).catch(function (err) {
+        syncBtn.disabled = false;
+        syncBtn.textContent = prevLabel;
+        alert(String(err));
+      });
+      return;
+    }
+
+    var editBtn = e.target.closest('[data-edit]');
+    if (editBtn) {
+      toggleEdit(editBtn.getAttribute('data-edit'), true);
+      return;
+    }
+
+    var cancelBtn = e.target.closest('[data-edit-cancel]');
+    if (cancelBtn) {
+      toggleEdit(cancelBtn.getAttribute('data-edit-cancel'), false);
+      return;
+    }
+
+    var saveBtn = e.target.closest('[data-edit-save]');
+    if (saveBtn) {
+      var sid = saveBtn.getAttribute('data-edit-save');
+      var form = listEl.querySelector('[data-edit-form="' + sid + '"]');
+      if (!form) return;
+      var capEl = form.querySelector('.support-social-edit-caption');
+      var fileInput = form.querySelector('.support-social-edit-file');
+      var editStatus = form.querySelector('[data-edit-status="' + sid + '"]');
+      var fd = new FormData();
+      fd.append('caption', capEl ? capEl.value : '');
+      if (fileInput && fileInput.files && fileInput.files[0]) {
+        fd.append('image', fileInput.files[0], fileInput.files[0].name || 'paste.png');
+      }
+      saveBtn.disabled = true;
+      if (editStatus) editStatus.textContent = '…';
+      fetch(endpoints.updateTpl.replace('{id}', sid), {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf() },
+        body: fd
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        saveBtn.disabled = false;
+        if (!data.ok) {
+          if (editStatus) editStatus.textContent = data.error || 'ошибка';
+          return;
+        }
+        upsertPost(data.post);
+      }).catch(function (err) {
+        saveBtn.disabled = false;
+        if (editStatus) editStatus.textContent = String(err);
       });
       return;
     }
