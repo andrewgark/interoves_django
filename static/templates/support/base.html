@@ -20,11 +20,11 @@
     <a href="{% url 'support:stats' %}" {% if request.resolver_match.url_name == 'stats' %}aria-current="page"{% endif %}>Статистика</a>
     <a href="{% url 'support:pending' %}" {% if request.resolver_match.url_name == 'pending' %}aria-current="page"{% endif %}>Pending</a>
     <a href="{% url 'support:live' %}" {% if request.resolver_match.url_name == 'live' %}aria-current="page"{% endif %}>Live</a>
-    <a href="/admin/">Django admin</a>
-    <a href="{% url 'support:logout' %}">Выйти</a>
+    <a class="support-bar__push" href="/admin/">Django admin</a>
+    <a class="support-bar__logout" href="{% url 'support:logout' %}">Выйти</a>
   </div>
 </div>
-<div class="new-wrap">
+<div class="new-wrap support-wrap">
   {% block support_content %}{% endblock %}
 </div>
 {% endblock %}

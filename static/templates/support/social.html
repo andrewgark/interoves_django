@@ -154,13 +154,28 @@
     dropEl.focus();
   });
 
+  function fmtDT(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    try {
+      return d.toLocaleString('ru-RU', {
+        day: '2-digit', month: '2-digit',
+        hour: '2-digit', minute: '2-digit',
+        timeZone: 'Europe/Moscow'
+      }) + ' МСК';
+    } catch (e) {
+      return iso;
+    }
+  }
+
   function statusBadge(network, info) {
     var st = (info && info.status) || 'pending';
     var cls = 'support-social-badge support-social-badge--' + st;
     var label = network.toUpperCase() + ': ' + st;
     var bits = [];
-    if (info && info.queued_for) bits.push('внутр. ' + info.queued_for);
-    if (info && info.scheduled_for) bits.push('TG ' + info.scheduled_for);
+    if (info && info.queued_for) bits.push('внутр. ' + fmtDT(info.queued_for));
+    if (info && info.scheduled_for) bits.push('TG ' + fmtDT(info.scheduled_for));
     if (info && info.error) bits.push(info.error);
     else if (info && info.external_id) bits.push(info.external_id);
     var title = bits.join(' · ');
@@ -183,10 +198,13 @@
     var force = done || failed || queued;
     var meta = '';
     if (info.queued_for) {
-      meta += '<span class="support-hint">внутр.: ' + escapeHtml(info.queued_for) + '</span>';
+      meta += '<span class="support-hint">внутр.: ' + escapeHtml(fmtDT(info.queued_for)) + '</span>';
     }
     if (info.scheduled_for) {
-      meta += '<span class="support-hint">TG отл.: ' + escapeHtml(info.scheduled_for) + '</span>';
+      meta += '<span class="support-hint">TG отл.: ' + escapeHtml(fmtDT(info.scheduled_for)) + '</span>';
+    }
+    if (info.at && info.status === 'sent') {
+      meta += '<span class="support-hint">отправлено: ' + escapeHtml(fmtDT(info.at)) + '</span>';
     }
     var buttons =
       '<button type="button" class="new-btn new-btn--mini" data-action="publish" data-publish="' +
@@ -243,7 +261,8 @@
           img +
           '<div class="support-social-item__body">' +
             '<div class="support-social-item__head">' +
-              '<div class="support-social-item__meta">#' + p.id + ' · ' + srcLabel + '</div>' +
+              '<div class="support-social-item__meta">#' + p.id + ' · ' + srcLabel +
+                (p.created_at ? ' · создан ' + escapeHtml(fmtDT(p.created_at)) : '') + '</div>' +
               '<div class="support-social-item__actions">' +
                 (canPullFromTelegram(p)
                   ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-sync-tg="' + p.id +
@@ -268,6 +287,7 @@
               '<div class="support-action-row">' +
                 '<button type="button" class="new-btn new-btn--mini" data-edit-save="' + p.id + '">Сохранить</button>' +
                 '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-edit-cancel="' + p.id + '">Отмена</button>' +
+                '<span class="support-hint">Esc — отмена · Ctrl/⌘+Enter — сохранить</span>' +
                 '<span class="support-hint" data-edit-status="' + p.id + '"></span>' +
               '</div>' +
             '</div>' +
@@ -333,6 +353,12 @@
     if ((mode === 'internal' || mode === 'tg_defer') && !when) {
       statusEl.textContent = 'укажите дату и время';
       return;
+    }
+    if (mode === 'now') {
+      if (!window.confirm('Опубликовать СЕЙЧАС в: ' + networks.join(', ') + '? Это реальные посты в соцсетях.')) {
+        statusEl.textContent = '';
+        return;
+      }
     }
     if (mode === 'tg_defer' && networks.indexOf('telegram') < 0) {
       statusEl.textContent = 'для отложенных TG нужен Telegram';
@@ -494,6 +520,16 @@
       body.schedule_at = when;
       body.immediate = false;
     }
+
+    var netName = { telegram: 'Telegram', twitter: 'X (Twitter)', instagram: 'Instagram' }[network] || network;
+    if (action === 'publish') {
+      var msg = (force ? 'Повторно опубликовать СЕЙЧАС в ' : 'Опубликовать СЕЙЧАС в ')
+        + netName + '? Это реальный пост в соцсети.';
+      if (!window.confirm(msg)) return;
+    } else if (action === 'tg_defer') {
+      if (!window.confirm('Поставить пост в отложенные Telegram на ' + fmtDT(when) + '?')) return;
+    }
+
     btn.disabled = true;
     fetch(endpoints.publishTpl.replace('{id}', id), {
       method: 'POST',
@@ -513,6 +549,23 @@
       btn.disabled = false;
       alert(String(err));
     });
+  });
+
+  // Keyboard shortcuts inside the edit form: Esc = cancel, Ctrl/⌘+Enter = save
+  listEl.addEventListener('keydown', function (e) {
+    var capEl = e.target.closest && e.target.closest('.support-social-edit-caption');
+    if (!capEl) return;
+    var form = capEl.closest('[data-edit-form]');
+    if (!form) return;
+    var id = form.getAttribute('data-edit-form');
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      toggleEdit(id, false);
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      var saveBtn = form.querySelector('[data-edit-save="' + id + '"]');
+      if (saveBtn) saveBtn.click();
+    }
   });
 
   render();

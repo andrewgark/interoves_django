@@ -194,6 +194,44 @@ class SupportSocialQueueTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(response.json()['ok'])
 
+    def test_list_orders_planned_first_then_created(self):
+        from datetime import datetime, timezone as dt_timezone
+
+        from games.support.services.social import list_posts
+
+        def _aware(y, mo, d, h=0):
+            return datetime(y, mo, d, h, tzinfo=dt_timezone.utc)
+
+        draft_old = SocialQueuePost.objects.create(caption='draft old')
+        draft_new = SocialQueuePost.objects.create(caption='draft new')
+        planned_soon = SocialQueuePost.objects.create(
+            caption='planned soon',
+            twitter_status=SocialQueuePost.STATUS_QUEUED,
+            twitter_queued_for=_aware(2026, 8, 1, 10),
+        )
+        planned_later = SocialQueuePost.objects.create(
+            caption='planned later',
+            telegram_status=SocialQueuePost.STATUS_SCHEDULED,
+            telegram_scheduled_for=_aware(2026, 9, 1, 10),
+        )
+
+        captions = [p['caption'] for p in list_posts()]
+        # planned group first, posting time descending (later on top)
+        self.assertLess(
+            captions.index('planned later'), captions.index('planned soon')
+        )
+        # planned group entirely above the draft group
+        self.assertLess(
+            captions.index('planned soon'), captions.index('draft new')
+        )
+        self.assertLess(
+            captions.index('planned soon'), captions.index('draft old')
+        )
+        # drafts by created_at descending (newest first)
+        self.assertLess(
+            captions.index('draft new'), captions.index('draft old')
+        )
+
     def test_queue_endpoint_sets_internal_schedule(self):
         post = SocialQueuePost.objects.create(caption='q', source=SocialQueuePost.SOURCE_MANUAL)
         post.image.save('a.png', _png_upload(), save=True)

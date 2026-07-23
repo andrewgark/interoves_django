@@ -71,9 +71,32 @@ def serialize_post(post: SocialQueuePost) -> dict:
     }
 
 
+def _planned_dt(post: SocialQueuePost):
+    """Effective planned posting time = the soonest set schedule/queue time
+    across networks, or None for pure drafts / already-sent posts."""
+    candidates = [
+        post.telegram_scheduled_for,
+        post.telegram_queued_for,
+        post.twitter_queued_for,
+        post.instagram_queued_for,
+    ]
+    values = [c for c in candidates if c is not None]
+    return min(values) if values else None
+
+
+def _post_sort_key(post: SocialQueuePost):
+    created_ts = post.created_at.timestamp() if post.created_at else 0.0
+    planned = _planned_dt(post)
+    if planned is not None:
+        # group 0: planned posts on top, by posting time descending
+        return (0, -planned.timestamp(), -created_ts)
+    # group 1: drafts / sent, by created_at descending
+    return (1, 0.0, -created_ts)
+
+
 def list_posts(limit: int = 100) -> list[dict]:
-    qs = SocialQueuePost.objects.all()[:limit]
-    return [serialize_post(p) for p in qs]
+    posts = sorted(SocialQueuePost.objects.all(), key=_post_sort_key)[:limit]
+    return [serialize_post(p) for p in posts]
 
 
 def get_post(post_id: int) -> SocialQueuePost:
