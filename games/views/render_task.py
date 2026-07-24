@@ -230,18 +230,28 @@ def update_task_html(request, task, team, current_mode, user=None, anon_key=None
             update_extra_tasks.append(extra_task)
 
     tasks_to_patch = update_extra_tasks + [task]
-    link = GameTaskGroup.objects.filter(game=game, task_group=task.task_group).first()
-    slot_number = link.number if link else 0
-    update_html = {
-        'update_task_html': {
-            t.id: render_task(t, request, team, current_mode, game=game)
-            for t in tasks_to_patch
-        },
-        'update_task_group_title_html': {
-            slot_number: render_task_group_title(task.task_group, request, team, current_mode, game),
-        },
-        'update_game_title_html': render_game_title(game, request, team, current_mode),
-    }
+
+    # Старый UI дорогой в рендере (render_task → get_task_to_attempts_info обходит
+    # ВСЮ игру запросом на каждое задание). Новые проекты (в т.ч. «Лесенка»)
+    # потребляют только update_task_html_new и в JSON, и по WebSocket
+    # (static/js/track_ws.js, applyNewUiTaskHtml), поэтому старый HTML для них
+    # не строим — это основная причина 4–5 сек на проверку ответа.
+    is_new_ui = game.project_id in (NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT)
+
+    update_html = {}
+    if not is_new_ui:
+        link = GameTaskGroup.objects.filter(game=game, task_group=task.task_group).first()
+        slot_number = link.number if link else 0
+        update_html = {
+            'update_task_html': {
+                t.id: render_task(t, request, team, current_mode, game=game)
+                for t in tasks_to_patch
+            },
+            'update_task_group_title_html': {
+                slot_number: render_task_group_title(task.task_group, request, team, current_mode, game),
+            },
+            'update_game_title_html': render_game_title(game, request, team, current_mode),
+        }
     new_fragments = {}
     for t in tasks_to_patch:
         frag = render_new_ui_task_card_html(
