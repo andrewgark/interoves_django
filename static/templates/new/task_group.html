@@ -1172,6 +1172,36 @@
     if (input) { try { input.focus(); } catch (e) {} }
   }
 
+  // Пока ответ проверяется, показываем крутящийся индикатор вместо ❌.
+  function setRaddleRowChecking(row, checking) {
+    if (!row) return;
+    if (checking) {
+      row.classList.remove('new-raddle-row--wrong');
+      row.classList.add('new-raddle-row--checking');
+    } else {
+      row.classList.remove('new-raddle-row--checking');
+    }
+  }
+
+  // Клиентский таймаут одной попытки отправки ответа в лесенке (мс).
+  // Разовые сбои переживаем автоповтором (RADDLE_MAX_ATTEMPTS), и только
+  // если все попытки не удались — показываем «Ошибку сети».
+  var RADDLE_FETCH_TIMEOUT_MS = 8000;
+  var RADDLE_MAX_ATTEMPTS = 3;
+  var RADDLE_RETRY_DELAY_MS = 400;
+  function fetchWithTimeout(url, options, timeoutMs) {
+    options = options || {};
+    if (typeof AbortController === 'undefined' || !timeoutMs) {
+      return fetch(url, options);
+    }
+    var controller = new AbortController();
+    var timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+    var opts = {};
+    for (var k in options) { if (options.hasOwnProperty(k)) opts[k] = options[k]; }
+    opts.signal = controller.signal;
+    return fetch(url, opts).finally(function () { clearTimeout(timer); });
+  }
+
   // Авто-режим (не турнир): нет кнопки, ответ уходит когда набрано нужное число символов.
   function setRaddleInputBusy(input, busy) {
     if (!input) return;
@@ -1262,27 +1292,62 @@
     if (form.dataset) form.dataset.submitting = '1';
     setRaddleInputBusy(input, true);
     var row = input ? input.closest('.new-raddle-row') : null;
+    setRaddleRowChecking(row, true);
     var wordIdx = form.getAttribute('data-word-index');
-    fetch(form.action, {
-      method: 'POST',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      body: formPostBody(form),
-      credentials: 'same-origin',
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (form.dataset) form.dataset.submitting = '0';
-        setRaddleInputBusy(input, false);
-        applyRaddleAttemptResponse(form, input, row, data, wordIdx);
-      })
-      .catch(function () {
-        if (form.dataset) form.dataset.submitting = '0';
-        setRaddleInputBusy(input, false);
-        if (input) delete input.dataset.raddleLast;
-        var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
-        if (msg) { msg.style.display = 'block'; msg.textContent = 'Ошибка сети.'; }
-      });
+
+    // На протяжении всех автопопыток вход остаётся busy, а спиннер крутится,
+    // чтобы не улетело два параллельных запроса и не мигал крестик.
+    function finish() {
+      if (form.dataset) form.dataset.submitting = '0';
+      setRaddleInputBusy(input, false);
+      setRaddleRowChecking(row, false);
+    }
+
+    function attemptOnce(attempt) {
+      fetchWithTimeout(form.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formPostBody(form),
+        credentials: 'same-origin',
+      }, RADDLE_FETCH_TIMEOUT_MS)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          finish();
+          applyRaddleAttemptResponse(form, input, row, data, wordIdx);
+        })
+        .catch(function () {
+          if (attempt < RADDLE_MAX_ATTEMPTS) {
+            setTimeout(function () { attemptOnce(attempt + 1); }, RADDLE_RETRY_DELAY_MS);
+            return;
+          }
+          finish();
+          if (input) delete input.dataset.raddleLast;
+          showRaddleNetworkError(form, input);
+        });
+    }
+
+    attemptOnce(1);
     return true;
+  }
+
+  // Сетевая ошибка/таймаут: показываем сообщение с явной кнопкой «Повторить»
+  // (то же слово уже в поле; Enter тоже переотправляет).
+  function showRaddleNetworkError(form, input) {
+    var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
+    if (!msg) return;
+    msg.style.display = 'block';
+    msg.textContent = 'Ошибка сети. ';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'new-raddle-retry-btn';
+    btn.textContent = 'Повторить';
+    btn.addEventListener('click', function () {
+      if (input) delete input.dataset.raddleLast;
+      msg.textContent = '';
+      msg.style.display = 'none';
+      postRaddleAutoForm(form, input);
+    });
+    msg.appendChild(btn);
   }
 
   function raddleMaskedHooks() {

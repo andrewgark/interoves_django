@@ -3047,6 +3047,45 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
 .new-raddle-row--wrong .new-raddle-wrong-mark {
   display: inline-block;
 }
+/* Пока запрос обрабатывается — крутящийся индикатор на месте ❌ */
+.new-raddle-checking-mark {
+  display: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid color-mix(in srgb, var(--muted) 35%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: new-raddle-spin 0.7s linear infinite;
+}
+.new-raddle-row--checking .new-raddle-checking-mark {
+  display: inline-block;
+}
+.new-raddle-row--checking .new-raddle-wrong-mark {
+  display: none !important;
+}
+@keyframes new-raddle-spin {
+  to { transform: rotate(360deg); }
+}
+.new-raddle-retry-btn {
+  margin-left: 0.15rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.new-raddle-retry-btn:hover,
+.new-raddle-retry-btn:focus-visible {
+  color: var(--accent-hover);
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-raddle-checking-mark {
+    animation-duration: 1.4s;
+  }
+}
 .new-raddle-row--locked .new-raddle-block__word {
   opacity: 0.72;
 }

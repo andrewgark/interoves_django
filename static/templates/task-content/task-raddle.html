@@ -65,6 +65,7 @@
                   {% endif %}
                 </form>
                 {% if not rd.ui.is_tournament %}
+                <span class="new-raddle-checking-mark" aria-hidden="true" title="Проверяем…"></span>
                 <span class="new-raddle-wrong-mark" aria-hidden="true" title="Неверно">❌</span>
                 {% endif %}
                 {% if row.can_clue_assist %}
