@@ -68,8 +68,10 @@ def random_congrats_emojis(n: int = 6) -> str:
 
 def format_game_day_before_announcement(game) -> str:
     name = _escape(game.get_no_html_name())
+    start_local = timezone.localtime(game.start_time).strftime('%H:%M')
     return _join_lines([
-        '📅 <b>Завтра игра «{}»!</b>'.format(name),
+        '📅 <b>{} уже завтра!</b>'.format(name),
+        'Начало в {} по МСК.'.format(start_local),
         '',
         'Не забудьте зарегистрировать команду и купить билеты.',
         _link('Открыть игру', game_site_url(game)),
@@ -79,7 +81,7 @@ def format_game_day_before_announcement(game) -> str:
 def format_game_hour_before_announcement(game) -> str:
     name = _escape(game.get_no_html_name())
     return _join_lines([
-        '⏰ <b>Через час начинается «{}»!</b>'.format(name),
+        '⏰ <b>Через час начинается {}!</b>'.format(name),
         '',
         _link('Открыть игру', game_site_url(game)),
     ])
@@ -90,7 +92,7 @@ def format_game_start_announcement(game) -> str:
     lines = [
         '🚀 <b>Начали!</b>',
         '',
-        'Игра «{}» стартовала. Удачи всем командам!'.format(name),
+        '{} стартовала. Удачи всем командам!'.format(name),
     ]
     links = [_link('Сайт', game_site_url(game))]
     conditions = game_conditions_url(game)
@@ -106,7 +108,7 @@ def format_game_end_soon_announcement(game) -> str:
     end = game.end_time
     end_local = timezone.localtime(end).strftime('%H:%M')
     return _join_lines([
-        '⏳ <b>До конца игры «{}» — 30 минут</b> (окончание в {})'.format(name, end_local),
+        '⏳ <b>До конца {} — 30 минут</b> (окончание в {})'.format(name, end_local),
         '',
         'Если застряли — самое время брать подсказки на сайте!',
         _link('Открыть игру', game_site_url(game)),
@@ -117,7 +119,7 @@ def format_game_end_soon_15_announcement(game) -> str:
     name = _escape(game.get_no_html_name())
     end_local = timezone.localtime(game.end_time).strftime('%H:%M')
     return _join_lines([
-        '⏳ <b>До конца игры «{}» — 15 минут</b> (окончание в {})'.format(name, end_local),
+        '⏳ <b>До конца {} — 15 минут</b> (окончание в {})'.format(name, end_local),
         '',
         'Срочно берите подсказки, если застряли!',
         _link('Открыть игру', game_site_url(game)),
@@ -127,7 +129,7 @@ def format_game_end_soon_15_announcement(game) -> str:
 def format_game_end_announcement(game) -> str:
     name = _escape(game.get_no_html_name())
     lines = [
-        '🏁 <b>Игра «{}» завершилась!</b>'.format(name),
+        '🏁 <b>{} завершилась!</b>'.format(name),
         '',
         'Спасибо всем, кто играл!',
     ]
@@ -137,11 +139,21 @@ def format_game_end_announcement(game) -> str:
     return _join_lines(lines)
 
 
+def _all_solved_game_phrase(game) -> str:
+    """Phrase after «в »: prepositional for Десяточка*, else «игре {name}»."""
+    raw = game.get_no_html_name() or ''
+    prefix = 'Десяточка'
+    if raw.startswith(prefix):
+        return _escape('Десяточке' + raw[len(prefix):])
+    return 'игре {}'.format(_escape(raw))
+
+
 def format_all_solved_announcement(game, team) -> str:
-    name = _escape(game.get_no_html_name())
     team_name = _escape(team_display_name(team))
     return _join_lines([
-        '🎉 Команда <b>{}</b> решила все задания в «{}»!'.format(team_name, name),
+        '🎉 Команда <b>{}</b> решила все задания в {}!'.format(
+            team_name, _all_solved_game_phrase(game),
+        ),
         '',
         'Поздравляем!',
         random_congrats_emojis(6),
@@ -158,7 +170,7 @@ def format_game_results_announcement(game, podium: dict[int, list]) -> str:
     first = podium.get(1) or []
 
     lines = [
-        '🏆 <b>Результаты «{}»</b>'.format(name),
+        '🏆 <b>Результаты: {}</b>'.format(name),
         '',
     ]
 

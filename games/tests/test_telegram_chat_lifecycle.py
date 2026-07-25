@@ -65,7 +65,8 @@ class ChatLifecycleAnnouncementTests(TestCase):
         self.assertEqual(stats['day_before'], 1)
         self.assertEqual(stats['hour_before'], 0)
         text = announce_mock.call_args.args[0]
-        self.assertIn('Завтра', text)
+        self.assertIn('уже завтра', text)
+        self.assertIn('по МСК', text)
         self.assertIn('зарегистрировать', text)
 
     @patch('games.telegram.scheduling.send_announce_message')
@@ -253,9 +254,22 @@ class ChatAllSolvedAndResultsTests(TestCase):
         self.assertIn('Winners', text)
         self.assertNotIn('@', text)
 
+    def test_all_solved_desyatochka_uses_prepositional(self):
+        self.game.no_html_name = 'Десяточка 170'
+        self.game.save(update_fields=['no_html_name'])
+        text = format_all_solved_announcement(self.game, self.team)
+        self.assertIn('в Десяточке 170!', text)
+        self.assertNotIn('в игре', text)
+
+    def test_all_solved_other_name_uses_v_igre(self):
+        text = format_all_solved_announcement(self.game, self.team)
+        self.assertIn('в игре Solve Game!', text)
+
     def test_reminder_formatters(self):
         day = format_game_day_before_announcement(self.game)
         hour = format_game_hour_before_announcement(self.game)
+        self.assertIn('уже завтра', day)
+        self.assertIn('по МСК', day)
         self.assertIn('билеты', day)
         self.assertNotIn('билеты', hour)
         self.assertNotIn('зарегистрировать', hour)
