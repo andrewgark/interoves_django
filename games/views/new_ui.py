@@ -682,7 +682,8 @@ def new_hub(request):
     view = MainPageView()
     view.project_name = NEW_UI_PROJECT
     desyatochki_games = view.get_games_list(request)
-    desyatochki_card = get_desyatochki_hub_context(desyatochki_games)
+    # Карточку десяточек показываем только если есть хотя бы одна видимая игра.
+    desyatochki_card = get_desyatochki_hub_context(desyatochki_games) if desyatochki_games else None
     return render(request, 'ui/hub.html', {
         'project': project,
         'section_games': section_games,
@@ -691,6 +692,8 @@ def new_hub(request):
         **_games_list_card_context(request),
         'page_title': 'Interoves',
         'show_sections_nav': True,
+        # Баннер «Для компаний» — только на главной странице.
+        'show_order_banner': True,
         'community_links': [
             {'kind': 'telegram', 'title': 'Телеграм-канал', 'href': 'https://t.me/interoves'},
             {'kind': 'twitter', 'title': 'X (Twitter)', 'href': 'https://x.com/interoves'},
@@ -788,12 +791,18 @@ def project_hub(request, project_id):
     project_id = (project_id or '').strip()
     project = get_object_or_404(Project, id=project_id)
     base = _project_base(project.id)
+    view = MainPageView()
+    view.project_name = project.id
+    project_games = view.get_games_list(request)
+    # Карточку десяточек показываем только если есть хотя бы одна видимая игра.
+    desyatochki_card = get_desyatochki_hub_context(project_games, base=base) if project_games else None
     return render(request, 'ui/hub.html', {
         'project': project,
-        'folders': [{'slug': 'games', 'title': 'Десяточки', 'description': 'Игры проекта', 'type': 'games'}],
+        'desyatochki_card': desyatochki_card,
         'section_games': [],
         'page_title': project.id,
         'show_sections_nav': False,
+        **_games_list_card_context(request),
         'community_links': (
             [{'kind': 'telegram', 'title': 'Чат участников', 'href': 'https://t.me/joinchat/RUpU9KKhgLI4NDQy'}]
             if project.id == 'glowbyte'

@@ -138,10 +138,14 @@ def _latest_started_desyatochka(games, *, now=None):
     return None
 
 
-def get_desyatochki_hub_context(games, *, now=None):
-    """Карточка десяточек: последняя/сегодняшняя доступная игра по start_time."""
+def get_desyatochki_hub_context(games, *, now=None, base=''):
+    """Карточка десяточек: последняя/сегодняшняя доступная игра по start_time.
+
+    ``base`` — префикс проекта (например ``/glowbyte``); пустой для главной.
+    """
     meta = DESYATOCHKI_HUB_META
     now = now or timezone.now()
+    games_url = (base + '/games/') if base else '/games/'
     if not games:
         return {
             'icon': meta['icon'],
@@ -150,7 +154,7 @@ def get_desyatochki_hub_context(games, *, now=None):
             'cta_label': '',
             'is_today': False,
             'play_url': None,
-            'section_url': '/games/',
+            'section_url': games_url,
             'all_link_label': meta['all_link_label'],
             'status': 'empty',
             'announced_game': None,
@@ -167,7 +171,7 @@ def get_desyatochki_hub_context(games, *, now=None):
             'cta_label': '',
             'is_today': False,
             'play_url': None,
-            'section_url': '/games/',
+            'section_url': games_url,
             'all_link_label': meta['all_link_label'],
             'status': 'empty',
             'announced_game': announced_game,
@@ -184,8 +188,8 @@ def get_desyatochki_hub_context(games, *, now=None):
         'description': meta['description'],
         'cta_label': cta_label,
         'is_today': is_today,
-        'play_url': f'/games/{latest.id}/',
-        'section_url': '/games/',
+        'play_url': f'{games_url}{latest.id}/',
+        'section_url': games_url,
         'all_link_label': meta['all_link_label'],
         'status': 'today' if is_today else 'latest',
         'game': latest,
