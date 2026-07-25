@@ -1,4 +1,7 @@
 import datetime
+import time
+
+from django.core.cache import cache
 
 from games.models import (
     Attempt,
@@ -7,6 +10,74 @@ from games.models import (
     Team,
     anon_key_is_hidden,
 )
+
+# Soft-cache for live (non-frozen) results tables. Progressive ?partial=1 pages
+# must not re-run a full compute for every page of 10–50 rows.
+LIVE_RESULTS_CACHE_TTL = 30
+LIVE_RESULTS_LOCK_TTL = 60
+LIVE_RESULTS_WAIT_SECONDS = 25
+LIVE_RESULTS_POLL_INTERVAL = 0.05
+
+
+def results_attempts_scope_game(game, mode):
+    """
+    Game filter for attempt queries when building results.
+
+    Sections (general): TaskGroups may be shared across games, so normally
+    ``None`` (include all games). Ladder TaskGroups live only on game=ladder —
+    scope there to cut bulk volume on the hot /section/ladder/results/ path.
+    """
+    if mode == 'general' and getattr(game, 'project_id', None) == 'sections':
+        from games.ladder_daily import LADDER_GAME_ID
+
+        if game.id == LADDER_GAME_ID:
+            return game
+        return None
+    return game
+
+
+def _live_results_cache_key(game_id, mode):
+    return 'live_results:{}:{}'.format(game_id, mode)
+
+
+def _live_results_lock_key(game_id, mode):
+    return 'live_results_lock:{}:{}'.format(game_id, mode)
+
+
+def get_live_results_payload(game, mode='general'):
+    """
+    JSON results payload for a live (non-frozen) game.
+
+    Short-TTL cache + single-flight so concurrent progressive partial requests
+    share one ``build_results_snapshot_payload`` call.
+    """
+    cache_key = _live_results_cache_key(game.id, mode)
+    payload = cache.get(cache_key)
+    if payload is not None:
+        return payload
+
+    lock_key = _live_results_lock_key(game.id, mode)
+    if cache.add(lock_key, 1, LIVE_RESULTS_LOCK_TTL):
+        try:
+            payload = cache.get(cache_key)
+            if payload is not None:
+                return payload
+            payload = build_results_snapshot_payload(game, mode=mode)
+            cache.set(cache_key, payload, LIVE_RESULTS_CACHE_TTL)
+            return payload
+        finally:
+            cache.delete(lock_key)
+
+    deadline = time.monotonic() + LIVE_RESULTS_WAIT_SECONDS
+    while time.monotonic() < deadline:
+        payload = cache.get(cache_key)
+        if payload is not None:
+            return payload
+        time.sleep(LIVE_RESULTS_POLL_INTERVAL)
+
+    payload = build_results_snapshot_payload(game, mode=mode)
+    cache.set(cache_key, payload, LIVE_RESULTS_CACHE_TTL)
+    return payload
 
 
 def _json_num(x):
@@ -207,11 +278,14 @@ def build_results_snapshot_payload(game, mode='tournament'):
     # Use the same ordering/filtering rules as results pages.
     from django.db.models import Q
 
+    from games.ladder_daily import LADDER_GAME_ID, visible_ladder_links
     from games.models import GameTaskGroup
 
-    placements = GameTaskGroup.sorted_links(
-        game.task_group_links.select_related('task_group'),
-    )
+    links = game.task_group_links.select_related('task_group')
+    if game.id == LADDER_GAME_ID:
+        placements = list(visible_ladder_links(links, game, reverse=False))
+    else:
+        placements = GameTaskGroup.sorted_links(links)
     task_group_headers = []
     tasks_flat = []
     for p in placements:
@@ -233,11 +307,8 @@ def build_results_snapshot_payload(game, mode='tournament'):
     participant_to_max_best_time = {}
     participant_task_to_cell = {}
 
-    # Sections general results: include attempts from any game that uses this TaskGroup
-    # (Attempt.game may differ; hints were never game-scoped).
-    results_scope_game = game
-    if mode == 'general' and getattr(game, 'project_id', None) == 'sections':
-        results_scope_game = None
+    # Sections general: cross-game TaskGroups → unscoped; ladder stays game-scoped.
+    results_scope_game = results_attempts_scope_game(game, mode)
 
     for task in tasks_flat:
         if mode == 'general':

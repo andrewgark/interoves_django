@@ -85,7 +85,12 @@ from games.views.util import (
     has_team,
     personal_play_mode_locked,
 )
-from games.results_snapshot import snapshot_headers_context, snapshot_to_results_context
+from games.results_snapshot import (
+    get_live_results_payload,
+    results_attempts_scope_game,
+    snapshot_headers_context,
+    snapshot_to_results_context,
+)
 from games.yookassa_util import configure_yookassa_from_env
 
 from yookassa import Payment
@@ -1365,7 +1370,8 @@ def _load_game_results_data(game, mode):
     snap = GameResultsSnapshot.objects.filter(game=game, mode=mode).first()
     if snap and snap.payload:
         return snapshot_to_results_context(game, snap.payload)
-    return _new_results_compute(game, mode=mode)
+    # Live path: short-TTL cached snapshot-shaped payload (shared across progressive pages).
+    return snapshot_to_results_context(game, get_live_results_payload(game, mode))
 
 
 def _results_me_participants(request, play_mode):
@@ -1392,13 +1398,9 @@ def _new_results_compute(game, mode):
     )
 
     # 2 queries: all attempts + all hint attempts for the whole game at once.
-    # Sections (general): same TaskGroup can appear in several games; attempts are stored
-    # with Attempt.game set to the game where the player submitted. HintAttempt has no
-    # game FK, so filtering attempts by game=current hid cross-game team attempts while
-    # hints still showed — unify by not scoping attempts to one game here.
-    bulk_game = game
-    if mode == 'general' and getattr(game, 'project_id', None) == NEW_UI_SECTIONS_PROJECT:
-        bulk_game = None
+    # Sections (general): same TaskGroup can appear in several games — unscoped bulk
+    # except ladder (TaskGroups live only on game=ladder). See results_attempts_scope_game.
+    bulk_game = results_attempts_scope_game(game, mode)
     bulk_rows = Attempt.manager.get_bulk_game_actor_rows(task_ids, mode=mode, game=bulk_game)
 
     for task in tasks_flat:
@@ -1660,7 +1662,7 @@ def new_section_results_page(request, game_id):
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
 
-    progressive_page_size = 10
+    progressive_page_size = 50
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
