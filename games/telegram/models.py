@@ -9,6 +9,7 @@ class TelegramGameAnnouncement(models.Model):
     KIND_END_SOON_30 = 'end_soon_30'  # legacy; no longer sent
     KIND_END = 'end'
     KIND_RESULTS = 'results'
+    KIND_ADMIN_START_SOON = 'admin_start_soon'
     KIND_CHOICES = (
         (KIND_DAY_BEFORE, 'Day before start'),
         (KIND_HOUR_BEFORE, 'Hour before start'),
@@ -17,6 +18,7 @@ class TelegramGameAnnouncement(models.Model):
         (KIND_END_SOON_30, '30 minutes before end (legacy)'),
         (KIND_END, 'Game end'),
         (KIND_RESULTS, 'Tournament results after end'),
+        (KIND_ADMIN_START_SOON, 'Admin reminder ~1h before start'),
     )
 
     game = models.ForeignKey('games.Game', related_name='telegram_announcements', on_delete=models.CASCADE)

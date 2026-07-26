@@ -129,6 +129,27 @@ class ChatLifecycleAnnouncementTests(TestCase):
         self.assertEqual(stats['hour_before'], 0)
         self.assertEqual(stats['start'], 1)
 
+    @patch('games.telegram.scheduling.send_announce_message')
+    @patch('games.telegram.scheduling.send_admin_message')
+    def test_admin_start_soon_once_in_window(self, admin_mock, _announce):
+        # Admin window: visible_start −65 … −55 minutes (default visible = start).
+        self._set_window(start_delta=timedelta(minutes=60), end_delta=timedelta(hours=3))
+        stats = process_game_announcements(now=self.now)
+        self.assertEqual(stats['admin_start_soon'], 1)
+        self.assertEqual(admin_mock.call_count, 1)
+        self.assertIn('Через час начинается игра', admin_mock.call_args.args[0])
+        self.assertTrue(
+            TelegramGameAnnouncement.objects.filter(
+                game=self.game,
+                kind=TelegramGameAnnouncement.KIND_ADMIN_START_SOON,
+            ).exists()
+        )
+
+        # Same minute / later ticks in the window must not re-send (multi-instance safe).
+        stats2 = process_game_announcements(now=self.now + timedelta(minutes=3))
+        self.assertEqual(stats2['admin_start_soon'], 0)
+        self.assertEqual(admin_mock.call_count, 1)
+
 
 @override_settings(
     TELEGRAM_BOT_TOKEN='test-token',

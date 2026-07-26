@@ -195,7 +195,10 @@ def process_game_announcements(now=None) -> dict[str, int]:
                 logger.exception('results announce failed for game %s', game.id)
 
         if _should_admin_start_soon(game, now):
-            if _mark_admin_start_soon(game):
+            # DB unique (game, kind) — same as chat announcements. Do not use
+            # django.core.cache: default LocMem is per-process, and EB cron starts
+            # a fresh manage.py on every instance every minute.
+            if _try_mark(game, TelegramGameAnnouncement.KIND_ADMIN_START_SOON):
                 stats['admin_start_soon'] += 1
                 notify_admin_game_lifecycle(game, 'start_soon')
 
@@ -227,16 +230,6 @@ def _should_admin_start_soon(game: Game, now) -> bool:
     window_start = start - timedelta(hours=1, minutes=5)
     window_end = start - timedelta(minutes=55)
     return window_start <= now <= window_end
-
-
-def _mark_admin_start_soon(game: Game) -> bool:
-    from django.core.cache import cache
-
-    key = 'telegram:admin:start_soon:{}'.format(game.id)
-    if cache.get(key):
-        return False
-    cache.set(key, True, timeout=7 * 24 * 3600)
-    return True
 
 
 def notify_admin_game_lifecycle(game, event: str) -> None:
