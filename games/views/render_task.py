@@ -236,13 +236,14 @@ def update_task_html(request, task, team, current_mode, user=None, anon_key=None
     # get_task_to_attempts_info обходит ВСЮ игру запросом на каждое задание, что
     # и давало 4–5 сек на проверку ответа. Старый HTML оставляем только как
     # фолбэк для легаси /old/-страниц, где нового фрагмента нет.
+    # Ключи — строки: Redis/msgpack (channels_redis) с strict_map_key не принимает int keys.
     new_fragments = {}
     for t in tasks_to_patch:
         frag = render_new_ui_task_card_html(
             request, t, team, current_mode, user=user, anon_key=anon_key, game=game,
         )
         if frag:
-            new_fragments[t.id] = frag
+            new_fragments[str(t.id)] = frag
     if new_fragments:
         return {'update_task_html_new': new_fragments}
 
@@ -251,11 +252,11 @@ def update_task_html(request, task, team, current_mode, user=None, anon_key=None
     slot_number = link.number if link else 0
     return {
         'update_task_html': {
-            t.id: render_task(t, request, team, current_mode, game=game)
+            str(t.id): render_task(t, request, team, current_mode, game=game)
             for t in tasks_to_patch
         },
         'update_task_group_title_html': {
-            slot_number: render_task_group_title(task.task_group, request, team, current_mode, game),
+            str(slot_number): render_task_group_title(task.task_group, request, team, current_mode, game),
         },
         'update_game_title_html': render_game_title(game, request, team, current_mode),
     }

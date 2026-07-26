@@ -29,7 +29,6 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
 
 from games.access import game_has_started
-from games.exception import NoGameAccessException
 from games.ladder_daily import (
     LADDER_GAME_ID,
     current_ladder_number,
@@ -732,8 +731,25 @@ def _games_list_card_context(request):
     }
 
 
+def _team_for_access(request):
+    """Активная команда для access-проверок (None для гостя / без команды)."""
+    if not request.user.is_authenticated or not has_profile(request.user):
+        return None
+    if not has_team(request.user):
+        return None
+    return request.user.profile.team_on
+
+
+def _registration_blocks_play(game, team):
+    """Нужна регистрация на игру, а у team её нет (включая team=None)."""
+    return bool(
+        game.has_access('needs_registration', team=team)
+        and not game.has_access('is_registered', team=team)
+    )
+
+
 def _announced_game_page_response(request, game, *, back_url, show_sections_nav=True, project=None):
-    """Анонсированная игра до start_time: та же карточка, что в списке десяточек."""
+    """Карточка игры из списка десяточек (анонс / нет доступа к заданиям без регистрации)."""
     page_title = game.get_outside_name() if hasattr(game, 'get_outside_name') else (game.outside_name or game.name)
     ctx = {
         'game': game,
@@ -748,6 +764,36 @@ def _announced_game_page_response(request, game, *, back_url, show_sections_nav=
     if project is not None:
         ctx['project'] = project
     return render(request, 'ui/game_announce_page.html', ctx)
+
+
+def _maybe_registration_or_announce_response(
+    request,
+    game,
+    *,
+    back_url,
+    show_sections_nav=True,
+    project=None,
+    team=None,
+):
+    """
+    Для обычных игр (не sections): карточка анонса вместо заданий, если игра ещё
+    не началась или команде нужна регистрация. None — можно показывать задания.
+    """
+    if game.project_id == NEW_UI_SECTIONS_PROJECT:
+        return None
+    if team is None:
+        team = _team_for_access(request)
+    if not game.has_access('see_game_preview', team=team):
+        raise Http404()
+    if not game_has_started(game) or _registration_blocks_play(game, team):
+        return _announced_game_page_response(
+            request,
+            game,
+            back_url=back_url,
+            show_sections_nav=show_sections_nav,
+            project=project,
+        )
+    return None
 
 
 def _new_folder_games(request):
@@ -874,21 +920,20 @@ def project_main_game_page(request, project_id, game_id):
     if not request.user.is_authenticated and not personal_play_mode_locked(game):
         play_mode = 'personal'
     play_mode = effective_play_mode(play_mode, game)
-    team = None
     has_profile_user = has_profile(request.user)
-    if has_profile_user:
-        team = request.user.profile.team_on
+    team = _team_for_access(request)
 
-    if not game.has_access('see_game_preview', team=team):
-        raise Http404()
-    if not game_has_started(game):
-        return _announced_game_page_response(
-            request,
-            game,
-            back_url=(base + '/games/') if base else '/games/',
-            show_sections_nav=False,
-            project=project,
-        )
+    games_back = (base + '/games/') if base else '/games/'
+    gate = _maybe_registration_or_announce_response(
+        request,
+        game,
+        back_url=games_back,
+        show_sections_nav=False,
+        project=project,
+        team=team,
+    )
+    if gate is not None:
+        return gate
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
 
@@ -1016,6 +1061,17 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
     base = _project_base(project.id)
     game = get_object_or_404(Game, id=game_id, project=project)
 
+    games_back = (base + '/games/') if base else '/games/'
+    gate = _maybe_registration_or_announce_response(
+        request,
+        game,
+        back_url=games_back,
+        show_sections_nav=False,
+        project=project,
+    )
+    if gate is not None:
+        return gate
+
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
     anon_key = None
@@ -1039,13 +1095,9 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
     else:
         user = request.user if request.user.is_authenticated else None
 
-    if not game_has_started(game):
-        raise Http404()
     if play_mode == 'team':
-        if game.has_access('needs_registration', team=team) and not game.has_access('is_registered', team=team):
-            raise Http404()
         if not game.has_access('play', team=team):
-            raise NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
+            raise Http404()
     else:
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
             raise Http404()
@@ -1252,23 +1304,19 @@ def new_main_game_page(request, game_id):
     if not request.user.is_authenticated and not personal_play_mode_locked(game):
         play_mode = 'personal'
     play_mode = effective_play_mode(play_mode, game)
-    team = None
     has_profile_user = has_profile(request.user)
-    if has_profile_user:
-        team = request.user.profile.team_on
+    team = _team_for_access(request)
 
-    if not game.has_access('see_game_preview', team=team):
-        raise Http404()
-
-    # До start_time — карточка анонса (как в списке десяточек), без списка заданий.
-    # Разделы (sections): страница игры доступна без ограничения по времени старта.
-    if game.project_id != NEW_UI_SECTIONS_PROJECT and not game_has_started(game):
-        return _announced_game_page_response(
-            request,
-            game,
-            back_url='/games/',
-            show_sections_nav=True,
-        )
+    # До старта или без регистрации — карточка анонса (кнопки Войти / Зарегаться / билеты).
+    gate = _maybe_registration_or_announce_response(
+        request,
+        game,
+        back_url='/games/',
+        show_sections_nav=True,
+        team=team,
+    )
+    if gate is not None:
+        return gate
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
 
@@ -1908,6 +1956,18 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
 
 def new_task_group_page(request, game_id, task_group_number):
     game = get_object_or_404(Game, id=game_id)
+
+    # Обычные игры: до старта / без регистрации — карточка анонса, не 404.
+    if game.project_id != NEW_UI_SECTIONS_PROJECT:
+        gate = _maybe_registration_or_announce_response(
+            request,
+            game,
+            back_url='/games/',
+            show_sections_nav=True,
+        )
+        if gate is not None:
+            return gate
+
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
     anon_key = None
@@ -1942,14 +2002,9 @@ def new_task_group_page(request, game_id, task_group_number):
         if game_id == LADDER_GAME_ID and not is_ladder_number_published(game, task_group_number):
             raise Http404()
     else:
-        # Для "обычных" игр сохраняем старое поведение.
-        if not game_has_started(game):
-            raise Http404()
         if play_mode == 'team':
-            if game.has_access('needs_registration', team=team) and not game.has_access('is_registered', team=team):
-                raise Http404()
             if not game.has_access('play', team=team):
-                raise NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
+                raise Http404()
         else:
             if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
                 raise Http404()

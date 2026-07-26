@@ -2358,6 +2358,12 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   display: none !important;
 }
 
+/* Replacements / raddle: hide only the submitted line, keep the rest of the task. */
+tr.new-replacements-row.is-solved-hidden,
+tr.new-raddle-row.is-solved-hidden {
+  display: none !important;
+}
+
 /* Модальное окно правил */
 .new-rules-modal {
   position: fixed;

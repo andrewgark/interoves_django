@@ -30,6 +30,8 @@ from games.models import (
 from games.views.track import (
     CHANNEL_GROUPS,
     build_event_task_change,
+    envelope_track_message,
+    msgpack_safe_keys,
     next_track_seq,
     notify_registered_users_game_lifecycle_changed,
     notify_registered_users_play_access_changed,
@@ -81,6 +83,58 @@ class TrackGameFixtureMixin:
             last_name='U',
             team_on=cls.team,
         )
+
+
+def _msgpack_redis_roundtrip(message):
+    """Как channels_redis MsgPackSerializer: packb + unpackb(strict_map_key=True)."""
+    import msgpack
+
+    packed = msgpack.packb(message, use_bin_type=True)
+    return msgpack.unpackb(packed, raw=False, strict_map_key=True)
+
+
+class MsgpackSafeTrackPayloadTests(TestCase):
+    def test_unsanitized_int_keys_break_redis_msgpack_unpack(self):
+        """Регрессия прод-бага: int keys в update_task_html_new → ValueError на receive."""
+        import msgpack
+
+        raw = {
+            'type': 'task.changed',
+            'task': 6137,
+            'by': 'team',
+            'update_task_html_new': {6137: '<div id="new-task-6137"></div>'},
+        }
+        packed = msgpack.packb(raw, use_bin_type=True)
+        with self.assertRaises(ValueError) as ctx:
+            msgpack.unpackb(packed, raw=False, strict_map_key=True)
+        self.assertIn('strict_map_key', str(ctx.exception))
+
+    def test_msgpack_safe_keys_stringifies_int_map_keys(self):
+        raw = {
+            'type': 'task.changed',
+            'update_task_html_new': {6137: '<div id="new-task-6137"></div>'},
+            'nested': [{1: 'a'}],
+        }
+        safe = msgpack_safe_keys(raw)
+        self.assertEqual(safe['update_task_html_new']['6137'], raw['update_task_html_new'][6137])
+        self.assertEqual(safe['nested'][0]['1'], 'a')
+        out = _msgpack_redis_roundtrip(safe)
+        self.assertEqual(out['update_task_html_new']['6137'], raw['update_task_html_new'][6137])
+
+    def test_envelope_track_message_sanitizes_int_keys(self):
+        body = {
+            'type': 'task.changed',
+            'task': 42,
+            'by': 'team',
+            'update_task_html_new': {99: 'html'},
+        }
+        out = envelope_track_message(body, 'any_game_id')
+        self.assertIn('99', out['update_task_html_new'])
+        self.assertNotIn(99, out['update_task_html_new'])
+        self.assertIn('seq', out)
+        # Полный путь envelope → Redis msgpack не должен падать.
+        again = _msgpack_redis_roundtrip(out)
+        self.assertEqual(again['update_task_html_new']['99'], 'html')
 
 
 @override_settings(DEFER_CHANNEL_BROADCAST=False)
@@ -417,6 +471,76 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(msg['type'], 'task.changed')
         self.assertTrue(msg['e2e'])
         self.assertIn('seq', msg)
+
+    def test_websocket_receives_task_html_map_like_production(self):
+        """
+        Канал /games/<id>/track: payload как после send_attempt (update_task_html_new),
+        через envelope (как track_task_change) → group_send → клиент.
+        Int keys в map раньше роняли Redis msgpack; envelope обязан их починить.
+        """
+        from interoves_django.asgi import application
+
+        headers = self._session_headers()
+        path = f'/games/{self.game.id}/track/'
+        tid = self.task.id
+        html = f'<article id="new-task-{tid}">ok</article>'
+
+        async def run():
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _ = await communicator.connect()
+            assert connected
+
+            # Как build_event_task_change + update_task_html до фикса ключей (int keys).
+            raw_event = {
+                'type': 'task.changed',
+                'task': tid,
+                'by': 'team',
+                'update_task_html_new': {tid: html},
+            }
+            event = envelope_track_message(raw_event, self.game.id)
+            # Redis-слой в проде; здесь проверяем и msgpack, и доставку по сокету.
+            _msgpack_redis_roundtrip(event)
+
+            layer = get_channel_layer()
+            await layer.group_send(
+                CHANNEL_GROUPS['game_team'](self.game.id, self.team.get_name_hash()),
+                event,
+            )
+            msg = await communicator.receive_json_from(timeout=5)
+            await communicator.disconnect()
+            return msg
+
+        msg = async_to_sync(run)()
+        self.assertEqual(msg['type'], 'task.changed')
+        self.assertEqual(msg['by'], 'team')
+        self.assertEqual(msg['task'], tid)
+        self.assertIn('seq', msg)
+        self.assertEqual(msg['update_task_html_new'][str(tid)], html)
+
+    def test_websocket_connects_without_team(self):
+        """Страница анонса тоже ставит data-track-game-id — сокет не должен падать без команды."""
+        from interoves_django.asgi import application
+
+        lone = User.objects.create_user('track_no_team', 'track_no_team@example.com', 'pw')
+        Profile.objects.create(user=lone, first_name='N', last_name='T', team_on=None)
+        client = Client()
+        client.force_login(lone)
+        headers = [
+            (b'cookie', f'sessionid={client.cookies["sessionid"].value}'.encode()),
+            (b'host', b'testserver'),
+        ]
+        path = f'/games/{self.game.id}/track/'
+
+        async def run():
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _ = await communicator.connect()
+            assert connected
+            layer = get_channel_layer()
+            self.assertIn(CHANNEL_GROUPS['game'](self.game.id), layer.groups)
+            self.assertIn(CHANNEL_GROUPS['user'](lone.id), layer.groups)
+            await communicator.disconnect()
+
+        async_to_sync(run)()
 
     def test_user_track_websocket_receives_user_group(self):
         from interoves_django.asgi import application

@@ -69,6 +69,27 @@ CHANNEL_GROUPS = {
 }
 
 
+def msgpack_safe_keys(value):
+    """
+    channels_redis msgpack unpack uses strict_map_key=True — int/float dict keys
+    pack fine but blow up on receive. Recursively stringify non-str map keys.
+    """
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            if isinstance(k, (str, bytes)):
+                sk = k
+            else:
+                sk = str(k)
+            out[sk] = msgpack_safe_keys(v)
+        return out
+    if isinstance(value, list):
+        return [msgpack_safe_keys(v) for v in value]
+    if isinstance(value, tuple):
+        return [msgpack_safe_keys(v) for v in value]
+    return value
+
+
 def next_track_seq(namespace: str) -> int:
     """
     Best-effort monotonic counter (per namespace) using Django cache incr.
@@ -85,7 +106,7 @@ def next_track_seq(namespace: str) -> int:
 
 def envelope_track_message(body: dict, game_id: str) -> dict:
     """Attach seq for game-scoped messages if not already present."""
-    out = dict(body)
+    out = msgpack_safe_keys(dict(body))
     if 'seq' not in out:
         out['seq'] = next_track_seq(f'game:{game_id}')
     return out
@@ -195,7 +216,7 @@ def notify_user_after_commit(user_id, body, *, seq_namespace=None):
     Push a message to one user's track socket (TrackGame and/or UserTrackConsumer connected).
     body must include 'type' for the consumer (e.g. type='track.event' -> track_event handler).
     """
-    payload = dict(body)
+    payload = msgpack_safe_keys(dict(body))
     if seq_namespace is None:
         seq_namespace = f'user:{user_id}'
     if 'seq' not in payload:
@@ -286,34 +307,52 @@ class TrackGame(AsyncJsonWebsocketConsumer):
     def _load_connect_context(self):
         """Profile/team touches the ORM; must not run inside async connect()."""
         user = self.scope['user']
-        team = user.profile.team_on
+        if not getattr(user, 'is_authenticated', False):
+            return None
+        profile = getattr(user, 'profile', None)
+        team = profile.team_on if profile is not None else None
+        team_hash = team.get_name_hash() if team is not None else None
         return (
             user.id,
-            team.get_name_hash(),
+            team_hash,
             self.scope['url_route']['kwargs']['game_id'],
         )
 
     async def connect(self):
-        user_id, team_name_hash, game_id = await self._load_connect_context()
+        ctx = await self._load_connect_context()
+        if ctx is None:
+            await self.close()
+            return
+        user_id, team_name_hash, game_id = ctx
         self.user_id = user_id
         self.team_name_hash = team_name_hash
         self.game_id = game_id
         self.group_game = CHANNEL_GROUPS['game'](self.game_id)
-        self.group_game_team = CHANNEL_GROUPS['game_team'](self.game_id, self.team_name_hash)
+        self.group_game_team = (
+            CHANNEL_GROUPS['game_team'](self.game_id, self.team_name_hash)
+            if self.team_name_hash
+            else None
+        )
         self.group_user = CHANNEL_GROUPS['user'](user_id)
 
         await self.accept()
 
         if self.channel_layer is not None:
             await self.channel_layer.group_add(self.group_game, self.channel_name)
-            await self.channel_layer.group_add(self.group_game_team, self.channel_name)
+            if self.group_game_team:
+                await self.channel_layer.group_add(self.group_game_team, self.channel_name)
             await self.channel_layer.group_add(self.group_user, self.channel_name)
 
     @database_sync_to_async
     def _build_task_changed_for_admin(self, event):
+        user = self.scope['user']
+        team = None
+        profile = getattr(user, 'profile', None)
+        if profile is not None:
+            team = profile.team_on
         return build_event_task_change(
             get_object_or_404(Task, id=event['task']),
-            self.scope['user'].profile.team_on,
+            team,
         )
 
     async def task_changed(self, event):
@@ -321,10 +360,13 @@ class TrackGame(AsyncJsonWebsocketConsumer):
             event = await self._build_task_changed_for_admin(event)
         if 'seq' not in event:
             event = envelope_track_message(event, self.game_id)
+        else:
+            event = msgpack_safe_keys(event)
         await self.send_json(event)
 
     async def track_event(self, event):
         """User-targeted messages (type='track.event' in group_send body)."""
+        event = msgpack_safe_keys(event)
         if 'seq' not in event:
             event = dict(event)
             event['seq'] = next_track_seq(f'user:{self.user_id}')
@@ -332,9 +374,12 @@ class TrackGame(AsyncJsonWebsocketConsumer):
 
     async def disconnect(self, code):
         if self.channel_layer is not None:
-            await self.channel_layer.group_discard(self.group_game, self.channel_name)
-            await self.channel_layer.group_discard(self.group_game_team, self.channel_name)
-            await self.channel_layer.group_discard(self.group_user, self.channel_name)
+            if getattr(self, 'group_game', None):
+                await self.channel_layer.group_discard(self.group_game, self.channel_name)
+            if getattr(self, 'group_game_team', None):
+                await self.channel_layer.group_discard(self.group_game_team, self.channel_name)
+            if getattr(self, 'group_user', None):
+                await self.channel_layer.group_discard(self.group_user, self.channel_name)
 
 
 class UserTrackConsumer(AsyncJsonWebsocketConsumer):

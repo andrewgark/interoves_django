@@ -2344,16 +2344,47 @@
 
   // Hide solved toggle (persisted across pages)
   var HIDE_KEY = 'new_hide_solved';
+  // Замены / лестница: прячем сданные строки, а не всю карточку, пока есть несданные.
+  function cardLineRows(el) {
+    return el.querySelectorAll('tr.new-replacements-row, tr.new-raddle-row:not(.new-raddle-row--given)');
+  }
+  function isLineSolvedRow(row) {
+    return row.classList.contains('new-replacements-row--solved')
+      || row.classList.contains('new-raddle-row--solved');
+  }
+  function isCardFullySolvedForHide(el) {
+    var lines = cardLineRows(el);
+    if (lines.length) {
+      for (var i = 0; i < lines.length; i++) {
+        if (!isLineSolvedRow(lines[i])) return false;
+      }
+      return true;
+    }
+    return el.getAttribute('data-solved') === '1';
+  }
   function applyHideSolved() {
     var hide = false;
     try { hide = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) {}
     var grid = document.querySelector('.new-taskgrid');
     var cards = Array.prototype.slice.call(document.querySelectorAll('.new-taskcard'));
-    // First pass: hide solved as gaps.
+    // First pass: hide solved as gaps (ordinary tasks) or hide only solved lines
+    // (replacements / raddle). Never hide a multi-line card for a single solved line.
     cards.forEach(function (el) {
-      var solved = el.getAttribute('data-solved') === '1';
-      el.classList.toggle('is-solved-hidden', hide && solved);
+      var lines = cardLineRows(el);
       el.classList.remove('is-hidden-row');
+      if (lines.length) {
+        var allLinesSolved = true;
+        Array.prototype.forEach.call(lines, function (row) {
+          var lineSolved = isLineSolvedRow(row);
+          row.classList.toggle('is-solved-hidden', hide && lineSolved);
+          if (!lineSolved) allLinesSolved = false;
+        });
+        el.classList.toggle('is-solved-hidden', false);
+        if (hide && allLinesSolved) el.classList.add('is-hidden-row');
+      } else {
+        var solved = el.getAttribute('data-solved') === '1';
+        el.classList.toggle('is-solved-hidden', hide && solved);
+      }
     });
     document.querySelectorAll('tr.new-proportions-matrix__meta-row').forEach(function (meta) {
       var tid = meta.getAttribute('data-task-id');
@@ -2380,7 +2411,7 @@
         var allSolved = true;
         row.forEach(function (el) {
           any = true;
-          if (el.getAttribute('data-solved') !== '1') allSolved = false;
+          if (!isCardFullySolvedForHide(el)) allSolved = false;
         });
         if (any && allSolved) {
           row.forEach(function (el) {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 from django.utils import timezone
@@ -121,11 +122,34 @@ def get_ladder_section_hub_card(game, *, published_numbers, now=None):
 
 
 def _first_announced_desyatochka(games, *, now=None):
-    """Ближайшая публично видимая игра, чей start_time ещё не наступил."""
+    """Ближайшая анонсированная десяточка для карточки на главной.
+
+    Порядок выбора (как у публичного /des в Telegram):
+    1) ближайшая будущая (ещё не стартовала);
+    2) иначе идущая прямо сейчас;
+    3) иначе закончившаяся менее суток назад;
+    4) иначе None.
+    """
     now = now or timezone.now()
-    for game in games:
-        if now < game.start_time:
-            return game
+    if not games:
+        return None
+
+    upcoming = [g for g in games if now < g.start_time]
+    if upcoming:
+        return min(upcoming, key=lambda g: (g.start_time, g.id))
+
+    live = [g for g in games if g.start_time <= now <= g.end_time]
+    if live:
+        return max(live, key=lambda g: (g.start_time, g.id))
+
+    day = timedelta(days=1)
+    recent = [
+        g for g in games
+        if now > g.end_time and (now - g.end_time) < day
+    ]
+    if recent:
+        return max(recent, key=lambda g: (g.end_time, g.id))
+
     return None
 
 
