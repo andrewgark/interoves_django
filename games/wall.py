@@ -23,10 +23,8 @@ class ExpTile:
 
 
 def get_wall_default_max_attempts(n_cat):
-    attempts = []
-    for i in range(0, n_cat - 1):
-        attempts.append(3 * 2 ** i)
-    return attempts[::-1]
+    """Word-guess limits per stage: n_cat=4 → [5, 4, 3]; n_cat=5 → [6, 5, 4, 3]."""
+    return list(range(n_cat + 1, 2, -1))
 
 
 class Wall:
