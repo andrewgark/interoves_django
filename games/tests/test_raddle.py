@@ -533,42 +533,66 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertEqual(ctx['unused_hints'], [])
         options = ctx['last_word_clue_options']
         self.assertEqual(len(options), 2)
-        self.assertEqual(options[0]['id'], 'ab-bc')
-        self.assertEqual(options[1]['id'], 'bc-ab')
+        by_id = {o['id']: o for o in options}
+        self.assertEqual(set(by_id), {'ab-bc', 'bc-ab'})
+        self.assertTrue(by_id['ab-bc']['is_correct'])
+        self.assertFalse(by_id['bc-ab']['is_correct'])
         # Один и тот же порядок текстов, разная привязка переходов.
-        self.assertEqual([h['index'] for h in options[0]['hints']], [5, 6])
-        self.assertEqual([h['index'] for h in options[1]['hints']], [5, 6])
-        self.assertEqual([h['pair'] for h in options[0]['hints']], ['ab', 'bc'])
-        self.assertEqual([h['pair'] for h in options[1]['hints']], ['bc', 'ab'])
+        correct = by_id['ab-bc']
+        wrong = by_id['bc-ab']
+        self.assertEqual([h['index'] for h in correct['hints']], [5, 6])
+        self.assertEqual([h['index'] for h in wrong['hints']], [5, 6])
+        self.assertEqual([h['pair'] for h in correct['hints']], ['ab', 'bc'])
+        self.assertEqual([h['pair'] for h in wrong['hints']], ['bc', 'ab'])
         before_word = parsed['words'][5]  # САНКТ-ПЕТЕРБУРГ
         focus_word = parsed['words'][6]   # ГОЛЛАНДИЯ
         after_word = parsed['words'][7]   # АМСТЕРДАМ
         hint_ab = parsed['hints'][5]
         hint_bc = parsed['hints'][6]
         self.assertNotEqual(hint_ab, hint_bc)
-        opt1_first = str(options[0]['hints'][0]['display_html'])
-        opt1_second = str(options[0]['hints'][1]['display_html'])
-        opt2_first = str(options[1]['hints'][0]['display_html'])
-        opt2_second = str(options[1]['hints'][1]['display_html'])
-        self.assertNotEqual(opt1_first, opt2_first)
-        self.assertNotEqual(opt1_second, opt2_second)
-        self.assertIn(before_word, opt1_first)
-        self.assertIn(after_word, opt1_second)
-        self.assertIn(after_word, opt2_first)
-        self.assertIn(before_word, opt2_second)
-        for html in (opt1_first, opt1_second, opt2_first, opt2_second):
+        correct_first = str(correct['hints'][0]['display_html'])
+        correct_second = str(correct['hints'][1]['display_html'])
+        wrong_first = str(wrong['hints'][0]['display_html'])
+        wrong_second = str(wrong['hints'][1]['display_html'])
+        self.assertNotEqual(correct_first, wrong_first)
+        self.assertNotEqual(correct_second, wrong_second)
+        self.assertIn(before_word, correct_first)
+        self.assertIn(after_word, correct_second)
+        self.assertIn(after_word, wrong_first)
+        self.assertIn(before_word, wrong_second)
+        for html in (correct_first, correct_second, wrong_first, wrong_second):
             self.assertNotIn(focus_word, html)
             self.assertNotIn('new-raddle-clue-focus', html)
-        self.assertIn('new-raddle-clue-before', opt1_first)
-        self.assertIn('new-raddle-clue-after', opt1_second)
-        self.assertIn('new-raddle-clue-after', opt2_first)
-        self.assertIn('new-raddle-clue-before', opt2_second)
+        self.assertIn('new-raddle-clue-before', correct_first)
+        self.assertIn('new-raddle-clue-after', correct_second)
+        self.assertIn('new-raddle-clue-after', wrong_first)
+        self.assertIn('new-raddle-clue-before', wrong_second)
         row_before = next(r for r in ctx['rows'] if r['index'] == 5)
         row_focus = next(r for r in ctx['rows'] if r['index'] == 6)
         row_after = next(r for r in ctx['rows'] if r['index'] == 7)
         self.assertEqual(row_before['last_word_role'], 'before')
         self.assertEqual(row_focus['last_word_role'], 'focus')
         self.assertEqual(row_after['last_word_role'], 'after')
+
+    def test_last_word_options_order_seeded_not_always_correct_first(self):
+        """Верный блок не всегда первый: порядок от seed контента, стабилен."""
+        from games.raddle import build_last_word_clue_options, last_word_clue_options_seed
+        parsed = parse_raddle_data(_task())
+        options_a = build_last_word_clue_options(parsed, 6, revealed_clue_indices=set())
+        options_b = build_last_word_clue_options(parsed, 6, revealed_clue_indices=set())
+        self.assertEqual([o['id'] for o in options_a], [o['id'] for o in options_b])
+        self.assertEqual(sum(1 for o in options_a if o['is_correct']), 1)
+
+        # На разных лесенках seed даёт оба порядка (иначе верный снова «всегда первый»).
+        seen_first = set()
+        for focus in range(1, 12):
+            opts = build_last_word_clue_options(parsed, focus, revealed_clue_indices=set())
+            seen_first.add(opts[0]['id'])
+            self.assertEqual(
+                last_word_clue_options_seed(parsed, focus),
+                last_word_clue_options_seed(parsed, focus),
+            )
+        self.assertEqual(seen_first, {'ab-bc', 'bc-ab'})
 
     def test_last_word_bard_example(self):
         """Регрессия: варианты должны отличаться, Б не подставляется."""
@@ -585,15 +609,16 @@ class RaddleUiContextTests(SimpleTestCase):
         }
         parsed = parse_raddle_data(_task(checker_data=json.dumps(data, ensure_ascii=False)))
         options = build_last_word_clue_options(parsed, 2, revealed_clue_indices=set())
-        opt1 = [str(h['display_html']) for h in options[0]['hints']]
-        opt2 = [str(h['display_html']) for h in options[1]['hints']]
-        self.assertNotEqual(opt1[0], opt2[0])
-        self.assertNotEqual(opt1[1], opt2[1])
-        self.assertIn('БАРД', opt1[0])
-        self.assertIn('ПЕРЕБОР', opt1[1])
-        self.assertIn('ПЕРЕБОР', opt2[0])
-        self.assertIn('БАРД', opt2[1])
-        for line in opt1 + opt2:
+        by_id = {o['id']: o for o in options}
+        correct = [str(h['display_html']) for h in by_id['ab-bc']['hints']]
+        wrong = [str(h['display_html']) for h in by_id['bc-ab']['hints']]
+        self.assertNotEqual(correct[0], wrong[0])
+        self.assertNotEqual(correct[1], wrong[1])
+        self.assertIn('БАРД', correct[0])
+        self.assertIn('ПЕРЕБОР', correct[1])
+        self.assertIn('ПЕРЕБОР', wrong[0])
+        self.assertIn('БАРД', wrong[1])
+        for line in correct + wrong:
             self.assertNotIn('ГИТАРА', line)
 
     def test_mask_uses_squares(self):

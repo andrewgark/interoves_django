@@ -1060,7 +1060,23 @@
     taskRoot.querySelectorAll('.new-raddle-clue--active').forEach(function (el) {
       el.classList.remove('new-raddle-clue--active');
     });
+    taskRoot.querySelectorAll('.new-raddle-clues__list--active').forEach(function (el) {
+      el.classList.remove('new-raddle-clues__list--active');
+    });
     if (hintIndex === null || hintIndex === undefined || hintIndex === '') return;
+    // Финал лесенки: два блока-варианта — подсвечиваем верный блок целиком,
+    // а не одно и то же предложение в обоих.
+    var correctOption = taskRoot.querySelector('[data-raddle-correct-option]');
+    if (correctOption) {
+      correctOption.classList.add('new-raddle-clues__list--active');
+      correctOption.querySelectorAll('.new-raddle-clue').forEach(function (clue) {
+        clue.classList.add('new-raddle-clue--active');
+      });
+      try {
+        correctOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } catch (err) {}
+      return;
+    }
     var clues = taskRoot.querySelectorAll('.new-raddle-clue[data-hint-index="' + hintIndex + '"]');
     if (!clues.length) return;
     clues.forEach(function (clue) {

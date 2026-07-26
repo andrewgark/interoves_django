@@ -103,7 +103,7 @@
       {% if not forloop.first %}
       <p class="new-raddle-clues__or" role="separator">или</p>
       {% endif %}
-      <ul class="new-raddle-clues__list new-raddle-clues__list--option" data-raddle-clue-option="{{ option.id }}">
+      <ul class="new-raddle-clues__list new-raddle-clues__list--option" data-raddle-clue-option="{{ option.id }}"{% if option.is_correct %} data-raddle-correct-option{% endif %}>
         {% for hint in option.hints %}
         <li class="new-raddle-clue{% if hint.is_revealed %} new-raddle-clue--revealed{% endif %}"
             data-hint-index="{{ hint.index }}"

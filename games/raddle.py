@@ -18,7 +18,9 @@
 # Первое и последнее слово показываются сразу; игрок может сдавать только первое и
 # последнее из ещё нерешённых. При верном ответе подсказка между словами уходит в «использованные».
 
+import hashlib
 import json
+import random
 import re
 
 from games.util import clean_text
@@ -759,6 +761,18 @@ def render_last_word_transition_clue(hint_text, before_word, after_word, *, pair
     )
 
 
+def last_word_clue_options_seed(parsed, focus_index):
+    """Стабильный seed порядка вариантов из контента лесенки (не от task_id)."""
+    words = parsed.get('words') or []
+    hints = parsed.get('hints') or []
+    material = '\0'.join(
+        [str(focus_index)]
+        + [str(w) for w in words]
+        + [str(h) for h in hints]
+    )
+    return int(hashlib.md5(material.encode('utf-8')).hexdigest()[:8], 16)
+
+
 def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
     """
     Два варианта расстановки двух оставшихся подсказок.
@@ -766,8 +780,11 @@ def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
     Оба варианта показывают одни и те же тексты подсказок в одном порядке,
     но с разной привязкой переходов (иначе получается одно и то же содержимое):
 
-      1) подсказка А→Б как ab, подсказка Б→В как bc
-      2) та же первая подсказка как bc, вторая как ab
+      - ab-bc (верный): подсказка А→Б как ab, подсказка Б→В как bc
+      - bc-ab: та же первая подсказка как bc, вторая как ab
+
+    Порядок блоков перемешивается детерминированно от контента задания,
+    чтобы верный не был всегда первым.
     """
     words = parsed['words']
     hints = parsed['hints']
@@ -789,9 +806,10 @@ def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
             ),
         }
 
-    return [
+    options = [
         {
             'id': 'ab-bc',
+            'is_correct': True,
             'hints': [
                 _item(hint_ab_idx, hint_ab, 'ab'),
                 _item(hint_bc_idx, hint_bc, 'bc'),
@@ -799,12 +817,16 @@ def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
         },
         {
             'id': 'bc-ab',
+            'is_correct': False,
             'hints': [
                 _item(hint_ab_idx, hint_ab, 'bc'),
                 _item(hint_bc_idx, hint_bc, 'ab'),
             ],
         },
     ]
+    rng = random.Random(last_word_clue_options_seed(parsed, focus_index))
+    rng.shuffle(options)
+    return options
 
 
 def raddle_result_squares(parsed, state, *, hint_attempts=None, allow_partial=False):
