@@ -270,13 +270,23 @@ class ReplacementsLinesCheckerTests(SimpleTestCase):
         r = ch.check(payload, att)
         self.assertEqual(r.status, 'Ok')
 
-    def test_tournament_ok_when_line_correct_but_task_not_complete(self):
-        """Полностью верная строка не должна давать tournament_status Pending в турнире."""
+    def test_tournament_partial_when_line_correct_but_task_not_complete(self):
+        """Верная строка без полного решения: Partial, не Ok и не Pending."""
         checker_data = json.dumps({'lines': [['a'], ['b']]})
         ch = ReplacementsLinesChecker(checker_data, None)
         att = self._attempt('', '')
         r = ch.check('{"line_index": 0, "answers": ["a"]}', att)
         self.assertEqual(r.status, 'Partial')
+        self.assertEqual(r.tournament_status, 'Partial')
+
+    def test_tournament_ok_only_when_all_lines_solved(self):
+        checker_data = json.dumps({'lines': [['a'], ['b']]})
+        ch = ReplacementsLinesChecker(
+            checker_data, json.dumps({'solved_lines': [0], 'total': 1}),
+        )
+        att = self._attempt('', '')
+        r = ch.check('{"line_index": 1, "answers": ["b"]}', att)
+        self.assertEqual(r.status, 'Ok')
         self.assertEqual(r.tournament_status, 'Ok')
 
     def test_tournament_pending_when_line_wrong_but_task_not_complete(self):
@@ -287,29 +297,32 @@ class ReplacementsLinesCheckerTests(SimpleTestCase):
         self.assertNotEqual(r.status, 'Ok')
         self.assertEqual(r.tournament_status, 'Pending')
 
-    def test_tournament_ok_when_fewer_answers_than_slots(self):
+    def test_tournament_not_pending_when_fewer_answers_than_slots(self):
         checker_data = json.dumps({'lines': [['a', 'b'], ['x']]})
         ch = ReplacementsLinesChecker(checker_data, None)
         att = self._attempt('', '')
         r = ch.check('{"line_index": 0, "answers": ["a"]}', att)
         self.assertNotEqual(r.status, 'Ok')
-        self.assertEqual(r.tournament_status, 'Ok')
+        self.assertEqual(r.tournament_status, r.status)
+        self.assertNotEqual(r.tournament_status, 'Pending')
 
-    def test_tournament_ok_when_empty_cell_in_line(self):
+    def test_tournament_not_pending_when_empty_cell_in_line(self):
         checker_data = json.dumps({'lines': [['a', 'b'], ['x']]})
         ch = ReplacementsLinesChecker(checker_data, None)
         att = self._attempt('', '')
         r = ch.check('{"line_index": 0, "answers": ["a", ""]}', att)
         self.assertNotEqual(r.status, 'Ok')
-        self.assertEqual(r.tournament_status, 'Ok')
+        self.assertEqual(r.tournament_status, r.status)
+        self.assertNotEqual(r.tournament_status, 'Pending')
 
-    def test_tournament_ok_when_whitespace_only_cell(self):
+    def test_tournament_not_pending_when_whitespace_only_cell(self):
         checker_data = json.dumps({'lines': [['a', 'b'], ['x']]})
         ch = ReplacementsLinesChecker(checker_data, None)
         att = self._attempt('', '')
         r = ch.check('{"line_index": 0, "answers": ["a", "   "]}', att)
         self.assertNotEqual(r.status, 'Ok')
-        self.assertEqual(r.tournament_status, 'Ok')
+        self.assertEqual(r.tournament_status, r.status)
+        self.assertNotEqual(r.tournament_status, 'Pending')
 
 
 class CleanTextLatinDiaeresisTests(SimpleTestCase):
@@ -415,8 +428,8 @@ class UserReplacementsExampleTests(SimpleTestCase):
         r1 = ch.check(json.dumps({'line_index': 1, 'answers': a2}, ensure_ascii=False), att)
         self.assertEqual(r0.status, 'Partial')
         self.assertEqual(r1.status, 'Partial')
-        self.assertEqual(r0.tournament_status, 'Ok')
-        self.assertEqual(r1.tournament_status, 'Ok')
+        self.assertEqual(r0.tournament_status, 'Partial')
+        self.assertEqual(r1.tournament_status, 'Partial')
 
 
 class TaskReplacementsCanonicalAnswerRowTests(SimpleTestCase):

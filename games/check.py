@@ -558,11 +558,10 @@ class ReplacementsLinesChecker(BaseChecker):
             total = int(state.get('total', 0) or 0)
             solved = set(state.get('solved_lines', []) or [])
             status = 'Partial' if solved else 'Wrong'
-            # Не хватает ячеек — как «ещё не готово», не уводим в Pending турнира
+            # Не хватает ячеек — «ещё не готово»: не Pending и не Ok
+            # (Ok только когда сданы все строки задания).
             incomplete = len(user_answers) < len(correct)
-            tournament_status = (
-                'Ok' if (status == 'Ok' or incomplete) else 'Pending'
-            )
+            tournament_status = status if incomplete else 'Pending'
             return CheckResult(status, tournament_status, total, state=json.dumps({'solved_lines': sorted(list(solved)), 'total': total}, ensure_ascii=False))
 
         is_correct = True
@@ -585,10 +584,12 @@ class ReplacementsLinesChecker(BaseChecker):
             tournament_status = 'Ok'
         else:
             status = 'Partial' if solved else 'Wrong'
-            # Полностью верная строка или есть пустые ячейки — в турнире не Pending
-            # (иначе частичный ввод уходит «на проверку»).
+            # Ok только при полном решении. Верная строка / пустые ячейки —
+            # оставляем реальный status (Partial/Wrong), чтобы таблица не
+            # показывала Ok при неполном ChainTaskState. Полностью
+            # заполненный неверный ответ — Pending (на проверку).
             has_empty = _answer_has_empty_slot(user_answers, len(correct))
-            tournament_status = 'Ok' if (is_correct or has_empty) else 'Pending'
+            tournament_status = status if (is_correct or has_empty) else 'Pending'
 
         new_state = {'solved_lines': sorted(list(solved)), 'total': total}
         return CheckResult(status, tournament_status, total, state=json.dumps(new_state, ensure_ascii=False))
@@ -689,7 +690,8 @@ class RaddleChecker(BaseChecker):
             tournament_status = 'Ok'
         else:
             status = 'Partial' if solved_middle > 0 else 'Wrong'
-            tournament_status = 'Ok' if is_correct else 'Pending'
+            # Ok только когда лестница закрыта; иначе не маскируем Partial/Wrong.
+            tournament_status = status if is_correct else 'Pending'
         # JSON: float, so client/state round-trips stay simple; CheckResult.points stays Decimal.
         new_state = {
             'solved_indices': sorted(solved),

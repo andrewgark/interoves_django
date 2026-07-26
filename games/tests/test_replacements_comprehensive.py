@@ -196,4 +196,5 @@ class ReplacementsLinesCheckerUnderscoreIntegrationTests(SimpleTestCase):
             json.dumps({'line_index': 0, 'answers': ['x', 'Y']}, ensure_ascii=False),
             att,
         )
-        self.assertEqual(r0.tournament_status, 'Ok')
+        self.assertEqual(r0.status, 'Partial')
+        self.assertEqual(r0.tournament_status, 'Partial')
