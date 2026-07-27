@@ -1064,14 +1064,11 @@
       el.classList.remove('new-raddle-clues__list--active');
     });
     if (hintIndex === null || hintIndex === undefined || hintIndex === '') return;
-    // Финал лесенки: два блока-варианта — подсвечиваем верный блок целиком,
-    // а не одно и то же предложение в обоих.
+    // Финал лесенки: два блока-варианта — один раз подсвечиваем только верный ul,
+    // без --active/--revealed на отдельных предложениях в обоих блоках.
     var correctOption = taskRoot.querySelector('[data-raddle-correct-option]');
     if (correctOption) {
       correctOption.classList.add('new-raddle-clues__list--active');
-      correctOption.querySelectorAll('.new-raddle-clue').forEach(function (clue) {
-        clue.classList.add('new-raddle-clue--active');
-      });
       try {
         correctOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       } catch (err) {}
@@ -1094,12 +1091,9 @@
     var clueHintIndex = form.getAttribute('data-clue-hint-index');
     var tierInput = form.querySelector('input[name="tier"]');
     var tier = tierInput ? tierInput.value : '1';
-    // 💡 повторно: только подсветка, без запроса
+    // 💡 повторно: только подсветка, без запроса (setRaddleFocus сам вызывает highlight)
     if (tier === '1' && form.getAttribute('data-clue-already-taken') === '1') {
-      if (taskRoot) {
-        setRaddleFocus(taskRoot, wordIdx);
-        highlightRaddleClue(taskRoot, clueHintIndex);
-      }
+      if (taskRoot) setRaddleFocus(taskRoot, wordIdx);
       return;
     }
     if (form && form.dataset) form.dataset.submitting = '1';
@@ -1130,20 +1124,18 @@
           if (data.status === 'ok' && data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
             applyNewUiTaskHtml(data.update_task_html_new);
             var fresh = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
-            if (fresh) {
-              setRaddleFocus(fresh, wordIdx);
-              highlightRaddleClue(fresh, clueHintIndex);
-            }
+            if (fresh) setRaddleFocus(fresh, wordIdx);
             return;
           }
           if (taskRoot) {
-            setRaddleFocus(taskRoot, wordIdx);
-            highlightRaddleClue(taskRoot, clueHintIndex);
-            taskRoot.querySelectorAll(
+            // В режиме двух блоков — revealed только у верного варианта.
+            var revealRoot = taskRoot.querySelector('[data-raddle-correct-option]') || taskRoot;
+            revealRoot.querySelectorAll(
               '.new-raddle-clue[data-hint-index="' + clueHintIndex + '"]'
             ).forEach(function (clue) {
               clue.classList.add('new-raddle-clue--revealed');
             });
+            setRaddleFocus(taskRoot, wordIdx);
           }
           if (msg) {
             msg.textContent = '';

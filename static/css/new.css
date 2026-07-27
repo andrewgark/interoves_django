@@ -3230,10 +3230,28 @@ html.new-ui-dark .new-replacements-fill-msg.is-error {
   padding: 0.35rem 0.55rem;
   background: color-mix(in srgb, var(--text) 2%, var(--surface));
 }
+/* В dual-блоках подсветка только на ul (--active), не на отдельных li. */
+.new-raddle-clues__list--option .new-raddle-clue--revealed,
+.new-raddle-clues__list--option .new-raddle-clue--active {
+  background: transparent;
+  box-shadow: none;
+  font-weight: inherit;
+  padding-left: 0;
+  padding-right: 0;
+  border-radius: 0;
+  color: inherit;
+}
+.new-raddle-clues__list--option .new-raddle-clue--active .new-raddle-clue__text {
+  font-weight: inherit;
+}
 .new-raddle-clues__list--option.new-raddle-clues__list--active {
   background: color-mix(in srgb, #3b82f6 14%, var(--surface));
   border-color: color-mix(in srgb, #3b82f6 45%, var(--border));
   box-shadow: inset 3px 0 0 color-mix(in srgb, #3b82f6 75%, transparent);
+}
+.new-raddle-clues__list--option.new-raddle-clues__list--active .new-raddle-clue__text {
+  font-weight: 700;
+  color: var(--text);
 }
 .new-raddle-clues__or {
   margin: 0.65rem 0;

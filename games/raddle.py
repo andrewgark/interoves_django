@@ -795,12 +795,16 @@ def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
     hint_ab = hints[hint_ab_idx]
     hint_bc = hints[hint_bc_idx]
 
-    def _item(hint_index, hint_text, pair):
+    def _item(hint_index, hint_text, pair, *, is_correct_option):
+        # Revealed-класс только у верного блока: иначе одно и то же
+        # предложение подсвечивается в обоих вариантах.
         return {
             'index': hint_index,
             'text': hint_text,
             'pair': pair,
-            'is_revealed': hint_index in revealed_clue_indices,
+            'is_revealed': (
+                is_correct_option and hint_index in revealed_clue_indices
+            ),
             'display_html': render_last_word_transition_clue(
                 hint_text, before_word, after_word, pair=pair,
             ),
@@ -811,16 +815,16 @@ def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
             'id': 'ab-bc',
             'is_correct': True,
             'hints': [
-                _item(hint_ab_idx, hint_ab, 'ab'),
-                _item(hint_bc_idx, hint_bc, 'bc'),
+                _item(hint_ab_idx, hint_ab, 'ab', is_correct_option=True),
+                _item(hint_bc_idx, hint_bc, 'bc', is_correct_option=True),
             ],
         },
         {
             'id': 'bc-ab',
             'is_correct': False,
             'hints': [
-                _item(hint_ab_idx, hint_ab, 'bc'),
-                _item(hint_bc_idx, hint_bc, 'ab'),
+                _item(hint_ab_idx, hint_ab, 'bc', is_correct_option=False),
+                _item(hint_bc_idx, hint_bc, 'ab', is_correct_option=False),
             ],
         },
     ]

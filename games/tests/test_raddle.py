@@ -594,6 +594,23 @@ class RaddleUiContextTests(SimpleTestCase):
             )
         self.assertEqual(seen_first, {'ab-bc', 'bc-ab'})
 
+    def test_last_word_revealed_only_on_correct_option(self):
+        """💡 не красит одно предложение в обоих блоках — revealed только у верного."""
+        from games.raddle import build_last_word_clue_options
+        parsed = parse_raddle_data(_task())
+        options = build_last_word_clue_options(
+            parsed, 6, revealed_clue_indices={5},
+        )
+        by_id = {o['id']: o for o in options}
+        self.assertEqual(
+            [h['is_revealed'] for h in by_id['ab-bc']['hints']],
+            [True, False],
+        )
+        self.assertEqual(
+            [h['is_revealed'] for h in by_id['bc-ab']['hints']],
+            [False, False],
+        )
+
     def test_last_word_bard_example(self):
         """Регрессия: варианты должны отличаться, Б не подставляется."""
         from games.raddle import build_last_word_clue_options
