@@ -8,9 +8,11 @@ class SocialQueuePost(models.Model):
 
     SOURCE_MANUAL = 'manual'
     SOURCE_LADDER = 'ladder'
+    SOURCE_GAME = 'game'
     SOURCE_CHOICES = (
         (SOURCE_MANUAL, 'Manual'),
         (SOURCE_LADDER, 'Ladder'),
+        (SOURCE_GAME, 'Game'),
     )
 
     STATUS_PENDING = 'pending'

@@ -148,12 +148,48 @@ def _all_solved_game_phrase(game) -> str:
     return 'игре {}'.format(_escape(raw))
 
 
-def format_all_solved_announcement(game, team) -> str:
+def _format_points_amount(n) -> str:
+    from decimal import Decimal
+
+    d = Decimal(str(n or 0))
+    if d == d.to_integral_value():
+        return str(int(d))
+    # Trim trailing zeros: 1.50 → 1.5
+    normalized = d.normalize()
+    text = format(normalized, 'f')
+    if '.' in text:
+        text = text.rstrip('0').rstrip('.')
+    return text or '0'
+
+
+def _points_word(n) -> str:
+    from decimal import Decimal
+
+    d = Decimal(str(n or 0))
+    if d != d.to_integral_value():
+        return 'балла'
+    return _ru_plural(int(d), 'балл', 'балла', 'баллов')
+
+
+def format_hints_taken_line(hint_count: int = 0, hint_penalty=0) -> str:
+    """«Команда взяла N подсказку/и/ок и потеряла на этом M балл/а/ов.»"""
+    n = int(hint_count or 0)
+    return 'Команда взяла {} {} и потеряла на этом {} {}.'.format(
+        n,
+        _ru_plural(n, 'подсказку', 'подсказки', 'подсказок'),
+        _format_points_amount(hint_penalty),
+        _points_word(hint_penalty),
+    )
+
+
+def format_all_solved_announcement(game, team, hint_count: int = 0, hint_penalty=0) -> str:
     team_name = _escape(team_display_name(team))
     return _join_lines([
         '🎉 Команда <b>{}</b> решила все задания в {}!'.format(
             team_name, _all_solved_game_phrase(game),
         ),
+        '',
+        format_hints_taken_line(hint_count, hint_penalty),
         '',
         'Поздравляем!',
         random_congrats_emojis(6),

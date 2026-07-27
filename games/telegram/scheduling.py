@@ -9,13 +9,17 @@ from django.db import transaction
 from django.utils import timezone
 
 from games.models import Attempt, Game, Team
+from games.social.models import SocialQueuePost
+from games.social.publish import publish_instagram, publish_telegram, publish_twitter
 from games.telegram.announcements import (
     ANNOUNCEMENT_FORMATTERS,
     build_podium,
     format_all_solved_announcement,
+    format_game_day_before_announcement,
     format_game_results_announcement,
 )
 from games.telegram.config import game_telegram_announce_enabled
+from games.telegram.game_urls import game_site_url
 from games.telegram.models import TelegramGameAnnouncement
 from games.telegram.notify import (
     send_admin_message,
@@ -64,6 +68,50 @@ def _mark_and_send_photo(game: Game, kind: str, caption: str, photo_bytes: bytes
     return True
 
 
+def _publish_social_now(game: Game, caption: str, photo_bytes: bytes, *, filename: str) -> SocialQueuePost:
+    """Create a SocialQueuePost and publish immediately to TG channel + X + Instagram."""
+    post = SocialQueuePost.objects.create(
+        source=SocialQueuePost.SOURCE_GAME,
+        caption=caption or '',
+        play_url=game_site_url(game),
+    )
+    post.set_image_bytes(photo_bytes, filename=filename)
+    post.save()
+    publish_telegram(post, immediate=True, force=False)
+    post.refresh_from_db()
+    publish_twitter(post, force=False)
+    post.refresh_from_db()
+    publish_instagram(post, force=False)
+    post.refresh_from_db()
+    return post
+
+
+def _mark_and_publish_social(
+    game: Game,
+    kind: str,
+    caption: str,
+    photo_bytes: bytes | None,
+    *,
+    filename: str,
+) -> bool:
+    """
+    Publish to all three social networks immediately.
+
+    Image first: if missing, do not claim the announcement slot (retry next minute).
+    """
+    if not photo_bytes:
+        return False
+    if not _try_mark(game, kind):
+        return False
+    try:
+        _publish_social_now(game, caption, photo_bytes, filename=filename)
+    except Exception:
+        logger.exception(
+            'Social publish failed for game %s kind=%s', game.id, kind,
+        )
+    return True
+
+
 def _tournament_results_png(game: Game) -> bytes | None:
     try:
         from games.telegram.results_image import render_tournament_results_png
@@ -74,33 +122,92 @@ def _tournament_results_png(game: Game) -> bytes | None:
         return None
 
 
-def _teams_with_all_tasks_ok(game: Game) -> list[Team]:
+def _game_announce_png(game: Game) -> bytes | None:
+    try:
+        from games.telegram.announce_image import render_game_announce_png
+
+        return render_game_announce_png(game)
+    except Exception:
+        logger.exception('Game announce screenshot failed for game %s', game.id)
+        return None
+
+
+def _process_day_before(game: Game, now, stats: dict) -> None:
+    start = game.start_time
+    if now < start - timedelta(days=1) or now >= start:
+        return
+    if TelegramGameAnnouncement.objects.filter(
+        game=game, kind=TelegramGameAnnouncement.KIND_DAY_BEFORE,
+    ).exists():
+        return
+    caption = format_game_day_before_announcement(game)
+    png = _game_announce_png(game)
+    if _mark_and_publish_social(
+        game,
+        TelegramGameAnnouncement.KIND_DAY_BEFORE,
+        caption,
+        png,
+        filename='announce-{}.png'.format(game.id),
+    ):
+        stats['day_before'] += 1
+
+
+def _scoring_hint_count(attempts_info) -> int:
+    """Count real player hints (same exclusions as AttemptsInfo.get_sum_hint_penalty)."""
+    from games.raddle import is_raddle_in_game_assist_hint
+
+    n = 0
+    for hint_attempt in attempts_info.hint_attempts or []:
+        if not hint_attempt.is_real_request:
+            continue
+        hint = hint_attempt.hint
+        if hint is None or is_raddle_in_game_assist_hint(hint):
+            continue
+        n += 1
+    return n
+
+
+def _teams_with_all_tasks_ok(game: Game) -> list[tuple[Team, int, object]]:
+    """Teams with Ok on every visible game task, plus (hint_count, hint_penalty)."""
+    from decimal import Decimal
+
     from games.views.new_ui import _load_results_placements_and_tasks
 
-    _placements, _tg_map, tasks_flat, task_ids, _headers = _load_results_placements_and_tasks(game)
+    _placements, _tg_map, _tasks_flat, task_ids, _headers = _load_results_placements_and_tasks(game)
     if not task_ids:
         return []
 
     bulk = Attempt.manager.get_bulk_game_actor_rows(task_ids, mode='tournament', game=game)
     ok_counts: dict[int, int] = {}
+    hint_counts: dict[int, int] = {}
+    hint_penalties: dict[int, Decimal] = {}
     teams_by_id: dict[int, Team] = {}
     for _task_id, rows in bulk.items():
         for participant, info in rows:
             if not isinstance(participant, Team):
                 continue
+            tid = participant.pk
+            teams_by_id[tid] = participant
+            hint_counts[tid] = hint_counts.get(tid, 0) + _scoring_hint_count(info)
+            hint_penalties[tid] = hint_penalties.get(tid, Decimal(0)) + Decimal(
+                str(info.get_sum_hint_penalty() or 0)
+            )
             best = info.best_attempt
             if best is None or best.status != 'Ok':
                 continue
-            ok_counts[participant.pk] = ok_counts.get(participant.pk, 0) + 1
-            teams_by_id[participant.pk] = participant
+            ok_counts[tid] = ok_counts.get(tid, 0) + 1
 
     n_tasks = len(task_ids)
     winners = [
-        teams_by_id[tid]
+        (
+            teams_by_id[tid],
+            hint_counts.get(tid, 0),
+            hint_penalties.get(tid, Decimal(0)),
+        )
         for tid, count in ok_counts.items()
         if count >= n_tasks
     ]
-    winners.sort(key=lambda t: ((t.visible_name or t.name or '').lower(), t.pk))
+    winners.sort(key=lambda row: ((row[0].visible_name or row[0].name or '').lower(), row[0].pk))
     return winners
 
 
@@ -108,11 +215,13 @@ def _process_all_solved(game: Game, now, stats: dict) -> None:
     if now < game.start_time or now > game.end_time:
         return
     png = None
-    for team in _teams_with_all_tasks_ok(game):
+    for team, hint_count, hint_penalty in _teams_with_all_tasks_ok(game):
         kind = TelegramGameAnnouncement.all_solved_kind(team.pk)
         if TelegramGameAnnouncement.objects.filter(game=game, kind=kind).exists():
             continue
-        caption = format_all_solved_announcement(game, team)
+        caption = format_all_solved_announcement(
+            game, team, hint_count=hint_count, hint_penalty=hint_penalty,
+        )
         if png is None:
             png = _tournament_results_png(game)
         if _mark_and_send_photo(game, kind, caption, png):
@@ -140,7 +249,13 @@ def _process_results(game: Game, now, stats: dict) -> None:
     podium = build_podium(data.get('team_to_place') or {})
     caption = format_game_results_announcement(game, podium)
     png = _tournament_results_png(game)
-    if _mark_and_send_photo(game, TelegramGameAnnouncement.KIND_RESULTS, caption, png):
+    if _mark_and_publish_social(
+        game,
+        TelegramGameAnnouncement.KIND_RESULTS,
+        caption,
+        png,
+        filename='results-{}.png'.format(game.id),
+    ):
         stats['results'] += 1
 
 
@@ -164,9 +279,10 @@ def process_game_announcements(now=None) -> dict[str, int]:
             continue
 
         if game_telegram_announce_enabled(game) and _should_consider_game(game, now):
-            if now >= start - timedelta(days=1) and now < start:
-                if _mark_and_send_text(game, TelegramGameAnnouncement.KIND_DAY_BEFORE):
-                    stats['day_before'] += 1
+            try:
+                _process_day_before(game, now, stats)
+            except Exception:
+                logger.exception('day_before social announce failed for game %s', game.id)
 
             if now >= start - timedelta(hours=1) and now < start:
                 if _mark_and_send_text(game, TelegramGameAnnouncement.KIND_HOUR_BEFORE):
