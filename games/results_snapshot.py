@@ -274,6 +274,8 @@ def build_results_snapshot_payload(game, mode='tournament'):
 
     Hint penalties are included because we rely on AttemptsInfo.get_result_points()
     and AttemptsInfo.get_sum_hint_penalty().
+
+    Sections (project_id=sections) do not use results tables; prefer not calling this for them.
     """
     # Use the same ordering/filtering rules as results pages.
     from django.db.models import Q
@@ -450,6 +452,9 @@ def build_results_snapshot_payload(game, mode='tournament'):
 
 
 def freeze_game_results(game, mode='tournament', overwrite=False):
+    # Sections (ladder, replacements, …) do not use results tables.
+    if getattr(game, 'project_id', None) == 'sections':
+        return None, False
     obj = GameResultsSnapshot.objects.filter(game=game, mode=mode).first()
     if obj and not overwrite:
         # Snapshot already frozen; do not rebuild payload (expensive) or overwrite.

@@ -51,6 +51,11 @@ class Command(BaseCommand):
             processed += 1
 
             try:
+                if getattr(game, "project_id", None) == "sections":
+                    skipped += 1
+                    self.stdout.write(f"[{processed}] {game.id}: skip (sections — no results table)")
+                    continue
+
                 existing = GameResultsSnapshot.objects.filter(game=game, mode=mode).first()
                 if only_missing and existing:
                     skipped += 1
@@ -58,6 +63,10 @@ class Command(BaseCommand):
                     continue
 
                 obj, did = freeze_game_results(game, mode=mode, overwrite=overwrite)
+                if obj is None:
+                    skipped += 1
+                    self.stdout.write(f"[{processed}] {game.id}: skip (no snapshot)")
+                    continue
                 if not existing and did:
                     created += 1
                     self.stdout.write(f"[{processed}] {game.id}: created snapshot id={obj.id}")
