@@ -1,0 +1,169 @@
+{# Модалка правил Десяточек (турнирный режим) — открывается с кнопки ? в блоке на хабе. #}
+<div id="desyatochki-rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="desyatochki-rules-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-desyatochki-rules-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-desyatochki-rules-close>×</button>
+    <p class="pal-kicker">Десяточки</p>
+    <h2 id="desyatochki-rules-title" class="pal-title">как играть</h2>
+    <p class="pal-lead">
+      Командные интеллектуальные игры. Интернет, гугл, переводчики, карты&nbsp;— всё можно и нужно:
+      многие задания без этого почти не решить.
+    </p>
+
+    <h3 class="pal-example-title">Как устроена игра</h3>
+    <div class="pal-rules">
+      <div class="pal-rule">
+        <div class="pal-rule-number">1</div>
+        <div class="pal-rule-text">
+          <strong>Команда видит всё вместе.</strong>
+          Задания общие. Если кто-то отправил ответ или сдал задание&nbsp;— у остальных сокомандников это тоже отображается.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">2</div>
+        <div class="pal-rule-text">
+          <strong>Ответ&nbsp;— в форму рядом с заданием.</strong>
+          Регистр обычно не важен. Буква Ё приравнивается к&nbsp;Е. Язык заданий&nbsp;— русский, если не сказано иначе.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">3</div>
+        <div class="pal-rule-text">
+          <strong>У известных жанров есть правила.</strong>
+          Последовательности, палиндромы, соотношения, стены, замены и&nbsp;т.п.&nbsp;— правила открываются кнопкой&nbsp;«?» в&nbsp;задании.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">4</div>
+        <div class="pal-rule-text">
+          <strong>Бывают необычные задания без правил.</strong>
+          Понять логику и&nbsp;есть часть задания.
+        </div>
+      </div>
+    </div>
+
+    <h3 class="pal-example-title">Турнирный режим</h3>
+    <div class="pal-rules">
+      <div class="pal-rule">
+        <div class="pal-rule-number">1</div>
+        <div class="pal-rule-text">
+          <strong>В зачёт идут только ответы в игровое время.</strong>
+          Оно указано у каждой десяточки (например, 18:00–20:00). Условия после этого не закрываются, но поздние посылки в турнирную таблицу не попадают.
+          Иногда время продлевают&nbsp;— следите за объявлениями в
+          <a href="https://t.me/+rhsbkEuU4-ExOWEy" target="_blank" rel="noopener noreferrer">чате участников</a>.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">2</div>
+        <div class="pal-rule-text">
+          <strong>Число попыток ограничено</strong>&nbsp;— обычно 3, в задании видно счётчик вроде «попытка&nbsp;1/3».
+          Сдали с первой или со второй&nbsp;— без разницы. Исчерпали попытки без правильного ответа&nbsp;— задание не засчитывается.
+          Отдельного штрафа за неверные попытки нет.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">3</div>
+        <div class="pal-rule-text">
+          <strong>Проверка.</strong>
+          Совпадение с авторским ответом&nbsp;— сразу автоматом. Иначе посылка может уйти на ручную проверку ведущим
+          (опечатка или альтернативный верный ответ).
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">4</div>
+        <div class="pal-rule-text">
+          <strong>Таблица результатов</strong> обновляется по ходу игры по мере проверки.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">5</div>
+        <div class="pal-rule-text">
+          <strong>После конца игры</strong>&nbsp;— режим доигрывания: бесконечные попытки, можно смотреть ответы;
+          в турнир эти посылки уже не идут.
+        </div>
+      </div>
+    </div>
+
+    <h3 class="pal-example-title">Рекомендации</h3>
+    <div class="pal-rules" style="margin-bottom:0">
+      <div class="pal-rule">
+        <div class="pal-rule-number">1</div>
+        <div class="pal-rule-text"><strong>Гуглите почаще.</strong></div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">2</div>
+        <div class="pal-rule-text"><strong>Выписывайте версии</strong> ответов и идей.</div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">3</div>
+        <div class="pal-rule-text"><strong>Параллельтесь</strong>&nbsp;— не сидите все на одном задании.</div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">4</div>
+        <div class="pal-rule-text"><strong>Общайтесь с командой.</strong></div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">5</div>
+        <div class="pal-rule-text"><strong>Скрывайте вкладки</strong> с уже решёнными заданиями, чтобы не мешали.</div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">6</div>
+        <div class="pal-rule-text">
+          <strong>Задания идут не по порядку сложности</strong>&nbsp;— сложное может быть в начале, простое&nbsp;— в конце.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">7</div>
+        <div class="pal-rule-text">
+          <strong>Смотрите турнирную таблицу:</strong> какие задания сдают другие команды.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">8</div>
+        <div class="pal-rule-text">
+          <strong>Берите подсказки</strong> на сайте. Они стоят баллы, но в минус за задание уйти нельзя:
+          штраф снимается только если задание всё-таки сдадите.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">9</div>
+        <div class="pal-rule-text">
+          <strong>Условия в гуглодоке.</strong>
+          Сделайте копию документа и решайте вместе командой&nbsp;— так удобнее.
+        </div>
+      </div>
+      <div class="pal-rule">
+        <div class="pal-rule-number">10</div>
+        <div class="pal-rule-text">
+          По любым вопросам пишите Андрею:
+          <a href="https://t.me/andrewgark" target="_blank" rel="noopener noreferrer">t.me/andrewgark</a>.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('desyatochki-rules-modal');
+  if (!modal) return;
+  function openRules() {
+    modal.removeAttribute('hidden');
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeRules() {
+    modal.setAttribute('hidden', '');
+    modal.classList.remove('is-open');
+    document.body.style.overflow = '';
+  }
+  document.querySelectorAll('[data-desyatochki-rules-open]').forEach(function (btn) {
+    btn.addEventListener('click', openRules);
+  });
+  document.querySelectorAll('[data-desyatochki-rules-close]').forEach(function (el) {
+    el.addEventListener('click', closeRules);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) closeRules();
+  });
+})();
+</script>

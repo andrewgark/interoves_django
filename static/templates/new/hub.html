@@ -7,6 +7,7 @@
 <section class="new-hub-section new-hub-section--wide{% if desyatochki_card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="desyatochki-heading">
   <div class="new-hub-section__head">
     <h2 id="desyatochki-heading" class="new-hub-section__title">{{ desyatochki_card.icon }} {{ desyatochki_card.title }}</h2>
+    <button type="button" class="new-rules-trigger" aria-label="Правила Десяточки" title="Правила" data-desyatochki-rules-open>?</button>
   </div>
   <p class="new-hub-section__desc">{{ desyatochki_card.description }}</p>
   {% if desyatochki_card.play_url %}
@@ -23,6 +24,7 @@
     <a class="new-link-dotted" href="{{ desyatochki_card.section_url }}">{{ desyatochki_card.all_link_label }}</a>
   </p>
 </section>
+{% include "new/desyatochki_rules_modal.html" %}
 {% endif %}
 
 {% if hub_section_cards %}
