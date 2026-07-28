@@ -53,6 +53,14 @@ class TicketServiceTests(TestCase):
         self.assertEqual(ticket.yookassa_id, 'pay-1')
         self.assertEqual(self.team.tickets, 3)
 
+    def test_accept_stores_nowpayments_id(self):
+        ticket = self._pending()
+        result = accept_ticket_request(ticket, nowpayments_id='inv-9', source='test')
+        self.assertTrue(result.changed)
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.nowpayments_id, 'inv-9')
+        self.assertEqual(ticket.status, 'Accepted')
+
     def test_accept_is_idempotent(self):
         ticket = self._pending()
         accept_ticket_request(ticket, source='test')

@@ -3,6 +3,7 @@ import logging
 from dataclasses import dataclass
 from datetime import timedelta
 
+from django.db.models import Q
 from django.utils import timezone
 
 from games.models import TicketRequest
@@ -27,7 +28,13 @@ class TicketRejectResult:
     already_final: bool
 
 
-def accept_ticket_request(ticket_request, *, yookassa_id=None, source='unknown') -> TicketAcceptResult:
+def accept_ticket_request(
+    ticket_request,
+    *,
+    yookassa_id=None,
+    nowpayments_id=None,
+    source='unknown',
+) -> TicketAcceptResult:
     """
     Idempotently mark a ticket request Accepted and credit team.tickets once.
 
@@ -39,6 +46,10 @@ def accept_ticket_request(ticket_request, *, yookassa_id=None, source='unknown')
     if yookassa_id and not ticket_request.yookassa_id:
         ticket_request.yookassa_id = yookassa_id
         update_fields.append('yookassa_id')
+
+    if nowpayments_id and not ticket_request.nowpayments_id:
+        ticket_request.nowpayments_id = nowpayments_id
+        update_fields.append('nowpayments_id')
 
     if already_accepted:
         if update_fields:
@@ -106,7 +117,7 @@ def reject_ticket_request(ticket_request, *, source='unknown') -> TicketRejectRe
 
 def stuck_pending_ticket_requests(*, minutes=None):
     """
-    Pending requests with a YooKassa payment id older than the threshold.
+    Pending requests with a payment id (YooKassa or NOWPayments) older than the threshold.
 
     These are likely paid but the webhook has not confirmed them yet.
     """
@@ -115,10 +126,12 @@ def stuck_pending_ticket_requests(*, minutes=None):
     return (
         TicketRequest.objects.filter(
             status='Pending',
-            yookassa_id__isnull=False,
             time__lt=cutoff,
         )
-        .exclude(yookassa_id='')
+        .filter(
+            Q(yookassa_id__isnull=False) & ~Q(yookassa_id='')
+            | Q(nowpayments_id__isnull=False) & ~Q(nowpayments_id='')
+        )
         .select_related('team')
         .order_by('time')
     )
@@ -138,7 +151,7 @@ def build_stuck_tickets_alert(*, minutes=None) -> str | None:
 
     lines = [
         '<b>⚠️ Зависшие заявки на билеты</b>',
-        'Pending с yookassa_id старше {} мин: {}'.format(threshold, total),
+        'Pending с payment id старше {} мин: {}'.format(threshold, total),
         '',
     ]
     for ticket in qs[:10]:
@@ -154,5 +167,5 @@ def build_stuck_tickets_alert(*, minutes=None) -> str | None:
     if total > 10:
         lines.append('… и ещё {}'.format(total - 10))
     lines.append('')
-    lines.append('Проверьте webhook YooKassa и логи accept_ticket_request.')
+    lines.append('Проверьте webhook YooKassa / NOWPayments IPN и логи accept_ticket_request.')
     return '\n'.join(lines)

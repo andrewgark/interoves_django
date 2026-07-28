@@ -11,7 +11,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     # Project-scoped "new UI" pages (isolated navigation per project).
@@ -73,5 +73,6 @@ urlpatterns = [
     path('team/', ui.team, name='ui_team'),
     path('pay/', ui.pay_page, name='ui_pay'),
     path('pay/create-ticket-payment/', ui.create_ticket_payment, name='ui_create_ticket_payment'),
+    path('pay/create-crypto-ticket-payment/', ui.create_crypto_ticket_payment, name='ui_create_crypto_ticket_payment'),
     path('<slug>/', ui.folder, name='ui_folder'),
 ]

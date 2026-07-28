@@ -28,6 +28,7 @@ profile = new_profile
 team = new_team
 pay_page = new_pay_page
 create_ticket_payment = new_create_ticket_payment
+create_crypto_ticket_payment = new_create_crypto_ticket_payment
 team_name_check = new_team_name_check
 team_info = new_team_info
 team_create = new_team_create

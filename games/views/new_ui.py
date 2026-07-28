@@ -89,6 +89,8 @@ from games.results_snapshot import (
     results_attempts_scope_game,
     snapshot_to_results_context,
 )
+from games.nowpayments_util import create_invoice as nowpayments_create_invoice
+from games.nowpayments_util import embed_url_for_invoice
 from games.yookassa_util import configure_yookassa_from_env
 
 from yookassa import Payment
@@ -2894,6 +2896,136 @@ def new_create_ticket_payment(request):
         'status': 'ok',
         'confirmation_token': confirmation_token,
         'return_url': request.build_absolute_uri('/pay/?payment=return'),
+    })
+
+
+@require_http_methods(['POST'])
+def new_create_crypto_ticket_payment(request):
+    """Create TicketRequest + NOWPayments invoice; returns embed URL for crypto widget."""
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {'status': 'error', 'reason': 'login', 'message': 'Сессия истекла. Войдите снова и повторите оплату.'},
+            status=401,
+        )
+    if not has_profile(request.user):
+        return JsonResponse(
+            {'status': 'error', 'reason': 'profile', 'message': 'Сначала войдите и создайте профиль.'},
+            status=403,
+        )
+    if not has_team(request.user):
+        return JsonResponse(
+            {'status': 'error', 'reason': 'team', 'message': 'Нужно создать или вступить в команду, чтобы купить билет.'},
+            status=403,
+        )
+
+    team = request.user.profile.team_on
+    try:
+        tickets = int((request.POST.get('tickets') or '').strip())
+    except Exception:
+        tickets = 0
+    if tickets < 1 or tickets > 20:
+        return JsonResponse(
+            {'status': 'error', 'reason': 'tickets', 'message': 'Введите число билетов от 1 до 20.'},
+            status=400,
+        )
+
+    ticket_price = int(getattr(team, 'ticket_price', 2000) or 2000)
+    amount_rub = int(tickets * ticket_price)
+
+    ticket_request = None
+    try:
+        ticket_request = TicketRequest.objects.create(
+            team=team,
+            money=amount_rub,
+            tickets=tickets,
+            status='Pending',
+        )
+
+        team_label = (getattr(team, 'visible_name', None) or getattr(team, 'name', None) or str(team.pk))
+        payment_description = f'Билеты для команды {team_label} (request {ticket_request.id})'
+        return_url = request.build_absolute_uri('/pay/?payment=crypto_return')
+        ipn_url = request.build_absolute_uri('/nowpayments/ipn/')
+
+        invoice = nowpayments_create_invoice(
+            price_amount=amount_rub,
+            price_currency='rub',
+            order_id=str(ticket_request.id),
+            order_description=payment_description,
+            ipn_callback_url=ipn_url,
+            success_url=return_url,
+            cancel_url=return_url,
+        )
+        invoice_id = invoice.get('id') or invoice.get('invoice_id')
+        ticket_request.nowpayments_id = str(invoice_id)
+        ticket_request.save(update_fields=['nowpayments_id'])
+        invoice_url = invoice.get('invoice_url') or ''
+        embed = embed_url_for_invoice(invoice_id)
+    except RuntimeError as exc:
+        msg = str(exc)
+        if ticket_request is not None and 'Missing NOWPayments' in msg:
+            logger.error('new_create_crypto_ticket_payment: %s', exc)
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'reason': 'nowpayments_config',
+                    'message': 'Оплата криптой не настроена на сервере (ключи NOWPayments). Обратитесь к администратору.',
+                },
+                status=503,
+            )
+        logger.exception(
+            'new_create_crypto_ticket_payment failed ticket_request_id=%s team_id=%s amount_rub=%s',
+            getattr(ticket_request, 'id', None),
+            team.pk,
+            amount_rub,
+        )
+        if ticket_request is None:
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'reason': 'order',
+                    'message': 'Не удалось создать заказ. Попробуйте позже.',
+                },
+                status=500,
+            )
+        return JsonResponse(
+            {
+                'status': 'error',
+                'reason': 'nowpayments',
+                'message': 'Не получилось создать крипто-платёж. Попробуйте позже.',
+            },
+            status=502,
+        )
+    except Exception:
+        logger.exception(
+            'new_create_crypto_ticket_payment failed ticket_request_id=%s team_id=%s amount_rub=%s',
+            getattr(ticket_request, 'id', None),
+            team.pk,
+            amount_rub,
+        )
+        if ticket_request is None:
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'reason': 'db',
+                    'message': 'Не удалось сохранить заказ (база данных). Попробуйте позже.',
+                },
+                status=500,
+            )
+        return JsonResponse(
+            {
+                'status': 'error',
+                'reason': 'nowpayments',
+                'message': 'Не получилось создать крипто-платёж. Попробуйте позже.',
+            },
+            status=502,
+        )
+
+    return JsonResponse({
+        'status': 'ok',
+        'invoice_id': str(invoice_id),
+        'invoice_url': invoice_url,
+        'embed_url': embed,
+        'return_url': return_url,
     })
 
 

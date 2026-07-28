@@ -77,6 +77,7 @@ class PayPageGatingTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.content.decode()
         self.assertIn('new-pay-ticket-form', body)
+        self.assertIn('Оплатить криптой', body)
         self.assertIn('Pay Team', body)
         self.assertIn('Билетов сейчас: <strong>3</strong>', body)
         self.assertNotIn('Создать команду', body)

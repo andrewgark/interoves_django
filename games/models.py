@@ -1557,6 +1557,7 @@ class TicketRequest(models.Model):
     tickets = models.IntegerField(default=0, validators=[MinValueValidator(1),MaxValueValidator(20)])
     time = models.DateTimeField(auto_now_add=True, blank=True)
     yookassa_id = models.TextField(null=True, blank=True)
+    nowpayments_id = models.TextField(null=True, blank=True)
 
     TICKER_REQUEST_STATUS_VARIANTS = (
         ('Pending', 'Pending'),

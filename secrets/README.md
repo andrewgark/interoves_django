@@ -107,6 +107,21 @@ eb setenv TELEGRAM_BOT_TOKEN='...' TELEGRAM_ADMIN_CHAT_ID='...' \
   TWITTER_ACCESS_TOKEN='...' TWITTER_ACCESS_TOKEN_SECRET='...'
 ```
 
+## NOWPayments (crypto tickets on `/pay/`)
+
+Used by `POST /pay/create-crypto-ticket-payment/` and IPN at `/nowpayments/ipn/`.
+
+Local files (or EB env vars):
+
+- `nowpayments_api_key.txt` / `NOWPAYMENTS_API_KEY`
+- `nowpayments_ipn_secret.txt` / `NOWPAYMENTS_IPN_SECRET`
+
+In the NOWPayments dashboard: generate API key + IPN secret; set default IPN URL to `https://<domain>/nowpayments/ipn/` (each invoice also sends `ipn_callback_url`).
+
+```bash
+eb setenv NOWPAYMENTS_API_KEY='...' NOWPAYMENTS_IPN_SECRET='...'
+```
+
 ## X / Twitter (@interoves)
 
 Used by the 00:15 MSK ladder cron: when the Telegram channel post is queued for 16:30, the same teaser is **tweeted immediately** (X has no organic schedule).

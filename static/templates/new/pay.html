@@ -78,8 +78,14 @@
     </div>
   </form>
 
+  <div style="margin-top:0.75rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center">
+    <button type="button" id="new-pay-crypto-btn" class="new-btn new-btn--ghost">Оплатить криптой</button>
+  </div>
+
   <br>
   <div id="new-yookassa-widget" style="margin-top:0.75rem"></div>
+  <br>
+  <div id="new-nowpayments-widget" style="margin-top:0.75rem"></div>
   <br>
   <div id="new-yookassa-msg" class="new-login-hint" style="margin:0.5rem 0 0"></div>
 
@@ -88,6 +94,8 @@
   (function () {
     var form = document.getElementById('new-pay-ticket-form');
     var mount = document.getElementById('new-yookassa-widget');
+    var cryptoMount = document.getElementById('new-nowpayments-widget');
+    var cryptoBtn = document.getElementById('new-pay-crypto-btn');
     var msg = document.getElementById('new-yookassa-msg');
     if (!form || !mount) return;
 
@@ -129,11 +137,24 @@
       render();
     })();
 
+    function parseJsonResponse(r) {
+      return r.text().then(function (text) {
+        var data = null;
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch (e) {
+          data = null;
+        }
+        return { r: r, data: data, nonJson: !data };
+      });
+    }
+
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       setMsg('Создаём платёж…');
       var btn = form.querySelector('button[type=submit]');
       if (btn) btn.disabled = true;
+      if (cryptoBtn) cryptoBtn.disabled = true;
       fetch(form.action, {
         method: 'POST',
         headers: {
@@ -142,18 +163,9 @@
         },
         body: new FormData(form),
         credentials: 'same-origin',
-      }).then(function (r) {
-        return r.text().then(function (text) {
-          var data = null;
-          try {
-            data = text ? JSON.parse(text) : null;
-          } catch (e) {
-            data = null;
-          }
-          return { r: r, data: data, nonJson: !data };
-        });
-      }).then(function (res) {
+      }).then(parseJsonResponse).then(function (res) {
           if (btn) btn.disabled = false;
+          if (cryptoBtn) cryptoBtn.disabled = false;
           var data = res.data;
           if (res.nonJson) {
             setMsg('Сервер вернул неожиданный ответ (код ' + res.r.status + '). Обновите страницу и попробуйте снова.');
@@ -164,6 +176,7 @@
             return;
           }
           setMsg('');
+          if (cryptoMount) cryptoMount.innerHTML = '';
           mount.innerHTML = '';
           try {
             checkout = new window.YooMoneyCheckoutWidget({
@@ -180,9 +193,58 @@
         })
         .catch(function () {
           if (btn) btn.disabled = false;
+          if (cryptoBtn) cryptoBtn.disabled = false;
           setMsg('Ошибка сети.');
         });
     });
+
+    if (cryptoBtn && cryptoMount) {
+      cryptoBtn.addEventListener('click', function () {
+        setMsg('Создаём крипто-платёж…');
+        var btn = form.querySelector('button[type=submit]');
+        if (btn) btn.disabled = true;
+        cryptoBtn.disabled = true;
+        var body = new FormData(form);
+        fetch('{% url "new_create_crypto_ticket_payment" %}', {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getCsrfToken(),
+          },
+          body: body,
+          credentials: 'same-origin',
+        }).then(parseJsonResponse).then(function (res) {
+          if (btn) btn.disabled = false;
+          cryptoBtn.disabled = false;
+          var data = res.data;
+          if (res.nonJson) {
+            setMsg('Сервер вернул неожиданный ответ (код ' + res.r.status + '). Обновите страницу и попробуйте снова.');
+            return;
+          }
+          if (!data || data.status !== 'ok' || !(data.embed_url || data.invoice_id)) {
+            setMsg((data && data.message) ? data.message : 'Не получилось создать крипто-платёж. Попробуйте позже.');
+            return;
+          }
+          setMsg('Оплатите в виджете ниже. После подтверждения сети билеты появятся у команды автоматически.');
+          mount.innerHTML = '';
+          var src = data.embed_url || ('https://nowpayments.io/embeds/payment-widget?iid=' + encodeURIComponent(data.invoice_id));
+          cryptoMount.innerHTML = '';
+          var iframe = document.createElement('iframe');
+          iframe.src = src;
+          iframe.width = '410';
+          iframe.height = '696';
+          iframe.setAttribute('frameborder', '0');
+          iframe.setAttribute('scrolling', 'no');
+          iframe.style.overflowY = 'hidden';
+          iframe.style.maxWidth = '100%';
+          cryptoMount.appendChild(iframe);
+        }).catch(function () {
+          if (btn) btn.disabled = false;
+          cryptoBtn.disabled = false;
+          setMsg('Ошибка сети.');
+        });
+      });
+    }
   })();
   </script>
   {% elif user.is_authenticated %}

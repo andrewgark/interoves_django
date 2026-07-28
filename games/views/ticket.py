@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from games.exception import InvalidFormException
 from games.forms import TicketRequestForm
 from games.models import TicketRequest
+from games.nowpayments_util import verify_ipn_signature
 from games.ticket_service import accept_ticket_request, reject_ticket_request
 from games.views.util import has_team, redirect_to_referer
 from games.yookassa_util import configure_yookassa_from_env
@@ -148,6 +149,94 @@ def yookassa_webhook(request):
         from games.telegram.notify import notify_payment_event
 
         ticket_request = TicketRequest.objects.filter(id=ticket_request_id).first()
+        if ticket_request is not None:
+            transaction.on_commit(lambda tr=ticket_request, ev=notify_event: notify_payment_event(tr, ev))
+
+    return HttpResponse(status=200)
+
+
+@csrf_exempt
+def nowpayments_ipn(request):
+    """
+    NOWPayments Instant Payment Notification.
+
+    Accept TicketRequest when payment_status == finished (idempotent).
+    """
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    try:
+        event_json = json.loads(request.body)
+    except Exception:
+        return HttpResponse(status=400)
+
+    if not isinstance(event_json, dict):
+        return HttpResponse(status=400)
+
+    sig = request.headers.get('x-nowpayments-sig') or request.META.get('HTTP_X_NOWPAYMENTS_SIG')
+    try:
+        if not verify_ipn_signature(event_json, sig):
+            logger.warning('nowpayments_ipn: invalid signature')
+            return HttpResponse(status=400)
+    except RuntimeError as exc:
+        logger.error('nowpayments_ipn: %s', exc)
+        return HttpResponse(status=503)
+
+    payment_status = (event_json.get('payment_status') or '').lower()
+    order_id = event_json.get('order_id')
+    payment_id = event_json.get('payment_id')
+    invoice_id = event_json.get('invoice_id')
+    np_id = str(invoice_id or payment_id or '') or None
+
+    if not order_id:
+        logger.warning(
+            'nowpayments_ipn: missing order_id payment_id=%s status=%s',
+            payment_id,
+            payment_status,
+        )
+        return HttpResponse(status=200)
+
+    notify_event = None
+    with transaction.atomic():
+        ticket_request = (
+            TicketRequest.objects.select_for_update()
+            .select_related('team')
+            .filter(id=order_id)
+            .first()
+        )
+        if not ticket_request:
+            logger.warning(
+                'nowpayments_ipn: ticket request not found order_id=%s payment_id=%s status=%s',
+                order_id,
+                payment_id,
+                payment_status,
+            )
+            return HttpResponse(status=200)
+
+        if payment_status == 'finished':
+            result = accept_ticket_request(
+                ticket_request,
+                nowpayments_id=np_id,
+                source='nowpayments_ipn',
+            )
+            if result.changed:
+                notify_event = 'payment.succeeded'
+        elif payment_status in ('failed', 'expired'):
+            result = reject_ticket_request(ticket_request, source='nowpayments_ipn')
+            if result.changed:
+                notify_event = 'payment.canceled'
+        else:
+            logger.info(
+                'nowpayments_ipn: ignore status=%s order_id=%s payment_id=%s',
+                payment_status,
+                order_id,
+                payment_id,
+            )
+
+    if notify_event:
+        from games.telegram.notify import notify_payment_event
+
+        ticket_request = TicketRequest.objects.filter(id=order_id).first()
         if ticket_request is not None:
             transaction.on_commit(lambda tr=ticket_request, ev=notify_event: notify_payment_event(tr, ev))
 

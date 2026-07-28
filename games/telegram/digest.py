@@ -199,7 +199,7 @@ def build_daily_digest(since=None) -> str:
     ]
     if stats['stuck_tickets_now']:
         lines.extend([
-            '⚠️ Зависшие билеты (pending + yookassa_id &gt; 30 мин): <b>{}</b>'.format(
+            '⚠️ Зависшие билеты (pending + payment id &gt; 30 мин): <b>{}</b>'.format(
                 stats['stuck_tickets_now'],
             ),
         ])
