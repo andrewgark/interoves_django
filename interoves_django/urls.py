@@ -27,6 +27,7 @@ from games.views.order_game_landing import order_game_landing
 from games.views.instagram_feed import instagram_feed, ladder_teaser_jpg
 from games.social.views import social_queue_instagram_jpg
 from games.telegram.urls import urlpatterns as telegram_urlpatterns
+from games.views import ui as ui_views
 
 nutrimatic_patterns = [
     path("", microsites_views.nutrimatic_search, name="nutrimatic_home"),
@@ -81,7 +82,9 @@ urlpatterns = [
     path('tickets/', RedirectView.as_view(url='/pay/', permanent=True), name='legacy_tickets'),
     path('ticket-agreement/', TemplateView.as_view(template_name="ticket-agreement.html")),
     path('vpn/', TemplateView.as_view(template_name="new/pigeon_vpn.html"), name='pigeon_vpn'),
-    path('donate/', TemplateView.as_view(template_name="new/donate.html"), name='donate'),
+    path('donate/', ui_views.donate_page, name='donate'),
+    path('donate/create-crypto-payment/', ui_views.create_crypto_donation, name='donate_create_crypto'),
+    path('donate/status/<str:public_token>/', ui_views.donation_status, name='donate_status'),
     path('instagram/', instagram_feed, name='instagram_feed'),
     path('ladder/<int:number>/teaser.jpg', ladder_teaser_jpg, name='ladder_teaser_jpg'),
     path(

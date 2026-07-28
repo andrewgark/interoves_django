@@ -2,11 +2,12 @@ from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from games.models import BugReport, CorporateGameOrder, Game, Registration, TicketRequest
+from games.models import BugReport, CorporateGameOrder, Donation, Game, Registration, TicketRequest
 from games.telegram.admin_commands import registration_milestone_reached
 from games.telegram.notify import (
     notify_new_bug_report,
     notify_new_corporate_order,
+    notify_new_donation,
     notify_new_ticket_request,
     notify_payment_event,
 )
@@ -25,6 +26,13 @@ def telegram_notify_ticket_request(sender, instance, created, **kwargs):
     if not created or instance.status != 'Pending':
         return
     transaction.on_commit(lambda: notify_new_ticket_request(instance))
+
+
+@receiver(post_save, sender=Donation)
+def telegram_notify_donation(sender, instance, created, **kwargs):
+    if not created or instance.status != 'Pending':
+        return
+    transaction.on_commit(lambda: notify_new_donation(instance))
 
 
 @receiver(post_save, sender=CorporateGameOrder)

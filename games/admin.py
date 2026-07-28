@@ -38,6 +38,7 @@ from games.models import (
     BugReport,
     PendingAttempt,
     PendingBugReport,
+    Donation,
     PendingTicketRequest,
     Profile,
     ProfileTeamMembership,
@@ -61,6 +62,24 @@ from games.social.models import SocialQueuePost
 
 
 admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration, TicketRequest])
+
+
+@admin.register(Donation)
+class DonationAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'status',
+        'amount_rub',
+        'pay_amount',
+        'pay_currency',
+        'user',
+        'created_at',
+        'confirmed_at',
+    )
+    list_filter = ('status', 'pay_currency')
+    search_fields = ('public_token', 'nowpayments_id', 'pay_amount')
+    readonly_fields = ('public_token', 'created_at', 'confirmed_at')
+    raw_id_fields = ('user',)
 
 
 @admin.register(CorporateGameOrder)

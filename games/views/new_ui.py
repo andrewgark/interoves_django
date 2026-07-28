@@ -52,6 +52,7 @@ from games.models import (
     Attempt,
     AudioManager,
     BugReport,
+    Donation,
     Game,
     GameTaskGroup,
     HintAttempt,
@@ -3085,6 +3086,10 @@ def new_create_ticket_payment(request):
         'status': 'ok',
         'confirmation_token': confirmation_token,
         'return_url': request.build_absolute_uri('/pay/?payment=return'),
+        'ticket_request_id': ticket_request.id,
+        'status_url': request.build_absolute_uri(
+            reverse('new_ticket_payment_status', kwargs={'ticket_request_id': ticket_request.id})
+        ),
     })
 
 
@@ -3216,7 +3221,180 @@ def new_create_crypto_ticket_payment(request):
         'invoice_url': invoice_url,
         'embed_url': embed,
         'return_url': return_url,
+        'ticket_request_id': ticket_request.id,
+        'status_url': request.build_absolute_uri(
+            reverse('new_ticket_payment_status', kwargs={'ticket_request_id': ticket_request.id})
+        ),
     })
+
+
+@require_http_methods(['GET'])
+def new_ticket_payment_status(request, ticket_request_id):
+    """JSON status for a team's TicketRequest (long-polling friendly for crypto)."""
+    if not request.user.is_authenticated or not has_profile(request.user) or not has_team(request.user):
+        return JsonResponse({'status': 'error', 'reason': 'auth'}, status=401)
+
+    team = request.user.profile.team_on
+    ticket_request = TicketRequest.objects.filter(id=ticket_request_id, team=team).first()
+    if not ticket_request:
+        return JsonResponse({'status': 'error', 'reason': 'not_found'}, status=404)
+
+    payload = {
+        'status': ticket_request.status,
+        'ticket_request_id': ticket_request.id,
+        'tickets': ticket_request.tickets,
+        'money': ticket_request.money,
+    }
+    if ticket_request.status == 'Accepted' and team is not None:
+        payload['team_tickets'] = team.tickets
+    return JsonResponse(payload)
+
+
+def new_donate_page(request):
+    from games.donation_service import recent_donations_for_request
+
+    return render(request, 'new/donate.html', {
+        'recent_donations': recent_donations_for_request(request),
+    })
+
+
+@require_http_methods(['POST'])
+def new_create_crypto_donation(request):
+    """Create Donation + NOWPayments invoice; public (login optional)."""
+    from games.donation_service import MIN_DONATION_RUB, donation_order_id, remember_donation_in_session
+
+    raw = (request.POST.get('amount_rub') or request.POST.get('amount') or '').strip().replace(',', '.')
+    try:
+        amount_rub = int(float(raw))
+    except (TypeError, ValueError):
+        amount_rub = 0
+    if amount_rub < MIN_DONATION_RUB:
+        return JsonResponse(
+            {
+                'status': 'error',
+                'reason': 'amount',
+                'message': 'Минимальная сумма доната — {} ₽.'.format(MIN_DONATION_RUB),
+            },
+            status=400,
+        )
+    if amount_rub > 1_000_000:
+        return JsonResponse(
+            {
+                'status': 'error',
+                'reason': 'amount',
+                'message': 'Слишком большая сумма. Укажите меньше миллиона рублей.',
+            },
+            status=400,
+        )
+
+    donation = None
+    try:
+        user = request.user if request.user.is_authenticated else None
+        donation = Donation.objects.create(
+            amount_rub=amount_rub,
+            status='Pending',
+            user=user,
+        )
+        remember_donation_in_session(request, donation.id)
+        return_url = request.build_absolute_uri('/donate/?payment=crypto_return')
+        ipn_url = request.build_absolute_uri('/nowpayments/ipn/')
+        invoice = nowpayments_create_invoice(
+            price_amount=amount_rub,
+            price_currency='rub',
+            order_id=donation_order_id(donation.id),
+            order_description='Донат Inter Oves #{}'.format(donation.id),
+            ipn_callback_url=ipn_url,
+            success_url=return_url,
+            cancel_url=return_url,
+        )
+        invoice_id = invoice.get('id') or invoice.get('invoice_id')
+        donation.nowpayments_id = str(invoice_id)
+        donation.save(update_fields=['nowpayments_id'])
+        invoice_url = invoice.get('invoice_url') or ''
+        embed = embed_url_for_invoice(invoice_id)
+    except RuntimeError as exc:
+        msg = str(exc)
+        if donation is not None and 'Missing NOWPayments' in msg:
+            logger.error('new_create_crypto_donation: %s', exc)
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'reason': 'nowpayments_config',
+                    'message': 'Оплата криптой не настроена на сервере (ключи NOWPayments). Обратитесь к администратору.',
+                },
+                status=503,
+            )
+        logger.exception(
+            'new_create_crypto_donation failed donation_id=%s amount_rub=%s',
+            getattr(donation, 'id', None),
+            amount_rub,
+        )
+        if donation is None:
+            return JsonResponse(
+                {'status': 'error', 'reason': 'order', 'message': 'Не удалось создать донат. Попробуйте позже.'},
+                status=500,
+            )
+        return JsonResponse(
+            {
+                'status': 'error',
+                'reason': 'nowpayments',
+                'message': 'Не получилось создать крипто-платёж. Попробуйте позже.',
+            },
+            status=503,
+        )
+    except Exception:
+        logger.exception(
+            'new_create_crypto_donation failed donation_id=%s amount_rub=%s',
+            getattr(donation, 'id', None),
+            amount_rub,
+        )
+        if donation is None:
+            return JsonResponse(
+                {'status': 'error', 'reason': 'db', 'message': 'Не удалось сохранить донат. Попробуйте позже.'},
+                status=500,
+            )
+        return JsonResponse(
+            {
+                'status': 'error',
+                'reason': 'nowpayments',
+                'message': 'Не получилось создать крипто-платёж. Попробуйте позже.',
+            },
+            status=503,
+        )
+
+    return JsonResponse({
+        'status': 'ok',
+        'invoice_id': str(invoice_id),
+        'invoice_url': invoice_url,
+        'embed_url': embed,
+        'return_url': return_url,
+        'donation_id': donation.id,
+        'amount_rub': donation.amount_rub,
+        'donation_status': donation.status,
+        'created_at': donation.created_at.strftime('%d.%m %H:%M') if donation.created_at else '',
+        'public_token': donation.public_token,
+        'status_url': request.build_absolute_uri(
+            reverse('donate_status', kwargs={'public_token': donation.public_token})
+        ),
+    })
+
+
+@require_http_methods(['GET'])
+def new_donation_status(request, public_token):
+    """Public JSON status for a donation (token acts as capability URL)."""
+    donation = Donation.objects.filter(public_token=public_token).first()
+    if not donation:
+        return JsonResponse({'status': 'error', 'reason': 'not_found'}, status=404)
+
+    payload = {
+        'status': donation.status,
+        'donation_id': donation.id,
+        'amount_rub': donation.amount_rub,
+    }
+    if donation.status == 'Confirmed':
+        payload['pay_amount'] = donation.pay_amount
+        payload['pay_currency'] = donation.pay_currency
+    return JsonResponse(payload)
 
 
 @login_required

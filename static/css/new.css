@@ -1222,12 +1222,126 @@ html.new-ui-dark .new-team-switcher-active-box {
   justify-content: center;
   width: 100%;
   overflow: auto;
+  margin-top: 0.75rem;
 }
 
 .new-donate-crypto iframe {
   display: block;
   max-width: 100%;
   border: 0;
+}
+
+.new-donate-crypto-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.new-donate-crypto-form__label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.new-donate-crypto-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.new-donate-crypto-form__input {
+  flex: 1 1 8rem;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 0.7rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  background: var(--bg, #fff);
+  color: inherit;
+}
+
+.new-donate-crypto-warn {
+  margin: 0.65rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid #f7931a;
+  background: rgba(247, 147, 26, 0.08);
+  font-size: 0.92rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.new-donate-recent {
+  width: 100%;
+  max-width: 26rem;
+  margin-top: 1.25rem;
+  padding-top: 0.25rem;
+}
+
+.new-donate-recent__title {
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+
+.new-donate-recent[hidden] {
+  display: none !important;
+}
+
+.new-payment-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  max-width: 26rem;
+}
+
+.new-payment-status__text {
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.new-payment-status__meta {
+  width: 100%;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.new-payment-status--ok {
+  border-color: rgba(26, 127, 55, 0.45);
+}
+
+.new-payment-status--err {
+  border-color: rgba(180, 40, 40, 0.4);
+}
+
+.new-payment-status__check {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.new-payment-status__spinner {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  border: 2.5px solid rgba(0, 0, 0, 0.12);
+  border-top-color: var(--accent, #c9a227);
+  animation: new-payment-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes new-payment-spin {
+  to { transform: rotate(360deg); }
 }
 
 #new-yookassa-widget,

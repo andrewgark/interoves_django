@@ -1589,6 +1589,55 @@ class PendingTicketRequest(TicketRequest):
         proxy=True
 
 
+def _donation_public_token():
+    import secrets
+    return secrets.token_urlsafe(32)
+
+
+class Donation(models.Model):
+    """Crypto (NOWPayments) donation tracked from invoice create through IPN confirm."""
+
+    id = models.AutoField(primary_key=True)
+    amount_rub = models.IntegerField(validators=[MinValueValidator(1)])
+    pay_amount = models.CharField(max_length=64, blank=True, default='')
+    pay_currency = models.CharField(max_length=16, blank=True, default='')
+    nowpayments_id = models.TextField(null=True, blank=True)
+    public_token = models.CharField(max_length=64, unique=True, default=_donation_public_token, db_index=True)
+    user = models.ForeignKey(
+        'auth.User',
+        related_name='donations',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, blank=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    DONATION_STATUS_VARIANTS = (
+        ('Pending', 'Pending'),
+        ('Confirmed', 'Confirmed'),
+        ('Rejected', 'Rejected'),
+    )
+    status = models.CharField(default='Pending', max_length=100, choices=DONATION_STATUS_VARIANTS)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        pay = ''
+        if self.pay_amount and self.pay_currency:
+            pay = ' ({} {})'.format(self.pay_amount, self.pay_currency)
+        return '{}: [{}] {} ₽{}'.format(
+            self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else '—',
+            self.status,
+            self.amount_rub,
+            pay,
+        )
+
+    def order_id(self):
+        return 'donation-{}'.format(self.pk)
+
+
 class BugReport(models.Model):
     id = models.AutoField(primary_key=True)
     task = models.ForeignKey(Task, related_name='bug_reports', on_delete=models.CASCADE)

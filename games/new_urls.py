@@ -39,5 +39,6 @@ urlpatterns = [
     path('pay/', ui.pay_page, name='new_pay'),
     path('pay/create-ticket-payment/', ui.create_ticket_payment, name='new_create_ticket_payment'),
     path('pay/create-crypto-ticket-payment/', ui.create_crypto_ticket_payment, name='new_create_crypto_ticket_payment'),
+    path('pay/ticket-status/<int:ticket_request_id>/', ui.ticket_payment_status, name='new_ticket_payment_status'),
     path('<slug>/', ui.folder, name='new_folder'),
 ]

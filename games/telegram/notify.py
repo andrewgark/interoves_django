@@ -4,7 +4,7 @@ from typing import Iterable
 
 from django.conf import settings
 
-from games.models import BugReport, CorporateGameOrder, TicketRequest
+from games.models import BugReport, CorporateGameOrder, Donation, TicketRequest
 from games.telegram.api import send_message, send_photo
 from games.telegram.config import (
     admin_chat_id,
@@ -309,6 +309,36 @@ def notify_new_corporate_order(order: CorporateGameOrder) -> bool:
 
 def notify_payment_event(ticket_request: TicketRequest, event: str) -> bool:
     return send_admin_message(format_payment_message(ticket_request, event))
+
+
+def format_donation_message(donation: Donation, event: str = 'created') -> str:
+    admin_link = _admin_link('/admin/games/donation/{}/change/'.format(donation.pk))
+    if event == 'donation.confirmed':
+        title = '✅ <b>Донат подтверждён</b>'
+    elif event == 'donation.rejected':
+        title = '❌ <b>Донат отклонён</b>'
+    else:
+        title = '💚 <b>Новый крипто-донат</b>'
+    lines = [
+        title,
+        '',
+        'Сумма инвойса: {} ₽'.format(donation.amount_rub),
+        'Статус: {}'.format(_escape(donation.status)),
+    ]
+    if donation.pay_amount and donation.pay_currency:
+        lines.append('Оплачено: {} {}'.format(_escape(donation.pay_amount), _escape(donation.pay_currency)))
+    if donation.user_id:
+        lines.append('User id: {}'.format(donation.user_id))
+    lines.extend(['', '<a href="{}">Открыть в админке</a>'.format(admin_link)])
+    return _join_lines(lines)
+
+
+def notify_new_donation(donation: Donation) -> bool:
+    return send_admin_message(format_donation_message(donation, 'created'))
+
+
+def notify_donation_event(donation: Donation, event: str) -> bool:
+    return send_admin_message(format_donation_message(donation, event))
 
 
 def fetch_recent_telegram_chat_ids() -> list[dict]:

@@ -161,8 +161,25 @@ class DonatePageTests(TestCase):
         self.assertIn('Задонатить с российской карты', body)
         self.assertIn('Задонатить крипту', body)
         self.assertIn('4100116763559349', body)
-        self.assertIn('nowpayments.io/embeds/donation-widget', body)
-        self.assertIn('43fa3682-ee15-4d52-979e-636658a2b0e5', body)
+        self.assertIn('new-donate-amount', body)
+        self.assertIn('donate/create-crypto-payment', body)
+        self.assertIn('подтверждение сети может занимать десятки минут', body)
+        self.assertNotIn('nowpayments.io/embeds/donation-widget', body)
+
+    def test_donate_page_shows_recent_donations_from_session(self):
+        from games.models import Donation
+
+        donation = Donation.objects.create(amount_rub=120, status='Pending')
+        session = self.client.session
+        session['donate_recent_ids'] = [donation.id]
+        session.save()
+        resp = self.client.get(reverse('donate'))
+        self.assertEqual(resp.status_code, 200)
+        body = resp.content.decode()
+        self.assertIn('Последние донаты', body)
+        self.assertIn('120 ₽', body)
+        self.assertIn('Pending', body)
+        self.assertIn('data-donation-id="{}"'.format(donation.id), body)
 
     def test_donate_is_not_captured_as_project_hub(self):
         resp = self.client.get('/donate/')

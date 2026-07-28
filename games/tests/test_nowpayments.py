@@ -9,8 +9,9 @@ from django.utils import timezone
 
 from allauth.socialaccount.models import SocialApp
 
-from games.models import HTMLPage, Profile, Project, Team, TicketRequest
+from games.models import Donation, HTMLPage, Profile, Project, Team, TicketRequest
 from games.nowpayments_util import compute_ipn_signature, verify_ipn_signature
+from games.donation_service import donation_order_id
 from games.ticket_service import STUCK_TICKET_REQUEST_MINUTES, stuck_pending_ticket_count
 
 
@@ -214,6 +215,8 @@ class NowPaymentsCreatePaymentTests(TestCase):
         self.assertEqual(ticket.tickets, 2)
         self.assertEqual(ticket.money, 4000)
         self.assertEqual(ticket.nowpayments_id, '6064785541')
+        self.assertEqual(data['ticket_request_id'], ticket.id)
+        self.assertIn('/pay/ticket-status/', data['status_url'])
         create_mock.assert_called_once()
         kwargs = create_mock.call_args.kwargs
         self.assertEqual(kwargs['price_amount'], 4000)
@@ -252,3 +255,196 @@ class NowPaymentsStuckTests(TestCase):
             time=timezone.now() - timezone.timedelta(minutes=STUCK_TICKET_REQUEST_MINUTES + 5),
         )
         self.assertEqual(stuck_pending_ticket_count(), 1)
+
+
+class NowPaymentsDonationIpnTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        _ensure_reference_rows()
+
+    def setUp(self):
+        self.http = Client()
+
+    def _post_ipn(self, payload):
+        body = json.dumps(payload)
+        return self.http.post(
+            '/nowpayments/ipn/',
+            data=body,
+            content_type='application/json',
+            HTTP_X_NOWPAYMENTS_SIG='unused',
+        )
+
+    @patch('games.views.ticket.transaction.on_commit', side_effect=lambda fn: fn())
+    @patch('games.telegram.notify.notify_donation_event')
+    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    def test_finished_confirms_donation_and_stores_pay_fields(self, _verify, notify_mock, _on_commit):
+        donation = Donation.objects.create(amount_rub=500, status='Pending')
+        response = self._post_ipn({
+            'payment_id': 42,
+            'invoice_id': 'inv-d1',
+            'payment_status': 'finished',
+            'order_id': donation_order_id(donation.pk),
+            'pay_amount': 0.00123,
+            'pay_currency': 'btc',
+        })
+        self.assertEqual(response.status_code, 200)
+        donation.refresh_from_db()
+        self.assertEqual(donation.status, 'Confirmed')
+        self.assertEqual(donation.pay_currency, 'btc')
+        self.assertTrue(donation.pay_amount.startswith('0.00123'))
+        self.assertIsNotNone(donation.confirmed_at)
+        notify_mock.assert_called_once()
+
+    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    def test_failed_rejects_donation(self, _verify):
+        donation = Donation.objects.create(amount_rub=100, status='Pending')
+        response = self._post_ipn({
+            'payment_id': 1,
+            'payment_status': 'failed',
+            'order_id': donation_order_id(donation.pk),
+        })
+        self.assertEqual(response.status_code, 200)
+        donation.refresh_from_db()
+        self.assertEqual(donation.status, 'Rejected')
+
+    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    def test_donation_prefix_does_not_touch_ticket_with_same_numeric_id(self, _verify):
+        team = Team.objects.create(name='np_donate_collision', visible_name='C', tickets=0)
+        ticket = TicketRequest.objects.create(team=team, tickets=1, money=2000, status='Pending')
+        donation = Donation.objects.create(amount_rub=50, status='Pending')
+        response = self._post_ipn({
+            'payment_status': 'finished',
+            'order_id': donation_order_id(donation.pk),
+            'pay_amount': '10',
+            'pay_currency': 'usdt',
+        })
+        self.assertEqual(response.status_code, 200)
+        ticket.refresh_from_db()
+        donation.refresh_from_db()
+        self.assertEqual(ticket.status, 'Pending')
+        self.assertEqual(donation.status, 'Confirmed')
+
+
+class CryptoDonationCreateTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        _ensure_reference_rows()
+
+    def setUp(self):
+        self.client = Client()
+
+    @patch('games.views.new_ui.nowpayments_create_invoice')
+    def test_anon_create_donation(self, create_mock):
+        create_mock.return_value = {
+            'id': 'don-inv-1',
+            'invoice_url': 'https://nowpayments.io/payment/?iid=don-inv-1',
+        }
+        response = self.client.post(
+            reverse('donate_create_crypto'),
+            {'amount_rub': '250'},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertIn('public_token', data)
+        self.assertIn('/donate/status/', data['status_url'])
+        donation = Donation.objects.get(public_token=data['public_token'])
+        self.assertEqual(donation.amount_rub, 250)
+        self.assertEqual(donation.status, 'Pending')
+        self.assertIsNone(donation.user_id)
+        kwargs = create_mock.call_args.kwargs
+        self.assertEqual(kwargs['order_id'], donation_order_id(donation.id))
+        self.assertEqual(kwargs['price_amount'], 250)
+        self.assertIn(donation.id, self.client.session.get('donate_recent_ids', []))
+
+        page = self.client.get(reverse('donate'))
+        self.assertContains(page, 'Последние донаты')
+        self.assertContains(page, '250 ₽')
+
+    def test_create_donation_rejects_too_small(self):
+        response = self.client.post(reverse('donate_create_crypto'), {'amount_rub': '10'})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['reason'], 'amount')
+
+    @patch('games.views.new_ui.nowpayments_create_invoice')
+    def test_authed_create_links_user(self, create_mock):
+        create_mock.return_value = {'id': 'don-inv-2', 'invoice_url': 'https://x'}
+        user = User.objects.create_user('donor', 'd@example.com', 'secret')
+        Profile.objects.create(user=user, first_name='D', last_name='O')
+        self.assertTrue(self.client.login(username='donor', password='secret'))
+        response = self.client.post(reverse('donate_create_crypto'), {'amount_rub': '100'})
+        self.assertEqual(response.status_code, 200)
+        donation = Donation.objects.get(public_token=response.json()['public_token'])
+        self.assertEqual(donation.user_id, user.id)
+
+    def test_donation_status_by_token(self):
+        donation = Donation.objects.create(amount_rub=80, status='Pending')
+        response = self.client.get(reverse('donate_status', kwargs={'public_token': donation.public_token}))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'Pending')
+        self.assertEqual(response.json()['amount_rub'], 80)
+
+        donation.status = 'Confirmed'
+        donation.pay_amount = '1.5'
+        donation.pay_currency = 'eth'
+        donation.save(update_fields=['status', 'pay_amount', 'pay_currency'])
+        response = self.client.get(reverse('donate_status', kwargs={'public_token': donation.public_token}))
+        data = response.json()
+        self.assertEqual(data['status'], 'Confirmed')
+        self.assertEqual(data['pay_amount'], '1.5')
+        self.assertEqual(data['pay_currency'], 'eth')
+
+
+class TicketPaymentStatusTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        _ensure_reference_rows()
+        cls.user = User.objects.create_user('np_status_user', 'st@example.com', 'secret')
+        Profile.objects.create(user=cls.user, first_name='S', last_name='T')
+        cls.team = Team.objects.create(
+            name='np_status_team',
+            visible_name='Status Team',
+            project_id='main',
+            tickets=3,
+        )
+        cls.user.profile.add_team_membership(cls.team, make_primary=True)
+        cls.other = User.objects.create_user('np_other', 'o@example.com', 'secret')
+        Profile.objects.create(user=cls.other, first_name='O', last_name='T')
+        other_team = Team.objects.create(name='np_other_team', visible_name='Other', project_id='main')
+        cls.other.profile.add_team_membership(other_team, make_primary=True)
+
+    def setUp(self):
+        self.client = Client()
+        self.ticket = TicketRequest.objects.create(
+            team=self.team,
+            tickets=2,
+            money=4000,
+            status='Pending',
+        )
+
+    def test_team_member_can_read_status(self):
+        self.assertTrue(self.client.login(username='np_status_user', password='secret'))
+        response = self.client.get(
+            reverse('new_ticket_payment_status', kwargs={'ticket_request_id': self.ticket.id})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'Pending')
+
+    def test_other_team_cannot_read_status(self):
+        self.assertTrue(self.client.login(username='np_other', password='secret'))
+        response = self.client.get(
+            reverse('new_ticket_payment_status', kwargs={'ticket_request_id': self.ticket.id})
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_accepted_includes_team_tickets(self):
+        self.ticket.status = 'Accepted'
+        self.ticket.save(update_fields=['status'])
+        self.assertTrue(self.client.login(username='np_status_user', password='secret'))
+        response = self.client.get(
+            reverse('new_ticket_payment_status', kwargs={'ticket_request_id': self.ticket.id})
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'Accepted')
+        self.assertEqual(data['team_tickets'], 3)
