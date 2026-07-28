@@ -695,6 +695,8 @@ def new_hub(request):
         **_games_list_card_context(request),
         'page_title': 'Interoves',
         'show_sections_nav': True,
+        # Кнопка «Купить билеты» — только на главной (не в /glowbyte/ и др.).
+        'show_desyatochki_pay_cta': True,
         # Баннер «Для компаний» — только на главной странице.
         'show_order_banner': True,
         'community_links': [
@@ -2733,14 +2735,16 @@ def new_team_join_page(request, project_id=None):
     return render(request, 'ui/team.html', ctx)
 
 
-@login_required
 @require_http_methods(['GET'])
 def new_pay_page(request):
-    """Новая страница оплаты: билеты команде (как /tickets/) + Interoves+ (пока скоро)."""
-    if not has_profile(request.user):
-        messages.error(request, 'Сначала войдите и создайте профиль.')
-        return redirect('new_hub')
-    team = request.user.profile.team_on
+    """Новая страница оплаты: билеты команде (как /tickets/) + Interoves+ (пока скоро).
+
+    Доступна без логина: гостю предлагаем войти, авторизованному без команды —
+    создать или вступить, чтобы купить билет для команды.
+    """
+    team = None
+    if request.user.is_authenticated and has_profile(request.user):
+        team = request.user.profile.team_on if has_team(request.user) else None
     recent_requests = TicketRequest.recent_for_team(team) if team else []
     raw_price = getattr(team, 'ticket_price', 2000) if team else 2000
     try:
@@ -2754,6 +2758,8 @@ def new_pay_page(request):
         'team_tickets': team.tickets if team else 0,
         'recent_ticket_requests': recent_requests,
         'page_title': 'Оплата',
+        **_project_urls_context(NEW_UI_PROJECT),
+        **_main_team_page_urls(),
     })
 
 

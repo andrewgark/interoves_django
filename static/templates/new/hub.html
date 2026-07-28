@@ -10,10 +10,17 @@
     <button type="button" class="new-rules-trigger" aria-label="Правила Десяточки" title="Правила" data-desyatochki-rules-open>?</button>
   </div>
   <p class="new-hub-section__desc">{{ desyatochki_card.description }}</p>
-  {% if desyatochki_card.play_url %}
-    <a class="new-btn new-hub-section__cta{% if desyatochki_card.is_today %} new-hub-section__cta--today{% else %} new-hub-section__cta--latest{% endif %}" href="{{ desyatochki_card.play_url }}">
-      {{ desyatochki_card.cta_label }}
-    </a>
+  {% if desyatochki_card.play_url or show_desyatochki_pay_cta %}
+  <div class="new-hub-section__ctas">
+    {% if desyatochki_card.play_url %}
+      <a class="new-btn new-hub-section__cta{% if desyatochki_card.is_today %} new-hub-section__cta--today{% else %} new-hub-section__cta--latest{% endif %}" href="{{ desyatochki_card.play_url }}">
+        {{ desyatochki_card.cta_label }}
+      </a>
+    {% endif %}
+    {% if show_desyatochki_pay_cta %}
+      <a class="new-btn new-btn--ghost new-hub-section__cta" href="{% url 'new_pay' %}">Купить билеты</a>
+    {% endif %}
+  </div>
   {% endif %}
   {% if desyatochki_card.announced_game %}
     <div class="new-hub-section__announce">

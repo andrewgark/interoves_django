@@ -366,10 +366,22 @@ html.new-ui-dark body.new-ui {
   color: var(--muted);
 }
 
+.new-hub-section__ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.65rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
 .new-hub-section__cta {
   display: inline-block;
   margin-top: 0;
   margin-bottom: 0.5rem;
+}
+
+.new-hub-section__ctas .new-hub-section__cta {
+  margin-bottom: 0;
 }
 
 .new-hub-section__soon {

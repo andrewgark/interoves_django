@@ -3,9 +3,15 @@
 {% block title %}Оплата{% endblock %}
 
 {% block content %}
+{% if user.is_authenticated %}
 <p style="margin:0 0 0.75rem">
-  <a href="{% url 'new_team' %}" class="new-btn new-btn--ghost">← Команда</a>
+  <a href="{{ ui_team_url_hub|default:'/team/' }}" class="new-btn new-btn--ghost">← Команда</a>
 </p>
+{% else %}
+<p style="margin:0 0 0.75rem">
+  <a href="{{ ui_project_home_url|default:'/' }}" class="new-btn new-btn--ghost">← Игры</a>
+</p>
+{% endif %}
 
 <h1 class="new-heading" style="margin-top:0">Оплата</h1>
 
@@ -24,12 +30,22 @@
       </details>
       {% endif %}
     </p>
-    <p style="margin:0.35rem 0">Команда: <strong>{% if team %}{{ team.visible_name|default:team.name }}{% else %}—{% endif %}</strong>.</p>
+    {% if team %}
+    <p style="margin:0.35rem 0">Команда: <strong>{{ team.visible_name|default:team.name }}</strong>.</p>
     <p style="margin:0.35rem 0">Билетов сейчас: <strong>{{ team_tickets }}</strong>.</p>
     <p class="new-login-hint" style="margin:0.5rem 0 0">
       После оплаты билеты появятся у команды автоматически (обычно быстро, иногда с задержкой в пару минут).
       Билет можно использовать для участия команды в любой командной игре — можно купить билеты впрок на будущее.
     </p>
+    {% elif user.is_authenticated %}
+    <p class="new-login-hint" style="margin:0.5rem 0 0">
+      Билет покупается для команды: создайте новую или вступите в существующую, затем вернитесь сюда.
+    </p>
+    {% else %}
+    <p class="new-login-hint" style="margin:0.5rem 0 0">
+      Чтобы купить билет для команды, сначала войдите на сайт.
+    </p>
+    {% endif %}
   </div>
 
   {% if team %}
@@ -169,8 +185,15 @@
     });
   })();
   </script>
+  {% elif user.is_authenticated %}
+    <div class="new-card__text" style="margin-top:0.75rem; display:flex; flex-wrap:wrap; gap:0.5rem">
+      <a class="new-btn" href="{{ ui_team_url_create|default:'/team/create/' }}">Создать команду</a>
+      <a class="new-btn new-btn--ghost" href="{{ ui_team_url_join|default:'/team/join/' }}">Вступить в команду</a>
+    </div>
   {% else %}
-    <p class="new-login-hint" style="margin-top:0.75rem">Нужно создать или вступить в команду, чтобы купить билет.</p>
+    <div class="new-card__text" style="margin-top:0.75rem">
+      <button type="button" class="new-btn" data-login-open>Войти</button>
+    </div>
   {% endif %}
 
   {% if team and recent_ticket_requests %}
@@ -208,4 +231,3 @@
   </div>
 </div>
 {% endblock %}
-
