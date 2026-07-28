@@ -2987,13 +2987,14 @@ def new_create_crypto_ticket_payment(request):
                 },
                 status=500,
             )
+        # Avoid HTTP 502: some proxies replace the JSON body with an HTML gateway page.
         return JsonResponse(
             {
                 'status': 'error',
                 'reason': 'nowpayments',
                 'message': 'Не получилось создать крипто-платёж. Попробуйте позже.',
             },
-            status=502,
+            status=503,
         )
     except Exception:
         logger.exception(
@@ -3017,7 +3018,7 @@ def new_create_crypto_ticket_payment(request):
                 'reason': 'nowpayments',
                 'message': 'Не получилось создать крипто-платёж. Попробуйте позже.',
             },
-            status=502,
+            status=503,
         )
 
     return JsonResponse({

@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 NOWPAYMENTS_API_BASE = 'https://api.nowpayments.io/v1'
 NOWPAYMENTS_EMBED_BASE = 'https://nowpayments.io/embeds/payment-widget'
+# Cloudflare Browser Integrity Check rejects python-urllib's default UA (error 1010).
+NOWPAYMENTS_USER_AGENT = 'Interoves/1.0 (+https://interoves.com; ticket-payments)'
 
 
 def _secrets_dir() -> Path:
@@ -117,6 +119,8 @@ def create_invoice(
         headers={
             'x-api-key': key,
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': NOWPAYMENTS_USER_AGENT,
         },
         method='POST',
     )
