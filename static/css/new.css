@@ -684,6 +684,18 @@ html.new-ui-dark body.new-ui {
   border: 2px solid var(--accent);
 }
 
+.new-btn--yellow {
+  background: #c9b458;
+  color: #1a1a1a;
+  border: 2px solid #c9b458;
+}
+
+.new-btn--yellow:hover {
+  background: #b8a44a;
+  border-color: #b8a44a;
+  color: #1a1a1a;
+}
+
 .new-btn--danger {
   background: transparent;
   color: var(--danger);
@@ -1169,6 +1181,53 @@ html.new-ui-dark .new-team-switcher-active-box {
 
 .new-pay-widget-host[hidden] {
   display: none !important;
+}
+
+.new-donate-panel {
+  width: 100%;
+  max-width: 26rem;
+  margin-top: 0.25rem;
+}
+
+.new-donate-panel[hidden] {
+  display: none !important;
+}
+
+.new-donate-yoomoney {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.new-donate-yoomoney .new-btn {
+  margin-top: 0;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.new-donate-yoomoney__hint {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.new-donate-crypto {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  overflow: auto;
+}
+
+.new-donate-crypto iframe {
+  display: block;
+  max-width: 100%;
+  border: 0;
 }
 
 #new-yookassa-widget,

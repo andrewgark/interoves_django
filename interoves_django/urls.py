@@ -81,6 +81,7 @@ urlpatterns = [
     path('tickets/', RedirectView.as_view(url='/pay/', permanent=True), name='legacy_tickets'),
     path('ticket-agreement/', TemplateView.as_view(template_name="ticket-agreement.html")),
     path('vpn/', TemplateView.as_view(template_name="new/pigeon_vpn.html"), name='pigeon_vpn'),
+    path('donate/', TemplateView.as_view(template_name="new/donate.html"), name='donate'),
     path('instagram/', instagram_feed, name='instagram_feed'),
     path('ladder/<int:number>/teaser.jpg', ladder_teaser_jpg, name='ladder_teaser_jpg'),
     path(

@@ -1,0 +1,87 @@
+{% extends "new/base.html" %}
+{% block title %}Задонатить{% endblock %}
+
+{% block content %}
+<p style="margin:0 0 0.75rem">
+  <a href="{{ ui_project_home_url|default:'/' }}" class="new-btn new-btn--ghost">← Игры</a>
+</p>
+
+<h1 class="new-heading" style="margin-top:0">Задонатить</h1>
+<p class="new-login-hint" style="margin:0.35rem 0 0; max-width:36rem">
+  Спасибо, что поддерживаете Inter&nbsp;Oves. Выберите удобный способ — сумма любая.
+</p>
+
+<div class="new-pay-methods" role="group" aria-label="Способ доната" style="margin-top:1rem">
+  <button type="button" id="new-donate-card-btn" class="new-btn new-pay-method-btn" aria-pressed="false">
+    <span class="new-pay-method-btn__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
+        <circle cx="12" cy="12" r="11" fill="#fff" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+        <clipPath id="new-donate-ru-clip"><circle cx="12" cy="12" r="10"/></clipPath>
+        <g clip-path="url(#new-donate-ru-clip)">
+          <rect x="2" y="2" width="20" height="6.67" fill="#fff"/>
+          <rect x="2" y="8.67" width="20" height="6.66" fill="#0039a6"/>
+          <rect x="2" y="15.33" width="20" height="6.67" fill="#d52b1e"/>
+        </g>
+      </svg>
+    </span>
+    <span class="new-pay-method-btn__label">Задонатить с российской карты</span>
+  </button>
+  <button type="button" id="new-donate-crypto-btn" class="new-btn new-pay-method-btn" aria-pressed="false">
+    <span class="new-pay-method-btn__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
+        <circle cx="12" cy="12" r="11" fill="#f7931a"/>
+        <path fill="#fff" d="M14.2 11.4c.75-.4 1.25-1.05 1.25-1.95 0-1.35-1.05-2.25-2.85-2.45V5.7h-1.35v1.25h-1.1V5.7H8.8v1.25H6.9v1.45h.85c.45 0 .7.2.7.65v6.05c0 .45-.2.65-.7.65H6.9v1.45h1.9v1.25h1.35v-1.25h1.1v1.25h1.35v-1.3c2.05-.2 3.3-1.25 3.3-2.95 0-1.15-.65-1.95-1.7-2.35zm-3.45-3.2h1.35c.95 0 1.5.4 1.5 1.15s-.55 1.2-1.55 1.2h-1.3V8.2zm1.55 5.95h-1.55v-2.5h1.55c1.1 0 1.7.45 1.7 1.25s-.6 1.25-1.7 1.25z"/>
+      </svg>
+    </span>
+    <span class="new-pay-method-btn__label">Задонатить крипту</span>
+  </button>
+</div>
+
+<div id="new-donate-card-panel" class="new-donate-panel" hidden>
+  <div class="new-donate-yoomoney">
+    <p class="new-donate-yoomoney__hint">
+      По ссылке можно задонатить любую сумму с российской карты или кошелька ЮMoney.
+    </p>
+    <a
+      class="new-btn new-btn--yellow"
+      href="https://yoomoney.ru/to/4100116763559349"
+      target="_blank"
+      rel="noopener noreferrer"
+    >Задонатить через ЮMoney</a>
+  </div>
+</div>
+
+<div id="new-donate-crypto-panel" class="new-donate-panel" hidden>
+  <div class="new-donate-crypto">
+    <iframe
+      title="Донат криптой через NOWPayments"
+      src="https://nowpayments.io/embeds/donation-widget?api_key=43fa3682-ee15-4d52-979e-636658a2b0e5"
+      width="346"
+      height="623"
+      loading="lazy"
+      referrerpolicy="no-referrer-when-downgrade"
+    >Can't load widget</iframe>
+  </div>
+</div>
+
+<script>
+(function () {
+  var cardBtn = document.getElementById('new-donate-card-btn');
+  var cryptoBtn = document.getElementById('new-donate-crypto-btn');
+  var cardPanel = document.getElementById('new-donate-card-panel');
+  var cryptoPanel = document.getElementById('new-donate-crypto-panel');
+  if (!cardBtn || !cryptoBtn || !cardPanel || !cryptoPanel) return;
+
+  function show(mode) {
+    var isCard = mode === 'card';
+    cardPanel.hidden = !isCard;
+    cryptoPanel.hidden = isCard;
+    cardBtn.setAttribute('aria-pressed', isCard ? 'true' : 'false');
+    cryptoBtn.setAttribute('aria-pressed', isCard ? 'false' : 'true');
+  }
+
+  cardBtn.addEventListener('click', function () { show('card'); });
+  cryptoBtn.addEventListener('click', function () { show('crypto'); });
+})();
+</script>
+{% endblock %}

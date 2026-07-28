@@ -18,7 +18,7 @@
       </a>
     {% endif %}
     {% if show_desyatochki_pay_cta %}
-      <a class="new-btn new-btn--ghost new-hub-section__cta" href="{% url 'new_pay' %}">Купить билеты</a>
+      <a class="new-btn new-btn--yellow new-hub-section__cta" href="{% url 'new_pay' %}">Купить билеты</a>
     {% endif %}
   </div>
   {% endif %}
@@ -119,5 +119,8 @@
     </a>
   {% endfor %}
 </div>
+<p style="margin:1.25rem 0 0">
+  <a class="new-btn new-btn--yellow" href="{% url 'donate' %}">Задонатить</a>
+</p>
 {% endif %}
 {% endblock %}

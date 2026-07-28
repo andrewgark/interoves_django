@@ -127,7 +127,15 @@ class HubPayCtaTests(TestCase):
         body = resp.content.decode()
         self.assertIn('Купить билеты', body)
         self.assertIn('href="/pay/"', body)
+        self.assertIn('new-btn--yellow', body)
         self.assertTrue(resp.context['show_desyatochki_pay_cta'])
+
+    def test_main_hub_shows_donate_in_community(self):
+        resp = self.client.get(reverse('new_hub'))
+        self.assertEqual(resp.status_code, 200)
+        body = resp.content.decode()
+        self.assertIn('Задонатить', body)
+        self.assertIn('href="/donate/"', body)
 
     def test_glowbyte_hub_does_not_show_buy_tickets(self):
         resp = self.client.get(reverse('project_hub', kwargs={'project_id': 'glowbyte'}))
@@ -135,3 +143,28 @@ class HubPayCtaTests(TestCase):
         body = resp.content.decode()
         self.assertNotIn('Купить билеты', body)
         self.assertFalse(resp.context.get('show_desyatochki_pay_cta'))
+
+
+@override_settings(LANGUAGE_CODE='ru-ru')
+class DonatePageTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        _ensure_login_modal_deps()
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_donate_page_is_public_and_shows_both_methods(self):
+        resp = self.client.get(reverse('donate'))
+        self.assertEqual(resp.status_code, 200)
+        body = resp.content.decode()
+        self.assertIn('Задонатить с российской карты', body)
+        self.assertIn('Задонатить крипту', body)
+        self.assertIn('4100116763559349', body)
+        self.assertIn('nowpayments.io/embeds/donation-widget', body)
+        self.assertIn('43fa3682-ee15-4d52-979e-636658a2b0e5', body)
+
+    def test_donate_is_not_captured_as_project_hub(self):
+        resp = self.client.get('/donate/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTemplateUsed(resp, 'new/donate.html')
