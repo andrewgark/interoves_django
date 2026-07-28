@@ -76,13 +76,15 @@
       Минимум 50&nbsp;₽.
     </p>
     <p class="new-donate-crypto-warn">
-      У некоторых криптовалют (особенно Bitcoin) подтверждение сети может занимать десятки минут.
-      Статус доната обновится на этой странице — можно подождать здесь или вернуться позже.
+      У некоторых криптовалют (особенно Bitcoin) подтверждение транзакции может занимать десятки минут.
+      Статус доната обновится на этой странице.
     </p>
   </form>
-  <div id="new-donate-crypto-widget" class="new-donate-crypto" hidden></div>
-  <div id="new-donate-status" class="new-payment-status" hidden aria-live="polite"></div>
-  <p id="new-donate-msg" class="new-login-hint" style="margin:0.5rem 0 0"></p>
+  <div id="new-donate-pay-host" class="new-donate-pay-host" hidden>
+    <div id="new-donate-crypto-widget" class="new-donate-crypto"></div>
+    <div id="new-donate-status" class="new-payment-status" hidden aria-live="polite"></div>
+    <p id="new-donate-msg" class="new-login-hint" style="margin:0.5rem 0 0" hidden></p>
+  </div>
 </div>
 
 <div id="new-donate-recent" class="new-donate-recent"{% if not recent_donations %} hidden{% endif %}>
@@ -91,15 +93,21 @@
     Пока статус Pending — транзакция ещё обрабатывается. Если есть проблемы, напишите
     <a href="https://t.me/andrewgark">Андрею</a>.
   </p>
-  <div id="new-donate-recent-list" class="new-donate-recent__list" style="display:grid; gap:0.25rem">
+  <div id="new-donate-recent-list" class="new-donate-recent__list">
     {% for d in recent_donations %}
-    <div class="new-donate-recent__row" data-donation-id="{{ d.id }}" style="display:flex; gap:0.5rem; flex-wrap:wrap">
-      <span>{{ d.created_at|date:"d.m H:i" }}</span>
-      <span>— {{ d.amount_rub }} ₽</span>
-      {% if d.pay_amount and d.pay_currency %}
-      <span>— {{ d.pay_amount }} {{ d.pay_currency|upper }}</span>
-      {% endif %}
-      <span>— <strong class="new-donate-recent__status">{{ d.status }}</strong></span>
+    <div class="new-donate-recent__row" data-donation-id="{{ d.id }}">
+      <span class="new-donate-recent__marker" aria-hidden="true"></span>
+      <div class="new-donate-recent__body">
+        <span class="new-donate-recent__kind">Донат</span>
+        <span class="new-donate-recent__meta">
+          <span>{{ d.created_at|date:"d.m H:i" }}</span>
+          <span>{{ d.amount_rub }} ₽</span>
+          {% if d.pay_amount and d.pay_currency %}
+          <span data-pay="1">{{ d.pay_amount }} {{ d.pay_currency|upper }}</span>
+          {% endif %}
+          <span><strong class="new-donate-recent__status">{{ d.status }}</strong></span>
+        </span>
+      </div>
     </div>
     {% endfor %}
   </div>
@@ -113,6 +121,7 @@
   var cardPanel = document.getElementById('new-donate-card-panel');
   var cryptoPanel = document.getElementById('new-donate-crypto-panel');
   var form = document.getElementById('new-donate-crypto-form');
+  var payHost = document.getElementById('new-donate-pay-host');
   var widget = document.getElementById('new-donate-crypto-widget');
   var statusEl = document.getElementById('new-donate-status');
   var msg = document.getElementById('new-donate-msg');
@@ -125,7 +134,16 @@
 
   if (!cardBtn || !cryptoBtn || !cardPanel || !cryptoPanel) return;
 
-  function setMsg(t) { if (msg) msg.textContent = t || ''; }
+  function setMsg(t) {
+    if (!msg) return;
+    var text = t || '';
+    msg.textContent = text;
+    msg.hidden = !text;
+  }
+
+  function showPayHost() {
+    if (payHost) payHost.hidden = false;
+  }
 
   function getCsrfToken() {
     var match = document.cookie.match(/csrftoken=([^;]+)/);
@@ -148,15 +166,15 @@
     if (!row) return;
     var statusElRow = row.querySelector('.new-donate-recent__status');
     if (statusElRow) statusElRow.textContent = status;
-    if (data && data.pay_amount && data.pay_currency && !row.querySelector('[data-pay]')) {
+    var meta = row.querySelector('.new-donate-recent__meta');
+    if (data && data.pay_amount && data.pay_currency && meta && !meta.querySelector('[data-pay]')) {
       var pay = document.createElement('span');
       pay.setAttribute('data-pay', '1');
-      pay.textContent = '— ' + data.pay_amount + ' ' + String(data.pay_currency).toUpperCase();
-      var statusWrap = statusElRow ? statusElRow.parentNode : null;
-      if (statusWrap && statusWrap.parentNode === row) {
-        row.insertBefore(pay, statusWrap);
+      pay.textContent = data.pay_amount + ' ' + String(data.pay_currency).toUpperCase();
+      if (statusElRow && statusElRow.parentNode) {
+        meta.insertBefore(pay, statusElRow.parentNode);
       } else {
-        row.appendChild(pay);
+        meta.appendChild(pay);
       }
     }
   }
@@ -169,18 +187,24 @@
     var row = document.createElement('div');
     row.className = 'new-donate-recent__row';
     row.setAttribute('data-donation-id', String(data.donation_id));
-    row.style.cssText = 'display:flex; gap:0.5rem; flex-wrap:wrap';
     row.innerHTML =
-      '<span>' + escapeHtml(data.created_at || '') + '</span>' +
-      '<span>— ' + escapeHtml(String(data.amount_rub || '')) + ' ₽</span>' +
-      '<span>— <strong class="new-donate-recent__status">' +
-        escapeHtml(data.donation_status || 'Pending') +
-      '</strong></span>';
+      '<span class="new-donate-recent__marker" aria-hidden="true"></span>' +
+      '<div class="new-donate-recent__body">' +
+        '<span class="new-donate-recent__kind">Донат</span>' +
+        '<span class="new-donate-recent__meta">' +
+          '<span>' + escapeHtml(data.created_at || '') + '</span>' +
+          '<span>' + escapeHtml(String(data.amount_rub || '')) + ' ₽</span>' +
+          '<span><strong class="new-donate-recent__status">' +
+            escapeHtml(data.donation_status || 'Pending') +
+          '</strong></span>' +
+        '</span>' +
+      '</div>';
     recentList.insertBefore(row, recentList.firstChild);
   }
 
   function renderPending() {
     if (!statusEl) return;
+    showPayHost();
     statusEl.hidden = false;
     statusEl.className = 'new-payment-status new-payment-status--pending';
     statusEl.innerHTML =
@@ -191,6 +215,7 @@
 
   function renderConfirmed(data) {
     if (!statusEl) return;
+    showPayHost();
     statusEl.hidden = false;
     statusEl.className = 'new-payment-status new-payment-status--ok';
     var extra = '';
@@ -213,6 +238,7 @@
 
   function renderRejected() {
     if (!statusEl) return;
+    showPayHost();
     statusEl.hidden = false;
     statusEl.className = 'new-payment-status new-payment-status--err';
     statusEl.innerHTML =
@@ -254,8 +280,10 @@
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
       setMsg('Создаём крипто-платёж…');
+      showPayHost();
       if (submitBtn) submitBtn.disabled = true;
-      if (widget) { widget.hidden = true; widget.innerHTML = ''; }
+      if (widget) widget.innerHTML = '';
+      if (statusEl) { statusEl.hidden = true; statusEl.innerHTML = ''; }
       var fd = new FormData(form);
       fetch('{% url "donate_create_crypto" %}', {
         method: 'POST',
@@ -284,7 +312,6 @@
           prependDonationRow(data);
           var src = data.embed_url || ('https://nowpayments.io/embeds/payment-widget?iid=' + encodeURIComponent(data.invoice_id));
           if (widget) {
-            widget.hidden = false;
             var iframe = document.createElement('iframe');
             iframe.src = src;
             iframe.title = 'Донат криптой через NOWPayments';
@@ -310,6 +337,7 @@
     var saved = window.InterovesPaymentPoll.readStorage(STORAGE_KEY);
     if (saved && saved.statusUrl) {
       show('crypto');
+      showPayHost();
       startPoll(saved.statusUrl, saved.meta && saved.meta.donationId);
     }
   }

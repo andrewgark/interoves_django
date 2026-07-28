@@ -15,6 +15,7 @@ DONATION_ORDER_PREFIX = 'donation-'
 MIN_DONATION_RUB = 50
 RECENT_DONATIONS_LIMIT = 10
 SESSION_DONATION_IDS_KEY = 'donate_recent_ids'
+STALE_PENDING_DONATION_HOURS = 8
 
 
 @dataclass(frozen=True)
@@ -154,3 +155,28 @@ def recent_donations_for_request(request, limit: int | None = None):
     if not session_ids:
         return []
     return list(Donation.objects.filter(id__in=session_ids).order_by('-created_at')[:n])
+
+
+def stale_pending_donations(*, hours: int | None = None):
+    """Pending donations older than the threshold (default 8h)."""
+    from datetime import timedelta
+
+    threshold = hours if hours is not None else STALE_PENDING_DONATION_HOURS
+    cutoff = timezone.now() - timedelta(hours=threshold)
+    return Donation.objects.filter(status='Pending', created_at__lt=cutoff).order_by('created_at')
+
+
+def reject_stale_pending_donations(*, hours: int | None = None) -> int:
+    """
+    Auto-reject Pending donations older than the threshold.
+
+    Returns the number of donations newly rejected.
+    """
+    rejected = 0
+    for donation in stale_pending_donations(hours=hours).iterator():
+        result = reject_donation(donation, source='stale_pending')
+        if result.changed:
+            rejected += 1
+    if rejected:
+        logger.info('reject_stale_pending_donations: rejected=%s hours=%s', rejected, hours or STALE_PENDING_DONATION_HOURS)
+    return rejected

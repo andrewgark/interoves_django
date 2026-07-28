@@ -81,6 +81,12 @@ class DonationAdmin(admin.ModelAdmin):
     readonly_fields = ('public_token', 'created_at', 'confirmed_at')
     raw_id_fields = ('user',)
 
+    def changelist_view(self, request, extra_context=None):
+        from games.donation_service import reject_stale_pending_donations
+
+        reject_stale_pending_donations()
+        return super().changelist_view(request, extra_context=extra_context)
+
 
 @admin.register(CorporateGameOrder)
 class CorporateGameOrderAdmin(admin.ModelAdmin):

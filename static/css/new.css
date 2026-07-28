@@ -394,6 +394,10 @@ html.new-ui-dark body.new-ui {
   margin: 0.35rem 0 0;
 }
 
+.new-hub-section__chat {
+  margin: 0.35rem 0 0;
+}
+
 .new-hub-section__announce {
   margin-top: 0.85rem;
 }
@@ -922,6 +926,23 @@ html.new-ui-dark .new-team-switcher-active-box {
   color: var(--text);
 }
 
+.new-hub-bottom-grid {
+  margin-top: 2rem;
+}
+
+.new-hub-bottom-grid--split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .new-hub-bottom-grid--split {
+    grid-template-columns: 1fr;
+  }
+}
+
 .new-community-links{
   display: flex;
   flex-direction: column;
@@ -931,14 +952,20 @@ html.new-ui-dark .new-team-switcher-active-box {
 
 .new-community-link{
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.45rem;
   width: fit-content;
+  flex-wrap: wrap;
 }
 
 .new-community-link .fa {
   color: var(--accent);
   opacity: 0.92;
+}
+
+.new-community-link__note {
+  color: var(--muted);
+  font-weight: 400;
 }
 
 .new-create-actions {
@@ -1276,6 +1303,14 @@ html.new-ui-dark .new-team-switcher-active-box {
   line-height: 1.45;
 }
 
+.new-donate-pay-host {
+  margin-top: 0.85rem;
+}
+
+.new-donate-pay-host[hidden] {
+  display: none !important;
+}
+
 .new-donate-recent {
   width: 100%;
   max-width: 26rem;
@@ -1290,6 +1325,54 @@ html.new-ui-dark .new-team-switcher-active-box {
 
 .new-donate-recent[hidden] {
   display: none !important;
+}
+
+.new-donate-recent__list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.new-donate-recent__row {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  padding: 0.7rem 0.8rem;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.new-donate-recent__marker {
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-top: 0.45rem;
+  border-radius: 50%;
+  background: #f7931a;
+  flex-shrink: 0;
+}
+
+.new-donate-recent__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.new-donate-recent__kind {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.new-donate-recent__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.new-donate-recent__status {
+  color: inherit;
 }
 
 .new-payment-status {

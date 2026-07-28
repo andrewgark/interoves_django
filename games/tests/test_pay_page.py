@@ -130,12 +130,33 @@ class HubPayCtaTests(TestCase):
         self.assertIn('new-btn--yellow', body)
         self.assertTrue(resp.context['show_desyatochki_pay_cta'])
 
-    def test_main_hub_shows_donate_in_community(self):
+    def test_main_hub_shows_donate_in_interesting(self):
         resp = self.client.get(reverse('new_hub'))
         self.assertEqual(resp.status_code, 200)
         body = resp.content.decode()
+        self.assertIn('Наши интересности', body)
+        self.assertIn('Nutrimatic', body)
+        self.assertIn('href="/nutrimatic-ru/"', body)
+        self.assertIn('Буклеты к Евровидению', body)
+        self.assertIn('href="/eurovision_booklet/"', body)
+        self.assertIn('VPN от наших друзей', body)
         self.assertIn('Задонатить', body)
         self.assertIn('href="/donate/"', body)
+        self.assertTrue(resp.context['show_donate_cta'])
+        # Чат участников продублирован в блок десяточек только на главной.
+        self.assertEqual(
+            resp.context['desyatochki_participants_chat_url'],
+            'https://t.me/+rhsbkEuU4-ExOWEy',
+        )
+        self.assertIn('Чат участников', body)
+
+    def test_glowbyte_hub_has_no_interesting_or_desyatochki_chat(self):
+        resp = self.client.get(reverse('project_hub', kwargs={'project_id': 'glowbyte'}))
+        self.assertEqual(resp.status_code, 200)
+        body = resp.content.decode()
+        self.assertNotIn('Наши интересности', body)
+        self.assertFalse(resp.context.get('show_donate_cta'))
+        self.assertIsNone(resp.context.get('desyatochki_participants_chat_url'))
 
     def test_glowbyte_hub_does_not_show_buy_tickets(self):
         resp = self.client.get(reverse('project_hub', kwargs={'project_id': 'glowbyte'}))
@@ -163,7 +184,7 @@ class DonatePageTests(TestCase):
         self.assertIn('4100116763559349', body)
         self.assertIn('new-donate-amount', body)
         self.assertIn('donate/create-crypto-payment', body)
-        self.assertIn('подтверждение сети может занимать десятки минут', body)
+        self.assertIn('подтверждение транзакции может занимать десятки минут', body)
         self.assertNotIn('nowpayments.io/embeds/donation-widget', body)
 
     def test_donate_page_shows_recent_donations_from_session(self):
@@ -179,6 +200,7 @@ class DonatePageTests(TestCase):
         self.assertIn('Последние донаты', body)
         self.assertIn('120 ₽', body)
         self.assertIn('Pending', body)
+        self.assertIn('new-donate-recent__kind', body)
         self.assertIn('data-donation-id="{}"'.format(donation.id), body)
 
     def test_donate_is_not_captured_as_project_hub(self):

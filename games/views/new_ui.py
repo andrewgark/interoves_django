@@ -707,6 +707,8 @@ def new_hub(request):
         'show_desyatochki_pay_cta': True,
         # Баннер «Для компаний» — только на главной странице.
         'show_order_banner': True,
+        # Чат участников в блоке десяточек — только на главной.
+        'desyatochki_participants_chat_url': 'https://t.me/+rhsbkEuU4-ExOWEy',
         'community_links': [
             {'kind': 'telegram', 'title': 'Телеграм-канал', 'href': 'https://t.me/interoves'},
             {'kind': 'twitter', 'title': 'X (Twitter)', 'href': 'https://x.com/interoves'},
@@ -714,8 +716,23 @@ def new_hub(request):
             {'kind': 'telegram', 'title': 'Чат участников', 'href': 'https://t.me/+rhsbkEuU4-ExOWEy'},
             {'kind': 'telegram', 'title': 'Чат решающих PuzzleHunts', 'href': 'https://t.me/+GPR22w8MdLEyNzIy'},
             {'kind': 'telegram', 'title': 'Разработчик: Андрей', 'href': 'https://t.me/andrewgark'},
+        ],
+        'interesting_links': [
+            {
+                'kind': 'nutrimatic',
+                'title': 'Nutrimatic',
+                'note': 'поиск слов/выражений из русской википедии по маске',
+                'href': '/nutrimatic-ru/',
+            },
+            {
+                'kind': 'eurovision',
+                'title': 'Буклеты к Евровидению',
+                'note': 'красивые',
+                'href': '/eurovision_booklet/',
+            },
             {'kind': 'vpn', 'title': 'VPN от наших друзей', 'href': '/vpn/'},
         ],
+        'show_donate_cta': True,
         **_project_urls_context(NEW_UI_PROJECT),
     })
 
@@ -3251,8 +3268,9 @@ def new_ticket_payment_status(request, ticket_request_id):
 
 
 def new_donate_page(request):
-    from games.donation_service import recent_donations_for_request
+    from games.donation_service import recent_donations_for_request, reject_stale_pending_donations
 
+    reject_stale_pending_donations()
     return render(request, 'new/donate.html', {
         'recent_donations': recent_donations_for_request(request),
     })

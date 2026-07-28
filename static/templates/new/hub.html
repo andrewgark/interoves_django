@@ -22,6 +22,14 @@
     {% endif %}
   </div>
   {% endif %}
+  {% if desyatochki_participants_chat_url %}
+  <p class="new-hub-section__chat">
+    <a class="new-link-dotted new-community-link" href="{{ desyatochki_participants_chat_url }}" target="_blank" rel="noopener noreferrer">
+      <i class="fa fa-telegram" aria-hidden="true"></i>
+      Чат участников
+    </a>
+  </p>
+  {% endif %}
   {% if desyatochki_card.announced_game %}
     <div class="new-hub-section__announce">
       {% include "new/games_list_items.html" with games=desyatochki_card.announced_games game_list_offset=0 %}
@@ -101,26 +109,49 @@
 </section>
 {% endif %}
 
-{% if community_links %}
-<h1 class="new-heading" style="margin-top:2rem">Сообщество</h1>
-<div class="new-community-links">
-  {% for link in community_links %}
-    <a class="new-link-dotted new-community-link" href="{{ link.href }}" {% if link.href|slice:":4" == "http" %}target="_blank" rel="noopener noreferrer"{% endif %}>
-      {% if link.kind == 'telegram' %}
-        <i class="fa fa-telegram" aria-hidden="true"></i>
-      {% elif link.kind == 'twitter' %}
-        <i class="fa fa-twitter" aria-hidden="true"></i>
-      {% elif link.kind == 'instagram' %}
-        <i class="fa fa-instagram" aria-hidden="true"></i>
-      {% elif link.kind == 'vpn' %}
-        <i class="fa fa-shield" aria-hidden="true"></i>
-      {% endif %}
-      {{ link.title }}
-    </a>
-  {% endfor %}
+{% if community_links or interesting_links %}
+<div class="new-hub-bottom-grid{% if community_links and interesting_links %} new-hub-bottom-grid--split{% endif %}">
+  {% if community_links %}
+  <section class="new-hub-bottom-col" aria-labelledby="community-heading">
+    <h1 id="community-heading" class="new-heading" style="margin-top:0">Сообщество</h1>
+    <div class="new-community-links">
+      {% for link in community_links %}
+        <a class="new-link-dotted new-community-link" href="{{ link.href }}" {% if link.href|slice:":4" == "http" %}target="_blank" rel="noopener noreferrer"{% endif %}>
+          {% if link.kind == 'telegram' %}
+            <i class="fa fa-telegram" aria-hidden="true"></i>
+          {% elif link.kind == 'twitter' %}
+            <i class="fa fa-twitter" aria-hidden="true"></i>
+          {% elif link.kind == 'instagram' %}
+            <i class="fa fa-instagram" aria-hidden="true"></i>
+          {% elif link.kind == 'vpn' %}
+            <i class="fa fa-shield" aria-hidden="true"></i>
+          {% endif %}
+          {{ link.title }}
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  {% if interesting_links %}
+  <section class="new-hub-bottom-col" aria-labelledby="interesting-heading">
+    <h1 id="interesting-heading" class="new-heading" style="margin-top:0">Наши интересности</h1>
+    <div class="new-community-links">
+      {% for link in interesting_links %}
+        <a class="new-link-dotted new-community-link" href="{{ link.href }}" {% if link.href|slice:":4" == "http" %}target="_blank" rel="noopener noreferrer"{% endif %}>
+          {% if link.kind == 'vpn' %}
+            <i class="fa fa-shield" aria-hidden="true"></i>
+          {% endif %}
+          {{ link.title }}{% if link.note %} <span class="new-community-link__note">({{ link.note }})</span>{% endif %}
+        </a>
+      {% endfor %}
+    </div>
+    {% if show_donate_cta %}
+    <p style="margin:1.25rem 0 0">
+      <a class="new-btn new-btn--yellow" href="{% url 'donate' %}">Задонатить</a>
+    </p>
+    {% endif %}
+  </section>
+  {% endif %}
 </div>
-<p style="margin:1.25rem 0 0">
-  <a class="new-btn new-btn--yellow" href="{% url 'donate' %}">Задонатить</a>
-</p>
 {% endif %}
 {% endblock %}
