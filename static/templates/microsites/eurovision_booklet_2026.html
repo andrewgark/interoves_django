@@ -169,10 +169,76 @@
       text-decoration: none;
     }
     .site-footer a:hover { text-decoration: underline; }
+    .booklet-load-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 1rem;
+      background: rgba(15, 17, 20, 0.92);
+      color: var(--text);
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .booklet-load-overlay[hidden] { display: none !important; }
+    .booklet-load-overlay__spin {
+      width: 2rem;
+      height: 2rem;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: booklet-spin 0.7s linear infinite;
+    }
+    @keyframes booklet-spin { to { transform: rotate(360deg); } }
+    .booklet-load-overlay__title {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+    .booklet-load-overlay__sub {
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .booklet-load-overlay__err {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #f28b82;
+      max-width: 22rem;
+    }
+    .booklet-load-overlay__close {
+      margin-top: 0.5rem;
+      padding: 0.45rem 1rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
   {% language "en" %}
+  <div
+    id="booklet-load-overlay"
+    class="booklet-load-overlay"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="booklet-load-title"
+    hidden
+  >
+    <div class="booklet-load-overlay__spin" aria-hidden="true"></div>
+    <p id="booklet-load-title" class="booklet-load-overlay__title">Загрузка, подождите…</p>
+    <p class="booklet-load-overlay__sub">Loading, please wait…</p>
+    <p id="booklet-load-error" class="booklet-load-overlay__err" hidden></p>
+    <button type="button" id="booklet-load-close" class="booklet-load-overlay__close" hidden>Close</button>
+  </div>
   <div class="wrap">
     <header class="booklet-page-head">
       <h1>Eurovision 2026 — Booklet</h1>
@@ -211,9 +277,9 @@
             <span class="pdf-version-label">English Version</span>
           </div>
           <div class="pdf-version-actions">
-            <a class="pdf-open-tab" href="{{ section.html_en_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open English booklet in browser">Open in Web</a>
-            <a class="pdf-open-tab" href="{{ section.pdf_en_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open English PDF in new tab">Open PDF</a>
-            <a class="download-btn" href="{{ section.pdf_en_url }}" download aria-label="Download English PDF" title="Download English PDF">
+            <a class="pdf-open-tab js-booklet-lazy" data-booklet-action="open" href="{{ section.html_en_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open English booklet in browser">Open in Web</a>
+            <a class="pdf-open-tab js-booklet-lazy" data-booklet-action="open" href="{{ section.pdf_en_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open English PDF in new tab">Open PDF</a>
+            <a class="download-btn js-booklet-lazy" data-booklet-action="download" href="{{ section.pdf_en_url }}" download aria-label="Download English PDF" title="Download English PDF">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
             </a>
           </div>
@@ -230,9 +296,9 @@
             <span class="pdf-version-label">Russian Version</span>
           </div>
           <div class="pdf-version-actions">
-            <a class="pdf-open-tab" href="{{ section.html_ru_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open Russian booklet in browser">Open in Web</a>
-            <a class="pdf-open-tab" href="{{ section.pdf_ru_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open Russian PDF in new tab">Open PDF</a>
-            <a class="download-btn" href="{{ section.pdf_ru_url }}" download aria-label="Download Russian PDF" title="Download Russian PDF">
+            <a class="pdf-open-tab js-booklet-lazy" data-booklet-action="open" href="{{ section.html_ru_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open Russian booklet in browser">Open in Web</a>
+            <a class="pdf-open-tab js-booklet-lazy" data-booklet-action="open" href="{{ section.pdf_ru_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open Russian PDF in new tab">Open PDF</a>
+            <a class="download-btn js-booklet-lazy" data-booklet-action="download" href="{{ section.pdf_ru_url }}" download aria-label="Download Russian PDF" title="Download Russian PDF">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
             </a>
           </div>
@@ -245,6 +311,90 @@
       Made by <a href="https://interoves.com/" rel="noopener">interoves.com</a> — Community for Russian-speaking fans of puzzle games
     </footer>
   </div>
+  <script>
+  (function () {
+    var overlay = document.getElementById('booklet-load-overlay');
+    var errEl = document.getElementById('booklet-load-error');
+    var closeBtn = document.getElementById('booklet-load-close');
+    var spin = overlay && overlay.querySelector('.booklet-load-overlay__spin');
+    if (!overlay) return;
+
+    function showLoading() {
+      errEl.hidden = true;
+      errEl.textContent = '';
+      closeBtn.hidden = true;
+      if (spin) spin.hidden = false;
+      overlay.hidden = false;
+      document.body.style.overflow = 'hidden';
+    }
+    function showError(msg) {
+      if (spin) spin.hidden = true;
+      errEl.textContent = msg || 'Failed to load. Please try again.';
+      errEl.hidden = false;
+      closeBtn.hidden = false;
+      overlay.hidden = false;
+    }
+    function hide() {
+      overlay.hidden = true;
+      document.body.style.overflow = '';
+    }
+    closeBtn.addEventListener('click', hide);
+    overlay.addEventListener('click', function (ev) {
+      if (ev.target === overlay && !closeBtn.hidden) hide();
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && !overlay.hidden) hide();
+    });
+
+    function filenameFromUrl(url) {
+      try {
+        var parts = new URL(url, location.href).pathname.split('/');
+        return parts[parts.length - 1] || 'download.pdf';
+      } catch (e) {
+        return 'download.pdf';
+      }
+    }
+
+    document.querySelectorAll('a.js-booklet-lazy').forEach(function (a) {
+      a.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        var url = a.href;
+        var action = a.getAttribute('data-booklet-action') || 'open';
+        showLoading();
+        fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+          .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            if (action === 'download') return r.blob().then(function (blob) {
+              return { kind: 'download', blob: blob };
+            });
+            return { kind: 'open' };
+          })
+          .then(function (result) {
+            if (result.kind === 'download') {
+              var obj = URL.createObjectURL(result.blob);
+              var link = document.createElement('a');
+              link.href = obj;
+              link.download = a.getAttribute('download') || filenameFromUrl(url);
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+              setTimeout(function () { URL.revokeObjectURL(obj); }, 2000);
+              hide();
+              return;
+            }
+            var w = window.open(url, '_blank', 'noopener,noreferrer');
+            hide();
+            if (!w) {
+              showError('Pop-up blocked. Allow pop-ups for this site, or try again.');
+            }
+          })
+          .catch(function () {
+            showError('Не удалось загрузить. / Failed to load. Please try again.');
+          });
+      });
+    });
+  })();
+  </script>
   {% endlanguage %}
 </body>
 </html>

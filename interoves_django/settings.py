@@ -112,8 +112,8 @@ NUTRIMATIC_INDEX_S3_REGION = (
 # takes precedence over GitHub). Cached copies + manifest: BASE_DIR/var/eurovision_booklet/2026/
 #
 # Freeze (default on prod via .ebextensions): set EUROVISION_BOOKLET_PINNED_REF to a commit SHA
-# and EUROVISION_BOOKLET_AUTO_SYNC=FALSE. Then we do not follow main / poll for updates; at most
-# a one-time fill of an empty var/ cache from the pinned commit. Responses use long-lived cache.
+# and EUROVISION_BOOKLET_AUTO_SYNC=FALSE. Then we do not follow main / poll for updates; request
+# paths fetch individual files into var/ on demand (lazy). Responses use long-lived cache.
 EUROVISION_BOOKLET_REPO_PATH = (os.environ.get("EUROVISION_BOOKLET_REPO_PATH") or "").strip()
 EUROVISION_BOOKLET_GITHUB_REPO = (
     os.environ.get("EUROVISION_BOOKLET_GITHUB_REPO") or ""
@@ -125,8 +125,7 @@ EUROVISION_BOOKLET_GIT_BRANCH = (os.environ.get("EUROVISION_BOOKLET_GIT_BRANCH")
 EUROVISION_BOOKLET_PINNED_REF = (
     os.environ.get("EUROVISION_BOOKLET_PINNED_REF") or ""
 ).strip()
-# When False: do not poll for newer commits. With PINNED_REF set, still allow one-time fill
-# if the local var/ cache is incomplete. Default True for local/dev.
+# When False: do not poll for newer commits / bulk-sync. Default True for local/dev.
 EUROVISION_BOOKLET_AUTO_SYNC = _env_flag_default("EUROVISION_BOOKLET_AUTO_SYNC", True)
 EUROVISION_BOOKLET_DIST_PATH = (os.environ.get("EUROVISION_BOOKLET_DIST_PATH") or "dist").strip()
 # Dev: path to booklet repo's dist/html (e.g. ~/eurovision2026booklet/dist/html) so /eurovision_booklet/2026/html/… works without copying into static/.

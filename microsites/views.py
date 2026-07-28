@@ -23,15 +23,16 @@ from microsites.eurovision_booklet_sync import (
     BOOKLET_HTML_SLUGS,
     BOOKLET_MINISITE_SECTIONS,
     BOOKLET_PDF_FILENAMES,
-    booklet_auto_sync_enabled,
     booklet_cache_control,
     booklet_pinned_ref,
-    ensure_eurovision_booklet_sync,
     html_url_for,
     meta_for_filename,
     pdf_url_for,
     sync_configured,
 )
+
+# Injected into HTML booklet pages (lazy load overlay). Marker used by tests.
+_BOOKLET_HTML_LOADING_MARKER = "data-booklet-loading-overlay"
 
 logger = logging.getLogger(__name__)
 
@@ -266,23 +267,6 @@ def _booklet_latest_git_commit_datetime(manifest: dict) -> datetime | None:
     return latest
 
 
-def _touch_eurovision_booklet_sync() -> None:
-    """Pull PDFs + web bundles from GitHub/git into var/ when configured.
-
-    Must run on HTML/asset/PDF views too — not only the landing page — or direct
-    links to /eurovision_booklet/2026/html/… never populate the cache.
-
-    Frozen mode (pin + AUTO_SYNC=False): no tip polling; at most a one-time fill
-    of an empty var/ from EUROVISION_BOOKLET_PINNED_REF.
-    """
-    if not sync_configured(settings):
-        return
-    # Hard off without a pin: never hit the network from request paths.
-    if not booklet_auto_sync_enabled(settings) and not booklet_pinned_ref(settings):
-        return
-    ensure_eurovision_booklet_sync(settings)
-
-
 def _booklet_last_updated_display(manifest: dict) -> dict | None:
     # Git dates in manifest are only recorded for PDFs; HTML-only pushes do not
     # move that clock. Combine with real file mtimes under var/ so "Last updated"
@@ -311,14 +295,9 @@ def _booklet_last_updated_display(manifest: dict) -> dict | None:
 
 @require_GET
 def eurovision_booklet_2026(request):
+    """Landing page — no network sync; PDFs/HTML load lazily on click."""
     sync_on = sync_configured(settings)
-    manifest = {}
-    if sync_on and (
-        booklet_auto_sync_enabled(settings) or booklet_pinned_ref(settings)
-    ):
-        manifest = ensure_eurovision_booklet_sync(settings)
-    disk_manifest = _read_booklet_manifest_json()
-    manifest_display = {**(disk_manifest or {}), **manifest}
+    manifest_display = _read_booklet_manifest_json() or {}
 
     sections = []
     for sid, title, ru_name, en_name in BOOKLET_MINISITE_SECTIONS:
@@ -346,9 +325,87 @@ def eurovision_booklet_2026(request):
     return render(request, "microsites/eurovision_booklet_2026.html", ctx)
 
 
+def _cache_booklet_bytes(rel_under_2026: str, body: bytes) -> Path | None:
+    """Write fetched bytes under var/eurovision_booklet/2026/<rel>. Returns path or None."""
+    rel = (rel_under_2026 or "").strip().strip("/")
+    if not rel or ".." in Path(rel).parts:
+        return None
+    root = Path(settings.BASE_DIR) / "var" / "eurovision_booklet" / "2026"
+    dest = root.joinpath(*Path(rel).parts)
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        tmp = dest.with_suffix(dest.suffix + ".tmp")
+        tmp.write_bytes(body)
+        tmp.replace(dest)
+        return dest
+    except OSError:
+        logger.info("Eurovision booklet: failed to cache %s", dest, exc_info=True)
+        return None
+
+
+def _booklet_html_loading_snippet() -> bytes:
+    """Overlay shown until window load; re-shown on same-booklet navigations."""
+    return (
+        f"""
+<div id="booklet-loading" {_BOOKLET_HTML_LOADING_MARKER} hidden style="display:flex;position:fixed;inset:0;z-index:99999;align-items:center;justify-content:center;flex-direction:column;gap:1rem;background:rgba(15,17,20,.92);color:#e8eaed;font:600 1rem/1.4 system-ui,sans-serif">
+  <div style="width:2rem;height:2rem;border:3px solid rgba(255,255,255,.2);border-top-color:#c9a227;border-radius:50%;animation:booklet-spin .7s linear infinite"></div>
+  <p style="margin:0">Загрузка, подождите…</p>
+  <p style="margin:0;font-weight:400;font-size:.85rem;color:#9aa0a6">Loading, please wait…</p>
+</div>
+<style>@keyframes booklet-spin{{to{{transform:rotate(360deg)}}}}</style>
+<script>
+(function(){{
+  var el=document.getElementById('booklet-loading');
+  if(!el) return;
+  function show(){{el.hidden=false;el.style.display='flex';}}
+  function hide(){{el.hidden=true;el.style.display='none';}}
+  show();
+  function done(){{hide();}}
+  if(document.readyState==='complete') done();
+  else window.addEventListener('load', done);
+  setTimeout(done, 30000);
+  document.addEventListener('click', function(ev){{
+    var a=ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+    if(!a) return;
+    var href=a.getAttribute('href')||'';
+    if(!href || href.charAt(0)==='#') return;
+    if(a.target==='_blank' || a.hasAttribute('download')) return;
+    try {{
+      var u=new URL(a.href, location.href);
+      if(u.origin!==location.origin) return;
+      if(u.pathname.indexOf('/eurovision_booklet/')!==0) return;
+      show();
+    }} catch(e){{}}
+  }}, true);
+}})();
+</script>
+""".encode(
+            "utf-8"
+        )
+    )
+
+
+def _inject_booklet_html_loading(body: bytes) -> bytes:
+    if _BOOKLET_HTML_LOADING_MARKER.encode("ascii") in body:
+        return body
+    snippet = _booklet_html_loading_snippet()
+    lower = body.lower()
+    idx = lower.rfind(b"</body>")
+    if idx >= 0:
+        return body[:idx] + snippet + body[idx:]
+    return body + snippet
+
+
+def _http_response_booklet_bytes(body: bytes, ctype: str) -> HttpResponse:
+    if ctype.startswith("text/html"):
+        body = _inject_booklet_html_loading(body)
+    resp = HttpResponse(body, content_type=ctype)
+    resp["Cache-Control"] = booklet_cache_control(settings)
+    return resp
+
+
 @require_GET
 def eurovision_booklet_pdf(request, filename: str):
-    _touch_eurovision_booklet_sync()
     if filename not in BOOKLET_PDF_FILENAMES:
         raise Http404()
     cache_path = (
@@ -368,28 +425,29 @@ def eurovision_booklet_pdf(request, filename: str):
     absolute_path = finders.find(
         f"microsites/eurovision_booklet/2026/{filename}"
     )
-    if not absolute_path:
-        dist = _booklet_dist_prefix(settings)
-        fetched = _fetch_github_raw_booklet(settings, f"{dist}/{filename}")
-        if fetched is not None:
-            body, _ctype = fetched
-            resp = FileResponse(
-                BytesIO(body),
-                content_type="application/pdf",
-                as_attachment=False,
-                filename=filename,
-            )
+    if absolute_path:
+        resp = FileResponse(open(absolute_path, "rb"), content_type="application/pdf")
+        try:
+            st = os.stat(absolute_path)
             resp["Cache-Control"] = cc
-            return resp
+            resp["Last-Modified"] = http_date(st.st_mtime)
+            resp["ETag"] = f'W/"{st.st_size:x}-{int(st.st_mtime):x}"'
+        except OSError:
+            resp["Cache-Control"] = cc
+        return resp
+    dist = _booklet_dist_prefix(settings)
+    fetched = _fetch_github_raw_booklet(settings, f"{dist}/{filename}")
+    if fetched is None:
         raise Http404()
-    resp = FileResponse(open(absolute_path, "rb"), content_type="application/pdf")
-    try:
-        st = os.stat(absolute_path)
-        resp["Cache-Control"] = cc
-        resp["Last-Modified"] = http_date(st.st_mtime)
-        resp["ETag"] = f'W/"{st.st_size:x}-{int(st.st_mtime):x}"'
-    except OSError:
-        resp["Cache-Control"] = cc
+    body, _ctype = fetched
+    _cache_booklet_bytes(filename, body)
+    resp = FileResponse(
+        BytesIO(body),
+        content_type="application/pdf",
+        as_attachment=False,
+        filename=filename,
+    )
+    resp["Cache-Control"] = cc
     return resp
 
 
@@ -536,16 +594,35 @@ def _resolve_booklet_html_bundle_file(settings, slug: str, relpath: str) -> Path
     return None
 
 
-def _file_response_booklet_asset(path: Path) -> FileResponse:
-    ctype, _enc = mimetypes.guess_type(path.name)
+def _guess_booklet_ctype(path_or_name: str | Path) -> str:
+    name = Path(path_or_name).name
+    ctype, _enc = mimetypes.guess_type(name)
     if not ctype:
         ctype = "application/octet-stream"
     if ctype == "text/html":
-        ctype = "text/html; charset=utf-8"
-    elif ctype == "text/css":
-        ctype = "text/css; charset=utf-8"
-    elif ctype == "application/javascript":
-        ctype = "text/javascript; charset=utf-8"
+        return "text/html; charset=utf-8"
+    if ctype == "text/css":
+        return "text/css; charset=utf-8"
+    if ctype == "application/javascript":
+        return "text/javascript; charset=utf-8"
+    return ctype
+
+
+def _file_response_booklet_asset(path: Path) -> HttpResponse:
+    ctype = _guess_booklet_ctype(path)
+    if ctype.startswith("text/html"):
+        try:
+            body = path.read_bytes()
+        except OSError as e:
+            raise Http404() from e
+        resp = _http_response_booklet_bytes(body, ctype)
+        try:
+            stat = path.stat()
+            resp["Last-Modified"] = http_date(stat.st_mtime)
+            resp["ETag"] = f'W/"{stat.st_size:x}-{int(stat.st_mtime):x}"'
+        except OSError:
+            pass
+        return resp
     resp = FileResponse(path.open("rb"), content_type=ctype)
     stat = path.stat()
     resp["Cache-Control"] = booklet_cache_control(settings)
@@ -556,7 +633,6 @@ def _file_response_booklet_asset(path: Path) -> FileResponse:
 
 @require_GET
 def eurovision_booklet_html_bundle(request, slug: str, relpath: str = "index.html"):
-    _touch_eurovision_booklet_sync()
     if slug not in BOOKLET_HTML_SLUGS:
         raise Http404()
     rel = (relpath or "").strip().strip("/") or "index.html"
@@ -571,9 +647,8 @@ def eurovision_booklet_html_bundle(request, slug: str, relpath: str = "index.htm
     fetched = _fetch_github_raw_booklet(settings, gh_rel)
     if fetched is not None:
         body, ctype = fetched
-        resp = HttpResponse(body, content_type=ctype)
-        resp["Cache-Control"] = booklet_cache_control(settings)
-        return resp
+        _cache_booklet_bytes(f"html/{slug}/{rel}", body)
+        return _http_response_booklet_bytes(body, ctype)
     probe = (
         Path(settings.BASE_DIR)
         / "var"
@@ -614,13 +689,15 @@ def _resolve_booklet_shared_asset_file(settings, relpath: str) -> Path | None:
 @require_GET
 def eurovision_booklet_shared_assets(request, relpath: str):
     """Serve booklet `assets/` (flags, photos) for relative URLs ../../../assets/… in HTML."""
-    _touch_eurovision_booklet_sync()
     resolved = _resolve_booklet_shared_asset_file(settings, relpath)
     if resolved is not None:
         return _file_response_booklet_asset(resolved)
     rel = relpath.strip().strip("/")
-    if rel and ".." not in Path(rel).parts:
-        raw_url = _booklet_github_raw_url(settings, f"assets/{rel}")
-        if raw_url:
-            return HttpResponseRedirect(raw_url)
-    raise Http404()
+    if not rel or ".." in Path(rel).parts:
+        raise Http404()
+    fetched = _fetch_github_raw_booklet(settings, f"assets/{rel}")
+    if fetched is None:
+        raise Http404()
+    body, ctype = fetched
+    _cache_booklet_bytes(f"assets/{rel}", body)
+    return _http_response_booklet_bytes(body, ctype)

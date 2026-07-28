@@ -15,7 +15,11 @@ from microsites.eurovision_booklet_sync import (
     booklet_is_frozen,
     ensure_eurovision_booklet_sync,
 )
-from microsites.views import _booklet_github_raw_url, _fetch_github_raw_booklet
+from microsites.views import (
+    _BOOKLET_HTML_LOADING_MARKER,
+    _booklet_github_raw_url,
+    _fetch_github_raw_booklet,
+)
 
 
 class BookletGithubFallbackTests(SimpleTestCase):
@@ -53,9 +57,8 @@ class BookletGithubFallbackTests(SimpleTestCase):
 
     @patch("microsites.views._resolve_booklet_html_bundle_file", return_value=None)
     @patch("microsites.views.urlopen")
-    @patch("microsites.views._touch_eurovision_booklet_sync")
     def test_html_bundle_proxies_from_github_when_local_missing(
-        self, mock_touch, mock_urlopen, mock_resolve
+        self, mock_urlopen, mock_resolve
     ):
         """Same-origin HTML so relative links stay on interoves.com."""
         sample = BOOKLET_HTML_SLUGS[0]
@@ -67,21 +70,31 @@ class BookletGithubFallbackTests(SimpleTestCase):
         mock_urlopen.return_value.__enter__.return_value = inner
         mock_urlopen.return_value.__exit__.return_value = False
 
+        td = tempfile.mkdtemp()
+        self.addCleanup(lambda: shutil.rmtree(td, ignore_errors=True))
         hosts = list(dj_settings.ALLOWED_HOSTS) + ["testserver"]
         with override_settings(
+            BASE_DIR=td,
             ALLOWED_HOSTS=hosts,
             EUROVISION_BOOKLET_GITHUB_REPO="owner/booklet-repo",
             EUROVISION_BOOKLET_GIT_BRANCH="main",
             EUROVISION_BOOKLET_DIST_PATH="dist",
             EUROVISION_BOOKLET_HTML_BASE_URL="",
+            EUROVISION_BOOKLET_PINNED_REF="",
+            EUROVISION_BOOKLET_AUTO_SYNC=True,
         ):
             c = Client()
             r = c.get(f"/eurovision_booklet/2026/html/{sample}/")
         self.assertEqual(r.status_code, 200)
         self.assertIn(b"gh", r.content)
+        self.assertIn(_BOOKLET_HTML_LOADING_MARKER.encode("ascii"), r.content)
         self.assertIn("no-store", r["Cache-Control"])
         called_url = mock_urlopen.call_args[0][0].full_url
         self.assertIn(f"/dist/html/{sample}/index.html", called_url)
+        cached = (
+            Path(td) / "var" / "eurovision_booklet" / "2026" / "html" / sample / "index.html"
+        )
+        self.assertTrue(cached.is_file())
 
     def test_fetch_github_overrides_text_plain_for_html_files(self):
         """GitHub raw returns text/plain for .html; we must serve text/html."""
@@ -106,12 +119,10 @@ class BookletGithubFallbackTests(SimpleTestCase):
 
     @patch("microsites.views.finders.find", return_value=None)
     @patch("microsites.views._fetch_github_raw_booklet")
-    @patch("microsites.views._touch_eurovision_booklet_sync")
-    def test_pdf_github_fallback_inline_not_redirect(
-        self, mock_touch, mock_fetch, mock_find
-    ):
+    def test_pdf_github_fallback_inline_not_redirect(self, mock_fetch, mock_find):
         """Missing local PDF is proxied from GitHub with inline disposition (open in tab)."""
-        mock_fetch.return_value = (b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n", "application/pdf")
+        pdf_bytes = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"
+        mock_fetch.return_value = (pdf_bytes, "application/pdf")
         td = tempfile.mkdtemp()
         self.addCleanup(lambda: shutil.rmtree(td, ignore_errors=True))
         hosts = list(dj_settings.ALLOWED_HOSTS) + ["testserver"]
@@ -127,6 +138,10 @@ class BookletGithubFallbackTests(SimpleTestCase):
         self.assertEqual(r["Content-Type"].split(";")[0].strip(), "application/pdf")
         cd = (r.get("Content-Disposition") or "").lower()
         self.assertNotIn("attachment", cd)
+        cached = Path(td) / "var" / "eurovision_booklet" / "2026" / "eurovision2026_en.pdf"
+        self.assertTrue(cached.is_file())
+        self.assertEqual(cached.read_bytes(), pdf_bytes)
+        mock_fetch.assert_called_once()
 
 
 class MicrositesUrlTests(SimpleTestCase):
@@ -176,6 +191,21 @@ class MicrositesUrlTests(SimpleTestCase):
         for _sid, title, _ru, _en in BOOKLET_MINISITE_SECTIONS:
             self.assertIn(title, content)
         self.assertEqual(len(BOOKLET_MINISITE_SECTIONS), 4)
+        self.assertIn("js-booklet-lazy", content)
+        self.assertIn("booklet-load-overlay", content)
+
+    @patch("microsites.eurovision_booklet_sync.ensure_eurovision_booklet_sync")
+    def test_landing_does_not_call_bulk_sync(self, mock_ensure):
+        hosts = list(dj_settings.ALLOWED_HOSTS) + ["testserver"]
+        with override_settings(
+            ALLOWED_HOSTS=hosts,
+            EUROVISION_BOOKLET_GITHUB_REPO="owner/repo",
+            EUROVISION_BOOKLET_PINNED_REF="abc123",
+            EUROVISION_BOOKLET_AUTO_SYNC=False,
+        ):
+            r = Client().get("/eurovision_booklet/2026/")
+        self.assertEqual(r.status_code, 200)
+        mock_ensure.assert_not_called()
 
     def test_eurovision_booklet_200_and_pdf_404(self):
         c = Client()
@@ -262,6 +292,7 @@ class MicrositesUrlTests(SimpleTestCase):
             r = c.get("/eurovision_booklet/2026/html/eurovision2026_sf1_ru/")
             self.assertEqual(r.status_code, 200)
             self.assertIn("no-store", r["Cache-Control"])
+            self.assertIn(_BOOKLET_HTML_LOADING_MARKER.encode("ascii"), r.content)
             self.assertTrue(r.get("ETag"))
             self.assertTrue(r.get("Last-Modified"))
             rc = c.get("/eurovision_booklet/2026/html/eurovision2026_sf1_ru/booklet.css")
@@ -346,3 +377,29 @@ class BookletFreezeTests(SimpleTestCase):
             m = ensure_eurovision_booklet_sync(_S())
         self.assertEqual(m, {})
         mock_gh.assert_not_called()
+
+
+class BookletLazyAssetProxyTests(SimpleTestCase):
+    @patch("microsites.views._resolve_booklet_shared_asset_file", return_value=None)
+    @patch("microsites.views._fetch_github_raw_booklet")
+    def test_shared_asset_proxied_and_cached(self, mock_fetch, mock_resolve):
+        mock_fetch.return_value = (b"\x89PNG\r\n", "image/png")
+        td = tempfile.mkdtemp()
+        self.addCleanup(lambda: shutil.rmtree(td, ignore_errors=True))
+        hosts = list(dj_settings.ALLOWED_HOSTS) + ["testserver"]
+        with override_settings(
+            BASE_DIR=td,
+            ALLOWED_HOSTS=hosts,
+            EUROVISION_BOOKLET_GITHUB_REPO="owner/repo",
+            EUROVISION_BOOKLET_PINNED_REF="abc",
+            EUROVISION_BOOKLET_AUTO_SYNC=False,
+        ):
+            r = Client().get("/eurovision_booklet/assets/flags/png/AL.png")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content, b"\x89PNG\r\n")
+        cached = (
+            Path(td) / "var" / "eurovision_booklet" / "2026" / "assets" / "flags" / "png" / "AL.png"
+        )
+        self.assertTrue(cached.is_file())
+        mock_fetch.assert_called_once()
+

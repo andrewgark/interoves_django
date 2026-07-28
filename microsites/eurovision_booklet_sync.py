@@ -7,8 +7,8 @@ repo root. Cached copies: BASE_DIR/var/eurovision_booklet/2026/ (PDFs, html/,
 assets/). See EUROVISION_BOOKLET_* settings and microsites.views.
 
 When EUROVISION_BOOKLET_PINNED_REF is set, artifacts are frozen at that commit:
-no branch-tip polling. EUROVISION_BOOKLET_AUTO_SYNC=False skips update checks;
-with a pin, an empty/incomplete var/ cache may still be filled once from the pin.
+no branch-tip polling. EUROVISION_BOOKLET_AUTO_SYNC=False skips update checks.
+Request paths fetch individual files into var/ on demand (no bulk sync).
 """
 
 from __future__ import annotations
