@@ -275,7 +275,7 @@ def build_results_snapshot_payload(game, mode='tournament'):
     Hint penalties are included because we rely on AttemptsInfo.get_result_points()
     and AttemptsInfo.get_sum_hint_penalty().
 
-    Sections (project_id=sections) do not use results tables; prefer not calling this for them.
+    Most sections do not freeze results; the ladder section uses live progressive tables instead.
     """
     # Use the same ordering/filtering rules as results pages.
     from django.db.models import Q
@@ -452,7 +452,7 @@ def build_results_snapshot_payload(game, mode='tournament'):
 
 
 def freeze_game_results(game, mode='tournament', overwrite=False):
-    # Sections (ladder, replacements, …) do not use results tables.
+    # Sections use live progressive tables (ladder) or have no standings; skip freeze.
     if getattr(game, 'project_id', None) == 'sections':
         return None, False
     obj = GameResultsSnapshot.objects.filter(game=game, mode=mode).first()

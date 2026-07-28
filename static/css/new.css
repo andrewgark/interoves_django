@@ -2350,6 +2350,29 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   opacity: 0.78;
 }
 
+/* Лесенки: узкие колонки — номер до 999, баллы до «99.5» (3–4 символа) */
+.new-results-table--ladder{
+  --results-col-ladder: calc(4.5ch + 0.5rem);
+}
+.new-results-table--ladder th.col-ladder,
+.new-results-table--ladder tbody td{
+  width: var(--results-col-ladder);
+  min-width: var(--results-col-ladder);
+  max-width: var(--results-col-ladder);
+  padding-left: 0.2rem;
+  padding-right: 0.2rem;
+  overflow: hidden;
+  text-overflow: clip;
+  font-variant-numeric: tabular-nums;
+}
+.new-results-table--ladder th.col-ladder a{
+  color: inherit;
+  text-decoration: none;
+}
+.new-results-table--ladder th.col-ladder a:hover{
+  text-decoration: underline;
+}
+
 .new-results-table th.col-score,
 .new-results-table td.col-score{
   text-align: left;

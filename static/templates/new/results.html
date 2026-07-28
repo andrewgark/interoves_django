@@ -32,7 +32,12 @@
     {% if section_results %}
     <div class="new-card" style="margin-top:0.75rem">
       <div class="new-card__text" style="margin:0">
-        Учитываются все посылки по заданиям этого раздела — и во время игры, и после.
+        {% if is_ladder_word_results %}
+          Каждая колонка — среднее слово лесенки. Подсказки: 1 = подсказка-переход, 2 = ответ.
+          Наведите на ячейку, чтобы увидеть взятые подсказки.
+        {% else %}
+          Учитываются все посылки по заданиям этого раздела — и во время игры, и после.
+        {% endif %}
       </div>
     </div>
     {% else %}
@@ -80,7 +85,7 @@
 
   <div class="new-results-fullbleed">
     <div class="new-results-wrap" role="region" aria-label="Таблица результатов">
-      <table class="new-results-table">
+      <table class="new-results-table{% if is_ladder_results %} new-results-table--ladder{% endif %}">
           <thead>
             <tr>
               <th class="is-sticky-left is-sticky-top">#</th>
@@ -89,12 +94,25 @@
               {% if mode == 'tournament' %}
                 <th class="is-sticky-left-4 is-sticky-top">Время</th>
               {% endif %}
-              {% for task_group in task_groups %}
-                <th class="is-sticky-top" colspan="{{ task_group.get_n_tasks_for_results }}">
-                  {% autoescape off %}{{ task_group.number }}. {{ task_group.name }}{% endautoescape %}
-                </th>
-              {% endfor %}
+              {% if is_ladder_word_results %}
+                {% for task_group in task_groups %}
+                  <th class="is-sticky-top col-ladder" colspan="{{ task_group.get_n_tasks_for_results }}">{{ task_group.number }}</th>
+                {% endfor %}
+              {% elif is_ladder_results %}
+                {% for task_group in task_groups %}
+                  <th class="is-sticky-top col-ladder" colspan="{{ task_group.get_n_tasks_for_results }}">
+                    <a href="/games/ladder/{{ task_group.number }}/">{{ task_group.number }}</a>
+                  </th>
+                {% endfor %}
+              {% else %}
+                {% for task_group in task_groups %}
+                  <th class="is-sticky-top" colspan="{{ task_group.get_n_tasks_for_results }}">
+                    {% autoescape off %}{{ task_group.number }}. {{ task_group.name }}{% endautoescape %}
+                  </th>
+                {% endfor %}
+              {% endif %}
             </tr>
+            {% if not is_ladder_results %}
             <tr>
               <th class="is-sticky-left is-sticky-top-2"></th>
               <th class="is-sticky-left-2 is-sticky-top-2"></th>
@@ -108,6 +126,7 @@
                 {% endfor %}
               {% endfor %}
             </tr>
+            {% endif %}
           </thead>
           <tbody id="results-tbody">
             {% if progressive_results %}

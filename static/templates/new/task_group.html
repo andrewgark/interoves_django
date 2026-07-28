@@ -2587,6 +2587,12 @@
 })();
 </script>
 
+{% if ladder_word_results_url %}
+  <p class="new-tg-results-link" style="margin:1.25rem 0 0; text-align:center">
+    <a href="{{ ladder_word_results_url }}" class="new-btn new-btn--ghost new-btn--mini">Результаты этой лесенки</a>
+  </p>
+{% endif %}
+
 {% if prev_task_group_url or next_task_group_url %}
 <nav class="new-tg-pager" aria-label="Переход между кругами">
   {% if prev_task_group_url %}

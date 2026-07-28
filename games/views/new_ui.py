@@ -38,6 +38,10 @@ from games.ladder_daily import (
     sort_ladder_links_newest_first,
     visible_ladder_links,
 )
+from games.ladder_word_results import (
+    build_ladder_word_results_context,
+    ladder_word_results_headers_context,
+)
 from games.section_hub import (
     SECTION_HUB_ORDER,
     get_desyatochki_hub_context,
@@ -87,6 +91,7 @@ from games.views.util import (
 from games.results_snapshot import (
     get_live_results_payload,
     results_attempts_scope_game,
+    snapshot_headers_context,
     snapshot_to_results_context,
 )
 from games.nowpayments_util import create_invoice as nowpayments_create_invoice
@@ -1406,12 +1411,36 @@ def _results_table_headers_context(game):
     }
 
 
+def _results_rows_empty_context():
+    return {
+        'teams_sorted': [],
+        'team_to_list_attempts_info': {},
+        'team_to_cells': {},
+        'team_to_score': {},
+        'team_to_place': {},
+        'team_to_max_best_time': {},
+    }
+
+
 def _load_game_results_data(game, mode):
     snap = GameResultsSnapshot.objects.filter(game=game, mode=mode).first()
     if snap and snap.payload:
         return snapshot_to_results_context(game, snap.payload)
     # Live path: short-TTL cached snapshot-shaped payload (shared across progressive pages).
     return snapshot_to_results_context(game, get_live_results_payload(game, mode))
+
+
+def _results_me_participants(request, play_mode):
+    me_personal = None
+    me_anon_participant = None
+    if play_mode == 'personal':
+        if request.user.is_authenticated:
+            me_personal = PersonalResultsParticipant(user=request.user)
+        else:
+            ak = _anon_key_from_request(request)
+            if ak:
+                me_anon_participant = PersonalResultsParticipant(anon_key=ak)
+    return me_personal, me_anon_participant
 
 
 def _new_results_compute(game, mode):
@@ -1676,8 +1705,163 @@ def new_tournament_results_page(request, game_id):
 
 
 def new_section_results_page(request, game_id):
-    """Sections (ladder, replacements, …) no longer have a results table — only desyatochki do."""
-    raise Http404()
+    """
+    Results table for section games.
+
+    Currently only the ladder section has a standings table; other sections 404.
+    """
+    if game_id != LADDER_GAME_ID:
+        raise Http404()
+
+    project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
+    if not project:
+        raise Http404()
+    game = Game.objects.filter(project=project, id=game_id).first()
+    if not game:
+        raise Http404()
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
+    if not game.has_access('see_results', mode='general', team=team):
+        raise Http404()
+
+    progressive_page_size = 50
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
+    me_personal, me_anon_participant = _results_me_participants(request, play_mode)
+
+    # Row data is loaded incrementally (?partial=1); initial response is headers only.
+    if request.GET.get('partial') == '1':
+        data = _load_game_results_data(game, mode='general')
+        data = _paginate_results_rows(request, data, per_page=progressive_page_size)
+        return render(request, 'new/partials/results_rows.html', {
+            'mode': 'general',
+            'section_results': True,
+            'is_ladder_results': True,
+            'game': game,
+            'team': team,
+            'me_personal': me_personal,
+            'me_anon_participant': me_anon_participant,
+            **data,
+        })
+
+    snap = GameResultsSnapshot.objects.filter(game=game, mode='general').first()
+    if snap and snap.payload:
+        header_data = snapshot_headers_context(snap.payload)
+    else:
+        header_data = _results_table_headers_context(game)
+    data = {**header_data, **_results_rows_empty_context()}
+
+    return render(request, 'ui/results.html', {
+        'mode': 'general',
+        'section_results': True,
+        'is_ladder_results': True,
+        'game': game,
+        'team': team,
+        'me_personal': me_personal,
+        'me_anon_participant': me_anon_participant,
+        'back_url': _sections_hub_url(game.id),
+        'progressive_results': True,
+        'progressive_page_size': progressive_page_size,
+        **data,
+        'play_mode': play_mode,
+        'play_mode_project_id': game.project_id,
+        'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
+        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'show_sections_nav': True,
+        **_project_urls_context(NEW_UI_PROJECT),
+    })
+
+
+def _ladder_raddle_task_for_placement(placement):
+    tasks = sorted(
+        placement.task_group.tasks.visible().filter(~Q(task_type='text_with_forms')),
+        key=lambda t: t.key_sort(),
+    )
+    for t in tasks:
+        if t.task_type == 'raddle':
+            return t
+    return tasks[0] if tasks else None
+
+
+def new_ladder_word_results_page(request, task_group_number):
+    """
+    Per-ladder standings: one column per middle word, hints 1/2 = clue/answer assists.
+    URL: /games/ladder/<N>/results/
+    """
+    project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
+    if not project:
+        raise Http404()
+    game = Game.objects.filter(project=project, id=LADDER_GAME_ID).first()
+    if not game:
+        raise Http404()
+
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
+    if not game.has_access('see_results', mode='general', team=team):
+        raise Http404()
+    if not is_ladder_number_published(game, task_group_number):
+        raise Http404()
+
+    placement = (
+        GameTaskGroup.objects.select_related('task_group')
+        .filter(game=game, number=str(task_group_number))
+        .first()
+    )
+    if not placement:
+        raise Http404()
+    task = _ladder_raddle_task_for_placement(placement)
+    if not task:
+        raise Http404()
+
+    progressive_page_size = 50
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
+    me_personal, me_anon_participant = _results_me_participants(request, play_mode)
+
+    ladder_title = placement.name or 'Лесенка №{}'.format(placement.number)
+    back_url = '/games/{}/{}/'.format(LADDER_GAME_ID, placement.number)
+
+    if request.GET.get('partial') == '1':
+        data = build_ladder_word_results_context(game, placement, task)
+        data = _paginate_results_rows(request, data, per_page=progressive_page_size)
+        return render(request, 'new/partials/results_rows.html', {
+            'mode': 'general',
+            'section_results': True,
+            'is_ladder_results': True,
+            'is_ladder_word_results': True,
+            'game': game,
+            'team': team,
+            'me_personal': me_personal,
+            'me_anon_participant': me_anon_participant,
+            **data,
+        })
+
+    header_data = ladder_word_results_headers_context(task)
+    data = {**header_data, **_results_rows_empty_context()}
+
+    return render(request, 'ui/results.html', {
+        'mode': 'general',
+        'section_results': True,
+        'is_ladder_results': True,
+        'is_ladder_word_results': True,
+        'ladder_number': placement.number,
+        'game': game,
+        'team': team,
+        'me_personal': me_personal,
+        'me_anon_participant': me_anon_participant,
+        'back_url': back_url,
+        'progressive_results': True,
+        'progressive_page_size': progressive_page_size,
+        **data,
+        'play_mode': play_mode,
+        'play_mode_project_id': game.project_id,
+        'page_title': 'Результаты · {}'.format(ladder_title),
+        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'show_sections_nav': True,
+        **_project_urls_context(NEW_UI_PROJECT),
+    })
 
 
 def build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode):
@@ -1994,6 +2178,11 @@ def new_task_group_page(request, game_id, task_group_number):
         'next_task_group_url': '/games/{}/{}/'.format(game.id, next_tg.number) if next_tg else None,
         'tg_number': placement.number,
         'tg_name': placement.name,
+        'ladder_word_results_url': (
+            '/games/ladder/{}/results/'.format(placement.number)
+            if game.id == LADDER_GAME_ID
+            else None
+        ),
         'back_url': (
             _sections_hub_url(game.id)
             if game.project_id == NEW_UI_SECTIONS_PROJECT

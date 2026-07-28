@@ -2,17 +2,17 @@
 {% for t in teams_sorted %}
   <tr class="{% if team and team == t %}is-me{% elif me_personal and me_personal == t %}is-me{% elif me_anon_participant and me_anon_participant == t %}is-me{% endif %}">
     <th class="is-sticky-left">{{ team_to_place|get_item:t }}</th>
-    <th class="is-sticky-left-2 col-team" title="{{ t.visible_name|escape }}">{% if t.is_team_results_row %}👥 {% else %}👤 {% endif %}{{ t.visible_name }}</th>
+    <th class="is-sticky-left-2 col-team" title="{{ t.visible_name|escape }}">{% if t.is_team_results_row %}👥{% elif t.anon_key %}👻{% else %}👤{% endif %} {{ t.visible_name }}</th>
     <th class="is-sticky-left-3 col-score">{{ team_to_score|get_item:t|minimize_digits }}</th>
     {% if mode == 'tournament' %}
       <th class="is-sticky-left-4">{{ team_to_max_best_time|get_item:t|date:'H:i' }}</th>
     {% endif %}
     {% for cell in team_to_cells|get_item:t %}
-      <td class="{{ cell.cls }}">
+      <td class="{{ cell.cls }}"{% if is_ladder_results and cell.hint_numbers %} title="Подсказки: {{ cell.hint_numbers|join:', ' }}"{% endif %}>
         {% if cell.n_attempts|default:0 > 0 %}
           {{ cell.result_points|minimize_digits }}
         {% endif %}
-        {% if cell.hint_numbers %}
+        {% if cell.hint_numbers and not is_ladder_results %}
           <sup class="hint-numbers">{{ cell.hint_numbers|join:", " }}</sup>
         {% endif %}
       </td>

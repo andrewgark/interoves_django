@@ -17,6 +17,7 @@ urlpatterns = [
     path('games/ladder/today/', ui.ladder_today_page, name='new_ladder_today'),
     path('games/ladder/last/', ui.ladder_last_page, name='new_ladder_last'),
     path('games/ladder/', ui.ladder_hub_page, name='new_ladder_hub'),
+    path('games/ladder/<str:task_group_number>/results/', ui.ladder_word_results_page, name='new_ladder_word_results'),
     path('games/<str:game_id>/progress/', ui.game_task_group_progress, name='new_game_progress'),
     path('games/<str:game_id>/', ui.main_game_page, name='new_main_game'),
     path('games/<str:game_id>/results/', ui.results_page, name='new_results'),
