@@ -70,23 +70,43 @@
       </div>
     </div>
 
-    <div class="ym-payment-btn-block ym-before-line ym-align-space-between" style="padding-top:0.75rem">
-      <button type="submit" class="ym-btn-pay ym-result-price" data-text="Оплатить">
-        <span class="ym-text-crop">Оплатить</span>
-        <span class="ym-price-output">{{ ticket_price }},00&nbsp;₽</span>
-      </button>
     </div>
+
+    <p class="new-pay-total" style="margin:0.75rem 0 0">
+      Итого: <strong class="new-pay-total__amount ym-price-output">{{ ticket_price }},00&nbsp;₽</strong>
+    </p>
   </form>
 
-  <div style="margin-top:0.75rem; display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center">
-    <button type="button" id="new-pay-crypto-btn" class="new-btn new-btn--ghost">Оплатить криптой</button>
+  <div class="new-pay-methods" role="group" aria-label="Способ оплаты">
+    <button type="button" id="new-pay-card-btn" class="new-btn new-pay-method-btn">
+      <span class="new-pay-method-btn__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
+          <circle cx="12" cy="12" r="11" fill="#fff" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+          <clipPath id="new-pay-ru-clip"><circle cx="12" cy="12" r="10"/></clipPath>
+          <g clip-path="url(#new-pay-ru-clip)">
+            <rect x="2" y="2" width="20" height="6.67" fill="#fff"/>
+            <rect x="2" y="8.67" width="20" height="6.66" fill="#0039a6"/>
+            <rect x="2" y="15.33" width="20" height="6.67" fill="#d52b1e"/>
+          </g>
+        </svg>
+      </span>
+      <span class="new-pay-method-btn__label">Оплатить российской картой</span>
+    </button>
+    <button type="button" id="new-pay-crypto-btn" class="new-btn new-pay-method-btn">
+      <span class="new-pay-method-btn__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
+          <circle cx="12" cy="12" r="11" fill="#f7931a"/>
+          <path fill="#fff" d="M14.2 11.4c.75-.4 1.25-1.05 1.25-1.95 0-1.35-1.05-2.25-2.85-2.45V5.7h-1.35v1.25h-1.1V5.7H8.8v1.25H6.9v1.45h.85c.45 0 .7.2.7.65v6.05c0 .45-.2.65-.7.65H6.9v1.45h1.9v1.25h1.35v-1.25h1.1v1.25h1.35v-1.3c2.05-.2 3.3-1.25 3.3-2.95 0-1.15-.65-1.95-1.7-2.35zm-3.45-3.2h1.35c.95 0 1.5.4 1.5 1.15s-.55 1.2-1.55 1.2h-1.3V8.2zm1.55 5.95h-1.55v-2.5h1.55c1.1 0 1.7.45 1.7 1.25s-.6 1.25-1.7 1.25z"/>
+        </svg>
+      </span>
+      <span class="new-pay-method-btn__label">Оплатить криптой</span>
+    </button>
   </div>
 
-  <br>
-  <div id="new-yookassa-widget" style="margin-top:0.75rem"></div>
-  <br>
-  <div id="new-nowpayments-widget" style="margin-top:0.75rem"></div>
-  <br>
+  <div id="new-pay-widget-host" class="new-pay-widget-host" hidden>
+    <div id="new-yookassa-widget"></div>
+    <div id="new-nowpayments-widget"></div>
+  </div>
   <div id="new-yookassa-msg" class="new-login-hint" style="margin:0.5rem 0 0"></div>
 
   <script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
@@ -95,12 +115,29 @@
     var form = document.getElementById('new-pay-ticket-form');
     var mount = document.getElementById('new-yookassa-widget');
     var cryptoMount = document.getElementById('new-nowpayments-widget');
+    var widgetHost = document.getElementById('new-pay-widget-host');
+    var cardBtn = document.getElementById('new-pay-card-btn');
     var cryptoBtn = document.getElementById('new-pay-crypto-btn');
     var msg = document.getElementById('new-yookassa-msg');
-    if (!form || !mount) return;
+    if (!form || !mount || !cardBtn) return;
 
     var checkout = null;
     function setMsg(t) { if (msg) msg.textContent = t || ''; }
+
+    function setBusy(busy) {
+      cardBtn.disabled = !!busy;
+      if (cryptoBtn) cryptoBtn.disabled = !!busy;
+    }
+
+    function hideWidgets() {
+      if (widgetHost) widgetHost.hidden = true;
+      mount.innerHTML = '';
+      if (cryptoMount) cryptoMount.innerHTML = '';
+    }
+
+    function showWidgetHost() {
+      if (widgetHost) widgetHost.hidden = false;
+    }
 
     function getCsrfToken() {
       var match = document.cookie.match(/csrftoken=([^;]+)/);
@@ -149,12 +186,10 @@
       });
     }
 
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
+    cardBtn.addEventListener('click', function () {
       setMsg('Создаём платёж…');
-      var btn = form.querySelector('button[type=submit]');
-      if (btn) btn.disabled = true;
-      if (cryptoBtn) cryptoBtn.disabled = true;
+      setBusy(true);
+      hideWidgets();
       fetch(form.action, {
         method: 'POST',
         headers: {
@@ -164,8 +199,7 @@
         body: new FormData(form),
         credentials: 'same-origin',
       }).then(parseJsonResponse).then(function (res) {
-          if (btn) btn.disabled = false;
-          if (cryptoBtn) cryptoBtn.disabled = false;
+          setBusy(false);
           var data = res.data;
           if (res.nonJson) {
             setMsg('Сервер вернул неожиданный ответ (код ' + res.r.status + '). Обновите страницу и попробуйте снова.');
@@ -176,8 +210,7 @@
             return;
           }
           setMsg('');
-          if (cryptoMount) cryptoMount.innerHTML = '';
-          mount.innerHTML = '';
+          showWidgetHost();
           try {
             checkout = new window.YooMoneyCheckoutWidget({
               confirmation_token: data.confirmation_token,
@@ -192,8 +225,7 @@
           }
         })
         .catch(function () {
-          if (btn) btn.disabled = false;
-          if (cryptoBtn) cryptoBtn.disabled = false;
+          setBusy(false);
           setMsg('Ошибка сети.');
         });
     });
@@ -201,21 +233,18 @@
     if (cryptoBtn && cryptoMount) {
       cryptoBtn.addEventListener('click', function () {
         setMsg('Создаём крипто-платёж…');
-        var btn = form.querySelector('button[type=submit]');
-        if (btn) btn.disabled = true;
-        cryptoBtn.disabled = true;
-        var body = new FormData(form);
+        setBusy(true);
+        hideWidgets();
         fetch('{% url "new_create_crypto_ticket_payment" %}', {
           method: 'POST',
           headers: {
             'X-Requested-With': 'XMLHttpRequest',
             'X-CSRFToken': getCsrfToken(),
           },
-          body: body,
+          body: new FormData(form),
           credentials: 'same-origin',
         }).then(parseJsonResponse).then(function (res) {
-          if (btn) btn.disabled = false;
-          cryptoBtn.disabled = false;
+          setBusy(false);
           var data = res.data;
           if (res.nonJson) {
             setMsg('Сервер вернул неожиданный ответ (код ' + res.r.status + '). Обновите страницу и попробуйте снова.');
@@ -226,9 +255,8 @@
             return;
           }
           setMsg('Оплатите в виджете ниже. После подтверждения сети билеты появятся у команды автоматически.');
-          mount.innerHTML = '';
+          showWidgetHost();
           var src = data.embed_url || ('https://nowpayments.io/embeds/payment-widget?iid=' + encodeURIComponent(data.invoice_id));
-          cryptoMount.innerHTML = '';
           var iframe = document.createElement('iframe');
           iframe.src = src;
           iframe.width = '410';
@@ -239,8 +267,7 @@
           iframe.style.maxWidth = '100%';
           cryptoMount.appendChild(iframe);
         }).catch(function () {
-          if (btn) btn.disabled = false;
-          cryptoBtn.disabled = false;
+          setBusy(false);
           setMsg('Ошибка сети.');
         });
       });
