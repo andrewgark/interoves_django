@@ -721,7 +721,7 @@ def new_hub(request):
             {
                 'kind': 'nutrimatic',
                 'title': 'Nutrimatic',
-                'note': 'поиск слов/выражений из русской википедии по маске',
+                'note': 'поиск слов по маске',
                 'href': '/nutrimatic-ru/',
             },
             {
