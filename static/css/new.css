@@ -1162,10 +1162,27 @@ html.new-ui-dark .new-team-switcher-active-box {
 
 .new-pay-widget-host {
   margin-top: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .new-pay-widget-host[hidden] {
   display: none !important;
+}
+
+#new-yookassa-widget,
+#new-nowpayments-widget {
+  width: 100%;
+  max-width: 410px;
+  display: flex;
+  justify-content: center;
+}
+
+#new-nowpayments-widget iframe {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
 }
 
 .new-taskcard {
