@@ -138,7 +138,11 @@
     <div class="new-community-links">
       {% for link in interesting_links %}
         <a class="new-link-dotted new-community-link" href="{{ link.href }}" {% if link.href|slice:":4" == "http" %}target="_blank" rel="noopener noreferrer"{% endif %}>
-          {% if link.kind == 'vpn' %}
+          {% if link.kind == 'nutrimatic' %}
+            <i class="fa fa-search" aria-hidden="true"></i>
+          {% elif link.kind == 'eurovision' %}
+            <i class="fa fa-music" aria-hidden="true"></i>
+          {% elif link.kind == 'vpn' %}
             <i class="fa fa-shield" aria-hidden="true"></i>
           {% endif %}
           {{ link.title }}{% if link.note %} <span class="new-community-link__note">({{ link.note }})</span>{% endif %}
