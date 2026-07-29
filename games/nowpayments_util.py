@@ -56,6 +56,12 @@ def embed_url_for_invoice(invoice_id: str | int) -> str:
     return f'{NOWPAYMENTS_EMBED_BASE}?iid={invoice_id}'
 
 
+def nowpayments_ipn_callback_url() -> str:
+    """Stable public IPN URL (prefer SITE_BASE_URL over request.build_absolute_uri behind proxies)."""
+    base = (getattr(settings, 'SITE_BASE_URL', None) or 'https://interoves.com').rstrip('/')
+    return f'{base}/nowpayments/ipn/'
+
+
 def _sort_object(value: Any) -> Any:
     """Recursively sort dict keys for IPN HMAC (NOWPayments docs)."""
     if isinstance(value, dict):

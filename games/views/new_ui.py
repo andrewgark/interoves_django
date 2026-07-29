@@ -97,6 +97,7 @@ from games.results_snapshot import (
 )
 from games.nowpayments_util import create_invoice as nowpayments_create_invoice
 from games.nowpayments_util import embed_url_for_invoice
+from games.nowpayments_util import nowpayments_ipn_callback_url
 from games.yookassa_util import configure_yookassa_from_env
 
 from yookassa import Payment
@@ -3155,7 +3156,7 @@ def new_create_crypto_ticket_payment(request):
         team_label = (getattr(team, 'visible_name', None) or getattr(team, 'name', None) or str(team.pk))
         payment_description = f'Билеты для команды {team_label} (request {ticket_request.id})'
         return_url = request.build_absolute_uri('/pay/?payment=crypto_return')
-        ipn_url = request.build_absolute_uri('/nowpayments/ipn/')
+        ipn_url = nowpayments_ipn_callback_url()
 
         invoice = nowpayments_create_invoice(
             price_amount=amount_rub,
@@ -3315,7 +3316,7 @@ def new_create_crypto_donation(request):
         )
         remember_donation_in_session(request, donation.id)
         return_url = request.build_absolute_uri('/donate/?payment=crypto_return')
-        ipn_url = request.build_absolute_uri('/nowpayments/ipn/')
+        ipn_url = nowpayments_ipn_callback_url()
         invoice = nowpayments_create_invoice(
             price_amount=amount_rub,
             price_currency='rub',

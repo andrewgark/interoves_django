@@ -295,6 +295,39 @@ class NowPaymentsDonationIpnTests(TestCase):
         self.assertIsNotNone(donation.confirmed_at)
         notify_mock.assert_called_once()
 
+    @patch('games.views.ticket.transaction.on_commit', side_effect=lambda fn: fn())
+    @patch('games.telegram.notify.notify_donation_event')
+    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    def test_finished_without_order_id_resolves_via_invoice_id(self, _verify, notify_mock, _on_commit):
+        donation = Donation.objects.create(
+            amount_rub=1000,
+            status='Pending',
+            nowpayments_id='6084341354',
+        )
+        response = self._post_ipn({
+            'payment_id': 5210399993,
+            'invoice_id': '6084341354',
+            'payment_status': 'finished',
+            'pay_amount': '12.5',
+            'pay_currency': 'usdttrc20',
+        })
+        self.assertEqual(response.status_code, 200)
+        donation.refresh_from_db()
+        self.assertEqual(donation.status, 'Confirmed')
+        self.assertEqual(donation.pay_currency, 'usdttrc20')
+        notify_mock.assert_called_once()
+
+    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    def test_finished_without_order_id_or_invoice_is_ignored(self, _verify):
+        donation = Donation.objects.create(amount_rub=100, status='Pending', nowpayments_id='inv-x')
+        response = self._post_ipn({
+            'payment_id': 99,
+            'payment_status': 'finished',
+        })
+        self.assertEqual(response.status_code, 200)
+        donation.refresh_from_db()
+        self.assertEqual(donation.status, 'Pending')
+
     @patch('games.views.ticket.verify_ipn_signature', return_value=True)
     def test_failed_rejects_donation(self, _verify):
         donation = Donation.objects.create(amount_rub=100, status='Pending')

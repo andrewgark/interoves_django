@@ -269,12 +269,31 @@ def _nowpayments_handle_ticket_ipn(*, payment_status, order_id, np_id, payment_i
     return HttpResponse(status=200)
 
 
+def _resolve_order_id_from_invoice(invoice_id) -> str | None:
+    """Map NOWPayments invoice_id to our order_id when the IPN omits order_id."""
+    if invoice_id is None or invoice_id == '':
+        return None
+    key = str(invoice_id)
+    from games.donation_service import donation_order_id
+    from games.models import Donation
+
+    donation = Donation.objects.filter(nowpayments_id=key).only('id').first()
+    if donation is not None:
+        return donation_order_id(donation.id)
+
+    ticket = TicketRequest.objects.filter(nowpayments_id=key).only('id').first()
+    if ticket is not None:
+        return str(ticket.id)
+    return None
+
+
 @csrf_exempt
 def nowpayments_ipn(request):
     """
     NOWPayments Instant Payment Notification.
 
     Routes donation-* order_id to Donation; otherwise TicketRequest by numeric id.
+    If order_id is missing, falls back to Donation/TicketRequest.nowpayments_id == invoice_id.
     """
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -297,18 +316,24 @@ def nowpayments_ipn(request):
         return HttpResponse(status=503)
 
     payment_status = (event_json.get('payment_status') or '').lower()
-    order_id = event_json.get('order_id')
+    raw_order_id = event_json.get('order_id')
+    order_id = str(raw_order_id).strip() if raw_order_id is not None else ''
+    order_id = order_id or None
     payment_id = event_json.get('payment_id')
     invoice_id = event_json.get('invoice_id')
     np_id = str(invoice_id or payment_id or '') or None
 
     if not order_id:
-        logger.warning(
-            'nowpayments_ipn: missing order_id payment_id=%s status=%s',
-            payment_id,
-            payment_status,
-        )
-        return HttpResponse(status=200)
+        # Invoice→payment widget IPNs often omit order_id; resolve via stored invoice id.
+        order_id = _resolve_order_id_from_invoice(invoice_id)
+        if not order_id:
+            logger.warning(
+                'nowpayments_ipn: missing order_id payment_id=%s invoice_id=%s status=%s',
+                payment_id,
+                invoice_id,
+                payment_status,
+            )
+            return HttpResponse(status=200)
 
     from games.donation_service import DONATION_ORDER_PREFIX
 
