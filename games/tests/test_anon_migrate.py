@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from games.models import (
     Attempt,
+    ChainTaskState,
     CheckerType,
     Game,
     GameTaskGroup,
@@ -113,6 +114,62 @@ class AnonMigrateTests(TestCase):
         self.assertEqual(payload['anon_key'], self.anon_key)
         self.assertEqual(payload['moved'], 2)
         self.assertEqual(payload['moved_hints'], 1)
+
+    def test_migrate_moves_chain_task_state(self):
+        """После логина CTS должен переехать на user — иначе raddle чекер сбрасывает прогресс."""
+        state_json = '{"solved_indices": [0, 1, 2, 12], "used_hints": [0, 1], "total": 0.5}'
+        ChainTaskState.objects.create(
+            anon_key=self.anon_key,
+            task=self.task,
+            game=self.game,
+            game_mode='general',
+            state=state_json,
+        )
+        url = reverse('new_migrate_anon_attempts')
+        resp = self.client.post(url, {'anon_key': self.anon_key})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['moved_states'], 1)
+
+        self.assertFalse(
+            ChainTaskState.objects.filter(anon_key=self.anon_key).exists(),
+        )
+        row = ChainTaskState.objects.get(
+            user=self.user, task=self.task, game=self.game, game_mode='general',
+        )
+        self.assertIsNone(row.anon_key)
+        self.assertEqual(row.state, state_json)
+        payload = StatisticsEvent.objects.get(
+            kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
+            user=self.user,
+        ).payload
+        self.assertEqual(payload['moved_states'], 1)
+
+    def test_migrate_merges_richer_anon_state_over_user(self):
+        ChainTaskState.objects.create(
+            user=self.user,
+            task=self.task,
+            game=self.game,
+            game_mode='general',
+            state='{"solved_indices": [0, 12], "total": 0}',
+        )
+        ChainTaskState.objects.create(
+            anon_key=self.anon_key,
+            task=self.task,
+            game=self.game,
+            game_mode='general',
+            state='{"solved_indices": [0, 1, 2, 12], "total": 0.5}',
+        )
+        resp = self.client.post(
+            reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
+        )
+        self.assertEqual(resp.json()['moved_states'], 1)
+        row = ChainTaskState.objects.get(
+            user=self.user, task=self.task, game=self.game, game_mode='general',
+        )
+        import json
+        self.assertEqual(json.loads(row.state)['solved_indices'], [0, 1, 2, 12])
+        self.assertFalse(ChainTaskState.objects.filter(anon_key=self.anon_key).exists())
 
     def test_migrate_count_endpoint(self):
         url = reverse('new_anon_migrate_count')

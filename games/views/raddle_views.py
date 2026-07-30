@@ -23,6 +23,19 @@ from games.views.track import track_task_change
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
 
 
+def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_key=None, task=None, game=None):
+    """load_raddle_state из CTS; если пусто — из последней Attempt.state (после anon-migrate)."""
+    if row.state:
+        return load_raddle_state(row.state, n_words)
+    attempts = Attempt.manager.get_all_attempts(
+        team=team, task=task, user=user, anon_key=anon_key, game=game,
+    )
+    for a in reversed(attempts):
+        if a.state:
+            return load_raddle_state(a.state, n_words)
+    return load_raddle_state(None, n_words)
+
+
 def _actor_from_request(request, game):
     play_mode = _get_play_mode(request, game)
     play_mode = effective_play_mode(play_mode, game)
@@ -62,7 +75,9 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
             team=team, user=user, anon_key=anon_key,
             task=task, game=game, game_mode=current_mode,
         )
-        state = load_raddle_state(row.state, n)
+        state = _chain_state_with_attempt_fallback(
+            row, n, team=team, user=user, anon_key=anon_key, task=task, game=game,
+        )
         if word_index in set(state.get('solved_indices') or []):
             return {'status': 'already_solved'}
         if word_index not in playable_word_indices(state, n):
@@ -155,7 +170,9 @@ def process_send_raddle_assist(request, task_id):
             team=team, user=user, anon_key=anon_key,
             task=task, game=game, game_mode=current_mode,
         )
-        state = load_raddle_state(chain_row.state, n)
+        state = _chain_state_with_attempt_fallback(
+            chain_row, n, team=team, user=user, anon_key=anon_key, task=task, game=game,
+        )
         if word_index in set(state.get('solved_indices') or []):
             return {'status': 'already_solved'}
         playable = playable_word_indices(state, n)

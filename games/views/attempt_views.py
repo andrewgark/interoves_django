@@ -53,7 +53,19 @@ def check_attempt(attempt):
                 team, task, attempt.time, mode, user=user, anon_key=anon_key, game=game,
             )
 
-            if not is_chain_task and mode == 'general' and attempts:
+            # Пустой ChainTaskState после anon-migrate: подтянуть state из попыток
+            # текущего режима (не general→tournament — иначе ломается изоляция).
+            if (
+                is_chain_task
+                and last_attempt_state is None
+                and mode == current_mode
+                and attempts
+            ):
+                for prev in reversed(attempts):
+                    if prev.state:
+                        last_attempt_state = prev.state
+                        break
+            elif not is_chain_task and mode == 'general' and attempts:
                 if last_attempt_state is None:
                     last_attempt_state = attempts[-1].state
 

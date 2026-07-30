@@ -52,6 +52,7 @@ from games.models import (
     Attempt,
     AudioManager,
     BugReport,
+    ChainTaskState,
     Donation,
     Game,
     GameTaskGroup,
@@ -2048,7 +2049,27 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             ai = attempts_info_by_task_id.get(t.id)
             raddle_hint_attempts = ai.hint_attempts if ai else []
             state = load_raddle_state(None, parsed['n_words'])
-            if ai and ai.attempts:
+            # Предпочитаем ChainTaskState (источник правды для чекера); иначе Attempt.state.
+            if game is not None:
+                cts_qs = ChainTaskState.objects.filter(task=t, game=game)
+                if team is not None:
+                    cts_qs = cts_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
+                elif user is not None:
+                    cts_qs = cts_qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
+                elif anon_key is not None:
+                    cts_qs = cts_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
+                else:
+                    cts_qs = cts_qs.none()
+                play_mode_key = 'tournament' if mode == 'tournament' else 'general'
+                cts = cts_qs.filter(game_mode=play_mode_key).first()
+                if cts and cts.state:
+                    state = load_raddle_state(cts.state, parsed['n_words'])
+                elif ai and ai.attempts:
+                    for a in reversed(ai.attempts):
+                        if a.state:
+                            state = load_raddle_state(a.state, parsed['n_words'])
+                            break
+            elif ai and ai.attempts:
                 for a in reversed(ai.attempts):
                     if a.state:
                         state = load_raddle_state(a.state, parsed['n_words'])
@@ -2693,15 +2714,23 @@ def new_migrate_anon_attempts(request):
         user=request.user,
         anon_key=None,
     )
-    if moved or moved_hints:
+    from games.anon_migrate import migrate_anon_chain_task_states
+    moved_states = migrate_anon_chain_task_states(request.user, anon_key)
+    if moved or moved_hints or moved_states:
         StatisticsEvent.record(
             StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
             user=request.user,
             anon_key=anon_key,
             moved=moved,
             moved_hints=moved_hints,
+            moved_states=moved_states,
         )
-    return JsonResponse({'status': 'ok', 'moved': moved, 'moved_hints': moved_hints})
+    return JsonResponse({
+        'status': 'ok',
+        'moved': moved,
+        'moved_hints': moved_hints,
+        'moved_states': moved_states,
+    })
 
 
 class ProfileSettingsForm(ModelForm):
