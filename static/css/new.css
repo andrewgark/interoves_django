@@ -4488,6 +4488,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   z-index: 2;
   min-width: 0;
 }
+.new-alphabetty__prefix-side[hidden] {
+  display: none !important;
+}
 
 .new-alphabetty__block--after {
   grid-column: 2;
