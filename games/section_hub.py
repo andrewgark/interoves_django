@@ -25,11 +25,10 @@ from games.week_task_weekly import (
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 
-# alphabetty временно убран с главной (тестируем по прямой ссылке).
-SECTION_HUB_ORDER = ('ladder', 'replacements', 'walls', 'palindromes')
+SECTION_HUB_ORDER = ('ladder', 'alphabetty', 'replacements', 'walls', 'palindromes')
 
 # Группы карточек на главной (порядок внутри группы).
-HUB_DAILY_SECTION_IDS = ('ladder',)
+HUB_DAILY_SECTION_IDS = ('ladder', 'alphabetty')
 HUB_FROM_DESYATOCHKI_SECTION_IDS = ('week_task', 'replacements', 'walls', 'palindromes')
 WEEK_TASK_HUB_ID = WEEK_TASK_GAME_ID
 
