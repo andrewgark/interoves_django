@@ -276,6 +276,9 @@ def _resolve_game_page_actor(request, play_mode):
 def _play_url_for_task_group(game, number, *, project_base=''):
     if project_base:
         return '{}/games/{}/{}/'.format(project_base, game.id, number)
+    from games.section_paths import is_root_section_game, section_play_path
+    if is_root_section_game(game.id):
+        return section_play_path(game.id, number)
     return '/games/{}/{}/'.format(game.id, number)
 
 
@@ -402,12 +405,15 @@ def _game_page_progress_context(request, game, play_mode):
     )
     url = None
     if load:
-        # Sections and main games use site-root /games/… URLs; other projects are scoped.
+        from games.section_paths import is_root_section_game, section_progress_path
+        # Sections and main games use site-root URLs; other projects are scoped.
         if game.project_id not in (NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT):
             url = reverse('project_game_progress', kwargs={
                 'project_id': game.project_id,
                 'game_id': game.id,
             })
+        elif is_root_section_game(game.id):
+            url = section_progress_path(game.id)
         else:
             url = reverse('ui_game_progress', kwargs={'game_id': game.id})
     return {
@@ -702,11 +708,8 @@ def _get_ladder_game():
 
 def _sections_hub_url(game_id):
     """Canonical public URL for a sections-project game hub."""
-    if game_id == LADDER_GAME_ID:
-        return '/games/{}/'.format(LADDER_GAME_ID)
-    if game_id == ALPHABETTY_GAME_ID:
-        return '/games/{}/'.format(ALPHABETTY_GAME_ID)
-    return '/section/{}/'.format(game_id)
+    from games.section_paths import section_hub_path
+    return section_hub_path(game_id)
 
 
 def _ladder_published_numbers(game):
@@ -1310,7 +1313,7 @@ def new_ladder_last_page(request):
 
 
 def new_ladder_hub_page(request):
-    """Архив лесенок: /games/ladder/ (канонический URL вместо /section/ladder/)."""
+    """Архив лесенок: /ladder/ (канонический URL вместо /games/ladder/ и /section/ladder/)."""
     return _render_section_game_page(request, LADDER_GAME_ID)
 
 
@@ -1909,7 +1912,7 @@ def _ladder_raddle_task_for_placement(placement):
 def new_ladder_word_results_page(request, task_group_number):
     """
     Per-ladder standings: one column per middle word, hints 1/2 = clue/answer assists.
-    URL: /games/ladder/<N>/results/
+    URL: /ladder/<N>/results/
     """
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
     if not project:
@@ -1943,7 +1946,7 @@ def new_ladder_word_results_page(request, task_group_number):
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
 
     ladder_title = placement.name or 'Лесенка №{}'.format(placement.number)
-    back_url = '/games/{}/{}/'.format(LADDER_GAME_ID, placement.number)
+    back_url = _play_url_for_task_group(game, placement.number)
 
     if request.GET.get('partial') == '1':
         data = build_ladder_word_results_context(game, placement, task)
@@ -2272,7 +2275,7 @@ def new_task_group_page(request, game_id, task_group_number):
     if not placement:
         fallback = GameTaskGroup.nearest_by_number(game, task_group_number)
         if fallback:
-            return redirect('new_task_group', game_id=game.id, task_group_number=fallback.number)
+            return redirect(_play_url_for_task_group(game, fallback.number))
         raise Http404()
     task_group = placement.task_group
     if game.id == LADDER_GAME_ID:
@@ -2307,6 +2310,7 @@ def new_task_group_page(request, game_id, task_group_number):
         des = src.get('desyatka_label') or src.get('game_id')
         if des:
             week_task_source_line = 'из {}'.format(des)
+    from games.section_paths import ladder_word_results_path
     return render(request, 'ui/task_group.html', {
         'game': game,
         'task_group': task_group,
@@ -2327,13 +2331,17 @@ def new_task_group_page(request, game_id, task_group_number):
         'show_palindrome_rules': show_palindrome_rules,
         'section_rules_type': section_rules_type,
         'section_tutorial_html': section_tutorial_html,
-        'prev_task_group_url': '/games/{}/{}/'.format(game.id, prev_tg.number) if prev_tg else None,
-        'next_task_group_url': '/games/{}/{}/'.format(game.id, next_tg.number) if next_tg else None,
+        'prev_task_group_url': (
+            _play_url_for_task_group(game, prev_tg.number) if prev_tg else None
+        ),
+        'next_task_group_url': (
+            _play_url_for_task_group(game, next_tg.number) if next_tg else None
+        ),
         'tg_number': placement.number,
         'tg_name': placement.name,
         'week_task_source_line': week_task_source_line,
         'ladder_word_results_url': (
-            '/games/ladder/{}/results/'.format(placement.number)
+            ladder_word_results_path(placement.number)
             if game.id == LADDER_GAME_ID
             else None
         ),

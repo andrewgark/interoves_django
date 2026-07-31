@@ -95,7 +95,7 @@ def resolve_today_ladder(now: datetime | None = None) -> TodayLadder | None:
         )
     if task is None:
         return None
-    play_url = admin_url('/games/ladder/{}/'.format(number))
+    play_url = admin_url('/ladder/{}/'.format(number))
     return TodayLadder(
         game=game,
         number=number,
@@ -138,7 +138,7 @@ def resolve_ladder_by_number(number: int, now: datetime | None = None) -> TodayL
         )
     if task is None:
         return None
-    play_url = admin_url('/games/ladder/{}/'.format(number))
+    play_url = admin_url('/ladder/{}/'.format(number))
     return TodayLadder(
         game=game,
         number=number,

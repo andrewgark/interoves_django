@@ -20,6 +20,10 @@ def game_site_url(game) -> str:
 
 def game_play_path(game) -> str:
     """Relative play URL for a game hub page (project-scoped when needed)."""
+    from games.section_paths import is_root_section_game, section_hub_path
+
+    if is_root_section_game(getattr(game, 'id', None)):
+        return section_hub_path(game.id)
     project_id = getattr(game, 'project_id', None)
     if project_id is None:
         project = getattr(game, 'project', None)

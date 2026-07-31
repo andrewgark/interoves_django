@@ -116,7 +116,7 @@ def list_alphabetty_rows(*, now: datetime | None = None) -> list[AlphabettyRow]:
             is_published=is_pub,
             is_today=is_today,
             word=word,
-            play_url=f'/games/{ALPHABETTY_GAME_ID}/{number}/',
+            play_url=f'/{ALPHABETTY_GAME_ID}/{number}/',
         ))
     return rows
 
@@ -144,7 +144,7 @@ def get_alphabetty_detail(link_id: int) -> dict[str, Any]:
         'name': link.name,
         'publish_date': pub.date().isoformat() if pub else None,
         'word': _word_from_task(task),
-        'play_url': f'/games/{ALPHABETTY_GAME_ID}/{number}/',
+        'play_url': f'/{ALPHABETTY_GAME_ID}/{number}/',
     }
 
 

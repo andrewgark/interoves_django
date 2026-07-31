@@ -232,7 +232,7 @@ def list_ladder_rows(*, now: datetime | None = None) -> list[LadderRow]:
             words_preview=payload['words_preview'],
             author=payload['author'],
             intro=payload['intro'],
-            play_url=f'/games/{LADDER_GAME_ID}/{number}/',
+            play_url=f'/{LADDER_GAME_ID}/{number}/',
             mixed_script=bool(payload.get('mixed_script')),
         ))
     return rows
@@ -266,7 +266,7 @@ def get_ladder_detail(link_id: int) -> dict[str, Any]:
         'words': payload['words'],
         'hints': payload['hints'],
         'mixed_script': payload['mixed_script'],
-        'play_url': f'/games/{LADDER_GAME_ID}/{number}/',
+        'play_url': f'/{LADDER_GAME_ID}/{number}/',
     }
 
 

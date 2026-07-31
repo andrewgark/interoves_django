@@ -140,7 +140,7 @@ class LadderWordResultsTests(TestCase):
         self.assertEqual(cells[1]['hint_numbers'], [])
 
     def test_page_renders_progressive_headers(self):
-        request = self.factory.get('/games/ladder/9100/results/')
+        request = self.factory.get('/ladder/9100/results/')
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.views.new_ui.is_ladder_number_published', return_value=True):
@@ -151,7 +151,7 @@ class LadderWordResultsTests(TestCase):
                 self.assertTrue(ctx['progressive_results'])
                 self.assertEqual(ctx['teams_sorted'], [])
                 self.assertEqual(len(ctx['task_groups']), 2)
-                self.assertEqual(ctx['back_url'], '/games/ladder/9100/')
+                self.assertEqual(ctx['back_url'], '/ladder/9100/')
 
     def test_partial_loads_rows(self):
         self._make_attempt(
@@ -165,7 +165,7 @@ class LadderWordResultsTests(TestCase):
             points=1,
             status='Partial',
         )
-        request = self.factory.get('/games/ladder/9100/results/?page=1&partial=1')
+        request = self.factory.get('/ladder/9100/results/?page=1&partial=1')
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.views.new_ui.is_ladder_number_published', return_value=True):
@@ -178,7 +178,7 @@ class LadderWordResultsTests(TestCase):
 
     def test_unpublished_ladder_404(self):
         with patch('games.views.new_ui.is_ladder_number_published', return_value=False):
-            request = self.factory.get('/games/ladder/9100/results/')
+            request = self.factory.get('/ladder/9100/results/')
             request.user = AnonymousUser()
             request.session = {}
             with self.assertRaises(Http404):

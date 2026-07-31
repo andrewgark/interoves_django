@@ -11,7 +11,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|ladder|alphabetty|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     # Project-scoped "new UI" pages (isolated navigation per project).
@@ -52,16 +52,28 @@ urlpatterns = [
     path('answer/<int:task_id>/word/<int:word_index>/', ui.get_raddle_word_answer, name='ui_get_raddle_word_answer'),
     path('like-dislike/<int:task_id>/', ui.like_dislike, name='ui_like_dislike'),
     path('bug-report/<int:task_id>/', ui.bug_report, name='ui_bug_report'),
-    path('games/ladder/today/', ui.ladder_today_page, name='ui_ladder_today'),
-    path('games/ladder/last/', ui.ladder_last_page, name='ui_ladder_last'),
-    path('games/ladder/', ui.ladder_hub_page, name='ui_ladder_hub'),
-    path('games/ladder/<str:task_group_number>/results/', ui.ladder_word_results_page, name='ui_ladder_word_results'),
-    path('games/alphabetty/today/', ui.alphabetty_today_page, name='ui_alphabetty_today'),
-    path('games/alphabetty/', ui.alphabetty_hub_page, name='ui_alphabetty_hub'),
-    path('games/alphabetty/<str:number>/guess/', ui.alphabetty_guess, name='ui_alphabetty_guess'),
-    path('games/alphabetty/<str:number>/state/', ui.alphabetty_state, name='ui_alphabetty_state'),
-    path('games/alphabetty/<str:number>/prefix/', ui.alphabetty_prefix, name='ui_alphabetty_prefix'),
-    path('games/alphabetty/<str:number>/', ui.alphabetty_play_page, name='ui_alphabetty_play'),
+    # Root-level section games: /ladder/, /alphabetty/ (short canonical URLs).
+    path('ladder/today/', ui.ladder_today_page, name='ui_ladder_today'),
+    path('ladder/last/', ui.ladder_last_page, name='ui_ladder_last'),
+    path('ladder/progress/', ui.game_task_group_progress, {'game_id': 'ladder'}, name='ui_ladder_progress'),
+    path('ladder/', ui.ladder_hub_page, name='ui_ladder_hub'),
+    path('ladder/<str:task_group_number>/results/', ui.ladder_word_results_page, name='ui_ladder_word_results'),
+    path('ladder/<str:task_group_number>/', ui.task_group_page, {'game_id': 'ladder'}, name='ui_ladder_task_group'),
+    path('alphabetty/today/', ui.alphabetty_today_page, name='ui_alphabetty_today'),
+    path('alphabetty/progress/', ui.game_task_group_progress, {'game_id': 'alphabetty'}, name='ui_alphabetty_progress'),
+    path('alphabetty/', ui.alphabetty_hub_page, name='ui_alphabetty_hub'),
+    path('alphabetty/<str:number>/guess/', ui.alphabetty_guess, name='ui_alphabetty_guess'),
+    path('alphabetty/<str:number>/state/', ui.alphabetty_state, name='ui_alphabetty_state'),
+    path('alphabetty/<str:number>/prefix/', ui.alphabetty_prefix, name='ui_alphabetty_prefix'),
+    path('alphabetty/<str:number>/', ui.alphabetty_play_page, name='ui_alphabetty_play'),
+    # Legacy /games/ladder/… and /games/alphabetty/… → short paths.
+    path('games/ladder/today/', RedirectView.as_view(url='/ladder/today/', permanent=True, query_string=True)),
+    path('games/ladder/last/', RedirectView.as_view(url='/ladder/last/', permanent=True, query_string=True)),
+    path('games/ladder/', RedirectView.as_view(url='/ladder/', permanent=True, query_string=True)),
+    path('games/ladder/<path:rest>', RedirectView.as_view(url='/ladder/%(rest)s', permanent=True, query_string=True)),
+    path('games/alphabetty/today/', RedirectView.as_view(url='/alphabetty/today/', permanent=True, query_string=True)),
+    path('games/alphabetty/', RedirectView.as_view(url='/alphabetty/', permanent=True, query_string=True)),
+    path('games/alphabetty/<path:rest>', RedirectView.as_view(url='/alphabetty/%(rest)s', permanent=True, query_string=True)),
     path('games/<str:game_id>/progress/', ui.game_task_group_progress, name='ui_game_progress'),
     path('games/<str:game_id>/', ui.main_game_page, name='ui_main_game'),
     path('games/<str:game_id>/results/', ui.results_page, name='ui_results'),

@@ -159,7 +159,7 @@ class GameTaskGroupProgressTests(TestCase):
             )
 
         self.client.cookies['interoves_anon'] = anon_key
-        resp = self.client.get('/games/ladder/progress/')
+        resp = self.client.get('/ladder/progress/')
         self.assertEqual(resp.status_code, 200)
         row = resp.json()['rows']['1']
         self.assertTrue(row['is_fully_solved'])
@@ -208,7 +208,7 @@ class GameTaskGroupProgressTests(TestCase):
             )
 
         self.client.cookies['interoves_anon'] = anon_key
-        resp = self.client.get('/games/ladder/progress/')
+        resp = self.client.get('/ladder/progress/')
         self.assertEqual(resp.status_code, 200)
         row = resp.json()['rows']['1']
         self.assertTrue(row['is_fully_solved'])
@@ -257,7 +257,7 @@ class GameTaskGroupProgressTests(TestCase):
             )
 
         self.client.cookies['interoves_anon'] = anon_key
-        resp = self.client.get('/games/ladder/progress/')
+        resp = self.client.get('/ladder/progress/')
         self.assertEqual(resp.status_code, 200)
         row = resp.json()['rows']['1']
         self.assertFalse(row['is_fully_solved'])

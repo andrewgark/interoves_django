@@ -40,7 +40,7 @@
                 {% if row.game_id == 'ladder' %}
                   <a href="{% url 'support:ladders' %}" class="new-btn new-btn--mini new-btn--ghost">порядок</a>
                 {% endif %}
-                <a href="{% if row.game_id == 'ladder' %}/games/ladder/{% else %}/section/{{ row.game_id }}/{% endif %}" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost">сайт</a>
+                <a href="{% if row.game_id == 'ladder' or row.game_id == 'alphabetty' %}/{{ row.game_id }}/{% else %}/section/{{ row.game_id }}/{% endif %}" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost">сайт</a>
               </div>
             </td>
           </tr>

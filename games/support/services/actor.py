@@ -90,9 +90,13 @@ def build_game_context(game, *, feed_kwargs):
         **_feed_context({**feed_kwargs, 'game_id': game.id}),
         'admin_game_url': reverse('admin:games_game_change', args=[game.pk]),
         'site_game_url': (
-            '/games/{}/'.format(game.id)
-            if game.project_id == 'main' or game.id == 'ladder'
-            else '/section/{}/'.format(game.id)
+            '/{}/'.format(game.id)
+            if game.id in ('ladder', 'alphabetty')
+            else (
+                '/games/{}/'.format(game.id)
+                if game.project_id == 'main'
+                else '/section/{}/'.format(game.id)
+            )
         ),
     }
 

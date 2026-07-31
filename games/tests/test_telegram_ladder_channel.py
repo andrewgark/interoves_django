@@ -70,7 +70,7 @@ class LadderChannelScheduleTests(TestCase):
         self.assertIsNotNone(ladder)
         self.assertEqual(ladder.number, 1)
         self.assertEqual(ladder.task.pk, self.task.pk)
-        self.assertIn('/games/ladder/1/', ladder.play_url)
+        self.assertIn('/ladder/1/', ladder.play_url)
 
     def test_publish_at(self):
         at = publish_at_for_date(self.now.date())

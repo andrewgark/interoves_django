@@ -34,7 +34,7 @@ _FONT_DIRS = (
 _EB_PLAYWRIGHT_BROWSERS_PATH = '/home/webapp/.cache/ms-playwright'
 
 # Public page that redirects to the latest published ladder.
-LADDER_LAST_PATH = '/games/ladder/last/'
+LADDER_LAST_PATH = '/ladder/last/'
 _EMOJI_FONT_URL = 'https://interoves.local/telegram-shot/NotoColorEmoji.ttf'
 
 _EMOJI_FONT_CANDIDATES = (
@@ -158,7 +158,7 @@ def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> list[st
 
 
 def ladder_last_screenshot_url() -> str:
-    return '{}/games/ladder/last/'.format(site_base_url().rstrip('/'))
+    return '{}/ladder/last/'.format(site_base_url().rstrip('/'))
 
 
 def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 1100) -> bytes:
@@ -315,7 +315,7 @@ def render_ladder_teaser_png_pillow(task, *, ladder_number: int | str | None = N
 
 def render_ladder_teaser_png(task, *, ladder_number: int | str | None = None) -> bytes:
     """
-    Prefer a real screenshot of SITE_BASE_URL/games/ladder/last/;
+    Prefer a real screenshot of SITE_BASE_URL/ladder/last/;
     fall back to the Pillow schematic if Chromium/Playwright is missing.
     """
     prefer_screenshot = getattr(settings, 'TELEGRAM_LADDER_SCREENSHOT', True)
