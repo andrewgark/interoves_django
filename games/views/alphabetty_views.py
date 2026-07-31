@@ -14,6 +14,7 @@ from games.alphabetty.play import (
     apply_guess,
     get_play_state,
     get_task_for_number,
+    hub_progress_for_actor,
 )
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
@@ -22,9 +23,14 @@ from games.alphabetty_daily import (
     get_alphabetty_hub_context,
     is_alphabetty_number_published,
 )
-from games.models import Game, GameTaskGroup
+from games.models import Game, GameTaskGroup, Task
+from games.section_paths import section_hub_path, section_play_path
 from games.views.new_ui import NEW_UI_SECTIONS_PROJECT, _anon_key_from_request
 from games.views.util import has_profile
+
+
+def _share_host(request) -> str:
+    return request.get_host() or 'interoves.com'
 
 
 def _get_game():
@@ -76,17 +82,47 @@ def alphabetty_hub_page(request):
         reverse=True,
     )
     today_number = current_alphabetty_number(game)
-    rows = []
+    link_rows = []
     for link in links:
         try:
             n = int(link.number)
         except (TypeError, ValueError):
             continue
+        link_rows.append((n, link))
+
+    tasks_by_tg = {
+        t.task_group_id: t
+        for t in Task.objects.filter(
+            task_group_id__in=[link.task_group_id for _, link in link_rows],
+            number='1',
+        )
+    }
+    user, anon_key = _resolve_actor(request)
+    progress = hub_progress_for_actor(
+        game=game,
+        numbers_and_tasks=[
+            (n, tasks_by_tg[link.task_group_id])
+            for n, link in link_rows
+            if link.task_group_id in tasks_by_tg
+        ],
+        user=user,
+        anon_key=anon_key,
+    )
+
+    rows = []
+    for n, link in link_rows:
+        prog = progress.get(n) or {}
+        row_class = prog.get('row_class') or ''
+        if not row_class and today_number is not None and n == today_number:
+            row_class = 'new-task--partial'
         rows.append({
             'number': n,
             'name': link.name or f'Алфавитка #{n}',
-            'play_url': f'/games/{ALPHABETTY_GAME_ID}/{n}/',
+            'play_url': section_play_path(ALPHABETTY_GAME_ID, n),
             'is_today': today_number is not None and n == today_number,
+            'is_solved': bool(prog.get('is_solved')),
+            'row_class': row_class,
+            'progress_meta': prog.get('progress_meta') or '',
         })
     hub = get_alphabetty_hub_context(game, published_numbers=_published_numbers(game))
     return render(request, 'new/alphabetty_hub.html', {
@@ -138,7 +174,14 @@ def alphabetty_play_page(request, number):
     user, anon_key = _resolve_actor(request)
     # Не генерируем anon на сервере: иначе перетирается localStorage из base.html
     # и теряется прогресс. Клиент подтянет state через /state/ со своим ключом.
-    state = get_play_state(game=game, task=task, user=user, anon_key=anon_key)
+    state = get_play_state(
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        number=n,
+        share_host=_share_host(request),
+    )
     return render(request, 'new/alphabetty_play.html', {
         'game': game,
         'number': n,
@@ -146,11 +189,12 @@ def alphabetty_play_page(request, number):
         'task': task,
         'page_title': f'Алфавитка #{n}',
         'show_sections_nav': True,
-        'back_url': f'/games/{ALPHABETTY_GAME_ID}/',
+        'back_url': section_hub_path(ALPHABETTY_GAME_ID),
+        'back_label': 'К списку',
         'bootstrap': state,
-        'guess_url': f'/games/{ALPHABETTY_GAME_ID}/{n}/guess/',
-        'state_url': f'/games/{ALPHABETTY_GAME_ID}/{n}/state/',
-        'prefix_url': f'/games/{ALPHABETTY_GAME_ID}/{n}/prefix/',
+        'guess_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}guess/',
+        'state_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}state/',
+        'prefix_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}prefix/',
         'anon_key': anon_key if user is None else '',
         'is_authenticated': bool(user),
     })
@@ -191,7 +235,18 @@ def alphabetty_state(request, number):
     if err is not None:
         return err
     user, anon_key = _resolve_actor(request)
-    state = get_play_state(game=game, task=task, user=user, anon_key=anon_key)
+    try:
+        n = int(number)
+    except (TypeError, ValueError):
+        n = 0
+    state = get_play_state(
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        number=n,
+        share_host=_share_host(request),
+    )
     response = JsonResponse({'status': 'ok', **state})
     if user is None and anon_key:
         response.set_cookie(
@@ -221,12 +276,18 @@ def alphabetty_guess(request, number):
         # только для этого ответа (и проставим cookie), не трогая чужой localStorage на GET.
         anon_key = uuid.uuid4().hex
 
+    try:
+        n = int(number)
+    except (TypeError, ValueError):
+        n = 0
     result = apply_guess(
         game=game,
         task=task,
         word=word,
         user=user,
         anon_key=anon_key,
+        number=n,
+        share_host=_share_host(request),
     )
     response = JsonResponse(result)
     if user is None and anon_key:

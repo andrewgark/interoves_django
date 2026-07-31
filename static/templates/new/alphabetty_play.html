@@ -5,7 +5,7 @@
 {{ bootstrap|json_script:"alphabetty-bootstrap" }}
 
 <p class="new-tg-back">
-  <a href="{{ back_url }}" class="new-tg-back__link"><span aria-hidden="true">←</span> Алфавитка</a>
+  <a href="{{ back_url }}" class="new-tg-back__link"><span aria-hidden="true">←</span> {{ back_label|default:"К списку" }}</a>
 </p>
 
 <div class="new-section-header">
@@ -91,6 +91,14 @@
       <ul class="new-alphabetty__words" id="ab-below"></ul>
     </section>
   </div>
+
+  <div class="new-raddle-result" id="ab-result" data-raddle-result hidden>
+    <div class="new-raddle-result__head">
+      <span class="new-raddle-result__label">Результат</span>
+      <button type="button" class="new-raddle-result__copy" id="ab-result-copy">Скопировать</button>
+    </div>
+    <div class="new-raddle-result__share" data-raddle-share-text id="ab-result-share"></div>
+  </div>
 </div>
 
 <script>
@@ -155,6 +163,8 @@
   var elWin = document.getElementById('ab-win');
   var elSecret = document.getElementById('ab-secret');
   var elInputZone = document.getElementById('ab-input-zone');
+  var elResult = document.getElementById('ab-result');
+  var elResultShare = document.getElementById('ab-result-share');
   var form = document.getElementById('ab-form');
   var input = document.getElementById('ab-word');
 
@@ -231,12 +241,34 @@
       setPrefixOpen(false);
       elWin.hidden = false;
       elSecret.textContent = state.secret || '';
+      renderResult();
       return;
     }
     elInputZone.hidden = false;
     elPrefixSide.hidden = false;
     elWin.hidden = true;
+    elResult.hidden = true;
+    elResultShare.innerHTML = '';
     if (prefixOpen) renderPrefixPanel();
+  }
+
+  function renderResult() {
+    var lines = state.share_lines;
+    if (!lines || !lines.length) {
+      elResult.hidden = true;
+      elResultShare.innerHTML = '';
+      return;
+    }
+    elResultShare.innerHTML = '';
+    lines.forEach(function (line, i) {
+      var div = document.createElement('div');
+      if (i === 0) div.className = 'new-raddle-result__title';
+      else if (i === lines.length - 1) div.className = 'new-raddle-result__link';
+      else div.className = 'new-raddle-result__squares';
+      div.textContent = line;
+      elResultShare.appendChild(div);
+    });
+    elResult.hidden = false;
   }
 
   var prefixCache = {};
@@ -363,7 +395,7 @@
   }
 
   function applyState(data) {
-    ['guesses', 'earlier', 'later', 'bounds', 'prefix_hint', 'won', 'attempts', 'secret', 'max_word_length'].forEach(function (k) {
+    ['guesses', 'earlier', 'later', 'bounds', 'prefix_hint', 'won', 'attempts', 'secret', 'max_word_length', 'share_lines', 'share_text', 'elapsed_label', 'attempts_label'].forEach(function (k) {
       if (data[k] !== undefined) state[k] = data[k];
     });
     if (data.max_word_length) maxLen = data.max_word_length;
@@ -461,6 +493,57 @@
       })
       .catch(function () {});
   }
+})();
+</script>
+
+<script>
+(function () {
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('.new-raddle-result__copy') : null;
+    if (!btn) return;
+    e.preventDefault();
+    var block = btn.closest('[data-raddle-result]');
+    var el = block && block.querySelector('[data-raddle-share-text]');
+    if (!el) return;
+    var lines = [];
+    el.querySelectorAll('div').forEach(function (d) {
+      var t = (d.textContent || '').replace(/\s+$/g, '');
+      if (t) lines.push(t);
+    });
+    var text = lines.join('\n');
+    function done() {
+      if (!btn.getAttribute('data-copy-label')) {
+        btn.setAttribute('data-copy-label', btn.textContent);
+      }
+      btn.textContent = 'Скопировано';
+      setTimeout(function () {
+        btn.textContent = btn.getAttribute('data-copy-label') || 'Скопировать';
+      }, 1200);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          done();
+        } catch (err) {}
+      });
+    } else {
+      try {
+        var ta2 = document.createElement('textarea');
+        ta2.value = text;
+        document.body.appendChild(ta2);
+        ta2.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta2);
+        done();
+      } catch (err2) {}
+    }
+  });
 })();
 </script>
 

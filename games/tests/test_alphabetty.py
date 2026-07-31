@@ -17,7 +17,13 @@ from games.alphabetty.core import (
     normalize_word,
     pick_answer_words,
 )
-from games.alphabetty.play import apply_guess, get_play_state
+from games.alphabetty.play import (
+    apply_guess,
+    build_share_lines,
+    format_elapsed,
+    get_play_state,
+    ru_attempt_word,
+)
 from games.anon_migrate import _solved_count
 from games.models import ChainTaskState
 from games.alphabetty_daily import (
@@ -87,6 +93,19 @@ class AlphabettyCoreTests(TestCase):
         pool = pick_answer_words(3, exclude={'ГОД'}, rng=__import__('random').Random(0))
         self.assertEqual(len(pool), 3)
         self.assertNotIn('ГОД', pool)
+
+    def test_share_formatting(self):
+        self.assertEqual(format_elapsed(5564), '1ч 32м 44с')
+        self.assertEqual(format_elapsed(124), '2м 4с')
+        self.assertEqual(format_elapsed(9), '9с')
+        self.assertEqual(ru_attempt_word(1), 'попытка')
+        self.assertEqual(ru_attempt_word(3), 'попытки')
+        self.assertEqual(ru_attempt_word(5), 'попыток')
+        lines = build_share_lines(number=1, attempts=5, elapsed_seconds=5564, host='interoves.com')
+        self.assertEqual(lines[0], '🔤 Алфавитка #1')
+        self.assertEqual(lines[1], '🤔 5 попыток')
+        self.assertEqual(lines[2], '⏱️ 1ч 32м 44с')
+        self.assertEqual(lines[3], '🔗 interoves.com/alphabetty/1')
 
 
 def _ensure_login_modal_deps():
@@ -207,7 +226,7 @@ class AlphabettyPlayApiTests(TestCase):
     def test_guess_flow(self):
         # earlier
         r = self.client.post(
-            '/games/alphabetty/1/guess/',
+            '/alphabetty/1/guess/',
             data=json.dumps({'word': 'год', 'anon_key': 'testanon1'}),
             content_type='application/json',
             HTTP_X_INTEROVES_ANON='testanon1',
@@ -219,7 +238,7 @@ class AlphabettyPlayApiTests(TestCase):
 
         # later
         r = self.client.post(
-            '/games/alphabetty/1/guess/',
+            '/alphabetty/1/guess/',
             data=json.dumps({'word': 'яблоко', 'anon_key': 'testanon1'}),
             content_type='application/json',
             HTTP_X_INTEROVES_ANON='testanon1',
@@ -231,7 +250,7 @@ class AlphabettyPlayApiTests(TestCase):
 
         # invalid
         r = self.client.post(
-            '/games/alphabetty/1/guess/',
+            '/alphabetty/1/guess/',
             data=json.dumps({'word': 'qqqqqq', 'anon_key': 'testanon1'}),
             content_type='application/json',
             HTTP_X_INTEROVES_ANON='testanon1',
@@ -240,7 +259,7 @@ class AlphabettyPlayApiTests(TestCase):
 
         # correct
         r = self.client.post(
-            '/games/alphabetty/1/guess/',
+            '/alphabetty/1/guess/',
             data=json.dumps({'word': 'слово', 'anon_key': 'testanon1'}),
             content_type='application/json',
             HTTP_X_INTEROVES_ANON='testanon1',
@@ -252,13 +271,13 @@ class AlphabettyPlayApiTests(TestCase):
 
     def test_play_page_ok(self):
         _ensure_login_modal_deps()
-        r = self.client.get('/games/alphabetty/1/')
+        r = self.client.get('/alphabetty/1/')
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'Алфавитка')
 
     def test_prefix_endpoint(self):
         r = self.client.get(
-            '/games/alphabetty/1/prefix/',
+            '/alphabetty/1/prefix/',
             {'lo': 'римлянин', 'hi': 'рисунок'},
         )
         self.assertEqual(r.status_code, 200)
@@ -267,13 +286,13 @@ class AlphabettyPlayApiTests(TestCase):
 
     def test_state_endpoint_uses_anon_header(self):
         self.client.post(
-            '/games/alphabetty/1/guess/',
+            '/alphabetty/1/guess/',
             data=json.dumps({'word': 'год', 'anon_key': 'stateanon'}),
             content_type='application/json',
             HTTP_X_INTEROVES_ANON='stateanon',
         )
         r = self.client.get(
-            '/games/alphabetty/1/state/',
+            '/alphabetty/1/state/',
             HTTP_X_INTEROVES_ANON='stateanon',
         )
         self.assertEqual(r.status_code, 200)
