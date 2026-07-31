@@ -1,0 +1,314 @@
+{% extends "support/base.html" %}
+{% load static %}
+
+{% block support_content %}
+{% csrf_token %}
+{{ week_tasks_json|json_script:"week-tasks-bootstrap" }}
+<h1 class="support-page-title">Задания недели</h1>
+<p class="support-lead">
+  Публичный № = порядковый номер и дата выхода (старт + (N−1)×7 дней, понедельник 00:00 МСК).
+  Уже вышедшие зафиксированы. Буфер впереди: не меньше {{ buffer_weeks }} недель
+  (автодозаполнение около полуночи МСК).
+</p>
+
+<section class="pal-card support-card support-ladders-toolbar">
+  <div class="support-ladders-toolbar__row">
+    <label class="support-ladders-field">
+      <span>Дата №1 (понедельник, МСК)</span>
+      <input type="date" id="wt-publish-start" value="{{ publish_start|default:'' }}">
+    </label>
+    <button type="button" class="new-btn new-btn--mini" id="wt-save-start">Сохранить старт</button>
+    <label class="support-ladders-field">
+      <span>Нагенерить ещё</span>
+      <input type="number" id="wt-gen-n" value="8" min="1" max="52" style="width:4.5rem">
+    </label>
+    <button type="button" class="new-btn new-btn--mini" id="wt-generate">Нагенерить</button>
+    <span class="support-hint support-ladders-toolbar__meta" id="wt-meta">
+      Всего {{ week_task_count }} · вышло {{ published_count }} · впереди {{ future_count }}{% if today_number %} · эта неделя №{{ today_number }}{% endif %}
+    </span>
+  </div>
+  <p class="support-hint" style="margin:0.75rem 0 0">
+    Перетаскивайте только будущие за ⠿. «+» вставляет случайное задание. Вышедшие не двигаются.
+  </p>
+</section>
+
+<section class="pal-card support-card">
+  <div class="support-ladder-list" id="wt-list" aria-label="Список заданий недели"></div>
+  <div class="support-ladder-insert support-ladder-insert--end">
+    <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-insert-end>+ В конец</button>
+  </div>
+</section>
+
+<div id="wt-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="wt-edit-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-wt-close></div>
+  <div class="new-rules-modal__box pal-card support-ladder-modal">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-wt-close>×</button>
+    <h2 id="wt-edit-title" class="support-page-title" style="font-size:1.2rem">Редактирование</h2>
+    <p class="support-hint" id="wt-edit-sub"></p>
+    <label class="support-ladders-field">
+      <span>Название</span>
+      <input type="text" id="wt-edit-name" autocomplete="off" maxlength="100">
+    </label>
+    <p class="support-hint" id="wt-edit-source"></p>
+    <p class="support-hint support-ladder-edit-error" id="wt-edit-error" hidden></p>
+    <div class="support-action-row" style="margin-top:1rem">
+      <button type="button" class="new-btn" id="wt-edit-save">Сохранить</button>
+      <button type="button" class="new-btn new-btn--ghost" data-wt-close>Отмена</button>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="wt-edit-preview">открыть на сайте</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var bootstrap = JSON.parse(document.getElementById('week-tasks-bootstrap').textContent);
+  var endpoints = {
+    reorder: "{% url 'support:week_tasks_reorder' %}",
+    create: "{% url 'support:week_tasks_create' %}",
+    publishStart: "{% url 'support:week_tasks_publish_start' %}",
+    generate: "{% url 'support:week_tasks_generate' %}",
+    detailTpl: "{% url 'support:week_tasks_detail' 0 %}".replace('/0/', '/{id}/'),
+    saveTpl: "{% url 'support:week_tasks_update' 0 %}".replace('/0/', '/{id}/')
+  };
+  var listEl = document.getElementById('wt-list');
+  var metaEl = document.getElementById('wt-meta');
+  var modal = document.getElementById('wt-edit-modal');
+  var editLinkId = null;
+  var dragId = null;
+  var busy = false;
+
+  function csrf() {
+    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+  function postJson(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+      body: JSON.stringify(body || {}),
+      credentials: 'same-origin'
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        return data;
+      });
+    });
+  }
+  function setBusy(on) {
+    busy = !!on;
+    listEl.classList.toggle('is-busy', busy);
+  }
+  function lastPublishedNumber(rows) {
+    var n = 0;
+    (rows || []).forEach(function (r) { if (r.is_published && r.number > n) n = r.number; });
+    return n;
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function statusLabel(row) {
+    if (row.is_today) return 'эта неделя';
+    if (row.is_published) return 'вышло';
+    return 'скоро';
+  }
+  function statusClass(row) {
+    if (row.is_today) return 'support-flag--ok';
+    if (row.is_published) return '';
+    return 'support-flag--warn';
+  }
+  function renderMeta(rows) {
+    var published = 0, today = null;
+    rows.forEach(function (r) {
+      if (r.is_published) published += 1;
+      if (r.is_today) today = r.number;
+    });
+    var t = 'Всего ' + rows.length + ' · вышло ' + published + ' · впереди ' + (rows.length - published);
+    if (today != null) t += ' · эта неделя №' + today;
+    metaEl.textContent = t;
+  }
+  function renderList(rows) {
+    bootstrap = rows;
+    listEl.innerHTML = '';
+    if (!rows.length) {
+      listEl.innerHTML = '<p class="support-empty">Пока пусто. Нажмите «Нагенерить» или «+ В конец».</p>';
+      renderMeta(rows);
+      return;
+    }
+    var lockedUntil = lastPublishedNumber(rows);
+    rows.forEach(function (row) {
+      if (row.number > lockedUntil) {
+        var insert = document.createElement('div');
+        insert.className = 'support-ladder-insert';
+        insert.innerHTML = '<button type="button" class="support-ladder-insert__btn" data-insert-at="' +
+          row.number + '">+</button>';
+        listEl.appendChild(insert);
+      }
+      var item = document.createElement('div');
+      item.className = 'support-ladder-item' +
+        (row.is_today ? ' is-today' : '') +
+        (!row.is_published ? ' is-future' : '') +
+        (row.is_published ? ' is-locked' : '');
+      item.draggable = !row.is_published;
+      item.dataset.linkId = String(row.link_id);
+      var handle = row.is_published
+        ? '<span class="support-ladder-item__handle support-ladder-item__handle--locked">·</span>'
+        : '<button type="button" class="support-ladder-item__handle" title="Перетащить">⠿</button>';
+      item.innerHTML =
+        handle +
+        '<div class="support-ladder-item__num">№' + row.number + '</div>' +
+        '<div class="support-ladder-item__body">' +
+          '<div class="support-ladder-item__title">' + escapeHtml(row.name) +
+            ' <span class="support-flag ' + statusClass(row) + '">' + statusLabel(row) + '</span></div>' +
+          '<div class="support-ladder-item__meta"><span class="support-cell-mono">' +
+            (row.publish_date || '—') + '</span> · id ' + row.link_id + '</div>' +
+          '<div class="support-ladder-item__preview">' + escapeHtml(row.source_label || '') + '</div>' +
+        '</div>' +
+        '<div class="support-ladder-item__actions">' +
+          '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">править</button>' +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + row.play_url + '" target="_blank" rel="noopener">сайт</a>' +
+        '</div>';
+      listEl.appendChild(item);
+    });
+    renderMeta(rows);
+  }
+  function currentOrder() {
+    return Array.prototype.map.call(
+      listEl.querySelectorAll('.support-ladder-item'),
+      function (el) { return parseInt(el.dataset.linkId, 10); }
+    );
+  }
+  function persistOrder() {
+    if (busy) return;
+    setBusy(true);
+    postJson(endpoints.reorder, { order: currentOrder() })
+      .then(function (data) { renderList(data.rows); })
+      .catch(function (e) { alert(e.message || String(e)); location.reload(); })
+      .finally(function () { setBusy(false); });
+  }
+  function insertAt(atNumber) {
+    if (busy) return;
+    setBusy(true);
+    postJson(endpoints.create, { at_number: atNumber })
+      .then(function (data) {
+        renderList(data.rows);
+        openEdit(data.item.link_id, data.item);
+      })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { setBusy(false); });
+  }
+  function openEdit(linkId, detail) {
+    editLinkId = linkId;
+    function fill(d) {
+      document.getElementById('wt-edit-sub').textContent = '№' + d.number + ' · ' + (d.publish_date || '');
+      document.getElementById('wt-edit-name').value = d.name || '';
+      document.getElementById('wt-edit-source').textContent = 'Источник: ' + (d.source_label || '—');
+      document.getElementById('wt-edit-preview').href = d.play_url || '#';
+      document.getElementById('wt-edit-error').hidden = true;
+      modal.hidden = false;
+      modal.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+    }
+    if (detail) { fill(detail); return; }
+    fetch(endpoints.detailTpl.replace('{id}', String(linkId)), { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'Ошибка');
+        fill(data.item);
+      })
+      .catch(function (e) { alert(e.message || String(e)); });
+  }
+  function closeEdit() {
+    modal.hidden = true;
+    modal.classList.remove('is-open');
+    document.body.style.overflow = '';
+    editLinkId = null;
+  }
+
+  listEl.addEventListener('click', function (e) {
+    var insertBtn = e.target.closest('[data-insert-at]');
+    if (insertBtn) { insertAt(parseInt(insertBtn.getAttribute('data-insert-at'), 10)); return; }
+    var editBtn = e.target.closest('[data-edit]');
+    if (editBtn) openEdit(parseInt(editBtn.getAttribute('data-edit'), 10));
+  });
+  document.querySelector('[data-insert-end]').addEventListener('click', function () {
+    var max = 0;
+    bootstrap.forEach(function (r) { if (r.number > max) max = r.number; });
+    insertAt(max + 1);
+  });
+  document.getElementById('wt-save-start').addEventListener('click', function () {
+    var val = document.getElementById('wt-publish-start').value;
+    if (!val) { alert('Укажите дату'); return; }
+    if (busy) return;
+    setBusy(true);
+    postJson(endpoints.publishStart, { publish_start: val })
+      .then(function (data) { renderList(data.rows); })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { setBusy(false); });
+  });
+  document.getElementById('wt-generate').addEventListener('click', function () {
+    var n = parseInt(document.getElementById('wt-gen-n').value, 10) || 0;
+    if (n < 1) { alert('Укажите N'); return; }
+    if (busy) return;
+    setBusy(true);
+    postJson(endpoints.generate, { n: n })
+      .then(function (data) { renderList(data.rows); })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { setBusy(false); });
+  });
+  document.getElementById('wt-edit-save').addEventListener('click', function () {
+    if (!editLinkId || busy) return;
+    var name = document.getElementById('wt-edit-name').value;
+    setBusy(true);
+    postJson(endpoints.saveTpl.replace('{id}', String(editLinkId)), { name: name })
+      .then(function (data) {
+        renderList(data.rows);
+        closeEdit();
+      })
+      .catch(function (e) {
+        var err = document.getElementById('wt-edit-error');
+        err.textContent = e.message || String(e);
+        err.hidden = false;
+      })
+      .finally(function () { setBusy(false); });
+  });
+  modal.querySelectorAll('[data-wt-close]').forEach(function (el) {
+    el.addEventListener('click', closeEdit);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) closeEdit();
+  });
+
+  listEl.addEventListener('dragstart', function (e) {
+    var item = e.target.closest('.support-ladder-item');
+    if (!item || item.dataset.published === '1' || item.classList.contains('is-locked')) {
+      e.preventDefault(); return;
+    }
+    dragId = item.dataset.linkId;
+    item.classList.add('is-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  listEl.addEventListener('dragend', function (e) {
+    var item = e.target.closest('.support-ladder-item');
+    if (item) item.classList.remove('is-dragging');
+    dragId = null;
+  });
+  listEl.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    var item = e.target.closest('.support-ladder-item');
+    if (!item || !dragId || item.classList.contains('is-locked')) return;
+    var dragging = listEl.querySelector('.support-ladder-item.is-dragging');
+    if (!dragging || dragging === item) return;
+    var rect = item.getBoundingClientRect();
+    var before = (e.clientY - rect.top) < rect.height / 2;
+    listEl.insertBefore(dragging, before ? item : item.nextSibling);
+  });
+  listEl.addEventListener('drop', function (e) {
+    e.preventDefault();
+    persistOrder();
+  });
+
+  renderList(bootstrap);
+})();
+</script>
+{% endblock %}

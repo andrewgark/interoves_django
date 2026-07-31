@@ -278,6 +278,11 @@ def process_send_attempt(request, task_id):
         if not word:
             return {'status': 'empty'}
         attempt = Attempt(text=json.dumps({'word_index': word_index, 'word': word}))
+    elif task.task_type == 'alphabetty':
+        word = (request.POST.get('word') or request.POST.get('text') or '').strip()
+        if not word:
+            return {'status': 'empty'}
+        attempt = Attempt(text=word)
     else:
         raise Exception('Unknown task_type: {}'.format(task.task_type))
     attempt.team = team

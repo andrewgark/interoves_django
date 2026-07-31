@@ -38,6 +38,9 @@
 
 <p class="new-login-hint" style="margin:0.25rem 0 0.75rem">
   {{ tg_number }} · <strong>{% autoescape off %}{{ tg_name }}{% endautoescape %}</strong>
+  {% if week_task_source_line %}
+    <span aria-hidden="true"> · </span>{{ week_task_source_line }}
+  {% endif %}
 </p>
 
 {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}

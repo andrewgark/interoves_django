@@ -15,6 +15,15 @@ task_group_page = new_task_group_page
 ladder_today_page = new_ladder_today_page
 ladder_last_page = new_ladder_last_page
 ladder_hub_page = new_ladder_hub_page
+
+from games.views.alphabetty_views import (  # noqa: E402
+    alphabetty_guess,
+    alphabetty_hub_page,
+    alphabetty_play_page,
+    alphabetty_prefix,
+    alphabetty_state,
+    alphabetty_today_page,
+)
 game_task_group_progress = new_game_task_group_progress
 project_game_task_group_progress = project_game_task_group_progress
 get_answer = new_get_answer

@@ -16,6 +16,26 @@ from games.support.services.actor import (
 )
 from games.support.services.chain import build_chain_context, format_chain_state
 from games.support.services.games import get_all_games_by_project
+from games.support.services.alphabetty import (
+    AlphabettySupportError,
+    alphabetty_dashboard_context,
+    create_alphabetty,
+    generate_more as alphabetty_generate_more,
+    get_alphabetty_detail,
+    reorder_alphabetty,
+    set_publish_start as alphabetty_set_publish_start_service,
+    update_alphabetty,
+)
+from games.support.services.week_tasks import (
+    WeekTaskSupportError,
+    create_week_task,
+    generate_more as week_tasks_generate_more,
+    get_week_task_detail,
+    reorder_week_tasks,
+    set_publish_start as week_tasks_set_publish_start_service,
+    update_week_task,
+    week_task_dashboard_context,
+)
 from games.support.services.ladders import (
     LadderSupportError,
     create_ladder,
@@ -444,6 +464,270 @@ def ladders_set_publish_start(request):
         'ok': True,
         'publish_start': new_date,
         'ladders': [r.to_dict() for r in rows],
+    })
+
+
+def _alphabetty_error_response(exc: AlphabettySupportError, status=400):
+    return JsonResponse({'ok': False, 'error': str(exc)}, status=status)
+
+
+@support_console_required
+def alphabetty_dashboard(request):
+    ctx = alphabetty_dashboard_context()
+    ctx['page_title'] = 'Алфавитки'
+    return render(request, 'support/alphabetty.html', ctx)
+
+
+@support_console_required
+@require_GET
+def alphabetty_detail_json(request, link_id):
+    try:
+        detail = get_alphabetty_detail(int(link_id))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)
+    except AlphabettySupportError as exc:
+        return _alphabetty_error_response(exc, status=404)
+    return JsonResponse({'ok': True, 'item': detail})
+
+
+@support_console_required
+@require_POST
+def alphabetty_reorder(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    order = body.get('order')
+    if not isinstance(order, list):
+        return JsonResponse({'ok': False, 'error': 'Нужен order: [link_id, …]'}, status=400)
+    try:
+        ordered_ids = [int(x) for x in order]
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'order должен быть списком int'}, status=400)
+    try:
+        rows = reorder_alphabetty(ordered_ids)
+    except AlphabettySupportError as exc:
+        return _alphabetty_error_response(exc)
+    return JsonResponse({'ok': True, 'rows': [r.to_dict() for r in rows]})
+
+
+@support_console_required
+@require_POST
+def alphabetty_create(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    try:
+        at_number = int(body.get('at_number'))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Нужен at_number'}, status=400)
+    word = body.get('word')
+    try:
+        detail = create_alphabetty(
+            at_number=at_number,
+            word=str(word) if word else None,
+        )
+        rows = alphabetty_dashboard_context()['rows']
+    except AlphabettySupportError as exc:
+        return _alphabetty_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'item': detail,
+        'rows': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def alphabetty_update(request, link_id):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    word = body.get('word')
+    if word is None:
+        return JsonResponse({'ok': False, 'error': 'Нужно word'}, status=400)
+    try:
+        detail = update_alphabetty(int(link_id), word=str(word))
+        rows = alphabetty_dashboard_context()['rows']
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)
+    except AlphabettySupportError as exc:
+        return _alphabetty_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'item': detail,
+        'rows': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def alphabetty_set_publish_start(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    date_iso = body.get('publish_start') or body.get('date')
+    if not date_iso:
+        return JsonResponse({'ok': False, 'error': 'Нужна publish_start (YYYY-MM-DD)'}, status=400)
+    try:
+        new_date = alphabetty_set_publish_start_service(str(date_iso))
+        rows = alphabetty_dashboard_context()['rows']
+    except AlphabettySupportError as exc:
+        return _alphabetty_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'publish_start': new_date,
+        'rows': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def alphabetty_generate(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    try:
+        n = int(body.get('n'))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Нужен n'}, status=400)
+    try:
+        result = alphabetty_generate_more(n)
+    except AlphabettySupportError as exc:
+        return _alphabetty_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'created_count': result['created_count'],
+        'rows': result['rows'],
+    })
+
+
+def _week_tasks_error_response(exc: WeekTaskSupportError, status=400):
+    return JsonResponse({'ok': False, 'error': str(exc)}, status=status)
+
+
+@support_console_required
+def week_tasks_dashboard(request):
+    ctx = week_task_dashboard_context()
+    ctx['page_title'] = 'Задания недели'
+    return render(request, 'support/week_tasks.html', ctx)
+
+
+@support_console_required
+@require_GET
+def week_tasks_detail_json(request, link_id):
+    try:
+        detail = get_week_task_detail(int(link_id))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)
+    except WeekTaskSupportError as exc:
+        return _week_tasks_error_response(exc, status=404)
+    return JsonResponse({'ok': True, 'item': detail})
+
+
+@support_console_required
+@require_POST
+def week_tasks_reorder(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    order = body.get('order')
+    if not isinstance(order, list):
+        return JsonResponse({'ok': False, 'error': 'Нужен order: [link_id, …]'}, status=400)
+    try:
+        ordered_ids = [int(x) for x in order]
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'order должен быть списком int'}, status=400)
+    try:
+        rows = reorder_week_tasks(ordered_ids)
+    except WeekTaskSupportError as exc:
+        return _week_tasks_error_response(exc)
+    return JsonResponse({'ok': True, 'rows': [r.to_dict() for r in rows]})
+
+
+@support_console_required
+@require_POST
+def week_tasks_create(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    try:
+        at_number = int(body.get('at_number'))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Нужен at_number'}, status=400)
+    try:
+        detail = create_week_task(at_number=at_number)
+        rows = week_task_dashboard_context()['rows']
+    except WeekTaskSupportError as exc:
+        return _week_tasks_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'item': detail,
+        'rows': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def week_tasks_update(request, link_id):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    name = body.get('name')
+    if name is None:
+        return JsonResponse({'ok': False, 'error': 'Нужно name'}, status=400)
+    try:
+        detail = update_week_task(int(link_id), name=str(name))
+        rows = week_task_dashboard_context()['rows']
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)
+    except WeekTaskSupportError as exc:
+        return _week_tasks_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'item': detail,
+        'rows': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def week_tasks_set_publish_start(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    date_iso = body.get('publish_start') or body.get('date')
+    if not date_iso:
+        return JsonResponse({'ok': False, 'error': 'Нужна publish_start (YYYY-MM-DD)'}, status=400)
+    try:
+        new_date = week_tasks_set_publish_start_service(str(date_iso))
+        rows = week_task_dashboard_context()['rows']
+    except WeekTaskSupportError as exc:
+        return _week_tasks_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'publish_start': new_date,
+        'rows': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def week_tasks_generate(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    try:
+        n = int(body.get('n'))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Нужен n'}, status=400)
+    try:
+        result = week_tasks_generate_more(n)
+    except WeekTaskSupportError as exc:
+        return _week_tasks_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'created_count': result['created_count'],
+        'rows': result['rows'],
     })
 
 

@@ -133,6 +133,10 @@
         <p style="margin-top:0.75rem">
           <a class="new-btn new-btn--primary" href="{{ ladder_today_play_url }}">Сегодняшняя лесенка</a>
         </p>
+      {% elif week_task_today_play_url %}
+        <p style="margin-top:0.75rem">
+          <a class="new-btn new-btn--primary" href="{{ week_task_today_play_url }}">Задание этой недели</a>
+        </p>
       {% endif %}
 
       {% if section_task_groups_rules_html %}

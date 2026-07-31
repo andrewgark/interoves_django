@@ -21,6 +21,8 @@ from games.raddle import (
     word_solve_credit,
 )
 from games.wordle import convert_words_wordle, read_wordle_dict, color_tiles
+from games.alphabetty.core import guess_status, is_valid_guess, normalize_word
+from games.alphabetty.play import dump_state, load_state
 
 
 class CheckResult:
@@ -741,6 +743,32 @@ class SolutionsTagNumber:
         )
 
 
+class AlphabettyChecker(BaseChecker):
+    """Чекер Алфавитки (основной путь — dedicated guess API; это запасной send_attempt)."""
+
+    def __init__(self, data, last_attempt_state=None):
+        self.secret = normalize_word((data or '').strip().splitlines()[0] if data else '')
+        self.last_state = load_state(last_attempt_state)
+
+    def check(self, text, attempt):
+        word = normalize_word(text)
+        state = dict(self.last_state)
+        state.setdefault('guesses', [])
+        if state.get('won'):
+            # Не начислять повторные Ok/очки после победы (как dedicated guess API).
+            return CheckResult('Wrong', 'Wrong', 0, dump_state(state), comment='Уже угадано')
+        if not is_valid_guess(word):
+            return CheckResult('Wrong', 'Wrong', 0, dump_state(state), comment='Слова нет в словаре')
+        if word in state['guesses']:
+            return CheckResult('Wrong', 'Wrong', 0, dump_state(state), comment='Уже вводили')
+        status = guess_status(word, self.secret)
+        state['guesses'] = list(state['guesses']) + [word]
+        if status == 'correct':
+            state['won'] = True
+            return CheckResult('Ok', 'Ok', 1, dump_state(state))
+        return CheckResult('Partial', 'Partial', 0, dump_state(state), comment=status)
+
+
 class CheckerFactory:
     def __init__(self):
         self.checker_type_to_checker = {
@@ -760,6 +788,7 @@ class CheckerFactory:
             'several_answers': SeveralAnswersChecker,
             'replacements_lines': ReplacementsLinesChecker,
             'raddle': RaddleChecker,
+            'alphabetty': AlphabettyChecker,
         }
     
     def create_checker(self, checker_type, data, last_attempt_state=None):

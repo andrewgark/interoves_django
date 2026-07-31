@@ -327,6 +327,40 @@ def process_game_announcements(now=None) -> dict[str, int]:
         logger.exception('Ladder channel tick failed')
         stats['ladder_scheduled'] = 0
 
+    # Алфавитка / задание недели: около полуночи МСК досэмплить буфер.
+    stats['alphabetty_buffer_added'] = 0
+    stats['week_task_buffer_added'] = 0
+    try:
+        from zoneinfo import ZoneInfo
+
+        msk_now = now.astimezone(ZoneInfo('Europe/Moscow'))
+        if msk_now.hour == 0 and msk_now.minute < 5:
+            day_key = msk_now.date().isoformat()
+            try:
+                from games.support.services.alphabetty import ensure_future_buffer
+                from games.alphabetty_daily import ALPHABETTY_GAME_ID
+
+                ab_game = Game.objects.filter(pk=ALPHABETTY_GAME_ID).first()
+                if ab_game and _try_mark(ab_game, f'alphabetty_buffer:{day_key}'):
+                    buf = ensure_future_buffer(now=now)
+                    stats['alphabetty_buffer_added'] = int(buf.get('added') or 0)
+            except Exception:
+                logger.exception('Alphabetty buffer ensure failed')
+            try:
+                from games.support.services.week_tasks import (
+                    ensure_future_buffer as week_task_ensure_future_buffer,
+                )
+                from games.week_task_weekly import WEEK_TASK_GAME_ID
+
+                wt_game = Game.objects.filter(pk=WEEK_TASK_GAME_ID).first()
+                if wt_game and _try_mark(wt_game, f'week_task_buffer:{day_key}'):
+                    wt_buf = week_task_ensure_future_buffer(now=now)
+                    stats['week_task_buffer_added'] = int(wt_buf.get('added') or 0)
+            except Exception:
+                logger.exception('Week task buffer ensure failed')
+    except Exception:
+        logger.exception('Daily buffer ensure failed')
+
     try:
         from games.social.publish import process_social_queue_tick
 

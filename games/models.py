@@ -639,6 +639,7 @@ class Task(models.Model):
         ('autohint', 'autohint'),
         ('proportions', 'Пропорции'),
         ('raddle', 'raddle'),
+        ('alphabetty', 'alphabetty'),
     )
 
     task_type = models.CharField(default='default', max_length=100, choices=TASK_TYPE_VARIANTS)
@@ -738,6 +739,8 @@ class Task(models.Model):
                 middle = max(0, parsed['n_words'] - 2)
                 if middle > 0:
                     return m * middle
+            return m
+        if self.task_type == 'alphabetty':
             return m
         return m
 
@@ -1135,7 +1138,7 @@ class AttemptManager(models.Manager):
         return rows
 
 
-CHAIN_TASK_TYPES = ('wall', 'replacements_lines', 'raddle')
+CHAIN_TASK_TYPES = ('wall', 'replacements_lines', 'raddle', 'alphabetty')
 
 
 class ChainTaskState(models.Model):
@@ -1222,6 +1225,10 @@ class ChainTaskState(models.Model):
                 solved = len(s.get('solved_indices', []))
                 total = s.get('total', '?')
                 return '{} words solved ({} pts)'.format(solved, total)
+            if task and task.task_type == 'alphabetty':
+                guesses = len(s.get('guesses') or [])
+                won = 'won' if s.get('won') else 'playing'
+                return '{} guesses ({})'.format(guesses, won)
             if task and task.task_type == 'wall':
                 pts = s.get('best_points', 0)
                 stage = s.get('last_attempt', {}).get('stage', '?')
@@ -1343,6 +1350,8 @@ class Attempt(models.Model):
                 return str(word) or self.text
             except (ValueError, TypeError):
                 return self.text
+        if self.task.task_type == 'alphabetty':
+            return self.text
         if self.task.task_type == 'wall':
             return self.task.get_wall().get_attempt_text(
                 json.loads(self.text),

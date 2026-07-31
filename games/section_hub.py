@@ -7,24 +7,48 @@ from zoneinfo import ZoneInfo
 
 from django.utils import timezone
 
+from games.alphabetty_daily import (
+    ALPHABETTY_GAME_ID,
+    filter_published_alphabetty_links,
+    get_alphabetty_hub_context,
+)
 from games.ladder_daily import (
     LADDER_GAME_ID,
     filter_published_ladder_links,
     get_ladder_hub_context,
 )
+from games.week_task_weekly import (
+    WEEK_TASK_GAME_ID,
+    filter_published_week_task_links,
+    get_week_task_hub_context,
+)
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 
+# alphabetty временно убран с главной (тестируем по прямой ссылке).
 SECTION_HUB_ORDER = ('ladder', 'replacements', 'walls', 'palindromes')
+
+# Группы карточек на главной (порядок внутри группы).
+HUB_DAILY_SECTION_IDS = ('ladder',)
+HUB_FROM_DESYATOCHKI_SECTION_IDS = ('week_task', 'replacements', 'walls', 'palindromes')
+WEEK_TASK_HUB_ID = WEEK_TASK_GAME_ID
 
 SECTION_HUB_META = {
     'ladder': {
         'icon': '🪜',
-        'title': 'Лесенка',
+        'title': 'Лесенки',
         'description': 'Одна лестница слов в день — соберите цепочку с двух концов.',
         'cta_today': 'Сегодняшняя лесенка',
         'cta_latest': 'Последняя лесенка',
         'all_link_label': 'Все лесенки →',
+    },
+    'alphabetty': {
+        'icon': '🔤',
+        'title': 'Алфавитки',
+        'description': 'Угадайте существительное по алфавиту — раньше или позже.',
+        'cta_today': 'Сегодняшняя алфавитка',
+        'cta_latest': 'Последняя алфавитка',
+        'all_link_label': 'Все алфавитки →',
     },
     'replacements': {
         'icon': '🔄',
@@ -46,6 +70,16 @@ SECTION_HUB_META = {
         'description': 'Восстановите палиндром.',
         'cta_latest': 'Последний палиндром',
         'all_link_label': 'Все палиндромы →',
+    },
+    'week_task': {
+        'icon': '⭐',
+        'title': 'Задание недели',
+        'description': 'Избранное сложное задание из одной из предыдущих Десяточек',
+        'cta_today': 'Задание этой недели',
+        'cta_latest': 'Последнее задание недели',
+        'all_link_label': 'Все задания недели →',
+        'soon_text': 'В понедельник 3 августа в 00:00 МСК выйдет первое задание недели.',
+        'soon_emphasis': True,
     },
 }
 
@@ -69,6 +103,10 @@ def _newest_task_group_links(game):
     )
     if game.id == LADDER_GAME_ID:
         qs = filter_published_ladder_links(qs, game)
+    elif game.id == ALPHABETTY_GAME_ID:
+        qs = filter_published_alphabetty_links(qs, game)
+    elif game.id == WEEK_TASK_GAME_ID:
+        qs = filter_published_week_task_links(qs, game)
     return GameTaskGroup.order_queryset_by_number(qs, reverse=True)
 
 
@@ -91,6 +129,57 @@ def get_training_section_hub_context(game):
         'all_link_label': meta['all_link_label'],
         'status': 'latest' if cta_number else 'empty',
         'game': game,
+    }
+
+
+def get_week_task_section_hub_card(game, *, published_numbers, now=None):
+    """Карточка «Задание недели» на главной."""
+    meta = SECTION_HUB_META[WEEK_TASK_HUB_ID]
+    ctx = get_week_task_hub_context(game, published_numbers=published_numbers, now=now)
+    cta_label = ctx.get('week_task_cta_label') or ''
+    is_today = ctx.get('week_task_is_today', False)
+    if is_today:
+        cta_label = meta['cta_today']
+    elif ctx.get('week_task_cta_number'):
+        cta_label = meta['cta_latest']
+    status = ctx.get('week_task_status', 'empty')
+    return {
+        'id': WEEK_TASK_HUB_ID,
+        'icon': meta['icon'],
+        'title': meta['title'],
+        'description': meta['description'],
+        'cta_label': cta_label,
+        'cta_number': ctx.get('week_task_cta_number'),
+        'is_today': is_today,
+        'play_url': ctx.get('week_task_play_url'),
+        'section_url': ctx.get('week_task_section_url'),
+        'all_link_label': meta['all_link_label'],
+        'status': status,
+        'today_label': ctx.get('week_task_today_label'),
+        'soon_text': meta.get('soon_text', ''),
+        'soon_emphasis': bool(meta.get('soon_emphasis')),
+        'game': game,
+    }
+
+
+def get_week_task_hub_card():
+    """Совместимость: заглушка, если игры ещё нет."""
+    meta = SECTION_HUB_META[WEEK_TASK_HUB_ID]
+    return {
+        'id': WEEK_TASK_HUB_ID,
+        'icon': meta['icon'],
+        'title': meta['title'],
+        'description': meta['description'],
+        'cta_label': '',
+        'cta_number': None,
+        'is_today': False,
+        'play_url': None,
+        'section_url': f'/section/{WEEK_TASK_HUB_ID}/',
+        'all_link_label': '',
+        'status': 'coming_soon',
+        'soon_text': meta.get('soon_text', ''),
+        'soon_emphasis': bool(meta.get('soon_emphasis')),
+        'game': None,
     }
 
 
@@ -117,6 +206,33 @@ def get_ladder_section_hub_card(game, *, published_numbers, now=None):
         'all_link_label': meta['all_link_label'],
         'status': ctx.get('ladder_status', 'empty'),
         'today_label': ctx.get('ladder_today_label'),
+        'game': game,
+    }
+
+
+def get_alphabetty_section_hub_card(game, *, published_numbers, now=None):
+    """Карточка Алфавитки на главной."""
+    meta = SECTION_HUB_META[ALPHABETTY_GAME_ID]
+    ctx = get_alphabetty_hub_context(game, published_numbers=published_numbers, now=now)
+    cta_label = ctx.get('alphabetty_cta_label') or ''
+    is_today = ctx.get('alphabetty_is_today', False)
+    if is_today:
+        cta_label = meta['cta_today']
+    elif ctx.get('alphabetty_cta_number'):
+        cta_label = meta['cta_latest']
+    return {
+        'id': ALPHABETTY_GAME_ID,
+        'icon': meta['icon'],
+        'title': meta['title'],
+        'description': meta['description'],
+        'cta_label': cta_label,
+        'cta_number': ctx.get('alphabetty_cta_number'),
+        'is_today': is_today,
+        'play_url': ctx.get('alphabetty_play_url'),
+        'section_url': ctx.get('alphabetty_section_url'),
+        'all_link_label': meta['all_link_label'],
+        'status': ctx.get('alphabetty_status', 'empty'),
+        'today_label': ctx.get('alphabetty_today_label'),
         'game': game,
     }
 

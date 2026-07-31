@@ -12,8 +12,10 @@ class Command(BaseCommand):
             'Announcements sent: day_before={day_before}, hour_before={hour_before}, '
             'start={start}, end_soon_15={end_soon_15}, end={end}, '
             'all_solved={all_solved}, results={results}, '
-            'admin_start_soon={admin_start_soon}, ladder_scheduled={ladder_scheduled}'.format(
+            'admin_start_soon={admin_start_soon}, ladder_scheduled={ladder_scheduled}, '
+            'alphabetty_buffer_added={alphabetty_buffer_added}'.format(
                 ladder_scheduled=stats.get('ladder_scheduled', 0),
+                alphabetty_buffer_added=stats.get('alphabetty_buffer_added', 0),
                 **{k: stats.get(k, 0) for k in (
                     'day_before', 'hour_before', 'start', 'end_soon_15', 'end',
                     'all_solved', 'results', 'admin_start_soon',

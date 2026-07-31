@@ -29,6 +29,10 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
 
 from games.access import game_has_started
+from games.alphabetty_daily import (
+    ALPHABETTY_GAME_ID,
+    filter_published_alphabetty_links,
+)
 from games.ladder_daily import (
     LADDER_GAME_ID,
     current_ladder_number,
@@ -38,16 +42,30 @@ from games.ladder_daily import (
     sort_ladder_links_newest_first,
     visible_ladder_links,
 )
+from games.week_task_weekly import (
+    WEEK_TASK_GAME_ID,
+    current_week_task_number,
+    filter_published_week_task_links,
+    is_week_task_number_published,
+    visible_week_task_links,
+)
 from games.ladder_word_results import (
     build_ladder_word_results_context,
     ladder_word_results_headers_context,
 )
 from games.section_hub import (
+    HUB_DAILY_SECTION_IDS,
+    HUB_FROM_DESYATOCHKI_SECTION_IDS,
     SECTION_HUB_ORDER,
+    WEEK_TASK_HUB_ID,
+    get_alphabetty_section_hub_card,
     get_desyatochki_hub_context,
     get_ladder_section_hub_card,
     get_training_section_hub_context,
+    get_week_task_hub_card,
+    get_week_task_section_hub_card,
 )
+from games.week_task_pool import source_summary_from_tags
 from games.models import (
     Attempt,
     AudioManager,
@@ -216,10 +234,15 @@ def _game_task_group_links(game):
 
 
 def _player_visible_task_group_links(game):
-    """Круги, видимые игроку (для лесенки — только уже вышедшие)."""
+    """Круги, видимые игроку (для лесенки / алфавитки / задания недели — только уже вышедшие)."""
     links = _game_task_group_links(game)
     if game.id == LADDER_GAME_ID:
         return visible_ladder_links(links, game, reverse=True)
+    if game.id == ALPHABETTY_GAME_ID:
+        published = filter_published_alphabetty_links(links, game)
+        return GameTaskGroup.order_queryset_by_number(published, reverse=True)
+    if game.id == WEEK_TASK_GAME_ID:
+        return visible_week_task_links(links, game, reverse=True)
     return links
 
 
@@ -435,7 +458,9 @@ NEW_UI_PROJECT = 'main'
 NEW_UI_SECTIONS_PROJECT = 'sections'
 PALINDROMES_GAME_ID = 'palindromes'
 # Разделы с собственным туториалом (модалка правил)
-SECTION_RULES_GAME_IDS = ('palindromes', 'replacements', 'walls', 'ladder')
+SECTION_RULES_GAME_IDS = (
+    'palindromes', 'replacements', 'walls', 'ladder', 'alphabetty', 'week_task',
+)
 
 
 def _project_base(project_id: str | None) -> str:
@@ -588,7 +613,8 @@ def get_section_games(request):
         team = request.user.profile.team_on
     games_list = [
         g for g in Game.objects.filter(project=project)
-        if g.id != LADDER_GAME_ID and g.has_access('see_game_preview', team=team)
+        if g.id not in (LADDER_GAME_ID, ALPHABETTY_GAME_ID)
+        and g.has_access('see_game_preview', team=team)
     ]
     return sorted(games_list, key=lambda g: _SECTION_NAV_ORDER.get(g.id, 99))
 
@@ -603,30 +629,68 @@ def _hub_section_task_group_links(game):
     if game.id == LADDER_GAME_ID:
         published = filter_published_ladder_links(qs, game)
         return GameTaskGroup.order_queryset_by_number(published, reverse=True)
+    if game.id == ALPHABETTY_GAME_ID:
+        published = filter_published_alphabetty_links(qs, game)
+        return GameTaskGroup.order_queryset_by_number(published, reverse=True)
+    if game.id == WEEK_TASK_GAME_ID:
+        published = filter_published_week_task_links(qs, game)
+        return GameTaskGroup.order_queryset_by_number(published, reverse=True)
     return GameTaskGroup.order_queryset_by_number(qs, reverse=True)
 
 
 def _build_hub_section_cards(request, *, team):
+    """Карточки разделов на главной, сгруппированные для двух блоков."""
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
-    if not project:
-        return []
-    cards = []
-    for game_id in SECTION_HUB_ORDER:
-        game = Game.objects.filter(id=game_id, project=project).first()
-        if not game or not game.has_access('see_game_preview', team=team):
-            continue
-        if game_id == LADDER_GAME_ID:
-            card = get_ladder_section_hub_card(
-                game,
-                published_numbers=_ladder_published_numbers(game),
-            )
-        else:
-            card = get_training_section_hub_context(game)
-        play_mode, _ = _get_play_mode(request, game.project_id)
-        play_mode = effective_play_mode(play_mode, game)
-        card.update(_game_page_progress_context(request, game, play_mode))
-        cards.append(card)
-    return cards
+    by_id = {}
+    if project:
+        for game_id in SECTION_HUB_ORDER:
+            game = Game.objects.filter(id=game_id, project=project).first()
+            if not game or not game.has_access('see_game_preview', team=team):
+                continue
+            if game_id == LADDER_GAME_ID:
+                card = get_ladder_section_hub_card(
+                    game,
+                    published_numbers=_ladder_published_numbers(game),
+                )
+            elif game_id == ALPHABETTY_GAME_ID:
+                card = get_alphabetty_section_hub_card(
+                    game,
+                    published_numbers=_alphabetty_published_numbers(game),
+                )
+            else:
+                card = get_training_section_hub_context(game)
+            play_mode, _ = _get_play_mode(request, game.project_id)
+            play_mode = effective_play_mode(play_mode, game)
+            card.update(_game_page_progress_context(request, game, play_mode))
+            by_id[game_id] = card
+
+    week_game = (
+        Game.objects.filter(id=WEEK_TASK_GAME_ID, project_id=NEW_UI_SECTIONS_PROJECT)
+        .first()
+        if project
+        else None
+    )
+    if week_game and week_game.has_access('see_game_preview', team=team):
+        card = get_week_task_section_hub_card(
+            week_game,
+            published_numbers=_week_task_published_numbers(week_game),
+        )
+        play_mode, _ = _get_play_mode(request, week_game.project_id)
+        play_mode = effective_play_mode(play_mode, week_game)
+        card.update(_game_page_progress_context(request, week_game, play_mode))
+        by_id[WEEK_TASK_HUB_ID] = card
+    else:
+        by_id[WEEK_TASK_HUB_ID] = get_week_task_hub_card()
+
+    daily = [by_id[i] for i in HUB_DAILY_SECTION_IDS if i in by_id]
+    from_desyatochki = [
+        by_id[i] for i in HUB_FROM_DESYATOCHKI_SECTION_IDS if i in by_id
+    ]
+    return {
+        'daily_hub_cards': daily,
+        'from_desyatochki_hub_cards': from_desyatochki,
+        'hub_section_cards': daily + from_desyatochki,
+    }
 
 
 def _get_ladder_game():
@@ -640,11 +704,27 @@ def _sections_hub_url(game_id):
     """Canonical public URL for a sections-project game hub."""
     if game_id == LADDER_GAME_ID:
         return '/games/{}/'.format(LADDER_GAME_ID)
+    if game_id == ALPHABETTY_GAME_ID:
+        return '/games/{}/'.format(ALPHABETTY_GAME_ID)
     return '/section/{}/'.format(game_id)
 
 
 def _ladder_published_numbers(game):
     return {link.number for link in filter_published_ladder_links(_game_task_group_links(game), game)}
+
+
+def _alphabetty_published_numbers(game):
+    return {
+        link.number
+        for link in filter_published_alphabetty_links(_game_task_group_links(game), game)
+    }
+
+
+def _week_task_published_numbers(game):
+    return {
+        link.number
+        for link in filter_published_week_task_links(_game_task_group_links(game), game)
+    }
 
 
 def _ladder_latest_play_url(game):
@@ -658,11 +738,15 @@ def _ladder_latest_play_url(game):
     return _play_url_for_task_group(game, max(numbers))
 
 
-def _ladder_task_group_rows(task_groups, game, *, today_number=None):
+def _ladder_task_group_rows(task_groups, game, *, today_number=None, today_prefix='Сегодня'):
     rows = []
     for p in task_groups:
         is_today = today_number is not None and str(p.number) == str(today_number)
-        title = 'Сегодня · №{}'.format(p.number) if is_today else '№{} · {}'.format(p.number, p.name)
+        title = (
+            '{} · №{}'.format(today_prefix, p.number)
+            if is_today
+            else '№{} · {}'.format(p.number, p.name)
+        )
         rows.append({
             'task_group': p.task_group,
             'game': game,
@@ -691,7 +775,7 @@ def new_hub(request):
     team = None
     if has_profile(request.user):
         team = request.user.profile.team_on
-    hub_section_cards = _build_hub_section_cards(request, team=team)
+    hub_groups = _build_hub_section_cards(request, team=team)
     view = MainPageView()
     view.project_name = NEW_UI_PROJECT
     desyatochki_games = view.get_games_list(request)
@@ -700,7 +784,7 @@ def new_hub(request):
     return render(request, 'ui/hub.html', {
         'project': project,
         'section_games': section_games,
-        'hub_section_cards': hub_section_cards,
+        **hub_groups,
         'desyatochki_card': desyatochki_card,
         **_games_list_card_context(request),
         'page_title': 'Interoves',
@@ -1234,6 +1318,8 @@ def new_section_game_page(request, game_id):
     """Страница раздела (игра из project sections) в новом UI: правила при необходимости + список групп заданий."""
     if game_id == LADDER_GAME_ID:
         return redirect('ui_ladder_hub', permanent=True)
+    if game_id == ALPHABETTY_GAME_ID:
+        return redirect('ui_alphabetty_hub', permanent=True)
     return _render_section_game_page(request, game_id)
 
 
@@ -1266,6 +1352,14 @@ def _render_section_game_page(request, game_id):
         )
         task_groups_heading = 'Архив'
         task_groups_empty_text = 'Лесенки скоро появятся — следите за обновлениями.'
+    elif game_id == WEEK_TASK_GAME_ID:
+        today_number = current_week_task_number(game)
+        task_groups = _hub_section_task_group_links(game)
+        task_group_rows = _ladder_task_group_rows(
+            task_groups, game, today_number=today_number, today_prefix='Эта неделя',
+        )
+        task_groups_heading = 'Архив'
+        task_groups_empty_text = 'Задания недели скоро появятся — следите за обновлениями.'
     else:
         today_number = None
         task_groups = _hub_section_task_group_links(game)
@@ -1311,6 +1405,14 @@ def _render_section_game_page(request, game_id):
             if game_id == LADDER_GAME_ID
             and today_number is not None
             and is_ladder_number_published(game, today_number)
+            else None
+        ),
+        'week_task_today_play_url': (
+            _play_url_for_task_group(game, today_number)
+            if game_id == WEEK_TASK_GAME_ID
+            and today_number is not None
+            and is_week_task_number_published(game, today_number)
+            and any(str(p.number) == str(today_number) for p in task_groups)
             else None
         ),
         'back_url': '/',
@@ -2149,6 +2251,8 @@ def new_task_group_page(request, game_id, task_group_number):
             raise Http404()
         if game_id == LADDER_GAME_ID and not is_ladder_number_published(game, task_group_number):
             raise Http404()
+        if game_id == WEEK_TASK_GAME_ID and not is_week_task_number_published(game, task_group_number):
+            raise Http404()
     else:
         if play_mode == 'team':
             if not game.has_access('play', team=team):
@@ -2175,6 +2279,9 @@ def new_task_group_page(request, game_id, task_group_number):
         # Соседи только среди уже вышедших лесенок (не показываем «Дальше» на неопубликованную).
         visible_links = list(visible_ladder_links(_game_task_group_links(game), game))
         prev_tg, next_tg = _neighbors_by_pk(visible_links, placement)
+    elif game.id == WEEK_TASK_GAME_ID:
+        visible_links = list(visible_week_task_links(_game_task_group_links(game), game))
+        prev_tg, next_tg = _neighbors_by_pk(visible_links, placement)
     else:
         prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
@@ -2194,6 +2301,12 @@ def new_task_group_page(request, game_id, task_group_number):
             section_tutorial_html = None
             show_palindrome_rules = False
     ctx_dicts = build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode)
+    week_task_source_line = None
+    if game.id == WEEK_TASK_GAME_ID:
+        src = source_summary_from_tags(task_group.tags or {})
+        des = src.get('desyatka_label') or src.get('game_id')
+        if des:
+            week_task_source_line = 'из {}'.format(des)
     return render(request, 'ui/task_group.html', {
         'game': game,
         'task_group': task_group,
@@ -2218,6 +2331,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'next_task_group_url': '/games/{}/{}/'.format(game.id, next_tg.number) if next_tg else None,
         'tg_number': placement.number,
         'tg_name': placement.name,
+        'week_task_source_line': week_task_source_line,
         'ladder_word_results_url': (
             '/games/ladder/{}/results/'.format(placement.number)
             if game.id == LADDER_GAME_ID

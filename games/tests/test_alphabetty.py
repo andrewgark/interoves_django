@@ -1,0 +1,300 @@
+"""Алфавитка: словари, префиксы, daily, support buffer, guess API."""
+
+from __future__ import annotations
+
+import json
+
+from django.contrib.sites.models import Site
+from django.test import Client, TestCase
+
+from allauth.socialaccount.models import SocialApp
+
+from games.alphabetty.core import (
+    build_prefix_level,
+    compare_words,
+    guess_status,
+    is_valid_guess,
+    normalize_word,
+    pick_answer_words,
+)
+from games.alphabetty.play import apply_guess, get_play_state
+from games.anon_migrate import _solved_count
+from games.models import ChainTaskState
+from games.alphabetty_daily import (
+    ALPHABETTY_GAME_ID,
+    ALPHABETTY_PUBLISH_START_TAG,
+)
+from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
+from games.support.services.alphabetty import (
+    AlphabettySupportError,
+    ensure_future_buffer,
+    generate_more,
+    list_alphabetty_rows,
+    reorder_alphabetty,
+    set_publish_start,
+    update_alphabetty,
+)
+
+
+class AlphabettyCoreTests(TestCase):
+    def test_normalize_and_compare(self):
+        self.assertEqual(normalize_word('  ёлка '), 'ЕЛКА')
+        self.assertEqual(normalize_word('ЁЖ'), normalize_word('ЕЖ'))
+        self.assertEqual(guess_status('арбуз', 'яблоко'), 'earlier')
+        self.assertEqual(guess_status('яблоко', 'арбуз'), 'later')
+        self.assertEqual(guess_status('слово', 'слово'), 'correct')
+        self.assertEqual(compare_words('ЕЛКА', 'ЁЛКА'), 0)
+        self.assertEqual(guess_status('ёлка', 'елка'), 'correct')
+
+    def test_solved_count_prefers_alphabetty_progress(self):
+        import json
+        empty = json.dumps({'guesses': [], 'won': False})
+        progress = json.dumps({'guesses': ['ГОД', 'ЯБЛОКО'], 'won': False})
+        won = json.dumps({'guesses': ['СЛОВО'], 'won': True})
+        self.assertGreater(_solved_count(progress), _solved_count(empty))
+        self.assertGreater(_solved_count(won), _solved_count(progress))
+
+    def test_valid_dict_loaded(self):
+        self.assertTrue(is_valid_guess('год'))
+        self.assertFalse(is_valid_guess('asdfqwer'))
+
+    def test_prefix_rimlyanin_risunok(self):
+        rows = build_prefix_level('римлянин', 'рисунок')
+        displays = [r['display'] for r in rows]
+        self.assertEqual(displays, ['РИМ+', 'РИН...', 'РИО...', 'РИП...', 'РИР...', 'РИС+'])
+        self.assertTrue(rows[0]['expandable'])
+        self.assertTrue(rows[-1]['expandable'])
+
+        expanded = build_prefix_level('римлянин', 'рисунок', expand_prefix='РИС')
+        self.assertEqual(expanded[0]['display'], 'РИСА...')
+        self.assertEqual(expanded[-1]['display'], 'РИСУ+')
+        self.assertTrue(expanded[-1]['expandable'])
+
+    def test_prefix_exact_lo_still_expandable(self):
+        """Точная нижняя граница (слово = узел) всё равно даёт +, т.к. есть расширения."""
+        rows = build_prefix_level('РИМ', 'РИСУНОК')
+        rim = next(r for r in rows if r['prefix'] == 'РИМ')
+        self.assertTrue(rim['expandable'])
+        self.assertEqual(rim['display'], 'РИМ+')
+
+    def test_prefix_only_hi_excludes_exact_hi_letter(self):
+        rows = build_prefix_level(None, 'Я')
+        letters = [r['letter'] for r in rows]
+        self.assertNotIn('Я', letters)
+        self.assertEqual(letters[-1], 'Ю')
+
+    def test_pick_excludes(self):
+        pool = pick_answer_words(3, exclude={'ГОД'}, rng=__import__('random').Random(0))
+        self.assertEqual(len(pool), 3)
+        self.assertNotIn('ГОД', pool)
+
+
+def _ensure_login_modal_deps():
+    Project.objects.get_or_create(pk='main', defaults={})
+    for name in (
+        'Правила Десяточки',
+        'Правила турнирного режима',
+        'Правила тренировочного режима',
+    ):
+        HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
+    site, _ = Site.objects.get_or_create(id=1, defaults={'domain': 'testserver', 'name': 'test'})
+    for provider, name in (('google', 'Google'), ('vk', 'VK')):
+        app, created = SocialApp.objects.get_or_create(
+            provider=provider,
+            defaults={'name': name, 'client_id': 'test', 'secret': 'test'},
+        )
+        if created:
+            app.sites.add(site)
+
+
+def _ensure_alphabetty_game(**tag_overrides):
+    Project.objects.get_or_create(id='sections')
+    CheckerType.objects.get_or_create(id='alphabetty')
+    tags = {ALPHABETTY_PUBLISH_START_TAG: '2026-08-01T00:00:00+03:00'}
+    tags.update(tag_overrides)
+    game, _ = Game.objects.update_or_create(
+        id=ALPHABETTY_GAME_ID,
+        defaults={
+            'name': 'Алфавитка',
+            'author': 'Interoves',
+            'project_id': 'sections',
+            'is_ready': True,
+            'is_playable': True,
+            'is_tournament': False,
+            'requires_ticket': False,
+            'tags': tags,
+        },
+    )
+    # Чистый слот для теста: убрать seeded/предыдущие круги.
+    GameTaskGroup.objects.filter(game=game).delete()
+    return game
+
+
+class AlphabettySupportTests(TestCase):
+    def setUp(self):
+        self.game = _ensure_alphabetty_game()
+
+    def test_generate_and_buffer(self):
+        result = generate_more(5)
+        self.assertEqual(result['created_count'], 5)
+        rows = list_alphabetty_rows()
+        self.assertEqual(len(rows), 5)
+        words = {r.word for r in rows}
+        self.assertEqual(len(words), 5)
+
+        future_before = sum(1 for r in rows if not r.is_published)
+        buf = ensure_future_buffer(10)
+        self.assertEqual(buf['added'], max(0, 10 - future_before))
+        future_after = sum(1 for r in list_alphabetty_rows() if not r.is_published)
+        self.assertGreaterEqual(future_after, min(10, future_before + buf['added']))
+
+    def test_update_and_reorder_lock(self):
+        # Старт в будущем — все слоты ещё не опубликованы, слово можно менять.
+        set_publish_start('2099-01-01')
+        generate_more(3)
+        rows = list_alphabetty_rows()
+        detail = update_alphabetty(rows[0].link_id, word='слово')
+        self.assertEqual(detail['word'], 'СЛОВО')
+
+        # Publish start in the past so №1 is published
+        set_publish_start('2020-01-01')
+        rows = list_alphabetty_rows()
+        published = [r for r in rows if r.is_published]
+        self.assertTrue(published)
+        with self.assertRaises(AlphabettySupportError):
+            update_alphabetty(published[0].link_id, word='год')
+        # Try to move published out of prefix
+        ids = [r.link_id for r in rows]
+        bad_order = ids[1:] + ids[:1]
+        with self.assertRaises(AlphabettySupportError):
+            reorder_alphabetty(bad_order)
+
+    def test_duplicate_word_rejected(self):
+        generate_more(2)
+        rows = list_alphabetty_rows()
+        with self.assertRaises(AlphabettySupportError):
+            update_alphabetty(rows[1].link_id, word=rows[0].word)
+
+    def test_missing_publish_start_keeps_closed(self):
+        from games.alphabetty_daily import is_alphabetty_number_published
+        generate_more(2)
+        self.game.tags = {}
+        self.game.save(update_fields=['tags'])
+        self.assertFalse(is_alphabetty_number_published(self.game, 1))
+
+
+class AlphabettyPlayApiTests(TestCase):
+    def setUp(self):
+        self.game = _ensure_alphabetty_game(
+            **{ALPHABETTY_PUBLISH_START_TAG: '2020-01-01T00:00:00+03:00'},
+        )
+        checker = CheckerType.objects.get(id='alphabetty')
+        tg = TaskGroup.objects.create(label='alphabetty:1', checker=checker, points=1)
+        self.task = Task.objects.create(
+            task_group=tg,
+            number='1',
+            task_type='alphabetty',
+            checker=checker,
+            checker_data='СЛОВО',
+            answer='СЛОВО',
+            points=1,
+        )
+        GameTaskGroup.objects.create(
+            game=self.game, task_group=tg, number='1', name='Алфавитка #1',
+        )
+        self.client = Client()
+
+    def test_guess_flow(self):
+        # earlier
+        r = self.client.post(
+            '/games/alphabetty/1/guess/',
+            data=json.dumps({'word': 'год', 'anon_key': 'testanon1'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='testanon1',
+        )
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data['status'], 'earlier')
+        self.assertIn('ГОД', data['earlier'])
+
+        # later
+        r = self.client.post(
+            '/games/alphabetty/1/guess/',
+            data=json.dumps({'word': 'яблоко', 'anon_key': 'testanon1'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='testanon1',
+        )
+        data = r.json()
+        self.assertEqual(data['status'], 'later')
+        self.assertEqual(data['bounds']['lo'], 'ГОД')
+        self.assertEqual(data['bounds']['hi'], 'ЯБЛОКО')
+
+        # invalid
+        r = self.client.post(
+            '/games/alphabetty/1/guess/',
+            data=json.dumps({'word': 'qqqqqq', 'anon_key': 'testanon1'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='testanon1',
+        )
+        self.assertEqual(r.json()['status'], 'invalid')
+
+        # correct
+        r = self.client.post(
+            '/games/alphabetty/1/guess/',
+            data=json.dumps({'word': 'слово', 'anon_key': 'testanon1'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='testanon1',
+        )
+        data = r.json()
+        self.assertEqual(data['status'], 'correct')
+        self.assertTrue(data['won'])
+        self.assertEqual(data['secret'], 'СЛОВО')
+
+    def test_play_page_ok(self):
+        _ensure_login_modal_deps()
+        r = self.client.get('/games/alphabetty/1/')
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Алфавитка')
+
+    def test_prefix_endpoint(self):
+        r = self.client.get(
+            '/games/alphabetty/1/prefix/',
+            {'lo': 'римлянин', 'hi': 'рисунок'},
+        )
+        self.assertEqual(r.status_code, 200)
+        rows = r.json()['rows']
+        self.assertEqual(rows[0]['display'], 'РИМ+')
+
+    def test_state_endpoint_uses_anon_header(self):
+        self.client.post(
+            '/games/alphabetty/1/guess/',
+            data=json.dumps({'word': 'год', 'anon_key': 'stateanon'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='stateanon',
+        )
+        r = self.client.get(
+            '/games/alphabetty/1/state/',
+            HTTP_X_INTEROVES_ANON='stateanon',
+        )
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertIn('ГОД', data['earlier'])
+
+    def test_unguessable_secret_rejected_in_support(self):
+        from games.support.services.alphabetty import AlphabettySupportError, _create_slot
+        with self.assertRaises(AlphabettySupportError):
+            _create_slot(number=99, word='QQNOTAWORD')
+
+    def test_get_play_state_does_not_create_empty_cts(self):
+        from django.contrib.auth.models import User
+        user = User.objects.create_user('ab_viewer', 'ab@example.com', 'x')
+        before = ChainTaskState.objects.filter(user=user, task=self.task).count()
+        payload = get_play_state(game=self.game, task=self.task, user=user)
+        self.assertEqual(payload['attempts'], 0)
+        self.assertEqual(
+            ChainTaskState.objects.filter(user=user, task=self.task).count(),
+            before,
+        )
+        apply_guess(game=self.game, task=self.task, word='год', user=user)
+        self.assertEqual(ChainTaskState.objects.filter(user=user, task=self.task).count(), 1)

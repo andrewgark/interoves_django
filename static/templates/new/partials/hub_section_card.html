@@ -1,0 +1,29 @@
+<section class="new-hub-section{% if card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="hub-section-{{ card.id }}">
+  <div class="new-hub-section__head">
+    <h2 id="hub-section-{{ card.id }}" class="new-hub-section__title">{{ card.icon }} {{ card.title }}</h2>
+    {% if card.today_label %}
+      <span class="new-pill{% if card.is_today %} new-hub-section__badge-today{% endif %}">{{ card.today_label }}</span>
+    {% endif %}
+  </div>
+  <p class="new-hub-section__desc">{{ card.description }}</p>
+  {% if card.play_url %}
+    <a class="new-btn new-hub-section__cta{% if card.is_today %} new-hub-section__cta--today{% elif card.cta_label %} new-hub-section__cta--latest{% endif %}"
+       href="{{ card.play_url }}"
+       data-hub-section-cta
+       data-cta-number="{{ card.cta_number|default:'' }}"
+       {% if card.load_task_group_progress and card.task_group_progress_url %}data-progress-url="{{ card.task_group_progress_url }}"{% endif %}>
+      {{ card.cta_label }}
+    </a>
+  {% elif card.status == 'coming_soon' %}
+    <p class="new-hub-section__soon{% if card.soon_emphasis %} new-hub-section__soon--announce{% endif %}">
+      {% if card.soon_text %}{{ card.soon_text }}
+      {% elif card.id == 'alphabetty' %}Первая алфавитка появится в полночь по Москве.
+      {% else %}Первая лесенка появится в полночь по Москве.{% endif %}
+    </p>
+  {% endif %}
+  {% if card.section_url and card.all_link_label %}
+  <p class="new-hub-section__footer">
+    <a class="new-link-dotted" href="{{ card.section_url }}">{{ card.all_link_label }}</a>
+  </p>
+  {% endif %}
+</section>

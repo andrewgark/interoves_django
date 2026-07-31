@@ -171,6 +171,59 @@ class AnonMigrateTests(TestCase):
         self.assertEqual(json.loads(row.state)['solved_indices'], [0, 1, 2, 12])
         self.assertFalse(ChainTaskState.objects.filter(anon_key=self.anon_key).exists())
 
+    def test_migrate_merges_alphabetty_guesses_over_empty_user_state(self):
+        """Пустой user CTS (открыл страницу) не должен затирать anon-прогресс Алфавитки."""
+        import json
+        ChainTaskState.objects.create(
+            user=self.user,
+            task=self.task,
+            game=self.game,
+            game_mode='general',
+            state='{"guesses": [], "won": false}',
+        )
+        anon_state = '{"guesses": ["ГОД", "ЯБЛОКО"], "won": false}'
+        ChainTaskState.objects.create(
+            anon_key=self.anon_key,
+            task=self.task,
+            game=self.game,
+            game_mode='general',
+            state=anon_state,
+        )
+        resp = self.client.post(
+            reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
+        )
+        self.assertEqual(resp.json()['moved_states'], 1)
+        row = ChainTaskState.objects.get(
+            user=self.user, task=self.task, game=self.game, game_mode='general',
+        )
+        self.assertEqual(json.loads(row.state)['guesses'], ['ГОД', 'ЯБЛОКО'])
+
+    def test_migrate_unions_disjoint_alphabetty_guesses(self):
+        import json
+        ChainTaskState.objects.create(
+            user=self.user,
+            task=self.task,
+            game=self.game,
+            game_mode='general',
+            state='{"guesses": ["АРБУЗ"], "won": false}',
+        )
+        ChainTaskState.objects.create(
+            anon_key=self.anon_key,
+            task=self.task,
+            game=self.game,
+            game_mode='general',
+            state='{"guesses": ["ЯБЛОКО"], "won": false}',
+        )
+        resp = self.client.post(
+            reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
+        )
+        self.assertEqual(resp.json()['moved_states'], 1)
+        row = ChainTaskState.objects.get(
+            user=self.user, task=self.task, game=self.game, game_mode='general',
+        )
+        guesses = json.loads(row.state)['guesses']
+        self.assertEqual(set(guesses), {'АРБУЗ', 'ЯБЛОКО'})
+
     def test_migrate_count_endpoint(self):
         url = reverse('new_anon_migrate_count')
         resp = self.client.get(url, {'anon_key': self.anon_key})

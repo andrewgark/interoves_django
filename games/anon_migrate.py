@@ -4,17 +4,71 @@ import json
 from games.models import ChainTaskState
 
 
-def _solved_count(state_json):
+def _parse_state(state_json):
     if not state_json:
-        return -1
+        return None
     try:
         data = json.loads(state_json)
     except (TypeError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _solved_count(state_json):
+    """Эвристика «насколько продвинут state» для merge anon→user.
+
+    Поддерживает raddle (solved_indices), replacements (solved_lines),
+    alphabetty (guesses/won) и wall (best_points).
+    """
+    data = _parse_state(state_json)
+    if data is None:
         return -1
     solved = data.get('solved_indices')
     if isinstance(solved, list):
         return len(solved)
+    solved_lines = data.get('solved_lines')
+    if isinstance(solved_lines, list):
+        return len(solved_lines)
+    guesses = data.get('guesses')
+    if isinstance(guesses, list):
+        n = len(guesses)
+        # Победа важнее любого незавершённого прогресса; среди побед — меньше попыток.
+        if data.get('won'):
+            return 10_000 - n
+        return n
+    best = data.get('best_points')
+    if best is not None:
+        try:
+            return int(float(best))
+        except (TypeError, ValueError):
+            pass
     return -1
+
+
+def _merge_alphabetty_states(anon_json, user_json):
+    """Объединяет guesses Алфавитки; won=True если победил хоть один side."""
+    anon = _parse_state(anon_json) or {}
+    user = _parse_state(user_json) or {}
+    anon_g = anon.get('guesses') if isinstance(anon.get('guesses'), list) else None
+    user_g = user.get('guesses') if isinstance(user.get('guesses'), list) else None
+    if anon_g is None or user_g is None:
+        return None
+    # Порядок: сначала более «продвинутый» state, затем недостающие из другого.
+    if _solved_count(anon_json) >= _solved_count(user_json):
+        primary, secondary = anon_g, user_g
+    else:
+        primary, secondary = user_g, anon_g
+    seen = set()
+    merged = []
+    for g in list(primary) + list(secondary):
+        if not isinstance(g, str) or g in seen:
+            continue
+        seen.add(g)
+        merged.append(g)
+    return json.dumps({
+        'guesses': merged,
+        'won': bool(anon.get('won') or user.get('won')),
+    }, ensure_ascii=False)
 
 
 def migrate_anon_chain_task_states(user, anon_key):
@@ -49,8 +103,13 @@ def migrate_anon_chain_task_states(user, anon_key):
             row.save(update_fields=['user', 'anon_key', 'updated_at'])
             moved += 1
             continue
-        # Конфликт: берём state с большим числом solved_indices (raddle/wall).
-        if _solved_count(row.state) > _solved_count(existing.state):
+        merged = _merge_alphabetty_states(row.state, existing.state)
+        if merged is not None:
+            if _solved_count(row.state) > _solved_count(existing.state):
+                existing.last_attempt = row.last_attempt
+            existing.state = merged
+            existing.save(update_fields=['state', 'last_attempt', 'updated_at'])
+        elif _solved_count(row.state) > _solved_count(existing.state):
             existing.state = row.state
             existing.last_attempt = row.last_attempt
             existing.save(update_fields=['state', 'last_attempt', 'updated_at'])
