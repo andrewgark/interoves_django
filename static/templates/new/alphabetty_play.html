@@ -44,13 +44,8 @@
      data-anon-key="{{ anon_key|default:'' }}"
      data-authenticated="{% if is_authenticated %}1{% else %}0{% endif %}">
 
-  <section class="new-alphabetty__block" id="ab-after-block" hidden>
-    <h2 class="new-alphabetty__block-title">Загаданное слово идёт в алфавите <i>после</i>:</h2>
-    <ul class="new-alphabetty__words" id="ab-above"></ul>
-  </section>
-
-  <div class="new-alphabetty__mid" id="ab-mid">
-    <div class="new-alphabetty__prefix-side" id="ab-prefix-side">
+  <div class="new-alphabetty__layout">
+    <aside class="new-alphabetty__prefix-side" id="ab-prefix-side">
       <button type="button"
               class="new-alphabetty__prefix-toggle"
               id="ab-prefix-toggle"
@@ -58,7 +53,12 @@
               aria-label="На какие буквы может начинаться слово?"
               aria-expanded="false">+</button>
       <div class="new-alphabetty__prefix-panel" id="ab-prefix-panel" hidden></div>
-    </div>
+    </aside>
+
+    <section class="new-alphabetty__block new-alphabetty__block--after" id="ab-after-block" hidden>
+      <h2 class="new-alphabetty__block-title">Загаданное слово идёт в алфавите <i>после</i>:</h2>
+      <ul class="new-alphabetty__words" id="ab-above"></ul>
+    </section>
 
     <div class="new-alphabetty__guess" id="ab-input-zone">
       <form class="new-alphabetty__form" id="ab-form" autocomplete="off">
@@ -85,12 +85,12 @@
       <div class="new-alphabetty__secret" id="ab-secret"></div>
       <p class="new-alphabetty__win-text">Угадано!</p>
     </div>
-  </div>
 
-  <section class="new-alphabetty__block" id="ab-before-block" hidden>
-    <h2 class="new-alphabetty__block-title">Загаданное слово идёт в алфавите <i>перед</i>:</h2>
-    <ul class="new-alphabetty__words" id="ab-below"></ul>
-  </section>
+    <section class="new-alphabetty__block new-alphabetty__block--before" id="ab-before-block" hidden>
+      <h2 class="new-alphabetty__block-title">Загаданное слово идёт в алфавите <i>перед</i>:</h2>
+      <ul class="new-alphabetty__words" id="ab-below"></ul>
+    </section>
+  </div>
 </div>
 
 <script>
@@ -421,8 +421,7 @@
         expanded = {};
         applyState(data);
         if (data.status === 'correct') showMsg('Верно!', 'ok');
-        else if (data.status === 'earlier') showMsg('Загаданное позже по алфавиту', 'hint');
-        else if (data.status === 'later') showMsg('Загаданное раньше по алфавиту', 'hint');
+        else showMsg('');
       })
       .catch(function (e) { showMsg((e && e.message) || 'Сеть недоступна', 'error'); })
       .finally(function () { busy = false; });
