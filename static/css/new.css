@@ -4659,6 +4659,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   flex: 1 1 12rem;
   min-width: 0;
   max-width: 100%;
+  box-sizing: border-box;
   height: 2.75rem;
   padding: 0 0.85rem;
   border: 1px solid var(--border);
@@ -4693,8 +4694,15 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 }
 .new-alphabetty__submit {
   flex: 0 0 auto;
+  box-sizing: border-box;
   height: 2.75rem;
   min-width: 7.5rem;
+  margin-top: 0; /* .new-btn иначе даёт 1.25rem и кнопка уезжает вниз */
+  padding: 0 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 .new-alphabetty__msg {
   margin: 0.45rem 0 0;
