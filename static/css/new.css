@@ -4466,6 +4466,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   margin-left: 0;
   margin-right: 0;
 }
+.new-alphabetty .new-raddle-result[hidden] {
+  display: none !important;
+}
 
 .new-alphabetty__layout {
   display: grid;
