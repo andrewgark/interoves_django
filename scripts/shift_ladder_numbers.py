@@ -42,14 +42,6 @@ from games.models import Game, GameTaskGroup, Task  # noqa: E402
 _TITLE_RE = re.compile(r"^Лесенка\s*#\s*(\d+)\s*$", re.IGNORECASE)
 
 
-def _apply_title(old: str, new_num: int) -> str:
-    if not old:
-        return old
-    if _TITLE_RE.match(old.strip()):
-        return f"Лесенка #{new_num}"
-    return old
-
-
 def _parse_remap(spec: str) -> dict[int, int]:
     """Parse ``13:14,14:16,...`` into {old: new}."""
     mapping: dict[int, int] = {}
@@ -91,11 +83,10 @@ def _apply_planned(planned: list[tuple[int, int, GameTaskGroup]], *, dry_run: bo
                 tg.label = f"ladder:{new}"
                 tg.save(update_fields=["label"])
             task = Task.objects.filter(task_group=tg, number="1").first()
-            if task and task.text:
-                new_text = _apply_title(task.text, new)
-                if new_text != task.text:
-                    task.text = new_text
-                    task.save(update_fields=["text"])
+            # Intro не синхронизируем с номером; «Лесенка #N» — устаревший мусор.
+            if task and task.text and _TITLE_RE.match(task.text.strip()):
+                task.text = ""
+                task.save(update_fields=["text"])
 
         for old, new, link in planned:
             link.number = str(new)

@@ -181,6 +181,32 @@ class LadderSupportServiceTests(TestCase):
         task = Task.objects.get(pk=detail['task_id'])
         self.assertEqual(task.tags.get('author'), 'Тест')
 
+    def test_intro_does_not_default_to_ladder_title(self):
+        created = ladder_svc.create_ladder(
+            at_number=1, words=['ААА', 'БББ'], hints=['x']
+        )
+        self.assertEqual(created['intro'], '')
+        task = Task.objects.get(pk=created['task_id'])
+        self.assertEqual(task.text, '')
+        # Нельзя «сохранить» публичный заголовок в intro.
+        detail = ladder_svc.update_ladder(
+            created['link_id'],
+            words=['ААА', 'БББ'],
+            hints=['x'],
+            intro='Лесенка #1',
+        )
+        self.assertEqual(detail['intro'], '')
+        # Старый мусор в text сбрасывается при перенумерации.
+        task.text = 'Лесенка #1'
+        task.save(update_fields=['text'])
+        second = ladder_svc.create_ladder(
+            at_number=1, words=['ВВВ', 'ГГГ'], hints=['y']
+        )
+        task.refresh_from_db()
+        self.assertEqual(task.text, '')
+        self.assertEqual(second['number'], 1)
+        self.assertEqual(Task.objects.get(pk=created['task_id']).text, '')
+
     def test_update_mixed_script_flag(self):
         created = ladder_svc.create_ladder(
             at_number=1, words=['СТАРТ', 'HELLO', 'ФИНИШ'], hints=['a', 'b']

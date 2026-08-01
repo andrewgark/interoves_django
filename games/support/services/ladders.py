@@ -114,27 +114,26 @@ def validate_ladder_content(
     return validate_raddle_checker_data(raw, answer_text='\n'.join(payload['words']))
 
 
-def _apply_title(old: str, new_num: int) -> str:
-    if not old:
-        return old
-    if _TITLE_RE.match(old.strip()):
-        return f'Лесенка #{new_num}'
-    return old
+def _normalize_intro(intro: str) -> str:
+    """Intro — произвольный текст перед лесенкой; «Лесенка #N» туда не кладём."""
+    text = (intro or '').strip()
+    if not text or _TITLE_RE.match(text):
+        return ''
+    return intro or ''
 
 
 def _sync_link_titles(link: GameTaskGroup, new_num: int) -> None:
-    """Обновить name / label / task.text-заголовок под новый публичный номер."""
+    """Обновить name / label под новый публичный номер (не трогаем intro/task.text)."""
     tg = link.task_group
     link.name = f'Лесенка #{new_num}'
     if (tg.label or '').startswith('ladder:') or not (tg.label or '').strip():
         tg.label = f'ladder:{new_num}'
         tg.save(update_fields=['label'])
+    # Старые импорты писали «Лесенка #N» в Task.text — вычищаем при перенумерации.
     task = Task.objects.filter(task_group=tg, number='1').first()
-    if task and task.text:
-        new_text = _apply_title(task.text, new_num)
-        if new_text != task.text:
-            task.text = new_text
-            task.save(update_fields=['text'])
+    if task and task.text and _TITLE_RE.match(task.text.strip()):
+        task.text = ''
+        task.save(update_fields=['text'])
 
 
 def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
@@ -380,7 +379,7 @@ def _create_task_group_and_task(
         checker=checker,
         checker_data=json.dumps(payload, ensure_ascii=False),
         answer='\n'.join(payload['words']),
-        text=intro or '',
+        text=_normalize_intro(intro),
         tags=tags,
         points=1,
         max_attempts=None,
@@ -501,7 +500,7 @@ def update_ladder(
             'checker': checker,
             'checker_data': json.dumps(payload, ensure_ascii=False),
             'answer': '\n'.join(payload['words']),
-            'text': intro or '',
+            'text': _normalize_intro(intro),
             'tags': tags,
             'points': 1,
             'max_attempts': None,
