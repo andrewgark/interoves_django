@@ -275,6 +275,31 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'Алфавитка')
 
+    def test_last_redirects_to_latest_published(self):
+        checker = CheckerType.objects.get(id='alphabetty')
+        tg2 = TaskGroup.objects.create(label='alphabetty:2', checker=checker, points=1)
+        Task.objects.create(
+            task_group=tg2,
+            number='1',
+            task_type='alphabetty',
+            checker=checker,
+            checker_data='ГОД',
+            answer='ГОД',
+            points=1,
+        )
+        GameTaskGroup.objects.create(
+            game=self.game, task_group=tg2, number='2', name='Алфавитка #2',
+        )
+        r = self.client.get('/alphabetty/last/')
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r['Location'], '/alphabetty/2/')
+
+    def test_last_without_published_goes_to_hub(self):
+        GameTaskGroup.objects.filter(game=self.game).delete()
+        r = self.client.get('/alphabetty/last/')
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r['Location'], '/alphabetty/')
+
     def test_prefix_endpoint(self):
         r = self.client.get(
             '/alphabetty/1/prefix/',

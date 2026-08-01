@@ -19,6 +19,7 @@ ladder_hub_page = new_ladder_hub_page
 from games.views.alphabetty_views import (  # noqa: E402
     alphabetty_guess,
     alphabetty_hub_page,
+    alphabetty_last_page,
     alphabetty_play_page,
     alphabetty_prefix,
     alphabetty_state,

@@ -151,6 +151,27 @@ def alphabetty_today_page(request):
     return redirect(play_url)
 
 
+def alphabetty_last_page(request):
+    """Редирект на последнюю опубликованную алфавитку (как /ladder/last/)."""
+    game = _get_game()
+    if not game:
+        raise Http404()
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
+    if not game.has_access('see_game_preview', team=team):
+        raise Http404()
+    ints = []
+    for n in _published_numbers(game):
+        try:
+            ints.append(int(n))
+        except (TypeError, ValueError):
+            continue
+    if not ints:
+        return redirect('new_alphabetty_hub')
+    return redirect(section_play_path(ALPHABETTY_GAME_ID, max(ints)))
+
+
 def alphabetty_play_page(request, number):
     game = _get_game()
     if not game:
