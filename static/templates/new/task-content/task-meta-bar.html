@@ -1,7 +1,9 @@
 {% load filters %}
 {# Ожидает: task, ai, mode, base_max, wall_max_title (может быть пустым), user, has_profile_user, likes_meta_by_task_id #}
 <div class="new-taskcard__meta-bar new-proportions-compact-bar">
+  {% if not is_daily_single_task %}
   <span class="new-proportions-compact-bar__num">{{ task.number }}.</span>
+  {% endif %}
   <div class="new-proportions-compact-stats">
     {% if ai.is_solved %}
     <span class="new-pill new-pill--ok new-proportions-compact-badge--ok-strong" title="Задание решено">ок</span>

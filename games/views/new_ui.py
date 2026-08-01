@@ -39,6 +39,7 @@ from games.ladder_daily import (
     filter_published_ladder_links,
     get_ladder_hub_context,
     is_ladder_number_published,
+    ladder_publish_at,
     sort_ladder_links_newest_first,
     visible_ladder_links,
 )
@@ -61,6 +62,7 @@ from games.section_hub import (
     get_alphabetty_section_hub_card,
     get_desyatochki_hub_context,
     get_ladder_section_hub_card,
+    get_source_desyatka_context,
     get_training_section_hub_context,
     get_week_task_hub_card,
     get_week_task_section_hub_card,
@@ -2310,7 +2312,20 @@ def new_task_group_page(request, game_id, task_group_number):
         des = src.get('desyatka_label') or src.get('game_id')
         if des:
             week_task_source_line = 'из {}'.format(des)
+    source_desyatka = None
+    if game.id in ('replacements', 'walls', 'palindromes'):
+        source_desyatka = get_source_desyatka_context(task_group, team=team)
     from games.section_paths import ladder_word_results_path
+    is_daily_single_task = game.id == LADDER_GAME_ID
+    daily_publish_date = None
+    if is_daily_single_task:
+        pub_at = ladder_publish_at(game, placement.number)
+        if pub_at is not None:
+            daily_publish_date = pub_at.date()
+    if is_daily_single_task:
+        page_title = '{} №{}'.format(game.outside_name or game.name, placement.number)
+    else:
+        page_title = '{} · {}'.format(game.outside_name or game.name, placement.name)
     return render(request, 'ui/task_group.html', {
         'game': game,
         'task_group': task_group,
@@ -2340,6 +2355,9 @@ def new_task_group_page(request, game_id, task_group_number):
         'tg_number': placement.number,
         'tg_name': placement.name,
         'week_task_source_line': week_task_source_line,
+        'source_desyatka': source_desyatka,
+        'is_daily_single_task': is_daily_single_task,
+        'daily_publish_date': daily_publish_date,
         'ladder_word_results_url': (
             ladder_word_results_path(placement.number)
             if game.id == LADDER_GAME_ID
@@ -2355,7 +2373,7 @@ def new_task_group_page(request, game_id, task_group_number):
             )
         ),
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
-        'page_title': '{} · {}'.format(game.outside_name or game.name, placement.name),
+        'page_title': page_title,
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
         'lock_personal_play_mode': personal_play_mode_locked(game),

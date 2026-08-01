@@ -20,7 +20,7 @@
 </div>
 
 <p class="new-login-hint" style="margin:0.25rem 0 1rem">
-  №{{ number }} · <strong>{{ link.name|default:"Алфавитка" }}</strong>
+  №{{ number }}{% if daily_publish_date %} · {{ daily_publish_date|date:"j E Y" }}{% endif %}
   · <span id="ab-attempts">0</span> попыток
 </p>
 

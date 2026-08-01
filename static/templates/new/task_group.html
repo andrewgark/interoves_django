@@ -1,12 +1,16 @@
 {% extends "new/base.html" %}
 {% load filters static %}
 {% block title %}
-  {% if "html_in_title" in game.tags %}
-    {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
+  {% if is_daily_single_task and page_title %}
+    {{ page_title }}
   {% else %}
-    {{ game.get_outside_name|default:game.outside_name|default:game.name }}
+    {% if "html_in_title" in game.tags %}
+      {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
+    {% else %}
+      {{ game.get_outside_name|default:game.outside_name|default:game.name }}
+    {% endif %}
+    · {% autoescape off %}{{ tg_name }}{% endautoescape %}
   {% endif %}
-  · {% autoescape off %}{{ tg_name }}{% endautoescape %}
 {% endblock %}
 {% block extrahead %}
   {% include "new/_18plus_gate_early.html" %}
@@ -30,14 +34,20 @@
     <p class="new-login-hint" style="margin:0.35rem 0 0">{{ game.theme }}</p>
     {% endif %}
   </div>
+  {% if not is_daily_single_task %}
   <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle><i class="fa fa-eye" aria-hidden="true"></i></button>
+  {% endif %}
   {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
   <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open>?</button>
   {% endif %}
 </div>
 
 <p class="new-login-hint" style="margin:0.25rem 0 0.75rem">
+  {% if is_daily_single_task %}
+  №{{ tg_number }}{% if daily_publish_date %} · {{ daily_publish_date|date:"j E Y" }}{% endif %}
+  {% else %}
   {{ tg_number }} · <strong>{% autoescape off %}{{ tg_name }}{% endautoescape %}</strong>
+  {% endif %}
   {% if week_task_source_line %}
     <span aria-hidden="true"> · </span>{{ week_task_source_line }}
   {% endif %}
@@ -191,7 +201,12 @@
 </div>
 {% endif %}
 
-{% if task_group.view != 'proportions' %}
+{% if task_group.view != 'proportions' and not is_daily_single_task %}
+{% if source_desyatka %}
+<p class="new-login-hint" style="margin:0 0 0.5rem">
+  Из <a class="new-link-dotted" href="{{ source_desyatka.url }}">{{ source_desyatka.label }}</a>{% if source_desyatka.answers_url %} (<a class="new-link-dotted" href="{{ source_desyatka.answers_url }}" target="_blank" rel="noopener noreferrer">ответы в гуглодоке</a>){% endif %}
+</p>
+{% endif %}
 <h2 class="new-heading">Задания</h2>
 {% endif %}
 

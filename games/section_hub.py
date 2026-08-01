@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 
@@ -22,6 +23,8 @@ from games.week_task_weekly import (
     filter_published_week_task_links,
     get_week_task_hub_context,
 )
+
+_DES_GAME_ID_RE = re.compile(r'^des(\d+)$')
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 
@@ -128,6 +131,61 @@ def get_training_section_hub_context(game):
         'all_link_label': meta['all_link_label'],
         'status': 'latest' if cta_number else 'empty',
         'game': game,
+    }
+
+
+def get_source_desyatka_context(task_group, *, team=None):
+    """
+    Исходная Десяточка для круга раздела (Замены / Стены / Палиндромы).
+
+    Круги хаба делят TaskGroup с игрой desN — по этой связи и находим источник.
+    Возвращает dict с url / label / answers_url или None.
+    """
+    from games.models import Attempt, GameTaskGroup
+    from games.telegram.game_urls import game_answers_url, game_play_path
+
+    if task_group is None:
+        return None
+    tg_id = getattr(task_group, 'pk', None) or getattr(task_group, 'id', None)
+    if not tg_id:
+        return None
+
+    candidates = (
+        GameTaskGroup.objects
+        .filter(task_group_id=tg_id, game__id__startswith='des')
+        .select_related('game')
+        .order_by('game__id')
+    )
+    link = None
+    number = None
+    for cand in candidates:
+        m = _DES_GAME_ID_RE.match(str(cand.game_id))
+        if m:
+            link = cand
+            number = m.group(1)
+            break
+    if link is None or link.game is None:
+        return None
+
+    game = link.game
+    label = 'Десяточки {}'.format(number) if number else (
+        (game.outside_name or game.name or game.id or '').strip() or str(game.id)
+    )
+    answers_url = ''
+    raw_answers = game_answers_url(game) or ''
+    if raw_answers and game.has_access(
+        'see_answer',
+        team=team,
+        attempt=Attempt(time=timezone.now()),
+    ):
+        answers_url = raw_answers
+
+    return {
+        'game': game,
+        'number': number,
+        'label': label,
+        'url': game_play_path(game),
+        'answers_url': answers_url,
     }
 
 

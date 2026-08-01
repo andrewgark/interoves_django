@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from games.models import Attempt, Game, GameTaskGroup, HTMLPage, Team
+from games.ladder_daily import ladder_publish_at
 from games.views.new_ui import (
     LADDER_GAME_ID,
     NEW_UI_PROJECT,
@@ -224,6 +225,22 @@ def build_preview_task_group_context(game_id: str, task_group_number: str, spec:
     next_url = (
         preview_task_group_url(game.id, next_tg.number, spec) if next_tg else None
     )
+    is_daily_single_task = game.id == LADDER_GAME_ID
+    daily_publish_date = None
+    if is_daily_single_task:
+        pub_at = ladder_publish_at(game, placement.number)
+        if pub_at is not None:
+            daily_publish_date = pub_at.date()
+    if is_daily_single_task:
+        page_title = 'Preview · {} №{}'.format(
+            game.outside_name or game.name,
+            placement.number,
+        )
+    else:
+        page_title = 'Preview · {} · {}'.format(
+            game.outside_name or game.name,
+            placement.name,
+        )
     return {
         'game': game,
         'task_group': task_group,
@@ -246,6 +263,8 @@ def build_preview_task_group_context(game_id: str, task_group_number: str, spec:
         'section_tutorial_html': section_tutorial_html,
         'tg_number': placement.number,
         'tg_name': placement.name,
+        'is_daily_single_task': is_daily_single_task,
+        'daily_publish_date': daily_publish_date,
         'support_preview': True,
         'actor_spec': spec,
         'actor_label': spec.label(),
@@ -258,8 +277,5 @@ def build_preview_task_group_context(game_id: str, task_group_number: str, spec:
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
-        'page_title': 'Preview · {} · {}'.format(
-            game.outside_name or game.name,
-            placement.name,
-        ),
+        'page_title': page_title,
     }

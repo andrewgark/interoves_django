@@ -18,6 +18,7 @@ from games.alphabetty.play import (
 )
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
+    alphabetty_publish_at,
     current_alphabetty_number,
     filter_published_alphabetty_links,
     get_alphabetty_hub_context,
@@ -203,12 +204,15 @@ def alphabetty_play_page(request, number):
         number=n,
         share_host=_share_host(request),
     )
+    pub_at = alphabetty_publish_at(game, n)
+    daily_publish_date = pub_at.date() if pub_at is not None else None
     return render(request, 'new/alphabetty_play.html', {
         'game': game,
         'number': n,
         'link': link,
         'task': task,
-        'page_title': f'Алфавитка #{n}',
+        'page_title': f'Алфавитка №{n}',
+        'daily_publish_date': daily_publish_date,
         'show_sections_nav': True,
         'back_url': section_hub_path(ALPHABETTY_GAME_ID),
         'back_label': 'К списку',
