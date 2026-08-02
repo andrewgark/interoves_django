@@ -4479,9 +4479,13 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   row-gap: 0.75rem;
   align-items: stretch;
   height: clamp(20rem, calc(100dvh - 14rem), 36rem);
+  position: relative;
+  /* для max-height панели префиксов = высота layout */
+  container-type: size;
+  container-name: ab-layout;
 }
 
-/* Префикс в ряду формы: середина напротив инпута, панель растёт вверх/вниз. */
+/* Префикс: в потоке только кнопка; панель — absolute overlay, не жмёт ряды сетки. */
 .new-alphabetty__prefix-side {
   grid-column: 1;
   grid-row: 2;
@@ -4490,8 +4494,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   align-items: center;
   align-self: center;
   gap: 0.35rem;
-  z-index: 2;
+  z-index: 5;
   min-width: 0;
+  position: relative;
 }
 .new-alphabetty__prefix-side[hidden] {
   display: none !important;
@@ -4610,13 +4615,29 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 }
 
 .new-alphabetty__prefix-panel {
+  position: absolute;
+  left: calc(100% + 0.35rem);
+  top: 50%;
+  transform: translateY(-50%);
   width: max-content;
   max-width: 9.5rem;
+  /* Не раздуваем средний ряд и не наезжаем на кредит под layout. */
+  max-height: min(36rem, 70dvh);
+  max-height: 100cqh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--border);
   border-radius: 0.35rem;
   background: var(--surface);
   padding: 0.35rem 0.3rem;
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--text) 6%, transparent),
+    0 8px 24px color-mix(in srgb, var(--text) 12%, transparent);
+  z-index: 6;
+}
+.new-alphabetty__prefix-panel[hidden] {
+  display: none !important;
 }
 
 .new-alphabetty__alpha-grid {
