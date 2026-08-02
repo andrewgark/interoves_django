@@ -308,3 +308,176 @@ def source_summary_from_tags(tags: Any) -> dict[str, Any]:
     if not isinstance(src, dict):
         return {}
     return src
+
+
+def unit_to_dict(unit: WeekUnit) -> dict[str, Any]:
+    return {
+        'source_game_id': unit.source_game_id,
+        'source_task_group_id': unit.source_task_group_id,
+        'source_gtg_name': unit.source_gtg_name,
+        'desyatka_label': unit.desyatka_label,
+        'major': unit.major,
+        'task_numbers': list(unit.task_numbers) if unit.task_numbers is not None else None,
+        'label': (
+            f'п.{unit.major}' if unit.major is not None else 'весь круг'
+        ),
+        'display_name': unit.display_name(),
+    }
+
+
+def pool_catalog(
+    *,
+    exclude: set[tuple[int, frozenset[str] | None]] | None = None,
+) -> list[dict[str, Any]]:
+    """Каталог для админки: десяточка → круги → units (весь круг / подмножество)."""
+    exclude = set(exclude or ())
+    by_game: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+
+    for gtg in iter_source_gtgs():
+        units = enumerate_units_for_gtg(gtg)
+        if not units:
+            continue
+        gid = str(gtg.game_id)
+        if gid not in by_game:
+            by_game[gid] = {
+                'game_id': gid,
+                'label': _desyatka_label(gtg.game),
+                'circles': [],
+            }
+            order.append(gid)
+        circle_units = []
+        for u in units:
+            d = unit_to_dict(u)
+            d['already_scheduled'] = u.exclude_key in exclude
+            circle_units.append(d)
+        by_game[gid]['circles'].append({
+            'task_group_id': gtg.task_group_id,
+            'gtg_number': str(gtg.number),
+            'gtg_name': gtg.name or (gtg.task_group.label if gtg.task_group_id else '') or '',
+            'units': circle_units,
+        })
+
+    return [by_game[gid] for gid in order]
+
+
+def resolve_unit(
+    *,
+    source_task_group_id: int,
+    major: str | None = None,
+    task_numbers: list[str] | tuple[str, ...] | None = None,
+) -> WeekUnit:
+    """Найти WeekUnit в пуле или собрать кастомное подмножество tasks."""
+    gtg = (
+        GameTaskGroup.objects.filter(
+            task_group_id=source_task_group_id,
+            game__project_id=SOURCE_PROJECT_ID,
+        )
+        .filter(game__id__startswith='des')
+        .select_related('game', 'task_group')
+        .first()
+    )
+    if gtg is None or not DES_GAME_RE.match(str(gtg.game_id)):
+        raise ValueError(f'TaskGroup {source_task_group_id} не из Десяточки')
+    if gtg.task_group is None:
+        raise ValueError(f'TaskGroup {source_task_group_id} не найден')
+
+    if task_numbers is not None:
+        want = tuple(str(x) for x in task_numbers)
+        if not want:
+            raise ValueError('Пустое подмножество tasks')
+        playable = _playable_tasks(gtg.task_group)
+        have = {str(t.number) for t in playable}
+        missing = [n for n in want if n not in have]
+        if missing:
+            raise ValueError('Нет playable tasks: {}'.format(', '.join(missing)))
+        majors = {_major_of_number(n) for n in want}
+        majors.discard(None)
+        major_tag = next(iter(majors)) if len(majors) == 1 else None
+        return WeekUnit(
+            source_game_id=str(gtg.game_id),
+            source_task_group_id=gtg.task_group_id,
+            source_gtg_name=gtg.name or '',
+            source_tg_label=(gtg.task_group.label or ''),
+            source_tg_view=gtg.task_group.view or 'default',
+            task_numbers=want,
+            major=major_tag,
+            desyatka_label=_desyatka_label(gtg.game),
+        )
+
+    units = enumerate_units_for_gtg(gtg)
+    if not units:
+        raise ValueError(
+            f'Круг TaskGroup {source_task_group_id} не подходит для задания недели'
+        )
+    major_norm = None if major is None or major == '' else str(major)
+    if major_norm is None:
+        whole = [u for u in units if u.major is None]
+        if len(whole) == 1:
+            return whole[0]
+        if len(units) == 1:
+            return units[0]
+        raise ValueError(
+            'Для этого круга нужно выбрать подмножество (п.N), не весь круг'
+        )
+    for u in units:
+        if u.major == major_norm:
+            return u
+    raise ValueError(f'Подмножество п.{major_norm} не найдено в круге')
+
+
+@transaction.atomic
+def rematerialize_link(link: GameTaskGroup, unit: WeekUnit) -> GameTaskGroup:
+    """Заменить снимок заданий у существующего слота недели (тот же link/number)."""
+    source_tg = TaskGroup.objects.filter(pk=unit.source_task_group_id).first()
+    if source_tg is None:
+        raise ValueError(f'source TaskGroup {unit.source_task_group_id} not found')
+    week_tg = link.task_group
+    if week_tg is None:
+        raise ValueError('у слота нет TaskGroup')
+
+    playable = _playable_tasks(source_tg)
+    if unit.task_numbers is None:
+        tasks_to_copy = playable
+        numbers_tag = None
+    else:
+        want = set(unit.task_numbers)
+        tasks_to_copy = [t for t in playable if str(t.number) in want]
+        numbers_tag = list(unit.task_numbers)
+    if not tasks_to_copy:
+        raise ValueError(f'no tasks to clone for unit {unit}')
+
+    for old in list(week_tg.tasks.all()):
+        old.hints.all().delete()
+        old.delete()
+
+    provenance = {
+        WEEK_TASK_SOURCE_TAG: {
+            'game_id': unit.source_game_id,
+            'task_group_id': unit.source_task_group_id,
+            'task_numbers': numbers_tag,
+            'desyatka_label': unit.desyatka_label,
+            'source_name': unit.source_gtg_name,
+            'major': unit.major,
+        }
+    }
+    tags = dict(source_tg.tags or {})
+    tags.update(provenance)
+
+    week_tg.rules = source_tg.rules
+    week_tg.text = source_tg.text
+    week_tg.checker = source_tg.checker
+    week_tg.points = source_tg.points
+    week_tg.max_attempts = source_tg.max_attempts
+    week_tg.image_width = source_tg.image_width
+    week_tg.tags = tags
+    week_tg.view = source_tg.view
+    week_tg.is_18_plus = source_tg.is_18_plus
+    week_tg.save()
+
+    for task in sorted(tasks_to_copy, key=lambda t: t.key_sort()):
+        _copy_task(task, week_tg)
+
+    link.name = unit.display_name()
+    link.save(update_fields=['name'])
+    return link

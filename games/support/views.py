@@ -30,6 +30,7 @@ from games.support.services.week_tasks import (
     WeekTaskSupportError,
     create_week_task,
     generate_more as week_tasks_generate_more,
+    get_pool_catalog as week_tasks_get_pool_catalog,
     get_week_task_detail,
     reorder_week_tasks,
     set_publish_start as week_tasks_set_publish_start_service,
@@ -644,6 +645,35 @@ def week_tasks_reorder(request):
     return JsonResponse({'ok': True, 'rows': [r.to_dict() for r in rows]})
 
 
+def _week_tasks_source_kwargs(body):
+    """Общие поля выбора источника из JSON body."""
+    kwargs = {}
+    if 'source_task_group_id' in body and body.get('source_task_group_id') not in (None, ''):
+        try:
+            kwargs['source_task_group_id'] = int(body.get('source_task_group_id'))
+        except (TypeError, ValueError):
+            raise ValueError('Некорректный source_task_group_id')
+    if 'major' in body:
+        major = body.get('major')
+        kwargs['major'] = None if major in (None, '') else str(major)
+    if 'task_numbers' in body and body.get('task_numbers') is not None:
+        nums = body.get('task_numbers')
+        if not isinstance(nums, list):
+            raise ValueError('task_numbers должен быть списком')
+        kwargs['task_numbers'] = [str(x) for x in nums]
+    return kwargs
+
+
+@support_console_required
+@require_GET
+def week_tasks_pool_catalog(request):
+    try:
+        catalog = week_tasks_get_pool_catalog()
+    except WeekTaskSupportError as exc:
+        return _week_tasks_error_response(exc, status=404)
+    return JsonResponse({'ok': True, 'games': catalog})
+
+
 @support_console_required
 @require_POST
 def week_tasks_create(request):
@@ -655,7 +685,16 @@ def week_tasks_create(request):
     except (TypeError, ValueError):
         return JsonResponse({'ok': False, 'error': 'Нужен at_number'}, status=400)
     try:
-        detail = create_week_task(at_number=at_number)
+        source_kwargs = _week_tasks_source_kwargs(body)
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    name = body.get('name')
+    try:
+        detail = create_week_task(
+            at_number=at_number,
+            name=None if name is None else str(name),
+            **source_kwargs,
+        )
         rows = week_task_dashboard_context()['rows']
     except WeekTaskSupportError as exc:
         return _week_tasks_error_response(exc)
@@ -672,11 +711,19 @@ def week_tasks_update(request, link_id):
     body = _json_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
-    name = body.get('name')
-    if name is None:
-        return JsonResponse({'ok': False, 'error': 'Нужно name'}, status=400)
     try:
-        detail = update_week_task(int(link_id), name=str(name))
+        source_kwargs = _week_tasks_source_kwargs(body)
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    name = body.get('name')
+    if name is None and not source_kwargs:
+        return JsonResponse({'ok': False, 'error': 'Нужно name или источник'}, status=400)
+    try:
+        detail = update_week_task(
+            int(link_id),
+            name=None if name is None else str(name),
+            **source_kwargs,
+        )
         rows = week_task_dashboard_context()['rows']
     except (TypeError, ValueError):
         return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)

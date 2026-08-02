@@ -14,6 +14,9 @@ from games.models import Game, GameTaskGroup
 from games.week_task_pool import (
     materialize_unit,
     pick_random_units,
+    pool_catalog,
+    rematerialize_link,
+    resolve_unit,
     scheduled_exclude_keys,
     source_summary_from_tags,
 )
@@ -146,14 +149,19 @@ def get_week_task_detail(link_id: int) -> dict[str, Any]:
     pub = week_task_publish_at(game, number)
     tags = (link.task_group.tags or {}) if link.task_group_id else {}
     src = source_summary_from_tags(tags)
+    is_pub = is_week_task_number_published(game, number)
     return {
         'link_id': link.pk,
         'task_group_id': link.task_group_id,
         'number': number,
         'name': link.name,
         'publish_date': pub.date().isoformat() if pub else None,
+        'is_published': is_pub,
         'source_label': _source_label(link),
         'source': src,
+        'source_task_group_id': src.get('task_group_id'),
+        'source_major': src.get('major'),
+        'source_task_numbers': src.get('task_numbers'),
         'play_url': f'/games/{WEEK_TASK_GAME_ID}/{number}/',
     }
 
@@ -231,8 +239,43 @@ def reorder_week_tasks(
     return list_week_task_rows(now=now)
 
 
+def _resolve_unit_from_payload(
+    *,
+    source_task_group_id: int | None,
+    major: str | None = None,
+    task_numbers: list[str] | None = None,
+):
+    if source_task_group_id is None:
+        return None
+    try:
+        tg_id = int(source_task_group_id)
+    except (TypeError, ValueError) as exc:
+        raise WeekTaskSupportError('Некорректный source_task_group_id') from exc
+    nums = None
+    if task_numbers is not None:
+        if not isinstance(task_numbers, (list, tuple)):
+            raise WeekTaskSupportError('task_numbers должен быть списком')
+        nums = [str(x) for x in task_numbers]
+    try:
+        return resolve_unit(
+            source_task_group_id=tg_id,
+            major=None if major is None or major == '' else str(major),
+            task_numbers=nums,
+        )
+    except ValueError as exc:
+        raise WeekTaskSupportError(str(exc)) from exc
+
+
 @transaction.atomic
-def update_week_task(link_id: int, *, name: str) -> dict[str, Any]:
+def update_week_task(
+    link_id: int,
+    *,
+    name: str | None = None,
+    source_task_group_id: int | None = None,
+    major: str | None = None,
+    task_numbers: list[str] | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
     game = get_week_task_game()
     link = (
         GameTaskGroup.objects.filter(game=game, pk=link_id)
@@ -241,13 +284,38 @@ def update_week_task(link_id: int, *, name: str) -> dict[str, Any]:
     )
     if link is None:
         raise WeekTaskSupportError('Задание недели не найдено')
-    name = (name or '').strip()
-    if not name:
-        raise WeekTaskSupportError('Нужно название')
-    if len(name) > 100:
-        raise WeekTaskSupportError('Название слишком длинное (макс. 100)')
-    link.name = name
-    link.save(update_fields=['name'])
+
+    unit = _resolve_unit_from_payload(
+        source_task_group_id=source_task_group_id,
+        major=major,
+        task_numbers=task_numbers,
+    )
+    if unit is not None:
+        try:
+            number = int(link.number)
+        except (TypeError, ValueError):
+            number = 0
+        if is_week_task_number_published(game, number, now or timezone.now()):
+            raise WeekTaskSupportError(
+                'Нельзя менять источник уже вышедшего задания'
+            )
+        try:
+            rematerialize_link(link, unit)
+        except ValueError as exc:
+            raise WeekTaskSupportError(str(exc)) from exc
+        link.refresh_from_db()
+
+    if name is not None:
+        name = (name or '').strip()
+        if not name:
+            raise WeekTaskSupportError('Нужно название')
+        if len(name) > 100:
+            raise WeekTaskSupportError('Название слишком длинное (макс. 100)')
+        link.name = name
+        link.save(update_fields=['name'])
+    elif unit is None:
+        raise WeekTaskSupportError('Нужно name или источник')
+
     return get_week_task_detail(link.pk)
 
 
@@ -291,9 +359,16 @@ def generate_more(n: int, *, now: datetime | None = None) -> dict[str, Any]:
 def create_week_task(
     *,
     at_number: int,
+    source_task_group_id: int | None = None,
+    major: str | None = None,
+    task_numbers: list[str] | None = None,
+    name: str | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    """Вставить случайное задание с публичным номером at_number; сдвинуть остальные."""
+    """Вставить задание с публичным номером at_number; сдвинуть остальные.
+
+    Без source_* — случайный unit из пула; иначе конкретный круг / подмножество.
+    """
     if at_number < 1:
         raise WeekTaskSupportError('Номер должен быть >= 1')
     locked_until = last_published_number(now=now)
@@ -331,12 +406,36 @@ def create_week_task(
             link.number = str(new)
             link.save(update_fields=['number'])
 
-    exclude = scheduled_exclude_keys(week_task_game=game)
-    units = pick_random_units(1, exclude=exclude)
-    if not units:
-        raise WeekTaskSupportError('В пуле не осталось заданий')
-    link = materialize_unit(units[0], week_number=at_number, week_task_game=game)
+    unit = _resolve_unit_from_payload(
+        source_task_group_id=source_task_group_id,
+        major=major,
+        task_numbers=task_numbers,
+    )
+    if unit is None:
+        exclude = scheduled_exclude_keys(week_task_game=game)
+        units = pick_random_units(1, exclude=exclude)
+        if not units:
+            raise WeekTaskSupportError('В пуле не осталось заданий')
+        unit = units[0]
+    try:
+        link = materialize_unit(unit, week_number=at_number, week_task_game=game)
+    except ValueError as exc:
+        raise WeekTaskSupportError(str(exc)) from exc
+
+    if name is not None:
+        name = (name or '').strip()
+        if name:
+            if len(name) > 100:
+                raise WeekTaskSupportError('Название слишком длинное (макс. 100)')
+            link.name = name
+            link.save(update_fields=['name'])
     return get_week_task_detail(link.pk)
+
+
+def get_pool_catalog() -> list[dict[str, Any]]:
+    game = get_week_task_game()
+    exclude = scheduled_exclude_keys(week_task_game=game)
+    return pool_catalog(exclude=exclude)
 
 
 @transaction.atomic

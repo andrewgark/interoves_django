@@ -30,6 +30,7 @@ urlpatterns = [
     path('week-tasks/create/', views.week_tasks_create, name='week_tasks_create'),
     path('week-tasks/publish-start/', views.week_tasks_set_publish_start, name='week_tasks_publish_start'),
     path('week-tasks/generate/', views.week_tasks_generate, name='week_tasks_generate'),
+    path('week-tasks/pool/', views.week_tasks_pool_catalog, name='week_tasks_pool'),
     path('week-tasks/<int:link_id>/', views.week_tasks_detail_json, name='week_tasks_detail'),
     path('week-tasks/<int:link_id>/save/', views.week_tasks_update, name='week_tasks_update'),
     path('social/', views.social_dashboard, name='social'),

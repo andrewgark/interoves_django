@@ -10,15 +10,19 @@ from django.test import TestCase
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 from games.support.services.week_tasks import (
     WeekTaskSupportError,
+    create_week_task,
     ensure_future_buffer,
     generate_more,
+    get_pool_catalog,
     list_week_task_rows,
     reorder_week_tasks,
     set_publish_start,
+    update_week_task,
 )
 from games.week_task_pool import (
     enumerate_units_for_gtg,
     pick_random_units,
+    resolve_unit,
     scheduled_exclude_keys,
 )
 from games.week_task_weekly import (
@@ -298,3 +302,66 @@ class WeekTaskSupportTests(TestCase):
     def test_publish_start_must_be_monday(self):
         with self.assertRaises(WeekTaskSupportError):
             set_publish_start('2026-08-04')  # Tuesday
+
+    def test_create_and_update_with_selected_unit(self):
+        ordinary = GameTaskGroup.objects.get(game_id='des300', number='2')
+        detail = create_week_task(
+            at_number=1,
+            source_task_group_id=ordinary.task_group_id,
+        )
+        self.assertEqual(detail['source']['task_group_id'], ordinary.task_group_id)
+        self.assertIsNone(detail['source'].get('major'))
+        tg = TaskGroup.objects.get(pk=detail['task_group_id'])
+        self.assertEqual(tg.tasks.visible().count(), 2)
+
+        seq = GameTaskGroup.objects.get(game_id='des300', number='1')
+        unit = resolve_unit(source_task_group_id=seq.task_group_id, major='1')
+        updated = update_week_task(
+            detail['link_id'],
+            source_task_group_id=seq.task_group_id,
+            major='1',
+            name='Кастомное имя',
+        )
+        self.assertEqual(updated['name'], 'Кастомное имя')
+        self.assertEqual(updated['source']['major'], '1')
+        self.assertEqual(
+            updated['source']['task_numbers'],
+            list(unit.task_numbers),
+        )
+        tg = TaskGroup.objects.get(pk=updated['task_group_id'])
+        self.assertEqual(
+            sorted(str(t.number) for t in tg.tasks.visible()),
+            sorted(unit.task_numbers),
+        )
+
+    def test_update_source_blocked_when_published(self):
+        ordinary = GameTaskGroup.objects.get(game_id='des300', number='2')
+        detail = create_week_task(
+            at_number=1,
+            source_task_group_id=ordinary.task_group_id,
+        )
+        set_publish_start('2020-08-03')
+        seq = GameTaskGroup.objects.get(game_id='des300', number='1')
+        with self.assertRaises(WeekTaskSupportError):
+            update_week_task(
+                detail['link_id'],
+                source_task_group_id=seq.task_group_id,
+                major='1',
+            )
+        # название у вышедших по-прежнему можно
+        renamed = update_week_task(detail['link_id'], name='После выхода')
+        self.assertEqual(renamed['name'], 'После выхода')
+
+    def test_pool_catalog_lists_desyatkas(self):
+        catalog = get_pool_catalog()
+        ids = {g['game_id'] for g in catalog}
+        self.assertIn('des300', ids)
+        des = next(g for g in catalog if g['game_id'] == 'des300')
+        self.assertTrue(des['circles'])
+        seq_circle = next(
+            c for c in des['circles']
+            if c['gtg_name'] == 'Последовательности'
+        )
+        majors = {u['major'] for u in seq_circle['units']}
+        self.assertIn('1', majors)
+        self.assertIn('2', majors)

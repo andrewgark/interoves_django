@@ -770,6 +770,48 @@ html.new-ui-dark .support-ladder-item__mixed {
   overflow: auto;
 }
 
+.support-wt-modal {
+  max-width: min(36rem, 96vw);
+}
+
+.support-wt-mode {
+  border: 0;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.support-wt-mode legend {
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+
+.support-wt-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--tile) 55%, var(--surface));
+  min-width: 0;
+}
+
+.support-wt-select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
 .support-ladder-words-head {
   display: flex;
   flex-wrap: wrap;

@@ -28,7 +28,7 @@
     </span>
   </div>
   <p class="support-hint" style="margin:0.75rem 0 0">
-    Перетаскивайте только будущие за ⠿. «+» вставляет случайное задание. Вышедшие не двигаются.
+    Перетаскивайте только будущие за ⠿. «+» вставляет слот (случайный или выбранный круг). Вышедшие не двигаются.
   </p>
 </section>
 
@@ -39,9 +39,39 @@
   </div>
 </section>
 
+<div id="wt-create-modal" class="new-rules-modal" role="dialog" aria-labelledby="wt-create-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-wt-create-close></div>
+  <div class="new-rules-modal__box pal-card support-ladder-modal support-wt-modal">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-wt-create-close>×</button>
+    <h2 id="wt-create-title" class="support-page-title" style="font-size:1.2rem">Новое задание недели</h2>
+    <p class="support-hint" id="wt-create-sub"></p>
+    <fieldset class="support-wt-mode">
+      <legend class="support-hint">Источник</legend>
+      <label class="support-ladders-field--check">
+        <input type="radio" name="wt-create-mode" value="random" checked>
+        <span>Случайное из пула</span>
+      </label>
+      <label class="support-ladders-field--check">
+        <input type="radio" name="wt-create-mode" value="pick">
+        <span>Выбрать десяточку / круг / подмножество</span>
+      </label>
+    </fieldset>
+    <div id="wt-create-picker" class="support-wt-picker" hidden></div>
+    <label class="support-ladders-field" style="margin-top:0.75rem">
+      <span>Название (необязательно)</span>
+      <input type="text" id="wt-create-name" autocomplete="off" maxlength="100" placeholder="Как в источнике, если пусто">
+    </label>
+    <p class="support-hint support-ladder-edit-error" id="wt-create-error" hidden></p>
+    <div class="support-action-row" style="margin-top:1rem">
+      <button type="button" class="new-btn" id="wt-create-save">Создать</button>
+      <button type="button" class="new-btn new-btn--ghost" data-wt-create-close>Отмена</button>
+    </div>
+  </div>
+</div>
+
 <div id="wt-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="wt-edit-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-wt-close></div>
-  <div class="new-rules-modal__box pal-card support-ladder-modal">
+  <div class="new-rules-modal__box pal-card support-ladder-modal support-wt-modal">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-wt-close>×</button>
     <h2 id="wt-edit-title" class="support-page-title" style="font-size:1.2rem">Редактирование</h2>
     <p class="support-hint" id="wt-edit-sub"></p>
@@ -50,6 +80,15 @@
       <input type="text" id="wt-edit-name" autocomplete="off" maxlength="100">
     </label>
     <p class="support-hint" id="wt-edit-source"></p>
+    <div id="wt-edit-source-block">
+      <p class="support-hint" style="margin:0.85rem 0 0.35rem">Сменить источник (только у будущих)</p>
+      <label class="support-ladders-field--check" style="margin-bottom:0.5rem">
+        <input type="checkbox" id="wt-edit-change-source">
+        <span>Заменить снимок заданий</span>
+      </label>
+      <div id="wt-edit-picker" class="support-wt-picker" hidden></div>
+    </div>
+    <p class="support-hint" id="wt-edit-source-locked" hidden>Источник вышедшего задания менять нельзя.</p>
     <p class="support-hint support-ladder-edit-error" id="wt-edit-error" hidden></p>
     <div class="support-action-row" style="margin-top:1rem">
       <button type="button" class="new-btn" id="wt-edit-save">Сохранить</button>
@@ -67,15 +106,20 @@
     create: "{% url 'support:week_tasks_create' %}",
     publishStart: "{% url 'support:week_tasks_publish_start' %}",
     generate: "{% url 'support:week_tasks_generate' %}",
+    pool: "{% url 'support:week_tasks_pool' %}",
     detailTpl: "{% url 'support:week_tasks_detail' 0 %}".replace('/0/', '/{id}/'),
     saveTpl: "{% url 'support:week_tasks_update' 0 %}".replace('/0/', '/{id}/')
   };
   var listEl = document.getElementById('wt-list');
   var metaEl = document.getElementById('wt-meta');
-  var modal = document.getElementById('wt-edit-modal');
+  var editModal = document.getElementById('wt-edit-modal');
+  var createModal = document.getElementById('wt-create-modal');
   var editLinkId = null;
+  var createAtNumber = null;
   var dragId = null;
   var busy = false;
+  var poolGames = null;
+  var poolPromise = null;
 
   function csrf() {
     var el = document.querySelector('input[name=csrfmiddlewaretoken]');
@@ -186,17 +230,210 @@
       .catch(function (e) { alert(e.message || String(e)); location.reload(); })
       .finally(function () { setBusy(false); });
   }
-  function insertAt(atNumber) {
-    if (busy) return;
-    setBusy(true);
-    postJson(endpoints.create, { at_number: atNumber })
+
+  function loadPool() {
+    if (poolGames) return Promise.resolve(poolGames);
+    if (poolPromise) return poolPromise;
+    poolPromise = fetch(endpoints.pool, { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
       .then(function (data) {
-        renderList(data.rows);
-        openEdit(data.item.link_id, data.item);
+        if (!data.ok) throw new Error(data.error || 'Не удалось загрузить пул');
+        poolGames = data.games || [];
+        return poolGames;
       })
-      .catch(function (e) { alert(e.message || String(e)); })
-      .finally(function () { setBusy(false); });
+      .catch(function (e) {
+        poolPromise = null;
+        throw e;
+      });
+    return poolPromise;
   }
+
+  function findCircle(games, tgId) {
+    tgId = parseInt(tgId, 10);
+    for (var i = 0; i < games.length; i++) {
+      var circles = games[i].circles || [];
+      for (var j = 0; j < circles.length; j++) {
+        if (circles[j].task_group_id === tgId) {
+          return { game: games[i], circle: circles[j] };
+        }
+      }
+    }
+    return null;
+  }
+
+  function mountPicker(host, opts) {
+    opts = opts || {};
+    host.innerHTML = '';
+    host._wtGetSelection = function () { return null; };
+
+    var gameSel = document.createElement('select');
+    var circleSel = document.createElement('select');
+    var unitSel = document.createElement('select');
+    gameSel.className = 'support-wt-select';
+    circleSel.className = 'support-wt-select';
+    unitSel.className = 'support-wt-select';
+
+    function addField(label, sel) {
+      var wrap = document.createElement('label');
+      wrap.className = 'support-ladders-field';
+      var span = document.createElement('span');
+      span.textContent = label;
+      wrap.appendChild(span);
+      wrap.appendChild(sel);
+      host.appendChild(wrap);
+    }
+    addField('Десяточка', gameSel);
+    addField('Круг (task group)', circleSel);
+    addField('Подмножество', unitSel);
+
+    var hint = document.createElement('p');
+    hint.className = 'support-hint';
+    hint.style.margin = '0.35rem 0 0';
+    host.appendChild(hint);
+
+    function fillGames(games) {
+      gameSel.innerHTML = '<option value="">— выберите —</option>';
+      games.forEach(function (g) {
+        var o = document.createElement('option');
+        o.value = g.game_id;
+        o.textContent = g.label + ' (' + g.game_id + ')';
+        gameSel.appendChild(o);
+      });
+    }
+    function fillCircles() {
+      circleSel.innerHTML = '<option value="">— выберите —</option>';
+      unitSel.innerHTML = '<option value="">—</option>';
+      hint.textContent = '';
+      var gid = gameSel.value;
+      var game = (poolGames || []).find(function (g) { return g.game_id === gid; });
+      if (!game) return;
+      (game.circles || []).forEach(function (c) {
+        var o = document.createElement('option');
+        o.value = String(c.task_group_id);
+        o.textContent = (c.gtg_number ? c.gtg_number + '. ' : '') + (c.gtg_name || ('tg ' + c.task_group_id));
+        circleSel.appendChild(o);
+      });
+    }
+    function fillUnits() {
+      unitSel.innerHTML = '';
+      hint.textContent = '';
+      var tgId = circleSel.value;
+      if (!tgId) {
+        unitSel.innerHTML = '<option value="">—</option>';
+        return;
+      }
+      var found = findCircle(poolGames || [], tgId);
+      if (!found) return;
+      var units = found.circle.units || [];
+      units.forEach(function (u, idx) {
+        var o = document.createElement('option');
+        o.value = String(idx);
+        var nums = u.task_numbers ? (' · ' + u.task_numbers.join(', ')) : '';
+        var used = u.already_scheduled ? ' · уже в очереди' : '';
+        o.textContent = (u.label || 'unit') + nums + used;
+        unitSel.appendChild(o);
+      });
+      if (units.length === 1) {
+        unitSel.selectedIndex = 0;
+      }
+      updateHint();
+    }
+    function updateHint() {
+      var tgId = circleSel.value;
+      var found = findCircle(poolGames || [], tgId);
+      if (!found) { hint.textContent = ''; return; }
+      var u = (found.circle.units || [])[parseInt(unitSel.value, 10)];
+      if (!u) { hint.textContent = ''; return; }
+      var parts = [u.display_name || ''];
+      if (u.already_scheduled) parts.push('уже стоит в расписании');
+      hint.textContent = parts.filter(Boolean).join(' · ');
+    }
+
+    gameSel.addEventListener('change', fillCircles);
+    circleSel.addEventListener('change', fillUnits);
+    unitSel.addEventListener('change', updateHint);
+
+    host._wtGetSelection = function () {
+      var tgId = circleSel.value;
+      if (!tgId) return null;
+      var found = findCircle(poolGames || [], tgId);
+      if (!found) return null;
+      var u = (found.circle.units || [])[parseInt(unitSel.value, 10)];
+      if (!u) return null;
+      var payload = { source_task_group_id: parseInt(tgId, 10) };
+      if (u.major != null && u.major !== '') payload.major = String(u.major);
+      else payload.major = null;
+      if (u.task_numbers != null) payload.task_numbers = u.task_numbers.slice();
+      return payload;
+    };
+    host._wtSetSelection = function (sel) {
+      if (!sel || !sel.source_task_group_id) return;
+      var found = findCircle(poolGames || [], sel.source_task_group_id);
+      if (!found) return;
+      gameSel.value = found.game.game_id;
+      fillCircles();
+      circleSel.value = String(sel.source_task_group_id);
+      fillUnits();
+      var units = found.circle.units || [];
+      var idx = 0;
+      for (var i = 0; i < units.length; i++) {
+        var u = units[i];
+        var majorMatch = (sel.source_major == null || sel.source_major === '')
+          ? (u.major == null || u.major === '')
+          : String(u.major) === String(sel.source_major);
+        if (majorMatch) { idx = i; break; }
+      }
+      unitSel.value = String(idx);
+      updateHint();
+    };
+
+    return loadPool().then(function (games) {
+      fillGames(games);
+      if (opts.preselect) host._wtSetSelection(opts.preselect);
+    });
+  }
+
+  function openCreate(atNumber) {
+    createAtNumber = atNumber;
+    document.getElementById('wt-create-sub').textContent = 'Вставка на №' + atNumber;
+    document.getElementById('wt-create-name').value = '';
+    document.getElementById('wt-create-error').hidden = true;
+    var randomRadio = createModal.querySelector('input[name=wt-create-mode][value=random]');
+    if (randomRadio) randomRadio.checked = true;
+    var picker = document.getElementById('wt-create-picker');
+    picker.hidden = true;
+    picker.innerHTML = '';
+    createModal.hidden = false;
+    createModal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeCreate() {
+    createModal.hidden = true;
+    createModal.classList.remove('is-open');
+    document.body.style.overflow = '';
+    createAtNumber = null;
+  }
+  function createMode() {
+    var el = createModal.querySelector('input[name=wt-create-mode]:checked');
+    return el ? el.value : 'random';
+  }
+  createModal.querySelectorAll('input[name=wt-create-mode]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      var picker = document.getElementById('wt-create-picker');
+      var err = document.getElementById('wt-create-error');
+      err.hidden = true;
+      if (createMode() === 'pick') {
+        picker.hidden = false;
+        mountPicker(picker).catch(function (e) {
+          err.textContent = e.message || String(e);
+          err.hidden = false;
+        });
+      } else {
+        picker.hidden = true;
+      }
+    });
+  });
+
   function openEdit(linkId, detail) {
     editLinkId = linkId;
     function fill(d) {
@@ -205,8 +442,39 @@
       document.getElementById('wt-edit-source').textContent = 'Источник: ' + (d.source_label || '—');
       document.getElementById('wt-edit-preview').href = d.play_url || '#';
       document.getElementById('wt-edit-error').hidden = true;
-      modal.hidden = false;
-      modal.classList.add('is-open');
+      var changeCb = document.getElementById('wt-edit-change-source');
+      var picker = document.getElementById('wt-edit-picker');
+      var block = document.getElementById('wt-edit-source-block');
+      var locked = document.getElementById('wt-edit-source-locked');
+      changeCb.checked = false;
+      picker.hidden = true;
+      picker.innerHTML = '';
+      if (d.is_published) {
+        block.hidden = true;
+        locked.hidden = false;
+      } else {
+        block.hidden = false;
+        locked.hidden = true;
+        changeCb.onchange = function () {
+          if (changeCb.checked) {
+            picker.hidden = false;
+            mountPicker(picker, {
+              preselect: {
+                source_task_group_id: d.source_task_group_id,
+                source_major: d.source_major
+              }
+            }).catch(function (e) {
+              var err = document.getElementById('wt-edit-error');
+              err.textContent = e.message || String(e);
+              err.hidden = false;
+            });
+          } else {
+            picker.hidden = true;
+          }
+        };
+      }
+      editModal.hidden = false;
+      editModal.classList.add('is-open');
       document.body.style.overflow = 'hidden';
     }
     if (detail) { fill(detail); return; }
@@ -219,22 +487,22 @@
       .catch(function (e) { alert(e.message || String(e)); });
   }
   function closeEdit() {
-    modal.hidden = true;
-    modal.classList.remove('is-open');
+    editModal.hidden = true;
+    editModal.classList.remove('is-open');
     document.body.style.overflow = '';
     editLinkId = null;
   }
 
   listEl.addEventListener('click', function (e) {
     var insertBtn = e.target.closest('[data-insert-at]');
-    if (insertBtn) { insertAt(parseInt(insertBtn.getAttribute('data-insert-at'), 10)); return; }
+    if (insertBtn) { openCreate(parseInt(insertBtn.getAttribute('data-insert-at'), 10)); return; }
     var editBtn = e.target.closest('[data-edit]');
     if (editBtn) openEdit(parseInt(editBtn.getAttribute('data-edit'), 10));
   });
   document.querySelector('[data-insert-end]').addEventListener('click', function () {
     var max = 0;
     bootstrap.forEach(function (r) { if (r.number > max) max = r.number; });
-    insertAt(max + 1);
+    openCreate(max + 1);
   });
   document.getElementById('wt-save-start').addEventListener('click', function () {
     var val = document.getElementById('wt-publish-start').value;
@@ -252,16 +520,67 @@
     if (busy) return;
     setBusy(true);
     postJson(endpoints.generate, { n: n })
-      .then(function (data) { renderList(data.rows); })
+      .then(function (data) {
+        poolGames = null;
+        poolPromise = null;
+        renderList(data.rows);
+      })
       .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { setBusy(false); });
+  });
+  document.getElementById('wt-create-save').addEventListener('click', function () {
+    if (createAtNumber == null || busy) return;
+    var err = document.getElementById('wt-create-error');
+    err.hidden = true;
+    var body = { at_number: createAtNumber };
+    var name = document.getElementById('wt-create-name').value.trim();
+    if (name) body.name = name;
+    if (createMode() === 'pick') {
+      var picker = document.getElementById('wt-create-picker');
+      var sel = picker._wtGetSelection && picker._wtGetSelection();
+      if (!sel) {
+        err.textContent = 'Выберите десяточку, круг и подмножество';
+        err.hidden = false;
+        return;
+      }
+      Object.assign(body, sel);
+    }
+    setBusy(true);
+    postJson(endpoints.create, body)
+      .then(function (data) {
+        poolGames = null;
+        poolPromise = null;
+        renderList(data.rows);
+        closeCreate();
+        openEdit(data.item.link_id, data.item);
+      })
+      .catch(function (e) {
+        err.textContent = e.message || String(e);
+        err.hidden = false;
+      })
       .finally(function () { setBusy(false); });
   });
   document.getElementById('wt-edit-save').addEventListener('click', function () {
     if (!editLinkId || busy) return;
     var name = document.getElementById('wt-edit-name').value;
+    var body = { name: name };
+    var changeCb = document.getElementById('wt-edit-change-source');
+    if (changeCb.checked && !document.getElementById('wt-edit-source-block').hidden) {
+      var picker = document.getElementById('wt-edit-picker');
+      var sel = picker._wtGetSelection && picker._wtGetSelection();
+      if (!sel) {
+        var err0 = document.getElementById('wt-edit-error');
+        err0.textContent = 'Выберите новый источник';
+        err0.hidden = false;
+        return;
+      }
+      Object.assign(body, sel);
+    }
     setBusy(true);
-    postJson(endpoints.saveTpl.replace('{id}', String(editLinkId)), { name: name })
+    postJson(endpoints.saveTpl.replace('{id}', String(editLinkId)), body)
       .then(function (data) {
+        poolGames = null;
+        poolPromise = null;
         renderList(data.rows);
         closeEdit();
       })
@@ -272,11 +591,16 @@
       })
       .finally(function () { setBusy(false); });
   });
-  modal.querySelectorAll('[data-wt-close]').forEach(function (el) {
+  createModal.querySelectorAll('[data-wt-create-close]').forEach(function (el) {
+    el.addEventListener('click', closeCreate);
+  });
+  editModal.querySelectorAll('[data-wt-close]').forEach(function (el) {
     el.addEventListener('click', closeEdit);
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && modal.classList.contains('is-open')) closeEdit();
+    if (e.key !== 'Escape') return;
+    if (createModal.classList.contains('is-open')) closeCreate();
+    else if (editModal.classList.contains('is-open')) closeEdit();
   });
 
   listEl.addEventListener('dragstart', function (e) {
