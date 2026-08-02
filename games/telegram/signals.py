@@ -2,9 +2,18 @@ from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from games.models import BugReport, CorporateGameOrder, Donation, Game, Registration, TicketRequest
+from games.models import (
+    AlphabettyDictSuggestion,
+    BugReport,
+    CorporateGameOrder,
+    Donation,
+    Game,
+    Registration,
+    TicketRequest,
+)
 from games.telegram.admin_commands import registration_milestone_reached
 from games.telegram.notify import (
+    notify_new_alphabetty_dict_suggestion,
     notify_new_bug_report,
     notify_new_corporate_order,
     notify_new_donation,
@@ -19,6 +28,30 @@ def telegram_notify_bug_report(sender, instance, created, **kwargs):
     if not created or instance.status != 'Pending':
         return
     transaction.on_commit(lambda: notify_new_bug_report(instance))
+
+
+@receiver(pre_save, sender=AlphabettyDictSuggestion)
+def telegram_cache_old_dict_suggestion(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._telegram_old_status = None
+        return
+    instance._telegram_old_status = (
+        AlphabettyDictSuggestion.objects
+        .filter(pk=instance.pk)
+        .values_list('status', flat=True)
+        .first()
+    )
+
+
+@receiver(post_save, sender=AlphabettyDictSuggestion)
+def telegram_notify_dict_suggestion(sender, instance, created, **kwargs):
+    """Новое pending или возврат из Rejected → в admin-чат; повторные голоса молчат."""
+    if instance.status != AlphabettyDictSuggestion.STATUS_PENDING:
+        return
+    old = getattr(instance, '_telegram_old_status', None)
+    if not created and old == AlphabettyDictSuggestion.STATUS_PENDING:
+        return
+    transaction.on_commit(lambda: notify_new_alphabetty_dict_suggestion(instance))
 
 
 @receiver(post_save, sender=TicketRequest)

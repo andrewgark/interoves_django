@@ -1,6 +1,9 @@
+import html
+
 from django.db import transaction
 
-from games.models import BugReport, TicketRequest
+from games.alphabetty.suggestions import approve_suggestions, reject_suggestions
+from games.models import AlphabettyDictSuggestion, BugReport, TicketRequest
 from games.telegram.api import answer_callback_query, edit_message_reply_markup
 from games.telegram.notify import send_admin_message
 from games.ticket_service import accept_ticket_request, reject_ticket_request
@@ -33,6 +36,8 @@ def handle_callback_query(callback_query: dict) -> None:
         _handle_bug(action, obj_id, callback_id, chat_id, message_id)
     elif domain == 'ticket':
         _handle_ticket(action, obj_id, callback_id, chat_id, message_id)
+    elif domain == 'abdict':
+        _handle_abdict(action, obj_id, callback_id, chat_id, message_id)
     else:
         answer_callback_query(callback_id, 'Unknown domain')
 
@@ -53,6 +58,43 @@ def _handle_bug(action: str, report_id: int, callback_id, chat_id, message_id) -
         report.save(update_fields=['status'])
         answer_callback_query(callback_id, 'Dismissed')
         send_admin_message('Bug #{} → Dismissed'.format(report_id), force=True)
+    else:
+        answer_callback_query(callback_id, 'Unknown action')
+        return
+
+    if chat_id and message_id:
+        edit_message_reply_markup(chat_id, message_id, reply_markup=None)
+
+
+def _handle_abdict(action: str, suggestion_id: int, callback_id, chat_id, message_id) -> None:
+    qs = AlphabettyDictSuggestion.objects.filter(pk=suggestion_id)
+    suggestion = qs.first()
+    if suggestion is None:
+        answer_callback_query(callback_id, 'Suggestion not found', show_alert=True)
+        return
+
+    word = suggestion.word
+    word_html = html.escape(word, quote=False)
+    if action == 'approve':
+        if suggestion.status == AlphabettyDictSuggestion.STATUS_APPROVED:
+            answer_callback_query(callback_id, 'Already approved')
+        else:
+            approve_suggestions(qs)
+            answer_callback_query(callback_id, 'Approved: {}'.format(word))
+            send_admin_message(
+                'Алфавитка словарь: <code>{}</code> → одобрено'.format(word_html),
+                force=True,
+            )
+    elif action == 'reject':
+        if suggestion.status == AlphabettyDictSuggestion.STATUS_REJECTED:
+            answer_callback_query(callback_id, 'Already rejected')
+        else:
+            reject_suggestions(qs)
+            answer_callback_query(callback_id, 'Rejected: {}'.format(word))
+            send_admin_message(
+                'Алфавитка словарь: <code>{}</code> → отклонено'.format(word_html),
+                force=True,
+            )
     else:
         answer_callback_query(callback_id, 'Unknown action')
         return

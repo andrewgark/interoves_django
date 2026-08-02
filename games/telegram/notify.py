@@ -4,7 +4,13 @@ from typing import Iterable
 
 from django.conf import settings
 
-from games.models import BugReport, CorporateGameOrder, Donation, TicketRequest
+from games.models import (
+    AlphabettyDictSuggestion,
+    BugReport,
+    CorporateGameOrder,
+    Donation,
+    TicketRequest,
+)
 from games.telegram.api import send_message, send_photo
 from games.telegram.config import (
     admin_chat_id,
@@ -141,6 +147,56 @@ def ticket_request_keyboard(ticket_id: int) -> dict:
             {'text': 'Reject', 'callback_data': 'ticket:reject:{}'.format(ticket_id)},
         ]],
     }
+
+
+def alphabetty_dict_suggestion_keyboard(suggestion_id: int) -> dict:
+    return {
+        'inline_keyboard': [[
+            {'text': 'Одобрить', 'callback_data': 'abdict:approve:{}'.format(suggestion_id)},
+            {'text': 'Отклонить', 'callback_data': 'abdict:reject:{}'.format(suggestion_id)},
+        ]],
+    }
+
+
+def _dict_suggestion_reporter(suggestion: AlphabettyDictSuggestion) -> str:
+    if suggestion.user_id:
+        user = suggestion.user
+        if user.get_full_name():
+            return user.get_full_name()
+        if user.email:
+            return user.email
+        return user.username or 'user #{}'.format(user.pk)
+    if suggestion.anon_key:
+        return 'аноним {}'.format(suggestion.anon_key[:8])
+    return 'неизвестно'
+
+
+def format_alphabetty_dict_suggestion_message(suggestion: AlphabettyDictSuggestion) -> str:
+    admin_link = _admin_link(
+        '/admin/games/alphabettydictsuggestion/{}/change/'.format(suggestion.pk)
+    )
+    queue_link = _admin_link('/admin/games/pendingalphabettydictsuggestion/')
+    return _join_lines([
+        '🔤 <b>Предложение в словарь Алфавитки</b>',
+        '',
+        'Слово: <code>{}</code>'.format(_escape(suggestion.word)),
+        'Голосов: {}'.format(suggestion.suggest_count),
+        'Автор: {}'.format(_escape(_dict_suggestion_reporter(suggestion))),
+        '',
+        '<a href="{}">Запись</a> · <a href="{}">Очередь</a>'.format(admin_link, queue_link),
+    ])
+
+
+def notify_new_alphabetty_dict_suggestion(suggestion: AlphabettyDictSuggestion) -> bool:
+    suggestion = (
+        AlphabettyDictSuggestion.objects
+        .select_related('user')
+        .get(pk=suggestion.pk)
+    )
+    return send_admin_message(
+        format_alphabetty_dict_suggestion_message(suggestion),
+        reply_markup=alphabetty_dict_suggestion_keyboard(suggestion.pk),
+    )
 
 
 def format_bug_report_message(report: BugReport) -> str:

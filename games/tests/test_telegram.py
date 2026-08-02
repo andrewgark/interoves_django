@@ -4,7 +4,19 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from games.models import Attempt, BugReport, Game, HTMLPage, Project, Registration, Task, TaskGroup, Team, TicketRequest
+from games.models import (
+    AlphabettyDictSuggestion,
+    Attempt,
+    BugReport,
+    Game,
+    HTMLPage,
+    Project,
+    Registration,
+    Task,
+    TaskGroup,
+    Team,
+    TicketRequest,
+)
 from games.telegram.admin_commands import handle_admin_command, registration_milestone_reached
 from games.telegram.digest import build_daily_digest, collect_daily_digest_stats
 from games.telegram.announcements import (
@@ -13,9 +25,11 @@ from games.telegram.announcements import (
     format_game_end_soon_announcement,
     format_game_start_announcement,
 )
+from games.telegram.callbacks import handle_callback_query
 from games.telegram.config import is_admin_chat
 from games.telegram.models import TelegramGameAnnouncement
 from games.telegram.notify import (
+    format_alphabetty_dict_suggestion_message,
     format_bug_report_message,
     format_payment_message,
     notify_new_bug_report,
@@ -77,6 +91,50 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('Something broke', text)
         self.assertIn('/games/{}/1/#new-task-{}'.format(self.game.id, self.task.pk), text)
         self.assertIn('/admin/games/task/{}/change/'.format(self.task.pk), text)
+
+    @patch('games.telegram.notify.send_message')
+    def test_dict_suggestion_notify_on_create(self, send_message_mock):
+        send_message_mock.return_value = True
+        with self.captureOnCommitCallbacks(execute=True):
+            suggestion = AlphabettyDictSuggestion.objects.create(
+                word='ТЕСТСЛОВОДЛЯБОТА',
+                anon_key='anon123456',
+            )
+        self.assertEqual(send_message_mock.call_count, 1)
+        text = send_message_mock.call_args.args[1]
+        self.assertIn('ТЕСТСЛОВОДЛЯБОТА', text)
+        self.assertIn('Алфавитки', text)
+        keyboard = send_message_mock.call_args.kwargs['reply_markup']
+        self.assertIn('abdict:approve:{}'.format(suggestion.pk), str(keyboard))
+
+        # Повторный голос не спамит
+        with self.captureOnCommitCallbacks(execute=True):
+            suggestion.suggest_count += 1
+            suggestion.save(update_fields=['suggest_count', 'updated_at'])
+        self.assertEqual(send_message_mock.call_count, 1)
+
+        msg = format_alphabetty_dict_suggestion_message(suggestion)
+        self.assertIn('pendingalphabettydictsuggestion', msg)
+
+    @patch('games.telegram.notify.send_message')
+    @patch('games.telegram.callbacks.answer_callback_query')
+    @patch('games.telegram.callbacks.edit_message_reply_markup')
+    def test_dict_suggestion_approve_callback(
+        self, edit_markup_mock, answer_mock, send_message_mock,
+    ):
+        send_message_mock.return_value = True
+        with self.captureOnCommitCallbacks(execute=True):
+            suggestion = AlphabettyDictSuggestion.objects.create(word='ОДОБРИМЕНЯ')
+        send_message_mock.reset_mock()
+        handle_callback_query({
+            'id': 'cb1',
+            'data': 'abdict:approve:{}'.format(suggestion.pk),
+            'message': {'chat': {'id': 12345}, 'message_id': 9},
+        })
+        suggestion.refresh_from_db()
+        self.assertEqual(suggestion.status, AlphabettyDictSuggestion.STATUS_APPROVED)
+        answer_mock.assert_called()
+        edit_markup_mock.assert_called_once()
 
     def test_format_bug_report_message_links(self):
         from games.models import GameTaskGroup

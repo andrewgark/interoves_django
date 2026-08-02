@@ -111,10 +111,15 @@ def _cmd_status(_args) -> str:
     from django.conf import settings
     from games.telegram.api import get_webhook_info
 
+    from games.models import AlphabettyDictSuggestion
+
     pending_bugs = BugReport.objects.filter(status='Pending').count()
     pending_tickets = TicketRequest.objects.filter(status='Pending').count()
     stuck_tickets = stuck_pending_ticket_count()
     pending_orders = CorporateGameOrder.objects.filter(email_sent=False).count()
+    pending_dict = AlphabettyDictSuggestion.objects.filter(
+        status=AlphabettyDictSuggestion.STATUS_PENDING,
+    ).count()
 
     db_ok = True
     try:
@@ -133,7 +138,9 @@ def _cmd_status(_args) -> str:
         'Deploy: <code>{}</code>'.format(_escape(version)),
         'DB: {}'.format('OK' if db_ok else 'FAIL'),
         'Admin mute: {}'.format(mute),
-        'Pending: 🐞 {} · 🎫 {} · 🏢 {}'.format(pending_bugs, pending_tickets, pending_orders),
+        'Pending: 🐞 {} · 🎫 {} · 🏢 {} · 🔤 {}'.format(
+            pending_bugs, pending_tickets, pending_orders, pending_dict,
+        ),
         'Stuck tickets (&gt;30m): {}'.format(stuck_tickets),
         'Announce chats: {}'.format(len(announce_chat_ids())),
         'Webhook: {}'.format(_escape(webhook.get('url') or '—')),
@@ -172,6 +179,29 @@ def _cmd_pending(_args) -> str:
         for ticket in tickets:
             team = getattr(ticket.team, 'visible_name', None) or ticket.team_id or '—'
             lines.append('#{} · {} · {} ₽'.format(ticket.pk, _escape(team), ticket.money))
+        lines.append('')
+
+    from games.models import AlphabettyDictSuggestion
+
+    dict_suggestions = (
+        AlphabettyDictSuggestion.objects
+        .filter(status=AlphabettyDictSuggestion.STATUS_PENDING)
+        .order_by('-updated_at')[:5]
+    )
+    if dict_suggestions:
+        lines.append('<b>Словарь Алфавитки:</b>')
+        for item in dict_suggestions:
+            lines.append('#{} · <code>{}</code> · ×{}'.format(
+                item.pk, _escape(item.word), item.suggest_count,
+            ))
+        extra_dict = (
+            AlphabettyDictSuggestion.objects
+            .filter(status=AlphabettyDictSuggestion.STATUS_PENDING)
+            .count()
+            - len(dict_suggestions)
+        )
+        if extra_dict > 0:
+            lines.append('… и ещё {}'.format(extra_dict))
         lines.append('')
 
     orders = CorporateGameOrder.objects.order_by('-created_at')[:5]
