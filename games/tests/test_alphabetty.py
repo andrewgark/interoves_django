@@ -71,6 +71,10 @@ class AlphabettyCoreTests(TestCase):
         self.assertTrue(is_valid_guess('бежать'))
         self.assertTrue(is_valid_guess('красивая'))
         self.assertTrue(is_valid_guess('хорошо'))
+        # Имена собственные (фамилии, топонимы).
+        self.assertTrue(is_valid_guess('абабков'))
+        self.assertTrue(is_valid_guess('абдулино'))
+        self.assertTrue(is_valid_guess('австралия'))
 
     def test_prefix_rimlyanin_risunok(self):
         rows = build_prefix_level('римлянин', 'рисунок')
