@@ -28,6 +28,7 @@ urlpatterns = [
     path('alphabetty/<str:number>/guess/', ui.alphabetty_guess, name='new_alphabetty_guess'),
     path('alphabetty/<str:number>/state/', ui.alphabetty_state, name='new_alphabetty_state'),
     path('alphabetty/<str:number>/prefix/', ui.alphabetty_prefix, name='new_alphabetty_prefix'),
+    path('alphabetty/<str:number>/suggest/', ui.alphabetty_suggest, name='new_alphabetty_suggest'),
     path('alphabetty/<str:number>/', ui.alphabetty_play_page, name='new_alphabetty_play'),
     path('games/ladder/today/', RedirectView.as_view(url='/ladder/today/', permanent=True, query_string=True)),
     path('games/ladder/last/', RedirectView.as_view(url='/ladder/last/', permanent=True, query_string=True)),

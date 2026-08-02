@@ -16,6 +16,7 @@ from games.alphabetty.play import (
     get_task_for_number,
     hub_progress_for_actor,
 )
+from games.alphabetty.suggestions import suggest_word
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
     alphabetty_publish_at,
@@ -220,6 +221,7 @@ def alphabetty_play_page(request, number):
         'guess_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}guess/',
         'state_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}state/',
         'prefix_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}prefix/',
+        'suggest_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}suggest/',
         'anon_key': anon_key if user is None else '',
         'is_authenticated': bool(user),
     })
@@ -354,3 +356,31 @@ def alphabetty_prefix(request, number):
     expand = normalize_word(body.get('prefix') or '')
     rows = build_prefix_level(lo, hi, expand_prefix=expand)
     return JsonResponse({'ok': True, 'rows': rows})
+
+
+@require_POST
+def alphabetty_suggest(request, number):
+    """Предложить слово в словарь (pending → модерация в админке)."""
+    game, task, err = _load_published_task(request, number)
+    if err is not None:
+        return err
+
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, TypeError):
+        body = {}
+    word = body.get('word') or request.POST.get('word') or ''
+    user, anon_key = _resolve_actor(request, body=body)
+    if user is None and not anon_key:
+        anon_key = uuid.uuid4().hex
+
+    result = suggest_word(word, user=user, anon_key=anon_key)
+    response = JsonResponse(result)
+    if user is None and anon_key:
+        response.set_cookie(
+            'interoves_anon',
+            anon_key,
+            max_age=60 * 60 * 24 * 365,
+            samesite='Lax',
+        )
+    return response

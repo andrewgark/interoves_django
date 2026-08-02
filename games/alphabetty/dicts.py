@@ -5,6 +5,7 @@ from __future__ import annotations
 import gzip
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
 DICT_DIR = Path(__file__).resolve().parent / 'dictionaries'
 # Полный словарь форм (не только им.п. сущ.): gzip, одна словоформа на строку.
@@ -14,6 +15,9 @@ _VALID_FALLBACKS = (
     DICT_DIR / 'ru_words_valid.txt',
     DICT_DIR / 'ru_nouns_valid.txt',
 )
+
+# Одобренные через админку слова (поверх файла). Сбрасывается invalidate_approved_extras().
+_approved_extras: Optional[frozenset[str]] = None
 
 
 def _read_words(path: Path) -> list[str]:
@@ -76,3 +80,30 @@ def get_valid_set() -> frozenset[str]:
 
 def get_answer_pool() -> tuple[str, ...]:
     return load_answer_pool()
+
+
+def invalidate_approved_extras() -> None:
+    global _approved_extras
+    _approved_extras = None
+
+
+def get_approved_extras() -> frozenset[str]:
+    """Слова со статусом Approved из админки."""
+    global _approved_extras
+    if _approved_extras is not None:
+        return _approved_extras
+    try:
+        from games.models import AlphabettyDictSuggestion
+    except Exception:
+        _approved_extras = frozenset()
+        return _approved_extras
+    _approved_extras = frozenset(
+        AlphabettyDictSuggestion.objects.filter(
+            status=AlphabettyDictSuggestion.STATUS_APPROVED,
+        ).values_list('word', flat=True)
+    )
+    return _approved_extras
+
+
+def is_approved_dict_word(word: str) -> bool:
+    return word in get_approved_extras()

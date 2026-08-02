@@ -42,6 +42,7 @@
      data-guess-url="{{ guess_url }}"
      data-state-url="{{ state_url }}"
      data-prefix-url="{{ prefix_url }}"
+     data-suggest-url="{{ suggest_url }}"
      data-anon-key="{{ anon_key|default:'' }}"
      data-authenticated="{% if is_authenticated %}1{% else %}0{% endif %}">
 
@@ -78,7 +79,13 @@
                aria-label="Угадайте русское слово">
         <button type="submit" class="new-btn new-alphabetty__submit" id="ab-submit">Проверить</button>
       </form>
-      <p class="new-alphabetty__msg" id="ab-msg" hidden></p>
+      <div class="new-alphabetty__msg-row" id="ab-msg-row" hidden>
+        <p class="new-alphabetty__msg" id="ab-msg"></p>
+        <button type="button"
+                class="new-btn new-btn--ghost new-btn--mini new-alphabetty__suggest"
+                id="ab-suggest"
+                hidden>Предложить добавить в словарь</button>
+      </div>
     </div>
 
     <div class="new-alphabetty__win" id="ab-win" hidden>
@@ -111,8 +118,10 @@
   var guessUrl = root.getAttribute('data-guess-url');
   var stateUrl = root.getAttribute('data-state-url');
   var prefixUrl = root.getAttribute('data-prefix-url');
+  var suggestUrl = root.getAttribute('data-suggest-url');
   var isAuthenticated = root.getAttribute('data-authenticated') === '1';
   var serverAnon = root.getAttribute('data-anon-key') || '';
+  var pendingSuggestWord = '';
 
   function readAnonCookie() {
     try {
@@ -162,6 +171,8 @@
   var elPrefixToggle = document.getElementById('ab-prefix-toggle');
   var elPrefixPanel = document.getElementById('ab-prefix-panel');
   var elMsg = document.getElementById('ab-msg');
+  var elMsgRow = document.getElementById('ab-msg-row');
+  var elSuggest = document.getElementById('ab-suggest');
   var elAttempts = document.getElementById('ab-attempts');
   var elWin = document.getElementById('ab-win');
   var elSecret = document.getElementById('ab-secret');
@@ -380,16 +391,38 @@
     renderPrefixPanel();
   });
 
-  function showMsg(text, kind) {
+  function hideSuggest() {
+    pendingSuggestWord = '';
+    if (elSuggest) elSuggest.hidden = true;
+  }
+
+  function showSuggestFor(word) {
+    pendingSuggestWord = word || '';
+    if (!elSuggest || !suggestUrl || !pendingSuggestWord) {
+      hideSuggest();
+      return;
+    }
+    elSuggest.hidden = false;
+    elSuggest.disabled = false;
+    elSuggest.textContent = 'Предложить добавить в словарь';
+  }
+
+  function showMsg(text, kind, opts) {
+    opts = opts || {};
     if (!text) {
+      if (elMsgRow) elMsgRow.hidden = true;
       elMsg.hidden = true;
       elMsg.textContent = '';
+      hideSuggest();
       input.classList.remove('is-shake');
       return;
     }
+    if (elMsgRow) elMsgRow.hidden = false;
     elMsg.hidden = false;
     elMsg.textContent = text;
     elMsg.className = 'new-alphabetty__msg' + (kind ? ' is-' + kind : '');
+    if (opts.suggestWord) showSuggestFor(opts.suggestWord);
+    else hideSuggest();
     if (kind === 'error') {
       input.classList.remove('is-shake');
       void input.offsetWidth;
@@ -439,7 +472,7 @@
       })
       .then(function (data) {
         if (data.status === 'invalid') {
-          showMsg(data.error || 'Слова нет в словаре', 'error');
+          showMsg(data.error || 'Слова нет в словаре', 'error', { suggestWord: word });
           focusInput();
           return;
         }
@@ -466,6 +499,37 @@
     e.preventDefault();
     submitWord();
   });
+
+  if (elSuggest) {
+    elSuggest.addEventListener('click', function () {
+      if (!suggestUrl || !pendingSuggestWord || elSuggest.disabled) return;
+      elSuggest.disabled = true;
+      var headers = {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf(),
+        'Accept': 'application/json'
+      };
+      if (anonKey) headers['X-Interoves-Anon'] = anonKey;
+      fetch(suggestUrl, {
+        method: 'POST',
+        headers: headers,
+        credentials: 'same-origin',
+        body: JSON.stringify({ word: pendingSuggestWord, anon_key: anonKey })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var msg = (data && (data.message || data.error)) || 'Готово';
+          var kind = (data && (data.status === 'ok' || data.status === 'already_pending')) ? 'ok' : 'error';
+          showMsg(msg, kind);
+          hideSuggest();
+          if (elMsgRow) elMsgRow.hidden = false;
+        })
+        .catch(function () {
+          elSuggest.disabled = false;
+          showMsg('Не удалось отправить предложение', 'error', { suggestWord: pendingSuggestWord });
+        });
+    });
+  }
 
   input.addEventListener('input', function () {
     if (state.won) return;

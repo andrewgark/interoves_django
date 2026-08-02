@@ -19,6 +19,7 @@ from games.ops_actions import (
     set_ok_and_create_new_task,
 )
 from games.models import (
+    AlphabettyDictSuggestion,
     Attempt,
     Audio,
     ChainTaskState,
@@ -36,6 +37,7 @@ from games.models import (
     OrderGameClient,
     OrderGameReview,
     BugReport,
+    PendingAlphabettyDictSuggestion,
     PendingAttempt,
     PendingBugReport,
     Donation,
@@ -599,6 +601,83 @@ def mark_bug_report_dismissed(modeladmin, request, queryset):
 
 mark_bug_report_reviewed.short_description = 'Mark Reviewed'
 mark_bug_report_dismissed.short_description = 'Mark Dismissed'
+
+
+def approve_alphabetty_dict_suggestions(modeladmin, request, queryset):
+    from games.alphabetty.suggestions import approve_suggestions
+
+    n = approve_suggestions(queryset)
+    modeladmin.message_user(
+        request,
+        'Одобрено слов: {}'.format(n),
+        level=messages.SUCCESS,
+    )
+
+
+def reject_alphabetty_dict_suggestions(modeladmin, request, queryset):
+    from games.alphabetty.suggestions import reject_suggestions
+
+    n = reject_suggestions(queryset)
+    modeladmin.message_user(
+        request,
+        'Отклонено слов: {}'.format(n),
+        level=messages.SUCCESS,
+    )
+
+
+approve_alphabetty_dict_suggestions.short_description = 'Одобрить (добавить в словарь)'
+reject_alphabetty_dict_suggestions.short_description = 'Отклонить'
+
+
+class AlphabettyDictSuggestionAdminBase(admin.ModelAdmin):
+    formfield_overrides = {
+        models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 60})},
+    }
+    raw_id_fields = ['user']
+    readonly_fields = [
+        'word', 'suggest_count', 'user', 'anon_key', 'created_at', 'updated_at', 'reviewed_at',
+    ]
+    fields = [
+        'status',
+        'word',
+        'suggest_count',
+        'admin_notes',
+        'user',
+        'anon_key',
+        'created_at',
+        'updated_at',
+        'reviewed_at',
+    ]
+    list_display = ['word', 'status', 'suggest_count', 'user', 'updated_at', 'created_at']
+    list_filter = ['status']
+    search_fields = ['word', 'admin_notes', 'anon_key']
+    actions = [approve_alphabetty_dict_suggestions, reject_alphabetty_dict_suggestions]
+    ordering = ['-updated_at']
+
+    def save_model(self, request, obj, form, change):
+        from django.utils import timezone
+        from games.alphabetty.dicts import invalidate_approved_extras
+
+        if change and 'status' in form.changed_data:
+            if obj.status in (
+                AlphabettyDictSuggestion.STATUS_APPROVED,
+                AlphabettyDictSuggestion.STATUS_REJECTED,
+            ):
+                obj.reviewed_at = timezone.now()
+        super().save_model(request, obj, form, change)
+        invalidate_approved_extras()
+
+
+@admin.register(AlphabettyDictSuggestion)
+class AlphabettyDictSuggestionAdmin(AlphabettyDictSuggestionAdminBase):
+    pass
+
+
+@admin.register(PendingAlphabettyDictSuggestion)
+class PendingAlphabettyDictSuggestionAdmin(AlphabettyDictSuggestionAdminBase):
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(status=AlphabettyDictSuggestion.STATUS_PENDING)
 
 
 class BugReportAdminBase(admin.ModelAdmin):

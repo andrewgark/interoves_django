@@ -37,13 +37,16 @@ def compare_words(a: str, b: str) -> int:
 
 
 def is_valid_guess(word: str, valid: frozenset[str] | None = None) -> bool:
-    from games.alphabetty.dicts import get_valid_set
+    from games.alphabetty.dicts import get_valid_set, is_approved_dict_word
 
     n = normalize_word(word)
     if not n:
         return False
-    pool = valid if valid is not None else get_valid_set()
-    return n in pool
+    if valid is not None:
+        return n in valid
+    if n in get_valid_set():
+        return True
+    return is_approved_dict_word(n)
 
 
 def guess_status(guess: str, secret: str) -> str:

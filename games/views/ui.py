@@ -23,6 +23,7 @@ from games.views.alphabetty_views import (  # noqa: E402
     alphabetty_play_page,
     alphabetty_prefix,
     alphabetty_state,
+    alphabetty_suggest,
     alphabetty_today_page,
 )
 game_task_group_progress = new_game_task_group_progress

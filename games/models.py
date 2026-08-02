@@ -1685,6 +1685,56 @@ class PendingBugReport(BugReport):
         proxy = True
 
 
+class AlphabettyDictSuggestion(models.Model):
+    """Предложение добавить слово в словарь Алфавитки (модерация в админке)."""
+
+    STATUS_PENDING = 'Pending'
+    STATUS_APPROVED = 'Approved'
+    STATUS_REJECTED = 'Rejected'
+    STATUS_VARIANTS = (
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_APPROVED, 'Approved'),
+        (STATUS_REJECTED, 'Rejected'),
+    )
+
+    id = models.AutoField(primary_key=True)
+    word = models.CharField(max_length=64, unique=True, db_index=True)
+    status = models.CharField(
+        default=STATUS_PENDING,
+        max_length=32,
+        choices=STATUS_VARIANTS,
+        db_index=True,
+    )
+    suggest_count = models.PositiveIntegerField(default=1)
+    user = models.ForeignKey(
+        'auth.User',
+        related_name='alphabetty_dict_suggestions',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    admin_notes = models.TextField(blank=True, default='')
+
+    class Meta:
+        ordering = ['-updated_at']
+        verbose_name = 'предложение в словарь Алфавитки'
+        verbose_name_plural = 'предложения в словарь Алфавитки'
+
+    def __str__(self):
+        return '[{}] {} ×{}'.format(self.status, self.word, self.suggest_count)
+
+
+class PendingAlphabettyDictSuggestion(AlphabettyDictSuggestion):
+    class Meta:
+        proxy = True
+        verbose_name = 'pending: словарь Алфавитки'
+        verbose_name_plural = 'pending: словарь Алфавитки'
+
+
 class StatisticsEvent(models.Model):
     """Generic product/ops analytics row (who / when / what / payload)."""
 

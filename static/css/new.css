@@ -4707,13 +4707,28 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   justify-content: center;
   line-height: 1;
 }
-.new-alphabetty__msg {
+.new-alphabetty__msg-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.75rem;
   margin: 0.45rem 0 0;
+}
+.new-alphabetty__msg {
+  margin: 0;
   font-size: 0.9rem;
   color: var(--muted);
 }
 .new-alphabetty__msg.is-error { color: var(--danger); }
 .new-alphabetty__msg.is-ok { color: var(--accent); }
+.new-alphabetty__suggest {
+  margin: 0;
+  flex: 0 0 auto;
+}
+.new-alphabetty__msg-row[hidden],
+.new-alphabetty__suggest[hidden] {
+  display: none !important;
+}
 
 .new-alphabetty__win {
   min-width: 0;

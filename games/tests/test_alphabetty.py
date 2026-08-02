@@ -25,7 +25,9 @@ from games.alphabetty.play import (
     ru_attempt_word,
 )
 from games.anon_migrate import _solved_count
-from games.models import ChainTaskState
+from games.alphabetty.dicts import invalidate_approved_extras
+from games.alphabetty.suggestions import approve_suggestions, reject_suggestions, suggest_word
+from games.models import AlphabettyDictSuggestion, ChainTaskState
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
     ALPHABETTY_PUBLISH_START_TAG,
@@ -40,6 +42,8 @@ from games.support.services.alphabetty import (
     set_publish_start,
     update_alphabetty,
 )
+
+_FAKE_WORD = 'БЛЯМБУРГЕТОНИК'
 
 
 class AlphabettyCoreTests(TestCase):
@@ -346,3 +350,50 @@ class AlphabettyPlayApiTests(TestCase):
         )
         apply_guess(game=self.game, task=self.task, word='год', user=user)
         self.assertEqual(ChainTaskState.objects.filter(user=user, task=self.task).count(), 1)
+
+    def test_suggest_and_approve_makes_word_valid(self):
+        self.assertFalse(is_valid_guess(_FAKE_WORD))
+        r = self.client.post(
+            '/alphabetty/1/suggest/',
+            data=json.dumps({'word': _FAKE_WORD, 'anon_key': 'sug1'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='sug1',
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['status'], 'ok')
+        obj = AlphabettyDictSuggestion.objects.get(word=_FAKE_WORD)
+        self.assertEqual(obj.status, AlphabettyDictSuggestion.STATUS_PENDING)
+
+        r2 = self.client.post(
+            '/alphabetty/1/suggest/',
+            data=json.dumps({'word': _FAKE_WORD, 'anon_key': 'sug2'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='sug2',
+        )
+        self.assertEqual(r2.json()['status'], 'already_pending')
+        obj.refresh_from_db()
+        self.assertEqual(obj.suggest_count, 2)
+
+        approve_suggestions(AlphabettyDictSuggestion.objects.filter(pk=obj.pk))
+        invalidate_approved_extras()
+        self.assertTrue(is_valid_guess(_FAKE_WORD))
+
+        # После approve guess принимает слово
+        r3 = self.client.post(
+            '/alphabetty/1/guess/',
+            data=json.dumps({'word': _FAKE_WORD, 'anon_key': 'sug3'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='sug3',
+        )
+        self.assertEqual(r3.json()['status'], 'earlier')  # Б… < СЛОВО
+
+    def test_reject_keeps_word_invalid(self):
+        suggest_word('ЗЗЗЗЗЗЗЗЗЗЗЗЗ', anon_key='rej1')
+        qs = AlphabettyDictSuggestion.objects.filter(word='ЗЗЗЗЗЗЗЗЗЗЗЗЗ')
+        reject_suggestions(qs)
+        invalidate_approved_extras()
+        self.assertFalse(is_valid_guess('ЗЗЗЗЗЗЗЗЗЗЗЗЗ'))
+        self.assertEqual(
+            AlphabettyDictSuggestion.objects.get(word='ЗЗЗЗЗЗЗЗЗЗЗЗЗ').status,
+            AlphabettyDictSuggestion.STATUS_REJECTED,
+        )
