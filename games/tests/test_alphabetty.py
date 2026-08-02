@@ -63,6 +63,10 @@ class AlphabettyCoreTests(TestCase):
     def test_valid_dict_loaded(self):
         self.assertTrue(is_valid_guess('год'))
         self.assertFalse(is_valid_guess('asdfqwer'))
+        # Полный словарь: глаголы / прилагательные / формы тоже валидны.
+        self.assertTrue(is_valid_guess('бежать'))
+        self.assertTrue(is_valid_guess('красивая'))
+        self.assertTrue(is_valid_guess('хорошо'))
 
     def test_prefix_rimlyanin_risunok(self):
         rows = build_prefix_level('римлянин', 'рисунок')

@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+import gzip
 from functools import lru_cache
 from pathlib import Path
 
 DICT_DIR = Path(__file__).resolve().parent / 'dictionaries'
+# Полный словарь форм (не только им.п. сущ.): gzip, одна словоформа на строку.
+_VALID_GZ = DICT_DIR / 'ru_words_valid.txt.gz'
+# Запасной плоский список (если gzip ещё не собран) + старый nouns-only.
+_VALID_FALLBACKS = (
+    DICT_DIR / 'ru_words_valid.txt',
+    DICT_DIR / 'ru_nouns_valid.txt',
+)
 
 
 def _read_words(path: Path) -> list[str]:
@@ -20,11 +28,27 @@ def _read_words(path: Path) -> list[str]:
     return words
 
 
+def _read_valid_raw() -> list[str]:
+    if _VALID_GZ.is_file():
+        words: list[str] = []
+        with gzip.open(_VALID_GZ, 'rt', encoding='utf-8') as f:
+            for line in f:
+                w = line.strip()
+                if w:
+                    words.append(w)
+        return words
+    for path in _VALID_FALLBACKS:
+        raw = _read_words(path)
+        if raw:
+            return raw
+    return []
+
+
 @lru_cache(maxsize=1)
 def load_valid_set() -> frozenset[str]:
     from games.alphabetty.core import normalize_word
 
-    raw = _read_words(DICT_DIR / 'ru_nouns_valid.txt')
+    raw = _read_valid_raw()
     return frozenset(normalize_word(w) for w in raw if normalize_word(w))
 
 
