@@ -248,6 +248,13 @@
     elAfterBlock.hidden = !earlier.length;
     elBeforeBlock.hidden = !later.length;
     elAttempts.textContent = String(state.attempts || 0);
+    // Списки растут к инпуту: держим ближайшее слово у края (низ «после» / верх «перед»).
+    if (elAbove.scrollHeight > elAbove.clientHeight) {
+      elAbove.scrollTop = elAbove.scrollHeight;
+    }
+    if (elBelow.scrollHeight > elBelow.clientHeight) {
+      elBelow.scrollTop = 0;
+    }
 
     if (state.won) {
       elInputZone.hidden = true;
