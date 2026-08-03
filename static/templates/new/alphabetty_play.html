@@ -568,10 +568,19 @@
       })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          var msg = (data && (data.message || data.error)) || 'Готово';
-          var kind = (data && (data.status === 'ok' || data.status === 'already_pending')) ? 'ok' : 'error';
-          showMsg(msg, kind);
+          var status = data && data.status;
+          var wordToReplay = pendingSuggestWord;
           hideSuggest();
+          if (status === 'ok' || status === 'already_pending' || status === 'already_in_dict') {
+            // Слово уже в личном (или общем) словаре — сразу зачитываем как отгадку.
+            input.value = wordToReplay;
+            busy = false;
+            submitWord();
+            return;
+          }
+          var msg = (data && (data.message || data.error)) || 'Готово';
+          showMsg(msg, 'error', { suggestWord: wordToReplay });
+          elSuggest.disabled = false;
           if (elMsgRow) elMsgRow.hidden = false;
         })
         .catch(function () {

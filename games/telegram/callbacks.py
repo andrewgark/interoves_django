@@ -2,7 +2,11 @@ import html
 
 from django.db import transaction
 
-from games.alphabetty.suggestions import approve_suggestions, reject_suggestions
+from games.alphabetty.suggestions import (
+    approve_suggestions,
+    approve_suggestions_for_answer,
+    reject_suggestions,
+)
 from games.models import AlphabettyDictSuggestion, BugReport, TicketRequest
 from games.telegram.api import answer_callback_query, edit_message_reply_markup
 from games.telegram.notify import send_admin_message
@@ -76,13 +80,23 @@ def _handle_abdict(action: str, suggestion_id: int, callback_id, chat_id, messag
     word = suggestion.word
     word_html = html.escape(word, quote=False)
     if action == 'approve':
-        if suggestion.status == AlphabettyDictSuggestion.STATUS_APPROVED:
+        if suggestion.status in AlphabettyDictSuggestion.STATUSES_VALID:
             answer_callback_query(callback_id, 'Already approved')
         else:
             approve_suggestions(qs)
             answer_callback_query(callback_id, 'Approved: {}'.format(word))
             send_admin_message(
                 'Алфавитка словарь: <code>{}</code> → одобрено'.format(word_html),
+                force=True,
+            )
+    elif action == 'answer':
+        if suggestion.status == AlphabettyDictSuggestion.STATUS_APPROVED_ANSWER:
+            answer_callback_query(callback_id, 'Already in answer pool')
+        else:
+            approve_suggestions_for_answer(qs)
+            answer_callback_query(callback_id, 'For answers: {}'.format(word))
+            send_admin_message(
+                'Алфавитка словарь: <code>{}</code> → для загадывания'.format(word_html),
                 force=True,
             )
     elif action == 'reject':

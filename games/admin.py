@@ -614,6 +614,17 @@ def approve_alphabetty_dict_suggestions(modeladmin, request, queryset):
     )
 
 
+def approve_alphabetty_dict_suggestions_for_answer(modeladmin, request, queryset):
+    from games.alphabetty.suggestions import approve_suggestions_for_answer
+
+    n = approve_suggestions_for_answer(queryset)
+    modeladmin.message_user(
+        request,
+        'Одобрено для загадывания: {}'.format(n),
+        level=messages.SUCCESS,
+    )
+
+
 def reject_alphabetty_dict_suggestions(modeladmin, request, queryset):
     from games.alphabetty.suggestions import reject_suggestions
 
@@ -626,6 +637,7 @@ def reject_alphabetty_dict_suggestions(modeladmin, request, queryset):
 
 
 approve_alphabetty_dict_suggestions.short_description = 'Одобрить (добавить в словарь)'
+approve_alphabetty_dict_suggestions_for_answer.short_description = 'Одобрить для загадывания'
 reject_alphabetty_dict_suggestions.short_description = 'Отклонить'
 
 
@@ -651,21 +663,26 @@ class AlphabettyDictSuggestionAdminBase(admin.ModelAdmin):
     list_display = ['word', 'status', 'suggest_count', 'user', 'updated_at', 'created_at']
     list_filter = ['status']
     search_fields = ['word', 'admin_notes', 'anon_key']
-    actions = [approve_alphabetty_dict_suggestions, reject_alphabetty_dict_suggestions]
+    actions = [
+        approve_alphabetty_dict_suggestions,
+        approve_alphabetty_dict_suggestions_for_answer,
+        reject_alphabetty_dict_suggestions,
+    ]
     ordering = ['-updated_at']
 
     def save_model(self, request, obj, form, change):
         from django.utils import timezone
-        from games.alphabetty.dicts import invalidate_approved_extras
+        from games.alphabetty.dicts import invalidate_dict_caches
 
         if change and 'status' in form.changed_data:
             if obj.status in (
                 AlphabettyDictSuggestion.STATUS_APPROVED,
+                AlphabettyDictSuggestion.STATUS_APPROVED_ANSWER,
                 AlphabettyDictSuggestion.STATUS_REJECTED,
             ):
                 obj.reviewed_at = timezone.now()
         super().save_model(request, obj, form, change)
-        invalidate_approved_extras()
+        invalidate_dict_caches()
 
 
 @admin.register(AlphabettyDictSuggestion)

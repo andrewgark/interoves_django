@@ -71,6 +71,28 @@ def _merge_alphabetty_states(anon_json, user_json):
     }, ensure_ascii=False)
 
 
+def migrate_anon_personal_dict_words(user, anon_key):
+    """Переносит AlphabettyPersonalDictWord с anon_key на user. Возвращает число строк."""
+    from games.models import AlphabettyPersonalDictWord
+
+    if not user or not anon_key:
+        return 0
+    moved = 0
+    qs = AlphabettyPersonalDictWord.objects.filter(
+        anon_key=anon_key, user__isnull=True,
+    )
+    for row in qs.iterator():
+        if AlphabettyPersonalDictWord.objects.filter(user=user, word=row.word).exists():
+            row.delete()
+            moved += 1
+            continue
+        row.user = user
+        row.anon_key = None
+        row.save(update_fields=['user', 'anon_key'])
+        moved += 1
+    return moved
+
+
 def migrate_anon_chain_task_states(user, anon_key):
     """
     Переносит ChainTaskState с anon_key на user.

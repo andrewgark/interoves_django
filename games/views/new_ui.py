@@ -2854,9 +2854,13 @@ def new_migrate_anon_attempts(request):
         user=request.user,
         anon_key=None,
     )
-    from games.anon_migrate import migrate_anon_chain_task_states
+    from games.anon_migrate import (
+        migrate_anon_chain_task_states,
+        migrate_anon_personal_dict_words,
+    )
     moved_states = migrate_anon_chain_task_states(request.user, anon_key)
-    if moved or moved_hints or moved_states:
+    moved_personal_dict = migrate_anon_personal_dict_words(request.user, anon_key)
+    if moved or moved_hints or moved_states or moved_personal_dict:
         StatisticsEvent.record(
             StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
             user=request.user,
@@ -2864,12 +2868,14 @@ def new_migrate_anon_attempts(request):
             moved=moved,
             moved_hints=moved_hints,
             moved_states=moved_states,
+            moved_personal_dict=moved_personal_dict,
         )
     return JsonResponse({
         'status': 'ok',
         'moved': moved,
         'moved_hints': moved_hints,
         'moved_states': moved_states,
+        'moved_personal_dict': moved_personal_dict,
     })
 
 

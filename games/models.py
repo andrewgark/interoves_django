@@ -1690,12 +1690,17 @@ class AlphabettyDictSuggestion(models.Model):
 
     STATUS_PENDING = 'Pending'
     STATUS_APPROVED = 'Approved'
+    # Одобрено и для валидных отгадок, и для пула загадывания.
+    STATUS_APPROVED_ANSWER = 'ApprovedAnswer'
     STATUS_REJECTED = 'Rejected'
     STATUS_VARIANTS = (
         (STATUS_PENDING, 'Pending'),
         (STATUS_APPROVED, 'Approved'),
+        (STATUS_APPROVED_ANSWER, 'Approved for answer'),
         (STATUS_REJECTED, 'Rejected'),
     )
+    # Статусы, при которых слово глобально принимается как отгадка.
+    STATUSES_VALID = (STATUS_APPROVED, STATUS_APPROVED_ANSWER)
 
     id = models.AutoField(primary_key=True)
     word = models.CharField(max_length=64, unique=True, db_index=True)
@@ -1733,6 +1738,47 @@ class PendingAlphabettyDictSuggestion(AlphabettyDictSuggestion):
         proxy = True
         verbose_name = 'pending: словарь Алфавитки'
         verbose_name_plural = 'pending: словарь Алфавитки'
+
+
+class AlphabettyPersonalDictWord(models.Model):
+    """Личный словарь Алфавитки: слово валидно только для этого user/anon."""
+
+    id = models.AutoField(primary_key=True)
+    word = models.CharField(max_length=64, db_index=True)
+    user = models.ForeignKey(
+        'auth.User',
+        related_name='alphabetty_personal_dict_words',
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+    )
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'личное слово Алфавитки'
+        verbose_name_plural = 'личные слова Алфавитки'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'word'],
+                condition=models.Q(user__isnull=False),
+                name='ab_personal_dict_user_word_uniq',
+            ),
+            models.UniqueConstraint(
+                fields=['anon_key', 'word'],
+                condition=models.Q(anon_key__isnull=False),
+                name='ab_personal_dict_anon_word_uniq',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['user', 'word'], name='ab_personal_dict_user_word_idx'),
+            models.Index(fields=['anon_key', 'word'], name='ab_personal_dict_anon_word_idx'),
+        ]
+
+    def __str__(self):
+        who = self.user_id or (self.anon_key[:8] if self.anon_key else '—')
+        return '{} ({})'.format(self.word, who)
 
 
 class StatisticsEvent(models.Model):

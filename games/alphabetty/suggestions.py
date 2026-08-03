@@ -9,7 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from games.alphabetty.core import is_valid_guess, normalize_word
-from games.alphabetty.dicts import invalidate_approved_extras
+from games.alphabetty.dicts import add_personal_dict_word, invalidate_dict_caches
 from games.models import AlphabettyDictSuggestion
 
 _WORD_RE = re.compile(r'^[А-Я]+$')
@@ -27,6 +27,10 @@ def _validate_candidate(word: str) -> tuple[Optional[str], Optional[str]]:
     return n, None
 
 
+def _add_to_personal(word: str, *, user=None, anon_key: str | None = None) -> None:
+    add_personal_dict_word(word, user=user, anon_key=anon_key)
+
+
 @transaction.atomic
 def suggest_word(
     word: str,
@@ -34,7 +38,7 @@ def suggest_word(
     user=None,
     anon_key: str | None = None,
 ) -> dict[str, Any]:
-    """Создать или обновить pending-предложение.
+    """Создать или обновить pending-предложение и сразу добавить в личный словарь.
 
     status ответа: ok | already_pending | already_in_dict | error
     """
@@ -42,7 +46,9 @@ def suggest_word(
     if err:
         return {'status': 'error', 'error': err, 'word': n or ''}
 
+    # Глобальный словарь (без личного) — иначе «уже в словаре» для всех.
     if is_valid_guess(n):
+        _add_to_personal(n, user=user, anon_key=anon_key)
         return {
             'status': 'already_in_dict',
             'error': 'Слово уже в словаре',
@@ -62,16 +68,19 @@ def suggest_word(
             user=user,
             anon_key=anon_key if user is None else None,
         )
+        _add_to_personal(n, user=user, anon_key=anon_key)
         return {
             'status': 'ok',
             'word': n,
             'suggestion_id': obj.pk,
             'suggest_count': obj.suggest_count,
-            'message': 'Спасибо! Предложение отправлено на модерацию',
+            'personal': True,
+            'message': 'Слово добавлено в ваш словарь и отправлено на модерацию',
         }
 
-    if existing.status == AlphabettyDictSuggestion.STATUS_APPROVED:
-        invalidate_approved_extras()
+    if existing.status in AlphabettyDictSuggestion.STATUSES_VALID:
+        invalidate_dict_caches()
+        _add_to_personal(n, user=user, anon_key=anon_key)
         return {
             'status': 'already_in_dict',
             'error': 'Слово уже в словаре',
@@ -83,12 +92,14 @@ def suggest_word(
         if user and existing.user_id is None:
             existing.user = user
         existing.save(update_fields=['suggest_count', 'user', 'updated_at'])
+        _add_to_personal(n, user=user, anon_key=anon_key)
         return {
             'status': 'already_pending',
             'word': n,
             'suggestion_id': existing.pk,
             'suggest_count': existing.suggest_count,
-            'message': 'Это слово уже предложено — учли ваш голос',
+            'personal': True,
+            'message': 'Слово добавлено в ваш словарь (уже на модерации)',
         }
 
     # Rejected → снова в очередь
@@ -100,24 +111,49 @@ def suggest_word(
     existing.save(update_fields=[
         'status', 'suggest_count', 'reviewed_at', 'user', 'updated_at',
     ])
+    _add_to_personal(n, user=user, anon_key=anon_key)
     return {
         'status': 'ok',
         'word': n,
         'suggestion_id': existing.pk,
         'suggest_count': existing.suggest_count,
-        'message': 'Спасибо! Предложение отправлено на модерацию',
+        'personal': True,
+        'message': 'Слово добавлено в ваш словарь и отправлено на модерацию',
     }
 
 
 @transaction.atomic
 def approve_suggestions(queryset) -> int:
+    """Одобрить как валидную отгадку (не трогает ApprovedAnswer)."""
+    now = timezone.now()
+    ids = list(queryset.values_list('pk', flat=True))
+    updated = (
+        AlphabettyDictSuggestion.objects.filter(pk__in=ids)
+        .exclude(status=AlphabettyDictSuggestion.STATUS_APPROVED_ANSWER)
+        .update(
+            status=AlphabettyDictSuggestion.STATUS_APPROVED,
+            reviewed_at=now,
+        )
+    )
+    # Уже ApprovedAnswer — только обновить reviewed_at
+    AlphabettyDictSuggestion.objects.filter(
+        pk__in=ids,
+        status=AlphabettyDictSuggestion.STATUS_APPROVED_ANSWER,
+    ).update(reviewed_at=now)
+    invalidate_dict_caches()
+    return updated
+
+
+@transaction.atomic
+def approve_suggestions_for_answer(queryset) -> int:
+    """Одобрить и для словаря, и для пула загадывания."""
     now = timezone.now()
     ids = list(queryset.values_list('pk', flat=True))
     updated = AlphabettyDictSuggestion.objects.filter(pk__in=ids).update(
-        status=AlphabettyDictSuggestion.STATUS_APPROVED,
+        status=AlphabettyDictSuggestion.STATUS_APPROVED_ANSWER,
         reviewed_at=now,
     )
-    invalidate_approved_extras()
+    invalidate_dict_caches()
     return updated
 
 
@@ -129,5 +165,5 @@ def reject_suggestions(queryset) -> int:
         status=AlphabettyDictSuggestion.STATUS_REJECTED,
         reviewed_at=now,
     )
-    invalidate_approved_extras()
+    invalidate_dict_caches()
     return updated

@@ -25,9 +25,14 @@ from games.alphabetty.play import (
     ru_attempt_word,
 )
 from games.anon_migrate import _solved_count
-from games.alphabetty.dicts import invalidate_approved_extras
-from games.alphabetty.suggestions import approve_suggestions, reject_suggestions, suggest_word
-from games.models import AlphabettyDictSuggestion, ChainTaskState
+from games.alphabetty.dicts import get_answer_pool, invalidate_approved_extras
+from games.alphabetty.suggestions import (
+    approve_suggestions,
+    approve_suggestions_for_answer,
+    reject_suggestions,
+    suggest_word,
+)
+from games.models import AlphabettyDictSuggestion, AlphabettyPersonalDictWord, ChainTaskState
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
     ALPHABETTY_PUBLISH_START_TAG,
@@ -235,6 +240,10 @@ class AlphabettyPlayApiTests(TestCase):
         )
         self.client = Client()
 
+    def tearDown(self):
+        # In-memory extras переживают rollback БД между тестами.
+        invalidate_approved_extras()
+
     def test_guess_flow(self):
         # earlier
         r = self.client.post(
@@ -368,7 +377,19 @@ class AlphabettyPlayApiTests(TestCase):
         obj = AlphabettyDictSuggestion.objects.get(word=_FAKE_WORD)
         self.assertEqual(obj.status, AlphabettyDictSuggestion.STATUS_PENDING)
 
-        r2 = self.client.post(
+        # Автору слово сразу валидно из личного словаря
+        self.assertTrue(is_valid_guess(_FAKE_WORD, anon_key='sug1'))
+        self.assertFalse(is_valid_guess(_FAKE_WORD, anon_key='other'))
+        self.assertFalse(is_valid_guess(_FAKE_WORD))
+        self.assertTrue(
+            AlphabettyPersonalDictWord.objects.filter(
+                anon_key='sug1', word=_FAKE_WORD,
+            ).exists()
+        )
+
+        # Отдельный Client: иначе cookie interoves_anon от sug1 перебьёт header.
+        c2 = Client()
+        r2 = c2.post(
             '/alphabetty/1/suggest/',
             data=json.dumps({'word': _FAKE_WORD, 'anon_key': 'sug2'}),
             content_type='application/json',
@@ -377,13 +398,15 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(r2.json()['status'], 'already_pending')
         obj.refresh_from_db()
         self.assertEqual(obj.suggest_count, 2)
+        self.assertTrue(is_valid_guess(_FAKE_WORD, anon_key='sug2'))
 
         approve_suggestions(AlphabettyDictSuggestion.objects.filter(pk=obj.pk))
         invalidate_approved_extras()
         self.assertTrue(is_valid_guess(_FAKE_WORD))
 
         # После approve guess принимает слово
-        r3 = self.client.post(
+        c3 = Client()
+        r3 = c3.post(
             '/alphabetty/1/guess/',
             data=json.dumps({'word': _FAKE_WORD, 'anon_key': 'sug3'}),
             content_type='application/json',
@@ -391,12 +414,52 @@ class AlphabettyPlayApiTests(TestCase):
         )
         self.assertEqual(r3.json()['status'], 'earlier')  # Б… < СЛОВО
 
-    def test_reject_keeps_word_invalid(self):
+    def test_suggest_makes_guess_valid_for_proposer(self):
+        suggest_word(_FAKE_WORD, anon_key='me-only')
+        c_me = Client()
+        r = c_me.post(
+            '/alphabetty/1/guess/',
+            data=json.dumps({'word': _FAKE_WORD, 'anon_key': 'me-only'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='me-only',
+        )
+        self.assertEqual(r.json()['status'], 'earlier')
+        c_other = Client()
+        r_other = c_other.post(
+            '/alphabetty/1/guess/',
+            data=json.dumps({'word': _FAKE_WORD, 'anon_key': 'stranger'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='stranger',
+        )
+        self.assertEqual(r_other.json()['status'], 'invalid')
+
+    def test_approve_for_answer_adds_to_answer_pool(self):
+        suggest_word('ЮЮЮЮЮЮЮЮЮЮ', anon_key='ans1')
+        qs = AlphabettyDictSuggestion.objects.filter(word='ЮЮЮЮЮЮЮЮЮЮ')
+        self.assertNotIn('ЮЮЮЮЮЮЮЮЮЮ', get_answer_pool())
+        approve_suggestions_for_answer(qs)
+        invalidate_approved_extras()
+        self.assertTrue(is_valid_guess('ЮЮЮЮЮЮЮЮЮЮ'))
+        self.assertIn('ЮЮЮЮЮЮЮЮЮЮ', get_answer_pool())
+        self.assertEqual(
+            AlphabettyDictSuggestion.objects.get(word='ЮЮЮЮЮЮЮЮЮЮ').status,
+            AlphabettyDictSuggestion.STATUS_APPROVED_ANSWER,
+        )
+        # Обычный approve не даунгрейдит ApprovedAnswer
+        approve_suggestions(qs)
+        self.assertEqual(
+            AlphabettyDictSuggestion.objects.get(word='ЮЮЮЮЮЮЮЮЮЮ').status,
+            AlphabettyDictSuggestion.STATUS_APPROVED_ANSWER,
+        )
+
+    def test_reject_keeps_word_invalid_globally(self):
         suggest_word('ЗЗЗЗЗЗЗЗЗЗЗЗЗ', anon_key='rej1')
         qs = AlphabettyDictSuggestion.objects.filter(word='ЗЗЗЗЗЗЗЗЗЗЗЗЗ')
         reject_suggestions(qs)
         invalidate_approved_extras()
         self.assertFalse(is_valid_guess('ЗЗЗЗЗЗЗЗЗЗЗЗЗ'))
+        # У автора остаётся в личном словаре
+        self.assertTrue(is_valid_guess('ЗЗЗЗЗЗЗЗЗЗЗЗЗ', anon_key='rej1'))
         self.assertEqual(
             AlphabettyDictSuggestion.objects.get(word='ЗЗЗЗЗЗЗЗЗЗЗЗЗ').status,
             AlphabettyDictSuggestion.STATUS_REJECTED,

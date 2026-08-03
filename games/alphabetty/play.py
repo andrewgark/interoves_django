@@ -305,7 +305,7 @@ def apply_guess(
             payload, game=game, task=task, number=num, actor=actor, host=share_host,
         )
 
-    if not is_valid_guess(normalized):
+    if not is_valid_guess(normalized, user=user, anon_key=anon_key):
         payload = public_payload(state, secret)
         payload['status'] = 'invalid'
         payload['error'] = 'Слова нет в словаре'

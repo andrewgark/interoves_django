@@ -151,10 +151,18 @@ def ticket_request_keyboard(ticket_id: int) -> dict:
 
 def alphabetty_dict_suggestion_keyboard(suggestion_id: int) -> dict:
     return {
-        'inline_keyboard': [[
-            {'text': 'Одобрить', 'callback_data': 'abdict:approve:{}'.format(suggestion_id)},
-            {'text': 'Отклонить', 'callback_data': 'abdict:reject:{}'.format(suggestion_id)},
-        ]],
+        'inline_keyboard': [
+            [
+                {'text': 'Одобрить', 'callback_data': 'abdict:approve:{}'.format(suggestion_id)},
+                {
+                    'text': 'Для загадывания',
+                    'callback_data': 'abdict:answer:{}'.format(suggestion_id),
+                },
+            ],
+            [
+                {'text': 'Отклонить', 'callback_data': 'abdict:reject:{}'.format(suggestion_id)},
+            ],
+        ],
     }
 
 

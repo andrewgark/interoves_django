@@ -106,6 +106,8 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('Алфавитки', text)
         keyboard = send_message_mock.call_args.kwargs['reply_markup']
         self.assertIn('abdict:approve:{}'.format(suggestion.pk), str(keyboard))
+        self.assertIn('abdict:answer:{}'.format(suggestion.pk), str(keyboard))
+        self.assertIn('abdict:reject:{}'.format(suggestion.pk), str(keyboard))
 
         # Повторный голос не спамит
         with self.captureOnCommitCallbacks(execute=True):
@@ -133,6 +135,29 @@ class TelegramNotifyTests(TestCase):
         })
         suggestion.refresh_from_db()
         self.assertEqual(suggestion.status, AlphabettyDictSuggestion.STATUS_APPROVED)
+        answer_mock.assert_called()
+        edit_markup_mock.assert_called_once()
+
+    @patch('games.telegram.notify.send_message')
+    @patch('games.telegram.callbacks.answer_callback_query')
+    @patch('games.telegram.callbacks.edit_message_reply_markup')
+    def test_dict_suggestion_answer_callback(
+        self, edit_markup_mock, answer_mock, send_message_mock,
+    ):
+        send_message_mock.return_value = True
+        with self.captureOnCommitCallbacks(execute=True):
+            suggestion = AlphabettyDictSuggestion.objects.create(word='ДЛЯЗАГАДКИ')
+        send_message_mock.reset_mock()
+        handle_callback_query({
+            'id': 'cb2',
+            'data': 'abdict:answer:{}'.format(suggestion.pk),
+            'message': {'chat': {'id': 12345}, 'message_id': 10},
+        })
+        suggestion.refresh_from_db()
+        self.assertEqual(
+            suggestion.status,
+            AlphabettyDictSuggestion.STATUS_APPROVED_ANSWER,
+        )
         answer_mock.assert_called()
         edit_markup_mock.assert_called_once()
 
