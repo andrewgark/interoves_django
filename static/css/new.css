@@ -2467,10 +2467,11 @@ html.new-ui-dark .new-taskcard__bug-btn:focus-visible {
   margin-bottom: 0;
 }
 
-/* Мета-полоса карточки (как в пропорциях): номер, баллы, попытки, подсказки, ответ, лайки */
+/* Мета-полоса карточки (как в пропорциях): номер, баллы, попытки, подсказки, ответ, лайки.
+   Справа оставляем место под абсолютный чип багрепорта (.new-taskcard__bug-btn). */
 .new-taskcard__meta-bar.new-proportions-compact-bar {
   margin: 0 0 0.65rem;
-  padding: 0.3rem 0.5rem;
+  padding: 0.3rem 2.6rem 0.3rem 0.5rem;
   border-radius: var(--control-radius);
   background: color-mix(in srgb, var(--tile) 28%, var(--surface));
   border: 1px solid var(--border);
