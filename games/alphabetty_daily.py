@@ -87,6 +87,15 @@ def filter_published_alphabetty_links(links, game, now: datetime | None = None):
     return [link for link in links if is_alphabetty_number_published(game, link.number, now)]
 
 
+def visible_alphabetty_links(links, game, *, reverse=False, now: datetime | None = None):
+    """Уже вышедшие алфавитки; reverse=True — новые сверху (архив)."""
+    published = filter_published_alphabetty_links(links, game, now)
+    from games.models import GameTaskGroup
+    if hasattr(published, 'filter'):
+        return GameTaskGroup.order_queryset_by_number(published, reverse=reverse)
+    return GameTaskGroup.sorted_links(published, reverse=reverse)
+
+
 def get_alphabetty_hub_context(game, *, published_numbers: set[str] | None = None, now=None):
     now = now or timezone.now()
     today_num = current_alphabetty_number(game, now)

@@ -244,6 +244,16 @@ class AlphabettyPlayApiTests(TestCase):
         # In-memory extras переживают rollback БД между тестами.
         invalidate_approved_extras()
 
+    def test_progress_api_returns_rows(self):
+        # Раньше 500: list от filter_published_* передавали в order_queryset_by_number.
+        self.client.cookies['interoves_anon'] = 'test-anon-alphabetty-progress'
+        resp = self.client.get('/alphabetty/progress/')
+        self.assertEqual(resp.status_code, 200)
+        rows = resp.json()['rows']
+        self.assertIn('1', rows)
+        self.assertEqual(rows['1']['n_solved'], 0)
+        self.assertFalse(rows['1']['is_fully_solved'])
+
     def test_guess_flow(self):
         # earlier
         r = self.client.post(

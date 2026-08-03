@@ -565,12 +565,59 @@ html.new-ui-dark body.new-ui {
   margin-bottom: 0.5rem;
 }
 
-.new-hub-section__cta {
+.new-hub-section__cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
   margin: 0 0 0.5rem;
+}
+
+.new-hub-section__cta {
+  margin: 0;
 }
 
 .new-hub-section__ctas .new-hub-section__cta {
   margin-bottom: 0;
+}
+
+.new-hub-section__solved {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  line-height: 1;
+  cursor: default;
+}
+
+.new-hub-section__solved .ph {
+  font-size: 2rem;
+}
+
+.new-hub-section__solved-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.35rem);
+  transform: translateX(-50%) translateY(0.15rem);
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.35rem;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 2;
+}
+
+.new-hub-section__solved:hover .new-hub-section__solved-tip,
+.new-hub-section__solved:focus-visible .new-hub-section__solved-tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .new-hub-section__soon {
@@ -2342,43 +2389,37 @@ html.new-ui-dark .new-team-switcher-active-box {
   min-width: 0;
 }
 
+/* Жёлтый жук без чипа (как раньше с 🐞): только Phosphor-иконка. */
 .new-taskcard__bug-btn {
   position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
+  top: 0.35rem;
+  right: 0.35rem;
   z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--warning) 55%, var(--border));
+  padding: 0.15rem 0.25rem;
+  border: none;
   border-radius: var(--control-radius);
-  background: color-mix(in srgb, var(--warning) 22%, var(--surface));
-  color: var(--warning-hover);
+  background: transparent;
+  color: var(--warning);
   cursor: pointer;
   font-size: 1.15rem;
   line-height: 1;
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--warning) 18%, transparent);
-  transition:
-    background-color 0.14s ease,
-    border-color 0.14s ease,
-    color 0.14s ease,
-    box-shadow 0.14s ease,
-    transform 0.14s ease;
+  opacity: 0.78;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
 
 .new-taskcard__bug-btn .ph {
   color: inherit;
 }
 
-.new-taskcard__bug-btn:hover {
-  background: color-mix(in srgb, var(--warning) 38%, var(--surface));
-  border-color: var(--warning);
-  color: color-mix(in srgb, var(--warning-hover) 70%, #1a1a1a);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--warning) 28%, transparent);
-  transform: translateY(-1px);
+.new-taskcard__bug-btn:hover,
+.new-taskcard__bug-btn:focus-visible {
+  opacity: 1;
+  color: var(--warning-hover);
+  background: color-mix(in srgb, var(--tile) 55%, transparent);
+  outline: none;
 }
 
 .new-taskcard__bug-btn:focus {
@@ -2388,23 +2429,6 @@ html.new-ui-dark .new-team-switcher-active-box {
 .new-taskcard__bug-btn:focus-visible {
   outline: 2px solid var(--warning);
   outline-offset: 2px;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 35%, transparent);
-}
-
-.new-taskcard__bug-btn:active {
-  transform: translateY(0);
-  background: color-mix(in srgb, var(--warning) 48%, var(--surface));
-}
-
-html.new-ui-dark .new-taskcard__bug-btn {
-  color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 18%, var(--surface));
-}
-
-html.new-ui-dark .new-taskcard__bug-btn:hover,
-html.new-ui-dark .new-taskcard__bug-btn:focus-visible {
-  color: var(--warning-hover);
-  background: color-mix(in srgb, var(--warning) 30%, var(--surface));
 }
 
 .new-bug-report-textarea {
@@ -2468,10 +2492,10 @@ html.new-ui-dark .new-taskcard__bug-btn:focus-visible {
 }
 
 /* Мета-полоса карточки (как в пропорциях): номер, баллы, попытки, подсказки, ответ, лайки.
-   Справа оставляем место под абсолютный чип багрепорта (.new-taskcard__bug-btn). */
+   Справа оставляем место под абсолютную кнопку багрепорта (.new-taskcard__bug-btn). */
 .new-taskcard__meta-bar.new-proportions-compact-bar {
   margin: 0 0 0.65rem;
-  padding: 0.3rem 2.6rem 0.3rem 0.5rem;
+  padding: 0.3rem 1.75rem 0.3rem 0.5rem;
   border-radius: var(--control-radius);
   background: color-mix(in srgb, var(--tile) 28%, var(--surface));
   border: 1px solid var(--border);

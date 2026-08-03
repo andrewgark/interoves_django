@@ -9,13 +9,19 @@
   </div>
   <p class="new-hub-section__desc">{{ card.description }}</p>
   {% if card.play_url %}
-    <a class="new-btn new-hub-section__cta{% if card.is_today %} new-hub-section__cta--today{% elif card.cta_label %} new-hub-section__cta--latest{% endif %}"
-       href="{{ card.play_url }}"
-       data-hub-section-cta
-       data-cta-number="{{ card.cta_number|default:'' }}"
-       {% if card.load_task_group_progress and card.task_group_progress_url %}data-progress-url="{{ card.task_group_progress_url }}"{% endif %}>
-      {{ card.cta_label }}
-    </a>
+    <div class="new-hub-section__cta-row">
+      <a class="new-btn new-hub-section__cta{% if card.is_today %} new-hub-section__cta--today{% elif card.cta_label %} new-hub-section__cta--latest{% endif %}"
+         href="{{ card.play_url }}"
+         data-hub-section-cta
+         data-cta-number="{{ card.cta_number|default:'' }}"
+         {% if card.load_task_group_progress and card.task_group_progress_url %}data-progress-url="{{ card.task_group_progress_url }}"{% endif %}>
+        {{ card.cta_label }}
+      </a>
+      <span class="new-hub-section__solved" hidden data-hub-solved-mark>
+        <i class="ph ph-check-circle" aria-hidden="true"></i>
+        <span class="new-hub-section__solved-tip" role="tooltip">Решено</span>
+      </span>
+    </div>
   {% elif card.status == 'coming_soon' %}
     <p class="new-hub-section__soon{% if card.soon_emphasis %} new-hub-section__soon--announce{% endif %}">
       {% if card.soon_text %}{{ card.soon_text }}

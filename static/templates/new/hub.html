@@ -82,9 +82,14 @@
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         var row = data && data.rows && data.rows[num];
-        if (!row) return;
-        if (row.is_fully_solved) {
-          cta.classList.add('new-hub-section__cta--solved');
+        if (!row || !row.is_fully_solved) return;
+        cta.classList.add('new-hub-section__cta--solved');
+        var rowEl = cta.closest('.new-hub-section__cta-row');
+        var mark = rowEl && rowEl.querySelector('[data-hub-solved-mark]');
+        if (mark) {
+          mark.hidden = false;
+          mark.setAttribute('aria-label', 'Решено');
+          mark.setAttribute('tabindex', '0');
         }
       })
       .catch(function () {});

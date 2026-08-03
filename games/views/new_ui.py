@@ -32,6 +32,7 @@ from games.access import game_has_started
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
     filter_published_alphabetty_links,
+    visible_alphabetty_links,
 )
 from games.ladder_daily import (
     LADDER_GAME_ID,
@@ -241,8 +242,7 @@ def _player_visible_task_group_links(game):
     if game.id == LADDER_GAME_ID:
         return visible_ladder_links(links, game, reverse=True)
     if game.id == ALPHABETTY_GAME_ID:
-        published = filter_published_alphabetty_links(links, game)
-        return GameTaskGroup.order_queryset_by_number(published, reverse=True)
+        return visible_alphabetty_links(links, game, reverse=True)
     if game.id == WEEK_TASK_GAME_ID:
         return visible_week_task_links(links, game, reverse=True)
     return links
@@ -635,14 +635,11 @@ def _hub_section_task_group_links(game):
         .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
     )
     if game.id == LADDER_GAME_ID:
-        published = filter_published_ladder_links(qs, game)
-        return GameTaskGroup.order_queryset_by_number(published, reverse=True)
+        return visible_ladder_links(qs, game, reverse=True)
     if game.id == ALPHABETTY_GAME_ID:
-        published = filter_published_alphabetty_links(qs, game)
-        return GameTaskGroup.order_queryset_by_number(published, reverse=True)
+        return visible_alphabetty_links(qs, game, reverse=True)
     if game.id == WEEK_TASK_GAME_ID:
-        published = filter_published_week_task_links(qs, game)
-        return GameTaskGroup.order_queryset_by_number(published, reverse=True)
+        return visible_week_task_links(qs, game, reverse=True)
     return GameTaskGroup.order_queryset_by_number(qs, reverse=True)
 
 
