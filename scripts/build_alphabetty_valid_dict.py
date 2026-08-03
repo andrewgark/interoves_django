@@ -2,6 +2,9 @@
 """Собрать games/alphabetty/dictionaries/ru_words_valid.txt.gz
 
 База: experiments/dictionaries/russian_words.txt (+ ru_nouns_valid).
+Wiktionary: experiments/dictionaries/ru_wiktionary.txt
+  (леммы ru.wiktionary, CC BY-SA 4.0;
+   https://github.com/EgorTatarnikov/rus_dict_wiktionary — russian_dictionary.txt).
 Имена собственные: списки имён/фамилий, города РФ, страны.
 
 Пример::
@@ -108,6 +111,8 @@ def main() -> int:
         _DICT_DIR / 'ru_nouns_valid.txt',
         _EXPERIMENTS / 'ru_nouns_valid.txt',
         _EXPERIMENTS / 'countries_capitals_ru.txt',
+        # Неологизмы / сленг / заимствования, которых нет в морфо-словаре.
+        _EXPERIMENTS / 'ru_wiktionary.txt',
     ]
     for path in base_files:
         n = load_word_file(path, words)
