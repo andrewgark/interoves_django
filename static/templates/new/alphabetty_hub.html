@@ -20,12 +20,7 @@
   <div class="new-rules-modal__box pal-card">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close><i class="ph ph-x" aria-hidden="true"></i></button>
     <h2 id="rules-modal-title" class="pal-title">Алфавитка</h2>
-    <p class="pal-lead">
-      Загадано нарицательное существительное в именительном падеже.
-      Как валидную попытку принимается любое слово из словаря — в том числе имена собственные (имена, фамилии, топонимы).
-      Если попытка неверна, вы узнаете, где в алфавите относительно неё находится ответ: до или после.
-      Буква Ё приравнивается к букве Е.
-    </p>
+    {% include "new/_alphabetty_rules_body.html" %}
   </div>
 </div>
 
