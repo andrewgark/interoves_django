@@ -84,12 +84,12 @@ class AlphabettyCoreTests(TestCase):
     def test_prefix_rimlyanin_risunok(self):
         rows = build_prefix_level('римлянин', 'рисунок')
         displays = [r['display'] for r in rows]
-        self.assertEqual(displays, ['РИМ+', 'РИН...', 'РИО...', 'РИП...', 'РИР...', 'РИС+'])
+        self.assertEqual(displays, ['РИМ+', 'РИН', 'РИО', 'РИП', 'РИР', 'РИС+'])
         self.assertTrue(rows[0]['expandable'])
         self.assertTrue(rows[-1]['expandable'])
 
         expanded = build_prefix_level('римлянин', 'рисунок', expand_prefix='РИС')
-        self.assertEqual(expanded[0]['display'], 'РИСА...')
+        self.assertEqual(expanded[0]['display'], 'РИСА')
         self.assertEqual(expanded[-1]['display'], 'РИСУ+')
         self.assertTrue(expanded[-1]['expandable'])
 

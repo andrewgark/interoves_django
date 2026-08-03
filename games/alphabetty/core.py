@@ -123,7 +123,7 @@ def build_prefix_level(
     ``expand_prefix`` — уже раскрытый префикс ('' = верхний уровень у точки расхождения).
 
     Каждый элемент: ``{prefix, letter, display, expandable, kind}``
-    где kind ∈ {'expand', 'leaf'}, display вроде ``РИМ+`` / ``РИН...``.
+    где kind ∈ {'expand', 'leaf'}, display вроде ``РИМ+`` / ``РИН``.
     """
     lo_n = normalize_word(lo) if lo else ''
     hi_n = normalize_word(hi) if hi else ''
@@ -193,7 +193,7 @@ def build_prefix_level(
         if is_hi and len(hi_bound) > len(node):
             expandable = True
         kind = 'expand' if expandable else 'leaf'
-        suffix = '+' if expandable else '...'
+        suffix = '+' if expandable else ''
         rows.append({
             'prefix': node,
             'letter': ch,
