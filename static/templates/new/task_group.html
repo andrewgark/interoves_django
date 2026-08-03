@@ -2368,15 +2368,18 @@
     }
   })();
 
-  // Hide solved toggle (persisted across pages)
+  // Hide solved toggle (persisted across pages).
+  // На лесенках кнопки нет (is_daily_single_task) — режим скрытия сюда не применяем,
+  // даже если localStorage включён с другой страницы.
   var HIDE_KEY = 'new_hide_solved';
-  // Замены / лестница: прячем сданные строки, а не всю карточку, пока есть несданные.
+  var HIDE_SOLVED_ENABLED = {% if is_daily_single_task %}false{% else %}true{% endif %};
+  // Замены: прячем сданные строки, а не всю карточку, пока есть несданные.
+  // Лесенка (raddle): отдельные строки не прячем — отгаданные слова нужны как опора.
   function cardLineRows(el) {
-    return el.querySelectorAll('tr.new-replacements-row, tr.new-raddle-row:not(.new-raddle-row--given)');
+    return el.querySelectorAll('tr.new-replacements-row');
   }
   function isLineSolvedRow(row) {
-    return row.classList.contains('new-replacements-row--solved')
-      || row.classList.contains('new-raddle-row--solved');
+    return row.classList.contains('new-replacements-row--solved');
   }
   function isCardFullySolvedForHide(el) {
     var lines = cardLineRows(el);
@@ -2390,12 +2393,18 @@
   }
   function applyHideSolved() {
     var hide = false;
-    try { hide = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) {}
+    if (HIDE_SOLVED_ENABLED) {
+      try { hide = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) {}
+    }
     var grid = document.querySelector('.new-taskgrid');
     var cards = Array.prototype.slice.call(document.querySelectorAll('.new-taskcard'));
     // First pass: hide solved as gaps (ordinary tasks) or hide only solved lines
-    // (replacements / raddle). Never hide a multi-line card for a single solved line.
+    // (replacements). Never hide a multi-line replacements card for one solved line.
+    // Clear any leftover raddle line-hide from older clients.
     cards.forEach(function (el) {
+      el.querySelectorAll('tr.new-raddle-row.is-solved-hidden').forEach(function (row) {
+        row.classList.remove('is-solved-hidden');
+      });
       var lines = cardLineRows(el);
       el.classList.remove('is-hidden-row');
       if (lines.length) {
