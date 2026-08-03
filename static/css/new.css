@@ -591,6 +591,11 @@ html.new-ui-dark body.new-ui {
   cursor: default;
 }
 
+/* display: inline-flex выше иначе перебивает атрибут hidden */
+.new-hub-section__solved[hidden] {
+  display: none !important;
+}
+
 .new-hub-section__solved .ph {
   font-size: 2rem;
 }
