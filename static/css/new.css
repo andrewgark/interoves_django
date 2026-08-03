@@ -150,6 +150,9 @@ html.new-ui-dark body.new-ui {
 }
 
 .new-nav__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-decoration: none;
@@ -162,6 +165,18 @@ html.new-ui-dark body.new-ui {
   width: auto;
   vertical-align: middle;
   display: inline-block;
+}
+
+.new-nav__brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: block;
+}
+
+.new-nav__brand-text {
+  line-height: 1;
 }
 
 .new-nav__brand:hover {
