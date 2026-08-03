@@ -4480,23 +4480,26 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   align-items: stretch;
   height: clamp(20rem, calc(100dvh - 14rem), 36rem);
   position: relative;
-  /* для max-height панели префиксов = высота layout */
-  container-type: size;
-  container-name: ab-layout;
 }
 
-/* Префикс: в потоке только кнопка; панель — absolute overlay, не жмёт ряды сетки. */
+/* Левый rail: закрыт — узкая колонка с «+» по центру; открыт — дерево на всю высоту. */
 .new-alphabetty__prefix-side {
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 1 / -1;
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  align-self: center;
-  gap: 0.35rem;
-  z-index: 5;
+  flex-direction: column;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 0.45rem;
+  z-index: 2;
   min-width: 0;
-  position: relative;
+  width: 2.1rem;
+  min-height: 0;
+  overflow: hidden;
+}
+.new-alphabetty__prefix-side.is-open {
+  width: 11rem;
+  max-width: min(11rem, 42vw);
 }
 .new-alphabetty__prefix-side[hidden] {
   display: none !important;
@@ -4606,6 +4609,15 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   justify-content: center;
   padding: 0;
   flex: 0 0 auto;
+  /* Закрыто: кнопка напротив формы (вертикальный центр rail). */
+  margin-top: auto;
+  margin-bottom: auto;
+  align-self: center;
+}
+.new-alphabetty__prefix-side.is-open .new-alphabetty__prefix-toggle {
+  margin-top: 0;
+  margin-bottom: 0;
+  align-self: flex-start;
 }
 .new-alphabetty__prefix-toggle:hover,
 .new-alphabetty__prefix-toggle.is-open {
@@ -4615,15 +4627,10 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 }
 
 .new-alphabetty__prefix-panel {
-  position: absolute;
-  left: calc(100% + 0.35rem);
-  top: 50%;
-  transform: translateY(-50%);
-  width: max-content;
-  max-width: 9.5rem;
-  /* Не раздуваем средний ряд и не наезжаем на кредит под layout. */
-  max-height: min(36rem, 70dvh);
-  max-height: 100cqh;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -4631,10 +4638,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   border-radius: 0.35rem;
   background: var(--surface);
   padding: 0.35rem 0.3rem;
-  box-shadow:
-    0 1px 0 color-mix(in srgb, var(--text) 6%, transparent),
-    0 8px 24px color-mix(in srgb, var(--text) 12%, transparent);
-  z-index: 6;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
 }
 .new-alphabetty__prefix-panel[hidden] {
   display: none !important;
@@ -4817,8 +4821,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
     column-gap: 0.5rem;
     height: clamp(18rem, calc(100dvh - 12rem), 32rem);
   }
-  .new-alphabetty__prefix-panel {
-    max-width: 7.5rem;
+  .new-alphabetty__prefix-side.is-open {
+    width: 7.5rem;
+    max-width: min(7.5rem, 40vw);
   }
   .new-alphabetty__alpha-grid {
     grid-template-columns: repeat(3, minmax(1.05rem, 1fr));

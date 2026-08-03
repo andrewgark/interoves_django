@@ -219,6 +219,7 @@
     elPrefixToggle.textContent = prefixOpen ? '−' : '+';
     elPrefixToggle.setAttribute('aria-expanded', prefixOpen ? 'true' : 'false');
     elPrefixToggle.classList.toggle('is-open', prefixOpen);
+    if (elPrefixSide) elPrefixSide.classList.toggle('is-open', prefixOpen);
     if (!prefixOpen) {
       elPrefixPanel.hidden = true;
       elPrefixPanel.innerHTML = '';
@@ -226,6 +227,53 @@
     }
     elPrefixPanel.hidden = false;
     renderPrefixPanel();
+  }
+
+  // Верхний список: ближайшее слово внизу. После фокуса/клавиатуры высота меняется —
+  // без повторного pin ближайшее уезжает за скролл.
+  var pinAboveOnResize = true;
+
+  function pinAboveBottom() {
+    if (!elAbove || elAfterBlock.hidden) return;
+    elAbove.scrollTop = elAbove.scrollHeight;
+  }
+
+  function pinBelowTop() {
+    if (!elBelow || elBeforeBlock.hidden) return;
+    elBelow.scrollTop = 0;
+  }
+
+  function scheduleLadderPins() {
+    pinAboveOnResize = true;
+    pinAboveBottom();
+    pinBelowTop();
+    requestAnimationFrame(function () {
+      pinAboveBottom();
+      pinBelowTop();
+      requestAnimationFrame(function () {
+        pinAboveBottom();
+        pinBelowTop();
+      });
+    });
+    // Мобильная клавиатура / dvh дожимают layout чуть позже фокуса.
+    setTimeout(pinAboveBottom, 50);
+    setTimeout(pinAboveBottom, 300);
+  }
+
+  elAbove.addEventListener('scroll', function () {
+    var gap = elAbove.scrollHeight - elAbove.scrollTop - elAbove.clientHeight;
+    pinAboveOnResize = gap < 2;
+  }, { passive: true });
+
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(function () {
+      if (pinAboveOnResize) pinAboveBottom();
+    }).observe(elAbove);
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', function () {
+      if (pinAboveOnResize) pinAboveBottom();
+    });
   }
 
   function renderBoard() {
@@ -248,13 +296,8 @@
     elAfterBlock.hidden = !earlier.length;
     elBeforeBlock.hidden = !later.length;
     elAttempts.textContent = String(state.attempts || 0);
-    // Списки растут к инпуту: держим ближайшее слово у края (низ «после» / верх «перед»).
-    if (elAbove.scrollHeight > elAbove.clientHeight) {
-      elAbove.scrollTop = elAbove.scrollHeight;
-    }
-    if (elBelow.scrollHeight > elBelow.clientHeight) {
-      elBelow.scrollTop = 0;
-    }
+    // Списки растут к инпуту: ближайшее у края (низ «после» / верх «перед»).
+    scheduleLadderPins();
 
     if (state.won) {
       elInputZone.hidden = true;
