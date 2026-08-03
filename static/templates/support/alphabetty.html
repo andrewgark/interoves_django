@@ -20,14 +20,14 @@
     <button type="button" class="new-btn new-btn--mini" id="ab-save-start">Сохранить старт</button>
     <label class="support-ladders-field">
       <span>Нагенерить ещё</span>
-      <input type="number" id="ab-gen-n" value="10" min="1" max="365" style="width:4.5rem">
+      <input type="number" class="support-input--gen" id="ab-gen-n" value="10" min="1" max="365">
     </label>
     <button type="button" class="new-btn new-btn--mini" id="ab-generate">Нагенерить</button>
     <span class="support-hint support-ladders-toolbar__meta" id="ab-meta">
       Всего {{ alphabetty_count }} · вышло {{ published_count }} · впереди {{ future_count }}{% if today_number %} · сегодня №{{ today_number }}{% endif %}
     </span>
   </div>
-  <p class="support-hint" style="margin:0.75rem 0 0">
+  <p class="support-hint support-hint--after">
     Перетаскивайте только будущие за ⠿. «+» вставляет новый день. Вышедшие не двигаются.
   </p>
 </section>
@@ -43,14 +43,14 @@
   <div class="new-rules-overlay" data-ab-close></div>
   <div class="new-rules-modal__box pal-card support-ladder-modal">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-ab-close>×</button>
-    <h2 id="ab-edit-title" class="support-page-title" style="font-size:1.2rem">Редактирование</h2>
+    <h2 id="ab-edit-title" class="support-page-title support-page-title--modal">Редактирование</h2>
     <p class="support-hint" id="ab-edit-sub"></p>
     <label class="support-ladders-field">
       <span>Загаданное слово</span>
-      <input type="text" id="ab-edit-word" autocomplete="off" style="text-transform:uppercase">
+      <input type="text" class="support-input--upper" id="ab-edit-word" autocomplete="off">
     </label>
     <p class="support-hint support-ladder-edit-error" id="ab-edit-error" hidden></p>
-    <div class="support-action-row" style="margin-top:1rem">
+    <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="ab-edit-save">Сохранить</button>
       <button type="button" class="new-btn new-btn--ghost" data-ab-close>Отмена</button>
       <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="ab-edit-preview">открыть на сайте</a>

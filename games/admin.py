@@ -160,6 +160,31 @@ class TaskGroupAdmin(admin.ModelAdmin):
     ]
     list_display = ['__str__', 'label', 'is_18_plus']
     search_fields = ['label', 'id']
+    readonly_fields = ['week_task_source_link']
+
+    def week_task_source_link(self, obj):
+        from django.utils.html import format_html
+        from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
+
+        if obj is None:
+            return '—'
+        src = source_summary_from_tags(obj.tags or {})
+        if not src:
+            return '—'
+        path = source_play_path_from_tags(obj.tags or {})
+        label = src.get('desyatka_label') or src.get('game_id') or 'источник'
+        major = src.get('major')
+        if major is not None:
+            label = '{} · п.{}'.format(label, major)
+        if not path:
+            return label
+        return format_html(
+            '<a href="{}" target="_blank" rel="noopener">{}</a>',
+            path,
+            label,
+        )
+
+    week_task_source_link.short_description = 'Источник в десяточке'
 
 
 class TaskGroupInline(admin.TabularInline):

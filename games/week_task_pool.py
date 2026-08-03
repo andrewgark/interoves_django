@@ -310,6 +310,48 @@ def source_summary_from_tags(tags: Any) -> dict[str, Any]:
     return src
 
 
+def source_play_path_from_tags(tags: Any) -> Optional[str]:
+    """Относительный URL исходного круга/задания в Десяточке (или None)."""
+    src = source_summary_from_tags(tags)
+    game_id = (src.get('game_id') or '').strip()
+    tg_id = src.get('task_group_id')
+    if not game_id or not tg_id:
+        return None
+    try:
+        tg_id_int = int(tg_id)
+    except (TypeError, ValueError):
+        return None
+
+    link = (
+        GameTaskGroup.objects
+        .filter(game_id=game_id, task_group_id=tg_id_int)
+        .only('number')
+        .first()
+    )
+    if link is None:
+        return f'/games/{game_id}/'
+
+    from games.telegram.game_urls import task_group_play_path
+
+    game = Game.objects.filter(pk=game_id).only('id', 'project_id', 'tags').first()
+    if game is None:
+        path = f'/games/{game_id}/{link.number}/'
+    else:
+        path = task_group_play_path(game, link.number)
+
+    nums = src.get('task_numbers')
+    if isinstance(nums, list) and len(nums) == 1:
+        task = (
+            Task.objects
+            .filter(task_group_id=tg_id_int, number=str(nums[0]), is_removed=False)
+            .only('pk')
+            .first()
+        )
+        if task is not None:
+            return f'{path}#new-task-{task.pk}'
+    return path
+
+
 def unit_to_dict(unit: WeekUnit) -> dict[str, Any]:
     return {
         'source_game_id': unit.source_game_id,

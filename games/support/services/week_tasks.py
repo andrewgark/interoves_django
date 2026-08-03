@@ -18,6 +18,7 @@ from games.week_task_pool import (
     rematerialize_link,
     resolve_unit,
     scheduled_exclude_keys,
+    source_play_path_from_tags,
     source_summary_from_tags,
 )
 from games.week_task_weekly import (
@@ -48,6 +49,7 @@ class WeekTaskRow:
     is_today: bool
     source_label: str
     play_url: str
+    source_url: str
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -119,6 +121,7 @@ def list_week_task_rows(*, now: datetime | None = None) -> list[WeekTaskRow]:
         pub_date = pub.date().isoformat() if pub else None
         is_pub = is_week_task_number_published(game, number, now)
         is_today = bool(today_num is not None and number == today_num and is_pub)
+        tags = (link.task_group.tags or {}) if link.task_group_id else {}
         rows.append(WeekTaskRow(
             link_id=link.pk,
             task_group_id=link.task_group_id,
@@ -129,6 +132,7 @@ def list_week_task_rows(*, now: datetime | None = None) -> list[WeekTaskRow]:
             is_today=is_today,
             source_label=_source_label(link),
             play_url=f'/games/{WEEK_TASK_GAME_ID}/{number}/',
+            source_url=source_play_path_from_tags(tags) or '',
         ))
     return rows
 
@@ -163,6 +167,7 @@ def get_week_task_detail(link_id: int) -> dict[str, Any]:
         'source_major': src.get('major'),
         'source_task_numbers': src.get('task_numbers'),
         'play_url': f'/games/{WEEK_TASK_GAME_ID}/{number}/',
+        'source_url': source_play_path_from_tags(tags) or '',
     }
 
 

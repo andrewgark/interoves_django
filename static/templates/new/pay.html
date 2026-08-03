@@ -4,21 +4,17 @@
 
 {% block content %}
 {% if user.is_authenticated %}
-<p style="margin:0 0 0.75rem">
-  <a href="{{ ui_team_url_hub|default:'/team/' }}" class="new-btn new-btn--ghost">← Команда</a>
-</p>
+<p class="new-tg-back"><a href="{{ ui_team_url_hub|default:'/team/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Команда</a></p>
 {% else %}
-<p style="margin:0 0 0.75rem">
-  <a href="{{ ui_project_home_url|default:'/' }}" class="new-btn new-btn--ghost">← Игры</a>
-</p>
+<p class="new-tg-back"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
 {% endif %}
 
-<h1 class="new-heading" style="margin-top:0">Оплата</h1>
+<h1 class="new-heading new-heading--page">Оплата</h1>
 
-<div class="new-card" style="margin-top:0.75rem">
+<div class="new-card new-pay-card">
   <div class="new-card__title new-pay-title">Билет для команды</div>
   <div class="new-card__text">
-    <p class="new-pay-line new-pay-line--price" style="margin:0.35rem 0">
+    <p class="new-pay-line new-pay-line--price">
       Цена билета: <strong>{{ ticket_price }}</strong> ₽.
       {% if show_school_discount_hint %}
       <details class="new-pay-discount">
@@ -31,18 +27,18 @@
       {% endif %}
     </p>
     {% if team %}
-    <p style="margin:0.35rem 0">Команда: <strong>{{ team.visible_name|default:team.name }}</strong>.</p>
-    <p style="margin:0.35rem 0">Билетов сейчас: <strong id="new-pay-team-tickets">{{ team_tickets }}</strong>.</p>
-    <p class="new-login-hint" style="margin:0.5rem 0 0">
+    <p class="new-pay-meta">Команда: <strong>{{ team.visible_name|default:team.name }}</strong>.</p>
+    <p class="new-pay-meta">Билетов сейчас: <strong id="new-pay-team-tickets">{{ team_tickets }}</strong>.</p>
+    <p class="new-login-hint new-pay-note">
       После оплаты билеты появятся у команды автоматически. Картой — обычно быстро; криптой (особенно BTC) подтверждение сети может занять десятки минут — статус обновится на этой странице.
       Билет можно использовать для участия команды в любой командной игре — можно купить билеты впрок на будущее.
     </p>
     {% elif user.is_authenticated %}
-    <p class="new-login-hint" style="margin:0.5rem 0 0">
+    <p class="new-login-hint new-pay-note">
       Билет покупается для команды: создайте новую или вступите в существующую, затем вернитесь сюда.
     </p>
     {% else %}
-    <p class="new-login-hint" style="margin:0.5rem 0 0">
+    <p class="new-login-hint new-pay-note">
       Чтобы купить билет для команды, сначала войдите на сайт.
     </p>
     {% endif %}
@@ -50,9 +46,9 @@
 
   {% if team %}
   <link rel="stylesheet" href="https://yookassa.ru/integration/simplepay/css/yookassa_construct_form.css">
-  <form id="new-pay-ticket-form" class="yoomoney-payment-form" method="post" action="{% url 'new_create_ticket_payment' %}" style="margin-top:0.75rem">
+  <form id="new-pay-ticket-form" class="yoomoney-payment-form new-pay-form" method="post" action="{% url 'new_create_ticket_payment' %}">
     {% csrf_token %}
-    <div class="ym-products" style="margin-top:0">
+    <div class="ym-products">
       <div class="ym-block-title ym-products-title">Товары</div>
       <div class="ym-product">
         <div class="ym-product-line">
@@ -70,7 +66,7 @@
       </div>
     </div>
 
-    <p class="new-pay-total" style="margin:0.75rem 0 0">
+    <p class="new-pay-total">
       Итого: <strong class="new-pay-total__amount ym-price-output">{{ ticket_price }},00&nbsp;₽</strong>
     </p>
   </form>
@@ -106,7 +102,7 @@
     <div id="new-nowpayments-widget"></div>
   </div>
   <div id="new-pay-status" class="new-payment-status" hidden aria-live="polite"></div>
-  <div id="new-yookassa-msg" class="new-login-hint" style="margin:0.5rem 0 0"></div>
+  <div id="new-yookassa-msg" class="new-login-hint new-pay-note"></div>
 
   <script src="{% static "js/payment_status_poll.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
   <script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
@@ -337,23 +333,23 @@
   })();
   </script>
   {% elif user.is_authenticated %}
-    <div class="new-card__text" style="margin-top:0.75rem; display:flex; flex-wrap:wrap; gap:0.5rem">
+    <div class="new-card__text new-pay-actions">
       <a class="new-btn" href="{{ ui_team_url_create|default:'/team/create/' }}">Создать команду</a>
       <a class="new-btn new-btn--ghost" href="{{ ui_team_url_join|default:'/team/join/' }}">Вступить в команду</a>
     </div>
   {% else %}
-    <div class="new-card__text" style="margin-top:0.75rem">
+    <div class="new-card__text new-stack-gap">
       <button type="button" class="new-btn" data-login-open>Войти</button>
     </div>
   {% endif %}
 
   {% if team and recent_ticket_requests %}
-  <div class="new-card__text" style="margin-top:0.75rem">
-    <div style="font-weight:700; margin:0 0 0.25rem">Последние запросы</div>
-    <div class="new-login-hint" style="margin:0 0 0.5rem">Если оплатили, но статус ещё Pending — подождите подтверждения сети (для BTC иногда 20+ минут). Если есть проблемы с оплатой, напишите <a href="https://t.me/andrewgark">Андрею</a>.</div>
-    <div style="display:grid; gap:0.25rem">
+  <div class="new-card__text new-stack-gap">
+    <div class="new-pay-history__title">Последние запросы</div>
+    <div class="new-login-hint new-pay-history__hint">Если оплатили, но статус ещё Pending — подождите подтверждения сети (для BTC иногда 20+ минут). Если есть проблемы с оплатой, напишите <a href="https://t.me/andrewgark">Андрею</a>.</div>
+    <div class="new-pay-history__list">
       {% for tr in recent_ticket_requests %}
-        <div style="display:flex; gap:0.5rem; flex-wrap:wrap">
+        <div class="new-pay-history__row">
           <span>{{ tr.time|date:"d.m H:i" }}</span>
           <span>— {{ tr.tickets }} шт.</span>
           <span>— {{ tr.money }} ₽</span>
@@ -364,7 +360,7 @@
   </div>
   {% endif %}
 
-  <div class="new-card__text" style="margin-top:0.75rem">
+  <div class="new-card__text new-stack-gap">
     <div class="new-pay-links">
       <a class="new-pay-link" href="/ticket-agreement/">Пользовательское соглашение</a>
       <a class="new-pay-link" href="/terms-of-use/">Terms of Use</a>
@@ -373,12 +369,12 @@
   </div>
 </div>
 
-<div class="new-card" style="margin-top:1rem">
+<div class="new-card new-pay-card">
   <div class="new-card__title new-pay-title">Interoves+ (личная подписка)</div>
   <div class="new-card__text">
-    <p style="margin:0.35rem 0">Даст возможность решать больше заданий в личном режиме.</p>
-    <p class="new-login-hint" style="margin:0.35rem 0 0">Пока в разработке — оплаты и активации ещё нет.</p>
-    <button type="button" class="new-btn new-btn--ghost" disabled style="margin-top:0.75rem">Скоро</button>
+    <p class="new-pay-meta">Даст возможность решать больше заданий в личном режиме.</p>
+    <p class="new-login-hint new-theme-line">Пока в разработке — оплаты и активации ещё нет.</p>
+    <button type="button" class="new-btn new-btn--ghost" disabled>Скоро</button>
   </div>
 </div>
 {% endblock %}

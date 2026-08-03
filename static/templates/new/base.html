@@ -71,7 +71,8 @@
   <link rel="icon" type="image/png" sizes="96x96" href="{% static "img/favicon/favicon-96x96.png" %}">
   <link rel="icon" type="image/png" sizes="16x16" href="{% static "img/favicon/favicon-16x16.png" %}">
   <link rel="stylesheet" href="{% static "css/new.css" %}?v={{ site_deploy_version|default:'0'|urlencode }}">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  {# Phosphor regular — new UI chrome icons #}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css">
   {% block extrahead %}{% endblock %}
 </head>
 <body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}" {% block body_attrs %}{% endblock %}>
@@ -145,41 +146,57 @@
     <div class="new-nav__inner">
       <a class="new-nav__brand" href="{{ ui_project_home_url|default:'/' }}">
         {% if nav_project and not nav_project.is_main and nav_project.logo %}
-          <img src="{{ nav_project.logo.url }}" alt="{{ nav_project.id }}" style="height:22px; vertical-align:middle">
+          <img class="new-nav__logo" src="{{ nav_project.logo.url }}" alt="{{ nav_project.id }}">
         {% elif project and not project.is_main and project.logo %}
-          <img src="{{ project.logo.url }}" alt="{{ project.id }}" style="height:22px; vertical-align:middle">
+          <img class="new-nav__logo" src="{{ project.logo.url }}" alt="{{ project.id }}">
         {% else %}
           Интеровес
         {% endif %}
       </a>
       <div class="new-nav__links">
         <span class="new-clock" aria-label="Текущее время">
-          <i class="fa fa-clock-o" aria-hidden="true"></i>
+          <i class="ph ph-clock" aria-hidden="true"></i>
           <span data-clock-text>--:--</span>
         </span>
         <div class="new-theme-switch" role="group" aria-label="Тема оформления">
-          <button type="button" class="new-theme-switch__btn" data-theme-choice="light" title="Светлая тема" aria-pressed="false">☀️</button>
-          <button type="button" class="new-theme-switch__btn" data-theme-choice="dark" title="Тёмная тема" aria-pressed="false">🌙</button>
-          <button type="button" class="new-theme-switch__btn" data-theme-choice="auto" title="Как в системе" aria-pressed="false">💻</button>
+          <button type="button" class="new-theme-switch__btn" data-theme-choice="light" title="Светлая тема" aria-label="Светлая тема" aria-pressed="false">
+            <i class="ph ph-sun" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="new-theme-switch__btn" data-theme-choice="dark" title="Тёмная тема" aria-label="Тёмная тема" aria-pressed="false">
+            <i class="ph ph-moon" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="new-theme-switch__btn" data-theme-choice="auto" title="Как в системе" aria-label="Как в системе" aria-pressed="false">
+            <i class="ph ph-monitor" aria-hidden="true"></i>
+          </button>
         </div>
         <a href="{{ ui_project_home_url|default:'/' }}">Игры</a>
-        <a href="{{ ui_project_games_url|default:'/games/' }}">🔟 Десяточки</a>
+        <a class="new-nav__section" href="{{ ui_project_games_url|default:'/games/' }}" title="Десяточки" aria-label="Десяточки">
+          <i class="ph ph-puzzle-piece new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Десяточки</span>
+        </a>
         {% if show_sections_nav %}
-          <a href="{% url 'new_ladder_hub' %}" title="Лесенка" aria-label="Лесенка" {% if request.resolver_match.kwargs.game_id == 'ladder' or request.resolver_match.url_name == 'new_ladder_hub' or request.resolver_match.url_name == 'ui_ladder_hub' %}aria-current="page"{% endif %}>🪜</a>
-          <a href="{% url 'new_alphabetty_hub' %}" title="Алфавитка" aria-label="Алфавитка" {% if request.resolver_match.url_name == 'new_alphabetty_hub' or request.resolver_match.url_name == 'ui_alphabetty_hub' or request.resolver_match.url_name == 'new_alphabetty_play' or request.resolver_match.url_name == 'ui_alphabetty_play' %}aria-current="page"{% endif %}>🔤</a>
+          <a class="new-nav__section" href="{% url 'new_ladder_hub' %}" title="Лесенка" aria-label="Лесенка" {% if request.resolver_match.kwargs.game_id == 'ladder' or request.resolver_match.url_name == 'new_ladder_hub' or request.resolver_match.url_name == 'ui_ladder_hub' %}aria-current="page"{% endif %}>
+            <i class="ph ph-ladder new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Лесенка</span>
+          </a>
+          <a class="new-nav__section" href="{% url 'new_alphabetty_hub' %}" title="Алфавитка" aria-label="Алфавитка" {% if request.resolver_match.url_name == 'new_alphabetty_hub' or request.resolver_match.url_name == 'ui_alphabetty_hub' or request.resolver_match.url_name == 'new_alphabetty_play' or request.resolver_match.url_name == 'ui_alphabetty_play' %}aria-current="page"{% endif %}>
+            <i class="ph ph-text-aa new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Алфавитка</span>
+          </a>
           {% for game in section_games %}
-          <a href="{% url 'new_section_game' game.id %}" title="{{ game.outside_name|default:game.name }}" aria-label="{{ game.outside_name|default:game.name }}" {% if request.resolver_match.url_name == 'new_section_game' and request.resolver_match.kwargs.game_id == game.id %}aria-current="page"{% endif %}>
-            {% if game.id == 'palindromes' %}🪞{% elif game.id == 'walls' %}🧱{% elif game.id == 'replacements' %}🔄{% endif %}
+          <a class="new-nav__section" href="{% url 'new_section_game' game.id %}" title="{{ game.outside_name|default:game.name }}" aria-label="{{ game.outside_name|default:game.name }}" {% if request.resolver_match.url_name == 'new_section_game' and request.resolver_match.kwargs.game_id == game.id %}aria-current="page"{% endif %}>
+            {% if game.id == 'palindromes' %}<i class="ph ph-arrows-in-line-horizontal new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Палиндромы</span>
+            {% elif game.id == 'walls' %}<i class="ph ph-wall new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Стены</span>
+            {% elif game.id == 'replacements' %}<i class="ph ph-swap new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Замены</span>
+            {% elif game.id == 'week_task' %}<i class="ph ph-star new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Задание недели</span>
+            {% else %}<span>{{ game.outside_name|default:game.name }}</span>{% endif %}
           </a>
           {% endfor %}
         {% endif %}
         {% if play_mode and user.is_authenticated %}
           {% if lock_personal_play_mode %}
-            <span class="new-mode-toggle new-mode-toggle--locked" title="В турнирной игре доступен только командный режим.">👥 В команде</span>
+            <span class="new-mode-toggle new-mode-toggle--locked" title="В турнирной игре доступен только командный режим."><i class="ph ph-users" aria-hidden="true"></i> В команде</span>
           {% elif play_mode == 'team' %}
-            <a class="new-mode-toggle" title="Сейчас: режим «В команде» — решения и подсказки общие для вашей команды. Нажмите, чтобы переключиться на личный режим." href="{% url 'new_set_play_mode' %}?mode=personal&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}">👥 В команде</a>
+            <a class="new-mode-toggle" title="Сейчас: режим «В команде» — решения и подсказки общие для вашей команды. Нажмите, чтобы переключиться на личный режим." href="{% url 'new_set_play_mode' %}?mode=personal&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}"><i class="ph ph-users" aria-hidden="true"></i> В команде</a>
           {% else %}
-            <a class="new-mode-toggle" title="Сейчас: личный режим — решения и подсказки только для вас в этом браузере/аккаунте. Нажмите, чтобы переключиться на режим «В команде»." href="{% url 'new_set_play_mode' %}?mode=team&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}">👤 Лично</a>
+            <a class="new-mode-toggle" title="Сейчас: личный режим — решения и подсказки только для вас в этом браузере/аккаунте. Нажмите, чтобы переключиться на режим «В команде»." href="{% url 'new_set_play_mode' %}?mode=team&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}"><i class="ph ph-user" aria-hidden="true"></i> Лично</a>
           {% endif %}
         {% endif %}
         {% if user.is_authenticated %}
@@ -205,21 +222,21 @@
   <div id="new-login-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-login-title" aria-modal="true" hidden>
     <div class="new-rules-overlay" data-login-close></div>
     <div class="new-rules-modal__box pal-card">
-      <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-login-close>×</button>
+      <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-login-close><i class="ph ph-x" aria-hidden="true"></i></button>
       <h2 id="new-login-title" class="pal-title">Войти</h2>
       {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}
-      <p class="pal-lead" style="margin-bottom: 1rem">Вход только через Google с рабочей почтой <strong>@glowbyteconsulting.com</strong>.</p>
-      <div style="display:flex; gap:0.75rem; flex-wrap:wrap">
+      <p class="pal-lead">Вход только через Google с рабочей почтой <strong>@glowbyteconsulting.com</strong>.</p>
+      <div class="new-rules-modal__actions new-rules-modal__actions--flush">
         <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Войти через Google</a>
       </div>
       {% else %}
-      <p class="pal-lead" style="margin-bottom: 1rem">Выберите способ входа.</p>
-      <div style="display:flex; gap:0.75rem; flex-wrap:wrap">
+      <p class="pal-lead">Выберите способ входа.</p>
+      <div class="new-rules-modal__actions new-rules-modal__actions--flush">
         <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path %}">Войти через Google</a>
         <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' next=request.get_full_path %}">Войти через VK</a>
       </div>
       {% endif %}
-      <p class="new-login-hint" style="margin-bottom:0">
+      <p class="new-login-hint new-login-hint--flush-bottom">
         Если окно не открылось автоматически, нажмите “Войти” в меню.
       </p>
     </div>
@@ -266,14 +283,14 @@
   <div id="new-migrate-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-migrate-title" aria-modal="true" hidden>
     <div class="new-rules-overlay" data-migrate-close></div>
     <div class="new-rules-modal__box pal-card">
-      <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-migrate-close>×</button>
+      <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-migrate-close><i class="ph ph-x" aria-hidden="true"></i></button>
       <h2 id="new-migrate-title" class="pal-title">Восстановить ваши решения?</h2>
-      <p class="pal-lead" style="margin-bottom: 1rem" data-migrate-lead>
+      <p class="pal-lead" data-migrate-lead>
         Похоже, перед авторизацией на сайте вы успели порешать какие-то задания в качестве неавторизованного гостя. Вы хотите восстановить эти посылки?
       </p>
-      <div style="display:flex; gap:0.75rem; flex-wrap:wrap">
+      <div class="new-rules-modal__actions new-rules-modal__actions--flush">
         <button type="button" class="new-btn" data-migrate-confirm>Восстановить</button>
-        <button type="button" class="new-btn new-btn--ghost" data-migrate-close>Не сейчас</button>
+        <button type="button" class="new-btn new-btn--text" data-migrate-close>Не сейчас</button>
       </div>
     </div>
   </div>
@@ -358,19 +375,19 @@
   <div id="new-audio-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-audio-title" aria-modal="true" hidden>
     <div class="new-rules-overlay" data-audio-close></div>
     <div class="new-rules-modal__box pal-card">
-      <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-audio-close>×</button>
-      <h2 id="new-audio-title" class="pal-title" style="margin-top:0">Аудио</h2>
-      <div class="new-login-hint" style="margin:0.25rem 0 0.75rem" data-audio-track-title>—</div>
+      <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-audio-close><i class="ph ph-x" aria-hidden="true"></i></button>
+      <h2 id="new-audio-title" class="pal-title">Аудио</h2>
+      <div class="new-login-hint new-audio-modal__title" data-audio-track-title>—</div>
       <audio id="new-audio-el" preload="metadata"></audio>
-      <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap">
-        <button type="button" class="new-btn" data-audio-toggle>▶︎ / ❚❚</button>
-        <div class="new-login-hint" style="margin:0">
+      <div class="new-audio-controls">
+        <button type="button" class="new-btn new-btn--icon" data-audio-toggle aria-label="Воспроизвести или пауза" title="Воспроизвести / пауза"><i class="ph ph-play" data-audio-toggle-icon aria-hidden="true"></i></button>
+        <div class="new-login-hint new-audio-controls__time">
           <span data-audio-now>0:00</span>
-          <span style="opacity:0.5">/</span>
+          <span class="new-audio-controls__sep">/</span>
           <span data-audio-dur>0:00</span>
         </div>
       </div>
-      <progress data-audio-progress value="0" max="1" style="width:100%; height:10px; margin-top:0.75rem; cursor:pointer"></progress>
+      <progress class="new-audio-progress" data-audio-progress value="0" max="1"></progress>
     </div>
   </div>
   <main class="new-wrap">
@@ -457,6 +474,20 @@
       document.body.removeChild(ta);
     }
 
+    function flashCopied(btn) {
+      if (!btn || btn.getAttribute('data-copy-flashing') === '1') return;
+      var label = btn.getAttribute('data-copy-label') || btn.textContent || 'Скопировать';
+      btn.setAttribute('data-copy-flashing', '1');
+      btn.classList.add('is-copied');
+      if (!btn.getAttribute('data-copy-label')) btn.setAttribute('data-copy-label', label);
+      btn.textContent = 'Скопировано';
+      window.setTimeout(function () {
+        btn.textContent = btn.getAttribute('data-copy-label') || label;
+        btn.classList.remove('is-copied');
+        btn.removeAttribute('data-copy-flashing');
+      }, 1200);
+    }
+
     function makeGoogleCopyUrl(url) {
       // Common Google Docs/Sheets/Slides pattern: /edit -> /copy
       // Preserve query string so "usp=sharing" etc. stay.
@@ -498,11 +529,15 @@
       e.preventDefault();
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function () {}).catch(function () {
+        navigator.clipboard.writeText(text).then(function () {
+          flashCopied(btn);
+        }).catch(function () {
           fallbackCopy(text);
+          flashCopied(btn);
         });
       } else {
         fallbackCopy(text);
+        flashCopied(btn);
       }
     });
   })();
@@ -529,7 +564,14 @@
     var durEl = modal ? modal.querySelector('[data-audio-dur]') : null;
     var prog = modal ? modal.querySelector('[data-audio-progress]') : null;
     var toggleBtn = modal ? modal.querySelector('[data-audio-toggle]') : null;
+    var toggleIcon = modal ? modal.querySelector('[data-audio-toggle-icon]') : null;
     if (!modal || !audio) return;
+
+    function syncToggleIcon() {
+      if (!toggleIcon) return;
+      toggleIcon.className = audio.paused ? 'ph ph-play' : 'ph ph-pause';
+      toggleIcon.setAttribute('data-audio-toggle-icon', '');
+    }
 
     function fmtTime(sec) {
       sec = Math.max(0, sec || 0);
@@ -588,6 +630,9 @@
         }
       });
     }
+    audio.addEventListener('play', syncToggleIcon);
+    audio.addEventListener('pause', syncToggleIcon);
+    syncToggleIcon();
 
     audio.addEventListener('loadedmetadata', function () {
       if (durEl) durEl.textContent = fmtTime(audio.duration);
@@ -600,6 +645,7 @@
     audio.addEventListener('ended', function () {
       // keep modal open; just reset UI
       if (prog) prog.value = 1;
+      syncToggleIcon();
     });
 
     if (prog) {

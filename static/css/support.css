@@ -26,7 +26,7 @@
   font-size: 0.9rem;
   font-weight: 500;
   padding: 0.32rem 0.7rem;
-  border-radius: 999px;
+  border-radius: var(--control-radius);
   line-height: 1.25;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -34,6 +34,15 @@
 .support-bar a:hover {
   color: var(--text);
   background: color-mix(in srgb, var(--tile) 65%, transparent);
+}
+
+.support-bar a:focus {
+  outline: none;
+}
+
+.support-bar a:focus-visible {
+  color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .support-bar a[aria-current="page"] {
@@ -55,7 +64,7 @@
   padding: 0.22rem 0.6rem;
   margin-right: 0.15rem;
   border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--control-radius);
 }
 
 .support-page-title {
@@ -84,7 +93,7 @@
   min-width: 0;
   padding: 0.55rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -111,7 +120,7 @@
   display: inline-block;
   font-size: 0.75rem;
   padding: 0.15rem 0.45rem;
-  border-radius: 4px;
+  border-radius: var(--control-radius);
   background: var(--tile);
   color: var(--muted);
 }
@@ -159,7 +168,7 @@
 .support-filters input {
   padding: 0.35rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -374,7 +383,7 @@
   padding: 0.65rem 0.75rem;
   background: var(--tile);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--control-radius);
   font-size: 0.78rem;
   line-height: 1.4;
   overflow-x: auto;
@@ -495,7 +504,7 @@ html.new-ui-dark .support-preview-banner {
 .support-login__label input {
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -591,7 +600,7 @@ html.new-ui-dark .support-preview-banner {
 .support-ladders-field textarea {
   padding: 0.4rem 0.55rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -670,7 +679,7 @@ html.new-ui-dark .support-preview-banner {
   align-items: start;
   padding: 0.55rem 0.65rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   min-width: 0;
 }
@@ -795,7 +804,7 @@ html.new-ui-dark .support-ladder-item__mixed {
   margin-top: 0.65rem;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--control-radius);
   background: color-mix(in srgb, var(--tile) 55%, var(--surface));
   min-width: 0;
 }
@@ -806,7 +815,7 @@ html.new-ui-dark .support-ladder-item__mixed {
   min-width: 0;
   padding: 0.4rem 0.55rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -839,7 +848,7 @@ html.new-ui-dark .support-ladder-item__mixed {
 .support-ladder-word-row input {
   padding: 0.35rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   color: var(--text);
   font: inherit;
@@ -1059,7 +1068,7 @@ html.new-ui-dark .support-ladder-item__mixed {
   font-size: 0.72rem;
   font-weight: 600;
   padding: 0.15rem 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--control-radius);
   background: #334155;
   color: #e2e8f0;
 }
@@ -1111,7 +1120,7 @@ html.new-ui-dark .support-ladder-item__mixed {
   font-size: 0.75rem;
   padding: 0.15rem 0.3rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--control-radius);
   background: var(--surface);
   color: var(--text);
 }
@@ -1130,18 +1139,11 @@ html.new-ui-dark .support-ladder-item__mixed {
   padding-top: 1.5rem;
 }
 
-/* Cards: tighter, cleaner ops look instead of marketing-sized pal-card */
+/* Cards: full-width ops layout on shared .pal-card tokens */
 .support-wrap .pal-card {
   max-width: none;
   margin: 0 0 1.25rem;
-  padding: 1.3rem 1.45rem;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 28px rgba(15, 23, 42, 0.05);
-}
-
-html.new-ui-dark .support-wrap .pal-card {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.38);
+  padding: 1.15rem 1.25rem;
 }
 
 .support-wrap .support-stats-grid .pal-card {
@@ -1158,11 +1160,6 @@ html.new-ui-dark .support-wrap .pal-card {
   padding-bottom: 0.65rem;
   border-bottom: 1px solid var(--border);
   color: var(--text);
-}
-
-/* Buttons inside toolbars/rows shouldn't carry the default top margin */
-.support-wrap .new-btn {
-  margin-top: 0;
 }
 
 /* Unified focus ring for all console inputs */
@@ -1222,14 +1219,10 @@ html.new-ui-dark .support-wrap .pal-card {
   border-radius: 6px;
 }
 
-/* Subtle press feedback + disabled state for console buttons */
-.support-wrap .new-btn:active {
-  transform: translateY(1px);
-}
-
+/* Disabled state aligned with new.css .new-btn */
 .support-wrap .new-btn:disabled,
 .support-wrap button:disabled {
-  opacity: 0.55;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
@@ -1241,4 +1234,71 @@ html.new-ui-dark .support-wrap .pal-card {
   padding-right: 0.5rem;
   margin-left: -0.5rem;
   margin-right: -0.5rem;
+}
+
+
+/* Spacing / density helpers (prefer classes over inline styles) */
+.support-hint--flush-top {
+  margin-top: 0;
+}
+
+.support-hint--after {
+  margin: 0.75rem 0 0;
+}
+
+.support-hint--section {
+  margin: 0.85rem 0 0.35rem;
+}
+
+.support-action-row--mt {
+  margin-top: 1rem;
+}
+
+.support-action-row--mt-sm {
+  margin-top: 0.75rem;
+}
+
+.support-action-row--mt-md {
+  margin-top: 0.85rem;
+}
+
+.support-page-title--modal {
+  font-size: 1.2rem;
+}
+
+.support-input--narrow {
+  width: 5rem;
+}
+
+.support-input--gen {
+  width: 4.5rem;
+}
+
+.support-input--upper {
+  text-transform: uppercase;
+}
+
+.support-ladders-field--spaced {
+  margin-top: 0.75rem;
+}
+
+.support-ladders-field--check-spaced {
+  margin-bottom: 0.5rem;
+}
+
+.support-chain-mode {
+  margin-top: 0.75rem;
+}
+
+.support-pagination .new-btn .ph {
+  font-size: 1.05em;
+  line-height: 1;
+}
+
+#wt-edit-source-link {
+  margin-left: 0.45rem;
+}
+
+.support-ladder-item__preview .new-link-dotted {
+  color: var(--accent);
 }

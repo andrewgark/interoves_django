@@ -18,7 +18,7 @@
   <h2 class="pal-title">ChainTaskState</h2>
   {% if chain_rows %}
     {% for row in chain_rows %}
-      <h3 class="support-hint" style="margin-top:0.75rem">mode={{ row.game_mode }} · updated {{ row.updated_at|date:"d.m H:i:s" }}</h3>
+      <h3 class="support-hint support-chain-mode">mode={{ row.game_mode }} · updated {{ row.updated_at|date:"d.m H:i:s" }}</h3>
       <pre class="support-state-pre">{{ formatted_chain_states|get_item:row.game_mode }}</pre>
       {% if row.last_attempt_id %}
         <p class="support-hint">last_attempt: #{{ row.last_attempt_id }}</p>
@@ -27,7 +27,7 @@
   {% else %}
     <p class="support-empty">Нет строк ChainTaskState.</p>
   {% endif %}
-  <div class="support-action-row" style="margin-top:0.75rem">
+  <div class="support-action-row support-action-row--mt-sm">
     {% include "support/partials/action_form.html" with kind='attempt' object_id=attempt.pk action='chain_replay' next_url=request.get_full_path %}
   </div>
 </section>

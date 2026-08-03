@@ -46,11 +46,11 @@
               {% if row.is_solved and not row.is_given %}
               <div class="new-raddle-actions">
                 {% if row.assist_tier >= 2 %}
-                <span class="new-replacements-check-btn new-replacements-check-btn--done new-raddle-check--tier2" title="Открыто ответом (0 баллов)">✓</span>
+                <span class="new-replacements-check-btn new-replacements-check-btn--done new-raddle-check--tier2" title="Открыто ответом (0 баллов)"><i class="ph ph-check" aria-hidden="true"></i></span>
                 {% elif row.assist_tier == 1 %}
-                <span class="new-replacements-check-btn new-replacements-check-btn--done new-raddle-check--tier1" title="Решено с подсказкой (0.5 балла)">✓</span>
+                <span class="new-replacements-check-btn new-replacements-check-btn--done new-raddle-check--tier1" title="Решено с подсказкой (0.5 балла)"><i class="ph ph-check" aria-hidden="true"></i></span>
                 {% else %}
-                <span class="new-replacements-check-btn new-replacements-check-btn--done" title="Верно (полный балл)">✓</span>
+                <span class="new-replacements-check-btn new-replacements-check-btn--done" title="Верно (полный балл)"><i class="ph ph-check" aria-hidden="true"></i></span>
                 {% endif %}
               </div>
               {% elif row.is_playable %}
@@ -61,12 +61,12 @@
                   <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                   <input type="hidden" name="word_index" value="{{ row.index }}">
                   {% if rd.ui.is_tournament %}
-                  <button type="submit" class="new-replacements-check-btn" title="Проверить" aria-label="Проверить слово {{ row.index|add:1 }}">✓</button>
+                  <button type="submit" class="new-replacements-check-btn" title="Проверить" aria-label="Проверить слово {{ row.index|add:1 }}"><i class="ph ph-check" aria-hidden="true"></i></button>
                   {% endif %}
                 </form>
                 {% if not rd.ui.is_tournament %}
                 <span class="new-raddle-checking-mark" aria-hidden="true" title="Проверяем…"></span>
-                <span class="new-raddle-wrong-mark" aria-hidden="true" title="Неверно">❌</span>
+                <span class="new-raddle-wrong-mark" aria-hidden="true" title="Неверно"><i class="ph ph-x"></i></span>
                 {% endif %}
                 {% if row.can_clue_assist %}
                 <form class="new-raddle-assist-form" action="/send_raddle_assist/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}">
@@ -75,7 +75,7 @@
                   <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                   <input type="hidden" name="word_index" value="{{ row.index }}">
                   <input type="hidden" name="tier" value="1">
-                  <button type="submit" class="new-raddle-assist-btn" title="Показать подсказку к этому слову">💡</button>
+                  <button type="submit" class="new-raddle-assist-btn" title="Показать подсказку к этому слову" aria-label="Показать подсказку"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
                 </form>
                 {% elif row.can_answer_assist %}
                 <form class="new-raddle-assist-form" action="/send_raddle_assist/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}">
@@ -84,7 +84,7 @@
                   <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                   <input type="hidden" name="word_index" value="{{ row.index }}">
                   <input type="hidden" name="tier" value="2">
-                  <button type="submit" class="new-raddle-assist-btn new-raddle-assist-btn--answer" title="Показать слово">💡💡</button>
+                  <button type="submit" class="new-raddle-assist-btn new-raddle-assist-btn--answer" title="Показать слово" aria-label="Показать слово"><i class="ph ph-lightbulb" aria-hidden="true"></i><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
                 </form>
                 {% endif %}
               </div>
@@ -152,7 +152,7 @@
   <div class="new-raddle-result" data-raddle-result>
     <div class="new-raddle-result__head">
       <span class="new-raddle-result__label">Результат</span>
-      <button type="button" class="new-raddle-result__copy">Скопировать</button>
+      <button type="button" class="new-btn new-btn--ghost new-btn--mini new-raddle-result__copy">Скопировать</button>
     </div>
     <div class="new-raddle-result__share" data-raddle-share-text><div class="new-raddle-result__title">🪜 {{ tg_name|default:game.outside_name|default:game.name }}</div><div class="new-raddle-result__squares">{{ rd.ui.result_squares }}</div><div class="new-raddle-result__link">{{ request.get_host }}/ladder/{{ tg_number }}</div></div>
   </div>

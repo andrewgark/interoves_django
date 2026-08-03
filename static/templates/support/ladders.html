@@ -22,7 +22,7 @@
       Всего {{ ladder_count }} · вышло {{ published_count }} · впереди {{ future_count }}{% if today_number %} · сегодня №{{ today_number }}{% endif %}
     </span>
   </div>
-  <p class="support-hint" style="margin:0.75rem 0 0">
+  <p class="support-hint support-hint--after">
     Перетаскивайте только будущие (пунктир) за ⠿. «+» вставляет новую среди будущих
     или в конец и сдвигает номера/даты ниже. Вышедшие не двигаются.
   </p>
@@ -41,7 +41,7 @@
   <div class="new-rules-overlay" data-ladder-close></div>
   <div class="new-rules-modal__box pal-card support-ladder-modal">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-ladder-close>×</button>
-    <h2 id="ladder-edit-title" class="support-page-title" style="font-size:1.2rem">Редактирование</h2>
+    <h2 id="ladder-edit-title" class="support-page-title support-page-title--modal">Редактирование</h2>
     <p class="support-hint" id="ladder-edit-sub"></p>
     <label class="support-ladders-field">
       <span>Текст перед лесенкой</span>
@@ -61,7 +61,7 @@
     </div>
     <div id="ladder-edit-words" class="support-ladder-words"></div>
     <p class="support-hint support-ladder-edit-error" id="ladder-edit-error" hidden></p>
-    <div class="support-action-row" style="margin-top:1rem">
+    <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="ladder-edit-save">Сохранить</button>
       <button type="button" class="new-btn new-btn--ghost" data-ladder-close>Отмена</button>
       <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="ladder-edit-preview">открыть на сайте</a>

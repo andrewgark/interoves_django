@@ -13,7 +13,7 @@
         audio-title="{{ tile_audio.title }}"
         title="Воспроизвести: {{ tile_audio.title }}"
       >
-        <i class="fa fa-play" aria-hidden="true"></i> {{ tile_audio.title }}
+        {% if wall_new_ui %}<i class="ph ph-play" aria-hidden="true"></i>{% else %}<i class="fa fa-play" aria-hidden="true"></i>{% endif %} {{ tile_audio.title }}
       </button>
     </div>
   {% endwith %}

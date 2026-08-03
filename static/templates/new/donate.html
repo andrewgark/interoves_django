@@ -3,16 +3,14 @@
 {% block title %}Задонатить{% endblock %}
 
 {% block content %}
-<p style="margin:0 0 0.75rem">
-  <a href="{{ ui_project_home_url|default:'/' }}" class="new-btn new-btn--ghost">← Игры</a>
-</p>
+<p class="new-tg-back"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
 
-<h1 class="new-heading" style="margin-top:0">Задонатить</h1>
-<p class="new-login-hint" style="margin:0.35rem 0 0; max-width:36rem">
+<h1 class="new-heading new-heading--page">Задонатить</h1>
+<p class="new-login-hint new-donate-lead">
   Спасибо, что поддерживаете Inter&nbsp;Oves.
 </p>
 
-<div class="new-pay-methods" role="group" aria-label="Способ доната" style="margin-top:1rem">
+<div class="new-pay-methods new-donate-methods" role="group" aria-label="Способ доната">
   <button type="button" id="new-donate-card-btn" class="new-btn new-pay-method-btn" aria-pressed="false">
     <span class="new-pay-method-btn__icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
@@ -72,7 +70,7 @@
         Перейти к оплате
       </button>
     </div>
-    <p class="new-donate-yoomoney__hint" style="margin-top:0.5rem">
+    <p class="new-donate-yoomoney__hint">
       Минимум 50&nbsp;₽.
     </p>
     <p class="new-donate-crypto-warn">
@@ -83,13 +81,13 @@
   <div id="new-donate-pay-host" class="new-donate-pay-host" hidden>
     <div id="new-donate-crypto-widget" class="new-donate-crypto"></div>
     <div id="new-donate-status" class="new-payment-status" hidden aria-live="polite"></div>
-    <p id="new-donate-msg" class="new-login-hint" style="margin:0.5rem 0 0" hidden></p>
+    <p id="new-donate-msg" class="new-login-hint new-donate-msg" hidden></p>
   </div>
 </div>
 
 <div id="new-donate-recent" class="new-donate-recent"{% if not recent_donations %} hidden{% endif %}>
   <div class="new-donate-recent__title">Последние донаты</div>
-  <p class="new-login-hint" style="margin:0 0 0.5rem">
+  <p class="new-login-hint new-donate-recent__hint">
     Пока статус Pending — транзакция ещё обрабатывается. Если есть проблемы, напишите
     <a href="https://t.me/andrewgark">Андрею</a>.
   </p>

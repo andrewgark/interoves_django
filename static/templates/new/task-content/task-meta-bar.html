@@ -28,8 +28,8 @@
         {% with a=item.attempt %}
         <div class="new-attempts__row">
           <div class="new-attempts__meta">
-            <span class="new-pill {% if item.mark == 'ok' %}new-pill--ok{% elif item.mark == 'partial' %}new-pill--partial{% endif %}">
-              {% if item.mark == 'ok' %}✓{% elif item.mark == 'partial' %}✓{% elif item.mark == 'wrong' %}✗{% else %}…{% endif %}
+            <span class="new-pill {% if item.mark == 'ok' %}new-pill--ok{% elif item.mark == 'partial' %}new-pill--partial{% elif item.mark == 'wrong' %}new-pill--wrong{% endif %}">
+              {% if item.mark == 'ok' or item.mark == 'partial' %}<i class="ph ph-check" aria-hidden="true"></i>{% elif item.mark == 'wrong' %}<i class="ph ph-x" aria-hidden="true"></i>{% else %}<i class="ph ph-minus" aria-hidden="true"></i>{% endif %}
             </span>
             <small class="new-task__meta">{{ a.time|date:"d.m H:i" }}</small>
             <small class="new-attempts__points">{{ a.points|minimize_digits }} {{ a.points|ru_points_word }}</small>
@@ -62,11 +62,11 @@
     {% if lm %}
     <div class="new-like-dislike new-like-dislike--compact-bar" aria-label="Лайки и дизлайки">
       <button type="button" class="new-likebtn new-likebtn--dislike{% if lm.disliked %} is-active{% endif %}" data-dislike-btn data-task-id="{{ task.id }}" data-disliked="{% if lm.disliked %}1{% else %}0{% endif %}" title="Дизлайк">
-        <span class="new-likebtn__icon"><i class="fa fa-thumbs-down" aria-hidden="true"></i></span>
+        <span class="new-likebtn__icon"><i class="ph ph-thumbs-down" aria-hidden="true"></i></span>
         <span class="new-likebtn__count" data-dislike-count="{{ task.id }}">{{ lm.dislikes }}</span>
       </button>
       <button type="button" class="new-likebtn new-likebtn--like{% if lm.liked %} is-active{% endif %}" data-like-btn data-task-id="{{ task.id }}" data-liked="{% if lm.liked %}1{% else %}0{% endif %}" title="Лайк">
-        <span class="new-likebtn__icon"><i class="fa fa-thumbs-up" aria-hidden="true"></i></span>
+        <span class="new-likebtn__icon"><i class="ph ph-thumbs-up" aria-hidden="true"></i></span>
         <span class="new-likebtn__count" data-like-count="{{ task.id }}">{{ lm.likes }}</span>
       </button>
     </div>

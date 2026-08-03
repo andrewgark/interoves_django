@@ -1,5 +1,5 @@
 {# Ожидает в контексте: team_section — 'hub' | 'create' | 'join'; ui_team_url_* из _new_team_ui_context #}
-<nav class="new-team-switch new-team-subnav" role="navigation" aria-label="Разделы команды" style="margin-bottom:1.25rem">
+<nav class="new-team-switch new-team-subnav" role="navigation" aria-label="Разделы команды">
   <a href="{{ ui_team_url_hub }}" class="new-switchbtn{% if team_section == 'hub' %} is-active{% endif %}">Мои команды</a>
   <a href="{{ ui_team_url_create }}" class="new-switchbtn{% if team_section == 'create' %} is-active{% endif %}">Создать команду</a>
   <a href="{{ ui_team_url_join }}" class="new-switchbtn{% if team_section == 'join' %} is-active{% endif %}">Вступить</a>

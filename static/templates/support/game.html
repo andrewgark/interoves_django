@@ -53,7 +53,7 @@
   <form class="support-filters" method="get" action="{% url 'support:game' game.id %}">
     <label>
       Минут
-      <input type="number" name="stuck_minutes" value="{{ stuck_minutes }}" min="5" max="240" style="width:5rem">
+      <input type="number" class="support-input--narrow" name="stuck_minutes" value="{{ stuck_minutes }}" min="5" max="240">
     </label>
     {% if feed_filters.kind %}<input type="hidden" name="kind" value="{{ feed_filters.kind }}">{% endif %}
     {% if feed_filters.status %}<input type="hidden" name="status" value="{{ feed_filters.status }}">{% endif %}

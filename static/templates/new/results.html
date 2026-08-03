@@ -12,14 +12,12 @@
 
 {% block content %}
   <div class="new-ui new-ui--section">
-    <p style="margin:0 0 0.75rem">
-      <a href="{{ back_url }}" class="new-btn new-btn--ghost">← Назад</a>
-    </p>
+    <p class="new-tg-back"><a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Назад</a></p>
 
-    <div class="new-section-header" style="margin-bottom:0.75rem">
+    <div class="new-section-header new-section-header--results">
       <div>
-        <div class="new-login-hint" style="margin:0">{% if section_results %}Результаты{% elif mode == 'tournament' %}Турнирная таблица{% else %}Общая таблица{% endif %}</div>
-        <h1 class="new-heading" style="margin:0">
+        <div class="new-login-hint new-meta-kicker">{% if section_results %}Результаты{% elif mode == 'tournament' %}Турнирная таблица{% else %}Общая таблица{% endif %}</div>
+        <h1 class="new-heading new-heading--page">
           {% if "html_in_title" in game.tags %}
             {% autoescape off %}{{ game.get_outside_name|default:game.name }}{% endautoescape %}
           {% else %}
@@ -30,8 +28,8 @@
     </div>
 
     {% if section_results %}
-    <div class="new-card" style="margin-top:0.75rem">
-      <div class="new-card__text" style="margin:0">
+    <div class="new-card new-card--after-heading">
+      <div class="new-card__text new-card__text--flush">
         {% if is_ladder_word_results %}
           Каждая колонка — среднее слово лесенки. Подсказки: 1 = подсказка-переход, 2 = ответ.
           Наведите на ячейку, чтобы увидеть взятые подсказки.
@@ -41,8 +39,8 @@
       </div>
     </div>
     {% else %}
-    <div class="new-card" style="margin-top:0.75rem">
-      <div class="new-card__text" style="margin:0">
+    <div class="new-card new-card--after-heading">
+      <div class="new-card__text new-card__text--flush">
         {% if mode == 'tournament' %}
           В турнирной таблице учитываются только посылки во время игры:
           {% timezone user_timezone %}
@@ -58,26 +56,24 @@
     {% endif %}
 
     {% if is_paginated and not progressive_results %}
-      <div class="new-card" style="margin-top:0.75rem">
-        <div class="new-card__text" style="margin:0; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap">
-          <span>Показаны {{ page_obj.start_index }}–{{ page_obj.end_index }} из {{ page_total_rows }} (по {{ page_size }} на страницу)</span>
-          <span style="opacity:.6">·</span>
-          <span>Страница {{ page_obj.number }} / {{ paginator.num_pages }}</span>
-
-          <span style="flex:1 1 auto"></span>
-
+      <div class="new-results-pager" role="navigation" aria-label="Страницы результатов">
+        <span class="new-results-pager__meta">
+          Показаны {{ page_obj.start_index }}–{{ page_obj.end_index }} из {{ page_total_rows }}
+          <span class="new-results-pager__sep">·</span>
+          стр. {{ page_obj.number }}/{{ paginator.num_pages }}
+        </span>
+        <span class="new-results-pager__actions">
           {% if page_obj.has_previous %}
-            <a class="new-btn new-btn--ghost" href="{{ page_qs_prefix }}page={{ page_obj.previous_page_number }}">← Предыдущая</a>
+            <a class="new-btn new-btn--ghost new-btn--mini new-back" href="{{ page_qs_prefix }}page={{ page_obj.previous_page_number }}"><i class="ph ph-arrow-left" aria-hidden="true"></i> Предыдущая</a>
           {% else %}
-            <span class="new-btn new-btn--ghost" style="pointer-events:none; opacity:.5">← Предыдущая</span>
+            <span class="new-btn new-btn--ghost new-btn--mini new-back is-disabled" aria-disabled="true"><i class="ph ph-arrow-left" aria-hidden="true"></i> Предыдущая</span>
           {% endif %}
-
           {% if page_obj.has_next %}
-            <a class="new-btn new-btn--ghost" href="{{ page_qs_prefix }}page={{ page_obj.next_page_number }}">Следующая →</a>
+            <a class="new-btn new-btn--ghost new-btn--mini new-fwd" href="{{ page_qs_prefix }}page={{ page_obj.next_page_number }}">Следующая <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
           {% else %}
-            <span class="new-btn new-btn--ghost" style="pointer-events:none; opacity:.5">Следующая →</span>
+            <span class="new-btn new-btn--ghost new-btn--mini new-fwd is-disabled" aria-disabled="true">Следующая <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
           {% endif %}
-        </div>
+        </span>
       </div>
     {% endif %}
 
@@ -142,7 +138,7 @@
           </tbody>
         </table>
         {% if progressive_results %}
-          <div id="results-sentinel" aria-hidden="true" style="height:1px"></div>
+          <div id="results-sentinel" class="new-results-sentinel" aria-hidden="true"></div>
         {% endif %}
       </div>
     </div>

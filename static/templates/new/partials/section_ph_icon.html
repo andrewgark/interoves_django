@@ -1,0 +1,2 @@
+{# Expects: ph_icon (Phosphor name without prefix, e.g. stairs). Optional: extra_class #}
+{% if ph_icon %}<i class="ph ph-{{ ph_icon }} new-section-icon{% if extra_class %} {{ extra_class }}{% endif %}" aria-hidden="true"></i>{% endif %}

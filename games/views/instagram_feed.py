@@ -1,23 +1,20 @@
-"""Public page showing the @interoveslocumpraesta Instagram feed."""
+"""Instagram-related public endpoints.
+
+The old mirrored feed at /instagram/ now redirects to the profile —
+no point duplicating Instagram inside the site.
+"""
 
 from django.conf import settings
 from django.core.cache import cache
 from django.http import Http404, HttpResponse
-from django.shortcuts import render
+from django.shortcuts import redirect
 
-from games.instagram.api import fetch_media, instagram_configured, to_instagram_jpeg
+from games.instagram.api import to_instagram_jpeg
 
 
 def instagram_feed(request):
-    posts = fetch_media(limit=12) if instagram_configured() else []
-    username = getattr(settings, 'INSTAGRAM_USERNAME', 'interoveslocumpraesta')
-    return render(request, 'new/instagram_feed.html', {
-        'page_title': 'Instagram',
-        'posts': posts,
-        'instagram_username': username,
-        'instagram_profile_url': f'https://www.instagram.com/{username}/',
-        'show_sections_nav': True,
-    })
+    username = getattr(settings, 'INSTAGRAM_USERNAME', 'interoveslocumpraesta') or 'interoveslocumpraesta'
+    return redirect(f'https://www.instagram.com/{username}/', permanent=False)
 
 
 def ladder_teaser_jpg(request, number):

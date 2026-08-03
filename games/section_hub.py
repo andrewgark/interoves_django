@@ -35,9 +35,11 @@ HUB_DAILY_SECTION_IDS = ('ladder', 'alphabetty')
 HUB_FROM_DESYATOCHKI_SECTION_IDS = ('week_task', 'replacements', 'walls', 'palindromes')
 WEEK_TASK_HUB_ID = WEEK_TASK_GAME_ID
 
+# ph_icon — имя Phosphor без префикса (класс: `ph ph-{name}`); emoji icon — legacy/share.
 SECTION_HUB_META = {
     'ladder': {
         'icon': '🪜',
+        'ph_icon': 'ladder',
         'title': 'Лесенки',
         'description': 'Одна лестница слов в день — соберите цепочку с двух концов.',
         'cta_today': 'Сегодняшняя лесенка',
@@ -46,6 +48,7 @@ SECTION_HUB_META = {
     },
     'alphabetty': {
         'icon': '🔤',
+        'ph_icon': 'text-aa',
         'title': 'Алфавитки',
         'description': 'Угадайте существительное по алфавиту — раньше или позже.',
         'cta_today': 'Сегодняшняя алфавитка',
@@ -54,6 +57,7 @@ SECTION_HUB_META = {
     },
     'replacements': {
         'icon': '🔄',
+        'ph_icon': 'swap',
         'title': 'Замены',
         'description': 'Восстановите заменённые слова в тексте.',
         'cta_latest': 'Последние замены',
@@ -61,6 +65,7 @@ SECTION_HUB_META = {
     },
     'walls': {
         'icon': '🧱',
+        'ph_icon': 'wall',
         'title': 'Стены',
         'description': 'Поделите 16 объектов на 4 категории по 4 объекта',
         'cta_latest': 'Последняя стена',
@@ -68,6 +73,7 @@ SECTION_HUB_META = {
     },
     'palindromes': {
         'icon': '🪞',
+        'ph_icon': 'arrows-in-line-horizontal',
         'title': 'Палиндромы',
         'description': 'Восстановите палиндром.',
         'cta_latest': 'Последний палиндром',
@@ -75,6 +81,7 @@ SECTION_HUB_META = {
     },
     'week_task': {
         'icon': '⭐',
+        'ph_icon': 'star',
         'title': 'Задание недели',
         'description': 'Избранное сложное задание из одной из предыдущих Десяточек',
         'cta_today': 'Задание этой недели',
@@ -87,12 +94,23 @@ SECTION_HUB_META = {
 
 DESYATOCHKI_HUB_META = {
     'icon': '🔟',
+    'ph_icon': 'puzzle-piece',
     'title': 'Десяточки',
     'description': 'Командные сложные игры, в которых можно пользоваться интернетом',
     'cta_today': 'Сегодняшняя Десяточка',
     'cta_latest': 'Последняя Десяточка',
     'all_link_label': 'Все десяточки →',
 }
+
+
+def section_ph_icon(section_id):
+    """Phosphor icon name for a hub/nav section id, or empty string."""
+    meta = SECTION_HUB_META.get(section_id) or (
+        DESYATOCHKI_HUB_META if section_id == 'desyatochki' else None
+    )
+    if not meta:
+        return ''
+    return meta.get('ph_icon') or ''
 
 
 def _newest_task_group_links(game):
@@ -121,6 +139,7 @@ def get_training_section_hub_context(game):
     return {
         'id': game.id,
         'icon': meta['icon'],
+        'ph_icon': meta.get('ph_icon', ''),
         'title': meta['title'],
         'description': meta['description'],
         'cta_label': meta['cta_latest'] if cta_number else '',
@@ -203,6 +222,7 @@ def get_week_task_section_hub_card(game, *, published_numbers, now=None):
     return {
         'id': WEEK_TASK_HUB_ID,
         'icon': meta['icon'],
+        'ph_icon': meta.get('ph_icon', ''),
         'title': meta['title'],
         'description': meta['description'],
         'cta_label': cta_label,
@@ -225,6 +245,7 @@ def get_week_task_hub_card():
     return {
         'id': WEEK_TASK_HUB_ID,
         'icon': meta['icon'],
+        'ph_icon': meta.get('ph_icon', ''),
         'title': meta['title'],
         'description': meta['description'],
         'cta_label': '',
@@ -253,6 +274,7 @@ def get_ladder_section_hub_card(game, *, published_numbers, now=None):
     return {
         'id': LADDER_GAME_ID,
         'icon': meta['icon'],
+        'ph_icon': meta.get('ph_icon', ''),
         'title': meta['title'],
         'description': meta['description'],
         'cta_label': cta_label,
@@ -280,6 +302,7 @@ def get_alphabetty_section_hub_card(game, *, published_numbers, now=None):
     return {
         'id': ALPHABETTY_GAME_ID,
         'icon': meta['icon'],
+        'ph_icon': meta.get('ph_icon', ''),
         'title': meta['title'],
         'description': meta['description'],
         'cta_label': cta_label,
@@ -346,6 +369,7 @@ def get_desyatochki_hub_context(games, *, now=None, base=''):
     if not games:
         return {
             'icon': meta['icon'],
+            'ph_icon': meta.get('ph_icon', ''),
             'title': meta['title'],
             'description': meta['description'],
             'cta_label': '',
@@ -363,6 +387,7 @@ def get_desyatochki_hub_context(games, *, now=None, base=''):
     if not latest:
         return {
             'icon': meta['icon'],
+            'ph_icon': meta.get('ph_icon', ''),
             'title': meta['title'],
             'description': meta['description'],
             'cta_label': '',
@@ -381,6 +406,7 @@ def get_desyatochki_hub_context(games, *, now=None, base=''):
     cta_label = meta['cta_today'] if is_today else meta['cta_latest']
     return {
         'icon': meta['icon'],
+        'ph_icon': meta.get('ph_icon', ''),
         'title': meta['title'],
         'description': meta['description'],
         'cta_label': cta_label,

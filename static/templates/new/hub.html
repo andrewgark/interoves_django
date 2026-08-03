@@ -1,13 +1,15 @@
 {% extends "new/base.html" %}
 {% block title %}Игры{% endblock %}
 {% block content %}
-<h1 class="new-heading" style="margin-top:0">Игры</h1>
+<h1 class="new-heading new-heading--page">Игры</h1>
 
 {% if desyatochki_card %}
 <section class="new-hub-section new-hub-section--wide{% if desyatochki_card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="desyatochki-heading">
   <div class="new-hub-section__head">
-    <h2 id="desyatochki-heading" class="new-hub-section__title">{{ desyatochki_card.icon }} {{ desyatochki_card.title }}</h2>
-    <button type="button" class="new-rules-trigger" aria-label="Правила Десяточки" title="Правила" data-desyatochki-rules-open>?</button>
+    <h2 id="desyatochki-heading" class="new-hub-section__title">
+      {% include "new/partials/section_ph_icon.html" with ph_icon=desyatochki_card.ph_icon extra_class="new-hub-section__icon" %}{{ desyatochki_card.title }}
+    </h2>
+    <button type="button" class="new-rules-trigger" aria-label="Правила Десяточки" title="Правила" data-desyatochki-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
   </div>
   <p class="new-hub-section__desc">{{ desyatochki_card.description }}</p>
   {% if desyatochki_card.play_url or show_desyatochki_pay_cta %}
@@ -25,7 +27,7 @@
   {% if desyatochki_participants_chat_url %}
   <p class="new-hub-section__chat">
     <a class="new-link-dotted new-community-link" href="{{ desyatochki_participants_chat_url }}" target="_blank" rel="noopener noreferrer">
-      <i class="fa fa-telegram" aria-hidden="true"></i>
+      <i class="ph ph-telegram-logo" aria-hidden="true"></i>
       Чат участников
     </a>
   </p>
@@ -105,18 +107,18 @@
 <div class="new-hub-bottom-grid{% if community_links and interesting_links %} new-hub-bottom-grid--split{% endif %}">
   {% if community_links %}
   <section class="new-hub-bottom-col" aria-labelledby="community-heading">
-    <h1 id="community-heading" class="new-heading" style="margin-top:0">Сообщество</h1>
+    <h2 id="community-heading" class="new-heading">Сообщество</h2>
     <div class="new-community-links">
       {% for link in community_links %}
         <a class="new-link-dotted new-community-link" href="{{ link.href }}" {% if link.href|slice:":4" == "http" %}target="_blank" rel="noopener noreferrer"{% endif %}>
           {% if link.kind == 'telegram' %}
-            <i class="fa fa-telegram" aria-hidden="true"></i>
+            <i class="ph ph-telegram-logo" aria-hidden="true"></i>
           {% elif link.kind == 'twitter' %}
-            <i class="fa fa-twitter" aria-hidden="true"></i>
+            <i class="ph ph-twitter-logo" aria-hidden="true"></i>
           {% elif link.kind == 'instagram' %}
-            <i class="fa fa-instagram" aria-hidden="true"></i>
+            <i class="ph ph-instagram-logo" aria-hidden="true"></i>
           {% elif link.kind == 'vpn' %}
-            <i class="fa fa-shield" aria-hidden="true"></i>
+            <i class="ph ph-shield-check" aria-hidden="true"></i>
           {% endif %}
           {{ link.title }}
         </a>
@@ -126,23 +128,23 @@
   {% endif %}
   {% if interesting_links %}
   <section class="new-hub-bottom-col" aria-labelledby="interesting-heading">
-    <h1 id="interesting-heading" class="new-heading" style="margin-top:0">Наши интересности</h1>
+    <h2 id="interesting-heading" class="new-heading">Наши интересности</h2>
     <div class="new-community-links">
       {% for link in interesting_links %}
         <a class="new-link-dotted new-community-link" href="{{ link.href }}" {% if link.href|slice:":4" == "http" %}target="_blank" rel="noopener noreferrer"{% endif %}>
           {% if link.kind == 'nutrimatic' %}
-            <i class="fa fa-search" aria-hidden="true"></i>
+            <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
           {% elif link.kind == 'eurovision' %}
-            <i class="fa fa-music" aria-hidden="true"></i>
+            <i class="ph ph-music-notes" aria-hidden="true"></i>
           {% elif link.kind == 'vpn' %}
-            <i class="fa fa-shield" aria-hidden="true"></i>
+            <i class="ph ph-shield-check" aria-hidden="true"></i>
           {% endif %}
           {{ link.title }}{% if link.note %} <span class="new-community-link__note">({{ link.note }})</span>{% endif %}
         </a>
       {% endfor %}
     </div>
     {% if show_donate_cta %}
-    <p style="margin:1.25rem 0 0">
+    <p class="new-hub-donate">
       <a class="new-btn new-btn--yellow" href="{% url 'donate' %}">Задонатить</a>
     </p>
     {% endif %}

@@ -2,7 +2,7 @@
 {% load tz %}
 {% block title %}Десяточки{% endblock %}
 {% block content %}
-<h1 class="new-heading" style="margin-top:0">Десяточки</h1>
+<h1 class="new-heading new-heading--page">Десяточки</h1>
 <div class="new-games-list-wrap">
   <div class="new-games-list" id="newGamesList" data-total-games="{{ total_games }}" data-games-per-page="{{ games_per_page }}">
     {% include "new/games_list_items.html" with games=games game_list_offset=0 %}
@@ -253,5 +253,5 @@
  */
 </script>
 
-<p style="margin-top:2rem"><a href="{{ ui_project_home_url|default:'/' }}" class="new-btn new-btn--ghost">← Игры</a></p>
+<p class="new-tg-back new-tg-back--footer"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
 {% endblock %}

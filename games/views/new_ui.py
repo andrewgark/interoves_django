@@ -67,7 +67,7 @@ from games.section_hub import (
     get_week_task_hub_card,
     get_week_task_section_hub_card,
 )
-from games.week_task_pool import source_summary_from_tags
+from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
 from games.models import (
     Attempt,
     AudioManager,
@@ -803,7 +803,7 @@ def new_hub(request):
         'community_links': [
             {'kind': 'telegram', 'title': 'Телеграм-канал', 'href': 'https://t.me/interoves'},
             {'kind': 'twitter', 'title': 'X (Twitter)', 'href': 'https://x.com/interoves'},
-            {'kind': 'instagram', 'title': 'Instagram', 'href': '/instagram/'},
+            {'kind': 'instagram', 'title': 'Instagram', 'href': 'https://www.instagram.com/interoveslocumpraesta/'},
             {'kind': 'telegram', 'title': 'Чат участников', 'href': 'https://t.me/+rhsbkEuU4-ExOWEy'},
             {'kind': 'telegram', 'title': 'Чат решающих PuzzleHunts', 'href': 'https://t.me/+GPR22w8MdLEyNzIy'},
             {'kind': 'telegram', 'title': 'Разработчик: Андрей', 'href': 'https://t.me/andrewgark'},
@@ -2307,11 +2307,14 @@ def new_task_group_page(request, game_id, task_group_number):
             show_palindrome_rules = False
     ctx_dicts = build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode)
     week_task_source_line = None
+    week_task_source_url = None
     if game.id == WEEK_TASK_GAME_ID:
-        src = source_summary_from_tags(task_group.tags or {})
+        tags = task_group.tags or {}
+        src = source_summary_from_tags(tags)
         des = src.get('desyatka_label') or src.get('game_id')
         if des:
             week_task_source_line = 'из {}'.format(des)
+            week_task_source_url = source_play_path_from_tags(tags) or None
     source_desyatka = None
     if game.id in ('replacements', 'walls', 'palindromes'):
         source_desyatka = get_source_desyatka_context(task_group, team=team)
@@ -2355,6 +2358,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'tg_number': placement.number,
         'tg_name': placement.name,
         'week_task_source_line': week_task_source_line,
+        'week_task_source_url': week_task_source_url,
         'source_desyatka': source_desyatka,
         'is_daily_single_task': is_daily_single_task,
         'daily_publish_date': daily_publish_date,

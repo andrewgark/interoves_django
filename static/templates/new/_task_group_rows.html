@@ -2,7 +2,7 @@
 {% load filters %}
 
 {% if task_group_rows %}
-  <h2 class="new-heading" style="margin-top:1.5rem">{{ heading|default:"Задания" }}</h2>
+  <h2 class="new-heading new-stack-gap--lg">{{ heading|default:"Задания" }}</h2>
   {% for row in task_group_rows %}
     <a class="new-task {{ row.row_class|default:'' }}" href="{{ row.play_url }}" data-task-group-number="{{ row.number }}" data-fully-solved="{% if row.is_fully_solved %}1{% else %}0{% endif %}">
       <span class="new-task__body">
@@ -29,6 +29,8 @@
     </a>
   {% endfor %}
 {% else %}
-  <p class="new-login-hint" style="margin-top:1rem">{{ empty_text|default:"Здесь пока нет групп заданий." }}</p>
+  <div class="new-empty">
+    <p class="new-empty__text">{{ empty_text|default:"Здесь пока нет групп заданий." }}</p>
+  </div>
 {% endif %}
 

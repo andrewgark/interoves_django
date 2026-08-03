@@ -20,14 +20,14 @@
     <button type="button" class="new-btn new-btn--mini" id="wt-save-start">Сохранить старт</button>
     <label class="support-ladders-field">
       <span>Нагенерить ещё</span>
-      <input type="number" id="wt-gen-n" value="8" min="1" max="52" style="width:4.5rem">
+      <input type="number" class="support-input--gen" id="wt-gen-n" value="8" min="1" max="52">
     </label>
     <button type="button" class="new-btn new-btn--mini" id="wt-generate">Нагенерить</button>
     <span class="support-hint support-ladders-toolbar__meta" id="wt-meta">
       Всего {{ week_task_count }} · вышло {{ published_count }} · впереди {{ future_count }}{% if today_number %} · эта неделя №{{ today_number }}{% endif %}
     </span>
   </div>
-  <p class="support-hint" style="margin:0.75rem 0 0">
+  <p class="support-hint support-hint--after">
     Перетаскивайте только будущие за ⠿. «+» вставляет слот (случайный или выбранный круг). Вышедшие не двигаются.
   </p>
 </section>
@@ -43,7 +43,7 @@
   <div class="new-rules-overlay" data-wt-create-close></div>
   <div class="new-rules-modal__box pal-card support-ladder-modal support-wt-modal">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-wt-create-close>×</button>
-    <h2 id="wt-create-title" class="support-page-title" style="font-size:1.2rem">Новое задание недели</h2>
+    <h2 id="wt-create-title" class="support-page-title support-page-title--modal">Новое задание недели</h2>
     <p class="support-hint" id="wt-create-sub"></p>
     <fieldset class="support-wt-mode">
       <legend class="support-hint">Источник</legend>
@@ -57,12 +57,12 @@
       </label>
     </fieldset>
     <div id="wt-create-picker" class="support-wt-picker" hidden></div>
-    <label class="support-ladders-field" style="margin-top:0.75rem">
+    <label class="support-ladders-field support-ladders-field--spaced">
       <span>Название (необязательно)</span>
       <input type="text" id="wt-create-name" autocomplete="off" maxlength="100" placeholder="Как в источнике, если пусто">
     </label>
     <p class="support-hint support-ladder-edit-error" id="wt-create-error" hidden></p>
-    <div class="support-action-row" style="margin-top:1rem">
+    <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="wt-create-save">Создать</button>
       <button type="button" class="new-btn new-btn--ghost" data-wt-create-close>Отмена</button>
     </div>
@@ -73,16 +73,19 @@
   <div class="new-rules-overlay" data-wt-close></div>
   <div class="new-rules-modal__box pal-card support-ladder-modal support-wt-modal">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-wt-close>×</button>
-    <h2 id="wt-edit-title" class="support-page-title" style="font-size:1.2rem">Редактирование</h2>
+    <h2 id="wt-edit-title" class="support-page-title support-page-title--modal">Редактирование</h2>
     <p class="support-hint" id="wt-edit-sub"></p>
     <label class="support-ladders-field">
       <span>Название</span>
       <input type="text" id="wt-edit-name" autocomplete="off" maxlength="100">
     </label>
-    <p class="support-hint" id="wt-edit-source"></p>
+    <p class="support-hint" id="wt-edit-source">
+      Источник: <span id="wt-edit-source-label">—</span>
+      <a href="#" target="_blank" rel="noopener" class="new-link-dotted" id="wt-edit-source-link" hidden>открыть в десяточке</a>
+    </p>
     <div id="wt-edit-source-block">
-      <p class="support-hint" style="margin:0.85rem 0 0.35rem">Сменить источник (только у будущих)</p>
-      <label class="support-ladders-field--check" style="margin-bottom:0.5rem">
+      <p class="support-hint support-hint--section">Сменить источник (только у будущих)</p>
+      <label class="support-ladders-field--check support-ladders-field--check-spaced">
         <input type="checkbox" id="wt-edit-change-source">
         <span>Заменить снимок заданий</span>
       </label>
@@ -90,10 +93,11 @@
     </div>
     <p class="support-hint" id="wt-edit-source-locked" hidden>Источник вышедшего задания менять нельзя.</p>
     <p class="support-hint support-ladder-edit-error" id="wt-edit-error" hidden></p>
-    <div class="support-action-row" style="margin-top:1rem">
+    <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="wt-edit-save">Сохранить</button>
       <button type="button" class="new-btn new-btn--ghost" data-wt-close>Отмена</button>
       <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="wt-edit-preview">открыть на сайте</a>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="wt-edit-source-btn" hidden>в десяточке</a>
     </div>
   </div>
 </div>
@@ -198,6 +202,14 @@
       var handle = row.is_published
         ? '<span class="support-ladder-item__handle support-ladder-item__handle--locked">·</span>'
         : '<button type="button" class="support-ladder-item__handle" title="Перетащить">⠿</button>';
+      var sourcePreview = row.source_url
+        ? ('<a class="new-link-dotted" href="' + escapeHtml(row.source_url) + '" target="_blank" rel="noopener" title="Открыть в оригинальной десяточке">' +
+            escapeHtml(row.source_label || 'источник') + '</a>')
+        : escapeHtml(row.source_label || '');
+      var sourceBtn = row.source_url
+        ? ('<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(row.source_url) +
+            '" target="_blank" rel="noopener" title="Открыть в оригинальной десяточке">десяточка</a>')
+        : '';
       item.innerHTML =
         handle +
         '<div class="support-ladder-item__num">№' + row.number + '</div>' +
@@ -206,11 +218,12 @@
             ' <span class="support-flag ' + statusClass(row) + '">' + statusLabel(row) + '</span></div>' +
           '<div class="support-ladder-item__meta"><span class="support-cell-mono">' +
             (row.publish_date || '—') + '</span> · id ' + row.link_id + '</div>' +
-          '<div class="support-ladder-item__preview">' + escapeHtml(row.source_label || '') + '</div>' +
+          '<div class="support-ladder-item__preview">' + sourcePreview + '</div>' +
         '</div>' +
         '<div class="support-ladder-item__actions">' +
           '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">править</button>' +
           '<a class="new-btn new-btn--mini new-btn--ghost" href="' + row.play_url + '" target="_blank" rel="noopener">сайт</a>' +
+          sourceBtn +
         '</div>';
       listEl.appendChild(item);
     });
@@ -439,7 +452,20 @@
     function fill(d) {
       document.getElementById('wt-edit-sub').textContent = '№' + d.number + ' · ' + (d.publish_date || '');
       document.getElementById('wt-edit-name').value = d.name || '';
-      document.getElementById('wt-edit-source').textContent = 'Источник: ' + (d.source_label || '—');
+      document.getElementById('wt-edit-source-label').textContent = d.source_label || '—';
+      var sourceLink = document.getElementById('wt-edit-source-link');
+      var sourceBtn = document.getElementById('wt-edit-source-btn');
+      if (d.source_url) {
+        sourceLink.href = d.source_url;
+        sourceLink.hidden = false;
+        sourceBtn.href = d.source_url;
+        sourceBtn.hidden = false;
+      } else {
+        sourceLink.removeAttribute('href');
+        sourceLink.hidden = true;
+        sourceBtn.removeAttribute('href');
+        sourceBtn.hidden = true;
+      }
       document.getElementById('wt-edit-preview').href = d.play_url || '#';
       document.getElementById('wt-edit-error').hidden = true;
       var changeCb = document.getElementById('wt-edit-change-source');

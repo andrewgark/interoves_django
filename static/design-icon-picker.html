@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interoves · Phosphor icons</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css">
+  <style>
+    :root {
+      --bg: #f5f7f6;
+      --surface: #fff;
+      --text: #1a1a1a;
+      --muted: #5c6560;
+      --accent: #1f6f5e;
+      --border: #d0d5d2;
+      --tile: #e6ebe8;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Clear Sans", "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      padding: 1.25rem 1.25rem 4rem;
+    }
+    .wrap { max-width: 56rem; margin: 0 auto; }
+    h1 { font-size: 1.35rem; margin: 0 0 0.35rem; }
+    .lead { color: var(--muted); margin: 0 0 1.25rem; font-size: 0.95rem; }
+    .lead a { color: var(--accent); }
+    .picked {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.85rem 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .picked h2 {
+      margin: 0 0 0.5rem;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    .picked pre {
+      margin: 0;
+      white-space: pre-wrap;
+      font-size: 0.85rem;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      line-height: 1.5;
+    }
+    .picked-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.65rem;
+    }
+    .picked-actions button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--tile);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.35rem 0.7rem;
+      font: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .picked-actions button:hover { border-color: var(--accent); color: var(--accent); }
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin-bottom: 0.85rem;
+    }
+    .section h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1.05rem;
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .section h2 .current {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+      gap: 0.5rem;
+    }
+    .opt {
+      appearance: none;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.75rem 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--tile) 40%, var(--surface));
+      color: var(--text);
+      cursor: pointer;
+      font: inherit;
+      text-align: center;
+      transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+    }
+    .opt:hover {
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+      background: var(--surface);
+    }
+    .opt.is-current {
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+      box-shadow: inset 3px 0 0 var(--accent);
+    }
+    .opt.is-selected {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+    }
+    .opt .ph {
+      font-size: 1.75rem;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .opt .cls {
+      font-size: 0.7rem;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      color: var(--muted);
+      word-break: break-all;
+    }
+    .opt .n {
+      position: absolute;
+      top: 0.3rem;
+      left: 0.4rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .hint { margin-top: 1rem; color: var(--muted); font-size: 0.88rem; }
+    .toast {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: #fff;
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Phosphor · выбор иконок секций</h1>
+    <p class="lead">
+      Набор: <strong>Phosphor regular</strong>.
+      Живой сайт уже на черновых дефолтах —
+      <a href="/">хаб</a>.
+      Кликни варианты → скопируй список → пришли в чат.
+    </p>
+
+    <div class="picked">
+      <h2>Твой выбор</h2>
+      <pre id="summary">— кликни варианты ниже —</pre>
+      <div class="picked-actions">
+        <button type="button" id="copy-btn">Скопировать список</button>
+        <button type="button" id="reset-btn">Сбросить к текущим</button>
+      </div>
+    </div>
+
+    <div id="sections"></div>
+    <p class="hint">Имена без префикса <code>ph-</code> — так они лежат в <code>section_hub.py</code> как <code>ph_icon</code>.</p>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+  /* All names verified against @phosphor-icons/web@2.1.2 regular */
+  var SECTIONS = [
+    {
+      id: 'desyatochki',
+      title: 'Десяточки',
+      current: 'puzzle-piece',
+      options: [
+        'list-numbers', 'hash', 'squares-four', 'trophy', 'flag-checkered',
+        'puzzle-piece', 'game-controller', 'users-three', 'bookmark-simple', 'medal'
+      ]
+    },
+    {
+      id: 'ladder',
+      title: 'Лесенка',
+      current: 'ladder',
+      options: [
+        'ladder', 'stairs', 'steps', 'chart-bar', 'chart-bar-horizontal',
+        'stack', 'path', 'trend-up', 'arrows-down-up', 'list'
+      ]
+    },
+    {
+      id: 'alphabetty',
+      title: 'Алфавитка',
+      current: 'text-aa',
+      options: [
+        'text-aa', 'text-t', 'translate', 'pencil-simple', 'book-open',
+        'keyboard', 'quotes', 'pen', 'bookmark', 'hash'
+      ]
+    },
+    {
+      id: 'replacements',
+      title: 'Замены',
+      current: 'swap',
+      options: [
+        'arrows-left-right', 'swap', 'arrows-clockwise', 'shuffle', 'magic-wand',
+        'pencil-simple', 'copy', 'files', 'wrench', 'arrows-counter-clockwise'
+      ]
+    },
+    {
+      id: 'walls',
+      title: 'Стены',
+      current: 'wall',
+      options: [
+        'grid-four', 'wall', 'squares-four', 'grid-nine', 'table',
+        'cube', 'columns', 'qr-code', 'buildings', 'stack'
+      ]
+    },
+    {
+      id: 'palindromes',
+      title: 'Палиндромы',
+      current: 'arrows-in-line-horizontal',
+      options: [
+        'arrows-in-line-horizontal', 'arrows-left-right', 'arrows-in', 'intersect', 'exclude',
+        'scales', 'infinity', 'arrows-clockwise', 'swap', 'arrows-in-simple'
+      ]
+    },
+    {
+      id: 'week_task',
+      title: 'Задание недели',
+      current: 'star',
+      options: [
+        'star', 'bookmark-simple', 'calendar', 'calendar-check', 'calendar-star',
+        'target', 'fire', 'medal', 'diamond', 'heart'
+      ]
+    }
+  ];
+
+  var selected = {};
+  SECTIONS.forEach(function (s) { selected[s.id] = s.current; });
+
+  var root = document.getElementById('sections');
+  var summary = document.getElementById('summary');
+  var toast = document.getElementById('toast');
+
+  function renderSummary() {
+    summary.textContent = SECTIONS.map(function (s) {
+      return s.title.toLowerCase() + ': ' + selected[s.id];
+    }).join(';\n') + ';';
+  }
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { toast.classList.remove('show'); }, 1400);
+  }
+
+  SECTIONS.forEach(function (section) {
+    var box = document.createElement('section');
+    box.className = 'section';
+    box.innerHTML = '<h2>' + section.title + ' <span class="current">сейчас: ' + section.current + '</span></h2>';
+    var grid = document.createElement('div');
+    grid.className = 'grid';
+
+    section.options.forEach(function (name, i) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'opt';
+      if (name === section.current) btn.classList.add('is-current');
+      if (name === selected[section.id]) btn.classList.add('is-selected');
+      btn.dataset.section = section.id;
+      btn.dataset.icon = name;
+      btn.innerHTML =
+        '<span class="n">' + (i + 1) + '</span>' +
+        '<i class="ph ph-' + name + '" aria-hidden="true"></i>' +
+        '<span class="cls">' + name + '</span>';
+      btn.addEventListener('click', function () {
+        selected[section.id] = name;
+        grid.querySelectorAll('.opt').forEach(function (el) {
+          el.classList.toggle('is-selected', el.dataset.icon === name);
+        });
+        renderSummary();
+        showToast(section.title + ' → ' + name);
+      });
+      grid.appendChild(btn);
+    });
+
+    box.appendChild(grid);
+    root.appendChild(box);
+  });
+
+  renderSummary();
+
+  document.getElementById('copy-btn').addEventListener('click', function () {
+    var text = summary.textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { showToast('Скопировано'); })
+        .catch(function () { fallbackCopy(text); });
+    } else {
+      fallbackCopy(text);
+    }
+  });
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); showToast('Скопировано'); }
+    catch (e) { showToast('Скопируй вручную'); }
+    document.body.removeChild(ta);
+  }
+
+  document.getElementById('reset-btn').addEventListener('click', function () {
+    SECTIONS.forEach(function (s) { selected[s.id] = s.current; });
+    document.querySelectorAll('.opt').forEach(function (el) {
+      el.classList.toggle('is-selected', el.dataset.icon === selected[el.dataset.section]);
+    });
+    renderSummary();
+    showToast('Сброшено');
+  });
+  </script>
+</body>
+</html>

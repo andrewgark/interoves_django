@@ -1,6 +1,8 @@
 <section class="new-hub-section{% if card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="hub-section-{{ card.id }}">
   <div class="new-hub-section__head">
-    <h2 id="hub-section-{{ card.id }}" class="new-hub-section__title">{{ card.icon }} {{ card.title }}</h2>
+    <h2 id="hub-section-{{ card.id }}" class="new-hub-section__title">
+      {% include "new/partials/section_ph_icon.html" with ph_icon=card.ph_icon extra_class="new-hub-section__icon" %}{{ card.title }}
+    </h2>
     {% if card.today_label %}
       <span class="new-pill{% if card.is_today %} new-hub-section__badge-today{% endif %}">{{ card.today_label }}</span>
     {% endif %}

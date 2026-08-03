@@ -2,7 +2,7 @@
 {% load socialaccount %}
 {% block title %}Профиль{% endblock %}
 {% block content %}
-<h1 class="new-heading" style="margin-top:0">Профиль</h1>
+<h1 class="new-heading new-heading--page">Профиль</h1>
 <form method="post" class="new-form">
   {% csrf_token %}
   <div class="new-profile-head">
@@ -24,7 +24,7 @@
           {% if form.last_name.errors %}<span class="new-field-error">{{ form.last_name.errors }}</span>{% endif %}
         </div>
       </div>
-      <div style="margin-top:0.75rem">
+      <div class="new-profile-timezone">
         <label for="{{ form.timezone.id_for_label }}">Таймзона</label>
         {{ form.timezone }}
         <datalist id="tz-list">
@@ -33,7 +33,7 @@
           {% endfor %}
         </datalist>
         {% if form.timezone.errors %}<span class="new-field-error">{{ form.timezone.errors }}</span>{% endif %}
-        <p class="new-login-hint" style="margin:0.35rem 0 0">
+        <p class="new-login-hint new-profile-hint">
           Используется для времени в меню и дат игр.
           <span id="tz-offset-hint"></span>
         </p>
@@ -42,7 +42,7 @@
         <label for="{{ form.avatar_url.id_for_label }}">Ссылка на фото</label>
         {{ form.avatar_url }}
         {% if form.avatar_url.errors %}<span class="new-field-error">{{ form.avatar_url.errors }}</span>{% endif %}
-        <p class="new-login-hint" style="margin:0.5rem 0 0">Можно вставить URL картинки (Google/VK обычно ставятся автоматически).</p>
+        <p class="new-login-hint new-profile-avatar-hint">Можно вставить URL картинки (Google/VK обычно ставятся автоматически).</p>
       </div>
     </div>
   </div>
@@ -52,8 +52,8 @@
 <h2 class="new-heading">Аккаунты</h2>
 <div class="new-card">
   {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}
-  <p class="new-login-hint" style="margin-top:0">Для входа в этот раздел используется только Google с почтой <strong>@glowbyteconsulting.com</strong>.</p>
-  <div class="new-two" style="margin-top:0.5rem">
+  <p class="new-login-hint new-profile-accounts-lead">Для входа в этот раздел используется только Google с почтой <strong>@glowbyteconsulting.com</strong>.</p>
+  <div class="new-two new-profile-accounts-row">
     <div>
       {% if 'google' in connected_providers %}
         <span class="new-pill new-pill--ok">Google привязан</span>
@@ -63,8 +63,8 @@
     </div>
   </div>
   {% else %}
-  <p class="new-login-hint" style="margin-top:0">Можно привязать второй способ входа, чтобы заходить через любой.</p>
-  <div class="new-two" style="margin-top:0.5rem">
+  <p class="new-login-hint new-profile-accounts-lead">Можно привязать второй способ входа, чтобы заходить через любой.</p>
+  <div class="new-two new-profile-accounts-row">
     <div>
       {% if 'google' in connected_providers %}
         <span class="new-pill new-pill--ok">Google привязан</span>
@@ -81,7 +81,7 @@
     </div>
   </div>
   {% endif %}
-  <p class="new-login-hint" style="margin-bottom:0">Если выбранный аккаунт уже привязан к другому профилю, привязка будет отклонена.</p>
+  <p class="new-login-hint new-profile-accounts-foot">Если выбранный аккаунт уже привязан к другому профилю, привязка будет отклонена.</p>
 </div>
 
 <script>
@@ -112,5 +112,5 @@
   update();
 })();
 </script>
-<p style="margin-top:2rem"><a href="{{ ui_project_home_url|default:'/' }}" class="new-btn new-btn--ghost">← Игры</a></p>
+<p class="new-tg-back new-tg-back--footer"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
 {% endblock %}

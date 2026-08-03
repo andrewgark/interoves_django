@@ -215,7 +215,10 @@ class WeekTaskPoolSplitTests(TestCase):
 
 class WeekTaskSupportTests(TestCase):
     def setUp(self):
-        self.week_game = _ensure_week_task_game()
+        # Старт в будущем — слоты ещё не «вышли», можно менять источник.
+        self.week_game = _ensure_week_task_game(
+            **{WEEK_TASK_PUBLISH_START_TAG: '2027-01-04T00:00:00+03:00'},
+        )
         self.des = _make_des_game('des300')
         # Несколько units в пуле
         _add_circle(
@@ -311,6 +314,9 @@ class WeekTaskSupportTests(TestCase):
         )
         self.assertEqual(detail['source']['task_group_id'], ordinary.task_group_id)
         self.assertIsNone(detail['source'].get('major'))
+        self.assertEqual(detail['source_url'], '/games/des300/2/')
+        rows = list_week_task_rows()
+        self.assertEqual(rows[0].source_url, '/games/des300/2/')
         tg = TaskGroup.objects.get(pk=detail['task_group_id'])
         self.assertEqual(tg.tasks.visible().count(), 2)
 
@@ -328,10 +334,26 @@ class WeekTaskSupportTests(TestCase):
             updated['source']['task_numbers'],
             list(unit.task_numbers),
         )
+        # Подмножество из нескольких номеров → ссылка на круг без якоря
+        self.assertEqual(updated['source_url'], '/games/des300/1/')
         tg = TaskGroup.objects.get(pk=updated['task_group_id'])
         self.assertEqual(
             sorted(str(t.number) for t in tg.tasks.visible()),
             sorted(unit.task_numbers),
+        )
+
+        # Один номер в subset → якорь на исходный Task
+        prop = GameTaskGroup.objects.get(game_id='des301', number='2')
+        updated2 = update_week_task(
+            detail['link_id'],
+            source_task_group_id=prop.task_group_id,
+            major='2',
+        )
+        self.assertEqual(updated2['source']['task_numbers'], ['2.1'])
+        src_task = Task.objects.get(task_group_id=prop.task_group_id, number='2.1')
+        self.assertEqual(
+            updated2['source_url'],
+            f'/games/des301/2/#new-task-{src_task.pk}',
         )
 
     def test_update_source_blocked_when_published(self):
