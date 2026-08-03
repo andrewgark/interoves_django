@@ -4498,8 +4498,8 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   overflow: hidden;
 }
 .new-alphabetty__prefix-side.is-open {
-  width: 11rem;
-  max-width: min(11rem, 42vw);
+  width: max-content;
+  max-width: min(14rem, 46vw);
 }
 .new-alphabetty__prefix-side[hidden] {
   display: none !important;
@@ -4629,34 +4629,39 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 .new-alphabetty__prefix-panel {
   flex: 1 1 auto;
   min-height: 0;
-  width: 100%;
-  max-width: none;
+  width: max-content;
+  min-width: 2.1rem;
+  max-width: 100%;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--border);
   border-radius: 0.35rem;
   background: var(--surface);
-  padding: 0.35rem 0.3rem;
+  padding: 0.3rem 0.35rem;
   box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
 }
 .new-alphabetty__prefix-panel[hidden] {
   display: none !important;
 }
 
+/* До первой попытки: алфавит одной колонкой, как список префиксов. */
 .new-alphabetty__alpha-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(1.15rem, 1fr));
-  gap: 0.12rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.06rem;
+  width: max-content;
 }
 .new-alphabetty__alpha-cell {
-  text-align: center;
+  text-align: left;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 0.78rem;
-  letter-spacing: 0;
-  padding: 0.12rem 0;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.2rem;
   color: var(--muted);
   border-radius: 0.15rem;
+  line-height: 1.35;
 }
 .new-alphabetty__alpha-cell:hover {
   background: color-mix(in srgb, var(--tile) 70%, transparent);
@@ -4822,10 +4827,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
     height: clamp(18rem, calc(100dvh - 12rem), 32rem);
   }
   .new-alphabetty__prefix-side.is-open {
-    width: 7.5rem;
-    max-width: min(7.5rem, 40vw);
-  }
-  .new-alphabetty__alpha-grid {
-    grid-template-columns: repeat(3, minmax(1.05rem, 1fr));
+    width: max-content;
+    max-width: min(10rem, 42vw);
   }
 }
