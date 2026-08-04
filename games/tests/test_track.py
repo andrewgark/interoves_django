@@ -4,6 +4,8 @@ Tests for WebSocket track groups and deferred channel sends (on_commit).
 Integration tests use WebsocketCommunicator + session cookie; TrackGame is async
 so InMemoryChannelLayer groups line up with the test event loop.
 """
+import asyncio
+import time
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
@@ -314,7 +316,8 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
 
 
 @override_settings(
-    CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
+    CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}},
+    TRACK_WS_IDLE_TIMEOUT=0,
 )
 class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
     """
@@ -568,5 +571,46 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
             self.assertEqual(msg['payload']['x'], 1)
             self.assertIn('seq', msg)
             await communicator.disconnect()
+
+        async_to_sync(run)()
+
+    def test_user_track_ping_pong(self):
+        from interoves_django.asgi import application
+
+        headers = self._session_headers()
+        path = '/ws/track/'
+
+        async def run():
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _ = await communicator.connect()
+            assert connected
+            await communicator.send_json_to({'type': 'ping'})
+            msg = await communicator.receive_json_from(timeout=5)
+            self.assertEqual(msg, {'type': 'pong'})
+            await communicator.disconnect()
+
+        async_to_sync(run)()
+
+    @override_settings(TRACK_WS_GROUP_DISCARD_TIMEOUT=0.05, TRACK_WS_IDLE_TIMEOUT=0)
+    def test_disconnect_bounded_when_group_discard_hangs(self):
+        """Slow Redis group_discard must not block disconnect beyond TRACK_WS_GROUP_DISCARD_TIMEOUT."""
+        from interoves_django.asgi import application
+
+        headers = self._session_headers()
+        path = '/ws/track/'
+
+        async def slow_discard(group, channel):
+            await asyncio.sleep(30)
+
+        async def run():
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _ = await communicator.connect()
+            assert connected
+            layer = get_channel_layer()
+            with patch.object(layer, 'group_discard', side_effect=slow_discard):
+                t0 = time.monotonic()
+                await communicator.disconnect()
+                elapsed = time.monotonic() - t0
+            self.assertLess(elapsed, 2.0)
 
         async_to_sync(run)()

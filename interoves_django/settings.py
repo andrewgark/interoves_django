@@ -363,6 +363,23 @@ DEFER_CHANNEL_BROADCAST = os.environ.get('DEFER_CHANNEL_BROADCAST', '1').strip()
     'no',
 )
 
+# Track WebSocket lifecycle (games.views.track). Idle close + bounded Redis group_discard
+# so a stuck channel layer cannot block Daphne application close (prod 504 / "took too long").
+def _env_float(name, default):
+    try:
+        return float(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return float(default)
+
+
+TRACK_WS_IDLE_TIMEOUT = _env_float('TRACK_WS_IDLE_TIMEOUT', 90)
+TRACK_WS_IDLE_CHECK_INTERVAL = _env_float('TRACK_WS_IDLE_CHECK_INTERVAL', 15)
+TRACK_WS_GROUP_DISCARD_TIMEOUT = _env_float('TRACK_WS_GROUP_DISCARD_TIMEOUT', 2)
+try:
+    TRACK_WS_OPEN_LOG_EVERY = max(1, int(os.environ.get('TRACK_WS_OPEN_LOG_EVERY', '50') or 50))
+except ValueError:
+    TRACK_WS_OPEN_LOG_EVERY = 50
+
 CHANNEL_LAYERS = {
     "default": {
         # this can only be used in single-replica deployments

@@ -1,1 +1,1 @@
-web: daphne -b 0.0.0.0 -p 8000 interoves_django.asgi:application
+web: daphne -b 0.0.0.0 -p 8000 --application-close-timeout 5 interoves_django.asgi:application

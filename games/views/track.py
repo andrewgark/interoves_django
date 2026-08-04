@@ -13,9 +13,14 @@ Groups:
 - track.user.{user_id} — private signals (game start, shipment, etc.); same socket as game page.
 
 Messages include monotonic seq per namespace (Django cache) so the client can ignore stale payloads.
+
+Lifecycle: client ping + idle timeout; group_discard wrapped in wait_for so Redis latency
+cannot block Daphne application close (prod 504 / "took too long to shut down").
 """
+import asyncio
 import logging
 import threading
+import time
 
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
@@ -31,6 +36,90 @@ from games.models import Attempt, GameTaskGroup, Task
 from games.views.render_task import update_task_html
 
 logger = logging.getLogger(__name__)
+
+_open_track_sockets = 0
+_open_track_sockets_lock = threading.Lock()
+
+
+def _track_ws_open_delta(delta: int) -> int:
+    global _open_track_sockets
+    with _open_track_sockets_lock:
+        _open_track_sockets = max(0, _open_track_sockets + delta)
+        return _open_track_sockets
+
+
+class TrackWsLifecycleMixin:
+    """Ping/pong, idle close, and timed channel-layer group_discard."""
+
+    def _track_touch_activity(self):
+        self._track_last_activity = time.monotonic()
+
+    async def _track_start_lifecycle(self):
+        self._track_touch_activity()
+        self._track_idle_task = asyncio.create_task(
+            self._track_idle_watch(),
+            name='track_ws_idle',
+        )
+        open_n = _track_ws_open_delta(1)
+        every = getattr(settings, 'TRACK_WS_OPEN_LOG_EVERY', 50)
+        if open_n == 1 or open_n % every == 0:
+            logger.info('Track WebSocket open_count=%s', open_n)
+
+    async def _track_stop_lifecycle(self):
+        task = getattr(self, '_track_idle_task', None)
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._track_idle_task = None
+        open_n = _track_ws_open_delta(-1)
+        every = getattr(settings, 'TRACK_WS_OPEN_LOG_EVERY', 50)
+        if open_n == 0 or open_n % every == 0:
+            logger.info('Track WebSocket open_count=%s', open_n)
+
+    async def _track_idle_watch(self):
+        timeout = float(getattr(settings, 'TRACK_WS_IDLE_TIMEOUT', 90))
+        interval = float(getattr(settings, 'TRACK_WS_IDLE_CHECK_INTERVAL', 15))
+        if timeout <= 0:
+            return
+        interval = max(1.0, interval)
+        try:
+            while True:
+                await asyncio.sleep(interval)
+                last = getattr(self, '_track_last_activity', time.monotonic())
+                if time.monotonic() - last >= timeout:
+                    logger.info('Track WebSocket idle timeout; closing')
+                    await self.close(code=4000)
+                    return
+        except asyncio.CancelledError:
+            raise
+
+    async def _track_group_discard(self, group):
+        if not group or self.channel_layer is None:
+            return
+        timeout = float(getattr(settings, 'TRACK_WS_GROUP_DISCARD_TIMEOUT', 2))
+        try:
+            await asyncio.wait_for(
+                self.channel_layer.group_discard(group, self.channel_name),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                'Track group_discard timed out after %ss group=%s',
+                timeout,
+                group,
+            )
+        except Exception:
+            logger.exception('Track group_discard failed group=%s', group)
+
+    async def receive_json(self, content, **kwargs):
+        self._track_touch_activity()
+        if isinstance(content, dict) and content.get('type') == 'ping':
+            await self.send_json({'type': 'pong'})
+            return
+        await super().receive_json(content, **kwargs)
 
 
 def _schedule_channel_broadcast(fn):
@@ -300,7 +389,7 @@ def track_task_change(task, team=None, current_mode=None, update_html=None, requ
     _schedule_channel_broadcast(send)
 
 
-class TrackGame(AsyncJsonWebsocketConsumer):
+class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
     """Async consumer so group_add/group_send share the same asyncio loop (Channels 4 idiom)."""
 
     @database_sync_to_async
@@ -342,6 +431,7 @@ class TrackGame(AsyncJsonWebsocketConsumer):
             if self.group_game_team:
                 await self.channel_layer.group_add(self.group_game_team, self.channel_name)
             await self.channel_layer.group_add(self.group_user, self.channel_name)
+        await self._track_start_lifecycle()
 
     @database_sync_to_async
     def _build_task_changed_for_admin(self, event):
@@ -356,6 +446,7 @@ class TrackGame(AsyncJsonWebsocketConsumer):
         )
 
     async def task_changed(self, event):
+        self._track_touch_activity()
         if event['by'] == 'admin':
             event = await self._build_task_changed_for_admin(event)
         if 'seq' not in event:
@@ -366,6 +457,7 @@ class TrackGame(AsyncJsonWebsocketConsumer):
 
     async def track_event(self, event):
         """User-targeted messages (type='track.event' in group_send body)."""
+        self._track_touch_activity()
         event = msgpack_safe_keys(event)
         if 'seq' not in event:
             event = dict(event)
@@ -373,16 +465,13 @@ class TrackGame(AsyncJsonWebsocketConsumer):
         await self.send_json(event)
 
     async def disconnect(self, code):
-        if self.channel_layer is not None:
-            if getattr(self, 'group_game', None):
-                await self.channel_layer.group_discard(self.group_game, self.channel_name)
-            if getattr(self, 'group_game_team', None):
-                await self.channel_layer.group_discard(self.group_game_team, self.channel_name)
-            if getattr(self, 'group_user', None):
-                await self.channel_layer.group_discard(self.group_user, self.channel_name)
+        await self._track_stop_lifecycle()
+        await self._track_group_discard(getattr(self, 'group_game', None))
+        await self._track_group_discard(getattr(self, 'group_game_team', None))
+        await self._track_group_discard(getattr(self, 'group_user', None))
 
 
-class UserTrackConsumer(AsyncJsonWebsocketConsumer):
+class UserTrackConsumer(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
     """
     User-only group (track.user.{id}) for hub / pages without a game id in the URL.
     Same track.event payloads as TrackGame.track_event.
@@ -402,13 +491,15 @@ class UserTrackConsumer(AsyncJsonWebsocketConsumer):
         await self.accept()
         if self.channel_layer is not None:
             await self.channel_layer.group_add(self.group_user, self.channel_name)
+        await self._track_start_lifecycle()
 
     async def track_event(self, event):
+        self._track_touch_activity()
         if 'seq' not in event:
             event = dict(event)
             event['seq'] = next_track_seq(f'user:{self.user_id}')
         await self.send_json(event)
 
     async def disconnect(self, code):
-        if self.channel_layer is not None and getattr(self, 'group_user', None):
-            await self.channel_layer.group_discard(self.group_user, self.channel_name)
+        await self._track_stop_lifecycle()
+        await self._track_group_discard(getattr(self, 'group_user', None))

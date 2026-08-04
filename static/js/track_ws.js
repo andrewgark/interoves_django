@@ -1,6 +1,10 @@
 (function (global) {
   'use strict';
 
+  var PING_MS = 25000;
+  var RECONNECT_MIN_MS = 1000;
+  var RECONNECT_MAX_MS = 30000;
+
   function proto() {
     return window.location.protocol === 'https:' ? 'wss' : 'ws';
   }
@@ -45,35 +49,115 @@
     }
   }
 
-  function connectUserHub() {
-    var socket = new WebSocket(proto() + '://' + host() + '/ws/track/');
-    socket.onmessage = function (ev) {
+  /**
+   * Persistent WebSocket with exponential reconnect backoff and application ping.
+   * onMessage(msg) receives parsed JSON except ping/pong.
+   */
+  function openTrackSocket(url, onMessage) {
+    var delay = RECONNECT_MIN_MS;
+    var socket = null;
+    var pingTimer = null;
+    var reconnectTimer = null;
+    var stopped = false;
+
+    function clearPing() {
+      if (pingTimer) {
+        clearInterval(pingTimer);
+        pingTimer = null;
+      }
+    }
+
+    function scheduleReconnect() {
+      if (stopped || reconnectTimer) return;
+      reconnectTimer = setTimeout(function () {
+        reconnectTimer = null;
+        connect();
+      }, delay);
+      delay = Math.min(RECONNECT_MAX_MS, delay * 2);
+    }
+
+    function connect() {
+      if (stopped) return;
+      clearPing();
       try {
-        var msg = JSON.parse(ev.data);
-        handleTrackEvent(msg);
-      } catch (e) {}
+        socket = new WebSocket(url);
+      } catch (e) {
+        scheduleReconnect();
+        return;
+      }
+
+      socket.onopen = function () {
+        delay = RECONNECT_MIN_MS;
+        clearPing();
+        pingTimer = setInterval(function () {
+          if (socket && socket.readyState === 1) {
+            try {
+              socket.send(JSON.stringify({ type: 'ping' }));
+            } catch (err) {}
+          }
+        }, PING_MS);
+      };
+
+      socket.onmessage = function (ev) {
+        try {
+          var msg = JSON.parse(ev.data);
+          if (!msg || msg.type === 'pong') return;
+          if (typeof onMessage === 'function') onMessage(msg);
+        } catch (e) {}
+      };
+
+      socket.onerror = function () {
+        // onclose follows; reconnect there
+      };
+
+      socket.onclose = function () {
+        clearPing();
+        socket = null;
+        scheduleReconnect();
+      };
+    }
+
+    connect();
+
+    return {
+      close: function () {
+        stopped = true;
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
+        clearPing();
+        if (socket) {
+          try {
+            socket.close();
+          } catch (e) {}
+          socket = null;
+        }
+      },
     };
   }
 
+  function connectUserHub() {
+    return openTrackSocket(proto() + '://' + host() + '/ws/track/', function (msg) {
+      handleTrackEvent(msg);
+    });
+  }
+
   function connectGame(gameId) {
-    if (!gameId) return;
-    var socket = new WebSocket(
-      proto() + '://' + host() + '/games/' + encodeURIComponent(gameId) + '/track'
-    );
-    socket.onmessage = function (ev) {
-      try {
-        var msg = JSON.parse(ev.data);
-        if (msg.type === 'track.event') {
-          handleTrackEvent(msg);
-          return;
-        }
-        applyTaskUpdates(msg);
-      } catch (e) {}
-    };
+    if (!gameId) return null;
+    var url = proto() + '://' + host() + '/games/' + encodeURIComponent(gameId) + '/track';
+    return openTrackSocket(url, function (msg) {
+      if (msg.type === 'track.event') {
+        handleTrackEvent(msg);
+        return;
+      }
+      applyTaskUpdates(msg);
+    });
   }
 
   global.InterovesTrack = {
     connectUserHub: connectUserHub,
     connectGame: connectGame,
+    openTrackSocket: openTrackSocket,
   };
 })(window);

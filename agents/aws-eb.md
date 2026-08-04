@@ -160,6 +160,44 @@ Check progress with:
 ../venv/interoves_django/bin/python manage.py check_background_migrations
 ```
 
+## Site 504 / Daphne hang playbook
+
+Symptom: Cloudflare/ALB **504**, EB **Red**, TG `Target.Timeout`, SSM `ConnectionLost`, but EC2 status checks still **ok**.
+
+Cause pattern (2026-08-04): single Daphne process wedged (Channels `/ws/track/` + Redis `group_discard`); hypervisor healthy so **EC2** ASG health never replaced the box.
+
+**Safety net (`.ebextensions/health.config`):** ASG `HealthCheckType=ELB` + tighter TG checks on `/health/`. Unhealthy target → ASG terminates and launches a new instance (short downtime vs hour-long 504). Grace period **300s** so boot/deploy is not treated as failure.
+
+**Alert:** CloudWatch alarm `interoves-elb-unhealthy-hosts` (`UnHealthyHostCount >= 1`, 2 min) → SNS topic `interoves-eb-health-alerts`. Subscribe once:
+
+```bash
+AWS_PROFILE=interoves aws sns subscribe --region eu-central-1 \
+  --topic-arn "$(aws sns list-topics --region eu-central-1 \
+    --query "Topics[?contains(TopicArn,'interoves-eb-health-alerts')].TopicArn" --output text)" \
+  --protocol email --notification-endpoint you@example.com
+```
+
+**Manual recovery** (if replace is slow / mid-investigation):
+
+| Action | Who | Notes |
+|--------|-----|--------|
+| Soft reboot | `AWS_PROFILE=interoves aws ec2 reboot-instances --instance-ids …` | Guest may ignore ACPI if fully hung; often works in a few minutes |
+| Terminate (ASG replaces) | `AWS_PROFILE=interoves aws ec2 terminate-instances …` or ASG terminate-in-ASG with `--no-should-decrement-desired-capacity` | Preferred hard recovery; new public IP if no EIP (ALB path unaffected) |
+| Stop / start | **Not allowed** for `interoves` IAM (`ec2:StopInstances` denied) | Use terminate+replace instead |
+
+Checks:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' https://interoves.com/
+./scripts/aws_with_role.sh eb status   # expect Health: Green
+# TG health:
+aws elbv2 describe-target-health --region eu-central-1 \
+  --target-group-arn "$(aws elbv2 describe-target-groups --region eu-central-1 \
+    --query "TargetGroups[?contains(TargetGroupName,'AWSEB')].TargetGroupArn" --output text | awk '{print $1}')"
+```
+
+On-instance clues (after recovery): `/var/log/messages` — Daphne `took too long to shut down` on `/ws/track/`.
+
 ## EB deploy troubleshooting
 
 | Symptom | Likely cause | Fix |
@@ -167,6 +205,7 @@ Check progress with:
 | Deploy stuck 60+ min | Long-running migration in `container_commands` | Background pattern above |
 | "Must be Ready" on `eb deploy` | Env already updating | Wait, then retry |
 | Site 000 after timeout | Single-instance: old app stopped, new one failed | Redeploy last good version label |
+| Site 504, EB Red, EC2 ok | Daphne/event loop hung; historically EC2-only ASG health | ELB health replace (above); reboot/terminate |
 | `Access denied` for MySQL | Stale `RDS_PASSWORD` from CloudFormation | Secrets Manager pattern above |
 | `eb logs --zip` HTTP 400 | Env in invalid/updating state | Wait until Ready |
 
@@ -198,3 +237,5 @@ aws elasticbeanstalk update-environment --region eu-central-1 \
 | RDS security group | `sg-0631c0b9e45b0f6b3` |
 | RDS secret ARN | `arn:aws:secretsmanager:eu-central-1:916000456640:secret:rds!db-ce1a594a-9964-4a32-a9d3-9483ada5368c-0O6ead` |
 | EC2 IAM role | `aws-elasticbeanstalk-ec2-role` |
+| SNS health alerts | topic name `interoves-eb-health-alerts` (from `.ebextensions/health.config`) |
+| CW alarm | `interoves-elb-unhealthy-hosts` |
