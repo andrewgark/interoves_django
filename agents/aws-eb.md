@@ -168,13 +168,13 @@ Cause pattern (2026-08-04): single Daphne process wedged (Channels `/ws/track/` 
 
 **Safety net (`.ebextensions/health.config`):** ASG `HealthCheckType=ELB` + `HealthCheckGracePeriod=600` on `AWSEBAutoScalingGroup`, TG checks on `/health/`, and `IgnoreHealthCheck=true` so a brief Daphne restart during deploy does not spawn replacement instances mid-roll.
 
-**Alert:** CloudWatch alarm `interoves-elb-unhealthy-hosts` → SNS `interoves-eb-health-alerts`. EB CFN cannot create SNS (service role lacks `SNS:CreateTopic`). After deploy, once:
+**Alert:** CloudWatch alarm `interoves-elb-unhealthy-hosts` (no SNS — `interoves` IAM lacks `SNS:CreateTopic`). Create/refresh with:
 
 ```bash
-AWS_PROFILE=interoves ./scripts/ensure_eb_health_alarm.sh you@example.com
+AWS_PROFILE=interoves ./scripts/ensure_eb_health_alarm.sh
 ```
 
-(omit the email arg to only upsert topic + alarm; confirm the SNS email if subscribed).
+If SNS is granted later, re-run and pass an email to subscribe. Until then the alarm is visible in CloudWatch console only.
 **Manual recovery** (if replace is slow / mid-investigation):
 
 | Action | Who | Notes |

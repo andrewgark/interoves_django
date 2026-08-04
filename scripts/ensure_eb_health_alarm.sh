@@ -1,31 +1,32 @@
 #!/usr/bin/env bash
-# Idempotent: SNS topic + CloudWatch UnHealthyHostCount alarm for interoves-env.
-# EB CFN cannot create SNS (service role). Run with AWS_PROFILE=interoves (or after bootstrap).
+# Idempotent CloudWatch UnHealthyHostCount alarm for interoves-env.
+# SNS topic is optional: interoves IAM often lacks SNS:CreateTopic — alarm still works in console.
 #
 # Usage:
 #   ./scripts/ensure_eb_health_alarm.sh
-#   ./scripts/ensure_eb_health_alarm.sh you@example.com   # also email-subscribe
+#   ./scripts/ensure_eb_health_alarm.sh you@example.com   # try SNS subscribe if CreateTopic allowed
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck disable=SC1091
-source "${REPO_ROOT}/scripts/interoves_aws_bootstrap.sh"
-# Prefer interoves user for SNS/CW; bootstrap may assume ai-bot which lacks SNS.
+REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
 export AWS_PROFILE="${AWS_PROFILE:-interoves}"
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN 2>/dev/null || true
 
-REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
-TOPIC_NAME="interoves-eb-health-alerts"
 ALARM_NAME="interoves-elb-unhealthy-hosts"
+TOPIC_NAME="interoves-eb-health-alerts"
 EMAIL_SUB="${1:-}"
+ACTIONS=()
 
-TOPIC_ARN=$(aws sns create-topic --name "$TOPIC_NAME" --region "$REGION" --query TopicArn --output text)
-echo "SNS topic: $TOPIC_ARN"
-
-if [[ -n "$EMAIL_SUB" ]]; then
-  aws sns subscribe --region "$REGION" --topic-arn "$TOPIC_ARN" \
-    --protocol email --notification-endpoint "$EMAIL_SUB" >/dev/null
-  echo "Subscribed $EMAIL_SUB (confirm the email)."
+TOPIC_ARN=""
+if TOPIC_ARN=$(aws sns create-topic --name "$TOPIC_NAME" --region "$REGION" --query TopicArn --output text 2>/dev/null); then
+  echo "SNS topic: $TOPIC_ARN"
+  ACTIONS=(--alarm-actions "$TOPIC_ARN" --ok-actions "$TOPIC_ARN")
+  if [[ -n "$EMAIL_SUB" ]]; then
+    aws sns subscribe --region "$REGION" --topic-arn "$TOPIC_ARN" \
+      --protocol email --notification-endpoint "$EMAIL_SUB" >/dev/null
+    echo "Subscribed $EMAIL_SUB (confirm the email)."
+  fi
+else
+  echo "SNS CreateTopic not permitted — creating alarm without notification actions."
 fi
 
 TG_ARN=$(aws elbv2 describe-target-groups --region "$REGION" \
@@ -37,9 +38,9 @@ if [[ -z "$TG_ARN" || "$TG_ARN" == "None" ]]; then
 fi
 LB_ARN=$(aws elbv2 describe-target-groups --region "$REGION" --target-group-arns "$TG_ARN" \
   --query 'TargetGroups[0].LoadBalancerArns[0]' --output text)
-TG_DIM="${TG_ARN#*:*:*:*:*:}"          # targetgroup/name/id
-LB_DIM="${LB_ARN#*:*:*:*:*:}"          # loadbalancer/app/name/id
-LB_DIM="${LB_DIM#loadbalancer/}"       # app/name/id
+TG_DIM="${TG_ARN#*:*:*:*:*:}"
+LB_DIM="${LB_ARN#*:*:*:*:*:}"
+LB_DIM="${LB_DIM#loadbalancer/}"
 
 echo "TargetGroup dim: $TG_DIM"
 echo "LoadBalancer dim: $LB_DIM"
@@ -57,7 +58,6 @@ aws cloudwatch put-metric-alarm --region "$REGION" \
   --comparison-operator GreaterThanOrEqualToThreshold \
   --treat-missing-data notBreaching \
   --dimensions "Name=TargetGroup,Value=${TG_DIM}" "Name=LoadBalancer,Value=${LB_DIM}" \
-  --alarm-actions "$TOPIC_ARN" \
-  --ok-actions "$TOPIC_ARN"
+  "${ACTIONS[@]+"${ACTIONS[@]}"}"
 
 echo "Alarm upserted: $ALARM_NAME"
