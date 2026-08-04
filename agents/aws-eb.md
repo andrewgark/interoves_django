@@ -196,6 +196,10 @@ aws elbv2 describe-target-health --region eu-central-1 \
 
 On-instance clues (after recovery): `/var/log/messages` — Daphne `took too long to shut down` on `/ws/track/`.
 
+## ASG weekly capacity (do not put in CFN)
+
+Sunday 17:00 / Monday 00:00 MSK schedules are **CLI-only** (`./scripts/ensure_asg_schedule.sh`). CloudFormation `AWS::AutoScaling::ScheduledAction` in `.ebextensions` re-applies min/max on stack updates and can force capacity=3 mid-week during unrelated deploys.
+
 ## EB deploy troubleshooting
 
 | Symptom | Likely cause | Fix |
