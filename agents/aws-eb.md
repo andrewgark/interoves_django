@@ -166,7 +166,7 @@ Symptom: Cloudflare/ALB **504**, EB **Red**, TG `Target.Timeout`, SSM `Connectio
 
 Cause pattern (2026-08-04): single Daphne process wedged (Channels `/ws/track/` + Redis `group_discard`); hypervisor healthy so **EC2** ASG health never replaced the box.
 
-**Safety net (`.ebextensions/health.config`):** ASG `HealthCheckType=ELB` + tighter TG checks on `/health/`. Unhealthy target → ASG terminates and launches a new instance (short downtime vs hour-long 504). Grace period **300s** so boot/deploy is not treated as failure.
+**Safety net (`.ebextensions/health.config`):** ASG `HealthCheckType=ELB` + `HealthCheckGracePeriod=300` on `AWSEBAutoScalingGroup`, plus tighter TG checks on `/health/`. Unhealthy target → ASG terminates and launches a new instance (short downtime vs hour-long 504).
 
 **Alert:** CloudWatch alarm `interoves-elb-unhealthy-hosts` (`UnHealthyHostCount >= 1`, 2 min) → SNS topic `interoves-eb-health-alerts`. Subscribe once:
 
