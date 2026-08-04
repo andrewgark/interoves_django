@@ -168,15 +168,13 @@ Cause pattern (2026-08-04): single Daphne process wedged (Channels `/ws/track/` 
 
 **Safety net (`.ebextensions/health.config`):** ASG `HealthCheckType=ELB` + `HealthCheckGracePeriod=300` on `AWSEBAutoScalingGroup`, plus tighter TG checks on `/health/`. Unhealthy target → ASG terminates and launches a new instance (short downtime vs hour-long 504).
 
-**Alert:** CloudWatch alarm `interoves-elb-unhealthy-hosts` (`UnHealthyHostCount >= 1`, 2 min) → SNS topic `interoves-eb-health-alerts`. Subscribe once:
+**Alert:** CloudWatch alarm `interoves-elb-unhealthy-hosts` → SNS `interoves-eb-health-alerts`. EB CFN cannot create SNS (service role lacks `SNS:CreateTopic`). After deploy, once:
 
 ```bash
-AWS_PROFILE=interoves aws sns subscribe --region eu-central-1 \
-  --topic-arn "$(aws sns list-topics --region eu-central-1 \
-    --query "Topics[?contains(TopicArn,'interoves-eb-health-alerts')].TopicArn" --output text)" \
-  --protocol email --notification-endpoint you@example.com
+AWS_PROFILE=interoves ./scripts/ensure_eb_health_alarm.sh you@example.com
 ```
 
+(omit the email arg to only upsert topic + alarm; confirm the SNS email if subscribed).
 **Manual recovery** (if replace is slow / mid-investigation):
 
 | Action | Who | Notes |
@@ -237,5 +235,5 @@ aws elasticbeanstalk update-environment --region eu-central-1 \
 | RDS security group | `sg-0631c0b9e45b0f6b3` |
 | RDS secret ARN | `arn:aws:secretsmanager:eu-central-1:916000456640:secret:rds!db-ce1a594a-9964-4a32-a9d3-9483ada5368c-0O6ead` |
 | EC2 IAM role | `aws-elasticbeanstalk-ec2-role` |
-| SNS health alerts | topic name `interoves-eb-health-alerts` (from `.ebextensions/health.config`) |
+| SNS health alerts | topic `interoves-eb-health-alerts` via `./scripts/ensure_eb_health_alarm.sh` |
 | CW alarm | `interoves-elb-unhealthy-hosts` |
