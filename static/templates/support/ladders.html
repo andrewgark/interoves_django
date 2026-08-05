@@ -161,6 +161,9 @@
   function isScheduleView() {
     return viewTab === 'schedule';
   }
+  function canReorder() {
+    return viewTab === 'schedule' || viewTab === 'future';
+  }
   function renderMeta(rows) {
     var published = 0;
     var today = null;
@@ -177,14 +180,14 @@
   }
 
   function renderList(rows) {
-    listEl.classList.toggle('support-schedule-readonly', !isScheduleView());
+    listEl.classList.toggle('support-schedule-readonly', !canReorder());
     if (isScheduleView()) {
       bootstrap = rows;
     }
     listEl.innerHTML = '';
     if (!rows.length) {
       listEl.innerHTML = '<p class="support-empty">Пока нет лесенок. Нажмите «+ В конец».</p>';
-      renderMeta(rows);
+      renderMeta(allRows);
       return;
     }
     var lockedUntil = isScheduleView() ? lastPublishedNumber(allRows) : 0;
@@ -202,7 +205,7 @@
       if (row.is_today) item.classList.add('is-today');
       else if (!row.is_published) item.classList.add('is-future');
       if (row.is_published) item.classList.add('is-locked');
-      item.draggable = isScheduleView() && !row.is_published;
+      item.draggable = canReorder() && !row.is_published;
       item.dataset.linkId = String(row.link_id);
       item.dataset.published = row.is_published ? '1' : '0';
       var handle = row.is_published
@@ -263,10 +266,20 @@
     );
   }
 
+  function fullOrderFromView() {
+    var visible = currentOrder();
+    if (viewTab !== 'future') return visible;
+    var publishedIds = allRows
+      .filter(function (r) { return r.is_published; })
+      .sort(function (a, b) { return a.number - b.number; })
+      .map(function (r) { return r.link_id; });
+    return publishedIds.concat(visible);
+  }
+
   function persistOrder() {
     if (busy) return;
     setBusy(true);
-    postJson(endpoints.reorder, { order: currentOrder() })
+    postJson(endpoints.reorder, { order: fullOrderFromView() })
       .then(function (data) { setRows(data.ladders); })
       .catch(function (e) { alert(e.message || String(e)); location.reload(); })
       .finally(function () { setBusy(false); });
@@ -343,7 +356,7 @@
   var dropIndex = null;
 
   listEl.addEventListener('dragstart', function (e) {
-    if (!isScheduleView()) { e.preventDefault(); return; }
+    if (!canReorder()) { e.preventDefault(); return; }
     var item = e.target.closest('.support-ladder-item');
     if (!item || busy || item.dataset.published === '1') { e.preventDefault(); return; }
     dragId = item.dataset.linkId;
@@ -362,14 +375,15 @@
   });
 
   listEl.addEventListener('dragover', function (e) {
-    if (!isScheduleView() || !dragId) return;
+    if (!canReorder() || !dragId) return;
     e.preventDefault();
     var item = e.target.closest('.support-ladder-item');
     if (!item) return;
     var items = Array.prototype.slice.call(listEl.querySelectorAll('.support-ladder-item'));
     var targetIdx = items.indexOf(item);
     if (targetIdx < 0) return;
-    var lockedUntil = lastPublishedNumber(allRows);
+    /* Во вкладке «Будущие» все строки будущие — lockedUntil по индексам = 0 */
+    var lockedUntil = viewTab === 'future' ? 0 : lastPublishedNumber(allRows);
     var rect = item.getBoundingClientRect();
     var before = (e.clientY - rect.top) < rect.height / 2;
     var candidate = before ? targetIdx : targetIdx + 1;
@@ -387,8 +401,8 @@
 
   listEl.addEventListener('drop', function (e) {
     e.preventDefault();
-    if (!isScheduleView() || !dragId || dropIndex == null) return;
-    var lockedUntil = lastPublishedNumber(allRows);
+    if (!canReorder() || !dragId || dropIndex == null) return;
+    var lockedUntil = viewTab === 'future' ? 0 : lastPublishedNumber(allRows);
     if (dropIndex < lockedUntil) {
       alert('Нельзя менять порядок уже вышедших лесенок');
       return;
@@ -408,12 +422,19 @@
     order.splice(to, 0, id);
     var byId = {};
     allRows.forEach(function (r) { byId[r.link_id] = r; });
-    var preview = order.map(function (pk, i) {
+    var fullOrder = viewTab === 'future'
+      ? allRows.filter(function (r) { return r.is_published; })
+          .sort(function (a, b) { return a.number - b.number; })
+          .map(function (r) { return r.link_id; })
+          .concat(order)
+      : order;
+    var preview = fullOrder.map(function (pk, i) {
       var row = byId[pk];
       if (!row) return null;
       return Object.assign({}, row, { number: i + 1 });
     }).filter(Boolean);
-    renderList(preview);
+    allRows = preview;
+    refreshView();
     persistOrder();
   });
 
