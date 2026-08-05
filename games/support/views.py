@@ -20,20 +20,26 @@ from games.support.services.alphabetty import (
     AlphabettySupportError,
     alphabetty_dashboard_context,
     create_alphabetty,
+    delete_alphabetty,
+    forbid_alphabetty,
     generate_more as alphabetty_generate_more,
     get_alphabetty_detail,
     reorder_alphabetty,
     set_publish_start as alphabetty_set_publish_start_service,
+    unban_alphabetty_word,
     update_alphabetty,
 )
 from games.support.services.week_tasks import (
     WeekTaskSupportError,
     create_week_task,
+    delete_week_task,
+    forbid_week_task,
     generate_more as week_tasks_generate_more,
     get_pool_catalog as week_tasks_get_pool_catalog,
     get_week_task_detail,
     reorder_week_tasks,
     set_publish_start as week_tasks_set_publish_start_service,
+    unban_week_task_unit,
     update_week_task,
     week_task_dashboard_context,
 )
@@ -41,6 +47,7 @@ from games.support.services.ladders import (
     LadderSupportError,
     create_ladder,
     dashboard_context as ladders_dashboard_context,
+    delete_ladder,
     get_ladder_detail,
     reorder_ladders,
     set_publish_start,
@@ -468,6 +475,21 @@ def ladders_set_publish_start(request):
     })
 
 
+@support_console_required
+@require_POST
+def ladders_delete(request, link_id):
+    try:
+        rows = delete_ladder(int(link_id))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)
+    except LadderSupportError as exc:
+        return _ladder_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'ladders': [r.to_dict() for r in rows],
+    })
+
+
 def _alphabetty_error_response(exc: AlphabettySupportError, status=400):
     return JsonResponse({'ok': False, 'error': str(exc)}, status=status)
 
@@ -600,6 +622,46 @@ def alphabetty_generate(request):
         'created_count': result['created_count'],
         'rows': result['rows'],
     })
+
+
+@support_console_required
+@require_POST
+def alphabetty_delete(request, link_id):
+    try:
+        rows = delete_alphabetty(int(link_id))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)
+    except AlphabettySupportError as exc:
+        return _alphabetty_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'rows': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def alphabetty_forbid(request, link_id):
+    try:
+        result = forbid_alphabetty(int(link_id))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)
+    except AlphabettySupportError as exc:
+        return _alphabetty_error_response(exc)
+    return JsonResponse({'ok': True, **result})
+
+
+@support_console_required
+@require_POST
+def alphabetty_unban(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    word = body.get('word')
+    if not word:
+        return JsonResponse({'ok': False, 'error': 'Нужно word'}, status=400)
+    banned = unban_alphabetty_word(str(word))
+    return JsonResponse({'ok': True, 'banned': banned})
 
 
 def _week_tasks_error_response(exc: WeekTaskSupportError, status=400):
@@ -776,6 +838,56 @@ def week_tasks_generate(request):
         'created_count': result['created_count'],
         'rows': result['rows'],
     })
+
+
+@support_console_required
+@require_POST
+def week_tasks_delete(request, link_id):
+    try:
+        rows = delete_week_task(int(link_id))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)
+    except WeekTaskSupportError as exc:
+        return _week_tasks_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'rows': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def week_tasks_forbid(request, link_id):
+    try:
+        result = forbid_week_task(int(link_id))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)
+    except WeekTaskSupportError as exc:
+        return _week_tasks_error_response(exc)
+    return JsonResponse({'ok': True, **result})
+
+
+@support_console_required
+@require_POST
+def week_tasks_unban(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    try:
+        task_group_id = int(body.get('task_group_id'))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Нужен task_group_id'}, status=400)
+    nums = body.get('task_numbers')
+    task_numbers = None
+    if nums is not None:
+        if not isinstance(nums, list):
+            return JsonResponse({'ok': False, 'error': 'task_numbers должен быть списком'}, status=400)
+        task_numbers = [str(x) for x in nums]
+    banned = unban_week_task_unit(
+        task_group_id=task_group_id,
+        task_numbers=task_numbers,
+    )
+    return JsonResponse({'ok': True, 'banned': banned})
 
 
 def _social_error_response(exc: SocialSupportError, status=400):

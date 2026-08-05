@@ -11,7 +11,14 @@ from django.db import transaction
 from django.utils import timezone
 
 from games.models import Game, GameTaskGroup
+from games.support.services.banned import (
+    add_banned_unit,
+    list_banned_units,
+    remove_banned_unit,
+)
+from games.support.services.schedule_links import delete_future_slot
 from games.week_task_pool import (
+    WEEK_TASK_SOURCE_TAG,
     materialize_unit,
     pick_random_units,
     pool_catalog,
@@ -482,6 +489,83 @@ def ensure_future_buffer(
     return {'added': added, 'future': future, 'target': target}
 
 
+def _source_exclude_key(link: GameTaskGroup) -> tuple[int, frozenset[str] | None] | None:
+    tags = (link.task_group.tags or {}) if link.task_group_id else {}
+    src = tags.get(WEEK_TASK_SOURCE_TAG) or {}
+    if not isinstance(src, dict):
+        return None
+    tg_id = src.get('task_group_id')
+    if tg_id is None:
+        return None
+    try:
+        tg_id_int = int(tg_id)
+    except (TypeError, ValueError):
+        return None
+    nums = src.get('task_numbers')
+    if nums is None:
+        return (tg_id_int, None)
+    return (tg_id_int, frozenset(str(x) for x in nums))
+
+
+@transaction.atomic
+def delete_week_task(link_id: int, *, now: datetime | None = None) -> list[WeekTaskRow]:
+    """Удалить будущее задание недели (источник может снова попасть в генерацию)."""
+    game = get_week_task_game()
+    return delete_future_slot(
+        game=game,
+        link_id=link_id,
+        is_number_published=is_week_task_number_published,
+        renumber_links=_renumber_links,
+        list_rows=list_week_task_rows,
+        error_cls=WeekTaskSupportError,
+        not_found_msg='Задание недели не найдено',
+        published_msg='Нельзя удалять уже вышедшее задание №{number}',
+        now=now,
+    )
+
+
+@transaction.atomic
+def forbid_week_task(link_id: int, *, now: datetime | None = None) -> dict[str, Any]:
+    """Удалить будущее задание и запретить его источник для генерации."""
+    game = get_week_task_game()
+    link = (
+        GameTaskGroup.objects.filter(game=game, pk=link_id)
+        .select_related('task_group')
+        .first()
+    )
+    if link is None:
+        raise WeekTaskSupportError('Задание недели не найдено')
+    exclude_key = _source_exclude_key(link)
+    label = _source_label(link)
+    rows = delete_week_task(link_id, now=now)
+    banned = list_banned_units(game)
+    if exclude_key is not None:
+        nums = list(exclude_key[1]) if exclude_key[1] is not None else None
+        banned = add_banned_unit(
+            game,
+            task_group_id=exclude_key[0],
+            task_numbers=nums,
+            label=label,
+        )
+    return {
+        'rows': [r.to_dict() for r in rows],
+        'banned': banned,
+    }
+
+
+def unban_week_task_unit(
+    *,
+    task_group_id: int,
+    task_numbers: list[str] | None,
+) -> list[dict[str, Any]]:
+    game = get_week_task_game()
+    return remove_banned_unit(
+        game,
+        task_group_id=task_group_id,
+        task_numbers=task_numbers,
+    )
+
+
 def week_task_dashboard_context(*, now: datetime | None = None) -> dict[str, Any]:
     now = now or timezone.now()
     rows = list_week_task_rows(now=now)
@@ -492,6 +576,7 @@ def week_task_dashboard_context(*, now: datetime | None = None) -> dict[str, Any
     return {
         'rows': rows,
         'week_tasks_json': [r.to_dict() for r in rows],
+        'banned_json': list_banned_units(game),
         'publish_start': get_publish_start_iso(),
         'week_task_count': len(rows),
         'published_count': published_count,

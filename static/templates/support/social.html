@@ -73,12 +73,19 @@
 </section>
 
 <section class="pal-card support-card">
+  <nav class="support-tabs" id="social-tabs" aria-label="Фильтр постов">
+    <button type="button" class="support-tabs__btn is-active" data-tab="all">Все</button>
+    <button type="button" class="support-tabs__btn" data-tab="published">Вышедшие</button>
+    <button type="button" class="support-tabs__btn" data-tab="future">Будущие</button>
+  </nav>
   <div class="support-social-list" id="social-list" aria-label="Очередь постов"></div>
 </section>
 
 <script>
 (function () {
   var posts = JSON.parse(document.getElementById('social-bootstrap').textContent || '[]');
+  var allPosts = posts.slice();
+  var viewTab = 'all';
   var endpoints = {
     create: "{% url 'support:social_create' %}",
     updateTpl: "{% url 'support:social_update' 0 %}".replace('/0/', '/{id}/'),
@@ -243,7 +250,24 @@
       .replace(/"/g, '&quot;');
   }
 
+  function postsForTab(tab) {
+    if (tab === 'published') {
+      return allPosts.filter(function (p) { return p.is_published; }).sort(function (a, b) {
+        return (b.sent_at || b.created_at || '').localeCompare(a.sent_at || a.created_at || '');
+      });
+    }
+    if (tab === 'future') {
+      return allPosts.filter(function (p) { return p.is_future; }).sort(function (a, b) {
+        var ka = a.planned_at || a.created_at || '';
+        var kb = b.planned_at || b.created_at || '';
+        return ka.localeCompare(kb);
+      });
+    }
+    return allPosts;
+  }
+
   function render() {
+    posts = postsForTab(viewTab);
     if (!posts.length) {
       listEl.innerHTML = '<p class="support-hint">Пока пусто.</p>';
       return;
@@ -302,16 +326,16 @@
 
   function upsertPost(post) {
     var idx = -1;
-    for (var i = 0; i < posts.length; i++) {
-      if (posts[i].id === post.id) { idx = i; break; }
+    for (var i = 0; i < allPosts.length; i++) {
+      if (allPosts[i].id === post.id) { idx = i; break; }
     }
-    if (idx >= 0) posts[idx] = post;
-    else posts.unshift(post);
+    if (idx >= 0) allPosts[idx] = post;
+    else allPosts.unshift(post);
     render();
   }
 
   function removePost(id) {
-    posts = posts.filter(function (p) { return p.id !== id; });
+    allPosts = allPosts.filter(function (p) { return p.id !== id; });
     render();
   }
 
@@ -566,6 +590,16 @@
       var saveBtn = form.querySelector('[data-edit-save="' + id + '"]');
       if (saveBtn) saveBtn.click();
     }
+  });
+
+  document.getElementById('social-tabs').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-tab]');
+    if (!btn) return;
+    viewTab = btn.getAttribute('data-tab');
+    document.querySelectorAll('#social-tabs .support-tabs__btn').forEach(function (el) {
+      el.classList.toggle('is-active', el === btn);
+    });
+    render();
   });
 
   render();

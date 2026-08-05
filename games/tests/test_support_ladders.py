@@ -316,3 +316,11 @@ class LadderSupportViewTests(TestCase):
     def test_nav_link_present(self):
         response = self.client.get(reverse('support:hub'))
         self.assertContains(response, reverse('support:ladders'))
+
+    def test_delete_future_ladder(self):
+        a = ladder_svc.create_ladder(at_number=1, words=['А', 'Б'], hints=['x'])
+        b = ladder_svc.create_ladder(at_number=2, words=['В', 'Г'], hints=['y'])
+        rows = ladder_svc.delete_ladder(b['link_id'])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].link_id, a['link_id'])
+        self.assertFalse(GameTaskGroup.objects.filter(pk=b['link_id']).exists())

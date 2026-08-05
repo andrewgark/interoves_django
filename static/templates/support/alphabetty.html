@@ -4,6 +4,8 @@
 {% block support_content %}
 {% csrf_token %}
 {{ alphabetty_json|json_script:"alphabetty-bootstrap" }}
+{{ banned_json|json_script:"alphabetty-banned" }}
+<script src="{% static 'js/support_schedule_tabs.js' %}"></script>
 <h1 class="support-page-title">Алфавитки</h1>
 <p class="support-lead">
   Публичный № = порядковый номер и дата выхода (старт + N−1 дней, МСК).
@@ -31,6 +33,13 @@
     Перетаскивайте только будущие за ⠿. «+» вставляет новый день. Вышедшие не двигаются.
   </p>
 </section>
+
+<nav class="support-tabs" id="ab-tabs" aria-label="Фильтр списка">
+  <button type="button" class="support-tabs__btn is-active" data-tab="schedule">Расписание</button>
+  <button type="button" class="support-tabs__btn" data-tab="published">Вышедшие</button>
+  <button type="button" class="support-tabs__btn" data-tab="future">Будущие</button>
+  <button type="button" class="support-tabs__btn" data-tab="banned">Запрещённые</button>
+</nav>
 
 <section class="pal-card support-card">
   <div class="support-ladder-list" id="ab-list" aria-label="Список алфавиток"></div>
@@ -61,13 +70,20 @@
 <script>
 (function () {
   var bootstrap = JSON.parse(document.getElementById('alphabetty-bootstrap').textContent);
+  var allRows = bootstrap.slice();
+  var banned = JSON.parse(document.getElementById('alphabetty-banned').textContent || '[]');
+  var viewTab = 'schedule';
+  var tabs = window.SupportScheduleTabs;
   var endpoints = {
     reorder: "{% url 'support:alphabetty_reorder' %}",
     create: "{% url 'support:alphabetty_create' %}",
     publishStart: "{% url 'support:alphabetty_publish_start' %}",
     generate: "{% url 'support:alphabetty_generate' %}",
     detailTpl: "{% url 'support:alphabetty_detail' 0 %}".replace('/0/', '/{id}/'),
-    saveTpl: "{% url 'support:alphabetty_update' 0 %}".replace('/0/', '/{id}/')
+    saveTpl: "{% url 'support:alphabetty_update' 0 %}".replace('/0/', '/{id}/'),
+    deleteTpl: "{% url 'support:alphabetty_delete' 0 %}".replace('/0/', '/{id}/'),
+    forbidTpl: "{% url 'support:alphabetty_forbid' 0 %}".replace('/0/', '/{id}/'),
+    unban: "{% url 'support:alphabetty_unban' %}"
   };
   var listEl = document.getElementById('ab-list');
   var metaEl = document.getElementById('ab-meta');
@@ -102,9 +118,11 @@
     (rows || []).forEach(function (r) { if (r.is_published && r.number > n) n = r.number; });
     return n;
   }
+  function isScheduleView() {
+    return viewTab === 'schedule';
+  }
   function escapeHtml(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return tabs.escapeHtml(s);
   }
   function statusLabel(row) {
     if (row.is_today) return 'сегодня';
@@ -127,16 +145,19 @@
     metaEl.textContent = t;
   }
   function renderList(rows) {
-    bootstrap = rows;
+    listEl.classList.toggle('support-schedule-readonly', !isScheduleView());
+    if (isScheduleView()) {
+      bootstrap = rows;
+    }
     listEl.innerHTML = '';
     if (!rows.length) {
       listEl.innerHTML = '<p class="support-empty">Пока пусто. Нажмите «Нагенерить» или «+ В конец».</p>';
-      renderMeta(rows);
+      renderMeta(allRows);
       return;
     }
-    var lockedUntil = lastPublishedNumber(rows);
+    var lockedUntil = isScheduleView() ? lastPublishedNumber(allRows) : 0;
     rows.forEach(function (row) {
-      if (row.number > lockedUntil) {
+      if (isScheduleView() && row.number > lockedUntil) {
         var insert = document.createElement('div');
         insert.className = 'support-ladder-insert';
         insert.innerHTML = '<button type="button" class="support-ladder-insert__btn" data-insert-at="' +
@@ -148,7 +169,7 @@
         (row.is_today ? ' is-today' : '') +
         (!row.is_published ? ' is-future' : '') +
         (row.is_published ? ' is-locked' : '');
-      item.draggable = !row.is_published;
+      item.draggable = isScheduleView() && !row.is_published;
       item.dataset.linkId = String(row.link_id);
       var handle = row.is_published
         ? '<span class="support-ladder-item__handle support-ladder-item__handle--locked">·</span>'
@@ -166,10 +187,46 @@
         '<div class="support-ladder-item__actions">' +
           '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">править</button>' +
           '<a class="new-btn new-btn--mini new-btn--ghost" href="' + row.play_url + '" target="_blank" rel="noopener">сайт</a>' +
+          (!row.is_published
+            ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-forbid" data-forbid="' +
+                row.link_id + '" title="Запретить слово и убрать из расписания">запретить</button>' +
+              '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" data-delete="' +
+                row.link_id + '" title="Удалить из расписания">удалить</button>'
+            : '') +
         '</div>';
       listEl.appendChild(item);
     });
-    renderMeta(rows);
+    renderMeta(allRows);
+  }
+  function renderBanned() {
+    listEl.classList.add('support-schedule-readonly');
+    tabs.renderBannedList(listEl, banned, {
+      renderMain: function (item) {
+        return (
+          '<div class="support-banned-item__main">' +
+            '<div class="support-banned-item__word">' + escapeHtml(item.word) + '</div>' +
+            (item.banned_at ? '<div class="support-banned-item__meta">' + escapeHtml(item.banned_at) + '</div>' : '') +
+          '</div>'
+        );
+      },
+      unbanAttr: function (item) {
+        return 'data-unban-word="' + escapeHtml(item.word) + '"';
+      },
+    });
+  }
+  function refreshView() {
+    var insertEnd = document.querySelector('[data-insert-end]');
+    if (insertEnd) insertEnd.hidden = viewTab !== 'schedule';
+    if (viewTab === 'banned') {
+      renderBanned();
+      return;
+    }
+    renderList(tabs.rowsForTab(allRows, viewTab));
+  }
+  function setRows(rows, nextBanned) {
+    allRows = rows;
+    if (nextBanned) banned = nextBanned;
+    refreshView();
   }
   function currentOrder() {
     return Array.prototype.map.call(
@@ -181,7 +238,7 @@
     if (busy) return;
     setBusy(true);
     postJson(endpoints.reorder, { order: currentOrder() })
-      .then(function (data) { renderList(data.rows); })
+      .then(function (data) { setRows(data.rows); })
       .catch(function (e) { alert(e.message || String(e)); location.reload(); })
       .finally(function () { setBusy(false); });
   }
@@ -190,7 +247,7 @@
     setBusy(true);
     postJson(endpoints.create, { at_number: atNumber })
       .then(function (data) {
-        renderList(data.rows);
+        setRows(data.rows);
         openEdit(data.item.link_id, data.item);
       })
       .catch(function (e) { alert(e.message || String(e)); })
@@ -224,15 +281,56 @@
   }
 
   listEl.addEventListener('click', function (e) {
+    var unbanBtn = e.target.closest('[data-unban-word]');
+    if (unbanBtn) {
+      var word = unbanBtn.getAttribute('data-unban-word');
+      if (!window.confirm('Снять запрет со слова «' + word + '»?')) return;
+      if (busy) return;
+      setBusy(true);
+      postJson(endpoints.unban, { word: word })
+        .then(function (data) { banned = data.banned || []; refreshView(); })
+        .catch(function (err) { alert(err.message || String(err)); })
+        .finally(function () { setBusy(false); });
+      return;
+    }
+    var forbidBtn = e.target.closest('[data-forbid]');
+    if (forbidBtn) {
+      var forbidId = parseInt(forbidBtn.getAttribute('data-forbid'), 10);
+      if (!window.confirm('Запретить слово и убрать алфавитку id ' + forbidId + '?')) return;
+      if (busy) return;
+      setBusy(true);
+      postJson(endpoints.forbidTpl.replace('{id}', String(forbidId)), {})
+        .then(function (data) { setRows(data.rows, data.banned); })
+        .catch(function (err) { alert(err.message || String(err)); })
+        .finally(function () { setBusy(false); });
+      return;
+    }
+    var delBtn = e.target.closest('[data-delete]');
+    if (delBtn) {
+      var delId = parseInt(delBtn.getAttribute('data-delete'), 10);
+      if (!window.confirm('Удалить алфавитку id ' + delId + ' из расписания?')) return;
+      if (busy) return;
+      setBusy(true);
+      postJson(endpoints.deleteTpl.replace('{id}', String(delId)), {})
+        .then(function (data) { setRows(data.rows); })
+        .catch(function (err) { alert(err.message || String(err)); })
+        .finally(function () { setBusy(false); });
+      return;
+    }
     var insertBtn = e.target.closest('[data-insert-at]');
     if (insertBtn) { insertAt(parseInt(insertBtn.getAttribute('data-insert-at'), 10)); return; }
     var editBtn = e.target.closest('[data-edit]');
     if (editBtn) openEdit(parseInt(editBtn.getAttribute('data-edit'), 10));
   });
   document.querySelector('[data-insert-end]').addEventListener('click', function () {
+    if (!isScheduleView()) return;
     var max = 0;
-    bootstrap.forEach(function (r) { if (r.number > max) max = r.number; });
+    allRows.forEach(function (r) { if (r.number > max) max = r.number; });
     insertAt(max + 1);
+  });
+  tabs.mountTabs(document.getElementById('ab-tabs'), function (tab) {
+    viewTab = tab;
+    refreshView();
   });
   document.getElementById('ab-save-start').addEventListener('click', function () {
     var val = document.getElementById('ab-publish-start').value;
@@ -240,7 +338,7 @@
     if (busy) return;
     setBusy(true);
     postJson(endpoints.publishStart, { publish_start: val })
-      .then(function (data) { renderList(data.rows); })
+      .then(function (data) { setRows(data.rows); })
       .catch(function (e) { alert(e.message || String(e)); })
       .finally(function () { setBusy(false); });
   });
@@ -250,7 +348,7 @@
     if (busy) return;
     setBusy(true);
     postJson(endpoints.generate, { n: n })
-      .then(function (data) { renderList(data.rows); })
+      .then(function (data) { setRows(data.rows); })
       .catch(function (e) { alert(e.message || String(e)); })
       .finally(function () { setBusy(false); });
   });
@@ -260,7 +358,7 @@
     setBusy(true);
     postJson(endpoints.saveTpl.replace('{id}', String(editLinkId)), { word: word })
       .then(function (data) {
-        renderList(data.rows);
+        setRows(data.rows);
         closeEdit();
       })
       .catch(function (e) {
@@ -279,6 +377,7 @@
 
   // DnD
   listEl.addEventListener('dragstart', function (e) {
+    if (!isScheduleView()) { e.preventDefault(); return; }
     var item = e.target.closest('.support-ladder-item');
     if (!item || item.dataset.published === '1' || item.classList.contains('is-locked')) {
       e.preventDefault(); return;
@@ -293,6 +392,7 @@
     dragId = null;
   });
   listEl.addEventListener('dragover', function (e) {
+    if (!isScheduleView()) return;
     e.preventDefault();
     var item = e.target.closest('.support-ladder-item');
     if (!item || !dragId || item.classList.contains('is-locked')) return;
@@ -303,11 +403,12 @@
     listEl.insertBefore(dragging, before ? item : item.nextSibling);
   });
   listEl.addEventListener('drop', function (e) {
+    if (!isScheduleView()) return;
     e.preventDefault();
     persistOrder();
   });
 
-  renderList(bootstrap);
+  refreshView();
 })();
 </script>
 {% endblock %}

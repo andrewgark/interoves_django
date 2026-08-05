@@ -1302,3 +1302,76 @@ html.new-ui-dark .support-ladder-item__mixed {
 .support-ladder-item__preview .new-link-dotted {
   color: var(--accent);
 }
+
+.support-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 1rem;
+}
+
+.support-tabs__btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--control-radius);
+  cursor: pointer;
+}
+
+.support-tabs__btn:hover {
+  color: var(--text);
+  background: var(--tile);
+}
+
+.support-tabs__btn.is-active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.support-ladder-item__actions .support-item-delete,
+.support-ladder-item__actions .support-item-forbid {
+  color: var(--danger);
+}
+
+.support-banned-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.support-banned-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--tile);
+}
+
+.support-banned-item__main {
+  min-width: 0;
+}
+
+.support-banned-item__word {
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.support-banned-item__meta {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.support-schedule-readonly .support-ladder-insert,
+.support-schedule-readonly .support-ladder-insert--end {
+  display: none;
+}

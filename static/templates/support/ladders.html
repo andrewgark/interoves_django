@@ -28,6 +28,12 @@
   </p>
 </section>
 
+<nav class="support-tabs" id="ladder-tabs" aria-label="Фильтр списка">
+  <button type="button" class="support-tabs__btn is-active" data-tab="schedule">Расписание</button>
+  <button type="button" class="support-tabs__btn" data-tab="published">Вышедшие</button>
+  <button type="button" class="support-tabs__btn" data-tab="future">Будущие</button>
+</nav>
+
 <section class="pal-card support-card">
   <div class="support-ladder-list" id="ladder-list" aria-label="Список лесенок">
     {# filled by JS from bootstrap #}
@@ -72,12 +78,15 @@
 <script>
 (function () {
   var bootstrap = JSON.parse(document.getElementById('ladders-bootstrap').textContent);
+  var allRows = bootstrap.slice();
+  var viewTab = 'schedule';
   var endpoints = {
     reorder: "{% url 'support:ladders_reorder' %}",
     create: "{% url 'support:ladders_create' %}",
     publishStart: "{% url 'support:ladders_publish_start' %}",
     detailTpl: "{% url 'support:ladders_detail' 0 %}".replace('/0/', '/{id}/'),
-    saveTpl: "{% url 'support:ladders_update' 0 %}".replace('/0/', '/{id}/')
+    saveTpl: "{% url 'support:ladders_update' 0 %}".replace('/0/', '/{id}/'),
+    deleteTpl: "{% url 'support:ladders_delete' 0 %}".replace('/0/', '/{id}/')
   };
   var listEl = document.getElementById('ladder-list');
   var metaEl = document.getElementById('ladder-meta');
@@ -136,6 +145,22 @@
     return 'support-flag--warn';
   }
 
+  function rowsForTab(tab) {
+    if (tab === 'published') {
+      return allRows.filter(function (r) { return r.is_published; }).sort(function (a, b) {
+        return (b.publish_date || '').localeCompare(a.publish_date || '');
+      });
+    }
+    if (tab === 'future') {
+      return allRows.filter(function (r) { return !r.is_published; }).sort(function (a, b) {
+        return (a.publish_date || '').localeCompare(b.publish_date || '');
+      });
+    }
+    return allRows;
+  }
+  function isScheduleView() {
+    return viewTab === 'schedule';
+  }
   function renderMeta(rows) {
     var published = 0;
     var today = null;
@@ -152,16 +177,19 @@
   }
 
   function renderList(rows) {
-    bootstrap = rows;
+    listEl.classList.toggle('support-schedule-readonly', !isScheduleView());
+    if (isScheduleView()) {
+      bootstrap = rows;
+    }
     listEl.innerHTML = '';
     if (!rows.length) {
       listEl.innerHTML = '<p class="support-empty">Пока нет лесенок. Нажмите «+ В конец».</p>';
       renderMeta(rows);
       return;
     }
-    var lockedUntil = lastPublishedNumber(rows);
+    var lockedUntil = isScheduleView() ? lastPublishedNumber(allRows) : 0;
     rows.forEach(function (row) {
-      if (row.number > lockedUntil) {
+      if (isScheduleView() && row.number > lockedUntil) {
         var insert = document.createElement('div');
         insert.className = 'support-ladder-insert';
         insert.innerHTML = '<button type="button" class="support-ladder-insert__btn" data-insert-at="' +
@@ -174,7 +202,7 @@
       if (row.is_today) item.classList.add('is-today');
       else if (!row.is_published) item.classList.add('is-future');
       if (row.is_published) item.classList.add('is-locked');
-      item.draggable = !row.is_published;
+      item.draggable = isScheduleView() && !row.is_published;
       item.dataset.linkId = String(row.link_id);
       item.dataset.published = row.is_published ? '1' : '0';
       var handle = row.is_published
@@ -201,10 +229,23 @@
         '<div class="support-ladder-item__actions">' +
           '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">править</button>' +
           '<a class="new-btn new-btn--mini new-btn--ghost" href="' + row.play_url + '" target="_blank" rel="noopener">сайт</a>' +
+          (!row.is_published
+            ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" data-delete="' +
+                row.link_id + '" title="Удалить из расписания">удалить</button>'
+            : '') +
         '</div>';
       listEl.appendChild(item);
     });
-    renderMeta(rows);
+    renderMeta(allRows);
+  }
+  function refreshView() {
+    var insertEnd = document.querySelector('[data-insert-end]');
+    if (insertEnd) insertEnd.hidden = !isScheduleView();
+    renderList(rowsForTab(viewTab));
+  }
+  function setRows(rows) {
+    allRows = rows;
+    refreshView();
   }
 
   function escapeHtml(s) {
@@ -226,7 +267,7 @@
     if (busy) return;
     setBusy(true);
     postJson(endpoints.reorder, { order: currentOrder() })
-      .then(function (data) { renderList(data.ladders); })
+      .then(function (data) { setRows(data.ladders); })
       .catch(function (e) { alert(e.message || String(e)); location.reload(); })
       .finally(function () { setBusy(false); });
   }
@@ -236,7 +277,7 @@
     setBusy(true);
     postJson(endpoints.create, { at_number: atNumber })
       .then(function (data) {
-        renderList(data.ladders);
+        setRows(data.ladders);
         openEdit(data.ladder.link_id, data.ladder);
       })
       .catch(function (e) { alert(e.message || String(e)); })
@@ -244,6 +285,18 @@
   }
 
   listEl.addEventListener('click', function (e) {
+    var delBtn = e.target.closest('[data-delete]');
+    if (delBtn) {
+      var delId = parseInt(delBtn.getAttribute('data-delete'), 10);
+      if (!window.confirm('Удалить лесенку id ' + delId + ' из расписания?')) return;
+      if (busy) return;
+      setBusy(true);
+      postJson(endpoints.deleteTpl.replace('{id}', String(delId)), {})
+        .then(function (data) { setRows(data.ladders); })
+        .catch(function (err) { alert(err.message || String(err)); })
+        .finally(function () { setBusy(false); });
+      return;
+    }
     var insertBtn = e.target.closest('[data-insert-at]');
     if (insertBtn) {
       insertAt(parseInt(insertBtn.getAttribute('data-insert-at'), 10));
@@ -256,9 +309,20 @@
   });
 
   document.querySelector('[data-insert-end]').addEventListener('click', function () {
+    if (!isScheduleView()) return;
     var max = 0;
-    bootstrap.forEach(function (r) { if (r.number > max) max = r.number; });
+    allRows.forEach(function (r) { if (r.number > max) max = r.number; });
     insertAt(max + 1);
+  });
+
+  document.getElementById('ladder-tabs').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-tab]');
+    if (!btn) return;
+    viewTab = btn.getAttribute('data-tab');
+    document.querySelectorAll('#ladder-tabs .support-tabs__btn').forEach(function (el) {
+      el.classList.toggle('is-active', el === btn);
+    });
+    refreshView();
   });
 
   document.getElementById('ladder-save-start').addEventListener('click', function () {
@@ -269,7 +333,7 @@
     postJson(endpoints.publishStart, { publish_start: val })
       .then(function (data) {
         document.getElementById('ladder-publish-start').value = data.publish_start;
-        renderList(data.ladders);
+        setRows(data.ladders);
       })
       .catch(function (e) { alert(e.message || String(e)); })
       .finally(function () { setBusy(false); });
@@ -279,6 +343,7 @@
   var dropIndex = null;
 
   listEl.addEventListener('dragstart', function (e) {
+    if (!isScheduleView()) { e.preventDefault(); return; }
     var item = e.target.closest('.support-ladder-item');
     if (!item || busy || item.dataset.published === '1') { e.preventDefault(); return; }
     dragId = item.dataset.linkId;
@@ -297,14 +362,14 @@
   });
 
   listEl.addEventListener('dragover', function (e) {
-    if (!dragId) return;
+    if (!isScheduleView() || !dragId) return;
     e.preventDefault();
     var item = e.target.closest('.support-ladder-item');
     if (!item) return;
     var items = Array.prototype.slice.call(listEl.querySelectorAll('.support-ladder-item'));
     var targetIdx = items.indexOf(item);
     if (targetIdx < 0) return;
-    var lockedUntil = lastPublishedNumber(bootstrap);
+    var lockedUntil = lastPublishedNumber(allRows);
     var rect = item.getBoundingClientRect();
     var before = (e.clientY - rect.top) < rect.height / 2;
     var candidate = before ? targetIdx : targetIdx + 1;
@@ -322,8 +387,8 @@
 
   listEl.addEventListener('drop', function (e) {
     e.preventDefault();
-    if (!dragId || dropIndex == null) return;
-    var lockedUntil = lastPublishedNumber(bootstrap);
+    if (!isScheduleView() || !dragId || dropIndex == null) return;
+    var lockedUntil = lastPublishedNumber(allRows);
     if (dropIndex < lockedUntil) {
       alert('Нельзя менять порядок уже вышедших лесенок');
       return;
@@ -342,7 +407,7 @@
     var id = order.splice(from, 1)[0];
     order.splice(to, 0, id);
     var byId = {};
-    bootstrap.forEach(function (r) { byId[r.link_id] = r; });
+    allRows.forEach(function (r) { byId[r.link_id] = r; });
     var preview = order.map(function (pk, i) {
       var row = byId[pk];
       if (!row) return null;
@@ -480,7 +545,7 @@
       mixed_script: document.getElementById('ladder-edit-mixed-script').checked
     })
       .then(function (data) {
-        renderList(data.ladders);
+        setRows(data.ladders);
         closeModal();
       })
       .catch(function (e) {
@@ -490,7 +555,7 @@
       .finally(function () { setBusy(false); });
   });
 
-  renderList(bootstrap || []);
+  refreshView();
 })();
 </script>
 {% endblock %}

@@ -31,6 +31,7 @@ from games.raddle import (
     length_label_from_word,
     validate_raddle_checker_data,
 )
+from games.support.services.schedule_links import delete_future_slot
 
 AUTHOR_TAG = 'author'
 _TITLE_RE = re.compile(r'^Лесенка\s*#\s*(\d+)\s*$', re.IGNORECASE)
@@ -516,6 +517,23 @@ def update_ladder(
         _sync_link_titles(link, number)
         link.save(update_fields=['name'])
     return get_ladder_detail(link.pk)
+
+
+@transaction.atomic
+def delete_ladder(link_id: int, *, now: datetime | None = None) -> list[LadderRow]:
+    """Удалить будущую лесенку и перенумеровать оставшиеся."""
+    game = get_ladder_game()
+    return delete_future_slot(
+        game=game,
+        link_id=link_id,
+        is_number_published=is_ladder_number_published,
+        renumber_links=_renumber_links,
+        list_rows=list_ladder_rows,
+        error_cls=LadderSupportError,
+        not_found_msg='Лесенка не найдена',
+        published_msg='Нельзя удалять уже вышедшую лесенку №{number}',
+        now=now,
+    )
 
 
 def dashboard_context(*, now: datetime | None = None) -> dict[str, Any]:

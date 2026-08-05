@@ -40,13 +40,17 @@ from games.alphabetty_daily import (
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 from games.support.services.alphabetty import (
     AlphabettySupportError,
+    delete_alphabetty,
     ensure_future_buffer,
+    forbid_alphabetty,
     generate_more,
     list_alphabetty_rows,
     reorder_alphabetty,
+    scheduled_words,
     set_publish_start,
     update_alphabetty,
 )
+from games.support.services.banned import banned_word_set, list_banned_words
 
 _FAKE_WORD = 'БЛЯМБУРГЕТОНИК'
 
@@ -217,6 +221,24 @@ class AlphabettySupportTests(TestCase):
         self.game.tags = {}
         self.game.save(update_fields=['tags'])
         self.assertFalse(is_alphabetty_number_published(self.game, 1))
+
+    def test_delete_and_forbid_future(self):
+        set_publish_start('2099-01-01')
+        generate_more(2)
+        rows = list_alphabetty_rows()
+        word = rows[0].word
+        result = forbid_alphabetty(rows[0].link_id)
+        self.assertEqual(len(result['rows']), 1)
+        self.assertIn(word, {r['word'] for r in result['banned']})
+        self.assertIn(word, scheduled_words())
+        self.game.refresh_from_db()
+        self.assertIn(word, banned_word_set(self.game))
+
+        rows = list_alphabetty_rows()
+        delete_alphabetty(rows[0].link_id)
+        self.assertEqual(len(list_alphabetty_rows()), 0)
+        self.game.refresh_from_db()
+        self.assertIn(word, banned_word_set(self.game))
 
 
 class AlphabettyPlayApiTests(TestCase):

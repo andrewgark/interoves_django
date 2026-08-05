@@ -8,10 +8,13 @@ from zoneinfo import ZoneInfo
 from django.test import TestCase
 
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
+from games.support.services.banned import banned_unit_keys, list_banned_units
 from games.support.services.week_tasks import (
     WeekTaskSupportError,
     create_week_task,
+    delete_week_task,
     ensure_future_buffer,
+    forbid_week_task,
     generate_more,
     get_pool_catalog,
     list_week_task_rows,
@@ -387,3 +390,26 @@ class WeekTaskSupportTests(TestCase):
         majors = {u['major'] for u in seq_circle['units']}
         self.assertIn('1', majors)
         self.assertIn('2', majors)
+
+    def test_delete_and_forbid_future(self):
+        ordinary = GameTaskGroup.objects.get(game_id='des300', number='2')
+        detail = create_week_task(
+            at_number=1,
+            source_task_group_id=ordinary.task_group_id,
+        )
+        create_week_task(at_number=2)
+        rows = list_week_task_rows()
+        self.assertEqual(len(rows), 2)
+        result = forbid_week_task(detail['link_id'])
+        self.assertEqual(len(result['rows']), 1)
+        self.assertTrue(result['banned'])
+        key = (ordinary.task_group_id, None)
+        self.week_game.refresh_from_db()
+        self.assertIn(key, banned_unit_keys(self.week_game))
+        self.assertIn(key, scheduled_exclude_keys(week_task_game=self.week_game))
+
+        remaining = list_week_task_rows()
+        delete_week_task(remaining[0].link_id)
+        self.assertEqual(len(list_week_task_rows()), 0)
+        self.week_game.refresh_from_db()
+        self.assertTrue(list_banned_units(self.week_game))

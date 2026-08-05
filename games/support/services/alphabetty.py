@@ -22,6 +22,13 @@ from games.alphabetty_daily import (
     is_alphabetty_number_published,
 )
 from games.models import CheckerType, Game, GameTaskGroup, Task, TaskGroup
+from games.support.services.banned import (
+    add_banned_word,
+    banned_word_set,
+    list_banned_words,
+    remove_banned_word,
+)
+from games.support.services.schedule_links import delete_future_slot
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +182,8 @@ def last_published_number(*, now: datetime | None = None) -> int:
 
 
 def scheduled_words(*, now: datetime | None = None) -> set[str]:
-    return {r.word for r in list_alphabetty_rows(now=now) if r.word}
+    game = get_alphabetty_game()
+    return {r.word for r in list_alphabetty_rows(now=now) if r.word} | banned_word_set(game)
 
 
 def _assert_future_only_order(
@@ -431,6 +439,48 @@ def ensure_future_buffer(
     return {'added': added, 'future': len(future) + added, 'target': target}
 
 
+@transaction.atomic
+def delete_alphabetty(link_id: int, *, now: datetime | None = None) -> list[AlphabettyRow]:
+    """Удалить будущую алфавитку (слово может снова попасть в генерацию)."""
+    game = get_alphabetty_game()
+    return delete_future_slot(
+        game=game,
+        link_id=link_id,
+        is_number_published=is_alphabetty_number_published,
+        renumber_links=_renumber_links,
+        list_rows=list_alphabetty_rows,
+        error_cls=AlphabettySupportError,
+        not_found_msg='Алфавитка не найдена',
+        published_msg='Нельзя удалять уже вышедшую алфавитку №{number}',
+        now=now,
+    )
+
+
+@transaction.atomic
+def forbid_alphabetty(link_id: int, *, now: datetime | None = None) -> dict[str, Any]:
+    """Удалить будущую алфавитку и запретить её слово для генерации."""
+    game = get_alphabetty_game()
+    link = (
+        GameTaskGroup.objects.filter(game=game, pk=link_id)
+        .select_related('task_group')
+        .first()
+    )
+    if link is None:
+        raise AlphabettySupportError('Алфавитка не найдена')
+    word = _word_from_task(_task_for_link(link))
+    rows = delete_alphabetty(link_id, now=now)
+    banned = add_banned_word(game, word) if word else list_banned_words(game)
+    return {
+        'rows': [r.to_dict() for r in rows],
+        'banned': banned,
+    }
+
+
+def unban_alphabetty_word(word: str) -> list[dict[str, Any]]:
+    game = get_alphabetty_game()
+    return remove_banned_word(game, word)
+
+
 def alphabetty_dashboard_context(*, now: datetime | None = None) -> dict[str, Any]:
     now = now or timezone.now()
     rows = list_alphabetty_rows(now=now)
@@ -441,6 +491,7 @@ def alphabetty_dashboard_context(*, now: datetime | None = None) -> dict[str, An
     return {
         'rows': rows,
         'alphabetty_json': [r.to_dict() for r in rows],
+        'banned_json': list_banned_words(game),
         'publish_start': get_publish_start_iso(),
         'alphabetty_count': len(rows),
         'published_count': published_count,

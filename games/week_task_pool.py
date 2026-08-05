@@ -154,7 +154,9 @@ def enumerate_all_units() -> list[WeekUnit]:
 
 
 def scheduled_exclude_keys(*, week_task_game: Game) -> set[tuple[int, frozenset[str] | None]]:
-    """Уже поставленные в очередь недели (по provenance tags)."""
+    """Уже поставленные в очередь недели (по provenance tags) + запрещённые."""
+    from games.support.services.banned import banned_unit_keys
+
     keys: set[tuple[int, frozenset[str] | None]] = set()
     links = (
         GameTaskGroup.objects.filter(game=week_task_game)
@@ -177,6 +179,7 @@ def scheduled_exclude_keys(*, week_task_game: Game) -> set[tuple[int, frozenset[
             keys.add((tg_id_int, None))
         else:
             keys.add((tg_id_int, frozenset(str(x) for x in nums)))
+    keys |= banned_unit_keys(week_task_game)
     return keys
 
 

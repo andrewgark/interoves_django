@@ -36,7 +36,29 @@ def _net_blob(status, external_id, error, at, queued_for=None, scheduled_for=Non
     }
 
 
+def _network_sent_at(post: SocialQueuePost) -> datetime | None:
+    times = [
+        t for t in (post.telegram_at, post.twitter_at, post.instagram_at)
+        if t is not None
+    ]
+    return max(times) if times else None
+
+
+def _is_post_published(post: SocialQueuePost) -> bool:
+    return any(
+        status == SocialQueuePost.STATUS_SENT
+        for status in (
+            post.telegram_status,
+            post.twitter_status,
+            post.instagram_status,
+        )
+    )
+
+
 def serialize_post(post: SocialQueuePost) -> dict:
+    published = _is_post_published(post)
+    sent_at = _network_sent_at(post)
+    planned = _planned_dt(post)
     return {
         'id': post.pk,
         'caption': post.caption or '',
@@ -46,6 +68,10 @@ def serialize_post(post: SocialQueuePost) -> dict:
         'play_url': post.play_url or '',
         'image_url': post.image.url if post.image else '',
         'created_at': post.created_at.isoformat() if post.created_at else '',
+        'is_published': published,
+        'is_future': not published,
+        'sent_at': sent_at.isoformat() if sent_at else '',
+        'planned_at': planned.isoformat() if planned else '',
         'telegram': _net_blob(
             post.telegram_status,
             post.telegram_external_id,
