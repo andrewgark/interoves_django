@@ -17,7 +17,7 @@
         </div>
       {% endif %}
     {% endfor %}
-    {% with wall_tile_stop_guessing=task.get_wall|get_wall_tile_stop_guessing_class:attempts_info %}
+    {% with wall_tile_stop_guessing=task.get_wall|one_more:attempts_info|get_wall_tile_stop_guessing_class:mode %}
     {% for tile in task.get_wall|get_not_guessed_tiles:attempts_info %}
       {% if wall_new_ui %}
         <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}">

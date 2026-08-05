@@ -194,7 +194,7 @@ class Wall:
                     category_counter[text] -= 1
         return guessed_tiles
 
-    def guessing_tiles_is_over(self, attempts_info):
+    def guessing_tiles_is_over(self, attempts_info, mode=None):
         if not attempts_info or not attempts_info.last_attempt:
             return False
 
@@ -205,6 +205,10 @@ class Wall:
         state = json.loads(attempts_info.last_attempt.state)
         if len(state['guessed_words']) == self.n_cat:
             return True
+
+        # Outside tournament mode there is no attempt limit on word groups.
+        if mode is not None and mode != 'tournament':
+            return False
 
         n_max_attempts_dict = self.get_n_max_attempts_dict(attempts)
         for x in n_max_attempts_dict['cat_words'].values():

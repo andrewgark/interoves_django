@@ -325,8 +325,9 @@ def json_encode(obj):
 
 
 @register.filter
-def get_wall_tile_stop_guessing_class(wall, attempts_info):
-    if wall.guessing_tiles_is_over(attempts_info):
+def get_wall_tile_stop_guessing_class(wall_attempts_info, mode):
+    wall, attempts_info = wall_attempts_info
+    if wall.guessing_tiles_is_over(attempts_info, mode=mode):
         return 'wall-tile-stop-guessing'
     return ''
 
