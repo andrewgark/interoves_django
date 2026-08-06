@@ -25,10 +25,16 @@ from games.alphabetty_daily import (
     filter_published_alphabetty_links,
     get_alphabetty_hub_context,
     is_alphabetty_number_published,
+    visible_alphabetty_links,
 )
 from games.models import Game, GameTaskGroup, Task
 from games.section_paths import section_hub_path, section_play_path
-from games.views.new_ui import NEW_UI_SECTIONS_PROJECT, _anon_key_from_request
+from games.views.new_ui import (
+    NEW_UI_SECTIONS_PROJECT,
+    _anon_key_from_request,
+    _neighbors_by_pk,
+    _task_group_page_nav_context,
+)
 from games.views.util import has_profile
 
 
@@ -208,6 +214,14 @@ def alphabetty_play_page(request, number):
     )
     pub_at = alphabetty_publish_at(game, n)
     daily_publish_date = pub_at.date() if pub_at is not None else None
+    # Соседи только среди уже вышедших алфавиток (как у лесенок).
+    visible_links = list(
+        visible_alphabetty_links(
+            GameTaskGroup.objects.filter(game=game),
+            game,
+        )
+    )
+    prev_tg, next_tg = _neighbors_by_pk(visible_links, link)
     return render(request, 'new/alphabetty_play.html', {
         'game': game,
         'number': n,
@@ -226,6 +240,13 @@ def alphabetty_play_page(request, number):
         'suggest_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}suggest/',
         'anon_key': anon_key if user is None else '',
         'is_authenticated': bool(user),
+        'prev_task_group_url': (
+            section_play_path(ALPHABETTY_GAME_ID, prev_tg.number) if prev_tg else None
+        ),
+        'next_task_group_url': (
+            section_play_path(ALPHABETTY_GAME_ID, next_tg.number) if next_tg else None
+        ),
+        **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
     })
 
 

@@ -430,6 +430,51 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'Алфавитка')
 
+    def test_play_page_pager_neighbors(self):
+        _ensure_login_modal_deps()
+        checker = CheckerType.objects.get(id='alphabetty')
+        tg2 = TaskGroup.objects.create(label='alphabetty:2', checker=checker, points=1)
+        Task.objects.create(
+            task_group=tg2,
+            number='1',
+            task_type='alphabetty',
+            checker=checker,
+            checker_data='ГОД',
+            answer='ГОД',
+            points=1,
+        )
+        GameTaskGroup.objects.create(
+            game=self.game, task_group=tg2, number='2', name='Алфавитка #2',
+        )
+        # Будущий слот не должен попадать в «Дальше».
+        tg_future = TaskGroup.objects.create(label='alphabetty:50000', checker=checker, points=1)
+        Task.objects.create(
+            task_group=tg_future,
+            number='1',
+            task_type='alphabetty',
+            checker=checker,
+            checker_data='КОТ',
+            answer='КОТ',
+            points=1,
+        )
+        GameTaskGroup.objects.create(
+            game=self.game, task_group=tg_future, number='50000', name='Алфавитка #50000',
+        )
+
+        r1 = self.client.get('/alphabetty/1/')
+        self.assertEqual(r1.status_code, 200)
+        self.assertContains(r1, 'href="/alphabetty/2/"')
+        self.assertNotContains(r1, 'href="/alphabetty/50000/"')
+        self.assertContains(r1, 'Дальше')
+        self.assertNotContains(r1, 'new-tg-pager__link--prev')
+
+        r2 = self.client.get('/alphabetty/2/')
+        self.assertEqual(r2.status_code, 200)
+        self.assertContains(r2, 'href="/alphabetty/1/"')
+        self.assertContains(r2, 'Назад')
+        self.assertNotContains(r2, 'href="/alphabetty/50000/"')
+        self.assertNotContains(r2, 'new-tg-pager__link--next')
+
     def test_last_redirects_to_latest_published(self):
         checker = CheckerType.objects.get(id='alphabetty')
         tg2 = TaskGroup.objects.create(label='alphabetty:2', checker=checker, points=1)
