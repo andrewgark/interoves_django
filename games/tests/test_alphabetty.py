@@ -269,7 +269,7 @@ class AlphabettyPlayApiTests(TestCase):
             **{ALPHABETTY_PUBLISH_START_TAG: '2020-01-01T00:00:00+03:00'},
         )
         checker = CheckerType.objects.get(id='alphabetty')
-        tg = TaskGroup.objects.create(label='alphabetty:1', checker=checker, points=1)
+        tg = TaskGroup.objects.create(label='alphabetty:1', checker=checker, points=10)
         self.task = Task.objects.create(
             task_group=tg,
             number='1',
@@ -277,7 +277,7 @@ class AlphabettyPlayApiTests(TestCase):
             checker=checker,
             checker_data='СЛОВО',
             answer='СЛОВО',
-            points=1,
+            points=10,
         )
         GameTaskGroup.objects.create(
             game=self.game, task_group=tg, number='1', name='Алфавитка #1',
@@ -343,6 +343,19 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(data['status'], 'correct')
         self.assertTrue(data['won'])
         self.assertEqual(data['secret'], 'СЛОВО')
+        from decimal import Decimal
+        from games.models import Attempt
+        ok = Attempt.manager.filter(
+            task=self.task, anon_key='testanon1', status='Ok',
+        ).first()
+        self.assertIsNotNone(ok)
+        self.assertEqual(ok.points, Decimal('10'))
+        ai = Attempt.manager.get_attempts_info(
+            team=None, task=self.task, mode='general',
+            user=None, anon_key='testanon1', game=self.game,
+        )
+        self.assertEqual(ai.get_sum_hint_penalty(), 0)
+        self.assertEqual(ai.get_result_points(), Decimal('10'))
 
     def test_hint_flow(self):
         r = self.client.post(
@@ -368,6 +381,19 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(data['status'], 'correct')
         self.assertEqual(data['hints'], 1)
         self.assertIn('💡 Взята 1 подсказка', '\n'.join(data['share_lines']))
+        from decimal import Decimal
+        from games.models import Attempt
+        ok = Attempt.manager.filter(
+            task=self.task, anon_key='hintanon', status='Ok',
+        ).first()
+        self.assertIsNotNone(ok)
+        self.assertEqual(ok.points, Decimal('10'))
+        ai = Attempt.manager.get_attempts_info(
+            team=None, task=self.task, mode='general',
+            user=None, anon_key='hintanon', game=self.game,
+        )
+        self.assertEqual(ai.get_sum_hint_penalty(), 1)
+        self.assertEqual(ai.get_result_points(), Decimal('9'))
 
     def test_hint_skips_letters_known_from_guesses(self):
         checker = CheckerType.objects.get(id='alphabetty')

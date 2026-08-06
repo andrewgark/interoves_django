@@ -50,6 +50,7 @@ from games.week_task_weekly import (
     filter_published_week_task_links,
     is_week_task_number_published,
     visible_week_task_links,
+    week_task_publish_at,
 )
 from games.ladder_word_results import (
     build_ladder_word_results_context,
@@ -1288,10 +1289,10 @@ def new_ladder_today_page(request):
         ladder_game,
         published_numbers=_ladder_published_numbers(ladder_game),
     )
-    play_url = ctx.get('ladder_play_url')
-    if not play_url:
+    cta_number = ctx.get('ladder_cta_number')
+    if not cta_number:
         return redirect('ui_ladder_hub')
-    return redirect(play_url)
+    return redirect(_play_url_for_task_group(ladder_game, cta_number))
 
 
 def new_ladder_last_page(request):
@@ -1308,6 +1309,29 @@ def new_ladder_last_page(request):
     if not play_url:
         return redirect('ui_ladder_hub')
     return redirect(play_url)
+
+
+def new_section_last_page(request, game_id):
+    """Редирект на последний круг раздела (walls / week_task / …)."""
+    if game_id in (LADDER_GAME_ID, ALPHABETTY_GAME_ID):
+        raise Http404()
+    project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
+    if not project:
+        raise Http404()
+    game = Game.objects.filter(project=project, id=game_id).first()
+    if not game:
+        raise Http404()
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
+    if not game.has_access('see_game_preview', team=team):
+        raise Http404()
+    from games.section_hub import _newest_task_group_links
+    from games.section_paths import section_hub_path, section_play_path
+    links = list(_newest_task_group_links(game))
+    if not links:
+        return redirect(section_hub_path(game.id))
+    return redirect(section_play_path(game.id, links[0].number))
 
 
 def new_ladder_hub_page(request):
@@ -1386,6 +1410,7 @@ def _render_section_game_page(request, game_id):
             except HTMLPage.DoesNotExist:
                 pass
         show_palindrome_rules = game_id == PALINDROMES_GAME_ID
+    from games.section_paths import section_last_path
     return render(request, 'ui/game_page.html', {
         'game': game,
         'task_group_rows': task_group_rows,
@@ -1402,14 +1427,14 @@ def _render_section_game_page(request, game_id):
         'is_ladder_section': game_id == LADDER_GAME_ID,
         'ladder_today_number': today_number if game_id == LADDER_GAME_ID else None,
         'ladder_today_play_url': (
-            _play_url_for_task_group(game, today_number)
+            section_last_path(LADDER_GAME_ID)
             if game_id == LADDER_GAME_ID
             and today_number is not None
             and is_ladder_number_published(game, today_number)
             else None
         ),
         'week_task_today_play_url': (
-            _play_url_for_task_group(game, today_number)
+            section_last_path(WEEK_TASK_GAME_ID)
             if game_id == WEEK_TASK_GAME_ID
             and today_number is not None
             and is_week_task_number_published(game, today_number)
@@ -2315,10 +2340,14 @@ def new_task_group_page(request, game_id, task_group_number):
     if game.id in ('replacements', 'walls', 'palindromes'):
         source_desyatka = get_source_desyatka_context(task_group, team=team)
     from games.section_paths import ladder_word_results_path
-    is_daily_single_task = game.id == LADDER_GAME_ID
+    is_daily_single_task = game.id in (LADDER_GAME_ID, WEEK_TASK_GAME_ID)
     daily_publish_date = None
-    if is_daily_single_task:
+    if game.id == LADDER_GAME_ID:
         pub_at = ladder_publish_at(game, placement.number)
+        if pub_at is not None:
+            daily_publish_date = pub_at.date()
+    elif game.id == WEEK_TASK_GAME_ID:
+        pub_at = week_task_publish_at(game, placement.number)
         if pub_at is not None:
             daily_publish_date = pub_at.date()
     if is_daily_single_task:

@@ -8,12 +8,11 @@
     {% if ai.is_solved %}
     <span class="new-pill new-pill--ok new-proportions-compact-badge--ok-strong" title="Задание решено">ок</span>
     {% endif %}
-    {% with hp=ai.get_sum_hint_penalty %}
+    {% meta_bar_hint_penalty ai task alphabetty_hints as hp %}
     {% with max_raw=base_max|sub_clamp0:hp %}
     <span class="new-proportions-compact-points-pill" {% if wall_max_title %}title="{{ wall_max_title|escape }}"{% else %}title="Начислено сейчас / максимум с учётом подсказок"{% endif %}>
       <span class="new-proportions-compact-stat__paren">(</span><span class="new-proportions-compact-stat__nums">{{ ai.get_result_points|minimize_digits }}</span> {{ ai.get_result_points|ru_points_word }}<span class="new-proportions-compact-stat__sep"> / </span><span class="new-proportions-compact-stat__nums">{{ max_raw|minimize_digits }}</span> {{ max_raw|ru_points_word }}<span class="new-proportions-compact-stat__paren">)</span>
     </span>
-    {% endwith %}
     {% endwith %}
     {% if task.task_type != 'replacements_lines' %}
     {% with n=ai.get_n_attempts %}
@@ -47,13 +46,18 @@
     </span>
     {% endif %}
     {% endwith %}
+    {% if task.task_type == 'alphabetty' and alphabetty_hints_label %}
+    <span class="new-proportions-compact-stat new-proportions-compact-stat--plain" title="Взятые буквенные подсказки">
+      <span class="new-proportions-compact-stat__paren">(</span>{{ alphabetty_hints_label }}<span class="new-proportions-compact-stat__paren">)</span>
+    </span>
+    {% endif %}
     {% endif %}
   </div>
   <span class="new-proportions-compact-bar__fill" aria-hidden="true"></span>
   {% if task.get_player_hints %}
   <button type="button" class="new-proportions-compact-textbtn" data-hints-toggle data-task-id="{{ task.id }}" title="подсказки">подсказки</button>
   {% endif %}
-  {% if task.task_type != 'replacements_lines' and task.task_type != 'raddle' %}
+  {% if task.task_type != 'replacements_lines' and task.task_type != 'raddle' and task.task_type != 'alphabetty' %}
   {% if mode != 'tournament' or ai.is_solved %}
   <button type="button" class="new-proportions-compact-textbtn" data-answer-open data-task-id="{{ task.id }}" title="Показать ответ">ответ</button>
   {% endif %}

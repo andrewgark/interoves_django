@@ -7,6 +7,8 @@ import uuid
 
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
 from games.alphabetty.core import build_prefix_level, normalize_word
@@ -15,7 +17,10 @@ from games.alphabetty.play import (
     apply_hint,
     get_play_state,
     get_task_for_number,
+    hint_count,
     hub_progress_for_actor,
+    load_state,
+    ru_hint_word,
 )
 from games.alphabetty.suggestions import suggest_word
 from games.alphabetty_daily import (
@@ -27,7 +32,7 @@ from games.alphabetty_daily import (
     is_alphabetty_number_published,
     visible_alphabetty_links,
 )
-from games.models import Game, GameTaskGroup, Task
+from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Like, Task
 from games.section_paths import section_hub_path, section_play_path
 from games.views.new_ui import (
     NEW_UI_SECTIONS_PROJECT,
@@ -71,6 +76,78 @@ def _resolve_actor(request, *, body=None):
     if anon_key:
         return None, str(anon_key)
     return None, None
+
+
+def _alphabetty_hints_taken(*, game, task, user, anon_key) -> int:
+    qs = ChainTaskState.objects.filter(task=task, game=game, game_mode='general')
+    if user is not None:
+        qs = qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
+    elif anon_key:
+        qs = qs.filter(anon_key=str(anon_key), team__isnull=True, user__isnull=True)
+    else:
+        return 0
+    row = qs.first()
+    if row is None:
+        return 0
+    return hint_count(load_state(row.state))
+
+
+def _alphabetty_meta_context(request, *, game, task, user, anon_key):
+    mode = game.get_current_mode(Attempt(time=timezone.now()))
+    ai = Attempt.manager.get_attempts_info(
+        team=None,
+        task=task,
+        mode=mode,
+        user=user,
+        anon_key=anon_key,
+        game=game,
+    )
+    hints_n = _alphabetty_hints_taken(game=game, task=task, user=user, anon_key=anon_key)
+    return {
+        'game': game,
+        'task': task,
+        'ai': ai,
+        'mode': mode,
+        'base_max': task.get_points(),
+        'wall_max_title': '',
+        'is_daily_single_task': True,
+        'has_profile_user': has_profile(request.user),
+        'user': request.user,
+        'likes_meta_by_task_id': {
+            task.id: {
+                'likes': Like.manager.get_total_likes(task),
+                'dislikes': Like.manager.get_total_dislikes(task),
+                'liked': Like.manager.actor_has_like(
+                    task, team=None, user=user, anon_key=anon_key,
+                ),
+                'disliked': Like.manager.actor_has_dislike(
+                    task, team=None, user=user, anon_key=anon_key,
+                ),
+            },
+        },
+        'alphabetty_hints': hints_n,
+        'alphabetty_hints_label': (
+            f'{hints_n} {ru_hint_word(hints_n)}' if hints_n > 0 else ''
+        ),
+    }
+
+
+def _alphabetty_meta_bar_html(request, *, game, task, user, anon_key) -> str:
+    return render_to_string(
+        'new/task-content/task-meta-bar.html',
+        _alphabetty_meta_context(
+            request, game=game, task=task, user=user, anon_key=anon_key,
+        ),
+        request=request,
+    )
+
+
+def _with_meta_bar(payload: dict, request, *, game, task, user, anon_key) -> dict:
+    out = dict(payload)
+    out['meta_bar_html'] = _alphabetty_meta_bar_html(
+        request, game=game, task=task, user=user, anon_key=anon_key,
+    )
+    return out
 
 
 def alphabetty_hub_page(request):
@@ -154,10 +231,10 @@ def alphabetty_today_page(request):
     if not game.has_access('see_game_preview', team=team):
         raise Http404()
     hub = get_alphabetty_hub_context(game, published_numbers=_published_numbers(game))
-    play_url = hub.get('alphabetty_play_url')
-    if not play_url:
+    cta_number = hub.get('alphabetty_cta_number')
+    if not cta_number:
         return redirect('new_alphabetty_hub')
-    return redirect(play_url)
+    return redirect(section_play_path(ALPHABETTY_GAME_ID, cta_number))
 
 
 def alphabetty_last_page(request):
@@ -222,6 +299,9 @@ def alphabetty_play_page(request, number):
         )
     )
     prev_tg, next_tg = _neighbors_by_pk(visible_links, link)
+    meta_ctx = _alphabetty_meta_context(
+        request, game=game, task=task, user=user, anon_key=anon_key,
+    )
     return render(request, 'new/alphabetty_play.html', {
         'game': game,
         'number': n,
@@ -246,6 +326,7 @@ def alphabetty_play_page(request, number):
         'next_task_group_url': (
             section_play_path(ALPHABETTY_GAME_ID, next_tg.number) if next_tg else None
         ),
+        **meta_ctx,
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
     })
 
@@ -297,7 +378,15 @@ def alphabetty_state(request, number):
         number=n,
         share_host=_share_host(request),
     )
-    response = JsonResponse({'status': 'ok', **state})
+    payload = _with_meta_bar(
+        {'status': 'ok', **state},
+        request,
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+    )
+    response = JsonResponse(payload)
     if user is None and anon_key:
         response.set_cookie(
             'interoves_anon',
@@ -338,6 +427,9 @@ def alphabetty_guess(request, number):
         anon_key=anon_key,
         number=n,
         share_host=_share_host(request),
+    )
+    result = _with_meta_bar(
+        result, request, game=game, task=task, user=user, anon_key=anon_key,
     )
     response = JsonResponse(result)
     if user is None and anon_key:
@@ -407,6 +499,9 @@ def alphabetty_hint(request, number):
         anon_key=anon_key,
         number=n,
         share_host=_share_host(request),
+    )
+    result = _with_meta_bar(
+        result, request, game=game, task=task, user=user, anon_key=anon_key,
     )
     response = JsonResponse(result)
     if user is None and anon_key:

@@ -2,18 +2,19 @@
 {% block title %}{{ page_title }}{% endblock %}
 {% block content %}
 <p class="new-tg-back">
-  <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> На главную</a>
+  <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a>
 </p>
 
 <div class="new-section-header">
-  <div>
-    <h1 class="new-heading new-heading--page">Алфавитка</h1>
-    {% if game.theme %}
-    <p class="new-login-hint new-theme-line">{{ game.theme }}</p>
-    {% endif %}
-  </div>
+  <h1 class="new-heading new-heading--page">Алфавитка</h1>
+  <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle>
+    <i class="ph ph-eye" aria-hidden="true"></i>
+  </button>
   <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
 </div>
+{% if game.theme %}
+<p class="new-login-hint new-theme-line">{{ game.theme }}</p>
+{% endif %}
 
 {% include "new/_rules_banner.html" %}
 
@@ -70,6 +71,31 @@
     storageKey: 'section_rules_seen_alphabetty',
     banner: document.querySelector('[data-rules-banner]')
   });
+})();
+</script>
+<script>
+(function () {
+  var HIDE_KEY = 'new_hide_solved';
+  function applyHideSolved() {
+    var hide = false;
+    try { hide = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) {}
+    document.querySelectorAll('.new-task[data-fully-solved="1"]').forEach(function (el) {
+      el.classList.toggle('is-hidden', hide);
+    });
+    var btn = document.querySelector('[data-hide-solved-toggle]');
+    if (btn) btn.innerHTML = hide ? '<i class="ph ph-eye-slash" aria-hidden="true"></i>' : '<i class="ph ph-eye" aria-hidden="true"></i>';
+  }
+  document.querySelectorAll('[data-hide-solved-toggle]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      try {
+        var cur = localStorage.getItem(HIDE_KEY) === '1';
+        localStorage.setItem(HIDE_KEY, cur ? '0' : '1');
+      } catch (e) {}
+      applyHideSolved();
+    });
+  });
+  applyHideSolved();
+  window.interovesApplyHideSolved = applyHideSolved;
 })();
 </script>
 {% endblock %}

@@ -18,6 +18,10 @@ from games.alphabetty.core import (
 )
 from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
 
+# Базовые очки за угаданное слово; каждая буквенная подсказка −1.
+ALPHABETTY_BASE_POINTS = 10
+ALPHABETTY_HINT_PENALTY = 1
+
 
 def default_state() -> dict[str, Any]:
     return {'guesses': [], 'won': False, 'hint_prefix': '', 'hints_taken': 0}
@@ -32,6 +36,44 @@ def hint_count(state: dict[str, Any]) -> int:
             pass
     # Старые сохранения без hints_taken: одна подсказка = одна буква с начала.
     return len(normalize_word(state.get('hint_prefix') or ''))
+
+
+def alphabetty_base_points(task: Optional[Task] = None):
+    """Максимум баллов за алфавитку (обычно 10)."""
+    from decimal import Decimal
+    if task is not None:
+        try:
+            p = task.get_points()
+            if p is not None:
+                return Decimal(str(p))
+        except Exception:
+            pass
+    return Decimal(ALPHABETTY_BASE_POINTS)
+
+
+def alphabetty_hint_penalty_points(hints: int) -> int:
+    return max(0, int(hints or 0)) * ALPHABETTY_HINT_PENALTY
+
+
+def letter_hint_penalty_for_actor(*, game, task, user=None, anon_key=None, team=None) -> int:
+    """Штраф за буквенные подсказки из ChainTaskState (−1 за каждую)."""
+    if task is None or getattr(task, 'task_type', None) != 'alphabetty':
+        return 0
+    if game is None:
+        return 0
+    qs = ChainTaskState.objects.filter(task=task, game=game, game_mode='general')
+    if team is not None:
+        qs = qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
+    elif user is not None:
+        qs = qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
+    elif anon_key:
+        qs = qs.filter(anon_key=str(anon_key), team__isnull=True, user__isnull=True)
+    else:
+        return 0
+    row = qs.first()
+    if row is None:
+        return 0
+    return alphabetty_hint_penalty_points(hint_count(load_state(row.state)))
 
 
 def ru_hint_word(n: int) -> str:
@@ -129,14 +171,15 @@ def attach_solve_meta(
     actor: Optional[dict],
     host: str = 'interoves.com',
 ) -> dict[str, Any]:
-    """Добавить время/share-текст для решённой алфавитки."""
+    """Добавить attempts_label; для решённой — ещё время/share-текст."""
+    attempts = int(payload.get('attempts') or 0)
+    payload['attempts_label'] = f'{attempts} {ru_attempt_word(attempts)}'
     if not payload.get('won'):
         return payload
     try:
         num = int(number)
     except (TypeError, ValueError):
         num = 0
-    attempts = int(payload.get('attempts') or 0)
     hints = int(payload.get('hints') or 0)
     elapsed = elapsed_seconds_for_actor(game=game, task=task, actor=actor) if actor else 0
     lines = build_share_lines(
@@ -148,7 +191,6 @@ def attach_solve_meta(
     )
     payload['elapsed_seconds'] = elapsed
     payload['elapsed_label'] = format_elapsed(elapsed)
-    payload['attempts_label'] = f'{attempts} {ru_attempt_word(attempts)}'
     payload['share_lines'] = lines
     payload['share_text'] = '\n'.join(lines)
     return payload
@@ -305,6 +347,7 @@ def public_payload(
         'prefix_hint': prefix_hint,
         'won': won,
         'attempts': len(guesses),
+        'attempts_label': f'{len(guesses)} {ru_attempt_word(len(guesses))}',
         'max_word_length': max_word_length(),
     }
     if won or reveal_secret:
@@ -472,7 +515,7 @@ def _commit_guess(
         game=game,
         text=normalized,
         status='Ok' if status == 'correct' else 'Partial',
-        points=1 if status == 'correct' else 0,
+        points=alphabetty_base_points(task) if status == 'correct' else 0,
         state=dump_state(state),
         **actor,
     )

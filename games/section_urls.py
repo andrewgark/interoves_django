@@ -17,6 +17,11 @@ def section_root_urlpatterns(
     task_group_url_name='ui_section_task_group',
 ):
     """URL patterns to merge before /games/<id>/ hub routes and /games/<id>/<number>/ play."""
+    section_last_url_name = (
+        'ui_section_last'
+        if section_game_url_name.startswith('ui_')
+        else 'new_section_last'
+    )
     patterns = [
         re_path(
             r'^(?P<game_id>' + _RESULTS_GAME_ID_RE + r')/results/$',
@@ -59,6 +64,11 @@ def section_root_urlpatterns(
             r'^(?P<game_id>' + _SECTION_GAME_ID_RE + r')/$',
             ui.section_game_page,
             name=section_game_url_name,
+        ),
+        re_path(
+            r'^(?P<game_id>' + _SECTION_GAME_ID_RE + r')/last/$',
+            ui.section_last_page,
+            name=section_last_url_name,
         ),
         re_path(
             r'^(?P<game_id>' + _SECTION_GAME_ID_RE + r')/(?P<task_group_number>\d+(?:\.\d+)?)/$',

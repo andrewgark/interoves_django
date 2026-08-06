@@ -805,21 +805,37 @@ class AttemptsInfo:
         return self.best_attempt and self.best_attempt.status == 'Ok'
 
     def get_sum_hint_penalty(self):
-        if not self.hint_attempts:
-            return 0
         from games.raddle import is_raddle_in_game_assist_hint
         total = 0
-        for hint_attempt in self.hint_attempts:
-            if not hint_attempt.is_real_request:
-                continue
-            hint = hint_attempt.hint
-            if hint is None:
-                continue
-            if is_raddle_in_game_assist_hint(hint):
-                continue
-            total += hint.points_penalty or 0
+        if self.hint_attempts:
+            for hint_attempt in self.hint_attempts:
+                if not hint_attempt.is_real_request:
+                    continue
+                hint = hint_attempt.hint
+                if hint is None:
+                    continue
+                if is_raddle_in_game_assist_hint(hint):
+                    continue
+                total += hint.points_penalty or 0
+        total += self._alphabetty_letter_hint_penalty()
         return total
-    
+
+    def _alphabetty_letter_hint_penalty(self):
+        sample = self.best_attempt or (self.attempts[-1] if self.attempts else None)
+        if sample is None:
+            return 0
+        task = sample.task
+        if task is None or getattr(task, 'task_type', None) != 'alphabetty':
+            return 0
+        from games.alphabetty.play import letter_hint_penalty_for_actor
+        return letter_hint_penalty_for_actor(
+            game=sample.game,
+            task=task,
+            user=sample.user,
+            anon_key=sample.anon_key,
+            team=sample.team,
+        )
+
     def get_result_points(self):
         result_points = 0
         if self.best_attempt:

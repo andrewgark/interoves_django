@@ -127,8 +127,8 @@ def get_alphabetty_hub_context(game, *, published_numbers: set[str] | None = Non
     elif today_num is not None and start and now < alphabetty_publish_at(game, 1):
         status = 'coming_soon'
 
-    from games.section_paths import section_hub_path, section_play_path
-    play_url = section_play_path(ALPHABETTY_GAME_ID, cta_number) if cta_number else None
+    from games.section_paths import section_hub_path, section_last_path
+    play_url = section_last_path(ALPHABETTY_GAME_ID) if cta_number else None
     section_url = section_hub_path(ALPHABETTY_GAME_ID)
 
     today_label = None

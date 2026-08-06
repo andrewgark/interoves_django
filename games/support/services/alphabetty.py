@@ -11,6 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from games.alphabetty.core import is_valid_guess, normalize_word, pick_answer_words
+from games.alphabetty.play import ALPHABETTY_BASE_POINTS
 from games.alphabetty_daily import (
     ALPHABETTY_BUFFER_DAYS,
     ALPHABETTY_GAME_ID,
@@ -243,7 +244,7 @@ def _create_slot(*, number: int, word: str) -> GameTaskGroup:
     task_group = TaskGroup.objects.create(
         label=f'alphabetty:{number}',
         checker=checker,
-        points=1,
+        points=ALPHABETTY_BASE_POINTS,
         max_attempts=None,
     )
     Task.objects.create(
@@ -255,7 +256,7 @@ def _create_slot(*, number: int, word: str) -> GameTaskGroup:
         answer=word_n,
         text='',
         tags={},
-        points=1,
+        points=ALPHABETTY_BASE_POINTS,
         max_attempts=None,
         is_removed=False,
     )
@@ -366,7 +367,7 @@ def update_alphabetty(link_id: int, *, word: str, now: datetime | None = None) -
             'answer': word_n,
             'text': '',
             'tags': {},
-            'points': 1,
+            'points': ALPHABETTY_BASE_POINTS,
             'max_attempts': None,
             'is_removed': False,
         },

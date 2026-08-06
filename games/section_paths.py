@@ -37,6 +37,13 @@ def section_play_path(game_id: str, number) -> str:
     return '/games/{}/{}/'.format(game_id, number)
 
 
+def section_last_path(game_id: str) -> str:
+    """Stable CTA URL: redirects to the latest published round at request time."""
+    if is_root_section_game(game_id):
+        return '/{}/last/'.format(game_id)
+    return '/games/{}/last/'.format(game_id)
+
+
 def section_progress_path(game_id: str) -> str:
     if is_root_section_game(game_id):
         return '/{}/progress/'.format(game_id)

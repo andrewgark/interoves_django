@@ -15,6 +15,7 @@ task_group_page = new_task_group_page
 ladder_today_page = new_ladder_today_page
 ladder_last_page = new_ladder_last_page
 ladder_hub_page = new_ladder_hub_page
+section_last_page = new_section_last_page
 
 from games.views.alphabetty_views import (  # noqa: E402
     alphabetty_guess,

@@ -1,5 +1,5 @@
 {% extends "new/base.html" %}
-{% load static %}
+{% load filters static %}
 {% block title %}{{ page_title }}{% endblock %}
 {% block content %}
 {{ bootstrap|json_script:"alphabetty-bootstrap" }}
@@ -10,8 +10,7 @@
 
 <div class="new-section-header">
   <div>
-    <div class="new-login-hint new-meta-kicker">Игра</div>
-    <h1 class="new-heading new-heading--page">Алфавитка</h1>
+    <h1 class="new-heading new-heading--page">{{ page_title }}</h1>
     {% if game.theme %}
     <p class="new-login-hint new-theme-line">{{ game.theme }}</p>
     {% endif %}
@@ -21,10 +20,13 @@
 
 {% include "new/_rules_banner.html" %}
 
-<p class="new-login-hint new-meta-line--loose">
-  №{{ number }}{% if daily_publish_date %} · {{ daily_publish_date|date:"j E Y" }}{% endif %}
-  · <span id="ab-attempts">0</span> попыток
-</p>
+{% if daily_publish_date %}
+<p class="new-login-hint new-meta-line">{{ daily_publish_date|date:"j E Y" }}</p>
+{% endif %}
+
+<div id="new-task-{{ task.id }}" class="new-alphabetty-meta" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}" data-alphabetty-meta>
+  {% include "new/task-content/task-meta-bar.html" %}
+</div>
 
 <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-rules-close></div>
@@ -187,7 +189,6 @@
   var elMsg = document.getElementById('ab-msg');
   var elMsgRow = document.getElementById('ab-msg-row');
   var elSuggest = document.getElementById('ab-suggest');
-  var elAttempts = document.getElementById('ab-attempts');
   var elWin = document.getElementById('ab-win');
   var elSecret = document.getElementById('ab-secret');
   var elInputZone = document.getElementById('ab-input-zone');
@@ -199,6 +200,7 @@
   var elHintToast = document.getElementById('ab-hint-toast');
   var elHintToastBody = document.getElementById('ab-hint-toast-body');
   var elHintToastClose = document.getElementById('ab-hint-toast-close');
+  var elTaskMeta = document.querySelector('[data-alphabetty-meta]');
   var hintToastTimer = null;
   var defaultPlaceholder = (input && input.getAttribute('data-default-placeholder')) || 'Угадайте русское слово';
 
@@ -415,7 +417,6 @@
     });
     elAfterBlock.hidden = !earlier.length;
     elBeforeBlock.hidden = !later.length;
-    elAttempts.textContent = String(state.attempts || 0);
     // Списки растут к инпуту: ближайшее у края (низ «после» / верх «перед»).
     scheduleLadderPins();
 
@@ -608,6 +609,7 @@
       if (data[k] !== undefined) state[k] = data[k];
     });
     if (data.max_word_length) maxLen = data.max_word_length;
+    if (data.meta_bar_html) replaceMetaBar(data.meta_bar_html);
     prefixCache = {};
     expanded = {};
     preservePageScroll(function () {
@@ -615,6 +617,139 @@
       if (!state.won) focusInput();
     });
   }
+
+  function replaceMetaBar(html) {
+    if (!elTaskMeta || !html) return;
+    elTaskMeta.innerHTML = html;
+    elTaskMeta.setAttribute('data-solved', state.won ? '1' : '0');
+    initAttemptsPopovers(elTaskMeta);
+    syncLikeButtons(elTaskMeta);
+  }
+
+  function anchorForPop(pop) {
+    if (!pop || !pop.id) return null;
+    return document.querySelector('[popovertarget="' + pop.id + '"]');
+  }
+  function initAttemptsPopovers(scope) {
+    var root = scope || document;
+    function place(pop, anchor) {
+      if (!pop || !anchor) return;
+      var pad = 8;
+      var rect = anchor.getBoundingClientRect();
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+      var maxW = Math.min(384, vw - 2 * pad);
+      var maxH = Math.min(Math.floor(vh * 0.58), 360);
+      pop.style.position = 'fixed';
+      pop.style.margin = '0';
+      pop.style.inset = 'auto';
+      pop.style.right = 'auto';
+      pop.style.bottom = 'auto';
+      pop.style.maxWidth = maxW + 'px';
+      pop.style.maxHeight = maxH + 'px';
+      var top = rect.bottom + pad;
+      var left = rect.left;
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+      function commit() {
+        var w = pop.offsetWidth || 300;
+        var h = pop.offsetHeight || 200;
+        if (left + w > vw - pad) left = vw - w - pad;
+        if (left < pad) left = pad;
+        if (top + h > vh - pad) top = rect.top - h - pad;
+        if (top < pad) top = pad;
+        pop.style.left = left + 'px';
+        pop.style.top = top + 'px';
+      }
+      requestAnimationFrame(function () {
+        requestAnimationFrame(commit);
+      });
+    }
+    root.querySelectorAll('.new-proportions-attempts-popover').forEach(function (pop) {
+      if (pop.dataset.popoverPositioned === '1') return;
+      pop.dataset.popoverPositioned = '1';
+      pop.__place = place;
+      pop.addEventListener('beforetoggle', function (e) {
+        if (e.newState === 'open') place(pop, anchorForPop(pop));
+      });
+    });
+  }
+  function syncLikeButtons(scope) {
+    var root = scope || document;
+    root.querySelectorAll('[data-like-btn]').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-liked') === '1');
+    });
+    root.querySelectorAll('[data-dislike-btn]').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-disliked') === '1');
+    });
+  }
+  initAttemptsPopovers(elTaskMeta || document);
+  syncLikeButtons(elTaskMeta || document);
+  window.addEventListener('resize', function () {
+    document.querySelectorAll('.new-proportions-attempts-popover').forEach(function (pop) {
+      try {
+        if (pop.matches(':popover-open') && typeof pop.__place === 'function') {
+          pop.__place(pop, anchorForPop(pop));
+        }
+      } catch (err) {}
+    });
+  });
+
+  function postLike(taskId, likesDelta, dislikesDelta) {
+    var body = new URLSearchParams();
+    body.set('likes', String(likesDelta));
+    body.set('dislikes', String(dislikesDelta));
+    body.set('game_id', '{{ game.id }}');
+    body.set('anon_key', anonKey || '');
+    var url = "{% url 'new_like_dislike' 0 %}".replace('/0/', '/' + taskId + '/');
+    return fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': csrf(),
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      },
+      body: body.toString(),
+      credentials: 'same-origin',
+    }).then(function (r) { return r.json(); });
+  }
+  function applyLikeUI(taskId, data) {
+    var likeBtn = document.querySelector('[data-like-btn][data-task-id="' + taskId + '"]');
+    var dislikeBtn = document.querySelector('[data-dislike-btn][data-task-id="' + taskId + '"]');
+    var likeCount = document.querySelector('[data-like-count="' + taskId + '"]');
+    var dislikeCount = document.querySelector('[data-dislike-count="' + taskId + '"]');
+    if (likeCount && typeof data.likes !== 'undefined') likeCount.textContent = data.likes;
+    if (dislikeCount && typeof data.dislikes !== 'undefined') dislikeCount.textContent = data.dislikes;
+    if (likeBtn && typeof data.liked !== 'undefined') {
+      likeBtn.setAttribute('data-liked', data.liked ? '1' : '0');
+      likeBtn.classList.toggle('is-active', !!data.liked);
+    }
+    if (dislikeBtn && typeof data.disliked !== 'undefined') {
+      dislikeBtn.setAttribute('data-disliked', data.disliked ? '1' : '0');
+      dislikeBtn.classList.toggle('is-active', !!data.disliked);
+    }
+  }
+  document.addEventListener('click', function (e) {
+    var likeBtn = e.target && e.target.closest ? e.target.closest('[data-like-btn]') : null;
+    if (likeBtn) {
+      e.preventDefault();
+      var ltid = likeBtn.getAttribute('data-task-id');
+      var liked = likeBtn.getAttribute('data-liked') === '1';
+      postLike(ltid, liked ? -1 : 1, 0).then(function (data) {
+        applyLikeUI(ltid, data);
+      }).catch(function () {});
+      return;
+    }
+    var dislikeBtn = e.target && e.target.closest ? e.target.closest('[data-dislike-btn]') : null;
+    if (dislikeBtn) {
+      e.preventDefault();
+      var dtid = dislikeBtn.getAttribute('data-task-id');
+      var disliked = dislikeBtn.getAttribute('data-disliked') === '1';
+      postLike(dtid, 0, disliked ? -1 : 1).then(function (data) {
+        applyLikeUI(dtid, data);
+      }).catch(function () {});
+    }
+  }, true);
 
   function submitWord() {
     if (busy || state.won) return;

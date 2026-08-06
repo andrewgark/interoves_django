@@ -49,6 +49,7 @@ class LadderDailyLogicTests(SimpleTestCase):
         self.assertTrue(ctx['ladder_is_today'])
         self.assertEqual(ctx['ladder_status'], 'today')
         self.assertEqual(ctx['ladder_section_url'], '/ladder/')
+        self.assertEqual(ctx['ladder_play_url'], '/ladder/last/')
 
     def test_hub_context_latest_when_today_missing(self):
         game = self._game()
@@ -57,6 +58,7 @@ class LadderDailyLogicTests(SimpleTestCase):
         self.assertEqual(ctx['ladder_cta_number'], '1')
         self.assertFalse(ctx['ladder_is_today'])
         self.assertEqual(ctx['ladder_status'], 'latest')
+        self.assertEqual(ctx['ladder_play_url'], '/ladder/last/')
 
 
 class LadderGameMigrationTests(TestCase):
@@ -200,6 +202,35 @@ class LadderSectionPageTests(TestCase):
             resp = self.client.get('/ladder/last/')
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp['Location'], '/ladder/')
+
+    def test_walls_last_redirects_to_latest(self):
+        from games.models import Game, GameTaskGroup, Project
+
+        Project.objects.get_or_create(id='sections')
+        project = Project.objects.get(id='sections')
+        game, _ = Game.objects.get_or_create(
+            id='walls',
+            defaults={
+                'name': 'Стены',
+                'outside_name': 'Стены',
+                'author': 't',
+                'project': project,
+                'is_ready': True,
+                'is_playable': True,
+            },
+        )
+        game.project = project
+        game.is_ready = True
+        game.is_playable = True
+        game.save()
+        GameTaskGroup.objects.filter(game=game).delete()
+        for n in (3, 7):
+            tg = TaskGroup.objects.create(label=f'walls-last-{n}')
+            GameTaskGroup.objects.create(game=game, task_group=tg, number=str(n), name=f'#{n}')
+        self.assertTrue(game.has_access('see_game_preview', team=None))
+        resp = self.client.get('/walls/last/')
+        self.assertEqual(resp.status_code, 302, msg=getattr(resp, 'content', b'')[:200])
+        self.assertEqual(resp['Location'], '/walls/7/')
 
 
 class LadderResultsVisibilityTests(TestCase):

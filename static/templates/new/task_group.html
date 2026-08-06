@@ -22,9 +22,10 @@
 
 <div class="new-section-header">
   <div>
-    <div class="new-login-hint new-meta-kicker">Игра</div>
     <h1 class="new-heading new-heading--page">
-      {% if "html_in_title" in game.tags %}
+      {% if is_daily_single_task and page_title %}
+        {{ page_title }}
+      {% elif "html_in_title" in game.tags %}
         {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
       {% else %}
         {{ game.get_outside_name|default:game.outside_name|default:game.name }}
@@ -44,12 +45,12 @@
 
 <p class="new-login-hint new-meta-line">
   {% if is_daily_single_task %}
-  №{{ tg_number }}{% if daily_publish_date %} · {{ daily_publish_date|date:"j E Y" }}{% endif %}
+  {% if daily_publish_date %}{{ daily_publish_date|date:"j E Y" }}{% endif %}
   {% else %}
   {{ tg_number }} · <strong>{% autoescape off %}{{ tg_name }}{% endautoescape %}</strong>
   {% endif %}
   {% if week_task_source_line %}
-    <span aria-hidden="true"> · </span>{% if week_task_source_url %}<a class="new-link-dotted" href="{{ week_task_source_url }}">{{ week_task_source_line }}</a>{% else %}{{ week_task_source_line }}{% endif %}
+    {% if daily_publish_date or not is_daily_single_task %}<span aria-hidden="true"> · </span>{% endif %}{% if week_task_source_url %}<a class="new-link-dotted" href="{{ week_task_source_url }}">{{ week_task_source_line }}</a>{% else %}{{ week_task_source_line }}{% endif %}
   {% endif %}
 </p>
 

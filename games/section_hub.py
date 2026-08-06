@@ -23,7 +23,7 @@ from games.week_task_weekly import (
     filter_published_week_task_links,
     get_week_task_hub_context,
 )
-from games.section_paths import section_hub_path, section_play_path
+from games.section_paths import section_hub_path, section_last_path, section_play_path
 
 _DES_GAME_ID_RE = re.compile(r'^des(\d+)$')
 
@@ -136,7 +136,7 @@ def get_training_section_hub_context(game):
     meta = SECTION_HUB_META[game.id]
     links = list(_newest_task_group_links(game))
     cta_number = links[0].number if links else None
-    play_url = section_play_path(game.id, cta_number) if cta_number else None
+    play_url = section_last_path(game.id) if cta_number else None
     return {
         'id': game.id,
         'icon': meta['icon'],

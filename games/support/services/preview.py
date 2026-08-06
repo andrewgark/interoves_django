@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from games.models import Attempt, Game, GameTaskGroup, HTMLPage, Team
 from games.ladder_daily import ladder_publish_at
+from games.week_task_weekly import WEEK_TASK_GAME_ID, week_task_publish_at
 from games.views.new_ui import (
     LADDER_GAME_ID,
     NEW_UI_PROJECT,
@@ -225,10 +226,14 @@ def build_preview_task_group_context(game_id: str, task_group_number: str, spec:
     next_url = (
         preview_task_group_url(game.id, next_tg.number, spec) if next_tg else None
     )
-    is_daily_single_task = game.id == LADDER_GAME_ID
+    is_daily_single_task = game.id in (LADDER_GAME_ID, WEEK_TASK_GAME_ID)
     daily_publish_date = None
-    if is_daily_single_task:
+    if game.id == LADDER_GAME_ID:
         pub_at = ladder_publish_at(game, placement.number)
+        if pub_at is not None:
+            daily_publish_date = pub_at.date()
+    elif game.id == WEEK_TASK_GAME_ID:
+        pub_at = week_task_publish_at(game, placement.number)
         if pub_at is not None:
             daily_publish_date = pub_at.date()
     if is_daily_single_task:
