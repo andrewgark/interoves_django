@@ -122,6 +122,21 @@ In the NOWPayments dashboard: generate API key + IPN secret; set default IPN URL
 eb setenv NOWPAYMENTS_API_KEY='...' NOWPAYMENTS_IPN_SECRET='...'
 ```
 
+## Tribute (foreign cards on `/pay/`)
+
+Used by `POST /pay/create-tribute-ticket-payment/` and webhook at `/tribute/webhook/`.
+
+Requires an active Tribute **Shop** (not only digital products). In the Tribute dashboard: generate API key, set webhook URL to `https://interoves.com/tribute/webhook/`.
+
+Local files (or EB env vars):
+
+- `tribute_api_key.txt` / `TRIBUTE_API_KEY` (also used to verify `trbt-signature`)
+- optional `tribute_shop_id.txt` / `TRIBUTE_SHOP_ID` (if you have several shops; otherwise the oldest active shop is used)
+
+```bash
+eb setenv TRIBUTE_API_KEY='...' TRIBUTE_SHOP_ID='123'
+```
+
 ## X / Twitter (@interoves)
 
 Used by the 00:15 MSK ladder cron: when the Telegram channel post is queued for 16:30, the same teaser is **tweeted immediately** (X has no organic schedule).

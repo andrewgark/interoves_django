@@ -25,6 +25,18 @@
     </span>
     <span class="new-pay-method-btn__label">Задонатить с российской карты</span>
   </button>
+  <button type="button" id="new-donate-tribute-btn" class="new-btn new-pay-method-btn" aria-pressed="false">
+    <span class="new-pay-method-btn__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
+        <rect x="2" y="5" width="20" height="14" rx="2" fill="#1a1a1a"/>
+        <rect x="2" y="8" width="20" height="3" fill="#c9a227"/>
+        <rect x="5" y="14" width="6" height="2" rx="0.5" fill="#e8e8e8"/>
+        <circle cx="17.5" cy="15" r="2.2" fill="#e8e8e8" opacity="0.85"/>
+        <circle cx="19.2" cy="15" r="2.2" fill="#b0b0b0" opacity="0.7"/>
+      </svg>
+    </span>
+    <span class="new-pay-method-btn__label">Задонатить с иностранной карты</span>
+  </button>
   <button type="button" id="new-donate-crypto-btn" class="new-btn new-pay-method-btn" aria-pressed="false">
     <span class="new-pay-method-btn__icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
@@ -47,6 +59,20 @@
       target="_blank"
       rel="noopener noreferrer"
     >Задонатить через ЮMoney</a>
+  </div>
+</div>
+
+<div id="new-donate-tribute-panel" class="new-donate-panel" hidden>
+  <div class="new-donate-yoomoney">
+    <p class="new-donate-yoomoney__hint">
+      Донат через Tribute: иностранные карты и оплата в Telegram. Сумму выбираете там.
+    </p>
+    <a
+      class="new-btn new-btn--yellow"
+      href="https://t.me/tribute/app?startapp=ep_7qrVurYLfqMXMtgerVsGU2hleQPjsFaoKk4vQGJ1wfzC7fvFHe"
+      target="_blank"
+      rel="noopener noreferrer"
+    >Задонатить через Tribute</a>
   </div>
 </div>
 
@@ -115,8 +141,10 @@
 <script>
 (function () {
   var cardBtn = document.getElementById('new-donate-card-btn');
+  var tributeBtn = document.getElementById('new-donate-tribute-btn');
   var cryptoBtn = document.getElementById('new-donate-crypto-btn');
   var cardPanel = document.getElementById('new-donate-card-panel');
+  var tributePanel = document.getElementById('new-donate-tribute-panel');
   var cryptoPanel = document.getElementById('new-donate-crypto-panel');
   var form = document.getElementById('new-donate-crypto-form');
   var payHost = document.getElementById('new-donate-pay-host');
@@ -130,7 +158,7 @@
   var poller = null;
   var activeDonationId = null;
 
-  if (!cardBtn || !cryptoBtn || !cardPanel || !cryptoPanel) return;
+  if (!cardBtn || !tributeBtn || !cryptoBtn || !cardPanel || !tributePanel || !cryptoPanel) return;
 
   function setMsg(t) {
     if (!msg) return;
@@ -151,11 +179,13 @@
   }
 
   function show(mode) {
-    var isCard = mode === 'card';
-    cardPanel.hidden = !isCard;
-    cryptoPanel.hidden = isCard;
-    cardBtn.setAttribute('aria-pressed', isCard ? 'true' : 'false');
-    cryptoBtn.setAttribute('aria-pressed', isCard ? 'false' : 'true');
+    var panels = { card: cardPanel, tribute: tributePanel, crypto: cryptoPanel };
+    var buttons = { card: cardBtn, tribute: tributeBtn, crypto: cryptoBtn };
+    Object.keys(panels).forEach(function (key) {
+      var on = mode === key;
+      panels[key].hidden = !on;
+      buttons[key].setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
   }
 
   function updateListStatus(donationId, status, data) {
@@ -272,6 +302,7 @@
   }
 
   cardBtn.addEventListener('click', function () { show('card'); });
+  tributeBtn.addEventListener('click', function () { show('tribute'); });
   cryptoBtn.addEventListener('click', function () { show('crypto'); });
 
   if (form) {

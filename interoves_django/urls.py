@@ -22,7 +22,7 @@ from django.views.generic import RedirectView, TemplateView
 
 from microsites import views as microsites_views
 from games.views.meta_http import deploy_version
-from games.views.ticket import nowpayments_ipn, yookassa_webhook
+from games.views.ticket import nowpayments_ipn, tribute_webhook, yookassa_webhook
 from games.views.order_game_landing import order_game_landing
 from games.views.instagram_feed import instagram_feed, ladder_teaser_jpg
 from games.social.views import social_queue_instagram_jpg
@@ -97,6 +97,7 @@ urlpatterns = [
 
     path('yookassa/webhook/', yookassa_webhook, name='yookassa_webhook'),
     path('nowpayments/ipn/', nowpayments_ipn, name='nowpayments_ipn'),
+    path('tribute/webhook/', tribute_webhook, name='tribute_webhook'),
     path('telegram/', include(telegram_urlpatterns)),
     path('health/', include('health_check.urls')),
     path('meta/deploy-version/', deploy_version, name='deploy_version'),
