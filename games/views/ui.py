@@ -43,6 +43,7 @@ team = new_team
 pay_page = new_pay_page
 create_ticket_payment = new_create_ticket_payment
 create_crypto_ticket_payment = new_create_crypto_ticket_payment
+create_tribute_ticket_payment = new_create_tribute_ticket_payment
 ticket_payment_status = new_ticket_payment_status
 donate_page = new_donate_page
 create_crypto_donation = new_create_crypto_donation

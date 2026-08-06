@@ -10,6 +10,7 @@ from collections import OrderedDict
 import pytz
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from django.forms import ChoiceField, ModelForm, TextInput
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
@@ -121,6 +122,7 @@ from games.results_snapshot import (
 from games.nowpayments_util import create_invoice as nowpayments_create_invoice
 from games.nowpayments_util import embed_url_for_invoice
 from games.nowpayments_util import nowpayments_ipn_callback_url
+from games.tribute_util import create_shop_order as tribute_create_shop_order
 from games.yookassa_util import configure_yookassa_from_env
 
 from yookassa import Payment
@@ -3442,6 +3444,139 @@ def new_create_crypto_ticket_payment(request):
         'invoice_id': str(invoice_id),
         'invoice_url': invoice_url,
         'embed_url': embed,
+        'return_url': return_url,
+        'ticket_request_id': ticket_request.id,
+        'status_url': request.build_absolute_uri(
+            reverse('new_ticket_payment_status', kwargs={'ticket_request_id': ticket_request.id})
+        ),
+    })
+
+
+@require_http_methods(['POST'])
+def new_create_tribute_ticket_payment(request):
+    """Create TicketRequest + Tribute shop order; returns payment URL for foreign cards."""
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {'status': 'error', 'reason': 'login', 'message': 'Сессия истекла. Войдите снова и повторите оплату.'},
+            status=401,
+        )
+    if not has_profile(request.user):
+        return JsonResponse(
+            {'status': 'error', 'reason': 'profile', 'message': 'Сначала войдите и создайте профиль.'},
+            status=403,
+        )
+    if not has_team(request.user):
+        return JsonResponse(
+            {'status': 'error', 'reason': 'team', 'message': 'Нужно создать или вступить в команду, чтобы купить билет.'},
+            status=403,
+        )
+
+    team = request.user.profile.team_on
+    try:
+        tickets = int((request.POST.get('tickets') or '').strip())
+    except Exception:
+        tickets = 0
+    if tickets < 1 or tickets > 20:
+        return JsonResponse(
+            {'status': 'error', 'reason': 'tickets', 'message': 'Введите число билетов от 1 до 20.'},
+            status=400,
+        )
+
+    ticket_price = int(getattr(team, 'ticket_price', 2000) or 2000)
+    amount_rub = int(tickets * ticket_price)
+
+    ticket_request = None
+    try:
+        ticket_request = TicketRequest.objects.create(
+            team=team,
+            money=amount_rub,
+            tickets=tickets,
+            status='Pending',
+        )
+
+        team_label = (getattr(team, 'visible_name', None) or getattr(team, 'name', None) or str(team.pk))
+        title = f'Билеты Interoves ×{tickets}'
+        description = f'Билеты для команды {team_label} (request {ticket_request.id})'
+        site_base = (getattr(settings, 'SITE_BASE_URL', None) or 'https://interoves.com').rstrip('/')
+        return_url = f'{site_base}/pay/?payment=tribute_return'
+
+        order = tribute_create_shop_order(
+            amount_rub=amount_rub,
+            title=title,
+            description=description,
+            success_url=return_url,
+            fail_url=return_url,
+            customer_id=f'ticket:{ticket_request.id}',
+            comment=f'ticket_request_id={ticket_request.id}',
+        )
+        order_uuid = str(order.get('uuid'))
+        payment_url = order.get('paymentUrl') or order.get('webappPaymentUrl') or ''
+        ticket_request.tribute_id = order_uuid
+        ticket_request.save(update_fields=['tribute_id'])
+    except RuntimeError as exc:
+        msg = str(exc)
+        if ticket_request is not None and 'Missing Tribute' in msg:
+            logger.error('new_create_tribute_ticket_payment: %s', exc)
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'reason': 'tribute_config',
+                    'message': 'Оплата иностранной картой не настроена на сервере (ключи Tribute). Обратитесь к администратору.',
+                },
+                status=503,
+            )
+        logger.exception(
+            'new_create_tribute_ticket_payment failed ticket_request_id=%s team_id=%s amount_rub=%s',
+            getattr(ticket_request, 'id', None),
+            team.pk,
+            amount_rub,
+        )
+        if ticket_request is None:
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'reason': 'order',
+                    'message': 'Не удалось создать заказ. Попробуйте позже.',
+                },
+                status=500,
+            )
+        return JsonResponse(
+            {
+                'status': 'error',
+                'reason': 'tribute',
+                'message': 'Не получилось создать платёж через Tribute. Попробуйте позже.',
+            },
+            status=503,
+        )
+    except Exception:
+        logger.exception(
+            'new_create_tribute_ticket_payment failed ticket_request_id=%s team_id=%s amount_rub=%s',
+            getattr(ticket_request, 'id', None),
+            team.pk,
+            amount_rub,
+        )
+        if ticket_request is None:
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'reason': 'db',
+                    'message': 'Не удалось сохранить заказ (база данных). Попробуйте позже.',
+                },
+                status=500,
+            )
+        return JsonResponse(
+            {
+                'status': 'error',
+                'reason': 'tribute',
+                'message': 'Не получилось создать платёж через Tribute. Попробуйте позже.',
+            },
+            status=503,
+        )
+
+    return JsonResponse({
+        'status': 'ok',
+        'tribute_id': order_uuid,
+        'payment_url': payment_url,
         'return_url': return_url,
         'ticket_request_id': ticket_request.id,
         'status_url': request.build_absolute_uri(

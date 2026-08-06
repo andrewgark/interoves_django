@@ -30,7 +30,7 @@
     <p class="new-pay-meta">Команда: <strong>{{ team.visible_name|default:team.name }}</strong>.</p>
     <p class="new-pay-meta">Билетов сейчас: <strong id="new-pay-team-tickets">{{ team_tickets }}</strong>.</p>
     <p class="new-login-hint new-pay-note">
-      После оплаты билеты появятся у команды автоматически. Картой — обычно быстро; криптой (особенно BTC) подтверждение сети может занять десятки минут — статус обновится на этой странице.
+      После оплаты билеты появятся у команды автоматически. Российской картой — обычно быстро; иностранной картой (Tribute) — после возврата на эту страницу; криптой (особенно BTC) подтверждение сети может занять десятки минут — статус обновится здесь.
       Билет можно использовать для участия команды в любой командной игре — можно купить билеты впрок на будущее.
     </p>
     {% elif user.is_authenticated %}
@@ -86,6 +86,18 @@
       </span>
       <span class="new-pay-method-btn__label">Оплатить российской картой</span>
     </button>
+    <button type="button" id="new-pay-tribute-btn" class="new-btn new-pay-method-btn">
+      <span class="new-pay-method-btn__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
+          <rect x="2" y="5" width="20" height="14" rx="2" fill="#1a1a1a"/>
+          <rect x="2" y="8" width="20" height="3" fill="#c9a227"/>
+          <rect x="5" y="14" width="6" height="2" rx="0.5" fill="#e8e8e8"/>
+          <circle cx="17.5" cy="15" r="2.2" fill="#e8e8e8" opacity="0.85"/>
+          <circle cx="19.2" cy="15" r="2.2" fill="#b0b0b0" opacity="0.7"/>
+        </svg>
+      </span>
+      <span class="new-pay-method-btn__label">Оплатить иностранной картой</span>
+    </button>
     <button type="button" id="new-pay-crypto-btn" class="new-btn new-pay-method-btn">
       <span class="new-pay-method-btn__icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
@@ -113,6 +125,7 @@
     var cryptoMount = document.getElementById('new-nowpayments-widget');
     var widgetHost = document.getElementById('new-pay-widget-host');
     var cardBtn = document.getElementById('new-pay-card-btn');
+    var tributeBtn = document.getElementById('new-pay-tribute-btn');
     var cryptoBtn = document.getElementById('new-pay-crypto-btn');
     var msg = document.getElementById('new-yookassa-msg');
     var statusEl = document.getElementById('new-pay-status');
@@ -125,6 +138,7 @@
 
     function setBusy(busy) {
       cardBtn.disabled = !!busy;
+      if (tributeBtn) tributeBtn.disabled = !!busy;
       if (cryptoBtn) cryptoBtn.disabled = !!busy;
     }
 
@@ -282,6 +296,41 @@
         });
     });
 
+    if (tributeBtn) {
+      tributeBtn.addEventListener('click', function () {
+        setMsg('Создаём платёж через Tribute…');
+        setBusy(true);
+        hideWidgets();
+        fetch('{% url "new_create_tribute_ticket_payment" %}', {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getCsrfToken(),
+          },
+          body: new FormData(form),
+          credentials: 'same-origin',
+        }).then(parseJsonResponse).then(function (res) {
+          var data = res.data;
+          if (res.nonJson) {
+            setBusy(false);
+            setMsg('Сервер вернул неожиданный ответ (код ' + res.r.status + '). Обновите страницу и попробуйте снова.');
+            return;
+          }
+          if (!data || data.status !== 'ok' || !data.payment_url) {
+            setBusy(false);
+            setMsg((data && data.message) ? data.message : 'Не получилось создать платёж через Tribute. Попробуйте позже.');
+            return;
+          }
+          if (data.status_url) startPoll(data.status_url);
+          setMsg('Переходим на страницу оплаты Tribute…');
+          window.location.href = data.payment_url;
+        }).catch(function () {
+          setBusy(false);
+          setMsg('Ошибка сети.');
+        });
+      });
+    }
+
     if (cryptoBtn && cryptoMount) {
       cryptoBtn.addEventListener('click', function () {
         setMsg('Создаём крипто-платёж…');
@@ -346,7 +395,7 @@
   {% if team and recent_ticket_requests %}
   <div class="new-card__text new-stack-gap">
     <div class="new-pay-history__title">Последние запросы</div>
-    <div class="new-login-hint new-pay-history__hint">Если оплатили, но статус ещё Pending — подождите подтверждения сети (для BTC иногда 20+ минут). Если есть проблемы с оплатой, напишите <a href="https://t.me/andrewgark">Андрею</a>.</div>
+    <div class="new-login-hint new-pay-history__hint">Если оплатили, но статус ещё Pending — подождите подтверждения (для BTC иногда 20+ минут; для Tribute обновите страницу после возврата). Если есть проблемы с оплатой, напишите <a href="https://t.me/andrewgark">Андрею</a>.</div>
     <div class="new-pay-history__list">
       {% for tr in recent_ticket_requests %}
         <div class="new-pay-history__row">

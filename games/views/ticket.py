@@ -12,12 +12,51 @@ from games.forms import TicketRequestForm
 from games.models import TicketRequest
 from games.nowpayments_util import verify_ipn_signature
 from games.ticket_service import accept_ticket_request, reject_ticket_request
+from games.tribute_util import verify_webhook_signature as verify_tribute_webhook_signature
 from games.views.util import has_team, redirect_to_referer
 from games.yookassa_util import configure_yookassa_from_env
 
 from yookassa import Payment
 
 logger = logging.getLogger(__name__)
+
+_TICKET_CUSTOMER_PREFIX = 'ticket:'
+
+
+def _parse_ticket_customer_id(customer_id) -> int | None:
+    if not customer_id:
+        return None
+    raw = str(customer_id).strip()
+    if not raw.startswith(_TICKET_CUSTOMER_PREFIX):
+        return None
+    try:
+        return int(raw[len(_TICKET_CUSTOMER_PREFIX):])
+    except (TypeError, ValueError):
+        return None
+
+
+def _resolve_ticket_request_for_tribute(payload: dict):
+    """Find TicketRequest by tribute order uuid, then by customerId ticket:{id}."""
+    order_uuid = payload.get('uuid')
+    if order_uuid:
+        ticket = (
+            TicketRequest.objects.select_for_update()
+            .select_related('team')
+            .filter(tribute_id=str(order_uuid))
+            .first()
+        )
+        if ticket is not None:
+            return ticket
+
+    ticket_id = _parse_ticket_customer_id(payload.get('customerId'))
+    if ticket_id is None:
+        return None
+    return (
+        TicketRequest.objects.select_for_update()
+        .select_related('team')
+        .filter(id=ticket_id)
+        .first()
+    )
 
 
 @user_passes_test(has_team)
@@ -352,3 +391,91 @@ def nowpayments_ipn(request):
         np_id=np_id,
         payment_id=payment_id,
     )
+
+
+@csrf_exempt
+def tribute_webhook(request):
+    """
+    Tribute Shop webhook.
+
+    Final paid confirmation: name=shop_order, payload.status=paid.
+    Failure: name=shop_order_payment_failed.
+    Intermediate events are ignored.
+    """
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    raw_body = request.body
+    sig = request.headers.get('trbt-signature') or request.META.get('HTTP_TRBT_SIGNATURE')
+    try:
+        if not verify_tribute_webhook_signature(raw_body, sig):
+            logger.warning('tribute_webhook: invalid signature')
+            return HttpResponse(status=400)
+    except RuntimeError as exc:
+        logger.error('tribute_webhook: %s', exc)
+        return HttpResponse(status=503)
+
+    try:
+        event_json = json.loads(raw_body)
+    except Exception:
+        return HttpResponse(status=400)
+
+    if not isinstance(event_json, dict):
+        return HttpResponse(status=400)
+
+    event_name = (event_json.get('name') or '').strip()
+    payload = event_json.get('payload') or {}
+    if not isinstance(payload, dict):
+        payload = {}
+
+    if event_name not in ('shop_order', 'shop_order_payment_failed'):
+        return HttpResponse(status=200)
+
+    order_uuid = payload.get('uuid')
+    notify_event = None
+    ticket_request_id = None
+
+    with transaction.atomic():
+        ticket_request = _resolve_ticket_request_for_tribute(payload)
+        if not ticket_request:
+            logger.warning(
+                'tribute_webhook: ticket request not found event=%s uuid=%s customerId=%r',
+                event_name,
+                order_uuid,
+                payload.get('customerId'),
+            )
+            return HttpResponse(status=200)
+
+        ticket_request_id = ticket_request.pk
+
+        if event_name == 'shop_order':
+            status = (payload.get('status') or '').lower()
+            if status != 'paid':
+                logger.info(
+                    'tribute_webhook: ignore shop_order status=%s uuid=%s',
+                    status,
+                    order_uuid,
+                )
+                return HttpResponse(status=200)
+            result = accept_ticket_request(
+                ticket_request,
+                tribute_id=str(order_uuid) if order_uuid else None,
+                source='tribute_webhook',
+            )
+            if result.changed:
+                notify_event = 'payment.succeeded'
+        else:
+            result = reject_ticket_request(ticket_request, source='tribute_webhook')
+            if result.changed:
+                notify_event = 'payment.canceled'
+
+    if notify_event and ticket_request_id is not None:
+        from games.telegram.notify import notify_payment_event
+
+        ticket_request = TicketRequest.objects.filter(id=ticket_request_id).first()
+        if ticket_request is not None:
+            transaction.on_commit(
+                lambda tr=ticket_request, ev=notify_event: notify_payment_event(tr, ev)
+            )
+
+    return HttpResponse(status=200)
