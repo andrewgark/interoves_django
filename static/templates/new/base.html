@@ -489,16 +489,7 @@
       <progress class="new-audio-progress" data-audio-progress value="0" max="1"></progress>
     </div>
   </div>
-  <main class="new-wrap">
-    {% if messages %}
-    <ul class="new-messages">
-      {% for message in messages %}
-      <li class="{{ message.tags }}">{{ message }}</li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-    {% block content %}{% endblock %}
-  </main>
+  {# До main/content: страницы вызывают initSectionRules из блока content. #}
   <script>
   (function () {
     window.interovesUi = window.interovesUi || {};
@@ -512,7 +503,8 @@
       var storageKey = opts.storageKey;
       var banner = opts.banner;
       if (!modal || !storageKey) return;
-      function openRules() {
+      function openRules(e) {
+        if (e && e.preventDefault) e.preventDefault();
         modal.removeAttribute('hidden');
         modal.classList.add('is-open');
         document.body.style.overflow = 'hidden';
@@ -531,7 +523,8 @@
       document.querySelectorAll('[data-rules-open]').forEach(function (btn) {
         btn.addEventListener('click', openRules);
       });
-      document.querySelectorAll('[data-rules-close]').forEach(function (el) {
+      // Только внутри этой модалки — иначе ловим чужие data-rules-close.
+      modal.querySelectorAll('[data-rules-close]').forEach(function (el) {
         el.addEventListener('click', closeRules);
       });
       modal.addEventListener('keydown', function (e) {
@@ -559,6 +552,16 @@
     };
   })();
   </script>
+  <main class="new-wrap">
+    {% if messages %}
+    <ul class="new-messages">
+      {% for message in messages %}
+      <li class="{{ message.tags }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
   <script>
   (function () {
     var KEY = (window.interovesColorTheme && window.interovesColorTheme.KEY) || 'interoves_color_theme';

@@ -2286,6 +2286,11 @@
     focusPreventScroll(real);
   }
 
+  function raddlePinHasFocus(pin) {
+    var active = document.activeElement;
+    return !!(active && pin && pin.contains(active));
+  }
+
   function updateRaddleStickyPinVisibility(taskRoot) {
     var pin = taskRoot.querySelector('.new-raddle-sticky-pin');
     if (!pin) return;
@@ -2311,6 +2316,9 @@
     var pinH = pin.offsetHeight || (rows.length * 48);
     // Пока первая выделенная строка ушла под шапку и задание ещё на экране.
     var shouldShow = firstTop <= navTop + 0.5 && taskBottom > navTop + Math.min(pinH, 24);
+    // Клавиатура / visualViewport сдвигают геометрию — не прячем пин и не
+    // переносим фокус, пока пользователь печатает в sticky-поле.
+    if (raddlePinHasFocus(pin)) shouldShow = true;
     var wasActive = pin.classList.contains('is-active');
     if (shouldShow) {
       if (!wasActive) syncRaddleStickyPinInputsFromReal(taskRoot, pin);
@@ -2361,13 +2369,15 @@
       if (realRestore && keepLetters != null) softSetRaddleLetters(realRestore, keepLetters);
     }
     updateRaddleStickyPinVisibility(taskRoot);
-    // Если пин активен и фокус был на настоящей форме — visibility уже перенесла;
-    // если пин ещё не активен, вернём фокус на real.
-    if (keepFocus && !pin.classList.contains('is-active')) {
+    // После пересборки DOM вернуть фокус: proxy, если пин активен, иначе real.
+    if (keepFocus && pin.classList.contains('is-active')) {
+      var proxyBack = pin.querySelector('input[data-raddle-pin-for="' + keepFocus + '"]');
+      if (proxyBack && document.activeElement !== proxyBack) focusPreventScroll(proxyBack);
+    } else if (keepFocus && !pin.classList.contains('is-active')) {
       var realBack = document.querySelector(
         'input.new-raddle-input[name="word"][form="' + keepFocus + '"]'
       );
-      if (realBack) focusPreventScroll(realBack);
+      if (realBack && document.activeElement !== realBack) focusPreventScroll(realBack);
     }
   }
 
