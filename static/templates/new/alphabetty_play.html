@@ -82,7 +82,13 @@
                   id="ab-hint"
                   hidden
                   aria-label="Подсказка"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
-          <div class="new-alphabetty__hint-toast" id="ab-hint-toast" hidden role="status" aria-live="polite"></div>
+          <div class="new-alphabetty__hint-toast" id="ab-hint-toast" hidden role="status" aria-live="polite">
+            <button type="button"
+                    class="new-alphabetty__hint-toast__close"
+                    id="ab-hint-toast-close"
+                    aria-label="Закрыть"><i class="ph ph-x" aria-hidden="true"></i></button>
+            <div class="new-alphabetty__hint-toast__body" id="ab-hint-toast-body"></div>
+          </div>
         </div>
         <button type="submit" class="new-btn new-alphabetty__submit" id="ab-submit">Проверить</button>
       </form>
@@ -191,6 +197,8 @@
   var input = document.getElementById('ab-word');
   var elHint = document.getElementById('ab-hint');
   var elHintToast = document.getElementById('ab-hint-toast');
+  var elHintToastBody = document.getElementById('ab-hint-toast-body');
+  var elHintToastClose = document.getElementById('ab-hint-toast-close');
   var hintToastTimer = null;
   var defaultPlaceholder = (input && input.getAttribute('data-default-placeholder')) || 'Угадайте русское слово';
 
@@ -283,24 +291,27 @@
     input.placeholder = kp ? (kp + '...') : defaultPlaceholder;
   }
 
-  function showHintReveal(reveal) {
-    if (!elHintToast || !reveal) return;
+  function hideHintToast() {
     if (hintToastTimer) {
       clearTimeout(hintToastTimer);
       hintToastTimer = null;
     }
+    if (!elHintToast) return;
+    elHintToast.hidden = true;
+    if (elHintToastBody) elHintToastBody.innerHTML = '';
+  }
+
+  function showHintReveal(reveal) {
+    if (!elHintToast || !elHintToastBody || !reveal) return;
+    hideHintToast();
     var prefix = reveal.prefix || '';
-    elHintToast.innerHTML =
+    elHintToastBody.innerHTML =
       '<div class="new-alphabetty__hint-toast__line">' +
       reveal.position + ' буква = ' + reveal.letter +
       '</div>' +
       '<div class="new-alphabetty__hint-toast__prefix">' + prefix + '...</div>';
     elHintToast.hidden = false;
-    hintToastTimer = setTimeout(function () {
-      elHintToast.hidden = true;
-      elHintToast.innerHTML = '';
-      hintToastTimer = null;
-    }, 4500);
+    hintToastTimer = setTimeout(hideHintToast, 8000);
   }
 
   function setPrefixOpen(open) {
@@ -703,6 +714,18 @@
         .finally(function () { busy = false; updateHintButton(); });
     });
   }
+
+  if (elHintToastClose) {
+    elHintToastClose.addEventListener('click', function (e) {
+      e.preventDefault();
+      hideHintToast();
+    });
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && elHintToast && !elHintToast.hidden) {
+      hideHintToast();
+    }
+  });
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
