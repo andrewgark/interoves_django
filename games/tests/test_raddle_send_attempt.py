@@ -97,6 +97,7 @@ class RaddleSendAttemptTests(TestCase):
         self.assertFalse(data['raddle_correct'])
         self.assertNotIn('raddle_needs_sync', data)
         self.assertEqual(data['raddle_word_index'], 1)
+        self.assertNotIn('update_task_html_new', data)
 
     def test_wrong_after_progress_still_not_correct(self):
         """Неверное слово после частичного прогресса — не raddle_correct (status может быть Partial)."""
@@ -108,6 +109,7 @@ class RaddleSendAttemptTests(TestCase):
         self.assertFalse(data['raddle_correct'])
         self.assertNotIn('raddle_needs_sync', data)
         self.assertEqual(data['raddle_word_index'], 2)
+        self.assertNotIn('update_task_html_new', data)
 
     def test_duplicate_unsolved_contract(self):
         first = self._post_word(1, 'ZZZ')

@@ -443,6 +443,21 @@ class AlphabettyPlayApiTests(TestCase):
         apply_guess(game=self.game, task=self.task, word='год', user=user)
         self.assertEqual(ChainTaskState.objects.filter(user=user, task=self.task).count(), 1)
 
+    def test_invalid_guess_does_not_create_chain_task_state(self):
+        before = ChainTaskState.objects.filter(anon_key='inv1', task=self.task).count()
+        r = self.client.post(
+            '/alphabetty/1/guess/',
+            data=json.dumps({'word': 'QQNOTAWORD', 'anon_key': 'inv1'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='inv1',
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['status'], 'invalid')
+        self.assertEqual(
+            ChainTaskState.objects.filter(anon_key='inv1', task=self.task).count(),
+            before,
+        )
+
     def test_suggest_and_approve_makes_word_valid(self):
         self.assertFalse(is_valid_guess(_FAKE_WORD))
         r = self.client.post(

@@ -326,6 +326,7 @@ MIDDLEWARE = [
 
     # 'yet_another_django_profiler.middleware.ProfilerMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+    'games.middleware.request_timing.RequestTimingMiddleware',
 ]
 
 ROOT_URLCONF = 'interoves_django.urls'
@@ -379,6 +380,9 @@ try:
     TRACK_WS_OPEN_LOG_EVERY = max(1, int(os.environ.get('TRACK_WS_OPEN_LOG_EVERY', '50') or 50))
 except ValueError:
     TRACK_WS_OPEN_LOG_EVERY = 50
+
+# games.middleware.request_timing — warn when send_attempt / alphabetty guess exceed this (ms).
+REQUEST_TIMING_SLOW_MS = _env_float('REQUEST_TIMING_SLOW_MS', 2000)
 
 CHANNEL_LAYERS = {
     "default": {
@@ -786,7 +790,11 @@ LOGGING = {
         'daphne': {
             'handlers': ['stderr'],
             'level': 'INFO',
-        }
+        },
+        'interoves.request_timing': {
+            'handlers': ['stderr'],
+            'level': 'WARNING',
+        },
     }
 }
 

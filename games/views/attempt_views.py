@@ -326,13 +326,19 @@ def process_send_attempt(request, task_id):
                     result['raddle_needs_sync'] = True
             except (ValueError, TypeError):
                 pass
-    update_html = update_task_html(
-        request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+
+    # Raddle wrong answers: client updates locally (showRaddleWrongFeedback); skip ~40KB HTML.
+    need_task_html = task.task_type != 'raddle' or (
+        result.get('raddle_correct') or result.get('raddle_needs_sync')
     )
-    track_task_change(
-        task, team, current_mode, update_html=update_html, request=request, game=game,
-    )
-    result.update(update_html)
+    if need_task_html:
+        update_html = update_task_html(
+            request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+        )
+        track_task_change(
+            task, team, current_mode, update_html=update_html, request=request, game=game,
+        )
+        result.update(update_html)
     return result
 
 

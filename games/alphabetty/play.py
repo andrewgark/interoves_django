@@ -383,33 +383,31 @@ def _actor_filters(user=None, anon_key=None):
     return None
 
 
+def _read_actor_state(*, game: Game, task: Task, actor: dict) -> dict[str, Any]:
+    """Read ChainTaskState without creating a row or taking a lock."""
+    row = ChainTaskState.objects.filter(
+        task=task,
+        game=game,
+        game_mode='general',
+        **actor,
+    ).first()
+    if row is None:
+        return default_state()
+    return load_state(row.state)
+
+
 @transaction.atomic
-def apply_guess(
+def _commit_guess(
     *,
     game: Game,
     task: Task,
-    word: str,
-    user=None,
-    anon_key=None,
-    number: int | str | None = None,
-    share_host: str = 'interoves.com',
+    normalized: str,
+    secret: str,
+    actor: dict,
+    num: int | str,
+    share_host: str,
 ) -> dict[str, Any]:
-    """Применить отгадку; вернуть публичный payload + status."""
-    actor = _actor_filters(user=user, anon_key=anon_key)
-    if actor is None:
-        return {
-            'status': 'error',
-            'error': 'Нужен пользователь или anon_key',
-            **public_payload(default_state(), secret_from_task(task)),
-        }
-
-    secret = secret_from_task(task)
-    if not secret:
-        return {'status': 'error', 'error': 'Загадка не настроена'}
-
-    normalized = normalize_word(word)
-    num = number if number is not None else task.task_group_id
-
+    """Persist a new valid guess (caller already checked dict + duplicate without lock)."""
     ChainTaskState.objects.get_or_create(
         task=task,
         game=game,
@@ -431,12 +429,6 @@ def apply_guess(
         return attach_solve_meta(
             payload, game=game, task=task, number=num, actor=actor, host=share_host,
         )
-
-    if not is_valid_guess(normalized, user=user, anon_key=anon_key):
-        payload = public_payload(state, secret)
-        payload['status'] = 'invalid'
-        payload['error'] = 'Слова нет в словаре'
-        return payload
 
     if normalized in state['guesses']:
         payload = public_payload(state, secret)
@@ -471,6 +463,63 @@ def apply_guess(
             payload, game=game, task=task, number=num, actor=actor, host=share_host,
         )
     return payload
+
+
+def apply_guess(
+    *,
+    game: Game,
+    task: Task,
+    word: str,
+    user=None,
+    anon_key=None,
+    number: int | str | None = None,
+    share_host: str = 'interoves.com',
+) -> dict[str, Any]:
+    """Применить отгадку; вернуть публичный payload + status."""
+    actor = _actor_filters(user=user, anon_key=anon_key)
+    if actor is None:
+        return {
+            'status': 'error',
+            'error': 'Нужен пользователь или anon_key',
+            **public_payload(default_state(), secret_from_task(task)),
+        }
+
+    secret = secret_from_task(task)
+    if not secret:
+        return {'status': 'error', 'error': 'Загадка не настроена'}
+
+    normalized = normalize_word(word)
+    num = number if number is not None else task.task_group_id
+    state = _read_actor_state(game=game, task=task, actor=actor)
+
+    if state['won']:
+        payload = public_payload(state, secret)
+        payload['status'] = 'correct'
+        return attach_solve_meta(
+            payload, game=game, task=task, number=num, actor=actor, host=share_host,
+        )
+
+    if not is_valid_guess(normalized, user=user, anon_key=anon_key):
+        payload = public_payload(state, secret)
+        payload['status'] = 'invalid'
+        payload['error'] = 'Слова нет в словаре'
+        return payload
+
+    if normalized in state['guesses']:
+        payload = public_payload(state, secret)
+        payload['status'] = 'duplicate'
+        payload['error'] = 'Это слово уже вводили'
+        return payload
+
+    return _commit_guess(
+        game=game,
+        task=task,
+        normalized=normalized,
+        secret=secret,
+        actor=actor,
+        num=num,
+        share_host=share_host,
+    )
 
 
 def get_play_state(
