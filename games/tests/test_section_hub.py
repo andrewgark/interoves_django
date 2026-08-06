@@ -40,7 +40,7 @@ class TrainingSectionHubContextTests(SimpleTestCase):
 
         self.assertEqual(ctx['cta_number'], '5')
         self.assertEqual(ctx['cta_label'], 'Последняя стена')
-        self.assertEqual(ctx['play_url'], '/games/walls/5/')
+        self.assertEqual(ctx['play_url'], '/walls/5/')
         self.assertFalse(ctx['is_today'])
 
 

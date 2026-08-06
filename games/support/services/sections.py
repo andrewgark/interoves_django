@@ -16,6 +16,7 @@ class SectionRow:
     pending_count: int
     attempts_24h: int
     hint_requests_24h: int
+    site_url: str
 
 
 def get_sections_dashboard() -> List[SectionRow]:
@@ -24,6 +25,7 @@ def get_sections_dashboard() -> List[SectionRow]:
     from django.utils import timezone
 
     from games.models import Attempt, Game, HintAttempt, Task
+    from games.section_paths import section_hub_path
 
     since = timezone.now() - timedelta(hours=24)
     games = {
@@ -57,5 +59,6 @@ def get_sections_dashboard() -> List[SectionRow]:
             pending_count=Attempt.manager.filter(game=game, status='Pending').count(),
             attempts_24h=Attempt.manager.filter(game=game, time__gte=since, skip=False).count(),
             hint_requests_24h=hint_qs.count(),
+            site_url=section_hub_path(game_id),
         ))
     return rows

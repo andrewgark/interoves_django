@@ -156,21 +156,18 @@
       </a>
 
       <div class="new-nav__sections" aria-label="Разделы">
-        <a class="new-nav__section" href="{{ ui_project_home_url|default:'/' }}" title="Игры" aria-label="Игры">
-          <i class="ph ph-squares-four new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Игры</span>
-        </a>
-        <a class="new-nav__section" href="{{ ui_project_games_url|default:'/games/' }}" title="Десяточки" aria-label="Десяточки">
+        <a class="new-nav__section" href="{{ ui_project_games_url|default:'/games/' }}" title="Десяточки" aria-label="Десяточки" {% if nav_desyatochki_active %}aria-current="page"{% endif %}>
           <i class="ph ph-puzzle-piece new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Десяточки</span>
         </a>
         {% if show_sections_nav %}
-          <a class="new-nav__section" href="{% url 'new_ladder_hub' %}" title="Лесенка" aria-label="Лесенка" {% if request.resolver_match.kwargs.game_id == 'ladder' or request.resolver_match.url_name == 'new_ladder_hub' or request.resolver_match.url_name == 'ui_ladder_hub' %}aria-current="page"{% endif %}>
+          <a class="new-nav__section" href="{% url 'new_ladder_hub' %}" title="Лесенка" aria-label="Лесенка" {% if request.resolver_match.kwargs.game_id == 'ladder' or 'ladder' in request.resolver_match.url_name %}aria-current="page"{% endif %}>
             <i class="ph ph-ladder new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Лесенка</span>
           </a>
-          <a class="new-nav__section" href="{% url 'new_alphabetty_hub' %}" title="Алфавитка" aria-label="Алфавитка" {% if request.resolver_match.url_name == 'new_alphabetty_hub' or request.resolver_match.url_name == 'ui_alphabetty_hub' or request.resolver_match.url_name == 'new_alphabetty_play' or request.resolver_match.url_name == 'ui_alphabetty_play' %}aria-current="page"{% endif %}>
+          <a class="new-nav__section" href="{% url 'new_alphabetty_hub' %}" title="Алфавитка" aria-label="Алфавитка" {% if request.resolver_match.kwargs.game_id == 'alphabetty' or 'alphabetty' in request.resolver_match.url_name %}aria-current="page"{% endif %}>
             <i class="ph ph-text-aa new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Алфавитка</span>
           </a>
           {% for game in section_games %}
-          <a class="new-nav__section" href="{% url 'new_section_game' game.id %}" title="{{ game.outside_name|default:game.name }}" aria-label="{{ game.outside_name|default:game.name }}" {% if request.resolver_match.url_name == 'new_section_game' and request.resolver_match.kwargs.game_id == game.id %}aria-current="page"{% endif %}>
+          <a class="new-nav__section" href="{% url 'new_section_game' game.id %}" title="{{ game.outside_name|default:game.name }}" aria-label="{{ game.outside_name|default:game.name }}" {% if request.resolver_match.kwargs.game_id == game.id %}aria-current="page"{% endif %}>
             {% if game.id == 'palindromes' %}<i class="ph ph-arrows-in-line-horizontal new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Палиндромы</span>
             {% elif game.id == 'walls' %}<i class="ph ph-wall new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Стены</span>
             {% elif game.id == 'replacements' %}<i class="ph ph-swap new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Замены</span>

@@ -71,6 +71,7 @@ def build_game_context(game, *, feed_kwargs):
     from django.urls import reverse
 
     from games.models import Attempt, GameTaskGroup, HintAttempt, Task
+    from games.section_paths import section_hub_path
 
     task_ids = list(
         Task.objects.filter(task_group__game_links__game_id=game.id).values_list('id', flat=True)
@@ -90,13 +91,9 @@ def build_game_context(game, *, feed_kwargs):
         **_feed_context({**feed_kwargs, 'game_id': game.id}),
         'admin_game_url': reverse('admin:games_game_change', args=[game.pk]),
         'site_game_url': (
-            '/{}/'.format(game.id)
-            if game.id in ('ladder', 'alphabetty')
-            else (
-                '/games/{}/'.format(game.id)
-                if game.project_id == 'main'
-                else '/section/{}/'.format(game.id)
-            )
+            '/games/{}/'.format(game.id)
+            if game.project_id == 'main'
+            else section_hub_path(game.id)
         ),
     }
 

@@ -23,6 +23,7 @@ from games.week_task_weekly import (
     filter_published_week_task_links,
     get_week_task_hub_context,
 )
+from games.section_paths import section_hub_path, section_play_path
 
 _DES_GAME_ID_RE = re.compile(r'^des(\d+)$')
 
@@ -135,7 +136,7 @@ def get_training_section_hub_context(game):
     meta = SECTION_HUB_META[game.id]
     links = list(_newest_task_group_links(game))
     cta_number = links[0].number if links else None
-    play_url = f'/games/{game.id}/{cta_number}/' if cta_number else None
+    play_url = section_play_path(game.id, cta_number) if cta_number else None
     return {
         'id': game.id,
         'icon': meta['icon'],
@@ -146,7 +147,7 @@ def get_training_section_hub_context(game):
         'cta_number': cta_number,
         'is_today': False,
         'play_url': play_url,
-        'section_url': f'/section/{game.id}/',
+        'section_url': section_hub_path(game.id),
         'all_link_label': meta['all_link_label'],
         'status': 'latest' if cta_number else 'empty',
         'game': game,
@@ -252,7 +253,7 @@ def get_week_task_hub_card():
         'cta_number': None,
         'is_today': False,
         'play_url': None,
-        'section_url': f'/section/{WEEK_TASK_HUB_ID}/',
+        'section_url': section_hub_path(WEEK_TASK_HUB_ID),
         'all_link_label': '',
         'status': 'coming_soon',
         'soon_text': meta.get('soon_text', ''),

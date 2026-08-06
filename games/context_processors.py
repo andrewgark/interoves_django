@@ -20,6 +20,7 @@ def ui_section_games(request):
         or url_name.startswith("project_")
     ):
         return {}
+    from games.section_paths import is_root_section_game
     from games.views.ui import get_section_games
     tz = 'Europe/Moscow'
     try:
@@ -28,9 +29,26 @@ def ui_section_games(request):
             tz = profile.timezone
     except Exception:
         pass
+
+    kwargs = match.kwargs or {}
+    game_id = kwargs.get('game_id')
+    nav_desyatochki_active = False
+    if url_name in ('ui_folder', 'new_folder') and kwargs.get('slug') == 'games':
+        nav_desyatochki_active = True
+    elif url_name in (
+        'ui_main_game', 'new_main_game',
+        'ui_results', 'new_results',
+        'ui_tournament_results', 'new_tournament_results',
+        'ui_game_progress', 'new_game_progress',
+    ):
+        nav_desyatochki_active = not game_id or not is_root_section_game(game_id)
+    elif url_name in ('ui_task_group', 'new_task_group') and game_id:
+        nav_desyatochki_active = not is_root_section_game(game_id)
+
     return {
         'section_games': get_section_games(request),
         'user_timezone': tz,
+        'nav_desyatochki_active': nav_desyatochki_active,
     }
 
 

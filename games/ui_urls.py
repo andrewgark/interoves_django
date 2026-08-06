@@ -1,6 +1,7 @@
 from django.urls import path, re_path
 from django.views.generic import RedirectView
 
+from games.section_urls import section_root_urlpatterns
 from games.views import ui
 from games.views.registration import register_to_game
 from games.views.views import (
@@ -11,7 +12,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|ladder|alphabetty|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|ladder|alphabetty|walls|replacements|palindromes|week_task|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     # Project-scoped "new UI" pages (isolated navigation per project).
@@ -77,10 +78,12 @@ urlpatterns = [
     path('games/alphabetty/today/', RedirectView.as_view(url='/alphabetty/today/', permanent=True, query_string=True)),
     path('games/alphabetty/', RedirectView.as_view(url='/alphabetty/', permanent=True, query_string=True)),
     path('games/alphabetty/<path:rest>', RedirectView.as_view(url='/alphabetty/%(rest)s', permanent=True, query_string=True)),
+] + section_root_urlpatterns(task_group_url_name='ui_task_group') + [
     path('games/<str:game_id>/progress/', ui.game_task_group_progress, name='ui_game_progress'),
     path('games/<str:game_id>/', ui.main_game_page, name='ui_main_game'),
     path('games/<str:game_id>/results/', ui.results_page, name='ui_results'),
     path('games/<str:game_id>/tournament-results/', ui.tournament_results_page, name='ui_tournament_results'),
+    path('games/<str:game_id>/<str:task_group_number>/', ui.task_group_page, name='ui_task_group'),
     path('team/name-check/', ui.team_name_check, name='ui_team_name_check'),
     path('team/info/', ui.team_info, name='ui_team_info'),
     path('team/create/', ui.team_create, name='ui_team_create'),
@@ -88,9 +91,6 @@ urlpatterns = [
     path('team/join-by-password/', ui.team_join_by_password, name='ui_team_join_by_password'),
     path('team/password/', ui.team_password, name='ui_team_password'),
     path('team/rename/', ui.team_rename, name='ui_team_rename'),
-    path('games/<str:game_id>/<str:task_group_number>/', ui.task_group_page, name='ui_task_group'),
-    path('section/<str:game_id>/results/', ui.section_results_page, name='ui_section_results'),
-    path('section/<str:game_id>/', ui.section_game_page, name='ui_section_game'),
     path('profile/', ui.profile, name='ui_profile'),
     path('team/', ui.team, name='ui_team'),
     path('pay/', ui.pay_page, name='ui_pay'),

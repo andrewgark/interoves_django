@@ -84,7 +84,7 @@ class SectionResultsSplitTests(TestCase):
 
     def test_ladder_initial_page_skips_bulk_attempts(self):
         ladder = Game.objects.get(pk=LADDER_GAME_ID)
-        request = self.factory.get('/section/ladder/results/')
+        request = self.factory.get('/ladder/results/')
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.models.Attempt.manager.get_bulk_game_actor_rows') as bulk_mock:
@@ -111,7 +111,7 @@ class SectionResultsSplitTests(TestCase):
                 text='y',
             )
 
-        request = self.factory.get('/section/ladder/results/?page=1&partial=1')
+        request = self.factory.get('/ladder/results/?page=1&partial=1')
         request.user = AnonymousUser()
         request.session = {}
         payload = self._minimal_live_payload(ladder, task, number='9001', name='L9001')
@@ -148,7 +148,7 @@ class SectionResultsSplitTests(TestCase):
             with patch('games.views.new_ui.render'):
                 for page in (1, 2):
                     request = self.factory.get(
-                        '/section/ladder/results/?page={}&partial=1'.format(page)
+                        '/ladder/results/?page={}&partial=1'.format(page)
                     )
                     request.user = AnonymousUser()
                     request.session = {}
@@ -187,7 +187,7 @@ class SectionResultsSplitTests(TestCase):
             },
         )
 
-        request = self.factory.get('/section/ladder/results/')
+        request = self.factory.get('/ladder/results/')
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.results_snapshot.snapshot_to_results_context') as full_snap:

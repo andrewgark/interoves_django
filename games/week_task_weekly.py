@@ -133,8 +133,10 @@ def get_week_task_hub_context(game, *, published_numbers: set[str] | None = None
         # До первой публикации (или без даты старта) — «скоро».
         status = 'coming_soon'
 
-    play_url = f'/games/{WEEK_TASK_GAME_ID}/{cta_number}/' if cta_number else None
-    section_url = f'/section/{WEEK_TASK_GAME_ID}/'
+    from games.section_paths import section_hub_path, section_play_path
+
+    play_url = section_play_path(WEEK_TASK_GAME_ID, cta_number) if cta_number else None
+    section_url = section_hub_path(WEEK_TASK_GAME_ID)
 
     today_label = f'№{today_num}' if is_today and today_num is not None else None
 

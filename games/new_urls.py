@@ -3,6 +3,7 @@
 from django.urls import path
 from django.views.generic import RedirectView
 
+from games.section_urls import section_root_urlpatterns
 from games.views import ui
 
 urlpatterns = [
@@ -37,10 +38,16 @@ urlpatterns = [
     path('games/alphabetty/today/', RedirectView.as_view(url='/alphabetty/today/', permanent=True, query_string=True)),
     path('games/alphabetty/', RedirectView.as_view(url='/alphabetty/', permanent=True, query_string=True)),
     path('games/alphabetty/<path:rest>', RedirectView.as_view(url='/alphabetty/%(rest)s', permanent=True, query_string=True)),
+] + section_root_urlpatterns(
+    section_game_url_name='new_section_game',
+    section_results_url_name='new_section_results',
+    task_group_url_name='new_task_group',
+) + [
     path('games/<str:game_id>/progress/', ui.game_task_group_progress, name='new_game_progress'),
     path('games/<str:game_id>/', ui.main_game_page, name='new_main_game'),
     path('games/<str:game_id>/results/', ui.results_page, name='new_results'),
     path('games/<str:game_id>/tournament-results/', ui.tournament_results_page, name='new_tournament_results'),
+    path('games/<str:game_id>/<str:task_group_number>/', ui.task_group_page, name='new_task_group'),
     path('team/name-check/', ui.team_name_check, name='new_team_name_check'),
     path('team/info/', ui.team_info, name='new_team_info'),
     path('team/create/', ui.team_create, name='new_team_create'),
@@ -50,9 +57,6 @@ urlpatterns = [
     path('team/rename/', ui.team_rename, name='new_team_rename'),
     path('team/set-primary/', ui.team_set_primary, name='new_team_set_primary'),
     path('team/join/', ui.team_join_page, name='new_team_join_page'),
-    path('games/<str:game_id>/<str:task_group_number>/', ui.task_group_page, name='new_task_group'),
-    path('section/<str:game_id>/results/', ui.section_results_page, name='new_section_results'),
-    path('section/<str:game_id>/', ui.section_game_page, name='new_section_game'),
     path('profile/', ui.profile, name='new_profile'),
     path('team/', ui.team, name='new_team'),
     path('pay/', ui.pay_page, name='new_pay'),

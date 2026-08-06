@@ -150,10 +150,15 @@ class LadderSectionPageTests(TestCase):
         self.assertEqual(resp.status_code, 301)
         self.assertEqual(resp['Location'], '/ladder/')
 
-    def test_games_ladder_redirects_to_ladder(self):
-        resp = self.client.get('/games/ladder/')
+    def test_section_walls_redirects_to_walls(self):
+        resp = self.client.get('/section/walls/')
         self.assertEqual(resp.status_code, 301)
-        self.assertEqual(resp['Location'], '/ladder/')
+        self.assertEqual(resp['Location'], '/walls/')
+
+    def test_games_walls_redirects_to_walls(self):
+        resp = self.client.get('/games/walls/')
+        self.assertEqual(resp.status_code, 301)
+        self.assertEqual(resp['Location'], '/walls/')
 
     def test_ladder_last_redirects_to_latest_published(self):
         from datetime import datetime

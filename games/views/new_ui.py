@@ -604,15 +604,14 @@ NEW_UI_FOLDERS = [
 ]
 
 
+# Same order as hub "Задания из Десяточек" (week_task → replacements → walls → palindromes).
 _SECTION_NAV_ORDER = {
-    'replacements': 0,
-    'walls': 1,
-    'palindromes': 2,
+    game_id: i for i, game_id in enumerate(HUB_FROM_DESYATOCHKI_SECTION_IDS)
 }
 
 
 def get_section_games(request):
-    """Игры из project 'sections' с доступом на превью (навигация; без лесенки)."""
+    """Игры из project 'sections' с доступом на превью (навигация; без лесенки/алфавитки)."""
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
     if not project:
         return []
