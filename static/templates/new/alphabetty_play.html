@@ -18,15 +18,11 @@
   <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
 </div>
 
-{% include "new/_rules_banner.html" %}
-
 {% if daily_publish_date %}
 <p class="new-login-hint new-meta-line">{{ daily_publish_date|date:"j E Y" }}</p>
 {% endif %}
 
-<div id="new-task-{{ task.id }}" class="new-alphabetty-meta" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}" data-alphabetty-meta>
-  {% include "new/task-content/task-meta-bar.html" %}
-</div>
+{% include "new/_rules_banner.html" %}
 
 <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-rules-close></div>
@@ -37,6 +33,26 @@
   </div>
 </div>
 
+<div id="new-bug-report-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-bug-report-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-bug-report-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-bug-report-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <h2 id="new-bug-report-title" class="pal-title">Сообщить о проблеме</h2>
+    <p class="new-login-hint new-bug-report-lead">Задание <strong id="new-bug-report-task-label"></strong>. Опишите, что не так: опечатка, баг в проверке, непонятная формулировка и т.п.</p>
+    <textarea id="new-bug-report-text" class="new-bug-report-textarea" rows="5" maxlength="5000" placeholder="Что именно пошло не так?"></textarea>
+    <p id="new-bug-report-error" class="new-bug-report-error" hidden></p>
+    <p id="new-bug-report-success" class="new-bug-report-success" hidden>Спасибо! Репорт отправлен.</p>
+    <div class="new-rules-modal__actions">
+      <button type="button" class="new-btn" data-bug-report-submit>Отправить</button>
+      <button type="button" class="new-btn new-btn--text" data-bug-report-close>Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="new-taskcard" id="new-task-{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}" data-alphabetty-meta>
+  <button type="button" class="new-taskcard__bug-btn" data-bug-report-open data-task-id="{{ task.id }}" data-task-number="{{ number }}" aria-label="Сообщить о проблеме в задании {{ number }}" title="Сообщить о проблеме"><i class="ph ph-bug" aria-hidden="true"></i></button>
+  {% include "new/task-content/task-meta-bar.html" %}
+  <div class="new-taskcard__body">
 <div class="new-alphabetty" id="alphabetty-root"
      data-guess-url="{{ guess_url }}"
      data-state-url="{{ state_url }}"
@@ -124,6 +140,8 @@
   </div>
 
   <p class="new-raddle-task__credit">Автор формата — <a href="https://alphaguess.com" target="_blank" rel="noopener noreferrer">alphaguess.com</a>, мы благодарны им за идею алфавиток</p>
+</div>
+  </div>
 </div>
 
 <script>
@@ -620,7 +638,17 @@
 
   function replaceMetaBar(html) {
     if (!elTaskMeta || !html) return;
-    elTaskMeta.innerHTML = html;
+    var wrap = document.createElement('div');
+    wrap.innerHTML = String(html).trim();
+    var next = wrap.firstElementChild;
+    var prev = elTaskMeta.querySelector('.new-taskcard__meta-bar');
+    if (next && prev) {
+      prev.replaceWith(next);
+    } else if (next) {
+      var bug = elTaskMeta.querySelector('.new-taskcard__bug-btn');
+      if (bug) elTaskMeta.insertBefore(next, bug.nextSibling);
+      else elTaskMeta.insertBefore(next, elTaskMeta.firstChild);
+    }
     elTaskMeta.setAttribute('data-solved', state.won ? '1' : '0');
     initAttemptsPopovers(elTaskMeta);
     syncLikeButtons(elTaskMeta);
@@ -989,6 +1017,129 @@
       } catch (err2) {}
     }
   });
+})();
+</script>
+
+<script>
+(function () {
+  var modal = document.getElementById('new-bug-report-modal');
+  var textEl = document.getElementById('new-bug-report-text');
+  var labelEl = document.getElementById('new-bug-report-task-label');
+  var errorEl = document.getElementById('new-bug-report-error');
+  var successEl = document.getElementById('new-bug-report-success');
+  var submitBtn = document.querySelector('[data-bug-report-submit]');
+  var currentTaskId = null;
+  var root = document.getElementById('alphabetty-root');
+  var isAuthenticated = root && root.getAttribute('data-authenticated') === '1';
+
+  function csrf() {
+    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    if (m) return decodeURIComponent(m[1]);
+    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+  function resolveAnonKey() {
+    if (isAuthenticated) return '';
+    var key = '';
+    try { key = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
+    if (!key) {
+      try {
+        var m = document.cookie.match(/(?:^|;\s*)interoves_anon=([^;]+)/);
+        if (m) key = decodeURIComponent(m[1]);
+      } catch (e2) {}
+    }
+    if (!key && root) key = root.getAttribute('data-anon-key') || '';
+    return key || '';
+  }
+
+  function resetBugReportForm() {
+    if (textEl) textEl.value = '';
+    if (errorEl) { errorEl.textContent = ''; errorEl.hidden = true; }
+    if (successEl) successEl.hidden = true;
+    if (submitBtn) submitBtn.disabled = false;
+  }
+
+  function openBugReport(taskId, taskNumber) {
+    if (!modal) return;
+    currentTaskId = taskId;
+    resetBugReportForm();
+    if (labelEl) labelEl.textContent = '#' + (taskNumber || taskId);
+    modal.removeAttribute('hidden');
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    if (textEl) textEl.focus();
+  }
+
+  function closeBugReport() {
+    if (!modal) return;
+    modal.setAttribute('hidden', '');
+    modal.classList.remove('is-open');
+    document.body.style.overflow = '';
+    currentTaskId = null;
+  }
+
+  function postBugReport() {
+    if (!currentTaskId || !textEl) return Promise.reject();
+    var body = new URLSearchParams();
+    body.set('text', textEl.value.trim());
+    body.set('game_id', '{{ game.id }}');
+    body.set('anon_key', resolveAnonKey());
+    var url = "{% url 'new_bug_report' 0 %}".replace('/0/', '/' + currentTaskId + '/');
+    return fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': csrf(),
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      },
+      body: body.toString(),
+      credentials: 'same-origin',
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw data;
+        return data;
+      });
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    var openBtn = e.target && e.target.closest ? e.target.closest('[data-bug-report-open]') : null;
+    if (openBtn) {
+      e.preventDefault();
+      openBugReport(openBtn.getAttribute('data-task-id'), openBtn.getAttribute('data-task-number'));
+      return;
+    }
+    if (e.target && e.target.closest && e.target.closest('[data-bug-report-close]')) {
+      closeBugReport();
+      return;
+    }
+    if (e.target && e.target.closest && e.target.closest('[data-bug-report-submit]')) {
+      e.preventDefault();
+      if (!textEl || !textEl.value.trim()) {
+        if (errorEl) { errorEl.textContent = 'Опишите проблему.'; errorEl.hidden = false; }
+        return;
+      }
+      if (submitBtn) submitBtn.disabled = true;
+      if (errorEl) errorEl.hidden = true;
+      postBugReport().then(function () {
+        if (successEl) successEl.hidden = false;
+        if (submitBtn) submitBtn.disabled = true;
+        window.setTimeout(closeBugReport, 1400);
+      }).catch(function (err) {
+        if (submitBtn) submitBtn.disabled = false;
+        if (errorEl) {
+          errorEl.textContent = (err && err.error) ? err.error : 'Не удалось отправить. Попробуйте ещё раз.';
+          errorEl.hidden = false;
+        }
+      });
+    }
+  });
+
+  if (modal) {
+    modal.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeBugReport();
+    });
+  }
 })();
 </script>
 

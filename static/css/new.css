@@ -6070,23 +6070,8 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 }
 
 /* ——— Алфавитка (минималистичный alphaguess-like) ——— */
-.new-alphabetty-meta {
-  max-width: 40rem;
-  margin: 0 0 0.35rem;
-}
-.new-alphabetty-meta .new-taskcard__meta-bar.new-proportions-compact-bar {
-  /* Без кнопки бага справа — обычный padding */
-  padding-right: 0.5rem;
-  margin-bottom: 0;
-}
 .new-alphabetty {
-  max-width: 40rem;
   min-width: 0;
-  margin: 0.25rem 0 2rem;
-}
-.new-alphabetty .new-raddle-result {
-  margin-left: 0;
-  margin-right: 0;
 }
 .new-alphabetty .new-raddle-result[hidden] {
   display: none !important;
