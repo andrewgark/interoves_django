@@ -369,6 +369,61 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(data['hints'], 1)
         self.assertIn('💡 Взята 1 подсказка', '\n'.join(data['share_lines']))
 
+    def test_hint_skips_letters_known_from_guesses(self):
+        checker = CheckerType.objects.get(id='alphabetty')
+        tg = TaskGroup.objects.create(label='alphabetty:psy', checker=checker, points=1)
+        task = Task.objects.create(
+            task_group=tg,
+            number='1',
+            task_type='alphabetty',
+            checker=checker,
+            checker_data='ПСИХОЛОГ',
+            answer='ПСИХОЛОГ',
+            points=1,
+        )
+        GameTaskGroup.objects.create(
+            game=self.game, task_group=tg, number='9', name='Алфавитка #9',
+        )
+        anon = 'hint-skip'
+        self.client.post(
+            '/alphabetty/9/guess/',
+            data=json.dumps({'word': 'псих', 'anon_key': anon}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON=anon,
+        )
+        self.client.post(
+            '/alphabetty/9/guess/',
+            data=json.dumps({'word': 'психотерапия', 'anon_key': anon}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON=anon,
+        )
+        r = self.client.post(
+            '/alphabetty/9/hint/',
+            data=json.dumps({'anon_key': anon}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON=anon,
+        )
+        data = r.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['known_prefix'], 'ПСИХО')
+        self.assertEqual(data['next_hint_letter'], 6)
+        self.assertEqual(data['hint_reveal']['position'], 5)
+        self.assertEqual(data['hint_reveal']['letter'], 'О')
+        self.assertEqual(data['hint_prefix'], 'ПСИХО')
+        self.assertEqual(data['hints'], 1)
+
+        r2 = self.client.post(
+            '/alphabetty/9/hint/',
+            data=json.dumps({'anon_key': anon}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON=anon,
+        )
+        data2 = r2.json()
+        self.assertEqual(data2['status'], 'ok')
+        self.assertEqual(data2['hint_reveal']['position'], 6)
+        self.assertEqual(data2['hint_prefix'], 'ПСИХОЛ')
+        self.assertEqual(data2['hints'], 2)
+
     def test_play_page_ok(self):
         _ensure_login_modal_deps()
         r = self.client.get('/alphabetty/1/')

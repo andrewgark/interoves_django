@@ -20,10 +20,17 @@ from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
 
 
 def default_state() -> dict[str, Any]:
-    return {'guesses': [], 'won': False, 'hint_prefix': ''}
+    return {'guesses': [], 'won': False, 'hint_prefix': '', 'hints_taken': 0}
 
 
 def hint_count(state: dict[str, Any]) -> int:
+    taken = state.get('hints_taken')
+    if taken is not None:
+        try:
+            return max(0, int(taken))
+        except (TypeError, ValueError):
+            pass
+    # Старые сохранения без hints_taken: одна подсказка = одна буква с начала.
     return len(normalize_word(state.get('hint_prefix') or ''))
 
 
@@ -230,6 +237,10 @@ def load_state(raw: str | None) -> dict[str, Any]:
         state['guesses'] = [normalize_word(g) for g in guesses if normalize_word(g)]
     state['won'] = bool(data.get('won'))
     state['hint_prefix'] = normalize_word(data.get('hint_prefix') or '')
+    try:
+        state['hints_taken'] = max(0, int(data.get('hints_taken') or 0))
+    except (TypeError, ValueError):
+        state['hints_taken'] = 0
     return state
 
 
@@ -238,6 +249,7 @@ def dump_state(state: dict[str, Any]) -> str:
         'guesses': list(state.get('guesses') or []),
         'won': bool(state.get('won')),
         'hint_prefix': normalize_word(state.get('hint_prefix') or ''),
+        'hints_taken': hint_count(state),
     }, ensure_ascii=False)
 
 
@@ -273,13 +285,14 @@ def public_payload(
     hi = later[0] if later else None
     hp = normalize_word(state.get('hint_prefix') or '')
     kp = known_prefix(lo, hi, hint_prefix=hp)
+    secret_n = normalize_word(secret)
     prefix_expand = kp if kp else ''
     prefix_hint = (
         build_prefix_level(lo, hi, expand_prefix=prefix_expand)
         if (lo or hi or prefix_expand) and not won
         else []
     )
-    next_hint_letter = len(hp) + 1 if not won and len(hp) < len(normalize_word(secret)) else None
+    next_hint_letter = len(kp) + 1 if not won and len(kp) < len(secret_n) else None
     payload = {
         'guesses': guesses,
         'earlier': earlier,
@@ -287,7 +300,7 @@ def public_payload(
         'bounds': {'lo': lo, 'hi': hi},
         'known_prefix': kp,
         'hint_prefix': hp,
-        'hints': len(hp),
+        'hints': hint_count(state),
         'next_hint_letter': next_hint_letter,
         'prefix_hint': prefix_hint,
         'won': won,
@@ -346,18 +359,31 @@ def apply_hint(
         )
 
     hp = normalize_word(state.get('hint_prefix') or '')
-    if len(hp) >= len(secret):
+    guesses = list(state.get('guesses') or [])
+    earlier, later = split_ladder(guesses, secret)
+    lo = earlier[-1] if earlier else None
+    hi = later[0] if later else None
+    kp = known_prefix(lo, hi, hint_prefix=hp)
+    pos = len(kp)
+    if pos >= len(secret):
         payload = public_payload(state, secret)
         payload['status'] = 'no_more_hints'
         payload['error'] = 'Все буквы уже раскрыты'
         return payload
 
-    state['hint_prefix'] = hp + secret[len(hp)]
+    revealed = secret[pos]
+    state['hint_prefix'] = kp + revealed
+    state['hints_taken'] = hint_count(state) + 1
     row.state = dump_state(state)
     row.save(update_fields=['state', 'updated_at'])
 
     payload = public_payload(state, secret)
     payload['status'] = 'ok'
+    payload['hint_reveal'] = {
+        'position': pos + 1,
+        'letter': revealed,
+        'prefix': kp + revealed,
+    }
     return payload
 
 

@@ -75,12 +75,14 @@
                  enterkeyhint="done"
                  maxlength="40"
                  placeholder="Угадайте русское слово"
+                 data-default-placeholder="Угадайте русское слово"
                  aria-label="Угадайте русское слово">
           <button type="button"
                   class="new-raddle-assist-btn new-alphabetty__letter-hint"
                   id="ab-hint"
                   hidden
                   aria-label="Подсказка"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
+          <div class="new-alphabetty__hint-toast" id="ab-hint-toast" hidden role="status" aria-live="polite"></div>
         </div>
         <button type="submit" class="new-btn new-alphabetty__submit" id="ab-submit">Проверить</button>
       </form>
@@ -188,6 +190,9 @@
   var form = document.getElementById('ab-form');
   var input = document.getElementById('ab-word');
   var elHint = document.getElementById('ab-hint');
+  var elHintToast = document.getElementById('ab-hint-toast');
+  var hintToastTimer = null;
+  var defaultPlaceholder = (input && input.getAttribute('data-default-placeholder')) || 'Угадайте русское слово';
 
   function csrf() {
     var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
@@ -270,6 +275,32 @@
     var title = 'Подсказка: узнать ' + n + ' букву';
     elHint.title = title;
     elHint.setAttribute('aria-label', title);
+  }
+
+  function updateInputPlaceholder() {
+    if (!input || state.won) return;
+    var kp = state.known_prefix || '';
+    input.placeholder = kp ? (kp + '...') : defaultPlaceholder;
+  }
+
+  function showHintReveal(reveal) {
+    if (!elHintToast || !reveal) return;
+    if (hintToastTimer) {
+      clearTimeout(hintToastTimer);
+      hintToastTimer = null;
+    }
+    var prefix = reveal.prefix || '';
+    elHintToast.innerHTML =
+      '<div class="new-alphabetty__hint-toast__line">' +
+      reveal.position + ' буква = ' + reveal.letter +
+      '</div>' +
+      '<div class="new-alphabetty__hint-toast__prefix">' + prefix + '...</div>';
+    elHintToast.hidden = false;
+    hintToastTimer = setTimeout(function () {
+      elHintToast.hidden = true;
+      elHintToast.innerHTML = '';
+      hintToastTimer = null;
+    }, 4500);
   }
 
   function setPrefixOpen(open) {
@@ -392,6 +423,7 @@
     elResult.hidden = true;
     elResultShare.innerHTML = '';
     updateHintButton();
+    updateInputPlaceholder();
     if (prefixOpen) renderPrefixPanel();
   }
 
@@ -504,12 +536,6 @@
       elPrefixPanel.appendChild(empty);
       return;
     }
-    if (known && state.hint_prefix && state.hint_prefix.length > 0) {
-      var knownLine = document.createElement('div');
-      knownLine.className = 'new-alphabetty__hint-known';
-      knownLine.textContent = known;
-      elPrefixPanel.appendChild(knownLine);
-    }
     elPrefixPanel.appendChild(buildHintRows(top, 0));
   }
 
@@ -567,7 +593,7 @@
   }
 
   function applyState(data) {
-    ['guesses', 'earlier', 'later', 'bounds', 'known_prefix', 'hint_prefix', 'hints', 'next_hint_letter', 'prefix_hint', 'won', 'attempts', 'secret', 'max_word_length', 'share_lines', 'share_text', 'elapsed_label', 'attempts_label'].forEach(function (k) {
+    ['guesses', 'earlier', 'later', 'bounds', 'known_prefix', 'hint_prefix', 'hints', 'next_hint_letter', 'prefix_hint', 'hint_reveal', 'won', 'attempts', 'secret', 'max_word_length', 'share_lines', 'share_text', 'elapsed_label', 'attempts_label'].forEach(function (k) {
       if (data[k] !== undefined) state[k] = data[k];
     });
     if (data.max_word_length) maxLen = data.max_word_length;
@@ -671,6 +697,7 @@
           }
           expanded = {};
           applyState(data);
+          if (data.hint_reveal) showHintReveal(data.hint_reveal);
         })
         .catch(function (e) { showMsg((e && e.message) || 'Сеть недоступна', 'error'); })
         .finally(function () { busy = false; updateHintButton(); });

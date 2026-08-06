@@ -6193,12 +6193,45 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
+  position: relative;
 }
 .new-alphabetty__input-wrap .new-alphabetty__input {
   flex: 1 1 auto;
 }
 .new-alphabetty__letter-hint[hidden] {
   display: none !important;
+}
+.new-alphabetty__hint-toast {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 0.4rem);
+  z-index: 6;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
+  border-radius: var(--control-radius);
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--text) 12%, transparent);
+  text-align: center;
+  pointer-events: none;
+}
+.new-alphabetty__hint-toast[hidden] {
+  display: none !important;
+}
+.new-alphabetty__hint-toast__line {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.35;
+}
+.new-alphabetty__hint-toast__prefix {
+  margin-top: 0.15rem;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  line-height: 1.35;
 }
 .new-alphabetty__hint-known {
   margin: 0 0 0.25rem;
