@@ -25,6 +25,11 @@
           {% endif %}
         </h1>
       </div>
+      {% if mode != 'tournament' %}
+        <button type="button" class="new-eye-toggle" aria-label="Скрывать анонимов" title="Скрывать анонимов" aria-pressed="false" data-hide-anon-toggle>
+          <i class="ph ph-detective" aria-hidden="true"></i>
+        </button>
+      {% endif %}
     </div>
 
     {% if section_results %}
@@ -163,6 +168,37 @@
     }
   })();
   </script>
+  {% if mode != 'tournament' %}
+  <script>
+  (function () {
+    var HIDE_KEY = 'new_hide_anonymous';
+    function applyHideAnon() {
+      var hide = false;
+      try { hide = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) {}
+      document.querySelectorAll('tr[data-actor="anon"]').forEach(function (el) {
+        el.classList.toggle('is-hidden', hide);
+      });
+      document.querySelectorAll('[data-hide-anon-toggle]').forEach(function (btn) {
+        btn.classList.toggle('is-hiding', hide);
+        btn.setAttribute('aria-pressed', hide ? 'true' : 'false');
+        btn.setAttribute('aria-label', hide ? 'Показывать анонимов' : 'Скрывать анонимов');
+        btn.setAttribute('title', hide ? 'Показывать анонимов' : 'Скрывать анонимов');
+      });
+    }
+    document.querySelectorAll('[data-hide-anon-toggle]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        try {
+          var cur = localStorage.getItem(HIDE_KEY) === '1';
+          localStorage.setItem(HIDE_KEY, cur ? '0' : '1');
+        } catch (e) {}
+        applyHideAnon();
+      });
+    });
+    applyHideAnon();
+    window.interovesApplyHideAnon = applyHideAnon;
+  })();
+  </script>
+  {% endif %}
   {% if progressive_results %}
   <script>
   (function () {
@@ -200,6 +236,10 @@
           if (node.tagName && node.tagName.toLowerCase() === 'template') return;
           tbody.appendChild(node);
         });
+
+        if (typeof window.interovesApplyHideAnon === 'function') {
+          window.interovesApplyHideAnon();
+        }
 
         if (!tbody.children.length) {
           tbody.innerHTML = '<tr><td colspan="999">Пока нет результатов.</td></tr>';
