@@ -29,10 +29,35 @@ _CITIES_JSON = _REPO.parent / 'experiments' / 'russia_cities' / 'ru-cities.json'
 _SUBJECTS_JSON = _REPO.parent / 'experiments' / 'russia_cities' / 'ru-subjects.json'
 
 _WORD_PART = re.compile(r'[А-Я]+')
+# Дефис/минус в начале строки — маркер суффикса или частицы («-щик», «-де»).
+_SUFFIX_LINE_MARKERS = frozenset('-‐‑‒–—−')
+
+# Леммы суффиксов/частиц (в источниках часто без «-», но в викисловаре это «-ник» и т.п.).
+_SUFFIX_LEMMAS = frozenset({
+    'ЩИК', 'ЧИК', 'ШИК', 'НИК',
+    'СТВО', 'ОСТ', 'ИСТ', 'ИЗМ', 'ИЗА', 'ИЗАЦ', 'ИЗАЦИЯ', 'ОВАНИЕ', 'ЕНИЕ',
+    'АТ', 'ОР', 'ЕЦ', 'ИК', 'ИЕ', 'ИЯ', 'ИЁ', 'АН', 'ЯК', 'УН', 'АР', 'ИЗ',
+    'ОВ', 'ЕВ', 'АТЬ', 'ИТЬ', 'ЕНЬ', 'СК', 'УХ', 'ИХ',
+    'ДЕ', 'КА', 'ЛИБО', 'НИБУДЬ', 'ТАКИ', 'ТО', 'С',
+})
 
 
 def normalize_token(raw: str) -> str:
     return (raw or '').strip().upper().replace('Ё', 'Е')
+
+
+def _is_suffix_or_particle_line(cell: str) -> bool:
+    """Строка — суффикс/частица, а не самостоятельное слово."""
+    raw = (cell or '').strip()
+    if not raw:
+        return True
+    if raw[0] in _SUFFIX_LINE_MARKERS:
+        return True
+    # Целиком лемма суффикса (ru.wiktionary хранит «ник», не «-ник»).
+    norm = normalize_token(raw)
+    if norm in _SUFFIX_LEMMAS and _WORD_PART.fullmatch(norm):
+        return True
+    return False
 
 
 def add_cyrillic_tokens(bucket: set[str], text: str, *, min_len: int = 2) -> None:
@@ -40,8 +65,9 @@ def add_cyrillic_tokens(bucket: set[str], text: str, *, min_len: int = 2) -> Non
     if not raw:
         return
     for part in _WORD_PART.findall(raw):
-        if len(part) >= min_len:
-            bucket.add(part)
+        if len(part) < min_len or part in _SUFFIX_LEMMAS:
+            continue
+        bucket.add(part)
 
 
 def load_word_file(path: Path, bucket: set[str]) -> int:
@@ -52,6 +78,8 @@ def load_word_file(path: Path, bucket: set[str]) -> int:
         for line in f:
             # csv: take first column; plain txt: whole line
             cell = line.split(',')[0].split('\t')[0]
+            if _is_suffix_or_particle_line(cell):
+                continue
             add_cyrillic_tokens(bucket, cell)
     return len(bucket) - before
 
