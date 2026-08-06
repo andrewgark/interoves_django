@@ -1209,17 +1209,31 @@
     return texts[status] || ('Не удалось отправить: ' + status);
   }
 
+  function syncRaddleStickyPinRowState(taskRoot) {
+    var pin = taskRoot && taskRoot.querySelector('.new-raddle-sticky-pin');
+    if (!pin) return;
+    pin.querySelectorAll('.new-raddle-sticky-pin__row[data-word-index]').forEach(function (pinRow) {
+      var idx = pinRow.getAttribute('data-word-index');
+      var src = taskRoot.querySelector(
+        '.new-raddle-table .new-raddle-row[data-word-index="' + idx + '"]'
+      );
+      if (!src) return;
+      pinRow.classList.toggle('new-raddle-row--wrong', src.classList.contains('new-raddle-row--wrong'));
+      pinRow.classList.toggle('new-raddle-row--checking', src.classList.contains('new-raddle-row--checking'));
+    });
+  }
+
   function clearRaddleWrong(row) {
     if (row) row.classList.remove('new-raddle-row--wrong');
     var taskRoot = row && row.closest ? row.closest('.new-raddle-task') : null;
-    if (taskRoot) updateRaddleStickyOffsets(taskRoot);
+    if (taskRoot) syncRaddleStickyPinRowState(taskRoot);
   }
 
   function markRaddleWrong(row, input) {
     if (row) row.classList.add('new-raddle-row--wrong');
     focusPreventScroll(input);
     var taskRoot = row && row.closest ? row.closest('.new-raddle-task') : null;
-    if (taskRoot) updateRaddleStickyOffsets(taskRoot);
+    if (taskRoot) syncRaddleStickyPinRowState(taskRoot);
   }
 
   // Пока ответ проверяется, показываем крутящийся индикатор вместо ❌.
@@ -1231,6 +1245,8 @@
     } else {
       row.classList.remove('new-raddle-row--checking');
     }
+    var taskRoot = row.closest ? row.closest('.new-raddle-task') : null;
+    if (taskRoot) syncRaddleStickyPinRowState(taskRoot);
   }
 
   // Клиентский таймаут одной попытки отправки ответа в лесенке (мс).
@@ -1291,7 +1307,7 @@
       }
     }
     var taskRoot = row && row.closest ? row.closest('.new-raddle-task') : null;
-    if (taskRoot) updateRaddleStickyOffsets(taskRoot);
+    if (taskRoot) syncRaddleStickyPinRowState(taskRoot);
   }
 
   function raddleLiveElements(form, input, row) {
@@ -1405,7 +1421,18 @@
   function raddleMaskedHooks() {
     return {
       onChange: function (input, letters) {
-        if (!input || input.getAttribute('data-raddle-auto') !== '1') return;
+        if (!input) return;
+        if (input.getAttribute('data-raddle-pin-proxy') === '1') {
+          var realPin = findRealRaddleInputFromPin(input);
+          if (realPin) {
+            realPin.value = input.value;
+            realPin.dataset.raddleLetters = letters;
+            clearRaddleWrong(realPin.closest('.new-raddle-row'));
+            delete realPin.dataset.raddleLast;
+          }
+          return;
+        }
+        if (input.getAttribute('data-raddle-auto') !== '1') return;
         var row = input.closest('.new-raddle-row');
         var fmt = input.getAttribute('data-raddle-format') || '';
         var target = (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.slotCount)
@@ -1416,7 +1443,21 @@
         }
       },
       onComplete: function (input, letters) {
-        if (!input || input.getAttribute('data-raddle-auto') !== '1') return;
+        if (!input) return;
+        if (input.getAttribute('data-raddle-pin-proxy') === '1') {
+          var realDone = findRealRaddleInputFromPin(input);
+          if (realDone) {
+            if (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.setLetters) {
+              RaddleMaskedInput.setLetters(realDone, letters);
+            } else {
+              realDone.value = input.value;
+              realDone.dataset.raddleLetters = letters;
+            }
+            submitRaddleAuto(realDone, letters);
+          }
+          return;
+        }
+        if (input.getAttribute('data-raddle-auto') !== '1') return;
         submitRaddleAuto(input, letters);
       },
     };
@@ -2026,29 +2067,193 @@
     } else {
       highlightRaddleClue(taskRoot, '');
     }
-    updateRaddleStickyOffsets(taskRoot);
+    updateRaddleStickyPin(taskRoot);
   }
 
-  // Высоты липких рядов для top-смещений (длинные слова / «неверно»).
-  function updateRaddleStickyOffsets(taskRoot) {
-    if (!taskRoot) return;
-    var table = taskRoot.querySelector('.new-raddle-table');
-    if (!table) return;
-    var row1 = table.querySelector(
-      '.new-raddle-row--as-before, .new-raddle-row--as-prev, .new-raddle-row--ref:not(.new-raddle-row--as-next):not(.new-raddle-row--as-after)'
-    );
-    var row2 = table.querySelector(
-      '.new-raddle-row--as-focus, .new-raddle-row--as-next.new-raddle-row--focus, .new-raddle-row--focus:not(.new-raddle-row--as-prev):not(.new-raddle-row--as-before)'
-    );
-    if (!row2) {
-      row2 = table.querySelector('.new-raddle-row--as-next, .new-raddle-row--as-focus');
+  function raddleIsMobileLayout() {
+    try {
+      if (window.interovesUi && typeof window.interovesUi.isMobileLayout === 'function') {
+        return window.interovesUi.isMobileLayout();
+      }
+      return window.matchMedia('(max-width: 919px)').matches;
+    } catch (e) {
+      return false;
     }
-    var h1 = row1 ? row1.getBoundingClientRect().height : 0;
-    var h2 = row2 ? row2.getBoundingClientRect().height : 0;
-    if (h1 > 0) table.style.setProperty('--raddle-sticky-row1', h1 + 'px');
-    else table.style.removeProperty('--raddle-sticky-row1');
-    if (h2 > 0) table.style.setProperty('--raddle-sticky-row2', h2 + 'px');
-    else table.style.removeProperty('--raddle-sticky-row2');
+  }
+
+  function raddleNavOffsetPx() {
+    var raw = getComputedStyle(document.documentElement)
+      .getPropertyValue('--new-ui-scroll-margin-top')
+      .trim();
+    var px = parseFloat(raw);
+    return isNaN(px) ? 56 : px;
+  }
+
+  function getRaddleStickySourceRows(taskRoot) {
+    var table = taskRoot.querySelector('.new-raddle-table');
+    if (!table) return [];
+    var out = [];
+    table.querySelectorAll('.new-raddle-row').forEach(function (row) {
+      if (
+        row.classList.contains('new-raddle-row--as-before') ||
+        row.classList.contains('new-raddle-row--as-prev') ||
+        row.classList.contains('new-raddle-row--as-focus') ||
+        row.classList.contains('new-raddle-row--as-next') ||
+        row.classList.contains('new-raddle-row--as-after') ||
+        row.classList.contains('new-raddle-row--ref') ||
+        row.classList.contains('new-raddle-row--focus')
+      ) {
+        out.push(row);
+      }
+    });
+    return out;
+  }
+
+  function ensureRaddleStickyPin(taskRoot) {
+    var pin = taskRoot.querySelector('.new-raddle-sticky-pin');
+    if (pin) return pin;
+    pin = document.createElement('div');
+    pin.className = 'new-raddle-sticky-pin';
+    pin.setAttribute('hidden', '');
+    pin.setAttribute('aria-hidden', 'true');
+    pin.innerHTML = '<table class="new-raddle-table new-raddle-sticky-pin__table" role="presentation"><colgroup><col class="new-raddle-col--word"><col class="new-raddle-col--check"></colgroup><tbody></tbody></table>';
+    taskRoot.appendChild(pin);
+    return pin;
+  }
+
+  function findRealRaddleInputFromPin(pinInput) {
+    var formId = pinInput && pinInput.getAttribute('data-raddle-pin-for');
+    if (!formId) return null;
+    return document.querySelector('input.new-raddle-input[name="word"][form="' + formId + '"]');
+  }
+
+  function buildRaddleStickyPinRow(sourceRow) {
+    var tr = sourceRow.cloneNode(true);
+    tr.classList.add('new-raddle-sticky-pin__row');
+    tr.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
+    tr.querySelectorAll('.new-raddle-word-msg').forEach(function (el) { el.remove(); });
+
+    tr.querySelectorAll('form').forEach(function (form) {
+      if (form.classList.contains('new-raddle-assist-form')) {
+        var realBtn = form.querySelector('button[type="submit"]');
+        if (!realBtn) { form.remove(); return; }
+        var proxy = realBtn.cloneNode(true);
+        proxy.removeAttribute('id');
+        proxy.setAttribute('type', 'button');
+        proxy.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var liveBtn = sourceRow.querySelector('form.new-raddle-assist-form button[type="submit"]');
+          if (liveBtn) liveBtn.click();
+        });
+        form.parentNode.replaceChild(proxy, form);
+        return;
+      }
+      form.remove();
+    });
+
+    var realInput = sourceRow.querySelector('input.new-raddle-input');
+    var pinInput = tr.querySelector('input.new-raddle-input');
+    if (pinInput && realInput) {
+      pinInput.removeAttribute('id');
+      pinInput.removeAttribute('form');
+      pinInput.removeAttribute('data-raddle-auto');
+      pinInput.removeAttribute('data-raddle-focus-input');
+      pinInput.removeAttribute('data-raddle-mask-bound');
+      pinInput.setAttribute('name', 'word');
+      pinInput.setAttribute('data-raddle-pin-proxy', '1');
+      pinInput.setAttribute('data-raddle-pin-for', realInput.getAttribute('form') || '');
+      pinInput.value = realInput.value || '';
+      if (realInput.dataset.raddleLetters) {
+        pinInput.dataset.raddleLetters = realInput.dataset.raddleLetters;
+      }
+    }
+
+    tr.addEventListener('click', function (e) {
+      if (e.target && e.target.closest && e.target.closest('button, input, a')) return;
+      var input = tr.querySelector('input.new-raddle-input');
+      if (input) focusPreventScroll(input);
+    });
+    return tr;
+  }
+
+  function hideRaddleStickyPin(pin) {
+    if (!pin) return;
+    pin.classList.remove('is-active');
+    pin.setAttribute('hidden', '');
+    pin.setAttribute('aria-hidden', 'true');
+  }
+
+  function positionRaddleStickyPin(taskRoot, pin) {
+    var table = taskRoot.querySelector('.new-raddle-table');
+    if (!pin || !table) return;
+    var rect = table.getBoundingClientRect();
+    pin.style.left = Math.max(0, rect.left) + 'px';
+    pin.style.width = Math.max(0, rect.width) + 'px';
+  }
+
+  function updateRaddleStickyPinVisibility(taskRoot) {
+    var pin = taskRoot.querySelector('.new-raddle-sticky-pin');
+    if (!pin) return;
+    if (!raddleIsMobileLayout()) {
+      hideRaddleStickyPin(pin);
+      return;
+    }
+    var rows = getRaddleStickySourceRows(taskRoot);
+    if (!rows.length) {
+      hideRaddleStickyPin(pin);
+      return;
+    }
+    positionRaddleStickyPin(taskRoot, pin);
+    var navTop = raddleNavOffsetPx();
+    var firstTop = rows[0].getBoundingClientRect().top;
+    var taskBottom = taskRoot.getBoundingClientRect().bottom;
+    var pinH = pin.offsetHeight || (rows.length * 48);
+    // Пока первая выделенная строка ушла под шапку и задание ещё на экране.
+    var shouldShow = firstTop <= navTop + 0.5 && taskBottom > navTop + Math.min(pinH, 24);
+    if (shouldShow) {
+      pin.classList.add('is-active');
+      pin.removeAttribute('hidden');
+      pin.setAttribute('aria-hidden', 'false');
+    } else {
+      hideRaddleStickyPin(pin);
+    }
+  }
+
+  function updateRaddleStickyPin(taskRoot) {
+    if (!taskRoot) return;
+    var pin = ensureRaddleStickyPin(taskRoot);
+    var tbody = pin.querySelector('tbody');
+    if (!tbody) return;
+    var rows = getRaddleStickySourceRows(taskRoot);
+    var keepFocus = null;
+    var keepLetters = null;
+    if (
+      document.activeElement &&
+      document.activeElement.getAttribute &&
+      document.activeElement.getAttribute('data-raddle-pin-proxy') === '1'
+    ) {
+      keepFocus = document.activeElement.getAttribute('data-raddle-pin-for');
+      keepLetters = document.activeElement.dataset.raddleLetters ||
+        (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.getLetters
+          ? RaddleMaskedInput.getLetters(document.activeElement)
+          : '');
+    }
+    tbody.innerHTML = '';
+    rows.forEach(function (row) {
+      tbody.appendChild(buildRaddleStickyPinRow(row));
+    });
+    bindRaddleMaskedInputs(pin);
+    if (keepFocus) {
+      var restore = pin.querySelector('input[data-raddle-pin-for="' + keepFocus + '"]');
+      if (restore) {
+        if (keepLetters && typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.setLetters) {
+          RaddleMaskedInput.setLetters(restore, keepLetters);
+        }
+        focusPreventScroll(restore);
+      }
+    }
+    updateRaddleStickyPinVisibility(taskRoot);
   }
 
   // После верной посылки переводим фокус на следующую ступеньку: если решали
@@ -2086,16 +2291,25 @@
   initRaddleUi(document);
 
   var raddleStickyResizeTimer = null;
+  function refreshAllRaddleStickyPins() {
+    document.querySelectorAll('.new-raddle-task').forEach(updateRaddleStickyPinVisibility);
+  }
   window.addEventListener('resize', function () {
     if (raddleStickyResizeTimer) clearTimeout(raddleStickyResizeTimer);
     raddleStickyResizeTimer = setTimeout(function () {
-      document.querySelectorAll('.new-raddle-task').forEach(updateRaddleStickyOffsets);
+      document.querySelectorAll('.new-raddle-task').forEach(updateRaddleStickyPin);
     }, 100);
   });
+  window.addEventListener('scroll', refreshAllRaddleStickyPins, { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', refreshAllRaddleStickyPins);
+    window.visualViewport.addEventListener('scroll', refreshAllRaddleStickyPins);
+  }
 
   document.addEventListener('focusin', function (e) {
     var input = e.target && e.target.closest ? e.target.closest('[data-raddle-focus-input]') : null;
     if (!input) return;
+    if (input.getAttribute('data-raddle-pin-proxy') === '1') return;
     var row = input.closest('.new-raddle-row');
     var taskRoot = input.closest('.new-raddle-task');
     if (!row || !taskRoot) return;
