@@ -14,13 +14,16 @@ from games.alphabetty.core import (
     compare_words,
     guess_status,
     is_valid_guess,
+    known_prefix,
     normalize_word,
     pick_answer_words,
 )
 from games.alphabetty.play import (
     apply_guess,
+    apply_hint,
     build_share_lines,
     format_elapsed,
+    format_hints_label,
     get_play_state,
     ru_attempt_word,
 )
@@ -110,6 +113,17 @@ class AlphabettyCoreTests(TestCase):
         self.assertNotIn('Я', letters)
         self.assertEqual(letters[-1], 'Ю')
 
+    def test_known_prefix_lcp_and_hints(self):
+        self.assertEqual(known_prefix('римлянин', 'рисунок'), 'РИ')
+        self.assertEqual(known_prefix('римлянин', 'рисунок', hint_prefix='РИН'), 'РИН')
+        self.assertEqual(known_prefix(None, None, hint_prefix='СЛ'), 'СЛ')
+
+    def test_prefix_hint_only_known(self):
+        rows = build_prefix_level(None, None, expand_prefix='РИ')
+        self.assertTrue(rows)
+        self.assertTrue(all(r['expandable'] for r in rows))
+        self.assertEqual(rows[0]['prefix'], 'РИА')
+
     def test_pick_excludes(self):
         pool = pick_answer_words(3, exclude={'ГОД'}, rng=__import__('random').Random(0))
         self.assertEqual(len(pool), 3)
@@ -127,6 +141,14 @@ class AlphabettyCoreTests(TestCase):
         self.assertEqual(lines[1], '🤔 5 попыток')
         self.assertEqual(lines[2], '⏱️ 1ч 32м 44с')
         self.assertEqual(lines[3], '🔗 interoves.com/alphabetty/1')
+        lines_hints = build_share_lines(
+            number=1, attempts=5, elapsed_seconds=5564, hints=3, host='interoves.com',
+        )
+        self.assertEqual(lines_hints[2], '💡💡💡 Взято 3 подсказки')
+        self.assertEqual(format_hints_label(0), '')
+        self.assertEqual(format_hints_label(1), '💡 Взята 1 подсказка')
+        self.assertEqual(format_hints_label(2), '💡💡 Взято 2 подсказки')
+        self.assertEqual(format_hints_label(5), '💡💡💡💡💡 Взято 5 подсказок')
 
 
 def _ensure_login_modal_deps():
@@ -321,6 +343,31 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(data['status'], 'correct')
         self.assertTrue(data['won'])
         self.assertEqual(data['secret'], 'СЛОВО')
+
+    def test_hint_flow(self):
+        r = self.client.post(
+            '/alphabetty/1/hint/',
+            data=json.dumps({'anon_key': 'hintanon'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='hintanon',
+        )
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['hint_prefix'], 'С')
+        self.assertEqual(data['hints'], 1)
+        self.assertEqual(data['next_hint_letter'], 2)
+
+        r = self.client.post(
+            '/alphabetty/1/guess/',
+            data=json.dumps({'word': 'слово', 'anon_key': 'hintanon'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='hintanon',
+        )
+        data = r.json()
+        self.assertEqual(data['status'], 'correct')
+        self.assertEqual(data['hints'], 1)
+        self.assertIn('💡 Взята 1 подсказка', '\n'.join(data['share_lines']))
 
     def test_play_page_ok(self):
         _ensure_login_modal_deps()

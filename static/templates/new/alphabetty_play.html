@@ -37,6 +37,7 @@
      data-guess-url="{{ guess_url }}"
      data-state-url="{{ state_url }}"
      data-prefix-url="{{ prefix_url }}"
+     data-hint-url="{{ hint_url }}"
      data-suggest-url="{{ suggest_url }}"
      data-anon-key="{{ anon_key|default:'' }}"
      data-authenticated="{% if is_authenticated %}1{% else %}0{% endif %}">
@@ -60,18 +61,25 @@
     <div class="new-alphabetty__guess" id="ab-input-zone">
       <form class="new-alphabetty__form" id="ab-form" autocomplete="off">
         {% csrf_token %}
-        <input type="text"
-               id="ab-word"
-               class="new-alphabetty__input"
-               autocomplete="off"
-               autocapitalize="characters"
-               autocorrect="off"
-               spellcheck="false"
-               inputmode="text"
-               enterkeyhint="done"
-               maxlength="40"
-               placeholder="Угадайте русское слово"
-               aria-label="Угадайте русское слово">
+        <div class="new-alphabetty__input-wrap">
+          <input type="text"
+                 id="ab-word"
+                 class="new-alphabetty__input"
+                 autocomplete="off"
+                 autocapitalize="characters"
+                 autocorrect="off"
+                 spellcheck="false"
+                 inputmode="text"
+                 enterkeyhint="done"
+                 maxlength="40"
+                 placeholder="Угадайте русское слово"
+                 aria-label="Угадайте русское слово">
+          <button type="button"
+                  class="new-raddle-assist-btn new-alphabetty__letter-hint"
+                  id="ab-hint"
+                  hidden
+                  aria-label="Подсказка"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
+        </div>
         <button type="submit" class="new-btn new-alphabetty__submit" id="ab-submit">Проверить</button>
       </form>
       <div class="new-alphabetty__msg-row" id="ab-msg-row" hidden>
@@ -113,6 +121,7 @@
   var guessUrl = root.getAttribute('data-guess-url');
   var stateUrl = root.getAttribute('data-state-url');
   var prefixUrl = root.getAttribute('data-prefix-url');
+  var hintUrl = root.getAttribute('data-hint-url');
   var suggestUrl = root.getAttribute('data-suggest-url');
   var isAuthenticated = root.getAttribute('data-authenticated') === '1';
   var serverAnon = root.getAttribute('data-anon-key') || '';
@@ -176,6 +185,7 @@
   var elResultShare = document.getElementById('ab-result-share');
   var form = document.getElementById('ab-form');
   var input = document.getElementById('ab-word');
+  var elHint = document.getElementById('ab-hint');
 
   function csrf() {
     var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
@@ -196,7 +206,27 @@
 
   function focusInput() {
     if (state.won) return;
-    try { input.focus({ preventScroll: true }); } catch (e) { try { input.focus(); } catch (e2) {} }
+    focusPreventScroll(input);
+  }
+
+  function preservePageScroll(run) {
+    var x = window.scrollX || 0;
+    var y = window.scrollY || 0;
+    run();
+    function restore() { window.scrollTo(x, y); }
+    restore();
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () {
+        restore();
+        requestAnimationFrame(restore);
+      });
+    }
+  }
+
+  function focusPreventScroll(el) {
+    if (!el) return;
+    try { el.focus({ preventScroll: true }); }
+    catch (e) { try { el.focus(); } catch (e2) {} }
   }
 
   function wordLi(word, opts) {
@@ -205,8 +235,39 @@
     li.className = 'new-alphabetty__word' +
       (opts.nearest ? ' is-nearest' : '') +
       (opts.dim ? ' is-dim' : '');
+    var kp = opts.knownPrefix || '';
+    if (opts.nearest && kp) {
+      var shared = 0;
+      while (shared < kp.length && shared < word.length && word[shared] === kp[shared]) {
+        shared += 1;
+      }
+      if (shared > 0) {
+        var prefixEl = document.createElement('span');
+        prefixEl.className = 'new-alphabetty__word-known';
+        prefixEl.textContent = word.slice(0, shared);
+        var restEl = document.createElement('span');
+        restEl.textContent = word.slice(shared);
+        li.appendChild(prefixEl);
+        li.appendChild(restEl);
+        return li;
+      }
+    }
     li.textContent = word;
     return li;
+  }
+
+  function updateHintButton() {
+    if (!elHint) return;
+    var n = state.next_hint_letter;
+    if (state.won || !n) {
+      elHint.hidden = true;
+      return;
+    }
+    elHint.hidden = false;
+    elHint.disabled = !!busy;
+    var title = 'Подсказка: узнать ' + n + ' букву';
+    elHint.title = title;
+    elHint.setAttribute('aria-label', title);
   }
 
   function setPrefixOpen(open) {
@@ -274,18 +335,21 @@
   function renderBoard() {
     var earlier = state.earlier || [];
     var later = state.later || [];
+    var knownPrefix = state.known_prefix || '';
     elAbove.innerHTML = '';
     elBelow.innerHTML = '';
     earlier.forEach(function (w, i) {
       elAbove.appendChild(wordLi(w, {
         nearest: i === earlier.length - 1,
-        dim: i < earlier.length - 1
+        dim: i < earlier.length - 1,
+        knownPrefix: knownPrefix
       }));
     });
     later.forEach(function (w, i) {
       elBelow.appendChild(wordLi(w, {
         nearest: i === 0,
-        dim: i > 0
+        dim: i > 0,
+        knownPrefix: knownPrefix
       }));
     });
     elAfterBlock.hidden = !earlier.length;
@@ -308,6 +372,7 @@
     elWin.hidden = true;
     elResult.hidden = true;
     elResultShare.innerHTML = '';
+    updateHintButton();
     if (prefixOpen) renderPrefixPanel();
   }
 
@@ -406,8 +471,9 @@
   function renderPrefixPanel() {
     var lo = state.bounds && state.bounds.lo;
     var hi = state.bounds && state.bounds.hi;
+    var known = state.known_prefix || '';
     elPrefixPanel.innerHTML = '';
-    if (!lo && !hi) {
+    if (!lo && !hi && !known) {
       elPrefixPanel.appendChild(buildAlphabetGrid());
       return;
     }
@@ -418,6 +484,12 @@
       empty.textContent = 'Нет подсказок';
       elPrefixPanel.appendChild(empty);
       return;
+    }
+    if (known && state.hint_prefix && state.hint_prefix.length > 0) {
+      var knownLine = document.createElement('div');
+      knownLine.className = 'new-alphabetty__hint-known';
+      knownLine.textContent = known;
+      elPrefixPanel.appendChild(knownLine);
     }
     elPrefixPanel.appendChild(buildHintRows(top, 0));
   }
@@ -476,14 +548,16 @@
   }
 
   function applyState(data) {
-    ['guesses', 'earlier', 'later', 'bounds', 'prefix_hint', 'won', 'attempts', 'secret', 'max_word_length', 'share_lines', 'share_text', 'elapsed_label', 'attempts_label'].forEach(function (k) {
+    ['guesses', 'earlier', 'later', 'bounds', 'known_prefix', 'hint_prefix', 'hints', 'next_hint_letter', 'prefix_hint', 'won', 'attempts', 'secret', 'max_word_length', 'share_lines', 'share_text', 'elapsed_label', 'attempts_label'].forEach(function (k) {
       if (data[k] !== undefined) state[k] = data[k];
     });
     if (data.max_word_length) maxLen = data.max_word_length;
     prefixCache = {};
     expanded = {};
-    renderBoard();
-    if (!state.won) focusInput();
+    preservePageScroll(function () {
+      renderBoard();
+      if (!state.won) focusInput();
+    });
   }
 
   function submitWord() {
@@ -494,6 +568,8 @@
       focusInput();
       return;
     }
+    var submitBtn = document.getElementById('ab-submit');
+    if (submitBtn) { try { submitBtn.blur(); } catch (e) {} }
     busy = true;
     showMsg('');
     stateGen += 1;
@@ -537,11 +613,55 @@
         else showMsg('');
       })
       .catch(function (e) { showMsg((e && e.message) || 'Сеть недоступна', 'error'); })
-      .finally(function () { busy = false; });
+      .finally(function () { busy = false; updateHintButton(); });
+  }
+
+  if (elHint) {
+    elHint.addEventListener('click', function () {
+      if (busy || state.won || !state.next_hint_letter || !hintUrl) return;
+      busy = true;
+      updateHintButton();
+      showMsg('');
+      stateGen += 1;
+      var headers = {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf(),
+        'Accept': 'application/json'
+      };
+      if (anonKey) headers['X-Interoves-Anon'] = anonKey;
+      fetch(hintUrl, {
+        method: 'POST',
+        headers: headers,
+        credentials: 'same-origin',
+        body: JSON.stringify({ anon_key: anonKey })
+      })
+        .then(function (r) {
+          return r.json().then(function (data) {
+            if (!r.ok && data && data.status === 'error') throw new Error(data.error || 'Ошибка');
+            return data;
+          });
+        })
+        .then(function (data) {
+          if (data.status === 'error') {
+            showMsg(data.error || 'Ошибка', 'error');
+            return;
+          }
+          if (data.status === 'no_more_hints') {
+            showMsg(data.error || 'Больше нет подсказок', 'error');
+            return;
+          }
+          expanded = {};
+          applyState(data);
+        })
+        .catch(function (e) { showMsg((e && e.message) || 'Сеть недоступна', 'error'); })
+        .finally(function () { busy = false; updateHintButton(); });
+    });
   }
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
+    var submitBtn = document.getElementById('ab-submit');
+    if (submitBtn) { try { submitBtn.blur(); } catch (err) {} }
     submitWord();
   });
 

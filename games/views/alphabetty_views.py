@@ -12,6 +12,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from games.alphabetty.core import build_prefix_level, normalize_word
 from games.alphabetty.play import (
     apply_guess,
+    apply_hint,
     get_play_state,
     get_task_for_number,
     hub_progress_for_actor,
@@ -221,6 +222,7 @@ def alphabetty_play_page(request, number):
         'guess_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}guess/',
         'state_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}state/',
         'prefix_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}prefix/',
+        'hint_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}hint/',
         'suggest_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}suggest/',
         'anon_key': anon_key if user is None else '',
         'is_authenticated': bool(user),
@@ -356,6 +358,44 @@ def alphabetty_prefix(request, number):
     expand = normalize_word(body.get('prefix') or '')
     rows = build_prefix_level(lo, hi, expand_prefix=expand)
     return JsonResponse({'ok': True, 'rows': rows})
+
+
+@require_POST
+def alphabetty_hint(request, number):
+    game, task, err = _load_published_task(request, number)
+    if err is not None:
+        return err
+
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, TypeError):
+        body = {}
+
+    user, anon_key = _resolve_actor(request, body=body)
+    if user is None and not anon_key:
+        anon_key = uuid.uuid4().hex
+
+    try:
+        n = int(number)
+    except (TypeError, ValueError):
+        n = 0
+    result = apply_hint(
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        number=n,
+        share_host=_share_host(request),
+    )
+    response = JsonResponse(result)
+    if user is None and anon_key:
+        response.set_cookie(
+            'interoves_anon',
+            anon_key,
+            max_age=60 * 60 * 24 * 365,
+            samesite='Lax',
+        )
+    return response
 
 
 @require_POST

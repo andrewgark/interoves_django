@@ -101,6 +101,33 @@ def pick_answer_words(
     return r.sample(candidates, k)
 
 
+def known_prefix(
+    lo: Optional[str],
+    hi: Optional[str],
+    *,
+    hint_prefix: str = '',
+) -> str:
+    """Буквы, о которых точно известно, что ответ начинается с них.
+
+    Это LCP границ lo/hi и/или буквы, раскрытые подсказками (hint_prefix).
+    """
+    lo_n = normalize_word(lo) if lo else ''
+    hi_n = normalize_word(hi) if hi else ''
+    bound_prefix = ''
+    if lo_n and hi_n:
+        lcp = 0
+        limit = min(len(lo_n), len(hi_n))
+        while lcp < limit and lo_n[lcp] == hi_n[lcp]:
+            lcp += 1
+        bound_prefix = lo_n[:lcp]
+    hp = normalize_word(hint_prefix)
+    if not hp:
+        return bound_prefix
+    if bound_prefix and not hp.startswith(bound_prefix):
+        return bound_prefix
+    return hp if len(hp) >= len(bound_prefix) else bound_prefix
+
+
 def _letter_range(start: str, end: str) -> list[str]:
     start = 'Е' if start == 'Ё' else start
     end = 'Е' if end == 'Ё' else end
@@ -132,7 +159,22 @@ def build_prefix_level(
     if lo_n and hi_n and compare_words(lo_n, hi_n) >= 0:
         return []
     if not lo_n and not hi_n:
-        return []
+        if not prefix:
+            return []
+        # Только подсказки, без границ: следующий уровень после известного префикса.
+        pos = len(prefix)
+        letters = list(_RU_ORDER)
+        rows: list[dict[str, Any]] = []
+        for ch in letters:
+            node = prefix + ch
+            rows.append({
+                'prefix': node,
+                'letter': ch,
+                'display': node + '+',
+                'expandable': True,
+                'kind': 'expand',
+            })
+        return rows
 
     # Верхний уровень: начинаем с LCP границ (если обе есть и префикс пуст).
     if not prefix and lo_n and hi_n:

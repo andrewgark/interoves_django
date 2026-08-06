@@ -12,6 +12,7 @@ from games.alphabetty.core import (
     build_prefix_level,
     guess_status,
     is_valid_guess,
+    known_prefix,
     max_word_length,
     normalize_word,
 )
@@ -19,7 +20,37 @@ from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
 
 
 def default_state() -> dict[str, Any]:
-    return {'guesses': [], 'won': False}
+    return {'guesses': [], 'won': False, 'hint_prefix': ''}
+
+
+def hint_count(state: dict[str, Any]) -> int:
+    return len(normalize_word(state.get('hint_prefix') or ''))
+
+
+def ru_hint_word(n: int) -> str:
+    n = abs(int(n))
+    n10, n100 = n % 10, n % 100
+    if n10 == 1 and n100 != 11:
+        return 'подсказка'
+    if 2 <= n10 <= 4 and not 12 <= n100 <= 14:
+        return 'подсказки'
+    return 'подсказок'
+
+
+def ru_hint_taken(n: int) -> str:
+    n = abs(int(n))
+    n10, n100 = n % 10, n % 100
+    if n10 == 1 and n100 != 11:
+        return 'Взята'
+    return 'Взято'
+
+
+def format_hints_label(count: int) -> str:
+    """💡💡 Взято N подсказки — для share и списка."""
+    n = max(0, int(count))
+    if n <= 0:
+        return ''
+    return f'{"💡" * n} {ru_hint_taken(n)} {n} {ru_hint_word(n)}'
 
 
 def ru_attempt_word(n: int) -> str:
@@ -64,15 +95,22 @@ def build_share_lines(
     number: int,
     attempts: int,
     elapsed_seconds: int,
+    hints: int = 0,
     host: str = 'interoves.com',
 ) -> list[str]:
     host = (host or 'interoves.com').split(':')[0] or 'interoves.com'
-    return [
+    lines = [
         f'🔤 Алфавитка #{int(number)}',
         f'🤔 {attempts} {ru_attempt_word(attempts)}',
+    ]
+    hints_line = format_hints_label(hints)
+    if hints_line:
+        lines.append(hints_line)
+    lines.extend([
         f'⏱️ {format_elapsed(elapsed_seconds)}',
         f'🔗 {host}/alphabetty/{int(number)}',
-    ]
+    ])
+    return lines
 
 
 def attach_solve_meta(
@@ -92,11 +130,13 @@ def attach_solve_meta(
     except (TypeError, ValueError):
         num = 0
     attempts = int(payload.get('attempts') or 0)
+    hints = int(payload.get('hints') or 0)
     elapsed = elapsed_seconds_for_actor(game=game, task=task, actor=actor) if actor else 0
     lines = build_share_lines(
         number=num,
         attempts=attempts,
         elapsed_seconds=elapsed,
+        hints=hints,
         host=host,
     )
     payload['elapsed_seconds'] = elapsed
@@ -145,17 +185,28 @@ def hub_progress_for_actor(
         state = states.get(task.id) or default_state()
         won = bool(state.get('won'))
         attempts = len(state.get('guesses') or [])
-        if not won and not attempts:
+        hints = hint_count(state)
+        if not won and not attempts and not hints:
             continue
         elapsed = timing.get(task.id, 0) if won else None
         meta = None
         if won:
             meta = f'🤔 {attempts} {ru_attempt_word(attempts)}  ⏱️ {format_elapsed(elapsed or 0)}'
-        elif attempts:
-            meta = f'🤔 {attempts} {ru_attempt_word(attempts)}'
+            hints_line = format_hints_label(hints)
+            if hints_line:
+                meta += f'  {hints_line}'
+        elif attempts or hints:
+            parts = []
+            if attempts:
+                parts.append(f'🤔 {attempts} {ru_attempt_word(attempts)}')
+            hints_line = format_hints_label(hints)
+            if hints_line:
+                parts.append(hints_line)
+            meta = '  '.join(parts)
         out[number] = {
             'won': won,
             'attempts': attempts,
+            'hints': hints,
             'elapsed_seconds': elapsed,
             'progress_meta': meta,
             'row_class': 'new-task--solved' if won else 'new-task--partial',
@@ -178,6 +229,7 @@ def load_state(raw: str | None) -> dict[str, Any]:
     if isinstance(guesses, list):
         state['guesses'] = [normalize_word(g) for g in guesses if normalize_word(g)]
     state['won'] = bool(data.get('won'))
+    state['hint_prefix'] = normalize_word(data.get('hint_prefix') or '')
     return state
 
 
@@ -185,6 +237,7 @@ def dump_state(state: dict[str, Any]) -> str:
     return json.dumps({
         'guesses': list(state.get('guesses') or []),
         'won': bool(state.get('won')),
+        'hint_prefix': normalize_word(state.get('hint_prefix') or ''),
     }, ensure_ascii=False)
 
 
@@ -218,12 +271,24 @@ def public_payload(
     earlier, later = split_ladder(guesses, secret)
     lo = earlier[-1] if earlier else None
     hi = later[0] if later else None
-    prefix_hint = build_prefix_level(lo, hi) if (lo or hi) and not won else []
+    hp = normalize_word(state.get('hint_prefix') or '')
+    kp = known_prefix(lo, hi, hint_prefix=hp)
+    prefix_expand = kp if kp else ''
+    prefix_hint = (
+        build_prefix_level(lo, hi, expand_prefix=prefix_expand)
+        if (lo or hi or prefix_expand) and not won
+        else []
+    )
+    next_hint_letter = len(hp) + 1 if not won and len(hp) < len(normalize_word(secret)) else None
     payload = {
         'guesses': guesses,
         'earlier': earlier,
         'later': later,
         'bounds': {'lo': lo, 'hi': hi},
+        'known_prefix': kp,
+        'hint_prefix': hp,
+        'hints': len(hp),
+        'next_hint_letter': next_hint_letter,
         'prefix_hint': prefix_hint,
         'won': won,
         'attempts': len(guesses),
@@ -231,6 +296,68 @@ def public_payload(
     }
     if won or reveal_secret:
         payload['secret'] = normalize_word(secret)
+    return payload
+
+
+@transaction.atomic
+def apply_hint(
+    *,
+    game: Game,
+    task: Task,
+    user=None,
+    anon_key=None,
+    number: int | str | None = None,
+    share_host: str = 'interoves.com',
+) -> dict[str, Any]:
+    """Раскрыть следующую букву загаданного слова."""
+    actor = _actor_filters(user=user, anon_key=anon_key)
+    secret = secret_from_task(task)
+    if not secret:
+        return {'status': 'error', 'error': 'Загадка не настроена'}
+    if actor is None:
+        return {
+            'status': 'error',
+            'error': 'Нужен пользователь или anon_key',
+            **public_payload(default_state(), secret),
+        }
+
+    num = number if number is not None else task.task_group_id
+
+    ChainTaskState.objects.get_or_create(
+        task=task,
+        game=game,
+        game_mode='general',
+        defaults={'state': dump_state(default_state())},
+        **actor,
+    )
+    row = ChainTaskState.objects.select_for_update().get(
+        task=task,
+        game=game,
+        game_mode='general',
+        **actor,
+    )
+    state = load_state(row.state)
+
+    if state['won']:
+        payload = public_payload(state, secret)
+        payload['status'] = 'already_won'
+        return attach_solve_meta(
+            payload, game=game, task=task, number=num, actor=actor, host=share_host,
+        )
+
+    hp = normalize_word(state.get('hint_prefix') or '')
+    if len(hp) >= len(secret):
+        payload = public_payload(state, secret)
+        payload['status'] = 'no_more_hints'
+        payload['error'] = 'Все буквы уже раскрыты'
+        return payload
+
+    state['hint_prefix'] = hp + secret[len(hp)]
+    row.state = dump_state(state)
+    row.save(update_fields=['state', 'updated_at'])
+
+    payload = public_payload(state, secret)
+    payload['status'] = 'ok'
     return payload
 
 

@@ -66,6 +66,7 @@ urlpatterns = [
     path('alphabetty/<str:number>/guess/', ui.alphabetty_guess, name='ui_alphabetty_guess'),
     path('alphabetty/<str:number>/state/', ui.alphabetty_state, name='ui_alphabetty_state'),
     path('alphabetty/<str:number>/prefix/', ui.alphabetty_prefix, name='ui_alphabetty_prefix'),
+    path('alphabetty/<str:number>/hint/', ui.alphabetty_hint, name='ui_alphabetty_hint'),
     path('alphabetty/<str:number>/suggest/', ui.alphabetty_suggest, name='ui_alphabetty_suggest'),
     path('alphabetty/<str:number>/', ui.alphabetty_play_page, name='ui_alphabetty_play'),
     # Legacy /games/ladder/… and /games/alphabetty/… → short paths.

@@ -65,9 +65,12 @@ def _merge_alphabetty_states(anon_json, user_json):
             continue
         seen.add(g)
         merged.append(g)
+    anon_hp = str(anon.get('hint_prefix') or '').strip().upper().replace('Ё', 'Е')
+    user_hp = str(user.get('hint_prefix') or '').strip().upper().replace('Ё', 'Е')
     return json.dumps({
         'guesses': merged,
         'won': bool(anon.get('won') or user.get('won')),
+        'hint_prefix': anon_hp if len(anon_hp) >= len(user_hp) else user_hp,
     }, ensure_ascii=False)
 
 
