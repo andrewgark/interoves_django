@@ -229,13 +229,37 @@ They cost almost nothing while stuck; no instances / ALBs.
 
 Smoke: `eb status`, two healthy TG targets, `curl -sS -o /dev/null -w '%{http_code}\n' https://interoves.com/`.
 
+## Rolling deploy (zero-downtime with MinSize=2)
+
+**Config:** [`.ebextensions/deploy.config`](../.ebextensions/deploy.config) — `DeploymentPolicy=Rolling`, `BatchSize=1` (one instance at a time). Second instance keeps serving HTTP while the first updates Daphne; then swap. Deploy takes ~2× longer than `AllAtOnce`.
+
+**ALB health:** [`.ebextensions/health.config`](../.ebextensions/health.config) + [`scaling.config`](../.ebextensions/scaling.config) — target check on `/health/`, `DeregistrationDelay=20` (drain in-flight requests before instance update).
+
+**After first rolling deploy**, verify in console / CLI:
+
+```bash
+./scripts/aws_with_role.sh aws elasticbeanstalk describe-configuration-settings \
+  --region eu-central-1 --application-name interoves --environment-name interoves-env \
+  --query "ConfigurationSettings[0].OptionSettings[?OptionName=='DeploymentPolicy' || OptionName=='BatchSize']"
+```
+
+Smoke during `./deploy.sh`: in another terminal `while true; do curl -sS -o /dev/null -w '%{http_code} %{time_total}s\n' https://interoves.com/; sleep 1; done` — expect no long runs of 502/504.
+
+| Caveat | Notes |
+|--------|--------|
+| WebSocket | Clients on the updating instance reconnect; Redis channel layer required (already on prod). |
+| Breaking migrations | Use background migration pattern; schema must stay compatible across the roll. |
+| `IgnoreHealthCheck=true` | Kept so a slow Daphne restart does not abort the roll; once rolling is stable, try `false` for stricter gating. |
+| Stricter option | `RollingWithAdditionalBatch` + `MaxSize=3` spins a 3rd instance during deploy (~15 min extra EC2 cost per deploy). |
+
 ## EB deploy troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
 | Deploy stuck 60+ min | Long-running migration in `container_commands` | Background pattern above |
 | "Must be Ready" on `eb deploy` | Env already updating | Wait, then retry |
-| Site 000 after timeout | Single-instance: old app stopped, new one failed | Redeploy last good version label |
+| Site 000 after timeout | Old AllAtOnce: both instances restarted together | Rolling deploy (deploy.config); redeploy last good version if needed |
+| Brief 502 during deploy | AllAtOnce or both targets unhealthy | Confirm `DeploymentPolicy=Rolling`, MinSize=2, `/health/` on TG |
 | Site 504, EB Red, EC2 ok | Daphne/event loop hung; historically EC2-only ASG health | ELB health replace (above); reboot/terminate |
 | `Access denied` for MySQL | Stale `RDS_PASSWORD` from CloudFormation | Secrets Manager pattern above |
 | `eb logs --zip` HTTP 400 | Env in invalid/updating state | Wait until Ready |
