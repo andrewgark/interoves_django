@@ -5176,6 +5176,8 @@ html.is-age-gated .new-wrap {
   overflow: hidden;
   margin: 0;
 }
+.new-raddle-sticky-pin__table .new-raddle-col--check { width: 92px; }
+.new-raddle-sticky-pin__table .new-raddle-col--word { width: calc(100% - 92px); }
 .new-raddle-sticky-pin__table td {
   padding: 0;
   border-bottom: 1px solid var(--border);
@@ -5183,6 +5185,10 @@ html.is-age-gated .new-wrap {
 }
 .new-raddle-sticky-pin__table tr:last-child td {
   border-bottom: none;
+}
+@media (max-width: 560px) {
+  .new-raddle-sticky-pin__table .new-raddle-col--check { width: 74px; }
+  .new-raddle-sticky-pin__table .new-raddle-col--word { width: calc(100% - 74px); }
 }
 @media (max-width: 919px) {
   .new-taskcard__text:has(.new-raddle-task) {

@@ -1211,12 +1211,11 @@
 
   function syncRaddleStickyPinRowState(taskRoot) {
     var pin = taskRoot && taskRoot.querySelector('.new-raddle-sticky-pin');
-    if (!pin) return;
+    var table = getRaddleLadderTable(taskRoot);
+    if (!pin || !table) return;
     pin.querySelectorAll('.new-raddle-sticky-pin__row[data-word-index]').forEach(function (pinRow) {
       var idx = pinRow.getAttribute('data-word-index');
-      var src = taskRoot.querySelector(
-        '.new-raddle-table .new-raddle-row[data-word-index="' + idx + '"]'
-      );
+      var src = table.querySelector('.new-raddle-row[data-word-index="' + idx + '"]');
       if (!src) return;
       pinRow.classList.toggle('new-raddle-row--wrong', src.classList.contains('new-raddle-row--wrong'));
       pinRow.classList.toggle('new-raddle-row--checking', src.classList.contains('new-raddle-row--checking'));
@@ -2008,7 +2007,9 @@
 
   function setRaddleFocus(taskRoot, wordIndex) {
     if (!taskRoot) return;
-    var rows = taskRoot.querySelectorAll('.new-raddle-row[data-word-index]');
+    var table = getRaddleLadderTable(taskRoot);
+    if (!table) return;
+    var rows = table.querySelectorAll('.new-raddle-row[data-word-index]');
     var focusRow = null;
     rows.forEach(function (row) {
       row.classList.remove(
@@ -2021,7 +2022,7 @@
       }
     });
     if (!focusRow || !focusRow.classList.contains('new-raddle-row--playable')) {
-      focusRow = taskRoot.querySelector('.new-raddle-row--playable');
+      focusRow = table.querySelector('.new-raddle-row--playable');
       if (!focusRow) return;
       wordIndex = focusRow.getAttribute('data-word-index');
     }
@@ -2043,7 +2044,7 @@
       var refPairRole = focusRow.getAttribute('data-ref-pair-role') || '';
       if (focusPairRole) focusRow.classList.add('new-raddle-row--as-' + focusPairRole);
       if (refIdx !== null && refIdx !== '') {
-        var refRow = taskRoot.querySelector('.new-raddle-row[data-word-index="' + refIdx + '"]');
+        var refRow = table.querySelector('.new-raddle-row[data-word-index="' + refIdx + '"]');
         if (refRow) {
           refRow.classList.add('new-raddle-row--ref');
           if (refPairRole) refRow.classList.add('new-raddle-row--as-' + refPairRole);
@@ -2070,6 +2071,11 @@
     updateRaddleStickyPin(taskRoot);
   }
 
+  function getRaddleLadderTable(taskRoot) {
+    if (!taskRoot) return null;
+    return taskRoot.querySelector('.new-raddle-ladder .new-raddle-table');
+  }
+
   function raddleIsMobileLayout() {
     try {
       if (window.interovesUi && typeof window.interovesUi.isMobileLayout === 'function') {
@@ -2090,7 +2096,7 @@
   }
 
   function getRaddleStickySourceRows(taskRoot) {
-    var table = taskRoot.querySelector('.new-raddle-table');
+    var table = getRaddleLadderTable(taskRoot);
     if (!table) return [];
     var out = [];
     table.querySelectorAll('.new-raddle-row').forEach(function (row) {
@@ -2116,7 +2122,8 @@
     pin.className = 'new-raddle-sticky-pin';
     pin.setAttribute('hidden', '');
     pin.setAttribute('aria-hidden', 'true');
-    pin.innerHTML = '<table class="new-raddle-table new-raddle-sticky-pin__table" role="presentation"><colgroup><col class="new-raddle-col--word"><col class="new-raddle-col--check"></colgroup><tbody></tbody></table>';
+    // Без класса new-raddle-table — иначе querySelector путает пин с настоящей лесенкой.
+    pin.innerHTML = '<table class="new-raddle-sticky-pin__table" role="presentation"><colgroup><col class="new-raddle-col--word"><col class="new-raddle-col--check"></colgroup><tbody></tbody></table>';
     taskRoot.appendChild(pin);
     return pin;
   }
@@ -2130,6 +2137,8 @@
   function buildRaddleStickyPinRow(sourceRow) {
     var tr = sourceRow.cloneNode(true);
     tr.classList.add('new-raddle-sticky-pin__row');
+    tr.classList.remove('new-raddle-row--playable');
+    tr.setAttribute('data-raddle-pin-row', '1');
     tr.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
     tr.querySelectorAll('.new-raddle-word-msg').forEach(function (el) { el.remove(); });
 
@@ -2185,7 +2194,7 @@
   }
 
   function positionRaddleStickyPin(taskRoot, pin) {
-    var table = taskRoot.querySelector('.new-raddle-table');
+    var table = getRaddleLadderTable(taskRoot);
     if (!pin || !table) return;
     var rect = table.getBoundingClientRect();
     pin.style.left = Math.max(0, rect.left) + 'px';
@@ -2364,8 +2373,10 @@
   });
 
   document.addEventListener('click', function (e) {
+    if (e.target && e.target.closest && e.target.closest('.new-raddle-sticky-pin')) return;
     var row = e.target && e.target.closest ? e.target.closest('.new-raddle-row--playable') : null;
     if (!row) return;
+    if (row.getAttribute('data-raddle-pin-row') === '1') return;
     var taskRoot = row.closest('.new-raddle-task');
     if (!taskRoot) return;
     setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
