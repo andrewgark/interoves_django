@@ -198,7 +198,36 @@ On-instance clues (after recovery): `/var/log/messages` — Daphne `took too lon
 
 ## ASG weekly capacity (do not put in CFN)
 
-Sunday 17:00 / Monday 00:00 MSK schedules are **CLI-only** (`./scripts/ensure_asg_schedule.sh`). CloudFormation `AWS::AutoScaling::ScheduledAction` in `.ebextensions` re-applies min/max on stack updates and can force capacity=3 mid-week during unrelated deploys.
+Baseline **MinSize=2** (HA: two `t3.small` behind ALB). Schedules are **CLI-only** (`./scripts/ensure_asg_schedule.sh`):
+
+| When (Europe/Moscow) | Min / Max |
+|----------------------|-----------|
+| Default / Mon 00:00  | **2 / 2** |
+| Sun 17:00            | **3 / 3** |
+
+CloudFormation `AWS::AutoScaling::ScheduledAction` in `.ebextensions` re-applies min/max on stack updates and can force Sunday peak mid-week — do not put schedules there.
+
+## Cost hygiene (runbook)
+
+Order for one-shot savings / HA (account `916000456640`, `eu-central-1`; prefer `AWS_PROFILE=interoves`):
+
+1. Capacity: ASG `min=2 desired=2 max=3`, then `./scripts/ensure_asg_schedule.sh`.
+2. `./scripts/cleanup_eb_app_versions.sh` — keep newest 20 app versions (large EB S3 savings).
+3. `./scripts/ensure_eb_bucket_lifecycle.sh` — expire `interoves/` objects in the EB bucket after 60 days.
+4. Release idle EIPs; delete old **manual** RDS snapshots (keep `interoves-pre-mysql84-*` + automated).
+5. Terminate abandoned grey EB environments (no instances).
+6. RDS: `--no-publicly-accessible` if still public; verify with `./scripts/eb_run.sh manage.py check --database default`.
+7. Redis (needs ElastiCache IAM on `interoves` / `ai-bot`): `./scripts/resize_redis_cost.sh` — disables failover, drops replica, resizes to `cache.t4g.micro`. Channels/WS may drop briefly.
+
+**Grey zombie EB envs** (`interoves-dev` / `interoves-prod` / `interoves-django-env`): terminate can fail with “security group has a dependent object” because orphan **available** RDS ENIs still reference old `AWSEBRDSDBSecurityGroup`s. Delete these ENIs in the console (or with `ec2:DeleteNetworkInterface`), then `aws elasticbeanstalk terminate-environment --environment-name …` again:
+
+- `eni-03deb107964a04eac` (dev)
+- `eni-065063e23bd143f26` (prod)
+- `eni-088ae7bffa29a1c6b` (django-env)
+
+They cost almost nothing while stuck; no instances / ALBs.
+
+Smoke: `eb status`, two healthy TG targets, `curl -sS -o /dev/null -w '%{http_code}\n' https://interoves.com/`.
 
 ## EB deploy troubleshooting
 

@@ -1,0 +1,29 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ElastiCacheInterovesRedisCostHygiene",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:DescribeReplicationGroups",
+        "elasticache:DescribeCacheClusters",
+        "elasticache:DecreaseReplicaCount",
+        "elasticache:ModifyReplicationGroup",
+        "elasticache:ListTagsForResource"
+      ],
+      "Resource": [
+        "arn:aws:elasticache:eu-central-1:916000456640:replicationgroup:interoves-redis",
+        "arn:aws:elasticache:eu-central-1:916000456640:cluster:interoves-redis-*"
+      ]
+    },
+    {
+      "Sid": "ElastiCacheDescribeAll",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:DescribeReplicationGroups",
+        "elasticache:DescribeCacheClusters"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

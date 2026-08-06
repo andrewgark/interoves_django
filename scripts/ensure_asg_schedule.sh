@@ -4,7 +4,7 @@
 # stack update and can force mid-week capacity to Sunday peak (3).
 #
 # Sunday 17:00 MSK → min/max 3 (desired rises to min)
-# Monday 00:00 MSK → min/max 1
+# Monday 00:00 MSK → min/max 2 (HA baseline; Max stays 2 until Sunday peak)
 set -euo pipefail
 
 REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
@@ -26,6 +26,10 @@ for name in InterovesScheduleSundayPeak InterovesScheduleWeekBaseline; do
     --auto-scaling-group-name "$ASG" --scheduled-action-name "$name" 2>/dev/null || true
 done
 
+# Replace legacy Monday→1 action if still present
+aws autoscaling delete-scheduled-action --region "$REGION" \
+  --auto-scaling-group-name "$ASG" --scheduled-action-name interoves-mon-1 2>/dev/null || true
+
 aws autoscaling put-scheduled-update-group-action --region "$REGION" \
   --auto-scaling-group-name "$ASG" \
   --scheduled-action-name interoves-sun-3 \
@@ -34,9 +38,9 @@ aws autoscaling put-scheduled-update-group-action --region "$REGION" \
 
 aws autoscaling put-scheduled-update-group-action --region "$REGION" \
   --auto-scaling-group-name "$ASG" \
-  --scheduled-action-name interoves-mon-1 \
+  --scheduled-action-name interoves-mon-2 \
   --recurrence '0 0 * * MON' --time-zone Europe/Moscow \
-  --min-size 1 --max-size 1
+  --min-size 2 --max-size 2
 
 echo "Schedules upserted (no DesiredCapacity)."
 aws autoscaling describe-scheduled-actions --region "$REGION" \
