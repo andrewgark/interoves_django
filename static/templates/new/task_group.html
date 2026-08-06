@@ -1210,11 +1210,15 @@
 
   function clearRaddleWrong(row) {
     if (row) row.classList.remove('new-raddle-row--wrong');
+    var taskRoot = row && row.closest ? row.closest('.new-raddle-task') : null;
+    if (taskRoot) updateRaddleStickyOffsets(taskRoot);
   }
 
   function markRaddleWrong(row, input) {
     if (row) row.classList.add('new-raddle-row--wrong');
     focusPreventScroll(input);
+    var taskRoot = row && row.closest ? row.closest('.new-raddle-task') : null;
+    if (taskRoot) updateRaddleStickyOffsets(taskRoot);
   }
 
   // Пока ответ проверяется, показываем крутящийся индикатор вместо ❌.
@@ -1285,6 +1289,8 @@
         msg.style.display = 'none';
       }
     }
+    var taskRoot = row && row.closest ? row.closest('.new-raddle-task') : null;
+    if (taskRoot) updateRaddleStickyOffsets(taskRoot);
   }
 
   function raddleLiveElements(form, input, row) {
@@ -2019,6 +2025,29 @@
     } else {
       highlightRaddleClue(taskRoot, '');
     }
+    updateRaddleStickyOffsets(taskRoot);
+  }
+
+  // Высоты липких рядов для top-смещений (длинные слова / «неверно»).
+  function updateRaddleStickyOffsets(taskRoot) {
+    if (!taskRoot) return;
+    var table = taskRoot.querySelector('.new-raddle-table');
+    if (!table) return;
+    var row1 = table.querySelector(
+      '.new-raddle-row--as-before, .new-raddle-row--as-prev, .new-raddle-row--ref:not(.new-raddle-row--as-next):not(.new-raddle-row--as-after)'
+    );
+    var row2 = table.querySelector(
+      '.new-raddle-row--as-focus, .new-raddle-row--as-next.new-raddle-row--focus, .new-raddle-row--focus:not(.new-raddle-row--as-prev):not(.new-raddle-row--as-before)'
+    );
+    if (!row2) {
+      row2 = table.querySelector('.new-raddle-row--as-next, .new-raddle-row--as-focus');
+    }
+    var h1 = row1 ? row1.getBoundingClientRect().height : 0;
+    var h2 = row2 ? row2.getBoundingClientRect().height : 0;
+    if (h1 > 0) table.style.setProperty('--raddle-sticky-row1', h1 + 'px');
+    else table.style.removeProperty('--raddle-sticky-row1');
+    if (h2 > 0) table.style.setProperty('--raddle-sticky-row2', h2 + 'px');
+    else table.style.removeProperty('--raddle-sticky-row2');
   }
 
   // После верной посылки переводим фокус на следующую ступеньку: если решали
@@ -2054,6 +2083,14 @@
   window.initRaddleUi = initRaddleUi;
   window.setRaddleFocus = setRaddleFocus;
   initRaddleUi(document);
+
+  var raddleStickyResizeTimer = null;
+  window.addEventListener('resize', function () {
+    if (raddleStickyResizeTimer) clearTimeout(raddleStickyResizeTimer);
+    raddleStickyResizeTimer = setTimeout(function () {
+      document.querySelectorAll('.new-raddle-task').forEach(updateRaddleStickyOffsets);
+    }, 100);
+  });
 
   document.addEventListener('focusin', function (e) {
     var input = e.target && e.target.closest ? e.target.closest('[data-raddle-focus-input]') : null;

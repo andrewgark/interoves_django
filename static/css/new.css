@@ -5146,11 +5146,28 @@ html.is-age-gated .new-wrap {
   .new-raddle-block__check { padding: 0 0.2rem; }
 }
 
-/* Мобилка: подсвеченные ступеньки липнут под шапкой при скролле (как raddle.quest). */
+/* Мобилка: подсвеченные ступеньки липнут под шапкой при скролле (как raddle.quest).
+   overflow у предков ломает sticky — снимаем (см. .new-proportions-sheet). */
 @media (max-width: 919px) {
+  .new-taskcard__text:has(.new-raddle-task) {
+    overflow: visible;
+  }
   .new-raddle-table {
     border-collapse: separate;
     border-spacing: 0;
+    overflow: visible;
+  }
+  .new-raddle-table tr:first-child td:first-child {
+    border-top-left-radius: 10px;
+  }
+  .new-raddle-table tr:first-child td:last-child {
+    border-top-right-radius: 10px;
+  }
+  .new-raddle-table tr:last-child td:first-child {
+    border-bottom-left-radius: 10px;
+  }
+  .new-raddle-table tr:last-child td:last-child {
+    border-bottom-right-radius: 10px;
   }
   .new-raddle-row--as-before td,
   .new-raddle-row--as-prev td,
@@ -5164,13 +5181,13 @@ html.is-age-gated .new-wrap {
   .new-raddle-row--as-next td,
   .new-raddle-row--focus:not(.new-raddle-row--as-prev):not(.new-raddle-row--as-before) td {
     position: sticky;
-    top: calc(var(--new-ui-scroll-margin-top) + 3rem);
+    top: calc(var(--new-ui-scroll-margin-top) + var(--raddle-sticky-row1, 3rem));
     z-index: 3;
     box-shadow: 0 1px 0 var(--border);
   }
   .new-raddle-row--as-after td {
     position: sticky;
-    top: calc(var(--new-ui-scroll-margin-top) + 6rem);
+    top: calc(var(--new-ui-scroll-margin-top) + var(--raddle-sticky-row1, 3rem) + var(--raddle-sticky-row2, 3rem));
     z-index: 2;
     box-shadow: 0 1px 0 var(--border);
   }
