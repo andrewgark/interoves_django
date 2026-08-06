@@ -1025,7 +1025,7 @@ html.new-ui-dark body.new-ui {
 .new-profile-names input[type="text"] {
   min-height: var(--btn-height-mini);
   padding: 0.4rem 0.65rem;
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 
 .new-profile-timezone {
@@ -2663,7 +2663,7 @@ html.new-ui-dark .new-team-switcher-active-box {
 }
 
 /* Table views for TaskGroup.view: show tasks as 3 or 4 per row on wide screens. */
-@media (min-width: 500px) {
+@media (min-width: 640px) {
   .new-taskgrid--3,
   .new-taskgrid--4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4472,7 +4472,7 @@ html.is-age-gated .new-wrap {
   width: 100%;
   box-sizing: border-box;
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 1rem;
   line-height: 1.45;
   padding: 0.45rem 0.55rem;
   margin-bottom: 0.5rem;
@@ -4498,7 +4498,7 @@ html.is-age-gated .new-wrap {
 }
 .new-replacements-line-paste-field {
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 1rem;
   flex: 1 1 12rem;
   min-width: 8rem;
   max-width: 100%;
@@ -5110,8 +5110,9 @@ html.is-age-gated .new-wrap {
 @media (max-width: 919px) {
   .new-raddle-input {
     width: calc(var(--raddle-len, 5) * 1.05em + 0.35rem);
+    font-size: 1rem;
+    letter-spacing: clamp(0.01em, calc(0.08em - 0.004em * var(--raddle-len, 5)), 0.05em);
   }
-  .new-raddle-input,
   .new-raddle-line__mask,
   .new-raddle-line__solved-text {
     font-size: clamp(
@@ -5130,7 +5131,10 @@ html.is-age-gated .new-wrap {
   .new-raddle-table .new-raddle-col--word { width: calc(100% - 74px); }
   .new-raddle-word-cell { gap: 0.2rem; padding: 0.3rem 0.3rem; }
   .new-raddle-line__len { font-size: 0.72rem; }
-  .new-raddle-input,
+  .new-raddle-input {
+    font-size: 1rem;
+    letter-spacing: clamp(0.01em, calc(0.07em - 0.003em * var(--raddle-len, 5)), 0.045em);
+  }
   .new-raddle-line__mask,
   .new-raddle-line__solved-text {
     font-size: clamp(
@@ -6449,5 +6453,121 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   .new-alphabetty__prefix-side.is-open {
     width: max-content;
     max-width: min(10rem, 42vw);
+  }
+}
+
+/* ——— Mobile UX: iOS input zoom, touch targets, rules banner ——— */
+@media (max-width: 919px) {
+  body.new-ui input[type="text"],
+  body.new-ui input[type="search"],
+  body.new-ui input[type="email"],
+  body.new-ui input[type="password"],
+  body.new-ui input[type="url"],
+  body.new-ui input[type="tel"],
+  body.new-ui input:not([type]),
+  body.new-ui select,
+  body.new-ui textarea {
+    font-size: max(16px, 1rem);
+  }
+}
+
+.new-rules-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: var(--control-radius);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.new-rules-banner[hidden] {
+  display: none !important;
+}
+
+.new-rules-banner__text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.new-rules-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.new-rules-banner__dismiss {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--control-radius);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.new-rules-banner__dismiss:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+@media (pointer: coarse) {
+  .new-rules-trigger,
+  .new-eye-toggle {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .new-nav__quick {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .new-nav__section {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0.45rem;
+    justify-content: center;
+  }
+
+  .new-btn--mini {
+    min-height: 2.75rem;
+    padding: 0 0.85rem;
+  }
+
+  .new-btn--icon.new-btn--mini {
+    width: 2.75rem;
+    min-width: 2.75rem;
+  }
+
+  .new-taskcard__bug-btn {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0.45rem;
+  }
+
+  .new-replacements-check-btn,
+  .new-proportions-matrix__submit .new-replacements-check-btn,
+  .new-proportions-matrix__submit .new-proportions-matrix__check-done {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .new-rules-banner__dismiss {
+    width: 2.75rem;
+    height: 2.75rem;
   }
 }

@@ -122,6 +122,9 @@
       {% if game.theme %}
         <p class="new-login-hint new-theme-line">{{ game.theme }}</p>
       {% endif %}
+      {% if section_task_groups_rules_html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
+        {% include "new/_rules_banner.html" %}
+      {% endif %}
       {% if is_ladder_section and ladder_today_play_url %}
         <p class="new-stack-gap">
           <a class="new-btn" href="{{ ladder_today_play_url }}">Сегодняшняя лесенка</a>
@@ -328,35 +331,12 @@
     {% if section_task_groups_rules_html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
       <script>
       (function () {
-        var modal = document.getElementById('rules-modal');
-        var storageKey = 'section_rules_seen_{{ game.id|escapejs }}';
-        function openRules() {
-          if (!modal) return;
-          modal.removeAttribute('hidden');
-          modal.classList.add('is-open');
-          document.body.style.overflow = 'hidden';
-        }
-        function closeRules() {
-          if (!modal) return;
-          modal.setAttribute('hidden', '');
-          modal.classList.remove('is-open');
-          document.body.style.overflow = '';
-          try { localStorage.setItem(storageKey, '1'); } catch (e) {}
-        }
-        document.querySelectorAll('[data-rules-open]').forEach(function (btn) {
-          btn.addEventListener('click', openRules);
+        if (!window.interovesUi || !window.interovesUi.initSectionRules) return;
+        window.interovesUi.initSectionRules({
+          modal: document.getElementById('rules-modal'),
+          storageKey: 'section_rules_seen_{{ game.id|escapejs }}',
+          banner: document.querySelector('[data-rules-banner]')
         });
-        document.querySelectorAll('[data-rules-close]').forEach(function (el) {
-          el.addEventListener('click', closeRules);
-        });
-        if (modal) {
-          modal.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') closeRules();
-          });
-        }
-        try {
-          if (!localStorage.getItem(storageKey)) openRules();
-        } catch (e) {}
       })();
       </script>
     {% endif %}

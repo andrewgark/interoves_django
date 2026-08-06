@@ -15,6 +15,8 @@
   <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
 </div>
 
+{% include "new/_rules_banner.html" %}
+
 <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-rules-close></div>
   <div class="new-rules-modal__box pal-card">
@@ -62,35 +64,12 @@
 
 <script>
 (function () {
-  var modal = document.getElementById('rules-modal');
-  var storageKey = 'section_rules_seen_alphabetty';
-  function openRules() {
-    if (!modal) return;
-    modal.removeAttribute('hidden');
-    modal.classList.add('is-open');
-    document.body.style.overflow = 'hidden';
-  }
-  function closeRules() {
-    if (!modal) return;
-    modal.setAttribute('hidden', '');
-    modal.classList.remove('is-open');
-    document.body.style.overflow = '';
-    try { localStorage.setItem(storageKey, '1'); } catch (e) {}
-  }
-  document.querySelectorAll('[data-rules-open]').forEach(function (btn) {
-    btn.addEventListener('click', openRules);
+  if (!window.interovesUi || !window.interovesUi.initSectionRules) return;
+  window.interovesUi.initSectionRules({
+    modal: document.getElementById('rules-modal'),
+    storageKey: 'section_rules_seen_alphabetty',
+    banner: document.querySelector('[data-rules-banner]')
   });
-  document.querySelectorAll('[data-rules-close]').forEach(function (el) {
-    el.addEventListener('click', closeRules);
-  });
-  if (modal) {
-    modal.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeRules();
-    });
-  }
-  try {
-    if (!localStorage.getItem(storageKey)) openRules();
-  } catch (e) {}
 })();
 </script>
 {% endblock %}

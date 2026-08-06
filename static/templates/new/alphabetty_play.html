@@ -19,6 +19,8 @@
   <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
 </div>
 
+{% include "new/_rules_banner.html" %}
+
 <p class="new-login-hint new-meta-line--loose">
   №{{ number }}{% if daily_publish_date %} · {{ daily_publish_date|date:"j E Y" }}{% endif %}
   · <span id="ab-attempts">0</span> попыток
@@ -327,10 +329,27 @@
     }).observe(elAbove);
   }
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', function () {
+    function onViewportChange() {
       if (pinAboveOnResize) pinAboveBottom();
-    });
+      keepInputVisible();
+    }
+    window.visualViewport.addEventListener('resize', onViewportChange);
+    window.visualViewport.addEventListener('scroll', onViewportChange);
   }
+
+  function keepInputVisible() {
+    if (!elInputZone || state.won) return;
+    try {
+      elInputZone.scrollIntoView({ block: 'center', behavior: 'auto' });
+    } catch (e) {}
+  }
+
+  input.addEventListener('focus', function () {
+    if (state.won) return;
+    requestAnimationFrame(keepInputVisible);
+    setTimeout(keepInputVisible, 50);
+    setTimeout(keepInputVisible, 300);
+  });
 
   function renderBoard() {
     var earlier = state.earlier || [];
@@ -790,35 +809,12 @@
 
 <script>
 (function () {
-  var modal = document.getElementById('rules-modal');
-  var storageKey = 'section_rules_seen_alphabetty';
-  function openRules() {
-    if (!modal) return;
-    modal.removeAttribute('hidden');
-    modal.classList.add('is-open');
-    document.body.style.overflow = 'hidden';
-  }
-  function closeRules() {
-    if (!modal) return;
-    modal.setAttribute('hidden', '');
-    modal.classList.remove('is-open');
-    document.body.style.overflow = '';
-    try { localStorage.setItem(storageKey, '1'); } catch (e) {}
-  }
-  document.querySelectorAll('[data-rules-open]').forEach(function (btn) {
-    btn.addEventListener('click', openRules);
+  if (!window.interovesUi || !window.interovesUi.initSectionRules) return;
+  window.interovesUi.initSectionRules({
+    modal: document.getElementById('rules-modal'),
+    storageKey: 'section_rules_seen_alphabetty',
+    banner: document.querySelector('[data-rules-banner]')
   });
-  document.querySelectorAll('[data-rules-close]').forEach(function (el) {
-    el.addEventListener('click', closeRules);
-  });
-  if (modal) {
-    modal.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeRules();
-    });
-  }
-  try {
-    if (!localStorage.getItem(storageKey)) openRules();
-  } catch (e) {}
 })();
 </script>
 {% endblock %}
