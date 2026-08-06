@@ -1230,8 +1230,8 @@
 
   function markRaddleWrong(row, input) {
     if (row) row.classList.add('new-raddle-row--wrong');
-    focusPreventScroll(input);
     var taskRoot = row && row.closest ? row.closest('.new-raddle-task') : null;
+    focusRaddlePlayableInput(taskRoot, input);
     if (taskRoot) syncRaddleStickyPinRowState(taskRoot);
   }
 
@@ -1420,17 +1420,18 @@
   function raddleMaskedHooks() {
     return {
       onChange: function (input, letters) {
-        if (!input) return;
+        if (!input || raddlePinSyncing) return;
         if (input.getAttribute('data-raddle-pin-proxy') === '1') {
           var realPin = findRealRaddleInputFromPin(input);
           if (realPin) {
-            realPin.value = input.value;
-            realPin.dataset.raddleLetters = letters;
+            softSetRaddleLetters(realPin, letters);
             clearRaddleWrong(realPin.closest('.new-raddle-row'));
             delete realPin.dataset.raddleLast;
           }
           return;
         }
+        // Пока пин виден — пишем в него, а не в уехавшую настоящую форму.
+        maybeStealRaddleFocusToPin(input, letters);
         if (input.getAttribute('data-raddle-auto') !== '1') return;
         var row = input.closest('.new-raddle-row');
         var fmt = input.getAttribute('data-raddle-format') || '';
@@ -1442,24 +1443,75 @@
         }
       },
       onComplete: function (input, letters) {
-        if (!input) return;
+        if (!input || raddlePinSyncing) return;
         if (input.getAttribute('data-raddle-pin-proxy') === '1') {
           var realDone = findRealRaddleInputFromPin(input);
           if (realDone) {
-            if (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.setLetters) {
-              RaddleMaskedInput.setLetters(realDone, letters);
-            } else {
-              realDone.value = input.value;
-              realDone.dataset.raddleLetters = letters;
-            }
+            softSetRaddleLetters(realDone, letters);
             submitRaddleAuto(realDone, letters);
           }
           return;
         }
+        maybeStealRaddleFocusToPin(input, letters);
         if (input.getAttribute('data-raddle-auto') !== '1') return;
         submitRaddleAuto(input, letters);
       },
     };
+  }
+
+  var raddlePinSyncing = false;
+
+  function getRaddleInputLetters(input) {
+    if (!input) return '';
+    if (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.getLetters) {
+      return RaddleMaskedInput.getLetters(input) || '';
+    }
+    return input.dataset.raddleLetters || '';
+  }
+
+  function softSetRaddleLetters(input, letters) {
+    if (!input) return;
+    raddlePinSyncing = true;
+    try {
+      if (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.setLetters) {
+        RaddleMaskedInput.setLetters(input, letters || '');
+      } else {
+        input.value = letters || '';
+        input.dataset.raddleLetters = letters || '';
+      }
+    } finally {
+      raddlePinSyncing = false;
+    }
+  }
+
+  function maybeStealRaddleFocusToPin(realInput, letters) {
+    if (!realInput || realInput.getAttribute('data-raddle-pin-proxy') === '1') return false;
+    var taskRoot = realInput.closest('.new-raddle-task');
+    var pin = taskRoot && taskRoot.querySelector('.new-raddle-sticky-pin.is-active');
+    if (!pin) return false;
+    var formId = realInput.getAttribute('form');
+    if (!formId) return false;
+    var proxy = pin.querySelector('input[data-raddle-pin-for="' + formId + '"]');
+    if (!proxy) return false;
+    var letterVal = letters != null ? letters : getRaddleInputLetters(realInput);
+    softSetRaddleLetters(proxy, letterVal);
+    if (document.activeElement !== proxy) focusPreventScroll(proxy);
+    return true;
+  }
+
+  function focusRaddlePlayableInput(taskRoot, realInput) {
+    if (!realInput) return;
+    var pin = taskRoot && taskRoot.querySelector('.new-raddle-sticky-pin.is-active');
+    if (pin) {
+      var formId = realInput.getAttribute('form');
+      var proxy = formId && pin.querySelector('input[data-raddle-pin-for="' + formId + '"]');
+      if (proxy) {
+        softSetRaddleLetters(proxy, getRaddleInputLetters(realInput));
+        focusPreventScroll(proxy);
+        return;
+      }
+    }
+    focusPreventScroll(realInput);
   }
 
   function bindRaddleMaskedInputs(root) {
@@ -2201,15 +2253,54 @@
     pin.style.width = Math.max(0, rect.width) + 'px';
   }
 
+  function syncRaddleStickyPinInputsFromReal(taskRoot, pin) {
+    if (!pin) return;
+    pin.querySelectorAll('input[data-raddle-pin-proxy="1"]').forEach(function (proxy) {
+      var real = findRealRaddleInputFromPin(proxy);
+      if (!real) return;
+      softSetRaddleLetters(proxy, getRaddleInputLetters(real));
+    });
+  }
+
+  function transferRaddleFocusForStickyPin(taskRoot, pin, becomingActive) {
+    var active = document.activeElement;
+    if (!active || !active.getAttribute) return;
+    if (becomingActive) {
+      if (active.getAttribute('data-raddle-pin-proxy') === '1') return;
+      if (!taskRoot.contains(active)) return;
+      if (!active.classList || !active.classList.contains('new-raddle-input')) return;
+      if (active.closest('.new-raddle-sticky-pin')) return;
+      var formId = active.getAttribute('form');
+      if (!formId) return;
+      var proxy = pin.querySelector('input[data-raddle-pin-for="' + formId + '"]');
+      if (!proxy) return;
+      softSetRaddleLetters(proxy, getRaddleInputLetters(active));
+      focusPreventScroll(proxy);
+      return;
+    }
+    if (active.getAttribute('data-raddle-pin-proxy') !== '1') return;
+    if (!pin.contains(active)) return;
+    var real = findRealRaddleInputFromPin(active);
+    if (!real) return;
+    softSetRaddleLetters(real, getRaddleInputLetters(active));
+    focusPreventScroll(real);
+  }
+
   function updateRaddleStickyPinVisibility(taskRoot) {
     var pin = taskRoot.querySelector('.new-raddle-sticky-pin');
     if (!pin) return;
     if (!raddleIsMobileLayout()) {
+      if (pin.classList.contains('is-active')) {
+        transferRaddleFocusForStickyPin(taskRoot, pin, false);
+      }
       hideRaddleStickyPin(pin);
       return;
     }
     var rows = getRaddleStickySourceRows(taskRoot);
     if (!rows.length) {
+      if (pin.classList.contains('is-active')) {
+        transferRaddleFocusForStickyPin(taskRoot, pin, false);
+      }
       hideRaddleStickyPin(pin);
       return;
     }
@@ -2220,11 +2311,15 @@
     var pinH = pin.offsetHeight || (rows.length * 48);
     // Пока первая выделенная строка ушла под шапку и задание ещё на экране.
     var shouldShow = firstTop <= navTop + 0.5 && taskBottom > navTop + Math.min(pinH, 24);
+    var wasActive = pin.classList.contains('is-active');
     if (shouldShow) {
+      if (!wasActive) syncRaddleStickyPinInputsFromReal(taskRoot, pin);
       pin.classList.add('is-active');
       pin.removeAttribute('hidden');
       pin.setAttribute('aria-hidden', 'false');
+      transferRaddleFocusForStickyPin(taskRoot, pin, true);
     } else {
+      if (wasActive) transferRaddleFocusForStickyPin(taskRoot, pin, false);
       hideRaddleStickyPin(pin);
     }
   }
@@ -2237,16 +2332,20 @@
     var rows = getRaddleStickySourceRows(taskRoot);
     var keepFocus = null;
     var keepLetters = null;
-    if (
-      document.activeElement &&
-      document.activeElement.getAttribute &&
-      document.activeElement.getAttribute('data-raddle-pin-proxy') === '1'
-    ) {
-      keepFocus = document.activeElement.getAttribute('data-raddle-pin-for');
-      keepLetters = document.activeElement.dataset.raddleLetters ||
-        (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.getLetters
-          ? RaddleMaskedInput.getLetters(document.activeElement)
-          : '');
+    var active = document.activeElement;
+    if (active && active.getAttribute) {
+      if (active.getAttribute('data-raddle-pin-proxy') === '1' && pin.contains(active)) {
+        keepFocus = active.getAttribute('data-raddle-pin-for');
+        keepLetters = getRaddleInputLetters(active);
+      } else if (
+        active.classList &&
+        active.classList.contains('new-raddle-input') &&
+        taskRoot.contains(active) &&
+        !active.closest('.new-raddle-sticky-pin')
+      ) {
+        keepFocus = active.getAttribute('form');
+        keepLetters = getRaddleInputLetters(active);
+      }
     }
     tbody.innerHTML = '';
     rows.forEach(function (row) {
@@ -2255,14 +2354,21 @@
     bindRaddleMaskedInputs(pin);
     if (keepFocus) {
       var restore = pin.querySelector('input[data-raddle-pin-for="' + keepFocus + '"]');
-      if (restore) {
-        if (keepLetters && typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.setLetters) {
-          RaddleMaskedInput.setLetters(restore, keepLetters);
-        }
-        focusPreventScroll(restore);
-      }
+      var realRestore = document.querySelector(
+        'input.new-raddle-input[name="word"][form="' + keepFocus + '"]'
+      );
+      if (restore && keepLetters != null) softSetRaddleLetters(restore, keepLetters);
+      if (realRestore && keepLetters != null) softSetRaddleLetters(realRestore, keepLetters);
     }
     updateRaddleStickyPinVisibility(taskRoot);
+    // Если пин активен и фокус был на настоящей форме — visibility уже перенесла;
+    // если пин ещё не активен, вернём фокус на real.
+    if (keepFocus && !pin.classList.contains('is-active')) {
+      var realBack = document.querySelector(
+        'input.new-raddle-input[name="word"][form="' + keepFocus + '"]'
+      );
+      if (realBack) focusPreventScroll(realBack);
+    }
   }
 
   // После верной посылки переводим фокус на следующую ступеньку: если решали
@@ -2277,9 +2383,9 @@
     if (isNaN(idx)) { setRaddleFocus(fresh, null); return; }
     var target = (refRole === 'next') ? (idx - 1) : (idx + 1);
     setRaddleFocus(fresh, target);
-    var focusRow = fresh.querySelector('.new-raddle-row--focus');
+    var focusRow = fresh.querySelector('.new-raddle-ladder .new-raddle-row--focus');
     var input = focusRow && focusRow.querySelector('[data-raddle-focus-input]');
-    focusPreventScroll(input);
+    focusRaddlePlayableInput(fresh, input);
   }
   window.focusRaddleNext = focusRaddleNext;
 
@@ -2322,7 +2428,9 @@
     var row = input.closest('.new-raddle-row');
     var taskRoot = input.closest('.new-raddle-task');
     if (!row || !taskRoot) return;
+    if (row.getAttribute('data-raddle-pin-row') === '1') return;
     setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
+    maybeStealRaddleFocusToPin(input);
   });
 
   // Копирование результата (как в Wordle): копируем ровно то, что показано в блоке.
