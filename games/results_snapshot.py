@@ -275,7 +275,9 @@ def build_results_snapshot_payload(game, mode='tournament'):
     Hint penalties are included because we rely on AttemptsInfo.get_result_points()
     and AttemptsInfo.get_sum_hint_penalty().
 
-    Most sections do not freeze results; the ladder section uses live progressive tables instead.
+    Attempt rows are loaded via ``get_bulk_game_actor_rows`` (2 queries for all tasks),
+    matching ``_new_results_compute``. Most sections do not freeze results; the ladder
+    section uses live progressive tables instead.
     """
     # Use the same ordering/filtering rules as results pages.
     from django.db.models import Q
@@ -310,28 +312,18 @@ def build_results_snapshot_payload(game, mode='tournament'):
     participant_task_to_cell = {}
 
     # Sections general: cross-game TaskGroups → unscoped; ladder stays game-scoped.
+    # Same 2-query bulk path as _new_results_compute (avoids per-task attempt queries).
     results_scope_game = results_attempts_scope_game(game, mode)
+    bulk_game = results_scope_game if mode == 'general' else game
+    bulk_rows = Attempt.manager.get_bulk_game_actor_rows(
+        [t.id for t in tasks_flat], mode=mode, game=bulk_game,
+    )
 
     for task in tasks_flat:
-        if mode == 'general':
-            actor_rows = Attempt.manager.get_general_results_task_actor_rows(
-                task=task, game=results_scope_game,
-            )
-        else:
-            actor_rows = []
-            for ai in Attempt.manager.get_task_attempts_infos(task=task, mode=mode, game=game):
-                if not (ai.attempts or ai.hint_attempts):
-                    continue
-                team = None
-                if ai.attempts:
-                    team = ai.attempts[0].team
-                elif ai.hint_attempts:
-                    team = ai.hint_attempts[0].team
-                if not team or team.is_hidden:
-                    continue
-                actor_rows.append((team, ai))
-
-        for participant, ai in actor_rows:
+        for participant, ai in bulk_rows.get(task.id, []):
+            # Tournament snapshots are team-only (legacy get_task_attempts_infos).
+            if mode == 'tournament' and not isinstance(participant, Team):
+                continue
             if isinstance(participant, Team) and participant.is_hidden:
                 continue
             if not (ai.attempts or ai.hint_attempts):
