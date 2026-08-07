@@ -1,4 +1,4 @@
-"""Tests for user ladder offers (/offer_ladder, share hash, accept)."""
+"""Tests for user ladder offers (/create_ladder, share hash, accept)."""
 
 import json
 
@@ -109,9 +109,16 @@ class LadderOfferFlowTests(TestCase):
         self.user.profile.save(update_fields=['telegram_handle'])
         c = Client()
         c.force_login(self.user)
-        resp = c.get('/offer_ladder/')
+        resp = c.get('/create_ladder/')
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(resp.context['profile_ready'])
+
+    def test_offer_ladder_url_redirects(self):
+        c = Client()
+        c.force_login(self.user)
+        resp = c.get('/offer_ladder/')
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp['Location'], '/create_ladder/')
 
     def test_create_send_accept_keeps_task_and_attempts(self):
         offer = create_offer(self.user)
@@ -169,7 +176,7 @@ class LadderOfferFlowTests(TestCase):
         c = Client()
         c.force_login(self.user)
         resp = c.post(
-            '/offer_ladder/{}/'.format(offer.pk),
+            '/create_ladder/{}/'.format(offer.pk),
             data=json.dumps({
                 'words': ['XXX', 'YYY'],
                 'hints': ['z'],
@@ -212,7 +219,7 @@ class LadderOfferFlowTests(TestCase):
         offer = create_offer(self.user)
         c = Client()
         c.force_login(self.other)
-        resp = c.get('/offer_ladder/{}/'.format(offer.pk))
+        resp = c.get('/create_ladder/{}/'.format(offer.pk))
         self.assertEqual(resp.status_code, 404)
 
     def test_hash_page_allows_send_attempt_before_accept(self):

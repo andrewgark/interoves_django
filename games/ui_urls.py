@@ -12,7 +12,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|ladder|alphabetty|walls|replacements|palindromes|week_task|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|ladder|alphabetty|walls|replacements|palindromes|week_task|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     # Project-scoped "new UI" pages (isolated navigation per project).
@@ -62,11 +62,16 @@ urlpatterns = [
     path('ladder/results/', ui.section_results_page, {'game_id': 'ladder'}),
     path('ladder/<str:task_group_number>/results/', ui.ladder_word_results_page, name='ui_ladder_word_results'),
     path('ladder/<str:task_group_number>/', ui.task_group_page, {'game_id': 'ladder'}, name='ui_ladder_task_group'),
-    path('offer_ladder/', ui.offer_ladder_page, name='ui_offer_ladder'),
-    path('offer_ladder/create/', ui.offer_ladder_create, name='ui_offer_ladder_create'),
-    path('offer_ladder/<int:offer_id>/', ui.offer_ladder_detail, name='ui_offer_ladder_detail'),
-    path('offer_ladder/<int:offer_id>/send/', ui.offer_ladder_send, name='ui_offer_ladder_send'),
-    path('offer_ladder/<int:offer_id>/reset/', ui.offer_ladder_reset, name='ui_offer_ladder_reset'),
+    path('create_ladder/', ui.offer_ladder_page, name='ui_create_ladder'),
+    path('create_ladder/create/', ui.offer_ladder_create, name='ui_create_ladder_create'),
+    path('create_ladder/<int:offer_id>/', ui.offer_ladder_detail, name='ui_create_ladder_detail'),
+    path('create_ladder/<int:offer_id>/send/', ui.offer_ladder_send, name='ui_create_ladder_send'),
+    path('create_ladder/<int:offer_id>/reset/', ui.offer_ladder_reset, name='ui_create_ladder_reset'),
+    path('offer_ladder/', RedirectView.as_view(pattern_name='ui_create_ladder', permanent=False, query_string=True)),
+    path('offer_ladder/create/', RedirectView.as_view(pattern_name='ui_create_ladder_create', permanent=False, query_string=True)),
+    path('offer_ladder/<int:offer_id>/', RedirectView.as_view(pattern_name='ui_create_ladder_detail', permanent=False, query_string=True)),
+    path('offer_ladder/<int:offer_id>/send/', RedirectView.as_view(pattern_name='ui_create_ladder_send', permanent=False, query_string=True)),
+    path('offer_ladder/<int:offer_id>/reset/', RedirectView.as_view(pattern_name='ui_create_ladder_reset', permanent=False, query_string=True)),
     path('alphabetty/today/', ui.alphabetty_today_page, name='ui_alphabetty_today'),
     path('alphabetty/last/', ui.alphabetty_last_page, name='ui_alphabetty_last'),
     path('alphabetty/progress/', ui.game_task_group_progress, {'game_id': 'alphabetty'}, name='ui_alphabetty_progress'),

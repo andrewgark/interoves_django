@@ -2451,7 +2451,7 @@ def new_task_group_page(request, game_id, task_group_number):
     if ladder_offer is not None and request.user.is_authenticated:
         if ladder_offer.user_id == request.user.id or request.user.is_staff:
             can_reset_offer = True
-            offer_reset_url = '/offer_ladder/{}/reset/'.format(ladder_offer.pk)
+            offer_reset_url = '/create_ladder/{}/reset/'.format(ladder_offer.pk)
 
     if ladder_offer is not None:
         ladder_results_url = ladder_word_results_path(ladder_offer.share_hash)
@@ -2470,7 +2470,7 @@ def new_task_group_page(request, game_id, task_group_number):
         )
     )
     if ladder_offer is not None and request.user.is_authenticated and ladder_offer.user_id == request.user.id:
-        back_url = '/offer_ladder/'
+        back_url = '/create_ladder/'
 
     return render(request, 'ui/task_group.html', {
         'game': game,

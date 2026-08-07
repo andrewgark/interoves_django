@@ -1,4 +1,4 @@
-"""Публичная страница предложений лесенок (/offer_ladder/)."""
+"""Публичная страница создания лесенок (/create_ladder/)."""
 
 from __future__ import annotations
 
@@ -7,8 +7,7 @@ import json
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
-from django.urls import reverse
-from django.views.decorators.http import require_GET, require_http_methods, require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 
 from games.ladder_offer import (
     LadderOfferError,
@@ -45,7 +44,7 @@ def _offer_for_user(request, offer_id):
 @require_http_methods(['GET', 'POST'])
 def offer_ladder_page(request):
     if not has_profile(request.user):
-        return redirect('/accounts/login/?next=/offer_ladder/')
+        return redirect('/accounts/login/?next=/create_ladder/')
     profile = request.user.profile
     ready, missing = profile_ready_for_offers(profile)
 
@@ -59,7 +58,7 @@ def offer_ladder_page(request):
         ready_after, missing_after = profile_ready_for_offers(profile)
         if not ready_after:
             return render(request, 'ui/offer_ladder.html', {
-                'page_title': 'Предложить лесенку',
+                'page_title': 'Создать свою лесенку',
                 'profile_ready': False,
                 'profile_missing': missing_after,
                 'profile': profile,
@@ -72,11 +71,11 @@ def offer_ladder_page(request):
                     else 'Заполните имя, фамилию и Telegram.'
                 ),
             })
-        return redirect('new_offer_ladder')
+        return redirect('new_create_ladder')
 
     offers = list_user_offers(request.user) if ready else []
     return render(request, 'ui/offer_ladder.html', {
-        'page_title': 'Предложить лесенку',
+        'page_title': 'Создать свою лесенку',
         'profile_ready': ready,
         'profile_missing': missing,
         'profile': profile,

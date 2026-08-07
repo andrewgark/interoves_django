@@ -1,6 +1,6 @@
 {% extends "new/base.html" %}
 {% load static %}
-{% block title %}Предложить лесенку{% endblock %}
+{% block title %}Создать свою лесенку{% endblock %}
 {% block extrahead %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
@@ -8,7 +8,7 @@
 {% block content %}
 {% csrf_token %}
 {{ offers_json|json_script:"offers-bootstrap" }}
-<h1 class="new-heading new-heading--page">Предложить лесенку</h1>
+<h1 class="new-heading new-heading--page">Создать свою лесенку</h1>
 
 {% if not profile_ready %}
 <section class="pal-card new-card">
@@ -37,12 +37,12 @@
 </section>
 {% else %}
 <p class="new-login-hint new-stack-gap">
-  Здесь ваши предложения. Можно редактировать черновик, посмотреть как выглядит (публичная ссылка) и отправить Андрею.
+  Создайте свои лесенки. Можно их редактировать, решать, делиться с друзьями и предлагать Андрею.
 </p>
 <div class="new-stack-gap">
   <button type="button" class="new-btn" id="offer-create-btn">Добавить лесенку</button>
 </div>
-<section class="pal-card new-card" id="offer-list" aria-label="Ваши лесенки"></section>
+<section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши лесенки"></section>
 
 <div id="offer-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="offer-edit-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-offer-close></div>
@@ -78,7 +78,7 @@
     <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="offer-edit-save">Сохранить</button>
       <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Отправить Андрею</button>
-      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Посмотреть, как выглядит</a>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать лесенку</a>
       <button type="button" class="new-btn new-btn--ghost" data-offer-close>Закрыть</button>
     </div>
   </div>
@@ -93,9 +93,9 @@
   var editId = null;
   var busy = false;
   var endpoints = {
-    create: "{% url 'new_offer_ladder_create' %}",
-    detailTpl: "{% url 'new_offer_ladder_detail' 0 %}".replace('/0/', '/{id}/'),
-    sendTpl: "{% url 'new_offer_ladder_send' 0 %}".replace('/0/', '/{id}/')
+    create: "{% url 'new_create_ladder_create' %}",
+    detailTpl: "{% url 'new_create_ladder_detail' 0 %}".replace('/0/', '/{id}/'),
+    sendTpl: "{% url 'new_create_ladder_send' 0 %}".replace('/0/', '/{id}/')
   };
 
   function csrf() {
@@ -119,6 +119,14 @@
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+  function offerTitle(o) {
+    var words = o.words || [];
+    if (words.length >= 2) {
+      return words[0] + '→' + words[words.length - 1];
+    }
+    if (words.length === 1) return words[0];
+    return 'Лесенка';
+  }
   function upsert(offer) {
     var i = offers.findIndex(function (o) { return o.id === offer.id; });
     if (i >= 0) offers[i] = offer; else offers.unshift(offer);
@@ -138,7 +146,7 @@
       item.innerHTML =
         '<div class="support-ladder-item__num">' + escapeHtml(num) + '</div>' +
         '<div class="support-ladder-item__body">' +
-          '<div class="support-ladder-item__title">' + escapeHtml(o.author || 'Лесенка') +
+          '<div class="support-ladder-item__title">' + escapeHtml(offerTitle(o)) +
             ' <span class="support-flag">' + escapeHtml(o.status_label) + '</span></div>' +
           '<div class="support-ladder-item__meta">' + escapeHtml(date) +
             (o.admin_note ? ' · <em>' + escapeHtml(o.admin_note) + '</em>' : '') +
@@ -147,7 +155,8 @@
         '</div>' +
         '<div class="support-ladder-item__actions">' +
           (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">править</button>' : '') +
-          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">как выглядит</a>' +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Отправить Андрею</button>' : '') +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">Решать лесенку</a>' +
         '</div>';
       listEl.appendChild(item);
     });
@@ -226,8 +235,14 @@
   function openEdit(offer) {
     editId = offer.id;
     document.getElementById('offer-edit-error').hidden = true;
-    document.getElementById('offer-edit-sub').textContent =
-      offer.status_label + (offer.admin_note ? ' · ' + offer.admin_note : '');
+    var subParts = [];
+    if (offer.status_label && offer.status_label !== 'Черновик') {
+      subParts.push(offer.status_label);
+    }
+    if (offer.admin_note) subParts.push(offer.admin_note);
+    var subEl = document.getElementById('offer-edit-sub');
+    subEl.textContent = subParts.join(' · ');
+    subEl.hidden = !subParts.length;
     document.getElementById('offer-edit-intro').value = offer.intro || '';
     document.getElementById('offer-edit-author').value = offer.author || '';
     document.getElementById('offer-edit-comment').value = offer.comment || '';
@@ -245,12 +260,31 @@
     openModal();
   }
 
+  function sendOfferById(id) {
+    if (!id || busy) return;
+    if (!window.confirm('Отправить лесенку Андрею? После этого редактировать нельзя.')) return;
+    busy = true;
+    postJson(endpoints.sendTpl.replace('{id}', String(id)), {})
+      .then(function (data) {
+        upsert(data.offer);
+        if (editId === id) closeModal();
+      })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { busy = false; });
+  }
+
   listEl.addEventListener('click', function (e) {
-    var btn = e.target.closest('[data-edit]');
-    if (!btn) return;
-    var id = parseInt(btn.getAttribute('data-edit'), 10);
-    var offer = offers.find(function (o) { return o.id === id; });
-    if (offer) openEdit(offer);
+    var editBtn = e.target.closest('[data-edit]');
+    if (editBtn) {
+      var editOfferId = parseInt(editBtn.getAttribute('data-edit'), 10);
+      var offer = offers.find(function (o) { return o.id === editOfferId; });
+      if (offer) openEdit(offer);
+      return;
+    }
+    var sendBtn = e.target.closest('[data-send]');
+    if (sendBtn) {
+      sendOfferById(parseInt(sendBtn.getAttribute('data-send'), 10));
+    }
   });
 
   document.getElementById('offer-create-btn').addEventListener('click', function () {
@@ -291,8 +325,9 @@
     if (!editId || busy) return;
     if (!window.confirm('Отправить лесенку Андрею? После этого редактировать нельзя.')) return;
     var cur = readWordRows();
+    var sendingId = editId;
     busy = true;
-    postJson(endpoints.detailTpl.replace('{id}', String(editId)), {
+    postJson(endpoints.detailTpl.replace('{id}', String(sendingId)), {
       words: cur.words,
       hints: cur.hints,
       intro: document.getElementById('offer-edit-intro').value,
@@ -300,7 +335,7 @@
       comment: document.getElementById('offer-edit-comment').value,
       mixed_script: document.getElementById('offer-edit-mixed-script').checked
     }).then(function () {
-      return postJson(endpoints.sendTpl.replace('{id}', String(editId)), {});
+      return postJson(endpoints.sendTpl.replace('{id}', String(sendingId)), {});
     }).then(function (data) {
       upsert(data.offer);
       closeModal();

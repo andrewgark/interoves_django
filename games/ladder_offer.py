@@ -260,7 +260,7 @@ def create_offer(user: User, *, author: str = '') -> LadderOffer:
     )
     payload = build_checker_payload(
         ['СТАРТ', 'ФИНИШ'],
-        ['заглушка — замените на настоящую лесенку'],
+        ['Заглушечная подсказка, включающая первое слово ____ и загадывающая второе слово ...'],
         mixed_script=False,
     )
     tags = {AUTHOR_TAG: display} if display else {}
