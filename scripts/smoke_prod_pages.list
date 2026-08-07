@@ -1,0 +1,24 @@
+# Important public pages — expect HTTP status < 400 after deploy.
+# Used by scripts/smoke_prod_pages.sh and games.tests.test_smoke_prod_pages.
+# Add paths that are easy to break via URL ordering (catch-alls) or heavy views.
+#
+# Format: one path per line (leading /). Blank lines and # comments ignored.
+
+/
+/health/
+/meta/deploy-version/
+/games/
+/ladder/
+/ladder/last/
+/ladder/results/
+/alphabetty/
+/alphabetty/last/
+/walls/
+/walls/last/
+/replacements/
+/replacements/last/
+/palindromes/
+/week_task/
+/team/
+/profile/
+/pay/

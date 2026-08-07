@@ -543,6 +543,14 @@ class GameTaskGroup(models.Model):
     def number_key(number):
         return tuple(int(x) for x in str(number).split('.'))
 
+    @classmethod
+    def try_number_key(cls, number):
+        """Like number_key, or None if number is not dotted-int (e.g. share hash / reserved path)."""
+        try:
+            return cls.number_key(number)
+        except (TypeError, ValueError):
+            return None
+
     def key_sort(self):
         return self.number_key(self.number)
 
@@ -577,7 +585,9 @@ class GameTaskGroup(models.Model):
         ordered = cls.sorted_links(game=game)
         if not ordered:
             return None
-        key = cls.number_key(number)
+        key = cls.try_number_key(number)
+        if key is None:
+            return None
         placement = next((p for p in ordered if p.number == str(number)), None)
         if placement:
             return placement

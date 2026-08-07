@@ -58,6 +58,8 @@ urlpatterns = [
     path('ladder/last/', ui.ladder_last_page, name='ui_ladder_last'),
     path('ladder/progress/', ui.game_task_group_progress, {'game_id': 'ladder'}, name='ui_ladder_progress'),
     path('ladder/', ui.ladder_hub_page, name='ui_ladder_hub'),
+    # Must precede ladder/<str>/ so "results" is not treated as a task-group number.
+    path('ladder/results/', ui.section_results_page, {'game_id': 'ladder'}),
     path('ladder/<str:task_group_number>/results/', ui.ladder_word_results_page, name='ui_ladder_word_results'),
     path('ladder/<str:task_group_number>/', ui.task_group_page, {'game_id': 'ladder'}, name='ui_ladder_task_group'),
     path('alphabetty/today/', ui.alphabetty_today_page, name='ui_alphabetty_today'),

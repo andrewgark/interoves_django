@@ -23,3 +23,5 @@ fi
 # How long the EB CLI waits for the environment update (minutes). Long migrations may
 # still run on AWS after this returns; use `eb status` / console events to confirm.
 ./scripts/aws_with_role.sh "$EB_BIN" deploy --timeout 15
+echo "Deploy finished; smoking important pages…"
+./scripts/smoke_prod_pages.sh

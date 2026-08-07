@@ -26,6 +26,7 @@ Use this order when operating on **prod** (account `916000456640`, region **`eu-
 | **Prod Django + RDS** (same env as Daphne on the instance) **— preferred** | `./scripts/eb_run.sh manage.py check --database default`, `migrate --plan`, `shell`, etc. |
 | **RDS from laptop** (SSM tunnel `localhost:13306`) | `./scripts/with_rds.sh manage.py dbshell` — requires `secrets/rds.env` with `RDS_HOSTNAME` + **`RDS_SECRET_ARN`** (same as EB `eb printenv`). Boto3 must resolve credentials (bootstrap + profile). |
 | **MySQL one-off** (password from Secrets Manager) | `./scripts/rds_mysql.sh -e "SELECT 1"` (direct to RDS host; often blocked by SG from home — use **`with_rds`** or **`eb_run`** instead). |
+| **Post-deploy page smoke** | `./scripts/smoke_prod_pages.sh` — curls paths from [`scripts/smoke_prod_pages.list`](../scripts/smoke_prod_pages.list) (also runs at end of `./deploy.sh`) |
 
 ### RDS access — verified pattern
 
@@ -227,7 +228,7 @@ Order for one-shot savings / HA (account `916000456640`, `eu-central-1`; prefer 
 
 They cost almost nothing while stuck; no instances / ALBs.
 
-Smoke: `eb status`, two healthy TG targets, `curl -sS -o /dev/null -w '%{http_code}\n' https://interoves.com/`.
+Smoke: `eb status`, two healthy TG targets, `./scripts/smoke_prod_pages.sh` (list in [`scripts/smoke_prod_pages.list`](../scripts/smoke_prod_pages.list); also runs at the end of [`deploy.sh`](../deploy.sh)).
 
 ## Rolling deploy (zero-downtime with MinSize=2)
 

@@ -4,6 +4,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.cache import cache
 from django.http import Http404
 from django.test import RequestFactory, TestCase
+from django.urls import resolve, reverse
 
 from games.ladder_daily import LADDER_GAME_ID
 from games.models import (
@@ -17,7 +18,11 @@ from games.models import (
     TaskGroup,
 )
 from games.results_snapshot import freeze_game_results, results_attempts_scope_game
-from games.views.new_ui import _results_table_headers_context, new_section_results_page
+from games.views.new_ui import (
+    _results_table_headers_context,
+    new_section_results_page,
+    new_task_group_page,
+)
 
 
 def _ensure_min_fixtures():
@@ -68,6 +73,15 @@ class SectionResultsSplitTests(TestCase):
         request.session = {}
         with self.assertRaises(Http404):
             new_section_results_page(request, 'sec_res')
+
+    def test_ladder_results_url_resolves_to_section_results_not_task_group(self):
+        match = resolve('/ladder/results/')
+        self.assertIs(match.func, new_section_results_page)
+        self.assertEqual(match.kwargs.get('game_id'), 'ladder')
+        self.assertNotIn('task_group_number', match.kwargs)
+        self.assertIsNot(match.func, new_task_group_page)
+        self.assertEqual(reverse('ui_section_results', kwargs={'game_id': 'ladder'}), '/ladder/results/')
+        self.assertEqual(reverse('new_section_results', kwargs={'game_id': 'ladder'}), '/ladder/results/')
 
     def test_freeze_skips_sections(self):
         game = self._create_section_game('sec_freeze')
