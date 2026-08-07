@@ -24,6 +24,12 @@
           {% if form.last_name.errors %}<span class="new-field-error">{{ form.last_name.errors }}</span>{% endif %}
         </div>
       </div>
+      <div>
+        <label for="{{ form.telegram_handle.id_for_label }}">Telegram</label>
+        {{ form.telegram_handle }}
+        {% if form.telegram_handle.errors %}<span class="new-field-error">{{ form.telegram_handle.errors }}</span>{% endif %}
+        <p class="new-login-hint new-profile-hint">Хэндл без @ — нужен, чтобы предлагать лесенки.</p>
+      </div>
       <div class="new-profile-timezone">
         <label for="{{ form.timezone.id_for_label }}">Таймзона</label>
         {{ form.timezone }}

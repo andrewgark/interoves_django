@@ -1,0 +1,322 @@
+{% extends "new/base.html" %}
+{% load static %}
+{% block title %}Предложить лесенку{% endblock %}
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+{% endblock %}
+{% block content %}
+{% csrf_token %}
+{{ offers_json|json_script:"offers-bootstrap" }}
+<h1 class="new-heading new-heading--page">Предложить лесенку</h1>
+
+{% if not profile_ready %}
+<section class="pal-card new-card">
+  <p class="pal-lead">Чтобы предлагать лесенки, укажите имя, фамилию и Telegram-хэндл.</p>
+  {% if profile_error %}<p class="new-field-error">{{ profile_error }}</p>{% endif %}
+  <form method="post" class="new-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_profile">
+    <div class="new-two">
+      <div>
+        <label for="offer-first-name">Имя</label>
+        <input id="offer-first-name" type="text" name="first_name" value="{{ profile.first_name }}" required>
+      </div>
+      <div>
+        <label for="offer-last-name">Фамилия</label>
+        <input id="offer-last-name" type="text" name="last_name" value="{{ profile.last_name }}" required>
+      </div>
+    </div>
+    <div>
+      <label for="offer-telegram">Telegram</label>
+      <input id="offer-telegram" type="text" name="telegram_handle" value="{{ profile.telegram_handle }}" placeholder="username без @" required>
+      <p class="new-login-hint">Без @, например andrewgark</p>
+    </div>
+    <button type="submit" class="new-btn">Сохранить и продолжить</button>
+  </form>
+</section>
+{% else %}
+<p class="new-login-hint new-stack-gap">
+  Здесь ваши предложения. Можно редактировать черновик, посмотреть как выглядит (публичная ссылка) и отправить Андрею.
+</p>
+<div class="new-stack-gap">
+  <button type="button" class="new-btn" id="offer-create-btn">Добавить лесенку</button>
+</div>
+<section class="pal-card new-card" id="offer-list" aria-label="Ваши лесенки"></section>
+
+<div id="offer-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="offer-edit-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-offer-close></div>
+  <div class="new-rules-modal__box pal-card support-ladder-modal">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-offer-close>×</button>
+    <h2 id="offer-edit-title" class="support-page-title support-page-title--modal">Лесенка</h2>
+    <p class="support-hint">
+      Используйте <code>____</code> как предыдущее слово, <code>...</code> как следующее слово
+    </p>
+    <p class="support-hint" id="offer-edit-sub"></p>
+    <label class="support-ladders-field">
+      <span>Текст перед лесенкой</span>
+      <textarea id="offer-edit-intro" rows="2"></textarea>
+    </label>
+    <label class="support-ladders-field">
+      <span>Автор (как подписать)</span>
+      <input type="text" id="offer-edit-author" autocomplete="off">
+    </label>
+    <label class="support-ladders-field">
+      <span>Комментарий для Андрея</span>
+      <textarea id="offer-edit-comment" rows="2"></textarea>
+    </label>
+    <label class="support-ladders-field support-ladders-field--check">
+      <input type="checkbox" id="offer-edit-mixed-script">
+      <span>И кириллица, и латиница разрешена</span>
+    </label>
+    <div class="support-ladder-words-head">
+      <span>Слова и подсказки</span>
+      <button type="button" class="new-btn new-btn--mini new-btn--ghost" id="offer-add-word">+ слово</button>
+    </div>
+    <div id="offer-edit-words" class="support-ladder-words"></div>
+    <p class="support-hint support-ladder-edit-error" id="offer-edit-error" hidden></p>
+    <div class="support-action-row support-action-row--mt">
+      <button type="button" class="new-btn" id="offer-edit-save">Сохранить</button>
+      <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Отправить Андрею</button>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Посмотреть, как выглядит</a>
+      <button type="button" class="new-btn new-btn--ghost" data-offer-close>Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var bootstrap = JSON.parse(document.getElementById('offers-bootstrap').textContent || '[]');
+  var offers = bootstrap.slice();
+  var listEl = document.getElementById('offer-list');
+  var modal = document.getElementById('offer-edit-modal');
+  var editId = null;
+  var busy = false;
+  var endpoints = {
+    create: "{% url 'new_offer_ladder_create' %}",
+    detailTpl: "{% url 'new_offer_ladder_detail' 0 %}".replace('/0/', '/{id}/'),
+    sendTpl: "{% url 'new_offer_ladder_send' 0 %}".replace('/0/', '/{id}/')
+  };
+
+  function csrf() {
+    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+  function postJson(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+      body: JSON.stringify(body || {}),
+      credentials: 'same-origin'
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        return data;
+      });
+    });
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function upsert(offer) {
+    var i = offers.findIndex(function (o) { return o.id === offer.id; });
+    if (i >= 0) offers[i] = offer; else offers.unshift(offer);
+    renderList();
+  }
+  function renderList() {
+    listEl.innerHTML = '';
+    if (!offers.length) {
+      listEl.innerHTML = '<p class="support-empty">Пока нет предложений. Нажмите «Добавить лесенку».</p>';
+      return;
+    }
+    offers.forEach(function (o) {
+      var item = document.createElement('div');
+      item.className = 'support-ladder-item';
+      var num = o.production_number != null ? ('№' + o.production_number) : ('#' + o.id);
+      var date = o.production_publish_date || (o.sent_at || o.created_at || '').slice(0, 10) || '—';
+      item.innerHTML =
+        '<div class="support-ladder-item__num">' + escapeHtml(num) + '</div>' +
+        '<div class="support-ladder-item__body">' +
+          '<div class="support-ladder-item__title">' + escapeHtml(o.author || 'Лесенка') +
+            ' <span class="support-flag">' + escapeHtml(o.status_label) + '</span></div>' +
+          '<div class="support-ladder-item__meta">' + escapeHtml(date) +
+            (o.admin_note ? ' · <em>' + escapeHtml(o.admin_note) + '</em>' : '') +
+            ' · ' + o.word_count + ' сл.</div>' +
+          '<div class="support-ladder-item__preview">' + escapeHtml(o.words_preview || '') + '</div>' +
+        '</div>' +
+        '<div class="support-ladder-item__actions">' +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">править</button>' : '') +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">как выглядит</a>' +
+        '</div>';
+      listEl.appendChild(item);
+    });
+  }
+
+  function openModal() {
+    modal.hidden = false;
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    modal.classList.remove('is-open');
+    modal.hidden = true;
+    document.body.style.overflow = '';
+    editId = null;
+  }
+  modal.querySelectorAll('[data-offer-close]').forEach(function (el) {
+    el.addEventListener('click', closeModal);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+  });
+
+  function renderWordRows(words, hints) {
+    var box = document.getElementById('offer-edit-words');
+    box.innerHTML = '';
+    words = words && words.length ? words.slice() : ['', ''];
+    if (words.length < 2) words.push('');
+    hints = hints ? hints.slice() : [];
+    words.forEach(function (w, i) {
+      var row = document.createElement('div');
+      row.className = 'support-ladder-word-row';
+      var hintHtml = (i < words.length - 1)
+        ? '<input type="text" class="ladder-hint" placeholder="подсказка → след. слово" value="' + escapeHtml(hints[i] || '') + '">'
+        : '<span class="support-hint">последнее слово</span>';
+      row.innerHTML =
+        '<span class="support-cell-mono">' + (i + 1) + '</span>' +
+        '<input type="text" class="ladder-word" placeholder="СЛОВО" value="' + escapeHtml(w) + '" autocomplete="off">' +
+        hintHtml +
+        '<button type="button" class="new-btn new-btn--mini new-btn--ghost ladder-rm-word" title="Удалить" ' +
+          (words.length <= 2 ? 'disabled' : '') + '>×</button>';
+      box.appendChild(row);
+    });
+  }
+  function readWordRows() {
+    var rows = document.querySelectorAll('#offer-edit-words .support-ladder-word-row');
+    var words = [], hints = [];
+    rows.forEach(function (row, i) {
+      words.push((row.querySelector('.ladder-word').value || '').trim());
+      if (i < rows.length - 1) {
+        var h = row.querySelector('.ladder-hint');
+        hints.push(h ? (h.value || '').trim() : '');
+      }
+    });
+    return { words: words, hints: hints };
+  }
+  document.getElementById('offer-add-word').addEventListener('click', function () {
+    var cur = readWordRows();
+    cur.words.push('');
+    cur.hints.push('');
+    renderWordRows(cur.words, cur.hints);
+  });
+  document.getElementById('offer-edit-words').addEventListener('click', function (e) {
+    var btn = e.target.closest('.ladder-rm-word');
+    if (!btn || btn.disabled) return;
+    var row = btn.closest('.support-ladder-word-row');
+    var all = Array.prototype.slice.call(document.querySelectorAll('#offer-edit-words .support-ladder-word-row'));
+    var idx = all.indexOf(row);
+    var cur = readWordRows();
+    if (cur.words.length <= 2) return;
+    cur.words.splice(idx, 1);
+    if (idx < cur.hints.length) cur.hints.splice(idx, 1);
+    renderWordRows(cur.words, cur.hints);
+  });
+
+  function openEdit(offer) {
+    editId = offer.id;
+    document.getElementById('offer-edit-error').hidden = true;
+    document.getElementById('offer-edit-sub').textContent =
+      offer.status_label + (offer.admin_note ? ' · ' + offer.admin_note : '');
+    document.getElementById('offer-edit-intro').value = offer.intro || '';
+    document.getElementById('offer-edit-author').value = offer.author || '';
+    document.getElementById('offer-edit-comment').value = offer.comment || '';
+    document.getElementById('offer-edit-mixed-script').checked = !!offer.mixed_script;
+    renderWordRows(offer.words || [], offer.hints || []);
+    document.getElementById('offer-edit-preview').href = offer.play_url || '#';
+    var canEdit = !!offer.can_edit;
+    ['offer-edit-intro', 'offer-edit-author', 'offer-edit-comment', 'offer-edit-mixed-script', 'offer-add-word', 'offer-edit-save', 'offer-edit-send']
+      .forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (el.tagName === 'BUTTON') el.disabled = !canEdit;
+        else el.disabled = !canEdit;
+      });
+    openModal();
+  }
+
+  listEl.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-edit]');
+    if (!btn) return;
+    var id = parseInt(btn.getAttribute('data-edit'), 10);
+    var offer = offers.find(function (o) { return o.id === id; });
+    if (offer) openEdit(offer);
+  });
+
+  document.getElementById('offer-create-btn').addEventListener('click', function () {
+    if (busy) return;
+    busy = true;
+    postJson(endpoints.create, {})
+      .then(function (data) {
+        upsert(data.offer);
+        openEdit(data.offer);
+      })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { busy = false; });
+  });
+
+  document.getElementById('offer-edit-save').addEventListener('click', function () {
+    if (!editId || busy) return;
+    var cur = readWordRows();
+    var err = document.getElementById('offer-edit-error');
+    busy = true;
+    postJson(endpoints.detailTpl.replace('{id}', String(editId)), {
+      words: cur.words,
+      hints: cur.hints,
+      intro: document.getElementById('offer-edit-intro').value,
+      author: document.getElementById('offer-edit-author').value,
+      comment: document.getElementById('offer-edit-comment').value,
+      mixed_script: document.getElementById('offer-edit-mixed-script').checked
+    }).then(function (data) {
+      upsert(data.offer);
+      err.hidden = true;
+      openEdit(data.offer);
+    }).catch(function (e) {
+      err.hidden = false;
+      err.textContent = e.message || String(e);
+    }).finally(function () { busy = false; });
+  });
+
+  document.getElementById('offer-edit-send').addEventListener('click', function () {
+    if (!editId || busy) return;
+    if (!window.confirm('Отправить лесенку Андрею? После этого редактировать нельзя.')) return;
+    var cur = readWordRows();
+    busy = true;
+    postJson(endpoints.detailTpl.replace('{id}', String(editId)), {
+      words: cur.words,
+      hints: cur.hints,
+      intro: document.getElementById('offer-edit-intro').value,
+      author: document.getElementById('offer-edit-author').value,
+      comment: document.getElementById('offer-edit-comment').value,
+      mixed_script: document.getElementById('offer-edit-mixed-script').checked
+    }).then(function () {
+      return postJson(endpoints.sendTpl.replace('{id}', String(editId)), {});
+    }).then(function (data) {
+      upsert(data.offer);
+      closeModal();
+    }).catch(function (e) {
+      var err = document.getElementById('offer-edit-error');
+      err.hidden = false;
+      err.textContent = e.message || String(e);
+    }).finally(function () { busy = false; });
+  });
+
+  renderList();
+})();
+</script>
+{% endif %}
+
+<p class="new-tg-back new-tg-back--footer">
+  <a href="{% url 'new_ladder_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> К лесенкам</a>
+</p>
+{% endblock %}

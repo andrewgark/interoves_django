@@ -1937,7 +1937,7 @@ def _ladder_raddle_task_for_placement(placement):
 def new_ladder_word_results_page(request, task_group_number):
     """
     Per-ladder standings: one column per middle word, hints 1/2 = clue/answer assists.
-    URL: /ladder/<N>/results/
+    URL: /ladder/<N>/results/ или /ladder/<share_hash>/results/
     """
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
     if not project:
@@ -1951,17 +1951,52 @@ def new_ladder_word_results_page(request, task_group_number):
         team = request.user.profile.team_on
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
-    if not is_ladder_number_published(game, task_group_number):
-        raise Http404()
 
-    placement = (
-        GameTaskGroup.objects.select_related('task_group')
-        .filter(game=game, number=str(task_group_number))
-        .first()
-    )
-    if not placement:
-        raise Http404()
-    task = _ladder_raddle_task_for_placement(placement)
+    from games.ladder_offer import get_offer_by_share_hash, is_share_hash_segment
+    from types import SimpleNamespace
+
+    ladder_offer = None
+    if is_share_hash_segment(str(task_group_number)):
+        ladder_offer = get_offer_by_share_hash(str(task_group_number))
+        if ladder_offer is None:
+            raise Http404()
+        from games.ladder_offer import can_access_offer_hash
+        if not can_access_offer_hash(ladder_offer, request.user):
+            raise Http404()
+        if ladder_offer.accepted_link_id:
+            placement = (
+                GameTaskGroup.objects.select_related('task_group')
+                .filter(pk=ladder_offer.accepted_link_id)
+                .first()
+            )
+            if placement is None:
+                raise Http404()
+        else:
+            placement = SimpleNamespace(
+                number=ladder_offer.share_hash,
+                name=(ladder_offer.author or 'Лесенка').strip() or 'Лесенка',
+                task_group=ladder_offer.task_group,
+            )
+    else:
+        if not is_ladder_number_published(game, task_group_number):
+            raise Http404()
+        placement = (
+            GameTaskGroup.objects.select_related('task_group')
+            .filter(game=game, number=str(task_group_number))
+            .first()
+        )
+        if not placement:
+            raise Http404()
+
+    if ladder_offer is not None:
+        task = (
+            Task.objects.filter(task_group_id=ladder_offer.task_group_id, number='1')
+            .first()
+        )
+        if task is None or task.task_type != 'raddle':
+            task = _ladder_raddle_task_for_placement(placement) if hasattr(placement, 'task_group') else None
+    else:
+        task = _ladder_raddle_task_for_placement(placement)
     if not task:
         raise Http404()
 
@@ -1970,8 +2005,12 @@ def new_ladder_word_results_page(request, task_group_number):
     play_mode = effective_play_mode(play_mode, game)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
 
-    ladder_title = placement.name or 'Лесенка №{}'.format(placement.number)
-    back_url = _play_url_for_task_group(game, placement.number)
+    if ladder_offer is not None:
+        ladder_title = placement.name or 'Лесенка'
+        back_url = '/ladder/{}/'.format(ladder_offer.share_hash)
+    else:
+        ladder_title = placement.name or 'Лесенка №{}'.format(placement.number)
+        back_url = _play_url_for_task_group(game, placement.number)
 
     if request.GET.get('partial') == '1':
         data = build_ladder_word_results_context(game, placement, task)
@@ -2271,14 +2310,24 @@ def new_task_group_page(request, game_id, task_group_number):
         user = request.user if request.user.is_authenticated else None
 
     # Для игр-разделов (project sections) хотим давать доступ всегда, без привязки к start_time.
+    ladder_offer = None
     if game.project_id == NEW_UI_SECTIONS_PROJECT:
         preview_team = None
         if has_profile(request.user):
             preview_team = request.user.profile.team_on
         if not game.has_access('see_game_preview', team=preview_team):
             raise Http404()
-        if game_id == LADDER_GAME_ID and not is_ladder_number_published(game, task_group_number):
-            raise Http404()
+        if game_id == LADDER_GAME_ID:
+            from games.ladder_offer import get_offer_by_share_hash, is_share_hash_segment
+            if is_share_hash_segment(str(task_group_number)):
+                ladder_offer = get_offer_by_share_hash(str(task_group_number))
+                if ladder_offer is None:
+                    raise Http404()
+                from games.ladder_offer import can_access_offer_hash
+                if not can_access_offer_hash(ladder_offer, request.user):
+                    raise Http404()
+            elif not is_ladder_number_published(game, task_group_number):
+                raise Http404()
         if game_id == WEEK_TASK_GAME_ID and not is_week_task_number_published(game, task_group_number):
             raise Http404()
     else:
@@ -2292,21 +2341,41 @@ def new_task_group_page(request, game_id, task_group_number):
                 raise Http404()
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
-    placement = (
-        GameTaskGroup.objects.select_related('task_group', 'task_group__rules')
-        .filter(game=game, number=str(task_group_number))
-        .first()
-    )
-    if not placement:
-        fallback = GameTaskGroup.nearest_by_number(game, task_group_number)
-        if fallback:
-            return redirect(_play_url_for_task_group(game, fallback.number))
-        raise Http404()
+    if ladder_offer is not None:
+        from types import SimpleNamespace
+        if ladder_offer.accepted_link_id:
+            placement = (
+                GameTaskGroup.objects.select_related('task_group', 'task_group__rules')
+                .filter(pk=ladder_offer.accepted_link_id)
+                .first()
+            )
+            if placement is None:
+                raise Http404()
+        else:
+            placement = SimpleNamespace(
+                pk=None,
+                number=ladder_offer.share_hash,
+                name=(ladder_offer.author or 'Лесенка').strip() or 'Лесенка',
+                task_group=ladder_offer.task_group,
+            )
+    else:
+        placement = (
+            GameTaskGroup.objects.select_related('task_group', 'task_group__rules')
+            .filter(game=game, number=str(task_group_number))
+            .first()
+        )
+        if not placement:
+            fallback = GameTaskGroup.nearest_by_number(game, task_group_number)
+            if fallback:
+                return redirect(_play_url_for_task_group(game, fallback.number))
+            raise Http404()
     task_group = placement.task_group
-    if game.id == LADDER_GAME_ID:
+    if game.id == LADDER_GAME_ID and ladder_offer is None:
         # Соседи только среди уже вышедших лесенок (не показываем «Дальше» на неопубликованную).
         visible_links = list(visible_ladder_links(_game_task_group_links(game), game))
         prev_tg, next_tg = _neighbors_by_pk(visible_links, placement)
+    elif game.id == LADDER_GAME_ID and ladder_offer is not None:
+        prev_tg, next_tg = None, None
     elif game.id == WEEK_TASK_GAME_ID:
         visible_links = list(visible_week_task_links(_game_task_group_links(game), game))
         prev_tg, next_tg = _neighbors_by_pk(visible_links, placement)
@@ -2344,18 +2413,65 @@ def new_task_group_page(request, game_id, task_group_number):
     from games.section_paths import ladder_word_results_path
     is_daily_single_task = game.id in (LADDER_GAME_ID, WEEK_TASK_GAME_ID)
     daily_publish_date = None
-    if game.id == LADDER_GAME_ID:
+    if game.id == LADDER_GAME_ID and ladder_offer is None:
         pub_at = ladder_publish_at(game, placement.number)
         if pub_at is not None:
             daily_publish_date = pub_at.date()
+    elif game.id == LADDER_GAME_ID and ladder_offer is not None and ladder_offer.accepted_link_id:
+        try:
+            prod_n = int(ladder_offer.accepted_link.number)
+        except (TypeError, ValueError, AttributeError):
+            prod_n = None
+        if prod_n is not None:
+            pub_at = ladder_publish_at(game, prod_n)
+            if pub_at is not None:
+                daily_publish_date = pub_at.date()
     elif game.id == WEEK_TASK_GAME_ID:
         pub_at = week_task_publish_at(game, placement.number)
         if pub_at is not None:
             daily_publish_date = pub_at.date()
-    if is_daily_single_task:
+    if ladder_offer is not None:
+        if ladder_offer.accepted_link_id and str(getattr(ladder_offer.accepted_link, 'number', '')).isdigit():
+            page_title = '{} №{}'.format(
+                game.outside_name or game.name,
+                ladder_offer.accepted_link.number,
+            )
+        else:
+            page_title = '{} · {}'.format(
+                game.outside_name or game.name,
+                placement.name or 'предложение',
+            )
+    elif is_daily_single_task:
         page_title = '{} №{}'.format(game.outside_name or game.name, placement.number)
     else:
         page_title = '{} · {}'.format(game.outside_name or game.name, placement.name)
+
+    can_reset_offer = False
+    offer_reset_url = None
+    if ladder_offer is not None and request.user.is_authenticated:
+        if ladder_offer.user_id == request.user.id or request.user.is_staff:
+            can_reset_offer = True
+            offer_reset_url = '/offer_ladder/{}/reset/'.format(ladder_offer.pk)
+
+    if ladder_offer is not None:
+        ladder_results_url = ladder_word_results_path(ladder_offer.share_hash)
+    elif game.id == LADDER_GAME_ID:
+        ladder_results_url = ladder_word_results_path(placement.number)
+    else:
+        ladder_results_url = None
+
+    back_url = (
+        _sections_hub_url(game.id)
+        if game.project_id == NEW_UI_SECTIONS_PROJECT
+        else (
+            '/games/{}/'.format(game.id)
+            if game.project_id == NEW_UI_PROJECT
+            else '/'
+        )
+    )
+    if ladder_offer is not None and request.user.is_authenticated and ladder_offer.user_id == request.user.id:
+        back_url = '/offer_ladder/'
+
     return render(request, 'ui/task_group.html', {
         'game': game,
         'task_group': task_group,
@@ -2389,20 +2505,11 @@ def new_task_group_page(request, game_id, task_group_number):
         'source_desyatka': source_desyatka,
         'is_daily_single_task': is_daily_single_task,
         'daily_publish_date': daily_publish_date,
-        'ladder_word_results_url': (
-            ladder_word_results_path(placement.number)
-            if game.id == LADDER_GAME_ID
-            else None
-        ),
-        'back_url': (
-            _sections_hub_url(game.id)
-            if game.project_id == NEW_UI_SECTIONS_PROJECT
-            else (
-                '/games/{}/'.format(game.id)
-                if game.project_id == NEW_UI_PROJECT
-                else '/'
-            )
-        ),
+        'ladder_word_results_url': ladder_results_url,
+        'ladder_offer': ladder_offer,
+        'can_reset_ladder_offer': can_reset_offer,
+        'ladder_offer_reset_url': offer_reset_url,
+        'back_url': back_url,
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
         'page_title': page_title,
         'image_manager': ImageManager(),
@@ -2413,15 +2520,7 @@ def new_task_group_page(request, game_id, task_group_number):
         **_age_gate_context(
             game,
             task_group=task_group,
-            back_url=(
-                _sections_hub_url(game.id)
-                if game.project_id == NEW_UI_SECTIONS_PROJECT
-                else (
-                    '/games/{}/'.format(game.id)
-                    if game.project_id == NEW_UI_PROJECT
-                    else '/'
-                )
-            ),
+            back_url=back_url,
         ),
     })
 
@@ -2915,6 +3014,11 @@ class ProfileSettingsForm(ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['first_name'].widget.attrs.update({'placeholder': 'Имя'})
         self.fields['last_name'].widget.attrs.update({'placeholder': 'Фамилия'})
+        self.fields['telegram_handle'].required = False
+        self.fields['telegram_handle'].widget.attrs.update({
+            'placeholder': 'username без @',
+            'autocomplete': 'off',
+        })
         # keep model field, but render as text input with datalist
         self.fields['timezone'].widget = TextInput()
         self.fields['timezone'].required = True
@@ -2944,12 +3048,17 @@ class ProfileSettingsForm(ModelForm):
 
     class Meta:
         model = Profile
-        fields = ['first_name', 'last_name', 'avatar_url', 'timezone']
+        fields = ['first_name', 'last_name', 'telegram_handle', 'avatar_url', 'timezone']
         widgets = {
             'first_name': TextInput(),
             'last_name': TextInput(),
+            'telegram_handle': TextInput(),
             'avatar_url': TextInput(),
         }
+
+    def clean_telegram_handle(self):
+        from games.ladder_offer import normalize_telegram_handle
+        return normalize_telegram_handle(self.cleaned_data.get('telegram_handle') or '')
 
     def clean_timezone(self):
         tz = (self.cleaned_data.get('timezone') or '').strip()
@@ -3522,6 +3631,16 @@ def new_create_tribute_ticket_payment(request):
                     'status': 'error',
                     'reason': 'tribute_config',
                     'message': 'Оплата иностранной картой не настроена на сервере (ключи Tribute). Обратитесь к администратору.',
+                },
+                status=503,
+            )
+        if ticket_request is not None and 'Tribute shop not found' in msg:
+            logger.error('new_create_tribute_ticket_payment: %s', exc)
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'reason': 'tribute_shop',
+                    'message': 'В Tribute ещё нет активного магазина (Shop). Донат-кнопка не считается — создайте Shop и дождитесь верификации.',
                 },
                 status=503,
             )

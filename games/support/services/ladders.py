@@ -349,6 +349,61 @@ def reorder_ladders(
     return list_ladder_rows(now=now)
 
 
+def _clamp_insert_number(at_number: int, *, now: datetime | None = None) -> int:
+    """Проверить/подрезать at_number для вставки среди будущих."""
+    if at_number < 1:
+        raise LadderSupportError('Номер должен быть >= 1')
+    locked_until = last_published_number(now=now)
+    if at_number <= locked_until:
+        raise LadderSupportError(
+            'Нельзя вставлять среди уже вышедших лесенок '
+            '(доступно с №{})'.format(locked_until + 1)
+        )
+    game = get_ladder_game()
+    links = GameTaskGroup.sorted_links(
+        GameTaskGroup.objects.filter(game=game).select_related('task_group'),
+        reverse=False,
+    )
+    max_num = 0
+    for link in links:
+        try:
+            max_num = max(max_num, int(link.number))
+        except (TypeError, ValueError):
+            pass
+    if at_number > max_num + 1:
+        at_number = max_num + 1
+    return at_number
+
+
+def _shift_numbers_from(at_number: int) -> None:
+    """Сдвинуть существующие link с number >= at_number на +1."""
+    game = get_ladder_game()
+    links = GameTaskGroup.sorted_links(
+        GameTaskGroup.objects.filter(game=game).select_related('task_group'),
+        reverse=False,
+    )
+    to_shift = []
+    for link in links:
+        try:
+            n = int(link.number)
+        except (TypeError, ValueError):
+            continue
+        if n >= at_number:
+            to_shift.append((n, link))
+    to_shift.sort(key=lambda x: x[0], reverse=True)
+    if not to_shift:
+        return
+    planned = [(old, old + 1, link) for old, link in to_shift]
+    temp_base = 10_000
+    for i, (old, new, link) in enumerate(planned):
+        link.number = str(temp_base + i)
+        _sync_link_titles(link, new)
+        link.save(update_fields=['number', 'name'])
+    for old, new, link in planned:
+        link.number = str(new)
+        link.save(update_fields=['number'])
+
+
 def _create_task_group_and_task(
     *,
     number: int,
@@ -397,6 +452,36 @@ def _create_task_group_and_task(
 
 
 @transaction.atomic
+def attach_existing_task_group(
+    task_group: TaskGroup,
+    *,
+    at_number: int,
+    now: datetime | None = None,
+) -> GameTaskGroup:
+    """Вставить уже существующий TaskGroup в расписание ladder (без нового Task)."""
+    game = get_ladder_game()
+    if GameTaskGroup.objects.filter(game=game, task_group=task_group).exists():
+        raise LadderSupportError('Этот набор заданий уже в расписании лесенок')
+    at_number = _clamp_insert_number(at_number, now=now)
+    _shift_numbers_from(at_number)
+    if (task_group.label or '').startswith('ladder:') or not (task_group.label or '').strip():
+        task_group.label = f'ladder:{at_number}'
+        task_group.save(update_fields=['label'])
+    elif (task_group.label or '').startswith('ladder_offer:'):
+        task_group.label = f'ladder:{at_number}'
+        task_group.save(update_fields=['label'])
+    link = GameTaskGroup.objects.create(
+        game=game,
+        task_group=task_group,
+        number=str(at_number),
+        name=f'Лесенка #{at_number}',
+    )
+    _sync_link_titles(link, at_number)
+    link.save(update_fields=['name'])
+    return link
+
+
+@transaction.atomic
 def create_ladder(
     *,
     at_number: int,
@@ -411,48 +496,8 @@ def create_ladder(
 
     Вставка среди уже вышедших запрещена (только после последнего вышедшего №).
     """
-    if at_number < 1:
-        raise LadderSupportError('Номер должен быть >= 1')
-    locked_until = last_published_number(now=now)
-    if at_number <= locked_until:
-        raise LadderSupportError(
-            'Нельзя вставлять среди уже вышедших лесенок '
-            '(доступно с №{})'.format(locked_until + 1)
-        )
-    game = get_ladder_game()
-    links = GameTaskGroup.sorted_links(
-        GameTaskGroup.objects.filter(game=game).select_related('task_group'),
-        reverse=False,
-    )
-    max_num = 0
-    for link in links:
-        try:
-            max_num = max(max_num, int(link.number))
-        except (TypeError, ValueError):
-            pass
-    if at_number > max_num + 1:
-        at_number = max_num + 1
-
-    # Сдвиг существующих с number >= at_number (с высоких, через temp).
-    to_shift = []
-    for link in links:
-        try:
-            n = int(link.number)
-        except (TypeError, ValueError):
-            continue
-        if n >= at_number:
-            to_shift.append((n, link))
-    to_shift.sort(key=lambda x: x[0], reverse=True)
-    if to_shift:
-        planned = [(old, old + 1, link) for old, link in to_shift]
-        temp_base = 10_000
-        for i, (old, new, link) in enumerate(planned):
-            link.number = str(temp_base + i)
-            _sync_link_titles(link, new)
-            link.save(update_fields=['number', 'name'])
-        for old, new, link in planned:
-            link.number = str(new)
-            link.save(update_fields=['number'])
+    at_number = _clamp_insert_number(at_number, now=now)
+    _shift_numbers_from(at_number)
 
     use_words = words if words is not None else list(_DEFAULT_PLACEHOLDER['words'])
     use_hints = hints if hints is not None else list(_DEFAULT_PLACEHOLDER['hints'])

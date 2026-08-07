@@ -28,6 +28,13 @@ from games.views.alphabetty_views import (  # noqa: E402
     alphabetty_suggest,
     alphabetty_today_page,
 )
+from games.views.offer_ladder import (  # noqa: E402
+    offer_ladder_create,
+    offer_ladder_detail,
+    offer_ladder_page,
+    offer_ladder_reset,
+    offer_ladder_send,
+)
 game_task_group_progress = new_game_task_group_progress
 project_game_task_group_progress = project_game_task_group_progress
 get_answer = new_get_answer

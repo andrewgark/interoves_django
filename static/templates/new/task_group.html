@@ -19,6 +19,11 @@
 <p class="new-tg-back">
   <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label|default:"К списку" }}</a>
 </p>
+{% if can_reset_ladder_offer and ladder_offer_reset_url %}
+<p class="new-stack-gap">
+  <button type="button" class="new-btn new-btn--ghost new-btn--mini" id="ladder-offer-reset-btn" data-reset-url="{{ ladder_offer_reset_url }}">Сбросить решение</button>
+</p>
+{% endif %}
 
 <div class="new-section-header">
   <div>
@@ -3220,6 +3225,28 @@
   <p class="new-tg-results-link">
     <a href="{{ ladder_word_results_url }}" class="new-btn new-btn--ghost new-btn--mini">Результаты этой лесенки</a>
   </p>
+{% endif %}
+
+{% if can_reset_ladder_offer and ladder_offer_reset_url %}
+<script>
+(function () {
+  var btn = document.getElementById('ladder-offer-reset-btn');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    if (!window.confirm('Сбросить ваше решение по этой лесенке?')) return;
+    var csrf = (document.querySelector('input[name=csrfmiddlewaretoken]') || {}).value || '';
+    fetch(btn.getAttribute('data-reset-url'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' },
+      body: '{}'
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data.ok) throw new Error(data.error || 'Ошибка');
+      window.location.reload();
+    }).catch(function (e) { alert(e.message || String(e)); });
+  });
+})();
+</script>
 {% endif %}
 
 {% if prev_task_group_url or next_task_group_url %}

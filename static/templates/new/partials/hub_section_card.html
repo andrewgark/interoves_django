@@ -32,6 +32,13 @@
   {% if card.section_url and card.all_link_label %}
   <p class="new-hub-section__footer">
     <a class="new-link-dotted" href="{{ card.section_url }}">{{ card.all_link_label }}</a>
+    {% if card.id == 'ladder' %}
+      · <a class="new-link-dotted" href="/offer_ladder/">Предложить свою лесенку</a>
+    {% endif %}
+  </p>
+  {% elif card.id == 'ladder' %}
+  <p class="new-hub-section__footer">
+    <a class="new-link-dotted" href="/offer_ladder/">Предложить свою лесенку</a>
   </p>
   {% endif %}
 </section>

@@ -53,6 +53,19 @@ from games.support.services.ladders import (
     set_publish_start,
     update_ladder,
 )
+from games.ladder_offer import (
+    LadderOfferError,
+    accept_offer,
+    dashboard_offers_context,
+    list_sent_offers,
+    offer_for_link,
+    offers_by_link_ids,
+    request_revision,
+    reset_all_raddle_progress,
+    serialize_offer,
+    update_offer_content,
+)
+from games.models import LadderOffer, Task
 from games.support.services.live import get_live_feed
 from games.support.services.preview import (
     ActorSpec,
@@ -349,8 +362,165 @@ def chain_attempt(request, attempt_id):
 @support_console_required
 def ladders_dashboard(request):
     ctx = ladders_dashboard_context()
+    ctx.update(dashboard_offers_context())
+    offer_map = offers_by_link_ids([r.link_id for r in ctx.get('ladders') or []])
+    ctx['offer_by_link_json'] = {
+        str(k): v.to_dict() for k, v in offer_map.items()
+    }
     ctx['page_title'] = 'Лесенки'
     return render(request, 'support/ladders.html', ctx)
+
+
+def _offer_error_response(exc: LadderOfferError, status=400):
+    return JsonResponse({'ok': False, 'error': str(exc)}, status=status)
+
+
+@support_console_required
+@require_GET
+def ladder_offers_list_json(request):
+    rows = list_sent_offers()
+    return JsonResponse({'ok': True, 'offers': [r.to_dict() for r in rows]})
+
+
+@support_console_required
+@require_GET
+def ladder_offer_detail_json(request, offer_id):
+    offer = (
+        LadderOffer.objects.select_related('task_group', 'accepted_link', 'user', 'user__profile')
+        .filter(pk=offer_id)
+        .first()
+    )
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    return JsonResponse({'ok': True, 'offer': serialize_offer(offer).to_dict()})
+
+
+@support_console_required
+@require_POST
+def ladder_offer_save(request, offer_id):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    offer = LadderOffer.objects.filter(pk=offer_id).select_related('task_group').first()
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    words = body.get('words')
+    hints = body.get('hints')
+    if not isinstance(words, list) or not isinstance(hints, list):
+        return JsonResponse({'ok': False, 'error': 'Нужны words и hints'}, status=400)
+    try:
+        offer = update_offer_content(
+            offer,
+            words=words,
+            hints=hints,
+            intro=str(body.get('intro') or ''),
+            author=str(body.get('author') or ''),
+            comment=str(body.get('comment') or ''),
+            mixed_script=bool(body.get('mixed_script')),
+            allow_non_draft=True,
+        )
+    except LadderOfferError as exc:
+        return _offer_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'offer': serialize_offer(offer).to_dict(),
+        'offers': [r.to_dict() for r in list_sent_offers()],
+    })
+
+
+@support_console_required
+@require_POST
+def ladder_offer_accept(request, offer_id):
+    offer = LadderOffer.objects.filter(pk=offer_id).select_related('task_group').first()
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    try:
+        offer = accept_offer(offer)
+        rows = ladders_dashboard_context()['ladders']
+    except LadderOfferError as exc:
+        return _offer_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'offer': serialize_offer(offer).to_dict(),
+        'offers': [r.to_dict() for r in list_sent_offers()],
+        'ladders': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def ladder_offer_request_revision(request, offer_id):
+    body = _json_body(request) or {}
+    offer = LadderOffer.objects.filter(pk=offer_id).first()
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    try:
+        offer = request_revision(offer, admin_note=str(body.get('admin_note') or ''))
+    except LadderOfferError as exc:
+        return _offer_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'offer': serialize_offer(offer).to_dict(),
+        'offers': [r.to_dict() for r in list_sent_offers()],
+    })
+
+
+@support_console_required
+@require_POST
+def ladder_link_request_revision(request, link_id):
+    body = _json_body(request) or {}
+    offer = offer_for_link(int(link_id))
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Нет автора в системе для этой лесенки'}, status=404)
+    if offer.status == LadderOffer.STATUS_DRAFT:
+        return JsonResponse({'ok': False, 'error': 'Уже на доработке'}, status=400)
+    try:
+        offer = request_revision(offer, admin_note=str(body.get('admin_note') or ''))
+    except LadderOfferError as exc:
+        return _offer_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'offer': serialize_offer(offer).to_dict(),
+        'offers': [r.to_dict() for r in list_sent_offers()],
+    })
+
+
+@support_console_required
+@require_POST
+def ladder_offer_reset_progress(request, offer_id):
+    offer = LadderOffer.objects.filter(pk=offer_id).select_related('task_group').first()
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    task = Task.objects.filter(task_group_id=offer.task_group_id, number='1').first()
+    if task is None:
+        return JsonResponse({'ok': False, 'error': 'Нет задания'}, status=404)
+    try:
+        stats = reset_all_raddle_progress(task=task)
+    except LadderOfferError as exc:
+        return _offer_error_response(exc)
+    return JsonResponse({'ok': True, 'reset': stats})
+
+
+@support_console_required
+@require_POST
+def ladders_reset_progress(request, link_id):
+    try:
+        detail = get_ladder_detail(int(link_id))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Некорректный id'}, status=400)
+    except LadderSupportError as exc:
+        return _ladder_error_response(exc, status=404)
+    task_id = detail.get('task_id')
+    if not task_id:
+        return JsonResponse({'ok': False, 'error': 'Нет задания'}, status=404)
+    task = Task.objects.filter(pk=task_id).first()
+    if task is None:
+        return JsonResponse({'ok': False, 'error': 'Нет задания'}, status=404)
+    try:
+        stats = reset_all_raddle_progress(task=task)
+    except LadderOfferError as exc:
+        return _offer_error_response(exc)
+    return JsonResponse({'ok': True, 'reset': stats})
 
 
 @support_console_required

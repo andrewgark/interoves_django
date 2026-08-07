@@ -598,7 +598,7 @@ reject_ticket_request.short_description = "Reject Ticket Request"
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ['__str__', 'team_on', 'team_requested', 'vk_url']
+    list_display = ['__str__', 'team_on', 'team_requested', 'telegram_handle', 'vk_url']
     actions = [confirm_profile_team_request, clear_profile_team]
 
 

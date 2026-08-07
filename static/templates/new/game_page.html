@@ -134,6 +134,11 @@
           <a class="new-btn" href="{{ week_task_today_play_url }}">Задание этой недели</a>
         </p>
       {% endif %}
+      {% if is_ladder_section %}
+        <p class="new-stack-gap">
+          <a class="new-link-dotted" href="/offer_ladder/">Предложить свою лесенку</a>
+        </p>
+      {% endif %}
 
       {% if section_task_groups_rules_html %}
         <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>

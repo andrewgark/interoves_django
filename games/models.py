@@ -214,6 +214,8 @@ class Profile(models.Model):
     timezone = models.CharField(max_length=64, default='Europe/Moscow')
     vk_url = models.TextField(blank=True, null=True)
     email = models.TextField(blank=True, null=True)
+    # Публичный Telegram без @; нужен для предложений лесенок и связи.
+    telegram_handle = models.CharField(max_length=64, blank=True, default='')
     team_on = models.ForeignKey(
         Team, related_name='primary_profiles', blank=True, null=True, on_delete=models.SET_NULL
     )
@@ -610,15 +612,29 @@ class GameTaskGroup(models.Model):
     def resolve_game_for_task(task, game_id=None):
         """
         Игра в контексте задания: явный game_id, иначе единственная привязанная игра.
+
+        Для черновиков предложений лесенок GameTaskGroup ещё нет — если task_group
+        связан с LadderOffer, вернуть игру ladder.
         """
         if task is None or task.task_group_id is None:
             return None
         qs = GameTaskGroup.objects.filter(task_group_id=task.task_group_id).select_related('game')
         if game_id:
             row = qs.filter(game_id=game_id).first()
-            return row.game if row else None
-        if qs.count() == 1:
+            if row is not None:
+                return row.game
+        elif qs.count() == 1:
             return qs.first().game
+        elif qs.exists():
+            return None
+
+        # Нет (нужной) привязки в расписании — черновик LadderOffer?
+        from games.ladder_daily import LADDER_GAME_ID
+        if game_id and str(game_id) != LADDER_GAME_ID:
+            return None
+        from games.models import LadderOffer, Game
+        if LadderOffer.objects.filter(task_group_id=task.task_group_id).exists():
+            return Game.objects.filter(pk=LADDER_GAME_ID).first()
         return None
 
 
@@ -1891,6 +1907,104 @@ class OrderGameReview(models.Model):
         if self.caption:
             return '{}, {}'.format(self.name, self.caption)
         return self.name
+
+
+class LadderOffer(models.Model):
+    """Предложение лесенки от пользователя (черновик → отправлена → принята).
+
+    TaskGroup/Task живут в игре ``ladder`` с самого начала. До accept нет
+    GameTaskGroup в расписании — публичный доступ по ``/ladder/<share_hash>/``.
+    После accept тот же TaskGroup получает номер в расписании; Attempt/Like сохраняются.
+    """
+
+    STATUS_DRAFT = 'draft'
+    STATUS_SENT = 'sent'
+    STATUS_ACCEPTED = 'accepted'
+    STATUS_VARIANTS = (
+        (STATUS_DRAFT, 'Черновик'),
+        (STATUS_SENT, 'Отправлена'),
+        (STATUS_ACCEPTED, 'Принята'),
+    )
+
+    id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(
+        User,
+        related_name='ladder_offers',
+        on_delete=models.CASCADE,
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=STATUS_VARIANTS,
+        default=STATUS_DRAFT,
+        db_index=True,
+    )
+    share_hash = models.CharField(max_length=32, unique=True, db_index=True)
+    intro = models.TextField(blank=True, default='')
+    author = models.CharField(max_length=200, blank=True, default='')
+    comment = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='комментарий для Андрея',
+    )
+    admin_note = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='заметка Андрея при возврате на доработку',
+    )
+    mixed_script = models.BooleanField(default=False)
+    task_group = models.OneToOneField(
+        TaskGroup,
+        related_name='ladder_offer',
+        on_delete=models.CASCADE,
+    )
+    accepted_link = models.ForeignKey(
+        GameTaskGroup,
+        related_name='accepted_from_offers',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    accepted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        verbose_name = 'предложение лесенки'
+        verbose_name_plural = 'предложения лесенок'
+
+    def __str__(self):
+        return 'LadderOffer #{} [{}] {}'.format(self.pk, self.status, self.author or self.user_id)
+
+    @property
+    def status_label(self):
+        if self.status == self.STATUS_DRAFT and (self.sent_at or self.accepted_at):
+            return 'На доработке'
+        return dict(self.STATUS_VARIANTS).get(self.status, self.status)
+
+    def can_author_edit(self):
+        if self.status != self.STATUS_DRAFT:
+            return False
+        # Уже вышедшую прод-лесенку автор не правит напрямую (даже на доработке).
+        if self.accepted_link_id:
+            try:
+                number = int(self.accepted_link.number)
+            except (TypeError, ValueError, AttributeError):
+                number = None
+            if number is not None:
+                from games.ladder_daily import is_ladder_number_published
+                from games.models import Game
+                game = Game.objects.filter(pk='ladder').first()
+                if game is not None and is_ladder_number_published(game, number):
+                    return False
+        return True
+
+    def play_url(self):
+        return '/ladder/{}/'.format(self.share_hash)
+
+    def results_url(self):
+        return '/ladder/{}/results/'.format(self.share_hash)
 
 
 class CorporateGameOrder(models.Model):

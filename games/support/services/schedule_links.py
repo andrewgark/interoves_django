@@ -17,10 +17,26 @@ class ScheduleLinkError(Exception):
 
 
 def cascade_delete_link(link: GameTaskGroup) -> None:
-    """Удалить связку GameTaskGroup → TaskGroup → Task."""
+    """Удалить связку GameTaskGroup → TaskGroup → Task.
+
+    Если TaskGroup — предложение лесенки (LadderOffer), удаляем только слот
+    расписания: Task/посылки/лайки и сам offer сохраняем.
+    """
     tg_id = link.task_group_id
     link.delete()
     if not tg_id:
+        return
+    from games.models import LadderOffer
+    offer = LadderOffer.objects.filter(task_group_id=tg_id).first()
+    if offer is not None:
+        # Отвязать от расписания, вернуть в «отправлена» для повторного accept.
+        offer.accepted_link = None
+        if offer.status == LadderOffer.STATUS_ACCEPTED:
+            offer.status = LadderOffer.STATUS_SENT
+            if not offer.sent_at:
+                from django.utils import timezone
+                offer.sent_at = timezone.now()
+        offer.save(update_fields=['accepted_link', 'status', 'sent_at', 'updated_at'])
         return
     Task.objects.filter(task_group_id=tg_id).delete()
     TaskGroup.objects.filter(pk=tg_id).delete()

@@ -9,6 +9,7 @@ from games.models import (
     BugReport,
     CorporateGameOrder,
     Donation,
+    LadderOffer,
     TicketRequest,
 )
 from games.telegram.api import send_message, send_photo
@@ -205,6 +206,59 @@ def notify_new_alphabetty_dict_suggestion(suggestion: AlphabettyDictSuggestion) 
         format_alphabetty_dict_suggestion_message(suggestion),
         reply_markup=alphabetty_dict_suggestion_keyboard(suggestion.pk),
     )
+
+
+def _ladder_offer_reporter(offer: LadderOffer) -> str:
+    user = offer.user
+    profile = getattr(user, 'profile', None)
+    if profile is not None:
+        name = ' '.join(
+            p for p in (profile.first_name or '', profile.last_name or '') if p
+        ).strip()
+        if name:
+            return name
+    if user.get_full_name():
+        return user.get_full_name()
+    if user.email:
+        return user.email
+    return user.username or 'user #{}'.format(user.pk)
+
+
+def format_ladder_offer_message(offer: LadderOffer) -> str:
+    from games.telegram.game_urls import site_base_url
+
+    support_link = _admin_link('/support/ladders/')
+    play_path = '/ladder/{}/'.format(offer.share_hash) if offer.share_hash else ''
+    play_link = '{}{}'.format(site_base_url(), play_path) if play_path else ''
+    tg = ''
+    profile = getattr(offer.user, 'profile', None)
+    if profile is not None and profile.telegram_handle:
+        tg = '@{}'.format(profile.telegram_handle)
+    lines = [
+        '🪜 <b>Новая лесенка на проверку</b>',
+        '',
+        'Автор: {}'.format(_escape(_ladder_offer_reporter(offer))),
+    ]
+    if tg:
+        lines.append('Telegram: {}'.format(_escape(tg)))
+    if offer.comment:
+        lines.extend(['', _escape(offer.comment[:1500])])
+    lines.extend([
+        '',
+        '<a href="{}">Админка лесенок</a>'.format(_escape(support_link)),
+    ])
+    if play_link:
+        lines.append('<a href="{}">Превью</a>'.format(_escape(play_link)))
+    return _join_lines(lines)
+
+
+def notify_new_ladder_offer(offer_id: int) -> bool:
+    offer = (
+        LadderOffer.objects
+        .select_related('user', 'user__profile')
+        .get(pk=offer_id)
+    )
+    return send_admin_message(format_ladder_offer_message(offer))
 
 
 def format_bug_report_message(report: BugReport) -> str:
