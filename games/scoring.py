@@ -1,6 +1,7 @@
 import json
 from dataclasses import dataclass
 from typing import Dict, Iterable, Optional, Set, Tuple
+from types import SimpleNamespace
 
 from django.db.models import Q
 
@@ -121,6 +122,109 @@ def bulk_actor_task_result_points(
     if not task_ids:
         return {}
 
+    if mode == "general":
+        return _bulk_actor_task_result_points_sql(
+            task_ids=task_ids,
+            actor=actor,
+            game=game,
+            include_other_games=include_other_games,
+        )
+
+    return _bulk_actor_task_result_points_orm(
+        task_ids=task_ids,
+        actor=actor,
+        mode=mode,
+        game=game,
+        include_other_games=include_other_games,
+    )
+
+
+def _bulk_actor_task_result_points_sql(
+    *,
+    task_ids: list,
+    actor: Actor,
+    game=None,
+    include_other_games: bool = False,
+) -> Dict[int, Tuple[float, bool, Optional[str]]]:
+    """SQL best-attempt + hint penalty for one actor (general mode)."""
+    from django.db.models import Case, F, IntegerField, Max, Value, When, Window
+    from django.db.models.functions import RowNumber
+
+    from games.raddle import is_raddle_in_game_assist_hint
+
+    att_qs = Attempt.manager.filter(task_id__in=task_ids, skip=False).filter(**actor.filter_kwargs())
+    if (game is not None) and (not include_other_games):
+        att_qs = att_qs.filter(game=game)
+
+    status_rank = Case(
+        When(status='Ok', then=Value(3)),
+        When(status='Partial', then=Value(2)),
+        When(status='Pending', then=Value(1)),
+        When(status='Wrong', then=Value(0)),
+        default=Value(-1),
+        output_field=IntegerField(),
+    )
+    best_rows = (
+        att_qs.annotate(
+            status_rank=status_rank,
+            rn=Window(
+                expression=RowNumber(),
+                partition_by=[F('task_id')],
+                order_by=[
+                    F('points').desc(),
+                    F('status_rank').desc(),
+                    F('time').asc(),
+                ],
+            ),
+        )
+        .filter(rn=1)
+        .values('task_id', 'points', 'status')
+    )
+    best_by = {r['task_id']: r for r in best_rows}
+
+    has_attempt_tasks = set(
+        att_qs.values_list('task_id', flat=True).distinct()
+    )
+
+    hint_rows = list(
+        HintAttempt.objects.filter(hint__task_id__in=task_ids, is_real_request=True)
+        .filter(**actor.filter_kwargs())
+        .values('hint__task_id', 'hint__desc', 'hint__points_penalty')
+    )
+    penalties: Dict[int, float] = {tid: 0.0 for tid in task_ids}
+    has_hint_tasks: Set[int] = set()
+    for hr in hint_rows:
+        tid = hr['hint__task_id']
+        if tid not in penalties:
+            continue
+        has_hint_tasks.add(tid)
+        if is_raddle_in_game_assist_hint(SimpleNamespace(desc=hr['hint__desc'])):
+            continue
+        try:
+            penalties[tid] += float(hr['hint__points_penalty'] or 0)
+        except (TypeError, ValueError):
+            pass
+
+    result: Dict[int, Tuple[float, bool, Optional[str]]] = {}
+    for tid in task_ids:
+        best = best_by.get(tid)
+        best_points = float(best['points'] or 0) if best else 0.0
+        best_status = best['status'] if best else None
+        penalty = penalties.get(tid, 0.0)
+        pts = max(0.0, best_points - penalty)
+        has_any = (tid in has_attempt_tasks) or (tid in has_hint_tasks)
+        result[tid] = (pts, has_any, best_status)
+    return result
+
+
+def _bulk_actor_task_result_points_orm(
+    *,
+    task_ids: list,
+    actor: Actor,
+    mode: str = "general",
+    game=None,
+    include_other_games: bool = False,
+) -> Dict[int, Tuple[float, bool, Optional[str]]]:
     # Attempts
     att_qs = Attempt.manager.filter(task_id__in=task_ids, skip=False).filter(**actor.filter_kwargs())
     if (game is not None) and (not include_other_games):
@@ -135,18 +239,9 @@ def bulk_actor_task_result_points(
         .select_related("hint", "hint__task")
         .order_by("time")
     )
-    if (game is not None) and (not include_other_games):
-        # HintAttempt has no direct FK to game; attempts are scoped by tasks anyway.
-        # We keep the behavior consistent: when scoping to one game, only attempts
-        # with Attempt.game=game will exist, and hints are still included for that task.
-        # (This matches results pages behavior: hints are not game-scoped.)
-        pass
     hint_attempts = list(hint_qs)
 
     if mode == "tournament":
-        # Reuse existing tournament filter logic (by time window / access rules).
-        # It expects rows that behave like Attempt / HintAttempt, and uses game
-        # to resolve tournament window.
         from games.models import Attempt as AttemptModel
 
         attempts = AttemptModel.manager.filter_attempts_with_mode(attempts, mode, hint_game=game)
@@ -156,7 +251,6 @@ def bulk_actor_task_result_points(
         )
         hint_attempts = list(hint_attempts)
 
-    # Group by task_id
     task_to_attempts: Dict[int, list] = {tid: [] for tid in task_ids}
     for a in attempts:
         if a.task_id in task_to_attempts:
@@ -168,7 +262,6 @@ def bulk_actor_task_result_points(
         if tid in task_to_hints:
             task_to_hints[tid].append(ha)
 
-    # Compute points
     result: Dict[int, Tuple[float, bool, Optional[str]]] = {}
     for tid in task_ids:
         att = task_to_attempts.get(tid, [])

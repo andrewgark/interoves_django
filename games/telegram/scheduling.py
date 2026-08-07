@@ -171,41 +171,103 @@ def _teams_with_all_tasks_ok(game: Game) -> list[tuple[Team, int, object]]:
     """Teams with Ok on every visible game task, plus (hint_count, hint_penalty)."""
     from decimal import Decimal
 
+    from django.db.models import Case, F, IntegerField, Value, When, Window
+    from django.db.models.functions import RowNumber
+
+    from games.models import Attempt, HintAttempt, Team
+    from games.raddle import is_raddle_in_game_assist_hint
     from games.views.new_ui import _load_results_placements_and_tasks
 
     _placements, _tg_map, _tasks_flat, task_ids, _headers = _load_results_placements_and_tasks(game)
     if not task_ids:
         return []
 
-    bulk = Attempt.manager.get_bulk_game_actor_rows(task_ids, mode='tournament', game=game)
-    ok_counts: dict[int, int] = {}
-    hint_counts: dict[int, int] = {}
-    hint_penalties: dict[int, Decimal] = {}
-    teams_by_id: dict[int, Team] = {}
-    for _task_id, rows in bulk.items():
-        for participant, info in rows:
-            if not isinstance(participant, Team):
-                continue
-            tid = participant.pk
-            teams_by_id[tid] = participant
-            hint_counts[tid] = hint_counts.get(tid, 0) + _scoring_hint_count(info)
-            hint_penalties[tid] = hint_penalties.get(tid, Decimal(0)) + Decimal(
-                str(info.get_sum_hint_penalty() or 0)
-            )
-            best = info.best_attempt
-            if best is None or best.status != 'Ok':
-                continue
+    # Tournament window = attempt_is_tournament (start_time <= time <= end_time).
+    att_base = Attempt.manager.filter(
+        task_id__in=task_ids,
+        skip=False,
+        game=game,
+        team_id__isnull=False,
+        user__isnull=True,
+        anon_key__isnull=True,
+    )
+    if game.start_time is not None:
+        att_base = att_base.filter(time__gte=game.start_time)
+    if game.end_time is not None:
+        att_base = att_base.filter(time__lte=game.end_time)
+
+    status_rank = Case(
+        When(status='Ok', then=Value(3)),
+        When(status='Partial', then=Value(2)),
+        When(status='Pending', then=Value(1)),
+        When(status='Wrong', then=Value(0)),
+        default=Value(-1),
+        output_field=IntegerField(),
+    )
+    best_rows = (
+        att_base.annotate(
+            status_rank=status_rank,
+            rn=Window(
+                expression=RowNumber(),
+                partition_by=[F('task_id'), F('team_id')],
+                order_by=[
+                    F('points').desc(),
+                    F('status_rank').desc(),
+                    F('time').asc(),
+                ],
+            ),
+        )
+        .filter(rn=1)
+        .values('task_id', 'team_id', 'status')
+    )
+
+    ok_counts: dict = {}
+    for row in best_rows:
+        tid = row['team_id']
+        if row['status'] == 'Ok':
             ok_counts[tid] = ok_counts.get(tid, 0) + 1
 
+    # Hints: same tournament window on HintAttempt.time
+    hint_qs = HintAttempt.objects.filter(
+        hint__task_id__in=task_ids,
+        is_real_request=True,
+        team_id__isnull=False,
+        user__isnull=True,
+        anon_key__isnull=True,
+    ).select_related('hint')
+    if game.start_time is not None:
+        hint_qs = hint_qs.filter(time__gte=game.start_time)
+    if game.end_time is not None:
+        hint_qs = hint_qs.filter(time__lte=game.end_time)
+
+    hint_counts: dict = {}
+    hint_penalties: dict = {}
+    for ha in hint_qs:
+        tid = ha.team_id
+        if not tid:
+            continue
+        hint = ha.hint
+        if hint is None or is_raddle_in_game_assist_hint(hint):
+            continue
+        hint_counts[tid] = hint_counts.get(tid, 0) + 1
+        hint_penalties[tid] = hint_penalties.get(tid, Decimal(0)) + Decimal(
+            str(hint.points_penalty or 0)
+        )
+
     n_tasks = len(task_ids)
+    winner_ids = [tid for tid, count in ok_counts.items() if count >= n_tasks]
+    if not winner_ids:
+        return []
+
+    teams_by_id = {t.pk: t for t in Team.objects.filter(pk__in=winner_ids, is_hidden=False)}
     winners = [
         (
             teams_by_id[tid],
             hint_counts.get(tid, 0),
             hint_penalties.get(tid, Decimal(0)),
         )
-        for tid, count in ok_counts.items()
-        if count >= n_tasks
+        for tid in winner_ids
+        if tid in teams_by_id
     ]
     winners.sort(key=lambda row: ((row[0].visible_name or row[0].name or '').lower(), row[0].pk))
     return winners

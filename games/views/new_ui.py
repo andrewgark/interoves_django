@@ -1603,11 +1603,24 @@ def _new_results_compute(game, mode):
         _load_results_placements_and_tasks(game)
     )
 
-    # 2 queries: all attempts + all hint attempts for the whole game at once.
-    # Sections (general): same TaskGroup can appear in several games — unscoped bulk
-    # except ladder (TaskGroups live only on game=ladder). See results_attempts_scope_game.
+    # General: SQL aggregates (same as live ladder snapshot). Tournament windows and
+    # alphabetty letter-hint penalty still need the ORM bulk path.
     bulk_game = results_attempts_scope_game(game, mode)
-    bulk_rows = Attempt.manager.get_bulk_game_actor_rows(task_ids, mode=mode, game=bulk_game)
+    if mode == 'general':
+        from games.results_sql_aggregate import (
+            get_sql_aggregated_game_actor_rows,
+            tasks_need_orm_results_aggregate,
+        )
+        if tasks_need_orm_results_aggregate(tasks_flat):
+            bulk_rows = Attempt.manager.get_bulk_game_actor_rows(
+                task_ids, mode='general', game=bulk_game,
+            )
+        else:
+            bulk_rows = get_sql_aggregated_game_actor_rows(task_ids, game=bulk_game)
+    else:
+        bulk_rows = Attempt.manager.get_bulk_game_actor_rows(
+            task_ids, mode=mode, game=bulk_game,
+        )
 
     for task in tasks_flat:
         for participant, attempts_info in bulk_rows.get(task.id, []):

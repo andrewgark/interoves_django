@@ -2,15 +2,29 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
+from types import SimpleNamespace
+
+from django.contrib.auth.models import User
+from django.db.models import Case, F, Max, Q, Value, When, Window
+from django.db.models.functions import RowNumber
 from django.utils import timezone
 
-from games.models import Attempt, ChainTaskState, PersonalResultsParticipant, Team
+from games.models import (
+    Attempt,
+    ChainTaskState,
+    HintAttempt,
+    PersonalResultsParticipant,
+    Team,
+    hidden_anon_keys,
+)
 from games.raddle import (
     load_raddle_state,
     parse_raddle_data,
     resolve_assist_tiers,
     word_solve_credit,
 )
+from games.results_sql_aggregate import _actor_key_annotation, _parse_actor_key
 
 
 class _WordColHeader:
@@ -49,14 +63,6 @@ def _hint_numbers_for_tier(tier):
     return []
 
 
-def _state_from_attempts_info(ai, n_words):
-    state = load_raddle_state(None, n_words)
-    for a in reversed(ai.attempts or []):
-        if getattr(a, 'state', None):
-            return load_raddle_state(a.state, n_words)
-    return state
-
-
 def _load_chain_states_by_actor(task, game):
     """
     Map actor key → ChainTaskState.state for game_mode=general.
@@ -76,15 +82,104 @@ def _load_chain_states_by_actor(task, game):
     return out
 
 
-def _actor_key(participant):
-    if isinstance(participant, Team):
-        return ('team', participant.pk)
-    if isinstance(participant, PersonalResultsParticipant):
-        if participant.user_id is not None:
-            return ('user', participant.user_id)
-        if participant.anon_key:
-            return ('anon', participant.anon_key)
-    return None
+def _load_fallback_attempt_states(task, game):
+    """
+    Latest non-empty Attempt.state per actor (values only — no ORM hydrate of all attempts).
+    Used when ChainTaskState is missing (legacy / tests).
+    """
+    qs = (
+        Attempt.manager.filter(task=task, game=game, skip=False)
+        .exclude(Q(state__isnull=True) | Q(state=''))
+        .annotate(
+            actor_key=_actor_key_annotation(),
+            rn=Window(
+                expression=RowNumber(),
+                partition_by=[F('actor_key')],
+                order_by=[F('time').desc()],
+            ),
+        )
+        .exclude(actor_key='')
+        .filter(rn=1)
+        .values('actor_key', 'state')
+    )
+    out = {}
+    for row in qs:
+        parsed = _parse_actor_key(row['actor_key'])
+        if parsed is None:
+            continue
+        out[parsed] = row['state']
+    return out
+
+
+def _load_max_times_by_actor(task, game):
+    rows = (
+        Attempt.manager.filter(task=task, game=game, skip=False)
+        .annotate(actor_key=_actor_key_annotation())
+        .exclude(actor_key='')
+        .values('actor_key')
+        .annotate(max_time=Max('time'))
+    )
+    out = {}
+    for row in rows:
+        parsed = _parse_actor_key(row['actor_key'])
+        if parsed is None:
+            continue
+        out[parsed] = row['max_time']
+    return out
+
+
+def _load_assist_hint_attempts_by_actor(task):
+    """actor key → list of fake HintAttempt-like objects for resolve_assist_tiers."""
+    rows = (
+        HintAttempt.objects.filter(hint__task=task, is_real_request=True)
+        .filter(
+            Q(hint__desc__istartswith='raddle_clue:')
+            | Q(hint__desc__istartswith='raddle_answer:')
+        )
+        .values('team_id', 'user_id', 'anon_key', 'hint__desc')
+    )
+    out = defaultdict(list)
+    for row in rows:
+        if row['team_id']:
+            key = ('team', row['team_id'])
+        elif row['user_id']:
+            key = ('user', row['user_id'])
+        elif row['anon_key']:
+            key = ('anon', row['anon_key'])
+        else:
+            continue
+        # resolve_assist_tiers only needs hint.desc + is_real_request
+        out[key].append(SimpleNamespace(
+            is_real_request=True,
+            hint=SimpleNamespace(desc=row['hint__desc']),
+        ))
+    return out
+
+
+def _resolve_participants(actor_keys):
+    hidden_anons = hidden_anon_keys()
+    team_ids = {raw for kind, raw in actor_keys if kind == 'team'}
+    user_ids = {raw for kind, raw in actor_keys if kind == 'user'}
+    teams = {t.pk: t for t in Team.objects.filter(pk__in=team_ids)} if team_ids else {}
+    users = {u.pk: u for u in User.objects.filter(pk__in=user_ids)} if user_ids else {}
+    participants = {}
+    for key in actor_keys:
+        kind, raw = key
+        if kind == 'team':
+            team = teams.get(raw)
+            if team is None or team.is_hidden:
+                continue
+            participants[key] = team
+        elif kind == 'user':
+            user = users.get(raw)
+            if user is None:
+                continue
+            participants[key] = PersonalResultsParticipant(user=user)
+        else:
+            if raw in hidden_anons:
+                continue
+            participants[key] = PersonalResultsParticipant(anon_key=raw)
+    return participants
 
 
 def build_ladder_word_results_context(game, placement, task):
@@ -93,6 +188,9 @@ def build_ladder_word_results_context(game, placement, task):
 
     Columns = middle words (indices 1..n-2). Cell points = word credit × task.points.
     hint_numbers = [1] and/or [2] from assist tier.
+
+    Built from ChainTaskState + light SQL (max time, fallback Attempt.state, assist hints)
+    — does not hydrate every Attempt ORM row.
     """
     parsed = parse_raddle_data(task)
     if not parsed:
@@ -124,32 +222,35 @@ def build_ladder_word_results_context(game, placement, task):
     task_group_to_tasks = {h.number: [_WordColTask(h.number)] for h in task_groups}
 
     chain_by_actor = _load_chain_states_by_actor(task, game)
-    actor_rows = Attempt.manager.get_general_results_task_actor_rows(task=task, game=game)
+    fallback_states = _load_fallback_attempt_states(task, game)
+    max_times = _load_max_times_by_actor(task, game)
+    assist_hints = _load_assist_hint_attempts_by_actor(task)
+
+    actor_keys = set(chain_by_actor) | set(fallback_states) | set(max_times) | set(assist_hints)
+    participants = _resolve_participants(actor_keys)
 
     team_to_score = {}
     team_to_max_best_time = {}
     team_to_cells = {}
     team_to_list_attempts_info = {}
 
-    for participant, ai in actor_rows:
-        if not (ai.attempts or ai.hint_attempts):
+    for key, participant in participants.items():
+        raw_state = chain_by_actor.get(key)
+        if raw_state is None:
+            raw_state = fallback_states.get(key)
+        if raw_state is None and key not in assist_hints:
+            # Attempts without state and without assists — nothing to show in word cols.
             continue
 
-        key = _actor_key(participant)
-        raw_state = chain_by_actor.get(key) if key else None
-        if raw_state:
-            state = load_raddle_state(raw_state, n_words)
-        else:
-            state = _state_from_attempts_info(ai, n_words)
-
-        solved = set(state.get('solved_indices') or [])
-        tiers = resolve_assist_tiers(state, ai.hint_attempts)
+        state = load_raddle_state(raw_state, n_words)
+        tiers = resolve_assist_tiers(state, assist_hints.get(key))
 
         cells = []
         score = 0.0
         for wi in middle_indices:
             tier = tiers.get(wi, 0)
             hint_numbers = _hint_numbers_for_tier(tier)
+            solved = set(state.get('solved_indices') or [])
             if wi in solved:
                 points = _to_float(word_solve_credit(tier, assist_cfg)) * task_mul
                 if max_word_points > 0 and points >= max_word_points - 1e-9:
@@ -172,18 +273,16 @@ def build_ladder_word_results_context(game, placement, task):
                 'hint_numbers': hint_numbers,
             })
 
+        # Skip empty rows (no solved middles and no assist markers).
+        if score <= 0 and not any(c['hint_numbers'] or c['n_attempts'] for c in cells):
+            if not (state.get('solved_indices') or assist_hints.get(key)):
+                continue
+
         team_to_score[participant] = score
         team_to_cells[participant] = cells
         team_to_list_attempts_info[participant] = [None] * len(cells)
 
-        best_time = None
-        if ai.best_attempt is not None and getattr(ai.best_attempt, 'time', None):
-            best_time = ai.best_attempt.time
-        elif ai.attempts:
-            try:
-                best_time = max(a.time for a in ai.attempts if a.time)
-            except ValueError:
-                best_time = None
+        best_time = max_times.get(key)
         if best_time is not None:
             team_to_max_best_time[participant] = best_time
 
@@ -219,7 +318,6 @@ def build_ladder_word_results_context(game, placement, task):
 
 
 def ladder_word_results_headers_context(task):
-    """Headers only (progressive first paint)."""
     parsed = parse_raddle_data(task)
     if not parsed:
         return {
@@ -228,11 +326,11 @@ def ladder_word_results_headers_context(task):
             'ladder_word_count': 0,
         }
     n_words = parsed['n_words']
-    middle_count = max(0, n_words - 2)
-    task_groups = [_WordColHeader(i) for i in range(1, middle_count + 1)]
+    middle_indices = list(range(1, max(0, n_words - 1)))
+    task_groups = [_WordColHeader(i) for i in range(1, len(middle_indices) + 1)]
     task_group_to_tasks = {h.number: [_WordColTask(h.number)] for h in task_groups}
     return {
         'task_groups': task_groups,
         'task_group_to_tasks': task_group_to_tasks,
-        'ladder_word_count': middle_count,
+        'ladder_word_count': len(middle_indices),
     }
