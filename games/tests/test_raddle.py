@@ -502,6 +502,35 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertFalse(any(r['compact_hidden'] for r in ctx['rows']))
         self.assertEqual(ctx['collapsed_solved_count'], 0)
 
+    def test_middle_rows_are_draftable_not_playable(self):
+        parsed = parse_raddle_data(_task())
+        ctx = build_raddle_ui_context(parsed, default_raddle_state(13))
+        self.assertTrue(ctx['rows'][1]['is_playable'])
+        self.assertFalse(ctx['rows'][1]['is_draftable'])
+        self.assertTrue(ctx['rows'][11]['is_playable'])
+        self.assertFalse(ctx['rows'][11]['is_draftable'])
+        for i in range(2, 11):
+            self.assertTrue(ctx['rows'][i]['is_draftable'], msg='index {}'.format(i))
+            self.assertFalse(ctx['rows'][i]['is_playable'], msg='index {}'.format(i))
+        self.assertFalse(ctx['rows'][0]['is_draftable'])
+        self.assertFalse(ctx['rows'][12]['is_draftable'])
+
+    def test_exhausted_playable_edge_is_not_draftable(self):
+        parsed = parse_raddle_data(_task())
+        state = default_raddle_state(13)
+        attempts = [
+            type('A', (), {'text': json.dumps({'word_index': 1, 'word': 'X'})})()
+            for _ in range(3)
+        ]
+        ctx = build_raddle_ui_context(
+            parsed, state, attempts, max_attempts=3, mode='tournament',
+        )
+        row1 = ctx['rows'][1]
+        self.assertTrue(row1['attempts_exhausted'])
+        self.assertFalse(row1['is_playable'])
+        self.assertFalse(row1['is_draftable'])
+        self.assertTrue(ctx['rows'][2]['is_draftable'])
+
     def test_used_hint_display_shows_arrow_to_next(self):
         from games.raddle import used_clue_display
         parsed = parse_raddle_data(_task())

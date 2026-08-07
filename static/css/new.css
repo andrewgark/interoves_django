@@ -3770,13 +3770,20 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 /* Заголовок раздела с кнопкой «Правила» */
 .new-section-header {
   display: flex;
-  align-items: center;
+  /* flex-start: ?/eye напротив заголовка, не по центру блока title+theme */
+  align-items: flex-start;
   gap: 0.75rem;
   flex-wrap: wrap;
-  margin-bottom: 0.25rem;
+  /* spacing below was on .new-heading--page; zeroed when nested here */
+  margin-bottom: 1rem;
+}
+
+.new-section-header .new-heading {
+  margin: 0;
 }
 
 .new-section-header--results {
+  align-items: center;
   margin-bottom: 0.75rem;
 }
 
@@ -5039,6 +5046,28 @@ html.is-age-gated .new-wrap {
 .new-raddle-row--locked .new-raddle-block__word {
   opacity: 0.72;
 }
+.new-raddle-row--draft .new-raddle-block__word,
+.new-raddle-row--draft .new-raddle-block__check {
+  background: var(--surface);
+  box-shadow: none;
+}
+.new-raddle-row--draft .new-raddle-block__word {
+  opacity: 0.88;
+}
+.new-raddle-draft-mark {
+  display: none;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: help;
+}
+.new-raddle-draft-mark:not([hidden]) {
+  display: inline-flex;
+  align-items: center;
+}
+.new-raddle-draft-mark .ph {
+  color: var(--muted);
+}
 .new-raddle-block__word--solved {
   font-weight: inherit;
 }
@@ -5293,6 +5322,9 @@ html.is-age-gated .new-wrap {
   background: var(--border);
 }
 .new-raddle-clue {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
   padding: 0.4rem 0;
   border-bottom: 1px solid var(--border);
   font-size: 0.92rem;
@@ -5302,8 +5334,52 @@ html.is-age-gated .new-wrap {
 .new-raddle-clue:last-child {
   border-bottom: none;
 }
+.new-raddle-clue__mark {
+  flex: 0 0 auto;
+  position: relative;
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-top: 0.28rem;
+  padding: 0;
+  border: 1.5px solid color-mix(in srgb, var(--muted) 55%, var(--border));
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+}
+/* Расширяем зону нажатия без визуального увеличения кружка */
+.new-raddle-clue__mark::before {
+  content: '';
+  position: absolute;
+  inset: -0.45rem;
+}
+.new-raddle-clue__mark:hover {
+  border-color: color-mix(in srgb, var(--muted) 80%, var(--text));
+}
+.new-raddle-clue__mark:focus {
+  outline: none;
+}
+.new-raddle-clue__mark:focus-visible {
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.new-raddle-clue--struck .new-raddle-clue__mark {
+  border-color: color-mix(in srgb, var(--muted) 70%, var(--text));
+  background: color-mix(in srgb, var(--muted) 18%, transparent);
+}
+.new-raddle-clue--struck .new-raddle-clue__text {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  opacity: 0.62;
+}
+.new-raddle-clue__text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
 .new-raddle-clue--used {
   color: var(--muted);
+}
+.new-raddle-clues__list--used .new-raddle-clue {
+  display: block;
 }
 .new-raddle-clue--revealed {
   background: color-mix(in srgb, var(--raddle-after) 14%, var(--surface));

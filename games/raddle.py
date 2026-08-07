@@ -969,6 +969,8 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             and word_attempts[i] >= max_attempts
         )
         is_playable = is_open and not attempts_exhausted
+        # Средние (некрайние) нерешённые: можно печатать черновик, но не сдавать.
+        is_draftable = (not is_solved) and (i not in playable)
         tier = assist_tiers.get(i, 0)
         clue_hi = (
             clue_index_for_playable_word(i, solved, n) if is_playable else None
@@ -1019,6 +1021,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             'input_size': input_size_for_mask(mask, canon),
             'is_solved': is_solved,
             'is_playable': is_playable,
+            'is_draftable': is_draftable,
             'attempts_exhausted': is_open and attempts_exhausted,
             'is_given': i == 0 or i == n - 1,
             'compact_hidden': False,

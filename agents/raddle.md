@@ -33,6 +33,9 @@
 - `raddleLast` — блокировка двойной отправки **того же** значения; ставится только если fetch реально ушёл; сбрасывается при ошибке сети, при `length !== maxlength`, при sync.
 - `paste` — fallback через `setTimeout(0)` только если busy / уже отправлено.
 - Разделение: `syncRaddleUiAfterAdvance` (перерисовка) vs `showRaddleWrongFeedback` (локальная обратная связь).
+- **Черновики середины** (`is_draftable` / `data-raddle-draft`): инпут без формы и без auto-submit; сервер по-прежнему принимает только крайние из `playable_word_indices`. Текст в `sessionStorage` (`raddle_drafts_<taskId>`), чтобы пережить `applyNewUiTaskHtml`.
+- **Каскад после advance:** после `focusRaddleNext` если сфокусированный playable уже полный и есть `data-raddle-auto` — `submitRaddleAuto` (цепочка с того же конца). В турнире каскада нет (нет auto).
+- **Метки подсказок:** кружок у unused clues — только UI (`sessionStorage`), на проверку не влияет; в «Использованные» кружка нет.
 
 ## Тесты
 
@@ -75,5 +78,8 @@
 4. **Paste полного слова** — в Network ровно **один** POST на слово.
 5. **Верное слово** — строка закрывается, фокус на следующей playable.
 6. **Throttle Slow 3G** — верный ответ, повтор того же → `duplicate` + `raddle_duplicate_solved: true`, UI синхронизируется **без** лишнего шага.
+7. **Черновик середины** — ввод в некрайнее поле: hourglass, **нет** POST; фокус на draft **не** перекрашивает крайние.
+8. **Каскад** — заполнить следующее среднее верным словом, сдать текущее крайнее → следующий POST уходит сам (если полный черновик).
+9. **Кружок подсказки** — strikethrough на unused; после ухода подсказки в «Использованные» кружка и struck нет.
 
 При багрепорте приложить из Network JSON ответа: `status`, `raddle_correct`, `raddle_needs_sync`, `raddle_duplicate_solved`, `raddle_word_index`.

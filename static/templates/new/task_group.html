@@ -1279,6 +1279,169 @@
     }
   }
 
+  var raddleRestoringDrafts = false;
+
+  // Черновики средних слов + struck-метки подсказок (sessionStorage переживает re-render HTML).
+  function raddleDraftsStorageKey(taskId) {
+    return 'raddle_drafts_' + taskId;
+  }
+  function raddleClueMarksStorageKey(taskId) {
+    return 'raddle_clue_marks_' + taskId;
+  }
+  function readRaddleJsonMap(key) {
+    try {
+      var raw = sessionStorage.getItem(key);
+      if (!raw) return {};
+      var o = JSON.parse(raw);
+      return o && typeof o === 'object' && !Array.isArray(o) ? o : {};
+    } catch (e) {
+      return {};
+    }
+  }
+  function writeRaddleJsonMap(key, obj) {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(obj || {}));
+    } catch (e) {}
+  }
+  function raddleRowWordIndex(row, input) {
+    if (row && row.getAttribute) {
+      var fromRow = row.getAttribute('data-word-index');
+      if (fromRow !== null && fromRow !== '') return String(fromRow);
+    }
+    if (input && input.getAttribute) {
+      var fromInput = input.getAttribute('data-word-index');
+      if (fromInput !== null && fromInput !== '') return String(fromInput);
+    }
+    return '';
+  }
+  function updateRaddleDraftHourglass(row, letters) {
+    if (!row || !row.classList.contains('new-raddle-row--draft')) return;
+    var mark = row.querySelector('.new-raddle-draft-mark');
+    if (!mark) return;
+    if (letters && String(letters).length) {
+      mark.removeAttribute('hidden');
+    } else {
+      mark.setAttribute('hidden', '');
+    }
+  }
+  function saveRaddleDraftLetters(input, letters) {
+    if (!input || raddleRestoringDrafts) return;
+    var taskRoot = input.closest('.new-raddle-task');
+    var row = input.closest('.new-raddle-row');
+    if (!taskRoot || !row || row.closest('.new-raddle-sticky-pin')) return;
+    var taskId = taskRoot.getAttribute('data-task-id');
+    var idx = raddleRowWordIndex(row, input);
+    if (!taskId || !idx) return;
+    var key = raddleDraftsStorageKey(taskId);
+    var drafts = readRaddleJsonMap(key);
+    var val = letters || '';
+    if (val) {
+      drafts[idx] = val;
+    } else {
+      delete drafts[idx];
+    }
+    writeRaddleJsonMap(key, drafts);
+    updateRaddleDraftHourglass(row, val);
+  }
+  function restoreRaddleDrafts(taskRoot) {
+    if (!taskRoot) return;
+    var taskId = taskRoot.getAttribute('data-task-id');
+    if (!taskId) return;
+    var key = raddleDraftsStorageKey(taskId);
+    var drafts = readRaddleJsonMap(key);
+    var keep = {};
+    var table = getRaddleLadderTable(taskRoot);
+    // Нет таблицы — не трогаем storage (не затираем черновики из-за гонки DOM).
+    if (!table) return;
+    raddleRestoringDrafts = true;
+    try {
+      table.querySelectorAll('.new-raddle-row[data-word-index]').forEach(function (row) {
+        if (row.classList.contains('new-raddle-row--solved')) return;
+        var idx = row.getAttribute('data-word-index');
+        var input = row.querySelector('input.new-raddle-input[data-raddle-format]');
+        if (!input || !idx) return;
+        var current = getRaddleInputLetters(input);
+        // Уже заполненное (💡💡 revealed или bind с value) не перезаписываем черновиком.
+        if (current) {
+          keep[String(idx)] = current;
+          updateRaddleDraftHourglass(row, current);
+          return;
+        }
+        var letters = drafts[String(idx)] || '';
+        if (letters) {
+          keep[String(idx)] = letters;
+          softSetRaddleLetters(input, letters);
+        }
+        updateRaddleDraftHourglass(row, letters);
+      });
+      writeRaddleJsonMap(key, keep);
+    } finally {
+      raddleRestoringDrafts = false;
+    }
+  }
+  function setRaddleClueStruck(taskRoot, hintIndex, struck) {
+    if (!taskRoot || hintIndex === null || hintIndex === undefined || hintIndex === '') return;
+    taskRoot.querySelectorAll(
+      '.new-raddle-clues__section--unused .new-raddle-clue[data-hint-index="' + hintIndex + '"]'
+    ).forEach(function (li) {
+      li.classList.toggle('new-raddle-clue--struck', !!struck);
+      var btn = li.querySelector('.new-raddle-clue__mark');
+      if (btn) btn.setAttribute('aria-pressed', struck ? 'true' : 'false');
+    });
+  }
+  function restoreRaddleClueMarks(taskRoot) {
+    if (!taskRoot) return;
+    var taskId = taskRoot.getAttribute('data-task-id');
+    if (!taskId) return;
+    var key = raddleClueMarksStorageKey(taskId);
+    var marks = readRaddleJsonMap(key);
+    var keep = {};
+    var unused = taskRoot.querySelectorAll(
+      '.new-raddle-clues__section--unused .new-raddle-clue[data-hint-index]'
+    );
+    var present = {};
+    unused.forEach(function (li) {
+      present[String(li.getAttribute('data-hint-index'))] = true;
+    });
+    Object.keys(marks).forEach(function (hi) {
+      if (!marks[hi] || !present[hi]) return;
+      keep[hi] = true;
+      setRaddleClueStruck(taskRoot, hi, true);
+    });
+    writeRaddleJsonMap(key, keep);
+  }
+  function toggleRaddleClueMark(taskRoot, hintIndex) {
+    if (!taskRoot || hintIndex === null || hintIndex === undefined || hintIndex === '') return;
+    var taskId = taskRoot.getAttribute('data-task-id');
+    if (!taskId) return;
+    var key = raddleClueMarksStorageKey(taskId);
+    var marks = readRaddleJsonMap(key);
+    var hi = String(hintIndex);
+    var next = !marks[hi];
+    if (next) {
+      marks[hi] = true;
+    } else {
+      delete marks[hi];
+    }
+    writeRaddleJsonMap(key, marks);
+    setRaddleClueStruck(taskRoot, hi, next);
+  }
+  function maybeCascadeRaddlePlayable(taskRoot) {
+    if (!taskRoot) return;
+    var focusRow = taskRoot.querySelector(
+      '.new-raddle-ladder .new-raddle-row--focus.new-raddle-row--playable'
+    );
+    if (!focusRow) return;
+    var input = focusRow.querySelector('input.new-raddle-input[data-raddle-auto="1"]');
+    if (!input) return;
+    var letters = getRaddleInputLetters(input);
+    var fmt = input.getAttribute('data-raddle-format') || '';
+    var target = (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.slotCount)
+      ? RaddleMaskedInput.slotCount(fmt) : 0;
+    if (!target || !letters || letters.length !== target) return;
+    submitRaddleAuto(input, letters);
+  }
+
   // Raddle auto-submit — контракт: agents/raddle.md, games/raddle_response_contract.py
   function syncRaddleUiAfterAdvance(form, data, row, input, wordIdx) {
     var refRole = row ? (row.getAttribute('data-ref-role') || 'prev') : 'prev';
@@ -1286,8 +1449,11 @@
       ? data.raddle_word_index : wordIdx;
     if (input) delete input.dataset.raddleLast;
     if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+      var taskId = form.getAttribute('data-task-id');
       applyNewUiTaskHtml(data.update_task_html_new);
-      focusRaddleNext(form.getAttribute('data-task-id'), solvedIdx, refRole);
+      focusRaddleNext(taskId, solvedIdx, refRole);
+      var fresh = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
+      maybeCascadeRaddlePlayable(fresh);
       return true;
     }
     window.location.reload();
@@ -1420,18 +1586,20 @@
   function raddleMaskedHooks() {
     return {
       onChange: function (input, letters) {
-        if (!input || raddlePinSyncing) return;
+        if (!input || raddlePinSyncing || raddleRestoringDrafts) return;
         if (input.getAttribute('data-raddle-pin-proxy') === '1') {
           var realPin = findRealRaddleInputFromPin(input);
           if (realPin) {
             softSetRaddleLetters(realPin, letters);
             clearRaddleWrong(realPin.closest('.new-raddle-row'));
             delete realPin.dataset.raddleLast;
+            saveRaddleDraftLetters(realPin, letters);
           }
           return;
         }
         // Пока пин виден — пишем в него, а не в уехавшую настоящую форму.
         maybeStealRaddleFocusToPin(input, letters);
+        saveRaddleDraftLetters(input, letters);
         if (input.getAttribute('data-raddle-auto') !== '1') return;
         var row = input.closest('.new-raddle-row');
         var fmt = input.getAttribute('data-raddle-format') || '';
@@ -1443,16 +1611,18 @@
         }
       },
       onComplete: function (input, letters) {
-        if (!input || raddlePinSyncing) return;
+        if (!input || raddlePinSyncing || raddleRestoringDrafts) return;
         if (input.getAttribute('data-raddle-pin-proxy') === '1') {
           var realDone = findRealRaddleInputFromPin(input);
           if (realDone) {
             softSetRaddleLetters(realDone, letters);
+            saveRaddleDraftLetters(realDone, letters);
             submitRaddleAuto(realDone, letters);
           }
           return;
         }
         maybeStealRaddleFocusToPin(input, letters);
+        saveRaddleDraftLetters(input, letters);
         if (input.getAttribute('data-raddle-auto') !== '1') return;
         submitRaddleAuto(input, letters);
       },
@@ -2315,10 +2485,12 @@
     var taskBottom = taskRoot.getBoundingClientRect().bottom;
     var pinH = pin.offsetHeight || (rows.length * 48);
     // Пока первая выделенная строка ушла под шапку и задание ещё на экране.
-    var shouldShow = firstTop <= navTop + 0.5 && taskBottom > navTop + Math.min(pinH, 24);
-    // Клавиатура / visualViewport сдвигают геометрию — не прячем пин и не
-    // переносим фокус, пока пользователь печатает в sticky-поле.
-    if (raddlePinHasFocus(pin)) shouldShow = true;
+    // При фокусе в sticky игнорируем только taskBottom: клавиатура сжимает
+    // visualViewport и ложно прячет пин. firstTop по-прежнему снимает пин,
+    // когда реальные строки снова видны под шапкой.
+    var underNav = firstTop <= navTop + 0.5;
+    var taskStillVisible = taskBottom > navTop + Math.min(pinH, 24);
+    var shouldShow = underNav && (taskStillVisible || raddlePinHasFocus(pin));
     var wasActive = pin.classList.contains('is-active');
     if (shouldShow) {
       if (!wasActive) syncRaddleStickyPinInputsFromReal(taskRoot, pin);
@@ -2403,6 +2575,8 @@
     var scope = root || document;
     bindRaddleMaskedInputs(scope);
     scope.querySelectorAll('.new-raddle-task').forEach(function (taskRoot) {
+      restoreRaddleDrafts(taskRoot);
+      restoreRaddleClueMarks(taskRoot);
       var focus = taskRoot.getAttribute('data-default-focus');
       if (focus !== null && focus !== '') {
         setRaddleFocus(taskRoot, focus);
@@ -2443,8 +2617,25 @@
     maybeStealRaddleFocusToPin(input);
   });
 
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.keyCode !== 13) return;
+    var draft = e.target && e.target.closest ? e.target.closest('[data-raddle-draft="1"]') : null;
+    if (!draft) return;
+    e.preventDefault();
+  });
+
   // Копирование результата (как в Wordle): копируем ровно то, что показано в блоке.
   document.addEventListener('click', function (e) {
+    var markBtn = e.target && e.target.closest ? e.target.closest('.new-raddle-clue__mark') : null;
+    if (markBtn) {
+      e.preventDefault();
+      var clueLi = markBtn.closest('.new-raddle-clue');
+      var markRoot = markBtn.closest('.new-raddle-task');
+      if (clueLi && markRoot) {
+        toggleRaddleClueMark(markRoot, clueLi.getAttribute('data-hint-index'));
+      }
+      return;
+    }
     var btn = e.target && e.target.closest ? e.target.closest('.new-raddle-result__copy') : null;
     if (!btn) return;
     e.preventDefault();
