@@ -496,6 +496,29 @@ html.new-ui-dark body.new-ui {
   gap: 0.5rem;
 }
 
+.new-hub-section__title-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.14s ease;
+}
+
+.new-hub-section__title-link:hover {
+  color: var(--accent);
+}
+
+.new-hub-section__title-link:focus {
+  outline: none;
+}
+
+.new-hub-section__title-link:focus-visible {
+  color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  border-radius: 2px;
+}
+
 /*
  * Phosphor semantic colors
  * - danger: error / wrong / dislike-active

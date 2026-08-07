@@ -7,7 +7,11 @@
 <section class="new-hub-section new-hub-section--wide{% if desyatochki_card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="desyatochki-heading">
   <div class="new-hub-section__head">
     <h2 id="desyatochki-heading" class="new-hub-section__title">
-      {% include "new/partials/section_ph_icon.html" with ph_icon=desyatochki_card.ph_icon extra_class="new-hub-section__icon" %}{{ desyatochki_card.title }}
+      {% if desyatochki_card.section_url %}
+        <a class="new-hub-section__title-link" href="{{ desyatochki_card.section_url }}">{% include "new/partials/section_ph_icon.html" with ph_icon=desyatochki_card.ph_icon extra_class="new-hub-section__icon" %}{{ desyatochki_card.title }}</a>
+      {% else %}
+        {% include "new/partials/section_ph_icon.html" with ph_icon=desyatochki_card.ph_icon extra_class="new-hub-section__icon" %}{{ desyatochki_card.title }}
+      {% endif %}
     </h2>
     <button type="button" class="new-rules-trigger" aria-label="Правила Десяточки" title="Правила" data-desyatochki-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
   </div>
