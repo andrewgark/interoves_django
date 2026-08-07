@@ -275,9 +275,10 @@ def build_results_snapshot_payload(game, mode='tournament'):
     Hint penalties are included because we rely on AttemptsInfo.get_result_points()
     and AttemptsInfo.get_sum_hint_penalty().
 
-    Attempt rows are loaded via ``get_bulk_game_actor_rows`` (2 queries for all tasks),
-    matching ``_new_results_compute``. Most sections do not freeze results; the ladder
-    section uses live progressive tables instead.
+    Attempt rows for general mode are loaded via SQL aggregates
+    (``get_sql_aggregated_game_actor_rows``); tournament / alphabetty keep the
+    ORM bulk path. Most sections do not freeze results; the ladder section uses
+    live progressive tables instead.
     """
     # Use the same ordering/filtering rules as results pages.
     from django.db.models import Q
@@ -312,12 +313,26 @@ def build_results_snapshot_payload(game, mode='tournament'):
     participant_task_to_cell = {}
 
     # Sections general: cross-game TaskGroups → unscoped; ladder stays game-scoped.
-    # Same 2-query bulk path as _new_results_compute (avoids per-task attempt queries).
+    # General mode: SQL aggregates (avoid hydrating every Attempt). Tournament and
+    # alphabetty keep the ORM bulk path (tournament windows / letter-hint penalty).
     results_scope_game = results_attempts_scope_game(game, mode)
     bulk_game = results_scope_game if mode == 'general' else game
-    bulk_rows = Attempt.manager.get_bulk_game_actor_rows(
-        [t.id for t in tasks_flat], mode=mode, game=bulk_game,
-    )
+    task_ids = [t.id for t in tasks_flat]
+    if mode == 'general':
+        from games.results_sql_aggregate import (
+            get_sql_aggregated_game_actor_rows,
+            tasks_need_orm_results_aggregate,
+        )
+        if tasks_need_orm_results_aggregate(tasks_flat):
+            bulk_rows = Attempt.manager.get_bulk_game_actor_rows(
+                task_ids, mode='general', game=bulk_game,
+            )
+        else:
+            bulk_rows = get_sql_aggregated_game_actor_rows(task_ids, game=bulk_game)
+    else:
+        bulk_rows = Attempt.manager.get_bulk_game_actor_rows(
+            task_ids, mode=mode, game=bulk_game,
+        )
 
     for task in tasks_flat:
         for participant, ai in bulk_rows.get(task.id, []):

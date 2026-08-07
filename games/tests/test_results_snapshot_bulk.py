@@ -174,12 +174,15 @@ class ResultsSnapshotBulkTests(TestCase):
             ) as per_task_mock:
                 payload = build_results_snapshot_payload(self.game, mode='general')
 
-        self.assertEqual(bulk_mock.call_count, 1)
+        # General mode uses SQL aggregate (not ORM bulk / per-task).
+        self.assertEqual(bulk_mock.call_count, 0)
         self.assertEqual(per_task_mock.call_count, 0)
         self.assertEqual(payload['task_ids'], [self.task1.id, self.task2.id])
         self.assertEqual(len(payload['rows']), 3)
 
     def test_general_payload_matches_per_task_oracle(self):
+        from games.results_sql_aggregate import get_sql_aggregated_game_actor_rows
+
         bulk_payload = build_results_snapshot_payload(self.game, mode='general')
         with patch(
             'games.results_snapshot.Attempt.manager.get_bulk_game_actor_rows',
@@ -187,10 +190,23 @@ class ResultsSnapshotBulkTests(TestCase):
                 Attempt.manager, task_ids, mode=mode, game=game,
             ),
         ):
-            legacy_payload = build_results_snapshot_payload(self.game, mode='general')
+            with patch(
+                'games.results_sql_aggregate.tasks_need_orm_results_aggregate',
+                return_value=True,
+            ):
+                legacy_payload = build_results_snapshot_payload(self.game, mode='general')
         self.assertEqual(
             _normalize_payload_for_compare(bulk_payload),
             _normalize_payload_for_compare(legacy_payload),
+        )
+        # Also: SQL loader matches ORM bulk on the same fixture.
+        task_ids = [self.task1.id, self.task2.id]
+        orm = Attempt.manager.get_bulk_game_actor_rows(task_ids, mode='general', game=self.game)
+        sql = get_sql_aggregated_game_actor_rows(task_ids, game=self.game)
+        self.assertEqual(len(orm), len(sql))
+        self.assertEqual(
+            {(t, len(orm[t])) for t in task_ids},
+            {(t, len(sql[t])) for t in task_ids},
         )
 
     def test_tournament_excludes_personal_rows(self):
