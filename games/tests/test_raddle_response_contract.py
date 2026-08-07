@@ -44,10 +44,13 @@ class RaddleResponseContractTests(SimpleTestCase):
                 )
 
     def test_wrong_and_duplicate_unsolved_do_not_advance(self):
-        for sid in ('wrong', 'duplicate_unsolved'):
+        for sid in ('wrong', 'duplicate_unsolved', 'stale_ui'):
             scenario = next(s for s in RADDLE_RESPONSE_SCENARIOS if s['id'] == sid)
             self.assertFalse(scenario['ui']['advance_focus'])
-            self.assertFalse(scenario['ui']['replace_html'])
+            if sid != 'stale_ui':
+                self.assertFalse(scenario['ui']['replace_html'])
+            else:
+                self.assertTrue(scenario['ui']['replace_html'])
 
     def test_principle_and_checklist_documented(self):
         self.assertIn('raddle_correct', RADDLE_UI_PRINCIPLE)

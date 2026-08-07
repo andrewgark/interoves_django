@@ -1499,6 +1499,17 @@
       return;
     }
     if (data.status === 'ok' && data.raddle_needs_sync) {
+      if (data.raddle_stale_ui) {
+        // Устаревший DOM: перерисовать по серверу, без «продвижения» с этого word_index.
+        if (input) delete input.dataset.raddleLast;
+        if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+          applyNewUiTaskHtml(data.update_task_html_new);
+        } else {
+          window.location.reload();
+        }
+        if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
+        return;
+      }
       syncRaddleUiAfterAdvance(form, data, row, input, wordIdx);
       if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
       return;
@@ -1692,6 +1703,12 @@
   function submitRaddleAuto(input, val) {
     if (!input || input.getAttribute('data-raddle-busy') === '1') return;
     if (input.dataset.raddleLast === val) return;
+    var row = input.closest('.new-raddle-row');
+    if (row && !row.classList.contains('new-raddle-row--playable')) {
+      // Устаревший DOM (bfcache / смена сессии): не шлём not-playable.
+      delete input.dataset.raddleLast;
+      return;
+    }
     var formId = input.getAttribute('form');
     var form = formId ? document.getElementById(formId) : null;
     if (!form) return;
@@ -2588,6 +2605,13 @@
   window.initRaddleUi = initRaddleUi;
   window.setRaddleFocus = setRaddleFocus;
   initRaddleUi(document);
+
+  // bfcache: после back/forward DOM может быть от другого актёра (login↔anon).
+  window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) return;
+    if (!document.querySelector('.new-raddle-task')) return;
+    window.location.reload();
+  });
 
   var raddleStickyResizeTimer = null;
   function refreshAllRaddleStickyPins() {

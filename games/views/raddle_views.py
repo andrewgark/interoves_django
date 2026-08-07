@@ -15,6 +15,7 @@ from games.raddle import (
     parse_raddle_data,
     playable_word_indices,
     resolve_assist_tiers,
+    serialize_raddle_attempt_text,
 )
 from games.views.game_context import game_from_request_for_task
 from games.views.hint_views import _get_play_mode, create_hint_attempt
@@ -99,7 +100,7 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
         row.save(update_fields=['state', 'updated_at'])
 
     word = parsed['words'][word_index]
-    attempt = Attempt(text=json.dumps({'word_index': word_index, 'word': word}, ensure_ascii=False))
+    attempt = Attempt(text=serialize_raddle_attempt_text(word_index, word))
     attempt.team = team
     attempt.user = user
     attempt.anon_key = anon_key

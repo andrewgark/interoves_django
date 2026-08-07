@@ -17,6 +17,7 @@
 | Верно в этой попытке | `ok` | `raddle_correct: true` | `applyNewUiTaskHtml` + `focusRaddleNext` |
 | Неверно | `ok` | `raddle_correct: false` | красная строка, ввод **не** трогать |
 | Уже решено (лаг) | `ok` | `raddle_needs_sync: true` | синхронизация HTML + фокус |
+| Устаревший UI (не playable) | `ok` | `raddle_needs_sync` + `raddle_stale_ui` | только HTML (без focusRaddleNext), Attempt не пишется |
 | Дубликат неверного | `duplicate` | `raddle_duplicate_solved: false` | красная строка + сообщение, **без** HTML |
 | Дубликат после успеха | `duplicate` | `raddle_duplicate_solved: true` | синхронизация HTML + фокус |
 

@@ -10,8 +10,67 @@ from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Ta
 from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
 from games.views.track import track_task_change
-from games.raddle import load_raddle_state, parse_raddle_data, word_matches
+from games.raddle import (
+    load_raddle_state,
+    parse_raddle_data,
+    playable_word_indices,
+    raddle_blocks_as_duplicate,
+    serialize_raddle_attempt_text,
+    word_matches,
+)
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
+
+
+def _raddle_chain_state(task, team, user, anon_key, game, current_mode):
+    """Актуальный raddle state для актёра (CTS, иначе последняя Attempt.state)."""
+    parsed = parse_raddle_data(task)
+    if not parsed:
+        return None, None
+    n = parsed['n_words']
+    chain_row = ChainTaskState.objects.filter(
+        team=team, user=user, anon_key=anon_key,
+        task=task, game=game, game_mode=current_mode,
+    ).first()
+    if chain_row and chain_row.state:
+        return parsed, load_raddle_state(chain_row.state, n)
+    attempts = Attempt.manager.get_attempts(
+        team, task, mode=current_mode, user=user, anon_key=anon_key, game=game,
+    )
+    for prev in reversed(attempts):
+        if prev.state:
+            return parsed, load_raddle_state(prev.state, n)
+    return parsed, load_raddle_state(None, n)
+
+
+def _raddle_stale_submit_response(request, task, team, user, anon_key, game, current_mode, word_index):
+    """
+    Устаревший UI (bfcache / смена anon↔login): форма на некрайнем или уже
+    решённом слове. Не пишем Attempt — только синхронизируем HTML.
+    """
+    parsed, state = _raddle_chain_state(task, team, user, anon_key, game, current_mode)
+    if not parsed or state is None:
+        return None
+    solved = set(state.get('solved_indices') or [])
+    playable = playable_word_indices(state, parsed['n_words'])
+    # Уже решённые оставляем существующим путям (duplicate_solved / needs_sync).
+    if word_index not in playable and word_index not in solved:
+        result = {
+            'status': 'ok',
+            'task_id': task.id,
+            'raddle_correct': False,
+            'raddle_needs_sync': True,
+            'raddle_stale_ui': True,
+            'raddle_word_index': word_index,
+        }
+        update_html = update_task_html(
+            request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+        )
+        track_task_change(
+            task, team, current_mode, update_html=update_html, request=request, game=game,
+        )
+        result.update(update_html)
+        return result
+    return None
 
 
 def check_attempt(attempt):
@@ -119,8 +178,19 @@ def check_attempt(attempt):
                         raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {}'.format(team, max_attempts, task))
 
             for other_attempt in attempts:
-                if attempt.text == other_attempt.text:
-                    raise DuplicateAttemptException('Attempt duplicates one of the previous attempts by this team')
+                if task.task_type == 'raddle':
+                    if raddle_blocks_as_duplicate(
+                        attempt.text, other_attempt.text,
+                        task=task, state_raw=last_attempt_state,
+                        other_attempt=other_attempt,
+                    ):
+                        raise DuplicateAttemptException(
+                            'Attempt duplicates one of the previous attempts by this team'
+                        )
+                elif attempt.text == other_attempt.text:
+                    raise DuplicateAttemptException(
+                        'Attempt duplicates one of the previous attempts by this team'
+                    )
 
         checker_type = task.get_checker()
         if task.task_type == 'replacements_lines':
@@ -277,7 +347,7 @@ def process_send_attempt(request, task_id):
         word = (request.POST.get('word') or '').strip()
         if not word:
             return {'status': 'empty'}
-        attempt = Attempt(text=json.dumps({'word_index': word_index, 'word': word}))
+        attempt = Attempt(text=serialize_raddle_attempt_text(word_index, word))
     elif task.task_type == 'alphabetty':
         word = (request.POST.get('word') or request.POST.get('text') or '').strip()
         if not word:
@@ -293,6 +363,13 @@ def process_send_attempt(request, task_id):
     attempt.game = game
 
     current_mode = game.get_current_mode(attempt)
+
+    if task.task_type == 'raddle':
+        stale = _raddle_stale_submit_response(
+            request, task, team, user, anon_key, game, current_mode, word_index,
+        )
+        if stale is not None:
+            return stale
 
     check_attempt(attempt)
 

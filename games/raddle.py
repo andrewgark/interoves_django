@@ -488,6 +488,66 @@ def word_matches(user_word, accept_list):
     return any(raddle_word_core(opt) == u for opt in accept_list)
 
 
+def serialize_raddle_attempt_text(word_index, word):
+    """Канонический JSON посылки raddle (кириллица без \\uXXXX)."""
+    return json.dumps(
+        {'word_index': int(word_index), 'word': str(word or '')},
+        ensure_ascii=False,
+    )
+
+
+def parse_raddle_attempt_payload(text):
+    """(word_index, word) или None, если текст не JSON-посылка raddle."""
+    try:
+        payload = json.loads(text)
+        return int(payload.get('word_index', -1)), str(payload.get('word', '') or '').strip()
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def raddle_attempt_payloads_match(text_a, text_b):
+    """Одинаковые word_index + нормализованное слово (игнор ensure_ascii / регистра ядра)."""
+    a = parse_raddle_attempt_payload(text_a)
+    b = parse_raddle_attempt_payload(text_b)
+    if a is None or b is None:
+        return text_a == text_b
+    wi_a, w_a = a
+    wi_b, w_b = b
+    return wi_a == wi_b and raddle_word_core(w_a) == raddle_word_core(w_b)
+
+
+def raddle_blocks_as_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt=None):
+    """
+    Блокировать ли повтор как duplicate.
+
+    Верный ответ, отправленный раньше времени (не playable → Wrong), не должен
+    вечно блокировать ту же посылку, когда слово уже можно сдать.
+    Старые Wrong «только крайние» / «уже решено» тоже не блокируют.
+    Обычный повтор неверного слова — по-прежнему duplicate.
+    """
+    if not raddle_attempt_payloads_match(attempt_text, other_text):
+        return False
+    if other_attempt is not None:
+        comment = (getattr(other_attempt, 'comment', None) or '').lower()
+        if 'крайние' in comment or 'уже решено' in comment:
+            return False
+    parsed_payload = parse_raddle_attempt_payload(attempt_text)
+    if parsed_payload is None:
+        return attempt_text == other_text
+    word_index, word = parsed_payload
+    parsed = parse_raddle_data(task)
+    if not parsed:
+        return True
+    if not (0 <= word_index < parsed['n_words']):
+        return True
+    state = load_raddle_state(state_raw, parsed['n_words'])
+    if word_index in set(state.get('solved_indices') or []):
+        return True
+    if word_matches(word, parsed['word_accept'][word_index]):
+        return False
+    return True
+
+
 def mask_slot_count(mask, canonical_word=None):
     """Сколько букв нужно ввести (для ширины инпута / maxlength)."""
     if canonical_word:

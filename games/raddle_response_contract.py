@@ -3,8 +3,8 @@
 
 RADDLE_UI_PRINCIPLE = (
     'UI может перерисовывать задание и переносить фокус только когда сервер '
-    'явно сигнализирует продвижение состояния (raddle_correct, raddle_needs_sync, '
-    'или duplicate с raddle_duplicate_solved).'
+    'явно сигнализирует продвижение состояния (raddle_correct, raddle_needs_sync '
+    'без raddle_stale_ui, или duplicate с raddle_duplicate_solved).'
 )
 
 # Матрица: ответ сервера → ожидаемое поведение клиента (applyRaddleAttemptResponse).
@@ -54,6 +54,22 @@ RADDLE_RESPONSE_SCENARIOS = (
         },
     },
     {
+        'id': 'stale_ui',
+        'description': 'Посылка с некрайнего индекса (устаревший DOM / anon↔login)',
+        'response': {
+            'status': 'ok',
+            'raddle_correct': False,
+            'raddle_needs_sync': True,
+            'raddle_stale_ui': True,
+        },
+        'ui': {
+            'replace_html': True,
+            'advance_focus': False,
+            'mark_wrong': False,
+            'keep_input': False,
+        },
+    },
+    {
         'id': 'duplicate_unsolved',
         'description': 'Дубликат неверной посылки (двойной fire / повтор Enter)',
         'response': {
@@ -90,4 +106,5 @@ RADDLE_PR_CHECKLIST = (
     'Сбрасывается ли raddleLast при catch и когда postRaddleAutoForm вернул false?',
     'Может ли один жест (paste + input) отправить два одинаковых запроса?',
     'При duplicate без raddle_duplicate_solved фокус остаётся на текущей строке?',
+    'При raddle_stale_ui HTML обновляется без focusRaddleNext по этому word_index?',
 )
