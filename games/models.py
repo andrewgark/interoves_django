@@ -1771,7 +1771,6 @@ class AlphabettyDictSuggestion(models.Model):
         ordering = ['-updated_at']
         verbose_name = 'предложение в словарь Алфавитки'
         verbose_name_plural = 'предложения в словарь Алфавитки'
-
     def __str__(self):
         return '[{}] {} ×{}'.format(self.status, self.word, self.suggest_count)
 

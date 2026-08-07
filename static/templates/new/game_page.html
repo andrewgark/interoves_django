@@ -138,6 +138,10 @@
         <p class="new-stack-gap">
           <a class="new-link-dotted" href="/create_ladder/">Создать свою лесенку</a>
         </p>
+      {% elif is_alphabetty_section and alphabetty_create_url %}
+        <p class="new-stack-gap">
+          <a class="new-link-dotted" href="{{ alphabetty_create_url }}">Создать свою алфавитку</a>
+        </p>
       {% endif %}
 
       {% if section_task_groups_rules_html %}
@@ -428,4 +432,3 @@
   {% endif %}
   {% include "new/_18plus_gate.html" %}
 {% endblock %}
-

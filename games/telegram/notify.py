@@ -167,6 +167,28 @@ def alphabetty_dict_suggestion_keyboard(suggestion_id: int) -> dict:
     }
 
 
+def _alphabetty_dict_suggestion_payload(suggestion: AlphabettyDictSuggestion) -> tuple[str, dict]:
+    admin_link = _admin_link(
+        '/admin/games/alphabettydictsuggestion/{}/change/'.format(suggestion.pk)
+    )
+    queue_link = _admin_link('/admin/games/pendingalphabettydictsuggestion/')
+    header = '🔤 <b>Предложение в словарь Алфавитки</b>'
+    body = [
+        'Слово: <code>{}</code>'.format(_escape(suggestion.word)),
+        'Голосов: {}'.format(suggestion.suggest_count),
+    ]
+    keyboard = alphabetty_dict_suggestion_keyboard(suggestion.pk)
+    message = _join_lines([
+        header,
+        '',
+        *body,
+        'Автор: {}'.format(_escape(_dict_suggestion_reporter(suggestion))),
+        '',
+        '<a href="{}">Запись</a> · <a href="{}">Очередь</a>'.format(admin_link, queue_link),
+    ])
+    return message, keyboard
+
+
 def _dict_suggestion_reporter(suggestion: AlphabettyDictSuggestion) -> str:
     if suggestion.user_id:
         user = suggestion.user
@@ -181,19 +203,8 @@ def _dict_suggestion_reporter(suggestion: AlphabettyDictSuggestion) -> str:
 
 
 def format_alphabetty_dict_suggestion_message(suggestion: AlphabettyDictSuggestion) -> str:
-    admin_link = _admin_link(
-        '/admin/games/alphabettydictsuggestion/{}/change/'.format(suggestion.pk)
-    )
-    queue_link = _admin_link('/admin/games/pendingalphabettydictsuggestion/')
-    return _join_lines([
-        '🔤 <b>Предложение в словарь Алфавитки</b>',
-        '',
-        'Слово: <code>{}</code>'.format(_escape(suggestion.word)),
-        'Голосов: {}'.format(suggestion.suggest_count),
-        'Автор: {}'.format(_escape(_dict_suggestion_reporter(suggestion))),
-        '',
-        '<a href="{}">Запись</a> · <a href="{}">Очередь</a>'.format(admin_link, queue_link),
-    ])
+    message, _keyboard = _alphabetty_dict_suggestion_payload(suggestion)
+    return message
 
 
 def notify_new_alphabetty_dict_suggestion(suggestion: AlphabettyDictSuggestion) -> bool:
@@ -202,10 +213,8 @@ def notify_new_alphabetty_dict_suggestion(suggestion: AlphabettyDictSuggestion) 
         .select_related('user')
         .get(pk=suggestion.pk)
     )
-    return send_admin_message(
-        format_alphabetty_dict_suggestion_message(suggestion),
-        reply_markup=alphabetty_dict_suggestion_keyboard(suggestion.pk),
-    )
+    message, keyboard = _alphabetty_dict_suggestion_payload(suggestion)
+    return send_admin_message(message, reply_markup=keyboard)
 
 
 def _ladder_offer_reporter(offer: LadderOffer) -> str:

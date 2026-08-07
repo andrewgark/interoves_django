@@ -1,0 +1,131 @@
+{% extends "new/base.html" %}
+{% block title %}Создать свою алфавитку{% endblock %}
+{% block content %}
+{% csrf_token %}
+
+<p class="new-tg-back">
+  <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label|default:"К списку" }}</a>
+</p>
+
+<h1 class="new-heading new-heading--page">Создать свою алфавитку</h1>
+<p class="new-login-hint new-stack-gap">
+  Алфавитка — это одно слово. Если слово уже есть в широком словаре, его можно использовать сразу.
+  Если слово слишком редкое, мы всё равно добавим его в ваш словарь и отправим на модерацию.
+</p>
+
+<section class="pal-card new-card new-stack-gap">
+  <div class="new-form" id="create-alphabetty-form">
+    <label for="create-alphabetty-number">Номер раунда</label>
+    <input id="create-alphabetty-number"
+           type="number"
+           min="1"
+           step="1"
+           value="{{ target_number }}"
+           class="support-input--upper">
+    <label for="create-alphabetty-word">Загаданное слово</label>
+    <input id="create-alphabetty-word"
+           type="text"
+           autocomplete="off"
+           autocapitalize="characters"
+           spellcheck="false"
+           maxlength="40"
+           placeholder="Например, АЛФАВИТ"
+           class="support-input--upper">
+    <p class="new-field-error" id="create-alphabetty-error" hidden></p>
+    <p class="new-login-hint" id="create-alphabetty-hint">
+      Вводите одно слово без знаков препинания.
+    </p>
+    <button type="button" class="new-btn" id="create-alphabetty-submit">Предложить слово</button>
+  </div>
+</section>
+
+<section class="pal-card new-card new-stack-gap" id="create-alphabetty-result" hidden>
+  <p class="new-login-hint" id="create-alphabetty-result-text"></p>
+</section>
+
+<script>
+(function () {
+  var input = document.getElementById('create-alphabetty-word');
+  var numberInput = document.getElementById('create-alphabetty-number');
+  var submit = document.getElementById('create-alphabetty-submit');
+  var error = document.getElementById('create-alphabetty-error');
+  var result = document.getElementById('create-alphabetty-result');
+  var resultText = document.getElementById('create-alphabetty-result-text');
+  var endpoint = "{% url 'new_create_alphabetty_create' %}";
+  var busy = false;
+
+  function csrf() {
+    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+  function normalizeWord(s) {
+    return String(s || '').trim().toUpperCase().replace(/Ё/g, 'Е');
+  }
+  function showError(text) {
+    error.textContent = text || '';
+    error.hidden = !text;
+  }
+  function showResult(text, kind) {
+    if (!text) {
+      result.hidden = true;
+      resultText.textContent = '';
+      resultText.className = 'new-login-hint';
+      return;
+    }
+    result.hidden = false;
+    resultText.textContent = text;
+    resultText.className = 'new-login-hint' + (kind ? ' ' + kind : '');
+  }
+  function submitWord() {
+    if (busy) return;
+    var word = normalizeWord(input.value);
+    if (!word) {
+      showError('Введите слово');
+      input.focus();
+      return;
+    }
+    busy = true;
+    submit.disabled = true;
+    showError('');
+    showResult('');
+    fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf(),
+        'Accept': 'application/json'
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({ word: word, number: numberInput.value })
+    })
+      .then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok || !data || data.status === 'error') {
+            throw new Error((data && (data.error || data.message)) || ('HTTP ' + r.status));
+          }
+          return data;
+        });
+      })
+      .then(function (data) {
+        input.value = '';
+        showResult(data.message || 'Готово.', 'new-login-hint');
+      })
+      .catch(function (e) {
+        showError((e && e.message) || 'Не удалось отправить слово');
+      })
+      .finally(function () {
+        busy = false;
+        submit.disabled = false;
+      });
+  }
+
+  submit.addEventListener('click', submitWord);
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitWord();
+    }
+  });
+})();
+</script>
+{% endblock %}

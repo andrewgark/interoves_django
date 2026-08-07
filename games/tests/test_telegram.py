@@ -119,6 +119,23 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('pendingalphabettydictsuggestion', msg)
 
     @patch('games.telegram.notify.send_message')
+    def test_alphabetty_dict_suggestion_notify_on_create(self, send_message_mock):
+        send_message_mock.return_value = True
+        with self.captureOnCommitCallbacks(execute=True):
+            suggestion = AlphabettyDictSuggestion.objects.create(
+                word='РЕДКОЕСЛОВОДЛЯАЛФАВИТКИ',
+                anon_key='anon123456',
+            )
+        self.assertEqual(send_message_mock.call_count, 1)
+        text = send_message_mock.call_args.args[1]
+        self.assertIn('Предложение в словарь Алфавитки', text)
+        self.assertIn('РЕДКОЕСЛОВОДЛЯАЛФАВИТКИ', text)
+        keyboard = send_message_mock.call_args.kwargs['reply_markup']
+        self.assertIn('abdict:approve:{}'.format(suggestion.pk), str(keyboard))
+        self.assertIn('abdict:answer:{}'.format(suggestion.pk), str(keyboard))
+        self.assertIn('abdict:reject:{}'.format(suggestion.pk), str(keyboard))
+
+    @patch('games.telegram.notify.send_message')
     @patch('games.telegram.callbacks.answer_callback_query')
     @patch('games.telegram.callbacks.edit_message_reply_markup')
     def test_dict_suggestion_approve_callback(
@@ -126,7 +143,9 @@ class TelegramNotifyTests(TestCase):
     ):
         send_message_mock.return_value = True
         with self.captureOnCommitCallbacks(execute=True):
-            suggestion = AlphabettyDictSuggestion.objects.create(word='ОДОБРИМЕНЯ')
+            suggestion = AlphabettyDictSuggestion.objects.create(
+                word='ОДОБРИМЕНЯ',
+            )
         send_message_mock.reset_mock()
         handle_callback_query({
             'id': 'cb1',

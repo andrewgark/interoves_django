@@ -757,7 +757,12 @@ class AlphabettyChecker(BaseChecker):
         if state.get('won'):
             # Не начислять повторные Ok/очки после победы (как dedicated guess API).
             return CheckResult('Wrong', 'Wrong', 0, dump_state(state), comment='Уже угадано')
-        if not is_valid_guess(word, user=getattr(attempt, 'user', None), anon_key=getattr(attempt, 'anon_key', None)):
+        if not is_valid_guess(
+            word,
+            user=getattr(attempt, 'user', None),
+            anon_key=getattr(attempt, 'anon_key', None),
+            task=getattr(attempt, 'task', None),
+        ):
             return CheckResult('Wrong', 'Wrong', 0, dump_state(state), comment='Слова нет в словаре')
         if word in state['guesses']:
             return CheckResult('Wrong', 'Wrong', 0, dump_state(state), comment='Уже вводили')

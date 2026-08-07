@@ -10,7 +10,7 @@ from typing import Any, Optional
 from django.db import transaction
 from django.utils import timezone
 
-from games.alphabetty.core import is_valid_guess, normalize_word, pick_answer_words
+from games.alphabetty.core import normalize_word, pick_answer_words
 from games.alphabetty.play import ALPHABETTY_BASE_POINTS
 from games.alphabetty_daily import (
     ALPHABETTY_BUFFER_DAYS,
@@ -236,9 +236,6 @@ def _create_slot(*, number: int, word: str) -> GameTaskGroup:
     word_n = normalize_word(word)
     if not word_n:
         raise AlphabettySupportError('Пустое слово')
-    # Секрет обязан быть в valid — иначе игрок не сможет его ввести (guess режет invalid).
-    if not is_valid_guess(word_n):
-        raise AlphabettySupportError(f'Слова нет в словаре отгадок: {word_n}')
     checker = CheckerType.objects.get(id='alphabetty')
     game = get_alphabetty_game()
     task_group = TaskGroup.objects.create(
@@ -351,8 +348,6 @@ def update_alphabetty(link_id: int, *, word: str, now: datetime | None = None) -
     word_n = normalize_word(word)
     if not word_n:
         raise AlphabettySupportError('Пустое слово')
-    if not is_valid_guess(word_n):
-        raise AlphabettySupportError(f'Слова нет в словаре отгадок: {word_n}')
     taken = scheduled_words(now=now) - {_word_from_task(_task_for_link(link))}
     if word_n in taken:
         raise AlphabettySupportError(f'Слово уже занято другим днём: {word_n}')
@@ -423,21 +418,46 @@ def ensure_future_buffer(
     now = now or timezone.now()
     rows = list_alphabetty_rows(now=now)
     future = [r for r in rows if not r.is_published]
-    need = max(0, target - len(future))
-    if need == 0:
+    if len(future) >= target:
         return {'added': 0, 'future': len(future), 'target': target}
+    initial_future = len(future)
+    created_total = 0
     try:
-        result = generate_more(need, now=now)
-        added = result['created_count']
+        while len(future) < target:
+            need = target - len(future)
+            result = generate_more(need, now=now)
+            created_total += result['created_count']
+            rows = list_alphabetty_rows(now=now)
+            future = [r for r in rows if not r.is_published]
+            if result['created_count'] == 0:
+                break
     except AlphabettySupportError as exc:
         logger.warning('alphabetty ensure_future_buffer: %s', exc)
-        return {'added': 0, 'future': len(future), 'target': target, 'error': str(exc)}
+        return {
+            'added': max(0, len(future) - initial_future),
+            'created': created_total,
+            'future': len(future),
+            'target': target,
+            'error': str(exc),
+        }
     except Exception as exc:
         # Гонка multi-instance на unique (game, number).
         logger.warning('alphabetty ensure_future_buffer race: %s', exc)
-        return {'added': 0, 'future': len(future), 'target': target, 'error': str(exc)}
-    logger.info('alphabetty ensure_future_buffer: added %s (target %s)', added, target)
-    return {'added': added, 'future': len(future) + added, 'target': target}
+        return {
+            'added': max(0, len(future) - initial_future),
+            'created': created_total,
+            'future': len(future),
+            'target': target,
+            'error': str(exc),
+        }
+    added_future = max(0, len(future) - initial_future)
+    logger.info(
+        'alphabetty ensure_future_buffer: added %s future slots (%s created, target %s)',
+        added_future,
+        created_total,
+        target,
+    )
+    return {'added': added_future, 'created': created_total, 'future': len(future), 'target': target}
 
 
 @transaction.atomic

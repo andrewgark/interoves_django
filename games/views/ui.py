@@ -18,6 +18,8 @@ ladder_hub_page = new_ladder_hub_page
 section_last_page = new_section_last_page
 
 from games.views.alphabetty_views import (  # noqa: E402
+    alphabetty_create_page,
+    alphabetty_create_submit,
     alphabetty_guess,
     alphabetty_hint,
     alphabetty_hub_page,

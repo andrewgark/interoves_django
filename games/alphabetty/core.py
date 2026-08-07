@@ -42,6 +42,7 @@ def is_valid_guess(
     *,
     user=None,
     anon_key: str | None = None,
+    task=None,
 ) -> bool:
     from games.alphabetty.dicts import (
         get_valid_set,
@@ -58,6 +59,13 @@ def is_valid_guess(
         return True
     if is_approved_dict_word(n):
         return True
+    if task is not None:
+        try:
+            secret = normalize_word(getattr(task, 'answer', None))
+        except Exception:
+            secret = ''
+        if secret and n == secret:
+            return True
     if user is not None or anon_key:
         return is_personal_dict_word(n, user=user, anon_key=anon_key)
     return False

@@ -45,11 +45,11 @@ def telegram_cache_old_dict_suggestion(sender, instance, **kwargs):
 
 @receiver(post_save, sender=AlphabettyDictSuggestion)
 def telegram_notify_dict_suggestion(sender, instance, created, **kwargs):
-    """Новое pending или возврат из Rejected → в admin-чат; повторные голоса молчат."""
+    """Новое pending или возврат из Rejected → в admin-чат."""
     if instance.status != AlphabettyDictSuggestion.STATUS_PENDING:
         return
     old = getattr(instance, '_telegram_old_status', None)
-    if not created and old == AlphabettyDictSuggestion.STATUS_PENDING:
+    if not created and old == instance.status:
         return
     transaction.on_commit(lambda: notify_new_alphabetty_dict_suggestion(instance))
 

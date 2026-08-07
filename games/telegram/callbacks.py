@@ -1,7 +1,6 @@
 import html
 
 from django.db import transaction
-
 from games.alphabetty.suggestions import (
     approve_suggestions,
     approve_suggestions_for_answer,
@@ -80,13 +79,16 @@ def _handle_abdict(action: str, suggestion_id: int, callback_id, chat_id, messag
     word = suggestion.word
     word_html = html.escape(word, quote=False)
     if action == 'approve':
-        if suggestion.status in AlphabettyDictSuggestion.STATUSES_VALID:
+        if suggestion.status in (
+            AlphabettyDictSuggestion.STATUS_APPROVED,
+            AlphabettyDictSuggestion.STATUS_APPROVED_ANSWER,
+        ):
             answer_callback_query(callback_id, 'Already approved')
         else:
             approve_suggestions(qs)
             answer_callback_query(callback_id, 'Approved: {}'.format(word))
             send_admin_message(
-                'Алфавитка словарь: <code>{}</code> → одобрено'.format(word_html),
+                'Алфавитка словарь: <code>{}</code> → одобрено для общих словарей'.format(word_html),
                 force=True,
             )
     elif action == 'answer':

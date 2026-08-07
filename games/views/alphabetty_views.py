@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import uuid
 
+from django.contrib.auth.decorators import login_required
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
@@ -148,6 +149,15 @@ def _with_meta_bar(payload: dict, request, *, game, task, user, anon_key) -> dic
         request, game=game, task=task, user=user, anon_key=anon_key,
     )
     return out
+
+
+def _resolve_round_task_group(game, *, number=None, task_group_id=None):
+    qs = GameTaskGroup.objects.filter(game=game)
+    if task_group_id is not None:
+        return qs.filter(pk=task_group_id).select_related('task_group').first()
+    if number is not None:
+        return qs.filter(number=str(number)).select_related('task_group').first()
+    return None
 
 
 def alphabetty_hub_page(request):
@@ -328,6 +338,22 @@ def alphabetty_play_page(request, number):
         ),
         **meta_ctx,
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
+    })
+
+
+@login_required
+@require_http_methods(['GET'])
+def alphabetty_create_page(request):
+    game = _get_game()
+    target_number = None
+    if game is not None:
+        target_number = current_alphabetty_number(game)
+    return render(request, 'new/create_alphabetty.html', {
+        'page_title': 'Создать свою алфавитку',
+        'show_sections_nav': True,
+        'back_url': '/alphabetty/',
+        'back_label': 'К алфавиткам',
+        'target_number': target_number or '',
     })
 
 
@@ -526,6 +552,31 @@ def alphabetty_suggest(request, number):
     except (ValueError, TypeError):
         body = {}
     word = body.get('word') or request.POST.get('word') or ''
+    user, anon_key = _resolve_actor(request, body=body)
+    if user is None and not anon_key:
+        anon_key = uuid.uuid4().hex
+
+    result = suggest_word(word, user=user, anon_key=anon_key)
+    response = JsonResponse(result)
+    if user is None and anon_key:
+        response.set_cookie(
+            'interoves_anon',
+            anon_key,
+            max_age=60 * 60 * 24 * 365,
+            samesite='Lax',
+        )
+    return response
+
+
+@login_required
+@require_POST
+def alphabetty_create_submit(request):
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, TypeError):
+        body = {}
+    word = body.get('word') or request.POST.get('word') or ''
+    number = body.get('number') or request.POST.get('number') or ''
     user, anon_key = _resolve_actor(request, body=body)
     if user is None and not anon_key:
         anon_key = uuid.uuid4().hex

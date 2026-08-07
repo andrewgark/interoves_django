@@ -12,7 +12,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|ladder|alphabetty|walls|replacements|palindromes|week_task|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|ladder|alphabetty|walls|replacements|palindromes|week_task|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     # Project-scoped "new UI" pages (isolated navigation per project).
@@ -72,6 +72,10 @@ urlpatterns = [
     path('offer_ladder/<int:offer_id>/', RedirectView.as_view(pattern_name='ui_create_ladder_detail', permanent=False, query_string=True)),
     path('offer_ladder/<int:offer_id>/send/', RedirectView.as_view(pattern_name='ui_create_ladder_send', permanent=False, query_string=True)),
     path('offer_ladder/<int:offer_id>/reset/', RedirectView.as_view(pattern_name='ui_create_ladder_reset', permanent=False, query_string=True)),
+    path('create_alphabetty/', ui.alphabetty_create_page, name='ui_create_alphabetty'),
+    path('create_alphabetty/create/', ui.alphabetty_create_submit, name='ui_create_alphabetty_create'),
+    path('offer_alphabetty/', RedirectView.as_view(pattern_name='ui_create_alphabetty', permanent=False, query_string=True)),
+    path('offer_alphabetty/create/', RedirectView.as_view(pattern_name='ui_create_alphabetty_create', permanent=False, query_string=True)),
     path('alphabetty/today/', ui.alphabetty_today_page, name='ui_alphabetty_today'),
     path('alphabetty/last/', ui.alphabetty_last_page, name='ui_alphabetty_last'),
     path('alphabetty/progress/', ui.game_task_group_progress, {'game_id': 'alphabetty'}, name='ui_alphabetty_progress'),

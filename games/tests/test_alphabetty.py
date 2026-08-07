@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import patch
 
 from django.contrib.sites.models import Site
 from django.test import Client, TestCase
@@ -551,10 +552,15 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(data['status'], 'ok')
         self.assertIn('ГОД', data['earlier'])
 
-    def test_unguessable_secret_rejected_in_support(self):
-        from games.support.services.alphabetty import AlphabettySupportError, _create_slot
-        with self.assertRaises(AlphabettySupportError):
-            _create_slot(number=99, word='QQNOTAWORD')
+    def test_unguessable_secret_allowed_in_support(self):
+        from games.models import Task
+        from games.support.services.alphabetty import _create_slot
+        link = _create_slot(number=99, word='QQNOTAWORD')
+        self.assertEqual(link.number, '99')
+        self.assertEqual(
+            Task.objects.get(task_group=link.task_group, number='1').answer,
+            'QQNOTAWORD',
+        )
 
     def test_get_play_state_does_not_create_empty_cts(self):
         from django.contrib.auth.models import User
@@ -597,15 +603,10 @@ class AlphabettyPlayApiTests(TestCase):
         obj = AlphabettyDictSuggestion.objects.get(word=_FAKE_WORD)
         self.assertEqual(obj.status, AlphabettyDictSuggestion.STATUS_PENDING)
 
-        # Автору слово сразу валидно из личного словаря
+        # Автору слово сразу валидно в личном словаре, но не глобально.
         self.assertTrue(is_valid_guess(_FAKE_WORD, anon_key='sug1'))
         self.assertFalse(is_valid_guess(_FAKE_WORD, anon_key='other'))
         self.assertFalse(is_valid_guess(_FAKE_WORD))
-        self.assertTrue(
-            AlphabettyPersonalDictWord.objects.filter(
-                anon_key='sug1', word=_FAKE_WORD,
-            ).exists()
-        )
 
         # Отдельный Client: иначе cookie interoves_anon от sug1 перебьёт header.
         c2 = Client()
@@ -684,3 +685,32 @@ class AlphabettyPlayApiTests(TestCase):
             AlphabettyDictSuggestion.objects.get(word='ЗЗЗЗЗЗЗЗЗЗЗЗЗ').status,
             AlphabettyDictSuggestion.STATUS_REJECTED,
         )
+
+    def test_rare_task_answer_is_accepted_without_wide_dictionary(self):
+        checker = CheckerType.objects.get(id='alphabetty')
+        tg = TaskGroup.objects.create(label='ab-round-test', checker=checker, points=10)
+        task = Task.objects.create(
+            task_group=tg,
+            number='1',
+            task_type='alphabetty',
+            checker=checker,
+            checker_data=_FAKE_WORD,
+            answer=_FAKE_WORD,
+            points=10,
+        )
+        GameTaskGroup.objects.create(
+            game=self.game,
+            task_group=tg,
+            number='77',
+            name='Алфавитка #77',
+        )
+        self.assertFalse(is_valid_guess(_FAKE_WORD))
+        self.assertTrue(is_valid_guess(_FAKE_WORD, task=task))
+        result = apply_guess(
+            game=self.game,
+            task=task,
+            word=_FAKE_WORD,
+            anon_key='create1',
+        )
+        self.assertEqual(result['status'], 'correct')
+        self.assertTrue(result['won'])

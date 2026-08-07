@@ -75,7 +75,7 @@ def suggest_word(
             'suggestion_id': obj.pk,
             'suggest_count': obj.suggest_count,
             'personal': True,
-            'message': 'Слово добавлено в ваш словарь и отправлено на модерацию',
+            'message': 'Слишком редкое слово для широкого словаря. Добавили его в ваш словарь и отправили на модерацию.',
         }
 
     if existing.status in AlphabettyDictSuggestion.STATUSES_VALID:
@@ -99,7 +99,7 @@ def suggest_word(
             'suggestion_id': existing.pk,
             'suggest_count': existing.suggest_count,
             'personal': True,
-            'message': 'Слово добавлено в ваш словарь (уже на модерации)',
+            'message': 'Слишком редкое слово для широкого словаря. Оно уже отправлено на модерацию, но мы всё равно добавили его в ваш словарь.',
         }
 
     # Rejected → снова в очередь
@@ -118,8 +118,24 @@ def suggest_word(
         'suggestion_id': existing.pk,
         'suggest_count': existing.suggest_count,
         'personal': True,
-        'message': 'Слово добавлено в ваш словарь и отправлено на модерацию',
+        'message': 'Слишком редкое слово для широкого словаря. Добавили его в ваш словарь и отправили на модерацию.',
     }
+
+
+def propose_alphabetty_word(
+    word: str,
+    *,
+    task_group=None,
+    task=None,
+    user=None,
+    anon_key: str | None = None,
+) -> dict[str, Any]:
+    """Совместимое имя для старого вызова из Алфавитки.
+
+    Новая схема не имеет отдельного round-only словаря: редкое слово просто
+    попадает в личный словарь и на обычную модерацию через suggest_word().
+    """
+    return suggest_word(word, user=user, anon_key=anon_key)
 
 
 @transaction.atomic

@@ -1427,12 +1427,18 @@ def _render_section_game_page(request, game_id):
         'task_groups_heading': task_groups_heading,
         'task_groups_empty_text': task_groups_empty_text,
         'is_ladder_section': game_id == LADDER_GAME_ID,
+        'is_alphabetty_section': game_id == ALPHABETTY_GAME_ID,
         'ladder_today_number': today_number if game_id == LADDER_GAME_ID else None,
         'ladder_today_play_url': (
             section_last_path(LADDER_GAME_ID)
             if game_id == LADDER_GAME_ID
             and today_number is not None
             and is_ladder_number_published(game, today_number)
+            else None
+        ),
+        'alphabetty_create_url': (
+            '/create_alphabetty/'
+            if game_id == ALPHABETTY_GAME_ID
             else None
         ),
         'week_task_today_play_url': (
