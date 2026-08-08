@@ -2092,7 +2092,10 @@ def new_ladder_word_results_page(request, task_group_number):
                 task_group=ladder_offer.task_group,
             )
     else:
-        if not is_ladder_number_published(game, task_group_number):
+        if (
+            not is_ladder_number_published(game, task_group_number)
+            and not request.user.is_staff
+        ):
             raise Http404()
         placement = (
             GameTaskGroup.objects.select_related('task_group')
@@ -2502,7 +2505,10 @@ def new_task_group_page(request, game_id, task_group_number):
                 from games.ladder_offer import can_access_offer_hash
                 if not can_access_offer_hash(ladder_offer, request.user):
                     raise Http404()
-            elif not is_ladder_number_published(game, task_group_number):
+            elif (
+                not is_ladder_number_published(game, task_group_number)
+                and not request.user.is_staff
+            ):
                 raise Http404()
         if game_id == WEEK_TASK_GAME_ID and not is_week_task_number_published(game, task_group_number):
             raise Http404()

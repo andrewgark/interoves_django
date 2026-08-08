@@ -1,6 +1,7 @@
 import json
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.http import Http404
 from django.test import RequestFactory, TestCase
@@ -183,3 +184,17 @@ class LadderWordResultsTests(TestCase):
             request.session = {}
             with self.assertRaises(Http404):
                 new_ladder_word_results_page(request, '9100')
+
+    def test_staff_can_open_unpublished_ladder_results(self):
+        staff = get_user_model().objects.create_user(
+            username='ladder-results-staff',
+            password='secret',
+            is_staff=True,
+        )
+        request = self.factory.get('/ladder/9100/results/')
+        request.user = staff
+        request.session = {}
+        with patch('games.views.new_ui.is_ladder_number_published', return_value=False):
+            with patch('games.views.new_ui.render') as render_mock:
+                new_ladder_word_results_page(request, '9100')
+        self.assertEqual(render_mock.call_args[0][1], 'ui/results.html')
