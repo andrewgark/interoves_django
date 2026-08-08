@@ -90,7 +90,9 @@ class LadderChannelScheduleTests(TestCase):
 
     @patch('games.telegram.ladder_channel.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    def test_schedule_uses_mtproto_schedule_date(self, mtproto_mock, admin_photo_mock):
+    @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
+    def test_schedule_uses_mtproto_schedule_date(self, render_mock, mtproto_mock, admin_photo_mock):
+        render_mock.return_value = _tiny_png_bytes(120, 160)
         mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
         admin_photo_mock.return_value = {'message_id': 1}
 
@@ -127,7 +129,9 @@ class LadderChannelScheduleTests(TestCase):
 
     @patch('games.telegram.ladder_channel.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    def test_tick_only_in_0015_window(self, mtproto_mock, _admin_photo_mock):
+    @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
+    def test_tick_only_in_0015_window(self, render_mock, mtproto_mock, _admin_photo_mock):
+        render_mock.return_value = _tiny_png_bytes(120, 160)
         mtproto_mock.return_value = {'message_id': 7, 'scheduled': True}
         outside = datetime(2026, 7, 8, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         stats = process_ladder_channel_tick(now=outside)
@@ -139,9 +143,11 @@ class LadderChannelScheduleTests(TestCase):
         mtproto_mock.assert_called_once()
 
     @patch('games.telegram.ladder_channel.send_photo')
-    def test_preview_ladder_to_admin(self, send_photo_mock):
+    @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
+    def test_preview_ladder_to_admin(self, render_mock, send_photo_mock):
         from games.telegram.ladder_channel import preview_ladder_to_admin
 
+        render_mock.return_value = _tiny_png_bytes(120, 160)
         send_photo_mock.return_value = {'message_id': 99}
         ok, message = preview_ladder_to_admin(now=self.now)
         self.assertTrue(ok)
@@ -151,8 +157,18 @@ class LadderChannelScheduleTests(TestCase):
         self.assertTrue(send_photo_mock.call_args.args[1].startswith(b'\x89PNG'))
         self.assertIn('Лесенка №1', kwargs['caption'])
 
+    @patch('games.telegram.ladder_channel.render_ladder_teaser_png', side_effect=RuntimeError('shot failed'))
+    def test_preview_ladder_to_admin_fails_without_real_screenshot(self, _render_mock):
+        from games.telegram.ladder_channel import preview_ladder_to_admin
+
+        ok, message = preview_ladder_to_admin(now=self.now)
+        self.assertFalse(ok)
+        self.assertIn('Ошибка рендера', message)
+
     @patch('games.social.publish.schedule_channel_photo_sync')
-    def test_schedule_refuses_after_1630(self, mtproto_mock):
+    @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
+    def test_schedule_refuses_after_1630(self, render_mock, mtproto_mock):
+        render_mock.return_value = _tiny_png_bytes(120, 160)
         late = datetime(2026, 7, 8, 19, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         post = schedule_ladder_channel_post(now=late, force=True, notify_admin=False)
         self.assertIsNotNone(post)
@@ -160,14 +176,23 @@ class LadderChannelScheduleTests(TestCase):
         self.assertIn('refusing to post immediately', post.telegram_error)
         mtproto_mock.assert_not_called()
 
+    @patch('games.telegram.ladder_channel.render_ladder_teaser_png', side_effect=RuntimeError('shot failed'))
+    def test_schedule_marks_failed_when_real_screenshot_unavailable(self, _render_mock):
+        post = schedule_ladder_channel_post(now=self.now, force=True, notify_admin=False)
+        self.assertIsNotNone(post)
+        self.assertEqual(post.telegram_status, SocialQueuePost.STATUS_FAILED)
+        self.assertEqual(post.telegram_error, 'render failed')
+
     @patch('games.social.publish.post_tweet_with_image')
     @patch('games.social.publish.twitter_configured', return_value=True)
     @patch('games.social.publish.publish_image_url')
     @patch('games.social.publish.publish_configured', return_value=True)
     @patch('games.telegram.ladder_channel.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
     def test_queue_then_tick_publishes_x_ig(
         self,
+        render_mock,
         mtproto_mock,
         _admin_photo_mock,
         _ig_cfg,
@@ -177,6 +202,7 @@ class LadderChannelScheduleTests(TestCase):
     ):
         from games.social.publish import process_social_queue_tick
 
+        render_mock.return_value = _tiny_png_bytes(120, 160)
         mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
         tweet_mock.return_value = {'data': {'id': '999888777'}}
         publish_mock.return_value = '17999000111'

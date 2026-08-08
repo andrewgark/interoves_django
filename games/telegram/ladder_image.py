@@ -313,7 +313,12 @@ def render_ladder_teaser_png_pillow(task, *, ladder_number: int | str | None = N
     return buf.getvalue()
 
 
-def render_ladder_teaser_png(task, *, ladder_number: int | str | None = None) -> bytes:
+def render_ladder_teaser_png(
+    task,
+    *,
+    ladder_number: int | str | None = None,
+    fallback_to_pillow: bool = True,
+) -> bytes:
     """
     Prefer a real screenshot of SITE_BASE_URL/ladder/last/;
     fall back to the Pillow schematic if Chromium/Playwright is missing.
@@ -325,8 +330,16 @@ def render_ladder_teaser_png(task, *, ladder_number: int | str | None = None) ->
             if png and png.startswith(b'\x89PNG'):
                 return png
         except Exception:
+            if not fallback_to_pillow:
+                logger.exception(
+                    'Ladder screenshot failed (%s); refusing Pillow fallback',
+                    ladder_last_screenshot_url(),
+                )
+                raise
             logger.exception(
                 'Ladder screenshot failed (%s); falling back to Pillow',
                 ladder_last_screenshot_url(),
             )
+    if not fallback_to_pillow:
+        raise RuntimeError('Real ladder screenshot is required for this render')
     return render_ladder_teaser_png_pillow(task, ladder_number=ladder_number)

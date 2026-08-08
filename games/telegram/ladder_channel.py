@@ -183,7 +183,11 @@ def preview_ladder_to_admin(*, now: datetime | None = None) -> tuple[bool, str]:
         return False, 'Нет опубликованной лесенки на сегодня'
 
     try:
-        image_png = render_ladder_teaser_png(ladder.task, ladder_number=ladder.number)
+        image_png = render_ladder_teaser_png(
+            ladder.task,
+            ladder_number=ladder.number,
+            fallback_to_pillow=False,
+        )
         caption = build_caption(ladder)
     except Exception as exc:
         logger.exception('Ladder admin preview render failed')
@@ -310,7 +314,11 @@ def schedule_ladder_channel_post(
                 return existing
 
     try:
-        image_png = render_ladder_teaser_png(ladder.task, ladder_number=ladder.number)
+        image_png = render_ladder_teaser_png(
+            ladder.task,
+            ladder_number=ladder.number,
+            fallback_to_pillow=False,
+        )
         caption = build_caption(ladder)
     except Exception:
         logger.exception('Ladder channel render failed for №%s', ladder.number)

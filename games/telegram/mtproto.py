@@ -101,6 +101,8 @@ async def delete_channel_messages(*, chat: str, message_ids: list[int]) -> int:
     async with client:
         entity = await client.get_entity(chat)
         ok = await client.delete_messages(entity, message_ids)
+        if isinstance(ok, list):
+            return len(ok)
         return int(ok or 0)
 
 
