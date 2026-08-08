@@ -39,7 +39,7 @@
 <p class="new-login-hint new-stack-gap">
   Создайте свои лесенки. Можно их редактировать, решать, делиться с друзьями и предлагать Андрею.
 </p>
-<div class="new-stack-gap">
+<div class="new-stack-gap--lg">
   <button type="button" class="new-btn" id="offer-create-btn">Добавить лесенку</button>
 </div>
 <section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши лесенки"></section>
@@ -154,7 +154,7 @@
           '<div class="support-ladder-item__preview">' + escapeHtml(o.words_preview || '') + '</div>' +
         '</div>' +
         '<div class="support-ladder-item__actions">' +
-          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">править</button>' : '') +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">Править</button>' : '') +
           (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Отправить Андрею</button>' : '') +
           '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">Решать лесенку</a>' +
         '</div>';
@@ -180,26 +180,134 @@
     if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
   });
 
+  function normalizeWordState(words, hints) {
+    var nextWords = words && words.length ? words.slice() : ['', ''];
+    if (nextWords.length < 2) nextWords.push('');
+    var nextHints = hints ? hints.slice() : [];
+    while (nextHints.length < Math.max(0, nextWords.length - 1)) nextHints.push('');
+    if (nextHints.length > Math.max(0, nextWords.length - 1)) {
+      nextHints = nextHints.slice(0, Math.max(0, nextWords.length - 1));
+    }
+    return { words: nextWords, hints: nextHints };
+  }
+
+  function wordRowsFromState(state) {
+    var normalized = normalizeWordState(state.words, state.hints);
+    return normalized.words.map(function (word, index) {
+      return {
+        word: word,
+        hint: index < normalized.words.length - 1 ? (normalized.hints[index] || '') : ''
+      };
+    });
+  }
+
+  function stateFromWordRows(rows) {
+    var words = rows.map(function (row) { return row.word || ''; });
+    var hints = [];
+    rows.forEach(function (row, index) {
+      if (index < rows.length - 1) hints.push(row.hint || '');
+    });
+    return normalizeWordState(words, hints);
+  }
+
+  function insertWordAt(state, index) {
+    var rows = wordRowsFromState(state);
+    var at = Math.max(0, Math.min(index, rows.length));
+    rows.splice(at, 0, { word: '', hint: '' });
+    return stateFromWordRows(rows);
+  }
+
+  function removeWordAt(state, index) {
+    var rows = wordRowsFromState(state);
+    if (rows.length <= 2 || index < 0 || index >= rows.length) return normalizeWordState(state.words, state.hints);
+    rows.splice(index, 1);
+    return stateFromWordRows(rows);
+  }
+
+  function moveWordRow(state, from, to) {
+    var rows = wordRowsFromState(state);
+    if (from === to || from < 0 || to < 0 || from >= rows.length || to >= rows.length) {
+      return stateFromWordRows(rows);
+    }
+    var moved = rows.splice(from, 1)[0];
+    rows.splice(to, 0, moved);
+    return stateFromWordRows(rows);
+  }
+
   function renderWordRows(words, hints) {
     var box = document.getElementById('offer-edit-words');
     box.innerHTML = '';
-    words = words && words.length ? words.slice() : ['', ''];
-    if (words.length < 2) words.push('');
-    hints = hints ? hints.slice() : [];
+    var state = normalizeWordState(words, hints);
+    words = state.words;
+    hints = state.hints;
+    var dragIndex = null;
+    function clearDnD() {
+      box.querySelectorAll('.is-dragging, .is-drop-before, .is-drop-after').forEach(function (el) {
+        el.classList.remove('is-dragging', 'is-drop-before', 'is-drop-after');
+      });
+      dragIndex = null;
+    }
+    function renderInsert(index, label) {
+      var insert = document.createElement('div');
+      insert.className = 'support-ladder-word-insert';
+      insert.innerHTML =
+        '<button type="button" class="support-ladder-word-insert__btn" data-insert-index="' + index + '">' +
+        escapeHtml(label) + '</button>';
+      box.appendChild(insert);
+    }
+    renderInsert(0, '+ Слово сюда');
     words.forEach(function (w, i) {
       var row = document.createElement('div');
       row.className = 'support-ladder-word-row';
+      row.draggable = true;
+      row.dataset.wordIndex = String(i);
       var hintHtml = (i < words.length - 1)
         ? '<input type="text" class="ladder-hint" placeholder="подсказка → след. слово" value="' + escapeHtml(hints[i] || '') + '">'
         : '<span class="support-hint">последнее слово</span>';
       row.innerHTML =
+        '<button type="button" class="support-ladder-word-row__handle" title="Перетащить" aria-label="Перетащить">⠿</button>' +
         '<span class="support-cell-mono">' + (i + 1) + '</span>' +
         '<input type="text" class="ladder-word" placeholder="СЛОВО" value="' + escapeHtml(w) + '" autocomplete="off">' +
         hintHtml +
         '<button type="button" class="new-btn new-btn--mini new-btn--ghost ladder-rm-word" title="Удалить" ' +
           (words.length <= 2 ? 'disabled' : '') + '>×</button>';
       box.appendChild(row);
+      renderInsert(i + 1, i === words.length - 1 ? '+ Слово в конец' : '+ Слово между строками');
     });
+    box.ondragstart = function (e) {
+      var row = e.target.closest('.support-ladder-word-row');
+      if (!row) return;
+      dragIndex = parseInt(row.dataset.wordIndex || '', 10);
+      row.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', String(dragIndex)); } catch (err) {}
+    };
+    box.ondragend = clearDnD;
+    box.ondragover = function (e) {
+      var row = e.target.closest('.support-ladder-word-row');
+      if (!row || dragIndex == null) return;
+      e.preventDefault();
+      box.querySelectorAll('.is-drop-before, .is-drop-after').forEach(function (el) {
+        el.classList.remove('is-drop-before', 'is-drop-after');
+      });
+      var rect = row.getBoundingClientRect();
+      if ((e.clientY - rect.top) < rect.height / 2) row.classList.add('is-drop-before');
+      else row.classList.add('is-drop-after');
+    };
+    box.ondrop = function (e) {
+      var row = e.target.closest('.support-ladder-word-row');
+      if (!row || dragIndex == null) return;
+      e.preventDefault();
+      var targetIndex = parseInt(row.dataset.wordIndex || '', 10);
+      if (isNaN(targetIndex)) return;
+      var rect = row.getBoundingClientRect();
+      var before = (e.clientY - rect.top) < rect.height / 2;
+      var to = before ? targetIndex : targetIndex + 1;
+      var from = dragIndex;
+      if (from < to) to -= 1;
+      var moved = moveWordRow(readWordRows(), from, to);
+      renderWordRows(moved.words, moved.hints);
+    };
   }
   function readWordRows() {
     var rows = document.querySelectorAll('#offer-edit-words .support-ladder-word-row');
@@ -211,24 +319,26 @@
         hints.push(h ? (h.value || '').trim() : '');
       }
     });
-    return { words: words, hints: hints };
+    return normalizeWordState(words, hints);
   }
   document.getElementById('offer-add-word').addEventListener('click', function () {
-    var cur = readWordRows();
-    cur.words.push('');
-    cur.hints.push('');
+    var curState = readWordRows();
+    var cur = insertWordAt(curState, curState.words.length);
     renderWordRows(cur.words, cur.hints);
   });
   document.getElementById('offer-edit-words').addEventListener('click', function (e) {
+    var insertBtn = e.target.closest('[data-insert-index]');
+    if (insertBtn) {
+      var curInsert = insertWordAt(readWordRows(), parseInt(insertBtn.getAttribute('data-insert-index'), 10));
+      renderWordRows(curInsert.words, curInsert.hints);
+      return;
+    }
     var btn = e.target.closest('.ladder-rm-word');
     if (!btn || btn.disabled) return;
     var row = btn.closest('.support-ladder-word-row');
     var all = Array.prototype.slice.call(document.querySelectorAll('#offer-edit-words .support-ladder-word-row'));
     var idx = all.indexOf(row);
-    var cur = readWordRows();
-    if (cur.words.length <= 2) return;
-    cur.words.splice(idx, 1);
-    if (idx < cur.hints.length) cur.hints.splice(idx, 1);
+    var cur = removeWordAt(readWordRows(), idx);
     renderWordRows(cur.words, cur.hints);
   });
 

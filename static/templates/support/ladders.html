@@ -276,7 +276,7 @@
             (offer.comment ? '<div class="support-hint">' + escapeHtml(offer.comment) + '</div>' : '') +
           '</div>' +
           '<div class="support-ladder-item__actions">' +
-            '<button type="button" class="new-btn new-btn--mini" data-edit-offer="' + offer.id + '">править</button>' +
+            '<button type="button" class="new-btn new-btn--mini" data-edit-offer="' + offer.id + '">Править</button>' +
             '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(offer.play_url) + '" target="_blank" rel="noopener">как выглядит</a>' +
           '</div>';
         listEl.appendChild(item);
@@ -331,7 +331,7 @@
           '<div class="support-ladder-item__preview">' + escapeHtml(row.words_preview || '') + '</div>' +
         '</div>' +
         '<div class="support-ladder-item__actions">' +
-          '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">править</button>' +
+          '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">Править</button>' +
           '<a class="new-btn new-btn--mini new-btn--ghost" href="' + previewUrl + '" target="_blank" rel="noopener">как выглядит</a>' +
           revisionBtn +
           (!row.is_published

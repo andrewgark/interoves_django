@@ -259,7 +259,7 @@ def create_offer(user: User, *, author: str = '') -> LadderOffer:
         max_attempts=3,
     )
     payload = build_checker_payload(
-        ['СТАРТ', 'ФИНИШ'],
+        ['ОДИН', 'ДВА'],
         ['Заглушечная подсказка, включающая первое слово ____ и загадывающая второе слово ...'],
         mixed_script=False,
     )
@@ -348,7 +348,7 @@ def send_offer(offer: LadderOffer) -> LadderOffer:
         raise LadderOfferError('; '.join(errors))
     # Не отправлять заглушку.
     words = [w.upper() for w in (payload.get('words') or [])]
-    if words == ['СТАРТ', 'ФИНИШ']:
+    if words == ['ОДИН', 'ДВА']:
         raise LadderOfferError('Замените слова-заглушки на настоящую лесенку')
     offer.status = LadderOffer.STATUS_SENT
     offer.sent_at = timezone.now()

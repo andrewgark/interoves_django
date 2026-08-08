@@ -36,7 +36,7 @@ from games.support.services.schedule_links import delete_future_slot
 AUTHOR_TAG = 'author'
 _TITLE_RE = re.compile(r'^Лесенка\s*#\s*(\d+)\s*$', re.IGNORECASE)
 _DEFAULT_PLACEHOLDER = {
-    'words': ['СТАРТ', 'ФИНИШ'],
+    'words': ['ОДИН', 'ДВА'],
     'hints': ['Заглушечная подсказка, включающая первое слово ____ и загадывающая второе слово ...'],
 }
 

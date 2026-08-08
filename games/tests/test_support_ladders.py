@@ -181,6 +181,10 @@ class LadderSupportServiceTests(TestCase):
         task = Task.objects.get(pk=detail['task_id'])
         self.assertEqual(task.tags.get('author'), 'Тест')
 
+    def test_create_uses_new_placeholders(self):
+        created = ladder_svc.create_ladder(at_number=1)
+        self.assertEqual(created['words'], ['ОДИН', 'ДВА'])
+
     def test_intro_does_not_default_to_ladder_title(self):
         created = ladder_svc.create_ladder(
             at_number=1, words=['ААА', 'БББ'], hints=['x']

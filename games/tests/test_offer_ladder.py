@@ -169,6 +169,12 @@ class LadderOfferFlowTests(TestCase):
         resp_r = c.get('/ladder/{}/results/'.format(offer.share_hash))
         self.assertEqual(resp_r.status_code, 200)
 
+    def test_create_offer_uses_new_placeholders(self):
+        offer = create_offer(self.user)
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        payload = json.loads(task.checker_data)
+        self.assertEqual(payload['words'], ['ОДИН', 'ДВА'])
+
     def test_author_cannot_edit_after_send(self):
         offer = create_offer(self.user)
         update_offer_content(offer, words=['ААА', 'БББ'], hints=['x'], author='A')
@@ -188,6 +194,11 @@ class LadderOfferFlowTests(TestCase):
             content_type='application/json',
         )
         self.assertEqual(resp.status_code, 400)
+
+    def test_send_rejects_default_placeholders(self):
+        offer = create_offer(self.user)
+        with self.assertRaisesMessage(Exception, 'Замените слова-заглушки на настоящую лесенку'):
+            send_offer(offer)
 
     def test_request_revision_unlocks_draft(self):
         offer = create_offer(self.user)
