@@ -779,6 +779,10 @@ html.new-ui-dark .support-ladder-item__mixed {
   overflow: auto;
 }
 
+.support-ladder-modal .new-rules-modal__close {
+  width: 1.75rem;
+}
+
 .support-wt-modal {
   max-width: min(36rem, 96vw);
 }
