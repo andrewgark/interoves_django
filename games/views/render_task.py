@@ -200,11 +200,16 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
     slot = GameTaskGroup.objects.filter(game=game, task_group=task_group).first()
     tg_number = slot.number if slot else 0
     tg_name = slot.name if slot else ''
+    # Daily section cards deliberately hide the task number.  The full page
+    # passes this flag through task_group.html; keep the same presentation
+    # when a card is replaced after an attempt or a hint.
+    is_daily_single_task = game.id in ('ladder', 'week_task')
     return render(request, 'new/partials/task_card.html', {
         'game': game,
         'task_group': task_group,
         'tg_number': tg_number,
         'tg_name': tg_name,
+        'is_daily_single_task': is_daily_single_task,
         'task': task,
         'mode': current_mode,
         'team': team,

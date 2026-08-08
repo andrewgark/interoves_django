@@ -139,7 +139,6 @@
     <div class="new-raddle-result__share" data-raddle-share-text id="ab-result-share"></div>
   </div>
 
-  <p class="new-raddle-task__credit">Автор формата — <a href="https://alphaguess.com" target="_blank" rel="noopener noreferrer">alphaguess.com</a>, мы благодарны им за идею алфавиток</p>
 </div>
   </div>
 </div>
@@ -1154,28 +1153,7 @@
 })();
 </script>
 
-{% if can_see_results %}
-<p class="new-tg-results-link">
-  <a class="new-btn new-btn--ghost new-btn--mini" href="{{ task_results_url }}">Результаты этой алфавитки</a>
-</p>
-{% endif %}
-
-{% if prev_task_group_url or next_task_group_url %}
-<nav class="new-tg-pager" aria-label="Переход между алфавитками">
-  {% if prev_task_group_url %}
-    <a class="new-tg-pager__link new-tg-pager__link--prev" href="{{ prev_task_group_url }}">
-      <span class="new-tg-pager__dir"><i class="ph ph-caret-left" aria-hidden="true"></i> Назад</span>
-      <span class="new-tg-pager__label">№{{ prev_task_group_number }} · {% autoescape off %}{{ prev_task_group_name }}{% endautoescape %}</span>
-    </a>
-  {% else %}
-    <span class="new-tg-pager__spacer" aria-hidden="true"></span>
-  {% endif %}
-  {% if next_task_group_url %}
-    <a class="new-tg-pager__link new-tg-pager__link--next" href="{{ next_task_group_url }}">
-      <span class="new-tg-pager__dir">Дальше <i class="ph ph-caret-right" aria-hidden="true"></i></span>
-      <span class="new-tg-pager__label">№{{ next_task_group_number }} · {% autoescape off %}{{ next_task_group_name }}{% endautoescape %}</span>
-    </a>
-  {% endif %}
-</nav>
+{% if daily_footer_enabled %}
+{% include "new/partials/daily_task_footer.html" %}
 {% endif %}
 {% endblock %}

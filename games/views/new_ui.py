@@ -756,14 +756,21 @@ def _ladder_latest_play_url(game):
     return _play_url_for_task_group(game, max(numbers))
 
 
-def _ladder_task_group_rows(task_groups, game, *, today_number=None, today_prefix='Сегодня'):
+def _ladder_task_group_rows(
+    task_groups,
+    game,
+    *,
+    today_number=None,
+    today_prefix='Сегодня',
+    item_label='Лесенка',
+):
     rows = []
     for p in task_groups:
         is_today = today_number is not None and str(p.number) == str(today_number)
         title = (
-            '{} · №{}'.format(today_prefix, p.number)
+            '{} · {} №{}'.format(today_prefix, item_label, p.number)
             if is_today
-            else '№{} · {}'.format(p.number, p.name)
+            else '{} №{}'.format(item_label, p.number)
         )
         rows.append({
             'task_group': p.task_group,
@@ -1398,7 +1405,11 @@ def _render_section_game_page(request, game_id):
         today_number = current_week_task_number(game)
         task_groups = _hub_section_task_group_links(game)
         task_group_rows = _ladder_task_group_rows(
-            task_groups, game, today_number=today_number, today_prefix='Эта неделя',
+            task_groups,
+            game,
+            today_number=today_number,
+            today_prefix='Эта неделя',
+            item_label='Задание недели',
         )
         task_groups_heading = 'Архив'
         task_groups_empty_text = 'Задания недели скоро появятся — следите за обновлениями.'
@@ -1914,6 +1925,11 @@ def new_section_results_page(request, game_id):
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
+    results_variant = (
+        'ladder' if game_id == LADDER_GAME_ID
+        else 'alphabetty' if game_id == ALPHABETTY_GAME_ID
+        else 'standard'
+    )
 
     # Row data is loaded incrementally (?partial=1); initial response is headers only.
     if request.GET.get('partial') == '1':
@@ -1923,7 +1939,7 @@ def new_section_results_page(request, game_id):
             'mode': 'general',
             'section_results': True,
             'is_ladder_results': game_id == LADDER_GAME_ID,
-            'results_variant': 'ladder' if game_id == LADDER_GAME_ID else 'standard',
+            'results_variant': results_variant,
             'game': game,
             'team': team,
             'me_personal': me_personal,
@@ -1942,7 +1958,7 @@ def new_section_results_page(request, game_id):
         'mode': 'general',
         'section_results': True,
         'is_ladder_results': game_id == LADDER_GAME_ID,
-        'results_variant': 'ladder' if game_id == LADDER_GAME_ID else 'standard',
+        'results_variant': results_variant,
         'game': game,
         'team': team,
         'me_personal': me_personal,
@@ -2605,6 +2621,17 @@ def new_task_group_page(request, game_id, task_group_number):
     else:
         ladder_results_url = None
 
+    daily_footer_enabled = is_daily_single_task
+    daily_game_label = {
+        LADDER_GAME_ID: 'Лесенка',
+        ALPHABETTY_GAME_ID: 'Алфавитка',
+        WEEK_TASK_GAME_ID: 'Задание недели',
+    }.get(game.id)
+    daily_results_allowed = bool(
+        ladder_results_url
+        and game.has_access('see_results', mode='general', team=team)
+    )
+
     back_url = (
         _sections_hub_url(game.id)
         if game.project_id == NEW_UI_SECTIONS_PROJECT
@@ -2652,6 +2679,19 @@ def new_task_group_page(request, game_id, task_group_number):
         'is_daily_single_task': is_daily_single_task,
         'daily_publish_date': daily_publish_date,
         'ladder_word_results_url': ladder_results_url,
+        'daily_footer_enabled': daily_footer_enabled,
+        'daily_game_label': daily_game_label,
+        'daily_results_url': ladder_results_url,
+        'daily_results_allowed': daily_results_allowed,
+        'daily_results_label': 'Результаты этой лесенки' if game.id == LADDER_GAME_ID else '',
+        'daily_format_credit_url': 'https://raddle.quest' if game.id == LADDER_GAME_ID else '',
+        'daily_format_credit_name': 'raddle.quest' if game.id == LADDER_GAME_ID else '',
+        'daily_format_credit_text': 'лесенок' if game.id == LADDER_GAME_ID else '',
+        'daily_pager_aria_label': 'Переход между {}'.format(
+            'лесенками' if game.id == LADDER_GAME_ID
+            else 'заданиями недели' if game.id == WEEK_TASK_GAME_ID
+            else 'кругами'
+        ),
         'ladder_offer': ladder_offer,
         'can_reset_ladder_offer': can_reset_offer,
         'ladder_offer_reset_url': offer_reset_url,

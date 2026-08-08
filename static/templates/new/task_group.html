@@ -3209,12 +3209,6 @@
 })();
 </script>
 
-{% if ladder_word_results_url %}
-  <p class="new-tg-results-link">
-    <a href="{{ ladder_word_results_url }}" class="new-btn new-btn--ghost new-btn--mini">Результаты этой лесенки</a>
-  </p>
-{% endif %}
-
 {% if can_reset_ladder_offer and ladder_offer_reset_url %}
 <script>
 (function () {
@@ -3237,23 +3231,8 @@
 </script>
 {% endif %}
 
-{% if prev_task_group_url or next_task_group_url %}
-<nav class="new-tg-pager" aria-label="Переход между кругами">
-  {% if prev_task_group_url %}
-    <a class="new-tg-pager__link new-tg-pager__link--prev" href="{{ prev_task_group_url }}">
-      <span class="new-tg-pager__dir"><i class="ph ph-caret-left" aria-hidden="true"></i> Назад</span>
-      <span class="new-tg-pager__label">№{{ prev_task_group_number }} · {% autoescape off %}{{ prev_task_group_name }}{% endautoescape %}</span>
-    </a>
-  {% else %}
-    <span class="new-tg-pager__spacer" aria-hidden="true"></span>
-  {% endif %}
-  {% if next_task_group_url %}
-    <a class="new-tg-pager__link new-tg-pager__link--next" href="{{ next_task_group_url }}">
-      <span class="new-tg-pager__dir">Дальше <i class="ph ph-caret-right" aria-hidden="true"></i></span>
-      <span class="new-tg-pager__label">№{{ next_task_group_number }} · {% autoescape off %}{{ next_task_group_name }}{% endautoescape %}</span>
-    </a>
-  {% endif %}
-</nav>
+{% if daily_footer_enabled %}
+{% include "new/partials/daily_task_footer.html" %}
 {% endif %}
 {% include "new/_18plus_gate.html" %}
 {% endblock %}

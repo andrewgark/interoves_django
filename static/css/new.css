@@ -2038,6 +2038,10 @@ html.new-ui-dark .new-team-switcher-active-box {
   margin-top: 0.75rem;
 }
 
+.new-stack-gap--after-button {
+  margin-bottom: 1.25rem;
+}
+
 .new-stack-gap--lg {
   margin-top: 1.5rem;
 }
@@ -4008,6 +4012,7 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   overflow: auto;
   max-height: min(72vh, 720px);
   display: inline-block;
+  isolation: isolate;
 }
 
 .new-results-table{
@@ -4080,11 +4085,14 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 }
 
 /* Лесенки: узкие колонки — номер до 999, баллы до «99.5» (3–4 символа) */
-.new-results-table--ladder{
+.new-results-table--ladder,
+.new-results-table--daily{
   --results-col-ladder: calc(4.5ch + 0.5rem);
 }
 .new-results-table--ladder th.col-ladder,
-.new-results-table--ladder tbody td{
+.new-results-table--daily th.col-ladder,
+.new-results-table--ladder tbody td,
+.new-results-table--daily tbody td{
   width: var(--results-col-ladder);
   min-width: var(--results-col-ladder);
   max-width: var(--results-col-ladder);
@@ -4094,7 +4102,8 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   text-overflow: clip;
   font-variant-numeric: tabular-nums;
 }
-.new-results-table--ladder th.col-ladder a{
+.new-results-table--ladder th.col-ladder a,
+.new-results-table--daily th.col-ladder a{
   color: inherit;
   text-decoration: none;
 }
@@ -4132,6 +4141,7 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   z-index: 6;
   width: var(--results-col-rank);
   min-width: var(--results-col-rank);
+  background-color: var(--surface);
 }
 .new-results-table .is-sticky-left-2{
   position: sticky;
@@ -4140,6 +4150,7 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   width: var(--results-col-team);
   min-width: var(--results-col-team);
   max-width: var(--results-col-team);
+  background-color: var(--surface);
 }
 .new-results-table .is-sticky-left-3{
   position: sticky;
@@ -4147,6 +4158,8 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   z-index: 6;
   width: var(--results-col-score);
   min-width: var(--results-col-score);
+  background-color: var(--surface);
+  box-shadow: 1px 0 0 var(--border);
 }
 .new-results-table .is-sticky-left-4{
   position: sticky;
@@ -4154,6 +4167,8 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   z-index: 6;
   width: var(--results-col-time);
   min-width: var(--results-col-time);
+  background-color: var(--surface);
+  box-shadow: 1px 0 0 var(--border);
 }
 
 .new-results-table thead .is-sticky-left,
@@ -4161,6 +4176,15 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 .new-results-table thead .is-sticky-left-3,
 .new-results-table thead .is-sticky-left-4{
   z-index: 7;
+}
+
+/* Keep the frozen header cells opaque as well; otherwise the scrolling
+   columns can bleed through their borders in some browsers. */
+.new-results-table thead .is-sticky-left,
+.new-results-table thead .is-sticky-left-2,
+.new-results-table thead .is-sticky-left-3,
+.new-results-table thead .is-sticky-left-4{
+  background-color: color-mix(in srgb, var(--tile) 45%, var(--surface));
 }
 
 /* Узкий экран: уже «замороженные» колонки, чтобы оставалось место для горизонтального скролла задач */
