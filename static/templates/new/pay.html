@@ -30,7 +30,7 @@
     <p class="new-pay-meta">Команда: <strong>{{ team.visible_name|default:team.name }}</strong>.</p>
     <p class="new-pay-meta">Билетов сейчас: <strong id="new-pay-team-tickets">{{ team_tickets }}</strong>.</p>
     <p class="new-login-hint new-pay-note">
-      После оплаты билеты появятся у команды автоматически. Российской картой — обычно быстро; иностранной картой (Tribute) — после возврата на эту страницу; криптой (особенно BTC) подтверждение сети может занять десятки минут — статус обновится здесь.
+      После оплаты билеты появятся у команды автоматически. Российской картой — обычно быстро; криптой (особенно BTC) подтверждение сети может занять десятки минут — статус обновится здесь.
       Билет можно использовать для участия команды в любой командной игре — можно купить билеты впрок на будущее.
     </p>
     {% elif user.is_authenticated %}
@@ -86,6 +86,7 @@
       </span>
       <span class="new-pay-method-btn__label">Оплатить российской картой</span>
     </button>
+    {% comment %}
     <button type="button" id="new-pay-tribute-btn" class="new-btn new-pay-method-btn">
       <span class="new-pay-method-btn__icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
@@ -98,6 +99,7 @@
       </span>
       <span class="new-pay-method-btn__label">Оплатить иностранной картой</span>
     </button>
+    {% endcomment %}
     <button type="button" id="new-pay-crypto-btn" class="new-btn new-pay-method-btn">
       <span class="new-pay-method-btn__icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
@@ -125,7 +127,6 @@
     var cryptoMount = document.getElementById('new-nowpayments-widget');
     var widgetHost = document.getElementById('new-pay-widget-host');
     var cardBtn = document.getElementById('new-pay-card-btn');
-    var tributeBtn = document.getElementById('new-pay-tribute-btn');
     var cryptoBtn = document.getElementById('new-pay-crypto-btn');
     var msg = document.getElementById('new-yookassa-msg');
     var statusEl = document.getElementById('new-pay-status');
@@ -138,7 +139,6 @@
 
     function setBusy(busy) {
       cardBtn.disabled = !!busy;
-      if (tributeBtn) tributeBtn.disabled = !!busy;
       if (cryptoBtn) cryptoBtn.disabled = !!busy;
     }
 
@@ -296,6 +296,8 @@
         });
     });
 
+    {% comment %}
+    var tributeBtn = document.getElementById('new-pay-tribute-btn');
     if (tributeBtn) {
       tributeBtn.addEventListener('click', function () {
         setMsg('Создаём платёж через Tribute…');
@@ -330,6 +332,7 @@
         });
       });
     }
+    {% endcomment %}
 
     if (cryptoBtn && cryptoMount) {
       cryptoBtn.addEventListener('click', function () {
@@ -395,7 +398,7 @@
   {% if team and recent_ticket_requests %}
   <div class="new-card__text new-stack-gap">
     <div class="new-pay-history__title">Последние запросы</div>
-    <div class="new-login-hint new-pay-history__hint">Если оплатили, но статус ещё Pending — подождите подтверждения (для BTC иногда 20+ минут; для Tribute обновите страницу после возврата). Если есть проблемы с оплатой, напишите <a href="https://t.me/andrewgark">Андрею</a>.</div>
+    <div class="new-login-hint new-pay-history__hint">Если оплатили, но статус ещё Pending — подождите подтверждения (для BTC иногда 20+ минут). Если есть проблемы с оплатой, напишите <a href="https://t.me/andrewgark">Андрею</a>.</div>
     <div class="new-pay-history__list">
       {% for tr in recent_ticket_requests %}
         <div class="new-pay-history__row">

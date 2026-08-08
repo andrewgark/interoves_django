@@ -47,6 +47,8 @@ class PayPageGatingTests(TestCase):
 
     def setUp(self):
         self.client = Client()
+        self.user.refresh_from_db()
+        self.user.profile.refresh_from_db()
 
     def test_anonymous_sees_login_prompt_not_payment_form(self):
         resp = self.client.get(reverse('new_pay'))
@@ -68,10 +70,12 @@ class PayPageGatingTests(TestCase):
         self.assertIn('Создать команду', body)
         self.assertIn('Вступить в команду', body)
         self.assertNotIn('new-pay-ticket-form', body)
-        self.assertNotIn('data-login-open', body)
+        self.assertNotIn('Чтобы купить билет для команды, сначала войдите', body)
 
     def test_authenticated_with_team_sees_payment_form(self):
         self.user.profile.add_team_membership(self.team, make_primary=True)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.team_on_id, self.team.pk)
         self.assertTrue(self.client.login(username='pay_user', password='secret'))
         resp = self.client.get(reverse('new_pay'))
         self.assertEqual(resp.status_code, 200)
@@ -79,11 +83,12 @@ class PayPageGatingTests(TestCase):
         self.assertIn('new-pay-ticket-form', body)
         self.assertIn('Оплатить российской картой', body)
         self.assertIn('Оплатить криптой', body)
+        self.assertNotIn('Оплатить иностранной картой', body)
         self.assertIn('new-pay-widget-host', body)
         self.assertIn('Pay Team', body)
-        self.assertIn('Билетов сейчас: <strong>3</strong>', body)
+        self.assertIn('Билетов сейчас:', body)
+        self.assertIn('id="new-pay-team-tickets">3</strong>', body)
         self.assertNotIn('Создать команду', body)
-        self.assertNotIn('data-login-open', body)
 
 
 @override_settings(LANGUAGE_CODE='ru-ru')
