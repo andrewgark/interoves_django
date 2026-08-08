@@ -53,6 +53,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
+from games.results_snapshot import build_results_snapshot_payload
 from games.support.services.alphabetty import (
     AlphabettySupportError,
     delete_alphabetty,
@@ -230,6 +231,32 @@ class AlphabettySupportTests(TestCase):
         self.assertEqual(buf['added'], max(0, 10 - future_before))
         future_after = sum(1 for r in list_alphabetty_rows() if not r.is_published)
         self.assertGreaterEqual(future_after, min(10, future_before + buf['added']))
+
+    def test_results_snapshot_excludes_future_round_columns(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        for number in ('1', '30'):
+            task_group = TaskGroup.objects.create(label=f'snapshot_alphabetty_{number}')
+            Task.objects.create(
+                task_group=task_group,
+                number='1',
+                task_type='alphabetty',
+                points=10,
+                text='word',
+            )
+            GameTaskGroup.objects.create(
+                game=self.game,
+                task_group=task_group,
+                number=number,
+                name=f'#{number}',
+            )
+
+        now = datetime(2026, 8, 9, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
+        with patch('games.alphabetty_daily.timezone.now', return_value=now):
+            payload = build_results_snapshot_payload(self.game, mode='general')
+
+        self.assertEqual([group['number'] for group in payload['task_groups']], ['1'])
 
     def test_update_and_reorder_lock(self):
         # Старт в будущем — все слоты ещё не опубликованы, слово можно менять.
