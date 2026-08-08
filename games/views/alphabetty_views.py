@@ -13,6 +13,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
 from games.alphabetty.core import build_prefix_level, normalize_word
+from games.alphabetty_offer import can_access_offer_hash, get_offer_by_share_hash
 from games.alphabetty.play import (
     apply_guess,
     apply_hint,
@@ -33,7 +34,14 @@ from games.alphabetty_daily import (
     is_alphabetty_number_published,
     visible_alphabetty_links,
 )
-from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Like, Task
+from games.models import (
+    Attempt,
+    ChainTaskState,
+    Game,
+    GameTaskGroup,
+    Like,
+    Task,
+)
 from games.section_paths import section_hub_path, section_play_path
 from games.views.new_ui import (
     NEW_UI_SECTIONS_PROJECT,
@@ -269,24 +277,20 @@ def alphabetty_last_page(request):
 
 
 def alphabetty_play_page(request, number):
-    game = _get_game()
-    if not game:
+    game, task, load_meta, err = _load_visible_task(request, number)
+    if err is not None or game is None or task is None:
         raise Http404()
-    team = None
-    if has_profile(request.user):
-        team = request.user.profile.team_on
-    if not game.has_access('see_game_preview', team=team):
-        raise Http404()
-    try:
-        n = int(number)
-    except (TypeError, ValueError):
-        raise Http404()
-    if not is_alphabetty_number_published(game, n):
-        raise Http404()
-    try:
-        link, task = get_task_for_number(game, n)
-    except LookupError:
-        raise Http404()
+    offer = load_meta.get('offer') if load_meta else None
+    play_number = load_meta.get('play_number') if load_meta else number
+    play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
+    link = load_meta.get('accepted_link') if load_meta else None
+    if offer is None:
+        try:
+            n = int(play_number)
+        except (TypeError, ValueError):
+            raise Http404()
+    else:
+        n = play_number
 
     user, anon_key = _resolve_actor(request)
     # Не генерируем anon на сервере: иначе перетирается localStorage из base.html
@@ -296,38 +300,42 @@ def alphabetty_play_page(request, number):
         task=task,
         user=user,
         anon_key=anon_key,
-        number=n,
+        number=play_number,
         share_host=_share_host(request),
+        play_path=play_path,
     )
-    pub_at = alphabetty_publish_at(game, n)
+    pub_at = alphabetty_publish_at(game, n) if offer is None else None
     daily_publish_date = pub_at.date() if pub_at is not None else None
     # Соседи только среди уже вышедших алфавиток (как у лесенок).
-    visible_links = list(
-        visible_alphabetty_links(
-            GameTaskGroup.objects.filter(game=game),
-            game,
+    prev_tg = None
+    next_tg = None
+    if offer is None and link is not None:
+        visible_links = list(
+            visible_alphabetty_links(
+                GameTaskGroup.objects.filter(game=game),
+                game,
+            )
         )
-    )
-    prev_tg, next_tg = _neighbors_by_pk(visible_links, link)
+        prev_tg, next_tg = _neighbors_by_pk(visible_links, link)
     meta_ctx = _alphabetty_meta_context(
         request, game=game, task=task, user=user, anon_key=anon_key,
     )
     return render(request, 'new/alphabetty_play.html', {
         'game': game,
-        'number': n,
+        'number': play_number,
         'link': link,
         'task': task,
-        'page_title': f'Алфавитка №{n}',
+        'page_title': f'Алфавитка №{n}' if offer is None else 'Алфавитка',
         'daily_publish_date': daily_publish_date,
         'show_sections_nav': True,
-        'back_url': section_hub_path(ALPHABETTY_GAME_ID),
+        'back_url': '/create_alphabetty/' if offer is not None else section_hub_path(ALPHABETTY_GAME_ID),
         'back_label': 'К списку',
         'bootstrap': state,
-        'guess_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}guess/',
-        'state_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}state/',
-        'prefix_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}prefix/',
-        'hint_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}hint/',
-        'suggest_url': f'{section_play_path(ALPHABETTY_GAME_ID, n)}suggest/',
+        'guess_url': f'{play_path}guess/',
+        'state_url': f'{play_path}state/',
+        'prefix_url': f'{play_path}prefix/',
+        'hint_url': f'{play_path}hint/',
+        'suggest_url': f'{play_path}suggest/',
         'anon_key': anon_key if user is None else '',
         'is_authenticated': bool(user),
         'prev_task_group_url': (
@@ -340,23 +348,6 @@ def alphabetty_play_page(request, number):
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
     })
 
-
-@login_required
-@require_http_methods(['GET'])
-def alphabetty_create_page(request):
-    game = _get_game()
-    target_number = None
-    if game is not None:
-        target_number = current_alphabetty_number(game)
-    return render(request, 'new/create_alphabetty.html', {
-        'page_title': 'Создать свою алфавитку',
-        'show_sections_nav': True,
-        'back_url': '/alphabetty/',
-        'back_label': 'К алфавиткам',
-        'target_number': target_number or '',
-    })
-
-
 def _preview_denied(request, game):
     team = None
     if has_profile(request.user):
@@ -366,43 +357,62 @@ def _preview_denied(request, game):
     return None
 
 
-def _load_published_task(request, number):
+def _load_visible_task(request, number):
     game = _get_game()
     if not game:
-        return None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+        return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+    offer = get_offer_by_share_hash(str(number))
+    if offer is not None:
+        if not can_access_offer_hash(offer, request.user):
+            return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+        task = Task.objects.filter(task_group_id=offer.task_group_id, number='1').first()
+        if task is None:
+            return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+        meta = {
+            'offer': offer,
+            'play_number': offer.share_hash,
+            'play_path': offer.play_url(),
+            'accepted_link': offer.accepted_link,
+        }
+        return game, task, meta, None
     denied = _preview_denied(request, game)
     if denied is not None:
-        return None, None, denied
+        return None, None, None, denied
     try:
         n = int(number)
     except (TypeError, ValueError):
-        return None, None, JsonResponse({'status': 'error', 'error': 'bad number'}, status=400)
+        return None, None, None, JsonResponse({'status': 'error', 'error': 'bad number'}, status=400)
     if not is_alphabetty_number_published(game, n):
-        return None, None, JsonResponse({'status': 'error', 'error': 'not published'}, status=404)
+        return None, None, None, JsonResponse({'status': 'error', 'error': 'not published'}, status=404)
     try:
-        _link, task = get_task_for_number(game, n)
+        link, task = get_task_for_number(game, n)
     except LookupError:
-        return None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
-    return game, task, None
+        return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+    meta = {
+        'offer': None,
+        'play_number': n,
+        'play_path': section_play_path(ALPHABETTY_GAME_ID, n),
+        'accepted_link': link,
+    }
+    return game, task, meta, None
 
 
 @require_http_methods(['GET'])
 def alphabetty_state(request, number):
-    game, task, err = _load_published_task(request, number)
+    game, task, load_meta, err = _load_visible_task(request, number)
     if err is not None:
         return err
     user, anon_key = _resolve_actor(request)
-    try:
-        n = int(number)
-    except (TypeError, ValueError):
-        n = 0
+    play_number = load_meta.get('play_number') if load_meta else number
+    play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
     state = get_play_state(
         game=game,
         task=task,
         user=user,
         anon_key=anon_key,
-        number=n,
+        number=play_number,
         share_host=_share_host(request),
+        play_path=play_path,
     )
     payload = _with_meta_bar(
         {'status': 'ok', **state},
@@ -425,7 +435,7 @@ def alphabetty_state(request, number):
 
 @require_POST
 def alphabetty_guess(request, number):
-    game, task, err = _load_published_task(request, number)
+    game, task, load_meta, err = _load_visible_task(request, number)
     if err is not None:
         return err
 
@@ -441,18 +451,17 @@ def alphabetty_guess(request, number):
         # только для этого ответа (и проставим cookie), не трогая чужой localStorage на GET.
         anon_key = uuid.uuid4().hex
 
-    try:
-        n = int(number)
-    except (TypeError, ValueError):
-        n = 0
+    play_number = load_meta.get('play_number') if load_meta else number
+    play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
     result = apply_guess(
         game=game,
         task=task,
         word=word,
         user=user,
         anon_key=anon_key,
-        number=n,
+        number=play_number,
         share_host=_share_host(request),
+        play_path=play_path,
     )
     result = _with_meta_bar(
         result, request, game=game, task=task, user=user, anon_key=anon_key,
@@ -471,18 +480,9 @@ def alphabetty_guess(request, number):
 @require_http_methods(['GET', 'POST'])
 def alphabetty_prefix(request, number):
     """Раскрыть уровень префиксов между текущими границами (или переданными lo/hi)."""
-    game = _get_game()
-    if not game:
+    game, _task, _load_meta, err = _load_visible_task(request, number)
+    if err is not None:
         return JsonResponse({'ok': False, 'error': 'not found'}, status=404)
-    denied = _preview_denied(request, game)
-    if denied is not None:
-        return JsonResponse({'ok': False, 'error': 'not found'}, status=404)
-    try:
-        n = int(number)
-    except (TypeError, ValueError):
-        return JsonResponse({'ok': False, 'error': 'bad number'}, status=400)
-    if not is_alphabetty_number_published(game, n):
-        return JsonResponse({'ok': False, 'error': 'not published'}, status=404)
 
     if request.method == 'POST':
         try:
@@ -501,7 +501,7 @@ def alphabetty_prefix(request, number):
 
 @require_POST
 def alphabetty_hint(request, number):
-    game, task, err = _load_published_task(request, number)
+    game, task, load_meta, err = _load_visible_task(request, number)
     if err is not None:
         return err
 
@@ -514,17 +514,16 @@ def alphabetty_hint(request, number):
     if user is None and not anon_key:
         anon_key = uuid.uuid4().hex
 
-    try:
-        n = int(number)
-    except (TypeError, ValueError):
-        n = 0
+    play_number = load_meta.get('play_number') if load_meta else number
+    play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
     result = apply_hint(
         game=game,
         task=task,
         user=user,
         anon_key=anon_key,
-        number=n,
+        number=play_number,
         share_host=_share_host(request),
+        play_path=play_path,
     )
     result = _with_meta_bar(
         result, request, game=game, task=task, user=user, anon_key=anon_key,
@@ -543,7 +542,7 @@ def alphabetty_hint(request, number):
 @require_POST
 def alphabetty_suggest(request, number):
     """Предложить слово в словарь (pending → модерация в админке)."""
-    game, task, err = _load_published_task(request, number)
+    game, task, _load_meta, err = _load_visible_task(request, number)
     if err is not None:
         return err
 
@@ -552,31 +551,6 @@ def alphabetty_suggest(request, number):
     except (ValueError, TypeError):
         body = {}
     word = body.get('word') or request.POST.get('word') or ''
-    user, anon_key = _resolve_actor(request, body=body)
-    if user is None and not anon_key:
-        anon_key = uuid.uuid4().hex
-
-    result = suggest_word(word, user=user, anon_key=anon_key)
-    response = JsonResponse(result)
-    if user is None and anon_key:
-        response.set_cookie(
-            'interoves_anon',
-            anon_key,
-            max_age=60 * 60 * 24 * 365,
-            samesite='Lax',
-        )
-    return response
-
-
-@login_required
-@require_POST
-def alphabetty_create_submit(request):
-    try:
-        body = json.loads(request.body.decode('utf-8') or '{}')
-    except (ValueError, TypeError):
-        body = {}
-    word = body.get('word') or request.POST.get('word') or ''
-    number = body.get('number') or request.POST.get('number') or ''
     user, anon_key = _resolve_actor(request, body=body)
     if user is None and not anon_key:
         anon_key = uuid.uuid4().hex

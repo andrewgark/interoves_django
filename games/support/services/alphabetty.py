@@ -265,6 +265,74 @@ def _create_slot(*, number: int, word: str) -> GameTaskGroup:
     )
 
 
+def attach_existing_task_group(
+    task_group: TaskGroup,
+    *,
+    at_number: int,
+    now: datetime | None = None,
+) -> GameTaskGroup:
+    """Вставить уже существующий TaskGroup в расписание alphabetty."""
+    game = get_alphabetty_game()
+    if GameTaskGroup.objects.filter(game=game, task_group=task_group).exists():
+        raise AlphabettySupportError('Этот набор заданий уже в расписании алфавиток')
+    if at_number < 1:
+        at_number = 1
+    locked_until = last_published_number(now=now)
+    if at_number <= locked_until:
+        raise AlphabettySupportError(
+            'Нельзя вставлять среди уже вышедших '
+            '(доступно с №{})'.format(locked_until + 1)
+        )
+    links = GameTaskGroup.sorted_links(
+        GameTaskGroup.objects.filter(game=game).select_related('task_group'),
+        reverse=False,
+    )
+    max_num = 0
+    for link in links:
+        try:
+            max_num = max(max_num, int(link.number))
+        except (TypeError, ValueError):
+            pass
+    if at_number > max_num + 1:
+        at_number = max_num + 1
+
+    to_shift = []
+    for link in links:
+        try:
+            n = int(link.number)
+        except (TypeError, ValueError):
+            continue
+        if n >= at_number:
+            to_shift.append((n, link))
+    to_shift.sort(key=lambda x: x[0], reverse=True)
+    if to_shift:
+        planned = [(old, old + 1, link) for old, link in to_shift]
+        temp_base = 10_000
+        for i, (_old, new, link) in enumerate(planned):
+            link.number = str(temp_base + i)
+            _sync_link_titles(link, new)
+            link.save(update_fields=['number', 'name'])
+        for _old, new, link in planned:
+            link.number = str(new)
+            link.save(update_fields=['number'])
+
+    if (task_group.label or '').startswith('alphabetty:') or not (task_group.label or '').strip():
+        task_group.label = f'alphabetty:{at_number}'
+        task_group.save(update_fields=['label'])
+    elif (task_group.label or '').startswith('alphabetty_offer:'):
+        task_group.label = f'alphabetty:{at_number}'
+        task_group.save(update_fields=['label'])
+    link = GameTaskGroup.objects.create(
+        game=game,
+        task_group=task_group,
+        number=str(at_number),
+        name=f'Алфавитка #{at_number}',
+    )
+    _sync_link_titles(link, at_number)
+    link.save(update_fields=['name'])
+    return link
+
+
 @transaction.atomic
 def create_alphabetty(
     *,

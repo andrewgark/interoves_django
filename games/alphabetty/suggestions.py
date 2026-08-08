@@ -75,7 +75,7 @@ def suggest_word(
             'suggestion_id': obj.pk,
             'suggest_count': obj.suggest_count,
             'personal': True,
-            'message': 'Слишком редкое слово для широкого словаря. Добавили его в ваш словарь и отправили на модерацию.',
+            'message': f'Слова {n} нет в словаре, но мы добавили его для вас',
         }
 
     if existing.status in AlphabettyDictSuggestion.STATUSES_VALID:
@@ -99,7 +99,7 @@ def suggest_word(
             'suggestion_id': existing.pk,
             'suggest_count': existing.suggest_count,
             'personal': True,
-            'message': 'Слишком редкое слово для широкого словаря. Оно уже отправлено на модерацию, но мы всё равно добавили его в ваш словарь.',
+            'message': f'Слова {n} нет в словаре, но мы добавили его для вас',
         }
 
     # Rejected → снова в очередь
@@ -118,7 +118,7 @@ def suggest_word(
         'suggestion_id': existing.pk,
         'suggest_count': existing.suggest_count,
         'personal': True,
-        'message': 'Слишком редкое слово для широкого словаря. Добавили его в ваш словарь и отправили на модерацию.',
+        'message': f'Слова {n} нет в словаре, но мы добавили его для вас',
     }
 
 

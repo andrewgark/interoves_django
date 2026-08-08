@@ -5,6 +5,8 @@
 {% csrf_token %}
 {{ alphabetty_json|json_script:"alphabetty-bootstrap" }}
 {{ banned_json|json_script:"alphabetty-banned" }}
+{{ sent_offers_json|json_script:"alphabetty-offers-bootstrap" }}
+{{ offer_by_link_json|json_script:"alphabetty-offer-by-link-bootstrap" }}
 <script src="{% static 'js/support_schedule_tabs.js' %}"></script>
 <h1 class="support-page-title">Алфавитки</h1>
 <p class="support-lead">
@@ -38,6 +40,7 @@
   <button type="button" class="support-tabs__btn is-active" data-tab="schedule">Расписание</button>
   <button type="button" class="support-tabs__btn" data-tab="published">Вышедшие</button>
   <button type="button" class="support-tabs__btn" data-tab="future">Будущие</button>
+  <button type="button" class="support-tabs__btn" data-tab="sent">Отправленные{% if sent_offers %} ({{ sent_offers|length }}){% endif %}</button>
   <button type="button" class="support-tabs__btn" data-tab="banned">Запрещённые</button>
 </nav>
 
@@ -67,11 +70,43 @@
   </div>
 </div>
 
+<div id="ab-offer-modal" class="new-rules-modal" role="dialog" aria-labelledby="ab-offer-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-ab-offer-close></div>
+  <div class="new-rules-modal__box pal-card support-ladder-modal">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-ab-offer-close>×</button>
+    <h2 id="ab-offer-title" class="support-page-title support-page-title--modal">Отправленная алфавитка</h2>
+    <p class="support-hint" id="ab-offer-sub"></p>
+    <label class="support-ladders-field">
+      <span>Загаданное слово</span>
+      <input type="text" class="support-input--upper" id="ab-offer-word" autocomplete="off">
+    </label>
+    <label class="support-ladders-field">
+      <span>Комментарий автора</span>
+      <textarea id="ab-offer-comment" rows="2"></textarea>
+    </label>
+    <label class="support-ladders-field">
+      <span>Заметка при возврате на доработку</span>
+      <textarea id="ab-offer-admin-note" rows="2"></textarea>
+    </label>
+    <p class="support-hint support-ladder-edit-error" id="ab-offer-error" hidden></p>
+    <div class="support-action-row support-action-row--mt">
+      <button type="button" class="new-btn" id="ab-offer-save">Сохранить</button>
+      <button type="button" class="new-btn" id="ab-offer-accept">Принять</button>
+      <button type="button" class="new-btn new-btn--ghost" id="ab-offer-revision">Отправить на доработку</button>
+      <button type="button" class="new-btn new-btn--mini new-btn--ghost" id="ab-offer-reset-progress">Сбросить прогресс всех</button>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="ab-offer-preview">Посмотреть на сайте</a>
+      <button type="button" class="new-btn new-btn--ghost" data-ab-offer-close>Закрыть</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   var bootstrap = JSON.parse(document.getElementById('alphabetty-bootstrap').textContent);
   var allRows = bootstrap.slice();
   var banned = JSON.parse(document.getElementById('alphabetty-banned').textContent || '[]');
+  var sentOffers = JSON.parse(document.getElementById('alphabetty-offers-bootstrap').textContent || '[]');
+  var offerByLink = JSON.parse(document.getElementById('alphabetty-offer-by-link-bootstrap').textContent || '{}');
   var viewTab = 'schedule';
   var tabs = window.SupportScheduleTabs;
   var endpoints = {
@@ -83,12 +118,20 @@
     saveTpl: "{% url 'support:alphabetty_update' 0 %}".replace('/0/', '/{id}/'),
     deleteTpl: "{% url 'support:alphabetty_delete' 0 %}".replace('/0/', '/{id}/'),
     forbidTpl: "{% url 'support:alphabetty_forbid' 0 %}".replace('/0/', '/{id}/'),
-    unban: "{% url 'support:alphabetty_unban' %}"
+    unban: "{% url 'support:alphabetty_unban' %}",
+    offerDetailTpl: "{% url 'support:alphabetty_offer_detail' 0 %}".replace('/0/', '/{id}/'),
+    offerSaveTpl: "{% url 'support:alphabetty_offer_save' 0 %}".replace('/0/', '/{id}/'),
+    offerAcceptTpl: "{% url 'support:alphabetty_offer_accept' 0 %}".replace('/0/', '/{id}/'),
+    offerRevisionTpl: "{% url 'support:alphabetty_offer_request_revision' 0 %}".replace('/0/', '/{id}/'),
+    offerResetTpl: "{% url 'support:alphabetty_offer_reset_progress' 0 %}".replace('/0/', '/{id}/'),
+    linkRevisionTpl: "{% url 'support:alphabetty_link_request_revision' 0 %}".replace('/0/', '/{id}/')
   };
   var listEl = document.getElementById('ab-list');
   var metaEl = document.getElementById('ab-meta');
   var modal = document.getElementById('ab-edit-modal');
+  var offerModal = document.getElementById('ab-offer-modal');
   var editLinkId = null;
+  var editOfferId = null;
   var dragId = null;
   var busy = false;
 
@@ -121,6 +164,9 @@
   function isScheduleView() {
     return viewTab === 'schedule';
   }
+  function isSentView() {
+    return viewTab === 'sent';
+  }
   function canReorder() {
     return viewTab === 'schedule' || viewTab === 'future';
   }
@@ -138,6 +184,10 @@
     return 'support-flag--warn';
   }
   function renderMeta(rows) {
+    if (isSentView()) {
+      metaEl.textContent = 'Отправленных алфавиток: ' + sentOffers.length;
+      return;
+    }
     var published = 0, today = null;
     rows.forEach(function (r) {
       if (r.is_published) published += 1;
@@ -154,7 +204,35 @@
     }
     listEl.innerHTML = '';
     if (!rows.length) {
-      listEl.innerHTML = '<p class="support-empty">Пока пусто. Нажмите «Нагенерить» или «+ В конец».</p>';
+      listEl.innerHTML = isSentView()
+        ? '<p class="support-empty">Нет отправленных алфавиток.</p>'
+        : '<p class="support-empty">Пока пусто. Нажмите «Нагенерить» или «+ В конец».</p>';
+      renderMeta(allRows);
+      return;
+    }
+    if (isSentView()) {
+      rows.forEach(function (offer) {
+        var item = document.createElement('div');
+        item.className = 'support-ladder-item';
+        item.innerHTML =
+          '<div class="support-ladder-item__num">#' + offer.id + '</div>' +
+          '<div class="support-ladder-item__body">' +
+            '<div class="support-ladder-item__title">' + escapeHtml(offer.word || 'Алфавитка') +
+              ' <span class="support-flag">' + escapeHtml(offer.status_label || '') + '</span></div>' +
+            '<div class="support-ladder-item__meta">' +
+              escapeHtml((offer.sent_at || offer.updated_at || '').slice(0, 10) || '—') +
+              ' · ' + escapeHtml(offer.user_name || '') +
+              (offer.telegram_handle ? ' · @' + escapeHtml(offer.telegram_handle) : '') +
+            '</div>' +
+            '<div class="support-ladder-item__preview">' + escapeHtml(offer.comment || '') + '</div>' +
+            (offer.admin_note ? '<div class="support-hint"><em>' + escapeHtml(offer.admin_note) + '</em></div>' : '') +
+          '</div>' +
+          '<div class="support-ladder-item__actions">' +
+            '<button type="button" class="new-btn new-btn--mini" data-offer-edit="' + offer.id + '">править</button>' +
+            '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(offer.play_url) + '" target="_blank" rel="noopener">превью</a>' +
+          '</div>';
+        listEl.appendChild(item);
+      });
       renderMeta(allRows);
       return;
     }
@@ -168,6 +246,7 @@
         listEl.appendChild(insert);
       }
       var item = document.createElement('div');
+      var linkedOffer = offerByLink[String(row.link_id)];
       item.className = 'support-ladder-item' +
         (row.is_today ? ' is-today' : '') +
         (!row.is_published ? ' is-future' : '') +
@@ -178,19 +257,27 @@
       var handle = row.is_published
         ? '<span class="support-ladder-item__handle support-ladder-item__handle--locked">·</span>'
         : '<button type="button" class="support-ladder-item__handle" title="Перетащить">⠿</button>';
+      var previewUrl = (linkedOffer && linkedOffer.play_url) || row.play_url;
+      var revisionBtn = (linkedOffer && linkedOffer.status !== 'draft')
+        ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-revision-link="' +
+            row.link_id + '">на доработку</button>'
+        : '';
       item.innerHTML =
         handle +
         '<div class="support-ladder-item__num">№' + row.number + '</div>' +
         '<div class="support-ladder-item__body">' +
           '<div class="support-ladder-item__title">' + escapeHtml(row.name) +
-            ' <span class="support-flag ' + statusClass(row) + '">' + statusLabel(row) + '</span></div>' +
+            ' <span class="support-flag ' + statusClass(row) + '">' + statusLabel(row) + '</span>' +
+            (linkedOffer ? ' <span class="support-flag">автор</span>' : '') +
+            '</div>' +
           '<div class="support-ladder-item__meta"><span class="support-cell-mono">' +
             (row.publish_date || '—') + '</span> · id ' + row.link_id + '</div>' +
           '<div class="support-ladder-item__preview">' + escapeHtml(row.word || '') + '</div>' +
         '</div>' +
         '<div class="support-ladder-item__actions">' +
           '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">править</button>' +
-          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + row.play_url + '" target="_blank" rel="noopener">сайт</a>' +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + previewUrl + '" target="_blank" rel="noopener">сайт</a>' +
+          revisionBtn +
           (!row.is_published
             ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-forbid" data-forbid="' +
                 row.link_id + '" title="Запретить слово и убрать из расписания">запретить</button>' +
@@ -225,12 +312,26 @@
       renderBanned();
       return;
     }
+    if (isSentView()) {
+      renderList(sentOffers.slice().sort(function (a, b) {
+        return String(b.sent_at || '').localeCompare(String(a.sent_at || ''));
+      }));
+      return;
+    }
     renderList(tabs.rowsForTab(allRows, viewTab));
   }
   function setRows(rows, nextBanned) {
     allRows = rows;
     if (nextBanned) banned = nextBanned;
     refreshView();
+  }
+  function setOffers(rows) {
+    sentOffers = rows || [];
+    refreshView();
+  }
+  function upsertOfferMap(offer) {
+    if (!offer || !offer.accepted_link_id) return;
+    offerByLink[String(offer.accepted_link_id)] = offer;
   }
   function currentOrder() {
     return Array.prototype.map.call(
@@ -292,6 +393,38 @@
     document.body.style.overflow = '';
     editLinkId = null;
   }
+  function openOfferEdit(offerId, detail) {
+    editOfferId = offerId;
+    function fill(d) {
+      var bits = [];
+      if (d.user_name) bits.push(d.user_name);
+      if (d.telegram_handle) bits.push('@' + d.telegram_handle);
+      if (d.status_label) bits.push(d.status_label);
+      document.getElementById('ab-offer-sub').textContent = bits.join(' · ');
+      document.getElementById('ab-offer-word').value = d.word || '';
+      document.getElementById('ab-offer-comment').value = d.comment || '';
+      document.getElementById('ab-offer-admin-note').value = d.admin_note || '';
+      document.getElementById('ab-offer-preview').href = d.play_url || '#';
+      document.getElementById('ab-offer-error').hidden = true;
+      offerModal.hidden = false;
+      offerModal.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+    }
+    if (detail) { fill(detail); return; }
+    fetch(endpoints.offerDetailTpl.replace('{id}', String(offerId)), { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'Ошибка');
+        fill(data.offer);
+      })
+      .catch(function (e) { alert(e.message || String(e)); });
+  }
+  function closeOfferEdit() {
+    offerModal.hidden = true;
+    offerModal.classList.remove('is-open');
+    document.body.style.overflow = '';
+    editOfferId = null;
+  }
 
   listEl.addEventListener('click', function (e) {
     var unbanBtn = e.target.closest('[data-unban-word]');
@@ -332,6 +465,27 @@
     }
     var insertBtn = e.target.closest('[data-insert-at]');
     if (insertBtn) { insertAt(parseInt(insertBtn.getAttribute('data-insert-at'), 10)); return; }
+    var revLink = e.target.closest('[data-revision-link]');
+    if (revLink) {
+      var linkId = parseInt(revLink.getAttribute('data-revision-link'), 10);
+      var note = window.prompt('Заметка для автора (необязательно):', '') || '';
+      if (busy) return;
+      setBusy(true);
+      postJson(endpoints.linkRevisionTpl.replace('{id}', String(linkId)), { admin_note: note })
+        .then(function (data) {
+          setOffers(data.offers || sentOffers);
+          if (data.offer && data.offer.accepted_link_id) {
+            offerByLink[String(data.offer.accepted_link_id)] = data.offer;
+          }
+          refreshView();
+          alert('Отправлено на доработку');
+        })
+        .catch(function (err) { alert(err.message || String(err)); })
+        .finally(function () { setBusy(false); });
+      return;
+    }
+    var offerEditBtn = e.target.closest('[data-offer-edit]');
+    if (offerEditBtn) { openOfferEdit(parseInt(offerEditBtn.getAttribute('data-offer-edit'), 10)); return; }
     var editBtn = e.target.closest('[data-edit]');
     if (editBtn) openEdit(parseInt(editBtn.getAttribute('data-edit'), 10));
   });
@@ -384,8 +538,90 @@
   modal.querySelectorAll('[data-ab-close]').forEach(function (el) {
     el.addEventListener('click', closeEdit);
   });
+  offerModal.querySelectorAll('[data-ab-offer-close]').forEach(function (el) {
+    el.addEventListener('click', closeOfferEdit);
+  });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && modal.classList.contains('is-open')) closeEdit();
+    if (e.key === 'Escape' && offerModal.classList.contains('is-open')) closeOfferEdit();
+  });
+  document.getElementById('ab-offer-save').addEventListener('click', function () {
+    if (!editOfferId || busy) return;
+    setBusy(true);
+    postJson(endpoints.offerSaveTpl.replace('{id}', String(editOfferId)), {
+      word: document.getElementById('ab-offer-word').value,
+      comment: document.getElementById('ab-offer-comment').value
+    })
+      .then(function (data) {
+        setOffers(data.offers || sentOffers);
+        upsertOfferMap(data.offer);
+        openOfferEdit(editOfferId, data.offer);
+      })
+      .catch(function (e) {
+        var err = document.getElementById('ab-offer-error');
+        err.textContent = e.message || String(e);
+        err.hidden = false;
+      })
+      .finally(function () { setBusy(false); });
+  });
+  document.getElementById('ab-offer-accept').addEventListener('click', function () {
+    if (!editOfferId || busy) return;
+    setBusy(true);
+    postJson(endpoints.offerSaveTpl.replace('{id}', String(editOfferId)), {
+      word: document.getElementById('ab-offer-word').value,
+      comment: document.getElementById('ab-offer-comment').value
+    })
+      .then(function () {
+        return postJson(endpoints.offerAcceptTpl.replace('{id}', String(editOfferId)), {});
+      })
+      .then(function (data) {
+        setOffers(data.offers || []);
+        upsertOfferMap(data.offer);
+        setRows(data.rows || allRows);
+        closeOfferEdit();
+      })
+      .catch(function (e) {
+        var err = document.getElementById('ab-offer-error');
+        err.textContent = e.message || String(e);
+        err.hidden = false;
+      })
+      .finally(function () { setBusy(false); });
+  });
+  document.getElementById('ab-offer-revision').addEventListener('click', function () {
+    if (!editOfferId || busy) return;
+    setBusy(true);
+    postJson(endpoints.offerRevisionTpl.replace('{id}', String(editOfferId)), {
+      admin_note: document.getElementById('ab-offer-admin-note').value
+    })
+      .then(function (data) {
+        setOffers(data.offers || []);
+        closeOfferEdit();
+      })
+      .catch(function (e) {
+        var err = document.getElementById('ab-offer-error');
+        err.textContent = e.message || String(e);
+        err.hidden = false;
+      })
+      .finally(function () { setBusy(false); });
+  });
+  document.getElementById('ab-offer-reset-progress').addEventListener('click', function () {
+    if (!editOfferId || busy) return;
+    if (!window.confirm('Сбросить прогресс всех решавших эту алфавитку?')) return;
+    setBusy(true);
+    postJson(endpoints.offerResetTpl.replace('{id}', String(editOfferId)), {})
+      .then(function (data) {
+        var r = data.reset || {};
+        alert(
+          'Сброшено: попыток ' + (r.attempts || 0) +
+          ', цепочек ' + (r.chains || 0)
+        );
+      })
+      .catch(function (e) {
+        var err = document.getElementById('ab-offer-error');
+        err.textContent = e.message || String(e);
+        err.hidden = false;
+      })
+      .finally(function () { setBusy(false); });
   });
 
   // DnD

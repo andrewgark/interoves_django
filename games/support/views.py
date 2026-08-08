@@ -65,7 +65,19 @@ from games.ladder_offer import (
     serialize_offer,
     update_offer_content,
 )
-from games.models import LadderOffer, Task
+from games.alphabetty_offer import (
+    AlphabettyOfferError,
+    accept_offer as accept_alphabetty_offer,
+    dashboard_offers_context as alphabetty_dashboard_offers_context,
+    list_sent_offers as list_sent_alphabetty_offers,
+    offer_for_link as alphabetty_offer_for_link,
+    offers_by_link_ids as alphabetty_offers_by_link_ids,
+    request_revision as request_alphabetty_revision,
+    reset_all_alphabetty_progress,
+    serialize_offer as serialize_alphabetty_offer,
+    update_offer_content as update_alphabetty_offer_content,
+)
+from games.models import AlphabettyOffer, LadderOffer, Task
 from games.support.services.live import get_live_feed
 from games.support.services.preview import (
     ActorSpec,
@@ -664,11 +676,138 @@ def _alphabetty_error_response(exc: AlphabettySupportError, status=400):
     return JsonResponse({'ok': False, 'error': str(exc)}, status=status)
 
 
+def _alphabetty_offer_error_response(exc: AlphabettyOfferError, status=400):
+    return JsonResponse({'ok': False, 'error': str(exc)}, status=status)
+
+
 @support_console_required
 def alphabetty_dashboard(request):
     ctx = alphabetty_dashboard_context()
+    ctx.update(alphabetty_dashboard_offers_context())
+    offer_map = alphabetty_offers_by_link_ids([r.link_id for r in ctx.get('rows') or []])
+    ctx['offer_by_link_json'] = {
+        str(k): v.to_dict() for k, v in offer_map.items()
+    }
     ctx['page_title'] = 'Алфавитки'
     return render(request, 'support/alphabetty.html', ctx)
+
+
+@support_console_required
+@require_GET
+def alphabetty_offers_list_json(request):
+    rows = list_sent_alphabetty_offers()
+    return JsonResponse({'ok': True, 'offers': [r.to_dict() for r in rows]})
+
+
+@support_console_required
+@require_GET
+def alphabetty_offer_detail_json(request, offer_id):
+    offer = (
+        AlphabettyOffer.objects.select_related('task_group', 'accepted_link', 'user', 'user__profile')
+        .filter(pk=offer_id)
+        .first()
+    )
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    return JsonResponse({'ok': True, 'offer': serialize_alphabetty_offer(offer).to_dict()})
+
+
+@support_console_required
+@require_POST
+def alphabetty_offer_save(request, offer_id):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    offer = AlphabettyOffer.objects.filter(pk=offer_id).select_related('task_group').first()
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    try:
+        offer = update_alphabetty_offer_content(
+            offer,
+            word=str(body.get('word') or ''),
+            comment=str(body.get('comment') or ''),
+            allow_non_draft=True,
+        )
+    except AlphabettyOfferError as exc:
+        return _alphabetty_offer_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'offer': serialize_alphabetty_offer(offer).to_dict(),
+        'offers': [r.to_dict() for r in list_sent_alphabetty_offers()],
+    })
+
+
+@support_console_required
+@require_POST
+def alphabetty_offer_accept(request, offer_id):
+    offer = AlphabettyOffer.objects.filter(pk=offer_id).select_related('task_group').first()
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    try:
+        offer = accept_alphabetty_offer(offer)
+        rows = alphabetty_dashboard_context()['rows']
+    except AlphabettyOfferError as exc:
+        return _alphabetty_offer_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'offer': serialize_alphabetty_offer(offer).to_dict(),
+        'offers': [r.to_dict() for r in list_sent_alphabetty_offers()],
+        'rows': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def alphabetty_offer_request_revision(request, offer_id):
+    body = _json_body(request) or {}
+    offer = AlphabettyOffer.objects.filter(pk=offer_id).first()
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    try:
+        offer = request_alphabetty_revision(offer, admin_note=str(body.get('admin_note') or ''))
+    except AlphabettyOfferError as exc:
+        return _alphabetty_offer_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'offer': serialize_alphabetty_offer(offer).to_dict(),
+        'offers': [r.to_dict() for r in list_sent_alphabetty_offers()],
+    })
+
+
+@support_console_required
+@require_POST
+def alphabetty_offer_reset_progress(request, offer_id):
+    offer = AlphabettyOffer.objects.filter(pk=offer_id).select_related('task_group').first()
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    task = Task.objects.filter(task_group_id=offer.task_group_id, number='1').first()
+    if task is None:
+        return JsonResponse({'ok': False, 'error': 'Нет задания'}, status=404)
+    try:
+        stats = reset_all_alphabetty_progress(task=task)
+    except AlphabettyOfferError as exc:
+        return _alphabetty_offer_error_response(exc)
+    return JsonResponse({'ok': True, 'reset': stats})
+
+
+@support_console_required
+@require_POST
+def alphabetty_link_request_revision(request, link_id):
+    body = _json_body(request) or {}
+    offer = alphabetty_offer_for_link(int(link_id))
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Нет автора в системе для этой алфавитки'}, status=404)
+    if offer.status == AlphabettyOffer.STATUS_DRAFT:
+        return JsonResponse({'ok': False, 'error': 'Уже на доработке'}, status=400)
+    try:
+        offer = request_alphabetty_revision(offer, admin_note=str(body.get('admin_note') or ''))
+    except AlphabettyOfferError as exc:
+        return _alphabetty_offer_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'offer': serialize_alphabetty_offer(offer).to_dict(),
+        'offers': [r.to_dict() for r in list_sent_alphabetty_offers()],
+    })
 
 
 @support_console_required

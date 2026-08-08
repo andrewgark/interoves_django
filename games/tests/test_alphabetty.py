@@ -6,6 +6,7 @@ import json
 from unittest.mock import patch
 
 from django.contrib.sites.models import Site
+from django.contrib.auth.models import User
 from django.test import Client, TestCase
 
 from allauth.socialaccount.models import SocialApp
@@ -36,12 +37,22 @@ from games.alphabetty.suggestions import (
     reject_suggestions,
     suggest_word,
 )
+from games.alphabetty_offer import accept_offer as accept_alphabetty_offer
 from games.models import AlphabettyDictSuggestion, AlphabettyPersonalDictWord, ChainTaskState
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
     ALPHABETTY_PUBLISH_START_TAG,
 )
-from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
+from games.models import (
+    CheckerType,
+    Game,
+    GameTaskGroup,
+    HTMLPage,
+    Profile,
+    Project,
+    Task,
+    TaskGroup,
+)
 from games.support.services.alphabetty import (
     AlphabettySupportError,
     delete_alphabetty,
@@ -457,6 +468,137 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'Алфавитка')
 
+    def test_create_page_shows_offer_flow(self):
+        user = User.objects.create_user('ab_creator', 'ab@example.com', 'x')
+        Profile.objects.create(
+            user=user,
+            first_name='А',
+            last_name='Б',
+            telegram_handle='ab_creator',
+        )
+        self.client.force_login(user)
+
+        response = self.client.get('/create_alphabetty/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Создать свою алфавитку')
+        self.assertEqual(response.context['offers_json'], [])
+        self.assertContains(response, 'alphabetty-offers-bootstrap')
+        self.assertContains(response, 'Добавить алфавитку')
+        self.assertNotContains(response, 'Номер раунда')
+
+    def test_create_offer_update_and_send(self):
+        user = User.objects.create_user('ab_submitter', 'ab2@example.com', 'x')
+        Profile.objects.create(
+            user=user,
+            first_name='А',
+            last_name='Б',
+            telegram_handle='ab_submitter',
+        )
+        self.client.force_login(user)
+
+        create_response = self.client.post(
+            '/create_alphabetty/create/',
+            content_type='application/json',
+            data='{}',
+        )
+        self.assertEqual(create_response.status_code, 200)
+        offer = create_response.json()['offer']
+        self.assertEqual(offer['status'], 'draft')
+        self.assertTrue(offer['play_url'].startswith('/alphabetty/'))
+
+        update_response = self.client.post(
+            f"/create_alphabetty/{offer['id']}/",
+            data=json.dumps({'word': _FAKE_WORD, 'comment': 'проверьте'}),
+            content_type='application/json',
+        )
+        self.assertEqual(update_response.status_code, 200)
+        updated = update_response.json()['offer']
+        self.assertEqual(updated['word'], _FAKE_WORD)
+        self.assertEqual(updated['comment'], 'проверьте')
+
+        send_response = self.client.post(
+            f"/create_alphabetty/{offer['id']}/send/",
+            content_type='application/json',
+            data='{}',
+        )
+        self.assertEqual(send_response.status_code, 200)
+        sent = send_response.json()['offer']
+        self.assertEqual(sent['status'], 'sent')
+        self.assertEqual(sent['word'], _FAKE_WORD)
+
+    def test_hash_page_public_for_draft_offer(self):
+        user = User.objects.create_user('ab_owner', 'owner@example.com', 'x')
+        Profile.objects.create(
+            user=user,
+            first_name='А',
+            last_name='Б',
+            telegram_handle='ab_owner',
+        )
+        self.client.force_login(user)
+        offer_id = self.client.post(
+            '/create_alphabetty/create/',
+            content_type='application/json',
+            data='{}',
+        ).json()['offer']['id']
+        self.client.post(
+            f'/create_alphabetty/{offer_id}/',
+            content_type='application/json',
+            data=json.dumps({'word': _FAKE_WORD, 'comment': ''}),
+        )
+        from games.models import AlphabettyOffer
+        offer = AlphabettyOffer.objects.get(pk=offer_id)
+
+        _ensure_login_modal_deps()
+        anon = Client()
+        response = anon.get(f'/alphabetty/{offer.share_hash}/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'/alphabetty/{offer.share_hash}/guess/')
+
+    def test_hash_embargo_after_accept_unpublished(self):
+        tags = dict(self.game.tags or {})
+        tags[ALPHABETTY_PUBLISH_START_TAG] = '2099-01-01T00:00:00+03:00'
+        self.game.tags = tags
+        self.game.save(update_fields=['tags'])
+        user = User.objects.create_user('ab_embargo', 'embargo@example.com', 'x')
+        Profile.objects.create(
+            user=user,
+            first_name='А',
+            last_name='Б',
+            telegram_handle='ab_embargo',
+        )
+        self.client.force_login(user)
+        offer_id = self.client.post(
+            '/create_alphabetty/create/',
+            content_type='application/json',
+            data='{}',
+        ).json()['offer']['id']
+        self.client.post(
+            f'/create_alphabetty/{offer_id}/',
+            content_type='application/json',
+            data=json.dumps({'word': _FAKE_WORD, 'comment': ''}),
+        )
+        self.client.post(
+            f'/create_alphabetty/{offer_id}/send/',
+            content_type='application/json',
+            data='{}',
+        )
+        from games.models import AlphabettyOffer
+        offer = AlphabettyOffer.objects.get(pk=offer_id)
+        accept_alphabetty_offer(offer)
+        offer.refresh_from_db()
+
+        _ensure_login_modal_deps()
+        anon = Client()
+        denied = anon.get(f'/alphabetty/{offer.share_hash}/')
+        self.assertEqual(denied.status_code, 404)
+
+        owner = Client()
+        owner.force_login(user)
+        allowed = owner.get(f'/alphabetty/{offer.share_hash}/')
+        self.assertEqual(allowed.status_code, 200)
+
     def test_play_page_pager_neighbors(self):
         _ensure_login_modal_deps()
         checker = CheckerType.objects.get(id='alphabetty')
@@ -617,6 +759,10 @@ class AlphabettyPlayApiTests(TestCase):
             HTTP_X_INTEROVES_ANON='sug2',
         )
         self.assertEqual(r2.json()['status'], 'already_pending')
+        self.assertEqual(
+            r2.json()['message'],
+            f'Слова {_FAKE_WORD} нет в словаре, но мы добавили его для вас',
+        )
         obj.refresh_from_db()
         self.assertEqual(obj.suggest_count, 2)
         self.assertTrue(is_valid_guess(_FAKE_WORD, anon_key='sug2'))

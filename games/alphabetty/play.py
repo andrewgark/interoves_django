@@ -141,15 +141,25 @@ def elapsed_seconds_for_actor(*, game: Game, task: Task, actor: dict) -> int:
 
 def build_share_lines(
     *,
-    number: int,
+    number: int | str,
     attempts: int,
     elapsed_seconds: int,
     hints: int = 0,
     host: str = 'interoves.com',
+    play_path: str | None = None,
 ) -> list[str]:
     host = (host or 'interoves.com').split(':')[0] or 'interoves.com'
+    if play_path:
+        path = str(play_path).lstrip('/')
+    else:
+        path = 'alphabetty/{}'.format(int(number))
+    title = (
+        f'🔤 Алфавитка #{number}'
+        if str(number).isdigit()
+        else '🔤 Алфавитка'
+    )
     lines = [
-        f'🔤 Алфавитка #{int(number)}',
+        title,
         f'🤔 {attempts} {ru_attempt_word(attempts)}',
     ]
     hints_line = format_hints_label(hints)
@@ -157,7 +167,7 @@ def build_share_lines(
         lines.append(hints_line)
     lines.extend([
         f'⏱️ {format_elapsed(elapsed_seconds)}',
-        f'🔗 {host}/alphabetty/{int(number)}',
+        f'🔗 {host}/{path}',
     ])
     return lines
 
@@ -170,6 +180,7 @@ def attach_solve_meta(
     number: int | str,
     actor: Optional[dict],
     host: str = 'interoves.com',
+    play_path: str | None = None,
 ) -> dict[str, Any]:
     """Добавить attempts_label; для решённой — ещё время/share-текст."""
     attempts = int(payload.get('attempts') or 0)
@@ -188,6 +199,7 @@ def attach_solve_meta(
         elapsed_seconds=elapsed,
         hints=hints,
         host=host,
+        play_path=play_path,
     )
     payload['elapsed_seconds'] = elapsed
     payload['elapsed_label'] = format_elapsed(elapsed)
@@ -364,6 +376,7 @@ def apply_hint(
     anon_key=None,
     number: int | str | None = None,
     share_host: str = 'interoves.com',
+    play_path: str | None = None,
 ) -> dict[str, Any]:
     """Раскрыть следующую букву загаданного слова."""
     actor = _actor_filters(user=user, anon_key=anon_key)
@@ -398,7 +411,13 @@ def apply_hint(
         payload = public_payload(state, secret)
         payload['status'] = 'already_won'
         return attach_solve_meta(
-            payload, game=game, task=task, number=num, actor=actor, host=share_host,
+            payload,
+            game=game,
+            task=task,
+            number=num,
+            actor=actor,
+            host=share_host,
+            play_path=play_path,
         )
 
     hp = normalize_word(state.get('hint_prefix') or '')
@@ -475,6 +494,7 @@ def _commit_guess(
     actor: dict,
     num: int | str,
     share_host: str,
+    play_path: str | None,
 ) -> dict[str, Any]:
     """Persist a new valid guess (caller already checked dict + duplicate without lock)."""
     ChainTaskState.objects.get_or_create(
@@ -496,7 +516,13 @@ def _commit_guess(
         payload = public_payload(state, secret)
         payload['status'] = 'correct'
         return attach_solve_meta(
-            payload, game=game, task=task, number=num, actor=actor, host=share_host,
+            payload,
+            game=game,
+            task=task,
+            number=num,
+            actor=actor,
+            host=share_host,
+            play_path=play_path,
         )
 
     if normalized in state['guesses']:
@@ -529,7 +555,13 @@ def _commit_guess(
     payload['status'] = status
     if status == 'correct':
         return attach_solve_meta(
-            payload, game=game, task=task, number=num, actor=actor, host=share_host,
+            payload,
+            game=game,
+            task=task,
+            number=num,
+            actor=actor,
+            host=share_host,
+            play_path=play_path,
         )
     return payload
 
@@ -543,6 +575,7 @@ def apply_guess(
     anon_key=None,
     number: int | str | None = None,
     share_host: str = 'interoves.com',
+    play_path: str | None = None,
 ) -> dict[str, Any]:
     """Применить отгадку; вернуть публичный payload + status."""
     actor = _actor_filters(user=user, anon_key=anon_key)
@@ -565,7 +598,13 @@ def apply_guess(
         payload = public_payload(state, secret)
         payload['status'] = 'correct'
         return attach_solve_meta(
-            payload, game=game, task=task, number=num, actor=actor, host=share_host,
+            payload,
+            game=game,
+            task=task,
+            number=num,
+            actor=actor,
+            host=share_host,
+            play_path=play_path,
         )
 
     if not is_valid_guess(normalized, user=user, anon_key=anon_key, task=task):
@@ -588,6 +627,7 @@ def apply_guess(
         actor=actor,
         num=num,
         share_host=share_host,
+        play_path=play_path,
     )
 
 
@@ -599,6 +639,7 @@ def get_play_state(
     anon_key=None,
     number: int | str | None = None,
     share_host: str = 'interoves.com',
+    play_path: str | None = None,
 ) -> dict[str, Any]:
     """Прочитать прогресс. Не создаёт пустой ChainTaskState (иначе anon-migrate
     может проиграть merge пустому state от простого открытия страницы)."""
@@ -617,5 +658,11 @@ def get_play_state(
         return public_payload(default_state(), secret)
     payload = public_payload(load_state(row.state), secret)
     return attach_solve_meta(
-        payload, game=game, task=task, number=num, actor=actor, host=share_host,
+        payload,
+        game=game,
+        task=task,
+        number=num,
+        actor=actor,
+        host=share_host,
+        play_path=play_path,
     )

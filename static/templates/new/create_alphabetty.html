@@ -1,131 +1,266 @@
 {% extends "new/base.html" %}
+{% load static %}
 {% block title %}Создать свою алфавитку{% endblock %}
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+{% endblock %}
 {% block content %}
 {% csrf_token %}
-
-<p class="new-tg-back">
-  <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label|default:"К списку" }}</a>
-</p>
-
+{{ offers_json|json_script:"alphabetty-offers-bootstrap" }}
 <h1 class="new-heading new-heading--page">Создать свою алфавитку</h1>
+
+{% if not profile_ready %}
+<section class="pal-card new-card">
+  <p class="pal-lead">Чтобы предлагать алфавитки, укажите имя, фамилию и Telegram-хэндл.</p>
+  {% if profile_error %}<p class="new-field-error">{{ profile_error }}</p>{% endif %}
+  <form method="post" class="new-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_profile">
+    <div class="new-two">
+      <div>
+        <label for="offer-first-name">Имя</label>
+        <input id="offer-first-name" type="text" name="first_name" value="{{ profile.first_name }}" required>
+      </div>
+      <div>
+        <label for="offer-last-name">Фамилия</label>
+        <input id="offer-last-name" type="text" name="last_name" value="{{ profile.last_name }}" required>
+      </div>
+    </div>
+    <div>
+      <label for="offer-telegram">Telegram</label>
+      <input id="offer-telegram" type="text" name="telegram_handle" value="{{ profile.telegram_handle }}" placeholder="username без @" required>
+      <p class="new-login-hint">Без @, например andrewgark</p>
+    </div>
+    <button type="submit" class="new-btn">Сохранить и продолжить</button>
+  </form>
+</section>
+{% else %}
 <p class="new-login-hint new-stack-gap">
-  Алфавитка — это одно слово. Если слово уже есть в широком словаре, его можно использовать сразу.
-  Если слово слишком редкое, мы всё равно добавим его в ваш словарь и отправим на модерацию.
+  Создайте свои алфавитки. Можно редактировать слово, смотреть превью, делиться ссылкой и отправлять Андрею.
 </p>
+<div class="new-stack-gap">
+  <button type="button" class="new-btn" id="offer-create-btn">Добавить алфавитку</button>
+</div>
+<section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши алфавитки"></section>
 
-<section class="pal-card new-card new-stack-gap">
-  <div class="new-form" id="create-alphabetty-form">
-    <label for="create-alphabetty-number">Номер раунда</label>
-    <input id="create-alphabetty-number"
-           type="number"
-           min="1"
-           step="1"
-           value="{{ target_number }}"
-           class="support-input--upper">
-    <label for="create-alphabetty-word">Загаданное слово</label>
-    <input id="create-alphabetty-word"
-           type="text"
-           autocomplete="off"
-           autocapitalize="characters"
-           spellcheck="false"
-           maxlength="40"
-           placeholder="Например, АЛФАВИТ"
-           class="support-input--upper">
-    <p class="new-field-error" id="create-alphabetty-error" hidden></p>
-    <p class="new-login-hint" id="create-alphabetty-hint">
-      Вводите одно слово без знаков препинания.
-    </p>
-    <button type="button" class="new-btn" id="create-alphabetty-submit">Предложить слово</button>
+<div id="offer-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="offer-edit-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-offer-close></div>
+  <div class="new-rules-modal__box pal-card support-ladder-modal">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-offer-close>×</button>
+    <h2 id="offer-edit-title" class="support-page-title support-page-title--modal">Алфавитка</h2>
+    <p class="support-hint" id="offer-edit-sub"></p>
+    <label class="support-ladders-field">
+      <span>Загаданное слово</span>
+      <input type="text" id="offer-edit-word" class="support-input--upper" autocomplete="off">
+    </label>
+    <label class="support-ladders-field">
+      <span>Комментарий для Андрея</span>
+      <textarea id="offer-edit-comment" rows="2"></textarea>
+    </label>
+    <p class="support-hint support-ladder-edit-error" id="offer-edit-error" hidden></p>
+    <div class="support-action-row support-action-row--mt">
+      <button type="button" class="new-btn" id="offer-edit-save">Сохранить</button>
+      <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Отправить Андрею</button>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать алфавитку</a>
+      <button type="button" class="new-btn new-btn--ghost" data-offer-close>Закрыть</button>
+    </div>
   </div>
-</section>
-
-<section class="pal-card new-card new-stack-gap" id="create-alphabetty-result" hidden>
-  <p class="new-login-hint" id="create-alphabetty-result-text"></p>
-</section>
+</div>
 
 <script>
 (function () {
-  var input = document.getElementById('create-alphabetty-word');
-  var numberInput = document.getElementById('create-alphabetty-number');
-  var submit = document.getElementById('create-alphabetty-submit');
-  var error = document.getElementById('create-alphabetty-error');
-  var result = document.getElementById('create-alphabetty-result');
-  var resultText = document.getElementById('create-alphabetty-result-text');
-  var endpoint = "{% url 'new_create_alphabetty_create' %}";
+  var bootstrap = JSON.parse(document.getElementById('alphabetty-offers-bootstrap').textContent || '[]');
+  var offers = bootstrap.slice();
+  var listEl = document.getElementById('offer-list');
+  var modal = document.getElementById('offer-edit-modal');
+  var editId = null;
   var busy = false;
+  var endpoints = {
+    create: "{% url 'new_create_alphabetty_create' %}",
+    detailTpl: "{% url 'new_create_alphabetty_detail' 0 %}".replace('/0/', '/{id}/'),
+    sendTpl: "{% url 'new_create_alphabetty_send' 0 %}".replace('/0/', '/{id}/')
+  };
 
   function csrf() {
     var el = document.querySelector('input[name=csrfmiddlewaretoken]');
     return el ? el.value : '';
   }
-  function normalizeWord(s) {
-    return String(s || '').trim().toUpperCase().replace(/Ё/g, 'Е');
-  }
-  function showError(text) {
-    error.textContent = text || '';
-    error.hidden = !text;
-  }
-  function showResult(text, kind) {
-    if (!text) {
-      result.hidden = true;
-      resultText.textContent = '';
-      resultText.className = 'new-login-hint';
-      return;
-    }
-    result.hidden = false;
-    resultText.textContent = text;
-    resultText.className = 'new-login-hint' + (kind ? ' ' + kind : '');
-  }
-  function submitWord() {
-    if (busy) return;
-    var word = normalizeWord(input.value);
-    if (!word) {
-      showError('Введите слово');
-      input.focus();
-      return;
-    }
-    busy = true;
-    submit.disabled = true;
-    showError('');
-    showResult('');
-    fetch(endpoint, {
+  function postJson(url, body) {
+    return fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrf(),
-        'Accept': 'application/json'
-      },
-      credentials: 'same-origin',
-      body: JSON.stringify({ word: word, number: numberInput.value })
-    })
-      .then(function (r) {
-        return r.json().then(function (data) {
-          if (!r.ok || !data || data.status === 'error') {
-            throw new Error((data && (data.error || data.message)) || ('HTTP ' + r.status));
-          }
-          return data;
-        });
-      })
-      .then(function (data) {
-        input.value = '';
-        showResult(data.message || 'Готово.', 'new-login-hint');
-      })
-      .catch(function (e) {
-        showError((e && e.message) || 'Не удалось отправить слово');
-      })
-      .finally(function () {
-        busy = false;
-        submit.disabled = false;
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+      body: JSON.stringify(body || {}),
+      credentials: 'same-origin'
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        return data;
       });
+    });
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function offerTitle(o) {
+    return o.word || 'Алфавитка';
+  }
+  function upsert(offer) {
+    var i = offers.findIndex(function (o) { return o.id === offer.id; });
+    if (i >= 0) offers[i] = offer; else offers.unshift(offer);
+    renderList();
+  }
+  function renderList() {
+    listEl.innerHTML = '';
+    if (!offers.length) {
+      listEl.innerHTML = '<p class="support-empty">Пока нет предложений. Нажмите «Добавить алфавитку».</p>';
+      return;
+    }
+    offers.forEach(function (o) {
+      var item = document.createElement('div');
+      item.className = 'support-ladder-item';
+      var num = o.production_number != null ? ('№' + o.production_number) : ('#' + o.id);
+      var date = o.production_publish_date || (o.sent_at || o.created_at || '').slice(0, 10) || '—';
+      item.innerHTML =
+        '<div class="support-ladder-item__num">' + escapeHtml(num) + '</div>' +
+        '<div class="support-ladder-item__body">' +
+          '<div class="support-ladder-item__title">' + escapeHtml(offerTitle(o)) +
+            ' <span class="support-flag">' + escapeHtml(o.status_label) + '</span></div>' +
+          '<div class="support-ladder-item__meta">' + escapeHtml(date) +
+            (o.admin_note ? ' · <em>' + escapeHtml(o.admin_note) + '</em>' : '') +
+            '</div>' +
+          '<div class="support-ladder-item__preview">' + escapeHtml(o.comment || '') + '</div>' +
+        '</div>' +
+        '<div class="support-ladder-item__actions">' +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">править</button>' : '') +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Отправить Андрею</button>' : '') +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">Решать алфавитку</a>' +
+        '</div>';
+      listEl.appendChild(item);
+    });
+  }
+  function openModal() {
+    modal.hidden = false;
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    modal.classList.remove('is-open');
+    modal.hidden = true;
+    document.body.style.overflow = '';
+    editId = null;
+  }
+  modal.querySelectorAll('[data-offer-close]').forEach(function (el) {
+    el.addEventListener('click', closeModal);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+  });
+
+  function openEdit(offer) {
+    editId = offer.id;
+    document.getElementById('offer-edit-error').hidden = true;
+    var subParts = [];
+    if (offer.status_label && offer.status_label !== 'Черновик') subParts.push(offer.status_label);
+    if (offer.admin_note) subParts.push(offer.admin_note);
+    var subEl = document.getElementById('offer-edit-sub');
+    subEl.textContent = subParts.join(' · ');
+    subEl.hidden = !subParts.length;
+    document.getElementById('offer-edit-word').value = offer.word || '';
+    document.getElementById('offer-edit-comment').value = offer.comment || '';
+    document.getElementById('offer-edit-preview').href = offer.play_url || '#';
+    var canEdit = !!offer.can_edit;
+    ['offer-edit-word', 'offer-edit-comment', 'offer-edit-save', 'offer-edit-send']
+      .forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = !canEdit;
+      });
+    openModal();
   }
 
-  submit.addEventListener('click', submitWord);
-  input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      submitWord();
+  function sendOfferById(id) {
+    if (!id || busy) return;
+    if (!window.confirm('Отправить алфавитку Андрею? После этого редактировать нельзя.')) return;
+    busy = true;
+    postJson(endpoints.sendTpl.replace('{id}', String(id)), {})
+      .then(function (data) {
+        upsert(data.offer);
+        if (editId === id) closeModal();
+      })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { busy = false; });
+  }
+
+  listEl.addEventListener('click', function (e) {
+    var editBtn = e.target.closest('[data-edit]');
+    if (editBtn) {
+      var editOfferId = parseInt(editBtn.getAttribute('data-edit'), 10);
+      var offer = offers.find(function (o) { return o.id === editOfferId; });
+      if (offer) openEdit(offer);
+      return;
+    }
+    var sendBtn = e.target.closest('[data-send]');
+    if (sendBtn) {
+      sendOfferById(parseInt(sendBtn.getAttribute('data-send'), 10));
     }
   });
+
+  document.getElementById('offer-create-btn').addEventListener('click', function () {
+    if (busy) return;
+    busy = true;
+    postJson(endpoints.create, {})
+      .then(function (data) {
+        upsert(data.offer);
+        openEdit(data.offer);
+      })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { busy = false; });
+  });
+
+  document.getElementById('offer-edit-save').addEventListener('click', function () {
+    if (!editId || busy) return;
+    var err = document.getElementById('offer-edit-error');
+    busy = true;
+    postJson(endpoints.detailTpl.replace('{id}', String(editId)), {
+      word: document.getElementById('offer-edit-word').value,
+      comment: document.getElementById('offer-edit-comment').value
+    }).then(function (data) {
+      upsert(data.offer);
+      err.hidden = true;
+      openEdit(data.offer);
+    }).catch(function (e) {
+      err.hidden = false;
+      err.textContent = e.message || String(e);
+    }).finally(function () { busy = false; });
+  });
+
+  document.getElementById('offer-edit-send').addEventListener('click', function () {
+    if (!editId || busy) return;
+    if (!window.confirm('Отправить алфавитку Андрею? После этого редактировать нельзя.')) return;
+    var sendingId = editId;
+    busy = true;
+    postJson(endpoints.detailTpl.replace('{id}', String(sendingId)), {
+      word: document.getElementById('offer-edit-word').value,
+      comment: document.getElementById('offer-edit-comment').value
+    }).then(function () {
+      return postJson(endpoints.sendTpl.replace('{id}', String(sendingId)), {});
+    }).then(function (data) {
+      upsert(data.offer);
+      closeModal();
+    }).catch(function (e) {
+      var err = document.getElementById('offer-edit-error');
+      err.hidden = false;
+      err.textContent = e.message || String(e);
+    }).finally(function () { busy = false; });
+  });
+
+  renderList();
 })();
 </script>
+{% endif %}
+
+<p class="new-tg-back new-tg-back--footer">
+  <a href="{% url 'new_alphabetty_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> К алфавиткам</a>
+</p>
 {% endblock %}

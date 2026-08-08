@@ -18,8 +18,6 @@ ladder_hub_page = new_ladder_hub_page
 section_last_page = new_section_last_page
 
 from games.views.alphabetty_views import (  # noqa: E402
-    alphabetty_create_page,
-    alphabetty_create_submit,
     alphabetty_guess,
     alphabetty_hint,
     alphabetty_hub_page,
@@ -29,6 +27,13 @@ from games.views.alphabetty_views import (  # noqa: E402
     alphabetty_state,
     alphabetty_suggest,
     alphabetty_today_page,
+)
+from games.views.offer_alphabetty import (  # noqa: E402
+    offer_alphabetty_create as alphabetty_create_submit,
+    offer_alphabetty_detail,
+    offer_alphabetty_page as alphabetty_create_page,
+    offer_alphabetty_reopen,
+    offer_alphabetty_send,
 )
 from games.views.offer_ladder import (  # noqa: E402
     offer_ladder_create,
