@@ -476,7 +476,7 @@ class AlphabettyPlayApiTests(TestCase):
         r = self.client.get('/alphabetty/1/')
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'Алфавитка')
-        self.assertContains(r, 'href="/alphabetty/results/"')
+        self.assertContains(r, 'href="/alphabetty/1/results/"')
 
     def test_hub_page_has_create_link(self):
         _ensure_login_modal_deps()

@@ -8,6 +8,7 @@ folder = new_folder
 section_game_page = new_section_game_page
 section_results_page = new_section_results_page
 ladder_word_results_page = new_ladder_word_results_page
+section_task_results_page = new_section_task_results_page
 main_game_page = new_main_game_page
 results_page = new_results_page
 tournament_results_page = new_tournament_results_page

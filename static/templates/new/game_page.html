@@ -307,12 +307,9 @@
     {% include "new/_task_group_rows.html" with heading=task_groups_heading empty_text=task_groups_empty_text %}
 
     {% if section_results_url and game|access_see_results:team %}
-      <h2 class="new-heading new-heading--section">Результаты</h2>
-      <div class="new-card new-card--after-heading">
-        <div class="new-card__text new-card__text--flush">
-          <a href="{{ section_results_url }}" class="new-btn new-btn--ghost new-btn--mini">Смотреть таблицу</a>
-        </div>
-      </div>
+      <p class="new-tg-results-link">
+        <a href="{{ section_results_url }}" class="new-btn new-btn--ghost new-btn--mini">Результаты</a>
+      </p>
     {% endif %}
 
     {% if is_main_game %}

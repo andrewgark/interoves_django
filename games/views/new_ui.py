@@ -1540,7 +1540,7 @@ def new_main_game_page(request, game_id):
     })
 
 
-def _load_results_placements_and_tasks(game):
+def _load_results_placements_and_tasks(game, task_group_number=None):
     """Placements + visible tasks for results table (headers and full compute)."""
     links = list(
         game.task_group_links.select_related('task_group').prefetch_related(
@@ -1559,6 +1559,8 @@ def _load_results_placements_and_tasks(game):
         placements = visible_week_task_links(links, game, reverse=False)
     else:
         placements = sorted(links, key=lambda p: p.key_sort())
+    if task_group_number is not None:
+        placements = [p for p in placements if str(p.number) == str(task_group_number)]
     task_group_to_tasks = {}
     for p in placements:
         tg = p.task_group
@@ -1574,10 +1576,10 @@ def _load_results_placements_and_tasks(game):
     return placements, task_group_to_tasks, tasks_flat, task_ids, task_group_headers
 
 
-def _results_table_headers_context(game):
+def _results_table_headers_context(game, task_group_number=None):
     """Fast context for results table thead only."""
     _placements, task_group_to_tasks, _tasks_flat, _task_ids, task_group_headers = (
-        _load_results_placements_and_tasks(game)
+        _load_results_placements_and_tasks(game, task_group_number=task_group_number)
     )
     return {
         'task_groups': task_group_headers,
@@ -1952,6 +1954,55 @@ def new_section_results_page(request, game_id):
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
+        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'show_sections_nav': True,
+        **_project_urls_context(NEW_UI_PROJECT),
+    })
+
+
+def new_section_task_results_page(request, game_id, task_group_number):
+    """Results for one published round of a section game."""
+    if game_id != ALPHABETTY_GAME_ID:
+        raise Http404()
+    from games.section_paths import section_play_path
+
+    project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
+    if not project:
+        raise Http404()
+    game = Game.objects.filter(project=project, id=game_id).first()
+    if not game:
+        raise Http404()
+    team = request.user.profile.team_on if has_profile(request.user) else None
+    if not game.has_access('see_results', mode='general', team=team):
+        raise Http404()
+    if not is_alphabetty_number_published(game, task_group_number):
+        raise Http404()
+    placement = (
+        GameTaskGroup.objects.filter(game=game, number=str(task_group_number))
+        .select_related('task_group')
+        .first()
+    )
+    if not placement:
+        raise Http404()
+
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game)
+    me_personal, me_anon_participant = _results_me_participants(request, play_mode)
+    data = _new_results_compute(game, mode='general', task_group_number=task_group_number)
+    data = _paginate_results_rows(request, data, per_page=50)
+    return render(request, 'ui/results.html', {
+        'mode': 'general',
+        'section_results': True,
+        'results_variant': 'standard',
+        'game': game,
+        'team': team,
+        'me_personal': me_personal,
+        'me_anon_participant': me_anon_participant,
+        'back_url': section_play_path(ALPHABETTY_GAME_ID, task_group_number),
+        **data,
+        'play_mode': play_mode,
+        'play_mode_project_id': game.project_id,
+        'page_title': 'Результаты: Алфавитка №{}'.format(task_group_number),
         'lock_personal_play_mode': personal_play_mode_locked(game),
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),

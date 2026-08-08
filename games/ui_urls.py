@@ -92,6 +92,7 @@ urlpatterns = [
     path('alphabetty/<str:number>/hint/', ui.alphabetty_hint, name='ui_alphabetty_hint'),
     path('alphabetty/<str:number>/suggest/', ui.alphabetty_suggest, name='ui_alphabetty_suggest'),
     path('alphabetty/results/', ui.section_results_page, {'game_id': 'alphabetty'}, name='ui_alphabetty_results'),
+    path('alphabetty/<str:number>/results/', ui.section_task_results_page, {'game_id': 'alphabetty'}, name='ui_alphabetty_task_results'),
     path('alphabetty/<str:number>/', ui.alphabetty_play_page, name='ui_alphabetty_play'),
     # Legacy /games/ladder/… and /games/alphabetty/… → short paths.
     path('games/ladder/today/', RedirectView.as_view(url='/ladder/today/', permanent=True, query_string=True)),
