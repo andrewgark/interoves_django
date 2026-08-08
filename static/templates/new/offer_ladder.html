@@ -39,7 +39,7 @@
 <p class="new-login-hint new-stack-gap">
   Создайте свои лесенки. Можно их редактировать, решать, делиться с друзьями и предлагать Андрею.
 </p>
-<div class="new-stack-gap--lg">
+<div class="new-stack-gap">
   <button type="button" class="new-btn" id="offer-create-btn">Добавить лесенку</button>
 </div>
 <section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши лесенки"></section>
@@ -424,7 +424,7 @@
     }).then(function (data) {
       upsert(data.offer);
       err.hidden = true;
-      openEdit(data.offer);
+      closeModal();
     }).catch(function (e) {
       err.hidden = false;
       err.textContent = e.message || String(e);

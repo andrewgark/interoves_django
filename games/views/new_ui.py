@@ -2782,10 +2782,32 @@ def new_get_raddle_word_answer(request, task_id, word_index):
 
 @require_http_methods(['POST'])
 def new_like_dislike(request, task_id):
-    task = get_public_task_or_404(task_id)
+    game_hint = (
+        (request.POST.get('game_id') or request.GET.get('game_id') or '').strip()
+        or (request.headers.get('X-Interoves-Game') or '').strip()
+    )
+    try:
+        task = get_public_task_or_404(task_id)
+    except Http404:
+        task = Task.objects.filter(pk=task_id).select_related('task_group').first()
+        if task is None:
+            raise
+        if game_hint == ALPHABETTY_GAME_ID:
+            from games.models import AlphabettyOffer
+            if not AlphabettyOffer.objects.filter(task_group_id=task.task_group_id).exists():
+                raise Http404()
+        elif game_hint == LADDER_GAME_ID:
+            from games.models import LadderOffer
+            if not LadderOffer.objects.filter(task_group_id=task.task_group_id).exists():
+                raise Http404()
+        else:
+            raise Http404()
     game = game_from_request_for_task(request, task)
     if game is None:
-        raise Http404()
+        if game_hint in (ALPHABETTY_GAME_ID, LADDER_GAME_ID):
+            game = Game.objects.filter(id=game_hint).first()
+        if game is None:
+            raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)

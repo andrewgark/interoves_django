@@ -157,6 +157,15 @@ class AlphabettyCoreTests(TestCase):
             number=1, attempts=5, elapsed_seconds=5564, hints=3, host='interoves.com',
         )
         self.assertEqual(lines_hints[2], '💡💡💡 Взято 3 подсказки')
+        hash_lines = build_share_lines(
+            number='f639303b80c3ec03',
+            attempts=3,
+            elapsed_seconds=12,
+            host='interoves.com',
+            play_path='/alphabetty/f639303b80c3ec03/',
+        )
+        self.assertEqual(hash_lines[0], '🔤 Алфавитка #f639303b80c3ec03')
+        self.assertEqual(hash_lines[3], '🔗 interoves.com/alphabetty/f639303b80c3ec03/')
         self.assertEqual(format_hints_label(0), '')
         self.assertEqual(format_hints_label(1), '💡 Взята 1 подсказка')
         self.assertEqual(format_hints_label(2), '💡💡 Взято 2 подсказки')
@@ -468,6 +477,14 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'Алфавитка')
 
+    def test_hub_page_has_create_link(self):
+        _ensure_login_modal_deps()
+        response = self.client.get('/alphabetty/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Создать свою алфавитку')
+        self.assertContains(response, 'href="/create_alphabetty/"')
+
     def test_create_page_shows_offer_flow(self):
         user = User.objects.create_user('ab_creator', 'ab@example.com', 'x')
         Profile.objects.create(
@@ -554,7 +571,47 @@ class AlphabettyPlayApiTests(TestCase):
         response = anon.get(f'/alphabetty/{offer.share_hash}/')
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'Алфавитка #{offer.share_hash}')
         self.assertContains(response, f'/alphabetty/{offer.share_hash}/guess/')
+
+    def test_hash_like_dislike_works(self):
+        user = User.objects.create_user('ab_like_owner', 'ab_like@example.com', 'x')
+        Profile.objects.create(
+            user=user,
+            first_name='А',
+            last_name='Б',
+            telegram_handle='ab_like_owner',
+        )
+        self.client.force_login(user)
+        offer_id = self.client.post(
+            '/create_alphabetty/create/',
+            content_type='application/json',
+            data='{}',
+        ).json()['offer']['id']
+        self.client.post(
+            f'/create_alphabetty/{offer_id}/',
+            content_type='application/json',
+            data=json.dumps({'word': _FAKE_WORD, 'comment': ''}),
+        )
+        from games.models import AlphabettyOffer
+        offer = AlphabettyOffer.objects.get(pk=offer_id)
+        task = Task.objects.get(task_group_id=offer.task_group_id, number='1')
+
+        _ensure_login_modal_deps()
+        page = self.client.get(f'/alphabetty/{offer.share_hash}/')
+        self.assertEqual(page.status_code, 200)
+
+        response = self.client.post(
+            f'/like-dislike/{task.id}/',
+            data={'likes': '1', 'dislikes': '0', 'game_id': ALPHABETTY_GAME_ID},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['likes'], 1)
+        self.assertEqual(data['dislikes'], 0)
+        self.assertTrue(data['liked'])
+        self.assertFalse(data['disliked'])
 
     def test_hash_embargo_after_accept_unpublished(self):
         tags = dict(self.game.tags or {})

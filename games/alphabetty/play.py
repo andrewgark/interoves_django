@@ -149,15 +149,12 @@ def build_share_lines(
     play_path: str | None = None,
 ) -> list[str]:
     host = (host or 'interoves.com').split(':')[0] or 'interoves.com'
+    display_number = str(number or '').strip()
     if play_path:
         path = str(play_path).lstrip('/')
     else:
-        path = 'alphabetty/{}'.format(int(number))
-    title = (
-        f'🔤 Алфавитка #{number}'
-        if str(number).isdigit()
-        else '🔤 Алфавитка'
-    )
+        path = 'alphabetty/{}'.format(display_number)
+    title = f'🔤 Алфавитка #{display_number}' if display_number else '🔤 Алфавитка'
     lines = [
         title,
         f'🤔 {attempts} {ru_attempt_word(attempts)}',
@@ -187,14 +184,10 @@ def attach_solve_meta(
     payload['attempts_label'] = f'{attempts} {ru_attempt_word(attempts)}'
     if not payload.get('won'):
         return payload
-    try:
-        num = int(number)
-    except (TypeError, ValueError):
-        num = 0
     hints = int(payload.get('hints') or 0)
     elapsed = elapsed_seconds_for_actor(game=game, task=task, actor=actor) if actor else 0
     lines = build_share_lines(
-        number=num,
+        number=number,
         attempts=attempts,
         elapsed_seconds=elapsed,
         hints=hints,

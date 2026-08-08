@@ -228,7 +228,7 @@
     }).then(function (data) {
       upsert(data.offer);
       err.hidden = true;
-      openEdit(data.offer);
+      closeModal();
     }).catch(function (e) {
       err.hidden = false;
       err.textContent = e.message || String(e);

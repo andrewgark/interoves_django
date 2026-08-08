@@ -325,7 +325,7 @@ def alphabetty_play_page(request, number):
         'number': play_number,
         'link': link,
         'task': task,
-        'page_title': f'Алфавитка №{n}' if offer is None else 'Алфавитка',
+        'page_title': f'Алфавитка №{n}' if offer is None else f'Алфавитка #{play_number}',
         'daily_publish_date': daily_publish_date,
         'show_sections_nav': True,
         'back_url': '/create_alphabetty/' if offer is not None else section_hub_path(ALPHABETTY_GAME_ID),
