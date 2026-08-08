@@ -21,6 +21,7 @@ from games.results_snapshot import freeze_game_results, results_attempts_scope_g
 from games.views.new_ui import (
     _results_table_headers_context,
     new_section_results_page,
+    new_section_task_results_page,
     new_task_group_page,
 )
 
@@ -88,6 +89,18 @@ class SectionResultsSplitTests(TestCase):
         self.assertEqual(
             reverse('new_alphabetty_results'), '/alphabetty/results/'
         )
+
+    def test_alphabetty_task_results_route_passes_number_to_view(self):
+        match = resolve('/alphabetty/8/results/')
+        self.assertIs(match.func, new_section_task_results_page)
+        self.assertEqual(match.kwargs, {'game_id': ALPHABETTY_GAME_ID, 'number': '8'})
+
+        request = self.factory.get('/alphabetty/8/results/')
+        request.user = AnonymousUser()
+        request.session = {}
+        with patch('games.views.new_ui.render') as render_mock:
+            new_section_task_results_page(request, **match.kwargs)
+        self.assertEqual(render_mock.call_args[0][1], 'ui/results.html')
 
     def test_ladder_results_url_resolves_to_section_results_not_task_group(self):
         match = resolve('/ladder/results/')

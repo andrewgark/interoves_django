@@ -33,6 +33,7 @@ from games.access import game_has_started
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
     filter_published_alphabetty_links,
+    is_alphabetty_number_published,
     visible_alphabetty_links,
 )
 from games.ladder_daily import (
@@ -1639,14 +1640,14 @@ def _results_me_participants(request, play_mode):
     return me_personal, me_anon_participant
 
 
-def _new_results_compute(game, mode):
+def _new_results_compute(game, mode, task_group_number=None):
     team_to_list_attempts_info = {}
     team_to_score = {}
     team_to_max_best_time = {}
     team_task_to_attempts_info = {}
 
     placements, task_group_to_tasks, tasks_flat, task_ids, task_group_headers = (
-        _load_results_placements_and_tasks(game)
+        _load_results_placements_and_tasks(game, task_group_number=task_group_number)
     )
 
     # General: SQL aggregates (same as live ladder snapshot). Tournament windows and
@@ -1988,7 +1989,7 @@ def new_section_results_page(request, game_id):
     })
 
 
-def new_section_task_results_page(request, game_id, task_group_number):
+def new_section_task_results_page(request, game_id, number):
     """Results for one published round of a section game."""
     if game_id != ALPHABETTY_GAME_ID:
         raise Http404()
@@ -2003,10 +2004,10 @@ def new_section_task_results_page(request, game_id, task_group_number):
     team = request.user.profile.team_on if has_profile(request.user) else None
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
-    if not is_alphabetty_number_published(game, task_group_number):
+    if not is_alphabetty_number_published(game, number):
         raise Http404()
     placement = (
-        GameTaskGroup.objects.filter(game=game, number=str(task_group_number))
+        GameTaskGroup.objects.filter(game=game, number=str(number))
         .select_related('task_group')
         .first()
     )
@@ -2016,7 +2017,7 @@ def new_section_task_results_page(request, game_id, task_group_number):
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
-    data = _new_results_compute(game, mode='general', task_group_number=task_group_number)
+    data = _new_results_compute(game, mode='general', task_group_number=number)
     data = _paginate_results_rows(request, data, per_page=50)
     return render(request, 'ui/results.html', {
         'mode': 'general',
@@ -2026,11 +2027,11 @@ def new_section_task_results_page(request, game_id, task_group_number):
         'team': team,
         'me_personal': me_personal,
         'me_anon_participant': me_anon_participant,
-        'back_url': section_play_path(ALPHABETTY_GAME_ID, task_group_number),
+        'back_url': section_play_path(ALPHABETTY_GAME_ID, number),
         **data,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
-        'page_title': 'Результаты: Алфавитка №{}'.format(task_group_number),
+        'page_title': 'Результаты: Алфавитка №{}'.format(number),
         'lock_personal_play_mode': personal_play_mode_locked(game),
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
