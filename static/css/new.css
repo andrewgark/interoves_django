@@ -5394,6 +5394,14 @@ html.is-age-gated .new-wrap {
   text-decoration-thickness: 1px;
   opacity: 0.62;
 }
+.new-raddle-clue--struck .new-raddle-clue-ref,
+.new-raddle-clue--struck .new-raddle-clue-next,
+.new-raddle-clue--struck .new-raddle-clue-before,
+.new-raddle-clue--struck .new-raddle-clue-focus,
+.new-raddle-clue--struck .new-raddle-clue-after {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
 .new-raddle-clue__text {
   min-width: 0;
   flex: 1 1 auto;
