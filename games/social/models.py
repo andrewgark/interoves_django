@@ -17,6 +17,7 @@ class SocialQueuePost(models.Model):
 
     STATUS_PENDING = 'pending'
     STATUS_QUEUED = 'queued'
+    STATUS_PUBLISHING = 'publishing'
     STATUS_SCHEDULED = 'scheduled'
     STATUS_SENT = 'sent'
     STATUS_FAILED = 'failed'
@@ -25,6 +26,7 @@ class SocialQueuePost(models.Model):
     TELEGRAM_STATUS_CHOICES = (
         (STATUS_PENDING, 'Pending'),
         (STATUS_QUEUED, 'Queued (internal schedule)'),
+        (STATUS_PUBLISHING, 'Publishing'),
         (STATUS_SCHEDULED, 'Scheduled in Telegram'),
         (STATUS_SENT, 'Sent'),
         (STATUS_FAILED, 'Failed'),
@@ -33,6 +35,7 @@ class SocialQueuePost(models.Model):
     NETWORK_STATUS_CHOICES = (
         (STATUS_PENDING, 'Pending'),
         (STATUS_QUEUED, 'Queued (internal schedule)'),
+        (STATUS_PUBLISHING, 'Publishing'),
         (STATUS_SENT, 'Sent'),
         (STATUS_FAILED, 'Failed'),
         (STATUS_SKIPPED, 'Skipped'),

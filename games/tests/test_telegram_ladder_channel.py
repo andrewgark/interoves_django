@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
@@ -287,6 +287,45 @@ class SocialPublishRetryTests(TestCase):
         tweet_mock.assert_called_once()
         self.post.refresh_from_db()
         self.assertEqual(self.post.twitter_external_id, '222')
+
+
+@override_settings(
+    TELEGRAM_BOT_TOKEN='test-token',
+    TELEGRAM_ADMIN_CHAT_ID='12345',
+    TELEGRAM_CHANNEL_CHAT_ID='@interoves',
+    TELEGRAM_API_ID=12345,
+    TELEGRAM_API_HASH='hash',
+    TELEGRAM_USER_SESSION='session-string',
+    SITE_BASE_URL='https://interoves.com',
+)
+class SocialQueueClaimTests(TestCase):
+    def setUp(self):
+        self.post = SocialQueuePost.objects.create(
+            source=SocialQueuePost.SOURCE_MANUAL,
+            caption='claim me',
+            twitter_status=SocialQueuePost.STATUS_QUEUED,
+            twitter_queued_for=datetime(2026, 7, 8, 16, 30, tzinfo=ZoneInfo('Europe/Moscow')),
+        )
+        self.post.image.save('q.png', ContentFile(_tiny_png_bytes()), save=True)
+
+    def test_claim_prevents_second_instance_from_publishing_same_network(self):
+        from games.social.publish import _claim_queued_post
+
+        now = datetime(2026, 7, 8, 16, 30, tzinfo=ZoneInfo('Europe/Moscow'))
+        self.assertTrue(_claim_queued_post('twitter', self.post.pk, now))
+        self.assertFalse(_claim_queued_post('twitter', self.post.pk, now))
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.twitter_status, SocialQueuePost.STATUS_PUBLISHING)
+
+    def test_stale_publishing_claim_can_be_retried(self):
+        from games.social.publish import QUEUE_CLAIM_TIMEOUT, _claim_queued_post
+
+        now = datetime(2026, 7, 8, 16, 30, tzinfo=ZoneInfo('Europe/Moscow'))
+        SocialQueuePost.objects.filter(pk=self.post.pk).update(
+            twitter_status=SocialQueuePost.STATUS_PUBLISHING,
+            updated_at=now - QUEUE_CLAIM_TIMEOUT - timedelta(minutes=1),
+        )
+        self.assertTrue(_claim_queued_post('twitter', self.post.pk, now))
 
 
 class EnsurePlaywrightBrowsersPathTests(TestCase):

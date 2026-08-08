@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from django.conf import settings
 from django.db import connection
+from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 
@@ -27,6 +28,45 @@ from games.twitter.api import (
 )
 
 logger = logging.getLogger('application')
+
+QUEUE_CLAIM_TIMEOUT = timedelta(
+    minutes=max(1, int(getattr(settings, 'SOCIAL_QUEUE_CLAIM_TIMEOUT_MINUTES', 30)))
+)
+
+
+def _network_fields(network: str) -> tuple[str, str, str, str]:
+    network = (network or '').strip().lower()
+    if network == 'telegram':
+        return ('telegram_status', 'telegram_queued_for', 'telegram_error', 'telegram_external_id')
+    if network == 'twitter':
+        return ('twitter_status', 'twitter_queued_for', 'twitter_error', 'twitter_external_id')
+    if network == 'instagram':
+        return ('instagram_status', 'instagram_queued_for', 'instagram_error', 'instagram_external_id')
+    raise ValueError('Unknown network: {}'.format(network))
+
+
+def _claim_queued_post(network: str, pk: int, now: datetime) -> bool:
+    """Atomically claim one queued network publish across multiple app instances."""
+    status_field, queued_field, error_field, external_id_field = _network_fields(network)
+    stale_before = now - QUEUE_CLAIM_TIMEOUT
+    return SocialQueuePost.objects.filter(
+        pk=pk,
+        **{
+            external_id_field: '',
+            '{}__lte'.format(queued_field): now,
+        }
+    ).filter(
+        Q(**{status_field: SocialQueuePost.STATUS_QUEUED})
+        | (
+            Q(**{status_field: SocialQueuePost.STATUS_PUBLISHING})
+            & Q(updated_at__lt=stale_before)
+        )
+    ).update(
+        **{
+            status_field: SocialQueuePost.STATUS_PUBLISHING,
+            error_field: '',
+        }
+    ) == 1
 
 
 def _plain_caption(post: SocialQueuePost) -> str:
@@ -224,6 +264,8 @@ def process_social_queue_tick(now: datetime | None = None) -> dict[str, Any]:
     if max_workers == 1:
         for network, pk in tasks:
             try:
+                if not _claim_queued_post(network, pk, now):
+                    continue
                 if _publish_one_queued(network, pk):
                     stats[network] += 1
             except Exception:
@@ -234,6 +276,7 @@ def process_social_queue_tick(now: datetime | None = None) -> dict[str, Any]:
             future_to_task = {
                 executor.submit(_publish_one_queued_worker, network, pk): (network, pk)
                 for network, pk in tasks
+                if _claim_queued_post(network, pk, now)
             }
             for future in as_completed(future_to_task):
                 network, pk = future_to_task[future]
