@@ -1,7 +1,10 @@
+from datetime import timedelta
+
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
 from unittest.mock import patch
+from django.utils import timezone
 
 from games.models import (
     Attempt,
@@ -18,6 +21,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
+from games.anon_migrate import migrate_anon_chain_task_states
 
 
 class AnonMigrateTests(TestCase):
@@ -223,6 +227,81 @@ class AnonMigrateTests(TestCase):
         )
         guesses = json.loads(row.state)['guesses']
         self.assertEqual(set(guesses), {'АРБУЗ', 'ЯБЛОКО'})
+
+    def test_alphabetty_migrate_rebuilds_guess_order_from_attempts(self):
+        import json
+        checker = CheckerType.objects.get_or_create(pk='alphabetty')[0]
+        tg = TaskGroup.objects.create(label='anon_migrate_alphabetty', checker=checker, points=10)
+        GameTaskGroup.objects.create(
+            game=self.game, task_group=tg, number='8', name='Алфавитка #8',
+        )
+        task = Task.objects.create(
+            task_group=tg,
+            number='1',
+            task_type='alphabetty',
+            checker=checker,
+            checker_data='ДЮЙМ',
+            answer='ДЮЙМ',
+            points=10,
+        )
+        anon_guesses = [
+            'КАВАРДАК', 'БАОБАБ', 'ЗЕЛЕНЬ', 'ДАНТИСТ', 'ЖЕЗЛ', 'ЗАЧЕТКА',
+            'ЕЛКА', 'ДЕКОР', 'ДУНОВЕНИЕ', 'ЕВАНГЕЛИЕ', 'ДУРИАН', 'ЕБАНИНА', 'ДЯТЕЛ',
+        ]
+        user_guesses = ['ДЯГЕЛЬ', 'ДЮБЕЛЬ', 'ДЮЖИНА', 'ДЮШЕС', 'ДЮЙМ']
+        base = timezone.now()
+
+        for i, word in enumerate(anon_guesses):
+            Attempt.manager.create(
+                anon_key=self.anon_key,
+                task=task,
+                game=self.game,
+                text=word,
+                status='Partial',
+                time=base + timedelta(seconds=i),
+            )
+        for i, word in enumerate(user_guesses):
+            Attempt.manager.create(
+                user=self.user,
+                task=task,
+                game=self.game,
+                text=word,
+                status='Ok' if word == 'ДЮЙМ' else 'Partial',
+                time=base + timedelta(seconds=100 + i),
+            )
+
+        ChainTaskState.objects.create(
+            anon_key=self.anon_key,
+            task=task,
+            game=self.game,
+            game_mode='general',
+            state=json.dumps({'guesses': anon_guesses, 'won': False}, ensure_ascii=False),
+        )
+        ChainTaskState.objects.create(
+            user=self.user,
+            task=task,
+            game=self.game,
+            game_mode='general',
+            state=json.dumps({'guesses': user_guesses, 'won': True}, ensure_ascii=False),
+        )
+
+        Attempt.manager.filter(
+            anon_key=self.anon_key,
+            user__isnull=True,
+            team__isnull=True,
+            task=task,
+            game=self.game,
+        ).update(user=self.user, anon_key=None)
+        moved = migrate_anon_chain_task_states(self.user, self.anon_key)
+        self.assertEqual(moved, 1)
+
+        row = ChainTaskState.objects.get(
+            user=self.user, task=task, game=self.game, game_mode='general',
+        )
+        self.assertEqual(
+            json.loads(row.state)['guesses'],
+            anon_guesses + user_guesses,
+        )
 
     def test_migrate_count_endpoint(self):
         url = reverse('new_anon_migrate_count')

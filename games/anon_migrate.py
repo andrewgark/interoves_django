@@ -1,7 +1,8 @@
 """Перенос анонимного прогресса на залогиненного пользователя."""
 import json
 
-from games.models import ChainTaskState
+from games.alphabetty.core import normalize_word
+from games.models import Attempt, ChainTaskState
 
 
 def _parse_state(state_json):
@@ -79,6 +80,59 @@ def _merge_alphabetty_states(anon_json, user_json):
     }, ensure_ascii=False)
 
 
+def _rebuild_alphabetty_state_from_attempts(*, user, task, game, anon_json, user_json):
+    """
+    Восстановить состояние Алфавитки из реальных Attempt после переноса anon→user.
+
+    JSON-merge двух независимых прохождений даёт невозможный порядок guesses
+    (например, победное слово оказывается в середине, а ранние слова — после него).
+    Для alphabetty порядок guesses семантически важен: он влияет на share и UI.
+    """
+    attempts = (
+        Attempt.manager.filter(
+            user=user,
+            team__isnull=True,
+            anon_key__isnull=True,
+            task=task,
+            game=game,
+        )
+        .exclude(time__isnull=True)
+        .order_by('time', 'id')
+    )
+    guesses = []
+    seen = set()
+    won = False
+    for attempt in attempts:
+        word = normalize_word(attempt.text or '')
+        if not word or word in seen:
+            if attempt.status == 'Ok':
+                won = True
+            continue
+        seen.add(word)
+        guesses.append(word)
+        if attempt.status == 'Ok':
+            won = True
+
+    if not guesses:
+        return None
+
+    anon = _parse_state(anon_json) or {}
+    user_state = _parse_state(user_json) or {}
+    anon_hp = str(anon.get('hint_prefix') or '').strip().upper().replace('Ё', 'Е')
+    user_hp = str(user_state.get('hint_prefix') or '').strip().upper().replace('Ё', 'Е')
+    try:
+        hints_taken = max(int(anon.get('hints_taken') or 0), int(user_state.get('hints_taken') or 0))
+    except (TypeError, ValueError):
+        hints_taken = max(len(anon_hp), len(user_hp))
+
+    return json.dumps({
+        'guesses': guesses,
+        'won': bool(won or anon.get('won') or user_state.get('won')),
+        'hint_prefix': anon_hp if len(anon_hp) >= len(user_hp) else user_hp,
+        'hints_taken': hints_taken,
+    }, ensure_ascii=False)
+
+
 def migrate_anon_personal_dict_words(user, anon_key):
     """Переносит AlphabettyPersonalDictWord с anon_key на user. Возвращает число строк."""
     from games.models import AlphabettyPersonalDictWord
@@ -133,7 +187,17 @@ def migrate_anon_chain_task_states(user, anon_key):
             row.save(update_fields=['user', 'anon_key', 'updated_at'])
             moved += 1
             continue
-        merged = _merge_alphabetty_states(row.state, existing.state)
+        merged = None
+        if getattr(row.task, 'task_type', None) == 'alphabetty':
+            merged = _rebuild_alphabetty_state_from_attempts(
+                user=user,
+                task=row.task,
+                game=row.game,
+                anon_json=row.state,
+                user_json=existing.state,
+            )
+        if merged is None:
+            merged = _merge_alphabetty_states(row.state, existing.state)
         if merged is not None:
             if _solved_count(row.state) > _solved_count(existing.state):
                 existing.last_attempt = row.last_attempt
