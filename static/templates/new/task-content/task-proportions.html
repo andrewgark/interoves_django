@@ -1,0 +1,27 @@
+{% if task.image %}
+  <div class="new-taskcard__img">
+    <img src="{{ task.image.url }}" alt="" width="{{ task.get_image_width }}">
+  </div>
+{% endif %}
+<div class="new-taskcard__text">
+  {% autoescape off %}{{ task.text }}{% endautoescape %}
+</div>
+{% if ai.is_solved %}
+  <div class="new-taskcard__answer">
+    <strong>Ответ:</strong> {% autoescape off %}{{ task.answer }}{% endautoescape %}
+  </div>
+{% else %}
+  <p class="new-login-hint new-source-line">
+    Для перетаскивания объектов у группы заданий в админке выберите вид «Пропорции».
+  </p>
+  <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
+    {% csrf_token %}
+    <input type="hidden" name="game_id" value="{{ game.id }}">
+    <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+    <div class="new-attempt-row">
+      {{ task.get_attempt_form.text }}
+      <button type="submit" class="new-btn new-btn--mini">Проверить</button>
+    </div>
+    <div class="new-attempt-msg" aria-live="polite"></div>
+  </form>
+{% endif %}

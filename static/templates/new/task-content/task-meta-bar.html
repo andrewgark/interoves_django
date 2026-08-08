@@ -1,5 +1,5 @@
 {% load filters %}
-{# Ожидает: task, ai, mode, base_max, wall_max_title (может быть пустым), user, has_profile_user, likes_meta_by_task_id #}
+{# Ожидает: task, ai, mode, base_max, wall_max_title (может быть пустым), task_ui #}
 <div class="new-taskcard__meta-bar new-proportions-compact-bar">
   {% if not is_daily_single_task %}
   <span class="new-proportions-compact-bar__num">{{ task.number }}.</span>
@@ -8,13 +8,10 @@
     {% if ai.is_solved %}
     <span class="new-pill new-pill--ok new-proportions-compact-badge--ok-strong" title="Задание решено">ок</span>
     {% endif %}
-    {% meta_bar_hint_penalty ai task alphabetty_hints as hp %}
-    {% with max_raw=base_max|sub_clamp0:hp %}
-    <span class="new-proportions-compact-points-pill" {% if wall_max_title %}title="{{ wall_max_title|escape }}"{% else %}title="Начислено сейчас / максимум с учётом подсказок"{% endif %}>
-      <span class="new-proportions-compact-stat__paren">(</span><span class="new-proportions-compact-stat__nums">{{ ai.get_result_points|minimize_digits }}</span> {{ ai.get_result_points|ru_points_word }}<span class="new-proportions-compact-stat__sep"> / </span><span class="new-proportions-compact-stat__nums">{{ max_raw|minimize_digits }}</span> {{ max_raw|ru_points_word }}<span class="new-proportions-compact-stat__paren">)</span>
+    <span class="new-proportions-compact-points-pill" {% if wall_max_title %}title="{{ wall_max_title|escape }}"{% else %}title="Начислено сейчас / базовый максимум"{% endif %}>
+      <span class="new-proportions-compact-stat__paren">(</span><span class="new-proportions-compact-stat__nums">{{ ai.get_result_points|minimize_digits }}</span> {{ ai.get_result_points|ru_points_word }}<span class="new-proportions-compact-stat__sep"> / </span><span class="new-proportions-compact-stat__nums">{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}<span class="new-proportions-compact-stat__paren">)</span>
     </span>
-    {% endwith %}
-    {% if task.task_type != 'replacements_lines' %}
+    {% if task_ui.show_attempts %}
     {% with n=ai.get_n_attempts %}
     {% if ai.attempts %}
     <button type="button" class="new-proportions-compact-textbtn new-proportions-compact-textbtn--success" popovertarget="prop-attempts-{{ task.id }}" title="Открыть список отправленных ответов" aria-label="Список попыток: {{ n }}">
@@ -46,9 +43,9 @@
     </span>
     {% endif %}
     {% endwith %}
-    {% if task.task_type == 'alphabetty' and alphabetty_hints_label %}
+    {% if task_ui.alphabetty_hints_label %}
     <span class="new-proportions-compact-stat new-proportions-compact-stat--plain" title="Взятые буквенные подсказки">
-      <span class="new-proportions-compact-stat__paren">(</span>{{ alphabetty_hints_label }}<span class="new-proportions-compact-stat__paren">)</span>
+      <span class="new-proportions-compact-stat__paren">(</span>{{ task_ui.alphabetty_hints_label }}<span class="new-proportions-compact-stat__paren">)</span>
     </span>
     {% endif %}
     {% endif %}
@@ -57,7 +54,7 @@
   {% if task.get_player_hints %}
   <button type="button" class="new-proportions-compact-textbtn" data-hints-toggle data-task-id="{{ task.id }}" title="подсказки">подсказки</button>
   {% endif %}
-  {% if task.task_type != 'replacements_lines' and task.task_type != 'raddle' and task.task_type != 'alphabetty' %}
+  {% if task_ui.show_answer %}
   {% if mode != 'tournament' or ai.is_solved %}
   <button type="button" class="new-proportions-compact-textbtn" data-answer-open data-task-id="{{ task.id }}" title="Показать ответ">ответ</button>
   {% endif %}

@@ -7,7 +7,7 @@ from games.section_paths import STANDARD_ROOT_SECTION_GAME_IDS
 from games.views import ui
 
 _SECTION_GAME_ID_RE = '|'.join(STANDARD_ROOT_SECTION_GAME_IDS)
-_RESULTS_GAME_ID_RE = 'ladder|' + _SECTION_GAME_ID_RE
+_RESULTS_GAME_ID_RE = 'ladder|alphabetty|' + _SECTION_GAME_ID_RE
 
 
 def section_root_urlpatterns(

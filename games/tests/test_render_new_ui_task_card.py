@@ -17,6 +17,7 @@ from games.models import (
     TaskGroup,
 )
 from games.views.render_task import render_new_ui_task_card_html
+from games.views.new_ui import _task_ui_descriptor
 
 
 def _setup_db():
@@ -27,7 +28,8 @@ def _setup_db():
         'Правила тренировочного режима',
     ):
         HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
-    CheckerType.objects.get_or_create(pk='wall')
+    for checker_id in ('wall', 'equals_with_possible_spaces', 'replacements_lines', 'raddle'):
+        CheckerType.objects.get_or_create(pk=checker_id)
 
 
 class RenderNewUiTaskCardTests(TestCase):
@@ -88,3 +90,72 @@ class RenderNewUiTaskCardTests(TestCase):
         )
         self.assertIsNotNone(html)
         self.assertIn('wall-tile-image', html)
+
+    def test_task_ui_descriptor_keeps_type_specific_renderers(self):
+        default = Task(task_type='default', points=1)
+        raddle = Task(task_type='raddle', points=1)
+        replacements = Task(task_type='replacements_lines', points=1)
+
+        self.assertEqual(
+            _task_ui_descriptor(default)['body_template'],
+            'new/task-content/task-default.html',
+        )
+        self.assertEqual(
+            _task_ui_descriptor(raddle, rd={'max_points_total': 4})['base_max'],
+            4,
+        )
+        self.assertEqual(
+            _task_ui_descriptor(replacements, rld={'max_points_total': 3, 'n_lines': 1})['body_template'],
+            'task-content/task-replacements-lines.html',
+        )
+        raddle_ui = _task_ui_descriptor(raddle, rd={'max_points_total': 4})
+        self.assertTrue(raddle_ui['show_attempts'])
+        self.assertFalse(raddle_ui['show_answer'])
+        self.assertFalse(_task_ui_descriptor(default)['body_wrapper'])
+        self.assertEqual(
+            _task_ui_descriptor(raddle)['body_error'],
+            'Ошибка отображения задания (нет данных raddle).',
+        )
+        self.assertEqual(
+            _task_ui_descriptor(self.task, wall_meta={'total': 6, 'title': 'wall'})['max_points_title'],
+            'wall',
+        )
+
+    def test_default_and_proportions_keep_single_text_container(self):
+        for task_type, task_number in (('default', '2'), ('proportions', '3')):
+            task = Task.objects.create(
+                task_group=self.tg,
+                number=task_number,
+                task_type=task_type,
+                checker=CheckerType.objects.get(pk='equals_with_possible_spaces'),
+                points=1,
+                text='task body',
+                answer='answer',
+            )
+            request = RequestFactory().get('/')
+            request.user = AnonymousUser()
+            html = render_new_ui_task_card_html(
+                request, task, None, 'general', anon_key='anon_test', game=self.game,
+            )
+            self.assertEqual(html.count('new-taskcard__text'), 1, task_type)
+
+    def test_invalid_special_task_renders_explicit_error(self):
+        for task_number, task_type, expected in (
+            ('4', 'raddle', 'Ошибка отображения задания (нет данных raddle).'),
+            ('5', 'replacements_lines', 'Ошибка отображения задания (нет данных).'),
+        ):
+            task = Task.objects.create(
+                task_group=self.tg,
+                number=task_number,
+                task_type=task_type,
+                checker=CheckerType.objects.get(pk=task_type),
+                points=1,
+                text='',
+                checker_data='',
+            )
+            request = RequestFactory().get('/')
+            request.user = AnonymousUser()
+            html = render_new_ui_task_card_html(
+                request, task, None, 'general', anon_key='anon_test', game=self.game,
+            )
+            self.assertIn(expected, html)

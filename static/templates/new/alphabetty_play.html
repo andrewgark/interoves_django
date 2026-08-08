@@ -22,6 +22,12 @@
 <p class="new-login-hint new-meta-line">{{ daily_publish_date|date:"j E Y" }}</p>
 {% endif %}
 
+{% if can_see_results %}
+<p class="new-stack-gap">
+  <a class="new-btn new-btn--ghost new-btn--mini" href="{{ section_results_url }}">Результаты</a>
+</p>
+{% endif %}
+
 {% include "new/_rules_banner.html" %}
 
 <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>

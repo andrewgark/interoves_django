@@ -2,10 +2,10 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
 from django.core.cache import cache
-from django.http import Http404
 from django.test import RequestFactory, TestCase
 from django.urls import resolve, reverse
 
+from games.alphabetty_daily import ALPHABETTY_GAME_ID
 from games.ladder_daily import LADDER_GAME_ID
 from games.models import (
     CheckerType,
@@ -66,13 +66,28 @@ class SectionResultsSplitTests(TestCase):
             'rows': [],
         }
 
-    def test_non_ladder_section_results_page_is_404(self):
-        self._create_section_game()
+    def test_non_ladder_section_results_page_uses_shared_table(self):
+        game = self._create_section_game()
         request = self.factory.get('/section/sec_res/results/')
         request.user = AnonymousUser()
         request.session = {}
-        with self.assertRaises(Http404):
+        with patch('games.views.new_ui.render') as render_mock:
             new_section_results_page(request, 'sec_res')
+        context = render_mock.call_args[0][2]
+        self.assertEqual(context['game'].pk, game.pk)
+        self.assertFalse(context['is_ladder_results'])
+        self.assertEqual(context['results_variant'], 'standard')
+
+    def test_alphabetty_results_url_resolves_to_shared_results_page(self):
+        match = resolve('/alphabetty/results/')
+        self.assertIs(match.func, new_section_results_page)
+        self.assertEqual(match.kwargs.get('game_id'), ALPHABETTY_GAME_ID)
+        self.assertEqual(
+            reverse('ui_alphabetty_results'), '/alphabetty/results/'
+        )
+        self.assertEqual(
+            reverse('new_alphabetty_results'), '/alphabetty/results/'
+        )
 
     def test_ladder_results_url_resolves_to_section_results_not_task_group(self):
         match = resolve('/ladder/results/')

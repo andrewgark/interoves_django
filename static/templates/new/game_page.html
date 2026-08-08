@@ -306,11 +306,11 @@
 
     {% include "new/_task_group_rows.html" with heading=task_groups_heading empty_text=task_groups_empty_text %}
 
-    {% if is_ladder_section and game|access_see_results:team %}
+    {% if section_results_url and game|access_see_results:team %}
       <h2 class="new-heading new-heading--section">Результаты</h2>
       <div class="new-card new-card--after-heading">
         <div class="new-card__text new-card__text--flush">
-          <a href="{% url 'new_section_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Смотреть таблицу</a>
+          <a href="{{ section_results_url }}" class="new-btn new-btn--ghost new-btn--mini">Смотреть таблицу</a>
         </div>
       </div>
     {% endif %}

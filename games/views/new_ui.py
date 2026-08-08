@@ -507,6 +507,20 @@ def _project_urls_context(project_id: str | None):
     }
 
 
+def _section_ui_context(game):
+    """Common section flags and URLs; format-specific views add their own extras."""
+    is_section = getattr(game, 'project_id', None) == NEW_UI_SECTIONS_PROJECT
+    if not is_section:
+        return {}
+    from games.section_paths import section_results_path
+
+    return {
+        'is_ladder_section': game.id == LADDER_GAME_ID,
+        'is_alphabetty_section': game.id == ALPHABETTY_GAME_ID,
+        'section_results_url': section_results_path(game.id),
+    }
+
+
 def _scoped_project_id(request) -> str | None:
     """Non-main project id when current URL is under /<project_id>/… (e.g. glowbyte)."""
     match = getattr(request, 'resolver_match', None)
@@ -1246,6 +1260,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'proportions_chips': ctx_dicts['proportions_chips'],
         'wall_max_points_meta_by_task_id': ctx_dicts['wall_max_points_meta_by_task_id'],
         'likes_meta_by_task_id': ctx_dicts['likes_meta_by_task_id'],
+        'task_ui_by_task_id': ctx_dicts['task_ui_by_task_id'],
         'can_like': True,
         'has_profile_user': has_profile(request.user),
         'mode': mode,
@@ -1426,8 +1441,6 @@ def _render_section_game_page(request, game_id):
         'is_main_game': False,
         'task_groups_heading': task_groups_heading,
         'task_groups_empty_text': task_groups_empty_text,
-        'is_ladder_section': game_id == LADDER_GAME_ID,
-        'is_alphabetty_section': game_id == ALPHABETTY_GAME_ID,
         'ladder_today_number': today_number if game_id == LADDER_GAME_ID else None,
         'ladder_today_play_url': (
             section_last_path(LADDER_GAME_ID)
@@ -1454,6 +1467,7 @@ def _render_section_game_page(request, game_id):
         'team': team_for_access,
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
+        **_section_ui_context(game),
         **_game_page_progress_context(request, game, play_mode),
         **_age_gate_context(game, back_url='/'),
     })
@@ -1539,6 +1553,10 @@ def _load_results_placements_and_tasks(game):
     )
     if game.id == LADDER_GAME_ID:
         placements = visible_ladder_links(links, game, reverse=False)
+    elif game.id == ALPHABETTY_GAME_ID:
+        placements = visible_alphabetty_links(links, game, reverse=False)
+    elif game.id == WEEK_TASK_GAME_ID:
+        placements = visible_week_task_links(links, game, reverse=False)
     else:
         placements = sorted(links, key=lambda p: p.key_sort())
     task_group_to_tasks = {}
@@ -1875,13 +1893,9 @@ def new_tournament_results_page(request, game_id):
 
 def new_section_results_page(request, game_id):
     """
-    Results table for section games.
-
-    Currently only the ladder section has a standings table; other sections 404.
+    Results table for section games. The table is shared; only ladder uses the
+    compact daily layout, while other sections use the ordinary task columns.
     """
-    if game_id != LADDER_GAME_ID:
-        raise Http404()
-
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
     if not project:
         raise Http404()
@@ -1906,7 +1920,8 @@ def new_section_results_page(request, game_id):
         return render(request, 'new/partials/results_rows.html', {
             'mode': 'general',
             'section_results': True,
-            'is_ladder_results': True,
+            'is_ladder_results': game_id == LADDER_GAME_ID,
+            'results_variant': 'ladder' if game_id == LADDER_GAME_ID else 'standard',
             'game': game,
             'team': team,
             'me_personal': me_personal,
@@ -1924,7 +1939,8 @@ def new_section_results_page(request, game_id):
     return render(request, 'ui/results.html', {
         'mode': 'general',
         'section_results': True,
-        'is_ladder_results': True,
+        'is_ladder_results': game_id == LADDER_GAME_ID,
+        'results_variant': 'ladder' if game_id == LADDER_GAME_ID else 'standard',
         'game': game,
         'team': team,
         'me_personal': me_personal,
@@ -2039,6 +2055,7 @@ def new_ladder_word_results_page(request, task_group_number):
             'section_results': True,
             'is_ladder_results': True,
             'is_ladder_word_results': True,
+            'results_variant': 'ladder_words',
             'game': game,
             'team': team,
             'me_personal': me_personal,
@@ -2054,6 +2071,7 @@ def new_ladder_word_results_page(request, task_group_number):
         'section_results': True,
         'is_ladder_results': True,
         'is_ladder_word_results': True,
+        'results_variant': 'ladder_words',
         'ladder_number': placement.number,
         'game': game,
         'team': team,
@@ -2070,6 +2088,53 @@ def new_ladder_word_results_page(request, task_group_number):
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
     })
+
+
+def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None):
+    """Presentation contract for the shared new-UI task card wrapper."""
+    body_templates = {
+        'wall': 'task-content/task-wall.html',
+        'replacements_lines': 'task-content/task-replacements-lines.html',
+        'raddle': 'task-content/task-raddle.html',
+        'proportions': 'new/task-content/task-proportions.html',
+        'default': 'new/task-content/task-default.html',
+        'autohint': 'new/task-content/task-default.html',
+        'with_tag': 'new/task-content/task-default.html',
+        'distribute_to_teams': 'new/task-content/task-default.html',
+    }
+    body_template = body_templates.get(task.task_type)
+    body_error = ''
+    if task.task_type == 'replacements_lines' and (not rld or not rld.get('n_lines')):
+        body_template = None
+        body_error = 'Ошибка отображения задания (нет данных).'
+    elif task.task_type == 'raddle' and not rd:
+        body_template = None
+        body_error = 'Ошибка отображения задания (нет данных raddle).'
+    if rld:
+        base_max = rld['max_points_total']
+    elif rd:
+        base_max = rd['max_points_total']
+    elif wall_meta:
+        base_max = wall_meta['total']
+    else:
+        base_max = task.get_points()
+    attempts_hidden = {'replacements_lines', 'alphabetty'}
+    answer_hidden = {'replacements_lines', 'raddle', 'alphabetty'}
+    return {
+        'body_template': body_template,
+        'body_error': body_error,
+        'body_wrapper': task.task_type in {'wall', 'replacements_lines', 'raddle'},
+        'base_max': base_max,
+        'max_points_title': wall_meta.get('title', '') if wall_meta else '',
+        'show_attempts': task.task_type not in attempts_hidden,
+        'show_answer': task.task_type not in answer_hidden,
+        'unsupported': task.task_type not in body_templates,
+        'unsupported_label': (
+            'Этот тип задания пока не поддержан в новом UI.'
+            if task.task_type == 'text_with_forms'
+            else 'Тип задания «{}» не поддержан в новом UI.'.format(task.task_type)
+        ),
+    }
 
 
 def build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode):
@@ -2280,6 +2345,15 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             tid = c.get('task_id')
             ai = attempts_info_by_task_id.get(tid) if tid is not None else None
             c['hide_from_pool'] = bool(ai and ai.is_solved())
+    task_ui_by_task_id = {
+        t.id: _task_ui_descriptor(
+            t,
+            rld=replacements_lines_data.get(t.id),
+            rd=raddle_data.get(t.id),
+            wall_meta=wall_max_points_meta_by_task_id.get(t.id),
+        )
+        for t in tasks
+    }
     return {
         'attempts_info_by_task_id': attempts_info_by_task_id,
         'wall_max_points_meta_by_task_id': wall_max_points_meta_by_task_id,
@@ -2287,6 +2361,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
         'replacements_lines_data': replacements_lines_data,
         'raddle_data': raddle_data,
         'proportions_chips': proportions_chips,
+        'task_ui_by_task_id': task_ui_by_task_id,
     }
 
 
@@ -2501,6 +2576,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'proportions_chips': ctx_dicts['proportions_chips'],
         'wall_max_points_meta_by_task_id': ctx_dicts['wall_max_points_meta_by_task_id'],
         'likes_meta_by_task_id': ctx_dicts['likes_meta_by_task_id'],
+        'task_ui_by_task_id': ctx_dicts['task_ui_by_task_id'],
         'can_like': True,
         'has_profile_user': has_profile(request.user),
         'mode': mode,

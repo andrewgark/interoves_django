@@ -42,6 +42,12 @@
   <a class="new-link-dotted" href="/create_alphabetty/">Создать свою алфавитку</a>
 </p>
 
+{% if can_see_results %}
+  <p class="new-stack-gap">
+    <a class="new-btn new-btn--ghost new-btn--mini" href="{{ section_results_url }}">Результаты</a>
+  </p>
+{% endif %}
+
 {% if rows %}
   <h2 class="new-heading new-stack-gap--lg">Архив</h2>
   {% for row in rows %}

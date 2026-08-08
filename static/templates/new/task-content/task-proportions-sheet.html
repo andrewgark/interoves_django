@@ -52,12 +52,10 @@
               {% if ai.is_solved %}
               <span class="new-pill new-pill--ok new-proportions-compact-badge--ok-strong" title="Задание решено">ок</span>
               {% endif %}
-              {% with base_max=task.get_points hp=ai.get_sum_hint_penalty %}
-              {% with max_raw=base_max|sub_clamp0:hp %}
-              <span class="new-proportions-compact-points-pill" title="Начислено сейчас / максимум с учётом подсказок">
-                <span class="new-proportions-compact-stat__paren">(</span><span class="new-proportions-compact-stat__nums">{{ ai.get_result_points|minimize_digits }}</span> {{ ai.get_result_points|ru_points_word }}<span class="new-proportions-compact-stat__sep"> / </span><span class="new-proportions-compact-stat__nums">{{ max_raw|minimize_digits }}</span> {{ max_raw|ru_points_word }}<span class="new-proportions-compact-stat__paren">)</span>
+              {% with base_max=task.get_points %}
+              <span class="new-proportions-compact-points-pill" title="Начислено сейчас / базовый максимум">
+                <span class="new-proportions-compact-stat__paren">(</span><span class="new-proportions-compact-stat__nums">{{ ai.get_result_points|minimize_digits }}</span> {{ ai.get_result_points|ru_points_word }}<span class="new-proportions-compact-stat__sep"> / </span><span class="new-proportions-compact-stat__nums">{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}<span class="new-proportions-compact-stat__paren">)</span>
               </span>
-              {% endwith %}
               {% endwith %}
               {% with n=ai.get_n_attempts %}
               {% if ai.attempts %}

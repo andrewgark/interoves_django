@@ -42,7 +42,7 @@ from games.models import (
     Like,
     Task,
 )
-from games.section_paths import section_hub_path, section_play_path
+from games.section_paths import section_hub_path, section_play_path, section_results_path
 from games.views.new_ui import (
     NEW_UI_SECTIONS_PROJECT,
     _anon_key_from_request,
@@ -119,6 +119,13 @@ def _alphabetty_meta_context(request, *, game, task, user, anon_key):
         'mode': mode,
         'base_max': task.get_points(),
         'wall_max_title': '',
+        'task_ui': {
+            'show_attempts': False,
+            'show_answer': False,
+            'alphabetty_hints_label': (
+                f'{hints_n} {ru_hint_word(hints_n)}' if hints_n > 0 else ''
+            ),
+        },
         'is_daily_single_task': True,
         'has_profile_user': has_profile(request.user),
         'user': request.user,
@@ -236,6 +243,8 @@ def alphabetty_hub_page(request):
         'page_title': 'Алфавитка',
         'show_sections_nav': True,
         'back_url': '/',
+        'section_results_url': section_results_path(ALPHABETTY_GAME_ID),
+        'can_see_results': game.has_access('see_results', team=team),
     })
 
 
@@ -317,6 +326,9 @@ def alphabetty_play_page(request, number):
             )
         )
         prev_tg, next_tg = _neighbors_by_pk(visible_links, link)
+    team = None
+    if user is not None and has_profile(user):
+        team = user.profile.team_on
     meta_ctx = _alphabetty_meta_context(
         request, game=game, task=task, user=user, anon_key=anon_key,
     )
@@ -327,6 +339,8 @@ def alphabetty_play_page(request, number):
         'task': task,
         'page_title': f'Алфавитка №{n}' if offer is None else f'Алфавитка #{play_number}',
         'daily_publish_date': daily_publish_date,
+        'section_results_url': section_results_path(ALPHABETTY_GAME_ID),
+        'can_see_results': offer is None and game.has_access('see_results', team=team),
         'show_sections_nav': True,
         'back_url': '/create_alphabetty/' if offer is not None else section_hub_path(ALPHABETTY_GAME_ID),
         'back_label': 'К списку',

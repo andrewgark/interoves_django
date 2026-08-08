@@ -8,11 +8,11 @@
       <th class="is-sticky-left-4">{{ team_to_max_best_time|get_item:t|date:'H:i' }}</th>
     {% endif %}
     {% for cell in team_to_cells|get_item:t %}
-      <td class="{{ cell.cls }}"{% if is_ladder_results and cell.hint_numbers %} title="Подсказки: {{ cell.hint_numbers|join:', ' }}"{% endif %}>
+      <td class="{{ cell.cls }}"{% if results_variant == 'ladder' and cell.hint_numbers %} title="Подсказки: {{ cell.hint_numbers|join:', ' }}"{% endif %}>
         {% if cell.n_attempts|default:0 > 0 %}
           {{ cell.result_points|minimize_digits }}
         {% endif %}
-        {% if cell.hint_numbers and not is_ladder_results %}
+        {% if cell.hint_numbers and results_variant != 'ladder' %}
           <sup class="hint-numbers">{{ cell.hint_numbers|join:", " }}</sup>
         {% endif %}
       </td>
@@ -25,4 +25,3 @@
   data-has-next="{% if page_obj and page_obj.has_next %}1{% else %}0{% endif %}"
   data-next-page="{% if page_obj and page_obj.has_next %}{{ page_obj.next_page_number }}{% else %}{% endif %}"
 ></template>
-

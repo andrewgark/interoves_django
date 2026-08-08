@@ -138,6 +138,19 @@ def create_shop_order(
             customer_id,
             err_body[:500],
         )
+        code = ''
+        message = ''
+        try:
+            err_json = json.loads(err_body) if err_body else {}
+            code = str(err_json.get('code') or '')
+            message = str(err_json.get('message') or '')
+        except Exception:
+            pass
+        if exc.code == 404 or 'shop not found' in message.lower() or code == 'error_not_found':
+            raise RuntimeError(
+                'Tribute shop not found: create and activate a Shop in Tribute '
+                '(donation buttons are not enough), then wait for verification.'
+            ) from exc
         raise RuntimeError(f'Tribute order create failed: HTTP {exc.code}') from exc
     except URLError as exc:
         logger.error('Tribute create_shop_order network error customer_id=%s: %s', customer_id, exc)

@@ -256,6 +256,7 @@ def build_preview_task_group_context(game_id: str, task_group_number: str, spec:
         'proportions_chips': ctx_dicts['proportions_chips'],
         'wall_max_points_meta_by_task_id': ctx_dicts['wall_max_points_meta_by_task_id'],
         'likes_meta_by_task_id': ctx_dicts['likes_meta_by_task_id'],
+        'task_ui_by_task_id': ctx_dicts['task_ui_by_task_id'],
         'can_like': False,
         'has_profile_user': user is not None,
         'mode': mode,

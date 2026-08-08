@@ -2123,20 +2123,8 @@
     var penaltyEl = form.querySelector('input[name="__ui_hint_penalty"]');
     var penaltyRaw = penaltyEl ? normNumberString(penaltyEl.value) : '0';
     var penalty = toNum(penaltyRaw);
-    var baseEl = form.querySelector('input[name="__ui_base_max"]');
-    var baseRaw = baseEl ? normNumberString(baseEl.value) : '0';
-    var base = toNum(baseRaw);
-    var curEl = form.querySelector('input[name="__ui_current_penalty"]');
-    var curRaw = curEl ? normNumberString(curEl.value) : '0';
-    var cur = toNum(curRaw);
-    var fromVal = Math.max(0, base - cur);
-    var toVal = Math.max(0, base - (cur + penalty));
-    function fmt(n) {
-      var s = String(Math.round(n * 1000) / 1000);
-      return normNumberString(s);
-    }
     if (!isFinite(penalty)) penalty = 0;
-    box.textContent = 'Макс. балл за задание для вас понизится с ' + fmt(fromVal) + ' до ' + fmt(toVal) + ' (−' + penaltyRaw + ').';
+    box.textContent = 'Подсказка стоит ' + penaltyRaw + ' ' + (penalty === 1 ? 'балл' : 'балла') + '.';
     modal.removeAttribute('hidden');
     modal.classList.add('is-open');
     document.body.style.overflow = 'hidden';
@@ -3269,4 +3257,3 @@
 {% endif %}
 {% include "new/_18plus_gate.html" %}
 {% endblock %}
-
