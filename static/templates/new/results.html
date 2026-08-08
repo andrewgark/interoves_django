@@ -130,12 +130,12 @@
           <tbody id="results-tbody">
             {% if progressive_results %}
               <tr id="results-loading-row" class="results-loading-row">
-                <td colspan="999">Загрузка результатов…</td>
+                <td colspan="{{ results_column_count|default:1 }}">Загрузка результатов…</td>
               </tr>
             {% else %}
               {% include "new/partials/results_rows.html" %}
               {% if not teams_sorted %}
-                <tr><td colspan="999">Пока нет результатов.</td></tr>
+                <tr><td colspan="{{ results_column_count|default:1 }}">Пока нет результатов.</td></tr>
               {% endif %}
             {% endif %}
           </tbody>
@@ -203,6 +203,13 @@
     var tbody = document.getElementById('results-tbody');
     if (!tbody) return;
 
+    var table = document.querySelector('.new-results-table');
+    var tableColumnCount = table ? Array.prototype.reduce.call(
+      table.querySelectorAll('thead tr:first-child th'),
+      function (count, cell) { return count + (parseInt(cell.getAttribute('colspan'), 10) || 1); },
+      0
+    ) : 1;
+
     var nextPage = 1;
     var loading = false;
 
@@ -240,7 +247,7 @@
         }
 
         if (!tbody.children.length) {
-          tbody.innerHTML = '<tr><td colspan="999">Пока нет результатов.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="' + tableColumnCount + '">Пока нет результатов.</td></tr>';
           nextPage = '';
         }
       } catch (e) {

@@ -1598,6 +1598,15 @@ def _results_table_headers_context(game, task_group_number=None):
     }
 
 
+def _results_column_count(task_groups, mode='general'):
+    """Return the actual number of columns in the shared results table."""
+    fixed_columns = 4 if mode == 'tournament' else 3
+    task_columns = sum(
+        group.get_n_tasks_for_results() for group in (task_groups or [])
+    )
+    return fixed_columns + task_columns
+
+
 def _results_rows_empty_context():
     return {
         'teams_sorted': [],
@@ -1953,6 +1962,9 @@ def new_section_results_page(request, game_id):
     else:
         header_data = _results_table_headers_context(game)
     data = {**header_data, **_results_rows_empty_context()}
+    data['results_column_count'] = _results_column_count(
+        data.get('task_groups'), mode='general'
+    )
 
     return render(request, 'ui/results.html', {
         'mode': 'general',
@@ -2132,6 +2144,9 @@ def new_ladder_word_results_page(request, task_group_number):
 
     header_data = ladder_word_results_headers_context(task)
     data = {**header_data, **_results_rows_empty_context()}
+    data['results_column_count'] = _results_column_count(
+        data.get('task_groups'), mode='general'
+    )
 
     return render(request, 'ui/results.html', {
         'mode': 'general',
