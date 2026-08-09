@@ -871,9 +871,19 @@ html.new-ui-dark .support-ladder-item__mixed {
 
 .support-ladder-word-row {
   display: grid;
-  grid-template-columns: auto 1.5rem minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  grid-template-columns: 1.5rem minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  grid-template-areas: "number word hint remove";
   gap: 0.35rem;
   align-items: center;
+}
+
+.support-ladder-word-row--draggable {
+  grid-template-columns: auto 1.5rem minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  grid-template-areas: "handle number word hint remove";
+}
+
+.support-ladder-word-row > .support-cell-mono {
+  grid-area: number;
 }
 
 .support-ladder-word-row input {
@@ -888,7 +898,18 @@ html.new-ui-dark .support-ladder-item__mixed {
 }
 
 .support-ladder-word-row .ladder-word {
+  grid-area: word;
   text-transform: uppercase;
+}
+
+.support-ladder-word-row .ladder-hint,
+.support-ladder-word-row > .support-hint {
+  grid-area: hint;
+}
+
+.support-ladder-word-row .ladder-rm-word,
+.support-ladder-word-row .offer-rm-word {
+  grid-area: remove;
 }
 
 .support-ladder-word-row.is-dragging {
@@ -904,6 +925,7 @@ html.new-ui-dark .support-ladder-item__mixed {
 }
 
 .support-ladder-word-row__handle {
+  grid-area: handle;
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -933,12 +955,17 @@ html.new-ui-dark .support-ladder-item__mixed {
   }
 
   .support-ladder-word-row {
-    grid-template-columns: auto 1.25rem minmax(0, 1fr) auto;
+    grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+    grid-template-areas:
+      "number word remove"
+      ". hint .";
   }
 
-  .support-ladder-word-row .ladder-hint,
-  .support-ladder-word-row .support-hint {
-    grid-column: 3 / 4;
+  .support-ladder-word-row--draggable {
+    grid-template-columns: auto 1.25rem minmax(0, 1fr) auto;
+    grid-template-areas:
+      "handle number word remove"
+      ". . hint .";
   }
 }
 

@@ -258,7 +258,7 @@
     renderInsert(0, '+ Слово сюда');
     words.forEach(function (w, i) {
       var row = document.createElement('div');
-      row.className = 'support-ladder-word-row';
+      row.className = 'support-ladder-word-row support-ladder-word-row--draggable';
       row.draggable = true;
       row.dataset.wordIndex = String(i);
       var hintHtml = (i < words.length - 1)
@@ -269,7 +269,7 @@
         '<span class="support-cell-mono">' + (i + 1) + '</span>' +
         '<input type="text" class="ladder-word" placeholder="СЛОВО" value="' + escapeHtml(w) + '" autocomplete="off">' +
         hintHtml +
-        '<button type="button" class="new-btn new-btn--mini new-btn--ghost ladder-rm-word" title="Удалить" ' +
+        '<button type="button" class="new-btn new-btn--mini new-btn--ghost new-btn--icon ladder-rm-word" title="Удалить" aria-label="Удалить слово" ' +
           (words.length <= 2 ? 'disabled' : '') + '>×</button>';
       box.appendChild(row);
       renderInsert(i + 1, i === words.length - 1 ? '+ Слово в конец' : '+ Слово между строками');

@@ -604,7 +604,7 @@
         '<span class="support-cell-mono">' + (i + 1) + '</span>' +
         '<input type="text" class="ladder-word" placeholder="СЛОВО" value="' + escapeHtml(w) + '" autocomplete="off">' +
         hintHtml +
-        '<button type="button" class="new-btn new-btn--mini new-btn--ghost ladder-rm-word" title="Удалить" ' +
+        '<button type="button" class="new-btn new-btn--mini new-btn--ghost new-btn--icon ladder-rm-word" title="Удалить" aria-label="Удалить слово" ' +
           (words.length <= 2 ? 'disabled' : '') + '>×</button>';
       box.appendChild(row);
     });
@@ -780,7 +780,7 @@
         '<span class="support-cell-mono">' + (i + 1) + '</span>' +
         '<input type="text" class="ladder-word" placeholder="СЛОВО" value="' + escapeHtml(w) + '" autocomplete="off">' +
         hintHtml +
-        '<button type="button" class="new-btn new-btn--mini new-btn--ghost offer-rm-word" title="Удалить" ' +
+        '<button type="button" class="new-btn new-btn--mini new-btn--ghost new-btn--icon offer-rm-word" title="Удалить" aria-label="Удалить слово" ' +
           (words.length <= 2 ? 'disabled' : '') + '>×</button>';
       box.appendChild(row);
     });
