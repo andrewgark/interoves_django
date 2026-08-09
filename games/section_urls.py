@@ -28,6 +28,10 @@ def section_root_urlpatterns(
             ui.section_results_page,
             name=section_results_url_name,
         ),
+        re_path(
+            r'^(?P<game_id>' + _RESULTS_GAME_ID_RE + r')/(?P<number>\d+(?:\.\d+)?)/results/$',
+            ui.section_task_results_page,
+        ),
         path(
             'section/ladder/results/',
             RedirectView.as_view(url='/ladder/results/', permanent=True, query_string=True),

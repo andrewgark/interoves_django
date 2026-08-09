@@ -1,19 +1,21 @@
-{% if daily_results_url and daily_results_allowed %}
+{% with results_url=task_group_results_url|default:daily_results_url results_allowed=task_group_results_allowed|default:daily_results_allowed results_label=task_group_results_label|default:daily_results_label %}
+{% if results_url and results_allowed %}
 <p class="new-tg-results-link">
-  <a class="new-btn new-btn--ghost new-btn--mini" href="{{ daily_results_url }}">{{ daily_results_label }}</a>
+  <a class="new-btn new-btn--ghost new-btn--mini" href="{{ results_url }}">{{ results_label|default:"Результаты" }}</a>
 </p>
 {% endif %}
+{% endwith %}
 
 {% if daily_format_credit_url %}
 <p class="new-raddle-task__credit">Автор формата — <a href="{{ daily_format_credit_url }}" target="_blank" rel="noopener noreferrer">{{ daily_format_credit_name }}</a>, мы благодарны им за идею {{ daily_format_credit_text }}</p>
 {% endif %}
 
 {% if prev_task_group_url or next_task_group_url %}
-<nav class="new-tg-pager" aria-label="{{ daily_pager_aria_label }}">
+<nav class="new-tg-pager" aria-label="{{ task_group_pager_aria_label|default:daily_pager_aria_label|default:"Переход между заданиями" }}">
   {% if prev_task_group_url %}
     <a class="new-tg-pager__link new-tg-pager__link--prev" href="{{ prev_task_group_url }}">
       <span class="new-tg-pager__dir"><i class="ph ph-caret-left" aria-hidden="true"></i> Назад</span>
-      <span class="new-tg-pager__label">{{ daily_game_label }} №{{ prev_task_group_number }}</span>
+      <span class="new-tg-pager__label">{{ task_group_pager_label|default:daily_game_label }}{% if task_group_pager_label or daily_game_label %} №{% endif %}{{ prev_task_group_number }}</span>
     </a>
   {% else %}
     <span class="new-tg-pager__spacer" aria-hidden="true"></span>
@@ -21,7 +23,7 @@
   {% if next_task_group_url %}
     <a class="new-tg-pager__link new-tg-pager__link--next" href="{{ next_task_group_url }}">
       <span class="new-tg-pager__dir">Дальше <i class="ph ph-caret-right" aria-hidden="true"></i></span>
-      <span class="new-tg-pager__label">{{ daily_game_label }} №{{ next_task_group_number }}</span>
+      <span class="new-tg-pager__label">{{ task_group_pager_label|default:daily_game_label }}{% if task_group_pager_label or daily_game_label %} №{% endif %}{{ next_task_group_number }}</span>
     </a>
   {% endif %}
 </nav>

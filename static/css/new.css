@@ -979,6 +979,8 @@ html.new-ui-dark body.new-ui {
   flex: 1 1 auto;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  text-decoration: none;
+  color: inherit;
 }
 
 .new-task:hover {
@@ -997,6 +999,10 @@ html.new-ui-dark body.new-ui {
   color: var(--muted);
   font-size: 0.8rem;
   white-space: nowrap;
+}
+
+.new-task__results {
+  flex: 0 0 auto;
 }
 
 .new-task__action .new-pill {

@@ -288,6 +288,16 @@ def _play_url_for_task_group(game, number, *, project_base=''):
     return '/games/{}/{}/'.format(game.id, number)
 
 
+def _task_group_results_url(game, number, *, project_base=''):
+    """Canonical results URL for one task group, alongside its play URL."""
+    if project_base:
+        return '{}/games/{}/{}/results/'.format(project_base, game.id, number)
+    from games.section_paths import is_root_section_game, section_play_path
+    if is_root_section_game(game.id):
+        return '{}results/'.format(section_play_path(game.id, number))
+    return '/games/{}/{}/results/'.format(game.id, number)
+
+
 def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
     """Подписи верхнего «назад к списку» и нижнего пейджера кругов."""
     if game.project_id == NEW_UI_SECTIONS_PROJECT:
@@ -315,6 +325,7 @@ def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
             'n_tasks': p.n_tasks,
             'n_solved': None,
             'play_url': _play_url_for_task_group(game, p.number, project_base=project_base),
+            'results_url': _task_group_results_url(game, p.number, project_base=project_base),
             'is_fully_solved': False,
             'row_class': '',
             'title': '{} · {}'.format(p.number, p.name),
@@ -780,6 +791,7 @@ def _ladder_task_group_rows(
             'n_tasks': p.n_tasks,
             'n_solved': None,
             'play_url': _play_url_for_task_group(game, p.number),
+            'results_url': _task_group_results_url(game, p.number),
             'is_fully_solved': False,
             'row_class': 'new-task--today' if is_today else '',
             'title': title,
@@ -1281,6 +1293,11 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'section_tutorial_html': None,
         'prev_task_group_url': '{}/games/{}/{}/'.format(base, game.id, prev_tg.number) if prev_tg else None,
         'next_task_group_url': '{}/games/{}/{}/'.format(base, game.id, next_tg.number) if next_tg else None,
+        'task_group_results_url': _task_group_results_url(game, placement.number, project_base=base),
+        'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
+        'task_group_results_label': 'Результаты этого набора',
+        'task_group_pager_label': 'Набор',
+        'task_group_pager_aria_label': 'Переход между наборами заданий',
         'tg_number': placement.number,
         'tg_name': placement.name,
         'back_url': '{}/games/{}/'.format(base, game.id),
@@ -1989,31 +2006,9 @@ def new_section_results_page(request, game_id):
     })
 
 
-def new_section_task_results_page(request, game_id, number):
-    """Results for one published round of a section game."""
-    if game_id != ALPHABETTY_GAME_ID:
-        raise Http404()
-    from games.section_paths import section_play_path
-
-    project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
-    if not project:
-        raise Http404()
-    game = Game.objects.filter(project=project, id=game_id).first()
-    if not game:
-        raise Http404()
+def _render_task_group_results_page(request, game, number, back_url):
+    """Shared renderer for a results table scoped to one task group."""
     team = request.user.profile.team_on if has_profile(request.user) else None
-    if not game.has_access('see_results', mode='general', team=team):
-        raise Http404()
-    if not is_alphabetty_number_published(game, number):
-        raise Http404()
-    placement = (
-        GameTaskGroup.objects.filter(game=game, number=str(number))
-        .select_related('task_group')
-        .first()
-    )
-    if not placement:
-        raise Http404()
-
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
@@ -2027,15 +2022,64 @@ def new_section_task_results_page(request, game_id, number):
         'team': team,
         'me_personal': me_personal,
         'me_anon_participant': me_anon_participant,
-        'back_url': section_play_path(ALPHABETTY_GAME_ID, number),
+        'back_url': back_url,
         **data,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
-        'page_title': 'Результаты: Алфавитка №{}'.format(number),
+        'page_title': 'Результаты: {} №{}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name, number),
         'lock_personal_play_mode': personal_play_mode_locked(game),
         'show_sections_nav': True,
-        **_project_urls_context(NEW_UI_PROJECT),
+        **_project_urls_context(game.project_id),
     })
+
+
+def new_section_task_results_page(request, game_id, number):
+    """Results for one task group of a sections-project game."""
+    from games.section_paths import section_play_path
+
+    project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
+    if not project:
+        raise Http404()
+    game = Game.objects.filter(project=project, id=game_id).first()
+    if not game:
+        raise Http404()
+    if game_id == ALPHABETTY_GAME_ID and not is_alphabetty_number_published(game, number):
+        raise Http404()
+    if game_id == LADDER_GAME_ID and not is_ladder_number_published(game, number):
+        raise Http404()
+    if game_id == WEEK_TASK_GAME_ID and not is_week_task_number_published(game, number):
+        raise Http404()
+    team = request.user.profile.team_on if has_profile(request.user) else None
+    if not game.has_access('see_results', mode='general', team=team):
+        raise Http404()
+    placement = (
+        GameTaskGroup.objects.filter(game=game, number=str(number))
+        .select_related('task_group')
+        .first()
+    )
+    if not placement:
+        raise Http404()
+
+    return _render_task_group_results_page(
+        request, game, number, section_play_path(game.id, number),
+    )
+
+
+def new_game_task_results_page(request, game_id, number, project_id=None):
+    """Results for one task group in a project-scoped game."""
+    expected_project_id = project_id or NEW_UI_PROJECT
+    game = get_object_or_404(Game, id=game_id, project_id=expected_project_id)
+    team = _team_for_access(request)
+    if not game.has_access('see_results', mode='general', team=team):
+        raise Http404()
+    placement = GameTaskGroup.objects.filter(game=game, number=str(number)).first()
+    if not placement:
+        raise Http404()
+    base = _project_base(game.project_id)
+    return _render_task_group_results_page(
+        request, game, number,
+        '{}/games/{}/{}/'.format(base, game.id, number),
+    )
 
 
 def _ladder_raddle_task_for_placement(placement):
@@ -2693,6 +2737,11 @@ def new_task_group_page(request, game_id, task_group_number):
         'next_task_group_url': (
             _play_url_for_task_group(game, next_tg.number) if next_tg else None
         ),
+        'task_group_results_url': _task_group_results_url(game, placement.number),
+        'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
+        'task_group_results_label': 'Результаты этого набора',
+        'task_group_pager_label': 'Задание' if game.id == WEEK_TASK_GAME_ID else 'Набор',
+        'task_group_pager_aria_label': 'Переход между заданиями' if game.id == WEEK_TASK_GAME_ID else 'Переход между наборами заданий',
         'tg_number': placement.number,
         'tg_name': placement.name,
         'week_task_source_line': week_task_source_line,

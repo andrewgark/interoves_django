@@ -4,8 +4,8 @@
 {% if task_group_rows %}
   <h2 class="new-heading new-stack-gap--lg">{{ heading|default:"Задания" }}</h2>
   {% for row in task_group_rows %}
-    <a class="new-task {{ row.row_class|default:'' }}" href="{{ row.play_url }}" data-task-group-number="{{ row.number }}" data-fully-solved="{% if row.is_fully_solved %}1{% else %}0{% endif %}">
-      <span class="new-task__body">
+    <div class="new-task {{ row.row_class|default:'' }}" data-task-group-number="{{ row.number }}" data-fully-solved="{% if row.is_fully_solved %}1{% else %}0{% endif %}">
+      <a class="new-task__body" href="{{ row.play_url }}">
         {% if row.title %}
           <strong>{% autoescape off %}{{ row.title }}{% endautoescape %}</strong>
         {% else %}
@@ -18,19 +18,21 @@
         {% elif load_task_group_progress %}
           <small class="new-task__meta new-task__meta--loading" data-progress-meta aria-hidden="true"></small>
         {% endif %}
-      </span>
+      </a>
       <span class="new-task__action" data-task-action>
         {% if row.is_fully_solved %}
           <span class="new-pill new-pill--ok" title="Решено">ок</span>
         {% else %}
-          Открыть
+          <a class="new-btn new-btn--ghost new-btn--mini" href="{{ row.play_url }}">Открыть</a>
         {% endif %}
       </span>
-    </a>
+      {% if row.results_url and game|access_see_results:team %}
+        <a class="new-btn new-btn--ghost new-btn--mini new-task__results" href="{{ row.results_url }}">Результаты</a>
+      {% endif %}
+    </div>
   {% endfor %}
 {% else %}
   <div class="new-empty">
     <p class="new-empty__text">{{ empty_text|default:"Здесь пока нет групп заданий." }}</p>
   </div>
 {% endif %}
-

@@ -22,6 +22,7 @@ urlpatterns = [
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/$', ui.project_main_game_page, name='project_main_game'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/results/$', ui.project_results_page, name='project_results'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/tournament-results/$', ui.project_tournament_results_page, name='project_tournament_results'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<number>\d+(?:\.\d+)?)/results/$', ui.game_task_results_page, name='project_game_task_results'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group_number>\d+(?:\.\d+)?)/$', ui.project_task_group_page, name='project_task_group'),
     # Legacy but needed actions/pages referenced by UI (keep inside project prefix).
     re_path(r'^' + _PROJECT_ID_RE + r'/register/(?P<game_id>[a-zA-Z0-9_]+)/$', register_to_game),
@@ -107,6 +108,7 @@ urlpatterns = [
     path('games/<str:game_id>/', ui.main_game_page, name='ui_main_game'),
     path('games/<str:game_id>/results/', ui.results_page, name='ui_results'),
     path('games/<str:game_id>/tournament-results/', ui.tournament_results_page, name='ui_tournament_results'),
+    path('games/<str:game_id>/<str:number>/results/', ui.game_task_results_page, name='ui_game_task_results'),
     path('games/<str:game_id>/<str:task_group_number>/', ui.task_group_page, name='ui_task_group'),
     path('team/name-check/', ui.team_name_check, name='ui_team_name_check'),
     path('team/info/', ui.team_info, name='ui_team_info'),

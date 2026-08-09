@@ -71,6 +71,7 @@ urlpatterns = [
     path('games/<str:game_id>/', ui.main_game_page, name='new_main_game'),
     path('games/<str:game_id>/results/', ui.results_page, name='new_results'),
     path('games/<str:game_id>/tournament-results/', ui.tournament_results_page, name='new_tournament_results'),
+    path('games/<str:game_id>/<str:number>/results/', ui.game_task_results_page, name='new_game_task_results'),
     path('games/<str:game_id>/<str:task_group_number>/', ui.task_group_page, name='new_task_group'),
     path('team/name-check/', ui.team_name_check, name='new_team_name_check'),
     path('team/info/', ui.team_info, name='new_team_info'),
