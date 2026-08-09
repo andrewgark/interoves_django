@@ -163,10 +163,11 @@ def build_stuck_tickets_alert(*, minutes=None) -> str | None:
     for ticket in qs[:10]:
         team = getattr(ticket.team, 'visible_name', None) or ticket.team_id or '—'
         lines.append(
-            '#{} · {} · {} ₽ · {}'.format(
+            '#{} · {} · {} {} · {}'.format(
                 ticket.pk,
                 team,
                 ticket.money,
+                ticket.currency,
                 ticket.time.strftime('%d.%m %H:%M'),
             )
         )

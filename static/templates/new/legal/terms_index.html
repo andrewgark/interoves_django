@@ -1,0 +1,19 @@
+{% extends "new/base.html" %}
+{% block title %}Условия покупки{% endblock %}
+{% block content %}
+<article class="new-legal-page">
+  <h1 class="new-heading new-heading--page">Условия покупки</h1>
+  <p class="new-legal-lead">Применимые условия зависят от способа оплаты. На странице оплаты вы выбираете способ, а продавец определяется автоматически.</p>
+  <div class="new-legal-choice-grid">
+    <a class="new-card new-legal-choice" href="/terms/russia/">
+      <strong>Оплата российской картой</strong>
+      <span>Условия российского продавца · RUB · ЮKassa</span>
+    </a>
+    <a class="new-card new-legal-choice" href="/terms/armenia/">
+      <strong>Visa / Mastercard международного банка</strong>
+      <span>Условия Andrei Garkavyi IE · AMD</span>
+    </a>
+  </div>
+  {% include "new/legal/_nav.html" %}
+</article>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "new/base.html" %}
+{% block title %}Продавцы и реквизиты{% endblock %}
+{% block content %}
+<article class="new-legal-page">
+  <h1 class="new-heading new-heading--page">Продавцы и реквизиты</h1>
+  <p class="new-legal-lead">Inter Oves использует разные платежные способы для российских и международных банковских карт. Продавец определяется выбранным способом оплаты.</p>
+
+  <section id="russia" class="new-card new-legal-seller">
+    <p class="new-legal-kicker">Российские карты</p>
+    <h2>{{ ru_seller.name }}</h2>
+    <p>{{ ru_seller.status }}<br>{{ ru_seller.country }}</p>
+    <dl class="new-legal-details">
+      <div><dt>ИНН</dt><dd>{{ ru_seller.tax_id }}</dd></div>
+      <div><dt>Адрес</dt><dd>{{ ru_seller.address }}</dd></div>
+      <div><dt>Телефон</dt><dd><a href="tel:+79165994769">{{ ru_seller.phone }}</a></dd></div>
+      <div><dt>Email</dt><dd><a href="mailto:{{ ru_seller.email }}">{{ ru_seller.email }}</a></dd></div>
+      <div><dt>Оплата</dt><dd>ЮKassa · RUB · карты российских банков</dd></div>
+    </dl>
+    <p><a href="/terms/russia/">Условия российского продавца</a></p>
+  </section>
+
+  <section id="armenia" class="new-card new-legal-seller">
+    <p class="new-legal-kicker">Международные карты</p>
+    <h2>{{ am_seller.name }}</h2>
+    <p>{{ am_seller.status }}<br>{{ am_seller.country }}</p>
+    <dl class="new-legal-details">
+      <div><dt>Tax ID</dt><dd>{{ am_seller.tax_id }}</dd></div>
+      <div><dt>Address</dt><dd>{{ am_seller.address }}</dd></div>
+      <div><dt>Phone</dt><dd><a href="tel:+37477558440">{{ am_seller.phone }}</a></dd></div>
+      <div><dt>Email</dt><dd><a href="mailto:{{ am_seller.email }}">{{ am_seller.email }}</a></dd></div>
+      <div><dt>Оплата</dt><dd>AMD · Visa / Mastercard · армянский интернет-эквайринг</dd></div>
+    </dl>
+    <p><a href="/terms/armenia/">Условия Andrei Garkavyi IE</a></p>
+  </section>
+  {% include "new/legal/_nav.html" %}
+</article>
+{% endblock %}

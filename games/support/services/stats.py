@@ -36,6 +36,7 @@ class SupportStats:
     tickets_pending: int
     tickets_accepted: int
     tickets_revenue: int
+    tickets_revenue_amd: int
     bugs_total: int
     bugs_pending: int
     corporate_orders: int
@@ -94,6 +95,7 @@ def collect_support_stats(*, hours: int = 24, top_limit: int = 15) -> SupportSta
         tickets_pending=stats['tickets_pending'],
         tickets_accepted=stats['tickets_accepted'],
         tickets_revenue=stats['tickets_revenue'],
+        tickets_revenue_amd=stats['tickets_revenue_amd'],
         bugs_total=stats['bugs_total'],
         bugs_pending=stats['bugs_pending'],
         corporate_orders=stats['corporate_orders'],

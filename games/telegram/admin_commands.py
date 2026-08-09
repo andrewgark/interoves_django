@@ -168,7 +168,9 @@ def _cmd_pending(_args) -> str:
         lines.append('<b>Зависшие билеты (&gt;30 мин):</b>')
         for ticket in stuck:
             team = getattr(ticket.team, 'visible_name', None) or ticket.team_id or '—'
-            lines.append('#{} · {} · {} ₽'.format(ticket.pk, _escape(team), ticket.money))
+            lines.append('#{} · {} · {} {}'.format(
+                ticket.pk, _escape(team), ticket.money, _escape(ticket.currency),
+            ))
         extra_stuck = stuck_pending_ticket_count() - len(stuck)
         if extra_stuck > 0:
             lines.append('… и ещё {}'.format(extra_stuck))
@@ -178,7 +180,9 @@ def _cmd_pending(_args) -> str:
         lines.append('<b>Билеты:</b>')
         for ticket in tickets:
             team = getattr(ticket.team, 'visible_name', None) or ticket.team_id or '—'
-            lines.append('#{} · {} · {} ₽'.format(ticket.pk, _escape(team), ticket.money))
+            lines.append('#{} · {} · {} {}'.format(
+                ticket.pk, _escape(team), ticket.money, _escape(ticket.currency),
+            ))
         lines.append('')
 
     from games.models import AlphabettyDictSuggestion

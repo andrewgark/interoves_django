@@ -2348,6 +2348,462 @@ html.new-ui-dark .new-team-switcher-active-box {
   display: none !important;
 }
 
+/* Public checkout: product first, legal/payment details stay compact. */
+.new-pay-checkout {
+  width: 100%;
+  max-width: 42rem;
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.new-pay-checkout__header {
+  margin-bottom: 1rem;
+}
+
+.new-pay-checkout__eyebrow {
+  margin: 0 0 0.25rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.new-pay-checkout__lead {
+  max-width: 38rem;
+  margin: 0.5rem 0 0;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.new-pay-order-card,
+.new-pay-payment-card,
+.new-pay-history {
+  margin-bottom: 0.9rem;
+  padding: 1rem;
+  min-width: 0;
+}
+
+.new-pay-order {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.new-pay-order > * {
+  min-width: 0;
+}
+
+.new-pay-order__name {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.new-pay-order__meta {
+  margin-top: 0.3rem;
+  color: var(--muted);
+  line-height: 1.4;
+  overflow-wrap: break-word;
+}
+
+.new-pay-quantity {
+  display: grid;
+  gap: 0.3rem;
+  flex: 0 0 7rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.new-pay-quantity .new-input {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.new-pay-discount-note {
+  margin: 0.85rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.new-pay-section-title {
+  margin: 0 0 0.65rem;
+  padding: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.new-pay-method-selector {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.new-pay-method-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.new-pay-method {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.new-pay-method:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.new-pay-method.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.new-pay-method input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.new-pay-method:has(input:focus-visible) {
+  outline: 3px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 2px;
+}
+
+.new-pay-method__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  border-radius: 50%;
+  background: var(--tile);
+  font-size: 1.15rem;
+}
+
+.new-pay-method__body {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.new-pay-method__body strong,
+.new-pay-method__body span,
+.new-pay-method__body b {
+  overflow-wrap: break-word;
+}
+
+.new-pay-method__body span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.new-pay-method__body b {
+  margin-top: 0.2rem;
+}
+
+.new-pay-crypto-option {
+  margin-top: 0.75rem;
+}
+
+.new-pay-crypto-option > summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.new-pay-method--secondary {
+  margin-top: 0.6rem;
+}
+
+.new-pay-summary {
+  margin-top: 1rem;
+  padding: 0.9rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.new-pay-summary > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.new-pay-summary strong {
+  font-size: 1.35rem;
+  text-align: right;
+}
+
+.new-pay-summary p {
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.new-pay-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+  line-height: 1.45;
+}
+
+.new-pay-consent input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.15rem;
+  flex: 0 0 auto;
+}
+
+.new-pay-seller {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.65rem;
+  margin-top: 0.85rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.new-pay-security,
+.new-pay-message,
+.new-pay-auth-note {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.new-pay-submit {
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: center;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.new-pay-submit:disabled,
+.new-pay-submit.is-disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.new-pay-refund-summary {
+  margin: 0.5rem 0 1.25rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.new-pay-history__row {
+  min-width: 0;
+}
+
+/* must match --new-break-wide */
+@media (max-width: 919px) {
+  .new-pay-method-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .new-pay-order {
+    flex-direction: column;
+  }
+
+  .new-pay-quantity {
+    width: 100%;
+    max-width: 9rem;
+    flex-basis: auto;
+  }
+}
+
+.new-legal-page {
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.new-legal-lead {
+  margin: 0.6rem 0 1.25rem;
+  color: var(--muted);
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.new-legal-kicker {
+  margin: 0 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.new-legal-seller,
+.new-legal-contact {
+  margin-bottom: 0.9rem;
+  padding: 1rem;
+  scroll-margin-top: var(--new-ui-scroll-margin-top);
+}
+
+.new-legal-seller h2,
+.new-legal-contact h2 {
+  margin: 0 0 0.45rem;
+  font-size: 1.15rem;
+}
+
+.new-legal-details {
+  display: grid;
+  gap: 0;
+  margin: 1rem 0;
+}
+
+.new-legal-details > div {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+
+.new-legal-details dt {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.new-legal-details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.new-legal-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.new-legal-choice {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 1rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.new-legal-choice:hover {
+  border-color: var(--accent);
+}
+
+.new-legal-choice span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.new-legal-document {
+  line-height: 1.65;
+}
+
+.new-legal-document h2 {
+  margin: 1.6rem 0 0.45rem;
+  font-size: 1.16rem;
+}
+
+.new-legal-document p,
+.new-legal-document li {
+  overflow-wrap: break-word;
+}
+
+.new-legal-document ul {
+  padding-left: 1.4rem;
+}
+
+.new-legal-review {
+  padding: 0.8rem 0.9rem;
+  border-left: 3px solid var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.new-legal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 1.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+
+.new-legal-footer {
+  width: min(100% - 2rem, var(--new-wrap-narrow));
+  margin: 2.5rem auto 0;
+  padding: 1rem 0 1.75rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.new-legal-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1rem;
+}
+
+.new-legal-footer a {
+  color: inherit;
+}
+
+/* must match --new-break-wide */
+@media (min-width: 920px) {
+  .new-legal-footer {
+    width: min(100% - 2rem, var(--new-wrap-wide));
+  }
+}
+
+/* must match --new-break-wide */
+@media (max-width: 919px) {
+  .new-legal-choice-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .new-legal-details > div {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+}
+
 .new-donate-panel {
   width: 100%;
   max-width: 26rem;

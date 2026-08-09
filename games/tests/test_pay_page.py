@@ -1,5 +1,6 @@
 """Pay page gating + «Купить билеты» CTA on main hub only."""
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
@@ -9,7 +10,8 @@ from django.utils import timezone
 
 from allauth.socialaccount.models import SocialApp
 
-from games.models import Game, HTMLPage, Profile, Project, Team
+from games.models import Game, HTMLPage, Profile, Project, Team, TicketRequest
+from games.payment_routes import CRYPTO, INTERNATIONAL_CARD, RUSSIAN_CARD, amount_for, unit_price_for
 
 
 def _ensure_login_modal_deps():
@@ -50,13 +52,16 @@ class PayPageGatingTests(TestCase):
         self.user.refresh_from_db()
         self.user.profile.refresh_from_db()
 
-    def test_anonymous_sees_login_prompt_not_payment_form(self):
+    def test_anonymous_sees_public_checkout_and_login_gate(self):
         resp = self.client.get(reverse('new_pay'))
         self.assertEqual(resp.status_code, 200)
         body = resp.content.decode()
-        self.assertIn('Чтобы купить билет для команды, сначала войдите', body)
+        self.assertIn('Войти потребуется только перед созданием заказа', body)
         self.assertIn('data-login-open', body)
-        self.assertNotIn('new-pay-ticket-form', body)
+        self.assertIn('new-pay-ticket-form', body)
+        self.assertIn('Российская карта', body)
+        self.assertIn('Visa / Mastercard', body)
+        self.assertIn('10000 AMD', body)
         self.assertNotIn('Создать команду', body)
 
     def test_authenticated_without_team_sees_create_or_join(self):
@@ -64,13 +69,13 @@ class PayPageGatingTests(TestCase):
         resp = self.client.get(reverse('new_pay'))
         self.assertEqual(resp.status_code, 200)
         body = resp.content.decode()
-        self.assertIn('создайте новую или вступите в существующую', body)
+        self.assertIn('Для покупки нужно создать команду или вступить в существующую', body)
         self.assertIn('/team/create/', body)
         self.assertIn('/team/join/', body)
         self.assertIn('Создать команду', body)
-        self.assertIn('Вступить в команду', body)
-        self.assertNotIn('new-pay-ticket-form', body)
-        self.assertNotIn('Чтобы купить билет для команды, сначала войдите', body)
+        self.assertIn('вступить в существующую команду', body)
+        self.assertIn('new-pay-ticket-form', body)
+        self.assertNotIn('Войти потребуется только перед созданием заказа', body)
 
     def test_authenticated_with_team_sees_payment_form(self):
         self.user.profile.add_team_membership(self.team, make_primary=True)
@@ -81,14 +86,115 @@ class PayPageGatingTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.content.decode()
         self.assertIn('new-pay-ticket-form', body)
-        self.assertIn('Оплатить российской картой', body)
-        self.assertIn('Оплатить криптой', body)
-        self.assertNotIn('Оплатить иностранной картой', body)
+        self.assertIn('Российская карта', body)
+        self.assertIn('Visa / Mastercard', body)
+        self.assertIn('Криптовалюта через NOWPayments', body)
         self.assertIn('new-pay-widget-host', body)
         self.assertIn('Pay Team', body)
-        self.assertIn('Билетов сейчас:', body)
+        self.assertIn('Билетов у команды сейчас:', body)
         self.assertIn('id="new-pay-team-tickets">3</strong>', body)
         self.assertNotIn('Создать команду', body)
+
+
+class TicketPricingTests(TestCase):
+    def test_standard_prices_are_independent(self):
+        team = Team(ticket_price=2000, ticket_price_amd=10000)
+        self.assertEqual(unit_price_for(team, RUSSIAN_CARD), 2000)
+        self.assertEqual(unit_price_for(team, INTERNATIONAL_CARD), 10000)
+        self.assertEqual(amount_for(team, INTERNATIONAL_CARD, 2), 20000)
+
+    def test_discount_prices_are_independent(self):
+        team = Team(ticket_price=500, ticket_price_amd=2500)
+        self.assertEqual(amount_for(team, RUSSIAN_CARD, 3), 1500)
+        self.assertEqual(amount_for(team, INTERNATIONAL_CARD, 3), 7500)
+        self.assertEqual(amount_for(team, CRYPTO, 3), 1500)
+
+
+@override_settings(LANGUAGE_CODE='ru-ru')
+class TicketPaymentCreationTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        _ensure_login_modal_deps()
+        cls.user = User.objects.create_user('pay_create', 'create@example.com', 'secret')
+        Profile.objects.create(user=cls.user, first_name='Pay', last_name='Create')
+        cls.team = Team.objects.create(
+            name='pay_create_team',
+            visible_name='Create Team',
+            project_id='main',
+            ticket_price=500,
+            ticket_price_amd=2500,
+        )
+        cls.user.profile.add_team_membership(cls.team, make_primary=True)
+
+    def setUp(self):
+        self.client = Client()
+        self.assertTrue(self.client.login(username='pay_create', password='secret'))
+
+    @patch('games.views.new_ui.configure_yookassa_from_env')
+    @patch('games.views.new_ui.Payment.create')
+    def test_yookassa_uses_server_price_and_stores_route(self, create_mock, _configure_mock):
+        create_mock.return_value = {
+            'id': 'pay-route-1',
+            'confirmation': {'confirmation_token': 'token-1'},
+        }
+        response = self.client.post(
+            reverse('new_create_ticket_payment'),
+            {'tickets': '2', 'money': '1', 'currency': 'AMD'},
+        )
+        self.assertEqual(response.status_code, 200)
+        ticket = TicketRequest.objects.latest('id')
+        self.assertEqual(ticket.money, 1000)
+        self.assertEqual(ticket.currency, 'RUB')
+        self.assertEqual(ticket.payment_provider, 'yookassa')
+        self.assertEqual(ticket.merchant, 'ru_self_employed')
+        payload = create_mock.call_args.args[0]
+        self.assertEqual(payload['amount'], {'value': '1000.00', 'currency': 'RUB'})
+
+    def test_status_exposes_payment_route(self):
+        ticket = TicketRequest.objects.create(
+            team=self.team,
+            money=500,
+            tickets=1,
+            currency='RUB',
+            payment_provider='nowpayments',
+            merchant='ru_self_employed',
+        )
+        response = self.client.get(
+            reverse('new_ticket_payment_status', kwargs={'ticket_request_id': ticket.id})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['currency'], 'RUB')
+        self.assertEqual(response.json()['payment_provider'], 'nowpayments')
+
+
+@override_settings(LANGUAGE_CODE='ru-ru')
+class LegalPageTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        _ensure_login_modal_deps()
+
+    def test_all_legal_pages_are_public_and_linked(self):
+        for name in ('sellers', 'terms', 'terms_russia', 'terms_armenia', 'refunds', 'privacy', 'contacts'):
+            with self.subTest(name=name):
+                response = self.client.get(reverse(name))
+                self.assertEqual(response.status_code, 200)
+                body = response.content.decode()
+                self.assertIn('/refunds/', body)
+                self.assertIn('/privacy/', body)
+                self.assertIn('/sellers/', body)
+                self.assertIn('/contacts/', body)
+
+    def test_legacy_documents_redirect_permanently(self):
+        expected = {
+            '/privacy-policy/': '/privacy/',
+            '/terms-of-use/': '/terms/',
+            '/ticket-agreement/': '/terms/russia/',
+        }
+        for old_url, new_url in expected.items():
+            with self.subTest(old_url=old_url):
+                response = self.client.get(old_url)
+                self.assertEqual(response.status_code, 301)
+                self.assertEqual(response['Location'], new_url)
 
 
 @override_settings(LANGUAGE_CODE='ru-ru')

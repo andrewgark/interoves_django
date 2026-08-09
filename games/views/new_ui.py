@@ -123,7 +123,14 @@ from games.results_snapshot import (
 from games.nowpayments_util import create_invoice as nowpayments_create_invoice
 from games.nowpayments_util import embed_url_for_invoice
 from games.nowpayments_util import nowpayments_ipn_callback_url
-from games.tribute_util import create_shop_order as tribute_create_shop_order
+from games.payment_routes import (
+    CRYPTO,
+    INTERNATIONAL_CARD,
+    RUSSIAN_CARD,
+    amount_for as ticket_amount_for,
+    route_for as ticket_route_for,
+    unit_price_for as ticket_unit_price_for,
+)
 from games.yookassa_util import configure_yookassa_from_env
 
 from yookassa import Payment
@@ -3541,7 +3548,7 @@ def new_team_join_page(request, project_id=None):
 
 @require_http_methods(['GET'])
 def new_pay_page(request):
-    """Новая страница оплаты: билеты команде (как /tickets/) + Interoves+ (пока скоро).
+    """Public team-ticket checkout with login/team gating only at purchase time.
 
     Доступна без логина: гостю предлагаем войти, авторизованному без команды —
     создать или вступить, чтобы купить билет для команды.
@@ -3550,14 +3557,12 @@ def new_pay_page(request):
     if request.user.is_authenticated and has_profile(request.user):
         team = request.user.profile.team_on if has_team(request.user) else None
     recent_requests = TicketRequest.recent_for_team(team) if team else []
-    raw_price = getattr(team, 'ticket_price', 2000) if team else 2000
-    try:
-        ticket_price_int = int(raw_price)
-    except (TypeError, ValueError):
-        ticket_price_int = 2000
+    ticket_price_int = ticket_unit_price_for(team, RUSSIAN_CARD)
+    ticket_price_amd = ticket_unit_price_for(team, INTERNATIONAL_CARD)
     return render(request, 'ui/pay.html', {
         'team': team,
         'ticket_price': ticket_price_int,
+        'ticket_price_amd': ticket_price_amd,
         'show_school_discount_hint': ticket_price_int == 2000,
         'team_tickets': team.tickets if team else 0,
         'recent_ticket_requests': recent_requests,
@@ -3600,8 +3605,8 @@ def new_create_ticket_payment(request):
             status=400,
         )
 
-    ticket_price = int(getattr(team, 'ticket_price', 2000) or 2000)
-    amount_rub = int(tickets * ticket_price)
+    route = ticket_route_for(RUSSIAN_CARD)
+    amount_rub = ticket_amount_for(team, route.key, tickets)
 
     ticket_request = None
     try:
@@ -3610,6 +3615,9 @@ def new_create_ticket_payment(request):
             money=amount_rub,
             tickets=tickets,
             status='Pending',
+            currency=route.currency,
+            payment_provider=route.provider,
+            merchant=route.merchant,
         )
 
         # YooKassa: description max 128 characters
@@ -3735,8 +3743,8 @@ def new_create_crypto_ticket_payment(request):
             status=400,
         )
 
-    ticket_price = int(getattr(team, 'ticket_price', 2000) or 2000)
-    amount_rub = int(tickets * ticket_price)
+    route = ticket_route_for(CRYPTO)
+    amount_rub = ticket_amount_for(team, route.key, tickets)
 
     ticket_request = None
     try:
@@ -3745,6 +3753,9 @@ def new_create_crypto_ticket_payment(request):
             money=amount_rub,
             tickets=tickets,
             status='Pending',
+            currency=route.currency,
+            payment_provider=route.provider,
+            merchant=route.merchant,
         )
 
         team_label = (getattr(team, 'visible_name', None) or getattr(team, 'name', None) or str(team.pk))
@@ -3842,146 +3853,17 @@ def new_create_crypto_ticket_payment(request):
 
 @require_http_methods(['POST'])
 def new_create_tribute_ticket_payment(request):
-    """Create TicketRequest + Tribute shop order; returns payment URL for foreign cards."""
-    if not request.user.is_authenticated:
-        return JsonResponse(
-            {'status': 'error', 'reason': 'login', 'message': 'Сессия истекла. Войдите снова и повторите оплату.'},
-            status=401,
-        )
-    if not has_profile(request.user):
-        return JsonResponse(
-            {'status': 'error', 'reason': 'profile', 'message': 'Сначала войдите и создайте профиль.'},
-            status=403,
-        )
-    if not has_team(request.user):
-        return JsonResponse(
-            {'status': 'error', 'reason': 'team', 'message': 'Нужно создать или вступить в команду, чтобы купить билет.'},
-            status=403,
-        )
-
-    team = request.user.profile.team_on
-    try:
-        tickets = int((request.POST.get('tickets') or '').strip())
-    except Exception:
-        tickets = 0
-    if tickets < 1 or tickets > 20:
-        return JsonResponse(
-            {'status': 'error', 'reason': 'tickets', 'message': 'Введите число билетов от 1 до 20.'},
-            status=400,
-        )
-
-    ticket_price = int(getattr(team, 'ticket_price', 2000) or 2000)
-    amount_rub = int(tickets * ticket_price)
-
-    ticket_request = None
-    try:
-        ticket_request = TicketRequest.objects.create(
-            team=team,
-            money=amount_rub,
-            tickets=tickets,
-            status='Pending',
-        )
-
-        team_label = (getattr(team, 'visible_name', None) or getattr(team, 'name', None) or str(team.pk))
-        title = f'Билеты Interoves ×{tickets}'
-        description = f'Билеты для команды {team_label} (request {ticket_request.id})'
-        site_base = (getattr(settings, 'SITE_BASE_URL', None) or 'https://interoves.com').rstrip('/')
-        return_url = f'{site_base}/pay/?payment=tribute_return'
-
-        order = tribute_create_shop_order(
-            amount_rub=amount_rub,
-            title=title,
-            description=description,
-            success_url=return_url,
-            fail_url=return_url,
-            customer_id=f'ticket:{ticket_request.id}',
-            comment=f'ticket_request_id={ticket_request.id}',
-        )
-        order_uuid = str(order.get('uuid'))
-        payment_url = order.get('paymentUrl') or order.get('webappPaymentUrl') or ''
-        ticket_request.tribute_id = order_uuid
-        ticket_request.save(update_fields=['tribute_id'])
-    except RuntimeError as exc:
-        msg = str(exc)
-        if ticket_request is not None and 'Missing Tribute' in msg:
-            logger.error('new_create_tribute_ticket_payment: %s', exc)
-            return JsonResponse(
-                {
-                    'status': 'error',
-                    'reason': 'tribute_config',
-                    'message': 'Оплата иностранной картой не настроена на сервере (ключи Tribute). Обратитесь к администратору.',
-                },
-                status=503,
-            )
-        if ticket_request is not None and 'Tribute shop not found' in msg:
-            logger.error('new_create_tribute_ticket_payment: %s', exc)
-            return JsonResponse(
-                {
-                    'status': 'error',
-                    'reason': 'tribute_shop',
-                    'message': 'В Tribute ещё нет активного магазина (Shop). Донат-кнопка не считается — создайте Shop и дождитесь верификации.',
-                },
-                status=503,
-            )
-        logger.exception(
-            'new_create_tribute_ticket_payment failed ticket_request_id=%s team_id=%s amount_rub=%s',
-            getattr(ticket_request, 'id', None),
-            team.pk,
-            amount_rub,
-        )
-        if ticket_request is None:
-            return JsonResponse(
-                {
-                    'status': 'error',
-                    'reason': 'order',
-                    'message': 'Не удалось создать заказ. Попробуйте позже.',
-                },
-                status=500,
-            )
-        return JsonResponse(
-            {
-                'status': 'error',
-                'reason': 'tribute',
-                'message': 'Не получилось создать платёж через Tribute. Попробуйте позже.',
-            },
-            status=503,
-        )
-    except Exception:
-        logger.exception(
-            'new_create_tribute_ticket_payment failed ticket_request_id=%s team_id=%s amount_rub=%s',
-            getattr(ticket_request, 'id', None),
-            team.pk,
-            amount_rub,
-        )
-        if ticket_request is None:
-            return JsonResponse(
-                {
-                    'status': 'error',
-                    'reason': 'db',
-                    'message': 'Не удалось сохранить заказ (база данных). Попробуйте позже.',
-                },
-                status=500,
-            )
-        return JsonResponse(
-            {
-                'status': 'error',
-                'reason': 'tribute',
-                'message': 'Не получилось создать платёж через Tribute. Попробуйте позже.',
-            },
-            status=503,
-        )
-
-    return JsonResponse({
-        'status': 'ok',
-        'tribute_id': order_uuid,
-        'payment_url': payment_url,
-        'return_url': return_url,
-        'ticket_request_id': ticket_request.id,
-        'status_url': request.build_absolute_uri(
-            reverse('new_ticket_payment_status', kwargs={'ticket_request_id': ticket_request.id})
-        ),
-    })
-
+    """Reject new orders on the retired experimental Tribute route."""
+    # Tribute was an experimental RUB flow and does not represent the Armenian
+    # merchant. Keep its callback compatibility, but do not create new orders.
+    return JsonResponse(
+        {
+            'status': 'error',
+            'reason': 'retired',
+            'message': 'Этот способ оплаты больше не используется.',
+        },
+        status=410,
+    )
 
 @require_http_methods(['GET'])
 def new_ticket_payment_status(request, ticket_request_id):
@@ -3999,6 +3881,9 @@ def new_ticket_payment_status(request, ticket_request_id):
         'ticket_request_id': ticket_request.id,
         'tickets': ticket_request.tickets,
         'money': ticket_request.money,
+        'currency': ticket_request.currency,
+        'payment_provider': ticket_request.payment_provider,
+        'merchant': ticket_request.merchant,
     }
     if ticket_request.status == 'Accepted' and team is not None:
         payload['team_tickets'] = team.tickets

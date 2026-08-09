@@ -245,45 +245,24 @@ class TributeCreatePaymentTests(TestCase):
         self.client = Client()
         self.assertTrue(self.client.login(username='tr_pay_user', password='secret'))
 
-    @patch('games.views.new_ui.tribute_create_shop_order')
-    def test_create_tribute_payment_returns_url(self, create_mock):
-        create_mock.return_value = {
-            'uuid': '550e8400-e29b-41d4-a716-446655440010',
-            'paymentUrl': 'https://web.tribute.tg/pay/550e8400-e29b-41d4-a716-446655440010',
-        }
+    def test_create_tribute_payment_is_retired(self):
         response = self.client.post(
             reverse('new_create_tribute_ticket_payment'),
             {'tickets': '2'},
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 410)
         data = response.json()
-        self.assertEqual(data['status'], 'ok')
-        self.assertEqual(data['tribute_id'], '550e8400-e29b-41d4-a716-446655440010')
-        self.assertIn('web.tribute.tg', data['payment_url'])
-        ticket = TicketRequest.objects.filter(team=self.team).latest('id')
-        self.assertEqual(ticket.status, 'Pending')
-        self.assertEqual(ticket.tickets, 2)
-        self.assertEqual(ticket.money, 4000)
-        self.assertEqual(ticket.tribute_id, '550e8400-e29b-41d4-a716-446655440010')
-        self.assertEqual(data['ticket_request_id'], ticket.id)
-        self.assertIn('/pay/ticket-status/', data['status_url'])
-        create_mock.assert_called_once()
-        kwargs = create_mock.call_args.kwargs
-        self.assertEqual(kwargs['amount_rub'], 4000)
-        self.assertEqual(kwargs['customer_id'], f'ticket:{ticket.id}')
+        self.assertEqual(data['reason'], 'retired')
+        self.assertFalse(TicketRequest.objects.filter(team=self.team).exists())
 
-    @patch(
-        'games.views.new_ui.tribute_create_shop_order',
-        side_effect=RuntimeError('Missing Tribute API key: ...'),
-    )
-    def test_create_tribute_payment_missing_credentials(self, _create_mock):
+    def test_retired_route_is_stable_for_repeated_calls(self):
         response = self.client.post(
             reverse('new_create_tribute_ticket_payment'),
             {'tickets': '1'},
         )
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 410)
         data = response.json()
-        self.assertEqual(data['reason'], 'tribute_config')
+        self.assertEqual(data['reason'], 'retired')
 
 
 class TributeStuckTests(TestCase):

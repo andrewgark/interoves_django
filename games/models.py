@@ -50,6 +50,7 @@ class Team(models.Model):
 
     tickets = models.IntegerField(default=0)
     ticket_price = models.IntegerField(default=2000)
+    ticket_price_amd = models.IntegerField(default=10000)
 
     referer = models.ForeignKey('Team', related_name='referents', blank=True, null=True, on_delete=models.SET_NULL)
     join_password = models.CharField(max_length=32, blank=True, null=True)
@@ -1602,11 +1603,47 @@ TICKET_REQUESTS_PAGE_SIZE = 10
 
 
 class TicketRequest(models.Model):
+    PROVIDER_MANUAL = 'manual'
+    PROVIDER_YOOKASSA = 'yookassa'
+    PROVIDER_NOWPAYMENTS = 'nowpayments'
+    PROVIDER_TRIBUTE = 'tribute'
+    PROVIDER_VPOS = 'vpos'
+    PAYMENT_PROVIDER_CHOICES = (
+        (PROVIDER_MANUAL, 'Manual / legacy'),
+        (PROVIDER_YOOKASSA, 'YooKassa'),
+        (PROVIDER_NOWPAYMENTS, 'NOWPayments'),
+        (PROVIDER_TRIBUTE, 'Tribute (legacy)'),
+        (PROVIDER_VPOS, 'Armenian acquiring / VPOS'),
+    )
+
+    MERCHANT_RU = 'ru_self_employed'
+    MERCHANT_AM = 'am_ie'
+    MERCHANT_LEGACY_UNSPECIFIED = 'legacy_unspecified'
+    MERCHANT_CHOICES = (
+        (MERCHANT_RU, 'Андрей Гаркавый, плательщик НПД, РФ'),
+        (MERCHANT_AM, 'Andrei Garkavyi IE, Republic of Armenia'),
+        (MERCHANT_LEGACY_UNSPECIFIED, 'Legacy / unspecified'),
+    )
+
+    CURRENCY_RUB = 'RUB'
+    CURRENCY_AMD = 'AMD'
+    CURRENCY_CHOICES = (
+        (CURRENCY_RUB, 'RUB'),
+        (CURRENCY_AMD, 'AMD'),
+    )
+
     id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='ticket_requests', blank=True, null=True, on_delete=models.SET_NULL)
     money = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     tickets = models.IntegerField(default=0, validators=[MinValueValidator(1),MaxValueValidator(20)])
     time = models.DateTimeField(auto_now_add=True, blank=True)
+    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default=CURRENCY_RUB)
+    payment_provider = models.CharField(
+        max_length=32,
+        choices=PAYMENT_PROVIDER_CHOICES,
+        default=PROVIDER_MANUAL,
+    )
+    merchant = models.CharField(max_length=32, choices=MERCHANT_CHOICES, default=MERCHANT_RU)
     yookassa_id = models.TextField(null=True, blank=True)
     nowpayments_id = models.TextField(null=True, blank=True)
     tribute_id = models.TextField(null=True, blank=True)
@@ -1620,10 +1657,11 @@ class TicketRequest(models.Model):
     status = models.CharField(default='Pending', max_length=100, choices=TICKER_REQUEST_STATUS_VARIANTS)
 
     def __str__(self):
-        return '{}: [{}] Сумма: {} р. - Билетов: {} - Команда: {}'.format(
+        return '{}: [{}] Сумма: {} {} - Билетов: {} - Команда: {}'.format(
             self.time.strftime('%Y-%m-%d %H:%M:%S'),
             self.status,
             self.money,
+            self.currency,
             self.tickets,
             self.team
         )

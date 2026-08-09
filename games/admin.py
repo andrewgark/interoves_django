@@ -63,7 +63,17 @@ from games.results_snapshot import freeze_game_results
 from games.social.models import SocialQueuePost
 
 
-admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration, TicketRequest])
+admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration])
+
+
+@admin.register(TicketRequest)
+class TicketRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'team', 'tickets', 'money', 'currency', 'payment_provider', 'merchant', 'status', 'time',
+    )
+    list_filter = ('status', 'currency', 'payment_provider', 'merchant')
+    search_fields = ('id', 'team__name', 'team__visible_name', 'yookassa_id', 'nowpayments_id', 'tribute_id')
+    readonly_fields = ('time',)
 
 
 @admin.register(Donation)
@@ -124,7 +134,10 @@ def hintform_factory(task):
 
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
-    list_display = ['visible_name', 'project', 'get_n_users_on', 'get_n_users_requested', 'is_tester', 'is_hidden']
+    list_display = [
+        'visible_name', 'project', 'ticket_price', 'ticket_price_amd',
+        'get_n_users_on', 'get_n_users_requested', 'is_tester', 'is_hidden',
+    ]
 
 
 @admin.register(HiddenAnonKey)
@@ -612,7 +625,10 @@ class PendingTicketRequestAdmin(admin.ModelAdmin):
         qs = super(PendingTicketRequestAdmin, self).get_queryset(request)
         return qs.filter(status='Pending')
 
-    list_display = ['__str__', 'team', 'tickets', 'money', 'status', 'time']
+    list_display = [
+        '__str__', 'team', 'tickets', 'money', 'currency', 'payment_provider', 'merchant', 'status', 'time',
+    ]
+    list_filter = ('currency', 'payment_provider', 'merchant')
     actions = [confirm_ticket_request, reject_ticket_request]
 
 

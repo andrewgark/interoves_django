@@ -80,7 +80,12 @@ def get_pending_queue(*, limit: int = 100) -> List[PendingItem]:
             kind='ticket',
             object_id=ticket.pk,
             title='Билет #{}'.format(ticket.pk),
-            detail='{} ₽ · {} билет(ов)'.format(ticket.money, ticket.tickets),
+            detail='{} {} · {} билет(ов) · {}'.format(
+                ticket.money,
+                ticket.currency,
+                ticket.tickets,
+                ticket.payment_provider,
+            ),
             actor_label=actor_label,
             actor_url=actor_url,
             game_id=None,

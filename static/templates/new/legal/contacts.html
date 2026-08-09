@@ -1,0 +1,22 @@
+{% extends "new/base.html" %}
+{% block title %}Контакты{% endblock %}
+{% block content %}
+<article class="new-legal-page">
+  <h1 class="new-heading new-heading--page">Контакты</h1>
+  <section class="new-card new-legal-contact">
+    <h2>Поддержка Inter Oves</h2>
+    <p><a href="mailto:{{ support_email }}">{{ support_email }}</a></p>
+  </section>
+  <section class="new-card new-legal-contact">
+    <h2>Платежи российскими картами</h2>
+    <p>{{ ru_seller.name }}<br>{{ ru_seller.status }}</p>
+    <p><a href="tel:+79165994769">{{ ru_seller.phone }}</a><br><a href="/sellers/#russia">Реквизиты продавца</a></p>
+  </section>
+  <section class="new-card new-legal-contact">
+    <h2>Международные платежи</h2>
+    <p>{{ am_seller.name }}</p>
+    <p><a href="tel:+37477558440">{{ am_seller.phone }}</a><br><a href="/sellers/#armenia">Реквизиты продавца</a></p>
+  </section>
+  {% include "new/legal/_nav.html" %}
+</article>
+{% endblock %}

@@ -110,7 +110,12 @@ def collect_daily_digest_stats(since=None) -> dict:
 
     tickets = TicketRequest.objects.filter(time__gte=since)
     tickets_accepted_qs = tickets.filter(status='Accepted')
-    tickets_revenue = tickets_accepted_qs.aggregate(total=Sum('money'))['total'] or 0
+    tickets_revenue = (
+        tickets_accepted_qs.filter(currency='RUB').aggregate(total=Sum('money'))['total'] or 0
+    )
+    tickets_revenue_amd = (
+        tickets_accepted_qs.filter(currency='AMD').aggregate(total=Sum('money'))['total'] or 0
+    )
 
     bugs = BugReport.objects.filter(time__gte=since)
 
@@ -131,6 +136,7 @@ def collect_daily_digest_stats(since=None) -> dict:
         'tickets_pending': tickets.filter(status='Pending').count(),
         'tickets_accepted': tickets_accepted_qs.count(),
         'tickets_revenue': tickets_revenue,
+        'tickets_revenue_amd': tickets_revenue_amd,
         'bugs_total': bugs.count(),
         'bugs_pending': bugs.filter(status='Pending').count(),
         'corporate_orders': CorporateGameOrder.objects.filter(created_at__gte=since).count(),
@@ -183,10 +189,11 @@ def build_daily_digest(since=None) -> str:
         '<b>Регистрации и оплаты</b>',
         'Регистрации на игры: {}'.format(stats['registrations']),
         'Новые аккаунты: {}'.format(stats['new_accounts']),
-        'Билеты: {} pending · {} accepted · {} ₽'.format(
+        'Билеты: {} pending · {} accepted · {} RUB · {} AMD'.format(
             stats['tickets_pending'],
             stats['tickets_accepted'],
             stats['tickets_revenue'],
+            stats['tickets_revenue_amd'],
         ),
         '',
         '<b>Модерация</b>',

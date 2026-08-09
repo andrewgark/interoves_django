@@ -375,7 +375,10 @@ def format_ticket_request_message(ticket_request: TicketRequest) -> str:
         '',
         'Команда: {}'.format(_escape(team_label)),
         'Билетов: {}'.format(ticket_request.tickets),
-        'Сумма: {} ₽'.format(ticket_request.money),
+        'Сумма: {} {}'.format(ticket_request.money, ticket_request.currency),
+        'Маршрут: {} · {}'.format(
+            _escape(ticket_request.payment_provider), _escape(ticket_request.merchant),
+        ),
         'Статус: {}'.format(_escape(ticket_request.status)),
         '',
         '<a href="{}">Админка</a> · <a href="{}">Очередь</a>'.format(admin_link, queue_link),
@@ -421,7 +424,10 @@ def format_payment_message(ticket_request: TicketRequest, event: str) -> str:
         '',
         'Команда: {}'.format(_escape(team_label)),
         'Билетов: {}'.format(ticket_request.tickets),
-        'Сумма: {} ₽'.format(ticket_request.money),
+        'Сумма: {} {}'.format(ticket_request.money, ticket_request.currency),
+        'Маршрут: {} · {}'.format(
+            _escape(ticket_request.payment_provider), _escape(ticket_request.merchant),
+        ),
         'Статус: {}'.format(_escape(ticket_request.status)),
         '',
         '<a href="{}">Открыть в админке</a>'.format(admin_link),

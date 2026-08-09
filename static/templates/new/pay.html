@@ -3,430 +3,149 @@
 {% block title %}Оплата{% endblock %}
 
 {% block content %}
-{% if user.is_authenticated %}
-<p class="new-tg-back"><a href="{{ ui_team_url_hub|default:'/team/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Команда</a></p>
-{% else %}
-<p class="new-tg-back"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
-{% endif %}
+<p class="new-tg-back"><a href="{% if user.is_authenticated %}{{ ui_team_url_hub|default:'/team/' }}{% else %}{{ ui_project_home_url|default:'/' }}{% endif %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {% if user.is_authenticated %}Команда{% else %}Игры{% endif %}</a></p>
 
-<h1 class="new-heading new-heading--page">Оплата</h1>
+<div class="new-pay-checkout">
+  <header class="new-pay-checkout__header">
+    <p class="new-pay-checkout__eyebrow">Электронный билет</p>
+    <h1 class="new-heading new-heading--page">Билет для команды</h1>
+    <p class="new-pay-checkout__lead">Участие одной команды в турнирной интеллектуальной игре «Десяточка». Билет не привязан к конкретной дате: его можно сохранить для одной из будущих игр.</p>
+  </header>
 
-<div class="new-card new-pay-card">
-  <div class="new-card__title new-pay-title">Билет для команды</div>
-  <div class="new-card__text">
-    <p class="new-pay-line new-pay-line--price">
-      Цена билета: <strong>{{ ticket_price }}</strong> ₽.
-      {% if show_school_discount_hint %}
-      <details class="new-pay-discount">
-        <summary class="new-pay-discount__trigger">скидка?</summary>
-        <div class="new-pay-discount__tip" role="tooltip">
-          Если ваша команда школьная или студенческая, цену билетов можно снизить до <strong>500&nbsp;₽</strong>.
-          Напишите <a href="https://t.me/andrewgark" target="_blank" rel="noopener noreferrer">Андрею в Telegram</a>.
-        </div>
-      </details>
-      {% endif %}
-    </p>
-    {% if team %}
-    <p class="new-pay-meta">Команда: <strong>{{ team.visible_name|default:team.name }}</strong>.</p>
-    <p class="new-pay-meta">Билетов сейчас: <strong id="new-pay-team-tickets">{{ team_tickets }}</strong>.</p>
-    <p class="new-login-hint new-pay-note">
-      После оплаты билеты появятся у команды автоматически. Российской картой — обычно быстро; криптой (особенно BTC) подтверждение сети может занять десятки минут — статус обновится здесь.
-      Билет можно использовать для участия команды в любой командной игре — можно купить билеты впрок на будущее.
-    </p>
-    {% elif user.is_authenticated %}
-    <p class="new-login-hint new-pay-note">
-      Билет покупается для команды: создайте новую или вступите в существующую, затем вернитесь сюда.
-    </p>
-    {% else %}
-    <p class="new-login-hint new-pay-note">
-      Чтобы купить билет для команды, сначала войдите на сайт.
-    </p>
+  <div class="new-card new-pay-order-card">
+    <div class="new-pay-order">
+      <div>
+        <div class="new-pay-order__name">Командный билет</div>
+        {% if team %}
+          <div class="new-pay-order__meta">Команда: <strong>{{ team.visible_name|default:team.name }}</strong></div>
+          <div class="new-pay-order__meta">Билетов у команды сейчас: <strong id="new-pay-team-tickets">{{ team_tickets }}</strong></div>
+        {% elif user.is_authenticated %}
+          <div class="new-pay-order__meta">Для покупки нужно создать команду или вступить в существующую.</div>
+        {% else %}
+          <div class="new-pay-order__meta">Войти потребуется только перед созданием заказа.</div>
+        {% endif %}
+      </div>
+      <label class="new-pay-quantity">
+        <span>Количество</span>
+        <input id="new-pay-qty" class="new-input" type="number" name="tickets" value="1" min="1" max="20" step="1" inputmode="numeric">
+      </label>
+    </div>
+
+    {% if show_school_discount_hint %}
+    <p class="new-pay-discount-note">Для команды школьников и/или студентов доступны льготные цены: 500 ₽ или 2 500 AMD за билет. <a href="mailto:andrewgarkavyy@gmail.com?subject=Льготная цена билета Inter Oves">Напишите нам</a>, чтобы подтвердить скидку.</p>
     {% endif %}
   </div>
 
-  {% if team %}
-  <link rel="stylesheet" href="https://yookassa.ru/integration/simplepay/css/yookassa_construct_form.css">
-  <form id="new-pay-ticket-form" class="yoomoney-payment-form new-pay-form" method="post" action="{% url 'new_create_ticket_payment' %}">
+  <form id="new-pay-ticket-form"
+        class="new-card new-pay-payment-card"
+        method="post"
+        action="{% url 'new_create_ticket_payment' %}"
+        data-crypto-action="{% url 'new_create_crypto_ticket_payment' %}"
+        data-can-pay="{% if team %}1{% else %}0{% endif %}">
     {% csrf_token %}
-    <div class="ym-products">
-      <div class="ym-block-title ym-products-title">Товары</div>
-      <div class="ym-product">
-        <div class="ym-product-line">
-          <span class="ym-product-description">Билет для команды</span>
-          <span class="ym-product-price" data-price="{{ ticket_price }}">{{ ticket_price }},00&nbsp;₽</span>
-        </div>
-        <div class="ym-product-line ym-align-items-center">
-          <span class="ym-label-text">Количество</span>
-          <div class="ym-count-input">
-            <input class="ym-input" value="1" type="number" step="1" min="1" max="20" name="tickets" required>
-            <span class="ym-count-control ym-count-plus"></span>
-            <span class="ym-count-control ym-count-minus"></span>
-          </div>
-        </div>
+    <input type="hidden" name="tickets" value="1" data-pay-tickets>
+
+    <fieldset class="new-pay-method-selector">
+      <legend class="new-pay-section-title">Способ оплаты</legend>
+      <div class="new-pay-method-grid">
+        <label class="new-pay-method is-selected" data-pay-method-card>
+          <input type="radio" name="payment_method" value="russian_card" checked
+                 data-unit-price="{{ ticket_price }}" data-currency="RUB">
+          <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
+          <span class="new-pay-method__body">
+            <strong>Российская карта</strong>
+            <span>Для карт российских банков</span>
+            <b data-route-price>{{ ticket_price }} ₽</b>
+          </span>
+        </label>
+        <label class="new-pay-method" data-pay-method-card>
+          <input type="radio" name="payment_method" value="international_card"
+                 data-unit-price="{{ ticket_price_amd }}" data-currency="AMD">
+          <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-cards"></i></span>
+          <span class="new-pay-method__body">
+            <strong>Visa / Mastercard</strong>
+            <span>Для карт банков Армении и других стран</span>
+            <b data-route-price>{{ ticket_price_amd }} AMD</b>
+          </span>
+        </label>
       </div>
+    </fieldset>
+
+    <details class="new-pay-crypto-option">
+      <summary>Другой способ: криптовалюта</summary>
+      <label class="new-pay-method new-pay-method--secondary" data-pay-method-card>
+        <input type="radio" name="payment_method" value="crypto"
+               data-unit-price="{{ ticket_price }}" data-currency="RUB">
+        <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-currency-btc"></i></span>
+        <span class="new-pay-method__body">
+          <strong>Криптовалюта через NOWPayments</strong>
+          <span>Цена заказа фиксируется в RUB; сумму в выбранной криптовалюте рассчитывает провайдер.</span>
+          <b data-route-price>{{ ticket_price }} ₽</b>
+        </span>
+      </label>
+    </details>
+
+    <div class="new-pay-summary" aria-live="polite">
+      <div>
+        <span>Итого</span>
+        <strong id="new-pay-total">{{ ticket_price }} ₽</strong>
+      </div>
+      <p id="new-pay-conversion-note" hidden>Списание производится в AMD. Если счет карты открыт в другой валюте, конвертацию выполняет банк, выпустивший карту.</p>
     </div>
 
-    <p class="new-pay-total">
-      Итого: <strong class="new-pay-total__amount ym-price-output">{{ ticket_price }},00&nbsp;₽</strong>
-    </p>
+    <label class="new-pay-consent">
+      <input id="new-pay-consent" type="checkbox" required>
+      <span>Я принимаю <a id="new-pay-terms-link" href="/terms/russia/" target="_blank">условия покупки</a> и <a href="/refunds/" target="_blank">возврата</a> и ознакомился с <a href="/privacy/" target="_blank">политикой конфиденциальности</a>.</span>
+    </label>
+
+    <div class="new-pay-seller">
+      <span id="new-pay-seller-text">Продавец: Андрей Гаркавый, плательщик НПД, РФ</span>
+      <a id="new-pay-seller-link" href="/sellers/#russia">Реквизиты</a>
+    </div>
+
+    <p id="new-pay-security" class="new-pay-security">Оплата российской картой проходит в защищенном виджете ЮKassa. Inter Oves не получает и не хранит реквизиты банковской карты.</p>
+
+    {% if team %}
+      <button type="submit" id="new-pay-submit" class="new-btn new-pay-submit" disabled>Оплатить {{ ticket_price }} ₽</button>
+    {% elif user.is_authenticated %}
+      <a id="new-pay-setup-team" class="new-btn new-pay-submit" href="{{ ui_team_url_create|default:'/team/create/' }}">Создать команду для оплаты</a>
+      <p class="new-pay-auth-note"><a href="{{ ui_team_url_join|default:'/team/join/' }}">Или вступить в существующую команду</a></p>
+    {% else %}
+      <button type="button" id="new-pay-login" class="new-btn new-pay-submit" data-login-open>Войти и продолжить</button>
+    {% endif %}
+
+    <div id="new-pay-status" class="new-payment-status" hidden aria-live="polite"></div>
+    <div id="new-pay-message" class="new-login-hint new-pay-message" aria-live="polite"></div>
+    {% if team %}
+    <div id="new-pay-widget-host" class="new-pay-widget-host" hidden>
+      <div id="new-yookassa-widget"></div>
+      <div id="new-nowpayments-widget"></div>
+    </div>
+    {% endif %}
   </form>
 
-  <div class="new-pay-methods" role="group" aria-label="Способ оплаты">
-    <button type="button" id="new-pay-card-btn" class="new-btn new-pay-method-btn">
-      <span class="new-pay-method-btn__icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
-          <circle cx="12" cy="12" r="11" fill="#fff" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
-          <clipPath id="new-pay-ru-clip"><circle cx="12" cy="12" r="10"/></clipPath>
-          <g clip-path="url(#new-pay-ru-clip)">
-            <rect x="2" y="2" width="20" height="6.67" fill="#fff"/>
-            <rect x="2" y="8.67" width="20" height="6.66" fill="#0039a6"/>
-            <rect x="2" y="15.33" width="20" height="6.67" fill="#d52b1e"/>
-          </g>
-        </svg>
-      </span>
-      <span class="new-pay-method-btn__label">Оплатить российской картой</span>
-    </button>
-    {% comment %}
-    <button type="button" id="new-pay-tribute-btn" class="new-btn new-pay-method-btn">
-      <span class="new-pay-method-btn__icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
-          <rect x="2" y="5" width="20" height="14" rx="2" fill="#1a1a1a"/>
-          <rect x="2" y="8" width="20" height="3" fill="#c9a227"/>
-          <rect x="5" y="14" width="6" height="2" rx="0.5" fill="#e8e8e8"/>
-          <circle cx="17.5" cy="15" r="2.2" fill="#e8e8e8" opacity="0.85"/>
-          <circle cx="19.2" cy="15" r="2.2" fill="#b0b0b0" opacity="0.7"/>
-        </svg>
-      </span>
-      <span class="new-pay-method-btn__label">Оплатить иностранной картой</span>
-    </button>
-    {% endcomment %}
-    <button type="button" id="new-pay-crypto-btn" class="new-btn new-pay-method-btn">
-      <span class="new-pay-method-btn__icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="22" height="22" focusable="false">
-          <circle cx="12" cy="12" r="11" fill="#f7931a"/>
-          <path fill="#fff" d="M14.2 11.4c.75-.4 1.25-1.05 1.25-1.95 0-1.35-1.05-2.25-2.85-2.45V5.7h-1.35v1.25h-1.1V5.7H8.8v1.25H6.9v1.45h.85c.45 0 .7.2.7.65v6.05c0 .45-.2.65-.7.65H6.9v1.45h1.9v1.25h1.35v-1.25h1.1v1.25h1.35v-1.3c2.05-.2 3.3-1.25 3.3-2.95 0-1.15-.65-1.95-1.7-2.35zm-3.45-3.2h1.35c.95 0 1.5.4 1.5 1.15s-.55 1.2-1.55 1.2h-1.3V8.2zm1.55 5.95h-1.55v-2.5h1.55c1.1 0 1.7.45 1.7 1.25s-.6 1.25-1.7 1.25z"/>
-        </svg>
-      </span>
-      <span class="new-pay-method-btn__label">Оплатить криптой</span>
-    </button>
-  </div>
-
-  <div id="new-pay-widget-host" class="new-pay-widget-host" hidden>
-    <div id="new-yookassa-widget"></div>
-    <div id="new-nowpayments-widget"></div>
-  </div>
-  <div id="new-pay-status" class="new-payment-status" hidden aria-live="polite"></div>
-  <div id="new-yookassa-msg" class="new-login-hint new-pay-note"></div>
-
-  <script src="{% static "js/payment_status_poll.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
-  <script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
-  <script>
-  (function () {
-    var form = document.getElementById('new-pay-ticket-form');
-    var mount = document.getElementById('new-yookassa-widget');
-    var cryptoMount = document.getElementById('new-nowpayments-widget');
-    var widgetHost = document.getElementById('new-pay-widget-host');
-    var cardBtn = document.getElementById('new-pay-card-btn');
-    var cryptoBtn = document.getElementById('new-pay-crypto-btn');
-    var msg = document.getElementById('new-yookassa-msg');
-    var statusEl = document.getElementById('new-pay-status');
-    var STORAGE_KEY = 'interoves_ticket_poll';
-    var poller = null;
-    if (!form || !mount || !cardBtn) return;
-
-    var checkout = null;
-    function setMsg(t) { if (msg) msg.textContent = t || ''; }
-
-    function setBusy(busy) {
-      cardBtn.disabled = !!busy;
-      if (cryptoBtn) cryptoBtn.disabled = !!busy;
-    }
-
-    function hideWidgets() {
-      if (widgetHost) widgetHost.hidden = true;
-      mount.innerHTML = '';
-      if (cryptoMount) cryptoMount.innerHTML = '';
-    }
-
-    function showWidgetHost() {
-      if (widgetHost) widgetHost.hidden = false;
-    }
-
-    function getCsrfToken() {
-      var match = document.cookie.match(/csrftoken=([^;]+)/);
-      return match ? decodeURIComponent(match[1].trim()) : '';
-    }
-
-    function clampTickets(v) {
-      var n = Number(v || 0);
-      if (!isFinite(n)) n = 1;
-      n = Math.max(1, Math.min(20, Math.round(n)));
-      return n;
-    }
-
-    function renderPending() {
-      if (!statusEl) return;
-      statusEl.hidden = false;
-      statusEl.className = 'new-payment-status new-payment-status--pending';
-      statusEl.innerHTML =
-        '<span class="new-payment-status__spinner" aria-hidden="true"></span>' +
-        '<span class="new-payment-status__text">Платёж обрабатывается…</span>';
-    }
-
-    function renderAccepted(data) {
-      if (!statusEl) return;
-      statusEl.hidden = false;
-      statusEl.className = 'new-payment-status new-payment-status--ok';
-      statusEl.innerHTML =
-        '<span class="new-payment-status__check" aria-hidden="true">' +
-          '<svg viewBox="0 0 24 24" width="28" height="28" focusable="false">' +
-            '<circle cx="12" cy="12" r="11" fill="#1a7f37"/>' +
-            '<path fill="#fff" d="M10.2 16.2L6.5 12.5l1.4-1.4 2.3 2.3 5.1-5.1 1.4 1.4z"/>' +
-          '</svg>' +
-        '</span>' +
-        '<span class="new-payment-status__text">Билеты зачислены!</span>';
-      var ticketsNow = document.getElementById('new-pay-team-tickets');
-      if (ticketsNow && data && typeof data.team_tickets !== 'undefined') {
-        ticketsNow.textContent = String(data.team_tickets);
-      }
-    }
-
-    function renderRejected() {
-      if (!statusEl) return;
-      statusEl.hidden = false;
-      statusEl.className = 'new-payment-status new-payment-status--err';
-      statusEl.innerHTML =
-        '<span class="new-payment-status__text">Платёж не подтвердился. Если списались средства — напишите Андрею в Telegram.</span>';
-    }
-
-    function startPoll(statusUrl) {
-      if (!window.InterovesPaymentPoll || !statusUrl) return;
-      if (poller) poller.stop();
-      poller = window.InterovesPaymentPoll.start({
-        statusUrl: statusUrl,
-        storageKey: STORAGE_KEY,
-        onPending: function () { renderPending(); },
-        onConfirmed: function (data) { renderAccepted(data); setMsg(''); },
-        onRejected: function () { renderRejected(); },
-        onTimeout: function () {
-          setMsg('Подтверждение занимает дольше обычного. Можно оставить страницу открытой — билеты зачислятся автоматически.');
-        },
-        isConfirmed: function (d) { return d && d.status === 'Accepted'; },
-        isRejected: function (d) { return d && d.status === 'Rejected'; },
-      });
-    }
-
-    // Keep "pretty" total like old form.
-    (function bindQtyUi() {
-      var qty = form.querySelector('input[name="tickets"]');
-      var priceEl = form.querySelector('.ym-product-price');
-      var out = form.querySelector('.ym-price-output');
-      var plus = form.querySelector('.ym-count-plus');
-      var minus = form.querySelector('.ym-count-minus');
-      var unit = priceEl ? Number(priceEl.getAttribute('data-price') || 0) : 0;
-      function render() {
-        if (!qty || !priceEl) return;
-        var q = clampTickets(qty.value);
-        qty.value = String(q);
-        var total = unit ? (q * unit) : 0;
-        var txt = String(total) + ',00\u00A0₽';
-        if (out) out.textContent = txt;
-        priceEl.textContent = String(unit) + ',00\u00A0₽';
-      }
-      if (qty) qty.addEventListener('input', render);
-      if (plus) plus.addEventListener('click', function () { qty.value = String(clampTickets(Number(qty.value) + 1)); render(); });
-      if (minus) minus.addEventListener('click', function () { qty.value = String(clampTickets(Number(qty.value) - 1)); render(); });
-      render();
-    })();
-
-    function parseJsonResponse(r) {
-      return r.text().then(function (text) {
-        var data = null;
-        try {
-          data = text ? JSON.parse(text) : null;
-        } catch (e) {
-          data = null;
-        }
-        return { r: r, data: data, nonJson: !data };
-      });
-    }
-
-    cardBtn.addEventListener('click', function () {
-      setMsg('Создаём платёж…');
-      setBusy(true);
-      hideWidgets();
-      fetch(form.action, {
-        method: 'POST',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRFToken': getCsrfToken(),
-        },
-        body: new FormData(form),
-        credentials: 'same-origin',
-      }).then(parseJsonResponse).then(function (res) {
-          setBusy(false);
-          var data = res.data;
-          if (res.nonJson) {
-            setMsg('Сервер вернул неожиданный ответ (код ' + res.r.status + '). Обновите страницу и попробуйте снова.');
-            return;
-          }
-          if (!data || data.status !== 'ok' || !data.confirmation_token) {
-            setMsg((data && data.message) ? data.message : 'Не получилось создать платёж. Попробуйте позже.');
-            return;
-          }
-          setMsg('');
-          showWidgetHost();
-          if (data.status_url) startPoll(data.status_url);
-          try {
-            checkout = new window.YooMoneyCheckoutWidget({
-              confirmation_token: data.confirmation_token,
-              return_url: data.return_url || window.location.href,
-              error_callback: function (err) {
-                setMsg('Ошибка оплаты. Попробуйте ещё раз.');
-              },
-            });
-            checkout.render('new-yookassa-widget');
-          } catch (err) {
-            setMsg('Не удалось загрузить виджет оплаты.');
-          }
-        })
-        .catch(function () {
-          setBusy(false);
-          setMsg('Ошибка сети.');
-        });
-    });
-
-    {% comment %}
-    var tributeBtn = document.getElementById('new-pay-tribute-btn');
-    if (tributeBtn) {
-      tributeBtn.addEventListener('click', function () {
-        setMsg('Создаём платёж через Tribute…');
-        setBusy(true);
-        hideWidgets();
-        fetch('{% url "new_create_tribute_ticket_payment" %}', {
-          method: 'POST',
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRFToken': getCsrfToken(),
-          },
-          body: new FormData(form),
-          credentials: 'same-origin',
-        }).then(parseJsonResponse).then(function (res) {
-          var data = res.data;
-          if (res.nonJson) {
-            setBusy(false);
-            setMsg('Сервер вернул неожиданный ответ (код ' + res.r.status + '). Обновите страницу и попробуйте снова.');
-            return;
-          }
-          if (!data || data.status !== 'ok' || !data.payment_url) {
-            setBusy(false);
-            setMsg((data && data.message) ? data.message : 'Не получилось создать платёж через Tribute. Попробуйте позже.');
-            return;
-          }
-          if (data.status_url) startPoll(data.status_url);
-          setMsg('Переходим на страницу оплаты Tribute…');
-          window.location.href = data.payment_url;
-        }).catch(function () {
-          setBusy(false);
-          setMsg('Ошибка сети.');
-        });
-      });
-    }
-    {% endcomment %}
-
-    if (cryptoBtn && cryptoMount) {
-      cryptoBtn.addEventListener('click', function () {
-        setMsg('Создаём крипто-платёж…');
-        setBusy(true);
-        hideWidgets();
-        fetch('{% url "new_create_crypto_ticket_payment" %}', {
-          method: 'POST',
-          headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRFToken': getCsrfToken(),
-          },
-          body: new FormData(form),
-          credentials: 'same-origin',
-        }).then(parseJsonResponse).then(function (res) {
-          setBusy(false);
-          var data = res.data;
-          if (res.nonJson) {
-            setMsg('Сервер вернул неожиданный ответ (код ' + res.r.status + '). Обновите страницу и попробуйте снова.');
-            return;
-          }
-          if (!data || data.status !== 'ok' || !(data.embed_url || data.invoice_id)) {
-            setMsg((data && data.message) ? data.message : 'Не получилось создать крипто-платёж. Попробуйте позже.');
-            return;
-          }
-          setMsg('Оплатите в виджете ниже. Подтверждение сети может занять дольше — статус обновится автоматически.');
-          showWidgetHost();
-          var src = data.embed_url || ('https://nowpayments.io/embeds/payment-widget?iid=' + encodeURIComponent(data.invoice_id));
-          var iframe = document.createElement('iframe');
-          iframe.src = src;
-          iframe.width = '410';
-          iframe.height = '696';
-          iframe.setAttribute('frameborder', '0');
-          iframe.setAttribute('scrolling', 'no');
-          iframe.style.overflowY = 'hidden';
-          iframe.style.maxWidth = '100%';
-          cryptoMount.appendChild(iframe);
-          if (data.status_url) startPoll(data.status_url);
-        }).catch(function () {
-          setBusy(false);
-          setMsg('Ошибка сети.');
-        });
-      });
-    }
-
-    if (window.InterovesPaymentPoll) {
-      var saved = window.InterovesPaymentPoll.readStorage(STORAGE_KEY);
-      if (saved && saved.statusUrl) startPoll(saved.statusUrl);
-    }
-  })();
-  </script>
-  {% elif user.is_authenticated %}
-    <div class="new-card__text new-pay-actions">
-      <a class="new-btn" href="{{ ui_team_url_create|default:'/team/create/' }}">Создать команду</a>
-      <a class="new-btn new-btn--ghost" href="{{ ui_team_url_join|default:'/team/join/' }}">Вступить в команду</a>
-    </div>
-  {% else %}
-    <div class="new-card__text new-stack-gap">
-      <button type="button" class="new-btn" data-login-open>Войти</button>
-    </div>
-  {% endif %}
+  <p class="new-pay-refund-summary">Передумали до начала игры — вернем полную стоимость. При отмене игры возврат также полный, а при переносе можно сохранить билет или вернуть деньги. <a href="/refunds/">Подробнее о возврате</a>.</p>
 
   {% if team and recent_ticket_requests %}
-  <div class="new-card__text new-stack-gap">
-    <div class="new-pay-history__title">Последние запросы</div>
-    <div class="new-login-hint new-pay-history__hint">Если оплатили, но статус ещё Pending — подождите подтверждения (для BTC иногда 20+ минут). Если есть проблемы с оплатой, напишите <a href="https://t.me/andrewgark">Андрею</a>.</div>
+  <div class="new-card new-pay-history">
+    <h2 class="new-pay-section-title">Последние заказы</h2>
     <div class="new-pay-history__list">
       {% for tr in recent_ticket_requests %}
         <div class="new-pay-history__row">
-          <span>{{ tr.time|date:"d.m H:i" }}</span>
-          <span>— {{ tr.tickets }} шт.</span>
-          <span>— {{ tr.money }} ₽</span>
-          <span>— <strong>{{ tr.status }}</strong></span>
+          <span>{{ tr.time|date:"d.m.Y H:i" }}</span>
+          <span>{{ tr.tickets }} шт.</span>
+          <span>{{ tr.money }} {{ tr.currency }}</span>
+          <strong>{{ tr.status }}</strong>
         </div>
       {% endfor %}
     </div>
   </div>
   {% endif %}
-
-  <div class="new-card__text new-stack-gap">
-    <div class="new-pay-links">
-      <a class="new-pay-link" href="/ticket-agreement/">Пользовательское соглашение</a>
-      <a class="new-pay-link" href="/terms-of-use/">Terms of Use</a>
-      <a class="new-pay-link" href="/privacy-policy/">Privacy Policy</a>
-    </div>
-  </div>
 </div>
 
-<div class="new-card new-pay-card">
-  <div class="new-card__title new-pay-title">Interoves+ (личная подписка)</div>
-  <div class="new-card__text">
-    <p class="new-pay-meta">Даст возможность решать больше заданий в личном режиме.</p>
-    <p class="new-login-hint new-theme-line">Пока в разработке — оплаты и активации ещё нет.</p>
-    <button type="button" class="new-btn new-btn--ghost" disabled>Скоро</button>
-  </div>
-</div>
+{% if team %}
+<script src="{% static 'js/payment_status_poll.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
+{% endif %}
+<script src="{% static 'js/pay_checkout.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endblock %}
