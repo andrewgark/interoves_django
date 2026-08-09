@@ -25,13 +25,35 @@
           <div class="new-pay-order__meta">Войти потребуется только перед созданием заказа.</div>
         {% endif %}
       </div>
-      <label class="new-pay-quantity">
-        <span>Количество</span>
-        <input id="new-pay-qty" class="new-input" type="number" name="tickets" value="1" min="1" max="20" step="1" inputmode="numeric">
-      </label>
+      <div class="new-pay-quantity">
+        <div class="new-pay-quantity__heading">
+          <label for="new-pay-qty">Сколько билетов?</label>
+          <span>до 20</span>
+        </div>
+        <div class="new-pay-stepper" role="group" aria-label="Количество билетов">
+          <button type="button" class="new-pay-stepper__button" data-pay-qty-minus aria-label="Уменьшить количество билетов" aria-controls="new-pay-qty">
+            <i class="ph ph-minus" aria-hidden="true"></i>
+          </button>
+          <input id="new-pay-qty" class="new-pay-stepper__input" type="number" name="tickets" value="1" min="1" max="20" step="1" inputmode="numeric" aria-describedby="new-pay-qty-hint">
+          <button type="button" class="new-pay-stepper__button new-pay-stepper__button--plus" data-pay-qty-plus aria-label="Увеличить количество билетов" aria-controls="new-pay-qty">
+            <i class="ph ph-plus" aria-hidden="true"></i>
+          </button>
+        </div>
+        <span id="new-pay-qty-hint" class="new-pay-quantity__hint">Один билет — одна игра для команды</span>
+      </div>
     </div>
 
-    <p class="new-pay-discount-note">Обычная цена билета: 2 000 ₽ или 10 000 AMD. Для подтвержденных школьных и/или студенческих команд: 500 ₽ или 2 500 AMD. <a href="mailto:andrewgarkavyy@gmail.com?subject=Льготная цена билета Inter Oves">Напишите нам</a>, чтобы подтвердить скидку.</p>
+    <div class="new-pay-discount-note">
+      <span class="new-pay-discount-note__icon" aria-hidden="true"><i class="ph ph-student"></i></span>
+      <div>
+        <div class="new-pay-discount-note__heading">
+          <strong>Льготная цена для школьных и студенческих команд</strong>
+          <span class="new-pay-discount-note__badge">−75%</span>
+        </div>
+        <p><b>500 ₽</b> или <b>2 500 AMD</b> за билет вместо 2 000 ₽ или 10 000 AMD после подтверждения статуса команды.</p>
+        <a class="new-pay-discount-note__link" href="mailto:andrewgarkavyy@gmail.com?subject=Льготная цена билета Inter Oves">Подтвердить льготу <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+      </div>
+    </div>
   </div>
 
   <form id="new-pay-ticket-form"
@@ -53,7 +75,7 @@
           <span class="new-pay-method__body">
             <strong>Российская карта</strong>
             <span>Для карт российских банков</span>
-            <b data-route-price>{{ ticket_price_display }} ₽</b>
+            <b data-route-price>{{ ticket_price_display }} ₽ <small>за билет</small></b>
           </span>
         </label>
         <label class="new-pay-method" data-pay-method-card>
@@ -63,7 +85,7 @@
           <span class="new-pay-method__body">
             <strong>Visa / Mastercard</strong>
             <span>Для карт банков Армении и других стран</span>
-            <b data-route-price>{{ ticket_price_amd_display }} AMD</b>
+            <b data-route-price>{{ ticket_price_amd_display }} AMD <small>за билет</small></b>
           </span>
         </label>
         <label class="new-pay-method new-pay-method--crypto" data-pay-method-card>
@@ -75,7 +97,7 @@
           <span class="new-pay-method__body">
             <strong>Криптовалюта</strong>
             <span>NOWPayments · отдельный от карточных способов маршрут</span>
-            <b data-route-price>{{ ticket_price_display }} ₽</b>
+            <b data-route-price>{{ ticket_price_display }} ₽ <small>за билет</small></b>
           </span>
         </label>
       </div>
@@ -83,8 +105,8 @@
 
     <div class="new-pay-summary" aria-live="polite">
       <div>
-        <span>Итого</span>
-      <strong id="new-pay-total">{{ ticket_price_display }} ₽</strong>
+        <span class="new-pay-summary__label">Итого <small id="new-pay-total-breakdown">1 билет × {{ ticket_price_display }} ₽</small></span>
+        <strong id="new-pay-total">{{ ticket_price_display }} ₽</strong>
       </div>
       <p id="new-pay-conversion-note" hidden>Списание производится в AMD. Если счет карты открыт в другой валюте, конвертацию выполняет банк, выпустивший карту.</p>
     </div>

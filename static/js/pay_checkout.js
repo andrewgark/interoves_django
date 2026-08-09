@@ -3,8 +3,11 @@
 
   var form = document.getElementById('new-pay-ticket-form');
   var qty = document.getElementById('new-pay-qty');
+  var qtyMinus = document.querySelector('[data-pay-qty-minus]');
+  var qtyPlus = document.querySelector('[data-pay-qty-plus]');
   var hiddenQty = form && form.querySelector('[data-pay-tickets]');
   var total = document.getElementById('new-pay-total');
+  var totalBreakdown = document.getElementById('new-pay-total-breakdown');
   var consent = document.getElementById('new-pay-consent');
   var submit = document.getElementById('new-pay-submit');
   var login = document.getElementById('new-pay-login');
@@ -65,6 +68,14 @@
     return formatted + (currency === 'RUB' ? ' ₽' : ' AMD');
   }
 
+  function ticketLabel(count) {
+    var mod10 = count % 10;
+    var mod100 = count % 100;
+    if (mod10 === 1 && mod100 !== 11) return count + ' билет';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return count + ' билета';
+    return count + ' билетов';
+  }
+
   function setMessage(text) {
     if (message) message.textContent = text || '';
   }
@@ -91,12 +102,18 @@
     var amount = count * Number(input.getAttribute('data-unit-price') || 0);
     var currency = input.getAttribute('data-currency') || 'RUB';
     var amountText = formatAmount(amount, currency);
+    var unitPriceText = formatAmount(Number(input.getAttribute('data-unit-price') || 0), currency);
+
+    qty.setAttribute('aria-valuetext', ticketLabel(count));
+    if (qtyMinus) qtyMinus.disabled = count <= 1;
+    if (qtyPlus) qtyPlus.disabled = count >= 20;
 
     form.querySelectorAll('[data-pay-method-card]').forEach(function (card) {
       var radio = card.querySelector('input[name="payment_method"]');
       card.classList.toggle('is-selected', !!radio && radio.checked);
     });
     if (total) total.textContent = amountText;
+    if (totalBreakdown) totalBreakdown.textContent = ticketLabel(count) + ' × ' + unitPriceText;
     if (terms) terms.href = copy.termsUrl;
     if (sellerText) sellerText.textContent = copy.seller;
     if (sellerLink) sellerLink.href = copy.sellerUrl;
@@ -182,6 +199,20 @@
   });
   qty.addEventListener('input', render);
   qty.addEventListener('change', render);
+  if (qtyMinus) {
+    qtyMinus.addEventListener('click', function () {
+      qty.value = String(clampQuantity(clampQuantity(qty.value) - 1));
+      render();
+      qty.focus();
+    });
+  }
+  if (qtyPlus) {
+    qtyPlus.addEventListener('click', function () {
+      qty.value = String(clampQuantity(clampQuantity(qty.value) + 1));
+      render();
+      qty.focus();
+    });
+  }
   if (consent) consent.addEventListener('change', render);
   if (teamSetup) {
     teamSetup.addEventListener('click', function (event) {
