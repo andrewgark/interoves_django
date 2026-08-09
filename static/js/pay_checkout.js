@@ -156,27 +156,27 @@
 
   function renderPending() {
     if (!statusEl) return;
-    statusEl.hidden = false;
     statusEl.className = 'new-payment-status new-payment-status--pending';
     statusEl.textContent = 'Платеж обрабатывается…';
+    statusEl.hidden = false;
   }
 
   function renderAccepted(data) {
     if (!statusEl) return;
-    statusEl.hidden = false;
     statusEl.className = 'new-payment-status new-payment-status--ok';
     statusEl.textContent = 'Оплата подтверждена. Билеты зачислены команде.';
     var ticketsNow = document.getElementById('new-pay-team-tickets');
     if (ticketsNow && data && typeof data.team_tickets !== 'undefined') {
       ticketsNow.textContent = String(data.team_tickets);
     }
+    statusEl.hidden = false;
   }
 
   function renderRejected() {
     if (!statusEl) return;
-    statusEl.hidden = false;
     statusEl.className = 'new-payment-status new-payment-status--err';
     statusEl.textContent = 'Платеж отменен или отклонен. Если средства списались, напишите в поддержку.';
+    statusEl.hidden = false;
   }
 
   function startPoll(url) {
