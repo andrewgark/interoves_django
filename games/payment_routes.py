@@ -46,7 +46,7 @@ ROUTES = {
         provider='nowpayments',
         merchant='ru_self_employed',
         currency='RUB',
-        terms_url='/terms/russia/',
+        terms_url='/terms/crypto/',
         seller_anchor='/sellers/#russia',
         enabled=True,
     ),

@@ -1,5 +1,6 @@
 """Public merchant, purchase and privacy documents."""
 from django.shortcuts import render
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
 
@@ -26,6 +27,7 @@ LEGAL_CONTEXT = {
 }
 
 
+@never_cache
 @require_GET
 def legal_page(request, document):
     templates = {
@@ -33,6 +35,7 @@ def legal_page(request, document):
         'terms': ('new/legal/terms_index.html', 'Условия покупки'),
         'terms_russia': ('new/legal/terms_russia.html', 'Условия покупки — российские карты'),
         'terms_armenia': ('new/legal/terms_armenia.html', 'Условия покупки — международные карты'),
+        'terms_crypto': ('new/legal/terms_crypto.html', 'Условия покупки — криптовалюта'),
         'refunds': ('new/legal/refunds.html', 'Оплата, отмена и возврат'),
         'privacy': ('new/legal/privacy.html', 'Политика конфиденциальности'),
         'contacts': ('new/legal/contacts.html', 'Контакты'),

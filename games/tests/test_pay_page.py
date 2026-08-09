@@ -11,7 +11,7 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialApp
 
 from games.models import Game, HTMLPage, Profile, Project, Team, TicketRequest
-from games.payment_routes import CRYPTO, INTERNATIONAL_CARD, RUSSIAN_CARD, amount_for, unit_price_for
+from games.payment_routes import CRYPTO, INTERNATIONAL_CARD, RUSSIAN_CARD, amount_for, route_for, unit_price_for
 
 
 def _ensure_login_modal_deps():
@@ -61,7 +61,24 @@ class PayPageGatingTests(TestCase):
         self.assertIn('new-pay-ticket-form', body)
         self.assertIn('Российская карта', body)
         self.assertIn('Visa / Mastercard', body)
-        self.assertIn('10000 AMD', body)
+        self.assertIn('Криптовалюта', body)
+        self.assertIn('NOWPayments', body)
+        self.assertIn('10 000 AMD', body)
+        self.assertIn('2 500 AMD', body)
+        self.assertIn('2 000 ₽', body)
+        self.assertIn('500 ₽', body)
+        self.assertIn('Андрей Гаркавый, плательщик НПД, РФ', body)
+        self.assertIn('/terms/russia/', body)
+        self.assertIn('/terms/crypto/', body)
+        self.assertIn('/refunds/', body)
+        self.assertIn('/privacy/', body)
+        self.assertIn('/contacts/', body)
+        self.assertNotIn('Чтобы купить билет', body)
+        self.assertNotIn('/terms-of-use/', body)
+        self.assertNotIn('/ticket-agreement/', body)
+        self.assertNotIn('/privacy-policy/', body)
+        self.assertNotIn('TODO_', body)
+        self.assertIn('no-store', resp['Cache-Control'])
         self.assertNotIn('Создать команду', body)
 
     def test_authenticated_without_team_sees_create_or_join(self):
@@ -88,7 +105,8 @@ class PayPageGatingTests(TestCase):
         self.assertIn('new-pay-ticket-form', body)
         self.assertIn('Российская карта', body)
         self.assertIn('Visa / Mastercard', body)
-        self.assertIn('Криптовалюта через NOWPayments', body)
+        self.assertIn('Криптовалюта', body)
+        self.assertIn('NOWPayments', body)
         self.assertIn('new-pay-widget-host', body)
         self.assertIn('Pay Team', body)
         self.assertIn('Билетов у команды сейчас:', body)
@@ -108,6 +126,22 @@ class TicketPricingTests(TestCase):
         self.assertEqual(amount_for(team, RUSSIAN_CARD, 3), 1500)
         self.assertEqual(amount_for(team, INTERNATIONAL_CARD, 3), 7500)
         self.assertEqual(amount_for(team, CRYPTO, 3), 1500)
+
+    def test_payment_route_provider_merchant_currency_matrix(self):
+        russian = route_for(RUSSIAN_CARD)
+        self.assertEqual((russian.provider, russian.merchant, russian.currency), ('yookassa', 'ru_self_employed', 'RUB'))
+        self.assertTrue(russian.enabled)
+        self.assertEqual(russian.terms_url, '/terms/russia/')
+
+        international = route_for(INTERNATIONAL_CARD)
+        self.assertEqual((international.provider, international.merchant, international.currency), ('vpos', 'am_ie', 'AMD'))
+        self.assertFalse(international.enabled)
+        self.assertEqual(international.terms_url, '/terms/armenia/')
+
+        crypto = route_for(CRYPTO)
+        self.assertEqual((crypto.provider, crypto.merchant, crypto.currency), ('nowpayments', 'ru_self_employed', 'RUB'))
+        self.assertTrue(crypto.enabled)
+        self.assertEqual(crypto.terms_url, '/terms/crypto/')
 
 
 @override_settings(LANGUAGE_CODE='ru-ru')
@@ -174,7 +208,7 @@ class LegalPageTests(TestCase):
         _ensure_login_modal_deps()
 
     def test_all_legal_pages_are_public_and_linked(self):
-        for name in ('sellers', 'terms', 'terms_russia', 'terms_armenia', 'refunds', 'privacy', 'contacts'):
+        for name in ('sellers', 'terms', 'terms_russia', 'terms_armenia', 'terms_crypto', 'refunds', 'privacy', 'contacts'):
             with self.subTest(name=name):
                 response = self.client.get(reverse(name))
                 self.assertEqual(response.status_code, 200)
@@ -183,6 +217,49 @@ class LegalPageTests(TestCase):
                 self.assertIn('/privacy/', body)
                 self.assertIn('/sellers/', body)
                 self.assertIn('/contacts/', body)
+                self.assertNotIn('TODO_', body)
+                self.assertEqual(body.count('<footer class="new-legal-footer">'), 1)
+                self.assertIn('no-store', response['Cache-Control'])
+
+    def test_current_terms_have_route_specific_copy(self):
+        russian = self.client.get(reverse('terms_russia')).content.decode()
+        self.assertIn('ЮKassa', russian)
+        self.assertIn('2 000 RUB', russian)
+        self.assertIn('500 RUB', russian)
+        self.assertIn('Применимое право и обращения', russian)
+        self.assertIn('документально подтвержденных фактически понесенных', russian)
+        self.assertNotIn('NOWPayments', russian)
+
+        armenian = self.client.get(reverse('terms_armenia')).content.decode()
+        self.assertIn('10 000 AMD', armenian)
+        self.assertIn('2 500 AMD', armenian)
+        self.assertIn('Andrei Garkavyi IE', armenian)
+        self.assertIn('право Республики Армения', armenian)
+        self.assertIn('Международные карты', armenian)
+        self.assertNotIn('TODO_', armenian)
+
+        crypto = self.client.get(reverse('terms_crypto')).content.decode()
+        self.assertIn('NOWPayments', crypto)
+        self.assertIn('отдельным платежным маршрутом', crypto)
+        self.assertIn('ru_self_employed', route_for(CRYPTO).merchant)
+        self.assertIn('документально подтвержденных фактически понесенных', crypto)
+        self.assertNotIn('ЮKassa обрабатывает', crypto)
+
+    def test_refunds_and_privacy_have_closed_review_copy(self):
+        refunds = self.client.get(reverse('refunds')).content.decode()
+        self.assertIn('Покупатель может отказаться от дальнейшего участия и после начала мероприятия', refunds)
+        self.assertIn('Отдельный штраф за отказ', refunds)
+        self.assertIn('Возвраты по оплате криптовалютой не автоматизированы', refunds)
+
+        privacy = self.client.get(reverse('privacy')).content.decode()
+        self.assertIn('Кто отвечает за обработку данных', privacy)
+        self.assertIn('Основания обработки', privacy)
+        self.assertIn('не менее 5 лет', privacy)
+        self.assertIn('в течение 30 дней', privacy)
+        self.assertIn('до 3 лет', privacy)
+        self.assertIn('не более 12 месяцев', privacy)
+        self.assertIn('NOWPayments используется только когда пользователь самостоятельно выбирает оплату криптовалютой', privacy)
+        self.assertIn('Трансграничная передача', privacy)
 
     def test_legacy_documents_redirect_permanently(self):
         expected = {
@@ -195,6 +272,30 @@ class LegalPageTests(TestCase):
                 response = self.client.get(old_url)
                 self.assertEqual(response.status_code, 301)
                 self.assertEqual(response['Location'], new_url)
+
+    def test_legacy_document_redirects_keep_query_strings(self):
+        response = self.client.get('/terms-of-use/?source=legacy')
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response['Location'], '/terms/?source=legacy')
+
+    def test_legacy_document_redirects_without_trailing_slash(self):
+        expected = {
+            '/privacy-policy': '/privacy/',
+            '/terms-of-use': '/terms/',
+            '/ticket-agreement': '/terms/russia/',
+        }
+        for old_url, new_url in expected.items():
+            with self.subTest(old_url=old_url):
+                response = self.client.get(old_url)
+                self.assertEqual(response.status_code, 301)
+                self.assertEqual(response['Location'], new_url)
+
+    def test_old_terms_copy_is_not_public(self):
+        response = self.client.get('/terms-of-use/', follow=True)
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertNotIn('Last updated February 08, 2021', body)
+        self.assertNotIn('TODO_', body)
 
 
 @override_settings(LANGUAGE_CODE='ru-ru')

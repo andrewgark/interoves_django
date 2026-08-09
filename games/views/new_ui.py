@@ -20,6 +20,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from games.forms import CreateTeamForm, JoinTeamForm
@@ -3546,6 +3547,7 @@ def new_team_join_page(request, project_id=None):
     return render(request, 'ui/team.html', ctx)
 
 
+@never_cache
 @require_http_methods(['GET'])
 def new_pay_page(request):
     """Public team-ticket checkout with login/team gating only at purchase time.
@@ -3562,8 +3564,9 @@ def new_pay_page(request):
     return render(request, 'ui/pay.html', {
         'team': team,
         'ticket_price': ticket_price_int,
+        'ticket_price_display': '{:,}'.format(ticket_price_int).replace(',', ' '),
         'ticket_price_amd': ticket_price_amd,
-        'show_school_discount_hint': ticket_price_int == 2000,
+        'ticket_price_amd_display': '{:,}'.format(ticket_price_amd).replace(',', ' '),
         'team_tickets': team.tickets if team else 0,
         'recent_ticket_requests': recent_requests,
         'page_title': 'Оплата',

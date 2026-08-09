@@ -31,9 +31,7 @@
       </label>
     </div>
 
-    {% if show_school_discount_hint %}
-    <p class="new-pay-discount-note">Для команды школьников и/или студентов доступны льготные цены: 500 ₽ или 2 500 AMD за билет. <a href="mailto:andrewgarkavyy@gmail.com?subject=Льготная цена билета Inter Oves">Напишите нам</a>, чтобы подтвердить скидку.</p>
-    {% endif %}
+    <p class="new-pay-discount-note">Обычная цена билета: 2 000 ₽ или 10 000 AMD. Для подтвержденных школьных и/или студенческих команд: 500 ₽ или 2 500 AMD. <a href="mailto:andrewgarkavyy@gmail.com?subject=Льготная цена билета Inter Oves">Напишите нам</a>, чтобы подтвердить скидку.</p>
   </div>
 
   <form id="new-pay-ticket-form"
@@ -55,7 +53,7 @@
           <span class="new-pay-method__body">
             <strong>Российская карта</strong>
             <span>Для карт российских банков</span>
-            <b data-route-price>{{ ticket_price }} ₽</b>
+            <b data-route-price>{{ ticket_price_display }} ₽</b>
           </span>
         </label>
         <label class="new-pay-method" data-pay-method-card>
@@ -65,30 +63,28 @@
           <span class="new-pay-method__body">
             <strong>Visa / Mastercard</strong>
             <span>Для карт банков Армении и других стран</span>
-            <b data-route-price>{{ ticket_price_amd }} AMD</b>
+            <b data-route-price>{{ ticket_price_amd_display }} AMD</b>
+          </span>
+        </label>
+        <label class="new-pay-method new-pay-method--crypto" data-pay-method-card>
+          <input type="radio" name="payment_method" value="crypto"
+                 data-unit-price="{{ ticket_price }}" data-currency="RUB"
+                 data-terms-url="/terms/crypto/" data-provider="nowpayments"
+                 data-merchant="ru_self_employed">
+          <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-currency-btc"></i></span>
+          <span class="new-pay-method__body">
+            <strong>Криптовалюта</strong>
+            <span>NOWPayments · отдельный от карточных способов маршрут</span>
+            <b data-route-price>{{ ticket_price_display }} ₽</b>
           </span>
         </label>
       </div>
     </fieldset>
 
-    <details class="new-pay-crypto-option">
-      <summary>Другой способ: криптовалюта</summary>
-      <label class="new-pay-method new-pay-method--secondary" data-pay-method-card>
-        <input type="radio" name="payment_method" value="crypto"
-               data-unit-price="{{ ticket_price }}" data-currency="RUB">
-        <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-currency-btc"></i></span>
-        <span class="new-pay-method__body">
-          <strong>Криптовалюта через NOWPayments</strong>
-          <span>Цена заказа фиксируется в RUB; сумму в выбранной криптовалюте рассчитывает провайдер.</span>
-          <b data-route-price>{{ ticket_price }} ₽</b>
-        </span>
-      </label>
-    </details>
-
     <div class="new-pay-summary" aria-live="polite">
       <div>
         <span>Итого</span>
-        <strong id="new-pay-total">{{ ticket_price }} ₽</strong>
+      <strong id="new-pay-total">{{ ticket_price_display }} ₽</strong>
       </div>
       <p id="new-pay-conversion-note" hidden>Списание производится в AMD. Если счет карты открыт в другой валюте, конвертацию выполняет банк, выпустивший карту.</p>
     </div>
@@ -103,10 +99,10 @@
       <a id="new-pay-seller-link" href="/sellers/#russia">Реквизиты</a>
     </div>
 
-    <p id="new-pay-security" class="new-pay-security">Оплата российской картой проходит в защищенном виджете ЮKassa. Inter Oves не получает и не хранит реквизиты банковской карты.</p>
+    <p id="new-pay-security" class="new-pay-security">Оплата российской картой проходит в защищенном виджете ЮKassa. Inter Oves не получает и не хранит полные реквизиты банковской карты.</p>
 
     {% if team %}
-      <button type="submit" id="new-pay-submit" class="new-btn new-pay-submit" disabled>Оплатить {{ ticket_price }} ₽</button>
+      <button type="submit" id="new-pay-submit" class="new-btn new-pay-submit" disabled>Оплатить {{ ticket_price_display }} ₽</button>
     {% elif user.is_authenticated %}
       <a id="new-pay-setup-team" class="new-btn new-pay-submit" href="{{ ui_team_url_create|default:'/team/create/' }}">Создать команду для оплаты</a>
       <p class="new-pay-auth-note"><a href="{{ ui_team_url_join|default:'/team/join/' }}">Или вступить в существующую команду</a></p>

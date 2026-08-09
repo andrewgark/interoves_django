@@ -29,18 +29,18 @@
       seller: 'Продавец: Андрей Гаркавый, плательщик НПД, РФ',
       sellerUrl: '/sellers/#russia',
       termsUrl: '/terms/russia/',
-      security: 'Оплата российской картой проходит в защищенном виджете ЮKassa. Inter Oves не получает и не хранит реквизиты банковской карты.'
+      security: 'Оплата российской картой проходит в защищенном виджете ЮKassa. Inter Oves не получает и не хранит полные реквизиты банковской карты.'
     },
     international_card: {
       seller: 'Продавец: Andrei Garkavyi IE, Republic of Armenia',
       sellerUrl: '/sellers/#armenia',
       termsUrl: '/terms/armenia/',
-      security: 'Оплата будет проходить на защищенной странице банка. Inter Oves не будет получать или хранить реквизиты банковской карты.'
+      security: 'Оплата будет проходить на защищенной странице банка. Inter Oves не будет получать или хранить полные реквизиты банковской карты.'
     },
     crypto: {
       seller: 'Продавец: Андрей Гаркавый, плательщик НПД, РФ',
       sellerUrl: '/sellers/#russia',
-      termsUrl: '/terms/russia/',
+      termsUrl: '/terms/crypto/',
       security: 'Криптоплатеж обрабатывает NOWPayments. Сумма к отправке и адрес кошелька отображаются в защищенном виджете провайдера.'
     }
   };
@@ -104,15 +104,15 @@
     if (conversionNote) conversionNote.hidden = route !== 'international_card';
 
     if (submit) {
-      submit.textContent = route === 'international_card' ? 'Международная оплата скоро' : 'Оплатить ' + amountText;
+      submit.textContent = route === 'international_card' ? 'Международная оплата готовится' : 'Оплатить ' + amountText;
       submit.disabled = busy || route === 'international_card' || !consent.checked;
     }
     if (login) {
-      login.textContent = route === 'international_card' ? 'Международная оплата скоро' : 'Войти и продолжить';
+      login.textContent = route === 'international_card' ? 'Международная оплата готовится' : 'Войти и продолжить';
       login.disabled = route === 'international_card';
     }
     if (teamSetup) {
-      teamSetup.textContent = route === 'international_card' ? 'Международная оплата скоро' : 'Создать команду для оплаты';
+      teamSetup.textContent = route === 'international_card' ? 'Международная оплата готовится' : 'Создать команду для оплаты';
       teamSetup.classList.toggle('is-disabled', route === 'international_card');
       teamSetup.setAttribute('aria-disabled', route === 'international_card' ? 'true' : 'false');
     }
