@@ -29,6 +29,24 @@ Or without activating:
 
 The same requirement is mirrored in `.cursor/rules/python-venv.mdc` (`alwaysApply: true`).
 
+### WebSocket integration tests in agent sandboxes
+
+The 9 tests in `games.tests.test_track.TrackWebsocketIntegrationTests` must be run
+outside the restricted agent sandbox (with the execution tool's escalation / full
+permissions):
+
+```bash
+../venv/interoves_django/bin/python manage.py test games.tests.test_track.TrackWebsocketIntegrationTests
+```
+
+Inside the restricted sandbox, Channels can stall in
+`aclose_old_connections()` / its thread-sensitive `database_sync_to_async`
+executor before the consumer's `connect()` runs. All 9 tests then report a
+`WebsocketCommunicator.connect()` timeout even when the WebSocket implementation
+is healthy. Do not treat that sandbox-only result as a regression and do not
+change production or test code to accommodate it; rerun the same tests outside
+the sandbox first. A normal result is currently `Ran 9 tests ... OK`.
+
 ## AWS / prod access (agents)
 
 For Elastic Beanstalk, RDS, Redis (ElastiCache), IAM, and local AWS CLI with the **`ai-bot`** role, read **[agents/aws-eb.md](aws-eb.md)** — especially **Agent playbook** and **RDS / Redis**. Use `required_permissions: ["network", "all"]` when running AWS/SSH scripts from tools.
