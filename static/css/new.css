@@ -5578,7 +5578,7 @@ html.is-age-gated .new-wrap {
   border-bottom: none;
 }
 .new-raddle-table .new-raddle-col--check { width: 92px; }
-.new-raddle-table .new-raddle-col--word { width: calc(100% - 92px); }
+.new-raddle-table .new-raddle-col--word { width: auto; }
 .new-raddle-block__word {
   background: var(--surface);
   text-align: center;
@@ -5594,8 +5594,35 @@ html.is-age-gated .new-wrap {
   gap: 0.35rem;
   min-height: 3rem;
   min-width: 0;
+  width: 100%;
   padding: 0.35rem 0.55rem;
   box-sizing: border-box;
+}
+/* iPadOS 16 / Safari 16 can miscompute table column widths when a table descendant
+   is also a query container. Disable that optimization there and fall back to the
+   surrounding media-query sizing rules. */
+@supports (-webkit-touch-callout: none) {
+  .new-raddle-word-cell {
+    container-type: normal;
+    container-name: none;
+  }
+  .new-raddle-input,
+  .new-raddle-line__mask,
+  .new-raddle-line__solved-text {
+    font-size: 1rem;
+  }
+  @media (max-width: 919px) {
+    .new-raddle-line__mask,
+    .new-raddle-line__solved-text {
+      font-size: 0.9rem;
+    }
+  }
+  @media (max-width: 560px) {
+    .new-raddle-line__mask,
+    .new-raddle-line__solved-text {
+      font-size: 0.8rem;
+    }
+  }
 }
 /* Длинные маски (9 7 и т.п.): уменьшаем шрифт, чтобы N слотов + (len) влезали в ячейку. */
 .new-raddle-input,
@@ -5859,7 +5886,7 @@ html.is-age-gated .new-wrap {
 }
 @media (max-width: 560px) {
   .new-raddle-table .new-raddle-col--check { width: 74px; }
-  .new-raddle-table .new-raddle-col--word { width: calc(100% - 74px); }
+  .new-raddle-table .new-raddle-col--word { width: auto; }
   .new-raddle-word-cell { gap: 0.2rem; padding: 0.3rem 0.3rem; }
   .new-raddle-line__len { font-size: 0.72rem; }
   .new-raddle-input {
