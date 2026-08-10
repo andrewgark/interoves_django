@@ -1,5 +1,6 @@
 """Context for main UI templates (root URLs)."""
 
+from games.analytics import consume_pending_goals
 from django.conf import settings
 
 
@@ -7,6 +8,14 @@ def site_deploy_version(_request):
     """Expose SITE_DEPLOY_VERSION for deploy_version_check.js (HTML vs live API)."""
     v = getattr(settings, "SITE_DEPLOY_VERSION", "") or ""
     return {"site_deploy_version": str(v).strip()}
+
+
+def analytics_bootstrap(request):
+    counter_id = getattr(settings, 'YANDEX_METRIKA_COUNTER_ID', 0) or 0
+    return {
+        'yandex_metrika_counter_id': int(counter_id),
+        'pending_analytics_goals': consume_pending_goals(request),
+    }
 
 
 def ui_section_games(request):

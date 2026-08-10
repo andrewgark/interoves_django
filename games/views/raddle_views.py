@@ -5,6 +5,12 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
+from games.analytics import (
+    PlayerCompletedGame,
+    is_task_completion_state,
+    register_completed_game,
+    supported_game_kind,
+)
 from games.exception import DuplicateAttemptException, NoGameAccessException
 from games.models import Attempt, ChainTaskState, Task
 from games.raddle import (
@@ -113,6 +119,18 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
         pass
 
     result = {'status': 'ok', 'task_id': task.id}
+    if supported_game_kind(game) and is_task_completion_state(task, attempt.state):
+        analytics_events = register_completed_game(
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            analytics_user=request.user if request.user.is_authenticated else None,
+            task=task,
+            game=game,
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        if analytics_events:
+            result['analytics_events'] = analytics_events
     update_html = update_task_html(
         request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
     )

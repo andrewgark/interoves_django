@@ -309,6 +309,8 @@
 (function () {
   var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';
   var playMode = "{{ play_mode|escapejs }}";
+  var analyticsGameType = "{{ analytics_game_type|escapejs }}";
+  var analyticsGameId = "{{ analytics_game_id|escapejs }}";
   var ANON_KEY_NAME = 'interoves_anon_key';
   var ANON_COOKIE_NAME = 'interoves_anon';
   var anonKeyMem = null;
@@ -364,6 +366,22 @@
     h['X-Requested-With'] = 'XMLHttpRequest';
     if (!isAuthenticated && anonKey) h['X-Interoves-Anon'] = anonKey;
     return h;
+  }
+  function trackGoal(goal, params, key) {
+    if (!window.interovesAnalytics || !window.interovesAnalytics.trackYandexGoalOnce) return false;
+    return window.interovesAnalytics.trackYandexGoalOnce(key || goal, goal, params || {});
+  }
+  function flushAnalyticsEvents(events) {
+    if (!window.interovesAnalytics || !window.interovesAnalytics.flushPendingGoals) return;
+    window.interovesAnalytics.flushPendingGoals(events || []);
+  }
+  function trackGameStartOnce(source) {
+    if (!analyticsGameType || !analyticsGameId) return false;
+    return trackGoal(
+      'game_start',
+      { game: analyticsGameType, game_id: analyticsGameId },
+      'game_start:' + analyticsGameType + ':' + analyticsGameId
+    );
   }
   function appendAnonToPagerLinks() {
     if (isAuthenticated || anonCookieWorks()) return;
@@ -473,9 +491,10 @@
       msg.style.display = 'block';
     }
     if (msg) msg.textContent = 'Проверяем…';
+    if (!isRaddleLineForm(form)) trackGameStartOnce('attempt_form');
     fetch(form.action, {
       method: 'POST',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      headers: anonFetchHeaders(),
       body: formPostBody(form),
       credentials: 'same-origin',
     })
@@ -487,6 +506,7 @@
           if (msg) msg.textContent = 'Ошибка: пустой ответ.';
           return;
         }
+        flushAnalyticsEvents(data.analytics_events);
         if (data.status === 'ok') {
           // For hints: keep hints panel open after reload.
           if (form && form.classList && form.classList.contains('new-hint-form')) {
@@ -1124,6 +1144,7 @@
       if (taskRoot) setRaddleFocus(taskRoot, wordIdx);
       return;
     }
+    trackGameStartOnce('raddle_assist');
     if (form && form.dataset) form.dataset.submitting = '1';
     var taskId = form.getAttribute('data-task-id');
     var msg = document.querySelector('[data-msg-for="raddle-form-' + taskId + '-' + wordIdx + '"]');
@@ -1133,7 +1154,7 @@
     }
     fetch(form.action, {
       method: 'POST',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      headers: anonFetchHeaders(),
       body: new FormData(form),
       credentials: 'same-origin',
     })
@@ -1147,6 +1168,7 @@
           }
           return;
         }
+        flushAnalyticsEvents(data.analytics_events);
         // 💡: ok или duplicate → подсветить; при ok обновить HTML
         if (tier === '1' && (data.status === 'ok' || data.status === 'duplicate')) {
           if (data.status === 'ok' && data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
@@ -1539,6 +1561,7 @@
   function postRaddleAutoForm(form, input) {
     if (!form || (form.dataset && form.dataset.submitting === '1')) return false;
     if (form.dataset) form.dataset.submitting = '1';
+    trackGameStartOnce('raddle_auto');
     setRaddleInputBusy(input, true);
     var row = input ? input.closest('.new-raddle-row') : null;
     setRaddleRowChecking(row, true);
@@ -1555,13 +1578,14 @@
     function attemptOnce(attempt) {
       fetchWithTimeout(form.action, {
         method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        headers: anonFetchHeaders(),
         body: formPostBody(form),
         credentials: 'same-origin',
       }, RADDLE_FETCH_TIMEOUT_MS)
         .then(function (r) { return r.json(); })
         .then(function (data) {
           finish();
+          flushAnalyticsEvents(data && data.analytics_events);
           applyRaddleAttemptResponse(form, input, row, data, wordIdx);
         })
         .catch(function () {
@@ -1762,6 +1786,7 @@
     }
     if (form.classList.contains('new-raddle-line-form')) {
       if (!prepareRaddleLineForm(form)) return;
+      trackGameStartOnce('raddle_manual');
     }
     if (form.getAttribute('data-proportions-form') === '1') {
       var pmsg = form.querySelector('.new-attempt-msg');

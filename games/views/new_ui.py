@@ -31,6 +31,11 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
 
 from games.access import game_has_started
+from games.analytics import (
+    YANDEX_GOAL_TICKET_PURCHASE,
+    supported_game_kind,
+    yandex_goal_payload,
+)
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
     filter_published_alphabetty_links,
@@ -137,6 +142,13 @@ from games.yookassa_util import configure_yookassa_from_env
 from yookassa import Payment
 
 logger = logging.getLogger(__name__)
+
+
+def _analytics_game_context(game, *, public_game_id):
+    return {
+        'analytics_game_type': supported_game_kind(game) or '',
+        'analytics_game_id': str(public_game_id or ''),
+    }
 
 
 def _anon_key_from_request(request):
@@ -2781,6 +2793,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'audio_manager': AudioManager(),
         'lock_personal_play_mode': personal_play_mode_locked(game),
         'show_sections_nav': True,
+        **_analytics_game_context(game, public_game_id=placement.number),
         **_project_urls_context(game.project_id),
         **_age_gate_context(
             game,
@@ -3710,6 +3723,12 @@ def new_create_ticket_payment(request):
         'confirmation_token': confirmation_token,
         'return_url': request.build_absolute_uri('/pay/?payment=return'),
         'ticket_request_id': ticket_request.id,
+        'analytics_events': [
+            yandex_goal_payload(
+                'ticket_checkout',
+                key='ticket_checkout:{}'.format(ticket_request.id),
+            ),
+        ],
         'status_url': request.build_absolute_uri(
             reverse('new_ticket_payment_status', kwargs={'ticket_request_id': ticket_request.id})
         ),
@@ -3848,6 +3867,12 @@ def new_create_crypto_ticket_payment(request):
         'embed_url': embed,
         'return_url': return_url,
         'ticket_request_id': ticket_request.id,
+        'analytics_events': [
+            yandex_goal_payload(
+                'ticket_checkout',
+                key='ticket_checkout:{}'.format(ticket_request.id),
+            ),
+        ],
         'status_url': request.build_absolute_uri(
             reverse('new_ticket_payment_status', kwargs={'ticket_request_id': ticket_request.id})
         ),
@@ -3868,7 +3893,7 @@ def new_create_tribute_ticket_payment(request):
         status=410,
     )
 
-@require_http_methods(['GET'])
+@require_http_methods(['GET', 'POST'])
 def new_ticket_payment_status(request, ticket_request_id):
     """JSON status for a team's TicketRequest (long-polling friendly for crypto)."""
     if not request.user.is_authenticated or not has_profile(request.user) or not has_team(request.user):
@@ -3879,6 +3904,22 @@ def new_ticket_payment_status(request, ticket_request_id):
     if not ticket_request:
         return JsonResponse({'status': 'error', 'reason': 'not_found'}, status=404)
 
+    if request.method == 'POST':
+        ack_key = (
+            request.POST.get('analytics_ack')
+            or request.headers.get('X-Interoves-Analytics-Ack')
+            or ''
+        ).strip()
+        expected_key = 'ticket_purchase:{}'.format(ticket_request.id)
+        if ack_key != expected_key:
+            return JsonResponse({'status': 'error', 'reason': 'invalid_ack'}, status=400)
+        if ticket_request.status != 'Accepted':
+            return JsonResponse({'status': 'error', 'reason': 'not_accepted'}, status=409)
+        if ticket_request.purchase_goal_sent_at is None:
+            ticket_request.purchase_goal_sent_at = timezone.now()
+            ticket_request.save(update_fields=['purchase_goal_sent_at'])
+        return JsonResponse({'status': 'ok'})
+
     payload = {
         'status': ticket_request.status,
         'ticket_request_id': ticket_request.id,
@@ -3888,6 +3929,17 @@ def new_ticket_payment_status(request, ticket_request_id):
         'payment_provider': ticket_request.payment_provider,
         'merchant': ticket_request.merchant,
     }
+    if ticket_request.status == 'Accepted' and ticket_request.purchase_goal_sent_at is None:
+        payload['analytics_events'] = [
+            yandex_goal_payload(
+                YANDEX_GOAL_TICKET_PURCHASE,
+                params={
+                    'amount': ticket_request.money,
+                    'currency': ticket_request.currency,
+                },
+                key='ticket_purchase:{}'.format(ticket_request.id),
+            ),
+        ]
     if ticket_request.status == 'Accepted' and team is not None:
         payload['team_tickets'] = team.tickets
     return JsonResponse(payload)

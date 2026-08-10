@@ -1647,6 +1647,7 @@ class TicketRequest(models.Model):
     yookassa_id = models.TextField(null=True, blank=True)
     nowpayments_id = models.TextField(null=True, blank=True)
     tribute_id = models.TextField(null=True, blank=True)
+    purchase_goal_sent_at = models.DateTimeField(null=True, blank=True)
 
     TICKER_REQUEST_STATUS_VARIANTS = (
         ('Pending', 'Pending'),
@@ -1902,6 +1903,135 @@ class StatisticsEvent(models.Model):
     @classmethod
     def record(cls, kind, user=None, **payload):
         return cls.objects.create(kind=kind, user=user, payload=payload or {})
+
+
+class PlayerCompletedGame(models.Model):
+    """One unique completed game instance for one actor."""
+
+    RESULT_SOLVED = 'solved'
+    RESULT_COMPLETED = 'completed'
+    RESULT_FAILED = 'failed'
+    RESULT_CHOICES = (
+        (RESULT_SOLVED, 'Solved'),
+        (RESULT_COMPLETED, 'Completed'),
+        (RESULT_FAILED, 'Failed'),
+    )
+
+    id = models.AutoField(primary_key=True)
+    team = models.ForeignKey(
+        Team,
+        related_name='completed_games',
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+    )
+    user = models.ForeignKey(
+        'auth.User',
+        related_name='completed_games',
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+    )
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    game = models.ForeignKey(
+        Game,
+        related_name='completed_games',
+        on_delete=models.CASCADE,
+    )
+    task_group = models.ForeignKey(
+        TaskGroup,
+        related_name='completed_games',
+        on_delete=models.CASCADE,
+    )
+    game_kind = models.CharField(max_length=32, db_index=True)
+    game_instance_id = models.CharField(max_length=128, db_index=True)
+    public_game_id = models.CharField(max_length=128, blank=True, default='')
+    result = models.CharField(
+        max_length=16,
+        choices=RESULT_CHOICES,
+        default=RESULT_COMPLETED,
+    )
+    completed_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-completed_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['team', 'game_instance_id'],
+                condition=models.Q(team__isnull=False),
+                name='uniq_completed_game_team_instance',
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'game_instance_id'],
+                condition=models.Q(user__isnull=False),
+                name='uniq_completed_game_user_instance',
+            ),
+            models.UniqueConstraint(
+                fields=['anon_key', 'game_instance_id'],
+                condition=models.Q(anon_key__isnull=False),
+                name='uniq_completed_game_anon_instance',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['team', 'completed_at']),
+            models.Index(fields=['user', 'completed_at']),
+            models.Index(fields=['anon_key', 'completed_at']),
+            models.Index(fields=['game_kind', 'completed_at']),
+        ]
+        verbose_name = 'завершённая игра игрока'
+        verbose_name_plural = 'завершённые игры игроков'
+
+    def __str__(self):
+        actor = self.team or self.user or self.anon_key or '—'
+        return '{} · {} · {}'.format(actor, self.game_instance_id, self.result)
+
+
+class PlayerAnalyticsState(models.Model):
+    """Per-actor product lifecycle markers (activation etc.)."""
+
+    id = models.AutoField(primary_key=True)
+    team = models.ForeignKey(
+        Team,
+        related_name='analytics_states',
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+    )
+    user = models.ForeignKey(
+        'auth.User',
+        related_name='analytics_states',
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+    )
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    activated_at = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['team'],
+                condition=models.Q(team__isnull=False),
+                name='uniq_player_analytics_state_team',
+            ),
+            models.UniqueConstraint(
+                fields=['user'],
+                condition=models.Q(user__isnull=False),
+                name='uniq_player_analytics_state_user',
+            ),
+            models.UniqueConstraint(
+                fields=['anon_key'],
+                condition=models.Q(anon_key__isnull=False),
+                name='uniq_player_analytics_state_anon',
+            ),
+        ]
+        verbose_name = 'состояние продуктовой аналитики игрока'
+        verbose_name_plural = 'состояния продуктовой аналитики игроков'
+
+    def __str__(self):
+        actor = self.team or self.user or self.anon_key or '—'
+        return 'analytics[{}]'.format(actor)
 
 
 class OrderGameClient(models.Model):

@@ -1,6 +1,8 @@
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from allauth.account.signals import user_signed_up
 
+from games.analytics import YANDEX_GOAL_SIGNUP, queue_pending_goal
 from games.models import Game, Profile, SocialAccount, Attempt, Task
 from games.recheck import recheck_queue_from_next, recheck_full
 
@@ -88,3 +90,19 @@ def game_notify_registered_play_access(sender, instance, created, **kwargs):
 post_save.connect(create_profile, sender=SocialAccount, dispatch_uid="socialaccount-profilecreation-signal")
 # post_save.connect(recheck_after_saving_wall_attempt, sender=Attempt, dispatch_uid="wallattempt-recheck-signal")
 # post_save.connect(recheck_after_saving_wall_task, sender=Task, dispatch_uid="walltask-recheck-signal")
+
+
+@receiver(user_signed_up)
+def analytics_user_signed_up(request, user, sociallogin=None, **kwargs):
+    method = 'email'
+    try:
+        if sociallogin is not None and getattr(sociallogin, 'account', None) is not None:
+            method = sociallogin.account.provider or method
+    except Exception:
+        pass
+    queue_pending_goal(
+        request,
+        YANDEX_GOAL_SIGNUP,
+        params={'method': method},
+        key='signup:{}'.format(getattr(user, 'pk', 'new')),
+    )

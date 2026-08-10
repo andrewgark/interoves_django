@@ -347,6 +347,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'games.context_processors.ui_section_games',
                 'games.context_processors.site_deploy_version',
+                'games.context_processors.analytics_bootstrap',
             ],
         },
     },
@@ -646,6 +647,8 @@ SOCIALACCOUNT_PROVIDERS = {
 ACCOUNT_ADAPTER = 'games.users.allauth.AccountAdapter'
 SOCIALACCOUNT_ADAPTER = "games.users.allauth.SocialAccountAdapter"
 SOCIALACCOUNT_AUTO_SIGNUP = True
+
+YANDEX_METRIKA_COUNTER_ID = int(os.environ.get('YANDEX_METRIKA_COUNTER_ID') or 108320022)
 
 TEMPLATE_CONTEXT_PROCESSORS = (
     "django.core.context_processors.auth",
