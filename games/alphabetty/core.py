@@ -128,6 +128,12 @@ def known_prefix(
         while lcp < limit and lo_n[lcp] == hi_n[lcp]:
             lcp += 1
         bound_prefix = lo_n[:lcp]
+    elif lo_n and lo_n[0] == _RU_ORDER[-1]:
+        # После слова на последнюю букву алфавита ответ тоже начинается с нее.
+        bound_prefix = lo_n[:1]
+    elif hi_n and hi_n[0] == _RU_ORDER[0]:
+        # Перед словом на первую букву алфавита ответ тоже начинается с нее.
+        bound_prefix = hi_n[:1]
     hp = normalize_word(hint_prefix)
     if not hp:
         return bound_prefix

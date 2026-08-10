@@ -131,6 +131,12 @@ class AlphabettyCoreTests(TestCase):
         self.assertEqual(known_prefix('римлянин', 'рисунок', hint_prefix='РИН'), 'РИН')
         self.assertEqual(known_prefix(None, None, hint_prefix='СЛ'), 'СЛ')
 
+    def test_known_prefix_uses_alphabet_edge_with_one_bound(self):
+        self.assertEqual(known_prefix('ЯБЕДА', None), 'Я')
+        self.assertEqual(known_prefix(None, 'АБАКАН'), 'А')
+        self.assertEqual(known_prefix('БАБКА', None), '')
+        self.assertEqual(known_prefix(None, 'ЮБИЛЕЙ'), '')
+
     def test_prefix_hint_only_known(self):
         rows = build_prefix_level(None, None, expand_prefix='РИ')
         self.assertTrue(rows)
