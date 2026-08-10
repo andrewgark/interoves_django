@@ -115,7 +115,9 @@
         <button type="button"
                 class="new-btn new-btn--ghost new-btn--mini new-alphabetty__suggest"
                 id="ab-suggest"
-                hidden>Предложить добавить в словарь</button>
+                hidden
+                title="Предложить добавить слово в словарь"
+                aria-label="Предложить добавить слово в словарь">Предложить слово</button>
       </div>
     </div>
 
@@ -292,8 +294,14 @@
       (opts.dim ? ' is-dim' : '');
     var kp = opts.knownPrefix || '';
     if (opts.nearest && kp) {
+      var normalizedWord = normalizeWord(word);
+      var normalizedPrefix = normalizeWord(kp);
       var shared = 0;
-      while (shared < kp.length && shared < word.length && word[shared] === kp[shared]) {
+      while (
+        shared < normalizedPrefix.length &&
+        shared < normalizedWord.length &&
+        normalizedWord[shared] === normalizedPrefix[shared]
+      ) {
         shared += 1;
       }
       if (shared > 0) {
@@ -616,7 +624,9 @@
     }
     elSuggest.hidden = false;
     elSuggest.disabled = false;
-    elSuggest.textContent = 'Предложить добавить в словарь';
+    elSuggest.textContent = 'Предложить слово';
+    elSuggest.title = 'Предложить добавить слово в словарь';
+    elSuggest.setAttribute('aria-label', 'Предложить добавить слово в словарь');
   }
 
   function showMsg(text, kind, opts) {

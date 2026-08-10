@@ -7015,8 +7015,10 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   color: var(--accent);
 }
 .new-alphabetty__word.is-nearest .new-alphabetty__word-known {
-  text-decoration: underline;
-  text-underline-offset: 0.12em;
+  display: inline-block;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 0.06em;
+  line-height: 0.95;
 }
 
 .new-alphabetty__input-wrap {
@@ -7348,6 +7350,35 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
     grid-template-columns: auto minmax(0, 1fr);
     column-gap: 0.5rem;
     height: clamp(18rem, calc(100dvh - 12rem), 32rem);
+  }
+  .new-alphabetty__block-title {
+    margin-bottom: 0.35rem;
+    font-size: 0.98rem;
+    line-height: 1.25;
+  }
+  .new-alphabetty__words {
+    gap: 0.12rem;
+  }
+  .new-alphabetty__word {
+    font-size: 1rem;
+    line-height: 1.32;
+  }
+  .new-alphabetty__form {
+    gap: 0.35rem;
+  }
+  .new-alphabetty__msg-row {
+    align-items: flex-start;
+    gap: 0.28rem 0.5rem;
+    margin-top: 0.3rem;
+  }
+  .new-alphabetty__msg {
+    flex: 1 1 100%;
+    font-size: 0.84rem;
+    line-height: 1.22;
+  }
+  .new-alphabetty__suggest {
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
   }
   .new-alphabetty__prefix-side.is-open {
     width: max-content;
