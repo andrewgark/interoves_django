@@ -1,6 +1,7 @@
 import json
 from unittest.mock import patch
 
+from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
@@ -20,6 +21,7 @@ from games.models import (
 )
 from games.views.attempt_views import check_attempt
 from games.views.hint_views import process_send_hint_attempt
+from games.views.new_ui import new_task_group_page
 from games.word_salad import build_ui_context, mask_for_word, serialize_task_data, validate_task_data
 
 
@@ -203,3 +205,15 @@ class WordSaladTests(TestCase):
             Attempt.manager.filter(task=self.task, anon_key='word-salad-auto-correct-test').count(),
             1,
         )
+
+    def test_public_task_group_renders_grid_and_words(self):
+        request = RequestFactory().get(
+            '/games/{}/1/?anon=word-salad-render-test'.format(self.game.pk),
+        )
+        request.user = AnonymousUser()
+        request.session = {'play_mode_sections': 'personal'}
+        with patch('games.views.new_ui.render', side_effect=lambda _request, _template, context: context):
+            context = new_task_group_page(request, self.game.pk, '1')
+        self.assertIn(self.task.pk, context['word_salad_data'])
+        self.assertEqual(len(context['word_salad_data'][self.task.pk]['grid_rows']), 4)
+        self.assertEqual(len(context['word_salad_data'][self.task.pk]['words']), 1)
