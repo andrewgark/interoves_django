@@ -110,6 +110,7 @@ from games.raddle import (
     raddle_result_squares_for_actor,
     raddle_word_solved_list,
 )
+from games.word_salad import WORD_SALAD_GAME_ID
 from games.word_salad import build_ui_context as build_word_salad_ui_context
 from games.word_salad import load_state as load_word_salad_state
 from games.word_salad import parse_task_data as parse_word_salad_task_data
@@ -672,7 +673,7 @@ def get_section_games(request):
         team = request.user.profile.team_on
     games_list = [
         g for g in Game.objects.filter(project=project)
-        if g.id not in (LADDER_GAME_ID, ALPHABETTY_GAME_ID)
+        if g.id not in (LADDER_GAME_ID, ALPHABETTY_GAME_ID, WORD_SALAD_GAME_ID)
         and g.has_access('see_game_preview', team=team)
     ]
     return sorted(games_list, key=lambda g: _SECTION_NAV_ORDER.get(g.id, 99))

@@ -53,6 +53,16 @@ from games.support.services.ladders import (
     set_publish_start,
     update_ladder,
 )
+from games.support.services.word_salad import (
+    WordSaladSupportError,
+    create_word_salad,
+    dashboard_context as word_salad_dashboard_context,
+    delete_word_salad,
+    ensure_word_salad_game,
+    get_word_salad_detail,
+    list_word_salad_rows,
+    update_word_salad,
+)
 from games.ladder_offer import (
     LadderOfferError,
     accept_offer,
@@ -196,6 +206,52 @@ def sections_dashboard(request):
         'page_title': 'Разделы',
         'sections': get_sections_dashboard(),
     })
+
+
+@support_console_required
+def word_salad_dashboard(request):
+    edit_raw = (request.GET.get('edit') or '').strip()
+    edit_link_id = int(edit_raw) if edit_raw.isdigit() else None
+    ctx = word_salad_dashboard_context(edit_link_id=edit_link_id)
+    return render(request, 'support/word_salad.html', ctx)
+
+
+def _word_salad_error_response(exc: WordSaladSupportError, status=400):
+    return JsonResponse({'ok': False, 'error': str(exc)}, status=status)
+
+
+@support_console_required
+@require_POST
+def word_salad_create(request):
+    try:
+        detail = create_word_salad()
+    except WordSaladSupportError as exc:
+        return _word_salad_error_response(exc)
+    return JsonResponse({'ok': True, 'detail': detail})
+
+
+@support_console_required
+@require_POST
+def word_salad_save(request, link_id):
+    intro = (request.POST.get('intro') or '').strip()
+    grid_text = request.POST.get('grid_text') or ''
+    words_text = request.POST.get('words_text') or ''
+    name = request.POST.get('name')
+    try:
+        detail = update_word_salad(link_id, intro=intro, grid_text=grid_text, words_text=words_text, name=name)
+    except WordSaladSupportError as exc:
+        return _word_salad_error_response(exc)
+    return JsonResponse({'ok': True, 'detail': detail})
+
+
+@support_console_required
+@require_POST
+def word_salad_delete(request, link_id):
+    try:
+        delete_word_salad(link_id)
+    except WordSaladSupportError as exc:
+        return _word_salad_error_response(exc)
+    return JsonResponse({'ok': True})
 
 
 @support_console_required

@@ -5,6 +5,7 @@ import re
 
 
 WORD_RE = re.compile(r"[А-ЯЁA-Z]", re.IGNORECASE)
+WORD_SALAD_GAME_ID = 'word_salad'
 
 
 def normalize_word(value):

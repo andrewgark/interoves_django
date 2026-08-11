@@ -1,0 +1,91 @@
+{% extends "support/base.html" %}
+{% load static %}
+
+{% block support_content %}
+<h1 class="support-page-title">Словесный Салат</h1>
+<p class="support-lead">Скрытый support-редактор для Word Salad. Здесь можно создавать, править и сразу проверять задачи.</p>
+
+<div class="support-links">
+  <a href="{% url 'support:sections' %}">Разделы</a>
+  <a href="{% url 'support:game' 'word_salad' %}">Game dashboard</a>
+</div>
+
+<section class="pal-card support-card">
+  <div class="support-action-row support-action-row--mt-sm">
+    <form id="word-salad-create-form" method="post" action="{% url 'support:word_salad_create' %}">
+      {% csrf_token %}
+      <button type="submit" class="new-btn">+ Создать тестовый салат</button>
+    </form>
+  </div>
+  <div class="support-table-wrap">
+    <table class="support-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Название</th>
+          <th>Сетка</th>
+          <th>Слова</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td class="support-cell-mono">{{ row.number }}</td>
+            <td>
+              <strong>{{ row.name }}</strong>
+              <div class="support-results-list__detail">id {{ row.link_id }} · task {{ row.task_id|default:"—" }}</div>
+            </td>
+            <td class="support-cell-mono">{{ row.grid_preview }}</td>
+            <td class="support-cell-detail">{{ row.words_preview }}</td>
+            <td>
+              <div class="support-action-row">
+                <a href="?edit={{ row.link_id }}" class="new-btn new-btn--mini new-btn--ghost">редактировать</a>
+                <a href="{{ row.preview_url }}" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost">проверить</a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5"><p class="support-empty">Пока нет Word Salad задач. Нажмите «Создать тестовый салат».</p></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if detail %}
+  <section class="pal-card support-card">
+    <h2 class="pal-title">Редактирование #{{ detail.number }}</h2>
+    <p class="support-hint">ID {{ detail.link_id }} · {{ detail.words_count }} слов</p>
+    <form id="word-salad-edit-form" method="post" action="{% url 'support:word_salad_save' detail.link_id %}" data-delete-url="{% url 'support:word_salad_delete' detail.link_id %}">
+      {% csrf_token %}
+      <label class="support-ladders-field support-ladders-field--spaced">
+        Название
+        <input type="text" name="name" value="{{ detail.name|default:'' }}">
+      </label>
+      <label class="support-ladders-field support-ladders-field--spaced">
+        Вступление
+        <textarea name="intro" rows="4">{{ detail.intro|default:'' }}</textarea>
+      </label>
+      <label class="support-ladders-field support-ladders-field--spaced">
+        Сетка
+        <textarea name="grid_text" rows="5">{{ detail.grid_text|default:'' }}</textarea>
+      </label>
+      <label class="support-ladders-field support-ladders-field--spaced">
+        Слова
+        <textarea name="words_text" rows="8">{{ detail.words_text|default:'' }}</textarea>
+      </label>
+      <div class="support-action-row support-action-row--mt">
+        <button type="submit" class="new-btn">Сохранить</button>
+        <a href="{{ detail.preview_url }}" target="_blank" rel="noopener" class="new-btn new-btn--ghost">Проверить</a>
+        <button type="button" class="new-btn new-btn--ghost" id="word-salad-delete-btn">Удалить</button>
+      </div>
+      <p class="support-hint support-ladder-edit-error" id="word-salad-edit-error" hidden></p>
+    </form>
+  </section>
+{% endif %}
+
+<script src="{% static 'js/support_word_salad.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% endblock %}
