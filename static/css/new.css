@@ -7691,10 +7691,10 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   appearance: none;
   width: 2.15rem;
   height: 2.15rem;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, var(--border));
   border-radius: 999px;
-  background: var(--surface);
-  color: var(--muted);
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  color: var(--warning);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -7708,10 +7708,15 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 
 .new-word-salad__hint-btn:hover,
 .new-word-salad__hint-btn:focus-visible {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--warning-hover);
+  border-color: color-mix(in srgb, var(--warning) 65%, var(--border));
+  background: color-mix(in srgb, var(--warning) 18%, var(--surface));
   outline: none;
+}
+
+.new-word-salad__hint-btn:focus-visible {
+  outline: 2px solid var(--warning);
+  outline-offset: 2px;
 }
 
 .new-word-salad__hint-btn:disabled {
