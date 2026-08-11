@@ -2,6 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from django.test import SimpleTestCase, TestCase
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 from games.ladder_daily import (
@@ -121,6 +122,39 @@ class FilterPublishedLadderLinksTests(TestCase):
 
 
 class LadderSectionPageTests(TestCase):
+    def test_ladder_archive_rows_show_first_and_last_words(self):
+        from games.models import GameTaskGroup
+        from games.views.new_ui import _ladder_task_group_rows
+
+        game = Game.objects.get(id='ladder', project_id='sections')
+        task_group = TaskGroup.objects.create(label='ladder-endpoints')
+        link = GameTaskGroup.objects.create(
+            game=game,
+            task_group=task_group,
+            number='321',
+            name='#321',
+        )
+        link.n_tasks = 1
+        Task.objects.create(
+            task_group=task_group,
+            number='1',
+            task_type='raddle',
+            checker_data=(
+                '{"lengths":[5,7,5],"hints":["a","b"],'
+                '"words":["ПАРИЖ","ФРАНЦИЯ","ДАКАР"]}'
+            ),
+        )
+
+        rows = _ladder_task_group_rows([link], game)
+
+        self.assertEqual(rows[0]['raddle_start_word'], 'ПАРИЖ')
+        self.assertEqual(rows[0]['raddle_end_word'], 'ДАКАР')
+        html = render_to_string(
+            'new/_task_group_rows.html',
+            {'task_group_rows': rows, 'game': game},
+        )
+        self.assertIn('ПАРИЖ → ДАКАР', html)
+
     def test_hub_section_task_group_links_ladder_does_not_crash(self):
         from games.views.new_ui import _hub_section_task_group_links
 

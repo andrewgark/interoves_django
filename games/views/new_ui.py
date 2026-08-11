@@ -800,6 +800,30 @@ def _ladder_task_group_rows(
     today_prefix='Сегодня',
     item_label='Лесенка',
 ):
+    task_groups = list(task_groups)
+    endpoints_by_task_group = {}
+    if game.id == LADDER_GAME_ID:
+        task_group_ids = [p.task_group_id for p in task_groups]
+        raddle_tasks = (
+            Task.objects.filter(
+                task_group_id__in=task_group_ids,
+                task_type='raddle',
+            )
+            .visible()
+            .only('id', 'task_group_id', 'task_type', 'checker_data', 'answer')
+            .order_by('task_group_id', 'id')
+        )
+        for task in raddle_tasks:
+            if task.task_group_id in endpoints_by_task_group:
+                continue
+            parsed = parse_raddle_data(task)
+            if not parsed or not parsed['words']:
+                continue
+            first_word = parsed['words'][0]
+            last_word = parsed['words'][-1]
+            if first_word and last_word:
+                endpoints_by_task_group[task.task_group_id] = (first_word, last_word)
+
     rows = []
     for p in task_groups:
         is_today = today_number is not None and str(p.number) == str(today_number)
@@ -808,6 +832,7 @@ def _ladder_task_group_rows(
             if is_today
             else '{} №{}'.format(item_label, p.number)
         )
+        endpoints = endpoints_by_task_group.get(p.task_group_id)
         rows.append({
             'task_group': p.task_group,
             'game': game,
@@ -820,6 +845,8 @@ def _ladder_task_group_rows(
             'row_class': 'new-task--today' if is_today else '',
             'title': title,
             'progress_text': None,
+            'raddle_start_word': endpoints[0] if endpoints else None,
+            'raddle_end_word': endpoints[1] if endpoints else None,
         })
     return rows
 
