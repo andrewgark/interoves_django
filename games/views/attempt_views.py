@@ -79,7 +79,7 @@ def _raddle_stale_submit_response(request, task, team, user, anon_key, game, cur
     return None
 
 
-def check_attempt(attempt):
+def check_attempt(attempt, *, persist_wrong=True):
     task = attempt.task
     team = attempt.team
     user = getattr(attempt, 'user', None)
@@ -218,36 +218,47 @@ def check_attempt(attempt):
         from decimal import Decimal
         attempt.points = Decimal(str(attempt.points or 0)) * task.get_points()
 
+        # Auto-checking controls may probe a candidate without turning every typo
+        # into an Attempt. The checker still runs under the chain-state lock, but
+        # only a result that advances the task is committed.
+        if not persist_wrong and check_result.status in ('Wrong', 'Pending'):
+            return False
+
         attempt.save()
 
         if chain_state_row is not None:
             chain_state_row.state = attempt.state
             chain_state_row.last_attempt = attempt
             chain_state_row.save(update_fields=['state', 'last_attempt', 'updated_at'])
+        return True
 
     if is_chain_task:
         with transaction.atomic():
-            _run()
+            persisted = _run()
     else:
-        _run()
+        persisted = _run()
+
+    if not persisted:
+        return False
 
     # if some task had tag on this task, recheck it too
     if task.task_type == 'with_tag':
         tag_task_number = task.tags.get('task')
         tag_team_name = task.tags.get('team')
         if tag_task_number is None or tag_team_name is None:
-            return
+            return True
         try:
             tag_task = Task.objects.visible().get(
                 task_group=task.task_group, checker_data__contains=tag_task_number,
             )
             tag_team = Team.objects.get(name=tag_team_name)
             assert tag_task.task_type != 'with_tag'
-        except:
-            return
+        except Exception:
+            return True
 
         for tag_attempt in Attempt.manager.filter(task=tag_task, team=tag_team, game=game):
             check_attempt(tag_attempt)
+    return True
 
 
 def get_first_new_hint(task, team):
@@ -403,16 +414,21 @@ def process_send_attempt(request, task_id):
         if stale is not None:
             return stale
 
-    check_attempt(attempt)
+    correct_only = (
+        task.task_type == 'word_salad'
+        and action == 'solve'
+        and request.POST.get('correct_only') == '1'
+    )
+    attempt_persisted = check_attempt(attempt, persist_wrong=not correct_only)
 
-    if task.task_type == 'autohint' and attempt.status in ('Pending', 'Wrong'):
+    if attempt_persisted and task.task_type == 'autohint' and attempt.status in ('Pending', 'Wrong'):
         hint = get_first_new_hint_actor(task, team=team, user=user, anon_key=anon_key)
         if hint is not None:
             from games.views.hint_views import create_hint_attempt
             create_hint_attempt(hint, team=team, user=user, anon_key=anon_key, game=game)
 
     analytics_events = []
-    if supported_game_kind(game) and is_task_completion_state(task, attempt.state):
+    if attempt_persisted and supported_game_kind(game) and is_task_completion_state(task, attempt.state):
         analytics_events = register_completed_game(
             team=team,
             user=user,
@@ -449,10 +465,16 @@ def process_send_attempt(request, task_id):
                     result['raddle_needs_sync'] = True
             except (ValueError, TypeError):
                 pass
+    if task.task_type == 'word_salad':
+        result['word_salad_correct'] = bool(attempt_persisted)
+        if not attempt_persisted and attempt.comment:
+            result['word_salad_comment'] = attempt.comment
 
     # Raddle wrong answers: client updates locally (showRaddleWrongFeedback); skip ~40KB HTML.
-    need_task_html = task.task_type != 'raddle' or (
-        result.get('raddle_correct') or result.get('raddle_needs_sync')
+    need_task_html = (
+        task.task_type != 'raddle' or result.get('raddle_correct') or result.get('raddle_needs_sync')
+    ) and (
+        task.task_type != 'word_salad' or result.get('word_salad_correct')
     )
     if need_task_html:
         update_html = update_task_html(

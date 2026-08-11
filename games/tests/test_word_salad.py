@@ -20,7 +20,7 @@ from games.models import (
 )
 from games.views.attempt_views import check_attempt
 from games.views.hint_views import process_send_hint_attempt
-from games.word_salad import build_ui_context, serialize_task_data, validate_task_data
+from games.word_salad import build_ui_context, mask_for_word, serialize_task_data, validate_task_data
 
 
 def _setup_db():
@@ -75,6 +75,9 @@ class WordSaladTests(TestCase):
         grid, words = validate_task_data(self.task.checker_data, '')
         self.assertEqual(len(grid), 16)
         self.assertEqual(len(words), 1)
+
+    def test_mask_uses_white_square_emoji(self):
+        self.assertEqual(mask_for_word('AB-CD'), '⬜⬜-⬜⬜')
 
     def test_admin_form_serializes_word_salad_fields(self):
         form = WordSaladTaskForm(
@@ -164,3 +167,39 @@ class WordSaladTests(TestCase):
             response = process_send_hint_attempt(request, self.task.id)
         self.assertEqual(response['status'], 'ok')
         delegated.assert_called_once()
+
+    def test_correct_only_does_not_save_wrong_word_salad_path(self):
+        response = self.client.post(
+            '/send_attempt/{}/'.format(self.task.pk),
+            {
+                'game_id': self.game.pk,
+                'anon_key': 'word-salad-auto-test',
+                'action': 'solve',
+                'path': json.dumps([0, 1]),
+                'correct_only': '1',
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'ok')
+        self.assertFalse(response.json()['word_salad_correct'])
+        self.assertFalse(Attempt.manager.filter(task=self.task, anon_key='word-salad-auto-test').exists())
+
+    def test_correct_only_saves_matching_word_salad_path(self):
+        with patch('games.views.attempt_views.track_task_change'):
+            response = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': 'word-salad-auto-correct-test',
+                    'action': 'solve',
+                    'path': json.dumps(_path()),
+                    'correct_only': '1',
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'ok')
+        self.assertTrue(response.json()['word_salad_correct'])
+        self.assertEqual(
+            Attempt.manager.filter(task=self.task, anon_key='word-salad-auto-correct-test').count(),
+            1,
+        )

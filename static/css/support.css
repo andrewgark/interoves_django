@@ -446,6 +446,11 @@ html.new-ui-dark .support-preview-banner {
   opacity: 0.85;
 }
 
+.support-preview-readonly button.new-word-salad__hint-btn[type="submit"] {
+  pointer-events: auto;
+  opacity: 1;
+}
+
 @media (max-width: 919px) {
   .support-table {
     font-size: 0.8rem;

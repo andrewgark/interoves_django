@@ -15,6 +15,7 @@
                 class="new-word-salad__cell{% if cell.is_active %} is-active{% endif %}{% if cell.is_hinted %} is-hinted{% endif %}"
                 data-word-salad-cell
                 data-index="{{ cell.index }}"
+                data-letter="{{ cell.letter }}"
                 aria-pressed="false"
                 aria-label="Клетка {{ cell.index|add:1 }}: {{ cell.letter }}">
                 {{ cell.letter }}
@@ -36,13 +37,13 @@
         <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
         <input type="hidden" name="action" value="solve">
         <input type="hidden" name="path" value="[]" data-word-salad-path>
-        <button type="submit" class="new-btn new-word-salad__submit" disabled>Проверить</button>
+        <input type="hidden" name="correct_only" value="1">
         <button type="button" class="new-btn new-btn--ghost new-btn--mini new-word-salad__reset" data-word-salad-reset>Сбросить</button>
       </form>
 
       <div class="new-attempt-msg new-word-salad__msg" aria-live="polite"></div>
       <p class="new-word-salad__hint-text">
-        Выделяйте клетки мышью с зажатой кнопкой или кликами по одной, затем нажимайте «Проверить».
+        Выделяйте клетки мышью с зажатой кнопкой или кликами по одной. Готовое слово проверится автоматически.
       </p>
     </section>
 
@@ -54,7 +55,7 @@
 
       <ul class="new-word-salad__words-list">
         {% for word in ws.words %}
-          <li class="new-word-salad__word{% if word.is_solved %} is-solved{% endif %}{% if word.is_hinted %} is-hinted{% endif %}" data-word-index="{{ word.index }}" data-first-letter="{{ word.first_letter }}">
+          <li class="new-word-salad__word{% if word.is_solved %} is-solved{% endif %}{% if word.is_hinted %} is-hinted{% endif %}" data-word-index="{{ word.index }}" data-word-length="{{ word.length }}" data-first-letter="{{ word.first_letter }}"{% if support_preview %} data-preview-answer="{{ word.original }}" data-preview-normalized="{{ word.normalized }}"{% endif %}>
             <div class="new-word-salad__word-row">
               <form class="new-hint-form new-word-salad__hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-skip-hints-open="1">
                 {% csrf_token %}

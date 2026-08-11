@@ -7664,8 +7664,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   flex: 1 1 auto;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 1rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
   word-break: break-word;
+  text-align: center;
 }
 
 .new-word-salad__len {

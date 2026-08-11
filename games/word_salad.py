@@ -158,7 +158,7 @@ def mask_for_word(word, reveal_first=False):
                 result.append(letter)
                 revealed = True
             else:
-                result.append('_')
+                result.append('⬜')
         else:
             result.append(ch)
     return ''.join(result)
@@ -229,6 +229,7 @@ def build_ui_context(grid, words, state=None):
         words_ui.append({
             'index': index,
             'original': word,
+            'normalized': normalized,
             'mask_html': word if index in solved else mask_for_word(word, reveal_first=index in hints),
             'length': len(normalized),
             'is_solved': index in solved,

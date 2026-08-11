@@ -65,6 +65,8 @@ class WordSaladSupportTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('new-word-salad__cell', response.content.decode('utf-8'))
         self.assertIn('new-word-salad__word', response.content.decode('utf-8'))
+        self.assertIn('data-preview-normalized=', response.content.decode('utf-8'))
+        self.assertIn('js/new_word_salad.js', response.content.decode('utf-8'))
 
     def test_create_word_salad_auto_creates_checker_type(self):
         CheckerType.objects.filter(pk='word_salad').delete()
