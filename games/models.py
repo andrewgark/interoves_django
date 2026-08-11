@@ -778,10 +778,10 @@ class Task(models.Model):
                 from games.word_salad import parse_task_data
                 _, words = parse_task_data(self.checker_data, '')
                 if words:
-                    return m * len(words)
+                    return len(words)
             except Exception:
                 pass
-            return m
+            return 0
         if self.task_type == 'alphabetty':
             return m
         return m
@@ -879,10 +879,33 @@ class AttemptsInfo:
         )
 
     def get_result_points(self):
+        sample = self.last_attempt or self.best_attempt
+        if sample is not None and getattr(getattr(sample, 'task', None), 'task_type', None) == 'word_salad':
+            from games.word_salad import result_points_from_attempts
+            return result_points_from_attempts(self.attempts)
         result_points = 0
         if self.best_attempt:
             result_points += self.best_attempt.points
         return max(0, result_points - self.get_sum_hint_penalty())
+
+    def get_result_attempt(self):
+        sample = self.last_attempt or self.best_attempt
+        if sample is not None and getattr(getattr(sample, 'task', None), 'task_type', None) == 'word_salad':
+            return self.last_attempt
+        return self.best_attempt
+
+    def get_hint_numbers(self):
+        sample = self.last_attempt or self.best_attempt
+        if sample is not None and getattr(getattr(sample, 'task', None), 'task_type', None) == 'word_salad':
+            from games.word_salad import hint_numbers_from_attempts
+            return hint_numbers_from_attempts(self.attempts)
+        return [
+            ha.hint.number
+            for ha in sorted(
+                [ha for ha in (self.hint_attempts or []) if ha.is_real_request],
+                key=lambda ha: ha.hint.key_sort(),
+            )
+        ]
 
 
 class AttemptManager(models.Manager):

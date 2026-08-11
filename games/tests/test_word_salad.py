@@ -22,7 +22,14 @@ from games.models import (
 from games.views.attempt_views import check_attempt
 from games.views.hint_views import process_send_hint_attempt
 from games.views.new_ui import build_task_group_task_context_dicts, new_task_group_page
-from games.word_salad import build_ui_context, mask_for_word, serialize_task_data, validate_task_data
+from games.word_salad import (
+    build_ui_context,
+    hint_numbers_from_attempts,
+    mask_for_word,
+    score_for_state,
+    serialize_task_data,
+    validate_task_data,
+)
 
 
 def _setup_db():
@@ -158,6 +165,9 @@ class WordSaladTests(TestCase):
         context = build_ui_context(_puzzle()['grid'], _puzzle()['words'], state)
         self.assertEqual(context['words'][0]['mask_html'], 'AB⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜')
         self.assertEqual(context['words'][0]['next_hint_number'], 3)
+        self.assertEqual(score_for_state(state), 0)
+        attempts = list(Attempt.manager.filter(task=self.task, team=self.team).order_by('time', 'pk'))
+        self.assertEqual(hint_numbers_from_attempts(attempts), ['1.1', '1.2'])
 
     def test_hint_endpoint_accepts_consecutive_letters(self):
         anon_key = 'word-salad-hints-test'
@@ -183,7 +193,8 @@ class WordSaladTests(TestCase):
         ).state)
         self.assertEqual(state['hint_counts'], {'0': 2})
         html = response.json()['update_task_html_new'][str(self.task.pk)]
-        self.assertIn('>Узнать букву 3<', html)
+        self.assertIn('title="Узнать 3 букву"', html)
+        self.assertIn('ph ph-lightbulb', html)
         self.assertIn('AB⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜', html)
 
     def test_solve_attempt_prunes_grid_and_solves(self):
@@ -200,6 +211,34 @@ class WordSaladTests(TestCase):
         self.assertEqual(state['solved_indices'], [0])
         self.assertEqual(state['active'], [])
         self.assertEqual(attempt.status, 'Ok')
+        self.assertEqual(attempt.points, 1)
+
+    def test_one_hint_costs_half_a_point_after_solve(self):
+        hint = Attempt(
+            task=self.task,
+            team=self.team,
+            text=json.dumps({'action': 'hint', 'word_index': 0, 'hint_number': 1}),
+            time=timezone.now(),
+            game=self.game,
+        )
+        check_attempt(hint)
+        solve = Attempt(
+            task=self.task,
+            team=self.team,
+            text=json.dumps({'action': 'solve', 'path': _path()}),
+            time=timezone.now(),
+            game=self.game,
+        )
+        check_attempt(solve)
+        info = Attempt.manager.get_attempts_info(self.team, self.task, game=self.game)
+        self.assertEqual(solve.points, 0.5)
+        self.assertEqual(info.get_result_points(), 0.5)
+        self.assertEqual(info.get_hint_numbers(), ['1.1'])
+        from games.views.new_ui import _new_results_compute
+        results = _new_results_compute(self.game, mode='general')
+        cell = results['team_to_cells'][self.team][0]
+        self.assertEqual(cell['result_points'], 0.5)
+        self.assertEqual(cell['hint_numbers'], ['1.1'])
 
     def test_build_ui_context_preserves_empty_active(self):
         grid, words = build_ui_context(
@@ -285,6 +324,7 @@ class WordSaladTests(TestCase):
         html = response.json()['update_task_html_new'][str(self.task.pk)]
         self.assertEqual(html.count('data-word-salad-letter></span>'), 16)
         self.assertNotIn('new-word-salad__hint-btn', html)
+        self.assertIn('data-word-salad-solved>Решено!</div>', html)
 
     def test_public_task_group_renders_grid_and_words(self):
         request = RequestFactory().get(
@@ -297,3 +337,15 @@ class WordSaladTests(TestCase):
         self.assertIn(self.task.pk, context['word_salad_data'])
         self.assertEqual(len(context['word_salad_data'][self.task.pk]['grid_rows']), 4)
         self.assertEqual(len(context['word_salad_data'][self.task.pk]['words']), 1)
+        self.assertEqual(context['task_ui_by_task_id'][self.task.pk]['base_max'], 1)
+        self.assertEqual(context['task_group_pager_label'], 'Набор')
+
+    def test_word_salad_game_uses_named_pager(self):
+        old_id = self.game.id
+        self.game.id = 'word_salad'
+        try:
+            from games.views.new_ui import _task_group_page_nav_context
+            context = _task_group_page_nav_context(self.game)
+        finally:
+            self.game.id = old_id
+        self.assertEqual(context['task_group_pager_label'], 'Словесный Салат')

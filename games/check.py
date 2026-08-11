@@ -716,7 +716,14 @@ class WordSaladChecker(BaseChecker):
         self.last_state = load_state(last_attempt_state)
 
     def check(self, text, attempt):
-        from games.word_salad import dump_state, load_state, neighbours, normalize_word, removable_cells
+        from games.word_salad import (
+            dump_state,
+            load_state,
+            neighbours,
+            normalize_word,
+            removable_cells,
+            score_for_state,
+        )
         try:
             payload = json.loads(text)
         except (TypeError, ValueError):
@@ -732,23 +739,23 @@ class WordSaladChecker(BaseChecker):
             try:
                 word_index = int(payload.get('word_index', -1))
             except (TypeError, ValueError):
-                return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Неверная подсказка')
+                return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Неверная подсказка')
             if not (0 <= word_index < len(self.words)):
-                return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Неверная подсказка')
+                return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Неверная подсказка')
             if word_index in solved:
-                return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Слово уже открыто')
+                return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Слово уже открыто')
             current_count = int(hint_counts.get(word_index, 0) or 0)
             word_length = len(normalize_word(self.words[word_index]))
             if current_count >= word_length:
-                return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Все буквы уже раскрыты')
+                return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Все буквы уже раскрыты')
             requested_number = payload.get('hint_number')
             if requested_number is not None:
                 try:
                     requested_number = int(requested_number)
                 except (TypeError, ValueError):
-                    return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Неверная подсказка')
+                    return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Неверная подсказка')
                 if requested_number != current_count + 1:
-                    return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Устаревшая подсказка')
+                    return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Устаревшая подсказка')
             hint_counts[word_index] = current_count + 1
             state = {
                 'solved_indices': sorted(solved),
@@ -757,23 +764,23 @@ class WordSaladChecker(BaseChecker):
                 'active': sorted(active),
             }
             tournament_status = 'Partial' if solved else 'Wrong'
-            return CheckResult('Partial', tournament_status, len(solved), dump_state(state))
+            return CheckResult('Partial', tournament_status, score_for_state(state), dump_state(state))
         try:
             path = [int(value) for value in payload.get('path', [])]
         except (TypeError, ValueError):
-            return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Неверный формат пути')
+            return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Неверный формат пути')
         if not path or len(path) != len(set(path)) or any(i not in active for i in path):
-            return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Недопустимый путь')
+            return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Недопустимый путь')
         if any(b not in set(neighbours(a)) for a, b in zip(path, path[1:])):
-            return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Буквы не соседние')
+            return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Буквы не соседние')
         written = ''.join(self.grid[i] for i in path)
         already = next((i for i, word in enumerate(self.words) if normalize_word(word) == written), None)
         if already is not None and already in solved:
-            return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Слово уже открыто')
+            return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Слово уже открыто')
         match = next((i for i, word in enumerate(self.words)
                       if i not in solved and normalize_word(word) == written), None)
         if match is None:
-            return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Слово не найдено')
+            return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Слово не найдено')
         solved.add(match)
         while True:
             removable = removable_cells(self.grid, self.words, active, solved)
@@ -787,7 +794,7 @@ class WordSaladChecker(BaseChecker):
             'active': sorted(active),
         }
         status = 'Ok' if len(solved) == len(self.words) else 'Partial'
-        return CheckResult(status, status, len(solved), dump_state(state))
+        return CheckResult(status, status, score_for_state(state), dump_state(state))
 
 
 class SolutionsTagNumber:

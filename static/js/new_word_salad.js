@@ -50,12 +50,17 @@
       var currentPath = [];
       var attemptedPaths = {};
       var busy = false;
+      var lastRejectedPathKey = '';
       var cells = Array.prototype.slice.call(root.querySelectorAll('[data-word-salad-cell]'));
       var cellByIndex = {};
       var currentEl = root.querySelector('[data-word-salad-current]');
       var pathInput = root.querySelector('[data-word-salad-path]');
       var form = root.querySelector('.new-word-salad__form');
       var resetBtn = root.querySelector('[data-word-salad-reset]');
+      var gridEl = root.querySelector('[data-word-salad-grid]');
+      var pathSvg = root.querySelector('[data-word-salad-path-svg]');
+      var pathLine = root.querySelector('[data-word-salad-path-line]');
+      var solvedEl = root.querySelector('[data-word-salad-solved]');
       var isPreview = !!root.closest('.support-preview-readonly');
       var storageKey = isPreview ? previewStorageKey(root) : '';
 
@@ -81,11 +86,36 @@
         return Math.max(Math.abs(rowA - rowB), Math.abs(colA - colB)) <= 1;
       }
 
-      function selectedWord() {
-        return currentPath.map(function (index) {
+      function selectedWord(path) {
+        return (path || currentPath).map(function (index) {
           var cell = cellByIndex[index];
           return cell ? (cell.getAttribute('data-letter') || '').trim() : '';
         }).join('');
+      }
+
+      function renderPath() {
+        if (!gridEl || !pathSvg || !pathLine) return;
+        var gridRect = gridEl.getBoundingClientRect();
+        if (!gridRect.width || !gridRect.height) return;
+        var points = currentPath.map(function (index) {
+          var cell = cellByIndex[index];
+          if (!cell) return null;
+          var rect = cell.getBoundingClientRect();
+          return [
+            rect.left - gridRect.left + rect.width / 2,
+            rect.top - gridRect.top + rect.height / 2
+          ];
+        }).filter(Boolean);
+        pathSvg.setAttribute('viewBox', '0 0 ' + gridRect.width + ' ' + gridRect.height);
+        var serialized = points.map(function (point) { return point[0] + ',' + point[1]; });
+        if (serialized.length === 1) serialized.push(serialized[0]);
+        pathLine.setAttribute('points', serialized.join(' '));
+      }
+
+      function syncSolvedState() {
+        if (!solvedEl) return;
+        var complete = wordRows().length > 0 && wordRows('.new-word-salad__word:not(.is-solved)').length === 0;
+        solvedEl.hidden = !complete;
       }
 
       function setCellActive(cell, active) {
@@ -116,17 +146,19 @@
         });
         if (currentEl) currentEl.textContent = selectedWord();
         if (pathInput) pathInput.value = JSON.stringify(currentPath);
-        if (resetBtn) resetBtn.disabled = currentPath.length === 0 || busy;
+        if (resetBtn) resetBtn.disabled = currentPath.length === 0;
+        window.requestAnimationFrame(renderPath);
       }
 
       function clearSelection() {
         currentPath = [];
         attemptedPaths = {};
+        lastRejectedPathKey = '';
         renderSelection();
       }
 
       function appendCell(cell) {
-        if (busy || !cell.classList.contains('is-active')) return;
+        if (!cell.classList.contains('is-active')) return;
         var index = cellIndex(cell);
         if (index < 0) return;
         var existing = currentPath.indexOf(index);
@@ -138,11 +170,13 @@
           currentPath = currentPath.slice(0, existing + 1);
           attemptedPaths = {};
           renderSelection();
+          if (activeDragRoot === root) maybeCheck();
           return;
         }
         if (currentPath.length && !isAdjacent(currentPath[currentPath.length - 1], index)) return;
         currentPath.push(index);
         renderSelection();
+        if (activeDragRoot === root) maybeCheck();
       }
 
       function wordRows(selector) {
@@ -158,10 +192,16 @@
         return unsolvedLengths().some(function (other) { return other > length; });
       }
 
-      function finishWrong() {
+      function finishWrong(pathKey) {
         busy = false;
         root.classList.remove('is-checking');
-        if (!hasLongerWord(currentPath.length)) clearSelection();
+        lastRejectedPathKey = pathKey || currentPath.join(',');
+        if (currentPath.join(',') !== lastRejectedPathKey) {
+          renderSelection();
+          maybeCheck();
+          return;
+        }
+        if (activeDragRoot !== root && !hasLongerWord(currentPath.length)) clearSelection();
         else renderSelection();
       }
 
@@ -183,7 +223,11 @@
         var numberInput = hintForm.querySelector('input[name="hint_number"]');
         var button = hintForm.querySelector('.new-word-salad__hint-btn');
         if (numberInput) numberInput.value = String(number);
-        if (button) button.textContent = 'Узнать букву ' + number;
+        if (button) {
+          var label = 'Узнать ' + number + ' букву';
+          button.title = label;
+          button.setAttribute('aria-label', label);
+        }
       }
 
       function collectPreviewState() {
@@ -201,6 +245,18 @@
           hint_counts: hintCounts,
           active: cells.filter(function (cell) { return cell.classList.contains('is-active'); }).map(cellIndex)
         };
+      }
+
+      function syncPreviewPoints() {
+        if (!isPreview) return;
+        var state = collectPreviewState();
+        var hintTotal = Object.keys(state.hint_counts).reduce(function (total, index) {
+          return total + (parseInt(state.hint_counts[index], 10) || 0);
+        }, 0);
+        var points = Math.max(0, state.solved_indices.length - hintTotal * 0.5);
+        var card = root.closest('.new-taskcard');
+        var value = card && card.querySelector('.new-proportions-compact-points-pill .new-proportions-compact-stat__nums');
+        if (value) value.textContent = String(points).replace('.', ',');
       }
 
       function savePreviewState() {
@@ -229,6 +285,8 @@
           if (solved.indexOf(index) >= 0) wordRow.classList.add('is-solved');
           renderPreviewHint(wordRow, hintCounts[index] || 0);
         });
+        syncSolvedState();
+        syncPreviewPoints();
       }
 
       function pathExists(word, activeIndices) {
@@ -269,30 +327,33 @@
       }
 
       function markPreviewSolved(wordRow) {
+        activeDragRoot = null;
         wordRow.classList.add('is-solved');
         renderPreviewHint(wordRow, parseInt(wordRow.getAttribute('data-hint-count'), 10) || 0);
         prunePreviewGrid();
         savePreviewState();
+        syncSolvedState();
+        syncPreviewPoints();
         clearSelection();
       }
 
-      function checkPreview() {
-        var selected = normalizeWord(selectedWord());
+      function checkPreview(path, pathKey) {
+        var selected = normalizeWord(selectedWord(path));
         var match = wordRows('.new-word-salad__word:not(.is-solved)').find(function (wordRow) {
           return wordRow.getAttribute('data-preview-normalized') === selected;
         });
         if (match) markPreviewSolved(match);
-        else finishWrong();
+        else finishWrong(pathKey);
       }
 
-      function submitPath() {
+      function submitPath(path, pathKey) {
         if (!form || busy) return;
         busy = true;
         root.classList.add('is-checking');
         renderSelection();
 
         var body = new FormData(form);
-        body.set('path', JSON.stringify(currentPath));
+        body.set('path', JSON.stringify(path));
         body.set('correct_only', '1');
         fetch(form.action, {
           method: 'POST',
@@ -303,7 +364,7 @@
           return response.json();
         }).then(function (data) {
           if (!data || data.status !== 'ok' || !data.word_salad_correct) {
-            finishWrong();
+            finishWrong(pathKey);
             return;
           }
           activeDragRoot = null;
@@ -312,11 +373,11 @@
           } else {
             window.location.reload();
           }
-        }).catch(finishWrong);
+        }).catch(function () { finishWrong(pathKey); });
       }
 
       function maybeCheck() {
-        if (busy || !currentPath.length) return;
+        if (!currentPath.length) return;
         var lengths = unsolvedLengths();
         if (!lengths.length) return;
         var length = currentPath.length;
@@ -326,10 +387,17 @@
           return;
         }
         var pathKey = currentPath.join(',');
-        if (attemptedPaths[pathKey]) return;
+        if (attemptedPaths[pathKey]) {
+          if (!busy && activeDragRoot !== root && lastRejectedPathKey === pathKey && !hasLongerWord(length)) {
+            clearSelection();
+          }
+          return;
+        }
+        if (busy) return;
         attemptedPaths[pathKey] = true;
-        if (isPreview) checkPreview();
-        else submitPath();
+        var path = currentPath.slice();
+        if (isPreview) checkPreview(path, pathKey);
+        else submitPath(path, pathKey);
       }
 
       cells.forEach(function (cell) {
@@ -352,10 +420,16 @@
         var count = (parseInt(wordRow.getAttribute('data-hint-count'), 10) || 0) + 1;
         renderPreviewHint(wordRow, count);
         savePreviewState();
+        syncPreviewPoints();
       };
 
       if (resetBtn) resetBtn.addEventListener('click', clearSelection);
       if (isPreview) restorePreviewState();
+      if (window.ResizeObserver && gridEl) {
+        var resizeObserver = new ResizeObserver(renderPath);
+        resizeObserver.observe(gridEl);
+      }
+      syncSolvedState();
       renderSelection();
     });
   }

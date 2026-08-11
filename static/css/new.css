@@ -7484,11 +7484,14 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 }
 
 .new-word-salad__grid {
+  position: relative;
   display: grid;
   gap: 0.35rem;
 }
 
 .new-word-salad__row {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.35rem;
@@ -7500,11 +7503,11 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   width: 100%;
   border: 0;
   border-radius: 0;
-  clip-path: polygon(16% 0, 84% 0, 100% 16%, 100% 84%, 84% 100%, 16% 100%, 0 84%, 0 16%);
+  clip-path: polygon(24% 0, 76% 0, 100% 24%, 100% 76%, 76% 100%, 24% 100%, 0 76%, 0 24%);
   background: var(--tile);
   color: var(--text);
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: clamp(1.15rem, 2vw, 1.6rem);
+  font-size: clamp(1.55rem, 4vw, 2.2rem);
   font-weight: 700;
   line-height: 1;
   cursor: default;
@@ -7520,6 +7523,11 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   cursor: pointer;
 }
 
+.new-word-salad__cell.is-active:hover {
+  background: color-mix(in srgb, var(--accent) 7%, var(--tile));
+  transform: translateY(-1px);
+}
+
 .new-word-salad__cell.is-selected {
   background: color-mix(in srgb, var(--accent) 15%, var(--surface));
   color: var(--accent-hover);
@@ -7530,6 +7538,44 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 .new-word-salad__cell:not(.is-active) {
   background: color-mix(in srgb, var(--tile) 35%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 45%, transparent);
+}
+
+.new-word-salad__path {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.new-word-salad__path polyline {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 62%, transparent);
+  stroke-width: 12;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.new-word-salad__solved {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-2deg);
+  padding: 0.55rem 1rem;
+  border: 2px solid color-mix(in srgb, var(--accent) 58%, var(--border));
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--surface) 91%, transparent);
+  box-shadow: 0 0.55rem 1.5rem color-mix(in srgb, var(--text) 17%, transparent);
+  color: var(--accent-hover);
+  font-size: clamp(1.2rem, 4vw, 1.7rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  backdrop-filter: blur(5px);
 }
 
 .new-word-salad__selection {
@@ -7590,8 +7636,11 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 }
 
 .new-word-salad__words-title {
+  width: 100%;
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.05rem;
+  font-weight: 750;
+  text-align: center;
 }
 
 .new-word-salad__words-meta {
@@ -7640,7 +7689,8 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 
 .new-word-salad__hint-btn {
   appearance: none;
-  min-height: 2rem;
+  width: 2.15rem;
+  height: 2.15rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
@@ -7648,9 +7698,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.32rem 0.65rem;
+  padding: 0;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 1.05rem;
   white-space: nowrap;
   cursor: pointer;
   transition: color 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
@@ -7672,11 +7722,17 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 .new-word-salad__mask {
   min-width: 0;
   flex: 1 1 auto;
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 1rem;
-  letter-spacing: 0.02em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.08rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
   word-break: break-word;
   text-align: center;
+}
+
+.new-word-salad__word.is-solved .new-word-salad__mask {
+  color: var(--accent-hover);
+  font-weight: 750;
 }
 
 .new-word-salad__len {

@@ -146,6 +146,9 @@ class _SnapAttemptsInfo:
     def get_result_points(self):
         return max(0, (self._result_points or 0))
 
+    def get_hint_numbers(self):
+        return [ha.hint.number for ha in self.hint_attempts]
+
     def get_sum_hint_penalty(self):
         return max(0, (self._sum_hint_penalty or 0))
 
@@ -350,24 +353,19 @@ def build_results_snapshot_payload(game, mode='tournament'):
                 continue
 
             participant_to_score.setdefault(participant, 0)
-            task_points = 0
             best_status = None
             best_time = None
             if ai.best_attempt is not None:
-                task_points = _json_num(ai.best_attempt.points or 0)
                 best_status = ai.best_attempt.status
                 best_time = ai.best_attempt.time
+            result_attempt = ai.get_result_attempt() if callable(getattr(ai, 'get_result_attempt', None)) else ai.best_attempt
+            if result_attempt is not None:
+                best_time = result_attempt.time
 
             sum_hint_penalty = _json_num(ai.get_sum_hint_penalty())
             result_points = _json_num(ai.get_result_points())
             n_attempts = ai.get_n_attempts()
-            hint_numbers = [
-                ha.hint.number
-                for ha in sorted(
-                    [ha for ha in ai.hint_attempts if ha.is_real_request],
-                    key=lambda ha: ha.hint.key_sort(),
-                )
-            ] if ai.hint_attempts else []
+            hint_numbers = ai.get_hint_numbers() if callable(getattr(ai, 'get_hint_numbers', None)) else []
 
             try:
                 max_points = float(task.get_results_max_points())
@@ -392,9 +390,9 @@ def build_results_snapshot_payload(game, mode='tournament'):
                 else:
                     cls = 'cell-partial'
 
-            if task_points and task_points > 0:
+            if result_points and result_points > 0:
                 participant_to_score[participant] = _json_num(
-                    participant_to_score.get(participant, 0) + max(0, _json_num(task_points) - _json_num(sum_hint_penalty))
+                    participant_to_score.get(participant, 0) + result_points
                 )
                 if best_time is not None:
                     prev = participant_to_max_best_time.get(participant)

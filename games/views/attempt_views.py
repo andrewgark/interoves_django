@@ -216,7 +216,11 @@ def check_attempt(attempt, *, persist_wrong=True):
             attempt.possible_status = attempt.status
             attempt.status = check_result.tournament_status
         from decimal import Decimal
-        attempt.points = Decimal(str(attempt.points or 0)) * task.get_points()
+        # Word Salad has an intrinsic scale: +1 per word and -0.5 per hint.
+        if task.task_type == 'word_salad':
+            attempt.points = Decimal(str(attempt.points or 0))
+        else:
+            attempt.points = Decimal(str(attempt.points or 0)) * task.get_points()
 
         # Auto-checking controls may probe a candidate without turning every typo
         # into an Attempt. The checker still runs under the chain-state lock, but

@@ -2,10 +2,13 @@
 
 import json
 import re
+from decimal import Decimal
 
 
 WORD_RE = re.compile(r"[А-ЯЁA-Z]", re.IGNORECASE)
 WORD_SALAD_GAME_ID = 'word_salad'
+WORD_POINTS = Decimal('1')
+HINT_PENALTY = Decimal('0.5')
 
 
 def normalize_word(value):
@@ -99,6 +102,49 @@ def load_state(raw):
 def dump_state(state):
     state = load_state(state)
     return json.dumps(state, ensure_ascii=False)
+
+
+def score_for_state(raw_state):
+    """Net Word Salad score: one point per word, half a point per letter hint."""
+    state = load_state(raw_state)
+    solved = len(state.get('solved_indices') or [])
+    hints = sum(int(count or 0) for count in (state.get('hint_counts') or {}).values())
+    return max(Decimal('0'), WORD_POINTS * solved - HINT_PENALTY * hints)
+
+
+def result_points_from_attempts(attempts):
+    if not attempts:
+        return Decimal('0')
+    return score_for_state(getattr(attempts[-1], 'state', None))
+
+
+def hint_numbers_from_attempts(attempts):
+    """Return result-table labels in the same alphabetical order as the answer list."""
+    if not attempts:
+        return []
+    latest = attempts[-1]
+    task = getattr(latest, 'task', None)
+    if task is None:
+        return []
+    try:
+        _, words = parse_task_data(task.checker_data, '')
+    except (AttributeError, ValueError):
+        return []
+    display_numbers = {
+        original_index: display_index
+        for display_index, (original_index, _word) in enumerate(
+            sorted(enumerate(words), key=lambda item: (normalize_word(item[1]), item[0])),
+            start=1,
+        )
+    }
+    hint_counts = load_state(getattr(latest, 'state', None)).get('hint_counts') or {}
+    labels = []
+    for original_index, count in hint_counts.items():
+        display_number = display_numbers.get(int(original_index))
+        if display_number is None:
+            continue
+        labels.extend('{}.{}'.format(display_number, hint_number) for hint_number in range(1, int(count) + 1))
+    return labels
 
 
 def neighbours(index):

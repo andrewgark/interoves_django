@@ -159,6 +159,12 @@ class AggregatedAttemptsInfo:
             penalty = 0
         return max(0, points - penalty)
 
+    def get_result_attempt(self):
+        return self.best_attempt
+
+    def get_hint_numbers(self):
+        return [ha.hint.number for ha in self.hint_attempts]
+
 
 def _parse_actor_key(actor_key):
     if not actor_key or ':' not in actor_key:
@@ -352,8 +358,8 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None):
 
 
 def tasks_need_orm_results_aggregate(tasks):
-    """Alphabetty letter-hint penalty is not in the SQL path yet."""
+    """Some chained-game scores require the latest full state from ORM rows."""
     for t in tasks:
-        if getattr(t, 'task_type', None) == 'alphabetty':
+        if getattr(t, 'task_type', None) in {'alphabetty', 'word_salad'}:
             return True
     return False

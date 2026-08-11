@@ -330,8 +330,22 @@ def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
         back_label = 'К игре'
     else:
         back_label = 'Назад'
+    if game.id == WEEK_TASK_GAME_ID:
+        pager_label = 'Задание'
+        pager_aria_label = 'Переход между заданиями'
+    elif game.id == LADDER_GAME_ID:
+        pager_label = 'Лесенка'
+        pager_aria_label = 'Переход между лесенками'
+    elif game.id == WORD_SALAD_GAME_ID:
+        pager_label = 'Словесный Салат'
+        pager_aria_label = 'Переход между выпусками Словесного Салата'
+    else:
+        pager_label = 'Набор'
+        pager_aria_label = 'Переход между наборами заданий'
     return {
         'back_label': back_label,
+        'task_group_pager_label': pager_label,
+        'task_group_pager_aria_label': pager_aria_label,
         'prev_task_group_number': prev_tg.number if prev_tg else None,
         'prev_task_group_name': prev_tg.name if prev_tg else None,
         'next_task_group_number': next_tg.number if next_tg else None,
@@ -1748,15 +1762,18 @@ def _new_results_compute(game, mode, task_group_number=None):
             if participant not in team_to_score:
                 team_to_score[participant] = 0
 
-            task_points = 0
-            if attempts_info.best_attempt is not None:
-                task_points = attempts_info.best_attempt.points
+            task_points = attempts_info.get_result_points()
+            result_attempt = (
+                attempts_info.get_result_attempt()
+                if callable(getattr(attempts_info, 'get_result_attempt', None))
+                else attempts_info.best_attempt
+            )
             if task_points and task_points > 0:
-                team_to_score[participant] += max(0, task_points - attempts_info.get_sum_hint_penalty())
+                team_to_score[participant] += task_points
                 if participant not in team_to_max_best_time:
-                    team_to_max_best_time[participant] = attempts_info.best_attempt.time
+                    team_to_max_best_time[participant] = result_attempt.time
                 else:
-                    team_to_max_best_time[participant] = max(team_to_max_best_time[participant], attempts_info.best_attempt.time)
+                    team_to_max_best_time[participant] = max(team_to_max_best_time[participant], result_attempt.time)
 
             team_task_to_attempts_info[(participant, task)] = attempts_info
 
@@ -1835,16 +1852,7 @@ def _new_results_compute(game, mode, task_group_number=None):
                 except Exception:
                     points = 0.0
                 try:
-                    hint_numbers = [
-                        ha.hint.number
-                        for ha in sorted(
-                            [
-                                ha for ha in (getattr(ai, 'hint_attempts', None) or [])
-                                if getattr(ha, 'is_real_request', False)
-                            ],
-                            key=lambda ha: ha.hint.key_sort(),
-                        )
-                    ]
+                    hint_numbers = ai.get_hint_numbers() if callable(getattr(ai, 'get_hint_numbers', None)) else []
                 except Exception:
                     hint_numbers = []
 
@@ -2302,6 +2310,8 @@ def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None, ws=None):
         base_max = rd['max_points_total']
     elif wall_meta:
         base_max = wall_meta['total']
+    elif task.task_type == 'word_salad':
+        base_max = task.get_results_max_points()
     else:
         base_max = task.get_points()
     attempts_hidden = {'replacements_lines', 'alphabetty', 'word_salad'}

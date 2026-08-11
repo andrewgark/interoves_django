@@ -64,16 +64,18 @@ def results_page(request, game_id, mode='general'):
                     if not team.is_hidden:
                         if team not in team_to_score:
                             team_to_score[team] = 0
-                        task_points = 0
-                        if attempts_info.best_attempt is not None:
-                            task_points = attempts_info.best_attempt.points
-
+                        task_points = attempts_info.get_result_points()
+                        result_attempt = (
+                            attempts_info.get_result_attempt()
+                            if callable(getattr(attempts_info, 'get_result_attempt', None))
+                            else attempts_info.best_attempt
+                        )
                         if task_points > 0:
-                            team_to_score[team] += max(0, task_points - attempts_info.get_sum_hint_penalty())
+                            team_to_score[team] += task_points
                             if team not in team_to_max_best_time:
-                                team_to_max_best_time[team] = attempts_info.best_attempt.time
+                                team_to_max_best_time[team] = result_attempt.time
                             else:
-                                team_to_max_best_time[team] = max(team_to_max_best_time[team], attempts_info.best_attempt.time)
+                                team_to_max_best_time[team] = max(team_to_max_best_time[team], result_attempt.time)
 
                         team_task_to_attempts_info[(team, task)] = attempts_info
 
@@ -155,16 +157,7 @@ def results_page(request, game_id, mode='general'):
                 except Exception:
                     points = 0.0
                 try:
-                    hint_numbers = [
-                        ha.hint.number
-                        for ha in sorted(
-                            [
-                                ha for ha in (getattr(ai, 'hint_attempts', None) or [])
-                                if getattr(ha, 'is_real_request', False)
-                            ],
-                            key=lambda ha: ha.hint.key_sort(),
-                        )
-                    ]
+                    hint_numbers = ai.get_hint_numbers() if callable(getattr(ai, 'get_hint_numbers', None)) else []
                 except Exception:
                     hint_numbers = []
 
@@ -203,4 +196,4 @@ def results_page(request, game_id, mode='general'):
         'team_to_score': team_to_score,
         'team_to_place': team_to_place,
         'team_to_max_best_time': team_to_max_best_time,
-    }) 
+    })

@@ -437,6 +437,8 @@ def took_at_least_one_hint(attempts_info):
 
 @register.filter
 def get_hint_numbers(attempts_info):
+    if callable(getattr(attempts_info, 'get_hint_numbers', None)):
+        return ', '.join(str(number) for number in attempts_info.get_hint_numbers())
     hint_attempts = [ha for ha in attempts_info.hint_attempts if ha.is_real_request]
     return ', '.join([
         str(ha.hint.number)
@@ -593,4 +595,3 @@ def get_available_referents(game, team):
             if len(referent_registrations) < 3:
                 referents.append(referent)
     return referents
-

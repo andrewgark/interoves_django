@@ -7,6 +7,9 @@
   <div class="new-word-salad__layout">
     <section class="new-word-salad__grid-panel" aria-label="Сетка">
       <div class="new-word-salad__grid" data-word-salad-grid>
+        <svg class="new-word-salad__path" data-word-salad-path-svg aria-hidden="true" preserveAspectRatio="none">
+          <polyline data-word-salad-path-line points=""></polyline>
+        </svg>
         {% for row in ws.grid_rows %}
           <div class="new-word-salad__row">
             {% for cell in row %}
@@ -24,6 +27,7 @@
             {% endfor %}
           </div>
         {% endfor %}
+        <div class="new-word-salad__solved" data-word-salad-solved{% if not ws.is_complete %} hidden{% endif %}>Решено!</div>
       </div>
 
       <div class="new-word-salad__selection">
@@ -60,7 +64,7 @@
                 <input type="hidden" name="action" value="hint">
                 <input type="hidden" name="word_index" value="{{ word.index }}">
                 <input type="hidden" name="hint_number" value="{{ word.next_hint_number }}">
-                <button type="submit" class="new-word-salad__hint-btn">Узнать букву {{ word.next_hint_number }}</button>
+                <button type="submit" class="new-word-salad__hint-btn" title="Узнать {{ word.next_hint_number }} букву" aria-label="Узнать {{ word.next_hint_number }} букву"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
               </form>
               {% endif %}
               <div class="new-word-salad__mask">{{ word.mask_html }}</div>
