@@ -2119,6 +2119,10 @@
       (form.closest('.new-taskcard') || form.closest('.new-proportions-matrix'));
     if (!form || !inNewUi) return;
     e.preventDefault();
+    if (form.classList.contains('new-word-salad__hint-form')) {
+      postForm(form);
+      return;
+    }
     var taskCard =
       form.closest('.new-taskcard') || form.closest('.new-proportions-matrix__meta-row');
     var isSolved = taskCard && taskCard.getAttribute('data-solved') === '1';

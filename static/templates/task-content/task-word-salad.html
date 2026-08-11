@@ -12,13 +12,14 @@
             {% for cell in row %}
               <button
                 type="button"
-                class="new-word-salad__cell{% if cell.is_active %} is-active{% endif %}{% if cell.is_hinted %} is-hinted{% endif %}"
+                class="new-word-salad__cell{% if cell.is_active %} is-active{% endif %}"
                 data-word-salad-cell
                 data-index="{{ cell.index }}"
                 data-letter="{{ cell.letter }}"
                 aria-pressed="false"
-                aria-label="Клетка {{ cell.index|add:1 }}: {{ cell.letter }}">
-                {{ cell.letter }}
+                {% if not cell.is_active %}disabled{% endif %}
+                aria-label="{% if cell.is_active %}Клетка {{ cell.index|add:1 }}: {{ cell.letter }}{% else %}Пустая клетка {{ cell.index|add:1 }}{% endif %}">
+                <span data-word-salad-letter>{% if cell.is_active %}{{ cell.letter }}{% endif %}</span>
               </button>
             {% endfor %}
           </div>
@@ -26,11 +27,11 @@
       </div>
 
       <div class="new-word-salad__selection">
-        <div class="new-word-salad__selection-label">Слово</div>
-        <div class="new-word-salad__selection-word" data-word-salad-current>—</div>
+        <div class="new-word-salad__selection-word" data-word-salad-current aria-live="polite"></div>
+        <button type="button" class="new-word-salad__reset" data-word-salad-reset disabled title="Сбросить выделение" aria-label="Сбросить выделение"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
       </div>
 
-      <form class="new-attempt-form new-word-salad__form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
+      <form class="new-attempt-form new-word-salad__form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" hidden>
         {% csrf_token %}
         <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
         <input type="hidden" name="game_id" value="{{ game.id }}">
@@ -38,25 +39,19 @@
         <input type="hidden" name="action" value="solve">
         <input type="hidden" name="path" value="[]" data-word-salad-path>
         <input type="hidden" name="correct_only" value="1">
-        <button type="button" class="new-btn new-btn--ghost new-btn--mini new-word-salad__reset" data-word-salad-reset>Сбросить</button>
       </form>
-
-      <div class="new-attempt-msg new-word-salad__msg" aria-live="polite"></div>
-      <p class="new-word-salad__hint-text">
-        Выделяйте клетки мышью с зажатой кнопкой или кликами по одной. Готовое слово проверится автоматически.
-      </p>
     </section>
 
     <aside class="new-word-salad__words-panel">
       <div class="new-word-salad__words-head">
-        <h3 class="new-word-salad__words-title">Слова</h3>
-        <p class="new-word-salad__words-meta">{{ ws.words|length }} шт.</p>
+        <h3 class="new-word-salad__words-title">Ответы</h3>
       </div>
 
       <ul class="new-word-salad__words-list">
         {% for word in ws.words %}
-          <li class="new-word-salad__word{% if word.is_solved %} is-solved{% endif %}{% if word.is_hinted %} is-hinted{% endif %}" data-word-index="{{ word.index }}" data-word-length="{{ word.length }}" data-first-letter="{{ word.first_letter }}"{% if support_preview %} data-preview-answer="{{ word.original }}" data-preview-normalized="{{ word.normalized }}"{% endif %}>
+          <li class="new-word-salad__word{% if word.is_solved %} is-solved{% endif %}{% if word.is_hinted %} is-hinted{% endif %}" data-word-index="{{ word.index }}" data-word-length="{{ word.length }}" data-hint-count="{{ word.hint_count }}"{% if support_preview %} data-preview-answer="{{ word.original }}" data-preview-normalized="{{ word.normalized }}"{% endif %}>
             <div class="new-word-salad__word-row">
+              {% if word.can_hint %}
               <form class="new-hint-form new-word-salad__hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-skip-hints-open="1">
                 {% csrf_token %}
                 <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
@@ -64,14 +59,13 @@
                 <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                 <input type="hidden" name="action" value="hint">
                 <input type="hidden" name="word_index" value="{{ word.index }}">
-                <button type="submit" class="new-word-salad__hint-btn"{% if word.is_solved %} disabled{% endif %} title="Подсказка для слова {{ forloop.counter }}" aria-label="Подсказка для слова {{ forloop.counter }}">💡</button>
+                <input type="hidden" name="hint_number" value="{{ word.next_hint_number }}">
+                <button type="submit" class="new-word-salad__hint-btn">Узнать букву {{ word.next_hint_number }}</button>
               </form>
+              {% endif %}
               <div class="new-word-salad__mask">{{ word.mask_html }}</div>
               <div class="new-word-salad__len">({{ word.length }})</div>
             </div>
-            {% if word.is_solved %}
-              <div class="new-word-salad__answer">{{ word.original }}</div>
-            {% endif %}
           </li>
         {% endfor %}
       </ul>

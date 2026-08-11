@@ -193,3 +193,8 @@ class RenderNewUiTaskCardTests(TestCase):
         self.assertIsNotNone(html)
         self.assertIn('new-word-salad__cell', html)
         self.assertIn('new-word-salad__word', html)
+        self.assertIn('>Ответы<', html)
+        self.assertIn('>Узнать букву 1<', html)
+        self.assertNotIn('>Слова<', html)
+        self.assertNotIn(' шт.', html)
+        self.assertNotIn('Готовое слово проверится автоматически', html)

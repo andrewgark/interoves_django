@@ -7459,12 +7459,12 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 }
 
 .new-word-salad__intro {
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--control-radius);
-  background: color-mix(in srgb, var(--tile) 52%, var(--surface));
+  padding: 0.25rem 1rem;
   color: var(--text);
-  line-height: 1.45;
+  font-size: 1.12rem;
+  font-weight: 750;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .new-word-salad__layout {
@@ -7498,8 +7498,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   appearance: none;
   aspect-ratio: 1 / 1;
   width: 100%;
-  border: 1px solid var(--border);
-  border-radius: var(--control-radius);
+  border: 0;
+  border-radius: 0;
+  clip-path: polygon(16% 0, 84% 0, 100% 16%, 100% 84%, 84% 100%, 16% 100%, 0 84%, 0 16%);
   background: var(--tile);
   color: var(--text);
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -7511,6 +7512,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   align-items: center;
   justify-content: center;
   padding: 0;
+  box-shadow: inset 0 0 0 1px var(--border);
   transition: transform 0.12s ease, border-color 0.12s ease, background-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
 }
 
@@ -7520,55 +7522,63 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 
 .new-word-salad__cell.is-selected {
   background: color-mix(in srgb, var(--accent) 15%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
   color: var(--accent-hover);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 60%, var(--border));
   transform: translateY(-1px);
 }
 
-.new-word-salad__cell.is-hinted {
-  background: color-mix(in srgb, var(--warning) 13%, var(--surface));
-  border-color: color-mix(in srgb, var(--warning) 52%, var(--border));
+.new-word-salad__cell:not(.is-active) {
+  background: color-mix(in srgb, var(--tile) 35%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 45%, transparent);
 }
 
 .new-word-salad__selection {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-top: 0.85rem;
-}
-
-.new-word-salad__selection-label {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr) 2.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  margin-top: 0.65rem;
 }
 
 .new-word-salad__selection-word {
+  grid-column: 2;
   min-width: 0;
+  min-height: 1.4em;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   word-break: break-word;
-  text-align: right;
+  text-align: center;
 }
 
-.new-word-salad__form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.55rem;
-  margin-top: 0.85rem;
-}
-
-.new-word-salad__hint-text {
-  margin: 0.7rem 0 0;
+.new-word-salad__reset {
+  grid-column: 3;
+  appearance: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
   color: var(--muted);
-  font-size: 0.92rem;
-  line-height: 1.4;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+}
+
+.new-word-salad__reset:hover,
+.new-word-salad__reset:focus-visible {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--text);
+  outline: none;
+}
+
+.new-word-salad__reset:disabled {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .new-word-salad__words-head {
@@ -7630,10 +7640,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 
 .new-word-salad__hint-btn {
   appearance: none;
-  width: 2.2rem;
-  height: 2.2rem;
-  min-width: 2.2rem;
-  min-height: 2.2rem;
+  min-height: 2rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
@@ -7641,7 +7648,10 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  padding: 0.32rem 0.65rem;
+  font: inherit;
+  font-size: 0.78rem;
+  white-space: nowrap;
   cursor: pointer;
   transition: color 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
 }

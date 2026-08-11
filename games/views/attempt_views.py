@@ -379,7 +379,14 @@ def process_send_attempt(request, task_id):
                 return {'status': 'empty'}
             if word_index < 0:
                 return {'status': 'empty'}
-            attempt = Attempt(text=json.dumps({'action': 'hint', 'word_index': word_index}))
+            hint_payload = {'action': 'hint', 'word_index': word_index}
+            hint_number = request.POST.get('hint_number')
+            if hint_number not in (None, ''):
+                try:
+                    hint_payload['hint_number'] = int(hint_number)
+                except (TypeError, ValueError):
+                    return {'status': 'empty'}
+            attempt = Attempt(text=json.dumps(hint_payload))
         else:
             path_raw = request.POST.get('path') or request.POST.get('path_json') or '[]'
             if isinstance(path_raw, str):

@@ -10,6 +10,30 @@
       .replace(/[^А-ЯA-Z]/g, '');
   }
 
+  function maskedAnswer(answer, revealCount) {
+    var normalized = normalizeWord(answer);
+    var letterIndex = 0;
+    var normalizedIndex = 0;
+    return Array.prototype.map.call(String(answer || '').toUpperCase(), function (character) {
+      if (!/[А-ЯЁA-Z]/.test(character)) return character;
+      var letter = normalized.charAt(normalizedIndex++);
+      return letterIndex++ < revealCount ? letter : '⬜';
+    }).join('');
+  }
+
+  function previewStorageKey(root) {
+    try {
+      var url = new URL(window.location.href);
+      var actor = ['actor', 'team', 'user', 'anon', 'anon_key', 'mode'].map(function (name) {
+        return name + '=' + (url.searchParams.get(name) || '');
+      }).join('&');
+      return 'interoves_word_salad_preview_v2:' + url.pathname + ':' + actor + ':' +
+        (root.getAttribute('data-task-id') || '');
+    } catch (error) {
+      return '';
+    }
+  }
+
   function initWordSalad(scope) {
     var container = scope && scope.querySelectorAll ? scope : document;
     var roots = [];
@@ -32,12 +56,21 @@
       var pathInput = root.querySelector('[data-word-salad-path]');
       var form = root.querySelector('.new-word-salad__form');
       var resetBtn = root.querySelector('[data-word-salad-reset]');
-      var msg = root.querySelector('.new-word-salad__msg');
       var isPreview = !!root.closest('.support-preview-readonly');
+      var storageKey = isPreview ? previewStorageKey(root) : '';
 
       function cellIndex(cell) {
         var value = parseInt(cell && cell.getAttribute('data-index'), 10);
         return isNaN(value) ? -1 : value;
+      }
+
+      function wordIndex(wordRow) {
+        var value = parseInt(wordRow && wordRow.getAttribute('data-word-index'), 10);
+        return isNaN(value) ? -1 : value;
+      }
+
+      function wordLength(wordRow) {
+        return parseInt(wordRow && wordRow.getAttribute('data-word-length'), 10) || 0;
       }
 
       function isAdjacent(left, right) {
@@ -51,8 +84,23 @@
       function selectedWord() {
         return currentPath.map(function (index) {
           var cell = cellByIndex[index];
-          return cell ? (cell.getAttribute('data-letter') || cell.textContent || '').trim() : '';
+          return cell ? (cell.getAttribute('data-letter') || '').trim() : '';
         }).join('');
+      }
+
+      function setCellActive(cell, active) {
+        if (!cell) return;
+        cell.classList.toggle('is-active', active);
+        cell.disabled = !active;
+        cell.classList.remove('is-selected');
+        cell.setAttribute('aria-pressed', 'false');
+        var letter = cell.getAttribute('data-letter') || '';
+        var letterEl = cell.querySelector('[data-word-salad-letter]');
+        if (letterEl) letterEl.textContent = active ? letter : '';
+        cell.setAttribute(
+          'aria-label',
+          active ? 'Клетка ' + (cellIndex(cell) + 1) + ': ' + letter : 'Пустая клетка ' + (cellIndex(cell) + 1)
+        );
       }
 
       function renderSelection() {
@@ -66,15 +114,14 @@
           cell.classList.add('is-selected');
           cell.setAttribute('aria-pressed', 'true');
         });
-        if (currentEl) currentEl.textContent = selectedWord() || '—';
+        if (currentEl) currentEl.textContent = selectedWord();
         if (pathInput) pathInput.value = JSON.stringify(currentPath);
         if (resetBtn) resetBtn.disabled = currentPath.length === 0 || busy;
       }
 
-      function clearSelection(keepMessage) {
+      function clearSelection() {
         currentPath = [];
         attemptedPaths = {};
-        if (!keepMessage && msg) msg.textContent = '';
         renderSelection();
       }
 
@@ -84,6 +131,10 @@
         if (index < 0) return;
         var existing = currentPath.indexOf(index);
         if (existing >= 0) {
+          if (currentPath.length === 1) {
+            clearSelection();
+            return;
+          }
           currentPath = currentPath.slice(0, existing + 1);
           attemptedPaths = {};
           renderSelection();
@@ -94,63 +145,144 @@
         renderSelection();
       }
 
+      function wordRows(selector) {
+        return Array.prototype.slice.call(root.querySelectorAll(selector || '.new-word-salad__word'));
+      }
+
       function unsolvedLengths() {
-        return Array.prototype.map.call(
-          root.querySelectorAll('.new-word-salad__word:not(.is-solved)[data-word-length]'),
-          function (word) { return parseInt(word.getAttribute('data-word-length'), 10) || 0; }
-        ).filter(function (length) { return length > 0; });
+        return wordRows('.new-word-salad__word:not(.is-solved)[data-word-length]').map(wordLength)
+          .filter(function (length) { return length > 0; });
       }
 
       function hasLongerWord(length) {
         return unsolvedLengths().some(function (other) { return other > length; });
       }
 
-      function finishWrong(comment) {
+      function finishWrong() {
         busy = false;
         root.classList.remove('is-checking');
-        if (msg) msg.textContent = comment || 'Такого слова нет.';
-        if (!hasLongerWord(currentPath.length)) clearSelection(true);
+        if (!hasLongerWord(currentPath.length)) clearSelection();
         else renderSelection();
       }
 
-      function markPreviewSolved(wordRow) {
-        var answer = wordRow.getAttribute('data-preview-answer') || selectedWord();
-        wordRow.classList.add('is-solved');
+      function renderPreviewHint(wordRow, count) {
+        var answer = wordRow.getAttribute('data-preview-answer') || '';
+        var length = wordLength(wordRow);
+        count = Math.max(0, Math.min(length, parseInt(count, 10) || 0));
+        wordRow.setAttribute('data-hint-count', String(count));
+        wordRow.classList.toggle('is-hinted', count > 0);
         var mask = wordRow.querySelector('.new-word-salad__mask');
-        if (mask) mask.textContent = answer;
-        var hint = wordRow.querySelector('.new-word-salad__hint-btn');
-        if (hint) hint.disabled = true;
-        if (!wordRow.querySelector('.new-word-salad__answer')) {
-          var answerEl = document.createElement('div');
-          answerEl.className = 'new-word-salad__answer';
-          answerEl.textContent = answer;
-          wordRow.appendChild(answerEl);
+        if (mask) mask.textContent = wordRow.classList.contains('is-solved') ? answer : maskedAnswer(answer, count);
+        var hintForm = wordRow.querySelector('.new-word-salad__hint-form');
+        if (wordRow.classList.contains('is-solved') || count >= length) {
+          if (hintForm) hintForm.remove();
+          return;
         }
-        if (msg) msg.textContent = 'Слово найдено (preview, без сохранения).';
-        clearSelection(true);
+        if (!hintForm) return;
+        var number = count + 1;
+        var numberInput = hintForm.querySelector('input[name="hint_number"]');
+        var button = hintForm.querySelector('.new-word-salad__hint-btn');
+        if (numberInput) numberInput.value = String(number);
+        if (button) button.textContent = 'Узнать букву ' + number;
+      }
+
+      function collectPreviewState() {
+        var hintCounts = {};
+        var solved = [];
+        wordRows().forEach(function (wordRow) {
+          var index = wordIndex(wordRow);
+          var count = parseInt(wordRow.getAttribute('data-hint-count'), 10) || 0;
+          if (index < 0) return;
+          if (count > 0) hintCounts[index] = count;
+          if (wordRow.classList.contains('is-solved')) solved.push(index);
+        });
+        return {
+          solved_indices: solved,
+          hint_counts: hintCounts,
+          active: cells.filter(function (cell) { return cell.classList.contains('is-active'); }).map(cellIndex)
+        };
+      }
+
+      function savePreviewState() {
+        if (!storageKey) return;
+        try { localStorage.setItem(storageKey, JSON.stringify(collectPreviewState())); } catch (error) {}
+      }
+
+      function restorePreviewState() {
+        if (!storageKey) return;
+        var state = null;
+        try { state = JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch (error) {}
+        if (!state || typeof state !== 'object') return;
+        var solved = Array.isArray(state.solved_indices) ? state.solved_indices.map(Number) : [];
+        var active = Array.isArray(state.active) ? state.active.map(Number) : null;
+        var hintCounts = state.hint_counts && typeof state.hint_counts === 'object' ? state.hint_counts : {};
+        if (active) {
+          cells.forEach(function (cell) {
+            setCellActive(
+              cell,
+              cell.classList.contains('is-active') && active.indexOf(cellIndex(cell)) >= 0
+            );
+          });
+        }
+        wordRows().forEach(function (wordRow) {
+          var index = wordIndex(wordRow);
+          if (solved.indexOf(index) >= 0) wordRow.classList.add('is-solved');
+          renderPreviewHint(wordRow, hintCounts[index] || 0);
+        });
+      }
+
+      function pathExists(word, activeIndices) {
+        var target = normalizeWord(word);
+        var active = {};
+        activeIndices.forEach(function (index) { active[index] = true; });
+
+        function visit(index, position, used) {
+          var cell = cellByIndex[index];
+          if (!cell || !active[index] || used[index]) return false;
+          if ((cell.getAttribute('data-letter') || '') !== target.charAt(position)) return false;
+          if (position === target.length - 1) return true;
+          var nextUsed = Object.assign({}, used);
+          nextUsed[index] = true;
+          for (var next = 0; next < 16; next += 1) {
+            if (isAdjacent(index, next) && next !== index && visit(next, position + 1, nextUsed)) return true;
+          }
+          return false;
+        }
+
+        if (!target) return false;
+        return activeIndices.some(function (index) { return visit(index, 0, {}); });
+      }
+
+      function prunePreviewGrid() {
+        while (true) {
+          var active = cells.filter(function (cell) { return cell.classList.contains('is-active'); }).map(cellIndex);
+          var remaining = wordRows('.new-word-salad__word:not(.is-solved)').map(function (wordRow) {
+            return wordRow.getAttribute('data-preview-normalized') || '';
+          });
+          var removable = active.find(function (candidate) {
+            var candidateActive = active.filter(function (index) { return index !== candidate; });
+            return remaining.every(function (word) { return pathExists(word, candidateActive); });
+          });
+          if (removable === undefined) return;
+          setCellActive(cellByIndex[removable], false);
+        }
+      }
+
+      function markPreviewSolved(wordRow) {
+        wordRow.classList.add('is-solved');
+        renderPreviewHint(wordRow, parseInt(wordRow.getAttribute('data-hint-count'), 10) || 0);
+        prunePreviewGrid();
+        savePreviewState();
+        clearSelection();
       }
 
       function checkPreview() {
         var selected = normalizeWord(selectedWord());
-        var match = null;
-        root.querySelectorAll('.new-word-salad__word:not(.is-solved)').forEach(function (wordRow) {
-          if (match) return;
-          if (wordRow.getAttribute('data-preview-normalized') === selected) match = wordRow;
+        var match = wordRows('.new-word-salad__word:not(.is-solved)').find(function (wordRow) {
+          return wordRow.getAttribute('data-preview-normalized') === selected;
         });
         if (match) markPreviewSolved(match);
-        else finishWrong('Такого слова нет (preview).');
-      }
-
-      function responseError(data) {
-        var messages = {
-          no_profile: 'Нужно заполнить профиль.',
-          no_team: 'Для командного режима нужна команда.',
-          no_anon: 'Не удалось сохранить анонимный ключ.',
-          duplicate: 'Это слово уже отправлялось.',
-          attempt_limit_exceeded: 'Попытки закончились.',
-          no_access: 'Нет доступа к отправке.'
-        };
-        finishWrong(messages[data && data.status] || 'Не удалось проверить слово.');
+        else finishWrong();
       }
 
       function submitPath() {
@@ -158,7 +290,6 @@
         busy = true;
         root.classList.add('is-checking');
         renderSelection();
-        if (msg) msg.textContent = 'Проверяем…';
 
         var body = new FormData(form);
         body.set('path', JSON.stringify(currentPath));
@@ -171,12 +302,8 @@
         }).then(function (response) {
           return response.json();
         }).then(function (data) {
-          if (!data || data.status !== 'ok') {
-            responseError(data);
-            return;
-          }
-          if (!data.word_salad_correct) {
-            finishWrong(data.word_salad_comment || 'Такого слова нет.');
+          if (!data || data.status !== 'ok' || !data.word_salad_correct) {
+            finishWrong();
             return;
           }
           activeDragRoot = null;
@@ -185,9 +312,7 @@
           } else {
             window.location.reload();
           }
-        }).catch(function () {
-          finishWrong('Ошибка сети.');
-        });
+        }).catch(finishWrong);
       }
 
       function maybeCheck() {
@@ -197,7 +322,7 @@
         var length = currentPath.length;
         var maxLength = Math.max.apply(Math, lengths);
         if (lengths.indexOf(length) < 0) {
-          if (length > maxLength) finishWrong('Слов такой длины нет.');
+          if (length > maxLength) finishWrong();
           return;
         }
         var pathKey = currentPath.join(',');
@@ -220,33 +345,19 @@
         });
       });
 
-      root.__finishWordSaladPath = function () {
-        maybeCheck();
+      root.__finishWordSaladPath = maybeCheck;
+      root.__revealWordSaladHint = function (button) {
+        var wordRow = button.closest('.new-word-salad__word');
+        if (!wordRow || wordRow.classList.contains('is-solved')) return;
+        var count = (parseInt(wordRow.getAttribute('data-hint-count'), 10) || 0) + 1;
+        renderPreviewHint(wordRow, count);
+        savePreviewState();
       };
 
-      if (resetBtn) {
-        resetBtn.addEventListener('click', function () { clearSelection(false); });
-      }
+      if (resetBtn) resetBtn.addEventListener('click', clearSelection);
+      if (isPreview) restorePreviewState();
       renderSelection();
     });
-  }
-
-  function revealPreviewHint(button) {
-    var wordRow = button.closest('.new-word-salad__word');
-    var root = button.closest('[data-word-salad-root]');
-    if (!wordRow || !root || wordRow.classList.contains('is-solved')) return;
-    var firstLetter = wordRow.getAttribute('data-first-letter') || '';
-    var mask = wordRow.querySelector('.new-word-salad__mask');
-    if (mask && firstLetter && mask.textContent.indexOf('⬜') >= 0) {
-      mask.textContent = mask.textContent.replace('⬜', firstLetter);
-    }
-    wordRow.classList.add('is-hinted');
-    button.disabled = true;
-    root.querySelectorAll('[data-word-salad-cell]').forEach(function (cell) {
-      if (cell.getAttribute('data-letter') === firstLetter) cell.classList.add('is-hinted');
-    });
-    var msg = root.querySelector('.new-word-salad__msg');
-    if (msg) msg.textContent = 'Подсказка показана локально (preview, без сохранения).';
   }
 
   document.addEventListener('pointerup', function () {
@@ -257,9 +368,7 @@
     }
   }, true);
 
-  document.addEventListener('pointercancel', function () {
-    activeDragRoot = null;
-  }, true);
+  document.addEventListener('pointercancel', function () { activeDragRoot = null; }, true);
 
   document.addEventListener('click', function (event) {
     var button = event.target && event.target.closest
@@ -267,7 +376,8 @@
       : null;
     if (!button) return;
     event.preventDefault();
-    revealPreviewHint(button);
+    var root = button.closest('[data-word-salad-root]');
+    if (root && typeof root.__revealWordSaladHint === 'function') root.__revealWordSaladHint(button);
   }, true);
 
   window.initWordSalad = initWordSalad;

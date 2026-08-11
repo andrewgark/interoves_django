@@ -21,7 +21,7 @@ from games.models import (
 )
 from games.views.attempt_views import check_attempt
 from games.views.hint_views import process_send_hint_attempt
-from games.views.new_ui import new_task_group_page
+from games.views.new_ui import build_task_group_task_context_dicts, new_task_group_page
 from games.word_salad import build_ui_context, mask_for_word, serialize_task_data, validate_task_data
 
 
@@ -80,6 +80,17 @@ class WordSaladTests(TestCase):
 
     def test_mask_uses_white_square_emoji(self):
         self.assertEqual(mask_for_word('AB-CD'), '⬜⬜-⬜⬜')
+        self.assertEqual(mask_for_word('AB-CD', reveal_count=2), 'AB-⬜⬜')
+
+    def test_words_are_sorted_alphabetically(self):
+        context = build_ui_context(
+            _puzzle()['grid'],
+            ['PONM', 'ABCD', 'IJK'],
+        )
+        self.assertEqual(
+            [word['normalized'] for word in context['words']],
+            ['ABCD', 'IJK', 'PONM'],
+        )
 
     def test_admin_form_serializes_word_salad_fields(self):
         form = WordSaladTaskForm(
@@ -118,8 +129,62 @@ class WordSaladTests(TestCase):
         row = ChainTaskState.objects.get(task=self.task, team=self.team, game=self.game, game_mode='general')
         state = json.loads(row.state)
         self.assertEqual(state['hints'], [0])
+        self.assertEqual(state['hint_counts'], {'0': 1})
         self.assertEqual(len(state['active']), 16)
         self.assertEqual(attempt.status, 'Partial')
+
+    def test_second_hint_reveals_second_letter(self):
+        for hint_number in (1, 2):
+            attempt = Attempt(
+                task=self.task,
+                team=self.team,
+                text=json.dumps({
+                    'action': 'hint',
+                    'word_index': 0,
+                    'hint_number': hint_number,
+                }),
+                time=timezone.now(),
+                game=self.game,
+            )
+            check_attempt(attempt)
+        row = ChainTaskState.objects.get(
+            task=self.task,
+            team=self.team,
+            game=self.game,
+            game_mode='general',
+        )
+        state = json.loads(row.state)
+        self.assertEqual(state['hint_counts'], {'0': 2})
+        context = build_ui_context(_puzzle()['grid'], _puzzle()['words'], state)
+        self.assertEqual(context['words'][0]['mask_html'], 'AB⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜')
+        self.assertEqual(context['words'][0]['next_hint_number'], 3)
+
+    def test_hint_endpoint_accepts_consecutive_letters(self):
+        anon_key = 'word-salad-hints-test'
+        for hint_number in (1, 2):
+            with patch('games.views.attempt_views.track_task_change'):
+                response = self.client.post(
+                    '/send_hint_attempt/{}/'.format(self.task.pk),
+                    {
+                        'game_id': self.game.pk,
+                        'anon_key': anon_key,
+                        'action': 'hint',
+                        'word_index': 0,
+                        'hint_number': hint_number,
+                    },
+                )
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()['status'], 'ok')
+        state = json.loads(ChainTaskState.objects.get(
+            task=self.task,
+            anon_key=anon_key,
+            game=self.game,
+            game_mode='general',
+        ).state)
+        self.assertEqual(state['hint_counts'], {'0': 2})
+        html = response.json()['update_task_html_new'][str(self.task.pk)]
+        self.assertIn('>Узнать букву 3<', html)
+        self.assertIn('AB⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜', html)
 
     def test_solve_attempt_prunes_grid_and_solves(self):
         attempt = Attempt(
@@ -205,6 +270,21 @@ class WordSaladTests(TestCase):
             Attempt.manager.filter(task=self.task, anon_key='word-salad-auto-correct-test').count(),
             1,
         )
+        context = build_task_group_task_context_dicts(
+            self.game,
+            self.tg,
+            [self.task],
+            None,
+            None,
+            'word-salad-auto-correct-test',
+            'general',
+        )
+        rendered_state = context['word_salad_data'][self.task.pk]
+        self.assertTrue(rendered_state['is_complete'])
+        self.assertEqual(rendered_state['active'], [])
+        html = response.json()['update_task_html_new'][str(self.task.pk)]
+        self.assertEqual(html.count('data-word-salad-letter></span>'), 16)
+        self.assertNotIn('new-word-salad__hint-btn', html)
 
     def test_public_task_group_renders_grid_and_words(self):
         request = RequestFactory().get(

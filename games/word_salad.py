@@ -39,7 +39,12 @@ def parse_words(value):
 
 
 def default_state():
-    return {'solved_indices': [], 'hints': [], 'active': list(range(16))}
+    return {
+        'solved_indices': [],
+        'hints': [],
+        'hint_counts': {},
+        'active': list(range(16)),
+    }
 
 
 def _normalized_index_list(values, *, limit):
@@ -68,7 +73,21 @@ def load_state(raw):
     if not isinstance(data, dict):
         return state
     state['solved_indices'] = _normalized_index_list(data.get('solved_indices') or data.get('solved'), limit=16)
-    state['hints'] = _normalized_index_list(data.get('hints'), limit=16)
+    hint_counts = {}
+    raw_counts = data.get('hint_counts')
+    if isinstance(raw_counts, dict):
+        for raw_index, raw_count in raw_counts.items():
+            try:
+                index = int(raw_index)
+                count = int(raw_count)
+            except (TypeError, ValueError):
+                continue
+            if index >= 0 and count > 0:
+                hint_counts[index] = count
+    for index in _normalized_index_list(data.get('hints'), limit=16):
+        hint_counts[index] = max(1, hint_counts.get(index, 0))
+    state['hint_counts'] = hint_counts
+    state['hints'] = sorted(hint_counts)
     active_raw = data.get('active')
     if active_raw is None:
         state['active'] = list(range(16))
@@ -146,19 +165,22 @@ def removable_cells(grid, words, active, excluded_words=()):
     return removable
 
 
-def mask_for_word(word, reveal_first=False):
+def mask_for_word(word, reveal_count=0, reveal_first=False):
     normalized = normalize_word(word)
     letters = iter(normalized)
-    revealed = False
+    if reveal_first:
+        reveal_count = max(1, reveal_count)
+    reveal_count = max(0, int(reveal_count or 0))
+    letter_index = 0
     result = []
     for ch in word.upper():
         if ch.isalpha():
             letter = next(letters)
-            if reveal_first and not revealed:
+            if letter_index < reveal_count:
                 result.append(letter)
-                revealed = True
             else:
                 result.append('⬜')
+            letter_index += 1
         else:
             result.append(ch)
     return ''.join(result)
@@ -198,13 +220,8 @@ def serialize_task_data(grid_value, words_value):
 def build_ui_context(grid, words, state=None):
     state = load_state(state)
     solved = set(state.get('solved_indices') or [])
-    hints = set(state.get('hints') or [])
+    hint_counts = state.get('hint_counts') or {}
     active = set(state.get('active', []))
-    hinted_letters = {
-        normalize_word(words[index])[:1]
-        for index in hints
-        if 0 <= index < len(words) and normalize_word(words[index])
-    }
     grid_rows = []
     for row_index in range(4):
         row = []
@@ -215,34 +232,35 @@ def build_ui_context(grid, words, state=None):
                 'index': index,
                 'letter': letter,
                 'is_active': index in active,
-                'is_hinted': letter in hinted_letters,
             })
         grid_rows.append(row)
 
     words_ui = []
     for index, word in sorted(
         enumerate(words),
-        key=lambda item: (len(normalize_word(item[1])), normalize_word(item[1]), item[0]),
+        key=lambda item: (normalize_word(item[1]), item[0]),
     ):
         normalized = normalize_word(word)
-        first_letter = normalized[:1]
+        hint_count = min(len(normalized), int(hint_counts.get(index, 0) or 0))
         words_ui.append({
             'index': index,
             'original': word,
             'normalized': normalized,
-            'mask_html': word if index in solved else mask_for_word(word, reveal_first=index in hints),
+            'mask_html': word if index in solved else mask_for_word(word, reveal_count=hint_count),
             'length': len(normalized),
             'is_solved': index in solved,
-            'is_hinted': index in hints,
-            'first_letter': first_letter,
-            'first_letter_cells': [i for i, letter in enumerate(grid) if letter == first_letter],
+            'is_hinted': hint_count > 0,
+            'hint_count': hint_count,
+            'next_hint_number': hint_count + 1,
+            'can_hint': index not in solved and hint_count < len(normalized),
         })
 
     return {
         'grid_rows': grid_rows,
         'words': words_ui,
         'solved_indices': sorted(solved),
-        'hints': sorted(hints),
+        'hints': sorted(index for index, count in hint_counts.items() if count > 0),
+        'hint_counts': hint_counts,
         'active': sorted(active),
         'is_complete': len(solved) == len(words),
         'words_total': len(words),

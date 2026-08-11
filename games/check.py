@@ -725,7 +725,7 @@ class WordSaladChecker(BaseChecker):
             return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат пути')
         state = load_state(self.last_state)
         solved = set(state.get('solved_indices') or [])
-        hints = set(state.get('hints') or [])
+        hint_counts = dict(state.get('hint_counts') or {})
         active = set(state.get('active', []))
         action = (payload.get('action') or 'solve').strip().lower()
         if action == 'hint':
@@ -735,12 +735,25 @@ class WordSaladChecker(BaseChecker):
                 return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Неверная подсказка')
             if not (0 <= word_index < len(self.words)):
                 return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Неверная подсказка')
-            if word_index in hints:
-                return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Подсказка уже раскрыта')
-            hints.add(word_index)
+            if word_index in solved:
+                return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Слово уже открыто')
+            current_count = int(hint_counts.get(word_index, 0) or 0)
+            word_length = len(normalize_word(self.words[word_index]))
+            if current_count >= word_length:
+                return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Все буквы уже раскрыты')
+            requested_number = payload.get('hint_number')
+            if requested_number is not None:
+                try:
+                    requested_number = int(requested_number)
+                except (TypeError, ValueError):
+                    return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Неверная подсказка')
+                if requested_number != current_count + 1:
+                    return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Устаревшая подсказка')
+            hint_counts[word_index] = current_count + 1
             state = {
                 'solved_indices': sorted(solved),
-                'hints': sorted(hints),
+                'hints': sorted(hint_counts),
+                'hint_counts': hint_counts,
                 'active': sorted(active),
             }
             tournament_status = 'Partial' if solved else 'Wrong'
@@ -769,7 +782,8 @@ class WordSaladChecker(BaseChecker):
             active.discard(removable[0])
         state = {
             'solved_indices': sorted(solved),
-            'hints': sorted(hints),
+            'hints': sorted(hint_counts),
+            'hint_counts': hint_counts,
             'active': sorted(active),
         }
         status = 'Ok' if len(solved) == len(self.words) else 'Partial'
