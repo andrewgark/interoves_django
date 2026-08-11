@@ -25,6 +25,14 @@
     err.hidden = true;
   }
 
+  function responseTextSnippet(text) {
+    var clean = (text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!clean) {
+      return '';
+    }
+    return clean.slice(0, 240);
+  }
+
   function postForm(url, form) {
     return fetch(url, {
       method: 'POST',
@@ -35,9 +43,26 @@
       },
       body: new FormData(form)
     }).then(function (resp) {
-      return resp.json().then(function (data) {
-        if (!resp.ok || !data.ok) {
-          throw new Error((data && data.error) || 'Не удалось сохранить');
+      return resp.text().then(function (text) {
+        var data = null;
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (e) {
+          data = null;
+        }
+        if (!resp.ok) {
+          throw new Error(
+            (data && data.error) ||
+            responseTextSnippet(text) ||
+            ('HTTP ' + resp.status)
+          );
+        }
+        if (!data || !data.ok) {
+          throw new Error(
+            (data && data.error) ||
+            responseTextSnippet(text) ||
+            'Сервер вернул неожиданный ответ'
+          );
         }
         return data;
       });

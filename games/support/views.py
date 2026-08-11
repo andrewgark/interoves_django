@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django.contrib.auth.views import LoginView
 from django.http import Http404, JsonResponse
@@ -111,6 +112,8 @@ from games.support.services.social import (
     sync_from_telegram as social_sync_from_telegram,
     update_post as social_update_post,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _json_body(request):
@@ -227,6 +230,9 @@ def word_salad_create(request):
         detail = create_word_salad()
     except WordSaladSupportError as exc:
         return _word_salad_error_response(exc)
+    except Exception as exc:
+        logger.exception('Word Salad create failed')
+        return _word_salad_error_response(exc, status=500)
     return JsonResponse({'ok': True, 'detail': detail})
 
 
@@ -241,6 +247,9 @@ def word_salad_save(request, link_id):
         detail = update_word_salad(link_id, intro=intro, grid_text=grid_text, words_text=words_text, name=name)
     except WordSaladSupportError as exc:
         return _word_salad_error_response(exc)
+    except Exception as exc:
+        logger.exception('Word Salad save failed link_id=%s', link_id)
+        return _word_salad_error_response(exc, status=500)
     return JsonResponse({'ok': True, 'detail': detail})
 
 
@@ -251,6 +260,9 @@ def word_salad_delete(request, link_id):
         delete_word_salad(link_id)
     except WordSaladSupportError as exc:
         return _word_salad_error_response(exc)
+    except Exception as exc:
+        logger.exception('Word Salad delete failed link_id=%s', link_id)
+        return _word_salad_error_response(exc, status=500)
     return JsonResponse({'ok': True})
 
 

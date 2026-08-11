@@ -131,7 +131,13 @@ function updateGameTitle(html) {
   }
 }
 
+function flushAnalyticsEvents(events) {
+  if (!window.interovesAnalytics || !window.interovesAnalytics.flushPendingGoals) return;
+  window.interovesAnalytics.flushPendingGoals(events || []);
+}
+
 function processNewAttempt(form, data) {
+  flushAnalyticsEvents(data && data.analytics_events);
   if (data['status'] == 'duplicate') {
     alert('Посылка является копией одной из предудущих посылок.');
     return;
@@ -151,6 +157,7 @@ function processNewAttempt(form, data) {
 }
 
 function processNewHintAttempt(form, data) {
+  flushAnalyticsEvents(data && data.analytics_events);
   if (data['status'] == 'duplicate') {
     alert('Вы уже запрашивали эту подсказку.');
     return;
