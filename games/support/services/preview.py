@@ -252,6 +252,7 @@ def build_preview_task_group_context(game_id: str, task_group_number: str, spec:
         'tasks': tasks,
         'attempts_info_by_task_id': ctx_dicts['attempts_info_by_task_id'],
         'replacements_lines_data': ctx_dicts['replacements_lines_data'],
+        'word_salad_data': ctx_dicts['word_salad_data'],
         'raddle_data': ctx_dicts['raddle_data'],
         'proportions_chips': ctx_dicts['proportions_chips'],
         'wall_max_points_meta_by_task_id': ctx_dicts['wall_max_points_meta_by_task_id'],

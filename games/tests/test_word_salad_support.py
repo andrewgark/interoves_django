@@ -57,6 +57,15 @@ class WordSaladSupportTests(TestCase):
         with self.assertRaises(WordSaladSupportError):
             get_word_salad_detail(detail['link_id'])
 
+    def test_preview_task_group_renders_word_salad_grid(self):
+        self.client.force_login(self.support_user)
+        with patch('games.views.track.track_task_change'):
+            detail = create_word_salad()
+        response = self.client.get(detail['preview_url'])
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('new-word-salad__cell', response.content.decode('utf-8'))
+        self.assertIn('new-word-salad__word', response.content.decode('utf-8'))
+
     def test_create_word_salad_auto_creates_checker_type(self):
         CheckerType.objects.filter(pk='word_salad').delete()
         with patch('games.views.track.track_task_change'):
