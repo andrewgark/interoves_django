@@ -57,6 +57,13 @@ class WordSaladSupportTests(TestCase):
         with self.assertRaises(WordSaladSupportError):
             get_word_salad_detail(detail['link_id'])
 
+    def test_create_word_salad_auto_creates_checker_type(self):
+        CheckerType.objects.filter(pk='word_salad').delete()
+        with patch('games.views.track.track_task_change'):
+            detail = create_word_salad()
+        self.assertTrue(CheckerType.objects.filter(pk='word_salad').exists())
+        self.assertEqual(detail['words_count'], 1)
+
     def test_create_endpoint_returns_json_error(self):
         self.client.force_login(self.support_user)
         with patch('games.support.views.create_word_salad', side_effect=WordSaladSupportError('boom')):

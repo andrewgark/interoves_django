@@ -54,6 +54,11 @@ def _ensure_project():
     return project
 
 
+def _ensure_checker_type() -> CheckerType:
+    checker, _ = CheckerType.objects.get_or_create(pk='word_salad')
+    return checker
+
+
 def ensure_word_salad_game() -> Game:
     project = _ensure_project()
     defaults = {
@@ -220,7 +225,7 @@ def get_word_salad_detail(link_id: int) -> dict[str, Any]:
 @transaction.atomic
 def create_word_salad() -> dict[str, Any]:
     game = ensure_word_salad_game()
-    checker = CheckerType.objects.get(pk='word_salad')
+    checker = _ensure_checker_type()
     number = _next_number()
     task_group = TaskGroup.objects.create(
         label=f'{WORD_SALAD_SECTION_TITLE} #{number}',
