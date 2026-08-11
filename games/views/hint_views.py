@@ -54,6 +54,9 @@ def create_hint_attempt(hint, team=None, user=None, anon_key=None, game=None):
 
 def process_send_hint_attempt(request, task_id):
     task = get_public_task_or_404(task_id)
+    if task.task_type == 'word_salad':
+        from games.views.attempt_views import process_send_attempt
+        return process_send_attempt(request, task_id)
     game = game_from_request_for_task(request, task)
     if game is None:
         return {'status': 'ambiguous_game'}

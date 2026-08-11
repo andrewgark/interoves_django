@@ -509,7 +509,7 @@
         flushAnalyticsEvents(data.analytics_events);
         if (data.status === 'ok') {
           // For hints: keep hints panel open after reload.
-          if (form && form.classList && form.classList.contains('new-hint-form')) {
+          if (form && form.classList && form.classList.contains('new-hint-form') && form.getAttribute('data-skip-hints-open') !== '1') {
             var tid = form.getAttribute('data-task-id') || '';
             if (tid) {
               try {
@@ -3091,6 +3091,7 @@
           initReplacementsLinesStorage(fresh);
           if (typeof initReplacementsLinesUi === 'function') initReplacementsLinesUi(fresh);
           if (typeof initRaddleUi === 'function') initRaddleUi(fresh);
+          if (typeof initWordSalad === 'function') initWordSalad(fresh);
           if (typeof initAttemptsPopovers === 'function') initAttemptsPopovers(fresh);
         }
       });

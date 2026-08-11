@@ -7452,6 +7452,240 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   background: color-mix(in srgb, var(--text) 6%, transparent);
 }
 
+.new-word-salad {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.new-word-salad__intro {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: color-mix(in srgb, var(--tile) 52%, var(--surface));
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.new-word-salad__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(15rem, 0.9fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.new-word-salad__grid-panel,
+.new-word-salad__words-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  padding: 0.95rem;
+}
+
+.new-word-salad__grid {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.new-word-salad__row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.new-word-salad__cell {
+  appearance: none;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--tile);
+  color: var(--text);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: clamp(1.15rem, 2vw, 1.6rem);
+  font-weight: 700;
+  line-height: 1;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: transform 0.12s ease, border-color 0.12s ease, background-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.new-word-salad__cell.is-active {
+  cursor: pointer;
+}
+
+.new-word-salad__cell.is-selected {
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  color: var(--accent-hover);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+  transform: translateY(-1px);
+}
+
+.new-word-salad__cell.is-hinted {
+  background: color-mix(in srgb, var(--warning) 13%, var(--surface));
+  border-color: color-mix(in srgb, var(--warning) 52%, var(--border));
+}
+
+.new-word-salad__selection {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.new-word-salad__selection-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.new-word-salad__selection-word {
+  min-width: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  word-break: break-word;
+  text-align: right;
+}
+
+.new-word-salad__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.new-word-salad__hint-text {
+  margin: 0.7rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.new-word-salad__words-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.new-word-salad__words-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.new-word-salad__words-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.new-word-salad__words-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.new-word-salad__word {
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: color-mix(in srgb, var(--tile) 56%, var(--surface));
+  transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.new-word-salad__word.is-solved {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.new-word-salad__word.is-hinted {
+  border-color: color-mix(in srgb, var(--warning) 52%, var(--border));
+}
+
+.new-word-salad__word-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.new-word-salad__hint-form {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.new-word-salad__hint-btn {
+  appearance: none;
+  width: 2.2rem;
+  height: 2.2rem;
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
+}
+
+.new-word-salad__hint-btn:hover,
+.new-word-salad__hint-btn:focus-visible {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  outline: none;
+}
+
+.new-word-salad__hint-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.new-word-salad__mask {
+  min-width: 0;
+  flex: 1 1 auto;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  word-break: break-word;
+}
+
+.new-word-salad__len {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.new-word-salad__answer {
+  margin-top: 0.35rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+@media (max-width: 960px) {
+  .new-word-salad__layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (pointer: coarse) {
   .new-rules-trigger,
   .new-eye-toggle {

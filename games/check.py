@@ -707,6 +707,75 @@ class RaddleChecker(BaseChecker):
         )
 
 
+class WordSaladChecker(BaseChecker):
+    """Проверяет JSON-путь по сетке и хранит найденные слова в chain state."""
+
+    def __init__(self, data, last_attempt_state=None):
+        from games.word_salad import load_state, parse_task_data
+        self.grid, self.words = parse_task_data(data, '')
+        self.last_state = load_state(last_attempt_state)
+
+    def check(self, text, attempt):
+        from games.word_salad import dump_state, load_state, neighbours, normalize_word, removable_cells
+        try:
+            payload = json.loads(text)
+        except (TypeError, ValueError):
+            return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат пути')
+        if not isinstance(payload, dict):
+            return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат пути')
+        state = load_state(self.last_state)
+        solved = set(state.get('solved_indices') or [])
+        hints = set(state.get('hints') or [])
+        active = set(state.get('active', []))
+        action = (payload.get('action') or 'solve').strip().lower()
+        if action == 'hint':
+            try:
+                word_index = int(payload.get('word_index', -1))
+            except (TypeError, ValueError):
+                return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Неверная подсказка')
+            if not (0 <= word_index < len(self.words)):
+                return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Неверная подсказка')
+            if word_index in hints:
+                return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Подсказка уже раскрыта')
+            hints.add(word_index)
+            state = {
+                'solved_indices': sorted(solved),
+                'hints': sorted(hints),
+                'active': sorted(active),
+            }
+            tournament_status = 'Partial' if solved else 'Wrong'
+            return CheckResult('Partial', tournament_status, len(solved), dump_state(state))
+        try:
+            path = [int(value) for value in payload.get('path', [])]
+        except (TypeError, ValueError):
+            return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Неверный формат пути')
+        if not path or len(path) != len(set(path)) or any(i not in active for i in path):
+            return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Недопустимый путь')
+        if any(b not in set(neighbours(a)) for a, b in zip(path, path[1:])):
+            return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Буквы не соседние')
+        written = ''.join(self.grid[i] for i in path)
+        already = next((i for i, word in enumerate(self.words) if normalize_word(word) == written), None)
+        if already is not None and already in solved:
+            return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Слово уже открыто')
+        match = next((i for i, word in enumerate(self.words)
+                      if i not in solved and normalize_word(word) == written), None)
+        if match is None:
+            return CheckResult('Wrong', 'Pending', len(solved), dump_state(state), comment='Слово не найдено')
+        solved.add(match)
+        while True:
+            removable = removable_cells(self.grid, self.words, active, solved)
+            if not removable:
+                break
+            active.discard(removable[0])
+        state = {
+            'solved_indices': sorted(solved),
+            'hints': sorted(hints),
+            'active': sorted(active),
+        }
+        status = 'Ok' if len(solved) == len(self.words) else 'Partial'
+        return CheckResult(status, status, len(solved), dump_state(state))
+
+
 class SolutionsTagNumber:
     def __init__(self, data, last_attempt_state=None):
         self.data = json.loads(data)
@@ -794,6 +863,7 @@ class CheckerFactory:
             'replacements_lines': ReplacementsLinesChecker,
             'raddle': RaddleChecker,
             'alphabetty': AlphabettyChecker,
+            'word_salad': WordSaladChecker,
         }
     
     def create_checker(self, checker_type, data, last_attempt_state=None):

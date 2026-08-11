@@ -20,3 +20,11 @@ class TaskResultsMaxPointsTests(SimpleTestCase):
         checker_data = json.dumps({'lines': [['a'], ['b'], ['c']]})
         t = Task(task_type='replacements_lines', points=2, checker_data=checker_data, text='')
         self.assertEqual(t.get_results_max_points(), 6.0)
+
+    def test_word_salad_uses_word_count(self):
+        checker_data = json.dumps({
+            'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
+            'words': ['ABCDEFGHIJKLMNOP', 'ABCD'],
+        })
+        t = Task(task_type='word_salad', points=2, checker_data=checker_data, text='')
+        self.assertEqual(t.get_results_max_points(), 4.0)

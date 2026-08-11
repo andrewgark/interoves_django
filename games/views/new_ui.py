@@ -110,6 +110,9 @@ from games.raddle import (
     raddle_result_squares_for_actor,
     raddle_word_solved_list,
 )
+from games.word_salad import build_ui_context as build_word_salad_ui_context
+from games.word_salad import load_state as load_word_salad_state
+from games.word_salad import parse_task_data as parse_word_salad_task_data
 from games.proportions import build_proportions_chips_for_tasks
 from games.views.game_context import game_from_request_for_task
 from games.views.main_page import MainPageView
@@ -2240,12 +2243,13 @@ def new_ladder_word_results_page(request, task_group_number):
     })
 
 
-def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None):
+def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None, ws=None):
     """Presentation contract for the shared new-UI task card wrapper."""
     body_templates = {
         'wall': 'task-content/task-wall.html',
         'replacements_lines': 'task-content/task-replacements-lines.html',
         'raddle': 'task-content/task-raddle.html',
+        'word_salad': 'task-content/task-word-salad.html',
         'proportions': 'new/task-content/task-proportions.html',
         'default': 'new/task-content/task-default.html',
         'autohint': 'new/task-content/task-default.html',
@@ -2260,6 +2264,9 @@ def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None):
     elif task.task_type == 'raddle' and not rd:
         body_template = None
         body_error = 'Ошибка отображения задания (нет данных raddle).'
+    elif task.task_type == 'word_salad' and not ws:
+        body_template = None
+        body_error = 'Ошибка отображения задания (нет данных Word Salad).'
     if rld:
         base_max = rld['max_points_total']
     elif rd:
@@ -2268,12 +2275,12 @@ def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None):
         base_max = wall_meta['total']
     else:
         base_max = task.get_points()
-    attempts_hidden = {'replacements_lines', 'alphabetty'}
-    answer_hidden = {'replacements_lines', 'raddle', 'alphabetty'}
+    attempts_hidden = {'replacements_lines', 'alphabetty', 'word_salad'}
+    answer_hidden = {'replacements_lines', 'raddle', 'alphabetty', 'word_salad'}
     return {
         'body_template': body_template,
         'body_error': body_error,
-        'body_wrapper': task.task_type in {'wall', 'replacements_lines', 'raddle'},
+        'body_wrapper': task.task_type in {'wall', 'replacements_lines', 'raddle', 'word_salad'},
         'base_max': base_max,
         'max_points_title': wall_meta.get('title', '') if wall_meta else '',
         'show_attempts': task.task_type not in attempts_hidden,
@@ -2380,6 +2387,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             'disliked': Like.manager.actor_has_dislike(t, team=team, user=user, anon_key=anon_key),
         }
     replacements_lines_data = {}
+    word_salad_data = {}
     for t in tasks:
         if t.task_type == 'replacements_lines':
             parsed = parse_replacements_lines_text(t.text, (t.checker_data or '').strip() or None)
@@ -2443,6 +2451,38 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 'max_attempts': t.get_max_attempts(),
                 'max_points_total': t.get_results_max_points(),
             }
+        elif t.task_type == 'word_salad':
+            try:
+                grid, words = parse_word_salad_task_data(t.checker_data, t.answer)
+            except Exception:
+                continue
+            ai = attempts_info_by_task_id.get(t.id)
+            state = load_word_salad_state(None)
+            if game is not None:
+                cts_qs = ChainTaskState.objects.filter(task=t, game=game)
+                if team is not None:
+                    cts_qs = cts_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
+                elif user is not None:
+                    cts_qs = cts_qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
+                elif anon_key is not None:
+                    cts_qs = cts_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
+                else:
+                    cts_qs = cts_qs.none()
+                play_mode_key = 'tournament' if mode == 'tournament' else 'general'
+                cts = cts_qs.filter(game_mode=play_mode_key).first()
+                if cts and cts.state:
+                    state = load_word_salad_state(cts.state)
+                elif ai and ai.attempts:
+                    for a in reversed(ai.attempts):
+                        if a.state:
+                            state = load_word_salad_state(a.state)
+                            break
+            elif ai and ai.attempts:
+                for a in reversed(ai.attempts):
+                    if a.state:
+                        state = load_word_salad_state(a.state)
+                        break
+            word_salad_data[t.id] = build_word_salad_ui_context(grid, words, state)
     raddle_data = {}
     for t in tasks:
         if t.task_type == 'raddle':
@@ -2501,6 +2541,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             rld=replacements_lines_data.get(t.id),
             rd=raddle_data.get(t.id),
             wall_meta=wall_max_points_meta_by_task_id.get(t.id),
+            ws=word_salad_data.get(t.id),
         )
         for t in tasks
     }
@@ -2509,6 +2550,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
         'wall_max_points_meta_by_task_id': wall_max_points_meta_by_task_id,
         'likes_meta_by_task_id': likes_meta_by_task_id,
         'replacements_lines_data': replacements_lines_data,
+        'word_salad_data': word_salad_data,
         'raddle_data': raddle_data,
         'proportions_chips': proportions_chips,
         'task_ui_by_task_id': task_ui_by_task_id,

@@ -103,6 +103,7 @@ function updateTasks(taskToHtml) {
       click: clickLikeDislike
     });
     initAudioButton(taskHtmlId);
+    initWordSalad(taskHtmlId);
   
     task = $(taskHtmlId);
     var is_ok = task.hasClass('li-ok');
@@ -460,6 +461,118 @@ function initAudioPlayer() {
 }
 
 
+function initWordSalad(scope) {
+  var selector = '.new-word-salad[data-word-salad-root]';
+  var roots = [];
+  if (!scope) {
+    roots = Array.prototype.slice.call(document.querySelectorAll(selector));
+  } else if (typeof scope === 'string') {
+    roots = Array.prototype.slice.call(document.querySelectorAll(scope + ' ' + selector));
+  } else if (scope.querySelectorAll) {
+    roots = Array.prototype.slice.call(scope.querySelectorAll(selector));
+  }
+
+  roots.forEach(function (root) {
+    if (root.getAttribute('data-word-salad-bound') === '1') return;
+    root.setAttribute('data-word-salad-bound', '1');
+
+    var currentPath = [];
+    var isDragging = false;
+    var cells = Array.prototype.slice.call(root.querySelectorAll('[data-word-salad-cell]'));
+    var cellByIndex = {};
+    var currentEl = root.querySelector('[data-word-salad-current]');
+    var pathInput = root.querySelector('[data-word-salad-path]');
+    var submitBtn = root.querySelector('.new-word-salad__submit');
+    var resetBtn = root.querySelector('[data-word-salad-reset]');
+
+    function cellIndex(cell) {
+      var raw = cell && cell.getAttribute('data-index');
+      var index = parseInt(raw, 10);
+      return isNaN(index) ? -1 : index;
+    }
+
+    function isAdjacent(left, right) {
+      var rowA = Math.floor(left / 4);
+      var colA = left % 4;
+      var rowB = Math.floor(right / 4);
+      var colB = right % 4;
+      return Math.max(Math.abs(rowA - rowB), Math.abs(colA - colB)) <= 1;
+    }
+
+    function renderSelection() {
+      cells.forEach(function (cell) {
+        cell.classList.remove('is-selected');
+        cell.setAttribute('aria-pressed', 'false');
+      });
+      currentPath.forEach(function (index) {
+        var cell = cellByIndex[index];
+        if (!cell) return;
+        cell.classList.add('is-selected');
+        cell.setAttribute('aria-pressed', 'true');
+      });
+      if (currentEl) {
+        currentEl.textContent = currentPath.map(function (index) {
+          var cell = cellByIndex[index];
+          return cell ? (cell.getAttribute('data-letter') || cell.textContent || '') : '';
+        }).join('') || '—';
+      }
+      if (pathInput) {
+        pathInput.value = JSON.stringify(currentPath);
+      }
+      if (submitBtn) {
+        submitBtn.disabled = currentPath.length === 0;
+      }
+    }
+
+    function appendCell(cell) {
+      var index = cellIndex(cell);
+      if (index < 0) return;
+      if (currentPath.indexOf(index) >= 0) return;
+      if (currentPath.length && !isAdjacent(currentPath[currentPath.length - 1], index)) return;
+      currentPath.push(index);
+      renderSelection();
+    }
+
+    function clearSelection() {
+      currentPath = [];
+      renderSelection();
+    }
+
+    cells.forEach(function (cell) {
+      var index = cellIndex(cell);
+      if (index >= 0) {
+        cellByIndex[index] = cell;
+      }
+      cell.addEventListener('pointerdown', function (event) {
+        event.preventDefault();
+        isDragging = true;
+        appendCell(cell);
+      });
+      cell.addEventListener('pointerenter', function () {
+        if (isDragging) {
+          appendCell(cell);
+        }
+      });
+    });
+
+    root.addEventListener('pointerup', function () {
+      isDragging = false;
+    });
+    root.addEventListener('pointercancel', function () {
+      isDragging = false;
+    });
+
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function () {
+        clearSelection();
+      });
+    }
+
+    renderSelection();
+  });
+}
+
+
 function initTicketRequests() {
   $('.request-tickets-link').magnificPopup({
     type: 'inline',
@@ -527,6 +640,7 @@ $(document).ready(function() {
     e.stopPropagation();
   });
   initAudioPlayer();
+  initWordSalad(document);
   initTicketRequests();
   setupWebsocket();
   

@@ -95,6 +95,7 @@ class RenderNewUiTaskCardTests(TestCase):
         default = Task(task_type='default', points=1)
         raddle = Task(task_type='raddle', points=1)
         replacements = Task(task_type='replacements_lines', points=1)
+        word_salad = Task(task_type='word_salad', points=1)
 
         self.assertEqual(
             _task_ui_descriptor(default)['body_template'],
@@ -108,13 +109,23 @@ class RenderNewUiTaskCardTests(TestCase):
             _task_ui_descriptor(replacements, rld={'max_points_total': 3, 'n_lines': 1})['body_template'],
             'task-content/task-replacements-lines.html',
         )
+        self.assertEqual(
+            _task_ui_descriptor(word_salad, ws={'words': []})['body_template'],
+            'task-content/task-word-salad.html',
+        )
         raddle_ui = _task_ui_descriptor(raddle, rd={'max_points_total': 4})
         self.assertTrue(raddle_ui['show_attempts'])
         self.assertFalse(raddle_ui['show_answer'])
         self.assertFalse(_task_ui_descriptor(default)['body_wrapper'])
+        self.assertFalse(_task_ui_descriptor(word_salad, ws={'words': []})['show_attempts'])
+        self.assertFalse(_task_ui_descriptor(word_salad, ws={'words': []})['show_answer'])
         self.assertEqual(
             _task_ui_descriptor(raddle)['body_error'],
             'Ошибка отображения задания (нет данных raddle).',
+        )
+        self.assertEqual(
+            _task_ui_descriptor(word_salad)['body_error'],
+            'Ошибка отображения задания (нет данных Word Salad).',
         )
         self.assertEqual(
             _task_ui_descriptor(self.task, wall_meta={'total': 6, 'title': 'wall'})['max_points_title'],

@@ -667,6 +667,7 @@ class Task(models.Model):
         ('proportions', 'Пропорции'),
         ('raddle', 'raddle'),
         ('alphabetty', 'alphabetty'),
+        ('word_salad', 'Словесный Салат'),
     )
 
     task_type = models.CharField(default='default', max_length=100, choices=TASK_TYPE_VARIANTS)
@@ -706,6 +707,11 @@ class Task(models.Model):
         from games.views.track import track_task_change
         track_task_change(self)
         super(Task, self).save(*args, **kwargs)
+
+    def clean(self):
+        if self.task_type == 'word_salad':
+            from games.word_salad import validate_task_data
+            validate_task_data(self.checker_data, '')
 
     def get_checker(self):
         if self.checker:
@@ -766,6 +772,15 @@ class Task(models.Model):
                 middle = max(0, parsed['n_words'] - 2)
                 if middle > 0:
                     return m * middle
+            return m
+        if self.task_type == 'word_salad':
+            try:
+                from games.word_salad import parse_task_data
+                _, words = parse_task_data(self.checker_data, '')
+                if words:
+                    return m * len(words)
+            except Exception:
+                pass
             return m
         if self.task_type == 'alphabetty':
             return m
@@ -1181,7 +1196,7 @@ class AttemptManager(models.Manager):
         return rows
 
 
-CHAIN_TASK_TYPES = ('wall', 'replacements_lines', 'raddle', 'alphabetty')
+CHAIN_TASK_TYPES = ('wall', 'replacements_lines', 'raddle', 'alphabetty', 'word_salad')
 
 
 class ChainTaskState(models.Model):

@@ -359,6 +359,32 @@ def process_send_attempt(request, task_id):
         if not word:
             return {'status': 'empty'}
         attempt = Attempt(text=word)
+    elif task.task_type == 'word_salad':
+        action = (request.POST.get('action') or 'solve').strip().lower()
+        if action == 'hint':
+            try:
+                word_index = int(request.POST.get('word_index', -1))
+            except (TypeError, ValueError):
+                return {'status': 'empty'}
+            if word_index < 0:
+                return {'status': 'empty'}
+            attempt = Attempt(text=json.dumps({'action': 'hint', 'word_index': word_index}))
+        else:
+            path_raw = request.POST.get('path') or request.POST.get('path_json') or '[]'
+            if isinstance(path_raw, str):
+                try:
+                    path = json.loads(path_raw)
+                except (TypeError, ValueError):
+                    path = []
+            else:
+                path = list(path_raw)
+            try:
+                path = [int(value) for value in path]
+            except (TypeError, ValueError):
+                return {'status': 'empty'}
+            if not path:
+                return {'status': 'empty'}
+            attempt = Attempt(text=json.dumps({'action': 'solve', 'path': path}))
     else:
         raise Exception('Unknown task_type: {}'.format(task.task_type))
     attempt.team = team

@@ -2,6 +2,7 @@ import chardet
 from collections import OrderedDict
 import json
 
+from django import forms
 from django.contrib import admin, messages
 from django.forms import Textarea, ModelForm, ModelMultipleChoiceField
 from django.forms.models import BaseInlineFormSet
@@ -388,6 +389,66 @@ class HintInline(admin.TabularInline):
         return field
 
 
+class WordSaladTaskForm(ModelForm):
+    word_salad_grid_text = forms.CharField(
+        required=False,
+        label='Word Salad grid',
+        widget=Textarea(attrs={'rows': 4, 'cols': 20}),
+        help_text='4 строки по 4 буквы или 16 букв подряд. Ё приравнивается к Е.',
+    )
+    word_salad_words_text = forms.CharField(
+        required=False,
+        label='Word Salad words',
+        widget=Textarea(attrs={'rows': 8, 'cols': 40}),
+        help_text='Одно слово на строку. Слова будут сохраняться в JSON автоматически.',
+    )
+
+    class Meta:
+        model = Task
+        fields = '__all__'
+
+    class Media:
+        js = ('js/admin_word_salad_task.js',)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        task_type = None
+        if self.is_bound:
+            task_type = self.data.get(self.add_prefix('task_type'))
+        if not task_type:
+            task_type = self.initial.get('task_type') or getattr(self.instance, 'task_type', None)
+        if getattr(self.instance, 'task_type', None) == 'word_salad' and getattr(self.instance, 'checker_data', None):
+            try:
+                from games.word_salad import format_grid_text, format_words_text, parse_task_data
+
+                grid, words = parse_task_data(self.instance.checker_data, self.instance.answer)
+                self.fields['word_salad_grid_text'].initial = format_grid_text(grid)
+                self.fields['word_salad_words_text'].initial = format_words_text(words)
+            except Exception:
+                pass
+        if task_type == 'word_salad':
+            self.fields['checker_data'].help_text = (
+                'Word Salad: можно редактировать через отдельные поля ниже; '
+                'JSON соберётся автоматически. Проверка требует grid и words.'
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        task_type = cleaned.get('task_type') or getattr(self.instance, 'task_type', None)
+        if task_type == 'word_salad':
+            from games.word_salad import serialize_task_data
+
+            try:
+                cleaned['checker_data'] = serialize_task_data(
+                    cleaned.get('word_salad_grid_text'),
+                    cleaned.get('word_salad_words_text'),
+                )
+            except ValueError as exc:
+                raise forms.ValidationError(str(exc))
+            cleaned['answer'] = ''
+        return cleaned
+
+
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
     list_display = ['id', '__str__', 'task_group', 'number', 'is_removed']
@@ -395,13 +456,20 @@ class TaskAdmin(admin.ModelAdmin):
     inlines = [
         HintInline
     ]
+    form = WordSaladTaskForm
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }
     def get_form(self, request, obj=None, **kwargs):
         # just save obj reference for future processing in Inline
         request._obj_ = obj
-        return super(TaskAdmin, self).get_form(request, obj, **kwargs)
+        form = super(TaskAdmin, self).get_form(request, obj, **kwargs)
+        if 'checker_data' in form.base_fields:
+            form.base_fields['checker_data'].help_text = (
+                'Для Word Salad: JSON вида {"grid": ["Д", ... 16 букв ...], "words": ["ВОЛГА", ...]}. '
+                'Ё приравнивается к Е. Для других типов это поле остаётся служебным.'
+            )
+        return form
 
     def save_model(self, request, obj, form, change):
         if obj.task_type == 'raddle':
