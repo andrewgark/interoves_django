@@ -36,6 +36,7 @@ class RenderNewUiTaskCardTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         _setup_db()
+        CheckerType.objects.get_or_create(pk='word_salad')
         with patch('games.views.track.track_task_change'):
             cls.game = Game.objects.create(
                 id='render_wall_img_game',
@@ -72,6 +73,18 @@ class RenderNewUiTaskCardTests(TestCase):
                     'points_explanation': 1,
                     'points_bonus': 1,
                 }),
+            )
+            cls.word_salad_task = Task.objects.create(
+                task_group=cls.tg,
+                number='2',
+                task_type='word_salad',
+                checker=CheckerType.objects.get(pk='word_salad'),
+                points=1,
+                checker_data=json.dumps({
+                    'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
+                    'words': ['ABCDEFGHIJKLMNOP'],
+                }, ensure_ascii=False),
+                text='Тема: алфавит',
             )
         Image.objects.get_or_create(
             id='wall_img_1',
@@ -170,3 +183,13 @@ class RenderNewUiTaskCardTests(TestCase):
                 request, task, None, 'general', anon_key='anon_test', game=self.game,
             )
             self.assertIn(expected, html)
+
+    def test_render_word_salad_includes_grid_and_words(self):
+        request = RequestFactory().get('/')
+        request.user = AnonymousUser()
+        html = render_new_ui_task_card_html(
+            request, self.word_salad_task, None, 'general', anon_key='anon_test', game=self.game,
+        )
+        self.assertIsNotNone(html)
+        self.assertIn('new-word-salad__cell', html)
+        self.assertIn('new-word-salad__word', html)
