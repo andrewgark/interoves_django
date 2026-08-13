@@ -16,6 +16,7 @@ from games.models import (
     Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, HTMLPage,
     Project, Task, TaskGroup, Team, CHAIN_TASK_TYPES,
 )
+from games.exception import DuplicateAttemptException
 from games.recheck import recheck_chain_task
 from games.views.attempt_views import check_attempt
 from games.wall import Wall
@@ -238,6 +239,53 @@ class ReplacementsChainTests(_ChainFixture, TestCase):
         row = ChainTaskState.objects.get(task=self.repl_task, team=self.team)
         a2.refresh_from_db()
         self.assertEqual(row.state, a2.state)
+
+    def test_same_answer_is_allowed_after_task_update(self):
+        payload = _repl_text(0, ['corrected_answer'])
+        old_revision = self.repl_task.attempt_revision
+
+        first = _make_attempt(self.repl_task, self.team, payload)
+        check_attempt(first)
+        self.assertEqual(first.status, 'Wrong')
+
+        with self.assertRaises(DuplicateAttemptException):
+            check_attempt(_make_attempt(self.repl_task, self.team, payload))
+
+        self.repl_task.checker_data = json.dumps({
+            'lines': [['corrected_answer'], ['answer2']],
+        })
+        with patch('games.views.track.track_task_change'):
+            self.repl_task.save(update_fields=['checker_data'])
+        self.assertNotEqual(self.repl_task.attempt_revision, old_revision)
+
+        corrected = _make_attempt(self.repl_task, self.team, payload)
+        check_attempt(corrected)
+        self.assertEqual(corrected.status, 'Partial')
+        self.assertEqual(corrected.task_revision, self.repl_task.attempt_revision)
+
+        with self.assertRaises(DuplicateAttemptException):
+            check_attempt(_make_attempt(self.repl_task, self.team, payload))
+
+    def test_attempt_limit_starts_again_after_task_update(self):
+        self.repl_task.max_attempts = 1
+        with patch('games.views.track.track_task_change'):
+            self.repl_task.save(update_fields=['max_attempts'])
+
+        payload = _repl_text(0, ['corrected_answer'])
+        with patch.object(Game, 'get_current_mode', return_value='tournament'):
+            check_attempt(_make_attempt(self.repl_task, self.team, payload))
+
+            self.repl_task.checker_data = json.dumps({
+                'lines': [['corrected_answer'], ['answer2']],
+            })
+            with patch('games.views.track.track_task_change'):
+                self.repl_task.save(update_fields=['checker_data'])
+
+            corrected = _make_attempt(self.repl_task, self.team, payload)
+            check_attempt(corrected)
+
+        self.assertIsNotNone(corrected.pk)
+        self.assertEqual(corrected.status, 'Partial')
 
 
 # ===========================================================================

@@ -89,6 +89,9 @@ def check_attempt(attempt, *, persist_wrong=True):
         raise Exception('Cannot resolve game for attempt (set Attempt.game or use a single-linked task group)')
 
     current_mode = game.get_current_mode(attempt)
+    if attempt._state.adding and attempt.task_revision is None:
+        attempt.task_revision = task.attempt_revision
+    attempt_revision = attempt.task_revision or task.attempt_revision
     modes = ['general']
     if current_mode == 'tournament':
         modes.append('tournament')
@@ -117,6 +120,10 @@ def check_attempt(attempt, *, persist_wrong=True):
             attempts = Attempt.manager.get_attempts_before(
                 team, task, attempt.time, mode, user=user, anon_key=anon_key, game=game,
             )
+            revision_attempts = [
+                previous for previous in attempts
+                if previous.task_revision == attempt_revision
+            ]
 
             # Пустой ChainTaskState после anon-migrate: подтянуть state из попыток
             # текущего режима (не general→tournament — иначе ломается изоляция).
@@ -150,7 +157,7 @@ def check_attempt(attempt, *, persist_wrong=True):
                     except (ValueError, TypeError):
                         current_line = -1
                     n_attempts_this_line = 0
-                    for a in attempts:
+                    for a in revision_attempts:
                         try:
                             p = json.loads(a.text)
                             if int(p.get('line_index', -1)) == current_line:
@@ -167,7 +174,7 @@ def check_attempt(attempt, *, persist_wrong=True):
                     except (ValueError, TypeError):
                         current_word = -1
                     n_attempts_this_word = 0
-                    for a in attempts:
+                    for a in revision_attempts:
                         try:
                             p = json.loads(a.text)
                             if int(p.get('word_index', -1)) == current_word:
@@ -178,12 +185,12 @@ def check_attempt(attempt, *, persist_wrong=True):
                     if n_attempts_this_word >= max_attempts:
                         raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {} for word {}'.format(team, max_attempts, task, current_word + 1))
                 else:
-                    n_attempts = len(attempts)
+                    n_attempts = len(revision_attempts)
                     max_attempts = task.get_max_attempts()
                     if n_attempts >= max_attempts:
                         raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {}'.format(team, max_attempts, task))
 
-            for other_attempt in attempts:
+            for other_attempt in revision_attempts:
                 if task.task_type == 'raddle':
                     if raddle_blocks_as_duplicate(
                         attempt.text, other_attempt.text,

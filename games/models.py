@@ -648,6 +648,10 @@ class TaskQuerySet(models.QuerySet):
 
 class Task(models.Model):
     id = models.AutoField(primary_key=True)
+    # Changes on every Task.save(). Attempts keep a snapshot so an answer that
+    # was submitted against an older version of the task is not a duplicate of
+    # the same answer submitted after an edit.
+    attempt_revision = models.UUIDField(default=uuid.uuid4, editable=False)
     task_group = models.ForeignKey(TaskGroup, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL)
     number = models.CharField(max_length=100)
     image = models.ImageField(null=True, blank=True)
@@ -705,6 +709,11 @@ class Task(models.Model):
 
     def save(self, *args, **kwargs):
         from games.views.track import track_task_change
+        if not self._state.adding:
+            self.attempt_revision = uuid.uuid4()
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None:
+                kwargs['update_fields'] = set(update_fields) | {'attempt_revision'}
         track_task_change(self)
         super(Task, self).save(*args, **kwargs)
 
@@ -1339,6 +1348,9 @@ class Attempt(models.Model):
     )
     manager = AttemptManager()
 
+    # Task revision seen when this attempt was checked. Null is allowed for
+    # historical/imported rows whose task is no longer available.
+    task_revision = models.UUIDField(blank=True, null=True, editable=False)
     text = models.TextField()
     status = models.CharField(max_length=100, choices=STATUS_VARIANTS)
     possible_status = models.CharField(blank=True, null=True, max_length=100, choices=STATUS_VARIANTS)
