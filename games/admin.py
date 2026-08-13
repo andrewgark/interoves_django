@@ -934,9 +934,10 @@ class StatisticsEventAdmin(admin.ModelAdmin):
     def payload_summary(self, obj):
         payload = obj.payload or {}
         if obj.kind == StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED:
-            return 'moved={} hints={} anon={}'.format(
+            return 'moved={} hints={} likes={} anon={}'.format(
                 payload.get('moved'),
                 payload.get('moved_hints'),
+                payload.get('moved_likes'),
                 (payload.get('anon_key') or '')[:12],
             )
         try:

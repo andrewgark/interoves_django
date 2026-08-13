@@ -15,13 +15,17 @@ from games.models import (
     Hint,
     HintAttempt,
     HTMLPage,
+    Like,
     Profile,
     Project,
     StatisticsEvent,
     Task,
     TaskGroup,
 )
-from games.anon_migrate import migrate_anon_chain_task_states
+from games.anon_migrate import (
+    heal_orphaned_likes_from_migrate_events,
+    migrate_anon_chain_task_states,
+)
 
 
 class AnonMigrateTests(TestCase):
@@ -118,6 +122,86 @@ class AnonMigrateTests(TestCase):
         self.assertEqual(payload['anon_key'], self.anon_key)
         self.assertEqual(payload['moved'], 2)
         self.assertEqual(payload['moved_hints'], 1)
+        self.assertEqual(payload['moved_likes'], 0)
+
+    def test_migrate_moves_anonymous_like_to_user(self):
+        Like.manager.create(
+            anon_key=self.anon_key,
+            task=self.task,
+            value=1,
+        )
+
+        resp = self.client.post(
+            reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['moved_likes'], 1)
+        self.assertFalse(Like.manager.filter(anon_key=self.anon_key).exists())
+        self.assertEqual(
+            Like.manager.filter(user=self.user, task=self.task, value=1).count(),
+            1,
+        )
+        payload = StatisticsEvent.objects.get(
+            kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
+            user=self.user,
+        ).payload
+        self.assertEqual(payload['moved_likes'], 1)
+
+    def test_migrate_collapses_same_anonymous_and_user_reaction(self):
+        Like.manager.create(user=self.user, task=self.task, value=1)
+        Like.manager.create(anon_key=self.anon_key, task=self.task, value=1)
+
+        resp = self.client.post(
+            reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
+        )
+
+        self.assertEqual(resp.json()['moved_likes'], 1)
+        self.assertFalse(Like.manager.filter(anon_key=self.anon_key).exists())
+        self.assertEqual(
+            Like.manager.filter(user=self.user, task=self.task).count(),
+            1,
+        )
+        self.assertEqual(
+            Like.manager.get(user=self.user, task=self.task).value,
+            1,
+        )
+        self.assertEqual(Like.manager.get_total_likes(self.task), 1)
+
+    def test_migrate_keeps_existing_user_reaction_on_conflict(self):
+        Like.manager.create(user=self.user, task=self.task, value=-1)
+        Like.manager.create(anon_key=self.anon_key, task=self.task, value=1)
+
+        resp = self.client.post(
+            reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
+        )
+
+        self.assertEqual(resp.json()['moved_likes'], 1)
+        self.assertFalse(Like.manager.filter(anon_key=self.anon_key).exists())
+        user_reactions = Like.manager.filter(user=self.user, task=self.task)
+        self.assertEqual(user_reactions.count(), 1)
+        self.assertEqual(user_reactions.get().value, -1)
+        self.assertEqual(Like.manager.get_total_likes(self.task), 0)
+        self.assertEqual(Like.manager.get_total_dislikes(self.task), 1)
+
+    def test_heal_moves_likes_from_previous_migrate_event(self):
+        Like.manager.create(anon_key=self.anon_key, task=self.task, value=1)
+        StatisticsEvent.record(
+            StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
+            user=self.user,
+            anon_key=self.anon_key,
+            moved=2,
+            moved_hints=1,
+        )
+
+        events, rows = heal_orphaned_likes_from_migrate_events()
+
+        self.assertEqual((events, rows), (1, 1))
+        self.assertFalse(Like.manager.filter(anon_key=self.anon_key).exists())
+        self.assertEqual(
+            Like.manager.filter(user=self.user, task=self.task, value=1).count(),
+            1,
+        )
 
     def test_migrate_moves_chain_task_state(self):
         """После логина CTS должен переехать на user — иначе raddle чекер сбрасывает прогресс."""

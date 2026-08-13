@@ -25,6 +25,7 @@ from django.views.decorators.http import require_http_methods
 
 from games.forms import CreateTeamForm, JoinTeamForm
 
+from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
 
@@ -3352,6 +3353,7 @@ def new_anon_migrate_count(request):
 
 @login_required
 @require_http_methods(['POST'])
+@transaction.atomic
 def new_migrate_anon_attempts(request):
     if not has_profile(request.user):
         raise Http404()
@@ -3368,11 +3370,13 @@ def new_migrate_anon_attempts(request):
     )
     from games.anon_migrate import (
         migrate_anon_chain_task_states,
+        migrate_anon_likes,
         migrate_anon_personal_dict_words,
     )
     moved_states = migrate_anon_chain_task_states(request.user, anon_key)
     moved_personal_dict = migrate_anon_personal_dict_words(request.user, anon_key)
-    if moved or moved_hints or moved_states or moved_personal_dict:
+    moved_likes = migrate_anon_likes(request.user, anon_key)
+    if moved or moved_hints or moved_states or moved_personal_dict or moved_likes:
         StatisticsEvent.record(
             StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
             user=request.user,
@@ -3381,6 +3385,7 @@ def new_migrate_anon_attempts(request):
             moved_hints=moved_hints,
             moved_states=moved_states,
             moved_personal_dict=moved_personal_dict,
+            moved_likes=moved_likes,
         )
     return JsonResponse({
         'status': 'ok',
@@ -3388,6 +3393,7 @@ def new_migrate_anon_attempts(request):
         'moved_hints': moved_hints,
         'moved_states': moved_states,
         'moved_personal_dict': moved_personal_dict,
+        'moved_likes': moved_likes,
     })
 
 

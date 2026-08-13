@@ -1,8 +1,10 @@
 """Перенос анонимного прогресса на залогиненного пользователя."""
 import json
 
+from django.db import transaction
+
 from games.alphabetty.core import normalize_word
-from games.models import Attempt, ChainTaskState
+from games.models import Attempt, ChainTaskState, Like
 
 
 def _parse_state(state_json):
@@ -155,6 +157,67 @@ def migrate_anon_personal_dict_words(user, anon_key):
     return moved
 
 
+@transaction.atomic
+def migrate_anon_likes(user, anon_key):
+    """Переносит реакции anon→user, оставляя одну реакцию на задание.
+
+    Если профиль уже успел поставить реакцию на то же задание, она считается
+    более актуальной и анонимная реакция удаляется. Это одновременно убирает
+    задвоение счётчика после повторного клика уже под авторизацией.
+
+    Returns:
+        int: сколько анонимных строк обработано (перенесено или схлопнуто).
+    """
+    if not user or not anon_key:
+        return 0
+
+    anon_rows = list(
+        Like.manager.select_for_update()
+        .filter(anon_key=anon_key, user__isnull=True, team__isnull=True)
+        .order_by('task_id', '-id')
+    )
+    if not anon_rows:
+        return 0
+
+    task_ids = {row.task_id for row in anon_rows}
+    user_qs = Like.manager.select_for_update().filter(
+        user=user, team__isnull=True, anon_key__isnull=True,
+    )
+    non_null_task_ids = {task_id for task_id in task_ids if task_id is not None}
+    user_rows = list(user_qs.filter(task_id__in=non_null_task_ids))
+    if None in task_ids:
+        user_rows.extend(user_qs.filter(task__isnull=True))
+
+    anon_by_task = {}
+    for row in anon_rows:
+        anon_by_task.setdefault(row.task_id, []).append(row)
+    user_by_task = {}
+    for row in user_rows:
+        user_by_task.setdefault(row.task_id, []).append(row)
+
+    for task_id, rows in anon_by_task.items():
+        existing = user_by_task.get(task_id) or []
+        if existing:
+            # Авторизованная реакция побеждает. Заодно нормализуем возможные
+            # старые дубликаты профиля, оставляя самую новую строку.
+            keep = max(existing, key=lambda row: row.id)
+            duplicate_ids = [row.id for row in existing if row.id != keep.id]
+            Like.manager.filter(id__in=duplicate_ids).delete()
+            Like.manager.filter(id__in=[row.id for row in rows]).delete()
+            continue
+
+        # В норме анонимная строка одна. Если старые гонки оставили несколько,
+        # последняя по id лучше всего отражает итоговый клик пользователя.
+        keep = max(rows, key=lambda row: row.id)
+        duplicate_ids = [row.id for row in rows if row.id != keep.id]
+        Like.manager.filter(id__in=duplicate_ids).delete()
+        keep.user = user
+        keep.anon_key = None
+        keep.save(update_fields=['user', 'anon_key'])
+
+    return len(anon_rows)
+
+
 def migrate_anon_chain_task_states(user, anon_key):
     """
     Переносит ChainTaskState с anon_key на user.
@@ -234,6 +297,31 @@ def heal_orphaned_chain_states_from_migrate_events():
         if user is None:
             continue
         n = migrate_anon_chain_task_states(user, anon_key)
+        if n:
+            events += 1
+            rows += n
+    return events, rows
+
+
+def heal_orphaned_likes_from_migrate_events():
+    """Догоняет реакции для уже состоявшихся anon→user восстановлений."""
+    from games.models import StatisticsEvent
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    events = 0
+    rows = 0
+    for ev in StatisticsEvent.objects.filter(
+        kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
+    ).order_by('id').iterator():
+        payload = ev.payload or {}
+        anon_key = payload.get('anon_key')
+        if not anon_key or not ev.user_id:
+            continue
+        user = User.objects.filter(pk=ev.user_id).first()
+        if user is None:
+            continue
+        n = migrate_anon_likes(user, anon_key)
         if n:
             events += 1
             rows += n
