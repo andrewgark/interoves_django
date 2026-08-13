@@ -7,7 +7,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from games.ladder_daily import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
-from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Profile, Project, Task
+from games.models import Attempt, CheckerType, Game, GameTaskGroup, HTMLPage, Profile, Project, Task
 from games.support.constants import SUPPORT_CONSOLE_GROUP
 from games.support.services import ladders as ladder_svc
 
@@ -180,6 +180,57 @@ class LadderSupportServiceTests(TestCase):
         self.assertFalse(detail['mixed_script'])
         task = Task.objects.get(pk=detail['task_id'])
         self.assertEqual(task.tags.get('author'), 'Тест')
+
+    def test_resize_future_ladder_resets_preview_progress(self):
+        created = ladder_svc.create_ladder(
+            at_number=1,
+            words=['КОТ', 'РОТ', 'РОД'],
+            hints=['1', '2'],
+        )
+        task = Task.objects.get(pk=created['task_id'])
+        Attempt.manager.create(
+            task=task,
+            game=self.game,
+            anon_key='preview-friend',
+            text=json.dumps({'word_index': 1, 'word': 'РОТ'}),
+            status='Ok',
+        )
+
+        ladder_svc.update_ladder(
+            created['link_id'],
+            words=['ДОМ', 'СОМ', 'СОК', 'МАК'],
+            hints=['3', '4', '5'],
+        )
+
+        self.assertFalse(Attempt.manager.filter(task=task, game=self.game).exists())
+
+    def test_resize_published_ladder_does_not_reset_progress(self):
+        self.game.tags = {
+            **(self.game.tags or {}),
+            LADDER_PUBLISH_START_TAG: '2020-01-01T00:00:00+03:00',
+        }
+        self.game.save(update_fields=['tags'])
+        created = ladder_svc.create_ladder(
+            at_number=1,
+            words=['КОТ', 'РОТ', 'РОД'],
+            hints=['1', '2'],
+        )
+        task = Task.objects.get(pk=created['task_id'])
+        Attempt.manager.create(
+            task=task,
+            game=self.game,
+            anon_key='published-player',
+            text=json.dumps({'word_index': 1, 'word': 'РОТ'}),
+            status='Ok',
+        )
+
+        ladder_svc.update_ladder(
+            created['link_id'],
+            words=['ДОМ', 'СОМ', 'СОК', 'МАК'],
+            hints=['3', '4', '5'],
+        )
+
+        self.assertEqual(Attempt.manager.filter(task=task, game=self.game).count(), 1)
 
     def test_create_uses_new_placeholders(self):
         created = ladder_svc.create_ladder(at_number=1)

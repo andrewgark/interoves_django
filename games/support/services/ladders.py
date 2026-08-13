@@ -521,6 +521,7 @@ def update_ladder(
     intro: str = '',
     author: str = '',
     mixed_script: bool = False,
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     game = get_ladder_game()
     link = (
@@ -530,6 +531,12 @@ def update_ladder(
     )
     if link is None:
         raise LadderSupportError('Лесенка не найдена')
+    old_task = _task_for_link(link)
+    old_word_count = (
+        int(_parse_task_payload(old_task).get('word_count') or 0)
+        if old_task is not None
+        else None
+    )
     errors = validate_ladder_content(words, hints, mixed_script=mixed_script)
     if errors:
         raise LadderSupportError('; '.join(errors))
@@ -561,6 +568,16 @@ def update_ladder(
     if number:
         _sync_link_titles(link, number)
         link.save(update_fields=['name'])
+    new_word_count = int(_parse_task_payload(task).get('word_count') or 0)
+    if (
+        old_word_count is not None
+        and old_word_count != new_word_count
+        and (not number or not is_ladder_number_published(game, number, now))
+    ):
+        # Preview progress is index-based and becomes invalid after a resize.
+        # Import locally to keep ladder_offer -> support.ladders imports acyclic.
+        from games.ladder_offer import reset_all_raddle_progress
+        reset_all_raddle_progress(task=task, game_id=LADDER_GAME_ID)
     return get_ladder_detail(link.pk)
 
 

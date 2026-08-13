@@ -16,6 +16,7 @@ from games.ladder_offer import (
 )
 from games.models import (
     Attempt,
+    ChainTaskState,
     CheckerType,
     Game,
     GameTaskGroup,
@@ -303,6 +304,107 @@ class LadderOfferFlowTests(TestCase):
         stats = reset_all_raddle_progress(task=task)
         self.assertEqual(stats['attempts'], 2)
         self.assertEqual(Attempt.manager.filter(task=task, game=self.game).count(), 0)
+
+    def test_resize_unpublished_offer_resets_progress_for_every_actor(self):
+        offer = create_offer(self.user)
+        update_offer_content(
+            offer,
+            words=['КОТ', 'РОТ', 'РОД'],
+            hints=['к→р', 'т→д'],
+            author='А',
+        )
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        attempt = Attempt.manager.create(
+            task=task,
+            game=self.game,
+            user=self.other,
+            text=json.dumps({'word_index': 1, 'word': 'РОТ'}),
+            status='Ok',
+            state=json.dumps({'solved_indices': [0, 1, 2]}),
+        )
+        ChainTaskState.objects.create(
+            task=task,
+            game=self.game,
+            user=self.other,
+            game_mode='general',
+            state=attempt.state,
+            last_attempt=attempt,
+        )
+
+        update_offer_content(
+            offer,
+            words=['ДОМ', 'СОМ', 'СОК', 'МАК'],
+            hints=['1', '2', '3'],
+            author='А',
+            reset_actor_user=self.user,
+        )
+
+        self.assertFalse(Attempt.manager.filter(task=task, game=self.game).exists())
+        self.assertFalse(ChainTaskState.objects.filter(task=task, game=self.game).exists())
+
+    def test_same_size_offer_edit_keeps_other_actor_progress(self):
+        offer = create_offer(self.user)
+        update_offer_content(
+            offer,
+            words=['КОТ', 'РОТ', 'РОД'],
+            hints=['1', '2'],
+            author='А',
+        )
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        Attempt.manager.create(
+            task=task,
+            game=self.game,
+            user=self.other,
+            text=json.dumps({'word_index': 1, 'word': 'РОТ'}),
+            status='Ok',
+        )
+
+        update_offer_content(
+            offer,
+            words=['ДОМ', 'СОМ', 'СОК'],
+            hints=['3', '4'],
+            author='А',
+            reset_actor_user=self.user,
+        )
+
+        self.assertEqual(
+            Attempt.manager.filter(task=task, game=self.game, user=self.other).count(),
+            1,
+        )
+
+    def test_resize_published_offer_does_not_reset_progress(self):
+        self.game.tags = {
+            **(self.game.tags or {}),
+            LADDER_PUBLISH_START_TAG: '2020-01-01T00:00:00+03:00',
+        }
+        self.game.save(update_fields=['tags'])
+        offer = create_offer(self.user)
+        update_offer_content(
+            offer,
+            words=['КОТ', 'РОТ', 'РОД'],
+            hints=['1', '2'],
+            author='А',
+        )
+        send_offer(offer)
+        offer = accept_offer(offer)
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        Attempt.manager.create(
+            task=task,
+            game=self.game,
+            user=self.other,
+            text=json.dumps({'word_index': 1, 'word': 'РОТ'}),
+            status='Ok',
+        )
+
+        update_offer_content(
+            offer,
+            words=['ДОМ', 'СОМ', 'СОК', 'МАК'],
+            hints=['3', '4', '5'],
+            author='А',
+            allow_non_draft=True,
+        )
+
+        self.assertEqual(Attempt.manager.filter(task=task, game=self.game).count(), 1)
 
     def test_support_reset_progress_endpoints(self):
         offer = create_offer(self.user)
