@@ -18,7 +18,7 @@ from django.http import Http404
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils.html import format_html
+from django.utils.html import format_html, strip_tags
 from django.utils.safestring import mark_safe
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
@@ -68,6 +68,7 @@ from games.ladder_word_results import (
 from games.section_hub import (
     HUB_DAILY_SECTION_IDS,
     HUB_FROM_DESYATOCHKI_SECTION_IDS,
+    SECTION_HUB_META,
     SECTION_HUB_ORDER,
     WEEK_TASK_HUB_ID,
     get_alphabetty_section_hub_card,
@@ -331,22 +332,36 @@ def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
         back_label = 'К игре'
     else:
         back_label = 'Назад'
+
     if game.id == WEEK_TASK_GAME_ID:
         pager_label = 'Задание'
         pager_aria_label = 'Переход между заданиями'
+        results_label = 'Результаты этого задания'
     elif game.id == LADDER_GAME_ID:
         pager_label = 'Лесенка'
         pager_aria_label = 'Переход между лесенками'
+        results_label = 'Результаты этой лесенки'
     elif game.id == WORD_SALAD_GAME_ID:
         pager_label = 'Словесный Салат'
         pager_aria_label = 'Переход между выпусками Словесного Салата'
+        results_label = 'Результаты: Словесный Салат'
     else:
-        pager_label = 'Набор'
-        pager_aria_label = 'Переход между наборами заданий'
+        section_meta = SECTION_HUB_META.get(game.id) or {}
+        raw_label = (
+            section_meta.get('title')
+            or game.no_html_name
+            or game.outside_name
+            or game.name
+            or 'Задание'
+        )
+        pager_label = strip_tags(str(raw_label)).strip() or 'Задание'
+        pager_aria_label = 'Переход между заданиями «{}»'.format(pager_label)
+        results_label = 'Результаты: {}'.format(pager_label)
     return {
         'back_label': back_label,
         'task_group_pager_label': pager_label,
         'task_group_pager_aria_label': pager_aria_label,
+        'task_group_results_label': results_label,
         'prev_task_group_number': prev_tg.number if prev_tg else None,
         'prev_task_group_name': prev_tg.name if prev_tg else None,
         'next_task_group_number': next_tg.number if next_tg else None,
@@ -1362,9 +1377,6 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'next_task_group_url': '{}/games/{}/{}/'.format(base, game.id, next_tg.number) if next_tg else None,
         'task_group_results_url': _task_group_results_url(game, placement.number, project_base=base),
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
-        'task_group_results_label': 'Результаты этой лесенки' if game.id == LADDER_GAME_ID else 'Результаты этого набора',
-        'task_group_pager_label': 'Лесенка' if game.id == LADDER_GAME_ID else 'Набор',
-        'task_group_pager_aria_label': 'Переход между лесенками' if game.id == LADDER_GAME_ID else 'Переход между наборами заданий',
         'tg_number': placement.number,
         'tg_name': placement.name,
         'back_url': '{}/games/{}/'.format(base, game.id),
@@ -1502,8 +1514,8 @@ def _render_section_game_page(request, game_id):
         today_number = None
         task_groups = _hub_section_task_group_links(game)
         task_group_rows = _task_group_rows_skeleton(task_groups, game)
-        task_groups_heading = 'Наборы заданий'
-        task_groups_empty_text = 'В этом разделе пока нет групп заданий. Добавьте их в админке.'
+        task_groups_heading = _task_group_page_nav_context(game)['task_group_pager_label']
+        task_groups_empty_text = 'В этом разделе пока нет заданий. Добавьте их в админке.'
 
     section_task_groups_rules_html = None
     rules_page = game.section_default_rules
@@ -2842,9 +2854,6 @@ def new_task_group_page(request, game_id, task_group_number):
         ),
         'task_group_results_url': _task_group_results_url(game, placement.number),
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
-        'task_group_results_label': 'Результаты этой лесенки' if game.id == LADDER_GAME_ID else 'Результаты этого набора',
-        'task_group_pager_label': 'Задание' if game.id == WEEK_TASK_GAME_ID else ('Лесенка' if game.id == LADDER_GAME_ID else 'Набор'),
-        'task_group_pager_aria_label': 'Переход между заданиями' if game.id == WEEK_TASK_GAME_ID else ('Переход между лесенками' if game.id == LADDER_GAME_ID else 'Переход между наборами заданий'),
         'tg_number': placement.number,
         'tg_name': placement.name,
         'week_task_source_line': week_task_source_line,

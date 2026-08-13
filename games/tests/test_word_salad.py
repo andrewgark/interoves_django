@@ -338,7 +338,29 @@ class WordSaladTests(TestCase):
         self.assertEqual(len(context['word_salad_data'][self.task.pk]['grid_rows']), 4)
         self.assertEqual(len(context['word_salad_data'][self.task.pk]['words']), 1)
         self.assertEqual(context['task_ui_by_task_id'][self.task.pk]['base_max'], 1)
-        self.assertEqual(context['task_group_pager_label'], 'Набор')
+        self.assertEqual(context['task_group_pager_label'], 'Word Salad test')
+
+    def test_section_games_use_task_type_name_in_pager(self):
+        from games.views.new_ui import _task_group_page_nav_context
+
+        for game_id, label in (
+            ('replacements', 'Замены'),
+            ('walls', 'Стены'),
+            ('palindromes', 'Палиндромы'),
+        ):
+            with self.subTest(game_id=game_id):
+                game = Game(
+                    id=game_id,
+                    name=label,
+                    project_id='sections',
+                )
+                context = _task_group_page_nav_context(game)
+                self.assertEqual(context['task_group_pager_label'], label)
+                self.assertEqual(
+                    context['task_group_results_label'],
+                    'Результаты: {}'.format(label),
+                )
+                self.assertNotIn('Набор', ' '.join(map(str, context.values())))
 
     def test_word_salad_game_uses_named_pager(self):
         old_id = self.game.id
