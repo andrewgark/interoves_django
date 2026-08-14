@@ -2642,7 +2642,12 @@
   window.addEventListener('resize', function () {
     if (raddleStickyResizeTimer) clearTimeout(raddleStickyResizeTimer);
     raddleStickyResizeTimer = setTimeout(function () {
-      document.querySelectorAll('.new-raddle-task').forEach(updateRaddleStickyPin);
+      // Mobile keyboards resize the viewport when they open and close. Rebuilding
+      // the pin here removes its focused proxy input and the focus restoration in
+      // updateRaddleStickyPin opens the keyboard again. The rows themselves have
+      // not changed on resize, so keep their DOM (and native keyboard state) and
+      // only refresh the fixed pin's position/visibility.
+      document.querySelectorAll('.new-raddle-task').forEach(updateRaddleStickyPinVisibility);
     }, 100);
   });
   window.addEventListener('scroll', refreshAllRaddleStickyPins, { passive: true });
