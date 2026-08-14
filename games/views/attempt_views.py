@@ -25,6 +25,14 @@ from games.raddle import (
     word_matches,
 )
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
+from games.grid_puzzle import (
+    GridPuzzleDataError,
+    grid_checker_id,
+    parse_grid_puzzle_attempt,
+    parse_grid_puzzle_data,
+    parse_grid_shading_attempt,
+    validate_grid_checker_data,
+)
 
 
 def _raddle_chain_state(task, team, user, anon_key, game, current_mode):
@@ -210,6 +218,9 @@ def check_attempt(attempt, *, persist_wrong=True):
             checker_type = CheckerType.objects.get(id='replacements_lines')
         if task.task_type == 'raddle':
             checker_type = CheckerType.objects.get(id='raddle')
+        if task.task_type == 'grid-puzzle':
+            checker_id = grid_checker_id(task)
+            checker_type = CheckerType.objects.get(id=checker_id)
         checker_data = task.checker_data or ''
         # equals / equals_with_possible_spaces читают эталон из checker_data; для «Пропорций»
         # и обычных заданий ответ часто задают только в answer — тогда дублируем его сюда.
@@ -414,6 +425,29 @@ def process_send_attempt(request, task_id):
             if not path:
                 return {'status': 'empty'}
             attempt = Attempt(text=json.dumps({'action': 'solve', 'path': path}))
+    elif task.task_type == 'grid-puzzle':
+        try:
+            puzzle = parse_grid_puzzle_data(task.checker_data)
+            checker_id = grid_checker_id(task)
+            validate_grid_checker_data(puzzle, checker_id)
+            if checker_id == 'grid-wall-checker':
+                walls_raw = request.POST.get('walls', '[]')
+                attempt_payload = parse_grid_puzzle_attempt(
+                    json.dumps({'walls': json.loads(walls_raw)}),
+                    puzzle['rows'],
+                    puzzle['cols'],
+                    can_set_walls=puzzle['can_set_walls'],
+                )
+            else:
+                shading_raw = request.POST.get('shading', '[]')
+                attempt_payload = parse_grid_shading_attempt(
+                    json.dumps({'shading': json.loads(shading_raw)}),
+                    puzzle['rows'],
+                    puzzle['cols'],
+                )
+        except (GridPuzzleDataError, TypeError, ValueError):
+            return {'status': 'invalid_form'}
+        attempt = Attempt(text=json.dumps(attempt_payload, separators=(',', ':')))
     else:
         raise Exception('Unknown task_type: {}'.format(task.task_type))
     attempt.team = team
@@ -487,12 +521,16 @@ def process_send_attempt(request, task_id):
         result['word_salad_correct'] = bool(attempt_persisted)
         if not attempt_persisted and attempt.comment:
             result['word_salad_comment'] = attempt.comment
+    if task.task_type == 'grid-puzzle':
+        result['grid_puzzle_correct'] = attempt.status == 'Ok'
 
     # Raddle wrong answers: client updates locally (showRaddleWrongFeedback); skip ~40KB HTML.
     need_task_html = (
         task.task_type != 'raddle' or result.get('raddle_correct') or result.get('raddle_needs_sync')
     ) and (
         task.task_type != 'word_salad' or result.get('word_salad_correct')
+    ) and (
+        task.task_type != 'grid-puzzle' or result.get('grid_puzzle_correct')
     )
     if need_task_html:
         update_html = update_task_html(

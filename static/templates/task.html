@@ -11,6 +11,8 @@
       {% include "task-content/task-wall.html" %}
     {% elif task.task_type == 'text_with_forms' %}
       {% include "task-content/task-text-with-forms.html" %}
+    {% elif task.task_type == 'grid-puzzle' %}
+      <div class="alert alert-info">Grid Puzzle доступен в новом интерфейсе. <a href="/games/{{ game.id }}/{{ tg_number }}/">Открыть новый интерфейс</a>.</div>
     {% endif %}
     {% if not team %}
       <div class="hide-team-inside-game">

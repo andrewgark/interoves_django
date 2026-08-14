@@ -431,6 +431,16 @@ class WordSaladTaskForm(ModelForm):
                 'Word Salad: можно редактировать через отдельные поля ниже; '
                 'JSON соберётся автоматически. Проверка требует grid и words.'
             )
+        elif task_type == 'grid-puzzle':
+            self.fields['checker_data'].help_text = (
+                'Grid Puzzle JSON: {"version":1,"rows":5,"cols":6,'
+                '"marks":[{"row":0,"col":1,"value":"arrow-up"}],'
+                '"can_set_walls":true,"can_set_path":true,"can_set_shading":false,'
+                '"solution_walls":["h:1:0","v:0:2"]}. Для grid-shading-checker: '
+                'явно задайте "can_set_walls":false, "can_set_path":false, '
+                '"can_set_shading":true и "solution_shading":["BBGG", ...]. '
+                'B = чёрный, G = светло-зелёный; координаты с нуля.'
+            )
 
     def clean(self):
         cleaned = super().clean()
@@ -446,6 +456,21 @@ class WordSaladTaskForm(ModelForm):
             except ValueError as exc:
                 raise forms.ValidationError(str(exc))
             cleaned['answer'] = ''
+        elif task_type == 'grid-puzzle':
+            from games.grid_puzzle import (
+                GridPuzzleDataError,
+                parse_grid_puzzle_data,
+                validate_grid_checker_data,
+            )
+
+            try:
+                parsed = parse_grid_puzzle_data(cleaned.get('checker_data'))
+                checker = cleaned.get('checker')
+                checker_id = getattr(checker, 'pk', None)
+                if checker_id:
+                    validate_grid_checker_data(parsed, checker_id)
+            except GridPuzzleDataError as exc:
+                self.add_error('checker_data', str(exc))
         return cleaned
 
 

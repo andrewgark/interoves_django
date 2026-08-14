@@ -268,7 +268,7 @@ def get_guessed_tiles(wall, attempts_info):
 
 @register.filter
 def get_show_status(attempt):
-    if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
+    if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions', 'grid-puzzle'):
         return attempt.status
     elif attempt.task.task_type == 'wall':
         if attempt.status == 'Pending':
@@ -320,7 +320,7 @@ def attempts_with_status(attempts):
 
 @register.filter
 def get_diff_points(attempt):
-    if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
+    if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions', 'grid-puzzle'):
         return 0
     elif attempt.task.task_type == 'wall':
         return json.loads(attempt.state)['last_attempt']['points']

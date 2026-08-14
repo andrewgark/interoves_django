@@ -1,0 +1,82 @@
+{% with task_id_text=config_key|default:task.id|stringformat:"s" %}
+{% with config_id="grid-puzzle-config-"|add:task_id_text %}
+<div class="new-grid-puzzle{% if readonly %} is-readonly{% endif %}"
+     data-grid-puzzle data-config-id="{{ config_id }}">
+  {{ gp|json_script:config_id }}
+  {% if not readonly %}
+  {% if gp.can_set_walls or gp.can_set_path or gp.can_set_shading %}
+  <p class="new-grid-puzzle__hint" data-grid-first-hint>
+    {% if gp.can_set_shading %}Левый клик закрашивает выбранным цветом (по умолчанию чёрным), правый — светло-зелёным.{% endif %}
+    {% if gp.can_set_walls %} Нажимайте или ведите по границам клеток, чтобы ставить и стирать стены.{% endif %}
+    {% if gp.can_set_path %} Соединяйте центры соседних клеток для вспомогательного пути.{% endif %}
+  </p>
+  {% endif %}
+  <div class="new-grid-puzzle__toolbar" aria-label="Инструменты Grid Puzzle">
+    {% if gp.can_set_walls or gp.can_set_path or gp.can_set_shading %}
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-undo disabled title="Отменить (Ctrl/Cmd+Z)"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i> Отменить</button>
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-redo disabled title="Повторить (Ctrl/Cmd+Shift+Z или Ctrl+Y)"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i> Повторить</button>
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-pan-mode aria-label="Режим перемещения" aria-pressed="false">Перемещать</button>
+    {% endif %}
+    {% if gp.can_set_shading %}
+    <span class="new-grid-puzzle__shade-tools" role="group" aria-label="Цвет закраски">
+      <button type="button" class="new-btn new-btn--ghost new-btn--mini is-active" data-grid-shade-mode="B" aria-pressed="true"><span class="new-grid-puzzle__swatch is-black" aria-hidden="true"></span> Чёрный</button>
+      <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-shade-mode="G" aria-pressed="false"><span class="new-grid-puzzle__swatch is-green" aria-hidden="true"></span> Зелёный</button>
+    </span>
+    {% endif %}
+    {% if gp.can_set_path %}
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-notes-toggle aria-pressed="true">Скрыть путь</button>
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-clear-notes>Очистить путь</button>
+    {% endif %}
+    {% if gp.can_set_walls %}
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-reset-walls>Сбросить стены</button>
+    {% endif %}
+    {% if gp.can_set_shading %}
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-reset-shading>Сбросить закраску</button>
+    {% endif %}
+    {% if gp.can_set_walls and gp.can_set_path %}
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-reset-all>Сбросить всё</button>
+    {% endif %}
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-help aria-label="Горячие клавиши">?</button>
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-fullscreen title="На весь экран" aria-label="Открыть поле на весь экран"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
+  </div>
+  {% endif %}
+  <div class="new-grid-puzzle__viewport" data-grid-viewport>
+    <svg class="new-grid-puzzle__board" data-grid-board role="grid"
+         aria-label="Grid Puzzle, {{ gp.rows }} на {{ gp.cols }} клеток"
+         {% if not readonly %}aria-describedby="grid-puzzle-help-content-{{ task.id }}"{% endif %}
+         tabindex="{% if readonly %}-1{% else %}0{% endif %}"></svg>
+  </div>
+  {% if not readonly %}
+  <form class="new-grid-puzzle__form" action="/send_attempt/{{ task.id }}/" method="post" data-grid-form>
+    {% csrf_token %}
+    <input type="hidden" name="game_id" value="{{ game.id }}">
+    <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+    <input type="hidden" name="walls" value="[]" data-grid-walls-input>
+    <input type="hidden" name="shading" value="[]" data-grid-shading-input>
+    <div class="new-grid-puzzle__submit-row">
+      {% if gp.checker_id == "grid-shading-checker" %}
+      <span class="new-grid-puzzle__count" data-grid-shading-count>0 клеток заполнено</span>
+      {% else %}
+      <span class="new-grid-puzzle__count" data-grid-wall-count>0 стен</span>
+      {% endif %}
+      <span class="new-grid-puzzle__saved" data-grid-saved aria-live="polite"></span>
+      <button type="submit" class="new-btn new-btn--mini">Проверить</button>
+    </div>
+    <div class="new-attempt-msg" data-grid-message aria-live="polite"></div>
+  </form>
+  <div id="grid-puzzle-help-{{ task.id }}" class="new-rules-modal" role="dialog" aria-modal="true" aria-labelledby="grid-puzzle-help-title-{{ task.id }}" hidden data-grid-help-modal>
+    <div class="new-rules-overlay" data-grid-help-close></div>
+    <div id="grid-puzzle-help-content-{{ task.id }}" class="new-rules-modal__box pal-card">
+      <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-grid-help-close><i class="ph ph-x" aria-hidden="true"></i></button>
+      <h2 id="grid-puzzle-help-title-{{ task.id }}" class="pal-title">Управление Grid Puzzle</h2>
+      <p><kbd>Ctrl/Cmd+Z</kbd> — отменить; <kbd>Ctrl/Cmd+Shift+Z</kbd> или <kbd>Ctrl+Y</kbd> — повторить.</p>
+      <p>Стрелки выбирают клетку{% if gp.can_set_walls %}; <kbd>Shift</kbd> + стрелка переключает стену{% endif %}{% if gp.can_set_path %}; <kbd>Alt</kbd> + стрелка переключает сегмент пути{% endif %}.</p>
+      {% if gp.can_set_shading %}<p><kbd>B</kbd> закрашивает выбранную клетку чёрным, <kbd>G</kbd> — светло-зелёным. Повторное применение того же цвета очищает клетку.</p>{% endif %}
+      <p>Кнопка «Перемещать» включает прокрутку поля без случайного редактирования. На сенсорных экранах этот режим включён при открытии.</p>
+      <p><kbd>Esc</kbd> отменяет текущий жест, <kbd>?</kbd> открывает эту справку.</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endwith %}
+{% endwith %}

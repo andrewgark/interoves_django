@@ -17,6 +17,7 @@ from django.core.paginator import Paginator
 from django.http import Http404
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.html import format_html, strip_tags
 from django.utils.safestring import mark_safe
@@ -79,6 +80,7 @@ from games.section_hub import (
     get_week_task_hub_card,
     get_week_task_section_hub_card,
 )
+from games.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
 from games.models import (
     Attempt,
@@ -2293,13 +2295,14 @@ def new_ladder_word_results_page(request, task_group_number):
     })
 
 
-def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None, ws=None):
+def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=None):
     """Presentation contract for the shared new-UI task card wrapper."""
     body_templates = {
         'wall': 'task-content/task-wall.html',
         'replacements_lines': 'task-content/task-replacements-lines.html',
         'raddle': 'task-content/task-raddle.html',
         'word_salad': 'task-content/task-word-salad.html',
+        'grid-puzzle': 'new/task-content/task-grid-puzzle.html',
         'proportions': 'new/task-content/task-proportions.html',
         'default': 'new/task-content/task-default.html',
         'autohint': 'new/task-content/task-default.html',
@@ -2317,6 +2320,9 @@ def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None, ws=None):
     elif task.task_type == 'word_salad' and not ws:
         body_template = None
         body_error = 'Ошибка отображения задания (нет данных Word Salad).'
+    elif task.task_type == 'grid-puzzle' and not gp:
+        body_template = None
+        body_error = 'Ошибка отображения Grid Puzzle (неверные данные).'
     if rld:
         base_max = rld['max_points_total']
     elif rd:
@@ -2357,6 +2363,18 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
         )
         for t in tasks
     }
+    grid_puzzle_data = {}
+    for t in tasks:
+        if t.task_type != 'grid-puzzle':
+            continue
+        ai = attempts_info_by_task_id.get(t.id)
+        solved = bool(ai and ai.is_solved())
+        try:
+            grid_puzzle_data[t.id] = public_grid_puzzle_context(
+                t, reveal_solution=solved, readonly=solved,
+            )
+        except GridPuzzleDataError:
+            continue
     wall_max_points_meta_by_task_id = {}
     for t in tasks:
         if t.task_type != 'wall':
@@ -2594,6 +2612,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             rd=raddle_data.get(t.id),
             wall_meta=wall_max_points_meta_by_task_id.get(t.id),
             ws=word_salad_data.get(t.id),
+            gp=grid_puzzle_data.get(t.id),
         )
         for t in tasks
     }
@@ -2603,6 +2622,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
         'likes_meta_by_task_id': likes_meta_by_task_id,
         'replacements_lines_data': replacements_lines_data,
         'word_salad_data': word_salad_data,
+        'grid_puzzle_data': grid_puzzle_data,
         'raddle_data': raddle_data,
         'proportions_chips': proportions_chips,
         'task_ui_by_task_id': task_ui_by_task_id,
@@ -3007,6 +3027,19 @@ def new_get_answer(request, task_id):
             'html': (
                 '<div class="new-login-hint">Для raddle ответ показывается у каждого '
                 'решённого слова (кнопка «Ответ»).</div>'
+            ),
+        })
+
+    if task.task_type == 'grid-puzzle':
+        try:
+            gp = public_grid_puzzle_context(task, reveal_solution=True, readonly=True)
+        except GridPuzzleDataError:
+            return JsonResponse({'html': '<div class="new-login-hint">Не удалось показать ответ.</div>'})
+        return JsonResponse({
+            'html': render_to_string(
+                'new/task-content/grid-puzzle-answer.html',
+                {'task': task, 'gp': gp},
+                request=request,
             ),
         })
 

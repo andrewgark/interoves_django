@@ -23,6 +23,13 @@ from games.raddle import (
 from games.wordle import convert_words_wordle, read_wordle_dict, color_tiles
 from games.alphabetty.core import guess_status, is_valid_guess, normalize_word
 from games.alphabetty.play import dump_state, load_state
+from games.grid_puzzle import (
+    GridPuzzleDataError,
+    parse_grid_puzzle_attempt,
+    parse_grid_puzzle_data,
+    parse_grid_shading_attempt,
+    validate_grid_checker_data,
+)
 
 
 class CheckResult:
@@ -502,6 +509,41 @@ class WallChecker(BaseChecker):
         raise Exception('Unknown wall stage: {}'.format(attempt['stage']))
 
 
+class GridWallChecker(SimpleBoolChecker):
+    """Exact, order-independent comparison of internal grid edges."""
+
+    def __init__(self, data, last_attempt_state=None):
+        self.puzzle = parse_grid_puzzle_data(data)
+        validate_grid_checker_data(self.puzzle, 'grid-wall-checker')
+
+    def bool_check(self, text):
+        try:
+            attempt = parse_grid_puzzle_attempt(
+                text, self.puzzle['rows'], self.puzzle['cols'],
+                can_set_walls=self.puzzle['can_set_walls'],
+            )
+        except GridPuzzleDataError:
+            return False
+        return attempt['walls'] == self.puzzle['solution_walls']
+
+
+class GridShadingChecker(SimpleBoolChecker):
+    """Exact comparison of a complete black/light-green cell matrix."""
+
+    def __init__(self, data, last_attempt_state=None):
+        self.puzzle = parse_grid_puzzle_data(data)
+        validate_grid_checker_data(self.puzzle, 'grid-shading-checker')
+
+    def bool_check(self, text):
+        try:
+            attempt = parse_grid_shading_attempt(
+                text, self.puzzle['rows'], self.puzzle['cols'],
+            )
+        except GridPuzzleDataError:
+            return False
+        return attempt['shading'] == self.puzzle['solution_shading']
+
+
 class ReplacementsLinesChecker(BaseChecker):
     """Проверяет одну строчку: attempt.text = JSON {"line_index": int, "answers": [str, ...]}."""
 
@@ -885,6 +927,8 @@ class CheckerFactory:
             'raddle': RaddleChecker,
             'alphabetty': AlphabettyChecker,
             'word_salad': WordSaladChecker,
+            'grid-wall-checker': GridWallChecker,
+            'grid-shading-checker': GridShadingChecker,
         }
     
     def create_checker(self, checker_type, data, last_attempt_state=None):

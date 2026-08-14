@@ -1,0 +1,7 @@
+<div class="new-grid-puzzle-answer">
+  <strong>Ответ:</strong>
+  {% include "new/task-content/grid-puzzle-board.html" with readonly=True answer_view=True config_key="answer" %}
+  {% if task.answer_comment %}
+    <div class="new-login-hint new-answer-comment">{% autoescape off %}{{ task.answer_comment }}{% endautoescape %}</div>
+  {% endif %}
+</div>

@@ -6,6 +6,7 @@ import os
 import re
 
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.db.models import F
@@ -672,6 +673,7 @@ class Task(models.Model):
         ('raddle', 'raddle'),
         ('alphabetty', 'alphabetty'),
         ('word_salad', 'Словесный Салат'),
+        ('grid-puzzle', 'Grid Puzzle'),
     )
 
     task_type = models.CharField(default='default', max_length=100, choices=TASK_TYPE_VARIANTS)
@@ -721,6 +723,18 @@ class Task(models.Model):
         if self.task_type == 'word_salad':
             from games.word_salad import validate_task_data
             validate_task_data(self.checker_data, '')
+        if self.task_type == 'grid-puzzle':
+            from games.grid_puzzle import (
+                GridPuzzleDataError,
+                grid_checker_id,
+                parse_grid_puzzle_data,
+                validate_grid_checker_data,
+            )
+            try:
+                parsed = parse_grid_puzzle_data(self.checker_data)
+                validate_grid_checker_data(parsed, grid_checker_id(self))
+            except GridPuzzleDataError as exc:
+                raise ValidationError({'checker_data': str(exc)})
 
     def get_checker(self):
         if self.checker:
@@ -1445,6 +1459,16 @@ class Attempt(models.Model):
                 return self.text
         if self.task.task_type == 'alphabetty':
             return self.text
+        if self.task.task_type == 'grid-puzzle':
+            try:
+                payload = json.loads(self.text)
+                if 'shading' in payload:
+                    joined = ''.join(payload.get('shading') or [])
+                    return '{} black, {} green cells'.format(joined.count('B'), joined.count('G'))
+                walls = payload.get('walls', [])
+                return '{} {}'.format(len(walls), 'wall' if len(walls) == 1 else 'walls')
+            except (TypeError, ValueError, AttributeError):
+                return self.text
         if self.task.task_type == 'wall':
             return self.task.get_wall().get_attempt_text(
                 json.loads(self.text),

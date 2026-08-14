@@ -1,0 +1,10 @@
+{% if task.image %}
+  <div class="new-taskcard__img">
+    <img src="{{ task.image.url }}" alt="" width="{{ task.get_image_width }}">
+  </div>
+{% endif %}
+{% if task.text %}
+  <div class="new-taskcard__text new-grid-puzzle__rules">{% autoescape off %}{{ task.text }}{% endautoescape %}</div>
+{% endif %}
+
+{% include "new/task-content/grid-puzzle-board.html" with readonly=ai.is_solved %}

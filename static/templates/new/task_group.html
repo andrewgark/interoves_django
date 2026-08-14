@@ -2746,6 +2746,7 @@
     var answerBox = document.getElementById('new-answer-box');
     if (!answerModal || !answerBox) return;
     answerBox.innerHTML = html;
+    if (typeof window.initGridPuzzle === 'function') window.initGridPuzzle(answerBox);
     answerModal.removeAttribute('hidden');
     answerModal.classList.add('is-open');
     document.body.style.overflow = 'hidden';
@@ -3096,6 +3097,7 @@
           if (typeof initReplacementsLinesUi === 'function') initReplacementsLinesUi(fresh);
           if (typeof initRaddleUi === 'function') initRaddleUi(fresh);
           if (typeof initWordSalad === 'function') initWordSalad(fresh);
+          if (typeof window.initGridPuzzle === 'function') window.initGridPuzzle(fresh);
           if (typeof initAttemptsPopovers === 'function') initAttemptsPopovers(fresh);
         }
       });
