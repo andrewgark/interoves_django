@@ -1,9 +1,12 @@
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
+from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.test import RequestFactory, TestCase
 from django.urls import resolve, reverse
+
+from allauth.socialaccount.models import SocialApp
 
 from games.alphabetty_daily import ALPHABETTY_GAME_ID
 from games.ladder_daily import LADDER_GAME_ID
@@ -37,6 +40,16 @@ def _ensure_min_fixtures():
         HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
     CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
     CheckerType.objects.get_or_create(pk='replacements_lines')
+    site, _ = Site.objects.get_or_create(
+        id=1,
+        defaults={'domain': 'testserver', 'name': 'test'},
+    )
+    for provider, name in (('google', 'Google'), ('vk', 'VK')):
+        app, _ = SocialApp.objects.get_or_create(
+            provider=provider,
+            defaults={'name': name, 'client_id': 'test', 'secret': 'test'},
+        )
+        app.sites.add(site)
 
 
 class SectionResultsSplitTests(TestCase):
@@ -215,6 +228,36 @@ class SectionResultsSplitTests(TestCase):
         self.assertEqual(len(ctx['task_groups']), 1)
         self.assertEqual(ctx['task_groups'][0].number, '2')
         self.assertEqual(len(ctx['task_group_to_tasks']['2']), 1)
+
+    def test_standard_results_header_shows_only_task_group_number(self):
+        game = self._create_section_game('sec_short_header')
+        with patch('games.views.track.track_task_change'):
+            tg = TaskGroup.objects.create(label='tg_short_header')
+            GameTaskGroup.objects.create(
+                game=game,
+                task_group=tg,
+                number='14',
+                name='Алфавитка #14',
+            )
+            Task.objects.create(
+                task_group=tg,
+                number='1',
+                task_type='equals_with_possible_spaces',
+                points=1,
+                checker_data='a',
+                text='b',
+            )
+
+        request = self.factory.get('/section/sec_short_header/results/')
+        request.user = AnonymousUser()
+        request.session = {}
+        response = new_section_results_page(request, game.id)
+
+        self.assertRegex(
+            response.content.decode(),
+            r'<th class="is-sticky-top" colspan="1">\s*14\s*</th>',
+        )
+        self.assertNotContains(response, '14. Алфавитка #14')
 
     def test_ladder_initial_with_snapshot_uses_headers_only(self):
         ladder = Game.objects.get(pk=LADDER_GAME_ID)
