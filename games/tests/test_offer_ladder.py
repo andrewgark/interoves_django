@@ -275,19 +275,25 @@ class LadderOfferFlowTests(TestCase):
         self.assertTrue(Task.objects.filter(pk=task_id).exists())
         self.assertTrue(LadderOffer.objects.filter(pk=offer.pk).exists())
 
-    def test_hash_embargo_after_accept_unpublished(self):
+    def test_hash_stays_public_after_accept_while_numeric_url_is_embargoed(self):
         offer = create_offer(self.user)
         update_offer_content(offer, words=['ЛЕС', 'БЕС'], hints=['л→б'], author='A')
         send_offer(offer)
-        accept_offer(offer)
+        accept_offer(offer, at_number=100)
         offer.refresh_from_db()
         c = Client()
-        # Anonymous / other user — 404 until publish date
+
+        # The opaque share URL remains public after the offer enters the schedule.
         resp = c.get('/ladder/{}/'.format(offer.share_hash))
-        self.assertEqual(resp.status_code, 404)
-        c.force_login(self.user)
-        resp2 = c.get('/ladder/{}/'.format(offer.share_hash))
-        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(resp.status_code, 200)
+        resp_r = c.get('/ladder/{}/results/'.format(offer.share_hash))
+        self.assertEqual(resp_r.status_code, 200)
+
+        # The future numeric URL still does not reveal the scheduled ladder.
+        numeric_resp = c.get('/ladder/100/')
+        self.assertEqual(numeric_resp.status_code, 404)
+        numeric_results_resp = c.get('/ladder/100/results/')
+        self.assertEqual(numeric_results_resp.status_code, 404)
 
     def test_reset_all_progress_clears_every_actor(self):
         from games.ladder_offer import reset_all_raddle_progress

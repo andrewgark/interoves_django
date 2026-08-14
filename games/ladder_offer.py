@@ -548,15 +548,12 @@ def offer_is_production_published(offer: LadderOffer, *, now=None) -> bool:
 
 
 def can_access_offer_hash(offer: LadderOffer, user, *, now=None) -> bool:
-    """Hash-URL: до accept — всем; после accept до выхода — автору/staff; после выхода — всем."""
-    if not offer.accepted_link_id:
-        return True
-    if not offer_is_production_published(offer, now=now):
-        if user is None or not getattr(user, 'is_authenticated', False):
-            return False
-        if offer.user_id == user.id or getattr(user, 'is_staff', False):
-            return True
-        return False
+    """A valid opaque hash remains public throughout the offer lifecycle.
+
+    Publication embargoes apply to numeric schedule URLs, not to explicit share
+    links.  Keeping this helper separate from the numeric publication check is
+    important when an accepted offer points at a future schedule slot.
+    """
     return True
 
 
