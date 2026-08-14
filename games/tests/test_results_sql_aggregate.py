@@ -1,5 +1,6 @@
 """SQL results aggregate: parity with ORM bulk + snapshot wiring."""
 
+import json
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -10,6 +11,7 @@ from django.utils import timezone
 
 from games.models import (
     Attempt,
+    ChainTaskState,
     CheckerType,
     Game,
     GameTaskGroup,
@@ -22,7 +24,10 @@ from games.models import (
     Team,
 )
 from games.results_snapshot import build_results_snapshot_payload
-from games.results_sql_aggregate import get_sql_aggregated_game_actor_rows
+from games.results_sql_aggregate import (
+    get_sql_aggregated_game_actor_rows,
+    tasks_need_orm_results_aggregate,
+)
 
 
 def _ensure_fixtures():
@@ -125,6 +130,14 @@ class ResultsSqlAggregateTests(TestCase):
                 checker_data='b',
                 text='t2',
             )
+            cls.task3 = Task.objects.create(
+                task_group=cls.tg,
+                number='3',
+                task_type='alphabetty',
+                points=10,
+                checker_data='c',
+                text='t3',
+            )
             cls.hint_real = Hint.objects.create(
                 task=cls.task2, number='1', points_penalty=2, desc='manual',
             )
@@ -152,6 +165,10 @@ class ResultsSqlAggregateTests(TestCase):
                 text='wrong', status='Wrong', points=0, time=now,
                 task=cls.task2, anon_key='sql-agg-anon', team=None, user=None, game=cls.game,
             )
+            alphabetty_attempt = Attempt.manager.create(
+                text='c', status='Ok', points=10, time=now,
+                task=cls.task3, team=cls.team, game=cls.game,
+            )
             # Same points, worse then better status — best should be Ok
             Attempt.manager.create(
                 text='early', status='Wrong', points=7, time=now,
@@ -167,14 +184,34 @@ class ResultsSqlAggregateTests(TestCase):
             HintAttempt.objects.create(
                 team=cls.team, hint=cls.hint_assist, is_real_request=True, time=now,
             )
+            ChainTaskState.objects.create(
+                task=cls.task3,
+                game=cls.game,
+                game_mode='general',
+                team=cls.team,
+                state=json.dumps({
+                    'guesses': ['a', 'c'],
+                    'won': True,
+                    'hint_prefix': 'ab',
+                    'hints_taken': 2,
+                }),
+                last_attempt=alphabetty_attempt,
+            )
 
     def test_sql_matches_orm_bulk(self):
-        task_ids = [self.task1.id, self.task2.id]
+        task_ids = [self.task1.id, self.task2.id, self.task3.id]
         orm = Attempt.manager.get_bulk_game_actor_rows(
             task_ids, mode='general', game=self.game,
         )
         sql = get_sql_aggregated_game_actor_rows(task_ids, game=self.game)
         self.assertEqual(_normalize_actor_rows(orm), _normalize_actor_rows(sql))
+
+    def test_alphabetty_letter_hint_penalty_is_bulk_aggregated(self):
+        sql = get_sql_aggregated_game_actor_rows([self.task3.id], game=self.game)
+        team_row = next(ai for actor, ai in sql[self.task3.id] if actor.pk == self.team.pk)
+        self.assertEqual(float(team_row.get_sum_hint_penalty()), 2.0)
+        self.assertEqual(float(team_row.get_result_points()), 8.0)
+        self.assertFalse(tasks_need_orm_results_aggregate([self.task3]))
 
     def test_assist_hint_in_numbers_not_penalty(self):
         sql = get_sql_aggregated_game_actor_rows([self.task2.id], game=self.game)
