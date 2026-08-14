@@ -1,4 +1,4 @@
-{% load filters %}
+{% load filters static %}
 <div class="new-raddle-task" data-task-id="{{ task.id }}" data-raddle-n-words="{{ rd.ui.n_words }}" data-default-focus="{{ rd.ui.default_focus_index|default_if_none:'' }}" data-default-ref-word="{{ rd.ui.default_ref_word|default:'' }}">
   {% if task.tags.author %}
   <p class="new-raddle-task__author">Автор лесенки: {{ task.tags.author }}</p>
@@ -38,7 +38,7 @@
                 {% else %}
                   <span class="new-raddle-line__mask">{{ row.mask_html }}</span>
                 {% endif %}
-                <span class="new-raddle-line__len">({{ row.length_label }}){% if row.show_latin_flag %}, <span class="new-raddle-latin-flag" title="на латинице" aria-label="на латинице">🇬🇧</span>{% endif %}</span>
+                <span class="new-raddle-line__len">({{ row.length_label }}){% if row.show_latin_flag %}, <span class="new-raddle-latin-flag" title="на латинице" aria-label="на латинице"><img src="{% static 'img/icons/flag-gb.svg' %}" alt="" aria-hidden="true" width="20" height="10"></span>{% endif %}</span>
               </div>
               {% if row.is_playable %}
               <div class="new-attempt-msg new-raddle-word-msg" aria-live="polite" data-msg-for="raddle-form-{{ task.id }}-{{ row.index }}"></div>

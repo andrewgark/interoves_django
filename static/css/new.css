@@ -5819,10 +5819,16 @@ html.is-age-gated .new-wrap {
   flex-shrink: 0;
 }
 .new-raddle-latin-flag {
-  font-size: 0.78em;
+  display: inline-flex;
+  align-items: center;
   line-height: 1;
-  vertical-align: 0.05em;
+  vertical-align: -0.08em;
   cursor: help;
+}
+.new-raddle-latin-flag img {
+  display: block;
+  width: 1.25em;
+  height: auto;
 }
 .new-raddle-line__no-guesses {
   margin: 0;
