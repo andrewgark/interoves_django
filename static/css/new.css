@@ -5484,6 +5484,9 @@ html.is-age-gated .new-wrap {
 .new-raddle-clue-ref {
   font-weight: 700;
 }
+.new-raddle-clue__nowrap {
+  white-space: nowrap;
+}
 .new-raddle-clue-ref,
 .new-raddle-clue-next,
 .new-raddle-clue-before,

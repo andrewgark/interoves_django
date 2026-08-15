@@ -495,6 +495,35 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertIn('СЛОН', str(html))
         self.assertIn('КОНЬ', str(html))
 
+    def test_inserted_word_stays_with_attached_characters(self):
+        from games.raddle import render_transition_clue
+
+        html = str(render_transition_clue(
+            'Режиссёр «____а»',
+            prev_word='ПОЛИАНСКОГО',
+            prev_known=True,
+            html=True,
+        ))
+        self.assertIn(
+            '<span class="new-raddle-clue__nowrap">'
+            '«<strong class="new-raddle-clue-ref">ПОЛИАНСКОГО</strong>а»'
+            '</span>',
+            html,
+        )
+        self.assertTrue(html.startswith('Режиссёр '))
+
+    def test_only_inserted_token_becomes_nonwrapping(self):
+        from games.raddle import render_transition_clue
+
+        html = str(render_transition_clue(
+            'До ____а можно дойти',
+            prev_word='ПАРИЖ',
+            prev_known=True,
+            html=True,
+        ))
+        self.assertEqual(html.count('new-raddle-clue__nowrap'), 1)
+        self.assertIn('</span> можно дойти', html)
+
     def test_all_rows_visible_no_collapse(self):
         parsed = parse_raddle_data(_task())
         state = {'solved_indices': [0, 1, 12], 'used_hints': [0], 'total': 1}

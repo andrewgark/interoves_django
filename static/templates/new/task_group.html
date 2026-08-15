@@ -2225,27 +2225,41 @@
     return '<strong class="' + cls + '">' + escapeHtml(word) + '</strong>';
   }
 
+  function raddleRenderClueTemplate(tpl, prevWord, nextWord) {
+    return String(tpl || '').split(/(\s+)/).map(function (part) {
+      var out = escapeHtml(part);
+      var hasReplacement = false;
+      if (prevWord && /_{2,}/.test(part)) {
+        out = out.replace(/_{2,}/g, raddleClueChip(prevWord, 'prev'));
+        hasReplacement = true;
+      }
+      if (nextWord && /(?:\.{3}|…)/.test(part)) {
+        out = out.replace(/\.{3}|…/g, raddleClueChip(nextWord, 'next'));
+        hasReplacement = true;
+      }
+      return hasReplacement
+        ? '<span class="new-raddle-clue__nowrap">' + out + '</span>'
+        : out;
+    }).join('');
+  }
+
   function raddleRenderTransitionClue(li, focusRefWord, focusRefRole) {
     // Неиспользованные: без спойлера по отгаданным словам.
     // Сосед сверху (prev) → во все ____ (жёлтый);
     // сосед снизу (next) → во все ... / «→» (зелёный).
     var tpl = String(li.getAttribute('data-blank-template') || '');
     var hasNextSlot = li.getAttribute('data-has-next-slot') === '1';
-    var out = escapeHtml(tpl);
     var word = String(focusRefWord || '').trim();
-    if (!word) return out;
+    if (!word) return escapeHtml(tpl);
     if (focusRefRole === 'next') {
-      if (hasNextSlot && /(?:\.{3}|…)/.test(out)) {
-        out = out.replace(/\.{3}|…/g, raddleClueChip(word, 'next'));
-      } else {
-        out = out.replace(/\s+$/, '');
-        if (out.endsWith('.')) out = out.slice(0, -1).replace(/\s+$/, '');
-        out = out + ' → ' + raddleClueChip(word, 'next');
+      if (hasNextSlot && /(?:\.{3}|…)/.test(tpl)) {
+        return raddleRenderClueTemplate(tpl, '', word);
       }
-    } else {
-      out = out.replace(/_{2,}/g, raddleClueChip(word, 'prev'));
+      tpl = tpl.replace(/\s+$/, '');
+      if (tpl.endsWith('.')) tpl = tpl.slice(0, -1).replace(/\s+$/, '');
+      return escapeHtml(tpl) + ' → ' + raddleClueChip(word, 'next');
     }
-    return out;
+    return raddleRenderClueTemplate(tpl, word, '');
   }
 
   function setRaddleFocus(taskRoot, wordIndex) {
@@ -2453,30 +2467,6 @@
     });
   }
 
-  function transferRaddleFocusForStickyPin(taskRoot, pin, becomingActive) {
-    var active = document.activeElement;
-    if (!active || !active.getAttribute) return;
-    if (becomingActive) {
-      if (active.getAttribute('data-raddle-pin-proxy') === '1') return;
-      if (!taskRoot.contains(active)) return;
-      if (!active.classList || !active.classList.contains('new-raddle-input')) return;
-      if (active.closest('.new-raddle-sticky-pin')) return;
-      var formId = active.getAttribute('form');
-      if (!formId) return;
-      var proxy = pin.querySelector('input[data-raddle-pin-for="' + formId + '"]');
-      if (!proxy) return;
-      softSetRaddleLetters(proxy, getRaddleInputLetters(active));
-      focusPreventScroll(proxy);
-      return;
-    }
-    if (active.getAttribute('data-raddle-pin-proxy') !== '1') return;
-    if (!pin.contains(active)) return;
-    var real = findRealRaddleInputFromPin(active);
-    if (!real) return;
-    softSetRaddleLetters(real, getRaddleInputLetters(active));
-    focusPreventScroll(real);
-  }
-
   function raddlePinHasFocus(pin) {
     var active = document.activeElement;
     return !!(active && pin && pin.contains(active));
@@ -2486,17 +2476,11 @@
     var pin = taskRoot.querySelector('.new-raddle-sticky-pin');
     if (!pin) return;
     if (!raddleIsMobileLayout()) {
-      if (pin.classList.contains('is-active')) {
-        transferRaddleFocusForStickyPin(taskRoot, pin, false);
-      }
       hideRaddleStickyPin(pin);
       return;
     }
     var rows = getRaddleStickySourceRows(taskRoot);
     if (!rows.length) {
-      if (pin.classList.contains('is-active')) {
-        transferRaddleFocusForStickyPin(taskRoot, pin, false);
-      }
       hideRaddleStickyPin(pin);
       return;
     }
@@ -2518,9 +2502,7 @@
       pin.classList.add('is-active');
       pin.removeAttribute('hidden');
       pin.setAttribute('aria-hidden', 'false');
-      transferRaddleFocusForStickyPin(taskRoot, pin, true);
     } else {
-      if (wasActive) transferRaddleFocusForStickyPin(taskRoot, pin, false);
       hideRaddleStickyPin(pin);
     }
   }
@@ -2619,6 +2601,9 @@
 
   var raddleStickyResizeTimer = null;
   function refreshAllRaddleStickyPins() {
+    // Android keeps an input focused after Back dismisses the soft keyboard.
+    // A scroll/viewport event must only move the sticky clone: calling focus()
+    // here would treat that stale focus as intent to type and reopen the keyboard.
     document.querySelectorAll('.new-raddle-task').forEach(updateRaddleStickyPinVisibility);
   }
   window.addEventListener('resize', function () {

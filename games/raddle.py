@@ -639,6 +639,32 @@ def _clue_ref_html(word, *, kind='ref'):
     return '<strong class="{}">{}</strong>'.format(cls, escape(word))
 
 
+def _render_transition_clue_html(
+    template, *, prev_replacement='', next_replacement='',
+):
+    """Render clue text and keep each inserted word with its attached affixes."""
+    from django.utils.html import escape
+
+    rendered = []
+    for part in re.split(r'(\s+)', template):
+        escaped_part = str(escape(part))
+        has_replacement = False
+        if prev_replacement and _CLUE_BLANK_RE.search(part):
+            escaped_part = _CLUE_BLANK_RE.sub(prev_replacement, escaped_part)
+            has_replacement = True
+        if next_replacement and _CLUE_ELLIPSIS_RE.search(part):
+            escaped_part = _CLUE_ELLIPSIS_RE.sub(next_replacement, escaped_part)
+            has_replacement = True
+        if has_replacement:
+            escaped_part = (
+                '<span class="new-raddle-clue__nowrap">{}</span>'.format(
+                    escaped_part,
+                )
+            )
+        rendered.append(escaped_part)
+    return ''.join(rendered)
+
+
 def render_transition_clue(
     hint_text,
     prev_word='',
@@ -657,38 +683,54 @@ def render_transition_clue(
     Если слота следующего нет, а next известен — дописываем « → NEXT».
     next_as_solved: подсветить следующее слово зелёным (для блока «Использованные»).
     """
-    from django.utils.html import escape
     from django.utils.safestring import mark_safe
 
     template = clue_blank_template(hint_text)
     has_next_slot = clue_has_next_slot(hint_text)
 
     if html:
-        out = escape(template)
-    else:
-        out = template
+        prev_replacement = ''
+        next_replacement = ''
+        if prev_known and prev_word:
+            pk = prev_kind if prev_kind != 'ref' else 'ref'
+            prev_replacement = _clue_ref_html(prev_word, kind=pk)
+        if next_known and next_word:
+            if next_kind is None:
+                next_kind = 'next' if next_as_solved else 'ref'
+            if has_next_slot:
+                next_replacement = _clue_ref_html(next_word, kind=next_kind)
+            else:
+                template = template.rstrip()
+                if template.endswith('.'):
+                    template = template[:-1].rstrip()
+        out = _render_transition_clue_html(
+            template,
+            prev_replacement=prev_replacement,
+            next_replacement=next_replacement,
+        )
+        if next_known and next_word and not has_next_slot:
+            out = '{} → {}'.format(
+                out, _clue_ref_html(next_word, kind=next_kind),
+            )
+        return mark_safe(out)
+
+    out = template
 
     if prev_known and prev_word:
-        pk = prev_kind if prev_kind != 'ref' else 'ref'
-        repl = _clue_ref_html(prev_word, kind=pk) if html else str(prev_word)
+        repl = str(prev_word)
         out = _CLUE_BLANK_RE.sub(repl, out)
 
     if next_known and next_word:
-        if next_kind is None:
-            next_kind = 'next' if next_as_solved else 'ref'
-        repl = _clue_ref_html(next_word, kind=next_kind) if html else str(next_word)
+        repl = str(next_word)
         if has_next_slot:
             out = _CLUE_ELLIPSIS_RE.sub(repl, out)
         else:
             out = out.rstrip()
             if out.endswith('.'):
                 out = out[:-1].rstrip()
-            if html:
-                out = '{} → {}'.format(out, _clue_ref_html(next_word, kind=next_kind))
-            else:
-                out = '{} → {}'.format(out, next_word)
+            out = '{} → {}'.format(out, next_word)
 
-    return mark_safe(out) if html else out
+    return out
 
 
 def substitute_clue_word(hint_text, word, *, html=False):
