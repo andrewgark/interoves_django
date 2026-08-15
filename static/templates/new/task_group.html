@@ -305,6 +305,7 @@
 <script src="{% static 'js/replacements_input_parse.js' %}"></script>
 <script src="{% static 'js/imask.min.js' %}"></script>
 <script src="{% static 'js/raddle_masked_input.js' %}"></script>
+<script src="{% static 'js/mobile_input_intent.js' %}"></script>
 <script>
 (function () {
   var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';
@@ -402,6 +403,45 @@
     try { el.focus({ preventScroll: true }); }
     catch (e) { try { el.focus(); } catch (e2) {} }
   }
+
+  var raddleInputIntent = window.MobileInputIntent
+    ? window.MobileInputIntent.create({ keyboardCloseDelta: 120 })
+    : {
+        context: '',
+        activate: function (context) { this.context = String(context || ''); },
+        clear: function () { this.context = ''; },
+        isActive: function (context) {
+          return !!this.context && this.context === String(context || '');
+        },
+        observeViewport: function () { return false; },
+      };
+
+  function raddleTaskIdFromElement(el) {
+    var taskRoot = el && el.closest ? el.closest('.new-raddle-task') : null;
+    return taskRoot ? String(taskRoot.getAttribute('data-task-id') || '') : '';
+  }
+
+  function activateRaddleInputIntent(el) {
+    var taskId = raddleTaskIdFromElement(el);
+    if (taskId) raddleInputIntent.activate(taskId);
+  }
+
+  function clearRaddleInputIntent() {
+    raddleInputIntent.clear();
+  }
+
+  function hasRaddleInputIntent(taskRoot) {
+    if (!taskRoot) return false;
+    return raddleInputIntent.isActive(String(taskRoot.getAttribute('data-task-id') || ''));
+  }
+
+  function observeRaddleViewport() {
+    var viewport = window.visualViewport;
+    var width = viewport ? viewport.width : window.innerWidth;
+    var height = viewport ? viewport.height : window.innerHeight;
+    raddleInputIntent.observeViewport(width, height);
+  }
+  observeRaddleViewport();
 
   function isRaddleLineForm(form) {
     return form && form.classList && form.classList.contains('new-raddle-line-form');
@@ -1242,7 +1282,9 @@
   function markRaddleWrong(row, input) {
     if (row) row.classList.add('new-raddle-row--wrong');
     var taskRoot = row && row.closest ? row.closest('.new-raddle-task') : null;
-    focusRaddlePlayableInput(taskRoot, input);
+    // The input DOM did not change, so its native focus is already preserved.
+    // Refocusing from an async response would reopen a keyboard dismissed while
+    // the request was in flight (Android keeps such inputs as activeElement).
     if (taskRoot) syncRaddleStickyPinRowState(taskRoot);
   }
 
@@ -1438,7 +1480,7 @@
     setRaddleClueStruck(taskRoot, hi, next);
   }
   function maybeCascadeRaddlePlayable(taskRoot) {
-    if (!taskRoot) return;
+    if (!taskRoot || !hasRaddleInputIntent(taskRoot)) return;
     var focusRow = taskRoot.querySelector(
       '.new-raddle-ladder .new-raddle-row--focus.new-raddle-row--playable'
     );
@@ -1610,6 +1652,7 @@
     return {
       onChange: function (input, letters) {
         if (!input || raddlePinSyncing || raddleRestoringDrafts) return;
+        activateRaddleInputIntent(input);
         if (input.getAttribute('data-raddle-pin-proxy') === '1') {
           var realPin = findRealRaddleInputFromPin(input);
           if (realPin) {
@@ -1635,6 +1678,7 @@
       },
       onComplete: function (input, letters) {
         if (!input || raddlePinSyncing || raddleRestoringDrafts) return;
+        activateRaddleInputIntent(input);
         if (input.getAttribute('data-raddle-pin-proxy') === '1') {
           var realDone = findRealRaddleInputFromPin(input);
           if (realDone) {
@@ -1693,7 +1737,7 @@
   }
 
   function focusRaddlePlayableInput(taskRoot, realInput) {
-    if (!realInput) return;
+    if (!realInput || !hasRaddleInputIntent(taskRoot)) return;
     var pin = taskRoot && taskRoot.querySelector('.new-raddle-sticky-pin.is-active');
     if (pin) {
       var formId = realInput.getAttribute('form');
@@ -2467,20 +2511,57 @@
     });
   }
 
-  function raddlePinHasFocus(pin) {
+  function transferRaddleFocusForStickyPin(taskRoot, pin, becomingActive) {
     var active = document.activeElement;
-    return !!(active && pin && pin.contains(active));
+    if (!active || !active.getAttribute) return;
+    if (becomingActive) {
+      if (!hasRaddleInputIntent(taskRoot)) return;
+      if (active.getAttribute('data-raddle-pin-proxy') === '1') return;
+      if (!taskRoot.contains(active)) return;
+      if (!active.classList || !active.classList.contains('new-raddle-input')) return;
+      if (active.closest('.new-raddle-sticky-pin')) return;
+      var formId = active.getAttribute('form');
+      if (!formId) return;
+      var proxy = pin.querySelector('input[data-raddle-pin-for="' + formId + '"]');
+      if (!proxy) return;
+      softSetRaddleLetters(proxy, getRaddleInputLetters(active));
+      focusPreventScroll(proxy);
+      return;
+    }
+    if (active.getAttribute('data-raddle-pin-proxy') !== '1') return;
+    if (!pin.contains(active)) return;
+    var real = findRealRaddleInputFromPin(active);
+    if (!real) return;
+    softSetRaddleLetters(real, getRaddleInputLetters(active));
+    if (hasRaddleInputIntent(taskRoot)) {
+      focusPreventScroll(real);
+    } else if (typeof active.blur === 'function') {
+      active.blur();
+    }
+  }
+
+  function raddlePinHasFocus(taskRoot, pin) {
+    var active = document.activeElement;
+    return !!(
+      hasRaddleInputIntent(taskRoot) && active && pin && pin.contains(active)
+    );
   }
 
   function updateRaddleStickyPinVisibility(taskRoot) {
     var pin = taskRoot.querySelector('.new-raddle-sticky-pin');
     if (!pin) return;
     if (!raddleIsMobileLayout()) {
+      if (pin.classList.contains('is-active')) {
+        transferRaddleFocusForStickyPin(taskRoot, pin, false);
+      }
       hideRaddleStickyPin(pin);
       return;
     }
     var rows = getRaddleStickySourceRows(taskRoot);
     if (!rows.length) {
+      if (pin.classList.contains('is-active')) {
+        transferRaddleFocusForStickyPin(taskRoot, pin, false);
+      }
       hideRaddleStickyPin(pin);
       return;
     }
@@ -2495,14 +2576,16 @@
     // когда реальные строки снова видны под шапкой.
     var underNav = firstTop <= navTop + 0.5;
     var taskStillVisible = taskBottom > navTop + Math.min(pinH, 24);
-    var shouldShow = underNav && (taskStillVisible || raddlePinHasFocus(pin));
+    var shouldShow = underNav && (taskStillVisible || raddlePinHasFocus(taskRoot, pin));
     var wasActive = pin.classList.contains('is-active');
     if (shouldShow) {
       if (!wasActive) syncRaddleStickyPinInputsFromReal(taskRoot, pin);
       pin.classList.add('is-active');
       pin.removeAttribute('hidden');
       pin.setAttribute('aria-hidden', 'false');
+      transferRaddleFocusForStickyPin(taskRoot, pin, true);
     } else {
+      if (wasActive) transferRaddleFocusForStickyPin(taskRoot, pin, false);
       hideRaddleStickyPin(pin);
     }
   }
@@ -2530,6 +2613,7 @@
         keepLetters = getRaddleInputLetters(active);
       }
     }
+    var restoreFocus = !!keepFocus && hasRaddleInputIntent(taskRoot);
     tbody.innerHTML = '';
     rows.forEach(function (row) {
       tbody.appendChild(buildRaddleStickyPinRow(row));
@@ -2545,10 +2629,10 @@
     }
     updateRaddleStickyPinVisibility(taskRoot);
     // После пересборки DOM вернуть фокус: proxy, если пин активен, иначе real.
-    if (keepFocus && pin.classList.contains('is-active')) {
+    if (restoreFocus && pin.classList.contains('is-active')) {
       var proxyBack = pin.querySelector('input[data-raddle-pin-for="' + keepFocus + '"]');
       if (proxyBack && document.activeElement !== proxyBack) focusPreventScroll(proxyBack);
-    } else if (keepFocus && !pin.classList.contains('is-active')) {
+    } else if (restoreFocus && !pin.classList.contains('is-active')) {
       var realBack = document.querySelector(
         'input.new-raddle-input[name="word"][form="' + keepFocus + '"]'
       );
@@ -2609,6 +2693,7 @@
   window.addEventListener('resize', function () {
     if (raddleStickyResizeTimer) clearTimeout(raddleStickyResizeTimer);
     raddleStickyResizeTimer = setTimeout(function () {
+      observeRaddleViewport();
       // Mobile keyboards resize the viewport when they open and close. Rebuilding
       // the pin here removes its focused proxy input and the focus restoration in
       // updateRaddleStickyPin opens the keyboard again. The rows themselves have
@@ -2619,9 +2704,48 @@
   });
   window.addEventListener('scroll', refreshAllRaddleStickyPins, { passive: true });
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', refreshAllRaddleStickyPins);
+    window.visualViewport.addEventListener('resize', function () {
+      observeRaddleViewport();
+      refreshAllRaddleStickyPins();
+    });
     window.visualViewport.addEventListener('scroll', refreshAllRaddleStickyPins);
   }
+
+  document.addEventListener('pointerdown', function (e) {
+    var target = e.target && e.target.closest ? e.target : null;
+    if (!target) {
+      clearRaddleInputIntent();
+      return;
+    }
+    var input = target.closest('input.new-raddle-input');
+    if (input) {
+      activateRaddleInputIntent(input);
+      return;
+    }
+    var submit = target.closest('form.new-raddle-line-form button[type="submit"]');
+    if (submit) {
+      activateRaddleInputIntent(submit);
+      return;
+    }
+    var row = target.closest('.new-raddle-row--playable, .new-raddle-row--draft');
+    if (row && !target.closest('button, a, select, textarea, label')) {
+      activateRaddleInputIntent(row);
+      return;
+    }
+    clearRaddleInputIntent();
+  }, { passive: true });
+
+  document.addEventListener('beforeinput', function (e) {
+    var input = e.target && e.target.closest
+      ? e.target.closest('input.new-raddle-input') : null;
+    if (input) activateRaddleInputIntent(input);
+  });
+
+  // A deliberate page gesture means that a later async response must not pull
+  // the user back into an input. Native focus can remain untouched while the
+  // sticky controller stops treating it as permission to call focus() again.
+  document.addEventListener('touchmove', clearRaddleInputIntent, { passive: true });
+  document.addEventListener('wheel', clearRaddleInputIntent, { passive: true });
 
   document.addEventListener('focusin', function (e) {
     var input = e.target && e.target.closest ? e.target.closest('[data-raddle-focus-input]') : null;
@@ -2636,6 +2760,9 @@
   });
 
   document.addEventListener('keydown', function (e) {
+    var raddleInput = e.target && e.target.closest
+      ? e.target.closest('input.new-raddle-input') : null;
+    if (raddleInput) activateRaddleInputIntent(raddleInput);
     if (e.key !== 'Enter' && e.keyCode !== 13) return;
     var draft = e.target && e.target.closest ? e.target.closest('[data-raddle-draft="1"]') : null;
     if (!draft) return;

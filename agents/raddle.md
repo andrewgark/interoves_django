@@ -14,12 +14,12 @@
 
 | Ситуация | `status` | Флаги | Клиент (`applyRaddleAttemptResponse`) |
 |----------|----------|-------|-------------------------------------|
-| Верно в этой попытке | `ok` | `raddle_correct: true` | `applyNewUiTaskHtml` + `focusRaddleNext` |
+| Верно в этой попытке | `ok` | `raddle_correct: true` | `applyNewUiTaskHtml` + `focusRaddleNext` при активной сессии ввода |
 | Неверно | `ok` | `raddle_correct: false` | красная строка, ввод **не** трогать |
-| Уже решено (лаг) | `ok` | `raddle_needs_sync: true` | синхронизация HTML + фокус |
+| Уже решено (лаг) | `ok` | `raddle_needs_sync: true` | синхронизация HTML + фокус при активной сессии ввода |
 | Устаревший UI (не playable) | `ok` | `raddle_needs_sync` + `raddle_stale_ui` | только HTML (без focusRaddleNext), Attempt не пишется |
 | Дубликат неверного | `duplicate` | `raddle_duplicate_solved: false` | красная строка + сообщение, **без** HTML |
-| Дубликат после успеха | `duplicate` | `raddle_duplicate_solved: true` | синхронизация HTML + фокус |
+| Дубликат после успеха | `duplicate` | `raddle_duplicate_solved: true` | синхронизация HTML + фокус при активной сессии ввода |
 
 `raddle_word_index` — индекс слова из посылки (0-based), всегда при raddle-ответах.
 
@@ -33,6 +33,10 @@
 
 - `raddleLast` — блокировка двойной отправки **того же** значения; ставится только если fetch реально ушёл; сбрасывается при ошибке сети, при `length !== maxlength`, при sync.
 - `paste` — fallback через `setTimeout(0)` только если busy / уже отправлено.
+- **Mobile focus intent:** `activeElement` не означает открытую клавиатуру (Android
+  оставляет фокус после Back). Async-ответ, sticky-handoff и каскад вызывают
+  `focus()` только пока активна явная сессия ввода; закрытие клавиатуры или ручной
+  scroll её отменяют. Неверный ответ DOM поля не меняет и программно не фокусирует.
 - Разделение: `syncRaddleUiAfterAdvance` (перерисовка) vs `showRaddleWrongFeedback` (локальная обратная связь).
 - **Черновики середины** (`is_draftable` / `data-raddle-draft`): инпут без формы и без auto-submit; сервер по-прежнему принимает только крайние из `playable_word_indices`. Текст в `sessionStorage` (`raddle_drafts_<taskId>`), чтобы пережить `applyNewUiTaskHtml`.
 - **Каскад после advance:** после `focusRaddleNext` если сфокусированный playable уже полный и есть `data-raddle-auto` — `submitRaddleAuto` (цепочка с того же конца). В турнире каскада нет (нет auto).
@@ -82,5 +86,9 @@
 7. **Черновик середины** — ввод в некрайнее поле: hourglass, **нет** POST; фокус на draft **не** перекрашивает крайние.
 8. **Каскад** — заполнить следующее среднее верным словом, сдать текущее крайнее → следующий POST уходит сам (если полный черновик).
 9. **Кружок подсказки** — strikethrough на unused; после ухода подсказки в «Использованные» кружка и struck нет.
+10. **Закрытие клавиатуры** — начать ввод, Android Back, прокрутить вниз: sticky
+    остаётся в границах задания, клавиатура сама не открывается.
+11. **Back во время запроса** — закрыть клавиатуру до ответа wrong/correct:
+    async-ответ не открывает её повторно и не запускает каскад.
 
 При багрепорте приложить из Network JSON ответа: `status`, `raddle_correct`, `raddle_needs_sync`, `raddle_duplicate_solved`, `raddle_word_index`.

@@ -145,6 +145,7 @@
   </div>
 </div>
 
+<script src="{% static 'js/mobile_input_intent.js' %}"></script>
 <script>
 (function () {
   var root = document.getElementById('alphabetty-root');
@@ -222,6 +223,34 @@
   var elTaskMeta = document.querySelector('[data-alphabetty-meta]');
   var hintToastTimer = null;
   var defaultPlaceholder = (input && input.getAttribute('data-default-placeholder')) || 'Угадайте русское слово';
+  var alphabettyInputIntent = window.MobileInputIntent.create({ keyboardCloseDelta: 120 });
+  var alphabettyVisibilityWindow = window.MobileInputIntent.create({
+    durationMs: 700,
+    keyboardCloseDelta: 120,
+  });
+
+  function alphabettyIsMobileLayout() {
+    try { return window.matchMedia('(max-width: 919px)').matches; }
+    catch (e) { return false; }
+  }
+
+  function observeAlphabettyViewport() {
+    var viewport = window.visualViewport;
+    var width = viewport ? viewport.width : window.innerWidth;
+    var height = viewport ? viewport.height : window.innerHeight;
+    alphabettyInputIntent.observeViewport(width, height);
+    alphabettyVisibilityWindow.observeViewport(width, height);
+  }
+  observeAlphabettyViewport();
+
+  function activateAlphabettyInputIntent() {
+    alphabettyInputIntent.activate('alphabetty');
+  }
+
+  function clearAlphabettyInputIntent() {
+    alphabettyInputIntent.clear();
+    alphabettyVisibilityWindow.clear();
+  }
 
   function flushAnalyticsEvents(events) {
     if (!window.interovesAnalytics || !window.interovesAnalytics.flushPendingGoals) return;
@@ -247,6 +276,9 @@
 
   function focusInput() {
     if (state.won) return;
+    // Desktop keeps its convenient autofocus. On touch layouts an async response
+    // may focus only while the user is still in an explicit typing session.
+    if (alphabettyIsMobileLayout() && !alphabettyInputIntent.isActive('alphabetty')) return;
     focusPreventScroll(input);
   }
 
@@ -404,15 +436,21 @@
   }
   if (window.visualViewport) {
     function onViewportChange() {
+      observeAlphabettyViewport();
       if (pinAboveOnResize) pinAboveBottom();
       keepInputVisible();
     }
     window.visualViewport.addEventListener('resize', onViewportChange);
     window.visualViewport.addEventListener('scroll', onViewportChange);
+  } else {
+    window.addEventListener('resize', observeAlphabettyViewport);
   }
 
   function keepInputVisible() {
-    if (!elInputZone || state.won) return;
+    if (
+      !elInputZone || state.won ||
+      !alphabettyVisibilityWindow.isActive('alphabetty')
+    ) return;
     try {
       elInputZone.scrollIntoView({ block: 'center', behavior: 'auto' });
     } catch (e) {}
@@ -420,10 +458,28 @@
 
   input.addEventListener('focus', function () {
     if (state.won) return;
+    if (alphabettyIsMobileLayout() && !alphabettyInputIntent.isActive('alphabetty')) return;
+    alphabettyVisibilityWindow.activate('alphabetty');
     requestAnimationFrame(keepInputVisible);
     setTimeout(keepInputVisible, 50);
     setTimeout(keepInputVisible, 300);
   });
+
+  input.addEventListener('pointerdown', activateAlphabettyInputIntent, { passive: true });
+  input.addEventListener('beforeinput', activateAlphabettyInputIntent);
+  input.addEventListener('keydown', activateAlphabettyInputIntent);
+  document.addEventListener('pointerdown', function (e) {
+    if (e.target === input || (e.target && e.target.closest && e.target.closest('#ab-word'))) {
+      return;
+    }
+    if (e.target && e.target.closest && e.target.closest('#ab-submit')) {
+      activateAlphabettyInputIntent();
+      return;
+    }
+    clearAlphabettyInputIntent();
+  }, { passive: true });
+  document.addEventListener('touchmove', clearAlphabettyInputIntent, { passive: true });
+  document.addEventListener('wheel', clearAlphabettyInputIntent, { passive: true });
 
   function renderBoard() {
     var earlier = state.earlier || [];
