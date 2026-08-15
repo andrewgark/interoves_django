@@ -25,6 +25,7 @@
   var poller = null;
   var busy = false;
   var STORAGE_KEY = 'interoves_ticket_poll';
+  var INTERNATIONAL_UNAVAILABLE_TEXT = 'Оплата международными картами в разработке, ещё не работает';
   if (!form || !qty) return;
 
   function flushAnalyticsEvents(events) {
@@ -118,6 +119,7 @@
     var input = selectedInput();
     if (!input) return;
     var route = input.value;
+    var internationalUnavailable = route === 'international_card';
     var copy = routeCopy[route];
     var count = clampQuantity(qty.value);
     qty.value = String(count);
@@ -141,23 +143,26 @@
     if (sellerText) sellerText.textContent = copy.seller;
     if (sellerLink) sellerLink.href = copy.sellerUrl;
     if (security) security.textContent = copy.security;
-    if (conversionNote) conversionNote.hidden = route !== 'international_card';
+    if (conversionNote) conversionNote.hidden = !internationalUnavailable;
 
     if (submit) {
-      submit.textContent = route === 'international_card' ? 'Международная оплата готовится' : 'Оплатить ' + amountText;
-      submit.disabled = busy || route === 'international_card' || !consent.checked;
+      submit.textContent = internationalUnavailable ? INTERNATIONAL_UNAVAILABLE_TEXT : 'Оплатить ' + amountText;
+      submit.disabled = busy || internationalUnavailable || !consent.checked;
+      submit.classList.toggle('new-pay-submit--unavailable', internationalUnavailable);
     }
     if (login) {
-      login.textContent = route === 'international_card' ? 'Международная оплата готовится' : 'Войти и продолжить';
-      login.disabled = route === 'international_card';
+      login.textContent = internationalUnavailable ? INTERNATIONAL_UNAVAILABLE_TEXT : 'Войти и продолжить';
+      login.disabled = internationalUnavailable;
+      login.classList.toggle('new-pay-submit--unavailable', internationalUnavailable);
     }
     if (teamSetup) {
-      teamSetup.textContent = route === 'international_card' ? 'Международная оплата готовится' : 'Создать команду для оплаты';
-      teamSetup.classList.toggle('is-disabled', route === 'international_card');
-      teamSetup.setAttribute('aria-disabled', route === 'international_card' ? 'true' : 'false');
+      teamSetup.textContent = internationalUnavailable ? INTERNATIONAL_UNAVAILABLE_TEXT : 'Создать команду для оплаты';
+      teamSetup.classList.toggle('is-disabled', internationalUnavailable);
+      teamSetup.classList.toggle('new-pay-submit--unavailable', internationalUnavailable);
+      teamSetup.setAttribute('aria-disabled', internationalUnavailable ? 'true' : 'false');
     }
-    if (route === 'international_card') {
-      setMessage('Подключение приема международных карт готовится. Цена, продавец и условия показаны для ознакомления.');
+    if (internationalUnavailable) {
+      setMessage('Оплата международными картами пока не работает. Цена, продавец и условия показаны для ознакомления.');
       hideWidgets();
     } else if (!busy) {
       setMessage('');

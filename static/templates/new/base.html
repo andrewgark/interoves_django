@@ -549,7 +549,7 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
-  {% include "new/partials/legal_footer.html" %}
+  {% block footer %}{% endblock %}
   <script>
   (function () {
     var KEY = (window.interovesColorTheme && window.interovesColorTheme.KEY) || 'interoves_color_theme';

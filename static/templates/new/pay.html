@@ -167,3 +167,7 @@
 {% endif %}
 <script src="{% static 'js/pay_checkout.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endblock %}
+
+{% block footer %}
+  {% include "new/partials/legal_footer.html" %}
+{% endblock %}

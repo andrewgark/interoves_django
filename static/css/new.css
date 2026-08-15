@@ -2796,6 +2796,24 @@ html.new-ui-dark .new-team-switcher-active-box {
   pointer-events: none;
 }
 
+.new-pay-submit--unavailable,
+.new-pay-submit--unavailable:hover,
+.new-pay-submit--unavailable:active {
+  min-height: var(--btn-height);
+  height: auto;
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  white-space: normal;
+}
+
+.new-pay-submit--unavailable:focus-visible {
+  outline-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
 .new-pay-refund-summary {
   margin: 0.5rem 0 1.25rem;
   color: var(--muted);

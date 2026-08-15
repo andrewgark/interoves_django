@@ -81,6 +81,7 @@ class PayPageGatingTests(TestCase):
         self.assertIn('/refunds/', body)
         self.assertIn('/privacy/', body)
         self.assertIn('/contacts/', body)
+        self.assertEqual(body.count('<footer class="new-legal-footer">'), 1)
         self.assertNotIn('Чтобы купить билет', body)
         self.assertNotIn('/terms-of-use/', body)
         self.assertNotIn('/ticket-agreement/', body)
@@ -215,18 +216,14 @@ class LegalPageTests(TestCase):
     def setUpTestData(cls):
         _ensure_login_modal_deps()
 
-    def test_all_legal_pages_are_public_and_linked(self):
+    def test_all_legal_pages_are_public_without_checkout_footer(self):
         for name in ('sellers', 'terms', 'terms_russia', 'terms_armenia', 'terms_crypto', 'refunds', 'privacy', 'contacts'):
             with self.subTest(name=name):
                 response = self.client.get(reverse(name))
                 self.assertEqual(response.status_code, 200)
                 body = response.content.decode()
-                self.assertIn('/refunds/', body)
-                self.assertIn('/privacy/', body)
-                self.assertIn('/sellers/', body)
-                self.assertIn('/contacts/', body)
                 self.assertNotIn('TODO_', body)
-                self.assertEqual(body.count('<footer class="new-legal-footer">'), 1)
+                self.assertNotIn('<footer class="new-legal-footer">', body)
                 self.assertIn('no-store', response['Cache-Control'])
 
     def test_current_terms_have_route_specific_copy(self):
