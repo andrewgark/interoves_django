@@ -753,23 +753,74 @@
       },
       body: body.toString(),
       credentials: 'same-origin',
-    }).then(function (r) { return r.json(); });
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+  var likeRequestsInFlight = Object.create(null);
+  var likeStatusTimers = Object.create(null);
+  function setLikeBusy(taskId, busy) {
+    document.querySelectorAll(
+      '[data-like-btn][data-task-id="' + taskId + '"], ' +
+      '[data-dislike-btn][data-task-id="' + taskId + '"]'
+    ).forEach(function (btn) {
+      btn.disabled = busy;
+      if (busy) btn.setAttribute('aria-busy', 'true');
+      else btn.removeAttribute('aria-busy');
+    });
+  }
+  function clearLikeError(taskId) {
+    clearTimeout(likeStatusTimers[taskId]);
+    document.querySelectorAll('[data-like-status="' + taskId + '"]').forEach(function (status) {
+      status.hidden = true;
+      status.textContent = '';
+    });
+  }
+  function showLikeError(taskId) {
+    clearLikeError(taskId);
+    document.querySelectorAll('[data-like-status="' + taskId + '"]').forEach(function (status) {
+      status.textContent = 'Не удалось сохранить. Попробуйте ещё раз.';
+      status.hidden = false;
+    });
+    clearTimeout(likeStatusTimers[taskId]);
+    likeStatusTimers[taskId] = setTimeout(function () {
+      document.querySelectorAll('[data-like-status="' + taskId + '"]').forEach(function (status) {
+        status.hidden = true;
+      });
+    }, 5000);
   }
   function applyLikeUI(taskId, data) {
-    var likeBtn = document.querySelector('[data-like-btn][data-task-id="' + taskId + '"]');
-    var dislikeBtn = document.querySelector('[data-dislike-btn][data-task-id="' + taskId + '"]');
-    var likeCount = document.querySelector('[data-like-count="' + taskId + '"]');
-    var dislikeCount = document.querySelector('[data-dislike-count="' + taskId + '"]');
-    if (likeCount && typeof data.likes !== 'undefined') likeCount.textContent = data.likes;
-    if (dislikeCount && typeof data.dislikes !== 'undefined') dislikeCount.textContent = data.dislikes;
-    if (likeBtn && typeof data.liked !== 'undefined') {
-      likeBtn.setAttribute('data-liked', data.liked ? '1' : '0');
-      likeBtn.classList.toggle('is-active', !!data.liked);
-    }
-    if (dislikeBtn && typeof data.disliked !== 'undefined') {
-      dislikeBtn.setAttribute('data-disliked', data.disliked ? '1' : '0');
-      dislikeBtn.classList.toggle('is-active', !!data.disliked);
-    }
+    document.querySelectorAll('[data-like-count="' + taskId + '"]').forEach(function (count) {
+      if (typeof data.likes !== 'undefined') count.textContent = data.likes;
+    });
+    document.querySelectorAll('[data-dislike-count="' + taskId + '"]').forEach(function (count) {
+      if (typeof data.dislikes !== 'undefined') count.textContent = data.dislikes;
+    });
+    document.querySelectorAll('[data-like-btn][data-task-id="' + taskId + '"]').forEach(function (btn) {
+      if (typeof data.liked === 'undefined') return;
+      btn.setAttribute('data-liked', data.liked ? '1' : '0');
+      btn.classList.toggle('is-active', !!data.liked);
+    });
+    document.querySelectorAll('[data-dislike-btn][data-task-id="' + taskId + '"]').forEach(function (btn) {
+      if (typeof data.disliked === 'undefined') return;
+      btn.setAttribute('data-disliked', data.disliked ? '1' : '0');
+      btn.classList.toggle('is-active', !!data.disliked);
+    });
+  }
+  function submitLike(taskId, likesDelta, dislikesDelta) {
+    if (likeRequestsInFlight[taskId]) return;
+    likeRequestsInFlight[taskId] = true;
+    clearLikeError(taskId);
+    setLikeBusy(taskId, true);
+    postLike(taskId, likesDelta, dislikesDelta).then(function (data) {
+      applyLikeUI(taskId, data);
+    }).catch(function () {
+      showLikeError(taskId);
+    }).then(function () {
+      delete likeRequestsInFlight[taskId];
+      setLikeBusy(taskId, false);
+    });
   }
   document.addEventListener('click', function (e) {
     var likeBtn = e.target && e.target.closest ? e.target.closest('[data-like-btn]') : null;
@@ -777,9 +828,7 @@
       e.preventDefault();
       var ltid = likeBtn.getAttribute('data-task-id');
       var liked = likeBtn.getAttribute('data-liked') === '1';
-      postLike(ltid, liked ? -1 : 1, 0).then(function (data) {
-        applyLikeUI(ltid, data);
-      }).catch(function () {});
+      submitLike(ltid, liked ? -1 : 1, 0);
       return;
     }
     var dislikeBtn = e.target && e.target.closest ? e.target.closest('[data-dislike-btn]') : null;
@@ -787,9 +836,7 @@
       e.preventDefault();
       var dtid = dislikeBtn.getAttribute('data-task-id');
       var disliked = dislikeBtn.getAttribute('data-disliked') === '1';
-      postLike(dtid, 0, disliked ? -1 : 1).then(function (data) {
-        applyLikeUI(dtid, data);
-      }).catch(function () {});
+      submitLike(dtid, 0, disliked ? -1 : 1);
     }
   }, true);
 

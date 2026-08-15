@@ -8,7 +8,7 @@ import re
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F
 from django.db.models.functions import Coalesce
 from django.dispatch import receiver
@@ -1531,45 +1531,71 @@ class LikeManager(models.Manager):
     def actor_has_dislike(self, task, team=None, user=None, anon_key=None):
         return super().get_queryset().filter(task=task, value=-1, **self._actor_filter(team=team, user=user, anon_key=anon_key)).exists()
 
+    def set_actor_reaction(self, task, value, team=None, user=None, anon_key=None):
+        """Atomically replace an actor's reaction, healing any duplicate rows."""
+        if value not in (-1, 0, 1):
+            raise ValueError('Reaction value must be -1, 0, or 1')
+        if sum(actor is not None for actor in (team, user, anon_key)) != 1:
+            raise ValueError('Exactly one reaction actor is required')
+
+        actor_filter = self._actor_filter(team=team, user=user, anon_key=anon_key)
+        with transaction.atomic():
+            # A reaction row may not exist yet, so lock the always-present task row.
+            # This serializes concurrent reaction changes for the same task.
+            Task.objects.select_for_update().only('pk').get(pk=task.pk)
+            super().get_queryset().filter(task=task, **actor_filter).delete()
+            if value:
+                self.create(
+                    task=task,
+                    team=team,
+                    user=user,
+                    anon_key=anon_key,
+                    value=value,
+                )
+
     def add_like(self, task, team):
-        if not self.team_has_like(task, team):
-            like = Like(team=team, task=task, value=1)
-            like.save()
+        self.set_actor_reaction(task, 1, team=team)
 
     def add_dislike(self, task, team):
-        if not self.team_has_dislike(task, team):
-            dislike = Like(team=team, task=task, value=-1)
-            dislike.save()
+        self.set_actor_reaction(task, -1, team=team)
 
     def delete_like(self, task, team):
-        like_filter = super().get_queryset().filter(task=task, team=team, value=1)
-        if like_filter:
-            like_filter[0].delete()
+        with transaction.atomic():
+            Task.objects.select_for_update().only('pk').get(pk=task.pk)
+            super().get_queryset().filter(
+                task=task, value=1, **self._actor_filter(team=team)
+            ).delete()
 
     def delete_dislike(self, task, team):
-        dislike_filter = super().get_queryset().filter(task=task, team=team, value=-1)
-        if dislike_filter:
-            dislike_filter[0].delete()
+        with transaction.atomic():
+            Task.objects.select_for_update().only('pk').get(pk=task.pk)
+            super().get_queryset().filter(
+                task=task, value=-1, **self._actor_filter(team=team)
+            ).delete()
 
     def add_like_actor(self, task, team=None, user=None, anon_key=None):
-        if not self.actor_has_like(task, team=team, user=user, anon_key=anon_key):
-            like = Like(team=team, user=user, anon_key=anon_key, task=task, value=1)
-            like.save()
+        self.set_actor_reaction(task, 1, team=team, user=user, anon_key=anon_key)
 
     def add_dislike_actor(self, task, team=None, user=None, anon_key=None):
-        if not self.actor_has_dislike(task, team=team, user=user, anon_key=anon_key):
-            dislike = Like(team=team, user=user, anon_key=anon_key, task=task, value=-1)
-            dislike.save()
+        self.set_actor_reaction(task, -1, team=team, user=user, anon_key=anon_key)
 
     def delete_like_actor(self, task, team=None, user=None, anon_key=None):
-        qs = super().get_queryset().filter(task=task, value=1, **self._actor_filter(team=team, user=user, anon_key=anon_key))
-        if qs:
-            qs[0].delete()
+        with transaction.atomic():
+            Task.objects.select_for_update().only('pk').get(pk=task.pk)
+            super().get_queryset().filter(
+                task=task,
+                value=1,
+                **self._actor_filter(team=team, user=user, anon_key=anon_key),
+            ).delete()
 
     def delete_dislike_actor(self, task, team=None, user=None, anon_key=None):
-        qs = super().get_queryset().filter(task=task, value=-1, **self._actor_filter(team=team, user=user, anon_key=anon_key))
-        if qs:
-            qs[0].delete()
+        with transaction.atomic():
+            Task.objects.select_for_update().only('pk').get(pk=task.pk)
+            super().get_queryset().filter(
+                task=task,
+                value=-1,
+                **self._actor_filter(team=team, user=user, anon_key=anon_key),
+            ).delete()
 
 
 class Like(models.Model):
@@ -1580,6 +1606,13 @@ class Like(models.Model):
     task = models.ForeignKey(Task, related_name='likes', blank=True, null=True, on_delete=models.SET_NULL)
     value = models.IntegerField()
     manager = LikeManager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=('task', 'team'), name='uniq_like_task_team'),
+            models.UniqueConstraint(fields=('task', 'user'), name='uniq_like_task_user'),
+            models.UniqueConstraint(fields=('task', 'anon_key'), name='uniq_like_task_anon'),
+        ]
 
     def __str__(self):
         actor = self.team if self.team is not None else (self.user if self.user is not None else self.anon_key)

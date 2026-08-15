@@ -3210,16 +3210,17 @@ def new_like_dislike(request, task_id):
     likes = int(request.POST.get('likes', 0))
     dislikes = int(request.POST.get('dislikes', 0))
     if likes == 1:
-        # make reactions mutually exclusive for this actor
-        Like.manager.delete_dislike_actor(task, team=team, user=user, anon_key=anon_key)
-        Like.manager.add_like_actor(task, team=team, user=user, anon_key=anon_key)
-    elif likes == -1:
-        Like.manager.delete_like_actor(task, team=team, user=user, anon_key=anon_key)
-    if dislikes == 1:
-        Like.manager.delete_like_actor(task, team=team, user=user, anon_key=anon_key)
-        Like.manager.add_dislike_actor(task, team=team, user=user, anon_key=anon_key)
-    elif dislikes == -1:
-        Like.manager.delete_dislike_actor(task, team=team, user=user, anon_key=anon_key)
+        reaction = 1
+    elif dislikes == 1:
+        reaction = -1
+    elif likes == -1 or dislikes == -1:
+        reaction = 0
+    else:
+        reaction = None
+    if reaction is not None:
+        Like.manager.set_actor_reaction(
+            task, reaction, team=team, user=user, anon_key=anon_key,
+        )
 
     return JsonResponse({
         # показываем сумму КОМАНДНЫХ + ЛИЧНЫХ лайков/дизлайков

@@ -22,13 +22,15 @@ def like_dislike(request, task_id):
     likes = int(request.POST.get('likes', 0))
     dislikes = int(request.POST.get('dislikes', 0))
     if likes == 1:
-        Like.manager.add_like(task, team)
-    elif likes == -1:
-        Like.manager.delete_like(task, team)
-    if dislikes == 1:
-        Like.manager.add_dislike(task, team)
-    elif dislikes == -1:
-        Like.manager.delete_dislike(task, team)
+        reaction = 1
+    elif dislikes == 1:
+        reaction = -1
+    elif likes == -1 or dislikes == -1:
+        reaction = 0
+    else:
+        reaction = None
+    if reaction is not None:
+        Like.manager.set_actor_reaction(task, reaction, team=team)
 
     return JsonResponse({
         'likes': Like.manager.get_likes(task),
@@ -43,4 +45,4 @@ def return_intentional_503(request):
 
 # for game 54
 def easter_egg_2021(request):
-    return render(request, 'easter_egg_2021.html') 
+    return render(request, 'easter_egg_2021.html')

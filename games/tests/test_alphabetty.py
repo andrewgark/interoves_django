@@ -48,6 +48,7 @@ from games.models import (
     Game,
     GameTaskGroup,
     HTMLPage,
+    Like,
     PlayerStartedGame,
     Profile,
     Project,
@@ -662,6 +663,41 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(data['dislikes'], 0)
         self.assertTrue(data['liked'])
         self.assertFalse(data['disliked'])
+
+        # Repeated submissions stay idempotent instead of creating duplicates.
+        response = self.client.post(
+            f'/like-dislike/{task.id}/',
+            data={'likes': '1', 'dislikes': '0', 'game_id': ALPHABETTY_GAME_ID},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Like.manager.filter(task=task, user=user).count(), 1)
+
+        # Switching replaces the old reaction; both states cannot remain active.
+        response = self.client.post(
+            f'/like-dislike/{task.id}/',
+            data={'likes': '0', 'dislikes': '1', 'game_id': ALPHABETTY_GAME_ID},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        data = response.json()
+        self.assertEqual(data['likes'], 0)
+        self.assertEqual(data['dislikes'], 1)
+        self.assertFalse(data['liked'])
+        self.assertTrue(data['disliked'])
+        self.assertEqual(Like.manager.get(task=task, user=user).value, -1)
+
+        # Removing the dislike clears both the DB row and the active UI flag.
+        response = self.client.post(
+            f'/like-dislike/{task.id}/',
+            data={'likes': '0', 'dislikes': '-1', 'game_id': ALPHABETTY_GAME_ID},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        data = response.json()
+        self.assertEqual(data['likes'], 0)
+        self.assertEqual(data['dislikes'], 0)
+        self.assertFalse(data['liked'])
+        self.assertFalse(data['disliked'])
+        self.assertFalse(Like.manager.filter(task=task, user=user).exists())
 
     def test_hash_embargo_after_accept_unpublished(self):
         tags = dict(self.game.tags or {})

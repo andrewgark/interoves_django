@@ -3576,6 +3576,7 @@ html.new-ui-dark .new-team-switcher-active-box {
   gap: 0.4rem;
   align-items: center;
   margin-left: auto;
+  position: relative;
 }
 
 .new-likebtn {
@@ -3597,6 +3598,11 @@ html.new-ui-dark .new-team-switcher-active-box {
 .new-likebtn:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   color: var(--accent);
+}
+
+.new-likebtn:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .new-likebtn:focus {
@@ -3629,6 +3635,23 @@ html.new-ui-dark .new-team-switcher-active-box {
 .new-likebtn__count {
   font-weight: 700;
   color: inherit;
+}
+
+.new-like-dislike__status {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  max-width: min(18rem, 80vw);
+  padding: 0.25rem 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  color: var(--danger);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--text) 10%, transparent);
+  font-size: 0.78rem;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .new-attempt-row {
