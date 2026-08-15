@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 
 from games.exception import DuplicateAttemptException, NotAllRequiredHintsTakenException, NoGameAccessException
+from games.analytics import register_started_game
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
 from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
@@ -97,6 +98,17 @@ def process_send_hint_attempt(request, task_id):
         'status': 'ok',
         'task_id': task.id,
     }
+    if hint_attempt.is_real_request:
+        analytics_events = register_started_game(
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            analytics_user=request.user if request.user.is_authenticated else None,
+            task=task,
+            game=game,
+        )
+        if analytics_events:
+            result['analytics_events'] = analytics_events
     # Для личного/анонимного режима не обновляем старую HTML-структуру; new UI просто перезагрузит страницу.
     if team is not None:
         update_html = update_task_html(

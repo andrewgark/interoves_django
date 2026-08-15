@@ -12,6 +12,7 @@ from games.models import (
     GameTaskGroup,
     HTMLPage,
     Project,
+    PlayerStartedGame,
     Task,
     TaskGroup,
 )
@@ -105,6 +106,8 @@ class RaddleSendAttemptTests(TestCase):
         self.assertNotIn('raddle_needs_sync', data)
         self.assertEqual(data['raddle_word_index'], 1)
         self.assertNotIn('update_task_html_new', data)
+        self.assertEqual([event['goal'] for event in data['analytics_events']], ['game_start'])
+        self.assertEqual(PlayerStartedGame.objects.filter(anon_key=self.anon_key).count(), 1)
 
     def test_wrong_after_progress_still_not_correct(self):
         """Неверное слово после частичного прогресса — не raddle_correct (status может быть Partial)."""

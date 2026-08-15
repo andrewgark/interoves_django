@@ -220,6 +220,8 @@ class NowPaymentsCreatePaymentTests(TestCase):
         self.assertEqual(ticket.nowpayments_id, '6064785541')
         self.assertEqual(data['ticket_request_id'], ticket.id)
         self.assertIn('/pay/ticket-status/', data['status_url'])
+        self.assertEqual(data['analytics_events'][0]['goal'], 'ticket_checkout')
+        self.assertIn('ack', data['analytics_events'][0])
         create_mock.assert_called_once()
         kwargs = create_mock.call_args.kwargs
         self.assertEqual(kwargs['price_amount'], 4000)

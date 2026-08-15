@@ -7,6 +7,7 @@ from games.analytics import (
     PlayerCompletedGame,
     is_task_completion_state,
     register_completed_game,
+    register_started_game,
     supported_game_kind,
 )
 from games.check import CheckerFactory
@@ -480,8 +481,17 @@ def process_send_attempt(request, task_id):
             create_hint_attempt(hint, team=team, user=user, anon_key=anon_key, game=game)
 
     analytics_events = []
+    if attempt_persisted:
+        analytics_events.extend(register_started_game(
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            analytics_user=request.user if request.user.is_authenticated else None,
+            task=task,
+            game=game,
+        ))
     if attempt_persisted and supported_game_kind(game) and is_task_completion_state(task, attempt.state):
-        analytics_events = register_completed_game(
+        analytics_events.extend(register_completed_game(
             team=team,
             user=user,
             anon_key=anon_key,
@@ -489,7 +499,7 @@ def process_send_attempt(request, task_id):
             task=task,
             game=game,
             result=PlayerCompletedGame.RESULT_SOLVED,
-        )
+        ))
 
     result = {
         'status': 'ok',

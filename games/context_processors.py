@@ -1,6 +1,6 @@
 """Context for main UI templates (root URLs)."""
 
-from games.analytics import consume_pending_goals
+from games.analytics import consume_pending_goals, pending_signup_goals
 from django.conf import settings
 
 
@@ -12,9 +12,16 @@ def site_deploy_version(_request):
 
 def analytics_bootstrap(request):
     counter_id = getattr(settings, 'YANDEX_METRIKA_COUNTER_ID', 0) or 0
+    goals = consume_pending_goals(request) + pending_signup_goals(
+        getattr(request, 'user', None)
+    )
+    deduped = {}
+    for goal in goals:
+        if isinstance(goal, dict) and goal.get('goal'):
+            deduped[str(goal.get('key') or goal['goal'])] = goal
     return {
         'yandex_metrika_counter_id': int(counter_id),
-        'pending_analytics_goals': consume_pending_goals(request),
+        'pending_analytics_goals': list(deduped.values()),
     }
 
 

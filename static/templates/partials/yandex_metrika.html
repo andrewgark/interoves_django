@@ -11,7 +11,12 @@
     k.src = r;
     a.parentNode.insertBefore(k, a);
   })(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js?id={{ yandex_metrika_counter_id }}', 'ym');
-
+  window.interovesAnalyticsConfig = window.interovesAnalyticsConfig || {};
+  window.interovesAnalyticsConfig.yandexCounterId = {{ yandex_metrika_counter_id }};
+</script>
+<script src="{% static 'js/yandex_metrika_helper.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{{ pending_analytics_goals|json_script:"interoves-pending-analytics-goals" }}
+<script>
   ym({{ yandex_metrika_counter_id }}, 'init', {
     ssr: true,
     webvisor: true,
@@ -20,14 +25,9 @@
     referrer: document.referrer,
     url: location.href,
     accurateTrackBounce: true,
-    trackLinks: true
+    trackLinks: true,
+    triggerEvent: true
   });
-</script>
-<script src="{% static 'js/yandex_metrika_helper.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
-{{ pending_analytics_goals|json_script:"interoves-pending-analytics-goals" }}
-<script>
-  window.interovesAnalyticsConfig = window.interovesAnalyticsConfig || {};
-  window.interovesAnalyticsConfig.yandexCounterId = {{ yandex_metrika_counter_id }};
   (function () {
     var el = document.getElementById('interoves-pending-analytics-goals');
     if (!el || !window.interovesAnalytics || !window.interovesAnalytics.flushPendingGoals) return;

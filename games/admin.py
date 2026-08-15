@@ -43,6 +43,9 @@ from games.models import (
     PendingBugReport,
     Donation,
     PendingTicketRequest,
+    PlayerAnalyticsState,
+    PlayerCompletedGame,
+    PlayerStartedGame,
     Profile,
     ProfileTeamMembership,
     Project,
@@ -67,14 +70,65 @@ from games.social.models import SocialQueuePost
 admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration])
 
 
+@admin.register(PlayerStartedGame)
+class PlayerStartedGameAdmin(admin.ModelAdmin):
+    raw_id_fields = ['team', 'user', 'game', 'task_group']
+    readonly_fields = ['started_at', 'metrika_acked_at']
+    list_display = [
+        'started_at', 'game_kind', 'public_game_id', 'actor_label', 'is_backfilled', 'metrika_acked_at',
+    ]
+    list_filter = ['game_kind', 'is_backfilled', 'metrika_acked_at']
+    search_fields = ['game_instance_id', 'public_game_id', 'anon_key', 'user__username', 'team__name']
+    date_hierarchy = 'started_at'
+
+    def actor_label(self, obj):
+        return obj.team or obj.user or obj.anon_key or '—'
+
+    actor_label.short_description = 'Игрок'
+
+
+@admin.register(PlayerCompletedGame)
+class PlayerCompletedGameAdmin(admin.ModelAdmin):
+    raw_id_fields = ['team', 'user', 'game', 'task_group']
+    readonly_fields = ['completed_at', 'metrika_acked_at']
+    list_display = [
+        'completed_at', 'game_kind', 'public_game_id', 'actor_label',
+        'is_backfilled', 'metrika_acked_at',
+    ]
+    list_filter = ['game_kind', 'is_backfilled', 'metrika_acked_at']
+    search_fields = ['game_instance_id', 'public_game_id', 'anon_key', 'user__username', 'team__name']
+    date_hierarchy = 'completed_at'
+
+    def actor_label(self, obj):
+        return obj.team or obj.user or obj.anon_key or '—'
+
+    actor_label.short_description = 'Игрок'
+
+
+@admin.register(PlayerAnalyticsState)
+class PlayerAnalyticsStateAdmin(admin.ModelAdmin):
+    raw_id_fields = ['team', 'user']
+    list_display = [
+        'actor_label', 'signup_at', 'signup_goal_acked_at',
+        'activated_at', 'activation_is_backfilled', 'activation_goal_acked_at',
+    ]
+    search_fields = ['anon_key', 'user__username', 'team__name']
+
+    def actor_label(self, obj):
+        return obj.team or obj.user or obj.anon_key or '—'
+
+    actor_label.short_description = 'Игрок'
+
+
 @admin.register(TicketRequest)
 class TicketRequestAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'team', 'tickets', 'money', 'currency', 'payment_provider', 'merchant', 'status', 'time',
+        'id', 'team', 'tickets', 'money', 'currency', 'payment_provider', 'merchant',
+        'status', 'time', 'checkout_goal_acked_at', 'purchase_goal_sent_at',
     )
     list_filter = ('status', 'currency', 'payment_provider', 'merchant')
     search_fields = ('id', 'team__name', 'team__visible_name', 'yookassa_id', 'nowpayments_id', 'tribute_id')
-    readonly_fields = ('time',)
+    readonly_fields = ('time', 'checkout_goal_acked_at', 'purchase_goal_sent_at')
 
 
 @admin.register(Donation)

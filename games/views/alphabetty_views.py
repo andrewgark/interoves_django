@@ -28,7 +28,7 @@ from games.analytics import (
     PlayerCompletedGame,
     is_task_completion_state,
     register_completed_game,
-    supported_game_kind,
+    register_started_game,
 )
 from games.alphabetty.suggestions import suggest_word
 from games.alphabetty_daily import (
@@ -360,8 +360,6 @@ def alphabetty_play_page(request, number):
         'show_sections_nav': True,
         'back_url': '/create_alphabetty/' if offer is not None else section_hub_path(ALPHABETTY_GAME_ID),
         'back_label': 'К списку',
-        'analytics_game_type': supported_game_kind(game) or '',
-        'analytics_game_id': str(play_number),
         'bootstrap': state,
         'guess_url': f'{play_path}guess/',
         'state_url': f'{play_path}state/',
@@ -495,22 +493,31 @@ def alphabetty_guess(request, number):
         share_host=_share_host(request),
         play_path=play_path,
     )
+    analytics_events = []
+    if result.get('status') in ('earlier', 'later', 'correct'):
+        analytics_events.extend(register_started_game(
+            user=user,
+            anon_key=anon_key,
+            analytics_user=request.user if request.user.is_authenticated else None,
+            task=task,
+            game=game,
+        ))
     if is_task_completion_state(task, json.dumps({
         'guesses': result.get('guesses') or [],
         'won': result.get('won'),
         'hint_prefix': result.get('hint_prefix') or '',
         'hints_taken': result.get('hints') or 0,
     })):
-        analytics_events = register_completed_game(
+        analytics_events.extend(register_completed_game(
             user=user,
             anon_key=anon_key,
             analytics_user=request.user if request.user.is_authenticated else None,
             task=task,
             game=game,
             result=PlayerCompletedGame.RESULT_SOLVED,
-        )
-        if analytics_events:
-            result['analytics_events'] = analytics_events
+        ))
+    if analytics_events:
+        result['analytics_events'] = analytics_events
     result = _with_meta_bar(
         result, request, game=game, task=task, user=user, anon_key=anon_key,
     )
@@ -573,6 +580,16 @@ def alphabetty_hint(request, number):
         share_host=_share_host(request),
         play_path=play_path,
     )
+    if result.get('status') == 'ok':
+        analytics_events = register_started_game(
+            user=user,
+            anon_key=anon_key,
+            analytics_user=request.user if request.user.is_authenticated else None,
+            task=task,
+            game=game,
+        )
+        if analytics_events:
+            result['analytics_events'] = analytics_events
     result = _with_meta_bar(
         result, request, game=game, task=task, user=user, anon_key=anon_key,
     )

@@ -16,6 +16,9 @@ from games.models import (
     HintAttempt,
     HTMLPage,
     Like,
+    PlayerAnalyticsState,
+    PlayerCompletedGame,
+    PlayerStartedGame,
     Profile,
     Project,
     StatisticsEvent,
@@ -92,6 +95,26 @@ class AnonMigrateTests(TestCase):
             )
 
     def test_migrate_moves_attempts_and_records_statistics_event(self):
+        PlayerStartedGame.objects.create(
+            anon_key=self.anon_key,
+            game=self.game,
+            task_group=self.tg,
+            game_kind=self.game.id,
+            game_instance_id='{}:{}'.format(self.game.id, self.tg.id),
+            public_game_id='1',
+        )
+        PlayerCompletedGame.objects.create(
+            anon_key=self.anon_key,
+            game=self.game,
+            task_group=self.tg,
+            game_kind=self.game.id,
+            game_instance_id='{}:{}'.format(self.game.id, self.tg.id),
+            public_game_id='1',
+        )
+        PlayerAnalyticsState.objects.create(
+            anon_key=self.anon_key,
+            activated_at=timezone.now(),
+        )
         url = reverse('new_migrate_anon_attempts')
         resp = self.client.post(url, {'anon_key': self.anon_key})
         self.assertEqual(resp.status_code, 200)
@@ -99,6 +122,9 @@ class AnonMigrateTests(TestCase):
         self.assertEqual(data['status'], 'ok')
         self.assertEqual(data['moved'], 2)
         self.assertEqual(data['moved_hints'], 1)
+        self.assertEqual(data['moved_starts'], 1)
+        self.assertEqual(data['moved_completions'], 1)
+        self.assertEqual(data['moved_analytics_state'], 1)
 
         self.assertEqual(
             Attempt.manager.filter(user=self.user, task=self.task, anon_key__isnull=True).count(),
@@ -112,6 +138,15 @@ class AnonMigrateTests(TestCase):
             HintAttempt.objects.filter(user=self.user, hint=self.hint, anon_key__isnull=True).count(),
             1,
         )
+        self.assertEqual(
+            PlayerStartedGame.objects.filter(user=self.user, anon_key__isnull=True).count(),
+            1,
+        )
+        self.assertEqual(
+            PlayerCompletedGame.objects.filter(user=self.user, anon_key__isnull=True).count(),
+            1,
+        )
+        self.assertIsNotNone(PlayerAnalyticsState.objects.get(user=self.user).activated_at)
 
         events = StatisticsEvent.objects.filter(
             kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,

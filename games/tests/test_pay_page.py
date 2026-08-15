@@ -190,6 +190,13 @@ class TicketPaymentCreationTests(TestCase):
         self.assertEqual(ticket.currency, 'RUB')
         self.assertEqual(ticket.payment_provider, 'yookassa')
         self.assertEqual(ticket.merchant, 'ru_self_employed')
+        event = response.json()['analytics_events'][0]
+        self.assertEqual(event['goal'], 'ticket_checkout')
+        self.assertIn('ack', event)
+        ack = self.client.post(event['ack']['url'], {'token': event['ack']['token']})
+        self.assertEqual(ack.status_code, 200)
+        ticket.refresh_from_db()
+        self.assertIsNotNone(ticket.checkout_goal_acked_at)
         payload = create_mock.call_args.args[0]
         self.assertEqual(payload['amount'], {'value': '1000.00', 'currency': 'RUB'})
 

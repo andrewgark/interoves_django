@@ -34,8 +34,9 @@ from allauth.socialaccount.models import SocialAccount
 
 from games.access import game_has_started
 from games.analytics import (
+    YANDEX_GOAL_TICKET_CHECKOUT,
     YANDEX_GOAL_TICKET_PURCHASE,
-    supported_game_kind,
+    analytics_ack_payload,
     yandex_goal_payload,
 )
 from games.alphabetty_daily import (
@@ -150,13 +151,6 @@ from games.yookassa_util import configure_yookassa_from_env
 from yookassa import Payment
 
 logger = logging.getLogger(__name__)
-
-
-def _analytics_game_context(game, *, public_game_id):
-    return {
-        'analytics_game_type': supported_game_kind(game) or '',
-        'analytics_game_id': str(public_game_id or ''),
-    }
 
 
 def _anon_key_from_request(request):
@@ -2905,7 +2899,6 @@ def new_task_group_page(request, game_id, task_group_number):
         'audio_manager': AudioManager(),
         'lock_personal_play_mode': personal_play_mode_locked(game),
         'show_sections_nav': True,
-        **_analytics_game_context(game, public_game_id=placement.number),
         **_project_urls_context(game.project_id),
         **_age_gate_context(
             game,
@@ -3411,14 +3404,23 @@ def new_migrate_anon_attempts(request):
         anon_key=None,
     )
     from games.anon_migrate import (
+        migrate_anon_analytics_state,
         migrate_anon_chain_task_states,
+        migrate_anon_completed_games,
         migrate_anon_likes,
         migrate_anon_personal_dict_words,
+        migrate_anon_started_games,
     )
     moved_states = migrate_anon_chain_task_states(request.user, anon_key)
+    moved_starts = migrate_anon_started_games(request.user, anon_key)
+    moved_completions = migrate_anon_completed_games(request.user, anon_key)
+    moved_analytics_state = migrate_anon_analytics_state(request.user, anon_key)
     moved_personal_dict = migrate_anon_personal_dict_words(request.user, anon_key)
     moved_likes = migrate_anon_likes(request.user, anon_key)
-    if moved or moved_hints or moved_states or moved_personal_dict or moved_likes:
+    if (
+        moved or moved_hints or moved_states or moved_starts or moved_completions
+        or moved_analytics_state or moved_personal_dict or moved_likes
+    ):
         StatisticsEvent.record(
             StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
             user=request.user,
@@ -3426,6 +3428,9 @@ def new_migrate_anon_attempts(request):
             moved=moved,
             moved_hints=moved_hints,
             moved_states=moved_states,
+            moved_starts=moved_starts,
+            moved_completions=moved_completions,
+            moved_analytics_state=moved_analytics_state,
             moved_personal_dict=moved_personal_dict,
             moved_likes=moved_likes,
         )
@@ -3434,6 +3439,9 @@ def new_migrate_anon_attempts(request):
         'moved': moved,
         'moved_hints': moved_hints,
         'moved_states': moved_states,
+        'moved_starts': moved_starts,
+        'moved_completions': moved_completions,
+        'moved_analytics_state': moved_analytics_state,
         'moved_personal_dict': moved_personal_dict,
         'moved_likes': moved_likes,
     })
@@ -3855,8 +3863,9 @@ def new_create_ticket_payment(request):
         'ticket_request_id': ticket_request.id,
         'analytics_events': [
             yandex_goal_payload(
-                'ticket_checkout',
+                YANDEX_GOAL_TICKET_CHECKOUT,
                 key='ticket_checkout:{}'.format(ticket_request.id),
+                ack=analytics_ack_payload(YANDEX_GOAL_TICKET_CHECKOUT, ticket_request.id),
             ),
         ],
         'status_url': request.build_absolute_uri(
@@ -3999,8 +4008,9 @@ def new_create_crypto_ticket_payment(request):
         'ticket_request_id': ticket_request.id,
         'analytics_events': [
             yandex_goal_payload(
-                'ticket_checkout',
+                YANDEX_GOAL_TICKET_CHECKOUT,
                 key='ticket_checkout:{}'.format(ticket_request.id),
+                ack=analytics_ack_payload(YANDEX_GOAL_TICKET_CHECKOUT, ticket_request.id),
             ),
         ],
         'status_url': request.build_absolute_uri(
@@ -4068,6 +4078,7 @@ def new_ticket_payment_status(request, ticket_request_id):
                     'currency': ticket_request.currency,
                 },
                 key='ticket_purchase:{}'.format(ticket_request.id),
+                ack=analytics_ack_payload(YANDEX_GOAL_TICKET_PURCHASE, ticket_request.id),
             ),
         ]
     if ticket_request.status == 'Accepted' and team is not None:

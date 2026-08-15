@@ -148,8 +148,6 @@
 <script>
 (function () {
   var root = document.getElementById('alphabetty-root');
-  var analyticsGameType = "{{ analytics_game_type|escapejs }}";
-  var analyticsGameId = "{{ analytics_game_id|escapejs }}";
   var state = JSON.parse(document.getElementById('alphabetty-bootstrap').textContent);
   var guessUrl = root.getAttribute('data-guess-url');
   var stateUrl = root.getAttribute('data-state-url');
@@ -225,23 +223,9 @@
   var hintToastTimer = null;
   var defaultPlaceholder = (input && input.getAttribute('data-default-placeholder')) || 'Угадайте русское слово';
 
-  function trackGoal(goal, params, key) {
-    if (!window.interovesAnalytics || !window.interovesAnalytics.trackYandexGoalOnce) return false;
-    return window.interovesAnalytics.trackYandexGoalOnce(key || goal, goal, params || {});
-  }
-
   function flushAnalyticsEvents(events) {
     if (!window.interovesAnalytics || !window.interovesAnalytics.flushPendingGoals) return;
     window.interovesAnalytics.flushPendingGoals(events || []);
-  }
-
-  function trackGameStartOnce(source) {
-    if (!analyticsGameType || !analyticsGameId) return false;
-    return trackGoal(
-      'game_start',
-      { game: analyticsGameType, game_id: analyticsGameId },
-      'game_start:' + analyticsGameType + ':' + analyticsGameId
-    );
   }
 
   function csrf() {
@@ -819,7 +803,6 @@
     }
     var submitBtn = document.getElementById('ab-submit');
     if (submitBtn) { try { submitBtn.blur(); } catch (e) {} }
-    trackGameStartOnce('alphabetty_guess');
     busy = true;
     showMsg('');
     stateGen += 1;
@@ -870,7 +853,6 @@
   if (elHint) {
     elHint.addEventListener('click', function () {
       if (busy || state.won || !state.next_hint_letter || !hintUrl) return;
-      trackGameStartOnce('alphabetty_hint');
       busy = true;
       updateHintButton();
       showMsg('');

@@ -48,6 +48,7 @@ from games.models import (
     Game,
     GameTaskGroup,
     HTMLPage,
+    PlayerStartedGame,
     Profile,
     Project,
     Task,
@@ -364,6 +365,8 @@ class AlphabettyPlayApiTests(TestCase):
         data = r.json()
         self.assertEqual(data['status'], 'earlier')
         self.assertIn('ГОД', data['earlier'])
+        self.assertEqual([event['goal'] for event in data['analytics_events']], ['game_start'])
+        self.assertEqual(PlayerStartedGame.objects.filter(anon_key='testanon1').count(), 1)
 
         # later
         r = self.client.post(
@@ -411,6 +414,17 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(ai.get_sum_hint_penalty(), 0)
         self.assertEqual(ai.get_result_points(), Decimal('10'))
 
+    def test_invalid_guess_does_not_start_game(self):
+        response = self.client.post(
+            '/alphabetty/1/guess/',
+            data=json.dumps({'word': 'qqqqqq', 'anon_key': 'invalid-anon'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='invalid-anon',
+        )
+
+        self.assertEqual(response.json()['status'], 'invalid')
+        self.assertFalse(PlayerStartedGame.objects.filter(anon_key='invalid-anon').exists())
+
     def test_hint_flow(self):
         r = self.client.post(
             '/alphabetty/1/hint/',
@@ -424,6 +438,8 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(data['hint_prefix'], 'С')
         self.assertEqual(data['hints'], 1)
         self.assertEqual(data['next_hint_letter'], 2)
+        self.assertEqual([event['goal'] for event in data['analytics_events']], ['game_start'])
+        self.assertEqual(PlayerStartedGame.objects.filter(anon_key='hintanon').count(), 1)
 
         r = self.client.post(
             '/alphabetty/1/guess/',

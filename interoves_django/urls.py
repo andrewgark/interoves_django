@@ -22,6 +22,7 @@ from django.views.generic import RedirectView, TemplateView
 
 from microsites import views as microsites_views
 from games.views.meta_http import deploy_version
+from games.views.analytics_views import analytics_goal_ack
 from games.views.ticket import nowpayments_ipn, tribute_webhook, yookassa_webhook
 from games.views.order_game_landing import order_game_landing
 from games.views.instagram_feed import instagram_feed, ladder_teaser_jpg
@@ -110,6 +111,7 @@ urlpatterns = [
     path('telegram/', include(telegram_urlpatterns)),
     path('health/', include('health_check.urls')),
     path('meta/deploy-version/', deploy_version, name='deploy_version'),
+    path('analytics/goals/ack/', analytics_goal_ack, name='analytics_goal_ack'),
 
     path('inline-edit', include('inlineedit.urls')),
 

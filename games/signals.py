@@ -1,9 +1,10 @@
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from django.utils import timezone
 from allauth.account.signals import user_signed_up
 
-from games.analytics import YANDEX_GOAL_SIGNUP, queue_pending_goal
-from games.models import Game, Profile, SocialAccount, Attempt, Task
+from games.analytics import queue_pending_goal, signup_goal_payload
+from games.models import Game, PlayerAnalyticsState, Profile, SocialAccount, Attempt, Task
 from games.recheck import recheck_queue_from_next, recheck_full
 
 
@@ -100,9 +101,27 @@ def analytics_user_signed_up(request, user, sociallogin=None, **kwargs):
             method = sociallogin.account.provider or method
     except Exception:
         pass
+    state, _ = PlayerAnalyticsState.objects.get_or_create(
+        user=user,
+        team=None,
+        anon_key=None,
+    )
+    updates = []
+    if state.signup_at is None:
+        state.signup_at = timezone.now()
+        updates.append('signup_at')
+    if state.signup_method != method:
+        state.signup_method = method
+        updates.append('signup_method')
+    if updates:
+        state.save(update_fields=updates + ['updated_at'])
+    payload = signup_goal_payload(state)
+    if payload is None:
+        return
     queue_pending_goal(
         request,
-        YANDEX_GOAL_SIGNUP,
-        params={'method': method},
-        key='signup:{}'.format(getattr(user, 'pk', 'new')),
+        payload['goal'],
+        params=payload['params'],
+        key=payload['key'],
+        ack=payload['ack'],
     )

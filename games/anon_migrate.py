@@ -4,7 +4,14 @@ import json
 from django.db import transaction
 
 from games.alphabetty.core import normalize_word
-from games.models import Attempt, ChainTaskState, Like
+from games.models import (
+    Attempt,
+    ChainTaskState,
+    Like,
+    PlayerAnalyticsState,
+    PlayerCompletedGame,
+    PlayerStartedGame,
+)
 
 
 def _parse_state(state_json):
@@ -273,6 +280,140 @@ def migrate_anon_chain_task_states(user, anon_key):
         row.delete()
         moved += 1
     return moved
+
+
+@transaction.atomic
+def migrate_anon_started_games(user, anon_key):
+    """Merge unique server-side game starts from an anonymous actor into a user."""
+    if not user or not anon_key:
+        return 0
+    moved = 0
+    rows = list(
+        PlayerStartedGame.objects.select_for_update().filter(
+            anon_key=anon_key,
+            user__isnull=True,
+            team__isnull=True,
+        )
+    )
+    for row in rows:
+        existing = PlayerStartedGame.objects.select_for_update().filter(
+            user=user,
+            team__isnull=True,
+            anon_key__isnull=True,
+            game_instance_id=row.game_instance_id,
+        ).first()
+        if existing is None:
+            row.user = user
+            row.anon_key = None
+            row.save(update_fields=['user', 'anon_key'])
+            moved += 1
+            continue
+        updates = []
+        if row.started_at and (not existing.started_at or row.started_at < existing.started_at):
+            existing.started_at = row.started_at
+            updates.append('started_at')
+        if existing.metrika_acked_at is None and row.metrika_acked_at is not None:
+            existing.metrika_acked_at = row.metrika_acked_at
+            updates.append('metrika_acked_at')
+        merged_backfilled = bool(existing.is_backfilled and row.is_backfilled)
+        if existing.is_backfilled != merged_backfilled:
+            existing.is_backfilled = merged_backfilled
+            updates.append('is_backfilled')
+        if updates:
+            existing.save(update_fields=updates)
+        row.delete()
+        moved += 1
+    return moved
+
+
+@transaction.atomic
+def migrate_anon_completed_games(user, anon_key):
+    """Merge completion delivery state into the authenticated analytics actor."""
+    if not user or not anon_key:
+        return 0
+    moved = 0
+    rows = list(
+        PlayerCompletedGame.objects.select_for_update().filter(
+            anon_key=anon_key,
+            user__isnull=True,
+            team__isnull=True,
+        )
+    )
+    for row in rows:
+        existing = PlayerCompletedGame.objects.select_for_update().filter(
+            user=user,
+            team__isnull=True,
+            anon_key__isnull=True,
+            game_instance_id=row.game_instance_id,
+        ).first()
+        if existing is None:
+            row.user = user
+            row.anon_key = None
+            row.save(update_fields=['user', 'anon_key'])
+            moved += 1
+            continue
+        updates = []
+        if row.completed_at and row.completed_at < existing.completed_at:
+            existing.completed_at = row.completed_at
+            updates.append('completed_at')
+        if existing.metrika_acked_at is None and row.metrika_acked_at is not None:
+            existing.metrika_acked_at = row.metrika_acked_at
+            updates.append('metrika_acked_at')
+        merged_backfilled = bool(existing.is_backfilled and row.is_backfilled)
+        if existing.is_backfilled != merged_backfilled:
+            existing.is_backfilled = merged_backfilled
+            updates.append('is_backfilled')
+        if updates:
+            existing.save(update_fields=updates)
+        row.delete()
+        moved += 1
+    return moved
+
+
+@transaction.atomic
+def migrate_anon_analytics_state(user, anon_key):
+    """Merge the anonymous activation marker into the authenticated actor."""
+    if not user or not anon_key:
+        return 0
+    row = PlayerAnalyticsState.objects.select_for_update().filter(
+        anon_key=anon_key,
+        user__isnull=True,
+        team__isnull=True,
+    ).first()
+    if row is None:
+        return 0
+    existing = PlayerAnalyticsState.objects.select_for_update().filter(
+        user=user,
+        team__isnull=True,
+        anon_key__isnull=True,
+    ).first()
+    if existing is None:
+        row.user = user
+        row.anon_key = None
+        row.save(update_fields=['user', 'anon_key', 'updated_at'])
+        return 1
+    updates = []
+    activation_backfill_sources = []
+    if existing.activated_at is not None:
+        activation_backfill_sources.append(existing.activation_is_backfilled)
+    if row.activated_at is not None:
+        activation_backfill_sources.append(row.activation_is_backfilled)
+    if row.activated_at and (not existing.activated_at or row.activated_at < existing.activated_at):
+        existing.activated_at = row.activated_at
+        updates.append('activated_at')
+    if existing.activation_goal_acked_at is None and row.activation_goal_acked_at is not None:
+        existing.activation_goal_acked_at = row.activation_goal_acked_at
+        updates.append('activation_goal_acked_at')
+    merged_backfilled = bool(
+        activation_backfill_sources and all(activation_backfill_sources)
+    )
+    if existing.activation_is_backfilled != merged_backfilled:
+        existing.activation_is_backfilled = merged_backfilled
+        updates.append('activation_is_backfilled')
+    if updates:
+        existing.save(update_fields=updates + ['updated_at'])
+    row.delete()
+    return 1
 
 
 def heal_orphaned_chain_states_from_migrate_events():

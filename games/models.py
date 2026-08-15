@@ -1721,6 +1721,7 @@ class TicketRequest(models.Model):
     yookassa_id = models.TextField(null=True, blank=True)
     nowpayments_id = models.TextField(null=True, blank=True)
     tribute_id = models.TextField(null=True, blank=True)
+    checkout_goal_acked_at = models.DateTimeField(null=True, blank=True)
     purchase_goal_sent_at = models.DateTimeField(null=True, blank=True)
 
     TICKER_REQUEST_STATUS_VARIANTS = (
@@ -1979,6 +1980,75 @@ class StatisticsEvent(models.Model):
         return cls.objects.create(kind=kind, user=user, payload=payload or {})
 
 
+class PlayerStartedGame(models.Model):
+    """One unique started game instance for one analytics actor."""
+
+    id = models.AutoField(primary_key=True)
+    team = models.ForeignKey(
+        Team,
+        related_name='started_games',
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+    )
+    user = models.ForeignKey(
+        'auth.User',
+        related_name='started_games',
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+    )
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    game = models.ForeignKey(
+        Game,
+        related_name='started_games',
+        on_delete=models.CASCADE,
+    )
+    task_group = models.ForeignKey(
+        TaskGroup,
+        related_name='started_games',
+        on_delete=models.CASCADE,
+    )
+    game_kind = models.CharField(max_length=100, db_index=True)
+    game_instance_id = models.CharField(max_length=128, db_index=True)
+    public_game_id = models.CharField(max_length=128, blank=True, default='')
+    started_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    metrika_acked_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_backfilled = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        ordering = ['-started_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['team', 'game_instance_id'],
+                condition=models.Q(team__isnull=False),
+                name='uniq_started_game_team_instance',
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'game_instance_id'],
+                condition=models.Q(user__isnull=False),
+                name='uniq_started_game_user_instance',
+            ),
+            models.UniqueConstraint(
+                fields=['anon_key', 'game_instance_id'],
+                condition=models.Q(anon_key__isnull=False),
+                name='uniq_started_game_anon_instance',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['team', 'started_at'], name='games_psg_team_start_idx'),
+            models.Index(fields=['user', 'started_at'], name='games_psg_user_start_idx'),
+            models.Index(fields=['anon_key', 'started_at'], name='games_psg_anon_start_idx'),
+            models.Index(fields=['game_kind', 'started_at'], name='games_psg_kind_start_idx'),
+        ]
+        verbose_name = 'начатая игра игрока'
+        verbose_name_plural = 'начатые игры игроков'
+
+    def __str__(self):
+        actor = self.team or self.user or self.anon_key or '—'
+        return '{} · {}'.format(actor, self.game_instance_id)
+
+
 class PlayerCompletedGame(models.Model):
     """One unique completed game instance for one actor."""
 
@@ -2026,6 +2096,8 @@ class PlayerCompletedGame(models.Model):
         default=RESULT_COMPLETED,
     )
     completed_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    metrika_acked_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    is_backfilled = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         ordering = ['-completed_at']
@@ -2047,10 +2119,10 @@ class PlayerCompletedGame(models.Model):
             ),
         ]
         indexes = [
-            models.Index(fields=['team', 'completed_at']),
-            models.Index(fields=['user', 'completed_at']),
-            models.Index(fields=['anon_key', 'completed_at']),
-            models.Index(fields=['game_kind', 'completed_at']),
+            models.Index(fields=['team', 'completed_at'], name='games_playe_team_id_6d898f_idx'),
+            models.Index(fields=['user', 'completed_at'], name='games_playe_user_id_1b98cf_idx'),
+            models.Index(fields=['anon_key', 'completed_at'], name='games_playe_anon_ke_7287be_idx'),
+            models.Index(fields=['game_kind', 'completed_at'], name='games_playe_game_ki_ff625d_idx'),
         ]
         verbose_name = 'завершённая игра игрока'
         verbose_name_plural = 'завершённые игры игроков'
@@ -2079,7 +2151,12 @@ class PlayerAnalyticsState(models.Model):
         on_delete=models.CASCADE,
     )
     anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    signup_at = models.DateTimeField(blank=True, null=True)
+    signup_method = models.CharField(max_length=32, blank=True, default='')
+    signup_goal_acked_at = models.DateTimeField(blank=True, null=True)
     activated_at = models.DateTimeField(blank=True, null=True)
+    activation_is_backfilled = models.BooleanField(default=False)
+    activation_goal_acked_at = models.DateTimeField(blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
