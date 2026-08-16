@@ -72,6 +72,14 @@ def personal_play_mode_locked(game, user=None):
 
 
 def effective_play_mode(play_mode, game, user=None):
+    if (
+        game is not None
+        and game.project_id in _PERSONAL_MODE_LOCK_PROJECT_IDS
+        and getattr(game, 'is_tournament', False)
+        and game_has_ended(game)
+        and not getattr(user, 'is_authenticated', False)
+    ):
+        return 'personal'
     if _authenticated_user_without_team(user, game=game):
         return 'personal'
     if personal_play_mode_locked(game):
