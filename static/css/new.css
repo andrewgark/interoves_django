@@ -4458,6 +4458,85 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   color: var(--muted);
 }
 
+/* Непростые украшения: ритм фразы и пары «загадка → ответ». */
+.new-ornament-rules__rhythm {
+  margin: 0 0 1.25rem;
+  font-size: clamp(1.45rem, 4vw, 2.15rem);
+  font-weight: 750;
+  line-height: 1.3;
+  letter-spacing: 0.015em;
+  color: var(--text);
+  overflow-wrap: break-word;
+}
+
+.new-ornament-rules__rhythm strong,
+.new-ornament-rules__meter strong {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.16em;
+}
+
+.new-ornament-rules__rhythm-word {
+  white-space: nowrap;
+}
+
+.new-ornament-rules__rhythm-caption {
+  color: var(--muted);
+}
+
+.new-ornament-rules__meter {
+  white-space: nowrap;
+  font-weight: 650;
+}
+
+.new-ornament-rules__examples {
+  margin-top: 0;
+}
+
+.new-ornament-rules__example {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: center;
+}
+
+.new-ornament-rules__example > div {
+  min-width: 0;
+}
+
+.new-ornament-rules__example .pal-text {
+  display: block;
+  overflow-wrap: break-word;
+}
+
+.new-ornament-rules__arrow {
+  color: var(--accent);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+@media (max-width: 520px) {
+  .new-ornament-rules__rhythm {
+    font-size: clamp(1.15rem, 6vw, 1.4rem);
+  }
+
+  .new-ornament-rules__meter {
+    white-space: normal;
+  }
+
+  .new-ornament-rules__example {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.45rem;
+  }
+
+  .new-ornament-rules__arrow {
+    transform: rotate(90deg);
+    justify-self: start;
+  }
+}
+
 .pal-after-card {
   margin-top: 0.5rem;
 }
