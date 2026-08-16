@@ -4531,6 +4531,16 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   overflow-wrap: break-word;
 }
 
+.new-ornament-rules__answer-link {
+  color: var(--accent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.12em;
+}
+
+.new-ornament-rules__answer-link:hover {
+  color: var(--accent-hover);
+}
+
 .new-ornament-rules__arrow {
   color: var(--accent);
   font-size: 1.45rem;

@@ -52,7 +52,7 @@ RULES_HTML = '''
         <span class="new-ornament-rules__arrow" aria-hidden="true">→</span>
         <div>
           <span class="pal-label">Ответ</span>
-          <span class="pal-text">Обручальное кольцо</span>
+          <a class="pal-text new-ornament-rules__answer-link" href="https://ru.wikipedia.org/wiki/%D0%9E%D0%B1%D1%80%D1%83%D1%87%D0%B0%D0%BB%D1%8C%D0%BD%D0%BE%D0%B5_%D0%BA%D0%BE%D0%BB%D1%8C%D1%86%D0%BE" target="_blank" rel="noopener">Обручальное кольцо</a>
         </div>
       </div>
       <div class="pal-example-item new-ornament-rules__example">
@@ -63,7 +63,7 @@ RULES_HTML = '''
         <span class="new-ornament-rules__arrow" aria-hidden="true">→</span>
         <div>
           <span class="pal-label">Ответ</span>
-          <span class="pal-text">Ахиллесова пята</span>
+          <a class="pal-text new-ornament-rules__answer-link" href="https://ru.wikipedia.org/wiki/%D0%90%D1%85%D0%B8%D0%BB%D0%BB%D0%B5%D1%81%D0%BE%D0%B2%D0%B0_%D0%BF%D1%8F%D1%82%D0%B0" target="_blank" rel="noopener">Ахиллесова пята</a>
         </div>
       </div>
     </div>
