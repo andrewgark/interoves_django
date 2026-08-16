@@ -4469,12 +4469,33 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   overflow-wrap: break-word;
 }
 
-.new-ornament-rules__rhythm strong,
-.new-ornament-rules__meter strong {
+.new-ornament-rules__stress {
+  position: relative;
+  display: inline-block;
   color: var(--accent);
   text-decoration: underline;
   text-decoration-thickness: 0.12em;
   text-underline-offset: 0.16em;
+}
+
+/* Рисуем acute без символа U+0301: так глифы А/О не выпадают в fallback-шрифт. */
+.new-ornament-rules__stress::before {
+  content: "";
+  position: absolute;
+  top: -0.08em;
+  width: 0.28em;
+  height: 0.075em;
+  border-radius: 999px;
+  background: currentColor;
+  transform: rotate(-25deg);
+}
+
+.new-ornament-rules__stress--a::before {
+  left: 32%;
+}
+
+.new-ornament-rules__stress--o::before {
+  left: 63%;
 }
 
 .new-ornament-rules__rhythm-word {

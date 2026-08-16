@@ -9,8 +9,8 @@ TASK_GROUP_NAME = 'Непростые украшения'
 RULES_HTML = '''
 <div class="new-ornament-rules">
   <p class="new-ornament-rules__rhythm">
-    <span class="new-ornament-rules__rhythm-word">ОБ-РУ-<strong>ЧА́ЛЬ</strong>-НО-Е</span>
-    <span class="new-ornament-rules__rhythm-word">КОЛЬ-<strong>ЦО́</strong></span>
+    <span class="new-ornament-rules__rhythm-word">ОБ-РУ-<strong class="new-ornament-rules__stress new-ornament-rules__stress--a" aria-label="ЧА́ЛЬ">ЧАЛЬ</strong>-НО-Е</span>
+    <span class="new-ornament-rules__rhythm-word">КОЛЬ-<strong class="new-ornament-rules__stress new-ornament-rules__stress--o" aria-label="ЦО́">ЦО</strong></span>
     <span class="new-ornament-rules__rhythm-caption">— непростое украшенье</span>
   </p>
 
@@ -28,7 +28,7 @@ RULES_HTML = '''
         Загаданная фраза должна состоять из <strong>7 слогов</strong>
         с ударениями на <strong>3-м и 7-м</strong> слогах. Иными словами,
         её можно произнести вместо фразы
-        <span class="new-ornament-rules__meter">об-ру-<strong>ЧА́ЛЬ</strong>-но-е коль-<strong>ЦО́</strong></span>,
+        <span class="new-ornament-rules__meter">об-ру-<strong class="new-ornament-rules__stress new-ornament-rules__stress--a" aria-label="ЧА́ЛЬ">ЧАЛЬ</strong>-но-е коль-<strong class="new-ornament-rules__stress new-ornament-rules__stress--o" aria-label="ЦО́">ЦО</strong></span>,
         сохранив тот же ритм.
       </div>
     </div>
