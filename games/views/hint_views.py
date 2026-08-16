@@ -15,7 +15,7 @@ def _get_play_mode(request, game):
     mode = request.session.get('play_mode_{}'.format(game.project_id or 'main'))
     if mode not in ('team', 'personal'):
         mode = 'personal' if game.project_id == 'sections' else 'team'
-    return effective_play_mode(mode, game)
+    return effective_play_mode(mode, game, user=request.user)
 
 
 def _hintattempt_filter(team=None, user=None, anon_key=None):

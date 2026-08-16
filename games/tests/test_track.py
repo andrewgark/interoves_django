@@ -220,6 +220,25 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
     @override_settings(
         CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
     )
+    def test_track_task_change_sends_personal_html_only_to_user_group(self):
+        layer = MagicMock()
+        layer.group_send = AsyncMock(return_value=None)
+        with patch('games.views.track.get_channel_layer', return_value=layer):
+            with self.captureOnCommitCallbacks(execute=True):
+                track_task_change(
+                    self.task,
+                    user=self.user,
+                    update_html={'personal': 1},
+                )
+        layer.group_send.assert_called_once()
+        args, _kwargs = layer.group_send.call_args
+        self.assertEqual(args[0], CHANNEL_GROUPS['user'](self.user.id))
+        self.assertEqual(args[1]['by'], 'personal')
+        self.assertEqual(args[1]['personal'], 1)
+
+    @override_settings(
+        CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
+    )
     def test_notify_user_after_commit_targets_user_group(self):
         layer = MagicMock()
         layer.group_send = AsyncMock(return_value=None)

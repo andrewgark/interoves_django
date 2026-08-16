@@ -8,12 +8,15 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialApp
 
 from games.models import (
+    Attempt,
+    CheckerType,
     Game,
     GameTaskGroup,
     HTMLPage,
     Profile,
     Project,
     Registration,
+    Task,
     TaskGroup,
     Team,
 )
@@ -21,6 +24,7 @@ from games.models import (
 
 def _ensure_reference_rows():
     Project.objects.get_or_create(pk='main', defaults={})
+    CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
     for name in (
         'Правила Десяточки',
         'Правила турнирного режима',
@@ -89,6 +93,14 @@ class AnnouncedGamePageTests(TestCase):
             number='1',
             name='Пропорции',
         )
+        cls.task = Task.objects.create(
+            task_group=cls.tg,
+            number='1',
+            text='Тестовое задание',
+            answer='ОТВЕТ',
+            checker_id='equals_with_possible_spaces',
+            points=1,
+        )
 
         cls.team_reg = Team.objects.create(name='team_reg_ann', visible_name='Зареганы')
         cls.team_other = Team.objects.create(name='team_other_ann', visible_name='Не зареганы')
@@ -154,12 +166,59 @@ class AnnouncedGamePageTests(TestCase):
         self.assertContains(r2, 'Зарегистрироваться')
         self.assertNotContains(r2, 'new-section-header--main-game')
 
-    def test_live_no_team_sees_announce(self):
+    def test_live_no_team_still_sees_announce(self):
         self.assertTrue(self.client.login(username='user_noteam_ann', password='pw'))
         r = self.client.get('/games/des_live/1/')
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'new-game-card')
         self.assertContains(r, 'Создать команду')
+        self.assertNotContains(r, 'Тестовое задание')
+
+    def test_finished_no_team_enters_personal_mode_automatically(self):
+        self.assertTrue(self.client.login(username='user_noteam_ann', password='pw'))
+        self.live.end_time = timezone.now() - timedelta(minutes=1)
+        self.live.save(update_fields=['end_time'])
+
+        r = self.client.get('/games/des_live/1/')
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, 'new-game-card')
+        self.assertContains(r, 'Тестовое задание')
+        self.assertEqual(r.context['play_mode'], 'personal')
+        self.assertFalse(r.context['lock_personal_play_mode'])
+
+        game_page = self.client.get('/games/des_live/')
+        self.assertContains(game_page, 'Вы играете лично')
+        self.assertContains(game_page, 'не участвуют в командном зачёте')
+
+    def test_live_no_team_has_no_personal_play_link_in_games_list(self):
+        self.assertTrue(self.client.login(username='user_noteam_ann', password='pw'))
+        r = self.client.get('/games/')
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, 'Играть лично')
+
+    def test_finished_no_team_attempt_is_saved_for_user(self):
+        self.assertTrue(self.client.login(username='user_noteam_ann', password='pw'))
+        self.live.end_time = timezone.now() - timedelta(minutes=1)
+        self.live.save(update_fields=['end_time'])
+        r = self.client.post(
+            '/send_attempt/{}/'.format(self.task.pk),
+            {'game_id': self.live.pk, 'text': 'ОТВЕТ'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['status'], 'ok')
+        attempt = Attempt.manager.get(task=self.task, user=self.user_noteam)
+        self.assertIsNone(attempt.team_id)
+        self.assertEqual(attempt.status, 'Ok')
+
+    def test_finished_no_team_uses_regular_play_link(self):
+        self.assertTrue(self.client.login(username='user_noteam_ann', password='pw'))
+        self.live.end_time = timezone.now() - timedelta(minutes=1)
+        self.live.save(update_fields=['end_time'])
+        r = self.client.get('/games/')
+        self.assertContains(r, 'href="/games/des_live/"', html=False)
+        self.assertContains(r, '>Играть<', html=False)
+        self.assertNotContains(r, 'Играть лично')
 
     def test_live_registered_team_sees_play_pages(self):
         self.assertTrue(self.client.login(username='user_reg_ann', password='pw'))

@@ -207,6 +207,8 @@
           {% if play_mode and user.is_authenticated %}
             {% if lock_personal_play_mode %}
               <span class="new-mode-toggle new-mode-toggle--locked" title="В турнирной игре доступен только командный режим."><i class="ph ph-users" aria-hidden="true"></i> В команде</span>
+            {% elif play_mode == 'personal' and not user.profile.team_on %}
+              <span class="new-mode-toggle new-mode-toggle--locked" title="Чтобы перейти в командный режим, сначала создайте команду или вступите в неё."><i class="ph ph-user" aria-hidden="true"></i> Лично</span>
             {% elif play_mode == 'team' %}
               <a class="new-mode-toggle" title="Сейчас: режим «В команде» — решения и подсказки общие для вашей команды. Нажмите, чтобы переключиться на личный режим." href="{% url 'new_set_play_mode' %}?mode=personal&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}"><i class="ph ph-users" aria-hidden="true"></i> В команде</a>
             {% else %}
@@ -249,6 +251,8 @@
         {% if play_mode and user.is_authenticated %}
           {% if lock_personal_play_mode %}
             <span class="new-nav__drawer-link new-mode-toggle new-mode-toggle--locked"><i class="ph ph-users" aria-hidden="true"></i> В команде</span>
+          {% elif play_mode == 'personal' and not user.profile.team_on %}
+            <span class="new-nav__drawer-link new-mode-toggle new-mode-toggle--locked"><i class="ph ph-user" aria-hidden="true"></i> Лично</span>
           {% elif play_mode == 'team' %}
             <a class="new-nav__drawer-link new-mode-toggle" href="{% url 'new_set_play_mode' %}?mode=personal&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}"><i class="ph ph-users" aria-hidden="true"></i> В команде</a>
           {% else %}

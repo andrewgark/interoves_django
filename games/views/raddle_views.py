@@ -46,7 +46,7 @@ def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_
 
 def _actor_from_request(request, game):
     play_mode = _get_play_mode(request, game)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     team = user = anon_key = None
     if play_mode == 'team':
         if not request.user.is_authenticated or not has_team(request.user):
@@ -144,7 +144,14 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
         request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
     )
     track_task_change(
-        task, team, current_mode, update_html=update_html, request=request, game=game,
+        task,
+        team,
+        current_mode,
+        update_html=update_html,
+        request=request,
+        game=game,
+        user=user,
+        anon_key=anon_key,
     )
     result.update(update_html)
     return result
@@ -239,7 +246,14 @@ def process_send_raddle_assist(request, task_id):
         request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
     )
     track_task_change(
-        task, team, current_mode, update_html=update_html, request=request, game=game,
+        task,
+        team,
+        current_mode,
+        update_html=update_html,
+        request=request,
+        game=game,
+        user=user,
+        anon_key=anon_key,
     )
     result.update(update_html)
     return result

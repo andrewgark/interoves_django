@@ -323,11 +323,21 @@ def notify_user_after_commit(user_id, body, *, seq_namespace=None):
     _schedule_channel_broadcast(send)
 
 
-def build_event_task_change(task, team=None, current_mode=None, update_html=None, request=None, game=None):
+def build_event_task_change(
+    task,
+    team=None,
+    current_mode=None,
+    update_html=None,
+    request=None,
+    game=None,
+    user=None,
+    anon_key=None,
+):
     if game is None:
         game = GameTaskGroup.resolve_game_for_task(task)
     if game is None:
-        return {'type': 'task.changed', 'task': task.id, 'by': 'team' if team is not None else 'admin'}
+        by = 'team' if team is not None else ('personal' if user is not None or anon_key else 'admin')
+        return {'type': 'task.changed', 'task': task.id, 'by': by}
     if team is not None and current_mode is None:
         attempt = Attempt(task=task, team=team, time=timezone.now())
         current_mode = game.get_current_mode(attempt)
@@ -342,18 +352,30 @@ def build_event_task_change(task, team=None, current_mode=None, update_html=None
     if update_html is None:
         update_html = {}
 
+    by = 'team' if team is not None else ('personal' if user is not None or anon_key else 'admin')
     channel_event = {
         'type': 'task.changed',
         'task': task.id,
-        'by': 'team' if team is not None else 'admin'
+        'by': by,
     }
     channel_event.update(update_html)
     return channel_event
 
 
-def track_task_change(task, team=None, current_mode=None, update_html=None, request=None, game=None):
+def track_task_change(
+    task,
+    team=None,
+    current_mode=None,
+    update_html=None,
+    request=None,
+    game=None,
+    user=None,
+    anon_key=None,
+):
     """
     Notify subscribers after the DB transaction commits so clients never read stale rows.
+    Team HTML goes only to the team group; personal HTML goes only to that user.
+    Anonymous attempts rely on their POST response, while admin changes go to the game group.
     build_event_task_change runs inside the callback so Task.save() can schedule an update
     before super().save() (the task row exists when the callback runs).
     """
@@ -372,7 +394,16 @@ def track_task_change(task, team=None, current_mode=None, update_html=None, requ
             return
         for g in target_games:
             channel_event = envelope_track_message(
-                build_event_task_change(task, team, current_mode, update_html, request, game=g),
+                build_event_task_change(
+                    task,
+                    team,
+                    current_mode,
+                    update_html,
+                    request,
+                    game=g,
+                    user=user,
+                    anon_key=anon_key,
+                ),
                 g.id,
             )
             if team is not None:
@@ -380,6 +411,15 @@ def track_task_change(task, team=None, current_mode=None, update_html=None, requ
                     CHANNEL_GROUPS['game_team'](g.id, team.get_name_hash()),
                     channel_event,
                 )
+            elif user is not None:
+                async_to_sync(channel_layer.group_send)(
+                    CHANNEL_GROUPS['user'](user.id),
+                    channel_event,
+                )
+            elif anon_key:
+                # Анонимные страницы не открывают TrackGame; ответ POST уже
+                # содержит HTML для текущей вкладки.
+                continue
             else:
                 async_to_sync(channel_layer.group_send)(
                     CHANNEL_GROUPS['game'](g.id),

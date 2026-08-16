@@ -497,7 +497,7 @@ def _game_task_group_progress_response(request, game):
         raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     team, user, anon_key = _resolve_game_page_actor(request, play_mode)
     if play_mode == 'team' and team is None:
         return JsonResponse({'rows': {}})
@@ -743,7 +743,7 @@ def _build_hub_section_cards(request, *, team):
             else:
                 card = get_training_section_hub_context(game)
             play_mode, _ = _get_play_mode(request, game.project_id)
-            play_mode = effective_play_mode(play_mode, game)
+            play_mode = effective_play_mode(play_mode, game, user=request.user)
             card.update(_game_page_progress_context(request, game, play_mode))
             by_id[game_id] = card
 
@@ -759,7 +759,7 @@ def _build_hub_section_cards(request, *, team):
             published_numbers=_week_task_published_numbers(week_game),
         )
         play_mode, _ = _get_play_mode(request, week_game.project_id)
-        play_mode = effective_play_mode(play_mode, week_game)
+        play_mode = effective_play_mode(play_mode, week_game, user=request.user)
         card.update(_game_page_progress_context(request, week_game, play_mode))
         by_id[WEEK_TASK_HUB_ID] = card
     else:
@@ -1144,9 +1144,9 @@ def project_main_game_page(request, project_id, game_id):
     game = get_object_or_404(Game, id=game_id, project=project)
 
     play_mode, _ = _get_play_mode(request, game.project_id)
-    if not request.user.is_authenticated and not personal_play_mode_locked(game):
+    if not request.user.is_authenticated and not personal_play_mode_locked(game, user=request.user):
         play_mode = 'personal'
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     has_profile_user = has_profile(request.user)
     team = _team_for_access(request)
 
@@ -1196,7 +1196,7 @@ def project_main_game_page(request, project_id, game_id):
         'task_groups_heading': 'Задания',
         'task_groups_empty_text': 'В этой игре пока нет групп заданий.',
         'back_url': (base + '/games/') if base else '/games/',
-        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'section_games': [],
         'show_sections_nav': False,
         **_project_urls_context(project.id),
@@ -1220,7 +1220,7 @@ def project_results_page(request, project_id, game_id):
         data = _new_results_compute(game, mode='general')
     data = _paginate_results_rows(request, data, per_page=50)
     play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal = None
     me_anon_participant = None
     if play_mode == 'personal':
@@ -1242,7 +1242,7 @@ def project_results_page(request, project_id, game_id):
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
-        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'section_games': [],
         'show_sections_nav': False,
         **_project_urls_context(project.id),
@@ -1272,10 +1272,12 @@ def project_tournament_results_page(request, project_id, game_id):
         'me_anon_participant': None,
         'back_url': '{}/games/{}/'.format(base, game.id),
         **data,
-        'play_mode': effective_play_mode(_get_play_mode(request, game.project_id)[0], game),
+        'play_mode': effective_play_mode(
+            _get_play_mode(request, game.project_id)[0], game, user=request.user,
+        ),
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты турнира: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
-        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'section_games': [],
         'show_sections_nav': False,
         **_project_urls_context(project.id),
@@ -1300,11 +1302,11 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         return gate
 
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     anon_key = None
 
     if not request.user.is_authenticated:
-        if personal_play_mode_locked(game):
+        if personal_play_mode_locked(game, user=request.user):
             from urllib.parse import quote
             return redirect('/accounts/login/?next={}'.format(quote(request.get_full_path())))
         play_mode = 'personal'
@@ -1380,7 +1382,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'page_title': '{} · {}'.format(game.outside_name or game.name, placement.name),
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
-        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'section_games': [],
         'show_sections_nav': False,
         **_project_urls_context(project.id),
@@ -1485,7 +1487,7 @@ def _render_section_game_page(request, game_id):
     # должен совпадать с командой для see_game_preview (ниже team перезаписывается под play_mode).
     team_for_access = team
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     if game_id == LADDER_GAME_ID:
         task_groups = _hub_section_task_group_links(game)
         today_number = current_ladder_number(game)
@@ -1567,7 +1569,7 @@ def _render_section_game_page(request, game_id):
             else None
         ),
         'back_url': '/',
-        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'team': team_for_access,
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
@@ -1583,9 +1585,9 @@ def new_main_game_page(request, game_id):
         raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
-    if not request.user.is_authenticated and not personal_play_mode_locked(game):
+    if not request.user.is_authenticated and not personal_play_mode_locked(game, user=request.user):
         play_mode = 'personal'
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     has_profile_user = has_profile(request.user)
     team = _team_for_access(request)
 
@@ -1636,7 +1638,7 @@ def new_main_game_page(request, game_id):
         'task_groups_heading': 'Задания',
         'task_groups_empty_text': 'В этой игре пока нет групп заданий.',
         'back_url': '/games/',
-        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
         **_game_page_progress_context(request, game, play_mode),
@@ -1940,7 +1942,7 @@ def new_results_page(request, game_id):
         data = _new_results_compute(game, mode='general')
     data = _paginate_results_rows(request, data, per_page=50)
     play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal = None
     me_anon_participant = None
     if play_mode == 'personal':
@@ -1961,7 +1963,7 @@ def new_results_page(request, game_id):
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
-        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
     })
@@ -1991,10 +1993,12 @@ def new_tournament_results_page(request, game_id):
         'me_anon_participant': None,
         'back_url': '/games/{}/'.format(game.id),
         **data,
-        'play_mode': effective_play_mode(_get_play_mode(request, game.project_id)[0], game),
+        'play_mode': effective_play_mode(
+            _get_play_mode(request, game.project_id)[0], game, user=request.user,
+        ),
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты турнира: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
-        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
     })
@@ -2019,7 +2023,7 @@ def new_section_results_page(request, game_id):
 
     progressive_page_size = 50
     play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
     results_variant = (
         'ladder' if game_id == LADDER_GAME_ID
@@ -2069,7 +2073,7 @@ def new_section_results_page(request, game_id):
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
-        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
     })
@@ -2079,7 +2083,7 @@ def _render_task_group_results_page(request, game, number, back_url):
     """Shared renderer for a results table scoped to one task group."""
     team = request.user.profile.team_on if has_profile(request.user) else None
     play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
     data = _new_results_compute(game, mode='general', task_group_number=number)
     data = _paginate_results_rows(request, data, per_page=50)
@@ -2096,7 +2100,7 @@ def _render_task_group_results_page(request, game, number, back_url):
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты: {} №{}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name, number),
-        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
     })
@@ -2233,7 +2237,7 @@ def new_ladder_word_results_page(request, task_group_number):
 
     progressive_page_size = 50
     play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
 
     if ladder_offer is not None:
@@ -2283,7 +2287,7 @@ def new_ladder_word_results_page(request, task_group_number):
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты · {}'.format(ladder_title),
-        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
     })
@@ -2638,11 +2642,11 @@ def new_task_group_page(request, game_id, task_group_number):
             return gate
 
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     anon_key = None
 
     if not request.user.is_authenticated:
-        if personal_play_mode_locked(game):
+        if personal_play_mode_locked(game, user=request.user):
             from urllib.parse import quote
             return redirect('/accounts/login/?next={}'.format(quote(request.get_full_path())))
         # До логина разрешаем только личный режим (не в турнире).
@@ -2897,7 +2901,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'page_title': page_title,
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
-        'lock_personal_play_mode': personal_play_mode_locked(game),
+        'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
         **_age_gate_context(
@@ -2980,7 +2984,7 @@ def new_get_answer(request, task_id):
         raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     team = None
     user = None
     anon_key = None
@@ -3049,7 +3053,7 @@ def new_get_replacements_line_answer(request, task_id, line_index):
         raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     team = None
     user = None
     anon_key = None
@@ -3105,7 +3109,7 @@ def new_get_raddle_word_answer(request, task_id, word_index):
         raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     team = None
     user = None
     anon_key = None
@@ -3187,7 +3191,7 @@ def new_like_dislike(request, task_id):
             raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     team = None
     user = None
     anon_key = None
@@ -3240,7 +3244,7 @@ def new_bug_report(request, task_id):
         raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
     team = None
     user = None
     anon_key = None
@@ -3304,7 +3308,7 @@ def new_set_play_mode(request):
     project_id = request.GET.get('project') or NEW_UI_PROJECT
     if mode == 'personal':
         g = _game_from_next_path(next_url)
-        if g is not None and personal_play_mode_locked(g):
+        if g is not None and personal_play_mode_locked(g, user=request.user):
             mode = 'team'
     if mode in ('team', 'personal'):
         request.session[_session_play_mode_key(project_id)] = mode

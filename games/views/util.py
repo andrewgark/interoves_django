@@ -1,7 +1,7 @@
 from django.http import HttpResponseRedirect, HttpResponse
 from django.shortcuts import get_object_or_404
 
-from games.access import game_is_going_now
+from games.access import game_has_ended, game_is_going_now
 
 
 def get_public_task_or_404(task_id):
@@ -38,9 +38,26 @@ def has_team(user):
 _PERSONAL_MODE_LOCK_PROJECT_IDS = frozenset({'main'})
 
 
-def personal_play_mode_locked(game):
+def _authenticated_user_without_team(user, game=None):
+    """Пользователь без команды, которому можно включить личный режим."""
+    return bool(
+        user
+        and getattr(user, 'is_authenticated', False)
+        and has_profile(user)
+        and not has_team(user)
+        and game is not None
+        and game.project_id in _PERSONAL_MODE_LOCK_PROJECT_IDS
+        and getattr(game, 'is_tournament', False)
+        and game_has_ended(game)
+    )
+
+
+def personal_play_mode_locked(game, user=None):
     """
     True — для этой игры недоступен личный/анонимный режим (только команда).
+
+    После окончания Десяточки пользователь без команды может смотреть и
+    решать её лично. Пока игра идёт, личный режим остаётся закрыт.
 
     Только десяточки (project main), флаг is_tournament и окно игры по времени:
     до старта и после end_time зачёт уже «общий», как в get_current_mode — личный режим снова можно.
@@ -54,7 +71,9 @@ def personal_play_mode_locked(game):
     return bool(game_is_going_now(game))
 
 
-def effective_play_mode(play_mode, game):
+def effective_play_mode(play_mode, game, user=None):
+    if _authenticated_user_without_team(user, game=game):
+        return 'personal'
     if personal_play_mode_locked(game):
         return 'team'
     return play_mode

@@ -81,7 +81,14 @@ def _raddle_stale_submit_response(request, task, team, user, anon_key, game, cur
             request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
         )
         track_task_change(
-            task, team, current_mode, update_html=update_html, request=request, game=game,
+            task,
+            team,
+            current_mode,
+            update_html=update_html,
+            request=request,
+            game=game,
+            user=user,
+            anon_key=anon_key,
         )
         result.update(update_html)
         return result
@@ -314,7 +321,7 @@ def _get_play_mode(request, game):
     mode = request.session.get('play_mode_{}'.format(game.project_id or 'main'))
     if mode not in ('team', 'personal'):
         mode = 'personal' if game.project_id == 'sections' else 'team'
-    return effective_play_mode(mode, game)
+    return effective_play_mode(mode, game, user=request.user)
 
 
 def process_send_attempt(request, task_id):
@@ -547,7 +554,14 @@ def process_send_attempt(request, task_id):
             request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
         )
         track_task_change(
-            task, team, current_mode, update_html=update_html, request=request, game=game,
+            task,
+            team,
+            current_mode,
+            update_html=update_html,
+            request=request,
+            game=game,
+            user=user,
+            anon_key=anon_key,
         )
         result.update(update_html)
     return result

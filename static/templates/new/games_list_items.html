@@ -42,7 +42,8 @@
             <a href="{% url 'new_team_join_page' %}?next={{ request.path|urlencode }}" class="new-btn new-btn--ghost new-btn--mini">Вступить в команду</a>
           {% endif %}
         {% endif %}
-        {% if game|access_play:team %}
+        {% if game|access_play:team or user.is_authenticated and not games_card_has_team and game.is_playable and game|access_read_googledoc:team and not game|is_going_now %}
+          {# Для завершённой игры без команды вход ведёт в автоматический личный режим. #}
           <a href="{{ ui_project_games_url|default:'/games/' }}{{ game.id }}/" class="new-btn new-btn--mini">Играть</a>
         {% elif game|access_is_registered:team %}
           <span class="new-pill new-pill--ok">Вы зарегистрированы</span>
@@ -90,4 +91,3 @@
   </div>
   {% endwith %}
 {% endfor %}
-
