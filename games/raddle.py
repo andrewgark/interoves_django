@@ -1038,6 +1038,11 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             pass
 
     playable_sorted = sorted(i for i in range(n) if (i in playable) and (i not in solved))
+    # В турнире лимит попыток относится к каждому открытому слову отдельно.
+    # Для верхней панели карточки отдаём счётчики двух текущих краёв лестницы,
+    # чтобы общий AttemptsInfo не выглядел как общий лимит на всю лесенку.
+    top_attempts = word_attempts[playable_sorted[0]] if playable_sorted else 0
+    bottom_attempts = word_attempts[playable_sorted[-1]] if playable_sorted else 0
     # По умолчанию фокус на верхнем playable (как на raddle.quest).
     default_focus = playable_sorted[0] if playable_sorted else None
     default_ref_idx = (
@@ -1231,4 +1236,6 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         'mixed_script': mixed_script,
         'latin_word_count': latin_word_count,
         'mixed_script_notice': mixed_script_notice_text,
+        'top_attempts': top_attempts,
+        'bottom_attempts': bottom_attempts,
     }

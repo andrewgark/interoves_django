@@ -13,7 +13,13 @@
     </span>
     {% if task_ui.show_attempts %}
     {% with n=ai.get_n_attempts %}
-    {% if ai.attempts %}
+    {% if task.task_type == 'raddle' and mode == 'tournament' and rd %}
+    <span class="new-proportions-compact-stat new-proportions-compact-stat--plain new-raddle-attempt-stats" title="Лимит попыток считается отдельно для каждого слова">
+      <span class="new-raddle-attempt-stats__item">Верхнее слово: ({{ rd.ui.top_attempts }} {{ rd.ui.top_attempts|ru_attempt_word }} / {{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }})</span>
+      <span class="new-proportions-compact-stat__sep"> · </span>
+      <span class="new-raddle-attempt-stats__item">Нижнее слово: ({{ rd.ui.bottom_attempts }} {{ rd.ui.bottom_attempts|ru_attempt_word }} / {{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }})</span>
+    </span>
+    {% elif ai.attempts %}
     <button type="button" class="new-proportions-compact-textbtn new-proportions-compact-textbtn--success" popovertarget="prop-attempts-{{ task.id }}" title="Открыть список отправленных ответов" aria-label="Список попыток: {{ n }}">
       <span class="new-proportions-compact-stat__paren">(</span>{{ n }} {{ n|ru_attempt_word }}{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }}{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
     </button>
