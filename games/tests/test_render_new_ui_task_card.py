@@ -1,9 +1,11 @@
 """Regression: AJAX partial for new UI must render wall tiles with images/audio."""
 import json
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase
 
 from games.models import (
@@ -183,6 +185,37 @@ class RenderNewUiTaskCardTests(TestCase):
                 request, task, None, 'general', anon_key='anon_test', game=self.game,
             )
             self.assertIn(expected, html)
+
+    def test_raddle_result_share_is_limited_to_ladder_game(self):
+        request = RequestFactory().get('/')
+        rd = {
+            'ui': {
+                'is_complete': True,
+                'result_squares': '🟩',
+                'rows': [],
+            },
+        }
+        task = SimpleNamespace(
+            id=123,
+            tags={},
+            text='',
+            task_type='raddle',
+            get_player_hints=[],
+        )
+        context = {
+            'request': request,
+            'task': task,
+            'rd': rd,
+            'game': SimpleNamespace(id='des171_test', name='Test', outside_name=''),
+            'tg_number': '3',
+            'tg_name': 'Лесенки',
+        }
+        html = render_to_string('task-content/task-raddle.html', context)
+        self.assertNotIn('new-raddle-result', html)
+
+        context['game'] = SimpleNamespace(id='ladder', name='Лесенка', outside_name='')
+        html = render_to_string('task-content/task-raddle.html', context)
+        self.assertIn('new-raddle-result', html)
 
     def test_render_word_salad_includes_grid_and_words(self):
         request = RequestFactory().get('/')
