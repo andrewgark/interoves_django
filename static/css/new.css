@@ -3480,6 +3480,7 @@ html.new-ui-dark .new-team-switcher-active-box {
 .new-pill {
   display: inline-flex;
   align-items: center;
+  gap: 0.22rem;
   font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.2;
@@ -3871,6 +3872,21 @@ html.new-ui-dark .new-smart-scrollbar-thumb {
   min-height: 1.2em;
 }
 
+.new-attempt-msg--wrong {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.new-attempt-msg--partial {
+  color: color-mix(in srgb, var(--warning-hover) 75%, var(--text));
+  font-weight: 700;
+}
+
+.new-attempt-msg--pending {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .new-hints {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
@@ -4046,6 +4062,31 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.5rem 0.6rem;
+}
+
+.new-attempts__row--just-submitted {
+  --new-attempt-highlight: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 65%, var(--border));
+  animation: new-attempt-row-flash 1.8s ease-out;
+}
+
+.new-attempts__row--just-submitted[data-attempt-mark="partial"] {
+  --new-attempt-highlight: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 70%, var(--border));
+}
+
+.new-attempts__row--just-submitted[data-attempt-mark="pending"] {
+  --new-attempt-highlight: var(--muted);
+  border-color: color-mix(in srgb, var(--muted) 65%, var(--border));
+}
+
+@keyframes new-attempt-row-flash {
+  0%, 35% { background: color-mix(in srgb, var(--new-attempt-highlight) 16%, var(--surface)); }
+  100% { background: var(--surface); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-attempts__row--just-submitted { animation: none; }
 }
 
 .new-attempts__meta {
@@ -6976,6 +7017,26 @@ html.new-ui-dark .new-proportions-attempts-popover::backdrop {
 .new-proportions-compact-textbtn--success:hover {
   color: color-mix(in srgb, var(--success) 82%, var(--text));
   text-decoration-color: color-mix(in srgb, var(--success) 40%, transparent);
+}
+
+.new-proportions-compact-textbtn--ok {
+  color: var(--success);
+  text-decoration-color: color-mix(in srgb, var(--success) 55%, transparent);
+}
+
+.new-proportions-compact-textbtn--partial {
+  color: color-mix(in srgb, var(--warning-hover) 75%, var(--text));
+  text-decoration-color: color-mix(in srgb, var(--warning) 65%, transparent);
+}
+
+.new-proportions-compact-textbtn--wrong {
+  color: var(--danger);
+  text-decoration-color: color-mix(in srgb, var(--danger) 55%, transparent);
+}
+
+.new-proportions-compact-textbtn--pending {
+  color: var(--muted);
+  text-decoration-color: color-mix(in srgb, var(--muted) 55%, transparent);
 }
 
 .new-like-dislike--compact-bar {

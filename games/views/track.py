@@ -122,19 +122,28 @@ class TrackWsLifecycleMixin:
         await super().receive_json(content, **kwargs)
 
 
-def _schedule_channel_broadcast(fn):
+def _schedule_channel_broadcast(fn, *, prepare=None):
     """
     Run fn after DB commit. Default: fn runs in a daemon thread so async_to_sync(group_send)
     does not block the Daphne/ASGI loop waiting on Redis (production symptom: POST hangs, :6379 in stack).
     """
 
-    def run_safe():
-        try:
-            fn()
-        except Exception:
-            logger.exception('Channel broadcast failed')
-
     def after_commit():
+        # Allocate ordering metadata synchronously in commit-callback order.
+        # Redis I/O remains deferred, but a slower older thread can no longer
+        # receive a newer seq and overwrite fresher HTML on the client.
+        try:
+            prepared = prepare() if prepare is not None else None
+        except Exception:
+            logger.exception('Channel broadcast preparation failed')
+            return
+
+        def run_safe():
+            try:
+                fn(prepared)
+            except Exception:
+                logger.exception('Channel broadcast failed')
+
         if getattr(settings, 'DEFER_CHANNEL_BROADCAST', True):
             threading.Thread(
                 target=run_safe,
@@ -196,15 +205,21 @@ def next_track_seq(namespace: str) -> int:
 def envelope_track_message(body: dict, game_id: str) -> dict:
     """Attach seq for game-scoped messages if not already present."""
     out = msgpack_safe_keys(dict(body))
+    out.setdefault('seq_namespace', f'game:{game_id}')
     if 'seq' not in out:
-        out['seq'] = next_track_seq(f'game:{game_id}')
+        out['seq'] = next_track_seq(out['seq_namespace'])
     return out
 
 
 def _broadcast_game_track_event_commit(game_id: str, event_name: str, payload: dict):
     """Notify all sockets on track.game.{game_id} (e.g. observers on game page)."""
 
-    def send():
+    namespace = f'game:{game_id}'
+
+    def prepare():
+        return next_track_seq(namespace)
+
+    def send(seq):
         channel_layer = get_channel_layer()
         if channel_layer is None:
             return
@@ -213,6 +228,8 @@ def _broadcast_game_track_event_commit(game_id: str, event_name: str, payload: d
                 'type': 'track.event',
                 'event': event_name,
                 'payload': payload,
+                'seq': seq,
+                'seq_namespace': namespace,
             },
             game_id,
         )
@@ -221,7 +238,7 @@ def _broadcast_game_track_event_commit(game_id: str, event_name: str, payload: d
             body,
         )
 
-    _schedule_channel_broadcast(send)
+    _schedule_channel_broadcast(send, prepare=prepare)
 
 
 def notify_registered_users_game_lifecycle_changed(old_game, new_game):
@@ -308,19 +325,25 @@ def notify_user_after_commit(user_id, body, *, seq_namespace=None):
     payload = msgpack_safe_keys(dict(body))
     if seq_namespace is None:
         seq_namespace = f'user:{user_id}'
-    if 'seq' not in payload:
-        payload['seq'] = next_track_seq(seq_namespace)
+    payload.setdefault('seq_namespace', seq_namespace)
 
-    def send():
+    def prepare():
+        if 'seq' in payload:
+            return payload['seq']
+        return next_track_seq(seq_namespace)
+
+    def send(seq):
         channel_layer = get_channel_layer()
         if channel_layer is None:
             return
+        prepared_payload = dict(payload)
+        prepared_payload['seq'] = seq
         async_to_sync(channel_layer.group_send)(
             CHANNEL_GROUPS['user'](user_id),
-            payload,
+            prepared_payload,
         )
 
-    _schedule_channel_broadcast(send)
+    _schedule_channel_broadcast(send, prepare=prepare)
 
 
 def build_event_task_change(
@@ -388,13 +411,18 @@ def track_task_change(
         )
         target_games = [x.game for x in target_games]
 
-    def send():
+    def prepare():
+        return {
+            str(g.id): next_track_seq(f'game:{g.id}')
+            for g in target_games
+        }
+
+    def send(sequences):
         channel_layer = get_channel_layer()
         if channel_layer is None:
             return
         for g in target_games:
-            channel_event = envelope_track_message(
-                build_event_task_change(
+            event_body = build_event_task_change(
                     task,
                     team,
                     current_mode,
@@ -403,8 +431,11 @@ def track_task_change(
                     game=g,
                     user=user,
                     anon_key=anon_key,
-                ),
-                g.id,
+                )
+            event_body['seq'] = sequences[str(g.id)]
+            event_body['seq_namespace'] = f'game:{g.id}'
+            channel_event = envelope_track_message(
+                event_body, g.id,
             )
             if team is not None:
                 async_to_sync(channel_layer.group_send)(
@@ -426,7 +457,7 @@ def track_task_change(
                     channel_event,
                 )
 
-    _schedule_channel_broadcast(send)
+    _schedule_channel_broadcast(send, prepare=prepare)
 
 
 class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):

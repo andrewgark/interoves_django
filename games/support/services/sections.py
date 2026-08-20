@@ -8,7 +8,6 @@ from games.support.services.word_salad import (
     WORD_SALAD_GAME_ID,
     WORD_SALAD_SECTION_ICON,
     WORD_SALAD_SECTION_TITLE,
-    ensure_word_salad_game,
     list_word_salad_rows,
 )
 
@@ -70,7 +69,6 @@ def get_sections_dashboard() -> List[SectionRow]:
             hint_requests_24h=hint_qs.count(),
             site_url=section_hub_path(game_id),
         ))
-    word_salad_game = ensure_word_salad_game()
     word_salad_rows = list_word_salad_rows()
     task_ids = list(
         Task.objects.filter(task_group__game_links__game_id=WORD_SALAD_GAME_ID).values_list('id', flat=True)
@@ -89,7 +87,7 @@ def get_sections_dashboard() -> List[SectionRow]:
         latest_name=word_salad_rows[-1].name if word_salad_rows else None,
         task_group_count=len(word_salad_rows),
         pending_count=0,
-        attempts_24h=Attempt.manager.filter(game=word_salad_game, time__gte=since, skip=False).count(),
+        attempts_24h=Attempt.manager.filter(game_id=WORD_SALAD_GAME_ID, time__gte=since, skip=False).count(),
         hint_requests_24h=hint_qs.count(),
         site_url=reverse('support:word_salad'),
     ))

@@ -207,9 +207,30 @@ class AnnouncedGamePageTests(TestCase):
         )
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()['status'], 'ok')
+        self.assertEqual(r.json()['attempt_status'], 'Ok')
         attempt = Attempt.manager.get(task=self.task, user=self.user_noteam)
         self.assertIsNone(attempt.team_id)
         self.assertEqual(attempt.status, 'Ok')
+
+    def test_finished_no_team_wrong_attempt_returns_feedback_status_and_list(self):
+        self.assertTrue(self.client.login(username='user_noteam_ann', password='pw'))
+        self.live.end_time = timezone.now() - timedelta(minutes=1)
+        self.live.save(update_fields=['end_time'])
+        r = self.client.post(
+            '/send_attempt/{}/'.format(self.task.pk),
+            {'game_id': self.live.pk, 'text': 'НЕВЕРНО'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['attempt_status'], 'Wrong')
+        self.assertEqual(data['attempt_id'], Attempt.manager.get(task=self.task, user=self.user_noteam).id)
+        html = data['update_task_html_new'][str(self.task.pk)]
+        self.assertIn('new-proportions-attempts-popover', html)
+        self.assertIn('new-pill--wrong', html)
+        self.assertIn('data-attempt-id="{}"'.format(data['attempt_id']), html)
+        self.assertIn('неверно', html)
 
     def test_finished_no_team_uses_regular_play_link(self):
         self.assertTrue(self.client.login(username='user_noteam_ann', password='pw'))

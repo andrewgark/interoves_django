@@ -1,0 +1,13 @@
+{% load filters %}
+<div class="new-attempts__row" data-attempt-id="{{ a.id }}" data-attempt-mark="{{ item.mark }}">
+  <div class="new-attempts__meta">
+    <span class="new-pill {% if item.mark == 'ok' %}new-pill--ok{% elif item.mark == 'partial' %}new-pill--partial{% elif item.mark == 'wrong' %}new-pill--wrong{% endif %}" title="{{ item.label }}">
+      {% if item.mark == 'ok' or item.mark == 'partial' %}<i class="ph ph-check" aria-hidden="true"></i>{% elif item.mark == 'wrong' %}<i class="ph ph-x" aria-hidden="true"></i>{% else %}<i class="ph ph-minus" aria-hidden="true"></i>{% endif %}
+      <span>{{ item.label }}</span>
+    </span>
+    <small class="new-task__meta">{{ a.time|date:"d.m H:i" }}</small>
+    <small class="new-attempts__points">{{ a.points|minimize_digits }} {{ a.points|ru_points_word }}</small>
+  </div>
+  <div class="new-attempts__text">{% autoescape off %}{{ a.get_pretty_text }}{% endautoescape %}</div>
+  {% if a.comment %}<div class="new-attempts__comment">{{ a.comment }}</div>{% endif %}
+</div>

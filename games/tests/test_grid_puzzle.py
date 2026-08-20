@@ -325,7 +325,11 @@ class GridPuzzleIntegrationTests(TestCase):
         data = response.json()
         self.assertEqual(data['status'], 'ok')
         self.assertFalse(data['grid_puzzle_correct'])
-        self.assertNotIn('update_task_html_new', data)
+        self.assertEqual(data['attempt_status'], 'Wrong')
+        self.assertIn('update_task_html_new', data)
+        html = data['update_task_html_new'][str(self.task.pk)]
+        self.assertIn('data-attempt-mark="wrong"', html)
+        self.assertIn('new-proportions-compact-textbtn--wrong', html)
         attempt = Attempt.manager.get(task=self.task, anon_key=self.anon_key)
         self.assertEqual(json.loads(attempt.text), {'walls': ['h:1:0']})
         self.assertEqual(attempt.status, 'Wrong')

@@ -59,25 +59,23 @@
               {% endwith %}
               {% with n=ai.get_n_attempts %}
               {% if ai.attempts %}
-              <button type="button" class="new-proportions-compact-textbtn new-proportions-compact-textbtn--success" popovertarget="prop-attempts-{{ task.id }}" title="Открыть список отправленных ответов" aria-label="Список попыток: {{ n }}">
+              {% with attempt_items=ai.attempts|attempts_with_status %}
+              {% with last_item=attempt_items|last %}
+              <button type="button" class="new-proportions-compact-textbtn new-proportions-compact-textbtn--{{ last_item.mark }}" popovertarget="prop-attempts-{{ task.id }}" title="Открыть список отправленных ответов" aria-label="Список попыток: {{ n }}">
                 <span class="new-proportions-compact-stat__paren">(</span>{{ n }} {{ n|ru_attempt_word }}{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }}{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
               </button>
               <div id="prop-attempts-{{ task.id }}" popover="auto" class="new-proportions-attempts-popover">
                 <div class="new-proportions-attempts-popover__title">Попытки</div>
                 <div class="new-attempts__list new-proportions-attempts-popover__list">
-                  {% for a in ai.attempts %}
-                  <div class="new-attempts__row">
-                    <div class="new-attempts__meta">
-                      <span class="new-pill {% if a.status == 'Ok' %}new-pill--ok{% elif a.status == 'Wrong' %}new-pill--wrong{% endif %}">
-                        {% if a.status == 'Ok' %}<i class="ph ph-check" aria-hidden="true"></i>{% elif a.status == 'Wrong' %}<i class="ph ph-x" aria-hidden="true"></i>{% else %}<i class="ph ph-minus" aria-hidden="true"></i>{% endif %}
-                      </span>
-                      <small class="new-task__meta">{{ a.time|date:"d.m H:i" }}</small>
-                    </div>
-                    <div class="new-attempts__text">{% autoescape off %}{{ a.get_pretty_text }}{% endautoescape %}</div>
-                  </div>
+                  {% for item in attempt_items %}
+                  {% with a=item.attempt %}
+                  {% include "new/task-content/attempt-row.html" %}
+                  {% endwith %}
                   {% endfor %}
                 </div>
               </div>
+              {% endwith %}
+              {% endwith %}
               {% else %}
               <span class="new-proportions-compact-stat new-proportions-compact-stat--plain" title="Пока без попыток">
                 <span class="new-proportions-compact-stat__paren">(</span>{{ n }} {{ n|ru_attempt_word }}{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }}{% endif %}<span class="new-proportions-compact-stat__paren">)</span>

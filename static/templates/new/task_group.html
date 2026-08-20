@@ -503,6 +503,16 @@
         phidden.value = pl + ' / ' + pr;
       }
     }
+    var attemptFeedbackTaskId = form && form.getAttribute('data-task-id');
+    var submittedAttemptText = '';
+    var isOrdinaryAttemptForm =
+      form && form.classList && form.classList.contains('new-attempt-form') &&
+      !isRaddleLineForm(form) &&
+      !form.classList.contains('new-replacements-line-form');
+    if (isOrdinaryAttemptForm) {
+      submittedAttemptText = ordinaryAttemptTextValue(form);
+      clearOrdinaryWrongFeedback(attemptFeedbackTaskId);
+    }
     if (form && form.dataset) form.dataset.submitting = '1';
     var submitBtn = form.querySelector('button[type=submit]');
     if (!submitBtn && form.id) {
@@ -565,11 +575,30 @@
                 refRole: rrow ? (rrow.getAttribute('data-ref-role') || 'prev') : 'prev',
               };
             }
+            if (!isRaddleLineForm(form) && shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
+              rememberOrdinaryWrongFeedback(
+                data.task_id || attemptFeedbackTaskId,
+                submittedAttemptText,
+                data.attempt_status
+              );
+            }
             applyNewUiTaskHtml(data.update_task_html_new);
+            if (!isRaddleLineForm(form) && shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
+              restoreOrdinaryWrongFeedback(data.task_id || attemptFeedbackTaskId);
+              openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
+            }
             if (raddleFocusInfo && typeof focusRaddleNext === 'function') {
               focusRaddleNext(raddleFocusInfo.taskId, raddleFocusInfo.idx, raddleFocusInfo.refRole);
             }
             return;
+          }
+          if (!isRaddleLineForm(form) && shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
+            rememberAttemptsPopoverAfterReload(
+              data.task_id || attemptFeedbackTaskId,
+              data.attempt_id,
+              submittedAttemptText,
+              data.attempt_status
+            );
           }
           window.location.reload();
           return;
@@ -591,6 +620,9 @@
             msg.textContent = isRaddleLineForm(form)
               ? 'Вы уже отправляли это слово.'
               : 'Вы уже отправляли такой ответ.';
+          }
+          if (!isRaddleLineForm(form)) {
+            openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
           }
           return;
         }
@@ -2080,6 +2112,117 @@
     if (!pop || !pop.id) return null;
     return document.querySelector('[popovertarget="' + pop.id + '"]');
   }
+  var ordinaryWrongFeedbackByTask = {};
+  var ordinaryAttemptFeedback = {
+    Wrong: { text: 'Неверно.', css: 'new-attempt-msg--wrong' },
+    Partial: { text: 'Частично верно.', css: 'new-attempt-msg--partial' },
+    Pending: { text: 'Отправлено на проверку.', css: 'new-attempt-msg--pending' },
+  };
+  function shouldShowOrdinaryAttemptFeedback(status) {
+    return !!ordinaryAttemptFeedback[status];
+  }
+  function ordinaryAttemptTextValue(form) {
+    if (!form) return '';
+    var field = form.querySelector('[name="text"]');
+    return field ? String(field.value || '') : '';
+  }
+  function clearOrdinaryWrongFeedback(taskId) {
+    if (taskId === undefined || taskId === null || taskId === '') return;
+    delete ordinaryWrongFeedbackByTask[String(taskId)];
+    document.querySelectorAll('form.new-attempt-form[data-task-id="' + taskId + '"]').forEach(function (form) {
+      var msg = form.querySelector('.new-attempt-msg');
+      if (!msg) return;
+      msg.classList.remove(
+        'new-attempt-msg--wrong',
+        'new-attempt-msg--partial',
+        'new-attempt-msg--pending'
+      );
+      Object.keys(ordinaryAttemptFeedback).forEach(function (status) {
+        if (msg.textContent === ordinaryAttemptFeedback[status].text) msg.textContent = '';
+      });
+    });
+  }
+  function rememberOrdinaryWrongFeedback(taskId, answer, status) {
+    if (taskId === undefined || taskId === null || taskId === '') return;
+    ordinaryWrongFeedbackByTask[String(taskId)] = {
+      answer: String(answer || ''),
+      status: shouldShowOrdinaryAttemptFeedback(status) ? status : 'Wrong',
+    };
+  }
+  function captureEditedOrdinaryAnswer(taskId) {
+    if (taskId === undefined || taskId === null || taskId === '') return;
+    var feedback = ordinaryWrongFeedbackByTask[String(taskId)];
+    if (!feedback) return;
+    var form = document.querySelector('form.new-attempt-form[data-task-id="' + taskId + '"]');
+    if (!form || isRaddleLineForm(form) || form.classList.contains('new-replacements-line-form')) return;
+    var field = form.querySelector('input[name="text"]:not([type="hidden"]), textarea[name="text"]');
+    if (field) feedback.answer = String(field.value || '');
+  }
+  function restoreOrdinaryWrongFeedback(taskId) {
+    if (taskId === undefined || taskId === null || taskId === '') return;
+    var feedback = ordinaryWrongFeedbackByTask[String(taskId)];
+    if (!feedback) return;
+    document.querySelectorAll('form.new-attempt-form[data-task-id="' + taskId + '"]').forEach(function (form) {
+      if (isRaddleLineForm(form) || form.classList.contains('new-replacements-line-form')) return;
+      var field = form.querySelector('[name="text"]');
+      if (field && String(field.type || '').toLowerCase() !== 'hidden') {
+        field.value = feedback.answer;
+      }
+      var msg = form.querySelector('.new-attempt-msg');
+      if (msg) {
+        var display = ordinaryAttemptFeedback[feedback.status] || ordinaryAttemptFeedback.Wrong;
+        msg.classList.remove(
+          'new-attempt-msg--wrong',
+          'new-attempt-msg--partial',
+          'new-attempt-msg--pending'
+        );
+        msg.textContent = display.text;
+        msg.classList.add(display.css);
+      }
+    });
+  }
+  function openAttemptsPopoverForTask(taskId, attemptId) {
+    if (taskId === undefined || taskId === null || taskId === '') return false;
+    var pop = document.getElementById('prop-attempts-' + taskId);
+    if (!pop || typeof pop.showPopover !== 'function') return false;
+    try {
+      if (!pop.matches(':popover-open')) pop.showPopover();
+      if (typeof pop.__place === 'function') pop.__place(pop, anchorForPop(pop));
+      var freshRow = attemptId === undefined || attemptId === null
+        ? null
+        : pop.querySelector('[data-attempt-id="' + attemptId + '"]');
+      if (freshRow) {
+        freshRow.classList.remove('new-attempts__row--just-submitted');
+        // Restart the highlight even if a WebSocket render replaced the row.
+        void freshRow.offsetWidth;
+        freshRow.classList.add('new-attempts__row--just-submitted');
+        setTimeout(function () {
+          if (freshRow && freshRow.classList) {
+            freshRow.classList.remove('new-attempts__row--just-submitted');
+          }
+        }, 4000);
+      }
+      // Attempts are ordered oldest to newest; make the just-submitted one visible.
+      requestAnimationFrame(function () { pop.scrollTop = pop.scrollHeight; });
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+  window.openAttemptsPopoverForTask = openAttemptsPopoverForTask;
+  var ATTEMPTS_POPOVER_AFTER_RELOAD_KEY = 'interoves_attempts_popover_after_reload';
+  function rememberAttemptsPopoverAfterReload(taskId, attemptId, answer, status) {
+    if (taskId === undefined || taskId === null || taskId === '') return;
+    try {
+      sessionStorage.setItem(ATTEMPTS_POPOVER_AFTER_RELOAD_KEY, JSON.stringify({
+        taskId: String(taskId),
+        attemptId: attemptId,
+        answer: String(answer || ''),
+        status: status,
+      }));
+    }
+    catch (err) {}
+  }
   function initAttemptsPopovers(scope) {
     var root = scope || document;
     function place(pop, anchor) {
@@ -2121,12 +2264,38 @@
       pop.dataset.popoverPositioned = '1';
       pop.__place = place;
       pop.addEventListener('beforetoggle', function (e) {
-        if (e.newState === 'open') place(pop, anchorForPop(pop));
+        if (e.newState === 'open') {
+          place(pop, anchorForPop(pop));
+          // Attempts are chronological; manual opening should reveal the newest.
+          requestAnimationFrame(function () { pop.scrollTop = pop.scrollHeight; });
+        }
       });
     });
   }
   window.initAttemptsPopovers = initAttemptsPopovers;
   initAttemptsPopovers(document);
+  (function openRememberedAttemptsPopover() {
+    var remembered = null;
+    try {
+      var raw = sessionStorage.getItem(ATTEMPTS_POPOVER_AFTER_RELOAD_KEY) || '';
+      sessionStorage.removeItem(ATTEMPTS_POPOVER_AFTER_RELOAD_KEY);
+      if (raw) {
+        try { remembered = JSON.parse(raw); }
+        catch (parseErr) { remembered = { taskId: raw }; }
+      }
+    } catch (err) {}
+    if (remembered && remembered.taskId) {
+      rememberOrdinaryWrongFeedback(
+        remembered.taskId,
+        remembered.answer || '',
+        remembered.status || 'Wrong'
+      );
+      restoreOrdinaryWrongFeedback(remembered.taskId);
+      requestAnimationFrame(function () {
+        openAttemptsPopoverForTask(remembered.taskId, remembered.attemptId);
+      });
+    }
+  })();
   window.addEventListener('resize', function () {
     document.querySelectorAll('.new-proportions-attempts-popover').forEach(function (pop) {
       try {
@@ -3231,6 +3400,25 @@
 
   function applyNewUiTaskHtml(map) {
     if (!map) return;
+    // Replacing a task card removes an open popover from the top layer. Remember
+    // it so a near-simultaneous WebSocket refresh does not hide user feedback.
+    var reopenAttempts = {};
+    Object.keys(map).forEach(function (tid) {
+      // If the player already edited the rejected answer, preserve that draft
+      // rather than restoring the originally submitted value after a WS update.
+      captureEditedOrdinaryAnswer(tid);
+      var current = document.getElementById('prop-attempts-' + tid);
+      if (!current) return;
+      var highlighted = current.querySelector('.new-attempts__row--just-submitted');
+      try {
+        reopenAttempts[tid] = {
+          open: current.matches(':popover-open'),
+          attemptId: highlighted ? highlighted.getAttribute('data-attempt-id') : null,
+        };
+      } catch (err) {
+        reopenAttempts[tid] = { open: false, attemptId: null };
+      }
+    });
     preservePageScroll(function () {
       Object.keys(map).forEach(function (tid) {
         var html = map[tid];
@@ -3245,6 +3433,10 @@
           if (typeof initWordSalad === 'function') initWordSalad(fresh);
           if (typeof window.initGridPuzzle === 'function') window.initGridPuzzle(fresh);
           if (typeof initAttemptsPopovers === 'function') initAttemptsPopovers(fresh);
+          restoreOrdinaryWrongFeedback(tid);
+          if (reopenAttempts[tid] && reopenAttempts[tid].open) {
+            openAttemptsPopoverForTask(tid, reopenAttempts[tid].attemptId);
+          }
         }
       });
       document.querySelectorAll('input.new-anon-key-field').forEach(function (inp) {
@@ -3329,6 +3521,47 @@
     }).then(function (r) { return r.json(); });
   }
 
+  function wallMessage(fromEl) {
+    var card = fromEl && fromEl.closest ? fromEl.closest('.new-taskcard') : null;
+    return card ? card.querySelector('[data-wall-message]') : null;
+  }
+
+  function wallErrorText(data) {
+    var status = data && data.status;
+    if (status === 'duplicate') return 'Такая попытка уже отправлялась.';
+    if (status === 'attempt_limit_exceeded') return 'Попытки закончились.';
+    if (status === 'invalid_form') return 'Не удалось отправить: проверьте выбранные слова или объяснение.';
+    if (status === 'empty') return 'Введите объяснение категории.';
+    if (status === 'no_access') return 'Нет доступа к отправке.';
+    if (status === 'no_team') return 'Для командного режима нужна команда.';
+    if (status === 'no_profile') return 'Нужно заполнить профиль.';
+    if (status === 'no_anon') return 'Не удалось сохранить анонимный ключ.';
+    return 'Не удалось отправить попытку.';
+  }
+
+  function applyWallAttemptResponse(data, taskId, msg) {
+    if (!data || data.status !== 'ok') {
+      if (msg) msg.textContent = wallErrorText(data);
+      if (data && data.status === 'duplicate') {
+        openAttemptsPopoverForTask(taskId, data.attempt_id);
+      }
+      return false;
+    }
+    flushAnalyticsEvents(data.analytics_events);
+    if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+      applyNewUiTaskHtml(data.update_task_html_new);
+      if (shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
+        openAttemptsPopoverForTask(taskId, data.attempt_id);
+      }
+    } else {
+      if (shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
+        rememberAttemptsPopoverAfterReload(taskId, data.attempt_id, '', data.attempt_status);
+      }
+      window.location.reload();
+    }
+    return true;
+  }
+
   document.addEventListener('click', function (e) {
     var tile = e.target && e.target.closest ? e.target.closest('.wall-tile-not-guessed') : null;
     if (!tile) return;
@@ -3336,6 +3569,8 @@
     if (e.target && e.target.closest && e.target.closest('.audio-player-link, [audio-url]')) return;
     var wall = tile.closest('.wall-tiles');
     if (!wall) return;
+    var wallRoot = wall.closest('.wall');
+    if (wallRoot && wallRoot.dataset.submitting === '1') return;
     if (tile.classList.contains('wall-tile-stop-guessing')) return;
     tile.classList.toggle('wall-tile-selected');
 
@@ -3351,38 +3586,43 @@
     var words = [];
     selected.forEach(function (inp) { words.push(inp.value); });
     words.sort();
-    wall.querySelectorAll('.wall-tile-selected').forEach(function (t) { t.classList.remove('wall-tile-selected'); });
-
     var params = new URLSearchParams();
     words.forEach(function (w) { params.append('words[]', w); });
     params.set('stage', 'cat_words');
+    var msg = wallMessage(wall);
+    if (wallRoot) wallRoot.dataset.submitting = '1';
+    if (msg) msg.textContent = 'Проверяем…';
     postWall(taskId, params, wallCsrf(wall)).then(function (data) {
-      if (data && data.status === 'ok') {
-        if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-          applyNewUiTaskHtml(data.update_task_html_new);
-        } else {
-          window.location.reload();
-        }
-      }
-    }).catch(function () {});
+      if (wallRoot) wallRoot.dataset.submitting = '0';
+      applyWallAttemptResponse(data, taskId, msg);
+    }).catch(function () {
+      if (wallRoot) wallRoot.dataset.submitting = '0';
+      if (msg) msg.textContent = 'Ошибка сети. Выбор сохранён — попробуйте ещё раз.';
+    });
   }, true);
 
   document.addEventListener('submit', function (e) {
     var form = e.target && e.target.closest ? e.target.closest('form.wall-attempt-form') : null;
     if (!form) return;
     e.preventDefault();
+    if (form.dataset.submitting === '1') return;
     var taskIdEl = form.querySelector('.attempt-task-id');
     if (!taskIdEl) return;
     var taskId = taskIdEl.value;
+    var submit = form.querySelector('[type="submit"]');
+    var msg = wallMessage(form);
+    form.dataset.submitting = '1';
+    if (submit) submit.disabled = true;
+    if (msg) msg.textContent = 'Проверяем…';
     postWall(taskId, new URLSearchParams(new FormData(form)), wallCsrf(form)).then(function (data) {
-      if (data && data.status === 'ok') {
-        if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-          applyNewUiTaskHtml(data.update_task_html_new);
-        } else {
-          window.location.reload();
-        }
-      }
-    }).catch(function () {});
+      form.dataset.submitting = '0';
+      if (submit) submit.disabled = false;
+      applyWallAttemptResponse(data, taskId, msg);
+    }).catch(function () {
+      form.dataset.submitting = '0';
+      if (submit) submit.disabled = false;
+      if (msg) msg.textContent = 'Ошибка сети. Текст сохранён — попробуйте ещё раз.';
+    });
   }, true);
 })();
 </script>

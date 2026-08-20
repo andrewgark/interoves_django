@@ -193,7 +193,9 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
     task_group = task.task_group
     if task_group.view == 'proportions' and task.task_type == 'proportions':
         return None
-    tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
+    # A card update needs context for this task only.  Building the whole group
+    # made every attempt reload every task's complete history and like totals.
+    tasks = [task]
     ctx_dicts = build_task_group_task_context_dicts(
         game, task_group, tasks, team, user, anon_key, current_mode,
     )

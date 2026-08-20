@@ -18,6 +18,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from games.models import (
+    Attempt,
     CheckerType,
     Game,
     GameTaskGroup,
@@ -134,6 +135,7 @@ class MsgpackSafeTrackPayloadTests(TestCase):
         self.assertIn('99', out['update_task_html_new'])
         self.assertNotIn(99, out['update_task_html_new'])
         self.assertIn('seq', out)
+        self.assertEqual(out['seq_namespace'], 'game:any_game_id')
         # Полный путь envelope → Redis msgpack не должен падать.
         again = _msgpack_redis_roundtrip(out)
         self.assertEqual(again['update_task_html_new']['99'], 'html')
@@ -142,6 +144,18 @@ class MsgpackSafeTrackPayloadTests(TestCase):
 @override_settings(DEFER_CHANNEL_BROADCAST=False)
 class TrackChannelTests(TrackGameFixtureMixin, TestCase):
     """Синхронная отправка в Channels, чтобы captureOnCommitCallbacks видел group_send сразу."""
+
+    def test_attempt_save_does_not_broadcast_as_admin(self):
+        with patch('games.views.track.track_task_change') as track:
+            Attempt.manager.create(
+                task=self.task,
+                game=self.game,
+                team=self.team,
+                text='wrong',
+                status='Wrong',
+                points=0,
+            )
+        track.assert_not_called()
 
     def test_channel_group_names(self):
         self.assertEqual(CHANNEL_GROUPS['game']('g1'), 'track.game.g1')
@@ -200,6 +214,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(args[1]['type'], 'task.changed')
         self.assertEqual(args[1]['stub'], True)
         self.assertIn('seq', args[1])
+        self.assertEqual(args[1]['seq_namespace'], 'game:{}'.format(self.game.id))
         self.assertIsInstance(args[1]['seq'], int)
 
     @override_settings(
@@ -216,6 +231,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(args[0], CHANNEL_GROUPS['game'](self.game.id))
         self.assertEqual(args[1]['by'], 'admin')
         self.assertIn('seq', args[1])
+        self.assertEqual(args[1]['seq_namespace'], 'game:{}'.format(self.game.id))
 
     @override_settings(
         CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
@@ -257,6 +273,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(args[1]['type'], 'track.event')
         self.assertEqual(args[1]['event'], 'test.ping')
         self.assertIn('seq', args[1])
+        self.assertEqual(args[1]['seq_namespace'], 'user:{}'.format(self.user.id))
 
     def test_notify_registered_users_play_access_changed_calls_user_notify(self):
         self.game.is_tournament = True

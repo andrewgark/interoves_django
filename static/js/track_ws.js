@@ -49,6 +49,15 @@
     }
   }
 
+  function acceptFreshSequence(msg, seen) {
+    if (!msg || typeof msg.seq !== 'number') return true;
+    var namespace = String(msg.seq_namespace || 'legacy');
+    var previous = seen[namespace];
+    if (typeof previous === 'number' && msg.seq <= previous) return false;
+    seen[namespace] = msg.seq;
+    return true;
+  }
+
   /**
    * Persistent WebSocket with exponential reconnect backoff and application ping.
    * onMessage(msg) receives parsed JSON except ping/pong.
@@ -59,6 +68,7 @@
     var pingTimer = null;
     var reconnectTimer = null;
     var stopped = false;
+    var seenSequences = {};
 
     function clearPing() {
       if (pingTimer) {
@@ -102,6 +112,7 @@
         try {
           var msg = JSON.parse(ev.data);
           if (!msg || msg.type === 'pong') return;
+          if (!acceptFreshSequence(msg, seenSequences)) return;
           if (typeof onMessage === 'function') onMessage(msg);
         } catch (e) {}
       };
@@ -159,5 +170,6 @@
     connectUserHub: connectUserHub,
     connectGame: connectGame,
     openTrackSocket: openTrackSocket,
+    acceptFreshSequence: acceptFreshSequence,
   };
 })(window);

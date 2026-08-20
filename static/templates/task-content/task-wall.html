@@ -31,6 +31,7 @@
     {% endfor %}
     {% endwith %}
   </div>
+  {% if wall_new_ui %}<div class="new-attempt-msg" data-wall-message aria-live="polite"></div>{% endif %}
   <div class="wall-explanations">
     {% for exptile in task.get_wall|one_more:attempts_info|get_exptiles:mode %}
     {% if exptile.type != 'nothing_is_guessed' and exptile.type != 'first_nothing_is_guessed' %}

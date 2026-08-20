@@ -1,8 +1,14 @@
+from django.db import transaction
 from django.utils import timezone
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 
-from games.exception import DuplicateAttemptException, NotAllRequiredHintsTakenException, NoGameAccessException
+from games.exception import (
+    DuplicateAttemptException,
+    InvalidFormException,
+    NotAllRequiredHintsTakenException,
+    NoGameAccessException,
+)
 from games.analytics import register_started_game
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
 from games.views.game_context import game_from_request_for_task
@@ -33,23 +39,34 @@ def create_hint_attempt(hint, team=None, user=None, anon_key=None, game=None):
     if game is None:
         raise Exception('Cannot resolve game for hint (pass game= or single-linked task group)')
 
-    if list(HintAttempt.objects.filter(hint=hint, **_hintattempt_filter(team=team, user=user, anon_key=anon_key))):
-        raise DuplicateAttemptException('Вы уже запрашивали эту подсказку')
-    
-    required_hints = set(hint.required_hints.all())
-    if len(HintAttempt.objects.filter(hint__in=required_hints, **_hintattempt_filter(team=team, user=user, anon_key=anon_key))) < len(required_hints):
-        raise NotAllRequiredHintsTakenException('Вы не можете пока взять эту подсказку')
+    with transaction.atomic():
+        # Serialize all hint requests for this task.  The previous check-then-save
+        # allowed two simultaneous requests to create duplicate rows.
+        Task.objects.select_for_update().only('pk').get(pk=task.pk)
+        actor_filter = _hintattempt_filter(team=team, user=user, anon_key=anon_key)
+        if HintAttempt.objects.filter(hint=hint, **actor_filter).exists():
+            raise DuplicateAttemptException('Вы уже запрашивали эту подсказку')
 
-    hint_attempt = HintAttempt(team=team, user=user, anon_key=anon_key, hint=hint)
-    hint_attempt.save()
+        required_hints = set(hint.required_hints.all())
+        taken_required = HintAttempt.objects.filter(
+            hint__in=required_hints, **actor_filter
+        ).values('hint_id').distinct().count()
+        if taken_required < len(required_hints):
+            raise NotAllRequiredHintsTakenException('Вы не можете пока взять эту подсказку')
 
-    current_mode = game.get_current_mode(hint_attempt)
-    attempts_info = Attempt.manager.get_attempts_info(
-        team=team, user=user, anon_key=anon_key, task=task, mode=current_mode, game=game,
-    )
-
-    hint_attempt.is_real_request = not attempts_info.is_solved()
-    hint_attempt.save()
+        hint_attempt = HintAttempt(
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            hint=hint,
+            time=timezone.now(),
+        )
+        current_mode = game.get_current_mode(hint_attempt)
+        attempts_info = Attempt.manager.get_attempts_info(
+            team=team, user=user, anon_key=anon_key, task=task, mode=current_mode, game=game,
+        )
+        hint_attempt.is_real_request = not attempts_info.is_solved()
+        hint_attempt.save()
     return hint_attempt, current_mode
    
 
@@ -71,7 +88,7 @@ def process_send_hint_attempt(request, task_id):
             return {'status': 'no_team'}
         team = request.user.profile.team_on
         if not game.has_access('send_attempt', team=team):
-            return NoGameAccessException('User has no access to game {}'.format(game))
+            raise NoGameAccessException('User has no access to game {}'.format(game))
     else:
         if request.user.is_authenticated:
             if not has_profile(request.user):
@@ -82,12 +99,14 @@ def process_send_hint_attempt(request, task_id):
             if not anon_key:
                 return {'status': 'no_anon'}
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
-            return NoGameAccessException('User has no access to game {}'.format(game))
+            raise NoGameAccessException('User has no access to game {}'.format(game))
 
     if task.task_type == 'autohint':
-        return Exception('Hints in this task can only be taken by answer submit')
+        raise InvalidFormException('Hints in this task can only be taken by answer submit')
 
-    hint_number = str(request.POST['hint_number']).strip()
+    hint_number = str(request.POST.get('hint_number', '')).strip()
+    if not hint_number:
+        raise InvalidFormException('hint_number is required')
     hint = get_object_or_404(Hint, task=task, number=hint_number)
 
     hint_attempt, current_mode = create_hint_attempt(
@@ -128,4 +147,8 @@ def send_hint_attempt(request, task_id):
         response = {'status': 'duplicate'}
     except NotAllRequiredHintsTakenException:
         response = {'status': 'not_all_required_hints_taken'}
+    except InvalidFormException:
+        response = {'status': 'invalid_form'}
+    except NoGameAccessException:
+        response = {'status': 'no_access'}
     return JsonResponse(response) 

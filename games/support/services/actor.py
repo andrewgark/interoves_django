@@ -19,7 +19,7 @@ def build_team_context(team, *, feed_kwargs):
         'members': list(team.roster_profiles),
         'flags': _team_flags(team),
         'game_groups': games_for_actor(team=team),
-        **_feed_context(feed_kwargs),
+        **_feed_context({**feed_kwargs, 'team': team}),
     }
 
 
@@ -38,7 +38,7 @@ def build_user_context(user, *, feed_kwargs):
         'members': [],
         'flags': _user_flags(user, profile),
         'game_groups': games_for_actor(user=user),
-        **_feed_context(feed_kwargs),
+        **_feed_context({**feed_kwargs, 'user': user}),
     }
 
 
@@ -63,7 +63,7 @@ def build_anon_context(anon_key, *, feed_kwargs):
         'members': [],
         'flags': _anon_flags(hidden),
         'game_groups': games_for_actor(anon_key=anon_key),
-        **_feed_context(feed_kwargs),
+        **_feed_context({**feed_kwargs, 'anon_key': anon_key}),
     }
 
 

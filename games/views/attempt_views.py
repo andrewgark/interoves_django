@@ -118,6 +118,14 @@ def check_attempt(attempt, *, persist_wrong=True):
         last_attempt_state = None
         chain_state_row = None
 
+        # Every new submission for a task must observe all submissions committed
+        # before it acquired the lock.  Without this lock two tabs can both pass
+        # duplicate/limit checks and then save.  Chain tasks additionally lock
+        # their actor-specific state row below.
+        if attempt._state.adding:
+            Task.objects.select_for_update().only('pk').get(pk=task.pk)
+            attempt.time = timezone.now()
+
         if is_chain_task:
             # Ensure the state row exists, then acquire an exclusive row lock.
             # Two-step pattern avoids needing a single unique_together over nullable fields.
@@ -217,9 +225,11 @@ def check_attempt(attempt, *, persist_wrong=True):
                             'Attempt duplicates one of the previous attempts by this team'
                         )
                 elif attempt.text == other_attempt.text:
-                    raise DuplicateAttemptException(
+                    exc = DuplicateAttemptException(
                         'Attempt duplicates one of the previous attempts by this team'
                     )
+                    exc.attempt_id = other_attempt.id
+                    raise exc
 
         checker_type = task.get_checker()
         if task.task_type == 'replacements_lines':
@@ -262,10 +272,8 @@ def check_attempt(attempt, *, persist_wrong=True):
             chain_state_row.save(update_fields=['state', 'last_attempt', 'updated_at'])
         return True
 
-    if is_chain_task:
-        with transaction.atomic():
-            persisted = _run()
-    else:
+    # The Task row is the stable lock row for ordinary submissions too.
+    with transaction.atomic():
         persisted = _run()
 
     if not persisted:
@@ -286,8 +294,15 @@ def check_attempt(attempt, *, persist_wrong=True):
         except Exception:
             return True
 
-        for tag_attempt in Attempt.manager.filter(task=tag_task, team=tag_team, game=game):
+        tag_attempts = Attempt.manager.filter(task=tag_task, team=tag_team, game=game)
+        rechecked = False
+        for tag_attempt in tag_attempts:
             check_attempt(tag_attempt)
+            rechecked = True
+        # Attempt.save() deliberately has no broadcast side effect.  Notify the
+        # affected team once after the dependent task has been fully rechecked.
+        if rechecked:
+            track_task_change(tag_task, team=tag_team, game=game)
     return True
 
 
@@ -363,20 +378,34 @@ def process_send_attempt(request, task_id):
 
         attempt = form.save(commit=False)
     elif task.task_type == 'wall':
-        if 'text' not in request.POST:            
-            request_data = {
-                'words': sorted(request.POST.getlist('words[]')),
-                'stage': request.POST['stage'],
-            }
-        else:
-            request_data = {
-                'explanation': request.POST['text'],
-                'words': json.loads(request.POST['words']),
-                'stage': request.POST['stage'],
-            }
+        stage = request.POST.get('stage')
+        if stage not in ('cat_words', 'cat_explanation'):
+            return {'status': 'invalid_form'}
+        try:
+            if 'text' not in request.POST:
+                words = request.POST.getlist('words[]')
+                request_data = {'words': sorted(words), 'stage': stage}
+            else:
+                words = json.loads(request.POST.get('words', ''))
+                if not isinstance(words, list):
+                    raise ValueError('wall words must be a list')
+                request_data = {
+                    'explanation': request.POST.get('text', '').strip(),
+                    'words': words,
+                    'stage': stage,
+                }
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {'status': 'invalid_form'}
+        if not request_data['words'] or any(not isinstance(word, str) for word in request_data['words']):
+            return {'status': 'invalid_form'}
+        if stage == 'cat_explanation' and not request_data.get('explanation'):
+            return {'status': 'empty'}
         attempt = Attempt(text=json.dumps(request_data))
     elif task.task_type == 'replacements_lines':
-        line_index = int(request.POST.get('line_index', 0))
+        try:
+            line_index = int(request.POST.get('line_index', 0))
+        except (TypeError, ValueError):
+            return {'status': 'invalid_form'}
         answers_raw = request.POST.get('answers')
         if answers_raw is not None:
             try:
@@ -385,12 +414,17 @@ def process_send_attempt(request, task_id):
                 answers = request.POST.getlist('answers[]')
         else:
             answers = request.POST.getlist('answers[]')
+        if not isinstance(answers, list):
+            return {'status': 'invalid_form'}
         answers = list(answers)
         if not answers or all(str(a).strip() == '' for a in answers):
             return {'status': 'empty'}
         attempt = Attempt(text=json.dumps({'line_index': line_index, 'answers': answers}))
     elif task.task_type == 'raddle':
-        word_index = int(request.POST.get('word_index', 0))
+        try:
+            word_index = int(request.POST.get('word_index', 0))
+        except (TypeError, ValueError):
+            return {'status': 'invalid_form'}
         word = (request.POST.get('word') or '').strip()
         if not word:
             return {'status': 'empty'}
@@ -512,6 +546,13 @@ def process_send_attempt(request, task_id):
         'status': 'ok',
         'task_id': task.id,
     }
+    # The transport status above only says that the submission was processed.
+    # Give the new UI the persisted verdict as well, so ordinary tasks can show
+    # explicit feedback without trying to infer it from freshly rendered HTML.
+    # Keep raddle on its dedicated response contract (raddle_correct / needs_sync).
+    if attempt_persisted and task.task_type != 'raddle':
+        result['attempt_status'] = attempt.status
+        result['attempt_id'] = attempt.id
     if analytics_events:
         result['analytics_events'] = analytics_events
     if task.task_type == 'raddle':
@@ -546,8 +587,6 @@ def process_send_attempt(request, task_id):
         task.task_type != 'raddle' or result.get('raddle_correct') or result.get('raddle_needs_sync')
     ) and (
         task.task_type != 'word_salad' or result.get('word_salad_correct')
-    ) and (
-        task.task_type != 'grid-puzzle' or result.get('grid_puzzle_correct')
     )
     if need_task_html:
         update_html = update_task_html(
@@ -624,8 +663,13 @@ def _raddle_duplicate_response(request, task_id):
 def send_attempt(request, task_id):
     try:
         response = process_send_attempt(request, task_id)
-    except DuplicateAttemptException:
-        response = {'status': 'duplicate'}
+    except DuplicateAttemptException as exc:
+        response = {
+            'status': 'duplicate',
+            'task_id': task_id,
+        }
+        if getattr(exc, 'attempt_id', None) is not None:
+            response['attempt_id'] = exc.attempt_id
         response.update(_raddle_duplicate_response(request, task_id))
     except TooManyAttemptsException:
         response = {'status': 'attempt_limit_exceeded'}

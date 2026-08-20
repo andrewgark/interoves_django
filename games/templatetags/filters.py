@@ -308,13 +308,25 @@ def attempts_with_status(attempts):
         is_chain = getattr(a.task, 'task_type', None) in CHAIN_TASK_TYPES
         if a.status == 'Ok':
             mark = 'ok'
+        elif a.status == 'Pending':
+            # Pending is a review state, not evidence that the submitted
+            # chain step was wrong.  Never replace it with a progress verdict.
+            mark = 'pending'
         elif is_chain:
             mark = 'partial' if id(a) in gained_ids else 'wrong'
+        elif a.status == 'Partial':
+            mark = 'partial'
         elif a.status == 'Wrong':
             mark = 'wrong'
         else:
             mark = 'pending'
-        result.append({'attempt': a, 'mark': mark})
+        label = {
+            'ok': 'верно',
+            'partial': 'частично',
+            'wrong': 'неверно',
+            'pending': 'проверяется',
+        }[mark]
+        result.append({'attempt': a, 'mark': mark, 'label': label})
     return result
 
 

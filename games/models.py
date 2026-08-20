@@ -1391,11 +1391,6 @@ class Attempt(models.Model):
             self.time.strftime('%Y-%m-%d %H:%M:%S')
         )
 
-    def save(self, *args, **kwargs):
-        from games.views.track import track_task_change
-        track_task_change(self.task)
-        super(Attempt, self).save(*args, **kwargs)
-
     def get_answer(self):
         if self.task is None:
             return 'DELETED'
@@ -1675,12 +1670,6 @@ class HintAttempt(models.Model):
             actor,
             self.hint
         )
-
-    def save(self, *args, **kwargs):
-        from games.views.track import track_task_change
-        track_task_change(self.hint.task)
-        super(HintAttempt, self).save(*args, **kwargs)
-
 
 class ImageManager(models.Manager):
     def get_image(self, id):

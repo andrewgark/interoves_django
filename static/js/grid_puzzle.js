@@ -793,9 +793,23 @@
         return;
       }
       if (data && data.status === 'ok') {
-        if (self.message) self.message.textContent = 'Пока неверно. Поле сохранено локально.';
+        if (data.update_task_html_new && root.applyNewUiTaskHtml) {
+          root.applyNewUiTaskHtml(data.update_task_html_new);
+          var freshMessage = root.document.querySelector(
+            '#new-task-' + data.task_id + ' [data-grid-message]'
+          );
+          if (freshMessage) freshMessage.textContent = 'Пока неверно. Поле сохранено локально.';
+          if (root.openAttemptsPopoverForTask) {
+            root.openAttemptsPopoverForTask(data.task_id, data.attempt_id);
+          }
+        } else if (self.message) {
+          self.message.textContent = 'Пока неверно. Поле сохранено локально.';
+        }
       } else if (data && data.status === 'duplicate') {
         if (self.message) self.message.textContent = 'Такое состояние поля уже отправлялось.';
+        if (root.openAttemptsPopoverForTask) {
+          root.openAttemptsPopoverForTask(data.task_id || self.config.task_id, data.attempt_id);
+        }
       } else if (data && data.status === 'attempt_limit_exceeded') {
         if (self.message) self.message.textContent = 'Попытки закончились.';
       } else if (data && data.status === 'no_profile') {

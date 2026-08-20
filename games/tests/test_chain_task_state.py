@@ -582,6 +582,18 @@ class ConcurrentSubmissionTests(TransactionTestCase):
         self.game = _make_game(suffix='_race')
         self.team = Team.objects.create(name='chain_race_team', visible_name='R')
         self.repl_task = _make_replacements_task(self.game, suffix='_race')
+        with patch('games.views.track.track_task_change'):
+            ordinary_group = TaskGroup.objects.create(label='tg_ordinary_race', points=1)
+            GameTaskGroup.objects.create(
+                game=self.game, task_group=ordinary_group, number=3, name='ordinary race',
+            )
+            self.ordinary_task = Task.objects.create(
+                task_group=ordinary_group,
+                number='1',
+                task_type='default',
+                checker=CheckerType.objects.get(pk='equals_with_possible_spaces'),
+                checker_data='answer',
+            )
 
     def test_concurrent_attempts_both_complete_without_duplication(self):
         if connection.vendor == 'sqlite':
@@ -614,6 +626,31 @@ class ConcurrentSubmissionTests(TransactionTestCase):
         self.assertIn(0, state['solved_lines'])
         self.assertIn(1, state['solved_lines'])
         self.assertEqual(state['total'], 2)
+
+    def test_concurrent_identical_ordinary_attempts_are_serialized(self):
+        if connection.vendor == 'sqlite':
+            self.skipTest('SELECT FOR UPDATE row locking not supported in SQLite')
+        errors = []
+
+        def submit():
+            try:
+                check_attempt(_make_attempt(self.ordinary_task, self.team, 'wrong'))
+            except Exception as exc:
+                errors.append(exc)
+
+        first = threading.Thread(target=submit)
+        second = threading.Thread(target=submit)
+        first.start()
+        second.start()
+        first.join(timeout=10)
+        second.join(timeout=10)
+
+        self.assertEqual(
+            Attempt.objects.filter(task=self.ordinary_task, team=self.team).count(),
+            1,
+        )
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], DuplicateAttemptException)
 
 
 # ===========================================================================

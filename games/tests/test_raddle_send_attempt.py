@@ -105,6 +105,7 @@ class RaddleSendAttemptTests(TestCase):
         self.assertFalse(data['raddle_correct'])
         self.assertNotIn('raddle_needs_sync', data)
         self.assertEqual(data['raddle_word_index'], 1)
+        self.assertNotIn('attempt_status', data)
         self.assertNotIn('update_task_html_new', data)
         self.assertEqual([event['goal'] for event in data['analytics_events']], ['game_start'])
         self.assertEqual(PlayerStartedGame.objects.filter(anon_key=self.anon_key).count(), 1)

@@ -1428,6 +1428,14 @@ html.new-ui-dark .support-ladder-item__mixed {
   color: var(--danger);
 }
 
+.support-word-salad-grid-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 1rem;
+  line-height: 1.55;
+  letter-spacing: 0.08em;
+  resize: vertical;
+}
+
 .support-banned-list {
   display: flex;
   flex-direction: column;

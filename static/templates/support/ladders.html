@@ -6,6 +6,7 @@
 {{ ladders_json|json_script:"ladders-bootstrap" }}
 {{ sent_offers_json|json_script:"offers-bootstrap" }}
 {{ offer_by_link_json|json_script:"offer-by-link-bootstrap" }}
+<script src="{% static 'js/support_schedule_tabs.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <h1 class="support-page-title">Лесенки</h1>
 <p class="support-lead">
   Публичный № = порядковый номер и дата выхода (старт + N−1 дней, МСК).
@@ -38,7 +39,7 @@
 </nav>
 
 <section class="pal-card support-card">
-  <div class="support-ladder-list" id="ladder-list" aria-label="Список лесенок">
+  <div class="support-ladder-list support-schedule-list" id="ladder-list" aria-label="Список лесенок">
     {# filled by JS from bootstrap #}
   </div>
   <div class="support-ladder-insert support-ladder-insert--end">
@@ -130,6 +131,7 @@
   var allRows = bootstrap.slice();
   var sentOffers = JSON.parse(document.getElementById('offers-bootstrap').textContent || '[]');
   var offerByLink = JSON.parse(document.getElementById('offer-by-link-bootstrap').textContent || '{}');
+  var scheduleUi = window.SupportScheduleTabs;
   var viewTab = 'schedule';
   var endpoints = {
     reorder: "{% url 'support:ladders_reorder' %}",
@@ -150,32 +152,10 @@
   var metaEl = document.getElementById('ladder-meta');
   var modal = document.getElementById('ladder-edit-modal');
   var editLinkId = null;
-  var dragId = null;
   var busy = false;
 
-  function csrf() {
-    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
-    return el ? el.value : '';
-  }
-
   function postJson(url, body) {
-    return fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrf()
-      },
-      body: JSON.stringify(body || {}),
-      credentials: 'same-origin'
-    }).then(function (r) {
-      return r.json().then(function (data) {
-        if (!r.ok || !data.ok) {
-          var err = (data && data.error) || ('HTTP ' + r.status);
-          throw new Error(err);
-        }
-        return data;
-      });
-    });
+    return scheduleUi.postJson(url, body);
   }
 
   function setBusy(on) {
@@ -216,7 +196,7 @@
     }
     if (tab === 'future') {
       return allRows.filter(function (r) { return !r.is_published; }).sort(function (a, b) {
-        return (a.publish_date || '').localeCompare(b.publish_date || '');
+        return a.number - b.number;
       });
     }
     return allRows;
@@ -261,7 +241,7 @@
     if (isSentView()) {
       rows.forEach(function (offer) {
         var item = document.createElement('div');
-        item.className = 'support-ladder-item';
+        item.className = 'support-ladder-item support-schedule-item';
         item.innerHTML =
           '<div class="support-ladder-item__num">#' + offer.id + '</div>' +
           '<div class="support-ladder-item__body">' +
@@ -296,7 +276,7 @@
 
       var linkedOffer = offerByLink[String(row.link_id)];
       var item = document.createElement('div');
-      item.className = 'support-ladder-item';
+      item.className = 'support-ladder-item support-schedule-item';
       if (row.is_today) item.classList.add('is-today');
       else if (!row.is_published) item.classList.add('is-future');
       if (row.is_published) item.classList.add('is-locked');
@@ -305,7 +285,7 @@
       item.dataset.published = row.is_published ? '1' : '0';
       var handle = row.is_published
         ? '<span class="support-ladder-item__handle support-ladder-item__handle--locked" title="Вышла — порядок зафиксирован">·</span>'
-        : '<button type="button" class="support-ladder-item__handle" aria-label="Перетащить" title="Перетащить">⠿</button>';
+        : '<button type="button" class="support-ladder-item__handle support-schedule-handle" aria-label="Перетащить" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>';
       var previewUrl = (linkedOffer && linkedOffer.play_url) || row.play_url;
       var revisionBtn = (linkedOffer && linkedOffer.status !== 'draft')
         ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-revision-link="' +
@@ -378,10 +358,10 @@
     return publishedIds.concat(visible);
   }
 
-  function persistOrder() {
+  function persistOrder(order) {
     if (busy) return;
     setBusy(true);
-    postJson(endpoints.reorder, { order: fullOrderFromView() })
+    postJson(endpoints.reorder, { order: order || fullOrderFromView() })
       .then(function (data) { setRows(data.ladders); })
       .catch(function (e) { alert(e.message || String(e)); location.reload(); })
       .finally(function () { setBusy(false); });
@@ -478,90 +458,30 @@
       .finally(function () { setBusy(false); });
   });
 
-  /* DnD — только индекс цели, DOM не трогаем до drop */
-  var dropIndex = null;
-
-  listEl.addEventListener('dragstart', function (e) {
-    if (!canReorder()) { e.preventDefault(); return; }
-    var item = e.target.closest('.support-ladder-item');
-    if (!item || busy || item.dataset.published === '1') { e.preventDefault(); return; }
-    dragId = item.dataset.linkId;
-    dropIndex = null;
-    item.classList.add('is-dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', dragId); } catch (err) {}
-  });
-
-  listEl.addEventListener('dragend', function () {
-    listEl.querySelectorAll('.is-dragging, .is-drop-before, .is-drop-after').forEach(function (el) {
-      el.classList.remove('is-dragging', 'is-drop-before', 'is-drop-after');
-    });
-    dragId = null;
-    dropIndex = null;
-  });
-
-  listEl.addEventListener('dragover', function (e) {
-    if (!canReorder() || !dragId) return;
-    e.preventDefault();
-    var item = e.target.closest('.support-ladder-item');
-    if (!item) return;
-    var items = Array.prototype.slice.call(listEl.querySelectorAll('.support-ladder-item'));
-    var targetIdx = items.indexOf(item);
-    if (targetIdx < 0) return;
-    /* Во вкладке «Будущие» все строки будущие — lockedUntil по индексам = 0 */
-    var lockedUntil = viewTab === 'future' ? 0 : lastPublishedNumber(allRows);
-    var rect = item.getBoundingClientRect();
-    var before = (e.clientY - rect.top) < rect.height / 2;
-    var candidate = before ? targetIdx : targetIdx + 1;
-    /* нельзя бросать в зону вышедших (индексы 0..lockedUntil-1) */
-    if (candidate < lockedUntil) candidate = lockedUntil;
-    dropIndex = candidate;
-    items.forEach(function (el) { el.classList.remove('is-drop-before', 'is-drop-after'); });
-    if (dropIndex <= targetIdx) item.classList.add('is-drop-before');
-    else item.classList.add('is-drop-after');
-    if (item.dataset.published === '1' && dropIndex === lockedUntil && targetIdx === lockedUntil - 1) {
-      item.classList.remove('is-drop-before');
-      item.classList.add('is-drop-after');
+  scheduleUi.mountSortable(listEl, {
+    isBusy: function () { return busy || !canReorder(); },
+    canDrag: function (item) { return item.dataset.published !== '1'; },
+    minIndex: function () {
+      return viewTab === 'future' ? 0 : lastPublishedNumber(allRows);
+    },
+    onOrder: function (order) {
+      var byId = {};
+      allRows.forEach(function (r) { byId[r.link_id] = r; });
+      var fullOrder = viewTab === 'future'
+        ? allRows.filter(function (r) { return r.is_published; })
+            .sort(function (a, b) { return a.number - b.number; })
+            .map(function (r) { return r.link_id; })
+            .concat(order)
+        : order;
+      var preview = fullOrder.map(function (pk, i) {
+        var row = byId[pk];
+        if (!row) return null;
+        return Object.assign({}, row, { number: i + 1 });
+      }).filter(Boolean);
+      allRows = preview;
+      refreshView();
+      persistOrder(fullOrder);
     }
-  });
-
-  listEl.addEventListener('drop', function (e) {
-    e.preventDefault();
-    if (!canReorder() || !dragId || dropIndex == null) return;
-    var lockedUntil = viewTab === 'future' ? 0 : lastPublishedNumber(allRows);
-    if (dropIndex < lockedUntil) {
-      alert('Нельзя менять порядок уже вышедших лесенок');
-      return;
-    }
-    var order = currentOrder();
-    var from = order.indexOf(parseInt(dragId, 10));
-    if (from < 0) return;
-    if (from < lockedUntil) {
-      alert('Нельзя двигать уже вышедшую лесенку');
-      return;
-    }
-    var to = dropIndex;
-    if (from < to) to -= 1;
-    if (to < lockedUntil) to = lockedUntil;
-    if (from === to) return;
-    var id = order.splice(from, 1)[0];
-    order.splice(to, 0, id);
-    var byId = {};
-    allRows.forEach(function (r) { byId[r.link_id] = r; });
-    var fullOrder = viewTab === 'future'
-      ? allRows.filter(function (r) { return r.is_published; })
-          .sort(function (a, b) { return a.number - b.number; })
-          .map(function (r) { return r.link_id; })
-          .concat(order)
-      : order;
-    var preview = fullOrder.map(function (pk, i) {
-      var row = byId[pk];
-      if (!row) return null;
-      return Object.assign({}, row, { number: i + 1 });
-    }).filter(Boolean);
-    allRows = preview;
-    refreshView();
-    persistOrder();
   });
 
   /* Edit modal */
