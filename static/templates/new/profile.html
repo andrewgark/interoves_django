@@ -91,9 +91,19 @@
         <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' process='connect' next=request.get_full_path %}">Привязать аккаунт VK</a>
       {% endif %}
     </div>
+    <div>
+      {% if 'telegram' in connected_providers %}
+        <span class="new-pill new-pill--ok">Telegram подключён{% if connected_account_labels.telegram %}: {{ connected_account_labels.telegram }}{% endif %}</span>
+        {% if can_disconnect_social_account %}
+          <button type="button" class="new-btn new-btn--text" data-social-disconnect data-account-id="{{ connected_account_ids.telegram }}" data-provider-label="Telegram">Отключить Telegram</button>
+        {% endif %}
+      {% else %}
+        <a class="new-btn new-btn--ghost" href="{% url 'telegram_login' %}?process=connect&amp;next={{ request.get_full_path|urlencode }}">Привязать Telegram для входа</a>
+      {% endif %}
+    </div>
   </div>
   {% endif %}
-  <p class="new-login-hint new-profile-accounts-foot">Если выбранный Google или VK уже связан с другим профилем Interoves, мы покажем, какие данные будут объединены, и попросим подтверждение.</p>
+  <p class="new-login-hint new-profile-accounts-foot">Теперь можно входить через любой подключённый способ. Если выбранный Google, VK или Telegram уже связан с другим профилем Interoves, покажем данные и попросим подтверждение перед объединением.</p>
   <button type="button" class="new-btn new-btn--text" data-review-guest-progress>Проверить гостевой прогресс на этом устройстве</button>
 </div>
 

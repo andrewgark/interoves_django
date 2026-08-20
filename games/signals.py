@@ -99,6 +99,31 @@ def game_notify_registered_play_access(sender, instance, created, **kwargs):
 
 
 post_save.connect(create_profile, sender=SocialAccount, dispatch_uid="socialaccount-profilecreation-signal")
+
+
+def sync_telegram_identity(sender, **kw):
+    """Keep the legacy verified Telegram identity useful for OIDC login."""
+    account = kw["instance"]
+    if account.provider != "telegram":
+        return
+    try:
+        profile = account.user.profile
+    except Profile.DoesNotExist:
+        return
+    extra = account.extra_data or {}
+    updates = []
+    if profile.telegram_user_id is None:
+        profile.telegram_user_id = int(account.uid)
+        profile.telegram_verified = True
+        updates.extend(["telegram_user_id", "telegram_verified"])
+    if extra.get("preferred_username") and not profile.telegram_username:
+        profile.telegram_username = str(extra["preferred_username"])[:64]
+        updates.append("telegram_username")
+    if updates:
+        profile.save(update_fields=updates)
+
+
+post_save.connect(sync_telegram_identity, sender=SocialAccount, dispatch_uid="telegram-socialaccount-identity-sync")
 # post_save.connect(recheck_after_saving_wall_attempt, sender=Attempt, dispatch_uid="wallattempt-recheck-signal")
 # post_save.connect(recheck_after_saving_wall_task, sender=Task, dispatch_uid="walltask-recheck-signal")
 

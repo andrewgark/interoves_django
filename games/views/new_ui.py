@@ -3739,6 +3739,7 @@ def new_profile(request, project_id=None):
         label = (
             extra.get('email')
             or extra.get('name')
+            or extra.get('preferred_username')
             or extra.get('screen_name')
             or str(account.uid)
         )
@@ -3809,7 +3810,7 @@ def new_account_merge_confirm(request):
         return redirect('ui_profile')
 
     preview = build_account_merge_preview(request.user, source)
-    provider_label = {'google': 'Google', 'vk': 'VK'}.get(
+    provider_label = {'google': 'Google', 'vk': 'VK', 'telegram': 'Telegram'}.get(
         pending['provider'], pending['provider'],
     )
     if request.method == 'POST':
@@ -3868,7 +3869,7 @@ def new_social_account_disconnect(request):
     from allauth.socialaccount.internal.flows.connect import validate_disconnect
     from django.utils.http import url_has_allowed_host_and_scheme
 
-    provider_label = {'google': 'Google', 'vk': 'VK'}.get(
+    provider_label = {'google': 'Google', 'vk': 'VK', 'telegram': 'Telegram'}.get(
         account.provider, account.provider,
     )
     validate_disconnect(request, account)

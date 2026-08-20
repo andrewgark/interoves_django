@@ -645,6 +645,7 @@ ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = 'none'
+SOCIALACCOUNT_EMAIL_REQUIRED = False
 
 SOCIALACCOUNT_PROVIDERS = {
     'vk': {
@@ -670,6 +671,10 @@ SOCIALACCOUNT_PROVIDERS = {
         'AUTH_PARAMS': {
             'access_type': 'online',
         }
+    },
+    'telegram': {
+        'SCOPE': ['openid', 'profile'],
+        'OAUTH_PKCE_ENABLED': True,
     }
 }
 
@@ -746,6 +751,12 @@ def _load_telegram_api_id() -> int:
 SITE_BASE_URL = (os.environ.get('SITE_BASE_URL') or 'https://interoves.com').strip().rstrip('/')
 TELEGRAM_BOT_TOKEN = load_secret('telegram_bot_token.txt', env_var='TELEGRAM_BOT_TOKEN', default='')
 TELEGRAM_BOT_USERNAME = (os.environ.get('TELEGRAM_BOT_USERNAME') or 'interoves_bot').strip().lstrip('@')
+TELEGRAM_OIDC_CLIENT_ID = load_secret(
+    'telegram_oidc_client_id.txt', env_var='TELEGRAM_OIDC_CLIENT_ID', default=''
+)
+TELEGRAM_OIDC_CLIENT_SECRET = load_secret(
+    'telegram_oidc_client_secret.txt', env_var='TELEGRAM_OIDC_CLIENT_SECRET', default=''
+)
 TELEGRAM_ADMIN_CHAT_ID = _load_telegram_admin_chat_id()
 TELEGRAM_NOTIFY_CHAT_ID = TELEGRAM_ADMIN_CHAT_ID
 TELEGRAM_ANNOUNCE_CHAT_IDS = _load_telegram_announce_chat_ids()

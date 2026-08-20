@@ -65,7 +65,12 @@
                 <span class="new-proportions-compact-stat__paren">(</span>{{ n }} {{ n|ru_attempt_word }}{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }}{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
               </button>
               <div id="prop-attempts-{{ task.id }}" popover="auto" class="new-proportions-attempts-popover">
-                <div class="new-proportions-attempts-popover__title">Попытки</div>
+                <div class="new-proportions-attempts-popover__header">
+                  <div class="new-proportions-attempts-popover__title">Попытки</div>
+                  <button type="button" class="new-proportions-attempts-popover__close" popovertarget="prop-attempts-{{ task.id }}" popovertargetaction="hide" aria-label="Закрыть список попыток">
+                    <i class="ph ph-x" aria-hidden="true"></i>
+                  </button>
+                </div>
                 <div class="new-attempts__list new-proportions-attempts-popover__list">
                   {% for item in attempt_items %}
                   {% with a=item.attempt %}

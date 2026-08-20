@@ -324,6 +324,7 @@
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
         <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path %}">Войти через Google</a>
         <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' next=request.get_full_path %}">Войти через VK</a>
+        <a class="new-btn new-btn--ghost" href="{% url 'telegram_login' %}?next={{ request.get_full_path|urlencode }}">Войти через Telegram</a>
       </div>
       {% endif %}
       <p class="new-login-hint new-login-hint--flush-bottom">

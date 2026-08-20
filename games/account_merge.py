@@ -165,12 +165,12 @@ def _conflict_message(code):
     if code == 'telegram_identity_conflict':
         return 'К профилям привязаны разные подтверждённые Telegram-аккаунты для оплаты.'
     if code.startswith('provider:'):
-        provider = {'google': 'Google', 'vk': 'VK'}.get(
+        provider = {'google': 'Google', 'vk': 'VK', 'telegram': 'Telegram'}.get(
             code.partition(':')[2], code.partition(':')[2],
         )
         return 'К обоим профилям подключены разные аккаунты {}.'.format(provider)
     if code.startswith('multiple_provider:'):
-        provider = {'google': 'Google', 'vk': 'VK'}.get(
+        provider = {'google': 'Google', 'vk': 'VK', 'telegram': 'Telegram'}.get(
             code.partition(':')[2], code.partition(':')[2],
         )
         return 'В одном профиле уже несколько аккаунтов {} — нужна ручная проверка.'.format(provider)

@@ -4,6 +4,7 @@ from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.models import EmailAddress
 from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+from games.models import Profile
 from django.shortcuts import redirect
 
 from games.account_merge import stash_pending_account_merge
@@ -63,6 +64,24 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         # this project, and an unverified address is not proof of ownership.
         if sociallogin.is_existing:
             return
+
+        # A Telegram identity verified earlier through the bot-link flow is
+        # strong ownership proof. Reuse that profile when the first OIDC login
+        # arrives, instead of creating a second user without an email.
+        if sociallogin.account.provider == 'telegram':
+            try:
+                telegram_user_id = int(sociallogin.account.uid)
+            except (TypeError, ValueError):
+                telegram_user_id = None
+            if telegram_user_id is not None:
+                profile = Profile.objects.select_related('user').filter(
+                    telegram_user_id=telegram_user_id,
+                    telegram_verified=True,
+                    user__is_active=True,
+                ).first()
+                if profile is not None:
+                    sociallogin.connect(request, profile.user)
+                    return
 
         verified_emails = {
             (address.email or '').strip().lower()
