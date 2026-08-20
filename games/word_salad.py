@@ -18,12 +18,7 @@ def normalize_word(value):
 
 def parse_grid(value):
     if isinstance(value, (list, tuple)):
-        cells = []
-        for raw_cell in value:
-            letters = WORD_RE.findall(str(raw_cell or '').upper())
-            if len(letters) != 1:
-                raise ValueError('Каждая клетка сетки должна содержать ровно одну букву.')
-            cells.append(letters[0])
+        cells = list(value)
     else:
         cells = re.findall(r'[А-ЯЁA-Z]', (value or '').upper())
     if len(cells) != 16:

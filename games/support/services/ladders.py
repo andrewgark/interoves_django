@@ -31,7 +31,7 @@ from games.raddle import (
     length_label_from_word,
     validate_raddle_checker_data,
 )
-from games.support.services.schedule_links import delete_future_slot, renumber_links
+from games.support.services.schedule_links import delete_future_slot
 
 AUTHOR_TAG = 'author'
 _TITLE_RE = re.compile(r'^Лесенка\s*#\s*(\d+)\s*$', re.IGNORECASE)
@@ -139,7 +139,17 @@ def _sync_link_titles(link: GameTaskGroup, new_num: int) -> None:
 
 def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
     """Двухфазно выставить number = 1..N в порядке ordered_links."""
-    renumber_links(ordered_links, sync_link=_sync_link_titles)
+    if not ordered_links:
+        return
+    temp_base = 10_000
+    for i, link in enumerate(ordered_links):
+        new_num = i + 1
+        link.number = str(temp_base + i)
+        _sync_link_titles(link, new_num)
+        link.save(update_fields=['number', 'name'])
+    for i, link in enumerate(ordered_links):
+        link.number = str(i + 1)
+        link.save(update_fields=['number'])
 
 
 def _task_for_link(link: GameTaskGroup) -> Optional[Task]:

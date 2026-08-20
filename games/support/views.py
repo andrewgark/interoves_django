@@ -59,9 +59,9 @@ from games.support.services.word_salad import (
     create_word_salad,
     dashboard_context as word_salad_dashboard_context,
     delete_word_salad,
+    ensure_word_salad_game,
     get_word_salad_detail,
     list_word_salad_rows,
-    reorder_word_salads,
     update_word_salad,
 )
 from games.ladder_offer import (
@@ -121,21 +121,6 @@ def _json_body(request):
         return json.loads(request.body.decode('utf-8') or '{}')
     except (ValueError, TypeError, UnicodeDecodeError):
         return None
-
-
-def _ordered_ids_from_request(request):
-    body = _json_body(request)
-    if body is None:
-        raise ValueError('Некорректный JSON')
-    if not isinstance(body, dict):
-        raise ValueError('JSON должен быть объектом')
-    order = body.get('order')
-    if not isinstance(order, list):
-        raise ValueError('Нужен order: [link_id, …]')
-    try:
-        return [int(value) for value in order]
-    except (TypeError, ValueError) as exc:
-        raise ValueError('order должен быть списком int') from exc
 
 
 def _ladder_error_response(exc: LadderSupportError, status=400):
@@ -230,10 +215,7 @@ def sections_dashboard(request):
 def word_salad_dashboard(request):
     edit_raw = (request.GET.get('edit') or '').strip()
     edit_link_id = int(edit_raw) if edit_raw.isdigit() else None
-    try:
-        ctx = word_salad_dashboard_context(edit_link_id=edit_link_id)
-    except WordSaladSupportError as exc:
-        raise Http404(str(exc)) from exc
+    ctx = word_salad_dashboard_context(edit_link_id=edit_link_id)
     return render(request, 'support/word_salad.html', ctx)
 
 
@@ -241,68 +223,26 @@ def _word_salad_error_response(exc: WordSaladSupportError, status=400):
     return JsonResponse({'ok': False, 'error': str(exc)}, status=status)
 
 
-def _word_salad_body(request):
-    if request.content_type == 'application/json':
-        return _json_body(request)
-    return request.POST
-
-
 @support_console_required
 @require_POST
 def word_salad_create(request):
-    body = _word_salad_body(request)
-    if body is None:
-        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
-    at_number = body.get('at_number')
     try:
-        detail = create_word_salad(at_number=at_number if at_number not in (None, '') else None)
+        detail = create_word_salad()
     except WordSaladSupportError as exc:
         return _word_salad_error_response(exc)
     except Exception as exc:
         logger.exception('Word Salad create failed')
         return _word_salad_error_response(exc, status=500)
-    return JsonResponse({
-        'ok': True,
-        'item': detail,
-        'detail': detail,
-        'rows': [row.to_dict() for row in list_word_salad_rows()],
-    })
-
-
-@support_console_required
-@require_GET
-def word_salad_detail_json(request, link_id):
-    try:
-        detail = get_word_salad_detail(link_id)
-    except WordSaladSupportError as exc:
-        return _word_salad_error_response(exc, status=404)
-    return JsonResponse({'ok': True, 'item': detail, 'detail': detail})
-
-
-@support_console_required
-@require_POST
-def word_salad_reorder(request):
-    try:
-        ordered_ids = _ordered_ids_from_request(request)
-    except ValueError as exc:
-        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
-    try:
-        rows = reorder_word_salads(ordered_ids)
-    except WordSaladSupportError as exc:
-        return _word_salad_error_response(exc)
-    return JsonResponse({'ok': True, 'rows': [row.to_dict() for row in rows]})
+    return JsonResponse({'ok': True, 'detail': detail})
 
 
 @support_console_required
 @require_POST
 def word_salad_save(request, link_id):
-    body = _word_salad_body(request)
-    if body is None:
-        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
-    intro = str(body.get('intro') or '').strip()
-    grid_text = body.get('grid_text') or ''
-    words_text = body.get('words_text') or ''
-    name = body.get('name')
+    intro = (request.POST.get('intro') or '').strip()
+    grid_text = request.POST.get('grid_text') or ''
+    words_text = request.POST.get('words_text') or ''
+    name = request.POST.get('name')
     try:
         detail = update_word_salad(link_id, intro=intro, grid_text=grid_text, words_text=words_text, name=name)
     except WordSaladSupportError as exc:
@@ -310,25 +250,20 @@ def word_salad_save(request, link_id):
     except Exception as exc:
         logger.exception('Word Salad save failed link_id=%s', link_id)
         return _word_salad_error_response(exc, status=500)
-    return JsonResponse({
-        'ok': True,
-        'item': detail,
-        'detail': detail,
-        'rows': [row.to_dict() for row in list_word_salad_rows()],
-    })
+    return JsonResponse({'ok': True, 'detail': detail})
 
 
 @support_console_required
 @require_POST
 def word_salad_delete(request, link_id):
     try:
-        rows = delete_word_salad(link_id)
+        delete_word_salad(link_id)
     except WordSaladSupportError as exc:
         return _word_salad_error_response(exc)
     except Exception as exc:
         logger.exception('Word Salad delete failed link_id=%s', link_id)
         return _word_salad_error_response(exc, status=500)
-    return JsonResponse({'ok': True, 'rows': [row.to_dict() for row in rows]})
+    return JsonResponse({'ok': True})
 
 
 @support_console_required
@@ -683,10 +618,16 @@ def ladders_detail_json(request, link_id):
 @support_console_required
 @require_POST
 def ladders_reorder(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    order = body.get('order')
+    if not isinstance(order, list):
+        return JsonResponse({'ok': False, 'error': 'Нужен order: [link_id, …]'}, status=400)
     try:
-        ordered_ids = _ordered_ids_from_request(request)
-    except ValueError as exc:
-        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+        ordered_ids = [int(x) for x in order]
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'order должен быть списком int'}, status=400)
     try:
         rows = reorder_ladders(ordered_ids)
     except LadderSupportError as exc:
@@ -952,10 +893,16 @@ def alphabetty_detail_json(request, link_id):
 @support_console_required
 @require_POST
 def alphabetty_reorder(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    order = body.get('order')
+    if not isinstance(order, list):
+        return JsonResponse({'ok': False, 'error': 'Нужен order: [link_id, …]'}, status=400)
     try:
-        ordered_ids = _ordered_ids_from_request(request)
-    except ValueError as exc:
-        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+        ordered_ids = [int(x) for x in order]
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'order должен быть списком int'}, status=400)
     try:
         rows = reorder_alphabetty(ordered_ids)
     except AlphabettySupportError as exc:
@@ -1120,10 +1067,16 @@ def week_tasks_detail_json(request, link_id):
 @support_console_required
 @require_POST
 def week_tasks_reorder(request):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    order = body.get('order')
+    if not isinstance(order, list):
+        return JsonResponse({'ok': False, 'error': 'Нужен order: [link_id, …]'}, status=400)
     try:
-        ordered_ids = _ordered_ids_from_request(request)
-    except ValueError as exc:
-        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+        ordered_ids = [int(x) for x in order]
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'order должен быть списком int'}, status=400)
     try:
         rows = reorder_week_tasks(ordered_ids)
     except WeekTaskSupportError as exc:

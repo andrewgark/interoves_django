@@ -16,34 +16,6 @@ class ScheduleLinkError(Exception):
     """Ошибка удаления/перенумерации слота."""
 
 
-def renumber_links(
-    ordered_links: list[GameTaskGroup],
-    *,
-    sync_link: Callable[[GameTaskGroup, int], None] | None = None,
-) -> None:
-    """Двухфазно выставить номера 1..N, не меняя стабильные link id.
-
-    Первая фаза уводит все номера во временный свободный диапазон, чтобы не
-    нарушить unique(game, number). ``sync_link`` синхронизирует доменные
-    названия/labels с будущим публичным номером.
-    """
-    if not ordered_links:
-        return
-    occupied = {str(link.number) for link in ordered_links}
-    temp_base = 10_000
-    while any(str(temp_base + i) in occupied for i in range(len(ordered_links))):
-        temp_base += len(ordered_links) + 10_000
-    for i, link in enumerate(ordered_links):
-        new_num = i + 1
-        link.number = str(temp_base + i)
-        if sync_link is not None:
-            sync_link(link, new_num)
-        link.save(update_fields=['number', 'name'])
-    for i, link in enumerate(ordered_links):
-        link.number = str(i + 1)
-        link.save(update_fields=['number'])
-
-
 def cascade_delete_link(link: GameTaskGroup) -> None:
     """Удалить связку GameTaskGroup → TaskGroup → Task.
 

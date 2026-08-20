@@ -2,82 +2,90 @@
 {% load static %}
 
 {% block support_content %}
-{% csrf_token %}
-{{ rows_json|json_script:"word-salad-bootstrap" }}
-<h1 class="support-page-title">Словесный салат</h1>
-<p class="support-lead">
-  Выпуски идут по публичным номерам. Перетаскивание меняет номер, но сохраняет
-  внутренний id. Все 16 клеток корректного салата должны быть необходимы хотя
-  бы для одного слова.
-</p>
+<h1 class="support-page-title">Словесный Салат</h1>
+<p class="support-lead">Скрытый support-редактор для Word Salad. Здесь можно создавать, править и сразу проверять задачи.</p>
 
 <div class="support-links">
   <a href="{% url 'support:sections' %}">Разделы</a>
   <a href="{% url 'support:game' 'word_salad' %}">Game dashboard</a>
 </div>
 
-<section class="pal-card support-card support-ladders-toolbar">
-  <div class="support-ladders-toolbar__row">
-    <button type="button" class="new-btn new-btn--mini" data-insert-end>+ Создать салат</button>
-    <span class="support-hint support-ladders-toolbar__meta" id="word-salad-meta">
-      Всего {{ rows|length }}
-    </span>
-  </div>
-  <p class="support-hint support-hint--after">
-    Перетаскивайте выпуски за ⠿. «+» между карточками вставляет новый салат в выбранную позицию.
-  </p>
-</section>
-
 <section class="pal-card support-card">
-  <div
-    class="support-ladder-list support-schedule-list"
-    id="word-salad-list"
-    aria-label="Список выпусков Словесного салата"
-    data-create-url="{% url 'support:word_salad_create' %}"
-    data-reorder-url="{% url 'support:word_salad_reorder' %}"
-    data-detail-url="{% url 'support:word_salad_detail' 0 %}"
-    data-save-url="{% url 'support:word_salad_save' 0 %}"
-    data-delete-url="{% url 'support:word_salad_delete' 0 %}"
-    data-initial-edit="{% if detail %}{{ detail.link_id }}{% endif %}"
-  ></div>
-  <div class="support-ladder-insert support-ladder-insert--end">
-    <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-insert-end>+ В конец</button>
+  <div class="support-action-row support-action-row--mt-sm">
+    <form id="word-salad-create-form" method="post" action="{% url 'support:word_salad_create' %}">
+      {% csrf_token %}
+      <button type="submit" class="new-btn">+ Создать тестовый салат</button>
+    </form>
+  </div>
+  <div class="support-table-wrap">
+    <table class="support-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Название</th>
+          <th>Сетка</th>
+          <th>Слова</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td class="support-cell-mono">{{ row.number }}</td>
+            <td>
+              <strong>{{ row.name }}</strong>
+              <div class="support-results-list__detail">id {{ row.link_id }} · task {{ row.task_id|default:"—" }}</div>
+            </td>
+            <td class="support-cell-mono">{{ row.grid_preview }}</td>
+            <td class="support-cell-detail">{{ row.words_preview }}</td>
+            <td>
+              <div class="support-action-row">
+                <a href="?edit={{ row.link_id }}" class="new-btn new-btn--mini new-btn--ghost">редактировать</a>
+                <a href="{{ row.preview_url }}" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost">проверить</a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5"><p class="support-empty">Пока нет Word Salad задач. Нажмите «Создать тестовый салат».</p></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </section>
 
-<div id="word-salad-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="word-salad-edit-title" aria-modal="true" hidden>
-  <div class="new-rules-overlay" data-word-salad-close></div>
-  <div class="new-rules-modal__box pal-card support-ladder-modal">
-    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-word-salad-close>×</button>
-    <h2 id="word-salad-edit-title" class="support-page-title support-page-title--modal">Редактирование</h2>
-    <p class="support-hint" id="word-salad-edit-sub"></p>
-    <label class="support-ladders-field">
-      <span>Название</span>
-      <input type="text" id="word-salad-edit-name" autocomplete="off" maxlength="100">
-    </label>
-    <label class="support-ladders-field support-ladders-field--spaced">
-      <span>Вступление</span>
-      <textarea id="word-salad-edit-intro" rows="3"></textarea>
-    </label>
-    <label class="support-ladders-field support-ladders-field--spaced">
-      <span>Сетка 4×4</span>
-      <textarea id="word-salad-edit-grid" class="support-word-salad-grid-input" rows="4" spellcheck="false" placeholder="А Б В Г&#10;Д Е Ж З&#10;И К Л М&#10;Н О П Р"></textarea>
-    </label>
-    <p class="support-hint">Четыре строки по четыре буквы или 16 букв подряд; соседство учитывает диагонали, клетку нельзя использовать дважды в одном слове.</p>
-    <label class="support-ladders-field support-ladders-field--spaced">
-      <span>Слова — по одному на строку</span>
-      <textarea id="word-salad-edit-words" rows="8" spellcheck="false"></textarea>
-    </label>
-    <p class="support-hint support-ladder-edit-error" id="word-salad-edit-error" role="alert" hidden></p>
-    <div class="support-action-row support-action-row--mt">
-      <button type="button" class="new-btn" id="word-salad-edit-save">Сохранить</button>
-      <button type="button" class="new-btn new-btn--ghost" data-word-salad-close>Отмена</button>
-      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="word-salad-edit-preview">открыть на сайте</a>
-      <button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" id="word-salad-edit-delete">удалить</button>
-    </div>
-  </div>
-</div>
+{% if detail %}
+  <section class="pal-card support-card">
+    <h2 class="pal-title">Редактирование #{{ detail.number }}</h2>
+    <p class="support-hint">ID {{ detail.link_id }} · {{ detail.words_count }} слов</p>
+    <form id="word-salad-edit-form" method="post" action="{% url 'support:word_salad_save' detail.link_id %}" data-delete-url="{% url 'support:word_salad_delete' detail.link_id %}">
+      {% csrf_token %}
+      <label class="support-ladders-field support-ladders-field--spaced">
+        Название
+        <input type="text" name="name" value="{{ detail.name|default:'' }}">
+      </label>
+      <label class="support-ladders-field support-ladders-field--spaced">
+        Вступление
+        <textarea name="intro" rows="4">{{ detail.intro|default:'' }}</textarea>
+      </label>
+      <label class="support-ladders-field support-ladders-field--spaced">
+        Сетка
+        <textarea name="grid_text" rows="5">{{ detail.grid_text|default:'' }}</textarea>
+      </label>
+      <label class="support-ladders-field support-ladders-field--spaced">
+        Слова
+        <textarea name="words_text" rows="8">{{ detail.words_text|default:'' }}</textarea>
+      </label>
+      <div class="support-action-row support-action-row--mt">
+        <button type="submit" class="new-btn">Сохранить</button>
+        <a href="{{ detail.preview_url }}" target="_blank" rel="noopener" class="new-btn new-btn--ghost">Проверить</a>
+        <button type="button" class="new-btn new-btn--ghost" id="word-salad-delete-btn">Удалить</button>
+      </div>
+      <p class="support-hint support-ladder-edit-error" id="word-salad-edit-error" hidden></p>
+    </form>
+  </section>
+{% endif %}
 
-<script src="{% static 'js/support_schedule_tabs.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/support_word_salad.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endblock %}
