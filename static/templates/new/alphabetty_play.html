@@ -58,6 +58,8 @@
      data-state-url="{{ state_url }}"
      data-prefix-url="{{ prefix_url }}"
      data-hint-url="{{ hint_url }}"
+     data-hint-penalty="{{ alphabetty_hint_penalty }}"
+     data-hint-points-word="{{ alphabetty_hint_penalty|ru_points_word }}"
      data-suggest-url="{{ suggest_url }}"
      data-anon-key="{{ anon_key|default:'' }}"
      data-authenticated="{% if is_authenticated %}1{% else %}0{% endif %}">
@@ -145,7 +147,10 @@
   </div>
 </div>
 
+{% include "new/_hint_confirm_modal.html" %}
+
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
+<script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script>
 (function () {
   var root = document.getElementById('alphabetty-root');
@@ -154,6 +159,9 @@
   var stateUrl = root.getAttribute('data-state-url');
   var prefixUrl = root.getAttribute('data-prefix-url');
   var hintUrl = root.getAttribute('data-hint-url');
+  var hintPenalty = root.getAttribute('data-hint-penalty') || '0';
+  var hintPointsWord = root.getAttribute('data-hint-points-word') || '';
+  var hintConfirm = window.InterovesHintConfirm.create();
   var suggestUrl = root.getAttribute('data-suggest-url');
   var isAuthenticated = root.getAttribute('data-authenticated') === '1';
   var serverAnon = root.getAttribute('data-anon-key') || '';
@@ -953,47 +961,57 @@
       .finally(function () { busy = false; updateHintButton(); });
   }
 
+  function takeAlphabettyHint() {
+    if (busy || state.won || !state.next_hint_letter || !hintUrl) return;
+    busy = true;
+    updateHintButton();
+    showMsg('');
+    stateGen += 1;
+    var headers = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrf(),
+      'Accept': 'application/json'
+    };
+    if (anonKey) headers['X-Interoves-Anon'] = anonKey;
+    fetch(hintUrl, {
+      method: 'POST',
+      headers: headers,
+      credentials: 'same-origin',
+      body: JSON.stringify({ anon_key: anonKey })
+    })
+      .then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok && data && data.status === 'error') throw new Error(data.error || 'Ошибка');
+          return data;
+        });
+      })
+      .then(function (data) {
+        flushAnalyticsEvents(data && data.analytics_events);
+        if (data.status === 'error') {
+          showMsg(data.error || 'Ошибка', 'error');
+          return;
+        }
+        if (data.status === 'no_more_hints') {
+          showMsg(data.error || 'Больше нет подсказок', 'error');
+          return;
+        }
+        expanded = {};
+        applyState(data);
+        if (data.hint_reveal) showHintReveal(data.hint_reveal);
+      })
+      .catch(function (e) { showMsg((e && e.message) || 'Сеть недоступна', 'error'); })
+      .finally(function () { busy = false; updateHintButton(); });
+  }
+
   if (elHint) {
     elHint.addEventListener('click', function () {
       if (busy || state.won || !state.next_hint_letter || !hintUrl) return;
-      busy = true;
-      updateHintButton();
-      showMsg('');
-      stateGen += 1;
-      var headers = {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrf(),
-        'Accept': 'application/json'
-      };
-      if (anonKey) headers['X-Interoves-Anon'] = anonKey;
-      fetch(hintUrl, {
-        method: 'POST',
-        headers: headers,
-        credentials: 'same-origin',
-        body: JSON.stringify({ anon_key: anonKey })
-      })
-        .then(function (r) {
-          return r.json().then(function (data) {
-            if (!r.ok && data && data.status === 'error') throw new Error(data.error || 'Ошибка');
-            return data;
-          });
-        })
-        .then(function (data) {
-          flushAnalyticsEvents(data && data.analytics_events);
-          if (data.status === 'error') {
-            showMsg(data.error || 'Ошибка', 'error');
-            return;
-          }
-          if (data.status === 'no_more_hints') {
-            showMsg(data.error || 'Больше нет подсказок', 'error');
-            return;
-          }
-          expanded = {};
-          applyState(data);
-          if (data.hint_reveal) showHintReveal(data.hint_reveal);
-        })
-        .catch(function (e) { showMsg((e && e.message) || 'Сеть недоступна', 'error'); })
-        .finally(function () { busy = false; updateHintButton(); });
+      hintConfirm.open({
+        penalty: hintPenalty,
+        pointsWord: hintPointsWord,
+        trigger: elHint,
+        onConfirm: takeAlphabettyHint,
+      });
     });
   }
 

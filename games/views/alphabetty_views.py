@@ -15,6 +15,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from games.alphabetty.core import build_prefix_level, normalize_word
 from games.alphabetty_offer import can_access_offer_hash, get_offer_by_share_hash
 from games.alphabetty.play import (
+    ALPHABETTY_HINT_PENALTY,
     apply_guess,
     apply_hint,
     get_play_state,
@@ -365,6 +366,7 @@ def alphabetty_play_page(request, number):
         'state_url': f'{play_path}state/',
         'prefix_url': f'{play_path}prefix/',
         'hint_url': f'{play_path}hint/',
+        'alphabetty_hint_penalty': ALPHABETTY_HINT_PENALTY,
         'suggest_url': f'{play_path}suggest/',
         'anon_key': anon_key if user is None else '',
         'is_authenticated': bool(user),

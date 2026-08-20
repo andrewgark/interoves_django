@@ -203,6 +203,12 @@ function submitAttemptForm(event) {
 
 function submitHintAttemptForm(event) {
   event.preventDefault();
+  var penalty = $(this).children('.hint-penalty').first().val() || '0';
+  var pointsWord = $(this).children('.hint-points-word').first().val() || '';
+  var confirmText = window.InterovesHintConfirm
+    ? 'Использовать подсказку?\n\n' + window.InterovesHintConfirm.message(penalty, pointsWord)
+    : 'Использовать подсказку?';
+  if (!window.confirm(confirmText)) return;
   var task_id = $(this).children(".hint-task-id")[0].value;
   var hint_number = $(this).children(".hint-number")[0].value;
   

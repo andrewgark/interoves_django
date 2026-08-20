@@ -51,7 +51,8 @@
                     <input type="hidden" name="game_id" value="{{ game.id }}">
                     <input type="hidden" name="hint_number" value="{{ hint.number }}">
                     <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
-                    <input type="hidden" name="__ui_hint_penalty" value="{{ hint.points_penalty }}">
+                    <input type="hidden" name="__ui_hint_penalty" value="{% if ai.is_solved %}0{% else %}{{ hint.points_penalty }}{% endif %}">
+                    <input type="hidden" name="__ui_hint_points_word" value="{% if ai.is_solved %}баллов{% else %}{{ hint.points_penalty|ru_points_word }}{% endif %}">
                     <input type="hidden" name="__ui_base_max" value="{{ task_ui.base_max|minimize_digits }}">
                     <input type="hidden" name="__ui_current_penalty" value="{{ ai.get_sum_hint_penalty|minimize_digits }}">
                     <button type="submit" class="new-btn new-btn--ghost new-btn--mini">Показать подсказку</button>

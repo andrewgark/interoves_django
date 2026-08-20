@@ -94,6 +94,8 @@ class WordSaladTests(TestCase):
             _puzzle()['grid'],
             ['PONM', 'ABCD', 'IJK'],
         )
+        self.assertEqual(str(context['word_points']), '1')
+        self.assertEqual(str(context['hint_penalty']), '0.5')
         self.assertEqual(
             [word['normalized'] for word in context['words']],
             ['ABCD', 'IJK', 'PONM'],

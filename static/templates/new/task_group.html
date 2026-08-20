@@ -252,18 +252,7 @@
   </div>
 </div>
 
-<div id="new-hint-confirm-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-hint-confirm-title" aria-modal="true" hidden>
-  <div class="new-rules-overlay" data-hint-confirm-close></div>
-  <div class="new-rules-modal__box pal-card">
-    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-hint-confirm-close><i class="ph ph-x" aria-hidden="true"></i></button>
-    <h2 id="new-hint-confirm-title" class="pal-title">Вы уверены?</h2>
-    <div id="new-hint-confirm-text" class="new-login-hint new-modal-lead"></div>
-    <div class="new-rules-modal__actions">
-      <button type="button" class="new-btn" data-hint-confirm-yes>Взять подсказку</button>
-      <button type="button" class="new-btn new-btn--text" data-hint-confirm-close>Отмена</button>
-    </div>
-  </div>
-</div>
+{% include "new/_hint_confirm_modal.html" %}
 
 <div id="new-repl-line-confirm-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-repl-line-confirm-title" aria-describedby="new-repl-line-confirm-preview-block" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-repl-line-confirm-close></div>
@@ -306,6 +295,7 @@
 <script src="{% static 'js/imask.min.js' %}"></script>
 <script src="{% static 'js/raddle_masked_input.js' %}"></script>
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
+<script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script>
 (function () {
   var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';
@@ -313,6 +303,7 @@
   var ANON_KEY_NAME = 'interoves_anon_key';
   var ANON_COOKIE_NAME = 'interoves_anon';
   var anonKeyMem = null;
+  var hintConfirm = window.InterovesHintConfirm.create();
   function genAnonKey() {
     try {
       if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -1695,8 +1686,9 @@
           }
           return;
         }
-        // Пока пин виден — пишем в него, а не в уехавшую настоящую форму.
-        maybeStealRaddleFocusToPin(input, letters);
+        // Отражаем ввод в sticky-клоне, но сохраняем исходный DOM-фокус.
+        // Перевод фокуса на новый input закрывает IME на части Android-устройств.
+        syncRaddlePinFromRealInput(input, letters);
         saveRaddleDraftLetters(input, letters);
         if (input.getAttribute('data-raddle-auto') !== '1') return;
         var row = input.closest('.new-raddle-row');
@@ -1720,7 +1712,7 @@
           }
           return;
         }
-        maybeStealRaddleFocusToPin(input, letters);
+        syncRaddlePinFromRealInput(input, letters);
         saveRaddleDraftLetters(input, letters);
         if (input.getAttribute('data-raddle-auto') !== '1') return;
         submitRaddleAuto(input, letters);
@@ -1753,7 +1745,7 @@
     }
   }
 
-  function maybeStealRaddleFocusToPin(realInput, letters) {
+  function syncRaddlePinFromRealInput(realInput, letters) {
     if (!realInput || realInput.getAttribute('data-raddle-pin-proxy') === '1') return false;
     var taskRoot = realInput.closest('.new-raddle-task');
     var pin = taskRoot && taskRoot.querySelector('.new-raddle-sticky-pin.is-active');
@@ -1764,7 +1756,6 @@
     if (!proxy) return false;
     var letterVal = letters != null ? letters : getRaddleInputLetters(realInput);
     softSetRaddleLetters(proxy, letterVal);
-    if (document.activeElement !== proxy) focusPreventScroll(proxy);
     return true;
   }
 
@@ -1776,10 +1767,10 @@
       var proxy = formId && pin.querySelector('input[data-raddle-pin-for="' + formId + '"]');
       if (proxy) {
         softSetRaddleLetters(proxy, getRaddleInputLetters(realInput));
-        focusPreventScroll(proxy);
-        return;
       }
     }
+    // После server re-render старого input уже нет, поэтому фокус нужен заново.
+    // Привязываем IME к настоящему полю; sticky-клон только зеркалирует значение.
     focusPreventScroll(realInput);
   }
 
@@ -1811,7 +1802,9 @@
     if (assistForm) {
       if (!assistForm.closest('.new-taskgrid') && !assistForm.closest('.new-proportions-sheet')) return;
       e.preventDefault();
-      postRaddleAssistForm(assistForm);
+      confirmHintForm(assistForm, function () {
+        postRaddleAssistForm(assistForm);
+      }, e.submitter);
       return;
     }
     var form = e.target && e.target.closest ? e.target.closest('form.new-attempt-form') : null;
@@ -2306,6 +2299,20 @@
     });
   });
 
+  function hintFormValue(form, name, fallback) {
+    var input = form && form.querySelector('input[name="' + name + '"]');
+    return input ? input.value : fallback;
+  }
+
+  function confirmHintForm(form, onConfirm, trigger) {
+    hintConfirm.open({
+      penalty: hintFormValue(form, '__ui_hint_penalty', '0'),
+      pointsWord: hintFormValue(form, '__ui_hint_points_word', ''),
+      trigger: trigger || (form && form.querySelector('button[type="submit"], input[type="submit"]')),
+      onConfirm: onConfirm,
+    });
+  }
+
   document.addEventListener('submit', function (e) {
     var form = e.target && e.target.closest ? e.target.closest('form.new-hint-form') : null;
     // Обычные задания: форма внутри .new-taskcard; пропорции: подсказки в таблице .new-proportions-matrix без .new-taskcard.
@@ -2314,65 +2321,10 @@
       (form.closest('.new-taskcard') || form.closest('.new-proportions-matrix'));
     if (!form || !inNewUi) return;
     e.preventDefault();
-    if (form.classList.contains('new-word-salad__hint-form')) {
+    confirmHintForm(form, function () {
       postForm(form);
-      return;
-    }
-    var taskCard =
-      form.closest('.new-taskcard') || form.closest('.new-proportions-matrix__meta-row');
-    var isSolved = taskCard && taskCard.getAttribute('data-solved') === '1';
-    if (isSolved) {
-      postForm(form);
-      return;
-    }
-    var modal = document.getElementById('new-hint-confirm-modal');
-    var box = document.getElementById('new-hint-confirm-text');
-    if (!modal || !box) {
-      postForm(form);
-      return;
-    }
-    function normNumberString(s) {
-      s = String(s || '').trim().replace(',', '.');
-      if (!s) return '0';
-      if (s.indexOf('.') !== -1) {
-        s = s.replace(/0+$/g, '').replace(/\.$/g, '');
-      }
-      return s || '0';
-    }
-    function toNum(s) {
-      var n = Number(String(s || '').trim().replace(',', '.'));
-      return isFinite(n) ? n : 0;
-    }
-
-    var penaltyEl = form.querySelector('input[name="__ui_hint_penalty"]');
-    var penaltyRaw = penaltyEl ? normNumberString(penaltyEl.value) : '0';
-    var penalty = toNum(penaltyRaw);
-    if (!isFinite(penalty)) penalty = 0;
-    box.textContent = 'Подсказка стоит ' + penaltyRaw + ' ' + (penalty === 1 ? 'балл' : 'балла') + '.';
-    modal.removeAttribute('hidden');
-    modal.classList.add('is-open');
-    document.body.style.overflow = 'hidden';
-    var yes = modal.querySelector('[data-hint-confirm-yes]');
-    if (yes) {
-      yes.onclick = function () {
-        modal.setAttribute('hidden', '');
-        modal.classList.remove('is-open');
-        document.body.style.overflow = '';
-        postForm(form);
-      };
-    }
+    }, e.submitter);
   }, true);
-
-  function closeHintConfirm() {
-    var m = document.getElementById('new-hint-confirm-modal');
-    if (!m) return;
-    m.setAttribute('hidden', '');
-    m.classList.remove('is-open');
-    document.body.style.overflow = '';
-  }
-  document.querySelectorAll('[data-hint-confirm-close]').forEach(function (el) {
-    el.addEventListener('click', closeHintConfirm);
-  });
 
   function initReplacementsLinesStorage(root) {
     var scope = root || document;
@@ -2694,7 +2646,8 @@
       var proxy = pin.querySelector('input[data-raddle-pin-for="' + formId + '"]');
       if (!proxy) return;
       softSetRaddleLetters(proxy, getRaddleInputLetters(active));
-      focusPreventScroll(proxy);
+      // Не переводим фокус на свежий cloneNode во время resize/scroll:
+      // Android может воспринять это как завершение текущей сессии IME.
       return;
     }
     if (active.getAttribute('data-raddle-pin-proxy') !== '1') return;
@@ -2766,11 +2719,13 @@
     if (!tbody) return;
     var rows = getRaddleStickySourceRows(taskRoot);
     var keepFocus = null;
+    var keepFocusWasProxy = false;
     var keepLetters = null;
     var active = document.activeElement;
     if (active && active.getAttribute) {
       if (active.getAttribute('data-raddle-pin-proxy') === '1' && pin.contains(active)) {
         keepFocus = active.getAttribute('data-raddle-pin-for');
+        keepFocusWasProxy = true;
         keepLetters = getRaddleInputLetters(active);
       } else if (
         active.classList &&
@@ -2797,11 +2752,12 @@
       if (realRestore && keepLetters != null) softSetRaddleLetters(realRestore, keepLetters);
     }
     updateRaddleStickyPinVisibility(taskRoot);
-    // После пересборки DOM вернуть фокус: proxy, если пин активен, иначе real.
-    if (restoreFocus && pin.classList.contains('is-active')) {
+    // Пересборка удаляет только proxy. Настоящее поле не перефокусируем:
+    // лишний focus() во время Android IME может закрыть клавиатуру.
+    if (restoreFocus && keepFocusWasProxy && pin.classList.contains('is-active')) {
       var proxyBack = pin.querySelector('input[data-raddle-pin-for="' + keepFocus + '"]');
       if (proxyBack && document.activeElement !== proxyBack) focusPreventScroll(proxyBack);
-    } else if (restoreFocus && !pin.classList.contains('is-active')) {
+    } else if (restoreFocus && keepFocusWasProxy && !pin.classList.contains('is-active')) {
       var realBack = document.querySelector(
         'input.new-raddle-input[name="word"][form="' + keepFocus + '"]'
       );
@@ -2925,7 +2881,7 @@
     if (!row || !taskRoot) return;
     if (row.getAttribute('data-raddle-pin-row') === '1') return;
     setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
-    maybeStealRaddleFocusToPin(input);
+    syncRaddlePinFromRealInput(input);
   });
 
   document.addEventListener('keydown', function (e) {

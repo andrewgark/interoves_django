@@ -1,5 +1,5 @@
 {% load filters %}
-<div class="new-word-salad" data-word-salad-root data-task-id="{{ task.id }}">
+<div class="new-word-salad" data-word-salad-root data-task-id="{{ task.id }}" data-word-points="{{ ws.word_points|minimize_digits }}" data-hint-penalty="{{ ws.hint_penalty|minimize_digits }}">
   {% if task.text %}
     <div class="new-word-salad__intro">{% autoescape off %}{{ task.text }}{% endautoescape %}</div>
   {% endif %}
@@ -64,6 +64,8 @@
                 <input type="hidden" name="action" value="hint">
                 <input type="hidden" name="word_index" value="{{ word.index }}">
                 <input type="hidden" name="hint_number" value="{{ word.next_hint_number }}">
+                <input type="hidden" name="__ui_hint_penalty" value="{{ ws.hint_penalty|minimize_digits }}">
+                <input type="hidden" name="__ui_hint_points_word" value="{{ ws.hint_penalty|ru_points_word }}">
                 <button type="submit" class="new-word-salad__hint-btn" title="Узнать {{ word.next_hint_number }} букву" aria-label="Узнать {{ word.next_hint_number }} букву"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
               </form>
               {% endif %}

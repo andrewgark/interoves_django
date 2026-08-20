@@ -48,9 +48,9 @@
               {% if row.is_solved and not row.is_given %}
               <div class="new-raddle-actions">
                 {% if row.assist_tier >= 2 %}
-                <span class="new-replacements-check-btn new-replacements-check-btn--done new-raddle-check--tier2" title="Открыто ответом (0 баллов)"><i class="ph ph-check" aria-hidden="true"></i></span>
+                <span class="new-replacements-check-btn new-replacements-check-btn--done new-raddle-check--tier2" title="Открыто ответом ({{ row.assist_credit|minimize_digits }} {{ row.assist_credit|ru_points_word }})"><i class="ph ph-check" aria-hidden="true"></i></span>
                 {% elif row.assist_tier == 1 %}
-                <span class="new-replacements-check-btn new-replacements-check-btn--done new-raddle-check--tier1" title="Решено с подсказкой (0.5 балла)"><i class="ph ph-check" aria-hidden="true"></i></span>
+                <span class="new-replacements-check-btn new-replacements-check-btn--done new-raddle-check--tier1" title="Решено с подсказкой ({{ row.assist_credit|minimize_digits }} {{ row.assist_credit|ru_points_word }})"><i class="ph ph-check" aria-hidden="true"></i></span>
                 {% else %}
                 <span class="new-replacements-check-btn new-replacements-check-btn--done" title="Верно (полный балл)"><i class="ph ph-check" aria-hidden="true"></i></span>
                 {% endif %}
@@ -77,6 +77,8 @@
                   <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                   <input type="hidden" name="word_index" value="{{ row.index }}">
                   <input type="hidden" name="tier" value="1">
+                  <input type="hidden" name="__ui_hint_penalty" value="{{ row.assist_next_penalty|minimize_digits }}">
+                  <input type="hidden" name="__ui_hint_points_word" value="{{ row.assist_next_penalty|ru_points_word }}">
                   <button type="submit" class="new-raddle-assist-btn" title="Показать подсказку к этому слову" aria-label="Показать подсказку"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
                 </form>
                 {% elif row.can_answer_assist %}
@@ -86,6 +88,8 @@
                   <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                   <input type="hidden" name="word_index" value="{{ row.index }}">
                   <input type="hidden" name="tier" value="2">
+                  <input type="hidden" name="__ui_hint_penalty" value="{{ row.assist_next_penalty|minimize_digits }}">
+                  <input type="hidden" name="__ui_hint_points_word" value="{{ row.assist_next_penalty|ru_points_word }}">
                   <button type="submit" class="new-raddle-assist-btn new-raddle-assist-btn--answer" title="Показать слово" aria-label="Показать слово"><i class="ph ph-lightbulb" aria-hidden="true"></i><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
                 </form>
                 {% endif %}

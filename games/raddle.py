@@ -321,6 +321,20 @@ def word_solve_credit(tier, assist_config):
         return Decimal(str(DEFAULT_RADDLE_ASSIST_FRACTIONS[idx]))
 
 
+def assist_penalty_for_tier(tier, assist_config):
+    """Сколько баллов снимает переход на указанный тир подсказки."""
+    try:
+        tier = int(tier)
+    except (TypeError, ValueError):
+        tier = 0
+    if tier <= 0:
+        from decimal import Decimal
+        return Decimal('0')
+    before = word_solve_credit(tier - 1, assist_config)
+    after = word_solve_credit(tier, assist_config)
+    return max(before - after, before * 0)
+
+
 def resolve_assist_tiers(state, hint_attempts=None):
     """word_index → tier (0..2) из chain state и HintAttempt."""
     tiers = {}
@@ -1149,6 +1163,8 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             ),
             'attempts': word_attempts[i],
             'assist_tier': tier,
+            'assist_credit': word_solve_credit(tier, assist_cfg),
+            'assist_next_penalty': assist_penalty_for_tier(tier + 1, assist_cfg),
             'revealed_answer': canon if tier >= 2 and not is_solved else '',
             'clue_hint_index': clue_hi,
             # 💡 всегда видна на playable: первый раз берёт подсказку, далее только подсвечивает

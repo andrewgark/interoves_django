@@ -31,6 +31,8 @@
               {% csrf_token %}
               <input type="hidden" class="hint-task-id" name="variable" value="{{ task.id }}">
               <input type="hidden" class="hint-number" name="variable" value="{{ hint.number }}">
+              <input type="hidden" class="hint-penalty" value="{% if attempts_info.is_solved %}0{% else %}{{ hint.points_penalty }}{% endif %}">
+              <input type="hidden" class="hint-points-word" value="{% if attempts_info.is_solved %}баллов{% else %}{{ hint.points_penalty|ru_points_word }}{% endif %}">
               {% if attempts_info|all_not_taken_required_hints:hint %}
                   Подсказка доступна только после {{ attempts_info|all_not_taken_required_hints:hint }}.
               {% else %}

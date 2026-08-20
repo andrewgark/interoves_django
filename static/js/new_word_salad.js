@@ -61,6 +61,10 @@
       var pathSvg = root.querySelector('[data-word-salad-path-svg]');
       var pathLine = root.querySelector('[data-word-salad-path-line]');
       var solvedEl = root.querySelector('[data-word-salad-solved]');
+      var wordPoints = Number(root.getAttribute('data-word-points'));
+      if (!isFinite(wordPoints) || wordPoints < 0) wordPoints = 0;
+      var hintPenalty = Number(root.getAttribute('data-hint-penalty'));
+      if (!isFinite(hintPenalty) || hintPenalty < 0) hintPenalty = 0;
       var isPreview = !!root.closest('.support-preview-readonly');
       var storageKey = isPreview ? previewStorageKey(root) : '';
 
@@ -253,7 +257,7 @@
         var hintTotal = Object.keys(state.hint_counts).reduce(function (total, index) {
           return total + (parseInt(state.hint_counts[index], 10) || 0);
         }, 0);
-        var points = Math.max(0, state.solved_indices.length - hintTotal * 0.5);
+        var points = Math.max(0, state.solved_indices.length * wordPoints - hintTotal * hintPenalty);
         var card = root.closest('.new-taskcard');
         var value = card && card.querySelector('.new-proportions-compact-points-pill .new-proportions-compact-stat__nums');
         if (value) value.textContent = String(points).replace('.', ',');

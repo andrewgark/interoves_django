@@ -304,6 +304,8 @@ def build_ui_context(grid, words, state=None):
     return {
         'grid_rows': grid_rows,
         'words': words_ui,
+        'word_points': WORD_POINTS,
+        'hint_penalty': HINT_PENALTY,
         'solved_indices': sorted(solved),
         'hints': sorted(index for index, count in hint_counts.items() if count > 0),
         'hint_counts': hint_counts,

@@ -5,6 +5,7 @@ from django.test import SimpleTestCase, TestCase
 from games.check import RaddleChecker
 from games.models import Attempt, CHAIN_TASK_TYPES, Task
 from games.raddle import (
+    assist_penalty_for_tier,
     build_raddle_ui_context,
     clue_display_for_hint,
     default_raddle_state,
@@ -419,6 +420,20 @@ class RaddleCheckerTests(SimpleTestCase):
 
 
 class RaddleUiContextTests(SimpleTestCase):
+    def test_assist_penalties_follow_configured_fractions(self):
+        parsed = parse_raddle_data(_task(checker_data=json.dumps({
+            **PARIS_LADDER,
+            'raddle_assist': {'enabled': True, 'fractions': [1, 0.4, 0]},
+        }, ensure_ascii=False)))
+        ctx = build_raddle_ui_context(parsed, default_raddle_state(13))
+        playable = next(row for row in ctx['rows'] if row['is_playable'])
+        self.assertEqual(str(playable['assist_credit']), '1.0')
+        self.assertEqual(str(playable['assist_next_penalty']), '0.6')
+        self.assertEqual(
+            str(assist_penalty_for_tier(2, parsed['assist'])),
+            '0.4',
+        )
+
     def test_unused_hints_sorted(self):
         parsed = parse_raddle_data(_task())
         ctx = build_raddle_ui_context(parsed, default_raddle_state(13))
