@@ -189,7 +189,7 @@ def build_daily_digest(since=None) -> str:
         '<b>Регистрации и оплаты</b>',
         'Регистрации на игры: {}'.format(stats['registrations']),
         'Новые аккаунты: {}'.format(stats['new_accounts']),
-        'Билеты: {} pending · {} accepted · {} RUB · {} AMD'.format(
+        'Билеты: {} pending · {} accepted · {} RUB · {} ֏'.format(
             stats['tickets_pending'],
             stats['tickets_accepted'],
             stats['tickets_revenue'],

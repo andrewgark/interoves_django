@@ -224,13 +224,13 @@ class TributeDigitalProductTests(TestCase):
         response = self.http.get(reverse('new_pay'))
         body = response.content.decode()
         self.assertIn('Международная карта через Tribute', body)
-        self.assertIn('15 EUR', body)
+        self.assertIn('15 €', body)
         self.assertIn('Telegram подтвержден', body)
         self.assertIn('При входе через email начисление может потребовать ручной проверки', body)
 
         self.http.force_login(self.unlinked)
         response = self.http.get(reverse('new_pay'))
-        self.assertIn('Сначала привяжите Telegram', response.content.decode())
+        self.assertIn('привяжите Telegram', response.content.decode())
 
     def test_linked_user_creates_and_reuses_single_intent(self):
         first, intent = self._create_intent()

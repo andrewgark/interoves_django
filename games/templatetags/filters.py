@@ -35,6 +35,15 @@ def get_item(dictionary, key):
 
 
 @register.filter
+def currency_symbol(currency):
+    """Use familiar symbols in UI while keeping ISO codes in payment data."""
+    return {
+        'AMD': '֏',
+        'EUR': '€',
+    }.get(str(currency or '').upper(), currency or '')
+
+
+@register.filter
 def order_by(queryset, args):
     args = [x.strip() for x in args.split(',')]
     return queryset.order_by(*args)

@@ -1,5 +1,5 @@
 {% extends "new/base.html" %}
-{% load static %}
+{% load filters static %}
 {% block title %}Оплата{% endblock %}
 
 {% block content %}
@@ -65,8 +65,8 @@
           <strong>Льготная цена для школьных и студенческих команд</strong>
           <span class="new-pay-discount-note__badge">−75%</span>
         </div>
-        <p><b>500 ₽</b> или <b>2 500 AMD</b> за билет вместо 2 000 ₽ или 10 000 AMD после подтверждения статуса команды.</p>
-        <a class="new-pay-discount-note__link" href="https://t.me/andrewgark" target="_blank" rel="noopener noreferrer">Подтвердить льготу в Telegram <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+        <p><b>500 ₽</b> или <b>6 €</b> или <b>2 500 ֏</b> за билет вместо 2 000 ₽ или 24 € или 10 000 ֏.</p>
+        <a class="new-pay-discount-note__link" href="https://t.me/andrewgark" target="_blank" rel="noopener noreferrer">Попросить льготу в Telegram <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
       </div>
     </div>
   </div>
@@ -112,7 +112,7 @@
           <span class="new-pay-method__body">
             <strong>Visa / Mastercard</strong>
             <span>Для карт банков Армении и других стран</span>
-            <b data-route-price>{{ ticket_price_amd_display }} AMD <small>за билет</small></b>
+            <b data-route-price>{{ ticket_price_amd_display }} ֏ <small>за билет</small></b>
             <span>Армянский эквайринг готовится</span>
           </span>
         </label>
@@ -127,14 +127,20 @@
             <strong>Международная карта через Tribute</strong>
             <span>Visa / Mastercard иностранных банков</span>
             {% if tribute_product %}
-              <b data-route-price>{{ tribute_product.amount_display }} {{ tribute_product.currency }} <small>1 покупка = 1 билет</small></b>
+              <b data-route-price>{{ tribute_product.amount_display }} {{ tribute_product.currency|currency_symbol }} <small>1 покупка = 1 билет</small></b>
             {% else %}
               <b data-route-price>Ожидает настройки товара</b>
             {% endif %}
             {% if telegram_linked %}
               <span>Telegram подтвержден{% if telegram_username %}: @{{ telegram_username }}{% endif %}</span>
             {% else %}
-              <span>Сначала привяжите Telegram для автоматического начисления</span>
+              <span>Сначала
+                {% if team %}
+                  <button type="submit" class="new-pay-telegram-link" form="new-pay-telegram-link-form" aria-label="Сначала привяжите Telegram">привяжите Telegram</button>
+                {% else %}
+                  <span>привяжите Telegram</span>
+                {% endif %}
+                для автоматического начисления</span>
             {% endif %}
           </span>
         </label>
@@ -158,7 +164,7 @@
         <span class="new-pay-summary__label">Итого <small id="new-pay-total-breakdown">1 билет × {{ ticket_price_display }} ₽</small></span>
         <strong id="new-pay-total">{{ ticket_price_display }} ₽</strong>
       </div>
-      <p id="new-pay-conversion-note" hidden>Списание производится в AMD. Если счет карты открыт в другой валюте, конвертацию выполняет банк, выпустивший карту.</p>
+      <p id="new-pay-conversion-note" hidden>Списание производится в ֏. Если счет карты открыт в другой валюте, конвертацию выполняет банк, выпустивший карту.</p>
     </div>
 
     <label class="new-pay-consent">
@@ -173,7 +179,7 @@
 
     <p id="new-pay-security" class="new-pay-security">Оплата российской картой проходит в защищенном виджете ЮKassa. Inter Oves не получает и не хранит полные реквизиты банковской карты.</p>
 
-    <p id="new-pay-tribute-note" class="new-pay-security" hidden>На странице Tribute выберите вход через Telegram, чтобы билет автоматически появился в вашем аккаунте. При входе через email начисление может потребовать ручной проверки. После оплаты вернитесь на эту страницу: билет обычно появляется через несколько секунд после webhook Tribute.</p>
+    <p id="new-pay-tribute-note" class="new-pay-security" hidden><strong class="new-pay-tribute-note__important">На странице Tribute выберите вход через Telegram</strong>, чтобы билет автоматически появился в вашем аккаунте. При входе через email начисление может потребовать ручной проверки. После оплаты вернитесь на эту страницу: билет обычно появляется через несколько секунд после webhook Tribute.</p>
 
     {% if team %}
       <button type="submit" id="new-pay-submit" class="new-btn new-pay-submit" disabled>Оплатить {{ ticket_price_display }} ₽</button>
@@ -204,7 +210,7 @@
         <div class="new-pay-history__row">
           <span>{{ tr.time|date:"d.m.Y H:i" }}</span>
           <span>{{ tr.tickets }} шт.</span>
-          <span>{{ tr.money }} {{ tr.currency }}</span>
+          <span>{{ tr.money }} {{ tr.currency|currency_symbol }}</span>
           <strong>{{ tr.status }}</strong>
         </div>
       {% endfor %}

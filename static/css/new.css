@@ -2707,6 +2707,31 @@ html.new-ui-dark .new-team-switcher-active-box {
   font-size: 0.86rem;
 }
 
+.new-pay-telegram-link {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--accent);
+  background: transparent;
+  font: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  cursor: pointer;
+}
+
+.new-pay-telegram-link:hover {
+  color: color-mix(in srgb, var(--accent) 78%, #000);
+}
+
+.new-pay-telegram-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 0.15rem;
+}
+
 .new-pay-method__body b {
   margin-top: 0.2rem;
 }
@@ -2802,6 +2827,11 @@ html.new-ui-dark .new-team-switcher-active-box {
   color: var(--muted);
   font-size: 0.88rem;
   line-height: 1.45;
+}
+
+.new-pay-tribute-note__important {
+  color: var(--accent);
+  font-weight: 800;
 }
 
 .new-pay-message:empty {
@@ -6989,13 +7019,53 @@ html.new-ui-dark .new-proportions-attempts-popover::backdrop {
   background: rgba(0, 0, 0, 0.45);
 }
 
-.new-proportions-attempts-popover__title {
-  font-size: 0.8rem;
-  font-weight: 700;
-  margin: 0 0 0.4rem;
+.new-proportions-attempts-popover__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--border);
+}
+
+.new-proportions-attempts-popover__title {
+  flex: 1 1 auto;
+  font-size: 0.8rem;
+  font-weight: 700;
   color: var(--muted);
+}
+
+.new-proportions-attempts-popover__close {
+  appearance: none;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: -0.25rem -0.25rem -0.2rem 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--control-radius);
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.new-proportions-attempts-popover__close:hover {
+  background: var(--tile);
+  color: var(--text);
+}
+
+.new-proportions-attempts-popover__close:focus {
+  outline: none;
+}
+
+.new-proportions-attempts-popover__close:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .new-proportions-attempts-popover__list {

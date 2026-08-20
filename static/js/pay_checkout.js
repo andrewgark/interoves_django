@@ -81,6 +81,8 @@
       formatted = String(value);
     }
     if (currency === 'RUB') return formatted + ' ₽';
+    if (currency === 'EUR') return formatted + ' €';
+    if (currency === 'AMD') return formatted + ' ֏';
     return formatted + ' ' + currency;
   }
 
