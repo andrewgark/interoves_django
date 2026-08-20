@@ -288,6 +288,62 @@ class SocialPublishRetryTests(TestCase):
         self.post.refresh_from_db()
         self.assertEqual(self.post.twitter_external_id, '222')
 
+    @patch('games.social.publish.post_tweet_with_image')
+    @patch('games.social.publish.twitter_configured', return_value=True)
+    def test_twitter_prefers_compact_social_image(self, _cfg, tweet_mock):
+        from games.social.publish import publish_twitter
+
+        compact = _tiny_png_bytes(25, 25, color=(200, 10, 10))
+        self.post.social_image.save('compact.png', ContentFile(compact), save=True)
+        tweet_mock.return_value = {'data': {'id': 'compact-id'}}
+
+        publish_twitter(self.post)
+
+        self.assertEqual(tweet_mock.call_args.kwargs['image_bytes'], compact)
+
+    @patch('games.social.publish.post_tweet_with_image', side_effect=RuntimeError('x down'))
+    @patch('games.social.publish.twitter_configured', return_value=True)
+    def test_twitter_failed_publish_counts_attempt(self, _cfg, _tweet_mock):
+        from games.social.publish import publish_twitter
+
+        publish_twitter(self.post)
+
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.twitter_status, SocialQueuePost.STATUS_FAILED)
+        self.assertEqual(self.post.twitter_attempts, 1)
+
+    @patch('games.social.publish.connection.close')
+    @patch('games.social.publish._publish_one_queued', return_value=True)
+    def test_thread_worker_only_wraps_publish_and_closes_connection(
+        self, publish_mock, close_mock,
+    ):
+        from games.social.publish import _publish_one_queued_worker
+
+        self.assertTrue(_publish_one_queued_worker('twitter', self.post.pk))
+
+        publish_mock.assert_called_once_with('twitter', self.post.pk)
+        close_mock.assert_called_once_with()
+
+    def test_failed_network_is_requeued_up_to_attempt_limit(self):
+        from games.social.publish import SOCIAL_QUEUE_MAX_ATTEMPTS, queue_failed_network_retries
+
+        now = datetime(2026, 7, 8, 16, 30, tzinfo=ZoneInfo('Europe/Moscow'))
+        self.post.twitter_status = SocialQueuePost.STATUS_FAILED
+        self.post.twitter_attempts = 1
+        self.post.save(update_fields=['twitter_status', 'twitter_attempts'])
+
+        queue_failed_network_retries(self.post, now=now)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.twitter_status, SocialQueuePost.STATUS_QUEUED)
+        self.assertGreater(self.post.twitter_queued_for, now)
+
+        self.post.twitter_status = SocialQueuePost.STATUS_FAILED
+        self.post.twitter_attempts = SOCIAL_QUEUE_MAX_ATTEMPTS
+        self.post.save(update_fields=['twitter_status', 'twitter_attempts'])
+        queue_failed_network_retries(self.post, now=now)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.twitter_status, SocialQueuePost.STATUS_FAILED)
+
 
 @override_settings(
     TELEGRAM_BOT_TOKEN='test-token',

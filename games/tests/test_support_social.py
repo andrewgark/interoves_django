@@ -129,6 +129,7 @@ class SupportSocialQueueTests(TestCase):
     def test_delete_post(self):
         post = SocialQueuePost.objects.create(caption='bye', source=SocialQueuePost.SOURCE_MANUAL)
         post.image.save('a.png', _png_upload(), save=True)
+        post.social_image.save('a-social.png', _png_upload('a-social.png'), save=True)
         pk = post.pk
         response = self.client.post(reverse('support:social_delete', args=[pk]))
         self.assertEqual(response.status_code, 200)

@@ -1,4 +1,5 @@
-from urllib.parse import urljoin
+import re
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from django.conf import settings
 
@@ -81,6 +82,30 @@ def game_conditions_url(game) -> str:
     if custom:
         return str(custom)
     return ''
+
+
+def game_conditions_copy_url(game) -> str:
+    """Google Docs URL that opens a copy prompt for the game conditions."""
+    conditions_url = game_conditions_url(game)
+    if not conditions_url:
+        return ''
+    try:
+        parsed = urlsplit(conditions_url)
+    except ValueError:
+        return ''
+    if (parsed.hostname or '').lower() != 'docs.google.com':
+        return ''
+
+    path = parsed.path or ''
+    if '/copy' in path:
+        copy_path = path
+    elif re.search(r'/edit/?$', path):
+        copy_path = re.sub(r'/edit/?$', '/copy', path)
+    elif re.match(r'^/(document|spreadsheets|presentation)/', path):
+        copy_path = path.rstrip('/') + '/copy'
+    else:
+        return ''
+    return urlunsplit(parsed._replace(path=copy_path))
 
 
 def game_answers_url(game) -> str:

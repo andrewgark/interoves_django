@@ -1,5 +1,6 @@
 from datetime import timedelta
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -15,6 +16,7 @@ from games.telegram.announcements import (
     format_game_hour_before_announcement,
     format_game_results_announcement,
     format_hints_taken_line,
+    format_no_coffins_announcement,
 )
 from games.telegram.models import TelegramGameAnnouncement
 from games.telegram.scheduling import process_game_announcements
@@ -119,6 +121,23 @@ class ChatLifecycleAnnouncementTests(TestCase):
         self.assertEqual(stats['start'], 1)
         text = announce_mock.call_args.args[0]
         self.assertIn('Начали!', text)
+
+    @patch('games.telegram.scheduling.send_announce_message', return_value=False)
+    @patch('games.telegram.scheduling.send_admin_message')
+    def test_failed_start_delivery_is_released_for_retry(self, _admin, announce_mock):
+        self._set_window(start_delta=timedelta(minutes=-5), end_delta=timedelta(hours=2))
+
+        stats = process_game_announcements(now=self.now)
+
+        self.assertEqual(stats['start'], 0)
+        self.assertFalse(
+            TelegramGameAnnouncement.objects.filter(
+                game=self.game, kind=TelegramGameAnnouncement.KIND_START,
+            ).exists()
+        )
+        announce_mock.return_value = True
+        stats2 = process_game_announcements(now=self.now + timedelta(minutes=1))
+        self.assertEqual(stats2['start'], 1)
 
     @patch('games.telegram.scheduling.send_announce_photo')
     @patch('games.telegram.scheduling.send_announce_message')
@@ -244,18 +263,46 @@ class ChatAllSolvedAndResultsTests(TestCase):
 
         stats = process_game_announcements(now=self.now)
         self.assertEqual(stats['all_solved'], 1)
+        self.assertEqual(_png.call_count, 1)
         photo_mock.assert_called()
-        caption = photo_mock.call_args.kwargs.get('caption') or ''
+        captions = [call.kwargs.get('caption') or '' for call in photo_mock.call_args_list]
+        caption = next(text for text in captions if 'все задания' in text)
         self.assertIn('Winners', caption)
         self.assertIn('все задания', caption)
-        self.assertIn('взяла 0 подсказок', caption)
-        self.assertIn('потеряла на этом 0 баллов', caption)
+        self.assertNotIn('подсказ', caption)
+        self.assertNotIn('потеряла на этом', caption)
         self.assertNotIn('member', caption.lower())
 
         photo_mock.reset_mock()
         stats2 = process_game_announcements(now=self.now)
         self.assertEqual(stats2['all_solved'], 0)
         photo_mock.assert_not_called()
+
+    @patch('games.telegram.scheduling._tournament_results_png', return_value=_FAKE_PNG)
+    @patch('games.telegram.scheduling.send_announce_photo', return_value=True)
+    @patch('games.telegram.scheduling.send_announce_message')
+    @patch('games.telegram.scheduling.send_admin_message')
+    def test_simultaneous_all_solved_announcements_follow_completion_time(
+        self, _admin, _msg, photo_mock, _png,
+    ):
+        early = Team.objects.create(name='z-team', visible_name='Zulu but early')
+        late = Team.objects.create(name='a-team', visible_name='Alpha but late')
+        self._ok_attempt(self.task1, early, self.now - timedelta(minutes=30))
+        self._ok_attempt(self.task2, early, self.now - timedelta(minutes=20))
+        self._ok_attempt(self.task1, late, self.now - timedelta(minutes=15))
+        self._ok_attempt(self.task2, late, self.now - timedelta(minutes=10))
+
+        stats = process_game_announcements(now=self.now)
+
+        self.assertEqual(stats['all_solved'], 2)
+        solved_captions = [
+            call.kwargs['caption']
+            for call in photo_mock.call_args_list
+            if 'решила все задания' in call.kwargs['caption']
+        ]
+        self.assertIn('Zulu but early', solved_captions[0])
+        self.assertIn('Alpha but late', solved_captions[1])
+        self.assertEqual(_png.call_count, 1)
 
     @patch('games.telegram.scheduling._tournament_results_png', return_value=_FAKE_PNG)
     @patch('games.telegram.scheduling.send_announce_photo')
@@ -278,6 +325,90 @@ class ChatAllSolvedAndResultsTests(TestCase):
         caption = photo_mock.call_args.kwargs.get('caption') or ''
         self.assertIn('взяла 2 подсказки', caption)
         self.assertIn('потеряла на этом 3 балла', caption)
+
+    @patch('games.telegram.scheduling._tournament_results_png', return_value=_FAKE_PNG)
+    @patch('games.telegram.scheduling.send_announce_photo')
+    @patch('games.telegram.scheduling.send_announce_message')
+    @patch('games.telegram.scheduling.send_admin_message')
+    def test_no_coffins_announces_last_first_full_score_once(
+        self, _admin, _msg, photo_mock, _png,
+    ):
+        photo_mock.return_value = True
+        other_team = Team.objects.create(name='other', visible_name='Other Team')
+        self._ok_attempt(self.task1, self.team, self.now - timedelta(minutes=35))
+        self._ok_attempt(self.task2, other_team, self.now - timedelta(minutes=12))
+
+        stats = process_game_announcements(now=self.now)
+
+        self.assertEqual(stats['all_solved'], 0)
+        self.assertEqual(stats['no_coffins'], 1)
+        photo_mock.assert_called_once()
+        self.assertEqual(photo_mock.call_args.args[0], _FAKE_PNG)
+        caption = photo_mock.call_args.kwargs['caption']
+        self.assertIn('Не осталось заданий-гробов', caption)
+        self.assertIn('Каждое задание взяла хотя бы одна команда', caption)
+        self.assertIn('№1.2 «S»', caption)
+        self.assertIn('Other Team', caption)
+        expected_time = timezone.localtime(
+            self.now - timedelta(minutes=12), timezone=ZoneInfo('Europe/Moscow'),
+        ).strftime('%H:%M')
+        self.assertIn(expected_time, caption)
+
+        photo_mock.reset_mock()
+        stats2 = process_game_announcements(now=self.now + timedelta(minutes=1))
+        self.assertEqual(stats2['no_coffins'], 0)
+        photo_mock.assert_not_called()
+
+    @patch('games.telegram.scheduling._tournament_results_png', return_value=_FAKE_PNG)
+    @patch('games.telegram.scheduling.send_announce_photo')
+    @patch('games.telegram.scheduling.send_announce_message')
+    @patch('games.telegram.scheduling.send_admin_message')
+    def test_no_coffins_requires_full_points_not_only_ok(
+        self, _admin, _msg, photo_mock, _png,
+    ):
+        photo_mock.return_value = True
+        self._ok_attempt(self.task1, self.team, self.now - timedelta(minutes=20))
+        partial_points = self._ok_attempt(
+            self.task2, self.team, self.now - timedelta(minutes=10),
+        )
+        partial_points.points = 9
+        partial_points.save(update_fields=['points'])
+
+        stats = process_game_announcements(now=self.now)
+
+        self.assertEqual(stats['no_coffins'], 0)
+        self.assertFalse(
+            TelegramGameAnnouncement.objects.filter(
+                game=self.game, kind=TelegramGameAnnouncement.KIND_NO_COFFINS,
+            ).exists()
+        )
+
+    @patch('games.telegram.scheduling._tournament_results_png', return_value=None)
+    @patch('games.telegram.scheduling.send_announce_photo')
+    @patch('games.telegram.scheduling.send_announce_message')
+    @patch('games.telegram.scheduling.send_admin_message')
+    def test_no_coffins_waits_for_screenshot(self, _admin, _msg, photo_mock, _png):
+        other_team = Team.objects.create(name='other', visible_name='Other Team')
+        self._ok_attempt(self.task1, self.team, self.now - timedelta(minutes=20))
+        self._ok_attempt(self.task2, other_team, self.now - timedelta(minutes=10))
+
+        stats = process_game_announcements(now=self.now)
+
+        self.assertEqual(stats['no_coffins'], 0)
+        photo_mock.assert_not_called()
+        self.assertFalse(
+            TelegramGameAnnouncement.objects.filter(
+                game=self.game, kind=TelegramGameAnnouncement.KIND_NO_COFFINS,
+            ).exists()
+        )
+
+    def test_no_coffins_formatter_escapes_and_uses_moscow_time(self):
+        self.team.visible_name = 'A&B'
+        taken_at = self.now.astimezone(ZoneInfo('UTC')).replace(hour=12, minute=34)
+        text = format_no_coffins_announcement('7', 'Кошки & мышки', self.team, taken_at)
+        self.assertIn('№7 «Кошки &amp; мышки»', text)
+        self.assertIn('A&amp;B', text)
+        self.assertIn('<b>15:34</b> по МСК', text)
 
     @patch('games.telegram.scheduling.publish_instagram')
     @patch('games.telegram.scheduling.publish_twitter')
@@ -381,7 +512,7 @@ class ChatAllSolvedAndResultsTests(TestCase):
         text = format_all_solved_announcement(self.game, self.team)
         self.assertIn('Winners', text)
         self.assertNotIn('@', text)
-        self.assertIn('взяла 0 подсказок', text)
+        self.assertNotIn('подсказ', text)
 
     def test_all_solved_desyatochka_uses_prepositional(self):
         self.game.no_html_name = 'Десяточка 170'
@@ -428,3 +559,15 @@ class ChatAllSolvedAndResultsTests(TestCase):
         podium = build_podium({a: 1, b: 2})
         self.assertEqual(podium[1], [a])
         self.assertEqual(podium[2], [b])
+
+    def test_build_podium_preserves_results_table_order_within_tie(self):
+        alphabetical_first = Team.objects.create(name='pc', visible_name='Alpha')
+        submitted_first = Team.objects.create(name='pd', visible_name='Zulu')
+        places = {alphabetical_first: 1, submitted_first: 1}
+
+        podium = build_podium(
+            places,
+            teams_order=[submitted_first, alphabetical_first],
+        )
+
+        self.assertEqual(podium[1], [submitted_first, alphabetical_first])

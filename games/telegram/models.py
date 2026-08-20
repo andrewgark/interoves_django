@@ -8,6 +8,7 @@ class TelegramGameAnnouncement(models.Model):
     KIND_END_SOON_15 = 'end_soon_15'
     KIND_END_SOON_30 = 'end_soon_30'  # legacy; no longer sent
     KIND_END = 'end'
+    KIND_NO_COFFINS = 'no_coffins'
     KIND_RESULTS = 'results'
     KIND_ADMIN_START_SOON = 'admin_start_soon'
     KIND_CHOICES = (
@@ -17,6 +18,7 @@ class TelegramGameAnnouncement(models.Model):
         (KIND_END_SOON_15, '15 minutes before end'),
         (KIND_END_SOON_30, '30 minutes before end (legacy)'),
         (KIND_END, 'Game end'),
+        (KIND_NO_COFFINS, 'Every task has a full-score result'),
         (KIND_RESULTS, 'Tournament results after end'),
         (KIND_ADMIN_START_SOON, 'Admin reminder ~1h before start'),
     )

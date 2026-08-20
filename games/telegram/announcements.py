@@ -6,11 +6,13 @@ import html
 import random
 from collections import defaultdict
 from typing import Iterable
+from zoneinfo import ZoneInfo
 
 from django.utils import timezone
 
 from games.telegram.game_urls import (
     game_answers_url,
+    game_conditions_copy_url,
     game_conditions_url,
     game_site_url,
     game_tournament_results_url,
@@ -98,6 +100,9 @@ def format_game_start_announcement(game) -> str:
     conditions = game_conditions_url(game)
     if conditions:
         links.append(_link('Условия', conditions))
+        copy_conditions = game_conditions_copy_url(game)
+        if copy_conditions:
+            links.append(_link('Скопировать условия', copy_conditions))
     lines.extend(['', ' · '.join(links)])
     return _join_lines(lines)
 
@@ -184,15 +189,30 @@ def format_hints_taken_line(hint_count: int = 0, hint_penalty=0) -> str:
 
 def format_all_solved_announcement(game, team, hint_count: int = 0, hint_penalty=0) -> str:
     team_name = _escape(team_display_name(team))
-    return _join_lines([
+    lines = [
         '🎉 Команда <b>{}</b> решила все задания в {}!'.format(
             team_name, _all_solved_game_phrase(game),
         ),
+    ]
+    if int(hint_count or 0) > 0:
+        lines.extend(['', format_hints_taken_line(hint_count, hint_penalty)])
+    lines.extend(['', 'Поздравляем!', random_congrats_emojis(6)])
+    return _join_lines(lines)
+
+
+def format_no_coffins_announcement(task_number, task_name, team, taken_at) -> str:
+    task_label = '№{}'.format(_escape(task_number))
+    if task_name:
+        task_label += ' «{}»'.format(_escape(task_name))
+    taken_at_msk = timezone.localtime(taken_at, ZoneInfo('Europe/Moscow')).strftime('%H:%M')
+    return _join_lines([
+        '🎯 <b>Не осталось заданий-гробов!</b>',
+        'Каждое задание взяла хотя бы одна команда.',
         '',
-        format_hints_taken_line(hint_count, hint_penalty),
-        '',
-        'Поздравляем!',
-        random_congrats_emojis(6),
+        '🔓 Последнее взятое задание — <b>{}</b>.'.format(task_label),
+        '👏 Команда <b>{}</b> взяла его в <b>{}</b> по МСК.'.format(
+            _escape(team_display_name(team)), taken_at_msk,
+        ),
     ])
 
 
@@ -244,15 +264,14 @@ def format_game_results_announcement(game, podium: dict[int, list]) -> str:
     return _join_lines(lines)
 
 
-def build_podium(team_to_place: dict) -> dict[int, list]:
+def build_podium(team_to_place: dict, teams_order=None) -> dict[int, list]:
+    """Build podium while preserving the results table row order within ties."""
     podium: dict[int, list] = defaultdict(list)
-    for team, place in (team_to_place or {}).items():
+    ordered_teams = teams_order if teams_order is not None else (team_to_place or {}).keys()
+    for team in ordered_teams:
+        place = (team_to_place or {}).get(team)
         if place in (1, 2, 3):
             podium[place].append(team)
-    for place in podium:
-        podium[place].sort(
-            key=lambda t: (team_display_name(t).lower(), str(getattr(t, 'pk', t))),
-        )
     return dict(podium)
 
 

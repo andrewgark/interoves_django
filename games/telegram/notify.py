@@ -68,11 +68,10 @@ def send_announce_message(text: str, *, reply_markup: dict | None = None) -> boo
     if not chat_ids:
         logger.debug('Telegram announce skipped: TELEGRAM_ANNOUNCE_CHAT_IDS is empty')
         return False
-    ok = False
+    results = []
     for chat_id in chat_ids:
-        if send_message(chat_id, text, reply_markup=reply_markup):
-            ok = True
-    return ok
+        results.append(bool(send_message(chat_id, text, reply_markup=reply_markup)))
+    return bool(results) and all(results)
 
 
 def send_announce_photo(
@@ -88,17 +87,16 @@ def send_announce_photo(
     if not chat_ids:
         logger.debug('Telegram announce photo skipped: TELEGRAM_ANNOUNCE_CHAT_IDS is empty')
         return False
-    ok = False
+    results = []
     for chat_id in chat_ids:
-        if send_photo(
+        results.append(bool(send_photo(
             chat_id,
             photo_bytes,
             caption=caption,
             filename=filename,
             reply_markup=reply_markup,
-        ):
-            ok = True
-    return ok
+        )))
+    return bool(results) and all(results)
 
 
 def send_telegram_message(text: str) -> bool:

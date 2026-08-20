@@ -256,6 +256,8 @@ def sync_from_telegram(post: SocialQueuePost) -> SocialQueuePost:
 def delete_post(post: SocialQueuePost) -> None:
     if post.image:
         post.image.delete(save=False)
+    if post.social_image:
+        post.social_image.delete(save=False)
     post.delete()
 
 

@@ -44,6 +44,11 @@ def _live_results_lock_key(game_id, mode):
     return 'live_results_lock:{}:{}'.format(game_id, mode)
 
 
+def invalidate_live_results_cache(game, mode='general'):
+    """Force the next live results request to rebuild its short-lived payload."""
+    cache.delete(_live_results_cache_key(game.id, mode))
+
+
 def get_live_results_payload(game, mode='general'):
     """
     JSON results payload for a live (non-frozen) game.

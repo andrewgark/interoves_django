@@ -32,6 +32,12 @@ logger = logging.getLogger('application')
 QUEUE_CLAIM_TIMEOUT = timedelta(
     minutes=max(1, int(getattr(settings, 'SOCIAL_QUEUE_CLAIM_TIMEOUT_MINUTES', 30)))
 )
+SOCIAL_QUEUE_MAX_ATTEMPTS = max(
+    1, int(getattr(settings, 'SOCIAL_QUEUE_MAX_ATTEMPTS', 3))
+)
+SOCIAL_QUEUE_RETRY_DELAY = timedelta(
+    minutes=max(1, int(getattr(settings, 'SOCIAL_QUEUE_RETRY_DELAY_MINUTES', 5)))
+)
 
 
 def _network_fields(network: str) -> tuple[str, str, str, str]:
@@ -84,6 +90,28 @@ def _filename(post: SocialQueuePost) -> str:
     return 'social-{}.png'.format(post.pk or 'draft')
 
 
+def queue_failed_network_retries(
+    post: SocialQueuePost,
+    *,
+    now: datetime | None = None,
+) -> SocialQueuePost:
+    """Queue bounded retries for failed networks without repeating successful ones."""
+    retry_at = (now or timezone.now()) + SOCIAL_QUEUE_RETRY_DELAY
+    updates = {}
+    for network in ('telegram', 'twitter', 'instagram'):
+        if getattr(post, '{}_status'.format(network)) != SocialQueuePost.STATUS_FAILED:
+            continue
+        if getattr(post, '{}_attempts'.format(network)) >= SOCIAL_QUEUE_MAX_ATTEMPTS:
+            continue
+        updates['{}_status'.format(network)] = SocialQueuePost.STATUS_QUEUED
+        updates['{}_queued_for'.format(network)] = retry_at
+    if updates:
+        SocialQueuePost.objects.filter(pk=post.pk).update(**updates)
+        for field, value in updates.items():
+            setattr(post, field, value)
+    return post
+
+
 def publish_telegram(
     post: SocialQueuePost,
     *,
@@ -121,6 +149,7 @@ def publish_telegram(
             )
 
     use_schedule = None if immediate else schedule_at
+    post.telegram_attempts += 1
     try:
         result = schedule_channel_photo_sync(
             chat=channel_chat_id(),
@@ -135,7 +164,8 @@ def publish_telegram(
         post.telegram_error = str(exc)[:500]
         post.telegram_scheduled_for = use_schedule
         post.save(update_fields=[
-            'telegram_status', 'telegram_error', 'telegram_scheduled_for', 'updated_at',
+            'telegram_status', 'telegram_error', 'telegram_scheduled_for',
+            'telegram_attempts', 'updated_at',
         ])
         return post
 
@@ -154,6 +184,7 @@ def publish_telegram(
         'telegram_error',
         'telegram_at',
         'telegram_scheduled_for',
+        'telegram_attempts',
         'updated_at',
     ])
     return post
@@ -208,6 +239,7 @@ def _publish_one_queued(network: str, pk: int) -> bool:
         publish_instagram(post, force=False)
     else:
         raise ValueError('Unknown network: {}'.format(network))
+    queue_failed_network_retries(post)
     return True
 
 
@@ -304,13 +336,14 @@ def publish_twitter(post: SocialQueuePost, *, force: bool = False) -> SocialQueu
         post.save(update_fields=['twitter_status', 'twitter_error', 'updated_at'])
         return post
 
-    data = post.image_bytes()
+    data = post.social_image_bytes()
     if not data:
         post.twitter_status = SocialQueuePost.STATUS_FAILED
         post.twitter_error = 'No image on post'
         post.save(update_fields=['twitter_status', 'twitter_error', 'updated_at'])
         return post
 
+    post.twitter_attempts += 1
     try:
         result = post_tweet_with_image(
             text=_plain_caption(post),
@@ -325,13 +358,16 @@ def publish_twitter(post: SocialQueuePost, *, force: bool = False) -> SocialQueu
         post.twitter_error = ''
         post.twitter_at = timezone.now()
         post.save(update_fields=[
-            'twitter_status', 'twitter_external_id', 'twitter_error', 'twitter_at', 'updated_at',
+            'twitter_status', 'twitter_external_id', 'twitter_error', 'twitter_at',
+            'twitter_attempts', 'updated_at',
         ])
     except Exception as exc:
         logger.exception('Twitter publish failed for social post pk=%s', post.pk)
         post.twitter_status = SocialQueuePost.STATUS_FAILED
         post.twitter_error = str(exc)[:500]
-        post.save(update_fields=['twitter_status', 'twitter_error', 'updated_at'])
+        post.save(update_fields=[
+            'twitter_status', 'twitter_error', 'twitter_attempts', 'updated_at',
+        ])
     return post
 
 
@@ -347,7 +383,7 @@ def publish_instagram(post: SocialQueuePost, *, force: bool = False) -> SocialQu
         post.save(update_fields=['instagram_status', 'instagram_error', 'updated_at'])
         return post
 
-    if not post.image:
+    if not (post.social_image or post.image):
         post.instagram_status = SocialQueuePost.STATUS_FAILED
         post.instagram_error = 'No image on post'
         post.save(update_fields=['instagram_status', 'instagram_error', 'updated_at'])
@@ -356,6 +392,7 @@ def publish_instagram(post: SocialQueuePost, *, force: bool = False) -> SocialQu
     image_url = settings.SITE_BASE_URL + reverse(
         'social_queue_instagram_jpg', args=[post.pk]
     )
+    post.instagram_attempts += 1
     try:
         media_id = publish_image_url(image_url, _plain_caption(post))
         post.instagram_status = SocialQueuePost.STATUS_SENT
@@ -367,11 +404,14 @@ def publish_instagram(post: SocialQueuePost, *, force: bool = False) -> SocialQu
             'instagram_external_id',
             'instagram_error',
             'instagram_at',
+            'instagram_attempts',
             'updated_at',
         ])
     except Exception as exc:
         logger.exception('Instagram publish failed for social post pk=%s', post.pk)
         post.instagram_status = SocialQueuePost.STATUS_FAILED
         post.instagram_error = str(exc)[:500]
-        post.save(update_fields=['instagram_status', 'instagram_error', 'updated_at'])
+        post.save(update_fields=[
+            'instagram_status', 'instagram_error', 'instagram_attempts', 'updated_at',
+        ])
     return post

@@ -43,6 +43,12 @@ class SocialQueuePost(models.Model):
 
     caption = models.TextField(blank=True, default='')
     image = models.ImageField(upload_to='social_queue/', blank=True, null=True)
+    social_image = models.ImageField(
+        upload_to='social_queue/',
+        blank=True,
+        null=True,
+        help_text='Optional compact image for X and Instagram; Telegram uses image.',
+    )
     source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default=SOURCE_MANUAL)
     ladder_date = models.DateField(
         null=True,
@@ -71,6 +77,7 @@ class SocialQueuePost(models.Model):
         blank=True,
         help_text='Internal schedule: minute cron publishes to the channel at this time',
     )
+    telegram_attempts = models.PositiveSmallIntegerField(default=0)
 
     twitter_status = models.CharField(
         max_length=16, choices=NETWORK_STATUS_CHOICES, default=STATUS_PENDING,
@@ -79,6 +86,7 @@ class SocialQueuePost(models.Model):
     twitter_error = models.TextField(blank=True, default='')
     twitter_at = models.DateTimeField(null=True, blank=True)
     twitter_queued_for = models.DateTimeField(null=True, blank=True)
+    twitter_attempts = models.PositiveSmallIntegerField(default=0)
 
     instagram_status = models.CharField(
         max_length=16, choices=NETWORK_STATUS_CHOICES, default=STATUS_PENDING,
@@ -87,6 +95,7 @@ class SocialQueuePost(models.Model):
     instagram_error = models.TextField(blank=True, default='')
     instagram_at = models.DateTimeField(null=True, blank=True)
     instagram_queued_for = models.DateTimeField(null=True, blank=True)
+    instagram_attempts = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ('-created_at',)
@@ -119,6 +128,21 @@ class SocialQueuePost(models.Model):
         from django.core.files.base import ContentFile
 
         self.image.save(filename, ContentFile(data), save=False)
+
+    def social_image_bytes(self) -> bytes:
+        field = self.social_image or self.image
+        if not field:
+            return b''
+        field.open('rb')
+        try:
+            return field.read()
+        finally:
+            field.close()
+
+    def set_social_image_bytes(self, data: bytes, filename: str = 'social-image.png') -> None:
+        from django.core.files.base import ContentFile
+
+        self.social_image.save(filename, ContentFile(data), save=False)
 
     @property
     def telegram_ok(self) -> bool:

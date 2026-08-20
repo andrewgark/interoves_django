@@ -13,13 +13,13 @@ from games.social.models import SocialQueuePost
 def social_queue_instagram_jpg(request, pk):
     """Public JPEG for Instagram Graph API to fetch on publish."""
     post = get_object_or_404(SocialQueuePost, pk=pk)
-    if not post.image:
+    if not (post.social_image or post.image):
         raise Http404('no image')
 
     cache_key = 'social_queue_jpg:{}:{}'.format(post.pk, post.updated_at.timestamp())
     data = cache.get(cache_key)
     if data is None:
-        data = to_instagram_jpeg(post.image_bytes())
+        data = to_instagram_jpeg(post.social_image_bytes())
         cache.set(cache_key, data, 3600)
     response = HttpResponse(data, content_type='image/jpeg')
     response['Cache-Control'] = 'public, max-age=3600'

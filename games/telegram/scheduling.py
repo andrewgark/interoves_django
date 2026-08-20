@@ -10,13 +10,19 @@ from django.utils import timezone
 
 from games.models import Attempt, Game, Team
 from games.social.models import SocialQueuePost
-from games.social.publish import publish_instagram, publish_telegram, publish_twitter
+from games.social.publish import (
+    publish_instagram,
+    publish_telegram,
+    publish_twitter,
+    queue_failed_network_retries,
+)
 from games.telegram.announcements import (
     ANNOUNCEMENT_FORMATTERS,
     build_podium,
     format_all_solved_announcement,
     format_game_day_before_announcement,
     format_game_results_announcement,
+    format_no_coffins_announcement,
 )
 from games.telegram.config import game_telegram_announce_enabled
 from games.telegram.game_urls import game_site_url
@@ -49,14 +55,21 @@ def _try_mark(game: Game, kind: str) -> bool:
         return created
 
 
+def _unmark(game: Game, kind: str) -> None:
+    """Release a failed delivery so the next cron tick can retry it."""
+    TelegramGameAnnouncement.objects.filter(game=game, kind=kind).delete()
+
+
 def _mark_and_send_text(game: Game, kind: str) -> bool:
     formatter = ANNOUNCEMENT_FORMATTERS.get(kind)
     if formatter is None:
         return False
     if not _try_mark(game, kind):
         return False
-    send_announce_message(formatter(game))
-    return True
+    if send_announce_message(formatter(game)):
+        return True
+    _unmark(game, kind)
+    return False
 
 
 def _mark_and_send_photo(game: Game, kind: str, caption: str, photo_bytes: bytes | None) -> bool:
@@ -64,11 +77,20 @@ def _mark_and_send_photo(game: Game, kind: str, caption: str, photo_bytes: bytes
         return False
     if photo_bytes and send_announce_photo(photo_bytes, caption=caption, filename='results.png'):
         return True
-    send_announce_message(caption)
-    return True
+    if send_announce_message(caption):
+        return True
+    _unmark(game, kind)
+    return False
 
 
-def _publish_social_now(game: Game, caption: str, photo_bytes: bytes, *, filename: str) -> SocialQueuePost:
+def _publish_social_now(
+    game: Game,
+    caption: str,
+    photo_bytes: bytes,
+    *,
+    filename: str,
+    social_photo_bytes: bytes | None = None,
+) -> SocialQueuePost:
     """Create a SocialQueuePost and publish immediately to TG channel + X + Instagram."""
     post = SocialQueuePost.objects.create(
         source=SocialQueuePost.SOURCE_GAME,
@@ -76,6 +98,11 @@ def _publish_social_now(game: Game, caption: str, photo_bytes: bytes, *, filenam
         play_url=game_site_url(game),
     )
     post.set_image_bytes(photo_bytes, filename=filename)
+    if social_photo_bytes:
+        post.set_social_image_bytes(
+            social_photo_bytes,
+            filename='social-{}'.format(filename),
+        )
     post.save()
     publish_telegram(post, immediate=True, force=False)
     post.refresh_from_db()
@@ -83,6 +110,7 @@ def _publish_social_now(game: Game, caption: str, photo_bytes: bytes, *, filenam
     post.refresh_from_db()
     publish_instagram(post, force=False)
     post.refresh_from_db()
+    queue_failed_network_retries(post)
     return post
 
 
@@ -93,6 +121,7 @@ def _mark_and_publish_social(
     photo_bytes: bytes | None,
     *,
     filename: str,
+    social_photo_bytes: bytes | None = None,
 ) -> bool:
     """
     Publish to all three social networks immediately.
@@ -104,11 +133,19 @@ def _mark_and_publish_social(
     if not _try_mark(game, kind):
         return False
     try:
-        _publish_social_now(game, caption, photo_bytes, filename=filename)
+        _publish_social_now(
+            game,
+            caption,
+            photo_bytes,
+            filename=filename,
+            social_photo_bytes=social_photo_bytes,
+        )
     except Exception:
         logger.exception(
             'Social publish failed for game %s kind=%s', game.id, kind,
         )
+        _unmark(game, kind)
+        return False
     return True
 
 
@@ -120,6 +157,27 @@ def _tournament_results_png(game: Game) -> bytes | None:
     except Exception:
         logger.exception('Tournament results screenshot failed for game %s', game.id)
         return None
+
+
+def _tournament_results_social_png(game: Game) -> bytes | None:
+    try:
+        from games.telegram.results_image import render_tournament_results_social_png
+
+        return render_tournament_results_social_png(game)
+    except Exception:
+        logger.exception('Compact results screenshot failed for game %s', game.id)
+        return None
+
+
+def _fresh_tournament_results_png(game: Game, cache: dict) -> bytes | None:
+    """Render at most once per game/tick, after invalidating the live table cache."""
+    key = str(game.pk)
+    if key not in cache:
+        from games.results_snapshot import invalidate_live_results_cache
+
+        invalidate_live_results_cache(game, mode='tournament')
+        cache[key] = _tournament_results_png(game)
+    return cache[key]
 
 
 def _game_announce_png(game: Game) -> bytes | None:
@@ -218,14 +276,19 @@ def _teams_with_all_tasks_ok(game: Game) -> list[tuple[Team, int, object]]:
             ),
         )
         .filter(rn=1)
-        .values('task_id', 'team_id', 'status')
+        .values('task_id', 'team_id', 'status', 'time')
     )
 
     ok_counts: dict = {}
+    completion_times: dict = {}
     for row in best_rows:
         tid = row['team_id']
         if row['status'] == 'Ok':
             ok_counts[tid] = ok_counts.get(tid, 0) + 1
+            completed_at = row['time']
+            previous = completion_times.get(tid)
+            if completed_at is not None and (previous is None or completed_at > previous):
+                completion_times[tid] = completed_at
 
     # Hints: same tournament window on HintAttempt.time
     hint_qs = HintAttempt.objects.filter(
@@ -265,19 +328,23 @@ def _teams_with_all_tasks_ok(game: Game) -> list[tuple[Team, int, object]]:
             teams_by_id[tid],
             hint_counts.get(tid, 0),
             hint_penalties.get(tid, Decimal(0)),
+            completion_times.get(tid),
         )
         for tid in winner_ids
         if tid in teams_by_id
     ]
-    winners.sort(key=lambda row: ((row[0].visible_name or row[0].name or '').lower(), row[0].pk))
+    winners.sort(key=lambda row: (
+        row[3] or timezone.now(),
+        row[0].pk,
+    ))
     return winners
 
 
-def _process_all_solved(game: Game, now, stats: dict) -> None:
+def _process_all_solved(game: Game, now, stats: dict, results_png_cache: dict) -> None:
     if now < game.start_time or now > game.end_time:
         return
     png = None
-    for team, hint_count, hint_penalty in _teams_with_all_tasks_ok(game):
+    for team, hint_count, hint_penalty, _completed_at in _teams_with_all_tasks_ok(game):
         kind = TelegramGameAnnouncement.all_solved_kind(team.pk)
         if TelegramGameAnnouncement.objects.filter(game=game, kind=kind).exists():
             continue
@@ -285,16 +352,106 @@ def _process_all_solved(game: Game, now, stats: dict) -> None:
             game, team, hint_count=hint_count, hint_penalty=hint_penalty,
         )
         if png is None:
-            png = _tournament_results_png(game)
+            png = _fresh_tournament_results_png(game, results_png_cache)
         if _mark_and_send_photo(game, kind, caption, png):
             stats['all_solved'] += 1
+
+
+def _last_task_first_taken_for_full_score(game: Game):
+    """Return the task that most recently got its first full-score tournament result."""
+    from decimal import Decimal, InvalidOperation
+
+    from games.views.new_ui import _load_results_placements_and_tasks
+
+    placements, task_group_to_tasks, tasks, task_ids, _headers = (
+        _load_results_placements_and_tasks(game)
+    )
+    if not task_ids:
+        return None
+
+    placement_by_task_id = {}
+    for placement in placements:
+        placement_tasks = task_group_to_tasks[placement.number]
+        for task in placement_tasks:
+            display_number = placement.number
+            if len(placement_tasks) > 1:
+                display_number = '{}.{}'.format(placement.number, task.number)
+            placement_by_task_id[task.id] = (
+                display_number,
+                placement.name,
+                placement.key_sort(),
+                task.key_sort(),
+            )
+
+    rows_by_task = Attempt.manager.get_bulk_game_actor_rows(
+        task_ids, mode='tournament', game=game,
+    )
+    first_takes = []
+    for task in tasks:
+        try:
+            max_points = Decimal(str(task.get_results_max_points()))
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+        if max_points <= 0:
+            return None
+
+        full_score_rows = []
+        for team, attempts_info in rows_by_task.get(task.id, []):
+            if not isinstance(team, Team) or team.is_hidden:
+                continue
+            try:
+                result_points = Decimal(str(attempts_info.get_result_points()))
+            except (InvalidOperation, TypeError, ValueError):
+                continue
+            if result_points < max_points:
+                continue
+            result_attempt = attempts_info.get_result_attempt()
+            if result_attempt is None or result_attempt.time is None:
+                continue
+            full_score_rows.append((result_attempt.time, team.pk, team))
+
+        if not full_score_rows:
+            return None
+        taken_at, _team_pk, team = min(full_score_rows, key=lambda row: (row[0], row[1]))
+        display_number, task_name, placement_key, task_key = placement_by_task_id[task.id]
+        first_takes.append((
+            taken_at, placement_key, task_key, display_number, task_name, team,
+        ))
+
+    if not first_takes:
+        return None
+    taken_at, _placement_key, _task_key, task_number, task_name, team = max(
+        first_takes, key=lambda row: (row[0], row[1], row[2]),
+    )
+    return task_number, task_name, team, taken_at
+
+
+def _process_no_coffins(game: Game, now, stats: dict, results_png_cache: dict) -> None:
+    if now < game.start_time or now > game.end_time:
+        return
+    kind = TelegramGameAnnouncement.KIND_NO_COFFINS
+    if TelegramGameAnnouncement.objects.filter(game=game, kind=kind).exists():
+        return
+
+    last_take = _last_task_first_taken_for_full_score(game)
+    if last_take is None:
+        return
+    caption = format_no_coffins_announcement(*last_take)
+    png = _fresh_tournament_results_png(game, results_png_cache)
+    if not png or not _try_mark(game, kind):
+        return
+    if send_announce_photo(png, caption=caption, filename='results.png'):
+        stats['no_coffins'] += 1
+        return
+    # The announcement promises a table screenshot; let the next cron tick retry.
+    _unmark(game, kind)
 
 
 def _game_has_pending_attempts(game: Game) -> bool:
     return Attempt.manager.filter(game=game, status='Pending', skip=False).exists()
 
 
-def _process_results(game: Game, now, stats: dict) -> None:
+def _process_results(game: Game, now, stats: dict, results_png_cache: dict) -> None:
     end = game.end_time
     if now < end or now > end + timedelta(minutes=15):
         return
@@ -308,21 +465,27 @@ def _process_results(game: Game, now, stats: dict) -> None:
     from games.views.new_ui import _load_game_results_data
 
     data = _load_game_results_data(game, 'tournament')
-    podium = build_podium(data.get('team_to_place') or {})
+    podium = build_podium(
+        data.get('team_to_place') or {},
+        teams_order=data.get('teams_sorted') or [],
+    )
     caption = format_game_results_announcement(game, podium)
-    png = _tournament_results_png(game)
+    png = _fresh_tournament_results_png(game, results_png_cache)
+    social_png = _tournament_results_social_png(game)
     if _mark_and_publish_social(
         game,
         TelegramGameAnnouncement.KIND_RESULTS,
         caption,
         png,
         filename='results-{}.png'.format(game.id),
+        social_photo_bytes=social_png,
     ):
         stats['results'] += 1
 
 
 def process_game_announcements(now=None) -> dict[str, int]:
     now = now or timezone.now()
+    results_png_cache = {}
     stats = {
         'day_before': 0,
         'hour_before': 0,
@@ -330,6 +493,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
         'end_soon_15': 0,
         'end': 0,
         'all_solved': 0,
+        'no_coffins': 0,
         'results': 0,
         'admin_start_soon': 0,
     }
@@ -363,12 +527,17 @@ def process_game_announcements(now=None) -> dict[str, int]:
                     stats['end'] += 1
 
             try:
-                _process_all_solved(game, now, stats)
+                _process_all_solved(game, now, stats, results_png_cache)
             except Exception:
                 logger.exception('all_solved announce failed for game %s', game.id)
 
             try:
-                _process_results(game, now, stats)
+                _process_no_coffins(game, now, stats, results_png_cache)
+            except Exception:
+                logger.exception('no_coffins announce failed for game %s', game.id)
+
+            try:
+                _process_results(game, now, stats, results_png_cache)
             except Exception:
                 logger.exception('results announce failed for game %s', game.id)
 
@@ -377,8 +546,10 @@ def process_game_announcements(now=None) -> dict[str, int]:
             # django.core.cache: default LocMem is per-process, and EB cron starts
             # a fresh manage.py on every instance every minute.
             if _try_mark(game, TelegramGameAnnouncement.KIND_ADMIN_START_SOON):
-                stats['admin_start_soon'] += 1
-                notify_admin_game_lifecycle(game, 'start_soon')
+                if notify_admin_game_lifecycle(game, 'start_soon'):
+                    stats['admin_start_soon'] += 1
+                else:
+                    _unmark(game, TelegramGameAnnouncement.KIND_ADMIN_START_SOON)
 
     try:
         from games.telegram.ladder_channel import process_ladder_channel_tick
@@ -444,10 +615,10 @@ def _should_admin_start_soon(game: Game, now) -> bool:
     return window_start <= now <= window_end
 
 
-def notify_admin_game_lifecycle(game, event: str) -> None:
+def notify_admin_game_lifecycle(game, event: str) -> bool:
     from games.telegram.notify import format_admin_game_lifecycle_message
 
-    send_admin_message(format_admin_game_lifecycle_message(game, event))
+    return send_admin_message(format_admin_game_lifecycle_message(game, event))
 
 
 def notify_admin_registration_milestone(game, count: int) -> None:

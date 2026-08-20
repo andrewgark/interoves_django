@@ -34,6 +34,8 @@ from games.telegram.notify import (
     format_payment_message,
     notify_new_bug_report,
     send_admin_message,
+    send_announce_message,
+    send_announce_photo,
 )
 
 
@@ -69,6 +71,18 @@ class TelegramNotifyTests(TestCase):
         self.task_group = TaskGroup.objects.create(label='tg tg')
         self.task = Task.objects.create(task_group=self.task_group, number='1', text='task')
         self.team = Team.objects.create(name='tg_team', visible_name='TG Team')
+
+    @override_settings(TELEGRAM_ANNOUNCE_CHAT_IDS=['chat-1', 'chat-2'])
+    @patch('games.telegram.notify.send_message', side_effect=[True, False])
+    def test_announce_message_requires_success_in_every_chat(self, send_mock):
+        self.assertFalse(send_announce_message('hello'))
+        self.assertEqual(send_mock.call_count, 2)
+
+    @override_settings(TELEGRAM_ANNOUNCE_CHAT_IDS=['chat-1', 'chat-2'])
+    @patch('games.telegram.notify.send_photo', side_effect=[{'message_id': 1}, None])
+    def test_announce_photo_requires_success_in_every_chat(self, send_mock):
+        self.assertFalse(send_announce_photo(b'png'))
+        self.assertEqual(send_mock.call_count, 2)
 
     @patch('games.telegram.notify.send_message')
     def test_notify_bug_report_with_keyboard(self, send_message_mock):
@@ -264,10 +278,20 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('TG Team', text)
 
     def test_announcement_messages_include_links(self):
+        self.game.game_url = (
+            'https://docs.google.com/document/d/conditions/edit?usp=sharing&editor=1'
+        )
         start = format_game_start_announcement(self.game)
         self.assertIn('Начали!', start)
-        self.assertIn('conditions', start)
         self.assertIn('Сайт', start)
+        self.assertIn(
+            '<a href="https://docs.google.com/document/d/conditions/edit?usp=sharing&amp;editor=1">Условия</a>',
+            start,
+        )
+        self.assertIn(
+            '<a href="https://docs.google.com/document/d/conditions/copy?usp=sharing&amp;editor=1">Скопировать условия</a>',
+            start,
+        )
         end_soon = format_game_end_soon_announcement(self.game)
         self.assertIn('30 минут', end_soon)
         end_soon_15 = format_game_end_soon_15_announcement(self.game)
@@ -276,6 +300,14 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('завершилась', end)
         self.assertIn('answers', end)
         self.assertNotIn('Таблица результатов', end)
+
+    def test_start_does_not_offer_copy_for_non_google_conditions(self):
+        self.game.game_url = 'https://example.com/conditions/editor-notes'
+
+        start = format_game_start_announcement(self.game)
+
+        self.assertIn('Условия', start)
+        self.assertNotIn('Скопировать условия', start)
 
     def test_registration_milestone(self):
         self.assertEqual(registration_milestone_reached(9, 10), 10)
