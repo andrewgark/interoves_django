@@ -327,7 +327,9 @@
             <a href="{% url 'new_tournament_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Турнирные результаты</a>
           {% endif %}
           {% if game|access_see_results:team %}
-            <a href="{% url 'new_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Общие результаты</a>
+            {% if not game.is_tournament or not game|is_going_now %}
+              <a href="{% url 'new_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Общие результаты</a>
+            {% endif %}
           {% endif %}
           {% if game.standings_url %}
             <a href="{{ game.standings_url }}" class="new-btn new-btn--ghost new-btn--mini">Результаты</a>

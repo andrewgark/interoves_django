@@ -247,12 +247,32 @@ class AnnouncedGamePageTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'new-section-header--main-game')
         self.assertContains(r, 'Пропорции')
+        self.assertContains(r, 'Турнирные результаты')
+        self.assertNotContains(r, 'Общие результаты')
         self.assertNotContains(r, 'new-game-card')
+
+        tournament_results = self.client.get('/games/des_live/tournament-results/')
+        self.assertEqual(tournament_results.status_code, 200)
+        self.assertNotContains(tournament_results, '/games/des_live/results/')
 
         r2 = self.client.get('/games/des_live/1/')
         self.assertEqual(r2.status_code, 200)
         self.assertContains(r2, 'Пропорции')
         self.assertNotContains(r2, 'new-game-card')
+
+    def test_finished_game_page_shows_general_results_link(self):
+        self.assertTrue(self.client.login(username='user_reg_ann', password='pw'))
+        self.live.end_time = timezone.now() - timedelta(minutes=1)
+        self.live.save(update_fields=['end_time'])
+
+        response = self.client.get('/games/des_live/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Общие результаты')
+
+        tournament_results = self.client.get('/games/des_live/tournament-results/')
+        self.assertEqual(tournament_results.status_code, 200)
+        self.assertContains(tournament_results, '/games/des_live/results/')
 
     def test_future_task_group_url_shows_announce(self):
         tg = TaskGroup.objects.create(label='future_tg')
