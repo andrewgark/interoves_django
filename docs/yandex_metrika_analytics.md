@@ -65,10 +65,15 @@ and never emit historical Yandex goals.
 ## Tickets
 
 - `ticket_checkout`: после успешного создания `TicketRequest` и получения платёжного маршрута.
-- `ticket_purchase`: только когда `TicketRequest.status == Accepted` и frontend получает подтверждение через status polling.
+- `ticket_purchase`: когда `TicketRequest.status == Accepted`. Webhook ставит цель
+  в долговечную серверную очередь; status polling и каждая следующая страница
+  авторизованного покупателя повторяют её до подписанного callback-ack Метрики.
 
-Обе платёжные цели используют подписанный callback-ack. `ticket_purchase` дополнительно
-повторяется status endpoint, пока ack не записан.
+Обе платёжные цели используют подписанный callback-ack. Покупка привязывается к
+пользователю, создавшему заказ; вместе с заказом сохраняется `_ym_uid` как ClientID
+для будущей server-to-server отправки. Для старых заказов без такой привязки
+используется участник купившей билет команды, чтобы подтверждённая цель не оставалась
+в очереди.
 
 ## Known limitation
 

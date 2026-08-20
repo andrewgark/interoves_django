@@ -35,8 +35,8 @@ from allauth.socialaccount.models import SocialAccount
 from games.access import game_has_started
 from games.analytics import (
     YANDEX_GOAL_TICKET_CHECKOUT,
-    YANDEX_GOAL_TICKET_PURCHASE,
     analytics_ack_payload,
+    ticket_purchase_goal_payload,
     yandex_goal_payload,
 )
 from games.alphabetty_daily import (
@@ -3771,6 +3771,8 @@ def new_create_ticket_payment(request):
     try:
         ticket_request = TicketRequest.objects.create(
             team=team,
+            created_by=request.user,
+            metrika_client_id=(request.COOKIES.get('_ym_uid') or '').strip()[:64],
             money=amount_rub,
             tickets=tickets,
             status='Pending',
@@ -3916,6 +3918,8 @@ def new_create_crypto_ticket_payment(request):
     try:
         ticket_request = TicketRequest.objects.create(
             team=team,
+            created_by=request.user,
+            metrika_client_id=(request.COOKIES.get('_ym_uid') or '').strip()[:64],
             money=amount_rub,
             tickets=tickets,
             status='Pending',
@@ -4075,17 +4079,7 @@ def new_ticket_payment_status(request, ticket_request_id):
         'merchant': ticket_request.merchant,
     }
     if ticket_request.status == 'Accepted' and ticket_request.purchase_goal_sent_at is None:
-        payload['analytics_events'] = [
-            yandex_goal_payload(
-                YANDEX_GOAL_TICKET_PURCHASE,
-                params={
-                    'amount': ticket_request.money,
-                    'currency': ticket_request.currency,
-                },
-                key='ticket_purchase:{}'.format(ticket_request.id),
-                ack=analytics_ack_payload(YANDEX_GOAL_TICKET_PURCHASE, ticket_request.id),
-            ),
-        ]
+        payload['analytics_events'] = [ticket_purchase_goal_payload(ticket_request)]
     if ticket_request.status == 'Accepted' and team is not None:
         payload['team_tickets'] = team.tickets
     return JsonResponse(payload)

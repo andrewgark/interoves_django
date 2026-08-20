@@ -180,12 +180,15 @@ class TicketPaymentCreationTests(TestCase):
             'id': 'pay-route-1',
             'confirmation': {'confirmation_token': 'token-1'},
         }
+        self.client.cookies['_ym_uid'] = '1234567890123456789'
         response = self.client.post(
             reverse('new_create_ticket_payment'),
             {'tickets': '2', 'money': '1', 'currency': 'AMD'},
         )
         self.assertEqual(response.status_code, 200)
         ticket = TicketRequest.objects.latest('id')
+        self.assertEqual(ticket.created_by, self.user)
+        self.assertEqual(ticket.metrika_client_id, '1234567890123456789')
         self.assertEqual(ticket.money, 1000)
         self.assertEqual(ticket.currency, 'RUB')
         self.assertEqual(ticket.payment_provider, 'yookassa')

@@ -33,24 +33,6 @@
     return window.interovesAnalytics.flushPendingGoals(events || []) || [];
   }
 
-  function ackAnalyticsGoal(statusUrl, goalKey) {
-    if (!statusUrl || !goalKey) return Promise.resolve(false);
-    return fetch(statusUrl, {
-      method: 'POST',
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRFToken': csrfToken(),
-        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
-      },
-      body: new URLSearchParams({ analytics_ack: goalKey }).toString(),
-      credentials: 'same-origin'
-    }).then(function (response) {
-      return response.ok;
-    }).catch(function () {
-      return false;
-    });
-  }
-
   var routeCopy = {
     russian_card: {
       seller: 'Продавец: Андрей Гаркавый, плательщик НПД, РФ',
@@ -215,11 +197,7 @@
       storageKey: STORAGE_KEY,
       onPending: renderPending,
       onConfirmed: function (data) {
-        var sentKeys = flushAnalyticsEvents(data && data.analytics_events);
-        var purchaseKey = 'ticket_purchase:' + (data && data.ticket_request_id ? data.ticket_request_id : '');
-        if (sentKeys && sentKeys.indexOf(purchaseKey) >= 0) {
-          ackAnalyticsGoal(url, purchaseKey);
-        }
+        flushAnalyticsEvents(data && data.analytics_events);
         renderAccepted(data);
         setMessage('');
       },

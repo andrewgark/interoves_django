@@ -123,12 +123,19 @@ class PlayerAnalyticsStateAdmin(admin.ModelAdmin):
 @admin.register(TicketRequest)
 class TicketRequestAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'team', 'tickets', 'money', 'currency', 'payment_provider', 'merchant',
-        'status', 'time', 'checkout_goal_acked_at', 'purchase_goal_sent_at',
+        'id', 'team', 'created_by', 'tickets', 'money', 'currency', 'payment_provider', 'merchant',
+        'status', 'time', 'checkout_goal_acked_at', 'purchase_goal_queued_at', 'purchase_goal_sent_at',
     )
     list_filter = ('status', 'currency', 'payment_provider', 'merchant')
-    search_fields = ('id', 'team__name', 'team__visible_name', 'yookassa_id', 'nowpayments_id', 'tribute_id')
-    readonly_fields = ('time', 'checkout_goal_acked_at', 'purchase_goal_sent_at')
+    search_fields = (
+        'id', 'team__name', 'team__visible_name', 'metrika_client_id',
+        'yookassa_id', 'nowpayments_id', 'tribute_id',
+    )
+    readonly_fields = (
+        'time', 'metrika_client_id', 'checkout_goal_acked_at',
+        'purchase_goal_queued_at', 'purchase_goal_sent_at',
+    )
+    raw_id_fields = ('created_by',)
 
 
 @admin.register(Donation)

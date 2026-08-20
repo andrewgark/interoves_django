@@ -2,6 +2,7 @@ import json
 
 from django.core import signing
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 
@@ -258,6 +259,49 @@ def signup_goal_payload(state):
         key='{}:{}'.format(YANDEX_GOAL_SIGNUP, state.pk),
         ack=analytics_ack_payload(YANDEX_GOAL_SIGNUP, state.pk),
     )
+
+
+def ticket_purchase_goal_payload(ticket_request):
+    if (
+        ticket_request is None
+        or ticket_request.status != 'Accepted'
+        or ticket_request.purchase_goal_sent_at is not None
+    ):
+        return None
+    return yandex_goal_payload(
+        YANDEX_GOAL_TICKET_PURCHASE,
+        params={
+            'amount': ticket_request.money,
+            'currency': ticket_request.currency,
+        },
+        key='{}:{}'.format(YANDEX_GOAL_TICKET_PURCHASE, ticket_request.pk),
+        ack=analytics_ack_payload(YANDEX_GOAL_TICKET_PURCHASE, ticket_request.pk),
+    )
+
+
+def pending_ticket_purchase_goals(user, limit=20):
+    """Accepted purchases stay pending across page loads until Metrika acks them."""
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return []
+    from games.models import TicketRequest
+
+    tickets = (
+        TicketRequest.objects.filter(
+            status='Accepted',
+            purchase_goal_queued_at__isnull=False,
+            purchase_goal_sent_at__isnull=True,
+        )
+        .filter(
+            Q(created_by=user)
+            | Q(
+                created_by__isnull=True,
+                team__member_links__profile__user=user,
+            )
+        )
+        .order_by('purchase_goal_queued_at', 'pk')
+        .distinct()[:limit]
+    )
+    return [payload for payload in map(ticket_purchase_goal_payload, tickets) if payload]
 
 
 def pending_signup_goals(user):

@@ -7,6 +7,7 @@ from django.core.management import call_command
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from games.analytics import register_completed_game, register_started_game
 from games.context_processors import analytics_bootstrap
@@ -275,6 +276,69 @@ class ProductAnalyticsTests(TestCase):
 
         self.assertEqual(ack.status_code, 200)
         self.assertNotIn('analytics_events', self.client.get(status_url).json())
+
+    def test_ticket_purchase_is_retried_on_every_page_until_signed_ack(self):
+        ticket = TicketRequest.objects.create(
+            team=self.team,
+            created_by=self.user,
+            money=2000,
+            tickets=1,
+            status='Accepted',
+            currency='RUB',
+            payment_provider='yookassa',
+            merchant='ru_self_employed',
+            purchase_goal_queued_at=timezone.now(),
+        )
+        request = RequestFactory().get('/')
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        request.user = self.user
+
+        other_user = User.objects.create_user(username='other-analytics-user')
+        Profile.objects.create(
+            user=other_user,
+            first_name='Other',
+            last_name='User',
+            team_on=self.team,
+        )
+        other_request = RequestFactory().get('/')
+        SessionMiddleware(lambda req: None).process_request(other_request)
+        other_request.session.save()
+        other_request.user = other_user
+
+        first = analytics_bootstrap(request)['pending_analytics_goals']
+        second = analytics_bootstrap(request)['pending_analytics_goals']
+
+        self.assertEqual(analytics_bootstrap(other_request)['pending_analytics_goals'], [])
+        self.assertEqual([item['goal'] for item in first], ['ticket_purchase'])
+        self.assertEqual(first[0]['key'], 'ticket_purchase:{}'.format(ticket.pk))
+        self.assertEqual([item['goal'] for item in second], ['ticket_purchase'])
+        ack = self.client.post(first[0]['ack']['url'], {'token': first[0]['ack']['token']})
+        self.assertEqual(ack.status_code, 200)
+        self.assertEqual(analytics_bootstrap(request)['pending_analytics_goals'], [])
+
+    def test_legacy_purchase_is_retried_for_team_member(self):
+        ticket = TicketRequest.objects.create(
+            team=self.team,
+            created_by=None,
+            money=2000,
+            tickets=1,
+            status='Accepted',
+            currency='RUB',
+            payment_provider='yookassa',
+            merchant='ru_self_employed',
+            purchase_goal_queued_at=timezone.now(),
+        )
+        request = RequestFactory().get('/')
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        request.user = self.user
+
+        goals = analytics_bootstrap(request)['pending_analytics_goals']
+
+        self.assertEqual([item['key'] for item in goals], [
+            'ticket_purchase:{}'.format(ticket.pk),
+        ])
 
     def test_delivery_report_lists_every_configured_goal(self):
         out = StringIO()

@@ -51,6 +51,7 @@ class TicketServiceTests(TestCase):
         self.team.refresh_from_db()
         self.assertEqual(ticket.status, 'Accepted')
         self.assertEqual(ticket.yookassa_id, 'pay-1')
+        self.assertIsNotNone(ticket.purchase_goal_queued_at)
         self.assertEqual(self.team.tickets, 3)
 
     def test_accept_stores_nowpayments_id(self):
@@ -70,6 +71,16 @@ class TicketServiceTests(TestCase):
         self.assertFalse(result.changed)
         self.assertTrue(result.already_accepted)
         self.assertEqual(self.team.tickets, 3)
+
+    def test_repeated_accept_repairs_missing_purchase_goal_queue(self):
+        ticket = self._pending(status='Accepted')
+
+        result = accept_ticket_request(ticket, source='webhook-retry')
+
+        ticket.refresh_from_db()
+        self.assertFalse(result.changed)
+        self.assertTrue(result.already_accepted)
+        self.assertIsNotNone(ticket.purchase_goal_queued_at)
 
     def test_accept_without_team_sets_accepted_without_credit(self):
         ticket = self._pending(team=None)

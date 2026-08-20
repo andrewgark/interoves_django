@@ -1730,6 +1730,14 @@ class TicketRequest(models.Model):
 
     id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='ticket_requests', blank=True, null=True, on_delete=models.SET_NULL)
+    created_by = models.ForeignKey(
+        'auth.User',
+        related_name='created_ticket_requests',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    metrika_client_id = models.CharField(max_length=64, blank=True, default='')
     money = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     tickets = models.IntegerField(default=0, validators=[MinValueValidator(1),MaxValueValidator(20)])
     time = models.DateTimeField(auto_now_add=True, blank=True)
@@ -1744,6 +1752,7 @@ class TicketRequest(models.Model):
     nowpayments_id = models.TextField(null=True, blank=True)
     tribute_id = models.TextField(null=True, blank=True)
     checkout_goal_acked_at = models.DateTimeField(null=True, blank=True)
+    purchase_goal_queued_at = models.DateTimeField(null=True, blank=True, db_index=True)
     purchase_goal_sent_at = models.DateTimeField(null=True, blank=True)
 
     TICKER_REQUEST_STATUS_VARIANTS = (

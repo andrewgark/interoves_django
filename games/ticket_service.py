@@ -57,6 +57,12 @@ def accept_ticket_request(
         update_fields.append('tribute_id')
 
     if already_accepted:
+        if (
+            ticket_request.purchase_goal_queued_at is None
+            and ticket_request.purchase_goal_sent_at is None
+        ):
+            ticket_request.purchase_goal_queued_at = timezone.now()
+            update_fields.append('purchase_goal_queued_at')
         if update_fields:
             ticket_request.save(update_fields=update_fields)
         return TicketAcceptResult(
@@ -68,6 +74,9 @@ def accept_ticket_request(
         )
 
     ticket_request.status = 'Accepted'
+    if ticket_request.purchase_goal_queued_at is None:
+        ticket_request.purchase_goal_queued_at = timezone.now()
+        update_fields.append('purchase_goal_queued_at')
     update_fields.append('status')
     ticket_request.save(update_fields=update_fields)
 
