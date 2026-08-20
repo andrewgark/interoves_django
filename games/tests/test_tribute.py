@@ -226,6 +226,7 @@ class TributeDigitalProductTests(TestCase):
         self.assertIn('Международная карта через Tribute', body)
         self.assertIn('15 EUR', body)
         self.assertIn('Telegram подтвержден', body)
+        self.assertIn('При входе через email начисление может потребовать ручной проверки', body)
 
         self.http.force_login(self.unlinked)
         response = self.http.get(reverse('new_pay'))

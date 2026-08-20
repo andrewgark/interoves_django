@@ -331,7 +331,7 @@
           setMessage('Tribute не вернул ссылку на настроенный товар.');
           return;
         }
-        setMessage('Открываем защищенную страницу Tribute…');
+        setMessage('На странице Tribute выберите вход через Telegram, чтобы билет автоматически появился в вашем аккаунте. При входе через email начисление может потребовать ручной проверки.');
         window.location.assign(data.payment_url);
         return;
       }
