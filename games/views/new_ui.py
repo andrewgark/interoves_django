@@ -25,6 +25,10 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
 from games.forms import CreateTeamForm, JoinTeamForm
+from games.daily_transitions import (
+    next_daily_content_transition_for_game,
+    next_daily_content_transition_for_games,
+)
 
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
@@ -891,6 +895,9 @@ def new_hub(request):
     if has_profile(request.user):
         team = request.user.profile.team_on
     hub_groups = _build_hub_section_cards(request, team=team)
+    live_next_transition_at = next_daily_content_transition_for_games(
+        card.get('game') for card in hub_groups['daily_hub_cards']
+    )
     view = MainPageView()
     view.project_name = NEW_UI_PROJECT
     desyatochki_games = view.get_games_list(request)
@@ -904,6 +911,7 @@ def new_hub(request):
         **_games_list_card_context(request),
         'page_title': 'Interoves',
         'show_sections_nav': True,
+        'live_next_transition_at': live_next_transition_at,
         # Кнопка «Купить билеты» — только на главной (не в /glowbyte/ и др.).
         'show_desyatochki_pay_cta': True,
         # Баннер «Для компаний» — только на главной странице.
@@ -1572,6 +1580,7 @@ def _render_section_game_page(request, game_id):
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'team': team_for_access,
         'show_sections_nav': True,
+        'live_next_transition_at': next_daily_content_transition_for_game(game),
         **_project_urls_context(NEW_UI_PROJECT),
         **_section_ui_context(game),
         **_game_page_progress_context(request, game, play_mode),
@@ -2903,12 +2912,126 @@ def new_task_group_page(request, game_id, task_group_number):
         'audio_manager': AudioManager(),
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
+        'live_next_transition_at': (
+            None if ladder_offer is not None
+            else next_daily_content_transition_for_game(game)
+        ),
         **_project_urls_context(game.project_id),
         **_age_gate_context(
             game,
             task_group=task_group,
             back_url=back_url,
         ),
+    })
+
+
+@never_cache
+@require_http_methods(['GET'])
+def new_task_group_live_state(request, game_id):
+    """Authoritative task-card projection used after socket gaps and reconnects."""
+    game = get_object_or_404(Game, id=game_id)
+    play_mode, _play_mode_key = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
+    team = user = anon_key = None
+
+    if request.user.is_authenticated:
+        if play_mode == 'team':
+            if not has_team(request.user):
+                raise Http404()
+            team = request.user.profile.team_on
+        else:
+            if not has_profile(request.user):
+                raise Http404()
+            user = request.user
+    else:
+        if personal_play_mode_locked(game, user=request.user):
+            raise Http404()
+        play_mode = 'personal'
+        anon_key = _anon_key_from_request(request)
+        if not anon_key:
+            raise Http404()
+
+    if game.project_id == NEW_UI_SECTIONS_PROJECT:
+        preview_team = request.user.profile.team_on if has_profile(request.user) else None
+        if not game.has_access('see_game_preview', team=preview_team):
+            raise Http404()
+    elif play_mode == 'team':
+        if not game.has_access('play', team=team):
+            raise Http404()
+    else:
+        now_attempt = Attempt(time=timezone.now())
+        if (
+            not game.has_access('read_googledoc', team=None, attempt=now_attempt)
+            or not game.is_playable
+        ):
+            raise Http404()
+
+    raw_ids = (request.GET.get('task_ids') or '').strip()
+    try:
+        task_ids = list(dict.fromkeys(int(value) for value in raw_ids.split(',') if value.strip()))
+    except (TypeError, ValueError):
+        return JsonResponse({'status': 'invalid_task_ids'}, status=400)
+    if not task_ids or len(task_ids) > 100:
+        return JsonResponse({'status': 'invalid_task_ids'}, status=400)
+
+    tasks = list(
+        Task.objects.visible()
+        .select_related('task_group')
+        .filter(pk__in=task_ids)
+    )
+    if len(tasks) != len(task_ids):
+        raise Http404()
+    tasks_by_id = {task.pk: task for task in tasks}
+    tasks = [tasks_by_id[task_id] for task_id in task_ids]
+
+    placements = list(
+        GameTaskGroup.objects.filter(
+            game=game,
+            task_group_id__in={task.task_group_id for task in tasks},
+        ).select_related('task_group')
+    )
+    placements_by_group = {placement.task_group_id: placement for placement in placements}
+    if any(task.task_group_id not in placements_by_group for task in tasks):
+        raise Http404()
+
+    if not request.user.is_staff:
+        for placement in placements:
+            if game.id == LADDER_GAME_ID and not is_ladder_number_published(game, placement.number):
+                raise Http404()
+            if game.id == WEEK_TASK_GAME_ID and not is_week_task_number_published(game, placement.number):
+                raise Http404()
+
+    from games.views.render_task import render_new_ui_task_card_html
+    from games.views.track import current_track_versions
+
+    # Sample revisions before rendering. A mutation racing with this request may
+    # then produce a newer queued socket event, but an older projection can never
+    # claim that newer revision and suppress the event on the client.
+    versions = current_track_versions(
+        game.id,
+        user_id=request.user.id if request.user.is_authenticated else None,
+        team_id=team.pk if team is not None else None,
+    )
+    mode = game.get_current_mode(Attempt(time=timezone.now()))
+    fragments = {}
+    for task in tasks:
+        fragment = render_new_ui_task_card_html(
+            request,
+            task,
+            team,
+            mode,
+            user=user,
+            anon_key=anon_key,
+            game=game,
+        )
+        if fragment:
+            fragments[str(task.pk)] = fragment
+
+    return JsonResponse({
+        'status': 'ok',
+        'update_task_html_new': fragments,
+        'versions': versions,
+        'reload_required': len(fragments) != len(tasks),
     })
 
 
@@ -3315,9 +3438,18 @@ def new_set_play_mode(request):
     return redirect(next_url)
 
 
-# Модалка «перенести анонимные решения» показывается только при достаточном числе посылок,
-# иначе ключ interoves_anon_key есть у любого гостя до входа.
-MIN_ANON_MIGRATE_PROMPT_ATTEMPTS = 10
+def _valid_anon_key(value):
+    value = (value or '').strip()
+    return bool(
+        8 <= len(value) <= 64
+        and all(char.isalnum() or char in '-_.~' for char in value)
+    )
+
+
+def _anon_key_matches_browser(request, anon_key):
+    """A cookie, when available, is stronger proof than a posted bearer key."""
+    cookie_key = (request.COOKIES.get('interoves_anon') or '').strip()
+    return not cookie_key or hmac.compare_digest(cookie_key, anon_key)
 
 
 def _anon_task_group_link(attempt):
@@ -3352,9 +3484,22 @@ def _anon_task_group_link(attempt):
 def new_anon_migrate_count(request):
     if not has_profile(request.user):
         raise Http404()
-    anon_key = request.GET.get('anon_key')
+    anon_key = (request.GET.get('anon_key') or '').strip()
     if not anon_key:
         return JsonResponse({'attempts': 0, 'show_prompt': False})
+    if not _valid_anon_key(anon_key):
+        return JsonResponse({'status': 'invalid_anon_key', 'show_prompt': False}, status=400)
+    if not _anon_key_matches_browser(request, anon_key):
+        return JsonResponse({'status': 'anon_key_mismatch', 'show_prompt': False}, status=403)
+
+    from games.anon_migrate import anon_migration_counts
+    from games.models import AnonAccountClaim, HiddenAnonKey
+
+    if HiddenAnonKey.objects.filter(anon_key=anon_key).exists():
+        return JsonResponse({'status': 'hidden_anon', 'show_prompt': False}, status=409)
+    claim = AnonAccountClaim.objects.filter(anon_key=anon_key).first()
+    if claim is not None and claim.user_id != request.user.pk:
+        return JsonResponse({'status': 'claimed_elsewhere', 'show_prompt': False}, status=409)
 
     # Задания, уже сданные на OK на авторизованном профиле (личный режим),
     # не учитываем — их посылки восстанавливать незачем.
@@ -3381,10 +3526,36 @@ def new_anon_migrate_count(request):
         if example is None:
             example = _anon_task_group_link(attempt)
 
-    # Показываем модалку, только если посылок достаточно И есть реальная
-    # ссылка на пример несданного задания.
-    show_prompt = n >= MIN_ANON_MIGRATE_PROMPT_ATTEMPTS and example is not None
-    payload = {'attempts': n, 'show_prompt': show_prompt}
+    counts = anon_migration_counts(anon_key)
+    counts['unsolved_attempts'] = n
+    counts['transferable_hints'] = HintAttempt.objects.filter(
+        anon_key=anon_key, user__isnull=True, team__isnull=True,
+    ).exclude(hint__task_id__in=solved_task_ids).count()
+    counts['transferable_states'] = ChainTaskState.objects.filter(
+        anon_key=anon_key, user__isnull=True, team__isnull=True,
+    ).exclude(task_id__in=solved_task_ids).count()
+    total_items = (
+        n
+        + sum(
+            value for key, value in counts.items()
+            if key not in (
+                'attempts', 'unsolved_attempts', 'hints', 'states',
+                'analytics_states', 'transferable_hints', 'transferable_states',
+            )
+        )
+        + counts['transferable_hints']
+        + counts['transferable_states']
+    )
+    show_prompt = total_items > 0
+    payload = {
+        'status': 'ok',
+        # Backward-compatible meaning: attempts that can add progress to this
+        # user. The full raw count is available as counts.attempts.
+        'attempts': n,
+        'counts': counts,
+        'total_items': total_items,
+        'show_prompt': show_prompt,
+    }
     if example is not None:
         payload['example_url'] = example[0]
         payload['example_label'] = example[1]
@@ -3397,9 +3568,32 @@ def new_anon_migrate_count(request):
 def new_migrate_anon_attempts(request):
     if not has_profile(request.user):
         raise Http404()
-    anon_key = request.POST.get('anon_key')
+    anon_key = (request.POST.get('anon_key') or '').strip()
     if not anon_key:
         raise Http404()
+    if not _valid_anon_key(anon_key):
+        return JsonResponse({'status': 'invalid_anon_key'}, status=400)
+    if not _anon_key_matches_browser(request, anon_key):
+        return JsonResponse({'status': 'anon_key_mismatch'}, status=403)
+
+    from games.anon_migrate import anon_migration_counts
+    from games.models import AnonAccountClaim, HiddenAnonKey
+
+    if HiddenAnonKey.objects.select_for_update().filter(anon_key=anon_key).exists():
+        return JsonResponse({'status': 'hidden_anon'}, status=409)
+    claim = AnonAccountClaim.objects.select_for_update().filter(anon_key=anon_key).first()
+    if claim is not None and claim.user_id != request.user.pk:
+        return JsonResponse({'status': 'claimed_elsewhere'}, status=409)
+    before_counts = anon_migration_counts(anon_key)
+    if claim is None and any(before_counts.values()):
+        # get_or_create resolves the unique-key race if two authenticated
+        # sessions try to claim the same browser identity simultaneously.
+        claim, _ = AnonAccountClaim.objects.get_or_create(
+            anon_key=anon_key,
+            defaults={'user': request.user},
+        )
+        if claim.user_id != request.user.pk:
+            return JsonResponse({'status': 'claimed_elsewhere'}, status=409)
     moved = Attempt.manager.filter(anon_key=anon_key, user__isnull=True, team__isnull=True).update(
         user=request.user,
         anon_key=None,
@@ -3410,6 +3604,7 @@ def new_migrate_anon_attempts(request):
     )
     from games.anon_migrate import (
         migrate_anon_analytics_state,
+        migrate_anon_attributions,
         migrate_anon_chain_task_states,
         migrate_anon_completed_games,
         migrate_anon_likes,
@@ -3422,9 +3617,13 @@ def new_migrate_anon_attempts(request):
     moved_analytics_state = migrate_anon_analytics_state(request.user, anon_key)
     moved_personal_dict = migrate_anon_personal_dict_words(request.user, anon_key)
     moved_likes = migrate_anon_likes(request.user, anon_key)
+    moved_attributions = migrate_anon_attributions(request.user, anon_key)
+    moved_bug_reports = moved_attributions['bug_reports']
+    moved_dict_suggestions = moved_attributions['dict_suggestions']
     if (
         moved or moved_hints or moved_states or moved_starts or moved_completions
         or moved_analytics_state or moved_personal_dict or moved_likes
+        or moved_bug_reports or moved_dict_suggestions
     ):
         StatisticsEvent.record(
             StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
@@ -3438,6 +3637,8 @@ def new_migrate_anon_attempts(request):
             moved_analytics_state=moved_analytics_state,
             moved_personal_dict=moved_personal_dict,
             moved_likes=moved_likes,
+            moved_bug_reports=moved_bug_reports,
+            moved_dict_suggestions=moved_dict_suggestions,
         )
     return JsonResponse({
         'status': 'ok',
@@ -3449,6 +3650,8 @@ def new_migrate_anon_attempts(request):
         'moved_analytics_state': moved_analytics_state,
         'moved_personal_dict': moved_personal_dict,
         'moved_likes': moved_likes,
+        'moved_bug_reports': moved_bug_reports,
+        'moved_dict_suggestions': moved_dict_suggestions,
     })
 
 
@@ -3525,7 +3728,22 @@ def new_profile(request, project_id=None):
             return redirect('project_hub', project_id=scoped)
         return redirect('new_hub')
     profile = request.user.profile
-    connected = set(SocialAccount.objects.filter(user=request.user).values_list('provider', flat=True))
+    connected_accounts = list(
+        SocialAccount.objects.filter(user=request.user).order_by('provider', 'id')
+    )
+    connected = {account.provider for account in connected_accounts}
+    connected_account_labels = {}
+    connected_account_ids = {}
+    for account in connected_accounts:
+        extra = account.extra_data or {}
+        label = (
+            extra.get('email')
+            or extra.get('name')
+            or extra.get('screen_name')
+            or str(account.uid)
+        )
+        connected_account_labels.setdefault(account.provider, label)
+        connected_account_ids.setdefault(account.provider, account.pk)
     if request.method == 'POST':
         form = ProfileSettingsForm(request.POST, instance=profile)
         if form.is_valid():
@@ -3556,11 +3774,119 @@ def new_profile(request, project_id=None):
     ctx = {
         'form': form,
         'connected_providers': connected,
+        'connected_accounts': connected_accounts,
+        'connected_account_labels': connected_account_labels,
+        'connected_account_ids': connected_account_ids,
+        'can_disconnect_social_account': len(connected_accounts) > 1,
         'tz_options': tz_options,
         'page_title': 'Профиль',
     }
     _merge_nav_project_for_scope(ctx, request, scoped)
     return render(request, 'ui/profile.html', ctx)
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def new_account_merge_confirm(request):
+    from django.contrib.auth import get_user_model
+    from games.account_merge import (
+        AccountMergeError,
+        build_account_merge_preview,
+        clear_pending_account_merge,
+        get_pending_account_merge,
+        merge_accounts,
+    )
+
+    pending = get_pending_account_merge(request)
+    if pending is None:
+        messages.info(request, 'Запрос на объединение аккаунтов истёк или уже был использован.')
+        return redirect('ui_profile')
+
+    source = get_user_model().objects.filter(pk=pending['source_user_id']).first()
+    if source is None:
+        clear_pending_account_merge(request)
+        messages.error(request, 'Второй профиль больше не найден.')
+        return redirect('ui_profile')
+
+    preview = build_account_merge_preview(request.user, source)
+    provider_label = {'google': 'Google', 'vk': 'VK'}.get(
+        pending['provider'], pending['provider'],
+    )
+    if request.method == 'POST':
+        if request.POST.get('action') != 'merge':
+            next_url = pending['next']
+            clear_pending_account_merge(request)
+            messages.info(request, 'Аккаунты оставлены раздельными.')
+            return redirect(next_url)
+        if not hmac.compare_digest(
+            request.POST.get('nonce') or '', pending['nonce'],
+        ):
+            clear_pending_account_merge(request)
+            messages.error(request, 'Запрос устарел. Подключите аккаунт ещё раз.')
+            return redirect('ui_profile')
+        try:
+            merge = merge_accounts(
+                target_user=request.user,
+                source_user=source,
+                provider=pending['provider'],
+                provider_uid=pending['provider_uid'],
+            )
+        except AccountMergeError as exc:
+            messages.error(request, str(exc))
+        else:
+            next_url = pending['next']
+            clear_pending_account_merge(request)
+            messages.success(
+                request,
+                'Профили объединены. Теперь можно входить через {} или другой подключённый способ.'.format(
+                    provider_label,
+                ),
+            )
+            return redirect(next_url)
+
+    return render(request, 'ui/account_merge_confirm.html', {
+        'preview': preview,
+        'pending_merge': pending,
+        'provider_label': provider_label,
+        'page_title': 'Объединение аккаунтов',
+    })
+
+
+@login_required
+@require_http_methods(['POST'])
+def new_social_account_disconnect(request):
+    account = SocialAccount.objects.filter(
+        pk=request.POST.get('account_id'), user=request.user,
+    ).first()
+    if account is None:
+        raise Http404()
+    if not SocialAccount.objects.filter(user=request.user).exclude(pk=account.pk).exists():
+        messages.error(request, 'Нельзя отключить единственный способ входа.')
+        return _profile_redirect(request)
+
+    from allauth.socialaccount import signals as socialaccount_signals
+    from allauth.socialaccount.internal.flows.connect import validate_disconnect
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    provider_label = {'google': 'Google', 'vk': 'VK'}.get(
+        account.provider, account.provider,
+    )
+    validate_disconnect(request, account)
+    account.delete()
+    socialaccount_signals.social_account_removed.send(
+        sender=SocialAccount, request=request, socialaccount=account,
+    )
+    messages.success(request, '{} отключён. Остальные способы входа продолжают работать.'.format(
+        provider_label,
+    ))
+    next_url = request.POST.get('next') or ''
+    if url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(next_url)
+    return _profile_redirect(request)
 
 
 def _post_make_new_team_primary(request):
@@ -3712,23 +4038,101 @@ def new_pay_page(request):
     создать или вступить, чтобы купить билет для команды.
     """
     team = None
+    payment_teams = []
+    telegram_linked = False
     if request.user.is_authenticated and has_profile(request.user):
         team = request.user.profile.team_on if has_team(request.user) else None
+        payment_teams = list(
+            Team.objects.filter(member_links__profile=request.user.profile)
+            .distinct()
+            .order_by('visible_name', 'name')
+        )
+        telegram_linked = bool(
+            request.user.profile.telegram_verified and request.user.profile.telegram_user_id
+        )
     recent_requests = TicketRequest.recent_for_team(team) if team else []
     ticket_price_int = ticket_unit_price_for(team, RUSSIAN_CARD)
     ticket_price_amd = ticket_unit_price_for(team, INTERNATIONAL_CARD)
+    from games.tribute_config import (
+        configured_product,
+        merchant_public_copy,
+        tribute_checkout_enabled,
+    )
+    from games.tribute_service import team_is_discount_eligible
+
+    regular_product = configured_product('regular')
+    discount_product = configured_product('discount')
+    selected_product = discount_product if team and team_is_discount_eligible(team) else regular_product
+    tribute_seller, tribute_seller_url = merchant_public_copy()
+    payment_team_options = []
+    for option_team in payment_teams:
+        option_product = discount_product if team_is_discount_eligible(option_team) else regular_product
+        payment_team_options.append({
+            'team': option_team,
+            'ticket_price': ticket_unit_price_for(option_team, RUSSIAN_CARD),
+            'ticket_price_amd': ticket_unit_price_for(option_team, INTERNATIONAL_CARD),
+            'tribute_kind': option_product.kind if option_product else '',
+            'tribute_amount': str(option_product.amount_major) if option_product else '',
+            'tribute_currency': option_product.currency if option_product else '',
+        })
     return render(request, 'ui/pay.html', {
         'team': team,
+        'payment_team_options': payment_team_options,
         'ticket_price': ticket_price_int,
         'ticket_price_display': '{:,}'.format(ticket_price_int).replace(',', ' '),
         'ticket_price_amd': ticket_price_amd,
         'ticket_price_amd_display': '{:,}'.format(ticket_price_amd).replace(',', ' '),
         'team_tickets': team.tickets if team else 0,
         'recent_ticket_requests': recent_requests,
+        'telegram_linked': telegram_linked,
+        'telegram_username': request.user.profile.telegram_username if telegram_linked else '',
+        'tribute_enabled': tribute_checkout_enabled(),
+        'tribute_product': selected_product or regular_product,
+        'tribute_regular_product': regular_product,
+        'tribute_discount_product': discount_product,
+        'tribute_seller': tribute_seller,
+        'tribute_seller_url': tribute_seller_url,
         'page_title': 'Оплата',
         **_project_urls_context(NEW_UI_PROJECT),
         **_main_team_page_urls(),
     })
+
+
+def _selected_payment_team(request, *, require_explicit=False):
+    if not has_profile(request.user) or not has_team(request.user):
+        return None
+    raw_team_id = (request.POST.get('team_id') or '').strip()
+    if not raw_team_id and not require_explicit:
+        return request.user.profile.team_on
+    if not raw_team_id:
+        return None
+    membership = (
+        ProfileTeamMembership.objects.select_related('team')
+        .filter(profile=request.user.profile, team_id=raw_team_id)
+        .first()
+    )
+    return membership.team if membership else None
+
+
+@login_required
+@require_http_methods(['POST'])
+def new_telegram_link_start(request):
+    if not has_profile(request.user):
+        messages.error(request, 'Сначала создайте профиль Inter Oves.')
+        return redirect('/pay/')
+    from games.telegram_linking import (
+        TelegramLinkError,
+        create_link_token,
+        telegram_deep_link,
+    )
+
+    _row, raw_token = create_link_token(request.user)
+    try:
+        deep_link = telegram_deep_link(raw_token)
+    except TelegramLinkError as exc:
+        messages.error(request, exc.message)
+        return redirect('/pay/')
+    return redirect(deep_link)
 
 
 @require_http_methods(['POST'])
@@ -3753,7 +4157,12 @@ def new_create_ticket_payment(request):
             status=403,
         )
 
-    team = request.user.profile.team_on
+    team = _selected_payment_team(request)
+    if team is None:
+        return JsonResponse(
+            {'status': 'error', 'reason': 'team_forbidden', 'message': 'Выбранная команда недоступна.'},
+            status=403,
+        )
     try:
         tickets = int((request.POST.get('tickets') or '').strip())
     except Exception:
@@ -3900,7 +4309,12 @@ def new_create_crypto_ticket_payment(request):
             status=403,
         )
 
-    team = request.user.profile.team_on
+    team = _selected_payment_team(request)
+    if team is None:
+        return JsonResponse(
+            {'status': 'error', 'reason': 'team_forbidden', 'message': 'Выбранная команда недоступна.'},
+            status=403,
+        )
     try:
         tickets = int((request.POST.get('tickets') or '').strip())
     except Exception:
@@ -4030,17 +4444,70 @@ def new_create_crypto_ticket_payment(request):
 
 @require_http_methods(['POST'])
 def new_create_tribute_ticket_payment(request):
-    """Reject new orders on the retired experimental Tribute route."""
-    # Tribute was an experimental RUB flow and does not represent the Armenian
-    # merchant. Keep its callback compatibility, but do not create new orders.
-    return JsonResponse(
-        {
-            'status': 'error',
-            'reason': 'retired',
-            'message': 'Этот способ оплаты больше не используется.',
-        },
-        status=410,
+    """Create/reuse one unambiguous Digital Product intent and return its fixed webLink."""
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {'status': 'error', 'reason': 'login', 'message': 'Сессия истекла. Войдите снова.'},
+            status=401,
+        )
+    if not has_profile(request.user) or not has_team(request.user):
+        return JsonResponse(
+            {'status': 'error', 'reason': 'team', 'message': 'Нужен профиль и команда.'},
+            status=403,
+        )
+    try:
+        tickets = int(request.POST.get('tickets') or '0')
+    except (TypeError, ValueError):
+        tickets = 0
+    if tickets != 1:
+        return JsonResponse(
+            {
+                'status': 'error',
+                'reason': 'quantity',
+                'message': 'Через Tribute одна покупка начисляет ровно один билет.',
+            },
+            status=400,
+        )
+    team = _selected_payment_team(request, require_explicit=True)
+    if team is None:
+        return JsonResponse(
+            {'status': 'error', 'reason': 'team_forbidden', 'message': 'Выбранная команда недоступна.'},
+            status=403,
+        )
+
+    from games.tribute_service import TributeCheckoutError, create_or_reuse_intent
+
+    try:
+        intent, product, reused = create_or_reuse_intent(user=request.user, team=team)
+    except TributeCheckoutError as exc:
+        return JsonResponse(
+            {'status': 'error', 'reason': exc.reason, 'message': exc.message},
+            status=exc.status,
+        )
+    if not intent.ticket_request.metrika_client_id:
+        intent.ticket_request.metrika_client_id = (request.COOKIES.get('_ym_uid') or '').strip()[:64]
+        intent.ticket_request.save(update_fields=['metrika_client_id'])
+    logger.info(
+        'tribute_redirect intent_id=%s user_id=%s team_id=%s product_id=%s reused=%s',
+        intent.pk, request.user.pk, team.pk, product.product_id, reused,
     )
+    return JsonResponse({
+        'status': 'ok',
+        'payment_url': product.web_url,
+        'intent_id': intent.pk,
+        'ticket_request_id': intent.ticket_request_id,
+        'reused': reused,
+        'status_url': request.build_absolute_uri(
+            reverse('new_ticket_payment_status', kwargs={'ticket_request_id': intent.ticket_request_id})
+        ),
+        'analytics_events': [
+            yandex_goal_payload(
+                YANDEX_GOAL_TICKET_CHECKOUT,
+                key='ticket_checkout:{}'.format(intent.ticket_request_id),
+                ack=analytics_ack_payload(YANDEX_GOAL_TICKET_CHECKOUT, intent.ticket_request_id),
+            ),
+        ],
+    })
 
 @require_http_methods(['GET', 'POST'])
 def new_ticket_payment_status(request, ticket_request_id):
@@ -4048,8 +4515,15 @@ def new_ticket_payment_status(request, ticket_request_id):
     if not request.user.is_authenticated or not has_profile(request.user) or not has_team(request.user):
         return JsonResponse({'status': 'error', 'reason': 'auth'}, status=401)
 
-    team = request.user.profile.team_on
-    ticket_request = TicketRequest.objects.filter(id=ticket_request_id, team=team).first()
+    ticket_request = (
+        TicketRequest.objects.select_related('team')
+        .filter(
+            id=ticket_request_id,
+            team__member_links__profile=request.user.profile,
+        )
+        .distinct()
+        .first()
+    )
     if not ticket_request:
         return JsonResponse({'status': 'error', 'reason': 'not_found'}, status=404)
 
@@ -4080,8 +4554,8 @@ def new_ticket_payment_status(request, ticket_request_id):
     }
     if ticket_request.status == 'Accepted' and ticket_request.purchase_goal_sent_at is None:
         payload['analytics_events'] = [ticket_purchase_goal_payload(ticket_request)]
-    if ticket_request.status == 'Accepted' and team is not None:
-        payload['team_tickets'] = team.tickets
+    if ticket_request.status == 'Accepted' and ticket_request.team is not None:
+        payload['team_tickets'] = ticket_request.team.tickets
     return JsonResponse(payload)
 
 

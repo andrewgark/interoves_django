@@ -2,9 +2,10 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from games.models import Attempt, ChainTaskState, CHAIN_TASK_TYPES, GameTaskGroup
 from games.views.views import check_attempt
+from games.views.track import track_actor_task_change, track_attempt_change
 
 
-def recheck(_, attempt_id):
+def recheck(_, attempt_id, *, notify=True):
     attempt = get_object_or_404(Attempt, id=attempt_id)
     try:
         check_attempt(attempt)
@@ -15,33 +16,57 @@ def recheck(_, attempt_id):
         print('REASON: {}'.format(e))
         attempt.skip = True
         attempt.save()
+    if notify:
+        track_attempt_change(attempt, reason='attempt.rechecked')
+    return attempt
+
+
+def _recheck_many(attempts, *, reason):
+    changed = {}
+    for source in list(attempts):
+        attempt = recheck(None, source.id, notify=False)
+        key = (
+            attempt.task_id,
+            attempt.game_id,
+            attempt.team_id,
+            attempt.user_id,
+            attempt.anon_key,
+        )
+        changed[key] = attempt
+    for attempt in changed.values():
+        track_attempt_change(attempt, reason=reason)
+    return list(changed.values())
 
 
 def recheck_full(_, attempt_id=None, task=None):
     if task is None:
         task = get_object_or_404(Attempt, id=attempt_id).task
-    for attempt in Attempt.manager.get_all_task_attempts(
-        task=task, exclude_skip=False
-    ):
-        recheck(None, attempt.id)
+    return _recheck_many(
+        Attempt.manager.get_all_task_attempts(task=task, exclude_skip=False),
+        reason='task.rechecked_full',
+    )
 
 
 def recheck_queue_from_this(_, attempt_id):
     this_attempt = get_object_or_404(Attempt, id=attempt_id)
-    for attempt in Attempt.manager.get_all_attempts_after_equal(
+    return _recheck_many(Attempt.manager.get_all_attempts_after_equal(
         team=this_attempt.team, task=this_attempt.task,
         time=this_attempt.time, exclude_skip=False,
-    ):
-        recheck(None, attempt.id)
+        user=this_attempt.user if this_attempt.user_id else None,
+        anon_key=this_attempt.anon_key,
+        game=this_attempt.game,
+    ), reason='task.rechecked_from_attempt')
 
 
 def recheck_queue_from_next(_, attempt_id):
     this_attempt = get_object_or_404(Attempt, id=attempt_id)
-    for attempt in Attempt.manager.get_all_attempts_after(
+    return _recheck_many(Attempt.manager.get_all_attempts_after(
         team=this_attempt.team, task=this_attempt.task,
         time=this_attempt.time, exclude_skip=False,
-    ):
-        recheck(None, attempt.id)
+        user=this_attempt.user if this_attempt.user_id else None,
+        anon_key=this_attempt.anon_key,
+        game=this_attempt.game,
+    ), reason='task.rechecked_after_attempt')
 
 
 def recheck_team_task_all_chronological(_, attempt_id):
@@ -67,11 +92,10 @@ def recheck_team_task_all_chronological(_, attempt_id):
     attempts = Attempt.manager.get_all_attempts(
         team, task, exclude_skip=False, user=user, anon_key=anon_key,
     )
-    for attempt in attempts:
-        recheck(None, attempt.id)
+    return _recheck_many(attempts, reason='task.rechecked_chronological')
 
 
-def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None):
+def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None, *, notify=True):
     """
     Optimised full recheck for wall / replacements_lines.
 
@@ -153,3 +177,13 @@ def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None):
         # Persist updated ChainTaskState rows.
         for row in locked_rows.values():
             row.save(update_fields=['state', 'last_attempt', 'updated_at'])
+
+    if notify:
+        track_actor_task_change(
+            task,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            game=game,
+            reason='task.chain_rechecked',
+        )

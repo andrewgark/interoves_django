@@ -105,6 +105,7 @@ urlpatterns = [
     path('games/alphabetty/<path:rest>', RedirectView.as_view(url='/alphabetty/%(rest)s', permanent=True, query_string=True)),
 ] + section_root_urlpatterns(task_group_url_name='ui_task_group') + [
     path('games/<str:game_id>/progress/', ui.game_task_group_progress, name='ui_game_progress'),
+    path('games/<str:game_id>/live-state/', ui.task_group_live_state, name='ui_task_group_live_state'),
     path('games/<str:game_id>/', ui.main_game_page, name='ui_main_game'),
     path('games/<str:game_id>/results/', ui.results_page, name='ui_results'),
     path('games/<str:game_id>/tournament-results/', ui.tournament_results_page, name='ui_tournament_results'),
@@ -117,12 +118,15 @@ urlpatterns = [
     path('team/join-by-password/', ui.team_join_by_password, name='ui_team_join_by_password'),
     path('team/password/', ui.team_password, name='ui_team_password'),
     path('team/rename/', ui.team_rename, name='ui_team_rename'),
+    path('profile/merge/', ui.account_merge_confirm, name='ui_account_merge_confirm'),
+    path('profile/disconnect/', ui.social_account_disconnect, name='ui_social_account_disconnect'),
     path('profile/', ui.profile, name='ui_profile'),
     path('team/', ui.team, name='ui_team'),
     path('pay/', ui.pay_page, name='ui_pay'),
     path('pay/create-ticket-payment/', ui.create_ticket_payment, name='ui_create_ticket_payment'),
     path('pay/create-crypto-ticket-payment/', ui.create_crypto_ticket_payment, name='ui_create_crypto_ticket_payment'),
     path('pay/create-tribute-ticket-payment/', ui.create_tribute_ticket_payment, name='ui_create_tribute_ticket_payment'),
+    path('pay/link-telegram/', ui.telegram_link_start, name='ui_telegram_link_start'),
     path('pay/ticket-status/<int:ticket_request_id>/', ui.ticket_payment_status, name='ui_ticket_payment_status'),
     path('<slug>/', ui.folder, name='ui_folder'),
 ]

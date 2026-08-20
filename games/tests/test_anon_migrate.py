@@ -7,7 +7,10 @@ from unittest.mock import patch
 from django.utils import timezone
 
 from games.models import (
+    AnonAccountClaim,
+    AlphabettyDictSuggestion,
     Attempt,
+    BugReport,
     ChainTaskState,
     CheckerType,
     Game,
@@ -42,6 +45,7 @@ class AnonMigrateTests(TestCase):
         ):
             HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
         CheckerType.objects.get_or_create(pk='equals')
+        CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
         with patch('games.views.track.track_task_change'):
             cls.game = Game.objects.create(
                 id='anon_migrate_test',
@@ -428,7 +432,9 @@ class AnonMigrateTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertEqual(data['attempts'], 2)
-        self.assertFalse(data['show_prompt'])
+        # Even a small amount of real progress is now offered for transfer;
+        # "Позже" prevents repeated prompts within the browser session.
+        self.assertTrue(data['show_prompt'])
         # Пример-ссылка ведёт на круг (task group), а не на задание.
         expected_url = reverse('new_task_group', kwargs={
             'game_id': self.game.id,
@@ -488,3 +494,78 @@ class AnonMigrateTests(TestCase):
             StatisticsEvent.objects.filter(kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED).count(),
             0,
         )
+
+    def test_migrate_claims_key_and_moves_guest_attributions(self):
+        report = BugReport.objects.create(
+            anon_key=self.anon_key,
+            task=self.task,
+            game=self.game,
+            text='нашёл опечатку',
+        )
+        suggestion = AlphabettyDictSuggestion.objects.create(
+            anon_key=self.anon_key,
+            word='ТЕСТОВОЕСЛОВО',
+        )
+
+        data = self.client.post(
+            reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
+        ).json()
+
+        self.assertEqual(data['moved_bug_reports'], 1)
+        self.assertEqual(data['moved_dict_suggestions'], 1)
+        self.assertEqual(AnonAccountClaim.objects.get(anon_key=self.anon_key).user, self.user)
+        self.assertEqual(BugReport.objects.get(pk=report.pk).user, self.user)
+        self.assertIsNone(BugReport.objects.get(pk=report.pk).anon_key)
+        self.assertEqual(AlphabettyDictSuggestion.objects.get(pk=suggestion.pk).user, self.user)
+        self.assertIsNone(AlphabettyDictSuggestion.objects.get(pk=suggestion.pk).anon_key)
+
+    def test_claimed_key_cannot_be_moved_to_another_user(self):
+        other = User.objects.create_user('other-claim-user', 'other@example.com', 'secret')
+        Profile.objects.create(user=other, first_name='Other', last_name='User')
+        AnonAccountClaim.objects.create(anon_key=self.anon_key, user=other)
+
+        response = self.client.post(
+            reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()['status'], 'claimed_elsewhere')
+        self.assertEqual(Attempt.manager.filter(anon_key=self.anon_key).count(), 2)
+
+    def test_same_user_can_retry_an_existing_guest_claim(self):
+        AnonAccountClaim.objects.create(anon_key=self.anon_key, user=self.user)
+
+        response = self.client.post(
+            reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'ok')
+        self.assertFalse(Attempt.manager.filter(anon_key=self.anon_key).exists())
+
+    def test_hint_only_guest_progress_is_offered(self):
+        key = 'hint-only-anon-key'
+        HintAttempt.objects.create(anon_key=key, hint=self.hint)
+
+        data = self.client.get(
+            reverse('new_anon_migrate_count'), {'anon_key': key},
+        ).json()
+
+        self.assertTrue(data['show_prompt'])
+        self.assertEqual(data['counts']['hints'], 1)
+
+    def test_invalid_anon_key_is_rejected(self):
+        response = self.client.post(
+            reverse('new_migrate_anon_attempts'), {'anon_key': 'x' * 65},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['status'], 'invalid_anon_key')
+
+    def test_cookie_prevents_claiming_a_different_guest_key(self):
+        self.client.cookies['interoves_anon'] = 'different-browser-key'
+        response = self.client.post(
+            reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()['status'], 'anon_key_mismatch')
+        self.assertEqual(Attempt.manager.filter(anon_key=self.anon_key).count(), 2)

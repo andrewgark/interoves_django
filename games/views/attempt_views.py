@@ -16,7 +16,7 @@ from games.forms import AttemptForm
 from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, Team, CHAIN_TASK_TYPES
 from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
-from games.views.track import track_task_change
+from games.views.track import track_actor_task_change
 from games.raddle import (
     load_raddle_state,
     parse_raddle_data,
@@ -80,15 +80,16 @@ def _raddle_stale_submit_response(request, task, team, user, anon_key, game, cur
         update_html = update_task_html(
             request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
         )
-        track_task_change(
+        track_actor_task_change(
             task,
-            team,
-            current_mode,
+            team=team,
             update_html=update_html,
             request=request,
             game=game,
             user=user,
             anon_key=anon_key,
+            current_mode=current_mode,
+            reason='raddle.stale_ui_sync',
         )
         result.update(update_html)
         return result
@@ -302,7 +303,12 @@ def check_attempt(attempt, *, persist_wrong=True):
         # Attempt.save() deliberately has no broadcast side effect.  Notify the
         # affected team once after the dependent task has been fully rechecked.
         if rechecked:
-            track_task_change(tag_task, team=tag_team, game=game)
+            track_actor_task_change(
+                tag_task,
+                team=tag_team,
+                game=game,
+                reason='task.dependency_rechecked',
+            )
     return True
 
 
@@ -592,15 +598,16 @@ def process_send_attempt(request, task_id):
         update_html = update_task_html(
             request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
         )
-        track_task_change(
+        track_actor_task_change(
             task,
-            team,
-            current_mode,
+            team=team,
             update_html=update_html,
             request=request,
             game=game,
             user=user,
             anon_key=anon_key,
+            current_mode=current_mode,
+            reason='attempt.submitted',
         )
         result.update(update_html)
     return result

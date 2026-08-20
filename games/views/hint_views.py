@@ -13,7 +13,7 @@ from games.analytics import register_started_game
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
 from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
-from games.views.track import track_task_change
+from games.views.track import track_actor_task_change
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
 
 
@@ -133,8 +133,14 @@ def process_send_hint_attempt(request, task_id):
         update_html = update_task_html(
             request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
         )
-        track_task_change(
-            task, team, current_mode, update_html=update_html, request=request, game=game,
+        track_actor_task_change(
+            task,
+            team=team,
+            current_mode=current_mode,
+            update_html=update_html,
+            request=request,
+            game=game,
+            reason='hint.taken',
         )
         result.update(update_html)
     return result

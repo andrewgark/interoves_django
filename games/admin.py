@@ -20,6 +20,8 @@ from games.ops_actions import (
     set_ok_and_create_new_task,
 )
 from games.models import (
+    AccountMerge,
+    AnonAccountClaim,
     AlphabettyDictSuggestion,
     Attempt,
     Audio,
@@ -54,7 +56,10 @@ from games.models import (
     Task,
     TaskGroup,
     Team,
+    TelegramLinkToken,
     TicketRequest,
+    TributePaymentIntent,
+    TributePurchase,
 )
 from games.recheck import (
     recheck_chain_task,
@@ -68,6 +73,42 @@ from games.social.models import SocialQueuePost
 
 
 admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration])
+
+
+@admin.register(AccountMerge)
+class AccountMergeAdmin(admin.ModelAdmin):
+    list_display = [
+        'created_at', 'source_user_id_snapshot', 'target_user_id_snapshot', 'provider',
+    ]
+    search_fields = [
+        'source_user_id_snapshot', 'target_user_id_snapshot',
+        'source_user__username', 'target_user__username', 'provider_uid',
+    ]
+    raw_id_fields = ['source_user', 'target_user']
+    readonly_fields = [
+        'source_user', 'target_user', 'source_user_id_snapshot',
+        'target_user_id_snapshot', 'provider', 'provider_uid', 'summary', 'created_at',
+    ]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(AnonAccountClaim)
+class AnonAccountClaimAdmin(admin.ModelAdmin):
+    list_display = ['created_at', 'anon_key', 'user']
+    search_fields = ['anon_key', 'user__username', 'user__email']
+    raw_id_fields = ['user']
+    readonly_fields = ['anon_key', 'user', 'created_at']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(PlayerStartedGame)
@@ -136,6 +177,88 @@ class TicketRequestAdmin(admin.ModelAdmin):
         'purchase_goal_queued_at', 'purchase_goal_sent_at',
     )
     raw_id_fields = ('created_by',)
+
+
+@admin.action(description='Issue one ticket for selected reviewed Tribute purchases')
+def issue_tribute_purchase(modeladmin, request, queryset):
+    from games.tribute_service import TributeCheckoutError, manually_issue_purchase
+
+    issued = 0
+    for purchase in queryset:
+        try:
+            result = manually_issue_purchase(purchase.pk)
+        except TributeCheckoutError as exc:
+            modeladmin.message_user(
+                request,
+                '{}: {}'.format(purchase.purchase_id, exc.message),
+                level=messages.ERROR,
+            )
+            continue
+        if result.ticket_issued:
+            issued += 1
+    if issued:
+        modeladmin.message_user(request, 'Начислено билетов: {}'.format(issued), level=messages.SUCCESS)
+
+
+@admin.register(TributePurchase)
+class TributePurchaseAdmin(admin.ModelAdmin):
+    list_display = (
+        'received_at', 'status', 'product_id', 'amount', 'currency', 'purchase_id',
+        'transaction_id', 'telegram_user_id', 'telegram_username', 'matched_user',
+        'matched_team', 'review_reason', 'accounting_review_required',
+    )
+    list_filter = (
+        'status', 'review_reason', 'currency', 'product_id', 'accounting_review_required',
+    )
+    search_fields = (
+        'purchase_id', 'transaction_id', 'trb_user_id', 'telegram_user_id',
+        'telegram_username', 'matched_user__username', 'matched_user__email',
+        'matched_team__name', 'matched_team__visible_name',
+    )
+    raw_id_fields = ('matched_user', 'matched_team')
+    readonly_fields = (
+        'purchase_id', 'transaction_id', 'product_id', 'product_name', 'amount', 'currency',
+        'trb_user_id', 'telegram_user_id', 'telegram_username', 'purchase_created_at',
+        'normalized_payload', 'payment_intent', 'ticket_request', 'received_at',
+        'processed_at', 'refunded_at', 'refund_reason', 'ticket_revoked_at',
+        'accounting_review_required', 'status', 'review_reason',
+    )
+    actions = (issue_tribute_purchase,)
+    date_hierarchy = 'received_at'
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(TributePaymentIntent)
+class TributePaymentIntentAdmin(admin.ModelAdmin):
+    list_display = (
+        'created_at', 'status', 'user', 'team', 'telegram_user_id', 'expected_product_id',
+        'expected_amount', 'expected_currency', 'ticket_type', 'expires_at',
+    )
+    list_filter = ('status', 'ticket_type', 'expected_currency', 'expected_product_id')
+    search_fields = ('user__username', 'team__name', 'telegram_user_id', 'ticket_request__id')
+    readonly_fields = [field.name for field in TributePaymentIntent._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(TelegramLinkToken)
+class TelegramLinkTokenAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'user', 'expires_at', 'used_at')
+    list_filter = ('used_at',)
+    search_fields = ('user__username', 'user__email')
+    readonly_fields = ('user', 'token_hash', 'created_at', 'expires_at', 'used_at')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Donation)
@@ -765,7 +888,12 @@ reject_ticket_request.short_description = "Reject Ticket Request"
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ['__str__', 'team_on', 'team_requested', 'telegram_handle', 'vk_url']
+    list_display = [
+        '__str__', 'team_on', 'team_requested', 'telegram_handle', 'telegram_user_id',
+        'telegram_username', 'telegram_verified', 'telegram_linked_at', 'vk_url',
+    ]
+    list_filter = ['telegram_verified']
+    search_fields = ['user__username', 'telegram_handle', 'telegram_user_id', 'telegram_username']
     actions = [confirm_profile_team_request, clear_profile_team]
 
 

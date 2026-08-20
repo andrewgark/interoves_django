@@ -1,0 +1,52 @@
+name: Realtime Redis
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'games/**'
+      - 'interoves_django/**'
+      - 'requirements.txt'
+      - 'static/js/track_ws.js'
+      - '.github/workflows/realtime-redis.yml'
+  push:
+    branches:
+      - master
+    paths:
+      - 'games/**'
+      - 'interoves_django/**'
+      - 'requirements.txt'
+      - 'static/js/track_ws.js'
+      - '.github/workflows/realtime-redis.yml'
+
+jobs:
+  cross-process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Test cross-process Redis delivery and revisions
+        env:
+          INTEROVES_REAL_REDIS_TESTS: '1'
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: '6379'
+          DEFER_CHANNEL_BROADCAST: '0'
+        run: python manage.py test games.tests.test_realtime_redis

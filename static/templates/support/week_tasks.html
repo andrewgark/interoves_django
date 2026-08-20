@@ -5,7 +5,7 @@
 {% csrf_token %}
 {{ week_tasks_json|json_script:"week-tasks-bootstrap" }}
 {{ banned_json|json_script:"week-tasks-banned" }}
-<script src="{% static 'js/support_schedule_tabs.js' %}"></script>
+<script src="{% static 'js/support_schedule_tabs.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <h1 class="support-page-title">Задания недели</h1>
 <p class="support-lead">
   Публичный № = порядковый номер и дата выхода (старт + (N−1)×7 дней, понедельник 00:00 МСК).
@@ -42,7 +42,7 @@
 </nav>
 
 <section class="pal-card support-card">
-  <div class="support-ladder-list" id="wt-list" aria-label="Список заданий недели"></div>
+  <div class="support-ladder-list support-schedule-list" id="wt-list" aria-label="Список заданий недели"></div>
   <div class="support-ladder-insert support-ladder-insert--end">
     <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-insert-end>+ В конец</button>
   </div>
@@ -136,27 +136,12 @@
   var createModal = document.getElementById('wt-create-modal');
   var editLinkId = null;
   var createAtNumber = null;
-  var dragId = null;
   var busy = false;
   var poolGames = null;
   var poolPromise = null;
 
-  function csrf() {
-    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
-    return el ? el.value : '';
-  }
   function postJson(url, body) {
-    return fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
-      body: JSON.stringify(body || {}),
-      credentials: 'same-origin'
-    }).then(function (r) {
-      return r.json().then(function (data) {
-        if (!r.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
-        return data;
-      });
-    });
+    return tabs.postJson(url, body);
   }
   function setBusy(on) {
     busy = !!on;
@@ -217,7 +202,7 @@
         listEl.appendChild(insert);
       }
       var item = document.createElement('div');
-      item.className = 'support-ladder-item' +
+      item.className = 'support-ladder-item support-schedule-item' +
         (row.is_today ? ' is-today' : '') +
         (!row.is_published ? ' is-future' : '') +
         (row.is_published ? ' is-locked' : '');
@@ -226,7 +211,7 @@
       item.dataset.published = row.is_published ? '1' : '0';
       var handle = row.is_published
         ? '<span class="support-ladder-item__handle support-ladder-item__handle--locked">·</span>'
-        : '<button type="button" class="support-ladder-item__handle" title="Перетащить">⠿</button>';
+        : '<button type="button" class="support-ladder-item__handle support-schedule-handle" aria-label="Перетащить" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>';
       var sourcePreview = row.source_url
         ? ('<a class="new-link-dotted" href="' + escapeHtml(row.source_url) + '" target="_blank" rel="noopener" title="Открыть в оригинальной десяточке">' +
             escapeHtml(row.source_label || 'источник') + '</a>')
@@ -314,10 +299,10 @@
       .map(function (r) { return r.link_id; });
     return publishedIds.concat(visible);
   }
-  function persistOrder() {
+  function persistOrder(order) {
     if (busy) return;
     setBusy(true);
-    postJson(endpoints.reorder, { order: fullOrderFromView() })
+    postJson(endpoints.reorder, { order: order || fullOrderFromView() })
       .then(function (data) { setRows(data.rows); })
       .catch(function (e) { alert(e.message || String(e)); location.reload(); })
       .finally(function () { setBusy(false); });
@@ -757,36 +742,21 @@
     else if (editModal.classList.contains('is-open')) closeEdit();
   });
 
-  listEl.addEventListener('dragstart', function (e) {
-    if (!canReorder()) { e.preventDefault(); return; }
-    var item = e.target.closest('.support-ladder-item');
-    if (!item || item.dataset.published === '1' || item.classList.contains('is-locked')) {
-      e.preventDefault(); return;
+  tabs.mountSortable(listEl, {
+    isBusy: function () { return busy || !canReorder(); },
+    canDrag: function (item) { return item.dataset.published !== '1'; },
+    minIndex: function () {
+      return viewTab === 'future' ? 0 : lastPublishedNumber(allRows);
+    },
+    onOrder: function (visibleOrder) {
+      var order = viewTab === 'future'
+        ? allRows.filter(function (row) { return row.is_published; })
+            .sort(function (a, b) { return a.number - b.number; })
+            .map(function (row) { return row.link_id; })
+            .concat(visibleOrder)
+        : visibleOrder;
+      persistOrder(order);
     }
-    dragId = item.dataset.linkId;
-    item.classList.add('is-dragging');
-    e.dataTransfer.effectAllowed = 'move';
-  });
-  listEl.addEventListener('dragend', function (e) {
-    var item = e.target.closest('.support-ladder-item');
-    if (item) item.classList.remove('is-dragging');
-    dragId = null;
-  });
-  listEl.addEventListener('dragover', function (e) {
-    if (!canReorder()) return;
-    e.preventDefault();
-    var item = e.target.closest('.support-ladder-item');
-    if (!item || !dragId || item.classList.contains('is-locked')) return;
-    var dragging = listEl.querySelector('.support-ladder-item.is-dragging');
-    if (!dragging || dragging === item) return;
-    var rect = item.getBoundingClientRect();
-    var before = (e.clientY - rect.top) < rect.height / 2;
-    listEl.insertBefore(dragging, before ? item : item.nextSibling);
-  });
-  listEl.addEventListener('drop', function (e) {
-    if (!canReorder()) return;
-    e.preventDefault();
-    persistOrder();
   });
 
   refreshView();

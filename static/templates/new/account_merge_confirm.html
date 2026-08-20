@@ -1,0 +1,47 @@
+{% extends "new/base.html" %}
+{% block title %}Объединение аккаунтов{% endblock %}
+{% block content %}
+<h1 class="new-heading new-heading--page">Объединить профили?</h1>
+
+<div class="new-card">
+  <p>
+    Аккаунт {{ provider_label }} уже используется в другом профиле
+    {% if preview.source_name %}<strong>{{ preview.source_name }}</strong>{% endif %}.
+    Можно перенести его данные в профиль, в котором вы сейчас находитесь.
+  </p>
+
+  <ul>
+    <li>Попытки: {{ preview.attempts }}</li>
+    <li>Полученные подсказки: {{ preview.hints }}</li>
+    <li>Команды: {{ preview.teams }}</li>
+    <li>Черновики заданий: {{ preview.offers }}</li>
+  </ul>
+
+  <p class="new-login-hint">
+    Текущие имя, фото, таймзона, Telegram и активная команда сохранятся.
+    Способы входа, игровой прогресс и членства второго профиля будут добавлены сюда.
+  </p>
+
+  {% if preview.conflicts %}
+    <div class="new-field-error">
+      <p>Автоматическое объединение недоступно. Данные не изменены:</p>
+      <ul>
+        {% for conflict_message in preview.conflict_messages %}
+          <li>{{ conflict_message }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post" class="new-rules-modal__actions new-rules-modal__actions--flush">
+    {% csrf_token %}
+    <input type="hidden" name="nonce" value="{{ pending_merge.nonce }}">
+    {% if preview.can_merge %}
+      <button type="submit" name="action" value="merge" class="new-btn">Объединить профили</button>
+    {% endif %}
+    <button type="submit" name="action" value="cancel" class="new-btn new-btn--ghost">Оставить раздельными</button>
+  </form>
+</div>
+
+<p class="new-tg-back new-tg-back--footer"><a href="{{ pending_merge.next }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Профиль</a></p>
+{% endblock %}

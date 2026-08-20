@@ -22,6 +22,7 @@ from games.models import (
     CheckerType,
     Game,
     GameTaskGroup,
+    Hint,
     HTMLPage,
     Profile,
     Project,
@@ -33,13 +34,18 @@ from games.models import (
 from games.views.track import (
     CHANNEL_GROUPS,
     build_event_task_change,
+    current_track_seq,
     envelope_track_message,
+    game_track_namespace,
     msgpack_safe_keys,
     next_track_seq,
     notify_registered_users_game_lifecycle_changed,
     notify_registered_users_play_access_changed,
     notify_user_after_commit,
+    team_track_namespace,
+    track_attempt_change,
     track_task_change,
+    user_track_namespace,
 )
 
 
@@ -66,6 +72,7 @@ class TrackGameFixtureMixin:
                 'name': 'Track test',
                 'author': 'test',
                 'author_extra': '',
+                'is_ready': True,
             },
         )
         cls.task_group = TaskGroup.objects.create(label='tg')
@@ -157,19 +164,49 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
             )
         track.assert_not_called()
 
+    def test_task_save_notifies_after_updated_row_is_persisted(self):
+        observed_text = []
+
+        def observe_saved_task(task):
+            observed_text.append(Task.objects.get(pk=task.pk).text)
+
+        self.task.text = 'Corrected task text'
+        with patch('games.views.track.track_task_change', side_effect=observe_saved_task):
+            self.task.save(update_fields=['text'])
+
+        self.assertEqual(observed_text, ['Corrected task text'])
+
+    def test_hint_save_notifies_after_updated_row_is_persisted(self):
+        with patch('games.views.track.track_task_change'):
+            hint = Hint.objects.create(task=self.task, number='1', text='Old hint')
+        observed_text = []
+
+        def observe_saved_hint(_task):
+            observed_text.append(Hint.objects.get(pk=hint.pk).text)
+
+        hint.text = 'Corrected hint text'
+        with patch('games.views.track.track_task_change', side_effect=observe_saved_hint):
+            hint.save(update_fields=['text'])
+
+        self.assertEqual(observed_text, ['Corrected hint text'])
+
     def test_channel_group_names(self):
         self.assertEqual(CHANNEL_GROUPS['game']('g1'), 'track.game.g1')
         self.assertEqual(
-            CHANNEL_GROUPS['game_team']('g1', 'abc'),
+            CHANNEL_GROUPS['game_team']('g1', 42),
+            'track.game.g1.team_id.42',
+        )
+        self.assertEqual(
+            CHANNEL_GROUPS['game_team_legacy']('g1', 'abc'),
             'track.game.g1.team.abc',
         )
         self.assertEqual(CHANNEL_GROUPS['user'](42), 'track.user.42')
 
     def test_next_track_seq_monotonic(self):
-        from django.core.cache import cache
+        from django.core.cache import caches
 
         ns = 'unit_test_seq_namespace'
-        cache.delete(f'track:seq:{ns}')
+        caches['track_revisions'].delete(f'track:seq:{ns}')
         self.assertEqual(next_track_seq(ns), 1)
         self.assertEqual(next_track_seq(ns), 2)
 
@@ -207,14 +244,21 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
                     team=self.team,
                     update_html={'stub': True},
                 )
-        layer.group_send.assert_called_once()
-        args, _kwargs = layer.group_send.call_args
-        expected_group = CHANNEL_GROUPS['game_team'](self.game.id, self.team.get_name_hash())
-        self.assertEqual(args[0], expected_group)
+        self.assertEqual(layer.group_send.call_count, 2)
+        stable_call, legacy_call = layer.group_send.call_args_list
+        args = stable_call.args
+        self.assertEqual(args[0], CHANNEL_GROUPS['game_team'](self.game.id, self.team.pk))
+        self.assertEqual(legacy_call.args[0], CHANNEL_GROUPS['game_team_legacy'](
+            self.game.id, self.team.get_name_hash(),
+        ))
+        self.assertEqual(args[1], legacy_call.args[1])
         self.assertEqual(args[1]['type'], 'task.changed')
         self.assertEqual(args[1]['stub'], True)
         self.assertIn('seq', args[1])
-        self.assertEqual(args[1]['seq_namespace'], 'game:{}'.format(self.game.id))
+        self.assertEqual(
+            args[1]['seq_namespace'],
+            team_track_namespace(self.game.id, self.team.pk),
+        )
         self.assertIsInstance(args[1]['seq'], int)
 
     @override_settings(
@@ -231,7 +275,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(args[0], CHANNEL_GROUPS['game'](self.game.id))
         self.assertEqual(args[1]['by'], 'admin')
         self.assertIn('seq', args[1])
-        self.assertEqual(args[1]['seq_namespace'], 'game:{}'.format(self.game.id))
+        self.assertEqual(args[1]['seq_namespace'], game_track_namespace(self.game.id))
 
     @override_settings(
         CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
@@ -251,6 +295,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(args[0], CHANNEL_GROUPS['user'](self.user.id))
         self.assertEqual(args[1]['by'], 'personal')
         self.assertEqual(args[1]['personal'], 1)
+        self.assertEqual(args[1]['seq_namespace'], user_track_namespace(self.user.id))
 
     @override_settings(
         CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
@@ -274,6 +319,28 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(args[1]['event'], 'test.ping')
         self.assertIn('seq', args[1])
         self.assertEqual(args[1]['seq_namespace'], 'user:{}'.format(self.user.id))
+
+    def test_track_attempt_change_uses_central_actor_hook(self):
+        attempt = Attempt(
+            task=self.task,
+            game=self.game,
+            team=self.team,
+            text='pending',
+            status='Pending',
+        )
+        with patch('games.views.track.track_task_change') as notify:
+            track_attempt_change(attempt, reason='attempt.reviewed')
+        notify.assert_called_once_with(
+            self.task,
+            team=self.team,
+            user=None,
+            anon_key=None,
+            game=self.game,
+            reason='attempt.reviewed',
+            current_mode=None,
+            update_html=None,
+            request=None,
+        )
 
     def test_notify_registered_users_play_access_changed_calls_user_notify(self):
         self.game.is_tournament = True
@@ -363,9 +430,9 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
     loop as WebsocketCommunicator + InMemoryChannelLayer in tests.
     """
 
-    def _session_headers(self):
+    def _session_headers(self, user=None):
         client = Client()
-        client.force_login(self.user)
+        client.force_login(user or self.user)
         session_id = client.cookies['sessionid'].value
         return [
             (b'cookie', f'sessionid={session_id}'.encode()),
@@ -387,7 +454,7 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
 
             group_name = CHANNEL_GROUPS['game_team'](
                 self.game.id,
-                self.team.get_name_hash(),
+                self.team.pk,
             )
             await layer.group_send(
                 group_name,
@@ -403,6 +470,71 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
             assert msg['integration'] == 'team_group'
             assert 'seq' in msg
 
+            await communicator.disconnect()
+
+        async_to_sync(run)()
+
+    def test_two_teammates_receive_same_team_event(self):
+        from interoves_django.asgi import application
+
+        teammate = User.objects.create_user('track_ws_teammate', password='pw')
+        Profile.objects.create(
+            user=teammate,
+            first_name='Team',
+            last_name='Mate',
+            team_on=self.team,
+        )
+        first_headers = self._session_headers(self.user)
+        second_headers = self._session_headers(teammate)
+        path = f'/games/{self.game.id}/track/'
+
+        async def run():
+            first = WebsocketCommunicator(application, path, headers=first_headers)
+            second = WebsocketCommunicator(application, path, headers=second_headers)
+            self.assertTrue((await first.connect())[0])
+            self.assertTrue((await second.connect())[0])
+            await get_channel_layer().group_send(
+                CHANNEL_GROUPS['game_team'](self.game.id, self.team.pk),
+                {
+                    'type': 'task.changed',
+                    'task': self.task.id,
+                    'by': 'team',
+                    'integration': 'two_teammates',
+                },
+            )
+            first_msg = await first.receive_json_from(timeout=5)
+            second_msg = await second.receive_json_from(timeout=5)
+            self.assertEqual(first_msg['integration'], 'two_teammates')
+            self.assertEqual(second_msg['integration'], 'two_teammates')
+            await first.disconnect()
+            await second.disconnect()
+
+        async_to_sync(run)()
+
+    def test_websocket_receives_legacy_team_group_during_rolling_deploy(self):
+        from interoves_django.asgi import application
+
+        headers = self._session_headers()
+        path = f'/games/{self.game.id}/track/'
+
+        async def run():
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _ = await communicator.connect()
+            assert connected
+            layer = get_channel_layer()
+            await layer.group_send(
+                CHANNEL_GROUPS['game_team_legacy'](
+                    self.game.id, self.team.get_name_hash(),
+                ),
+                {
+                    'type': 'task.changed',
+                    'task': self.task.id,
+                    'by': 'team',
+                    'integration': 'legacy_team_group',
+                },
+            )
+            msg = await communicator.receive_json_from(timeout=5)
+            self.assertEqual(msg['integration'], 'legacy_team_group')
             await communicator.disconnect()
 
         async_to_sync(run)()
@@ -499,7 +631,7 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
             event = await database_sync_to_async(build_event)()
             layer = get_channel_layer()
             await layer.group_send(
-                CHANNEL_GROUPS['game_team'](self.game.id, self.team.get_name_hash()),
+                CHANNEL_GROUPS['game_team'](self.game.id, self.team.pk),
                 event,
             )
             msg = await communicator.receive_json_from(timeout=5)
@@ -542,7 +674,7 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
 
             layer = get_channel_layer()
             await layer.group_send(
-                CHANNEL_GROUPS['game_team'](self.game.id, self.team.get_name_hash()),
+                CHANNEL_GROUPS['game_team'](self.game.id, self.team.pk),
                 event,
             )
             msg = await communicator.receive_json_from(timeout=5)
@@ -580,6 +712,25 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
             await communicator.disconnect()
 
         async_to_sync(run)()
+
+    def test_websocket_rejects_unknown_or_inaccessible_game(self):
+        from interoves_django.asgi import application
+
+        closed_game = Game.objects.create(
+            id='closed_track_game',
+            name='Closed',
+            author='test',
+            is_ready=False,
+        )
+        headers = self._session_headers()
+
+        async def cannot_connect(path):
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _ = await communicator.connect()
+            self.assertFalse(connected)
+
+        async_to_sync(cannot_connect)(f'/games/{closed_game.id}/track/')
+        async_to_sync(cannot_connect)('/games/missing_track_game/track/')
 
     def test_user_track_websocket_receives_user_group(self):
         from interoves_django.asgi import application
@@ -626,6 +777,44 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
             await communicator.disconnect()
 
         async_to_sync(run)()
+
+    def test_game_track_reconnect_detects_missed_team_revision(self):
+        from interoves_django.asgi import application
+
+        headers = self._session_headers()
+        path = f'/games/{self.game.id}/track/'
+        namespace = team_track_namespace(self.game.id, self.team.pk)
+
+        async def baseline():
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _ = await communicator.connect()
+            assert connected
+            await communicator.send_json_to({'type': 'track.sync', 'seen': {}})
+            msg = await communicator.receive_json_from(timeout=5)
+            await communicator.disconnect()
+            return msg
+
+        first = async_to_sync(baseline)()
+        self.assertEqual(first['type'], 'track.synced')
+        self.assertEqual(first['versions'][namespace], current_track_seq(namespace))
+
+        next_track_seq(namespace)
+
+        async def reconnect():
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _ = await communicator.connect()
+            assert connected
+            await communicator.send_json_to({
+                'type': 'track.sync',
+                'seen': first['versions'],
+            })
+            msg = await communicator.receive_json_from(timeout=5)
+            await communicator.disconnect()
+            return msg
+
+        second = async_to_sync(reconnect)()
+        self.assertEqual(second['type'], 'track.resync_required')
+        self.assertEqual(second['missed'][namespace], current_track_seq(namespace))
 
     @override_settings(TRACK_WS_GROUP_DISCARD_TIMEOUT=0.05, TRACK_WS_IDLE_TIMEOUT=0)
     def test_disconnect_bounded_when_group_discard_hangs(self):

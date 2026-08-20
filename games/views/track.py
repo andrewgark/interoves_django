@@ -9,10 +9,12 @@ Roadmap (idiomatic next steps):
 
 Groups:
 - track.game.{game_id} — broadcast (e.g. admin changed task text).
-- track.game.{game_id}.team.{team_name_hash} — team-scoped task state.
+- track.game.{game_id}.team_id.{team_id} — stable team-scoped task state.
+- track.game.{game_id}.team.{team_name_hash} — temporary rolling-deploy compatibility.
 - track.user.{user_id} — private signals (game start, shipment, etc.); same socket as game page.
 
-Messages include monotonic seq per namespace (Django cache) so the client can ignore stale payloads.
+Messages include monotonic seq per actor scope (Django cache) so the client can
+ignore stale payloads and detect missed updates after reconnect.
 
 Lifecycle: client ping + idle timeout; group_discard wrapped in wait_for so Redis latency
 cannot block Daphne application close (prod 504 / "took too long to shut down").
@@ -28,14 +30,15 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from asgiref.sync import async_to_sync
 
 from django.conf import settings
-from django.core.cache import cache
+from django.core.cache import caches
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from games.models import Attempt, GameTaskGroup, Task
+from games.models import Attempt, Game, GameTaskGroup, Task
 from games.views.render_task import update_task_html
 
 logger = logging.getLogger(__name__)
+track_revision_cache = caches['track_revisions']
 
 _open_track_sockets = 0
 _open_track_sockets_lock = threading.Lock()
@@ -119,6 +122,22 @@ class TrackWsLifecycleMixin:
         if isinstance(content, dict) and content.get('type') == 'ping':
             await self.send_json({'type': 'pong'})
             return
+        if isinstance(content, dict) and content.get('type') == 'track.sync':
+            seen = content.get('seen')
+            if not isinstance(seen, dict):
+                seen = {}
+            versions = await self._track_current_versions()
+            missed = {
+                namespace: current
+                for namespace, current in versions.items()
+                if namespace in seen and _track_seq_int(seen.get(namespace)) < current
+            }
+            await self.send_json({
+                'type': 'track.resync_required' if missed else 'track.synced',
+                'versions': versions,
+                'missed': missed,
+            })
+            return
         await super().receive_json(content, **kwargs)
 
 
@@ -158,13 +177,50 @@ def _schedule_channel_broadcast(fn, *, prepare=None):
 
 CHANNEL_GROUPS = {
     'game': (lambda game_id: f'track.game.{game_id}'),
-    'game_team': (lambda game_id, team_name_hash: f'track.game.{game_id}.team.{team_name_hash}'),
+    'game_team': (lambda game_id, team_id: f'track.game.{game_id}.team_id.{team_id}'),
+    'game_team_legacy': (
+        lambda game_id, team_name_hash: f'track.game.{game_id}.team.{team_name_hash}'
+    ),
     'user': (lambda user_id: f'track.user.{user_id}'),
 
     # 'game_results': (lambda game_id: f'track.game.{game_id}.results'),
     # 'total_results': (lambda project_id: f'track.project.{project_id}.total_results'),
     # 'project': (lambda project_id: f'track.project.{project_id}'),
 }
+
+
+def game_track_namespace(game_id) -> str:
+    return f'game:{game_id}'
+
+
+def team_track_namespace(game_id, team_id) -> str:
+    return f'game:{game_id}:team:{team_id}'
+
+
+def user_track_namespace(user_id) -> str:
+    return f'user:{user_id}'
+
+
+def _track_seq_int(value) -> int:
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return 0
+
+
+def current_track_seq(namespace: str) -> int:
+    return _track_seq_int(track_revision_cache.get(f'track:seq:{namespace}', 0))
+
+
+def current_track_versions(game_id=None, *, user_id=None, team_id=None) -> dict:
+    namespaces = []
+    if game_id is not None:
+        namespaces.append(game_track_namespace(game_id))
+    if user_id is not None:
+        namespaces.append(user_track_namespace(user_id))
+    if game_id is not None and team_id is not None:
+        namespaces.append(team_track_namespace(game_id, team_id))
+    return {namespace: current_track_seq(namespace) for namespace in namespaces}
 
 
 def msgpack_safe_keys(value):
@@ -195,11 +251,11 @@ def next_track_seq(namespace: str) -> int:
     """
     key = f'track:seq:{namespace}'
     try:
-        return cache.incr(key)
+        return track_revision_cache.incr(key)
     except ValueError:
-        if cache.add(key, 0, timeout=None):
-            return cache.incr(key)
-        return cache.incr(key)
+        if track_revision_cache.add(key, 0, timeout=None):
+            return track_revision_cache.incr(key)
+        return track_revision_cache.incr(key)
 
 
 def envelope_track_message(body: dict, game_id: str) -> dict:
@@ -214,7 +270,7 @@ def envelope_track_message(body: dict, game_id: str) -> dict:
 def _broadcast_game_track_event_commit(game_id: str, event_name: str, payload: dict):
     """Notify all sockets on track.game.{game_id} (e.g. observers on game page)."""
 
-    namespace = f'game:{game_id}'
+    namespace = game_track_namespace(game_id)
 
     def prepare():
         return next_track_seq(namespace)
@@ -324,7 +380,7 @@ def notify_user_after_commit(user_id, body, *, seq_namespace=None):
     """
     payload = msgpack_safe_keys(dict(body))
     if seq_namespace is None:
-        seq_namespace = f'user:{user_id}'
+        seq_namespace = user_track_namespace(user_id)
     payload.setdefault('seq_namespace', seq_namespace)
 
     def prepare():
@@ -355,20 +411,32 @@ def build_event_task_change(
     game=None,
     user=None,
     anon_key=None,
+    reason=None,
 ):
     if game is None:
         game = GameTaskGroup.resolve_game_for_task(task)
     if game is None:
         by = 'team' if team is not None else ('personal' if user is not None or anon_key else 'admin')
         return {'type': 'task.changed', 'task': task.id, 'by': by}
-    if team is not None and current_mode is None:
-        attempt = Attempt(task=task, team=team, time=timezone.now())
+    if current_mode is None and (team is not None or user is not None or anon_key):
+        attempt = Attempt(
+            task=task,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            time=timezone.now(),
+        )
         current_mode = game.get_current_mode(attempt)
 
-    if request is None and team is not None:
+    if request is None and (team is not None or user is not None):
         from django.test.client import RequestFactory
-        request = RequestFactory().get(f'/games/{game.id}')
-        request.user = team.roster_profiles.first().user
+        request_user = user
+        if request_user is None:
+            profile = team.roster_profiles.first()
+            request_user = profile.user if profile is not None else None
+        if request_user is not None:
+            request = RequestFactory().get(f'/games/{game.id}')
+            request.user = request_user
 
     if update_html is None and request is not None:
         update_html = update_task_html(request, task, team, current_mode, game=game)
@@ -381,6 +449,8 @@ def build_event_task_change(
         'task': task.id,
         'by': by,
     }
+    if reason:
+        channel_event['reason'] = reason
     channel_event.update(update_html)
     return channel_event
 
@@ -394,13 +464,14 @@ def track_task_change(
     game=None,
     user=None,
     anon_key=None,
+    reason=None,
 ):
     """
     Notify subscribers after the DB transaction commits so clients never read stale rows.
     Team HTML goes only to the team group; personal HTML goes only to that user.
     Anonymous attempts rely on their POST response, while admin changes go to the game group.
-    build_event_task_change runs inside the callback so Task.save() can schedule an update
-    before super().save() (the task row exists when the callback runs).
+    build_event_task_change runs inside the callback so it reads committed task, hint,
+    and attempt state. Model save methods must call this hook after their own row is saved.
     """
     target_games = []
     if game is not None:
@@ -411,11 +482,15 @@ def track_task_change(
         )
         target_games = [x.game for x in target_games]
 
+    def event_namespace(g):
+        if team is not None:
+            return team_track_namespace(g.id, team.pk)
+        if user is not None:
+            return user_track_namespace(user.id)
+        return game_track_namespace(g.id)
+
     def prepare():
-        return {
-            str(g.id): next_track_seq(f'game:{g.id}')
-            for g in target_games
-        }
+        return {str(g.id): next_track_seq(event_namespace(g)) for g in target_games}
 
     def send(sequences):
         channel_layer = get_channel_layer()
@@ -431,15 +506,21 @@ def track_task_change(
                     game=g,
                     user=user,
                     anon_key=anon_key,
+                    reason=reason,
                 )
             event_body['seq'] = sequences[str(g.id)]
-            event_body['seq_namespace'] = f'game:{g.id}'
+            event_body['seq_namespace'] = event_namespace(g)
             channel_event = envelope_track_message(
                 event_body, g.id,
             )
             if team is not None:
                 async_to_sync(channel_layer.group_send)(
-                    CHANNEL_GROUPS['game_team'](g.id, team.get_name_hash()),
+                    CHANNEL_GROUPS['game_team'](g.id, team.pk),
+                    channel_event,
+                )
+                # Remove after every production instance runs the team-id group version.
+                async_to_sync(channel_layer.group_send)(
+                    CHANNEL_GROUPS['game_team_legacy'](g.id, team.get_name_hash()),
                     channel_event,
                 )
             elif user is not None:
@@ -460,6 +541,54 @@ def track_task_change(
     _schedule_channel_broadcast(send, prepare=prepare)
 
 
+def track_actor_task_change(
+    task,
+    *,
+    team=None,
+    user=None,
+    anon_key=None,
+    game=None,
+    reason='task.state_changed',
+    current_mode=None,
+    update_html=None,
+    request=None,
+):
+    """Central live-update hook for committed actor+task state mutations."""
+    if task is None:
+        return
+    if team is None and user is None:
+        # Anonymous pages have no subscription identity yet.
+        return
+    game = game or GameTaskGroup.resolve_game_for_task(task)
+    if game is None:
+        return
+    track_task_change(
+        task,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        game=game,
+        reason=reason,
+        current_mode=current_mode,
+        update_html=update_html,
+        request=request,
+    )
+
+
+def track_attempt_change(attempt, *, reason='attempt.changed'):
+    """Publish the authoritative task projection after an existing attempt changes."""
+    if attempt is None or attempt.task_id is None:
+        return
+    track_actor_task_change(
+        attempt.task,
+        team=attempt.team if attempt.team_id else None,
+        user=attempt.user if attempt.user_id else None,
+        anon_key=attempt.anon_key,
+        game=attempt.game,
+        reason=reason,
+    )
+
+
 class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
     """Async consumer so group_add/group_send share the same asyncio loop (Channels 4 idiom)."""
 
@@ -471,11 +600,16 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
             return None
         profile = getattr(user, 'profile', None)
         team = profile.team_on if profile is not None else None
+        game_id = self.scope['url_route']['kwargs']['game_id']
+        game = Game.objects.filter(pk=game_id).first()
+        if game is None or not game.has_access('see_game_preview', team=team):
+            return None
         team_hash = team.get_name_hash() if team is not None else None
         return (
             user.id,
+            team.pk if team is not None else None,
             team_hash,
-            self.scope['url_route']['kwargs']['game_id'],
+            game_id,
         )
 
     async def connect(self):
@@ -483,13 +617,19 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
         if ctx is None:
             await self.close()
             return
-        user_id, team_name_hash, game_id = ctx
+        user_id, team_id, team_name_hash, game_id = ctx
         self.user_id = user_id
+        self.team_id = team_id
         self.team_name_hash = team_name_hash
         self.game_id = game_id
         self.group_game = CHANNEL_GROUPS['game'](self.game_id)
         self.group_game_team = (
-            CHANNEL_GROUPS['game_team'](self.game_id, self.team_name_hash)
+            CHANNEL_GROUPS['game_team'](self.game_id, self.team_id)
+            if self.team_id is not None
+            else None
+        )
+        self.group_game_team_legacy = (
+            CHANNEL_GROUPS['game_team_legacy'](self.game_id, self.team_name_hash)
             if self.team_name_hash
             else None
         )
@@ -501,8 +641,20 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_add(self.group_game, self.channel_name)
             if self.group_game_team:
                 await self.channel_layer.group_add(self.group_game_team, self.channel_name)
+            if self.group_game_team_legacy:
+                await self.channel_layer.group_add(
+                    self.group_game_team_legacy, self.channel_name,
+                )
             await self.channel_layer.group_add(self.group_user, self.channel_name)
         await self._track_start_lifecycle()
+
+    @database_sync_to_async
+    def _track_current_versions(self):
+        return current_track_versions(
+            self.game_id,
+            user_id=self.user_id,
+            team_id=self.team_id,
+        )
 
     @database_sync_to_async
     def _build_task_changed_for_admin(self, event):
@@ -511,9 +663,11 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
         profile = getattr(user, 'profile', None)
         if profile is not None:
             team = profile.team_on
+        game = get_object_or_404(Game, id=self.game_id)
         return build_event_task_change(
             get_object_or_404(Task, id=event['task']),
             team,
+            game=game,
         )
 
     async def task_changed(self, event):
@@ -539,6 +693,7 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
         await self._track_stop_lifecycle()
         await self._track_group_discard(getattr(self, 'group_game', None))
         await self._track_group_discard(getattr(self, 'group_game_team', None))
+        await self._track_group_discard(getattr(self, 'group_game_team_legacy', None))
         await self._track_group_discard(getattr(self, 'group_user', None))
 
 
@@ -564,12 +719,25 @@ class UserTrackConsumer(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_add(self.group_user, self.channel_name)
         await self._track_start_lifecycle()
 
+    @database_sync_to_async
+    def _track_current_versions(self):
+        return current_track_versions(user_id=self.user_id)
+
     async def track_event(self, event):
         self._track_touch_activity()
         if 'seq' not in event:
             event = dict(event)
             event['seq'] = next_track_seq(f'user:{self.user_id}')
         await self.send_json(event)
+
+    async def task_changed(self, event):
+        """Personal task updates may share the user group with a hub socket."""
+        self._track_touch_activity()
+        if 'seq' not in event:
+            event = dict(event)
+            event['seq_namespace'] = user_track_namespace(self.user_id)
+            event['seq'] = next_track_seq(event['seq_namespace'])
+        await self.send_json(msgpack_safe_keys(event))
 
     async def disconnect(self, code):
         await self._track_stop_lifecycle()

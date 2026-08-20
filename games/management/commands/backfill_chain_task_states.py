@@ -75,7 +75,7 @@ class Command(BaseCommand):
                 continue
 
             try:
-                recheck_chain_task(**combo)
+                recheck_chain_task(**combo, notify=False)
                 self.stdout.write('  [{}/{}] OK {}'.format(i, len(combos), label))
             except Exception as e:
                 self.stderr.write('  [{}/{}] ERROR {} — {}'.format(i, len(combos), label, e))

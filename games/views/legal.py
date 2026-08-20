@@ -36,9 +36,16 @@ def legal_page(request, document):
         'terms_russia': ('new/legal/terms_russia.html', 'Условия покупки — российские карты'),
         'terms_armenia': ('new/legal/terms_armenia.html', 'Условия покупки — международные карты'),
         'terms_crypto': ('new/legal/terms_crypto.html', 'Условия покупки — криптовалюта'),
+        'terms_tribute': ('new/legal/terms_tribute.html', 'Условия покупки — Tribute'),
         'refunds': ('new/legal/refunds.html', 'Оплата, отмена и возврат'),
         'privacy': ('new/legal/privacy.html', 'Политика конфиденциальности'),
         'contacts': ('new/legal/contacts.html', 'Контакты'),
     }
     template_name, page_title = templates[document]
-    return render(request, template_name, {**LEGAL_CONTEXT, 'page_title': page_title})
+    from games.tribute_config import merchant
+
+    return render(request, template_name, {
+        **LEGAL_CONTEXT,
+        'page_title': page_title,
+        'tribute_merchant': merchant(),
+    })

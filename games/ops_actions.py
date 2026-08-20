@@ -5,6 +5,7 @@ from django.db import transaction
 
 from games.models import Attempt, CheckerType, GameTaskGroup, Hint, HintAttempt, Task, TicketRequest
 from games.recheck import recheck
+from games.views.track import track_attempt_change
 from games.ticket_service import (
     accept_ticket_request as accept_ticket_request_record,
     reject_ticket_request as reject_ticket_request_record,
@@ -29,11 +30,13 @@ def set_attempt_ok(attempt: Attempt) -> None:
             last_hint_attempt.is_real_request = False
             last_hint_attempt.save()
     attempt.save()
+    track_attempt_change(attempt, reason='attempt.set_ok')
 
 
 def confirm_attempt_prestatus(attempt: Attempt) -> None:
     attempt.status = attempt.possible_status
     attempt.save()
+    track_attempt_change(attempt, reason='attempt.prestatus_confirmed')
 
 
 def add_attempt_to_checker(attempt: Attempt) -> None:
@@ -80,6 +83,7 @@ def set_ok_and_create_new_task(attempt: Attempt) -> None:
     """Game 49 helper — kept for admin parity."""
     attempt.status = 'Ok'
     attempt.save()
+    track_attempt_change(attempt, reason='attempt.set_ok')
     g = attempt.game or GameTaskGroup.resolve_game_for_task(attempt.task)
     team_number = attempt.team.get_team_reg_number(g)
     if team_number is None:

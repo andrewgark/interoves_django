@@ -392,6 +392,20 @@ CHANNEL_LAYERS = {
     }
 }
 
+# Realtime revisions must be shared by every EB instance. Keep this separate
+# from the default application cache so enabling Redis here cannot change the
+# behavior of unrelated cached views/results.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'interoves-default',
+    },
+    'track_revisions': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'interoves-track-revisions',
+    },
+}
+
 if 'REDIS_HOST' in os.environ:
     redis_host = os.environ['REDIS_HOST']
 
@@ -441,6 +455,25 @@ if 'REDIS_HOST' in os.environ:
                 "hosts": redis_hosts,
             },
         },
+    }
+    _redis_cache_scheme = 'rediss' if redis_use_tls else 'redis'
+    _redis_cache_auth = f':{quote(redis_password, safe="")}@' if redis_password else ''
+    # Revision allocation still happens in the on_commit callback to preserve
+    # event order, so bound this synchronous cache operation much more tightly
+    # than the deferred channel-layer send.
+    _redis_cache_options = {
+        'socket_connect_timeout': _env_float('TRACK_REVISION_REDIS_CONNECT_TIMEOUT', 0.25),
+        'socket_timeout': _env_float('TRACK_REVISION_REDIS_SOCKET_TIMEOUT', 0.5),
+    }
+    if redis_use_tls and os.environ.get('REDIS_SSL_CERT_REQS', '').strip().lower() == 'none':
+        _redis_cache_options['ssl_cert_reqs'] = None
+    CACHES['track_revisions'] = {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': (
+            f'{_redis_cache_scheme}://{_redis_cache_auth}{redis_host}:{redis_port}/0'
+        ),
+        'KEY_PREFIX': 'interoves-track',
+        'OPTIONS': _redis_cache_options,
     }
 
 # Database
@@ -712,6 +745,7 @@ def _load_telegram_api_id() -> int:
 
 SITE_BASE_URL = (os.environ.get('SITE_BASE_URL') or 'https://interoves.com').strip().rstrip('/')
 TELEGRAM_BOT_TOKEN = load_secret('telegram_bot_token.txt', env_var='TELEGRAM_BOT_TOKEN', default='')
+TELEGRAM_BOT_USERNAME = (os.environ.get('TELEGRAM_BOT_USERNAME') or 'interoves_bot').strip().lstrip('@')
 TELEGRAM_ADMIN_CHAT_ID = _load_telegram_admin_chat_id()
 TELEGRAM_NOTIFY_CHAT_ID = TELEGRAM_ADMIN_CHAT_ID
 TELEGRAM_ANNOUNCE_CHAT_IDS = _load_telegram_announce_chat_ids()
@@ -723,6 +757,24 @@ TELEGRAM_API_HASH = load_secret('telegram_api_hash.txt', env_var='TELEGRAM_API_H
 TELEGRAM_USER_SESSION = load_secret('telegram_user_session.txt', env_var='TELEGRAM_USER_SESSION', default='')
 # Real site screenshot for ladder posts (Playwright/Chromium). Set FALSE to force Pillow.
 TELEGRAM_LADDER_SCREENSHOT = _env_flag_default('TELEGRAM_LADDER_SCREENSHOT', True)
+
+# Tribute Digital Product payments. Product amounts are configured in the same
+# smallest currency units that Tribute returns (cents/kopecks). The public route
+# stays unavailable until the owner explicitly enables it after product and
+# legal/merchant review.
+TRIBUTE_ENABLED = _env_flag_default('TRIBUTE_ENABLED', False)
+TRIBUTE_LEGAL_REVIEW_APPROVED = _env_flag_default('TRIBUTE_LEGAL_REVIEW_APPROVED', False)
+TRIBUTE_MERCHANT = (os.environ.get('TRIBUTE_MERCHANT') or 'legacy_unspecified').strip()
+TRIBUTE_API_KEY = load_secret('tribute_api_key.txt', env_var='TRIBUTE_API_KEY', default='')
+TRIBUTE_REGULAR_PRODUCT_ID = (os.environ.get('TRIBUTE_REGULAR_PRODUCT_ID') or '').strip()
+TRIBUTE_REGULAR_PRODUCT_WEB_URL = (os.environ.get('TRIBUTE_REGULAR_PRODUCT_WEB_URL') or '').strip()
+TRIBUTE_REGULAR_PRODUCT_AMOUNT = (os.environ.get('TRIBUTE_REGULAR_PRODUCT_AMOUNT') or '').strip()
+TRIBUTE_REGULAR_PRODUCT_CURRENCY = (os.environ.get('TRIBUTE_REGULAR_PRODUCT_CURRENCY') or '').strip()
+TRIBUTE_DISCOUNT_PRODUCT_ID = (os.environ.get('TRIBUTE_DISCOUNT_PRODUCT_ID') or '').strip()
+TRIBUTE_DISCOUNT_PRODUCT_WEB_URL = (os.environ.get('TRIBUTE_DISCOUNT_PRODUCT_WEB_URL') or '').strip()
+TRIBUTE_DISCOUNT_PRODUCT_AMOUNT = (os.environ.get('TRIBUTE_DISCOUNT_PRODUCT_AMOUNT') or '').strip()
+TRIBUTE_DISCOUNT_PRODUCT_CURRENCY = (os.environ.get('TRIBUTE_DISCOUNT_PRODUCT_CURRENCY') or '').strip()
+TRIBUTE_INTENT_TTL_MINUTES = int(os.environ.get('TRIBUTE_INTENT_TTL_MINUTES') or '120')
 
 # X / Twitter (@interoves) — OAuth 1.0a user tokens for ladder channel cron tweets.
 TWITTER_API_KEY = load_secret('twitter_api_key.txt', env_var='TWITTER_API_KEY', default='')

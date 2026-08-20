@@ -11,7 +11,11 @@ secrets/*
 !secrets/rds.elasticbeanstalk-env.example
 !secrets/aws.env.example
 .vscode
-.cursor/
+.cursor/*
+!.cursor/skills/
+.cursor/skills/*
+!.cursor/skills/interoves-realtime/
+!.cursor/skills/interoves-realtime/**
 __pycache__
 media
 

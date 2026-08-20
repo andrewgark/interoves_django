@@ -10,37 +10,47 @@ from games.recheck import recheck_queue_from_next, recheck_full
 
 def create_profile(sender, **kw):
     social_account = kw["instance"]
-    print(social_account.extra_data)
-    if kw["created"]:
-        user = social_account.user
+    if not kw["created"]:
+        return
 
-        first_name = social_account.extra_data.get('first_name', '')
-        if not first_name:
-            first_name = social_account.extra_data.get('given_name', '')
+    user = social_account.user
+    extra = social_account.extra_data or {}
+    first_name = extra.get('first_name') or extra.get('given_name') or ''
+    last_name = extra.get('last_name') or extra.get('family_name') or ''
+    avatar_url = extra.get('photo_medium') or extra.get('picture') or ''
+    vk_id = extra.get('screen_name') or ''
+    vk_url = 'vk.com/{}'.format(vk_id) if vk_id else ''
+    email = extra.get('email') or user.email or ''
 
-        last_name = social_account.extra_data.get('last_name', '')
-        if not last_name:
-            last_name = social_account.extra_data.get('family_name', '')
+    profile, created = Profile.objects.get_or_create(
+        user=user,
+        defaults={
+            'first_name': first_name,
+            'last_name': last_name,
+            'avatar_url': avatar_url,
+            'vk_url': vk_url,
+            'email': email,
+        },
+    )
+    if created:
+        return
 
-        avatar_url = social_account.extra_data.get('photo_medium', '')
-        if not avatar_url:
-            avatar_url = social_account.extra_data.get('picture', '')
-
-        vk_id = social_account.extra_data.get('screen_name')
-        if vk_id != '':
-            vk_url = 'vk.com/{}'.format(vk_id)
-        else:
-            vk_url = ''
-
-        profile = Profile(
-            user=user,
-            first_name=first_name,
-            last_name=last_name,
-            avatar_url=avatar_url,
-            vk_url=vk_url,
-            email=social_account.extra_data.get('email', '')
-        )
-        profile.save()
+    # Connecting a second login method must never reset user-edited profile
+    # fields, timezone, Telegram, or team selection. OAuth data only fills
+    # values that are still empty.
+    updates = []
+    for field, value in (
+        ('first_name', first_name),
+        ('last_name', last_name),
+        ('avatar_url', avatar_url),
+        ('vk_url', vk_url),
+        ('email', email),
+    ):
+        if value and not getattr(profile, field):
+            setattr(profile, field, value)
+            updates.append(field)
+    if updates:
+        profile.save(update_fields=updates)
 
 
 def recheck_after_saving_wall_attempt(sender, **kw):

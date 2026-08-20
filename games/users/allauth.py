@@ -1,8 +1,15 @@
+import logging
+
 from allauth.account.adapter import DefaultAccountAdapter
+from allauth.account.models import EmailAddress
 from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
-from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
+
+from games.account_merge import stash_pending_account_merge
+
+
+logger = logging.getLogger(__name__)
 
 # Glowbyte UI (/glowbyte/...) — только Google и только корпоративная почта (см. also base.html).
 GLOWBYTE_OAUTH_PATH_MARKER = '/glowbyte'
@@ -32,25 +39,63 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
                 if not email.endswith(GLOWBYTE_GOOGLE_EMAIL_SUFFIX.lower()):
                     raise ImmediateHttpResponse(redirect('/glowbyte/?auth=email_not_allowed'))
 
-        # Auto-link social account to an existing user with the same email
+        process = (getattr(sociallogin, 'state', None) or {}).get('process')
+
+        # A successful connect callback proves ownership of the provider
+        # identity. If it belongs to another Interoves user, pause allauth's
+        # unsupported connect flow and ask for an explicit account merge.
+        if (
+            process == 'connect'
+            and request.user.is_authenticated
+            and sociallogin.is_existing
+            and sociallogin.user.pk != request.user.pk
+        ):
+            stash_pending_account_merge(request, sociallogin)
+            raise ImmediateHttpResponse(redirect('ui_account_merge_confirm'))
+
+        # Never auto-link by email during `process=connect`: allauth must attach
+        # a free identity to request.user, not to some email-matched account.
+        if process == 'connect':
+            return
+
+        # Auto-link a new social identity only through a unique email address
+        # that the provider itself marked verified. User.email is not unique in
+        # this project, and an unverified address is not proof of ownership.
         if sociallogin.is_existing:
             return
 
-        email = (sociallogin.user and sociallogin.user.email) or None
-        if not email:
+        verified_emails = {
+            (address.email or '').strip().lower()
+            for address in (sociallogin.email_addresses or [])
+            if address.verified and address.email
+        }
+        if len(verified_emails) != 1:
+            return
+        email = next(iter(verified_emails))
+        user_ids = list(
+            EmailAddress.objects.filter(email__iexact=email, verified=True)
+            .values_list('user_id', flat=True)
+            .distinct()[:2]
+        )
+        if len(user_ids) != 1:
             return
 
-        UserModel = get_user_model()
-        try:
-            existing_user = UserModel.objects.get(email__iexact=email)
-        except UserModel.DoesNotExist:
+        existing_address = EmailAddress.objects.filter(
+            user_id=user_ids[0], email__iexact=email, verified=True,
+        ).select_related('user').first()
+        if existing_address is None:
             return
-
+        existing_user = existing_address.user
+        if not existing_user.is_active:
+            return
         sociallogin.connect(request, existing_user)
 
-    def authentication_error(self, request, provider_id, error, exception, extra_context):
-        print(
-            'SocialAccount authentication error!',
-            'error',
-            {'provider_id': provider_id, 'error': error.__str__(), 'exception': exception.__str__(), 'extra_context': extra_context},
+    def on_authentication_error(
+        self, request, provider, error=None, exception=None, extra_context=None,
+    ):
+        logger.warning(
+            'Social account authentication failed: provider=%s error=%s exception=%s',
+            getattr(provider, 'id', provider),
+            error,
+            exception.__class__.__name__ if exception is not None else None,
         )

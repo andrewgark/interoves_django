@@ -64,7 +64,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css">
   {% block extrahead %}{% endblock %}
 </head>
-<body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}" {% block body_attrs %}{% endblock %}>
+<body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user-id="{% if user.is_authenticated %}{{ user.pk }}{% endif %}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}"{% if live_next_transition_at %} data-live-next-transition-at="{{ live_next_transition_at|date:'c' }}"{% endif %} {% block body_attrs %}{% endblock %}>
   {% include "partials/yandex_metrika_noscript.html" %}
   {% if not user.is_authenticated %}
   <script>
@@ -374,13 +374,15 @@
     <div class="new-rules-overlay" data-migrate-close></div>
     <div class="new-rules-modal__box pal-card">
       <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-migrate-close><i class="ph ph-x" aria-hidden="true"></i></button>
-      <h2 id="new-migrate-title" class="pal-title">Восстановить ваши решения?</h2>
+      <h2 id="new-migrate-title" class="pal-title">Перенести гостевой прогресс?</h2>
       <p class="pal-lead" data-migrate-lead>
-        Похоже, перед авторизацией на сайте вы успели порешать какие-то задания в качестве неавторизованного гостя. Вы хотите восстановить прогресс, подсказки и реакции?
+        На этом устройстве найден гостевой прогресс. Перенести его в текущий профиль?
       </p>
+      <p class="new-field-error" data-migrate-error hidden></p>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
-        <button type="button" class="new-btn" data-migrate-confirm>Восстановить</button>
-        <button type="button" class="new-btn new-btn--text" data-migrate-close>Не сейчас</button>
+        <button type="button" class="new-btn" data-migrate-confirm>Перенести</button>
+        <button type="button" class="new-btn new-btn--text" data-migrate-close>Позже</button>
+        <button type="button" class="new-btn new-btn--ghost" data-migrate-separate>Оставить отдельно</button>
       </div>
     </div>
   </div>
@@ -389,17 +391,24 @@
     function getAnonKey() {
       try { return localStorage.getItem('interoves_anon_key') || ''; } catch (e) { return ''; }
     }
-    function markDone() {
-      try { localStorage.setItem('interoves_anon_migrate_prompted', '1'); } catch (e) {}
+    var userId = document.body.getAttribute('data-user-id') || '';
+    function decisionKey(anonKey) {
+      return 'interoves_anon_migrate_separate:' + userId + ':' + anonKey;
     }
-    function shouldPrompt() {
-      try { return localStorage.getItem('interoves_anon_migrate_prompted') !== '1'; } catch (e) { return false; }
+    function laterKey(anonKey) {
+      return 'interoves_anon_migrate_later:' + userId + ':' + anonKey;
+    }
+    function shouldPrompt(anonKey) {
+      try {
+        return localStorage.getItem(decisionKey(anonKey)) !== '1'
+          && sessionStorage.getItem(laterKey(anonKey)) !== '1';
+      } catch (e) { return true; }
     }
     var anonKey = getAnonKey();
-    if (!anonKey || !shouldPrompt()) return;
+    if (!anonKey || !shouldPrompt(anonKey)) return;
 
-    // Быстрый эвристический триггер: если пользователь когда-либо отправлял попытки анонимно,
-    // то в localStorage ключ есть. Показ модалки и перенос делаем по явному подтверждению.
+    // Сервер проверяет, что за этим browser-local гостевым ключом действительно
+    // есть данные, и что ключ ещё не был привязан к другому пользователю.
     var modal = document.getElementById('new-migrate-modal');
     if (!modal) return;
     function open() {
@@ -411,13 +420,35 @@
       modal.setAttribute('hidden', '');
       modal.classList.remove('is-open');
       document.body.style.overflow = '';
-      markDone();
+    }
+    function postpone() {
+      try { sessionStorage.setItem(laterKey(anonKey), '1'); } catch (e) {}
+      close();
+    }
+    function keepSeparate() {
+      try { localStorage.setItem(decisionKey(anonKey), '1'); } catch (e) {}
+      close();
+    }
+    function rotateAnonKey() {
+      var key = '';
+      try {
+        key = window.crypto && crypto.randomUUID ? crypto.randomUUID() : '';
+      } catch (e) {}
+      if (!key) key = String(Date.now()) + '-' + String(Math.random()).slice(2);
+      try { localStorage.setItem('interoves_anon_key', key); } catch (e) {}
+      try {
+        document.cookie = 'interoves_anon=' + encodeURIComponent(key) + '; path=/; SameSite=Lax; max-age=31622400';
+      } catch (e) {}
     }
     function postCSRF() {
       var el = document.querySelector('input[name=csrfmiddlewaretoken]');
       return el ? el.value : '';
     }
     function migrate() {
+      var btn = modal.querySelector('[data-migrate-confirm]');
+      var error = modal.querySelector('[data-migrate-error]');
+      if (btn) { btn.disabled = true; btn.textContent = 'Переносим…'; }
+      if (error) { error.hidden = true; error.textContent = ''; }
       fetch("{% url 'new_migrate_anon_attempts' %}", {
         method: 'POST',
         headers: {
@@ -427,34 +458,64 @@
         },
         body: "anon_key=" + encodeURIComponent(anonKey),
         credentials: 'same-origin',
-      }).then(function (r) { return r.json(); })
-        .then(function () { close(); window.location.reload(); })
-        .catch(function () { close(); });
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (!r.ok || !data || data.status !== 'ok') throw new Error(data.status || 'request_failed');
+          return data;
+        });
+      }).then(function () {
+        rotateAnonKey();
+        close();
+        window.location.reload();
+      }).catch(function () {
+        if (btn) { btn.disabled = false; btn.textContent = 'Повторить'; }
+        if (error) {
+          error.textContent = 'Не удалось перенести прогресс. Ничего не потеряно — попробуйте ещё раз.';
+          error.hidden = false;
+        }
+      });
     }
     document.querySelectorAll('[data-migrate-close]').forEach(function (el) {
-      el.addEventListener('click', close);
+      el.addEventListener('click', postpone);
     });
     var btn = modal.querySelector('[data-migrate-confirm]');
     if (btn) btn.addEventListener('click', migrate);
+    var separate = modal.querySelector('[data-migrate-separate]');
+    if (separate) separate.addEventListener('click', keepSeparate);
+    modal.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') postpone();
+    });
 
     fetch("{% url 'new_anon_migrate_count' %}?anon_key=" + encodeURIComponent(anonKey), {
       credentials: 'same-origin',
       headers: { 'X-Requested-With': 'XMLHttpRequest' },
     })
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (!r.ok) throw new Error(data.status || 'request_failed');
+          return data;
+        });
+      })
       .then(function (data) {
         if (!data || !data.show_prompt) return;
-        if (data.example_url) {
-          var lead = modal.querySelector('[data-migrate-lead]');
-          if (lead) {
-            lead.textContent = '';
-            lead.appendChild(document.createTextNode('Похоже, перед авторизацией на сайте вы успели порешать какие-то задания (например, '));
+        var lead = modal.querySelector('[data-migrate-lead]');
+        if (lead) {
+          lead.textContent = '';
+          var counts = data.counts || {};
+          var parts = [];
+          if (counts.attempts) parts.push('попыток: ' + counts.attempts);
+          if (counts.hints) parts.push('подсказок: ' + counts.hints);
+          if (counts.likes) parts.push('реакций: ' + counts.likes);
+          if (counts.completed_games) parts.push('завершённых игр: ' + counts.completed_games);
+          lead.appendChild(document.createTextNode('На этом устройстве найден гостевой прогресс' + (parts.length ? ' (' + parts.join(', ') + ')' : '') + '. Перенести его в текущий профиль'));
+          if (data.example_url) {
+            lead.appendChild(document.createTextNode(' — например, из раздела '));
             var a = document.createElement('a');
             a.href = data.example_url;
             a.textContent = data.example_label || 'вот это';
             lead.appendChild(a);
-            lead.appendChild(document.createTextNode(') в качестве неавторизованного гостя. Вы хотите восстановить прогресс, подсказки и реакции?'));
           }
+          lead.appendChild(document.createTextNode('?'));
         }
         open();
       })
@@ -696,11 +757,12 @@
     });
   })();
   </script>
-  <script src="{% static "js/track_ws.js" %}?4"></script>
+  <script src="{% static "js/track_ws.js" %}?8"></script>
   <script>
   (function () {
-    if (document.body.getAttribute('data-authenticated') !== '1') return;
     if (!window.InterovesTrack) return;
+    window.InterovesTrack.scheduleGamePhaseReload(document.body);
+    if (document.body.getAttribute('data-authenticated') !== '1') return;
     var gid = document.body.getAttribute('data-track-game-id');
     if (gid) {
       window.InterovesTrack.connectGame(gid);

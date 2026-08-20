@@ -17,6 +17,41 @@ def _extract_message_text(message: dict) -> str:
     return (message.get('text') or message.get('caption') or '').strip()
 
 
+def _handle_account_link_start(message: dict, text: str) -> bool:
+    """Consume /start <one-time-token> only in the sender's private bot chat."""
+    command, _, token = text.partition(' ')
+    if command.lower().split('@')[0] != '/start' or not token.strip():
+        return False
+    chat = message.get('chat') or {}
+    sender = message.get('from') or {}
+    chat_id = chat.get('id')
+    telegram_user_id = sender.get('id')
+    if chat.get('type') != 'private' or str(chat_id) != str(telegram_user_id):
+        send_message(chat_id, 'Привязать аккаунт можно только в личном чате с ботом.')
+        return True
+
+    from games.telegram_linking import TelegramLinkError, consume_link_token
+
+    try:
+        consume_link_token(
+            token.strip(),
+            telegram_user_id=telegram_user_id,
+            telegram_username=sender.get('username') or '',
+        )
+    except TelegramLinkError as exc:
+        send_message(chat_id, exc.message)
+        return True
+    from django.conf import settings
+
+    pay_url = '{}{}'.format((getattr(settings, 'SITE_BASE_URL', '') or 'https://interoves.com').rstrip('/'), '/pay/?telegram=linked')
+    send_message(
+        chat_id,
+        'Telegram успешно привязан к аккаунту Inter Oves. '
+        '<a href="{}">Вернуться к оплате</a>.'.format(pay_url),
+    )
+    return True
+
+
 @csrf_exempt
 def telegram_webhook(request, secret: str = ''):
     from django.conf import settings
@@ -64,6 +99,9 @@ def _dispatch_update(update: dict) -> None:
         return
 
     if not text.startswith('/'):
+        return
+
+    if _handle_account_link_start(message, text):
         return
 
     public_command = parse_public_command(text)

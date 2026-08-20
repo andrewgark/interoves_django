@@ -27,7 +27,7 @@ from games.raddle import (
 from games.views.game_context import game_from_request_for_task
 from games.views.hint_views import _get_play_mode, create_hint_attempt
 from games.views.render_task import update_task_html
-from games.views.track import track_task_change
+from games.views.track import track_actor_task_change
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
 
 
@@ -143,15 +143,16 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
     update_html = update_task_html(
         request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
     )
-    track_task_change(
+    track_actor_task_change(
         task,
-        team,
-        current_mode,
+        team=team,
         update_html=update_html,
         request=request,
         game=game,
         user=user,
         anon_key=anon_key,
+        current_mode=current_mode,
+        reason='raddle.answer_revealed',
     )
     result.update(update_html)
     return result
@@ -245,15 +246,16 @@ def process_send_raddle_assist(request, task_id):
     update_html = update_task_html(
         request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
     )
-    track_task_change(
+    track_actor_task_change(
         task,
-        team,
-        current_mode,
+        team=team,
         update_html=update_html,
         request=request,
         game=game,
         user=user,
         anon_key=anon_key,
+        current_mode=current_mode,
+        reason='raddle.assist_taken',
     )
     result.update(update_html)
     return result

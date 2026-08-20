@@ -12,6 +12,7 @@
     · {% autoescape off %}{{ tg_name }}{% endautoescape %}
   {% endif %}
 {% endblock %}
+{% block body_attrs %}data-track-game-id="{{ game.id }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% if not ladder_offer %} data-track-live-state-url="{% url 'new_task_group_live_state' game_id=game.id %}"{% endif %}{% endblock %}
 {% block extrahead %}
   {% include "new/_18plus_gate_early.html" %}
 {% endblock %}
@@ -3285,6 +3286,53 @@
     }
     return el.getAttribute('data-solved') === '1';
   }
+
+  function captureActiveRaddleInput(taskId) {
+    var active = document.activeElement;
+    if (!active || !active.matches || !active.matches('input.new-raddle-input')) return null;
+    var realInput = active.getAttribute('data-raddle-pin-proxy') === '1'
+      ? findRealRaddleInputFromPin(active) : active;
+    var taskRoot = realInput && realInput.closest('.new-raddle-task');
+    var row = realInput && realInput.closest('.new-raddle-row[data-word-index]');
+    if (
+      !taskRoot || !row ||
+      String(taskRoot.getAttribute('data-task-id')) !== String(taskId) ||
+      !hasRaddleInputIntent(taskRoot)
+    ) return null;
+    saveRaddleDraftLetters(realInput, getRaddleInputLetters(realInput));
+    return {
+      wordIndex: row.getAttribute('data-word-index'),
+      selectionStart: typeof active.selectionStart === 'number' ? active.selectionStart : null,
+      selectionEnd: typeof active.selectionEnd === 'number' ? active.selectionEnd : null,
+    };
+  }
+
+  function restoreActiveRaddleInput(taskId, state) {
+    if (!state) return;
+    var taskRoot = document.querySelector(
+      '.new-raddle-task[data-task-id="' + taskId + '"]'
+    );
+    if (!taskRoot || !hasRaddleInputIntent(taskRoot)) return;
+    var row = taskRoot.querySelector(
+      '.new-raddle-ladder .new-raddle-row[data-word-index="' + state.wordIndex + '"]'
+    );
+    var input = row && row.querySelector('input.new-raddle-input[data-raddle-format]');
+    if (!input) return;
+    if (row.classList.contains('new-raddle-row--playable')) {
+      setRaddleFocus(taskRoot, state.wordIndex);
+      focusRaddlePlayableInput(taskRoot, input);
+    } else {
+      focusPreventScroll(input);
+    }
+    var focused = document.activeElement;
+    if (
+      focused && typeof focused.setSelectionRange === 'function' &&
+      state.selectionStart !== null && state.selectionEnd !== null
+    ) {
+      try { focused.setSelectionRange(state.selectionStart, state.selectionEnd); } catch (e) {}
+    }
+  }
+
   function applyHideSolved() {
     var hide = false;
     if (HIDE_SOLVED_ENABLED) {
@@ -3359,10 +3407,12 @@
     // Replacing a task card removes an open popover from the top layer. Remember
     // it so a near-simultaneous WebSocket refresh does not hide user feedback.
     var reopenAttempts = {};
+    var activeRaddleInputs = {};
     Object.keys(map).forEach(function (tid) {
       // If the player already edited the rejected answer, preserve that draft
       // rather than restoring the originally submitted value after a WS update.
       captureEditedOrdinaryAnswer(tid);
+      activeRaddleInputs[tid] = captureActiveRaddleInput(tid);
       var current = document.getElementById('prop-attempts-' + tid);
       if (!current) return;
       var highlighted = current.querySelector('.new-attempts__row--just-submitted');
@@ -3390,6 +3440,7 @@
           if (typeof window.initGridPuzzle === 'function') window.initGridPuzzle(fresh);
           if (typeof initAttemptsPopovers === 'function') initAttemptsPopovers(fresh);
           restoreOrdinaryWrongFeedback(tid);
+          restoreActiveRaddleInput(tid, activeRaddleInputs[tid]);
           if (reopenAttempts[tid] && reopenAttempts[tid].open) {
             openAttemptsPopoverForTask(tid, reopenAttempts[tid].attemptId);
           }

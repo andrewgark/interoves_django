@@ -8,7 +8,7 @@
   {% endif %}
 {% endblock %}
 
-{% block body_attrs %}data-track-game-id="{{ game.id }}"{% endblock %}
+{% block body_attrs %}data-track-game-id="{{ game.id }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% endblock %}
 
 {% block extrahead %}
   {% include "new/_18plus_gate_early.html" %}

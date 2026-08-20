@@ -396,11 +396,11 @@ def nowpayments_ipn(request):
 @csrf_exempt
 def tribute_webhook(request):
     """
-    Tribute Shop webhook.
+    Tribute Digital Product webhook (plus read-only legacy Shop compatibility).
 
-    Final paid confirmation: name=shop_order, payload.status=paid.
-    Failure: name=shop_order_payment_failed.
-    Intermediate events are ignored.
+    The signature is verified over the untouched request body before JSON parsing.
+    Digital purchases use purchase_id for idempotency and Telegram numeric ID for
+    identity matching; signed but unmatched purchases are accepted for review.
     """
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -409,8 +409,8 @@ def tribute_webhook(request):
     sig = request.headers.get('trbt-signature') or request.META.get('HTTP_TRBT_SIGNATURE')
     try:
         if not verify_tribute_webhook_signature(raw_body, sig):
-            logger.warning('tribute_webhook: invalid signature')
-            return HttpResponse(status=400)
+            logger.warning('tribute_signature_invalid')
+            return HttpResponse(status=401)
     except RuntimeError as exc:
         logger.error('tribute_webhook: %s', exc)
         return HttpResponse(status=503)
@@ -425,9 +425,40 @@ def tribute_webhook(request):
 
     event_name = (event_json.get('name') or '').strip()
     payload = event_json.get('payload') or {}
+    if event_name in ('new_digital_product', 'digital_product_refunded') and not isinstance(payload, dict):
+        return HttpResponse(status=400)
+
+    if event_name in ('new_digital_product', 'digital_product_refunded'):
+        from games.tribute_service import (
+            TributePayloadError,
+            process_new_purchase,
+            process_refund,
+        )
+
+        logger.info('tribute_webhook_received event=%s', event_name)
+        try:
+            if event_name == 'new_digital_product':
+                result = process_new_purchase(payload)
+                if result.ticket_issued and result.purchase.ticket_request_id:
+                    from games.telegram.notify import notify_payment_event
+
+                    ticket = TicketRequest.objects.filter(pk=result.purchase.ticket_request_id).first()
+                    if ticket is not None:
+                        transaction.on_commit(
+                            lambda tr=ticket: notify_payment_event(tr, 'payment.succeeded')
+                        )
+            else:
+                process_refund(payload)
+        except TributePayloadError as exc:
+            logger.warning('tribute_webhook malformed event=%s error=%s', event_name, exc)
+            return HttpResponse(status=400)
+        return HttpResponse(status=200)
+
     if not isinstance(payload, dict):
         payload = {}
 
+    # Legacy Shop events remain accepted for already-created historical orders.
+    # No code creates new Shop orders.
     if event_name not in ('shop_order', 'shop_order_payment_failed'):
         return HttpResponse(status=200)
 

@@ -126,15 +126,26 @@ eb setenv NOWPAYMENTS_API_KEY='...' NOWPAYMENTS_IPN_SECRET='...'
 
 Used by `POST /pay/create-tribute-ticket-payment/` and webhook at `/tribute/webhook/`.
 
-Requires an active Tribute **Shop** (not only digital products). In the Tribute dashboard: generate API key, set webhook URL to `https://interoves.com/tribute/webhook/`.
+Uses two pre-created Tribute **Digital Products** and their fixed browser `webLink` values. It does not use Tribute Shop API. In the Tribute dashboard, generate an API key and set webhook URL to `https://interoves.com/tribute/webhook/`.
 
-Local files (or EB env vars):
+Required EB env vars:
 
-- `tribute_api_key.txt` / `TRIBUTE_API_KEY` (also used to verify `trbt-signature`)
-- optional `tribute_shop_id.txt` / `TRIBUTE_SHOP_ID` (if you have several shops; otherwise the oldest active shop is used)
+- `TRIBUTE_API_KEY` (also used to verify `trbt-signature`; local fallback file: `secrets/tribute_api_key.txt`)
+- `TRIBUTE_REGULAR_PRODUCT_ID`, `TRIBUTE_REGULAR_PRODUCT_WEB_URL`, `TRIBUTE_REGULAR_PRODUCT_AMOUNT`, `TRIBUTE_REGULAR_PRODUCT_CURRENCY`
+- `TRIBUTE_DISCOUNT_PRODUCT_ID`, `TRIBUTE_DISCOUNT_PRODUCT_WEB_URL`, `TRIBUTE_DISCOUNT_PRODUCT_AMOUNT`, `TRIBUTE_DISCOUNT_PRODUCT_CURRENCY`
+- `TELEGRAM_BOT_USERNAME` and the existing `TELEGRAM_BOT_TOKEN`
+- `TRIBUTE_MERCHANT=ru_self_employed` or `am_ie`, only after legal seller review
+- `TRIBUTE_LEGAL_REVIEW_APPROVED=true`
+- `TRIBUTE_ENABLED=true` only after all production values and webhook delivery are verified
+
+Amounts use Tribute's smallest currency units (EUR cents or RUB kopecks). Currency must be `EUR` or `RUB`; web links must use `https://web.tribute.tg/p/...`.
 
 ```bash
-eb setenv TRIBUTE_API_KEY='...' TRIBUTE_SHOP_ID='123'
+eb setenv TRIBUTE_ENABLED=false TRIBUTE_API_KEY='...' \
+  TRIBUTE_REGULAR_PRODUCT_ID='...' TRIBUTE_REGULAR_PRODUCT_WEB_URL='https://web.tribute.tg/p/...' \
+  TRIBUTE_REGULAR_PRODUCT_AMOUNT='...' TRIBUTE_REGULAR_PRODUCT_CURRENCY='EUR' \
+  TRIBUTE_DISCOUNT_PRODUCT_ID='...' TRIBUTE_DISCOUNT_PRODUCT_WEB_URL='https://web.tribute.tg/p/...' \
+  TRIBUTE_DISCOUNT_PRODUCT_AMOUNT='...' TRIBUTE_DISCOUNT_PRODUCT_CURRENCY='EUR'
 ```
 
 ## X / Twitter (@interoves)
@@ -151,5 +162,4 @@ Local files (or EB env vars):
 ```bash
 eb setenv TWITTER_API_KEY='...' TWITTER_API_SECRET='...'   TWITTER_ACCESS_TOKEN='...' TWITTER_ACCESS_TOKEN_SECRET='...'
 ```
-
 

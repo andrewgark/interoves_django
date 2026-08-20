@@ -62,7 +62,7 @@
   <div class="new-two new-profile-accounts-row">
     <div>
       {% if 'google' in connected_providers %}
-        <span class="new-pill new-pill--ok">Google привязан</span>
+        <span class="new-pill new-pill--ok">Google подключён{% if connected_account_labels.google %}: {{ connected_account_labels.google }}{% endif %}</span>
       {% else %}
         <a class="new-btn" href="{% provider_login_url 'google' process='connect' next=request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Привязать аккаунт Google</a>
       {% endif %}
@@ -73,25 +73,92 @@
   <div class="new-two new-profile-accounts-row">
     <div>
       {% if 'google' in connected_providers %}
-        <span class="new-pill new-pill--ok">Google привязан</span>
+        <span class="new-pill new-pill--ok">Google подключён{% if connected_account_labels.google %}: {{ connected_account_labels.google }}{% endif %}</span>
+        {% if can_disconnect_social_account %}
+          <button type="button" class="new-btn new-btn--text" data-social-disconnect data-account-id="{{ connected_account_ids.google }}" data-provider-label="Google">Отключить Google</button>
+        {% endif %}
       {% else %}
         <a class="new-btn" href="{% provider_login_url 'google' process='connect' next=request.get_full_path %}">Привязать аккаунт Google</a>
       {% endif %}
     </div>
     <div>
       {% if 'vk' in connected_providers %}
-        <span class="new-pill new-pill--ok">VK привязан</span>
+        <span class="new-pill new-pill--ok">VK подключён{% if connected_account_labels.vk %}: {{ connected_account_labels.vk }}{% endif %}</span>
+        {% if can_disconnect_social_account %}
+          <button type="button" class="new-btn new-btn--text" data-social-disconnect data-account-id="{{ connected_account_ids.vk }}" data-provider-label="VK">Отключить VK</button>
+        {% endif %}
       {% else %}
         <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' process='connect' next=request.get_full_path %}">Привязать аккаунт VK</a>
       {% endif %}
     </div>
   </div>
   {% endif %}
-  <p class="new-login-hint new-profile-accounts-foot">Если выбранный аккаунт уже привязан к другому профилю, привязка будет отклонена.</p>
+  <p class="new-login-hint new-profile-accounts-foot">Если выбранный Google или VK уже связан с другим профилем Interoves, мы покажем, какие данные будут объединены, и попросим подтверждение.</p>
+  <button type="button" class="new-btn new-btn--text" data-review-guest-progress>Проверить гостевой прогресс на этом устройстве</button>
 </div>
+
+{% if can_disconnect_social_account %}
+<div id="new-social-disconnect-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-social-disconnect-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-social-disconnect-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-social-disconnect-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <h2 id="new-social-disconnect-title" class="pal-title">Отключить способ входа?</h2>
+    <p class="pal-lead">Вход через <strong data-social-disconnect-provider></strong> перестанет работать. Другой подключённый способ входа останется доступен.</p>
+    <form method="post" action="{% url 'ui_social_account_disconnect' %}" class="new-rules-modal__actions new-rules-modal__actions--flush">
+      {% csrf_token %}
+      <input type="hidden" name="account_id" value="" data-social-disconnect-account>
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="new-btn" data-social-disconnect-confirm>Отключить</button>
+      <button type="button" class="new-btn new-btn--ghost" data-social-disconnect-close>Отмена</button>
+    </form>
+  </div>
+</div>
+{% endif %}
 
 <script>
 (function () {
+  var disconnectModal = document.getElementById('new-social-disconnect-modal');
+  if (disconnectModal) {
+    var disconnectAccount = disconnectModal.querySelector('[data-social-disconnect-account]');
+    var disconnectProvider = disconnectModal.querySelector('[data-social-disconnect-provider]');
+    var disconnectConfirm = disconnectModal.querySelector('[data-social-disconnect-confirm]');
+    function closeDisconnect() {
+      disconnectModal.setAttribute('hidden', '');
+      disconnectModal.classList.remove('is-open');
+      document.body.style.overflow = '';
+    }
+    document.querySelectorAll('[data-social-disconnect]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        disconnectAccount.value = button.getAttribute('data-account-id') || '';
+        disconnectProvider.textContent = button.getAttribute('data-provider-label') || 'этот аккаунт';
+        disconnectModal.removeAttribute('hidden');
+        disconnectModal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+        if (disconnectConfirm) disconnectConfirm.focus();
+      });
+    });
+    disconnectModal.querySelectorAll('[data-social-disconnect-close]').forEach(function (button) {
+      button.addEventListener('click', closeDisconnect);
+    });
+    disconnectModal.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeDisconnect();
+    });
+  }
+
+  var guestBtn = document.querySelector('[data-review-guest-progress]');
+  if (guestBtn) {
+    guestBtn.addEventListener('click', function () {
+      var anonKey = '';
+      try { anonKey = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
+      var userId = document.body.getAttribute('data-user-id') || '';
+      if (anonKey) {
+        try { localStorage.removeItem('interoves_anon_migrate_separate:' + userId + ':' + anonKey); } catch (e) {}
+        try { sessionStorage.removeItem('interoves_anon_migrate_later:' + userId + ':' + anonKey); } catch (e) {}
+      }
+      window.location.reload();
+    });
+  }
+
   var btn = document.querySelector('[data-avatar-open]');
   var box = document.querySelector('.new-avatar-edit');
   if (!btn || !box) return;

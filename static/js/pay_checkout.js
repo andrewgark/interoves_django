@@ -12,11 +12,14 @@
   var submit = document.getElementById('new-pay-submit');
   var login = document.getElementById('new-pay-login');
   var teamSetup = document.getElementById('new-pay-setup-team');
+  var teamSelect = document.getElementById('new-pay-team');
+  var telegramLinkForm = document.getElementById('new-pay-telegram-link-form');
   var terms = document.getElementById('new-pay-terms-link');
   var sellerText = document.getElementById('new-pay-seller-text');
   var sellerLink = document.getElementById('new-pay-seller-link');
   var security = document.getElementById('new-pay-security');
   var conversionNote = document.getElementById('new-pay-conversion-note');
+  var tributeNote = document.getElementById('new-pay-tribute-note');
   var message = document.getElementById('new-pay-message');
   var statusEl = document.getElementById('new-pay-status');
   var widgetHost = document.getElementById('new-pay-widget-host');
@@ -51,6 +54,12 @@
       sellerUrl: '/sellers/#russia',
       termsUrl: '/terms/crypto/',
       security: 'Криптоплатеж обрабатывает NOWPayments. Сумма к отправке и адрес кошелька отображаются в защищенном виджете провайдера.'
+    },
+    tribute_card: {
+      seller: form.getAttribute('data-tribute-seller') || 'Платежный маршрут: Tribute',
+      sellerUrl: form.getAttribute('data-tribute-seller-url') || '/sellers/',
+      termsUrl: '/terms/tribute/',
+      security: 'Оплата проходит на защищенной browser-странице Tribute. Inter Oves не получает и не хранит полные реквизиты банковской карты.'
     }
   };
 
@@ -67,11 +76,12 @@
   function formatAmount(value, currency) {
     var formatted;
     try {
-      formatted = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value);
+      formatted = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value);
     } catch (e) {
       formatted = String(value);
     }
-    return formatted + (currency === 'RUB' ? ' ₽' : ' AMD');
+    if (currency === 'RUB') return formatted + ' ₽';
+    return formatted + ' ' + currency;
   }
 
   function ticketLabel(count) {
@@ -102,8 +112,11 @@
     if (!input) return;
     var route = input.value;
     var internationalUnavailable = route === 'international_card';
+    var tributeRoute = route === 'tribute_card';
+    var tributeEnabled = form.getAttribute('data-tribute-enabled') === '1';
+    var telegramLinked = form.getAttribute('data-telegram-linked') === '1';
     var copy = routeCopy[route];
-    var count = clampQuantity(qty.value);
+    var count = tributeRoute ? 1 : clampQuantity(qty.value);
     qty.value = String(count);
     if (hiddenQty) hiddenQty.value = String(count);
     var amount = count * Number(input.getAttribute('data-unit-price') || 0);
@@ -112,8 +125,9 @@
     var unitPriceText = formatAmount(Number(input.getAttribute('data-unit-price') || 0), currency);
 
     qty.setAttribute('aria-valuetext', ticketLabel(count));
-    if (qtyMinus) qtyMinus.disabled = count <= 1;
-    if (qtyPlus) qtyPlus.disabled = count >= 20;
+    qty.disabled = tributeRoute;
+    if (qtyMinus) qtyMinus.disabled = tributeRoute || count <= 1;
+    if (qtyPlus) qtyPlus.disabled = tributeRoute || count >= 20;
 
     form.querySelectorAll('[data-pay-method-card]').forEach(function (card) {
       var radio = card.querySelector('input[name="payment_method"]');
@@ -126,16 +140,23 @@
     if (sellerLink) sellerLink.href = copy.sellerUrl;
     if (security) security.textContent = copy.security;
     if (conversionNote) conversionNote.hidden = !internationalUnavailable;
+    if (tributeNote) tributeNote.hidden = !tributeRoute;
 
     if (submit) {
-      submit.textContent = internationalUnavailable ? INTERNATIONAL_UNAVAILABLE_TEXT : 'Оплатить ' + amountText;
-      submit.disabled = busy || internationalUnavailable || !consent.checked;
-      submit.classList.toggle('new-pay-submit--unavailable', internationalUnavailable);
+      if (internationalUnavailable) submit.textContent = INTERNATIONAL_UNAVAILABLE_TEXT;
+      else if (tributeRoute && !tributeEnabled) submit.textContent = 'Tribute ожидает настройки';
+      else if (tributeRoute && !telegramLinked) submit.textContent = 'Привязать Telegram для оплаты';
+      else if (tributeRoute) submit.textContent = 'Оплатить через Tribute · ' + amountText;
+      else submit.textContent = 'Оплатить ' + amountText;
+      submit.disabled = busy || internationalUnavailable || (tributeRoute && !tributeEnabled)
+        || (!tributeRoute || telegramLinked) && !consent.checked;
+      submit.classList.toggle('new-pay-submit--unavailable', internationalUnavailable || (tributeRoute && !tributeEnabled));
     }
     if (login) {
-      login.textContent = internationalUnavailable ? INTERNATIONAL_UNAVAILABLE_TEXT : 'Войти и продолжить';
-      login.disabled = internationalUnavailable;
-      login.classList.toggle('new-pay-submit--unavailable', internationalUnavailable);
+      login.textContent = internationalUnavailable ? INTERNATIONAL_UNAVAILABLE_TEXT
+        : (tributeRoute ? 'Войти и привязать Telegram' : 'Войти и продолжить');
+      login.disabled = internationalUnavailable || (tributeRoute && !tributeEnabled);
+      login.classList.toggle('new-pay-submit--unavailable', internationalUnavailable || (tributeRoute && !tributeEnabled));
     }
     if (teamSetup) {
       teamSetup.textContent = internationalUnavailable ? INTERNATIONAL_UNAVAILABLE_TEXT : 'Создать команду для оплаты';
@@ -145,6 +166,15 @@
     }
     if (internationalUnavailable) {
       setMessage('Оплата международными картами пока не работает. Цена, продавец и условия показаны для ознакомления.');
+      hideWidgets();
+    } else if (tributeRoute && !tributeEnabled) {
+      setMessage('Tribute появится после настройки реальных Digital Products и проверки продавца.');
+      hideWidgets();
+    } else if (tributeRoute && !telegramLinked) {
+      setMessage('Чтобы билет начислился автоматически, сначала привяжите Telegram к аккаунту.');
+      hideWidgets();
+    } else if (tributeRoute) {
+      setMessage('Одна покупка Tribute начисляет один командный билет.');
       hideWidgets();
     } else if (!busy) {
       setMessage('');
@@ -228,6 +258,31 @@
     });
   }
   if (consent) consent.addEventListener('change', render);
+  if (teamSelect) {
+    teamSelect.addEventListener('change', function () {
+      var option = teamSelect.options[teamSelect.selectedIndex];
+      if (!option) return;
+      form.querySelectorAll('input[name="payment_method"]').forEach(function (radio) {
+        if (radio.value === 'russian_card' || radio.value === 'crypto') {
+          radio.setAttribute('data-unit-price', option.getAttribute('data-ticket-price') || '0');
+        } else if (radio.value === 'international_card') {
+          radio.setAttribute('data-unit-price', option.getAttribute('data-ticket-price-amd') || '0');
+        } else if (radio.value === 'tribute_card') {
+          radio.setAttribute('data-unit-price', option.getAttribute('data-tribute-amount') || '0');
+          radio.setAttribute('data-currency', option.getAttribute('data-tribute-currency') || 'EUR');
+        }
+        var card = radio.closest('[data-pay-method-card]');
+        var price = card && card.querySelector('[data-route-price]');
+        if (price && Number(radio.getAttribute('data-unit-price') || 0) > 0) {
+          price.textContent = formatAmount(
+            Number(radio.getAttribute('data-unit-price')),
+            radio.getAttribute('data-currency') || 'RUB'
+          ) + (radio.value === 'tribute_card' ? ' · 1 покупка = 1 билет' : ' за билет');
+        }
+      });
+      render();
+    });
+  }
   if (teamSetup) {
     teamSetup.addEventListener('click', function (event) {
       if (teamSetup.getAttribute('aria-disabled') === 'true') event.preventDefault();
@@ -238,6 +293,10 @@
     event.preventDefault();
     var input = selectedInput();
     if (!input || busy || input.value === 'international_card') return;
+    if (input.value === 'tribute_card' && form.getAttribute('data-telegram-linked') !== '1') {
+      if (telegramLinkForm) telegramLinkForm.submit();
+      return;
+    }
     if (!consent || !consent.checked) {
       setMessage('Подтвердите согласие с условиями покупки.');
       if (consent) consent.focus();
@@ -247,7 +306,9 @@
     setBusy(true);
     hideWidgets();
     setMessage('Создаем платеж…');
-    var endpoint = input.value === 'crypto' ? form.getAttribute('data-crypto-action') : form.action;
+    var endpoint = input.value === 'crypto'
+      ? form.getAttribute('data-crypto-action')
+      : (input.value === 'tribute_card' ? form.getAttribute('data-tribute-action') : form.action);
     fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -265,6 +326,15 @@
       }
       flushAnalyticsEvents(data.analytics_events);
       if (data.status_url) startPoll(data.status_url);
+      if (input.value === 'tribute_card') {
+        if (!data.payment_url) {
+          setMessage('Tribute не вернул ссылку на настроенный товар.');
+          return;
+        }
+        setMessage('Открываем защищенную страницу Tribute…');
+        window.location.assign(data.payment_url);
+        return;
+      }
       if (input.value === 'crypto') {
         if (!cryptoMount || !(data.embed_url || data.invoice_id)) {
           setMessage('Провайдер не вернул страницу оплаты.');

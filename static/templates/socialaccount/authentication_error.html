@@ -1,0 +1,12 @@
+{% extends "new/base.html" %}
+{% block title %}Не удалось войти{% endblock %}
+{% block content %}
+<h1 class="new-heading new-heading--page">Не удалось войти</h1>
+<div class="new-card">
+  <p>Google или VK не подтвердил вход. Аккаунт и игровой прогресс не изменены.</p>
+  <div class="new-rules-modal__actions new-rules-modal__actions--flush">
+    <a class="new-btn" href="/?login=1">Попробовать ещё раз</a>
+    <a class="new-btn new-btn--ghost" href="/">На главную</a>
+  </div>
+</div>
+{% endblock %}

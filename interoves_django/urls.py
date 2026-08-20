@@ -84,6 +84,7 @@ urlpatterns = [
     path('terms/russia/', legal_page, {'document': 'terms_russia'}, name='terms_russia'),
     path('terms/armenia/', legal_page, {'document': 'terms_armenia'}, name='terms_armenia'),
     path('terms/crypto/', legal_page, {'document': 'terms_crypto'}, name='terms_crypto'),
+    path('terms/tribute/', legal_page, {'document': 'terms_tribute'}, name='terms_tribute'),
     path('refunds/', legal_page, {'document': 'refunds'}, name='refunds'),
     path('privacy/', legal_page, {'document': 'privacy'}, name='privacy'),
     path('contacts/', legal_page, {'document': 'contacts'}, name='contacts'),

@@ -68,6 +68,7 @@ urlpatterns = [
     task_group_url_name='new_task_group',
 ) + [
     path('games/<str:game_id>/progress/', ui.game_task_group_progress, name='new_game_progress'),
+    path('games/<str:game_id>/live-state/', ui.task_group_live_state, name='new_task_group_live_state'),
     path('games/<str:game_id>/', ui.main_game_page, name='new_main_game'),
     path('games/<str:game_id>/results/', ui.results_page, name='new_results'),
     path('games/<str:game_id>/tournament-results/', ui.tournament_results_page, name='new_tournament_results'),
@@ -82,12 +83,15 @@ urlpatterns = [
     path('team/rename/', ui.team_rename, name='new_team_rename'),
     path('team/set-primary/', ui.team_set_primary, name='new_team_set_primary'),
     path('team/join/', ui.team_join_page, name='new_team_join_page'),
+    path('profile/merge/', ui.account_merge_confirm, name='new_account_merge_confirm'),
+    path('profile/disconnect/', ui.social_account_disconnect, name='new_social_account_disconnect'),
     path('profile/', ui.profile, name='new_profile'),
     path('team/', ui.team, name='new_team'),
     path('pay/', ui.pay_page, name='new_pay'),
     path('pay/create-ticket-payment/', ui.create_ticket_payment, name='new_create_ticket_payment'),
     path('pay/create-crypto-ticket-payment/', ui.create_crypto_ticket_payment, name='new_create_crypto_ticket_payment'),
     path('pay/create-tribute-ticket-payment/', ui.create_tribute_ticket_payment, name='new_create_tribute_ticket_payment'),
+    path('pay/link-telegram/', ui.telegram_link_start, name='new_telegram_link_start'),
     path('pay/ticket-status/<int:ticket_request_id>/', ui.ticket_payment_status, name='new_ticket_payment_status'),
     path('<slug>/', ui.folder, name='new_folder'),
 ]

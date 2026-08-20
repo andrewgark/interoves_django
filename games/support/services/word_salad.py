@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import asdict, dataclass
 from datetime import timedelta
 from typing import Any, Optional
@@ -10,15 +12,13 @@ from django.utils import timezone
 
 from games.models import CheckerType, Game, GameTaskGroup, Project, Task, TaskGroup
 from games.support.services.preview import ActorSpec, preview_task_group_url
+from games.support.services.schedule_links import cascade_delete_link, renumber_links
 from games.word_salad import (
     WORD_SALAD_GAME_ID,
-    build_ui_context,
     format_grid_text,
     format_words_text,
-    load_state,
     parse_task_data,
-    serialize_task_data,
-    validate_task_data,
+    validate_puzzle,
 )
 
 WORD_SALAD_SECTION_TITLE = 'Словесный Салат'
@@ -27,6 +27,7 @@ WORD_SALAD_SECTION_ICON = '🥗'
 _DEFAULT_GRID = ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M']
 _DEFAULT_WORDS = ['ABCDEFGHIJKLMNOP']
 _PREVIEW_SPEC = ActorSpec(kind='anon', anon_key='support-preview', play_mode='personal')
+_DEFAULT_TITLE_RE = re.compile(r'^Словесный Салат\s*#\s*\d+$', re.IGNORECASE)
 
 
 class WordSaladSupportError(Exception):
@@ -108,40 +109,64 @@ def ensure_word_salad_game() -> Game:
     if not game.is_playable:
         game.is_playable = True
         changed.append('is_playable')
-    if not game.is_registrable:
-        # left as-is
-        pass
-    if not game.is_tournament:
-        pass
     if changed or project_changed:
         game.save()
     return game
+
+
+def get_word_salad_game() -> Game:
+    try:
+        return Game.objects.get(pk=WORD_SALAD_GAME_ID)
+    except Game.DoesNotExist as exc:
+        raise WordSaladSupportError('Игра word_salad не найдена') from exc
 
 
 def _task_for_link(link: GameTaskGroup) -> Optional[Task]:
     return Task.objects.filter(task_group_id=link.task_group_id, number='1').first()
 
 
-def _default_payload() -> dict[str, Any]:
-    return {'grid': _DEFAULT_GRID, 'words': _DEFAULT_WORDS}
-
-
 def _sorted_links():
-    game = ensure_word_salad_game()
+    game = Game.objects.filter(pk=WORD_SALAD_GAME_ID).first()
+    if game is None:
+        return GameTaskGroup.objects.none()
     return GameTaskGroup.order_queryset_by_number(
         GameTaskGroup.objects.filter(game=game).select_related('task_group'),
         reverse=False,
     )
 
 
-def _next_number() -> int:
+def _temporary_number(links: list[GameTaskGroup]) -> int:
     numbers = []
-    for link in _sorted_links():
+    for link in links:
         try:
             numbers.append(int(link.number))
         except (TypeError, ValueError):
             continue
-    return max(numbers) + 1 if numbers else 1
+    return max(numbers, default=0) + 10_000
+
+
+def _sync_link_titles(link: GameTaskGroup, new_num: int) -> None:
+    default_title = f'{WORD_SALAD_SECTION_TITLE} #{new_num}'
+    if not (link.name or '').strip() or _DEFAULT_TITLE_RE.match((link.name or '').strip()):
+        link.name = default_title
+    task_group = link.task_group
+    if task_group is not None:
+        label = (task_group.label or '').strip()
+        if not label or _DEFAULT_TITLE_RE.match(label):
+            task_group.label = default_title
+            task_group.save(update_fields=['label'])
+
+
+def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
+    renumber_links(ordered_links, sync_link=_sync_link_titles)
+
+
+def _validated_checker_data(grid_value, words_value) -> str:
+    try:
+        grid, words = validate_puzzle(grid_value, words_value)
+    except ValueError as exc:
+        raise WordSaladSupportError(str(exc)) from exc
+    return json.dumps({'grid': grid, 'words': words}, ensure_ascii=False)
 
 
 def _preview_text(values, *, max_items=3):
@@ -195,7 +220,7 @@ def list_word_salad_rows() -> list[WordSaladRow]:
 
 def get_word_salad_detail(link_id: int) -> dict[str, Any]:
     link = (
-        GameTaskGroup.objects.filter(game=ensure_word_salad_game(), pk=link_id)
+        GameTaskGroup.objects.filter(game=get_word_salad_game(), pk=link_id)
         .select_related('task_group')
         .first()
     )
@@ -223,12 +248,21 @@ def get_word_salad_detail(link_id: int) -> dict[str, Any]:
 
 
 @transaction.atomic
-def create_word_salad() -> dict[str, Any]:
+def create_word_salad(*, at_number: int | None = None) -> dict[str, Any]:
     game = ensure_word_salad_game()
     checker = _ensure_checker_type()
-    number = _next_number()
+    links = list(_sorted_links())
+    if at_number is None:
+        at_number = len(links) + 1
+    try:
+        at_number = int(at_number)
+    except (TypeError, ValueError) as exc:
+        raise WordSaladSupportError('Некорректная позиция вставки') from exc
+    if not 1 <= at_number <= len(links) + 1:
+        raise WordSaladSupportError('Позиция вставки должна быть от 1 до {}'.format(len(links) + 1))
+    number = _temporary_number(links)
     task_group = TaskGroup.objects.create(
-        label=f'{WORD_SALAD_SECTION_TITLE} #{number}',
+        label=f'{WORD_SALAD_SECTION_TITLE} #{at_number}',
         checker=checker,
         points=1,
         max_attempts=None,
@@ -239,7 +273,7 @@ def create_word_salad() -> dict[str, Any]:
         number='1',
         task_type='word_salad',
         checker=checker,
-        checker_data=serialize_task_data(_DEFAULT_GRID, _DEFAULT_WORDS),
+        checker_data=_validated_checker_data(_DEFAULT_GRID, _DEFAULT_WORDS),
         answer='',
         text='',
         points=1,
@@ -250,15 +284,17 @@ def create_word_salad() -> dict[str, Any]:
         game=game,
         task_group=task_group,
         number=str(number),
-        name=f'{WORD_SALAD_SECTION_TITLE} #{number}',
+        name=f'{WORD_SALAD_SECTION_TITLE} #{at_number}',
     )
+    links.insert(at_number - 1, link)
+    _renumber_links(links)
     return get_word_salad_detail(link.pk)
 
 
 @transaction.atomic
 def update_word_salad(link_id: int, *, intro: str, grid_text: str, words_text: str, name: str | None = None) -> dict[str, Any]:
     link = (
-        GameTaskGroup.objects.filter(game=ensure_word_salad_game(), pk=link_id)
+        GameTaskGroup.objects.filter(game=get_word_salad_game(), pk=link_id)
         .select_related('task_group')
         .first()
     )
@@ -267,13 +303,13 @@ def update_word_salad(link_id: int, *, intro: str, grid_text: str, words_text: s
     task = _task_for_link(link)
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
-    validate_task_data(serialize_task_data(grid_text, words_text), '')
+    checker_data = _validated_checker_data(grid_text, words_text)
     task.text = intro or ''
-    task.checker_data = serialize_task_data(grid_text, words_text)
+    task.checker_data = checker_data
     task.answer = ''
     task.save(update_fields=['text', 'checker_data', 'answer'])
     if name is not None:
-        new_name = (name or '').strip() or f'{WORD_SALAD_SECTION_TITLE} #{link.number}'
+        new_name = str(name or '').strip() or f'{WORD_SALAD_SECTION_TITLE} #{link.number}'
         link.name = new_name
         if link.task_group is not None:
             link.task_group.label = new_name
@@ -283,18 +319,39 @@ def update_word_salad(link_id: int, *, intro: str, grid_text: str, words_text: s
 
 
 @transaction.atomic
-def delete_word_salad(link_id: int) -> None:
+def reorder_word_salads(ordered_link_ids: list[int]) -> list[WordSaladRow]:
+    game = get_word_salad_game()
+    if not ordered_link_ids:
+        raise WordSaladSupportError('Пустой порядок')
+    if len(set(ordered_link_ids)) != len(ordered_link_ids):
+        raise WordSaladSupportError('Дубликаты id в порядке')
+    existing = list(
+        GameTaskGroup.objects.filter(game=game).select_related('task_group')
+    )
+    by_id = {link.pk: link for link in existing}
+    if set(ordered_link_ids) != set(by_id):
+        raise WordSaladSupportError(
+            'Список id не совпадает с текущими салатами '
+            '(обновите страницу и повторите)'
+        )
+    _renumber_links([by_id[pk] for pk in ordered_link_ids])
+    return list_word_salad_rows()
+
+
+@transaction.atomic
+def delete_word_salad(link_id: int) -> list[WordSaladRow]:
+    game = get_word_salad_game()
     link = (
-        GameTaskGroup.objects.filter(game=ensure_word_salad_game(), pk=link_id)
+        GameTaskGroup.objects.filter(game=game, pk=link_id)
         .select_related('task_group')
         .first()
     )
     if link is None:
         raise WordSaladSupportError('Салат не найден')
-    task_group = link.task_group
-    link.delete()
-    if task_group is not None:
-        task_group.delete()
+    remaining = [row for row in _sorted_links() if row.pk != link_id]
+    cascade_delete_link(link)
+    _renumber_links(remaining)
+    return list_word_salad_rows()
 
 
 def dashboard_context(*, edit_link_id: int | None = None) -> dict[str, Any]:

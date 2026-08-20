@@ -5,13 +5,69 @@ from django.db import transaction
 
 from games.alphabetty.core import normalize_word
 from games.models import (
+    AlphabettyDictSuggestion,
+    AlphabettyPersonalDictWord,
     Attempt,
+    BugReport,
     ChainTaskState,
+    HintAttempt,
     Like,
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
 )
+
+
+def anon_migration_counts(anon_key):
+    """Return all guest-owned data that has user-visible or analytic value."""
+    if not anon_key:
+        return {}
+    return {
+        'attempts': Attempt.manager.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).count(),
+        'hints': HintAttempt.objects.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).count(),
+        'states': ChainTaskState.objects.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).count(),
+        'likes': Like.manager.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).count(),
+        'personal_dict': AlphabettyPersonalDictWord.objects.filter(
+            anon_key=anon_key, user__isnull=True,
+        ).count(),
+        'started_games': PlayerStartedGame.objects.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).count(),
+        'completed_games': PlayerCompletedGame.objects.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).count(),
+        'analytics_states': PlayerAnalyticsState.objects.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).count(),
+        'bug_reports': BugReport.objects.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).count(),
+        'dict_suggestions': AlphabettyDictSuggestion.objects.filter(
+            anon_key=anon_key, user__isnull=True,
+        ).count(),
+    }
+
+
+def migrate_anon_attributions(user, anon_key):
+    """Attach guest reports/suggestions that do not need conflict merging."""
+    if not user or not anon_key:
+        return {'bug_reports': 0, 'dict_suggestions': 0}
+    return {
+        'bug_reports': BugReport.objects.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).update(user=user, anon_key=None),
+        'dict_suggestions': AlphabettyDictSuggestion.objects.filter(
+            anon_key=anon_key, user__isnull=True,
+        ).update(user=user, anon_key=None),
+    }
 
 
 def _parse_state(state_json):
@@ -144,8 +200,6 @@ def _rebuild_alphabetty_state_from_attempts(*, user, task, game, anon_json, user
 
 def migrate_anon_personal_dict_words(user, anon_key):
     """Переносит AlphabettyPersonalDictWord с anon_key на user. Возвращает число строк."""
-    from games.models import AlphabettyPersonalDictWord
-
     if not user or not anon_key:
         return 0
     moved = 0

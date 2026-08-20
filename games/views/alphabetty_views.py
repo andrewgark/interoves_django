@@ -31,6 +31,7 @@ from games.analytics import (
     register_completed_game,
     register_started_game,
 )
+from games.daily_transitions import next_daily_content_transition_for_game
 from games.alphabetty.suggestions import suggest_word
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
@@ -252,6 +253,7 @@ def alphabetty_hub_page(request):
         'back_url': '/',
         'section_results_url': section_results_path(ALPHABETTY_GAME_ID),
         'can_see_results': game.has_access('see_results', team=team),
+        'live_next_transition_at': next_daily_content_transition_for_game(game),
     })
 
 
@@ -346,6 +348,9 @@ def alphabetty_play_page(request, number):
         'task': task,
         'page_title': f'Алфавитка №{n}' if offer is None else f'Алфавитка #{play_number}',
         'daily_publish_date': daily_publish_date,
+        'live_next_transition_at': (
+            next_daily_content_transition_for_game(game) if offer is None else None
+        ),
         'section_results_url': section_results_path(ALPHABETTY_GAME_ID),
         'task_results_url': f'{play_path}results/',
         'can_see_results': offer is None and game.has_access('see_results', team=team),

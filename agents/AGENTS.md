@@ -31,7 +31,7 @@ The same requirement is mirrored in `.cursor/rules/python-venv.mdc` (`alwaysAppl
 
 ### WebSocket integration tests in agent sandboxes
 
-The 9 tests in `games.tests.test_track.TrackWebsocketIntegrationTests` must be run
+The tests in `games.tests.test_track.TrackWebsocketIntegrationTests` must be run
 outside the restricted agent sandbox (with the execution tool's escalation / full
 permissions):
 
@@ -41,11 +41,11 @@ permissions):
 
 Inside the restricted sandbox, Channels can stall in
 `aclose_old_connections()` / its thread-sensitive `database_sync_to_async`
-executor before the consumer's `connect()` runs. All 9 tests then report a
+executor before the consumer's `connect()` runs. The tests then report a
 `WebsocketCommunicator.connect()` timeout even when the WebSocket implementation
 is healthy. Do not treat that sandbox-only result as a regression and do not
 change production or test code to accommodate it; rerun the same tests outside
-the sandbox first. A normal result is currently `Ran 9 tests ... OK`.
+the sandbox first.
 
 ## AWS / prod access (agents)
 
@@ -122,3 +122,7 @@ If the resolved version is empty, the client check is skipped.
 ## Raddle (Лесенка)
 
 Auto-submit, контракт `/send_attempt/` и smoke перед деплоем: **[agents/raddle.md](raddle.md)**. Матрица сценариев в `games/raddle_response_contract.py`; тесты: `games.tests.test_raddle_send_attempt`, `games.tests.test_raddle_response_contract`.
+
+## Realtime / team synchronization
+
+For WebSocket, live task state, teammate synchronization, pending rechecks, and clock-driven UI changes, use the repo skill **`.cursor/skills/interoves-realtime/SKILL.md`** and read **[docs/realtime-architecture.md](../docs/realtime-architecture.md)**.

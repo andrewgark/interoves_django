@@ -16,7 +16,7 @@ from games.support.services.banned import (
     list_banned_units,
     remove_banned_unit,
 )
-from games.support.services.schedule_links import delete_future_slot
+from games.support.services.schedule_links import delete_future_slot, renumber_links
 from games.week_task_pool import (
     WEEK_TASK_SOURCE_TAG,
     materialize_unit,
@@ -84,17 +84,7 @@ def _sync_link_titles(link: GameTaskGroup, new_num: int) -> None:
 
 
 def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
-    if not ordered_links:
-        return
-    temp_base = 10_000
-    for i, link in enumerate(ordered_links):
-        new_num = i + 1
-        link.number = str(temp_base + i)
-        _sync_link_titles(link, new_num)
-        link.save(update_fields=['number', 'name'])
-    for i, link in enumerate(ordered_links):
-        link.number = str(i + 1)
-        link.save(update_fields=['number'])
+    renumber_links(ordered_links, sync_link=_sync_link_titles)
 
 
 def _source_label(link: GameTaskGroup) -> str:

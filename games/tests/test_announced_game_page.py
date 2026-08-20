@@ -259,6 +259,8 @@ class AnnouncedGamePageTests(TestCase):
         self.assertEqual(r2.status_code, 200)
         self.assertContains(r2, 'Пропорции')
         self.assertNotContains(r2, 'new-game-card')
+        self.assertContains(r2, 'data-track-game-id="des_live"')
+        self.assertContains(r2, 'data-game-end-at=')
 
     def test_finished_game_page_shows_general_results_link(self):
         self.assertTrue(self.client.login(username='user_reg_ann', password='pw'))
@@ -287,3 +289,5 @@ class AnnouncedGamePageTests(TestCase):
         self.assertContains(r, 'new-game-card')
         self.assertContains(r, 'Десяточка 170')
         self.assertNotContains(r, 'Будущее')
+        self.assertContains(r, 'data-track-game-id="des170"')
+        self.assertContains(r, 'data-game-start-at=')

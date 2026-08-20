@@ -1,0 +1,4 @@
+interface:
+  display_name: "Interoves Realtime"
+  short_description: "Audit and evolve reliable live UI sync"
+  default_prompt: "Use $interoves-realtime to audit or implement reliable live synchronization in Interoves."

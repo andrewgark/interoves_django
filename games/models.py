@@ -218,6 +218,12 @@ class Profile(models.Model):
     email = models.TextField(blank=True, null=True)
     # Публичный Telegram без @; нужен для предложений лесенок и связи.
     telegram_handle = models.CharField(max_length=64, blank=True, default='')
+    # Подтвержденная через Telegram-бота identity. telegram_handle выше остается
+    # публичным редактируемым контактом и никогда не используется для платежного matching.
+    telegram_user_id = models.BigIntegerField(blank=True, null=True, unique=True)
+    telegram_username = models.CharField(max_length=64, blank=True, default='')
+    telegram_verified = models.BooleanField(default=False)
+    telegram_linked_at = models.DateTimeField(blank=True, null=True)
     team_on = models.ForeignKey(
         Team, related_name='primary_profiles', blank=True, null=True, on_delete=models.SET_NULL
     )
@@ -716,8 +722,8 @@ class Task(models.Model):
             update_fields = kwargs.get('update_fields')
             if update_fields is not None:
                 kwargs['update_fields'] = set(update_fields) | {'attempt_revision'}
-        track_task_change(self)
         super(Task, self).save(*args, **kwargs)
+        track_task_change(self)
 
     def clean(self):
         if self.task_type == 'word_salad':
@@ -1643,8 +1649,8 @@ class Hint(models.Model):
 
     def save(self, *args, **kwargs):
         from games.views.track import track_task_change
-        track_task_change(self.task)
         super(Hint, self).save(*args, **kwargs)
+        track_task_change(self.task)
 
 class HintAttempt(models.Model):
     id = models.AutoField(primary_key=True)
@@ -1703,12 +1709,14 @@ class TicketRequest(models.Model):
     PROVIDER_YOOKASSA = 'yookassa'
     PROVIDER_NOWPAYMENTS = 'nowpayments'
     PROVIDER_TRIBUTE = 'tribute'
+    PROVIDER_TRIBUTE_DIGITAL = 'tribute_digital'
     PROVIDER_VPOS = 'vpos'
     PAYMENT_PROVIDER_CHOICES = (
         (PROVIDER_MANUAL, 'Manual / legacy'),
         (PROVIDER_YOOKASSA, 'YooKassa'),
         (PROVIDER_NOWPAYMENTS, 'NOWPayments'),
         (PROVIDER_TRIBUTE, 'Tribute (legacy)'),
+        (PROVIDER_TRIBUTE_DIGITAL, 'Tribute Digital Product'),
         (PROVIDER_VPOS, 'Armenian acquiring / VPOS'),
     )
 
@@ -1723,9 +1731,11 @@ class TicketRequest(models.Model):
 
     CURRENCY_RUB = 'RUB'
     CURRENCY_AMD = 'AMD'
+    CURRENCY_EUR = 'EUR'
     CURRENCY_CHOICES = (
         (CURRENCY_RUB, 'RUB'),
         (CURRENCY_AMD, 'AMD'),
+        (CURRENCY_EUR, 'EUR'),
     )
 
     id = models.AutoField(primary_key=True)
@@ -1738,7 +1748,12 @@ class TicketRequest(models.Model):
         on_delete=models.SET_NULL,
     )
     metrika_client_id = models.CharField(max_length=64, blank=True, default='')
-    money = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    money = models.DecimalField(
+        default=0,
+        max_digits=12,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+    )
     tickets = models.IntegerField(default=0, validators=[MinValueValidator(1),MaxValueValidator(20)])
     time = models.DateTimeField(auto_now_add=True, blank=True)
     currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default=CURRENCY_RUB)
@@ -1784,6 +1799,140 @@ class TicketRequest(models.Model):
 class PendingTicketRequest(TicketRequest):
     class Meta:
         proxy=True
+
+
+class TelegramLinkToken(models.Model):
+    """Short-lived one-time proof used by /start to link a Telegram account."""
+
+    user = models.ForeignKey('auth.User', related_name='telegram_link_tokens', on_delete=models.CASCADE)
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(db_index=True)
+    used_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return 'Telegram link token #{} for user {}'.format(self.pk, self.user_id)
+
+
+class TributePaymentIntent(models.Model):
+    TYPE_REGULAR = 'regular'
+    TYPE_DISCOUNT = 'discount'
+    TICKET_TYPE_CHOICES = (
+        (TYPE_REGULAR, 'Regular'),
+        (TYPE_DISCOUNT, 'School / student'),
+    )
+
+    STATUS_AWAITING = 'awaiting_payment'
+    STATUS_COMPLETED = 'completed'
+    STATUS_EXPIRED = 'expired'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_CHOICES = (
+        (STATUS_AWAITING, 'Awaiting payment'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_EXPIRED, 'Expired'),
+        (STATUS_CANCELLED, 'Cancelled'),
+    )
+
+    user = models.ForeignKey('auth.User', related_name='tribute_payment_intents', on_delete=models.PROTECT)
+    team = models.ForeignKey(Team, related_name='tribute_payment_intents', on_delete=models.PROTECT)
+    ticket_request = models.OneToOneField(
+        TicketRequest,
+        related_name='tribute_payment_intent',
+        on_delete=models.PROTECT,
+    )
+    telegram_user_id = models.BigIntegerField(db_index=True)
+    expected_product_id = models.BigIntegerField(db_index=True)
+    expected_amount = models.BigIntegerField(help_text='Smallest currency units')
+    expected_currency = models.CharField(max_length=3)
+    ticket_type = models.CharField(max_length=16, choices=TICKET_TYPE_CHOICES)
+    status = models.CharField(max_length=24, choices=STATUS_CHOICES, default=STATUS_AWAITING, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(db_index=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=('telegram_user_id', 'expected_product_id'),
+                condition=models.Q(status='awaiting_payment'),
+                name='uniq_active_tribute_intent_identity_product',
+            ),
+        ]
+
+    def __str__(self):
+        return 'Tribute intent #{} ({})'.format(self.pk, self.status)
+
+
+class TributePurchase(models.Model):
+    STATUS_MANUAL_REVIEW = 'manual_review'
+    STATUS_ISSUED = 'issued'
+    STATUS_REFUNDED = 'refunded'
+    STATUS_CHOICES = (
+        (STATUS_MANUAL_REVIEW, 'Manual review'),
+        (STATUS_ISSUED, 'Ticket issued'),
+        (STATUS_REFUNDED, 'Refunded'),
+    )
+
+    REASON_MISSING_TELEGRAM = 'missing_telegram_identity'
+    REASON_UNKNOWN_TELEGRAM = 'unknown_telegram_identity'
+    REASON_UNKNOWN_PRODUCT = 'unknown_product'
+    REASON_AMOUNT_MISMATCH = 'invalid_amount'
+    REASON_CURRENCY_MISMATCH = 'invalid_currency'
+    REASON_NO_INTENT = 'no_active_intent'
+    REASON_MULTIPLE_INTENTS = 'multiple_active_intents'
+    REASON_DISCOUNT_INELIGIBLE = 'discount_ineligible'
+    REASON_ORIGINAL_NOT_FOUND = 'original_purchase_not_found'
+    REASON_TICKET_USED = 'ticket_already_used'
+
+    purchase_id = models.CharField(max_length=128, unique=True, db_index=True)
+    transaction_id = models.CharField(max_length=128, blank=True, default='', db_index=True)
+    product_id = models.BigIntegerField(blank=True, null=True, db_index=True)
+    product_name = models.CharField(max_length=255, blank=True, default='')
+    amount = models.BigIntegerField(blank=True, null=True, help_text='Smallest currency units')
+    currency = models.CharField(max_length=3, blank=True, default='')
+    trb_user_id = models.CharField(max_length=128, blank=True, default='')
+    telegram_user_id = models.BigIntegerField(blank=True, null=True, db_index=True)
+    telegram_username = models.CharField(max_length=64, blank=True, default='')
+    purchase_created_at = models.DateTimeField(blank=True, null=True)
+    normalized_payload = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=24, choices=STATUS_CHOICES, default=STATUS_MANUAL_REVIEW, db_index=True)
+    review_reason = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    matched_user = models.ForeignKey(
+        'auth.User', related_name='tribute_purchases', blank=True, null=True, on_delete=models.PROTECT,
+    )
+    matched_team = models.ForeignKey(
+        Team, related_name='tribute_purchases', blank=True, null=True, on_delete=models.PROTECT,
+    )
+    payment_intent = models.OneToOneField(
+        TributePaymentIntent,
+        related_name='purchase',
+        blank=True,
+        null=True,
+        on_delete=models.PROTECT,
+    )
+    ticket_request = models.OneToOneField(
+        TicketRequest,
+        related_name='tribute_purchase',
+        blank=True,
+        null=True,
+        on_delete=models.PROTECT,
+    )
+    received_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    processed_at = models.DateTimeField(blank=True, null=True)
+    refunded_at = models.DateTimeField(blank=True, null=True)
+    refund_reason = models.CharField(max_length=255, blank=True, default='')
+    ticket_revoked_at = models.DateTimeField(blank=True, null=True)
+    accounting_review_required = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        ordering = ['-received_at']
+
+    def __str__(self):
+        return 'Tribute purchase {} ({})'.format(self.purchase_id, self.status)
 
 
 def _donation_public_token():
@@ -2009,6 +2158,62 @@ class StatisticsEvent(models.Model):
     @classmethod
     def record(cls, kind, user=None, **payload):
         return cls.objects.create(kind=kind, user=user, payload=payload or {})
+
+
+class AccountMerge(models.Model):
+    """Audit record for one completed user-to-user account merge."""
+
+    id = models.AutoField(primary_key=True)
+    target_user = models.ForeignKey(
+        'auth.User',
+        related_name='account_merges_received',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    source_user = models.OneToOneField(
+        'auth.User',
+        related_name='account_merge_as_source',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    target_user_id_snapshot = models.PositiveIntegerField(db_index=True)
+    source_user_id_snapshot = models.PositiveIntegerField(db_index=True)
+    provider = models.CharField(max_length=32, blank=True, default='')
+    provider_uid = models.CharField(max_length=191, blank=True, default='')
+    summary = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'объединение аккаунтов'
+        verbose_name_plural = 'объединения аккаунтов'
+
+    def __str__(self):
+        return 'account merge {} -> {}'.format(
+            self.source_user_id_snapshot,
+            self.target_user_id_snapshot,
+        )
+
+
+class AnonAccountClaim(models.Model):
+    """Permanent ownership claim preventing one guest identity being stolen twice."""
+
+    id = models.AutoField(primary_key=True)
+    anon_key = models.CharField(max_length=64, unique=True, db_index=True)
+    user = models.ForeignKey(
+        'auth.User', related_name='anon_account_claims', on_delete=models.CASCADE,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'привязка гостевого прогресса'
+        verbose_name_plural = 'привязки гостевого прогресса'
+
+    def __str__(self):
+        return '{} -> {}'.format(self.anon_key, self.user_id)
 
 
 class PlayerStartedGame(models.Model):

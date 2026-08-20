@@ -111,6 +111,7 @@ class SupportPagesTests(TestCase):
     def setUpTestData(cls):
         _ensure_reference_rows()
         cls.team = Team.objects.create(name='page_team', visible_name='Page Team')
+        cls.other_team = Team.objects.create(name='other_page_team', visible_name='Other Page Team')
         cls.game = Game.objects.create(
             id='page_game',
             name='Page Game',
@@ -130,6 +131,14 @@ class SupportPagesTests(TestCase):
             status='Wrong',
             points=0,
         )
+        Attempt.manager.create(
+            team=cls.other_team,
+            task=cls.task,
+            game=cls.game,
+            text='foreign team activity',
+            status='Ok',
+            points=10,
+        )
 
     def setUp(self):
         self.client = Client()
@@ -141,6 +150,7 @@ class SupportPagesTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Page Team')
         self.assertContains(response, 'hello support')
+        self.assertNotContains(response, 'foreign team activity')
 
     def test_game_dashboard(self):
         url = reverse('support:game', kwargs={'game_id': 'page_game'})

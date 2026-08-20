@@ -1069,8 +1069,16 @@ html.new-ui-dark body.new-ui {
   margin-top: 0.5rem;
 }
 
+.new-profile-accounts-row > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
 .new-profile-accounts-foot {
-  margin-bottom: 0;
+  margin-bottom: 0.5rem;
 }
 
 .new-profile-hint {
@@ -2408,6 +2416,11 @@ html.new-ui-dark .new-team-switcher-active-box {
   overflow-wrap: break-word;
 }
 
+.new-pay-team-select {
+  width: min(100%, 24rem);
+  margin-top: 0.3rem;
+}
+
 .new-pay-quantity {
   display: grid;
   gap: 0.45rem;
@@ -2615,8 +2628,18 @@ html.new-ui-dark .new-team-switcher-active-box {
 
 .new-pay-method-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.65rem;
+}
+
+.new-pay-method:has(input:disabled),
+.new-pay-method--unavailable {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.new-pay-method:has(input:disabled):hover {
+  border-color: var(--border);
 }
 
 .new-pay-method {

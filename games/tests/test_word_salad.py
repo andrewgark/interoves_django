@@ -174,7 +174,7 @@ class WordSaladTests(TestCase):
     def test_hint_endpoint_accepts_consecutive_letters(self):
         anon_key = 'word-salad-hints-test'
         for hint_number in (1, 2):
-            with patch('games.views.attempt_views.track_task_change'):
+            with patch('games.views.attempt_views.track_actor_task_change'):
                 response = self.client.post(
                     '/send_hint_attempt/{}/'.format(self.task.pk),
                     {
@@ -293,7 +293,7 @@ class WordSaladTests(TestCase):
         self.assertFalse(Attempt.manager.filter(task=self.task, anon_key='word-salad-auto-test').exists())
 
     def test_correct_only_saves_matching_word_salad_path(self):
-        with patch('games.views.attempt_views.track_task_change'):
+        with patch('games.views.attempt_views.track_actor_task_change'):
             response = self.client.post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
