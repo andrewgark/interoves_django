@@ -119,6 +119,9 @@ def sync_telegram_identity(sender, **kw):
     if extra.get("preferred_username") and not profile.telegram_username:
         profile.telegram_username = str(extra["preferred_username"])[:64]
         updates.append("telegram_username")
+    if extra.get("preferred_username") and not profile.telegram_handle:
+        profile.telegram_handle = str(extra["preferred_username"])[:64]
+        updates.append("telegram_handle")
     if updates:
         profile.save(update_fields=updates)
 

@@ -3665,6 +3665,14 @@ class ProfileSettingsForm(ModelForm):
             'placeholder': 'username без @',
             'autocomplete': 'off',
         })
+        if getattr(self.instance, 'telegram_verified', False):
+            verified_handle = (
+                getattr(self.instance, 'telegram_username', '')
+                or getattr(self.instance, 'telegram_handle', '')
+            )
+            if verified_handle:
+                self.initial['telegram_handle'] = verified_handle.lstrip('@')
+                self.fields['telegram_handle'].disabled = True
         # keep model field, but render as text input with datalist
         self.fields['timezone'].widget = TextInput()
         self.fields['timezone'].required = True

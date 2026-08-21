@@ -28,7 +28,11 @@
         <label for="{{ form.telegram_handle.id_for_label }}">Telegram</label>
         {{ form.telegram_handle }}
         {% if form.telegram_handle.errors %}<span class="new-field-error">{{ form.telegram_handle.errors }}</span>{% endif %}
-        <p class="new-login-hint new-profile-hint">Хэндл без @ — нужен, чтобы предлагать лесенки.</p>
+        {% if form.telegram_handle.field.disabled %}
+          <p class="new-login-hint new-profile-hint">Подтягивается из подключённого Telegram.</p>
+        {% else %}
+          <p class="new-login-hint new-profile-hint">Подключите Telegram — username подставится автоматически.</p>
+        {% endif %}
       </div>
       <div class="new-profile-timezone">
         <label for="{{ form.timezone.id_for_label }}">Таймзона</label>
@@ -69,41 +73,56 @@
     </div>
   </div>
   {% else %}
-  <p class="new-login-hint new-profile-accounts-lead">Можно привязать второй способ входа, чтобы заходить через любой.</p>
-  <div class="new-two new-profile-accounts-row">
-    <div>
+  <p class="new-login-hint new-profile-accounts-lead">Входите через любой подключённый способ.</p>
+  <div class="new-account-list">
+    <div class="new-account-row">
+      <div class="new-account-icon new-account-icon--google"><i class="ph ph-google-logo" aria-hidden="true"></i></div>
+      <div class="new-account-main">
+        <strong>Google</strong>
       {% if 'google' in connected_providers %}
-        <span class="new-pill new-pill--ok">Google подключён{% if connected_account_labels.google %}: {{ connected_account_labels.google }}{% endif %}</span>
+        <span class="new-account-meta">{{ connected_account_labels.google }}</span>
+        <span class="new-account-status new-account-status--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Подключён</span>
         {% if can_disconnect_social_account %}
-          <button type="button" class="new-btn new-btn--text" data-social-disconnect data-account-id="{{ connected_account_ids.google }}" data-provider-label="Google">Отключить Google</button>
+          <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.google }}" data-provider-label="Google">Отключить</button>
         {% endif %}
       {% else %}
-        <a class="new-btn" href="{% provider_login_url 'google' process='connect' next=request.get_full_path %}">Привязать аккаунт Google</a>
+        <a class="new-account-action" href="{% provider_login_url 'google' process='connect' next=request.get_full_path %}">Подключить</a>
       {% endif %}
+      </div>
     </div>
-    <div>
+    <div class="new-account-row">
+      <div class="new-account-icon new-account-icon--vk"><i class="ph ph-vk-logo" aria-hidden="true"></i></div>
+      <div class="new-account-main">
+        <strong>VK</strong>
       {% if 'vk' in connected_providers %}
-        <span class="new-pill new-pill--ok">VK подключён{% if connected_account_labels.vk %}: {{ connected_account_labels.vk }}{% endif %}</span>
+        <span class="new-account-meta">{{ connected_account_labels.vk }}</span>
+        <span class="new-account-status new-account-status--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Подключён</span>
         {% if can_disconnect_social_account %}
-          <button type="button" class="new-btn new-btn--text" data-social-disconnect data-account-id="{{ connected_account_ids.vk }}" data-provider-label="VK">Отключить VK</button>
+          <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.vk }}" data-provider-label="VK">Отключить</button>
         {% endif %}
       {% else %}
-        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' process='connect' next=request.get_full_path %}">Привязать аккаунт VK</a>
+        <a class="new-account-action" href="{% provider_login_url 'vk' process='connect' next=request.get_full_path %}">Подключить</a>
       {% endif %}
+      </div>
     </div>
-    <div>
+    <div class="new-account-row">
+      <div class="new-account-icon new-account-icon--telegram"><i class="ph ph-telegram-logo" aria-hidden="true"></i></div>
+      <div class="new-account-main">
+        <strong>Telegram</strong>
       {% if 'telegram' in connected_providers %}
-        <span class="new-pill new-pill--ok">Telegram подключён{% if connected_account_labels.telegram %}: {{ connected_account_labels.telegram }}{% endif %}</span>
+        <span class="new-account-meta">{{ connected_account_labels.telegram }}</span>
+        <span class="new-account-status new-account-status--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Подключён</span>
         {% if can_disconnect_social_account %}
-          <button type="button" class="new-btn new-btn--text" data-social-disconnect data-account-id="{{ connected_account_ids.telegram }}" data-provider-label="Telegram">Отключить Telegram</button>
+          <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.telegram }}" data-provider-label="Telegram">Отключить</button>
         {% endif %}
       {% else %}
-        <a class="new-btn new-btn--ghost" href="{% url 'telegram_login' %}?process=connect&amp;next={{ request.get_full_path|urlencode }}">Привязать Telegram для входа</a>
+        <a class="new-account-action" href="{% url 'telegram_login' %}?process=connect&amp;next={{ request.get_full_path|urlencode }}">Подключить</a>
       {% endif %}
+      </div>
     </div>
   </div>
   {% endif %}
-  <p class="new-login-hint new-profile-accounts-foot">Теперь можно входить через любой подключённый способ. Если выбранный Google, VK или Telegram уже связан с другим профилем Interoves, покажем данные и попросим подтверждение перед объединением.</p>
+  <p class="new-login-hint new-profile-accounts-foot">Если способ уже подключён к другому профилю, сначала покажем данные и запросим подтверждение.</p>
   <button type="button" class="new-btn new-btn--text" data-review-guest-progress>Проверить гостевой прогресс на этом устройстве</button>
 </div>
 

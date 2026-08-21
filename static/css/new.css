@@ -1081,6 +1081,84 @@ html.new-ui-dark body.new-ui {
   margin-bottom: 0.5rem;
 }
 
+.new-account-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.new-account-row {
+  display: grid;
+  grid-template-columns: 2.35rem minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: color-mix(in srgb, var(--tile) 28%, var(--surface));
+}
+
+.new-account-icon {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 0.7rem;
+  font-size: 1.25rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.new-account-icon--google { color: #4285f4; }
+.new-account-icon--vk { color: #2787f5; }
+.new-account-icon--telegram { color: #229ed9; }
+
+.new-account-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+  min-width: 0;
+}
+
+.new-account-main strong { flex: 0 0 auto; }
+.new-account-meta {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.new-account-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.new-account-status--ok { color: var(--accent); }
+.new-account-action {
+  margin-left: auto;
+  padding: 0.2rem 0.45rem;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.new-account-action:hover { text-decoration: underline; }
+.new-account-action--danger { color: var(--danger); }
+
+@media (max-width: 559px) {
+  .new-account-action { margin-left: 0; }
+}
+
 .new-profile-hint {
   margin: 0.35rem 0 0;
 }
