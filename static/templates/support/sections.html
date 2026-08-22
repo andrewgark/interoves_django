@@ -42,11 +42,7 @@
                 {% elif row.game_id == 'word_salad' %}
                   <a href="{% url 'support:word_salad' %}" class="new-btn new-btn--mini new-btn--ghost">редактор</a>
                 {% endif %}
-                {% if row.game_id == 'word_salad' %}
-                  <a href="{{ row.site_url }}" class="new-btn new-btn--mini new-btn--ghost">редактор</a>
-                {% else %}
-                  <a href="{{ row.site_url }}" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost">сайт</a>
-                {% endif %}
+                <a href="{{ row.site_url }}" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost">сайт</a>
               </div>
             </td>
           </tr>

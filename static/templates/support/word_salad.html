@@ -4,7 +4,7 @@
 {% block support_content %}
 {% csrf_token %}
 {{ rows_json|json_script:"word-salad-bootstrap" }}
-<h1 class="support-page-title">Словесный салат</h1>
+<h1 class="support-page-title">Салат</h1>
 <p class="support-lead">
   Выпуски идут по публичным номерам. Перетаскивание меняет номер, но сохраняет
   внутренний id. Все 16 клеток корректного салата должны быть необходимы хотя
@@ -32,7 +32,7 @@
   <div
     class="support-ladder-list support-schedule-list"
     id="word-salad-list"
-    aria-label="Список выпусков Словесного салата"
+    aria-label="Список выпусков Салата"
     data-create-url="{% url 'support:word_salad_create' %}"
     data-reorder-url="{% url 'support:word_salad_reorder' %}"
     data-detail-url="{% url 'support:word_salad_detail' 0 %}"

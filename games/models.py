@@ -678,7 +678,7 @@ class Task(models.Model):
         ('proportions', 'Пропорции'),
         ('raddle', 'raddle'),
         ('alphabetty', 'alphabetty'),
-        ('word_salad', 'Словесный Салат'),
+        ('word_salad', 'Салат'),
         ('grid-puzzle', 'Grid Puzzle'),
     )
 

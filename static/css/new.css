@@ -460,6 +460,10 @@ html.new-ui-dark body.new-ui {
   }
 }
 
+.new-hub-sections-grid > .new-hub-section--wide {
+  grid-column: 1 / -1;
+}
+
 .new-hub-section {
   border: 1px solid var(--border);
   border-radius: var(--card-radius);

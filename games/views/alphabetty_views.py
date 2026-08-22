@@ -50,7 +50,9 @@ from games.models import (
     Like,
     Task,
 )
+from games.section_hub import section_format_credit_context
 from games.section_paths import section_hub_path, section_play_path, section_results_path
+from games.task_titles import task_group_page_title
 from games.views.new_ui import (
     NEW_UI_SECTIONS_PROJECT,
     _anon_key_from_request,
@@ -346,7 +348,11 @@ def alphabetty_play_page(request, number):
         'number': play_number,
         'link': link,
         'task': task,
-        'page_title': f'Алфавитка №{n}' if offer is None else f'Алфавитка #{play_number}',
+        'page_title': (
+            task_group_page_title(game, link)
+            if offer is None and link is not None
+            else f'Алфавитка #{play_number}'
+        ),
         'daily_publish_date': daily_publish_date,
         'live_next_transition_at': (
             next_daily_content_transition_for_game(game) if offer is None else None
@@ -359,9 +365,7 @@ def alphabetty_play_page(request, number):
         'daily_results_url': f'{play_path}results/',
         'daily_results_allowed': offer is None and game.has_access('see_results', team=team),
         'daily_results_label': 'Результаты этой алфавитки',
-        'daily_format_credit_url': 'https://alphaguess.com',
-        'daily_format_credit_name': 'alphaguess.com',
-        'daily_format_credit_text': 'алфавиток',
+        **section_format_credit_context(ALPHABETTY_GAME_ID),
         'daily_pager_aria_label': 'Переход между алфавитками',
         'show_sections_nav': True,
         'back_url': '/create_alphabetty/' if offer is not None else section_hub_path(ALPHABETTY_GAME_ID),

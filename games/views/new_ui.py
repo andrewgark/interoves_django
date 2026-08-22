@@ -43,30 +43,22 @@ from games.analytics import (
     ticket_purchase_goal_payload,
     yandex_goal_payload,
 )
-from games.alphabetty_daily import (
-    ALPHABETTY_GAME_ID,
-    filter_published_alphabetty_links,
-    is_alphabetty_number_published,
-    visible_alphabetty_links,
+from games.alphabetty_daily import ALPHABETTY_GAME_ID
+from games.daily_section import (
+    current_number_for,
+    filter_published_links,
+    is_scheduled_game,
+    publish_at_for,
+    scheduled_number_is_public,
+    uses_daily_play_layout,
+    visible_links,
 )
 from games.ladder_daily import (
     LADDER_GAME_ID,
-    current_ladder_number,
-    filter_published_ladder_links,
     get_ladder_hub_context,
     is_ladder_number_published,
-    ladder_publish_at,
-    sort_ladder_links_newest_first,
-    visible_ladder_links,
 )
-from games.week_task_weekly import (
-    WEEK_TASK_GAME_ID,
-    current_week_task_number,
-    filter_published_week_task_links,
-    is_week_task_number_published,
-    visible_week_task_links,
-    week_task_publish_at,
-)
+from games.week_task_weekly import WEEK_TASK_GAME_ID
 from games.ladder_word_results import (
     build_ladder_word_results_context,
     ladder_word_results_headers_context,
@@ -77,16 +69,17 @@ from games.section_hub import (
     SECTION_HUB_META,
     SECTION_HUB_ORDER,
     WEEK_TASK_HUB_ID,
-    get_alphabetty_section_hub_card,
     get_desyatochki_hub_context,
-    get_ladder_section_hub_card,
+    get_scheduled_section_hub_card,
     get_source_desyatka_context,
     get_training_section_hub_context,
     get_week_task_hub_card,
-    get_week_task_section_hub_card,
+    section_format_credit_context,
+    section_nav_title,
 )
 from games.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
+from games.task_titles import task_group_page_title
 from games.models import (
     Attempt,
     AudioManager,
@@ -119,7 +112,6 @@ from games.raddle import (
     raddle_result_squares_for_actor,
     raddle_word_solved_list,
 )
-from games.word_salad import WORD_SALAD_GAME_ID
 from games.word_salad import build_ui_context as build_word_salad_ui_context
 from games.word_salad import load_state as load_word_salad_state
 from games.word_salad import parse_task_data as parse_word_salad_task_data
@@ -267,14 +259,10 @@ def _game_task_group_links(game):
 
 
 def _player_visible_task_group_links(game):
-    """Круги, видимые игроку (для лесенки / алфавитки / задания недели — только уже вышедшие)."""
+    """Круги, видимые игроку (для расписанных разделов — только уже вышедшие)."""
     links = _game_task_group_links(game)
-    if game.id == LADDER_GAME_ID:
-        return visible_ladder_links(links, game, reverse=True)
-    if game.id == ALPHABETTY_GAME_ID:
-        return visible_alphabetty_links(links, game, reverse=True)
-    if game.id == WEEK_TASK_GAME_ID:
-        return visible_week_task_links(links, game, reverse=True)
+    if is_scheduled_game(game.id):
+        return visible_links(links, game, reverse=True)
     return links
 
 
@@ -333,20 +321,18 @@ def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
     else:
         back_label = 'Назад'
 
-    if game.id == WEEK_TASK_GAME_ID:
-        pager_label = 'Задание'
-        pager_aria_label = 'Переход между заданиями'
-        results_label = 'Результаты этого задания'
-    elif game.id == LADDER_GAME_ID:
-        pager_label = 'Лесенка'
-        pager_aria_label = 'Переход между лесенками'
-        results_label = 'Результаты этой лесенки'
-    elif game.id == WORD_SALAD_GAME_ID:
-        pager_label = 'Словесный Салат'
-        pager_aria_label = 'Переход между выпусками Словесного Салата'
-        results_label = 'Результаты: Словесный Салат'
+    section_meta = SECTION_HUB_META.get(game.id) or {}
+    if section_meta.get('pager_label'):
+        pager_label = section_meta['pager_label']
+        pager_aria_label = (
+            section_meta.get('pager_aria_label')
+            or 'Переход между заданиями «{}»'.format(pager_label)
+        )
+        results_label = (
+            section_meta.get('results_label')
+            or 'Результаты: {}'.format(pager_label)
+        )
     else:
-        section_meta = SECTION_HUB_META.get(game.id) or {}
         raw_label = (
             section_meta.get('title')
             or game.no_html_name
@@ -536,7 +522,7 @@ NEW_UI_SECTIONS_PROJECT = 'sections'
 PALINDROMES_GAME_ID = 'palindromes'
 # Разделы с собственным туториалом (модалка правил)
 SECTION_RULES_GAME_IDS = (
-    'palindromes', 'replacements', 'walls', 'ladder', 'alphabetty', 'week_task',
+    'palindromes', 'replacements', 'walls', 'ladder', 'alphabetty', 'week_task', 'word_salad',
 )
 
 
@@ -718,7 +704,7 @@ def get_section_games(request):
         team = request.user.profile.team_on
     games_list = [
         g for g in Game.objects.filter(project=project)
-        if g.id not in (LADDER_GAME_ID, ALPHABETTY_GAME_ID, WORD_SALAD_GAME_ID)
+        if g.id not in HUB_DAILY_SECTION_IDS
         and g.has_access('see_game_preview', team=team)
     ]
     return sorted(games_list, key=lambda g: _SECTION_NAV_ORDER.get(g.id, 99))
@@ -731,12 +717,8 @@ def _hub_section_task_group_links(game):
         .select_related('task_group')
         .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
     )
-    if game.id == LADDER_GAME_ID:
-        return visible_ladder_links(qs, game, reverse=True)
-    if game.id == ALPHABETTY_GAME_ID:
-        return visible_alphabetty_links(qs, game, reverse=True)
-    if game.id == WEEK_TASK_GAME_ID:
-        return visible_week_task_links(qs, game, reverse=True)
+    if is_scheduled_game(game.id):
+        return visible_links(qs, game, reverse=True)
     return GameTaskGroup.order_queryset_by_number(qs, reverse=True)
 
 
@@ -749,15 +731,10 @@ def _build_hub_section_cards(request, *, team):
             game = Game.objects.filter(id=game_id, project=project).first()
             if not game or not game.has_access('see_game_preview', team=team):
                 continue
-            if game_id == LADDER_GAME_ID:
-                card = get_ladder_section_hub_card(
+            if is_scheduled_game(game_id):
+                card = get_scheduled_section_hub_card(
                     game,
-                    published_numbers=_ladder_published_numbers(game),
-                )
-            elif game_id == ALPHABETTY_GAME_ID:
-                card = get_alphabetty_section_hub_card(
-                    game,
-                    published_numbers=_alphabetty_published_numbers(game),
+                    published_numbers=_published_numbers(game),
                 )
             else:
                 card = get_training_section_hub_context(game)
@@ -773,9 +750,9 @@ def _build_hub_section_cards(request, *, team):
         else None
     )
     if week_game and week_game.has_access('see_game_preview', team=team):
-        card = get_week_task_section_hub_card(
+        card = get_scheduled_section_hub_card(
             week_game,
-            published_numbers=_week_task_published_numbers(week_game),
+            published_numbers=_published_numbers(week_game),
         )
         play_mode, _ = _get_play_mode(request, week_game.project_id)
         play_mode = effective_play_mode(play_mode, week_game, user=request.user)
@@ -808,29 +785,19 @@ def _sections_hub_url(game_id):
     return section_hub_path(game_id)
 
 
+def _published_numbers(game):
+    return {link.number for link in filter_published_links(_game_task_group_links(game), game)}
+
+
 def _ladder_published_numbers(game):
-    return {link.number for link in filter_published_ladder_links(_game_task_group_links(game), game)}
-
-
-def _alphabetty_published_numbers(game):
-    return {
-        link.number
-        for link in filter_published_alphabetty_links(_game_task_group_links(game), game)
-    }
-
-
-def _week_task_published_numbers(game):
-    return {
-        link.number
-        for link in filter_published_week_task_links(_game_task_group_links(game), game)
-    }
+    return _published_numbers(game)
 
 
 def _ladder_latest_play_url(game):
     """URL of the newest published ladder, or None if none exist yet."""
     numbers = [
-        int(n) for n in _ladder_published_numbers(game)
-        if str(n).isdigit() and is_ladder_number_published(game, n)
+        int(n) for n in _published_numbers(game)
+        if str(n).isdigit() and scheduled_number_is_public(game, n)
     ]
     if not numbers:
         return None
@@ -1511,32 +1478,39 @@ def _render_section_game_page(request, game_id):
     team_for_access = team
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
-    if game_id == LADDER_GAME_ID:
-        task_groups = _hub_section_task_group_links(game)
-        today_number = current_ladder_number(game)
-        task_group_rows = _ladder_task_group_rows(
-            task_groups, game, today_number=today_number,
-        )
-        task_groups_heading = 'Архив'
-        task_groups_empty_text = 'Лесенки скоро появятся — следите за обновлениями.'
-    elif game_id == WEEK_TASK_GAME_ID:
-        today_number = current_week_task_number(game)
-        task_groups = _hub_section_task_group_links(game)
+    meta = SECTION_HUB_META.get(game_id) or {}
+    today_number = current_number_for(game)
+    task_groups = _hub_section_task_group_links(game)
+    if meta.get('archive_item_label'):
         task_group_rows = _ladder_task_group_rows(
             task_groups,
             game,
             today_number=today_number,
-            today_prefix='Эта неделя',
-            item_label='Задание недели',
+            today_prefix=meta.get('archive_today_prefix', 'Сегодня'),
+            item_label=meta['archive_item_label'],
         )
         task_groups_heading = 'Архив'
-        task_groups_empty_text = 'Задания недели скоро появятся — следите за обновлениями.'
+        task_groups_empty_text = meta.get(
+            'archive_empty_text',
+            'Скоро появятся — следите за обновлениями.',
+        )
     else:
-        today_number = None
-        task_groups = _hub_section_task_group_links(game)
         task_group_rows = _task_group_rows_skeleton(task_groups, game)
         task_groups_heading = _task_group_page_nav_context(game)['task_group_pager_label']
         task_groups_empty_text = 'В этом разделе пока нет заданий. Добавьте их в админке.'
+
+    section_today_play_url = None
+    section_today_cta_label = ''
+    if (
+        today_number is not None
+        and scheduled_number_is_public(game, today_number)
+        and meta.get('cta_today')
+    ):
+        has_today = any(str(p.number) == str(today_number) for p in task_groups)
+        if has_today or game_id == LADDER_GAME_ID:
+            from games.section_paths import section_last_path
+            section_today_play_url = section_last_path(game_id)
+            section_today_cta_label = meta['cta_today']
 
     section_task_groups_rules_html = None
     rules_page = game.section_default_rules
@@ -1556,7 +1530,6 @@ def _render_section_game_page(request, game_id):
             except HTMLPage.DoesNotExist:
                 pass
         show_palindrome_rules = game_id == PALINDROMES_GAME_ID
-    from games.section_paths import section_last_path
     return render(request, 'ui/game_page.html', {
         'game': game,
         'task_group_rows': task_group_rows,
@@ -1571,24 +1544,11 @@ def _render_section_game_page(request, game_id):
         'task_groups_heading': task_groups_heading,
         'task_groups_empty_text': task_groups_empty_text,
         'ladder_today_number': today_number if game_id == LADDER_GAME_ID else None,
-        'ladder_today_play_url': (
-            section_last_path(LADDER_GAME_ID)
-            if game_id == LADDER_GAME_ID
-            and today_number is not None
-            and is_ladder_number_published(game, today_number)
-            else None
-        ),
+        'section_today_play_url': section_today_play_url,
+        'section_today_cta_label': section_today_cta_label,
         'alphabetty_create_url': (
             '/create_alphabetty/'
             if game_id == ALPHABETTY_GAME_ID
-            else None
-        ),
-        'week_task_today_play_url': (
-            section_last_path(WEEK_TASK_GAME_ID)
-            if game_id == WEEK_TASK_GAME_ID
-            and today_number is not None
-            and is_week_task_number_published(game, today_number)
-            and any(str(p.number) == str(today_number) for p in task_groups)
             else None
         ),
         'back_url': '/',
@@ -1681,12 +1641,8 @@ def _load_results_placements_and_tasks(game, task_group_number=None):
             )
         )
     )
-    if game.id == LADDER_GAME_ID:
-        placements = visible_ladder_links(links, game, reverse=False)
-    elif game.id == ALPHABETTY_GAME_ID:
-        placements = visible_alphabetty_links(links, game, reverse=False)
-    elif game.id == WEEK_TASK_GAME_ID:
-        placements = visible_week_task_links(links, game, reverse=False)
+    if is_scheduled_game(game.id):
+        placements = visible_links(links, game, reverse=False)
     else:
         placements = sorted(links, key=lambda p: p.key_sort())
     if task_group_number is not None:
@@ -2140,11 +2096,7 @@ def new_section_task_results_page(request, game_id, number):
     game = Game.objects.filter(project=project, id=game_id).first()
     if not game:
         raise Http404()
-    if game_id == ALPHABETTY_GAME_ID and not is_alphabetty_number_published(game, number):
-        raise Http404()
-    if game_id == LADDER_GAME_ID and not is_ladder_number_published(game, number):
-        raise Http404()
-    if game_id == WEEK_TASK_GAME_ID and not is_week_task_number_published(game, number):
+    if not scheduled_number_is_public(game, number):
         raise Http404()
     team = request.user.profile.team_on if has_profile(request.user) else None
     if not game.has_access('see_results', mode='general', team=team):
@@ -2703,11 +2655,11 @@ def new_task_group_page(request, game_id, task_group_number):
                 if not can_access_offer_hash(ladder_offer, request.user):
                     raise Http404()
             elif (
-                not is_ladder_number_published(game, task_group_number)
+                not scheduled_number_is_public(game, task_group_number)
                 and not request.user.is_staff
             ):
                 raise Http404()
-        if game_id == WEEK_TASK_GAME_ID and not is_week_task_number_published(game, task_group_number):
+        elif not scheduled_number_is_public(game, task_group_number):
             raise Http404()
     else:
         if play_mode == 'team':
@@ -2749,15 +2701,11 @@ def new_task_group_page(request, game_id, task_group_number):
                 return redirect(_play_url_for_task_group(game, fallback.number))
             raise Http404()
     task_group = placement.task_group
-    if game.id == LADDER_GAME_ID and ladder_offer is None:
-        # Соседи только среди уже вышедших лесенок (не показываем «Дальше» на неопубликованную).
-        visible_links = list(visible_ladder_links(_game_task_group_links(game), game))
-        prev_tg, next_tg = _neighbors_by_pk(visible_links, placement)
-    elif game.id == LADDER_GAME_ID and ladder_offer is not None:
+    if game.id == LADDER_GAME_ID and ladder_offer is not None:
         prev_tg, next_tg = None, None
-    elif game.id == WEEK_TASK_GAME_ID:
-        visible_links = list(visible_week_task_links(_game_task_group_links(game), game))
-        prev_tg, next_tg = _neighbors_by_pk(visible_links, placement)
+    elif is_scheduled_game(game.id):
+        published_nav = list(visible_links(_game_task_group_links(game), game))
+        prev_tg, next_tg = _neighbors_by_pk(published_nav, placement)
     else:
         prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
@@ -2790,25 +2738,21 @@ def new_task_group_page(request, game_id, task_group_number):
     if game.id in ('replacements', 'walls', 'palindromes'):
         source_desyatka = get_source_desyatka_context(task_group, team=team)
     from games.section_paths import ladder_word_results_path
-    is_daily_single_task = game.id in (LADDER_GAME_ID, WEEK_TASK_GAME_ID)
+    is_daily_single_task = uses_daily_play_layout(game.id)
     daily_publish_date = None
-    if game.id == LADDER_GAME_ID and ladder_offer is None:
-        pub_at = ladder_publish_at(game, placement.number)
+    if ladder_offer is None:
+        pub_at = publish_at_for(game, placement.number)
         if pub_at is not None:
             daily_publish_date = pub_at.date()
-    elif game.id == LADDER_GAME_ID and ladder_offer is not None and ladder_offer.accepted_link_id:
+    elif ladder_offer.accepted_link_id:
         try:
             prod_n = int(ladder_offer.accepted_link.number)
         except (TypeError, ValueError, AttributeError):
             prod_n = None
         if prod_n is not None:
-            pub_at = ladder_publish_at(game, prod_n)
+            pub_at = publish_at_for(game, prod_n)
             if pub_at is not None:
                 daily_publish_date = pub_at.date()
-    elif game.id == WEEK_TASK_GAME_ID:
-        pub_at = week_task_publish_at(game, placement.number)
-        if pub_at is not None:
-            daily_publish_date = pub_at.date()
     if ladder_offer is not None:
         if ladder_offer.accepted_link_id and str(getattr(ladder_offer.accepted_link, 'number', '')).isdigit():
             page_title = '{} №{}'.format(
@@ -2821,9 +2765,9 @@ def new_task_group_page(request, game_id, task_group_number):
                 placement.name or 'предложение',
             )
     elif is_daily_single_task:
-        page_title = '{} №{}'.format(game.outside_name or game.name, placement.number)
+        page_title = task_group_page_title(game, placement)
     else:
-        page_title = '{} · {}'.format(game.outside_name or game.name, placement.name)
+        page_title = task_group_page_title(game, placement)
 
     can_reset_offer = False
     offer_reset_url = None
@@ -2840,11 +2784,7 @@ def new_task_group_page(request, game_id, task_group_number):
         ladder_results_url = None
 
     daily_footer_enabled = is_daily_single_task
-    daily_game_label = {
-        LADDER_GAME_ID: 'Лесенка',
-        ALPHABETTY_GAME_ID: 'Алфавитка',
-        WEEK_TASK_GAME_ID: 'Задание недели',
-    }.get(game.id)
+    daily_game_label = section_nav_title(game.id) or None
     daily_results_allowed = bool(
         ladder_results_url
         and game.has_access('see_results', mode='general', team=team)
@@ -2905,9 +2845,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'daily_results_url': ladder_results_url,
         'daily_results_allowed': daily_results_allowed,
         'daily_results_label': 'Результаты этой лесенки' if game.id == LADDER_GAME_ID else '',
-        'daily_format_credit_url': 'https://raddle.quest' if game.id == LADDER_GAME_ID else '',
-        'daily_format_credit_name': 'raddle.quest' if game.id == LADDER_GAME_ID else '',
-        'daily_format_credit_text': 'лесенок' if game.id == LADDER_GAME_ID else '',
+        **section_format_credit_context(game.id),
         'daily_pager_aria_label': 'Переход между {}'.format(
             'лесенками' if game.id == LADDER_GAME_ID
             else 'заданиями недели' if game.id == WEEK_TASK_GAME_ID
@@ -3007,9 +2945,7 @@ def new_task_group_live_state(request, game_id):
 
     if not request.user.is_staff:
         for placement in placements:
-            if game.id == LADDER_GAME_ID and not is_ladder_number_published(game, placement.number):
-                raise Http404()
-            if game.id == WEEK_TASK_GAME_ID and not is_week_task_number_published(game, placement.number):
+            if not scheduled_number_is_public(game, placement.number):
                 raise Http404()
 
     from games.views.render_task import render_new_ui_task_card_html

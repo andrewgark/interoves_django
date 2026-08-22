@@ -372,4 +372,4 @@ class WordSaladTests(TestCase):
             context = _task_group_page_nav_context(self.game)
         finally:
             self.game.id = old_id
-        self.assertEqual(context['task_group_pager_label'], 'Словесный Салат')
+        self.assertEqual(context['task_group_pager_label'], 'Салат')

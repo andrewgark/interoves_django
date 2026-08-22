@@ -2,11 +2,13 @@
 
 from games.alphabetty_daily import ALPHABETTY_GAME_ID
 from games.ladder_daily import LADDER_GAME_ID
+from games.word_salad import WORD_SALAD_GAME_ID
 
 # Served at site root: /ladder/, /walls/, … (not /section/<id>/ or /games/<id>/ hub).
 ROOT_SECTION_GAME_IDS = frozenset({
     LADDER_GAME_ID,
     ALPHABETTY_GAME_ID,
+    WORD_SALAD_GAME_ID,
     'replacements',
     'walls',
     'palindromes',

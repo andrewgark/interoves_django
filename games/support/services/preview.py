@@ -7,8 +7,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from games.models import Attempt, Game, GameTaskGroup, HTMLPage, Team
-from games.ladder_daily import ladder_publish_at
-from games.week_task_weekly import WEEK_TASK_GAME_ID, week_task_publish_at
+from games.daily_section import publish_at_for, uses_daily_play_layout, visible_links
+from games.task_titles import task_group_page_title
 from games.views.new_ui import (
     LADDER_GAME_ID,
     NEW_UI_PROJECT,
@@ -17,7 +17,6 @@ from games.views.new_ui import (
     SECTION_RULES_GAME_IDS,
     build_task_group_task_context_dicts,
     is_ladder_number_published,
-    visible_ladder_links,
     _game_task_group_links,
     _neighbors_by_pk,
 )
@@ -153,7 +152,7 @@ def build_preview_game_context(game: Game, spec: ActorSpec):
 
     placements = list(_game_task_group_links(game))
     if game.id == LADDER_GAME_ID:
-        placements = list(visible_ladder_links(placements, game))
+        placements = list(visible_links(placements, game))
     rows = []
     for placement in placements:
         rows.append({
@@ -197,8 +196,8 @@ def build_preview_task_group_context(game_id: str, task_group_number: str, spec:
         raise Http404('Лесенка ещё не опубликована')
 
     if game.id == LADDER_GAME_ID:
-        visible_links = list(visible_ladder_links(_game_task_group_links(game), game))
-        prev_tg, next_tg = _neighbors_by_pk(visible_links, placement)
+        published_nav = list(visible_links(_game_task_group_links(game), game))
+        prev_tg, next_tg = _neighbors_by_pk(published_nav, placement)
     else:
         prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
 
@@ -226,26 +225,12 @@ def build_preview_task_group_context(game_id: str, task_group_number: str, spec:
     next_url = (
         preview_task_group_url(game.id, next_tg.number, spec) if next_tg else None
     )
-    is_daily_single_task = game.id in (LADDER_GAME_ID, WEEK_TASK_GAME_ID)
+    is_daily_single_task = uses_daily_play_layout(game.id)
     daily_publish_date = None
-    if game.id == LADDER_GAME_ID:
-        pub_at = ladder_publish_at(game, placement.number)
-        if pub_at is not None:
-            daily_publish_date = pub_at.date()
-    elif game.id == WEEK_TASK_GAME_ID:
-        pub_at = week_task_publish_at(game, placement.number)
-        if pub_at is not None:
-            daily_publish_date = pub_at.date()
-    if is_daily_single_task:
-        page_title = 'Preview · {} №{}'.format(
-            game.outside_name or game.name,
-            placement.number,
-        )
-    else:
-        page_title = 'Preview · {} · {}'.format(
-            game.outside_name or game.name,
-            placement.name,
-        )
+    pub_at = publish_at_for(game, placement.number)
+    if pub_at is not None:
+        daily_publish_date = pub_at.date()
+    page_title = 'Preview · {}'.format(task_group_page_title(game, placement))
     return {
         'game': game,
         'task_group': task_group,

@@ -560,6 +560,15 @@ def process_game_announcements(now=None) -> dict[str, int]:
         logger.exception('Ladder channel tick failed')
         stats['ladder_scheduled'] = 0
 
+    try:
+        from games.telegram.word_salad_channel import process_salad_channel_tick
+
+        salad_stats = process_salad_channel_tick(now=now)
+        stats['salad_scheduled'] = salad_stats.get('scheduled', 0)
+    except Exception:
+        logger.exception('Salad channel tick failed')
+        stats['salad_scheduled'] = 0
+
     # Алфавитка / задание недели: около полуночи МСК досэмплить буфер.
     stats['alphabetty_buffer_added'] = 0
     stats['week_task_buffer_added'] = 0

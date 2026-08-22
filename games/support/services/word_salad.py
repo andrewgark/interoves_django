@@ -20,14 +20,19 @@ from games.word_salad import (
     parse_task_data,
     validate_puzzle,
 )
+from games.word_salad_daily import (
+    WORD_SALAD_DEFAULT_PUBLISH_START,
+    WORD_SALAD_PUBLISH_START_TAG,
+)
 
-WORD_SALAD_SECTION_TITLE = 'Словесный Салат'
+WORD_SALAD_SECTION_TITLE = 'Салат'
 WORD_SALAD_SECTION_ICON = '🥗'
+_OLD_SECTION_TITLES = frozenset({'Словесный Салат', 'Словесный салат'})
 
 _DEFAULT_GRID = ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M']
 _DEFAULT_WORDS = ['ABCDEFGHIJKLMNOP']
 _PREVIEW_SPEC = ActorSpec(kind='anon', anon_key='support-preview', play_mode='personal')
-_DEFAULT_TITLE_RE = re.compile(r'^Словесный Салат\s*#\s*\d+$', re.IGNORECASE)
+_DEFAULT_TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат\s*#\s*\d+$', re.IGNORECASE)
 
 
 class WordSaladSupportError(Exception):
@@ -60,13 +65,18 @@ def _ensure_checker_type() -> CheckerType:
     return checker
 
 
+def _is_legacy_game_title(value: str | None) -> bool:
+    text = (value or '').strip()
+    return not text or text in _OLD_SECTION_TITLES
+
+
 def ensure_word_salad_game() -> Game:
     project = _ensure_project()
     defaults = {
         'name': WORD_SALAD_SECTION_TITLE,
         'outside_name': WORD_SALAD_SECTION_TITLE,
         'no_html_name': WORD_SALAD_SECTION_TITLE,
-        'author': 'support',
+        'author': 'Interoves',
         'author_extra': '',
         'project': project,
         'start_time': timezone.now(),
@@ -82,7 +92,8 @@ def ensure_word_salad_game() -> Game:
         'game_url': '',
         'answers_url': '',
         'standings_url': '',
-        'tags': {},
+        'theme': 'Сетка 4×4: найдите все слова по соседним буквам.',
+        'tags': {WORD_SALAD_PUBLISH_START_TAG: WORD_SALAD_DEFAULT_PUBLISH_START},
     }
     game, created = Game.objects.get_or_create(pk=WORD_SALAD_GAME_ID, defaults=defaults)
     if created:
@@ -91,17 +102,17 @@ def ensure_word_salad_game() -> Game:
     if project_changed:
         game.project = project
     changed = []
-    if not game.name:
+    if _is_legacy_game_title(game.name):
         game.name = WORD_SALAD_SECTION_TITLE
         changed.append('name')
-    if not game.outside_name:
+    if _is_legacy_game_title(game.outside_name):
         game.outside_name = WORD_SALAD_SECTION_TITLE
         changed.append('outside_name')
-    if not game.no_html_name:
+    if _is_legacy_game_title(game.no_html_name):
         game.no_html_name = WORD_SALAD_SECTION_TITLE
         changed.append('no_html_name')
-    if not game.author:
-        game.author = 'support'
+    if not game.author or game.author == 'support':
+        game.author = 'Interoves'
         changed.append('author')
     if not game.is_ready:
         game.is_ready = True
@@ -109,6 +120,11 @@ def ensure_word_salad_game() -> Game:
     if not game.is_playable:
         game.is_playable = True
         changed.append('is_playable')
+    tags = dict(game.tags or {})
+    if not tags.get(WORD_SALAD_PUBLISH_START_TAG):
+        tags[WORD_SALAD_PUBLISH_START_TAG] = WORD_SALAD_DEFAULT_PUBLISH_START
+        game.tags = tags
+        changed.append('tags')
     if changed or project_changed:
         game.save()
     return game

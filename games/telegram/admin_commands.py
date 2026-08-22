@@ -45,6 +45,7 @@ def _help_text() -> str:
         '/infra — webhook и чаты бота',
         '/digest — дайджест за сутки',
         '/ladder — превью сегодняшней лесенки (картинка в этот чат)',
+        '/salad — превью сегодняшнего салата (картинка в этот чат)',
         '/mute &lt;мин&gt; — заглушить рутину',
         '/unmute — включить уведомления',
         '',
@@ -88,6 +89,7 @@ def handle_admin_command(text: str) -> str:
         '/infra': _cmd_infra,
         '/digest': _cmd_digest,
         '/ladder': _cmd_ladder,
+        '/salad': _cmd_salad,
         '/mute': _cmd_mute,
         '/unmute': _cmd_unmute,
     }
@@ -467,6 +469,15 @@ def _cmd_ladder(_args) -> str:
     from games.telegram.ladder_channel import preview_ladder_to_admin
 
     ok, message = preview_ladder_to_admin()
+    if ok:
+        return 'Превью отправлено в этот чат.\n{}'.format(message)
+    return 'Не удалось: {}'.format(message)
+
+
+def _cmd_salad(_args) -> str:
+    from games.telegram.word_salad_channel import preview_salad_to_admin
+
+    ok, message = preview_salad_to_admin()
     if ok:
         return 'Превью отправлено в этот чат.\n{}'.format(message)
     return 'Не удалось: {}'.format(message)

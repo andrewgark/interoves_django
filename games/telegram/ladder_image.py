@@ -68,7 +68,11 @@ _SCREENSHOT_HIDE_CSS = '''
   .new-18plus-modal,
   [data-login-open],
   .new-task-group-nav,
-  .new-page-actions {
+  .new-page-actions,
+  .new-tg-back,
+  .new-tg-pager,
+  .new-tg-results-link,
+  .new-raddle-task__credit {
     display: none !important;
   }
   body, .new-wrap {
@@ -161,19 +165,22 @@ def ladder_last_screenshot_url() -> str:
     return '{}/ladder/last/'.format(site_base_url().rstrip('/'))
 
 
-def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 1100) -> bytes:
+def screenshot_page_element_png(
+    url: str,
+    selectors: tuple[str, ...],
+    *,
+    viewport_width: int = 1100,
+) -> bytes:
     """
-    Headless Chromium screenshot of the live ladder page (same look as the site).
-    Targets `.new-raddle-task`; falls back to `.new-raddle-layout` / main content.
-    Adds a 20px white frame around the crop.
+    Headless Chromium screenshot of a live page crop (same look as the site).
+    Tries selectors in order, then full page. Adds a 20px white frame.
     """
     from playwright.sync_api import sync_playwright
 
     _ensure_playwright_browsers_path()
-    target = url or ladder_last_screenshot_url()
     emoji_font = _find_emoji_font()
     if not emoji_font:
-        logger.warning('NotoColorEmoji.ttf not found; ◼️ masks may be missing in screenshot')
+        logger.warning('NotoColorEmoji.ttf not found; emoji masks may be missing in screenshot')
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -184,8 +191,7 @@ def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 
             )
             if emoji_font:
                 _install_emoji_font_route(page, emoji_font)
-            page.goto(target, wait_until='networkidle', timeout=60000)
-            # Dismiss 18+ gate if present (ladder itself is not 18+, but modal may show).
+            page.goto(url, wait_until='networkidle', timeout=60000)
             confirm = page.locator('[data-age-gate-confirm]')
             if confirm.count() and confirm.first.is_visible():
                 confirm.first.click()
@@ -196,7 +202,7 @@ def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 
             page.wait_for_timeout(150)
 
             raw = None
-            for selector in ('.new-raddle-task', '.new-raddle-layout', 'main.new-wrap', 'main'):
+            for selector in selectors:
                 loc = page.locator(selector).first
                 if loc.count() == 0:
                     continue
@@ -211,6 +217,20 @@ def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 
             return _add_white_frame(raw, pad_px=20)
         finally:
             browser.close()
+
+
+def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 1100) -> bytes:
+    """
+    Headless Chromium screenshot of the live ladder page (same look as the site).
+    Targets `.new-raddle-task`; falls back to `.new-raddle-layout` / main content.
+    Adds a 20px white frame around the crop.
+    """
+    target = url or ladder_last_screenshot_url()
+    return screenshot_page_element_png(
+        target,
+        ('.new-raddle-task', '.new-raddle-layout', 'main.new-wrap', 'main'),
+        viewport_width=viewport_width,
+    )
 
 
 def _add_white_frame(png_bytes: bytes, *, pad_px: int = 20) -> bytes:

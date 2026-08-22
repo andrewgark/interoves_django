@@ -291,17 +291,12 @@ def build_results_snapshot_payload(game, mode='tournament'):
     # Use the same ordering/filtering rules as results pages.
     from django.db.models import Q
 
-    from games.alphabetty_daily import ALPHABETTY_GAME_ID, visible_alphabetty_links
-    from games.ladder_daily import LADDER_GAME_ID, visible_ladder_links
+    from games.daily_section import is_scheduled_game, visible_links
     from games.models import GameTaskGroup
 
     links = game.task_group_links.select_related('task_group')
-    if game.id == LADDER_GAME_ID:
-        placements = list(visible_ladder_links(links, game, reverse=False))
-    elif game.id == ALPHABETTY_GAME_ID:
-        # The support buffer creates future rounds in advance.  They must not
-        # become empty columns in a snapshot-backed results table.
-        placements = list(visible_alphabetty_links(links, game, reverse=False))
+    if is_scheduled_game(game.id):
+        placements = list(visible_links(links, game, reverse=False))
     else:
         placements = GameTaskGroup.sorted_links(links)
     task_group_headers = []

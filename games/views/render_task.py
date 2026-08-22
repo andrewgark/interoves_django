@@ -205,7 +205,8 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
     # Daily section cards deliberately hide the task number.  The full page
     # passes this flag through task_group.html; keep the same presentation
     # when a card is replaced after an attempt or a hint.
-    is_daily_single_task = game.id in ('ladder', 'week_task')
+    from games.daily_section import uses_daily_play_layout
+    is_daily_single_task = uses_daily_play_layout(game.id)
     return render(request, 'new/partials/task_card.html', {
         'game': game,
         'task_group': task_group,

@@ -11,22 +11,18 @@ from django.utils import timezone
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
     filter_published_alphabetty_links,
-    get_alphabetty_hub_context,
 )
 from games.ladder_daily import (
     LADDER_GAME_ID,
     filter_published_ladder_links,
-    get_ladder_hub_context,
 )
 from games.week_task_weekly import (
     WEEK_TASK_GAME_ID,
     filter_published_week_task_links,
-    get_week_task_hub_context,
 )
 from games.word_salad import WORD_SALAD_GAME_ID
 from games.word_salad_daily import (
     filter_published_word_salad_links,
-    get_word_salad_hub_context,
 )
 from games.section_paths import section_hub_path, section_last_path, section_play_path
 
@@ -34,10 +30,10 @@ _DES_GAME_ID_RE = re.compile(r'^des(\d+)$')
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 
-SECTION_HUB_ORDER = ('ladder', 'alphabetty', 'replacements', 'walls', 'palindromes')
+SECTION_HUB_ORDER = ('ladder', 'word_salad', 'alphabetty', 'replacements', 'walls', 'palindromes')
 
 # Группы карточек на главной (порядок внутри группы).
-HUB_DAILY_SECTION_IDS = ('ladder', 'alphabetty')
+HUB_DAILY_SECTION_IDS = ('ladder', 'word_salad', 'alphabetty')
 HUB_FROM_DESYATOCHKI_SECTION_IDS = ('week_task', 'replacements', 'walls', 'palindromes')
 WEEK_TASK_HUB_ID = WEEK_TASK_GAME_ID
 
@@ -52,16 +48,41 @@ SECTION_HUB_META = {
         'cta_latest': 'Последняя лесенка',
         'all_link_label': 'Все лесенки →',
         'soon_text': 'Новая лесенка — каждый день в полночь по Москве.',
+        'wide': True,
+        'nav_title': 'Лесенка',
+        'archive_item_label': 'Лесенка',
+        'format_credit_url': 'https://raddle.quest',
+        'format_credit_name': 'raddle.quest',
+        'format_credit_text': 'лесенок',
+    },
+    'word_salad': {
+        'icon': '🥗',
+        'ph_icon': 'bowl-food',
+        'title': 'Салаты',
+        'nav_title': 'Салат',
+        'description': 'Сетка 4×4: найдите все слова, проводя дорожки по соседним буквам.',
+        'cta_today': 'Сегодняшний салат',
+        'cta_latest': 'Последний салат',
+        'all_link_label': 'Все салаты →',
+        'soon_text': 'Новый салат — каждый день в полночь по Москве.',
+        'archive_item_label': 'Салат',
+        'format_credit_url': 'https://wordsalad.online',
+        'format_credit_name': 'wordsalad.online',
+        'format_credit_text': 'салатов',
     },
     'alphabetty': {
         'icon': '🔤',
         'ph_icon': 'text-aa',
         'title': 'Алфавитки',
+        'nav_title': 'Алфавитка',
         'description': 'Угадайте существительное по алфавиту — раньше или позже.',
         'cta_today': 'Сегодняшняя алфавитка',
         'cta_latest': 'Последняя алфавитка',
         'all_link_label': 'Все алфавитки →',
         'soon_text': 'Новая алфавитка — каждый день в полночь по Москве.',
+        'format_credit_url': 'https://alphaguess.com',
+        'format_credit_name': 'alphaguess.com',
+        'format_credit_text': 'алфавиток',
     },
     'replacements': {
         'icon': '🔄',
@@ -121,6 +142,37 @@ def section_ph_icon(section_id):
     return meta.get('ph_icon') or ''
 
 
+def section_nav_title(section_id):
+    """Singular nav/pager title for a section id."""
+    meta = SECTION_HUB_META.get(section_id) or {}
+    return meta.get('nav_title') or meta.get('pager_label') or meta.get('title') or ''
+
+
+def section_format_credit_context(section_id):
+    """Подпись «автор формата» для футера ежедневной игры."""
+    meta = SECTION_HUB_META.get(section_id) or {}
+    url = meta.get('format_credit_url') or ''
+    return {
+        'daily_format_credit_url': url,
+        'daily_format_credit_name': meta.get('format_credit_name') or '',
+        'daily_format_credit_text': meta.get('format_credit_text') or '',
+    }
+
+
+def daily_nav_items():
+    """Ежедневные разделы в главной навигации (лесенка, салат, алфавитка, …)."""
+    items = []
+    for sid in HUB_DAILY_SECTION_IDS:
+        meta = SECTION_HUB_META.get(sid) or {}
+        items.append({
+            'id': sid,
+            'url': section_hub_path(sid),
+            'ph_icon': meta.get('ph_icon') or '',
+            'title': section_nav_title(sid) or sid,
+        })
+    return items
+
+
 def _newest_task_group_links(game):
     """Опубликованные круги раздела, новые сверху."""
     from games.models import GameTaskGroup
@@ -135,6 +187,8 @@ def _newest_task_group_links(game):
         qs = filter_published_alphabetty_links(qs, game)
     elif game.id == WEEK_TASK_GAME_ID:
         qs = filter_published_week_task_links(qs, game)
+    elif game.id == WORD_SALAD_GAME_ID:
+        qs = filter_published_word_salad_links(qs, game)
     return GameTaskGroup.order_queryset_by_number(qs, reverse=True)
 
 
@@ -216,35 +270,49 @@ def get_source_desyatka_context(task_group, *, team=None):
     }
 
 
-def get_week_task_section_hub_card(game, *, published_numbers, now=None):
-    """Карточка «Задание недели» на главной."""
-    meta = SECTION_HUB_META[WEEK_TASK_HUB_ID]
-    ctx = get_week_task_hub_context(game, published_numbers=published_numbers, now=now)
-    cta_label = ctx.get('week_task_cta_label') or ''
-    is_today = ctx.get('week_task_is_today', False)
+def get_scheduled_section_hub_card(game, *, published_numbers, now=None):
+    """Карточка ежедневного/еженедельного раздела на главной."""
+    from games.daily_section import schedule_for
+
+    game_id = game.id
+    meta = SECTION_HUB_META[game_id]
+    sched = schedule_for(game_id)
+    ctx = sched.hub_context(game, published_numbers=published_numbers, now=now)
+    prefix = game_id
+    is_today = ctx.get(f'{prefix}_is_today', False)
+    cta_number = ctx.get(f'{prefix}_cta_number')
     if is_today:
-        cta_label = meta['cta_today']
-    elif ctx.get('week_task_cta_number'):
-        cta_label = meta['cta_latest']
-    status = ctx.get('week_task_status', 'empty')
+        cta_label = meta.get('cta_today') or ''
+    elif cta_number:
+        cta_label = meta.get('cta_latest') or ''
+    else:
+        cta_label = ctx.get(f'{prefix}_cta_label') or ''
     return {
-        'id': WEEK_TASK_HUB_ID,
+        'id': game_id,
         'icon': meta['icon'],
         'ph_icon': meta.get('ph_icon', ''),
         'title': meta['title'],
         'description': meta['description'],
         'cta_label': cta_label,
-        'cta_number': ctx.get('week_task_cta_number'),
+        'cta_number': cta_number,
         'is_today': is_today,
-        'play_url': ctx.get('week_task_play_url'),
-        'section_url': ctx.get('week_task_section_url'),
+        'play_url': ctx.get(f'{prefix}_play_url'),
+        'section_url': ctx.get(f'{prefix}_section_url'),
         'all_link_label': meta['all_link_label'],
-        'status': status,
-        'today_label': ctx.get('week_task_today_label'),
+        'status': ctx.get(f'{prefix}_status', 'empty'),
+        'today_label': ctx.get(f'{prefix}_today_label'),
         'soon_text': meta.get('soon_text', ''),
         'soon_emphasis': bool(meta.get('soon_emphasis')),
+        'wide': bool(meta.get('wide')),
         'game': game,
     }
+
+
+def get_week_task_section_hub_card(game, *, published_numbers, now=None):
+    """Карточка «Задание недели» на главной."""
+    return get_scheduled_section_hub_card(
+        game, published_numbers=published_numbers, now=now,
+    )
 
 
 def get_week_task_hub_card():
@@ -271,60 +339,23 @@ def get_week_task_hub_card():
 
 def get_ladder_section_hub_card(game, *, published_numbers, now=None):
     """Карточка лесенки на главной из get_ladder_hub_context."""
-    meta = SECTION_HUB_META[LADDER_GAME_ID]
-    ctx = get_ladder_hub_context(game, published_numbers=published_numbers, now=now)
-    cta_label = ctx.get('ladder_cta_label') or ''
-    is_today = ctx.get('ladder_is_today', False)
-    if is_today:
-        cta_label = meta['cta_today']
-    elif ctx.get('ladder_cta_number'):
-        cta_label = meta['cta_latest']
-    return {
-        'id': LADDER_GAME_ID,
-        'icon': meta['icon'],
-        'ph_icon': meta.get('ph_icon', ''),
-        'title': meta['title'],
-        'description': meta['description'],
-        'cta_label': cta_label,
-        'cta_number': ctx.get('ladder_cta_number'),
-        'is_today': is_today,
-        'play_url': ctx.get('ladder_play_url'),
-        'section_url': ctx.get('ladder_section_url'),
-        'all_link_label': meta['all_link_label'],
-        'status': ctx.get('ladder_status', 'empty'),
-        'today_label': ctx.get('ladder_today_label'),
-        'soon_text': meta.get('soon_text', ''),
-        'game': game,
-    }
+    return get_scheduled_section_hub_card(
+        game, published_numbers=published_numbers, now=now,
+    )
+
+
+def get_word_salad_section_hub_card(game, *, published_numbers, now=None):
+    """Карточка салата на главной."""
+    return get_scheduled_section_hub_card(
+        game, published_numbers=published_numbers, now=now,
+    )
 
 
 def get_alphabetty_section_hub_card(game, *, published_numbers, now=None):
     """Карточка Алфавитки на главной."""
-    meta = SECTION_HUB_META[ALPHABETTY_GAME_ID]
-    ctx = get_alphabetty_hub_context(game, published_numbers=published_numbers, now=now)
-    cta_label = ctx.get('alphabetty_cta_label') or ''
-    is_today = ctx.get('alphabetty_is_today', False)
-    if is_today:
-        cta_label = meta['cta_today']
-    elif ctx.get('alphabetty_cta_number'):
-        cta_label = meta['cta_latest']
-    return {
-        'id': ALPHABETTY_GAME_ID,
-        'icon': meta['icon'],
-        'ph_icon': meta.get('ph_icon', ''),
-        'title': meta['title'],
-        'description': meta['description'],
-        'cta_label': cta_label,
-        'cta_number': ctx.get('alphabetty_cta_number'),
-        'is_today': is_today,
-        'play_url': ctx.get('alphabetty_play_url'),
-        'section_url': ctx.get('alphabetty_section_url'),
-        'all_link_label': meta['all_link_label'],
-        'status': ctx.get('alphabetty_status', 'empty'),
-        'today_label': ctx.get('alphabetty_today_label'),
-        'soon_text': meta.get('soon_text', ''),
-        'game': game,
-    }
+    return get_scheduled_section_hub_card(
+        game, published_numbers=published_numbers, now=now,
+    )
 
 
 def _first_announced_desyatochka(games, *, now=None):

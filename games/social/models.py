@@ -9,10 +9,12 @@ class SocialQueuePost(models.Model):
     SOURCE_MANUAL = 'manual'
     SOURCE_LADDER = 'ladder'
     SOURCE_GAME = 'game'
+    SOURCE_WORD_SALAD = 'word_salad'
     SOURCE_CHOICES = (
         (SOURCE_MANUAL, 'Manual'),
         (SOURCE_LADDER, 'Ladder'),
         (SOURCE_GAME, 'Game'),
+        (SOURCE_WORD_SALAD, 'Word salad'),
     )
 
     STATUS_PENDING = 'pending'
@@ -53,8 +55,7 @@ class SocialQueuePost(models.Model):
     ladder_date = models.DateField(
         null=True,
         blank=True,
-        unique=True,
-        help_text='MSK calendar date when source=ladder (idempotency key for cron)',
+        help_text='MSK calendar date for daily teasers (unique together with source)',
     )
     ladder_number = models.PositiveIntegerField(null=True, blank=True)
     play_url = models.CharField(max_length=500, blank=True, default='')
@@ -99,10 +100,23 @@ class SocialQueuePost(models.Model):
 
     class Meta:
         ordering = ('-created_at',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('source', 'ladder_date'),
+                name='games_socialqueuepost_source_ladder_date_uniq',
+            ),
+        ]
 
     def __str__(self):
         if self.source == self.SOURCE_LADDER and self.ladder_number:
             return 'ladder {} [tg={} x={} ig={}]'.format(
+                self.ladder_number,
+                self.telegram_status,
+                self.twitter_status,
+                self.instagram_status,
+            )
+        if self.source == self.SOURCE_WORD_SALAD and self.ladder_number:
+            return 'salad {} [tg={} x={} ig={}]'.format(
                 self.ladder_number,
                 self.telegram_status,
                 self.twitter_status,

@@ -135,9 +135,9 @@ class WordSaladSupportTests(TestCase):
             [third['link_id'], second['link_id'], first['link_id']],
         )
         self.assertEqual([row.number for row in rows], [1, 2, 3])
-        self.assertEqual(rows[0].name, 'Словесный Салат #1')
+        self.assertEqual(rows[0].name, 'Салат #1')
         self.assertEqual(rows[1].name, 'Авторское название')
-        self.assertEqual(rows[2].name, 'Словесный Салат #3')
+        self.assertEqual(rows[2].name, 'Салат #3')
 
     def test_insert_and_delete_keep_numbers_contiguous(self):
         with patch('games.views.track.track_task_change'):
@@ -152,7 +152,7 @@ class WordSaladSupportTests(TestCase):
         rows = delete_word_salad(inserted['link_id'])
         self.assertEqual([row.number for row in rows], [1, 2])
         self.assertEqual([row.link_id for row in rows], [first['link_id'], second['link_id']])
-        self.assertEqual(GameTaskGroup.objects.get(pk=second['link_id']).name, 'Словесный Салат #2')
+        self.assertEqual(GameTaskGroup.objects.get(pk=second['link_id']).name, 'Салат #2')
 
     def test_preview_task_group_renders_word_salad_grid(self):
         self.client.force_login(self.support_user)

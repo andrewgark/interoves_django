@@ -77,7 +77,7 @@
         '<button type="button" class="support-ladder-item__handle support-schedule-handle" aria-label="Перетащить выпуск №' + row.number + '" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>' +
         '<div class="support-ladder-item__num">№' + row.number + '</div>' +
         '<div class="support-ladder-item__body">' +
-          '<div class="support-ladder-item__title">' + support.escapeHtml(row.name || ('Словесный салат #' + row.number)) + '</div>' +
+          '<div class="support-ladder-item__title">' + support.escapeHtml(row.name || ('Салат #' + row.number)) + '</div>' +
           '<div class="support-ladder-item__meta"><span class="support-cell-mono">' +
             support.escapeHtml(row.grid_preview || '—') + '</span> · id ' + row.link_id +
             ' · ' + row.words_count + ' сл.</div>' +
@@ -134,7 +134,7 @@
   }
 
   function removeItem(linkId) {
-    if (busy || !window.confirm('Удалить этот выпуск Словесного салата?')) return;
+    if (busy || !window.confirm('Удалить этот выпуск салата?')) return;
     setBusy(true);
     clearError();
     support.postJson(endpoint(endpoints.remove, linkId), {})

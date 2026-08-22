@@ -79,12 +79,16 @@ def _plain_caption(post: SocialQueuePost) -> str:
     text = html_caption_to_plain(post.caption)
     if text:
         return text
+    if post.source == SocialQueuePost.SOURCE_WORD_SALAD and post.ladder_number:
+        return 'Салат №{}\n{}'.format(post.ladder_number, post.play_url)
     if post.ladder_number:
         return 'Лесенка №{}\n{}'.format(post.ladder_number, post.play_url)
     return post.caption or ''
 
 
 def _filename(post: SocialQueuePost) -> str:
+    if post.source == SocialQueuePost.SOURCE_WORD_SALAD and post.ladder_number:
+        return 'salad-{}.png'.format(post.ladder_number)
     if post.ladder_number:
         return 'ladder-{}.png'.format(post.ladder_number)
     return 'social-{}.png'.format(post.pk or 'draft')
