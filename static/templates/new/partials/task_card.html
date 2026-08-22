@@ -25,7 +25,7 @@
     {% elif task_ui.unsupported %}
       <p class="new-login-hint new-login-hint--flush">
         {{ task_ui.unsupported_label }}
-        <a href="/games/{{ game.id }}/{{ tg_number }}/{{ task.number }}">Открыть в старом интерфейсе</a>
+        <a href="/games/{{ game.id }}/{{ tg_number }}/{{ task.number }}">Открыть задание</a>
       </p>
     {% endif %}
 
@@ -41,7 +41,7 @@
               {% if ai|hint_was_taken:hint %}
                 <div class="new-hint__text">{% autoescape off %}{{ hint.text }}{% endautoescape %}</div>
               {% elif task.task_type == 'autohint' %}
-                <div class="new-login-hint new-hint-gate-note">(Подсказки появляются автоматически после попыток)</div>
+                <div class="new-login-hint new-hint-gate-note">Появятся после попыток</div>
               {% else %}
                 {% if ai|all_not_taken_required_hints:hint %}
                   <div class="new-login-hint new-hint-gate-note">Доступна только после {{ ai|all_not_taken_required_hints:hint }}.</div>

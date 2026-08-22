@@ -147,12 +147,11 @@
           <i class="ph ph-puzzle-piece new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Десяточки</span>
         </a>
         {% if show_sections_nav %}
-          <a class="new-nav__section" href="{% url 'new_ladder_hub' %}" title="Лесенка" aria-label="Лесенка" {% if request.resolver_match.kwargs.game_id == 'ladder' or 'ladder' in request.resolver_match.url_name %}aria-current="page"{% endif %}>
-            <i class="ph ph-ladder new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Лесенка</span>
+          {% for item in daily_nav_sections %}
+          <a class="new-nav__section" href="{{ item.url }}" title="{{ item.title }}" aria-label="{{ item.title }}" {% if request.resolver_match.kwargs.game_id == item.id or item.id in request.resolver_match.url_name %}aria-current="page"{% endif %}>
+            <i class="ph ph-{{ item.ph_icon }} new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">{{ item.title }}</span>
           </a>
-          <a class="new-nav__section" href="{% url 'new_alphabetty_hub' %}" title="Алфавитка" aria-label="Алфавитка" {% if request.resolver_match.kwargs.game_id == 'alphabetty' or 'alphabetty' in request.resolver_match.url_name %}aria-current="page"{% endif %}>
-            <i class="ph ph-text-aa new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Алфавитка</span>
-          </a>
+          {% endfor %}
           {% for game in section_games %}
           <a class="new-nav__section" href="{% url 'new_section_game' game.id %}" title="{{ game.outside_name|default:game.name }}" aria-label="{{ game.outside_name|default:game.name }}" {% if request.resolver_match.kwargs.game_id == game.id %}aria-current="page"{% endif %}>
             {% if game.id == 'palindromes' %}<i class="ph ph-arrows-in-line-horizontal new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Палиндромы</span>
@@ -322,6 +321,7 @@
         <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Войти через Google</a>
       </div>
       {% else %}
+      <p class="pal-lead">Выберите способ входа.</p>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
         <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path %}">Войти через Google</a>
         <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' next=request.get_full_path %}">Войти через VK</a>
@@ -373,9 +373,9 @@
     <div class="new-rules-overlay" data-migrate-close></div>
     <div class="new-rules-modal__box pal-card">
       <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-migrate-close><i class="ph ph-x" aria-hidden="true"></i></button>
-      <h2 id="new-migrate-title" class="pal-title">Перенести гостевой прогресс?</h2>
+      <h2 id="new-migrate-title" class="pal-title">Перенести игру с этого устройства?</h2>
       <p class="pal-lead" data-migrate-lead>
-        На этом устройстве найден гостевой прогресс. Перенести его в текущий профиль?
+        На этом устройстве есть ответы без входа. Перенести их в текущий профиль?
       </p>
       <p class="new-field-error" data-migrate-error hidden></p>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
@@ -506,7 +506,7 @@
           if (counts.hints) parts.push('подсказок: ' + counts.hints);
           if (counts.likes) parts.push('реакций: ' + counts.likes);
           if (counts.completed_games) parts.push('завершённых игр: ' + counts.completed_games);
-          lead.appendChild(document.createTextNode('На этом устройстве найден гостевой прогресс' + (parts.length ? ' (' + parts.join(', ') + ')' : '') + '. Перенести его в текущий профиль'));
+          lead.appendChild(document.createTextNode('На этом устройстве есть ответы без входа' + (parts.length ? ' (' + parts.join(', ') + ')' : '') + '. Перенести их в текущий профиль'));
           if (data.example_url) {
             lead.appendChild(document.createTextNode(' — например, из раздела '));
             var a = document.createElement('a');

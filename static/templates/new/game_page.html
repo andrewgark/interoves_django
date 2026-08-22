@@ -80,10 +80,9 @@
         {% if play_mode != 'team' %}
           <div class="new-card new-card--warn">
             {% if team %}
-              <div class="new-card__title">Вы точно хотите играть лично, а не в команде?</div>
+              <div class="new-card__title">Сейчас вы играете лично</div>
               <div class="new-card__text">
-                В личном режиме решения и подсказки не будут общими для команды.
-                Если вы хотели играть в команде — переключите режим в меню сверху («В команде» / «Лично»).
+                Ответы не идут в командный зачёт.
               </div>
             {% else %}
               <div class="new-card__title">Вы играете лично</div>
@@ -132,13 +131,9 @@
       {% if section_task_groups_rules_html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
         {% include "new/_rules_banner.html" %}
       {% endif %}
-      {% if is_ladder_section and ladder_today_play_url %}
+      {% if section_today_play_url %}
         <p class="new-stack-gap">
-          <a class="new-btn" href="{{ ladder_today_play_url }}">Сегодняшняя лесенка</a>
-        </p>
-      {% elif week_task_today_play_url %}
-        <p class="new-stack-gap">
-          <a class="new-btn" href="{{ week_task_today_play_url }}">Задание этой недели</a>
+          <a class="new-btn" href="{{ section_today_play_url }}">{{ section_today_cta_label }}</a>
         </p>
       {% endif %}
       {% if is_ladder_section %}

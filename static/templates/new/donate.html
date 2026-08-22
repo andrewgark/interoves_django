@@ -1,5 +1,5 @@
 {% extends "new/base.html" %}
-{% load static %}
+{% load static filters %}
 {% block title %}Задонатить{% endblock %}
 
 {% block content %}
@@ -100,8 +100,7 @@
       Минимум 50&nbsp;₽.
     </p>
     <p class="new-donate-crypto-warn">
-      У некоторых криптовалют (особенно Bitcoin) подтверждение транзакции может занимать десятки минут.
-      Статус доната обновится на этой странице.
+      Оплата может идти несколько минут. Статус обновится на этой странице.
     </p>
   </form>
   <div id="new-donate-pay-host" class="new-donate-pay-host" hidden>
@@ -114,8 +113,8 @@
 <div id="new-donate-recent" class="new-donate-recent"{% if not recent_donations %} hidden{% endif %}>
   <div class="new-donate-recent__title">Последние донаты</div>
   <p class="new-login-hint new-donate-recent__hint">
-    Пока статус Pending — транзакция ещё обрабатывается. Если есть проблемы, напишите
-    <a href="https://t.me/andrewgark">Андрею</a>.
+    Пока статус «Ожидает» — платёж ещё обрабатывается. Если есть проблемы, напишите
+    <a href="https://t.me/andrewgark" target="_blank" rel="noopener noreferrer">Андрею в Telegram</a>.
   </p>
   <div id="new-donate-recent-list" class="new-donate-recent__list">
     {% for d in recent_donations %}
@@ -129,7 +128,7 @@
           {% if d.pay_amount and d.pay_currency %}
           <span data-pay="1">{{ d.pay_amount }} {{ d.pay_currency|upper }}</span>
           {% endif %}
-          <span><strong class="new-donate-recent__status">{{ d.status }}</strong></span>
+          <span><strong class="new-donate-recent__status">{{ d.status|payment_status_label }}</strong></span>
         </span>
       </div>
     </div>
@@ -178,6 +177,13 @@
     return input ? input.value : '';
   }
 
+  function statusLabel(status) {
+    if (status === 'Confirmed') return 'Пришёл';
+    if (status === 'Rejected') return 'Отклонён';
+    if (status === 'Pending') return 'Ожидает';
+    return status || 'Ожидает';
+  }
+
   function show(mode) {
     var panels = { card: cardPanel, tribute: tributePanel, crypto: cryptoPanel };
     var buttons = { card: cardBtn, tribute: tributeBtn, crypto: cryptoBtn };
@@ -193,7 +199,7 @@
     var row = recentList.querySelector('[data-donation-id="' + donationId + '"]');
     if (!row) return;
     var statusElRow = row.querySelector('.new-donate-recent__status');
-    if (statusElRow) statusElRow.textContent = status;
+    if (statusElRow) statusElRow.textContent = statusLabel(status);
     var meta = row.querySelector('.new-donate-recent__meta');
     if (data && data.pay_amount && data.pay_currency && meta && !meta.querySelector('[data-pay]')) {
       var pay = document.createElement('span');
@@ -223,7 +229,7 @@
           '<span>' + escapeHtml(data.created_at || '') + '</span>' +
           '<span>' + escapeHtml(String(data.amount_rub || '')) + ' ₽</span>' +
           '<span><strong class="new-donate-recent__status">' +
-            escapeHtml(data.donation_status || 'Pending') +
+            escapeHtml(statusLabel(data.donation_status || 'Pending')) +
           '</strong></span>' +
         '</span>' +
       '</div>';
@@ -270,7 +276,7 @@
     statusEl.hidden = false;
     statusEl.className = 'new-payment-status new-payment-status--err';
     statusEl.innerHTML =
-      '<span class="new-payment-status__text">Донат не подтвердился. Если списались средства — напишите Андрею в Telegram.</span>';
+      '<span class="new-payment-status__text">Донат не подтвердился. Если списались средства — напишите <a href="https://t.me/andrewgark" target="_blank" rel="noopener noreferrer">Андрею в Telegram</a>.</span>';
     updateListStatus(activeDonationId, 'Rejected');
   }
 
@@ -294,7 +300,7 @@
       onConfirmed: function (data) { renderConfirmed(data); setMsg(''); },
       onRejected: function () { renderRejected(); },
       onTimeout: function () {
-        setMsg('Подтверждение занимает дольше обычного. Можно оставить страницу открытой или заглянуть позже — донат зачислится автоматически, статус будет в списке ниже.');
+        setMsg('Подтверждение идёт дольше обычного. Можно оставить страницу открытой или заглянуть позже — донат появится в списке ниже.');
       },
       isConfirmed: function (d) { return d && d.status === 'Confirmed'; },
       isRejected: function (d) { return d && d.status === 'Rejected'; },
@@ -308,7 +314,7 @@
   if (form) {
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
-      setMsg('Создаём крипто-платёж…');
+      setMsg('Открываем оплату…');
       showPayHost();
       if (submitBtn) submitBtn.disabled = true;
       if (widget) widget.innerHTML = '';
@@ -334,10 +340,10 @@
           if (submitBtn) submitBtn.disabled = false;
           var data = res.data;
           if (!data || data.status !== 'ok' || !(data.embed_url || data.invoice_id)) {
-            setMsg((data && data.message) ? data.message : 'Не получилось создать крипто-платёж. Попробуйте позже.');
+            setMsg((data && data.message) ? data.message : 'Не получилось создать платёж. Попробуйте позже.');
             return;
           }
-          setMsg('Оплатите в виджете ниже. После подтверждения сети статус обновится автоматически.');
+          setMsg('Оплатите в окне ниже. Статус обновится на этой странице.');
           prependDonationRow(data);
           var src = data.embed_url || ('https://nowpayments.io/embeds/payment-widget?iid=' + encodeURIComponent(data.invoice_id));
           if (widget) {

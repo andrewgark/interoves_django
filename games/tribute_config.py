@@ -132,4 +132,4 @@ def merchant_public_copy() -> tuple[str, str]:
         return 'Продавец: Андрей Гаркавый, плательщик НПД, РФ', '/sellers/#russia'
     if merchant() == 'am_ie':
         return 'Продавец: Andrei Garkavyi IE, Republic of Armenia', '/sellers/#armenia'
-    return 'Платежный маршрут: Tribute', '/sellers/'
+    return 'Оплата через Tribute', '/sellers/'

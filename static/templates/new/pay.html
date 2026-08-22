@@ -18,7 +18,7 @@
         <div class="new-pay-order__name">Командный билет</div>
         {% if team %}
           {% if payment_team_options|length > 1 %}
-            <label class="new-pay-order__meta" for="new-pay-team">Команда для начисления:</label>
+            <label class="new-pay-order__meta" for="new-pay-team">Команда:</label>
             <select id="new-pay-team" name="team_id" form="new-pay-ticket-form" class="new-input new-pay-team-select">
               {% for option in payment_team_options %}
                 <option value="{{ option.team.pk }}"
@@ -36,8 +36,6 @@
           <div class="new-pay-order__meta">Билетов у команды сейчас: <strong id="new-pay-team-tickets">{{ team_tickets }}</strong></div>
         {% elif user.is_authenticated %}
           <div class="new-pay-order__meta">Для покупки нужно создать команду или вступить в существующую.</div>
-        {% else %}
-          <div class="new-pay-order__meta">Войти потребуется только перед созданием заказа.</div>
         {% endif %}
       </div>
       <div class="new-pay-quantity">
@@ -113,7 +111,7 @@
             <strong>Visa / Mastercard</strong>
             <span>Для карт банков Армении и других стран</span>
             <b data-route-price>{{ ticket_price_amd_display }} ֏ <small>за билет</small></b>
-            <span>Армянский эквайринг готовится</span>
+            <span>Скоро</span>
           </span>
         </label>
         <label class="new-pay-method{% if not tribute_enabled %} new-pay-method--unavailable{% endif %}" data-pay-method-card>
@@ -129,18 +127,18 @@
             {% if tribute_product %}
               <b data-route-price>{{ tribute_product.amount_display }} {{ tribute_product.currency|currency_symbol }} <small>1 покупка = 1 билет</small></b>
             {% else %}
-              <b data-route-price>Ожидает настройки товара</b>
+              <b data-route-price>Пока недоступно</b>
             {% endif %}
             {% if telegram_linked %}
               <span>Telegram подтвержден{% if telegram_username %}: @{{ telegram_username }}{% endif %}</span>
             {% else %}
               <span>Сначала
                 {% if team %}
-                  <button type="submit" class="new-pay-telegram-link" form="new-pay-telegram-link-form" aria-label="Сначала привяжите Telegram">привяжите Telegram</button>
+                  <button type="submit" class="new-pay-telegram-link" form="new-pay-telegram-link-form">привяжите Telegram</button>
                 {% else %}
                   <span>привяжите Telegram</span>
                 {% endif %}
-                для автоматического начисления</span>
+              </span>
             {% endif %}
           </span>
         </label>
@@ -152,7 +150,7 @@
           <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-currency-btc"></i></span>
           <span class="new-pay-method__body">
             <strong>Криптовалюта</strong>
-            <span>NOWPayments · отдельный от карточных способов маршрут</span>
+            <span>Оплата криптовалютой через NOWPayments</span>
             <b data-route-price>{{ ticket_price_display }} ₽ <small>за билет</small></b>
           </span>
         </label>
@@ -179,7 +177,7 @@
 
     <p id="new-pay-security" class="new-pay-security">Оплата российской картой проходит в защищенном виджете ЮKassa. Inter Oves не получает и не хранит полные реквизиты банковской карты.</p>
 
-    <p id="new-pay-tribute-note" class="new-pay-security" hidden><strong class="new-pay-tribute-note__important">На странице Tribute выберите вход через Telegram</strong>, чтобы билет автоматически появился в вашем аккаунте. При входе через email начисление может потребовать ручной проверки. После оплаты вернитесь на эту страницу: билет обычно появляется через несколько секунд после webhook Tribute.</p>
+    <p id="new-pay-tribute-note" class="new-pay-security" hidden><strong class="new-pay-tribute-note__important">На странице Tribute выберите Telegram, не email</strong></p>
 
     {% if team %}
       <button type="submit" id="new-pay-submit" class="new-btn new-pay-submit" disabled>Оплатить {{ ticket_price_display }} ₽</button>
@@ -211,7 +209,7 @@
           <span>{{ tr.time|date:"d.m.Y H:i" }}</span>
           <span>{{ tr.tickets }} шт.</span>
           <span>{{ tr.money }} {{ tr.currency|currency_symbol }}</span>
-          <strong>{{ tr.status }}</strong>
+          <strong>{{ tr.status|payment_status_label }}</strong>
         </div>
       {% endfor %}
     </div>

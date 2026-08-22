@@ -28,7 +28,7 @@
   var poller = null;
   var busy = false;
   var STORAGE_KEY = 'interoves_ticket_poll';
-  var INTERNATIONAL_UNAVAILABLE_TEXT = 'Оплата международными картами в разработке, ещё не работает';
+  var INTERNATIONAL_UNAVAILABLE_TEXT = 'Международные карты пока недоступны';
   if (!form || !qty) return;
 
   function flushAnalyticsEvents(events) {
@@ -53,13 +53,13 @@
       seller: 'Продавец: Андрей Гаркавый, плательщик НПД, РФ',
       sellerUrl: '/sellers/#russia',
       termsUrl: '/terms/crypto/',
-      security: 'Криптоплатеж обрабатывает NOWPayments. Сумма к отправке и адрес кошелька отображаются в защищенном виджете провайдера.'
+      security: 'Оплата криптовалютой проходит в защищенном виджете NOWPayments.'
     },
     tribute_card: {
-      seller: form.getAttribute('data-tribute-seller') || 'Платежный маршрут: Tribute',
+      seller: form.getAttribute('data-tribute-seller') || 'Оплата через Tribute',
       sellerUrl: form.getAttribute('data-tribute-seller-url') || '/sellers/',
       termsUrl: '/terms/tribute/',
-      security: 'Оплата проходит на защищенной browser-странице Tribute. Inter Oves не получает и не хранит полные реквизиты банковской карты.'
+      security: 'Оплата проходит на защищенной странице Tribute. Inter Oves не получает и не хранит полные реквизиты банковской карты.'
     }
   };
 
@@ -94,8 +94,38 @@
     return count + ' билетов';
   }
 
+  var ANDREI_TG = 'https://t.me/andrewgark';
+
+  function andreiTelegramLink(label) {
+    var a = document.createElement('a');
+    a.href = ANDREI_TG;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = label || 'Андрею в Telegram';
+    return a;
+  }
+
   function setMessage(text) {
-    if (message) message.textContent = text || '';
+    if (!message) return;
+    message.textContent = '';
+    if (!text) return;
+    var idx = String(text).indexOf(ANDREI_TG);
+    if (idx === -1) {
+      message.textContent = text;
+      return;
+    }
+    if (idx) message.appendChild(document.createTextNode(text.slice(0, idx)));
+    message.appendChild(andreiTelegramLink('t.me/andrewgark'));
+    var rest = text.slice(idx + ANDREI_TG.length);
+    if (rest) message.appendChild(document.createTextNode(rest));
+  }
+
+  function setMessageWithAndrei(before, after) {
+    if (!message) return;
+    message.textContent = '';
+    if (before) message.appendChild(document.createTextNode(before));
+    message.appendChild(andreiTelegramLink());
+    if (after) message.appendChild(document.createTextNode(after));
   }
 
   function hideWidgets() {
@@ -146,7 +176,7 @@
 
     if (submit) {
       if (internationalUnavailable) submit.textContent = INTERNATIONAL_UNAVAILABLE_TEXT;
-      else if (tributeRoute && !tributeEnabled) submit.textContent = 'Tribute ожидает настройки';
+      else if (tributeRoute && !tributeEnabled) submit.textContent = 'Этот способ пока недоступен';
       else if (tributeRoute && !telegramLinked) submit.textContent = 'Привязать Telegram для оплаты';
       else if (tributeRoute) submit.textContent = 'Оплатить через Tribute · ' + amountText;
       else submit.textContent = 'Оплатить ' + amountText;
@@ -167,16 +197,16 @@
       teamSetup.setAttribute('aria-disabled', internationalUnavailable ? 'true' : 'false');
     }
     if (internationalUnavailable) {
-      setMessage('Оплата международными картами пока не работает. Цена, продавец и условия показаны для ознакомления.');
+      setMessage('Оплата международными картами пока недоступна.');
       hideWidgets();
     } else if (tributeRoute && !tributeEnabled) {
-      setMessage('Tribute появится после настройки реальных Digital Products и проверки продавца.');
+      setMessage('Этот способ оплаты пока недоступен.');
       hideWidgets();
     } else if (tributeRoute && !telegramLinked) {
-      setMessage('Чтобы билет начислился автоматически, сначала привяжите Telegram к аккаунту.');
+      setMessage('');
       hideWidgets();
     } else if (tributeRoute) {
-      setMessage('Одна покупка Tribute начисляет один командный билет.');
+      setMessage('');
       hideWidgets();
     } else if (!busy) {
       setMessage('');
@@ -217,7 +247,10 @@
   function renderRejected() {
     if (!statusEl) return;
     statusEl.className = 'new-payment-status new-payment-status--err';
-    statusEl.textContent = 'Платеж отменен или отклонен. Если средства списались, напишите в поддержку.';
+    statusEl.textContent = '';
+    statusEl.appendChild(document.createTextNode('Платеж отменен или отклонен. Если средства списались, напишите '));
+    statusEl.appendChild(andreiTelegramLink());
+    statusEl.appendChild(document.createTextNode('.'));
     statusEl.hidden = false;
   }
 
@@ -234,7 +267,7 @@
         setMessage('');
       },
       onRejected: renderRejected,
-      onTimeout: function () { setMessage('Подтверждение занимает дольше обычного. Билеты зачислятся после callback платежного провайдера.'); },
+      onTimeout: function () { setMessage('Подтверждение идёт дольше обычного. Билет появится, когда платёж дойдёт — можно не ждать на этой странице.'); },
       isConfirmed: function (data) { return data && data.status === 'Accepted'; },
       isRejected: function (data) { return data && data.status === 'Rejected'; }
     });
@@ -330,16 +363,16 @@
       if (data.status_url) startPoll(data.status_url);
       if (input.value === 'tribute_card') {
         if (!data.payment_url) {
-          setMessage('Tribute не вернул ссылку на настроенный товар.');
+          setMessageWithAndrei('Не удалось открыть оплату Tribute. Напишите ', '.');
           return;
         }
-        setMessage('На странице Tribute выберите вход через Telegram, чтобы билет автоматически появился в вашем аккаунте. При входе через email начисление может потребовать ручной проверки.');
+        setMessage('На странице Tribute выберите Telegram, не email.');
         window.location.assign(data.payment_url);
         return;
       }
       if (input.value === 'crypto') {
         if (!cryptoMount || !(data.embed_url || data.invoice_id)) {
-          setMessage('Провайдер не вернул страницу оплаты.');
+          setMessage('Не удалось открыть страницу оплаты. Попробуйте ещё раз.');
           return;
         }
         var iframe = document.createElement('iframe');
@@ -351,7 +384,7 @@
         iframe.style.maxWidth = '100%';
         cryptoMount.appendChild(iframe);
         if (widgetHost) widgetHost.hidden = false;
-        setMessage('Завершите оплату в виджете провайдера. Подтверждение сети может занять некоторое время.');
+        setMessage('Завершите оплату в виджете. Статус обновится на этой странице.');
         return;
       }
       if (!data.confirmation_token || !window.YooMoneyCheckoutWidget || !yooMount) {

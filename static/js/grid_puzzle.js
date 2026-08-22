@@ -193,7 +193,7 @@
         past: this.past,
         future: this.future,
       }));
-      if (this.saved) this.saved.textContent = 'Сохранено локально';
+      if (this.saved) this.saved.textContent = 'Сохранено на этом устройстве';
     } catch (e) {
       if (this.saved) this.saved.textContent = '';
     }
@@ -798,12 +798,12 @@
           var freshMessage = root.document.querySelector(
             '#new-task-' + data.task_id + ' [data-grid-message]'
           );
-          if (freshMessage) freshMessage.textContent = 'Пока неверно. Поле сохранено локально.';
+          if (freshMessage) freshMessage.textContent = 'Пока неверно. Рисунок остался на этом устройстве.';
           if (root.openAttemptsPopoverForTask) {
             root.openAttemptsPopoverForTask(data.task_id, data.attempt_id);
           }
         } else if (self.message) {
-          self.message.textContent = 'Пока неверно. Поле сохранено локально.';
+          self.message.textContent = 'Пока неверно. Рисунок остался на этом устройстве.';
         }
       } else if (data && data.status === 'duplicate') {
         if (self.message) self.message.textContent = 'Такое состояние поля уже отправлялось.';
@@ -817,7 +817,7 @@
       } else if (data && data.status === 'no_team') {
         if (self.message) self.message.textContent = 'Для командного режима нужна команда.';
       } else if (data && data.status === 'no_anon') {
-        if (self.message) self.message.textContent = 'Не удалось сохранить анонимный ключ.';
+        if (self.message) self.message.textContent = 'Не удалось отправить ответ. Обновите страницу и попробуйте ещё раз.';
       } else if (data && data.status === 'no_access') {
         if (self.message) self.message.textContent = 'Нет доступа к отправке ответа.';
       } else if (data && data.status === 'invalid_form') {
@@ -828,7 +828,7 @@
     }).catch(function () {
       self.form.dataset.submitting = '0';
       if (button) button.disabled = false;
-      if (self.message) self.message.textContent = 'Ошибка сети. Решение сохранено локально.';
+        if (self.message) self.message.textContent = 'Ошибка сети. Рисунок остался на этом устройстве.';
     });
   };
 

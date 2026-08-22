@@ -226,7 +226,8 @@ class TributeDigitalProductTests(TestCase):
         self.assertIn('Международная карта через Tribute', body)
         self.assertIn('15 €', body)
         self.assertIn('Telegram подтвержден', body)
-        self.assertIn('При входе через email начисление может потребовать ручной проверки', body)
+        self.assertIn('выберите Telegram, не email', body)
+        self.assertIn('href="https://t.me/andrewgark"', body)
 
         self.http.force_login(self.unlinked)
         response = self.http.get(reverse('new_pay'))
@@ -449,7 +450,7 @@ class TributeDisabledByDefaultTests(TestCase):
         response = self.client.get(reverse('new_pay'))
         body = response.content.decode()
         self.assertIn('Международная карта через Tribute', body)
-        self.assertIn('Ожидает настройки товара', body)
+        self.assertIn('Пока недоступно', body)
         self.assertIn('value="tribute_card"', body)
         self.assertIn('value="tribute_card"', body)
         self.assertIn('new-pay-method--unavailable', body)

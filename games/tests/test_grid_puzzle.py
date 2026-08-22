@@ -391,7 +391,7 @@ class GridPuzzleIntegrationTests(TestCase):
         self.assertTrue(ui['show_answer'])
         invalid = _task_ui_descriptor(self.task)
         self.assertIsNone(invalid['body_template'])
-        self.assertIn('Grid Puzzle', invalid['body_error'])
+        self.assertIn('Не получилось показать это задание', invalid['body_error'])
 
     def test_answer_endpoint_returns_readonly_solved_grid(self):
         response = self.client.get(

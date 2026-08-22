@@ -23,6 +23,11 @@ from games.week_task_weekly import (
     filter_published_week_task_links,
     get_week_task_hub_context,
 )
+from games.word_salad import WORD_SALAD_GAME_ID
+from games.word_salad_daily import (
+    filter_published_word_salad_links,
+    get_word_salad_hub_context,
+)
 from games.section_paths import section_hub_path, section_last_path, section_play_path
 
 _DES_GAME_ID_RE = re.compile(r'^des(\d+)$')
@@ -46,6 +51,7 @@ SECTION_HUB_META = {
         'cta_today': 'Сегодняшняя лесенка',
         'cta_latest': 'Последняя лесенка',
         'all_link_label': 'Все лесенки →',
+        'soon_text': 'Новая лесенка — каждый день в полночь по Москве.',
     },
     'alphabetty': {
         'icon': '🔤',
@@ -55,6 +61,7 @@ SECTION_HUB_META = {
         'cta_today': 'Сегодняшняя алфавитка',
         'cta_latest': 'Последняя алфавитка',
         'all_link_label': 'Все алфавитки →',
+        'soon_text': 'Новая алфавитка — каждый день в полночь по Москве.',
     },
     'replacements': {
         'icon': '🔄',
@@ -88,7 +95,7 @@ SECTION_HUB_META = {
         'cta_today': 'Задание этой недели',
         'cta_latest': 'Последнее задание недели',
         'all_link_label': 'Все задания недели →',
-        'soon_text': 'В понедельник 3 августа в 00:00 МСК выйдет первое задание недели.',
+        'soon_text': 'Новое задание — по понедельникам в полночь по Москве.',
         'soon_emphasis': True,
     },
 }
@@ -286,6 +293,7 @@ def get_ladder_section_hub_card(game, *, published_numbers, now=None):
         'all_link_label': meta['all_link_label'],
         'status': ctx.get('ladder_status', 'empty'),
         'today_label': ctx.get('ladder_today_label'),
+        'soon_text': meta.get('soon_text', ''),
         'game': game,
     }
 
@@ -314,6 +322,7 @@ def get_alphabetty_section_hub_card(game, *, published_numbers, now=None):
         'all_link_label': meta['all_link_label'],
         'status': ctx.get('alphabetty_status', 'empty'),
         'today_label': ctx.get('alphabetty_today_label'),
+        'soon_text': meta.get('soon_text', ''),
         'game': game,
     }
 

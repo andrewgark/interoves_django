@@ -91,7 +91,7 @@ def consume_link_token(raw_token: str, *, telegram_user_id, telegram_username=''
         if owner is not None:
             raise TelegramLinkError(
                 'identity_in_use',
-                'Этот Telegram уже связан с другим аккаунтом Inter Oves. Напишите в поддержку.',
+                'Этот Telegram уже связан с другим аккаунтом Inter Oves. Напишите Андрею в Telegram: https://t.me/andrewgark',
             )
 
         profile.telegram_user_id = numeric_id

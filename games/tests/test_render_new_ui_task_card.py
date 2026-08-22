@@ -136,11 +136,11 @@ class RenderNewUiTaskCardTests(TestCase):
         self.assertFalse(_task_ui_descriptor(word_salad, ws={'words': []})['show_answer'])
         self.assertEqual(
             _task_ui_descriptor(raddle)['body_error'],
-            'Ошибка отображения задания (нет данных raddle).',
+            'Не получилось показать это задание. Обновите страницу или напишите о проблеме.',
         )
         self.assertEqual(
             _task_ui_descriptor(word_salad)['body_error'],
-            'Ошибка отображения задания (нет данных Word Salad).',
+            'Не получилось показать это задание. Обновите страницу или напишите о проблеме.',
         )
         self.assertEqual(
             _task_ui_descriptor(self.task, wall_meta={'total': 6, 'title': 'wall'})['max_points_title'],
@@ -167,8 +167,8 @@ class RenderNewUiTaskCardTests(TestCase):
 
     def test_invalid_special_task_renders_explicit_error(self):
         for task_number, task_type, expected in (
-            ('4', 'raddle', 'Ошибка отображения задания (нет данных raddle).'),
-            ('5', 'replacements_lines', 'Ошибка отображения задания (нет данных).'),
+            ('4', 'raddle', 'Не получилось показать это задание. Обновите страницу или напишите о проблеме.'),
+            ('5', 'replacements_lines', 'Не получилось показать это задание. Обновите страницу или напишите о проблеме.'),
         ):
             task = Task.objects.create(
                 task_group=self.tg,

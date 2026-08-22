@@ -44,6 +44,17 @@ def currency_symbol(currency):
 
 
 @register.filter
+def payment_status_label(status):
+    """Russian labels for ticket/donation statuses shown in player UI."""
+    return {
+        'Pending': 'Ожидает',
+        'Accepted': 'Оплачен',
+        'Confirmed': 'Пришёл',
+        'Rejected': 'Отклонён',
+    }.get(str(status or ''), status or '')
+
+
+@register.filter
 def order_by(queryset, args):
     args = [x.strip() for x in args.split(',')]
     return queryset.order_by(*args)

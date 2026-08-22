@@ -1,4 +1,4 @@
-<section class="new-hub-section{% if card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="hub-section-{{ card.id }}">
+<section class="new-hub-section{% if card.wide %} new-hub-section--wide{% endif %}{% if card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="hub-section-{{ card.id }}">
   <div class="new-hub-section__head">
     <h2 id="hub-section-{{ card.id }}" class="new-hub-section__title">
       {% if card.section_url %}
@@ -29,8 +29,7 @@
   {% elif card.status == 'coming_soon' %}
     <p class="new-hub-section__soon{% if card.soon_emphasis %} new-hub-section__soon--announce{% endif %}">
       {% if card.soon_text %}{{ card.soon_text }}
-      {% elif card.id == 'alphabetty' %}Первая алфавитка появится в полночь по Москве.
-      {% else %}Первая лесенка появится в полночь по Москве.{% endif %}
+      {% else %}Новое задание появится в полночь по Москве.{% endif %}
     </p>
   {% endif %}
   {% if card.section_url and card.all_link_label %}

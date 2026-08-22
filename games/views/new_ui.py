@@ -2335,16 +2335,16 @@ def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=
     body_error = ''
     if task.task_type == 'replacements_lines' and (not rld or not rld.get('n_lines')):
         body_template = None
-        body_error = 'Ошибка отображения задания (нет данных).'
+        body_error = 'Не получилось показать это задание. Обновите страницу или напишите о проблеме.'
     elif task.task_type == 'raddle' and not rd:
         body_template = None
-        body_error = 'Ошибка отображения задания (нет данных raddle).'
+        body_error = 'Не получилось показать это задание. Обновите страницу или напишите о проблеме.'
     elif task.task_type == 'word_salad' and not ws:
         body_template = None
-        body_error = 'Ошибка отображения задания (нет данных Word Salad).'
+        body_error = 'Не получилось показать это задание. Обновите страницу или напишите о проблеме.'
     elif task.task_type == 'grid-puzzle' and not gp:
         body_template = None
-        body_error = 'Ошибка отображения Grid Puzzle (неверные данные).'
+        body_error = 'Не получилось показать это задание. Обновите страницу или напишите о проблеме.'
     if rld:
         base_max = rld['max_points_total']
     elif rd:
@@ -2366,11 +2366,7 @@ def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=
         'show_attempts': task.task_type not in attempts_hidden,
         'show_answer': task.task_type not in answer_hidden,
         'unsupported': task.task_type not in body_templates,
-        'unsupported_label': (
-            'Этот тип задания пока не поддержан в новом UI.'
-            if task.task_type == 'text_with_forms'
-            else 'Тип задания «{}» не поддержан в новом UI.'.format(task.task_type)
-        ),
+        'unsupported_label': 'Не получилось показать это задание. Обновите страницу или напишите о проблеме.',
     }
 
 
@@ -3939,7 +3935,7 @@ def new_account_merge_confirm(request):
             clear_pending_account_merge(request)
             messages.success(
                 request,
-                'Профили объединены. Теперь можно входить через {} или другой подключённый способ.'.format(
+                'Профили объединены. Можно входить через {}.'.format(
                     provider_label,
                 ),
             )
@@ -4335,7 +4331,7 @@ def new_create_ticket_payment(request):
                 {
                     'status': 'error',
                     'reason': 'yookassa_config',
-                    'message': 'Оплата не настроена на сервере (ключи YooKassa). Обратитесь к администратору.',
+                    'message': 'Сейчас не получается создать платёж. Напишите Андрею в Telegram: https://t.me/andrewgark',
                 },
                 status=503,
             )
@@ -4364,7 +4360,7 @@ def new_create_ticket_payment(request):
                 {
                     'status': 'error',
                     'reason': 'db',
-                    'message': 'Не удалось сохранить заказ (база данных). Попробуйте позже.',
+                    'message': 'Сейчас не получается создать платёж. Напишите Андрею в Telegram: https://t.me/andrewgark',
                 },
                 status=500,
             )
@@ -4470,7 +4466,7 @@ def new_create_crypto_ticket_payment(request):
                 {
                     'status': 'error',
                     'reason': 'nowpayments_config',
-                    'message': 'Оплата криптой не настроена на сервере (ключи NOWPayments). Обратитесь к администратору.',
+                    'message': 'Сейчас не получается создать платёж. Напишите Андрею в Telegram: https://t.me/andrewgark',
                 },
                 status=503,
             )
@@ -4510,7 +4506,7 @@ def new_create_crypto_ticket_payment(request):
                 {
                     'status': 'error',
                     'reason': 'db',
-                    'message': 'Не удалось сохранить заказ (база данных). Попробуйте позже.',
+                    'message': 'Сейчас не получается создать платёж. Напишите Андрею в Telegram: https://t.me/andrewgark',
                 },
                 status=500,
             )
@@ -4731,7 +4727,7 @@ def new_create_crypto_donation(request):
                 {
                     'status': 'error',
                     'reason': 'nowpayments_config',
-                    'message': 'Оплата криптой не настроена на сервере (ключи NOWPayments). Обратитесь к администратору.',
+                    'message': 'Сейчас не получается создать платёж. Напишите Андрею в Telegram: https://t.me/andrewgark',
                 },
                 status=503,
             )

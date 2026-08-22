@@ -54,6 +54,7 @@ class LadderSectionHubCardTests(SimpleTestCase):
         card = get_ladder_section_hub_card(game, published_numbers={'1'}, now=now)
         self.assertTrue(card['is_today'])
         self.assertEqual(card['cta_label'], 'Сегодняшняя лесенка')
+        self.assertEqual(card['soon_text'], 'Новая лесенка — каждый день в полночь по Москве.')
 
     def test_latest_label(self):
         game = type('G', (), {'id': 'ladder', 'tags': {LADDER_PUBLISH_START_TAG: '2026-07-08T00:00:00+03:00'}})()

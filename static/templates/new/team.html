@@ -10,7 +10,7 @@
     {% if user.profile.team_on %}
     {% if member_teams|length > 1 %}
     <section class="new-team-hub-section" aria-labelledby="team-switcher-heading">
-      <h2 id="team-switcher-heading" class="new-team-hub-section__title">Несколько команд: активная — та, с которой вы играете и платите за билеты.</h2>
+      <h2 id="team-switcher-heading" class="new-team-hub-section__title">Команды</h2>
       <div class="new-team-switcher-active-box">
         <p class="new-team-switcher-subheading">Сейчас активна</p>
         <div class="new-team-switcher-active-row">
@@ -41,7 +41,6 @@
       <h2 id="team-primary-heading" class="new-team-hub-heading">Активная сейчас: <strong>{{ user.profile.team_on }}</strong></h2>
       {% else %}
       <h2 id="team-primary-heading" class="new-team-hub-heading new-team-hub-heading--solo">Ваша команда: <strong>{{ user.profile.team_on }}</strong></h2>
-      <p class="new-login-hint new-team-hub-intro">При желании, можно иметь больше одной команды и переключаться между ними.</p>
       {% endif %}
       <p class="new-team-hub-actions">
         <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-rename-open>Изменить название</button>
@@ -55,7 +54,7 @@
       {% if project.is_main %}
         {% if ticket_requests_total %}
         <details id="team-ticket-requests" class="new-team-details new-team-details--tickets"{% if ticket_requests_open %} open{% endif %}>
-          <summary class="new-team-details__summary">История запросов билетов</summary>
+          <summary class="new-team-details__summary">История покупок</summary>
           <div id="team-ticket-requests-body">
           {% include "new/team_ticket_requests.html" %}
           </div>
@@ -105,7 +104,7 @@
             <input type="text" class="new-team-pass" value="" placeholder="пароль" disabled>
             <button type="button" class="new-btn new-btn--mini" data-team-pass-save disabled>Сохранить</button>
           </div>
-          <p class="new-login-hint new-team-details__hint">Этот пароль позволяет вступить в команду напрямую.</p>
+          <p class="new-login-hint new-team-details__hint">По этому паролю можно вступить в команду без заявки.</p>
         </div>
       </details>
     </section>
@@ -113,7 +112,7 @@
       {% for sec_team in secondary_teams %}
       <section class="new-team-hub-section new-team-hub-section--secondary" aria-labelledby="sec-team-{{ sec_team.pk }}">
         <h3 id="sec-team-{{ sec_team.pk }}" class="new-team-hub-heading new-team-hub-heading--secondary">Другая команда: <strong>{{ sec_team }}</strong></h3>
-        <p class="new-login-hint new-team-secondary-note">Сейчас неактивна: игры и билеты — от имени активной команды (блок выше).</p>
+        <p class="new-login-hint new-team-secondary-note">Неактивна</p>
         <p><strong>Состав:</strong></p>
         <ul class="new-list">
           {% for team_member in sec_team.roster_profiles %}
@@ -162,7 +161,6 @@
   {% elif team_section == 'create' %}
   <div class="new-team-block">
     <h2>Создать новую команду</h2>
-    <p class="new-login-hint">Можно создать новую команду.{% if team_primary_modal %} Вы всегда сможете переключаться между командами.{% endif %}</p>
     <form action="{{ ui_team_url_create }}" method="post" class="new-form" id="new-create-team-form"{% if team_primary_modal %} data-team-primary-modal="1"{% endif %}>
       {% csrf_token %}
       <input type="hidden" name="make_primary" value="1" data-team-make-primary>
@@ -190,7 +188,7 @@
   {% elif team_section == 'join' %}
   <div class="new-team-block">
     <h2>Вступить в команду</h2>
-    <p class="new-login-hint">Нужно подтверждение членов команды или пароль.{% if team_primary_modal %} Вы всегда сможете переключаться между командами.{% endif %}</p>
+    <p class="new-login-hint">Нужно подтверждение членов команды или пароль.</p>
     <form action="{{ ui_team_url_request_join }}" method="post" class="new-form" id="new-join-team-form"{% if team_primary_modal %} data-team-primary-modal="1"{% endif %}>
       {% csrf_token %}
       <input type="hidden" name="make_primary" value="1" data-team-make-primary>
@@ -227,13 +225,11 @@
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-primary-modal-close><i class="ph ph-x" aria-hidden="true"></i></button>
     <h2 id="new-team-primary-title" class="pal-title">Сделать новую команду активной?</h2>
     <p class="new-login-hint new-team-primary-lead">
-      <strong>Активная команда</strong> — та, от имени которой вы играете, покупаете билеты и видите общие посылки в командном режиме.
-      Вы всегда можете сделать другую вашу команду активной.
+      Играть и покупать билеты от имени новой команды?
     </p>
-    <p class="new-login-hint new-team-primary-question">Что сделать с новой командой после создания или вступления?</p>
     <div class="new-team-primary-actions">
-      <button type="button" class="new-btn" data-primary-modal-yes>Да, сделать новую команду активной</button>
-      <button type="button" class="new-btn new-btn--text" data-primary-modal-no>Нет, оставить текущую активной</button>
+      <button type="button" class="new-btn" data-primary-modal-yes>Да</button>
+      <button type="button" class="new-btn new-btn--text" data-primary-modal-no>Оставить текущую</button>
     </div>
   </div>
 </div>

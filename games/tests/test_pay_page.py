@@ -56,7 +56,7 @@ class PayPageGatingTests(TestCase):
         resp = self.client.get(reverse('new_pay'))
         self.assertEqual(resp.status_code, 200)
         body = resp.content.decode()
-        self.assertIn('Войти потребуется только перед созданием заказа', body)
+        self.assertIn('Войти и продолжить', body)
         self.assertIn('data-login-open', body)
         self.assertIn('new-pay-ticket-form', body)
         self.assertIn('Российская карта', body)
@@ -257,7 +257,7 @@ class LegalPageTests(TestCase):
 
         crypto = self.client.get(reverse('terms_crypto')).content.decode()
         self.assertIn('NOWPayments', crypto)
-        self.assertIn('отдельным платежным маршрутом', crypto)
+        self.assertIn('Эти условия применяются только при выборе оплаты криптовалютой', crypto)
         self.assertIn('ru_self_employed', route_for(CRYPTO).merchant)
         self.assertIn('документально подтвержденных фактически понесенных', crypto)
         self.assertNotIn('ЮKassa обрабатывает', crypto)
@@ -275,7 +275,7 @@ class LegalPageTests(TestCase):
         self.assertIn('в течение 30 дней', privacy)
         self.assertIn('до 3 лет', privacy)
         self.assertIn('не более 12 месяцев', privacy)
-        self.assertIn('NOWPayments используется только когда пользователь самостоятельно выбирает оплату криптовалютой', privacy)
+        self.assertIn('NOWPayments используется только если вы сами выбираете оплату криптовалютой', privacy)
         self.assertIn('Трансграничная передача', privacy)
 
     def test_legacy_documents_redirect_permanently(self):
@@ -413,7 +413,7 @@ class DonatePageTests(TestCase):
         self.assertIn('4100116763559349', body)
         self.assertIn('new-donate-amount', body)
         self.assertIn('donate/create-crypto-payment', body)
-        self.assertIn('подтверждение транзакции может занимать десятки минут', body)
+        self.assertIn('Оплата может идти несколько минут', body)
         self.assertNotIn('nowpayments.io/embeds/donation-widget', body)
 
     def test_donate_page_shows_recent_donations_from_session(self):
@@ -428,7 +428,7 @@ class DonatePageTests(TestCase):
         body = resp.content.decode()
         self.assertIn('Последние донаты', body)
         self.assertIn('120 ₽', body)
-        self.assertIn('Pending', body)
+        self.assertIn('Ожидает', body)
         self.assertIn('new-donate-recent__kind', body)
         self.assertIn('data-donation-id="{}"'.format(donation.id), body)
 
