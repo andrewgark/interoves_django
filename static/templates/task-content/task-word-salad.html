@@ -69,7 +69,15 @@
                 <button type="submit" class="new-word-salad__hint-btn" title="Узнать {{ word.next_hint_number }} букву" aria-label="Узнать {{ word.next_hint_number }} букву"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
               </form>
               {% endif %}
-              <div class="new-word-salad__mask">{{ word.mask_html }}</div>
+              <div class="new-word-salad__mask">
+                {% for ch in word.mask_chars %}
+                  {% if ch == '⬜' %}
+                    <span class="new-word-salad__glyph is-blank" aria-hidden="true">⬜</span>
+                  {% else %}
+                    <span class="new-word-salad__glyph">{{ ch }}</span>
+                  {% endif %}
+                {% endfor %}
+              </div>
               <div class="new-word-salad__len">({{ word.length }})</div>
             </div>
           </li>

@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from games.support.constants import SUPPORT_CONSOLE_GROUP
-from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task
+from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 from games.support.services.sections import get_sections_dashboard
 from games.support.services.word_salad import (
     WordSaladSupportError,
@@ -58,10 +58,10 @@ class WordSaladSupportTests(TestCase):
                 intro='Тема: реки',
                 grid_text='A B C D\nH G F E\nI J K L\nP O N M',
                 words_text='ABCDEFGHIJKLMNOP',
-                name='Тестовый салат',
             )
             self.assertEqual(updated['intro'], 'Тема: реки')
-            self.assertEqual(updated['name'], 'Тестовый салат')
+            self.assertEqual(updated['name'], 'Салат #1')
+            self.assertEqual(TaskGroup.objects.get(pk=updated['task_group_id']).label, 'word_salad:1')
             delete_word_salad(detail['link_id'])
         with self.assertRaises(WordSaladSupportError):
             get_word_salad_detail(detail['link_id'])
@@ -116,13 +116,7 @@ class WordSaladSupportTests(TestCase):
             first = create_word_salad()
             second = create_word_salad()
             third = create_word_salad()
-            update_word_salad(
-                second['link_id'],
-                intro='',
-                grid_text=second['grid_text'],
-                words_text=second['words_text'],
-                name='Авторское название',
-            )
+            GameTaskGroup.objects.filter(pk=second['link_id']).update(name='Авторское название')
 
         rows = reorder_word_salads([
             third['link_id'],
@@ -135,9 +129,7 @@ class WordSaladSupportTests(TestCase):
             [third['link_id'], second['link_id'], first['link_id']],
         )
         self.assertEqual([row.number for row in rows], [1, 2, 3])
-        self.assertEqual(rows[0].name, 'Салат #1')
-        self.assertEqual(rows[1].name, 'Авторское название')
-        self.assertEqual(rows[2].name, 'Салат #3')
+        self.assertEqual([row.name for row in rows], ['Салат #1', 'Салат #2', 'Салат #3'])
 
     def test_insert_and_delete_keep_numbers_contiguous(self):
         with patch('games.views.track.track_task_change'):
@@ -163,6 +155,7 @@ class WordSaladSupportTests(TestCase):
         self.assertIn('new-word-salad__cell', response.content.decode('utf-8'))
         self.assertIn('new-word-salad__word', response.content.decode('utf-8'))
         self.assertIn('data-preview-normalized=', response.content.decode('utf-8'))
+        self.assertIn('new-word-salad__glyph', response.content.decode('utf-8'))
         self.assertIn('js/new_word_salad.js', response.content.decode('utf-8'))
 
     def test_create_word_salad_auto_creates_checker_type(self):
@@ -188,7 +181,6 @@ class WordSaladSupportTests(TestCase):
             reverse('support:word_salad_save', kwargs={'link_id': detail['link_id']}),
             data={
                 'intro': '',
-                'name': detail['name'],
                 'grid_text': 'A B C D',
                 'words_text': 'ABCD',
             },
@@ -222,3 +214,5 @@ class WordSaladSupportTests(TestCase):
         self.assertContains(response, 'word-salad-bootstrap')
         self.assertContains(response, 'support-schedule-list')
         self.assertContains(response, 'new-rules-modal')
+        self.assertNotContains(response, 'word-salad-edit-name')
+        self.assertContains(response, 'word-salad-edit-intro')

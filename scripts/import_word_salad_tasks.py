@@ -143,7 +143,7 @@ def run(
             updated_tg += 1
         else:
             task_group = TaskGroup.objects.create(
-                label=title,
+                label=f'word_salad:{num}',
                 checker=checker,
                 points=1,
                 max_attempts=None,

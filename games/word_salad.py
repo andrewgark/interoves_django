@@ -293,11 +293,13 @@ def build_ui_context(grid, words, state=None):
     ):
         normalized = normalize_word(word)
         hint_count = min(len(normalized), int(hint_counts.get(index, 0) or 0))
+        mask = word if index in solved else mask_for_word(word, reveal_count=hint_count)
         words_ui.append({
             'index': index,
             'original': word,
             'normalized': normalized,
-            'mask_html': word if index in solved else mask_for_word(word, reveal_count=hint_count),
+            'mask_html': mask,
+            'mask_chars': list(mask),
             'length': len(normalized),
             'is_solved': index in solved,
             'is_hinted': hint_count > 0,

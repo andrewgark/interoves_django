@@ -302,9 +302,8 @@ def word_salad_save(request, link_id):
     intro = str(body.get('intro') or '').strip()
     grid_text = body.get('grid_text') or ''
     words_text = body.get('words_text') or ''
-    name = body.get('name')
     try:
-        detail = update_word_salad(link_id, intro=intro, grid_text=grid_text, words_text=words_text, name=name)
+        detail = update_word_salad(link_id, intro=intro, grid_text=grid_text, words_text=words_text)
     except WordSaladSupportError as exc:
         return _word_salad_error_response(exc)
     except Exception as exc:

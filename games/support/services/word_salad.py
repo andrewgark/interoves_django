@@ -32,7 +32,11 @@ _OLD_SECTION_TITLES = frozenset({'Словесный Салат', 'Словес�
 _DEFAULT_GRID = ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M']
 _DEFAULT_WORDS = ['ABCDEFGHIJKLMNOP']
 _PREVIEW_SPEC = ActorSpec(kind='anon', anon_key='support-preview', play_mode='personal')
-_DEFAULT_TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат\s*#\s*\d+$', re.IGNORECASE)
+_TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат\s*#\s*\d+$', re.IGNORECASE)
+
+
+def _salad_title(number: int) -> str:
+    return f'{WORD_SALAD_SECTION_TITLE} #{number}'
 
 
 class WordSaladSupportError(Exception):
@@ -162,15 +166,19 @@ def _temporary_number(links: list[GameTaskGroup]) -> int:
 
 
 def _sync_link_titles(link: GameTaskGroup, new_num: int) -> None:
-    default_title = f'{WORD_SALAD_SECTION_TITLE} #{new_num}'
-    if not (link.name or '').strip() or _DEFAULT_TITLE_RE.match((link.name or '').strip()):
-        link.name = default_title
+    """Keep name / label in lockstep with the public number, like ladders."""
+    title = _salad_title(new_num)
+    link.name = title
     task_group = link.task_group
     if task_group is not None:
-        label = (task_group.label or '').strip()
-        if not label or _DEFAULT_TITLE_RE.match(label):
-            task_group.label = default_title
+        desired_label = f'word_salad:{new_num}'
+        if (task_group.label or '').strip() != desired_label:
+            task_group.label = desired_label
             task_group.save(update_fields=['label'])
+    task = _task_for_link(link)
+    if task and task.text and _TITLE_RE.match(task.text.strip()):
+        task.text = ''
+        task.save(update_fields=['text'])
 
 
 def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
@@ -221,7 +229,7 @@ def list_word_salad_rows() -> list[WordSaladRow]:
             task_group_id=link.task_group_id,
             task_id=task.pk if task else None,
             number=number,
-            name=link.name or f'{WORD_SALAD_SECTION_TITLE} #{number}',
+            name=link.name or _salad_title(number),
             grid_preview=_grid_preview(grid),
             words_preview=_preview_text(words),
             words_count=len(words),
@@ -278,7 +286,7 @@ def create_word_salad(*, at_number: int | None = None) -> dict[str, Any]:
         raise WordSaladSupportError('Позиция вставки должна быть от 1 до {}'.format(len(links) + 1))
     number = _temporary_number(links)
     task_group = TaskGroup.objects.create(
-        label=f'{WORD_SALAD_SECTION_TITLE} #{at_number}',
+        label=f'word_salad:{at_number}',
         checker=checker,
         points=1,
         max_attempts=None,
@@ -300,7 +308,7 @@ def create_word_salad(*, at_number: int | None = None) -> dict[str, Any]:
         game=game,
         task_group=task_group,
         number=str(number),
-        name=f'{WORD_SALAD_SECTION_TITLE} #{at_number}',
+        name=_salad_title(at_number),
     )
     links.insert(at_number - 1, link)
     _renumber_links(links)
@@ -308,7 +316,7 @@ def create_word_salad(*, at_number: int | None = None) -> dict[str, Any]:
 
 
 @transaction.atomic
-def update_word_salad(link_id: int, *, intro: str, grid_text: str, words_text: str, name: str | None = None) -> dict[str, Any]:
+def update_word_salad(link_id: int, *, intro: str, grid_text: str, words_text: str) -> dict[str, Any]:
     link = (
         GameTaskGroup.objects.filter(game=get_word_salad_game(), pk=link_id)
         .select_related('task_group')
@@ -324,12 +332,12 @@ def update_word_salad(link_id: int, *, intro: str, grid_text: str, words_text: s
     task.checker_data = checker_data
     task.answer = ''
     task.save(update_fields=['text', 'checker_data', 'answer'])
-    if name is not None:
-        new_name = str(name or '').strip() or f'{WORD_SALAD_SECTION_TITLE} #{link.number}'
-        link.name = new_name
-        if link.task_group is not None:
-            link.task_group.label = new_name
-            link.task_group.save(update_fields=['label'])
+    try:
+        number = int(link.number)
+    except (TypeError, ValueError):
+        number = 0
+    if number:
+        _sync_link_titles(link, number)
         link.save(update_fields=['name'])
     return get_word_salad_detail(link.pk)
 

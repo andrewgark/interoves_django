@@ -229,6 +229,7 @@ class RenderNewUiTaskCardTests(TestCase):
         self.assertIn('>Ответы<', html)
         self.assertIn('title="Узнать 1 букву"', html)
         self.assertIn('ph ph-lightbulb', html)
+        self.assertIn('new-word-salad__glyph', html)
         self.assertNotIn('>Слова<', html)
         self.assertNotIn(' шт.', html)
         self.assertNotIn('Готовое слово проверится автоматически', html)

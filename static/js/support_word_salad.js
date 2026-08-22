@@ -19,7 +19,7 @@
   var modalElement = document.getElementById('word-salad-edit-modal');
   var modal = support.mountModal(modalElement, {
     closeSelector: '[data-word-salad-close]',
-    initialFocus: '#word-salad-edit-name',
+    initialFocus: '#word-salad-edit-intro',
     onClose: function () { editLinkId = null; }
   });
 
@@ -77,7 +77,7 @@
         '<button type="button" class="support-ladder-item__handle support-schedule-handle" aria-label="Перетащить выпуск №' + row.number + '" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>' +
         '<div class="support-ladder-item__num">№' + row.number + '</div>' +
         '<div class="support-ladder-item__body">' +
-          '<div class="support-ladder-item__title">' + support.escapeHtml(row.name || ('Салат #' + row.number)) + '</div>' +
+          '<div class="support-ladder-item__title">' + support.escapeHtml('Салат #' + row.number) + '</div>' +
           '<div class="support-ladder-item__meta"><span class="support-cell-mono">' +
             support.escapeHtml(row.grid_preview || '—') + '</span> · id ' + row.link_id +
             ' · ' + row.words_count + ' сл.</div>' +
@@ -96,7 +96,6 @@
     editLinkId = item.link_id;
     document.getElementById('word-salad-edit-sub').textContent =
       '№' + item.number + ' · id ' + item.link_id + ' · ' + item.words_count + ' сл.';
-    document.getElementById('word-salad-edit-name').value = item.name || '';
     document.getElementById('word-salad-edit-intro').value = item.intro || '';
     document.getElementById('word-salad-edit-grid').value = item.grid_text || '';
     document.getElementById('word-salad-edit-words').value = item.words_text || '';
@@ -173,7 +172,6 @@
     clearError();
     setBusy(true);
     support.postJson(endpoint(endpoints.save, editLinkId), {
-      name: document.getElementById('word-salad-edit-name').value,
       intro: document.getElementById('word-salad-edit-intro').value,
       grid_text: document.getElementById('word-salad-edit-grid').value,
       words_text: document.getElementById('word-salad-edit-words').value

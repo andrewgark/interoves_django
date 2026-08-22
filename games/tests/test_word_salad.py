@@ -166,6 +166,8 @@ class WordSaladTests(TestCase):
         self.assertEqual(state['hint_counts'], {'0': 2})
         context = build_ui_context(_puzzle()['grid'], _puzzle()['words'], state)
         self.assertEqual(context['words'][0]['mask_html'], 'AB⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜')
+        self.assertEqual(context['words'][0]['mask_chars'][:2], ['A', 'B'])
+        self.assertEqual(context['words'][0]['mask_chars'][2], '⬜')
         self.assertEqual(context['words'][0]['next_hint_number'], 3)
         self.assertEqual(score_for_state(state), 0)
         attempts = list(Attempt.manager.filter(task=self.task, team=self.team).order_by('time', 'pk'))
@@ -197,7 +199,10 @@ class WordSaladTests(TestCase):
         html = response.json()['update_task_html_new'][str(self.task.pk)]
         self.assertIn('title="Узнать 3 букву"', html)
         self.assertIn('ph ph-lightbulb', html)
-        self.assertIn('AB⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜', html)
+        self.assertIn('new-word-salad__glyph">A</span>', html)
+        self.assertIn('new-word-salad__glyph">B</span>', html)
+        self.assertIn('new-word-salad__glyph is-blank', html)
+        self.assertNotIn('new-word-salad__glyph">C</span>', html)
 
     def test_solve_attempt_prunes_grid_and_solves(self):
         attempt = Attempt(
