@@ -11,4 +11,5 @@ class GamesConfig(AppConfig):
         import games.instagram.models  # noqa: F401
         import games.social.models  # noqa: F401
         import games.telegram.signals
+        import games.feedback  # noqa: F401
         import games.matcher.norm_matcher

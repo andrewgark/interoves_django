@@ -126,6 +126,26 @@
   <button type="button" class="new-btn new-btn--text" data-review-guest-progress>Проверить гостевой прогресс на этом устройстве</button>
 </div>
 
+<section class="new-cabinet" aria-labelledby="new-cabinet-title">
+  <h2 id="new-cabinet-title" class="new-heading">Мои материалы и обращения</h2>
+  {# Новый тип пользовательских заданий добавляет пункт «Мои …» → /create_<kind>/, когда появится тот же offer-flow. #}
+  <p class="new-login-hint new-login-hint--flush-top">Обращения к Андрею и задания, которые вы предлагаете в ежедневные.</p>
+  <ul class="new-cabinet-links">
+    <li>
+      <a href="{% if ui_project_base %}{{ ui_project_reports_url }}{% else %}{% url 'new_profile_reports' %}{% endif %}">Мои обращения</a>
+      <span class="new-cabinet-links__hint">багрепорты и ответы</span>
+    </li>
+    <li>
+      <a href="{% url 'new_create_ladder' %}">Мои лесенки</a>
+      <span class="new-cabinet-links__hint">черновики и статусы</span>
+    </li>
+    <li>
+      <a href="{% url 'new_create_alphabetty' %}">Мои алфавитки</a>
+      <span class="new-cabinet-links__hint">черновики и статусы</span>
+    </li>
+  </ul>
+</section>
+
 {% if can_disconnect_social_account %}
 <div id="new-social-disconnect-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-social-disconnect-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-social-disconnect-close></div>

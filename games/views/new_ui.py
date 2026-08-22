@@ -569,6 +569,7 @@ def _project_urls_context(project_id: str | None):
         'ui_project_games_url': (base + '/games/') if base else '/games/',
         'ui_project_team_url': (base + '/team/') if base else '/team/',
         'ui_project_profile_url': (base + '/profile/') if base else '/profile/',
+        'ui_project_reports_url': (base + '/profile/reports/') if base else '/profile/reports/',
         'ui_project_pay_url': (base + '/pay/') if base else '/pay/',
     }
 
@@ -645,6 +646,20 @@ def _profile_redirect(request):
     if scoped:
         return redirect('project_profile', project_id=scoped)
     return redirect('new_profile')
+
+
+def _reports_list_redirect(request):
+    scoped = _scoped_project_id(request)
+    if scoped:
+        return redirect('project_profile_reports', project_id=scoped)
+    return redirect('new_profile_reports')
+
+
+def _report_detail_redirect(request, report_id):
+    scoped = _scoped_project_id(request)
+    if scoped:
+        return redirect('project_profile_report_detail', project_id=scoped, report_id=report_id)
+    return redirect('new_profile_report_detail', report_id=report_id)
 
 
 def _team_redirect(request):
@@ -3369,7 +3384,7 @@ def new_bug_report(request, task_id):
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     team = None
-    user = None
+    user = request.user if request.user.is_authenticated else None
     anon_key = None
     if play_mode == 'team':
         if not has_profile(request.user) or not request.user.profile.team_on:
@@ -3378,9 +3393,7 @@ def new_bug_report(request, task_id):
         if not game.has_access('send_attempt', team=team):
             raise Http404()
     else:
-        if request.user.is_authenticated:
-            user = request.user
-        else:
+        if user is None:
             anon_key = request.POST.get('anon_key')
             if not anon_key:
                 raise Http404()
@@ -3393,9 +3406,10 @@ def new_bug_report(request, task_id):
     if len(text) > 5000:
         return JsonResponse({'ok': False, 'error': 'Слишком длинное сообщение.'}, status=400)
 
+    from games.feedback import profile_reports_path
     from games.telegram.game_urls import task_play_url
 
-    BugReport.objects.create(
+    report = BugReport.objects.create(
         task=task,
         game=game,
         team=team,
@@ -3405,7 +3419,11 @@ def new_bug_report(request, task_id):
         page_url=task_play_url(game, task),
         status='Pending',
     )
-    return JsonResponse({'ok': True})
+    return JsonResponse({
+        'ok': True,
+        'report_id': report.pk,
+        'report_url': profile_reports_path(project_id=game.project_id, report_id=report.pk),
+    })
 
 
 def _game_from_next_path(path):
@@ -3726,15 +3744,88 @@ class ProfileSettingsForm(ModelForm):
         return tz
 
 
+def _profile_unavailable_redirect(request):
+    messages.error(request, 'Профиль недоступен.')
+    scoped = _scoped_project_id(request)
+    if scoped:
+        return redirect('project_hub', project_id=scoped)
+    return redirect('new_hub')
+
+
+@login_required
+@require_http_methods(['GET'])
+def new_profile_reports(request, project_id=None):
+    if not has_profile(request.user):
+        return _profile_unavailable_redirect(request)
+    from games.feedback import preview_text, reports_for_user, unread_report_ids_for_user
+
+    reports = list(reports_for_user(request.user))
+    unread_ids = unread_report_ids_for_user(request.user)
+    cards = []
+    for report in reports:
+        cards.append({
+            'report': report,
+            'preview': preview_text(report.text),
+            'status_label': report.status_label_ru(),
+            'unread': report.pk in unread_ids,
+            'task_url': report.page_url or '',
+        })
+    scoped = _scoped_project_id(request) or project_id
+    ctx = {
+        'report_cards': cards,
+        'page_title': 'Мои обращения',
+    }
+    ctx.update(_project_urls_context(scoped or NEW_UI_PROJECT))
+    _merge_nav_project_for_scope(ctx, request, scoped)
+    return render(request, 'ui/profile_reports.html', ctx)
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def new_profile_report_detail(request, report_id, project_id=None):
+    if not has_profile(request.user):
+        return _profile_unavailable_redirect(request)
+    from games.feedback import add_user_reply, mark_report_read
+
+    report = get_object_or_404(
+        BugReport.objects.select_related('task', 'task__task_group', 'game', 'game__project', 'user'),
+        pk=report_id,
+        user=request.user,
+    )
+    if request.method == 'POST':
+        text = (request.POST.get('text') or '').strip()
+        if not text:
+            messages.error(request, 'Напишите сообщение.')
+        elif not report.user_can_reply():
+            messages.error(request, 'Это обращение закрыто.')
+        else:
+            try:
+                add_user_reply(report, request.user, text)
+            except ValueError as exc:
+                messages.error(request, str(exc))
+            else:
+                messages.success(request, 'Сообщение отправлено.')
+                return _report_detail_redirect(request, report.pk)
+    mark_report_read(report)
+    scoped = _scoped_project_id(request) or project_id
+    ctx = {
+        'report': report,
+        'thread': list(report.messages.select_related('author_user').all()),
+        'can_reply': report.user_can_reply(),
+        'status_label': report.status_label_ru(),
+        'task_url': report.page_url or '',
+        'page_title': 'Обращение',
+    }
+    ctx.update(_project_urls_context(scoped or NEW_UI_PROJECT))
+    _merge_nav_project_for_scope(ctx, request, scoped)
+    return render(request, 'ui/profile_report_detail.html', ctx)
+
+
 @login_required
 @require_http_methods(['GET', 'POST'])
 def new_profile(request, project_id=None):
     if not has_profile(request.user):
-        messages.error(request, 'Профиль недоступен.')
-        scoped = _scoped_project_id(request)
-        if scoped:
-            return redirect('project_hub', project_id=scoped)
-        return redirect('new_hub')
+        return _profile_unavailable_redirect(request)
     profile = request.user.profile
     connected_accounts = list(
         SocialAccount.objects.filter(user=request.user).order_by('provider', 'id')
@@ -3790,6 +3881,7 @@ def new_profile(request, project_id=None):
         'tz_options': tz_options,
         'page_title': 'Профиль',
     }
+    ctx.update(_project_urls_context(scoped or NEW_UI_PROJECT))
     _merge_nav_project_for_scope(ctx, request, scoped)
     return render(request, 'ui/profile.html', ctx)
 

@@ -43,6 +43,7 @@ def ui_section_games(request):
         or url_name.startswith("project_")
     ):
         return {}
+    from games.section_hub import daily_nav_items
     from games.section_paths import is_root_section_game
     from games.views.ui import get_section_games
     tz = 'Europe/Moscow'
@@ -70,6 +71,7 @@ def ui_section_games(request):
 
     return {
         'section_games': get_section_games(request),
+        'daily_nav_sections': daily_nav_items(),
         'user_timezone': tz,
         'nav_desyatochki_active': nav_desyatochki_active,
     }
@@ -77,3 +79,24 @@ def ui_section_games(request):
 
 # Backward-compatible processor name.
 new_ui_section_games = ui_section_games
+
+
+def feedback_nav(request):
+    """Unread admin replies for the profile icon badge (not realtime)."""
+    match = getattr(request, 'resolver_match', None)
+    url_name = (match.url_name or '') if match else ''
+    if not (
+        url_name.startswith('ui_')
+        or url_name.startswith('new_')
+        or url_name.startswith('project_')
+    ):
+        return {}
+    user = getattr(request, 'user', None)
+    if not user or not getattr(user, 'is_authenticated', False):
+        return {'has_unread_feedback': False}
+    try:
+        from games.feedback import user_has_unread_feedback
+
+        return {'has_unread_feedback': user_has_unread_feedback(user)}
+    except Exception:
+        return {'has_unread_feedback': False}

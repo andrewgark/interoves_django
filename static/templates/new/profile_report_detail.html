@@ -1,0 +1,39 @@
+{% extends "new/base.html" %}
+{% block title %}Обращение{% endblock %}
+{% block content %}
+<h1 class="new-heading new-heading--page">Обращение</h1>
+<p class="new-feedback-detail-meta">
+  <strong>{{ report.game.get_no_html_name }}</strong>
+  · задание {{ report.task.number }}
+  · {{ report.time|date:"d.m.Y H:i" }}
+  · <span class="new-pill {% if report.status == 'Reviewed' %}new-pill--ok{% elif report.status == 'Dismissed' %}new-pill--wrong{% else %}new-pill--partial{% endif %}">{{ status_label }}</span>
+</p>
+{% if task_url %}
+  <p class="new-login-hint new-login-hint--flush-top"><a class="new-link-dotted" href="{{ task_url }}">Открыть задание</a></p>
+{% endif %}
+
+<ol class="new-feedback-thread">
+  {% for msg in thread %}
+    <li class="new-feedback-msg new-feedback-msg--{{ msg.author_role }}">
+      <div class="new-feedback-msg__meta">
+        {% if msg.author_role == 'admin' %}Андрей{% else %}Вы{% endif %}
+        · {{ msg.created_at|date:"d.m.Y H:i" }}
+      </div>
+      <p class="new-feedback-msg__text">{{ msg.text }}</p>
+    </li>
+  {% endfor %}
+</ol>
+
+{% if can_reply %}
+<form method="post" class="new-form new-feedback-reply">
+  {% csrf_token %}
+  <label for="feedback-reply-text">Ответ</label>
+  <textarea id="feedback-reply-text" name="text" rows="4" maxlength="5000" required placeholder="Дополните обращение"></textarea>
+  <button type="submit" class="new-btn">Отправить</button>
+</form>
+{% else %}
+<p class="new-login-hint">Это обращение закрыто, новые сообщения отправить нельзя.</p>
+{% endif %}
+
+<p class="new-tg-back new-tg-back--footer"><a href="{% if ui_project_base %}{{ ui_project_reports_url }}{% else %}{% url 'new_profile_reports' %}{% endif %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Все обращения</a></p>
+{% endblock %}

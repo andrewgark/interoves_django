@@ -20,6 +20,7 @@ from games.models import (
     AlphabettyPersonalDictWord,
     Attempt,
     BugReport,
+    BugReportMessage,
     ChainTaskState,
     Donation,
     HintAttempt,
@@ -159,7 +160,7 @@ def _conflict_message(code):
     if code == 'inactive_user':
         return 'Один из профилей уже был отключён.'
     if code == 'privileged_user':
-        return 'В одном из профилей есть административные права или служебная история.'
+        return 'Эти профили нельзя объединить автоматически. Напишите Андрею в Telegram: https://t.me/andrewgark'
     if code == 'team_request_conflict':
         return 'В профилях есть разные незавершённые заявки на вступление в команды.'
     if code == 'telegram_identity_conflict':
@@ -727,6 +728,7 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
         ('ticket_requests', TicketRequest, 'created_by'),
         ('donations', Donation, 'user'),
         ('bug_reports', BugReport, 'user'),
+        ('bug_report_messages', BugReportMessage, 'author_user'),
         ('dict_suggestions', AlphabettyDictSuggestion, 'user'),
         ('statistics_events', StatisticsEvent, 'user'),
         ('ladder_offers', LadderOffer, 'user'),

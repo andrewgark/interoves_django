@@ -8,6 +8,7 @@ from games.models import (
     AlphabettyOffer,
     AlphabettyDictSuggestion,
     BugReport,
+    BugReportMessage,
     CorporateGameOrder,
     Donation,
     LadderOffer,
@@ -29,6 +30,7 @@ from games.telegram.game_urls import (
     task_group_admin_url,
     task_play_url,
 )
+from games.task_titles import task_display_name
 
 logger = logging.getLogger('application')
 
@@ -326,7 +328,7 @@ def notify_new_ladder_offer(offer_id: int) -> bool:
 def format_bug_report_message(report: BugReport) -> str:
     task = report.task
     game = report.game
-    task_label = getattr(task, 'number', None) or task.pk
+    task_label = task_display_name(game, task)
     if hasattr(game, 'get_no_html_name'):
         game_label = game.get_no_html_name()
     else:
@@ -335,6 +337,8 @@ def format_bug_report_message(report: BugReport) -> str:
     game_site = game_site_url(game)
     report_admin = _admin_link('/admin/games/bugreport/{}/change/'.format(report.pk))
     queue_link = _admin_link('/admin/games/pendingbugreport/')
+    thread_link = bug_report_thread_url(report)
+    support_link = _admin_link('/support/pending/')
     task_admin = task_admin_url(task)
     game_admin = game_admin_url(game)
     task_group = getattr(task, 'task_group', None)
@@ -357,7 +361,9 @@ def format_bug_report_message(report: BugReport) -> str:
         '',
         _escape(report.text[:3500]),
         '',
-        '<a href="{}">Репорт</a> · <a href="{}">Очередь</a>'.format(report_admin, queue_link),
+        '<a href="{}">Тред</a> · <a href="{}">Репорт</a> · <a href="{}">Очередь</a> · <a href="{}">Support</a>'.format(
+            thread_link, report_admin, queue_link, support_link,
+        ),
     ])
 
 
@@ -480,6 +486,90 @@ def notify_new_bug_report(report: BugReport) -> bool:
         format_bug_report_message(report),
         reply_markup=bug_report_keyboard(report.pk),
     )
+
+
+def bug_report_thread_url(report: BugReport) -> str:
+    from games.feedback import profile_reports_path
+
+    return _admin_link(profile_reports_path(report_id=report.pk))
+
+
+def send_user_telegram_message(user, text: str) -> bool:
+    """DM a logged-in user via verified telegram_user_id. Never use telegram_handle."""
+    profile = getattr(user, 'profile', None)
+    chat_id = getattr(profile, 'telegram_user_id', None) if profile is not None else None
+    if not chat_id:
+        return False
+    if not telegram_bot_configured():
+        logger.debug('Telegram user DM skipped: bot token is empty')
+        return False
+    return send_message(chat_id, text)
+
+
+def format_bug_report_user_reply_message(message: BugReportMessage) -> str:
+    report = message.report
+    return _join_lines([
+        '💬 <b>Ответ пользователя по багу #{}</b>'.format(report.pk),
+        '',
+        'Автор: {}'.format(_escape(_bug_report_reporter(report))),
+        '',
+        _escape(message.text[:3500]),
+        '',
+        '<a href="{}">Тред</a> · <a href="{}">Админка</a> · <a href="{}">Support</a>'.format(
+            bug_report_thread_url(report),
+            _admin_link('/admin/games/bugreport/{}/change/'.format(report.pk)),
+            _admin_link('/support/pending/'),
+        ),
+    ])
+
+
+def format_bug_report_admin_reply_message(message: BugReportMessage) -> str:
+    report = message.report
+    task = report.task
+    game = report.game
+    task_label = task_display_name(game, task) if task is not None else '—'
+    if game is not None and hasattr(game, 'get_no_html_name'):
+        game_label = game.get_no_html_name()
+    elif game is not None:
+        game_label = getattr(game, 'name', None) or game.pk
+    else:
+        game_label = '—'
+    return _join_lines([
+        '✉️ <b>Ответ по вашему сообщению о проблеме</b>',
+        '',
+        'Игра: {}'.format(_escape(game_label)),
+        'Задание: {}'.format(_escape(task_label)),
+        '',
+        _escape(message.text[:3500]),
+        '',
+        '<a href="{}">Открыть обращение</a>'.format(bug_report_thread_url(report)),
+    ])
+
+
+def notify_bug_report_thread_message(message: BugReportMessage) -> bool:
+    """Ping admin-chat on user replies and DM the user on admin replies.
+
+    Opening message is skipped: notify_new_bug_report already fired for the report.
+    """
+    message = (
+        BugReportMessage.objects
+        .select_related(
+            'report', 'report__task', 'report__task__task_group',
+            'report__game', 'report__game__project', 'report__team', 'report__user',
+            'report__user__profile', 'author_user',
+        )
+        .get(pk=message.pk)
+    )
+    if message.is_opening():
+        return False
+    if message.author_role == BugReportMessage.ROLE_USER:
+        return send_admin_message(format_bug_report_user_reply_message(message))
+    if message.author_role == BugReportMessage.ROLE_ADMIN:
+        user = message.report.user
+        if user is None:
+            return False
+        return send_user_telegram_message(user, format_bug_report_admin_reply_message(message))
+    return False
 
 
 def notify_new_ticket_request(ticket_request: TicketRequest) -> bool:

@@ -82,10 +82,12 @@ class TelegramNotifyTests(TransactionTestCase):
         self.assertIn('Новый репорт о баге', payload['text'])
         self.assertIn('Опечатка в условии', payload['text'])
         self.assertIn('/admin/games/bugreport/{}/change/'.format(report.pk), payload['text'])
+        self.assertIn('/profile/reports/{}/'.format(report.pk), payload['text'])
         self.assertIn('/games/{}/1/#new-task-{}'.format(self.game.id, self.task.pk), payload['text'])
         self.assertIn('/admin/games/task/{}/change/'.format(self.task.pk), payload['text'])
         self.assertIn('/admin/games/taskgroup/{}/change/'.format(self.task_group.pk), payload['text'])
         self.assertIn('/admin/games/game/{}/change/'.format(self.game.id), payload['text'])
+        self.assertIn('1. Section · задание 1', payload['text'])
 
     @patch('games.telegram.api.requests.post')
     def test_ticket_request_triggers_telegram(self, mock_post):

@@ -171,8 +171,9 @@
           <a class="new-nav__quick new-nav__quick--profile"
              href="{% if ui_project_base %}{{ ui_project_profile_url }}{% else %}{% url 'new_profile' %}{% endif %}"
              title="Профиль" aria-label="Профиль"
-             {% if un == 'project_profile' or un == 'new_profile' %}aria-current="page"{% endif %}>
+             {% if un == 'project_profile' or un == 'new_profile' or un == 'project_profile_reports' or un == 'new_profile_reports' or un == 'project_profile_report_detail' or un == 'new_profile_report_detail' %}aria-current="page"{% endif %}>
             <i class="ph ph-user" aria-hidden="true"></i>
+            {% if has_unread_feedback %}<span class="new-nav__badge" aria-hidden="true"></span>{% endif %}
           </a>
         {% else %}
           <button type="button" class="new-nav__quick new-nav__quick--profile" title="Войти" aria-label="Войти" data-login-open>
@@ -216,7 +217,7 @@
             {% endif %}
           {% endif %}
           {% if user.is_authenticated %}
-            <a href="{% if ui_project_base %}{{ ui_project_profile_url }}{% else %}{% url 'new_profile' %}{% endif %}" {% if un == 'project_profile' or un == 'new_profile' %}aria-current="page"{% endif %}>Профиль</a>
+            <a href="{% if ui_project_base %}{{ ui_project_profile_url }}{% else %}{% url 'new_profile' %}{% endif %}" {% if un == 'project_profile' or un == 'new_profile' or un == 'project_profile_reports' or un == 'new_profile_reports' or un == 'project_profile_report_detail' or un == 'new_profile_report_detail' %}aria-current="page"{% endif %}>Профиль{% if has_unread_feedback %} <span class="new-nav__inline-badge" aria-label="есть непрочитанный ответ"></span>{% endif %}</a>
             <a href="{% if ui_project_base %}{{ ui_project_team_url }}{% else %}{% url 'new_team' %}{% endif %}" {% if un == 'project_team' or un == 'project_team_join_page' or un == 'project_team_create' or un == 'new_team' or un == 'new_team_join_page' or un == 'new_team_create' %}aria-current="page"{% endif %}>Команда</a>
             {% if not ui_project_base %}
             <a href="{% url 'new_pay' %}" {% if un == 'new_pay' or un == 'ui_pay' %}aria-current="page"{% endif %}>Оплата</a>
@@ -261,7 +262,8 @@
         {% endif %}
         {% if user.is_authenticated %}
           {% with un=request.resolver_match.url_name %}
-          <a class="new-nav__drawer-link" href="{% if ui_project_base %}{{ ui_project_profile_url }}{% else %}{% url 'new_profile' %}{% endif %}" {% if un == 'project_profile' or un == 'new_profile' %}aria-current="page"{% endif %}><i class="ph ph-user" aria-hidden="true"></i> Профиль</a>
+          <a class="new-nav__drawer-link" href="{% if ui_project_base %}{{ ui_project_profile_url }}{% else %}{% url 'new_profile' %}{% endif %}" {% if un == 'project_profile' or un == 'new_profile' %}aria-current="page"{% endif %}><i class="ph ph-user" aria-hidden="true"></i> Профиль{% if has_unread_feedback %} <span class="new-nav__inline-badge" aria-hidden="true"></span>{% endif %}</a>
+          <a class="new-nav__drawer-link" href="{% if ui_project_base %}{{ ui_project_reports_url }}{% else %}{% url 'new_profile_reports' %}{% endif %}" {% if un == 'project_profile_reports' or un == 'new_profile_reports' or un == 'project_profile_report_detail' or un == 'new_profile_report_detail' %}aria-current="page"{% endif %}><i class="ph ph-bug" aria-hidden="true"></i> Мои обращения</a>
           <a class="new-nav__drawer-link" href="{% if ui_project_base %}{{ ui_project_team_url }}{% else %}{% url 'new_team' %}{% endif %}" {% if un == 'project_team' or un == 'project_team_join_page' or un == 'project_team_create' or un == 'new_team' or un == 'new_team_join_page' or un == 'new_team_create' %}aria-current="page"{% endif %}><i class="ph ph-users" aria-hidden="true"></i> Команда</a>
           {% if not ui_project_base %}
           <a class="new-nav__drawer-link" href="{% url 'new_pay' %}" {% if un == 'new_pay' or un == 'ui_pay' %}aria-current="page"{% endif %}><i class="ph ph-credit-card" aria-hidden="true"></i> Оплата</a>
@@ -320,16 +322,12 @@
         <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Войти через Google</a>
       </div>
       {% else %}
-      <p class="pal-lead">Выберите способ входа.</p>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
         <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path %}">Войти через Google</a>
         <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' next=request.get_full_path %}">Войти через VK</a>
         <a class="new-btn new-btn--ghost" href="{% url 'telegram_login' %}?next={{ request.get_full_path|urlencode }}">Войти через Telegram</a>
       </div>
       {% endif %}
-      <p class="new-login-hint new-login-hint--flush-bottom">
-        Если окно не открылось автоматически, нажмите “Войти” в меню.
-      </p>
     </div>
   </div>
   <script>

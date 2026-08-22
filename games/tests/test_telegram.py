@@ -218,6 +218,8 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('href="https://interoves.com/admin/games/game/{}/change/"'.format(
             self.game.id,
         ), text)
+        self.assertIn('href="https://interoves.com/profile/reports/{}/"'.format(report.pk), text)
+        self.assertIn('Support', text)
 
     def test_format_bug_report_message_sections_game_uses_root_games_url(self):
         from games.models import GameTaskGroup

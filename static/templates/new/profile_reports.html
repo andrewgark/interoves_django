@@ -1,0 +1,34 @@
+{% extends "new/base.html" %}
+{% block title %}Мои обращения{% endblock %}
+{% block content %}
+<h1 class="new-heading new-heading--page">Мои обращения</h1>
+<p class="new-login-hint new-login-hint--flush-top">Сообщения о проблемах в заданиях и ответы Андрея. Лесенки и алфавитки — отдельно в профиле.</p>
+
+{% if report_cards %}
+<ul class="new-feedback-list">
+  {% for card in report_cards %}
+    <li class="new-feedback-card{% if card.unread %} new-feedback-card--unread{% endif %}">
+      <a class="new-feedback-card__link" href="{% if ui_project_base %}{{ ui_project_reports_url }}{{ card.report.pk }}/{% else %}{% url 'new_profile_report_detail' card.report.pk %}{% endif %}">
+        <div class="new-feedback-card__top">
+          <strong>{{ card.report.game.get_no_html_name }}</strong>
+          <span class="new-pill {% if card.report.status == 'Reviewed' %}new-pill--ok{% elif card.report.status == 'Dismissed' %}new-pill--wrong{% else %}new-pill--partial{% endif %}">{{ card.status_label }}</span>
+          {% if card.unread %}<span class="new-feedback-unread">новый ответ</span>{% endif %}
+        </div>
+        <p class="new-feedback-card__meta">
+          Задание {{ card.report.task.number }}
+          · {{ card.report.time|date:"d.m.Y H:i" }}
+        </p>
+        <p class="new-feedback-card__preview">{{ card.preview }}</p>
+      </a>
+      {% if card.task_url %}
+        <a class="new-link-dotted new-feedback-card__task" href="{{ card.task_url }}">К заданию</a>
+      {% endif %}
+    </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="new-login-hint">Пока нет обращений. На странице задания нажмите «Сообщить о проблеме».</p>
+{% endif %}
+
+<p class="new-tg-back new-tg-back--footer"><a href="{% if ui_project_base %}{{ ui_project_profile_url }}{% else %}{% url 'new_profile' %}{% endif %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Профиль</a></p>
+{% endblock %}

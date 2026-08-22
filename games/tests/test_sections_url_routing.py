@@ -28,6 +28,7 @@ class SectionsUrlRoutingTests(TestCase):
         self.assertEqual(ctx['ui_project_base'], '')
         self.assertEqual(ctx['ui_project_games_url'], '/games/')
         self.assertEqual(ctx['ui_project_home_url'], '/')
+        self.assertEqual(ctx['ui_project_reports_url'], '/profile/reports/')
 
     def test_legacy_sections_games_redirects_to_games(self):
         resp = self.client.get('/sections/games/')

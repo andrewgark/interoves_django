@@ -27,6 +27,7 @@ class PendingItem:
     actions: tuple
     submission_text: Optional[str] = None
     correct_answer: Optional[str] = None
+    thread_url: Optional[str] = None
 
 
 def _game_url(game_id: Optional[str]) -> Optional[str]:
@@ -133,6 +134,7 @@ def get_pending_queue(*, limit: int = 100) -> List[PendingItem]:
             game_url=_game_url(bug.game_id),
             admin_url=reverse('admin:games_bugreport_change', args=[bug.pk]),
             actions=('bug_reviewed', 'bug_dismissed'),
+            thread_url='/profile/reports/{}/'.format(bug.pk),
         ))
 
     items.sort(key=lambda row: row.time or '', reverse=True)

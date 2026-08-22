@@ -40,6 +40,7 @@ from games.models import (
     OrderGameClient,
     OrderGameReview,
     BugReport,
+    BugReportMessage,
     PendingAlphabettyDictSuggestion,
     PendingAttempt,
     PendingBugReport,
@@ -1020,6 +1021,14 @@ class PendingAlphabettyDictSuggestionAdmin(AlphabettyDictSuggestionAdminBase):
         return qs.filter(status=AlphabettyDictSuggestion.STATUS_PENDING)
 
 
+class BugReportMessageInline(admin.TabularInline):
+    model = BugReportMessage
+    extra = 1
+    fields = ['author_role', 'author_user', 'text', 'created_at']
+    readonly_fields = ['created_at']
+    raw_id_fields = ['author_user']
+
+
 class BugReportAdminBase(admin.ModelAdmin):
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 4, 'cols': 60})},
@@ -1043,10 +1052,24 @@ class BugReportAdminBase(admin.ModelAdmin):
     list_filter = ['status']
     search_fields = ['text', 'task__number', 'game__id', 'game__name']
     actions = [mark_bug_report_reviewed, mark_bug_report_dismissed]
+    inlines = [BugReportMessageInline]
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.select_related('task', 'task__task_group', 'game', 'game__project', 'team', 'user')
+
+    def save_formset(self, request, form, formset, change):
+        instances = formset.save(commit=False)
+        for obj in instances:
+            if isinstance(obj, BugReportMessage) and not obj.pk:
+                if not obj.author_user_id:
+                    obj.author_user = request.user
+                if not obj.author_role:
+                    obj.author_role = BugReportMessage.ROLE_ADMIN
+            obj.save()
+        for obj in formset.deleted_objects:
+            obj.delete()
+        formset.save_m2m()
 
     def context_links(self, obj):
         from django.utils.html import format_html, format_html_join
@@ -1071,6 +1094,7 @@ class BugReportAdminBase(admin.ModelAdmin):
                 rows.append(('TaskGroup в админке', task_group_admin_url(obj.task.task_group)))
         if obj.page_url:
             rows.append(('page_url', obj.page_url))
+        rows.append(('Тред пользователя', '/profile/reports/{}/'.format(obj.pk)))
         if not rows:
             return '—'
         return format_html(

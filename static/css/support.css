@@ -378,6 +378,23 @@
   line-height: 1.3;
 }
 
+.support-bug-reply {
+  margin-top: 0.45rem;
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.support-bug-reply textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  resize: vertical;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
 .support-state-pre {
   margin: 0;
   padding: 0.65rem 0.75rem;

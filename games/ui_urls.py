@@ -31,6 +31,8 @@ urlpatterns = [
     re_path(r'^' + _PROJECT_ID_RE + r'/kick_out_user/(?P<user_id>\d+)/$', kick_out_user),
 
     # Profile & team under project prefix (same handlers as root /profile/, /team/...).
+    re_path(r'^' + _PROJECT_ID_RE + r'/profile/reports/(?P<report_id>\d+)/$', ui.profile_report_detail, name='project_profile_report_detail'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/profile/reports/$', ui.profile_reports, name='project_profile_reports'),
     re_path(r'^' + _PROJECT_ID_RE + r'/profile/$', ui.profile, name='project_profile'),
     re_path(r'^' + _PROJECT_ID_RE + r'/team/$', ui.team, name='project_team'),
     re_path(r'^' + _PROJECT_ID_RE + r'/team/create/$', ui.team_create, name='project_team_create'),
@@ -120,6 +122,8 @@ urlpatterns = [
     path('team/rename/', ui.team_rename, name='ui_team_rename'),
     path('profile/merge/', ui.account_merge_confirm, name='ui_account_merge_confirm'),
     path('profile/disconnect/', ui.social_account_disconnect, name='ui_social_account_disconnect'),
+    path('profile/reports/<int:report_id>/', ui.profile_report_detail, name='ui_profile_report_detail'),
+    path('profile/reports/', ui.profile_reports, name='ui_profile_reports'),
     path('profile/', ui.profile, name='ui_profile'),
     path('team/', ui.team, name='ui_team'),
     path('pay/', ui.pay_page, name='ui_pay'),

@@ -41,7 +41,7 @@
     <p class="new-login-hint new-bug-report-lead">Задание <strong id="new-bug-report-task-label"></strong>. Опишите, что не так: опечатка, баг в проверке, непонятная формулировка и т.п.</p>
     <textarea id="new-bug-report-text" class="new-bug-report-textarea" rows="5" maxlength="5000" placeholder="Что именно пошло не так?"></textarea>
     <p id="new-bug-report-error" class="new-bug-report-error" hidden></p>
-    <p id="new-bug-report-success" class="new-bug-report-success" hidden>Спасибо! Репорт отправлен.</p>
+    <p id="new-bug-report-success" class="new-bug-report-success" hidden>Спасибо! Репорт отправлен. <a id="new-bug-report-success-link" href="{{ ui_project_reports_url|default:'/profile/reports/' }}">Мои обращения</a></p>
     <div class="new-rules-modal__actions">
       <button type="button" class="new-btn" data-bug-report-submit>Отправить</button>
       <button type="button" class="new-btn new-btn--text" data-bug-report-close>Отмена</button>
@@ -1258,10 +1258,11 @@
       }
       if (submitBtn) submitBtn.disabled = true;
       if (errorEl) errorEl.hidden = true;
-      postBugReport().then(function () {
+      postBugReport().then(function (data) {
+        var link = document.getElementById('new-bug-report-success-link');
+        if (link && data && data.report_url) link.setAttribute('href', data.report_url);
         if (successEl) successEl.hidden = false;
         if (submitBtn) submitBtn.disabled = true;
-        window.setTimeout(closeBugReport, 1400);
       }).catch(function (err) {
         if (submitBtn) submitBtn.disabled = false;
         if (errorEl) {

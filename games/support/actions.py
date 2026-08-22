@@ -18,7 +18,7 @@ from games.support.services.chain import is_chain_task
 
 ATTEMPT_ACTIONS = frozenset({'recheck', 'set_ok', 'confirm_prestatus', 'chain_replay'})
 TICKET_ACTIONS = frozenset({'ticket_accept', 'ticket_reject'})
-BUG_ACTIONS = frozenset({'bug_reviewed', 'bug_dismissed'})
+BUG_ACTIONS = frozenset({'bug_reviewed', 'bug_dismissed', 'bug_reply'})
 
 
 def _safe_next_url(request, default='/support/pending/'):
@@ -50,8 +50,12 @@ def perform_action(request):
             _perform_ticket_action(obj_id, action)
             messages.success(request, 'Билет #{}: {}'.format(obj_id, action))
         elif kind == 'bug' and action in BUG_ACTIONS:
-            _perform_bug_action(obj_id, action)
-            messages.success(request, 'Баг #{}: {}'.format(obj_id, action))
+            reply_text = (request.POST.get('reply_text') or '').strip()
+            _perform_bug_action(obj_id, action, reply_text=reply_text, admin_user=request.user)
+            if action == 'bug_reply':
+                messages.success(request, 'Баг #{}: ответ отправлен'.format(obj_id))
+            else:
+                messages.success(request, 'Баг #{}: {}'.format(obj_id, action))
         else:
             raise PermissionDenied('Неизвестное действие')
     except (Attempt.DoesNotExist, TicketRequest.DoesNotExist, BugReport.DoesNotExist):
@@ -106,10 +110,25 @@ def _perform_ticket_action(ticket_id: int, action: str) -> None:
     raise PermissionDenied('Неизвестное действие')
 
 
-def _perform_bug_action(bug_id: int, action: str) -> None:
+def _perform_bug_action(bug_id: int, action: str, *, reply_text: str = '', admin_user=None) -> None:
+    if action == 'bug_reply':
+        bug = BugReport.objects.filter(pk=bug_id).first()
+        if bug is None:
+            raise BugReport.DoesNotExist
+        if not reply_text:
+            raise PermissionDenied('Введите текст ответа.')
+        from games.feedback import add_admin_reply
+
+        add_admin_reply(bug, admin_user, reply_text)
+        return
+
     bug = BugReport.objects.filter(pk=bug_id, status='Pending').first()
     if bug is None:
         raise BugReport.DoesNotExist
+    if reply_text:
+        from games.feedback import add_admin_reply
+
+        add_admin_reply(bug, admin_user, reply_text)
     if action == 'bug_reviewed':
         bug.status = 'Reviewed'
         bug.save(update_fields=['status'])

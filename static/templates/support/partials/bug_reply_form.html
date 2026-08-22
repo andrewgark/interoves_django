@@ -1,0 +1,16 @@
+<form class="support-bug-reply" method="post" action="{% url 'support:action' %}">
+  {% csrf_token %}
+  <input type="hidden" name="kind" value="bug">
+  <input type="hidden" name="id" value="{{ object_id }}">
+  <input type="hidden" name="action" value="bug_reply">
+  <input type="hidden" name="next" value="{{ next_url }}">
+  <label class="support-bug-reply__label">
+    <textarea name="reply_text" rows="2" maxlength="5000" aria-label="Ответ пользователю" placeholder="Ответ пользователю (виден на сайте)"></textarea>
+  </label>
+  <div class="support-action-row">
+    <button type="submit" class="new-btn new-btn--mini">Ответить</button>
+    {% if thread_url %}
+      <a class="new-btn new-btn--mini new-btn--ghost" href="{{ thread_url }}" target="_blank" rel="noopener">Тред</a>
+    {% endif %}
+  </div>
+</form>

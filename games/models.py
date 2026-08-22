@@ -1985,6 +1985,21 @@ class Donation(models.Model):
 
 
 class BugReport(models.Model):
+    STATUS_PENDING = 'Pending'
+    STATUS_REVIEWED = 'Reviewed'
+    STATUS_DISMISSED = 'Dismissed'
+    BUG_REPORT_STATUS_VARIANTS = (
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_REVIEWED, 'Reviewed'),
+        (STATUS_DISMISSED, 'Dismissed'),
+    )
+    STATUS_LABELS_RU = {
+        STATUS_PENDING: 'На рассмотрении',
+        STATUS_REVIEWED: 'Просмотрен',
+        STATUS_DISMISSED: 'Отклонён',
+    }
+    USER_REPLY_STATUSES = (STATUS_PENDING, STATUS_REVIEWED)
+
     id = models.AutoField(primary_key=True)
     task = models.ForeignKey(Task, related_name='bug_reports', on_delete=models.CASCADE)
     game = models.ForeignKey(Game, related_name='bug_reports', on_delete=models.CASCADE)
@@ -1995,14 +2010,9 @@ class BugReport(models.Model):
     page_url = models.CharField(max_length=500, blank=True, default='')
     time = models.DateTimeField(auto_now_add=True, blank=True)
 
-    BUG_REPORT_STATUS_VARIANTS = (
-        ('Pending', 'Pending'),
-        ('Reviewed', 'Reviewed'),
-        ('Dismissed', 'Dismissed'),
-    )
-
-    status = models.CharField(default='Pending', max_length=100, choices=BUG_REPORT_STATUS_VARIANTS)
+    status = models.CharField(default=STATUS_PENDING, max_length=100, choices=BUG_REPORT_STATUS_VARIANTS)
     admin_notes = models.TextField(blank=True, default='')
+    user_last_read_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         ordering = ['-time']
@@ -2014,6 +2024,50 @@ class BugReport(models.Model):
             self.status,
             self.task,
             excerpt,
+        )
+
+    def status_label_ru(self):
+        return self.STATUS_LABELS_RU.get(self.status, self.status)
+
+    def user_can_reply(self):
+        return self.status in self.USER_REPLY_STATUSES
+
+
+class BugReportMessage(models.Model):
+    ROLE_USER = 'user'
+    ROLE_ADMIN = 'admin'
+    ROLE_CHOICES = (
+        (ROLE_USER, 'User'),
+        (ROLE_ADMIN, 'Admin'),
+    )
+
+    id = models.AutoField(primary_key=True)
+    report = models.ForeignKey(BugReport, related_name='messages', on_delete=models.CASCADE)
+    author_user = models.ForeignKey(
+        'auth.User',
+        related_name='bug_report_messages',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    author_role = models.CharField(max_length=16, choices=ROLE_CHOICES)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    telegram_message_id = models.BigIntegerField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+    def __str__(self):
+        excerpt = self.text.replace('\n', ' ')[:60]
+        return '#{} {} — {}'.format(self.report_id, self.author_role, excerpt)
+
+    def is_opening(self):
+        return not (
+            BugReportMessage.objects
+            .filter(report_id=self.report_id)
+            .exclude(pk=self.pk)
+            .exists()
         )
 
 

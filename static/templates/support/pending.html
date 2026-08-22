@@ -41,6 +41,9 @@
                     {% include "support/partials/action_form.html" with kind=item.kind object_id=item.object_id action=action next_url=request.get_full_path %}
                   {% endfor %}
                 </div>
+                {% if item.kind == 'bug' %}
+                  {% include "support/partials/bug_reply_form.html" with object_id=item.object_id next_url=request.get_full_path thread_url=item.thread_url %}
+                {% endif %}
               </td>
             </tr>
             {% if item.kind == 'attempt' %}
