@@ -1,7 +1,33 @@
-(function () {
+/**
+ * Word salad grid selection.
+ * Local check: node static/js/new_word_salad.test.js
+ */
+(function (global) {
   'use strict';
 
   var activeDragRoot = null;
+
+  function cellsAreAdjacent(left, right) {
+    var rowA = Math.floor(left / 4);
+    var colA = left % 4;
+    var rowB = Math.floor(right / 4);
+    var colB = right % 4;
+    return Math.max(Math.abs(rowA - rowB), Math.abs(colA - colB)) <= 1;
+  }
+
+  // Repeat events on the current cell must not toggle it off: pointermove/enter
+  // fire continuously while the pointer is held on the first letter.
+  function nextWordSaladPath(path, index) {
+    path = path || [];
+    if (index < 0) return path;
+    var existing = path.indexOf(index);
+    if (existing >= 0) {
+      if (existing === path.length - 1) return path;
+      return path.slice(0, existing + 1);
+    }
+    if (path.length && !cellsAreAdjacent(path[path.length - 1], index)) return path;
+    return path.concat([index]);
+  }
 
   function normalizeWord(value) {
     return String(value || '')
@@ -131,14 +157,6 @@
         return parseInt(wordRow && wordRow.getAttribute('data-word-length'), 10) || 0;
       }
 
-      function isAdjacent(left, right) {
-        var rowA = Math.floor(left / 4);
-        var colA = left % 4;
-        var rowB = Math.floor(right / 4);
-        var colB = right % 4;
-        return Math.max(Math.abs(rowA - rowB), Math.abs(colA - colB)) <= 1;
-      }
-
       function selectedWord(path) {
         return (path || currentPath).map(function (index) {
           var cell = cellByIndex[index];
@@ -219,21 +237,10 @@
       function appendCell(cell) {
         if (!cell.classList.contains('is-active')) return;
         var index = cellIndex(cell);
-        if (index < 0) return;
-        var existing = currentPath.indexOf(index);
-        if (existing >= 0) {
-          if (currentPath.length === 1) {
-            clearSelection();
-            return;
-          }
-          currentPath = currentPath.slice(0, existing + 1);
-          attemptedPaths = {};
-          renderSelection();
-          if (activeDragRoot === root) maybeCheck();
-          return;
-        }
-        if (currentPath.length && !isAdjacent(currentPath[currentPath.length - 1], index)) return;
-        currentPath.push(index);
+        var next = nextWordSaladPath(currentPath, index);
+        if (next === currentPath) return;
+        if (next.length < currentPath.length) attemptedPaths = {};
+        currentPath = next;
         renderSelection();
         if (activeDragRoot === root) maybeCheck();
       }
@@ -366,7 +373,7 @@
           var nextUsed = Object.assign({}, used);
           nextUsed[index] = true;
           for (var next = 0; next < 16; next += 1) {
-            if (isAdjacent(index, next) && next !== index && visit(next, position + 1, nextUsed)) return true;
+            if (cellsAreAdjacent(index, next) && next !== index && visit(next, position + 1, nextUsed)) return true;
           }
           return false;
         }
@@ -508,46 +515,55 @@
   }
 
   function cellFromPoint(x, y) {
-    var el = document.elementFromPoint(x, y);
+    var el = global.document && global.document.elementFromPoint(x, y);
     if (!el || !el.closest) return null;
     return el.closest('[data-word-salad-cell]');
   }
 
-  document.addEventListener('pointermove', function (event) {
-    if (!activeDragRoot) return;
-    if (event.cancelable) event.preventDefault();
-    var cell = cellFromPoint(event.clientX, event.clientY);
-    if (!cell || !activeDragRoot.contains(cell)) return;
-    if (typeof activeDragRoot.__appendWordSaladCell === 'function') {
-      activeDragRoot.__appendWordSaladCell(cell);
-    }
-  }, { capture: true, passive: false });
+  function bindDocumentListeners(doc) {
+    doc.addEventListener('pointermove', function (event) {
+      if (!activeDragRoot) return;
+      if (event.cancelable) event.preventDefault();
+      var cell = cellFromPoint(event.clientX, event.clientY);
+      if (!cell || !activeDragRoot.contains(cell)) return;
+      if (typeof activeDragRoot.__appendWordSaladCell === 'function') {
+        activeDragRoot.__appendWordSaladCell(cell);
+      }
+    }, { capture: true, passive: false });
 
-  document.addEventListener('touchmove', function (event) {
-    if (!activeDragRoot) return;
-    if (event.cancelable) event.preventDefault();
-  }, { capture: true, passive: false });
+    doc.addEventListener('touchmove', function (event) {
+      if (!activeDragRoot) return;
+      if (event.cancelable) event.preventDefault();
+    }, { capture: true, passive: false });
 
-  document.addEventListener('pointerup', function () {
-    var root = activeDragRoot;
-    activeDragRoot = null;
-    if (root && root.isConnected && typeof root.__finishWordSaladPath === 'function') {
-      root.__finishWordSaladPath();
-    }
-  }, true);
+    doc.addEventListener('pointerup', function () {
+      var root = activeDragRoot;
+      activeDragRoot = null;
+      if (root && root.isConnected && typeof root.__finishWordSaladPath === 'function') {
+        root.__finishWordSaladPath();
+      }
+    }, true);
 
-  document.addEventListener('pointercancel', function () { activeDragRoot = null; }, true);
+    doc.addEventListener('pointercancel', function () { activeDragRoot = null; }, true);
 
-  document.addEventListener('click', function (event) {
-    var button = event.target && event.target.closest
-      ? event.target.closest('.support-preview-readonly .new-word-salad__hint-btn')
-      : null;
-    if (!button) return;
-    event.preventDefault();
-    var root = button.closest('[data-word-salad-root]');
-    if (root && typeof root.__revealWordSaladHint === 'function') root.__revealWordSaladHint(button);
-  }, true);
+    doc.addEventListener('click', function (event) {
+      var button = event.target && event.target.closest
+        ? event.target.closest('.support-preview-readonly .new-word-salad__hint-btn')
+        : null;
+      if (!button) return;
+      event.preventDefault();
+      var root = button.closest('[data-word-salad-root]');
+      if (root && typeof root.__revealWordSaladHint === 'function') root.__revealWordSaladHint(button);
+    }, true);
+  }
 
-  window.initWordSalad = initWordSalad;
-  initWordSalad(document);
-})();
+  global.WordSaladPath = {
+    cellsAreAdjacent: cellsAreAdjacent,
+    nextPath: nextWordSaladPath
+  };
+  global.initWordSalad = initWordSalad;
+  if (global.document) {
+    bindDocumentListeners(global.document);
+    initWordSalad(global.document);
+  }
+})(typeof window !== 'undefined' ? window : globalThis);
