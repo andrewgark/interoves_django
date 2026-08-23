@@ -15,11 +15,18 @@
     return Math.max(Math.abs(rowA - rowB), Math.abs(colA - colB)) <= 1;
   }
 
+  function cellIsSelectable(isActive, index) {
+    if (typeof isActive === 'function') return !!isActive(index);
+    if (isActive && typeof isActive === 'object') return !!isActive[index];
+    return true;
+  }
+
   // Repeat events on the current cell must not toggle it off: pointermove/enter
   // fire continuously while the pointer is held on the first letter.
-  function nextWordSaladPath(path, index) {
+  function nextWordSaladPath(path, index, isActive) {
     path = path || [];
     if (index < 0) return path;
+    if (!cellIsSelectable(isActive, index)) return path;
     var existing = path.indexOf(index);
     if (existing >= 0) {
       if (existing === path.length - 1) return path;
@@ -27,6 +34,28 @@
     }
     if (path.length && !cellsAreAdjacent(path[path.length - 1], index)) return path;
     return path.concat([index]);
+  }
+
+  function startWordSaladPress(path, index, isActive) {
+    path = path || [];
+    if (!cellIsSelectable(isActive, index)) {
+      return { path: path, clearOnRelease: false };
+    }
+    if (path.length === 1 && path[0] === index) {
+      return { path: path, clearOnRelease: true };
+    }
+    return { path: nextWordSaladPath(path, index, isActive), clearOnRelease: false };
+  }
+
+  function moveWordSaladPress(path, index, clearOnRelease, isActive) {
+    var next = nextWordSaladPath(path, index, isActive);
+    if (next === path) return { path: path, clearOnRelease: !!clearOnRelease };
+    return { path: next, clearOnRelease: false };
+  }
+
+  function endWordSaladPress(path, clearOnRelease) {
+    if (clearOnRelease && path && path.length === 1) return [];
+    return path || [];
   }
 
   function normalizeWord(value) {
@@ -63,9 +92,35 @@
     });
   }
 
+  var TOAST_HOLD_MS = 1000;
+  var TOAST_FADE_MS = 1000;
+  var TOAST_CLICK_FADE_MS = 100;
+
+  function clearToastTimers(toast) {
+    if (!toast) return;
+    window.clearTimeout(toast._toastHoldTimer);
+    window.clearTimeout(toast._toastHideTimer);
+    toast._toastHoldTimer = 0;
+    toast._toastHideTimer = 0;
+  }
+
+  function fadeToast(toast, durationMs) {
+    if (!toast || !toast.isConnected) return;
+    var fast = durationMs <= TOAST_CLICK_FADE_MS;
+    if (toast.classList.contains('is-out-fast')) return;
+    clearToastTimers(toast);
+    toast.classList.remove('is-in');
+    toast.classList.add('is-out');
+    if (fast) toast.classList.add('is-out-fast');
+    toast._toastHideTimer = window.setTimeout(function () {
+      toast.remove();
+    }, durationMs);
+  }
+
   function showSolvedToast(root, word) {
     if (!word) return;
     Array.prototype.forEach.call(document.querySelectorAll('.new-word-salad__toast'), function (el) {
+      clearToastTimers(el);
       el.remove();
     });
     var toast = document.createElement('div');
@@ -75,14 +130,17 @@
       '<span class="new-word-salad__toast-mark" aria-hidden="true"><i class="ph ph-check-circle"></i></span>' +
       '<span class="new-word-salad__toast-word">' + escapeHtml(word) + '</span>' +
       '<span class="new-word-salad__toast-ok">Верно!</span>';
+    toast.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      fadeToast(toast, TOAST_CLICK_FADE_MS);
+    });
     document.body.appendChild(toast);
     toast.offsetWidth;
     toast.classList.add('is-in');
-    window.setTimeout(function () {
-      toast.classList.remove('is-in');
-      toast.classList.add('is-out');
-      window.setTimeout(function () { toast.remove(); }, 320);
-    }, 2400);
+    toast._toastHoldTimer = window.setTimeout(function () {
+      fadeToast(toast, TOAST_FADE_MS);
+    }, TOAST_HOLD_MS);
   }
 
   function maskedAnswer(answer, revealCount) {
@@ -126,6 +184,7 @@
       var attemptedPaths = {};
       var busy = false;
       var lastRejectedPathKey = '';
+      var clearSingleOnRelease = false;
       var cells = Array.prototype.slice.call(root.querySelectorAll('[data-word-salad-cell]'));
       var cellByIndex = {};
       var currentEl = root.querySelector('[data-word-salad-current]');
@@ -157,10 +216,16 @@
         return parseInt(wordRow && wordRow.getAttribute('data-word-length'), 10) || 0;
       }
 
+      function isActiveIndex(index) {
+        var cell = cellByIndex[index];
+        return !!(cell && cell.classList.contains('is-active'));
+      }
+
       function selectedWord(path) {
         return (path || currentPath).map(function (index) {
           var cell = cellByIndex[index];
-          return cell ? (cell.getAttribute('data-letter') || '').trim() : '';
+          if (!cell || !cell.classList.contains('is-active')) return '';
+          return (cell.getAttribute('data-letter') || '').trim();
         }).join('');
       }
 
@@ -170,7 +235,7 @@
         if (!gridRect.width || !gridRect.height) return;
         var points = currentPath.map(function (index) {
           var cell = cellByIndex[index];
-          if (!cell) return null;
+          if (!cell || !cell.classList.contains('is-active')) return null;
           var rect = cell.getBoundingClientRect();
           return [
             rect.left - gridRect.left + rect.width / 2,
@@ -217,7 +282,7 @@
         });
         currentPath.forEach(function (index) {
           var cell = cellByIndex[index];
-          if (!cell) return;
+          if (!cell || !cell.classList.contains('is-active')) return;
           cell.classList.add('is-selected');
           cell.setAttribute('aria-pressed', 'true');
         });
@@ -231,18 +296,42 @@
         currentPath = [];
         attemptedPaths = {};
         lastRejectedPathKey = '';
+        clearSingleOnRelease = false;
         renderSelection();
       }
 
-      function appendCell(cell) {
-        if (!cell.classList.contains('is-active')) return;
-        var index = cellIndex(cell);
-        var next = nextWordSaladPath(currentPath, index);
-        if (next === currentPath) return;
+      function applyPath(next, nextClearOnRelease) {
+        var changed = next !== currentPath;
+        clearSingleOnRelease = !!nextClearOnRelease;
+        if (!changed) return;
         if (next.length < currentPath.length) attemptedPaths = {};
         currentPath = next;
         renderSelection();
         if (activeDragRoot === root) maybeCheck();
+      }
+
+      function appendCell(cell) {
+        if (!cell.classList.contains('is-active')) return;
+        var moved = moveWordSaladPress(
+          currentPath,
+          cellIndex(cell),
+          clearSingleOnRelease,
+          isActiveIndex
+        );
+        applyPath(moved.path, moved.clearOnRelease);
+      }
+
+      function finishPress() {
+        var next = endWordSaladPress(currentPath, clearSingleOnRelease);
+        clearSingleOnRelease = false;
+        if (next !== currentPath) {
+          currentPath = next;
+          attemptedPaths = {};
+          lastRejectedPathKey = '';
+          renderSelection();
+          return;
+        }
+        maybeCheck();
       }
 
       function wordRows(selector) {
@@ -483,9 +572,11 @@
         var index = cellIndex(cell);
         if (index >= 0) cellByIndex[index] = cell;
         cell.addEventListener('pointerdown', function (event) {
+          if (!cell.classList.contains('is-active')) return;
           event.preventDefault();
           activeDragRoot = root;
-          appendCell(cell);
+          var started = startWordSaladPress(currentPath, cellIndex(cell), isActiveIndex);
+          applyPath(started.path, started.clearOnRelease);
         }, { passive: false });
         cell.addEventListener('pointerenter', function () {
           if (activeDragRoot === root) appendCell(cell);
@@ -493,7 +584,8 @@
       });
 
       root.__appendWordSaladCell = appendCell;
-      root.__finishWordSaladPath = maybeCheck;
+      root.__finishWordSaladPath = finishPress;
+      root.__cancelWordSaladPress = function () { clearSingleOnRelease = false; };
       root.__revealWordSaladHint = function (button) {
         var wordRow = button.closest('.new-word-salad__word');
         if (!wordRow || wordRow.classList.contains('is-solved')) return;
@@ -517,7 +609,9 @@
   function cellFromPoint(x, y) {
     var el = global.document && global.document.elementFromPoint(x, y);
     if (!el || !el.closest) return null;
-    return el.closest('[data-word-salad-cell]');
+    var cell = el.closest('[data-word-salad-cell]');
+    if (!cell || !cell.classList.contains('is-active')) return null;
+    return cell;
   }
 
   function bindDocumentListeners(doc) {
@@ -544,7 +638,12 @@
       }
     }, true);
 
-    doc.addEventListener('pointercancel', function () { activeDragRoot = null; }, true);
+    doc.addEventListener('pointercancel', function () {
+      if (activeDragRoot && typeof activeDragRoot.__cancelWordSaladPress === 'function') {
+        activeDragRoot.__cancelWordSaladPress();
+      }
+      activeDragRoot = null;
+    }, true);
 
     doc.addEventListener('click', function (event) {
       var button = event.target && event.target.closest
@@ -559,7 +658,10 @@
 
   global.WordSaladPath = {
     cellsAreAdjacent: cellsAreAdjacent,
-    nextPath: nextWordSaladPath
+    nextPath: nextWordSaladPath,
+    startPress: startWordSaladPress,
+    movePress: moveWordSaladPress,
+    endPress: endWordSaladPress
   };
   global.initWordSalad = initWordSalad;
   if (global.document) {

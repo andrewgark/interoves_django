@@ -217,6 +217,33 @@ class RenderNewUiTaskCardTests(TestCase):
         html = render_to_string('task-content/task-raddle.html', context)
         self.assertIn('new-raddle-result', html)
 
+    def test_word_salad_result_share_is_limited_to_salad_game(self):
+        request = RequestFactory().get('/')
+        ws = {
+            'is_complete': True,
+            'result_squares': '🟩1️⃣🟩',
+            'grid_rows': [],
+            'words': [],
+        }
+        task = SimpleNamespace(id=23, text='', task_type='word_salad')
+        context = {
+            'request': request,
+            'task': task,
+            'ws': ws,
+            'game': SimpleNamespace(id='word_salad_test', name='Салат', outside_name='Салат'),
+            'tg_number': '23',
+            'tg_name': 'Салат #23',
+        }
+        html = render_to_string('task-content/task-word-salad.html', context)
+        self.assertNotIn('new-raddle-result', html)
+
+        context['game'] = SimpleNamespace(id='salad', name='Салат', outside_name='Салат')
+        html = render_to_string('task-content/task-word-salad.html', context)
+        self.assertIn('new-raddle-result', html)
+        self.assertIn('🥗 Салат #23', html)
+        self.assertIn('🟩1️⃣🟩', html)
+        self.assertIn('/salad/23', html)
+
     def test_render_word_salad_includes_grid_and_words(self):
         request = RequestFactory().get('/')
         request.user = AnonymousUser()

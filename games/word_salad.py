@@ -10,6 +10,9 @@ _TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат\s*#\s*\d+$', re.I
 WORD_SALAD_GAME_ID = 'salad'
 WORD_POINTS = Decimal('1')
 HINT_PENALTY = Decimal('0.5')
+NO_HINT_SQUARE = '🟩'
+OVERFLOW_HINT_SQUARE = '*️⃣'
+_HINT_KEYCAPS = ('1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟')
 
 
 def normalize_word(value):
@@ -118,6 +121,38 @@ def score_for_state(raw_state):
     return max(Decimal('0'), WORD_POINTS * solved - HINT_PENALTY * hints)
 
 
+def result_square_for_hint_count(count):
+    """🟩 if the word was solved without hints; otherwise a keycap for the hint count."""
+    try:
+        n = int(count or 0)
+    except (TypeError, ValueError):
+        n = 0
+    if n <= 0:
+        return NO_HINT_SQUARE
+    if n > 10:
+        return OVERFLOW_HINT_SQUARE
+    return _HINT_KEYCAPS[n - 1]
+
+
+def words_in_display_order(words):
+    return sorted(enumerate(words), key=lambda item: (normalize_word(item[1]), item[0]))
+
+
+def result_squares_for_state(words, state):
+    """Share squares in answer-list (alphabetical) order; empty until the salad is complete."""
+    if not words:
+        return ''
+    state = load_state(state)
+    solved = set(state.get('solved_indices') or [])
+    if len(solved) < len(words):
+        return ''
+    hint_counts = state.get('hint_counts') or {}
+    return ''.join(
+        result_square_for_hint_count(hint_counts.get(index, 0))
+        for index, _word in words_in_display_order(words)
+    )
+
+
 def result_points_from_attempts(attempts):
     if not attempts:
         return Decimal('0')
@@ -139,7 +174,7 @@ def hint_numbers_from_attempts(attempts):
     display_numbers = {
         original_index: display_index
         for display_index, (original_index, _word) in enumerate(
-            sorted(enumerate(words), key=lambda item: (normalize_word(item[1]), item[0])),
+            words_in_display_order(words),
             start=1,
         )
     }
@@ -321,10 +356,7 @@ def build_ui_context(grid, words, state=None):
         grid_rows.append(row)
 
     words_ui = []
-    for index, word in sorted(
-        enumerate(words),
-        key=lambda item: (normalize_word(item[1]), item[0]),
-    ):
+    for index, word in words_in_display_order(words):
         normalized = normalize_word(word)
         hint_count = min(len(normalized), int(hint_counts.get(index, 0) or 0))
         mask = word if index in solved else mask_for_word(word, reveal_count=hint_count)
@@ -353,4 +385,5 @@ def build_ui_context(grid, words, state=None):
         'active': sorted(active),
         'is_complete': len(solved) == len(words),
         'words_total': len(words),
+        'result_squares': result_squares_for_state(words, state),
     }

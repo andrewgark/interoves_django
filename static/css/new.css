@@ -8061,6 +8061,10 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   gap: 1rem;
 }
 
+.new-word-salad > .new-raddle-result {
+  margin-top: 0;
+}
+
 .new-word-salad__intro {
   padding: 0.25rem 1rem;
   color: var(--text);
@@ -8103,7 +8107,6 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 
 .new-word-salad__row {
   position: relative;
-  z-index: 1;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.35rem;
@@ -8153,8 +8156,12 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 }
 
 .new-word-salad__cell:not(.is-active) {
-  background: color-mix(in srgb, var(--tile) 35%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 45%, transparent);
+  position: relative;
+  z-index: 4;
+  pointer-events: none;
+  background: var(--surface);
+  box-shadow: none;
+  color: transparent;
 }
 
 .new-word-salad__path {
@@ -8396,7 +8403,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
     0 0.35rem 0.2rem color-mix(in srgb, var(--surface) 70%, transparent),
     0 1.2rem 2.8rem color-mix(in srgb, var(--accent) 28%, transparent);
   color: var(--accent-hover);
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
   transform: translate(-50%, -50%) scale(0.88);
   opacity: 0;
   transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1);
@@ -8413,7 +8422,13 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 .new-word-salad__toast.is-out {
   opacity: 0;
   transform: translate(-50%, -50%) scale(0.96);
-  transition-duration: 0.24s;
+  transition-duration: 1s;
+  transition-timing-function: ease;
+}
+
+.new-word-salad__toast.is-out-fast {
+  pointer-events: none;
+  transition-duration: 0.1s;
 }
 
 .new-word-salad__toast-mark {
@@ -8436,14 +8451,13 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   color: var(--accent-hover);
   font-size: clamp(1.55rem, 5.5vw, 2.1rem);
   font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .new-word-salad__toast,
   .new-word-salad__toast.is-in,
-  .new-word-salad__toast.is-out {
+  .new-word-salad__toast.is-out,
+  .new-word-salad__toast.is-out-fast {
     transition: none;
   }
 }

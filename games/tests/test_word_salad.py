@@ -25,10 +25,13 @@ from games.views.attempt_views import check_attempt
 from games.views.hint_views import process_send_hint_attempt
 from games.views.new_ui import build_task_group_task_context_dicts, new_task_group_page
 from games.word_salad import (
+    OVERFLOW_HINT_SQUARE,
     archive_card_meta,
     build_ui_context,
     hint_numbers_from_attempts,
     mask_for_word,
+    result_square_for_hint_count,
+    result_squares_for_state,
     ru_count_label,
     score_for_state,
     serialize_task_data,
@@ -133,6 +136,29 @@ class WordSaladTests(TestCase):
             [word['normalized'] for word in context['words']],
             ['ABCD', 'IJK', 'PONM'],
         )
+        self.assertEqual(context['result_squares'], '')
+
+    def test_result_squares_use_keycaps_for_hints(self):
+        self.assertEqual(result_square_for_hint_count(0), '🟩')
+        self.assertEqual(result_square_for_hint_count(1), '1️⃣')
+        self.assertEqual(result_square_for_hint_count(10), '🔟')
+        self.assertEqual(result_square_for_hint_count(11), OVERFLOW_HINT_SQUARE)
+        words = ['PONM', 'ABCD', 'IJK']
+        self.assertEqual(result_squares_for_state(words, {'solved_indices': [0, 2]}), '')
+        squares = result_squares_for_state(
+            words,
+            {
+                'solved_indices': [0, 1, 2],
+                'hint_counts': {1: 0, 2: 3, 0: 12},
+            },
+        )
+        self.assertEqual(squares, '🟩3️⃣*️⃣')
+        context = build_ui_context(
+            _puzzle()['grid'],
+            words,
+            {'solved_indices': [0, 1, 2], 'hint_counts': {2: 1}},
+        )
+        self.assertEqual(context['result_squares'], '🟩1️⃣🟩')
 
     def test_admin_form_serializes_word_salad_fields(self):
         form = WordSaladTaskForm(
@@ -361,6 +387,7 @@ class WordSaladTests(TestCase):
         rendered_state = context['word_salad_data'][self.task.pk]
         self.assertTrue(rendered_state['is_complete'])
         self.assertEqual(rendered_state['active'], [])
+        self.assertEqual(rendered_state['result_squares'], '🟩')
         html = response.json()['update_task_html_new'][str(self.task.pk)]
         self.assertEqual(html.count('data-word-salad-letter></span>'), 16)
         self.assertNotIn('new-word-salad__hint-btn', html)
