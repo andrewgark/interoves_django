@@ -462,6 +462,7 @@ html.new-ui-dark body.new-ui {
 
 .new-hub-sections-grid > .new-hub-section--wide {
   grid-column: 1 / -1;
+  margin-bottom: 0; /* gap сетки, не margin у --wide (он для Десяточек вне грида) */
 }
 
 .new-hub-section {
