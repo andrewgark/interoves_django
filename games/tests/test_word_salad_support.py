@@ -61,7 +61,7 @@ class WordSaladSupportTests(TestCase):
                 words_text='ABCDEFGHIJKLMNOP',
             )
             self.assertEqual(updated['intro'], 'Тема: реки')
-            self.assertEqual(updated['name'], 'Салат #1')
+            self.assertEqual(updated['name'], 'Салатик #1')
             self.assertEqual(TaskGroup.objects.get(pk=updated['task_group_id']).label, 'salad:1')
             delete_word_salad(detail['link_id'])
         with self.assertRaises(WordSaladSupportError):
@@ -130,7 +130,7 @@ class WordSaladSupportTests(TestCase):
             [third['link_id'], second['link_id'], first['link_id']],
         )
         self.assertEqual([row.number for row in rows], [1, 2, 3])
-        self.assertEqual([row.name for row in rows], ['Салат #1', 'Салат #2', 'Салат #3'])
+        self.assertEqual([row.name for row in rows], ['Салатик #1', 'Салатик #2', 'Салатик #3'])
 
     def test_insert_and_delete_keep_numbers_contiguous(self):
         with patch('games.views.track.track_task_change'):
@@ -145,7 +145,7 @@ class WordSaladSupportTests(TestCase):
         rows = delete_word_salad(inserted['link_id'])
         self.assertEqual([row.number for row in rows], [1, 2])
         self.assertEqual([row.link_id for row in rows], [first['link_id'], second['link_id']])
-        self.assertEqual(GameTaskGroup.objects.get(pk=second['link_id']).name, 'Салат #2')
+        self.assertEqual(GameTaskGroup.objects.get(pk=second['link_id']).name, 'Салатик #2')
 
     def test_preview_task_group_renders_word_salad_grid(self):
         self.client.force_login(self.support_user)

@@ -29,14 +29,14 @@ class TaskTitlesTests(SimpleTestCase):
         )
 
     def test_word_salad_uses_numbered_edition_title(self):
-        game = SimpleNamespace(pk='salad', outside_name='Салат', name='Салат')
-        placement = SimpleNamespace(number='3', name='Салат #3')
+        game = SimpleNamespace(pk='salad', outside_name='Салатик', name='Салатик')
+        placement = SimpleNamespace(number='3', name='Салатик #3')
         task = SimpleNamespace(pk=9, task_group_id=4, number='1')
 
-        self.assertEqual(task_group_page_title(game, placement), 'Салат №3')
+        self.assertEqual(task_group_page_title(game, placement), 'Салатик №3')
         self.assertEqual(
             task_display_name(game, task, placement=placement),
-            'Салат №3',
+            'Салатик №3',
         )
 
     def test_regular_task_includes_group_and_task_numbers(self):

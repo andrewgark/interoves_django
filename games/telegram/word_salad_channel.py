@@ -124,7 +124,7 @@ def resolve_salad_by_number(number: int, now: datetime | None = None) -> TodaySa
 def build_caption(salad: TodaySalad) -> str:
     theme = (salad.task.text or '').strip()
     lines = [
-        '🥗 <b>Салат №{}</b>'.format(_escape(salad.number)),
+        '🥗 <b>Салатик №{}</b>'.format(_escape(salad.number)),
         '',
     ]
     if theme:
@@ -145,7 +145,7 @@ def preview_salad_to_admin(*, now: datetime | None = None) -> tuple[bool, str]:
 
     salad = resolve_today_salad(now)
     if salad is None:
-        return False, 'Нет опубликованного салата на сегодня'
+        return False, 'Нет опубликованного салатика на сегодня'
 
     try:
         image_png = render_word_salad_teaser_png(
@@ -166,7 +166,7 @@ def preview_salad_to_admin(*, now: datetime | None = None) -> tuple[bool, str]:
     )
     if result is None:
         return False, 'Не удалось отправить фото в admin-чат'
-    return True, 'Салат №{} → admin chat (message_id={})'.format(
+    return True, 'Салатик №{} → admin chat (message_id={})'.format(
         salad.number, result.get('message_id'),
     )
 
@@ -334,7 +334,7 @@ def schedule_salad_channel_post(
             if existing.telegram_status == SocialQueuePost.STATUS_SENT
             else 'в отложенные на 14:30 МСК'
         )
-        preview = 'Канал @interoves: салат №{} — {}\n\n{}'.format(
+        preview = 'Канал @interoves: салатик №{} — {}\n\n{}'.format(
             existing.ladder_number, when, caption,
         )
         try:

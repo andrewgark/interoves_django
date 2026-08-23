@@ -8,15 +8,7 @@
   <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label|default:"К списку" }}</a>
 </p>
 
-<div class="new-section-header">
-  <div>
-    <h1 class="new-heading new-heading--page">{{ page_title }}</h1>
-    {% if game.theme %}
-    <p class="new-login-hint new-theme-line">{{ game.theme }}</p>
-    {% endif %}
-  </div>
-  <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
-</div>
+{% include "new/partials/page_heading.html" with heading=page_title show_rules=True %}
 
 {% if daily_publish_date %}
 <p class="new-login-hint new-meta-line">{{ daily_publish_date|date:"j E Y" }}</p>

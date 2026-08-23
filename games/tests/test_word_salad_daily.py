@@ -19,6 +19,7 @@ from games.word_salad_daily import (
 )
 from games.word_salad_sheet import parse_word_salad_csv
 from games.word_salad import WORD_SALAD_GAME_ID, validate_puzzle
+from games.tests.test_page_heading import assert_rules_beside_title
 
 
 MOSCOW = ZoneInfo('Europe/Moscow')
@@ -141,8 +142,8 @@ class WordSaladSectionTests(TestCase):
     def test_game_exists_after_migration(self):
         game = Game.objects.filter(id=WORD_SALAD_GAME_ID, project_id='sections').first()
         self.assertIsNotNone(game)
-        self.assertEqual(game.name, 'Салат')
-        self.assertEqual(game.outside_name, 'Салат')
+        self.assertEqual(game.name, 'Салатик')
+        self.assertEqual(game.outside_name, 'Салатик')
         self.assertIsNotNone(word_salad_publish_start(game))
         self.assertEqual(
             word_salad_publish_start(game).date().isoformat(),
@@ -150,7 +151,7 @@ class WordSaladSectionTests(TestCase):
         )
         page = HTMLPage.objects.filter(name='section_tutorial_word_salad').first()
         self.assertIsNotNone(page)
-        self.assertIn('Салат', page.html)
+        self.assertIn('Салатик', page.html)
         self.assertIn('КОТ', page.html)
         self.assertIn('<strong>одной темы</strong>', page.html)
         self.assertIn('<strong>по алфавиту</strong>', page.html)
@@ -159,11 +160,11 @@ class WordSaladSectionTests(TestCase):
     def test_hub_meta_and_daily_order(self):
         self.assertEqual(HUB_DAILY_SECTION_IDS, ('ladder', WORD_SALAD_GAME_ID, 'alphabetty'))
         meta = SECTION_HUB_META[WORD_SALAD_GAME_ID]
-        self.assertEqual(meta['title'], 'Салаты')
+        self.assertEqual(meta['title'], 'Салатики')
         self.assertEqual(meta['ph_icon'], 'bowl-food')
         self.assertEqual(meta['format_credit_url'], 'https://wordsalad.online')
         self.assertEqual(meta['format_credit_name'], 'wordsalad.online')
-        self.assertEqual(meta['format_credit_text'], 'салатов')
+        self.assertEqual(meta['format_credit_text'], 'салатиков')
         self.assertTrue(SECTION_HUB_META['ladder'].get('wide'))
         self.assertFalse(bool(meta.get('wide')))
         self.assertEqual(section_hub_path(WORD_SALAD_GAME_ID), '/salad/')
@@ -187,9 +188,9 @@ class WordSaladSectionTests(TestCase):
         card = get_word_salad_section_hub_card(
             game, published_numbers={'1'}, now=now,
         )
-        self.assertEqual(card['title'], 'Салаты')
+        self.assertEqual(card['title'], 'Салатики')
         self.assertEqual(card['ph_icon'], 'bowl-food')
-        self.assertEqual(card['cta_label'], 'Сегодняшний салат')
+        self.assertEqual(card['cta_label'], 'Сегодняшний салатик')
         self.assertTrue(card['is_today'])
         self.assertEqual(card['play_url'], '/salad/last/')
 
@@ -205,7 +206,7 @@ class WordSaladSectionTests(TestCase):
             checker_data='{"grid":["A","B","C","D","H","G","F","E","I","J","K","L","P","O","N","M"],"words":["ABCDEFGHIJKLMNOP"]}',
             points=1,
         )
-        GameTaskGroup.objects.create(game=game, task_group=tg, number='999', name='Салат #999')
+        GameTaskGroup.objects.create(game=game, task_group=tg, number='999', name='Салатик #999')
         resp = self.client.get('/salad/999/')
         self.assertEqual(resp.status_code, 404)
 
@@ -221,14 +222,14 @@ class WordSaladSectionTests(TestCase):
             checker_data='{"grid":["A","B","C","D","H","G","F","E","I","J","K","L","P","O","N","M"],"words":["ABCDEFGHIJKLMNOP"]}',
             points=1,
         )
-        GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='Салат #1')
+        GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='Салатик #1')
         self._ensure_login_modal_deps()
         resp = self.client.get('/salad/1/')
         self.assertEqual(resp.status_code, 200)
         html = resp.content.decode('utf-8')
         self.assertIn('https://wordsalad.online', html)
         self.assertIn('wordsalad.online', html)
-        self.assertIn('мы благодарны им за идею салатов', html)
+        self.assertIn('мы благодарны им за идею салатиков', html)
 
     def test_play_page_includes_section_rules_modal(self):
         CheckerType.objects.get_or_create(pk='word_salad')
@@ -242,7 +243,7 @@ class WordSaladSectionTests(TestCase):
             checker_data='{"grid":["A","B","C","D","H","G","F","E","I","J","K","L","P","O","N","M"],"words":["ABCDEFGHIJKLMNOP"]}',
             points=1,
         )
-        GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='Салат #1')
+        GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='Салатик #1')
         self._ensure_login_modal_deps()
         resp = self.client.get('/salad/1/')
         self.assertEqual(resp.status_code, 200)
@@ -253,6 +254,11 @@ class WordSaladSectionTests(TestCase):
         self.assertIn('Дана сетка', html)
         self.assertIn('<strong>одной темы</strong>', html)
         self.assertIn('<strong>по алфавиту</strong>', html)
+        game.theme = 'Сетка 4×4: найдите все слова по соседним буквам.'
+        game.save(update_fields=['theme'])
+        resp = self.client.get('/salad/1/')
+        self.assertEqual(resp.status_code, 200)
+        assert_rules_beside_title(self, resp.content.decode('utf-8'))
 
     def test_section_tutorial_html_uses_default_rules_after_rename(self):
         from games.views.new_ui import _section_tutorial_html_for_game
@@ -288,11 +294,11 @@ class WordSaladSectionTests(TestCase):
             points=1,
         )
         link = GameTaskGroup.objects.create(
-            game=game, task_group=tg, number='1', name='Салат #1',
+            game=game, task_group=tg, number='1', name='Салатик #1',
         )
         link.n_tasks = 1
         rows = _ladder_task_group_rows(
-            [link], game, item_label='Салат',
+            [link], game, item_label='Салатик',
         )
         self.assertEqual(rows[0]['salad_meta'], 'Города России · 6 слов')
         html = render_to_string(
@@ -323,7 +329,7 @@ class WordSaladSectionTests(TestCase):
                 'task_group_rows': [{
                     'number': '1',
                     'play_url': '/salad/1/',
-                    'title': 'Салат №1',
+                    'title': 'Салатик №1',
                     'salad_meta': 'Города России · 6 слов',
                     'result_squares': '🟩2️⃣',
                     'elapsed_label': '3м 46с',
@@ -341,10 +347,10 @@ class WordSaladSectionTests(TestCase):
         resp = self.client.get('/')
         self.assertEqual(resp.status_code, 200)
         html = resp.content.decode('utf-8')
-        self.assertIn('Салаты', html)
+        self.assertIn('Салатики', html)
         self.assertIn('ph-bowl-food', html)
         self.assertIn('/salad/', html)
-        self.assertLess(html.find('Салат'), html.find('Алфавитка'))
+        self.assertLess(html.find('Салатик'), html.find('Алфавитка'))
         self.assertIn('new-hub-section--wide', html)
         self.assertIn(
             'Разгадайте цепочку связанных слов по перемешанным подсказкам-связкам',

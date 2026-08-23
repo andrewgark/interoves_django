@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Импорт салатов из Google Sheets в раздел «Салат» (game id ``word_salad``).
+Импорт салатиков из Google Sheets в раздел «Салатик» (game id ``word_salad``).
 
 Таблица: https://docs.google.com/spreadsheets/d/1oPpssEKL7ZLGiflAB6B0U3oYK2YITZKFLJzPFhiW9Ac/edit?gid=614962790
 
@@ -209,7 +209,7 @@ def main() -> int:
     parser.add_argument(
         "--publish-start",
         default=WORD_SALAD_DEFAULT_PUBLISH_START,
-        help="ISO datetime МСК для салата №1",
+        help="ISO datetime МСК для салатика №1",
     )
     parser.add_argument("--skip-publish-start", action="store_true")
     parser.add_argument("--sheet-url", default=SHEET_CSV_URL)

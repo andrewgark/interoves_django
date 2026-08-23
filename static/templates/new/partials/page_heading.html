@@ -1,0 +1,25 @@
+{# Shared page heading: title + optional eye/? sit on one row; tagline is a full-width row below. #}
+{# Optional with: heading, html_in_title, tagline, show_rules. Eye is hidden on daily single-task pages. #}
+<div class="new-section-header">
+  <h1 class="new-heading new-heading--page">
+    {% if heading %}
+      {% if html_in_title %}{% autoescape off %}{{ heading }}{% endautoescape %}{% else %}{{ heading }}{% endif %}
+    {% elif is_daily_single_task and page_title %}
+      {{ page_title }}
+    {% elif "html_in_title" in game.tags %}
+      {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
+    {% else %}
+      {{ game.get_outside_name|default:game.outside_name|default:game.name }}
+    {% endif %}
+  </h1>
+  {% if not is_daily_single_task %}
+  <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle><i class="ph ph-eye" aria-hidden="true"></i></button>
+  {% endif %}
+  {% if show_rules or section_task_groups_rules_html or section_tutorial_html or show_palindrome_rules or section_rules_type or task_group.rules.html %}
+  <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
+  {% endif %}
+  {% firstof tagline section_tagline game.theme as page_tagline %}
+  {% if page_tagline %}
+  <p class="new-login-hint new-theme-line">{{ page_tagline }}</p>
+  {% endif %}
+</div>

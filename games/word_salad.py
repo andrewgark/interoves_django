@@ -8,7 +8,7 @@ from games.share_result import elapsed_label_from_attempts
 
 
 WORD_RE = re.compile(r"[А-ЯЁA-Z]", re.IGNORECASE)
-_TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат\s*#\s*\d+$', re.IGNORECASE)
+_TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат(?:ик)?\s*#\s*\d+$', re.IGNORECASE)
 WORD_SALAD_GAME_ID = 'salad'
 WORD_POINTS = Decimal('1')
 HINT_PENALTY = Decimal('0.5')
@@ -165,7 +165,7 @@ def salad_hub_result_for_actor(
     game=None,
     include_other_games=False,
 ):
-    """Квадраты и время для списка салатов. Пусто, пока салат не собран целиком."""
+    """Квадраты и время для списка салатиков. Пусто, пока салатик не собран целиком."""
     from games.models import Attempt
 
     try:

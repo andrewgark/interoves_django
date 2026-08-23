@@ -4,10 +4,10 @@
 {% block support_content %}
 {% csrf_token %}
 {{ rows_json|json_script:"word-salad-bootstrap" }}
-<h1 class="support-page-title">Салат</h1>
+<h1 class="support-page-title">Салатик</h1>
 <p class="support-lead">
   Выпуски идут по публичным номерам. Перетаскивание меняет номер, но сохраняет
-  внутренний id. Все 16 клеток корректного салата должны быть необходимы хотя
+  внутренний id. Все 16 клеток корректного салатика должны быть необходимы хотя
   бы для одного слова.
 </p>
 
@@ -18,13 +18,13 @@
 
 <section class="pal-card support-card support-ladders-toolbar">
   <div class="support-ladders-toolbar__row">
-    <button type="button" class="new-btn new-btn--mini" data-insert-end>+ Создать салат</button>
+    <button type="button" class="new-btn new-btn--mini" data-insert-end>+ Создать салатик</button>
     <span class="support-hint support-ladders-toolbar__meta" id="word-salad-meta">
       Всего {{ rows|length }}
     </span>
   </div>
   <p class="support-hint support-hint--after">
-    Перетаскивайте выпуски за ⠿. «+» между карточками вставляет новый салат в выбранную позицию.
+    Перетаскивайте выпуски за ⠿. «+» между карточками вставляет новый салатик в выбранную позицию.
   </p>
 </section>
 
@@ -32,7 +32,7 @@
   <div
     class="support-ladder-list support-schedule-list"
     id="word-salad-list"
-    aria-label="Список выпусков Салата"
+    aria-label="Список выпусков Салатика"
     data-create-url="{% url 'support:word_salad_create' %}"
     data-reorder-url="{% url 'support:word_salad_reorder' %}"
     data-detail-url="{% url 'support:word_salad_detail' 0 %}"

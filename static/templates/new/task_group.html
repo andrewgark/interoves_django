@@ -26,28 +26,7 @@
 </p>
 {% endif %}
 
-<div class="new-section-header">
-  <div>
-    <h1 class="new-heading new-heading--page">
-      {% if is_daily_single_task and page_title %}
-        {{ page_title }}
-      {% elif "html_in_title" in game.tags %}
-        {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
-      {% else %}
-        {{ game.get_outside_name|default:game.outside_name|default:game.name }}
-      {% endif %}
-    </h1>
-    {% if game.theme %}
-    <p class="new-login-hint new-theme-line">{{ game.theme }}</p>
-    {% endif %}
-  </div>
-  {% if not is_daily_single_task %}
-  <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle><i class="ph ph-eye" aria-hidden="true"></i></button>
-  {% endif %}
-  {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
-  <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
-  {% endif %}
-</div>
+{% include "new/partials/page_heading.html" %}
 
 <p class="new-login-hint new-meta-line">
   {% if is_daily_single_task %}

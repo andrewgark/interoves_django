@@ -80,7 +80,7 @@ def _plain_caption(post: SocialQueuePost) -> str:
     if text:
         return text
     if post.source == SocialQueuePost.SOURCE_WORD_SALAD and post.ladder_number:
-        return 'Салат №{}\n{}'.format(post.ladder_number, post.play_url)
+        return 'Салатик №{}\n{}'.format(post.ladder_number, post.play_url)
     if post.ladder_number:
         return 'Лесенка №{}\n{}'.format(post.ladder_number, post.play_url)
     return post.caption or ''

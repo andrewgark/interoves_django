@@ -1,6 +1,6 @@
 """Общее расписание ежедневных / еженедельных разделов.
 
-Лесенка, алфавитка, салат и задание недели отличаются тегом старта, шагом
+Лесенка, алфавитка, салатик и задание недели отличаются тегом старта, шагом
 дней и парой UX-флагов. Календарь, эмбарго и CTA на главной — одни.
 """
 
@@ -184,8 +184,8 @@ ALPHABETTY_SCHEDULE = DailySchedule(
 WORD_SALAD_SCHEDULE = DailySchedule(
     game_id=WORD_SALAD_GAME_ID,
     publish_start_tag='word_salad_publish_start',
-    cta_today='Сегодняшний салат',
-    cta_latest='Последний салат',
+    cta_today='Сегодняшний салатик',
+    cta_latest='Последний салатик',
 )
 
 WEEK_TASK_SCHEDULE = DailySchedule(

@@ -25,14 +25,14 @@ from games.word_salad_daily import (
     WORD_SALAD_PUBLISH_START_TAG,
 )
 
-WORD_SALAD_SECTION_TITLE = 'Салат'
+WORD_SALAD_SECTION_TITLE = 'Салатик'
 WORD_SALAD_SECTION_ICON = '🥗'
-_OLD_SECTION_TITLES = frozenset({'Словесный Салат', 'Словесный салат'})
+_OLD_SECTION_TITLES = frozenset({'Словесный Салат', 'Словесный салат', 'Салат'})
 
 _DEFAULT_GRID = ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M']
 _DEFAULT_WORDS = ['ABCDEFGHIJKLMNOP']
 _PREVIEW_SPEC = ActorSpec(kind='anon', anon_key='support-preview', play_mode='personal')
-_TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат\s*#\s*\d+$', re.IGNORECASE)
+_TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат(?:ик)?\s*#\s*\d+$', re.IGNORECASE)
 
 
 def _salad_title(number: int) -> str:
@@ -249,7 +249,7 @@ def get_word_salad_detail(link_id: int) -> dict[str, Any]:
         .first()
     )
     if link is None:
-        raise WordSaladSupportError('Салат не найден')
+        raise WordSaladSupportError('Салатик не найден')
     task = _task_for_link(link)
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
@@ -323,7 +323,7 @@ def update_word_salad(link_id: int, *, intro: str, grid_text: str, words_text: s
         .first()
     )
     if link is None:
-        raise WordSaladSupportError('Салат не найден')
+        raise WordSaladSupportError('Салатик не найден')
     task = _task_for_link(link)
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
@@ -355,7 +355,7 @@ def reorder_word_salads(ordered_link_ids: list[int]) -> list[WordSaladRow]:
     by_id = {link.pk: link for link in existing}
     if set(ordered_link_ids) != set(by_id):
         raise WordSaladSupportError(
-            'Список id не совпадает с текущими салатами '
+            'Список id не совпадает с текущими салатиками '
             '(обновите страницу и повторите)'
         )
     _renumber_links([by_id[pk] for pk in ordered_link_ids])
@@ -371,7 +371,7 @@ def delete_word_salad(link_id: int) -> list[WordSaladRow]:
         .first()
     )
     if link is None:
-        raise WordSaladSupportError('Салат не найден')
+        raise WordSaladSupportError('Салатик не найден')
     remaining = [row for row in _sorted_links() if row.pk != link_id]
     cascade_delete_link(link)
     _renumber_links(remaining)

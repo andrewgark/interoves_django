@@ -5,16 +5,7 @@
   <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a>
 </p>
 
-<div class="new-section-header">
-  <h1 class="new-heading new-heading--page">Алфавитка</h1>
-  <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle>
-    <i class="ph ph-eye" aria-hidden="true"></i>
-  </button>
-  <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
-</div>
-{% if game.theme %}
-<p class="new-login-hint new-theme-line">{{ game.theme }}</p>
-{% endif %}
+{% include "new/partials/page_heading.html" with heading=page_title show_rules=True %}
 
 {% include "new/_rules_banner.html" %}
 

@@ -64,7 +64,7 @@
     list.innerHTML = '';
     document.getElementById('word-salad-meta').textContent = 'Всего ' + rows.length;
     if (!rows.length) {
-      list.innerHTML = '<p class="support-empty">Пока нет выпусков. Нажмите «Создать салат».</p>';
+      list.innerHTML = '<p class="support-empty">Пока нет выпусков. Нажмите «Создать салатик».</p>';
       return;
     }
     rows.forEach(function (row) {
@@ -77,7 +77,7 @@
         '<button type="button" class="support-ladder-item__handle support-schedule-handle" aria-label="Перетащить выпуск №' + row.number + '" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>' +
         '<div class="support-ladder-item__num">№' + row.number + '</div>' +
         '<div class="support-ladder-item__body">' +
-          '<div class="support-ladder-item__title">' + support.escapeHtml('Салат #' + row.number) + '</div>' +
+          '<div class="support-ladder-item__title">' + support.escapeHtml('Салатик #' + row.number) + '</div>' +
           '<div class="support-ladder-item__meta"><span class="support-cell-mono">' +
             support.escapeHtml(row.grid_preview || '—') + '</span> · id ' + row.link_id +
             ' · ' + row.words_count + ' сл.</div>' +
@@ -133,7 +133,7 @@
   }
 
   function removeItem(linkId) {
-    if (busy || !window.confirm('Удалить этот выпуск салата?')) return;
+    if (busy || !window.confirm('Удалить этот выпуск салатика?')) return;
     setBusy(true);
     clearError();
     support.postJson(endpoint(endpoints.remove, linkId), {})

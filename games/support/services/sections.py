@@ -83,7 +83,7 @@ def get_sections_dashboard() -> List[SectionRow]:
             game_id=WORD_SALAD_GAME_ID,
             icon=WORD_SALAD_SECTION_ICON,
             title=WORD_SALAD_SECTION_TITLE,
-            description='Ежедневный салат: сетка 4×4.',
+            description='Ежедневный салатик: сетка 4×4.',
             latest_number=word_salad_rows[-1].number if word_salad_rows else None,
             latest_name=word_salad_rows[-1].name if word_salad_rows else None,
             task_group_count=len(word_salad_rows),

@@ -72,7 +72,7 @@ def render_word_salad_teaser_png_pillow(task, *, salad_number: int | str | None 
     draw.rectangle((0, 0, width, 6), fill='#2F6F4E')
 
     y = pad + 4
-    title = 'Салат №{}'.format(salad_number) if salad_number is not None else 'Салат'
+    title = 'Салатик №{}'.format(salad_number) if salad_number is not None else 'Салатик'
     draw.text((pad, y), title, font=font_title, fill='#1A1A1A')
     y += 36
     if theme:

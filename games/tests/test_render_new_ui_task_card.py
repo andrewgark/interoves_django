@@ -235,18 +235,18 @@ class RenderNewUiTaskCardTests(TestCase):
             'request': request,
             'task': task,
             'ws': ws,
-            'game': SimpleNamespace(id='word_salad_test', name='Салат', outside_name='Салат'),
+            'game': SimpleNamespace(id='word_salad_test', name='Салатик', outside_name='Салатик'),
             'tg_number': '23',
-            'tg_name': 'Салат #23',
+            'tg_name': 'Салатик #23',
             'share_host': 'interoves.com',
         }
         html = render_to_string('task-content/task-word-salad.html', context)
         self.assertNotIn('new-raddle-result', html)
 
-        context['game'] = SimpleNamespace(id='salad', name='Салат', outside_name='Салат')
+        context['game'] = SimpleNamespace(id='salad', name='Салатик', outside_name='Салатик')
         html = render_to_string('task-content/task-word-salad.html', context)
         self.assertIn('new-raddle-result', html)
-        self.assertIn('🥗 Салат #23', html)
+        self.assertIn('🥗 Салатик #23', html)
         self.assertIn('🟩1️⃣🟩', html)
         self.assertIn('⏱️ 3м 46с', html)
         self.assertIn('🔗 interoves.com/salad/23', html)

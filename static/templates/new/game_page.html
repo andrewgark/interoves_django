@@ -110,26 +110,7 @@
         </div>
       {% endif %}
     {% else %}
-      <div class="new-section-header">
-        <h1 class="new-heading new-heading--page">
-          {% if "html_in_title" in game.tags %}
-            {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
-          {% else %}
-            {{ game.get_outside_name|default:game.outside_name|default:game.name }}
-          {% endif %}
-        </h1>
-        <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle>
-          <i class="ph ph-eye" aria-hidden="true"></i>
-        </button>
-        {% if section_task_groups_rules_html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
-          <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
-        {% endif %}
-      </div>
-      {% if section_tagline %}
-        <p class="new-login-hint new-theme-line">{{ section_tagline }}</p>
-      {% elif game.theme %}
-        <p class="new-login-hint new-theme-line">{{ game.theme }}</p>
-      {% endif %}
+      {% include "new/partials/page_heading.html" %}
       {% if section_task_groups_rules_html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
         {% include "new/_rules_banner.html" %}
       {% endif %}

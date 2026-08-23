@@ -56,7 +56,7 @@ class SaladChannelScheduleTests(TestCase):
         self.game, _ = Game.objects.update_or_create(
             id=WORD_SALAD_GAME_ID,
             defaults={
-                'name': 'Салат',
+                'name': 'Салатик',
                 'author': 'a',
                 'project_id': 'sections',
                 'tags': {WORD_SALAD_PUBLISH_START_TAG: '2026-08-23T00:00:00+03:00'},
@@ -73,7 +73,7 @@ class SaladChannelScheduleTests(TestCase):
         )
         GameTaskGroup.objects.filter(game=self.game).delete()
         GameTaskGroup.objects.create(
-            game=self.game, task_group=self.tg, number='1', name='Салат #1',
+            game=self.game, task_group=self.tg, number='1', name='Салатик #1',
         )
         self.now = datetime(2026, 8, 23, 0, 15, tzinfo=MOSCOW)
 
@@ -93,7 +93,7 @@ class SaladChannelScheduleTests(TestCase):
     def test_caption_and_image(self):
         salad = resolve_today_salad(self.now)
         caption = build_caption(salad)
-        self.assertIn('Салат №1', caption)
+        self.assertIn('Салатик №1', caption)
         self.assertIn('Города России', caption)
         self.assertIn('/salad/1/', caption)
         from games.telegram.word_salad_image import render_word_salad_teaser_png_pillow

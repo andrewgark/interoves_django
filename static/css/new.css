@@ -4963,6 +4963,17 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 
 .new-section-header .new-heading {
   margin: 0;
+  /* shrink-wrap so ?/eye sit immediately after the title text */
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Tagline is a sibling so it does not widen the title row or move ?. */
+.new-section-header .new-theme-line {
+  flex: 1 0 100%;
+  margin: 0;
 }
 
 .new-section-header--results {

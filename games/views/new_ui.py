@@ -445,7 +445,7 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
             )
         else:
             progress_text = None
-        # Лесенка/салат: квадраты. Полные → зелёный; с ⬜ → жёлтый partial.
+        # Лесенка/салатик: квадраты. Полные → зелёный; с ⬜ → жёлтый partial.
         result_squares = result_squares_by_number.get(str(p.number))
         elapsed_label = elapsed_by_number.get(str(p.number))
         if result_squares:

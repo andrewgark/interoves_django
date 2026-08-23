@@ -56,6 +56,7 @@ from games.models import (
     TaskGroup,
 )
 from games.results_snapshot import build_results_snapshot_payload
+from games.tests.test_page_heading import assert_rules_beside_title
 from games.support.services.alphabetty import (
     AlphabettySupportError,
     delete_alphabetty,
@@ -528,6 +529,11 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertContains(r, 'Алфавитка')
         self.assertContains(r, 'href="/alphabetty/1/results/"')
         self.assertContains(r, 'data-task-label="Алфавитка №1"')
+        self.game.theme = 'Угадайте слово по алфавиту'
+        self.game.save(update_fields=['theme'])
+        r = self.client.get('/alphabetty/1/')
+        self.assertEqual(r.status_code, 200)
+        assert_rules_beside_title(self, r.content.decode('utf-8'))
 
     def test_hub_page_has_create_link(self):
         _ensure_login_modal_deps()

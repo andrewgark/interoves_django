@@ -117,7 +117,7 @@ class WordSaladTests(TestCase):
         )
         self.assertEqual(archive_card_meta(task), 'Города России · 2 слова')
         title_only = SimpleNamespace(
-            text='Салат #3',
+            text='Салатик #3',
             checker_data=json.dumps({
                 'grid': _puzzle()['grid'],
                 'words': ['ABCD'],
@@ -485,7 +485,7 @@ class WordSaladTests(TestCase):
             context = _task_group_page_nav_context(self.game)
         finally:
             self.game.id = old_id
-        self.assertEqual(context['task_group_pager_label'], 'Салат')
+        self.assertEqual(context['task_group_pager_label'], 'Салатик')
 
     def test_admin_changelist_renders_word_salad_attempts(self):
         Attempt.manager.create(

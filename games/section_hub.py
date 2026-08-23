@@ -58,18 +58,18 @@ SECTION_HUB_META = {
     WORD_SALAD_GAME_ID: {
         'icon': '🥗',
         'ph_icon': 'bowl-food',
-        'title': 'Салаты',
-        'nav_title': 'Салат',
-        'pager_label': 'Салат',
+        'title': 'Салатики',
+        'nav_title': 'Салатик',
+        'pager_label': 'Салатик',
         'description': 'Сетка 4×4: найдите все слова, проводя дорожки по соседним буквам.',
-        'cta_today': 'Сегодняшний салат',
-        'cta_latest': 'Последний салат',
-        'all_link_label': 'Все салаты →',
-        'soon_text': 'Новый салат — каждый день в полночь по Москве.',
-        'archive_item_label': 'Салат',
+        'cta_today': 'Сегодняшний салатик',
+        'cta_latest': 'Последний салатик',
+        'all_link_label': 'Все салатики →',
+        'soon_text': 'Новый салатик — каждый день в полночь по Москве.',
+        'archive_item_label': 'Салатик',
         'format_credit_url': 'https://wordsalad.online',
         'format_credit_name': 'wordsalad.online',
-        'format_credit_text': 'салатов',
+        'format_credit_text': 'салатиков',
     },
     'alphabetty': {
         'icon': '🔤',
@@ -161,7 +161,7 @@ def section_format_credit_context(section_id):
 
 
 def daily_nav_items():
-    """Ежедневные разделы в главной навигации (лесенка, салат, алфавитка, …)."""
+    """Ежедневные разделы в главной навигации (лесенка, салатик, алфавитка, …)."""
     items = []
     for sid in HUB_DAILY_SECTION_IDS:
         meta = SECTION_HUB_META.get(sid) or {}
@@ -346,7 +346,7 @@ def get_ladder_section_hub_card(game, *, published_numbers, now=None):
 
 
 def get_word_salad_section_hub_card(game, *, published_numbers, now=None):
-    """Карточка салата на главной."""
+    """Карточка салатика на главной."""
     return get_scheduled_section_hub_card(
         game, published_numbers=published_numbers, now=now,
     )

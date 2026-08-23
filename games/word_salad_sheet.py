@@ -1,4 +1,4 @@
-"""Parse Word Salad / Салат puzzles from the authoring spreadsheet CSV."""
+"""Parse Word Salad / Салатик puzzles from the authoring spreadsheet CSV."""
 
 from __future__ import annotations
 
