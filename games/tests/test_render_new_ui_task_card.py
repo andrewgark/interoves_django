@@ -192,6 +192,7 @@ class RenderNewUiTaskCardTests(TestCase):
             'ui': {
                 'is_complete': True,
                 'result_squares': '🟩',
+                'elapsed_label': '3м 46с',
                 'rows': [],
             },
         }
@@ -209,6 +210,7 @@ class RenderNewUiTaskCardTests(TestCase):
             'game': SimpleNamespace(id='des171_test', name='Test', outside_name=''),
             'tg_number': '3',
             'tg_name': 'Лесенки',
+            'share_host': 'interoves.com',
         }
         html = render_to_string('task-content/task-raddle.html', context)
         self.assertNotIn('new-raddle-result', html)
@@ -216,12 +218,15 @@ class RenderNewUiTaskCardTests(TestCase):
         context['game'] = SimpleNamespace(id='ladder', name='Лесенка', outside_name='')
         html = render_to_string('task-content/task-raddle.html', context)
         self.assertIn('new-raddle-result', html)
+        self.assertIn('⏱️ 3м 46с', html)
+        self.assertIn('🔗 interoves.com/ladder/3', html)
 
     def test_word_salad_result_share_is_limited_to_salad_game(self):
         request = RequestFactory().get('/')
         ws = {
             'is_complete': True,
             'result_squares': '🟩1️⃣🟩',
+            'elapsed_label': '3м 46с',
             'grid_rows': [],
             'words': [],
         }
@@ -233,6 +238,7 @@ class RenderNewUiTaskCardTests(TestCase):
             'game': SimpleNamespace(id='word_salad_test', name='Салат', outside_name='Салат'),
             'tg_number': '23',
             'tg_name': 'Салат #23',
+            'share_host': 'interoves.com',
         }
         html = render_to_string('task-content/task-word-salad.html', context)
         self.assertNotIn('new-raddle-result', html)
@@ -242,7 +248,8 @@ class RenderNewUiTaskCardTests(TestCase):
         self.assertIn('new-raddle-result', html)
         self.assertIn('🥗 Салат #23', html)
         self.assertIn('🟩1️⃣🟩', html)
-        self.assertIn('/salad/23', html)
+        self.assertIn('⏱️ 3м 46с', html)
+        self.assertIn('🔗 interoves.com/salad/23', html)
 
     def test_render_word_salad_includes_grid_and_words(self):
         request = RequestFactory().get('/')

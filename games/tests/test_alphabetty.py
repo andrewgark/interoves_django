@@ -174,7 +174,7 @@ class AlphabettyCoreTests(TestCase):
             play_path='/alphabetty/f639303b80c3ec03/',
         )
         self.assertEqual(hash_lines[0], '🔤 Алфавитка #f639303b80c3ec03')
-        self.assertEqual(hash_lines[3], '🔗 interoves.com/alphabetty/f639303b80c3ec03/')
+        self.assertEqual(hash_lines[3], '🔗 interoves.com/alphabetty/f639303b80c3ec03')
         self.assertEqual(format_hints_label(0), '')
         self.assertEqual(format_hints_label(1), '💡 Взята 1 подсказка')
         self.assertEqual(format_hints_label(2), '💡💡 Взято 2 подсказки')
@@ -536,6 +536,23 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Создать свою алфавитку')
         self.assertContains(response, 'href="/create_alphabetty/"')
+
+    def test_hub_shows_attempts_and_elapsed_when_solved(self):
+        _ensure_login_modal_deps()
+        anon_key = 'test-anon-alphabetty-hub-time'
+        self.client.cookies['interoves_anon'] = anon_key
+        guess = self.client.post(
+            '/alphabetty/1/guess/',
+            data=json.dumps({'word': 'слово', 'anon_key': anon_key}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON=anon_key,
+        )
+        self.assertEqual(guess.status_code, 200)
+        self.assertTrue(guess.json().get('won'))
+        response = self.client.get('/alphabetty/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '🤔 1 попытка')
+        self.assertContains(response, '⏱️ 0с')
 
     def test_create_page_shows_offer_flow(self):
         user = User.objects.create_user('ab_creator', 'ab@example.com', 'x')

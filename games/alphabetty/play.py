@@ -17,6 +17,7 @@ from games.alphabetty.core import (
     normalize_word,
 )
 from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
+from games.share_result import elapsed_seconds_from_attempts, format_elapsed, format_share_link, share_path
 
 # Базовые очки за угаданное слово; каждая буквенная подсказка −1.
 ALPHABETTY_BASE_POINTS = 10
@@ -112,31 +113,12 @@ def ru_attempt_word(n: int) -> str:
     return 'попыток'
 
 
-def format_elapsed(seconds: int | None) -> str:
-    """1ч 32м 44с / 32м 44с / 44с."""
-    if seconds is None:
-        seconds = 0
-    seconds = max(0, int(seconds))
-    h, rem = divmod(seconds, 3600)
-    m, s = divmod(rem, 60)
-    if h:
-        return f'{h}ч {m}м {s}с'
-    if m:
-        return f'{m}м {s}с'
-    return f'{s}с'
-
-
 def elapsed_seconds_for_actor(*, game: Game, task: Task, actor: dict) -> int:
     """Время от первой до последней валидной попытки актёра."""
-    agg = (
-        Attempt.manager.filter(task=task, game=game, **actor)
-        .exclude(time__isnull=True)
-        .aggregate(t0=Min('time'), t1=Max('time'))
+    attempts = list(
+        Attempt.manager.filter(task=task, game=game, **actor).exclude(time__isnull=True)
     )
-    t0, t1 = agg.get('t0'), agg.get('t1')
-    if t0 is None or t1 is None:
-        return 0
-    return max(0, int((t1 - t0).total_seconds()))
+    return elapsed_seconds_from_attempts(attempts)
 
 
 def build_share_lines(
@@ -148,10 +130,9 @@ def build_share_lines(
     host: str = 'interoves.com',
     play_path: str | None = None,
 ) -> list[str]:
-    host = (host or 'interoves.com').split(':')[0] or 'interoves.com'
     display_number = str(number or '').strip()
     if play_path:
-        path = str(play_path).lstrip('/')
+        path = share_path(play_path)
     else:
         path = 'alphabetty/{}'.format(display_number)
     title = f'🔤 Алфавитка #{display_number}' if display_number else '🔤 Алфавитка'
@@ -164,7 +145,7 @@ def build_share_lines(
         lines.append(hints_line)
     lines.extend([
         f'⏱️ {format_elapsed(elapsed_seconds)}',
-        f'🔗 {host}/{path}',
+        format_share_link(host, path),
     ])
     return lines
 

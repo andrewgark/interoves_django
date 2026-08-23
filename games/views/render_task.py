@@ -208,11 +208,13 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
     # when a card is replaced after an attempt or a hint.
     from games.daily_section import uses_daily_play_layout
     is_daily_single_task = uses_daily_play_layout(game.id)
+    from games.share_result import share_host_from_request
     return render(request, 'new/partials/task_card.html', {
         'game': game,
         'task_group': task_group,
         'tg_number': tg_number,
         'tg_name': tg_name,
+        'share_host': share_host_from_request(request),
         'is_daily_single_task': is_daily_single_task,
         'task': task,
         'mode': current_mode,

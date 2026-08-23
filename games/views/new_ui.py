@@ -109,7 +109,7 @@ from games.raddle import (
     build_raddle_ui_context,
     load_raddle_state,
     parse_raddle_data,
-    raddle_result_squares_for_actor,
+    raddle_hub_result_for_actor,
     raddle_word_solved_list,
 )
 from games.word_salad import (
@@ -118,7 +118,9 @@ from games.word_salad import (
     build_ui_context as build_word_salad_ui_context,
     load_state as load_word_salad_state,
     parse_task_data as parse_word_salad_task_data,
+    salad_hub_result_for_actor,
 )
+from games.share_result import share_host_from_request
 from games.proportions import build_proportions_chips_for_tasks
 from games.views.game_context import game_from_request_for_task
 from games.views.main_page import MainPageView
@@ -387,20 +389,31 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
         mode=mode,
     )
     result_squares_by_number = {}
-    if game.id == LADDER_GAME_ID and (team is not None or user is not None or anon_key is not None):
+    elapsed_by_number = {}
+    has_actor = team is not None or user is not None or anon_key is not None
+    if has_actor and game.id in (LADDER_GAME_ID, WORD_SALAD_GAME_ID):
         tg_ids = [tg.id for tg in canonical_groups]
-        raddle_tasks = list(
-            Task.objects.filter(task_group_id__in=tg_ids, task_type='raddle').visible()
-        )
-        tg_to_raddle_task = {}
-        for task in raddle_tasks:
-            tg_to_raddle_task.setdefault(task.task_group_id, task)
         include_other_games = game.project_id == NEW_UI_SECTIONS_PROJECT
+        if game.id == LADDER_GAME_ID:
+            tasks = list(
+                Task.objects.filter(task_group_id__in=tg_ids, task_type='raddle').visible()
+            )
+            hub_result = raddle_hub_result_for_actor
+            hub_kwargs = {'allow_partial': True}
+        else:
+            tasks = list(
+                Task.objects.filter(task_group_id__in=tg_ids, task_type='word_salad').visible()
+            )
+            hub_result = salad_hub_result_for_actor
+            hub_kwargs = {}
+        tg_to_task = {}
+        for task in tasks:
+            tg_to_task.setdefault(task.task_group_id, task)
         for p in task_groups:
-            task = tg_to_raddle_task.get(p.task_group_id)
+            task = tg_to_task.get(p.task_group_id)
             if not task:
                 continue
-            squares = raddle_result_squares_for_actor(
+            squares, elapsed = hub_result(
                 task,
                 team=team,
                 user=user,
@@ -408,10 +421,12 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
                 mode=mode,
                 game=game,
                 include_other_games=include_other_games,
-                allow_partial=True,
+                **hub_kwargs,
             )
             if squares:
                 result_squares_by_number[str(p.number)] = squares
+            if elapsed:
+                elapsed_by_number[str(p.number)] = elapsed
     rows = {}
     for p in task_groups:
         tg = p.task_group
@@ -430,13 +445,15 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
             )
         else:
             progress_text = None
-        # Лесенка: квадраты (🟩/🟨/🟥/⬜). Полные → зелёный; с ⬜ → жёлтый partial.
+        # Лесенка/салат: квадраты. Полные → зелёный; с ⬜ → жёлтый partial.
         result_squares = result_squares_by_number.get(str(p.number))
+        elapsed_label = elapsed_by_number.get(str(p.number))
         if result_squares:
             progress_text = None
             if '⬜' in result_squares:
                 is_fully_solved = False
                 row_class = 'new-task--partial'
+                elapsed_label = None
             else:
                 is_fully_solved = True
                 row_class = 'new-task--solved'
@@ -444,6 +461,7 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
                     n_solved = max(n_solved, p.n_tasks)
         elif not is_fully_solved:
             result_squares = None
+            elapsed_label = None
         rows[str(p.number)] = {
             'n_solved': n_solved,
             'n_tasks': p.n_tasks,
@@ -451,6 +469,7 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
             'row_class': row_class,
             'progress_text': progress_text,
             'result_squares': result_squares,
+            'elapsed_label': elapsed_label,
         }
     return rows
 
@@ -1387,6 +1406,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
         'tg_number': placement.number,
         'tg_name': placement.name,
+        'share_host': share_host_from_request(request),
         'back_url': '{}/games/{}/'.format(base, game.id),
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
         'page_title': '{} · {}'.format(game.outside_name or game.name, placement.name),
@@ -2543,7 +2563,9 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                     if a.state:
                         state = load_word_salad_state(a.state)
                         break
-            word_salad_data[t.id] = build_word_salad_ui_context(grid, words, state)
+            word_salad_data[t.id] = build_word_salad_ui_context(
+                grid, words, state, attempts=ai.attempts if ai else [],
+            )
     raddle_data = {}
     for t in tasks:
         if t.task_type == 'raddle':
@@ -2871,6 +2893,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
         'tg_number': placement.number,
         'tg_name': placement.name,
+        'share_host': share_host_from_request(request),
         'week_task_source_line': week_task_source_line,
         'week_task_source_url': week_task_source_url,
         'source_desyatka': source_desyatka,

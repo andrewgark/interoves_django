@@ -166,7 +166,7 @@
       <span class="new-raddle-result__label">Результат</span>
       <button type="button" class="new-btn new-btn--ghost new-btn--mini new-raddle-result__copy">Скопировать</button>
     </div>
-    <div class="new-raddle-result__share" data-raddle-share-text><div class="new-raddle-result__title">🪜 {{ tg_name|default:game.outside_name|default:game.name }}</div><div class="new-raddle-result__squares">{{ rd.ui.result_squares }}</div><div class="new-raddle-result__link">{{ request.get_host }}/ladder/{{ tg_number }}</div></div>
+    <div class="new-raddle-result__share" data-raddle-share-text><div class="new-raddle-result__title">🪜 {{ tg_name|default:game.outside_name|default:game.name }}</div><div class="new-raddle-result__squares">{{ rd.ui.result_squares }}</div>{% if rd.ui.elapsed_label %}<div class="new-raddle-result__squares">⏱️ {{ rd.ui.elapsed_label }}</div>{% endif %}<div class="new-raddle-result__link">🔗 {{ share_host|default:request.get_host }}/ladder/{{ tg_number }}</div></div>
   </div>
   {% endif %}
   {% if not wall_new_ui %}

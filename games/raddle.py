@@ -23,6 +23,7 @@ import json
 import random
 import re
 
+from games.share_result import elapsed_label_from_attempts
 from games.util import clean_text
 
 _LENGTH_PARTS_HYPHEN = re.compile(r'^(\d+)\s*-\s*(\d+)$')
@@ -980,6 +981,52 @@ def raddle_result_squares(parsed, state, *, hint_attempts=None, allow_partial=Fa
     return ''.join(squares)
 
 
+def raddle_hub_result_for_actor(
+    task,
+    *,
+    team=None,
+    user=None,
+    anon_key=None,
+    mode='general',
+    game=None,
+    include_other_games=False,
+    allow_partial=False,
+):
+    """Квадраты и время для списка лесенок. Время — только когда лесенка собрана целиком."""
+    from games.models import Attempt
+
+    parsed = parse_raddle_data(task)
+    if not parsed:
+        return '', None
+    game_arg = None if include_other_games else game
+    ai = Attempt.manager.get_attempts_info(
+        team=team,
+        task=task,
+        mode=mode,
+        user=user,
+        anon_key=anon_key,
+        game=game_arg,
+    )
+    if not allow_partial and not ai.is_solved():
+        return '', None
+    if not ai.attempts:
+        return '', None
+    state = load_raddle_state(None, parsed['n_words'])
+    for a in reversed(ai.attempts):
+        if a.state:
+            state = load_raddle_state(a.state, parsed['n_words'])
+            break
+    squares = raddle_result_squares(
+        parsed, state, hint_attempts=ai.hint_attempts, allow_partial=allow_partial,
+    )
+    if not squares:
+        return '', None
+    elapsed = None
+    if '⬜' not in squares:
+        elapsed = elapsed_label_from_attempts(ai.attempts)
+    return squares, elapsed
+
+
 def raddle_result_squares_for_actor(
     task,
     *,
@@ -992,32 +1039,17 @@ def raddle_result_squares_for_actor(
     allow_partial=False,
 ):
     """Строка квадратов для raddle-задания текущего актора (полное или частичное)."""
-    from games.models import Attempt
-
-    parsed = parse_raddle_data(task)
-    if not parsed:
-        return ''
-    game_arg = None if include_other_games else game
-    ai = Attempt.manager.get_attempts_info(
+    squares, _elapsed = raddle_hub_result_for_actor(
+        task,
         team=team,
-        task=task,
-        mode=mode,
         user=user,
         anon_key=anon_key,
-        game=game_arg,
+        mode=mode,
+        game=game,
+        include_other_games=include_other_games,
+        allow_partial=allow_partial,
     )
-    if not allow_partial and not ai.is_solved():
-        return ''
-    if not ai.attempts:
-        return ''
-    state = load_raddle_state(None, parsed['n_words'])
-    for a in reversed(ai.attempts):
-        if a.state:
-            state = load_raddle_state(a.state, parsed['n_words'])
-            break
-    return raddle_result_squares(
-        parsed, state, hint_attempts=ai.hint_attempts, allow_partial=allow_partial,
-    )
+    return squares
 
 
 def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mode=None, hint_attempts=None):
@@ -1246,6 +1278,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         'last_word_clue_options': last_word_clue_options,
         'is_complete': is_complete,
         'result_squares': result_squares,
+        'elapsed_label': elapsed_label_from_attempts(attempts) if is_complete else '',
         'assist_enabled': assist_enabled,
         'assist_fractions': assist_cfg.get('fractions', DEFAULT_RADDLE_ASSIST_FRACTIONS),
         'is_tournament': tournament,

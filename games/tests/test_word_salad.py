@@ -160,6 +160,19 @@ class WordSaladTests(TestCase):
         )
         self.assertEqual(context['result_squares'], '🟩1️⃣🟩')
 
+    def test_elapsed_label_from_first_to_last_attempt(self):
+        started = timezone.now()
+        context = build_ui_context(
+            _puzzle()['grid'],
+            ['PONM', 'ABCD', 'IJK'],
+            {'solved_indices': [0, 1, 2], 'hint_counts': {2: 1}},
+            attempts=[
+                SimpleNamespace(time=started),
+                SimpleNamespace(time=started + timedelta(seconds=226)),
+            ],
+        )
+        self.assertEqual(context['elapsed_label'], '3м 46с')
+
     def test_admin_form_serializes_word_salad_fields(self):
         form = WordSaladTaskForm(
             data={
@@ -388,6 +401,7 @@ class WordSaladTests(TestCase):
         self.assertTrue(rendered_state['is_complete'])
         self.assertEqual(rendered_state['active'], [])
         self.assertEqual(rendered_state['result_squares'], '🟩')
+        self.assertEqual(rendered_state['elapsed_label'], '0с')
         html = response.json()['update_task_html_new'][str(self.task.pk)]
         self.assertEqual(html.count('data-word-salad-letter></span>'), 16)
         self.assertNotIn('new-word-salad__hint-btn', html)

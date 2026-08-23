@@ -1,8 +1,10 @@
 import json
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
 from django.test import Client, RequestFactory, TestCase
+from django.utils import timezone
 
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Attempt
 from games.views.new_ui import (
@@ -24,6 +26,7 @@ def _ensure_min_fixtures():
     CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
     CheckerType.objects.get_or_create(pk='replacements_lines')
     CheckerType.objects.get_or_create(pk='raddle')
+    CheckerType.objects.get_or_create(pk='word_salad')
 
 
 class GameTaskGroupProgressTests(TestCase):
@@ -165,6 +168,7 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertTrue(row['is_fully_solved'])
         self.assertEqual(row['row_class'], 'new-task--solved')
         self.assertEqual(row['result_squares'], '🟥')
+        self.assertEqual(row['elapsed_label'], '0с')
 
     def test_ladder_progress_assisted_half_credit_still_solved(self):
         from games.ladder_daily import LADDER_PUBLISH_START_TAG
@@ -213,6 +217,7 @@ class GameTaskGroupProgressTests(TestCase):
         row = resp.json()['rows']['1']
         self.assertTrue(row['is_fully_solved'])
         self.assertEqual(row['result_squares'], '🟨')
+        self.assertEqual(row['elapsed_label'], '0с')
 
     def test_ladder_progress_partial_shows_white_squares(self):
         from games.ladder_daily import LADDER_PUBLISH_START_TAG
@@ -264,3 +269,135 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertEqual(row['row_class'], 'new-task--partial')
         self.assertEqual(row['result_squares'], '🟩⬜⬜')
         self.assertIsNone(row['progress_text'])
+        self.assertIsNone(row['elapsed_label'])
+
+    def test_ladder_progress_api_returns_elapsed_from_attempts(self):
+        from games.ladder_daily import LADDER_PUBLISH_START_TAG
+
+        game = Game.objects.filter(id='ladder', project_id='sections').first()
+        self.assertIsNotNone(game)
+        game.tags = {LADDER_PUBLISH_START_TAG: '2026-07-08T00:00:00+03:00'}
+        game.save(update_fields=['tags'])
+
+        anon_key = 'test-anon-ladder-elapsed'
+        raddle_json = json.dumps({
+            'lengths': [3, 3, 3],
+            'hints': ['A ____', '____ C'],
+            'words': ['CAT', 'DOG', 'BAT'],
+        }, ensure_ascii=False)
+        with patch('games.views.track.track_task_change'):
+            tg = TaskGroup.objects.create(label='ladder_tg_elapsed')
+            GameTaskGroup.objects.filter(game=game).delete()
+            GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='L1')
+            task = Task.objects.create(
+                task_group=tg,
+                number='1',
+                task_type='raddle',
+                points=1,
+                checker_data=raddle_json,
+                answer='CAT\nDOG\nBAT',
+            )
+            first = Attempt.manager.create(
+                task=task,
+                anon_key=anon_key,
+                game=game,
+                text=json.dumps({'word_index': 1, 'word': 'DOG'}),
+                status='Partial',
+                points=0,
+                state=json.dumps({
+                    'solved_indices': [0, 1],
+                    'used_hints': [],
+                    'assist_tier': {},
+                    'total': 0.0,
+                }, ensure_ascii=False),
+            )
+            last = Attempt.manager.create(
+                task=task,
+                anon_key=anon_key,
+                game=game,
+                text=json.dumps({'word_index': 1, 'word': 'DOG'}),
+                status='Ok',
+                points=0,
+                state=json.dumps({
+                    'solved_indices': [0, 1, 2],
+                    'used_hints': [],
+                    'assist_tier': {'1': 2},
+                    'total': 0.0,
+                }, ensure_ascii=False),
+            )
+        t0 = timezone.now() - timedelta(seconds=226)
+        Attempt.manager.filter(pk=first.pk).update(time=t0)
+        Attempt.manager.filter(pk=last.pk).update(time=t0 + timedelta(seconds=226))
+
+        self.client.cookies['interoves_anon'] = anon_key
+        resp = self.client.get('/ladder/progress/')
+        self.assertEqual(resp.status_code, 200)
+        row = resp.json()['rows']['1']
+        self.assertTrue(row['is_fully_solved'])
+        self.assertEqual(row['result_squares'], '🟥')
+        self.assertEqual(row['elapsed_label'], '3м 46с')
+
+    def test_salad_progress_api_returns_squares_and_elapsed(self):
+        from games.word_salad import WORD_SALAD_GAME_ID
+        from games.word_salad_daily import WORD_SALAD_PUBLISH_START_TAG
+
+        game = Game.objects.filter(id=WORD_SALAD_GAME_ID, project_id='sections').first()
+        self.assertIsNotNone(game)
+        game.tags = {WORD_SALAD_PUBLISH_START_TAG: '2026-08-23T00:00:00+03:00'}
+        game.save(update_fields=['tags'])
+
+        anon_key = 'test-anon-salad-archive'
+        salad_json = json.dumps({
+            'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
+            'words': ['PONM', 'ABCD'],
+        }, ensure_ascii=False)
+        with patch('games.views.track.track_task_change'):
+            tg = TaskGroup.objects.create(label='salad_tg_archive')
+            GameTaskGroup.objects.filter(game=game).delete()
+            GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='S1')
+            task = Task.objects.create(
+                task_group=tg,
+                number='1',
+                task_type='word_salad',
+                checker=CheckerType.objects.get(pk='word_salad'),
+                points=1,
+                checker_data=salad_json,
+                text='Города',
+            )
+            first = Attempt.manager.create(
+                task=task,
+                anon_key=anon_key,
+                game=game,
+                text=json.dumps({'action': 'hint', 'word_index': 0}),
+                status='Wrong',
+                points=0,
+                state=json.dumps({
+                    'solved_indices': [],
+                    'hint_counts': {'0': 2},
+                }, ensure_ascii=False),
+            )
+            last = Attempt.manager.create(
+                task=task,
+                anon_key=anon_key,
+                game=game,
+                text=json.dumps({'action': 'solve', 'path': [12, 13, 14, 15]}),
+                status='Ok',
+                points=1,
+                state=json.dumps({
+                    'solved_indices': [0, 1],
+                    'hint_counts': {'0': 2},
+                }, ensure_ascii=False),
+            )
+        t0 = timezone.now() - timedelta(seconds=226)
+        Attempt.manager.filter(pk=first.pk).update(time=t0)
+        Attempt.manager.filter(pk=last.pk).update(time=t0 + timedelta(seconds=226))
+
+        self.client.cookies['interoves_anon'] = anon_key
+        resp = self.client.get('/salad/progress/')
+        self.assertEqual(resp.status_code, 200)
+        row = resp.json()['rows']['1']
+        self.assertTrue(row['is_fully_solved'])
+        self.assertEqual(row['row_class'], 'new-task--solved')
+        # Alphabetical display: ABCD (no hints) then PONM (2 hints).
+        self.assertEqual(row['result_squares'], '🟩2️⃣')
+        self.assertEqual(row['elapsed_label'], '3м 46с')

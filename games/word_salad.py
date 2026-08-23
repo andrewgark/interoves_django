@@ -4,6 +4,8 @@ import json
 import re
 from decimal import Decimal
 
+from games.share_result import elapsed_label_from_attempts
+
 
 WORD_RE = re.compile(r"[А-ЯЁA-Z]", re.IGNORECASE)
 _TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат\s*#\s*\d+$', re.IGNORECASE)
@@ -151,6 +153,45 @@ def result_squares_for_state(words, state):
         result_square_for_hint_count(hint_counts.get(index, 0))
         for index, _word in words_in_display_order(words)
     )
+
+
+def salad_hub_result_for_actor(
+    task,
+    *,
+    team=None,
+    user=None,
+    anon_key=None,
+    mode='general',
+    game=None,
+    include_other_games=False,
+):
+    """Квадраты и время для списка салатов. Пусто, пока салат не собран целиком."""
+    from games.models import Attempt
+
+    try:
+        _grid, words = parse_task_data(getattr(task, 'checker_data', None), getattr(task, 'answer', None) or '')
+    except (TypeError, ValueError):
+        return '', None
+    game_arg = None if include_other_games else game
+    ai = Attempt.manager.get_attempts_info(
+        team=team,
+        task=task,
+        mode=mode,
+        user=user,
+        anon_key=anon_key,
+        game=game_arg,
+    )
+    if not ai.attempts:
+        return '', None
+    state = default_state()
+    for attempt in reversed(ai.attempts):
+        if attempt.state:
+            state = load_state(attempt.state)
+            break
+    squares = result_squares_for_state(words, state)
+    if not squares:
+        return '', None
+    return squares, elapsed_label_from_attempts(ai.attempts)
 
 
 def result_points_from_attempts(attempts):
@@ -337,7 +378,7 @@ def serialize_task_data(grid_value, words_value):
     return json.dumps({'grid': grid, 'words': words}, ensure_ascii=False)
 
 
-def build_ui_context(grid, words, state=None):
+def build_ui_context(grid, words, state=None, attempts=None):
     state = load_state(state)
     solved = set(state.get('solved_indices') or [])
     hint_counts = state.get('hint_counts') or {}
@@ -386,4 +427,5 @@ def build_ui_context(grid, words, state=None):
         'is_complete': len(solved) == len(words),
         'words_total': len(words),
         'result_squares': result_squares_for_state(words, state),
+        'elapsed_label': elapsed_label_from_attempts(attempts) if len(solved) == len(words) else '',
     }

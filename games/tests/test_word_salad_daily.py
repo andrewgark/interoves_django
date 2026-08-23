@@ -271,6 +271,31 @@ class WordSaladSectionTests(TestCase):
             page,
         )
 
+    def test_archive_cards_render_squares_and_elapsed(self):
+        from django.template.loader import render_to_string
+
+        CheckerType.objects.get_or_create(pk='word_salad')
+        game = Game.objects.get(id=WORD_SALAD_GAME_ID)
+        html = render_to_string(
+            'new/_task_group_rows.html',
+            {
+                'game': game,
+                'task_group_rows': [{
+                    'number': '1',
+                    'play_url': '/salad/1/',
+                    'title': 'Салат №1',
+                    'salad_meta': 'Города России · 6 слов',
+                    'result_squares': '🟩2️⃣',
+                    'elapsed_label': '3м 46с',
+                    'is_fully_solved': True,
+                    'row_class': 'new-task--solved',
+                }],
+            },
+        )
+        self.assertIn('Города России · 6 слов', html)
+        self.assertIn('🟩2️⃣', html)
+        self.assertIn('⏱️ 3м 46с', html)
+
     def test_hub_includes_salad_card(self):
         self._ensure_login_modal_deps()
         resp = self.client.get('/')

@@ -869,6 +869,23 @@ class RaddleUiContextTests(SimpleTestCase):
         squares = raddle_result_squares(parsed, state)
         self.assertEqual(squares, '🟩' * 11)
 
+    def test_elapsed_label_from_first_to_last_attempt(self):
+        from datetime import datetime, timedelta, timezone as dt_timezone
+        from types import SimpleNamespace
+
+        parsed = parse_raddle_data(_task())
+        started = datetime(2026, 8, 23, 10, 0, 0, tzinfo=dt_timezone.utc)
+        ctx = build_raddle_ui_context(
+            parsed,
+            {'solved_indices': list(range(13)), 'used_hints': [], 'assist_tier': {}, 'total': 11.0},
+            attempts=[
+                SimpleNamespace(time=started, text='{}'),
+                SimpleNamespace(time=started + timedelta(seconds=226), text='{}'),
+            ],
+        )
+        self.assertTrue(ctx['is_complete'])
+        self.assertEqual(ctx['elapsed_label'], '3м 46с')
+
     def test_result_squares_mixed_tiers(self):
         from games.raddle import raddle_result_squares
 

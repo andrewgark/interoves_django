@@ -413,13 +413,19 @@
             }
             var meta = el.querySelector('[data-progress-meta]');
             if (meta) {
+              var line = '';
               if (row.result_squares) {
-                meta.textContent = row.result_squares;
+                line = row.result_squares;
+                if (row.elapsed_label) line += '  ⏱️ ' + row.elapsed_label;
                 meta.classList.add('new-task__squares');
+              } else if (row.elapsed_label) {
+                line = '⏱️ ' + row.elapsed_label;
+                meta.classList.remove('new-task__squares');
               } else {
-                meta.textContent = row.progress_text || '';
+                line = row.progress_text || '';
                 meta.classList.remove('new-task__squares');
               }
+              meta.textContent = line;
               meta.removeAttribute('aria-hidden');
               meta.classList.remove('new-task__meta--loading');
               meta.hidden = !meta.textContent;
