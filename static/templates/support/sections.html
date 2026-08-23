@@ -39,7 +39,7 @@
                 <a href="{% url 'support:game' row.game_id %}" class="new-btn new-btn--mini new-btn--ghost">dashboard</a>
                 {% if row.game_id == 'ladder' %}
                   <a href="{% url 'support:ladders' %}" class="new-btn new-btn--mini new-btn--ghost">порядок</a>
-                {% elif row.game_id == 'word_salad' %}
+                {% elif row.game_id == 'salad' %}
                   <a href="{% url 'support:word_salad' %}" class="new-btn new-btn--mini new-btn--ghost">редактор</a>
                 {% endif %}
                 <a href="{{ row.site_url }}" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost">сайт</a>

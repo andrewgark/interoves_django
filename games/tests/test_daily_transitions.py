@@ -45,7 +45,7 @@ class DailyContentTransitionTests(TestCase):
         )
 
     def test_word_salad_uses_next_existing_unpublished_number(self):
-        game = self.game('word_salad', 'word_salad_publish_start', '2026-08-23')
+        game = self.game('salad', 'word_salad_publish_start', '2026-08-23')
         now = datetime(2026, 8, 23, 20, 30, tzinfo=UTC)
 
         transition = next_daily_content_transition(game, ['1', '3', '2'], now=now)

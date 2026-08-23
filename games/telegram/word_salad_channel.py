@@ -20,6 +20,7 @@ from games.telegram.config import (
     telegram_admin_configured,
     telegram_channel_configured,
 )
+from games.section_paths import section_play_path
 from games.telegram.game_urls import admin_url
 from games.telegram.mtproto import telegram_user_configured
 from games.telegram.word_salad_image import render_word_salad_teaser_png
@@ -93,7 +94,7 @@ def _resolve_salad(number: int, now: datetime) -> TodaySalad | None:
         )
     if task is None:
         return None
-    play_url = admin_url('/word_salad/{}/'.format(number))
+    play_url = admin_url(section_play_path(WORD_SALAD_GAME_ID, number))
     return TodaySalad(
         game=game,
         number=number,

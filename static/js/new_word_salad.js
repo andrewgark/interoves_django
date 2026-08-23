@@ -38,9 +38,8 @@
   }
 
   function showSolvedToast(root, word) {
-    if (!root || !word) return;
-    var host = root.querySelector('.new-word-salad__grid-panel') || root;
-    Array.prototype.forEach.call(host.querySelectorAll('.new-word-salad__toast'), function (el) {
+    if (!word) return;
+    Array.prototype.forEach.call(document.querySelectorAll('.new-word-salad__toast'), function (el) {
       el.remove();
     });
     var toast = document.createElement('div');
@@ -49,16 +48,15 @@
     toast.innerHTML =
       '<span class="new-word-salad__toast-mark" aria-hidden="true"><i class="ph ph-check-circle"></i></span>' +
       '<span class="new-word-salad__toast-word">' + escapeHtml(word) + '</span>' +
-      '<span class="new-word-salad__toast-sep" aria-hidden="true">—</span>' +
-      '<span class="new-word-salad__toast-ok">верно!</span>';
-    host.appendChild(toast);
+      '<span class="new-word-salad__toast-ok">Верно!</span>';
+    document.body.appendChild(toast);
     toast.offsetWidth;
     toast.classList.add('is-in');
     window.setTimeout(function () {
       toast.classList.remove('is-in');
       toast.classList.add('is-out');
-      window.setTimeout(function () { toast.remove(); }, 260);
-    }, 900);
+      window.setTimeout(function () { toast.remove(); }, 320);
+    }, 2400);
   }
 
   function maskedAnswer(answer, revealCount) {
@@ -481,12 +479,13 @@
           event.preventDefault();
           activeDragRoot = root;
           appendCell(cell);
-        });
+        }, { passive: false });
         cell.addEventListener('pointerenter', function () {
           if (activeDragRoot === root) appendCell(cell);
         });
       });
 
+      root.__appendWordSaladCell = appendCell;
       root.__finishWordSaladPath = maybeCheck;
       root.__revealWordSaladHint = function (button) {
         var wordRow = button.closest('.new-word-salad__word');
@@ -507,6 +506,27 @@
       renderSelection();
     });
   }
+
+  function cellFromPoint(x, y) {
+    var el = document.elementFromPoint(x, y);
+    if (!el || !el.closest) return null;
+    return el.closest('[data-word-salad-cell]');
+  }
+
+  document.addEventListener('pointermove', function (event) {
+    if (!activeDragRoot) return;
+    if (event.cancelable) event.preventDefault();
+    var cell = cellFromPoint(event.clientX, event.clientY);
+    if (!cell || !activeDragRoot.contains(cell)) return;
+    if (typeof activeDragRoot.__appendWordSaladCell === 'function') {
+      activeDragRoot.__appendWordSaladCell(cell);
+    }
+  }, { capture: true, passive: false });
+
+  document.addEventListener('touchmove', function (event) {
+    if (!activeDragRoot) return;
+    if (event.cancelable) event.preventDefault();
+  }, { capture: true, passive: false });
 
   document.addEventListener('pointerup', function () {
     var root = activeDragRoot;

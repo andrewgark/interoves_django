@@ -8,12 +8,14 @@ import logging
 from django.conf import settings
 from PIL import Image, ImageDraw
 
+from games.section_paths import section_last_path
 from games.telegram.game_urls import site_base_url
 from games.telegram.ladder_image import (
     _load_font,
     screenshot_page_element_png,
 )
 from games.word_salad import (
+    WORD_SALAD_GAME_ID,
     build_ui_context,
     default_state,
     mask_for_word,
@@ -22,7 +24,7 @@ from games.word_salad import (
 
 logger = logging.getLogger('application')
 
-WORD_SALAD_LAST_PATH = '/word_salad/last/'
+WORD_SALAD_LAST_PATH = section_last_path(WORD_SALAD_GAME_ID)
 _WORD_SALAD_SELECTORS = (
     '.new-word-salad',
     'main.new-wrap',
@@ -31,7 +33,7 @@ _WORD_SALAD_SELECTORS = (
 
 
 def word_salad_last_screenshot_url() -> str:
-    return '{}/word_salad/last/'.format(site_base_url().rstrip('/'))
+    return '{}{}'.format(site_base_url().rstrip('/'), WORD_SALAD_LAST_PATH)
 
 
 def screenshot_word_salad_last_png(*, url: str | None = None, viewport_width: int = 1100) -> bytes:
@@ -119,7 +121,7 @@ def render_word_salad_teaser_png(
     url: str | None = None,
     fallback_to_pillow: bool = True,
 ) -> bytes:
-    """Prefer a real screenshot of SITE_BASE_URL/word_salad/last/."""
+    """Prefer a real screenshot of SITE_BASE_URL/salad/last/."""
     prefer_screenshot = getattr(settings, 'TELEGRAM_LADDER_SCREENSHOT', True)
     if prefer_screenshot:
         try:

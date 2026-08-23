@@ -7,7 +7,7 @@ from decimal import Decimal
 
 WORD_RE = re.compile(r"[А-ЯЁA-Z]", re.IGNORECASE)
 _TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат\s*#\s*\d+$', re.IGNORECASE)
-WORD_SALAD_GAME_ID = 'word_salad'
+WORD_SALAD_GAME_ID = 'salad'
 WORD_POINTS = Decimal('1')
 HINT_PENALTY = Decimal('0.5')
 

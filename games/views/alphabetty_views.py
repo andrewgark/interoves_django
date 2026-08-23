@@ -364,7 +364,7 @@ def alphabetty_play_page(request, number):
         'daily_game_label': 'Алфавитка',
         'daily_results_url': f'{play_path}results/',
         'daily_results_allowed': offer is None and game.has_access('see_results', team=team),
-        'daily_results_label': 'Результаты этой алфавитки',
+        'daily_results_label': 'Результаты',
         **section_format_credit_context(ALPHABETTY_GAME_ID),
         'daily_pager_aria_label': 'Переход между алфавитками',
         'show_sections_nav': True,

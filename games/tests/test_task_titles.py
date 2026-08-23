@@ -18,7 +18,7 @@ class TaskTitlesTests(SimpleTestCase):
         )
 
     def test_word_salad_uses_numbered_edition_title(self):
-        game = SimpleNamespace(pk='word_salad', outside_name='Салат', name='Салат')
+        game = SimpleNamespace(pk='salad', outside_name='Салат', name='Салат')
         placement = SimpleNamespace(number='3', name='Салат #3')
         task = SimpleNamespace(pk=9, task_group_id=4, number='1')
 

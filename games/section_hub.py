@@ -30,10 +30,10 @@ _DES_GAME_ID_RE = re.compile(r'^des(\d+)$')
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 
-SECTION_HUB_ORDER = ('ladder', 'word_salad', 'alphabetty', 'replacements', 'walls', 'palindromes')
+SECTION_HUB_ORDER = ('ladder', WORD_SALAD_GAME_ID, 'alphabetty', 'replacements', 'walls', 'palindromes')
 
 # Группы карточек на главной (порядок внутри группы).
-HUB_DAILY_SECTION_IDS = ('ladder', 'word_salad', 'alphabetty')
+HUB_DAILY_SECTION_IDS = ('ladder', WORD_SALAD_GAME_ID, 'alphabetty')
 HUB_FROM_DESYATOCHKI_SECTION_IDS = ('week_task', 'replacements', 'walls', 'palindromes')
 WEEK_TASK_HUB_ID = WEEK_TASK_GAME_ID
 
@@ -55,11 +55,12 @@ SECTION_HUB_META = {
         'format_credit_name': 'raddle.quest',
         'format_credit_text': 'лесенок',
     },
-    'word_salad': {
+    WORD_SALAD_GAME_ID: {
         'icon': '🥗',
         'ph_icon': 'bowl-food',
         'title': 'Салаты',
         'nav_title': 'Салат',
+        'pager_label': 'Салат',
         'description': 'Сетка 4×4: найдите все слова, проводя дорожки по соседним буквам.',
         'cta_today': 'Сегодняшний салат',
         'cta_latest': 'Последний салат',

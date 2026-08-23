@@ -171,7 +171,7 @@ def _sync_link_titles(link: GameTaskGroup, new_num: int) -> None:
     link.name = title
     task_group = link.task_group
     if task_group is not None:
-        desired_label = f'word_salad:{new_num}'
+        desired_label = f'salad:{new_num}'
         if (task_group.label or '').strip() != desired_label:
             task_group.label = desired_label
             task_group.save(update_fields=['label'])
@@ -286,7 +286,7 @@ def create_word_salad(*, at_number: int | None = None) -> dict[str, Any]:
         raise WordSaladSupportError('Позиция вставки должна быть от 1 до {}'.format(len(links) + 1))
     number = _temporary_number(links)
     task_group = TaskGroup.objects.create(
-        label=f'word_salad:{at_number}',
+        label=f'salad:{at_number}',
         checker=checker,
         points=1,
         max_attempts=None,

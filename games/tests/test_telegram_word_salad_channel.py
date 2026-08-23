@@ -16,6 +16,7 @@ from games.telegram.word_salad_channel import (
     resolve_today_salad,
     schedule_salad_channel_post,
 )
+from games.word_salad import WORD_SALAD_GAME_ID
 from games.word_salad_daily import WORD_SALAD_PUBLISH_START_TAG
 
 MOSCOW = ZoneInfo('Europe/Moscow')
@@ -53,7 +54,7 @@ class SaladChannelScheduleTests(TestCase):
         Project.objects.get_or_create(id='sections')
         CheckerType.objects.get_or_create(pk='word_salad')
         self.game, _ = Game.objects.update_or_create(
-            id='word_salad',
+            id=WORD_SALAD_GAME_ID,
             defaults={
                 'name': 'Салат',
                 'author': 'a',
@@ -81,7 +82,7 @@ class SaladChannelScheduleTests(TestCase):
         self.assertIsNotNone(salad)
         self.assertEqual(salad.number, 1)
         self.assertEqual(salad.task.pk, self.task.pk)
-        self.assertIn('/word_salad/1/', salad.play_url)
+        self.assertIn('/salad/1/', salad.play_url)
 
     def test_publish_at_is_two_hours_before_ladder(self):
         at = publish_at_for_date(self.now.date())
@@ -94,7 +95,7 @@ class SaladChannelScheduleTests(TestCase):
         caption = build_caption(salad)
         self.assertIn('Салат №1', caption)
         self.assertIn('Города России', caption)
-        self.assertIn('/word_salad/1/', caption)
+        self.assertIn('/salad/1/', caption)
         from games.telegram.word_salad_image import render_word_salad_teaser_png_pillow
         png = render_word_salad_teaser_png_pillow(self.task, salad_number=1)
         self.assertTrue(png.startswith(b'\x89PNG'))

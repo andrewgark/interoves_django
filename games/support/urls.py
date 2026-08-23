@@ -1,5 +1,6 @@
 from django.contrib.auth.views import LogoutView
 from django.urls import path
+from django.views.generic import RedirectView
 
 from games.support import actions
 from games.support import views
@@ -12,12 +13,18 @@ urlpatterns = [
     path('', views.hub, name='hub'),
     path('games/', views.games_browse, name='games'),
     path('sections/', views.sections_dashboard, name='sections'),
-    path('word-salad/', views.word_salad_dashboard, name='word_salad'),
-    path('word-salad/create/', views.word_salad_create, name='word_salad_create'),
-    path('word-salad/reorder/', views.word_salad_reorder, name='word_salad_reorder'),
-    path('word-salad/<int:link_id>/', views.word_salad_detail_json, name='word_salad_detail'),
-    path('word-salad/<int:link_id>/save/', views.word_salad_save, name='word_salad_save'),
-    path('word-salad/<int:link_id>/delete/', views.word_salad_delete, name='word_salad_delete'),
+    path('salad/', views.word_salad_dashboard, name='word_salad'),
+    path('salad/create/', views.word_salad_create, name='word_salad_create'),
+    path('salad/reorder/', views.word_salad_reorder, name='word_salad_reorder'),
+    path('salad/<int:link_id>/', views.word_salad_detail_json, name='word_salad_detail'),
+    path('salad/<int:link_id>/save/', views.word_salad_save, name='word_salad_save'),
+    path('salad/<int:link_id>/delete/', views.word_salad_delete, name='word_salad_delete'),
+    path('word-salad/', RedirectView.as_view(url='/support/salad/', permanent=True, query_string=True)),
+    path('word-salad/create/', RedirectView.as_view(url='/support/salad/create/', permanent=True, query_string=True)),
+    path('word-salad/reorder/', RedirectView.as_view(url='/support/salad/reorder/', permanent=True, query_string=True)),
+    path('word-salad/<int:link_id>/', RedirectView.as_view(url='/support/salad/%(link_id)s/', permanent=True, query_string=True)),
+    path('word-salad/<int:link_id>/save/', RedirectView.as_view(url='/support/salad/%(link_id)s/save/', permanent=True, query_string=True)),
+    path('word-salad/<int:link_id>/delete/', RedirectView.as_view(url='/support/salad/%(link_id)s/delete/', permanent=True, query_string=True)),
     path('ladders/', views.ladders_dashboard, name='ladders'),
     path('ladders/reorder/', views.ladders_reorder, name='ladders_reorder'),
     path('ladders/create/', views.ladders_create, name='ladders_create'),

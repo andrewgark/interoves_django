@@ -4,8 +4,9 @@ from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from django.urls import reverse
 
-from games.support.constants import SUPPORT_CONSOLE_GROUP
+from games.word_salad import WORD_SALAD_GAME_ID
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
+from games.support.constants import SUPPORT_CONSOLE_GROUP
 from games.support.services.sections import get_sections_dashboard
 from games.support.services.word_salad import (
     WordSaladSupportError,
@@ -40,14 +41,14 @@ class WordSaladSupportTests(TestCase):
 
     def test_sections_dashboard_includes_word_salad(self):
         rows = get_sections_dashboard()
-        self.assertTrue(any(row.game_id == 'word_salad' for row in rows))
+        self.assertTrue(any(row.game_id == WORD_SALAD_GAME_ID for row in rows))
 
     def test_empty_dashboard_does_not_create_game_on_get(self):
         self.client.force_login(self.support_user)
-        Game.objects.filter(pk='word_salad').delete()
+        Game.objects.filter(pk=WORD_SALAD_GAME_ID).delete()
         response = self.client.get(reverse('support:word_salad'))
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(Game.objects.filter(pk='word_salad').exists())
+        self.assertFalse(Game.objects.filter(pk=WORD_SALAD_GAME_ID).exists())
 
     def test_create_update_delete_word_salad(self):
         with patch('games.views.track.track_task_change'):
@@ -61,7 +62,7 @@ class WordSaladSupportTests(TestCase):
             )
             self.assertEqual(updated['intro'], 'Тема: реки')
             self.assertEqual(updated['name'], 'Салат #1')
-            self.assertEqual(TaskGroup.objects.get(pk=updated['task_group_id']).label, 'word_salad:1')
+            self.assertEqual(TaskGroup.objects.get(pk=updated['task_group_id']).label, 'salad:1')
             delete_word_salad(detail['link_id'])
         with self.assertRaises(WordSaladSupportError):
             get_word_salad_detail(detail['link_id'])

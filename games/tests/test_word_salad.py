@@ -433,15 +433,12 @@ class WordSaladTests(TestCase):
                 )
                 context = _task_group_page_nav_context(game)
                 self.assertEqual(context['task_group_pager_label'], label)
-                self.assertEqual(
-                    context['task_group_results_label'],
-                    'Результаты: {}'.format(label),
-                )
+                self.assertEqual(context['task_group_results_label'], 'Результаты')
                 self.assertNotIn('Набор', ' '.join(map(str, context.values())))
 
     def test_word_salad_game_uses_named_pager(self):
         old_id = self.game.id
-        self.game.id = 'word_salad'
+        self.game.id = 'salad'
         try:
             from games.views.new_ui import _task_group_page_nav_context
             context = _task_group_page_nav_context(self.game)

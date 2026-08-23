@@ -332,10 +332,7 @@ def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
             section_meta.get('pager_aria_label')
             or 'Переход между заданиями «{}»'.format(pager_label)
         )
-        results_label = (
-            section_meta.get('results_label')
-            or 'Результаты: {}'.format(pager_label)
-        )
+        results_label = section_meta.get('results_label') or 'Результаты'
     else:
         raw_label = (
             section_meta.get('title')
@@ -346,7 +343,7 @@ def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
         )
         pager_label = strip_tags(str(raw_label)).strip() or 'Задание'
         pager_aria_label = 'Переход между заданиями «{}»'.format(pager_label)
-        results_label = 'Результаты: {}'.format(pager_label)
+        results_label = 'Результаты'
     return {
         'back_label': back_label,
         'task_group_pager_label': pager_label,
@@ -526,7 +523,7 @@ NEW_UI_SECTIONS_PROJECT = 'sections'
 PALINDROMES_GAME_ID = 'palindromes'
 # Разделы с собственным туториалом (модалка правил)
 SECTION_RULES_GAME_IDS = (
-    'palindromes', 'replacements', 'walls', 'ladder', 'alphabetty', 'week_task', 'word_salad',
+    'palindromes', 'replacements', 'walls', 'ladder', 'alphabetty', 'week_task', WORD_SALAD_GAME_ID,
 )
 
 
@@ -2866,7 +2863,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'daily_game_label': daily_game_label,
         'daily_results_url': ladder_results_url,
         'daily_results_allowed': daily_results_allowed,
-        'daily_results_label': 'Результаты этой лесенки' if game.id == LADDER_GAME_ID else '',
+        'daily_results_label': 'Результаты' if game.id == LADDER_GAME_ID else '',
         **section_format_credit_context(game.id),
         'daily_pager_aria_label': 'Переход между {}'.format(
             'лесенками' if game.id == LADDER_GAME_ID

@@ -23,6 +23,30 @@ def section_root_urlpatterns(
         else 'new_section_last'
     )
     patterns = [
+        path(
+            'word_salad/',
+            RedirectView.as_view(url='/salad/', permanent=True, query_string=True),
+        ),
+        path(
+            'word_salad/<path:rest>',
+            RedirectView.as_view(url='/salad/%(rest)s', permanent=True, query_string=True),
+        ),
+        path(
+            'games/word_salad/',
+            RedirectView.as_view(url='/salad/', permanent=True, query_string=True),
+        ),
+        path(
+            'games/word_salad/<path:rest>',
+            RedirectView.as_view(url='/salad/%(rest)s', permanent=True, query_string=True),
+        ),
+        path(
+            'section/word_salad/',
+            RedirectView.as_view(url='/salad/', permanent=True, query_string=True),
+        ),
+        path(
+            'section/word_salad/<path:rest>',
+            RedirectView.as_view(url='/salad/%(rest)s', permanent=True, query_string=True),
+        ),
         re_path(
             r'^(?P<game_id>' + _RESULTS_GAME_ID_RE + r')/results/$',
             ui.section_results_page,

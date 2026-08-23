@@ -18,7 +18,7 @@ from games.word_salad_daily import (
     word_salad_publish_start,
 )
 from games.word_salad_sheet import parse_word_salad_csv
-from games.word_salad import validate_puzzle
+from games.word_salad import WORD_SALAD_GAME_ID, validate_puzzle
 
 
 MOSCOW = ZoneInfo('Europe/Moscow')
@@ -84,20 +84,20 @@ class WordSaladDailyLogicTests(SimpleTestCase):
         game = self._game()
         now = datetime(2026, 8, 23, 12, 0, tzinfo=MOSCOW)
         ctx = get_word_salad_hub_context(game, published_numbers={'1', '2'}, now=now)
-        self.assertEqual(ctx['word_salad_cta_number'], '1')
-        self.assertTrue(ctx['word_salad_is_today'])
-        self.assertEqual(ctx['word_salad_status'], 'today')
-        self.assertEqual(ctx['word_salad_section_url'], '/word_salad/')
-        self.assertEqual(ctx['word_salad_play_url'], '/word_salad/last/')
+        self.assertEqual(ctx['salad_cta_number'], '1')
+        self.assertTrue(ctx['salad_is_today'])
+        self.assertEqual(ctx['salad_status'], 'today')
+        self.assertEqual(ctx['salad_section_url'], '/salad/')
+        self.assertEqual(ctx['salad_play_url'], '/salad/last/')
 
     def test_hub_context_latest_when_today_missing(self):
         game = self._game()
         now = datetime(2026, 8, 24, 12, 0, tzinfo=MOSCOW)
         ctx = get_word_salad_hub_context(game, published_numbers={'1'}, now=now)
-        self.assertEqual(ctx['word_salad_cta_number'], '1')
-        self.assertFalse(ctx['word_salad_is_today'])
-        self.assertEqual(ctx['word_salad_status'], 'latest')
-        self.assertEqual(ctx['word_salad_play_url'], '/word_salad/last/')
+        self.assertEqual(ctx['salad_cta_number'], '1')
+        self.assertFalse(ctx['salad_is_today'])
+        self.assertEqual(ctx['salad_status'], 'latest')
+        self.assertEqual(ctx['salad_play_url'], '/salad/last/')
 
 
 class WordSaladSheetParseTests(SimpleTestCase):
@@ -139,7 +139,7 @@ class WordSaladSectionTests(TestCase):
             HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
 
     def test_game_exists_after_migration(self):
-        game = Game.objects.filter(id='word_salad', project_id='sections').first()
+        game = Game.objects.filter(id=WORD_SALAD_GAME_ID, project_id='sections').first()
         self.assertIsNotNone(game)
         self.assertEqual(game.name, 'Салат')
         self.assertEqual(game.outside_name, 'Салат')
@@ -155,8 +155,8 @@ class WordSaladSectionTests(TestCase):
         self.assertEqual(game.section_default_rules_id, 'section_tutorial_word_salad')
 
     def test_hub_meta_and_daily_order(self):
-        self.assertEqual(HUB_DAILY_SECTION_IDS, ('ladder', 'word_salad', 'alphabetty'))
-        meta = SECTION_HUB_META['word_salad']
+        self.assertEqual(HUB_DAILY_SECTION_IDS, ('ladder', WORD_SALAD_GAME_ID, 'alphabetty'))
+        meta = SECTION_HUB_META[WORD_SALAD_GAME_ID]
         self.assertEqual(meta['title'], 'Салаты')
         self.assertEqual(meta['ph_icon'], 'bowl-food')
         self.assertEqual(meta['format_credit_url'], 'https://wordsalad.online')
@@ -164,20 +164,23 @@ class WordSaladSectionTests(TestCase):
         self.assertEqual(meta['format_credit_text'], 'салатов')
         self.assertTrue(SECTION_HUB_META['ladder'].get('wide'))
         self.assertFalse(bool(meta.get('wide')))
-        self.assertEqual(section_hub_path('word_salad'), '/word_salad/')
-        self.assertEqual(section_last_path('word_salad'), '/word_salad/last/')
+        self.assertEqual(section_hub_path(WORD_SALAD_GAME_ID), '/salad/')
+        self.assertEqual(section_last_path(WORD_SALAD_GAME_ID), '/salad/last/')
         self.assertEqual(
             SECTION_HUB_META['ladder']['description'],
             'Разгадайте цепочку связанных слов по перемешанным подсказкам-связкам',
         )
-        salad_live = resolve('/word_salad/live-state/')
-        games_live = resolve('/games/word_salad/live-state/')
-        self.assertEqual(salad_live.kwargs['game_id'], 'word_salad')
-        self.assertEqual(games_live.kwargs['game_id'], 'word_salad')
+        salad_live = resolve('/salad/live-state/')
+        games_live = resolve('/games/salad/live-state/')
+        self.assertEqual(salad_live.kwargs['game_id'], WORD_SALAD_GAME_ID)
+        self.assertEqual(games_live.kwargs['game_id'], WORD_SALAD_GAME_ID)
         self.assertEqual(salad_live.func, games_live.func)
+        resp = self.client.get('/word_salad/', follow=False)
+        self.assertEqual(resp.status_code, 301)
+        self.assertEqual(resp['Location'], '/salad/')
 
     def test_hub_card_today(self):
-        game = Game.objects.get(id='word_salad')
+        game = Game.objects.get(id=WORD_SALAD_GAME_ID)
         now = datetime(2026, 8, 23, 12, 0, tzinfo=MOSCOW)
         card = get_word_salad_section_hub_card(
             game, published_numbers={'1'}, now=now,
@@ -186,11 +189,11 @@ class WordSaladSectionTests(TestCase):
         self.assertEqual(card['ph_icon'], 'bowl-food')
         self.assertEqual(card['cta_label'], 'Сегодняшний салат')
         self.assertTrue(card['is_today'])
-        self.assertEqual(card['play_url'], '/word_salad/last/')
+        self.assertEqual(card['play_url'], '/salad/last/')
 
     def test_unpublished_play_404(self):
         CheckerType.objects.get_or_create(pk='word_salad')
-        game = Game.objects.get(id='word_salad')
+        game = Game.objects.get(id=WORD_SALAD_GAME_ID)
         tg = TaskGroup.objects.create(label='future', points=1)
         Task.objects.create(
             task_group=tg,
@@ -201,12 +204,12 @@ class WordSaladSectionTests(TestCase):
             points=1,
         )
         GameTaskGroup.objects.create(game=game, task_group=tg, number='999', name='Салат #999')
-        resp = self.client.get('/word_salad/999/')
+        resp = self.client.get('/salad/999/')
         self.assertEqual(resp.status_code, 404)
 
     def test_play_shows_format_credit(self):
         CheckerType.objects.get_or_create(pk='word_salad')
-        game = Game.objects.get(id='word_salad')
+        game = Game.objects.get(id=WORD_SALAD_GAME_ID)
         tg = TaskGroup.objects.create(label='salad-1', points=1)
         Task.objects.create(
             task_group=tg,
@@ -218,7 +221,7 @@ class WordSaladSectionTests(TestCase):
         )
         GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='Салат #1')
         self._ensure_login_modal_deps()
-        resp = self.client.get('/word_salad/1/')
+        resp = self.client.get('/salad/1/')
         self.assertEqual(resp.status_code, 200)
         html = resp.content.decode('utf-8')
         self.assertIn('https://wordsalad.online', html)
@@ -230,7 +233,7 @@ class WordSaladSectionTests(TestCase):
         from games.views.new_ui import _ladder_task_group_rows
 
         CheckerType.objects.get_or_create(pk='word_salad')
-        game = Game.objects.get(id='word_salad')
+        game = Game.objects.get(id=WORD_SALAD_GAME_ID)
         tg = TaskGroup.objects.create(label='salad-theme', points=1)
         Task.objects.create(
             task_group=tg,
@@ -259,7 +262,7 @@ class WordSaladSectionTests(TestCase):
         self.assertIn('Города России · 6 слов', html)
 
         self._ensure_login_modal_deps()
-        resp = self.client.get('/word_salad/')
+        resp = self.client.get('/salad/')
         self.assertEqual(resp.status_code, 200)
         page = resp.content.decode('utf-8')
         self.assertIn('Города России · 6 слов', page)
@@ -275,7 +278,7 @@ class WordSaladSectionTests(TestCase):
         html = resp.content.decode('utf-8')
         self.assertIn('Салаты', html)
         self.assertIn('ph-bowl-food', html)
-        self.assertIn('/word_salad/', html)
+        self.assertIn('/salad/', html)
         self.assertLess(html.find('Салат'), html.find('Алфавитка'))
         self.assertIn('new-hub-section--wide', html)
         self.assertIn(

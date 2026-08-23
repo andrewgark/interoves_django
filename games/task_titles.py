@@ -7,7 +7,7 @@ from django.utils.html import strip_tags
 
 # These sections identify an issue by its published edition, just like the page
 # heading does.  The task's internal number is not useful there (usually "1").
-NUMBERED_EDITION_GAME_IDS = frozenset({'ladder', 'alphabetty', 'week_task', 'word_salad'})
+NUMBERED_EDITION_GAME_IDS = frozenset({'ladder', 'alphabetty', 'week_task', 'salad'})
 
 
 def _plain_text(value) -> str:

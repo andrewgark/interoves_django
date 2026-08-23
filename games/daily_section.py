@@ -12,6 +12,8 @@ from zoneinfo import ZoneInfo
 
 from django.utils import timezone
 
+from games.word_salad import WORD_SALAD_GAME_ID
+
 MOSCOW = ZoneInfo('Europe/Moscow')
 
 
@@ -180,7 +182,7 @@ ALPHABETTY_SCHEDULE = DailySchedule(
 )
 
 WORD_SALAD_SCHEDULE = DailySchedule(
-    game_id='word_salad',
+    game_id=WORD_SALAD_GAME_ID,
     publish_start_tag='word_salad_publish_start',
     cta_today='Сегодняшний салат',
     cta_latest='Последний салат',
