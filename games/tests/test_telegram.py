@@ -101,10 +101,38 @@ class TelegramNotifyTests(TestCase):
         send_message_mock.assert_called_once()
         kwargs = send_message_mock.call_args.kwargs
         self.assertIn('inline_keyboard', kwargs['reply_markup'])
+        keyboard = str(kwargs['reply_markup'])
+        self.assertIn('bug:reviewed:{}'.format(report.pk), keyboard)
+        self.assertIn('bug:fixed:{}'.format(report.pk), keyboard)
+        self.assertIn('bug:dismiss:{}'.format(report.pk), keyboard)
         text = send_message_mock.call_args.args[1]
         self.assertIn('Something broke', text)
         self.assertIn('/games/{}/1/#new-task-{}'.format(self.game.id, self.task.pk), text)
         self.assertIn('/admin/games/task/{}/change/'.format(self.task.pk), text)
+
+    @patch('games.telegram.notify.send_message')
+    @patch('games.telegram.callbacks.answer_callback_query')
+    @patch('games.telegram.callbacks.edit_message_reply_markup')
+    def test_bug_fixed_callback(self, edit_markup_mock, answer_mock, send_message_mock):
+        send_message_mock.return_value = True
+        report = BugReport.objects.create(
+            game=self.game,
+            task=self.task,
+            team=self.team,
+            text='Need a fix',
+        )
+        send_message_mock.reset_mock()
+        handle_callback_query({
+            'id': 'cb-bug-fixed',
+            'data': 'bug:fixed:{}'.format(report.pk),
+            'message': {'chat': {'id': 12345}, 'message_id': 11},
+        })
+        report.refresh_from_db()
+        self.assertEqual(report.status, BugReport.STATUS_FIXED)
+        answer_mock.assert_called()
+        edit_markup_mock.assert_called_once()
+        send_message_mock.assert_called()
+        self.assertIn('Fixed', send_message_mock.call_args.args[1])
 
     @patch('games.telegram.notify.send_message')
     def test_dict_suggestion_notify_on_create(self, send_message_mock):

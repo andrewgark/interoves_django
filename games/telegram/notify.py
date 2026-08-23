@@ -137,6 +137,7 @@ def bug_report_keyboard(report_id: int) -> dict:
     return {
         'inline_keyboard': [[
             {'text': 'Reviewed', 'callback_data': 'bug:reviewed:{}'.format(report_id)},
+            {'text': 'Fixed', 'callback_data': 'bug:fixed:{}'.format(report_id)},
             {'text': 'Dismiss', 'callback_data': 'bug:dismiss:{}'.format(report_id)},
         ]],
     }

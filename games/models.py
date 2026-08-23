@@ -2020,15 +2020,18 @@ class Donation(models.Model):
 class BugReport(models.Model):
     STATUS_PENDING = 'Pending'
     STATUS_REVIEWED = 'Reviewed'
+    STATUS_FIXED = 'Fixed'
     STATUS_DISMISSED = 'Dismissed'
     BUG_REPORT_STATUS_VARIANTS = (
         (STATUS_PENDING, 'Pending'),
         (STATUS_REVIEWED, 'Reviewed'),
+        (STATUS_FIXED, 'Fixed'),
         (STATUS_DISMISSED, 'Dismissed'),
     )
     STATUS_LABELS_RU = {
         STATUS_PENDING: 'На рассмотрении',
         STATUS_REVIEWED: 'Просмотрен',
+        STATUS_FIXED: 'Исправлен',
         STATUS_DISMISSED: 'Отклонён',
     }
     USER_REPLY_STATUSES = (STATUS_PENDING, STATUS_REVIEWED)
@@ -2061,6 +2064,13 @@ class BugReport(models.Model):
 
     def status_label_ru(self):
         return self.STATUS_LABELS_RU.get(self.status, self.status)
+
+    def status_pill_class(self):
+        if self.status in (self.STATUS_FIXED, self.STATUS_REVIEWED):
+            return 'new-pill--ok'
+        if self.status == self.STATUS_DISMISSED:
+            return 'new-pill--wrong'
+        return 'new-pill--partial'
 
     def user_can_reply(self):
         return self.status in self.USER_REPLY_STATUSES

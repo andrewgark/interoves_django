@@ -52,12 +52,17 @@ def _handle_bug(action: str, report_id: int, callback_id, chat_id, message_id) -
         return
 
     if action == 'reviewed':
-        report.status = 'Reviewed'
+        report.status = BugReport.STATUS_REVIEWED
         report.save(update_fields=['status'])
         answer_callback_query(callback_id, 'Marked Reviewed')
         send_admin_message('Bug #{} → Reviewed'.format(report_id), force=True)
+    elif action == 'fixed':
+        report.status = BugReport.STATUS_FIXED
+        report.save(update_fields=['status'])
+        answer_callback_query(callback_id, 'Marked Fixed')
+        send_admin_message('Bug #{} → Fixed'.format(report_id), force=True)
     elif action == 'dismiss':
-        report.status = 'Dismissed'
+        report.status = BugReport.STATUS_DISMISSED
         report.save(update_fields=['status'])
         answer_callback_query(callback_id, 'Dismissed')
         send_admin_message('Bug #{} → Dismissed'.format(report_id), force=True)

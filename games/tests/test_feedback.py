@@ -110,6 +110,13 @@ class FeedbackCabinetTests(TestCase):
             text='Отклонили',
             status='Dismissed',
         )
+        cls.fixed = BugReport.objects.create(
+            task=cls.task,
+            game=cls.game,
+            user=cls.user,
+            text='Уже починили',
+            status='Fixed',
+        )
 
     def setUp(self):
         self.client = Client()
@@ -122,6 +129,7 @@ class FeedbackCabinetTests(TestCase):
         self.assertContains(response, 'На рассмотрении')
         self.assertContains(response, 'Просмотрен')
         self.assertContains(response, 'Отклонён')
+        self.assertContains(response, 'Исправлен')
         self.assertContains(response, 'Список багрепортов, отправленных вами')
         self.assertNotContains(response, 'Чужой репорт')
         self.assertContains(response, reverse('new_profile_report_detail', args=[self.own.pk]))
@@ -201,6 +209,23 @@ class FeedbackCabinetTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(BugReportMessage.objects.filter(report=self.dismissed).count(), before)
         self.assertContains(response, 'закрыто')
+
+    def test_user_cannot_reply_when_fixed(self):
+        before = BugReportMessage.objects.filter(report=self.fixed).count()
+        response = self.client.post(
+            reverse('new_profile_report_detail', args=[self.fixed.pk]),
+            {'text': 'Попытка после исправления'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(BugReportMessage.objects.filter(report=self.fixed).count(), before)
+        self.assertContains(response, 'закрыто')
+        self.assertContains(response, 'Исправлен')
+
+    def test_fixed_status_uses_ok_pill(self):
+        self.assertEqual(self.fixed.status_label_ru(), 'Исправлен')
+        self.assertEqual(self.fixed.status_pill_class(), 'new-pill--ok')
+        response = self.client.get(reverse('new_profile_report_detail', args=[self.fixed.pk]))
+        self.assertContains(response, 'new-pill--ok')
 
     def test_admin_notes_are_not_shown(self):
         self.own.admin_notes = 'секретная заметка админа'

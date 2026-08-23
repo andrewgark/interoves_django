@@ -916,14 +916,19 @@ class PendingTicketRequestAdmin(admin.ModelAdmin):
 
 
 def mark_bug_report_reviewed(modeladmin, request, queryset):
-    queryset.update(status='Reviewed')
+    queryset.update(status=BugReport.STATUS_REVIEWED)
+
+
+def mark_bug_report_fixed(modeladmin, request, queryset):
+    queryset.update(status=BugReport.STATUS_FIXED)
 
 
 def mark_bug_report_dismissed(modeladmin, request, queryset):
-    queryset.update(status='Dismissed')
+    queryset.update(status=BugReport.STATUS_DISMISSED)
 
 
 mark_bug_report_reviewed.short_description = 'Mark Reviewed'
+mark_bug_report_fixed.short_description = 'Mark Fixed'
 mark_bug_report_dismissed.short_description = 'Mark Dismissed'
 
 
@@ -1051,7 +1056,7 @@ class BugReportAdminBase(admin.ModelAdmin):
     list_display = ['__str__', 'game', 'task', 'team', 'user', 'status', 'time']
     list_filter = ['status']
     search_fields = ['text', 'task__number', 'game__id', 'game__name']
-    actions = [mark_bug_report_reviewed, mark_bug_report_dismissed]
+    actions = [mark_bug_report_reviewed, mark_bug_report_fixed, mark_bug_report_dismissed]
     inlines = [BugReportMessageInline]
 
     def get_queryset(self, request):

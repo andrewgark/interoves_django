@@ -11,7 +11,7 @@
       <a class="new-feedback-card__link" href="{% if ui_project_base %}{{ ui_project_reports_url }}{{ card.report.pk }}/{% else %}{% url 'new_profile_report_detail' card.report.pk %}{% endif %}">
         <div class="new-feedback-card__top">
           <strong>{{ card.report.game.get_no_html_name }}</strong>
-          <span class="new-pill {% if card.report.status == 'Reviewed' %}new-pill--ok{% elif card.report.status == 'Dismissed' %}new-pill--wrong{% else %}new-pill--partial{% endif %}">{{ card.status_label }}</span>
+          <span class="new-pill {{ card.report.status_pill_class }}">{{ card.status_label }}</span>
           {% if card.unread %}<span class="new-feedback-unread">новый ответ</span>{% endif %}
         </div>
         <p class="new-feedback-card__meta">

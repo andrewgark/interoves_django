@@ -133,7 +133,7 @@ def get_pending_queue(*, limit: int = 100) -> List[PendingItem]:
             game_id=bug.game_id,
             game_url=_game_url(bug.game_id),
             admin_url=reverse('admin:games_bugreport_change', args=[bug.pk]),
-            actions=('bug_reviewed', 'bug_dismissed'),
+            actions=('bug_reviewed', 'bug_fixed', 'bug_dismissed'),
             thread_url='/profile/reports/{}/'.format(bug.pk),
         ))
 

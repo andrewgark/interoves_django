@@ -306,6 +306,22 @@ class SupportPendingActionsTests(TestCase):
         self.bug.refresh_from_db()
         self.assertEqual(self.bug.status, 'Reviewed')
 
+    def test_bug_fixed_action(self):
+        url = reverse('support:action')
+        response = self.client.post(url, {
+            'kind': 'bug',
+            'id': self.bug.pk,
+            'action': 'bug_fixed',
+            'next': reverse('support:pending'),
+        })
+        self.assertEqual(response.status_code, 302)
+        self.bug.refresh_from_db()
+        self.assertEqual(self.bug.status, 'Fixed')
+
+    def test_pending_page_has_fixed_button(self):
+        response = self.client.get(reverse('support:pending'))
+        self.assertContains(response, 'value="bug_fixed"')
+
 
 class SupportPhase4Tests(TestCase):
     @classmethod

@@ -5,6 +5,6 @@
   <input type="hidden" name="action" value="{{ action }}">
   <input type="hidden" name="next" value="{{ next_url }}">
   <button type="submit" class="new-btn new-btn--mini new-btn--ghost support-action-btn">
-    {% if action == 'recheck' %}recheck{% elif action == 'set_ok' %}set_ok{% elif action == 'confirm_prestatus' %}confirm{% elif action == 'chain_replay' %}chain replay{% elif action == 'ticket_accept' %}accept{% elif action == 'ticket_reject' %}reject{% elif action == 'bug_reviewed' %}reviewed{% elif action == 'bug_dismissed' %}dismiss{% else %}{{ action }}{% endif %}
+    {% if action == 'recheck' %}recheck{% elif action == 'set_ok' %}set_ok{% elif action == 'confirm_prestatus' %}confirm{% elif action == 'chain_replay' %}chain replay{% elif action == 'ticket_accept' %}accept{% elif action == 'ticket_reject' %}reject{% elif action == 'bug_reviewed' %}reviewed{% elif action == 'bug_fixed' %}fixed{% elif action == 'bug_dismissed' %}dismiss{% else %}{{ action }}{% endif %}
   </button>
 </form>

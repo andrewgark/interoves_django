@@ -18,7 +18,7 @@ from games.support.services.chain import is_chain_task
 
 ATTEMPT_ACTIONS = frozenset({'recheck', 'set_ok', 'confirm_prestatus', 'chain_replay'})
 TICKET_ACTIONS = frozenset({'ticket_accept', 'ticket_reject'})
-BUG_ACTIONS = frozenset({'bug_reviewed', 'bug_dismissed', 'bug_reply'})
+BUG_ACTIONS = frozenset({'bug_reviewed', 'bug_fixed', 'bug_dismissed', 'bug_reply'})
 
 
 def _safe_next_url(request, default='/support/pending/'):
@@ -130,11 +130,15 @@ def _perform_bug_action(bug_id: int, action: str, *, reply_text: str = '', admin
 
         add_admin_reply(bug, admin_user, reply_text)
     if action == 'bug_reviewed':
-        bug.status = 'Reviewed'
+        bug.status = BugReport.STATUS_REVIEWED
+        bug.save(update_fields=['status'])
+        return
+    if action == 'bug_fixed':
+        bug.status = BugReport.STATUS_FIXED
         bug.save(update_fields=['status'])
         return
     if action == 'bug_dismissed':
-        bug.status = 'Dismissed'
+        bug.status = BugReport.STATUS_DISMISSED
         bug.save(update_fields=['status'])
         return
     raise PermissionDenied('Неизвестное действие')

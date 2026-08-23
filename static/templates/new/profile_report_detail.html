@@ -6,7 +6,7 @@
   <strong>{{ report.game.get_no_html_name }}</strong>
   · задание {{ report.task.number }}
   · {{ report.time|date:"d.m.Y H:i" }}
-  · <span class="new-pill {% if report.status == 'Reviewed' %}new-pill--ok{% elif report.status == 'Dismissed' %}new-pill--wrong{% else %}new-pill--partial{% endif %}">{{ status_label }}</span>
+  · <span class="new-pill {{ report.status_pill_class }}">{{ status_label }}</span>
 </p>
 {% if task_url %}
   <p class="new-login-hint new-login-hint--flush-top"><a class="new-link-dotted" href="{{ task_url }}">Открыть задание</a></p>
