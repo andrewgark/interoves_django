@@ -251,7 +251,7 @@
           var cellRect = sample.getBoundingClientRect();
           var svgRect = pathSvg.getBoundingClientRect();
           var scale = svgRect.width ? (gridRect.width / svgRect.width) : 1;
-          var stroke = Math.min(cellRect.width, cellRect.height) * 0.8 * scale;
+          var stroke = Math.min(cellRect.width, cellRect.height) * 0.55 * scale;
           pathLine.style.strokeWidth = String(stroke);
         }
       }
