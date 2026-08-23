@@ -8177,10 +8177,8 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 .new-word-salad__path polyline {
   fill: none;
   stroke: color-mix(in srgb, var(--accent) 46%, transparent);
-  stroke-width: var(--word-salad-path-stroke, 30px);
   stroke-linecap: round;
   stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
 }
 
 .new-word-salad__solved {

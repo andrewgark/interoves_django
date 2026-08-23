@@ -249,8 +249,10 @@
         var sample = cellByIndex[currentPath[0]] || cells[0];
         if (sample) {
           var cellRect = sample.getBoundingClientRect();
-          var stroke = Math.min(cellRect.width, cellRect.height) * 0.52;
-          pathLine.style.strokeWidth = stroke + 'px';
+          var svgRect = pathSvg.getBoundingClientRect();
+          var scale = svgRect.width ? (gridRect.width / svgRect.width) : 1;
+          var stroke = Math.min(cellRect.width, cellRect.height) * 0.8 * scale;
+          pathLine.style.strokeWidth = String(stroke);
         }
       }
 
