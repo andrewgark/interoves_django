@@ -10,9 +10,18 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
-from games.models import BugReport, BugReportMessage
+from games.models import AlphabettyOffer, BugReport, BugReportMessage, LadderOffer
 
 MAX_MESSAGE_LEN = 5000
+
+
+def profile_cabinet_flags(user):
+    """Which «Мои …» links to show on the profile page."""
+    return {
+        'has_bug_reports': BugReport.objects.filter(user=user).exists(),
+        'has_ladder_offers': LadderOffer.objects.filter(user=user).exists(),
+        'has_alphabetty_offers': AlphabettyOffer.objects.filter(user=user).exists(),
+    }
 
 
 def profile_reports_path(project_id=None, report_id=None) -> str:

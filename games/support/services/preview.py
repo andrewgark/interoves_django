@@ -218,7 +218,9 @@ def build_preview_task_group_context(game_id: str, task_group_number: str, spec:
             section_tutorial_html = None
             show_palindrome_rules = False
 
-    ctx_dicts = build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode)
+    ctx_dicts = build_task_group_task_context_dicts(
+        game, task_group, tasks, team, user, anon_key, mode, placement=placement,
+    )
     prev_url = (
         preview_task_group_url(game.id, prev_tg.number, spec) if prev_tg else None
     )

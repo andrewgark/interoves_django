@@ -196,10 +196,11 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
     # A card update needs context for this task only.  Building the whole group
     # made every attempt reload every task's complete history and like totals.
     tasks = [task]
+    slot = GameTaskGroup.objects.filter(game=game, task_group=task_group).first()
     ctx_dicts = build_task_group_task_context_dicts(
         game, task_group, tasks, team, user, anon_key, current_mode,
+        placement=slot,
     )
-    slot = GameTaskGroup.objects.filter(game=game, task_group=task_group).first()
     tg_number = slot.number if slot else 0
     tg_name = slot.name if slot else ''
     # Daily section cards deliberately hide the task number.  The full page

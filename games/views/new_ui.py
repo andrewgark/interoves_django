@@ -79,7 +79,7 @@ from games.section_hub import (
 )
 from games.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
-from games.task_titles import task_group_page_title
+from games.task_titles import task_display_name, task_group_page_title
 from games.models import (
     Attempt,
     AudioManager,
@@ -1355,7 +1355,9 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
     task_group = placement.task_group
     prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
-    ctx_dicts = build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode)
+    ctx_dicts = build_task_group_task_context_dicts(
+        game, task_group, tasks, team, user, anon_key, mode, placement=placement,
+    )
     return render(request, 'ui/task_group.html', {
         'project': project,
         'game': game,
@@ -2341,7 +2343,7 @@ def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=
     }
 
 
-def build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode):
+def build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode, placement=None):
     """
     Shared context for task_group.html and new/partials/task_card.html
     (attempts, walls, replacements_lines, likes, proportions pool).
@@ -2594,15 +2596,25 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             tid = c.get('task_id')
             ai = attempts_info_by_task_id.get(tid) if tid is not None else None
             c['hide_from_pool'] = bool(ai and ai.is_solved())
-    task_ui_by_task_id = {
-        t.id: _task_ui_descriptor(
-            t,
-            rld=replacements_lines_data.get(t.id),
-            rd=raddle_data.get(t.id),
-            wall_meta=wall_max_points_meta_by_task_id.get(t.id),
-            ws=word_salad_data.get(t.id),
-            gp=grid_puzzle_data.get(t.id),
+    if placement is None and getattr(task_group, 'pk', None) and getattr(game, 'pk', None):
+        placement = (
+            GameTaskGroup.objects
+            .filter(game_id=game.pk, task_group_id=task_group.pk)
+            .only('number', 'name')
+            .first()
         )
+    task_ui_by_task_id = {
+        t.id: {
+            **_task_ui_descriptor(
+                t,
+                rld=replacements_lines_data.get(t.id),
+                rd=raddle_data.get(t.id),
+                wall_meta=wall_max_points_meta_by_task_id.get(t.id),
+                ws=word_salad_data.get(t.id),
+                gp=grid_puzzle_data.get(t.id),
+            ),
+            'display_name': task_display_name(game, t, placement=placement),
+        }
         for t in tasks
     }
     return {
@@ -2743,7 +2755,10 @@ def new_task_group_page(request, game_id, task_group_number):
             section_rules_type = None
             section_tutorial_html = None
             show_palindrome_rules = False
-    ctx_dicts = build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode)
+    ctx_dicts = build_task_group_task_context_dicts(
+        game, task_group, tasks, team, user, anon_key, mode,
+        placement=placement if isinstance(placement, GameTaskGroup) else None,
+    )
     week_task_source_line = None
     week_task_source_url = None
     if game.id == WEEK_TASK_GAME_ID:
@@ -2787,6 +2802,9 @@ def new_task_group_page(request, game_id, task_group_number):
         page_title = task_group_page_title(game, placement)
     else:
         page_title = task_group_page_title(game, placement)
+    if ladder_offer is not None and not isinstance(placement, GameTaskGroup):
+        for ui in ctx_dicts['task_ui_by_task_id'].values():
+            ui['display_name'] = page_title
 
     can_reset_offer = False
     offer_reset_url = None
@@ -3822,6 +3840,7 @@ def new_profile(request, project_id=None):
     tz_options = [(tz, _utc_offset_label(tz)) for tz in pytz.common_timezones]
 
     scoped = _scoped_project_id(request)
+    from games.feedback import profile_cabinet_flags
     ctx = {
         'form': form,
         'connected_providers': connected,
@@ -3832,6 +3851,7 @@ def new_profile(request, project_id=None):
         'tz_options': tz_options,
         'page_title': 'Профиль',
     }
+    ctx.update(profile_cabinet_flags(request.user))
     ctx.update(_project_urls_context(scoped or NEW_UI_PROJECT))
     _merge_nav_project_for_scope(ctx, request, scoped)
     return render(request, 'ui/profile.html', ctx)

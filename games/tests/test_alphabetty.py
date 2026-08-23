@@ -527,6 +527,7 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'Алфавитка')
         self.assertContains(r, 'href="/alphabetty/1/results/"')
+        self.assertContains(r, 'data-task-label="Алфавитка №1"')
 
     def test_hub_page_has_create_link(self):
         _ensure_login_modal_deps()
@@ -550,6 +551,8 @@ class AlphabettyPlayApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Создать свою алфавитку')
+        self.assertContains(response, 'предлагать сделать одной из ежедневных')
+        self.assertNotContains(response, 'отправлять Андрею')
         self.assertEqual(response.context['offers_json'], [])
         self.assertContains(response, 'alphabetty-offers-bootstrap')
         self.assertContains(response, 'Добавить алфавитку')

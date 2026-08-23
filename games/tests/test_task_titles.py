@@ -17,6 +17,17 @@ class TaskTitlesTests(SimpleTestCase):
             'Лесенка №45',
         )
 
+    def test_alphabetty_uses_numbered_edition_title(self):
+        game = SimpleNamespace(pk='alphabetty', outside_name='Алфавитка', name='Алфавитка')
+        placement = SimpleNamespace(number='12', name='Алфавитка #12')
+        task = SimpleNamespace(pk=4, task_group_id=8, number='1')
+
+        self.assertEqual(task_group_page_title(game, placement), 'Алфавитка №12')
+        self.assertEqual(
+            task_display_name(game, task, placement=placement),
+            'Алфавитка №12',
+        )
+
     def test_word_salad_uses_numbered_edition_title(self):
         game = SimpleNamespace(pk='salad', outside_name='Салат', name='Салат')
         placement = SimpleNamespace(number='3', name='Салат #3')
@@ -35,7 +46,7 @@ class TaskTitlesTests(SimpleTestCase):
 
         self.assertEqual(
             task_display_name(game, task, placement=placement),
-            '2. Мнемосина · задание 1.10',
+            '2. Мнемосина (1.10)',
         )
 
     def test_html_entities_are_plain_text(self):
@@ -45,7 +56,7 @@ class TaskTitlesTests(SimpleTestCase):
 
         self.assertEqual(
             task_display_name(game, task, placement=placement),
-            '4. 🍄 Грибы · задание 2',
+            '4. 🍄 Грибы (2)',
         )
 
     def test_unplaced_task_keeps_number_fallback(self):

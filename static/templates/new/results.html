@@ -32,13 +32,7 @@
       {% endif %}
     </div>
 
-    {% if section_results and results_variant == 'ladder_words' %}
-    <div class="new-card new-card--after-heading">
-      <div class="new-card__text new-card__text--flush">
-        Цифра в ячейке — сколько подсказок взяли на этом слове.
-      </div>
-    </div>
-    {% elif not section_results %}
+    {% if not section_results %}
     <div class="new-card new-card--after-heading">
       <div class="new-card__text new-card__text--flush">
         {% if mode == 'tournament' %}

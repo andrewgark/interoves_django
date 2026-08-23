@@ -87,7 +87,7 @@ class TelegramNotifyTests(TransactionTestCase):
         self.assertIn('/admin/games/task/{}/change/'.format(self.task.pk), payload['text'])
         self.assertIn('/admin/games/taskgroup/{}/change/'.format(self.task_group.pk), payload['text'])
         self.assertIn('/admin/games/game/{}/change/'.format(self.game.id), payload['text'])
-        self.assertIn('1. Section · задание 1', payload['text'])
+        self.assertIn('1. Section (1)', payload['text'])
 
     @patch('games.telegram.api.requests.post')
     def test_ticket_request_triggers_telegram(self, mock_post):

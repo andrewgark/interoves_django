@@ -23,8 +23,7 @@
   --results-cell-zero-fg: var(--text);
   --results-cell-no-bg: #e8eef0;
   --results-cell-no-fg: var(--text);
-  --results-row-me-bg: #c5ddd6;
-  --results-row-me-fg: #145649;
+  --results-row-me-border: var(--accent);
   /* Якоря / scrollIntoView: запас под sticky-шапку (.new-nav) */
   --new-ui-scroll-margin-top: 5.5rem;
   /* Responsive new UI — источник правды; см. agents/AGENTS.md */
@@ -80,8 +79,7 @@ html.new-ui-dark {
   --results-cell-zero-fg: #f8c4c8;
   --results-cell-no-bg: #1c2624;
   --results-cell-no-fg: #b8d4cc;
-  --results-row-me-bg: #1e3a34;
-  --results-row-me-fg: #c5ebe2;
+  --results-row-me-border: var(--accent);
   --focus-ring: color-mix(in srgb, var(--accent) 50%, transparent);
   --warning: #d4b45c;
   --warning-hover: #e0c574;
@@ -1256,7 +1254,7 @@ html.new-ui-dark body.new-ui {
 .new-cabinet-links {
   list-style: none;
   padding: 0;
-  margin: 0.75rem 0 0;
+  margin: 0;
   display: grid;
   gap: 0.55rem;
 }
@@ -5201,11 +5199,44 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   color: var(--muted);
 }
 
-.new-results-table tr.is-me th,
-.new-results-table tr.is-me td{
-  background: var(--results-row-me-bg);
+/* Свою строку отмечаем рамкой, без заливки: цвета cell-* должны остаться читаемыми. */
+.new-results-table tr.is-me > * {
+  box-shadow:
+    inset 0 2px 0 var(--results-row-me-border),
+    inset 0 -2px 0 var(--results-row-me-border);
+}
+.new-results-table tr.is-me > :first-child {
+  box-shadow:
+    inset 3px 0 0 var(--results-row-me-border),
+    inset 0 2px 0 var(--results-row-me-border),
+    inset 0 -2px 0 var(--results-row-me-border);
+}
+.new-results-table tr.is-me > :last-child {
+  box-shadow:
+    inset -2px 0 0 var(--results-row-me-border),
+    inset 0 2px 0 var(--results-row-me-border),
+    inset 0 -2px 0 var(--results-row-me-border);
+}
+.new-results-table tr.is-me .is-sticky-left,
+.new-results-table tr.is-me .is-sticky-left-2,
+.new-results-table tr.is-me .is-sticky-left-3,
+.new-results-table tr.is-me .is-sticky-left-4 {
   font-weight: 700;
-  color: var(--results-row-me-fg);
+}
+.new-results-table tr.is-me .is-sticky-left-3,
+.new-results-table tr.is-me .is-sticky-left-4 {
+  box-shadow:
+    1px 0 0 var(--border),
+    inset 0 2px 0 var(--results-row-me-border),
+    inset 0 -2px 0 var(--results-row-me-border);
+}
+.new-results-table tr.is-me .is-sticky-left-3:last-child,
+.new-results-table tr.is-me .is-sticky-left-4:last-child {
+  box-shadow:
+    1px 0 0 var(--border),
+    inset -2px 0 0 var(--results-row-me-border),
+    inset 0 2px 0 var(--results-row-me-border),
+    inset 0 -2px 0 var(--results-row-me-border);
 }
 
 .new-results-table td.cell-full{

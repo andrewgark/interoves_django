@@ -281,7 +281,7 @@
   <div class="new-rules-modal__box pal-card">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-bug-report-close><i class="ph ph-x" aria-hidden="true"></i></button>
     <h2 id="new-bug-report-title" class="pal-title">Сообщить о проблеме</h2>
-    <p class="new-login-hint new-bug-report-lead">Задание <strong id="new-bug-report-task-label"></strong>. Опишите, что не так: опечатка, баг в проверке, непонятная формулировка и т.п.</p>
+    <p class="new-login-hint new-bug-report-lead"><strong id="new-bug-report-task-label"></strong>. Опишите, что не так: опечатка, баг в проверке, непонятная формулировка и т.п.</p>
     <textarea id="new-bug-report-text" class="new-bug-report-textarea" rows="5" maxlength="5000" placeholder="Что именно пошло не так?"></textarea>
     <p id="new-bug-report-error" class="new-bug-report-error" hidden></p>
     <p id="new-bug-report-success" class="new-bug-report-success" hidden>Спасибо! Репорт отправлен. <a id="new-bug-report-success-link" href="{{ ui_project_reports_url|default:'/profile/reports/' }}">Мои обращения</a></p>
@@ -3188,11 +3188,11 @@
       if (submitBtn) submitBtn.disabled = false;
     }
 
-    function openBugReport(taskId, taskNumber) {
+    function openBugReport(taskId, taskLabel) {
       if (!modal) return;
       currentTaskId = taskId;
       resetBugReportForm();
-      if (labelEl) labelEl.textContent = '#' + (taskNumber || taskId);
+      if (labelEl) labelEl.textContent = taskLabel || ('#' + taskId);
       modal.removeAttribute('hidden');
       modal.classList.add('is-open');
       document.body.style.overflow = 'hidden';
@@ -3235,7 +3235,7 @@
       var openBtn = e.target && e.target.closest ? e.target.closest('[data-bug-report-open]') : null;
       if (openBtn) {
         e.preventDefault();
-        openBugReport(openBtn.getAttribute('data-task-id'), openBtn.getAttribute('data-task-number'));
+        openBugReport(openBtn.getAttribute('data-task-id'), openBtn.getAttribute('data-task-label'));
         return;
       }
       if (e.target && e.target.closest && e.target.closest('[data-bug-report-close]')) {

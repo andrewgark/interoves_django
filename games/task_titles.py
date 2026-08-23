@@ -29,9 +29,9 @@ def task_display_name(game, task, *, placement=None) -> str:
     Return a task name that identifies it in the context of ``game``.
 
     Numbered recurring sections use the same title as their page (for example,
-    ``Лесенка №47``).  Other games include the task-group number and name,
-    followed by the task number.  If the task is no longer placed in the game,
-    retain the old ``#<number>`` fallback.
+    ``Лесенка №47``).  Other games use the task-group number and name with the
+    task number in parentheses, for example ``2. Мнемосина (1.10)``.  If the
+    task is no longer placed in the game, retain the old ``#<number>`` fallback.
     """
     if placement is None and getattr(task, 'task_group_id', None):
         from games.models import GameTaskGroup
@@ -54,4 +54,4 @@ def task_display_name(game, task, *, placement=None) -> str:
     group_label = '{}.'.format(placement.number)
     if group_name:
         group_label += ' {}'.format(group_name)
-    return '{} · задание {}'.format(group_label, task_number)
+    return '{} ({})'.format(group_label, task_number)

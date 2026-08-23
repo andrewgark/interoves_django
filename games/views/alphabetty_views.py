@@ -52,7 +52,7 @@ from games.models import (
 )
 from games.section_hub import section_format_credit_context
 from games.section_paths import section_hub_path, section_play_path, section_results_path
-from games.task_titles import task_group_page_title
+from games.task_titles import task_display_name, task_group_page_title
 from games.views.new_ui import (
     NEW_UI_SECTIONS_PROJECT,
     _anon_key_from_request,
@@ -343,16 +343,19 @@ def alphabetty_play_page(request, number):
     meta_ctx = _alphabetty_meta_context(
         request, game=game, task=task, user=user, anon_key=anon_key,
     )
+    if offer is None and link is not None:
+        page_title = task_group_page_title(game, link)
+        bug_report_task_label = task_display_name(game, task, placement=link)
+    else:
+        page_title = f'Алфавитка #{play_number}'
+        bug_report_task_label = page_title
     return render(request, 'new/alphabetty_play.html', {
         'game': game,
         'number': play_number,
         'link': link,
         'task': task,
-        'page_title': (
-            task_group_page_title(game, link)
-            if offer is None and link is not None
-            else f'Алфавитка #{play_number}'
-        ),
+        'page_title': page_title,
+        'bug_report_task_label': bug_report_task_label,
         'daily_publish_date': daily_publish_date,
         'live_next_transition_at': (
             next_daily_content_transition_for_game(game) if offer is None else None

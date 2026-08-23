@@ -9,12 +9,14 @@ from django.utils import timezone
 
 from games.feedback import add_admin_reply, add_user_reply
 from games.models import (
+    AlphabettyOffer,
     BugReport,
     BugReportMessage,
     CheckerType,
     Game,
     GameTaskGroup,
     HTMLPage,
+    LadderOffer,
     Profile,
     Project,
     Task,
@@ -120,6 +122,7 @@ class FeedbackCabinetTests(TestCase):
         self.assertContains(response, 'На рассмотрении')
         self.assertContains(response, 'Просмотрен')
         self.assertContains(response, 'Отклонён')
+        self.assertContains(response, 'Список багрепортов, отправленных вами')
         self.assertNotContains(response, 'Чужой репорт')
         self.assertContains(response, reverse('new_profile_report_detail', args=[self.own.pk]))
 
@@ -130,10 +133,45 @@ class FeedbackCabinetTests(TestCase):
     def test_profile_has_cabinet_links(self):
         response = self.client.get(reverse('new_profile'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Мои материалы и обращения')
+        self.assertNotContains(response, 'Мои материалы и обращения')
+        self.assertNotContains(response, 'багрепорты и ответы')
+        self.assertNotContains(response, 'черновики и статусы')
+        self.assertContains(response, 'class="new-cabinet"')
         self.assertContains(response, reverse('new_profile_reports'))
+        self.assertContains(response, 'Мои обращения')
+        self.assertNotContains(response, 'Мои лесенки')
+        self.assertNotContains(response, 'Мои алфавитки')
+        self.assertNotContains(response, '/create_ladder/')
+        self.assertNotContains(response, '/create_alphabetty/')
+
+    def test_profile_hides_cabinet_when_empty(self):
+        user = User.objects.create_user('empty-cab', 'empty-cab@example.com', 'secret')
+        Profile.objects.create(user=user, first_name='Э', last_name='Пустов')
+        client = Client()
+        client.force_login(user)
+        response = client.get(reverse('new_profile'))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'class="new-cabinet"')
+        self.assertNotContains(response, 'Мои лесенки')
+        self.assertNotContains(response, 'Мои алфавитки')
+
+    def test_profile_shows_offer_links_when_content_exists(self):
+        LadderOffer.objects.create(
+            user=self.user,
+            share_hash='cabinetladderhash1',
+            task_group=TaskGroup.objects.create(label='cabinet-ladder'),
+        )
+        AlphabettyOffer.objects.create(
+            user=self.user,
+            share_hash='cabinetabchash1',
+            task_group=TaskGroup.objects.create(label='cabinet-alphabetty'),
+        )
+        response = self.client.get(reverse('new_profile'))
+        self.assertContains(response, 'Мои лесенки')
         self.assertContains(response, '/create_ladder/')
+        self.assertContains(response, 'Мои алфавитки')
         self.assertContains(response, '/create_alphabetty/')
+        self.assertNotContains(response, 'черновики и статусы')
 
     def test_guest_is_redirected_from_list(self):
         guest = Client()

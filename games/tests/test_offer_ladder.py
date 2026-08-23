@@ -114,6 +114,18 @@ class LadderOfferFlowTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(resp.context['profile_ready'])
 
+    def test_create_page_explains_daily_offer(self):
+        c = Client()
+        c.force_login(self.user)
+        resp = c.get('/create_ladder/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.context['profile_ready'])
+        self.assertContains(
+            resp,
+            'предлагать сделать одной из ежедневных',
+        )
+        self.assertNotContains(resp, 'предлагать Андрею')
+
     def test_offer_ladder_url_redirects(self):
         c = Client()
         c.force_login(self.user)
@@ -167,6 +179,7 @@ class LadderOfferFlowTests(TestCase):
         c = Client()
         resp = c.get('/ladder/{}/'.format(offer.share_hash))
         self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'data-task-label="Лесенка · Анна"')
         resp_r = c.get('/ladder/{}/results/'.format(offer.share_hash))
         self.assertEqual(resp_r.status_code, 200)
 
@@ -286,6 +299,10 @@ class LadderOfferFlowTests(TestCase):
         # The opaque share URL remains public after the offer enters the schedule.
         resp = c.get('/ladder/{}/'.format(offer.share_hash))
         self.assertEqual(resp.status_code, 200)
+        self.assertContains(
+            resp,
+            'data-task-label="Лесенка №{}"'.format(offer.accepted_link.number),
+        )
         resp_r = c.get('/ladder/{}/results/'.format(offer.share_hash))
         self.assertEqual(resp_r.status_code, 200)
 
