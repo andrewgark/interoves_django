@@ -1392,9 +1392,9 @@ class Attempt(models.Model):
 
     def __str__(self):
         actor = self.team if self.team is not None else (self.user if self.user is not None else self.anon_key)
+        time_s = self.time.strftime('%Y-%m-%d %H:%M:%S') if self.time else ''
         return '[{}]: ({}) - {} [{}] ({})'.format(
-            actor, self.task, self.get_pretty_text(), self.status,
-            self.time.strftime('%Y-%m-%d %H:%M:%S')
+            actor, self.task, self.get_pretty_text(), self.status, time_s
         )
 
     def get_answer(self):
@@ -1460,6 +1460,36 @@ class Attempt(models.Model):
                 return self.text
         if self.task.task_type == 'alphabetty':
             return self.text
+        if self.task.task_type == 'word_salad':
+            try:
+                payload = json.loads(self.text)
+                action = (payload.get('action') or 'solve').strip().lower()
+                if action == 'hint':
+                    idx = int(payload.get('word_index', -1))
+                    if idx >= 0:
+                        return 'Подсказка слова {}'.format(idx + 1)
+                    return 'Подсказка'
+                path = payload.get('path') or []
+                if not isinstance(path, list):
+                    return self.text
+                try:
+                    path = [int(value) for value in path]
+                except (TypeError, ValueError):
+                    return self.text
+                letters = ''
+                try:
+                    from games.word_salad import parse_task_data
+                    grid, _words = parse_task_data(self.task.checker_data, self.task.answer or '')
+                    letters = ''.join(grid[i] for i in path if 0 <= i < len(grid))
+                except Exception:
+                    letters = ''
+                if letters:
+                    return letters
+                if path:
+                    return 'Путь: {}'.format('-'.join(str(i) for i in path))
+                return self.text
+            except (ValueError, TypeError, AttributeError):
+                return self.text
         if self.task.task_type == 'grid-puzzle':
             try:
                 payload = json.loads(self.text)
@@ -1471,11 +1501,14 @@ class Attempt(models.Model):
             except (TypeError, ValueError, AttributeError):
                 return self.text
         if self.task.task_type == 'wall':
-            return self.task.get_wall().get_attempt_text(
-                json.loads(self.text),
-                ImageManager(),
-                AudioManager()
-            )
+            try:
+                return self.task.get_wall().get_attempt_text(
+                    json.loads(self.text),
+                    ImageManager(),
+                    AudioManager()
+                )
+            except Exception:
+                return self.text
         if self.task.task_type == 'distribute_to_teams':
             try:
                 g = self.game_id and self.game or GameTaskGroup.resolve_game_for_task(self.task)
@@ -1486,7 +1519,7 @@ class Attempt(models.Model):
                 self.text,
                 distr_text
             )
-        raise Exception('Unknown task_type: {}'.format(self.task.task_type))
+        return self.text
 
 
 class PendingAttempt(Attempt):

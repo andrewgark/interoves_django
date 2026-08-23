@@ -3,8 +3,8 @@ from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.contrib.auth.models import AnonymousUser
-from django.test import RequestFactory, TestCase
+from django.contrib.auth.models import AnonymousUser, User
+from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.utils import timezone
 
 from games.check import CheckerFactory
@@ -445,3 +445,53 @@ class WordSaladTests(TestCase):
         finally:
             self.game.id = old_id
         self.assertEqual(context['task_group_pager_label'], 'Салат')
+
+    def test_admin_changelist_renders_word_salad_attempts(self):
+        Attempt.manager.create(
+            team=self.team,
+            task=self.task,
+            game=self.game,
+            text=json.dumps({'action': 'solve', 'path': _path()}),
+            status='Ok',
+        )
+        Attempt.manager.create(
+            team=self.team,
+            task=self.task,
+            game=self.game,
+            text=json.dumps({'action': 'hint', 'word_index': 0}),
+            status='Wrong',
+        )
+        User.objects.create_superuser('ws_admin', 'ws_admin@example.com', 'secret')
+        self.client.force_login(User.objects.get(username='ws_admin'))
+        response = self.client.get('/admin/games/attempt/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'ABCDEFGHIJKLMNOP')
+        self.assertContains(response, 'Подсказка слова 1')
+
+
+class AttemptPrettyTextTests(SimpleTestCase):
+    def _attempt(self, task_type, text, **task_kwargs):
+        return Attempt(
+            task=Task(task_type=task_type, **task_kwargs),
+            text=text,
+            status='Wrong',
+        )
+
+    def test_word_salad_solve_shows_letters_from_path(self):
+        attempt = self._attempt(
+            'word_salad',
+            json.dumps({'action': 'solve', 'path': [0, 1, 2, 3]}),
+            checker_data=json.dumps(_puzzle(), ensure_ascii=False),
+        )
+        self.assertEqual(attempt.get_pretty_text(), 'ABCD')
+
+    def test_word_salad_hint_shows_word_index(self):
+        attempt = self._attempt(
+            'word_salad',
+            json.dumps({'action': 'hint', 'word_index': 0}),
+        )
+        self.assertEqual(attempt.get_pretty_text(), 'Подсказка слова 1')
+
+    def test_unknown_task_type_returns_raw_text(self):
+        attempt = self._attempt('not_a_real_type', 'hello')
+        self.assertEqual(attempt.get_pretty_text(), 'hello')
