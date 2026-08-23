@@ -72,7 +72,9 @@ _SCREENSHOT_HIDE_CSS = '''
   .new-tg-back,
   .new-tg-pager,
   .new-tg-results-link,
-  .new-raddle-task__credit {
+  .new-raddle-task__credit,
+  .new-word-salad__selection,
+  .new-taskcard__bug-btn {
     display: none !important;
   }
   body, .new-wrap {
@@ -82,6 +84,7 @@ _SCREENSHOT_HIDE_CSS = '''
   }
   html, body {
     overflow: visible !important;
+    color-scheme: light !important;
   }
   @font-face {
     font-family: "NotoColorEmojiShot";
@@ -188,6 +191,7 @@ def screenshot_page_element_png(
             page = browser.new_page(
                 viewport={'width': viewport_width, 'height': 1600},
                 device_scale_factor=2,
+                color_scheme='light',
             )
             if emoji_font:
                 _install_emoji_font_route(page, emoji_font)

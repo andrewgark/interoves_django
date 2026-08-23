@@ -100,6 +100,29 @@ class SaladChannelScheduleTests(TestCase):
         png = render_word_salad_teaser_png_pillow(self.task, salad_number=1)
         self.assertTrue(png.startswith(b'\x89PNG'))
 
+    def test_screenshot_url_is_public_salad_last(self):
+        from games.telegram.word_salad_image import word_salad_last_screenshot_url
+        self.assertEqual(
+            word_salad_last_screenshot_url(),
+            'https://interoves.com/salad/last/',
+        )
+
+    def test_screenshot_css_hides_salad_chrome(self):
+        from games.telegram.ladder_image import _SCREENSHOT_HIDE_CSS
+        self.assertIn('.new-word-salad__selection', _SCREENSHOT_HIDE_CSS)
+        self.assertIn('.new-taskcard__bug-btn', _SCREENSHOT_HIDE_CSS)
+
+    @override_settings(TELEGRAM_LADDER_SCREENSHOT=True)
+    @patch('games.telegram.word_salad_image.screenshot_word_salad_last_png')
+    @patch('games.telegram.word_salad_image.render_word_salad_teaser_png_pillow')
+    def test_render_uses_live_screenshot_not_pillow(self, pillow_mock, shot_mock):
+        from games.telegram.word_salad_image import render_word_salad_teaser_png
+        shot_mock.return_value = _tiny_png_bytes(180, 220)
+        png = render_word_salad_teaser_png(self.task, salad_number=1)
+        self.assertEqual(png, shot_mock.return_value)
+        shot_mock.assert_called_once()
+        pillow_mock.assert_not_called()
+
     def test_same_date_as_ladder_is_allowed(self):
         SocialQueuePost.objects.create(
             source=SocialQueuePost.SOURCE_LADDER,
