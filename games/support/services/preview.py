@@ -6,7 +6,7 @@ from django.http import Http404
 from django.urls import reverse
 from django.utils import timezone
 
-from games.models import Attempt, Game, GameTaskGroup, HTMLPage, Team
+from games.models import Attempt, Game, GameTaskGroup, Team
 from games.daily_section import publish_at_for, uses_daily_play_layout, visible_links
 from games.task_titles import task_group_page_title
 from games.views.new_ui import (
@@ -19,6 +19,7 @@ from games.views.new_ui import (
     is_ladder_number_published,
     _game_task_group_links,
     _neighbors_by_pk,
+    _section_tutorial_html_for_game,
 )
 
 
@@ -175,7 +176,7 @@ def build_preview_task_group_context(game_id: str, task_group_number: str, spec:
     from games.models import AudioManager, ImageManager
     from games.views.new_ui import _task_group_page_nav_context
 
-    game = Game.objects.filter(pk=game_id).first()
+    game = Game.objects.filter(pk=game_id).select_related('section_default_rules').first()
     if game is None:
         raise Http404('Игра не найдена')
 
@@ -203,13 +204,7 @@ def build_preview_task_group_context(game_id: str, task_group_number: str, spec:
 
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     section_rules_type = game.id if game.id in SECTION_RULES_GAME_IDS else None
-    section_tutorial_html = None
-    if section_rules_type:
-        try:
-            page = HTMLPage.objects.get(name='section_tutorial_' + section_rules_type)
-            section_tutorial_html = page.html or ''
-        except HTMLPage.DoesNotExist:
-            pass
+    section_tutorial_html = _section_tutorial_html_for_game(game)
     show_palindrome_rules = game.id == PALINDROMES_GAME_ID
     if game.project_id == NEW_UI_SECTIONS_PROJECT:
         tg_rules = placement.task_group.rules

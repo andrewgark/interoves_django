@@ -546,6 +546,39 @@ SECTION_RULES_GAME_IDS = (
 )
 
 
+def _section_tutorial_html_for_game(game):
+    """Rules HTML for the ? modal on a section play page.
+
+    Hub pages read ``Game.section_default_rules``. Play pages used to look up
+    only ``section_tutorial_<game.id>``. After salad was renamed from
+    ``word_salad``, that convention no longer matches the stored HTMLPage
+    (``section_tutorial_word_salad``), so the modal opened empty.
+    """
+    try:
+        related = game.section_default_rules
+    except HTMLPage.DoesNotExist:
+        related = None
+    if related is not None and (related.html or '').strip():
+        return related.html
+    names = []
+    if game.id in SECTION_RULES_GAME_IDS:
+        names.append('section_tutorial_' + game.id)
+    related_id = getattr(game, 'section_default_rules_id', None)
+    if related_id and related_id not in names:
+        names.append(related_id)
+    if not names:
+        return None
+    pages = {
+        page.name: page.html or ''
+        for page in HTMLPage.objects.filter(name__in=names)
+    }
+    for name in names:
+        html = pages.get(name) or ''
+        if html.strip():
+            return html
+    return None
+
+
 def _project_base(project_id: str | None) -> str:
     """
     URL base prefix for project-scoped UI.
@@ -1562,13 +1595,7 @@ def _render_section_game_page(request, game_id):
         show_palindrome_rules = False
     else:
         section_rules_type = game_id if game_id in SECTION_RULES_GAME_IDS else None
-        section_tutorial_html = None
-        if section_rules_type:
-            try:
-                page = HTMLPage.objects.get(name='section_tutorial_' + section_rules_type)
-                section_tutorial_html = page.html or ''
-            except HTMLPage.DoesNotExist:
-                pass
+        section_tutorial_html = _section_tutorial_html_for_game(game)
         show_palindrome_rules = game_id == PALINDROMES_GAME_ID
     return render(request, 'ui/game_page.html', {
         'game': game,
@@ -2653,7 +2680,10 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
 
 
 def new_task_group_page(request, game_id, task_group_number):
-    game = get_object_or_404(Game, id=game_id)
+    game = get_object_or_404(
+        Game.objects.select_related('section_default_rules'),
+        id=game_id,
+    )
 
     # Обычные игры: до старта / без регистрации — карточка анонса, не 404.
     if game.project_id != NEW_UI_SECTIONS_PROJECT:
@@ -2763,13 +2793,7 @@ def new_task_group_page(request, game_id, task_group_number):
         prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     section_rules_type = game.id if game.id in SECTION_RULES_GAME_IDS else None
-    section_tutorial_html = None
-    if section_rules_type:
-        try:
-            page = HTMLPage.objects.get(name='section_tutorial_' + section_rules_type)
-            section_tutorial_html = page.html or ''
-        except HTMLPage.DoesNotExist:
-            pass
+    section_tutorial_html = _section_tutorial_html_for_game(game)
     show_palindrome_rules = game.id == PALINDROMES_GAME_ID
     if game.project_id == NEW_UI_SECTIONS_PROJECT:
         tg_rules = placement.task_group.rules

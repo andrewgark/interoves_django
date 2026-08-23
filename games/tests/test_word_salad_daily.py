@@ -152,6 +152,8 @@ class WordSaladSectionTests(TestCase):
         self.assertIsNotNone(page)
         self.assertIn('Салат', page.html)
         self.assertIn('КОТ', page.html)
+        self.assertIn('<strong>одной темы</strong>', page.html)
+        self.assertIn('<strong>по алфавиту</strong>', page.html)
         self.assertEqual(game.section_default_rules_id, 'section_tutorial_word_salad')
 
     def test_hub_meta_and_daily_order(self):
@@ -227,6 +229,44 @@ class WordSaladSectionTests(TestCase):
         self.assertIn('https://wordsalad.online', html)
         self.assertIn('wordsalad.online', html)
         self.assertIn('мы благодарны им за идею салатов', html)
+
+    def test_play_page_includes_section_rules_modal(self):
+        CheckerType.objects.get_or_create(pk='word_salad')
+        game = Game.objects.get(id=WORD_SALAD_GAME_ID)
+        tg = TaskGroup.objects.create(label='salad-rules', points=1)
+        Task.objects.create(
+            task_group=tg,
+            number='1',
+            task_type='word_salad',
+            checker=CheckerType.objects.get(pk='word_salad'),
+            checker_data='{"grid":["A","B","C","D","H","G","F","E","I","J","K","L","P","O","N","M"],"words":["ABCDEFGHIJKLMNOP"]}',
+            points=1,
+        )
+        GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='Салат #1')
+        self._ensure_login_modal_deps()
+        resp = self.client.get('/salad/1/')
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode('utf-8')
+        self.assertIn('data-rules-open', html)
+        self.assertIn('id="rules-modal"', html)
+        self.assertIn('КОТ', html)
+        self.assertIn('Дана сетка', html)
+        self.assertIn('<strong>одной темы</strong>', html)
+        self.assertIn('<strong>по алфавиту</strong>', html)
+
+    def test_section_tutorial_html_uses_default_rules_after_rename(self):
+        from games.views.new_ui import _section_tutorial_html_for_game
+
+        game = Game.objects.select_related('section_default_rules').get(id=WORD_SALAD_GAME_ID)
+        self.assertEqual(game.id, 'salad')
+        self.assertEqual(game.section_default_rules_id, 'section_tutorial_word_salad')
+        self.assertNotEqual(
+            game.section_default_rules_id,
+            'section_tutorial_' + game.id,
+        )
+        html = _section_tutorial_html_for_game(game)
+        self.assertIsNotNone(html)
+        self.assertIn('КОТ', html)
 
     def test_archive_cards_show_theme_and_word_count(self):
         from django.template.loader import render_to_string
