@@ -6,6 +6,7 @@ from decimal import Decimal
 
 
 WORD_RE = re.compile(r"[А-ЯЁA-Z]", re.IGNORECASE)
+_TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат\s*#\s*\d+$', re.IGNORECASE)
 WORD_SALAD_GAME_ID = 'word_salad'
 WORD_POINTS = Decimal('1')
 HINT_PENALTY = Decimal('0.5')
@@ -235,6 +236,39 @@ def mask_for_word(word, reveal_count=0, reveal_first=False):
         else:
             result.append(ch)
     return ''.join(result)
+
+
+def ru_count_label(n, one, few, many):
+    """Russian plural: 1 слово, 2 слова, 5 слов."""
+    n = int(n)
+    absn = abs(n)
+    if absn % 10 == 1 and absn % 100 != 11:
+        form = one
+    elif absn % 10 in (2, 3, 4) and absn % 100 not in (12, 13, 14):
+        form = few
+    else:
+        form = many
+    return '{} {}'.format(n, form)
+
+
+def archive_card_meta(task):
+    """Theme and word count for the public salad list, e.g. «Города России · 6 слов»."""
+    try:
+        _, words = parse_task_data(getattr(task, 'checker_data', None), '')
+        n_words = len(words)
+    except Exception:
+        n_words = 0
+    theme = (getattr(task, 'text', None) or '').strip()
+    if theme and _TITLE_RE.match(theme):
+        theme = ''
+    if theme:
+        theme = ' '.join(theme.split())
+        if theme.lower().startswith('тема:'):
+            theme = theme[5:].strip()
+    words_label = ru_count_label(n_words, 'слово', 'слова', 'слов') if n_words else ''
+    if theme and words_label:
+        return '{} · {}'.format(theme, words_label)
+    return theme or words_label or None
 
 
 def parse_task_data(checker_data, answer):

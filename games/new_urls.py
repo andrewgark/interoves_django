@@ -19,6 +19,7 @@ urlpatterns = [
     path('ladder/today/', ui.ladder_today_page, name='new_ladder_today'),
     path('ladder/last/', ui.ladder_last_page, name='new_ladder_last'),
     path('ladder/progress/', ui.game_task_group_progress, {'game_id': 'ladder'}, name='new_ladder_progress'),
+    path('ladder/live-state/', ui.task_group_live_state, {'game_id': 'ladder'}, name='new_ladder_live_state'),
     path('ladder/', ui.ladder_hub_page, name='new_ladder_hub'),
     # Must precede ladder/<str>/ so "results" is not treated as a task-group number.
     path('ladder/results/', ui.section_results_page, {'game_id': 'ladder'}),
@@ -37,6 +38,7 @@ urlpatterns = [
     path('alphabetty/today/', ui.alphabetty_today_page, name='new_alphabetty_today'),
     path('alphabetty/last/', ui.alphabetty_last_page, name='new_alphabetty_last'),
     path('alphabetty/progress/', ui.game_task_group_progress, {'game_id': 'alphabetty'}, name='new_alphabetty_progress'),
+    path('alphabetty/live-state/', ui.task_group_live_state, {'game_id': 'alphabetty'}, name='new_alphabetty_live_state'),
     path('alphabetty/', ui.alphabetty_hub_page, name='new_alphabetty_hub'),
     path('create_alphabetty/', ui.alphabetty_create_page, name='new_create_alphabetty'),
     path('create_alphabetty/create/', ui.alphabetty_create_submit, name='new_create_alphabetty_create'),
@@ -57,9 +59,11 @@ urlpatterns = [
     path('alphabetty/<str:number>/', ui.alphabetty_play_page, name='new_alphabetty_play'),
     path('games/ladder/today/', RedirectView.as_view(url='/ladder/today/', permanent=True, query_string=True)),
     path('games/ladder/last/', RedirectView.as_view(url='/ladder/last/', permanent=True, query_string=True)),
+    path('games/ladder/live-state/', ui.task_group_live_state, {'game_id': 'ladder'}),
     path('games/ladder/', RedirectView.as_view(url='/ladder/', permanent=True, query_string=True)),
     path('games/ladder/<path:rest>', RedirectView.as_view(url='/ladder/%(rest)s', permanent=True, query_string=True)),
     path('games/alphabetty/today/', RedirectView.as_view(url='/alphabetty/today/', permanent=True, query_string=True)),
+    path('games/alphabetty/live-state/', ui.task_group_live_state, {'game_id': 'alphabetty'}),
     path('games/alphabetty/', RedirectView.as_view(url='/alphabetty/', permanent=True, query_string=True)),
     path('games/alphabetty/<path:rest>', RedirectView.as_view(url='/alphabetty/%(rest)s', permanent=True, query_string=True)),
 ] + section_root_urlpatterns(

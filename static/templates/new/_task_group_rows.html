@@ -14,6 +14,9 @@
         {% if row.raddle_start_word and row.raddle_end_word %}
           <small class="new-task__meta new-task__endpoints">{{ row.raddle_start_word }} → {{ row.raddle_end_word }}</small>
         {% endif %}
+        {% if row.salad_meta %}
+          <small class="new-task__meta new-task__endpoints">{{ row.salad_meta }}</small>
+        {% endif %}
         {% if row.result_squares %}
           <small class="new-task__meta new-task__squares">{{ row.result_squares }}</small>
         {% elif row.progress_text %}

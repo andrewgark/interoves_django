@@ -209,6 +209,10 @@ def check_attempt(attempt, *, persist_wrong=True):
                     max_attempts = task.get_max_attempts()
                     if n_attempts_this_word >= max_attempts:
                         raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {} for word {}'.format(team, max_attempts, task, current_word + 1))
+                elif task.task_type == 'word_salad':
+                    # Support creates salads with max_attempts=None: wrong paths are
+                    # not persisted, and hints are limited by the word, not a quota.
+                    pass
                 else:
                     n_attempts = len(revision_attempts)
                     max_attempts = task.get_max_attempts()

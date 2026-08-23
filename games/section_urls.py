@@ -89,6 +89,16 @@ def section_root_urlpatterns(
                 {'game_id': game_id},
             ),
             path(
+                '{}/live-state/'.format(game_id),
+                ui.task_group_live_state,
+                {'game_id': game_id},
+            ),
+            path(
+                'games/{}/live-state/'.format(game_id),
+                ui.task_group_live_state,
+                {'game_id': game_id},
+            ),
+            path(
                 'games/{}/'.format(game_id),
                 RedirectView.as_view(url='/{}/'.format(game_id), permanent=True, query_string=True),
             ),

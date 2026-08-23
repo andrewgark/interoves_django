@@ -112,9 +112,13 @@ from games.raddle import (
     raddle_result_squares_for_actor,
     raddle_word_solved_list,
 )
-from games.word_salad import build_ui_context as build_word_salad_ui_context
-from games.word_salad import load_state as load_word_salad_state
-from games.word_salad import parse_task_data as parse_word_salad_task_data
+from games.word_salad import (
+    WORD_SALAD_GAME_ID,
+    archive_card_meta as word_salad_archive_card_meta,
+    build_ui_context as build_word_salad_ui_context,
+    load_state as load_word_salad_state,
+    parse_task_data as parse_word_salad_task_data,
+)
 from games.proportions import build_proportions_chips_for_tasks
 from games.views.game_context import game_from_request_for_task
 from games.views.main_page import MainPageView
@@ -836,6 +840,22 @@ def _ladder_task_group_rows(
             if first_word and last_word:
                 endpoints_by_task_group[task.task_group_id] = (first_word, last_word)
 
+    salad_meta_by_task_group = {}
+    if game.id == WORD_SALAD_GAME_ID:
+        salad_tasks = (
+            Task.objects.filter(
+                task_group_id__in=[p.task_group_id for p in task_groups],
+                task_type='word_salad',
+            )
+            .visible()
+            .only('id', 'task_group_id', 'checker_data', 'text')
+            .order_by('task_group_id', 'id')
+        )
+        for task in salad_tasks:
+            if task.task_group_id in salad_meta_by_task_group:
+                continue
+            salad_meta_by_task_group[task.task_group_id] = word_salad_archive_card_meta(task)
+
     rows = []
     for p in task_groups:
         is_today = today_number is not None and str(p.number) == str(today_number)
@@ -859,6 +879,7 @@ def _ladder_task_group_rows(
             'progress_text': None,
             'raddle_start_word': endpoints[0] if endpoints else None,
             'raddle_end_word': endpoints[1] if endpoints else None,
+            'salad_meta': salad_meta_by_task_group.get(p.task_group_id),
         })
     return rows
 
@@ -1543,6 +1564,7 @@ def _render_section_game_page(request, game_id):
         'is_main_game': False,
         'task_groups_heading': task_groups_heading,
         'task_groups_empty_text': task_groups_empty_text,
+        'section_tagline': meta.get('description') or '',
         'ladder_today_number': today_number if game_id == LADDER_GAME_ID else None,
         'section_today_play_url': section_today_play_url,
         'section_today_cta_label': section_today_cta_label,

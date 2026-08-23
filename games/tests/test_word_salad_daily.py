@@ -1,7 +1,9 @@
 from datetime import datetime
+import json
 from zoneinfo import ZoneInfo
 
 from django.test import SimpleTestCase, TestCase
+from django.urls import resolve
 
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 from games.section_hub import HUB_DAILY_SECTION_IDS, SECTION_HUB_META, get_word_salad_section_hub_card
@@ -164,6 +166,15 @@ class WordSaladSectionTests(TestCase):
         self.assertFalse(bool(meta.get('wide')))
         self.assertEqual(section_hub_path('word_salad'), '/word_salad/')
         self.assertEqual(section_last_path('word_salad'), '/word_salad/last/')
+        self.assertEqual(
+            SECTION_HUB_META['ladder']['description'],
+            'Разгадайте цепочку связанных слов по перемешанным подсказкам-связкам',
+        )
+        salad_live = resolve('/word_salad/live-state/')
+        games_live = resolve('/games/word_salad/live-state/')
+        self.assertEqual(salad_live.kwargs['game_id'], 'word_salad')
+        self.assertEqual(games_live.kwargs['game_id'], 'word_salad')
+        self.assertEqual(salad_live.func, games_live.func)
 
     def test_hub_card_today(self):
         game = Game.objects.get(id='word_salad')
@@ -214,6 +225,49 @@ class WordSaladSectionTests(TestCase):
         self.assertIn('wordsalad.online', html)
         self.assertIn('мы благодарны им за идею салатов', html)
 
+    def test_archive_cards_show_theme_and_word_count(self):
+        from django.template.loader import render_to_string
+        from games.views.new_ui import _ladder_task_group_rows
+
+        CheckerType.objects.get_or_create(pk='word_salad')
+        game = Game.objects.get(id='word_salad')
+        tg = TaskGroup.objects.create(label='salad-theme', points=1)
+        Task.objects.create(
+            task_group=tg,
+            number='1',
+            task_type='word_salad',
+            checker=CheckerType.objects.get(pk='word_salad'),
+            checker_data=json.dumps({
+                'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
+                'words': ['КОСТРОМА', 'САМАРА', 'РОСТОВ', 'МОСКВА', 'ТОМСК', 'ПСКОВ'],
+            }, ensure_ascii=False),
+            text='Города России',
+            points=1,
+        )
+        link = GameTaskGroup.objects.create(
+            game=game, task_group=tg, number='1', name='Салат #1',
+        )
+        link.n_tasks = 1
+        rows = _ladder_task_group_rows(
+            [link], game, item_label='Салат',
+        )
+        self.assertEqual(rows[0]['salad_meta'], 'Города России · 6 слов')
+        html = render_to_string(
+            'new/_task_group_rows.html',
+            {'task_group_rows': rows, 'game': game},
+        )
+        self.assertIn('Города России · 6 слов', html)
+
+        self._ensure_login_modal_deps()
+        resp = self.client.get('/word_salad/')
+        self.assertEqual(resp.status_code, 200)
+        page = resp.content.decode('utf-8')
+        self.assertIn('Города России · 6 слов', page)
+        self.assertIn(
+            'Сетка 4×4: найдите все слова, проводя дорожки по соседним буквам.',
+            page,
+        )
+
     def test_hub_includes_salad_card(self):
         self._ensure_login_modal_deps()
         resp = self.client.get('/')
@@ -224,3 +278,7 @@ class WordSaladSectionTests(TestCase):
         self.assertIn('/word_salad/', html)
         self.assertLess(html.find('Салат'), html.find('Алфавитка'))
         self.assertIn('new-hub-section--wide', html)
+        self.assertIn(
+            'Разгадайте цепочку связанных слов по перемешанным подсказкам-связкам',
+            html,
+        )

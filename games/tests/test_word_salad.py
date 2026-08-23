@@ -1,4 +1,6 @@
 import json
+from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
@@ -23,9 +25,11 @@ from games.views.attempt_views import check_attempt
 from games.views.hint_views import process_send_hint_attempt
 from games.views.new_ui import build_task_group_task_context_dicts, new_task_group_page
 from games.word_salad import (
+    archive_card_meta,
     build_ui_context,
     hint_numbers_from_attempts,
     mask_for_word,
+    ru_count_label,
     score_for_state,
     serialize_task_data,
     validate_task_data,
@@ -67,7 +71,9 @@ class WordSaladTests(TestCase):
                 project_id='sections',
                 is_ready=True,
             )
-            cls.tg = TaskGroup.objects.create(label='word_salad_tg', points=1)
+            cls.tg = TaskGroup.objects.create(
+                label='word_salad_tg', points=1, max_attempts=None,
+            )
             GameTaskGroup.objects.create(game=cls.game, task_group=cls.tg, number=1, name='WS')
             cls.task = Task.objects.create(
                 task_group=cls.tg,
@@ -75,6 +81,7 @@ class WordSaladTests(TestCase):
                 task_type='word_salad',
                 checker=CheckerType.objects.get(pk='word_salad'),
                 points=2,
+                max_attempts=None,
                 checker_data=json.dumps(_puzzle(), ensure_ascii=False),
                 text='Тема: алфавитная дорожка',
             )
@@ -88,6 +95,32 @@ class WordSaladTests(TestCase):
     def test_mask_uses_white_square_emoji(self):
         self.assertEqual(mask_for_word('AB-CD'), '⬜⬜-⬜⬜')
         self.assertEqual(mask_for_word('AB-CD', reveal_count=2), 'AB-⬜⬜')
+
+    def test_ru_count_label(self):
+        self.assertEqual(ru_count_label(1, 'слово', 'слова', 'слов'), '1 слово')
+        self.assertEqual(ru_count_label(2, 'слово', 'слова', 'слов'), '2 слова')
+        self.assertEqual(ru_count_label(5, 'слово', 'слова', 'слов'), '5 слов')
+        self.assertEqual(ru_count_label(11, 'слово', 'слова', 'слов'), '11 слов')
+        self.assertEqual(ru_count_label(21, 'слово', 'слова', 'слов'), '21 слово')
+        self.assertEqual(ru_count_label(22, 'слово', 'слова', 'слов'), '22 слова')
+
+    def test_archive_card_meta_combines_theme_and_word_count(self):
+        task = SimpleNamespace(
+            text='Тема: Города России',
+            checker_data=json.dumps({
+                'grid': _puzzle()['grid'],
+                'words': ['КОСТРОМА', 'САМАРА'],
+            }, ensure_ascii=False),
+        )
+        self.assertEqual(archive_card_meta(task), 'Города России · 2 слова')
+        title_only = SimpleNamespace(
+            text='Салат #3',
+            checker_data=json.dumps({
+                'grid': _puzzle()['grid'],
+                'words': ['ABCD'],
+            }),
+        )
+        self.assertEqual(archive_card_meta(title_only), '1 слово')
 
     def test_words_are_sorted_alphabetically(self):
         context = build_ui_context(
@@ -332,6 +365,43 @@ class WordSaladTests(TestCase):
         self.assertEqual(html.count('data-word-salad-letter></span>'), 16)
         self.assertNotIn('new-word-salad__hint-btn', html)
         self.assertIn('data-word-salad-solved>Решено!</div>', html)
+
+    def test_tournament_submit_without_max_attempts_does_not_500(self):
+        original_start = self.game.start_time
+        original_end = self.game.end_time
+        self.game.start_time = timezone.now() - timedelta(hours=1)
+        self.game.end_time = timezone.now() + timedelta(days=1)
+        self.game.save(update_fields=['start_time', 'end_time'])
+        self.assertEqual(self.game.get_current_mode(), 'tournament')
+        try:
+            with patch('games.views.attempt_views.track_actor_task_change'):
+                solve = self.client.post(
+                    '/send_attempt/{}/'.format(self.task.pk),
+                    {
+                        'game_id': self.game.pk,
+                        'anon_key': 'word-salad-tournament-test',
+                        'action': 'solve',
+                        'path': json.dumps(_path()),
+                        'correct_only': '1',
+                    },
+                )
+                hint = self.client.post(
+                    '/send_hint_attempt/{}/'.format(self.task.pk),
+                    {
+                        'game_id': self.game.pk,
+                        'anon_key': 'word-salad-tournament-hint',
+                        'action': 'hint',
+                        'word_index': '0',
+                    },
+                )
+        finally:
+            self.game.start_time = original_start
+            self.game.end_time = original_end
+        self.assertEqual(solve.status_code, 200)
+        self.assertEqual(solve.json()['status'], 'ok')
+        self.assertTrue(solve.json()['word_salad_correct'])
+        self.assertEqual(hint.status_code, 200)
+        self.assertEqual(hint.json()['status'], 'ok')
 
     def test_public_task_group_renders_grid_and_words(self):
         request = RequestFactory().get(
