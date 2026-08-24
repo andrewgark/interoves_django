@@ -24,7 +24,7 @@ from games.section_paths import section_play_path
 from games.telegram.game_urls import admin_url
 from games.telegram.mtproto import telegram_user_configured
 from games.telegram.word_salad_image import render_word_salad_teaser_png
-from games.word_salad import WORD_SALAD_GAME_ID
+from games.word_salad import WORD_SALAD_GAME_ID, theme_from_text
 from games.word_salad_daily import (
     MOSCOW,
     current_word_salad_number,
@@ -122,13 +122,13 @@ def resolve_salad_by_number(number: int, now: datetime | None = None) -> TodaySa
 
 
 def build_caption(salad: TodaySalad) -> str:
-    theme = (salad.task.text or '').strip()
+    theme = theme_from_text(salad.task.text)
     lines = [
         '🥗 <b>Салатик №{}</b>'.format(_escape(salad.number)),
         '',
     ]
     if theme:
-        lines.append(_escape(theme))
+        lines.append('Тема: {}'.format(_escape(theme)))
         lines.append('')
     lines.append(salad.play_url)
     return '\n'.join(lines)

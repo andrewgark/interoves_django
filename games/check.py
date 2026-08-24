@@ -759,6 +759,7 @@ class WordSaladChecker(BaseChecker):
 
     def check(self, text, attempt):
         from games.word_salad import (
+            EXTRA_NOT_FOUND_COMMENT,
             dump_state,
             load_state,
             neighbours,
@@ -822,7 +823,13 @@ class WordSaladChecker(BaseChecker):
         match = next((i for i, word in enumerate(self.words)
                       if i not in solved and normalize_word(word) == written), None)
         if match is None:
-            return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Слово не найдено')
+            return CheckResult(
+                'Wrong',
+                'Pending',
+                score_for_state(state),
+                dump_state(state),
+                comment=EXTRA_NOT_FOUND_COMMENT,
+            )
         solved.add(match)
         while True:
             removable = removable_cells(self.grid, self.words, active, solved)

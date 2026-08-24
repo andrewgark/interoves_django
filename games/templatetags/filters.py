@@ -613,6 +613,13 @@ def task_should_be_hidden(task_team__mode, task_to_attempts_info):
 
 
 @register.filter
+def word_salad_theme(text):
+    """Theme for the salad widget: strip a stored «Тема:» so the label is not doubled."""
+    from games.word_salad import theme_from_text
+    return theme_from_text(text)
+
+
+@register.filter
 def replace_edit_copy(url):
     return url.replace("edit", "copy")
 

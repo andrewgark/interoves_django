@@ -14,6 +14,23 @@ assert.strictEqual(Path.cellsAreAdjacent(0, 1), true);
 assert.strictEqual(Path.cellsAreAdjacent(0, 5), true);
 assert.strictEqual(Path.cellsAreAdjacent(0, 2), false);
 
+assert.deepStrictEqual(Path.neighborPairs([]), []);
+assert.deepStrictEqual(Path.neighborPairs([0]), []);
+assert.deepStrictEqual(Path.neighborPairs([0, 1]), [[0, 1]]);
+assert.deepStrictEqual(Path.neighborPairs([0, 5]), [[0, 5]]);
+assert.deepStrictEqual(Path.neighborPairs([0, 2]), []);
+assert.deepStrictEqual(Path.neighborPairs([5, 0, 0, 5]), [[0, 5]]);
+assert.strictEqual(
+  Path.neighborPairs([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]).length,
+  42,
+  'full 4×4 king-move graph has 42 edges'
+);
+assert.strictEqual(
+  Path.neighborPairs([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]).length,
+  39,
+  'removing a corner cell drops its 3 remaining-neighbor edges'
+);
+
 assert.deepStrictEqual(drag([0]), [0]);
 assert.deepStrictEqual(
   drag([0, 0, 0, 0]),
@@ -84,6 +101,54 @@ function press(path, index) {
   var moved = Path.movePress(down.path, 0, down.clearOnRelease);
   moved = Path.movePress(moved.path, 0, moved.clearOnRelease);
   assert.deepStrictEqual(Path.endPress(moved.path, moved.clearOnRelease), [0]);
+})();
+
+function escapeEvent(overrides) {
+  var event = {
+    key: 'Escape',
+    defaultPrevented: false,
+    altKey: false,
+    ctrlKey: false,
+    metaKey: false,
+    target: { tagName: 'BODY', isContentEditable: false }
+  };
+  Object.keys(overrides || {}).forEach(function (key) { event[key] = overrides[key]; });
+  return event;
+}
+
+(function testEscapeClearsWhenIdle() {
+  assert.strictEqual(Path.shouldHandleEscape(escapeEvent()), true);
+})();
+
+(function testEscapeIgnoredInFieldsAndModals() {
+  assert.strictEqual(Path.shouldHandleEscape(escapeEvent({ key: 'Enter' })), false);
+  assert.strictEqual(Path.shouldHandleEscape(escapeEvent({ defaultPrevented: true })), false);
+  assert.strictEqual(Path.shouldHandleEscape(escapeEvent({ ctrlKey: true })), false);
+  assert.strictEqual(Path.shouldHandleEscape(escapeEvent({ target: { tagName: 'INPUT', isContentEditable: false } })), false);
+  assert.strictEqual(Path.shouldHandleEscape(escapeEvent({ target: { tagName: 'TEXTAREA', isContentEditable: false } })), false);
+  assert.strictEqual(
+    Path.shouldHandleEscape(escapeEvent(), { querySelector: function () { return {}; } }),
+    false,
+    'an open modal must keep Escape'
+  );
+})();
+
+(function testRememberExtraWord() {
+  var first = Path.rememberExtra([], 'кот', {});
+  assert.deepStrictEqual(first.words, ['КОТ']);
+  assert.strictEqual(first.latest, 'КОТ');
+  assert.strictEqual(first.changed, true);
+
+  var again = Path.rememberExtra(['КОТ', 'ЛИСА'], 'кот', {});
+  assert.deepStrictEqual(again.words, ['ЛИСА', 'КОТ']);
+  assert.strictEqual(again.latest, 'КОТ');
+
+  var skipped = Path.rememberExtra([], 'на', {});
+  assert.strictEqual(skipped.changed, false);
+  assert.deepStrictEqual(skipped.words, []);
+
+  var answer = Path.rememberExtra([], 'кот', { КОТ: true });
+  assert.strictEqual(answer.changed, false);
 })();
 
 console.log('new_word_salad.test.js: ok');

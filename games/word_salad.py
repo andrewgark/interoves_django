@@ -12,6 +12,8 @@ _TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат(?:ик)?\s*#\s*\d
 WORD_SALAD_GAME_ID = 'salad'
 WORD_POINTS = Decimal('1')
 HINT_PENALTY = Decimal('0.5')
+EXTRA_MIN_LENGTH = 3
+EXTRA_NOT_FOUND_COMMENT = 'Слово не найдено'
 NO_HINT_SQUARE = '🟩'
 OVERFLOW_HINT_SQUARE = '*️⃣'
 _HINT_KEYCAPS = ('1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟')
@@ -327,6 +329,46 @@ def ru_count_label(n, one, few, many):
     return '{} {}'.format(n, form)
 
 
+def extra_found_word(written, puzzle_words, *, user=None, anon_key=None):
+    """Return a dictionary word that is not one of the salad answers, else ''."""
+    from games.alphabetty.core import is_valid_guess
+
+    word = normalize_word(written)
+    if len(word) < EXTRA_MIN_LENGTH:
+        return ''
+    answers = {normalize_word(item) for item in (puzzle_words or [])}
+    if word in answers:
+        return ''
+    if is_valid_guess(word, user=user, anon_key=anon_key):
+        return word
+    return ''
+
+
+def extra_found_word_from_attempt(task, attempt, *, user=None, anon_key=None):
+    """Dictionary extra for a rejected salad path, else ''."""
+    if (getattr(attempt, 'comment', None) or '') != EXTRA_NOT_FOUND_COMMENT:
+        return ''
+    try:
+        payload = json.loads(attempt.text or '')
+        path = [int(index) for index in (payload.get('path') or [])]
+        grid, words = parse_task_data(getattr(task, 'checker_data', None), '')
+        written = ''.join(grid[index] for index in path)
+    except (TypeError, ValueError, IndexError, KeyError, json.JSONDecodeError):
+        return ''
+    return extra_found_word(written, words, user=user, anon_key=anon_key)
+
+
+def theme_from_text(value):
+    """Theme value for display: drop title leftovers and a leading «Тема:»."""
+    theme = (value or '').strip()
+    if not theme or _TITLE_RE.match(theme):
+        return ''
+    theme = ' '.join(theme.split())
+    if theme.lower().startswith('тема:'):
+        theme = theme[5:].strip()
+    return theme
+
+
 def archive_card_meta(task):
     """Theme and word count for the public salad list, e.g. «Города России · 6 слов»."""
     try:
@@ -334,13 +376,7 @@ def archive_card_meta(task):
         n_words = len(words)
     except Exception:
         n_words = 0
-    theme = (getattr(task, 'text', None) or '').strip()
-    if theme and _TITLE_RE.match(theme):
-        theme = ''
-    if theme:
-        theme = ' '.join(theme.split())
-        if theme.lower().startswith('тема:'):
-            theme = theme[5:].strip()
+    theme = theme_from_text(getattr(task, 'text', None))
     words_label = ru_count_label(n_words, 'слово', 'слова', 'слов') if n_words else ''
     if theme and words_label:
         return '{} · {}'.format(theme, words_label)

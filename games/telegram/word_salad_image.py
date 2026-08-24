@@ -20,6 +20,7 @@ from games.word_salad import (
     default_state,
     mask_for_word,
     parse_task_data,
+    theme_from_text,
 )
 
 logger = logging.getLogger('application')
@@ -49,7 +50,7 @@ def render_word_salad_teaser_png_pillow(task, *, salad_number: int | str | None 
     """Fallback schematic: 4×4 grid + masked word list."""
     grid, words = parse_task_data(task.checker_data, task.answer)
     ui = build_ui_context(grid, words, default_state())
-    theme = (getattr(task, 'text', None) or '').strip()
+    theme = theme_from_text(getattr(task, 'text', None))
 
     font_title = _load_font(28, bold=True)
     font_sub = _load_font(18, bold=True)
@@ -76,7 +77,7 @@ def render_word_salad_teaser_png_pillow(task, *, salad_number: int | str | None 
     draw.text((pad, y), title, font=font_title, fill='#1A1A1A')
     y += 36
     if theme:
-        draw.text((pad, y), theme, font=font_sub, fill='#2F6F4E')
+        draw.text((pad, y), 'Тема: {}'.format(theme), font=font_sub, fill='#2F6F4E')
         y += 28
     top = y + 8
 

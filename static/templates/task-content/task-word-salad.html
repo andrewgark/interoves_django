@@ -1,12 +1,18 @@
 {% load filters %}
 <div class="new-word-salad" data-word-salad-root data-task-id="{{ task.id }}" data-word-points="{{ ws.word_points|minimize_digits }}" data-hint-penalty="{{ ws.hint_penalty|minimize_digits }}">
-  {% if task.text %}
-    <div class="new-word-salad__intro">{% autoescape off %}{{ task.text }}{% endautoescape %}</div>
+  {% with theme=task.text|word_salad_theme %}
+  {% if theme %}
+    <p class="new-word-salad__intro">
+      <span class="new-word-salad__theme-label">Тема:</span>
+      <span class="new-word-salad__theme">{% autoescape off %}{{ theme }}{% endautoescape %}</span>
+    </p>
   {% endif %}
+  {% endwith %}
 
   <div class="new-word-salad__layout">
     <section class="new-word-salad__grid-panel" aria-label="Сетка">
       <div class="new-word-salad__grid" data-word-salad-grid>
+        <svg class="new-word-salad__links" data-word-salad-links-svg aria-hidden="true" preserveAspectRatio="none"></svg>
         <svg class="new-word-salad__path" data-word-salad-path-svg aria-hidden="true" preserveAspectRatio="none">
           <polyline data-word-salad-path-line points=""></polyline>
         </svg>
@@ -31,9 +37,20 @@
       </div>
 
       <div class="new-word-salad__selection">
-        <div class="new-word-salad__selection-word" data-word-salad-current aria-live="polite"></div>
-        <button type="button" class="new-word-salad__reset" data-word-salad-reset disabled title="Сбросить выделение" aria-label="Сбросить выделение"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+        <div class="new-word-salad__selection-main">
+          <div class="new-word-salad__selection-word" data-word-salad-current aria-live="polite"></div>
+          <span class="new-word-salad__checking-mark" aria-hidden="true" title="Проверяем…"></span>
+        </div>
+        <div class="new-word-salad__reset-wrap is-idle" data-word-salad-reset-wrap>
+          <kbd class="new-word-salad__reset-key" aria-hidden="true">Esc</kbd>
+          <button type="button" class="new-word-salad__reset" data-word-salad-reset disabled title="Сбросить выделение (Esc)" aria-label="Сбросить выделение (Esc)"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+        </div>
       </div>
+
+      <section class="new-word-salad__extras" data-word-salad-extras hidden>
+        <h3 class="new-word-salad__extras-title">Ещё слова</h3>
+        <ul class="new-word-salad__extras-list" data-word-salad-extras-list aria-live="polite"></ul>
+      </section>
 
       <form class="new-attempt-form new-word-salad__form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" hidden>
         {% csrf_token %}

@@ -6,6 +6,9 @@
   'use strict';
 
   var activeDragRoot = null;
+  var lastSaladRoot = null;
+
+  var SVG_NS = 'http://www.w3.org/2000/svg';
 
   function cellsAreAdjacent(left, right) {
     var rowA = Math.floor(left / 4);
@@ -13,6 +16,25 @@
     var rowB = Math.floor(right / 4);
     var colB = right % 4;
     return Math.max(Math.abs(rowA - rowB), Math.abs(colA - colB)) <= 1;
+  }
+
+  function neighborPairs(activeIndices) {
+    var indices = [];
+    var seen = {};
+    (activeIndices || []).forEach(function (raw) {
+      var index = Number(raw);
+      if (!isFinite(index) || index < 0 || index > 15 || seen[index]) return;
+      seen[index] = true;
+      indices.push(index);
+    });
+    indices.sort(function (a, b) { return a - b; });
+    var pairs = [];
+    for (var i = 0; i < indices.length; i += 1) {
+      for (var j = i + 1; j < indices.length; j += 1) {
+        if (cellsAreAdjacent(indices[i], indices[j])) pairs.push([indices[i], indices[j]]);
+      }
+    }
+    return pairs;
   }
 
   function cellIsSelectable(isActive, index) {
@@ -58,6 +80,48 @@
     return path || [];
   }
 
+  var EXTRA_MIN_LENGTH = 3;
+
+  function rememberExtraWord(words, word, answers) {
+    word = normalizeWord(word);
+    if (!word || word.length < EXTRA_MIN_LENGTH) {
+      return { words: words ? words.slice() : [], latest: '', changed: false };
+    }
+    if (answers && answers[word]) {
+      return { words: words ? words.slice() : [], latest: '', changed: false };
+    }
+    words = (words || []).filter(function (item) { return item !== word; });
+    words.push(word);
+    return { words: words, latest: word, changed: true };
+  }
+
+  function isTypingTarget(target) {
+    if (!target) return false;
+    var tag = (target.tagName || '').toUpperCase();
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (target.isContentEditable) return true;
+    return !!(target.closest && target.closest('input, textarea, select, [contenteditable="true"]'));
+  }
+
+  function hasOpenOverlay(doc) {
+    if (!doc || !doc.querySelector) return false;
+    return !!(
+      doc.querySelector('.new-rules-modal.is-open') ||
+      doc.querySelector('[role="dialog"].is-open') ||
+      doc.querySelector('[aria-modal="true"].is-open')
+    );
+  }
+
+  function shouldHandleWordSaladEscape(event, doc) {
+    if (!event || (event.key !== 'Escape' && event.key !== 'Esc')) return false;
+    if (event.defaultPrevented) return false;
+    if (event.altKey || event.ctrlKey || event.metaKey) return false;
+    if (isTypingTarget(event.target)) return false;
+    var owner = doc || (event.target && event.target.ownerDocument) || null;
+    if (hasOpenOverlay(owner)) return false;
+    return true;
+  }
+
   function normalizeWord(value) {
     return String(value || '')
       .toUpperCase()
@@ -73,12 +137,6 @@
     return typeof form.action === 'string' ? form.action : '';
   }
 
-  function escapeHtml(value) {
-    return String(value || '').replace(/[&<>"']/g, function (ch) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
-    });
-  }
-
   function renderMaskEl(el, text) {
     if (!el) return;
     el.textContent = '';
@@ -92,9 +150,8 @@
     });
   }
 
-  var TOAST_HOLD_MS = 1000;
-  var TOAST_FADE_MS = 1000;
-  var TOAST_CLICK_FADE_MS = 100;
+  var TOAST_HOLD_MS = 1600;
+  var TOAST_FADE_MS = 280;
 
   function clearToastTimers(toast) {
     if (!toast) return;
@@ -104,42 +161,37 @@
     toast._toastHideTimer = 0;
   }
 
-  function fadeToast(toast, durationMs) {
+  function fadeToast(toast) {
     if (!toast || !toast.isConnected) return;
-    var fast = durationMs <= TOAST_CLICK_FADE_MS;
-    if (toast.classList.contains('is-out-fast')) return;
     clearToastTimers(toast);
     toast.classList.remove('is-in');
     toast.classList.add('is-out');
-    if (fast) toast.classList.add('is-out-fast');
     toast._toastHideTimer = window.setTimeout(function () {
       toast.remove();
-    }, durationMs);
+    }, TOAST_FADE_MS);
   }
 
   function showSolvedToast(root, word) {
-    if (!word) return;
-    Array.prototype.forEach.call(document.querySelectorAll('.new-word-salad__toast'), function (el) {
-      clearToastTimers(el);
-      el.remove();
-    });
-    var toast = document.createElement('div');
-    toast.className = 'new-word-salad__toast';
-    toast.setAttribute('role', 'status');
+    var toast = document.querySelector('.new-word-salad__toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.className = 'new-word-salad__toast';
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
+      toast.setAttribute('aria-atomic', 'true');
+      document.body.appendChild(toast);
+    }
+    clearToastTimers(toast);
+    toast.classList.remove('is-in', 'is-out');
     toast.innerHTML =
       '<span class="new-word-salad__toast-mark" aria-hidden="true"><i class="ph ph-check-circle"></i></span>' +
-      '<span class="new-word-salad__toast-word">' + escapeHtml(word) + '</span>' +
-      '<span class="new-word-salad__toast-ok">Верно!</span>';
-    toast.addEventListener('click', function (event) {
-      event.preventDefault();
-      event.stopPropagation();
-      fadeToast(toast, TOAST_CLICK_FADE_MS);
-    });
-    document.body.appendChild(toast);
+      '<span class="new-word-salad__toast-ok">Верный ответ!</span>';
+    if (word) toast.setAttribute('aria-label', 'Верный ответ: ' + word);
+    else toast.removeAttribute('aria-label');
     toast.offsetWidth;
     toast.classList.add('is-in');
     toast._toastHoldTimer = window.setTimeout(function () {
-      fadeToast(toast, TOAST_FADE_MS);
+      fadeToast(toast);
     }, TOAST_HOLD_MS);
   }
 
@@ -152,6 +204,14 @@
       var letter = normalized.charAt(normalizedIndex++);
       return letterIndex++ < revealCount ? letter : '⬜';
     }).join('');
+  }
+
+  function extrasStorageKey(root) {
+    try {
+      return 'interoves_word_salad_extras_v1:' + (root.getAttribute('data-task-id') || '');
+    } catch (error) {
+      return '';
+    }
   }
 
   function previewStorageKey(root) {
@@ -191,9 +251,17 @@
       var pathInput = root.querySelector('[data-word-salad-path]');
       var form = root.querySelector('.new-word-salad__form');
       var resetBtn = root.querySelector('[data-word-salad-reset]');
+      var resetWrap = root.querySelector('[data-word-salad-reset-wrap]');
+      var extrasEl = root.querySelector('[data-word-salad-extras]');
+      var extrasListEl = root.querySelector('[data-word-salad-extras-list]');
+      var extrasKey = extrasStorageKey(root);
+      var extraWords = [];
+      var latestExtra = '';
+      var extrasAnimateWord = '';
       var gridEl = root.querySelector('[data-word-salad-grid]');
       var pathSvg = root.querySelector('[data-word-salad-path-svg]');
       var pathLine = root.querySelector('[data-word-salad-path-line]');
+      var linksSvg = root.querySelector('[data-word-salad-links-svg]');
       var solvedEl = root.querySelector('[data-word-salad-solved]');
       var wordPoints = Number(root.getAttribute('data-word-points'));
       if (!isFinite(wordPoints) || wordPoints < 0) wordPoints = 0;
@@ -229,6 +297,39 @@
         }).join('');
       }
 
+      function cellCenter(cell, gridRect) {
+        var rect = cell.getBoundingClientRect();
+        return [
+          rect.left - gridRect.left + rect.width / 2,
+          rect.top - gridRect.top + rect.height / 2
+        ];
+      }
+
+      function renderNeighborLinks() {
+        if (!gridEl || !linksSvg) return;
+        var gridRect = gridEl.getBoundingClientRect();
+        if (!gridRect.width || !gridRect.height) return;
+        linksSvg.setAttribute('viewBox', '0 0 ' + gridRect.width + ' ' + gridRect.height);
+        var active = cells.filter(function (cell) { return cell.classList.contains('is-active'); });
+        var centers = {};
+        active.forEach(function (cell) {
+          centers[cellIndex(cell)] = cellCenter(cell, gridRect);
+        });
+        var pairs = neighborPairs(Object.keys(centers));
+        while (linksSvg.firstChild) linksSvg.removeChild(linksSvg.firstChild);
+        pairs.forEach(function (pair) {
+          var from = centers[pair[0]];
+          var to = centers[pair[1]];
+          if (!from || !to) return;
+          var line = document.createElementNS(SVG_NS, 'line');
+          line.setAttribute('x1', String(from[0]));
+          line.setAttribute('y1', String(from[1]));
+          line.setAttribute('x2', String(to[0]));
+          line.setAttribute('y2', String(to[1]));
+          linksSvg.appendChild(line);
+        });
+      }
+
       function renderPath() {
         if (!gridEl || !pathSvg || !pathLine) return;
         var gridRect = gridEl.getBoundingClientRect();
@@ -236,11 +337,7 @@
         var points = currentPath.map(function (index) {
           var cell = cellByIndex[index];
           if (!cell || !cell.classList.contains('is-active')) return null;
-          var rect = cell.getBoundingClientRect();
-          return [
-            rect.left - gridRect.left + rect.width / 2,
-            rect.top - gridRect.top + rect.height / 2
-          ];
+          return cellCenter(cell, gridRect);
         }).filter(Boolean);
         pathSvg.setAttribute('viewBox', '0 0 ' + gridRect.width + ' ' + gridRect.height);
         var serialized = points.map(function (point) { return point[0] + ',' + point[1]; });
@@ -254,6 +351,11 @@
           var stroke = Math.min(cellRect.width, cellRect.height) * 0.55 * scale;
           pathLine.style.strokeWidth = String(stroke);
         }
+      }
+
+      function renderGridOverlays() {
+        renderNeighborLinks();
+        renderPath();
       }
 
       function syncSolvedState() {
@@ -275,6 +377,7 @@
           'aria-label',
           active ? 'Клетка ' + (cellIndex(cell) + 1) + ': ' + letter : 'Пустая клетка ' + (cellIndex(cell) + 1)
         );
+        window.requestAnimationFrame(renderNeighborLinks);
       }
 
       function renderSelection() {
@@ -291,7 +394,8 @@
         if (currentEl) currentEl.textContent = selectedWord();
         if (pathInput) pathInput.value = JSON.stringify(currentPath);
         if (resetBtn) resetBtn.disabled = currentPath.length === 0;
-        window.requestAnimationFrame(renderPath);
+        if (resetWrap) resetWrap.classList.toggle('is-idle', currentPath.length === 0);
+        window.requestAnimationFrame(renderGridOverlays);
       }
 
       function clearSelection() {
@@ -333,7 +437,7 @@
           renderSelection();
           return;
         }
-        maybeCheck();
+        maybeCheck({ fromRelease: true });
       }
 
       function wordRows(selector) {
@@ -345,21 +449,104 @@
           .filter(function (length) { return length > 0; });
       }
 
-      function hasLongerWord(length) {
-        return unsolvedLengths().some(function (other) { return other > length; });
+      function answerWordSet() {
+        var answers = {};
+        wordRows().forEach(function (wordRow) {
+          var preview = normalizeWord(wordRow.getAttribute('data-preview-normalized') || '');
+          if (preview) answers[preview] = true;
+          if (!wordRow.classList.contains('is-solved')) return;
+          var mask = wordRow.querySelector('.new-word-salad__mask');
+          var solved = normalizeWord(mask ? mask.textContent : '');
+          if (solved) answers[solved] = true;
+        });
+        return answers;
       }
 
-      function finishWrong(pathKey) {
+      function saveExtraWords() {
+        if (!extrasKey) return;
+        try {
+          localStorage.setItem(extrasKey, JSON.stringify({
+            words: extraWords,
+            latest: latestExtra
+          }));
+        } catch (error) {}
+      }
+
+      function renderExtraWords() {
+        if (!extrasEl || !extrasListEl) return;
+        extrasListEl.textContent = '';
+        if (!extraWords.length) {
+          extrasEl.hidden = true;
+          return;
+        }
+        extrasEl.hidden = false;
+        extraWords.forEach(function (word) {
+          var item = document.createElement('li');
+          item.className = 'new-word-salad__extra';
+          item.textContent = word;
+          if (word === latestExtra) {
+            item.classList.add('is-latest');
+            if (word === extrasAnimateWord) item.classList.add('is-fresh');
+          }
+          extrasListEl.appendChild(item);
+        });
+        extrasAnimateWord = '';
+      }
+
+      function restoreExtraWords() {
+        if (!extrasKey) return;
+        var state = null;
+        try { state = JSON.parse(localStorage.getItem(extrasKey) || 'null'); } catch (error) {}
+        if (!state || typeof state !== 'object') return;
+        extraWords = Array.isArray(state.words)
+          ? state.words.map(normalizeWord).filter(Boolean)
+          : [];
+        latestExtra = normalizeWord(state.latest || extraWords[extraWords.length - 1] || '');
+        extraWords = extraWords.filter(function (word, index) {
+          return word.length >= EXTRA_MIN_LENGTH && extraWords.indexOf(word) === index;
+        });
+        applyAnswerFilterToExtras(false);
+        renderExtraWords();
+      }
+
+      function applyAnswerFilterToExtras(persist) {
+        var answers = answerWordSet();
+        var next = extraWords.filter(function (word) { return !answers[word]; });
+        if (next.length === extraWords.length) return;
+        extraWords = next;
+        if (answers[latestExtra]) {
+          latestExtra = extraWords[extraWords.length - 1] || '';
+        }
+        if (persist !== false) saveExtraWords();
+      }
+
+      function addExtraWord(word) {
+        var remembered = rememberExtraWord(extraWords, word, answerWordSet());
+        if (!remembered.changed) return;
+        extraWords = remembered.words;
+        latestExtra = remembered.latest;
+        extrasAnimateWord = latestExtra;
+        saveExtraWords();
+        renderExtraWords();
+      }
+
+      function setChecking(checking) {
+        root.classList.toggle('is-checking', !!checking);
+        if (checking) root.setAttribute('aria-busy', 'true');
+        else root.removeAttribute('aria-busy');
+      }
+
+      function finishWrong(pathKey, extraWord) {
         busy = false;
-        root.classList.remove('is-checking');
+        setChecking(false);
+        if (extraWord) addExtraWord(extraWord);
         lastRejectedPathKey = pathKey || currentPath.join(',');
         if (currentPath.join(',') !== lastRejectedPathKey) {
           renderSelection();
           maybeCheck();
           return;
         }
-        if (activeDragRoot !== root && !hasLongerWord(currentPath.length)) clearSelection();
-        else renderSelection();
+        renderSelection();
       }
 
       function renderPreviewHint(wordRow, count) {
@@ -497,6 +684,8 @@
         savePreviewState();
         syncSolvedState();
         syncPreviewPoints();
+        applyAnswerFilterToExtras();
+        renderExtraWords();
         clearSelection();
         showSolvedToast(root, solvedWord);
       }
@@ -513,7 +702,7 @@
       function submitPath(path, pathKey) {
         if (!form || busy) return;
         busy = true;
-        root.classList.add('is-checking');
+        setChecking(true);
         renderSelection();
 
         var body = new FormData(form);
@@ -528,7 +717,7 @@
           return response.json();
         }).then(function (data) {
           if (!data || data.status !== 'ok' || !data.word_salad_correct) {
-            finishWrong(pathKey);
+            finishWrong(pathKey, data && data.word_salad_extra);
             return;
           }
           var solvedWord = selectedWord(path);
@@ -546,28 +735,23 @@
         }).catch(function () { finishWrong(pathKey); });
       }
 
-      function maybeCheck() {
+      function maybeCheck(opts) {
+        opts = opts || {};
         if (!currentPath.length) return;
-        var lengths = unsolvedLengths();
-        if (!lengths.length) return;
         var length = currentPath.length;
-        var maxLength = Math.max.apply(Math, lengths);
-        if (lengths.indexOf(length) < 0) {
-          if (length > maxLength) finishWrong();
-          return;
-        }
+        var lengths = unsolvedLengths();
+        var matchesAnswerLength = lengths.indexOf(length) >= 0;
+        if (!matchesAnswerLength && (!opts.fromRelease || length < EXTRA_MIN_LENGTH)) return;
         var pathKey = currentPath.join(',');
-        if (attemptedPaths[pathKey]) {
-          if (!busy && activeDragRoot !== root && lastRejectedPathKey === pathKey && !hasLongerWord(length)) {
-            clearSelection();
-          }
-          return;
-        }
+        if (attemptedPaths[pathKey]) return;
         if (busy) return;
         attemptedPaths[pathKey] = true;
         var path = currentPath.slice();
-        if (isPreview) checkPreview(path, pathKey);
-        else submitPath(path, pathKey);
+        if (isPreview) {
+          if (matchesAnswerLength) checkPreview(path, pathKey);
+          return;
+        }
+        submitPath(path, pathKey);
       }
 
       cells.forEach(function (cell) {
@@ -576,6 +760,7 @@
         cell.addEventListener('pointerdown', function (event) {
           if (!cell.classList.contains('is-active')) return;
           event.preventDefault();
+          lastSaladRoot = root;
           activeDragRoot = root;
           var started = startWordSaladPress(currentPath, cellIndex(cell), isActiveIndex);
           applyPath(started.path, started.clearOnRelease);
@@ -588,6 +773,16 @@
       root.__appendWordSaladCell = appendCell;
       root.__finishWordSaladPath = finishPress;
       root.__cancelWordSaladPress = function () { clearSingleOnRelease = false; };
+      root.__clearWordSaladSelection = function () {
+        var hadSelection = currentPath.length > 0 || !!clearSingleOnRelease;
+        if (activeDragRoot === root) {
+          clearSingleOnRelease = false;
+          activeDragRoot = null;
+        }
+        if (!hadSelection) return false;
+        clearSelection();
+        return true;
+      };
       root.__revealWordSaladHint = function (button) {
         var wordRow = button.closest('.new-word-salad__word');
         if (!wordRow || wordRow.classList.contains('is-solved')) return;
@@ -599,8 +794,9 @@
 
       if (resetBtn) resetBtn.addEventListener('click', clearSelection);
       if (isPreview) restorePreviewState();
+      restoreExtraWords();
       if (window.ResizeObserver && gridEl) {
-        var resizeObserver = new ResizeObserver(renderPath);
+        var resizeObserver = new ResizeObserver(renderGridOverlays);
         resizeObserver.observe(gridEl);
       }
       syncSolvedState();
@@ -656,14 +852,30 @@
       var root = button.closest('[data-word-salad-root]');
       if (root && typeof root.__revealWordSaladHint === 'function') root.__revealWordSaladHint(button);
     }, true);
+
+    doc.addEventListener('keydown', function (event) {
+      if (!shouldHandleWordSaladEscape(event, doc)) return;
+      var root = (activeDragRoot && activeDragRoot.isConnected) ? activeDragRoot : null;
+      if (!root && lastSaladRoot && lastSaladRoot.isConnected) root = lastSaladRoot;
+      if (!root) {
+        var roots = doc.querySelectorAll('[data-word-salad-root]');
+        if (roots.length === 1) root = roots[0];
+      }
+      if (!root || typeof root.__clearWordSaladSelection !== 'function') return;
+      if (root.__clearWordSaladSelection()) event.preventDefault();
+    }, true);
   }
 
   global.WordSaladPath = {
     cellsAreAdjacent: cellsAreAdjacent,
+    neighborPairs: neighborPairs,
     nextPath: nextWordSaladPath,
     startPress: startWordSaladPress,
     movePress: moveWordSaladPress,
-    endPress: endWordSaladPress
+    endPress: endWordSaladPress,
+    shouldHandleEscape: shouldHandleWordSaladEscape,
+    rememberExtra: rememberExtraWord,
+    EXTRA_MIN_LENGTH: EXTRA_MIN_LENGTH
   };
   global.initWordSalad = initWordSalad;
   if (global.document) {

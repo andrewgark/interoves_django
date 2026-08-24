@@ -94,7 +94,8 @@ class SaladChannelScheduleTests(TestCase):
         salad = resolve_today_salad(self.now)
         caption = build_caption(salad)
         self.assertIn('Салатик №1', caption)
-        self.assertIn('Города России', caption)
+        self.assertIn('Тема: Города России', caption)
+        self.assertNotIn('Тема: Тема:', caption)
         self.assertIn('/salad/1/', caption)
         from games.telegram.word_salad_image import render_word_salad_teaser_png_pillow
         png = render_word_salad_teaser_png_pillow(self.task, salad_number=1)

@@ -35,6 +35,8 @@ from games.word_salad import (
     ru_count_label,
     score_for_state,
     serialize_task_data,
+    theme_from_text,
+    extra_found_word,
     validate_task_data,
 )
 
@@ -124,6 +126,21 @@ class WordSaladTests(TestCase):
             }),
         )
         self.assertEqual(archive_card_meta(title_only), '1 слово')
+
+    def test_theme_from_text_strips_prefix_and_titles(self):
+        self.assertEqual(theme_from_text('Тема: Города России'), 'Города России')
+        self.assertEqual(theme_from_text('города России'), 'города России')
+        self.assertEqual(theme_from_text('Салатик #3'), '')
+        self.assertEqual(theme_from_text('Словесный салат #12'), '')
+        self.assertEqual(theme_from_text(''), '')
+
+    def test_extra_found_word_accepts_dictionary_words_outside_answers(self):
+        with patch('games.alphabetty.core.is_valid_guess', return_value=True):
+            self.assertEqual(extra_found_word('кот', ['лиса']), 'КОТ')
+            self.assertEqual(extra_found_word('кот', ['КОТ']), '')
+            self.assertEqual(extra_found_word('на', ['лиса']), '')
+        with patch('games.alphabetty.core.is_valid_guess', return_value=False):
+            self.assertEqual(extra_found_word('кот', ['лиса']), '')
 
     def test_words_are_sorted_alphabetically(self):
         context = build_ui_context(
@@ -367,7 +384,27 @@ class WordSaladTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'ok')
         self.assertFalse(response.json()['word_salad_correct'])
+        self.assertFalse(response.json().get('word_salad_extra'))
         self.assertFalse(Attempt.manager.filter(task=self.task, anon_key='word-salad-auto-test').exists())
+
+    def test_correct_only_reports_dictionary_extra_without_saving(self):
+        with patch('games.alphabetty.core.is_valid_guess', return_value=True):
+            response = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': 'word-salad-extra-test',
+                    'action': 'solve',
+                    'path': json.dumps([0, 1, 2]),
+                    'correct_only': '1',
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['status'], 'ok')
+        self.assertFalse(payload['word_salad_correct'])
+        self.assertEqual(payload['word_salad_extra'], 'ABC')
+        self.assertFalse(Attempt.manager.filter(task=self.task, anon_key='word-salad-extra-test').exists())
 
     def test_correct_only_saves_matching_word_salad_path(self):
         with patch('games.views.attempt_views.track_actor_task_change'):
@@ -384,6 +421,7 @@ class WordSaladTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'ok')
         self.assertTrue(response.json()['word_salad_correct'])
+        self.assertFalse(response.json().get('word_salad_extra'))
         self.assertEqual(
             Attempt.manager.filter(task=self.task, anon_key='word-salad-auto-correct-test').count(),
             1,
@@ -406,6 +444,7 @@ class WordSaladTests(TestCase):
         self.assertEqual(html.count('data-word-salad-letter></span>'), 16)
         self.assertNotIn('new-word-salad__hint-btn', html)
         self.assertIn('data-word-salad-solved>Решено!</div>', html)
+        self.assertIn('data-word-salad-extras', html)
 
     def test_tournament_submit_without_max_attempts_does_not_500(self):
         original_start = self.game.start_time

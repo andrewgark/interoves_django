@@ -587,8 +587,16 @@ def process_send_attempt(request, task_id):
                 pass
     if task.task_type == 'word_salad':
         result['word_salad_correct'] = bool(attempt_persisted)
-        if not attempt_persisted and attempt.comment:
-            result['word_salad_comment'] = attempt.comment
+        if not attempt_persisted:
+            if attempt.comment:
+                result['word_salad_comment'] = attempt.comment
+            from games.word_salad import extra_found_word_from_attempt
+
+            extra = extra_found_word_from_attempt(
+                task, attempt, user=user, anon_key=anon_key,
+            )
+            if extra:
+                result['word_salad_extra'] = extra
     if task.task_type == 'grid-puzzle':
         result['grid_puzzle_correct'] = attempt.status == 'Ok'
 
