@@ -36,6 +36,8 @@
   --raddle-before: #c9a227;
   --raddle-focus: var(--accent);
   --raddle-after: #3b6ea5;
+  /* Ubuntu Mono — до ui-monospace/monospace: на Ubuntu они часто мапятся на DejaVu, где Й = И. */
+  --new-font-mono: "Ubuntu Mono", ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", "Liberation Mono", sans-serif;
   /* Buttons / focus / shared controls (new UI chrome) */
   --focus-ring: color-mix(in srgb, var(--accent) 45%, transparent);
   --btn-radius: 6px;
@@ -8147,7 +8149,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   clip-path: polygon(24% 0, 76% 0, 100% 24%, 100% 76%, 76% 100%, 24% 100%, 0 76%, 0 24%);
   background: var(--tile);
   color: var(--text);
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--new-font-mono);
   font-size: clamp(1.55rem, 4vw, 2.2rem);
   font-weight: 700;
   line-height: 1;
@@ -8264,7 +8266,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 .new-word-salad__selection-word {
   min-width: 0;
   min-height: 1.4em;
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--new-font-mono);
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -8381,7 +8383,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   padding: 0.16rem 0.2rem;
   border-radius: 0.28rem;
   color: var(--text);
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--new-font-mono);
   font-size: 0.78rem;
   font-weight: 650;
   letter-spacing: 0.03em;
@@ -8519,7 +8521,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.12em;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--new-font-mono);
   font-size: 1.08rem;
   font-weight: 650;
   letter-spacing: 0;
