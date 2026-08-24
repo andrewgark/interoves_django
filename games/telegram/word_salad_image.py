@@ -102,7 +102,7 @@ def render_word_salad_teaser_png_pillow(task, *, salad_number: int | str | None 
 
     wx = pad + grid_size + col_gap
     wy = top
-    draw.text((wx, wy), 'Ответы', font=font_meta, fill='#888888')
+    draw.text((wx, wy), 'Ответы (по алфавиту)', font=font_meta, fill='#888888')
     wy += 22
     for word in ui['words']:
         mask = mask_for_word(word['original']).replace('⬜', '□')

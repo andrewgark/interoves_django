@@ -8117,16 +8117,13 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   padding: 0.95rem;
 }
 
-.new-word-salad__grid-panel {
-  touch-action: none;
-  overscroll-behavior: contain;
-}
-
+/* Keep pan-block on the letter grid only; the current-word row below must still scroll. */
 .new-word-salad__grid {
   position: relative;
   display: grid;
   gap: 0.35rem;
   touch-action: none;
+  overscroll-behavior: contain;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -8428,7 +8425,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 750;
+  line-height: 1.3;
   text-align: center;
+  text-wrap: balance;
 }
 
 .new-word-salad__words-meta {
