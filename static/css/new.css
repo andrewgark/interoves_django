@@ -6316,8 +6316,7 @@ html.is-age-gated .new-wrap {
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 @media (prefers-reduced-motion: reduce) {
-  .new-raddle-checking-mark,
-  .new-word-salad__checking-mark {
+  .new-raddle-checking-mark {
     animation-duration: 1.4s;
   }
 }
@@ -8260,7 +8259,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   position: relative;
   display: inline-flex;
   align-items: center;
-  min-width: 0;
+  gap: 0.4rem;
+  width: max-content;
+  max-width: 100%;
 }
 
 .new-word-salad__selection-word {
@@ -8274,23 +8275,8 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   text-align: center;
 }
 
-.new-word-salad__checking-mark {
-  display: none;
-  position: absolute;
-  left: calc(100% + 0.4rem);
-  top: 50%;
-  margin-top: -0.5rem;
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  border: 2px solid color-mix(in srgb, var(--muted) 35%, transparent);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: new-raddle-spin 0.7s linear infinite;
-}
-
 .new-word-salad.is-checking .new-word-salad__checking-mark {
-  display: block;
+  display: inline-block;
 }
 
 .new-word-salad__reset-wrap {
