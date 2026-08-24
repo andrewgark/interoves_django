@@ -134,13 +134,18 @@ class WordSaladTests(TestCase):
         self.assertEqual(theme_from_text('Словесный салат #12'), '')
         self.assertEqual(theme_from_text(''), '')
 
-    def test_extra_found_word_accepts_dictionary_words_outside_answers(self):
-        with patch('games.alphabetty.core.is_valid_guess', return_value=True):
-            self.assertEqual(extra_found_word('кот', ['лиса']), 'КОТ')
-            self.assertEqual(extra_found_word('кот', ['КОТ']), '')
-            self.assertEqual(extra_found_word('на', ['лиса']), '')
-        with patch('games.alphabetty.core.is_valid_guess', return_value=False):
-            self.assertEqual(extra_found_word('кот', ['лиса']), '')
+    def test_extra_found_word_uses_salad_noun_dictionary(self):
+        from games.word_salad import load_extra_noun_set
+
+        nouns = load_extra_noun_set()
+        self.assertGreater(len(nouns), 10000)
+        self.assertIn('КОТ', nouns)
+        self.assertNotIn('БЕЖАТЬ', nouns)
+        self.assertEqual(extra_found_word('кот', ['лиса']), 'КОТ')
+        self.assertEqual(extra_found_word('кот', ['КОТ']), '')
+        self.assertEqual(extra_found_word('на', ['лиса']), '')
+        self.assertEqual(extra_found_word('бежать', ['лиса']), '')
+        self.assertEqual(extra_found_word('красивая', ['лиса']), '')
 
     def test_words_are_sorted_alphabetically(self):
         context = build_ui_context(
@@ -388,7 +393,7 @@ class WordSaladTests(TestCase):
         self.assertFalse(Attempt.manager.filter(task=self.task, anon_key='word-salad-auto-test').exists())
 
     def test_correct_only_reports_dictionary_extra_without_saving(self):
-        with patch('games.alphabetty.core.is_valid_guess', return_value=True):
+        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
             response = self.client.post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
