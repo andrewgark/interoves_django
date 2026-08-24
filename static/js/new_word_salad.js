@@ -505,7 +505,7 @@
         extraWords = extraWords.filter(function (word, index) {
           return word.length >= EXTRA_MIN_LENGTH && extraWords.indexOf(word) === index;
         });
-        applyAnswerFilterToExtras(false);
+        applyAnswerFilterToExtras();
         renderExtraWords();
       }
 
