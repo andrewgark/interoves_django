@@ -200,6 +200,14 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
             CHANNEL_GROUPS['game_team_legacy']('g1', 'abc'),
             'track.game.g1.team.abc',
         )
+        # Team names can contain Cyrillic and other Unicode characters.  The
+        # rolling-deploy compatibility group must use the hashed identifier,
+        # never the display name, because Channels group names are ASCII-only.
+        unicode_team = Team.objects.create(name='Raastettuja vihanneksia')
+        legacy_group = CHANNEL_GROUPS['game_team_legacy'](
+            'g1', unicode_team.get_name_hash(),
+        )
+        self.assertTrue(legacy_group.isascii())
         self.assertEqual(CHANNEL_GROUPS['user'](42), 'track.user.42')
 
     def test_next_track_seq_monotonic(self):
