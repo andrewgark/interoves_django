@@ -99,6 +99,26 @@ class HubSectionCardTemplateTests(SimpleTestCase):
         self.assertNotIn('new-hub-section__badge-today', html)
         self.assertIn('new-hub-section__cta--latest', html)
 
+    def test_create_link_starts_on_new_line_for_ladder_and_alphabetty(self):
+        for section_id, create_url in (
+            ('ladder', '/offer_ladder/'),
+            ('alphabetty', '/create_alphabetty/'),
+        ):
+            with self.subTest(section_id=section_id):
+                card = {
+                    **self.card,
+                    'id': section_id,
+                    'section_url': f'/{section_id}/',
+                    'all_link_label': 'Все →',
+                }
+                html = render_to_string(
+                    'new/partials/hub_section_card.html',
+                    {'card': card},
+                )
+
+                self.assertIn(f'<br><a class="new-link-dotted" href="{create_url}">', html)
+                self.assertNotIn('· <a class="new-link-dotted"', html)
+
 
 class DesyatochkiHubContextTests(SimpleTestCase):
     def _game(self, game_id, start_iso, end_iso=None):
