@@ -118,7 +118,10 @@ class OnboardingPageTests(TestCase):
         body = self.client.get('/').content.decode()
 
         self.assertIn('Попробуйте одну из ежедневных игр.', body)
-        self.assertLess(body.index('id="hub-daily-heading"'), body.index('id="desyatochki-heading"'))
+        self.assertIn('id="hub-team-heading"', body)
+        self.assertIn('>Командные игры</h2>', body)
+        self.assertLess(body.index('id="hub-daily-heading"'), body.index('id="hub-team-heading"'))
+        self.assertLess(body.index('id="hub-team-heading"'), body.index('id="desyatochki-heading"'))
         self.assertLess(body.index('hub-section-salad'), body.index('hub-section-alphabetty'))
         self.assertLess(body.index('hub-section-alphabetty'), body.index('hub-section-ladder'))
         self.assertIn('new-hub-section--recommended', body)
