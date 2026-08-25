@@ -1,4 +1,4 @@
-<section class="new-hub-section{% if card.wide %} new-hub-section--wide{% endif %}{% if highlight_daily_cta and card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="hub-section-{{ card.id }}">
+<section class="new-hub-section{% if card.wide and not onboarding_hierarchy %} new-hub-section--wide{% endif %}{% if highlight_daily_cta and card.is_today %} new-hub-section--today{% endif %}{% if onboarding_hierarchy and card.id == 'salad' %} new-hub-section--recommended{% endif %}" aria-labelledby="hub-section-{{ card.id }}">
   <div class="new-hub-section__head">
     <h2 id="hub-section-{{ card.id }}" class="new-hub-section__title">
       {% if card.section_url %}
@@ -11,6 +11,9 @@
       <span class="new-pill{% if highlight_daily_cta and card.is_today %} new-hub-section__badge-today{% endif %}">{{ card.today_label }}</span>
     {% endif %}
   </div>
+  {% if onboarding_hierarchy and card.onboarding_badge %}
+    <p class="new-pill new-hub-section__onboarding-badge">{{ card.onboarding_badge }}</p>
+  {% endif %}
   <p class="new-hub-section__desc">{{ card.description }}</p>
   {% if card.play_url %}
     <div class="new-hub-section__cta-row">

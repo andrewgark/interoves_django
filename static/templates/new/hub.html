@@ -3,6 +3,29 @@
 {% block content %}
 <h1 class="new-heading new-heading--page">Игры</h1>
 
+{% if show_first_visit_onboarding %}
+<aside class="new-first-visit" aria-labelledby="first-visit-heading">
+  <div class="new-first-visit__body">
+    <p class="new-first-visit__kicker">Первое знакомство</p>
+    <h2 id="first-visit-heading" class="new-first-visit__title">Начните с Салатика</h2>
+    <p class="new-first-visit__desc">Правила понятны за минуту, а первая игра займёт несколько минут.</p>
+  </div>
+  <a class="new-btn new-first-visit__cta" href="{{ onboarding_salad_url }}">Играть</a>
+</aside>
+{% endif %}
+
+{% if daily_hub_cards %}
+<section class="new-hub-group" aria-labelledby="hub-daily-heading">
+  <h2 id="hub-daily-heading" class="new-heading new-hub-group__title">Ежедневные игры</h2>
+  <p class="new-hub-group__intro"><strong>Не знаете, с чего начать?</strong> Попробуйте одну из ежедневных игр.</p>
+  <div class="new-hub-sections-grid new-hub-sections-grid--daily">
+    {% for card in daily_hub_cards %}
+      {% include "new/partials/hub_section_card.html" with card=card highlight_daily_cta=True onboarding_hierarchy=True %}
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 {% if desyatochki_card %}
 <section class="new-hub-section new-hub-section--wide{% if desyatochki_card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="desyatochki-heading">
   <div class="new-hub-section__head">
@@ -46,17 +69,6 @@
   </p>
 </section>
 {% include "new/desyatochki_rules_modal.html" %}
-{% endif %}
-
-{% if daily_hub_cards %}
-<section class="new-hub-group" aria-labelledby="hub-daily-heading">
-  <h2 id="hub-daily-heading" class="new-heading new-hub-group__title">Ежедневные игры</h2>
-  <div class="new-hub-sections-grid">
-    {% for card in daily_hub_cards %}
-      {% include "new/partials/hub_section_card.html" with card=card highlight_daily_cta=True %}
-    {% endfor %}
-  </div>
-</section>
 {% endif %}
 
 {% if from_desyatochki_hub_cards %}

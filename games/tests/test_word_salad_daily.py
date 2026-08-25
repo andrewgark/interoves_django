@@ -351,7 +351,8 @@ class WordSaladSectionTests(TestCase):
         self.assertIn('ph-bowl-food', html)
         self.assertIn('/salad/', html)
         self.assertLess(html.find('Салатик'), html.find('Алфавитка'))
-        self.assertIn('new-hub-section--wide', html)
+        self.assertIn('new-hub-sections-grid--daily', html)
+        self.assertIn('new-hub-section--recommended', html)
         self.assertIn(
             'Разгадайте цепочку связанных слов по перемешанным подсказкам-связкам',
             html,

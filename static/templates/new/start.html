@@ -1,0 +1,91 @@
+{% extends "new/base.html" %}
+
+{% block title %}С чего начать{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <meta name="description" content="Начните знакомство с Inter Oves с одной из трёх коротких ежедневных игр: Салатика, Алфавитки или Лесенки.">
+  <link rel="canonical" href="https://interoves.com/start/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="Inter Oves">
+  <meta property="og:title" content="С чего начать · Inter Oves">
+  <meta property="og:description" content="Три короткие интеллектуальные игры для первого знакомства с Inter Oves. Новое задание каждый день.">
+  <meta property="og:url" content="https://interoves.com/start/">
+{% endblock %}
+
+{% block content %}
+<div class="new-start-page">
+  <header class="new-start-hero">
+    <p class="new-start-hero__kicker">Первое знакомство</p>
+    <h1 class="new-heading new-heading--page">Впервые в Inter Oves? Начните отсюда</h1>
+    <p class="new-start-hero__lead">
+      Короткие интеллектуальные игры, которые можно решать одному.<br>
+      Новое задание каждый день.
+    </p>
+  </header>
+
+  <section aria-labelledby="start-games-heading">
+    <h2 id="start-games-heading" class="new-visually-hidden">Выберите первую игру</h2>
+    <div class="new-start-games">
+      {% for card in onboarding_game_cards %}
+      <article class="new-start-game{% if card.id == 'salad' %} new-start-game--recommended{% endif %}">
+        <div class="new-start-game__head">
+          <i class="ph ph-{{ card.ph_icon }} new-start-game__icon" aria-hidden="true"></i>
+          <h3 class="new-start-game__title">{{ card.title }}</h3>
+        </div>
+        <p class="new-pill new-start-game__badge">{{ card.badge }}</p>
+        <p class="new-start-game__desc">{{ card.description }}</p>
+        {% if card.duration %}
+        <p class="new-start-game__duration"><i class="ph ph-clock" aria-hidden="true"></i>{{ card.duration }}</p>
+        {% endif %}
+        <a class="new-btn new-start-game__cta{% if card.id != 'salad' %} new-btn--ghost{% endif %}"
+           href="{{ card.play_url }}"
+           data-onboarding-game="{{ card.analytics_game }}">{{ card.cta_label }}</a>
+      </article>
+      {% empty %}
+      <p>Ежедневные игры скоро появятся.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if advanced_start_links %}
+  <section class="new-start-advanced" aria-labelledby="start-advanced-heading">
+    <h2 id="start-advanced-heading" class="new-heading">Хотите посложнее?</h2>
+    <p>В Inter Oves есть Десяточки, Замены, Стены и другие форматы.</p>
+    <div class="new-start-advanced__links">
+      {% for link in advanced_start_links %}
+      <a class="new-link-dotted" href="{{ link.url }}">{{ link.title }}</a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  var analytics = window.interovesAnalytics;
+  if (!analytics || !analytics.trackYandexGoalOnce) return;
+
+  function eventKey(name) {
+    return name + ':' + String(Date.now()) + ':' + String(Math.random()).slice(2);
+  }
+
+  analytics.trackYandexGoalOnce(
+    eventKey('onboarding_start_view'),
+    'onboarding_start_view',
+    { source: 'start' }
+  );
+
+  document.querySelectorAll('[data-onboarding-game]').forEach(function (link) {
+    link.addEventListener('click', function () {
+      analytics.trackYandexGoalOnce(
+        eventKey('onboarding_game_select'),
+        'onboarding_game_select',
+        { game: link.getAttribute('data-onboarding-game') }
+      );
+    });
+  });
+})();
+</script>
+{% endblock %}

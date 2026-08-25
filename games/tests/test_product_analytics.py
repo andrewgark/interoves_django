@@ -9,7 +9,11 @@ from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from games.analytics import register_completed_game, register_started_game
+from games.analytics import (
+    is_task_completion_state,
+    register_completed_game,
+    register_started_game,
+)
 from games.context_processors import analytics_bootstrap
 from games.models import (
     CheckerType,
@@ -104,6 +108,36 @@ class ProductAnalyticsTests(TestCase):
         self.assertEqual(ack.status_code, 200)
         self.assertEqual(register_completed_game(user=self.user, task=task, game=game), [])
         self.assertEqual(PlayerCompletedGame.objects.filter(user=self.user).count(), 1)
+
+    def test_word_salad_completion_uses_existing_game_complete_pipeline(self):
+        game, task = self._make_supported_task('salad', 'word_salad', 1)
+        task.checker_data = json.dumps({
+            'grid': list('ABCDEFGHIJKLMNOP'),
+            'words': ['ABCD', 'EFGH'],
+        })
+        task.save(update_fields=['checker_data'])
+        complete_state = json.dumps({'solved_indices': [0, 1], 'active': []})
+
+        self.assertTrue(is_task_completion_state(task, complete_state))
+        self.assertFalse(is_task_completion_state(
+            task,
+            json.dumps({'solved_indices': [0]}),
+        ))
+        self.assertFalse(is_task_completion_state(
+            task,
+            json.dumps({'solved_indices': [14, 15]}),
+        ))
+
+        goals = register_completed_game(user=self.user, task=task, game=game)
+
+        self.assertEqual([item['goal'] for item in goals], ['game_complete'])
+        event = goals[0]
+        self.assertEqual(event['params']['game'], 'salad')
+        self.assertTrue(PlayerCompletedGame.objects.filter(
+            user=self.user,
+            game=game,
+            game_kind='salad',
+        ).exists())
 
     def test_current_completed_state_is_not_swallowed_by_history_backfill(self):
         game, task = self._make_supported_task('alphabetty', 'alphabetty', 1)

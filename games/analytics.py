@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from games.alphabetty_daily import ALPHABETTY_GAME_ID
 from games.ladder_daily import LADDER_GAME_ID
+from games.word_salad import WORD_SALAD_GAME_ID
 from games.models import (
     GameTaskGroup,
     PlayerAnalyticsState,
@@ -29,6 +30,7 @@ ANALYTICS_ACK_SIGNING_SALT = 'games.analytics.goal-ack.v1'
 GAME_KIND_BY_ID = {
     LADDER_GAME_ID: 'ladder',
     ALPHABETTY_GAME_ID: 'alphabet',
+    WORD_SALAD_GAME_ID: 'salad',
     'replacements': 'replacement',
 }
 
@@ -175,6 +177,19 @@ def _state_complete_alphabetty(state_raw):
     return bool(state.get('won'))
 
 
+def _state_complete_word_salad(task, state_raw):
+    if not state_raw:
+        return False
+    try:
+        from games.word_salad import load_state, parse_task_data
+
+        _grid, words = parse_task_data(task.checker_data, task.answer)
+        solved = set(load_state(state_raw).get('solved_indices') or [])
+        return bool(words) and set(range(len(words))).issubset(solved)
+    except Exception:
+        return False
+
+
 def is_task_completion_state(task, state_raw):
     if task is None:
         return False
@@ -184,6 +199,8 @@ def is_task_completion_state(task, state_raw):
         return _state_complete_replacements(task, state_raw)
     if task.task_type == 'alphabetty':
         return _state_complete_alphabetty(state_raw)
+    if task.task_type == 'word_salad':
+        return _state_complete_word_salad(task, state_raw)
     return False
 
 
@@ -514,7 +531,9 @@ def _backfill_supported_game_completions(
     qs = (
         ChainTaskState.objects.select_related('task', 'task__task_group', 'game')
         .filter(**actor)
-        .filter(task__task_type__in=('raddle', 'replacements_lines', 'alphabetty'))
+        .filter(task__task_type__in=(
+            'raddle', 'replacements_lines', 'alphabetty', 'word_salad',
+        ))
     )
     for row in qs.iterator():
         game_kind = supported_game_kind(row.game)

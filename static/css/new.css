@@ -92,6 +92,18 @@ html.new-ui-dark {
 
 *, *::before, *::after { box-sizing: border-box; }
 
+.new-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 body.new-ui {
   margin: 0;
   min-height: 100vh;
@@ -446,12 +458,90 @@ html.new-ui-dark body.new-ui {
   margin-bottom: 0.75rem;
 }
 
+.new-hub-group__intro {
+  margin: -0.35rem 0 0.85rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* Серверный onboarding для посетителя без game_start: разметка сразу занимает
+   итоговое место, поэтому проверка прогресса не вызывает layout shift. */
+.new-first-visit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 1.25rem;
+  margin: 0 0 1.5rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: var(--card-radius);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.new-first-visit__body {
+  min-width: 0;
+}
+
+.new-first-visit__kicker {
+  margin: 0 0 0.15rem;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.new-first-visit__title {
+  margin: 0 0 0.25rem;
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1.3;
+}
+
+.new-first-visit__desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.new-first-visit__cta {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .new-first-visit {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .new-first-visit__cta {
+    text-align: center;
+  }
+}
+
 /* Карточки разделов на главной */
 .new-hub-sections-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   margin-bottom: 0;
+}
+
+/* max-width must stay one below --new-break-wide (lint: scripts/lint_new_ui_responsive.sh). */
+@media (max-width: 919px) {
+  .new-hub-sections-grid--daily {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* На широком .new-wrap три первых варианта считываются одним рядом. */
+@media (min-width: 920px) {
+  .new-hub-sections-grid--daily {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -482,12 +572,157 @@ html.new-ui-dark body.new-ui {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+.new-hub-section--recommended {
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--border));
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 .new-hub-section__head {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
   margin-bottom: 0.35rem;
+}
+
+.new-hub-section__onboarding-badge {
+  display: inline-flex;
+  margin: 0 0 0.7rem;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+/* Landing /start/: те же токены, карточки и responsive-границы, что у главной. */
+.new-start-page {
+  padding-top: 0.35rem;
+}
+
+.new-start-hero {
+  max-width: 42rem;
+  margin: 0 auto 1.5rem;
+  text-align: center;
+}
+
+.new-start-hero__kicker {
+  margin: 0 0 0.25rem;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.new-start-hero .new-heading--page {
+  margin-bottom: 0.55rem;
+}
+
+.new-start-hero__lead {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.new-start-games {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.8rem;
+  margin-bottom: 2rem;
+}
+
+.new-start-game {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1.2rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+}
+
+.new-start-game--recommended {
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.new-start-game__head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.45rem;
+}
+
+.new-start-game__icon {
+  color: var(--accent);
+  font-size: 1.45rem;
+}
+
+.new-start-game__title {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.2rem;
+  line-height: 1.3;
+}
+
+.new-start-game__badge {
+  margin: 0 0 0.75rem;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.new-start-game__desc {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.93rem;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+.new-start-game__duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.8rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.new-start-game__cta {
+  width: 100%;
+  margin: auto 0 0;
+  text-align: center;
+}
+
+.new-start-advanced {
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.new-start-advanced .new-heading {
+  margin-bottom: 0.35rem;
+}
+
+.new-start-advanced > p {
+  margin: 0 0 0.65rem;
+  color: var(--muted);
+}
+
+.new-start-advanced__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1rem;
+}
+
+/* min-width must match --new-break-wide (lint: scripts/lint_new_ui_responsive.sh) */
+@media (min-width: 920px) {
+  .new-start-games {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .new-hub-section__title {

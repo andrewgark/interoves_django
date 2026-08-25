@@ -7,6 +7,7 @@ from games.section_urls import section_root_urlpatterns
 from games.views import ui
 
 urlpatterns = [
+    path('start/', ui.start, name='new_start'),
     path('', ui.hub, name='new_hub'),
     path('play-mode/', ui.set_play_mode, name='new_set_play_mode'),
     path('migrate-anon-attempts/', ui.migrate_anon_attempts, name='new_migrate_anon_attempts'),

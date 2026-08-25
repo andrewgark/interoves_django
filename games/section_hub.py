@@ -37,6 +37,36 @@ HUB_DAILY_SECTION_IDS = ('ladder', WORD_SALAD_GAME_ID, 'alphabetty')
 HUB_FROM_DESYATOCHKI_SECTION_IDS = ('week_task', 'replacements', 'walls', 'palindromes')
 WEEK_TASK_HUB_ID = WEEK_TASK_GAME_ID
 
+# Порядок и короткие формулировки именно для первого знакомства. Навигация
+# сохраняет привычный порядок, а onboarding всегда начинает с Салатика.
+ONBOARDING_GAME_IDS = (WORD_SALAD_GAME_ID, 'alphabetty', 'ladder')
+ONBOARDING_GAME_META = {
+    WORD_SALAD_GAME_ID: {
+        'title': 'Салатик',
+        'analytics_game': 'salad',
+        'badge': 'Рекомендуем начать здесь',
+        'description': 'Найдите слова в сетке 4×4. Простые правила, но есть над чем подумать.',
+        'duration': '5–10 минут',
+        'cta_label': 'Начать салатик',
+    },
+    'alphabetty': {
+        'title': 'Алфавитка',
+        'analytics_game': 'alphabet',
+        'badge': 'Самая простая',
+        'description': 'Угадайте слово, постепенно сужая диапазон по алфавиту.',
+        'duration': '',
+        'cta_label': 'Начать алфавитку',
+    },
+    'ladder': {
+        'title': 'Лесенка',
+        'analytics_game': 'ladder',
+        'badge': 'Посложнее',
+        'description': 'Восстановите цепочку связанных слов.',
+        'duration': '',
+        'cta_label': 'Попробовать лесенку',
+    },
+}
+
 # ph_icon — имя Phosphor без префикса (класс: `ph ph-{name}`); emoji icon — legacy/share.
 SECTION_HUB_META = {
     'ladder': {
@@ -461,4 +491,3 @@ def get_desyatochki_hub_context(games, *, now=None, base=''):
         'announced_game': announced_game,
         'announced_games': [announced_game] if announced_game else [],
     }
-

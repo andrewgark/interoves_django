@@ -4,6 +4,7 @@ from games.views.new_ui import *  # noqa: F401,F403
 
 # Neutral aliases for handlers.
 hub = new_hub
+start = new_start
 folder = new_folder
 section_game_page = new_section_game_page
 section_results_page = new_section_results_page

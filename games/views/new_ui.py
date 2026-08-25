@@ -66,6 +66,8 @@ from games.ladder_word_results import (
 from games.section_hub import (
     HUB_DAILY_SECTION_IDS,
     HUB_FROM_DESYATOCHKI_SECTION_IDS,
+    ONBOARDING_GAME_IDS,
+    ONBOARDING_GAME_META,
     SECTION_HUB_META,
     SECTION_HUB_ORDER,
     WEEK_TASK_HUB_ID,
@@ -93,6 +95,8 @@ from games.models import (
     ImageManager,
     Like,
     PersonalResultsParticipant,
+    PlayerCompletedGame,
+    PlayerStartedGame,
     Profile,
     ProfileTeamMembership,
     Project,
@@ -748,7 +752,7 @@ _SECTION_NAV_ORDER = {
 
 
 def get_section_games(request):
-    """Игры из project 'sections' с доступом на превью (навигация; без лесенки/алфавитки)."""
+    """Публичные дополнительные разделы с доступом на превью для навигации."""
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
     if not project:
         return []
@@ -756,9 +760,11 @@ def get_section_games(request):
     if has_profile(request.user):
         team = request.user.profile.team_on
     games_list = [
-        g for g in Game.objects.filter(project=project)
-        if g.id not in HUB_DAILY_SECTION_IDS
-        and g.has_access('see_game_preview', team=team)
+        g for g in Game.objects.filter(
+            project=project,
+            id__in=HUB_FROM_DESYATOCHKI_SECTION_IDS,
+        )
+        if g.has_access('see_game_preview', team=team)
     ]
     return sorted(games_list, key=lambda g: _SECTION_NAV_ORDER.get(g.id, 99))
 
@@ -814,7 +820,13 @@ def _build_hub_section_cards(request, *, team):
     else:
         by_id[WEEK_TASK_HUB_ID] = get_week_task_hub_card()
 
-    daily = [by_id[i] for i in HUB_DAILY_SECTION_IDS if i in by_id]
+    daily = []
+    for game_id in ONBOARDING_GAME_IDS:
+        if game_id not in by_id:
+            continue
+        card = by_id[game_id]
+        card['onboarding_badge'] = ONBOARDING_GAME_META[game_id]['badge']
+        daily.append(card)
     from_desyatochki = [
         by_id[i] for i in HUB_FROM_DESYATOCHKI_SECTION_IDS if i in by_id
     ]
@@ -823,6 +835,73 @@ def _build_hub_section_cards(request, *, team):
         'from_desyatochki_hub_cards': from_desyatochki,
         'hub_section_cards': daily + from_desyatochki,
     }
+
+
+def _onboarding_game_cards(daily_hub_cards):
+    """Three deliberately constrained choices for /start/, using stable latest URLs."""
+    from games.section_paths import section_last_path
+
+    cards_by_id = {card['id']: card for card in daily_hub_cards}
+    cards = []
+    for game_id in ONBOARDING_GAME_IDS:
+        source = cards_by_id.get(game_id)
+        if source is None:
+            continue
+        meta = ONBOARDING_GAME_META[game_id]
+        cards.append({
+            'id': game_id,
+            'ph_icon': source.get('ph_icon', ''),
+            'title': meta['title'],
+            'analytics_game': meta['analytics_game'],
+            'badge': meta['badge'],
+            'description': meta['description'],
+            'duration': meta['duration'],
+            'cta_label': meta['cta_label'],
+            # The stable /last/ route resolves the current published number at
+            # request time and never hardcodes it in this landing page.
+            'play_url': section_last_path(game_id),
+        })
+    return cards
+
+
+def _has_gameplay_history(**actor):
+    """Modern analytics rows plus legacy interactions predating game_start."""
+    if PlayerStartedGame.objects.filter(**actor).exists():
+        return True
+    if PlayerCompletedGame.objects.filter(**actor).exists():
+        return True
+    if Attempt.manager.filter(skip=False, **actor).exists():
+        return True
+    return HintAttempt.objects.filter(**actor).exists()
+
+
+def _anonymous_gameplay_history(anon_key):
+    anon_key = str(anon_key or '').strip()
+    if not _valid_anon_key(anon_key):
+        return False
+    actor = {
+        'anon_key': anon_key,
+        'team__isnull': True,
+        'user__isnull': True,
+    }
+    return _has_gameplay_history(**actor)
+
+
+def _is_first_time_player(request):
+    """Whether this account/browser has no modern or legacy gameplay history."""
+    if request.user.is_authenticated:
+        # Do not require the actor columns to be exclusive here: some historic
+        # team Attempts kept both the team and the submitting user.
+        if _has_gameplay_history(user=request.user):
+            return False
+        # Registration and the optional anon-progress merge are separate
+        # requests. Honour this browser's cookie in between so onboarding does
+        # not flash back immediately after a player signs up.
+        return not _anonymous_gameplay_history(
+            request.COOKIES.get('interoves_anon')
+        )
+
+    return not _anonymous_gameplay_history(_anon_key_from_request(request))
 
 
 def _get_ladder_game():
@@ -955,11 +1034,17 @@ def new_hub(request):
     desyatochki_games = view.get_games_list(request)
     # Карточку десяточек показываем только если есть хотя бы одна видимая игра.
     desyatochki_card = get_desyatochki_hub_context(desyatochki_games) if desyatochki_games else None
+    onboarding_cards = _onboarding_game_cards(hub_groups['daily_hub_cards'])
     return render(request, 'ui/hub.html', {
         'project': project,
         'section_games': section_games,
         **hub_groups,
         'desyatochki_card': desyatochki_card,
+        'show_first_visit_onboarding': _is_first_time_player(request),
+        'onboarding_salad_url': next(
+            (card['play_url'] for card in onboarding_cards if card['id'] == WORD_SALAD_GAME_ID),
+            '/salad/last/',
+        ),
         **_games_list_card_context(request),
         'page_title': 'Interoves',
         'show_sections_nav': True,
@@ -994,6 +1079,41 @@ def new_hub(request):
             {'kind': 'vpn', 'title': 'VPN от наших друзей', 'href': '/vpn/'},
         ],
         'show_donate_cta': True,
+        **_project_urls_context(NEW_UI_PROJECT),
+    })
+
+
+def new_start(request):
+    """Focused landing page for first-time and advertising traffic."""
+    project = Project.objects.filter(id=NEW_UI_PROJECT).first()
+    team = request.user.profile.team_on if has_profile(request.user) else None
+    hub_groups = _build_hub_section_cards(request, team=team)
+    view = MainPageView()
+    view.project_name = NEW_UI_PROJECT
+    desyatochki_games = view.get_games_list(request)
+    desyatochki_card = (
+        get_desyatochki_hub_context(desyatochki_games)
+        if desyatochki_games else None
+    )
+
+    advanced_links = []
+    if desyatochki_card:
+        advanced_links.append({
+            'title': desyatochki_card['title'],
+            'url': desyatochki_card['section_url'],
+        })
+    advanced_links.extend(
+        {'title': card['title'], 'url': card['section_url']}
+        for card in hub_groups['from_desyatochki_hub_cards']
+        if card.get('section_url')
+    )
+
+    return render(request, 'new/start.html', {
+        'project': project,
+        'onboarding_game_cards': _onboarding_game_cards(hub_groups['daily_hub_cards']),
+        'advanced_start_links': advanced_links,
+        'page_title': 'С чего начать',
+        'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
     })
 
