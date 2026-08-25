@@ -24,13 +24,32 @@ class TelegramOIDCTests(TestCase):
         SocialAccount.objects.create(
             user=user,
             provider='telegram',
-            uid='987654',
-            extra_data={'preferred_username': 'andrew'},
+            uid='5469547670986535499',
+            extra_data={'id': '987654', 'preferred_username': 'andrew'},
         )
         profile = Profile.objects.get(user=user)
         self.assertEqual(profile.telegram_user_id, 987654)
         self.assertTrue(profile.telegram_verified)
         self.assertEqual(profile.telegram_username, 'andrew')
+
+    def test_social_account_repairs_profile_that_stored_oidc_subject(self):
+        user = get_user_model().objects.create_user(username='tg-legacy-user')
+        Profile.objects.create(
+            user=user,
+            first_name='',
+            last_name='',
+            telegram_user_id=5469547670986535499,
+            telegram_verified=True,
+        )
+        SocialAccount.objects.create(
+            user=user,
+            provider='telegram',
+            uid='5469547670986535499',
+            extra_data={'id': '101908', 'preferred_username': 'cm_silence'},
+        )
+        profile = Profile.objects.get(user=user)
+        self.assertEqual(profile.telegram_user_id, 101908)
+        self.assertTrue(profile.telegram_verified)
 
     @patch('games.telegram_oidc.jwtkit.verify_and_decode')
     def test_id_token_is_verified_against_telegram_jwks(self, verify):

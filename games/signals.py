@@ -112,8 +112,22 @@ def sync_telegram_identity(sender, **kw):
         return
     extra = account.extra_data or {}
     updates = []
-    if profile.telegram_user_id is None:
-        profile.telegram_user_id = int(account.uid)
+    from games.telegram_oidc import telegram_user_id_from_claims
+
+    telegram_user_id = telegram_user_id_from_claims(extra)
+    old_oidc_uid = None
+    try:
+        old_oidc_uid = int(account.uid)
+    except (TypeError, ValueError):
+        pass
+    if telegram_user_id is not None and (
+        profile.telegram_user_id is None
+        or (
+            profile.telegram_user_id == old_oidc_uid
+            and profile.telegram_user_id != telegram_user_id
+        )
+    ):
+        profile.telegram_user_id = telegram_user_id
         profile.telegram_verified = True
         updates.extend(["telegram_user_id", "telegram_verified"])
     if extra.get("preferred_username") and not profile.telegram_username:

@@ -30,6 +30,19 @@ class TelegramOIDCAccount(ProviderAccount):
         return self.account.extra_data.get("username") or self.account.uid
 
 
+def telegram_user_id_from_claims(claims):
+    """Return Telegram's numeric user ID from OIDC profile claims.
+
+    ``sub`` is the stable OIDC subject used as the allauth SocialAccount UID;
+    Telegram's Bot API-compatible numeric ID is provided separately as ``id``.
+    """
+    try:
+        value = int((claims or {}).get("id"))
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
 class TelegramOIDCAdapter(OAuth2Adapter):
     provider_id = "telegram"
     access_token_url = TELEGRAM_ACCESS_TOKEN_URL
