@@ -1,0 +1,182 @@
+{% extends "new/base.html" %}
+{% load static %}
+
+{% block title %}О нас{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <meta name="description" content="Inter Oves — клуб сложных головоломок, где интернет разрешён. Десяточки, ежедневные игры, puzzle hunts, история проекта и игры для компаний.">
+  <link rel="canonical" href="https://interoves.com/about/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="Inter Oves">
+  <meta property="og:title" content="О нас · Inter Oves">
+  <meta property="og:description" content="Inter Oves — клуб сложных головоломок, где интернет разрешён. Десяточки, ежедневные игры, puzzle hunts, история проекта и игры для компаний.">
+  <meta property="og:url" content="https://interoves.com/about/">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="{% static 'css/about.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+{% endblock %}
+
+{% block content %}
+<article class="new-about-page">
+  <header class="new-about-hero">
+    <h1 class="new-heading new-heading--page">О нас</h1>
+    <p class="new-about-hero__lead"><strong>Inter Oves Locum Praesta — клуб сложных головоломок.</strong></p>
+    <p class="new-about-hero__principle">
+      Наш главный принцип: интернетом можно пользоваться. Мы не столько про эрудицию и знание фактов, сколько про логику, ресёрч, поиск закономерностей и нестандартное мышление. Иногда Google, Википедия, карты, переводчики или код — не способ схитрить, а часть решения.
+    </p>
+
+    <ul class="new-about-tags" aria-label="Наши интересы">
+      <li class="new-pill">Игры со словами</li>
+      <li class="new-pill">Математика</li>
+      <li class="new-pill">Программирование</li>
+      <li class="new-pill">Лингвистика</li>
+      <li class="new-pill">Логические пазлы</li>
+      <li class="new-pill">История</li>
+      <li class="new-pill">География</li>
+      <li class="new-pill">Puzzle hunts</li>
+      <li class="new-pill">Поп-культура</li>
+      <li class="new-pill">Олимпиадные задачи</li>
+    </ul>
+
+    <p class="new-about-hero__collaboration">
+      Во многом Inter Oves — авторский проект <a class="new-link-dotted" href="https://t.me/andrewgark" target="_blank" rel="noopener noreferrer">Андрея Гаркавого</a>, но мы очень любим коллаборации. Другие авторы регулярно помогают нам с заданиями и целыми играми — и вы тоже можете присоединиться и предложить свою задачу или идею :-)
+    </p>
+  </header>
+
+  <section class="new-about-section" aria-labelledby="about-history-title">
+    <h2 id="about-history-title" class="new-heading new-about-section__title">История</h2>
+    <div class="new-about-prose">
+      <p>
+        Inter Oves начался как <a class="new-link-dotted" href="https://vk.ru/interoveslocumpraesta" target="_blank" rel="noopener noreferrer">VK-паблик</a> нескольких друзей, которые вместе учились на Физтехе и выкладывали мемы про математику и цитаты преподавателей.
+      </p>
+      <p>
+        <strong lang="la">Inter oves locum praesta</strong> переводится примерно как «Среди овец дай мне место». Это строка из средневековой латинской секвенции <cite lang="la">Dies irae</cite>, которую в очень удачный момент процитировал один из преподавателей математической логики. Название прижилось.
+      </p>
+    </div>
+
+    <ol class="new-about-timeline">
+      <li class="new-about-timeline__item">
+        <div class="new-about-timeline__content">
+          <h3><time datetime="2020">2020</time> — первые Десяточки</h3>
+          <p>
+            Во время пандемии Андрей начал проводить <strong>Десяточки</strong>, вдохновившись уже существовавшим форматом от <a class="new-link-dotted" href="https://m.vk.ru/ag.expromt" target="_blank" rel="noopener noreferrer">«Агентства экспромтов»</a> и его версиями из околочгкшной среды.
+          </p>
+          <p>
+            У формата довольно фольклорная история. Говорят, когда-то в Десяточке действительно было <strong>10 заданий по 10 пунктов</strong>, сами задания были в основном простыми и текстовыми, а где-то похожий формат называли «Даугавпилсом» — по названию турнира, проходившего в этом городе.
+          </p>
+          <p>
+            Андрей очень любит «Что? Где? Когда?», но не любит две его фундаментальные особенности: очень мало времени на вопрос и запрет пользоваться интернетом. Ещё меньше — вопросы, которые решаются просто знанием нужного факта.
+          </p>
+          <p>
+            Формат Десяточек оказался почти идеальной противоположностью: команде сразу дают все задания на несколько часов, время между ними можно распределять самостоятельно, а условия можно специально строить так, чтобы Google не ломал задачу, а становился одним из инструментов решения.
+          </p>
+          <p>
+            На сайте к этому добавилась ещё одна любимая Андреем механика — из олимпиад по программированию: <strong>ответ можно сразу отправить и узнать, правильный он или нет</strong>.
+          </p>
+          <p class="new-about-timeline__action">
+            <a class="new-btn new-btn--ghost" href="{% url 'new_folder' slug='games' %}">Посмотреть архив Десяточек <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+          </p>
+        </div>
+      </li>
+
+      <li class="new-about-timeline__item">
+        <div class="new-about-timeline__content">
+          <h3>Потом появилось сообщество</h3>
+          <p>
+            После запуска Десяточек среди подписчиков неожиданно нашлась большая и очень уютная аудитория, которая стала регулярно приходить играть.
+          </p>
+          <p>
+            Появился сайт с автопроверкой, а вместе с ним — новые механики и форматы заданий.
+          </p>
+          <p>
+            В 2022 году основная жизнь клуба окончательно переехала из VK в Telegram.
+          </p>
+        </div>
+      </li>
+
+      <li class="new-about-timeline__item">
+        <div class="new-about-timeline__content">
+          <h3><time datetime="2026">2026</time> — игры каждый день</h3>
+          <p>В 2026 году помимо больших командных Десяточек мы начали выпускать небольшие ежедневные игры:</p>
+
+          <div class="new-about-game-grid" aria-label="Ежедневные игры">
+            <a class="new-hub-section new-about-game-card" href="{% url 'new_ladder_hub' %}">
+              <h4 class="new-hub-section__title"><i class="ph ph-ladder new-section-icon" aria-hidden="true"></i>Лесенки</h4>
+              <p class="new-hub-section__desc">Цепочки связанных слов</p>
+              <span class="new-about-card__arrow" aria-hidden="true">Перейти <i class="ph ph-arrow-right"></i></span>
+            </a>
+            <a class="new-hub-section new-about-game-card" href="{% url 'new_alphabetty_hub' %}">
+              <h4 class="new-hub-section__title"><i class="ph ph-text-aa new-section-icon" aria-hidden="true"></i>Алфавитки</h4>
+              <p class="new-hub-section__desc">Угадывание слова через бинарный поиск по алфавиту</p>
+              <span class="new-about-card__arrow" aria-hidden="true">Перейти <i class="ph ph-arrow-right"></i></span>
+            </a>
+            <a class="new-hub-section new-about-game-card" href="{% url 'new_section_game' 'salad' %}">
+              <h4 class="new-hub-section__title"><i class="ph ph-bowl-food new-section-icon" aria-hidden="true"></i>Салатики</h4>
+              <p class="new-hub-section__desc">Поиск тематических слов в сетке букв</p>
+              <span class="new-about-card__arrow" aria-hidden="true">Перейти <i class="ph ph-arrow-right"></i></span>
+            </a>
+          </div>
+
+          <p>Старые игры не исчезают: у каждого формата постепенно растёт архив, который можно решать в любое время.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section class="new-about-section" aria-labelledby="about-projects-title">
+    <h2 id="about-projects-title" class="new-heading new-about-section__title">Ещё штуки, которые мы сделали</h2>
+    <div class="new-about-project-grid">
+      <a class="new-hub-section new-about-project-card" href="{% url 'nutrimatic_home' %}">
+        <i class="ph ph-magnifying-glass new-about-project-card__icon" aria-hidden="true"></i>
+        <h3>Nutrimatic на русском</h3>
+        <p>В англоязычных пазлах и puzzle hunts очень помогает Nutrimatic — поиск слов и словосочетаний по маске и конструкциям, похожим на регулярные выражения.</p>
+        <p>Поэтому мы сделали <strong>свой Nutrimatic для русского языка</strong>, работающий по словарю, собранному из русской Википедии.</p>
+        <span class="new-about-card__arrow" aria-hidden="true">Открыть <i class="ph ph-arrow-right"></i></span>
+      </a>
+
+      <a class="new-hub-section new-about-project-card" href="{% url 'eurovision_booklet_2026' %}">
+        <i class="ph ph-music-notes new-about-project-card__icon" aria-hidden="true"></i>
+        <h3>Буклеты к Евровидению</h3>
+        <p>Андрей очень любит Евровидение, поэтому в 2026 году сделал <strong>буклеты для просмотра полуфиналов и финала</strong>.</p>
+        <p>Каждой песне посвящена отдельная страница: исполнитель, информация о песне, текст, перевод и всё, что удобно иметь перед глазами во время трансляции. Есть русская и английская версии.</p>
+        <span class="new-about-card__arrow" aria-hidden="true">Открыть <i class="ph ph-arrow-right"></i></span>
+      </a>
+
+      <a class="new-hub-section new-about-project-card" href="{% url 'pigeon_vpn' %}">
+        <i class="ph ph-shield-check new-about-project-card__icon" aria-hidden="true"></i>
+        <h3>VPN от наших друзей</h3>
+        <p>Большая часть нашей аудитории всё ещё находится в России, а интернет нужен непосредственно для решения наших заданий: приходится открывать Google, Википедию и множество других ресурсов.</p>
+        <p>С этим нам помогают друзья из <strong>Pigeon VPN</strong>. На время Десяточек они дают нашим игрокам бесплатный VPN, а для Telegram — бесплатный прокси.</p>
+        <span class="new-about-card__arrow" aria-hidden="true">Открыть <i class="ph ph-arrow-right"></i></span>
+      </a>
+    </div>
+  </section>
+
+  <section class="new-about-section" aria-labelledby="about-companies-title">
+    <h2 id="about-companies-title" class="new-heading new-about-section__title">Игры для компаний</h2>
+    <div class="new-hub-order-banner new-about-company">
+      <div class="new-hub-order-banner__text new-about-company__text">
+        <p>Мы делаем игры не только для открытых турниров, но и <strong>на заказ для компаний, конференций и других мероприятий</strong>.</p>
+        <p>Наш главный постоянный клиент — <strong>GlowByte</strong>: с 2020 года компания заказала у нас уже больше десяти игр.</p>
+        <p>Мы можем делать игры <strong>на русском и английском</strong>, адаптировать сложность, тематику и механику под конкретную аудиторию. И совершенно не обязательно ограничиваться обычной онлайн-Десяточкой: у нас есть опыт нестандартных форматов, включая игры с ориентированием по городу.</p>
+        <p>В общем, если хочется чего-нибудь странного и интеллектуального — скорее всего, мы готовы попробовать :-)</p>
+      </div>
+      <a class="new-btn new-hub-order-banner__cta" href="{% url 'order_game_landing' %}">Заказать игру <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+    </div>
+  </section>
+
+  <section class="new-about-section" aria-labelledby="about-sponsor-title">
+    <h2 id="about-sponsor-title" class="new-heading new-about-section__title">Нас поддерживают</h2>
+    <div class="new-card new-about-sponsor">
+      <div class="new-about-sponsor__text">
+        <p>С 2026 года Inter Oves спонсирует финтех-компания <strong>Pinely</strong>.</p>
+        <p>Спасибо им большое за поддержку ❤️</p>
+      </div>
+      <a class="new-about-sponsor__logo" href="https://pinely.com/" target="_blank" rel="noopener noreferrer" aria-label="Pinely">
+        <img src="{% static 'img/sponsors/pinely.png' %}" alt="Логотип Pinely" width="764" height="639" loading="lazy" decoding="async">
+      </a>
+    </div>
+  </section>
+</article>
+{% endblock %}

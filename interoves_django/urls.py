@@ -92,6 +92,7 @@ urlpatterns = [
     re_path(r'^terms-of-use/?$', RedirectView.as_view(url='/terms/', permanent=True, query_string=True)),
     path('tickets/', RedirectView.as_view(url='/pay/', permanent=True), name='legacy_tickets'),
     re_path(r'^ticket-agreement/?$', RedirectView.as_view(url='/terms/russia/', permanent=True, query_string=True)),
+    path('about/', TemplateView.as_view(template_name='new/about.html'), name='about'),
     path('vpn/', TemplateView.as_view(template_name="new/pigeon_vpn.html"), name='pigeon_vpn'),
     path('donate/', ui_views.donate_page, name='donate'),
     path('donate/create-crypto-payment/', ui_views.create_crypto_donation, name='donate_create_crypto'),

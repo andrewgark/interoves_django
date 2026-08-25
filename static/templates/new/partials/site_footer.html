@@ -1,0 +1,32 @@
+{% load static %}
+<footer class="new-site-footer">
+  <div class="new-site-footer__inner">
+    <a class="new-site-footer__about" href="{% url 'about' %}"{% if request.resolver_match.url_name == 'about' %} aria-current="page"{% endif %}>О нас</a>
+
+    <div class="new-site-footer__sponsor">
+      <a
+        class="new-site-footer__sponsor-link"
+        href="https://pinely.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Pinely"
+      >
+        <span class="new-site-footer__sponsor-name" aria-hidden="true">Pinely</span>
+        <img src="{% static 'img/sponsors/pinely.png' %}" alt="" width="764" height="639">
+      </a>
+      <span class="new-site-footer__sponsor-caption">Спонсор</span>
+    </div>
+
+    <nav class="new-site-footer__socials" aria-label="Социальные сети">
+      <a href="https://t.me/interoves" target="_blank" rel="noopener noreferrer" aria-label="Telegram" title="Telegram">
+        <i class="ph ph-telegram-logo" aria-hidden="true"></i>
+      </a>
+      <a href="https://x.com/interoves" target="_blank" rel="noopener noreferrer" aria-label="X" title="X">
+        <i class="ph ph-x-logo" aria-hidden="true"></i>
+      </a>
+      <a href="https://www.instagram.com/interoveslocumpraesta/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Instagram">
+        <i class="ph ph-instagram-logo" aria-hidden="true"></i>
+      </a>
+    </nav>
+  </div>
+</footer>

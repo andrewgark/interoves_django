@@ -3296,9 +3296,143 @@ html.new-ui-dark .new-team-switcher-active-box {
   color: inherit;
 }
 
+/* Shared site footer. /pay/ replaces this block with the checkout legal footer. */
+.new-site-footer {
+  width: min(100% - 2rem, var(--new-wrap-narrow));
+  margin: 2.5rem auto 0;
+  padding: 1.25rem 0 1.75rem;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.new-site-footer__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+}
+
+.new-site-footer__about {
+  justify-self: start;
+  color: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.new-site-footer__about:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.new-site-footer__about:focus {
+  outline: none;
+}
+
+.new-site-footer__about:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  color: var(--accent);
+}
+
+.new-site-footer__sponsor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.new-site-footer__sponsor-link {
+  position: relative;
+  display: flex;
+  width: 6.25rem;
+  height: 5.25rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid color-mix(in srgb, #3aaa48 32%, var(--border));
+  border-radius: 0.7rem;
+  background: #fff;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.new-site-footer__sponsor-link:hover,
+.new-site-footer__sponsor-link:focus-visible {
+  border-color: #3aaa48;
+  box-shadow: 0 0.35rem 1rem rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.new-site-footer__sponsor-link img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.new-site-footer__sponsor-name {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.45rem);
+  z-index: 1;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.3rem;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 0.2rem);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.new-site-footer__sponsor-link:hover .new-site-footer__sponsor-name,
+.new-site-footer__sponsor-link:focus-visible .new-site-footer__sponsor-name {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.new-site-footer__sponsor-caption {
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.new-site-footer__socials {
+  display: flex;
+  justify-self: end;
+  gap: 0.4rem;
+}
+
+.new-site-footer__socials a {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 1.2rem;
+  text-decoration: none;
+  transition: border-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.new-site-footer__socials a:hover,
+.new-site-footer__socials a:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
 /* must match --new-break-wide */
 @media (min-width: 920px) {
-  .new-legal-footer {
+  .new-legal-footer,
+  .new-site-footer {
     width: min(100% - 2rem, var(--new-wrap-wide));
   }
 }
@@ -3311,6 +3445,26 @@ html.new-ui-dark .new-team-switcher-active-box {
 }
 
 @media (max-width: 560px) {
+  .new-site-footer__inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 1rem;
+  }
+
+  .new-site-footer__sponsor {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .new-site-footer__about {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .new-site-footer__socials {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
   .new-legal-details > div {
     grid-template-columns: 1fr;
     gap: 0.15rem;

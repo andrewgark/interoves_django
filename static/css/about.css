@@ -1,0 +1,324 @@
+/* About — editorial page built from the shared new-UI tokens and components. */
+.new-about-page {
+  --new-about-copy-max: 46rem;
+  color: var(--text);
+}
+
+.new-about-hero {
+  max-width: var(--new-about-copy-max);
+}
+
+.new-about-hero__lead {
+  max-width: 42rem;
+  margin: 0 0 1rem;
+  font-size: clamp(1.3rem, 3vw, 1.85rem);
+  line-height: 1.28;
+  letter-spacing: -0.015em;
+}
+
+.new-about-hero__principle {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--card-radius) var(--card-radius) 0;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  font-size: 1.02rem;
+  line-height: 1.68;
+}
+
+.new-about-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 1.1rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.new-about-tags .new-pill {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.new-about-hero__collaboration,
+.new-about-prose,
+.new-about-timeline__content {
+  overflow-wrap: break-word;
+}
+
+.new-about-hero__collaboration {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.new-about-section {
+  margin-top: 3rem;
+}
+
+.new-about-section__title {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+.new-about-prose {
+  max-width: var(--new-about-copy-max);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.new-about-prose p {
+  margin: 0 0 0.9rem;
+}
+
+.new-about-timeline {
+  position: relative;
+  max-width: 52rem;
+  margin: 1.75rem 0 0;
+  padding: 0 0 0 2rem;
+  list-style: none;
+}
+
+.new-about-timeline::before {
+  content: "";
+  position: absolute;
+  top: 0.25rem;
+  bottom: 0.35rem;
+  left: 0.45rem;
+  width: 1px;
+  background: var(--border);
+}
+
+.new-about-timeline__item {
+  position: relative;
+  margin: 0 0 2.5rem;
+  min-width: 0;
+}
+
+.new-about-timeline__item:last-child {
+  margin-bottom: 0;
+}
+
+.new-about-timeline__item::before {
+  content: "";
+  position: absolute;
+  top: 0.38rem;
+  left: -1.9rem;
+  width: 0.72rem;
+  height: 0.72rem;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.new-about-timeline__content h3 time {
+  display: inline-flex;
+  vertical-align: 0.08em;
+  padding: 0.15rem 0.48rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: var(--control-radius);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.new-about-timeline__content h3 {
+  margin: 0 0 0.7rem;
+  font-size: 1.18rem;
+  line-height: 1.3;
+}
+
+.new-about-timeline__content > p {
+  margin: 0 0 0.85rem;
+  line-height: 1.65;
+}
+
+.new-about-timeline__action {
+  padding-top: 0.15rem;
+}
+
+.new-about-game-grid,
+.new-about-project-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.new-about-game-card,
+.new-about-project-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 140ms ease, background-color 140ms ease, transform 140ms ease;
+}
+
+.new-about-game-card:hover,
+.new-about-project-card:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  transform: translateY(-1px);
+}
+
+.new-about-game-card:focus,
+.new-about-project-card:focus,
+.new-about-sponsor__logo:focus {
+  outline: none;
+}
+
+.new-about-game-card:focus-visible,
+.new-about-project-card:focus-visible,
+.new-about-sponsor__logo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.new-about-game-card .new-hub-section__desc {
+  flex: 1 1 auto;
+  margin-top: 0.45rem;
+}
+
+.new-about-card__arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: auto;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.new-about-project-card {
+  padding: 1.1rem;
+}
+
+.new-about-project-card__icon {
+  margin-bottom: 0.55rem;
+  color: var(--accent);
+  font-size: 1.35rem;
+}
+
+.new-about-project-card h3 {
+  margin: 0 0 0.55rem;
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
+.new-about-project-card p {
+  margin: 0 0 0.65rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.new-about-project-card strong {
+  color: var(--text);
+}
+
+.new-about-project-card .new-about-card__arrow {
+  padding-top: 0.2rem;
+}
+
+.new-about-company {
+  align-items: flex-end;
+  margin-bottom: 0;
+  padding: 1.25rem 1.3rem;
+}
+
+.new-about-company__text {
+  flex-basis: 34rem;
+}
+
+.new-about-company__text p {
+  margin: 0 0 0.75rem;
+  color: var(--text);
+  font-size: 0.96rem;
+  line-height: 1.6;
+}
+
+.new-about-company__text p:last-child {
+  margin-bottom: 0;
+}
+
+.new-about-sponsor {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  gap: 1rem;
+  max-width: 42rem;
+  margin: 0;
+  padding: 1.1rem 1.2rem;
+  overflow: visible;
+}
+
+.new-about-sponsor__text p {
+  margin: 0 0 0.55rem;
+  line-height: 1.55;
+}
+
+.new-about-sponsor__text p:last-child {
+  margin-bottom: 0;
+}
+
+.new-about-sponsor__logo {
+  display: flex;
+  width: 7.5rem;
+  height: 6.25rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid color-mix(in srgb, #3aaa48 32%, var(--border));
+  border-radius: var(--card-radius);
+  background: #fff;
+}
+
+.new-about-sponsor__logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* min-width must match --new-break-wide: grids switch with the shared page shell. */
+@media (min-width: 920px) {
+  .new-about-game-grid,
+  .new-about-project-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .new-about-sponsor {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .new-about-hero__principle {
+    padding: 0.85rem 0.9rem;
+  }
+
+  .new-about-timeline {
+    padding-left: 1.65rem;
+  }
+
+  .new-about-timeline__item::before {
+    left: -1.55rem;
+  }
+
+  .new-about-company .new-hub-order-banner__cta {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-about-game-card,
+  .new-about-project-card {
+    transition: none;
+  }
+}

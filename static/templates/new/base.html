@@ -613,7 +613,7 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
-  {% block footer %}{% endblock %}
+  {% block footer %}{% include "new/partials/site_footer.html" %}{% endblock %}
   <script>
   (function () {
     var KEY = (window.interovesColorTheme && window.interovesColorTheme.KEY) || 'interoves_color_theme';
