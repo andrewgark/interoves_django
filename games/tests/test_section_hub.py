@@ -1,6 +1,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from django.template.loader import render_to_string
 from django.test import SimpleTestCase
 from django.utils import timezone
 
@@ -63,6 +64,35 @@ class LadderSectionHubCardTests(SimpleTestCase):
         card = get_ladder_section_hub_card(game, published_numbers={'1'}, now=now)
         self.assertFalse(card['is_today'])
         self.assertEqual(card['cta_label'], 'Последняя лесенка')
+
+
+class HubSectionCardTemplateTests(SimpleTestCase):
+    card = {
+        'id': 'section',
+        'title': 'Раздел',
+        'description': 'Описание',
+        'play_url': '/section/1/',
+        'cta_label': 'Текущее задание',
+        'is_today': True,
+    }
+
+    def test_daily_card_uses_green_today_cta(self):
+        html = render_to_string(
+            'new/partials/hub_section_card.html',
+            {'card': self.card, 'highlight_daily_cta': True},
+        )
+
+        self.assertIn('new-hub-section__cta--today', html)
+        self.assertNotIn('new-hub-section__cta--latest', html)
+
+    def test_non_daily_card_uses_outline_cta_even_when_current(self):
+        html = render_to_string(
+            'new/partials/hub_section_card.html',
+            {'card': self.card, 'highlight_daily_cta': False},
+        )
+
+        self.assertNotIn('new-hub-section__cta--today', html)
+        self.assertIn('new-hub-section__cta--latest', html)
 
 
 class DesyatochkiHubContextTests(SimpleTestCase):

@@ -14,7 +14,7 @@
   <p class="new-hub-section__desc">{{ card.description }}</p>
   {% if card.play_url %}
     <div class="new-hub-section__cta-row">
-      <a class="new-btn new-hub-section__cta{% if card.is_today %} new-hub-section__cta--today{% elif card.cta_label %} new-hub-section__cta--latest{% endif %}"
+      <a class="new-btn new-hub-section__cta{% if highlight_daily_cta and card.is_today %} new-hub-section__cta--today{% elif card.cta_label %} new-hub-section__cta--latest{% endif %}"
          href="{{ card.play_url }}"
          data-hub-section-cta
          data-cta-number="{{ card.cta_number|default:'' }}"
