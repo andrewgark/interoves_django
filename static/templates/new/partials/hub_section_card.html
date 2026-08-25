@@ -1,4 +1,4 @@
-<section class="new-hub-section{% if card.wide %} new-hub-section--wide{% endif %}{% if card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="hub-section-{{ card.id }}">
+<section class="new-hub-section{% if card.wide %} new-hub-section--wide{% endif %}{% if highlight_daily_cta and card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="hub-section-{{ card.id }}">
   <div class="new-hub-section__head">
     <h2 id="hub-section-{{ card.id }}" class="new-hub-section__title">
       {% if card.section_url %}
@@ -8,7 +8,7 @@
       {% endif %}
     </h2>
     {% if card.today_label %}
-      <span class="new-pill{% if card.is_today %} new-hub-section__badge-today{% endif %}">{{ card.today_label }}</span>
+      <span class="new-pill{% if highlight_daily_cta and card.is_today %} new-hub-section__badge-today{% endif %}">{{ card.today_label }}</span>
     {% endif %}
   </div>
   <p class="new-hub-section__desc">{{ card.description }}</p>

@@ -74,6 +74,7 @@ class HubSectionCardTemplateTests(SimpleTestCase):
         'play_url': '/section/1/',
         'cta_label': 'Текущее задание',
         'is_today': True,
+        'today_label': 'Сегодня',
     }
 
     def test_daily_card_uses_green_today_cta(self):
@@ -83,6 +84,8 @@ class HubSectionCardTemplateTests(SimpleTestCase):
         )
 
         self.assertIn('new-hub-section__cta--today', html)
+        self.assertIn('new-hub-section--today', html)
+        self.assertIn('new-hub-section__badge-today', html)
         self.assertNotIn('new-hub-section__cta--latest', html)
 
     def test_non_daily_card_uses_outline_cta_even_when_current(self):
@@ -92,6 +95,8 @@ class HubSectionCardTemplateTests(SimpleTestCase):
         )
 
         self.assertNotIn('new-hub-section__cta--today', html)
+        self.assertNotIn('new-hub-section--today', html)
+        self.assertNotIn('new-hub-section__badge-today', html)
         self.assertIn('new-hub-section__cta--latest', html)
 
 
