@@ -8854,12 +8854,12 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   padding: 0.95rem;
 }
 
-/* Keep pan-block on the letter grid only; the current-word row below must still scroll. */
+/* Empty/deleted slots scroll the page; active cells below keep letter dragging exclusive. */
 .new-word-salad__grid {
   position: relative;
   display: grid;
   gap: 0.35rem;
-  touch-action: none;
+  touch-action: pan-y;
   overscroll-behavior: contain;
   user-select: none;
   -webkit-user-select: none;
@@ -8870,7 +8870,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.35rem;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .new-word-salad__cell {
