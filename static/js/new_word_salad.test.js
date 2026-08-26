@@ -151,4 +151,19 @@ function escapeEvent(overrides) {
   assert.strictEqual(answer.changed, false);
 })();
 
+(function testAnswerFeedback() {
+  assert.deepStrictEqual(Path.feedbackForResult('correct', 'ёжик'), {
+    word: 'ЁЖИК',
+    message: 'Верно!',
+    icon: 'ph-check-circle',
+    duplicate: false
+  });
+  assert.deepStrictEqual(Path.feedbackForResult('duplicate', 'салат'), {
+    word: 'САЛАТ',
+    message: 'Уже было!',
+    icon: 'ph-arrow-counter-clockwise',
+    duplicate: true
+  });
+})();
+
 console.log('new_word_salad.test.js: ok');

@@ -171,7 +171,19 @@
     }, TOAST_FADE_MS);
   }
 
-  function showSolvedToast(root, word) {
+  function feedbackForResult(result, word) {
+    var duplicate = result === 'duplicate';
+    var displayWord = String(word || '').trim().toUpperCase();
+    return {
+      word: displayWord,
+      message: duplicate ? 'Уже было!' : 'Верно!',
+      icon: duplicate ? 'ph-arrow-counter-clockwise' : 'ph-check-circle',
+      duplicate: duplicate
+    };
+  }
+
+  function showAnswerToast(root, word, result) {
+    var feedback = feedbackForResult(result, word);
     var toast = document.querySelector('.new-word-salad__toast');
     if (!toast) {
       toast = document.createElement('div');
@@ -182,12 +194,33 @@
       document.body.appendChild(toast);
     }
     clearToastTimers(toast);
-    toast.classList.remove('is-in', 'is-out');
-    toast.innerHTML =
-      '<span class="new-word-salad__toast-mark" aria-hidden="true"><i class="ph ph-check-circle"></i></span>' +
-      '<span class="new-word-salad__toast-ok">Верный ответ!</span>';
-    if (word) toast.setAttribute('aria-label', 'Верный ответ: ' + word);
-    else toast.removeAttribute('aria-label');
+    toast.classList.remove('is-in', 'is-out', 'is-duplicate');
+    toast.classList.toggle('is-duplicate', feedback.duplicate);
+    toast.textContent = '';
+
+    var mark = document.createElement('span');
+    mark.className = 'new-word-salad__toast-mark';
+    mark.setAttribute('aria-hidden', 'true');
+    var icon = document.createElement('i');
+    icon.className = 'ph ' + feedback.icon;
+    mark.appendChild(icon);
+
+    var copy = document.createElement('span');
+    copy.className = 'new-word-salad__toast-copy';
+    if (feedback.word) {
+      var answer = document.createElement('span');
+      answer.className = 'new-word-salad__toast-word';
+      answer.textContent = feedback.word;
+      copy.appendChild(answer);
+    }
+    var message = document.createElement('span');
+    message.className = 'new-word-salad__toast-ok';
+    message.textContent = feedback.message;
+    copy.appendChild(message);
+
+    toast.appendChild(mark);
+    toast.appendChild(copy);
+    toast.setAttribute('aria-label', (feedback.word ? feedback.word + '. ' : '') + feedback.message);
     toast.offsetWidth;
     toast.classList.add('is-in');
     toast._toastHoldTimer = window.setTimeout(function () {
@@ -687,7 +720,7 @@
         applyAnswerFilterToExtras();
         renderExtraWords();
         clearSelection();
-        showSolvedToast(root, solvedWord);
+        showAnswerToast(root, solvedWord, 'correct');
       }
 
       function checkPreview(path, pathKey) {
@@ -716,18 +749,24 @@
         }).then(function (response) {
           return response.json();
         }).then(function (data) {
+          var solvedWord = selectedWord(path);
+          if (data && data.status === 'duplicate') {
+            finishWrong(pathKey);
+            showAnswerToast(root, solvedWord, 'duplicate');
+            return;
+          }
           if (!data || data.status !== 'ok' || !data.word_salad_correct) {
             finishWrong(pathKey, data && data.word_salad_extra);
             return;
           }
-          var solvedWord = selectedWord(path);
           var taskId = root.getAttribute('data-task-id') || '';
           activeDragRoot = null;
           if (data.update_task_html_new && typeof window.applyNewUiTaskHtml === 'function') {
             window.applyNewUiTaskHtml(data.update_task_html_new);
-            showSolvedToast(
+            showAnswerToast(
               document.querySelector('[data-word-salad-root][data-task-id="' + taskId + '"]'),
-              solvedWord
+              solvedWord,
+              'correct'
             );
           } else {
             window.location.reload();
@@ -875,6 +914,7 @@
     endPress: endWordSaladPress,
     shouldHandleEscape: shouldHandleWordSaladEscape,
     rememberExtra: rememberExtraWord,
+    feedbackForResult: feedbackForResult,
     EXTRA_MIN_LENGTH: EXTRA_MIN_LENGTH
   };
   global.initWordSalad = initWordSalad;

@@ -274,6 +274,7 @@ class RenderNewUiTaskCardTests(TestCase):
         self.assertIn('new-word-salad__reset-key', html)
         self.assertIn('>Esc<', html)
         self.assertIn('Сбросить выделение (Esc)', html)
+        self.assertIn('>Сбросить</span>', html)
         self.assertIn('new-word-salad__theme-label', html)
         self.assertIn('Тема:', html)
         self.assertIn('алфавит', html)
