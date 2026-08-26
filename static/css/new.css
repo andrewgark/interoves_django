@@ -572,6 +572,11 @@ html.new-ui-dark body.new-ui {
   margin-bottom: 0; /* gap сетки, не margin у --wide (он для Десяточек вне грида) */
 }
 
+/* В ежедневной тройке Салатики, Алфавитки и Лесенки всегда равноправны. */
+.new-hub-sections-grid--daily > .new-hub-section--wide {
+  grid-column: auto;
+}
+
 .new-hub-section {
   border: 1px solid var(--border);
   border-radius: var(--card-radius);

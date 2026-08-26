@@ -887,11 +887,6 @@ def _onboarding_starter_salad_url(daily_hub_cards):
     return section_play_path(WORD_SALAD_GAME_ID, starter_number)
 
 
-def _onboarding_archive_count(daily_hub_cards):
-    """Published daily games already available from the three archives."""
-    return sum(int(card.get('archive_count') or 0) for card in daily_hub_cards)
-
-
 def _has_gameplay_history(**actor):
     """Modern analytics rows plus legacy interactions predating game_start."""
     if PlayerStartedGame.objects.filter(**actor).exists():
@@ -1130,9 +1125,6 @@ def new_start(request):
         'onboarding_alternative_cards': [
             card for card in onboarding_cards if card['id'] != WORD_SALAD_GAME_ID
         ],
-        'onboarding_archive_count': _onboarding_archive_count(
-            hub_groups['daily_hub_cards']
-        ),
         'page_title': 'С чего начать',
         'show_sections_nav': False,
         'focused_header': True,

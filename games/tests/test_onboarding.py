@@ -100,12 +100,14 @@ class OnboardingPageTests(TestCase):
         self.assertLess(salad, alphabet)
         self.assertLess(alphabet, ladder)
 
-    def test_start_has_focused_header_and_archive_value_proposition(self):
+    def test_start_has_focused_header_without_old_value_proposition(self):
         response = self.client.get('/start/')
         body = response.content.decode()
 
-        self.assertContains(response, 'Бесплатно · без регистрации')
-        self.assertContains(response, 'игр в архиве')
+        self.assertNotContains(response, 'Каждый день — новая интеллектуальная игра')
+        self.assertNotContains(response, 'Бесплатно · без регистрации')
+        self.assertNotContains(response, 'Новая игра каждый день')
+        self.assertNotContains(response, 'игр в архиве')
         self.assertIn('class="new-nav__focused"', body)
         self.assertIn('>Все игры</a>', body)
         self.assertNotIn('class="new-nav__sections"', body)
