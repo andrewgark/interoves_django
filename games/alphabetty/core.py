@@ -117,7 +117,9 @@ def known_prefix(
 ) -> str:
     """Буквы, о которых точно известно, что ответ начинается с них.
 
-    Это LCP границ lo/hi и/или буквы, раскрытые подсказками (hint_prefix).
+    Это общий для всего открытого интервала префикс границ lo/hi и/или буквы,
+    раскрытые подсказками (hint_prefix). Иногда он длиннее буквального LCP:
+    например, между ``СКОРОСТЬ`` и ``СКОС`` любое слово начинается с ``СКОР``.
     """
     lo_n = normalize_word(lo) if lo else ''
     hi_n = normalize_word(hi) if hi else ''
@@ -128,18 +130,34 @@ def known_prefix(
         while lcp < limit and lo_n[lcp] == hi_n[lcp]:
             lcp += 1
         bound_prefix = lo_n[:lcp]
-    elif lo_n and lo_n[0] == _RU_ORDER[-1]:
-        # После слова на последнюю букву алфавита ответ тоже начинается с нее.
-        bound_prefix = lo_n[:1]
-    elif hi_n and hi_n[0] == _RU_ORDER[0]:
-        # Перед словом на первую букву алфавита ответ тоже начинается с нее.
-        bound_prefix = hi_n[:1]
+
     hp = normalize_word(hint_prefix)
-    if not hp:
-        return bound_prefix
-    if bound_prefix and not hp.startswith(bound_prefix):
-        return bound_prefix
-    return hp if len(hp) >= len(bound_prefix) else bound_prefix
+    if hp and (not bound_prefix or hp.startswith(bound_prefix)):
+        prefix = hp if len(hp) >= len(bound_prefix) else bound_prefix
+    else:
+        prefix = bound_prefix
+
+    # Если на очередном уровне интервала возможна ровно одна буквенная ветка,
+    # эта буква тоже гарантированно известна. Повторяем, чтобы аккуратно
+    # обработать несколько крайних букв подряд (например, ЯЯ… при одной
+    # нижней границе). build_prefix_level является тем же источником диапазона,
+    # который используется алфавитной плашкой в UI.
+    while True:
+        # Сам prefix тоже может быть словом внутри интервала. В таком случае
+        # следующая буква уже не гарантирована, даже если среди продолжений
+        # плашка показывает единственную ветку (например, перед ААА возможно А).
+        if prefix:
+            after_lo = not lo_n or compare_words(lo_n, prefix) < 0
+            before_hi = not hi_n or compare_words(prefix, hi_n) < 0
+            if after_lo and before_hi:
+                return prefix
+        rows = build_prefix_level(lo_n or None, hi_n or None, expand_prefix=prefix)
+        if len(rows) != 1:
+            return prefix
+        forced = normalize_word(rows[0].get('prefix') or '')
+        if len(forced) <= len(prefix) or not forced.startswith(prefix):
+            return prefix
+        prefix = forced
 
 
 def _letter_range(start: str, end: str) -> list[str]:

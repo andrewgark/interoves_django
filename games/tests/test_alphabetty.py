@@ -27,6 +27,7 @@ from games.alphabetty.play import (
     format_elapsed,
     format_hints_label,
     get_play_state,
+    public_payload,
     ru_attempt_word,
 )
 from games.anon_migrate import _solved_count
@@ -137,8 +138,29 @@ class AlphabettyCoreTests(TestCase):
     def test_known_prefix_uses_alphabet_edge_with_one_bound(self):
         self.assertEqual(known_prefix('ЯБЕДА', None), 'Я')
         self.assertEqual(known_prefix(None, 'АБАКАН'), 'А')
+        self.assertEqual(known_prefix(None, 'ААА'), 'А')
+        self.assertEqual(known_prefix('ЯЯЯ', None), 'ЯЯЯ')
         self.assertEqual(known_prefix('БАБКА', None), '')
         self.assertEqual(known_prefix(None, 'ЮБИЛЕЙ'), '')
+
+    def test_known_prefix_includes_only_possible_adjacent_letter_branch(self):
+        self.assertEqual(known_prefix('СКОРОСТЬ', 'СКОС'), 'СКОР')
+        # Верхняя граница с продолжением оставляет допустимой и ветку СКОС…
+        self.assertEqual(known_prefix('СКОРОСТЬ', 'СКОСА'), 'СКО')
+
+    def test_public_payload_uses_forced_prefix_for_form_and_next_hint(self):
+        payload = public_payload(
+            {
+                'guesses': ['СКОРОСТЬ', 'СКОС'],
+                'won': False,
+                'hint_prefix': '',
+                'hints_taken': 0,
+            },
+            'СКОРПИОН',
+        )
+
+        self.assertEqual(payload['known_prefix'], 'СКОР')
+        self.assertEqual(payload['next_hint_letter'], 5)
 
     def test_prefix_hint_only_known(self):
         rows = build_prefix_level(None, None, expand_prefix='РИ')
