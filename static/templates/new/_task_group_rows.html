@@ -28,12 +28,10 @@
       <span class="new-task__action" data-task-action>
         {% if row.is_fully_solved %}
           <span class="new-pill new-pill--ok" title="Решено">ок</span>
-        {% else %}
-          <a class="new-btn new-btn--ghost new-btn--mini" href="{{ row.play_url }}">Открыть</a>
         {% endif %}
       </span>
       {% if row.results_url and game|access_see_results:team %}
-        <a class="new-btn new-btn--ghost new-btn--mini new-task__results" href="{{ row.results_url }}">Результаты</a>
+        <a class="new-task__results" href="{{ row.results_url }}">Результаты</a>
       {% endif %}
     </div>
   {% endfor %}
