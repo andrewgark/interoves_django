@@ -76,6 +76,7 @@ from games.section_hub import (
     get_source_desyatka_context,
     get_training_section_hub_context,
     get_week_task_hub_card,
+    onboarding_followup_context,
     section_format_credit_context,
     section_nav_title,
 )
@@ -838,7 +839,7 @@ def _build_hub_section_cards(request, *, team):
 
 
 def _onboarding_game_cards(daily_hub_cards):
-    """Three deliberately constrained choices for /start/, using stable latest URLs."""
+    """One recommended game and two alternatives for the focused /start/ page."""
     from games.section_paths import section_last_path
 
     cards_by_id = {card['id']: card for card in daily_hub_cards}
@@ -862,6 +863,33 @@ def _onboarding_game_cards(daily_hub_cards):
             'play_url': section_last_path(game_id),
         })
     return cards
+
+
+def _onboarding_starter_salad_url(daily_hub_cards):
+    """Configured beginner Salad when public, otherwise the stable latest URL."""
+    from games.section_paths import section_last_path, section_play_path
+
+    fallback = section_last_path(WORD_SALAD_GAME_ID)
+    starter_number = str(
+        getattr(settings, 'ONBOARDING_STARTER_SALAD_ID', '') or ''
+    ).strip()
+    if not starter_number:
+        return fallback
+    salad_card = next(
+        (card for card in daily_hub_cards if card['id'] == WORD_SALAD_GAME_ID),
+        None,
+    )
+    published_numbers = {
+        str(number) for number in salad_card.get('published_numbers', set())
+    } if salad_card else set()
+    if not salad_card or starter_number not in published_numbers:
+        return fallback
+    return section_play_path(WORD_SALAD_GAME_ID, starter_number)
+
+
+def _onboarding_archive_count(daily_hub_cards):
+    """Published daily games already available from the three archives."""
+    return sum(int(card.get('archive_count') or 0) for card in daily_hub_cards)
 
 
 def _has_gameplay_history(**actor):
@@ -1034,16 +1062,14 @@ def new_hub(request):
     desyatochki_games = view.get_games_list(request)
     # Карточку десяточек показываем только если есть хотя бы одна видимая игра.
     desyatochki_card = get_desyatochki_hub_context(desyatochki_games) if desyatochki_games else None
-    onboarding_cards = _onboarding_game_cards(hub_groups['daily_hub_cards'])
     return render(request, 'ui/hub.html', {
         'project': project,
         'section_games': section_games,
         **hub_groups,
         'desyatochki_card': desyatochki_card,
         'show_first_visit_onboarding': _is_first_time_player(request),
-        'onboarding_salad_url': next(
-            (card['play_url'] for card in onboarding_cards if card['id'] == WORD_SALAD_GAME_ID),
-            '/salad/last/',
+        'onboarding_salad_url': _onboarding_starter_salad_url(
+            hub_groups['daily_hub_cards']
         ),
         **_games_list_card_context(request),
         'page_title': 'Interoves',
@@ -1088,32 +1114,28 @@ def new_start(request):
     project = Project.objects.filter(id=NEW_UI_PROJECT).first()
     team = request.user.profile.team_on if has_profile(request.user) else None
     hub_groups = _build_hub_section_cards(request, team=team)
-    view = MainPageView()
-    view.project_name = NEW_UI_PROJECT
-    desyatochki_games = view.get_games_list(request)
-    desyatochki_card = (
-        get_desyatochki_hub_context(desyatochki_games)
-        if desyatochki_games else None
+    onboarding_cards = _onboarding_game_cards(hub_groups['daily_hub_cards'])
+    salad_card = next(
+        (card for card in onboarding_cards if card['id'] == WORD_SALAD_GAME_ID),
+        None,
     )
-
-    advanced_links = []
-    if desyatochki_card:
-        advanced_links.append({
-            'title': desyatochki_card['title'],
-            'url': desyatochki_card['section_url'],
-        })
-    advanced_links.extend(
-        {'title': card['title'], 'url': card['section_url']}
-        for card in hub_groups['from_desyatochki_hub_cards']
-        if card.get('section_url')
-    )
+    if salad_card:
+        salad_card['play_url'] = _onboarding_starter_salad_url(
+            hub_groups['daily_hub_cards']
+        )
 
     return render(request, 'new/start.html', {
         'project': project,
-        'onboarding_game_cards': _onboarding_game_cards(hub_groups['daily_hub_cards']),
-        'advanced_start_links': advanced_links,
+        'onboarding_salad_card': salad_card,
+        'onboarding_alternative_cards': [
+            card for card in onboarding_cards if card['id'] != WORD_SALAD_GAME_ID
+        ],
+        'onboarding_archive_count': _onboarding_archive_count(
+            hub_groups['daily_hub_cards']
+        ),
         'page_title': 'С чего начать',
-        'show_sections_nav': True,
+        'show_sections_nav': False,
+        'focused_header': True,
         **_project_urls_context(NEW_UI_PROJECT),
     })
 
@@ -3068,6 +3090,10 @@ def new_task_group_page(request, game_id, task_group_number):
         'live_next_transition_at': (
             None if ladder_offer is not None
             else next_daily_content_transition_for_game(game)
+        ),
+        **(
+            onboarding_followup_context(game.id)
+            if ladder_offer is None else {}
         ),
         **_project_urls_context(game.project_id),
         **_age_gate_context(

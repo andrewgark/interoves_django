@@ -51,7 +51,7 @@ ONBOARDING_GAME_META = {
     },
     'alphabetty': {
         'title': 'Алфавитка',
-        'analytics_game': 'alphabet',
+        'analytics_game': 'alphabetty',
         'badge': 'Самая простая',
         'description': 'Угадайте слово, постепенно сужая диапазон по алфавиту.',
         'duration': '',
@@ -204,6 +204,59 @@ def daily_nav_items():
     return items
 
 
+def onboarding_followup_context(game_id):
+    """Small next-step menu for a completed first daily onboarding game."""
+    if game_id not in ONBOARDING_GAME_IDS:
+        return {}
+    if game_id == WORD_SALAD_GAME_ID:
+        primary = {
+            'game': 'alphabetty',
+            'label': 'Ещё одна ежедневная игра',
+            'title': 'Алфавитка',
+            'description': 'Угадайте слово, сужая диапазон по алфавиту.',
+            'url': section_last_path(ALPHABETTY_GAME_ID),
+        }
+        alternatives = [{
+            'game': 'ladder',
+            'title': 'Лесенка — если хочется сложнее',
+            'url': section_last_path(LADDER_GAME_ID),
+        }]
+    elif game_id == ALPHABETTY_GAME_ID:
+        primary = {
+            'game': 'salad',
+            'label': 'Ещё одна ежедневная игра',
+            'title': 'Салатик',
+            'description': 'Найдите слова в сетке 4×4.',
+            'url': section_last_path(WORD_SALAD_GAME_ID),
+        }
+        alternatives = [{
+            'game': 'ladder',
+            'title': 'Лесенка — если хочется сложнее',
+            'url': section_last_path(LADDER_GAME_ID),
+        }]
+    else:
+        primary = {
+            'game': 'salad',
+            'label': 'Ещё одна ежедневная игра',
+            'title': 'Салатик',
+            'description': 'Найдите слова в сетке 4×4.',
+            'url': section_last_path(WORD_SALAD_GAME_ID),
+        }
+        alternatives = [{
+            'game': 'alphabetty',
+            'title': 'Алфавитка — если хочется проще',
+            'url': section_last_path(ALPHABETTY_GAME_ID),
+        }]
+    return {
+        'onboarding_game': (
+            'alphabetty' if game_id == ALPHABETTY_GAME_ID else game_id
+        ),
+        'onboarding_followup_primary': primary,
+        'onboarding_followup_alternatives': alternatives,
+        'onboarding_salad_archive_url': section_hub_path(WORD_SALAD_GAME_ID),
+    }
+
+
 def _newest_task_group_links(game):
     """Опубликованные круги раздела, новые сверху."""
     from games.models import GameTaskGroup
@@ -308,6 +361,7 @@ def get_scheduled_section_hub_card(game, *, published_numbers, now=None):
     game_id = game.id
     meta = SECTION_HUB_META[game_id]
     sched = schedule_for(game_id)
+    published_numbers = set(published_numbers)
     ctx = sched.hub_context(game, published_numbers=published_numbers, now=now)
     prefix = game_id
     is_today = ctx.get(f'{prefix}_is_today', False)
@@ -336,6 +390,10 @@ def get_scheduled_section_hub_card(game, *, published_numbers, now=None):
         'soon_emphasis': bool(meta.get('soon_emphasis')),
         'wide': bool(meta.get('wide')),
         'game': game,
+        'archive_count': len(published_numbers),
+        # Internal view helper data. Templates do not render the numbers, but
+        # /start/ uses them to validate an optional configured starter Salad.
+        'published_numbers': published_numbers,
     }
 
 

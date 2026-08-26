@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import resolve, reverse
 from django.utils import timezone
 from allauth.socialaccount.models import SocialApp
@@ -13,6 +13,8 @@ from games.models import (
     Project,
     TaskGroup,
 )
+from games.section_hub import onboarding_followup_context
+from games.views.new_ui import _onboarding_starter_salad_url
 
 
 def _ensure_social_apps():
@@ -70,7 +72,7 @@ class OnboardingPageTests(TestCase):
     def setUp(self):
         self.client = Client()
 
-    def test_start_is_direct_public_route_with_three_stable_latest_ctas(self):
+    def test_start_is_direct_public_route_with_one_primary_and_two_alternatives(self):
         response = self.client.get('/start/')
 
         self.assertEqual(response.status_code, 200)
@@ -85,27 +87,51 @@ class OnboardingPageTests(TestCase):
         self.assertIn('href="/salad/last/"', body)
         self.assertIn('href="/alphabetty/last/"', body)
         self.assertIn('href="/ladder/last/"', body)
-        self.assertIn('Рекомендуем начать здесь', body)
+        self.assertIn('Начать первую игру', body)
+        self.assertEqual(body.count('new-start-primary__cta'), 1)
         self.assertIn('Самая простая', body)
         self.assertIn('Посложнее', body)
+        self.assertNotIn('Хотите посложнее?', body)
+        self.assertIn('Посмотреть все игры →', body)
 
         salad = body.index('data-onboarding-game="salad"')
-        alphabet = body.index('data-onboarding-game="alphabet"')
+        alphabet = body.index('data-onboarding-game="alphabetty"')
         ladder = body.index('data-onboarding-game="ladder"')
-        advanced = body.index('Хотите посложнее?')
         self.assertLess(salad, alphabet)
         self.assertLess(alphabet, ladder)
-        self.assertLess(ladder, advanced)
+
+    def test_start_has_focused_header_and_archive_value_proposition(self):
+        response = self.client.get('/start/')
+        body = response.content.decode()
+
+        self.assertContains(response, 'Бесплатно · без регистрации')
+        self.assertContains(response, 'игр в архиве')
+        self.assertIn('class="new-nav__focused"', body)
+        self.assertIn('>Все игры</a>', body)
+        self.assertNotIn('class="new-nav__sections"', body)
+        self.assertNotIn('id="new-nav-drawer"', body)
+
+    def test_configured_published_starter_salad_is_used(self):
+        with override_settings(ONBOARDING_STARTER_SALAD_ID='1'):
+            self.assertEqual(
+                _onboarding_starter_salad_url([
+                    {'id': 'salad', 'published_numbers': {'1'}},
+                ]),
+                '/salad/1/',
+            )
+
+    @override_settings(ONBOARDING_STARTER_SALAD_ID='999999')
+    def test_unpublished_starter_salad_falls_back_to_last(self):
+        body = self.client.get('/start/').content.decode()
+        self.assertIn('href="/salad/last/"', body)
 
     def test_start_uses_existing_analytics_helper_and_game_parameter(self):
         body = self.client.get('/start/').content.decode()
 
-        self.assertIn("'onboarding_start_view'", body)
-        self.assertIn("'onboarding_game_select'", body)
-        self.assertIn('analytics.trackYandexGoalOnce(', body)
-        self.assertIn("{ game: link.getAttribute('data-onboarding-game') }", body)
-        self.assertIn('data-onboarding-game="alphabet"', body)
-        self.assertNotIn('data-onboarding-game="alphabetty"', body)
+        self.assertIn('static/js/onboarding.js', body)
+        self.assertIn('data-onboarding-recommended="1"', body)
+        self.assertIn('data-onboarding-recommended="0"', body)
+        self.assertIn('data-onboarding-game="alphabetty"', body)
         self.assertNotIn("ym(", body[body.index('<div class="new-start-page">'):])
 
     def test_all_latest_routes_resolve_without_a_hardcoded_number(self):
@@ -114,17 +140,28 @@ class OnboardingPageTests(TestCase):
                 response = self.client.get(path)
                 self.assertIn(response.status_code, (301, 302))
 
+    def test_daily_game_pages_include_hidden_contextual_followup(self):
+        salad = onboarding_followup_context('salad')
+        self.assertEqual(salad['onboarding_game'], 'salad')
+        self.assertEqual(salad['onboarding_followup_primary']['game'], 'alphabetty')
+        self.assertEqual(salad['onboarding_salad_archive_url'], '/salad/')
+        alphabetty = onboarding_followup_context('alphabetty')
+        self.assertEqual(alphabetty['onboarding_game'], 'alphabetty')
+        self.assertEqual(alphabetty['onboarding_followup_primary']['game'], 'salad')
+
     def test_home_prioritizes_daily_games_and_explains_the_choices(self):
         body = self.client.get('/').content.decode()
 
-        self.assertIn('Попробуйте одну из ежедневных игр.', body)
+        self.assertNotIn('Не знаете, с чего начать?', body)
         self.assertIn('id="hub-team-heading"', body)
         self.assertIn('>Командные игры</h2>', body)
         self.assertLess(body.index('id="hub-daily-heading"'), body.index('id="hub-team-heading"'))
         self.assertLess(body.index('id="hub-team-heading"'), body.index('id="desyatochki-heading"'))
         self.assertLess(body.index('hub-section-salad'), body.index('hub-section-alphabetty'))
         self.assertLess(body.index('hub-section-alphabetty'), body.index('hub-section-ladder'))
-        self.assertIn('new-hub-section--recommended', body)
+        self.assertNotIn('new-hub-section--recommended', body)
+        self.assertIn('>Как играть</button>', body)
+        self.assertIn('id="desyatochki-rules-modal"', body)
 
     def test_unknown_internal_section_does_not_break_or_enter_public_navigation(self):
         for path in ('/', '/start/'):
@@ -242,4 +279,4 @@ class FirstVisitOnboardingTests(TestCase):
         response = self.client.get('/start/')
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Впервые в Inter Oves? Начните отсюда')
+        self.assertContains(response, 'Впервые в Inter Oves?')

@@ -236,9 +236,21 @@
     return dispatchPendingGoal(dedupeKey);
   }
 
+  function notifyGoalConsumers(goals) {
+    if (!global || !goals || !goals.length || typeof global.dispatchEvent !== 'function') return;
+    try {
+      global.dispatchEvent(new global.CustomEvent('interoves:analytics-goals', {
+        detail: { goals: goals }
+      }));
+    } catch (e) {}
+  }
+
   function flushPendingGoals(goals) {
     var dispatched = [];
     if (goals && goals.length) {
+      // Product UI (including the short-lived onboarding flow) observes the
+      // authoritative server payloads without creating another gameplay event.
+      notifyGoalConsumers(goals);
       goals.forEach(function (goal) {
         if (!goal || typeof goal !== 'object') return;
         var key = goal.key || goal.goal;

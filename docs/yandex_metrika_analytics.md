@@ -8,6 +8,21 @@
 | `activated_player` | Пользователь впервые завершил 3 уникальные игры |
 | `ticket_checkout` | Пользователь начал процесс оплаты |
 | `ticket_purchase` | Оплата подтверждена |
+| `onboarding_view` | Открыт `/start/` |
+| `onboarding_game_select` | На `/start/` выбран формат (`game`, `recommended`) |
+| `onboarding_first_game_complete` | В контексте onboarding завершена первая игра |
+| `onboarding_second_game_start` | После первой игры начата следующая |
+
+Onboarding parameters:
+
+- `onboarding_game_select`: `game=salad|alphabetty|ladder`, `recommended=true|false`;
+- `onboarding_first_game_complete`: `game`, `recommended`;
+- `onboarding_second_game_start`: `first_game`, `game`.
+
+The onboarding context lives in browser `localStorage` for 24 hours. Existing
+backend `game_start` / `game_complete` payloads remain the source of truth for
+the two progression events; opening a game page by itself does not advance the
+funnel.
 
 ## Game values
 

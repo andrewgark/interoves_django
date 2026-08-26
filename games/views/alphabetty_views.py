@@ -50,7 +50,7 @@ from games.models import (
     Like,
     Task,
 )
-from games.section_hub import section_format_credit_context
+from games.section_hub import onboarding_followup_context, section_format_credit_context
 from games.section_paths import section_hub_path, section_play_path, section_results_path
 from games.task_titles import task_display_name, task_group_page_title
 from games.views.new_ui import (
@@ -388,6 +388,7 @@ def alphabetty_play_page(request, number):
         'next_task_group_url': (
             section_play_path(ALPHABETTY_GAME_ID, next_tg.number) if next_tg else None
         ),
+        **(onboarding_followup_context(ALPHABETTY_GAME_ID) if offer is None else {}),
         **meta_ctx,
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
     })

@@ -213,6 +213,23 @@ html.new-ui-dark body.new-ui {
   align-items: center;
 }
 
+.new-nav__focused {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  margin-left: auto;
+}
+
+.new-nav__focused > a {
+  color: var(--text);
+  font-size: 0.92rem;
+  text-decoration: none;
+}
+
+.new-nav__focused > a:hover {
+  color: var(--accent);
+}
+
 .new-clock {
   color: var(--muted);
   font-size: 0.85rem;
@@ -722,6 +739,319 @@ html.new-ui-dark body.new-ui {
 @media (min-width: 920px) {
   .new-start-games {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Second onboarding pass: one dominant first action, then compact alternatives. */
+.new-start-page {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding-top: 0.1rem;
+}
+
+.new-start-hero {
+  margin-bottom: 1rem;
+}
+
+.new-start-hero__lead {
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+.new-start-hero__value {
+  margin: 0.7rem 0 0;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.new-start-primary {
+  padding: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 70%, var(--border));
+  border-radius: var(--card-radius);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.new-start-primary__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.new-start-primary__icon {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+  color: var(--accent);
+  font-size: 1.7rem;
+}
+
+.new-start-primary__badge {
+  margin: 0 0 0.35rem;
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.new-start-primary__title {
+  margin: 0;
+  font-size: 1.4rem;
+  line-height: 1.25;
+}
+
+.new-start-primary__desc {
+  margin: 0.7rem 0 0.45rem;
+  color: var(--muted);
+}
+
+.new-start-primary__duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.new-start-primary__cta {
+  display: block;
+  width: 100%;
+  min-height: 3rem;
+  margin: 0;
+  padding: 0.8rem 1.25rem;
+  font-size: 1.02rem;
+  text-align: center;
+}
+
+.new-start-alternatives {
+  margin-top: 1.5rem;
+}
+
+.new-start-alternatives__title {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.new-start-alternatives__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.new-start-alternative {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+}
+
+.new-start-alternative__body {
+  min-width: 0;
+}
+
+.new-start-alternative__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.new-start-alternative__head > i {
+  color: var(--accent);
+  font-size: 1.15rem;
+}
+
+.new-start-alternative__head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.new-start-alternative__head .new-pill {
+  margin-left: auto;
+}
+
+.new-start-alternative p {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.new-start-alternative > .new-btn {
+  margin: auto 0 0;
+}
+
+.new-start-all-games {
+  margin: 1.1rem 0 0;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .new-nav__focused {
+    gap: 0.75rem;
+  }
+
+  .new-nav__focused > a,
+  .new-nav__focused .new-nav__loginbtn {
+    font-size: 0.84rem;
+  }
+
+  .new-start-hero {
+    margin-bottom: 0.85rem;
+    text-align: left;
+  }
+
+  .new-start-hero .new-heading--page {
+    margin-bottom: 0.35rem;
+    font-size: 1.65rem;
+  }
+
+  .new-start-hero__lead {
+    font-size: 0.92rem;
+    line-height: 1.42;
+  }
+
+  .new-start-hero__value {
+    margin-top: 0.5rem;
+    font-size: 0.81rem;
+  }
+
+  .new-start-primary {
+    padding: 1rem;
+  }
+
+  .new-start-primary__badge {
+    font-size: 0.72rem;
+  }
+
+  .new-start-primary__title {
+    font-size: 1.22rem;
+  }
+
+  .new-start-primary__desc {
+    margin-top: 0.55rem;
+    font-size: 0.9rem;
+  }
+
+  .new-start-primary__duration {
+    margin-bottom: 0.65rem;
+  }
+
+  .new-start-alternatives__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .new-start-alternative {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .new-start-alternative > .new-btn {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .new-start-hero__kicker {
+    display: none;
+  }
+
+  .new-start-alternative {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .new-start-alternative > .new-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+.new-onboarding-followup {
+  margin: 1.5rem 0;
+  padding: 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, var(--border));
+  border-radius: var(--card-radius);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.new-onboarding-followup__kicker {
+  margin: 0 0 0.15rem;
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.new-onboarding-followup__title {
+  margin: 0 0 0.8rem;
+  font-size: 1.25rem;
+}
+
+.new-onboarding-followup__next-label {
+  margin: 0 0 0.4rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.new-onboarding-followup__primary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+}
+
+.new-onboarding-followup__primary strong,
+.new-onboarding-followup__primary span {
+  display: block;
+}
+
+.new-onboarding-followup__primary span {
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.new-onboarding-followup__primary .new-btn {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.new-onboarding-followup__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1rem;
+  margin-top: 0.8rem;
+  font-size: 0.9rem;
+}
+
+.new-hub-section__rules-cta {
+  margin: 0 0 0 auto;
+}
+
+@media (max-width: 560px) {
+  .new-onboarding-followup__primary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .new-onboarding-followup__primary .new-btn {
+    text-align: center;
   }
 }
 

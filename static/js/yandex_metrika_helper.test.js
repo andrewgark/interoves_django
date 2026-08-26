@@ -82,6 +82,27 @@ function memoryStorage() {
   assert.strictEqual(calls[0][2], 'game_start');
 })();
 
+(function testServerGoalsAreExposedToProductUiConsumers() {
+  var received = [];
+  var fakeWindow = {
+    interovesAnalyticsConfig: { yandexCounterId: 108320022 },
+    CustomEvent: function (type, options) {
+      this.type = type;
+      this.detail = options.detail;
+    },
+    dispatchEvent: function (event) { received.push(event); },
+  };
+  fakeTimers(fakeWindow);
+  var helper = loadHelperWithWindow(fakeWindow);
+  var goals = [{ goal: 'game_complete', params: { game: 'salad', game_id: '4' } }];
+
+  helper.flushPendingGoals(goals);
+
+  assert.strictEqual(received.length, 1);
+  assert.strictEqual(received[0].type, 'interoves:analytics-goals');
+  assert.deepStrictEqual(received[0].detail.goals, goals);
+})();
+
 (function testPendingGoalSurvivesReloadAndAckIsPostedAfterCallback() {
   var store = memoryStorage();
   var first = {

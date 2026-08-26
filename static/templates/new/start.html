@@ -1,16 +1,17 @@
 {% extends "new/base.html" %}
+{% load static %}
 
 {% block title %}С чего начать{% endblock %}
 
 {% block extrahead %}
   {{ block.super }}
-  <meta name="description" content="Начните знакомство с Inter Oves с одной из трёх коротких ежедневных игр: Салатика, Алфавитки или Лесенки.">
+  <meta name="description" content="Начните знакомство с Inter Oves с Салатика — ежедневной интеллектуальной игры с понятными правилами.">
   <link rel="canonical" href="https://interoves.com/start/">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ru_RU">
   <meta property="og:site_name" content="Inter Oves">
   <meta property="og:title" content="С чего начать · Inter Oves">
-  <meta property="og:description" content="Три короткие интеллектуальные игры для первого знакомства с Inter Oves. Новое задание каждый день.">
+  <meta property="og:description" content="Новая интеллектуальная игра каждый день и архив предыдущих. Начните с Салатика.">
   <meta property="og:url" content="https://interoves.com/start/">
 {% endblock %}
 
@@ -18,74 +19,65 @@
 <div class="new-start-page">
   <header class="new-start-hero">
     <p class="new-start-hero__kicker">Первое знакомство</p>
-    <h1 class="new-heading new-heading--page">Впервые в Inter Oves? Начните отсюда</h1>
+    <h1 class="new-heading new-heading--page">Впервые в Inter Oves?</h1>
     <p class="new-start-hero__lead">
-      Короткие интеллектуальные игры, которые можно решать одному.<br>
-      Новое задание каждый день.
+      Каждый день — новая интеллектуальная игра. Здесь важнее логика, поиск связей и догадки, чем просто знание фактов.
+    </p>
+    <p class="new-start-hero__value">
+      Бесплатно · без регистрации<br>
+      {% if onboarding_archive_count %}Новая игра каждый день · уже {{ onboarding_archive_count }} игр в архиве{% else %}Новые игры каждый день + архив предыдущих{% endif %}
     </p>
   </header>
 
-  <section aria-labelledby="start-games-heading">
-    <h2 id="start-games-heading" class="new-visually-hidden">Выберите первую игру</h2>
-    <div class="new-start-games">
-      {% for card in onboarding_game_cards %}
-      <article class="new-start-game{% if card.id == 'salad' %} new-start-game--recommended{% endif %}">
-        <div class="new-start-game__head">
-          <i class="ph ph-{{ card.ph_icon }} new-start-game__icon" aria-hidden="true"></i>
-          <h3 class="new-start-game__title">{{ card.title }}</h3>
-        </div>
-        <p class="new-pill new-start-game__badge">{{ card.badge }}</p>
-        <p class="new-start-game__desc">{{ card.description }}</p>
-        {% if card.duration %}
-        <p class="new-start-game__duration"><i class="ph ph-clock" aria-hidden="true"></i>{{ card.duration }}</p>
-        {% endif %}
-        <a class="new-btn new-start-game__cta{% if card.id != 'salad' %} new-btn--ghost{% endif %}"
-           href="{{ card.play_url }}"
-           data-onboarding-game="{{ card.analytics_game }}">{{ card.cta_label }}</a>
-      </article>
-      {% empty %}
-      <p>Ежедневные игры скоро появятся.</p>
-      {% endfor %}
+  {% if onboarding_salad_card %}
+  <section class="new-start-primary" aria-labelledby="start-primary-heading">
+    <div class="new-start-primary__head">
+      <i class="ph ph-{{ onboarding_salad_card.ph_icon }} new-start-primary__icon" aria-hidden="true"></i>
+      <div>
+        <p class="new-pill new-start-primary__badge">Рекомендуем для первой игры</p>
+        <h2 id="start-primary-heading" class="new-start-primary__title">Начните с Салатика</h2>
+      </div>
     </div>
+    <p class="new-start-primary__desc">Найдите слова в сетке 4×4. Правила понятны за минуту.</p>
+    <p class="new-start-primary__duration"><i class="ph ph-clock" aria-hidden="true"></i>5–10 минут</p>
+    <a class="new-btn new-start-primary__cta"
+       href="{{ onboarding_salad_card.play_url }}"
+       data-onboarding-game="salad"
+       data-onboarding-recommended="1">Начать первую игру</a>
   </section>
+  {% endif %}
 
-  {% if advanced_start_links %}
-  <section class="new-start-advanced" aria-labelledby="start-advanced-heading">
-    <h2 id="start-advanced-heading" class="new-heading">Хотите посложнее?</h2>
-    <p>В Inter Oves есть Десяточки, Замены, Стены и другие форматы.</p>
-    <div class="new-start-advanced__links">
-      {% for link in advanced_start_links %}
-      <a class="new-link-dotted" href="{{ link.url }}">{{ link.title }}</a>
+  {% if onboarding_alternative_cards %}
+  <section class="new-start-alternatives" aria-labelledby="start-alternatives-heading">
+    <h2 id="start-alternatives-heading" class="new-start-alternatives__title">Не хотите Салатик? Выберите другой формат</h2>
+    <div class="new-start-alternatives__grid">
+      {% for card in onboarding_alternative_cards %}
+      <article class="new-start-alternative">
+        <div class="new-start-alternative__body">
+          <div class="new-start-alternative__head">
+            <i class="ph ph-{{ card.ph_icon }}" aria-hidden="true"></i>
+            <h3>{{ card.title }}</h3>
+            <span class="new-pill">{{ card.badge }}</span>
+          </div>
+          <p>{{ card.description }}</p>
+        </div>
+        <a class="new-btn new-btn--ghost new-btn--mini"
+           href="{{ card.play_url }}"
+           data-onboarding-game="{{ card.analytics_game }}"
+           data-onboarding-recommended="0">Попробовать</a>
+      </article>
       {% endfor %}
     </div>
   </section>
   {% endif %}
+
+  <p class="new-start-all-games"><a class="new-link-dotted" href="/">Посмотреть все игры →</a></p>
 </div>
 
+<script src="{% static 'js/onboarding.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script>
 (function () {
-  var analytics = window.interovesAnalytics;
-  if (!analytics || !analytics.trackYandexGoalOnce) return;
-
-  function eventKey(name) {
-    return name + ':' + String(Date.now()) + ':' + String(Math.random()).slice(2);
-  }
-
-  analytics.trackYandexGoalOnce(
-    eventKey('onboarding_start_view'),
-    'onboarding_start_view',
-    { source: 'start' }
-  );
-
-  document.querySelectorAll('[data-onboarding-game]').forEach(function (link) {
-    link.addEventListener('click', function () {
-      analytics.trackYandexGoalOnce(
-        eventKey('onboarding_game_select'),
-        'onboarding_game_select',
-        { game: link.getAttribute('data-onboarding-game') }
-      );
-    });
-  });
+  if (window.interovesOnboarding) window.interovesOnboarding.initStartPage();
 })();
 </script>
 {% endblock %}

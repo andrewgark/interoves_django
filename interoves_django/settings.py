@@ -689,6 +689,12 @@ SOCIALACCOUNT_AUTO_SIGNUP = True
 
 YANDEX_METRIKA_COUNTER_ID = int(os.environ.get('YANDEX_METRIKA_COUNTER_ID') or 108320022)
 
+# Optional published Salad number used by the first-time-user landing page.
+# Empty means the normal /salad/last/ route remains the fallback.
+ONBOARDING_STARTER_SALAD_ID = (
+    os.environ.get('ONBOARDING_STARTER_SALAD_ID') or ''
+).strip()
+
 TEMPLATE_CONTEXT_PROCESSORS = (
     "django.core.context_processors.auth",
     "django.core.context_processors.debug",

@@ -142,6 +142,17 @@
         {% endif %}
       </a>
 
+      {% if focused_header %}
+      <div class="new-nav__focused">
+        <a href="/">Все игры</a>
+        {% if user.is_authenticated %}
+          <a href="{% url 'new_profile' %}">Профиль</a>
+        {% else %}
+          <button type="button" class="new-nav__loginbtn" data-login-open>Войти</button>
+          <noscript><a href="/accounts/login/?next={{ request.path|urlencode }}">Войти</a></noscript>
+        {% endif %}
+      </div>
+      {% else %}
       <div class="new-nav__sections" aria-label="Разделы">
         <a class="new-nav__section" href="{{ ui_project_games_url|default:'/games/' }}" title="Десяточки" aria-label="Десяточки" {% if nav_desyatochki_active %}aria-current="page"{% endif %}>
           <i class="ph ph-puzzle-piece new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Десяточки</span>
@@ -229,8 +240,10 @@
         </div>
         {% endwith %}
       </div>
+      {% endif %}
     </div>
 
+    {% if not focused_header %}
     <div id="new-nav-drawer" class="new-nav__drawer" hidden>
       <div class="new-nav__drawer-inner">
         <span class="new-clock new-clock--drawer" aria-label="Текущее время">
@@ -274,7 +287,9 @@
         {% endif %}
       </div>
     </div>
+    {% endif %}
   </nav>
+  {% if not focused_header %}
   <script>
   (function () {
     var btn = document.querySelector('[data-nav-menu-open]');
@@ -309,6 +324,7 @@
     });
   })();
   </script>
+  {% endif %}
   {% if not user.is_authenticated %}
   <div id="new-login-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-login-title" aria-modal="true" hidden>
     <div class="new-rules-overlay" data-login-close></div>

@@ -1,0 +1,38 @@
+{% load static %}
+{% if onboarding_game and onboarding_followup_primary %}
+<section class="new-onboarding-followup"
+         aria-labelledby="onboarding-followup-heading"
+         data-onboarding-followup
+         data-onboarding-current-game="{{ onboarding_game }}"
+         hidden>
+  <p class="new-onboarding-followup__kicker">Первая игра готова</p>
+  <h2 id="onboarding-followup-heading" class="new-onboarding-followup__title">Отлично. Что дальше?</h2>
+  <p class="new-onboarding-followup__next-label">{{ onboarding_followup_primary.label }}</p>
+  <div class="new-onboarding-followup__primary">
+    <div>
+      <strong>{{ onboarding_followup_primary.title }}</strong>
+      <span>{{ onboarding_followup_primary.description }}</span>
+    </div>
+    <a class="new-btn"
+       href="{{ onboarding_followup_primary.url }}"
+       data-onboarding-next-game="{{ onboarding_followup_primary.game }}">Попробовать ещё</a>
+  </div>
+  <div class="new-onboarding-followup__links">
+    {% for link in onboarding_followup_alternatives %}
+      <a class="new-link-dotted"
+         href="{{ link.url }}"
+         data-onboarding-next-game="{{ link.game }}">{{ link.title }}</a>
+    {% endfor %}
+    <a class="new-link-dotted"
+       href="{{ onboarding_salad_archive_url }}"
+       data-onboarding-next-game="salad">Архив Салатиков</a>
+  </div>
+</section>
+<script src="{% static 'js/onboarding.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script>
+(function () {
+  if (!window.interovesOnboarding) return;
+  window.interovesOnboarding.initGamePage(document.querySelector('[data-onboarding-followup]'));
+})();
+</script>
+{% endif %}
