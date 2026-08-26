@@ -155,6 +155,8 @@ class WordSaladSectionTests(TestCase):
         self.assertIn('КОТ', page.html)
         self.assertIn('<strong>одной темы</strong>', page.html)
         self.assertIn('<strong>по алфавиту</strong>', page.html)
+        self.assertIn('Список ответов расположен', page.html)
+        self.assertNotIn('Справа — список ответов', page.html)
         self.assertEqual(game.section_default_rules_id, 'section_tutorial_word_salad')
 
     def test_hub_meta_and_daily_order(self):
