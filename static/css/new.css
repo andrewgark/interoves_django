@@ -36,7 +36,7 @@
   --raddle-before: #c9a227;
   --raddle-focus: var(--accent);
   --raddle-after: #3b6ea5;
-  /* Ubuntu Mono — до ui-monospace/monospace: на Ubuntu они часто мапятся на DejaVu, где Й = И. */
+  /* Предпочтительный стек; размеры glyph-ячеек ниже оставляют место диакритике независимо от fallback-шрифта. */
   --new-font-mono: "Ubuntu Mono", ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", "Liberation Mono", sans-serif;
   /* Buttons / focus / shared controls (new UI chrome) */
   --focus-ring: color-mix(in srgb, var(--accent) 45%, transparent);
@@ -9282,16 +9282,18 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 1.28em;
-  height: 1.28em;
+  width: 1.38em;
+  height: 1.55em;
   min-width: 0;
-  max-width: 1.28em;
-  flex: 0 0 1.28em;
-  line-height: 1;
-  overflow: hidden;
+  max-width: 1.38em;
+  flex: 0 0 1.38em;
+  /* Some system mono fonts draw the breve of Й above their nominal em box. */
+  line-height: normal;
+  overflow: visible;
 }
 
 .new-word-salad__glyph.is-blank {
+  height: 1.38em;
   color: transparent;
   background: color-mix(in srgb, var(--text) 10%, var(--tile));
   border-radius: 0.22em;
@@ -9388,6 +9390,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   width: auto;
   max-width: none;
   min-width: 0;
+  min-height: 1.45em;
   flex: 0 0 auto;
   height: auto;
 }
