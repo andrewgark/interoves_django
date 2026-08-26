@@ -414,6 +414,14 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
         tg_to_task = {}
         for task in tasks:
             tg_to_task.setdefault(task.task_group_id, task)
+        attempts_infos = Attempt.manager.get_bulk_actor_attempts_infos(
+            [task.id for task in tg_to_task.values()],
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            mode=mode,
+            game=None if include_other_games else game,
+        )
         for p in task_groups:
             task = tg_to_task.get(p.task_group_id)
             if not task:
@@ -426,6 +434,7 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
                 mode=mode,
                 game=game,
                 include_other_games=include_other_games,
+                attempts_info=attempts_infos.get(task.id),
                 **hub_kwargs,
             )
             if squares:
@@ -502,6 +511,63 @@ def _game_page_progress_context(request, game, play_mode):
         'load_task_group_progress': load,
         'task_group_progress_url': url,
     }
+
+
+def _merge_task_group_progress_rows(task_group_rows, progress_rows):
+    """Apply an authoritative actor projection to already-built display rows."""
+    for row in task_group_rows:
+        progress = progress_rows.get(str(row.get('number')))
+        if not progress:
+            continue
+        for key in (
+            'n_solved',
+            'n_tasks',
+            'is_fully_solved',
+            'row_class',
+            'progress_text',
+            'result_squares',
+            'elapsed_label',
+        ):
+            if key in progress:
+                row[key] = progress[key]
+    return task_group_rows
+
+
+def _initial_task_group_progress(
+    request,
+    game,
+    play_mode,
+    task_groups,
+    task_group_rows,
+    *,
+    mode=None,
+):
+    """Render actor progress into the first response; retain lazy JSON as fallback."""
+    progress_context = _game_page_progress_context(request, game, play_mode)
+    if not progress_context['load_task_group_progress']:
+        return task_group_rows, progress_context
+
+    team, user, anon_key = _resolve_game_page_actor(request, play_mode)
+    try:
+        progress_rows = _task_group_progress_payload(
+            game,
+            task_groups,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            mode=mode or game.get_current_mode(Attempt(time=timezone.now())),
+        )
+    except Exception:
+        logger.exception(
+            'Initial task-group progress failed; using JSON fallback game=%s',
+            game.id,
+        )
+        return task_group_rows, progress_context
+
+    _merge_task_group_progress_rows(task_group_rows, progress_rows)
+    progress_context['load_task_group_progress'] = False
+    progress_context['task_group_progress_embedded'] = True
+    return task_group_rows, progress_context
 
 
 def _game_task_group_progress_response(request, game):
@@ -1373,6 +1439,14 @@ def project_main_game_page(request, project_id, game_id):
 
     task_groups = _game_task_group_links(game)
     task_group_rows = _task_group_rows_skeleton(task_groups, game, project_base=base)
+    task_group_rows, task_group_progress_context = _initial_task_group_progress(
+        request,
+        game,
+        play_mode,
+        task_groups,
+        task_group_rows,
+        mode=mode,
+    )
 
     return render(request, 'ui/game_page.html', {
         'project': project,
@@ -1394,7 +1468,7 @@ def project_main_game_page(request, project_id, game_id):
         'section_games': [],
         'show_sections_nav': False,
         **_project_urls_context(project.id),
-        **_game_page_progress_context(request, game, play_mode),
+        **task_group_progress_context,
         **_age_gate_context(game, back_url=(base + '/games/') if base else '/games/'),
     })
 
@@ -1705,6 +1779,13 @@ def _render_section_game_page(request, game_id):
         task_group_rows = _task_group_rows_skeleton(task_groups, game)
         task_groups_heading = _task_group_page_nav_context(game)['task_group_pager_label']
         task_groups_empty_text = 'В этом разделе пока нет заданий. Добавьте их в админке.'
+    task_group_rows, task_group_progress_context = _initial_task_group_progress(
+        request,
+        game,
+        play_mode,
+        task_groups,
+        task_group_rows,
+    )
 
     section_today_play_url = None
     section_today_cta_label = ''
@@ -1760,7 +1841,7 @@ def _render_section_game_page(request, game_id):
         'live_next_transition_at': next_daily_content_transition_for_game(game),
         **_project_urls_context(NEW_UI_PROJECT),
         **_section_ui_context(game),
-        **_game_page_progress_context(request, game, play_mode),
+        **task_group_progress_context,
         **_age_gate_context(game, back_url='/'),
     })
 
@@ -1808,6 +1889,14 @@ def new_main_game_page(request, game_id):
 
     task_groups = _game_task_group_links(game)
     task_group_rows = _task_group_rows_skeleton(task_groups, game)
+    task_group_rows, task_group_progress_context = _initial_task_group_progress(
+        request,
+        game,
+        play_mode,
+        task_groups,
+        task_group_rows,
+        mode=mode,
+    )
 
     return render(request, 'ui/game_page.html', {
         'game': game,
@@ -1827,7 +1916,7 @@ def new_main_game_page(request, game_id):
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
-        **_game_page_progress_context(request, game, play_mode),
+        **task_group_progress_context,
         **_age_gate_context(game, back_url='/games/'),
     })
 

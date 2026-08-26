@@ -1061,6 +1061,72 @@ class AttemptManager(models.Manager):
         best_attempt = self.get_best_attempt(attempts, mode)
         return AttemptsInfo(best_attempt, attempts, hint_attempts)
 
+    def get_bulk_actor_attempts_infos(
+        self,
+        task_ids,
+        *,
+        team=None,
+        user=None,
+        anon_key=None,
+        mode="general",
+        game=None,
+    ):
+        """Load one actor's AttemptsInfo for many tasks in two queries."""
+        task_ids = [int(task_id) for task_id in (task_ids or []) if task_id is not None]
+        if not task_ids:
+            return {}
+
+        attempt_related = []
+        if mode != 'general':
+            attempt_related.append('game')
+        if mode != 'general' and game is None:
+            attempt_related.append('task')
+        attempts_qs = self._filter_by_actor(
+            self.filter(task_id__in=task_ids).exclude(skip=True),
+            team=team,
+            user=user,
+            anon_key=anon_key,
+        ).order_by('time')
+        if attempt_related:
+            attempts_qs = attempts_qs.select_related(*attempt_related)
+        if game is not None:
+            attempts_qs = attempts_qs.filter(game=game)
+        attempts = list(attempts_qs)
+        attempts = list(self.filter_attempts_with_mode(attempts, mode, hint_game=game))
+
+        hint_related = ['hint']
+        if mode != 'general' and game is None:
+            hint_related.append('hint__task')
+        hint_attempts_qs = self._filter_by_actor(
+            HintAttempt.objects.filter(hint__task_id__in=task_ids),
+            team=team,
+            user=user,
+            anon_key=anon_key,
+        ).select_related(*hint_related).order_by('time')
+        hint_attempts = list(hint_attempts_qs)
+        hint_attempts = list(self.filter_attempts_with_mode(
+            hint_attempts,
+            mode,
+            is_hint_attempts=True,
+            hint_game=game,
+        ))
+
+        task_attempts = {task_id: [] for task_id in task_ids}
+        task_hint_attempts = {task_id: [] for task_id in task_ids}
+        for attempt in attempts:
+            task_attempts.setdefault(attempt.task_id, []).append(attempt)
+        for hint_attempt in hint_attempts:
+            task_hint_attempts.setdefault(hint_attempt.hint.task_id, []).append(hint_attempt)
+
+        return {
+            task_id: AttemptsInfo(
+                self.get_best_attempt(task_attempts.get(task_id, []), mode),
+                task_attempts.get(task_id, []),
+                task_hint_attempts.get(task_id, []),
+            )
+            for task_id in task_ids
+        }
+
     # for results page
     def get_task_attempts_infos(self, task, mode="general", game=None):
         attempts = self.get_task_attempts(task, mode, game=game)

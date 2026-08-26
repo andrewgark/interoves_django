@@ -3,12 +3,16 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
+from django.db import connection
 from django.test import Client, RequestFactory, TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Attempt
 from games.views.new_ui import (
     _game_page_progress_context,
+    _initial_task_group_progress,
+    _task_group_progress_payload,
     _task_group_rows_skeleton,
     _game_task_group_links,
 )
@@ -27,6 +31,19 @@ def _ensure_min_fixtures():
     CheckerType.objects.get_or_create(pk='replacements_lines')
     CheckerType.objects.get_or_create(pk='raddle')
     CheckerType.objects.get_or_create(pk='word_salad')
+
+
+def _ensure_login_modal_deps():
+    from allauth.socialaccount.models import SocialApp
+    from django.contrib.sites.models import Site
+
+    site = Site.objects.get_current()
+    for provider in ('google', 'vk'):
+        app, _ = SocialApp.objects.get_or_create(
+            provider=provider,
+            defaults={'name': provider, 'client_id': 'test', 'secret': 'test'},
+        )
+        app.sites.add(site)
 
 
 class GameTaskGroupProgressTests(TestCase):
@@ -401,3 +418,177 @@ class GameTaskGroupProgressTests(TestCase):
         # Alphabetical display: ABCD (no hints) then PONM (2 hints).
         self.assertEqual(row['result_squares'], '🟩2️⃣')
         self.assertEqual(row['elapsed_label'], '3м 46с')
+
+    def test_bulk_actor_attempts_infos_uses_two_queries_and_isolates_actor(self):
+        game = self._create_section_game('bulk_actor_progress')
+        actor_key = 'bulk-actor-a'
+        other_key = 'bulk-actor-b'
+        tasks = []
+        with patch('games.views.track.track_task_change'):
+            for number in range(1, 7):
+                tg = TaskGroup.objects.create(label='bulk-actor-{}'.format(number))
+                task = Task.objects.create(
+                    task_group=tg,
+                    number='1',
+                    points=1,
+                    checker=CheckerType.objects.get(pk='equals_with_possible_spaces'),
+                )
+                tasks.append(task)
+                Attempt.manager.create(
+                    task=task,
+                    game=game,
+                    anon_key=actor_key,
+                    text='actor-a',
+                    status='Ok',
+                    points=1,
+                )
+                Attempt.manager.create(
+                    task=task,
+                    game=game,
+                    anon_key=other_key,
+                    text='actor-b',
+                    status='Wrong',
+                    points=0,
+                )
+
+        with CaptureQueriesContext(connection) as queries:
+            infos = Attempt.manager.get_bulk_actor_attempts_infos(
+                [task.id for task in tasks],
+                anon_key=actor_key,
+                game=game,
+            )
+
+        self.assertEqual(len(queries), 2)
+        self.assertEqual(set(infos), {task.id for task in tasks})
+        for info in infos.values():
+            self.assertTrue(info.is_solved())
+            self.assertEqual([attempt.text for attempt in info.attempts], ['actor-a'])
+
+    def test_salad_progress_query_count_does_not_scale_per_archive_row(self):
+        from games.word_salad import WORD_SALAD_GAME_ID
+
+        game = Game.objects.get(id=WORD_SALAD_GAME_ID, project_id='sections')
+        anon_key = 'bulk-salad-progress'
+        salad_json = json.dumps({
+            'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
+            'words': ['ABCD'],
+        })
+        with patch('games.views.track.track_task_change'):
+            GameTaskGroup.objects.filter(game=game).delete()
+            for number in range(1, 7):
+                tg = TaskGroup.objects.create(label='bulk-salad-{}'.format(number))
+                GameTaskGroup.objects.create(
+                    game=game,
+                    task_group=tg,
+                    number=str(number),
+                    name='S{}'.format(number),
+                )
+                task = Task.objects.create(
+                    task_group=tg,
+                    number='1',
+                    task_type='word_salad',
+                    checker=CheckerType.objects.get(pk='word_salad'),
+                    points=1,
+                    checker_data=salad_json,
+                )
+                Attempt.manager.create(
+                    task=task,
+                    game=game,
+                    anon_key=anon_key,
+                    text='done',
+                    status='Ok',
+                    points=1,
+                    state=json.dumps({'solved_indices': [0], 'hint_counts': {}}),
+                )
+        task_groups = list(_game_task_group_links(game))
+
+        with CaptureQueriesContext(connection) as queries:
+            rows = _task_group_progress_payload(
+                game,
+                task_groups,
+                anon_key=anon_key,
+            )
+
+        self.assertLessEqual(len(queries), 8)
+        self.assertEqual(len(rows), 6)
+        self.assertTrue(all(row['is_fully_solved'] for row in rows.values()))
+
+    def test_initial_salad_page_embeds_actor_progress_without_json_fetch(self):
+        from games.word_salad import WORD_SALAD_GAME_ID
+        from games.word_salad_daily import WORD_SALAD_PUBLISH_START_TAG
+
+        _ensure_login_modal_deps()
+        game = Game.objects.get(id=WORD_SALAD_GAME_ID, project_id='sections')
+        game.tags = {WORD_SALAD_PUBLISH_START_TAG: '2026-08-23T00:00:00+03:00'}
+        game.save(update_fields=['tags'])
+        actor_key = 'ssr-salad-actor'
+        salad_json = json.dumps({
+            'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
+            'words': ['ABCD', 'PONM'],
+        })
+        with patch('games.views.track.track_task_change'):
+            GameTaskGroup.objects.filter(game=game).delete()
+            tg = TaskGroup.objects.create(label='ssr-salad')
+            GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='S1')
+            task = Task.objects.create(
+                task_group=tg,
+                number='1',
+                task_type='word_salad',
+                checker=CheckerType.objects.get(pk='word_salad'),
+                points=1,
+                checker_data=salad_json,
+                text='SSR theme',
+            )
+            Attempt.manager.create(
+                task=task,
+                game=game,
+                anon_key=actor_key,
+                text='done',
+                status='Ok',
+                points=2,
+                state=json.dumps({'solved_indices': [0, 1], 'hint_counts': {}}),
+            )
+
+        self.client.cookies['interoves_anon'] = actor_key
+        response = self.client.get('/salad/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['task_group_progress_embedded'])
+        self.assertFalse(response.context['load_task_group_progress'])
+        html = response.content.decode('utf-8')
+        self.assertIn('data-fully-solved="1"', html)
+        self.assertIn('🟩🟩', html)
+        self.assertNotIn('/salad/progress/', html)
+
+        self.client.cookies['interoves_anon'] = 'different-salad-actor'
+        other_response = self.client.get('/salad/')
+        other_html = other_response.content.decode('utf-8')
+        self.assertIn('data-fully-solved="0"', other_html)
+        self.assertNotIn('🟩🟩', other_html)
+
+    def test_initial_progress_keeps_json_fallback_when_server_projection_fails(self):
+        game = self._create_section_game('progress_fallback')
+        with patch('games.views.track.track_task_change'):
+            tg = TaskGroup.objects.create(label='progress-fallback')
+            GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='One')
+        task_groups = list(_game_task_group_links(game))
+        rows = _task_group_rows_skeleton(task_groups, game)
+        request = RequestFactory().get('/games/progress_fallback/')
+        request.user = AnonymousUser()
+        request.session = {}
+        request.COOKIES['interoves_anon'] = 'fallback-actor'
+
+        with patch(
+            'games.views.new_ui._task_group_progress_payload',
+            side_effect=RuntimeError('projection failed'),
+        ), self.assertLogs('games.views.new_ui', level='ERROR'):
+            hydrated_rows, progress_context = _initial_task_group_progress(
+                request,
+                game,
+                'personal',
+                task_groups,
+                rows,
+            )
+
+        self.assertIs(hydrated_rows, rows)
+        self.assertTrue(progress_context['load_task_group_progress'])
+        self.assertIn('/games/progress_fallback/progress/', progress_context['task_group_progress_url'])

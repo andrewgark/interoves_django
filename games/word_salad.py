@@ -169,6 +169,7 @@ def salad_hub_result_for_actor(
     mode='general',
     game=None,
     include_other_games=False,
+    attempts_info=None,
 ):
     """Квадраты и время для списка салатиков. Пусто, пока салатик не собран целиком."""
     from games.models import Attempt
@@ -178,14 +179,16 @@ def salad_hub_result_for_actor(
     except (TypeError, ValueError):
         return '', None
     game_arg = None if include_other_games else game
-    ai = Attempt.manager.get_attempts_info(
-        team=team,
-        task=task,
-        mode=mode,
-        user=user,
-        anon_key=anon_key,
-        game=game_arg,
-    )
+    ai = attempts_info
+    if ai is None:
+        ai = Attempt.manager.get_attempts_info(
+            team=team,
+            task=task,
+            mode=mode,
+            user=user,
+            anon_key=anon_key,
+            game=game_arg,
+        )
     if not ai.attempts:
         return '', None
     state = default_state()

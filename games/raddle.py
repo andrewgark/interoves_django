@@ -991,6 +991,7 @@ def raddle_hub_result_for_actor(
     game=None,
     include_other_games=False,
     allow_partial=False,
+    attempts_info=None,
 ):
     """Квадраты и время для списка лесенок. Время — только когда лесенка собрана целиком."""
     from games.models import Attempt
@@ -999,14 +1000,16 @@ def raddle_hub_result_for_actor(
     if not parsed:
         return '', None
     game_arg = None if include_other_games else game
-    ai = Attempt.manager.get_attempts_info(
-        team=team,
-        task=task,
-        mode=mode,
-        user=user,
-        anon_key=anon_key,
-        game=game_arg,
-    )
+    ai = attempts_info
+    if ai is None:
+        ai = Attempt.manager.get_attempts_info(
+            team=team,
+            task=task,
+            mode=mode,
+            user=user,
+            anon_key=anon_key,
+            game=game_arg,
+        )
     if not allow_partial and not ai.is_solved():
         return '', None
     if not ai.attempts:
