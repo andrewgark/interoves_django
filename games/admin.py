@@ -74,7 +74,7 @@ from games.results_snapshot import freeze_game_results
 from games.social.models import SocialQueuePost
 
 
-admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration])
+admin.site.register([CheckerType, HTMLPage, Image, Audio, Project])
 
 
 @admin.action(description='Пересчитать выбранные оценки сложности')
@@ -269,7 +269,7 @@ class TicketRequestAdmin(admin.ModelAdmin):
         'time', 'metrika_client_id', 'checkout_goal_acked_at',
         'purchase_goal_queued_at', 'purchase_goal_sent_at',
     )
-    raw_id_fields = ('created_by',)
+    raw_id_fields = ('created_by', 'team')
 
 
 @admin.action(description='Issue one ticket for selected reviewed Tribute purchases')
@@ -416,6 +416,19 @@ class TeamAdmin(admin.ModelAdmin):
         'visible_name', 'project', 'ticket_price', 'ticket_price_amd',
         'get_n_users_on', 'get_n_users_requested', 'is_tester', 'is_hidden',
     ]
+    search_fields = ['name', 'visible_name']
+    raw_id_fields = ['referer']
+
+
+@admin.register(Registration)
+class RegistrationAdmin(admin.ModelAdmin):
+    list_display = ['game', 'team', 'time', 'with_referent']
+    search_fields = ['team__name', 'team__visible_name', 'game__id', 'game__name']
+    raw_id_fields = ['team', 'game', 'with_referent']
+    date_hierarchy = 'time'
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('team', 'game', 'with_referent')
 
 
 @admin.register(HiddenAnonKey)
@@ -616,6 +629,8 @@ def freeze_results_all_games(modeladmin, request, queryset):
 @admin.register(Hint)
 class HintAdmin(admin.ModelAdmin):
     list_display = ['task', 'number', 'text', 'points_penalty']
+    search_fields = ['id', 'number', 'text', 'task__id', 'task__number']
+    raw_id_fields = ['task', 'required_hints']
 
     def get_form(self, request, obj=None, **kwargs):
         if obj is not None and obj.task is not None:
@@ -626,6 +641,22 @@ class HintAdmin(admin.ModelAdmin):
 @admin.register(HintAttempt)
 class HintAttemptAdmin(admin.ModelAdmin):
     list_display = ['team', 'hint', 'time']
+    raw_id_fields = ['team', 'user', 'hint']
+    search_fields = ['id', 'anon_key', 'team__name', 'user__username']
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('team', 'user', 'hint', 'hint__task')
+
+
+@admin.register(Like)
+class LikeAdmin(admin.ModelAdmin):
+    list_display = ['id', 'value', 'task', 'team', 'user', 'anon_key']
+    list_filter = ['value']
+    search_fields = ['id', 'anon_key', 'team__name', 'user__username']
+    raw_id_fields = ['team', 'user', 'task']
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('team', 'user', 'task', 'task__task_group')
 
 
 @admin.register(Game)
@@ -755,6 +786,7 @@ class WordSaladTaskForm(ModelForm):
 class TaskAdmin(admin.ModelAdmin):
     list_display = ['id', '__str__', 'task_group', 'number', 'is_removed']
     list_filter = ['is_removed']
+    search_fields = ['id', 'number', 'text', 'task_group__label']
     inlines = [
         HintInline
     ]
@@ -987,6 +1019,7 @@ class ProfileAdmin(admin.ModelAdmin):
     ]
     list_filter = ['telegram_verified']
     search_fields = ['user__username', 'telegram_handle', 'telegram_user_id', 'telegram_username']
+    raw_id_fields = ['user', 'team_on', 'team_requested']
     actions = [confirm_profile_team_request, clear_profile_team]
 
 
@@ -995,6 +1028,7 @@ class PendingTicketRequestAdmin(admin.ModelAdmin):
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }
+    raw_id_fields = ['team', 'created_by']
 
     def get_queryset(self, request):
         qs = super(PendingTicketRequestAdmin, self).get_queryset(request)
