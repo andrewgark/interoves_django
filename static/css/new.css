@@ -2989,6 +2989,7 @@ html.new-ui-dark .new-team-switcher-active-box {
 
 .new-difficulty {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   white-space: nowrap;
   line-height: 1;

@@ -2,8 +2,9 @@ import json
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.contrib.auth.models import AnonymousUser
 from django.template.loader import render_to_string
-from django.test import SimpleTestCase, TestCase
+from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.utils import timezone
 
 from games.difficulty import (
@@ -218,6 +219,33 @@ class DifficultyObservationTests(TestCase):
         contexts = get_cached_game_difficulties([self.placement])
 
         self.assertEqual(contexts[self.placement.pk]['tooltip'], 'Сложность: Сложная')
+
+    def test_live_task_card_keeps_difficulty_badge(self):
+        DailyGameDifficulty.objects.create(
+            placement=self.placement,
+            n=12,
+            stars=4,
+            payload={
+                'n': 12,
+                'stars': 4,
+                'is_visible': True,
+                'is_preliminary': False,
+            },
+        )
+        HTMLPage.objects.get_or_create(name='Правила Десяточки', defaults={'html': ''})
+        HTMLPage.objects.get_or_create(name='Правила турнирного режима', defaults={'html': ''})
+        HTMLPage.objects.get_or_create(name='Правила тренировочного режима', defaults={'html': ''})
+
+        request = RequestFactory().get('/')
+        request.user = AnonymousUser()
+        from games.views.render_task import render_new_ui_task_card_html
+        html = render_new_ui_task_card_html(
+            request, self.task, None, 'general', anon_key='anon_test', game=self.game,
+        )
+
+        self.assertIn('new-difficulty', html)
+        self.assertIn('title="Сложность: Сложная"', html)
+        self.assertEqual(html.count('class="ph-fill ph-star"'), 4)
 
 
 class DifficultyHistoricalNormTests(TestCase):
