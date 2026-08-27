@@ -8889,11 +8889,13 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   grid-template-columns: minmax(0, 1.1fr) minmax(15rem, 0.9fr);
   gap: 1rem;
   align-items: start;
+  min-width: 0;
 }
 
 .new-word-salad__grid-panel,
 .new-word-salad__words-panel {
   position: relative;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--card-radius);
   background: var(--surface);
@@ -9031,6 +9033,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   min-height: 2.25rem;
   margin-top: 0.65rem;
   padding-inline: var(--ws-reset-slot);
@@ -9043,6 +9048,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   gap: 0.4rem;
   width: max-content;
   max-width: 100%;
+  min-width: 0;
 }
 
 .new-word-salad__selection-word {
@@ -9052,7 +9058,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  word-break: break-word;
+  overflow-wrap: anywhere;
   text-align: center;
 }
 
