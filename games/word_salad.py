@@ -1,6 +1,7 @@
 """Rules, validation, and shared state helpers for Word Salad."""
 
 import json
+import gzip
 import re
 from decimal import Decimal
 from functools import lru_cache
@@ -8,14 +9,15 @@ from pathlib import Path
 
 from games.share_result import elapsed_label_from_attempts
 
-_EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'word_salad_nouns.txt'
+_EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'salad_valid_words.txt.gz'
+_LEGACY_EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'word_salad_nouns.txt'
 
 WORD_RE = re.compile(r"[А-ЯЁA-Z]", re.IGNORECASE)
 _TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат(?:ик)?\s*#\s*\d+$', re.IGNORECASE)
 WORD_SALAD_GAME_ID = 'salad'
 WORD_POINTS = Decimal('1')
 HINT_PENALTY = Decimal('0.5')
-EXTRA_MIN_LENGTH = 3
+EXTRA_MIN_LENGTH = 4
 EXTRA_NOT_FOUND_COMMENT = 'Слово не найдено'
 NO_HINT_SQUARE = '🟩'
 OVERFLOW_HINT_SQUARE = '*️⃣'
@@ -337,26 +339,39 @@ def ru_count_label(n, one, few, many):
 
 @lru_cache(maxsize=1)
 def load_extra_noun_set():
-    """Nominative Russian nouns for salad extras — not the alphabetty word-form dict."""
-    if not _EXTRA_NOUNS_PATH.is_file():
+    """Generated noun lemmas, with the legacy RNC list retained as a base."""
+    path = _EXTRA_NOUNS_PATH if _EXTRA_NOUNS_PATH.is_file() else _LEGACY_EXTRA_NOUNS_PATH
+    if not path.is_file():
         return frozenset()
     words = set()
-    with _EXTRA_NOUNS_PATH.open(encoding='utf-8') as handle:
+    opener = gzip.open if path.suffix == '.gz' else open
+    with opener(path, 'rt', encoding='utf-8') as handle:
         for line in handle:
             raw = line.strip()
             if not raw or raw.startswith('#'):
                 continue
             word = normalize_word(raw)
-            if EXTRA_MIN_LENGTH <= len(word) <= 16:
+            # The generated file already preserves the old RNC words, including
+            # short ones.  Keep this loader permissive for that trusted base.
+            if word in load_legacy_extra_noun_set() or len(word) >= EXTRA_MIN_LENGTH:
                 words.add(word)
     return frozenset(words)
+
+
+@lru_cache(maxsize=1)
+def load_legacy_extra_noun_set():
+    if not _LEGACY_EXTRA_NOUNS_PATH.is_file():
+        return frozenset()
+    return frozenset(
+        normalize_word(line.strip())
+        for line in _LEGACY_EXTRA_NOUNS_PATH.read_text(encoding='utf-8').splitlines()
+        if line.strip() and not line.lstrip().startswith('#')
+    )
 
 
 def extra_found_word(written, puzzle_words, *, user=None, anon_key=None):
     """Return a noun from the salad extras dict that is not a puzzle answer, else ''."""
     word = normalize_word(written)
-    if len(word) < EXTRA_MIN_LENGTH:
-        return ''
     answers = {normalize_word(item) for item in (puzzle_words or [])}
     if word in answers:
         return ''
