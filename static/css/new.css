@@ -2972,6 +2972,23 @@ html.new-ui-dark .new-team-switcher-active-box {
   margin: 0.25rem 0 1rem;
 }
 
+.new-difficulty {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.new-difficulty__stars {
+  color: var(--warning);
+  letter-spacing: 0.025em;
+}
+
+.new-difficulty__preliminary {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
 .new-pay-card {
   margin-top: 0.75rem;
 }

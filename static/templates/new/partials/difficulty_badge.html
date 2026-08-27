@@ -1,0 +1,8 @@
+{% if difficulty.show %}
+<span class="new-difficulty"
+      title="{{ difficulty.tooltip }}"
+      aria-label="Сложность: {{ difficulty.label }}. {{ difficulty.tooltip }}">
+  <span class="new-difficulty__stars" aria-hidden="true">{{ difficulty.stars_text }}</span>
+  {% if difficulty.is_preliminary %}<span class="new-difficulty__preliminary">предварительно</span>{% endif %}
+</span>
+{% endif %}

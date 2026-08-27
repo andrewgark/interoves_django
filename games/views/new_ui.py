@@ -3108,6 +3108,11 @@ def new_task_group_page(request, game_id, task_group_number):
     if ladder_offer is not None and request.user.is_authenticated and ladder_offer.user_id == request.user.id:
         back_url = '/create_ladder/'
 
+    difficulty = None
+    if ladder_offer is None and isinstance(placement, GameTaskGroup):
+        from games.difficulty import get_game_difficulty
+        difficulty = get_game_difficulty(placement)
+
     return render(request, 'ui/task_group.html', {
         'game': game,
         'task_group': task_group,
@@ -3146,6 +3151,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'source_desyatka': source_desyatka,
         'is_daily_single_task': is_daily_single_task,
         'daily_publish_date': daily_publish_date,
+        'difficulty': difficulty,
         'ladder_word_results_url': ladder_results_url,
         'daily_footer_enabled': daily_footer_enabled,
         'daily_game_label': daily_game_label,

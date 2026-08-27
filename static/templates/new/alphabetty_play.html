@@ -10,8 +10,11 @@
 
 {% include "new/partials/page_heading.html" with heading=page_title show_rules=True %}
 
-{% if daily_publish_date %}
-<p class="new-login-hint new-meta-line">{{ daily_publish_date|date:"j E Y" }}</p>
+{% if daily_publish_date or difficulty %}
+<p class="new-login-hint new-meta-line">
+  {% if daily_publish_date %}{{ daily_publish_date|date:"j E Y" }}{% endif %}
+  {% if difficulty %}{% if daily_publish_date %}<span aria-hidden="true"> · </span>{% endif %}{% include "new/partials/difficulty_badge.html" %}{% endif %}
+</p>
 {% endif %}
 
 {% include "new/_rules_banner.html" %}

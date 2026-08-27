@@ -646,6 +646,35 @@ class GameTaskGroup(models.Model):
         return None
 
 
+class DailyGameDifficulty(models.Model):
+    """Cached, explainable difficulty for one scheduled daily-game edition."""
+
+    id = models.AutoField(primary_key=True)
+    placement = models.OneToOneField(
+        GameTaskGroup,
+        related_name='difficulty',
+        on_delete=models.CASCADE,
+    )
+    n = models.PositiveIntegerField(default=0)
+    payload = models.JSONField(default=dict, blank=True)
+    stars = models.PositiveSmallIntegerField(blank=True, null=True)
+    is_preliminary = models.BooleanField(default=False)
+    dirty = models.BooleanField(default=True, db_index=True)
+    calculated_at = models.DateTimeField(blank=True, null=True, db_index=True)
+
+    class Meta:
+        ordering = ['placement__game_id', 'placement__number']
+        verbose_name = 'сложность ежедневной игры'
+        verbose_name_plural = 'сложность ежедневных игр'
+
+    def __str__(self):
+        stars = '—' if self.stars is None else '{}{}'.format(
+            '★' * self.stars,
+            '☆' * (5 - self.stars),
+        )
+        return '{} · N={} · {}'.format(self.placement, self.n, stars)
+
+
 class TaskQuerySet(models.QuerySet):
     """Задания с is_removed=True скрыты из игры и результатов, в админке видны все."""
 

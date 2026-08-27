@@ -1,10 +1,20 @@
 from django.db.models.signals import post_save, pre_save
+from django.db import transaction
 from django.dispatch import receiver
 from django.utils import timezone
 from allauth.account.signals import user_signed_up
 
 from games.analytics import queue_pending_goal, signup_goal_payload
-from games.models import Game, PlayerAnalyticsState, Profile, SocialAccount, Attempt, Task
+from games.models import (
+    Attempt,
+    ChainTaskState,
+    Game,
+    HintAttempt,
+    PlayerAnalyticsState,
+    Profile,
+    SocialAccount,
+    Task,
+)
 from games.recheck import recheck_queue_from_next, recheck_full
 
 
@@ -177,3 +187,46 @@ def analytics_user_signed_up(request, user, sociallogin=None, **kwargs):
         key=payload['key'],
         ack=payload['ack'],
     )
+
+
+def _dirty_daily_difficulty_on_commit(*, task_id=None, game_id=None, task_group_id=None):
+    def mark():
+        from games.difficulty import mark_daily_difficulty_dirty
+        mark_daily_difficulty_dirty(
+            task_id=task_id,
+            game_id=game_id,
+            task_group_id=task_group_id,
+        )
+    transaction.on_commit(mark)
+
+
+@receiver(post_save, sender=Attempt, dispatch_uid='daily-difficulty-attempt-dirty')
+def daily_difficulty_attempt_saved(sender, instance, **kwargs):
+    if not instance.task_id:
+        return
+    _dirty_daily_difficulty_on_commit(
+        task_id=instance.task_id,
+        game_id=instance.game_id,
+    )
+
+
+@receiver(post_save, sender=HintAttempt, dispatch_uid='daily-difficulty-hint-dirty')
+def daily_difficulty_hint_saved(sender, instance, **kwargs):
+    if instance.hint_id and instance.hint and instance.hint.task_id:
+        _dirty_daily_difficulty_on_commit(task_id=instance.hint.task_id)
+
+
+@receiver(post_save, sender=ChainTaskState, dispatch_uid='daily-difficulty-state-dirty')
+def daily_difficulty_state_saved(sender, instance, **kwargs):
+    if instance.task_id:
+        _dirty_daily_difficulty_on_commit(
+            task_id=instance.task_id,
+            game_id=instance.game_id,
+        )
+
+
+@receiver(post_save, sender=Task, dispatch_uid='daily-difficulty-task-dirty')
+def daily_difficulty_task_saved(sender, instance, created, **kwargs):
+    if created or not instance.task_group_id:
+        return
+    _dirty_daily_difficulty_on_commit(task_group_id=instance.task_group_id)

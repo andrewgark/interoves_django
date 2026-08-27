@@ -349,6 +349,10 @@ def alphabetty_play_page(request, number):
     else:
         page_title = f'Алфавитка #{play_number}'
         bug_report_task_label = page_title
+    difficulty = None
+    if offer is None and link is not None:
+        from games.difficulty import get_game_difficulty
+        difficulty = get_game_difficulty(link)
     return render(request, 'new/alphabetty_play.html', {
         'game': game,
         'number': play_number,
@@ -357,6 +361,7 @@ def alphabetty_play_page(request, number):
         'page_title': page_title,
         'bug_report_task_label': bug_report_task_label,
         'daily_publish_date': daily_publish_date,
+        'difficulty': difficulty,
         'live_next_transition_at': (
             next_daily_content_transition_for_game(game) if offer is None else None
         ),

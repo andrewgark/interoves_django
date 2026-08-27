@@ -45,6 +45,7 @@ from games.models import (
     PendingAttempt,
     PendingBugReport,
     Donation,
+    DailyGameDifficulty,
     PendingTicketRequest,
     PlayerAnalyticsState,
     PlayerCompletedGame,
@@ -74,6 +75,97 @@ from games.social.models import SocialQueuePost
 
 
 admin.site.register([CheckerType, HTMLPage, Like, Image, Audio, Project, Registration])
+
+
+@admin.action(description='Пересчитать выбранные оценки сложности')
+def recalculate_selected_difficulties(modeladmin, request, queryset):
+    from games.difficulty import calculate_game_difficulty
+
+    updated = 0
+    for snapshot in queryset.select_related('placement', 'placement__game', 'placement__task_group'):
+        calculate_game_difficulty(snapshot.placement, save=True)
+        updated += 1
+    messages.success(request, 'Пересчитано оценок: {}'.format(updated))
+
+
+@admin.register(DailyGameDifficulty)
+class DailyGameDifficultyAdmin(admin.ModelAdmin):
+    list_display = (
+        'placement', 'n', 'median_time', 'typical_time', 'time_ratio',
+        'median_errors', 'help_rate', 'unfinished_rate', 'raw_rating',
+        'adjusted_rating', 'stars_display', 'is_preliminary', 'dirty', 'calculated_at',
+    )
+    list_filter = ('placement__game', 'is_preliminary', 'dirty', 'stars')
+    search_fields = ('placement__number', 'placement__name', 'placement__game__name')
+    readonly_fields = (
+        'placement', 'n', 'payload', 'stars', 'is_preliminary', 'dirty', 'calculated_at',
+        'median_time', 'typical_time', 'time_ratio', 'median_errors', 'typical_errors',
+        'error_ratio', 'help_rate', 'typical_help_rate', 'unfinished_rate',
+        'typical_unfinished_rate', 'raw_rating', 'adjusted_rating', 'component_scores',
+    )
+    actions = (recalculate_selected_difficulties,)
+
+    def has_add_permission(self, request):
+        return False
+
+    def _payload_value(self, obj, *path):
+        value = obj.payload or {}
+        for part in path:
+            if not isinstance(value, dict):
+                return None
+            value = value.get(part)
+        return value
+
+    def _number(self, value, digits=2):
+        if value is None:
+            return '—'
+        return round(float(value), digits)
+
+    def median_time(self, obj):
+        return self._number(self._payload_value(obj, 'metrics', 'median_time'), 1)
+
+    def typical_time(self, obj):
+        return self._number(self._payload_value(obj, 'typical', 'median_time'), 1)
+
+    def time_ratio(self, obj):
+        return self._number(self._payload_value(obj, 'ratios', 'time'))
+
+    def median_errors(self, obj):
+        return self._number(self._payload_value(obj, 'metrics', 'median_errors'), 1)
+
+    def typical_errors(self, obj):
+        return self._number(self._payload_value(obj, 'typical', 'median_errors'), 1)
+
+    def error_ratio(self, obj):
+        return self._number(self._payload_value(obj, 'ratios', 'errors'))
+
+    def help_rate(self, obj):
+        return self._number(self._payload_value(obj, 'metrics', 'help_rate'), 3)
+
+    def typical_help_rate(self, obj):
+        return self._number(self._payload_value(obj, 'typical', 'help_rate'), 3)
+
+    def unfinished_rate(self, obj):
+        return self._number(self._payload_value(obj, 'metrics', 'unfinished_rate'), 3)
+
+    def typical_unfinished_rate(self, obj):
+        return self._number(self._payload_value(obj, 'typical', 'unfinished_rate'), 3)
+
+    def raw_rating(self, obj):
+        return self._number(self._payload_value(obj, 'raw_rating'))
+
+    def adjusted_rating(self, obj):
+        return self._number(self._payload_value(obj, 'adjusted_rating'))
+
+    def component_scores(self, obj):
+        return self._payload_value(obj, 'scores') or '—'
+
+    def stars_display(self, obj):
+        if obj.stars is None:
+            return '—'
+        return '{}{}'.format('★' * obj.stars, '☆' * (5 - obj.stars))
+
+    stars_display.short_description = 'Звёзды'
 
 
 @admin.register(AccountMerge)
