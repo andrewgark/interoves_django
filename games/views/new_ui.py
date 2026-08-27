@@ -365,6 +365,9 @@ def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
 
 def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
     """Task group list for game hub pages; actor progress is loaded separately."""
+    task_groups = list(task_groups)
+    from games.difficulty import get_cached_game_difficulties
+    difficulties = get_cached_game_difficulties(task_groups)
     return [
         {
             'task_group': p.task_group,
@@ -378,6 +381,7 @@ def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
             'row_class': '',
             'title': '{} · {}'.format(p.number, p.name),
             'progress_text': None,
+            'difficulty': difficulties.get(p.pk),
         }
         for p in task_groups
     ]
@@ -1034,6 +1038,8 @@ def _ladder_task_group_rows(
     item_label='Лесенка',
 ):
     task_groups = list(task_groups)
+    from games.difficulty import get_cached_game_difficulties
+    difficulties = get_cached_game_difficulties(task_groups)
     endpoints_by_task_group = {}
     if game.id == LADDER_GAME_ID:
         task_group_ids = [p.task_group_id for p in task_groups]
@@ -1097,6 +1103,7 @@ def _ladder_task_group_rows(
             'raddle_start_word': endpoints[0] if endpoints else None,
             'raddle_end_word': endpoints[1] if endpoints else None,
             'salad_meta': salad_meta_by_task_group.get(p.task_group_id),
+            'difficulty': difficulties.get(p.pk),
         })
     return rows
 

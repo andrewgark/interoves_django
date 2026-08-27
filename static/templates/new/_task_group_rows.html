@@ -25,14 +25,19 @@
           <small class="new-task__meta new-task__meta--loading" data-progress-meta aria-hidden="true"></small>
         {% endif %}
       </a>
-      <span class="new-task__action" data-task-action>
-        {% if row.is_fully_solved %}
-          <span class="new-pill new-pill--ok" title="Решено">ок</span>
+      <span class="new-task__actions">
+        <span class="new-task__action" data-task-action>
+          {% if row.is_fully_solved %}
+            <span class="new-pill new-pill--ok" title="Решено">ок</span>
+          {% endif %}
+        </span>
+        {% if row.difficulty %}
+          {% include "new/partials/difficulty_badge.html" with difficulty=row.difficulty %}
+        {% endif %}
+        {% if row.results_url and game|access_see_results:team %}
+          <a class="new-task__results" href="{{ row.results_url }}">Результаты</a>
         {% endif %}
       </span>
-      {% if row.results_url and game|access_see_results:team %}
-        <a class="new-task__results" href="{{ row.results_url }}">Результаты</a>
-      {% endif %}
     </div>
   {% endfor %}
 {% else %}

@@ -53,6 +53,7 @@
   --card-radius: 8px;
   --warning: #b8953d;
   --warning-hover: #a18232;
+  --difficulty-star: #f2b600;
   --success: var(--accent);
   font-size: 16px;
 }
@@ -85,6 +86,7 @@ html.new-ui-dark {
   --focus-ring: color-mix(in srgb, var(--accent) 50%, transparent);
   --warning: #d4b45c;
   --warning-hover: #e0c574;
+  --difficulty-star: #ffd23f;
   --success: var(--accent);
   --raddle-before: #d4b45c;
   --raddle-after: #6b9fd4;
@@ -1585,6 +1587,19 @@ html.new-ui-dark body.new-ui {
   display: none;
 }
 
+.new-task__actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem 0.65rem;
+}
+
+.new-task__actions:empty {
+  display: none;
+}
+
 .new-task__results {
   flex: 0 0 auto;
   padding: 0.25rem 0;
@@ -2974,19 +2989,26 @@ html.new-ui-dark .new-team-switcher-active-box {
 
 .new-difficulty {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.35rem;
+  align-items: center;
   white-space: nowrap;
+  line-height: 1;
 }
 
 .new-difficulty__stars {
-  color: var(--warning);
-  letter-spacing: 0.025em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.08em;
+  color: var(--difficulty-star);
+  font-size: 1.05rem;
+  filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--difficulty-star) 30%, transparent));
 }
 
-.new-difficulty__preliminary {
-  font-size: 0.85em;
-  color: var(--muted);
+.new-difficulty__star--empty {
+  opacity: 0.72;
+}
+
+.new-taskcard__meta-bar .new-difficulty__stars {
+  font-size: 0.95rem;
 }
 
 .new-pay-card {

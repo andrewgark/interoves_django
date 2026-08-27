@@ -36,19 +36,27 @@
 {% if rows %}
   <h2 class="new-heading new-stack-gap--lg">Архив</h2>
   {% for row in rows %}
-    <a class="new-task {{ row.row_class }}" href="{{ row.play_url }}" data-fully-solved="{% if row.is_solved %}1{% else %}0{% endif %}">
-      <span class="new-task__body">
+    <div class="new-task {{ row.row_class }}" data-fully-solved="{% if row.is_solved %}1{% else %}0{% endif %}">
+      <a class="new-task__body" href="{{ row.play_url }}">
         <strong>{% if row.is_today %}Сегодня · {% endif %}{{ row.name }}</strong>
         {% if row.progress_meta %}
           <small class="new-task__meta">{{ row.progress_meta }}</small>
         {% endif %}
-      </span>
-      <span class="new-task__action">
-        {% if row.is_solved %}
-          <span class="new-pill new-pill--ok" title="Решено">ок</span>
+      </a>
+      <span class="new-task__actions">
+        <span class="new-task__action">
+          {% if row.is_solved %}
+            <span class="new-pill new-pill--ok" title="Решено">ок</span>
+          {% endif %}
+        </span>
+        {% if row.difficulty %}
+          {% include "new/partials/difficulty_badge.html" with difficulty=row.difficulty %}
+        {% endif %}
+        {% if can_see_results %}
+          <a class="new-task__results" href="{{ row.results_url }}">Результаты</a>
         {% endif %}
       </span>
-    </a>
+    </div>
   {% endfor %}
 {% else %}
   <div class="new-empty">

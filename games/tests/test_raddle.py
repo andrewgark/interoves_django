@@ -503,6 +503,35 @@ class RaddleUiContextTests(SimpleTestCase):
             '"____ - ДАКАР"',
         )
 
+    def test_focused_clue_highlights_unfilled_opposite_slot(self):
+        # Верхний сосед: слово жёлтое, а литеральное «...» зелёное.
+        from_prev = str(clue_display_for_hint(
+            '"____ - ..."', 5, [], set(),
+            focus_ref_word='РИГА', focus_ref_role='prev', html=True,
+        ))
+        self.assertIn(
+            '<strong class="new-raddle-clue-ref">РИГА</strong>',
+            from_prev,
+        )
+        self.assertIn(
+            '<strong class="new-raddle-clue-next">...</strong>',
+            from_prev,
+        )
+
+        # Нижний сосед: «____» жёлтое, а слово зелёное.
+        from_next = str(clue_display_for_hint(
+            '"____ - ..."', 5, [], set(),
+            focus_ref_word='МОСКВА', focus_ref_role='next', html=True,
+        ))
+        self.assertIn(
+            '<strong class="new-raddle-clue-ref">____</strong>',
+            from_next,
+        )
+        self.assertIn(
+            '<strong class="new-raddle-clue-next">МОСКВА</strong>',
+            from_next,
+        )
+
     def test_used_clue_next_highlighted_green(self):
         from games.raddle import used_clue_display
         html = used_clue_display('____ рядом.', 0, ['КОНЬ', 'СЛОН'], html=True)

@@ -2,12 +2,14 @@ import json
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.template.loader import render_to_string
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
 from games.difficulty import (
     _public_context,
     calculate_observed_metrics,
+    get_cached_game_difficulties,
     historical_norm,
     rate_difficulty_metrics,
 )
@@ -106,6 +108,26 @@ class DifficultyScoringTests(SimpleTestCase):
             self.assertGreaterEqual(rating['stars'], 1)
             self.assertLessEqual(rating['stars'], 5)
 
+    def test_public_context_uses_ui_label_and_five_star_slots(self):
+        context = _public_context({
+            'n': 20,
+            'stars': 2,
+            'is_visible': True,
+            'is_preliminary': False,
+        })
+
+        self.assertEqual(context['label'], 'Простая')
+        self.assertEqual(context['tooltip'], 'Сложность: Простая')
+        self.assertEqual(context['star_slots'], [True, True, False, False, False])
+
+        html = render_to_string(
+            'new/partials/difficulty_badge.html',
+            {'difficulty': context},
+        )
+        self.assertIn('title="Сложность: Простая"', html)
+        self.assertEqual(html.count('class="ph-fill ph-star"'), 2)
+        self.assertEqual(html.count('class="ph ph-star new-difficulty__star--empty"'), 3)
+
 
 class DifficultyObservationTests(TestCase):
     @classmethod
@@ -178,6 +200,24 @@ class DifficultyObservationTests(TestCase):
         self.assertEqual(metrics['n'], 3)
         self.assertEqual(metrics['median_time'], 20)
         self.assertEqual(metrics['median_errors'], 1)
+
+    def test_cached_contexts_include_only_visible_difficulties(self):
+        visible = {
+            'n': 12,
+            'stars': 4,
+            'is_visible': True,
+            'is_preliminary': False,
+        }
+        DailyGameDifficulty.objects.create(
+            placement=self.placement,
+            n=12,
+            stars=4,
+            payload=visible,
+        )
+
+        contexts = get_cached_game_difficulties([self.placement])
+
+        self.assertEqual(contexts[self.placement.pk]['tooltip'], 'Сложность: Сложная')
 
 
 class DifficultyHistoricalNormTests(TestCase):

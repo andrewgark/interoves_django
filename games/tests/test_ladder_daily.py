@@ -14,7 +14,7 @@ from games.ladder_daily import (
     ladder_publish_at,
     ladder_publish_start,
 )
-from games.models import Game, Project, Task, TaskGroup
+from games.models import DailyGameDifficulty, Game, Project, Task, TaskGroup
 
 
 class LadderDailyLogicTests(SimpleTestCase):
@@ -144,6 +144,17 @@ class LadderSectionPageTests(TestCase):
                 '"words":["ПАРИЖ","ФРАНЦИЯ","ДАКАР"]}'
             ),
         )
+        DailyGameDifficulty.objects.create(
+            placement=link,
+            n=20,
+            stars=4,
+            payload={
+                'n': 20,
+                'stars': 4,
+                'is_visible': True,
+                'is_preliminary': False,
+            },
+        )
 
         rows = _ladder_task_group_rows([link], game)
 
@@ -154,6 +165,8 @@ class LadderSectionPageTests(TestCase):
             {'task_group_rows': rows, 'game': game},
         )
         self.assertIn('ПАРИЖ → ДАКАР', html)
+        self.assertIn('title="Сложность: Сложная"', html)
+        self.assertEqual(html.count('class="ph-fill ph-star"'), 4)
 
     def test_hub_section_task_group_links_ladder_does_not_crash(self):
         from games.views.new_ui import _hub_section_task_group_links

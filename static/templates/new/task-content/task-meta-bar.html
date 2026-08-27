@@ -64,6 +64,9 @@
   <button type="button" class="new-proportions-compact-textbtn" data-answer-open data-task-id="{{ task.id }}" title="Показать ответ">ответ</button>
   {% endif %}
   {% endif %}
+  {% if is_daily_single_task and difficulty %}
+    {% include "new/partials/difficulty_badge.html" %}
+  {% endif %}
   {% with lm=likes_meta_by_task_id|get_item:task.id %}
     {% if lm %}
     <div class="new-like-dislike new-like-dislike--compact-bar" aria-label="Лайки и дизлайки">

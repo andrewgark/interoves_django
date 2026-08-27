@@ -691,6 +691,8 @@ def render_transition_clue(
     next_as_solved=False,
     prev_kind='ref',
     next_kind=None,
+    highlight_prev_placeholder=False,
+    highlight_next_placeholder=False,
 ):
     """
     Подсказка перехода prev → next.
@@ -709,6 +711,8 @@ def render_transition_clue(
         if prev_known and prev_word:
             pk = prev_kind if prev_kind != 'ref' else 'ref'
             prev_replacement = _clue_ref_html(prev_word, kind=pk)
+        elif highlight_prev_placeholder:
+            prev_replacement = _clue_ref_html(_CLUE_BLANK_TOKEN, kind='ref')
         if next_known and next_word:
             if next_kind is None:
                 next_kind = 'next' if next_as_solved else 'ref'
@@ -718,6 +722,8 @@ def render_transition_clue(
                 template = template.rstrip()
                 if template.endswith('.'):
                     template = template[:-1].rstrip()
+        elif highlight_next_placeholder and has_next_slot:
+            next_replacement = _clue_ref_html(_CLUE_NEXT_TOKEN, kind='next')
         out = _render_transition_clue_html(
             template,
             prev_replacement=prev_replacement,
@@ -780,6 +786,7 @@ def clue_display_for_hint(
             next_known=True,
             html=html,
             next_as_solved=True,
+            highlight_prev_placeholder=html,
         )
     if focus_ref_word:
         return render_transition_clue(
@@ -787,6 +794,7 @@ def clue_display_for_hint(
             prev_word=focus_ref_word,
             prev_known=True,
             html=html,
+            highlight_next_placeholder=html,
         )
     return render_transition_clue(hint_text, html=html)
 

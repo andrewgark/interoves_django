@@ -37,10 +37,6 @@
   {% if week_task_source_line %}
     {% if daily_publish_date or not is_daily_single_task %}<span aria-hidden="true"> · </span>{% endif %}{% if week_task_source_url %}<a class="new-link-dotted" href="{{ week_task_source_url }}">{{ week_task_source_line }}</a>{% else %}{{ week_task_source_line }}{% endif %}
   {% endif %}
-  {% if difficulty %}
-    {% if daily_publish_date or not is_daily_single_task or week_task_source_line %}<span aria-hidden="true"> · </span>{% endif %}
-    {% include "new/partials/difficulty_badge.html" %}
-  {% endif %}
 </p>
 
 {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
@@ -2412,13 +2408,13 @@
     if (!word) return escapeHtml(tpl);
     if (focusRefRole === 'next') {
       if (hasNextSlot && /(?:\.{3}|…)/.test(tpl)) {
-        return raddleRenderClueTemplate(tpl, '', word);
+        return raddleRenderClueTemplate(tpl, '____', word);
       }
       tpl = tpl.replace(/\s+$/, '');
       if (tpl.endsWith('.')) tpl = tpl.slice(0, -1).replace(/\s+$/, '');
-      return escapeHtml(tpl) + ' → ' + raddleClueChip(word, 'next');
+      return raddleRenderClueTemplate(tpl, '____', '') + ' → ' + raddleClueChip(word, 'next');
     }
-    return raddleRenderClueTemplate(tpl, word, '');
+    return raddleRenderClueTemplate(tpl, word, '...');
   }
 
   function setRaddleFocus(taskRoot, wordIndex) {

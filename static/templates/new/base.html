@@ -62,6 +62,8 @@
   <link rel="stylesheet" href="{% static "css/new.css" %}?v={{ site_deploy_version|default:'0'|urlencode }}">
   {# Phosphor regular — new UI chrome icons #}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css">
+  {# Phosphor fill — filled difficulty stars #}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/fill/style.css">
   {% block extrahead %}{% endblock %}
 </head>
 <body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user-id="{% if user.is_authenticated %}{{ user.pk }}{% endif %}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}"{% if live_next_transition_at %} data-live-next-transition-at="{{ live_next_transition_at|date:'c' }}"{% endif %} {% block body_attrs %}{% endblock %}>

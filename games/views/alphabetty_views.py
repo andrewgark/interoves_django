@@ -111,7 +111,7 @@ def _alphabetty_hints_taken(*, game, task, user, anon_key) -> int:
     return hint_count(load_state(row.state))
 
 
-def _alphabetty_meta_context(request, *, game, task, user, anon_key):
+def _alphabetty_meta_context(request, *, game, task, user, anon_key, placement=None):
     mode = game.get_current_mode(Attempt(time=timezone.now()))
     ai = Attempt.manager.get_attempts_info(
         team=None,
@@ -122,6 +122,10 @@ def _alphabetty_meta_context(request, *, game, task, user, anon_key):
         game=game,
     )
     hints_n = _alphabetty_hints_taken(game=game, task=task, user=user, anon_key=anon_key)
+    difficulty = None
+    if placement is not None:
+        from games.difficulty import get_game_difficulty
+        difficulty = get_game_difficulty(placement)
     return {
         'game': game,
         'task': task,
@@ -137,6 +141,7 @@ def _alphabetty_meta_context(request, *, game, task, user, anon_key):
             ),
         },
         'is_daily_single_task': True,
+        'difficulty': difficulty,
         'has_profile_user': has_profile(request.user),
         'user': request.user,
         'likes_meta_by_task_id': {
@@ -158,20 +163,39 @@ def _alphabetty_meta_context(request, *, game, task, user, anon_key):
     }
 
 
-def _alphabetty_meta_bar_html(request, *, game, task, user, anon_key) -> str:
+def _alphabetty_meta_bar_html(request, *, game, task, user, anon_key, placement=None) -> str:
     return render_to_string(
         'new/task-content/task-meta-bar.html',
         _alphabetty_meta_context(
-            request, game=game, task=task, user=user, anon_key=anon_key,
+            request,
+            game=game,
+            task=task,
+            user=user,
+            anon_key=anon_key,
+            placement=placement,
         ),
         request=request,
     )
 
 
-def _with_meta_bar(payload: dict, request, *, game, task, user, anon_key) -> dict:
+def _with_meta_bar(
+    payload: dict,
+    request,
+    *,
+    game,
+    task,
+    user,
+    anon_key,
+    placement=None,
+) -> dict:
     out = dict(payload)
     out['meta_bar_html'] = _alphabetty_meta_bar_html(
-        request, game=game, task=task, user=user, anon_key=anon_key,
+        request,
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        placement=placement,
     )
     return out
 
@@ -230,6 +254,8 @@ def alphabetty_hub_page(request):
         anon_key=anon_key,
     )
 
+    from games.difficulty import get_cached_game_difficulties
+    difficulties = get_cached_game_difficulties([link for _, link in link_rows])
     rows = []
     for n, link in link_rows:
         prog = progress.get(n) or {}
@@ -240,10 +266,12 @@ def alphabetty_hub_page(request):
             'number': n,
             'name': f'Алфавитка №{n}',
             'play_url': section_play_path(ALPHABETTY_GAME_ID, n),
+            'results_url': '{}results/'.format(section_play_path(ALPHABETTY_GAME_ID, n)),
             'is_today': today_number is not None and n == today_number,
             'is_solved': bool(prog.get('is_solved')),
             'row_class': row_class,
             'progress_meta': prog.get('progress_meta') or '',
+            'difficulty': difficulties.get(link.pk),
         })
     hub = get_alphabetty_hub_context(game, published_numbers=_published_numbers(game))
     return render(request, 'new/alphabetty_hub.html', {
@@ -341,7 +369,12 @@ def alphabetty_play_page(request, number):
     if user is not None and has_profile(user):
         team = user.profile.team_on
     meta_ctx = _alphabetty_meta_context(
-        request, game=game, task=task, user=user, anon_key=anon_key,
+        request,
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        placement=link if offer is None else None,
     )
     if offer is None and link is not None:
         page_title = task_group_page_title(game, link)
@@ -349,10 +382,6 @@ def alphabetty_play_page(request, number):
     else:
         page_title = f'Алфавитка #{play_number}'
         bug_report_task_label = page_title
-    difficulty = None
-    if offer is None and link is not None:
-        from games.difficulty import get_game_difficulty
-        difficulty = get_game_difficulty(link)
     return render(request, 'new/alphabetty_play.html', {
         'game': game,
         'number': play_number,
@@ -361,7 +390,6 @@ def alphabetty_play_page(request, number):
         'page_title': page_title,
         'bug_report_task_label': bug_report_task_label,
         'daily_publish_date': daily_publish_date,
-        'difficulty': difficulty,
         'live_next_transition_at': (
             next_daily_content_transition_for_game(game) if offer is None else None
         ),
@@ -471,6 +499,7 @@ def alphabetty_state(request, number):
         task=task,
         user=user,
         anon_key=anon_key,
+        placement=load_meta.get('accepted_link') if not load_meta.get('offer') else None,
     )
     response = JsonResponse(payload)
     if user is None and anon_key:
@@ -539,7 +568,13 @@ def alphabetty_guess(request, number):
     if analytics_events:
         result['analytics_events'] = analytics_events
     result = _with_meta_bar(
-        result, request, game=game, task=task, user=user, anon_key=anon_key,
+        result,
+        request,
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        placement=load_meta.get('accepted_link') if not load_meta.get('offer') else None,
     )
     response = JsonResponse(result)
     if user is None and anon_key:
@@ -611,7 +646,13 @@ def alphabetty_hint(request, number):
         if analytics_events:
             result['analytics_events'] = analytics_events
     result = _with_meta_bar(
-        result, request, game=game, task=task, user=user, anon_key=anon_key,
+        result,
+        request,
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        placement=load_meta.get('accepted_link') if not load_meta.get('offer') else None,
     )
     response = JsonResponse(result)
     if user is None and anon_key:

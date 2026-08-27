@@ -71,11 +71,11 @@ BASE_WEIGHTS = {
 }
 
 STAR_LABELS = {
-    1: 'очень легко',
-    2: 'легко',
-    3: 'средне',
-    4: 'сложно',
-    5: 'очень сложно',
+    1: 'Очень простая',
+    2: 'Простая',
+    3: 'Средняя',
+    4: 'Сложная',
+    5: 'Очень сложная',
 }
 
 
@@ -527,20 +527,37 @@ def _public_context(result):
     if not result or not result.get('is_visible'):
         return None
     stars = int(result['stars'])
-    n = int(result['n'])
-    preliminary = bool(result['is_preliminary'])
     stars_text = '{}{}'.format('★' * stars, '☆' * (5 - stars))
-    if preliminary:
-        tooltip = 'Сложность рассчитана по результатам {} игроков и может измениться.'.format(n)
-    else:
-        tooltip = 'Сложность рассчитана по результатам {} игроков.'.format(n)
+    label = STAR_LABELS[stars]
     return {
         **result,
         'show': True,
         'stars_text': stars_text,
-        'label': STAR_LABELS[stars],
-        'tooltip': tooltip,
+        'star_slots': [index < stars for index in range(5)],
+        'label': label,
+        'tooltip': 'Сложность: {}'.format(label),
     }
+
+
+def get_cached_game_difficulties(placements):
+    """Return public difficulty contexts for a list without recalculating them."""
+    placements = list(placements)
+    placement_ids = [
+        placement.pk
+        for placement in placements
+        if placement.game_id in SUPPORTED_GAME_IDS
+    ]
+    if not placement_ids:
+        return {}
+    snapshots = DailyGameDifficulty.objects.filter(
+        placement_id__in=placement_ids,
+    ).only('placement_id', 'payload')
+    result = {}
+    for snapshot in snapshots:
+        context = _public_context(snapshot.payload or {})
+        if context is not None:
+            result[snapshot.placement_id] = context
+    return result
 
 
 def get_game_difficulty(placement, *, force=False, now=None):
