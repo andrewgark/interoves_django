@@ -9149,6 +9149,28 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   }
 }
 
+@media (max-width: 560px) {
+  .new-word-salad__selection {
+    flex-direction: column;
+    gap: 0.4rem;
+    padding-inline: 0;
+  }
+
+  .new-word-salad__selection-main {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .new-word-salad__reset-wrap {
+    position: static;
+    transform: none;
+  }
+
+  .new-word-salad__reset-wrap.is-idle {
+    display: none;
+  }
+}
+
 .new-word-salad__extras {
   margin-top: 0.75rem;
   padding-top: 0.7rem;
