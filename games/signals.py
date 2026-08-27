@@ -1,5 +1,4 @@
 from django.db.models.signals import post_save, pre_save
-from django.db import transaction
 from django.dispatch import receiver
 from django.utils import timezone
 from allauth.account.signals import user_signed_up
@@ -9,6 +8,7 @@ from games.models import (
     Attempt,
     ChainTaskState,
     Game,
+    GameTaskGroup,
     HintAttempt,
     PlayerAnalyticsState,
     Profile,
@@ -189,22 +189,20 @@ def analytics_user_signed_up(request, user, sociallogin=None, **kwargs):
     )
 
 
-def _dirty_daily_difficulty_on_commit(*, task_id=None, game_id=None, task_group_id=None):
-    def mark():
-        from games.difficulty import mark_daily_difficulty_dirty
-        mark_daily_difficulty_dirty(
-            task_id=task_id,
-            game_id=game_id,
-            task_group_id=task_group_id,
-        )
-    transaction.on_commit(mark)
+def _mark_daily_difficulty_changed(*, task_id=None, game_id=None, task_group_id=None):
+    from games.difficulty import mark_game_difficulty_changed
+    mark_game_difficulty_changed(
+        task_id=task_id,
+        game_id=game_id,
+        task_group_id=task_group_id,
+    )
 
 
 @receiver(post_save, sender=Attempt, dispatch_uid='daily-difficulty-attempt-dirty')
 def daily_difficulty_attempt_saved(sender, instance, **kwargs):
     if not instance.task_id:
         return
-    _dirty_daily_difficulty_on_commit(
+    _mark_daily_difficulty_changed(
         task_id=instance.task_id,
         game_id=instance.game_id,
     )
@@ -212,14 +210,16 @@ def daily_difficulty_attempt_saved(sender, instance, **kwargs):
 
 @receiver(post_save, sender=HintAttempt, dispatch_uid='daily-difficulty-hint-dirty')
 def daily_difficulty_hint_saved(sender, instance, **kwargs):
+    if not instance.is_real_request:
+        return
     if instance.hint_id and instance.hint and instance.hint.task_id:
-        _dirty_daily_difficulty_on_commit(task_id=instance.hint.task_id)
+        _mark_daily_difficulty_changed(task_id=instance.hint.task_id)
 
 
 @receiver(post_save, sender=ChainTaskState, dispatch_uid='daily-difficulty-state-dirty')
 def daily_difficulty_state_saved(sender, instance, **kwargs):
     if instance.task_id:
-        _dirty_daily_difficulty_on_commit(
+        _mark_daily_difficulty_changed(
             task_id=instance.task_id,
             game_id=instance.game_id,
         )
@@ -229,4 +229,11 @@ def daily_difficulty_state_saved(sender, instance, **kwargs):
 def daily_difficulty_task_saved(sender, instance, created, **kwargs):
     if created or not instance.task_group_id:
         return
-    _dirty_daily_difficulty_on_commit(task_group_id=instance.task_group_id)
+    _mark_daily_difficulty_changed(task_group_id=instance.task_group_id)
+
+
+@receiver(post_save, sender=GameTaskGroup, dispatch_uid='daily-difficulty-placement-ensure')
+def daily_difficulty_placement_saved(sender, instance, **kwargs):
+    from games.difficulty import SUPPORTED_GAME_IDS, ensure_daily_difficulty_row
+    if instance.game_id in SUPPORTED_GAME_IDS:
+        ensure_daily_difficulty_row(instance)

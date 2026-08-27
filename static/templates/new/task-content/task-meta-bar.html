@@ -55,9 +55,6 @@
     {% endif %}
     {% endif %}
   </div>
-  {% if is_daily_single_task and difficulty %}
-    {% include "new/partials/difficulty_badge.html" %}
-  {% endif %}
   <span class="new-proportions-compact-bar__fill" aria-hidden="true"></span>
   {% if task.get_player_hints %}
   <button type="button" class="new-proportions-compact-textbtn" data-hints-toggle data-task-id="{{ task.id }}" title="подсказки">подсказки</button>
@@ -66,6 +63,10 @@
   {% if mode != 'tournament' or ai.is_solved %}
   <button type="button" class="new-proportions-compact-textbtn" data-answer-open data-task-id="{{ task.id }}" title="Показать ответ">ответ</button>
   {% endif %}
+  {% endif %}
+  <span class="new-proportions-compact-bar__aside">
+  {% if is_daily_single_task and difficulty %}
+    {% include "new/partials/difficulty_badge.html" %}
   {% endif %}
   {% with lm=likes_meta_by_task_id|get_item:task.id %}
     {% if lm %}
@@ -82,4 +83,5 @@
     </div>
     {% endif %}
   {% endwith %}
+  </span>
 </div>

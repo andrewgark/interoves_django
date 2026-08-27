@@ -647,7 +647,11 @@ class GameTaskGroup(models.Model):
 
 
 class DailyGameDifficulty(models.Model):
-    """Cached, explainable difficulty for one scheduled daily-game edition."""
+    """Cached, explainable difficulty for one scheduled daily-game edition.
+
+    Pages only read this snapshot. Recalculation is a separate cron that claims
+    due rows in the database; see docs/difficulty-cache.md.
+    """
 
     id = models.AutoField(primary_key=True)
     placement = models.OneToOneField(
@@ -659,13 +663,30 @@ class DailyGameDifficulty(models.Model):
     payload = models.JSONField(default=dict, blank=True)
     stars = models.PositiveSmallIntegerField(blank=True, null=True)
     is_preliminary = models.BooleanField(default=False)
+    # Denormalized: True iff data_revision > calculated_revision. Kept so MySQL
+    # can index due rows without a partial-index WHERE clause.
     dirty = models.BooleanField(default=True, db_index=True)
     calculated_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    data_revision = models.PositiveIntegerField(default=1)
+    calculated_revision = models.PositiveIntegerField(default=0)
+    refresh_not_before = models.DateTimeField(blank=True, null=True)
+    refresh_claim_token = models.UUIDField(blank=True, null=True)
+    refresh_claimed_until = models.DateTimeField(blank=True, null=True)
+    refresh_fail_count = models.PositiveIntegerField(default=0)
+    refresh_last_error = models.TextField(blank=True, default='')
+    norm_version = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ['placement__game_id', 'placement__number']
         verbose_name = 'сложность ежедневной игры'
         verbose_name_plural = 'сложность ежедневных игр'
+        indexes = [
+            models.Index(
+                fields=['dirty', 'refresh_not_before'],
+                name='games_dgd_due_idx',
+            ),
+        ]
 
     def __str__(self):
         stars = '—' if self.stars is None else '{}{}'.format(
@@ -673,6 +694,26 @@ class DailyGameDifficulty(models.Model):
             '☆' * (5 - self.stars),
         )
         return '{} · N={} · {}'.format(self.placement, self.n, stars)
+
+
+class GameDifficultyNorm(models.Model):
+    """Cached same-type historical baselines used when rating one edition."""
+
+    game_id = models.CharField(max_length=100, primary_key=True)
+    typical_time = models.FloatField(blank=True, null=True)
+    typical_errors = models.FloatField(blank=True, null=True)
+    typical_help_rate = models.FloatField(blank=True, null=True)
+    typical_unfinished_rate = models.FloatField(blank=True, null=True)
+    calculated_at = models.DateTimeField(blank=True, null=True)
+    version = models.PositiveIntegerField(default=0)
+    payload = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = 'историческая норма сложности'
+        verbose_name_plural = 'исторические нормы сложности'
+
+    def __str__(self):
+        return '{} · v{}'.format(self.game_id, self.version)
 
 
 class TaskQuerySet(models.QuerySet):

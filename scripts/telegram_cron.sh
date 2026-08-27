@@ -3,6 +3,7 @@
 # (includes ladder channel schedule window at 00:15 MSK).
 # Canonical install path on EB: /opt/interoves/telegram_cron.sh
 # (content is embedded in .ebextensions/telegram_cron.config — keep in sync).
+# Difficulty refresh is a separate cron (scripts/difficulty_cron.sh).
 set -euo pipefail
 
 APP_DIR=/var/app/current

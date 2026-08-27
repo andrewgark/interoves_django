@@ -13,14 +13,14 @@ import statistics
 from collections import defaultdict
 from datetime import timedelta
 
-from django.core.cache import cache
-from django.db.models import Q
+from django.db.models import BooleanField, Case, F, Q, Value, When
 from django.utils import timezone
 
 from games.models import (
     Attempt,
     ChainTaskState,
     DailyGameDifficulty,
+    GameDifficultyNorm,
     GameTaskGroup,
     HiddenAnonKey,
     HintAttempt,
@@ -42,9 +42,28 @@ MIN_MATURE_GAMES_FOR_NORM = 3
 SHRINKAGE_PRIOR_N = 5
 ACTION_GAP_CAP = timedelta(minutes=30)
 UNFINISHED_WINDOW = timedelta(minutes=30)
-DIRTY_REFRESH_INTERVAL = timedelta(minutes=5)
-CACHE_LOCK_SECONDS = 30
+DUE_REFRESH_LIMIT = 10
 RATE_EPSILON = 0.01
+NORM_METRICS = ('median_time', 'median_errors', 'help_rate', 'unfinished_rate')
+# Cadence throttles dirty games; clean snapshots are not rebuilt just because time passed.
+REFRESH_INTERVALS = (
+    (timedelta(hours=6), timedelta(minutes=5)),
+    (timedelta(hours=24), timedelta(minutes=15)),
+    (timedelta(days=3), timedelta(hours=1)),
+    (timedelta(days=7), timedelta(hours=6)),
+    (timedelta(days=30), timedelta(hours=24)),
+)
+REFRESH_INTERVAL_OLD = timedelta(days=7)
+REFRESH_CLAIM_LEASE = timedelta(minutes=5)
+NORM_REFRESH_INTERVAL = timedelta(days=1)
+RECENT_ENSURE_LOOKBACK_NUMBERS = 3
+RECENT_ENSURE_AHEAD_NUMBERS = 7
+REFRESH_RETRY_INTERVALS = (
+    timedelta(minutes=5),
+    timedelta(minutes=15),
+    timedelta(hours=1),
+)
+REFRESH_RETRY_INTERVAL_MAX = timedelta(hours=6)
 
 TIME_RATIO_BOUNDS = (0.55, 0.80, 1.25, 1.80)
 EFFORT_RATIO_BOUNDS = (0.50, 0.80, 1.25, 2.00)
@@ -323,42 +342,89 @@ def _ratio(value, typical, *, additive=0.0):
     return numerator / denominator
 
 
-def _historical_metric_values(game_id, metric, *, exclude_placement_id=None):
-    rows = (
-        DailyGameDifficulty.objects.filter(placement__game_id=game_id)
-        .exclude(placement_id=exclude_placement_id)
-        .only('n', 'payload')
-    )
-    mature = []
-    available = []
-    for row in rows:
-        value = (row.payload or {}).get('metrics', {}).get(metric)
-        if value is None:
-            continue
-        if row.n >= MIN_DISPLAY_N:
-            available.append(float(value))
-        if row.n >= MATURE_GAME_N:
-            mature.append(float(value))
-    if len(mature) >= MIN_MATURE_GAMES_FOR_NORM:
-        return mature, 'mature'
-    return available, 'available'
+def _norm_values_from_snapshots(game_id):
+    mature = {metric: [] for metric in NORM_METRICS}
+    available = {metric: [] for metric in NORM_METRICS}
+    rows = DailyGameDifficulty.objects.filter(placement__game_id=game_id).only('n', 'payload')
+    for row in rows.iterator():
+        metrics = (row.payload or {}).get('metrics') or {}
+        for metric in NORM_METRICS:
+            value = metrics.get(metric)
+            if value is None:
+                continue
+            number = float(value)
+            if row.n >= MIN_DISPLAY_N:
+                available[metric].append(number)
+            if row.n >= MATURE_GAME_N:
+                mature[metric].append(number)
+    return mature, available
 
 
-def historical_norm(placement, metrics):
-    norm = {}
+def refresh_historical_norm(game_id, *, now=None):
+    """Rebuild the cached same-type baseline. Does not dirty existing snapshots."""
+    now = now or timezone.now()
+    mature, available = _norm_values_from_snapshots(game_id)
+    typical = {}
     sources = {}
-    for metric in ('median_time', 'median_errors', 'help_rate', 'unfinished_rate'):
-        values, source = _historical_metric_values(
-            placement.game_id,
-            metric,
-            exclude_placement_id=placement.pk,
-        )
-        if not values and metrics.get(metric) is not None:
-            values = [float(metrics[metric])]
-            source = 'self_fallback'
-        norm[metric] = _median(values)
-        sources[metric] = source if values else 'missing'
-    norm['sources'] = sources
+    for metric in NORM_METRICS:
+        if len(mature[metric]) >= MIN_MATURE_GAMES_FOR_NORM:
+            values, source = mature[metric], 'mature'
+        elif available[metric]:
+            values, source = available[metric], 'available'
+        else:
+            values, source = [], 'missing'
+        typical[metric] = _median(values)
+        sources[metric] = source
+    payload = {**typical, 'sources': sources}
+    row, _created = GameDifficultyNorm.objects.get_or_create(game_id=game_id)
+    row.typical_time = typical['median_time']
+    row.typical_errors = typical['median_errors']
+    row.typical_help_rate = typical['help_rate']
+    row.typical_unfinished_rate = typical['unfinished_rate']
+    row.calculated_at = now
+    row.payload = payload
+    row.version = int(row.version or 0) + 1
+    row.save(update_fields=[
+        'typical_time', 'typical_errors', 'typical_help_rate',
+        'typical_unfinished_rate', 'calculated_at', 'payload', 'version',
+    ])
+    return row
+
+
+def refresh_stale_historical_norms(*, now=None, game_ids=None):
+    now = now or timezone.now()
+    stale_before = now - NORM_REFRESH_INTERVAL
+    refreshed = []
+    for game_id in tuple(game_ids or SUPPORTED_GAME_IDS):
+        row = GameDifficultyNorm.objects.filter(game_id=game_id).first()
+        if row is None or row.calculated_at is None or row.calculated_at <= stale_before:
+            refresh_historical_norm(game_id, now=now)
+            refreshed.append(game_id)
+    return refreshed
+
+
+def _norm_dict_from_row(row):
+    sources = ((row.payload or {}).get('sources') or {}) if row else {}
+    return {
+        'median_time': row.typical_time if row else None,
+        'median_errors': row.typical_errors if row else None,
+        'help_rate': row.typical_help_rate if row else None,
+        'unfinished_rate': row.typical_unfinished_rate if row else None,
+        'sources': sources,
+        'version': int(row.version or 0) if row else 0,
+    }
+
+
+def historical_norm(placement, metrics, *, now=None):
+    """Return the cached type-wide baseline, creating it once if missing."""
+    row = GameDifficultyNorm.objects.filter(game_id=placement.game_id).first()
+    if row is None:
+        row = refresh_historical_norm(placement.game_id, now=now)
+    norm = _norm_dict_from_row(row)
+    for metric in NORM_METRICS:
+        if norm.get(metric) is None and metrics.get(metric) is not None:
+            norm[metric] = float(metrics[metric])
+            norm.setdefault('sources', {})[metric] = 'self_fallback'
     return norm
 
 
@@ -425,11 +491,16 @@ def rate_difficulty_metrics(game_id, metrics, norm):
 
 
 def calculate_game_difficulty(placement, *, now=None, metrics=None, save=False):
-    """Calculate a structured rating for one ``GameTaskGroup`` placement."""
+    """Calculate a structured rating for one ``GameTaskGroup`` placement.
+
+    ``save=True`` is for admin/manual rebuilds. Request handlers must not call
+    this; they read ``DailyGameDifficulty`` via ``get_game_difficulty``.
+    """
     if placement.game_id not in SUPPORTED_GAME_IDS:
         return None
+    now = now or timezone.now()
     metrics = metrics or calculate_observed_metrics(placement, now=now)
-    norm = historical_norm(placement, metrics)
+    norm = historical_norm(placement, metrics, now=now)
     rating = rate_difficulty_metrics(placement.game_id, metrics, norm)
     result = {
         'game_id': placement.game_id,
@@ -438,49 +509,106 @@ def calculate_game_difficulty(placement, *, now=None, metrics=None, save=False):
         'n': metrics['n'],
         'metrics': metrics,
         'typical': norm,
+        'norm_version': int(norm.get('version') or 0),
         **rating,
     }
     if save:
-        snapshot, _ = DailyGameDifficulty.objects.update_or_create(
-            placement=placement,
-            defaults={
-                'n': result['n'],
-                'payload': result,
-                'stars': result['stars'] if result['is_visible'] else None,
-                'is_preliminary': result['is_preliminary'],
-                'dirty': False,
-                'calculated_at': now or timezone.now(),
-            },
-        )
-        result['snapshot_id'] = snapshot.pk
+        persist_difficulty_snapshot(placement, result, now=now, force=True)
     return result
+
+
+def _snapshot_write_defaults(placement, result, *, now, published_at=None, interval=None):
+    published_at = published_at if published_at is not None else published_at_for_placement(placement)
+    interval = interval or difficulty_refresh_interval(published_at, now)
+    return {
+        'n': result['n'],
+        'payload': result,
+        'stars': result['stars'] if result['is_visible'] else None,
+        'is_preliminary': result['is_preliminary'],
+        'calculated_at': now,
+        'published_at': published_at,
+        'norm_version': int(result.get('norm_version') or 0),
+        'refresh_not_before': now + interval,
+        'refresh_fail_count': 0,
+        'refresh_last_error': '',
+        'refresh_claim_token': None,
+        'refresh_claimed_until': None,
+    }
+
+
+def persist_difficulty_snapshot(
+    placement,
+    result,
+    *,
+    now=None,
+    claimed_revision=None,
+    claim_token=None,
+    force=False,
+):
+    """Write a calculated snapshot.
+
+    Cron workers pass ``claim_token`` so a stale worker cannot overwrite a
+    newer claim. ``dirty`` is cleared only when ``data_revision`` still equals
+    the revision this worker calculated; a newer attempt during calculation
+    keeps the row eligible.
+    """
+    now = now or timezone.now()
+    ensure_daily_difficulty_row(placement, now=now)
+    snapshot = DailyGameDifficulty.objects.filter(placement=placement).first()
+    if snapshot is None:
+        return 0
+    if claimed_revision is None:
+        claimed_revision = snapshot.data_revision
+    defaults = _snapshot_write_defaults(
+        placement,
+        result,
+        now=now,
+        published_at=snapshot.published_at,
+    )
+    defaults['calculated_revision'] = claimed_revision
+    defaults['dirty'] = Case(
+        When(data_revision=claimed_revision, then=Value(False)),
+        default=Value(True),
+        output_field=BooleanField(),
+    )
+    filters = {'pk': snapshot.pk}
+    if not force:
+        if claim_token is None:
+            return 0
+        filters['refresh_claim_token'] = claim_token
+    updated = DailyGameDifficulty.objects.filter(**filters).update(**defaults)
+    if updated:
+        result['snapshot_id'] = snapshot.pk
+    return updated
 
 
 def save_observed_metrics(placement, metrics, *, now=None):
     """First pass for bulk recalculation: persist facts before deriving norms."""
-    snapshot, _ = DailyGameDifficulty.objects.update_or_create(
-        placement=placement,
-        defaults={
-            'n': metrics['n'],
-            'payload': {
-                'game_id': placement.game_id,
-                'placement_id': placement.pk,
-                'number': placement.number,
-                'n': metrics['n'],
-                'metrics': metrics,
-            },
-            'stars': None,
-            'is_preliminary': False,
-            'dirty': True,
-            'calculated_at': now or timezone.now(),
-        },
+    now = now or timezone.now()
+    snapshot = ensure_daily_difficulty_row(placement, now=now)
+    payload = {
+        'game_id': placement.game_id,
+        'placement_id': placement.pk,
+        'number': placement.number,
+        'n': metrics['n'],
+        'metrics': metrics,
+    }
+    DailyGameDifficulty.objects.filter(pk=snapshot.pk).update(
+        n=metrics['n'],
+        payload=payload,
+        stars=None,
+        is_preliminary=False,
+        calculated_at=now,
+        dirty=True,
+        refresh_claim_token=None,
+        refresh_claimed_until=None,
     )
+    snapshot.n = metrics['n']
+    snapshot.payload = payload
     return snapshot
 
 
-def recalculate_all_daily_difficulties(*, game_ids=None, now=None):
-    """Two-pass rebuild so every rating sees the same observed history."""
-    now = now or timezone.now()
+def _supported_placements(*, game_ids=None):
     game_ids = tuple(game_ids or SUPPORTED_GAME_IDS)
     placements = list(
         GameTaskGroup.objects.filter(
@@ -494,33 +622,204 @@ def recalculate_all_daily_difficulties(*, game_ids=None, now=None):
         SUPPORTED_GAME_IDS.index(placement.game_id),
         placement.key_sort(),
     ))
+    return placements
+
+
+def published_at_for_placement(placement, *, now=None):
+    from games.daily_section import publish_at_for
+    return publish_at_for(placement.game, placement.number)
+
+
+def difficulty_refresh_interval(published_at, now):
+    """Maximum refresh frequency for a dirty game of this age.
+
+    Clean games are not recalculated merely because this interval elapsed.
+    """
+    if published_at is None:
+        return REFRESH_INTERVAL_OLD
+    age = now - published_at
+    if age < timedelta(0):
+        age = timedelta(0)
+    for max_age, interval in REFRESH_INTERVALS:
+        if age < max_age:
+            return interval
+    return REFRESH_INTERVAL_OLD
+
+
+def refresh_interval_for_age(age):
+    """Back-compat wrapper around ``difficulty_refresh_interval``."""
+    now = timezone.now()
+    published_at = None if age is None else now - max(age, timedelta(0))
+    return difficulty_refresh_interval(published_at, now)
+
+
+def retry_delay_for_fail_count(fail_count):
+    if fail_count <= 0:
+        return timedelta(0)
+    index = min(int(fail_count), len(REFRESH_RETRY_INTERVALS)) - 1
+    if fail_count > len(REFRESH_RETRY_INTERVALS):
+        return REFRESH_RETRY_INTERVAL_MAX
+    return REFRESH_RETRY_INTERVALS[index]
+
+
+def ensure_daily_difficulty_row(placement, *, now=None):
+    if placement is None or placement.game_id not in SUPPORTED_GAME_IDS:
+        return None
+    now = now or timezone.now()
+    published_at = published_at_for_placement(placement, now=now)
+    snapshot, created = DailyGameDifficulty.objects.get_or_create(
+        placement=placement,
+        defaults={
+            'data_revision': 1,
+            'calculated_revision': 0,
+            'dirty': True,
+            'published_at': published_at,
+            'refresh_not_before': published_at or now,
+        },
+    )
+    if not created and published_at and snapshot.published_at != published_at:
+        DailyGameDifficulty.objects.filter(pk=snapshot.pk).update(published_at=published_at)
+        snapshot.published_at = published_at
+    return snapshot
+
+
+def ensure_recent_difficulty_rows(*, now=None, game_ids=None):
+    """Create missing rows for recently published (and a few upcoming) editions."""
+    from games.daily_section import current_number_for
+    from games.models import Game
+
+    now = now or timezone.now()
+    created = 0
+    for game_id in tuple(game_ids or SUPPORTED_GAME_IDS):
+        game = Game.objects.filter(pk=game_id).first()
+        if game is None:
+            continue
+        current = current_number_for(game, now)
+        if current is None:
+            continue
+        lo = max(1, int(current) - RECENT_ENSURE_LOOKBACK_NUMBERS)
+        hi = int(current) + RECENT_ENSURE_AHEAD_NUMBERS
+        numbers = [str(number) for number in range(lo, hi + 1)]
+        placements = (
+            GameTaskGroup.objects.filter(game_id=game_id, number__in=numbers)
+            .select_related('game')
+        )
+        existing = set(
+            DailyGameDifficulty.objects.filter(
+                placement__game_id=game_id,
+                placement__number__in=numbers,
+            ).values_list('placement_id', flat=True)
+        )
+        for placement in placements:
+            if placement.pk in existing:
+                continue
+            ensure_daily_difficulty_row(placement, now=now)
+            created += 1
+    return created
+
+
+def backfill_daily_difficulty_rows(*, now=None, game_ids=None, dry_run=False):
+    now = now or timezone.now()
+    created = 0
+    for placement in _supported_placements(game_ids=game_ids):
+        exists = DailyGameDifficulty.objects.filter(placement=placement).exists()
+        if exists:
+            snapshot = DailyGameDifficulty.objects.filter(placement=placement).first()
+            published_at = published_at_for_placement(placement, now=now)
+            if not dry_run and published_at and snapshot.published_at != published_at:
+                DailyGameDifficulty.objects.filter(pk=snapshot.pk).update(
+                    published_at=published_at,
+                )
+            continue
+        created += 1
+        if not dry_run:
+            ensure_daily_difficulty_row(placement, now=now)
+    return created
+
+
+def snapshot_is_due(snapshot, *, now=None):
+    now = now or timezone.now()
+    if snapshot is None or not snapshot.dirty:
+        return False
+    if snapshot.refresh_not_before is not None and snapshot.refresh_not_before > now:
+        return False
+    if snapshot.refresh_claimed_until is not None and snapshot.refresh_claimed_until > now:
+        return False
+    return True
+
+
+def is_difficulty_refresh_due(placement, snapshot, *, now=None):
+    """Scheduler eligibility for an existing snapshot. Missing rows are not due."""
+    del placement
+    return snapshot_is_due(snapshot, now=now)
+
+
+def recalculate_all_daily_difficulties(*, game_ids=None, now=None, placement=None):
+    """Two-pass rebuild so every rating sees the same observed history."""
+    now = now or timezone.now()
+    if placement is not None:
+        placements = [placement]
+        game_ids = (placement.game_id,)
+    else:
+        placements = _supported_placements(game_ids=game_ids)
+    for row in placements:
+        ensure_daily_difficulty_row(row, now=now)
     observed = {}
-    for placement in placements:
-        metrics = calculate_observed_metrics(placement, now=now)
-        observed[placement.pk] = metrics
-        save_observed_metrics(placement, metrics, now=now)
-    return [
-        calculate_game_difficulty(
-            placement,
+    for row in placements:
+        metrics = calculate_observed_metrics(row, now=now)
+        observed[row.pk] = metrics
+        save_observed_metrics(row, metrics, now=now)
+    for game_id in tuple(game_ids or SUPPORTED_GAME_IDS):
+        refresh_historical_norm(game_id, now=now)
+    results = []
+    for row in placements:
+        result = calculate_game_difficulty(
+            row,
             now=now,
-            metrics=observed[placement.pk],
+            metrics=observed[row.pk],
             save=True,
         )
-        for placement in placements
-    ]
+        if result:
+            results.append(result)
+    return results
 
 
-def mark_daily_difficulty_dirty(*, task_id=None, game_id=None, task_group_id=None):
-    if game_id and game_id not in SUPPORTED_GAME_IDS:
-        return 0
+def _difficulty_queryset(*, task_id=None, game_id=None, task_group_id=None, placement_id=None):
     queryset = DailyGameDifficulty.objects.all()
+    if placement_id:
+        return queryset.filter(placement_id=placement_id)
     if game_id:
+        if game_id not in SUPPORTED_GAME_IDS:
+            return queryset.none()
         queryset = queryset.filter(placement__game_id=game_id)
     if task_group_id:
         queryset = queryset.filter(placement__task_group_id=task_group_id)
     elif task_id:
         queryset = queryset.filter(placement__task_group__tasks__id=task_id)
-    return queryset.update(dirty=True)
+    return queryset
+
+
+def mark_game_difficulty_changed(*, task_id=None, game_id=None, task_group_id=None, placement_id=None):
+    """Atomically bump ``data_revision`` so a later cron tick can refresh."""
+    queryset = _difficulty_queryset(
+        task_id=task_id,
+        game_id=game_id,
+        task_group_id=task_group_id,
+        placement_id=placement_id,
+    )
+    return queryset.update(
+        data_revision=F('data_revision') + 1,
+        dirty=True,
+    )
+
+
+def mark_daily_difficulty_dirty(*, task_id=None, game_id=None, task_group_id=None, placement_id=None):
+    return mark_game_difficulty_changed(
+        task_id=task_id,
+        game_id=game_id,
+        task_group_id=task_group_id,
+        placement_id=placement_id,
+    )
 
 
 def _public_context(result):
@@ -539,49 +838,57 @@ def _public_context(result):
     }
 
 
+def _snapshot_public_context(snapshot):
+    """Build a public badge from a stored row, even if payload omitted visibility."""
+    if snapshot is None:
+        return None
+    payload = dict(snapshot.payload or {})
+    if payload.get('stars') is None and snapshot.stars is not None:
+        payload['stars'] = snapshot.stars
+    if payload.get('n') is None:
+        payload['n'] = snapshot.n
+    if payload.get('is_preliminary') is None:
+        payload['is_preliminary'] = snapshot.is_preliminary
+    if payload.get('is_visible') is None:
+        payload['is_visible'] = bool(
+            payload.get('stars') is not None
+            and int(payload.get('n') or 0) >= MIN_DISPLAY_N
+        )
+    return _public_context(payload)
+
+
 def get_cached_game_difficulties(placements):
     """Return public difficulty contexts for a list without recalculating them."""
     placements = list(placements)
-    placement_ids = [
-        placement.pk
+    eligible = [
+        placement
         for placement in placements
         if placement.game_id in SUPPORTED_GAME_IDS
     ]
-    if not placement_ids:
+    if not eligible:
         return {}
     snapshots = DailyGameDifficulty.objects.filter(
-        placement_id__in=placement_ids,
-    ).only('placement_id', 'payload')
+        placement_id__in=[placement.pk for placement in eligible],
+    )
     result = {}
     for snapshot in snapshots:
-        context = _public_context(snapshot.payload or {})
+        context = _snapshot_public_context(snapshot)
         if context is not None:
             result[snapshot.placement_id] = context
     return result
 
 
 def get_game_difficulty(placement, *, force=False, now=None):
-    """Cheap page-read path backed by a persistent, throttled snapshot."""
+    """Read the stored public rating. Recalc only when ``force=True`` (admin)."""
     if placement is None or placement.game_id not in SUPPORTED_GAME_IDS:
         return None
-    now = now or timezone.now()
+    if force:
+        result = calculate_game_difficulty(placement, now=now, save=True)
+        return _public_context(result)
     snapshot = DailyGameDifficulty.objects.filter(placement=placement).first()
-    needs_refresh = force or snapshot is None
-    if snapshot is not None and snapshot.dirty:
-        needs_refresh = bool(
-            snapshot.calculated_at is None
-            or now - snapshot.calculated_at >= DIRTY_REFRESH_INTERVAL
-        )
-    if needs_refresh:
-        lock_key = 'daily-difficulty:refresh:{}'.format(placement.pk)
-        locked = cache.add(lock_key, 1, CACHE_LOCK_SECONDS)
-        if locked or snapshot is None:
-            try:
-                result = calculate_game_difficulty(placement, now=now, save=True)
-                return _public_context(result)
-            finally:
-                if locked:
-                    cache.delete(lock_key)
-    if snapshot is None:
-        return None
-    return _public_context(snapshot.payload or {})
+    return _snapshot_public_context(snapshot)
+
+
+def refresh_due_daily_difficulties(*, now=None, limit=DUE_REFRESH_LIMIT, game_ids=None, dry_run=False):
+    from games.difficulty_refresh import refresh_due_daily_difficulties as _refresh
+    return _refresh(now=now, limit=limit, game_ids=game_ids, dry_run=dry_run)

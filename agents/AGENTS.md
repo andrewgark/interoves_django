@@ -126,3 +126,7 @@ Auto-submit, контракт `/send_attempt/` и smoke перед деплое�
 ## Realtime / team synchronization
 
 For WebSocket, live task state, teammate synchronization, pending rechecks, and clock-driven UI changes, use the repo skill **`.cursor/skills/interoves-realtime/SKILL.md`** and read **[docs/realtime-architecture.md](../docs/realtime-architecture.md)**.
+
+## Daily-game difficulty cache
+
+Star ratings for ladder / alphabetty / salad are stored snapshots, refreshed by a minute cron (not on page load). See **[docs/difficulty-cache.md](../docs/difficulty-cache.md)**.

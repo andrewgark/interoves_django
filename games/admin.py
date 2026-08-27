@@ -46,6 +46,7 @@ from games.models import (
     PendingBugReport,
     Donation,
     DailyGameDifficulty,
+    GameDifficultyNorm,
     PendingTicketRequest,
     PlayerAnalyticsState,
     PlayerCompletedGame,
@@ -93,12 +94,16 @@ class DailyGameDifficultyAdmin(admin.ModelAdmin):
     list_display = (
         'placement', 'n', 'median_time', 'typical_time', 'time_ratio',
         'median_errors', 'help_rate', 'unfinished_rate', 'raw_rating',
-        'adjusted_rating', 'stars_display', 'is_preliminary', 'dirty', 'calculated_at',
+        'adjusted_rating', 'stars_display', 'is_preliminary', 'dirty',
+        'data_revision', 'calculated_revision', 'refresh_not_before', 'calculated_at',
     )
     list_filter = ('placement__game', 'is_preliminary', 'dirty', 'stars')
     search_fields = ('placement__number', 'placement__name', 'placement__game__name')
     readonly_fields = (
         'placement', 'n', 'payload', 'stars', 'is_preliminary', 'dirty', 'calculated_at',
+        'published_at', 'data_revision', 'calculated_revision', 'refresh_not_before',
+        'refresh_claim_token', 'refresh_claimed_until', 'refresh_fail_count',
+        'refresh_last_error', 'norm_version',
         'median_time', 'typical_time', 'time_ratio', 'median_errors', 'typical_errors',
         'error_ratio', 'help_rate', 'typical_help_rate', 'unfinished_rate',
         'typical_unfinished_rate', 'raw_rating', 'adjusted_rating', 'component_scores',
@@ -166,6 +171,21 @@ class DailyGameDifficultyAdmin(admin.ModelAdmin):
         return '{}{}'.format('★' * obj.stars, '☆' * (5 - obj.stars))
 
     stars_display.short_description = 'Звёзды'
+
+
+@admin.register(GameDifficultyNorm)
+class GameDifficultyNormAdmin(admin.ModelAdmin):
+    list_display = (
+        'game_id', 'typical_time', 'typical_errors', 'typical_help_rate',
+        'typical_unfinished_rate', 'version', 'calculated_at',
+    )
+    readonly_fields = (
+        'game_id', 'typical_time', 'typical_errors', 'typical_help_rate',
+        'typical_unfinished_rate', 'version', 'calculated_at', 'payload',
+    )
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(AccountMerge)

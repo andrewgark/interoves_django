@@ -6,6 +6,7 @@ from games.difficulty import (
     SUPPORTED_GAME_IDS,
     recalculate_all_daily_difficulties,
 )
+from games.models import DailyGameDifficulty, GameTaskGroup
 
 
 def _fmt(value, digits=2):
@@ -15,7 +16,7 @@ def _fmt(value, digits=2):
 
 
 class Command(BaseCommand):
-    help = 'Recalculate cached difficulty for Ladder, Alphabetty and Salad editions.'
+    help = 'Manually rebuild cached difficulty for Ladder, Alphabetty and Salad editions.'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -24,6 +25,18 @@ class Command(BaseCommand):
             choices=SUPPORTED_GAME_IDS,
             dest='games',
             help='Limit to one game id; may be repeated.',
+        )
+        parser.add_argument(
+            '--all',
+            action='store_true',
+            dest='rebuild_all',
+            help='Rebuild every supported edition (default when no placement is given).',
+        )
+        parser.add_argument(
+            '--placement-id',
+            type=int,
+            dest='placement_id',
+            help='Rebuild a single GameTaskGroup placement.',
         )
         parser.add_argument('--json', action='store_true', dest='as_json')
         parser.add_argument(
@@ -37,8 +50,25 @@ class Command(BaseCommand):
         min_n = options['min_n']
         if min_n < 0:
             raise CommandError('--min-n must be non-negative')
-        results = recalculate_all_daily_difficulties(game_ids=options.get('games'))
-        shown = [row for row in results if row['n'] >= min_n]
+        placement = None
+        placement_id = options.get('placement_id')
+        if placement_id:
+            placement = GameTaskGroup.objects.filter(pk=placement_id).select_related(
+                'game', 'task_group',
+            ).first()
+            if placement is None:
+                raise CommandError('Unknown placement id {}'.format(placement_id))
+            snapshot = DailyGameDifficulty.objects.filter(placement=placement).first()
+            if snapshot is not None:
+                DailyGameDifficulty.objects.filter(pk=snapshot.pk).update(
+                    refresh_claim_token=None,
+                    refresh_claimed_until=None,
+                )
+        results = recalculate_all_daily_difficulties(
+            game_ids=options.get('games'),
+            placement=placement,
+        )
+        shown = [row for row in results if row and row['n'] >= min_n]
         if options['as_json']:
             self.stdout.write(json.dumps(shown, ensure_ascii=False, sort_keys=True))
             return

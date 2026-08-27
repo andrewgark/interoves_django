@@ -144,15 +144,17 @@ class LadderSectionPageTests(TestCase):
                 '"words":["ПАРИЖ","ФРАНЦИЯ","ДАКАР"]}'
             ),
         )
-        DailyGameDifficulty.objects.create(
+        DailyGameDifficulty.objects.update_or_create(
             placement=link,
-            n=20,
-            stars=4,
-            payload={
+            defaults={
                 'n': 20,
                 'stars': 4,
-                'is_visible': True,
-                'is_preliminary': False,
+                'payload': {
+                    'n': 20,
+                    'stars': 4,
+                    'is_visible': True,
+                    'is_preliminary': False,
+                },
             },
         )
 

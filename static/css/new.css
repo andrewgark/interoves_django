@@ -8226,6 +8226,13 @@ html.new-ui-dark .new-proportions-attempts-popover::backdrop {
   min-width: 0.25rem;
 }
 
+.new-proportions-compact-bar__aside {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.45rem;
+}
+
 .new-proportions-compact-img {
   margin-top: 0.35rem;
 }
