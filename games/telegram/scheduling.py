@@ -569,6 +569,15 @@ def process_game_announcements(now=None) -> dict[str, int]:
         logger.exception('Salad channel tick failed')
         stats['salad_scheduled'] = 0
 
+    try:
+        from games.telegram.daily_review import process_daily_review_tick
+
+        review_stats = process_daily_review_tick(now=now)
+        stats['daily_review_sent'] = review_stats.get('sent', 0)
+    except Exception:
+        logger.exception('Daily admin review tick failed')
+        stats['daily_review_sent'] = 0
+
     # Алфавитка / задание недели: около полуночи МСК досэмплить буфер.
     stats['alphabetty_buffer_added'] = 0
     stats['week_task_buffer_added'] = 0

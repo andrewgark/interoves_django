@@ -39,3 +39,18 @@ class TelegramGameAnnouncement(models.Model):
 
     def __str__(self):
         return '{} [{}]'.format(self.game_id, self.kind)
+
+
+class TelegramDailyReview(models.Model):
+    """One admin review notification per Moscow publication date."""
+
+    review_date = models.DateField(unique=True)
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-review_date']
+        verbose_name = 'Telegram-проверка ежедневных заданий'
+        verbose_name_plural = 'Telegram-проверки ежедневных заданий'
+
+    def __str__(self):
+        return 'Daily review {}'.format(self.review_date.isoformat())
