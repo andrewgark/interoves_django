@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 
+from games.telegram.cron_lock import telegram_cron_lock
 from games.telegram.scheduling import process_game_announcements
 
 
@@ -7,7 +8,12 @@ class Command(BaseCommand):
     help = 'Send scheduled Telegram game announcements (chat mode) and admin start-soon reminders.'
 
     def handle(self, *args, **options):
-        stats = process_game_announcements()
+        with telegram_cron_lock() as acquired:
+            if not acquired:
+                self.stdout.write('telegram cron skipped: lock held')
+                return
+            self.stdout.write('telegram cron lock acquired')
+            stats = process_game_announcements()
         self.stdout.write(
             'Announcements sent: day_before={day_before}, hour_before={hour_before}, '
             'start={start}, end_soon_15={end_soon_15}, end={end}, '

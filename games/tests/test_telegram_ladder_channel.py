@@ -143,6 +143,40 @@ class LadderChannelScheduleTests(TestCase):
         mtproto_mock.assert_called_once()
 
     @patch('games.telegram.ladder_channel.send_photo')
+    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
+    def test_parallel_schedule_interleaving_sends_once(
+        self, render_mock, mtproto_mock, admin_photo_mock,
+    ):
+        mtproto_mock.return_value = {'message_id': 71, 'scheduled': True}
+        admin_photo_mock.return_value = {'message_id': 1}
+        nested_results = []
+
+        def render_with_second_invocation(*args, **kwargs):
+            nested_results.append(
+                schedule_ladder_channel_post(
+                    now=self.now,
+                    force=False,
+                    notify_admin=True,
+                )
+            )
+            return _tiny_png_bytes(120, 160)
+
+        render_mock.side_effect = render_with_second_invocation
+        post = schedule_ladder_channel_post(
+            now=self.now,
+            force=False,
+            notify_admin=True,
+        )
+
+        self.assertEqual(len(nested_results), 1)
+        self.assertEqual(nested_results[0].pk, post.pk)
+        self.assertEqual(post.telegram_status, SocialQueuePost.STATUS_SCHEDULED)
+        render_mock.assert_called_once()
+        mtproto_mock.assert_called_once()
+        admin_photo_mock.assert_called_once()
+
+    @patch('games.telegram.ladder_channel.send_photo')
     @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
     def test_preview_ladder_to_admin(self, render_mock, send_photo_mock):
         from games.telegram.ladder_channel import preview_ladder_to_admin
@@ -321,7 +355,11 @@ class SocialPublishRetryTests(TestCase):
 
         self.assertTrue(_publish_one_queued_worker('twitter', self.post.pk))
 
-        publish_mock.assert_called_once_with('twitter', self.post.pk)
+        publish_mock.assert_called_once_with(
+            'twitter',
+            self.post.pk,
+            telegram_claim_token=None,
+        )
         close_mock.assert_called_once_with()
 
     def test_failed_network_is_requeued_up_to_attempt_limit(self):
@@ -382,6 +420,150 @@ class SocialQueueClaimTests(TestCase):
             updated_at=now - QUEUE_CLAIM_TIMEOUT - timedelta(minutes=1),
         )
         self.assertTrue(_claim_queued_post('twitter', self.post.pk, now))
+
+
+@override_settings(
+    TELEGRAM_BOT_TOKEN='test-token',
+    TELEGRAM_ADMIN_CHAT_ID='12345',
+    TELEGRAM_CHANNEL_CHAT_ID='@interoves',
+    TELEGRAM_API_ID=12345,
+    TELEGRAM_API_HASH='hash',
+    TELEGRAM_USER_SESSION='session-string',
+    SITE_BASE_URL='https://interoves.com',
+)
+class TelegramClaimTests(TestCase):
+    def setUp(self):
+        self.now = datetime(2026, 7, 8, 16, 30, tzinfo=ZoneInfo('Europe/Moscow'))
+        self.post = SocialQueuePost.objects.create(
+            source=SocialQueuePost.SOURCE_MANUAL,
+            caption='telegram claim',
+            telegram_status=SocialQueuePost.STATUS_PENDING,
+        )
+        self.post.image.save('tg-claim.png', ContentFile(_tiny_png_bytes()), save=True)
+
+    def test_old_post_age_does_not_make_fresh_claim_stale(self):
+        from games.social.publish import claim_telegram_post
+
+        SocialQueuePost.objects.filter(pk=self.post.pk).update(
+            created_at=self.now - timedelta(hours=12),
+            updated_at=self.now - timedelta(hours=12),
+            telegram_status=SocialQueuePost.STATUS_QUEUED,
+            telegram_queued_for=self.now,
+        )
+
+        token = claim_telegram_post(
+            self.post.pk,
+            now=self.now,
+            queued_only=True,
+        )
+
+        self.assertTrue(token)
+        self.assertIsNone(claim_telegram_post(
+            self.post.pk,
+            now=self.now,
+            queued_only=True,
+        ))
+
+    @patch('games.social.publish.schedule_channel_photo_sync')
+    def test_two_claimers_only_send_once(self, telegram_mock):
+        from games.social.publish import claim_telegram_post, publish_telegram
+
+        telegram_mock.return_value = {'message_id': 501, 'scheduled': False}
+        first_token = claim_telegram_post(self.post.pk, now=self.now)
+        second_token = claim_telegram_post(self.post.pk, now=self.now)
+
+        self.assertTrue(first_token)
+        self.assertIsNone(second_token)
+        publish_telegram(
+            self.post,
+            immediate=True,
+            claim_token=first_token,
+        )
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.telegram_status, SocialQueuePost.STATUS_SENT)
+        self.assertEqual(self.post.telegram_attempts, 1)
+        telegram_mock.assert_called_once()
+
+    def test_stale_claim_can_be_reclaimed(self):
+        from games.social.publish import QUEUE_CLAIM_TIMEOUT, claim_telegram_post
+
+        token_a = claim_telegram_post(self.post.pk, now=self.now)
+        token_b = claim_telegram_post(
+            self.post.pk,
+            now=self.now + QUEUE_CLAIM_TIMEOUT + timedelta(seconds=1),
+        )
+
+        self.assertTrue(token_a)
+        self.assertTrue(token_b)
+        self.assertNotEqual(token_a, token_b)
+
+    @patch('games.social.publish.schedule_channel_photo_sync')
+    def test_queue_tick_discovers_and_reclaims_stale_publish(self, telegram_mock):
+        from games.social.publish import QUEUE_CLAIM_TIMEOUT, process_social_queue_tick
+
+        telegram_mock.return_value = {'message_id': 601, 'scheduled': False}
+        SocialQueuePost.objects.filter(pk=self.post.pk).update(
+            telegram_status=SocialQueuePost.STATUS_PUBLISHING,
+            telegram_queued_for=self.now - timedelta(minutes=1),
+            telegram_claimed_at=self.now - QUEUE_CLAIM_TIMEOUT - timedelta(seconds=1),
+            telegram_claim_token='stale-token',
+        )
+
+        stats = process_social_queue_tick(now=self.now)
+
+        self.post.refresh_from_db()
+        self.assertEqual(stats['telegram'], 1)
+        self.assertEqual(self.post.telegram_status, SocialQueuePost.STATUS_SENT)
+        self.assertEqual(self.post.telegram_external_id, '601')
+        telegram_mock.assert_called_once()
+
+    def test_fresh_claim_cannot_be_reclaimed(self):
+        from games.social.publish import claim_telegram_post
+
+        token_a = claim_telegram_post(self.post.pk, now=self.now)
+        token_b = claim_telegram_post(
+            self.post.pk,
+            now=self.now + timedelta(minutes=1),
+        )
+
+        self.assertTrue(token_a)
+        self.assertIsNone(token_b)
+
+    def test_claim_token_fences_stale_completion(self):
+        from games.social.publish import (
+            QUEUE_CLAIM_TIMEOUT,
+            claim_telegram_post,
+            complete_telegram_publish,
+        )
+
+        token_a = claim_telegram_post(self.post.pk, now=self.now)
+        token_b = claim_telegram_post(
+            self.post.pk,
+            now=self.now + QUEUE_CLAIM_TIMEOUT + timedelta(seconds=1),
+        )
+
+        self.assertFalse(complete_telegram_publish(
+            self.post.pk,
+            token_a,
+            status=SocialQueuePost.STATUS_FAILED,
+            error='late worker A',
+        ))
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.telegram_status, SocialQueuePost.STATUS_PUBLISHING)
+        self.assertEqual(self.post.telegram_claim_token, token_b)
+
+        self.assertTrue(complete_telegram_publish(
+            self.post.pk,
+            token_b,
+            status=SocialQueuePost.STATUS_SENT,
+            external_id='777',
+            telegram_at=self.now,
+        ))
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.telegram_status, SocialQueuePost.STATUS_SENT)
+        self.assertEqual(self.post.telegram_external_id, '777')
+        self.assertEqual(self.post.telegram_claim_token, '')
+        self.assertIsNone(self.post.telegram_claimed_at)
 
 
 class EnsurePlaywrightBrowsersPathTests(TestCase):

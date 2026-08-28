@@ -13,7 +13,13 @@ from django.utils import timezone
 
 from games.models import Game, GameTaskGroup, Task
 from games.social.models import SocialQueuePost
-from games.social.publish import publish_telegram, queue_network
+from games.social.publish import (
+    claim_telegram_post,
+    complete_telegram_publish,
+    publish_telegram,
+    queue_network,
+    update_claimed_telegram_post,
+)
 from games.telegram.api import send_photo
 from games.telegram.config import (
     admin_chat_id,
@@ -171,13 +177,6 @@ def preview_salad_to_admin(*, now: datetime | None = None) -> tuple[bool, str]:
     )
 
 
-def _is_preparing(post: SocialQueuePost) -> bool:
-    return (
-        post.telegram_status == SocialQueuePost.STATUS_PENDING
-        and post.telegram_error == 'preparing'
-    )
-
-
 def _queue_x_ig_for_salad(
     post: SocialQueuePost,
     run_at: datetime,
@@ -246,14 +245,6 @@ def schedule_salad_channel_post(
     if existing and existing.telegram_ok and not force:
         _maybe_finish_other_networks(existing, force=False)
         return existing
-    if (
-        existing
-        and not force
-        and _is_preparing(existing)
-        and (timezone.now() - existing.created_at) < timedelta(minutes=2)
-    ):
-        return existing
-
     if existing is None:
         try:
             with transaction.atomic():
@@ -264,7 +255,6 @@ def schedule_salad_channel_post(
                     play_url=salad.play_url,
                     caption='',
                     telegram_status=SocialQueuePost.STATUS_PENDING,
-                    telegram_error='preparing',
                 )
         except IntegrityError:
             existing = SocialQueuePost.objects.filter(
@@ -274,8 +264,16 @@ def schedule_salad_channel_post(
             if existing and existing.telegram_ok and not force:
                 _maybe_finish_other_networks(existing, force=False)
                 return existing
-            if existing and not force and _is_preparing(existing):
-                return existing
+
+    if existing is None:
+        return None
+
+    claim_token = claim_telegram_post(existing.pk, force=force)
+    if claim_token is None:
+        existing.refresh_from_db()
+        if existing.telegram_ok and not force:
+            _maybe_finish_other_networks(existing, force=False)
+        return existing
 
     try:
         image_png = render_word_salad_teaser_png(
@@ -286,23 +284,30 @@ def schedule_salad_channel_post(
         caption = build_caption(salad)
     except Exception:
         logger.exception('Salad channel render failed for №%s', salad.number)
-        if existing:
-            existing.ladder_number = salad.number
-            existing.play_url = salad.play_url
-            existing.telegram_status = SocialQueuePost.STATUS_FAILED
-            existing.telegram_error = 'render failed'
-            existing.save(update_fields=[
-                'ladder_number', 'play_url', 'telegram_status', 'telegram_error', 'updated_at',
-            ])
-            return existing
-        return None
+        complete_telegram_publish(
+            existing.pk,
+            claim_token,
+            status=SocialQueuePost.STATUS_FAILED,
+            error='render failed',
+        )
+        existing.refresh_from_db()
+        return existing
 
     existing.ladder_number = salad.number
     existing.play_url = salad.play_url
     existing.caption = caption
     existing.set_image_bytes(image_png, filename='salad-{}.png'.format(salad.number))
-    existing.telegram_error = ''
-    existing.save()
+    if not update_claimed_telegram_post(
+        existing.pk,
+        claim_token,
+        ladder_number=salad.number,
+        play_url=salad.play_url,
+        caption=caption,
+        image=existing.image.name,
+    ):
+        existing.refresh_from_db()
+        return existing
+    existing.refresh_from_db()
 
     schedule_at = None if immediate else publish_at_for_date(salad.salad_date)
     msk = moscow_now(now)
@@ -312,12 +317,14 @@ def schedule_salad_channel_post(
             'Use --now only if you really want to publish now.'.format(salad.salad_date)
         )
         logger.warning(error)
-        existing.telegram_status = SocialQueuePost.STATUS_FAILED
-        existing.telegram_error = error
-        existing.telegram_scheduled_for = schedule_at
-        existing.save(update_fields=[
-            'telegram_status', 'telegram_error', 'telegram_scheduled_for', 'updated_at',
-        ])
+        complete_telegram_publish(
+            existing.pk,
+            claim_token,
+            status=SocialQueuePost.STATUS_FAILED,
+            error=error,
+            scheduled_for=schedule_at,
+        )
+        existing.refresh_from_db()
         return existing
 
     publish_telegram(
@@ -325,10 +332,19 @@ def schedule_salad_channel_post(
         immediate=immediate,
         schedule_at=schedule_at,
         force=force,
+        claim_token=claim_token,
+    )
+    completed_by_caller = bool(
+        getattr(existing, '_telegram_completion_applied', False)
     )
     existing.refresh_from_db()
 
-    if notify_admin and telegram_admin_configured() and existing.telegram_ok:
+    if (
+        completed_by_caller
+        and notify_admin
+        and telegram_admin_configured()
+        and existing.telegram_ok
+    ):
         when = (
             'сразу'
             if existing.telegram_status == SocialQueuePost.STATUS_SENT

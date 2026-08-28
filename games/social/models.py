@@ -78,6 +78,12 @@ class SocialQueuePost(models.Model):
         blank=True,
         help_text='Internal schedule: minute cron publishes to the channel at this time',
     )
+    telegram_claimed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Lease timestamp for an in-progress Telegram delivery',
+    )
+    telegram_claim_token = models.CharField(max_length=32, blank=True, default='')
     telegram_attempts = models.PositiveSmallIntegerField(default=0)
 
     twitter_status = models.CharField(

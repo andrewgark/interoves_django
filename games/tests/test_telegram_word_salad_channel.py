@@ -189,6 +189,40 @@ class SaladChannelScheduleTests(TestCase):
         self.assertEqual(stats['scheduled'], 1)
         mtproto_mock.assert_called_once()
 
+    @patch('games.telegram.word_salad_channel.send_photo')
+    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.telegram.word_salad_channel.render_word_salad_teaser_png')
+    def test_parallel_schedule_interleaving_sends_once(
+        self, render_mock, mtproto_mock, admin_photo_mock,
+    ):
+        mtproto_mock.return_value = {'message_id': 72, 'scheduled': True}
+        admin_photo_mock.return_value = {'message_id': 1}
+        nested_results = []
+
+        def render_with_second_invocation(*args, **kwargs):
+            nested_results.append(
+                schedule_salad_channel_post(
+                    now=self.now,
+                    force=False,
+                    notify_admin=True,
+                )
+            )
+            return _tiny_png_bytes(120, 160)
+
+        render_mock.side_effect = render_with_second_invocation
+        post = schedule_salad_channel_post(
+            now=self.now,
+            force=False,
+            notify_admin=True,
+        )
+
+        self.assertEqual(len(nested_results), 1)
+        self.assertEqual(nested_results[0].pk, post.pk)
+        self.assertEqual(post.telegram_status, SocialQueuePost.STATUS_SCHEDULED)
+        render_mock.assert_called_once()
+        mtproto_mock.assert_called_once()
+        admin_photo_mock.assert_called_once()
+
     @patch('games.social.publish.schedule_channel_photo_sync')
     @patch('games.telegram.word_salad_channel.render_word_salad_teaser_png')
     def test_schedule_refuses_after_1430(self, render_mock, mtproto_mock):

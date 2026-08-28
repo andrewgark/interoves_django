@@ -1295,7 +1295,12 @@ class SocialQueuePostAdmin(admin.ModelAdmin):
         'instagram_status',
     ]
     search_fields = ['caption', 'ladder_number', 'play_url', 'telegram_external_id', 'twitter_external_id']
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = [
+        'created_at',
+        'updated_at',
+        'telegram_claimed_at',
+        'telegram_claim_token',
+    ]
     date_hierarchy = 'created_at'
 
     def caption_short(self, obj):

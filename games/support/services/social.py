@@ -215,11 +215,15 @@ def update_post(
     caption: str | None = None,
     image_file=None,
 ) -> SocialQueuePost:
+    update_fields = []
     if caption is not None:
         post.caption = caption.strip()
+        update_fields.append('caption')
     if image_file is not None:
         post.image = image_file
-    post.save()
+        update_fields.append('image')
+    if update_fields:
+        post.save(update_fields=[*update_fields, 'updated_at'])
     return post
 
 
