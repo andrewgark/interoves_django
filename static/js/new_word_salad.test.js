@@ -151,6 +151,22 @@ function escapeEvent(overrides) {
   assert.strictEqual(answer.changed, false);
 })();
 
+(function testDelayedExtraCommitOnlyForUnchangedReleasedPath() {
+  assert.strictEqual(Path.EXTRA_COMMIT_DELAY_MS, 500);
+  assert.strictEqual(Path.shouldCommitExtra('0,1,2,3', '0,1,2,3', false, true), true);
+  assert.strictEqual(
+    Path.shouldCommitExtra('0,1,2,3', '0,1,2,3,4', false, true),
+    false,
+    'an intermediate word must be discarded when the line continues'
+  );
+  assert.strictEqual(
+    Path.shouldCommitExtra('0,1,2,3', '0,1,2,3', true, true),
+    false,
+    'an extra word must not appear while the player is still dragging'
+  );
+  assert.strictEqual(Path.shouldCommitExtra('0,1,2,3', '0,1,2,3', false, false), false);
+})();
+
 (function testAnswerFeedback() {
   assert.deepStrictEqual(Path.feedbackForResult('correct', 'ёжик'), {
     word: 'ЁЖИК',

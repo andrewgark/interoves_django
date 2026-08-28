@@ -81,6 +81,11 @@
   }
 
   var EXTRA_MIN_LENGTH = 3;
+  var EXTRA_COMMIT_DELAY_MS = 500;
+
+  function shouldCommitExtraWord(pathKey, currentPathKey, isDragging, isConnected) {
+    return !!pathKey && pathKey === currentPathKey && !isDragging && isConnected !== false;
+  }
 
   function rememberExtraWord(words, word, answers) {
     word = normalizeWord(word);
@@ -298,6 +303,9 @@
       var extraWords = [];
       var latestExtra = '';
       var extrasAnimateWord = '';
+      var pendingExtraTimer = 0;
+      var pendingExtraPathKey = '';
+      var pendingExtraWord = '';
       var gridEl = root.querySelector('[data-word-salad-grid]');
       var pathSvg = root.querySelector('[data-word-salad-path-svg]');
       var pathLine = root.querySelector('[data-word-salad-path-line]');
@@ -439,6 +447,7 @@
       }
 
       function clearSelection() {
+        cancelPendingExtraWord();
         currentPath = [];
         attemptedPaths = {};
         lastRejectedPathKey = '';
@@ -450,6 +459,7 @@
         var changed = next !== currentPath;
         clearSingleOnRelease = !!nextClearOnRelease;
         if (!changed) return;
+        cancelPendingExtraWord();
         if (next.length < currentPath.length) attemptedPaths = {};
         currentPath = next;
         renderSelection();
@@ -478,6 +488,7 @@
           return;
         }
         maybeCheck({ fromRelease: true });
+        schedulePendingExtraWord();
       }
 
       function wordRows(selector) {
@@ -570,6 +581,40 @@
         renderExtraWords();
       }
 
+      function cancelPendingExtraWord() {
+        if (pendingExtraTimer) window.clearTimeout(pendingExtraTimer);
+        pendingExtraTimer = 0;
+        pendingExtraPathKey = '';
+        pendingExtraWord = '';
+      }
+
+      function schedulePendingExtraWord() {
+        if (!pendingExtraWord || pendingExtraTimer || activeDragRoot === root) return;
+        pendingExtraTimer = window.setTimeout(function () {
+          pendingExtraTimer = 0;
+          if (!shouldCommitExtraWord(
+            pendingExtraPathKey,
+            currentPath.join(','),
+            activeDragRoot === root,
+            root.isConnected
+          )) {
+            cancelPendingExtraWord();
+            return;
+          }
+          var word = pendingExtraWord;
+          pendingExtraPathKey = '';
+          pendingExtraWord = '';
+          addExtraWord(word);
+        }, EXTRA_COMMIT_DELAY_MS);
+      }
+
+      function queueExtraWord(pathKey, word) {
+        cancelPendingExtraWord();
+        pendingExtraPathKey = pathKey || '';
+        pendingExtraWord = normalizeWord(word);
+        schedulePendingExtraWord();
+      }
+
       function setChecking(checking) {
         root.classList.toggle('is-checking', !!checking);
         if (checking) root.setAttribute('aria-busy', 'true');
@@ -579,13 +624,13 @@
       function finishWrong(pathKey, extraWord) {
         busy = false;
         setChecking(false);
-        if (extraWord) addExtraWord(extraWord);
         lastRejectedPathKey = pathKey || currentPath.join(',');
         if (currentPath.join(',') !== lastRejectedPathKey) {
           renderSelection();
           maybeCheck();
           return;
         }
+        if (extraWord) queueExtraWord(lastRejectedPathKey, extraWord);
         renderSelection();
       }
 
@@ -772,6 +817,7 @@
           }
           var taskId = root.getAttribute('data-task-id') || '';
           activeDragRoot = null;
+          cancelPendingExtraWord();
           if (data.update_task_html_new && typeof window.applyNewUiTaskHtml === 'function') {
             window.applyNewUiTaskHtml(data.update_task_html_new);
             showAnswerToast(
@@ -925,9 +971,11 @@
     endPress: endWordSaladPress,
     shouldHandleEscape: shouldHandleWordSaladEscape,
     rememberExtra: rememberExtraWord,
+    shouldCommitExtra: shouldCommitExtraWord,
     feedbackForResult: feedbackForResult,
     flushAnalyticsEvents: flushAnalyticsEvents,
-    EXTRA_MIN_LENGTH: EXTRA_MIN_LENGTH
+    EXTRA_MIN_LENGTH: EXTRA_MIN_LENGTH,
+    EXTRA_COMMIT_DELAY_MS: EXTRA_COMMIT_DELAY_MS
   };
   global.initWordSalad = initWordSalad;
   if (global.document) {
