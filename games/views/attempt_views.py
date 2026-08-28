@@ -381,6 +381,7 @@ def process_send_attempt(request, task_id):
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
             raise NoGameAccessException('User has no access to game {}'.format(game))
 
+    is_game_start_interaction = False
     if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         form = AttemptForm(request.POST)
         if not form.is_valid():
@@ -477,6 +478,9 @@ def process_send_attempt(request, task_id):
             if not path:
                 return {'status': 'empty'}
             attempt = Attempt(text=json.dumps({'action': 'solve', 'path': path}))
+            # Wrong/extra Salad paths are deliberately not persisted, but a
+            # submitted non-empty path is still a real gameplay interaction.
+            is_game_start_interaction = True
     elif task.task_type == 'grid-puzzle':
         try:
             puzzle = parse_grid_puzzle_data(task.checker_data)
@@ -532,7 +536,7 @@ def process_send_attempt(request, task_id):
             create_hint_attempt(hint, team=team, user=user, anon_key=anon_key, game=game)
 
     analytics_events = []
-    if attempt_persisted:
+    if attempt_persisted or is_game_start_interaction:
         analytics_events.extend(register_started_game(
             team=team,
             user=user,

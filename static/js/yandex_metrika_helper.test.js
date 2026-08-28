@@ -103,6 +103,42 @@ function memoryStorage() {
   assert.deepStrictEqual(received[0].detail.goals, goals);
 })();
 
+(function testAuthoritativeGoalsDispatchBeforeConsumerFollowup() {
+  var calls = [];
+  var helper;
+  var fakeWindow = {
+    interovesAnalyticsConfig: { yandexCounterId: 108320022 },
+    ym: function () { calls.push([].slice.call(arguments)); },
+    CustomEvent: function (type, options) {
+      this.type = type;
+      this.detail = options.detail;
+    },
+    dispatchEvent: function (event) {
+      if (event.type === 'interoves:analytics-goals') {
+        helper.trackYandexGoalOnce(
+          'onboarding-complete:test',
+          'onboarding_first_game_complete',
+          { game: 'salad' }
+        );
+      }
+    },
+  };
+  fakeTimers(fakeWindow);
+  helper = loadHelperWithWindow(fakeWindow);
+  helper.markYandexReady();
+
+  helper.flushPendingGoals([
+    { key: 'start:test', goal: 'game_start', params: { game: 'salad', game_id: '4' } },
+    { key: 'complete:test', goal: 'game_complete', params: { game: 'salad', game_id: '4' } },
+  ]);
+
+  assert.deepStrictEqual(calls.map(function (call) { return call[2]; }), [
+    'game_start',
+    'game_complete',
+    'onboarding_first_game_complete',
+  ]);
+})();
+
 (function testPendingGoalSurvivesReloadAndAckIsPostedAfterCallback() {
   var store = memoryStorage();
   var first = {

@@ -33,6 +33,7 @@ funnel.
 
 ## What counts as `game_start`
 
+- `salad`: первая отправленная непустая дорожка по сетке (включая неверное слово/находку не по теме) или буквенная подсказка.
 - `ladder`: первый реальный игровой запрос по лесенке, то есть отправка слова или использование raddle-подсказки.
 - `alphabet`: первая отправка слова или первая буквенная подсказка.
 - `replacement`: первая отправка строки на проверку.
@@ -64,6 +65,7 @@ and never emit historical Yandex goals.
 
 ## What counts as `game_complete`
 
+- `salad`: после сохранения последнего ещё не найденного слова серверное состояние содержит все ответы конкретного Салатика.
 - `ladder`: серверное состояние raddle впервые стало полным, то есть решены все слова конкретной лесенки.
 - `alphabet`: `won=true` для конкретной алфавитки.
 - `replacement`: впервые решены все строки конкретного задания `replacements_lines`.
@@ -71,6 +73,14 @@ and never emit historical Yandex goals.
 `game_complete` дедуплицируется по уникальному игровому инстансу `game.id + task_group`.
 Исторические completion-записи помечаются `is_backfilled` и не отправляются задним
 числом. Новое завершение повторяется до callback-ack Метрики.
+
+## Local delivery debug
+
+Добавьте `?analytics_debug=1` к локальной или тестовой странице. Helper сохранит
+debug-флаг в `localStorage` и будет писать в console только безопасные поля: фазу
+доставки, event, timestamp, pathname, game/game_id и краткий onboarding context.
+`?analytics_debug=0` выключает и удаляет флаг. По умолчанию production console
+остаётся без analytics-логов.
 
 ## Activation
 

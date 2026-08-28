@@ -166,4 +166,19 @@ function escapeEvent(overrides) {
   });
 })();
 
+(function testServerAnalyticsEventsAreForwarded() {
+  var received = null;
+  global.interovesAnalytics = {
+    flushPendingGoals: function (events) { received = events; }
+  };
+  var events = [
+    { goal: 'game_start', params: { game: 'salad', game_id: '4' } },
+    { goal: 'game_complete', params: { game: 'salad', game_id: '4' } }
+  ];
+
+  assert.strictEqual(Path.flushAnalyticsEvents(events), true);
+  assert.strictEqual(received, events);
+  delete global.interovesAnalytics;
+})();
+
 console.log('new_word_salad.test.js: ok');

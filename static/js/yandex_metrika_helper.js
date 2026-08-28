@@ -13,6 +13,7 @@
   var MAX_RETRY_ATTEMPTS = 20;
   var MAX_STORED_AGE_MS = 14 * 24 * 60 * 60 * 1000;
   var STORAGE_KEY = 'interoves_pending_yandex_goals_v2';
+  var DEBUG_STORAGE_KEY = 'interoves_analytics_debug';
 
   function getConfig() {
     return global && global.interovesAnalyticsConfig ? global.interovesAnalyticsConfig : {};
@@ -35,6 +36,62 @@
   function storage() {
     try { return global && global.localStorage ? global.localStorage : null; }
     catch (e) { return null; }
+  }
+
+  function debugEnabled() {
+    var target = storage();
+    var queryValue = null;
+    try {
+      if (global && global.location && typeof global.URL === 'function') {
+        queryValue = new global.URL(global.location.href).searchParams.get('analytics_debug');
+      }
+    } catch (e) {}
+    if (queryValue !== null && target) {
+      try {
+        if (queryValue === '1' || queryValue === 'true') target.setItem(DEBUG_STORAGE_KEY, '1');
+        else if (queryValue === '0' || queryValue === 'false') target.removeItem(DEBUG_STORAGE_KEY);
+      } catch (e) {}
+    }
+    if (queryValue === '1' || queryValue === 'true') return true;
+    if (queryValue === '0' || queryValue === 'false') return false;
+    try { return !!(target && target.getItem(DEBUG_STORAGE_KEY) === '1'); }
+    catch (e) { return false; }
+  }
+
+  function onboardingDebugContext() {
+    var target = storage();
+    if (!target) return null;
+    try {
+      var value = JSON.parse(target.getItem('interoves_onboarding_v2') || 'null');
+      if (!value || typeof value !== 'object') return null;
+      return {
+        stage: String(value.stage || ''),
+        selected_game: String(value.selectedGame || ''),
+        first_game: String(value.firstGame || ''),
+        first_game_id: String(value.firstGameId || ''),
+        recommended: !!value.recommended,
+      };
+    } catch (e) { return null; }
+  }
+
+  function debugLog(phase, goal, params, key) {
+    if (!debugEnabled() || !global || !global.console || typeof global.console.debug !== 'function') return;
+    params = normalizeParams(params);
+    var path = global.location && global.location.pathname ? global.location.pathname : '';
+    var timestamp = new Date().toISOString();
+    var details = {
+      phase: String(phase || ''),
+      event: String(goal || ''),
+      pathname: path,
+      game: String(params.game || ''),
+      game_id: String(params.game_id || ''),
+      onboarding: onboardingDebugContext(),
+    };
+    if (key) details.key = String(key);
+    global.console.debug(
+      '[interoves analytics] ' + timestamp + ' ' + String(goal || phase || '') + ' ' + path,
+      details
+    );
   }
 
   function persistQueues() {
@@ -103,6 +160,7 @@
       ack: ack && typeof ack === 'object' ? ack : (existing && existing.ack) || null,
       createdAt: (existing && existing.createdAt) || nowMs(),
     };
+    debugLog('queued', goal, params, key);
     persistQueues();
     scheduleRetry();
   }
@@ -162,6 +220,7 @@
     var counterId = getCounterId();
     if (!counterId || typeof global.ym !== 'function') return false;
     try {
+      debugLog('dispatch', goal, params, '');
       global.ym(counterId, 'reachGoal', goal, normalizeParams(params));
       return true;
     } catch (e) {
@@ -185,6 +244,7 @@
       sentKeys[key] = true;
       delete pendingGoals[key];
       if (payload.ack) rememberPendingAck(key, payload.ack);
+      debugLog('delivered', payload.goal, payload.params, key);
       persistQueues();
       flushPendingAcks();
     }
@@ -192,11 +252,13 @@
       if (finished) return;
       finished = true;
       delete inFlightKeys[key];
+      debugLog('retry', payload.goal, payload.params, key);
       scheduleRetry();
     }
 
     try {
       inFlightKeys[key] = true;
+      debugLog('dispatch', payload.goal, payload.params, key);
       global.ym(
         counterId,
         'reachGoal',
@@ -248,9 +310,6 @@
   function flushPendingGoals(goals) {
     var dispatched = [];
     if (goals && goals.length) {
-      // Product UI (including the short-lived onboarding flow) observes the
-      // authoritative server payloads without creating another gameplay event.
-      notifyGoalConsumers(goals);
       goals.forEach(function (goal) {
         if (!goal || typeof goal !== 'object') return;
         var key = goal.key || goal.goal;
@@ -258,6 +317,9 @@
           dispatched.push(String(key));
         }
       });
+      // Consumers can derive follow-up goals (for example onboarding completion),
+      // so notify only after the authoritative gameplay goals were queued/sent.
+      notifyGoalConsumers(goals);
     }
     dispatched = dispatched.concat(flushQueuedGoals());
     flushPendingAcks();
@@ -266,6 +328,7 @@
   }
 
   hydrateQueues();
+  debugLog('page', 'page', {}, '');
 
   if (global && typeof global.addEventListener === 'function') {
     var counterId = getCounterId();
@@ -294,6 +357,7 @@
     trackYandexGoal: trackYandexGoal,
     trackYandexGoalOnce: trackYandexGoalOnce,
     flushPendingGoals: flushPendingGoals,
+    debugLog: debugLog,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 

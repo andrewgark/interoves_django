@@ -16,6 +16,8 @@ from games.models import (
     Game,
     GameTaskGroup,
     HTMLPage,
+    PlayerCompletedGame,
+    PlayerStartedGame,
     Project,
     Task,
     TaskGroup,
@@ -391,6 +393,14 @@ class WordSaladTests(TestCase):
         self.assertFalse(response.json()['word_salad_correct'])
         self.assertFalse(response.json().get('word_salad_extra'))
         self.assertFalse(Attempt.manager.filter(task=self.task, anon_key='word-salad-auto-test').exists())
+        self.assertEqual(
+            [event['goal'] for event in response.json()['analytics_events']],
+            ['game_start'],
+        )
+        self.assertEqual(
+            PlayerStartedGame.objects.filter(anon_key='word-salad-auto-test').count(),
+            1,
+        )
 
     def test_correct_only_reports_dictionary_extra_without_saving(self):
         with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
@@ -450,6 +460,41 @@ class WordSaladTests(TestCase):
         self.assertNotIn('new-word-salad__hint-btn', html)
         self.assertIn('data-word-salad-solved>Решено!</div>', html)
         self.assertIn('data-word-salad-extras', html)
+
+    def test_supported_salad_completion_returns_start_then_complete_once(self):
+        anon_key = 'word-salad-onboarding-flow'
+        with patch.dict('games.analytics.GAME_KIND_BY_ID', {self.game.id: 'salad'}), patch(
+            'games.views.attempt_views.track_actor_task_change'
+        ):
+            first = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': anon_key,
+                    'action': 'solve',
+                    'path': json.dumps(_path()),
+                    'correct_only': '1',
+                },
+            )
+            repeated = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': anon_key,
+                    'action': 'solve',
+                    'path': json.dumps(_path()),
+                    'correct_only': '1',
+                },
+            )
+
+        self.assertEqual(
+            [event['goal'] for event in first.json()['analytics_events']],
+            ['game_start', 'game_complete'],
+        )
+        self.assertEqual(repeated.json()['status'], 'duplicate')
+        self.assertNotIn('analytics_events', repeated.json())
+        self.assertEqual(PlayerStartedGame.objects.filter(anon_key=anon_key).count(), 1)
+        self.assertEqual(PlayerCompletedGame.objects.filter(anon_key=anon_key).count(), 1)
 
     def test_tournament_submit_without_max_attempts_does_not_500(self):
         original_start = self.game.start_time

@@ -137,6 +137,13 @@
     return typeof form.action === 'string' ? form.action : '';
   }
 
+  function flushAnalyticsEvents(events) {
+    var analytics = global.interovesAnalytics;
+    if (!analytics || typeof analytics.flushPendingGoals !== 'function') return false;
+    analytics.flushPendingGoals(events || []);
+    return true;
+  }
+
   function renderMaskEl(el, text) {
     if (!el) return;
     el.textContent = '';
@@ -749,6 +756,10 @@
         }).then(function (response) {
           return response.json();
         }).then(function (data) {
+          // The backend is authoritative for game_start/game_complete. Forward
+          // its payload before replacing the task HTML, including the final
+          // answer response where both goals can arrive together.
+          flushAnalyticsEvents(data && data.analytics_events);
           var solvedWord = selectedWord(path);
           if (data && data.status === 'duplicate') {
             finishWrong(pathKey);
@@ -915,6 +926,7 @@
     shouldHandleEscape: shouldHandleWordSaladEscape,
     rememberExtra: rememberExtraWord,
     feedbackForResult: feedbackForResult,
+    flushAnalyticsEvents: flushAnalyticsEvents,
     EXTRA_MIN_LENGTH: EXTRA_MIN_LENGTH
   };
   global.initWordSalad = initWordSalad;
