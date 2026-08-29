@@ -1,6 +1,7 @@
 {% if difficulty.show %}
 <span class="new-difficulty"
-      title="{{ difficulty.tooltip }}"
+      {% if difficulty.tooltip %}title="{{ difficulty.tooltip }}"
+      {% endif %}
       role="img"
       aria-label="{{ difficulty.aria_label }}">
   <span class="new-difficulty__brains" aria-hidden="true">

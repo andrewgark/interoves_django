@@ -140,7 +140,7 @@ class DifficultyScoringTests(SimpleTestCase):
         self.assertEqual(context['label'], 'Простая')
         self.assertEqual(
             context['tooltip'],
-            'Сложность: Простая. Рассчитана по результатам 20 игроков.',
+            'Сложность: Простая.',
         )
         self.assertEqual(context['aria_label'], 'Сложность: 2 из 5 — простая.')
         self.assertEqual(context['star_slots'], [True, True, False, False, False])
@@ -150,7 +150,7 @@ class DifficultyScoringTests(SimpleTestCase):
             {'difficulty': context},
         )
         self.assertIn(
-            'title="Сложность: Простая. Рассчитана по результатам 20 игроков."',
+            'title="Сложность: Простая."',
             html,
         )
         self.assertIn('aria-label="Сложность: 2 из 5 — простая."', html)
@@ -163,7 +163,7 @@ class DifficultyScoringTests(SimpleTestCase):
         )
         self.assertEqual(html.count('ph-brain'), 5)
 
-    def test_preliminary_brain_difficulty_keeps_state_and_player_tooltip(self):
+    def test_preliminary_brain_difficulty_keeps_state_without_extra_tooltip(self):
         context = _public_context({
             'n': 7,
             'stars': 4,
@@ -176,13 +176,14 @@ class DifficultyScoringTests(SimpleTestCase):
             {'difficulty': context},
         )
 
-        self.assertIn('и может измениться.', context['tooltip'])
+        self.assertIsNone(context['tooltip'])
         self.assertEqual(
             context['aria_label'],
             'Сложность: 4 из 5 — сложная. '
-            'Предварительная оценка по результатам 7 игроков.',
+            'Предварительная оценка.',
         )
         self.assertIn('·</span> предварительно', html)
+        self.assertNotIn('title=', html)
         self.assertEqual(html.count('ph-brain'), 5)
 
 
@@ -276,7 +277,7 @@ class DifficultyObservationTests(TestCase):
 
         self.assertEqual(
             contexts[self.placement.pk]['tooltip'],
-            'Сложность: Сложная. Рассчитана по результатам 12 игроков.',
+            'Сложность: Сложная.',
         )
 
     def test_cached_contexts_use_stars_column_when_payload_omits_visibility(self):
@@ -291,7 +292,7 @@ class DifficultyObservationTests(TestCase):
 
         self.assertEqual(
             contexts[self.placement.pk]['tooltip'],
-            'Сложность: Сложная. Рассчитана по результатам 12 игроков.',
+            'Сложность: Сложная.',
         )
         self.assertEqual(contexts[self.placement.pk]['star_slots'], [True, True, True, True, False])
 
@@ -391,7 +392,7 @@ class DifficultyObservationTests(TestCase):
 
         self.assertIn('new-difficulty', html)
         self.assertIn(
-            'title="Сложность: Сложная. Рассчитана по результатам 12 игроков."',
+            'title="Сложность: Сложная."',
             html,
         )
         self.assertEqual(html.count('class="ph-fill ph-brain"'), 4)
