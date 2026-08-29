@@ -53,7 +53,7 @@
   --card-radius: 8px;
   --warning: #b8953d;
   --warning-hover: #a18232;
-  --difficulty-star: #f2b600;
+  --difficulty-icon: #d85c8a;
   --success: var(--accent);
   font-size: 16px;
 }
@@ -86,7 +86,7 @@ html.new-ui-dark {
   --focus-ring: color-mix(in srgb, var(--accent) 50%, transparent);
   --warning: #d4b45c;
   --warning-hover: #e0c574;
-  --difficulty-star: #ffd23f;
+  --difficulty-icon: #f08eb3;
   --success: var(--accent);
   --raddle-before: #d4b45c;
   --raddle-after: #6b9fd4;
@@ -2991,25 +2991,30 @@ html.new-ui-dark .new-team-switcher-active-box {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
+  gap: 0.3rem;
   white-space: nowrap;
   line-height: 1;
 }
 
-.new-difficulty__stars {
+.new-difficulty__brains {
   display: inline-flex;
   align-items: center;
-  gap: 0.08em;
-  color: var(--difficulty-star);
-  font-size: 1.05rem;
-  filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--difficulty-star) 30%, transparent));
+  gap: 0.06em;
+  color: var(--difficulty-icon);
+  font-size: 0.96rem;
 }
 
-.new-difficulty__star--empty {
-  opacity: 0.72;
+.new-difficulty__brain--empty {
+  opacity: 0.38;
 }
 
-.new-taskcard__meta-bar .new-difficulty__stars {
-  font-size: 0.95rem;
+.new-difficulty__preliminary {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.new-taskcard__meta-bar .new-difficulty__brains {
+  font-size: 0.88rem;
 }
 
 .new-pay-card {

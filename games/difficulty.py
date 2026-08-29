@@ -826,15 +826,32 @@ def _public_context(result):
     if not result or not result.get('is_visible'):
         return None
     stars = int(result['stars'])
+    n = int(result['n'])
+    preliminary = bool(result['is_preliminary'])
     stars_text = '{}{}'.format('★' * stars, '☆' * (5 - stars))
     label = STAR_LABELS[stars]
+    if preliminary:
+        tooltip = (
+            'Сложность: {}. Рассчитана по результатам {} игроков '
+            'и может измениться.'
+        ).format(label, n)
+        aria_label = (
+            'Сложность: {} из 5 — {}. Предварительная оценка по результатам '
+            '{} игроков.'
+        ).format(stars, label.lower(), n)
+    else:
+        tooltip = 'Сложность: {}. Рассчитана по результатам {} игроков.'.format(
+            label, n,
+        )
+        aria_label = 'Сложность: {} из 5 — {}.'.format(stars, label.lower())
     return {
         **result,
         'show': True,
         'stars_text': stars_text,
         'star_slots': [index < stars for index in range(5)],
         'label': label,
-        'tooltip': 'Сложность: {}'.format(label),
+        'tooltip': tooltip,
+        'aria_label': aria_label,
     }
 
 

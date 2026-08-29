@@ -2,9 +2,10 @@
 <span class="new-difficulty"
       title="{{ difficulty.tooltip }}"
       role="img"
-      aria-label="{{ difficulty.tooltip }}">
-  <span class="new-difficulty__stars" aria-hidden="true">
-    {% for filled in difficulty.star_slots %}<i class="{% if filled %}ph-fill{% else %}ph{% endif %} ph-star{% if not filled %} new-difficulty__star--empty{% endif %}"></i>{% endfor %}
+      aria-label="{{ difficulty.aria_label }}">
+  <span class="new-difficulty__brains" aria-hidden="true">
+    {% for filled in difficulty.star_slots %}<i class="{% if filled %}ph-fill{% else %}ph{% endif %} ph-brain{% if not filled %} new-difficulty__brain--empty{% endif %}"></i>{% endfor %}
   </span>
+  {% if difficulty.is_preliminary %}<span class="new-difficulty__preliminary"><span aria-hidden="true">·</span> предварительно</span>{% endif %}
 </span>
 {% endif %}

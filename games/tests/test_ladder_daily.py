@@ -167,8 +167,12 @@ class LadderSectionPageTests(TestCase):
             {'task_group_rows': rows, 'game': game},
         )
         self.assertIn('ПАРИЖ → ДАКАР', html)
-        self.assertIn('title="Сложность: Сложная"', html)
-        self.assertEqual(html.count('class="ph-fill ph-star"'), 4)
+        self.assertIn(
+            'title="Сложность: Сложная. Рассчитана по результатам 20 игроков."',
+            html,
+        )
+        self.assertEqual(html.count('class="ph-fill ph-brain"'), 4)
+        self.assertEqual(html.count('ph-brain'), 5)
 
     def test_hub_section_task_group_links_ladder_does_not_crash(self):
         from games.views.new_ui import _hub_section_task_group_links

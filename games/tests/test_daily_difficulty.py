@@ -129,7 +129,7 @@ class DifficultyScoringTests(SimpleTestCase):
             self.assertGreaterEqual(rating['stars'], 1)
             self.assertLessEqual(rating['stars'], 5)
 
-    def test_public_context_uses_ui_label_and_five_star_slots(self):
+    def test_public_context_uses_ui_label_and_five_brain_icons(self):
         context = _public_context({
             'n': 20,
             'stars': 2,
@@ -138,16 +138,52 @@ class DifficultyScoringTests(SimpleTestCase):
         })
 
         self.assertEqual(context['label'], 'Простая')
-        self.assertEqual(context['tooltip'], 'Сложность: Простая')
+        self.assertEqual(
+            context['tooltip'],
+            'Сложность: Простая. Рассчитана по результатам 20 игроков.',
+        )
+        self.assertEqual(context['aria_label'], 'Сложность: 2 из 5 — простая.')
         self.assertEqual(context['star_slots'], [True, True, False, False, False])
 
         html = render_to_string(
             'new/partials/difficulty_badge.html',
             {'difficulty': context},
         )
-        self.assertIn('title="Сложность: Простая"', html)
-        self.assertEqual(html.count('class="ph-fill ph-star"'), 2)
-        self.assertEqual(html.count('class="ph ph-star new-difficulty__star--empty"'), 3)
+        self.assertIn(
+            'title="Сложность: Простая. Рассчитана по результатам 20 игроков."',
+            html,
+        )
+        self.assertIn('aria-label="Сложность: 2 из 5 — простая."', html)
+        self.assertIn(
+            '<span class="new-difficulty__brains" aria-hidden="true">', html,
+        )
+        self.assertEqual(html.count('class="ph-fill ph-brain"'), 2)
+        self.assertEqual(
+            html.count('class="ph ph-brain new-difficulty__brain--empty"'), 3,
+        )
+        self.assertEqual(html.count('ph-brain'), 5)
+
+    def test_preliminary_brain_difficulty_keeps_state_and_player_tooltip(self):
+        context = _public_context({
+            'n': 7,
+            'stars': 4,
+            'is_visible': True,
+            'is_preliminary': True,
+        })
+
+        html = render_to_string(
+            'new/partials/difficulty_badge.html',
+            {'difficulty': context},
+        )
+
+        self.assertIn('и может измениться.', context['tooltip'])
+        self.assertEqual(
+            context['aria_label'],
+            'Сложность: 4 из 5 — сложная. '
+            'Предварительная оценка по результатам 7 игроков.',
+        )
+        self.assertIn('·</span> предварительно', html)
+        self.assertEqual(html.count('ph-brain'), 5)
 
 
 class DifficultyObservationTests(TestCase):
@@ -238,7 +274,10 @@ class DifficultyObservationTests(TestCase):
 
         contexts = get_cached_game_difficulties([self.placement])
 
-        self.assertEqual(contexts[self.placement.pk]['tooltip'], 'Сложность: Сложная')
+        self.assertEqual(
+            contexts[self.placement.pk]['tooltip'],
+            'Сложность: Сложная. Рассчитана по результатам 12 игроков.',
+        )
 
     def test_cached_contexts_use_stars_column_when_payload_omits_visibility(self):
         _write_snapshot(
@@ -250,7 +289,10 @@ class DifficultyObservationTests(TestCase):
 
         contexts = get_cached_game_difficulties([self.placement])
 
-        self.assertEqual(contexts[self.placement.pk]['tooltip'], 'Сложность: Сложная')
+        self.assertEqual(
+            contexts[self.placement.pk]['tooltip'],
+            'Сложность: Сложная. Рассчитана по результатам 12 игроков.',
+        )
         self.assertEqual(contexts[self.placement.pk]['star_slots'], [True, True, True, True, False])
 
     def test_page_reads_do_not_calculate_missing_snapshots(self):
@@ -348,8 +390,12 @@ class DifficultyObservationTests(TestCase):
         )
 
         self.assertIn('new-difficulty', html)
-        self.assertIn('title="Сложность: Сложная"', html)
-        self.assertEqual(html.count('class="ph-fill ph-star"'), 4)
+        self.assertIn(
+            'title="Сложность: Сложная. Рассчитана по результатам 12 игроков."',
+            html,
+        )
+        self.assertEqual(html.count('class="ph-fill ph-brain"'), 4)
+        self.assertEqual(html.count('ph-brain'), 5)
         aside_at = html.find('new-proportions-compact-bar__aside')
         difficulty_at = html.find('new-difficulty')
         likes_at = html.find('new-like-dislike--compact-bar')
