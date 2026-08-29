@@ -601,6 +601,8 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(response.context['offers_json'], [])
         self.assertContains(response, 'alphabetty-offers-bootstrap')
         self.assertContains(response, 'Добавить алфавитку')
+        self.assertContains(response, 'offer_draft_autosave.js')
+        self.assertContains(response, 'Автосохранение включено')
         self.assertNotContains(response, 'Номер раунда')
 
     def test_create_offer_update_and_send(self):

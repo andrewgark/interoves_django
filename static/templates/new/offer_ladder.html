@@ -4,6 +4,7 @@
 {% block extrahead %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+  <script src="{% static 'js/offer_draft_autosave.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endblock %}
 {% block content %}
 {% csrf_token %}
@@ -75,6 +76,13 @@
     </div>
     <div id="offer-edit-words" class="support-ladder-words"></div>
     <p class="support-hint support-ladder-edit-error" id="offer-edit-error" hidden></p>
+    <div class="support-autosave" id="offer-autosave-status" role="status" aria-live="polite">
+      <span class="support-autosave__icon" aria-hidden="true"><i class="ph ph-cloud-check"></i></span>
+      <span class="support-autosave__copy">
+        <strong id="offer-autosave-title">Автосохранение включено</strong>
+        <span id="offer-autosave-detail">Можно спокойно закрыть окно — изменения не пропадут.</span>
+      </span>
+    </div>
     <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="offer-edit-save">Сохранить</button>
       <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Отправить Андрею</button>
@@ -92,6 +100,7 @@
   var modal = document.getElementById('offer-edit-modal');
   var editId = null;
   var busy = false;
+  var autosave = null;
   var endpoints = {
     create: "{% url 'new_create_ladder_create' %}",
     detailTpl: "{% url 'new_create_ladder_detail' 0 %}".replace('/0/', '/{id}/'),
@@ -168,6 +177,7 @@
     document.body.style.overflow = 'hidden';
   }
   function closeModal() {
+    if (autosave) autosave.close();
     modal.classList.remove('is-open');
     modal.hidden = true;
     document.body.style.overflow = '';
@@ -307,6 +317,7 @@
       if (from < to) to -= 1;
       var moved = moveWordRow(readWordRows(), from, to);
       renderWordRows(moved.words, moved.hints);
+      if (autosave) autosave.changed();
     };
   }
   function readWordRows() {
@@ -321,16 +332,94 @@
     });
     return normalizeWordState(words, hints);
   }
+
+  function readEditorPayload() {
+    var cur = readWordRows();
+    return {
+      words: cur.words,
+      hints: cur.hints,
+      intro: document.getElementById('offer-edit-intro').value,
+      author: document.getElementById('offer-edit-author').value,
+      comment: document.getElementById('offer-edit-comment').value,
+      mixed_script: document.getElementById('offer-edit-mixed-script').checked
+    };
+  }
+
+  function restoreEditorPayload(payload) {
+    document.getElementById('offer-edit-intro').value = payload.intro || '';
+    document.getElementById('offer-edit-author').value = payload.author || '';
+    document.getElementById('offer-edit-comment').value = payload.comment || '';
+    document.getElementById('offer-edit-mixed-script').checked = !!payload.mixed_script;
+    renderWordRows(payload.words || [], payload.hints || []);
+  }
+
+  function autosaveTime(date) {
+    if (!date || typeof date.toLocaleTimeString !== 'function') return '';
+    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function showAutosaveStatus(state, detail) {
+    var box = document.getElementById('offer-autosave-status');
+    var title = document.getElementById('offer-autosave-title');
+    var sub = document.getElementById('offer-autosave-detail');
+    var icon = box.querySelector('i');
+    detail = detail || {};
+    box.dataset.state = state;
+    var states = {
+      idle: ['Автосохранение включено', 'Можно спокойно закрыть окно — изменения не пропадут.', 'ph-cloud-check'],
+      pending: ['Изменения сохранены на устройстве', 'Скоро синхронизируем с сервером…', 'ph-cloud-arrow-up'],
+      saving: ['Сохраняем…', 'Отправляем черновик на сервер.', 'ph-circle-notch'],
+      saved: ['Все изменения сохранены', detail.savedAt ? ('Сохранено в ' + autosaveTime(detail.savedAt)) : 'Черновик синхронизирован с сервером.', 'ph-cloud-check'],
+      restored: ['Черновик восстановлен', 'Продолжайте с места, где остановились.', 'ph-arrow-counter-clockwise'],
+      local: ['Черновик сохранён на устройстве', detail.message || 'С сервером пока не получилось — данные не пропадут.', 'ph-device-mobile'],
+      error: ['Не удалось сохранить черновик', 'Не закрывайте страницу и проверьте соединение.', 'ph-warning-circle']
+    };
+    var value = states[state] || states.idle;
+    title.textContent = value[0];
+    sub.textContent = value[1];
+    icon.className = 'ph ' + value[2];
+  }
+
+  autosave = window.OfferDraftAutosave.create({
+    storagePrefix: 'interoves_offer_draft_v1:ladder:{{ user.pk }}',
+    getPayload: readEditorPayload,
+    restorePayload: restoreEditorPayload,
+    canSync: function (payload) {
+      return payload.words.length >= 2 && payload.words.every(function (word) {
+        return !!String(word || '').trim();
+      });
+    },
+    syncBlockedMessage: function () {
+      return 'Заполните все добавленные слова — пока черновик сохранён только на этом устройстве.';
+    },
+    save: function (id, payload) {
+      return postJson(endpoints.detailTpl.replace('{id}', String(id)), payload);
+    },
+    onSaved: function (data) {
+      if (data && data.offer) upsert(data.offer);
+    },
+    onStatus: showAutosaveStatus
+  });
+
+  modal.addEventListener('input', function (e) {
+    if (e.target.matches('input, textarea')) autosave.changed();
+  });
+  modal.addEventListener('change', function (e) {
+    if (e.target.matches('input, textarea')) autosave.changed();
+  });
+
   document.getElementById('offer-add-word').addEventListener('click', function () {
     var curState = readWordRows();
     var cur = insertWordAt(curState, curState.words.length);
     renderWordRows(cur.words, cur.hints);
+    autosave.changed();
   });
   document.getElementById('offer-edit-words').addEventListener('click', function (e) {
     var insertBtn = e.target.closest('[data-insert-index]');
     if (insertBtn) {
       var curInsert = insertWordAt(readWordRows(), parseInt(insertBtn.getAttribute('data-insert-index'), 10));
       renderWordRows(curInsert.words, curInsert.hints);
+      autosave.changed();
       return;
     }
     var btn = e.target.closest('.ladder-rm-word');
@@ -340,6 +429,7 @@
     var idx = all.indexOf(row);
     var cur = removeWordAt(readWordRows(), idx);
     renderWordRows(cur.words, cur.hints);
+    autosave.changed();
   });
 
   function openEdit(offer) {
@@ -367,6 +457,8 @@
         if (el.tagName === 'BUTTON') el.disabled = !canEdit;
         else el.disabled = !canEdit;
       });
+    document.getElementById('offer-autosave-status').hidden = !canEdit;
+    if (canEdit) autosave.open(offer.id, readEditorPayload());
     openModal();
   }
 
@@ -376,6 +468,7 @@
     busy = true;
     postJson(endpoints.sendTpl.replace('{id}', String(id)), {})
       .then(function (data) {
+        autosave.discard(id);
         upsert(data.offer);
         if (editId === id) closeModal();
       })
@@ -411,18 +504,9 @@
 
   document.getElementById('offer-edit-save').addEventListener('click', function () {
     if (!editId || busy) return;
-    var cur = readWordRows();
     var err = document.getElementById('offer-edit-error');
     busy = true;
-    postJson(endpoints.detailTpl.replace('{id}', String(editId)), {
-      words: cur.words,
-      hints: cur.hints,
-      intro: document.getElementById('offer-edit-intro').value,
-      author: document.getElementById('offer-edit-author').value,
-      comment: document.getElementById('offer-edit-comment').value,
-      mixed_script: document.getElementById('offer-edit-mixed-script').checked
-    }).then(function (data) {
-      upsert(data.offer);
+    autosave.flush().then(function () {
       err.hidden = true;
       closeModal();
     }).catch(function (e) {
@@ -434,19 +518,12 @@
   document.getElementById('offer-edit-send').addEventListener('click', function () {
     if (!editId || busy) return;
     if (!window.confirm('Отправить лесенку Андрею? После этого редактировать нельзя.')) return;
-    var cur = readWordRows();
     var sendingId = editId;
     busy = true;
-    postJson(endpoints.detailTpl.replace('{id}', String(sendingId)), {
-      words: cur.words,
-      hints: cur.hints,
-      intro: document.getElementById('offer-edit-intro').value,
-      author: document.getElementById('offer-edit-author').value,
-      comment: document.getElementById('offer-edit-comment').value,
-      mixed_script: document.getElementById('offer-edit-mixed-script').checked
-    }).then(function () {
+    autosave.flush().then(function () {
       return postJson(endpoints.sendTpl.replace('{id}', String(sendingId)), {});
     }).then(function (data) {
+      autosave.discard(sendingId);
       upsert(data.offer);
       closeModal();
     }).catch(function (e) {

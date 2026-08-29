@@ -125,6 +125,8 @@ class LadderOfferFlowTests(TestCase):
             'предлагать сделать одной из ежедневных',
         )
         self.assertNotContains(resp, 'предлагать Андрею')
+        self.assertContains(resp, 'offer_draft_autosave.js')
+        self.assertContains(resp, 'Автосохранение включено')
 
     def test_offer_ladder_url_redirects(self):
         c = Client()
