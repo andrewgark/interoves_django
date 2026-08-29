@@ -64,8 +64,10 @@ Legacy Bootstrap UI, microsites и Django admin — вне скоупа, кро�
 | Роль | Значение |
 |------|----------|
 | UI stack | `"Clear Sans", "Helvetica Neue", Arial, sans-serif` (`body.new-ui`) |
-| Моноширинный (лестница, коды) | `ui-monospace, SF Mono, Menlo, Consolas, monospace` |
+| Моноширинный (лестница, коды) | `var(--new-font-mono)` → локальный `Noto Sans Mono`, затем `DejaVu Sans Mono`, затем Arial |
 | Акцентный | Пока не вводим; `.pal-*` тянет Inter — это **не** системный шрифт, подлежит выравниванию |
+
+В моноширинном стеке не использовать `Ubuntu Mono`, `SF Mono`, Menlo, Consolas, Courier или безымянный `ui-monospace`: у части этих шрифтов заглавная кириллическая «Г» имеет нижнюю горизонтальную полку. У `Noto Sans Mono` и `DejaVu Sans Mono` «Г» — простая угловая форма; Arial оставлен немоноширинным безопасным fallback.
 
 ### Шкала (ориентир)
 

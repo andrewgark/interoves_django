@@ -207,7 +207,7 @@
 }
 
 .support-table .support-cell-mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--new-font-mono);
   font-size: 0.82rem;
 }
 
@@ -748,7 +748,7 @@ html.new-ui-dark .support-preview-banner {
 }
 
 .support-ladder-item__num {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--new-font-mono);
   font-weight: 700;
   font-size: 0.95rem;
   min-width: 2.5rem;
@@ -1534,7 +1534,7 @@ html.new-ui-dark .support-ladder-item__mixed {
 }
 
 .support-word-salad-grid-input {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--new-font-mono);
   font-size: 1rem;
   line-height: 1.55;
   letter-spacing: 0.08em;
