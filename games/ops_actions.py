@@ -21,9 +21,6 @@ def set_attempt_ok(attempt: Attempt) -> None:
     except Exception:
         attempt.points = attempt.get_max_points()
     attempt.status = 'Ok'
-    attempt.current_status = 'Ok'
-    attempt.current_points = attempt.points
-    attempt.checked_revision = attempt.task.attempt_revision if attempt.task else None
     if attempt.task and attempt.task.task_type == 'autohint':
         hints = set(Hint.objects.filter(task=attempt.task))
         hint_attempts = HintAttempt.objects.filter(team=attempt.team, hint__in=hints)
@@ -38,9 +35,6 @@ def set_attempt_ok(attempt: Attempt) -> None:
 
 def confirm_attempt_prestatus(attempt: Attempt) -> None:
     attempt.status = attempt.possible_status
-    attempt.current_status = attempt.possible_status
-    attempt.current_points = attempt.points
-    attempt.checked_revision = attempt.task.attempt_revision if attempt.task else None
     attempt.save()
     track_attempt_change(attempt, reason='attempt.prestatus_confirmed')
 
@@ -88,9 +82,6 @@ def reject_ticket(ticket_id: int, *, source: str = 'support') -> None:
 def set_ok_and_create_new_task(attempt: Attempt) -> None:
     """Game 49 helper — kept for admin parity."""
     attempt.status = 'Ok'
-    attempt.current_status = 'Ok'
-    attempt.current_points = attempt.points
-    attempt.checked_revision = attempt.task.attempt_revision if attempt.task else None
     attempt.save()
     track_attempt_change(attempt, reason='attempt.set_ok')
     g = attempt.game or GameTaskGroup.resolve_game_for_task(attempt.task)

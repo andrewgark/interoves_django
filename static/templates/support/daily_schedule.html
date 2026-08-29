@@ -1,0 +1,55 @@
+{% extends "support/base.html" %}
+{% load static %}
+
+{% block support_content %}
+{% csrf_token %}
+{% block schedule_bootstrap %}{% endblock %}
+<script src="{% static 'js/support_schedule_tabs.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+
+<h1 class="support-page-title">{{ schedule_title }}</h1>
+<p class="support-lead">
+  {% block schedule_lead %}
+    Публичный № задаёт порядок и дату выхода (дата №1 + N−1 дней, МСК).
+    Внутренний id при перестановке не меняется. Уже вышедшие выпуски зафиксированы.
+  {% endblock %}
+</p>
+
+{% block schedule_links %}{% endblock %}
+
+<section class="pal-card support-card support-ladders-toolbar">
+  <div class="support-ladders-toolbar__row">
+    <label class="support-ladders-field">
+      <span>Дата №1 (МСК)</span>
+      <input type="date" id="{{ schedule_prefix }}-publish-start" value="{{ publish_start|default:'' }}">
+    </label>
+    <button type="button" class="new-btn new-btn--mini" id="{{ schedule_prefix }}-save-start">Сохранить старт</button>
+    {% block schedule_toolbar_extra %}{% endblock %}
+    <span class="support-hint support-ladders-toolbar__meta" id="{{ schedule_prefix }}-meta">
+      Всего {{ schedule_count }} · вышло {{ published_count }} · впереди {{ future_count }}{% if today_number %} · сегодня №{{ today_number }}{% endif %}
+    </span>
+  </div>
+  <p class="support-hint support-hint--after">
+    {% block schedule_toolbar_hint %}
+      Перетаскивайте только будущие выпуски за ⠿. «+» вставляет новый день.
+      Вышедшие не двигаются.
+    {% endblock %}
+  </p>
+</section>
+
+<nav class="support-tabs" id="{{ schedule_prefix }}-tabs" aria-label="Фильтр списка">
+  <button type="button" class="support-tabs__btn is-active" data-tab="schedule">Расписание</button>
+  <button type="button" class="support-tabs__btn" data-tab="published">Вышедшие</button>
+  <button type="button" class="support-tabs__btn" data-tab="future">Будущие</button>
+  {% block schedule_extra_tabs %}{% endblock %}
+</nav>
+
+<section class="pal-card support-card">
+  <div class="support-ladder-list support-schedule-list" id="{{ schedule_prefix }}-list" aria-label="{{ schedule_list_label }}"></div>
+  <div class="support-ladder-insert support-ladder-insert--end">
+    <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-insert-end>+ В конец</button>
+  </div>
+</section>
+
+{% block schedule_modals %}{% endblock %}
+{% block schedule_page_scripts %}{% endblock %}
+{% endblock %}

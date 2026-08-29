@@ -459,10 +459,6 @@ class HiddenAnonKeyAdmin(admin.ModelAdmin):
 
 class TaskInline(admin.TabularInline):
     model = Task
-    verbose_name_plural = (
-        'Задания — изменения ответов, checker, структуры или баллов перепроверят '
-        'старые посылки; решения и уже полученные баллы не отзываются'
-    )
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
         models.JSONField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
@@ -815,7 +811,6 @@ class TaskAdmin(admin.ModelAdmin):
         HintInline
     ]
     form = WordSaladTaskForm
-    readonly_fields = ['safe_recheck_notice', 'attempt_revision']
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }
@@ -829,28 +824,6 @@ class TaskAdmin(admin.ModelAdmin):
                 'Ё приравнивается к Е. Для других типов это поле остаётся служебным.'
             )
         return form
-
-    def safe_recheck_notice(self, obj):
-        from django.utils.html import format_html
-
-        if obj is None or not obj.pk:
-            return 'У задания ещё нет пользовательской истории.'
-        has_history = Attempt.manager.filter(task=obj).exists()
-        is_published = GameTaskGroup.objects.filter(
-            task_group_id=obj.task_group_id,
-            game__is_ready=True,
-        ).exists()
-        if not (has_history or is_published):
-            return 'Задание не опубликовано и пользовательской истории нет.'
-        return format_html(
-            '<strong style="color:#9a6700">{}</strong><br>{}',
-            'Изменения checker/ответов/структуры/баллов влияют на проверку.',
-            'Старые посылки будут транзакционно перепроверены. Уже полученные '
-            'пользователями решения и баллы не будут отозваны. Изменения только '
-            'пояснения/оформления перепроверку не запускают.',
-        )
-
-    safe_recheck_notice.short_description = 'Безопасное редактирование'
 
     def save_model(self, request, obj, form, change):
         if obj.task_type == 'raddle':
@@ -965,11 +938,7 @@ class AttemptAdmin(admin.ModelAdmin):
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }
     raw_id_fields = ['task', 'team', 'user', 'game']
-    list_display = [
-        '__str__', 'team', 'task', 'game', 'get_pretty_text', 'get_answer',
-        'current_status', 'status', 'current_points', 'points',
-        'get_max_points', 'skip', 'time',
-    ]
+    list_display = ['__str__', 'team', 'task', 'game', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points', 'skip', 'time']
     actions = [
         set_ok,
         confirm_prestatus,
@@ -1030,15 +999,11 @@ recheck_chain_task_action.short_description = 'Recheck full chain (rebuild Chain
 class ChainTaskStateAdmin(admin.ModelAdmin):
     list_display = [
         '__str__', 'team', 'user', 'task', 'game_mode',
-        'state_summary_display', 'completed_at', 'completed_revision',
-        'validated_revision', 'updated_at', 'last_attempt',
+        'state_summary_display', 'updated_at', 'last_attempt',
     ]
     list_filter = ['game_mode', 'task__task_type', 'game']
     raw_id_fields = ['team', 'task', 'last_attempt', 'user']
-    readonly_fields = [
-        'state_summary_display', 'completed_at', 'completed_revision',
-        'validated_revision', 'updated_at',
-    ]
+    readonly_fields = ['state_summary_display', 'updated_at']
     actions = [recheck_chain_task_action]
 
     def state_summary_display(self, obj):

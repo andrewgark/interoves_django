@@ -16,6 +16,57 @@ class ScheduleLinkError(Exception):
     """Ошибка удаления/перенумерации слота."""
 
 
+def build_schedule_page_context(
+    rows: list[RowT],
+    *,
+    title: str,
+    prefix: str,
+    list_label: str,
+    publish_start: str | None,
+    today_number: int | None = None,
+) -> dict:
+    """Нормализованный контекст общего шаблона ежедневного расписания."""
+    published_count = sum(
+        1 for row in rows if getattr(row, 'is_published', False)
+    )
+    if today_number is None:
+        today_number = next(
+            (
+                getattr(row, 'number')
+                for row in rows
+                if getattr(row, 'is_today', False)
+            ),
+            None,
+        )
+    return {
+        'schedule_title': title,
+        'schedule_prefix': prefix,
+        'schedule_list_label': list_label,
+        'schedule_count': len(rows),
+        'publish_start': publish_start,
+        'published_count': published_count,
+        'future_count': len(rows) - published_count,
+        'today_number': today_number,
+    }
+
+
+def assert_future_only_order(
+    ordered_link_ids: list[int],
+    rows: list[RowT],
+    *,
+    error_cls: type[Exception] = ScheduleLinkError,
+    published_msg: str = 'Нельзя менять порядок уже вышедших выпусков (№1–{number}). '
+    'Переставляйте только будущие.',
+) -> None:
+    """Зафиксировать опубликованный префикс общего ежедневного расписания."""
+    locked = [row for row in rows if getattr(row, 'is_published', False)]
+    if not locked:
+        return
+    locked_ids = [getattr(row, 'link_id') for row in locked]
+    if ordered_link_ids[:len(locked_ids)] != locked_ids:
+        raise error_cls(published_msg.format(number=getattr(locked[-1], 'number')))
+
+
 def renumber_links(
     ordered_links: list[GameTaskGroup],
     *,

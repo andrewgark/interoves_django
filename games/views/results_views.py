@@ -163,12 +163,7 @@ def results_page(request, game_id, mode='general'):
 
             cls = ''
             if has_attempts:
-                historically_solved = bool(
-                    ai and ai.best_attempt and ai.best_attempt.status == 'Ok'
-                )
-                if historically_solved or (
-                    max_points > 0 and points >= max_points - 1e-9
-                ):
+                if max_points > 0 and points >= max_points - 1e-9:
                     cls = 'cell-ok'
                 elif points <= 0:
                     cls = 'cell-wrong'

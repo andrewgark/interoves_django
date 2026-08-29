@@ -18,6 +18,44 @@
     return allRows;
   }
 
+  function lastPublishedNumber(rows) {
+    return (rows || []).reduce(function (last, row) {
+      return row.is_published ? Math.max(last, Number(row.number) || 0) : last;
+    }, 0);
+  }
+
+  function statusLabel(row) {
+    if (row.is_today) return 'сегодня';
+    if (row.is_published) return 'вышла';
+    return 'скоро';
+  }
+
+  function statusClass(row) {
+    if (row.is_today) return 'support-flag--ok';
+    if (row.is_published) return '';
+    return 'support-flag--warn';
+  }
+
+  function scheduleMeta(rows) {
+    var published = (rows || []).filter(function (row) { return row.is_published; }).length;
+    var today = (rows || []).find(function (row) { return row.is_today; });
+    return 'Всего ' + (rows || []).length + ' · вышло ' + published +
+      ' · впереди ' + ((rows || []).length - published) +
+      (today ? ' · сегодня №' + today.number : '');
+  }
+
+  function endpoint(template, id) {
+    return template.replace('/0/', '/' + encodeURIComponent(String(id)) + '/').replace('{id}', encodeURIComponent(String(id)));
+  }
+
+  function fullOrder(allRows, visibleOrder, tab) {
+    if (tab !== 'future') return visibleOrder;
+    return (allRows || []).filter(function (row) { return row.is_published; })
+      .sort(function (a, b) { return a.number - b.number; })
+      .map(function (row) { return row.link_id; })
+      .concat(visibleOrder);
+  }
+
   function mountTabs(container, onChange) {
     container.addEventListener('click', function (e) {
       var btn = e.target.closest('[data-tab]');
@@ -240,6 +278,12 @@
   global.SupportScheduleTabs = {
     escapeHtml: escapeHtml,
     rowsForTab: rowsForTab,
+    lastPublishedNumber: lastPublishedNumber,
+    statusLabel: statusLabel,
+    statusClass: statusClass,
+    scheduleMeta: scheduleMeta,
+    endpoint: endpoint,
+    fullOrder: fullOrder,
     mountTabs: mountTabs,
     renderBannedList: renderBannedList,
     requestJson: requestJson,

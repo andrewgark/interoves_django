@@ -26,7 +26,6 @@ from games.raddle import (
     word_matches,
 )
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
-from games.util import better_status
 from games.grid_puzzle import (
     GridPuzzleDataError,
     grid_checker_id,
@@ -97,7 +96,7 @@ def _raddle_stale_submit_response(request, task, team, user, anon_key, game, cur
     return None
 
 
-def check_attempt(attempt, *, persist_wrong=True, preserve_achievement=False):
+def check_attempt(attempt, *, persist_wrong=True):
     task = attempt.task
     team = attempt.team
     user = getattr(attempt, 'user', None)
@@ -107,36 +106,26 @@ def check_attempt(attempt, *, persist_wrong=True, preserve_achievement=False):
         raise Exception('Cannot resolve game for attempt (set Attempt.game or use a single-linked task group)')
 
     current_mode = game.get_current_mode(attempt)
+    if attempt._state.adding and attempt.task_revision is None:
+        attempt.task_revision = task.attempt_revision
     attempt_revision = attempt.task_revision or task.attempt_revision
     modes = ['general']
     if current_mode == 'tournament':
         modes.append('tournament')
 
     is_chain_task = task.task_type in CHAIN_TASK_TYPES
-    previous_status = attempt.status if (preserve_achievement and attempt.pk) else None
-    previous_points = attempt.points if (preserve_achievement and attempt.pk) else None
 
     def _run():
-        nonlocal task, attempt_revision, is_chain_task
         last_attempt_state = None
         chain_state_row = None
 
-        # Refresh under the lock, not merely lock a throwaway row.  An attempt
-        # object may have been built while an author edit was in flight; after
-        # waiting it must validate against the committed revision, not its stale
-        # in-memory Task instance.
-        task = (
-            Task.objects.select_for_update()
-            .select_related('task_group', 'checker', 'task_group__checker')
-            .get(pk=task.pk)
-        )
-        attempt.task = task
-        is_chain_task = task.task_type in CHAIN_TASK_TYPES
+        # Every new submission for a task must observe all submissions committed
+        # before it acquired the lock.  Without this lock two tabs can both pass
+        # duplicate/limit checks and then save.  Chain tasks additionally lock
+        # their actor-specific state row below.
         if attempt._state.adding:
+            Task.objects.select_for_update().only('pk').get(pk=task.pk)
             attempt.time = timezone.now()
-            if attempt.task_revision is None:
-                attempt.task_revision = task.attempt_revision
-        attempt_revision = attempt.task_revision or task.attempt_revision
 
         if is_chain_task:
             # Ensure the state row exists, then acquire an exclusive row lock.
@@ -274,20 +263,6 @@ def check_attempt(attempt, *, persist_wrong=True, preserve_achievement=False):
         else:
             attempt.points = Decimal(str(attempt.points or 0)) * task.get_points()
 
-        # Keep the latest-version verdict separate from the monotonic awarded
-        # result.  Recheck may improve status/points, but cannot revoke either.
-        attempt.current_status = attempt.status
-        attempt.current_points = attempt.points
-        attempt.checked_revision = task.attempt_revision
-        if preserve_achievement:
-            if previous_status and better_status(previous_status, attempt.status):
-                attempt.status = previous_status
-            if previous_points is not None:
-                attempt.points = max(
-                    Decimal(str(previous_points or 0)),
-                    Decimal(str(attempt.points or 0)),
-                )
-
         # Auto-checking controls may probe a candidate without turning every typo
         # into an Attempt. The checker still runs under the chain-state lock, but
         # only a result that advances the task is committed.
@@ -299,19 +274,7 @@ def check_attempt(attempt, *, persist_wrong=True, preserve_achievement=False):
         if chain_state_row is not None:
             chain_state_row.state = attempt.state
             chain_state_row.last_attempt = attempt
-            chain_state_row.validated_revision = task.attempt_revision
-            completion_now = (
-                attempt.current_status == 'Ok'
-                or is_task_completion_state(task, attempt.state)
-            )
-            update_fields = [
-                'state', 'last_attempt', 'validated_revision', 'updated_at',
-            ]
-            if completion_now and chain_state_row.completed_at is None:
-                chain_state_row.completed_at = attempt.time or timezone.now()
-                chain_state_row.completed_revision = task.attempt_revision
-                update_fields.extend(['completed_at', 'completed_revision'])
-            chain_state_row.save(update_fields=update_fields)
+            chain_state_row.save(update_fields=['state', 'last_attempt', 'updated_at'])
         return True
 
     # The Task row is the stable lock row for ordinary submissions too.

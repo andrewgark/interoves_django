@@ -1,4 +1,6 @@
 from unittest.mock import patch
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
@@ -15,6 +17,7 @@ from games.support.services.word_salad import (
     get_word_salad_detail,
     list_word_salad_rows,
     reorder_word_salads,
+    set_publish_start,
     update_word_salad,
 )
 
@@ -38,6 +41,9 @@ class WordSaladSupportTests(TestCase):
         user = User.objects.create_user(username='support-user', password='x')
         user.groups.add(group)
         cls.support_user = user
+
+    def setUp(self):
+        set_publish_start('2099-01-01')
 
     def test_sections_dashboard_includes_word_salad(self):
         rows = get_sections_dashboard()
@@ -206,6 +212,47 @@ class WordSaladSupportTests(TestCase):
             [second['link_id'], first['link_id']],
         )
 
+    def test_published_salads_are_locked_but_future_salads_can_move(self):
+        set_publish_start('2026-08-23')
+        before = datetime(2026, 8, 22, 12, tzinfo=ZoneInfo('Europe/Moscow'))
+        published = datetime(2026, 8, 23, 12, tzinfo=ZoneInfo('Europe/Moscow'))
+        with patch('games.views.track.track_task_change'):
+            first = create_word_salad(now=before)
+            second = create_word_salad(now=before)
+            third = create_word_salad(now=before)
+
+        with self.assertRaisesRegex(WordSaladSupportError, 'уже вышедших'):
+            reorder_word_salads(
+                [second['link_id'], first['link_id'], third['link_id']],
+                now=published,
+            )
+        with self.assertRaisesRegex(WordSaladSupportError, 'уже вышедший'):
+            delete_word_salad(first['link_id'], now=published)
+        with self.assertRaisesRegex(WordSaladSupportError, 'среди уже вышедших'):
+            create_word_salad(at_number=1, now=published)
+
+        rows = reorder_word_salads(
+            [first['link_id'], third['link_id'], second['link_id']],
+            now=published,
+        )
+        self.assertEqual(
+            [row.link_id for row in rows],
+            [first['link_id'], third['link_id'], second['link_id']],
+        )
+
+    def test_publish_start_endpoint_returns_updated_schedule(self):
+        self.client.force_login(self.support_user)
+        with patch('games.views.track.track_task_change'):
+            create_word_salad()
+        response = self.client.post(
+            reverse('support:word_salad_publish_start'),
+            data={'publish_start': '2098-02-03'},
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['publish_start'], '2098-02-03')
+        self.assertEqual(response.json()['rows'][0]['publish_date'], '2098-02-03')
+
     def test_dashboard_uses_schedule_cards_and_modal(self):
         self.client.force_login(self.support_user)
         with patch('games.views.track.track_task_change'):
@@ -214,6 +261,8 @@ class WordSaladSupportTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'word-salad-bootstrap')
         self.assertContains(response, 'support-schedule-list')
+        self.assertContains(response, 'data-tab="published"')
+        self.assertContains(response, 'word-salad-publish-start')
         self.assertContains(response, 'new-rules-modal')
         self.assertNotContains(response, 'word-salad-edit-name')
         self.assertContains(response, 'word-salad-edit-intro')

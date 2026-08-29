@@ -4,17 +4,20 @@
   var support = window.SupportScheduleTabs;
   var list = document.getElementById('word-salad-list');
   var bootstrap = document.getElementById('word-salad-bootstrap');
-  if (!support || !list || !bootstrap) return;
+  var config = document.getElementById('word-salad-config');
+  if (!support || !list || !bootstrap || !config) return;
 
   var rows = JSON.parse(bootstrap.textContent || '[]');
+  var viewTab = 'schedule';
   var busy = false;
   var editLinkId = null;
   var endpoints = {
-    create: list.dataset.createUrl,
-    reorder: list.dataset.reorderUrl,
-    detail: list.dataset.detailUrl,
-    save: list.dataset.saveUrl,
-    remove: list.dataset.deleteUrl
+    create: config.dataset.createUrl,
+    reorder: config.dataset.reorderUrl,
+    publishStart: config.dataset.publishStartUrl,
+    detail: config.dataset.detailUrl,
+    save: config.dataset.saveUrl,
+    remove: config.dataset.deleteUrl
   };
   var modalElement = document.getElementById('word-salad-edit-modal');
   var modal = support.mountModal(modalElement, {
@@ -24,7 +27,11 @@
   });
 
   function endpoint(template, id) {
-    return template.replace('/0/', '/' + encodeURIComponent(String(id)) + '/');
+    return support.endpoint(template, id);
+  }
+
+  function canReorder() {
+    return viewTab === 'schedule' || viewTab === 'future';
   }
 
   function setBusy(value) {
@@ -61,32 +68,42 @@
   }
 
   function render() {
+    var visibleRows = support.rowsForTab(rows, viewTab);
     list.innerHTML = '';
-    document.getElementById('word-salad-meta').textContent = 'Всего ' + rows.length;
-    if (!rows.length) {
-      list.innerHTML = '<p class="support-empty">Пока нет выпусков. Нажмите «Создать салатик».</p>';
+    list.classList.toggle('support-schedule-readonly', !canReorder());
+    document.getElementById('word-salad-meta').textContent = support.scheduleMeta(rows);
+    document.querySelectorAll('[data-insert-end]').forEach(function (button) {
+      button.closest('.support-ladder-insert').hidden = !canReorder();
+    });
+    if (!visibleRows.length) {
+      list.innerHTML = '<p class="support-empty">В этой вкладке пока нет выпусков.</p>';
       return;
     }
-    rows.forEach(function (row) {
-      list.appendChild(insertButton(row.number));
+    visibleRows.forEach(function (row) {
+      if (!row.is_published && canReorder()) list.appendChild(insertButton(row.number));
       var item = document.createElement('div');
-      item.className = 'support-ladder-item support-schedule-item';
-      item.draggable = true;
+      item.className = 'support-ladder-item support-schedule-item' + (row.is_published ? ' is-published' : ' is-future');
+      item.draggable = !row.is_published && canReorder();
       item.dataset.linkId = String(row.link_id);
+      item.dataset.published = row.is_published ? '1' : '0';
       item.innerHTML =
-        '<button type="button" class="support-ladder-item__handle support-schedule-handle" aria-label="Перетащить выпуск №' + row.number + '" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>' +
+        '<button type="button" class="support-ladder-item__handle support-schedule-handle" ' +
+          (row.is_published || !canReorder() ? 'disabled ' : '') +
+          'aria-label="Перетащить выпуск №' + row.number + '" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>' +
         '<div class="support-ladder-item__num">№' + row.number + '</div>' +
         '<div class="support-ladder-item__body">' +
-          '<div class="support-ladder-item__title">' + support.escapeHtml('Салатик #' + row.number) + '</div>' +
+          '<div class="support-ladder-item__title">' + support.escapeHtml('Салатик #' + row.number) +
+            ' <span class="support-flag ' + support.statusClass(row) + '">' + support.statusLabel(row) + '</span></div>' +
           '<div class="support-ladder-item__meta"><span class="support-cell-mono">' +
             support.escapeHtml(row.grid_preview || '—') + '</span> · id ' + row.link_id +
-            ' · ' + row.words_count + ' сл.</div>' +
+            ' · ' + row.words_count + ' сл.' +
+            (row.publish_date ? ' · ' + support.escapeHtml(row.publish_date) : '') + '</div>' +
           '<div class="support-ladder-item__preview">' + support.escapeHtml(row.words_preview || '—') + '</div>' +
         '</div>' +
         '<div class="support-ladder-item__actions">' +
           '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">править</button>' +
           '<a class="new-btn new-btn--mini new-btn--ghost" href="' + support.escapeHtml(row.preview_url) + '" target="_blank" rel="noopener">сайт</a>' +
-          '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" data-delete="' + row.link_id + '">удалить</button>' +
+          (!row.is_published ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" data-delete="' + row.link_id + '">удалить</button>' : '') +
         '</div>';
       list.appendChild(item);
     });
@@ -100,6 +117,8 @@
     document.getElementById('word-salad-edit-grid').value = item.grid_text || '';
     document.getElementById('word-salad-edit-words').value = item.words_text || '';
     document.getElementById('word-salad-edit-preview').href = item.preview_url || '#';
+    var row = rows.find(function (candidate) { return candidate.link_id === item.link_id; });
+    document.getElementById('word-salad-edit-delete').hidden = !!(row && row.is_published);
     clearError();
   }
 
@@ -167,6 +186,25 @@
     button.addEventListener('click', function () { createAt(rows.length + 1, button); });
   });
 
+  support.mountTabs(document.getElementById('word-salad-tabs'), function (tab) {
+    viewTab = tab;
+    render();
+  });
+
+  document.getElementById('word-salad-save-start').addEventListener('click', function () {
+    if (busy) return;
+    var publishStart = document.getElementById('word-salad-publish-start').value;
+    if (!publishStart) return;
+    setBusy(true);
+    support.postJson(endpoints.publishStart, { publish_start: publishStart })
+      .then(function (data) {
+        document.getElementById('word-salad-publish-start').value = data.publish_start;
+        setRows(data.rows);
+      })
+      .catch(function (error) { alert(error.message || String(error)); })
+      .finally(function () { setBusy(false); });
+  });
+
   document.getElementById('word-salad-edit-save').addEventListener('click', function () {
     if (busy || editLinkId == null) return;
     clearError();
@@ -189,10 +227,14 @@
   });
 
   support.mountSortable(list, {
-    isBusy: function () { return busy; },
-    canDrag: function () { return true; },
-    onOrder: function (order, meta) {
+    isBusy: function () { return busy || !canReorder(); },
+    canDrag: function (item) { return item.dataset.published !== '1'; },
+    minIndex: function () {
+      return viewTab === 'future' ? 0 : support.lastPublishedNumber(rows);
+    },
+    onOrder: function (visibleOrder, meta) {
       if (busy) return;
+      var order = support.fullOrder(rows, visibleOrder, viewTab);
       setBusy(true);
       support.postJson(endpoints.reorder, { order: order })
         .then(function (data) {
@@ -208,5 +250,5 @@
   });
 
   render();
-  if (list.dataset.initialEdit) openEdit(parseInt(list.dataset.initialEdit, 10));
+  if (config.dataset.initialEdit) openEdit(parseInt(config.dataset.initialEdit, 10));
 }());

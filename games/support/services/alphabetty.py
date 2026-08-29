@@ -29,7 +29,12 @@ from games.support.services.banned import (
     list_banned_words,
     remove_banned_word,
 )
-from games.support.services.schedule_links import delete_future_slot, renumber_links
+from games.support.services.schedule_links import (
+    assert_future_only_order,
+    build_schedule_page_context,
+    delete_future_slot,
+    renumber_links,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -182,17 +187,13 @@ def _assert_future_only_order(
     *,
     now: datetime | None = None,
 ) -> None:
-    current = list_alphabetty_rows(now=now)
-    locked = [r for r in current if r.is_published]
-    if not locked:
-        return
-    locked_ids = [r.link_id for r in locked]
-    if ordered_link_ids[: len(locked_ids)] != locked_ids:
-        last = locked[-1].number
-        raise AlphabettySupportError(
-            'Нельзя менять порядок уже вышедших алфавиток (№1–{}). '
-            'Переставляйте только будущие.'.format(last)
-        )
+    assert_future_only_order(
+        ordered_link_ids,
+        list_alphabetty_rows(now=now),
+        error_cls=AlphabettySupportError,
+        published_msg='Нельзя менять порядок уже вышедших алфавиток (№1–{number}). '
+        'Переставляйте только будущие.',
+    )
 
 
 @transaction.atomic
@@ -565,16 +566,18 @@ def alphabetty_dashboard_context(*, now: datetime | None = None) -> dict[str, An
     rows = list_alphabetty_rows(now=now)
     game = get_alphabetty_game()
     today_number = current_alphabetty_number(game, now)
-    published_count = sum(1 for r in rows if r.is_published)
-    future_count = len(rows) - published_count
     return {
+        **build_schedule_page_context(
+            rows,
+            title='Алфавитки',
+            prefix='ab',
+            list_label='Список алфавиток',
+            publish_start=get_publish_start_iso(),
+            today_number=today_number,
+        ),
         'rows': rows,
         'alphabetty_json': [r.to_dict() for r in rows],
         'banned_json': list_banned_words(game),
-        'publish_start': get_publish_start_iso(),
         'alphabetty_count': len(rows),
-        'published_count': published_count,
-        'future_count': future_count,
-        'today_number': today_number,
         'buffer_days': ALPHABETTY_BUFFER_DAYS,
     }

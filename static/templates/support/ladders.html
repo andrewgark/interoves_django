@@ -1,52 +1,28 @@
-{% extends "support/base.html" %}
+{% extends "support/daily_schedule.html" %}
 {% load static %}
 
-{% block support_content %}
-{% csrf_token %}
+{% block schedule_bootstrap %}
 {{ ladders_json|json_script:"ladders-bootstrap" }}
 {{ sent_offers_json|json_script:"offers-bootstrap" }}
 {{ offer_by_link_json|json_script:"offer-by-link-bootstrap" }}
-<script src="{% static 'js/support_schedule_tabs.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
-<h1 class="support-page-title">Лесенки</h1>
-<p class="support-lead">
+{% endblock %}
+
+{% block schedule_lead %}
   Публичный № = порядковый номер и дата выхода (старт + N−1 дней, МСК).
   Внутренний id не меняется при перестановке — сдвигаются только номера.
   Уже вышедшие зафиксированы: порядок и вставка — только для будущих.
-</p>
+{% endblock %}
 
-<section class="pal-card support-card support-ladders-toolbar">
-  <div class="support-ladders-toolbar__row">
-    <label class="support-ladders-field">
-      <span>Дата №1 (МСК)</span>
-      <input type="date" id="ladder-publish-start" value="{{ publish_start|default:'' }}">
-    </label>
-    <button type="button" class="new-btn new-btn--mini" id="ladder-save-start">Сохранить старт</button>
-    <span class="support-hint support-ladders-toolbar__meta" id="ladder-meta">
-      Всего {{ ladder_count }} · вышло {{ published_count }} · впереди {{ future_count }}{% if today_number %} · сегодня №{{ today_number }}{% endif %}
-    </span>
-  </div>
-  <p class="support-hint support-hint--after">
-    Перетаскивайте только будущие (пунктир) за ⠿. «+» вставляет новую среди будущих
-    или в конец и сдвигает номера/даты ниже. Вышедшие не двигаются.
-  </p>
-</section>
+{% block schedule_toolbar_hint %}
+  Перетаскивайте только будущие (пунктир) за ⠿. «+» вставляет новую среди будущих
+  или в конец и сдвигает номера/даты ниже. Вышедшие не двигаются.
+{% endblock %}
 
-<nav class="support-tabs" id="ladder-tabs" aria-label="Фильтр списка">
-  <button type="button" class="support-tabs__btn is-active" data-tab="schedule">Расписание</button>
-  <button type="button" class="support-tabs__btn" data-tab="published">Вышедшие</button>
-  <button type="button" class="support-tabs__btn" data-tab="future">Будущие</button>
+{% block schedule_extra_tabs %}
   <button type="button" class="support-tabs__btn" data-tab="sent">Отправленные{% if sent_offers %} ({{ sent_offers|length }}){% endif %}</button>
-</nav>
+{% endblock %}
 
-<section class="pal-card support-card">
-  <div class="support-ladder-list support-schedule-list" id="ladder-list" aria-label="Список лесенок">
-    {# filled by JS from bootstrap #}
-  </div>
-  <div class="support-ladder-insert support-ladder-insert--end">
-    <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-insert-end>+ В конец</button>
-  </div>
-</section>
-
+{% block schedule_modals %}
 <div id="ladder-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="ladder-edit-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-ladder-close></div>
   <div class="new-rules-modal__box pal-card support-ladder-modal">
@@ -124,7 +100,9 @@
     </div>
   </div>
 </div>
+{% endblock %}
 
+{% block schedule_page_scripts %}
 <script>
 (function () {
   var bootstrap = JSON.parse(document.getElementById('ladders-bootstrap').textContent);
@@ -164,23 +142,15 @@
   }
 
   function lastPublishedNumber(rows) {
-    var n = 0;
-    (rows || []).forEach(function (r) {
-      if (r.is_published && r.number > n) n = r.number;
-    });
-    return n;
+    return scheduleUi.lastPublishedNumber(rows);
   }
 
   function statusLabel(row) {
-    if (row.is_today) return 'сегодня';
-    if (row.is_published) return 'вышла';
-    return 'скоро';
+    return scheduleUi.statusLabel(row);
   }
 
   function statusClass(row) {
-    if (row.is_today) return 'support-flag--ok';
-    if (row.is_published) return '';
-    return 'support-flag--warn';
+    return scheduleUi.statusClass(row);
   }
 
   function rowsForTab(tab) {
@@ -189,17 +159,7 @@
         return String(b.sent_at || '').localeCompare(String(a.sent_at || ''));
       });
     }
-    if (tab === 'published') {
-      return allRows.filter(function (r) { return r.is_published; }).sort(function (a, b) {
-        return (b.publish_date || '').localeCompare(a.publish_date || '');
-      });
-    }
-    if (tab === 'future') {
-      return allRows.filter(function (r) { return !r.is_published; }).sort(function (a, b) {
-        return a.number - b.number;
-      });
-    }
-    return allRows;
+    return scheduleUi.rowsForTab(allRows, tab);
   }
   function isScheduleView() {
     return viewTab === 'schedule';
@@ -467,12 +427,7 @@
     onOrder: function (order) {
       var byId = {};
       allRows.forEach(function (r) { byId[r.link_id] = r; });
-      var fullOrder = viewTab === 'future'
-        ? allRows.filter(function (r) { return r.is_published; })
-            .sort(function (a, b) { return a.number - b.number; })
-            .map(function (r) { return r.link_id; })
-            .concat(order)
-        : order;
+      var fullOrder = scheduleUi.fullOrder(allRows, order, viewTab);
       var preview = fullOrder.map(function (pk, i) {
         var row = byId[pk];
         if (!row) return null;

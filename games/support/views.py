@@ -62,6 +62,7 @@ from games.support.services.word_salad import (
     get_word_salad_detail,
     list_word_salad_rows,
     reorder_word_salads,
+    set_publish_start as word_salad_set_publish_start_service,
     update_word_salad,
 )
 from games.ladder_offer import (
@@ -291,6 +292,27 @@ def word_salad_reorder(request):
     except WordSaladSupportError as exc:
         return _word_salad_error_response(exc)
     return JsonResponse({'ok': True, 'rows': [row.to_dict() for row in rows]})
+
+
+@support_console_required
+@require_POST
+def word_salad_set_publish_start(request):
+    body = _word_salad_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    date_iso = body.get('publish_start') or body.get('date')
+    if not date_iso:
+        return JsonResponse({'ok': False, 'error': 'Нужна publish_start (YYYY-MM-DD)'}, status=400)
+    try:
+        new_date = word_salad_set_publish_start_service(str(date_iso))
+        rows = list_word_salad_rows()
+    except WordSaladSupportError as exc:
+        return _word_salad_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'publish_start': new_date,
+        'rows': [row.to_dict() for row in rows],
+    })
 
 
 @support_console_required

@@ -31,7 +31,12 @@ from games.raddle import (
     length_label_from_word,
     validate_raddle_checker_data,
 )
-from games.support.services.schedule_links import delete_future_slot, renumber_links
+from games.support.services.schedule_links import (
+    assert_future_only_order,
+    build_schedule_page_context,
+    delete_future_slot,
+    renumber_links,
+)
 
 AUTHOR_TAG = 'author'
 _TITLE_RE = re.compile(r'^Лесенка\s*#\s*(\d+)\s*$', re.IGNORECASE)
@@ -294,17 +299,13 @@ def _assert_future_only_order(
     now: datetime | None = None,
 ) -> None:
     """Вышедшие лесенки должны остаться префиксом 1..K в том же порядке."""
-    current = list_ladder_rows(now=now)
-    locked = [r for r in current if r.is_published]
-    if not locked:
-        return
-    locked_ids = [r.link_id for r in locked]
-    if ordered_link_ids[: len(locked_ids)] != locked_ids:
-        last = locked[-1].number
-        raise LadderSupportError(
-            'Нельзя менять порядок уже вышедших лесенок (№1–{}). '
-            'Переставляйте только будущие.'.format(last)
-        )
+    assert_future_only_order(
+        ordered_link_ids,
+        list_ladder_rows(now=now),
+        error_cls=LadderSupportError,
+        published_msg='Нельзя менять порядок уже вышедших лесенок (№1–{number}). '
+        'Переставляйте только будущие.',
+    )
 
 
 @transaction.atomic
@@ -590,16 +591,17 @@ def delete_ladder(link_id: int, *, now: datetime | None = None) -> list[LadderRo
 
 def dashboard_context(*, now: datetime | None = None) -> dict[str, Any]:
     rows = list_ladder_rows(now=now)
-    published = sum(1 for r in rows if r.is_published)
-    future = len(rows) - published
     locked_until = last_published_number(now=now)
     return {
+        **build_schedule_page_context(
+            rows,
+            title='Лесенки',
+            prefix='ladder',
+            list_label='Список лесенок',
+            publish_start=get_publish_start_iso(),
+        ),
         'ladders': rows,
         'ladders_json': [r.to_dict() for r in rows],
-        'publish_start': get_publish_start_iso(),
         'ladder_count': len(rows),
-        'published_count': published,
-        'future_count': future,
-        'today_number': next((r.number for r in rows if r.is_today), None),
         'locked_until': locked_until,
     }
