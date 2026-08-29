@@ -471,6 +471,65 @@ class TaskGroup(models.Model):
         help_text='Контент для лиц старше 18 лет: при открытии набора заданий показывается подтверждение возраста.',
     )
 
+    def save(self, *args, **kwargs):
+        """Revalidate tasks that inherit changed checker/scoring settings."""
+        previous = None
+        with transaction.atomic():
+            inherited_tasks = []
+            previous_max_by_task = {}
+            if not self._state.adding and self.pk:
+                previous = TaskGroup.objects.select_for_update().filter(pk=self.pk).first()
+                # Lock children before publishing the inherited setting.  A
+                # concurrent submission either commits first and is replayed,
+                # or waits and sees the fully rechecked revision.
+                inherited_tasks = list(
+                    Task.objects.select_for_update().filter(task_group_id=self.pk)
+                )
+                for task in inherited_tasks:
+                    task.task_group = previous
+                    previous_max_by_task[task.pk] = task.get_results_max_points()
+            super().save(*args, **kwargs)
+            if previous is None:
+                return
+
+            changed = {
+                field for field in ('checker_id', 'points', 'max_attempts')
+                if getattr(previous, field) != getattr(self, field)
+            }
+            requested_fields = kwargs.get('update_fields')
+            if requested_fields is not None:
+                requested_fields = set(requested_fields)
+                if 'checker' in requested_fields:
+                    requested_fields.add('checker_id')
+                changed &= requested_fields
+            if not changed:
+                return
+
+            from games.recheck import recheck_task_after_edit
+            from games.views.track import track_task_change
+            for task in inherited_tasks:
+                task.task_group = self
+                affected = (
+                    ('checker_id' in changed and not task.checker_id)
+                    or ('points' in changed and not task.points)
+                    or ('max_attempts' in changed and not task.max_attempts)
+                )
+                if not affected:
+                    continue
+                previous_revision = task.attempt_revision
+                task.attempt_revision = uuid.uuid4()
+                Task.objects.filter(pk=task.pk).update(
+                    attempt_revision=task.attempt_revision,
+                )
+                if Attempt.manager.filter(task=task).exists():
+                    recheck_task_after_edit(
+                        task,
+                        previous_revision=previous_revision,
+                        previous_max_points=previous_max_by_task.get(task.pk),
+                        changed_fields={'task_group.{}'.format(field) for field in changed},
+                    )
+                track_task_change(task)
+
     def get_derived_title(self):
         """
         Подпись как у старого TaskGroup: «[игра] N. название» по самой ранней по времени игре
@@ -725,9 +784,9 @@ class TaskQuerySet(models.QuerySet):
 
 class Task(models.Model):
     id = models.AutoField(primary_key=True)
-    # Changes on every Task.save(). Attempts keep a snapshot so an answer that
-    # was submitted against an older version of the task is not a duplicate of
-    # the same answer submitted after an edit.
+    # Changes only when validation/scoring changes. Attempts keep the submitted
+    # revision so the same answer may be retried after a meaningful edit, while
+    # cosmetic saves do not reset duplicate/attempt-limit accounting.
     attempt_revision = models.UUIDField(default=uuid.uuid4, editable=False)
     task_group = models.ForeignKey(TaskGroup, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL)
     number = models.CharField(max_length=100)
@@ -785,15 +844,76 @@ class Task(models.Model):
             )
         return '{}: {}.{}'.format(game_name, tg_label, self.number)
 
+    def validation_snapshot(self):
+        """Small comparable snapshot of everything that can change checking/scoring."""
+        fields = {
+            'task_group_id': self.task_group_id,
+            'task_type': self.task_type,
+            'checker_id': self.checker_id,
+            'checker_data': self.checker_data,
+            'answer': self.answer,
+            'points': self.points,
+            'max_attempts': self.max_attempts,
+            'tags': self.tags,
+        }
+        # Wall JSON and replacements-lines layout live in Task.text.  For the
+        # other task types text is presentation-only (notably Salad's theme).
+        if self.task_type in ('wall', 'replacements_lines'):
+            fields['text'] = self.text
+        return fields
+
+    def validation_changed_fields(self, previous):
+        if previous is None:
+            return set()
+        before = previous.validation_snapshot()
+        after = self.validation_snapshot()
+        return {
+            key for key in set(before) | set(after)
+            if before.get(key) != after.get(key)
+        }
+
     def save(self, *args, **kwargs):
+        """
+        Rotate the validation revision only for validation-affecting changes.
+
+        When history exists, the same transaction also replays it.  The Task
+        row is locked first, matching check_attempt's lock order, so a player
+        cannot submit against a half-rechecked task.
+        """
         from games.views.track import track_task_change
-        if not self._state.adding:
-            self.attempt_revision = uuid.uuid4()
-            update_fields = kwargs.get('update_fields')
-            if update_fields is not None:
-                kwargs['update_fields'] = set(update_fields) | {'attempt_revision'}
-        super(Task, self).save(*args, **kwargs)
-        track_task_change(self)
+
+        previous = None
+        changed_fields = set()
+        previous_max_points = None
+        with transaction.atomic():
+            if not self._state.adding and self.pk:
+                previous = Task.objects.select_for_update().filter(pk=self.pk).first()
+                changed_fields = self.validation_changed_fields(previous)
+                requested_fields = kwargs.get('update_fields')
+                if requested_fields is not None:
+                    requested_fields = set(requested_fields)
+                    if 'checker' in requested_fields:
+                        requested_fields.add('checker_id')
+                    changed_fields &= requested_fields
+                if changed_fields:
+                    previous_max_points = previous.get_results_max_points()
+                    self.attempt_revision = uuid.uuid4()
+                    update_fields = kwargs.get('update_fields')
+                    if update_fields is not None:
+                        kwargs['update_fields'] = set(update_fields) | {'attempt_revision'}
+
+            super(Task, self).save(*args, **kwargs)
+
+            if changed_fields and Attempt.manager.filter(task_id=self.pk).exists():
+                from games.recheck import recheck_task_after_edit
+                recheck_task_after_edit(
+                    self,
+                    previous_revision=previous.attempt_revision,
+                    previous_max_points=previous_max_points,
+                    changed_fields=changed_fields,
+                )
+
+            track_task_change(self)
 
     def clean(self):
         if self.task_type == 'word_salad':
@@ -1389,7 +1509,7 @@ CHAIN_TASK_TYPES = ('wall', 'replacements_lines', 'raddle', 'alphabetty', 'word_
 
 class ChainTaskState(models.Model):
     """
-    Authoritative accumulated chain state for wall and replacements_lines tasks.
+    Authoritative current-version progress for cumulative chain tasks.
 
     One row per (actor, task, game, game_mode).  Protected by SELECT FOR UPDATE during
     attempt submission so concurrent submissions for the same actor+task+mode are
@@ -1399,8 +1519,9 @@ class ChainTaskState(models.Model):
       'general'    – outside tournament window (includes all historical attempts)
       'tournament' – inside tournament window (fresh start, independent chain)
 
-    Both wall and replacements_lines use current_mode as the key, so tournament
-    progress is always isolated from general progress.
+    Every chain task uses current_mode as the key, so tournament progress is
+    isolated from general progress. Historical completion is stored separately
+    from the replayable current state.
     """
     team = models.ForeignKey(
         Team, related_name='chain_task_states',
@@ -1422,6 +1543,11 @@ class ChainTaskState(models.Model):
     game_mode = models.CharField(max_length=20)   # 'general' | 'tournament'
 
     state = models.TextField(blank=True, null=True)
+    # ``state`` is current-version progress.  Completion is an achievement and
+    # therefore deliberately stored separately and never cleared by recheck.
+    completed_at = models.DateTimeField(blank=True, null=True)
+    completed_revision = models.UUIDField(blank=True, null=True, editable=False)
+    validated_revision = models.UUIDField(blank=True, null=True, editable=False)
     last_attempt = models.ForeignKey(
         'Attempt', blank=True, null=True,
         on_delete=models.SET_NULL, related_name='+',
@@ -1507,6 +1633,21 @@ class Attempt(models.Model):
     # Task revision seen when this attempt was checked. Null is allowed for
     # historical/imported rows whose task is no longer available.
     task_revision = models.UUIDField(blank=True, null=True, editable=False)
+    # status/points remain the monotonic awarded result used by legacy scoring.
+    # These fields expose the verdict against the latest validation revision.
+    current_status = models.CharField(
+        max_length=100, choices=STATUS_VARIANTS, blank=True, null=True,
+    )
+    current_points = models.DecimalField(
+        default=0, decimal_places=3, max_digits=10, blank=True, null=True,
+    )
+    checked_revision = models.UUIDField(blank=True, null=True, editable=False)
+    # Only populated by edit-triggered replay.  Salad normally uses the latest
+    # state (so hints may cost points); this floor protects the score that was
+    # visible immediately before an author edit.
+    recheck_points_floor = models.DecimalField(
+        default=0, decimal_places=3, max_digits=10, blank=True, null=True,
+    )
     text = models.TextField()
     status = models.CharField(max_length=100, choices=STATUS_VARIANTS)
     possible_status = models.CharField(blank=True, null=True, max_length=100, choices=STATUS_VARIANTS)

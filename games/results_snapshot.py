@@ -383,7 +383,10 @@ def build_results_snapshot_payload(game, mode='tournament'):
 
             cls = ''
             if has_attempts:
-                if max_points > 0 and float(result_points) >= max_points - 1e-9:
+                historically_solved = best_status == 'Ok'
+                if historically_solved or (
+                    max_points > 0 and float(result_points) >= max_points - 1e-9
+                ):
                     cls = 'cell-full'
                 elif float(result_points) <= 0:
                     cls = 'cell-zero'

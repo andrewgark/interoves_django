@@ -207,7 +207,15 @@ def salad_hub_result_for_actor(
 def result_points_from_attempts(attempts):
     if not attempts:
         return Decimal('0')
-    return score_for_state(getattr(attempts[-1], 'state', None))
+    current = score_for_state(getattr(attempts[-1], 'state', None))
+    protected = max(
+        (
+            Decimal(str(getattr(attempt, 'recheck_points_floor', 0) or 0))
+            for attempt in attempts
+        ),
+        default=Decimal('0'),
+    )
+    return max(current, protected)
 
 
 def hint_numbers_from_attempts(attempts):

@@ -288,10 +288,11 @@ def get_guessed_tiles(wall, attempts_info):
 
 @register.filter
 def get_show_status(attempt):
+    verdict = getattr(attempt, 'current_status', None) or attempt.status
     if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions', 'grid-puzzle'):
-        return attempt.status
+        return verdict
     elif attempt.task.task_type == 'wall':
-        if attempt.status == 'Pending':
+        if verdict == 'Pending':
             return 'Pending'
         return json.loads(attempt.state)['last_attempt']['status']
     raise Exception('Unknown task_type {}'.format(attempt.task.task_type))
@@ -316,7 +317,13 @@ def attempts_with_status(attempts):
         if getattr(a.task, 'task_type', None) not in CHAIN_TASK_TYPES:
             continue
         try:
-            pts = Decimal(str(a.points or 0))
+            current_status = getattr(a, 'current_status', None)
+            current_points = getattr(a, 'current_points', None)
+            pts = Decimal(str(
+                current_points
+                if current_status is not None and current_points is not None
+                else (a.points or 0)
+            ))
         except (ArithmeticError, ValueError, TypeError):
             pts = Decimal('0')
         if pts > best:
@@ -326,17 +333,18 @@ def attempts_with_status(attempts):
     result = []
     for a in items:
         is_chain = getattr(a.task, 'task_type', None) in CHAIN_TASK_TYPES
-        if a.status == 'Ok':
+        verdict = getattr(a, 'current_status', None) or a.status
+        if verdict == 'Ok':
             mark = 'ok'
-        elif a.status == 'Pending':
+        elif verdict == 'Pending':
             # Pending is a review state, not evidence that the submitted
             # chain step was wrong.  Never replace it with a progress verdict.
             mark = 'pending'
         elif is_chain:
             mark = 'partial' if id(a) in gained_ids else 'wrong'
-        elif a.status == 'Partial':
+        elif verdict == 'Partial':
             mark = 'partial'
-        elif a.status == 'Wrong':
+        elif verdict == 'Wrong':
             mark = 'wrong'
         else:
             mark = 'pending'

@@ -298,9 +298,9 @@ def bulk_actor_solved_task_ids(
     solved: Set[int] = set()
     for t in tasks:
         pts, _has_any, best_status = pts_map.get(t.id, (0.0, False, None))
-        # Raddle: «решено» = все слова закрыты (status Ok), даже если очки < max
-        # из‑за подсказок (🟨/🟥). Иначе на странице секции пропадают квадраты и зелёная подсветка.
-        if getattr(t, "task_type", None) == "raddle" and best_status == "Ok":
+        # Historical completion is monotonic.  After an author edit it is valid
+        # to have status Ok with fewer points than the task's current maximum.
+        if best_status == "Ok":
             solved.add(t.id)
             continue
         # get_results_max_points() parses replacements_lines text (~60ms/task on prod).
@@ -311,4 +311,3 @@ def bulk_actor_solved_task_ids(
         if mp > 0 and pts >= mp - EPS:
             solved.add(t.id)
     return solved
-
