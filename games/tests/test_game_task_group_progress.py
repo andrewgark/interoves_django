@@ -125,6 +125,36 @@ class GameTaskGroupProgressTests(TestCase):
         # Полностью решено — прогресс-текст не пишем.
         self.assertIsNone(row['progress_text'])
 
+    def test_progress_api_marks_group_yellow_when_it_has_points(self):
+        game = self._create_section_game('sec_scored_progress')
+        anon_key = 'test-anon-scored-progress'
+        with patch('games.views.track.track_task_change'):
+            tg = TaskGroup.objects.create(label='scored-progress')
+            GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='One')
+            task = Task.objects.create(
+                task_group=tg,
+                number='1',
+                points=10,
+                checker=CheckerType.objects.get(pk='equals_with_possible_spaces'),
+            )
+            Attempt.manager.create(
+                task=task,
+                anon_key=anon_key,
+                game=game,
+                text='partial',
+                status='Partial',
+                points=2,
+            )
+
+        self.client.cookies['interoves_anon'] = anon_key
+        resp = self.client.get('/games/sec_scored_progress/progress/')
+
+        self.assertEqual(resp.status_code, 200)
+        row = resp.json()['rows']['1']
+        self.assertEqual(row['n_solved'], 0)
+        self.assertFalse(row['is_fully_solved'])
+        self.assertEqual(row['row_class'], 'new-task--partial')
+
     def test_progress_api_without_actor_returns_empty(self):
         game = self._create_section_game('sec_prog3')
         with patch('games.views.track.track_task_change'):

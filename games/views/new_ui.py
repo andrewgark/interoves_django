@@ -221,20 +221,21 @@ class _ResultsTaskGroupHeader:
         return self._n_tasks
 
 
-def _compute_solved_task_ids(game, task_groups, team=None, user=None, anon_key=None, mode='general'):
+def _compute_task_progress(game, task_groups, team=None, user=None, anon_key=None, mode='general'):
     """
     Returns:
       - solved_task_ids: set(task_id) solved by current actor
       - tg_to_task_ids: {task_group_id: [task_id, ...]} (for computing per-group stats)
+      - task_result_points: {task_id: actor's result points}
     """
-    from games.scoring import Actor, bulk_actor_solved_task_ids
+    from games.scoring import Actor, bulk_actor_task_progress
 
     tg_ids = [tg.id for tg in task_groups]
-    tasks_qs = Task.objects.filter(task_group_id__in=tg_ids).visible().values('id', 'task_group_id')
-    task_ids = [t['id'] for t in tasks_qs]
+    tasks = list(Task.objects.filter(task_group_id__in=tg_ids).visible())
 
     solved_task_ids = set()
-    if task_ids:
+    task_result_points = {}
+    if tasks:
         actor = None
         if team is not None:
             actor = Actor(team_id=team.pk)
@@ -246,17 +247,34 @@ def _compute_solved_task_ids(game, task_groups, team=None, user=None, anon_key=N
             # For "sections" (training) we treat a task solved if it was solved in ANY game
             # that references the same canonical TaskGroup (same Task rows, different Game).
             include_other_games = game.project_id == NEW_UI_SECTIONS_PROJECT
-            solved_task_ids = bulk_actor_solved_task_ids(
-                tasks=Task.objects.filter(id__in=task_ids).visible(),
+            solved_task_ids, progress_by_task_id = bulk_actor_task_progress(
+                tasks=tasks,
                 actor=actor,
                 mode=mode,
                 game=game,
                 include_other_games=include_other_games,
             )
+            task_result_points = {
+                task_id: progress[0]
+                for task_id, progress in progress_by_task_id.items()
+            }
 
     tg_to_task_ids = {}
-    for t in tasks_qs:
-        tg_to_task_ids.setdefault(t['task_group_id'], []).append(t['id'])
+    for task in tasks:
+        tg_to_task_ids.setdefault(task.task_group_id, []).append(task.id)
+
+    return solved_task_ids, tg_to_task_ids, task_result_points
+
+
+def _compute_solved_task_ids(game, task_groups, team=None, user=None, anon_key=None, mode='general'):
+    solved_task_ids, tg_to_task_ids, _task_result_points = _compute_task_progress(
+        game,
+        task_groups,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        mode=mode,
+    )
 
     return solved_task_ids, tg_to_task_ids
 
@@ -389,7 +407,7 @@ def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
 
 def _task_group_progress_payload(game, task_groups, *, team=None, user=None, anon_key=None, mode='general'):
     canonical_groups = [p.task_group for p in task_groups]
-    solved_task_ids, tg_to_task_ids = _compute_solved_task_ids(
+    solved_task_ids, tg_to_task_ids, task_result_points = _compute_task_progress(
         game=game,
         task_groups=canonical_groups,
         team=team,
@@ -450,10 +468,11 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
         tg = p.task_group
         tg_task_ids = tg_to_task_ids.get(tg.id, [])
         n_solved = len([tid for tid in tg_task_ids if tid in solved_task_ids])
+        has_points = any(task_result_points.get(tid, 0) > 0 for tid in tg_task_ids)
         row_class = ''
         if p.n_tasks and n_solved >= p.n_tasks:
             row_class = 'new-task--solved'
-        elif n_solved:
+        elif n_solved or has_points:
             row_class = 'new-task--partial'
         is_fully_solved = bool(p.n_tasks) and n_solved >= p.n_tasks
         # Пишем «N из M решено» только при частичном прогрессе (0 < N < M).

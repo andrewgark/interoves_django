@@ -276,17 +276,18 @@ def _bulk_actor_task_result_points_orm(
     return result
 
 
-def bulk_actor_solved_task_ids(
+def bulk_actor_task_progress(
     *,
     tasks: Iterable[Task],
     actor: Actor,
     mode: str = "general",
     game=None,
     include_other_games: bool = False,
-) -> Set[int]:
+) -> Tuple[Set[int], Dict[int, Tuple[float, bool, Optional[str]]]]:
+    """Bulk-compute both solved task ids and scored progress for one actor."""
     tasks = list(tasks or [])
     if not tasks:
-        return set()
+        return set(), {}
     task_ids = [t.id for t in tasks if t and t.id]
     pts_map = bulk_actor_task_result_points(
         task_ids=task_ids,
@@ -310,4 +311,22 @@ def bulk_actor_solved_task_ids(
         mp = task_effective_max_points(t)
         if mp > 0 and pts >= mp - EPS:
             solved.add(t.id)
+    return solved, pts_map
+
+
+def bulk_actor_solved_task_ids(
+    *,
+    tasks: Iterable[Task],
+    actor: Actor,
+    mode: str = "general",
+    game=None,
+    include_other_games: bool = False,
+) -> Set[int]:
+    solved, _pts_map = bulk_actor_task_progress(
+        tasks=tasks,
+        actor=actor,
+        mode=mode,
+        game=game,
+        include_other_games=include_other_games,
+    )
     return solved
