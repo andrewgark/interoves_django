@@ -716,6 +716,26 @@ class GameDifficultyNorm(models.Model):
         return '{} · v{}'.format(self.game_id, self.version)
 
 
+class DailyDifficultyQueueStatus(models.Model):
+    """Singleton heartbeat written by the minute difficulty worker."""
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    last_started_at = models.DateTimeField(blank=True, null=True)
+    last_finished_at = models.DateTimeField(blank=True, null=True)
+    last_success_at = models.DateTimeField(blank=True, null=True)
+    last_error = models.TextField(blank=True, default='')
+    last_refreshed_count = models.PositiveIntegerField(default=0)
+    last_limit = models.PositiveIntegerField(default=0)
+    last_worker = models.CharField(max_length=255, blank=True, default='')
+
+    class Meta:
+        verbose_name = 'состояние очереди сложности'
+        verbose_name_plural = 'состояние очереди сложности'
+
+    def __str__(self):
+        return self.last_worker or 'очередь сложности'
+
+
 class TaskQuerySet(models.QuerySet):
     """Задания с is_removed=True скрыты из игры и результатов, в админке видны все."""
 

@@ -677,10 +677,60 @@ def ensure_daily_difficulty_row(placement, *, now=None):
             'refresh_not_before': published_at or now,
         },
     )
-    if not created and published_at and snapshot.published_at != published_at:
-        DailyGameDifficulty.objects.filter(pk=snapshot.pk).update(published_at=published_at)
-        snapshot.published_at = published_at
+    if not created and published_at:
+        updates = {}
+        if snapshot.published_at != published_at:
+            updates['published_at'] = published_at
+        # Editions are created ahead of time. If the publication schedule is
+        # later edited, the first-run deadline must follow it too. Previously
+        # only published_at changed, leaving a newly published game asleep
+        # until its old (sometimes weeks-later) date.
+        if snapshot.calculated_at is None and snapshot.refresh_not_before != published_at:
+            updates['refresh_not_before'] = published_at
+        if updates:
+            DailyGameDifficulty.objects.filter(pk=snapshot.pk).update(**updates)
+            for field, value in updates.items():
+                setattr(snapshot, field, value)
     return snapshot
+
+
+def sync_daily_difficulty_schedule(game, *, now=None):
+    """Synchronize every queue row immediately after a publish-start change."""
+    if game is None or game.pk not in SUPPORTED_GAME_IDS:
+        return {
+            'placements': 0,
+            'created': 0,
+            'published_changed': 0,
+            'first_deadline_changed': 0,
+        }
+    now = now or timezone.now()
+    placements = list(
+        game.task_group_links.select_related('game', 'task_group').all()
+    )
+    snapshots = {
+        row.placement_id: row
+        for row in DailyGameDifficulty.objects.filter(
+            placement__game=game,
+        )
+    }
+    report = {
+        'placements': len(placements),
+        'created': 0,
+        'published_changed': 0,
+        'first_deadline_changed': 0,
+    }
+    for placement in placements:
+        before = snapshots.get(placement.pk)
+        old_published_at = before.published_at if before else None
+        old_deadline = before.refresh_not_before if before else None
+        snapshot = ensure_daily_difficulty_row(placement, now=now)
+        if before is None:
+            report['created'] += 1
+        if old_published_at != snapshot.published_at:
+            report['published_changed'] += 1
+        if snapshot.calculated_at is None and old_deadline != snapshot.refresh_not_before:
+            report['first_deadline_changed'] += 1
+    return report
 
 
 def ensure_recent_difficulty_rows(*, now=None, game_ids=None):
@@ -711,10 +761,10 @@ def ensure_recent_difficulty_rows(*, now=None, game_ids=None):
             ).values_list('placement_id', flat=True)
         )
         for placement in placements:
-            if placement.pk in existing:
-                continue
+            is_missing = placement.pk not in existing
             ensure_daily_difficulty_row(placement, now=now)
-            created += 1
+            if is_missing:
+                created += 1
     return created
 
 
@@ -724,12 +774,8 @@ def backfill_daily_difficulty_rows(*, now=None, game_ids=None, dry_run=False):
     for placement in _supported_placements(game_ids=game_ids):
         exists = DailyGameDifficulty.objects.filter(placement=placement).exists()
         if exists:
-            snapshot = DailyGameDifficulty.objects.filter(placement=placement).first()
-            published_at = published_at_for_placement(placement, now=now)
-            if not dry_run and published_at and snapshot.published_at != published_at:
-                DailyGameDifficulty.objects.filter(pk=snapshot.pk).update(
-                    published_at=published_at,
-                )
+            if not dry_run:
+                ensure_daily_difficulty_row(placement, now=now)
             continue
         created += 1
         if not dry_run:

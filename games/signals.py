@@ -108,6 +108,31 @@ def game_notify_registered_play_access(sender, instance, created, **kwargs):
     notify_registered_users_game_lifecycle_changed(old, instance)
 
 
+@receiver(
+    post_save,
+    sender=Game,
+    dispatch_uid='daily-difficulty-publish-schedule-sync',
+)
+def daily_difficulty_publish_schedule_saved(sender, instance, created, **kwargs):
+    """Move difficulty deadlines atomically with a daily schedule change."""
+    if created:
+        return
+    from games.daily_section import schedule_for
+    from games.difficulty import SUPPORTED_GAME_IDS, sync_daily_difficulty_schedule
+
+    if instance.pk not in SUPPORTED_GAME_IDS:
+        return
+    schedule = schedule_for(instance.pk)
+    old = getattr(instance, '_game_old_snapshot', None)
+    if schedule is None or old is None:
+        return
+    old_tags = old.tags or {}
+    new_tags = instance.tags or {}
+    if old_tags.get(schedule.publish_start_tag) == new_tags.get(schedule.publish_start_tag):
+        return
+    sync_daily_difficulty_schedule(instance)
+
+
 post_save.connect(create_profile, sender=SocialAccount, dispatch_uid="socialaccount-profilecreation-signal")
 
 

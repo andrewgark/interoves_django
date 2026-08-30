@@ -62,6 +62,12 @@ queue.
    `dirty=True`, `refresh_not_before=published_at` (or `now` if unknown).
 2. Until `published_at`, the row is not due. Pre-created future editions sit
    quietly.
+   If the publication schedule changes before the first calculation, both
+   `published_at` and `refresh_not_before` are synchronized. This prevents an
+   edition moved earlier from remaining asleep until its former date. A
+   `Game` save that changes the type's `*_publish_start` tag synchronizes the
+   complete queue in the same database transaction; the minute worker remains
+   a fallback repair for recent rows.
 3. After publish, the next cron tick can claim the row and calculate. Until
    `n >= 5` the public badge stays hidden; the snapshot still exists.
 4. A later attempt / hint / letter reveal / completion runs
@@ -211,8 +217,21 @@ python manage.py backfill_daily_difficulties
 python manage.py backfill_daily_difficulties --game alphabetty --dry-run
 ```
 
-Django admin: `DailyGameDifficulty` is read-only except for the action
-«Пересчитать выбранные оценки сложности». `GameDifficultyNorm` is read-only.
+Django admin: open `DailyGameDifficulty` and click «Состояние очереди». The
+dashboard shows the minute-worker heartbeat, due / delayed / leased / failed /
+never-calculated / missing counts, a per-game breakdown and the first 100 dirty
+rows. It provides two recovery operations:
+
+- «Восстановить метаданные очереди» creates missing rows, synchronizes
+  never-calculated rows with the current publication schedule and releases
+  expired leases. It does not run heavy calculations.
+- «Запустить один такт» synchronously claims and calculates up to 10 due rows.
+
+The regular changelist also has «Вернуть выбранные в очередь сейчас» and the
+existing immediate «Пересчитать выбранные оценки сложности» action.
+`GameDifficultyNorm` remains read-only. The singleton
+`DailyDifficultyQueueStatus` stores heartbeat timestamps; one row is updated
+per cron tick, so it does not grow as a log table would.
 
 ## 11. Troubleshooting
 
@@ -222,6 +241,9 @@ Django admin: `DailyGameDifficulty` is read-only except for the action
   save created one (`game_id` must be `ladder` / `alphabetty` / `salad`).
 - Row exists but `n < 5`: badge is hidden by design.
 - Row exists, `stars` is null: same.
+- `calculated_at` is null and `refresh_not_before` is later than an already
+  elapsed `published_at`: publication schedule drift. Use the admin recovery
+  operation; current workers also repair recent rows automatically.
 
 **Stars not updating after new plays**
 

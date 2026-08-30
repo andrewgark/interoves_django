@@ -1,5 +1,6 @@
 import chardet
 from collections import OrderedDict
+from datetime import timedelta
 import json
 
 from django import forms
@@ -7,7 +8,11 @@ from django.contrib import admin, messages
 from django.forms import Textarea, ModelForm, ModelMultipleChoiceField
 from django.forms.models import BaseInlineFormSet
 from django.db import models
+from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
+from django.template.response import TemplateResponse
+from django.urls import path, reverse
+from django.utils import timezone
 from games.google.actions import create_google_doc
 from games.ops_actions import (
     accept_ticket,
@@ -45,6 +50,7 @@ from games.models import (
     PendingAttempt,
     PendingBugReport,
     Donation,
+    DailyDifficultyQueueStatus,
     DailyGameDifficulty,
     GameDifficultyNorm,
     PendingTicketRequest,
@@ -89,8 +95,20 @@ def recalculate_selected_difficulties(modeladmin, request, queryset):
     messages.success(request, 'Пересчитано оценок: {}'.format(updated))
 
 
+@admin.action(description='Вернуть выбранные в очередь сейчас')
+def enqueue_selected_difficulties(modeladmin, request, queryset):
+    updated = queryset.update(
+        dirty=True,
+        refresh_not_before=timezone.now(),
+        refresh_claim_token=None,
+        refresh_claimed_until=None,
+    )
+    messages.success(request, 'Возвращено в очередь: {}'.format(updated))
+
+
 @admin.register(DailyGameDifficulty)
 class DailyGameDifficultyAdmin(admin.ModelAdmin):
+    change_list_template = 'admin/games/dailygamedifficulty/change_list.html'
     list_display = (
         'placement', 'n', 'median_time', 'typical_time', 'time_ratio',
         'median_errors', 'help_rate', 'unfinished_rate', 'raw_rating',
@@ -108,7 +126,158 @@ class DailyGameDifficultyAdmin(admin.ModelAdmin):
         'error_ratio', 'help_rate', 'typical_help_rate', 'unfinished_rate',
         'typical_unfinished_rate', 'raw_rating', 'adjusted_rating', 'component_scores',
     )
-    actions = (recalculate_selected_difficulties,)
+    actions = (enqueue_selected_difficulties, recalculate_selected_difficulties)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                'queue/',
+                self.admin_site.admin_view(self.queue_view),
+                name='games_dailygamedifficulty_queue',
+            ),
+        ]
+        return custom + urls
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = dict(extra_context or {})
+        extra_context['difficulty_queue_url'] = reverse(
+            'admin:games_dailygamedifficulty_queue',
+        )
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def queue_view(self, request):
+        from games.difficulty import SUPPORTED_GAME_IDS, _supported_placements
+        from games.difficulty_refresh import (
+            due_daily_difficulty_queryset,
+            repair_daily_difficulty_queue,
+            run_daily_difficulty_refresh,
+        )
+
+        if not self.has_view_permission(request):
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied
+
+        now = timezone.now()
+        if request.method == 'POST':
+            if not self.has_change_permission(request):
+                from django.core.exceptions import PermissionDenied
+                raise PermissionDenied
+            operation = request.POST.get('operation')
+            if operation == 'repair':
+                report = repair_daily_difficulty_queue(now=now)
+                messages.success(
+                    request,
+                    'Очередь восстановлена: создано {}, исправлено сроков {}, '
+                    'снято просроченных аренд {}, готово к обработке {}.'.format(
+                        report['created'], report['rescheduled'], report['released'],
+                        report['due'],
+                    ),
+                )
+            elif operation == 'run':
+                try:
+                    results = run_daily_difficulty_refresh(limit=10, worker='admin')
+                except Exception as exc:
+                    messages.error(
+                        request,
+                        'Запуск очереди завершился ошибкой: {}'.format(exc),
+                    )
+                else:
+                    messages.success(
+                        request,
+                        'Такт очереди завершён, пересчитано: {}.'.format(len(results)),
+                    )
+            else:
+                messages.error(request, 'Неизвестная операция очереди.')
+            return HttpResponseRedirect(request.path)
+
+        queryset = DailyGameDifficulty.objects.select_related(
+            'placement', 'placement__game', 'placement__task_group',
+        )
+        due_queryset = due_daily_difficulty_queryset(now=now)
+        schedule_drift = queryset.filter(
+            calculated_at__isnull=True,
+            dirty=True,
+            published_at__lte=now,
+        ).filter(
+            models.Q(refresh_not_before__isnull=True)
+            | models.Q(refresh_not_before__gt=now),
+        )
+        queue_rows = list(
+            queryset.filter(dirty=True).order_by('refresh_not_before', 'id')[:100]
+        )
+        for row in queue_rows:
+            if row.refresh_fail_count:
+                row.queue_state = 'ошибка / retry'
+            elif row.refresh_claimed_until and row.refresh_claimed_until > now:
+                row.queue_state = 'обрабатывается'
+            elif (
+                row.calculated_at is None
+                and row.published_at
+                and row.published_at <= now
+                and (row.refresh_not_before is None or row.refresh_not_before > now)
+            ):
+                row.queue_state = 'просрочен первый запуск'
+            elif row.refresh_not_before is not None and row.refresh_not_before <= now:
+                row.queue_state = 'готово'
+            else:
+                row.queue_state = 'отложено'
+
+        per_game = []
+        for game_id in SUPPORTED_GAME_IDS:
+            game_rows = queryset.filter(placement__game_id=game_id)
+            per_game.append({
+                'game_id': game_id,
+                'total': game_rows.count(),
+                'dirty': game_rows.filter(dirty=True).count(),
+                'due': due_queryset.filter(placement__game_id=game_id).count(),
+                'failed': game_rows.filter(refresh_fail_count__gt=0).count(),
+                'never': game_rows.filter(calculated_at__isnull=True).count(),
+            })
+
+        status = DailyDifficultyQueueStatus.objects.filter(pk=1).first()
+        worker_running = bool(
+            status and status.last_started_at and (
+                status.last_finished_at is None
+                or status.last_started_at > status.last_finished_at
+            )
+        )
+        heartbeat_late = bool(
+            status is None
+            or status.last_success_at is None
+            or status.last_success_at < now - timedelta(minutes=3)
+        )
+        supported_ids = {row.pk for row in _supported_placements()}
+        existing_ids = set(queryset.values_list('placement_id', flat=True))
+        context = {
+            **self.admin_site.each_context(request),
+            'opts': self.model._meta,
+            'title': 'Очередь подсчёта сложности',
+            'now': now,
+            'status': status,
+            'worker_running': worker_running,
+            'heartbeat_late': heartbeat_late,
+            'counts': {
+                'total': queryset.count(),
+                'dirty': queryset.filter(dirty=True).count(),
+                'due': due_queryset.count(),
+                'scheduled': queryset.filter(dirty=True, refresh_not_before__gt=now).count(),
+                'active': queryset.filter(refresh_claimed_until__gt=now).count(),
+                'failed': queryset.filter(refresh_fail_count__gt=0).count(),
+                'never': queryset.filter(calculated_at__isnull=True).count(),
+                'drift': schedule_drift.count(),
+                'missing': len(supported_ids - existing_ids),
+            },
+            'per_game': per_game,
+            'queue_rows': queue_rows,
+            'changelist_url': reverse('admin:games_dailygamedifficulty_changelist'),
+            'can_repair': self.has_change_permission(request),
+        }
+        return TemplateResponse(
+            request,
+            'admin/games/dailygamedifficulty/queue.html',
+            context,
+        )
 
     def has_add_permission(self, request):
         return False

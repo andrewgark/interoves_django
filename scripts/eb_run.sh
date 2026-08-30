@@ -71,12 +71,12 @@ SSH="ssh -i ${KEY_FILE} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/n
 # The script reads env vars from the running Daphne process's /proc entry
 # (avoids parsing the EB env file, which has unquoted special chars).
 
-ARGS_B64=$(python3 -c "import base64, json, sys; print(base64.b64encode(json.dumps(sys.argv[1:]).encode()).decode())" -- "$@")
+ARGS_B64=$(python3 -c "import base64, json, sys; print(base64.b64encode(json.dumps(sys.argv[1:]).encode()).decode())" "$@")
 
 if [[ $RAW -eq 1 ]]; then
     # Raw mode: run a shell command with the EB env injected
     RAW_CMD="$*"
-    RAW_CMD_B64=$(python3 -c "import base64, sys; print(base64.b64encode(sys.argv[1].encode()).decode())" -- "$RAW_CMD")
+    RAW_CMD_B64=$(python3 -c "import base64, sys; print(base64.b64encode(sys.argv[1].encode()).decode())" "$RAW_CMD")
     $SSH "sudo python3" <<PYEOF
 import base64, os, subprocess, sys
 pid = subprocess.check_output(['pgrep','-of','daphne'], text=True).strip()

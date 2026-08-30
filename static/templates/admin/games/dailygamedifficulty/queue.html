@@ -1,0 +1,105 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Начало</a>
+  &rsaquo; <a href="{{ changelist_url }}">Сложность ежедневных игр</a>
+  &rsaquo; Очередь
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+  .difficulty-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 12px; margin: 16px 0; }
+  .difficulty-summary > div { background: var(--darkened-bg); border-radius: 4px; padding: 12px; }
+  .difficulty-summary strong { display: block; font-size: 1.6rem; }
+  .difficulty-ok { color: var(--body-quiet-color); }
+  .difficulty-warn { color: #ba5b00; font-weight: 700; }
+  .difficulty-error { color: var(--error-fg); font-weight: 700; }
+  .difficulty-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 24px; }
+  .difficulty-actions form { margin: 0; }
+  .difficulty-actions button { cursor: pointer; }
+  .difficulty-error-text { max-width: 38rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+
+<h1>{{ title }}</h1>
+
+<fieldset class="module aligned">
+  <h2>Heartbeat обработчика</h2>
+  <div class="form-row">
+    {% if worker_running %}
+      <span class="difficulty-warn">Обработчик сейчас работает.</span>
+    {% elif heartbeat_late %}
+      <span class="difficulty-error">Нет успешного heartbeat за последние 3 минуты.</span>
+    {% else %}
+      <span class="difficulty-ok">Cron отвечает штатно.</span>
+    {% endif %}
+  </div>
+  <div class="form-row"><strong>Последний старт:</strong> {{ status.last_started_at|default:"—" }}</div>
+  <div class="form-row"><strong>Последнее завершение:</strong> {{ status.last_finished_at|default:"—" }}</div>
+  <div class="form-row"><strong>Последний успех:</strong> {{ status.last_success_at|default:"—" }}</div>
+  <div class="form-row"><strong>Worker:</strong> {{ status.last_worker|default:"—" }}</div>
+  <div class="form-row"><strong>Пересчитано за последний такт:</strong> {{ status.last_refreshed_count|default:"0" }}</div>
+  {% if status.last_error %}<div class="form-row difficulty-error-text"><strong>Ошибка:</strong> {{ status.last_error }}</div>{% endif %}
+</fieldset>
+
+<div class="difficulty-summary">
+  <div><strong>{{ counts.total }}</strong>всего строк</div>
+  <div><strong>{{ counts.dirty }}</strong>изменены</div>
+  <div><strong>{{ counts.due }}</strong>готовы сейчас</div>
+  <div><strong>{{ counts.scheduled }}</strong>отложены</div>
+  <div><strong>{{ counts.active }}</strong>в обработке</div>
+  <div><strong>{{ counts.failed }}</strong>с ошибками</div>
+  <div><strong>{{ counts.never }}</strong>ещё не считались</div>
+  <div class="{% if counts.drift %}difficulty-error{% endif %}"><strong>{{ counts.drift }}</strong>просрочен первый запуск</div>
+  <div class="{% if counts.missing %}difficulty-error{% endif %}"><strong>{{ counts.missing }}</strong>нет строки очереди</div>
+</div>
+
+{% if can_repair %}
+<div class="difficulty-actions">
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="operation" value="repair">
+    <button type="submit" class="button">Восстановить метаданные очереди</button>
+  </form>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="operation" value="run">
+    <button type="submit" class="button default">Запустить один такт (до 10 игр)</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="module">
+  <h2>По типам игр</h2>
+  <table>
+    <thead><tr><th>Игра</th><th>Всего</th><th>Изменены</th><th>Готовы</th><th>Ошибки</th><th>Ни разу</th></tr></thead>
+    <tbody>
+      {% for row in per_game %}
+      <tr><th>{{ row.game_id }}</th><td>{{ row.total }}</td><td>{{ row.dirty }}</td><td>{{ row.due }}</td><td>{{ row.failed }}</td><td>{{ row.never }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="module">
+  <h2>Первые 100 изменённых строк</h2>
+  <table>
+    <thead><tr><th>Игра</th><th>Выпуск</th><th>Состояние</th><th>N</th><th>Ревизии</th><th>Опубликовано</th><th>Не раньше</th><th>Ошибки</th></tr></thead>
+    <tbody>
+      {% for row in queue_rows %}
+      <tr>
+        <td>{{ row.placement.game_id }}</td>
+        <td><a href="{% url 'admin:games_dailygamedifficulty_change' row.pk %}">{{ row.placement.number }}</a></td>
+        <td>{{ row.queue_state }}</td>
+        <td>{{ row.n }}</td>
+        <td>{{ row.calculated_revision }} / {{ row.data_revision }}</td>
+        <td>{{ row.published_at|default:"—" }}</td>
+        <td>{{ row.refresh_not_before|default:"—" }}</td>
+        <td class="difficulty-error-text">{% if row.refresh_fail_count %}{{ row.refresh_fail_count }}: {{ row.refresh_last_error }}{% else %}—{% endif %}</td>
+      </tr>
+      {% empty %}<tr><td colspan="8">Очередь пуста.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

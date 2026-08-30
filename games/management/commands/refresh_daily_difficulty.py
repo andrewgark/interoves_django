@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from games.difficulty import DUE_REFRESH_LIMIT, SUPPORTED_GAME_IDS
-from games.difficulty_refresh import refresh_due_daily_difficulties
+from games.difficulty_refresh import refresh_due_daily_difficulties, run_daily_difficulty_refresh
 
 
 class Command(BaseCommand):
@@ -35,11 +35,14 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        results = refresh_due_daily_difficulties(
-            game_ids=options.get('games'),
-            limit=options['limit'],
-            dry_run=options['dry_run'],
-        )
+        kwargs = {
+            'game_ids': options.get('games'),
+            'limit': options['limit'],
+        }
+        if options['dry_run']:
+            results = refresh_due_daily_difficulties(dry_run=True, **kwargs)
+        else:
+            results = run_daily_difficulty_refresh(worker='cron', **kwargs)
         if not results:
             self.stdout.write('No daily difficulties were due.')
             return

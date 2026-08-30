@@ -4,14 +4,19 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth.models import User
 from django.template.loader import render_to_string
 from django.test import RequestFactory, SimpleTestCase, TestCase
+from django.urls import reverse
 from django.utils import timezone
 
+from games.daily_section import MOSCOW
 from games.difficulty import (
     _public_context,
     calculate_observed_metrics,
     difficulty_refresh_interval,
+    ensure_daily_difficulty_row,
+    ensure_recent_difficulty_rows,
     get_cached_game_difficulties,
     get_game_difficulty,
     historical_norm,
@@ -27,11 +32,14 @@ from games.difficulty import (
 from games.difficulty_refresh import (
     ClaimedDifficultyRefresh,
     claim_due_daily_difficulties,
+    repair_daily_difficulty_queue,
+    run_daily_difficulty_refresh,
     refresh_claimed_difficulty,
 )
 from games.models import (
     Attempt,
     CheckerType,
+    DailyDifficultyQueueStatus,
     DailyGameDifficulty,
     Game,
     GameTaskGroup,
@@ -551,6 +559,188 @@ class DifficultySchedulerTests(TestCase):
         self.assertEqual(snapshot.calculated_revision, 1)
         self.assertGreater(snapshot.refresh_not_before, now)
         self.assertFalse(is_difficulty_refresh_due(placement, snapshot, now=now))
+
+    def test_first_run_deadline_follows_changed_publication_schedule(self):
+        now = timezone.now()
+        placement = self._placement(8813)
+        old_publish_at = now + timedelta(days=18)
+        new_publish_at = now - timedelta(hours=1)
+        DailyGameDifficulty.objects.filter(placement=placement).update(
+            calculated_at=None,
+            published_at=old_publish_at,
+            refresh_not_before=old_publish_at,
+        )
+
+        with patch(
+            'games.difficulty.published_at_for_placement',
+            return_value=new_publish_at,
+        ):
+            ensure_daily_difficulty_row(placement, now=now)
+
+        snapshot = DailyGameDifficulty.objects.get(placement=placement)
+        self.assertEqual(snapshot.published_at, new_publish_at)
+        self.assertEqual(snapshot.refresh_not_before, new_publish_at)
+        self.assertTrue(is_difficulty_refresh_due(placement, snapshot, now=now))
+
+    def test_changed_schedule_keeps_throttle_after_first_calculation(self):
+        now = timezone.now()
+        placement = self._placement(8814)
+        old_deadline = now + timedelta(minutes=15)
+        DailyGameDifficulty.objects.filter(placement=placement).update(
+            calculated_at=now,
+            published_at=now - timedelta(hours=1),
+            refresh_not_before=old_deadline,
+        )
+
+        with patch(
+            'games.difficulty.published_at_for_placement',
+            return_value=now - timedelta(hours=2),
+        ):
+            ensure_daily_difficulty_row(placement, now=now)
+
+        snapshot = DailyGameDifficulty.objects.get(placement=placement)
+        self.assertEqual(snapshot.published_at, now - timedelta(hours=2))
+        self.assertEqual(snapshot.refresh_not_before, old_deadline)
+
+    def test_minute_worker_repairs_recent_first_run_schedule(self):
+        now = timezone.now()
+        placement = self._placement(8816)
+        published_at = now - timedelta(hours=1)
+        DailyGameDifficulty.objects.filter(placement=placement).update(
+            calculated_at=None,
+            published_at=now + timedelta(days=18),
+            refresh_not_before=now + timedelta(days=18),
+        )
+
+        with patch(
+            'games.daily_section.current_number_for', return_value=8816,
+        ), patch(
+            'games.difficulty.published_at_for_placement', return_value=published_at,
+        ):
+            created = ensure_recent_difficulty_rows(now=now, game_ids=('ladder',))
+
+        snapshot = DailyGameDifficulty.objects.get(placement=placement)
+        self.assertEqual(created, 0)
+        self.assertEqual(snapshot.refresh_not_before, published_at)
+        self.assertTrue(is_difficulty_refresh_due(placement, snapshot, now=now))
+
+    def test_saving_changed_publish_start_synchronizes_whole_queue(self):
+        game, _ = Game.objects.get_or_create(
+            id='salad',
+            defaults={
+                'name': 'Schedule sync salad',
+                'author': 'test',
+                'project': self.project,
+                'is_tournament': False,
+                'requires_ticket': False,
+            },
+        )
+        game.tags = {'word_salad_publish_start': '2099-01-01T00:00:00+03:00'}
+        game.save(update_fields=['tags'])
+        first_group = TaskGroup.objects.create(label='schedule-sync-first')
+        second_group = TaskGroup.objects.create(label='schedule-sync-second')
+        first = GameTaskGroup.objects.create(
+            game=game, task_group=first_group, number='1', name='First',
+        )
+        second = GameTaskGroup.objects.create(
+            game=game, task_group=second_group, number='2', name='Second',
+        )
+        preserved_throttle = timezone.now() + timedelta(minutes=15)
+        DailyGameDifficulty.objects.filter(placement=second).update(
+            calculated_at=timezone.now(),
+            refresh_not_before=preserved_throttle,
+        )
+
+        game.tags = {'word_salad_publish_start': '2020-01-01T00:00:00+03:00'}
+        game.save(update_fields=['tags'])
+
+        first_snapshot = DailyGameDifficulty.objects.get(placement=first)
+        second_snapshot = DailyGameDifficulty.objects.get(placement=second)
+        self.assertEqual(
+            first_snapshot.published_at.astimezone(MOSCOW).date().isoformat(),
+            '2020-01-01',
+        )
+        self.assertEqual(
+            first_snapshot.refresh_not_before,
+            first_snapshot.published_at,
+        )
+        self.assertEqual(
+            second_snapshot.published_at.astimezone(MOSCOW).date().isoformat(),
+            '2020-01-02',
+        )
+        self.assertEqual(second_snapshot.refresh_not_before, preserved_throttle)
+
+    def test_saving_unrelated_game_tag_does_not_resync_schedule(self):
+        game, _ = Game.objects.get_or_create(
+            id='salad',
+            defaults={
+                'name': 'Unrelated tag salad',
+                'author': 'test',
+                'project': self.project,
+                'is_tournament': False,
+                'requires_ticket': False,
+            },
+        )
+        game.tags = {'word_salad_publish_start': '2020-01-01T00:00:00+03:00'}
+        game.save(update_fields=['tags'])
+        game.tags = {
+            **game.tags,
+            'unrelated': 'value',
+        }
+
+        with patch('games.difficulty.sync_daily_difficulty_schedule') as sync:
+            game.save(update_fields=['tags'])
+
+        sync.assert_not_called()
+
+    def test_worker_writes_queue_heartbeat(self):
+        now = timezone.now()
+        with patch(
+            'games.difficulty_refresh.refresh_due_daily_difficulties',
+            return_value=[{'game_id': 'ladder', 'number': '54'}],
+        ):
+            results = run_daily_difficulty_refresh(now=now, limit=7, worker='test')
+
+        self.assertEqual(len(results), 1)
+        status = DailyDifficultyQueueStatus.objects.get(pk=1)
+        self.assertEqual(status.last_started_at, now)
+        self.assertIsNotNone(status.last_success_at)
+        self.assertEqual(status.last_refreshed_count, 1)
+        self.assertEqual(status.last_limit, 7)
+        self.assertTrue(status.last_worker.startswith('test:'))
+
+    def test_queue_repair_reschedules_missed_first_run(self):
+        now = timezone.now()
+        placement = self._placement(8815)
+        published_at = now - timedelta(hours=1)
+        DailyGameDifficulty.objects.filter(placement=placement).update(
+            calculated_at=None,
+            published_at=published_at,
+            refresh_not_before=None,
+        )
+
+        with patch(
+            'games.difficulty.published_at_for_placement',
+            return_value=published_at,
+        ):
+            report = repair_daily_difficulty_queue(now=now)
+
+        snapshot = DailyGameDifficulty.objects.get(placement=placement)
+        self.assertEqual(report['rescheduled'], 1)
+        self.assertEqual(snapshot.refresh_not_before, published_at)
+        self.assertTrue(is_difficulty_refresh_due(placement, snapshot, now=now))
+
+    def test_admin_queue_dashboard_is_available(self):
+        admin_user = User.objects.create_superuser(
+            'difficulty-admin', 'difficulty-admin@example.com', 'secret',
+        )
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse('admin:games_dailygamedifficulty_queue'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Очередь подсчёта сложности')
+        self.assertContains(response, 'Восстановить метаданные очереди')
 
     def test_new_attempt_bumps_revision_but_waits_for_throttle(self):
         now = timezone.now()

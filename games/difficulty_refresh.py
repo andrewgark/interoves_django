@@ -8,6 +8,8 @@ across Elastic Beanstalk instances comes from the database, not ``flock``.
 from __future__ import annotations
 
 import logging
+import os
+import socket
 import uuid
 from dataclasses import dataclass
 from uuid import UUID
@@ -26,7 +28,7 @@ from games.difficulty import (
     refresh_stale_historical_norms,
     retry_delay_for_fail_count,
 )
-from games.models import DailyGameDifficulty, GameTaskGroup
+from games.models import DailyDifficultyQueueStatus, DailyGameDifficulty, GameTaskGroup
 
 logger = logging.getLogger('application')
 
@@ -185,3 +187,74 @@ def refresh_due_daily_difficulties(
         if result:
             refreshed.append(result)
     return refreshed
+
+
+def run_daily_difficulty_refresh(
+    *,
+    now=None,
+    limit=DUE_REFRESH_LIMIT,
+    game_ids=None,
+    worker='cron',
+):
+    """Run one tick and persist a singleton heartbeat for the admin dashboard."""
+    started_at = now or timezone.now()
+    worker_label = '{}:{}:{}'.format(worker, socket.gethostname(), os.getpid())[:255]
+    DailyDifficultyQueueStatus.objects.update_or_create(
+        pk=1,
+        defaults={
+            'last_started_at': started_at,
+            'last_error': '',
+            'last_limit': max(0, int(limit)),
+            'last_worker': worker_label,
+        },
+    )
+    try:
+        results = refresh_due_daily_difficulties(
+            now=now,
+            limit=limit,
+            game_ids=game_ids,
+        )
+    except Exception as exc:
+        DailyDifficultyQueueStatus.objects.filter(pk=1).update(
+            last_finished_at=timezone.now(),
+            last_error='{}: {}'.format(exc.__class__.__name__, exc)[:2000],
+        )
+        raise
+    finished_at = timezone.now()
+    DailyDifficultyQueueStatus.objects.filter(pk=1).update(
+        last_finished_at=finished_at,
+        last_success_at=finished_at,
+        last_error='',
+        last_refreshed_count=len(results),
+    )
+    return results
+
+
+def repair_daily_difficulty_queue(*, now=None):
+    """Repair recoverable queue metadata without doing heavy calculations."""
+    from games.difficulty import backfill_daily_difficulty_rows
+
+    now = now or timezone.now()
+    rescheduled = DailyGameDifficulty.objects.filter(
+        calculated_at__isnull=True,
+        dirty=True,
+        published_at__lte=now,
+    ).filter(
+        Q(refresh_not_before__isnull=True) | Q(refresh_not_before__gt=now),
+    ).count()
+    created = backfill_daily_difficulty_rows(now=now)
+    released = DailyGameDifficulty.objects.filter(
+        refresh_claimed_until__lte=now,
+    ).exclude(refresh_claim_token__isnull=True).update(
+        refresh_claim_token=None,
+        refresh_claimed_until=None,
+    )
+    # ensure/backfill above synchronizes first-run deadlines to the current
+    # publication schedule. Count rows that became immediately eligible.
+    due = due_daily_difficulty_queryset(now=now).count()
+    return {
+        'created': created,
+        'rescheduled': rescheduled,
+        'released': released,
+        'due': due,
+    }
