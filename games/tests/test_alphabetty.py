@@ -404,6 +404,19 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(data['bounds']['lo'], 'ГОД')
         self.assertEqual(data['bounds']['hi'], 'ЯБЛОКО')
 
+        # A retry/racing second request returns the authoritative board so the
+        # client can recover even when the first response was lost or delayed.
+        r = self.client.post(
+            '/alphabetty/1/guess/',
+            data=json.dumps({'word': 'год', 'anon_key': 'testanon1'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='testanon1',
+        )
+        duplicate = r.json()
+        self.assertEqual(duplicate['status'], 'duplicate')
+        self.assertEqual(duplicate['guesses'], ['ГОД', 'ЯБЛОКО'])
+        self.assertEqual(duplicate['attempts'], 2)
+
         # invalid
         r = self.client.post(
             '/alphabetty/1/guess/',

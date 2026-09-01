@@ -145,6 +145,7 @@
 
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/alphabetty_guess_response.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script>
 (function () {
   var root = document.getElementById('alphabetty-root');
@@ -937,6 +938,19 @@
           return;
         }
         if (data.status === 'duplicate') {
+          var recoveredDuplicate = window.AlphabettyGuessResponse.shouldRecoverDuplicate(
+            state.guesses,
+            data.guesses,
+            word
+          );
+          // Duplicate responses carry the authoritative board. This also repairs
+          // a lost/late first response or another request that won the race.
+          applyState(data);
+          if (recoveredDuplicate) {
+            input.value = '';
+            showMsg('');
+            return;
+          }
           showMsg(data.error || 'Уже вводили', 'error');
           focusInput();
           return;
