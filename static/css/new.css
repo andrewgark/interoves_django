@@ -9332,15 +9332,18 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 }
 
 .new-word-salad__word-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 2.15rem minmax(0, 1fr) 2.15rem;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
   min-width: 0;
 }
 
 .new-word-salad__hint-form {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: center;
   margin: 0;
-  flex: 0 0 auto;
 }
 
 .new-word-salad__hint-btn {
@@ -9381,8 +9384,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 }
 
 .new-word-salad__mask {
+  grid-column: 2;
+  grid-row: 1;
   min-width: 0;
-  flex: 1 1 auto;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -9531,7 +9535,9 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 }
 
 .new-word-salad__len {
-  flex: 0 0 auto;
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: center;
   color: var(--muted);
   font-size: 0.86rem;
 }

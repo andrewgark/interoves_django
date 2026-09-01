@@ -36,6 +36,7 @@ INDEXES_ATTEMPT=(
     "games_attem_task_id_198c5d_idx|CREATE INDEX games_attem_task_id_198c5d_idx ON games_attempt (task_id, user_id, time) ALGORITHM=INPLACE LOCK=NONE"
     "games_attem_task_id_85c642_idx|CREATE INDEX games_attem_task_id_85c642_idx ON games_attempt (task_id, anon_key, time) ALGORITHM=INPLACE LOCK=NONE"
     "games_attem_task_id_bd72cc_idx|CREATE INDEX games_attem_task_id_bd72cc_idx ON games_attempt (task_id, status) ALGORITHM=INPLACE LOCK=NONE"
+    "games_attempt_skip_time_idx|CREATE INDEX games_attempt_skip_time_idx ON games_attempt (skip, time) ALGORITHM=INPLACE LOCK=NONE"
 )
 
 INDEXES_HINT=(
@@ -87,7 +88,7 @@ INDEXES_REGISTRATION=(
 
 log "=== 02_background_migrations start ==="
 
-log "--- 0109: checking/creating indexes ---"
+log "--- 0109/0194: checking/creating indexes ---"
 for entry in "${INDEXES_ATTEMPT[@]}"; do
     name="${entry%%|*}"
     sql="${entry#*|}"

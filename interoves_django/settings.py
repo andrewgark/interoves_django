@@ -430,6 +430,8 @@ if 'REDIS_HOST' in os.environ:
     _redis_conn_kwargs = {
         'socket_connect_timeout': _redis_socket_connect_timeout,
         'socket_timeout': _redis_socket_timeout,
+        'socket_keepalive': True,
+        'health_check_interval': 30,
     }
 
     # channels_redis: hosts as (host, port), redis:// URI, or dict (redis-py connection).
@@ -465,6 +467,8 @@ if 'REDIS_HOST' in os.environ:
     _redis_cache_options = {
         'socket_connect_timeout': _env_float('TRACK_REVISION_REDIS_CONNECT_TIMEOUT', 0.25),
         'socket_timeout': _env_float('TRACK_REVISION_REDIS_SOCKET_TIMEOUT', 0.5),
+        'socket_keepalive': True,
+        'health_check_interval': 30,
     }
     if redis_use_tls and os.environ.get('REDIS_SSL_CERT_REQS', '').strip().lower() == 'none':
         _redis_cache_options['ssl_cert_reqs'] = None

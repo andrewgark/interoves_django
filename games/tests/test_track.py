@@ -200,14 +200,24 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
             CHANNEL_GROUPS['game_team_legacy']('g1', 'abc'),
             'track.game.g1.team.abc',
         )
-        # Team names can contain Cyrillic and other Unicode characters.  The
-        # rolling-deploy compatibility group must use the hashed identifier,
-        # never the display name, because Channels group names are ASCII-only.
-        unicode_team = Team.objects.create(name='Raastettuja vihanneksia')
+        # Team primary keys can contain Cyrillic and other Unicode characters.
+        # Both the stable and rolling-deploy groups must remain valid Channels
+        # names without changing the authoritative team identity.
+        unicode_team = Team.objects.create(name='Дно Ручейка')
+        stable_group = CHANNEL_GROUPS['game_team']('g1', unicode_team.pk)
         legacy_group = CHANNEL_GROUPS['game_team_legacy'](
             'g1', unicode_team.get_name_hash(),
         )
+        self.assertTrue(stable_group.isascii())
+        self.assertLess(len(stable_group), 100)
         self.assertTrue(legacy_group.isascii())
+        for group in (
+            CHANNEL_GROUPS['game']('игра' * 100),
+            CHANNEL_GROUPS['game_team']('игра' * 100, 'команда' * 100),
+            CHANNEL_GROUPS['game_team_legacy']('игра' * 100, 'f' * 200),
+        ):
+            self.assertTrue(group.isascii())
+            self.assertLess(len(group), 100)
         self.assertEqual(CHANNEL_GROUPS['user'](42), 'track.user.42')
 
     def test_next_track_seq_monotonic(self):
@@ -478,6 +488,31 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
             assert msg['integration'] == 'team_group'
             assert 'seq' in msg
 
+            await communicator.disconnect()
+
+        async_to_sync(run)()
+
+    def test_websocket_connects_for_unicode_team_primary_key(self):
+        """Transport group names must remain valid for real Cyrillic team IDs."""
+        from interoves_django.asgi import application
+
+        unicode_team = Team.objects.create(name='Дно Ручейка')
+        unicode_user = User.objects.create_user('track_ws_unicode_team', password='pw')
+        Profile.objects.create(
+            user=unicode_user,
+            first_name='Unicode',
+            last_name='Team',
+            team_on=unicode_team,
+        )
+        headers = self._session_headers(unicode_user)
+        path = f'/games/{self.game.id}/track/'
+
+        async def run():
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _ = await communicator.connect()
+            self.assertTrue(connected)
+            group_name = CHANNEL_GROUPS['game_team'](self.game.id, unicode_team.pk)
+            self.assertIn(group_name, get_channel_layer().groups)
             await communicator.disconnect()
 
         async_to_sync(run)()

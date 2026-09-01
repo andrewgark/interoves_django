@@ -2,7 +2,7 @@
 
 from django.test import RequestFactory, TestCase
 
-from games.middleware.request_timing import RequestTimingMiddleware
+from games.middleware.request_timing import RequestTimingMiddleware, timing_phase
 
 
 class RequestTimingMiddlewareTests(TestCase):
@@ -29,3 +29,30 @@ class RequestTimingMiddlewareTests(TestCase):
         self.middleware.slow_ms = 0
         with self.assertLogs('interoves.request_timing', level='WARNING'):
             self.middleware(request)
+
+    def test_logs_named_phases_without_request_payload(self):
+        def response(request):
+            with timing_phase(request, 'check_attempt'):
+                pass
+            return type('R', (), {'status_code': 200})()
+
+        middleware = RequestTimingMiddleware(response)
+        middleware.slow_ms = 0
+        request = self.factory.post('/send_attempt/1/', {'text': 'secret answer'})
+        with self.assertLogs('interoves.request_timing', level='WARNING') as cm:
+            middleware(request)
+        log = '\n'.join(cm.output)
+        self.assertIn('phases=check_attempt:', log)
+        self.assertNotIn('secret answer', log)
+
+    def test_logs_slow_exception(self):
+        def response(_request):
+            raise RuntimeError('boom')
+
+        middleware = RequestTimingMiddleware(response)
+        middleware.slow_ms = 0
+        request = self.factory.post('/send_attempt/1/')
+        with self.assertLogs('interoves.request_timing', level='WARNING') as cm:
+            with self.assertRaises(RuntimeError):
+                middleware(request)
+        self.assertIn('status=exception', '\n'.join(cm.output))

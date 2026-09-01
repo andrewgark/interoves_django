@@ -50,6 +50,7 @@ from games.models import (
     Like,
     Task,
 )
+from games.middleware.request_timing import timing_phase
 from games.section_hub import onboarding_followup_context, section_format_credit_context
 from games.section_paths import section_hub_path, section_play_path, section_results_path
 from games.task_titles import task_display_name, task_group_page_title
@@ -532,16 +533,17 @@ def alphabetty_guess(request, number):
 
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
-    result = apply_guess(
-        game=game,
-        task=task,
-        word=word,
-        user=user,
-        anon_key=anon_key,
-        number=play_number,
-        share_host=_share_host(request),
-        play_path=play_path,
-    )
+    with timing_phase(request, 'apply_guess'):
+        result = apply_guess(
+            game=game,
+            task=task,
+            word=word,
+            user=user,
+            anon_key=anon_key,
+            number=play_number,
+            share_host=_share_host(request),
+            play_path=play_path,
+        )
     analytics_events = []
     if result.get('status') in ('earlier', 'later', 'correct'):
         analytics_events.extend(register_started_game(
@@ -567,16 +569,18 @@ def alphabetty_guess(request, number):
         ))
     if analytics_events:
         result['analytics_events'] = analytics_events
-    result = _with_meta_bar(
-        result,
-        request,
-        game=game,
-        task=task,
-        user=user,
-        anon_key=anon_key,
-        placement=load_meta.get('accepted_link') if not load_meta.get('offer') else None,
-    )
-    response = JsonResponse(result)
+    with timing_phase(request, 'render_meta'):
+        result = _with_meta_bar(
+            result,
+            request,
+            game=game,
+            task=task,
+            user=user,
+            anon_key=anon_key,
+            placement=load_meta.get('accepted_link') if not load_meta.get('offer') else None,
+        )
+    with timing_phase(request, 'serialize_response'):
+        response = JsonResponse(result)
     if user is None and anon_key:
         response.set_cookie(
             'interoves_anon',

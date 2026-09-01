@@ -9,7 +9,8 @@ Roadmap (idiomatic next steps):
 
 Groups:
 - track.game.{game_id} — broadcast (e.g. admin changed task text).
-- track.game.{game_id}.team_id.{team_id} — stable team-scoped task state.
+- track.game.{game_id}.team_id.{team_id} — stable team-scoped task state;
+  unsafe/long IDs are deterministically encoded for Channels' group-name rules.
 - track.game.{game_id}.team.{team_name_hash} — temporary rolling-deploy compatibility.
 - track.user.{user_id} — private signals (game start, shipment, etc.); same socket as game page.
 
@@ -20,6 +21,7 @@ Lifecycle: client ping + idle timeout; group_discard wrapped in wait_for so Redi
 cannot block Daphne application close (prod 504 / "took too long to shut down").
 """
 import asyncio
+import hashlib
 import logging
 import threading
 import time
@@ -175,12 +177,47 @@ def _schedule_channel_broadcast(fn, *, prepare=None):
     transaction.on_commit(after_commit)
 
 
+def _channel_group_component(value, *, max_length: int) -> str:
+    """Return a bounded ASCII component accepted by Channels.
+
+    Team.name is the immutable primary key, but it may contain Cyrillic, spaces,
+    or enough characters to push the complete group over Channels' 99-character
+    limit.  Hashing only the transport representation preserves stable identity;
+    revision namespaces continue to use the authoritative primary key itself.
+    """
+    raw = str(value)
+    is_safe = (
+        bool(raw)
+        and raw.isascii()
+        and len(raw) <= max_length
+        and all(ch.isalnum() or ch in '-_.' for ch in raw)
+    )
+    if is_safe:
+        return raw
+    digest_length = max(1, max_length - 2)
+    return 'h-' + hashlib.sha256(raw.encode('utf-8')).hexdigest()[:digest_length]
+
+
+def _game_group(game_id) -> str:
+    return f'track.game.{_channel_group_component(game_id, max_length=88)}'
+
+
+def _game_team_group(game_id, team_id) -> str:
+    game = _channel_group_component(game_id, max_length=32)
+    team = _channel_group_component(team_id, max_length=40)
+    return f'track.game.{game}.team_id.{team}'
+
+
+def _legacy_game_team_group(game_id, team_name_hash) -> str:
+    game = _channel_group_component(game_id, max_length=32)
+    team_hash = _channel_group_component(team_name_hash, max_length=50)
+    return f'track.game.{game}.team.{team_hash}'
+
+
 CHANNEL_GROUPS = {
-    'game': (lambda game_id: f'track.game.{game_id}'),
-    'game_team': (lambda game_id, team_id: f'track.game.{game_id}.team_id.{team_id}'),
-    'game_team_legacy': (
-        lambda game_id, team_name_hash: f'track.game.{game_id}.team.{team_name_hash}'
-    ),
+    'game': _game_group,
+    'game_team': _game_team_group,
+    'game_team_legacy': _legacy_game_team_group,
     'user': (lambda user_id: f'track.user.{user_id}'),
 
     # 'game_results': (lambda game_id: f'track.game.{game_id}.results'),

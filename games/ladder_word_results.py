@@ -6,7 +6,7 @@ from collections import defaultdict
 from types import SimpleNamespace
 
 from django.contrib.auth.models import User
-from django.db.models import Case, F, Max, Q, Value, When, Window
+from django.db.models import F, Max, Q, Window
 from django.db.models.functions import RowNumber
 from django.utils import timezone
 
@@ -24,7 +24,7 @@ from games.raddle import (
     resolve_assist_tiers,
     word_solve_credit,
 )
-from games.results_sql_aggregate import _actor_key_annotation, _parse_actor_key
+from games.results_sql_aggregate import _attempt_actor_specs
 
 
 class _WordColHeader:
@@ -82,49 +82,49 @@ def _load_chain_states_by_actor(task, game):
     return out
 
 
-def _load_fallback_attempt_states(task, game):
+def _load_fallback_attempt_states(task, game, actor_keys):
     """
     Latest non-empty Attempt.state per actor (values only — no ORM hydrate of all attempts).
     Used when ChainTaskState is missing (legacy / tests).
     """
-    qs = (
-        Attempt.manager.filter(task=task, game=game, skip=False)
-        .exclude(Q(state__isnull=True) | Q(state=''))
-        .annotate(
-            actor_key=_actor_key_annotation(),
-            rn=Window(
-                expression=RowNumber(),
-                partition_by=[F('actor_key')],
-                order_by=[F('time').desc()],
-            ),
-        )
-        .exclude(actor_key='')
-        .filter(rn=1)
-        .values('actor_key', 'state')
-    )
+    if not actor_keys:
+        return {}
+
     out = {}
-    for row in qs:
-        parsed = _parse_actor_key(row['actor_key'])
-        if parsed is None:
+    for kind, actor_field, actor_filter in _attempt_actor_specs():
+        wanted = [raw for key_kind, raw in actor_keys if key_kind == kind]
+        if not wanted:
             continue
-        out[parsed] = row['state']
+        qs = (
+            Attempt.manager.filter(task=task, game=game, skip=False)
+            .filter(actor_filter, **{'{}__in'.format(actor_field): wanted})
+            .exclude(Q(state__isnull=True) | Q(state=''))
+            .annotate(
+                rn=Window(
+                    expression=RowNumber(),
+                    partition_by=[F(actor_field)],
+                    order_by=[F('time').desc()],
+                ),
+            )
+            .filter(rn=1)
+            .values(actor_field, 'state')
+        )
+        for row in qs:
+            out[(kind, row[actor_field])] = row['state']
     return out
 
 
 def _load_max_times_by_actor(task, game):
-    rows = (
-        Attempt.manager.filter(task=task, game=game, skip=False)
-        .annotate(actor_key=_actor_key_annotation())
-        .exclude(actor_key='')
-        .values('actor_key')
-        .annotate(max_time=Max('time'))
-    )
     out = {}
-    for row in rows:
-        parsed = _parse_actor_key(row['actor_key'])
-        if parsed is None:
-            continue
-        out[parsed] = row['max_time']
+    base = Attempt.manager.filter(task=task, game=game, skip=False)
+    for kind, actor_field, actor_filter in _attempt_actor_specs():
+        rows = (
+            base.filter(actor_filter)
+            .values(actor_field)
+            .annotate(max_time=Max('time'))
+        )
+        for row in rows:
+            out[(kind, row[actor_field])] = row['max_time']
     return out
 
 
@@ -222,8 +222,12 @@ def build_ladder_word_results_context(game, placement, task):
     task_group_to_tasks = {h.number: [_WordColTask(h.number)] for h in task_groups}
 
     chain_by_actor = _load_chain_states_by_actor(task, game)
-    fallback_states = _load_fallback_attempt_states(task, game)
     max_times = _load_max_times_by_actor(task, game)
+    # Current games have ChainTaskState for active actors. Only legacy actors
+    # without one need the expensive latest-state window query.
+    fallback_states = _load_fallback_attempt_states(
+        task, game, set(max_times) - set(chain_by_actor),
+    )
     assist_hints = _load_assist_hint_attempts_by_actor(task)
 
     actor_keys = set(chain_by_actor) | set(fallback_states) | set(max_times) | set(assist_hints)

@@ -45,24 +45,13 @@ class SupportStats:
     stuck_tickets_now: int
 
 
-def _game_label(game_id: str) -> str:
-    from games.models import Game
-
-    if not game_id:
-        return '—'
-    game = Game.objects.filter(pk=game_id).only('id', 'name', 'outside_name', 'no_html_name').first()
-    if game is None:
-        return game_id
-    return game.get_no_html_name() or game.outside_name or game.name or game.id
-
-
-def _top_rows(raw_rows, *, primary_key: str, secondary_key: str) -> List[TopGameRow]:
+def _top_rows(raw_rows, *, primary_key: str, secondary_key: str, game_labels) -> List[TopGameRow]:
     rows = []
     for row in raw_rows:
         game_id = row['game_id']
         rows.append(TopGameRow(
             game_id=game_id,
-            game_label=_game_label(game_id),
+            game_label=game_labels.get(game_id, game_id or '—'),
             game_url=reverse('support:game', kwargs={'game_id': game_id}),
             primary_value=row[primary_key],
             secondary_value=row[secondary_key],
@@ -71,12 +60,24 @@ def _top_rows(raw_rows, *, primary_key: str, secondary_key: str) -> List[TopGame
 
 
 def collect_support_stats(*, hours: int = 24, top_limit: int = 15) -> SupportStats:
-    from games.telegram import digest as digest_module
+    from games.models import Game
 
     since = timezone.now() - timedelta(hours=hours)
-    stats = collect_daily_digest_stats(since)
-    top_attempts = digest_module._top_games_by_attempts(since, limit=top_limit)
-    top_users = digest_module._top_games_by_users(since, limit=top_limit)
+    stats = collect_daily_digest_stats(since, top_limit=top_limit)
+    top_attempts = stats['top_games_attempts']
+    top_users = stats['top_games_users']
+    game_ids = {
+        row['game_id']
+        for row in top_attempts + top_users
+        if row.get('game_id')
+    }
+    games = Game.objects.filter(pk__in=game_ids).only(
+        'id', 'name', 'outside_name', 'no_html_name',
+    )
+    game_labels = {
+        game.id: game.get_no_html_name() or game.outside_name or game.name or game.id
+        for game in games
+    }
     return SupportStats(
         since=stats['since'],
         until=stats['until'],
@@ -88,8 +89,12 @@ def collect_support_stats(*, hours: int = 24, top_limit: int = 15) -> SupportSta
         active_anon=stats['active_anon'],
         hint_total=stats['hint_total'],
         hint_users=stats['hint_users'],
-        top_games_attempts=_top_rows(top_attempts, primary_key='attempts', secondary_key='users'),
-        top_games_users=_top_rows(top_users, primary_key='users', secondary_key='attempts'),
+        top_games_attempts=_top_rows(
+            top_attempts, primary_key='attempts', secondary_key='users', game_labels=game_labels,
+        ),
+        top_games_users=_top_rows(
+            top_users, primary_key='users', secondary_key='attempts', game_labels=game_labels,
+        ),
         registrations=stats['registrations'],
         new_accounts=stats['new_accounts'],
         tickets_pending=stats['tickets_pending'],

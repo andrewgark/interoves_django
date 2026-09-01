@@ -84,61 +84,73 @@ def _format_top_games(rows, *, primary_key: str, secondary_key: str, primary_lab
     return lines
 
 
-def collect_daily_digest_stats(since=None) -> dict:
+def collect_daily_digest_stats(since=None, *, top_limit=DIGEST_TOP_GAMES) -> dict:
     since, until = digest_period(since)
     attempts = _attempts_qs(since)
     hints = _hint_requests_qs(since)
 
-    attempts_total = attempts.count()
+    attempt_summary = attempts.aggregate(
+        attempts_total=Count('id'),
+        active_users=Count(
+            'user_id', filter=Q(user_id__isnull=False), distinct=True,
+        ),
+        active_teams=Count(
+            'team_id',
+            filter=Q(team_id__isnull=False, team__is_tester=False),
+            distinct=True,
+        ),
+        active_anon=Count(
+            'anon_key',
+            filter=Q(anon_key__isnull=False) & ~Q(anon_key=''),
+            distinct=True,
+        ),
+    )
     attempts_by_status = {
         row['status']: row['n']
         for row in attempts.values('status').annotate(n=Count('id'))
     }
 
-    active_users = attempts.filter(user_id__isnull=False).values('user_id').distinct().count()
-    active_teams = (
-        attempts.filter(team_id__isnull=False)
-        .exclude(team__is_tester=True)
-        .values('team_id')
-        .distinct()
-        .count()
+    hint_summary = hints.aggregate(
+        hint_total=Count('id'),
+        hint_users=Count(
+            'user_id', filter=Q(user_id__isnull=False), distinct=True,
+        ),
     )
-    active_anon = attempts.filter(anon_key__isnull=False).exclude(anon_key='').values('anon_key').distinct().count()
-
-    hint_users = hints.filter(user_id__isnull=False).values('user_id').distinct().count()
-    hint_total = hints.count()
 
     tickets = TicketRequest.objects.filter(time__gte=since)
-    tickets_accepted_qs = tickets.filter(status='Accepted')
-    tickets_revenue = (
-        tickets_accepted_qs.filter(currency='RUB').aggregate(total=Sum('money'))['total'] or 0
-    )
-    tickets_revenue_amd = (
-        tickets_accepted_qs.filter(currency='AMD').aggregate(total=Sum('money'))['total'] or 0
+    ticket_summary = tickets.aggregate(
+        tickets_pending=Count('id', filter=Q(status='Pending')),
+        tickets_accepted=Count('id', filter=Q(status='Accepted')),
+        tickets_revenue=Sum('money', filter=Q(status='Accepted', currency='RUB')),
+        tickets_revenue_amd=Sum('money', filter=Q(status='Accepted', currency='AMD')),
     )
 
     bugs = BugReport.objects.filter(time__gte=since)
+    bug_summary = bugs.aggregate(
+        bugs_total=Count('id'),
+        bugs_pending=Count('id', filter=Q(status='Pending')),
+    )
 
     return {
         'since': since,
         'until': until,
-        'attempts_total': attempts_total,
+        'attempts_total': attempt_summary['attempts_total'],
         'attempts_by_status': attempts_by_status,
-        'active_users': active_users,
-        'active_teams': active_teams,
-        'active_anon': active_anon,
-        'hint_total': hint_total,
-        'hint_users': hint_users,
-        'top_games_attempts': _top_games_by_attempts(since),
-        'top_games_users': _top_games_by_users(since),
+        'active_users': attempt_summary['active_users'],
+        'active_teams': attempt_summary['active_teams'],
+        'active_anon': attempt_summary['active_anon'],
+        'hint_total': hint_summary['hint_total'],
+        'hint_users': hint_summary['hint_users'],
+        'top_games_attempts': _top_games_by_attempts(since, limit=top_limit),
+        'top_games_users': _top_games_by_users(since, limit=top_limit),
         'registrations': Registration.objects.filter(time__gte=since).count(),
         'new_accounts': User.objects.filter(date_joined__gte=since).count(),
-        'tickets_pending': tickets.filter(status='Pending').count(),
-        'tickets_accepted': tickets_accepted_qs.count(),
-        'tickets_revenue': tickets_revenue,
-        'tickets_revenue_amd': tickets_revenue_amd,
-        'bugs_total': bugs.count(),
-        'bugs_pending': bugs.filter(status='Pending').count(),
+        'tickets_pending': ticket_summary['tickets_pending'],
+        'tickets_accepted': ticket_summary['tickets_accepted'],
+        'tickets_revenue': ticket_summary['tickets_revenue'] or 0,
+        'tickets_revenue_amd': ticket_summary['tickets_revenue_amd'] or 0,
+        'bugs_total': bug_summary['bugs_total'],
+        'bugs_pending': bug_summary['bugs_pending'],
         'corporate_orders': CorporateGameOrder.objects.filter(created_at__gte=since).count(),
         'pending_bugs_now': BugReport.objects.filter(status='Pending').count(),
         'pending_tickets_now': TicketRequest.objects.filter(status='Pending').count(),

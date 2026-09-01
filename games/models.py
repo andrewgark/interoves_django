@@ -1544,6 +1544,7 @@ class Attempt(models.Model):
             models.Index(fields=['task', 'user', 'time']),
             models.Index(fields=['task', 'anon_key', 'time']),
             models.Index(fields=['task', 'status']),
+            models.Index(fields=['skip', 'time'], name='games_attempt_skip_time_idx'),
         ]
 
     def __str__(self):

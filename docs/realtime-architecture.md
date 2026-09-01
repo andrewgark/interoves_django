@@ -13,7 +13,7 @@ The same mechanism covers site changes that become relevant while a page is open
 | Area | Current state | Gap |
 |---|---|---|
 | Transport | Django Channels; authenticated game and user sockets; Redis in production; real Redis group delivery is tested between independent processes | Anonymous play has no socket |
-| Scopes | game, game+internal-team-PK, and user groups; game subscription validates existence/access; supported rename changes only `visible_name` | Legacy name-hash group remains temporarily; changing the internal `Team.name` PK is unsupported without a surrogate-ID migration |
+| Scopes | game, game+internal-team-PK, and user groups; unsafe/long PKs are deterministically encoded into Channels-safe ASCII group components; game subscription validates existence/access; supported rename changes only `visible_name` | Legacy name-hash group remains temporarily; changing the internal `Team.name` PK is unsupported without a surrogate-ID migration |
 | Team submissions | Task-group pages subscribe to the game/team socket; submissions, hints, raddle assist, review, and recheck use the central actor-task hook | Anonymous play still relies on the current POST response |
 | Concurrent writes | Task/chain rows are locked during checking; simultaneous same-answer convergence is covered in two browsers | Broader mixed-answer/load concurrency is not browser-tested |
 | Ordering | Actor-scoped `seq`; shared Redis revision cache in production; two-process atomic allocation is tested; new client ignores older sequences and checks revisions every 25 seconds | No durable replay yet |
