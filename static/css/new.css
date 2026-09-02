@@ -4086,6 +4086,20 @@ html.new-ui-dark .new-team-switcher-active-box {
   line-height: 1.2;
 }
 
+.new-site-footer__client {
+  display: flex;
+  width: 7rem;
+  min-height: 2.95rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.new-site-footer__client img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .new-site-footer__socials {
   display: flex;
   justify-self: end;

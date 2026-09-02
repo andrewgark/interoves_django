@@ -433,6 +433,29 @@ class HubPayCtaTests(TestCase):
         self.assertNotIn('Купить билеты', body)
         self.assertFalse(resp.context.get('show_desyatochki_pay_cta'))
 
+    def test_glowbyte_pages_use_client_logo_instead_of_pinely_sponsor(self):
+        urls = (
+            reverse('project_hub', kwargs={'project_id': 'glowbyte'}),
+            reverse('project_folder_games', kwargs={'project_id': 'glowbyte'}),
+            reverse(
+                'project_main_game',
+                kwargs={'project_id': 'glowbyte', 'game_id': 'gb_hub_pay'},
+            ),
+        )
+
+        for url in urls:
+            with self.subTest(url=url):
+                resp = self.client.get(url)
+                self.assertEqual(resp.status_code, 200)
+                body = resp.content.decode()
+                self.assertEqual(body.count('<footer class="new-site-footer">'), 1)
+                self.assertIn('src="/media/GlowByte_Logo.png"', body)
+                self.assertIn('alt="Логотип GlowByte"', body)
+                self.assertNotIn('href="https://pinely.com/"', body)
+                self.assertNotIn('img/sponsors/pinely.png', body)
+                self.assertNotIn('>Pinely</span>', body)
+                self.assertNotIn('new-site-footer__sponsor-caption', body)
+
 
 @override_settings(LANGUAGE_CODE='ru-ru')
 class DonatePageTests(TestCase):

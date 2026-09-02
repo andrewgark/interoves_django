@@ -3,6 +3,11 @@
   <div class="new-site-footer__inner">
     <a class="new-site-footer__about" href="{% url 'about' %}"{% if request.resolver_match.url_name == 'about' %} aria-current="page"{% endif %}>О нас</a>
 
+    {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}
+    <div class="new-site-footer__client">
+      <img src="{% get_media_prefix %}GlowByte_Logo.png" alt="Логотип GlowByte" width="850" height="333">
+    </div>
+    {% else %}
     <div class="new-site-footer__sponsor">
       <a
         class="new-site-footer__sponsor-link"
@@ -16,6 +21,7 @@
       </a>
       <span class="new-site-footer__sponsor-caption">Спонсор</span>
     </div>
+    {% endif %}
 
     <nav class="new-site-footer__socials" aria-label="Социальные сети">
       <a href="https://t.me/interoves" target="_blank" rel="noopener noreferrer" aria-label="Telegram" title="Telegram">
