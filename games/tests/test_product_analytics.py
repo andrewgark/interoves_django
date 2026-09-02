@@ -153,6 +153,10 @@ class ProductAnalyticsTests(TestCase):
 
         self.assertEqual([item['goal'] for item in goals], ['game_complete'])
         self.assertFalse(PlayerCompletedGame.objects.get(user=self.user).is_backfilled)
+        self.assertEqual(
+            PlayerCompletedGame.objects.get(user=self.user).instrumentation_version,
+            2,
+        )
 
     def test_game_start_is_generic_unique_and_repeats_until_metrika_ack(self):
         game, task = self._make_supported_task('walls-custom', 'wall', 1)
@@ -164,6 +168,7 @@ class ProductAnalyticsTests(TestCase):
         self.assertEqual(first[0]['params'], {'game': 'walls-custom', 'game_id': str(task.task_group_id)})
         self.assertEqual(first[0]['key'], retry[0]['key'])
         self.assertEqual(PlayerStartedGame.objects.filter(user=self.user).count(), 1)
+        self.assertEqual(PlayerStartedGame.objects.get(user=self.user).instrumentation_version, 2)
 
         ack = self.client.post(
             reverse('analytics_goal_ack'),
@@ -204,8 +209,11 @@ class ProductAnalyticsTests(TestCase):
 
         row = PlayerStartedGame.objects.get(user=self.user, game=game)
         self.assertTrue(row.is_backfilled)
+        self.assertIsNone(row.instrumentation_version)
         self.assertEqual(row.started_at, attempt.time)
         self.assertEqual(register_started_game(user=self.user, task=task, game=game), [])
+        row.refresh_from_db()
+        self.assertIsNone(row.instrumentation_version)
 
     def test_team_mode_completion_counts_towards_authenticated_user_activation(self):
         goals = []

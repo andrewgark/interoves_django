@@ -1,5 +1,15 @@
 # Yandex Metrika analytics
 
+Canonical backend definitions and compatibility limits are documented in:
+
+- [Product analytics definitions](analytics/definitions.md)
+- [Event contract](analytics/events.md)
+- [Current identity model](analytics/identity.md)
+- [Data-quality checks](analytics/data-quality.md)
+
+Metrika visitors and goals are not interchangeable with backend actors and
+canonical backend event counts.
+
 | Goal | Meaning |
 | --- | --- |
 | `game_start` | Пользователь реально начал игровое задание |

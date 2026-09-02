@@ -2505,6 +2505,7 @@ class PlayerStartedGame(models.Model):
     started_at = models.DateTimeField(auto_now_add=True, db_index=True)
     metrika_acked_at = models.DateTimeField(blank=True, null=True, db_index=True)
     is_backfilled = models.BooleanField(default=False, db_index=True)
+    instrumentation_version = models.PositiveSmallIntegerField(blank=True, null=True)
 
     class Meta:
         ordering = ['-started_at']
@@ -2588,6 +2589,7 @@ class PlayerCompletedGame(models.Model):
     completed_at = models.DateTimeField(auto_now_add=True, db_index=True)
     metrika_acked_at = models.DateTimeField(blank=True, null=True, db_index=True)
     is_backfilled = models.BooleanField(default=False, db_index=True)
+    instrumentation_version = models.PositiveSmallIntegerField(blank=True, null=True)
 
     class Meta:
         ordering = ['-completed_at']

@@ -26,6 +26,7 @@ YANDEX_GOAL_TICKET_PURCHASE = 'ticket_purchase'
 
 SESSION_KEY_PENDING_GOALS = 'interoves_pending_yandex_goals'
 ANALYTICS_ACK_SIGNING_SALT = 'games.analytics.goal-ack.v1'
+PRODUCT_ANALYTICS_INSTRUMENTATION_VERSION = 2
 
 GAME_KIND_BY_ID = {
     LADDER_GAME_ID: 'ladder',
@@ -366,6 +367,7 @@ def register_started_game(
         'task_group': task.task_group,
         'game_kind': game_kind,
         'public_game_id': public_id,
+        'instrumentation_version': PRODUCT_ANALYTICS_INSTRUMENTATION_VERSION,
     }
     try:
         with transaction.atomic():
@@ -487,6 +489,9 @@ def _ensure_completed_record(
         'public_game_id': public_id,
         'result': result,
         'is_backfilled': is_backfilled,
+        'instrumentation_version': (
+            None if is_backfilled else PRODUCT_ANALYTICS_INSTRUMENTATION_VERSION
+        ),
     }
     try:
         record, created = PlayerCompletedGame.objects.get_or_create(

@@ -1,0 +1,546 @@
+{
+  "as_of_utc": "2026-09-02T03:44:56.034341+00:00",
+  "complete_observation_through_msk": "2026-09-01",
+  "period": {
+    "start_msk": "2026-08-01T00:00:00+03:00",
+    "end_exclusive_msk": "2026-09-01T00:00:00+03:00"
+  },
+  "instrumentation": {
+    "completion_table_applied_utc": "2026-08-10T19:20:23.531853+00:00",
+    "start_table_applied_utc": "2026-08-15T13:49:44.449508+00:00",
+    "salad_completion_code_commit_date": "2026-08-26",
+    "onboarding_code_commit_date": "2026-08-26",
+    "salad_nonpersisted_start_and_onboarding_delivery_fix_commit_date": "2026-08-28"
+  },
+  "audience": {
+    "site_unique_users": null,
+    "accounts_existing_at_august_end": 2277,
+    "new_registrations": 53,
+    "observed_august_players": 799,
+    "observed_registered_player_identities": 159,
+    "observed_anonymous_player_identities": 640,
+    "observed_team_actors": 0,
+    "new_observable_players": 533,
+    "game_starts": 7268,
+    "game_completes": 5479,
+    "persisted_attempts": 171456,
+    "attempt_status_counts": {
+      "Wrong": 7400,
+      "Partial": 151869,
+      "Ok": 12187
+    },
+    "unique_attempt_actors": 1142,
+    "players_with_completion": 541,
+    "started_instances_completed_by_as_of": 5501,
+    "started_instance_completion_pct": 75.69,
+    "avg_starts_per_player": 9.096,
+    "median_starts_per_player": 3,
+    "avg_completes_per_player": 6.857,
+    "median_completes_per_player": 1,
+    "completion_distribution": {
+      "all": {
+        "0": 258,
+        "1": 147,
+        "4-5": 52,
+        "6-10": 69,
+        "11-20": 83,
+        "2": 59,
+        "21+": 94,
+        "3": 37
+      },
+      "anon": {
+        "0": 231,
+        "1": 141,
+        "4-5": 42,
+        "6-10": 54,
+        "11-20": 55,
+        "21+": 35,
+        "3": 30,
+        "2": 52
+      },
+      "user": {
+        "2": 7,
+        "11-20": 28,
+        "21+": 59,
+        "0": 27,
+        "6-10": 15,
+        "4-5": 10,
+        "1": 6,
+        "3": 7
+      }
+    }
+  },
+  "daily_summary": {
+    "new_registrations": {
+      "min": 0.0,
+      "max": 4.0,
+      "average": 1.71,
+      "median": 2.0,
+      "observed_days": 31
+    },
+    "unique_players": {
+      "min": 124.0,
+      "max": 229.0,
+      "average": 185.812,
+      "median": 195.0,
+      "observed_days": 16
+    },
+    "game_start": {
+      "min": 205.0,
+      "max": 630.0,
+      "average": 447.438,
+      "median": 457.0,
+      "observed_days": 16
+    },
+    "game_complete": {
+      "min": 0.0,
+      "max": 566.0,
+      "average": 260.905,
+      "median": 256.0,
+      "observed_days": 21
+    },
+    "completed_users": {
+      "min": 0.0,
+      "max": 201.0,
+      "average": 114.667,
+      "median": 131.0,
+      "observed_days": 21
+    },
+    "signup": {
+      "min": 0.0,
+      "max": 4.0,
+      "average": 1.5,
+      "median": 2.0,
+      "observed_days": 16
+    },
+    "activated_player": {
+      "min": 1.0,
+      "max": 15.0,
+      "average": 7.938,
+      "median": 8.0,
+      "observed_days": 16
+    },
+    "first_time_players": {
+      "min": 6.0,
+      "max": 62.0,
+      "average": 32.375,
+      "median": 31.5,
+      "observed_days": 16
+    },
+    "returned_from_previous_day": {
+      "min": 79.0,
+      "max": 142.0,
+      "average": 111.0,
+      "median": 120.0,
+      "observed_days": 15
+    },
+    "persisted_attempts": {
+      "min": 3643.0,
+      "max": 7723.0,
+      "average": 5530.839,
+      "median": 5394.0,
+      "observed_days": 31
+    }
+  },
+  "retention": {
+    "start": {
+      "D1": {
+        "users": 96,
+        "eligible": 533,
+        "pct": 18.01
+      },
+      "D2": {
+        "users": 96,
+        "eligible": 502,
+        "pct": 19.12
+      },
+      "D3": {
+        "users": 75,
+        "eligible": 457,
+        "pct": 16.41
+      },
+      "D7": {
+        "users": 50,
+        "eligible": 316,
+        "pct": 15.82
+      },
+      "D14": {
+        "users": 21,
+        "eligible": 118,
+        "pct": 17.8
+      },
+      "D21": {
+        "users": 0,
+        "eligible": 0,
+        "pct": null
+      },
+      "D30": {
+        "users": 0,
+        "eligible": 0,
+        "pct": null
+      }
+    },
+    "complete": {
+      "D1": {
+        "users": 77,
+        "eligible": 533,
+        "pct": 14.45
+      },
+      "D2": {
+        "users": 81,
+        "eligible": 502,
+        "pct": 16.14
+      },
+      "D3": {
+        "users": 62,
+        "eligible": 457,
+        "pct": 13.57
+      },
+      "D7": {
+        "users": 42,
+        "eligible": 316,
+        "pct": 13.29
+      },
+      "D14": {
+        "users": 19,
+        "eligible": 118,
+        "pct": 16.1
+      },
+      "D21": {
+        "users": 0,
+        "eligible": 0,
+        "pct": null
+      },
+      "D30": {
+        "users": 0,
+        "eligible": 0,
+        "pct": null
+      }
+    },
+    "rolling_start": {
+      "D1": {
+        "users": 175,
+        "eligible": 533,
+        "pct": 32.83
+      },
+      "D7": {
+        "users": 87,
+        "eligible": 316,
+        "pct": 27.53
+      },
+      "D14": {
+        "users": 26,
+        "eligible": 118,
+        "pct": 22.03
+      }
+    },
+    "by_identity_at_first_start": {
+      "registered": {
+        "D1": {
+          "users": 17,
+          "eligible": 47,
+          "pct": 36.17
+        },
+        "D7": {
+          "users": 9,
+          "eligible": 41,
+          "pct": 21.95
+        }
+      },
+      "anonymous": {
+        "D1": {
+          "users": 79,
+          "eligible": 486,
+          "pct": 16.26
+        },
+        "D7": {
+          "users": 41,
+          "eligible": 275,
+          "pct": 14.91
+        }
+      }
+    }
+  },
+  "funnel_available_steps": {
+    "game_start": 533,
+    "game_complete": 314,
+    "second_game_complete": 198,
+    "third_game_complete": 160,
+    "registered_at_first_start": 47,
+    "signup_after_first_start": 7,
+    "activated_player": 110,
+    "d1_eligible": 533,
+    "next_day_return": 96,
+    "return_within_7_days": 131,
+    "within7_eligible": 316
+  },
+  "frequency": {
+    "active_day_buckets": {
+      "1": 431,
+      "5-7": 71,
+      "2": 69,
+      "15-20": 48,
+      "8-14": 91,
+      "3-4": 89
+    },
+    "average_active_days": 3.775,
+    "median_active_days": 1,
+    "average_interval_between_active_days": 1.553,
+    "max_consecutive_active_days": 17,
+    "streak_distribution": {
+      "1": 505,
+      "2": 75,
+      "3": 56,
+      "4": 32,
+      "5": 18,
+      "6": 17,
+      "7": 20,
+      "8": 10,
+      "9": 15,
+      "10": 8,
+      "11": 5,
+      "12": 7,
+      "13": 3,
+      "14": 4,
+      "15": 5,
+      "16": 16,
+      "17": 3
+    },
+    "core": {
+      "A_7_plus_active_days": 162,
+      "B_10_plus_completes": 190,
+      "C_20_plus_completes": 98,
+      "D_3_plus_active_weeks": 166,
+      "min_3_active_days": 299,
+      "min_7_active_days": 162,
+      "min_14_active_days": 60,
+      "min_20_active_days": 0
+    }
+  },
+  "first_game_types": {
+    "ladder": 247,
+    "des131": 3,
+    "alphabetty": 44,
+    "replacement": 3,
+    "des167": 1,
+    "des171": 20,
+    "week_task": 7,
+    "des168": 2,
+    "des105": 1,
+    "des170": 1,
+    "salad": 198,
+    "palindromes": 1,
+    "walls": 3,
+    "des115": 1,
+    "des137": 1
+  },
+  "first_three_sequences": {
+    "salad": 113,
+    "ladder": 106,
+    "ladder → ladder → ladder": 92,
+    "salad → salad → salad": 30,
+    "salad → salad": 24,
+    "ladder → ladder": 20,
+    "alphabetty": 15,
+    "alphabetty → alphabetty → alphabetty": 12,
+    "des171": 7,
+    "salad → alphabetty": 7,
+    "des171 → des171 → des171": 6,
+    "week_task": 6,
+    "salad → alphabetty → alphabetty": 5,
+    "salad → salad → ladder": 5,
+    "ladder → salad → salad": 5,
+    "des171 → des171": 4,
+    "ladder → salad → ladder": 4,
+    "ladder → salad": 4,
+    "ladder → alphabetty → ladder": 3,
+    "ladder → ladder → salad": 3
+  },
+  "archive_vs_current": {
+    "current": {
+      "starts": 4044,
+      "players": 660,
+      "completes_for_started_instances": 3262,
+      "completion_pct": 80.66,
+      "games_per_user": 6.127,
+      "retention_after_first_segment_start": {
+        "D1": {
+          "users": 216,
+          "eligible": 660,
+          "pct": 32.73
+        },
+        "D7": {
+          "users": 161,
+          "eligible": 424,
+          "pct": 37.97
+        }
+      }
+    },
+    "archive": {
+      "starts": 2658,
+      "players": 448,
+      "completes_for_started_instances": 2187,
+      "completion_pct": 82.28,
+      "games_per_user": 5.933,
+      "retention_after_first_segment_start": {
+        "D1": {
+          "users": 174,
+          "eligible": 448,
+          "pct": 38.84
+        },
+        "D7": {
+          "users": 113,
+          "eligible": 327,
+          "pct": 34.56
+        }
+      }
+    }
+  },
+  "current_completers_then_archive_same_day": {
+    "users": 261,
+    "eligible_users": 478,
+    "pct": 54.6
+  },
+  "first_complete_then_second_start_same_day": {
+    "users": 301,
+    "eligible_users": 541,
+    "pct": 55.64
+  },
+  "registration": {
+    "linked_new_registrations_with_completion_history": 53,
+    "median_completes_before_signup": 0,
+    "mean_completes_before_signup": 2.453,
+    "completes_before_signup_distribution": {
+      "0": 42,
+      "1": 4,
+      "6": 1,
+      "4": 1,
+      "24": 1,
+      "14": 1,
+      "59": 1,
+      "16": 1,
+      "3": 1
+    },
+    "signup_conversion_by_august_completes": {
+      "1": {
+        "registered": 6,
+        "players": 147,
+        "pct": 4.08
+      },
+      "4-5": {
+        "registered": 10,
+        "players": 52,
+        "pct": 19.23
+      },
+      "6+": {
+        "registered": 101,
+        "players": 246,
+        "pct": 41.06
+      },
+      "2": {
+        "registered": 7,
+        "players": 59,
+        "pct": 11.86
+      },
+      "3": {
+        "registered": 7,
+        "players": 37,
+        "pct": 18.92
+      }
+    }
+  },
+  "payments": {
+    "orders_created": 13,
+    "ticket_status": {
+      "Rejected": 4,
+      "Accepted": 9
+    },
+    "provider_status": {
+      "manual|Rejected": 1,
+      "yookassa|Rejected": 2,
+      "yookassa|Accepted": 7,
+      "tribute_digital|Rejected": 1,
+      "tribute_digital|Accepted": 2
+    },
+    "ticket_revenue_by_currency": {
+      "RUB": "11000.00",
+      "EUR": "30.00"
+    },
+    "ticket_revenue_by_provider_currency": {
+      "yookassa|RUB": "11000.00",
+      "tribute_digital|EUR": "30.00"
+    },
+    "donations_created": 2,
+    "donation_status_for_august_created": {
+      "Rejected": 2
+    },
+    "donations_confirmed": 0,
+    "donation_actual_revenue_by_currency": {},
+    "tribute_purchase_webhooks": {
+      "issued": 2
+    },
+    "tribute_intent_status": {
+      "completed": 2,
+      "expired": 1
+    },
+    "unique_linked_payers": 2,
+    "first_time_linked_payers": 2,
+    "repeat_linked_payers": 0,
+    "linked_revenue_by_currency": {
+      "EUR": "30.00"
+    },
+    "linked_revenue_per_payer_by_currency": {
+      "EUR": "15.00"
+    },
+    "linked_player_to_payer_conversion_pct": 0.25,
+    "unlinked_accepted_ticket_orders": 7
+  },
+  "power_users": {
+    "top_1_pct": {
+      "users": 8,
+      "completed_games": 462,
+      "mean_completed_games": 57.75,
+      "mean_active_days": 11.875,
+      "registered_current": 7,
+      "paid_ever_linked": 0,
+      "preferred_game_types": {
+        "ladder": 6,
+        "alphabetty": 2
+      },
+      "september_returned": 7
+    },
+    "top_5_pct": {
+      "users": 40,
+      "completed_games": 1717,
+      "mean_completed_games": 42.925,
+      "mean_active_days": 12.45,
+      "registered_current": 28,
+      "paid_ever_linked": 0,
+      "preferred_game_types": {
+        "ladder": 23,
+        "alphabetty": 17
+      },
+      "september_returned": 38
+    },
+    "top_10_pct": {
+      "users": 80,
+      "completed_games": 2779,
+      "mean_completed_games": 34.737,
+      "mean_active_days": 12.025,
+      "registered_current": 51,
+      "paid_ever_linked": 1,
+      "preferred_game_types": {
+        "ladder": 58,
+        "alphabetty": 22
+      },
+      "september_returned": 69
+    }
+  },
+  "unavailable": {
+    "landing_sessions_dau_and_site_users": "No server-side visit identity/event table; Yandex Metrika raw data is not stored in the production DB.",
+    "onboarding_events": "Client-side Yandex Metrika goals only; no event rows/parameters in production DB.",
+    "acquisition": "No UTM/referrer fields in server-side analytics tables.",
+    "geo_language_device": "Not persisted in server-side analytics tables.",
+    "sessions": "No analytics session id attached to starts/completions/attempts."
+  }
+}
