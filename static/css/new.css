@@ -9048,6 +9048,10 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   stroke-linecap: round;
 }
 
+html.new-ui-dark .new-word-salad__links line {
+  stroke: #fff;
+}
+
 .new-word-salad__path {
   position: absolute;
   z-index: 3;
