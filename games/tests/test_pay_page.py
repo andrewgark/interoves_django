@@ -425,6 +425,9 @@ class HubPayCtaTests(TestCase):
         self.assertNotIn('Наши интересности', body)
         self.assertFalse(resp.context.get('show_donate_cta'))
         self.assertIsNone(resp.context.get('desyatochki_participants_chat_url'))
+        self.assertIn('Как играть', body)
+        self.assertIn('href="https://t.me/joinchat/RUpU9KKhgLI4NDQy"', body)
+        self.assertNotIn('href="https://t.me/+rhsbkEuU4-ExOWEy"', body)
 
     def test_glowbyte_hub_does_not_show_buy_tickets(self):
         resp = self.client.get(reverse('project_hub', kwargs={'project_id': 'glowbyte'}))

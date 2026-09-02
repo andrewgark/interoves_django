@@ -1168,6 +1168,7 @@ def new_hub(request):
         'show_order_banner': True,
         # Чат участников в блоке десяточек — только на главной.
         'desyatochki_participants_chat_url': 'https://t.me/+rhsbkEuU4-ExOWEy',
+        'desyatochki_rules_participants_chat_url': 'https://t.me/+rhsbkEuU4-ExOWEy',
         'community_links': [
             {'kind': 'telegram', 'title': 'Телеграм-канал', 'href': 'https://t.me/interoves'},
             {'kind': 'twitter', 'title': 'X (Twitter)', 'href': 'https://x.com/interoves'},
@@ -1371,6 +1372,11 @@ def project_hub(request, project_id):
             [{'kind': 'telegram', 'title': 'Чат участников', 'href': 'https://t.me/joinchat/RUpU9KKhgLI4NDQy'}]
             if project.id == 'glowbyte'
             else []
+        ),
+        'desyatochki_rules_participants_chat_url': (
+            'https://t.me/joinchat/RUpU9KKhgLI4NDQy'
+            if project.id == 'glowbyte'
+            else 'https://t.me/+rhsbkEuU4-ExOWEy'
         ),
         **_project_urls_context(project.id),
     })
