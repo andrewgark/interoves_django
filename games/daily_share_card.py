@@ -13,7 +13,7 @@ from typing import Any, Iterable, Optional
 
 from games.share_result import format_elapsed_compact
 
-RENDERER_VERSION = '3'
+RENDERER_VERSION = '4'
 CARD_WIDTH = 1080
 CARD_HEIGHT = 1920
 

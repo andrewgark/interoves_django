@@ -7,7 +7,7 @@ function payload(overrides) {
   var base = {
     kind: 'ladder',
     game_kind: 'ladder',
-    renderer_version: '3',
+    renderer_version: '4',
     locale: 'ru',
     number: '46',
     seed: 46,
@@ -43,7 +43,7 @@ function payload(overrides) {
   assert.ok(svg.indexOf('ДАКАР') !== -1);
   assert.ok(svg.indexOf('МОСКВА') === -1);
   assert.ok(svg.indexOf('secret') === -1);
-  assert.strictEqual(card.VERSION, '3');
+  assert.strictEqual(card.VERSION, '4');
 })();
 
 (function testHeaderDoesNotDuplicateTitle() {
