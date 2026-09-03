@@ -34,4 +34,13 @@ echo "$raddle_chunk" | grep -q 'var(--raddle-clues-min)' \
 echo "$raddle_chunk" | grep -q 'min-width: 0' \
   || fail "raddle section must include min-width: 0 on shrinkable children"
 
+grep -qE '^\s*--new-task-actions-stack:' "$CSS" \
+  || fail "--new-task-actions-stack not found in :root"
+task_stack_rem="$(grep -E '^\s*--new-task-actions-stack:\s*([0-9.]+rem)' "$CSS" | head -1 | sed -E 's/.*: *([0-9.]+rem).*/\1/')"
+[[ -n "$task_stack_rem" ]] || fail "--new-task-actions-stack must be a rem length"
+grep -q 'container-name: new-task' "$CSS" \
+  || fail ".new-task must set container-name: new-task"
+grep -q "@container new-task (max-width: ${task_stack_rem})" "$CSS" \
+  || fail ".new-task actions stack must use @container new-task (max-width: ${task_stack_rem}) matching --new-task-actions-stack"
+
 echo "lint_new_ui_responsive: ok (--new-break-wide=${break_wide}px, stack<=${stack_max_px}px)"

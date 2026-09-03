@@ -71,6 +71,8 @@
   --raddle-ladder-max: 26rem;
   --raddle-clues-min: 12rem;
   --raddle-layout-stack: 40rem;
+  /* Список .new-task: колонка «сложность / Результаты», если карточка уже */
+  --new-task-actions-stack: 30rem;
   --raddle-before: #c9a227;
   --raddle-focus: var(--accent);
   --raddle-after: #3b6ea5;
@@ -1588,6 +1590,8 @@ html.new-ui-dark body.new-ui {
   color: var(--text);
   font-weight: 600;
   min-width: 0;
+  container-type: inline-size;
+  container-name: new-task;
 }
 
 .new-task__body {
@@ -1668,6 +1672,21 @@ html.new-ui-dark body.new-ui {
 .new-task__action .new-pill {
   font-size: 0.75rem;
   text-transform: lowercase;
+}
+
+/* Узкая карточка (телефон): шкала и «Результаты» друг под другом.
+   Литерал 30rem must match --new-task-actions-stack (@container + var() не везде). */
+@container new-task (max-width: 30rem) {
+  .new-task__body,
+  .new-task__actions {
+    align-self: flex-start;
+  }
+
+  .new-task__actions {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.2rem;
+  }
 }
 
 /* Forms — heights/radius aligned with .new-btn */
