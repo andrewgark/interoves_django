@@ -131,6 +131,97 @@ function fakeClock(start) {
   ctrl.destroy();
 })();
 
+(function testCompletedHidesTimerAndPause() {
+  var rootEl = { hidden: false, classList: { toggle: function () {} } };
+  var pauseBtn = { hidden: false };
+  var ctrl = timer.create({
+    url: '/ladder/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return ''; },
+    getCsrf: function () { return ''; },
+    clock: fakeClock(0),
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({}); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    root: rootEl,
+    pauseBtn: pauseBtn,
+    bootstrap: { status: 'completed', completed: true, accumulated_ms: 8000, frozen_ms: 8000, exists: true },
+    solved: true,
+  });
+  assert.strictEqual(rootEl.hidden, true);
+  assert.strictEqual(pauseBtn.hidden, true);
+  ctrl.destroy();
+})();
+
+(function testSolvedPageKeepsTimerHiddenIfSnapshotIsStillOpen() {
+  var rootEl = { hidden: false, classList: { toggle: function () {} } };
+  var pauseBtn = { hidden: false };
+  var ctrl = timer.create({
+    url: '/ladder/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return ''; },
+    getCsrf: function () { return ''; },
+    clock: fakeClock(0),
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({}); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    root: rootEl,
+    pauseBtn: pauseBtn,
+    solved: true,
+    bootstrap: { status: 'auto_paused', completed: false, accumulated_ms: 0, exists: false },
+  });
+  assert.strictEqual(rootEl.hidden, true);
+  assert.strictEqual(pauseBtn.hidden, true);
+  ctrl.applySnapshot({
+    status: 'auto_paused',
+    completed: false,
+    accumulated_ms: 0,
+    exists: false,
+  }, { replace: true });
+  assert.strictEqual(ctrl.state().completed, true);
+  assert.strictEqual(rootEl.hidden, true);
+  assert.strictEqual(pauseBtn.hidden, true);
+  ctrl.startIfAllowed();
+  assert.strictEqual(ctrl.state().status, 'completed');
+  ctrl.destroy();
+})();
+
+(function testMarkCompleteHidesTimerAndPause() {
+  var rootEl = { hidden: true, classList: { toggle: function () {} } };
+  var pauseBtn = { hidden: false };
+  var ctrl = timer.create({
+    url: '/ladder/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return ''; },
+    getCsrf: function () { return ''; },
+    clock: fakeClock(0),
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({}); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    root: rootEl,
+    pauseBtn: pauseBtn,
+    bootstrap: { status: 'running', is_authoritative: true, accumulated_ms: 4000, exists: true },
+  });
+  assert.strictEqual(rootEl.hidden, false);
+  assert.strictEqual(pauseBtn.hidden, false);
+  ctrl.markComplete({ status: 'completed', completed: true, accumulated_ms: 4000, frozen_ms: 4000, exists: true });
+  assert.strictEqual(rootEl.hidden, true);
+  assert.strictEqual(pauseBtn.hidden, true);
+  ctrl.destroy();
+})();
+
 (function testReloadKeepsSessionSeq() {
   var store = memoryStorage();
   var clock = fakeClock(0);

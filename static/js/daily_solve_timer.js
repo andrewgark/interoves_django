@@ -145,7 +145,7 @@
       var ms = displayedMs();
       if (displayEl) displayEl.textContent = formatElapsed(ms);
       if (rootEl) {
-        rootEl.hidden = false;
+        rootEl.hidden = completed;
         rootEl.classList.toggle('is-paused', manuallyPaused || (!authoritative && !completed && status !== 'running'));
         rootEl.classList.toggle('is-completed', completed);
       }
@@ -193,9 +193,14 @@
       if (incomingRunning && manuallyPaused) return;
       if (incomingRunning && visibilityOf(doc) === 'hidden') return;
       exists = snap.exists !== false;
-      completed = !!snap.completed || snap.status === 'completed';
-      manuallyPaused = !!snap.manually_paused || snap.status === 'manually_paused';
-      status = snap.status || status;
+      completed = completed || !!snap.completed || snap.status === 'completed';
+      if (completed) {
+        status = 'completed';
+        manuallyPaused = false;
+      } else {
+        manuallyPaused = !!snap.manually_paused || snap.status === 'manually_paused';
+        status = snap.status || status;
+      }
       if (typeof snap.committed_ms === 'number') committedMs = snap.committed_ms;
       var incoming = Number(snap.accumulated_ms);
       if (completed && snap.frozen_ms != null) {

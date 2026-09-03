@@ -3053,6 +3053,10 @@ html.new-ui-dark .new-team-switcher-active-box {
   font-variant-numeric: tabular-nums;
 }
 
+.new-daily-timer[hidden] {
+  display: none;
+}
+
 .new-daily-timer.is-paused .new-daily-timer__time {
   opacity: 0.7;
 }
