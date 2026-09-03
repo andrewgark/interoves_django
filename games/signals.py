@@ -4,6 +4,7 @@ from django.utils import timezone
 from allauth.account.signals import user_signed_up
 
 from games.analytics import queue_pending_goal, signup_goal_payload
+from games.analytics_persistence import create_or_reread_analytics_row
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -188,20 +189,23 @@ def analytics_user_signed_up(request, user, sociallogin=None, **kwargs):
             method = sociallogin.account.provider or method
     except Exception:
         pass
-    state, _ = PlayerAnalyticsState.objects.get_or_create(
-        user=user,
-        team=None,
-        anon_key=None,
+    state, _ = create_or_reread_analytics_row(
+        PlayerAnalyticsState,
+        lookup={'user': user, 'team': None, 'anon_key': None},
     )
-    updates = []
     if state.signup_at is None:
-        state.signup_at = timezone.now()
-        updates.append('signup_at')
-    if state.signup_method != method:
-        state.signup_method = method
-        updates.append('signup_method')
-    if updates:
-        state.save(update_fields=updates + ['updated_at'])
+        signup_at = timezone.now()
+        PlayerAnalyticsState.objects.filter(
+            pk=state.pk,
+            signup_at__isnull=True,
+        ).update(
+            signup_at=signup_at,
+            signup_method=method,
+            updated_at=signup_at,
+        )
+    # signup_at and signup_method form one provenance bundle. A later signal
+    # may neither replace the first timestamp nor attach its method to it.
+    state.refresh_from_db()
     payload = signup_goal_payload(state)
     if payload is None:
         return

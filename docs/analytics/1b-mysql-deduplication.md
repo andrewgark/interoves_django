@@ -1,6 +1,85 @@
 # Stage 1B design: MySQL-compatible deduplication
 
-Status: read-only design. Nothing in this document is implemented by stage 1A.
+Status: stage 1B.1 code-first handling is implemented. The nine production
+unique indexes and the Django constraint-state changes remain stage 1B.2 and
+are not part of this release.
+
+## Stage 1B.1 code contract
+
+All three analytics models use the same strict create-or-reread primitive. It
+first reads the exact namespace key, creates inside a local savepoint, and
+recovers only a duplicate reported for the corresponding future index. After
+rolling back that savepoint it reads the exact canonical key again. One row is
+returned; zero rows re-raises the original database error; multiple rows raise
+an invariant error. Deadlocks, lock timeouts, foreign-key failures, and
+duplicates on unrelated keys are never classified as a recoverable race.
+
+Before 1B.2, simultaneous first inserts can still both succeed because MySQL has
+no unique key to arbitrate them. This is an explicit rollout limitation, not an
+application-lock substitute.
+
+Signup and activation use conditional updates (`timestamp IS NULL`) and then
+refresh the canonical state. The first database winner cannot be overwritten by
+a stale Python object. Completion history backfill, completion creation, counts,
+and activation remain in their existing transaction and product order.
+
+### Claim and account-merge provenance
+
+For overlapping starts, the row with earlier `started_at` supplies the complete
+bundle `(started_at, game_kind, public_game_id, is_backfilled,
+instrumentation_version)`. For completions, earlier `completed_at` supplies
+`(completed_at, game_kind, public_game_id, result, is_backfilled,
+instrumentation_version)`. Equal timestamps keep the target bundle. Live rows
+do not outrank earlier backfilled rows, and completion results have no ranking.
+
+Lifecycle state is merged as two independent bundles. The earlier non-null
+`signup_at` supplies `(signup_at, signup_method, signup_goal_acked_at)`; the
+earlier non-null `activated_at` supplies `(activated_at,
+activation_is_backfilled, activation_goal_acked_at)`. Equal timestamps keep the
+target bundle. Fields are never assembled independently across bundle donors.
+The ACK-specific safety rule below applies when the selected activation donor
+is source: because payload equivalence cannot be proved, its ACK is cleared
+rather than copied into target.
+
+Placement foreign keys and `game_instance_id` must agree before an overlapping
+event is merged. A mismatch is an invariant failure and is not repaired.
+
+### ACK semantics and safe compromise
+
+The physical row id is present in the browser's internal delivery/idempotency
+key and in the signed same-origin callback token. It is not sent in the Yandex
+`reachGoal` params. A start ACK can cross from source to target only when both
+persisted Yandex params (`game`, `game_id`) equal the final canonical params. A
+completion ACK additionally requires equal `result`. A target ACK is retained
+when the target payload is unchanged.
+
+If the final payload differs and no ACK for that exact payload exists, the
+canonical ACK is null. This may cause safe repeat delivery after merge, but it
+cannot falsely claim that another payload was delivered. Merge itself never
+sends a goal. Activation's historical `games_completed` param is not stored, so
+an ACK from a source activation bundle is cleared when that bundle replaces the
+target bundle. A target activation ACK is retained only while the target bundle
+stays selected. A future delivery ledger would be needed to eliminate every
+possible repeat without weakening this rule; it is out of scope for 1B.1.
+
+### Operator commands
+
+`preflight_player_analytics_uniques` is full-key and read-only. Human-readable
+aggregate output is the default; `--format=json` writes one JSON document to
+stdout. It reports all nine duplicate-group counts, XOR violations, exact row
+counts, table/index metadata, MySQL version, engine, collation and `anon_key`
+type, transaction and metadata-lock visibility, and online-DDL eligibility. It
+never emits actor values or creates report files. RDS `FreeStorageSpace` is
+reported as `UNAVAILABLE`; the command does not call AWS APIs.
+
+`apply_player_analytics_unique_index` requires an explicit `--index`. Without
+`--execute` it does no DDL. Execution additionally requires the full data
+preflight, explicit free-storage confirmation, operational confirmation when
+database visibility is unavailable, and MySQL eligibility. It creates exactly
+one index with `SET SESSION lock_wait_timeout = 30`,
+`ALGORITHM=INPLACE LOCK=NONE`, verifies the full physical signature, and has no
+COPY/SHARED/DEFAULT fallback. It is shipped in 1B.1 for a later controlled 1B.2
+operation and must not be invoked as part of the 1B.1 deploy.
 
 ## Problem confirmed by audit
 
@@ -190,4 +269,3 @@ writers.
 
 Do not delete or heal duplicates automatically. If the fresh preflight finds any,
 stop and agree on a deterministic remediation separately.
-

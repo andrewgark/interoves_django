@@ -12,6 +12,13 @@ from django.db import transaction
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 
+from games.analytics_persistence import (
+    AnalyticsRowInvariantError,
+    merge_analytics_state_rows,
+    merge_completed_analytics_rows,
+    merge_started_analytics_rows,
+    reassign_or_merge_analytics_row,
+)
 from games.models import (
     AccountMerge,
     AnonAccountClaim,
@@ -578,99 +585,61 @@ def _merge_chain_states(target, source):
 
 def _merge_started_games(target, source):
     moved = 0
-    for row in PlayerStartedGame.objects.select_for_update().filter(user=source):
-        existing = PlayerStartedGame.objects.select_for_update().filter(
-            user=target, game_instance_id=row.game_instance_id,
-        ).first()
-        if existing is None:
-            row.user = target
-            row.save(update_fields=['user'])
-        else:
-            updates = []
-            if row.started_at and (not existing.started_at or row.started_at < existing.started_at):
-                existing.started_at = row.started_at
-                updates.append('started_at')
-            if existing.metrika_acked_at is None and row.metrika_acked_at is not None:
-                existing.metrika_acked_at = row.metrika_acked_at
-                updates.append('metrika_acked_at')
-            merged_backfilled = bool(existing.is_backfilled and row.is_backfilled)
-            if existing.is_backfilled != merged_backfilled:
-                existing.is_backfilled = merged_backfilled
-                updates.append('is_backfilled')
-            if updates:
-                existing.save(update_fields=updates)
-            row.delete()
+    rows = PlayerStartedGame.objects.select_for_update().filter(
+        user=source,
+    ).order_by('game_instance_id', 'pk')
+    for row in rows:
+        reassign_or_merge_analytics_row(
+            row,
+            target_lookup={
+                'user': target,
+                'game_instance_id': row.game_instance_id,
+            },
+            identity_values={'user': target},
+            identity_update_fields=['user'],
+            merge_rows=merge_started_analytics_rows,
+        )
         moved += 1
     return moved
 
 
 def _merge_completed_games(target, source):
-    rank = {
-        PlayerCompletedGame.RESULT_FAILED: 0,
-        PlayerCompletedGame.RESULT_COMPLETED: 1,
-        PlayerCompletedGame.RESULT_SOLVED: 2,
-    }
     moved = 0
-    for row in PlayerCompletedGame.objects.select_for_update().filter(user=source):
-        existing = PlayerCompletedGame.objects.select_for_update().filter(
-            user=target, game_instance_id=row.game_instance_id,
-        ).first()
-        if existing is None:
-            row.user = target
-            row.save(update_fields=['user'])
-        else:
-            updates = []
-            if row.completed_at and row.completed_at < existing.completed_at:
-                existing.completed_at = row.completed_at
-                updates.append('completed_at')
-            if rank.get(row.result, 0) > rank.get(existing.result, 0):
-                existing.result = row.result
-                updates.append('result')
-            if existing.metrika_acked_at is None and row.metrika_acked_at is not None:
-                existing.metrika_acked_at = row.metrika_acked_at
-                updates.append('metrika_acked_at')
-            merged_backfilled = bool(existing.is_backfilled and row.is_backfilled)
-            if existing.is_backfilled != merged_backfilled:
-                existing.is_backfilled = merged_backfilled
-                updates.append('is_backfilled')
-            if updates:
-                existing.save(update_fields=updates)
-            row.delete()
+    rows = PlayerCompletedGame.objects.select_for_update().filter(
+        user=source,
+    ).order_by('game_instance_id', 'pk')
+    for row in rows:
+        reassign_or_merge_analytics_row(
+            row,
+            target_lookup={
+                'user': target,
+                'game_instance_id': row.game_instance_id,
+            },
+            identity_values={'user': target},
+            identity_update_fields=['user'],
+            merge_rows=merge_completed_analytics_rows,
+        )
         moved += 1
     return moved
 
 
 def _merge_analytics(target, source):
-    row = PlayerAnalyticsState.objects.select_for_update().filter(user=source).first()
-    if row is None:
+    rows = list(PlayerAnalyticsState.objects.select_for_update().filter(
+        user=source,
+    ).order_by('pk')[:2])
+    if not rows:
         return 0
-    existing = PlayerAnalyticsState.objects.select_for_update().filter(user=target).first()
-    if existing is None:
-        row.user = target
-        row.save(update_fields=['user', 'updated_at'])
-        return 1
-
-    updates = []
-    for timestamp_field in ('signup_at', 'activated_at'):
-        source_value = getattr(row, timestamp_field)
-        target_value = getattr(existing, timestamp_field)
-        if source_value and (not target_value or source_value < target_value):
-            setattr(existing, timestamp_field, source_value)
-            updates.append(timestamp_field)
-    for ack_field in ('signup_goal_acked_at', 'activation_goal_acked_at'):
-        if getattr(existing, ack_field) is None and getattr(row, ack_field) is not None:
-            setattr(existing, ack_field, getattr(row, ack_field))
-            updates.append(ack_field)
-    if not existing.signup_method and row.signup_method:
-        existing.signup_method = row.signup_method
-        updates.append('signup_method')
-    merged_backfilled = bool(existing.activation_is_backfilled and row.activation_is_backfilled)
-    if existing.activation_is_backfilled != merged_backfilled:
-        existing.activation_is_backfilled = merged_backfilled
-        updates.append('activation_is_backfilled')
-    if updates:
-        existing.save(update_fields=updates + ['updated_at'])
-    row.delete()
+    if len(rows) > 1:
+        raise AnalyticsRowInvariantError(
+            'PlayerAnalyticsState has multiple rows for account merge source'
+        )
+    reassign_or_merge_analytics_row(
+        rows[0],
+        target_lookup={'user': target},
+        identity_values={'user': target},
+        identity_update_fields=['user', 'updated_at'],
+        merge_rows=merge_analytics_state_rows,
+    )
     return 1
 
 
@@ -714,10 +683,20 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
     summary['chain_states'] = _merge_chain_states(target, source)
     summary['likes'] = _merge_likes(target, source)
     summary['personal_dict_words'] = _merge_personal_words(target, source)
+    # Claim and account-merge paths both lock claim rows before analytics rows.
+    # This avoids the claim->analytics / analytics->claim deadlock cycle.
+    source_claim_ids = list(
+        AnonAccountClaim.objects.select_for_update()
+        .filter(user=source)
+        .order_by('anon_key')
+        .values_list('pk', flat=True)
+    )
+    summary['anon_claims'] = AnonAccountClaim.objects.filter(
+        pk__in=source_claim_ids,
+    ).update(user=target)
     summary['started_games'] = _merge_started_games(target, source)
     summary['completed_games'] = _merge_completed_games(target, source)
     summary['analytics_states'] = _merge_analytics(target, source)
-    summary['anon_claims'] = AnonAccountClaim.objects.filter(user=source).update(user=target)
     # A source-profile deep link must not remain usable after deactivation.
     telegram_link_tokens = getattr(source, 'telegram_link_tokens', None)
     if telegram_link_tokens is not None:

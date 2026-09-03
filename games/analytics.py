@@ -1,7 +1,7 @@
 import json
 
 from django.core import signing
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
@@ -15,6 +15,7 @@ from games.models import (
     PlayerCompletedGame,
     PlayerStartedGame,
 )
+from games.analytics_persistence import create_or_reread_analytics_row
 
 
 YANDEX_GOAL_SIGNUP = 'signup'
@@ -369,15 +370,12 @@ def register_started_game(
         'public_game_id': public_id,
         'instrumentation_version': PRODUCT_ANALYTICS_INSTRUMENTATION_VERSION,
     }
-    try:
-        with transaction.atomic():
-            record, _created = PlayerStartedGame.objects.get_or_create(
-                game_instance_id=instance_id,
-                defaults=defaults,
-                **actor
-            )
-    except IntegrityError:
-        record = _started_games_qs(**actor).get(game_instance_id=instance_id)
+    lookup = dict(actor, game_instance_id=instance_id)
+    record, _created = create_or_reread_analytics_row(
+        PlayerStartedGame,
+        lookup=lookup,
+        defaults=defaults,
+    )
 
     updated = []
     if record.game_id != game.id:
@@ -493,17 +491,12 @@ def _ensure_completed_record(
             None if is_backfilled else PRODUCT_ANALYTICS_INSTRUMENTATION_VERSION
         ),
     }
-    try:
-        record, created = PlayerCompletedGame.objects.get_or_create(
-            game_instance_id=instance_id,
-            defaults=defaults,
-            **actor
-        )
-    except IntegrityError:
-        record = _completed_games_qs(team=team, user=user, anon_key=anon_key).get(
-            game_instance_id=instance_id
-        )
-        created = False
+    lookup = dict(actor, game_instance_id=instance_id)
+    record, created = create_or_reread_analytics_row(
+        PlayerCompletedGame,
+        lookup=lookup,
+        defaults=defaults,
+    )
     updated = []
     if record.game_id != game.id:
         record.game = game
@@ -592,15 +585,22 @@ def register_completed_game(
             **analytics_actor,
             exclude_instance_id=current_instance_id,
         )
-    state, _ = PlayerAnalyticsState.objects.get_or_create(
-        defaults={},
-        **analytics_actor
+    state, _ = create_or_reread_analytics_row(
+        PlayerAnalyticsState,
+        lookup=analytics_actor,
     )
     before_count = _completed_games_qs(**analytics_actor).count()
     if before_count >= 3 and state.activated_at is None:
-        state.activated_at = timezone.now()
-        state.activation_is_backfilled = True
-        state.save(update_fields=['activated_at', 'activation_is_backfilled', 'updated_at'])
+        activated_at = timezone.now()
+        PlayerAnalyticsState.objects.filter(
+            pk=state.pk,
+            activated_at__isnull=True,
+        ).update(
+            activated_at=activated_at,
+            activation_is_backfilled=True,
+            updated_at=activated_at,
+        )
+        state.refresh_from_db()
 
     record, created = _ensure_completed_record(
         **analytics_actor,
@@ -619,8 +619,19 @@ def register_completed_game(
 
     after_count = _completed_games_qs(**analytics_actor).count()
     if before_count < 3 <= after_count and state.activated_at is None:
-        state.activated_at = timezone.now()
-        state.save(update_fields=['activated_at', 'updated_at'])
+        activated_at = timezone.now()
+        PlayerAnalyticsState.objects.filter(
+            pk=state.pk,
+            activated_at__isnull=True,
+        ).update(
+            activated_at=activated_at,
+            activation_is_backfilled=False,
+            updated_at=activated_at,
+        )
+    # A concurrent completion/signup may have won either conditional update.
+    # Build any goal only from the canonical database state, never this stale
+    # Python instance.
+    state.refresh_from_db()
     if (
         state.activated_at is not None
         and not state.activation_is_backfilled
