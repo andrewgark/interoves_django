@@ -27,6 +27,37 @@
        href="{{ onboarding_salad_archive_url }}"
        data-onboarding-next-game="salad">Архив Салатиков</a>
   </div>
+  <aside class="new-onboarding-social"
+         aria-labelledby="onboarding-social-heading"
+         data-onboarding-social-prompt
+         hidden>
+    <button type="button"
+            class="new-onboarding-social__close"
+            data-onboarding-social-dismiss
+            aria-label="Закрыть">
+      <i class="ph ph-x" aria-hidden="true"></i>
+    </button>
+    <h3 id="onboarding-social-heading" class="new-onboarding-social__title">Хочешь ещё?</h3>
+    <p class="new-onboarding-social__text">Новые Лесенки и Салатики регулярно появляются в Inter Oves. Подпишись, чтобы не пропустить.</p>
+    <a class="new-btn"
+       href="https://t.me/interoves"
+       target="_blank"
+       rel="noopener noreferrer"
+       data-onboarding-social-platform="telegram">Telegram →</a>
+    <p class="new-onboarding-social__secondary">
+      <a class="new-link-dotted"
+         href="https://www.instagram.com/interoveslocumpraesta/"
+         target="_blank"
+         rel="noopener noreferrer"
+         data-onboarding-social-platform="instagram">Instagram</a>
+      <span aria-hidden="true"> · </span>
+      <a class="new-link-dotted"
+         href="https://x.com/interoves"
+         target="_blank"
+         rel="noopener noreferrer"
+         data-onboarding-social-platform="twitter">Twitter</a>
+    </p>
+  </aside>
 </section>
 <script src="{% static 'js/onboarding.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script>

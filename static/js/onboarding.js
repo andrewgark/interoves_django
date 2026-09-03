@@ -3,6 +3,8 @@
 
   var STORAGE_KEY = 'interoves_onboarding_v2';
   var MAX_AGE_MS = 24 * 60 * 60 * 1000;
+  // Let the existing success UI (solved board / toast) land before the prompt.
+  var SOCIAL_PROMPT_DELAY_MS = 1600;
 
   function nowMs() {
     return Date.now ? Date.now() : new Date().getTime();
@@ -75,9 +77,93 @@
     });
   }
 
-  function showFollowup(block) {
+  function socialPromptEl(block) {
+    return block && block.querySelector
+      ? block.querySelector('[data-onboarding-social-prompt]')
+      : null;
+  }
+
+  function canShowSocialPrompt(context) {
+    return !!(
+      context
+      && context.stage === 'completed'
+      && !context.socialFollowPromptShown
+      && !context.socialFollowPromptDismissed
+    );
+  }
+
+  function revealSocialPrompt(block) {
+    var prompt = socialPromptEl(block);
+    var context = readContext();
+    if (!prompt || !canShowSocialPrompt(context)) return;
+    prompt.hidden = false;
+    context.socialFollowPromptShown = true;
+    context.updatedAt = nowMs();
+    writeContext(context);
+    trackOnce(
+      eventKey('social-follow-prompt-view', context),
+      'social_follow_prompt_view',
+      { game: normalizeGame(context.firstGame) }
+    );
+  }
+
+  function hideSocialPrompt(block) {
+    var prompt = socialPromptEl(block);
+    if (prompt) prompt.hidden = true;
+  }
+
+  function dismissSocialPrompt(block) {
+    var context = readContext();
+    hideSocialPrompt(block);
+    if (!context || context.socialFollowPromptDismissed) return;
+    context.socialFollowPromptDismissed = true;
+    context.socialFollowPromptShown = true;
+    context.updatedAt = nowMs();
+    writeContext(context);
+    trackOnce(
+      eventKey('social-follow-prompt-dismiss', context),
+      'social_follow_prompt_dismiss',
+      { game: normalizeGame(context.firstGame) }
+    );
+  }
+
+  function bindSocialPrompt(block) {
+    var prompt = socialPromptEl(block);
+    if (!prompt || prompt.getAttribute('data-onboarding-social-bound') === '1') return;
+    prompt.setAttribute('data-onboarding-social-bound', '1');
+    var closeBtn = prompt.querySelector('[data-onboarding-social-dismiss]');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function () {
+        dismissSocialPrompt(block);
+      });
+    }
+    (prompt.querySelectorAll('[data-onboarding-social-platform]') || []).forEach(function (link) {
+      link.addEventListener('click', function () {
+        var active = readContext();
+        var platform = String(link.getAttribute('data-onboarding-social-platform') || '');
+        if (active && platform) {
+          trackOnce(
+            eventKey('social-follow-click-' + platform, active),
+            'social_follow_click',
+            { platform: platform }
+          );
+        }
+        hideSocialPrompt(block);
+      });
+    });
+  }
+
+  function showFollowup(block, options) {
     if (!block) return;
     block.hidden = false;
+    bindSocialPrompt(block);
+    if (options && options.delaySocialPrompt) {
+      global.setTimeout(function () {
+        revealSocialPrompt(block);
+      }, SOCIAL_PROMPT_DELAY_MS);
+      return;
+    }
+    revealSocialPrompt(block);
   }
 
   function goalsFromEvent(event) {
@@ -101,6 +187,7 @@
 
   function initGamePage(block) {
     if (!block) return;
+    bindSocialPrompt(block);
     var currentGame = normalizeGame(block.getAttribute('data-onboarding-current-game'));
     var context = readContext();
     if (context && context.stage === 'completed' && normalizeGame(context.firstGame) === currentGame) {
@@ -153,7 +240,7 @@
             'onboarding_first_game_complete',
             { game: currentGame, recommended: !!active.recommended }
           );
-          showFollowup(block);
+          showFollowup(block, { delaySocialPrompt: true });
         } else if (
           payload.goal === 'game_start'
           && (active.stage === 'completed' || active.stage === 'awaiting_second_start')

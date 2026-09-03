@@ -89,6 +89,9 @@ The following are not canonical backend product-event rows:
 | `onboarding_game_select` | a format is selected on `/start/` |
 | `onboarding_first_game_complete` | onboarding browser context observes a delivered backend completion payload |
 | `onboarding_second_game_start` | onboarding browser context observes a later backend start payload |
+| `social_follow_prompt_view` | onboarding follow-up shows the one-time social subscribe card |
+| `social_follow_click` | a social link in that card is clicked (`platform` is telegram, instagram, or twitter) |
+| `social_follow_prompt_dismiss` | the social subscribe card is dismissed |
 
 The onboarding context lives in browser `localStorage` for 24 hours. Delivery
 can be missing or duplicated relative to backend actors, so these goals describe

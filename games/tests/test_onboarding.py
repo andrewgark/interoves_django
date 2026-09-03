@@ -7,14 +7,19 @@ from allauth.socialaccount.models import SocialApp
 
 from games.models import (
     Attempt,
+    CheckerType,
     Game,
+    GameTaskGroup,
+    HTMLPage,
     PlayerCompletedGame,
     PlayerStartedGame,
     Project,
+    Task,
     TaskGroup,
 )
 from games.section_hub import onboarding_followup_context
 from games.views.new_ui import _onboarding_starter_salad_url
+from games.word_salad import WORD_SALAD_GAME_ID
 
 
 def _ensure_social_apps():
@@ -25,6 +30,17 @@ def _ensure_social_apps():
             defaults={'name': provider, 'client_id': 'test', 'secret': 'test'},
         )
         app.sites.add(site)
+
+
+def _ensure_login_modal_deps():
+    Project.objects.get_or_create(pk='main', defaults={})
+    _ensure_social_apps()
+    for name in (
+        'Правила Десяточки',
+        'Правила турнирного режима',
+        'Правила тренировочного режима',
+    ):
+        HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
 
 
 class OnboardingPageTests(TestCase):
@@ -150,6 +166,36 @@ class OnboardingPageTests(TestCase):
         alphabetty = onboarding_followup_context('alphabetty')
         self.assertEqual(alphabetty['onboarding_game'], 'alphabetty')
         self.assertEqual(alphabetty['onboarding_followup_primary']['game'], 'salad')
+
+    def test_salad_play_page_includes_hidden_social_follow_prompt(self):
+        CheckerType.objects.get_or_create(pk='word_salad')
+        game = Game.objects.get(id=WORD_SALAD_GAME_ID)
+        tg = TaskGroup.objects.create(label='onboarding-social-prompt', points=1)
+        Task.objects.create(
+            task_group=tg,
+            number='1',
+            task_type='word_salad',
+            checker=CheckerType.objects.get(pk='word_salad'),
+            checker_data='{"grid":["A","B","C","D","H","G","F","E","I","J","K","L","P","O","N","M"],"words":["ABCDEFGHIJKLMNOP"]}',
+            points=1,
+        )
+        GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='Салатик #1')
+        _ensure_login_modal_deps()
+
+        body = self.client.get('/salad/1/').content.decode()
+
+        self.assertIn('data-onboarding-followup', body)
+        self.assertIn('data-onboarding-social-prompt', body)
+        self.assertIn('Хочешь ещё?', body)
+        self.assertIn('Новые Лесенки и Салатики регулярно появляются в Inter Oves.', body)
+        self.assertIn('Telegram →', body)
+        self.assertIn('data-onboarding-social-platform="telegram"', body)
+        self.assertIn('data-onboarding-social-platform="instagram"', body)
+        self.assertIn('data-onboarding-social-platform="twitter"', body)
+        self.assertIn('href="https://t.me/interoves"', body)
+        self.assertIn('href="https://www.instagram.com/interoveslocumpraesta/"', body)
+        self.assertIn('href="https://x.com/interoves"', body)
+        self.assertIn('data-onboarding-social-dismiss', body)
 
     def test_home_prioritizes_daily_games_and_explains_the_choices(self):
         body = self.client.get('/').content.decode()

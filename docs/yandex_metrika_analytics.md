@@ -22,12 +22,17 @@ canonical backend event counts.
 | `onboarding_game_select` | На `/start/` выбран формат (`game`, `recommended`) |
 | `onboarding_first_game_complete` | В контексте onboarding завершена первая игра |
 | `onboarding_second_game_start` | После первой игры начата следующая |
+| `social_follow_prompt_view` | Показана карточка подписки после первой завершённой onboarding-игры |
+| `social_follow_click` | Клик по ссылке в карточке подписки (`platform`) |
+| `social_follow_prompt_dismiss` | Карточка подписки закрыта |
 
 Onboarding parameters:
 
 - `onboarding_game_select`: `game=salad|alphabetty|ladder`, `recommended=true|false`;
 - `onboarding_first_game_complete`: `game`, `recommended`;
-- `onboarding_second_game_start`: `first_game`, `game`.
+- `onboarding_second_game_start`: `first_game`, `game`;
+- `social_follow_prompt_view` / `social_follow_prompt_dismiss`: `game`;
+- `social_follow_click`: `platform=telegram|instagram|twitter`.
 
 The onboarding context lives in browser `localStorage` for 24 hours. Existing
 backend `game_start` / `game_complete` payloads remain the source of truth for
