@@ -94,7 +94,7 @@
     var manuallyPaused = !!bootstrap.manually_paused || status === 'manually_paused';
     var authoritative = !!bootstrap.is_authoritative;
     var exists = !!bootstrap.exists;
-    var runningSince = 0;
+    var runningSince = null;
     var heartbeatTimer = null;
     var raf = null;
     var started = false;
@@ -123,7 +123,7 @@
       if (completed || manuallyPaused || status === 'completed' || status === 'manually_paused') {
         return displayBaseMs;
       }
-      if (visibilityOf(doc) !== 'visible' || !authoritative || status !== 'running') {
+      if (visibilityOf(doc) !== 'visible' || !authoritative || status !== 'running' || runningSince == null) {
         return displayBaseMs;
       }
       return displayBaseMs + Math.max(0, Math.floor(nowMs(clock) - runningSince));
@@ -198,14 +198,12 @@
       status = snap.status || status;
       if (typeof snap.committed_ms === 'number') committedMs = snap.committed_ms;
       var incoming = Number(snap.accumulated_ms);
-      if (!isNaN(incoming)) {
-        if (completed || !authoritative || opts.replace) {
-          displayBaseMs = incoming;
-        } else {
-          displayBaseMs = Math.max(displayBaseMs, incoming);
-        }
+      if (completed && snap.frozen_ms != null) {
+        displayBaseMs = Number(snap.frozen_ms) || displayBaseMs;
+      } else if (!isNaN(incoming)) {
+        // Never jump down: pause/hidden responses can lag behind the local monotonic tick.
+        displayBaseMs = Math.max(displayBaseMs, incoming);
       }
-      if (completed && snap.frozen_ms != null) displayBaseMs = Number(snap.frozen_ms) || displayBaseMs;
       authoritative = !!snap.is_authoritative;
       if (authoritative) foreignHold = false;
       if (authoritative && status === 'running' && !completed && !manuallyPaused) {
@@ -222,12 +220,25 @@
       return seq;
     }
 
+    function currentClaimedMs() {
+      if (runningSince == null) return 0;
+      return Math.max(0, Math.floor(nowMs(clock) - runningSince));
+    }
+
+    function freezeOpenInterval() {
+      var claimed = currentClaimedMs();
+      displayBaseMs = displayedMs();
+      runningSince = null;
+      return claimed;
+    }
+
     function post(action, extra, keepalive) {
       extra = extra || {};
       var eventSeq = nextSeq();
       if (options.offline) return Promise.resolve(null);
-      var claimed = 0;
-      if (runningSince) claimed = Math.max(0, Math.floor(nowMs(clock) - runningSince));
+      var claimed = Object.prototype.hasOwnProperty.call(extra, 'claimed_ms')
+        ? Math.max(0, Math.floor(Number(extra.claimed_ms) || 0))
+        : currentClaimedMs();
       var body = {
         action: action,
         session_id: sessionId,
@@ -317,12 +328,11 @@
 
     function onHidden() {
       if (completed || manuallyPaused) return;
-      displayBaseMs = displayedMs();
-      runningSince = 0;
+      var claimed = freezeOpenInterval();
       authoritative = false;
       status = 'auto_paused';
       syncTicker();
-      post('auto_pause', {}, true);
+      return post('auto_pause', { claimed_ms: claimed }, true);
     }
 
     function onVisible() {
@@ -335,14 +345,13 @@
 
     function pauseManual() {
       if (completed) return;
-      displayBaseMs = displayedMs();
-      runningSince = 0;
+      var claimed = freezeOpenInterval();
       manuallyPaused = true;
       authoritative = false;
       status = 'manually_paused';
       foreignHold = false;
       syncTicker();
-      post('pause', {}, true);
+      return post('pause', { claimed_ms: claimed }, true);
     }
 
     function resumeManual() {
@@ -365,10 +374,9 @@
       status = 'completed';
       if (snap) applySnapshot(snap, { replace: true });
       else {
-        displayBaseMs = displayedMs();
-        runningSince = 0;
+        var claimed = freezeOpenInterval();
         render();
-        post('complete', {}, true);
+        post('complete', { claimed_ms: claimed }, true);
       }
       syncTicker();
     }
@@ -398,7 +406,7 @@
             authoritative = false;
             status = 'auto_paused';
             displayBaseMs = displayedMs();
-            runningSince = 0;
+            runningSince = null;
             render();
             syncTicker();
           }

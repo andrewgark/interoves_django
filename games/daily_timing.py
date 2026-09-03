@@ -365,7 +365,7 @@ def _apply_to_row(row: DailySolveTiming, *, action, session_id, event_id, seq, c
         if _owns_lease(row, sid) and _seq_stale_for_owner(row, sid, seq):
             return
         if _owns_lease(row, sid):
-            _close_own_interval(row, sid, claimed, now)
+            _close_own_interval(row, sid, claimed, now, cap_ms=MAX_ACCUMULATED_MS)
         else:
             # Explicit pause from any tab/device stops the current lease.
             _close_foreign_interval(row, now)
@@ -384,7 +384,7 @@ def _apply_to_row(row: DailySolveTiming, *, action, session_id, event_id, seq, c
             return
         if _seq_stale_for_owner(row, sid, seq):
             return
-        _close_own_interval(row, sid, claimed, now)
+        _close_own_interval(row, sid, claimed, now, cap_ms=MAX_ACCUMULATED_MS)
         if row.status != STATUS_COMPLETED:
             row.status = STATUS_AUTO_PAUSED
             row.active_session_id = None
@@ -492,7 +492,7 @@ def _parse_claimed_ms(value) -> int | None:
         return None
     if ms < 0:
         return 0
-    return min(ms, HEARTBEAT_MAX_CREDIT_MS)
+    return min(ms, MAX_ACCUMULATED_MS)
 
 
 def _as_uuid(value):

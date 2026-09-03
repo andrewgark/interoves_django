@@ -171,6 +171,95 @@ function fakeClock(start) {
   second.destroy();
 })();
 
+function parsePostBody(init) {
+  var type = (init && init.headers && init.headers['Content-Type']) || '';
+  if (String(type).indexOf('json') >= 0) return JSON.parse(init.body);
+  var out = {};
+  new URLSearchParams(init.body).forEach(function (value, key) { out[key] = value; });
+  return out;
+}
+
+(function testPauseSendsOpenIntervalAndDoesNotJumpDown() {
+  var clock = fakeClock(1000);
+  var posts = [];
+  var ctrl = timer.create({
+    url: '/ladder/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return 'anon'; },
+    getCsrf: function () { return 'csrf'; },
+    clock: clock,
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function (url, init) {
+      posts.push(parsePostBody(init));
+      return Promise.resolve({
+        json: function () {
+          return Promise.resolve({
+            ok: true,
+            status: 'manually_paused',
+            manually_paused: true,
+            accumulated_ms: 15000,
+            committed_ms: 15000,
+            exists: true,
+            is_authoritative: false,
+          });
+        },
+      });
+    },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    bootstrap: { status: 'running', is_authoritative: true, accumulated_ms: 0, committed_ms: 0, exists: true },
+  });
+  clock.advance(260000);
+  ctrl.pauseManual();
+  var pause = posts.filter(function (body) { return body.action === 'pause'; })[0];
+  assert.ok(pause, 'pause request was sent');
+  assert.ok(Number(pause.claimed_ms) >= 250000, pause.claimed_ms);
+  assert.strictEqual(timer.formatElapsed(ctrl.displayedMs()), '4м 20с');
+  ctrl.destroy();
+})();
+
+(function testHiddenSendsOpenIntervalClaimedMs() {
+  var clock = fakeClock(0);
+  var posts = [];
+  var ctrl = timer.create({
+    url: '/ladder/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return 'anon'; },
+    getCsrf: function () { return 'csrf'; },
+    clock: clock,
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function (url, init) {
+      posts.push(parsePostBody(init));
+      return Promise.resolve({
+        json: function () {
+          return Promise.resolve({
+            ok: true,
+            status: 'auto_paused',
+            accumulated_ms: 15000,
+            committed_ms: 15000,
+            exists: true,
+            is_authoritative: false,
+          });
+        },
+      });
+    },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    bootstrap: { status: 'running', is_authoritative: true, accumulated_ms: 0, committed_ms: 0, exists: true },
+  });
+  clock.advance(90000);
+  ctrl.onHidden();
+  var hidden = posts.filter(function (body) { return body.action === 'auto_pause'; })[0];
+  assert.ok(hidden);
+  assert.ok(Number(hidden.claimed_ms) >= 80000, hidden.claimed_ms);
+  assert.strictEqual(timer.formatElapsed(ctrl.displayedMs()), '1м 30с');
+  ctrl.destroy();
+})();
+
 (function testManualPauseIgnoresRunningSnapshot() {
   var clock = fakeClock(0);
   var ctrl = timer.create({

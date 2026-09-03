@@ -338,6 +338,25 @@ class DailyTimingDomainTests(TestCase):
         row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
         self.assertLessEqual(row.accumulated_ms, 15000 + HEARTBEAT_MAX_CREDIT_MS)
 
+    def test_pause_credits_open_interval_from_claimed(self):
+        sid = uuid4()
+        self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
+        self._apply(action=ACTION_HEARTBEAT, session=sid, seq=2, claimed=15000, now=_dt(15))
+        snap = self._apply(
+            action=ACTION_PAUSE, session=sid, seq=3, claimed=260000, now=_dt(15 + 260),
+        )
+        self.assertEqual(snap['status'], 'manually_paused')
+        self.assertEqual(snap['committed_ms'], 15000 + 260000)
+
+    def test_auto_pause_credits_claimed_open_interval(self):
+        sid = uuid4()
+        self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
+        snap = self._apply(
+            action=ACTION_AUTO_PAUSE, session=sid, seq=2, claimed=90000, now=_dt(90),
+        )
+        self.assertEqual(snap['status'], 'auto_paused')
+        self.assertEqual(snap['committed_ms'], 90000)
+
     def test_complete_credits_open_interval_beyond_heartbeat_cap(self):
         sid = uuid4()
         self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
