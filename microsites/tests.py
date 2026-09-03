@@ -153,6 +153,32 @@ class MicrositesUrlTests(SimpleTestCase):
         m = resolve("/nutrimatic-ru/robots.txt")
         self.assertEqual(m.kwargs["rel_path"], "robots.txt")
 
+    @patch("microsites.views._nutrimatic_paths", return_value=None)
+    def test_nutrimatic_unconfigured_returns_503(self, _mock_paths):
+        r = Client().get("/nutrimatic-ru/")
+        self.assertEqual(r.status_code, 503)
+        self.assertIn("Поиск не настроен", r.content.decode())
+
+    def test_nutrimatic_s3_cache_hit_does_not_need_writable_lock(self):
+        from microsites.nutrimatic_s3_index import ensure_nutrimatic_index_from_s3
+
+        with tempfile.TemporaryDirectory() as td:
+            cache = Path(td) / "cache"
+            cache.mkdir()
+            dest = cache / "private__nutrimatic__wiki-merged.index"
+            dest.write_bytes(b"index")
+            cache.chmod(0o555)
+            try:
+                with override_settings(
+                    NUTRIMATIC_INDEX_S3_BUCKET="bucket",
+                    NUTRIMATIC_INDEX_S3_KEY="private/nutrimatic/wiki-merged.index",
+                    NUTRIMATIC_INDEX_CACHE_DIR=str(cache),
+                ):
+                    got = ensure_nutrimatic_index_from_s3()
+            finally:
+                cache.chmod(0o755)
+            self.assertEqual(got, dest)
+
     def test_eurovision_booklet_2026_resolves(self):
         m = resolve("/eurovision_booklet/2026/")
         self.assertEqual(m.url_name, "eurovision_booklet_2026")

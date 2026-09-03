@@ -80,7 +80,7 @@ SITE_DEPLOY_VERSION = _get_site_deploy_version()
 
 # Nutrimatic (Russian Wikipedia index): directory with build/find-expr, *.index,
 # and cgi_scripts/cgi-search.py. Override with NUTRIMATIC_ROOT on EB.
-def _resolve_nutrimatic_root() -> str:
+def resolve_nutrimatic_root() -> str:
     explicit = (os.environ.get("NUTRIMATIC_ROOT") or "").strip()
     if explicit:
         return explicit
@@ -95,11 +95,11 @@ def _resolve_nutrimatic_root() -> str:
     return ""
 
 
-NUTRIMATIC_ROOT = _resolve_nutrimatic_root()
+NUTRIMATIC_ROOT = resolve_nutrimatic_root()
 NUTRIMATIC_FIND_EXPR = (os.environ.get("NUTRIMATIC_FIND_EXPR") or "").strip()
 NUTRIMATIC_INDEX = (os.environ.get("NUTRIMATIC_INDEX") or "").strip()
 NUTRIMATIC_CGI_SCRIPT = (os.environ.get("NUTRIMATIC_CGI_SCRIPT") or "").strip()
-# Optional: large .index on S3 — downloaded to nutrimatic_bundle/.s3_index_cache/ (find-expr still needs a local path).
+# Optional: large .index on S3 — downloaded to a local file (find-expr needs a filesystem path).
 NUTRIMATIC_INDEX_S3_BUCKET = (os.environ.get("NUTRIMATIC_INDEX_S3_BUCKET") or "").strip()
 NUTRIMATIC_INDEX_S3_KEY = (os.environ.get("NUTRIMATIC_INDEX_S3_KEY") or "").strip()
 NUTRIMATIC_INDEX_S3_REGION = (
@@ -107,6 +107,8 @@ NUTRIMATIC_INDEX_S3_REGION = (
     or os.environ.get("AWS_DEFAULT_REGION")
     or "eu-central-1"
 ).strip()
+# On EB, keep the cache outside /var/app/current so deploys do not re-download ~350MB.
+NUTRIMATIC_INDEX_CACHE_DIR = (os.environ.get("NUTRIMATIC_INDEX_CACHE_DIR") or "").strip()
 
 # Eurovision 2026 booklet: optional sync of PDFs + dist/html from a git source (local clone
 # takes precedence over GitHub). Cached copies + manifest: BASE_DIR/var/eurovision_booklet/2026/

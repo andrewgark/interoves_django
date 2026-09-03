@@ -1,8 +1,9 @@
 """
 Fetch Nutrimatic *.index from S3 to a local file — find-expr only accepts a filesystem path.
 
-Configure NUTRIMATIC_INDEX_S3_BUCKET + NUTRIMATIC_INDEX_S3_KEY. The file is cached under
-nutrimatic_bundle/.s3_index_cache/ (same directory as bundle_microsites output).
+Configure NUTRIMATIC_INDEX_S3_BUCKET + NUTRIMATIC_INDEX_S3_KEY. Cache directory:
+NUTRIMATIC_INDEX_CACHE_DIR if set (EB: /var/app/nutrimatic_index_cache), otherwise
+nutrimatic_bundle/.s3_index_cache/.
 """
 from __future__ import annotations
 
@@ -20,6 +21,9 @@ except ImportError:
 
 
 def _cache_dir() -> Path:
+    override = (getattr(settings, "NUTRIMATIC_INDEX_CACHE_DIR", None) or "").strip()
+    if override:
+        return Path(override)
     return Path(settings.BASE_DIR) / "nutrimatic_bundle" / ".s3_index_cache"
 
 
@@ -52,6 +56,11 @@ def ensure_nutrimatic_index_from_s3(*, force: bool = False) -> Path | None:
 
     region = (getattr(settings, "NUTRIMATIC_INDEX_S3_REGION", None) or "").strip() or "eu-central-1"
     dest = local_cache_path_for_key(key)
+    # Cache hit must not require a writable lock — the EB web user cannot write
+    # a root-owned cache dir created by manage.py/postdeploy.
+    if dest.is_file() and not force:
+        return dest
+
     lock = _cache_dir() / ".download.lock"
 
     def do_download():

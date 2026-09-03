@@ -25,8 +25,11 @@ var/eurovision_booklet/
 # Generated before eb deploy / packaging (see scripts/write_deploy_version.sh)
 interoves_django/deploy_version.txt
 
-# Nutrimatic runtime bundle (binary + index + cgi); not committed — see scripts/bundle_microsites.sh
-nutrimatic_bundle/
+# Nutrimatic: ship find-expr + cgi_scripts in git so EB deploys from a clean
+# checkout still serve /nutrimatic-ru/. Keep the ~350MB index and S3 cache local.
+nutrimatic_bundle/*.index
+nutrimatic_bundle/.s3_index_cache/
+nutrimatic_bundle/**/__pycache__/
 
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml

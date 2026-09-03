@@ -4,6 +4,15 @@
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
 ./scripts/bundle_microsites.sh
+if [[ ! -x nutrimatic_bundle/build/find-expr ]]; then
+  echo "ERROR: nutrimatic_bundle/build/find-expr missing or not executable." >&2
+  echo "Run scripts/bundle_microsites.sh (needs ~/nutrimatic-ru/build/find-expr) or restore the committed binary." >&2
+  exit 1
+fi
+if [[ ! -f nutrimatic_bundle/cgi_scripts/cgi-search.py ]]; then
+  echo "ERROR: nutrimatic_bundle/cgi_scripts/cgi-search.py missing." >&2
+  exit 1
+fi
 ./scripts/write_deploy_version.sh
 EB_BIN="${EB_BIN:-eb}"
 eb_ok=0

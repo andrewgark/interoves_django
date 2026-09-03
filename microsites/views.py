@@ -75,7 +75,11 @@ def _resolve_nutrimatic_index_path(root: Path, ix: str) -> Path | None:
 
 
 def _nutrimatic_paths():
-    root_raw = getattr(settings, "NUTRIMATIC_ROOT", "") or ""
+    resolver = getattr(settings, "resolve_nutrimatic_root", None)
+    if callable(resolver):
+        root_raw = resolver() or ""
+    else:
+        root_raw = getattr(settings, "NUTRIMATIC_ROOT", "") or ""
     root = root_raw.strip()
     if not root:
         return None
@@ -98,7 +102,8 @@ def nutrimatic_search(request):
         return HttpResponse(
             "<!DOCTYPE html><html lang=\"ru\"><head><meta charset=\"utf-8\"><title>Nutrimatic</title></head>"
             "<body><h1>Nutrimatic</h1>"
-            "<p>Поиск не настроен на этом сервере (задайте <code>NUTRIMATIC_ROOT</code>).</p>"
+            "<p>Поиск не настроен на этом сервере: нет <code>find-expr</code> или индекса "
+            "(проверьте бандл и <code>NUTRIMATIC_INDEX_S3_BUCKET</code> / <code>NUTRIMATIC_ROOT</code>).</p>"
             "</body></html>",
             status=503,
             content_type="text/html; charset=utf-8",
