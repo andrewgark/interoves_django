@@ -109,6 +109,16 @@ may block gameplay.
 Metrika payloads contain game/result/public game values and do not contain
 `user_id`, `team_id`, `anon_key`, email, name, Telegram username, phone, or IP.
 
+The persisted `*_acked_at` fields mean that the corresponding semantic Yandex
+goal was delivered. A physical backend row id is used only by the browser's
+internal idempotency key and the signed same-origin ACK token; `reachGoal`
+receives the goal name and params without that row id. During an explicit
+identity merge, an ACK may be retained across rows only when all reconstructible
+goal params equal the final canonical payload. Otherwise it is cleared, which
+can safely repeat a goal but cannot suppress an undelivered, different payload.
+Activation ACK stays with its complete activation provenance bundle because its
+historical `games_completed` param is not persisted.
+
 ## Compatibility
 
 Stage 1A changes neither trigger conditions nor delivery semantics. Legacy rows
@@ -116,4 +126,3 @@ remain readable with `instrumentation_version=NULL`. Version 2 is assigned only
 on creation through the new live start/completion paths and never retroactively.
 The deployment time and first clean post-deploy quality window must be recorded
 operationally; local tests alone cannot verify production delivery.
-

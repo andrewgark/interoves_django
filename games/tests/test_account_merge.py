@@ -32,6 +32,9 @@ from games.models import (
     Hint,
     HintAttempt,
     Like,
+    PlayerAnalyticsState,
+    PlayerCompletedGame,
+    PlayerStartedGame,
     Profile,
     ProfileTeamMembership,
     Project,
@@ -258,6 +261,102 @@ class AccountMergeTests(TestCase):
         self.assertFalse(
             ProfileTeamMembership.objects.filter(profile__user=self.source).exists(),
         )
+
+    def test_merge_analytics_uses_earlier_complete_provenance_bundles(self):
+        now = timezone.now()
+        instance_id = '{}:{}'.format(self.game.pk, self.task_group.pk)
+        target_start = PlayerStartedGame.objects.create(
+            user=self.target,
+            game=self.game,
+            task_group=self.task_group,
+            game_kind='target-start',
+            game_instance_id=instance_id,
+            public_game_id='target-start-public',
+            is_backfilled=False,
+            instrumentation_version=2,
+        )
+        source_start = PlayerStartedGame.objects.create(
+            user=self.source,
+            game=self.game,
+            task_group=self.task_group,
+            game_kind='source-start',
+            game_instance_id=instance_id,
+            public_game_id='source-start-public',
+            is_backfilled=True,
+            instrumentation_version=None,
+        )
+        target_completion = PlayerCompletedGame.objects.create(
+            user=self.target,
+            game=self.game,
+            task_group=self.task_group,
+            game_kind='target-completion',
+            game_instance_id=instance_id,
+            public_game_id='target-completion-public',
+            result=PlayerCompletedGame.RESULT_SOLVED,
+            is_backfilled=False,
+            instrumentation_version=2,
+        )
+        source_completion = PlayerCompletedGame.objects.create(
+            user=self.source,
+            game=self.game,
+            task_group=self.task_group,
+            game_kind='source-completion',
+            game_instance_id=instance_id,
+            public_game_id='source-completion-public',
+            result=PlayerCompletedGame.RESULT_FAILED,
+            is_backfilled=True,
+            instrumentation_version=None,
+        )
+        PlayerStartedGame.objects.filter(pk=target_start.pk).update(
+            started_at=now - timedelta(minutes=5),
+        )
+        PlayerStartedGame.objects.filter(pk=source_start.pk).update(
+            started_at=now - timedelta(minutes=10),
+        )
+        PlayerCompletedGame.objects.filter(pk=target_completion.pk).update(
+            completed_at=now - timedelta(minutes=5),
+        )
+        PlayerCompletedGame.objects.filter(pk=source_completion.pk).update(
+            completed_at=now - timedelta(minutes=10),
+        )
+        target_state = PlayerAnalyticsState.objects.create(
+            user=self.target,
+            signup_at=now - timedelta(days=10),
+            signup_method='email',
+            activated_at=now - timedelta(days=2),
+            activation_is_backfilled=False,
+        )
+        PlayerAnalyticsState.objects.create(
+            user=self.source,
+            signup_at=now - timedelta(days=5),
+            signup_method='vk',
+            activated_at=now - timedelta(days=8),
+            activation_is_backfilled=True,
+        )
+
+        merge_accounts(
+            target_user=self.target,
+            source_user=self.source,
+            provider='vk',
+            provider_uid='vk-source',
+        )
+
+        start = PlayerStartedGame.objects.get(pk=target_start.pk)
+        self.assertEqual(start.started_at, now - timedelta(minutes=10))
+        self.assertEqual(start.game_kind, 'source-start')
+        self.assertTrue(start.is_backfilled)
+        self.assertIsNone(start.instrumentation_version)
+        completion = PlayerCompletedGame.objects.get(pk=target_completion.pk)
+        self.assertEqual(completion.completed_at, now - timedelta(minutes=10))
+        self.assertEqual(completion.result, PlayerCompletedGame.RESULT_FAILED)
+        self.assertEqual(completion.game_kind, 'source-completion')
+        self.assertTrue(completion.is_backfilled)
+        self.assertIsNone(completion.instrumentation_version)
+        state = PlayerAnalyticsState.objects.get(pk=target_state.pk)
+        self.assertEqual(state.signup_at, now - timedelta(days=10))
+        self.assertEqual(state.signup_method, 'email')
+        self.assertEqual(state.activated_at, now - timedelta(days=8))
+        self.assertTrue(state.activation_is_backfilled)
 
     def test_different_accounts_of_same_provider_block_merge(self):
         SocialAccount.objects.create(

@@ -1,8 +1,11 @@
 from django.core.management.base import BaseCommand, CommandError
-from django.db import IntegrityError
 from django.utils.dateparse import parse_datetime
 
 from games.analytics import analytics_game_kind, game_instance_id_for_task_group
+from games.analytics_persistence import (
+    create_or_reread_analytics_row,
+    read_exact_analytics_row,
+)
 from games.models import Attempt, GameTaskGroup, PlayerStartedGame
 
 
@@ -72,28 +75,36 @@ class Command(BaseCommand):
             seen.add(dedupe_key)
 
             lookup = dict(actor, game_instance_id=instance_id)
-            if PlayerStartedGame.objects.filter(**lookup).exists():
+            canonical = read_exact_analytics_row(PlayerStartedGame, lookup)
+            if canonical is not None:
                 existing += 1
                 continue
             if dry_run:
                 created += 1
                 continue
 
-            try:
-                row = PlayerStartedGame.objects.create(
-                    **actor,
-                    game=attempt.game,
-                    task_group=task_group,
-                    game_kind=analytics_game_kind(attempt.game),
-                    game_instance_id=instance_id,
-                    public_game_id=public_ids.get((attempt.game_id, task_group.id), str(task_group.id)),
-                    is_backfilled=True,
-                )
-            except IntegrityError:
+            row, was_created = create_or_reread_analytics_row(
+                PlayerStartedGame,
+                lookup=lookup,
+                defaults={
+                    'game': attempt.game,
+                    'task_group': task_group,
+                    'game_kind': analytics_game_kind(attempt.game),
+                    'public_game_id': public_ids.get(
+                        (attempt.game_id, task_group.id), str(task_group.id),
+                    ),
+                    'is_backfilled': True,
+                },
+            )
+            if not was_created:
                 existing += 1
                 continue
             if attempt.time is not None:
-                PlayerStartedGame.objects.filter(pk=row.pk).update(started_at=attempt.time)
+                PlayerStartedGame.objects.filter(
+                    pk=row.pk,
+                    is_backfilled=True,
+                    instrumentation_version__isnull=True,
+                ).update(started_at=attempt.time)
             created += 1
 
         label = 'would create' if dry_run else 'created'

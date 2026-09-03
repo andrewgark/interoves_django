@@ -1,5 +1,7 @@
 import json
+from datetime import timedelta
 from io import StringIO
+from types import SimpleNamespace
 
 from allauth.account.signals import user_signed_up
 from django.contrib.auth.models import User
@@ -215,6 +217,40 @@ class ProductAnalyticsTests(TestCase):
         row.refresh_from_db()
         self.assertIsNone(row.instrumentation_version)
 
+    def test_start_backfill_does_not_downgrade_existing_live_row(self):
+        game, task = self._make_supported_task('backfill-live-game', 'default', 1)
+        Attempt.manager.create(
+            user=self.user,
+            task=task,
+            game=game,
+            text='wrong',
+            status='Wrong',
+            points=0,
+        )
+        live_time = timezone.now() - timedelta(minutes=1)
+        acked_at = timezone.now()
+        row = PlayerStartedGame.objects.create(
+            user=self.user,
+            game=game,
+            task_group=task.task_group,
+            game_kind='backfill-live-game',
+            game_instance_id='{}:{}'.format(game.pk, task.task_group_id),
+            public_game_id='live-public-id',
+            metrika_acked_at=acked_at,
+            is_backfilled=False,
+            instrumentation_version=2,
+        )
+        PlayerStartedGame.objects.filter(pk=row.pk).update(started_at=live_time)
+
+        call_command('backfill_player_started_games', verbosity=0)
+
+        row.refresh_from_db()
+        self.assertEqual(row.started_at, live_time)
+        self.assertEqual(row.public_game_id, 'live-public-id')
+        self.assertEqual(row.metrika_acked_at, acked_at)
+        self.assertFalse(row.is_backfilled)
+        self.assertEqual(row.instrumentation_version, 2)
+
     def test_team_mode_completion_counts_towards_authenticated_user_activation(self):
         goals = []
         for number in (1, 2, 3):
@@ -272,6 +308,31 @@ class ProductAnalyticsTests(TestCase):
         )
         self.assertEqual(ack.status_code, 200)
         self.assertEqual(analytics_bootstrap(request)['pending_analytics_goals'], [])
+
+    def test_later_signup_signal_does_not_mix_timestamp_and_method(self):
+        user = User.objects.create_user(username='existing-signup-user')
+        original_at = timezone.now() - timedelta(days=1)
+        state = PlayerAnalyticsState.objects.create(
+            user=user,
+            signup_at=original_at,
+            signup_method='email',
+        )
+        request = RequestFactory().get('/')
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        request.user = user
+        sociallogin = SimpleNamespace(account=SimpleNamespace(provider='vk'))
+
+        user_signed_up.send(
+            sender=User,
+            request=request,
+            user=user,
+            sociallogin=sociallogin,
+        )
+
+        state.refresh_from_db()
+        self.assertEqual(state.signup_at, original_at)
+        self.assertEqual(state.signup_method, 'email')
 
     def test_ticket_purchase_goal_repeats_until_ack_then_stops(self):
         ticket = TicketRequest.objects.create(
