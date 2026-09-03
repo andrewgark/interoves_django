@@ -1,0 +1,9 @@
+{% if daily_timing_enabled %}
+<div class="new-daily-solve__overlay" hidden data-daily-pause-overlay>
+  <div class="new-daily-solve__overlay-card pal-card">
+    <p class="new-daily-solve__overlay-title" data-daily-pause-title>Пауза</p>
+    <p class="new-login-hint" data-daily-pause-text>Время остановлено. Нажмите «Продолжить», чтобы вернуться к заданию.</p>
+    <button type="button" class="new-btn" data-daily-timer-resume>Продолжить</button>
+  </div>
+</div>
+{% endif %}

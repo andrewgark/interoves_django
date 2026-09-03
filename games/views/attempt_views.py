@@ -538,6 +538,7 @@ def process_send_attempt(request, task_id):
             create_hint_attempt(hint, team=team, user=user, anon_key=anon_key, game=game)
 
     analytics_events = []
+    daily_timing = None
     if attempt_persisted or is_game_start_interaction:
         analytics_events.extend(register_started_game(
             team=team,
@@ -557,11 +558,21 @@ def process_send_attempt(request, task_id):
             game=game,
             result=PlayerCompletedGame.RESULT_SOLVED,
         ))
+        from games.daily_timing import complete_daily_timing
+        daily_timing = complete_daily_timing(
+            game=game,
+            task_group=task.task_group,
+            user=user,
+            anon_key=anon_key,
+            team=team,
+        )
 
     result = {
         'status': 'ok',
         'task_id': task.id,
     }
+    if daily_timing:
+        result['daily_timing'] = daily_timing
     # The transport status above only says that the submission was processed.
     # Give the new UI the persisted verdict as well, so ordinary tasks can show
     # explicit feedback without trying to infer it from freshly rendered HTML.

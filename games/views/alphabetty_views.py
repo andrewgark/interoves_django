@@ -54,6 +54,7 @@ from games.middleware.request_timing import timing_phase
 from games.section_hub import onboarding_followup_context, section_format_credit_context
 from games.section_paths import section_hub_path, section_play_path, section_results_path
 from games.task_titles import task_display_name, task_group_page_title
+from games.views.daily_timing_views import daily_timing_page_context
 from games.views.new_ui import (
     NEW_UI_SECTIONS_PROJECT,
     _anon_key_from_request,
@@ -425,6 +426,15 @@ def alphabetty_play_page(request, number):
         **(onboarding_followup_context(ALPHABETTY_GAME_ID) if offer is None else {}),
         **meta_ctx,
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
+        **daily_timing_page_context(
+            request,
+            game,
+            link,
+            user=user,
+            anon_key=anon_key,
+            play_mode='personal',
+            is_offer=offer is not None,
+        ),
     })
 
 def _preview_denied(request, game):
@@ -567,6 +577,15 @@ def alphabetty_guess(request, number):
             game=game,
             result=PlayerCompletedGame.RESULT_SOLVED,
         ))
+        from games.daily_timing import complete_daily_timing
+        timing = complete_daily_timing(
+            game=game,
+            task_group=task.task_group,
+            user=user,
+            anon_key=anon_key,
+        )
+        if timing:
+            result['daily_timing'] = timing
     if analytics_events:
         result['analytics_events'] = analytics_events
     with timing_phase(request, 'render_meta'):

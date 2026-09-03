@@ -15,6 +15,7 @@
   {% if daily_publish_date %}{{ daily_publish_date|date:"j E Y" }}{% endif %}
 </p>
 {% endif %}
+{% include "new/partials/daily_solve_timer.html" %}
 
 {% include "new/_rules_banner.html" %}
 
@@ -43,6 +44,7 @@
   </div>
 </div>
 
+{% if daily_timing_enabled %}<div class="new-daily-solve"><div class="new-daily-solve__stage">{% include "new/partials/daily_solve_pause_overlay.html" %}<div data-daily-solve-board>{% endif %}
 <div class="new-taskcard" id="new-task-{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}" data-alphabetty-meta>
   <button type="button" class="new-taskcard__bug-btn" data-bug-report-open data-task-id="{{ task.id }}" data-task-label="{{ bug_report_task_label|default:page_title }}" aria-label="Сообщить о проблеме: {{ bug_report_task_label|default:page_title }}" title="Сообщить о проблеме"><i class="ph ph-bug" aria-hidden="true"></i></button>
   {% include "new/task-content/task-meta-bar.html" %}
@@ -140,12 +142,16 @@
 </div>
   </div>
 </div>
+{% if daily_timing_enabled %}</div></div></div>{% endif %}
 
 {% include "new/_hint_confirm_modal.html" %}
 
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/alphabetty_guess_response.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% if daily_timing_enabled %}
+<script src="{% static 'js/daily_solve_timer.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% endif %}
 <script>
 (function () {
   var root = document.getElementById('alphabetty-root');
@@ -194,6 +200,17 @@
     return key;
   }
   var anonKey = resolveAnonKey();
+
+  if (window.interovesDailySolveTimer) {
+    window.interovesDailySolveTimer.bindFromDocument(document, {
+      getAnonKey: function () {
+        var root = document.getElementById('alphabetty-root');
+        if (root && root.getAttribute('data-authenticated') === '1') return '';
+        return anonKey;
+      },
+      getCsrf: csrf
+    });
+  }
 
   var RU = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
   var maxLen = state.max_word_length || 20;
@@ -256,6 +273,13 @@
   }
 
   function flushAnalyticsEvents(events) {
+    var payload = events;
+    if (payload && !Array.isArray(payload)) {
+      if (payload.daily_timing) {
+        document.dispatchEvent(new CustomEvent('interoves:daily-timing', { detail: payload.daily_timing }));
+      }
+      events = payload.analytics_events;
+    }
     if (!window.interovesAnalytics || !window.interovesAnalytics.flushPendingGoals) return;
     window.interovesAnalytics.flushPendingGoals(events || []);
   }
@@ -931,7 +955,7 @@
         });
       })
       .then(function (data) {
-        flushAnalyticsEvents(data && data.analytics_events);
+        flushAnalyticsEvents(data);
         if (data.status === 'invalid') {
           showMsg(data.error || 'Слова нет в словаре', 'error', { suggestWord: word });
           focusInput();
@@ -994,7 +1018,7 @@
         });
       })
       .then(function (data) {
-        flushAnalyticsEvents(data && data.analytics_events);
+        flushAnalyticsEvents(data);
         if (data.status === 'error') {
           showMsg(data.error || 'Ошибка', 'error');
           return;

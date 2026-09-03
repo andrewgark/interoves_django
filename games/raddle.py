@@ -23,7 +23,6 @@ import json
 import random
 import re
 
-from games.share_result import elapsed_label_from_attempts
 from games.util import clean_text
 
 _LENGTH_PARTS_HYPHEN = re.compile(r'^(\d+)\s*-\s*(\d+)$')
@@ -989,6 +988,11 @@ def raddle_result_squares(parsed, state, *, hint_attempts=None, allow_partial=Fa
     return ''.join(squares)
 
 
+def _elapsed_label_for_ui(attempts):
+    from games.daily_timing import elapsed_label_for_complete_attempts
+    return elapsed_label_for_complete_attempts(attempts)
+
+
 def raddle_hub_result_for_actor(
     task,
     *,
@@ -1000,6 +1004,7 @@ def raddle_hub_result_for_actor(
     include_other_games=False,
     allow_partial=False,
     attempts_info=None,
+    timing_row=...,
 ):
     """Квадраты и время для списка лесенок. Время — только когда лесенка собрана целиком."""
     from games.models import Attempt
@@ -1034,7 +1039,15 @@ def raddle_hub_result_for_actor(
         return '', None
     elapsed = None
     if '⬜' not in squares:
-        elapsed = elapsed_label_from_attempts(ai.attempts)
+        from games.daily_timing import elapsed_label_for_complete_attempts
+        elapsed = elapsed_label_for_complete_attempts(
+            ai.attempts,
+            game=game,
+            task=task,
+            user=user,
+            anon_key=anon_key,
+            **({} if timing_row is ... else {'timing_row': timing_row}),
+        )
     return squares, elapsed
 
 
@@ -1289,7 +1302,9 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         'last_word_clue_options': last_word_clue_options,
         'is_complete': is_complete,
         'result_squares': result_squares,
-        'elapsed_label': elapsed_label_from_attempts(attempts) if is_complete else '',
+        'elapsed_label': (
+            _elapsed_label_for_ui(attempts) if is_complete else ''
+        ),
         'assist_enabled': assist_enabled,
         'assist_fractions': assist_cfg.get('fractions', DEFAULT_RADDLE_ASSIST_FRACTIONS),
         'is_tournament': tournament,

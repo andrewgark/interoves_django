@@ -1,0 +1,8 @@
+{# Active-solve timer + pause overlay for official daily games only. #}
+{% if daily_timing_enabled %}
+{{ daily_timing|json_script:"daily-timing-bootstrap" }}
+<div class="new-daily-timer" data-daily-timer data-timing-url="{{ daily_timing_url }}" hidden>
+  <span class="new-daily-timer__time" data-daily-timer-display>0с</span>
+  <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-daily-timer-pause>Пауза</button>
+</div>
+{% endif %}

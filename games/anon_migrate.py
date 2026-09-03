@@ -22,6 +22,7 @@ from games.models import (
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
+    DailySolveTiming,
 )
 
 
@@ -47,6 +48,9 @@ def anon_migration_counts(anon_key):
         ).count(),
         'started_games': PlayerStartedGame.objects.filter(
             anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).count(),
+        'daily_timings': DailySolveTiming.objects.filter(
+            anon_key=anon_key, user__isnull=True,
         ).count(),
         'completed_games': PlayerCompletedGame.objects.filter(
             anon_key=anon_key, user__isnull=True, team__isnull=True,
@@ -367,6 +371,38 @@ def migrate_anon_started_games(user, anon_key):
             identity_update_fields=['user', 'anon_key'],
             merge_rows=merge_started_analytics_rows,
         )
+        moved += 1
+    return moved
+
+
+@transaction.atomic
+def migrate_anon_daily_timings(user, anon_key):
+    """Move or merge daily active-time rows from an anonymous actor onto a user."""
+    if not user or not anon_key:
+        return 0
+    from games.daily_timing import merge_timing_rows
+
+    moved = 0
+    rows = list(
+        DailySolveTiming.objects.select_for_update().filter(
+            anon_key=anon_key,
+            user__isnull=True,
+        )
+    )
+    for row in rows:
+        existing = DailySolveTiming.objects.select_for_update().filter(
+            user=user,
+            anon_key__isnull=True,
+            game_id=row.game_id,
+            task_group_id=row.task_group_id,
+        ).first()
+        if existing is None:
+            row.user = user
+            row.anon_key = None
+            row.save(update_fields=['user', 'anon_key', 'updated_at'])
+            moved += 1
+            continue
+        merge_timing_rows(existing, row)
         moved += 1
     return moved
 

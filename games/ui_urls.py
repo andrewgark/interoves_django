@@ -66,6 +66,12 @@ urlpatterns = [
     # Must precede ladder/<str>/ so "results" is not treated as a task-group number.
     path('ladder/results/', ui.section_results_page, {'game_id': 'ladder'}),
     path('ladder/<str:task_group_number>/results/', ui.ladder_word_results_page, name='ui_ladder_word_results'),
+    path(
+        'ladder/<str:task_group_number>/timing/',
+        ui.daily_solve_timing,
+        {'game_id': 'ladder'},
+        name='ui_ladder_timing',
+    ),
     path('ladder/<str:task_group_number>/', ui.task_group_page, {'game_id': 'ladder'}, name='ui_ladder_task_group'),
     path('create_ladder/', ui.offer_ladder_page, name='ui_create_ladder'),
     path('create_ladder/create/', ui.offer_ladder_create, name='ui_create_ladder_create'),
@@ -92,6 +98,12 @@ urlpatterns = [
     path('alphabetty/progress/', ui.game_task_group_progress, {'game_id': 'alphabetty'}, name='ui_alphabetty_progress'),
     path('alphabetty/live-state/', ui.task_group_live_state, {'game_id': 'alphabetty'}, name='ui_alphabetty_live_state'),
     path('alphabetty/', ui.alphabetty_hub_page, name='ui_alphabetty_hub'),
+    path(
+        'alphabetty/<str:number>/timing/',
+        ui.daily_solve_timing,
+        {'game_id': 'alphabetty'},
+        name='ui_alphabetty_timing',
+    ),
     path('alphabetty/<str:number>/guess/', ui.alphabetty_guess, name='ui_alphabetty_guess'),
     path('alphabetty/<str:number>/state/', ui.alphabetty_state, name='ui_alphabetty_state'),
     path('alphabetty/<str:number>/prefix/', ui.alphabetty_prefix, name='ui_alphabetty_prefix'),

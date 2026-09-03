@@ -444,6 +444,14 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
             mode=mode,
             game=None if include_other_games else game,
         )
+        from games.daily_timing import timing_rows_for_task_groups
+        timing_by_tg = timing_rows_for_task_groups(
+            game=game,
+            task_group_ids=tg_ids,
+            user=user,
+            anon_key=anon_key,
+            team=team,
+        )
         for p in task_groups:
             task = tg_to_task.get(p.task_group_id)
             if not task:
@@ -457,6 +465,7 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
                 game=game,
                 include_other_games=include_other_games,
                 attempts_info=attempts_infos.get(task.id),
+                timing_row=timing_by_tg.get(task.task_group_id),
                 **hub_kwargs,
             )
             if squares:
@@ -3145,6 +3154,8 @@ def new_task_group_page(request, game_id, task_group_number):
         from games.difficulty import get_game_difficulty
         difficulty = get_game_difficulty(placement)
 
+    from games.views.daily_timing_views import daily_timing_page_context
+
     return render(request, 'ui/task_group.html', {
         'game': game,
         'task_group': task_group,
@@ -3219,6 +3230,15 @@ def new_task_group_page(request, game_id, task_group_number):
             game,
             task_group=task_group,
             back_url=back_url,
+        ),
+        **daily_timing_page_context(
+            request,
+            game,
+            placement if isinstance(placement, GameTaskGroup) else None,
+            user=user,
+            anon_key=anon_key,
+            play_mode=play_mode,
+            is_offer=ladder_offer is not None,
         ),
     })
 
@@ -3906,12 +3926,14 @@ def new_migrate_anon_attempts(request):
         migrate_anon_attributions,
         migrate_anon_chain_task_states,
         migrate_anon_completed_games,
+        migrate_anon_daily_timings,
         migrate_anon_likes,
         migrate_anon_personal_dict_words,
         migrate_anon_started_games,
     )
     moved_states = migrate_anon_chain_task_states(request.user, anon_key)
     moved_starts = migrate_anon_started_games(request.user, anon_key)
+    moved_timings = migrate_anon_daily_timings(request.user, anon_key)
     moved_completions = migrate_anon_completed_games(request.user, anon_key)
     moved_analytics_state = migrate_anon_analytics_state(request.user, anon_key)
     moved_personal_dict = migrate_anon_personal_dict_words(request.user, anon_key)
@@ -3920,7 +3942,7 @@ def new_migrate_anon_attempts(request):
     moved_bug_reports = moved_attributions['bug_reports']
     moved_dict_suggestions = moved_attributions['dict_suggestions']
     if (
-        moved or moved_hints or moved_states or moved_starts or moved_completions
+        moved or moved_hints or moved_states or moved_starts or moved_timings or moved_completions
         or moved_analytics_state or moved_personal_dict or moved_likes
         or moved_bug_reports or moved_dict_suggestions
     ):

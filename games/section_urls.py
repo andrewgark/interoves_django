@@ -22,7 +22,18 @@ def section_root_urlpatterns(
         if section_game_url_name.startswith('ui_')
         else 'new_section_last'
     )
+    salad_timing_url_name = (
+        'ui_salad_timing'
+        if section_game_url_name.startswith('ui_')
+        else 'new_salad_timing'
+    )
     patterns = [
+        path(
+            'salad/<str:task_group_number>/timing/',
+            ui.daily_solve_timing,
+            {'game_id': 'salad'},
+            name=salad_timing_url_name,
+        ),
         path(
             'word_salad/',
             RedirectView.as_view(url='/salad/', permanent=True, query_string=True),

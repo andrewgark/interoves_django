@@ -38,6 +38,7 @@
     {% if daily_publish_date or not is_daily_single_task %}<span aria-hidden="true"> · </span>{% endif %}{% if week_task_source_url %}<a class="new-link-dotted" href="{{ week_task_source_url }}">{{ week_task_source_line }}</a>{% else %}{{ week_task_source_line }}{% endif %}
   {% endif %}
 </p>
+{% include "new/partials/daily_solve_timer.html" %}
 
 {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
 {% include "new/_rules_banner.html" %}
@@ -216,13 +217,22 @@
 </script>
 {% endif %}
 
-<div class="new-taskgrid {% if task_group.view == 'table-3-n' %}new-taskgrid--3{% elif task_group.view == 'table-4-n' %}new-taskgrid--4{% endif %}">
+<div class="new-taskgrid {% if task_group.view == 'table-3-n' %}new-taskgrid--3{% elif task_group.view == 'table-4-n' %}new-taskgrid--4{% endif %}{% if daily_timing_enabled %} new-daily-solve{% endif %}">
+{% if daily_timing_enabled %}
+<div class="new-daily-solve__stage">
+{% include "new/partials/daily_solve_pause_overlay.html" %}
+<div data-daily-solve-board>
+{% endif %}
 {% for task in tasks %}
   {% if task_group.view == 'proportions' and task.task_type == 'proportions' %}
   {% else %}
   {% include "new/partials/task_card.html" %}
   {% endif %}
 {% endfor %}
+{% if daily_timing_enabled %}
+</div>
+</div>
+{% endif %}
 </div>
 
 <div id="new-answer-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-answer-title" aria-modal="true" hidden>
@@ -278,6 +288,9 @@
 <script src="{% static 'js/raddle_masked_input.js' %}"></script>
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% if daily_timing_enabled %}
+<script src="{% static 'js/daily_solve_timer.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% endif %}
 <script>
 (function () {
   var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';
@@ -330,6 +343,16 @@
     el.value = anonKey;
   });
 
+  if (window.interovesDailySolveTimer) {
+    window.interovesDailySolveTimer.bindFromDocument(document, {
+      getAnonKey: function () { return isAuthenticated ? '' : anonKey; },
+      getCsrf: function () {
+        var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+        return el ? el.value : '';
+      }
+    });
+  }
+
   function anonCookieWorks() {
     return !!anonKey && readAnonCookie() === anonKey;
   }
@@ -340,6 +363,13 @@
     return h;
   }
   function flushAnalyticsEvents(events) {
+    var payload = events;
+    if (payload && !Array.isArray(payload)) {
+      if (payload.daily_timing) {
+        document.dispatchEvent(new CustomEvent('interoves:daily-timing', { detail: payload.daily_timing }));
+      }
+      events = payload.analytics_events;
+    }
     if (!window.interovesAnalytics || !window.interovesAnalytics.flushPendingGoals) return;
     window.interovesAnalytics.flushPendingGoals(events || []);
   }
@@ -522,7 +552,7 @@
           if (msg) msg.textContent = 'Ошибка: пустой ответ.';
           return;
         }
-        flushAnalyticsEvents(data.analytics_events);
+        flushAnalyticsEvents(data);
         if (data.status === 'ok') {
           // For hints: keep hints panel open after reload.
           if (form && form.classList && form.classList.contains('new-hint-form') && form.getAttribute('data-skip-hints-open') !== '1') {
@@ -1205,7 +1235,7 @@
           }
           return;
         }
-        flushAnalyticsEvents(data.analytics_events);
+        flushAnalyticsEvents(data);
         // 💡: ok или duplicate → подсветить; при ok обновить HTML
         if (tier === '1' && (data.status === 'ok' || data.status === 'duplicate')) {
           if (data.status === 'ok' && data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
@@ -1623,7 +1653,7 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
           finish();
-          flushAnalyticsEvents(data && data.analytics_events);
+          flushAnalyticsEvents(data);
           applyRaddleAttemptResponse(form, input, row, data, wordIdx);
         })
         .catch(function () {
@@ -3544,7 +3574,7 @@
       }
       return false;
     }
-    flushAnalyticsEvents(data.analytics_events);
+    flushAnalyticsEvents(data);
     if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
       applyNewUiTaskHtml(data.update_task_html_new);
       if (shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {

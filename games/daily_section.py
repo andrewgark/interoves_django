@@ -222,6 +222,21 @@ def uses_daily_play_layout(game_id) -> bool:
     return bool(sched and sched.daily_play_layout)
 
 
+DAILY_TIMING_GAME_IDS = frozenset({
+    LADDER_SCHEDULE.game_id,
+    ALPHABETTY_SCHEDULE.game_id,
+    WORD_SALAD_SCHEDULE.game_id,
+})
+
+
+def is_daily_timing_game(game_id) -> bool:
+    """Official daily sections whose solve duration uses active solving time.
+
+    Weekly tasks, user-created offers, team play and ordinary games are out of scope.
+    """
+    return str(game_id or '') in DAILY_TIMING_GAME_IDS
+
+
 def scheduled_number_is_public(game, number, now: datetime | None = None) -> bool:
     """True, если номер уже вышел (или у игры нет расписания)."""
     sched = schedule_for(getattr(game, 'id', None))

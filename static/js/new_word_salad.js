@@ -143,6 +143,13 @@
   }
 
   function flushAnalyticsEvents(events) {
+    var payload = events;
+    if (payload && !Array.isArray(payload)) {
+      if (payload.daily_timing && global.document) {
+        global.document.dispatchEvent(new CustomEvent('interoves:daily-timing', { detail: payload.daily_timing }));
+      }
+      events = payload.analytics_events;
+    }
     var analytics = global.interovesAnalytics;
     if (!analytics || typeof analytics.flushPendingGoals !== 'function') return false;
     analytics.flushPendingGoals(events || []);
@@ -804,7 +811,7 @@
           // The backend is authoritative for game_start/game_complete. Forward
           // its payload before replacing the task HTML, including the final
           // answer response where both goals can arrive together.
-          flushAnalyticsEvents(data && data.analytics_events);
+          flushAnalyticsEvents(data);
           var solvedWord = selectedWord(path);
           if (data && data.status === 'duplicate') {
             finishWrong(pathKey);

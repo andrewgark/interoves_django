@@ -138,6 +138,16 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
             game=game,
             result=PlayerCompletedGame.RESULT_SOLVED,
         ))
+        from games.daily_timing import complete_daily_timing
+        timing = complete_daily_timing(
+            game=game,
+            task_group=task.task_group,
+            user=user,
+            anon_key=anon_key,
+            team=team,
+        )
+        if timing:
+            result['daily_timing'] = timing
     if analytics_events:
         result['analytics_events'] = analytics_events
     update_html = update_task_html(

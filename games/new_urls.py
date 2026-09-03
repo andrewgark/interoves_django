@@ -25,6 +25,12 @@ urlpatterns = [
     # Must precede ladder/<str>/ so "results" is not treated as a task-group number.
     path('ladder/results/', ui.section_results_page, {'game_id': 'ladder'}),
     path('ladder/<str:task_group_number>/results/', ui.ladder_word_results_page, name='new_ladder_word_results'),
+    path(
+        'ladder/<str:task_group_number>/timing/',
+        ui.daily_solve_timing,
+        {'game_id': 'ladder'},
+        name='new_ladder_timing',
+    ),
     path('ladder/<str:task_group_number>/', ui.task_group_page, {'game_id': 'ladder'}, name='new_ladder_task_group'),
     path('create_ladder/', ui.offer_ladder_page, name='new_create_ladder'),
     path('create_ladder/create/', ui.offer_ladder_create, name='new_create_ladder_create'),
@@ -51,6 +57,12 @@ urlpatterns = [
     path('offer_alphabetty/<int:offer_id>/', RedirectView.as_view(pattern_name='new_create_alphabetty_detail', permanent=False, query_string=True)),
     path('offer_alphabetty/<int:offer_id>/send/', RedirectView.as_view(pattern_name='new_create_alphabetty_send', permanent=False, query_string=True)),
     path('offer_alphabetty/<int:offer_id>/reopen/', RedirectView.as_view(pattern_name='new_create_alphabetty_reopen', permanent=False, query_string=True)),
+    path(
+        'alphabetty/<str:number>/timing/',
+        ui.daily_solve_timing,
+        {'game_id': 'alphabetty'},
+        name='new_alphabetty_timing',
+    ),
     path('alphabetty/<str:number>/guess/', ui.alphabetty_guess, name='new_alphabetty_guess'),
     path('alphabetty/<str:number>/state/', ui.alphabetty_state, name='new_alphabetty_state'),
     path('alphabetty/<str:number>/prefix/', ui.alphabetty_prefix, name='new_alphabetty_prefix'),

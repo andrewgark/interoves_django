@@ -7,8 +7,6 @@ from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 
-from games.share_result import elapsed_label_from_attempts
-
 _EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'salad_valid_words.txt.gz'
 _LEGACY_EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'word_salad_nouns.txt'
 
@@ -162,6 +160,11 @@ def result_squares_for_state(words, state):
     )
 
 
+def _elapsed_label_for_ui(attempts):
+    from games.daily_timing import elapsed_label_for_complete_attempts
+    return elapsed_label_for_complete_attempts(attempts)
+
+
 def salad_hub_result_for_actor(
     task,
     *,
@@ -172,6 +175,7 @@ def salad_hub_result_for_actor(
     game=None,
     include_other_games=False,
     attempts_info=None,
+    timing_row=...,
 ):
     """Квадраты и время для списка салатиков. Пусто, пока салатик не собран целиком."""
     from games.models import Attempt
@@ -201,7 +205,15 @@ def salad_hub_result_for_actor(
     squares = result_squares_for_state(words, state)
     if not squares:
         return '', None
-    return squares, elapsed_label_from_attempts(ai.attempts)
+    from games.daily_timing import elapsed_label_for_complete_attempts
+    return squares, elapsed_label_for_complete_attempts(
+        ai.attempts,
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        **({} if timing_row is ... else {'timing_row': timing_row}),
+    )
 
 
 def result_points_from_attempts(attempts):
@@ -499,5 +511,7 @@ def build_ui_context(grid, words, state=None, attempts=None):
         'is_complete': len(solved) == len(words),
         'words_total': len(words),
         'result_squares': result_squares_for_state(words, state),
-        'elapsed_label': elapsed_label_from_attempts(attempts) if len(solved) == len(words) else '',
+        'elapsed_label': (
+            _elapsed_label_for_ui(attempts) if len(solved) == len(words) else ''
+        ),
     }

@@ -539,7 +539,8 @@ class GameTaskGroupProgressTests(TestCase):
                 anon_key=anon_key,
             )
 
-        self.assertLessEqual(len(queries), 8)
+        # Bulk DailySolveTiming lookup is +1 vs the pre-timing budget of 8.
+        self.assertLessEqual(len(queries), 9)
         self.assertEqual(len(rows), 6)
         self.assertTrue(all(row['is_fully_solved'] for row in rows.values()))
 

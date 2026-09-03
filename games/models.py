@@ -2624,6 +2624,85 @@ class PlayerCompletedGame(models.Model):
         return '{} · {} · {}'.format(actor, self.game_instance_id, self.result)
 
 
+class DailySolveTiming(models.Model):
+    """Canonical active-solving time for one actor on one official daily game."""
+
+    STATUS_RUNNING = 'running'
+    STATUS_AUTO_PAUSED = 'auto_paused'
+    STATUS_MANUALLY_PAUSED = 'manually_paused'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CHOICES = (
+        (STATUS_RUNNING, 'Running'),
+        (STATUS_AUTO_PAUSED, 'Auto-paused'),
+        (STATUS_MANUALLY_PAUSED, 'Manually paused'),
+        (STATUS_COMPLETED, 'Completed'),
+    )
+
+    TIMING_VERSION_ACTIVE = 1
+
+    user = models.ForeignKey(
+        'auth.User',
+        related_name='daily_solve_timings',
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+    )
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    game = models.ForeignKey(
+        Game,
+        related_name='daily_solve_timings',
+        on_delete=models.CASCADE,
+    )
+    task_group = models.ForeignKey(
+        TaskGroup,
+        related_name='daily_solve_timings',
+        on_delete=models.CASCADE,
+    )
+    timing_version = models.PositiveSmallIntegerField(default=TIMING_VERSION_ACTIVE)
+    accumulated_ms = models.BigIntegerField(default=0)
+    status = models.CharField(
+        max_length=32,
+        choices=STATUS_CHOICES,
+        default=STATUS_AUTO_PAUSED,
+        db_index=True,
+    )
+    active_session_id = models.UUIDField(blank=True, null=True)
+    interval_started_at = models.DateTimeField(blank=True, null=True)
+    last_heartbeat_at = models.DateTimeField(blank=True, null=True)
+    last_seq = models.BigIntegerField(default=0)
+    last_event_id = models.CharField(max_length=64, blank=True, default='')
+    applied_event_ids = models.JSONField(default=list, blank=True)
+    frozen_ms = models.BigIntegerField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'game', 'task_group'],
+                condition=models.Q(user__isnull=False),
+                name='uniq_daily_timing_user_game_tg',
+            ),
+            models.UniqueConstraint(
+                fields=['anon_key', 'game', 'task_group'],
+                condition=models.Q(anon_key__isnull=False),
+                name='uniq_daily_timing_anon_game_tg',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['game', 'task_group'], name='games_dst_game_tg_idx'),
+            models.Index(fields=['user', 'game'], name='games_dst_user_game_idx'),
+            models.Index(fields=['anon_key', 'game'], name='games_dst_anon_game_idx'),
+        ]
+        verbose_name = 'время прохождения ежедневной игры'
+        verbose_name_plural = 'времена прохождения ежедневных игр'
+
+    def __str__(self):
+        actor = self.user or self.anon_key or '—'
+        return '{} · {} · {}'.format(actor, self.game_id, self.status)
+
+
 class PlayerAnalyticsState(models.Model):
     """Per-actor product lifecycle markers (activation etc.)."""
 

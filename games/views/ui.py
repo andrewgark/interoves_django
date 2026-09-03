@@ -46,6 +46,8 @@ from games.views.offer_ladder import (  # noqa: E402
     offer_ladder_reset,
     offer_ladder_send,
 )
+from games.views.daily_timing_views import daily_solve_timing  # noqa: E402
+
 game_task_group_progress = new_game_task_group_progress
 project_game_task_group_progress = project_game_task_group_progress
 get_answer = new_get_answer

@@ -17,7 +17,7 @@ from games.alphabetty.core import (
     normalize_word,
 )
 from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
-from games.share_result import elapsed_seconds_from_attempts, format_elapsed, format_share_link, share_path
+from games.share_result import format_elapsed, format_share_link, share_path
 
 # Базовые очки за угаданное слово; каждая буквенная подсказка −1.
 ALPHABETTY_BASE_POINTS = 10
@@ -114,11 +114,19 @@ def ru_attempt_word(n: int) -> str:
 
 
 def elapsed_seconds_for_actor(*, game: Game, task: Task, actor: dict) -> int:
-    """Время от первой до последней валидной попытки актёра."""
+    """Active solving time for daily alphabetty; first-to-last otherwise."""
+    from games.daily_timing import canonical_elapsed_seconds
+
     attempts = list(
         Attempt.manager.filter(task=task, game=game, **actor).exclude(time__isnull=True)
     )
-    return elapsed_seconds_from_attempts(attempts)
+    return canonical_elapsed_seconds(
+        game=game,
+        task_group=getattr(task, 'task_group', None),
+        user=actor.get('user'),
+        anon_key=actor.get('anon_key'),
+        attempts=attempts,
+    )
 
 
 def build_share_lines(
@@ -216,6 +224,25 @@ def hub_progress_for_actor(
         for r in timing_rows
         if r['t0'] is not None and r['t1'] is not None
     }
+    from games.daily_timing import canonical_elapsed_seconds, timing_rows_for_task_groups
+    daily_rows = timing_rows_for_task_groups(
+        game=game,
+        task_group_ids=[t.task_group_id for _, t in numbers_and_tasks if getattr(t, 'task_group_id', None)],
+        user=user,
+        anon_key=anon_key,
+    )
+    for number, task in numbers_and_tasks:
+        daily_row = daily_rows.get(task.task_group_id)
+        if daily_row is None:
+            continue
+        timing[task.id] = canonical_elapsed_seconds(
+            game=game,
+            task_group=task.task_group,
+            user=user,
+            anon_key=anon_key,
+            attempts=None,
+            timing_row=daily_row,
+        )
     for number, task in numbers_and_tasks:
         state = states.get(task.id) or default_state()
         won = bool(state.get('won'))

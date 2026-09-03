@@ -36,6 +36,7 @@ from games.models import (
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
+    DailySolveTiming,
     Profile,
     ProfileTeamMembership,
     StatisticsEvent,
@@ -603,6 +604,30 @@ def _merge_started_games(target, source):
     return moved
 
 
+def _merge_daily_timings(target, source):
+    from games.daily_timing import merge_timing_rows
+
+    moved = 0
+    rows = list(
+        DailySolveTiming.objects.select_for_update()
+        .filter(user=source)
+    )
+    for row in rows:
+        existing = DailySolveTiming.objects.select_for_update().filter(
+            user=target,
+            game_id=row.game_id,
+            task_group_id=row.task_group_id,
+        ).first()
+        if existing is None:
+            row.user = target
+            row.save(update_fields=['user', 'updated_at'])
+            moved += 1
+            continue
+        merge_timing_rows(existing, row)
+        moved += 1
+    return moved
+
+
 def _merge_completed_games(target, source):
     moved = 0
     rows = PlayerCompletedGame.objects.select_for_update().filter(
@@ -695,6 +720,7 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
         pk__in=source_claim_ids,
     ).update(user=target)
     summary['started_games'] = _merge_started_games(target, source)
+    summary['daily_timings'] = _merge_daily_timings(target, source)
     summary['completed_games'] = _merge_completed_games(target, source)
     summary['analytics_states'] = _merge_analytics(target, source)
     # A source-profile deep link must not remain usable after deactivation.

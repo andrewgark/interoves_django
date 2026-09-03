@@ -57,6 +57,7 @@ from games.models import (
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
+    DailySolveTiming,
     Profile,
     ProfileTeamMembership,
     Project,
@@ -424,6 +425,23 @@ class PlayerCompletedGameAdmin(admin.ModelAdmin):
 
     def actor_label(self, obj):
         return obj.team or obj.user or obj.anon_key or '—'
+
+    actor_label.short_description = 'Игрок'
+
+
+@admin.register(DailySolveTiming)
+class DailySolveTimingAdmin(admin.ModelAdmin):
+    raw_id_fields = ['user', 'game', 'task_group']
+    list_display = [
+        'updated_at', 'actor_label', 'game', 'status', 'accumulated_ms',
+        'timing_version', 'completed_at',
+    ]
+    list_filter = ['status', 'timing_version']
+    search_fields = ['anon_key', 'user__username']
+    readonly_fields = ['created_at', 'updated_at']
+
+    def actor_label(self, obj):
+        return obj.user or obj.anon_key or '—'
 
     actor_label.short_description = 'Игрок'
 
