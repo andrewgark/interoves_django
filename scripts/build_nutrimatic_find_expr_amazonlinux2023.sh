@@ -61,15 +61,26 @@ if ! grep -q '^compiler\.cppstd=' "$PROFILE_PATH" 2>/dev/null; then
 fi
 
 conan install . --build=missing
-conan build .
-
-install -D -m0755 build/find-expr /out-build/find-expr
+# Prefer static libs so find-expr is a single binary (no libexpr.so/libsearch.so on EB).
+source build/dep-info/conanbuild.sh
+rm -rf build_static
+mkdir -p build_static
+cp -a build/dep-info build_static/
+cd build_static
+meson setup --native-file dep-info/conan_meson_native.ini -Ddefault_library=static /work/source --prefix=/
+ninja find-expr
+install -D -m0755 find-expr /out-build/find-expr
+cd /work
 echo "--- GLIBC requirements (Amazon Linux 2023 ships glibc 2.34; symbols must stay compatible): ---"
 if command -v objdump >/dev/null 2>&1; then
   objdump -T /out-build/find-expr | grep -F GLIBC_ | sed 's/.*\(GLIBC_[0-9.]*\).*/\1/' | sort -u | tail -15
   # Fail if binary needs GLIBC newer than 2.34 (e.g. 2.38 from Ubuntu 24.04 toolchains).
   if objdump -T /out-build/find-expr | grep -qE 'GLIBC_2\.(3[5-9]|[4-9][0-9])\b'; then
     echo "error: find-expr requires GLIBC newer than AL2023 provides; rebuild only inside this container." >&2
+    exit 1
+  fi
+  if readelf -d /out-build/find-expr | grep -q 'libexpr\.so\|libsearch\.so\|libindex\.so'; then
+    echo "error: find-expr still depends on nutrimatic shared libs; need -Ddefault_library=static." >&2
     exit 1
   fi
 else

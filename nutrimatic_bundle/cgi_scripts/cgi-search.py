@@ -215,6 +215,7 @@ proc = subprocess.Popen([binary, index, query_bytes],
 print(RESULT_PAGE_BEGIN % {"query": html.escape(query)})
 
 rn = 0
+seen = set()
 while 1:
   line = proc.stdout.readline().decode()
   if not line:
@@ -245,6 +246,13 @@ while 1:
 
   if score == "#":
     continue
+
+  text = " ".join(text.split())
+  if not text:
+    continue
+  if text in seen:
+    continue
+  seen.add(text)
 
   if start > 0 and rn == start:
     print(RESULT_PAGE % {"page": rn // num + 1})
