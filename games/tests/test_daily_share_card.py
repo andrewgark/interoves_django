@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import SimpleTestCase, override_settings
 from PIL import Image
 
 from games.daily_share_card import (
@@ -60,12 +60,15 @@ class DailyShareCardPayloadTests(SimpleTestCase):
         blob = dumps_payload(payload)
         self.assertEqual(payload['kind'], KIND_LADDER)
         self.assertEqual(payload['title'], 'Лесенка #46')
-        self.assertEqual(payload['headline'], 'Лесенка · 4:32')
+        self.assertEqual(payload['headline'], 'Лесенка #46 решена за 4:32')
         self.assertEqual(payload['date_label'], '3 сентября 2026')
         self.assertIn('steps', payload)
         self.assertGreater(len(payload['steps']), 2)
-        self.assertNotIn('ПАРИЖ', blob)
-        self.assertNotIn('ДАКАР', blob)
+        self.assertEqual(payload['steps'][0].get('label'), 'ПАРИЖ')
+        self.assertEqual(payload['steps'][-1].get('label'), 'ДАКАР')
+        self.assertNotIn('label', payload['steps'][1])
+        self.assertIn('ПАРИЖ', blob)
+        self.assertIn('ДАКАР', blob)
         self.assertNotIn('МОСКВА', blob)
         self.assertNotIn('words', payload)
         self.assertEqual(payload['steps'][0]['state'], 'given')
@@ -73,17 +76,13 @@ class DailyShareCardPayloadTests(SimpleTestCase):
         self.assertTrue(all(step['state'] == 'green' for step in payload['steps'][1:-1]))
 
     def test_ladder_imperfect_uses_assist_states_not_emoji(self):
-        payload = _paris_payload()
-        parsed = payload  # rebuild with assist
-        parsed = _paris_payload()
-        from games.raddle import default_raddle_state, parse_raddle_data
         import json
-        task = type('T', (), {
+
+        parsed = parse_raddle_data(type('T', (), {
             'task_type': 'raddle',
             'checker_data': json.dumps(PARIS_LADDER, ensure_ascii=False),
             'answer': '',
-        })()
-        parsed = parse_raddle_data(task)
+        })())
         state = default_raddle_state(parsed['n_words'])
         state['solved_indices'] = list(range(parsed['n_words']))
         state['assist_tier'] = {'2': 1, '4': 2}
@@ -101,11 +100,12 @@ class DailyShareCardPayloadTests(SimpleTestCase):
         self.assertIn('подсказ', payload['stats_line'])
         self.assertNotIn('🟩', dumps_payload(payload))
 
-    def test_salad_payload_has_no_grid_or_words(self):
+    def test_salad_payload_includes_public_grid_but_not_words(self):
         words = ['МОСКВА', 'ПАРИЖ', 'РИМ']
         state = salad_default_state()
         state['solved_indices'] = [0, 1, 2]
         state['hint_counts'] = {1: 2}
+        grid = list('АБВГДЕЖЗИЙКЛМНОП')
         payload = build_salad_share_payload(
             words=words,
             state=state,
@@ -113,15 +113,17 @@ class DailyShareCardPayloadTests(SimpleTestCase):
             date_value=date(2026, 9, 3),
             elapsed_seconds=377,
             locale='ru',
+            grid=grid,
         )
         blob = dumps_payload(payload)
         self.assertEqual(payload['kind'], KIND_SALAD)
         self.assertEqual(payload['word_count'], 3)
         self.assertEqual(payload['hint_total'], 2)
+        self.assertEqual(payload['headline'], 'Салатик #23 решён за 6:17')
+        self.assertEqual(payload['grid'], grid)
         self.assertNotIn('МОСКВА', blob)
         self.assertNotIn('ПАРИЖ', blob)
         self.assertNotIn('words', payload)
-        self.assertNotIn('grid', payload)
 
     def test_alphabetty_payload_does_not_include_secret(self):
         payload = build_alphabetty_share_payload(
@@ -134,8 +136,11 @@ class DailyShareCardPayloadTests(SimpleTestCase):
         )
         blob = dumps_payload(payload)
         self.assertEqual(payload['kind'], KIND_ALPHABETTY)
-        self.assertEqual(payload['headline'], 'Алфавитка · 2:08')
-        self.assertIn('попыт', payload['stats_line'])
+        self.assertEqual(payload['headline'], 'Алфавитка #31 решена за 2:08')
+        self.assertEqual(payload['attempts'], 6)
+        self.assertEqual(payload['attempts_word'], 'попыток')
+        self.assertIn('подсказ', payload['stats_line'])
+        self.assertNotIn('попыт', payload['stats_line'])
         self.assertNotIn('secret', payload)
         self.assertNotIn('загад', blob.lower())
 
@@ -150,6 +155,10 @@ class DailyShareCardPayloadTests(SimpleTestCase):
         self.assertEqual(en['locale'], 'en')
         self.assertIn('Алфавитка', ru['title'])
         self.assertIn('Alphabetty', en['title'])
+        self.assertEqual(ru['headline'], 'Алфавитка #1 решена за 1:10')
+        self.assertEqual(en['headline'], 'Alphabetty #1 solved in 1:10')
+        self.assertEqual(ru['attempts_word'], 'попытка')
+        self.assertEqual(en['attempts_word'], 'try')
         self.assertIn('без подсказок', ru['stats_line'])
         self.assertIn('no hints', en['stats_line'])
         self.assertEqual(format_share_date(date(2026, 9, 3), 'en'), 'September 3, 2026')
@@ -164,8 +173,27 @@ class DailyShareCardPayloadTests(SimpleTestCase):
             locale='en',
         )
         self.assertIn('Alphabetty #999999', payload['title'])
-        self.assertIn('12:00:04', payload['headline'])
-        self.assertIn('12345 tries', payload['stats_line'])
+        self.assertEqual(payload['headline'], 'Alphabetty #999999 solved in 12:00:04')
+        self.assertEqual(payload['attempts'], 12345)
+        self.assertEqual(payload['attempts_word'], 'tries')
+        self.assertIn('no hints', payload['stats_line'])
+        self.assertNotIn('tries', payload['stats_line'])
+
+    def test_attempts_word_follows_russian_plural(self):
+        cases = (
+            (1, 'попытка'),
+            (2, 'попытки'),
+            (4, 'попытки'),
+            (5, 'попыток'),
+            (11, 'попыток'),
+            (21, 'попытка'),
+            (22, 'попытки'),
+        )
+        for count, word in cases:
+            payload = build_alphabetty_share_payload(
+                number=1, elapsed_seconds=70, attempts=count, hints=0, locale='ru',
+            )
+            self.assertEqual(payload['attempts_word'], word, msg=count)
 
     def test_solved_in_headline_agrees_with_game_name(self):
         payload = build_ladder_share_payload(
@@ -179,7 +207,7 @@ class DailyShareCardPayloadTests(SimpleTestCase):
             locale='ru',
             headline_style=HEADLINE_SOLVED_IN,
         )
-        self.assertEqual(payload['headline'], 'Лесенка пройдена за 4:32')
+        self.assertEqual(payload['headline'], 'Лесенка #1 решена за 4:32')
 
     def test_synthetic_preview_payloads_are_marked(self):
         items = synthetic_preview_payloads()

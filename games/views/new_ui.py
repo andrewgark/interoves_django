@@ -2869,6 +2869,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 attach_salad_share_card(
                     word_salad_data[t.id],
                     words=words,
+                    grid=grid,
                     state=state,
                     game=game,
                     task=t,

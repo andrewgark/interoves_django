@@ -218,6 +218,9 @@ class RenderNewUiTaskCardTests(TestCase):
         context['game'] = SimpleNamespace(id='ladder', name='Лесенка', outside_name='')
         html = render_to_string('task-content/task-raddle.html', context)
         self.assertIn('new-raddle-result', html)
+        self.assertIn('data-share-copy-text', html)
+        self.assertIn('data-share-copy-image', html)
+        self.assertIn('data-share-native', html)
         self.assertIn('⏱️ 3м 46с', html)
         self.assertIn('🔗 interoves.com/ladder/3', html)
 
@@ -246,6 +249,7 @@ class RenderNewUiTaskCardTests(TestCase):
         context['game'] = SimpleNamespace(id='salad', name='Салатик', outside_name='Салатик')
         html = render_to_string('task-content/task-word-salad.html', context)
         self.assertIn('new-raddle-result', html)
+        self.assertIn('data-share-native', html)
         self.assertIn('🥗 Салатик #23', html)
         self.assertIn('🟩1️⃣🟩', html)
         self.assertIn('⏱️ 3м 46с', html)

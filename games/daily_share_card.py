@@ -13,7 +13,7 @@ from typing import Any, Iterable, Optional
 
 from games.share_result import format_elapsed_compact
 
-RENDERER_VERSION = '1'
+RENDERER_VERSION = '3'
 CARD_WIDTH = 1080
 CARD_HEIGHT = 1920
 
@@ -42,9 +42,9 @@ _GAME_TITLES = {
 }
 
 _SOLVED_VERB = {
-    KIND_LADDER: {'ru': 'пройдена за', 'en': 'completed in'},
-    KIND_SALAD: {'ru': 'пройден за', 'en': 'completed in'},
-    KIND_ALPHABETTY: {'ru': 'пройдена за', 'en': 'completed in'},
+    KIND_LADDER: {'ru': 'решена за', 'en': 'solved in'},
+    KIND_SALAD: {'ru': 'решён за', 'en': 'solved in'},
+    KIND_ALPHABETTY: {'ru': 'решена за', 'en': 'solved in'},
 }
 
 
@@ -102,16 +102,34 @@ def _letter_count(word: str) -> int:
     return sum(1 for ch in str(word or '') if ch.isalpha())
 
 
-def _ru_plural(n: int, one: str, few: str, many: str) -> str:
+def _share_grid_letters(grid) -> list[str]:
+    if not grid:
+        return []
+    try:
+        from games.word_salad import parse_grid
+
+        return parse_grid(grid)
+    except (TypeError, ValueError):
+        letters = []
+        for cell in grid:
+            text = str(cell or '').strip().upper().replace('Ё', 'Е')
+            if text:
+                letters.append(text[0])
+        return letters[:16] if len(letters) >= 16 else []
+
+
+def _ru_plural_word(n: int, one: str, few: str, many: str) -> str:
     n = abs(int(n))
     n10, n100 = n % 10, n % 100
     if n10 == 1 and n100 != 11:
-        form = one
-    elif 2 <= n10 <= 4 and n100 not in (12, 13, 14):
-        form = few
-    else:
-        form = many
-    return '{} {}'.format(n, form)
+        return one
+    if 2 <= n10 <= 4 and n100 not in (12, 13, 14):
+        return few
+    return many
+
+
+def _ru_plural(n: int, one: str, few: str, many: str) -> str:
+    return '{} {}'.format(abs(int(n)), _ru_plural_word(n, one, few, many))
 
 
 def _hints_label(count: int, locale: str) -> str:
@@ -124,12 +142,17 @@ def _hints_label(count: int, locale: str) -> str:
     return _ru_plural(n, 'подсказка', 'подсказки', 'подсказок')
 
 
-def _attempts_label(count: int, locale: str) -> str:
+def _attempts_word(count: int, locale: str) -> str:
     loc = normalize_locale(locale)
     n = max(0, int(count))
     if loc == 'en':
-        return '1 try' if n == 1 else '{} tries'.format(n)
-    return _ru_plural(n, 'попытка', 'попытки', 'попыток')
+        return 'try' if n == 1 else 'tries'
+    return _ru_plural_word(n, 'попытка', 'попытки', 'попыток')
+
+
+def _attempts_label(count: int, locale: str) -> str:
+    n = max(0, int(count))
+    return '{} {}'.format(n, _attempts_word(n, locale))
 
 
 def build_headline(
@@ -137,17 +160,18 @@ def build_headline(
     kind: str,
     locale: str,
     elapsed_seconds: int | None,
-    style: str = HEADLINE_COMPACT,
+    number: int | str | None = None,
+    style: str = HEADLINE_SOLVED_IN,
 ) -> str:
     loc = normalize_locale(locale)
-    title = game_title(kind, loc)
+    title = edition_title(kind, number, loc)
     if elapsed_seconds is None:
         return title
     clock = format_elapsed_compact(elapsed_seconds)
-    if style == HEADLINE_SOLVED_IN:
-        verb = _SOLVED_VERB[kind][loc]
-        return '{} {} {}'.format(title, verb, clock)
-    return '{} · {}'.format(title, clock)
+    if style == HEADLINE_COMPACT:
+        return '{} · {}'.format(title, clock)
+    verb = _SOLVED_VERB[kind][loc]
+    return '{} {} {}'.format(title, verb, clock)
 
 
 def build_stats_line(parts: Iterable[str | None]) -> str:
@@ -176,6 +200,7 @@ def _base_payload(
         kind=kind,
         locale=loc,
         elapsed_seconds=elapsed_seconds,
+        number=display_number,
         style=headline_style,
     )
     clock = format_elapsed_compact(elapsed_seconds) if elapsed_seconds is not None else ''
@@ -233,7 +258,7 @@ def build_ladder_share_payload(
     date_value: date | datetime | str | None = None,
     elapsed_seconds: int | None = None,
     locale: str = 'ru',
-    headline_style: str = HEADLINE_COMPACT,
+    headline_style: str = HEADLINE_SOLVED_IN,
     brand_host: str = BRAND_HOST,
 ) -> dict[str, Any]:
     from games.raddle import resolve_assist_tiers
@@ -261,7 +286,12 @@ def build_ladder_share_payload(
             status = _middle_state(int(tiers.get(index, 0) or 0), index in solved)
             if status in ('yellow', 'red'):
                 hint_count += 1
-        steps.append({'role': role, 'length': length, 'state': status})
+        step = {'role': role, 'length': length, 'state': status}
+        if role in ('start', 'end'):
+            label = str(word or '').strip()
+            if label:
+                step['label'] = label
+        steps.append(step)
     payload = _base_payload(
         kind=KIND_LADDER,
         number=number,
@@ -286,10 +316,11 @@ def build_salad_share_payload(
     date_value: date | datetime | str | None = None,
     elapsed_seconds: int | None = None,
     locale: str = 'ru',
-    headline_style: str = HEADLINE_COMPACT,
+    headline_style: str = HEADLINE_SOLVED_IN,
     brand_host: str = BRAND_HOST,
     theme: str | None = None,
     word_count: int | None = None,
+    grid=None,
 ) -> dict[str, Any]:
     from games.word_salad import load_state, words_in_display_order
 
@@ -321,6 +352,9 @@ def build_salad_share_payload(
     payload['word_results'] = word_results
     payload['word_count'] = count
     payload['hint_total'] = hint_total
+    letters = _share_grid_letters(grid)
+    if letters:
+        payload['grid'] = letters
     theme_text = (theme or '').strip()
     if theme_text:
         payload['theme'] = theme_text
@@ -335,13 +369,12 @@ def build_alphabetty_share_payload(
     attempts: int = 0,
     hints: int = 0,
     locale: str = 'ru',
-    headline_style: str = HEADLINE_COMPACT,
+    headline_style: str = HEADLINE_SOLVED_IN,
     brand_host: str = BRAND_HOST,
     variant: int | None = None,
 ) -> dict[str, Any]:
     loc = normalize_locale(locale)
-    extra = [_attempts_label(attempts, loc)]
-    extra.append(_hints_label(hints, loc))
+    extra = [_hints_label(hints, loc)]
     payload = _base_payload(
         kind=KIND_ALPHABETTY,
         number=number,
@@ -354,6 +387,7 @@ def build_alphabetty_share_payload(
         seed=number,
     )
     payload['attempts'] = max(0, int(attempts or 0))
+    payload['attempts_word'] = _attempts_word(payload['attempts'], loc)
     payload['hint_count'] = max(0, int(hints or 0))
     if variant is None:
         try:
@@ -364,15 +398,16 @@ def build_alphabetty_share_payload(
     return payload
 
 
-# Length-only ladder for previews. Placeholder words so a renderer leak is obvious.
+# Start/end are public given words. Middle placeholders make a renderer leak obvious.
 _SYNTHETIC_LADDER = {
     'lengths': [5, 9, 7, 4, 6, 14, 9, 9, 7, 3, 6, 4, 5],
     'hints': ['hint'] * 12,
     'words': [
-        'AAAAA', 'BBBBBBBBB', 'CCCCCCC', 'DDDD', 'EEEEEE', 'FFFFFFFFFFFFFF',
-        'GGGGGGGGG', 'HHHHHHHHH', 'IIIIIII', 'JJJ', 'KKKKKK', 'LLLL', 'MMMMM',
+        'ПАРИЖ', 'XXXXXXXXX', 'XXXXXXX', 'XXXX', 'XXXXXX', 'XXXXXXXXXXXXXX',
+        'XXXXXXXXX', 'XXXXXXXXX', 'XXXXXXX', 'XXX', 'XXXXXX', 'XXXX', 'ДАКАР',
     ],
 }
+_SYNTHETIC_SALAD_GRID = list('АБВГДЕЖЗИЙКЛМНОП')
 
 
 def synthetic_preview_payloads() -> list[dict[str, Any]]:
@@ -411,15 +446,6 @@ def synthetic_preview_payloads() -> list[dict[str, Any]]:
             elapsed_seconds=512,
             locale='ru',
         ),
-        build_ladder_share_payload(
-            parsed=parsed,
-            state=perfect_state,
-            number=46,
-            date_value=date_value,
-            elapsed_seconds=272,
-            locale='ru',
-            headline_style=HEADLINE_SOLVED_IN,
-        ),
         build_salad_share_payload(
             words=salad_words,
             state=salad_perfect,
@@ -428,6 +454,7 @@ def synthetic_preview_payloads() -> list[dict[str, Any]]:
             elapsed_seconds=377,
             locale='ru',
             theme='Столицы',
+            grid=_SYNTHETIC_SALAD_GRID,
         ),
         build_salad_share_payload(
             words=salad_words,
@@ -437,6 +464,7 @@ def synthetic_preview_payloads() -> list[dict[str, Any]]:
             elapsed_seconds=541,
             locale='ru',
             theme='Столицы',
+            grid=_SYNTHETIC_SALAD_GRID,
         ),
         build_alphabetty_share_payload(
             number=31,
@@ -451,7 +479,7 @@ def synthetic_preview_payloads() -> list[dict[str, Any]]:
             number=31,
             date_value=date_value,
             elapsed_seconds=248,
-            attempts=11,
+            attempts=1,
             hints=2,
             locale='ru',
             variant=1,
@@ -460,7 +488,7 @@ def synthetic_preview_payloads() -> list[dict[str, Any]]:
             number=32,
             date_value=date_value,
             elapsed_seconds=188,
-            attempts=8,
+            attempts=3,
             hints=1,
             locale='ru',
             variant=2,
@@ -480,6 +508,7 @@ def synthetic_preview_payloads() -> list[dict[str, Any]]:
             date_value=date_value,
             elapsed_seconds=377,
             locale='en',
+            grid=_SYNTHETIC_SALAD_GRID,
         ),
         build_alphabetty_share_payload(
             number=31,
@@ -577,6 +606,7 @@ def attach_salad_share_card(
     anon_key=None,
     attempts=None,
     locale: str = 'ru',
+    grid=None,
 ) -> dict[str, Any]:
     if not ui or not ui.get('is_complete'):
         return ui
@@ -594,6 +624,7 @@ def attach_salad_share_card(
         elapsed_seconds=elapsed,
         locale=locale,
         theme=theme_from_text(getattr(task, 'text', None)),
+        grid=grid,
     )
     ui['share_card'] = payload
     ui['share_card_json'] = dumps_payload(payload)

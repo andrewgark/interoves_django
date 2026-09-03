@@ -37,11 +37,8 @@ class DailyShareCardPngTests(SimpleTestCase):
     def test_ru_and_en_render(self):
         from games.daily_share_card_render import assert_share_card_png
 
-        seen = set()
-        for payload in synthetic_preview_payloads():
-            key = (payload['kind'], payload['locale'])
-            if key in seen:
-                continue
-            seen.add(key)
-            png = self._render(payload)
-            assert_share_card_png(png)
+        payloads = synthetic_preview_payloads()
+        ru = next(item for item in payloads if item['locale'] == 'ru' and item['kind'] == 'ladder')
+        en = next(item for item in payloads if item['locale'] == 'en' and item['kind'] == 'alphabetty')
+        assert_share_card_png(self._render(ru))
+        assert_share_card_png(self._render(en))

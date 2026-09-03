@@ -127,6 +127,10 @@ def preview_daily_share_cards(
     sender = send_fn or _send_png
     intro = intro_fn or (lambda text: send_message(admin_chat_id(), text))
 
+    if render_fn is None:
+        from games.daily_share_card_render import _prepare_playwright_env
+        _prepare_playwright_env()
+
     try:
         intro(
             '<b>Daily share-card visual QA</b>\n'
@@ -155,5 +159,5 @@ def preview_daily_share_cards(
             )
         return True, 'Sent {} share cards ({})'.format(sent, ', '.join(notes))
     except Exception as exc:
-        logger.exception('Daily share-card preview failed')
+        logger.error('Daily share-card preview failed: %s', _safe_error(exc))
         return False, 'Preview failed: {}'.format(_safe_error(exc))

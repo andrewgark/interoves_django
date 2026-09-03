@@ -5,12 +5,13 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
 from functools import lru_cache
 from pathlib import Path
 
 from django.conf import settings
 
-from games.daily_share_card import CARD_HEIGHT, CARD_WIDTH, RENDERER_VERSION
+from games.daily_share_card import CARD_HEIGHT, CARD_WIDTH
 from games.telegram.ladder_image import _ensure_playwright_browsers_path
 
 logger = logging.getLogger('application')
@@ -27,6 +28,29 @@ def _renderer_js() -> str:
     return renderer_js_path().read_text(encoding='utf-8')
 
 
+def _chromium_present(directory: str | None) -> bool:
+    if not directory or not os.path.isdir(directory):
+        return False
+    for name in os.listdir(directory):
+        if name.startswith('chromium'):
+            return True
+    return False
+
+
+def _prepare_playwright_env() -> None:
+    """Prefer a cache that actually contains Chromium (local ~/.cache, then EB)."""
+    _ensure_playwright_browsers_path()
+    current = os.environ.get('PLAYWRIGHT_BROWSERS_PATH')
+    if _chromium_present(current):
+        return
+    home_cache = os.path.expanduser('~/.cache/ms-playwright')
+    if _chromium_present(home_cache):
+        os.environ['PLAYWRIGHT_BROWSERS_PATH'] = home_cache
+        return
+    if current and not _chromium_present(current):
+        os.environ.pop('PLAYWRIGHT_BROWSERS_PATH', None)
+
+
 def render_share_card_png(payload: dict) -> bytes:
     """
     Run the frontend DailyShareCard renderer in headless Chromium.
@@ -36,7 +60,7 @@ def render_share_card_png(payload: dict) -> bytes:
     """
     from playwright.sync_api import sync_playwright
 
-    _ensure_playwright_browsers_path()
+    _prepare_playwright_env()
     script = _renderer_js()
     payload_json = json.dumps(payload, ensure_ascii=False)
     with sync_playwright() as playwright:

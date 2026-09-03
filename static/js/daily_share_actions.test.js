@@ -32,7 +32,12 @@ function blockFixture(textLines, payload) {
   };
 }
 
-(function testCopyTextUsesClipboardAndExistingText() {
+var pending = [];
+function run(promise) {
+  pending.push(Promise.resolve(promise));
+}
+
+run((function testCopyTextUsesClipboardAndExistingText() {
   var writes = [];
   var goals = [];
   var root = {
@@ -65,9 +70,9 @@ function blockFixture(textLines, payload) {
     assert.strictEqual(goals[0].goal, 'result_text_copy');
     assert.strictEqual(goals[0].params.game_kind, 'ladder');
   });
-})();
+})());
 
-(function testCopyImageUsesPngBlob() {
+run((function testCopyImageUsesPngBlob() {
   var written = [];
   var blob = { type: 'image/png', size: 12 };
   function ClipboardItem(items) { this.items = items; }
@@ -94,9 +99,9 @@ function blockFixture(textLines, payload) {
     assert.strictEqual(written[0][0].items['image/png'], blob);
     assert.strictEqual(block.status.textContent, 'Картинка скопирована');
   });
-})();
+})());
 
-(function testCopyImageUnsupportedIsNotACrash() {
+run((function testCopyImageUnsupportedIsNotACrash() {
   var root = {
     navigator: { clipboard: { writeText: function () { return Promise.resolve(); } } },
     interovesAnalytics: { trackYandexGoalOnce: function () { return true; } },
@@ -107,9 +112,9 @@ function blockFixture(textLines, payload) {
   return actions.copyShareImage(block, null).then(function () {
     assert.ok(block.status.textContent.indexOf('не умеет копировать') !== -1);
   });
-})();
+})());
 
-(function testShareUsesFilesWhenSupported() {
+run((function testShareUsesFilesWhenSupported() {
   var shared = [];
   var blob = { type: 'image/png' };
   function FakeFile(parts, name, opts) {
@@ -139,9 +144,9 @@ function blockFixture(textLines, payload) {
     assert.ok(shared.indexOf('result_share_click') !== -1);
     assert.ok(shared.indexOf('result_share_success') !== -1);
   });
-})();
+})());
 
-(function testShareFallsBackWithoutNavigatorShare() {
+run((function testShareFallsBackWithoutNavigatorShare() {
   var writes = [];
   var root = {
     navigator: {
@@ -157,9 +162,9 @@ function blockFixture(textLines, payload) {
     assert.strictEqual(writes[0], 'copied-text');
     assert.ok(block.status.textContent.indexOf('скопирован') !== -1);
   });
-})();
+})());
 
-(function testShareFallsBackWhenFileShareUnsupported() {
+run((function testShareFallsBackWhenFileShareUnsupported() {
   var shared = [];
   var root = {
     File: function (parts, name, opts) { this.name = name; this.type = opts.type; },
@@ -177,9 +182,9 @@ function blockFixture(textLines, payload) {
     assert.ok(!shared[0].files);
     assert.strictEqual(shared[0].text, 'only-text');
   });
-})();
+})());
 
-(function testCancelIsNotError() {
+run((function testCancelIsNotError() {
   var goals = [];
   var err = new Error('closed');
   err.name = 'AbortError';
@@ -201,9 +206,9 @@ function blockFixture(textLines, payload) {
     assert.ok(goals.indexOf('result_share_error') === -1);
     assert.strictEqual(block.status.textContent, '');
   });
-})();
+})());
 
-(function testUnhandledRejectionDoesNotEscape() {
+run((function testUnhandledRejectionDoesNotEscape() {
   var root = {
     navigator: {},
     interovesAnalytics: { trackYandexGoalOnce: function () { return true; } },
@@ -214,4 +219,9 @@ function blockFixture(textLines, payload) {
   return actions.shareNative(block, null).then(function () {
     assert.ok(true);
   });
-})();
+})());
+
+Promise.all(pending).catch(function (err) {
+  console.error(err);
+  process.exit(1);
+});
