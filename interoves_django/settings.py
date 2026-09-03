@@ -193,6 +193,11 @@ def load_secret(secret_filename: str, *, env_var: str | None = None, default: st
 
 SECRET_KEY = load_secret("django_secret_key.txt", env_var="DJANGO_SECRET_KEY")
 
+# A distinct key is required for irreversible session identifiers in auth logs.
+# There is intentionally no SECRET_KEY fallback: configure the same high-entropy
+# value on every production instance via AUTH_LOG_FINGERPRINT_KEY.
+AUTH_LOG_FINGERPRINT_KEY = (os.environ.get('AUTH_LOG_FINGERPRINT_KEY') or '').strip()
+
 # Production: DEBUG only when explicitly enabled. Dev: DEBUG on unless DEBUG_ON is "false".
 if IS_PROD:
     DEBUG = _env_flag("DEBUG_ON")
@@ -313,11 +318,13 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'games.middleware.auth_session_observability.RequestCorrelationMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
 
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'games.middleware.auth_session_observability.AuthSessionDiagnosticMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -625,6 +632,11 @@ STATICFILES_FINDERS = (
 
 # Authentication
 
+# Public production traffic is HTTPS at Cloudflare. These flags do not require
+# Django to trust the origin-side (HTTP) X-Forwarded-Proto value.
+SESSION_COOKIE_SECURE = IS_PROD
+CSRF_COOKIE_SECURE = IS_PROD
+
 AUTHENTICATION_BACKENDS = (
  'django.contrib.auth.backends.ModelBackend',
  'allauth.account.auth_backends.AuthenticationBackend',
@@ -871,6 +883,11 @@ LOGGING = {
         'interoves.request_timing': {
             'handlers': ['stderr'],
             'level': 'WARNING',
+        },
+        'interoves.auth': {
+            'handlers': ['stderr'],
+            'level': 'INFO',
+            'propagate': False,
         },
     }
 }
