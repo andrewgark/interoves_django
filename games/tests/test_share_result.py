@@ -8,6 +8,7 @@ from games.share_result import (
     elapsed_seconds_from_attempts,
     format_archive_result_line,
     format_elapsed,
+    format_elapsed_compact,
     format_share_link,
     share_host_from_value,
 )
@@ -18,6 +19,11 @@ class ShareResultTests(SimpleTestCase):
         self.assertEqual(format_elapsed(5564), '1ч 32м 44с')
         self.assertEqual(format_elapsed(226), '3м 46с')
         self.assertEqual(format_elapsed(9), '9с')
+
+    def test_format_elapsed_compact(self):
+        self.assertEqual(format_elapsed_compact(272), '4:32')
+        self.assertEqual(format_elapsed_compact(8), '0:08')
+        self.assertEqual(format_elapsed_compact(5564), '1:32:44')
 
     def test_format_share_link_strips_slash_and_port(self):
         self.assertEqual(

@@ -2914,7 +2914,6 @@
     e.preventDefault();
   });
 
-  // Копирование результата (как в Wordle): копируем ровно то, что показано в блоке.
   document.addEventListener('click', function (e) {
     var markBtn = e.target && e.target.closest ? e.target.closest('.new-raddle-clue__mark') : null;
     if (markBtn) {
@@ -2925,49 +2924,6 @@
         toggleRaddleClueMark(markRoot, clueLi.getAttribute('data-hint-index'));
       }
       return;
-    }
-    var btn = e.target && e.target.closest ? e.target.closest('.new-raddle-result__copy') : null;
-    if (!btn) return;
-    e.preventDefault();
-    var block = btn.closest('[data-raddle-result]');
-    var el = block && block.querySelector('[data-raddle-share-text]');
-    if (!el) return;
-    var lines = [];
-    el.querySelectorAll('div').forEach(function (d) {
-      var t = (d.textContent || '').trim();
-      if (t) lines.push(t);
-    });
-    var text = lines.length
-      ? lines.join('\n')
-      : (el.innerText || el.textContent || '').trim();
-    if (!text) return;
-    function flash() {
-      if (!btn.getAttribute('data-copy-label')) {
-        btn.setAttribute('data-copy-label', btn.textContent);
-      }
-      btn.textContent = 'Скопировано ✓';
-      setTimeout(function () {
-        btn.textContent = btn.getAttribute('data-copy-label') || 'Скопировать';
-      }, 1600);
-    }
-    function fallback() {
-      try {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'absolute';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        flash();
-      } catch (err) {}
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(flash).catch(fallback);
-    } else {
-      fallback();
     }
   });
 

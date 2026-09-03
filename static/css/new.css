@@ -6969,6 +6969,7 @@ html.is-age-gated .new-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 0.6rem;
   margin-bottom: 0.5rem;
 }
@@ -6979,6 +6980,35 @@ html.is-age-gated .new-wrap {
 }
 .new-raddle-result__copy {
   flex-shrink: 0;
+}
+.new-raddle-result__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.new-share-icon {
+  display: inline-flex;
+  position: relative;
+  width: 1.15em;
+  height: 1.15em;
+  align-items: center;
+  justify-content: center;
+}
+.new-share-icon--copy-image .ph-image-square {
+  font-size: 1.05em;
+  line-height: 1;
+}
+.new-share-icon--copy-image .ph-copy {
+  position: absolute;
+  right: -0.3em;
+  bottom: -0.32em;
+  font-size: 0.62em;
+  line-height: 1;
+  background: var(--surface);
+  border-radius: 2px;
+  padding: 0.02em;
 }
 .new-raddle-result__share {
   line-height: 1.4;

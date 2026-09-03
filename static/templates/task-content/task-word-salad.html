@@ -103,10 +103,10 @@
     </aside>
   </div>
   {% if game.id == 'salad' and ws.is_complete and ws.result_squares %}
-  <div class="new-raddle-result" data-raddle-result>
+  <div class="new-raddle-result" data-raddle-result{% if ws.share_card_json %} data-share-card="{{ ws.share_card_json|escape }}"{% endif %}>
     <div class="new-raddle-result__head">
       <span class="new-raddle-result__label">Результат</span>
-      <button type="button" class="new-btn new-btn--ghost new-btn--mini new-raddle-result__copy">Скопировать</button>
+      {% include "new/partials/daily_share_actions.html" %}
     </div>
     <div class="new-raddle-result__share" data-raddle-share-text><div class="new-raddle-result__title">🥗 {{ tg_name|default:game.outside_name|default:game.name }}</div><div class="new-raddle-result__squares">{{ ws.result_squares }}</div>{% if ws.elapsed_label %}<div class="new-raddle-result__squares">⏱️ {{ ws.elapsed_label }}</div>{% endif %}<div class="new-raddle-result__link">🔗 {{ share_host|default:request.get_host }}/salad/{{ tg_number }}</div></div>
   </div>

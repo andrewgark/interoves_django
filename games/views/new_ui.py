@@ -2760,6 +2760,13 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
         }
     replacements_lines_data = {}
     word_salad_data = {}
+    if placement is None and getattr(task_group, 'pk', None) and getattr(game, 'pk', None):
+        placement = (
+            GameTaskGroup.objects
+            .filter(game_id=game.pk, task_group_id=task_group.pk)
+            .only('number', 'name')
+            .first()
+        )
     for t in tasks:
         if t.task_type == 'replacements_lines':
             parsed = parse_replacements_lines_text(t.text, (t.checker_data or '').strip() or None)
@@ -2857,6 +2864,19 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             word_salad_data[t.id] = build_word_salad_ui_context(
                 grid, words, state, attempts=ai.attempts if ai else [],
             )
+            if str(getattr(game, 'id', '')) == WORD_SALAD_GAME_ID:
+                from games.daily_share_card import attach_salad_share_card
+                attach_salad_share_card(
+                    word_salad_data[t.id],
+                    words=words,
+                    state=state,
+                    game=game,
+                    task=t,
+                    placement=placement,
+                    user=user,
+                    anon_key=anon_key,
+                    attempts=ai.attempts if ai else [],
+                )
     raddle_data = {}
     for t in tasks:
         if t.task_type == 'raddle':
@@ -2902,6 +2922,20 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 'max_attempts': t.get_max_attempts(),
                 'max_points_total': t.get_results_max_points(),
             }
+            if str(getattr(game, 'id', '')) == LADDER_GAME_ID:
+                from games.daily_share_card import attach_ladder_share_card
+                attach_ladder_share_card(
+                    ui,
+                    parsed=parsed,
+                    state=state,
+                    hint_attempts=raddle_hint_attempts,
+                    game=game,
+                    task=t,
+                    placement=placement,
+                    user=user,
+                    anon_key=anon_key,
+                    attempts=ai.attempts if ai else [],
+                )
     proportions_chips = []
     if task_group.view == 'proportions':
         proportions_chips = build_proportions_chips_for_tasks(tasks)
@@ -2909,13 +2943,6 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             tid = c.get('task_id')
             ai = attempts_info_by_task_id.get(tid) if tid is not None else None
             c['hide_from_pool'] = bool(ai and ai.is_solved())
-    if placement is None and getattr(task_group, 'pk', None) and getattr(game, 'pk', None):
-        placement = (
-            GameTaskGroup.objects
-            .filter(game_id=game.pk, task_group_id=task_group.pk)
-            .only('number', 'name')
-            .first()
-        )
     task_ui_by_task_id = {
         t.id: {
             **_task_ui_descriptor(

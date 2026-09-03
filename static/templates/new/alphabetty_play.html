@@ -134,7 +134,7 @@
   <div class="new-raddle-result" id="ab-result" data-raddle-result hidden>
     <div class="new-raddle-result__head">
       <span class="new-raddle-result__label">Результат</span>
-      <button type="button" class="new-btn new-btn--ghost new-btn--mini new-raddle-result__copy" id="ab-result-copy">Скопировать</button>
+      {% include "new/partials/daily_share_actions.html" %}
     </div>
     <div class="new-raddle-result__share" data-raddle-share-text id="ab-result-share"></div>
   </div>
@@ -557,6 +557,7 @@
     if (!lines || !lines.length) {
       elResult.hidden = true;
       elResultShare.innerHTML = '';
+      elResult.removeAttribute('data-share-card');
       return;
     }
     elResultShare.innerHTML = '';
@@ -568,6 +569,15 @@
       div.textContent = line;
       elResultShare.appendChild(div);
     });
+    if (state.share_card) {
+      try {
+        elResult.setAttribute('data-share-card', JSON.stringify(state.share_card));
+      } catch (err) {
+        elResult.removeAttribute('data-share-card');
+      }
+    } else {
+      elResult.removeAttribute('data-share-card');
+    }
     elResult.hidden = false;
   }
 
@@ -720,7 +730,7 @@
   }
 
   function applyState(data) {
-    ['guesses', 'earlier', 'later', 'bounds', 'known_prefix', 'hint_prefix', 'hints', 'next_hint_letter', 'prefix_hint', 'hint_reveal', 'won', 'attempts', 'secret', 'max_word_length', 'share_lines', 'share_text', 'elapsed_label', 'attempts_label'].forEach(function (k) {
+    ['guesses', 'earlier', 'later', 'bounds', 'known_prefix', 'hint_prefix', 'hints', 'next_hint_letter', 'prefix_hint', 'hint_reveal', 'won', 'attempts', 'secret', 'max_word_length', 'share_lines', 'share_text', 'share_card', 'elapsed_label', 'attempts_label'].forEach(function (k) {
       if (data[k] !== undefined) state[k] = data[k];
     });
     if (data.max_word_length) maxLen = data.max_word_length;
@@ -1138,56 +1148,6 @@
 })();
 </script>
 
-<script>
-(function () {
-  document.addEventListener('click', function (e) {
-    var btn = e.target && e.target.closest ? e.target.closest('.new-raddle-result__copy') : null;
-    if (!btn) return;
-    e.preventDefault();
-    var block = btn.closest('[data-raddle-result]');
-    var el = block && block.querySelector('[data-raddle-share-text]');
-    if (!el) return;
-    var lines = [];
-    el.querySelectorAll('div').forEach(function (d) {
-      var t = (d.textContent || '').replace(/\s+$/g, '');
-      if (t) lines.push(t);
-    });
-    var text = lines.join('\n');
-    function done() {
-      if (!btn.getAttribute('data-copy-label')) {
-        btn.setAttribute('data-copy-label', btn.textContent);
-      }
-      btn.textContent = 'Скопировано';
-      setTimeout(function () {
-        btn.textContent = btn.getAttribute('data-copy-label') || 'Скопировать';
-      }, 1200);
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done).catch(function () {
-        try {
-          var ta = document.createElement('textarea');
-          ta.value = text;
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-          done();
-        } catch (err) {}
-      });
-    } else {
-      try {
-        var ta2 = document.createElement('textarea');
-        ta2.value = text;
-        document.body.appendChild(ta2);
-        ta2.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta2);
-        done();
-      } catch (err2) {}
-    }
-  });
-})();
-</script>
 
 <script>
 (function () {

@@ -21,6 +21,18 @@ def format_elapsed(seconds: int | None) -> str:
     return '{}с'.format(secs)
 
 
+def format_elapsed_compact(seconds: int | None) -> str:
+    """4:32 / 1:02:03 — compact clock for share cards."""
+    if seconds is None:
+        seconds = 0
+    seconds = max(0, int(seconds))
+    hours, rem = divmod(seconds, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return '{}:{:02d}:{:02d}'.format(hours, minutes, secs)
+    return '{}:{:02d}'.format(minutes, secs)
+
+
 def format_elapsed_line(seconds: int | None) -> str:
     return '⏱️ {}'.format(format_elapsed(seconds))
 

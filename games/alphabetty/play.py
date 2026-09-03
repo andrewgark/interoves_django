@@ -187,6 +187,23 @@ def attach_solve_meta(
     payload['elapsed_label'] = format_elapsed(elapsed)
     payload['share_lines'] = lines
     payload['share_text'] = '\n'.join(lines)
+    from games.daily_share_card import build_alphabetty_share_payload, publish_date_for
+    placement = None
+    if getattr(task, 'task_group_id', None):
+        placement = (
+            GameTaskGroup.objects
+            .filter(game_id=game.pk, task_group_id=task.task_group_id)
+            .only('number')
+            .first()
+        )
+    payload['share_card'] = build_alphabetty_share_payload(
+        number=number,
+        date_value=publish_date_for(game, getattr(placement, 'number', number)),
+        elapsed_seconds=elapsed,
+        attempts=attempts,
+        hints=hints,
+        locale='ru',
+    )
     return payload
 
 
