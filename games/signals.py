@@ -19,6 +19,18 @@ from games.models import (
 from games.recheck import recheck_queue_from_next, recheck_full
 
 
+def _avatar_url_from_extra(extra):
+    avatar_url = extra.get('photo_medium') or extra.get('picture') or ''
+    if avatar_url:
+        return avatar_url
+    if extra.get('is_avatar_empty'):
+        return ''
+    avatar_id = extra.get('default_avatar_id')
+    if not avatar_id or str(avatar_id) in ('0', '0/0-0'):
+        return ''
+    return 'https://avatars.yandex.net/get-yapic/{}/islands-200'.format(avatar_id)
+
+
 def create_profile(sender, **kw):
     social_account = kw["instance"]
     if not kw["created"]:
@@ -28,10 +40,10 @@ def create_profile(sender, **kw):
     extra = social_account.extra_data or {}
     first_name = extra.get('first_name') or extra.get('given_name') or ''
     last_name = extra.get('last_name') or extra.get('family_name') or ''
-    avatar_url = extra.get('photo_medium') or extra.get('picture') or ''
+    avatar_url = _avatar_url_from_extra(extra)
     vk_id = extra.get('screen_name') or ''
     vk_url = 'vk.com/{}'.format(vk_id) if vk_id else ''
-    email = extra.get('email') or user.email or ''
+    email = extra.get('email') or extra.get('default_email') or user.email or ''
 
     profile, created = Profile.objects.get_or_create(
         user=user,

@@ -16,7 +16,7 @@ class OrderGameLandingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         site, _ = Site.objects.get_or_create(id=1, defaults={'domain': 'testserver', 'name': 'test'})
-        for provider, name in (('google', 'Google'), ('vk', 'VK')):
+        for provider, name in (('google', 'Google'), ('vk', 'VK'), ('yandex', 'Yandex')):
             app, created = SocialApp.objects.get_or_create(
                 provider=provider,
                 defaults={'name': name, 'client_id': 'test', 'secret': 'test'},

@@ -47,6 +47,17 @@ from games.models import (
 PENDING_ACCOUNT_MERGE_SESSION_KEY = 'interoves_pending_account_merge'
 PENDING_ACCOUNT_MERGE_TTL_SECONDS = 10 * 60
 
+SOCIAL_PROVIDER_LABELS = {
+    'google': 'Google',
+    'vk': 'VK',
+    'telegram': 'Telegram',
+    'yandex': 'Яндекс',
+}
+
+
+def social_provider_label(provider):
+    return SOCIAL_PROVIDER_LABELS.get(provider, provider)
+
 
 class AccountMergeError(Exception):
     pass
@@ -174,14 +185,10 @@ def _conflict_message(code):
     if code == 'telegram_identity_conflict':
         return 'К профилям привязаны разные подтверждённые Telegram-аккаунты для оплаты.'
     if code.startswith('provider:'):
-        provider = {'google': 'Google', 'vk': 'VK', 'telegram': 'Telegram'}.get(
-            code.partition(':')[2], code.partition(':')[2],
-        )
+        provider = social_provider_label(code.partition(':')[2])
         return 'К обоим профилям подключены разные аккаунты {}.'.format(provider)
     if code.startswith('multiple_provider:'):
-        provider = {'google': 'Google', 'vk': 'VK', 'telegram': 'Telegram'}.get(
-            code.partition(':')[2], code.partition(':')[2],
-        )
+        provider = social_provider_label(code.partition(':')[2])
         return 'В одном профиле уже несколько аккаунтов {} — нужна ручная проверка.'.format(provider)
     return 'Обнаружен конфликт данных, который требует ручной проверки.'
 

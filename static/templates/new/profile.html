@@ -52,7 +52,7 @@
         <label for="{{ form.avatar_url.id_for_label }}">Ссылка на фото</label>
         {{ form.avatar_url }}
         {% if form.avatar_url.errors %}<span class="new-field-error">{{ form.avatar_url.errors }}</span>{% endif %}
-        <p class="new-login-hint new-profile-avatar-hint">Можно вставить URL картинки (Google/VK обычно ставятся автоматически).</p>
+        <p class="new-login-hint new-profile-avatar-hint">Можно вставить URL картинки (Google/Яндекс/VK обычно ставятся автоматически).</p>
       </div>
     </div>
   </div>
@@ -62,14 +62,37 @@
 <h2 class="new-heading">Аккаунты</h2>
 <div class="new-card">
   {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}
-  <p class="new-login-hint new-profile-accounts-lead">Для входа в этот раздел используется только Google с почтой <strong>@glowbyteconsulting.com</strong>.</p>
-  <div class="new-two new-profile-accounts-row">
-    <div>
+  <p class="new-login-hint new-profile-accounts-lead">Для входа в этот раздел: Google с почтой <strong>@glowbyteconsulting.com</strong> или Яндекс с почтой <strong>@glowbyte.ru</strong>.</p>
+  <div class="new-account-list">
+    <div class="new-account-row">
+      <div class="new-account-icon new-account-icon--google"><i class="ph ph-google-logo" aria-hidden="true"></i></div>
+      <div class="new-account-main">
+        <strong>Google</strong>
       {% if 'google' in connected_providers %}
-        <span class="new-pill new-pill--ok">Google подключён{% if connected_account_labels.google %}: {{ connected_account_labels.google }}{% endif %}</span>
+        <span class="new-account-meta">{{ connected_account_labels.google }}</span>
+        <span class="new-account-status new-account-status--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Подключён</span>
+        {% if can_disconnect_social_account %}
+          <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.google }}" data-provider-label="Google">Отключить</button>
+        {% endif %}
       {% else %}
-        <a class="new-btn" href="{% provider_login_url 'google' process='connect' next=request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Привязать аккаунт Google</a>
+        <a class="new-account-action" href="{% provider_login_url 'google' process='connect' next=request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Подключить</a>
       {% endif %}
+      </div>
+    </div>
+    <div class="new-account-row">
+      <div class="new-account-icon new-account-icon--yandex" aria-hidden="true">Я</div>
+      <div class="new-account-main">
+        <strong>Яндекс</strong>
+      {% if 'yandex' in connected_providers %}
+        <span class="new-account-meta">{{ connected_account_labels.yandex }}</span>
+        <span class="new-account-status new-account-status--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Подключён</span>
+        {% if can_disconnect_social_account %}
+          <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.yandex }}" data-provider-label="Яндекс">Отключить</button>
+        {% endif %}
+      {% else %}
+        <a class="new-account-action" href="{% provider_login_url 'yandex' process='connect' next=request.get_full_path %}">Подключить</a>
+      {% endif %}
+      </div>
     </div>
   </div>
   {% else %}
@@ -86,6 +109,21 @@
         {% endif %}
       {% else %}
         <a class="new-account-action" href="{% provider_login_url 'google' process='connect' next=request.get_full_path %}">Подключить</a>
+      {% endif %}
+      </div>
+    </div>
+    <div class="new-account-row">
+      <div class="new-account-icon new-account-icon--yandex" aria-hidden="true">Я</div>
+      <div class="new-account-main">
+        <strong>Яндекс</strong>
+      {% if 'yandex' in connected_providers %}
+        <span class="new-account-meta">{{ connected_account_labels.yandex }}</span>
+        <span class="new-account-status new-account-status--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Подключён</span>
+        {% if can_disconnect_social_account %}
+          <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.yandex }}" data-provider-label="Яндекс">Отключить</button>
+        {% endif %}
+      {% else %}
+        <a class="new-account-action" href="{% provider_login_url 'yandex' process='connect' next=request.get_full_path %}">Подключить</a>
       {% endif %}
       </div>
     </div>

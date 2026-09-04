@@ -12,9 +12,14 @@ from games.account_merge import stash_pending_account_merge
 
 logger = logging.getLogger(__name__)
 
-# Glowbyte UI (/glowbyte/...) — только Google и только корпоративная почта (см. also base.html).
+# Glowbyte UI (/glowbyte/...) — Google @glowbyteconsulting.com или Яндекс @glowbyte.ru.
 GLOWBYTE_OAUTH_PATH_MARKER = '/glowbyte'
 GLOWBYTE_GOOGLE_EMAIL_SUFFIX = '@glowbyteconsulting.com'
+GLOWBYTE_YANDEX_EMAIL_SUFFIX = '@glowbyte.ru'
+GLOWBYTE_PROVIDER_EMAIL_SUFFIXES = {
+    'google': GLOWBYTE_GOOGLE_EMAIL_SUFFIX,
+    'yandex': GLOWBYTE_YANDEX_EMAIL_SUFFIX,
+}
 
 
 def _oauth_next_targets_glowbyte(sociallogin) -> bool:
@@ -25,6 +30,21 @@ def _oauth_next_targets_glowbyte(sociallogin) -> bool:
     return GLOWBYTE_OAUTH_PATH_MARKER in next_url
 
 
+def _sociallogin_email(sociallogin) -> str:
+    email = ((sociallogin.user and sociallogin.user.email) or '').strip().lower()
+    if email:
+        return email
+    extra = getattr(getattr(sociallogin, 'account', None), 'extra_data', None) or {}
+    email = (extra.get('default_email') or extra.get('email') or '').strip().lower()
+    if email:
+        return email
+    for address in (sociallogin.email_addresses or []):
+        candidate = (getattr(address, 'email', None) or '').strip().lower()
+        if candidate:
+            return candidate
+    return ''
+
+
 class AccountAdapter(DefaultAccountAdapter):
     pass
 
@@ -33,12 +53,12 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
     def pre_social_login(self, request, sociallogin):
         if _oauth_next_targets_glowbyte(sociallogin):
             provider = sociallogin.account.provider
-            if provider == 'vk':
+            suffix = GLOWBYTE_PROVIDER_EMAIL_SUFFIXES.get(provider)
+            if suffix is None:
                 raise ImmediateHttpResponse(redirect('/glowbyte/?auth=vk_not_allowed'))
-            if provider == 'google':
-                email = ((sociallogin.user and sociallogin.user.email) or '').strip().lower()
-                if not email.endswith(GLOWBYTE_GOOGLE_EMAIL_SUFFIX.lower()):
-                    raise ImmediateHttpResponse(redirect('/glowbyte/?auth=email_not_allowed'))
+            email = _sociallogin_email(sociallogin)
+            if not email.endswith(suffix.lower()):
+                raise ImmediateHttpResponse(redirect('/glowbyte/?auth=email_not_allowed'))
 
         process = (getattr(sociallogin, 'state', None) or {}).get('process')
 

@@ -334,14 +334,16 @@
       <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-login-close><i class="ph ph-x" aria-hidden="true"></i></button>
       <h2 id="new-login-title" class="pal-title">Войти</h2>
       {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}
-      <p class="pal-lead">Вход только через Google с рабочей почтой <strong>@glowbyteconsulting.com</strong>.</p>
+      <p class="pal-lead">Google с почтой <strong>@glowbyteconsulting.com</strong> или Яндекс с почтой <strong>@glowbyte.ru</strong>.</p>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
         <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Войти через Google</a>
+        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=request.get_full_path %}">Войти через Яндекс</a>
       </div>
       {% else %}
       <p class="pal-lead">Выберите способ входа.</p>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
         <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.get_full_path %}">Войти через Google</a>
+        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=request.get_full_path %}">Войти через Яндекс</a>
         <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' next=request.get_full_path %}">Войти через VK</a>
         <a class="new-btn new-btn--ghost" href="{% url 'telegram_login' %}?next={{ request.get_full_path|urlencode }}">Войти через Telegram</a>
       </div>

@@ -1865,6 +1865,11 @@ html.new-ui-dark body.new-ui {
 }
 
 .new-account-icon--google { color: #4285f4; }
+.new-account-icon--yandex {
+  color: #FC3F1D;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
 .new-account-icon--vk { color: #2787f5; }
 .new-account-icon--telegram { color: #229ed9; }
 

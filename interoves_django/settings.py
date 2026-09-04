@@ -299,6 +299,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'allauth.socialaccount.providers.vk',
     'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.yandex',
     # 'games.telegram',
 
     # 'django_telegram_login',
@@ -694,7 +695,10 @@ SOCIALACCOUNT_PROVIDERS = {
     'telegram': {
         'SCOPE': ['openid', 'profile'],
         'OAUTH_PKCE_ENABLED': True,
-    }
+    },
+    'yandex': {
+        'SCOPE': ['login:info', 'login:email'],
+    },
 }
 
 # TELEGRAM_BOT_NAME = 'interoves_bot'

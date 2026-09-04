@@ -24,7 +24,7 @@ from games.word_salad import WORD_SALAD_GAME_ID
 
 def _ensure_social_apps():
     site = Site.objects.get_current()
-    for provider in ('google', 'vk'):
+    for provider in ('google', 'vk', 'yandex'):
         app, _ = SocialApp.objects.get_or_create(
             provider=provider,
             defaults={'name': provider, 'client_id': 'test', 'secret': 'test'},

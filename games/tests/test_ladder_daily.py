@@ -186,7 +186,7 @@ class LadderSectionPageTests(TestCase):
         from django.contrib.sites.models import Site
 
         site = Site.objects.get_current()
-        for provider in ('google', 'vk'):
+        for provider in ('google', 'vk', 'yandex'):
             app, _ = SocialApp.objects.get_or_create(
                 provider=provider,
                 defaults={'name': provider, 'client_id': 'test', 'secret': 'test'},

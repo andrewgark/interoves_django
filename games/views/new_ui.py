@@ -36,6 +36,8 @@ from django.utils import timezone
 
 from allauth.socialaccount.models import SocialAccount
 
+from games.account_merge import social_provider_label
+
 from games.access import game_has_started
 from games.analytics import (
     YANDEX_GOAL_TICKET_CHECKOUT,
@@ -4168,7 +4170,10 @@ def new_profile(request, project_id=None):
         extra = account.extra_data or {}
         label = (
             extra.get('email')
+            or extra.get('default_email')
             or extra.get('name')
+            or extra.get('display_name')
+            or extra.get('login')
             or extra.get('preferred_username')
             or extra.get('screen_name')
             or str(account.uid)
@@ -4243,9 +4248,7 @@ def new_account_merge_confirm(request):
         return redirect('ui_profile')
 
     preview = build_account_merge_preview(request.user, source)
-    provider_label = {'google': 'Google', 'vk': 'VK', 'telegram': 'Telegram'}.get(
-        pending['provider'], pending['provider'],
-    )
+    provider_label = social_provider_label(pending['provider'])
     if request.method == 'POST':
         if request.POST.get('action') != 'merge':
             next_url = pending['next']
@@ -4302,9 +4305,7 @@ def new_social_account_disconnect(request):
     from allauth.socialaccount.internal.flows.connect import validate_disconnect
     from django.utils.http import url_has_allowed_host_and_scheme
 
-    provider_label = {'google': 'Google', 'vk': 'VK', 'telegram': 'Telegram'}.get(
-        account.provider, account.provider,
-    )
+    provider_label = social_provider_label(account.provider)
     validate_disconnect(request, account)
     account.delete()
     socialaccount_signals.social_account_removed.send(

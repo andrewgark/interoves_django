@@ -166,3 +166,14 @@ Local files (or EB env vars):
 eb setenv TWITTER_API_KEY='...' TWITTER_API_SECRET='...'   TWITTER_ACCESS_TOKEN='...' TWITTER_ACCESS_TOKEN_SECRET='...'
 ```
 
+## Yandex ID (site login)
+
+Login through Яндекс uses django-allauth (`/accounts/yandex/login/`). Client id and secret live in Django admin → **Social applications** (`provider=yandex`), same as Google/VK — not EB env vars.
+
+1. Create a web app at [oauth.yandex.ru](https://oauth.yandex.ru/).
+2. Redirect URI:
+   - prod: `https://interoves.com/accounts/yandex/login/callback/`
+   - local: `http://127.0.0.1:8000/accounts/yandex/login/callback/` (plus your real dev host if different)
+3. Accesses: `login:info`, `login:email`.
+4. Paste ClientID / Client secret into the Yandex SocialApp (placeholder row is created by migration `0197_ensure_yandex_social_app`). Attach the app to the current Site (`SITE_ID=2` in prod). Local copies (gitignored): `secrets/yandex_oauth_client_id.txt` and `secrets/yandex_oauth_client_secret.txt`.
+
