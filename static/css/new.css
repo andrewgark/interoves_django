@@ -9244,7 +9244,7 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
 }
 
 html.new-ui-dark .new-word-salad__links line {
-  stroke: #fff;
+  stroke: color-mix(in srgb, var(--muted) 40%, var(--surface));
 }
 
 .new-word-salad__path {
