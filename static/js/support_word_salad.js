@@ -23,6 +23,7 @@
     publishStart: config.dataset.publishStartUrl,
     detail: config.dataset.detailUrl,
     save: config.dataset.saveUrl,
+    recheck: config.dataset.recheckUrl,
     remove: config.dataset.deleteUrl,
     offerDetail: config.dataset.offerDetailUrl,
     offerSave: config.dataset.offerSaveUrl,
@@ -59,7 +60,7 @@
   function setBusy(value) {
     busy = !!value;
     list.classList.toggle('is-busy', busy);
-    document.querySelectorAll('[data-insert-end], #word-salad-edit-save, #word-salad-edit-delete, #word-salad-offer-save, #word-salad-offer-accept').forEach(function (button) {
+    document.querySelectorAll('[data-insert-end], #word-salad-edit-save, #word-salad-edit-recheck, #word-salad-edit-delete, #word-salad-offer-save, #word-salad-offer-accept').forEach(function (button) {
       button.disabled = busy;
     });
   }
@@ -446,6 +447,24 @@
 
   document.getElementById('word-salad-edit-delete').addEventListener('click', function () {
     if (editLinkId != null) removeItem(editLinkId);
+  });
+
+  document.getElementById('word-salad-edit-recheck').addEventListener('click', function () {
+    if (busy || editLinkId == null) return;
+    if (!window.confirm('Перепроверить все посылки всех игроков? Цепочки будут пересобраны, уже собранным салатикам новые слова засчитаются в момент последней успешной посылки.')) return;
+    clearError();
+    setBusy(true);
+    support.postJson(endpoint(endpoints.recheck, editLinkId), {})
+      .then(function (data) {
+        var stats = data.recheck || {};
+        var actors = stats.actors || 0;
+        var credited = stats.credited || 0;
+        alert('Перепроверено игроков: ' + actors + (credited ? (', добавлено ответов: ' + credited) : ''));
+      })
+      .catch(function (error) {
+        showError(error.message || String(error));
+      })
+      .finally(function () { setBusy(false); });
   });
 
   document.getElementById('word-salad-offer-save').addEventListener('click', function () {

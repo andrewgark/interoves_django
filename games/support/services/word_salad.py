@@ -453,6 +453,24 @@ def update_word_salad(
     return get_word_salad_detail(link.pk)
 
 
+def recheck_word_salad(link_id: int) -> dict[str, int]:
+    link = (
+        GameTaskGroup.objects.filter(game=get_word_salad_game(), pk=link_id)
+        .select_related('task_group')
+        .first()
+    )
+    if link is None:
+        raise WordSaladSupportError('Салатик не найден')
+    task = _task_for_link(link)
+    if task is None:
+        raise WordSaladSupportError('Задание не найдено')
+    from games.recheck import recheck_word_salad_task
+    try:
+        return recheck_word_salad_task(task, game=link.game)
+    except ValueError as exc:
+        raise WordSaladSupportError(str(exc)) from exc
+
+
 @transaction.atomic
 def reorder_word_salads(
     ordered_link_ids: list[int],

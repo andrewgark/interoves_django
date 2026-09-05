@@ -268,5 +268,20 @@ class WordSaladSupportTests(TestCase):
         self.assertContains(response, 'new-rules-modal')
         self.assertNotContains(response, 'word-salad-edit-name')
         self.assertContains(response, 'word-salad-edit-intro')
+        self.assertContains(response, 'word-salad-edit-recheck')
+        self.assertContains(response, 'data-recheck-url')
         self.assertContains(response, 'data-tab="sent"')
         self.assertContains(response, 'word_salad_grid_editor.js')
+
+    def test_recheck_endpoint_rebuilds_empty_salad(self):
+        self.client.force_login(self.support_user)
+        with patch('games.views.track.track_task_change'):
+            detail = create_word_salad()
+        with patch('games.views.track.track_actor_task_change'):
+            response = self.client.post(
+                reverse('support:word_salad_recheck', kwargs={'link_id': detail['link_id']}),
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        self.assertEqual(response.json()['recheck']['actors'], 0)
+        self.assertEqual(response.json()['recheck']['credited'], 0)

@@ -26,6 +26,7 @@ from games.models import (
 from games.views.attempt_views import check_attempt
 from games.views.hint_views import process_send_hint_attempt
 from games.views.new_ui import build_task_group_task_context_dicts, new_task_group_page
+from games.recheck import recheck_word_salad_task
 from games.word_salad import (
     OVERFLOW_HINT_SQUARE,
     archive_card_meta,
@@ -669,6 +670,105 @@ class WordSaladTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'ABCDEFGHIJKLMNOP')
         self.assertContains(response, 'Подсказка слова 1')
+
+    def test_recheck_credits_new_words_at_last_ok_time(self):
+        anon_key = 'word-salad-recheck-complete'
+        with patch('games.views.attempt_views.track_actor_task_change'):
+            response = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': anon_key,
+                    'action': 'solve',
+                    'path': json.dumps(_path()),
+                    'correct_only': '1',
+                },
+            )
+        self.assertTrue(response.json()['word_salad_correct'])
+        original = Attempt.manager.get(task=self.task, anon_key=anon_key)
+        last_ok_time = timezone.now() - timedelta(hours=2)
+        extra_time = last_ok_time + timedelta(minutes=8)
+        Attempt.manager.filter(pk=original.pk).update(time=last_ok_time)
+        extra = Attempt(
+            anon_key=anon_key,
+            task=self.task,
+            game=self.game,
+            text=json.dumps({'action': 'solve', 'path': [4, 5, 6]}),
+            status='Wrong',
+            points=0,
+        )
+        extra.save()
+        Attempt.manager.filter(pk=extra.pk).update(time=extra_time)
+
+        payload = json.loads(self.task.checker_data)
+        payload['words'] = ['ABCDEFGHIJKLMNOP', 'ABCD']
+        self.task.checker_data = json.dumps(payload, ensure_ascii=False)
+        self.task.save(update_fields=['checker_data'])
+
+        with patch('games.views.track.track_actor_task_change'):
+            stats = recheck_word_salad_task(self.task, game=self.game, notify=False)
+        self.assertEqual(stats['actors'], 1)
+        self.assertEqual(stats['credited'], 1)
+
+        attempts = list(
+            Attempt.manager.filter(task=self.task, anon_key=anon_key).order_by('time', 'id')
+        )
+        self.assertEqual(len(attempts), 3)
+        original.refresh_from_db()
+        extra.refresh_from_db()
+        synthetic = next(item for item in attempts if item.pk not in {original.pk, extra.pk})
+        self.assertEqual(original.time, last_ok_time)
+        self.assertEqual(synthetic.time, last_ok_time)
+        self.assertEqual(extra.time, extra_time)
+        self.assertEqual(extra.pk, attempts[-1].pk)
+        self.assertEqual(synthetic.status, 'Ok')
+        self.assertEqual(
+            sorted(json.loads(synthetic.state)['solved_indices']),
+            [0, 1],
+        )
+        last_ok = max(
+            (item.time for item in attempts if item.status == 'Ok' and item.time is not None),
+        )
+        self.assertEqual(last_ok, last_ok_time)
+        chain = ChainTaskState.objects.get(
+            task=self.task, anon_key=anon_key, game=self.game, game_mode='general',
+        )
+        self.assertEqual(sorted(json.loads(chain.state)['solved_indices']), [0, 1])
+
+        with patch('games.views.track.track_actor_task_change'):
+            again = recheck_word_salad_task(self.task, game=self.game, notify=False)
+        self.assertEqual(again['credited'], 0)
+        self.assertEqual(
+            Attempt.manager.filter(task=self.task, anon_key=anon_key).count(),
+            3,
+        )
+
+    def test_recheck_does_not_complete_unfinished_actor(self):
+        anon_key = 'word-salad-recheck-hint'
+        with patch('games.views.attempt_views.track_actor_task_change'):
+            hint = self.client.post(
+                '/send_hint_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': anon_key,
+                    'action': 'hint',
+                    'word_index': '0',
+                },
+            )
+        self.assertEqual(hint.status_code, 200)
+        payload = json.loads(self.task.checker_data)
+        payload['words'] = ['ABCDEFGHIJKLMNOP', 'ABCD']
+        self.task.checker_data = json.dumps(payload, ensure_ascii=False)
+        self.task.save(update_fields=['checker_data'])
+
+        with patch('games.views.track.track_actor_task_change'):
+            stats = recheck_word_salad_task(self.task, game=self.game, notify=False)
+        self.assertEqual(stats['credited'], 0)
+        attempts = list(Attempt.manager.filter(task=self.task, anon_key=anon_key))
+        self.assertEqual(len(attempts), 1)
+        self.assertNotEqual(attempts[0].status, 'Ok')
+        state = json.loads(attempts[0].state or '{}')
+        self.assertEqual(state.get('solved_indices') or [], [])
 
 
 class AttemptPrettyTextTests(SimpleTestCase):

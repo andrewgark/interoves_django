@@ -61,6 +61,7 @@ from games.support.services.word_salad import (
     delete_word_salad,
     get_word_salad_detail,
     list_word_salad_rows,
+    recheck_word_salad,
     reorder_word_salads,
     set_publish_start as word_salad_set_publish_start_service,
     update_word_salad,
@@ -361,6 +362,19 @@ def word_salad_save(request, link_id):
         'detail': detail,
         'rows': [row.to_dict() for row in list_word_salad_rows()],
     })
+
+
+@support_console_required
+@require_POST
+def word_salad_recheck(request, link_id):
+    try:
+        stats = recheck_word_salad(link_id)
+    except WordSaladSupportError as exc:
+        return _word_salad_error_response(exc)
+    except Exception as exc:
+        logger.exception('Word Salad recheck failed link_id=%s', link_id)
+        return _word_salad_error_response(exc, status=500)
+    return JsonResponse({'ok': True, 'recheck': stats})
 
 
 @support_console_required

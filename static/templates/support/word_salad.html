@@ -59,6 +59,7 @@
       <button type="button" class="new-btn" id="word-salad-edit-save">Сохранить</button>
       <button type="button" class="new-btn new-btn--ghost" data-word-salad-close>Отмена</button>
       <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="word-salad-edit-preview">открыть на сайте</a>
+      <button type="button" class="new-btn new-btn--mini new-btn--ghost" id="word-salad-edit-recheck">Перепроверить</button>
       <button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" id="word-salad-edit-delete">удалить</button>
     </div>
   </div>
@@ -125,6 +126,7 @@
   data-publish-start-url="{% url 'support:word_salad_publish_start' %}"
   data-detail-url="{% url 'support:word_salad_detail' 0 %}"
   data-save-url="{% url 'support:word_salad_save' 0 %}"
+  data-recheck-url="{% url 'support:word_salad_recheck' 0 %}"
   data-delete-url="{% url 'support:word_salad_delete' 0 %}"
   data-offer-detail-url="{% url 'support:word_salad_offer_detail' 0 %}"
   data-offer-save-url="{% url 'support:word_salad_offer_save' 0 %}"
