@@ -3161,6 +3161,7 @@ html.new-ui-dark .new-team-switcher-active-box {
 
 .new-daily-solve__stage {
   position: relative;
+  isolation: isolate;
 }
 
 .new-daily-solve__overlay {
@@ -3173,6 +3174,13 @@ html.new-ui-dark .new-team-switcher-active-box {
   padding: 1.5rem 1rem;
   background: color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: blur(6px);
+}
+
+/* Keep salad empty-cell octagons (z-index 4) and similar widget layers
+   inside the board so they cannot paint above the pause overlay. */
+.new-daily-solve [data-daily-solve-board] {
+  position: relative;
+  z-index: 0;
 }
 
 .new-daily-solve__overlay[hidden] {
