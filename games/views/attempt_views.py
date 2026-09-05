@@ -448,6 +448,10 @@ def process_send_attempt(request, task_id):
         attempt = Attempt(text=word)
     elif task.task_type == 'word_salad':
         action = (request.POST.get('action') or 'solve').strip().lower()
+        if action == 'sync_finds':
+            return _process_word_salad_sync_finds(
+                request, task, team, user, anon_key, game,
+            )
         if action == 'hint':
             try:
                 word_index = int(request.POST.get('word_index', -1))
@@ -479,8 +483,6 @@ def process_send_attempt(request, task_id):
             if not path:
                 return {'status': 'empty'}
             attempt = Attempt(text=json.dumps({'action': 'solve', 'path': path}))
-            # Wrong/extra Salad paths are deliberately not persisted, but a
-            # submitted non-empty path is still a real gameplay interaction.
             is_game_start_interaction = True
     elif task.task_type == 'grid-puzzle':
         try:
@@ -604,6 +606,7 @@ def process_send_attempt(request, task_id):
                 pass
     if task.task_type == 'word_salad':
         from games.word_salad import (
+            EXTRA_FOUND_COMMENT,
             RARE_FOUND_COMMENT,
             extra_found_word_from_attempt,
             path_cells_remain_active,
@@ -611,11 +614,17 @@ def process_send_attempt(request, task_id):
         )
 
         rare_found = attempt_persisted and (attempt.comment or '') == RARE_FOUND_COMMENT
-        result['word_salad_correct'] = bool(attempt_persisted) and not rare_found
+        extra_found = attempt_persisted and (attempt.comment or '') == EXTRA_FOUND_COMMENT
+        result['word_salad_correct'] = bool(attempt_persisted) and not rare_found and not extra_found
         if rare_found:
             written, _words, _rare_words = path_word_from_attempt(task, attempt)
             if written:
                 result['word_salad_rare'] = written
+            result['word_salad_keep_selection'] = True
+        elif extra_found:
+            written, _words, _rare_words = path_word_from_attempt(task, attempt)
+            if written:
+                result['word_salad_extra'] = written
             result['word_salad_keep_selection'] = True
         elif result['word_salad_correct']:
             try:
@@ -658,6 +667,74 @@ def process_send_attempt(request, task_id):
                 current_mode=current_mode,
                 reason='attempt.submitted',
             )
+        result.update(update_html)
+    return result
+
+
+def _process_word_salad_sync_finds(request, task, team, user, anon_key, game):
+    try:
+        raw_words = json.loads(request.POST.get('words') or '[]')
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {'status': 'invalid_form'}
+    if not isinstance(raw_words, list):
+        return {'status': 'invalid_form'}
+
+    from games.recheck import sync_word_salad_finds
+    from games.word_salad import build_ui_context, parse_task_payload
+
+    stats = sync_word_salad_finds(
+        task, raw_words,
+        team=team, user=user, anon_key=anon_key, game=game,
+    )
+    grid, words, rares = parse_task_payload(task.checker_data, task.answer or '')
+    ui = build_ui_context(grid, words, stats['state'], rare_words=rares)
+    result = {
+        'status': 'ok',
+        'task_id': task.id,
+        'word_salad_extras': ui['extra_words'],
+        'word_salad_rares': [word['normalized'] for word in ui['rare_words']],
+        'word_salad_credited': stats['credited'],
+    }
+    credited = stats['credited']
+    credited_any = bool(credited['extra'] or credited['rare'] or credited['answer'])
+    analytics_events = []
+    if credited_any:
+        analytics_events.extend(register_started_game(
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            analytics_user=request.user if request.user.is_authenticated else None,
+            task=task,
+            game=game,
+        ))
+    if credited['answer'] and supported_game_kind(game) and is_task_completion_state(task, stats['state']):
+        analytics_events.extend(register_completed_game(
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            analytics_user=request.user if request.user.is_authenticated else None,
+            task=task,
+            game=game,
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        ))
+    if analytics_events:
+        result['analytics_events'] = analytics_events
+    if credited['answer']:
+        current_mode = game.get_current_mode(Attempt(time=timezone.now(), game=game, task=task))
+        update_html = update_task_html(
+            request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+        )
+        track_actor_task_change(
+            task,
+            team=team,
+            update_html=update_html,
+            request=request,
+            game=game,
+            user=user,
+            anon_key=anon_key,
+            current_mode=current_mode,
+            reason='attempt.submitted',
+        )
         result.update(update_html)
     return result
 

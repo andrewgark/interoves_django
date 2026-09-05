@@ -42,6 +42,8 @@ from games.word_salad import (
     theme_from_text,
     extra_found_word,
     path_cells_remain_active,
+    EXTRA_FOUND_COMMENT,
+    RARE_FOUND_COMMENT,
     RARE_FOUND_TOOLTIP,
     validate_task_data,
 )
@@ -443,24 +445,138 @@ class WordSaladTests(TestCase):
             1,
         )
 
-    def test_correct_only_reports_dictionary_extra_without_saving(self):
+    def test_correct_only_saves_dictionary_extra(self):
         with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
-            response = self.client.post(
-                '/send_attempt/{}/'.format(self.task.pk),
-                {
-                    'game_id': self.game.pk,
-                    'anon_key': 'word-salad-extra-test',
-                    'action': 'solve',
-                    'path': json.dumps([0, 1, 2]),
-                    'correct_only': '1',
-                },
-            )
+            with patch('games.views.attempt_views.track_actor_task_change'):
+                response = self.client.post(
+                    '/send_attempt/{}/'.format(self.task.pk),
+                    {
+                        'game_id': self.game.pk,
+                        'anon_key': 'word-salad-extra-test',
+                        'action': 'solve',
+                        'path': json.dumps([0, 1, 2]),
+                        'correct_only': '1',
+                    },
+                )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload['status'], 'ok')
         self.assertFalse(payload['word_salad_correct'])
         self.assertEqual(payload['word_salad_extra'], 'ABC')
-        self.assertFalse(Attempt.manager.filter(task=self.task, anon_key='word-salad-extra-test').exists())
+        self.assertTrue(payload.get('word_salad_keep_selection'))
+        self.assertNotIn('update_task_html_new', payload)
+        attempt = Attempt.manager.get(task=self.task, anon_key='word-salad-extra-test')
+        self.assertEqual(attempt.status, 'Partial')
+        self.assertEqual(attempt.comment, EXTRA_FOUND_COMMENT)
+        self.assertEqual(attempt.points, 0)
+        state = json.loads(ChainTaskState.objects.get(
+            task=self.task,
+            anon_key='word-salad-extra-test',
+            game=self.game,
+            game_mode='general',
+        ).state)
+        self.assertEqual(state['found_extra'], ['ABC'])
+        ui = build_ui_context(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+            state,
+        )
+        self.assertEqual(ui['extra_words'], ['ABC'])
+        self.assertEqual(ui['rare_words'], [])
+
+    def test_sync_finds_persists_localstorage_extra(self):
+        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
+            response = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': 'word-salad-sync-extra',
+                    'action': 'sync_finds',
+                    'words': json.dumps(['ABC', '????', 'ABC']),
+                },
+            )
+        payload = response.json()
+        self.assertEqual(payload['status'], 'ok')
+        self.assertEqual(payload['word_salad_extras'], ['ABC'])
+        self.assertEqual(payload['word_salad_rares'], [])
+        self.assertEqual(payload['word_salad_credited']['extra'], ['ABC'])
+        self.assertEqual(
+            Attempt.manager.filter(task=self.task, anon_key='word-salad-sync-extra').count(),
+            1,
+        )
+        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
+            again = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': 'word-salad-sync-extra',
+                    'action': 'sync_finds',
+                    'words': json.dumps(['ABC']),
+                },
+            )
+        self.assertEqual(again.json()['word_salad_credited']['extra'], [])
+        self.assertEqual(
+            Attempt.manager.filter(task=self.task, anon_key='word-salad-sync-extra').count(),
+            1,
+        )
+
+    def test_sync_finds_promotes_extra_word_to_rare(self):
+        self.task.checker_data = serialize_task_data(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+            'ABC',
+        )
+        self.task.save(update_fields=['checker_data'])
+        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
+            response = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': 'word-salad-sync-rare',
+                    'action': 'sync_finds',
+                    'words': json.dumps(['ABC']),
+                },
+            )
+        payload = response.json()
+        self.assertEqual(payload['word_salad_rares'], ['ABC'])
+        self.assertEqual(payload['word_salad_extras'], [])
+        self.assertEqual(payload['word_salad_credited']['rare'], ['ABC'])
+        attempt = Attempt.manager.get(task=self.task, anon_key='word-salad-sync-rare')
+        self.assertEqual(attempt.comment, RARE_FOUND_COMMENT)
+
+    def test_sync_finds_uses_last_play_time(self):
+        anon_key = 'word-salad-sync-stamp'
+        with patch('games.views.attempt_views.track_actor_task_change'):
+            solved = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': anon_key,
+                    'action': 'solve',
+                    'path': json.dumps(_path()),
+                    'correct_only': '1',
+                },
+            )
+        self.assertTrue(solved.json()['word_salad_correct'])
+        original = Attempt.manager.get(task=self.task, anon_key=anon_key)
+        last_play = timezone.now() - timedelta(hours=3)
+        Attempt.manager.filter(pk=original.pk).update(time=last_play)
+        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
+            response = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': anon_key,
+                    'action': 'sync_finds',
+                    'words': json.dumps(['ABC']),
+                },
+            )
+        self.assertEqual(response.json()['word_salad_credited']['extra'], ['ABC'])
+        extra = Attempt.manager.exclude(pk=original.pk).get(task=self.task, anon_key=anon_key)
+        extra.refresh_from_db()
+        original.refresh_from_db()
+        self.assertEqual(original.time, last_play)
+        self.assertEqual(extra.time, last_play)
 
     def test_correct_only_saves_matching_word_salad_path(self):
         with patch('games.views.attempt_views.track_actor_task_change'):
@@ -623,6 +739,7 @@ class WordSaladTests(TestCase):
             game_mode='general',
         ).state)
         self.assertEqual(state['found_rare'], [0])
+        self.assertEqual(state['found_rare_words'], ['ABCD'])
         self.assertEqual(state['solved_indices'], [])
         self.assertTrue(payload.get('word_salad_keep_selection'))
         self.assertNotIn('update_task_html_new', payload)
@@ -635,6 +752,26 @@ class WordSaladTests(TestCase):
         self.assertEqual(ui['rare_tooltip'], RARE_FOUND_TOOLTIP)
         self.assertIn('не требуется', ui['rare_tooltip'])
         self.assertEqual([word['normalized'] for word in ui['rare_words']], ['ABCD'])
+
+    def test_found_extra_shows_as_rare_when_added_to_rare_list(self):
+        ui = build_ui_context(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+            {'found_extra': ['ABCD']},
+            rare_words=['ABCD'],
+        )
+        self.assertEqual([word['normalized'] for word in ui['rare_words']], ['ABCD'])
+        self.assertEqual(ui['extra_words'], [])
+
+    def test_found_rare_shows_as_extra_when_removed_from_rare_list(self):
+        ui = build_ui_context(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+            {'found_rare': [0], 'found_rare_words': ['ABCD']},
+            rare_words=[],
+        )
+        self.assertEqual(ui['rare_words'], [])
+        self.assertEqual(ui['extra_words'], ['ABCD'])
 
     def test_path_cells_remain_active(self):
         self.assertTrue(path_cells_remain_active({'active': [0, 1, 2, 3]}, [0, 1, 2, 3]))
@@ -826,6 +963,91 @@ class WordSaladTests(TestCase):
         self.assertNotEqual(attempts[0].status, 'Ok')
         state = json.loads(attempts[0].state or '{}')
         self.assertEqual(state.get('solved_indices') or [], [])
+
+    def test_recheck_promotes_extra_to_rare(self):
+        anon_key = 'word-salad-recheck-extra-to-rare'
+        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
+            with patch('games.views.attempt_views.track_actor_task_change'):
+                response = self.client.post(
+                    '/send_attempt/{}/'.format(self.task.pk),
+                    {
+                        'game_id': self.game.pk,
+                        'anon_key': anon_key,
+                        'action': 'solve',
+                        'path': json.dumps([0, 1, 2]),
+                        'correct_only': '1',
+                    },
+                )
+        self.assertEqual(response.json().get('word_salad_extra'), 'ABC')
+        self.task.checker_data = serialize_task_data(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+            'ABC',
+        )
+        self.task.save(update_fields=['checker_data'])
+        with patch('games.views.track.track_actor_task_change'):
+            recheck_word_salad_task(self.task, game=self.game, notify=False)
+        attempt = Attempt.manager.get(task=self.task, anon_key=anon_key)
+        self.assertEqual(attempt.status, 'Partial')
+        self.assertEqual(attempt.comment, RARE_FOUND_COMMENT)
+        state = json.loads(ChainTaskState.objects.get(
+            task=self.task, anon_key=anon_key, game=self.game, game_mode='general',
+        ).state)
+        self.assertEqual(state['found_rare'], [0])
+        self.assertEqual(state['found_rare_words'], ['ABC'])
+        self.assertEqual(state['found_extra'], [])
+        ui = build_ui_context(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+            state,
+            rare_words=['ABC'],
+        )
+        self.assertEqual([word['normalized'] for word in ui['rare_words']], ['ABC'])
+        self.assertEqual(ui['extra_words'], [])
+
+    def test_recheck_demotes_rare_to_extra(self):
+        anon_key = 'word-salad-recheck-rare-to-extra'
+        self.task.checker_data = serialize_task_data(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+            'ABCD',
+        )
+        self.task.save(update_fields=['checker_data'])
+        with patch('games.views.attempt_views.track_actor_task_change'):
+            response = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': anon_key,
+                    'action': 'solve',
+                    'path': json.dumps([0, 1, 2, 3]),
+                    'correct_only': '1',
+                },
+            )
+        self.assertEqual(response.json().get('word_salad_rare'), 'ABCD')
+        self.task.checker_data = serialize_task_data(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+        )
+        self.task.save(update_fields=['checker_data'])
+        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABCD'})):
+            with patch('games.views.track.track_actor_task_change'):
+                recheck_word_salad_task(self.task, game=self.game, notify=False)
+        attempt = Attempt.manager.get(task=self.task, anon_key=anon_key)
+        self.assertEqual(attempt.status, 'Partial')
+        self.assertEqual(attempt.comment, EXTRA_FOUND_COMMENT)
+        state = json.loads(ChainTaskState.objects.get(
+            task=self.task, anon_key=anon_key, game=self.game, game_mode='general',
+        ).state)
+        self.assertEqual(state['found_rare'], [])
+        self.assertEqual(state['found_extra'], ['ABCD'])
+        ui = build_ui_context(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+            state,
+        )
+        self.assertEqual(ui['rare_words'], [])
+        self.assertEqual(ui['extra_words'], ['ABCD'])
 
 
 class AttemptPrettyTextTests(SimpleTestCase):

@@ -152,6 +152,21 @@ function escapeEvent(overrides) {
   assert.strictEqual(answer.changed, false);
 })();
 
+(function testExtrasStayWhenPromotedToRare() {
+  assert.deepStrictEqual(
+    Path.extrasForDisplay(['КОБРА', 'СУРОК', 'ЯНАО'], { СУРОК: true }),
+    ['КОБРА', 'ЯНАО']
+  );
+  assert.deepStrictEqual(
+    Path.mergeFoundWords(['КОБРА', 'СУРОК'], ['ЯНАО', 'КОБРА']),
+    ['КОБРА', 'СУРОК', 'ЯНАО']
+  );
+  assert.deepStrictEqual(
+    Path.promoteConfiguredRares(['КОБРА', 'СУРОК', 'ЯНАО'], ['СУРОК'], ['БЕЛКА']),
+    ['БЕЛКА', 'СУРОК']
+  );
+})();
+
 (function testDelayedExtraCommitOnlyForUnchangedPath() {
   assert.strictEqual(Path.EXTRA_COMMIT_DELAY_MS, 500);
   assert.strictEqual(Path.shouldCommitExtra('0,1,2,3', '0,1,2,3', false, true), true);

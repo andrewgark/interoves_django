@@ -17,12 +17,14 @@ WORD_POINTS = Decimal('1')
 HINT_PENALTY = Decimal('0.5')
 EXTRA_MIN_LENGTH = 4
 EXTRA_NOT_FOUND_COMMENT = 'Слово не найдено'
+EXTRA_FOUND_COMMENT = 'Находка не по теме'
 RARE_FOUND_COMMENT = 'Редкая находка'
 RARE_FOUND_TOOLTIP = (
     'Редкая находка! Это слово технически тоже по теме, '
     'но для полного решения не требуется и баллов не даёт.'
 )
 _FOUND_RARE_INDEX_LIMIT = 64
+_FOUND_EXTRA_LIMIT = 64
 NO_HINT_SQUARE = '🟩'
 OVERFLOW_HINT_SQUARE = '*️⃣'
 _HINT_KEYCAPS = ('1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟')
@@ -84,6 +86,8 @@ def default_state():
         'hint_counts': {},
         'active': list(range(16)),
         'found_rare': [],
+        'found_rare_words': [],
+        'found_extra': [],
     }
 
 
@@ -97,6 +101,31 @@ def _normalized_index_list(values, *, limit):
         if 0 <= index < limit:
             result.append(index)
     return sorted(set(result))
+
+
+def _normalized_word_list(values, *, limit):
+    result = []
+    seen = set()
+    for value in values or []:
+        word = normalize_word(value)
+        if not word or word in seen:
+            continue
+        seen.add(word)
+        result.append(word)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def append_unique_word(words, value, *, limit=_FOUND_EXTRA_LIMIT):
+    """Append a normalized word to a discovery-order list; return the word or ''."""
+    word = normalize_word(value)
+    if not word or word in {normalize_word(item) for item in (words or [])}:
+        return ''
+    if len(words or []) >= limit:
+        return word
+    words.append(word)
+    return word
 
 
 def load_state(raw):
@@ -136,6 +165,14 @@ def load_state(raw):
     state['found_rare'] = _normalized_index_list(
         data.get('found_rare'),
         limit=_FOUND_RARE_INDEX_LIMIT,
+    )
+    state['found_rare_words'] = _normalized_word_list(
+        data.get('found_rare_words'),
+        limit=_FOUND_EXTRA_LIMIT,
+    )
+    state['found_extra'] = _normalized_word_list(
+        data.get('found_extra'),
+        limit=_FOUND_EXTRA_LIMIT,
     )
     return state
 
@@ -452,7 +489,8 @@ def extra_found_word(written, puzzle_words, *, rare_words=(), user=None, anon_ke
 
 def extra_found_word_from_attempt(task, attempt, *, user=None, anon_key=None):
     """Dictionary extra for a rejected salad path, else ''."""
-    if (getattr(attempt, 'comment', None) or '') != EXTRA_NOT_FOUND_COMMENT:
+    comment = getattr(attempt, 'comment', None) or ''
+    if comment not in (EXTRA_NOT_FOUND_COMMENT, EXTRA_FOUND_COMMENT):
         return ''
     written, words, rare_words = path_word_from_attempt(task, attempt)
     if not written:
@@ -540,13 +578,54 @@ def serialize_task_data(grid_value, words_value, rare_words_value=None):
     return json.dumps(payload, ensure_ascii=False)
 
 
+def side_finds_from_state(state, rare_words=None):
+    """Return (extra_words, rare_words_found) from chain state and current rares."""
+    state = load_state(state)
+    extra = list(state.get('found_extra') or [])
+    rare_names = list(state.get('found_rare_words') or [])
+    found_rare = set(state.get('found_rare') or [])
+    for index, word in enumerate(rare_words or []):
+        if index not in found_rare:
+            continue
+        name = normalize_word(word)
+        if name and name not in rare_names:
+            rare_names.append(name)
+    return extra, rare_names
+
+
+def classify_side_finds(state, words, rare_words=None):
+    """Split stored finds into rare pills and extra pills for the current lists."""
+    extra, rare_names = side_finds_from_state(state, rare_words)
+    answer_set = {normalize_word(item) for item in (words or [])}
+    rare_set = {normalize_word(item) for item in (rare_words or [])}
+    found = []
+    seen = set()
+    for word in extra + rare_names:
+        if not word or word in seen:
+            continue
+        seen.add(word)
+        found.append(word)
+    rare_ui = []
+    for index, word in words_in_display_order(rare_words or []):
+        normalized = normalize_word(word)
+        if normalized not in seen or normalized in answer_set:
+            continue
+        rare_ui.append({
+            'index': index,
+            'original': word,
+            'normalized': normalized,
+        })
+    extra_ui = [word for word in found if word not in rare_set and word not in answer_set]
+    return rare_ui, extra_ui
+
+
 def build_ui_context(grid, words, state=None, attempts=None, rare_words=None):
     state = load_state(state)
     solved = set(state.get('solved_indices') or [])
     hint_counts = state.get('hint_counts') or {}
     active = set(state.get('active', []))
     rare_words = list(rare_words or [])
-    found_rare = set(state.get('found_rare') or [])
+    rare_ui, extra_ui = classify_side_finds(state, words, rare_words)
     grid_rows = []
     for row_index in range(4):
         row = []
@@ -580,20 +659,11 @@ def build_ui_context(grid, words, state=None, attempts=None, rare_words=None):
             'can_hint': index not in solved and hint_count < len(normalized),
         })
 
-    rare_ui = []
-    for index, word in words_in_display_order(rare_words):
-        if index not in found_rare:
-            continue
-        rare_ui.append({
-            'index': index,
-            'original': word,
-            'normalized': normalize_word(word),
-        })
-
     return {
         'grid_rows': grid_rows,
         'words': words_ui,
         'rare_words': rare_ui,
+        'extra_words': extra_ui,
         'rare_normalized': [normalize_word(word) for word in rare_words],
         'rare_tooltip': RARE_FOUND_TOOLTIP,
         'word_points': WORD_POINTS,

@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from games.models import Attempt, ChainTaskState, CHAIN_TASK_TYPES, GameTaskGroup, Team
 from games.views.views import check_attempt
 from games.views.track import track_actor_task_change, track_attempt_change
@@ -260,6 +261,13 @@ def _expand_salad_active_for_path(last_state, text):
 
 def _check_word_salad_attempt(checker_type, checker_data, last_state, attempt, *, expand_active=False):
     from games.check import CheckerFactory
+    from games.word_salad import (
+        EXTRA_FOUND_COMMENT,
+        RARE_FOUND_COMMENT,
+        dump_state,
+        load_state,
+        score_for_state,
+    )
 
     checker = CheckerFactory().create_checker(checker_type, checker_data, last_state)
     result = checker.check(attempt.text, attempt)
@@ -271,9 +279,15 @@ def _check_word_salad_attempt(checker_type, checker_data, last_state, attempt, *
     retry = CheckerFactory().create_checker(checker_type, checker_data, expanded).check(
         attempt.text, attempt,
     )
-    if retry.status in ('Ok', 'Partial'):
-        return retry
-    return result
+    if retry.status not in ('Ok', 'Partial'):
+        return result
+    if (retry.comment or '') in (RARE_FOUND_COMMENT, EXTRA_FOUND_COMMENT):
+        merged = load_state(retry.state)
+        original = load_state(last_state)
+        merged['active'] = original.get('active', merged.get('active'))
+        retry.state = dump_state(merged)
+        retry.points = score_for_state(merged)
+    return retry
 
 
 def _apply_word_salad_check_result(attempt, result):
@@ -455,7 +469,7 @@ def recheck_word_salad_actor(
             game,
             locked_rows,
             attempts,
-            expand_active=bool(last_ok_times),
+            expand_active=True,
             persist=True,
         )
         for row in locked_rows.values():
@@ -495,3 +509,132 @@ def recheck_word_salad_task(task, *, game=None, notify=True):
         stats['credited'] += result['credited']
         stats['attempts'] += result['attempts']
     return stats
+
+
+def sync_word_salad_finds(
+    task,
+    raw_words,
+    *,
+    team=None,
+    user=None,
+    anon_key=None,
+    game=None,
+):
+    """Persist localStorage finds against the current answer/rare/extra lists."""
+    from games.word_salad import (
+        EXTRA_FOUND_COMMENT,
+        RARE_FOUND_COMMENT,
+        _FOUND_EXTRA_LIMIT,
+        classify_side_finds,
+        find_paths,
+        load_state,
+        normalize_word,
+        parse_task_payload,
+    )
+
+    if game is None:
+        game = GameTaskGroup.resolve_game_for_task(task)
+    if game is None:
+        raise ValueError('sync_word_salad_finds: pass game= for tasks in multiple games')
+
+    words_in = []
+    seen = set()
+    for raw in raw_words or []:
+        word = normalize_word(raw)
+        if not word or word in seen:
+            continue
+        seen.add(word)
+        words_in.append(word)
+        if len(words_in) >= _FOUND_EXTRA_LIMIT:
+            break
+
+    credited = {'extra': [], 'rare': [], 'answer': []}
+    if task.task_type != 'word_salad' or not words_in:
+        return {'credited': credited, 'state': None}
+
+    with transaction.atomic():
+        probe = Attempt(
+            time=timezone.now(), task=task, game=game,
+            team=team, user=user, anon_key=anon_key,
+        )
+        mode = game.get_current_mode(probe)
+        ChainTaskState.objects.get_or_create(
+            team=team, user=user, anon_key=anon_key,
+            task=task, game=game, game_mode=mode,
+            defaults={'state': None},
+        )
+        row = ChainTaskState.objects.select_for_update().get(
+            team=team, user=user, anon_key=anon_key,
+            task=task, game=game, game_mode=mode,
+        )
+        grid, required, rares = parse_task_payload(task.checker_data, task.answer or '')
+        last_state = row.state
+        state = load_state(last_state)
+        existing = _word_salad_attempts(
+            task, team=team, user=user, anon_key=anon_key, game=game,
+        )
+        seen_texts = {attempt.text for attempt in existing}
+        stamp = next(
+            (
+                attempt.time
+                for attempt in reversed(existing)
+                if not attempt.skip and attempt.time is not None
+            ),
+            None,
+        )
+        checker_type = task.get_checker()
+        checker_data = task.checker_data or ''
+
+        def known_words():
+            rare_ui, extra_ui = classify_side_finds(state, required, rares)
+            names = {item['normalized'] for item in rare_ui}
+            names.update(extra_ui)
+            solved = set(state.get('solved_indices') or [])
+            for index, required_word in enumerate(required):
+                if index in solved:
+                    names.add(normalize_word(required_word))
+            return names
+
+        for word in words_in:
+            if word in known_words():
+                continue
+            persisted = False
+            for path in find_paths(grid, word, active=range(16), limit=8):
+                text = json.dumps({'action': 'solve', 'path': path}, ensure_ascii=False)
+                if text in seen_texts:
+                    continue
+                attempt = Attempt(
+                    team=team, user=user, anon_key=anon_key,
+                    task=task, game=game, text=text,
+                    status='Pending', points=0,
+                )
+                attempt.task_revision = task.attempt_revision
+                result = _check_word_salad_attempt(
+                    checker_type, checker_data, last_state, attempt,
+                    expand_active=True,
+                )
+                if result.status not in ('Ok', 'Partial'):
+                    continue
+                _apply_word_salad_check_result(attempt, result)
+                attempt.save()
+                if stamp is not None:
+                    Attempt.manager.filter(pk=attempt.pk).update(time=stamp)
+                    attempt.time = stamp
+                seen_texts.add(text)
+                last_state = attempt.state
+                state = load_state(last_state)
+                row.state = last_state
+                row.last_attempt = attempt
+                comment = attempt.comment or ''
+                if comment == RARE_FOUND_COMMENT:
+                    credited['rare'].append(word)
+                elif comment == EXTRA_FOUND_COMMENT:
+                    credited['extra'].append(word)
+                else:
+                    credited['answer'].append(word)
+                persisted = True
+                break
+            if not persisted:
+                continue
+        row.save(update_fields=['state', 'last_attempt', 'updated_at'])
+    return {'credited': credited, 'state': last_state}

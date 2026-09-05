@@ -106,9 +106,13 @@
       </ul>
     </section>
 
-    <section class="new-word-salad__band new-word-salad__band--extras" data-word-salad-extras hidden>
+    <section class="new-word-salad__band new-word-salad__band--extras" data-word-salad-extras{% if not ws.extra_words %} hidden{% endif %}>
       <h3 class="new-word-salad__band-title">Находки не по теме</h3>
-      <ul class="new-word-salad__pills" data-word-salad-extras-list aria-live="polite"></ul>
+      <ul class="new-word-salad__pills" data-word-salad-extras-list aria-live="polite">
+        {% for word in ws.extra_words %}
+          <li class="new-word-salad__pill new-word-salad__extra">{{ word }}</li>
+        {% endfor %}
+      </ul>
     </section>
     </div>
 

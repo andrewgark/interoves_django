@@ -759,9 +759,12 @@ class WordSaladChecker(BaseChecker):
 
     def check(self, text, attempt):
         from games.word_salad import (
+            EXTRA_FOUND_COMMENT,
             EXTRA_NOT_FOUND_COMMENT,
             RARE_FOUND_COMMENT,
+            append_unique_word,
             dump_state,
+            extra_found_word,
             load_state,
             neighbours,
             normalize_word,
@@ -779,6 +782,8 @@ class WordSaladChecker(BaseChecker):
         hint_counts = dict(state.get('hint_counts') or {})
         active = set(state.get('active', []))
         found_rare = set(state.get('found_rare') or [])
+        found_rare_words = list(state.get('found_rare_words') or [])
+        found_extra = list(state.get('found_extra') or [])
 
         def play_state():
             return {
@@ -787,6 +792,8 @@ class WordSaladChecker(BaseChecker):
                 'hint_counts': hint_counts,
                 'active': sorted(active),
                 'found_rare': sorted(found_rare),
+                'found_rare_words': found_rare_words,
+                'found_extra': found_extra,
             }
 
         action = (payload.get('action') or 'solve').strip().lower()
@@ -860,6 +867,7 @@ class WordSaladChecker(BaseChecker):
         )
         if rare_match is not None:
             found_rare.add(rare_match)
+            append_unique_word(found_rare_words, self.rare_words[rare_match])
             next_state = play_state()
             tournament_status = 'Partial' if solved else 'Wrong'
             return CheckResult(
@@ -868,6 +876,26 @@ class WordSaladChecker(BaseChecker):
                 score_for_state(next_state),
                 dump_state(next_state),
                 comment=RARE_FOUND_COMMENT,
+            )
+        extra = extra_found_word(written, self.words, rare_words=self.rare_words)
+        if extra:
+            if extra in found_extra:
+                return CheckResult(
+                    'Wrong',
+                    'Pending',
+                    score_for_state(state),
+                    dump_state(play_state()),
+                    comment='Слово уже открыто',
+                )
+            append_unique_word(found_extra, extra)
+            next_state = play_state()
+            tournament_status = 'Partial' if solved else 'Wrong'
+            return CheckResult(
+                'Partial',
+                tournament_status,
+                score_for_state(next_state),
+                dump_state(next_state),
+                comment=EXTRA_FOUND_COMMENT,
             )
         return CheckResult(
             'Wrong',
