@@ -10,6 +10,7 @@ from django.views.decorators.http import require_http_methods
 
 from games.daily_section import is_daily_timing_game, scheduled_number_is_public
 from games.daily_timing import (
+    ACTION_RESUME,
     ACTION_START,
     MUTATING_ACTIONS,
     apply_timing_event,
