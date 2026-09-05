@@ -92,7 +92,7 @@
     </div>
     <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="offer-edit-save">Сохранить</button>
-      <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Отправить Андрею</button>
+      <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Предложить опубликовать</button>
       <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать салатик</a>
       <button type="button" class="new-btn new-btn--ghost" data-offer-close>Закрыть</button>
     </div>
@@ -173,7 +173,7 @@
         '</div>' +
         '<div class="support-ladder-item__actions">' +
           (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">править</button>' : '') +
-          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Отправить Андрею</button>' : '') +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Предложить опубликовать</button>' : '') +
           play +
         '</div>';
       listEl.appendChild(item);
@@ -371,7 +371,7 @@
 
   function sendOfferById(id) {
     if (!id || busy) return;
-    if (!window.confirm('Отправить Андрею? После этого редактировать нельзя.')) return;
+    if (!window.confirm('Предложить опубликовать? После этого редактировать нельзя.')) return;
     busy = true;
     var pending = (editId === id && autosave) ? autosave.flush() : Promise.resolve();
     pending.then(function () {
@@ -421,7 +421,7 @@
 
   document.getElementById('offer-edit-send').addEventListener('click', function () {
     if (!editId || busy) return;
-    if (!window.confirm('Отправить Андрею? После этого редактировать нельзя.')) return;
+    if (!window.confirm('Предложить опубликовать? После этого редактировать нельзя.')) return;
     var sendingId = editId;
     busy = true;
     autosave.flush().then(function () {

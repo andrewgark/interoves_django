@@ -69,7 +69,7 @@
     </div>
     <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="offer-edit-save">Сохранить</button>
-      <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Отправить Андрею</button>
+      <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Предложить опубликовать</button>
       <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать алфавитку</a>
       <button type="button" class="new-btn new-btn--ghost" data-offer-close>Закрыть</button>
     </div>
@@ -143,7 +143,7 @@
         '</div>' +
         '<div class="support-ladder-item__actions">' +
           (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">править</button>' : '') +
-          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Отправить Андрею</button>' : '') +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Предложить опубликовать</button>' : '') +
           '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">Решать алфавитку</a>' +
         '</div>';
       listEl.appendChild(item);
@@ -258,7 +258,7 @@
 
   function sendOfferById(id) {
     if (!id || busy) return;
-    if (!window.confirm('Отправить алфавитку Андрею? После этого редактировать нельзя.')) return;
+    if (!window.confirm('Предложить опубликовать алфавитку? После этого редактировать нельзя.')) return;
     busy = true;
     postJson(endpoints.sendTpl.replace('{id}', String(id)), {})
       .then(function (data) {
@@ -311,7 +311,7 @@
 
   document.getElementById('offer-edit-send').addEventListener('click', function () {
     if (!editId || busy) return;
-    if (!window.confirm('Отправить алфавитку Андрею? После этого редактировать нельзя.')) return;
+    if (!window.confirm('Предложить опубликовать алфавитку? После этого редактировать нельзя.')) return;
     var sendingId = editId;
     busy = true;
     autosave.flush().then(function () {

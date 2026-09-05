@@ -106,6 +106,8 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Предложить идею')
         self.assertContains(resp, 'Собрать салатик')
+        self.assertContains(resp, 'Предложить опубликовать')
+        self.assertNotContains(resp, 'Отправить Андрею')
         self.assertContains(resp, 'word_salad_grid_editor.js')
         self.assertContains(resp, 'offer_draft_autosave.js')
 
