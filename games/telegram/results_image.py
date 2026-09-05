@@ -13,6 +13,7 @@ from games.telegram.ladder_image import _add_white_frame
 logger = logging.getLogger('application')
 
 _DEVICE_SCALE_FACTOR = 2
+_CHROMIUM_MAX_CSS_SIDE = 16384
 _TELEGRAM_MAX_DIMENSION_SUM = 9800  # Bot API hard limit is 10,000.
 _TELEGRAM_MAX_RATIO = 19.5          # Bot API hard limit is 20.
 _TELEGRAM_MAX_BYTES = 9_500_000     # Bot API hard limit is 10 MB.
@@ -27,18 +28,17 @@ _SCREENSHOT_HIDE_CSS = '''
   [data-login-open],
   .new-page-actions,
   .new-section-header,
-  .new-ui--section > p,
-  .new-ui--section > .new-card {
+  .new-ui--section {
     display: none !important;
   }
-  body, .new-wrap {
+  html, body, main, .new-wrap {
     margin: 0 !important;
-    padding: 0.75rem !important;
+    padding: 8px !important;
     background: var(--surface, #fff) !important;
     width: max-content !important;
     max-width: none !important;
-  }
-  html, body {
+    min-height: 0 !important;
+    height: auto !important;
     overflow: visible !important;
   }
   .new-results-fullbleed {
@@ -49,9 +49,13 @@ _SCREENSHOT_HIDE_CSS = '''
   }
   .new-results-wrap {
     overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
     width: max-content !important;
     max-width: none !important;
     max-height: none !important;
+    margin: 0 !important;
+    isolation: auto !important;
   }
   .new-results-table {
     width: max-content !important;
@@ -79,19 +83,81 @@ _COMPACT_RESULTS_CSS = '''
   }
 '''
 
+_EXPAND_OVERFLOW_JS = """() => {
+  const wrap = document.querySelector('.new-results-wrap');
+  const table = document.querySelector('.new-results-table');
+  const nodes = [
+    document.documentElement,
+    document.body,
+    document.querySelector('main'),
+    document.querySelector('.new-wrap'),
+    document.querySelector('.new-results-fullbleed'),
+    wrap,
+    table,
+  ];
+  for (const node of nodes) {
+    if (!node) continue;
+    node.style.setProperty('overflow', 'visible', 'important');
+    node.style.setProperty('overflow-x', 'visible', 'important');
+    node.style.setProperty('overflow-y', 'visible', 'important');
+    node.style.setProperty('max-height', 'none', 'important');
+    node.style.setProperty('max-width', 'none', 'important');
+    node.style.setProperty('width', 'max-content', 'important');
+    node.style.setProperty('height', 'auto', 'important');
+    node.style.setProperty('min-height', '0', 'important');
+  }
+  if (wrap) {
+    wrap.style.setProperty('margin', '0', 'important');
+    wrap.style.setProperty('isolation', 'auto', 'important');
+  }
+}"""
+
+_WRAP_FITS_TABLE_JS = """() => {
+  const wrap = document.querySelector('.new-results-wrap');
+  const table = document.querySelector('.new-results-table');
+  if (!wrap || !table) return false;
+  const wr = wrap.getBoundingClientRect();
+  return wr.width + 2 >= table.scrollWidth && wr.height + 2 >= table.scrollHeight;
+}"""
+
+_VIEWPORT_METRICS_JS = """wrap => {
+  const table = wrap.querySelector('.new-results-table') || wrap;
+  const wrapRect = wrap.getBoundingClientRect();
+  const tableRect = table.getBoundingClientRect();
+  const contentWidth = Math.max(
+    wrap.scrollWidth, table.scrollWidth, wrapRect.width, tableRect.width,
+  );
+  const contentHeight = Math.max(
+    wrap.scrollHeight, table.scrollHeight, wrapRect.height, tableRect.height,
+  );
+  return {
+    width: Math.ceil(Math.max(
+      contentWidth, wrapRect.left + contentWidth, tableRect.left + contentWidth,
+    )),
+    height: Math.ceil(Math.max(
+      contentHeight, wrapRect.top + contentHeight, tableRect.top + contentHeight,
+    )),
+  };
+}"""
+
+_WRAP_CLIP_JS = """wrap => {
+  const r = wrap.getBoundingClientRect();
+  return {
+    x: Math.max(0, Math.floor(r.x + window.scrollX)),
+    y: Math.max(0, Math.floor(r.y + window.scrollY)),
+    width: Math.ceil(Math.max(wrap.scrollWidth, r.width)),
+    height: Math.ceil(Math.max(wrap.scrollHeight, r.height)),
+  };
+}"""
+
 
 def _expanded_table_viewport(page, *, minimum_width: int) -> dict[str, int]:
     """Measure the unscrolled table and return a viewport large enough for it."""
-    metrics = page.locator('.new-results-table').first.evaluate(
-        """table => ({
-            width: Math.ceil(Math.max(table.scrollWidth, table.getBoundingClientRect().width)),
-            height: Math.ceil(Math.max(table.scrollHeight, table.getBoundingClientRect().height))
-        })"""
-    )
-    # Chromium accepts large viewports; the cap protects against malformed pages.
+    metrics = page.locator('.new-results-wrap').first.evaluate(_VIEWPORT_METRICS_JS)
+    pad = 48
     return {
-        'width': max(minimum_width, min(int(metrics['width']) + 64, 10000)),
-        'height': max(800, min(int(metrics['height']) + 64, 10000)),
+        'width': max(minimum_width, min(int(metrics['width']) + pad, _CHROMIUM_MAX_CSS_SIDE)),
+        'height': max(800, min(int(metrics['height']) + pad, _CHROMIUM_MAX_CSS_SIDE)),
     }
 
 
@@ -151,6 +217,63 @@ def _validate_table_capture(raw: bytes, table_metrics: dict, *, scale_factor: in
         )
 
 
+def _prepare_results_table_for_screenshot(page, *, compact: bool = False) -> None:
+    page.add_style_tag(content=_SCREENSHOT_HIDE_CSS)
+    if compact:
+        page.add_style_tag(content=_COMPACT_RESULTS_CSS)
+    page.evaluate(_EXPAND_OVERFLOW_JS)
+    page.locator('.new-results-table').first.wait_for(state='visible', timeout=10000)
+    page.locator('.new-results-wrap').first.wait_for(state='visible', timeout=10000)
+
+
+def _capture_expanded_results_png(
+    page,
+    *,
+    viewport_width: int,
+    scale_factor: int = _DEVICE_SCALE_FACTOR,
+) -> bytes:
+    """Capture the whole results wrap, including parts that normally live behind scroll."""
+    page.evaluate(_EXPAND_OVERFLOW_JS)
+    wrapper = page.locator('.new-results-wrap').first
+    table = page.locator('.new-results-table').first
+    page.set_viewport_size(_expanded_table_viewport(page, minimum_width=viewport_width))
+    page.wait_for_function(_WRAP_FITS_TABLE_JS, timeout=5000)
+    page.evaluate('() => window.scrollTo(0, 0)')
+    page.set_viewport_size(_expanded_table_viewport(page, minimum_width=viewport_width))
+
+    clip = wrapper.evaluate(_WRAP_CLIP_JS)
+    table_metrics = table.evaluate(
+        """node => ({
+            width: Math.ceil(Math.max(node.scrollWidth, node.getBoundingClientRect().width)),
+            height: Math.ceil(Math.max(node.scrollHeight, node.getBoundingClientRect().height))
+        })"""
+    )
+    if int(clip['width']) < 1 or int(clip['height']) < 1:
+        raise RuntimeError('Results screenshot clip is empty')
+
+    screenshot_scale = 'device'
+    used_scale = scale_factor
+    max_side = max(int(clip['width']), int(clip['height']))
+    if max_side * scale_factor > _CHROMIUM_MAX_CSS_SIDE:
+        screenshot_scale = 'css'
+        used_scale = 1
+
+    raw = page.screenshot(
+        type='png',
+        full_page=True,
+        clip={
+            'x': float(clip['x']),
+            'y': float(clip['y']),
+            'width': float(clip['width']),
+            'height': float(clip['height']),
+        },
+        animations='disabled',
+        scale=screenshot_scale,
+    )
+    _validate_table_capture(raw, table_metrics, scale_factor=used_scale)
+    return raw
+
+
 def screenshot_tournament_results_png(
     game,
     *,
@@ -174,33 +297,17 @@ def screenshot_tournament_results_png(
             page = browser.new_page(
                 viewport={'width': viewport_width, 'height': 1800},
                 device_scale_factor=_DEVICE_SCALE_FACTOR,
+                color_scheme='light',
             )
             page.goto(target, wait_until='networkidle', timeout=60000)
             confirm = page.locator('[data-age-gate-confirm]')
             if confirm.count() and confirm.first.is_visible():
                 confirm.first.click()
                 page.wait_for_timeout(200)
-            page.add_style_tag(content=_SCREENSHOT_HIDE_CSS)
-            if compact:
-                page.add_style_tag(content=_COMPACT_RESULTS_CSS)
-            page.wait_for_timeout(150)
-
-            table = page.locator('.new-results-table').first
-            table.wait_for(state='visible', timeout=10000)
-            page.set_viewport_size(
-                _expanded_table_viewport(page, minimum_width=viewport_width)
-            )
-            page.wait_for_timeout(100)
-
-            table_metrics = table.evaluate(
-                """node => ({width: node.scrollWidth, height: node.scrollHeight})"""
-            )
-            wrapper = page.locator('.new-results-wrap').first
-            wrapper.wait_for(state='visible', timeout=10000)
-            raw = wrapper.screenshot(type='png')
-            _validate_table_capture(
-                raw,
-                table_metrics,
+            _prepare_results_table_for_screenshot(page, compact=compact)
+            raw = _capture_expanded_results_png(
+                page,
+                viewport_width=viewport_width,
                 scale_factor=_DEVICE_SCALE_FACTOR,
             )
             return _add_white_frame(raw, pad_px=20)
