@@ -10205,3 +10205,53 @@ button.new-word-salad__hint-btn:disabled {
 .ws-offer-kind-fields[hidden] {
   display: none !important;
 }
+
+.new-sub-plans {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin: 0.85rem 0 1rem;
+  min-width: 0;
+}
+
+.new-sub-plan {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  min-width: 0;
+}
+
+.new-sub-plan .new-btn {
+  width: 100%;
+}
+
+.new-sub-status {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.85rem 0 0;
+}
+
+.new-sub-status > div {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) 1fr;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.new-sub-status dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.new-sub-status dd {
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+@media (min-width: 920px) {
+  .new-sub-plans {
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -27,10 +27,39 @@
   {% if actor_kind == 'user' and profile %}
     <div class="support-links">
       {% if profile.email %}<span>{{ profile.email }}</span>{% endif %}
+      {% if profile.telegram_verified and profile.telegram_user_id %}
+        <span>Telegram ID: {{ profile.telegram_user_id }}{% if profile.telegram_username %} · @{{ profile.telegram_username }}{% endif %}</span>
+      {% endif %}
       {% if profile.team_on_id %}
         <a href="{% url 'support:actor_team' profile.team_on_id %}">Активная команда: {{ profile.team_on_id }}</a>
       {% endif %}
     </div>
+    {% if club_subscription %}
+      <div class="support-meta">
+        <span class="support-flag{% if club_access %} support-flag--ok{% endif %}">club access: {% if club_access %}yes{% else %}no{% endif %}</span>
+        <span class="support-flag">status: {{ club_subscription.effective_status }}</span>
+        <span class="support-flag">provider: {{ club_subscription.provider }}</span>
+        {% if club_subscription.currency %}
+          <span class="support-flag">{{ club_subscription.currency }} {{ club_subscription.amount }}</span>
+        {% endif %}
+        <span class="support-flag">auto-renew: {{ club_subscription.auto_renew }}</span>
+        {% if club_subscription.paid_until %}
+          <span class="support-flag">paid until: {{ club_subscription.paid_until|date:"d.m.Y H:i" }}</span>
+        {% endif %}
+        {% if club_subscription.tribute_subscription_id %}
+          <span class="support-flag">tribute sub: {{ club_subscription.tribute_subscription_id }}</span>
+        {% endif %}
+        {% if club_subscription.last_payment_at %}
+          <span class="support-flag">last payment: {{ club_subscription.last_payment_at|date:"d.m.Y H:i" }}</span>
+        {% endif %}
+        {% if club_subscription.last_webhook_event %}
+          <span class="support-flag">last webhook: {{ club_subscription.last_webhook_event }} {{ club_subscription.last_webhook_at|date:"d.m.Y H:i" }}</span>
+        {% endif %}
+        {% if club_subscription.duplicate_detected %}
+          <span class="support-flag support-flag--warn">duplicate subscriptions</span>
+        {% endif %}
+      </div>
+    {% endif %}
   {% endif %}
 
   {% if actor_kind == 'anon' and first_seen %}

@@ -1,0 +1,19 @@
+{% extends "new/base.html" %}
+{% block title %}Архив{% endblock %}
+{% block extrahead %}
+<meta name="robots" content="noindex,nofollow">
+{% endblock %}
+{% block content %}
+<p class="new-tg-back"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
+<div class="new-pay-checkout">
+  <header class="new-pay-checkout__header">
+    <p class="new-pay-checkout__eyebrow">Архив</p>
+    <h1 class="new-heading new-heading--page">Задание из архива</h1>
+    <p class="new-pay-checkout__lead">Этот выпуск уже вышел ранее. Архив заданий доступен с клубной подпиской. Сегодняшние игры по-прежнему бесплатны.</p>
+  </header>
+  <div class="new-card new-pay-order-card">
+    <div class="new-pay-order__name">Весь архив заданий</div>
+    <div class="new-pay-order__meta">Клубная подписка открывает все уже опубликованные выпуски.</div>
+  </div>
+</div>
+{% endblock %}

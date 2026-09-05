@@ -28,13 +28,34 @@ class TelegramLinkResult:
     user_id: int
     telegram_user_id: int
     telegram_username: str
+    next_path: str = ''
+
+
+def user_has_telegram_link(user) -> bool:
+    profile = getattr(user, 'profile', None)
+    return bool(profile and profile.telegram_verified and profile.telegram_user_id)
+
+
+def sanitize_telegram_link_next(raw: str) -> str:
+    path = str(raw or '').strip()
+    if not path.startswith('/') or path.startswith('//') or '\\' in path:
+        return ''
+    if path.startswith('/subscription') or path.startswith('/pay'):
+        return path[:200]
+    return ''
+
+
+def _relink_hint(next_path: str) -> str:
+    if str(next_path or '').startswith('/subscription'):
+        return 'Создайте новую на interoves.com/subscription/.'
+    return 'Создайте новую на interoves.com/pay/.'
 
 
 def _token_hash(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode('utf-8')).hexdigest()
 
 
-def create_link_token(user) -> tuple[TelegramLinkToken, str]:
+def create_link_token(user, *, next_path: str = '') -> tuple[TelegramLinkToken, str]:
     now = timezone.now()
     # Invalidate older unused links for this account. Used rows remain as an audit trail.
     TelegramLinkToken.objects.filter(user=user, used_at__isnull=True).update(used_at=now)
@@ -43,6 +64,7 @@ def create_link_token(user) -> tuple[TelegramLinkToken, str]:
         user=user,
         token_hash=_token_hash(raw_token),
         expires_at=now + timedelta(minutes=TOKEN_TTL_MINUTES),
+        next_path=sanitize_telegram_link_next(next_path),
     )
     return row, raw_token
 
@@ -73,11 +95,17 @@ def consume_link_token(raw_token: str, *, telegram_user_id, telegram_username=''
             .first()
         )
         if token is None:
-            raise TelegramLinkError('invalid_token', 'Ссылка недействительна. Создайте новую на interoves.com/pay/.')
+            raise TelegramLinkError('invalid_token', 'Ссылка недействительна. Создайте новую на сайте Inter Oves.')
         if token.used_at is not None:
-            raise TelegramLinkError('used_token', 'Эта ссылка уже использована. Создайте новую на interoves.com/pay/.')
+            raise TelegramLinkError(
+                'used_token',
+                'Эта ссылка уже использована. {}'.format(_relink_hint(token.next_path)),
+            )
         if token.expires_at <= now:
-            raise TelegramLinkError('expired_token', 'Ссылка истекла. Создайте новую на interoves.com/pay/.')
+            raise TelegramLinkError(
+                'expired_token',
+                'Ссылка истекла. {}'.format(_relink_hint(token.next_path)),
+            )
 
         profile = Profile.objects.select_for_update().filter(user=token.user).first()
         if profile is None:
@@ -104,5 +132,14 @@ def consume_link_token(raw_token: str, *, telegram_user_id, telegram_username=''
         token.used_at = now
         token.save(update_fields=['used_at'])
 
-    return TelegramLinkResult(token.user_id, numeric_id, username)
+    from games.club_service import apply_pending_club_events_for_telegram
+
+    apply_pending_club_events_for_telegram(numeric_id)
+
+    return TelegramLinkResult(
+        token.user_id,
+        numeric_id,
+        username,
+        next_path=sanitize_telegram_link_next(token.next_path) or '/pay/?telegram=linked',
+    )
 

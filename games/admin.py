@@ -70,6 +70,8 @@ from games.models import (
     TicketRequest,
     TributePaymentIntent,
     TributePurchase,
+    ClubSubscription,
+    ClubSubscriptionEvent,
 )
 from games.recheck import (
     recheck_chain_task,
@@ -552,7 +554,45 @@ class TelegramLinkTokenAdmin(admin.ModelAdmin):
     list_display = ('created_at', 'user', 'expires_at', 'used_at')
     list_filter = ('used_at',)
     search_fields = ('user__username', 'user__email')
-    readonly_fields = ('user', 'token_hash', 'created_at', 'expires_at', 'used_at')
+    readonly_fields = ('user', 'token_hash', 'created_at', 'expires_at', 'used_at', 'next_path')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ClubSubscription)
+class ClubSubscriptionAdmin(admin.ModelAdmin):
+    list_display = (
+        'updated_at', 'user', 'status', 'currency', 'amount', 'auto_renew',
+        'paid_until', 'tribute_subscription_id', 'telegram_user_id',
+        'duplicate_detected', 'last_webhook_event',
+    )
+    list_filter = ('status', 'currency', 'auto_renew', 'duplicate_detected', 'provider')
+    search_fields = (
+        'user__username', 'user__email', 'telegram_user_id', 'tribute_subscription_id',
+    )
+    raw_id_fields = ('user',)
+    readonly_fields = [field.name for field in ClubSubscription._meta.fields]
+    date_hierarchy = 'updated_at'
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(ClubSubscriptionEvent)
+class ClubSubscriptionEventAdmin(admin.ModelAdmin):
+    list_display = (
+        'received_at', 'event_name', 'result', 'telegram_user_id',
+        'tribute_subscription_id', 'club_subscription',
+    )
+    list_filter = ('event_name', 'result')
+    search_fields = ('event_key', 'telegram_user_id', 'tribute_subscription_id')
+    raw_id_fields = ('club_subscription',)
+    readonly_fields = [field.name for field in ClubSubscriptionEvent._meta.fields]
+    date_hierarchy = 'received_at'
 
     def has_add_permission(self, request):
         return False

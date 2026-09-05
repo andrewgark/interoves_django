@@ -816,6 +816,20 @@ TRIBUTE_DISCOUNT_PRODUCT_AMOUNT = (os.environ.get('TRIBUTE_DISCOUNT_PRODUCT_AMOU
 TRIBUTE_DISCOUNT_PRODUCT_CURRENCY = (os.environ.get('TRIBUTE_DISCOUNT_PRODUCT_CURRENCY') or '').strip()
 TRIBUTE_INTENT_TTL_MINUTES = int(os.environ.get('TRIBUTE_INTENT_TTL_MINUTES') or '120')
 
+# Club recurring subscriptions (Tribute creator subscriptions, not Shop API).
+# The public /subscription/ page is hidden (noindex, no nav links). Archive
+# gating stays off until CLUB_SUBSCRIPTION_ENABLED is explicitly turned on.
+CLUB_SUBSCRIPTION_ENABLED = _env_flag_default('CLUB_SUBSCRIPTION_ENABLED', False)
+TRIBUTE_CLUB_SUBSCRIPTION_RUB_ID = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_ID') or '').strip()
+TRIBUTE_CLUB_SUBSCRIPTION_RUB_URL = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_URL') or '').strip()
+TRIBUTE_CLUB_SUBSCRIPTION_RUB_AMOUNT = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_AMOUNT') or '75000').strip()
+TRIBUTE_CLUB_SUBSCRIPTION_RUB_CURRENCY = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_CURRENCY') or 'RUB').strip()
+TRIBUTE_CLUB_SUBSCRIPTION_USD_ID = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_USD_ID') or '').strip()
+TRIBUTE_CLUB_SUBSCRIPTION_USD_URL = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_USD_URL') or '').strip()
+TRIBUTE_CLUB_SUBSCRIPTION_USD_AMOUNT = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_USD_AMOUNT') or '900').strip()
+TRIBUTE_CLUB_SUBSCRIPTION_USD_CURRENCY = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_USD_CURRENCY') or 'USD').strip()
+TRIBUTE_CLUB_MANAGEMENT_URL = (os.environ.get('TRIBUTE_CLUB_MANAGEMENT_URL') or '').strip()
+
 # X / Twitter (@interoves) — OAuth 1.0a user tokens for ladder channel cron tweets.
 TWITTER_API_KEY = load_secret('twitter_api_key.txt', env_var='TWITTER_API_KEY', default='')
 TWITTER_API_SECRET = load_secret('twitter_api_secret.txt', env_var='TWITTER_API_SECRET', default='')

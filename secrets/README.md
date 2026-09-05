@@ -143,6 +143,15 @@ Required EB env vars:
 
 Amounts use Tribute's smallest currency units (EUR cents or RUB kopecks). Currency must be `EUR` or `RUB`; web links must use `https://web.tribute.tg/p/...`.
 
+Club recurring subscriptions (hidden `/subscription/` page) use two pre-created Tribute **creator subscriptions**, not Shop API. Webhooks arrive at the same `/tribute/webhook/` URL.
+
+- `CLUB_SUBSCRIPTION_ENABLED=true` turns on checkout **and** daily-archive gating
+- `TRIBUTE_CLUB_SUBSCRIPTION_RUB_ID`, `TRIBUTE_CLUB_SUBSCRIPTION_RUB_URL`, `TRIBUTE_CLUB_SUBSCRIPTION_RUB_AMOUNT` (kopecks, default 75000), `TRIBUTE_CLUB_SUBSCRIPTION_RUB_CURRENCY=RUB`
+- `TRIBUTE_CLUB_SUBSCRIPTION_USD_ID`, `TRIBUTE_CLUB_SUBSCRIPTION_USD_URL`, `TRIBUTE_CLUB_SUBSCRIPTION_USD_AMOUNT` (cents, default 900), `TRIBUTE_CLUB_SUBSCRIPTION_USD_CURRENCY=USD`
+- optional `TRIBUTE_CLUB_MANAGEMENT_URL` (default `https://t.me/tribute`)
+
+Do not add public nav links to `/subscription/` until the launch is explicit.
+
 ```bash
 eb setenv TRIBUTE_ENABLED=false TRIBUTE_API_KEY='...' \
   TRIBUTE_REGULAR_PRODUCT_ID='...' TRIBUTE_REGULAR_PRODUCT_WEB_URL='https://web.tribute.tg/p/...' \

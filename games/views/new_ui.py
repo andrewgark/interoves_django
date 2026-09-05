@@ -37,6 +37,7 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
 
 from games.account_merge import social_provider_label
+from games.telegram_linking import user_has_telegram_link
 
 from games.access import game_has_started
 from games.analytics import (
@@ -3063,6 +3064,14 @@ def new_task_group_page(request, game_id, task_group_number):
                 raise Http404()
         elif not scheduled_number_is_public(game, task_group_number):
             raise Http404()
+        if ladder_offer is None and salad_offer is None:
+            from games.club_access import reject_if_club_archive_blocked
+
+            locked = reject_if_club_archive_blocked(
+                request, game, number=task_group_number,
+            )
+            if locked is not None:
+                return locked
     else:
         if play_mode == 'team':
             if not game.has_access('play', team=team):
@@ -3397,9 +3406,16 @@ def new_task_group_live_state(request, game_id):
         raise Http404()
 
     if not request.user.is_staff:
+        from games.club_access import reject_if_club_archive_blocked
+
         for placement in placements:
             if not scheduled_number_is_public(game, placement.number):
                 raise Http404()
+            locked = reject_if_club_archive_blocked(
+                request, game, number=placement.number, json_mode=True,
+            )
+            if locked is not None:
+                return locked
 
     from games.views.render_task import render_new_ui_task_card_html
     from games.views.track import current_track_versions
@@ -3528,6 +3544,12 @@ def new_get_answer(request, task_id):
                 raise Http404()
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
             raise Http404()
+
+    from games.club_access import reject_if_club_archive_blocked
+
+    locked = reject_if_club_archive_blocked(request, game, task=task, json_mode=True)
+    if locked is not None:
+        return locked
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
     attempts_info = Attempt.manager.get_attempts_info(team=team, user=user, anon_key=anon_key, task=task, mode=mode)
@@ -4540,9 +4562,7 @@ def new_pay_page(request):
             .distinct()
             .order_by('visible_name', 'name')
         )
-        telegram_linked = bool(
-            request.user.profile.telegram_verified and request.user.profile.telegram_user_id
-        )
+        telegram_linked = user_has_telegram_link(request.user)
     recent_requests = TicketRequest.recent_for_team(team) if team else []
     ticket_price_int = ticket_unit_price_for(team, RUSSIAN_CARD)
     ticket_price_amd = ticket_unit_price_for(team, INTERNATIONAL_CARD)
@@ -4610,21 +4630,24 @@ def _selected_payment_team(request, *, require_explicit=False):
 @login_required
 @require_http_methods(['POST'])
 def new_telegram_link_start(request):
-    if not has_profile(request.user):
-        messages.error(request, 'Сначала создайте профиль Inter Oves.')
-        return redirect('/pay/')
     from games.telegram_linking import (
         TelegramLinkError,
         create_link_token,
+        sanitize_telegram_link_next,
         telegram_deep_link,
     )
 
-    _row, raw_token = create_link_token(request.user)
+    next_path = sanitize_telegram_link_next(request.POST.get('next')) or '/pay/?telegram=linked'
+    fallback = '/subscription/' if next_path.startswith('/subscription') else '/pay/'
+    if not has_profile(request.user):
+        messages.error(request, 'Сначала создайте профиль Inter Oves.')
+        return redirect(fallback)
+    _row, raw_token = create_link_token(request.user, next_path=next_path)
     try:
         deep_link = telegram_deep_link(raw_token)
     except TelegramLinkError as exc:
         messages.error(request, exc.message)
-        return redirect('/pay/')
+        return redirect(fallback)
     return redirect(deep_link)
 
 

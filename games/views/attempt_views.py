@@ -382,6 +382,11 @@ def process_send_attempt(request, task_id):
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
             raise NoGameAccessException('User has no access to game {}'.format(game))
 
+    from games.club_access import user_can_access_task_archive
+
+    if not user_can_access_task_archive(request.user, game, task):
+        raise NoGameAccessException('Club subscription required for archived game')
+
     is_game_start_interaction = False
     if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         form = AttemptForm(request.POST)

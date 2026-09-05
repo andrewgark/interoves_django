@@ -24,6 +24,11 @@ YANDEX_GOAL_GAME_COMPLETE = 'game_complete'
 YANDEX_GOAL_ACTIVATED_PLAYER = 'activated_player'
 YANDEX_GOAL_TICKET_CHECKOUT = 'ticket_checkout'
 YANDEX_GOAL_TICKET_PURCHASE = 'ticket_purchase'
+YANDEX_GOAL_SUBSCRIPTION_VIEW = 'subscription_view'
+YANDEX_GOAL_SUBSCRIPTION_CHECKOUT = 'subscription_checkout_start'
+YANDEX_GOAL_SUBSCRIPTION_PAYMENT = 'subscription_payment_success'
+YANDEX_GOAL_SUBSCRIPTION_RENEWAL = 'subscription_renewal_success'
+YANDEX_GOAL_SUBSCRIPTION_CANCELLED = 'subscription_cancelled'
 
 SESSION_KEY_PENDING_GOALS = 'interoves_pending_yandex_goals'
 ANALYTICS_ACK_SIGNING_SALT = 'games.analytics.goal-ack.v1'
@@ -323,6 +328,60 @@ def pending_ticket_purchase_goals(user, limit=20):
     return [payload for payload in map(ticket_purchase_goal_payload, tickets) if payload]
 
 
+def _subscription_goal_payload(subscription, kind):
+    if subscription is None:
+        return None
+    from games.models import ClubSubscription
+
+    params = {
+        'provider': ClubSubscription.PROVIDER_TRIBUTE,
+        'currency': (subscription.currency or '').lower(),
+        'amount': subscription.amount,
+    }
+    if kind == YANDEX_GOAL_SUBSCRIPTION_PAYMENT:
+        if subscription.payment_success_goal_sent_at is not None:
+            return None
+        if subscription.payment_success_goal_queued_at is None:
+            return None
+        field_id = 'payment'
+    elif kind == YANDEX_GOAL_SUBSCRIPTION_RENEWAL:
+        if subscription.renewal_goal_sent_at is not None:
+            return None
+        if subscription.renewal_goal_queued_at is None:
+            return None
+        field_id = 'renewal'
+    elif kind == YANDEX_GOAL_SUBSCRIPTION_CANCELLED:
+        if subscription.cancelled_goal_sent_at is not None:
+            return None
+        if subscription.cancelled_goal_queued_at is None:
+            return None
+        field_id = 'cancelled'
+    else:
+        return None
+    return yandex_goal_payload(
+        kind,
+        params=params,
+        key='{}:{}:{}'.format(kind, subscription.pk, field_id),
+        ack=analytics_ack_payload(kind, subscription.pk),
+    )
+
+
+def pending_subscription_goals(user):
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return []
+    from games.models import ClubSubscription
+
+    subscription = ClubSubscription.objects.filter(user=user).first()
+    if subscription is None:
+        return []
+    payloads = [
+        _subscription_goal_payload(subscription, YANDEX_GOAL_SUBSCRIPTION_PAYMENT),
+        _subscription_goal_payload(subscription, YANDEX_GOAL_SUBSCRIPTION_RENEWAL),
+        _subscription_goal_payload(subscription, YANDEX_GOAL_SUBSCRIPTION_CANCELLED),
+    ]
+    return [payload for payload in payloads if payload]
+
+
 def pending_signup_goals(user):
     if user is None or not getattr(user, 'is_authenticated', False):
         return []
@@ -461,6 +520,23 @@ def acknowledge_analytics_goal(token):
             **{field: timezone.now()}
         )
         return bool(updated or tickets.exists())
+    if kind in (
+        YANDEX_GOAL_SUBSCRIPTION_PAYMENT,
+        YANDEX_GOAL_SUBSCRIPTION_RENEWAL,
+        YANDEX_GOAL_SUBSCRIPTION_CANCELLED,
+    ):
+        from games.models import ClubSubscription
+
+        field = {
+            YANDEX_GOAL_SUBSCRIPTION_PAYMENT: 'payment_success_goal_sent_at',
+            YANDEX_GOAL_SUBSCRIPTION_RENEWAL: 'renewal_goal_sent_at',
+            YANDEX_GOAL_SUBSCRIPTION_CANCELLED: 'cancelled_goal_sent_at',
+        }[kind]
+        rows = ClubSubscription.objects.filter(pk=record_id)
+        updated = rows.filter(**{'{}__isnull'.format(field): True}).update(
+            **{field: timezone.now()}
+        )
+        return bool(updated or rows.exists())
     return False
 
 

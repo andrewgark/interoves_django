@@ -33,7 +33,7 @@ def _handle_account_link_start(message: dict, text: str) -> bool:
     from games.telegram_linking import TelegramLinkError, consume_link_token
 
     try:
-        consume_link_token(
+        result = consume_link_token(
             token.strip(),
             telegram_user_id=telegram_user_id,
             telegram_username=sender.get('username') or '',
@@ -43,11 +43,17 @@ def _handle_account_link_start(message: dict, text: str) -> bool:
         return True
     from django.conf import settings
 
-    pay_url = '{}{}'.format((getattr(settings, 'SITE_BASE_URL', '') or 'https://interoves.com').rstrip('/'), '/pay/?telegram=linked')
+    next_path = result.next_path or '/pay/?telegram=linked'
+    if not next_path.startswith('/') or next_path.startswith('//'):
+        next_path = '/pay/?telegram=linked'
+    return_url = '{}{}'.format(
+        (getattr(settings, 'SITE_BASE_URL', '') or 'https://interoves.com').rstrip('/'),
+        next_path,
+    )
     send_message(
         chat_id,
         'Telegram успешно привязан к аккаунту Inter Oves. '
-        '<a href="{}">Вернуться к оплате</a>.'.format(pay_url),
+        '<a href="{}">Вернуться на сайт</a>.'.format(return_url),
     )
     return True
 

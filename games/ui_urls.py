@@ -12,7 +12,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|walls|replacements|palindromes|week_task|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|walls|replacements|palindromes|week_task|team|profile|pay|subscription|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     path('start/', ui.start, name='ui_start'),
@@ -155,6 +155,8 @@ urlpatterns = [
     path('profile/', ui.profile, name='ui_profile'),
     path('team/', ui.team, name='ui_team'),
     path('pay/', ui.pay_page, name='ui_pay'),
+    path('subscription/', ui.subscription_page, name='ui_subscription'),
+    path('subscription/checkout/', ui.subscription_checkout, name='ui_subscription_checkout'),
     path('pay/create-ticket-payment/', ui.create_ticket_payment, name='ui_create_ticket_payment'),
     path('pay/create-crypto-ticket-payment/', ui.create_crypto_ticket_payment, name='ui_create_crypto_ticket_payment'),
     path('pay/create-tribute-ticket-payment/', ui.create_tribute_ticket_payment, name='ui_create_tribute_ticket_payment'),

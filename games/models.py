@@ -2013,6 +2013,8 @@ class TelegramLinkToken(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(db_index=True)
     used_at = models.DateTimeField(blank=True, null=True)
+    # Relative path after a successful bot /start link (pay or subscription).
+    next_path = models.CharField(max_length=200, blank=True, default='')
 
     class Meta:
         ordering = ['-created_at']
@@ -2137,6 +2139,130 @@ class TributePurchase(models.Model):
 
     def __str__(self):
         return 'Tribute purchase {} ({})'.format(self.purchase_id, self.status)
+
+
+class ClubSubscription(models.Model):
+    """Canonical Inter Oves Club access granted by a Tribute recurring subscription."""
+
+    PROVIDER_TRIBUTE = 'tribute'
+    PROVIDER_CHOICES = (
+        (PROVIDER_TRIBUTE, 'Tribute'),
+    )
+
+    STATUS_ACTIVE = 'active'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_EXPIRED = 'expired'
+    STATUS_PAST_DUE = 'past_due'
+    STATUS_CHOICES = (
+        (STATUS_ACTIVE, 'Active'),
+        (STATUS_CANCELLED, 'Cancelled'),
+        (STATUS_EXPIRED, 'Expired'),
+        (STATUS_PAST_DUE, 'Past due'),
+    )
+
+    user = models.OneToOneField(
+        'auth.User',
+        related_name='club_subscription',
+        on_delete=models.PROTECT,
+    )
+    provider = models.CharField(
+        max_length=16,
+        choices=PROVIDER_CHOICES,
+        default=PROVIDER_TRIBUTE,
+        db_index=True,
+    )
+    status = models.CharField(
+        max_length=24,
+        choices=STATUS_CHOICES,
+        default=STATUS_EXPIRED,
+        db_index=True,
+    )
+    tribute_subscription_id = models.BigIntegerField(blank=True, null=True, db_index=True)
+    tribute_period_id = models.BigIntegerField(blank=True, null=True)
+    telegram_user_id = models.BigIntegerField(blank=True, null=True, db_index=True)
+    currency = models.CharField(max_length=3, blank=True, default='')
+    amount = models.BigIntegerField(blank=True, null=True, help_text='Smallest currency units')
+    auto_renew = models.BooleanField(default=False)
+    paid_until = models.DateTimeField(blank=True, null=True, db_index=True)
+    cancelled_at = models.DateTimeField(blank=True, null=True)
+    last_payment_at = models.DateTimeField(blank=True, null=True)
+    last_webhook_at = models.DateTimeField(blank=True, null=True)
+    last_webhook_event = models.CharField(max_length=64, blank=True, default='')
+    last_event_created_at = models.DateTimeField(blank=True, null=True)
+    duplicate_detected = models.BooleanField(default=False, db_index=True)
+    payment_success_goal_queued_at = models.DateTimeField(blank=True, null=True)
+    payment_success_goal_sent_at = models.DateTimeField(blank=True, null=True)
+    renewal_goal_queued_at = models.DateTimeField(blank=True, null=True)
+    renewal_goal_sent_at = models.DateTimeField(blank=True, null=True)
+    cancelled_goal_queued_at = models.DateTimeField(blank=True, null=True)
+    cancelled_goal_sent_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return 'Club subscription user={} ({})'.format(self.user_id, self.status)
+
+    def grants_access(self, now=None) -> bool:
+        from django.utils import timezone as dj_timezone
+
+        now = now or dj_timezone.now()
+        return bool(self.paid_until and self.paid_until > now)
+
+    def effective_status(self, now=None) -> str:
+        if not self.grants_access(now):
+            return self.STATUS_EXPIRED
+        if self.auto_renew:
+            return self.STATUS_ACTIVE
+        return self.STATUS_CANCELLED
+
+
+class ClubSubscriptionEvent(models.Model):
+    """Idempotent Tribute subscription webhook audit trail."""
+
+    RESULT_APPLIED = 'applied'
+    RESULT_DUPLICATE = 'duplicate'
+    RESULT_IGNORED_PRODUCT = 'ignored_unknown_product'
+    RESULT_UNMATCHED_TELEGRAM = 'unmatched_telegram'
+    RESULT_MALFORMED = 'malformed'
+    RESULT_IGNORED_TYPE = 'ignored_type'
+    RESULT_DELAYED = 'delayed'
+    RESULT_ANOMALY = 'anomaly'
+    RESULT_CHOICES = (
+        (RESULT_APPLIED, 'Applied'),
+        (RESULT_DUPLICATE, 'Duplicate'),
+        (RESULT_IGNORED_PRODUCT, 'Unknown product'),
+        (RESULT_UNMATCHED_TELEGRAM, 'Unknown Telegram'),
+        (RESULT_MALFORMED, 'Malformed'),
+        (RESULT_IGNORED_TYPE, 'Ignored type'),
+        (RESULT_DELAYED, 'Delayed'),
+        (RESULT_ANOMALY, 'Anomaly'),
+    )
+
+    event_key = models.CharField(max_length=255, unique=True, db_index=True)
+    event_name = models.CharField(max_length=64, db_index=True)
+    club_subscription = models.ForeignKey(
+        ClubSubscription,
+        related_name='events',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    tribute_subscription_id = models.BigIntegerField(blank=True, null=True, db_index=True)
+    tribute_period_id = models.BigIntegerField(blank=True, null=True)
+    telegram_user_id = models.BigIntegerField(blank=True, null=True, db_index=True)
+    result = models.CharField(max_length=32, choices=RESULT_CHOICES, db_index=True)
+    expires_at = models.DateTimeField(blank=True, null=True)
+    payload_excerpt = models.JSONField(blank=True, default=dict)
+    received_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-received_at']
+
+    def __str__(self):
+        return 'Club webhook {} ({})'.format(self.event_name, self.result)
 
 
 def _donation_public_token():

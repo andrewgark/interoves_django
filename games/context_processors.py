@@ -3,6 +3,7 @@
 from games.analytics import (
     consume_pending_goals,
     pending_signup_goals,
+    pending_subscription_goals,
     pending_ticket_purchase_goals,
 )
 from django.conf import settings
@@ -21,6 +22,7 @@ def analytics_bootstrap(request):
         consume_pending_goals(request)
         + pending_signup_goals(user)
         + pending_ticket_purchase_goals(user)
+        + pending_subscription_goals(user)
     )
     deduped = {}
     for goal in goals:

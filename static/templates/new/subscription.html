@@ -1,0 +1,167 @@
+{% extends "new/base.html" %}
+{% load static %}
+{% block title %}Клубная подписка{% endblock %}
+{% block extrahead %}
+<meta name="robots" content="noindex,nofollow">
+{% endblock %}
+
+{% block content %}
+<p class="new-tg-back"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
+
+<div class="new-pay-checkout">
+  <header class="new-pay-checkout__header">
+    <p class="new-pay-checkout__eyebrow">Inter Oves</p>
+    <h1 class="new-heading new-heading--page">Клубная подписка</h1>
+    {% if club_status == 'active' %}
+      <p class="new-pay-checkout__lead"><strong>Подписка активна.</strong> Весь архив заданий доступен.</p>
+    {% elif club_status == 'cancelled' %}
+      <p class="new-pay-checkout__lead"><strong>Автопродление отключено.</strong> Архив останется доступен{% if paid_until_label %} до {{ paid_until_label }}{% endif %}.</p>
+    {% elif club_status == 'expired' %}
+      <p class="new-pay-checkout__lead">Оплаченный период закончился. Оформите подписку снова, чтобы открыть весь архив заданий Inter Oves.</p>
+    {% else %}
+      <p class="new-pay-checkout__lead"><strong>Откройте весь архив заданий Inter Oves.</strong></p>
+    {% endif %}
+  </header>
+
+  {% if telegram_linked_notice %}
+    <p class="new-login-hint">Telegram привязан{% if telegram_username %}: @{{ telegram_username }}{% endif %}. Можно оформить подписку.</p>
+  {% endif %}
+
+  <div class="new-card new-pay-order-card">
+    <div class="new-pay-order__name">Весь архив заданий</div>
+    <div class="new-pay-order__meta">Решайте задания предыдущих дней без ограничений. Сегодняшние игры остаются бесплатными.</div>
+    {% if club_status == 'active' or club_status == 'cancelled' %}
+      <dl class="new-sub-status">
+        {% if paid_until_label %}
+          <div><dt>Оплачено до</dt><dd>{{ paid_until_label }}</dd></div>
+        {% endif %}
+        {% if next_charge_label %}
+          <div><dt>Следующее списание</dt><dd>{{ next_charge_label }}</dd></div>
+        {% endif %}
+        {% if price_label %}
+          <div><dt>Стоимость</dt><dd>{{ price_label }}</dd></div>
+        {% endif %}
+        {% if club_status == 'cancelled' %}
+          <div><dt>Автопродление</dt><dd>отключено</dd></div>
+        {% endif %}
+      </dl>
+    {% endif %}
+  </div>
+
+  {% if show_checkout %}
+    {% if user.is_authenticated and not telegram_linked %}
+    <form id="new-sub-telegram-link-form" method="post" action="{% url 'new_telegram_link_start' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="/subscription/?telegram=linked">
+    </form>
+    {% endif %}
+
+    <div class="new-card new-pay-payment-card">
+      <h2 class="new-pay-section-title">Оформить подписку</h2>
+      <p class="new-pay-order__meta">Одна подписка, два способа оплаты. Права доступа одинаковые.</p>
+      <div class="new-sub-plans">
+        <div class="new-pay-method new-sub-plan">
+          <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
+          <span class="new-pay-method__body">
+            <strong>Российская карта</strong>
+            <span>750 ₽ в месяц</span>
+          </span>
+          {% if not user.is_authenticated %}
+            <button type="button" class="new-btn" data-login-open>Войти и оформить подписку</button>
+          {% elif not telegram_linked %}
+            <button type="submit" class="new-btn" form="new-sub-telegram-link-form">Привязать Telegram</button>
+          {% elif club_checkout_enabled and club_rub %}
+            <form method="post" action="{% url 'new_subscription_checkout' %}" data-sub-checkout data-currency="rub">
+              {% csrf_token %}
+              <input type="hidden" name="currency" value="rub">
+              <button type="submit" class="new-btn">Оформить</button>
+            </form>
+          {% else %}
+            <button type="button" class="new-btn" disabled>Пока недоступно</button>
+          {% endif %}
+        </div>
+        <div class="new-pay-method new-sub-plan">
+          <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
+          <span class="new-pay-method__body">
+            <strong>Иностранная карта</strong>
+            <span>$9 в месяц</span>
+          </span>
+          {% if not user.is_authenticated %}
+            <button type="button" class="new-btn" data-login-open>Войти и оформить подписку</button>
+          {% elif not telegram_linked %}
+            <button type="submit" class="new-btn" form="new-sub-telegram-link-form">Привязать Telegram</button>
+          {% elif club_checkout_enabled and club_usd %}
+            <form method="post" action="{% url 'new_subscription_checkout' %}" data-sub-checkout data-currency="usd">
+              {% csrf_token %}
+              <input type="hidden" name="currency" value="usd">
+              <button type="submit" class="new-btn">Оформить</button>
+            </form>
+          {% else %}
+            <button type="button" class="new-btn" disabled>Пока недоступно</button>
+          {% endif %}
+        </div>
+      </div>
+      <p class="new-pay-security">Подписка продлевается автоматически каждый месяц до отключения автопродления. Отключить автопродление можно в любой момент. Уже оплаченный доступ сохраняется до конца оплаченного периода.</p>
+      <p class="new-pay-security"><strong>На странице Tribute выберите Telegram, не email.</strong></p>
+      <p class="new-pay-seller">
+        <span>{{ tribute_seller }}</span>
+        <a href="{{ tribute_seller_url }}">Реквизиты</a>
+      </p>
+      <p class="new-pay-order__meta">Оплата проходит на стороне Tribute. Inter Oves не получает и не хранит данные банковской карты. <a href="/privacy/" target="_blank">Политика конфиденциальности</a> · <a href="/refunds/" target="_blank">Возвраты</a></p>
+      <p id="new-sub-message" class="new-login-hint new-pay-message" aria-live="polite"></p>
+    </div>
+  {% else %}
+    <div class="new-card new-pay-payment-card">
+      <p class="new-pay-security">Управлять автопродлением можно в боте Tribute. Inter Oves изменит статус после подтверждения от Tribute.</p>
+      <a class="new-btn" href="{{ club_management_url }}" target="_blank" rel="noopener noreferrer">Управлять подпиской</a>
+    </div>
+  {% endif %}
+</div>
+{% if show_checkout and user.is_authenticated and telegram_linked and club_checkout_enabled %}
+<script>
+(function () {
+  function csrfToken() {
+    var el = document.querySelector('[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+  function setMessage(text) {
+    var box = document.getElementById('new-sub-message');
+    if (!box) return;
+    box.textContent = text || '';
+  }
+  document.querySelectorAll('form[data-sub-checkout]').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var btn = form.querySelector('button[type="submit"]');
+      if (btn) btn.disabled = true;
+      setMessage('Переходим в Tribute…');
+      fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': csrfToken()
+        },
+        body: new URLSearchParams(new FormData(form)),
+        credentials: 'same-origin'
+      }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+        .then(function (res) {
+          if (res.data && res.data.analytics_events && window.interovesAnalytics && window.interovesAnalytics.flushPendingGoals) {
+            window.interovesAnalytics.flushPendingGoals(res.data.analytics_events);
+          }
+          if (!res.ok || !res.data || res.data.status !== 'ok' || !res.data.payment_url) {
+            setMessage((res.data && res.data.message) || 'Не получилось открыть Tribute. Попробуйте ещё раз.');
+            if (btn) btn.disabled = false;
+            return;
+          }
+          window.location = res.data.payment_url;
+        })
+        .catch(function () {
+          setMessage('Ошибка сети. Попробуйте ещё раз.');
+          if (btn) btn.disabled = false;
+        });
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

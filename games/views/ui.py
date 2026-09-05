@@ -77,6 +77,11 @@ create_crypto_ticket_payment = new_create_crypto_ticket_payment
 create_tribute_ticket_payment = new_create_tribute_ticket_payment
 telegram_link_start = new_telegram_link_start
 ticket_payment_status = new_ticket_payment_status
+
+from games.views.subscription import (  # noqa: E402
+    subscription_checkout,
+    subscription_page,
+)
 donate_page = new_donate_page
 create_crypto_donation = new_create_crypto_donation
 donation_status = new_donation_status

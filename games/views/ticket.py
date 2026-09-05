@@ -393,14 +393,30 @@ def nowpayments_ipn(request):
     )
 
 
+def _parse_tribute_envelope_datetime(value):
+    from django.utils import timezone
+    from django.utils.dateparse import parse_datetime
+
+    if not value:
+        return None
+    parsed = parse_datetime(str(value))
+    if parsed is None:
+        return None
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed, timezone.utc)
+    return parsed
+
+
 @csrf_exempt
 def tribute_webhook(request):
     """
-    Tribute Digital Product webhook (plus read-only legacy Shop compatibility).
+    Tribute Digital Product and creator-subscription webhook
+    (plus read-only legacy Shop compatibility).
 
     The signature is verified over the untouched request body before JSON parsing.
     Digital purchases use purchase_id for idempotency and Telegram numeric ID for
     identity matching; signed but unmatched purchases are accepted for review.
+    Club recurring events reuse the same signature check and Telegram mapping.
     """
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -450,6 +466,23 @@ def tribute_webhook(request):
             else:
                 process_refund(payload)
         except TributePayloadError as exc:
+            logger.warning('tribute_webhook malformed event=%s error=%s', event_name, exc)
+            return HttpResponse(status=400)
+        return HttpResponse(status=200)
+
+    from games.club_service import SUBSCRIPTION_EVENTS, ClubPayloadError, process_subscription_event
+
+    if event_name in SUBSCRIPTION_EVENTS:
+        if not isinstance(payload, dict):
+            return HttpResponse(status=400)
+        logger.info('tribute_webhook_received event=%s', event_name)
+        try:
+            process_subscription_event(
+                event_name,
+                payload,
+                envelope_created_at=_parse_tribute_envelope_datetime(event_json.get('created_at')),
+            )
+        except ClubPayloadError as exc:
             logger.warning('tribute_webhook malformed event=%s error=%s', event_name, exc)
             return HttpResponse(status=400)
         return HttpResponse(status=200)

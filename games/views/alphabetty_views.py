@@ -327,8 +327,12 @@ def alphabetty_last_page(request):
 
 
 def alphabetty_play_page(request, number):
-    game, task, load_meta, err = _load_visible_task(request, number)
-    if err is not None or game is None or task is None:
+    game, task, load_meta, err = _load_visible_task(request, number, json_mode=False)
+    if err is not None:
+        if getattr(err, 'status_code', None) == 403:
+            return err
+        raise Http404()
+    if game is None or task is None:
         raise Http404()
     offer = load_meta.get('offer') if load_meta else None
     play_number = load_meta.get('play_number') if load_meta else number
@@ -446,7 +450,7 @@ def _preview_denied(request, game):
     return None
 
 
-def _load_visible_task(request, number):
+def _load_visible_task(request, number, *, json_mode=True):
     game = _get_game()
     if not game:
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
@@ -473,6 +477,11 @@ def _load_visible_task(request, number):
         return None, None, None, JsonResponse({'status': 'error', 'error': 'bad number'}, status=400)
     if not is_alphabetty_number_published(game, n):
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not published'}, status=404)
+    from games.club_access import reject_if_club_archive_blocked
+
+    locked = reject_if_club_archive_blocked(request, game, number=n, json_mode=json_mode)
+    if locked is not None:
+        return None, None, None, locked
     try:
         link, task = get_task_for_number(game, n)
     except LookupError:

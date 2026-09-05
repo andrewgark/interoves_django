@@ -723,6 +723,51 @@ def _merge_analytics(target, source):
     return 1
 
 
+def _merge_club_subscriptions(target, source):
+    try:
+        ClubSubscription = apps.get_model('games', 'ClubSubscription')
+        ClubSubscriptionEvent = apps.get_model('games', 'ClubSubscriptionEvent')
+    except LookupError:
+        return 0
+    source_sub = ClubSubscription.objects.select_for_update().filter(user=source).first()
+    if source_sub is None:
+        return 0
+    target_sub = ClubSubscription.objects.select_for_update().filter(user=target).first()
+    if target_sub is None:
+        source_sub.user = target
+        source_sub.save(update_fields=['user'])
+        return 1
+    source_end = source_sub.paid_until
+    target_end = target_sub.paid_until
+    if source_end and (target_end is None or source_end > target_end):
+        target_sub.paid_until = source_end
+        target_sub.tribute_subscription_id = source_sub.tribute_subscription_id
+        target_sub.tribute_period_id = source_sub.tribute_period_id
+        target_sub.currency = source_sub.currency or target_sub.currency
+        target_sub.amount = source_sub.amount or target_sub.amount
+        target_sub.last_payment_at = source_sub.last_payment_at or target_sub.last_payment_at
+    if source_sub.auto_renew:
+        target_sub.auto_renew = True
+        target_sub.cancelled_at = None
+    target_sub.duplicate_detected = True
+    if source_sub.telegram_user_id and not target_sub.telegram_user_id:
+        target_sub.telegram_user_id = source_sub.telegram_user_id
+    if target_sub.grants_access():
+        target_sub.status = (
+            ClubSubscription.STATUS_ACTIVE
+            if target_sub.auto_renew
+            else ClubSubscription.STATUS_CANCELLED
+        )
+    else:
+        target_sub.status = ClubSubscription.STATUS_EXPIRED
+    target_sub.save()
+    ClubSubscriptionEvent.objects.filter(club_subscription=source_sub).update(
+        club_subscription=target_sub,
+    )
+    source_sub.delete()
+    return 1
+
+
 @transaction.atomic
 def merge_accounts(*, target_user, source_user, provider, provider_uid):
     """Merge source into target, preserving target identity and profile choices."""
@@ -808,6 +853,7 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
         related_models.append((label, model, field))
     for label, model, field in related_models:
         summary[label] = model.objects.filter(**{field: source}).update(**{field: target})
+    summary['club_subscriptions'] = _merge_club_subscriptions(target, source)
 
     source_accounts = list(SocialAccount.objects.select_for_update().filter(user=source))
     for account in source_accounts:

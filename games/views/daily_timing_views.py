@@ -66,6 +66,10 @@ def _load_daily_target(request, game_id, number):
         return None, None, None, None, _json_error('not_daily', 404)
     if not scheduled_number_is_public(game, raw_number) and not request.user.is_staff:
         return None, None, None, None, _json_error('not_published', 404)
+    from games.club_access import user_can_access_scheduled_number
+
+    if not user_can_access_scheduled_number(request.user, game, raw_number):
+        return None, None, None, None, _json_error('club_required', 403)
     link = GameTaskGroup.objects.filter(game=game, number=raw_number).select_related('task_group').first()
     if link is None:
         return None, None, None, None, _json_error('missing', 404)

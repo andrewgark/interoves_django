@@ -29,6 +29,9 @@ def build_user_context(user, *, feed_kwargs):
         title = '{} {}'.format(profile.first_name, profile.last_name).strip()
     else:
         title = user.username
+    from games.club_access import get_club_subscription, has_club_access
+
+    subscription = get_club_subscription(user)
     return {
         'actor_kind': 'user',
         'actor_title': title or user.username,
@@ -37,6 +40,8 @@ def build_user_context(user, *, feed_kwargs):
         'profile': profile,
         'members': [],
         'flags': _user_flags(user, profile),
+        'club_subscription': subscription,
+        'club_access': has_club_access(user),
         'game_groups': games_for_actor(user=user),
         **_feed_context({**feed_kwargs, 'user': user}),
     }
@@ -116,6 +121,17 @@ def _user_flags(user, profile):
         flags.append('superuser')
     if profile and profile.team_on_id:
         flags.append('team_on:{}'.format(profile.team_on_id))
+    if profile and profile.telegram_verified and profile.telegram_user_id:
+        flags.append('telegram:{}'.format(profile.telegram_user_id))
+    from games.club_access import get_club_subscription, has_club_access
+
+    if has_club_access(user):
+        flags.append('club:yes')
+    else:
+        flags.append('club:no')
+    subscription = get_club_subscription(user)
+    if subscription is not None:
+        flags.append('club_status:{}'.format(subscription.effective_status()))
     return flags
 
 
