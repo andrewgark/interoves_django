@@ -24,7 +24,7 @@ The same mechanism covers site changes that become relevant while a page is open
 | Daily content boundary | Main hub, daily archives, and open ladder/week-task/alphabetty pages carry the next server-derived publish timestamp for an existing future row and reload at that boundary | Whole-page reload; midnight behavior lacks a dedicated browser assertion |
 | Client update | New UI replaces task fragments; reconciliation events are queued so an older snapshot cannot overwrite a newer socket update; game/section task-list progress is rendered authoritatively in the first response, with the scoped JSON projection retained as a failure fallback; live HTML is restamped with the page CSRF token before the next POST | Large coupled HTML remains in direct socket payloads; some lifecycle events still reload the page |
 | Delivery durability | Publish runs in an `on_commit` daemon thread | A process/Redis failure can drop an event permanently |
-| Tests | Publisher and ASGI tests, eleven Playwright scenarios, and opt-in real-Redis tests for cross-process delivery and revision allocation; GitHub Actions runs the latter against disposable Redis | Mobile keyboard behavior remains a manual smoke |
+| Tests | Publisher and ASGI tests, thirteen Playwright scenarios, and opt-in real-Redis tests for cross-process delivery and revision allocation; GitHub Actions runs the latter against disposable Redis | Mobile keyboard behavior remains a manual smoke |
 
 ### What likely works today
 
@@ -39,6 +39,8 @@ The same mechanism covers site changes that become relevant while a page is open
   ladder, alphabetty, or week task reaches its Moscow publication boundary.
 - Simultaneous identical submissions produce one authoritative attempt and both pages converge.
 - After a teammate solves one replacements line, the other member can submit another line without F5 or «Ошибка сети».
+- An in-flight raddle submit still converges after the teammate's live HTML replace; a client abort is not auto-retried on top of the chain lock.
+- Raddle middle-row drafts and unused-clue strikethrough converge on the teammate page without replacing the ladder HTML.
 - Changing a team's visible name does not interrupt its existing game subscriptions.
 - DB locking prevents the main duplicate/chain-state races during simultaneous submissions.
 - Older delivered messages do not overwrite newer HTML in the new UI.
@@ -111,6 +113,8 @@ For reliable cross-process delivery, add a transactional outbox later. A worker 
 | Teammate solves ordinary task | Other browser converges without reload/input loss | Playwright |
 | Teammate solves a replacements line | Other browser can submit another line without reload or «Ошибка сети» | Playwright |
 | Teammate advances raddle from either end | Both ladders converge; active draft and intentional focus survive | Playwright |
+| In-flight raddle submit during teammate HTML replace | Held POST still solves its word; no «Ошибка сети» | Playwright |
+| Teammate types a raddle middle draft or strikes an unused clue | Other browser shows the letters/mark without HTML replace or reload | Playwright |
 | Simultaneous same answer | One authoritative progression; both browsers converge | Playwright |
 | Pending becomes Ok/Wrong | All actor pages show final verdict and points | Playwright, both verdicts |
 | Task/checker edited and rechecked | Open pages receive new text and recalculated state | Playwright + publisher tests |
@@ -123,8 +127,9 @@ For reliable cross-process delivery, add a transactional outbox later. A worker 
 | Cross-process Redis transport | Independent publisher/receiver processes exchange an event; concurrent allocators produce one monotonic revision sequence | Opt-in real-Redis integration test |
 
 The Playwright suite currently covers direct and simultaneous team submissions,
-offline/reconnect snapshot repair, raddle draft/focus, sequential replacements
-lines after a teammate live-update, both pending-review verdicts, task
+offline/reconnect snapshot repair, raddle draft/focus, raddle draft/clue-mark
+sync, an in-flight raddle submit across a teammate live-update, sequential
+replacements lines after a teammate live-update, both pending-review verdicts, task
 edit/recheck, both game clock boundaries, and visible-name rename:
 
 ```bash

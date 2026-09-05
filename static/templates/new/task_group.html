@@ -284,6 +284,7 @@
 </div>
 
 <script src="{% static 'js/replacements_input_parse.js' %}"></script>
+<script src="{% static 'js/fetch_json.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/imask.min.js' %}"></script>
 <script src="{% static 'js/raddle_masked_input.js' %}"></script>
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
@@ -507,6 +508,12 @@
     return fd;
   }
 
+  function parseFetchJson(r) {
+    return window.InterovesFetchJson
+      ? window.InterovesFetchJson.parseJsonResponse(r)
+      : r.json();
+  }
+
   function postForm(form) {
     if (form && form.dataset && form.dataset.submitting === '1') return;
     var submitBtnEarly = form && form.querySelector('button[type=submit]');
@@ -552,7 +559,7 @@
       body: formPostBody(form),
       credentials: 'same-origin',
     })
-      .then(function (r) { return r.json(); })
+      .then(parseFetchJson)
       .then(function (data) {
         if (form && form.dataset) form.dataset.submitting = '0';
         if (submitBtn) submitBtn.disabled = false;
@@ -601,7 +608,9 @@
                 data.attempt_status
               );
             }
-            applyNewUiTaskHtml(data.update_task_html_new);
+            try {
+              applyNewUiTaskHtml(data.update_task_html_new);
+            } catch (e) {}
             if (!isRaddleLineForm(form) && shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
               restoreOrdinaryWrongFeedback(data.task_id || attemptFeedbackTaskId);
               openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
@@ -675,10 +684,17 @@
         }
         if (msg) msg.textContent = 'Не удалось отправить: ' + data.status;
       })
-      .catch(function () {
+      .catch(function (err) {
         if (form && form.dataset) form.dataset.submitting = '0';
         if (submitBtn) submitBtn.disabled = false;
-        if (msg) msg.textContent = 'Ошибка сети.';
+        if (isRaddleLineForm(form) && raddleWordAlreadySolved(form, form.getAttribute('data-word-index'))) {
+          return;
+        }
+        if (msg) {
+          msg.textContent = (err && err.httpStatus === 403)
+            ? 'Сессия устарела. Обновите страницу.'
+            : 'Ошибка сети.';
+        }
       });
   }
 
@@ -1233,7 +1249,7 @@
       body: formPostBody(form),
       credentials: 'same-origin',
     })
-      .then(function (r) { return r.json(); })
+      .then(parseFetchJson)
       .then(function (data) {
         if (form && form.dataset) form.dataset.submitting = '0';
         if (!data || !data.status) {
@@ -1247,7 +1263,7 @@
         // 💡: ok или duplicate → подсветить; при ok обновить HTML
         if (tier === '1' && (data.status === 'ok' || data.status === 'duplicate')) {
           if (data.status === 'ok' && data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-            applyNewUiTaskHtml(data.update_task_html_new);
+            try { applyNewUiTaskHtml(data.update_task_html_new); } catch (e) {}
             var fresh = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
             if (fresh) setRaddleFocus(fresh, wordIdx);
             return;
@@ -1270,7 +1286,7 @@
         }
         if (data.status === 'ok') {
           if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-            applyNewUiTaskHtml(data.update_task_html_new);
+            try { applyNewUiTaskHtml(data.update_task_html_new); } catch (e) {}
             return;
           }
           window.location.reload();
@@ -1289,11 +1305,13 @@
           msg.textContent = texts[data.status] || ('Не удалось: ' + data.status);
         }
       })
-      .catch(function () {
+      .catch(function (err) {
         if (form && form.dataset) form.dataset.submitting = '0';
         if (msg) {
           msg.style.display = 'block';
-          msg.textContent = 'Ошибка сети.';
+          msg.textContent = (err && err.httpStatus === 403)
+            ? 'Сессия устарела. Обновите страницу.'
+            : 'Ошибка сети.';
         }
       });
   }
@@ -1353,8 +1371,8 @@
   }
 
   // Клиентский таймаут одной попытки отправки ответа в лесенке (мс).
-  // Разовые сбои переживаем автоповтором (RADDLE_MAX_ATTEMPTS), и только
-  // если все попытки не удались — показываем «Ошибку сети».
+  // Abort не ретраим: сервер мог уже сохранить ход (lock напарника), а повтор
+  // только усугубляет очередь. TypeError (offline) — до RADDLE_MAX_ATTEMPTS.
   var RADDLE_FETCH_TIMEOUT_MS = 15000;
   var RADDLE_MAX_ATTEMPTS = 3;
   var RADDLE_RETRY_DELAY_MS = 400;
@@ -1384,6 +1402,20 @@
   }
 
   var raddleRestoringDrafts = false;
+  var raddleInFlight = Object.create(null);
+  function raddleFlightKeyFromIds(taskId, wordIdx) {
+    if (taskId === null || taskId === undefined || taskId === '') return '';
+    if (wordIdx === null || wordIdx === undefined || wordIdx === '') return '';
+    return String(taskId) + ':' + String(wordIdx);
+  }
+  function raddleFlightKey(form, wordIdx) {
+    var taskId = form && form.getAttribute && form.getAttribute('data-task-id');
+    var idx = wordIdx;
+    if (idx === null || idx === undefined || idx === '') {
+      idx = form && form.getAttribute ? form.getAttribute('data-word-index') : '';
+    }
+    return raddleFlightKeyFromIds(taskId, idx);
+  }
 
   // Черновики средних слов + struck-метки подсказок (sessionStorage переживает re-render HTML).
   function raddleDraftsStorageKey(taskId) {
@@ -1446,6 +1478,7 @@
     }
     writeRaddleJsonMap(key, drafts);
     updateRaddleDraftHourglass(row, val);
+    scheduleRaddleDraftSync(taskId, idx, val);
   }
   function restoreRaddleDrafts(taskRoot) {
     if (!taskRoot) return;
@@ -1468,13 +1501,19 @@
         // Уже заполненное (💡💡 revealed или bind с value) не перезаписываем черновиком.
         if (current) {
           keep[String(idx)] = current;
+          if (raddleInFlight[raddleFlightKeyFromIds(taskId, idx)]) {
+            input.dataset.raddleLast = current;
+          }
           updateRaddleDraftHourglass(row, current);
           return;
         }
-        var letters = drafts[String(idx)] || '';
+        var letters = drafts[String(idx)] || input.getAttribute('data-raddle-server-draft') || '';
         if (letters) {
           keep[String(idx)] = letters;
           softSetRaddleLetters(input, letters);
+          if (raddleInFlight[raddleFlightKeyFromIds(taskId, idx)]) {
+            input.dataset.raddleLast = letters;
+          }
         }
         updateRaddleDraftHourglass(row, letters);
       });
@@ -1505,7 +1544,9 @@
     );
     var present = {};
     unused.forEach(function (li) {
-      present[String(li.getAttribute('data-hint-index'))] = true;
+      var hi = String(li.getAttribute('data-hint-index'));
+      present[hi] = true;
+      if (li.classList.contains('new-raddle-clue--struck')) marks[hi] = true;
     });
     Object.keys(marks).forEach(function (hi) {
       if (!marks[hi] || !present[hi]) return;
@@ -1529,7 +1570,114 @@
     }
     writeRaddleJsonMap(key, marks);
     setRaddleClueStruck(taskRoot, hi, next);
+    var patch = {};
+    patch[hi] = next;
+    postRaddleUi(taskId, null, patch);
   }
+
+  var RADDLE_UI_DEBOUNCE_MS = 200;
+  var raddleUiDraftTimers = Object.create(null);
+  var raddleUiDraftPending = Object.create(null);
+
+  function raddleRowIsLocallyEditing(taskRoot, wordIdx) {
+    if (!taskRoot || !hasRaddleInputIntent(taskRoot)) return false;
+    var active = document.activeElement;
+    if (!active || !active.closest) return false;
+    var row = active.closest('.new-raddle-row[data-word-index]');
+    return !!(row && String(row.getAttribute('data-word-index')) === String(wordIdx));
+  }
+
+  function postRaddleUi(taskId, draftsPatch, marksPatch) {
+    if (!taskId) return Promise.resolve(null);
+    if (!draftsPatch && !marksPatch) return Promise.resolve(null);
+    var params = new URLSearchParams();
+    params.set('game_id', '{{ game.id }}');
+    if (anonKey) params.set('anon_key', anonKey);
+    if (draftsPatch) params.set('drafts', JSON.stringify(draftsPatch));
+    if (marksPatch) params.set('clue_marks', JSON.stringify(marksPatch));
+    if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampParams(params);
+    var headers = anonFetchHeaders({
+      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+    });
+    return fetch('/send_raddle_ui/' + taskId + '/', {
+      method: 'POST',
+      headers: headers,
+      body: params.toString(),
+      credentials: 'same-origin',
+    }).then(parseFetchJson).catch(function () { return null; });
+  }
+
+  function scheduleRaddleDraftSync(taskId, wordIdx, letters) {
+    if (!taskId || wordIdx === null || wordIdx === undefined || wordIdx === '') return;
+    var pending = raddleUiDraftPending[taskId] || {};
+    pending[String(wordIdx)] = letters || '';
+    raddleUiDraftPending[taskId] = pending;
+    clearTimeout(raddleUiDraftTimers[taskId]);
+    raddleUiDraftTimers[taskId] = setTimeout(function () {
+      var patch = raddleUiDraftPending[taskId];
+      raddleUiDraftPending[taskId] = {};
+      postRaddleUi(taskId, patch, null);
+    }, RADDLE_UI_DEBOUNCE_MS);
+  }
+
+  function applyRaddleUiState(uiMap, opts) {
+    opts = opts || {};
+    var fromRemote = !!opts.fromRemote;
+    if (!uiMap) return;
+    Object.keys(uiMap).forEach(function (taskId) {
+      var payload = uiMap[taskId];
+      if (!payload || typeof payload !== 'object') return;
+      var taskRoot = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
+      if (!taskRoot) return;
+      var drafts = payload.drafts && typeof payload.drafts === 'object' ? payload.drafts : {};
+      var marks = payload.clue_marks && typeof payload.clue_marks === 'object' ? payload.clue_marks : {};
+      var stored = readRaddleJsonMap(raddleDraftsStorageKey(taskId));
+      var pending = raddleUiDraftPending[taskId] || {};
+      var keep = {};
+      function protectLocal(idx) {
+        return fromRemote && (
+          raddleRowIsLocallyEditing(taskRoot, idx) ||
+          Object.prototype.hasOwnProperty.call(pending, String(idx))
+        );
+      }
+      Object.keys(drafts).forEach(function (idx) {
+        if (protectLocal(idx)) {
+          if (stored[idx]) keep[idx] = stored[idx];
+          return;
+        }
+        var letters = drafts[idx] || '';
+        if (letters) keep[idx] = letters;
+        var row = taskRoot.querySelector(
+          '.new-raddle-ladder .new-raddle-row[data-word-index="' + idx + '"]'
+        );
+        var input = row && row.querySelector('input.new-raddle-input[data-raddle-format]');
+        if (!input || (row && row.classList.contains('new-raddle-row--solved'))) return;
+        if (getRaddleInputLetters(input) === letters) return;
+        raddleRestoringDrafts = true;
+        try { softSetRaddleLetters(input, letters); }
+        finally { raddleRestoringDrafts = false; }
+        updateRaddleDraftHourglass(row, letters);
+      });
+      Object.keys(stored).forEach(function (idx) {
+        if (Object.prototype.hasOwnProperty.call(keep, idx)) return;
+        if (Object.prototype.hasOwnProperty.call(drafts, idx)) return;
+        if (protectLocal(idx) && stored[idx]) keep[idx] = stored[idx];
+      });
+      writeRaddleJsonMap(raddleDraftsStorageKey(taskId), keep);
+      var markKeep = {};
+      Object.keys(marks).forEach(function (hi) {
+        if (marks[hi]) markKeep[hi] = true;
+      });
+      writeRaddleJsonMap(raddleClueMarksStorageKey(taskId), markKeep);
+      taskRoot.querySelectorAll(
+        '.new-raddle-clues__section--unused .new-raddle-clue[data-hint-index]'
+      ).forEach(function (li) {
+        var hi = String(li.getAttribute('data-hint-index'));
+        setRaddleClueStruck(taskRoot, hi, !!markKeep[hi]);
+      });
+    });
+  }
+  window.applyRaddleUiState = applyRaddleUiState;
   function maybeCascadeRaddlePlayable(taskRoot) {
     if (!taskRoot || !hasRaddleInputIntent(taskRoot)) return;
     var focusRow = taskRoot.querySelector(
@@ -1635,43 +1783,94 @@
     if (msg) { msg.style.display = 'block'; msg.textContent = raddleStatusText(data.status); }
   }
 
+  function liveRaddleForm(form) {
+    return (window.InterovesFetchJson && window.InterovesFetchJson.liveElement)
+      ? window.InterovesFetchJson.liveElement(form)
+      : form;
+  }
+
+  function raddleWordAlreadySolved(form, wordIdx) {
+    var taskId = form && form.getAttribute && form.getAttribute('data-task-id');
+    if (window.InterovesFetchJson && window.InterovesFetchJson.wordRowIsSolved) {
+      return window.InterovesFetchJson.wordRowIsSolved(document, taskId, wordIdx);
+    }
+    return false;
+  }
+
   function postRaddleAutoForm(form, input) {
-    if (!form || (form.dataset && form.dataset.submitting === '1')) return false;
+    if (!form) return false;
+    var wordIdx = form.getAttribute('data-word-index');
+    var flightKey = raddleFlightKey(form, wordIdx);
+    if ((form.dataset && form.dataset.submitting === '1') || (flightKey && raddleInFlight[flightKey])) {
+      return false;
+    }
+    if (flightKey) raddleInFlight[flightKey] = true;
     if (form.dataset) form.dataset.submitting = '1';
     setRaddleInputBusy(input, true);
     var row = input ? input.closest('.new-raddle-row') : null;
     setRaddleRowChecking(row, true);
-    var wordIdx = form.getAttribute('data-word-index');
 
     // На протяжении всех автопопыток вход остаётся busy, а спиннер крутится,
     // чтобы не улетело два параллельных запроса и не мигал крестик.
     function finish() {
-      if (form.dataset) form.dataset.submitting = '0';
+      if (flightKey) delete raddleInFlight[flightKey];
+      var currentForm = liveRaddleForm(form) || form;
+      var live = raddleLiveElements(currentForm, input, row);
+      if (currentForm && currentForm.dataset) currentForm.dataset.submitting = '0';
+      if (form && form.dataset && form !== currentForm) form.dataset.submitting = '0';
+      setRaddleInputBusy(live.input, false);
       setRaddleInputBusy(input, false);
+      setRaddleRowChecking(live.row, false);
       setRaddleRowChecking(row, false);
     }
 
     function attemptOnce(attempt) {
-      fetchWithTimeout(formSubmitUrl(form), {
+      var currentForm = liveRaddleForm(form) || form;
+      var live = raddleLiveElements(currentForm, input, row);
+      if (raddleWordAlreadySolved(currentForm || form, wordIdx)) {
+        finish();
+        return;
+      }
+      var requestForm = currentForm;
+      var requestInput = live.input || input;
+      fetchWithTimeout(formSubmitUrl(requestForm), {
         method: 'POST',
         headers: anonFetchHeaders(),
-        body: formPostBody(form),
+        body: formPostBody(requestForm),
         credentials: 'same-origin',
       }, RADDLE_FETCH_TIMEOUT_MS)
-        .then(function (r) { return r.json(); })
+        .then(parseFetchJson)
         .then(function (data) {
           finish();
-          flushAnalyticsEvents(data);
-          applyRaddleAttemptResponse(form, input, row, data, wordIdx);
+          try {
+            var appliedForm = liveRaddleForm(form) || requestForm;
+            var applied = raddleLiveElements(appliedForm, requestInput, row);
+            flushAnalyticsEvents(data);
+            applyRaddleAttemptResponse(appliedForm, applied.input, applied.row, data, wordIdx);
+          } catch (e) {
+            if (data && data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+              try { applyNewUiTaskHtml(data.update_task_html_new); } catch (e2) {}
+            }
+          }
         })
-        .catch(function () {
-          if (attempt < RADDLE_MAX_ATTEMPTS) {
+        .catch(function (err) {
+          if (raddleWordAlreadySolved(form, wordIdx)) {
+            finish();
+            return;
+          }
+          var retryable = window.InterovesFetchJson
+            ? window.InterovesFetchJson.shouldRetry(err, attempt, RADDLE_MAX_ATTEMPTS)
+            : (attempt < RADDLE_MAX_ATTEMPTS);
+          if (retryable) {
             setTimeout(function () { attemptOnce(attempt + 1); }, RADDLE_RETRY_DELAY_MS);
             return;
           }
           finish();
+          if (requestInput) delete requestInput.dataset.raddleLast;
           if (input) delete input.dataset.raddleLast;
-          showRaddleNetworkError(form, input);
+          var errForm = liveRaddleForm(form) || form;
+          var errLive = raddleLiveElements(errForm, input, row);
+          showRaddleNetworkError(errForm, errLive.input || input);
         });
     }
 
@@ -1682,6 +1881,8 @@
   // Сетевая ошибка/таймаут: показываем сообщение с явной кнопкой «Повторить»
   // (то же слово уже в поле; Enter тоже переотправляет).
   function showRaddleNetworkError(form, input) {
+    form = liveRaddleForm(form) || form;
+    if (!form || !form.id) return;
     var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
     if (!msg) return;
     msg.style.display = 'block';
@@ -1819,6 +2020,11 @@
     var formId = input.getAttribute('form');
     var form = formId ? document.getElementById(formId) : null;
     if (!form) return;
+    var flightKey = raddleFlightKey(form, form.getAttribute('data-word-index'));
+    if (flightKey && raddleInFlight[flightKey]) {
+      input.dataset.raddleLast = val;
+      return;
+    }
     input.dataset.raddleLast = val;
     if (!postRaddleAutoForm(form, input)) {
       delete input.dataset.raddleLast;
@@ -3510,7 +3716,7 @@
       },
       body: params.toString(),
       credentials: 'same-origin',
-    }).then(function (r) { return r.json(); });
+    }).then(parseFetchJson);
   }
 
   function wallMessage(fromEl) {
@@ -3587,9 +3793,13 @@
     postWall(taskId, params, wallCsrf()).then(function (data) {
       if (wallRoot) wallRoot.dataset.submitting = '0';
       applyWallAttemptResponse(data, taskId, msg);
-    }).catch(function () {
+    }).catch(function (err) {
       if (wallRoot) wallRoot.dataset.submitting = '0';
-      if (msg) msg.textContent = 'Ошибка сети. Выбор сохранён — попробуйте ещё раз.';
+      if (msg) {
+        msg.textContent = (err && err.httpStatus === 403)
+          ? 'Сессия устарела. Обновите страницу.'
+          : 'Ошибка сети. Выбор сохранён — попробуйте ещё раз.';
+      }
     });
   }, true);
 
@@ -3610,10 +3820,14 @@
       form.dataset.submitting = '0';
       if (submit) submit.disabled = false;
       applyWallAttemptResponse(data, taskId, msg);
-    }).catch(function () {
+    }).catch(function (err) {
       form.dataset.submitting = '0';
       if (submit) submit.disabled = false;
-      if (msg) msg.textContent = 'Ошибка сети. Текст сохранён — попробуйте ещё раз.';
+      if (msg) {
+        msg.textContent = (err && err.httpStatus === 403)
+          ? 'Сессия устарела. Обновите страницу.'
+          : 'Ошибка сети. Текст сохранён — попробуйте ещё раз.';
+      }
     });
   }, true);
 })();

@@ -32,6 +32,9 @@
 ### Клиент (авто-режим, не турнир)
 
 - `raddleLast` — блокировка двойной отправки **того же** значения; ставится только если fetch реально ушёл; сбрасывается при ошибке сети, при `length !== maxlength`, при sync.
+- Клиентский abort/timeout **не** авто-ретраится (сервер мог уже записать ход; повтор бьёт в `select_for_update` напарника). TypeError (offline) — до 3 попыток. HTML 403 не ретраится и не маскируется под «Ошибку сети».
+- In-flight ключ `taskId:wordIndex` переживает `applyNewUiTaskHtml`: чужой live-update не запускает второй POST того же слова.
+- Если строка уже `new-raddle-row--solved` после live-HTML, «Ошибку сети» не показываем.
 - `paste` — fallback через `setTimeout(0)` только если busy / уже отправлено.
 - **Mobile focus intent:** `activeElement` не означает открытую клавиатуру (Android
   оставляет фокус после Back). Sticky-клон зеркалирует текст, но не забирает фокус
@@ -40,7 +43,8 @@
   сессия ввода; закрытие клавиатуры или ручной scroll её отменяют. Неверный ответ
   DOM поля не меняет и программно не фокусирует.
 - Разделение: `syncRaddleUiAfterAdvance` (перерисовка) vs `showRaddleWrongFeedback` (локальная обратная связь).
-- **Черновики середины** (`is_draftable` / `data-raddle-draft`): инпут без формы и без auto-submit; сервер по-прежнему принимает только крайние из `playable_word_indices`. Текст в `sessionStorage` (`raddle_drafts_<taskId>`), чтобы пережить `applyNewUiTaskHtml`.
+- **Черновики середины** (`is_draftable` / `data-raddle-draft`): инпут без формы и без auto-submit; сервер по-прежнему принимает только крайние из `playable_word_indices`. Текст в `ChainTaskState.drafts` (и локальный `sessionStorage`), live-событие `raddle.ui_state` без перерисовки HTML. Не перезаписываем поле, в котором напарник сейчас печатает.
+- **Зачёркивание unused-подсказок:** то же `raddle.ui_state` / `clue_marks`; кружок по-прежнему только UI, на проверку не влияет.
 - **Каскад после advance:** после `focusRaddleNext` если сфокусированный playable уже полный и есть `data-raddle-auto` — `submitRaddleAuto` (цепочка с того же конца). В турнире каскада нет (нет auto).
 - **Метки подсказок:** кружок у unused clues — только UI (`sessionStorage`), на проверку не влияет; в «Использованные» кружка нет.
 
@@ -60,6 +64,8 @@
 
 - [ ] Есть ли вызов `applyNewUiTaskHtml` без `raddle_correct` / `raddle_needs_sync` / `raddle_duplicate_solved`?
 - [ ] Сбрасывается ли `raddleLast` при `catch` и когда `postRaddleAutoForm` вернул `false`?
+- [ ] Abort/timeout не ставится в очередь ретраев? In-flight того же слова переживает замену HTML?
+- [ ] Черновик середины / зачёркивание подсказки уходят через `send_raddle_ui` без `applyNewUiTaskHtml`?
 - [ ] Может ли один жест (paste + input) отправить два одинаковых запроса?
 - [ ] При `duplicate` без `raddle_duplicate_solved` фокус остаётся на текущей строке?
 - [ ] Обновлены ли тесты в `test_raddle_send_attempt.py` при новых флагах ответа?

@@ -19,7 +19,12 @@ from .attempt_views import check_attempt, get_first_new_hint, process_send_attem
 
 # Hint views
 from .hint_views import create_hint_attempt, process_send_hint_attempt, send_hint_attempt
-from games.views.raddle_views import process_send_raddle_assist, send_raddle_assist
+from games.views.raddle_views import (
+    process_send_raddle_assist,
+    process_send_raddle_ui,
+    send_raddle_assist,
+    send_raddle_ui,
+)
 
 # Answer views
 from .answer_views import task_ok_by_team, get_answer
@@ -52,7 +57,9 @@ __all__ = [
     'process_send_hint_attempt',
     'send_hint_attempt',
     'process_send_raddle_assist',
+    'process_send_raddle_ui',
     'send_raddle_assist',
+    'send_raddle_ui',
     'task_ok_by_team',
     'get_answer',
     'results_page',

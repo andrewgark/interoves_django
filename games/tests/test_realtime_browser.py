@@ -472,6 +472,100 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             second_document_id,
         )
 
+    def test_raddle_draft_and_clue_mark_sync_to_teammate(self):
+        from playwright.sync_api import expect
+
+        first = self.browser_page_for(self.user_one)
+        second = self.browser_page_for(self.user_two)
+        url = f'{self.live_server_url}/games/{self.game.pk}/2/'
+        second.goto(url)
+        first.goto(url)
+        first_document_id = first.evaluate('window.__interovesDocumentId')
+        second_document_id = second.evaluate('window.__interovesDocumentId')
+
+        draft = second.locator(
+            '.new-raddle-row[data-word-index="2"]:not([data-raddle-pin-row]) '
+            'input[data-raddle-draft="1"]'
+        )
+        expect(draft).to_be_visible()
+        draft.click()
+        draft.type('CCC')
+        expect(first.locator(
+            '.new-raddle-row[data-word-index="2"]:not([data-raddle-pin-row]) '
+            'input.new-raddle-input:not([data-raddle-pin-proxy])'
+        )).to_have_value('CCC', timeout=10_000)
+
+        mark = first.locator('.new-raddle-clues__section--unused .new-raddle-clue__mark').first
+        expect(mark).to_be_visible()
+        mark.click()
+        expect(second.locator(
+            '.new-raddle-clues__section--unused .new-raddle-clue--struck'
+        )).to_have_count(1, timeout=10_000)
+        self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
+        self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
+
+    def test_raddle_in_flight_submit_survives_teammate_live_update(self):
+        from playwright.sync_api import expect
+
+        first = self.browser_page_for(self.user_one)
+        second = self.browser_page_for(self.user_two)
+        url = f'{self.live_server_url}/games/{self.game.pk}/2/'
+        second.goto(url)
+        first.goto(url)
+        first_document_id = first.evaluate('window.__interovesDocumentId')
+        second_document_id = second.evaluate('window.__interovesDocumentId')
+        held = []
+
+        def hold_second_submit(route):
+            if route.request.method == 'POST' and '/send_attempt/' in route.request.url:
+                held.append(route)
+                return
+            route.continue_()
+
+        # Catch-all: Playwright glob `**/send_attempt/**` misses the relative
+        # `/send_attempt/<id>/` fetch used by raddle auto-submit.
+        second.route('**/*', hold_second_submit)
+        try:
+            second.locator(
+                '.new-raddle-row[data-word-index="3"]:not([data-raddle-pin-row]) '
+                'input.new-raddle-input:not([data-raddle-pin-proxy])'
+            ).fill('DDD')
+            for _ in range(50):
+                if held:
+                    break
+                second.wait_for_timeout(100)
+            self.assertTrue(held, 'second player auto-submit was not intercepted')
+            first.locator(
+                '.new-raddle-row[data-word-index="1"]:not([data-raddle-pin-row]) '
+                'input.new-raddle-input:not([data-raddle-pin-proxy])'
+            ).fill('BBB')
+            expect(first.locator(
+                '.new-raddle-row[data-word-index="1"]:not([data-raddle-pin-row])'
+            )).to_have_class(re.compile(r'.*new-raddle-row--solved.*'), timeout=10_000)
+            expect(second.locator(
+                '.new-raddle-row[data-word-index="1"]:not([data-raddle-pin-row])'
+            )).to_have_class(re.compile(r'.*new-raddle-row--solved.*'), timeout=10_000)
+            self.assertTrue(held)
+            for route in held:
+                route.continue_()
+            expect(second.locator(
+                '.new-raddle-row[data-word-index="3"]:not([data-raddle-pin-row])'
+            )).to_have_class(re.compile(r'.*new-raddle-row--solved.*'), timeout=10_000)
+            expect(first.locator(
+                '.new-raddle-row[data-word-index="3"]:not([data-raddle-pin-row])'
+            )).to_have_class(re.compile(r'.*new-raddle-row--solved.*'), timeout=10_000)
+            for page in (first, second):
+                expect(page.get_by_text('Ошибка сети')).to_have_count(0)
+        finally:
+            for route in held:
+                try:
+                    route.continue_()
+                except Exception:
+                    pass
+            second.unroute('**/*')
+        self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
+        self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
+
     def test_teammate_can_submit_next_replacements_line_after_live_update(self):
         from playwright.sync_api import expect
 

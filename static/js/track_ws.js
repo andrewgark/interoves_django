@@ -41,6 +41,9 @@
     } else if (msg.update_task_html && typeof global.updateTasks === 'function') {
       global.updateTasks(msg.update_task_html);
     }
+    if (msg.raddle_ui && typeof global.applyRaddleUiState === 'function') {
+      global.applyRaddleUiState(msg.raddle_ui, {fromRemote: true});
+    }
     if (msg.update_task_group_title_html && typeof global.updateTaskGroupTitle === 'function') {
       global.updateTaskGroupTitle(msg.update_task_group_title_html);
     }
@@ -131,6 +134,9 @@
         throw new Error('task projection unavailable');
       }
       global.applyNewUiTaskHtml(data.update_task_html_new || {});
+      if (data.raddle_ui && typeof global.applyRaddleUiState === 'function') {
+        global.applyRaddleUiState(data.raddle_ui, {fromRemote: true});
+      }
       if (doc && typeof doc.dispatchEvent === 'function' && typeof global.CustomEvent === 'function') {
         doc.dispatchEvent(new global.CustomEvent('interoves:reconciled', {detail: data}));
       }

@@ -20,12 +20,14 @@ from games.views.views import (
     send_attempt,
     send_hint_attempt,
     send_raddle_assist,
+    send_raddle_ui,
 )
 
 urlpatterns = [
     url(r"^send_attempt/(?P<task_id>\d+)/$", send_attempt),
     url(r"^send_hint_attempt/(?P<task_id>\d+)/$", send_hint_attempt),
     url(r"^send_raddle_assist/(?P<task_id>\d+)/$", send_raddle_assist),
+    url(r"^send_raddle_ui/(?P<task_id>\d+)/$", send_raddle_ui),
     url(r"^get_answer/(?P<task_id>\d+)/$", get_answer),
     url(r"^like_dislike/(?P<task_id>\d+)/", like_dislike),
     url(r"^register/(?P<game_id>[a-zA-Z0-9_]+)/$", register_to_game),

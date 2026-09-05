@@ -442,6 +442,7 @@ def _merge_chain_state_json(task, source_json, target_json):
 
     if task_type == 'raddle':
         from games.raddle import (
+            dump_raddle_state,
             load_raddle_state,
             parse_raddle_data,
             resolve_assist_tiers,
@@ -469,12 +470,17 @@ def _merge_chain_state_json(task, source_json, target_json):
             for index in solved
             if index not in (0, parsed['n_words'] - 1)
         )
-        return json.dumps({
+        return json.dumps(dump_raddle_state({
             'solved_indices': solved,
             'used_hints': used_hints,
             'assist_tier': {str(index): tier for index, tier in assist.items()},
             'total': float(total),
-        }, ensure_ascii=False)
+            'drafts': dict(source_state.get('drafts') or {}, **(target_state.get('drafts') or {})),
+            'clue_marks': dict(
+                source_state.get('clue_marks') or {},
+                **(target_state.get('clue_marks') or {}),
+            ),
+        }, parsed['n_words']), ensure_ascii=False)
 
     if task_type == 'word_salad':
         from games.word_salad import (

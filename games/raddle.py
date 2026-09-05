@@ -427,12 +427,126 @@ def validate_raddle_checker_data(raw_text, answer_text=None):
     return errors
 
 
+_RADDLE_DRAFT_MAX_LETTERS = 64
+
+
 def default_raddle_state(n_words):
     if n_words < 2:
         solved = list(range(n_words))
     else:
         solved = [0, n_words - 1]
-    return {'solved_indices': sorted(solved), 'used_hints': [], 'assist_tier': {}, 'total': 0.0}
+    return {
+        'solved_indices': sorted(solved),
+        'used_hints': [],
+        'assist_tier': {},
+        'total': 0.0,
+        'drafts': {},
+        'clue_marks': {},
+    }
+
+
+def normalize_raddle_drafts(raw, n_words, solved=None):
+    """word_index → typed letters for unsaved middle/playable rows."""
+    if not isinstance(raw, dict) or n_words <= 0:
+        return {}
+    solved = set(int(i) for i in (solved or []))
+    out = {}
+    for key, val in raw.items():
+        try:
+            idx = int(key)
+        except (TypeError, ValueError):
+            continue
+        if idx < 0 or idx >= n_words or idx in solved:
+            continue
+        letters = ''.join(ch for ch in str(val or '') if ch.isalpha())
+        letters = letters[:_RADDLE_DRAFT_MAX_LETTERS]
+        if letters:
+            out[str(idx)] = letters
+    return out
+
+
+def normalize_raddle_clue_marks(raw):
+    """hint_index → True for unused-clue strikethrough marks."""
+    if not isinstance(raw, dict):
+        return {}
+    out = {}
+    for key, val in raw.items():
+        try:
+            idx = int(key)
+        except (TypeError, ValueError):
+            continue
+        if idx < 0:
+            continue
+        if val:
+            out[str(idx)] = True
+    return out
+
+
+def dump_raddle_state(state, n_words):
+    """Persist checker + collaborative UI keys. Empty UI maps are omitted."""
+    state = state or {}
+    solved = sorted(set(int(i) for i in (state.get('solved_indices') or [])))
+    used = sorted(set(int(i) for i in (state.get('used_hints') or [])))
+    try:
+        total = float(state.get('total', 0) or 0)
+    except (TypeError, ValueError):
+        total = 0.0
+    assist_tier = state.get('assist_tier') or {}
+    if not isinstance(assist_tier, dict):
+        assist_tier = {}
+    out = {
+        'solved_indices': solved,
+        'used_hints': used,
+        'assist_tier': assist_tier,
+        'total': total,
+    }
+    drafts = normalize_raddle_drafts(state.get('drafts'), n_words, solved)
+    marks = normalize_raddle_clue_marks(state.get('clue_marks'))
+    if drafts:
+        out['drafts'] = drafts
+    if marks:
+        out['clue_marks'] = marks
+    return out
+
+
+def raddle_ui_payload(state, task_id):
+    state = state or {}
+    return {
+        str(task_id): {
+            'drafts': dict(state.get('drafts') or {}),
+            'clue_marks': dict(state.get('clue_marks') or {}),
+        }
+    }
+
+
+def merge_raddle_ui_state(state, n_words, drafts_patch=None, clue_marks_patch=None):
+    """Last-write-wins per key. Empty draft / false mark deletes that key."""
+    merged = dict(state or {})
+    drafts = dict(merged.get('drafts') or {})
+    if isinstance(drafts_patch, dict):
+        for key, val in drafts_patch.items():
+            try:
+                idx = str(int(key))
+            except (TypeError, ValueError):
+                continue
+            if val is None or val == '':
+                drafts.pop(idx, None)
+            else:
+                drafts[idx] = val
+    marks = dict(merged.get('clue_marks') or {})
+    if isinstance(clue_marks_patch, dict):
+        for key, val in clue_marks_patch.items():
+            try:
+                idx = str(int(key))
+            except (TypeError, ValueError):
+                continue
+            if val:
+                marks[idx] = True
+            else:
+                marks.pop(idx, None)
+    merged['drafts'] = drafts
+    merged['clue_marks'] = marks
+    return dump_raddle_state(merged, n_words)
 
 
 def load_raddle_state(raw_state, n_words):
@@ -459,6 +573,8 @@ def load_raddle_state(raw_state, n_words):
         'used_hints': used,
         'assist_tier': assist_tier,
         'total': total,
+        'drafts': normalize_raddle_drafts(st.get('drafts'), n_words, solved),
+        'clue_marks': normalize_raddle_clue_marks(st.get('clue_marks')),
     }
 
 
@@ -897,7 +1013,7 @@ def last_word_clue_options_seed(parsed, focus_index):
     return int(hashlib.md5(material.encode('utf-8')).hexdigest()[:8], 16)
 
 
-def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
+def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices, clue_marks=None):
     """
     Два варианта расстановки двух оставшихся подсказок.
 
@@ -919,6 +1035,8 @@ def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
     hint_ab = hints[hint_ab_idx]
     hint_bc = hints[hint_bc_idx]
 
+    marks = normalize_raddle_clue_marks(clue_marks)
+
     def _item(hint_index, hint_text, pair, *, is_correct_option):
         # Revealed-класс только у верного блока: иначе одно и то же
         # предложение подсвечивается в обоих вариантах.
@@ -929,6 +1047,7 @@ def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices):
             'is_revealed': (
                 is_correct_option and hint_index in revealed_clue_indices
             ),
+            'is_struck': str(hint_index) in marks,
             'display_html': render_last_word_transition_clue(
                 hint_text, before_word, after_word, pair=pair,
             ),
@@ -1087,6 +1206,8 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         mixed_script_notice(latin_word_count) if mixed_script else ''
     )
     solved = set(state.get('solved_indices') or [])
+    drafts = normalize_raddle_drafts(state.get('drafts'), n, solved)
+    clue_marks = normalize_raddle_clue_marks(state.get('clue_marks'))
     playable = playable_word_indices(state, n)
     used_hints = set(state.get('used_hints') or [])
     assist_tiers = resolve_assist_tiers(state, hint_attempts)
@@ -1217,6 +1338,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             'next_neighbor_word': (
                 parsed['words'][i + 1] if dual_neighbors else ''
             ),
+            'draft_letters': '' if is_solved else (drafts.get(str(i), '')),
             'attempts': word_attempts[i],
             'assist_tier': tier,
             'assist_credit': word_solve_credit(tier, assist_cfg),
@@ -1249,6 +1371,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             'next_solved': (hi + 1) in solved,
             'has_next_slot': clue_has_next_slot(hint),
             'is_revealed': hi in revealed_clue_indices,
+            'is_struck': str(hi) in clue_marks,
             'clue_variant': '',
         }
         if hi in used_hints:
@@ -1277,6 +1400,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
     if last_word_dual_clues:
         last_word_clue_options = build_last_word_clue_options(
             parsed, default_focus, revealed_clue_indices=revealed_clue_indices,
+            clue_marks=clue_marks,
         )
     else:
         unused.sort(key=lambda x: x['display'].lower())

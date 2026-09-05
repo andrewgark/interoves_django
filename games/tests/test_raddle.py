@@ -156,6 +156,88 @@ class PlayableIndicesTests(SimpleTestCase):
         self.assertEqual(playable, {2, 11})
 
 
+class RaddleUiStateTests(SimpleTestCase):
+    def test_load_preserves_drafts_and_clue_marks(self):
+        raw = json.dumps({
+            'solved_indices': [0, 4],
+            'used_hints': [],
+            'assist_tier': {},
+            'total': 0,
+            'drafts': {'2': 'CCC', '1': 'BBB'},
+            'clue_marks': {'0': True, 'nope': 1},
+        })
+        st = load_raddle_state(raw, 5)
+        self.assertEqual(st['drafts'], {'2': 'CCC', '1': 'BBB'})
+        self.assertEqual(st['clue_marks'], {'0': True})
+
+    def test_merge_patches_per_key_and_prunes_solved_drafts(self):
+        from games.raddle import dump_raddle_state, merge_raddle_ui_state
+
+        st = load_raddle_state(json.dumps({
+            'solved_indices': [0, 4],
+            'drafts': {'2': 'CC'},
+            'clue_marks': {'1': True},
+        }), 5)
+        st = merge_raddle_ui_state(st, 5, drafts_patch={'2': 'CCC', '3': 'D'}, clue_marks_patch={'1': False, '0': True})
+        self.assertEqual(st['drafts'], {'2': 'CCC', '3': 'D'})
+        self.assertEqual(st['clue_marks'], {'0': True})
+        dumped = dump_raddle_state(
+            {'solved_indices': [0, 1, 4], 'drafts': {'1': 'BBB', '2': 'CCC'}, 'clue_marks': {}},
+            5,
+        )
+        self.assertEqual(dumped['drafts'], {'2': 'CCC'})
+        self.assertNotIn('clue_marks', dumped)
+
+    def test_ui_context_exposes_draft_letters_and_struck_clues(self):
+        parsed = parse_raddle_data(_task(
+            checker_data=json.dumps({
+                'lengths': [3, 3, 3, 3, 3],
+                'hints': ['A ____', '____ C', '____ D', '____ E'],
+                'words': ['AAA', 'BBB', 'CCC', 'DDD', 'EEE'],
+            }),
+            answer='AAA\nBBB\nCCC\nDDD\nEEE',
+        ))
+        ctx = build_raddle_ui_context(parsed, {
+            'solved_indices': [0, 4],
+            'drafts': {'2': 'CCC'},
+            'clue_marks': {'1': True},
+        })
+        self.assertEqual(ctx['rows'][2]['draft_letters'], 'CCC')
+        struck = [h for h in ctx['unused_hints'] if h['index'] == 1]
+        self.assertTrue(struck)
+        self.assertTrue(struck[0]['is_struck'])
+
+    def test_checker_keeps_middle_draft_when_an_end_is_solved(self):
+        state = json.dumps({
+            'solved_indices': [0, 4],
+            'used_hints': [],
+            'assist_tier': {},
+            'total': 0.0,
+            'drafts': {'2': 'CCC'},
+            'clue_marks': {'0': True},
+        })
+        ch = RaddleChecker(json.dumps({
+            'lengths': [3, 3, 3, 3, 3],
+            'hints': ['A ____', '____ C', '____ D', '____ E'],
+            'words': ['AAA', 'BBB', 'CCC', 'DDD', 'EEE'],
+        }), state)
+        task = _task(
+            checker_data=json.dumps({
+                'lengths': [3, 3, 3, 3, 3],
+                'hints': ['A ____', '____ C', '____ D', '____ E'],
+                'words': ['AAA', 'BBB', 'CCC', 'DDD', 'EEE'],
+            }),
+            answer='AAA\nBBB\nCCC\nDDD\nEEE',
+        )
+        r = ch.check(
+            json.dumps({'word_index': 1, 'word': 'BBB'}),
+            Attempt(text=json.dumps({'word_index': 1, 'word': 'BBB'}), task=task),
+        )
+        st = json.loads(r.state)
+        self.assertEqual(st['drafts'], {'2': 'CCC'})
+        self.assertEqual(st['clue_marks'], {'0': True})
+
+
 class WordLengthTests(SimpleTestCase):
     def test_hyphenated(self):
         m = parse_length_mask('5-9')

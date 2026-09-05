@@ -12,6 +12,7 @@ from games.replacements_lines import (
 )
 from games.raddle import (
     clue_index_for_playable_word,
+    dump_raddle_state,
     load_raddle_state,
     parse_raddle_data,
     playable_word_indices,
@@ -676,33 +677,33 @@ class RaddleChecker(BaseChecker):
             return CheckResult(
                 'Wrong', 'Pending', 0,
                 comment='Пустой ответ',
-                state=json.dumps(state, ensure_ascii=False),
+                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
             )
         if word_index < 0 or word_index >= n:
             return CheckResult(
                 'Wrong', 'Pending', 0,
                 comment='Неверный индекс слова',
-                state=json.dumps(state, ensure_ascii=False),
+                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
             )
         if word_index in set(state.get('solved_indices') or []):
             return CheckResult(
                 'Wrong', 'Pending', 0,
                 comment='Это слово уже решено',
-                state=json.dumps(state, ensure_ascii=False),
+                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
             )
         playable = playable_word_indices(state, n)
         if word_index not in playable:
             return CheckResult(
                 'Wrong', 'Pending', 0,
                 comment='Сейчас можно сдавать только крайние нерешённые слова',
-                state=json.dumps(state, ensure_ascii=False),
+                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
             )
         mask = parsed['masks'][word_index]
         if not word_length_matches(user_word, mask):
             return CheckResult(
                 'Wrong', 'Pending', 0,
                 comment='Длина слова не совпадает с маской',
-                state=json.dumps(state, ensure_ascii=False),
+                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
             )
         accept = parsed['word_accept'][word_index]
         is_correct = word_matches(user_word, accept)
@@ -737,12 +738,17 @@ class RaddleChecker(BaseChecker):
             # Ok только когда лестница закрыта; иначе не маскируем Partial/Wrong.
             tournament_status = status if is_correct else 'Pending'
         # JSON: float, so client/state round-trips stay simple; CheckResult.points stays Decimal.
-        new_state = {
-            'solved_indices': sorted(solved),
-            'used_hints': sorted(used_hints),
-            'assist_tier': state.get('assist_tier') or {},
-            'total': float(total),
-        }
+        new_state = dump_raddle_state(
+            {
+                'solved_indices': sorted(solved),
+                'used_hints': sorted(used_hints),
+                'assist_tier': state.get('assist_tier') or {},
+                'total': float(total),
+                'drafts': state.get('drafts') or {},
+                'clue_marks': state.get('clue_marks') or {},
+            },
+            n,
+        )
         return CheckResult(
             status, tournament_status, total,
             state=json.dumps(new_state, ensure_ascii=False),

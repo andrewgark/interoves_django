@@ -29,9 +29,9 @@
                 {% elif row.revealed_answer %}
                   <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }}" value="{{ row.revealed_answer }}" placeholder="{{ row.mask_placeholder }}"{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}>
                 {% elif row.is_playable %}
-                  <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }}" placeholder="{{ row.mask_placeholder }}" data-raddle-focus-input{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}>
+                  <input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }}" placeholder="{{ row.mask_placeholder }}" data-raddle-focus-input{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}{% if row.draft_letters %} data-raddle-server-draft="{{ row.draft_letters|escape }}"{% endif %}>
                 {% elif row.is_draftable %}
-                  <input type="text" name="word" class="new-raddle-input new-replacements-input" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }} (черновик)" placeholder="{{ row.mask_placeholder }}" data-raddle-draft="1" data-word-index="{{ row.index }}">
+                  <input type="text" name="word" class="new-raddle-input new-replacements-input" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }} (черновик)" placeholder="{{ row.mask_placeholder }}" data-raddle-draft="1" data-word-index="{{ row.index }}"{% if row.draft_letters %} data-raddle-server-draft="{{ row.draft_letters|escape }}"{% endif %}>
                 {% elif row.attempts_exhausted %}
                   <span class="new-raddle-line__mask">{{ row.mask_html }}</span>
                   <span class="new-login-hint new-raddle-line__no-guesses">Попытки закончились.</span>
@@ -115,10 +115,10 @@
       {% endif %}
       <ul class="new-raddle-clues__list new-raddle-clues__list--option" data-raddle-clue-option="{{ option.id }}"{% if option.is_correct %} data-raddle-correct-option{% endif %}>
         {% for hint in option.hints %}
-        <li class="new-raddle-clue{% if hint.is_revealed %} new-raddle-clue--revealed{% endif %}"
+        <li class="new-raddle-clue{% if hint.is_revealed %} new-raddle-clue--revealed{% endif %}{% if hint.is_struck %} new-raddle-clue--struck{% endif %}"
             data-hint-index="{{ hint.index }}"
             data-clue-pair="{{ hint.pair }}">
-          <button type="button" class="new-raddle-clue__mark" aria-pressed="false" aria-label="Отметить подсказку" title="Отметить"></button>
+          <button type="button" class="new-raddle-clue__mark" aria-pressed="{% if hint.is_struck %}true{% else %}false{% endif %}" aria-label="Отметить подсказку" title="Отметить"></button>
           <span class="new-raddle-clue__text">{% autoescape off %}{{ hint.display_html }}{% endautoescape %}</span>
         </li>
         {% endfor %}
@@ -130,7 +130,7 @@
       <h4 class="new-raddle-clues__subtitle">Подсказки, не по порядку</h4>
       <ul class="new-raddle-clues__list new-raddle-clues__list--unused" data-raddle-unused-clues>
         {% for hint in rd.ui.unused_hints %}
-        <li class="new-raddle-clue{% if hint.is_revealed %} new-raddle-clue--revealed{% endif %}"
+        <li class="new-raddle-clue{% if hint.is_revealed %} new-raddle-clue--revealed{% endif %}{% if hint.is_struck %} new-raddle-clue--struck{% endif %}"
             data-hint-index="{{ hint.index }}"
             data-blank-template="{{ hint.blank_template|escape }}"
             data-prev-word="{{ hint.prev_word|escape }}"
@@ -139,7 +139,7 @@
             data-next-solved="{% if hint.next_solved %}1{% else %}0{% endif %}"
             data-has-next-slot="{% if hint.has_next_slot %}1{% else %}0{% endif %}"
             {% if hint.clue_variant %}data-clue-variant="{{ hint.clue_variant }}"{% endif %}>
-          <button type="button" class="new-raddle-clue__mark" aria-pressed="false" aria-label="Отметить подсказку" title="Отметить"></button>
+          <button type="button" class="new-raddle-clue__mark" aria-pressed="{% if hint.is_struck %}true{% else %}false{% endif %}" aria-label="Отметить подсказку" title="Отметить"></button>
           <span class="new-raddle-clue__text">{% autoescape off %}{{ hint.display_html }}{% endautoescape %}</span>
         </li>
         {% endfor %}

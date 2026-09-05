@@ -16,11 +16,14 @@ from games.exception import DuplicateAttemptException, NoGameAccessException
 from games.models import Attempt, ChainTaskState, Task
 from games.raddle import (
     apply_assist_tier,
+    dump_raddle_state,
     ensure_raddle_assist_hints,
     find_raddle_assist_hint,
     load_raddle_state,
+    merge_raddle_ui_state,
     parse_raddle_data,
     playable_word_indices,
+    raddle_ui_payload,
     resolve_assist_tiers,
     serialize_raddle_attempt_text,
 )
@@ -103,7 +106,7 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
 
         # Фиксируем тир 2 в state, чтобы посылка ответа зачлась с нулевым кредитом.
         state = apply_assist_tier(state, word_index, 2)
-        row.state = json.dumps(state, ensure_ascii=False)
+        row.state = json.dumps(dump_raddle_state(state, n), ensure_ascii=False)
         row.save(update_fields=['state', 'updated_at'])
 
     word = parsed['words'][word_index]
@@ -239,7 +242,7 @@ def process_send_raddle_assist(request, task_id):
                 return {'status': 'duplicate'}
 
         state = apply_assist_tier(state, word_index, tier)
-        chain_row.state = json.dumps(state, ensure_ascii=False)
+        chain_row.state = json.dumps(dump_raddle_state(state, n), ensure_ascii=False)
         chain_row.save(update_fields=['state', 'updated_at'])
 
     result = {'status': 'ok', 'task_id': task.id}
@@ -269,6 +272,86 @@ def process_send_raddle_assist(request, task_id):
     )
     result.update(update_html)
     return result
+
+
+def _parse_raddle_ui_patch(raw):
+    if not raw:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def process_send_raddle_ui(request, task_id):
+    """Collaborative drafts + unused-clue strikethrough. No HTML redraw."""
+    task = get_public_task_or_404(task_id)
+    if task.task_type != 'raddle':
+        return {'status': 'invalid'}
+    game = game_from_request_for_task(request, task)
+    if game is None:
+        return {'status': 'ambiguous_game'}
+
+    team, user, anon_key, err = _actor_from_request(request, game)
+    if err:
+        return {'status': err}
+
+    drafts_patch = _parse_raddle_ui_patch(request.POST.get('drafts'))
+    marks_patch = _parse_raddle_ui_patch(request.POST.get('clue_marks'))
+    if drafts_patch is None and marks_patch is None:
+        return {'status': 'empty'}
+
+    parsed = parse_raddle_data(task)
+    if not parsed:
+        return {'status': 'invalid'}
+    n = parsed['n_words']
+    current_mode = game.get_current_mode(Attempt(time=timezone.now()))
+
+    with transaction.atomic():
+        ChainTaskState.objects.get_or_create(
+            team=team, user=user, anon_key=anon_key,
+            task=task, game=game, game_mode=current_mode,
+            defaults={'state': None},
+        )
+        chain_row = ChainTaskState.objects.select_for_update().get(
+            team=team, user=user, anon_key=anon_key,
+            task=task, game=game, game_mode=current_mode,
+        )
+        state = _chain_state_with_attempt_fallback(
+            chain_row, n, team=team, user=user, anon_key=anon_key, task=task, game=game,
+        )
+        state = merge_raddle_ui_state(
+            state, n, drafts_patch=drafts_patch, clue_marks_patch=marks_patch,
+        )
+        chain_row.state = json.dumps(state, ensure_ascii=False)
+        chain_row.save(update_fields=['state', 'updated_at'])
+
+    payload = {'raddle_ui': raddle_ui_payload(state, task.id)}
+    track_actor_task_change(
+        task,
+        team=team,
+        update_html=payload,
+        game=game,
+        user=user,
+        anon_key=anon_key,
+        current_mode=current_mode,
+        reason='raddle.ui_state',
+    )
+    result = {'status': 'ok', 'task_id': task.id}
+    result.update(payload)
+    return result
+
+
+@require_http_methods(['POST'])
+def send_raddle_ui(request, task_id):
+    try:
+        response = process_send_raddle_ui(request, task_id)
+    except NoGameAccessException:
+        response = {'status': 'no_access'}
+    return JsonResponse(response)
 
 
 @require_http_methods(['POST'])
