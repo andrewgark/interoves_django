@@ -25,8 +25,10 @@ if [[ "$eb_ok" -ne 1 ]]; then
   echo "Elastic Beanstalk CLI not found. Install 'eb' or set EB_BIN to its path." >&2
   exit 1
 fi
-# How long the EB CLI waits for the environment update (minutes). Long migrations may
+# Pass the env name so deploy works from any git branch. EB CLI otherwise looks up
+# branch-defaults in .elasticbeanstalk/config.yml (only some branches are mapped).
+# How long the CLI waits for the environment update (minutes). Long migrations may
 # still run on AWS after this returns; use `eb status` / console events to confirm.
-./scripts/aws_with_role.sh "$EB_BIN" deploy --timeout 15
+./scripts/aws_with_role.sh "$EB_BIN" deploy interoves-env --timeout 15
 echo "Deploy finished; smoking important pages…"
 ./scripts/smoke_prod_pages.sh
