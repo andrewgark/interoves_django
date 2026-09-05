@@ -375,6 +375,50 @@ def create_word_salad(
 
 
 @transaction.atomic
+def attach_existing_task_group(
+    task_group: TaskGroup,
+    *,
+    at_number: int,
+    now: datetime | None = None,
+) -> GameTaskGroup:
+    """Вставить уже существующий TaskGroup в расписание салатиков."""
+    game = get_word_salad_game()
+    if GameTaskGroup.objects.filter(game=game, task_group=task_group).exists():
+        raise WordSaladSupportError('Этот набор заданий уже в расписании салатиков')
+    links = list(_sorted_links())
+    try:
+        at_number = int(at_number)
+    except (TypeError, ValueError) as exc:
+        raise WordSaladSupportError('Некорректная позиция вставки') from exc
+    if at_number < 1:
+        at_number = 1
+    if at_number > len(links) + 1:
+        at_number = len(links) + 1
+    locked_until = last_published_number(now=now)
+    if at_number <= locked_until:
+        raise WordSaladSupportError(
+            'Нельзя вставлять среди уже вышедших салатиков '
+            '(доступно с №{})'.format(locked_until + 1)
+        )
+    if (task_group.label or '').startswith('salad:') or not (task_group.label or '').strip():
+        task_group.label = f'salad:{at_number}'
+        task_group.save(update_fields=['label'])
+    elif (task_group.label or '').startswith('salad_offer:'):
+        task_group.label = f'salad:{at_number}'
+        task_group.save(update_fields=['label'])
+    number = _temporary_number(links)
+    link = GameTaskGroup.objects.create(
+        game=game,
+        task_group=task_group,
+        number=str(number),
+        name=_salad_title(at_number),
+    )
+    links.insert(at_number - 1, link)
+    _renumber_links(links)
+    return link
+
+
+@transaction.atomic
 def update_word_salad(link_id: int, *, intro: str, grid_text: str, words_text: str) -> dict[str, Any]:
     link = (
         GameTaskGroup.objects.filter(game=get_word_salad_game(), pk=link_id)

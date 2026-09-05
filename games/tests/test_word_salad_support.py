@@ -266,3 +266,5 @@ class WordSaladSupportTests(TestCase):
         self.assertContains(response, 'new-rules-modal')
         self.assertNotContains(response, 'word-salad-edit-name')
         self.assertContains(response, 'word-salad-edit-intro')
+        self.assertContains(response, 'data-tab="sent"')
+        self.assertContains(response, 'word_salad_grid_editor.js')

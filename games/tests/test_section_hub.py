@@ -103,6 +103,7 @@ class HubSectionCardTemplateTests(SimpleTestCase):
         for section_id, create_url in (
             ('ladder', '/offer_ladder/'),
             ('alphabetty', '/create_alphabetty/'),
+            ('salad', '/create_salad/'),
         ):
             with self.subTest(section_id=section_id):
                 card = {

@@ -32,7 +32,14 @@ from games.models import (
     Donation,
     HintAttempt,
     LadderOffer,
+    WordSaladOffer,
     Like,
+    PlayerAnalyticsState,
+    PlayerAnalyticsState,
+    PlayerCompletedGame,
+    PlayerStartedGame,
+    DailySolveTiming,
+    Profile,
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
@@ -254,6 +261,7 @@ def build_account_merge_preview(target_user, source_user):
         'offers': (
             LadderOffer.objects.filter(user=source_user).count()
             + AlphabettyOffer.objects.filter(user=source_user).count()
+            + WordSaladOffer.objects.filter(user=source_user).count()
         ),
         'conflicts': conflicts,
         'conflict_messages': [_conflict_message(code) for code in conflicts],
@@ -745,6 +753,7 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
         ('statistics_events', StatisticsEvent, 'user'),
         ('ladder_offers', LadderOffer, 'user'),
         ('alphabetty_offers', AlphabettyOffer, 'user'),
+        ('word_salad_offers', WordSaladOffer, 'user'),
     ]
     # Payment models can be installed independently of account merging. When
     # present, keep their audit records attached to the surviving user.

@@ -3,6 +3,8 @@
 
 {% block schedule_bootstrap %}
 {{ rows_json|json_script:"word-salad-bootstrap" }}
+{{ sent_offers_json|json_script:"word-salad-offers-bootstrap" }}
+{{ offer_by_link_json|json_script:"word-salad-offer-by-link-bootstrap" }}
 {% endblock %}
 
 {% block schedule_lead %}
@@ -23,6 +25,10 @@
   салатик в выбранную позицию. Вышедшие не двигаются.
 {% endblock %}
 
+{% block schedule_extra_tabs %}
+  <button type="button" class="support-tabs__btn" data-tab="sent">Отправленные{% if sent_offers %} ({{ sent_offers|length }}){% endif %}</button>
+{% endblock %}
+
 {% block schedule_modals %}
 <div id="word-salad-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="word-salad-edit-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-word-salad-close></div>
@@ -34,21 +40,73 @@
       <span>Вступление</span>
       <textarea id="word-salad-edit-intro" rows="3"></textarea>
     </label>
-    <label class="support-ladders-field support-ladders-field--spaced">
+    <div class="support-ladders-field support-ladders-field--spaced">
       <span>Сетка 4×4</span>
-      <textarea id="word-salad-edit-grid" class="support-word-salad-grid-input" rows="4" spellcheck="false" placeholder="А Б В Г&#10;Д Е Ж З&#10;И К Л М&#10;Н О П Р"></textarea>
-    </label>
-    <p class="support-hint">Четыре строки по четыре буквы или 16 букв подряд; соседство учитывает диагонали, клетку нельзя использовать дважды в одном слове.</p>
+      <div id="word-salad-edit-grid"></div>
+    </div>
+    <p class="support-hint">Соседство учитывает диагонали, клетку нельзя использовать дважды в одном слове. Все 16 букв должны быть нужны.</p>
     <label class="support-ladders-field support-ladders-field--spaced">
       <span>Слова — по одному на строку</span>
       <textarea id="word-salad-edit-words" rows="8" spellcheck="false"></textarea>
     </label>
+    <p class="ws-grid-editor__status" id="word-salad-edit-validation" hidden></p>
     <p class="support-hint support-ladder-edit-error" id="word-salad-edit-error" role="alert" hidden></p>
     <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="word-salad-edit-save">Сохранить</button>
       <button type="button" class="new-btn new-btn--ghost" data-word-salad-close>Отмена</button>
       <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="word-salad-edit-preview">открыть на сайте</a>
       <button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" id="word-salad-edit-delete">удалить</button>
+    </div>
+  </div>
+</div>
+
+<div id="word-salad-offer-modal" class="new-rules-modal" role="dialog" aria-labelledby="word-salad-offer-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-word-salad-offer-close></div>
+  <div class="new-rules-modal__box pal-card support-ladder-modal">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-word-salad-offer-close>×</button>
+    <h2 id="word-salad-offer-title" class="support-page-title support-page-title--modal">Отправленный салатик</h2>
+    <p class="support-hint" id="word-salad-offer-sub"></p>
+    <label class="support-ladders-field">
+      <span>Тема</span>
+      <input type="text" id="word-salad-offer-theme" autocomplete="off">
+    </label>
+    <div id="word-salad-offer-idea-fields" class="ws-offer-kind-fields">
+      <label class="support-ladders-field">
+        <span>Описание идеи</span>
+        <textarea id="word-salad-offer-idea" rows="4"></textarea>
+      </label>
+      <label class="support-ladders-field">
+        <span>Кандидаты слов</span>
+        <textarea id="word-salad-offer-suggested" rows="5" spellcheck="false"></textarea>
+      </label>
+    </div>
+    <div id="word-salad-offer-full-fields" class="ws-offer-kind-fields" hidden>
+      <div class="support-ladders-field support-ladders-field--spaced">
+        <span>Сетка 4×4</span>
+        <div id="word-salad-offer-grid"></div>
+      </div>
+      <label class="support-ladders-field support-ladders-field--spaced">
+        <span>Слова — по одному на строку</span>
+        <textarea id="word-salad-offer-words" rows="8" spellcheck="false"></textarea>
+      </label>
+      <p class="ws-grid-editor__status" id="word-salad-offer-validation" hidden></p>
+    </div>
+    <label class="support-ladders-field">
+      <span>Комментарий автора</span>
+      <textarea id="word-salad-offer-comment" rows="2"></textarea>
+    </label>
+    <label class="support-ladders-field">
+      <span>Заметка при возврате на доработку</span>
+      <textarea id="word-salad-offer-admin-note" rows="2"></textarea>
+    </label>
+    <p class="support-hint support-ladder-edit-error" id="word-salad-offer-error" hidden></p>
+    <div class="support-action-row support-action-row--mt">
+      <button type="button" class="new-btn" id="word-salad-offer-save">Сохранить</button>
+      <button type="button" class="new-btn" id="word-salad-offer-accept">Принять</button>
+      <button type="button" class="new-btn new-btn--ghost" id="word-salad-offer-revision">Отправить на доработку</button>
+      <button type="button" class="new-btn new-btn--mini new-btn--ghost" id="word-salad-offer-reset-progress">Сбросить прогресс всех</button>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="word-salad-offer-preview">Посмотреть на сайте</a>
+      <button type="button" class="new-btn new-btn--ghost" data-word-salad-offer-close>Закрыть</button>
     </div>
   </div>
 </div>
@@ -64,7 +122,14 @@
   data-detail-url="{% url 'support:word_salad_detail' 0 %}"
   data-save-url="{% url 'support:word_salad_save' 0 %}"
   data-delete-url="{% url 'support:word_salad_delete' 0 %}"
+  data-offer-detail-url="{% url 'support:word_salad_offer_detail' 0 %}"
+  data-offer-save-url="{% url 'support:word_salad_offer_save' 0 %}"
+  data-offer-accept-url="{% url 'support:word_salad_offer_accept' 0 %}"
+  data-offer-revision-url="{% url 'support:word_salad_offer_request_revision' 0 %}"
+  data-offer-reset-url="{% url 'support:word_salad_offer_reset_progress' 0 %}"
+  data-link-revision-url="{% url 'support:word_salad_link_request_revision' 0 %}"
   data-initial-edit="{% if detail %}{{ detail.link_id }}{% endif %}"
 ></div>
+<script src="{% static 'js/word_salad_grid_editor.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/support_word_salad.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endblock %}

@@ -162,7 +162,7 @@
   <button type="button" class="new-btn new-btn--text" data-review-guest-progress>Перенести игру с этого устройства</button>
 </div>
 
-{% if has_bug_reports or has_ladder_offers or has_alphabetty_offers %}
+{% if has_bug_reports or has_ladder_offers or has_alphabetty_offers or has_word_salad_offers %}
 <nav class="new-cabinet" aria-label="Мои материалы">
   {# Новый тип пользовательских заданий добавляет пункт «Мои …» → /create_<kind>/, когда появится тот же offer-flow. #}
   <ul class="new-cabinet-links">
@@ -179,6 +179,11 @@
     {% if has_alphabetty_offers %}
     <li>
       <a href="{% url 'new_create_alphabetty' %}">Мои алфавитки</a>
+    </li>
+    {% endif %}
+    {% if has_word_salad_offers %}
+    <li>
+      <a href="{% url 'new_create_salad' %}">Мои салатики</a>
     </li>
     {% endif %}
   </ul>

@@ -1,6 +1,6 @@
 """Backward-compatible aliases for previous `new_*` route names."""
 
-from django.urls import path
+from django.urls import path, re_path
 from django.views.generic import RedirectView
 
 from games.section_urls import section_root_urlpatterns
@@ -57,6 +57,17 @@ urlpatterns = [
     path('offer_alphabetty/<int:offer_id>/', RedirectView.as_view(pattern_name='new_create_alphabetty_detail', permanent=False, query_string=True)),
     path('offer_alphabetty/<int:offer_id>/send/', RedirectView.as_view(pattern_name='new_create_alphabetty_send', permanent=False, query_string=True)),
     path('offer_alphabetty/<int:offer_id>/reopen/', RedirectView.as_view(pattern_name='new_create_alphabetty_reopen', permanent=False, query_string=True)),
+    path('create_salad/', ui.offer_salad_page, name='new_create_salad'),
+    path('create_salad/create/', ui.offer_salad_create, name='new_create_salad_create'),
+    path('create_salad/<int:offer_id>/', ui.offer_salad_detail, name='new_create_salad_detail'),
+    path('create_salad/<int:offer_id>/send/', ui.offer_salad_send, name='new_create_salad_send'),
+    path('create_salad/<int:offer_id>/reset/', ui.offer_salad_reset, name='new_create_salad_reset'),
+    re_path(
+        r'^salad/(?P<task_group_number>[a-f0-9]{16,32})/$',
+        ui.task_group_page,
+        {'game_id': 'salad'},
+        name='new_salad_offer_task_group',
+    ),
     path(
         'alphabetty/<str:number>/timing/',
         ui.daily_solve_timing,

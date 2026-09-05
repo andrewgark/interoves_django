@@ -22,6 +22,7 @@ from games.models import (
     Task,
     TaskGroup,
     Team,
+    WordSaladOffer,
 )
 from games.support.constants import SUPPORT_CONSOLE_GROUP
 
@@ -149,8 +150,10 @@ class FeedbackCabinetTests(TestCase):
         self.assertContains(response, 'Мои обращения')
         self.assertNotContains(response, 'Мои лесенки')
         self.assertNotContains(response, 'Мои алфавитки')
+        self.assertNotContains(response, 'Мои салатики')
         self.assertNotContains(response, '/create_ladder/')
         self.assertNotContains(response, '/create_alphabetty/')
+        self.assertNotContains(response, '/create_salad/')
 
     def test_profile_hides_cabinet_when_empty(self):
         user = User.objects.create_user('empty-cab', 'empty-cab@example.com', 'secret')
@@ -162,6 +165,7 @@ class FeedbackCabinetTests(TestCase):
         self.assertNotContains(response, 'class="new-cabinet"')
         self.assertNotContains(response, 'Мои лесенки')
         self.assertNotContains(response, 'Мои алфавитки')
+        self.assertNotContains(response, 'Мои салатики')
 
     def test_profile_shows_offer_links_when_content_exists(self):
         LadderOffer.objects.create(
@@ -174,11 +178,18 @@ class FeedbackCabinetTests(TestCase):
             share_hash='cabinetabchash1',
             task_group=TaskGroup.objects.create(label='cabinet-alphabetty'),
         )
+        WordSaladOffer.objects.create(
+            user=self.user,
+            share_hash='cabinetsaladhash1',
+            kind=WordSaladOffer.KIND_IDEA,
+        )
         response = self.client.get(reverse('new_profile'))
         self.assertContains(response, 'Мои лесенки')
         self.assertContains(response, '/create_ladder/')
         self.assertContains(response, 'Мои алфавитки')
         self.assertContains(response, '/create_alphabetty/')
+        self.assertContains(response, 'Мои салатики')
+        self.assertContains(response, '/create_salad/')
         self.assertNotContains(response, 'черновики и статусы')
 
     def test_guest_is_redirected_from_list(self):

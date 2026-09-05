@@ -10100,3 +10100,62 @@ html.new-ui-dark .new-word-salad__links line {
 .new-ui-dark .new-grid-puzzle__base line { stroke: #cbd2dc; }
 .new-ui-dark .new-grid-puzzle__frame { stroke: #344054; }
 .new-ui-dark .new-grid-puzzle__wall { stroke: #101828; }
+
+.ws-grid-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  container-type: inline-size;
+  min-width: 0;
+  max-width: 16rem;
+}
+
+.ws-grid-editor__row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.ws-grid-editor__cell {
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  text-align: center;
+  text-transform: uppercase;
+  font-family: var(--new-font-mono, ui-monospace, monospace);
+  font-size: 1.15rem;
+  font-weight: 700;
+  border: 1px solid var(--border, #d0d5dd);
+  border-radius: 0.45rem;
+  background: var(--tile, #fff);
+  color: var(--text, inherit);
+}
+
+.ws-grid-editor__cell:focus {
+  outline: 2px solid var(--accent, #2f6fed);
+  outline-offset: 1px;
+}
+
+.ws-grid-editor__cell.is-removable {
+  border-color: var(--danger, #d92d20);
+  background: color-mix(in srgb, var(--danger, #d92d20) 12%, transparent);
+}
+
+.ws-grid-editor__status {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+}
+
+.ws-grid-editor__status.is-ok {
+  color: var(--pal-ok, #067647);
+}
+
+.ws-grid-editor__status.is-error {
+  color: var(--danger, #d92d20);
+}
+
+.ws-offer-kind-fields[hidden] {
+  display: none !important;
+}

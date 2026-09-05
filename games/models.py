@@ -621,8 +621,9 @@ class GameTaskGroup(models.Model):
         """
         Игра в контексте задания: явный game_id, иначе единственная привязанная игра.
 
-        Для черновиков предложений лесенок GameTaskGroup ещё нет — если task_group
-        связан с LadderOffer, вернуть игру ladder.
+        Для черновиков предложений лесенок/салатиков GameTaskGroup ещё нет —
+        если task_group связан с LadderOffer или WordSaladOffer, вернуть
+        соответствующую игру.
         """
         if task is None or task.task_group_id is None:
             return None
@@ -636,13 +637,26 @@ class GameTaskGroup(models.Model):
         elif qs.exists():
             return None
 
-        # Нет (нужной) привязки в расписании — черновик LadderOffer?
+        # Нет (нужной) привязки в расписании — черновик LadderOffer / WordSaladOffer?
         from games.ladder_daily import LADDER_GAME_ID
-        if game_id and str(game_id) != LADDER_GAME_ID:
+        from games.word_salad import WORD_SALAD_GAME_ID
+        from games.models import Game, LadderOffer, WordSaladOffer
+
+        if game_id:
+            gid = str(game_id)
+            if gid == LADDER_GAME_ID:
+                if LadderOffer.objects.filter(task_group_id=task.task_group_id).exists():
+                    return Game.objects.filter(pk=LADDER_GAME_ID).first()
+                return None
+            if gid == WORD_SALAD_GAME_ID:
+                if WordSaladOffer.objects.filter(task_group_id=task.task_group_id).exists():
+                    return Game.objects.filter(pk=WORD_SALAD_GAME_ID).first()
+                return None
             return None
-        from games.models import LadderOffer, Game
         if LadderOffer.objects.filter(task_group_id=task.task_group_id).exists():
             return Game.objects.filter(pk=LADDER_GAME_ID).first()
+        if WordSaladOffer.objects.filter(task_group_id=task.task_group_id).exists():
+            return Game.objects.filter(pk=WORD_SALAD_GAME_ID).first()
         return None
 
 
@@ -2983,6 +2997,120 @@ class AlphabettyOffer(models.Model):
 
     def play_url(self):
         return '/alphabetty/{}/'.format(self.share_hash)
+
+
+class WordSaladOffer(models.Model):
+    """Предложение салатика: идея без сетки или полный играбельный пазл."""
+
+    STATUS_DRAFT = 'draft'
+    STATUS_SENT = 'sent'
+    STATUS_ACCEPTED = 'accepted'
+    STATUS_VARIANTS = (
+        (STATUS_DRAFT, 'Черновик'),
+        (STATUS_SENT, 'Отправлена'),
+        (STATUS_ACCEPTED, 'Принята'),
+    )
+
+    KIND_IDEA = 'idea'
+    KIND_FULL = 'full'
+    KIND_VARIANTS = (
+        (KIND_IDEA, 'Идея'),
+        (KIND_FULL, 'Салатик'),
+    )
+
+    id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(
+        User,
+        related_name='word_salad_offers',
+        on_delete=models.CASCADE,
+    )
+    kind = models.CharField(
+        max_length=16,
+        choices=KIND_VARIANTS,
+        default=KIND_FULL,
+        db_index=True,
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=STATUS_VARIANTS,
+        default=STATUS_DRAFT,
+        db_index=True,
+    )
+    share_hash = models.CharField(max_length=32, unique=True, db_index=True)
+    theme = models.TextField(blank=True, default='')
+    idea_text = models.TextField(blank=True, default='')
+    suggested_words = models.TextField(blank=True, default='')
+    grid_text = models.TextField(blank=True, default='')
+    words_text = models.TextField(blank=True, default='')
+    comment = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='комментарий для Андрея',
+    )
+    admin_note = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='заметка Андрея при возврате на доработку',
+    )
+    task_group = models.OneToOneField(
+        TaskGroup,
+        related_name='word_salad_offer',
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
+    accepted_link = models.ForeignKey(
+        GameTaskGroup,
+        related_name='accepted_word_salad_offers',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    accepted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        verbose_name = 'предложение салатика'
+        verbose_name_plural = 'предложения салатиков'
+
+    def __str__(self):
+        return 'WordSaladOffer #{} [{}] {}'.format(
+            self.pk, self.status, self.theme or self.user_id,
+        )
+
+    @property
+    def status_label(self):
+        if self.status == self.STATUS_DRAFT and (self.sent_at or self.accepted_at):
+            return 'На доработке'
+        return dict(self.STATUS_VARIANTS).get(self.status, self.status)
+
+    @property
+    def kind_label(self):
+        return dict(self.KIND_VARIANTS).get(self.kind, self.kind)
+
+    def can_author_edit(self):
+        if self.status != self.STATUS_DRAFT:
+            return False
+        if self.accepted_link_id:
+            try:
+                number = int(self.accepted_link.number)
+            except (TypeError, ValueError, AttributeError):
+                number = None
+            if number is not None:
+                from games.word_salad_daily import is_word_salad_number_published
+                from games.models import Game
+                game = Game.objects.filter(pk='salad').first()
+                if game is not None and is_word_salad_number_published(game, number):
+                    return False
+        return True
+
+    def play_url(self):
+        if self.kind != self.KIND_FULL or not self.share_hash:
+            return ''
+        return '/salad/{}/'.format(self.share_hash)
 
 
 class CorporateGameOrder(models.Model):

@@ -12,7 +12,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|walls|replacements|palindromes|week_task|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|walls|replacements|palindromes|week_task|team|profile|pay|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     path('start/', ui.start, name='ui_start'),
@@ -93,6 +93,17 @@ urlpatterns = [
     path('offer_alphabetty/<int:offer_id>/', RedirectView.as_view(pattern_name='ui_create_alphabetty_detail', permanent=False, query_string=True)),
     path('offer_alphabetty/<int:offer_id>/send/', RedirectView.as_view(pattern_name='ui_create_alphabetty_send', permanent=False, query_string=True)),
     path('offer_alphabetty/<int:offer_id>/reopen/', RedirectView.as_view(pattern_name='ui_create_alphabetty_reopen', permanent=False, query_string=True)),
+    path('create_salad/', ui.offer_salad_page, name='ui_create_salad'),
+    path('create_salad/create/', ui.offer_salad_create, name='ui_create_salad_create'),
+    path('create_salad/<int:offer_id>/', ui.offer_salad_detail, name='ui_create_salad_detail'),
+    path('create_salad/<int:offer_id>/send/', ui.offer_salad_send, name='ui_create_salad_send'),
+    path('create_salad/<int:offer_id>/reset/', ui.offer_salad_reset, name='ui_create_salad_reset'),
+    re_path(
+        r'^salad/(?P<task_group_number>[a-f0-9]{16,32})/$',
+        ui.task_group_page,
+        {'game_id': 'salad'},
+        name='ui_salad_offer_task_group',
+    ),
     path('alphabetty/today/', ui.alphabetty_today_page, name='ui_alphabetty_today'),
     path('alphabetty/last/', ui.alphabetty_last_page, name='ui_alphabetty_last'),
     path('alphabetty/progress/', ui.game_task_group_progress, {'game_id': 'alphabetty'}, name='ui_alphabetty_progress'),

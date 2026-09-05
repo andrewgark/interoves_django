@@ -127,6 +127,10 @@
         <p class="new-stack-gap">
           <a class="new-link-dotted" href="{{ alphabetty_create_url }}">Создать свою алфавитку</a>
         </p>
+      {% elif is_salad_section and salad_create_url %}
+        <p class="new-stack-gap">
+          <a class="new-link-dotted" href="{{ salad_create_url }}">Создать свой салатик</a>
+        </p>
       {% endif %}
 
       {% if section_task_groups_rules_html %}

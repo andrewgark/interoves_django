@@ -98,14 +98,15 @@ def renumber_links(
 def cascade_delete_link(link: GameTaskGroup) -> None:
     """Удалить связку GameTaskGroup → TaskGroup → Task.
 
-    Если TaskGroup — предложение лесенки (LadderOffer), удаляем только слот
-    расписания: Task/посылки/лайки и сам offer сохраняем.
+    Если TaskGroup — предложение лесенки (LadderOffer) или салатика
+    (WordSaladOffer), удаляем только слот расписания: Task/посылки/лайки
+    и сам offer сохраняем.
     """
     tg_id = link.task_group_id
     link.delete()
     if not tg_id:
         return
-    from games.models import LadderOffer
+    from games.models import LadderOffer, WordSaladOffer
     offer = LadderOffer.objects.filter(task_group_id=tg_id).first()
     if offer is not None:
         # Отвязать от расписания, вернуть в «отправлена» для повторного accept.
@@ -116,6 +117,16 @@ def cascade_delete_link(link: GameTaskGroup) -> None:
                 from django.utils import timezone
                 offer.sent_at = timezone.now()
         offer.save(update_fields=['accepted_link', 'status', 'sent_at', 'updated_at'])
+        return
+    salad_offer = WordSaladOffer.objects.filter(task_group_id=tg_id).first()
+    if salad_offer is not None:
+        salad_offer.accepted_link = None
+        if salad_offer.status == WordSaladOffer.STATUS_ACCEPTED:
+            salad_offer.status = WordSaladOffer.STATUS_SENT
+            if not salad_offer.sent_at:
+                from django.utils import timezone
+                salad_offer.sent_at = timezone.now()
+        salad_offer.save(update_fields=['accepted_link', 'status', 'sent_at', 'updated_at'])
         return
     Task.objects.filter(task_group_id=tg_id).delete()
     TaskGroup.objects.filter(pk=tg_id).delete()

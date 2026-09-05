@@ -89,7 +89,19 @@ from games.alphabetty_offer import (
     serialize_offer as serialize_alphabetty_offer,
     update_offer_content as update_alphabetty_offer_content,
 )
-from games.models import AlphabettyOffer, LadderOffer, Task
+from games.word_salad_offer import (
+    WordSaladOfferError,
+    accept_offer as accept_word_salad_offer,
+    dashboard_offers_context as word_salad_dashboard_offers_context,
+    list_sent_offers as list_sent_word_salad_offers,
+    offer_for_link as word_salad_offer_for_link,
+    offers_by_link_ids as word_salad_offers_by_link_ids,
+    request_revision as request_word_salad_revision,
+    reset_all_salad_progress,
+    serialize_offer as serialize_word_salad_offer,
+    update_offer_content as update_word_salad_offer_content,
+)
+from games.models import AlphabettyOffer, LadderOffer, Task, WordSaladOffer
 from games.support.services.live import get_live_feed
 from games.support.services.preview import (
     ActorSpec,
@@ -235,6 +247,11 @@ def word_salad_dashboard(request):
         ctx = word_salad_dashboard_context(edit_link_id=edit_link_id)
     except WordSaladSupportError as exc:
         raise Http404(str(exc)) from exc
+    ctx.update(word_salad_dashboard_offers_context())
+    offer_map = word_salad_offers_by_link_ids([r.link_id for r in ctx.get('rows') or []])
+    ctx['offer_by_link_json'] = {
+        str(k): v.to_dict() for k, v in offer_map.items()
+    }
     return render(request, 'support/word_salad.html', ctx)
 
 
@@ -350,6 +367,134 @@ def word_salad_delete(request, link_id):
         logger.exception('Word Salad delete failed link_id=%s', link_id)
         return _word_salad_error_response(exc, status=500)
     return JsonResponse({'ok': True, 'rows': [row.to_dict() for row in rows]})
+
+
+def _word_salad_offer_error_response(exc: WordSaladOfferError, status=400):
+    return JsonResponse({'ok': False, 'error': str(exc)}, status=status)
+
+
+@support_console_required
+@require_GET
+def word_salad_offers_list_json(request):
+    rows = list_sent_word_salad_offers()
+    return JsonResponse({'ok': True, 'offers': [r.to_dict() for r in rows]})
+
+
+@support_console_required
+@require_GET
+def word_salad_offer_detail_json(request, offer_id):
+    offer = (
+        WordSaladOffer.objects.select_related('task_group', 'accepted_link', 'user', 'user__profile')
+        .filter(pk=offer_id)
+        .first()
+    )
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    return JsonResponse({'ok': True, 'offer': serialize_word_salad_offer(offer).to_dict()})
+
+
+@support_console_required
+@require_POST
+def word_salad_offer_save(request, offer_id):
+    body = _json_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    offer = WordSaladOffer.objects.filter(pk=offer_id).select_related('task_group').first()
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    try:
+        offer = update_word_salad_offer_content(
+            offer,
+            theme=str(body.get('theme') or ''),
+            idea_text=str(body.get('idea_text') or ''),
+            suggested_words=str(body.get('suggested_words') or ''),
+            grid_text=str(body.get('grid_text') or ''),
+            words_text=str(body.get('words_text') or ''),
+            comment=str(body.get('comment') or ''),
+            allow_non_draft=True,
+        )
+    except WordSaladOfferError as exc:
+        return _word_salad_offer_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'offer': serialize_word_salad_offer(offer).to_dict(),
+        'offers': [r.to_dict() for r in list_sent_word_salad_offers()],
+    })
+
+
+@support_console_required
+@require_POST
+def word_salad_offer_accept(request, offer_id):
+    offer = WordSaladOffer.objects.filter(pk=offer_id).select_related('task_group').first()
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    try:
+        offer = accept_word_salad_offer(offer)
+        rows = list_word_salad_rows()
+    except WordSaladOfferError as exc:
+        return _word_salad_offer_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'offer': serialize_word_salad_offer(offer).to_dict(),
+        'offers': [r.to_dict() for r in list_sent_word_salad_offers()],
+        'rows': [r.to_dict() for r in rows],
+    })
+
+
+@support_console_required
+@require_POST
+def word_salad_offer_request_revision(request, offer_id):
+    body = _json_body(request) or {}
+    offer = WordSaladOffer.objects.filter(pk=offer_id).first()
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    try:
+        offer = request_word_salad_revision(offer, admin_note=str(body.get('admin_note') or ''))
+    except WordSaladOfferError as exc:
+        return _word_salad_offer_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'offer': serialize_word_salad_offer(offer).to_dict(),
+        'offers': [r.to_dict() for r in list_sent_word_salad_offers()],
+    })
+
+
+@support_console_required
+@require_POST
+def word_salad_offer_reset_progress(request, offer_id):
+    offer = WordSaladOffer.objects.filter(pk=offer_id).select_related('task_group').first()
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    if not offer.task_group_id:
+        return JsonResponse({'ok': False, 'error': 'У идеи нет задания'}, status=400)
+    task = Task.objects.filter(task_group_id=offer.task_group_id, number='1').first()
+    if task is None:
+        return JsonResponse({'ok': False, 'error': 'Нет задания'}, status=404)
+    try:
+        stats = reset_all_salad_progress(task=task)
+    except WordSaladOfferError as exc:
+        return _word_salad_offer_error_response(exc)
+    return JsonResponse({'ok': True, 'reset': stats})
+
+
+@support_console_required
+@require_POST
+def word_salad_link_request_revision(request, link_id):
+    body = _json_body(request) or {}
+    offer = word_salad_offer_for_link(int(link_id))
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Нет автора в системе для этого салатика'}, status=404)
+    if offer.status == WordSaladOffer.STATUS_DRAFT:
+        return JsonResponse({'ok': False, 'error': 'Уже на доработке'}, status=400)
+    try:
+        offer = request_word_salad_revision(offer, admin_note=str(body.get('admin_note') or ''))
+    except WordSaladOfferError as exc:
+        return _word_salad_offer_error_response(exc)
+    return JsonResponse({
+        'ok': True,
+        'offer': serialize_word_salad_offer(offer).to_dict(),
+        'offers': [r.to_dict() for r in list_sent_word_salad_offers()],
+    })
 
 
 @support_console_required

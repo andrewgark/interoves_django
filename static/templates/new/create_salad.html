@@ -1,0 +1,448 @@
+{% extends "new/base.html" %}
+{% load static %}
+{% block title %}Создать свой салатик{% endblock %}
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+  <script src="{% static 'js/offer_draft_autosave.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+  <script src="{% static 'js/word_salad_grid_editor.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% endblock %}
+{% block content %}
+{% csrf_token %}
+{{ offers_json|json_script:"salad-offers-bootstrap" }}
+<h1 class="new-heading new-heading--page">Создать свой салатик</h1>
+
+{% if not profile_ready %}
+<section class="pal-card new-card">
+  <p class="pal-lead">Чтобы предлагать салатики, укажите имя, фамилию и Telegram-хэндл.</p>
+  {% if profile_error %}<p class="new-field-error">{{ profile_error }}</p>{% endif %}
+  <form method="post" class="new-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_profile">
+    <div class="new-two">
+      <div>
+        <label for="offer-first-name">Имя</label>
+        <input id="offer-first-name" type="text" name="first_name" value="{{ profile.first_name }}" required>
+      </div>
+      <div>
+        <label for="offer-last-name">Фамилия</label>
+        <input id="offer-last-name" type="text" name="last_name" value="{{ profile.last_name }}" required>
+      </div>
+    </div>
+    <div>
+      <label for="offer-telegram">Telegram</label>
+      <input id="offer-telegram" type="text" name="telegram_handle" value="{{ profile.telegram_handle }}" placeholder="username без @" required>
+      <p class="new-login-hint">Без @, например andrewgark</p>
+    </div>
+    <button type="submit" class="new-btn">Сохранить и продолжить</button>
+  </form>
+</section>
+{% else %}
+<p class="new-login-hint new-stack-gap">
+  Можно предложить идею без сетки или сразу собрать играбельный салатик 4×4.
+</p>
+<div class="new-stack-gap new-stack-gap--after-button support-action-row">
+  <button type="button" class="new-btn" id="offer-create-idea-btn">Предложить идею</button>
+  <button type="button" class="new-btn new-btn--ghost" id="offer-create-full-btn">Собрать салатик</button>
+</div>
+<section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши салатики"></section>
+
+<div id="offer-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="offer-edit-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-offer-close></div>
+  <div class="new-rules-modal__box pal-card support-ladder-modal">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-offer-close>×</button>
+    <h2 id="offer-edit-title" class="support-page-title support-page-title--modal">Салатик</h2>
+    <p class="support-hint" id="offer-edit-sub"></p>
+    <label class="support-ladders-field">
+      <span>Тема</span>
+      <input type="text" id="offer-edit-theme" autocomplete="off">
+    </label>
+    <div id="offer-idea-fields">
+      <label class="support-ladders-field">
+        <span>Описание идеи</span>
+        <textarea id="offer-edit-idea" rows="4"></textarea>
+      </label>
+      <label class="support-ladders-field">
+        <span>Кандидаты слов — по одному на строку, необязательно</span>
+        <textarea id="offer-edit-suggested" rows="5" spellcheck="false"></textarea>
+      </label>
+    </div>
+    <div id="offer-full-fields" hidden>
+      <div class="support-ladders-field support-ladders-field--spaced">
+        <span>Сетка 4×4</span>
+        <div id="offer-edit-grid"></div>
+      </div>
+      <label class="support-ladders-field support-ladders-field--spaced">
+        <span>Слова — по одному на строку</span>
+        <textarea id="offer-edit-words" rows="8" spellcheck="false"></textarea>
+      </label>
+      <p class="ws-grid-editor__status" id="offer-edit-validation" hidden></p>
+    </div>
+    <label class="support-ladders-field">
+      <span>Комментарий для Андрея</span>
+      <textarea id="offer-edit-comment" rows="2"></textarea>
+    </label>
+    <p class="support-hint support-ladder-edit-error" id="offer-edit-error" hidden></p>
+    <div class="support-autosave" id="offer-autosave-status" role="status" aria-live="polite">
+      <span class="support-autosave__icon" aria-hidden="true"><i class="ph ph-cloud-check"></i></span>
+      <span class="support-autosave__copy">
+        <strong id="offer-autosave-title">Автосохранение включено</strong>
+        <span id="offer-autosave-detail">Можно спокойно закрыть окно — изменения не пропадут.</span>
+      </span>
+    </div>
+    <div class="support-action-row support-action-row--mt">
+      <button type="button" class="new-btn" id="offer-edit-save">Сохранить</button>
+      <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Отправить Андрею</button>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать салатик</a>
+      <button type="button" class="new-btn new-btn--ghost" data-offer-close>Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var bootstrap = JSON.parse(document.getElementById('salad-offers-bootstrap').textContent || '[]');
+  var offers = bootstrap.slice();
+  var listEl = document.getElementById('offer-list');
+  var modal = document.getElementById('offer-edit-modal');
+  var Editor = window.WordSaladGridEditor;
+  var gridApi = null;
+  var editId = null;
+  var editKind = 'full';
+  var busy = false;
+  var autosave = null;
+  var endpoints = {
+    create: "{% url 'new_create_salad_create' %}",
+    detailTpl: "{% url 'new_create_salad_detail' 0 %}".replace('/0/', '/{id}/'),
+    sendTpl: "{% url 'new_create_salad_send' 0 %}".replace('/0/', '/{id}/')
+  };
+
+  function csrf() {
+    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+  function postJson(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+      body: JSON.stringify(body || {}),
+      credentials: 'same-origin'
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        return data;
+      });
+    });
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function offerTitle(o) {
+    return o.theme || (o.kind === 'idea' ? 'Идея' : 'Салатик');
+  }
+  function upsert(offer) {
+    var i = offers.findIndex(function (o) { return o.id === offer.id; });
+    if (i >= 0) offers[i] = offer; else offers.unshift(offer);
+    renderList();
+  }
+  function renderList() {
+    listEl.innerHTML = '';
+    if (!offers.length) {
+      listEl.innerHTML = '<p class="support-empty">Пока нет предложений. Нажмите «Предложить идею» или «Собрать салатик».</p>';
+      return;
+    }
+    offers.forEach(function (o) {
+      var item = document.createElement('div');
+      item.className = 'support-ladder-item';
+      var num = o.production_number != null ? ('№' + o.production_number) : ('#' + o.id);
+      var date = o.production_publish_date || (o.sent_at || o.created_at || '').slice(0, 10) || '—';
+      var play = (o.is_playable && o.play_url)
+        ? '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">Решать</a>'
+        : '';
+      item.innerHTML =
+        '<div class="support-ladder-item__num">' + escapeHtml(num) + '</div>' +
+        '<div class="support-ladder-item__body">' +
+          '<div class="support-ladder-item__title">' + escapeHtml(offerTitle(o)) +
+            ' <span class="support-flag">' + escapeHtml(o.kind_label || '') + '</span>' +
+            ' <span class="support-flag">' + escapeHtml(o.status_label) + '</span></div>' +
+          '<div class="support-ladder-item__meta">' + escapeHtml(date) +
+            (o.admin_note ? ' · <em>' + escapeHtml(o.admin_note) + '</em>' : '') +
+            '</div>' +
+          '<div class="support-ladder-item__preview">' + escapeHtml(o.comment || o.idea_text || '') + '</div>' +
+        '</div>' +
+        '<div class="support-ladder-item__actions">' +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">править</button>' : '') +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Отправить Андрею</button>' : '') +
+          play +
+        '</div>';
+      listEl.appendChild(item);
+    });
+  }
+  function openModal() {
+    modal.hidden = false;
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    if (autosave) autosave.close();
+    if (gridApi) {
+      gridApi.destroy();
+      gridApi = null;
+    }
+    modal.classList.remove('is-open');
+    modal.hidden = true;
+    document.body.style.overflow = '';
+    editId = null;
+  }
+  modal.querySelectorAll('[data-offer-close]').forEach(function (el) {
+    el.addEventListener('click', closeModal);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+  });
+
+  function updateValidation() {
+    var status = document.getElementById('offer-edit-validation');
+    if (!Editor || !status || editKind !== 'full') return;
+    var result = Editor.validateLive(
+      gridApi ? gridApi.getGrid() : [],
+      document.getElementById('offer-edit-words').value
+    );
+    if (gridApi) gridApi.highlightRemovable(result.removableCells);
+    if (!result.errors.length) {
+      status.hidden = false;
+      status.className = 'ws-grid-editor__status is-ok';
+      status.textContent = 'Сетка собирается.';
+      return;
+    }
+    status.hidden = false;
+    status.className = 'ws-grid-editor__status is-error';
+    status.textContent = result.errors[0] + (result.missingWords.length ? ' Не находятся: ' + result.missingWords.join(', ') + '.' : '');
+  }
+
+  function readEditorPayload() {
+    return {
+      theme: document.getElementById('offer-edit-theme').value,
+      idea_text: document.getElementById('offer-edit-idea').value,
+      suggested_words: document.getElementById('offer-edit-suggested').value,
+      grid_text: gridApi ? gridApi.getGridText() : '',
+      words_text: document.getElementById('offer-edit-words').value,
+      comment: document.getElementById('offer-edit-comment').value
+    };
+  }
+
+  function restoreEditorPayload(payload) {
+    document.getElementById('offer-edit-theme').value = payload.theme || '';
+    document.getElementById('offer-edit-idea').value = payload.idea_text || '';
+    document.getElementById('offer-edit-suggested').value = payload.suggested_words || '';
+    document.getElementById('offer-edit-words').value = payload.words_text || '';
+    document.getElementById('offer-edit-comment').value = payload.comment || '';
+    if (editKind === 'full' && gridApi) gridApi.setGrid(payload.grid_text || '');
+    updateValidation();
+  }
+
+  function autosaveTime(date) {
+    if (!date || typeof date.toLocaleTimeString !== 'function') return '';
+    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function showAutosaveStatus(state, detail) {
+    var box = document.getElementById('offer-autosave-status');
+    var title = document.getElementById('offer-autosave-title');
+    var sub = document.getElementById('offer-autosave-detail');
+    var icon = box.querySelector('i');
+    detail = detail || {};
+    box.dataset.state = state;
+    var states = {
+      idle: ['Автосохранение включено', 'Можно спокойно закрыть окно — изменения не пропадут.', 'ph-cloud-check'],
+      pending: ['Изменения сохранены на устройстве', 'Скоро синхронизируем с сервером…', 'ph-cloud-arrow-up'],
+      saving: ['Сохраняем…', 'Отправляем черновик на сервер.', 'ph-circle-notch'],
+      saved: ['Все изменения сохранены', detail.savedAt ? ('Сохранено в ' + autosaveTime(detail.savedAt)) : 'Черновик синхронизирован с сервером.', 'ph-cloud-check'],
+      restored: ['Черновик восстановлен', 'Продолжайте с места, где остановились.', 'ph-arrow-counter-clockwise'],
+      local: ['Черновик сохранён на устройстве', detail.message || 'С сервером пока не получилось — данные не пропадут.', 'ph-device-mobile'],
+      error: ['Не удалось сохранить черновик', 'Не закрывайте страницу и проверьте соединение.', 'ph-warning-circle']
+    };
+    var value = states[state] || states.idle;
+    title.textContent = value[0];
+    sub.textContent = value[1];
+    icon.className = 'ph ' + value[2];
+  }
+
+  autosave = window.OfferDraftAutosave.create({
+    storagePrefix: 'interoves_offer_draft_v1:salad:{{ user.pk }}',
+    getPayload: readEditorPayload,
+    restorePayload: restoreEditorPayload,
+    canSync: function (payload) {
+      if (editKind === 'idea') {
+        return !!(String(payload.theme || '').trim() || String(payload.idea_text || '').trim());
+      }
+      return true;
+    },
+    syncBlockedMessage: function () {
+      return 'Укажите тему или описание — пока черновик сохранён только на этом устройстве.';
+    },
+    save: function (id, payload) {
+      return postJson(endpoints.detailTpl.replace('{id}', String(id)), payload);
+    },
+    onSaved: function (data) {
+      if (data && data.offer) upsert(data.offer);
+    },
+    onStatus: showAutosaveStatus
+  });
+
+  modal.addEventListener('input', function (e) {
+    if (e.target.matches('input, textarea')) {
+      autosave.changed();
+      if (e.target.id === 'offer-edit-words') updateValidation();
+    }
+  });
+  modal.addEventListener('change', function (e) {
+    if (e.target.matches('input, textarea')) autosave.changed();
+  });
+
+  function setKindFields(kind) {
+    editKind = kind;
+    document.getElementById('offer-idea-fields').hidden = kind !== 'idea';
+    document.getElementById('offer-full-fields').hidden = kind !== 'full';
+    document.getElementById('offer-edit-title').textContent = kind === 'idea' ? 'Идея салатика' : 'Салатик';
+  }
+
+  function openEdit(offer) {
+    editId = offer.id;
+    setKindFields(offer.kind || 'full');
+    document.getElementById('offer-edit-error').hidden = true;
+    var subParts = [];
+    if (offer.status_label && offer.status_label !== 'Черновик') subParts.push(offer.status_label);
+    if (offer.admin_note) subParts.push(offer.admin_note);
+    var subEl = document.getElementById('offer-edit-sub');
+    subEl.textContent = subParts.join(' · ');
+    subEl.hidden = !subParts.length;
+    document.getElementById('offer-edit-theme').value = offer.theme || '';
+    document.getElementById('offer-edit-idea').value = offer.idea_text || '';
+    document.getElementById('offer-edit-suggested').value = offer.suggested_words || '';
+    document.getElementById('offer-edit-words').value = offer.words_text || '';
+    document.getElementById('offer-edit-comment').value = offer.comment || '';
+    var preview = document.getElementById('offer-edit-preview');
+    if (offer.is_playable && offer.play_url) {
+      preview.hidden = false;
+      preview.href = offer.play_url;
+    } else {
+      preview.hidden = true;
+      preview.href = '#';
+    }
+    if (gridApi) {
+      gridApi.destroy();
+      gridApi = null;
+    }
+    if (editKind === 'full' && Editor) {
+      gridApi = Editor.mount(document.getElementById('offer-edit-grid'), {
+        grid: offer.grid_text || '',
+        onChange: function () {
+          autosave.changed();
+          updateValidation();
+        }
+      });
+      updateValidation();
+    }
+    var canEdit = !!offer.can_edit;
+    ['offer-edit-theme', 'offer-edit-idea', 'offer-edit-suggested', 'offer-edit-words', 'offer-edit-comment', 'offer-edit-save', 'offer-edit-send']
+      .forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = !canEdit;
+      });
+    if (gridApi) gridApi.setDisabled(!canEdit);
+    document.getElementById('offer-autosave-status').hidden = !canEdit;
+    if (canEdit) autosave.open(offer.id, readEditorPayload());
+    openModal();
+  }
+
+  function createKind(kind) {
+    if (busy) return;
+    busy = true;
+    postJson(endpoints.create, { kind: kind })
+      .then(function (data) {
+        upsert(data.offer);
+        openEdit(data.offer);
+      })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { busy = false; });
+  }
+
+  function sendOfferById(id) {
+    if (!id || busy) return;
+    if (!window.confirm('Отправить Андрею? После этого редактировать нельзя.')) return;
+    busy = true;
+    var pending = (editId === id && autosave) ? autosave.flush() : Promise.resolve();
+    pending.then(function () {
+      return postJson(endpoints.sendTpl.replace('{id}', String(id)), {});
+    }).then(function (data) {
+        autosave.discard(id);
+        upsert(data.offer);
+        if (editId === id) closeModal();
+      })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { busy = false; });
+  }
+
+  listEl.addEventListener('click', function (e) {
+    var editBtn = e.target.closest('[data-edit]');
+    if (editBtn) {
+      var editOfferId = parseInt(editBtn.getAttribute('data-edit'), 10);
+      var offer = offers.find(function (o) { return o.id === editOfferId; });
+      if (offer) openEdit(offer);
+      return;
+    }
+    var sendBtn = e.target.closest('[data-send]');
+    if (sendBtn) {
+      sendOfferById(parseInt(sendBtn.getAttribute('data-send'), 10));
+    }
+  });
+
+  document.getElementById('offer-create-idea-btn').addEventListener('click', function () {
+    createKind('idea');
+  });
+  document.getElementById('offer-create-full-btn').addEventListener('click', function () {
+    createKind('full');
+  });
+
+  document.getElementById('offer-edit-save').addEventListener('click', function () {
+    if (!editId || busy) return;
+    var err = document.getElementById('offer-edit-error');
+    busy = true;
+    autosave.flush().then(function () {
+      err.hidden = true;
+      closeModal();
+    }).catch(function (e) {
+      err.hidden = false;
+      err.textContent = e.message || String(e);
+    }).finally(function () { busy = false; });
+  });
+
+  document.getElementById('offer-edit-send').addEventListener('click', function () {
+    if (!editId || busy) return;
+    if (!window.confirm('Отправить Андрею? После этого редактировать нельзя.')) return;
+    var sendingId = editId;
+    busy = true;
+    autosave.flush().then(function () {
+      return postJson(endpoints.sendTpl.replace('{id}', String(sendingId)), {});
+    }).then(function (data) {
+      autosave.discard(sendingId);
+      upsert(data.offer);
+      closeModal();
+    }).catch(function (e) {
+      var err = document.getElementById('offer-edit-error');
+      err.hidden = false;
+      err.textContent = e.message || String(e);
+    }).finally(function () { busy = false; });
+  });
+
+  renderList();
+})();
+</script>
+{% endif %}
+
+<p class="new-tg-back new-tg-back--footer">
+  <a href="/salad/" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> К салатикам</a>
+</p>
+{% endblock %}

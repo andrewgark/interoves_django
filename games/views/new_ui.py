@@ -728,6 +728,7 @@ def _section_ui_context(game):
     return {
         'is_ladder_section': game.id == LADDER_GAME_ID,
         'is_alphabetty_section': game.id == ALPHABETTY_GAME_ID,
+        'is_salad_section': game.id == WORD_SALAD_GAME_ID,
         'section_results_url': section_results_path(game.id),
     }
 
@@ -1877,6 +1878,11 @@ def _render_section_game_page(request, game_id):
             if game_id == ALPHABETTY_GAME_ID
             else None
         ),
+        'salad_create_url': (
+            '/create_salad/'
+            if game_id == WORD_SALAD_GAME_ID
+            else None
+        ),
         'back_url': '/',
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'team': team_for_access,
@@ -3016,6 +3022,7 @@ def new_task_group_page(request, game_id, task_group_number):
 
     # Для игр-разделов (project sections) хотим давать доступ всегда, без привязки к start_time.
     ladder_offer = None
+    salad_offer = None
     if game.project_id == NEW_UI_SECTIONS_PROJECT:
         preview_team = None
         if has_profile(request.user):
@@ -3036,6 +3043,23 @@ def new_task_group_page(request, game_id, task_group_number):
                 and not request.user.is_staff
             ):
                 raise Http404()
+        elif game_id == WORD_SALAD_GAME_ID:
+            from games.word_salad_offer import (
+                can_access_offer_hash as can_access_salad_offer_hash,
+                get_offer_by_share_hash as get_salad_offer_by_share_hash,
+                is_share_hash_segment as is_salad_share_hash_segment,
+            )
+            if is_salad_share_hash_segment(str(task_group_number)):
+                salad_offer = get_salad_offer_by_share_hash(str(task_group_number))
+                if salad_offer is None:
+                    raise Http404()
+                if not can_access_salad_offer_hash(salad_offer, request.user):
+                    raise Http404()
+            elif (
+                not scheduled_number_is_public(game, task_group_number)
+                and not request.user.is_staff
+            ):
+                raise Http404()
         elif not scheduled_number_is_public(game, task_group_number):
             raise Http404()
     else:
@@ -3049,6 +3073,7 @@ def new_task_group_page(request, game_id, task_group_number):
                 raise Http404()
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
+    draft_offer = ladder_offer or salad_offer
     if ladder_offer is not None:
         from types import SimpleNamespace
         if ladder_offer.accepted_link_id:
@@ -3066,6 +3091,26 @@ def new_task_group_page(request, game_id, task_group_number):
                 name=(ladder_offer.author or 'Лесенка').strip() or 'Лесенка',
                 task_group=ladder_offer.task_group,
             )
+    elif salad_offer is not None:
+        from types import SimpleNamespace
+        if salad_offer.accepted_link_id:
+            placement = (
+                GameTaskGroup.objects.select_related('task_group', 'task_group__rules')
+                .filter(pk=salad_offer.accepted_link_id)
+                .first()
+            )
+            if placement is None:
+                raise Http404()
+        else:
+            if not salad_offer.task_group_id:
+                raise Http404()
+            theme = (salad_offer.theme or '').strip()
+            placement = SimpleNamespace(
+                pk=None,
+                number=salad_offer.share_hash,
+                name=theme or 'Салатик',
+                task_group=salad_offer.task_group,
+            )
     else:
         placement = (
             GameTaskGroup.objects.select_related('task_group', 'task_group__rules')
@@ -3078,7 +3123,9 @@ def new_task_group_page(request, game_id, task_group_number):
                 return redirect(_play_url_for_task_group(game, fallback.number))
             raise Http404()
     task_group = placement.task_group
-    if game.id == LADDER_GAME_ID and ladder_offer is not None:
+    if (game.id == LADDER_GAME_ID and ladder_offer is not None) or (
+        game.id == WORD_SALAD_GAME_ID and salad_offer is not None
+    ):
         prev_tg, next_tg = None, None
     elif is_scheduled_game(game.id):
         published_nav = list(visible_links(_game_task_group_links(game), game))
@@ -3114,24 +3161,24 @@ def new_task_group_page(request, game_id, task_group_number):
     from games.section_paths import ladder_word_results_path
     is_daily_single_task = uses_daily_play_layout(game.id)
     daily_publish_date = None
-    if ladder_offer is None:
+    if draft_offer is None:
         pub_at = publish_at_for(game, placement.number)
         if pub_at is not None:
             daily_publish_date = pub_at.date()
-    elif ladder_offer.accepted_link_id:
+    elif draft_offer.accepted_link_id:
         try:
-            prod_n = int(ladder_offer.accepted_link.number)
+            prod_n = int(draft_offer.accepted_link.number)
         except (TypeError, ValueError, AttributeError):
             prod_n = None
         if prod_n is not None:
             pub_at = publish_at_for(game, prod_n)
             if pub_at is not None:
                 daily_publish_date = pub_at.date()
-    if ladder_offer is not None:
-        if ladder_offer.accepted_link_id and str(getattr(ladder_offer.accepted_link, 'number', '')).isdigit():
+    if draft_offer is not None:
+        if draft_offer.accepted_link_id and str(getattr(draft_offer.accepted_link, 'number', '')).isdigit():
             page_title = '{} №{}'.format(
                 game.outside_name or game.name,
-                ladder_offer.accepted_link.number,
+                draft_offer.accepted_link.number,
             )
         else:
             page_title = '{} · {}'.format(
@@ -3142,16 +3189,19 @@ def new_task_group_page(request, game_id, task_group_number):
         page_title = task_group_page_title(game, placement)
     else:
         page_title = task_group_page_title(game, placement)
-    if ladder_offer is not None and not isinstance(placement, GameTaskGroup):
+    if draft_offer is not None and not isinstance(placement, GameTaskGroup):
         for ui in ctx_dicts['task_ui_by_task_id'].values():
             ui['display_name'] = page_title
 
     can_reset_offer = False
     offer_reset_url = None
-    if ladder_offer is not None and request.user.is_authenticated:
-        if ladder_offer.user_id == request.user.id or request.user.is_staff:
+    if draft_offer is not None and request.user.is_authenticated:
+        if draft_offer.user_id == request.user.id or request.user.is_staff:
             can_reset_offer = True
-            offer_reset_url = '/create_ladder/{}/reset/'.format(ladder_offer.pk)
+            if ladder_offer is not None:
+                offer_reset_url = '/create_ladder/{}/reset/'.format(ladder_offer.pk)
+            elif salad_offer is not None:
+                offer_reset_url = '/create_salad/{}/reset/'.format(salad_offer.pk)
 
     if ladder_offer is not None:
         ladder_results_url = ladder_word_results_path(ladder_offer.share_hash)
@@ -3178,9 +3228,11 @@ def new_task_group_page(request, game_id, task_group_number):
     )
     if ladder_offer is not None and request.user.is_authenticated and ladder_offer.user_id == request.user.id:
         back_url = '/create_ladder/'
+    elif salad_offer is not None and request.user.is_authenticated and salad_offer.user_id == request.user.id:
+        back_url = '/create_salad/'
 
     difficulty = None
-    if ladder_offer is None and isinstance(placement, GameTaskGroup):
+    if draft_offer is None and isinstance(placement, GameTaskGroup):
         from games.difficulty import get_game_difficulty
         difficulty = get_game_difficulty(placement)
 
@@ -3234,6 +3286,7 @@ def new_task_group_page(request, game_id, task_group_number):
         **section_format_credit_context(game.id),
         'daily_pager_aria_label': 'Переход между {}'.format(
             'лесенками' if game.id == LADDER_GAME_ID
+            else 'салатиками' if game.id == WORD_SALAD_GAME_ID
             else 'заданиями недели' if game.id == WEEK_TASK_GAME_ID
             else 'кругами'
         ),
@@ -3248,12 +3301,12 @@ def new_task_group_page(request, game_id, task_group_number):
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         'live_next_transition_at': (
-            None if ladder_offer is not None
+            None if draft_offer is not None
             else next_daily_content_transition_for_game(game)
         ),
         **(
             onboarding_followup_context(game.id)
-            if ladder_offer is None else {}
+            if draft_offer is None else {}
         ),
         **_project_urls_context(game.project_id),
         **_age_gate_context(
@@ -3268,7 +3321,7 @@ def new_task_group_page(request, game_id, task_group_number):
             user=user,
             anon_key=anon_key,
             play_mode=play_mode,
-            is_offer=ladder_offer is not None,
+            is_offer=draft_offer is not None,
         ),
     })
 
@@ -3650,11 +3703,15 @@ def new_like_dislike(request, task_id):
             from games.models import LadderOffer
             if not LadderOffer.objects.filter(task_group_id=task.task_group_id).exists():
                 raise Http404()
+        elif game_hint == WORD_SALAD_GAME_ID:
+            from games.models import WordSaladOffer
+            if not WordSaladOffer.objects.filter(task_group_id=task.task_group_id).exists():
+                raise Http404()
         else:
             raise Http404()
     game = game_from_request_for_task(request, task)
     if game is None:
-        if game_hint in (ALPHABETTY_GAME_ID, LADDER_GAME_ID):
+        if game_hint in (ALPHABETTY_GAME_ID, LADDER_GAME_ID, WORD_SALAD_GAME_ID):
             game = Game.objects.filter(id=game_hint).first()
         if game is None:
             raise Http404()
