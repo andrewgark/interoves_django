@@ -262,7 +262,8 @@ class RenderNewUiTaskCardTests(TestCase):
             request, self.word_salad_task, None, 'general', anon_key='anon_test', game=self.game,
         )
         self.assertIsNotNone(html)
-        self.assertIn('new-word-salad__cell', html)
+        self.assertIn('new-word-salad__play', html)
+        self.assertIn('new-word-salad__words', html)
         self.assertIn('new-word-salad__links', html)
         self.assertIn('new-word-salad__checking-mark', html)
         self.assertIn('title="Проверяем…"', html)
@@ -275,7 +276,14 @@ class RenderNewUiTaskCardTests(TestCase):
         self.assertIn('title="Узнать 1 букву"', html)
         self.assertIn('new-word-salad__hint-btn', html)
         self.assertIn('new-word-salad__pill', html)
+        self.assertIn('(16)', html)
+        self.assertIn('data-word-normalized', html)
+        self.assertRegex(
+            html,
+            r'class="new-word-salad__pill new-word-salad__hint-btn"[^>]*>[\s\S]*?new-word-salad__len[\s\S]*?</button>',
+        )
         self.assertIn('Редкие находки', html)
+        self.assertIn('Редкая находка! Это слово технически тоже по теме', html)
         self.assertIn('new-word-salad__glyph', html)
         self.assertIn('new-word-salad__reset-key', html)
         self.assertIn('>Esc<', html)

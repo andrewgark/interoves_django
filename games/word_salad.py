@@ -18,6 +18,10 @@ HINT_PENALTY = Decimal('0.5')
 EXTRA_MIN_LENGTH = 4
 EXTRA_NOT_FOUND_COMMENT = 'Слово не найдено'
 RARE_FOUND_COMMENT = 'Редкая находка'
+RARE_FOUND_TOOLTIP = (
+    'Редкая находка! Это слово технически тоже по теме, '
+    'но для полного решения не требуется и баллов не даёт.'
+)
 _FOUND_RARE_INDEX_LIMIT = 64
 NO_HINT_SQUARE = '🟩'
 OVERFLOW_HINT_SQUARE = '*️⃣'
@@ -335,6 +339,16 @@ def validate_puzzle(grid_value, words_value, rare_words_value=None):
     return grid, words
 
 
+def path_cells_remain_active(state, path):
+    """True when every selected cell is still on the board after this attempt."""
+    active = set(load_state(state).get('active') or [])
+    try:
+        cells = [int(index) for index in (path or [])]
+    except (TypeError, ValueError):
+        return False
+    return bool(cells) and all(index in active for index in cells)
+
+
 def removable_cells(grid, words, active, excluded_words=()):
     excluded = set(excluded_words)
     remaining = [word for i, word in enumerate(words) if i not in excluded]
@@ -365,6 +379,18 @@ def mask_for_word(word, reveal_count=0, reveal_first=False):
         else:
             result.append(ch)
     return ''.join(result)
+
+
+def length_label(word):
+    """Letter counts in parentheses, with hyphens between parts: (5), (3-5)."""
+    parts = []
+    for part in re.split(r'[-–—−]', word or ''):
+        count = len(normalize_word(part))
+        if count:
+            parts.append(str(count))
+    if not parts:
+        return ''
+    return '({})'.format('-'.join(parts))
 
 
 def ru_count_label(n, one, few, many):
@@ -546,6 +572,7 @@ def build_ui_context(grid, words, state=None, attempts=None, rare_words=None):
             'mask_html': mask,
             'mask_chars': list(mask),
             'length': len(normalized),
+            'length_label': length_label(word),
             'is_solved': index in solved,
             'is_hinted': hint_count > 0,
             'hint_count': hint_count,
@@ -568,6 +595,7 @@ def build_ui_context(grid, words, state=None, attempts=None, rare_words=None):
         'words': words_ui,
         'rare_words': rare_ui,
         'rare_normalized': [normalize_word(word) for word in rare_words],
+        'rare_tooltip': RARE_FOUND_TOOLTIP,
         'word_points': WORD_POINTS,
         'hint_penalty': HINT_PENALTY,
         'solved_indices': sorted(solved),

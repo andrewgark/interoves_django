@@ -32,6 +32,7 @@ from games.word_salad import (
     archive_card_meta,
     build_ui_context,
     hint_numbers_from_attempts,
+    length_label,
     mask_for_word,
     result_square_for_hint_count,
     result_squares_for_state,
@@ -40,6 +41,8 @@ from games.word_salad import (
     serialize_task_data,
     theme_from_text,
     extra_found_word,
+    path_cells_remain_active,
+    RARE_FOUND_TOOLTIP,
     validate_task_data,
 )
 
@@ -103,6 +106,12 @@ class WordSaladTests(TestCase):
     def test_mask_uses_white_square_emoji(self):
         self.assertEqual(mask_for_word('AB-CD'), '⬜⬜-⬜⬜')
         self.assertEqual(mask_for_word('AB-CD', reveal_count=2), 'AB-⬜⬜')
+
+    def test_length_label_uses_hyphenated_parts(self):
+        self.assertEqual(length_label('САМАРА'), '(6)')
+        self.assertEqual(length_label('АБВ-ГДЕЖЗ'), '(3-5)')
+        self.assertEqual(length_label('РОСТОВ-НА-ДОНУ'), '(6-2-4)')
+        self.assertEqual(length_label(''), '')
 
     def test_ru_count_label(self):
         self.assertEqual(ru_count_label(1, 'слово', 'слова', 'слов'), '1 слово')
@@ -468,6 +477,7 @@ class WordSaladTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'ok')
         self.assertTrue(response.json()['word_salad_correct'])
+        self.assertFalse(response.json().get('word_salad_keep_selection'))
         self.assertFalse(response.json().get('word_salad_extra'))
         self.assertEqual(
             Attempt.manager.filter(task=self.task, anon_key='word-salad-auto-correct-test').count(),
@@ -614,11 +624,58 @@ class WordSaladTests(TestCase):
         ).state)
         self.assertEqual(state['found_rare'], [0])
         self.assertEqual(state['solved_indices'], [])
-        html = payload['update_task_html_new'][str(self.task.pk)]
-        self.assertIn('Редкие находки', html)
-        self.assertIn('new-word-salad__rare', html)
-        self.assertIn('ABCD', html)
-        self.assertNotIn('data-word-salad-rares hidden', html)
+        self.assertTrue(payload.get('word_salad_keep_selection'))
+        self.assertNotIn('update_task_html_new', payload)
+        ui = build_ui_context(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+            state,
+            rare_words=['ABCD'],
+        )
+        self.assertEqual(ui['rare_tooltip'], RARE_FOUND_TOOLTIP)
+        self.assertIn('не требуется', ui['rare_tooltip'])
+        self.assertEqual([word['normalized'] for word in ui['rare_words']], ['ABCD'])
+
+    def test_path_cells_remain_active(self):
+        self.assertTrue(path_cells_remain_active({'active': [0, 1, 2, 3]}, [0, 1, 2, 3]))
+        self.assertFalse(path_cells_remain_active({'active': [0, 1, 2]}, [0, 1, 2, 3]))
+        self.assertFalse(path_cells_remain_active({'active': [0, 1, 2, 3]}, []))
+
+    def test_keep_selection_when_solved_letters_stay(self):
+        original = self.task.checker_data
+        self.task.checker_data = serialize_task_data(
+            _puzzle()['grid'],
+            ['ABCD', 'DCBA'],
+        )
+        self.task.save(update_fields=['checker_data'])
+        try:
+            with patch('games.views.attempt_views.track_actor_task_change'):
+                response = self.client.post(
+                    '/send_attempt/{}/'.format(self.task.pk),
+                    {
+                        'game_id': self.game.pk,
+                        'anon_key': 'word-salad-keep-selection',
+                        'action': 'solve',
+                        'path': json.dumps([0, 1, 2, 3]),
+                        'correct_only': '1',
+                    },
+                )
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertTrue(payload.get('word_salad_correct'))
+            self.assertTrue(payload.get('word_salad_keep_selection'))
+            self.assertIn('update_task_html_new', payload)
+            state = json.loads(ChainTaskState.objects.get(
+                task=self.task,
+                anon_key='word-salad-keep-selection',
+                game=self.game,
+                game_mode='general',
+            ).state)
+            self.assertEqual(state['solved_indices'], [0])
+            self.assertEqual(state['active'], [0, 1, 2, 3])
+        finally:
+            self.task.checker_data = original
+            self.task.save(update_fields=['checker_data'])
 
     def test_section_games_use_task_type_name_in_pager(self):
         from games.views.new_ui import _task_group_page_nav_context

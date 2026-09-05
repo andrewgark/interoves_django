@@ -603,7 +603,12 @@ def process_send_attempt(request, task_id):
             except (ValueError, TypeError):
                 pass
     if task.task_type == 'word_salad':
-        from games.word_salad import RARE_FOUND_COMMENT, extra_found_word_from_attempt, path_word_from_attempt
+        from games.word_salad import (
+            RARE_FOUND_COMMENT,
+            extra_found_word_from_attempt,
+            path_cells_remain_active,
+            path_word_from_attempt,
+        )
 
         rare_found = attempt_persisted and (attempt.comment or '') == RARE_FOUND_COMMENT
         result['word_salad_correct'] = bool(attempt_persisted) and not rare_found
@@ -611,6 +616,13 @@ def process_send_attempt(request, task_id):
             written, _words, _rare_words = path_word_from_attempt(task, attempt)
             if written:
                 result['word_salad_rare'] = written
+            result['word_salad_keep_selection'] = True
+        elif result['word_salad_correct']:
+            try:
+                path = json.loads(attempt.text or '{}').get('path') or []
+            except (TypeError, ValueError, json.JSONDecodeError):
+                path = []
+            result['word_salad_keep_selection'] = path_cells_remain_active(attempt.state, path)
         if not attempt_persisted:
             if attempt.comment:
                 result['word_salad_comment'] = attempt.comment
@@ -628,7 +640,6 @@ def process_send_attempt(request, task_id):
     ) and (
         task.task_type != 'word_salad'
         or result.get('word_salad_correct')
-        or result.get('word_salad_rare')
     )
     if need_task_html:
         with timing_phase(request, 'render_task'):

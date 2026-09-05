@@ -48,11 +48,12 @@
       </div>
     </section>
 
+    <div class="new-word-salad__words">
     <section class="new-word-salad__band new-word-salad__band--answers" aria-label="Ответы">
       <h3 class="new-word-salad__band-title">Ответы (по алфавиту)</h3>
       <ul class="new-word-salad__pills">
         {% for word in ws.words %}
-          <li class="new-word-salad__word{% if word.is_solved %} is-solved{% endif %}{% if word.is_hinted %} is-hinted{% endif %}" data-word-index="{{ word.index }}" data-word-length="{{ word.length }}" data-hint-count="{{ word.hint_count }}"{% if support_preview %} data-preview-answer="{{ word.original }}" data-preview-normalized="{{ word.normalized }}"{% endif %}>
+          <li class="new-word-salad__word{% if word.is_solved %} is-solved{% endif %}{% if word.is_hinted %} is-hinted{% endif %}" data-word-index="{{ word.index }}" data-word-length="{{ word.length }}" data-word-normalized="{{ word.normalized }}" data-hint-count="{{ word.hint_count }}"{% if support_preview %} data-preview-answer="{{ word.original }}" data-preview-normalized="{{ word.normalized }}"{% endif %}>
             {% if word.can_hint %}
             <form class="new-hint-form new-word-salad__hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-skip-hints-open="1">
               {% csrf_token %}
@@ -74,6 +75,7 @@
                     {% endif %}
                   {% endfor %}
                 </span>
+                {% if word.length_label %}<span class="new-word-salad__len">{{ word.length_label }}</span>{% endif %}
               </button>
             </form>
             {% else %}
@@ -87,6 +89,7 @@
                   {% endif %}
                 {% endfor %}
               </span>
+              {% if word.length_label %}<span class="new-word-salad__len">{{ word.length_label }}</span>{% endif %}
             </span>
             {% endif %}
           </li>
@@ -94,11 +97,11 @@
       </ul>
     </section>
 
-    <section class="new-word-salad__band new-word-salad__band--rares" data-word-salad-rares{% if not ws.rare_words %} hidden{% endif %}>
-      <h3 class="new-word-salad__band-title">Редкие находки</h3>
+    <section class="new-word-salad__band new-word-salad__band--rares" data-word-salad-rares data-rare-tooltip="{{ ws.rare_tooltip }}"{% if not ws.rare_words %} hidden{% endif %}>
+      <h3 class="new-word-salad__band-title" title="{{ ws.rare_tooltip }}">Редкие находки</h3>
       <ul class="new-word-salad__pills" data-word-salad-rares-list aria-live="polite">
         {% for word in ws.rare_words %}
-          <li class="new-word-salad__pill new-word-salad__rare">{{ word.normalized }}</li>
+          <li class="new-word-salad__pill new-word-salad__rare" title="{{ ws.rare_tooltip }}">{{ word.normalized }}</li>
         {% endfor %}
       </ul>
     </section>
@@ -107,6 +110,7 @@
       <h3 class="new-word-salad__band-title">Находки не по теме</h3>
       <ul class="new-word-salad__pills" data-word-salad-extras-list aria-live="polite"></ul>
     </section>
+    </div>
 
     <form class="new-attempt-form new-word-salad__form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" hidden>
       {% csrf_token %}

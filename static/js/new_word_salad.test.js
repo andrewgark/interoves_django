@@ -140,8 +140,9 @@ function escapeEvent(overrides) {
   assert.strictEqual(first.changed, true);
 
   var again = Path.rememberExtra(['КОТ', 'ЛИСА'], 'кот', {});
-  assert.deepStrictEqual(again.words, ['ЛИСА', 'КОТ']);
+  assert.deepStrictEqual(again.words, ['КОТ', 'ЛИСА']);
   assert.strictEqual(again.latest, 'КОТ');
+  assert.strictEqual(again.changed, false);
 
   var skipped = Path.rememberExtra([], 'на', {});
   assert.strictEqual(skipped.changed, false);
@@ -151,7 +152,7 @@ function escapeEvent(overrides) {
   assert.strictEqual(answer.changed, false);
 })();
 
-(function testDelayedExtraCommitOnlyForUnchangedReleasedPath() {
+(function testDelayedExtraCommitOnlyForUnchangedPath() {
   assert.strictEqual(Path.EXTRA_COMMIT_DELAY_MS, 500);
   assert.strictEqual(Path.shouldCommitExtra('0,1,2,3', '0,1,2,3', false, true), true);
   assert.strictEqual(
@@ -161,8 +162,8 @@ function escapeEvent(overrides) {
   );
   assert.strictEqual(
     Path.shouldCommitExtra('0,1,2,3', '0,1,2,3', true, true),
-    false,
-    'an extra word must not appear while the player is still dragging'
+    true,
+    'a pause on the same path commits even while the pointer is held'
   );
   assert.strictEqual(Path.shouldCommitExtra('0,1,2,3', '0,1,2,3', false, false), false);
 })();
