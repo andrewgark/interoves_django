@@ -15,16 +15,16 @@ The same mechanism covers site changes that become relevant while a page is open
 | Transport | Django Channels; authenticated game and user sockets; Redis in production; real Redis group delivery is tested between independent processes | Anonymous play has no socket |
 | Scopes | game, game+internal-team-PK, and user groups; unsafe/long PKs are deterministically encoded into Channels-safe ASCII group components; game subscription validates existence/access; supported rename changes only `visible_name` | Legacy name-hash group remains temporarily; changing the internal `Team.name` PK is unsupported without a surrogate-ID migration |
 | Team submissions | Task-group pages subscribe to the game/team socket; submissions, hints, raddle assist, review, and recheck use the central actor-task hook | Anonymous play still relies on the current POST response |
-| Concurrent writes | Task/chain rows are locked during checking; simultaneous same-answer convergence is covered in two browsers | Broader mixed-answer/load concurrency is not browser-tested |
+| Concurrent writes | Task/chain rows are locked during checking; simultaneous same-answer convergence is covered in two browsers; sequential replacements lines after a teammate live-update keep using the page CSRF token | Broader mixed-answer/load concurrency is not browser-tested |
 | Ordering | Actor-scoped `seq`; shared Redis revision cache in production; two-process atomic allocation is tested; new client ignores older sequences and checks revisions every 25 seconds | No durable replay yet |
 | Reconnect | New UI reconciles authoritative visible task fragments on first subscription, reconnect/revision gap, periodic check, and visibility return | Unsupported projections (currently proportions sheets) still fall back to a full reload |
 | Task/hint edits | Model saves commit the row before broadcasting an admin task change; the consumer renders actor-specific HTML; task edit followed by recheck is covered in two browsers | Full HTML is rendered per consumer; multi-game resolution and access need hardening |
 | Pending review/recheck | Set-ok, prestatus confirmation, single/batch/chain rechecks call the central actor-task hook; Ok and Wrong convergence are covered in two browsers | Direct ad-hoc `Attempt.save()` outside these services still has no live notification |
 | Game start/end | Pages carry authoritative start/end timestamps and schedule a reload at the next boundary; saves also push lifecycle events; both boundaries are browser-tested | Reload is currently whole-page rather than a fine-grained access projection |
 | Daily content boundary | Main hub, daily archives, and open ladder/week-task/alphabetty pages carry the next server-derived publish timestamp for an existing future row and reload at that boundary | Whole-page reload; midnight behavior lacks a dedicated browser assertion |
-| Client update | New UI replaces task fragments; reconciliation events are queued so an older snapshot cannot overwrite a newer socket update; game/section task-list progress is rendered authoritatively in the first response, with the scoped JSON projection retained as a failure fallback | Large coupled HTML remains in direct socket payloads; some lifecycle events still reload the page |
+| Client update | New UI replaces task fragments; reconciliation events are queued so an older snapshot cannot overwrite a newer socket update; game/section task-list progress is rendered authoritatively in the first response, with the scoped JSON projection retained as a failure fallback; live HTML is restamped with the page CSRF token before the next POST | Large coupled HTML remains in direct socket payloads; some lifecycle events still reload the page |
 | Delivery durability | Publish runs in an `on_commit` daemon thread | A process/Redis failure can drop an event permanently |
-| Tests | Publisher and ASGI tests, ten Playwright scenarios, and opt-in real-Redis tests for cross-process delivery and revision allocation; GitHub Actions runs the latter against disposable Redis | Mobile keyboard behavior remains a manual smoke |
+| Tests | Publisher and ASGI tests, eleven Playwright scenarios, and opt-in real-Redis tests for cross-process delivery and revision allocation; GitHub Actions runs the latter against disposable Redis | Mobile keyboard behavior remains a manual smoke |
 
 ### What likely works today
 
@@ -38,6 +38,7 @@ The same mechanism covers site changes that become relevant while a page is open
 - Open daily hubs and play pages schedule themselves to reload when the next already-created
   ladder, alphabetty, or week task reaches its Moscow publication boundary.
 - Simultaneous identical submissions produce one authoritative attempt and both pages converge.
+- After a teammate solves one replacements line, the other member can submit another line without F5 or «Ошибка сети».
 - Changing a team's visible name does not interrupt its existing game subscriptions.
 - DB locking prevents the main duplicate/chain-state races during simultaneous submissions.
 - Older delivered messages do not overwrite newer HTML in the new UI.
@@ -108,6 +109,7 @@ For reliable cross-process delivery, add a transactional outbox later. A worker 
 | Scenario | Required assertion | Automated status |
 |---|---|---|
 | Teammate solves ordinary task | Other browser converges without reload/input loss | Playwright |
+| Teammate solves a replacements line | Other browser can submit another line without reload or «Ошибка сети» | Playwright |
 | Teammate advances raddle from either end | Both ladders converge; active draft and intentional focus survive | Playwright |
 | Simultaneous same answer | One authoritative progression; both browsers converge | Playwright |
 | Pending becomes Ok/Wrong | All actor pages show final verdict and points | Playwright, both verdicts |
@@ -121,8 +123,9 @@ For reliable cross-process delivery, add a transactional outbox later. A worker 
 | Cross-process Redis transport | Independent publisher/receiver processes exchange an event; concurrent allocators produce one monotonic revision sequence | Opt-in real-Redis integration test |
 
 The Playwright suite currently covers direct and simultaneous team submissions,
-offline/reconnect snapshot repair, raddle draft/focus, both pending-review verdicts,
-task edit/recheck, both game clock boundaries, and visible-name rename:
+offline/reconnect snapshot repair, raddle draft/focus, sequential replacements
+lines after a teammate live-update, both pending-review verdicts, task
+edit/recheck, both game clock boundaries, and visible-name rename:
 
 ```bash
 ../venv/interoves_django/bin/python manage.py test games.tests.test_realtime_browser --settings=interoves_django.test_live_settings

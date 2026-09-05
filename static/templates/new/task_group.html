@@ -347,7 +347,8 @@
     window.interovesDailySolveTimer.bindFromDocument(document, {
       getAnonKey: function () { return isAuthenticated ? '' : anonKey; },
       getCsrf: function () {
-        var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+        if (window.InterovesPageCsrf) return window.InterovesPageCsrf.pageToken();
+        var el = document.querySelector('#interoves-page-csrf input[name=csrfmiddlewaretoken]');
         return el ? el.value : '';
       }
     });
@@ -360,6 +361,10 @@
     var h = extra || {};
     h['X-Requested-With'] = 'XMLHttpRequest';
     if (!isAuthenticated && anonKey) h['X-Interoves-Anon'] = anonKey;
+    if (window.InterovesPageCsrf) {
+      var csrfToken = window.InterovesPageCsrf.pageToken();
+      if (csrfToken) h['X-CSRFToken'] = csrfToken;
+    }
     return h;
   }
   function flushAnalyticsEvents(events) {
@@ -485,8 +490,9 @@
   }
 
   function formPostBody(form) {
+    var fd;
     if (isRaddleLineForm(form)) {
-      var fd = new FormData(form);
+      fd = new FormData(form);
       var wordInput = document.querySelector('input[name="word"][form="' + form.id + '"]');
       if (wordInput) {
         var wordVal = (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.getSubmitValue)
@@ -494,9 +500,11 @@
           : wordInput.value;
         fd.set('word', wordVal);
       }
-      return fd;
+    } else {
+      fd = new FormData(form);
     }
-    return new FormData(form);
+    if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampFormData(fd);
+    return fd;
   }
 
   function postForm(form) {
@@ -1222,7 +1230,7 @@
     fetch(formSubmitUrl(form), {
       method: 'POST',
       headers: anonFetchHeaders(),
-      body: new FormData(form),
+      body: formPostBody(form),
       credentials: 'same-origin',
     })
       .then(function (r) { return r.json(); })
@@ -3032,7 +3040,8 @@
 
   // Like/dislike (пер-режим)
   function csrf() {
-    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+    if (window.InterovesPageCsrf) return window.InterovesPageCsrf.pageToken();
+    var el = document.querySelector('#interoves-page-csrf input[name=csrfmiddlewaretoken]');
     return el ? el.value : '';
   }
   function postLike(taskId, likesDelta, dislikesDelta) {
@@ -3409,6 +3418,7 @@
         el.outerHTML = html;
         var fresh = document.getElementById('new-task-' + tid);
         if (fresh) {
+          if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampRoot(fresh);
           initReplacementsLinesStorage(fresh);
           if (typeof initReplacementsLinesUi === 'function') initReplacementsLinesUi(fresh);
           if (typeof initRaddleUi === 'function') initRaddleUi(fresh);
@@ -3483,15 +3493,14 @@
   })();
 
   // Wall: click tiles & submit explanation forms (no jQuery here)
-  function wallCsrf(fromEl) {
-    var el = null;
-    if (fromEl) el = fromEl.querySelector('input[name=csrfmiddlewaretoken]');
-    if (!el) el = document.querySelector('input[name=csrfmiddlewaretoken]');
-    return el ? el.value : '';
+  function wallCsrf() {
+    return csrf();
   }
   function postWall(taskId, params, csrfToken) {
     params.set('anon_key', anonKey);
     params.set('game_id', '{{ game.id }}');
+    if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampParams(params, csrfToken);
+    else if (csrfToken) params.set('csrfmiddlewaretoken', csrfToken);
     return fetch('/send_attempt/' + taskId + '/', {
       method: 'POST',
       headers: {
@@ -3575,7 +3584,7 @@
     var msg = wallMessage(wall);
     if (wallRoot) wallRoot.dataset.submitting = '1';
     if (msg) msg.textContent = 'Проверяем…';
-    postWall(taskId, params, wallCsrf(wall)).then(function (data) {
+    postWall(taskId, params, wallCsrf()).then(function (data) {
       if (wallRoot) wallRoot.dataset.submitting = '0';
       applyWallAttemptResponse(data, taskId, msg);
     }).catch(function () {
@@ -3597,7 +3606,7 @@
     form.dataset.submitting = '1';
     if (submit) submit.disabled = true;
     if (msg) msg.textContent = 'Проверяем…';
-    postWall(taskId, new URLSearchParams(new FormData(form)), wallCsrf(form)).then(function (data) {
+    postWall(taskId, new URLSearchParams(new FormData(form)), wallCsrf()).then(function (data) {
       form.dataset.submitting = '0';
       if (submit) submit.disabled = false;
       applyWallAttemptResponse(data, taskId, msg);
@@ -3617,7 +3626,9 @@
   if (!btn) return;
   btn.addEventListener('click', function () {
     if (!window.confirm('Сбросить ваше решение по этой лесенке?')) return;
-    var csrf = (document.querySelector('input[name=csrfmiddlewaretoken]') || {}).value || '';
+    var csrf = (window.InterovesPageCsrf && window.InterovesPageCsrf.pageToken())
+      || (document.querySelector('#interoves-page-csrf input[name=csrfmiddlewaretoken]') || {}).value
+      || '';
     fetch(btn.getAttribute('data-reset-url'), {
       method: 'POST',
       credentials: 'same-origin',

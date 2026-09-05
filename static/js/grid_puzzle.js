@@ -770,14 +770,22 @@
     if (this.message) this.message.textContent = 'Проверяем…';
     if (this.wallInput) this.wallInput.value = JSON.stringify(sortedValues(this.state.walls));
     if (this.shadingInput) this.shadingInput.value = JSON.stringify(shadingRows(this.state.shading, this.rows, this.cols));
-    var csrf = this.form.querySelector('input[name="csrfmiddlewaretoken"]');
+    var body = new root.FormData(this.form);
+    var csrf = '';
+    if (root.InterovesPageCsrf) {
+      csrf = root.InterovesPageCsrf.pageToken();
+      root.InterovesPageCsrf.stampFormData(body, csrf);
+    } else {
+      var csrfInput = this.form.querySelector('input[name="csrfmiddlewaretoken"]');
+      csrf = csrfInput ? csrfInput.value : '';
+    }
     root.fetch(this.form.action, {
       method: 'POST',
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRFToken': csrf ? csrf.value : '',
+        'X-CSRFToken': csrf,
       },
-      body: new root.FormData(this.form),
+      body: body,
       credentials: 'same-origin',
     }).then(function (response) { return response.json(); }).then(function (data) {
       self.form.dataset.submitting = '0';

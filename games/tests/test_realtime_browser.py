@@ -76,6 +76,7 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         Project.objects.get_or_create(pk='main', defaults={})
         equals, _ = CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
         raddle, _ = CheckerType.objects.get_or_create(pk='raddle')
+        replacements, _ = CheckerType.objects.get_or_create(pk='replacements_lines')
         for name in (
             'Правила Десяточки',
             'Правила турнирного режима',
@@ -118,10 +119,12 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         )
         ordinary_group = TaskGroup.objects.create(label='Browser ordinary')
         raddle_group = TaskGroup.objects.create(label='Browser raddle')
+        replacements_group = TaskGroup.objects.create(label='Browser replacements')
         pending_group = TaskGroup.objects.create(label='Browser pending')
         clock_group = TaskGroup.objects.create(label='Browser clock')
         GameTaskGroup.objects.create(game=self.game, task_group=ordinary_group, number=1)
         GameTaskGroup.objects.create(game=self.game, task_group=raddle_group, number=2)
+        GameTaskGroup.objects.create(game=self.game, task_group=replacements_group, number=3)
         GameTaskGroup.objects.create(
             game=self.pending_game, task_group=pending_group, number=1,
         )
@@ -143,6 +146,15 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
                 checker_data=json.dumps(LONG_LADDER),
                 answer='AAA\nBBB\nCCC\nDDD\nEEE',
                 points=1,
+            )
+            self.replacements_task = Task.objects.create(
+                task_group=replacements_group,
+                number='1',
+                task_type='replacements_lines',
+                text='FOO\nBAR',
+                checker=replacements,
+                checker_data=json.dumps({'lines': [['FOO'], ['BAR']]}),
+                points=2,
             )
             self.pending_task = Task.objects.create(
                 task_group=pending_group,
@@ -184,6 +196,7 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         self.browser_contexts.append(context)
         context.add_init_script(
             "window.__interovesDocumentId = String(Date.now()) + ':' + String(Math.random());"
+            "try { localStorage.setItem('interoves_repl_line_confirm_skip', '1'); } catch (e) {}"
         )
         context.add_cookies([{
             'name': 'sessionid',
@@ -458,6 +471,37 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             second.evaluate('window.__interovesDocumentId'),
             second_document_id,
         )
+
+    def test_teammate_can_submit_next_replacements_line_after_live_update(self):
+        from playwright.sync_api import expect
+
+        first = self.browser_page_for(self.user_one)
+        second = self.browser_page_for(self.user_two)
+        url = f'{self.live_server_url}/games/{self.game.pk}/3/'
+        second.goto(url)
+        first.goto(url)
+        first_document_id = first.evaluate('window.__interovesDocumentId')
+        second_document_id = second.evaluate('window.__interovesDocumentId')
+        card = f'#new-task-{self.replacements_task.pk}'
+        first_row = f'{card} tr.new-replacements-row[data-line-index="0"]'
+        second_row = f'{card} tr.new-replacements-row[data-line-index="1"]'
+
+        first.locator(f'{first_row} input.new-replacements-input').fill('FOO')
+        first.locator(f'{first_row} button[type="submit"]').click()
+        for page in (first, second):
+            expect(page.locator(first_row)).to_have_class(
+                re.compile(r'.*new-replacements-row--solved.*'), timeout=10_000,
+            )
+
+        second.locator(f'{second_row} input.new-replacements-input').fill('BAR')
+        second.locator(f'{second_row} button[type="submit"]').click()
+        for page in (first, second):
+            expect(page.locator(second_row)).to_have_class(
+                re.compile(r'.*new-replacements-row--solved.*'), timeout=10_000,
+            )
+            expect(page.get_by_text('Ошибка сети')).to_have_count(0)
+        self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
+        self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
 
     def test_pending_set_ok_updates_both_team_pages(self):
         from playwright.sync_api import expect

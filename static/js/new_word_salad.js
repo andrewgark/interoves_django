@@ -809,6 +809,7 @@
       function syncStoredFinds() {
         if (isPreview || !form || !extraWords.length) return;
         var body = new FormData(form);
+        if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
         body.set('action', 'sync_finds');
         body.set('words', JSON.stringify(extraWords));
         fetch(formSubmitUrl(form), {
@@ -1112,6 +1113,7 @@
         renderSelection();
 
         var body = new FormData(form);
+        if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
         body.set('path', JSON.stringify(path));
         body.set('correct_only', '1');
         fetch(formSubmitUrl(form), {

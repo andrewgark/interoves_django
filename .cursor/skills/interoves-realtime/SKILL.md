@@ -55,8 +55,8 @@ Run the real two-context browser suite outside the sandbox with:
 Install Playwright Chromium first when its executable is absent. Keep this suite
 opt-in through the dedicated settings module so ordinary SQLite test runs remain fast.
 Keep direct and simultaneous team delivery, offline recovery, pending review,
-task edit/recheck, both clock boundaries, visible-name rename, and raddle draft/focus
-represented in this suite.
+task edit/recheck, both clock boundaries, visible-name rename, raddle draft/focus,
+and sequential replacements lines after a teammate live-update represented in this suite.
 
 For daily/weekly publication scheduling, keep the pure server calculation and shared
 client timer covered with:
@@ -64,6 +64,7 @@ client timer covered with:
 ```bash
 ../venv/interoves_django/bin/python manage.py test games.tests.test_daily_transitions
 node static/js/track_ws.test.js
+node static/js/page_csrf.test.js
 ```
 
 For cross-process transport, run the opt-in suite against disposable Redis:
