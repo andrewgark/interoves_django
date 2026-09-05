@@ -17,6 +17,8 @@ WORD_POINTS = Decimal('1')
 HINT_PENALTY = Decimal('0.5')
 EXTRA_MIN_LENGTH = 4
 EXTRA_NOT_FOUND_COMMENT = 'Слово не найдено'
+RARE_FOUND_COMMENT = 'Редкая находка'
+_FOUND_RARE_INDEX_LIMIT = 64
 NO_HINT_SQUARE = '🟩'
 OVERFLOW_HINT_SQUARE = '*️⃣'
 _HINT_KEYCAPS = ('1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟')
@@ -42,19 +44,33 @@ def parse_grid(value):
     return [str(c).replace('Ё', 'Е').upper() for c in cells]
 
 
-def parse_words(value):
+def parse_word_list(value, *, allow_empty=False, duplicate_error='Загаданные слова не должны повторяться.'):
     if isinstance(value, (list, tuple)):
-        words = [str(w).strip() for w in value]
+        words = [str(w).strip() for w in value if str(w).strip()]
     else:
         words = [line.strip() for line in (value or '').splitlines() if line.strip()]
     if not words:
+        if allow_empty:
+            return []
         raise ValueError('Добавьте хотя бы одно слово.')
     normalized = [normalize_word(word) for word in words]
     if any(not word for word in normalized):
         raise ValueError('Каждая строка слов должна содержать буквы.')
     if len(set(normalized)) != len(normalized):
-        raise ValueError('Загаданные слова не должны повторяться.')
+        raise ValueError(duplicate_error)
     return words
+
+
+def parse_words(value):
+    return parse_word_list(value)
+
+
+def parse_rare_words(value):
+    return parse_word_list(
+        value,
+        allow_empty=True,
+        duplicate_error='Редкие слова не должны повторяться.',
+    )
 
 
 def default_state():
@@ -63,6 +79,7 @@ def default_state():
         'hints': [],
         'hint_counts': {},
         'active': list(range(16)),
+        'found_rare': [],
     }
 
 
@@ -112,6 +129,10 @@ def load_state(raw):
         state['active'] = list(range(16))
     else:
         state['active'] = _normalized_index_list(active_raw, limit=16)
+    state['found_rare'] = _normalized_index_list(
+        data.get('found_rare'),
+        limit=_FOUND_RARE_INDEX_LIMIT,
+    )
     return state
 
 
@@ -292,15 +313,25 @@ def all_words_solvable(grid, words, active):
     return all(find_paths(grid, word, active=active, limit=1) for word in words)
 
 
-def validate_puzzle(grid_value, words_value):
+def validate_puzzle(grid_value, words_value, rare_words_value=None):
     grid = parse_grid(grid_value)
     words = parse_words(words_value)
+    rare_words = parse_rare_words(rare_words_value)
     if not all_words_solvable(grid, words, range(16)):
         raise ValueError('Для каждого слова должна существовать хотя бы одна дорожка.')
     for cell in range(16):
         active = set(range(16)) - {cell}
         if all_words_solvable(grid, words, active):
             raise ValueError('Букву в клетке {} можно убрать уже в начальной сетке.'.format(cell + 1))
+    answer_set = {normalize_word(word) for word in words}
+    rare_set = {normalize_word(word) for word in rare_words}
+    overlap = sorted(answer_set & rare_set)
+    if overlap:
+        raise ValueError(
+            'Редкое слово не должно совпадать с обязательным ответом: {}.'.format(', '.join(overlap))
+        )
+    if rare_words and not all_words_solvable(grid, rare_words, range(16)):
+        raise ValueError('Для каждого редкого слова должна существовать хотя бы одна дорожка.')
     return grid, words
 
 
@@ -381,11 +412,12 @@ def load_legacy_extra_noun_set():
     )
 
 
-def extra_found_word(written, puzzle_words, *, user=None, anon_key=None):
+def extra_found_word(written, puzzle_words, *, rare_words=(), user=None, anon_key=None):
     """Return a noun from the salad extras dict that is not a puzzle answer, else ''."""
     word = normalize_word(written)
-    answers = {normalize_word(item) for item in (puzzle_words or [])}
-    if word in answers:
+    blocked = {normalize_word(item) for item in (puzzle_words or [])}
+    blocked.update(normalize_word(item) for item in (rare_words or []))
+    if word in blocked:
         return ''
     if word in load_extra_noun_set():
         return word
@@ -396,14 +428,22 @@ def extra_found_word_from_attempt(task, attempt, *, user=None, anon_key=None):
     """Dictionary extra for a rejected salad path, else ''."""
     if (getattr(attempt, 'comment', None) or '') != EXTRA_NOT_FOUND_COMMENT:
         return ''
+    written, words, rare_words = path_word_from_attempt(task, attempt)
+    if not written:
+        return ''
+    return extra_found_word(written, words, rare_words=rare_words, user=user, anon_key=anon_key)
+
+
+def path_word_from_attempt(task, attempt):
+    """Return (written, required_words, rare_words) for a salad path attempt."""
     try:
         payload = json.loads(attempt.text or '')
         path = [int(index) for index in (payload.get('path') or [])]
-        grid, words = parse_task_data(getattr(task, 'checker_data', None), '')
+        grid, words, rare_words = parse_task_payload(getattr(task, 'checker_data', None), '')
         written = ''.join(grid[index] for index in path)
     except (TypeError, ValueError, IndexError, KeyError, json.JSONDecodeError):
-        return ''
-    return extra_found_word(written, words, user=user, anon_key=anon_key)
+        return '', [], []
+    return written, words, rare_words
 
 
 def theme_from_text(value):
@@ -431,7 +471,7 @@ def archive_card_meta(task):
     return theme or words_label or None
 
 
-def parse_task_data(checker_data, answer):
+def parse_task_payload(checker_data, answer):
     try:
         data = json.loads(checker_data or '{}')
     except (TypeError, ValueError):
@@ -439,12 +479,18 @@ def parse_task_data(checker_data, answer):
     grid = parse_grid(data.get('grid'))
     words_raw = data.get('words') if data.get('words') is not None else answer
     words = parse_words(words_raw)
+    rare_words = parse_rare_words(data.get('rare_words'))
+    return grid, words, rare_words
+
+
+def parse_task_data(checker_data, answer):
+    grid, words, _rare_words = parse_task_payload(checker_data, answer)
     return grid, words
 
 
 def validate_task_data(checker_data, answer):
-    grid, words = parse_task_data(checker_data, answer)
-    return validate_puzzle(grid, words)
+    grid, words, rare_words = parse_task_payload(checker_data, answer)
+    return validate_puzzle(grid, words, rare_words)
 
 
 def format_grid_text(grid):
@@ -453,20 +499,28 @@ def format_grid_text(grid):
 
 
 def format_words_text(words):
-    return '\n'.join(parse_words(words))
+    if not words:
+        return ''
+    return '\n'.join(parse_word_list(words, allow_empty=True))
 
 
-def serialize_task_data(grid_value, words_value):
+def serialize_task_data(grid_value, words_value, rare_words_value=None):
     grid = parse_grid(grid_value)
     words = parse_words(words_value)
-    return json.dumps({'grid': grid, 'words': words}, ensure_ascii=False)
+    payload = {'grid': grid, 'words': words}
+    rare_words = parse_rare_words(rare_words_value)
+    if rare_words:
+        payload['rare_words'] = rare_words
+    return json.dumps(payload, ensure_ascii=False)
 
 
-def build_ui_context(grid, words, state=None, attempts=None):
+def build_ui_context(grid, words, state=None, attempts=None, rare_words=None):
     state = load_state(state)
     solved = set(state.get('solved_indices') or [])
     hint_counts = state.get('hint_counts') or {}
     active = set(state.get('active', []))
+    rare_words = list(rare_words or [])
+    found_rare = set(state.get('found_rare') or [])
     grid_rows = []
     for row_index in range(4):
         row = []
@@ -499,9 +553,21 @@ def build_ui_context(grid, words, state=None, attempts=None):
             'can_hint': index not in solved and hint_count < len(normalized),
         })
 
+    rare_ui = []
+    for index, word in words_in_display_order(rare_words):
+        if index not in found_rare:
+            continue
+        rare_ui.append({
+            'index': index,
+            'original': word,
+            'normalized': normalize_word(word),
+        })
+
     return {
         'grid_rows': grid_rows,
         'words': words_ui,
+        'rare_words': rare_ui,
+        'rare_normalized': [normalize_word(word) for word in rare_words],
         'word_points': WORD_POINTS,
         'hint_penalty': HINT_PENALTY,
         'solved_indices': sorted(solved),

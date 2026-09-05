@@ -753,13 +753,14 @@ class WordSaladChecker(BaseChecker):
     """Проверяет JSON-путь по сетке и хранит найденные слова в chain state."""
 
     def __init__(self, data, last_attempt_state=None):
-        from games.word_salad import load_state, parse_task_data
-        self.grid, self.words = parse_task_data(data, '')
+        from games.word_salad import load_state, parse_task_payload
+        self.grid, self.words, self.rare_words = parse_task_payload(data, '')
         self.last_state = load_state(last_attempt_state)
 
     def check(self, text, attempt):
         from games.word_salad import (
             EXTRA_NOT_FOUND_COMMENT,
+            RARE_FOUND_COMMENT,
             dump_state,
             load_state,
             neighbours,
@@ -777,6 +778,17 @@ class WordSaladChecker(BaseChecker):
         solved = set(state.get('solved_indices') or [])
         hint_counts = dict(state.get('hint_counts') or {})
         active = set(state.get('active', []))
+        found_rare = set(state.get('found_rare') or [])
+
+        def play_state():
+            return {
+                'solved_indices': sorted(solved),
+                'hints': sorted(hint_counts),
+                'hint_counts': hint_counts,
+                'active': sorted(active),
+                'found_rare': sorted(found_rare),
+            }
+
         action = (payload.get('action') or 'solve').strip().lower()
         if action == 'hint':
             try:
@@ -800,14 +812,9 @@ class WordSaladChecker(BaseChecker):
                 if requested_number != current_count + 1:
                     return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Устаревшая подсказка')
             hint_counts[word_index] = current_count + 1
-            state = {
-                'solved_indices': sorted(solved),
-                'hints': sorted(hint_counts),
-                'hint_counts': hint_counts,
-                'active': sorted(active),
-            }
+            next_state = play_state()
             tournament_status = 'Partial' if solved else 'Wrong'
-            return CheckResult('Partial', tournament_status, score_for_state(state), dump_state(state))
+            return CheckResult('Partial', tournament_status, score_for_state(next_state), dump_state(next_state))
         try:
             path = [int(value) for value in payload.get('path', [])]
         except (TypeError, ValueError):
@@ -822,28 +829,53 @@ class WordSaladChecker(BaseChecker):
             return CheckResult('Wrong', 'Pending', score_for_state(state), dump_state(state), comment='Слово уже открыто')
         match = next((i for i, word in enumerate(self.words)
                       if i not in solved and normalize_word(word) == written), None)
-        if match is None:
+        if match is not None:
+            solved.add(match)
+            while True:
+                removable = removable_cells(self.grid, self.words, active, solved)
+                if not removable:
+                    break
+                active.discard(removable[0])
+            next_state = play_state()
+            status = 'Ok' if len(solved) == len(self.words) else 'Partial'
+            return CheckResult(status, status, score_for_state(next_state), dump_state(next_state))
+        already_rare = next(
+            (i for i, word in enumerate(self.rare_words) if normalize_word(word) == written),
+            None,
+        )
+        if already_rare is not None and already_rare in found_rare:
             return CheckResult(
                 'Wrong',
                 'Pending',
                 score_for_state(state),
-                dump_state(state),
-                comment=EXTRA_NOT_FOUND_COMMENT,
+                dump_state(play_state()),
+                comment='Слово уже открыто',
             )
-        solved.add(match)
-        while True:
-            removable = removable_cells(self.grid, self.words, active, solved)
-            if not removable:
-                break
-            active.discard(removable[0])
-        state = {
-            'solved_indices': sorted(solved),
-            'hints': sorted(hint_counts),
-            'hint_counts': hint_counts,
-            'active': sorted(active),
-        }
-        status = 'Ok' if len(solved) == len(self.words) else 'Partial'
-        return CheckResult(status, status, score_for_state(state), dump_state(state))
+        rare_match = next(
+            (
+                i for i, word in enumerate(self.rare_words)
+                if i not in found_rare and normalize_word(word) == written
+            ),
+            None,
+        )
+        if rare_match is not None:
+            found_rare.add(rare_match)
+            next_state = play_state()
+            tournament_status = 'Partial' if solved else 'Wrong'
+            return CheckResult(
+                'Partial',
+                tournament_status,
+                score_for_state(next_state),
+                dump_state(next_state),
+                comment=RARE_FOUND_COMMENT,
+            )
+        return CheckResult(
+            'Wrong',
+            'Pending',
+            score_for_state(state),
+            dump_state(play_state()),
+            comment=EXTRA_NOT_FOUND_COMMENT,
+        )
 
 
 class SolutionsTagNumber:

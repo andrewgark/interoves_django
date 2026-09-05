@@ -143,6 +143,7 @@ class WordSaladTests(TestCase):
         self.assertGreater(len(nouns), 10000)
         self.assertIn('КОТ', nouns)
         self.assertNotIn('БЕЖАТЬ', nouns)
+        self.assertEqual(extra_found_word('кот', ['лиса'], rare_words=['КОТ']), '')
         self.assertEqual(extra_found_word('кот', ['лиса']), 'КОТ')
         self.assertEqual(extra_found_word('кот', ['КОТ']), '')
         self.assertEqual(extra_found_word('на', ['лиса']), '')
@@ -221,6 +222,35 @@ class WordSaladTests(TestCase):
         form = WordSaladTaskForm(instance=self.task)
         self.assertIn('A B C D', form['word_salad_grid_text'].value())
         self.assertIn('ABCDEFGHIJKLMNOP', form['word_salad_words_text'].value())
+        self.assertEqual(form['word_salad_rare_words_text'].value() or '', '')
+
+    def test_serialize_task_data_includes_rare_words(self):
+        payload = json.loads(serialize_task_data(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+            'ABCD',
+        ))
+        self.assertEqual(payload['rare_words'], ['ABCD'])
+
+    def test_validate_rejects_rare_word_overlap(self):
+        from games.word_salad import validate_puzzle
+        with self.assertRaises(ValueError) as ctx:
+            validate_puzzle(_puzzle()['grid'], _puzzle()['words'], _puzzle()['words'][0])
+        self.assertIn('совпадать', str(ctx.exception))
+
+    def test_admin_form_serializes_rare_words(self):
+        form = WordSaladTaskForm(
+            data={
+                'number': '2',
+                'task_type': 'word_salad',
+                'word_salad_grid_text': 'A B C D\nH G F E\nI J K L\nP O N M',
+                'word_salad_words_text': 'ABCDEFGHIJKLMNOP',
+                'word_salad_rare_words_text': 'ABCD',
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        obj = form.save(commit=False)
+        self.assertEqual(json.loads(obj.checker_data)['rare_words'], ['ABCD'])
 
     def test_hint_attempt_updates_chain_state(self):
         attempt = Attempt(
@@ -294,7 +324,8 @@ class WordSaladTests(TestCase):
         self.assertEqual(state['hint_counts'], {'0': 2})
         html = response.json()['update_task_html_new'][str(self.task.pk)]
         self.assertIn('title="Узнать 3 букву"', html)
-        self.assertIn('ph ph-lightbulb', html)
+        self.assertIn('new-word-salad__hint-btn', html)
+        self.assertIn('new-word-salad__pill', html)
         self.assertIn('new-word-salad__glyph">A</span>', html)
         self.assertIn('new-word-salad__glyph">B</span>', html)
         self.assertIn('new-word-salad__glyph is-blank', html)
@@ -546,6 +577,47 @@ class WordSaladTests(TestCase):
         self.assertEqual(len(context['word_salad_data'][self.task.pk]['words']), 1)
         self.assertEqual(context['task_ui_by_task_id'][self.task.pk]['base_max'], 1)
         self.assertEqual(context['task_group_pager_label'], 'Word Salad test')
+
+    def test_rare_word_is_persisted_without_points(self):
+        self.task.checker_data = serialize_task_data(
+            _puzzle()['grid'],
+            _puzzle()['words'],
+            'ABCD',
+        )
+        self.task.save(update_fields=['checker_data'])
+        with patch('games.views.attempt_views.track_actor_task_change'):
+            response = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': 'word-salad-rare-test',
+                    'action': 'solve',
+                    'path': json.dumps([0, 1, 2, 3]),
+                    'correct_only': '1',
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['status'], 'ok')
+        self.assertFalse(payload.get('word_salad_correct'))
+        self.assertEqual(payload.get('word_salad_rare'), 'ABCD')
+        self.assertFalse(payload.get('word_salad_extra'))
+        attempt = Attempt.manager.get(task=self.task, anon_key='word-salad-rare-test')
+        self.assertEqual(attempt.status, 'Partial')
+        self.assertEqual(attempt.points, 0)
+        state = json.loads(ChainTaskState.objects.get(
+            task=self.task,
+            anon_key='word-salad-rare-test',
+            game=self.game,
+            game_mode='general',
+        ).state)
+        self.assertEqual(state['found_rare'], [0])
+        self.assertEqual(state['solved_indices'], [])
+        html = payload['update_task_html_new'][str(self.task.pk)]
+        self.assertIn('Редкие находки', html)
+        self.assertIn('new-word-salad__rare', html)
+        self.assertIn('ABCD', html)
+        self.assertNotIn('data-word-salad-rares hidden', html)
 
     def test_section_games_use_task_type_name_in_pager(self):
         from games.views.new_ui import _task_group_page_nav_context

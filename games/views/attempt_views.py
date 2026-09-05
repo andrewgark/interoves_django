@@ -603,12 +603,17 @@ def process_send_attempt(request, task_id):
             except (ValueError, TypeError):
                 pass
     if task.task_type == 'word_salad':
-        result['word_salad_correct'] = bool(attempt_persisted)
+        from games.word_salad import RARE_FOUND_COMMENT, extra_found_word_from_attempt, path_word_from_attempt
+
+        rare_found = attempt_persisted and (attempt.comment or '') == RARE_FOUND_COMMENT
+        result['word_salad_correct'] = bool(attempt_persisted) and not rare_found
+        if rare_found:
+            written, _words, _rare_words = path_word_from_attempt(task, attempt)
+            if written:
+                result['word_salad_rare'] = written
         if not attempt_persisted:
             if attempt.comment:
                 result['word_salad_comment'] = attempt.comment
-            from games.word_salad import extra_found_word_from_attempt
-
             extra = extra_found_word_from_attempt(
                 task, attempt, user=user, anon_key=anon_key,
             )
@@ -621,7 +626,9 @@ def process_send_attempt(request, task_id):
     need_task_html = (
         task.task_type != 'raddle' or result.get('raddle_correct') or result.get('raddle_needs_sync')
     ) and (
-        task.task_type != 'word_salad' or result.get('word_salad_correct')
+        task.task_type != 'word_salad'
+        or result.get('word_salad_correct')
+        or result.get('word_salad_rare')
     )
     if need_task_html:
         with timing_phase(request, 'render_task'):

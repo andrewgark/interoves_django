@@ -37,6 +37,21 @@ assert.strictEqual(removable.ok, false);
 assert.ok(removable.removableCells.length > 0);
 assert.ok(removable.errors[0].indexOf('можно убрать') >= 0);
 
+var overlap = Editor.validateLive(
+  'A B C D\nH G F E\nI J K L\nP O N M',
+  'ABCDEFGHIJKLMNOP',
+  'ABCDEFGHIJKLMNOP'
+);
+assert.strictEqual(overlap.ok, false);
+assert.ok(overlap.errors[0].indexOf('совпадать') >= 0);
+
+var rareOk = Editor.validateLive(
+  'A B C D\nH G F E\nI J K L\nP O N M',
+  'ABCDEFGHIJKLMNOP',
+  'ABCD'
+);
+assert.strictEqual(rareOk.ok, true, rareOk.errors.join('; '));
+
 assert.ok(Editor.findPaths(
   Editor.parseGrid('B C D E\nI H G F\nJ K L M\nQ P O N'),
   'BCDE',

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
@@ -22,7 +21,8 @@ from games.word_salad import (
     WORD_SALAD_GAME_ID,
     format_grid_text,
     format_words_text,
-    parse_task_data,
+    parse_task_payload,
+    serialize_task_data,
     validate_puzzle,
 )
 from games.word_salad_daily import (
@@ -197,12 +197,12 @@ def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
     renumber_links(ordered_links, sync_link=_sync_link_titles)
 
 
-def _validated_checker_data(grid_value, words_value) -> str:
+def _validated_checker_data(grid_value, words_value, rare_words_value=None) -> str:
     try:
-        grid, words = validate_puzzle(grid_value, words_value)
+        validate_puzzle(grid_value, words_value, rare_words_value)
+        return serialize_task_data(grid_value, words_value, rare_words_value)
     except ValueError as exc:
         raise WordSaladSupportError(str(exc)) from exc
-    return json.dumps({'grid': grid, 'words': words}, ensure_ascii=False)
 
 
 def _preview_text(values, *, max_items=3):
@@ -236,7 +236,7 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
         words = []
         if task is not None:
             try:
-                grid, words = parse_task_data(task.checker_data, '')
+                grid, words, _rare_words = parse_task_payload(task.checker_data, '')
             except Exception:
                 grid, words = [], []
         published_at = word_salad_publish_at(game, number) if game is not None else None
@@ -303,7 +303,7 @@ def get_word_salad_detail(link_id: int) -> dict[str, Any]:
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
     try:
-        grid, words = parse_task_data(task.checker_data, '')
+        grid, words, rare_words = parse_task_payload(task.checker_data, '')
     except Exception as exc:
         raise WordSaladSupportError(str(exc)) from exc
     return {
@@ -315,6 +315,7 @@ def get_word_salad_detail(link_id: int) -> dict[str, Any]:
         'intro': task.text or '',
         'grid_text': format_grid_text(grid),
         'words_text': format_words_text(words),
+        'rare_words_text': format_words_text(rare_words),
         'words_count': len(words),
         'preview_url': preview_task_group_url(WORD_SALAD_GAME_ID, link.number, _PREVIEW_SPEC),
     }
@@ -419,7 +420,14 @@ def attach_existing_task_group(
 
 
 @transaction.atomic
-def update_word_salad(link_id: int, *, intro: str, grid_text: str, words_text: str) -> dict[str, Any]:
+def update_word_salad(
+    link_id: int,
+    *,
+    intro: str,
+    grid_text: str,
+    words_text: str,
+    rare_words_text: str = '',
+) -> dict[str, Any]:
     link = (
         GameTaskGroup.objects.filter(game=get_word_salad_game(), pk=link_id)
         .select_related('task_group')
@@ -430,7 +438,7 @@ def update_word_salad(link_id: int, *, intro: str, grid_text: str, words_text: s
     task = _task_for_link(link)
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
-    checker_data = _validated_checker_data(grid_text, words_text)
+    checker_data = _validated_checker_data(grid_text, words_text, rare_words_text)
     task.text = intro or ''
     task.checker_data = checker_data
     task.answer = ''

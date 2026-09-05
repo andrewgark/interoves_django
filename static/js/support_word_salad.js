@@ -103,12 +103,14 @@
     offerByLink[String(offer.accepted_link_id)] = offer;
   }
 
-  function updateValidation(statusId, gridApi, wordsId) {
+  function updateValidation(statusId, gridApi, wordsId, rareId) {
     var status = document.getElementById(statusId);
     if (!Editor || !status) return;
+    var rareField = rareId ? document.getElementById(rareId) : null;
     var result = Editor.validateLive(
       gridApi ? gridApi.getGrid() : [],
-      document.getElementById(wordsId).value
+      document.getElementById(wordsId).value,
+      rareField ? rareField.value : ''
     );
     if (gridApi) gridApi.highlightRemovable(result.removableCells);
     if (!result.errors.length) {
@@ -128,7 +130,7 @@
     scheduleGrid = Editor.mount(host, {
       grid: gridText || '',
       onChange: function () {
-        updateValidation('word-salad-edit-validation', scheduleGrid, 'word-salad-edit-words');
+        updateValidation('word-salad-edit-validation', scheduleGrid, 'word-salad-edit-words', 'word-salad-edit-rare-words');
       }
     });
   }
@@ -254,11 +256,12 @@
       '№' + item.number + ' · id ' + item.link_id + ' · ' + item.words_count + ' сл.';
     document.getElementById('word-salad-edit-intro').value = item.intro || '';
     document.getElementById('word-salad-edit-words').value = item.words_text || '';
+    document.getElementById('word-salad-edit-rare-words').value = item.rare_words_text || '';
     document.getElementById('word-salad-edit-preview').href = item.preview_url || '#';
     var row = rows.find(function (candidate) { return candidate.link_id === item.link_id; });
     document.getElementById('word-salad-edit-delete').hidden = !!(row && row.is_published);
     ensureScheduleGrid(item.grid_text || '');
-    updateValidation('word-salad-edit-validation', scheduleGrid, 'word-salad-edit-words');
+    updateValidation('word-salad-edit-validation', scheduleGrid, 'word-salad-edit-words', 'word-salad-edit-rare-words');
     clearError();
   }
 
@@ -410,7 +413,10 @@
   });
 
   document.getElementById('word-salad-edit-words').addEventListener('input', function () {
-    updateValidation('word-salad-edit-validation', scheduleGrid, 'word-salad-edit-words');
+    updateValidation('word-salad-edit-validation', scheduleGrid, 'word-salad-edit-words', 'word-salad-edit-rare-words');
+  });
+  document.getElementById('word-salad-edit-rare-words').addEventListener('input', function () {
+    updateValidation('word-salad-edit-validation', scheduleGrid, 'word-salad-edit-words', 'word-salad-edit-rare-words');
   });
   document.getElementById('word-salad-offer-words').addEventListener('input', function () {
     updateValidation('word-salad-offer-validation', offerGrid, 'word-salad-offer-words');
@@ -427,7 +433,8 @@
     support.postJson(endpoint(endpoints.save, editLinkId), {
       intro: document.getElementById('word-salad-edit-intro').value,
       grid_text: scheduleGrid ? scheduleGrid.getGridText() : '',
-      words_text: document.getElementById('word-salad-edit-words').value
+      words_text: document.getElementById('word-salad-edit-words').value,
+      rare_words_text: document.getElementById('word-salad-edit-rare-words').value
     }).then(function (data) {
       var item = data.item;
       setRows(data.rows);

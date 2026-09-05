@@ -1,5 +1,5 @@
 {% load filters %}
-<div class="new-word-salad" data-word-salad-root data-task-id="{{ task.id }}" data-word-points="{{ ws.word_points|minimize_digits }}" data-hint-penalty="{{ ws.hint_penalty|minimize_digits }}">
+<div class="new-word-salad" data-word-salad-root data-task-id="{{ task.id }}" data-word-points="{{ ws.word_points|minimize_digits }}" data-hint-penalty="{{ ws.hint_penalty|minimize_digits }}" data-rare-words="{{ ws.rare_normalized|join:',' }}">
   {% with theme=task.text|word_salad_theme %}
   {% if theme %}
     <p class="new-word-salad__intro">
@@ -9,7 +9,7 @@
   {% endif %}
   {% endwith %}
 
-  <div class="new-word-salad__layout">
+  <div class="new-word-salad__play">
     <section class="new-word-salad__grid-panel" aria-label="Сетка">
       <div class="new-word-salad__grid" data-word-salad-grid>
         <svg class="new-word-salad__links" data-word-salad-links-svg aria-hidden="true" preserveAspectRatio="none"></svg>
@@ -46,47 +46,39 @@
           <button type="button" class="new-word-salad__reset" data-word-salad-reset disabled title="Сбросить выделение (Esc)"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i><span>Сбросить</span></button>
         </div>
       </div>
-
-      <section class="new-word-salad__extras" data-word-salad-extras hidden>
-        <h3 class="new-word-salad__extras-title">Находки не по теме</h3>
-        <ul class="new-word-salad__extras-list" data-word-salad-extras-list aria-live="polite"></ul>
-      </section>
-
-      <form class="new-attempt-form new-word-salad__form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" hidden>
-        {% csrf_token %}
-        <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
-        <input type="hidden" name="game_id" value="{{ game.id }}">
-        <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
-        <input type="hidden" name="action" value="solve">
-        <input type="hidden" name="path" value="[]" data-word-salad-path>
-        <input type="hidden" name="correct_only" value="1">
-      </form>
     </section>
 
-    <aside class="new-word-salad__words-panel">
-      <div class="new-word-salad__words-head">
-        <h3 class="new-word-salad__words-title">Ответы (по алфавиту)</h3>
-      </div>
-
-      <ul class="new-word-salad__words-list">
+    <section class="new-word-salad__band new-word-salad__band--answers" aria-label="Ответы">
+      <h3 class="new-word-salad__band-title">Ответы (по алфавиту)</h3>
+      <ul class="new-word-salad__pills">
         {% for word in ws.words %}
           <li class="new-word-salad__word{% if word.is_solved %} is-solved{% endif %}{% if word.is_hinted %} is-hinted{% endif %}" data-word-index="{{ word.index }}" data-word-length="{{ word.length }}" data-hint-count="{{ word.hint_count }}"{% if support_preview %} data-preview-answer="{{ word.original }}" data-preview-normalized="{{ word.normalized }}"{% endif %}>
-            <div class="new-word-salad__word-row">
-              {% if word.can_hint %}
-              <form class="new-hint-form new-word-salad__hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-skip-hints-open="1">
-                {% csrf_token %}
-                <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
-                <input type="hidden" name="game_id" value="{{ game.id }}">
-                <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
-                <input type="hidden" name="action" value="hint">
-                <input type="hidden" name="word_index" value="{{ word.index }}">
-                <input type="hidden" name="hint_number" value="{{ word.next_hint_number }}">
-                <input type="hidden" name="__ui_hint_penalty" value="{{ ws.hint_penalty|minimize_digits }}">
-                <input type="hidden" name="__ui_hint_points_word" value="{{ ws.hint_penalty|ru_points_word }}">
-                <button type="submit" class="new-word-salad__hint-btn" title="Узнать {{ word.next_hint_number }} букву" aria-label="Узнать {{ word.next_hint_number }} букву"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
-              </form>
-              {% endif %}
-              <div class="new-word-salad__mask">
+            {% if word.can_hint %}
+            <form class="new-hint-form new-word-salad__hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-skip-hints-open="1">
+              {% csrf_token %}
+              <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
+              <input type="hidden" name="game_id" value="{{ game.id }}">
+              <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+              <input type="hidden" name="action" value="hint">
+              <input type="hidden" name="word_index" value="{{ word.index }}">
+              <input type="hidden" name="hint_number" value="{{ word.next_hint_number }}">
+              <input type="hidden" name="__ui_hint_penalty" value="{{ ws.hint_penalty|minimize_digits }}">
+              <input type="hidden" name="__ui_hint_points_word" value="{{ ws.hint_penalty|ru_points_word }}">
+              <button type="submit" class="new-word-salad__pill new-word-salad__hint-btn" title="Узнать {{ word.next_hint_number }} букву" aria-label="Узнать {{ word.next_hint_number }} букву">
+                <span class="new-word-salad__mask">
+                  {% for ch in word.mask_chars %}
+                    {% if ch == '⬜' %}
+                      <span class="new-word-salad__glyph is-blank" aria-hidden="true">⬜</span>
+                    {% else %}
+                      <span class="new-word-salad__glyph">{{ ch }}</span>
+                    {% endif %}
+                  {% endfor %}
+                </span>
+              </button>
+            </form>
+            {% else %}
+            <span class="new-word-salad__pill">
+              <span class="new-word-salad__mask">
                 {% for ch in word.mask_chars %}
                   {% if ch == '⬜' %}
                     <span class="new-word-salad__glyph is-blank" aria-hidden="true">⬜</span>
@@ -94,13 +86,37 @@
                     <span class="new-word-salad__glyph">{{ ch }}</span>
                   {% endif %}
                 {% endfor %}
-              </div>
-              <div class="new-word-salad__len">({{ word.length }})</div>
-            </div>
+              </span>
+            </span>
+            {% endif %}
           </li>
         {% endfor %}
       </ul>
-    </aside>
+    </section>
+
+    <section class="new-word-salad__band new-word-salad__band--rares" data-word-salad-rares{% if not ws.rare_words %} hidden{% endif %}>
+      <h3 class="new-word-salad__band-title">Редкие находки</h3>
+      <ul class="new-word-salad__pills" data-word-salad-rares-list aria-live="polite">
+        {% for word in ws.rare_words %}
+          <li class="new-word-salad__pill new-word-salad__rare">{{ word.normalized }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="new-word-salad__band new-word-salad__band--extras" data-word-salad-extras hidden>
+      <h3 class="new-word-salad__band-title">Находки не по теме</h3>
+      <ul class="new-word-salad__pills" data-word-salad-extras-list aria-live="polite"></ul>
+    </section>
+
+    <form class="new-attempt-form new-word-salad__form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" hidden>
+      {% csrf_token %}
+      <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
+      <input type="hidden" name="game_id" value="{{ game.id }}">
+      <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+      <input type="hidden" name="action" value="solve">
+      <input type="hidden" name="path" value="[]" data-word-salad-path>
+      <input type="hidden" name="correct_only" value="1">
+    </form>
   </div>
   {% if game.id == 'salad' and ws.is_complete and ws.result_squares %}
   <div class="new-raddle-result" data-raddle-result{% if ws.share_card_json %} data-share-card="{{ ws.share_card_json|escape }}"{% endif %}>

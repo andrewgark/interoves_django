@@ -101,7 +101,7 @@
     });
   }
 
-  function validateLive(gridValue, wordsValue) {
+  function validateLive(gridValue, wordsValue, rareWordsValue) {
     var grid = parseGrid(gridValue);
     var words = parseWords(wordsValue);
     var errors = [];
@@ -141,6 +141,26 @@
     }
     if (removableCells.length) {
       errors.push('Букву в клетке ' + (removableCells[0] + 1) + ' можно убрать уже в начальной сетке.');
+    }
+    var rares = parseWords(rareWordsValue);
+    var rareNormalized = rares.map(normalizeWord);
+    if (rareNormalized.some(function (word) { return !word; })) {
+      errors.push('Каждая строка редких слов должна содержать буквы.');
+    } else if (new Set(rareNormalized).size !== rareNormalized.length) {
+      errors.push('Редкие слова не должны повторяться.');
+    } else {
+      var overlap = rareNormalized.filter(function (word) { return normalized.indexOf(word) >= 0; });
+      if (overlap.length) {
+        errors.push('Редкое слово не должно совпадать с обязательным ответом: ' + overlap.join(', ') + '.');
+      }
+      var missingRares = [];
+      rares.forEach(function (word) {
+        if (!findPaths(grid, word, null, 1).length) missingRares.push(word);
+      });
+      if (missingRares.length) {
+        errors.push('Для каждого редкого слова должна существовать хотя бы одна дорожка.');
+        missingWords = missingWords.concat(missingRares);
+      }
     }
     return {
       ok: !errors.length,

@@ -124,7 +124,7 @@ from games.word_salad import (
     archive_card_meta as word_salad_archive_card_meta,
     build_ui_context as build_word_salad_ui_context,
     load_state as load_word_salad_state,
-    parse_task_data as parse_word_salad_task_data,
+    parse_task_payload as parse_word_salad_task_payload,
     salad_hub_result_for_actor,
 )
 from games.share_result import share_host_from_request
@@ -2840,7 +2840,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             }
         elif t.task_type == 'word_salad':
             try:
-                grid, words = parse_word_salad_task_data(t.checker_data, t.answer)
+                grid, words, rare_words = parse_word_salad_task_payload(t.checker_data, t.answer)
             except Exception:
                 continue
             ai = attempts_info_by_task_id.get(t.id)
@@ -2871,6 +2871,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                         break
             word_salad_data[t.id] = build_word_salad_ui_context(
                 grid, words, state, attempts=ai.attempts if ai else [],
+                rare_words=rare_words,
             )
             if str(getattr(game, 'id', '')) == WORD_SALAD_GAME_ID:
                 from games.daily_share_card import attach_salad_share_card

@@ -193,11 +193,21 @@
   function feedbackForResult(result, word) {
     var duplicate = result === 'duplicate';
     var displayWord = String(word || '').trim().toUpperCase();
+    if (result === 'rare') {
+      return {
+        word: displayWord,
+        message: 'Редкая находка!',
+        icon: 'ph-sparkle',
+        duplicate: false,
+        rare: true
+      };
+    }
     return {
       word: displayWord,
       message: duplicate ? 'Уже было!' : 'Верно!',
       icon: duplicate ? 'ph-arrow-counter-clockwise' : 'ph-check-circle',
-      duplicate: duplicate
+      duplicate: duplicate,
+      rare: false
     };
   }
 
@@ -213,8 +223,9 @@
       document.body.appendChild(toast);
     }
     clearToastTimers(toast);
-    toast.classList.remove('is-in', 'is-out', 'is-duplicate');
+    toast.classList.remove('is-in', 'is-out', 'is-duplicate', 'is-rare');
     toast.classList.toggle('is-duplicate', feedback.duplicate);
+    toast.classList.toggle('is-rare', !!feedback.rare);
     toast.textContent = '';
 
     var mark = document.createElement('span');
@@ -306,10 +317,19 @@
       var resetWrap = root.querySelector('[data-word-salad-reset-wrap]');
       var extrasEl = root.querySelector('[data-word-salad-extras]');
       var extrasListEl = root.querySelector('[data-word-salad-extras-list]');
+      var raresEl = root.querySelector('[data-word-salad-rares]');
+      var raresListEl = root.querySelector('[data-word-salad-rares-list]');
       var extrasKey = extrasStorageKey(root);
       var extraWords = [];
       var latestExtra = '';
       var extrasAnimateWord = '';
+      var rareWords = [];
+      var latestRare = '';
+      var raresAnimateWord = '';
+      var configuredRares = String(root.getAttribute('data-rare-words') || '')
+        .split(',')
+        .map(normalizeWord)
+        .filter(Boolean);
       var pendingExtraTimer = 0;
       var pendingExtraPathKey = '';
       var pendingExtraWord = '';
@@ -507,7 +527,7 @@
           .filter(function (length) { return length > 0; });
       }
 
-      function answerWordSet() {
+      function requiredAnswerSet() {
         var answers = {};
         wordRows().forEach(function (wordRow) {
           var preview = normalizeWord(wordRow.getAttribute('data-preview-normalized') || '');
@@ -517,6 +537,13 @@
           var solved = normalizeWord(mask ? mask.textContent : '');
           if (solved) answers[solved] = true;
         });
+        return answers;
+      }
+
+      function answerWordSet() {
+        var answers = requiredAnswerSet();
+        configuredRares.forEach(function (word) { answers[word] = true; });
+        rareWords.forEach(function (word) { answers[word] = true; });
         return answers;
       }
 
@@ -540,7 +567,7 @@
         extrasEl.hidden = false;
         extraWords.forEach(function (word) {
           var item = document.createElement('li');
-          item.className = 'new-word-salad__extra';
+          item.className = 'new-word-salad__pill new-word-salad__extra';
           item.textContent = word;
           if (word === latestExtra) {
             item.classList.add('is-latest');
@@ -576,6 +603,49 @@
           latestExtra = extraWords[extraWords.length - 1] || '';
         }
         if (persist !== false) saveExtraWords();
+      }
+
+      function renderRareWords() {
+        if (!raresEl || !raresListEl) return;
+        raresListEl.textContent = '';
+        if (!rareWords.length) {
+          raresEl.hidden = true;
+          return;
+        }
+        raresEl.hidden = false;
+        rareWords.forEach(function (word) {
+          var item = document.createElement('li');
+          item.className = 'new-word-salad__pill new-word-salad__rare';
+          item.textContent = word;
+          if (word === latestRare && word === raresAnimateWord) item.classList.add('is-fresh');
+          raresListEl.appendChild(item);
+        });
+        raresAnimateWord = '';
+      }
+
+      function readRarePills() {
+        if (!raresListEl) return [];
+        return Array.prototype.slice.call(raresListEl.querySelectorAll('.new-word-salad__rare')).map(function (item) {
+          return normalizeWord(item.textContent);
+        }).filter(Boolean);
+      }
+
+      function addRareWord(word) {
+        word = normalizeWord(word);
+        if (!word || rareWords.indexOf(word) >= 0) return false;
+        var remembered = rememberExtraWord(rareWords, word, requiredAnswerSet());
+        if (!remembered.changed) return false;
+        rareWords = remembered.words;
+        latestRare = remembered.latest;
+        raresAnimateWord = latestRare;
+        renderRareWords();
+        applyAnswerFilterToExtras();
+        renderExtraWords();
+        return true;
+      }
+
+      function isConfiguredRare(word) {
+        return configuredRares.indexOf(normalizeWord(word)) >= 0;
       }
 
       function addExtraWord(word) {
@@ -641,6 +711,17 @@
         renderSelection();
       }
 
+      function ensureSolvedPill(wordRow) {
+        var hintForm = wordRow.querySelector('.new-word-salad__hint-form');
+        var mask = wordRow.querySelector('.new-word-salad__mask');
+        if (!hintForm) return mask;
+        var pill = document.createElement('span');
+        pill.className = 'new-word-salad__pill';
+        if (mask) pill.appendChild(mask);
+        hintForm.replaceWith(pill);
+        return mask || pill.querySelector('.new-word-salad__mask');
+      }
+
       function renderPreviewHint(wordRow, count) {
         var answer = wordRow.getAttribute('data-preview-answer') || '';
         var length = wordLength(wordRow);
@@ -656,7 +737,7 @@
         }
         var hintForm = wordRow.querySelector('.new-word-salad__hint-form');
         if (wordRow.classList.contains('is-solved') || count >= length) {
-          if (hintForm) hintForm.remove();
+          ensureSolvedPill(wordRow);
           return;
         }
         if (!hintForm) return;
@@ -684,6 +765,7 @@
         return {
           solved_indices: solved,
           hint_counts: hintCounts,
+          found_rare: rareWords.slice(),
           active: cells.filter(function (cell) { return cell.classList.contains('is-active'); }).map(cellIndex)
         };
       }
@@ -713,6 +795,9 @@
         var solved = Array.isArray(state.solved_indices) ? state.solved_indices.map(Number) : [];
         var active = Array.isArray(state.active) ? state.active.map(Number) : null;
         var hintCounts = state.hint_counts && typeof state.hint_counts === 'object' ? state.hint_counts : {};
+        if (Array.isArray(state.found_rare)) {
+          rareWords = state.found_rare.map(normalizeWord).filter(Boolean);
+        }
         if (active) {
           cells.forEach(function (cell) {
             setCellActive(
@@ -726,6 +811,7 @@
           if (solved.indexOf(index) >= 0) wordRow.classList.add('is-solved');
           renderPreviewHint(wordRow, hintCounts[index] || 0);
         });
+        renderRareWords();
         syncSolvedState();
         syncPreviewPoints();
       }
@@ -787,8 +873,17 @@
         var match = wordRows('.new-word-salad__word:not(.is-solved)').find(function (wordRow) {
           return wordRow.getAttribute('data-preview-normalized') === selected;
         });
-        if (match) markPreviewSolved(match);
-        else finishWrong(pathKey);
+        if (match) {
+          markPreviewSolved(match);
+          return;
+        }
+        if (isConfiguredRare(selected) && addRareWord(selected)) {
+          savePreviewState();
+          clearSelection();
+          showAnswerToast(root, selected, 'rare');
+          return;
+        }
+        finishWrong(pathKey);
       }
 
       function submitPath(path, pathKey) {
@@ -818,6 +913,24 @@
             showAnswerToast(root, solvedWord, 'duplicate');
             return;
           }
+          if (data && data.status === 'ok' && data.word_salad_rare) {
+            var taskIdRare = root.getAttribute('data-task-id') || '';
+            activeDragRoot = null;
+            cancelPendingExtraWord();
+            if (data.update_task_html_new && typeof window.applyNewUiTaskHtml === 'function') {
+              window.applyNewUiTaskHtml(data.update_task_html_new);
+              showAnswerToast(
+                document.querySelector('[data-word-salad-root][data-task-id="' + taskIdRare + '"]'),
+                data.word_salad_rare,
+                'rare'
+              );
+            } else {
+              addRareWord(data.word_salad_rare);
+              finishWrong(pathKey);
+              showAnswerToast(root, data.word_salad_rare, 'rare');
+            }
+            return;
+          }
           if (!data || data.status !== 'ok' || !data.word_salad_correct) {
             finishWrong(pathKey, data && data.word_salad_extra);
             return;
@@ -844,7 +957,10 @@
         var length = currentPath.length;
         var lengths = unsolvedLengths();
         var matchesAnswerLength = lengths.indexOf(length) >= 0;
-        if (!matchesAnswerLength && (!opts.fromRelease || length < EXTRA_MIN_LENGTH)) return;
+        var matchesRareLength = configuredRares.some(function (word) {
+          return word.length === length && rareWords.indexOf(word) < 0;
+        });
+        if (!matchesAnswerLength && !matchesRareLength && (!opts.fromRelease || length < EXTRA_MIN_LENGTH)) return;
         var pathKey = currentPath.join(',');
         if (attemptedPaths[pathKey]) return;
         if (busy) return;
@@ -896,6 +1012,7 @@
       };
 
       if (resetBtn) resetBtn.addEventListener('click', clearSelection);
+      if (!isPreview) rareWords = readRarePills();
       if (isPreview) restorePreviewState();
       restoreExtraWords();
       if (window.ResizeObserver && gridEl) {

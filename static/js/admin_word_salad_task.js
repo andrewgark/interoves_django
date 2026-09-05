@@ -6,7 +6,8 @@
     var isWordSalad = taskType === 'word_salad';
     var $rows = $(
       '.form-row.field-word_salad_grid_text, ' +
-      '.form-row.field-word_salad_words_text'
+      '.form-row.field-word_salad_words_text, ' +
+      '.form-row.field-word_salad_rare_words_text'
     );
 
     if (!$rows.length) {

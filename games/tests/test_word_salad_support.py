@@ -65,8 +65,10 @@ class WordSaladSupportTests(TestCase):
                 intro='Тема: реки',
                 grid_text='A B C D\nH G F E\nI J K L\nP O N M',
                 words_text='ABCDEFGHIJKLMNOP',
+                rare_words_text='ABCD',
             )
             self.assertEqual(updated['intro'], 'Тема: реки')
+            self.assertEqual(updated['rare_words_text'], 'ABCD')
             self.assertEqual(updated['name'], 'Салатик #1')
             self.assertEqual(TaskGroup.objects.get(pk=updated['task_group_id']).label, 'salad:1')
             delete_word_salad(detail['link_id'])

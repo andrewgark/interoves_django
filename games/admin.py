@@ -917,6 +917,12 @@ class WordSaladTaskForm(ModelForm):
         widget=Textarea(attrs={'rows': 8, 'cols': 40}),
         help_text='Одно слово на строку. Слова будут сохраняться в JSON автоматически.',
     )
+    word_salad_rare_words_text = forms.CharField(
+        required=False,
+        label='Word Salad rare words',
+        widget=Textarea(attrs={'rows': 6, 'cols': 40}),
+        help_text='Необязательные редкие находки: по теме, но слишком редкие, чтобы требовать их у всех. Очков не дают.',
+    )
 
     class Meta:
         model = Task
@@ -934,11 +940,12 @@ class WordSaladTaskForm(ModelForm):
             task_type = self.initial.get('task_type') or getattr(self.instance, 'task_type', None)
         if getattr(self.instance, 'task_type', None) == 'word_salad' and getattr(self.instance, 'checker_data', None):
             try:
-                from games.word_salad import format_grid_text, format_words_text, parse_task_data
+                from games.word_salad import format_grid_text, format_words_text, parse_task_payload
 
-                grid, words = parse_task_data(self.instance.checker_data, self.instance.answer)
+                grid, words, rare_words = parse_task_payload(self.instance.checker_data, self.instance.answer)
                 self.fields['word_salad_grid_text'].initial = format_grid_text(grid)
                 self.fields['word_salad_words_text'].initial = format_words_text(words)
+                self.fields['word_salad_rare_words_text'].initial = format_words_text(rare_words)
             except Exception:
                 pass
         if task_type == 'word_salad':
@@ -961,12 +968,18 @@ class WordSaladTaskForm(ModelForm):
         cleaned = super().clean()
         task_type = cleaned.get('task_type') or getattr(self.instance, 'task_type', None)
         if task_type == 'word_salad':
-            from games.word_salad import serialize_task_data
+            from games.word_salad import serialize_task_data, validate_puzzle
 
             try:
+                validate_puzzle(
+                    cleaned.get('word_salad_grid_text'),
+                    cleaned.get('word_salad_words_text'),
+                    cleaned.get('word_salad_rare_words_text'),
+                )
                 cleaned['checker_data'] = serialize_task_data(
                     cleaned.get('word_salad_grid_text'),
                     cleaned.get('word_salad_words_text'),
+                    cleaned.get('word_salad_rare_words_text'),
                 )
             except ValueError as exc:
                 raise forms.ValidationError(str(exc))

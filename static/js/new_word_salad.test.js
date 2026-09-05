@@ -172,13 +172,22 @@ function escapeEvent(overrides) {
     word: 'ЁЖИК',
     message: 'Верно!',
     icon: 'ph-check-circle',
-    duplicate: false
+    duplicate: false,
+    rare: false
   });
   assert.deepStrictEqual(Path.feedbackForResult('duplicate', 'салат'), {
     word: 'САЛАТ',
     message: 'Уже было!',
     icon: 'ph-arrow-counter-clockwise',
-    duplicate: true
+    duplicate: true,
+    rare: false
+  });
+  assert.deepStrictEqual(Path.feedbackForResult('rare', 'скиф'), {
+    word: 'СКИФ',
+    message: 'Редкая находка!',
+    icon: 'ph-sparkle',
+    duplicate: false,
+    rare: true
   });
 })();
 
