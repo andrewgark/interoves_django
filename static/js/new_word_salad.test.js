@@ -84,6 +84,28 @@ function press(path, index) {
   assert.deepStrictEqual(Path.endPress(down.path, down.clearOnRelease), []);
 })();
 
+(function testPressAwayFromPathStartsNewWord() {
+  var away = press([0], 2);
+  assert.deepStrictEqual(away.path, [2], 'a tap far from a single letter must restart');
+  assert.strictEqual(away.clearOnRelease, false);
+
+  away = press([0, 1, 5], 3);
+  assert.deepStrictEqual(away.path, [3], 'a tap far from a longer path must restart');
+  assert.strictEqual(away.clearOnRelease, false);
+
+  var extend = press([0, 1], 2);
+  assert.deepStrictEqual(extend.path, [0, 1, 2], 'an adjacent tap must still extend');
+
+  var back = press([0, 1, 2], 1);
+  assert.deepStrictEqual(back.path, [0, 1], 'a tap on an earlier letter must still shorten');
+
+  var last = press([0, 1, 2], 2);
+  assert.deepStrictEqual(last.path, [0, 1, 2], 'a tap on the last letter must keep the path');
+
+  var dragged = Path.movePress([0, 1], 3, false);
+  assert.deepStrictEqual(dragged.path, [0, 1], 'dragging onto a non-neighbor must not restart');
+})();
+
 (function testHoldAndDragFromSelectedLetterKeepsIt() {
   var down = press([0], 0);
   var moved = Path.movePress(down.path, 0, down.clearOnRelease);

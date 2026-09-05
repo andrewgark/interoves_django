@@ -68,6 +68,16 @@
     if (path.length === 1 && path[0] === index) {
       return { path: path, clearOnRelease: true };
     }
+    // A new press away from the current line starts a fresh word instead of
+    // leaving the old path stuck until Reset/Esc. Dragging still uses
+    // nextWordSaladPath, so sliding onto a non-neighbor is ignored.
+    if (
+      path.length &&
+      path.indexOf(index) < 0 &&
+      !cellsAreAdjacent(path[path.length - 1], index)
+    ) {
+      return { path: [index], clearOnRelease: false };
+    }
     return { path: nextWordSaladPath(path, index, isActive), clearOnRelease: false };
   }
 
