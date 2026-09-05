@@ -499,6 +499,108 @@ class DailyTimingApiTests(TestCase):
         self.assertFalse(data['ok'])
         self.assertEqual(data['error'], 'bad_action')
 
+    def _assert_missing_without_row(self, action):
+        self.assertFalse(
+            DailySolveTiming.objects.filter(
+                anon_key=self.anon, game=self.game, task_group=self.tg,
+            ).exists()
+        )
+        resp = self._post({
+            'action': action,
+            'session_id': str(uuid4()),
+            'event_id': '{}-missing'.format(action),
+            'seq': 1,
+        })
+        self.assertNotEqual(
+            resp.status_code, 500,
+            'exists=False must not raise; got {}'.format(resp.content[:300]),
+        )
+        self.assertEqual(resp.status_code, 404)
+        data = resp.json()
+        self.assertFalse(data['ok'])
+        self.assertEqual(data['error'], 'missing')
+        self.assertFalse(data['exists'])
+        self.assertFalse(
+            DailySolveTiming.objects.filter(
+                anon_key=self.anon, game=self.game, task_group=self.tg,
+            ).exists()
+        )
+
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    def test_heartbeat_without_row_is_missing_not_500(self, _pub):
+        self._assert_missing_without_row(ACTION_HEARTBEAT)
+
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    def test_pause_without_row_is_missing_not_500(self, _pub):
+        self._assert_missing_without_row(ACTION_PAUSE)
+
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    def test_complete_without_row_is_missing_not_500(self, _pub):
+        self._assert_missing_without_row(ACTION_COMPLETE)
+
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    def test_resume_without_row_creates(self, _pub):
+        resp = self._post({
+            'action': ACTION_RESUME,
+            'session_id': str(uuid4()),
+            'event_id': 'resume-create',
+            'seq': 1,
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['ok'])
+        self.assertTrue(data['exists'])
+        self.assertEqual(data['status'], 'running')
+
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    def test_start_heartbeat_pause_resume_complete_flow(self, _pub):
+        sid = str(uuid4())
+        start = self._post({
+            'action': ACTION_START,
+            'session_id': sid,
+            'event_id': 'flow-start',
+            'seq': 1,
+        })
+        self.assertEqual(start.status_code, 200)
+        self.assertTrue(start.json()['is_authoritative'])
+        hb = self._post({
+            'action': ACTION_HEARTBEAT,
+            'session_id': sid,
+            'event_id': 'flow-hb',
+            'seq': 2,
+            'claimed_ms': 1000,
+        })
+        self.assertEqual(hb.status_code, 200)
+        self.assertEqual(hb.json()['status'], 'running')
+        paused = self._post({
+            'action': ACTION_PAUSE,
+            'session_id': sid,
+            'event_id': 'flow-pause',
+            'seq': 3,
+            'claimed_ms': 1000,
+        })
+        self.assertEqual(paused.status_code, 200)
+        self.assertEqual(paused.json()['status'], 'manually_paused')
+        resumed = self._post({
+            'action': ACTION_RESUME,
+            'session_id': sid,
+            'event_id': 'flow-resume',
+            'seq': 4,
+        })
+        self.assertEqual(resumed.status_code, 200)
+        self.assertEqual(resumed.json()['status'], 'running')
+        done = self._post({
+            'action': ACTION_COMPLETE,
+            'session_id': sid,
+            'event_id': 'flow-complete',
+            'seq': 5,
+        })
+        self.assertEqual(done.status_code, 200)
+        data = done.json()
+        self.assertTrue(data['ok'])
+        self.assertTrue(data['completed'])
+        self.assertEqual(data['status'], 'completed')
+
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     def test_get_with_session_id_is_authoritative(self, _pub):
         sid = str(uuid4())
