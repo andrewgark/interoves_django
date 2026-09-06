@@ -288,6 +288,7 @@
 <script src="{% static 'js/imask.min.js' %}"></script>
 <script src="{% static 'js/raddle_masked_input.js' %}"></script>
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
+<script src="{% static 'js/raddle_keyboard_anchor.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% if daily_timing_enabled %}
 <script src="{% static 'js/daily_solve_timer.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
@@ -424,15 +425,50 @@
         },
         observeViewport: function () { return false; },
       };
+  // Separate from typing intent: a tap on empty space clears typing intent
+  // before the keyboard finishes closing, but we still need that close event
+  // to pin the current pair instead of letting focus jump to the word above.
+  var raddleKeyboardAnchorIntent = window.MobileInputIntent
+    ? window.MobileInputIntent.create({ keyboardCloseDelta: 120 })
+    : {
+        activate: function () {},
+        observeViewport: function () { return false; },
+      };
+  var lastRaddleAnchor = null;
+  var lastRaddlePointerDown = null;
+  var raddleKeyboardAnchorAt = 0;
 
   function raddleTaskIdFromElement(el) {
     var taskRoot = el && el.closest ? el.closest('.new-raddle-task') : null;
     return taskRoot ? String(taskRoot.getAttribute('data-task-id') || '') : '';
   }
 
+  function rememberRaddleAnchor(el) {
+    if (!el || !el.closest) return;
+    var taskRoot = el.closest('.new-raddle-task');
+    var row = el.closest('.new-raddle-row[data-word-index]');
+    if (!taskRoot || !row) return;
+    var wordIndex = row.getAttribute('data-word-index');
+    if (row.closest('.new-raddle-sticky-pin')) {
+      row = taskRoot.querySelector(
+        '.new-raddle-ladder .new-raddle-row[data-word-index="' + wordIndex + '"]'
+      );
+    }
+    if (!row) return;
+    lastRaddleAnchor = {
+      taskId: String(taskRoot.getAttribute('data-task-id') || ''),
+      wordIndex: wordIndex,
+      refRole: row.getAttribute('data-ref-role') || 'prev',
+    };
+  }
+
   function activateRaddleInputIntent(el) {
     var taskId = raddleTaskIdFromElement(el);
-    if (taskId) raddleInputIntent.activate(taskId);
+    if (taskId) {
+      raddleInputIntent.activate(taskId);
+      raddleKeyboardAnchorIntent.activate(taskId);
+    }
+    rememberRaddleAnchor(el);
   }
 
   function clearRaddleInputIntent() {
@@ -449,6 +485,8 @@
     var width = viewport ? viewport.width : window.innerWidth;
     var height = viewport ? viewport.height : window.innerHeight;
     raddleInputIntent.observeViewport(width, height);
+    var closed = raddleKeyboardAnchorIntent.observeViewport(width, height);
+    if (closed) onRaddleKeyboardClosed();
   }
   observeRaddleViewport();
 
@@ -2771,6 +2809,79 @@
     return out;
   }
 
+  function raddleAnchorPairRects(taskRoot) {
+    var rows = getRaddleStickySourceRows(taskRoot);
+    if (!rows.length) return null;
+    return {
+      top: rows[0].getBoundingClientRect().top,
+      bottom: rows[rows.length - 1].getBoundingClientRect().bottom,
+    };
+  }
+
+  function raddleInputMatchesAnchor(input, anchor) {
+    if (!input || !anchor) return false;
+    var row = input.closest ? input.closest('.new-raddle-row[data-word-index]') : null;
+    if (!row) return false;
+    var taskRoot = input.closest('.new-raddle-task');
+    var taskId = taskRoot ? String(taskRoot.getAttribute('data-task-id') || '') : '';
+    return taskId === String(anchor.taskId) &&
+      String(row.getAttribute('data-word-index')) === String(anchor.wordIndex);
+  }
+
+  function pinRaddleAnchorPair(taskRoot, align) {
+    var Anchor = window.RaddleKeyboardAnchor;
+    if (!Anchor || !taskRoot) return;
+    var pair = raddleAnchorPairRects(taskRoot);
+    if (!pair) return;
+    var vv = window.visualViewport;
+    var delta = Anchor.scrollDeltaForPair({
+      pairTop: pair.top,
+      pairBottom: pair.bottom,
+      viewportOffsetTop: vv ? vv.offsetTop : 0,
+      viewportHeight: vv ? vv.height : window.innerHeight,
+      navTop: raddleNavOffsetPx(),
+      align: align,
+      margin: 8,
+    });
+    if (Math.abs(delta) >= 1) window.scrollBy(0, delta);
+  }
+
+  function onRaddleKeyboardClosed() {
+    var now = Date.now();
+    if (now - raddleKeyboardAnchorAt < 400) return;
+    raddleKeyboardAnchorAt = now;
+    if (!lastRaddleAnchor) return;
+    var taskRoot = document.querySelector(
+      '.new-raddle-task[data-task-id="' + lastRaddleAnchor.taskId + '"]'
+    );
+    if (!taskRoot) return;
+    var active = document.activeElement;
+    var stolen = !!(
+      active && active.classList &&
+      active.classList.contains('new-raddle-input') &&
+      !raddleInputMatchesAnchor(active, lastRaddleAnchor)
+    );
+    if (stolen && typeof active.blur === 'function') {
+      try { active.blur(); } catch (e) {}
+    }
+    var focusRow = taskRoot.querySelector('.new-raddle-ladder .new-raddle-row--focus');
+    if (!focusRow || focusRow.getAttribute('data-word-index') !== lastRaddleAnchor.wordIndex) {
+      setRaddleFocus(taskRoot, lastRaddleAnchor.wordIndex);
+    }
+    var Anchor = window.RaddleKeyboardAnchor;
+    var align = Anchor ? Anchor.pairAlign(lastRaddleAnchor.refRole) : 'nearest';
+    function pin() { pinRaddleAnchorPair(taskRoot, align); }
+    pin();
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () {
+        pin();
+        requestAnimationFrame(pin);
+      });
+    }
+    setTimeout(pin, 50);
+    setTimeout(pin, 300);
+  }
+
   function ensureRaddleStickyPin(taskRoot) {
     var pin = taskRoot.querySelector('.new-raddle-sticky-pin');
     if (pin) return pin;
@@ -2925,14 +3036,47 @@
     var navTop = raddleNavOffsetPx();
     var firstTop = rows[0].getBoundingClientRect().top;
     var taskBottom = taskRoot.getBoundingClientRect().bottom;
+    var vv = window.visualViewport;
+    if (vv) {
+      firstTop -= vv.offsetTop || 0;
+      taskBottom -= vv.offsetTop || 0;
+    }
     var pinH = pin.offsetHeight || (rows.length * 48);
+    var focusedVisible = false;
+    var active = document.activeElement;
+    if (
+      window.RaddleKeyboardAnchor &&
+      active && active.classList &&
+      active.classList.contains('new-raddle-input') &&
+      taskRoot.contains(active) &&
+      active.getAttribute('data-raddle-pin-proxy') !== '1'
+    ) {
+      focusedVisible = window.RaddleKeyboardAnchor.focusedInputIsVisible(
+        active.getBoundingClientRect(),
+        vv,
+        navTop
+      );
+    }
     // Пока первая выделенная строка ушла под шапку и задание ещё на экране.
+    // Если поле, в которое печатаем, видно в visualViewport — пин не нужен:
+    // клавиатура сама скроллит строку к верху и иначе ложно включает пин.
     // При фокусе в sticky игнорируем только taskBottom: клавиатура сжимает
     // visualViewport и ложно прячет пин. firstTop по-прежнему снимает пин,
     // когда реальные строки снова видны под шапкой.
-    var underNav = firstTop <= navTop + 0.5;
-    var taskStillVisible = taskBottom > navTop + Math.min(pinH, 24);
-    var shouldShow = underNav && (taskStillVisible || raddlePinHasFocus(taskRoot, pin));
+    var shouldShow = window.RaddleKeyboardAnchor
+      ? window.RaddleKeyboardAnchor.shouldShowStickyPin({
+          firstTop: firstTop,
+          taskBottom: taskBottom,
+          navTop: navTop,
+          pinH: pinH,
+          pinHasFocus: raddlePinHasFocus(taskRoot, pin),
+          focusedVisible: focusedVisible,
+        })
+      : (function () {
+          var underNav = firstTop <= navTop + 0.5;
+          var taskStillVisible = taskBottom > navTop + Math.min(pinH, 24);
+          return underNav && (taskStillVisible || raddlePinHasFocus(taskRoot, pin));
+        })();
     var wasActive = pin.classList.contains('is-active');
     if (shouldShow) {
       if (!wasActive) syncRaddleStickyPinInputsFromReal(taskRoot, pin);
@@ -3071,6 +3215,7 @@
   }
 
   document.addEventListener('pointerdown', function (e) {
+    lastRaddlePointerDown = { target: e.target || null, at: Date.now() };
     var target = e.target && e.target.closest ? e.target : null;
     if (!target) {
       clearRaddleInputIntent();
@@ -3107,13 +3252,31 @@
   document.addEventListener('wheel', clearRaddleInputIntent, { passive: true });
 
   document.addEventListener('focusin', function (e) {
-    var input = e.target && e.target.closest ? e.target.closest('[data-raddle-focus-input]') : null;
+    var input = e.target && e.target.closest ? e.target.closest('input.new-raddle-input') : null;
     if (!input) return;
     if (input.getAttribute('data-raddle-pin-proxy') === '1') return;
     var row = input.closest('.new-raddle-row');
     var taskRoot = input.closest('.new-raddle-task');
     if (!row || !taskRoot) return;
     if (row.getAttribute('data-raddle-pin-row') === '1') return;
+    var down = lastRaddlePointerDown;
+    if (down && Date.now() - down.at > 700) down = null;
+    if (
+      window.RaddleKeyboardAnchor &&
+      window.RaddleKeyboardAnchor.isDismissRetarget({
+        pointerDownTarget: down && down.target,
+        focusInput: input,
+        focusRow: row,
+      })
+    ) {
+      try { input.blur(); } catch (err) {}
+      if (lastRaddleAnchor && String(lastRaddleAnchor.taskId) === String(taskRoot.getAttribute('data-task-id') || '')) {
+        setRaddleFocus(taskRoot, lastRaddleAnchor.wordIndex);
+      }
+      return;
+    }
+    rememberRaddleAnchor(input);
+    if (input.getAttribute('data-raddle-focus-input') == null) return;
     setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
     syncRaddlePinFromRealInput(input);
   });
@@ -3148,8 +3311,20 @@
     if (row.getAttribute('data-raddle-pin-row') === '1') return;
     var taskRoot = row.closest('.new-raddle-task');
     if (!taskRoot) return;
-    setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
     var input = row.querySelector('[data-raddle-focus-input]');
+    var down = lastRaddlePointerDown;
+    if (down && Date.now() - down.at > 700) down = null;
+    if (
+      window.RaddleKeyboardAnchor &&
+      window.RaddleKeyboardAnchor.isDismissRetarget({
+        pointerDownTarget: down && down.target,
+        focusInput: input || row,
+        focusRow: row,
+      })
+    ) {
+      return;
+    }
+    setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
     if (input && document.activeElement !== input) {
       focusPreventScroll(input);
     }
