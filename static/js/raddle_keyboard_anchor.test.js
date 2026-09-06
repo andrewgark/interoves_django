@@ -63,6 +63,30 @@ function testStickyPinKeepsFocusWhileKeyboardCoversTaskBottom() {
   }), true);
 }
 
+function testStickyPinStaysWhenTypingInPinEvenIfPairLooksVisible() {
+  assert.strictEqual(A.shouldShowStickyPin({
+    firstTop: 60,
+    firstBottom: 108,
+    viewportHeight: 360,
+    taskBottom: 800,
+    navTop: 56,
+    pinH: 96,
+    pinHasFocus: true,
+  }), true);
+}
+
+function testStickyPinStaysWhileTypingIfRealFieldOffscreen() {
+  assert.strictEqual(A.shouldShowStickyPin({
+    firstTop: 60,
+    firstBottom: 108,
+    viewportHeight: 360,
+    taskBottom: 800,
+    navTop: 56,
+    pinH: 96,
+    keepIfActive: true,
+  }), true);
+}
+
 function testScrollDeltaPinsBottomPairToVisualBottom() {
   var delta = A.scrollDeltaForPair({
     pairTop: 80,
@@ -193,6 +217,8 @@ testStickyPinHiddenWhenRowVisibleBelowNav();
 testStickyPinHiddenWhenKeyboardKeepsRowAtTop();
 testStickyPinShowsWhenPairScrolledUnderNav();
 testStickyPinKeepsFocusWhileKeyboardCoversTaskBottom();
+testStickyPinStaysWhenTypingInPinEvenIfPairLooksVisible();
+testStickyPinStaysWhileTypingIfRealFieldOffscreen();
 testScrollDeltaPinsBottomPairToVisualBottom();
 testScrollDeltaPinsTopPairUnderNav();
 testScrollDeltaNearestLeavesFullyVisiblePair();

@@ -31,6 +31,8 @@
 
   function shouldShowStickyPin(opts) {
     opts = opts || {};
+    if (opts.pinHasFocus) return true;
+    if (opts.keepIfActive) return true;
     var navTop = opts.navTop || 0;
     var pinH = opts.pinH || 0;
     var firstTop = Number(opts.firstTop);
@@ -46,7 +48,7 @@
     var minVisible = Math.min(24, Math.max(8, rowH * 0.5));
     var pairHidden = !isFinite(firstTop) || visiblePx < minVisible;
     var taskStillVisible = opts.taskBottom > navTop + Math.min(pinH, 24);
-    return pairHidden && (taskStillVisible || !!opts.pinHasFocus);
+    return pairHidden && taskStillVisible;
   }
 
   function pairAlign(refRole) {

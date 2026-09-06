@@ -1947,7 +1947,9 @@
         if (input.getAttribute('data-raddle-pin-proxy') === '1') {
           var realPin = findRealRaddleInputFromPin(input);
           if (realPin) {
-            softSetRaddleLetters(realPin, letters);
+            preservePageScroll(function () {
+              softSetRaddleLetters(realPin, letters);
+            });
             clearRaddleWrong(realPin.closest('.new-raddle-row'));
             delete realPin.dataset.raddleLast;
             saveRaddleDraftLetters(realPin, letters);
@@ -1974,7 +1976,9 @@
         if (input.getAttribute('data-raddle-pin-proxy') === '1') {
           var realDone = findRealRaddleInputFromPin(input);
           if (realDone) {
-            softSetRaddleLetters(realDone, letters);
+            preservePageScroll(function () {
+              softSetRaddleLetters(realDone, letters);
+            });
             saveRaddleDraftLetters(realDone, letters);
             submitRaddleAuto(realDone, letters);
           }
@@ -3024,7 +3028,7 @@
     if (!real) return;
     softSetRaddleLetters(real, getRaddleInputLetters(active));
     if (hasRaddleInputIntent(taskRoot)) {
-      focusPreventScroll(real);
+      preservePageScroll(function () { focusPreventScroll(real); });
     } else if (typeof active.blur === 'function') {
       active.blur();
     }
@@ -3032,9 +3036,7 @@
 
   function raddlePinHasFocus(taskRoot, pin) {
     var active = document.activeElement;
-    return !!(
-      hasRaddleInputIntent(taskRoot) && active && pin && pin.contains(active)
-    );
+    return !!(active && pin && pin.contains(active));
   }
 
   function updateRaddleStickyPinVisibility(taskRoot) {
@@ -3069,9 +3071,11 @@
       taskBottom -= vv.offsetTop || 0;
     }
     var pinH = pin.offsetHeight || (rows.length * 48);
-    // Пока первая выделенная строка ушла под шапку и задание ещё на экране.
-    // Не смотрим на focusedVisible: клавиатура держит настоящее поле над собой,
-    // а пара уже под шапкой — тогда как раз нужен пин, и в него надо зеркалить ввод.
+    var wasActive = pin.classList.contains('is-active');
+    var pinHasFocus = raddlePinHasFocus(taskRoot, pin);
+    // Клавиатура сжимает visualViewport и может «вытащить» настоящую строку
+    // на экран. Пин при этом нельзя прятать: фокус уезжает в настоящее поле,
+    // страницу скроллит наверх, а стики-поле пропадает.
     var shouldShow = window.RaddleKeyboardAnchor
       ? window.RaddleKeyboardAnchor.shouldShowStickyPin({
           firstTop: firstTop,
@@ -3080,14 +3084,15 @@
           taskBottom: taskBottom,
           navTop: navTop,
           pinH: pinH,
-          pinHasFocus: raddlePinHasFocus(taskRoot, pin),
+          pinHasFocus: pinHasFocus,
+          keepIfActive: wasActive && hasRaddleInputIntent(taskRoot),
         })
       : (function () {
+          if (pinHasFocus || (wasActive && hasRaddleInputIntent(taskRoot))) return true;
           var underNav = firstBottom <= navTop + 0.5;
           var taskStillVisible = taskBottom > navTop + Math.min(pinH, 24);
-          return underNav && (taskStillVisible || raddlePinHasFocus(taskRoot, pin));
+          return underNav && taskStillVisible;
         })();
-    var wasActive = pin.classList.contains('is-active');
     if (shouldShow) {
       pin.classList.add('is-active');
       pin.removeAttribute('hidden');
@@ -3276,7 +3281,12 @@
   document.addEventListener('focusin', function (e) {
     var input = e.target && e.target.closest ? e.target.closest('input.new-raddle-input') : null;
     if (!input) return;
-    if (input.getAttribute('data-raddle-pin-proxy') === '1') return;
+    if (input.getAttribute('data-raddle-pin-proxy') === '1') {
+      // Фокус в fixed-клоне не должен утаскивать страницу к настоящему полю.
+      preservePageScroll(function () {});
+      activateRaddleInputIntent(input);
+      return;
+    }
     var row = input.closest('.new-raddle-row');
     var taskRoot = input.closest('.new-raddle-task');
     if (!row || !taskRoot) return;
