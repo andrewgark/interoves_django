@@ -7,6 +7,7 @@ from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
 from games.exception import DuplicateAttemptException
+from games.analytics_persistence import AnalyticsRowInvariantError
 from games.models import (
     Attempt,
     CheckerType,
@@ -135,3 +136,14 @@ class AttemptRequestValidationTests(TestCase):
         with self.assertRaises(DuplicateAttemptException):
             create_hint_attempt(self.hint, anon_key='hint-anon', game=self.game)
         self.assertEqual(HintAttempt.objects.filter(hint=self.hint).count(), 1)
+
+    def test_analytics_invariant_does_not_fail_send_attempt(self):
+        with patch(
+            'games.analytics.create_or_reread_analytics_row',
+            side_effect=AnalyticsRowInvariantError(
+                'PlayerStartedGame has multiple rows for uniq_started_game_user_instance',
+            ),
+        ):
+            result = self._process(self.default, {'text': 'answer'})
+        self.assertEqual(result['status'], 'ok')
+        self.assertTrue(Attempt.manager.filter(task=self.default).exists())

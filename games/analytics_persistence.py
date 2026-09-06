@@ -1,7 +1,10 @@
+import logging
 import re
 from dataclasses import dataclass
 
 from django.db import IntegrityError, connections, transaction
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -112,6 +115,55 @@ def read_exact_analytics_row(model, lookup, *, using=None, for_update=False):
     return rows[0] if rows else None
 
 
+def _merge_fn_for(model):
+    name = model._meta.object_name
+    if name == 'PlayerStartedGame':
+        return merge_started_analytics_rows
+    if name == 'PlayerCompletedGame':
+        return merge_completed_analytics_rows
+    if name == 'PlayerAnalyticsState':
+        return merge_analytics_state_rows
+    raise AnalyticsRowInvariantError(
+        '{} is not a supported analytics persistence model'.format(name)
+    )
+
+
+def repair_duplicate_analytics_rows(model, lookup, *, using=None):
+    """Collapse exact-key duplicates left by concurrent first-inserts before 1B.2."""
+    alias = using or model._default_manager.db
+    spec = analytics_unique_spec(model, lookup)
+    merge_fn = _merge_fn_for(model)
+    with transaction.atomic(using=alias):
+        rows = list(
+            model._default_manager.using(alias)
+            .select_for_update()
+            .filter(**lookup)
+            .order_by('pk')
+        )
+        if len(rows) <= 1:
+            return rows[0] if rows else None
+        logger.warning(
+            'Repairing %s duplicate %s rows for %s',
+            len(rows),
+            model._meta.object_name,
+            spec.index_name,
+        )
+        canonical = rows[0]
+        for extra in rows[1:]:
+            canonical = merge_fn(canonical, extra)
+        return canonical
+
+
+def read_or_repair_exact_analytics_row(model, lookup, *, using=None, for_update=False):
+    try:
+        return read_exact_analytics_row(
+            model, lookup, using=using, for_update=for_update,
+        )
+    except AnalyticsRowInvariantError:
+        analytics_unique_spec(model, lookup)
+        return repair_duplicate_analytics_rows(model, lookup, using=using)
+
+
 def _database_error(error):
     return getattr(error, '__cause__', None) or error
 
@@ -160,11 +212,13 @@ def create_or_reread_analytics_row(model, *, lookup, defaults=None, using=None):
     recoverable. The local atomic block is deliberately narrower than the
     caller's transaction: its rollback clears the broken savepoint before the
     canonical row is read. Without a physical unique index, simultaneous first
-    inserts can still both succeed; stage 1B.2 supplies that database guarantee.
+    inserts can still both succeed; create-or-reread then merges exact-key
+    duplicates instead of failing the caller. Stage 1B.2 supplies the database
+    unique guarantee.
     """
     alias = using or model._default_manager.db
     spec = analytics_unique_spec(model, lookup)
-    canonical = read_exact_analytics_row(model, lookup, using=alias)
+    canonical = read_or_repair_exact_analytics_row(model, lookup, using=alias)
     if canonical is not None:
         return canonical, False
 
@@ -180,11 +234,15 @@ def create_or_reread_analytics_row(model, *, lookup, defaults=None, using=None):
     except IntegrityError as error:
         if not is_expected_analytics_duplicate(error, spec, using=alias):
             raise
-        canonical = read_exact_analytics_row(model, lookup, using=alias)
+        canonical = read_or_repair_exact_analytics_row(model, lookup, using=alias)
         if canonical is None:
             raise error.with_traceback(error.__traceback__)
         return canonical, False
-    return created, True
+    # Simultaneous first inserts can both succeed before the unique indexes exist.
+    canonical = read_or_repair_exact_analytics_row(model, lookup, using=alias)
+    if canonical is None:
+        return created, True
+    return canonical, canonical.pk == created.pk
 
 
 def _copy_fields(target, source, fields):

@@ -2,7 +2,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.db import IntegrityError
+from django.db import IntegrityError, connection
 from django.test import TestCase
 from django.utils import timezone
 
@@ -13,6 +13,7 @@ from games.analytics_persistence import (
     analytics_unique_spec,
     create_or_reread_analytics_row,
     merge_started_analytics_rows,
+    read_exact_analytics_row,
     reassign_or_merge_analytics_row,
 )
 from games.anon_migrate import (
@@ -64,6 +65,56 @@ class AnalyticsPersistenceTests(TestCase):
     @property
     def instance_id(self):
         return '{}:{}'.format(self.game.pk, self.task_group.pk)
+
+    def _started_lookup(self):
+        return {
+            'user': self.user,
+            'team': None,
+            'anon_key': None,
+            'game_instance_id': self.instance_id,
+        }
+
+    def _drop_started_user_unique(self):
+        quote = connection.ops.quote_name
+        index_name = 'uniq_started_game_user_instance'
+        table = PlayerStartedGame._meta.db_table
+        with connection.cursor() as cursor:
+            if connection.vendor == 'sqlite':
+                cursor.execute('DROP INDEX IF EXISTS {}'.format(quote(index_name)))
+            elif connection.vendor == 'mysql':
+                try:
+                    cursor.execute('ALTER TABLE {} DROP INDEX {}'.format(
+                        quote(table), quote(index_name),
+                    ))
+                except Exception:
+                    pass
+
+        def restore():
+            with connection.cursor() as cursor:
+                columns = ', '.join(quote(column) for column in ('user_id', 'game_instance_id'))
+                try:
+                    if connection.vendor == 'sqlite':
+                        cursor.execute(
+                            'CREATE UNIQUE INDEX {} ON {} ({}) WHERE {} IS NOT NULL'.format(
+                                quote(index_name), quote(table), columns, quote('user_id'),
+                            )
+                        )
+                    elif connection.vendor == 'mysql':
+                        cursor.execute(
+                            'CREATE UNIQUE INDEX {} ON {} ({})'.format(
+                                quote(index_name), quote(table), columns,
+                            )
+                        )
+                except Exception:
+                    pass
+
+        self.addCleanup(restore)
+
+    def _start_duplicate_user_rows(self):
+        self._drop_started_user_unique()
+        first = self._start(user=self.user)
+        second = self._start(user=self.user)
+        return first, second
 
     def _start(self, **overrides):
         values = {
@@ -135,29 +186,52 @@ class AnalyticsPersistenceTests(TestCase):
                     },
                 )
 
-    def test_multiple_canonical_rows_raise_invariant_error(self):
-        self._start(user=self.user)
-        lookup = {
-            'user': self.user,
-            'team': None,
-            'anon_key': None,
-            'game_instance_id': self.instance_id,
-        }
-        invariant = AnalyticsRowInvariantError('multiple canonical rows')
+    def test_read_exact_still_raises_on_multiple_rows(self):
+        self._start_duplicate_user_rows()
+        with self.assertRaises(AnalyticsRowInvariantError):
+            read_exact_analytics_row(PlayerStartedGame, self._started_lookup())
+
+    def test_create_or_reread_merges_preexisting_duplicates(self):
+        first, second = self._start_duplicate_user_rows()
+        row, created = create_or_reread_analytics_row(
+            PlayerStartedGame,
+            lookup=self._started_lookup(),
+            defaults={
+                'game': self.game,
+                'task_group': self.task_group,
+                'game_kind': 'start-kind',
+            },
+        )
+        self.assertFalse(created)
+        self.assertEqual(row.pk, min(first.pk, second.pk))
+        self.assertEqual(
+            PlayerStartedGame.objects.filter(
+                user=self.user, game_instance_id=self.instance_id,
+            ).count(),
+            1,
+        )
+
+    def test_register_started_game_swallows_invariant(self):
         with patch(
-            'games.analytics_persistence.read_exact_analytics_row',
-            side_effect=[None, invariant],
+            'games.analytics.create_or_reread_analytics_row',
+            side_effect=AnalyticsRowInvariantError('broken placement'),
         ):
-            with self.assertRaises(AnalyticsRowInvariantError):
-                create_or_reread_analytics_row(
-                    PlayerStartedGame,
-                    lookup=lookup,
-                    defaults={
-                        'game': self.game,
-                        'task_group': self.task_group,
-                        'game_kind': 'start-kind',
-                    },
-                )
+            self.assertEqual(
+                register_started_game(
+                    user=self.user, task=self.task, game=self.game,
+                ),
+                [],
+            )
+
+    def test_register_started_game_merges_duplicates_instead_of_failing(self):
+        self._start_duplicate_user_rows()
+        register_started_game(user=self.user, task=self.task, game=self.game)
+        self.assertEqual(
+            PlayerStartedGame.objects.filter(
+                user=self.user, game_instance_id=self.instance_id,
+            ).count(),
+            1,
+        )
 
     def test_unrelated_integrity_error_is_not_hidden(self):
         lookup = {

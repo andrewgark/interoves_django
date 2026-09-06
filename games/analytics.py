@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django.core import signing
 from django.db import transaction
@@ -15,7 +16,13 @@ from games.models import (
     PlayerCompletedGame,
     PlayerStartedGame,
 )
-from games.analytics_persistence import create_or_reread_analytics_row
+from games.analytics_persistence import (
+    AnalyticsRowInvariantError,
+    create_or_reread_analytics_row,
+)
+
+
+logger = logging.getLogger(__name__)
 
 
 YANDEX_GOAL_SIGNUP = 'signup'
@@ -141,6 +148,19 @@ def _started_games_qs(*, team=None, user=None, anon_key=None):
     if anon_key:
         return PlayerStartedGame.objects.filter(anon_key=str(anon_key), team__isnull=True, user__isnull=True)
     return PlayerStartedGame.objects.none()
+
+
+def _swallow_analytics_invariant(fn):
+    """Keep gameplay JSON endpoints alive if analytics rows are inconsistent."""
+
+    def wrapped(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except AnalyticsRowInvariantError:
+            logger.exception('%s analytics invariant', fn.__name__)
+            return []
+
+    return wrapped
 
 
 def _state_complete_raddle(task, state_raw):
@@ -397,6 +417,7 @@ def pending_signup_goals(user):
 
 
 @transaction.atomic
+@_swallow_analytics_invariant
 def register_started_game(
     *,
     team=None,
@@ -629,6 +650,7 @@ def _backfill_supported_game_completions(
         )
 
 
+@_swallow_analytics_invariant
 @transaction.atomic
 def register_completed_game(
     *,

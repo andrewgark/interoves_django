@@ -10,9 +10,10 @@ All three analytics models use the same strict create-or-reread primitive. It
 first reads the exact namespace key, creates inside a local savepoint, and
 recovers only a duplicate reported for the corresponding future index. After
 rolling back that savepoint it reads the exact canonical key again. One row is
-returned; zero rows re-raises the original database error; multiple rows raise
-an invariant error. Deadlocks, lock timeouts, foreign-key failures, and
-duplicates on unrelated keys are never classified as a recoverable race.
+returned; zero rows re-raises the original database error; exact-key duplicates
+are merged with the existing event merge rules instead of failing the caller.
+Deadlocks, lock timeouts, foreign-key failures, and duplicates on unrelated
+keys are never classified as a recoverable race.
 
 Before 1B.2, simultaneous first inserts can still both succeed because MySQL has
 no unique key to arbitrate them. This is an explicit rollout limitation, not an

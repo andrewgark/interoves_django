@@ -293,6 +293,7 @@ class ProductAnalyticsMySQLConcurrencyTests(TransactionTestCase):
         self.assertEqual(AccountMerge.objects.count(), 1)
 
     def test_code_remains_compatible_before_user_start_index(self):
+        """Without the unique index, concurrent first inserts still converge to one row."""
         spec = next(
             item for item in ANALYTICS_UNIQUE_SPECS
             if item.index_name == 'uniq_started_game_user_instance'
@@ -314,7 +315,7 @@ class ProductAnalyticsMySQLConcurrencyTests(TransactionTestCase):
                     )
                     for _ in range(2)
                 ))
-            self.assertEqual(PlayerStartedGame.objects.filter(user=self.user).count(), 2)
+            self.assertEqual(PlayerStartedGame.objects.filter(user=self.user).count(), 1)
         finally:
             rows = list(PlayerStartedGame.objects.filter(
                 user=self.user,
