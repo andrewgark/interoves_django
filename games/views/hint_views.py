@@ -128,21 +128,21 @@ def process_send_hint_attempt(request, task_id):
         )
         if analytics_events:
             result['analytics_events'] = analytics_events
-    # Для личного/анонимного режима не обновляем старую HTML-структуру; new UI просто перезагрузит страницу.
-    if team is not None:
-        update_html = update_task_html(
-            request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
-        )
-        track_actor_task_change(
-            task,
-            team=team,
-            current_mode=current_mode,
-            update_html=update_html,
-            request=request,
-            game=game,
-            reason='hint.taken',
-        )
-        result.update(update_html)
+    update_html = update_task_html(
+        request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+    )
+    track_actor_task_change(
+        task,
+        team=team,
+        current_mode=current_mode,
+        update_html=update_html,
+        request=request,
+        game=game,
+        user=user,
+        anon_key=anon_key,
+        reason='hint.taken',
+    )
+    result.update(update_html)
     return result
 
 

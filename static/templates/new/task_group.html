@@ -290,6 +290,7 @@
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
 <script src="{% static 'js/raddle_keyboard_dismiss.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/new_task_hints.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% if daily_timing_enabled %}
 <script src="{% static 'js/daily_solve_timer.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endif %}
@@ -607,13 +608,20 @@
         }
         flushAnalyticsEvents(data);
         if (data.status === 'ok') {
-          // For hints: keep hints panel open after reload.
+          // Keep the hints panel open on the taken hint (in-place HTML, else reload).
           if (form && form.classList && form.classList.contains('new-hint-form') && form.getAttribute('data-skip-hints-open') !== '1') {
             var tid = form.getAttribute('data-task-id') || '';
+            var hintNumber = hintFormValue(form, 'hint_number', '');
+            if (tid && data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
+              try { applyNewUiTaskHtml(data.update_task_html_new); } catch (e) {}
+              if (window.InterovesTaskHints) window.InterovesTaskHints.reveal(tid, hintNumber);
+              return;
+            }
             if (tid) {
               try {
                 var u2 = new URL(window.location.href);
                 u2.searchParams.set('hints_open', tid);
+                if (hintNumber) u2.searchParams.set('hint_number', hintNumber);
                 u2.hash = 'new-task-hints-' + tid;
                 window.location.replace(u2.toString());
                 return;
@@ -3721,6 +3729,9 @@
     // it so a near-simultaneous WebSocket refresh does not hide user feedback.
     var reopenAttempts = {};
     var activeRaddleInputs = {};
+    var openHints = window.InterovesTaskHints
+      ? window.InterovesTaskHints.captureOpen(Object.keys(map))
+      : {};
     Object.keys(map).forEach(function (tid) {
       // If the player already edited the rejected answer, preserve that draft
       // rather than restoring the originally submitted value after a WS update.
@@ -3760,6 +3771,7 @@
           }
         }
       });
+      if (window.InterovesTaskHints) window.InterovesTaskHints.restoreOpen(openHints);
       document.querySelectorAll('input.new-anon-key-field').forEach(function (inp) {
         inp.value = anonKey;
       });
@@ -3789,35 +3801,27 @@
     var btn = e.target && e.target.closest ? e.target.closest('[data-hints-toggle]') : null;
     if (!btn) return;
     var taskId = btn.getAttribute('data-task-id');
-    var body = document.querySelector('[data-hints-body=\"' + taskId + '\"]');
-    if (!body) return;
-    body.hidden = !body.hidden;
-    btn.textContent = body.hidden ? 'подсказки' : 'скрыть подсказки';
+    if (!taskId || !window.InterovesTaskHints) return;
+    var opening = !window.InterovesTaskHints.isOpen(taskId);
+    window.InterovesTaskHints.setOpen(taskId, opening, { scroll: opening });
   }, true);
 
   // If we came back after taking a hint, keep that hints section open.
   (function openHintsFromQuery() {
     var taskId = '';
+    var hintNumber = '';
     try {
       var u = new URL(window.location.href);
       taskId = u.searchParams.get('hints_open') || '';
+      hintNumber = u.searchParams.get('hint_number') || '';
       if (!taskId) return;
       // Clear param for nice URLs
       u.searchParams.delete('hints_open');
+      u.searchParams.delete('hint_number');
       window.history.replaceState({}, '', u.toString());
     } catch (e) {}
-    if (!taskId) return;
-    var body = document.querySelector('[data-hints-body=\"' + taskId + '\"]');
-    var btn = document.querySelector('[data-hints-toggle][data-task-id=\"' + taskId + '\"]');
-    if (!body) return;
-    body.hidden = false;
-    if (btn) btn.textContent = 'скрыть подсказки';
-    var hintsRoot = document.getElementById('new-task-hints-' + taskId);
-    if (hintsRoot) {
-      requestAnimationFrame(function () {
-        hintsRoot.scrollIntoView({ block: 'start', behavior: 'auto' });
-      });
-    }
+    if (!taskId || !window.InterovesTaskHints) return;
+    window.InterovesTaskHints.setOpen(taskId, true, { scroll: true, hintNumber: hintNumber });
   })();
 
   // Wall: click tiles & submit explanation forms (no jQuery here)

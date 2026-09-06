@@ -137,6 +137,28 @@ class AttemptRequestValidationTests(TestCase):
             create_hint_attempt(self.hint, anon_key='hint-anon', game=self.game)
         self.assertEqual(HintAttempt.objects.filter(hint=self.hint).count(), 1)
 
+    def test_personal_hint_returns_new_ui_html_with_taken_hint(self):
+        self.hint.text = 'secret-hint-text'
+        with patch('games.views.track.track_task_change'):
+            self.hint.save(update_fields=['text'])
+        request = self._request({
+            'game_id': self.game.pk,
+            'hint_number': '1',
+        })
+        with patch(
+            'games.views.hint_views.game_from_request_for_task',
+            return_value=self.game,
+        ), patch('games.views.hint_views._get_play_mode', return_value='personal'), patch(
+            'games.views.hint_views.track_actor_task_change',
+        ):
+            response = send_hint_attempt(request, self.default.pk)
+        data = json.loads(response.content)
+        self.assertEqual(data['status'], 'ok')
+        html = data['update_task_html_new'][str(self.default.pk)]
+        self.assertIn('data-hint-number="1"', html)
+        self.assertIn('secret-hint-text', html)
+        self.assertIn('data-hints-body="{}" hidden'.format(self.default.pk), html)
+
     def test_analytics_invariant_does_not_fail_send_attempt(self):
         with patch(
             'games.analytics.create_or_reread_analytics_row',

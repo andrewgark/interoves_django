@@ -120,7 +120,7 @@
           <div class="new-hints new-hints--compact" id="new-task-hints-{{ task.id }}">
             <div class="new-hints__body" data-hints-body="{{ task.id }}" hidden>
               {% for hint in task.get_hints %}
-              <div class="new-hint">
+              <div class="new-hint" data-hint-number="{{ hint.number }}">
                 <div class="new-hint__head">
                   <strong>#{{ hint.number }}{% if hint.desc %} {{ hint.desc }}{% endif %}</strong>
                   <span class="new-hint__penalty">−{{ hint.points_penalty|minimize_digits }}</span>

@@ -5232,6 +5232,22 @@ html.new-ui-dark .new-smart-scrollbar-thumb {
   padding: 0.65rem 0.75rem;
   margin-bottom: 0.5rem;
   background: color-mix(in srgb, var(--text) 4%, var(--surface));
+  scroll-margin-top: var(--new-ui-scroll-margin-top);
+}
+
+.new-hint.is-just-revealed {
+  --new-hint-highlight: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--border));
+  animation: new-hint-reveal-flash 1.8s ease-out;
+}
+
+@keyframes new-hint-reveal-flash {
+  0%, 35% { background: color-mix(in srgb, var(--new-hint-highlight) 16%, var(--surface)); }
+  100% { background: color-mix(in srgb, var(--text) 4%, var(--surface)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-hint.is-just-revealed { animation: none; }
 }
 
 .new-hint__head {

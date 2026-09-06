@@ -12,6 +12,7 @@ from games.models import (
     CheckerType,
     Game,
     GameTaskGroup,
+    Hint,
     HTMLPage,
     Image,
     Project,
@@ -164,6 +165,31 @@ class RenderNewUiTaskCardTests(TestCase):
                 request, task, None, 'general', anon_key='anon_test', game=self.game,
             )
             self.assertEqual(html.count('new-taskcard__text'), 1, task_type)
+
+    def test_default_task_hints_start_collapsed_with_stable_ids(self):
+        with patch('games.views.track.track_task_change'):
+            task = Task.objects.create(
+                task_group=self.tg,
+                number='9',
+                task_type='default',
+                checker=CheckerType.objects.get(pk='equals_with_possible_spaces'),
+                points=1,
+                text='task body',
+                answer='answer',
+            )
+            Hint.objects.create(
+                task=task, number='1', text='secret-hint-text', points_penalty=1,
+            )
+        request = RequestFactory().get('/')
+        request.user = AnonymousUser()
+        html = render_new_ui_task_card_html(
+            request, task, None, 'general', anon_key='anon_test', game=self.game,
+        )
+        self.assertIn('data-hints-toggle', html)
+        self.assertIn('data-hints-body="{}"'.format(task.pk), html)
+        self.assertIn('data-hint-number="1"', html)
+        self.assertIn('data-hints-body="{}" hidden'.format(task.pk), html)
+        self.assertNotIn('secret-hint-text', html)
 
     def test_invalid_special_task_renders_explicit_error(self):
         for task_number, task_type, expected in (
