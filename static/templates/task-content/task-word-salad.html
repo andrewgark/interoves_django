@@ -8,6 +8,9 @@
     </p>
   {% endif %}
   {% endwith %}
+  {% if task.tags.author %}
+    <p class="new-word-salad__author">Автор: {{ task.tags.author }}</p>
+  {% endif %}
 
   <div class="new-word-salad__play">
     <section class="new-word-salad__grid-panel" aria-label="Сетка">

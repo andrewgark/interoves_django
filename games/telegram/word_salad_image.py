@@ -51,6 +51,7 @@ def render_word_salad_teaser_png_pillow(task, *, salad_number: int | str | None 
     grid, words = parse_task_data(task.checker_data, task.answer)
     ui = build_ui_context(grid, words, default_state())
     theme = theme_from_text(getattr(task, 'text', None))
+    author = str((getattr(task, 'tags', None) or {}).get('author') or '').strip()
 
     font_title = _load_font(28, bold=True)
     font_sub = _load_font(18, bold=True)
@@ -65,7 +66,7 @@ def render_word_salad_teaser_png_pillow(task, *, salad_number: int | str | None 
     words_w = 220
     col_gap = 36
     width = pad * 2 + grid_size + col_gap + words_w
-    header_h = 36 + (28 if theme else 0) + 16
+    header_h = 36 + (28 if theme else 0) + (22 if author else 0) + 16
     height = pad * 2 + header_h + max(grid_size, 22 + len(ui['words']) * 26)
 
     img = Image.new('RGB', (width, height), '#F7F4EF')
@@ -79,6 +80,9 @@ def render_word_salad_teaser_png_pillow(task, *, salad_number: int | str | None 
     if theme:
         draw.text((pad, y), 'Тема: {}'.format(theme), font=font_sub, fill='#2F6F4E')
         y += 28
+    if author:
+        draw.text((pad, y), 'Автор: {}'.format(author), font=font_meta, fill='#666666')
+        y += 22
     top = y + 8
 
     for row_index, row in enumerate(ui['grid_rows']):

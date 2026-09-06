@@ -238,6 +238,7 @@
           '<div class="support-ladder-item__meta"><span class="support-cell-mono">' +
             support.escapeHtml(row.grid_preview || '—') + '</span> · id ' + row.link_id +
             ' · ' + row.words_count + ' сл.' +
+            (row.author ? ' · ' + support.escapeHtml(row.author) : '') +
             (row.publish_date ? ' · ' + support.escapeHtml(row.publish_date) : '') + '</div>' +
           '<div class="support-ladder-item__preview">' + support.escapeHtml(row.words_preview || '—') + '</div>' +
         '</div>' +
@@ -256,6 +257,7 @@
     document.getElementById('word-salad-edit-sub').textContent =
       '№' + item.number + ' · id ' + item.link_id + ' · ' + item.words_count + ' сл.';
     document.getElementById('word-salad-edit-intro').value = item.intro || '';
+    document.getElementById('word-salad-edit-author').value = item.author || '';
     document.getElementById('word-salad-edit-words').value = item.words_text || '';
     document.getElementById('word-salad-edit-rare-words').value = item.rare_words_text || '';
     document.getElementById('word-salad-edit-preview').href = item.preview_url || '#';
@@ -273,6 +275,7 @@
     document.getElementById('word-salad-offer-sub').textContent =
       (offer.user_name || '') + (offer.telegram_handle ? ' · @' + offer.telegram_handle : '');
     document.getElementById('word-salad-offer-theme').value = offer.theme || '';
+    document.getElementById('word-salad-offer-author').value = offer.author || '';
     document.getElementById('word-salad-offer-idea').value = offer.idea_text || '';
     document.getElementById('word-salad-offer-suggested').value = offer.suggested_words || '';
     document.getElementById('word-salad-offer-words').value = offer.words_text || '';
@@ -433,6 +436,7 @@
     setBusy(true);
     support.postJson(endpoint(endpoints.save, editLinkId), {
       intro: document.getElementById('word-salad-edit-intro').value,
+      author: document.getElementById('word-salad-edit-author').value,
       grid_text: scheduleGrid ? scheduleGrid.getGridText() : '',
       words_text: document.getElementById('word-salad-edit-words').value,
       rare_words_text: document.getElementById('word-salad-edit-rare-words').value
@@ -478,6 +482,7 @@
     setBusy(true);
     support.postJson(endpoint(endpoints.offerSave, editOfferId), {
       theme: document.getElementById('word-salad-offer-theme').value,
+      author: document.getElementById('word-salad-offer-author').value,
       idea_text: document.getElementById('word-salad-offer-idea').value,
       suggested_words: document.getElementById('word-salad-offer-suggested').value,
       grid_text: offerGrid ? offerGrid.getGridText() : '',

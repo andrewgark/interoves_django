@@ -319,6 +319,21 @@ class RenderNewUiTaskCardTests(TestCase):
         self.assertIn('Тема:', html)
         self.assertIn('алфавит', html)
         self.assertNotIn('Тема: Тема:', html)
+        self.assertNotIn('new-word-salad__author', html)
         self.assertNotIn('>Слова<', html)
         self.assertNotIn(' шт.', html)
         self.assertNotIn('Готовое слово проверится автоматически', html)
+
+    def test_render_word_salad_shows_author_under_theme(self):
+        self.word_salad_task.tags = {'author': 'Анна Автор'}
+        self.word_salad_task.save(update_fields=['tags'])
+        request = RequestFactory().get('/')
+        request.user = AnonymousUser()
+        html = render_new_ui_task_card_html(
+            request, self.word_salad_task, None, 'general', anon_key='anon_test', game=self.game,
+        )
+        self.assertIn('new-word-salad__author', html)
+        self.assertIn('Автор: Анна Автор', html)
+        theme_pos = html.index('Тема:')
+        author_pos = html.index('Автор: Анна Автор')
+        self.assertLess(theme_pos, author_pos)

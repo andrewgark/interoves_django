@@ -46,6 +46,17 @@ _SHARE_HASH_RE = re.compile(r'^[a-f0-9]{16,32}$')
 _TELEGRAM_HANDLE_RE = re.compile(r'^[A-Za-z0-9_]{5,32}$')
 _PLACEHOLDER_GRID = ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M']
 _PLACEHOLDER_WORDS = ['ABCDEFGHIJKLMNOP']
+AUTHOR_TAG = 'author'
+
+
+def apply_author_tag(task: Task, author: str) -> None:
+    tags = dict(task.tags or {})
+    value = (author or '').strip()
+    if value:
+        tags[AUTHOR_TAG] = value
+    else:
+        tags.pop(AUTHOR_TAG, None)
+    task.tags = tags
 
 
 class WordSaladOfferError(Exception):
@@ -194,6 +205,7 @@ class OfferRow:
     share_hash: str
     play_url: str
     theme: str
+    author: str
     idea_text: str
     suggested_words: str
     grid_text: str
@@ -248,6 +260,10 @@ def serialize_offer(offer: WordSaladOffer) -> OfferRow:
     profile = getattr(offer.user, 'profile', None)
     tg = normalize_telegram_handle(getattr(profile, 'telegram_handle', '') or '')
     user_name = profile_display_name(profile) if profile else offer.user.username
+    author = ''
+    if task is not None:
+        author = str((task.tags or {}).get(AUTHOR_TAG) or '')
+    author = author or offer.author or ''
 
     def _iso(dt):
         return dt.isoformat() if dt else None
@@ -261,6 +277,7 @@ def serialize_offer(offer: WordSaladOffer) -> OfferRow:
         share_hash=offer.share_hash,
         play_url=offer.play_url() if _puzzle_is_playable(offer, task) else '',
         theme=offer.theme or '',
+        author=author,
         idea_text=offer.idea_text or '',
         suggested_words=offer.suggested_words or '',
         grid_text=grid_text,
@@ -298,12 +315,14 @@ def create_offer(user: User, *, kind: str = WordSaladOffer.KIND_FULL) -> WordSal
     if not ready:
         raise WordSaladOfferError('Профиль не заполнен: {}'.format(', '.join(missing)))
     kind = _parse_kind(kind)
+    display = profile_display_name(user.profile)
     if kind == WordSaladOffer.KIND_IDEA:
         return WordSaladOffer.objects.create(
             user=user,
             kind=kind,
             status=WordSaladOffer.STATUS_DRAFT,
             share_hash=_new_share_hash(),
+            author=display,
         )
     try:
         checker = CheckerType.objects.get(id='word_salad')
@@ -316,6 +335,7 @@ def create_offer(user: User, *, kind: str = WordSaladOffer.KIND_FULL) -> WordSal
         max_attempts=None,
         is_18_plus=False,
     )
+    tags = {AUTHOR_TAG: display} if display else {}
     Task.objects.create(
         task_group=task_group,
         number='1',
@@ -324,7 +344,7 @@ def create_offer(user: User, *, kind: str = WordSaladOffer.KIND_FULL) -> WordSal
         checker_data=_placeholder_checker_data(),
         answer='',
         text='',
-        tags={},
+        tags=tags,
         points=1,
         max_attempts=None,
         is_removed=False,
@@ -335,6 +355,7 @@ def create_offer(user: User, *, kind: str = WordSaladOffer.KIND_FULL) -> WordSal
         status=WordSaladOffer.STATUS_DRAFT,
         share_hash=_new_share_hash(),
         task_group=task_group,
+        author=display,
     )
 
 
@@ -348,18 +369,24 @@ def update_offer_content(
     grid_text: str = '',
     words_text: str = '',
     comment: str = '',
+    author: str | None = None,
     allow_non_draft: bool = False,
 ) -> WordSaladOffer:
     if not allow_non_draft and not offer.can_author_edit():
         raise WordSaladOfferError('После отправки редактировать нельзя')
     offer.theme = (theme or '').strip()
     offer.comment = (comment or '').strip()
+    if author is not None:
+        offer.author = (author or '').strip()
     if offer.kind == WordSaladOffer.KIND_IDEA:
         offer.idea_text = (idea_text or '').strip()
         offer.suggested_words = (suggested_words or '').strip()
-        offer.save(update_fields=[
+        idea_fields = [
             'theme', 'idea_text', 'suggested_words', 'comment', 'updated_at',
-        ])
+        ]
+        if author is not None:
+            idea_fields.append('author')
+        offer.save(update_fields=idea_fields)
         return offer
     offer.grid_text = grid_text or ''
     offer.words_text = words_text or ''
@@ -370,7 +397,13 @@ def update_offer_content(
         grid_text=offer.grid_text,
         words_text=offer.words_text,
     )
-    offer.save(update_fields=['theme', 'grid_text', 'words_text', 'comment', 'updated_at'])
+    if author is not None:
+        apply_author_tag(task, offer.author)
+        task.save(update_fields=['tags'])
+    full_fields = ['theme', 'grid_text', 'words_text', 'comment', 'updated_at']
+    if author is not None:
+        full_fields.append('author')
+    offer.save(update_fields=full_fields)
     return offer
 
 
@@ -446,6 +479,8 @@ def accept_offer(offer: WordSaladOffer, *, at_number: int | None = None) -> Word
         validate_puzzle(grid, words)
     except ValueError as exc:
         raise WordSaladOfferError(str(exc)) from exc
+    apply_author_tag(task, offer.author)
+    task.save(update_fields=['tags'])
     ensure_word_salad_game()
     rows = list_word_salad_rows()
     max_num = max((r.number for r in rows), default=0)

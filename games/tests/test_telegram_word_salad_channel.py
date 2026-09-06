@@ -96,10 +96,20 @@ class SaladChannelScheduleTests(TestCase):
         self.assertIn('Салатик №1', caption)
         self.assertIn('Тема: Города России', caption)
         self.assertNotIn('Тема: Тема:', caption)
+        self.assertNotIn('Автор:', caption)
         self.assertIn('/salad/1/', caption)
         from games.telegram.word_salad_image import render_word_salad_teaser_png_pillow
         png = render_word_salad_teaser_png_pillow(self.task, salad_number=1)
         self.assertTrue(png.startswith(b'\x89PNG'))
+
+    def test_caption_includes_author_when_set(self):
+        self.task.tags = {'author': 'Анна Автор'}
+        self.task.save(update_fields=['tags'])
+        salad = resolve_today_salad(self.now)
+        caption = build_caption(salad)
+        self.assertIn('Тема: Города России', caption)
+        self.assertIn('Автор: Анна Автор', caption)
+        self.assertLess(caption.index('Тема:'), caption.index('Автор:'))
 
     def test_screenshot_url_is_public_salad_last(self):
         from games.telegram.word_salad_image import word_salad_last_screenshot_url

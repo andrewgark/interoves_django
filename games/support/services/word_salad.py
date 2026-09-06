@@ -42,6 +42,17 @@ _DEFAULT_GRID = ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P'
 _DEFAULT_WORDS = ['ABCDEFGHIJKLMNOP']
 _PREVIEW_SPEC = ActorSpec(kind='anon', anon_key='support-preview', play_mode='personal')
 _TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат(?:ик)?\s*#\s*\d+$', re.IGNORECASE)
+AUTHOR_TAG = 'author'
+
+
+def _apply_author_tag(task: Task, author: str) -> None:
+    tags = dict(task.tags or {})
+    value = (author or '').strip()
+    if value:
+        tags[AUTHOR_TAG] = value
+    else:
+        tags.pop(AUTHOR_TAG, None)
+    task.tags = tags
 
 
 def _salad_title(number: int) -> str:
@@ -65,6 +76,7 @@ class WordSaladRow:
     grid_preview: str
     words_preview: str
     words_count: int
+    author: str
     preview_url: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -234,7 +246,9 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
         task = _task_for_link(link)
         grid = []
         words = []
+        author = ''
         if task is not None:
+            author = str((task.tags or {}).get(AUTHOR_TAG) or '')
             try:
                 grid, words, _rare_words = parse_task_payload(task.checker_data, '')
             except Exception:
@@ -255,6 +269,7 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
             grid_preview=_grid_preview(grid),
             words_preview=_preview_text(words),
             words_count=len(words),
+            author=author,
             preview_url=preview_task_group_url(
                 WORD_SALAD_GAME_ID,
                 link.number,
@@ -317,6 +332,7 @@ def get_word_salad_detail(link_id: int) -> dict[str, Any]:
         'words_text': format_words_text(words),
         'rare_words_text': format_words_text(rare_words),
         'words_count': len(words),
+        'author': str((task.tags or {}).get(AUTHOR_TAG) or ''),
         'preview_url': preview_task_group_url(WORD_SALAD_GAME_ID, link.number, _PREVIEW_SPEC),
     }
 
@@ -427,6 +443,7 @@ def update_word_salad(
     grid_text: str,
     words_text: str,
     rare_words_text: str = '',
+    author: str | None = None,
 ) -> dict[str, Any]:
     link = (
         GameTaskGroup.objects.filter(game=get_word_salad_game(), pk=link_id)
@@ -442,7 +459,11 @@ def update_word_salad(
     task.text = intro or ''
     task.checker_data = checker_data
     task.answer = ''
-    task.save(update_fields=['text', 'checker_data', 'answer'])
+    update_fields = ['text', 'checker_data', 'answer']
+    if author is not None:
+        _apply_author_tag(task, author)
+        update_fields.append('tags')
+    task.save(update_fields=update_fields)
     try:
         number = int(link.number)
     except (TypeError, ValueError):

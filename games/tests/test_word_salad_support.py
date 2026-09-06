@@ -70,6 +70,29 @@ class WordSaladSupportTests(TestCase):
             self.assertEqual(updated['intro'], 'Тема: реки')
             self.assertEqual(updated['rare_words_text'], 'ABCD')
             self.assertEqual(updated['name'], 'Салатик #1')
+            self.assertEqual(updated['author'], '')
+            named = update_word_salad(
+                detail['link_id'],
+                intro='Тема: реки',
+                grid_text='A B C D\nH G F E\nI J K L\nP O N M',
+                words_text='ABCDEFGHIJKLMNOP',
+                rare_words_text='ABCD',
+                author='Тест Автор',
+            )
+            self.assertEqual(named['author'], 'Тест Автор')
+            task = Task.objects.get(pk=named['task_id'])
+            self.assertEqual(task.tags.get('author'), 'Тест Автор')
+            cleared = update_word_salad(
+                detail['link_id'],
+                intro='Тема: реки',
+                grid_text='A B C D\nH G F E\nI J K L\nP O N M',
+                words_text='ABCDEFGHIJKLMNOP',
+                rare_words_text='ABCD',
+                author='',
+            )
+            self.assertEqual(cleared['author'], '')
+            task.refresh_from_db()
+            self.assertFalse(task.tags.get('author'))
             self.assertEqual(TaskGroup.objects.get(pk=updated['task_group_id']).label, 'salad:1')
             delete_word_salad(detail['link_id'])
         with self.assertRaises(WordSaladSupportError):

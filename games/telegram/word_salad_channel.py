@@ -129,12 +129,16 @@ def resolve_salad_by_number(number: int, now: datetime | None = None) -> TodaySa
 
 def build_caption(salad: TodaySalad) -> str:
     theme = theme_from_text(salad.task.text)
+    author = str((salad.task.tags or {}).get('author') or '').strip()
     lines = [
         '🥗 <b>Салатик №{}</b>'.format(_escape(salad.number)),
         '',
     ]
     if theme:
         lines.append('Тема: {}'.format(_escape(theme)))
+    if author:
+        lines.append('Автор: {}'.format(_escape(author)))
+    if theme or author:
         lines.append('')
     lines.append(salad.play_url)
     return '\n'.join(lines)

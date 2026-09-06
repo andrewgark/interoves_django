@@ -3164,6 +3164,7 @@ class WordSaladOffer(models.Model):
     )
     share_hash = models.CharField(max_length=32, unique=True, db_index=True)
     theme = models.TextField(blank=True, default='')
+    author = models.CharField(max_length=200, blank=True, default='')
     idea_text = models.TextField(blank=True, default='')
     suggested_words = models.TextField(blank=True, default='')
     grid_text = models.TextField(blank=True, default='')

@@ -343,6 +343,7 @@ def word_salad_save(request, link_id):
     grid_text = body.get('grid_text') or ''
     words_text = body.get('words_text') or ''
     rare_words_text = body.get('rare_words_text') or ''
+    author = str(body.get('author') or '')
     try:
         detail = update_word_salad(
             link_id,
@@ -350,6 +351,7 @@ def word_salad_save(request, link_id):
             grid_text=grid_text,
             words_text=words_text,
             rare_words_text=rare_words_text,
+            author=author,
         )
     except WordSaladSupportError as exc:
         return _word_salad_error_response(exc)
@@ -432,6 +434,7 @@ def word_salad_offer_save(request, offer_id):
             grid_text=str(body.get('grid_text') or ''),
             words_text=str(body.get('words_text') or ''),
             comment=str(body.get('comment') or ''),
+            author=str(body.get('author') or ''),
             allow_non_draft=True,
         )
     except WordSaladOfferError as exc:

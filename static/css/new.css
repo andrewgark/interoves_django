@@ -9170,6 +9170,16 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   font-weight: 800;
 }
 
+.new-word-salad__author {
+  margin: -0.35rem 0 0;
+  padding: 0 1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+}
+
 .new-word-salad__play {
   display: grid;
   grid-template-columns: minmax(0, var(--ws-grid-max)) minmax(var(--ws-words-min), 1fr);

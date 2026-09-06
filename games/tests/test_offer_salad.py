@@ -114,6 +114,7 @@ class WordSaladOfferFlowTests(TestCase):
     def test_idea_create_send_accept_without_task_or_schedule(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_IDEA)
         self.assertIsNone(offer.task_group_id)
+        self.assertEqual(offer.author, 'Анна Автор')
         self.assertEqual(offer.play_url(), '')
         update_offer_content(
             offer,
@@ -168,6 +169,9 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertEqual(Attempt.manager.filter(task=task, game=self.game).count(), 1)
         grid, words = parse_task_data(task.checker_data, '')
         validate_puzzle(grid, words)
+        task.refresh_from_db()
+        self.assertEqual(task.tags.get('author'), 'Анна Автор')
+        self.assertEqual(offer.author, 'Анна Автор')
 
     def test_full_send_rejects_placeholder_and_removable_letter(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
@@ -279,6 +283,8 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertContains(resp, 'data-tab="sent"')
         self.assertContains(resp, 'word-salad-offers-bootstrap')
         self.assertContains(resp, 'word_salad_grid_editor.js')
+        self.assertContains(resp, 'word-salad-edit-author')
+        self.assertContains(resp, 'word-salad-offer-author')
 
     def test_revision_returns_to_draft(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_IDEA)
@@ -304,5 +310,52 @@ class WordSaladOfferFlowTests(TestCase):
         create_offer(self.user, kind=WordSaladOffer.KIND_IDEA)
         preview = build_account_merge_preview(self.other, self.user)
         self.assertEqual(preview['offers'], 1)
+
+    def test_create_offer_fills_author_from_profile(self):
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        self.assertEqual(offer.author, 'Анна Автор')
+        self.assertEqual(task.tags.get('author'), 'Анна Автор')
+        row = serialize_offer(offer)
+        self.assertEqual(row.author, 'Анна Автор')
+
+    def test_update_offer_author_syncs_task_tags(self):
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
+        update_offer_content(
+            offer,
+            theme='Города',
+            grid_text=VALID_GRID,
+            words_text=VALID_WORDS,
+            author='Псевдоним',
+        )
+        offer.refresh_from_db()
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        self.assertEqual(offer.author, 'Псевдоним')
+        self.assertEqual(task.tags.get('author'), 'Псевдоним')
+        update_offer_content(
+            offer,
+            theme='Города',
+            grid_text=VALID_GRID,
+            words_text=VALID_WORDS,
+        )
+        offer.refresh_from_db()
+        task.refresh_from_db()
+        self.assertEqual(offer.author, 'Псевдоним')
+        self.assertEqual(task.tags.get('author'), 'Псевдоним')
+
+    def test_accept_copies_offer_author_to_task(self):
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
+        update_offer_content(
+            offer,
+            theme='Города',
+            grid_text=VALID_GRID,
+            words_text=VALID_WORDS,
+            author='Гость',
+            allow_non_draft=True,
+        )
+        send_offer(offer)
+        accept_offer(offer)
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        self.assertEqual(task.tags.get('author'), 'Гость')
 
 
