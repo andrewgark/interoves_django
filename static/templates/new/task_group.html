@@ -437,6 +437,7 @@
   var lastRaddleAnchor = null;
   var lastRaddlePointerDown = null;
   var raddleKeyboardAnchorAt = 0;
+  var raddleKeyboardAnchorTimers = [];
 
   function raddleTaskIdFromElement(el) {
     var taskRoot = el && el.closest ? el.closest('.new-raddle-task') : null;
@@ -2828,6 +2829,11 @@
       String(row.getAttribute('data-word-index')) === String(anchor.wordIndex);
   }
 
+  function cancelRaddleKeyboardAnchorPins() {
+    raddleKeyboardAnchorTimers.forEach(function (id) { clearTimeout(id); });
+    raddleKeyboardAnchorTimers = [];
+  }
+
   function pinRaddleAnchorPair(taskRoot, align) {
     var Anchor = window.RaddleKeyboardAnchor;
     if (!Anchor || !taskRoot) return;
@@ -2850,11 +2856,18 @@
     var now = Date.now();
     if (now - raddleKeyboardAnchorAt < 400) return;
     raddleKeyboardAnchorAt = now;
+    cancelRaddleKeyboardAnchorPins();
     if (!lastRaddleAnchor) return;
     var taskRoot = document.querySelector(
       '.new-raddle-task[data-task-id="' + lastRaddleAnchor.taskId + '"]'
     );
     if (!taskRoot) return;
+    var anchorRow = taskRoot.querySelector(
+      '.new-raddle-ladder .new-raddle-row[data-word-index="' + lastRaddleAnchor.wordIndex + '"]'
+    );
+    var anchorIsPlayable = !!(
+      anchorRow && anchorRow.classList.contains('new-raddle-row--playable')
+    );
     var active = document.activeElement;
     var stolen = !!(
       active && active.classList &&
@@ -2864,12 +2877,23 @@
     if (stolen && typeof active.blur === 'function') {
       try { active.blur(); } catch (e) {}
     }
+    if (!anchorIsPlayable) return;
     var focusRow = taskRoot.querySelector('.new-raddle-ladder .new-raddle-row--focus');
     if (!focusRow || focusRow.getAttribute('data-word-index') !== lastRaddleAnchor.wordIndex) {
       setRaddleFocus(taskRoot, lastRaddleAnchor.wordIndex);
     }
     var Anchor = window.RaddleKeyboardAnchor;
-    var align = Anchor ? Anchor.pairAlign(lastRaddleAnchor.refRole) : 'nearest';
+    var pair = raddleAnchorPairRects(taskRoot);
+    var vv = window.visualViewport;
+    var canScroll = !!(Anchor && pair && Anchor.shouldScrollPairOnKeyboardClose({
+      pairTop: pair.top,
+      pairBottom: pair.bottom,
+      viewportOffsetTop: vv ? vv.offsetTop : 0,
+      viewportHeight: vv ? vv.height : window.innerHeight,
+      navTop: raddleNavOffsetPx(),
+    }));
+    if (!canScroll) return;
+    var align = Anchor.pairAlign(lastRaddleAnchor.refRole);
     function pin() { pinRaddleAnchorPair(taskRoot, align); }
     pin();
     if (typeof requestAnimationFrame === 'function') {
@@ -2878,8 +2902,7 @@
         requestAnimationFrame(pin);
       });
     }
-    setTimeout(pin, 50);
-    setTimeout(pin, 300);
+    raddleKeyboardAnchorTimers.push(setTimeout(pin, 50));
   }
 
   function ensureRaddleStickyPin(taskRoot) {
@@ -3034,55 +3057,48 @@
     }
     positionRaddleStickyPin(taskRoot, pin);
     var navTop = raddleNavOffsetPx();
-    var firstTop = rows[0].getBoundingClientRect().top;
+    var firstRect = rows[0].getBoundingClientRect();
+    var firstTop = firstRect.top;
+    var firstBottom = firstRect.bottom;
     var taskBottom = taskRoot.getBoundingClientRect().bottom;
     var vv = window.visualViewport;
+    var viewportHeight = vv ? vv.height : window.innerHeight;
     if (vv) {
       firstTop -= vv.offsetTop || 0;
+      firstBottom -= vv.offsetTop || 0;
       taskBottom -= vv.offsetTop || 0;
     }
     var pinH = pin.offsetHeight || (rows.length * 48);
-    var focusedVisible = false;
-    var active = document.activeElement;
-    if (
-      window.RaddleKeyboardAnchor &&
-      active && active.classList &&
-      active.classList.contains('new-raddle-input') &&
-      taskRoot.contains(active) &&
-      active.getAttribute('data-raddle-pin-proxy') !== '1'
-    ) {
-      focusedVisible = window.RaddleKeyboardAnchor.focusedInputIsVisible(
-        active.getBoundingClientRect(),
-        vv,
-        navTop
-      );
-    }
     // Пока первая выделенная строка ушла под шапку и задание ещё на экране.
-    // Если поле, в которое печатаем, видно в visualViewport — пин не нужен:
-    // клавиатура сама скроллит строку к верху и иначе ложно включает пин.
-    // При фокусе в sticky игнорируем только taskBottom: клавиатура сжимает
-    // visualViewport и ложно прячет пин. firstTop по-прежнему снимает пин,
-    // когда реальные строки снова видны под шапкой.
+    // Не смотрим на focusedVisible: клавиатура держит настоящее поле над собой,
+    // а пара уже под шапкой — тогда как раз нужен пин, и в него надо зеркалить ввод.
     var shouldShow = window.RaddleKeyboardAnchor
       ? window.RaddleKeyboardAnchor.shouldShowStickyPin({
           firstTop: firstTop,
+          firstBottom: firstBottom,
+          viewportHeight: viewportHeight,
           taskBottom: taskBottom,
           navTop: navTop,
           pinH: pinH,
           pinHasFocus: raddlePinHasFocus(taskRoot, pin),
-          focusedVisible: focusedVisible,
         })
       : (function () {
-          var underNav = firstTop <= navTop + 0.5;
+          var underNav = firstBottom <= navTop + 0.5;
           var taskStillVisible = taskBottom > navTop + Math.min(pinH, 24);
           return underNav && (taskStillVisible || raddlePinHasFocus(taskRoot, pin));
         })();
     var wasActive = pin.classList.contains('is-active');
     if (shouldShow) {
-      if (!wasActive) syncRaddleStickyPinInputsFromReal(taskRoot, pin);
       pin.classList.add('is-active');
       pin.removeAttribute('hidden');
       pin.setAttribute('aria-hidden', 'false');
+      // Сначала display, потом sync: IMask не рисует value, пока пин display:none.
+      syncRaddleStickyPinInputsFromReal(taskRoot, pin);
+      pin.querySelectorAll('input[data-raddle-pin-proxy="1"]').forEach(function (proxy) {
+        if (window.RaddleMaskedInput && RaddleMaskedInput.refresh) {
+          RaddleMaskedInput.refresh(proxy);
+        }
+      });
       transferRaddleFocusForStickyPin(taskRoot, pin, true);
     } else {
       if (wasActive) transferRaddleFocusForStickyPin(taskRoot, pin, false);
@@ -3248,8 +3264,14 @@
   // A deliberate page gesture means that a later async response must not pull
   // the user back into an input. Native focus can remain untouched while the
   // sticky controller stops treating it as permission to call focus() again.
-  document.addEventListener('touchmove', clearRaddleInputIntent, { passive: true });
-  document.addEventListener('wheel', clearRaddleInputIntent, { passive: true });
+  document.addEventListener('touchmove', function () {
+    clearRaddleInputIntent();
+    cancelRaddleKeyboardAnchorPins();
+  }, { passive: true });
+  document.addEventListener('wheel', function () {
+    clearRaddleInputIntent();
+    cancelRaddleKeyboardAnchorPins();
+  }, { passive: true });
 
   document.addEventListener('focusin', function (e) {
     var input = e.target && e.target.closest ? e.target.closest('input.new-raddle-input') : null;

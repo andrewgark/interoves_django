@@ -31,12 +31,22 @@
 
   function shouldShowStickyPin(opts) {
     opts = opts || {};
-    if (opts.focusedVisible) return false;
     var navTop = opts.navTop || 0;
     var pinH = opts.pinH || 0;
-    var underNav = opts.firstTop <= navTop + 0.5;
+    var firstTop = Number(opts.firstTop);
+    var firstBottom = Number(opts.firstBottom);
+    if (!isFinite(firstBottom) && isFinite(firstTop)) firstBottom = firstTop + 48;
+    var vh = opts.viewportHeight;
+    if (vh == null || !isFinite(Number(vh))) vh = Infinity;
+    else vh = Number(vh);
+    var visibleTop = Math.max(firstTop, navTop);
+    var visibleBottom = Math.min(firstBottom, vh);
+    var visiblePx = visibleBottom - visibleTop;
+    var rowH = Math.max(0, firstBottom - firstTop);
+    var minVisible = Math.min(24, Math.max(8, rowH * 0.5));
+    var pairHidden = !isFinite(firstTop) || visiblePx < minVisible;
     var taskStillVisible = opts.taskBottom > navTop + Math.min(pinH, 24);
-    return underNav && (taskStillVisible || !!opts.pinHasFocus);
+    return pairHidden && (taskStillVisible || !!opts.pinHasFocus);
   }
 
   function pairAlign(refRole) {
@@ -75,6 +85,22 @@
     return pairBottom - (visualBottom - margin);
   }
 
+  function shouldScrollPairOnKeyboardClose(opts) {
+    opts = opts || {};
+    var pairTop = Number(opts.pairTop);
+    var pairBottom = Number(opts.pairBottom);
+    if (!isFinite(pairTop) || !isFinite(pairBottom)) return false;
+    var offset = Number(opts.viewportOffsetTop) || 0;
+    var vh = Number(opts.viewportHeight) || 0;
+    var navTop = Number(opts.navTop) || 0;
+    if (vh <= 0) return false;
+    var visualTop = offset + navTop;
+    var visualBottom = offset + vh;
+    if (pairBottom < visualTop) return false;
+    if (pairTop > visualBottom) return false;
+    return true;
+  }
+
   function closestFrom(el, selector) {
     if (!el) return null;
     if (el.closest) return el.closest(selector);
@@ -103,6 +129,7 @@
     shouldShowStickyPin: shouldShowStickyPin,
     pairAlign: pairAlign,
     scrollDeltaForPair: scrollDeltaForPair,
+    shouldScrollPairOnKeyboardClose: shouldScrollPairOnKeyboardClose,
     isDismissRetarget: isDismissRetarget,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

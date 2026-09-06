@@ -18,34 +18,48 @@ function testFocusedInputIsVisible() {
   assert.strictEqual(A.focusedInputIsVisible({ top: 380, bottom: 428 }, vv, 56), false);
 }
 
-function testStickyPinHiddenWhileTypingInView() {
+function testStickyPinHiddenWhenRowVisibleBelowNav() {
   assert.strictEqual(A.shouldShowStickyPin({
-    firstTop: 40,
+    firstTop: 56,
+    firstBottom: 104,
+    viewportHeight: 400,
     taskBottom: 800,
     navTop: 56,
     pinH: 96,
-    focusedVisible: true,
+  }), false);
+}
+
+function testStickyPinHiddenWhenKeyboardKeepsRowAtTop() {
+  assert.strictEqual(A.shouldShowStickyPin({
+    firstTop: 60,
+    firstBottom: 108,
+    viewportHeight: 360,
+    taskBottom: 800,
+    navTop: 56,
+    pinH: 96,
   }), false);
 }
 
 function testStickyPinShowsWhenPairScrolledUnderNav() {
   assert.strictEqual(A.shouldShowStickyPin({
-    firstTop: 20,
+    firstTop: -40,
+    firstBottom: 8,
+    viewportHeight: 400,
     taskBottom: 800,
     navTop: 56,
     pinH: 96,
-    focusedVisible: false,
   }), true);
 }
 
 function testStickyPinKeepsFocusWhileKeyboardCoversTaskBottom() {
   assert.strictEqual(A.shouldShowStickyPin({
-    firstTop: 20,
+    firstTop: -40,
+    firstBottom: 8,
+    viewportHeight: 400,
     taskBottom: 40,
     navTop: 56,
     pinH: 96,
     pinHasFocus: true,
-    focusedVisible: false,
   }), true);
 }
 
@@ -86,6 +100,36 @@ function testScrollDeltaNearestLeavesFullyVisiblePair() {
     margin: 8,
   });
   assert.strictEqual(delta, 0);
+}
+
+function testKeyboardCloseScrollsVisibleJumpedPair() {
+  assert.strictEqual(A.shouldScrollPairOnKeyboardClose({
+    pairTop: 80,
+    pairBottom: 176,
+    viewportOffsetTop: 0,
+    viewportHeight: 700,
+    navTop: 56,
+  }), true);
+}
+
+function testKeyboardCloseDoesNotYankPairAfterScrollToClues() {
+  assert.strictEqual(A.shouldScrollPairOnKeyboardClose({
+    pairTop: -200,
+    pairBottom: -80,
+    viewportOffsetTop: 0,
+    viewportHeight: 700,
+    navTop: 56,
+  }), false);
+}
+
+function testKeyboardCloseDoesNotYankPairBelowFold() {
+  assert.strictEqual(A.shouldScrollPairOnKeyboardClose({
+    pairTop: 800,
+    pairBottom: 896,
+    viewportOffsetTop: 0,
+    viewportHeight: 700,
+    navTop: 56,
+  }), false);
 }
 
 function testDismissRetargetFromEmptySpace() {
@@ -145,12 +189,16 @@ function testDismissRetargetIgnoresMissingPointerDown() {
 
 testPairAlign();
 testFocusedInputIsVisible();
-testStickyPinHiddenWhileTypingInView();
+testStickyPinHiddenWhenRowVisibleBelowNav();
+testStickyPinHiddenWhenKeyboardKeepsRowAtTop();
 testStickyPinShowsWhenPairScrolledUnderNav();
 testStickyPinKeepsFocusWhileKeyboardCoversTaskBottom();
 testScrollDeltaPinsBottomPairToVisualBottom();
 testScrollDeltaPinsTopPairUnderNav();
 testScrollDeltaNearestLeavesFullyVisiblePair();
+testKeyboardCloseScrollsVisibleJumpedPair();
+testKeyboardCloseDoesNotYankPairAfterScrollToClues();
+testKeyboardCloseDoesNotYankPairBelowFold();
 testDismissRetargetFromEmptySpace();
 testDismissRetargetAllowsExplicitRowTap();
 testDismissRetargetAllowsSwitchingToAnotherWord();
