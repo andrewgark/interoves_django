@@ -2265,6 +2265,163 @@ class ClubSubscriptionEvent(models.Model):
         return 'Club webhook {} ({})'.format(self.event_name, self.result)
 
 
+class NextGameVoteGoalMapping(models.Model):
+    """donation_request_id → candidate for the September 2026 next-game vote."""
+
+    CANDIDATE_REDACTLE = 'redactle'
+    CANDIDATE_CRYPTIC = 'cryptic'
+    CANDIDATE_LOGIC = 'logic'
+    CANDIDATE_CHOICES = (
+        (CANDIDATE_REDACTLE, 'Redactle'),
+        (CANDIDATE_CRYPTIC, 'Криптик'),
+        (CANDIDATE_LOGIC, 'Логические пазлы'),
+    )
+
+    candidate = models.CharField(max_length=32, unique=True, choices=CANDIDATE_CHOICES)
+    donation_request_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    web_url = models.URLField(max_length=500, blank=True, default='')
+    note = models.CharField(max_length=255, blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'голос: цель Tribute'
+        verbose_name_plural = 'голос: цели Tribute'
+        ordering = ['candidate']
+
+    def __str__(self):
+        return '{} → {}'.format(self.get_candidate_display(), self.donation_request_id or '—')
+
+
+class NextGameVoteEvent(models.Model):
+    """One Tribute donation webhook (or ignored sibling event) for the next-game vote."""
+
+    CANDIDATE_CHOICES = NextGameVoteGoalMapping.CANDIDATE_CHOICES
+
+    RESULT_COUNTED = 'counted'
+    RESULT_DUPLICATE = 'duplicate'
+    RESULT_UNMAPPED = 'unmapped'
+    RESULT_OUTSIDE_PERIOD = 'outside_period'
+    RESULT_IGNORED_EVENT = 'ignored_event'
+    RESULT_UNKNOWN_CURRENCY = 'unknown_currency'
+    RESULT_MALFORMED = 'malformed'
+    RESULT_CHOICES = (
+        (RESULT_COUNTED, 'Учтён'),
+        (RESULT_DUPLICATE, 'Повтор'),
+        (RESULT_UNMAPPED, 'Без кандидата'),
+        (RESULT_OUTSIDE_PERIOD, 'Вне периода'),
+        (RESULT_IGNORED_EVENT, 'Игнорирован'),
+        (RESULT_UNKNOWN_CURRENCY, 'Неизвестная валюта'),
+        (RESULT_MALFORMED, 'Некорректный payload'),
+    )
+
+    idempotency_key = models.CharField(max_length=255, unique=True, db_index=True)
+    event_name = models.CharField(max_length=64, db_index=True)
+    donation_request_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    tribute_donation_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    candidate = models.CharField(max_length=32, blank=True, default='', choices=CANDIDATE_CHOICES, db_index=True)
+    original_amount_minor = models.BigIntegerField(blank=True, null=True)
+    original_currency = models.CharField(max_length=3, blank=True, default='')
+    fx_rate_to_eur = models.DecimalField(max_digits=20, decimal_places=10, blank=True, null=True)
+    normalized_amount_eur_cents = models.BigIntegerField(default=0)
+    donation_created_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    period = models.CharField(max_length=32, blank=True, default='')
+    telegram_user_id = models.BigIntegerField(blank=True, null=True, db_index=True)
+    trb_user_id = models.CharField(max_length=128, blank=True, default='')
+    result = models.CharField(max_length=32, choices=RESULT_CHOICES, db_index=True)
+    include_in_scoreboard = models.BooleanField(default=False, db_index=True)
+    excluded = models.BooleanField(default=False, db_index=True)
+    excluded_reason = models.TextField(blank=True, default='')
+    excluded_by = models.ForeignKey(
+        'auth.User',
+        related_name='next_game_vote_exclusions',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    excluded_at = models.DateTimeField(blank=True, null=True)
+    raw_payload = models.JSONField(default=dict, blank=True)
+    payload_excerpt = models.JSONField(default=dict, blank=True)
+    matched_user = models.ForeignKey(
+        'auth.User',
+        related_name='next_game_vote_events',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    analytics_goal_queued_at = models.DateTimeField(blank=True, null=True)
+    analytics_goal_sent_at = models.DateTimeField(blank=True, null=True)
+    received_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'голос: Tribute webhook'
+        verbose_name_plural = 'голос: Tribute webhooks'
+        ordering = ['-received_at']
+
+    def __str__(self):
+        return 'Vote webhook {} ({})'.format(self.event_name, self.result)
+
+
+class NextGameVoteAdjustment(models.Model):
+    """Manual correction stored separately from Tribute payments."""
+
+    CANDIDATE_CHOICES = NextGameVoteGoalMapping.CANDIDATE_CHOICES
+
+    candidate = models.CharField(max_length=32, choices=CANDIDATE_CHOICES, db_index=True)
+    amount_eur_cents = models.BigIntegerField(help_text='Корректировка в евроцентах; может быть отрицательной')
+    comment = models.TextField()
+    created_by = models.ForeignKey(
+        'auth.User',
+        related_name='next_game_vote_adjustments',
+        blank=True,
+        null=True,
+        on_delete=models.PROTECT,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'голос: ручная корректировка'
+        verbose_name_plural = 'голос: ручные корректировки'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return '{} {:+d} ¢'.format(self.candidate, self.amount_eur_cents)
+
+
+class NextGameVoteCampaignState(models.Model):
+    """Singleton official snapshot for the September 2026 next-game vote."""
+
+    FREEZE_DEADLINE = 'deadline'
+    FREEZE_MANUAL = 'manual'
+    FREEZE_CHOICES = (
+        (FREEZE_DEADLINE, 'Дедлайн'),
+        (FREEZE_MANUAL, 'Вручную'),
+    )
+
+    frozen_at = models.DateTimeField(blank=True, null=True)
+    frozen_by = models.ForeignKey(
+        'auth.User',
+        related_name='next_game_vote_freezes',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    freeze_reason = models.CharField(max_length=16, blank=True, default='', choices=FREEZE_CHOICES)
+    snapshot = models.JSONField(default=dict, blank=True)
+    winner_slug = models.CharField(max_length=32, blank=True, default='')
+    is_tie = models.BooleanField(default=False)
+    mapping_blocker = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'голос: состояние кампании'
+        verbose_name_plural = 'голос: состояние кампании'
+
+    def __str__(self):
+        if self.frozen_at:
+            return 'Next-game vote frozen at {}'.format(self.frozen_at)
+        return 'Next-game vote open'
+
+
 def _donation_public_token():
     import secrets
     return secrets.token_urlsafe(32)

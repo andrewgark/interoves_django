@@ -830,6 +830,33 @@ TRIBUTE_CLUB_SUBSCRIPTION_USD_AMOUNT = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTIO
 TRIBUTE_CLUB_SUBSCRIPTION_USD_CURRENCY = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_USD_CURRENCY') or 'USD').strip()
 TRIBUTE_CLUB_MANAGEMENT_URL = (os.environ.get('TRIBUTE_CLUB_MANAGEMENT_URL') or '').strip()
 
+# One-off next-game donation vote (7–27 Sep 2026). Three Tribute Goals.
+# Public Telegram Mini App links; donation_request_id is filled after webhooks.
+TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL = (
+    os.environ.get('TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL')
+    or 'https://t.me/tribute/app?startapp=g68Y'
+).strip()
+TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID = (
+    os.environ.get('TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID') or ''
+).strip()
+TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL = (
+    os.environ.get('TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL')
+    or 'https://t.me/tribute/app?startapp=g68Z'
+).strip()
+TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID = (
+    os.environ.get('TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID') or ''
+).strip()
+TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL = (
+    os.environ.get('TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL')
+    or 'https://t.me/tribute/app?startapp=g690'
+).strip()
+TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID = (
+    os.environ.get('TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID') or ''
+).strip()
+# Frozen campaign FX (€1 = 100 ₽, €1 = $1.16). Override only in tests.
+NEXT_GAME_VOTE_RUB_PER_EUR = (os.environ.get('NEXT_GAME_VOTE_RUB_PER_EUR') or '').strip()
+NEXT_GAME_VOTE_USD_PER_EUR = (os.environ.get('NEXT_GAME_VOTE_USD_PER_EUR') or '').strip()
+
 # X / Twitter (@interoves) — OAuth 1.0a user tokens for ladder channel cron tweets.
 TWITTER_API_KEY = load_secret('twitter_api_key.txt', env_var='TWITTER_API_KEY', default='')
 TWITTER_API_SECRET = load_secret('twitter_api_secret.txt', env_var='TWITTER_API_SECRET', default='')

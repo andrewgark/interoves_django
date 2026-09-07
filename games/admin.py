@@ -72,6 +72,10 @@ from games.models import (
     TributePurchase,
     ClubSubscription,
     ClubSubscriptionEvent,
+    NextGameVoteAdjustment,
+    NextGameVoteCampaignState,
+    NextGameVoteEvent,
+    NextGameVoteGoalMapping,
 )
 from games.recheck import (
     recheck_chain_task,
@@ -597,8 +601,259 @@ class ClubSubscriptionEventAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+
+class EuroAmountField(forms.DecimalField):
+    def to_python(self, value):
+        if isinstance(value, str):
+            value = value.strip().replace('\xa0', '').replace(' ', '').replace(',', '.')
+        return super().to_python(value)
+
+
+class NextGameVoteAdjustmentForm(ModelForm):
+    amount_eur = EuroAmountField(
+        label='Дельта, €',
+        max_digits=12,
+        decimal_places=2,
+        help_text='На сколько сдвинуть шкалу этого кандидата. Плюс добавляет, минус убавляет. Платежи Tribute не переписываются.',
+    )
+
+    class Meta:
+        model = NextGameVoteAdjustment
+        fields = ('candidate', 'comment')
+
+    def save(self, commit=True):
+        from games.next_game_vote import eur_major_to_cents
+
+        obj = super().save(commit=False)
+        obj.amount_eur_cents = eur_major_to_cents(self.cleaned_data['amount_eur'])
+        if commit:
+            obj.save()
+        return obj
+
+
+class NextGameVoteScaleForm(forms.Form):
+    redactle = EuroAmountField(label='Redactle, €', min_value=0, max_digits=12, decimal_places=2)
+    cryptic = EuroAmountField(label='Криптик, €', min_value=0, max_digits=12, decimal_places=2)
+    logic = EuroAmountField(label='Логические пазлы, €', min_value=0, max_digits=12, decimal_places=2)
+    comment = forms.CharField(
+        label='Почему меняем',
+        widget=forms.Textarea(attrs={'rows': 3}),
+        help_text='Обязательно. Например: «в Tribute у Redactle €25, вебхук не дошёл».',
+    )
+
+    def cleaned_totals_eur_cents(self):
+        from games.next_game_vote import CANDIDATE_CRYPTIC, CANDIDATE_LOGIC, CANDIDATE_REDACTLE, eur_major_to_cents
+
+        return {
+            CANDIDATE_REDACTLE: eur_major_to_cents(self.cleaned_data['redactle']),
+            CANDIDATE_CRYPTIC: eur_major_to_cents(self.cleaned_data['cryptic']),
+            CANDIDATE_LOGIC: eur_major_to_cents(self.cleaned_data['logic']),
+        }
+
+
+@admin.register(NextGameVoteGoalMapping)
+class NextGameVoteGoalMappingAdmin(admin.ModelAdmin):
+    list_display = ('candidate', 'donation_request_id', 'web_url', 'updated_at')
+    search_fields = ('donation_request_id', 'web_url', 'note')
+
+
+@admin.register(NextGameVoteEvent)
+class NextGameVoteEventAdmin(admin.ModelAdmin):
+    list_display = (
+        'received_at', 'event_name', 'candidate', 'result',
+        'normalized_amount_eur_cents', 'original_currency', 'original_amount_minor',
+        'include_in_scoreboard', 'excluded', 'donation_request_id',
+    )
+    list_filter = ('event_name', 'result', 'candidate', 'excluded', 'include_in_scoreboard', 'original_currency')
+    search_fields = ('idempotency_key', 'donation_request_id', 'tribute_donation_id', 'telegram_user_id')
+    raw_id_fields = ('excluded_by', 'matched_user')
+    readonly_fields = (
+        'idempotency_key', 'event_name', 'donation_request_id', 'tribute_donation_id',
+        'candidate', 'original_amount_minor', 'original_currency', 'fx_rate_to_eur',
+        'normalized_amount_eur_cents', 'donation_created_at', 'period',
+        'telegram_user_id', 'trb_user_id', 'result', 'raw_payload', 'payload_excerpt',
+        'matched_user', 'analytics_goal_queued_at', 'analytics_goal_sent_at', 'received_at',
+        'excluded_by', 'excluded_at', 'include_in_scoreboard',
+    )
+    actions = ('exclude_from_scoreboard', 'remap_unmapped')
+    date_hierarchy = 'received_at'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def save_model(self, request, obj, form, change):
+        if obj.excluded:
+            obj.include_in_scoreboard = False
+            if obj.excluded_at is None:
+                obj.excluded_at = timezone.now()
+                obj.excluded_by = request.user
+        super().save_model(request, obj, form, change)
+        from games.next_game_vote import campaign_state, refresh_snapshot
+
+        if campaign_state().frozen_at is not None:
+            refresh_snapshot()
+
+    def exclude_from_scoreboard(self, request, queryset):
+        from games.next_game_vote import exclude_event
+
+        count = 0
+        for event in queryset:
+            if event.excluded:
+                continue
+            exclude_event(event, user=request.user, reason='Excluded from Django admin')
+            count += 1
+        self.message_user(request, 'Исключено записей: {}'.format(count))
+    exclude_from_scoreboard.short_description = 'Исключить из официального результата'
+
+    def remap_unmapped(self, request, queryset):
+        from games.next_game_vote import remap_unmapped_events
+
+        updated = remap_unmapped_events()
+        self.message_user(request, 'Перепривязано событий: {}'.format(updated))
+    remap_unmapped.short_description = 'Проставить кандидатов по donation_request_id'
+
+
+@admin.register(NextGameVoteAdjustment)
+class NextGameVoteAdjustmentAdmin(admin.ModelAdmin):
+    form = NextGameVoteAdjustmentForm
+    list_display = ('created_at', 'candidate', 'amount_eur_display', 'created_by', 'comment_excerpt')
+    list_filter = ('candidate',)
+    search_fields = ('comment',)
+    raw_id_fields = ('created_by',)
+    readonly_fields = ('created_at', 'amount_eur_cents')
+    fields = ('candidate', 'amount_eur', 'comment', 'created_by', 'created_at', 'amount_eur_cents')
+
     def has_change_permission(self, request, obj=None):
         return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def amount_eur_display(self, obj):
+        from games.next_game_vote import format_eur_cents
+
+        return format_eur_cents(obj.amount_eur_cents)
+    amount_eur_display.short_description = 'Сумма'
+
+    def comment_excerpt(self, obj):
+        text = (obj.comment or '').strip()
+        if len(text) <= 72:
+            return text
+        return text[:69] + '…'
+    comment_excerpt.short_description = 'Комментарий'
+
+    def save_model(self, request, obj, form, change):
+        if not obj.created_by_id:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+        from games.next_game_vote import campaign_state, refresh_snapshot
+
+        if campaign_state().frozen_at is not None:
+            refresh_snapshot()
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = dict(extra_context or {})
+        extra_context['scale_url'] = reverse(
+            'admin:games_nextgamevotecampaignstate_change',
+            args=[1],
+        )
+        return super().changelist_view(request, extra_context=extra_context)
+
+
+@admin.register(NextGameVoteCampaignState)
+class NextGameVoteCampaignStateAdmin(admin.ModelAdmin):
+    change_form_template = 'admin/games/nextgamevotecampaignstate/change_form.html'
+    list_display = ('frozen_at', 'freeze_reason', 'winner_slug', 'is_tie', 'mapping_blocker', 'updated_at')
+    readonly_fields = (
+        'frozen_at', 'frozen_by', 'freeze_reason', 'snapshot',
+        'winner_slug', 'is_tie', 'mapping_blocker', 'updated_at',
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        from games.next_game_vote import CAMPAIGN_STATE_PK, campaign_state
+
+        campaign_state()
+        return HttpResponseRedirect(
+            reverse('admin:games_nextgamevotecampaignstate_change', args=[CAMPAIGN_STATE_PK])
+        )
+
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
+        from games.next_game_vote import (
+            CAMPAIGN_STATE_PK,
+            CANDIDATE_SLUGS,
+            VotePayloadError,
+            campaign_state,
+            cents_to_eur_major,
+            freeze_manually,
+            score_breakdown,
+            set_candidate_totals,
+        )
+
+        campaign_state()
+        if str(object_id) != str(CAMPAIGN_STATE_PK):
+            return HttpResponseRedirect(
+                reverse('admin:games_nextgamevotecampaignstate_change', args=[CAMPAIGN_STATE_PK])
+            )
+        if not self.has_change_permission(request):
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied
+
+        breakdown = score_breakdown()
+        if request.method == 'POST' and request.POST.get('operation') == 'freeze':
+            freeze_manually(user=request.user)
+            self.message_user(request, 'Голосование зафиксировано вручную.')
+            return HttpResponseRedirect(request.path)
+        if request.method == 'POST':
+            form = NextGameVoteScaleForm(request.POST)
+            if form.is_valid():
+                try:
+                    created = set_candidate_totals(
+                        totals_eur_cents=form.cleaned_totals_eur_cents(),
+                        comment=form.cleaned_data['comment'],
+                        user=request.user,
+                    )
+                except VotePayloadError as exc:
+                    form.add_error(None, str(exc))
+                else:
+                    if created:
+                        self.message_user(
+                            request,
+                            'Шкала обновлена. Записано корректировок: {}.'.format(len(created)),
+                        )
+                    else:
+                        self.message_user(request, 'Суммы уже такие — ничего не изменилось.')
+                    return HttpResponseRedirect(request.path)
+        else:
+            initial = {slug: cents_to_eur_major(breakdown['live'][slug]) for slug in CANDIDATE_SLUGS}
+            form = NextGameVoteScaleForm(initial=initial)
+
+        context = {
+            **self.admin_site.each_context(request),
+            **(extra_context or {}),
+            'opts': self.model._meta,
+            'original': campaign_state(),
+            'title': 'Шкала голосования за следующую игру',
+            'form': form,
+            'breakdown': breakdown['rows'],
+            'state': campaign_state(),
+            'adjustments_url': reverse('admin:games_nextgamevoteadjustment_changelist'),
+            'has_view_permission': self.has_view_permission(request),
+            'has_change_permission': self.has_change_permission(request),
+        }
+        return TemplateResponse(
+            request,
+            self.change_form_template,
+            context,
+        )
 
 
 @admin.register(Donation)

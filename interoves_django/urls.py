@@ -26,6 +26,7 @@ from games.views.health import live as health_live
 from games.views.analytics_views import analytics_goal_ack
 from games.views.ticket import nowpayments_ipn, tribute_webhook, yookassa_webhook
 from games.views.order_game_landing import order_game_landing
+from games.views.next_game_vote import next_game_vote_page
 from games.views.instagram_feed import instagram_feed, ladder_teaser_jpg
 from games.social.views import social_queue_instagram_jpg
 from games.telegram.urls import urlpatterns as telegram_urlpatterns
@@ -96,6 +97,7 @@ urlpatterns = [
     path('about/', TemplateView.as_view(template_name='new/about.html'), name='about'),
     path('vpn/', TemplateView.as_view(template_name="new/pigeon_vpn.html"), name='pigeon_vpn'),
     path('donate/', ui_views.donate_page, name='donate'),
+    path('vote/next-game/', next_game_vote_page, name='next_game_vote'),
     path('donate/create-crypto-payment/', ui_views.create_crypto_donation, name='donate_create_crypto'),
     path('donate/status/<str:public_token>/', ui_views.donation_status, name='donate_status'),
     path('instagram/', instagram_feed, name='instagram_feed'),

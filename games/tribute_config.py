@@ -256,3 +256,43 @@ def club_management_url() -> str:
         if parsed.scheme == 'https' and (parsed.hostname or '').lower() in CLUB_URL_HOSTS:
             return configured
     return TRIBUTE_MANAGEMENT_BOT_URL
+
+
+VOTE_GOAL_URL_HOSTS = CLUB_URL_HOSTS
+_VOTE_URL_SETTINGS = (
+    'TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL',
+    'TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL',
+    'TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL',
+)
+_VOTE_ID_SETTINGS = (
+    'TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID',
+    'TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID',
+    'TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID',
+)
+
+
+def next_game_vote_configuration_errors() -> list[str]:
+    errors = []
+    urls = []
+    for name in _VOTE_URL_SETTINGS:
+        raw = str(getattr(settings, name, '') or '').strip()
+        if not raw:
+            continue
+        parsed = urlparse(raw)
+        host = (parsed.hostname or '').lower()
+        if parsed.scheme != 'https' or host not in VOTE_GOAL_URL_HOSTS or parsed.path in ('', '/'):
+            errors.append(
+                '{} must be an https Tribute Goal link (web.tribute.tg, tribute.tg, or t.me)'.format(name)
+            )
+        else:
+            urls.append(raw)
+    if len(urls) == 3 and len(set(urls)) < 3:
+        errors.append('Next-game vote Tribute Goal URLs must be distinct')
+    ids = [
+        str(getattr(settings, name, '') or '').strip()
+        for name in _VOTE_ID_SETTINGS
+        if str(getattr(settings, name, '') or '').strip()
+    ]
+    if len(ids) == 3 and len(set(ids)) < 3:
+        errors.append('Next-game vote donation_request_id values must be distinct')
+    return errors

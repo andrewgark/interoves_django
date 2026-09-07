@@ -36,6 +36,10 @@ YANDEX_GOAL_SUBSCRIPTION_CHECKOUT = 'subscription_checkout_start'
 YANDEX_GOAL_SUBSCRIPTION_PAYMENT = 'subscription_payment_success'
 YANDEX_GOAL_SUBSCRIPTION_RENEWAL = 'subscription_renewal_success'
 YANDEX_GOAL_SUBSCRIPTION_CANCELLED = 'subscription_cancelled'
+YANDEX_GOAL_NEXT_GAME_VOTE_VIEW = 'next_game_vote_view'
+YANDEX_GOAL_NEXT_GAME_VOTE_CLICK = 'next_game_vote_click'
+YANDEX_GOAL_NEXT_GAME_VOTE_RETURN = 'next_game_vote_tribute_return'
+YANDEX_GOAL_NEXT_GAME_VOTE_PAYMENT = 'next_game_vote_payment'
 
 SESSION_KEY_PENDING_GOALS = 'interoves_pending_yandex_goals'
 ANALYTICS_ACK_SIGNING_SALT = 'games.analytics.goal-ack.v1'
@@ -386,6 +390,45 @@ def _subscription_goal_payload(subscription, kind):
     )
 
 
+def next_game_vote_payment_goal_payload(event):
+    if event is None or event.analytics_goal_queued_at is None or event.analytics_goal_sent_at is not None:
+        return None
+    if not event.candidate or not event.include_in_scoreboard:
+        return None
+    from decimal import Decimal
+
+    amount = (Decimal(event.normalized_amount_eur_cents) / Decimal(100)).quantize(Decimal('0.01'))
+    return yandex_goal_payload(
+        YANDEX_GOAL_NEXT_GAME_VOTE_PAYMENT,
+        params={
+            'candidate': event.candidate,
+            'currency': (event.original_currency or '').lower(),
+            'normalized_amount_eur': str(amount),
+        },
+        key='{}:{}'.format(YANDEX_GOAL_NEXT_GAME_VOTE_PAYMENT, event.pk),
+        ack=analytics_ack_payload(YANDEX_GOAL_NEXT_GAME_VOTE_PAYMENT, event.pk),
+    )
+
+
+def pending_next_game_vote_payment_goals(user, limit=20):
+    """Fire payment goals only for the matched Inter Oves account, never with Telegram IDs."""
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return []
+    from games.models import NextGameVoteEvent
+
+    events = (
+        NextGameVoteEvent.objects.filter(
+            matched_user=user,
+            include_in_scoreboard=True,
+            excluded=False,
+            analytics_goal_queued_at__isnull=False,
+            analytics_goal_sent_at__isnull=True,
+        )
+        .order_by('analytics_goal_queued_at', 'pk')[:limit]
+    )
+    return [payload for payload in map(next_game_vote_payment_goal_payload, events) if payload]
+
+
 def pending_subscription_goals(user):
     if user is None or not getattr(user, 'is_authenticated', False):
         return []
@@ -556,6 +599,14 @@ def acknowledge_analytics_goal(token):
         rows = ClubSubscription.objects.filter(pk=record_id)
         updated = rows.filter(**{'{}__isnull'.format(field): True}).update(
             **{field: timezone.now()}
+        )
+        return bool(updated or rows.exists())
+    if kind == YANDEX_GOAL_NEXT_GAME_VOTE_PAYMENT:
+        from games.models import NextGameVoteEvent
+
+        rows = NextGameVoteEvent.objects.filter(pk=record_id)
+        updated = rows.filter(analytics_goal_sent_at__isnull=True).update(
+            analytics_goal_sent_at=timezone.now(),
         )
         return bool(updated or rows.exists())
     return False

@@ -205,6 +205,15 @@ class OnboardingPageTests(TestCase):
         self.assertIn('>Командные игры</h2>', body)
         self.assertLess(body.index('id="hub-daily-heading"'), body.index('id="hub-team-heading"'))
         self.assertLess(body.index('id="hub-team-heading"'), body.index('id="desyatochki-heading"'))
+        self.assertIn('Выбираем донатами, какую игру добавить следующей', body)
+        self.assertLess(
+            body.index('id="hub-daily-heading"'),
+            body.index('Выбираем донатами, какую игру добавить следующей'),
+        )
+        self.assertLess(
+            body.index('Выбираем донатами, какую игру добавить следующей'),
+            body.index('id="hub-team-heading"'),
+        )
         self.assertLess(body.index('hub-section-salad'), body.index('hub-section-alphabetty'))
         self.assertLess(body.index('hub-section-alphabetty'), body.index('hub-section-ladder'))
         self.assertNotIn('new-hub-section--recommended', body)

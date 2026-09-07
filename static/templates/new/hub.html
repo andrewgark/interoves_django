@@ -25,6 +25,12 @@
 </section>
 {% endif %}
 
+{% if show_next_game_vote_cta %}
+<p class="new-hub-next-game-vote">
+  <a class="new-btn new-btn--yellow new-hub-next-game-vote__btn" href="{% url 'next_game_vote' %}">Выбираем донатами, какую игру добавить следующей</a>
+</p>
+{% endif %}
+
 {% if desyatochki_card %}
 <h2 id="hub-team-heading" class="new-heading new-hub-group__title">Командные игры</h2>
 <section class="new-hub-section new-hub-section--wide{% if desyatochki_card.is_today %} new-hub-section--today{% endif %}" aria-labelledby="desyatochki-heading">

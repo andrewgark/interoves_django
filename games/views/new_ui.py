@@ -61,6 +61,7 @@ from games.ladder_daily import (
     get_ladder_hub_context,
     is_ladder_number_published,
 )
+from games.next_game_vote import PHASE_CLOSED, campaign_phase
 from games.week_task_weekly import WEEK_TASK_GAME_ID
 from games.ladder_word_results import (
     build_ladder_word_results_context,
@@ -1206,6 +1207,7 @@ def new_hub(request):
             {'kind': 'vpn', 'title': 'VPN от наших друзей', 'href': '/vpn/'},
         ],
         'show_donate_cta': True,
+        'show_next_game_vote_cta': campaign_phase() != PHASE_CLOSED,
         **_project_urls_context(NEW_UI_PROJECT),
     })
 

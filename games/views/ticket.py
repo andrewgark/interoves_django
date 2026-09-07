@@ -487,6 +487,17 @@ def tribute_webhook(request):
             return HttpResponse(status=400)
         return HttpResponse(status=200)
 
+    from games.next_game_vote import DONATION_EVENTS, VotePayloadError, maybe_process_tribute_donation
+
+    if event_name in DONATION_EVENTS:
+        logger.info('tribute_webhook_received event=%s', event_name)
+        try:
+            maybe_process_tribute_donation(event_json)
+        except VotePayloadError as exc:
+            logger.warning('tribute_webhook malformed event=%s error=%s', event_name, exc)
+            return HttpResponse(status=400)
+        return HttpResponse(status=200)
+
     if not isinstance(payload, dict):
         payload = {}
 

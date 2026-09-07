@@ -1,0 +1,366 @@
+/* Next-game vote — event page on top of new-UI tokens. */
+.vote-page {
+  min-width: 0;
+}
+
+.vote-hero {
+  margin-bottom: 1.75rem;
+}
+
+.vote-hero__kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.vote-hero__title {
+  margin-bottom: 0.75rem;
+}
+
+.vote-hero__lead {
+  margin: 0 0 1rem;
+  font-size: 1.02rem;
+  line-height: 1.55;
+  color: var(--text);
+  overflow-wrap: break-word;
+}
+
+.vote-countdown,
+.vote-status {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--card-radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.vote-status--done {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.vote-status__winner {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0.35rem 0;
+}
+
+.vote-how {
+  margin: 1.5rem 0 0;
+  max-width: 42rem;
+}
+
+.vote-how__title {
+  margin: 0 0 0.55rem;
+  font-size: 1.15rem;
+}
+
+.vote-how p {
+  margin: 0 0 0.7rem;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+
+.vote-how__note {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.vote-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin: 0 0 1.5rem;
+  min-width: 0;
+}
+
+/* Desktop: three equal cards in one row. Must match --new-break-wide. */
+@media (min-width: 920px) {
+  .vote-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+
+.vote-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1.15rem 1rem 1.2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+}
+
+.vote-card--redactle {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, #3b6ea5 65%, var(--border));
+}
+
+.vote-card--cryptic {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--warning) 80%, var(--border));
+}
+
+.vote-card--logic {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 70%, var(--border));
+}
+
+.vote-card.is-leader,
+.vote-card.is-tied {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.vote-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.4rem 0.6rem;
+  min-width: 0;
+}
+
+.vote-card__name {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.vote-card__badge {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.vote-card__badge--winner {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+}
+
+.vote-card__tag {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.vote-card__body {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+.vote-preview {
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: color-mix(in srgb, var(--tile) 45%, var(--surface));
+  padding: 0.7rem 0.75rem;
+  min-width: 0;
+}
+
+.vote-preview--redactle p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.vote-mask {
+  display: inline-block;
+  width: calc(var(--ch, 4) * 0.52em + 0.12em);
+  height: 0.78em;
+  margin: 0 0.04em;
+  vertical-align: -0.08em;
+  border-radius: 2px;
+  background: var(--text);
+  opacity: 0.72;
+}
+
+.vote-preview__clue {
+  margin: 0 0 0.55rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.vote-preview__len {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.vote-preview__boxes {
+  display: flex;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.vote-preview__boxes span {
+  flex: 1 1 0;
+  min-width: 0;
+  aspect-ratio: 1;
+  max-width: 1.7rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+}
+
+.vote-grid-demo {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  width: min(100%, 10.5rem);
+}
+
+.vote-grid-demo span {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.vote-grid-demo .is-num {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+}
+
+.vote-card__score {
+  margin-top: auto;
+  min-width: 0;
+}
+
+.vote-card__amount {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.vote-card__share {
+  margin: 0.15rem 0 0.45rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.vote-bar {
+  display: block;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--tile);
+  overflow: hidden;
+}
+
+.vote-bar__fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.vote-card--redactle .vote-bar__fill {
+  background: #3b6ea5;
+}
+
+.vote-card--cryptic .vote-bar__fill {
+  background: var(--warning);
+}
+
+.vote-card--logic .vote-bar__fill {
+  background: var(--accent);
+}
+
+a.new-btn.vote-card__cta,
+a.new-btn.vote-card__origin,
+button.new-btn.vote-card__cta {
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+}
+
+a.new-btn.vote-card__origin {
+  min-height: var(--btn-height-mini);
+}
+
+.vote-card__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.vote-standings {
+  max-width: none;
+  margin: 0 0 1.25rem;
+}
+
+.vote-standings__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+.vote-standings__zero {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+}
+
+.vote-standings__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.vote-standings__list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "name amount pct"
+    "bar bar bar";
+  gap: 0.2rem 0.75rem;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.vote-standings__name {
+  grid-area: name;
+  font-weight: 650;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.vote-standings__amount {
+  grid-area: amount;
+  font-variant-numeric: tabular-nums;
+}
+
+.vote-standings__pct {
+  grid-area: pct;
+  color: var(--muted);
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.vote-bar--row {
+  grid-area: bar;
+}
+
+.vote-standings__total,
+.vote-standings__until {
+  margin: 0.7rem 0 0;
+}
+
+.vote-standings__until {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+html.new-ui-dark .vote-mask {
+  opacity: 0.85;
+}

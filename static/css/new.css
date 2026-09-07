@@ -6026,6 +6026,25 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   margin: 1.25rem 0 0;
 }
 
+.new-hub-next-game-vote {
+  margin: -0.25rem 0 1.5rem;
+}
+
+a.new-btn.new-hub-next-game-vote__btn {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  white-space: normal;
+  justify-content: center;
+  align-items: center;
+  min-height: var(--btn-height-mini);
+  height: auto;
+  padding: 0.4rem 0.85rem;
+  font-size: var(--btn-font-mini);
+  line-height: 1.25;
+  font-weight: 600;
+}
+
 .new-modal-lead {
   margin: 0.5rem 0 0;
 }

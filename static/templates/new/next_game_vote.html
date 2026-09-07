@@ -1,0 +1,200 @@
+{% extends "new/base.html" %}
+{% load static %}
+
+{% block title %}Какую игру сделать следующей?{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <meta name="description" content="Redactle, русский криптик или логические пазлы? Поддержите любимый вариант донатом — победителя запустим в октябре.">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="Inter Oves">
+  <meta property="og:title" content="Какую игру сделать следующей? — Inter Oves">
+  <meta property="og:description" content="Redactle, русский криптик или логические пазлы? Поддержите любимый вариант донатом — победителя запустим в октябре.">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:image" content="{{ og_image_url }}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Какую игру сделать следующей? — Inter Oves">
+  <meta name="twitter:description" content="Redactle, русский криптик или логические пазлы? Поддержите любимый вариант донатом — победителя запустим в октябре.">
+  <meta name="twitter:image" content="{{ og_image_url }}">
+  <link rel="stylesheet" href="{% static 'css/next_game_vote.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+{% endblock %}
+
+{% block content %}
+<article class="vote-page" data-vote-page data-vote-phase="{{ board.phase }}" data-vote-deadline="{{ board.deadline_iso }}">
+  <p class="new-tg-back">
+    <a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back">
+      <i class="ph ph-arrow-left" aria-hidden="true"></i> Игры
+    </a>
+  </p>
+
+  <header class="vote-hero">
+    <p class="vote-hero__kicker">Следующая ежедневная игра</p>
+    <h1 class="new-heading new-heading--page vote-hero__title">Выберите следующую игру</h1>
+    <p class="vote-hero__lead">
+      Голосуйте донатом. Игра, которая соберёт больше всего поддержки до конца 27 сентября, станет следующей ежедневной игрой Inter Oves. Запустим её в октябре.
+    </p>
+
+    {% if board.phase == 'live' %}
+      <p class="vote-countdown" data-vote-countdown>
+        До конца голосования: <strong data-vote-countdown-value>считаем…</strong>
+      </p>
+    {% elif board.phase == 'upcoming' %}
+      <p class="vote-status">Голосование начнётся 7 сентября</p>
+    {% else %}
+      <div class="vote-status vote-status--done">
+        <p>Голосование завершено</p>
+        {% if board.winner %}
+          <p class="vote-status__winner">Победитель — {{ board.winner.name }}</p>
+          <p>Спасибо! Эту игру запускаем в октябре.</p>
+        {% elif board.is_tie %}
+          <p class="vote-status__winner">Первое место поделено</p>
+          <p>Решение по запуску примем вручную.</p>
+        {% else %}
+          <p>Официальных голосов не было.</p>
+        {% endif %}
+      </div>
+    {% endif %}
+  </header>
+
+  <section class="vote-grid" aria-label="Кандидаты">
+    {% for candidate in candidates %}
+      <article
+        class="vote-card vote-card--{{ candidate.slug }}{% if candidate.is_leader %} is-leader{% endif %}{% if candidate.is_tied_leader %} is-tied{% endif %}"
+        data-vote-candidate="{{ candidate.slug }}"
+      >
+        <div class="vote-card__head">
+          <h2 class="vote-card__name">{{ candidate.name }}</h2>
+          {% if candidate.is_leader and board.phase == 'live' %}
+            <span class="new-pill vote-card__badge">Сейчас лидирует</span>
+          {% elif candidate.is_tied_leader and board.phase == 'live' %}
+            <span class="new-pill vote-card__badge">Делят первое место</span>
+          {% elif candidate.is_leader and board.phase == 'closed' %}
+            <span class="new-pill vote-card__badge vote-card__badge--winner">Победитель</span>
+          {% elif candidate.is_tied_leader and board.phase == 'closed' %}
+            <span class="new-pill vote-card__badge">Делят первое место</span>
+          {% endif %}
+        </div>
+        <p class="vote-card__tag">{{ candidate.tag }}</p>
+
+        {% if candidate.preview == 'redactle' %}
+          <div class="vote-preview vote-preview--redactle" aria-hidden="true">
+            <p><span class="vote-mask" style="--ch:4"></span> (<span class="vote-mask" style="--ch:4"></span>. <span class="vote-mask" style="--ch:6"></span>, <span class="vote-mask" style="--ch:4"></span>. <span class="vote-mask" style="--ch:5"></span>, <span class="vote-mask" style="--ch:3"></span>. <span class="vote-mask" style="--ch:7"></span>, <span class="vote-mask" style="--ch:3"></span>. <span class="vote-mask" style="--ch:10"></span> — в <span class="vote-mask" style="--ch:6"></span> <span class="vote-mask" style="--ch:7"></span>) — <span class="vote-mask" style="--ch:7"></span> город <span class="vote-mask" style="--ch:8"></span> Италии. <span class="vote-mask" style="--ch:9"></span> к <span class="vote-mask" style="--ch:10"></span> городам. <span class="vote-mask" style="--ch:5"></span> — <span class="vote-mask" style="--ch:16"></span> <span class="vote-mask" style="--ch:5"></span> Ломбардии и <span class="vote-mask" style="--ch:11"></span> <span class="vote-mask" style="--ch:15"></span> <span class="vote-mask" style="--ch:7"></span>, <span class="vote-mask" style="--ch:12"></span> к <span class="vote-mask" style="--ch:9"></span>.</p>
+          </div>
+          <p class="vote-card__body">
+            Перед вами статья русской Википедии, но все слова в ней скрыты. Вводите догадки: если слово есть в статье, откроются все места, где оно встречается. По постепенно появляющемуся тексту нужно понять, о какой статье идёт речь.
+          </p>
+          <p class="vote-card__body">
+            Каждый день — новая статья русской Википедии. Статьи выбираются из достаточно известных и популярных, без случайных сверхузких тем.
+          </p>
+        {% elif candidate.preview == 'cryptic' %}
+          <div class="vote-preview vote-preview--cryptic" aria-hidden="true">
+            <p class="vote-preview__clue">Финансист поворачивается на гром <span class="vote-preview__len">(6)</span></p>
+            <div class="vote-preview__boxes" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+          <p class="vote-card__body">
+            Криптик — это загадка по принципам английского cryptic crossword. Вам дана длина слова и необычная подсказка, которая одновременно содержит определение ответа и зашифрованный способ его получить: например, анаграмму, скрытое слово, удаление или перестановку букв, игру со значениями слов и другие конструкции.
+          </p>
+          <p class="vote-card__body">
+            В английском языке cryptic crossword — отдельная большая традиция, а на русском такие загадки встречаются гораздо реже, но мы делали их, например, в <a href="https://interoves.com/games/des92/1/">Десяточке 92</a>.
+          </p>
+          <p class="vote-card__body">
+            Каждый день — один новый авторский криптик. Загадки пишу я или присылают другие авторы.
+          </p>
+        {% else %}
+          <div class="vote-preview vote-preview--logic" aria-hidden="true">
+            <div class="vote-grid-demo">
+              <span></span><span class="is-num">1</span><span></span><span></span><span></span>
+              <span></span><span></span><span class="is-num">3</span><span></span><span></span>
+              <span></span><span class="is-num">3</span><span></span><span class="is-num">3</span><span></span>
+              <span></span><span></span><span class="is-num">3</span><span></span><span></span>
+              <span></span><span></span><span></span><span class="is-num">1</span><span></span>
+            </div>
+          </div>
+          <p class="vote-card__body">
+            Ежедневные логические головоломки на сетке. В разные дни могут встречаться разные типы пазлов и разные правила: Akari, Yajilin, LITS, Nurikabe, Castle Wall, Skyscrapers и другие.
+          </p>
+          <p class="vote-card__body">
+            В них нужно логически определить расположение закрашенных клеток, стен, чисел, источников света или других элементов — в зависимости от правил конкретного типа.
+          </p>
+          <p class="vote-card__body">
+            Каждый день — новый пазл. Задачи могут составляться мной, генерироваться программно или быть присланы другими авторами.
+          </p>
+        {% endif %}
+
+        <div class="vote-card__score">
+          <p class="vote-card__amount">{{ candidate.eur_display }}</p>
+          {% if board.is_zero %}
+            <p class="vote-card__share">Пока ничья. Можно стать первым голосом</p>
+          {% elif candidate.percent is not None %}
+            <p class="vote-card__share">{{ candidate.percent }}% всей поддержки</p>
+          {% endif %}
+          <div class="vote-bar" aria-hidden="true">
+            <span class="vote-bar__fill" style="width: {{ candidate.bar_percent }}%"></span>
+          </div>
+        </div>
+
+        {% if board.phase == 'live' and candidate.web_url %}
+          <a
+            class="new-btn new-btn--yellow vote-card__cta"
+            href="{{ candidate.web_url }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-vote-cta="{{ candidate.slug }}"
+          >{{ candidate.cta }}</a>
+        {% elif board.phase == 'live' %}
+          <button type="button" class="new-btn new-btn--yellow vote-card__cta" disabled>{{ candidate.cta }}</button>
+          <p class="vote-card__hint">Ссылка Tribute появится после настройки цели.</p>
+        {% elif board.phase == 'upcoming' %}
+          <button type="button" class="new-btn new-btn--yellow vote-card__cta" disabled>{{ candidate.cta }}</button>
+        {% endif %}
+        {% if candidate.preview == 'redactle' %}
+          <a class="new-btn new-btn--ghost vote-card__origin" href="https://redactle.net" target="_blank" rel="noopener noreferrer">Порешать на английском</a>
+        {% elif candidate.preview == 'cryptic' %}
+          <a class="new-btn new-btn--ghost vote-card__origin" href="https://minutecryptic.com" target="_blank" rel="noopener noreferrer">Порешать на английском</a>
+        {% else %}
+          <a class="new-btn new-btn--ghost vote-card__origin" href="https://gmpuzzles.com/blog" target="_blank" rel="noopener noreferrer">Подборка логических пазлов</a>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </section>
+
+  <section class="vote-standings pal-card" aria-labelledby="vote-standings-title">
+    <h2 id="vote-standings-title" class="vote-standings__title">Текущий счёт</h2>
+    {% if board.is_zero %}
+      <p class="vote-standings__zero">Пока ничья. Можно стать первым голосом</p>
+    {% endif %}
+    <ul class="vote-standings__list">
+      {% for candidate in candidates %}
+        <li>
+          <span class="vote-standings__name">{{ candidate.name }}</span>
+          <span class="vote-standings__amount">{{ candidate.eur_display }}</span>
+          <span class="vote-standings__pct">{% if candidate.percent is not None %}{{ candidate.percent }}%{% else %}—{% endif %}</span>
+          <span class="vote-bar vote-bar--row" aria-hidden="true"><span class="vote-bar__fill" style="width: {{ candidate.bar_percent }}%"></span></span>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="vote-standings__total"><strong>Всего поддержано: {{ board.total_eur_display }}</strong></p>
+    <p class="vote-standings__until">Голосование заканчивается 27 сентября</p>
+  </section>
+
+  <section class="vote-how" aria-labelledby="vote-how-title">
+    <h2 id="vote-how-title" class="vote-how__title">Как это работает</h2>
+    <p>
+      Выберите игру, которую хотите видеть следующей, и поддержите её любой суммой через Tribute. Счёт ведём в евро. 27 сентября вариант с наибольшей суммой побеждает.
+    </p>
+    <p>
+      Донат можно отправить российской картой, иностранной картой или с криптокошелька — Tribute принимает все три способа.
+    </p>
+    <p class="vote-how__note">
+      Это донат, а не предзаказ. Поддержка определяет, какую из трёх игр мы поставим первой в разработку; она не является покупкой конкретного продукта или обещанием индивидуальной услуги.
+    </p>
+  </section>
+</article>
+<script src="{% static 'js/next_game_vote.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+{% endblock %}

@@ -5,6 +5,7 @@ from games.tribute_config import (
     club_configuration_errors,
     club_product_configuration,
     configuration_errors,
+    next_game_vote_configuration_errors,
     product_configuration,
 )
 
@@ -53,4 +54,19 @@ def tribute_configuration_check(app_configs, **kwargs):
         )
         if any_club_value and club_errors:
             errors.extend(Warning(message, id='games.W_CLUB_TRIBUTE_CONFIG') for message in club_errors)
+
+    vote_errors = next_game_vote_configuration_errors()
+    any_vote_value = any(
+        str(getattr(settings, name, '') or '').strip()
+        for name in (
+            'TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL',
+            'TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID',
+            'TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL',
+            'TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID',
+            'TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL',
+            'TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID',
+        )
+    )
+    if any_vote_value and vote_errors:
+        errors.extend(Warning(message, id='games.W_NEXT_GAME_VOTE_TRIBUTE') for message in vote_errors)
     return errors

@@ -2,6 +2,7 @@
 
 from games.analytics import (
     consume_pending_goals,
+    pending_next_game_vote_payment_goals,
     pending_signup_goals,
     pending_subscription_goals,
     pending_ticket_purchase_goals,
@@ -23,6 +24,7 @@ def analytics_bootstrap(request):
         + pending_signup_goals(user)
         + pending_ticket_purchase_goals(user)
         + pending_subscription_goals(user)
+        + pending_next_game_vote_payment_goals(user)
     )
     deduped = {}
     for goal in goals:

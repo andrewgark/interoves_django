@@ -1,0 +1,81 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Начало</a>
+  &rsaquo; <a href="{% url 'admin:app_list' 'games' %}">Games</a>
+  &rsaquo; Шкала голосования
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p>
+    Публичная шкала на
+    <a href="{% url 'next_game_vote' %}" target="_blank" rel="noopener">/vote/next-game/</a>
+    считается из вебхуков Tribute плюс ручных корректировок.
+    Если вебхук потерялся, выставьте здесь итоговые суммы в евро — разница сохранится в
+    <a href="{{ adjustments_url }}">аудите корректировок</a>, платежи Tribute не переписываются.
+  </p>
+
+  <fieldset class="module aligned">
+    <h2>Сейчас на шкале</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Кандидат</th>
+          <th>Вебхуки</th>
+          <th>Корректировки</th>
+          <th>Итого</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in breakdown %}
+        <tr>
+          <th>{{ row.name }}</th>
+          <td>{{ row.webhook_display }}</td>
+          <td>{{ row.adjustment_display }}</td>
+          <td><strong>{{ row.live_display }}</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if state.frozen_at %}
+      <p>Голосование уже зафиксировано {{ state.frozen_at }}. Новые суммы перепишут официальный снимок.</p>
+    {% endif %}
+    {% if state.mapping_blocker %}
+      <p>Ещё не проставлены donation_request_id у всех трёх целей Tribute. Шкалу всё равно можно править вручную.</p>
+    {% endif %}
+  </fieldset>
+
+  <form method="post">
+    {% csrf_token %}
+    <fieldset class="module aligned">
+      <h2>Выставить итоги</h2>
+      {% if form.non_field_errors %}
+        {{ form.non_field_errors }}
+      {% endif %}
+      {% for field in form %}
+        <div class="form-row">
+          {{ field.errors }}
+          {{ field.label_tag }} {{ field }}
+          {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+        </div>
+      {% endfor %}
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="Сохранить шкалу" class="default">
+    </div>
+  </form>
+
+  {% if not state.frozen_at %}
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="operation" value="freeze">
+    <div class="submit-row">
+      <input type="submit" value="Закрыть голосование и зафиксировать результат">
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
