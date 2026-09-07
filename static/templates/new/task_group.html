@@ -1954,7 +1954,9 @@
         if (input.getAttribute('data-raddle-pin-proxy') === '1') {
           var realPin = findRealRaddleInputFromPin(input);
           if (realPin) {
-            softSetRaddleLetters(realPin, letters);
+            preservePageScroll(function () {
+              softSetRaddleLetters(realPin, letters);
+            });
             clearRaddleWrong(realPin.closest('.new-raddle-row'));
             delete realPin.dataset.raddleLast;
             saveRaddleDraftLetters(realPin, letters);
@@ -1981,7 +1983,9 @@
         if (input.getAttribute('data-raddle-pin-proxy') === '1') {
           var realDone = findRealRaddleInputFromPin(input);
           if (realDone) {
-            softSetRaddleLetters(realDone, letters);
+            preservePageScroll(function () {
+              softSetRaddleLetters(realDone, letters);
+            });
             saveRaddleDraftLetters(realDone, letters);
             submitRaddleAuto(realDone, letters);
           }
@@ -2036,17 +2040,24 @@
 
   function focusRaddlePlayableInput(taskRoot, realInput) {
     if (!realInput || !hasRaddleInputIntent(taskRoot)) return;
+    updateRaddleStickyPinVisibility(taskRoot);
     var pin = taskRoot && taskRoot.querySelector('.new-raddle-sticky-pin.is-active');
     if (pin) {
       var formId = realInput.getAttribute('form');
       var proxy = formId && pin.querySelector('input[data-raddle-pin-for="' + formId + '"]');
       if (proxy) {
-        softSetRaddleLetters(proxy, getRaddleInputLetters(realInput));
+        preservePageScroll(function () {
+          softSetRaddleLetters(proxy, getRaddleInputLetters(realInput));
+          focusPreventScroll(proxy);
+        });
+        return;
       }
     }
     // После server re-render старого input уже нет, поэтому фокус нужен заново.
-    // Привязываем IME к настоящему полю; sticky-клон только зеркалирует значение.
-    focusPreventScroll(realInput);
+    // Не даём браузеру утащить страницу к настоящему полю под шапкой.
+    preservePageScroll(function () {
+      focusPreventScroll(realInput);
+    });
   }
 
   function bindRaddleMaskedInputs(root) {
@@ -2991,7 +3002,7 @@
     if (!active || !active.getAttribute) return;
     if (becomingActive) {
       if (!hasRaddleInputIntent(taskRoot)) return;
-      if (active.getAttribute('data-raddle-pin-proxy') === '1') return;
+      if (active.getAttribute('data-raddle-pin-proxy') === '1' && pin.contains(active)) return;
       if (!taskRoot.contains(active)) return;
       if (!active.classList || !active.classList.contains('new-raddle-input')) return;
       if (active.closest('.new-raddle-sticky-pin')) return;
@@ -2999,21 +3010,36 @@
       if (!formId) return;
       var proxy = pin.querySelector('input[data-raddle-pin-for="' + formId + '"]');
       if (!proxy) return;
-      softSetRaddleLetters(proxy, getRaddleInputLetters(active));
-      // Не переводим фокус на свежий cloneNode во время resize/scroll:
-      // Android может воспринять это как завершение текущей сессии IME.
+      preservePageScroll(function () {
+        softSetRaddleLetters(proxy, getRaddleInputLetters(active));
+        if (document.activeElement !== proxy) focusPreventScroll(proxy);
+      });
       return;
     }
     if (active.getAttribute('data-raddle-pin-proxy') !== '1') return;
     if (!pin.contains(active)) return;
     var real = findRealRaddleInputFromPin(active);
     if (!real) return;
-    softSetRaddleLetters(real, getRaddleInputLetters(active));
-    if (hasRaddleInputIntent(taskRoot)) {
-      focusPreventScroll(real);
-    } else if (typeof active.blur === 'function') {
-      active.blur();
-    }
+    preservePageScroll(function () {
+      softSetRaddleLetters(real, getRaddleInputLetters(active));
+      if (hasRaddleInputIntent(taskRoot) && raddleInputVisuallyOnScreen(real)) {
+        focusPreventScroll(real);
+      } else if (typeof active.blur === 'function') {
+        active.blur();
+      }
+    });
+  }
+
+  function raddleInputVisuallyOnScreen(input) {
+    if (!input || typeof input.getBoundingClientRect !== 'function') return false;
+    var rect = input.getBoundingClientRect();
+    var navTop = raddleNavOffsetPx();
+    var vv = window.visualViewport;
+    var offset = vv ? (vv.offsetTop || 0) : 0;
+    var vh = vv && typeof vv.height === 'number' ? vv.height : window.innerHeight;
+    var top = rect.top - offset;
+    var bottom = rect.bottom - offset;
+    return bottom > navTop + 8 && top < vh - 8;
   }
 
   function raddlePinHasFocus(taskRoot, pin) {
@@ -3043,22 +3069,50 @@
     }
     positionRaddleStickyPin(taskRoot, pin);
     var navTop = raddleNavOffsetPx();
-    var firstTop = rows[0].getBoundingClientRect().top;
+    var firstRect = rows[0].getBoundingClientRect();
+    var firstTop = firstRect.top;
+    var firstBottom = firstRect.bottom;
     var taskBottom = taskRoot.getBoundingClientRect().bottom;
+    var vv = window.visualViewport;
+    var viewportOffsetTop = vv ? (vv.offsetTop || 0) : 0;
+    var viewportHeight = vv && typeof vv.height === 'number' ? vv.height : window.innerHeight;
     var pinH = pin.offsetHeight || (rows.length * 48);
-    // Пока первая выделенная строка ушла под шапку и задание ещё на экране.
-    // При фокусе в sticky игнорируем только taskBottom: клавиатура сжимает
-    // visualViewport и ложно прячет пин. firstTop по-прежнему снимает пин,
-    // когда реальные строки снова видны под шапкой.
-    var underNav = firstTop <= navTop + 0.5;
-    var taskStillVisible = taskBottom > navTop + Math.min(pinH, 24);
-    var shouldShow = underNav && (taskStillVisible || raddlePinHasFocus(taskRoot, pin));
+    var pinOwnsFocus = !!(document.activeElement && pin.contains(document.activeElement));
+    var Dismiss = window.RaddleKeyboardDismiss;
+    var shouldShow = Dismiss && Dismiss.shouldShowStickyPin
+      ? Dismiss.shouldShowStickyPin({
+          firstTop: firstTop,
+          firstBottom: firstBottom,
+          taskBottom: taskBottom,
+          navTop: navTop,
+          pinH: pinH,
+          viewportOffsetTop: viewportOffsetTop,
+          viewportHeight: viewportHeight,
+          pinHasFocus: pinOwnsFocus,
+        })
+      : (function () {
+          var visualTop = firstTop - viewportOffsetTop;
+          var visualBottom = firstBottom - viewportOffsetTop;
+          var visualTaskBottom = taskBottom - viewportOffsetTop;
+          if (visualTaskBottom <= navTop + Math.min(pinH, 24)) return false;
+          if (visualTop >= viewportHeight - 24) return false;
+          if (pinOwnsFocus) return true;
+          return visualBottom <= navTop + 0.5;
+        })();
     var wasActive = pin.classList.contains('is-active');
     if (shouldShow) {
-      if (!wasActive) syncRaddleStickyPinInputsFromReal(taskRoot, pin);
       pin.classList.add('is-active');
       pin.removeAttribute('hidden');
       pin.setAttribute('aria-hidden', 'false');
+      // Сначала display, потом sync: IMask не рисует value, пока пин display:none.
+      if (!raddlePinHasFocus(taskRoot, pin)) {
+        syncRaddleStickyPinInputsFromReal(taskRoot, pin);
+        pin.querySelectorAll('input[data-raddle-pin-proxy="1"]').forEach(function (proxy) {
+          if (window.RaddleMaskedInput && RaddleMaskedInput.refresh) {
+            RaddleMaskedInput.refresh(proxy);
+          }
+        });
+      }
       transferRaddleFocusForStickyPin(taskRoot, pin, true);
     } else {
       if (wasActive) transferRaddleFocusForStickyPin(taskRoot, pin, false);
@@ -3102,20 +3156,24 @@
       var realRestore = document.querySelector(
         'input.new-raddle-input[name="word"][form="' + keepFocus + '"]'
       );
-      if (restore && keepLetters != null) softSetRaddleLetters(restore, keepLetters);
-      if (realRestore && keepLetters != null) softSetRaddleLetters(realRestore, keepLetters);
+      preservePageScroll(function () {
+        if (restore && keepLetters != null) softSetRaddleLetters(restore, keepLetters);
+        if (realRestore && keepLetters != null) softSetRaddleLetters(realRestore, keepLetters);
+      });
     }
     updateRaddleStickyPinVisibility(taskRoot);
-    // Пересборка удаляет только proxy. Настоящее поле не перефокусируем:
-    // лишний focus() во время Android IME может закрыть клавиатуру.
-    if (restoreFocus && keepFocusWasProxy && pin.classList.contains('is-active')) {
+    if (restoreFocus && pin.classList.contains('is-active')) {
       var proxyBack = pin.querySelector('input[data-raddle-pin-for="' + keepFocus + '"]');
-      if (proxyBack && document.activeElement !== proxyBack) focusPreventScroll(proxyBack);
+      if (proxyBack && document.activeElement !== proxyBack) {
+        preservePageScroll(function () { focusPreventScroll(proxyBack); });
+      }
     } else if (restoreFocus && keepFocusWasProxy && !pin.classList.contains('is-active')) {
       var realBack = document.querySelector(
         'input.new-raddle-input[name="word"][form="' + keepFocus + '"]'
       );
-      if (realBack && document.activeElement !== realBack) focusPreventScroll(realBack);
+      if (realBack && document.activeElement !== realBack && raddleInputVisuallyOnScreen(realBack)) {
+        preservePageScroll(function () { focusPreventScroll(realBack); });
+      }
     }
   }
 
@@ -3225,13 +3283,22 @@
   // A deliberate page gesture means that a later async response must not pull
   // the user back into an input. Native focus can remain untouched while the
   // sticky controller stops treating it as permission to call focus() again.
-  document.addEventListener('touchmove', clearRaddleInputIntent, { passive: true });
-  document.addEventListener('wheel', clearRaddleInputIntent, { passive: true });
+  function onRaddleScrollGesture() {
+    var pin = document.querySelector('.new-raddle-sticky-pin.is-active');
+    if (pin) return;
+    clearRaddleInputIntent();
+  }
+  document.addEventListener('touchmove', onRaddleScrollGesture, { passive: true });
+  document.addEventListener('wheel', onRaddleScrollGesture, { passive: true });
 
   document.addEventListener('focusin', function (e) {
     var input = e.target && e.target.closest ? e.target.closest('input.new-raddle-input') : null;
     if (!input) return;
-    if (input.getAttribute('data-raddle-pin-proxy') === '1') return;
+    if (input.getAttribute('data-raddle-pin-proxy') === '1') {
+      activateRaddleInputIntent(input);
+      rememberRaddleAnchor(input);
+      return;
+    }
     var row = input.closest('.new-raddle-row');
     var taskRoot = input.closest('.new-raddle-task');
     if (!row || !taskRoot) return;

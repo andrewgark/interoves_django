@@ -206,6 +206,15 @@ function testBindInputNormalizesYo() {
   assert.strictEqual(M.getSubmitValue(input), 'ЕЖИ');
 }
 
+function testRefreshKeepsVisibleValue() {
+  var input = makeImaskInput('#####');
+  M.bindInput(input, {});
+  M.setLetters(input, 'МОСКВ', {});
+  M.refresh(input);
+  assert.strictEqual(M.getSubmitValue(input), 'МОСКВ');
+  assert.strictEqual(input.value, 'МОСКВ');
+}
+
 testSlotCount();
 testExtractRussianLetters();
 testExtractLatinLetters();
@@ -221,5 +230,6 @@ testBindInputUsesImaskForEditing();
 testBindInputLatinRejectsCyrillic();
 testBindInputMixedAllowsBoth();
 testBindInputNormalizesYo();
+testRefreshKeepsVisibleValue();
 
 console.log('raddle_masked_input.test.js: ok');

@@ -209,6 +209,11 @@
     }
   }
 
+  function refresh(input) {
+    if (!input) return;
+    setLetters(input, getLetters(input));
+  }
+
   function bindAll(root, hooks) {
     var scope = root || document;
     scope.querySelectorAll('input[name="word"][data-raddle-format]').forEach(function (input) {
@@ -230,5 +235,6 @@
     getSubmitValue: getSubmitValue,
     bindInput: bindInput,
     bindAll: bindAll,
+    refresh: refresh,
   };
 })(typeof window !== 'undefined' ? window : global);

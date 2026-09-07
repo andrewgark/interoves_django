@@ -188,6 +188,90 @@ function testAllowAdvanceWhenAnchorAlreadyMoved() {
   }), false);
 }
 
+function testStickyPinHiddenWhenPairVisibleBelowNav() {
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: 80,
+    firstBottom: 128,
+    taskBottom: 800,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 0,
+  }), false);
+}
+
+function testStickyPinShowsWhenPairScrolledUnderNav() {
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: -40,
+    firstBottom: 8,
+    taskBottom: 800,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 0,
+  }), true);
+}
+
+function testStickyPinHiddenWhileKeyboardKeepsPairInView() {
+  // Layout top 400, keyboard pan 300 → pair still sits below the nav in view.
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: 400,
+    firstBottom: 448,
+    taskBottom: 900,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 300,
+  }), false);
+}
+
+function testStickyPinShowsWhenVisualViewportPansPastPair() {
+  // User scrolled the visual viewport down; the pair is above what they see.
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: 200,
+    firstBottom: 248,
+    taskBottom: 900,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 400,
+  }), true);
+}
+
+function testStickyPinHiddenWhenPairIsBelowTheViewport() {
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: 700,
+    firstBottom: 748,
+    taskBottom: 900,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 0,
+    viewportHeight: 360,
+  }), false);
+}
+
+function testStickyPinStaysWhileTypingIfKeyboardPansRealPair() {
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: 400,
+    firstBottom: 448,
+    taskBottom: 900,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 300,
+    viewportHeight: 360,
+    pinHasFocus: true,
+  }), true);
+}
+
+function testStickyPinHidesWhenLookingAtWordsAboveEvenIfPinHadFocus() {
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: 700,
+    firstBottom: 748,
+    taskBottom: 900,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 0,
+    viewportHeight: 360,
+    pinHasFocus: true,
+  }), false);
+}
+
 testDismissRetargetFromEmptySpace();
 testDismissRetargetAllowsExplicitRowTap();
 testDismissRetargetAllowsSwitchingToAnotherWord();
@@ -201,4 +285,11 @@ testAllowSameWordAfterKeyboardClose();
 testBlockBackStealBeforeViewportReportsClose();
 testBlockBackStealWithStalePointerOnOriginalWord();
 testAllowAdvanceWhenAnchorAlreadyMoved();
+testStickyPinHiddenWhenPairVisibleBelowNav();
+testStickyPinShowsWhenPairScrolledUnderNav();
+testStickyPinHiddenWhileKeyboardKeepsPairInView();
+testStickyPinShowsWhenVisualViewportPansPastPair();
+testStickyPinHiddenWhenPairIsBelowTheViewport();
+testStickyPinStaysWhileTypingIfKeyboardPansRealPair();
+testStickyPinHidesWhenLookingAtWordsAboveEvenIfPinHadFocus();
 console.log('raddle_keyboard_dismiss.test.js: ok');
