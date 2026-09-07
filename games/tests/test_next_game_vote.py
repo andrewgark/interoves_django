@@ -23,6 +23,7 @@ from games.next_game_vote import (
     CANDIDATE_LOGIC,
     CANDIDATE_REDACTLE,
     add_adjustment,
+    configured_donation_request_id,
     exclude_event,
     freeze_manually,
     original_minor_to_eur_cents,
@@ -171,6 +172,38 @@ class NextGameVoteWebhookTests(TestCase):
         response = self._post(_envelope(_payload('999', 5000, 'eur'), donation_id=40))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(NextGameVoteEvent.objects.count(), 0)
+
+    @override_settings(
+        TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID='',
+        TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID='',
+        TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID='',
+        TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL='https://t.me/tribute/app?startapp=g68Y',
+        TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL='https://t.me/tribute/app?startapp=g68Z',
+        TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL='https://t.me/tribute/app?startapp=g690',
+    )
+    def test_maps_by_donation_name_when_ids_unknown(self):
+        payload = _payload('', 1000, 'eur', donation_name='Redactle')
+        payload['donation_request_id'] = ''
+        self._post(_envelope(payload, donation_id=61))
+        event = NextGameVoteEvent.objects.get()
+        self.assertEqual(event.candidate, CANDIDATE_REDACTLE)
+        self.assertTrue(event.include_in_scoreboard)
+
+    @override_settings(
+        TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID='',
+        TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID='',
+        TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID='',
+        TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL='https://t.me/tribute/app?startapp=g68Y',
+        TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL='https://t.me/tribute/app?startapp=g68Z',
+        TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL='https://t.me/tribute/app?startapp=g690',
+    )
+    def test_maps_by_startapp_link_and_stores_request_id(self):
+        payload = _payload('4242', 1000, 'eur', web_app_link='https://t.me/tribute/app?startapp=g68Y')
+        self._post(_envelope(payload, donation_id=62))
+        event = NextGameVoteEvent.objects.get()
+        self.assertEqual(event.candidate, CANDIDATE_REDACTLE)
+        self.assertTrue(event.include_in_scoreboard)
+        self.assertEqual(configured_donation_request_id(CANDIDATE_REDACTLE), '4242')
 
     def test_recurrent_donation_does_not_count(self):
         envelope = _envelope(_payload('101', 1000, 'eur'), event='recurrent_donation', donation_id=41)

@@ -12,6 +12,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
+from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
@@ -263,6 +264,81 @@ def candidate_for_donation_request_id(donation_request_id) -> str:
     if donation_request_id in (None, ''):
         return ''
     return goal_id_mapping().get(str(donation_request_id), '')
+
+
+def _payload_donation_name(payload: dict) -> str:
+    for key in ('donation_name', 'donationName', 'goal_name'):
+        value = payload.get(key)
+        if value not in (None, ''):
+            return str(value).strip()
+    return ''
+
+
+def _payload_web_link(payload: dict) -> str:
+    for key in ('web_app_link', 'webAppLink', 'web_link', 'link'):
+        value = payload.get(key)
+        if value not in (None, ''):
+            return str(value).strip()
+    return ''
+
+
+def _startapp_token(url: str) -> str:
+    if not url:
+        return ''
+    parsed = urlparse(url)
+    token = (parse_qs(parsed.query).get('startapp') or [''])[0].strip()
+    if token:
+        return token
+    parts = [part for part in parsed.path.split('/') if part]
+    if len(parts) >= 2 and parts[0] == 'g':
+        return parts[1]
+    return ''
+
+
+def candidate_from_payload(payload: dict) -> str:
+    """Resolve a vote candidate from Tribute donation fields."""
+    slug = candidate_for_donation_request_id(_payload_donation_request_id(payload))
+    if slug:
+        return slug
+    name = _payload_donation_name(payload).casefold()
+    if name:
+        for candidate_slug, meta in CANDIDATE_META.items():
+            if name in {meta['name'].casefold(), candidate_slug}:
+                return candidate_slug
+    link = _payload_web_link(payload)
+    link_token = _startapp_token(link)
+    if link:
+        for candidate_slug in CANDIDATE_SLUGS:
+            configured = configured_web_url(candidate_slug)
+            if configured and configured in link:
+                return candidate_slug
+            token = _startapp_token(configured)
+            if token and (token == link_token or token in link):
+                return candidate_slug
+    return ''
+
+
+def remember_donation_request_id(slug: str, donation_request_id: str) -> None:
+    donation_request_id = str(donation_request_id or '').strip()
+    if slug not in CANDIDATE_SLUGS or not donation_request_id:
+        return
+    existing = configured_donation_request_id(slug)
+    if existing:
+        return
+    mapping, created = NextGameVoteGoalMapping.objects.get_or_create(
+        candidate=slug,
+        defaults={
+            'donation_request_id': donation_request_id,
+            'web_url': configured_web_url(slug),
+            'note': 'Filled from Tribute webhook',
+        },
+    )
+    if created:
+        return
+    if mapping.donation_request_id:
+        return
+    mapping.donation_request_id = donation_request_id
+    mapping.save(update_fields=['donation_request_id', 'updated_at'])
 
 
 def _parse_optional_int(value, field: str, *, required=False) -> int | None:
@@ -567,7 +643,7 @@ def process_donation_event(envelope: dict) -> VoteProcessResult:
         event.telegram_user_id = telegram_user_id
         event.trb_user_id = trb_user_id
         event.matched_user = _match_user(telegram_user_id)
-        event.candidate = candidate_for_donation_request_id(donation_request_id)
+        event.candidate = candidate_from_payload(payload)
 
         if event_name != COUNTED_EVENT_NAME:
             event.result = NextGameVoteEvent.RESULT_IGNORED_EVENT
@@ -608,6 +684,7 @@ def process_donation_event(envelope: dict) -> VoteProcessResult:
         event.include_in_scoreboard = True
         event.analytics_goal_queued_at = timezone.now()
         event.save()
+        remember_donation_request_id(event.candidate, donation_request_id)
 
         StatisticsEvent.record(
             'next_game_vote_payment',
@@ -665,7 +742,7 @@ def maybe_process_tribute_donation(envelope: dict) -> VoteProcessResult | None:
         return None
     payload = envelope.get('payload') if isinstance(envelope.get('payload'), dict) else {}
     request_id = _payload_donation_request_id(payload)
-    mapped = bool(candidate_for_donation_request_id(request_id))
+    mapped = bool(candidate_from_payload(payload))
     if mapped or not mapping_is_ready():
         return process_donation_event(envelope)
     # Mapping is complete and this donation belongs to some other Tribute goal.

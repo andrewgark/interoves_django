@@ -440,6 +440,7 @@ def tribute_webhook(request):
         return HttpResponse(status=400)
 
     event_name = (event_json.get('name') or '').strip()
+    logger.info('tribute_webhook_received event=%s', event_name or 'empty')
     payload = event_json.get('payload') or {}
     if event_name in ('new_digital_product', 'digital_product_refunded') and not isinstance(payload, dict):
         return HttpResponse(status=400)
@@ -451,7 +452,6 @@ def tribute_webhook(request):
             process_refund,
         )
 
-        logger.info('tribute_webhook_received event=%s', event_name)
         try:
             if event_name == 'new_digital_product':
                 result = process_new_purchase(payload)
@@ -475,7 +475,6 @@ def tribute_webhook(request):
     if event_name in SUBSCRIPTION_EVENTS:
         if not isinstance(payload, dict):
             return HttpResponse(status=400)
-        logger.info('tribute_webhook_received event=%s', event_name)
         try:
             process_subscription_event(
                 event_name,
@@ -490,7 +489,6 @@ def tribute_webhook(request):
     from games.next_game_vote import DONATION_EVENTS, VotePayloadError, maybe_process_tribute_donation
 
     if event_name in DONATION_EVENTS:
-        logger.info('tribute_webhook_received event=%s', event_name)
         try:
             maybe_process_tribute_donation(event_json)
         except VotePayloadError as exc:

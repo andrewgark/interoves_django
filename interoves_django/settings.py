@@ -927,6 +927,11 @@ LOGGING = {
             'handlers': ['stderr'],
             'level': 'INFO',
         },
+        'games': {
+            'handlers': ['stderr'],
+            'level': 'INFO',
+            'propagate': False,
+        },
         'interoves.request_timing': {
             'handlers': ['stderr'],
             'level': 'WARNING',
