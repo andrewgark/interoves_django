@@ -614,7 +614,6 @@ def process_send_attempt(request, task_id):
             EXTRA_FOUND_COMMENT,
             RARE_FOUND_COMMENT,
             extra_found_word_from_attempt,
-            path_cells_remain_active,
             path_word_from_attempt,
         )
 
@@ -632,11 +631,7 @@ def process_send_attempt(request, task_id):
                 result['word_salad_extra'] = written
             result['word_salad_keep_selection'] = True
         elif result['word_salad_correct']:
-            try:
-                path = json.loads(attempt.text or '{}').get('path') or []
-            except (TypeError, ValueError, json.JSONDecodeError):
-                path = []
-            result['word_salad_keep_selection'] = path_cells_remain_active(attempt.state, path)
+            result['word_salad_keep_selection'] = False
         if not attempt_persisted:
             if attempt.comment:
                 result['word_salad_comment'] = attempt.comment

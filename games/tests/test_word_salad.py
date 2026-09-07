@@ -41,7 +41,6 @@ from games.word_salad import (
     serialize_task_data,
     theme_from_text,
     extra_found_word,
-    path_cells_remain_active,
     EXTRA_FOUND_COMMENT,
     RARE_FOUND_COMMENT,
     RARE_FOUND_TOOLTIP,
@@ -773,12 +772,7 @@ class WordSaladTests(TestCase):
         self.assertEqual(ui['rare_words'], [])
         self.assertEqual(ui['extra_words'], ['ABCD'])
 
-    def test_path_cells_remain_active(self):
-        self.assertTrue(path_cells_remain_active({'active': [0, 1, 2, 3]}, [0, 1, 2, 3]))
-        self.assertFalse(path_cells_remain_active({'active': [0, 1, 2]}, [0, 1, 2, 3]))
-        self.assertFalse(path_cells_remain_active({'active': [0, 1, 2, 3]}, []))
-
-    def test_keep_selection_when_solved_letters_stay(self):
+    def test_clear_selection_when_answer_found_even_if_letters_stay(self):
         original = self.task.checker_data
         self.task.checker_data = serialize_task_data(
             _puzzle()['grid'],
@@ -791,7 +785,7 @@ class WordSaladTests(TestCase):
                     '/send_attempt/{}/'.format(self.task.pk),
                     {
                         'game_id': self.game.pk,
-                        'anon_key': 'word-salad-keep-selection',
+                        'anon_key': 'word-salad-clear-selection',
                         'action': 'solve',
                         'path': json.dumps([0, 1, 2, 3]),
                         'correct_only': '1',
@@ -800,11 +794,11 @@ class WordSaladTests(TestCase):
             self.assertEqual(response.status_code, 200)
             payload = response.json()
             self.assertTrue(payload.get('word_salad_correct'))
-            self.assertTrue(payload.get('word_salad_keep_selection'))
+            self.assertFalse(payload.get('word_salad_keep_selection'))
             self.assertIn('update_task_html_new', payload)
             state = json.loads(ChainTaskState.objects.get(
                 task=self.task,
-                anon_key='word-salad-keep-selection',
+                anon_key='word-salad-clear-selection',
                 game=self.game,
                 game_mode='general',
             ).state)

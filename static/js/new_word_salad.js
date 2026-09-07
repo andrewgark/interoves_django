@@ -7,7 +7,6 @@
 
   var activeDragRoot = null;
   var lastSaladRoot = null;
-  var pendingSaladPathRestore = null;
   var pendingLatestAnimate = null;
 
   var SVG_NS = 'http://www.w3.org/2000/svg';
@@ -97,6 +96,12 @@
 
   function shouldCommitExtraWord(pathKey, currentPathKey, isDragging, isConnected) {
     return !!pathKey && pathKey === currentPathKey && isConnected !== false;
+  }
+
+  function keepSelectionAfterFind(kind) {
+    // Required answers reset the line so the next word can start immediately.
+    // Rare and off-theme finds keep the current path.
+    return kind === 'rare' || kind === 'extra';
   }
 
   function rememberExtraWord(words, word, answers) {
@@ -1058,13 +1063,8 @@
         syncPreviewPoints();
         if (applyAnswerFilterToExtras()) renderExtraWords();
         markLatestFound('answer', solvedWord, true);
-        var keep = currentPath.length > 0 && currentPath.every(isActiveIndex);
-        if (keep) {
-          renderSelection();
-        } else {
-          activeDragRoot = null;
-          clearSelection();
-        }
+        activeDragRoot = null;
+        clearSelection();
         showAnswerToast(root, solvedWord, 'correct');
       }
 
@@ -1085,35 +1085,6 @@
           return;
         }
         if (opts.fromIdle) finishWrong(pathKey);
-      }
-
-      function keepSelectionAfterSolve(data) {
-        return !!(data && data.word_salad_keep_selection);
-      }
-
-      function stashPathRestore(taskId, path, pathKey, dragging) {
-        pendingSaladPathRestore = {
-          taskId: String(taskId || ''),
-          path: (path || []).slice(),
-          submittedKey: pathKey || '',
-          dragging: !!dragging
-        };
-      }
-
-      function applyStashedPathRestore() {
-        var pending = pendingSaladPathRestore;
-        var taskId = root.getAttribute('data-task-id') || '';
-        if (!pending || String(pending.taskId) !== String(taskId)) return;
-        pendingSaladPathRestore = null;
-        currentPath = (pending.path || []).filter(isActiveIndex);
-        if (pending.submittedKey) attemptedPaths[pending.submittedKey] = true;
-        if (pending.dragging) activeDragRoot = root;
-        lastSaladRoot = root;
-        renderSelection();
-        if (currentPath.join(',') !== (pending.submittedKey || '')) {
-          maybeCheck();
-          scheduleIdleFind();
-        }
       }
 
       function submitPath(path, pathKey) {
@@ -1162,30 +1133,21 @@
             return;
           }
           var taskId = root.getAttribute('data-task-id') || '';
-          var keepSelection = keepSelectionAfterSolve(data);
-          var wasDragging = activeDragRoot === root;
           var hasTaskHtml = data.update_task_html_new && typeof window.applyNewUiTaskHtml === 'function';
           latestKind = 'answer';
           latestWord = normalizeWord(solvedWord);
           saveLatestFound();
           cancelIdleFind();
+          activeDragRoot = null;
           if (hasTaskHtml) {
             pendingLatestAnimate = { taskId: String(taskId), word: latestWord };
-            if (keepSelection) stashPathRestore(taskId, currentPath, pathKey, wasDragging);
-            activeDragRoot = null;
             window.applyNewUiTaskHtml(data.update_task_html_new);
             showAnswerToast(
               document.querySelector('[data-word-salad-root][data-task-id="' + taskId + '"]'),
               solvedWord,
               'correct'
             );
-          } else if (keepSelection) {
-            busy = false;
-            setChecking(false);
-            applyLatestHighlight(true);
-            renderSelection();
           } else {
-            activeDragRoot = null;
             window.location.reload();
           }
         }).catch(function () { finishWrong(pathKey); });
@@ -1270,7 +1232,6 @@
       }
       syncSolvedState();
       renderSelection();
-      applyStashedPathRestore();
       var animateLatest = false;
       var taskId = root.getAttribute('data-task-id') || '';
       if (pendingLatestAnimate && String(pendingLatestAnimate.taskId) === String(taskId)) {
@@ -1356,6 +1317,7 @@
     extrasForDisplay: extrasForDisplay,
     promoteConfiguredRares: promoteConfiguredRares,
     shouldCommitExtra: shouldCommitExtraWord,
+    keepSelectionAfterFind: keepSelectionAfterFind,
     feedbackForResult: feedbackForResult,
     flushAnalyticsEvents: flushAnalyticsEvents,
     EXTRA_MIN_LENGTH: EXTRA_MIN_LENGTH,

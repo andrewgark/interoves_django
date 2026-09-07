@@ -205,6 +205,14 @@ function escapeEvent(overrides) {
   assert.strictEqual(Path.shouldCommitExtra('0,1,2,3', '0,1,2,3', false, false), false);
 })();
 
+(function testKeepSelectionOnlyForSideFinds() {
+  assert.strictEqual(Path.keepSelectionAfterFind('answer'), false);
+  assert.strictEqual(Path.keepSelectionAfterFind('correct'), false);
+  assert.strictEqual(Path.keepSelectionAfterFind('duplicate'), false);
+  assert.strictEqual(Path.keepSelectionAfterFind('rare'), true);
+  assert.strictEqual(Path.keepSelectionAfterFind('extra'), true);
+})();
+
 (function testAnswerFeedback() {
   assert.deepStrictEqual(Path.feedbackForResult('correct', 'ёжик'), {
     word: 'ЁЖИК',

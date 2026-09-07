@@ -376,16 +376,6 @@ def validate_puzzle(grid_value, words_value, rare_words_value=None):
     return grid, words
 
 
-def path_cells_remain_active(state, path):
-    """True when every selected cell is still on the board after this attempt."""
-    active = set(load_state(state).get('active') or [])
-    try:
-        cells = [int(index) for index in (path or [])]
-    except (TypeError, ValueError):
-        return False
-    return bool(cells) and all(index in active for index in cells)
-
-
 def removable_cells(grid, words, active, excluded_words=()):
     excluded = set(excluded_words)
     remaining = [word for i, word in enumerate(words) if i not in excluded]
