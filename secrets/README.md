@@ -186,3 +186,16 @@ Login through Яндекс uses django-allauth (`/accounts/yandex/login/`). Clie
 3. Accesses: `login:info`, `login:email`.
 4. Paste ClientID / Client secret into the Yandex SocialApp (placeholder row is created by migration `0197_ensure_yandex_social_app`). Attach the app to the current Site (`SITE_ID=2` in prod). Local copies (gitignored): `secrets/yandex_oauth_client_id.txt` and `secrets/yandex_oauth_client_secret.txt`.
 
+## Yandex Metrika / Direct API
+
+Separate OAuth app from site login. Local files (gitignored):
+
+- `yandex_api_client_id.txt` / `YANDEX_API_CLIENT_ID`
+- `yandex_api_client_secret.txt` / `YANDEX_API_CLIENT_SECRET`
+- `yandex_api_oauth_token.txt` / `YANDEX_API_OAUTH_TOKEN` (user token after authorize)
+- `yandex_api_refresh_token.txt` / `YANDEX_API_REFRESH_TOKEN` (optional)
+
+Accesses typically: `metrika:read`, `direct:api`. Do not overwrite the `yandex_oauth_*` login files.
+
+CLI: `manage.py ads` (`preflight`, `launch`, `status`, getters/setters). Token is read via `load_secret`; never logged.
+

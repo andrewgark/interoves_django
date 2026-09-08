@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "old_master_campaign_id": 713889884,
+  "old_master_notes": "Master-campaign campaign. Visible in Reports/Metrika, not in Campaigns/AdGroups/Ads/Keywords API. Historical baseline only. Never edit or resume via API. User stops it in the Direct UI.",
+  "current_managed_campaign_id": 714254241,
+  "current_managed_campaign_name": "Inter Oves — API managed — Sep 2026",
+  "campaign_creation_date": "2026-09-08",
+  "metrika_counter_id": 108320022,
+  "product_goal_ids": {
+    "game_start": 595331160,
+    "game_complete": 595331071,
+    "activated": 595331078,
+    "signup": 595331052,
+    "ticket_checkout": 595331002,
+    "ticket_purchase": 595330918,
+    "opened_start": 602431719,
+    "selected_game_from_start": 602432526,
+    "finished_first_from_start": 602432624,
+    "started_second_from_start": 602432629
+  },
+  "allowed_test_budget_rub": 500,
+  "reserve_budget_rub": 900,
+  "max_experiment_spend_rub": 500,
+  "ids": {
+    "adgroup_ids": [
+      5796983994
+    ],
+    "ad_ids": [
+      1920799504660101485
+    ],
+    "keyword_ids": [
+      58016758303,
+      58016758304,
+      58016758305,
+      58016758306,
+      58016758307,
+      58016758308
+    ],
+    "autotargeting_ids": [
+      205796983994
+    ],
+    "bidmodifier_ids": [
+      102114636355
+    ]
+  },
+  "baseline": {
+    "period": {
+      "from": "2026-08-27",
+      "to": "2026-09-08"
+    },
+    "direct_spend_rub": 6797,
+    "direct_clicks": 3354,
+    "game_start_users": 286,
+    "game_complete_users": 91,
+    "activated_users": 35,
+    "ticket_purchase": 0,
+    "cpa_complete_rub": 75,
+    "cpa_complete_desktop_rub": 65,
+    "cpa_complete_smartphone_rub": 171,
+    "rsya_spend_rub": 4385,
+    "rsya_complete": 59,
+    "search_spend_rub": 2412,
+    "search_complete": 32,
+    "game_yandex_ru_users": 255,
+    "game_yandex_ru_complete": 30,
+    "game_yandex_ru_activated": 12,
+    "next_day_return_after_complete": 0.19
+  },
+  "decisions": [
+    {
+      "at": "2026-09-08T00:00:00+00:00",
+      "type": "architecture",
+      "reason": "Stop copying the Master campaign. First API-managed UNIFIED campaign is РСЯ-only, desktop-oriented, CustomPeriodBudget 500 RUB AutoContinue=NO, no autotargeting, quality measured in Metrika not Direct Conversions."
+    },
+    {
+      "at": "2026-09-08T16:06:54+00:00",
+      "type": "abort_launch",
+      "reason": "Old Master 713889884 still spending during launch preflight (323.50 → 329.61 RUB in ~45s). New UNIFIED campaign was not created.",
+      "metrics": {
+        "today_cost_before_wait_rub": 323.5,
+        "today_cost_after_wait_rub": 329.61,
+        "today_impressions_after": 42217,
+        "today_clicks_after": 195
+      }
+    },
+    {
+      "type": "launch",
+      "campaign_id": 714254241,
+      "launched": true,
+      "reason": "РСЯ-only UNIFIED campaign: historical РСЯ CPA and game.yandex.ru quality were better than search; 500 ₽ must not be split; autotargeting off; smartphones off.",
+      "safety_ok": true,
+      "at": "2026-09-08T16:12:31.043109+00:00"
+    },
+    {
+      "type": "post_launch_tighten",
+      "reason": "квиз minus + area-of-interest off; autotargeting exists but SUSPENDED by Direct default",
+      "at": "2026-09-08T16:14:30.576939+00:00"
+    }
+  ],
+  "safety": {
+    "never_edit_old_master": true,
+    "never_spend_reserve_without_permission": true,
+    "never_enable_smartphones_without_permission": true,
+    "never_create_second_paid_campaign_without_permission": true
+  },
+  "pending_launch": null,
+  "updated_at": "2026-09-08T16:14:30.577021+00:00",
+  "direct_min_period_budget_note": "Direct rejected CustomPeriodBudget 500 RUB over 10 days: minimum for that period is 550 RUB. Kept SpendLimit=500 and used 2026-09-08..2026-09-09, AutoContinue=NO. Did not use the 900 reserve."
+}
