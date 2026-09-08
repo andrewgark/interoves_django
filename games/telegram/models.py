@@ -54,3 +54,29 @@ class TelegramDailyReview(models.Model):
 
     def __str__(self):
         return 'Daily review {}'.format(self.review_date.isoformat())
+
+
+class TelegramAdminReport(models.Model):
+    """One successfully sent statistics report for a local calendar period."""
+
+    REPORT_DAILY = 'daily'
+    REPORT_WEEKLY = 'weekly'
+    REPORT_CHOICES = ((REPORT_DAILY, 'Daily'), (REPORT_WEEKLY, 'Weekly'))
+
+    id = models.BigAutoField(primary_key=True)
+    report_type = models.CharField(max_length=16, choices=REPORT_CHOICES)
+    period_start = models.DateTimeField()
+    period_end = models.DateTimeField()
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['report_type', 'period_start', 'period_end'],
+                name='uniq_telegram_admin_report_period',
+            ),
+        ]
+        ordering = ['-period_start']
+
+    def __str__(self):
+        return '{} {} — {}'.format(self.report_type, self.period_start, self.period_end)

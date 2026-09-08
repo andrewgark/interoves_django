@@ -31,4 +31,6 @@ export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/home/webapp/.cache
 {
   echo "---- $(date -Is) telegram_game_announcements ----"
   python manage.py telegram_game_announcements
+  echo "---- $(date -Is) telegram_admin_report ----"
+  python manage.py telegram_admin_report
 } >>"$LOG" 2>&1
