@@ -289,6 +289,7 @@
 <script src="{% static 'js/raddle_masked_input.js' %}"></script>
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
 <script src="{% static 'js/raddle_keyboard_dismiss.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/raddle_tab_nav.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/new_task_hints.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% if daily_timing_enabled %}
@@ -2936,6 +2937,7 @@
         var proxy = realBtn.cloneNode(true);
         proxy.removeAttribute('id');
         proxy.setAttribute('type', 'button');
+        proxy.setAttribute('tabindex', '-1');
         proxy.addEventListener('click', function (e) {
           e.preventDefault();
           e.stopPropagation();
@@ -2958,6 +2960,7 @@
       pinInput.removeAttribute('data-raddle-mask-bound');
       pinInput.setAttribute('name', 'word');
       pinInput.setAttribute('data-raddle-pin-proxy', '1');
+      pinInput.setAttribute('tabindex', '-1');
       pinInput.setAttribute('data-raddle-pin-for', realInput.getAttribute('form') || '');
       pinInput.value = realInput.value || '';
       if (realInput.dataset.raddleLetters) {
@@ -3313,7 +3316,28 @@
     syncRaddlePinFromRealInput(input);
   });
 
+  function focusRaddleTabTarget(input) {
+    if (!input) return;
+    activateRaddleInputIntent(input);
+    preservePageScroll(function () {
+      focusPreventScroll(input);
+      if (!raddleIsMobileLayout()) {
+        try {
+          if (typeof input.select === 'function') input.select();
+        } catch (err) {}
+      }
+    });
+  }
+
   document.addEventListener('keydown', function (e) {
+    var dest = window.RaddleTabNav && typeof window.RaddleTabNav.tabDestinationFromEvent === 'function'
+      ? window.RaddleTabNav.tabDestinationFromEvent(e)
+      : null;
+    if (dest) {
+      e.preventDefault();
+      focusRaddleTabTarget(dest);
+      return;
+    }
     var raddleInput = e.target && e.target.closest
       ? e.target.closest('input.new-raddle-input') : null;
     if (raddleInput) activateRaddleInputIntent(raddleInput);
@@ -3321,7 +3345,7 @@
     var draft = e.target && e.target.closest ? e.target.closest('[data-raddle-draft="1"]') : null;
     if (!draft) return;
     e.preventDefault();
-  });
+  }, true);
 
   document.addEventListener('click', function (e) {
     var markBtn = e.target && e.target.closest ? e.target.closest('.new-raddle-clue__mark') : null;

@@ -63,7 +63,7 @@
                   <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                   <input type="hidden" name="word_index" value="{{ row.index }}">
                   {% if rd.ui.is_tournament %}
-                  <button type="submit" class="new-replacements-check-btn" title="Проверить" aria-label="Проверить слово {{ row.index|add:1 }}"><i class="ph ph-check" aria-hidden="true"></i></button>
+                  <button type="submit" class="new-replacements-check-btn" title="Проверить" aria-label="Проверить слово {{ row.index|add:1 }}" tabindex="-1"><i class="ph ph-check" aria-hidden="true"></i></button>
                   {% endif %}
                 </form>
                 {% if not rd.ui.is_tournament %}
@@ -79,7 +79,7 @@
                   <input type="hidden" name="tier" value="1">
                   <input type="hidden" name="__ui_hint_penalty" value="{{ row.assist_next_penalty|minimize_digits }}">
                   <input type="hidden" name="__ui_hint_points_word" value="{{ row.assist_next_penalty|ru_points_word }}">
-                  <button type="submit" class="new-raddle-assist-btn" title="Показать подсказку к этому слову" aria-label="Показать подсказку"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
+                  <button type="submit" class="new-raddle-assist-btn" title="Показать подсказку к этому слову" aria-label="Показать подсказку" tabindex="-1"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
                 </form>
                 {% elif row.can_answer_assist %}
                 <form class="new-raddle-assist-form" action="/send_raddle_assist/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}">
@@ -90,7 +90,7 @@
                   <input type="hidden" name="tier" value="2">
                   <input type="hidden" name="__ui_hint_penalty" value="{{ row.assist_next_penalty|minimize_digits }}">
                   <input type="hidden" name="__ui_hint_points_word" value="{{ row.assist_next_penalty|ru_points_word }}">
-                  <button type="submit" class="new-raddle-assist-btn new-raddle-assist-btn--answer" title="Показать слово" aria-label="Показать слово"><i class="ph ph-lightbulb" aria-hidden="true"></i><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
+                  <button type="submit" class="new-raddle-assist-btn new-raddle-assist-btn--answer" title="Показать слово" aria-label="Показать слово" tabindex="-1"><i class="ph ph-lightbulb" aria-hidden="true"></i><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
                 </form>
                 {% endif %}
               </div>
@@ -118,7 +118,7 @@
         <li class="new-raddle-clue{% if hint.is_revealed %} new-raddle-clue--revealed{% endif %}{% if hint.is_struck %} new-raddle-clue--struck{% endif %}"
             data-hint-index="{{ hint.index }}"
             data-clue-pair="{{ hint.pair }}">
-          <button type="button" class="new-raddle-clue__mark" aria-pressed="{% if hint.is_struck %}true{% else %}false{% endif %}" aria-label="Отметить подсказку" title="Отметить"></button>
+          <button type="button" class="new-raddle-clue__mark" aria-pressed="{% if hint.is_struck %}true{% else %}false{% endif %}" aria-label="Отметить подсказку" title="Отметить" tabindex="-1"></button>
           <span class="new-raddle-clue__text">{% autoescape off %}{{ hint.display_html }}{% endautoescape %}</span>
         </li>
         {% endfor %}
@@ -139,7 +139,7 @@
             data-next-solved="{% if hint.next_solved %}1{% else %}0{% endif %}"
             data-has-next-slot="{% if hint.has_next_slot %}1{% else %}0{% endif %}"
             {% if hint.clue_variant %}data-clue-variant="{{ hint.clue_variant }}"{% endif %}>
-          <button type="button" class="new-raddle-clue__mark" aria-pressed="{% if hint.is_struck %}true{% else %}false{% endif %}" aria-label="Отметить подсказку" title="Отметить"></button>
+          <button type="button" class="new-raddle-clue__mark" aria-pressed="{% if hint.is_struck %}true{% else %}false{% endif %}" aria-label="Отметить подсказку" title="Отметить" tabindex="-1"></button>
           <span class="new-raddle-clue__text">{% autoescape off %}{{ hint.display_html }}{% endautoescape %}</span>
         </li>
         {% endfor %}
