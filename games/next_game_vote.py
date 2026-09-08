@@ -249,11 +249,11 @@ def mapping_blocker_reason() -> str:
     if len(filled) < 3:
         return (
             'donation_request_id is not configured for every candidate. '
-            'Set env/admin mapping after three test payments into the Tribute Goals.'
+            'Set env/admin mapping after three test payments into the Tribute donations.'
         )
     if len(set(filled)) < 3:
         return (
-            'donation_request_id does not distinguish the three Tribute Goals. '
+            'donation_request_id does not distinguish the three Tribute donations. '
             'Do not guess the destination; set official totals via admin adjustments '
             'until Tribute provides a distinct identifier.'
         )
@@ -290,8 +290,8 @@ def _startapp_token(url: str) -> str:
     if token:
         return token
     parts = [part for part in parsed.path.split('/') if part]
-    if len(parts) >= 2 and parts[0] == 'g':
-        return parts[1]
+    if len(parts) >= 2 and parts[0] in ('d', 'g'):
+        return parts[0] + parts[1]
     return ''
 
 

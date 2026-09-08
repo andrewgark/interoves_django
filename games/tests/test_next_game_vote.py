@@ -37,11 +37,11 @@ MOSCOW = ZoneInfo('Europe/Moscow')
 
 VOTE_SETTINGS = {
     'TRIBUTE_API_KEY': 'test-tribute-key',
-    'TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL': 'https://web.tribute.tg/g/redactle-vote',
+    'TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL': 'https://web.tribute.tg/d/redactle-vote',
     'TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID': '101',
-    'TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL': 'https://web.tribute.tg/g/cryptic-vote',
+    'TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL': 'https://web.tribute.tg/d/cryptic-vote',
     'TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID': '202',
-    'TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL': 'https://web.tribute.tg/g/logic-vote',
+    'TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL': 'https://web.tribute.tg/d/logic-vote',
     'TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID': '303',
 }
 
@@ -177,9 +177,9 @@ class NextGameVoteWebhookTests(TestCase):
         TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID='',
         TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID='',
         TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID='',
-        TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL='https://t.me/tribute/app?startapp=g68Y',
-        TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL='https://t.me/tribute/app?startapp=g68Z',
-        TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL='https://t.me/tribute/app?startapp=g690',
+        TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL='https://t.me/tribute/app?startapp=dRedactle',
+        TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL='https://t.me/tribute/app?startapp=dCryptic',
+        TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL='https://t.me/tribute/app?startapp=dLogic',
     )
     def test_maps_by_donation_name_when_ids_unknown(self):
         payload = _payload('', 1000, 'eur', donation_name='Redactle')
@@ -193,17 +193,33 @@ class NextGameVoteWebhookTests(TestCase):
         TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID='',
         TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID='',
         TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID='',
-        TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL='https://t.me/tribute/app?startapp=g68Y',
-        TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL='https://t.me/tribute/app?startapp=g68Z',
-        TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL='https://t.me/tribute/app?startapp=g690',
+        TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL='https://t.me/tribute/app?startapp=dRedactle',
+        TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL='https://t.me/tribute/app?startapp=dCryptic',
+        TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL='https://t.me/tribute/app?startapp=dLogic',
     )
     def test_maps_by_startapp_link_and_stores_request_id(self):
-        payload = _payload('4242', 1000, 'eur', web_app_link='https://t.me/tribute/app?startapp=g68Y')
+        payload = _payload('4242', 1000, 'eur', web_app_link='https://t.me/tribute/app?startapp=dRedactle')
         self._post(_envelope(payload, donation_id=62))
         event = NextGameVoteEvent.objects.get()
         self.assertEqual(event.candidate, CANDIDATE_REDACTLE)
         self.assertTrue(event.include_in_scoreboard)
         self.assertEqual(configured_donation_request_id(CANDIDATE_REDACTLE), '4242')
+
+    @override_settings(
+        TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID='',
+        TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID='',
+        TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID='',
+        TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL='https://t.me/tribute/app?startapp=dQ6d',
+        TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL='https://t.me/tribute/app?startapp=dQ6e',
+        TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL='https://t.me/tribute/app?startapp=dQ6f',
+    )
+    def test_maps_web_donation_path_to_telegram_startapp(self):
+        payload = _payload('', 500, 'eur', web_app_link='https://web.tribute.tg/d/Q6e')
+        payload['donation_request_id'] = ''
+        self._post(_envelope(payload, donation_id=63))
+        event = NextGameVoteEvent.objects.get()
+        self.assertEqual(event.candidate, CANDIDATE_CRYPTIC)
+        self.assertTrue(event.include_in_scoreboard)
 
     def test_recurrent_donation_does_not_count(self):
         envelope = _envelope(_payload('101', 1000, 'eur'), event='recurrent_donation', donation_id=41)
@@ -362,7 +378,7 @@ class NextGameVotePageTests(TestCase):
             body = self.http.get('/vote/next-game/').content.decode()
         self.assertIn('data-vote-countdown', body)
         self.assertIn('data-vote-cta="redactle"', body)
-        self.assertIn('https://web.tribute.tg/g/redactle-vote', body)
+        self.assertIn('https://web.tribute.tg/d/redactle-vote', body)
         self.assertIn('target="_blank"', body)
         self.assertIn('rel="noopener noreferrer"', body)
 
@@ -435,23 +451,23 @@ class NextGameVoteLayoutTests(SimpleTestCase):
         self.assertIn('min-height: var(--btn-height-mini)', block)
 
 
-class NextGameVoteDefaultGoalUrlTests(SimpleTestCase):
-    def test_telegram_mini_app_goal_urls(self):
+class NextGameVoteDefaultDonationUrlTests(SimpleTestCase):
+    def test_telegram_mini_app_donation_urls(self):
         from django.conf import settings
 
         from games.tribute_config import next_game_vote_configuration_errors
 
         self.assertEqual(
             settings.TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL,
-            'https://t.me/tribute/app?startapp=g68Y',
+            'https://t.me/tribute/app?startapp=dQ6d',
         )
         self.assertEqual(
             settings.TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL,
-            'https://t.me/tribute/app?startapp=g68Z',
+            'https://t.me/tribute/app?startapp=dQ6e',
         )
         self.assertEqual(
             settings.TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL,
-            'https://t.me/tribute/app?startapp=g690',
+            'https://t.me/tribute/app?startapp=dQ6f',
         )
         self.assertEqual(next_game_vote_configuration_errors(), [])
 
@@ -461,11 +477,11 @@ class NextGameVoteConfiguredCtaTests(TestCase):
     def setUpTestData(cls):
         _ensure_page_deps()
 
-    def test_live_ctas_use_telegram_goal_links(self):
+    def test_live_ctas_use_regular_donation_links(self):
         with patch('games.next_game_vote.timezone.now', return_value=LIVE_MOMENT):
             body = Client().get('/vote/next-game/').content.decode()
-        self.assertIn('https://t.me/tribute/app?startapp=g68Y', body)
-        self.assertIn('https://t.me/tribute/app?startapp=g68Z', body)
-        self.assertIn('https://t.me/tribute/app?startapp=g690', body)
+        self.assertIn('https://t.me/tribute/app?startapp=dQ6d', body)
+        self.assertIn('https://t.me/tribute/app?startapp=dQ6e', body)
+        self.assertIn('https://t.me/tribute/app?startapp=dQ6f', body)
         self.assertIn('data-vote-cta="redactle"', body)
-        self.assertNotIn('Ссылка Tribute появится после настройки цели.', body)
+        self.assertNotIn('Ссылка Tribute появится после настройки доната.', body)

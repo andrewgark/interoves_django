@@ -282,12 +282,12 @@ def next_game_vote_configuration_errors() -> list[str]:
         host = (parsed.hostname or '').lower()
         if parsed.scheme != 'https' or host not in VOTE_GOAL_URL_HOSTS or parsed.path in ('', '/'):
             errors.append(
-                '{} must be an https Tribute Goal link (web.tribute.tg, tribute.tg, or t.me)'.format(name)
+                '{} must be an https Tribute donation link (web.tribute.tg, tribute.tg, or t.me)'.format(name)
             )
         else:
             urls.append(raw)
     if len(urls) == 3 and len(set(urls)) < 3:
-        errors.append('Next-game vote Tribute Goal URLs must be distinct')
+        errors.append('Next-game vote Tribute donation URLs must be distinct')
     ids = [
         str(getattr(settings, name, '') or '').strip()
         for name in _VOTE_ID_SETTINGS

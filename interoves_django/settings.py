@@ -830,25 +830,26 @@ TRIBUTE_CLUB_SUBSCRIPTION_USD_AMOUNT = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTIO
 TRIBUTE_CLUB_SUBSCRIPTION_USD_CURRENCY = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_USD_CURRENCY') or 'USD').strip()
 TRIBUTE_CLUB_MANAGEMENT_URL = (os.environ.get('TRIBUTE_CLUB_MANAGEMENT_URL') or '').strip()
 
-# One-off next-game donation vote (7–27 Sep 2026). Three Tribute Goals.
-# Public Telegram Mini App links; donation_request_id is filled after webhooks.
+# One-off next-game donation vote (7–27 Sep 2026). Three regular Tribute donations
+# (not Goals — Goal payments do not send webhooks). donation_request_id is filled
+# from the first new_donation webhooks.
 TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL = (
     os.environ.get('TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL')
-    or 'https://t.me/tribute/app?startapp=g68Y'
+    or 'https://t.me/tribute/app?startapp=dQ6d'
 ).strip()
 TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID = (
     os.environ.get('TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID') or ''
 ).strip()
 TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL = (
     os.environ.get('TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL')
-    or 'https://t.me/tribute/app?startapp=g68Z'
+    or 'https://t.me/tribute/app?startapp=dQ6e'
 ).strip()
 TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID = (
     os.environ.get('TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID') or ''
 ).strip()
 TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL = (
     os.environ.get('TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL')
-    or 'https://t.me/tribute/app?startapp=g690'
+    or 'https://t.me/tribute/app?startapp=dQ6f'
 ).strip()
 TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID = (
     os.environ.get('TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID') or ''
