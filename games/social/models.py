@@ -49,7 +49,7 @@ class SocialQueuePost(models.Model):
         upload_to='social_queue/',
         blank=True,
         null=True,
-        help_text='Optional compact image for X and Instagram; Telegram uses image.',
+        help_text='Optional compact image for X, Instagram and Threads; Telegram uses image.',
     )
     source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default=SOURCE_MANUAL)
     ladder_date = models.DateField(
@@ -104,6 +104,15 @@ class SocialQueuePost(models.Model):
     instagram_queued_for = models.DateTimeField(null=True, blank=True)
     instagram_attempts = models.PositiveSmallIntegerField(default=0)
 
+    threads_status = models.CharField(
+        max_length=16, choices=NETWORK_STATUS_CHOICES, default=STATUS_PENDING,
+    )
+    threads_external_id = models.CharField(max_length=64, blank=True, default='')
+    threads_error = models.TextField(blank=True, default='')
+    threads_at = models.DateTimeField(null=True, blank=True)
+    threads_queued_for = models.DateTimeField(null=True, blank=True)
+    threads_attempts = models.PositiveSmallIntegerField(default=0)
+
     class Meta:
         ordering = ('-created_at',)
         constraints = [
@@ -115,24 +124,27 @@ class SocialQueuePost(models.Model):
 
     def __str__(self):
         if self.source == self.SOURCE_LADDER and self.ladder_number:
-            return 'ladder {} [tg={} x={} ig={}]'.format(
+            return 'ladder {} [tg={} x={} ig={} th={}]'.format(
                 self.ladder_number,
                 self.telegram_status,
                 self.twitter_status,
                 self.instagram_status,
+                self.threads_status,
             )
         if self.source == self.SOURCE_WORD_SALAD and self.ladder_number:
-            return 'salad {} [tg={} x={} ig={}]'.format(
+            return 'salad {} [tg={} x={} ig={} th={}]'.format(
                 self.ladder_number,
                 self.telegram_status,
                 self.twitter_status,
                 self.instagram_status,
+                self.threads_status,
             )
-        return 'social {} [tg={} x={} ig={}]'.format(
+        return 'social {} [tg={} x={} ig={} th={}]'.format(
             self.pk,
             self.telegram_status,
             self.twitter_status,
             self.instagram_status,
+            self.threads_status,
         )
 
     def image_bytes(self) -> bytes:

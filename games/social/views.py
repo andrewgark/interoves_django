@@ -1,4 +1,4 @@
-"""Public endpoints for SocialQueuePost media (Instagram fetch URL)."""
+"""Public endpoints for SocialQueuePost media fetched by Meta APIs."""
 
 from __future__ import annotations
 

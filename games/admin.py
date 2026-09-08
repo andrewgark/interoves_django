@@ -1777,9 +1777,11 @@ class SocialQueuePostAdmin(admin.ModelAdmin):
         'telegram_status',
         'twitter_status',
         'instagram_status',
+        'threads_status',
         'telegram_queued_for',
         'twitter_queued_for',
         'instagram_queued_for',
+        'threads_queued_for',
         'telegram_scheduled_for',
         'created_at',
     ]
@@ -1788,6 +1790,7 @@ class SocialQueuePostAdmin(admin.ModelAdmin):
         'telegram_status',
         'twitter_status',
         'instagram_status',
+        'threads_status',
     ]
     search_fields = ['caption', 'ladder_number', 'play_url', 'telegram_external_id', 'twitter_external_id']
     readonly_fields = [

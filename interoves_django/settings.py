@@ -880,6 +880,12 @@ INSTAGRAM_ACCESS_TOKEN = load_secret(
     'instagram_access_token.txt', env_var='INSTAGRAM_ACCESS_TOKEN', default=''
 )
 INSTAGRAM_USERNAME = (os.environ.get('INSTAGRAM_USERNAME') or 'interoveslocumpraesta').strip()
+# Threads (@interoves) — Threads API user access token. The token needs
+# threads_basic and threads_content_publish permissions.
+THREADS_ACCESS_TOKEN = load_secret(
+    'threads_access_token.txt', env_var='THREADS_ACCESS_TOKEN', default=''
+)
+THREADS_USERNAME = (os.environ.get('THREADS_USERNAME') or 'interoves').strip()
 # Seconds to cache the fetched feed (avoid hitting the Graph API on every page view).
 try:
     INSTAGRAM_FEED_CACHE_SECONDS = int(os.environ.get('INSTAGRAM_FEED_CACHE_SECONDS') or 600)

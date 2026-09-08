@@ -103,6 +103,37 @@ class SupportSocialQueueTests(TestCase):
         self.assertEqual(post.instagram_status, SocialQueuePost.STATUS_QUEUED)
         self.assertEqual(post.telegram_status, SocialQueuePost.STATUS_PENDING)
 
+    def test_create_internal_queues_threads(self):
+        response = self.client.post(
+            reverse('support:social_create'),
+            {
+                'caption': 'threads',
+                'image': _png_upload(),
+                'mode': 'internal',
+                'schedule_at': '2026-07-08T16:30:00',
+                'networks': ['threads'],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        post = SocialQueuePost.objects.get(pk=response.json()['post']['id'])
+        self.assertEqual(post.threads_status, SocialQueuePost.STATUS_QUEUED)
+        self.assertTrue(post.threads_queued_for)
+
+    @override_settings(THREADS_ACCESS_TOKEN='token', SITE_BASE_URL='https://example.com')
+    @patch('games.social.publish.publish_threads_image_url', return_value='thread-123')
+    def test_publish_threads(self, publish_mock):
+        from games.social.publish import publish_threads
+
+        post = SocialQueuePost.objects.create(
+            caption='hello', source=SocialQueuePost.SOURCE_MANUAL,
+        )
+        post.image.save('a.png', _png_upload(), save=True)
+        publish_threads(post)
+        post.refresh_from_db()
+        self.assertEqual(post.threads_status, SocialQueuePost.STATUS_SENT)
+        self.assertEqual(post.threads_external_id, 'thread-123')
+        publish_mock.assert_called_once()
+
     @patch('games.support.services.social.publish_twitter')
     def test_publish_endpoint_calls_network(self, tw_mock):
         post = SocialQueuePost.objects.create(caption='x', source=SocialQueuePost.SOURCE_MANUAL)

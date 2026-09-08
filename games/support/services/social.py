@@ -12,6 +12,7 @@ from games.social.publish import (
     publish_instagram,
     publish_telegram,
     publish_twitter,
+    publish_threads,
     queue_network as publish_queue_network,
 )
 from games.telegram.config import channel_chat_id, telegram_channel_configured
@@ -38,7 +39,7 @@ def _net_blob(status, external_id, error, at, queued_for=None, scheduled_for=Non
 
 def _network_sent_at(post: SocialQueuePost) -> datetime | None:
     times = [
-        t for t in (post.telegram_at, post.twitter_at, post.instagram_at)
+        t for t in (post.telegram_at, post.twitter_at, post.instagram_at, post.threads_at)
         if t is not None
     ]
     return max(times) if times else None
@@ -51,6 +52,7 @@ def _is_post_published(post: SocialQueuePost) -> bool:
             post.telegram_status,
             post.twitter_status,
             post.instagram_status,
+            post.threads_status,
         )
     )
 
@@ -94,6 +96,10 @@ def serialize_post(post: SocialQueuePost) -> dict:
             post.instagram_at,
             queued_for=post.instagram_queued_for,
         ),
+        'threads': _net_blob(
+            post.threads_status, post.threads_external_id, post.threads_error,
+            post.threads_at, queued_for=post.threads_queued_for,
+        ),
     }
 
 
@@ -105,6 +111,7 @@ def _planned_dt(post: SocialQueuePost):
         post.telegram_queued_for,
         post.twitter_queued_for,
         post.instagram_queued_for,
+        post.threads_queued_for,
     ]
     values = [c for c in candidates if c is not None]
     return min(values) if values else None
@@ -169,7 +176,7 @@ def create_post_with_plan(
     selected = {
         (n or '').strip().lower()
         for n in (networks or [])
-        if (n or '').strip().lower() in ('telegram', 'twitter', 'instagram')
+        if (n or '').strip().lower() in ('telegram', 'twitter', 'instagram', 'threads')
     }
     if not selected:
         raise SocialSupportError('Выберите хотя бы одну соцсеть')
@@ -301,7 +308,7 @@ def publish_network(
     if action == 'queue':
         if sched is None:
             raise SocialSupportError('Нужна дата/время для внутренней очереди')
-        if network not in ('telegram', 'twitter', 'instagram'):
+        if network not in ('telegram', 'twitter', 'instagram', 'threads'):
             raise SocialSupportError('Unknown network: {}'.format(network))
         return publish_queue_network(post, network, sched)
 
@@ -320,4 +327,6 @@ def publish_network(
         return publish_twitter(post, force=force)
     if network == 'instagram':
         return publish_instagram(post, force=force)
+    if network == 'threads':
+        return publish_threads(post, force=force)
     raise SocialSupportError('Unknown network: {}'.format(network))

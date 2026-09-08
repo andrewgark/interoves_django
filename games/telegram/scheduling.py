@@ -12,6 +12,7 @@ from games.models import Attempt, Game, Team
 from games.social.models import SocialQueuePost
 from games.social.publish import (
     publish_instagram,
+    publish_threads,
     publish_telegram,
     publish_twitter,
     queue_failed_network_retries,
@@ -109,6 +110,8 @@ def _publish_social_now(
     publish_twitter(post, force=False)
     post.refresh_from_db()
     publish_instagram(post, force=False)
+    post.refresh_from_db()
+    publish_threads(post, force=False)
     post.refresh_from_db()
     queue_failed_network_retries(post)
     return post

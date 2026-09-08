@@ -6,7 +6,7 @@
 {{ posts_json|json_script:"social-bootstrap" }}
 <h1 class="support-page-title">Посты</h1>
 <p class="support-lead">
-  Очередь картинка + текст для Telegram / X / Instagram.
+  Очередь картинка + текст для Telegram / X / Instagram / Threads.
   Вставьте картинку из буфера (Ctrl+V) или выберите файл.
   «В очередь» — внутреннее расписание (minute cron); у Telegram отдельно
   «В отложенные TG» (нативная отложка канала). Статусы: queued ≠ scheduled.
@@ -40,6 +40,7 @@
     <label class="support-social-check"><input type="checkbox" name="networks" value="telegram" id="net-tg"> Telegram</label>
     <label class="support-social-check"><input type="checkbox" name="networks" value="twitter" id="net-x"> X</label>
     <label class="support-social-check"><input type="checkbox" name="networks" value="instagram" id="net-ig"> Instagram</label>
+    <label class="support-social-check"><input type="checkbox" name="networks" value="threads" id="net-threads"> Threads</label>
   </fieldset>
 
   <fieldset class="support-social-fieldset">
@@ -58,7 +59,7 @@
     </label>
     <label class="support-social-radio">
       <input type="radio" name="mode" value="tg_defer" id="mode-tg-defer">
-      TG в отложенные канала; X/IG — во внутреннюю очередь (одна дата/время)
+      TG в отложенные канала; X/IG/Threads — во внутреннюю очередь (одна дата/время)
     </label>
     <label class="support-ladders-field support-social-when" id="create-when-wrap" hidden>
       <span>Дата и время (МСК)</span>
@@ -318,6 +319,7 @@
             networkRow(p, 'telegram', p.telegram) +
             networkRow(p, 'twitter', p.twitter) +
             networkRow(p, 'instagram', p.instagram) +
+            networkRow(p, 'threads', p.threads) +
           '</div>' +
         '</article>'
       );
@@ -545,7 +547,7 @@
       body.immediate = false;
     }
 
-    var netName = { telegram: 'Telegram', twitter: 'X (Twitter)', instagram: 'Instagram' }[network] || network;
+    var netName = { telegram: 'Telegram', twitter: 'X (Twitter)', instagram: 'Instagram', threads: 'Threads' }[network] || network;
     if (action === 'publish') {
       var msg = (force ? 'Повторно опубликовать СЕЙЧАС в ' : 'Опубликовать СЕЙЧАС в ')
         + netName + '? Это реальный пост в соцсети.';

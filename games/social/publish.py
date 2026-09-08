@@ -18,6 +18,7 @@ from django.utils import timezone
 from games.instagram.api import publish_configured, publish_image_url
 from games.social.models import SocialQueuePost
 from games.telegram.config import channel_chat_id, telegram_channel_configured
+from games.threads.api import publish_image_url as publish_threads_image_url, threads_configured
 from games.telegram.mtproto import (
     delete_channel_messages_sync,
     schedule_channel_photo_sync,
@@ -207,6 +208,8 @@ def _network_fields(network: str) -> tuple[str, str, str, str]:
         return ('twitter_status', 'twitter_queued_for', 'twitter_error', 'twitter_external_id')
     if network == 'instagram':
         return ('instagram_status', 'instagram_queued_for', 'instagram_error', 'instagram_external_id')
+    if network == 'threads':
+        return ('threads_status', 'threads_queued_for', 'threads_error', 'threads_external_id')
     raise ValueError('Unknown network: {}'.format(network))
 
 
@@ -263,7 +266,7 @@ def queue_failed_network_retries(
     """Queue bounded retries for failed networks without repeating successful ones."""
     retry_at = (now or timezone.now()) + SOCIAL_QUEUE_RETRY_DELAY
     updates = {}
-    for network in ('telegram', 'twitter', 'instagram'):
+    for network in ('telegram', 'twitter', 'instagram', 'threads'):
         if getattr(post, '{}_status'.format(network)) != SocialQueuePost.STATUS_FAILED:
             continue
         if getattr(post, '{}_attempts'.format(network)) >= SOCIAL_QUEUE_MAX_ATTEMPTS:
@@ -406,6 +409,14 @@ def queue_network(post: SocialQueuePost, network: str, run_at: datetime) -> Soci
             'instagram_status', 'instagram_queued_for', 'instagram_error', 'updated_at',
         ])
         return post
+    if network == 'threads':
+        post.threads_status = SocialQueuePost.STATUS_QUEUED
+        post.threads_queued_for = run_at
+        post.threads_error = ''
+        post.save(update_fields=[
+            'threads_status', 'threads_queued_for', 'threads_error', 'updated_at',
+        ])
+        return post
     raise ValueError('Unknown network: {}'.format(network))
 
 
@@ -434,6 +445,8 @@ def _publish_one_queued(
         publish_twitter(post, force=False)
     elif network == 'instagram':
         publish_instagram(post, force=False)
+    elif network == 'threads':
+        publish_threads(post, force=False)
     else:
         raise ValueError('Unknown network: {}'.format(network))
     queue_failed_network_retries(post)
@@ -470,7 +483,7 @@ def process_social_queue_tick(now: datetime | None = None) -> dict[str, Any]:
     (covers the test DB); the production database parallelizes.
     """
     now = now or timezone.now()
-    stats = {'telegram': 0, 'twitter': 0, 'instagram': 0, 'errors': 0}
+    stats = {'telegram': 0, 'twitter': 0, 'instagram': 0, 'threads': 0, 'errors': 0}
 
     def _queued_pks(status_field: str, queued_field: str) -> list[int]:
         return list(
@@ -506,6 +519,8 @@ def process_social_queue_tick(now: datetime | None = None) -> dict[str, Any]:
         tasks.append(('twitter', pk))
     for pk in _queued_pks('instagram_status', 'instagram_queued_for'):
         tasks.append(('instagram', pk))
+    for pk in _queued_pks('threads_status', 'threads_queued_for'):
+        tasks.append(('threads', pk))
 
     if not tasks:
         return stats
@@ -553,7 +568,7 @@ def process_social_queue_tick(now: datetime | None = None) -> dict[str, Any]:
                     logger.exception('Social queue tick %s failed pk=%s', network, pk)
                     stats['errors'] += 1
 
-    if stats['telegram'] or stats['twitter'] or stats['instagram'] or stats['errors']:
+    if stats['telegram'] or stats['twitter'] or stats['instagram'] or stats['threads'] or stats['errors']:
         logger.info('Social queue tick: %s', stats)
     return stats
 
@@ -647,5 +662,47 @@ def publish_instagram(post: SocialQueuePost, *, force: bool = False) -> SocialQu
         post.instagram_error = str(exc)[:500]
         post.save(update_fields=[
             'instagram_status', 'instagram_error', 'instagram_attempts', 'updated_at',
+        ])
+    return post
+
+
+def publish_threads(post: SocialQueuePost, *, force: bool = False) -> SocialQueuePost:
+    if post.threads_external_id and not force:
+        return post
+    if post.threads_status == SocialQueuePost.STATUS_SENT and not force:
+        return post
+
+    if not threads_configured():
+        post.threads_status = SocialQueuePost.STATUS_SKIPPED
+        post.threads_error = 'THREADS_ACCESS_TOKEN not configured'
+        post.save(update_fields=['threads_status', 'threads_error', 'updated_at'])
+        return post
+
+    if not (post.social_image or post.image):
+        post.threads_status = SocialQueuePost.STATUS_FAILED
+        post.threads_error = 'No image on post'
+        post.save(update_fields=['threads_status', 'threads_error', 'updated_at'])
+        return post
+
+    image_url = settings.SITE_BASE_URL + reverse(
+        'social_queue_instagram_jpg', args=[post.pk]
+    )
+    post.threads_attempts += 1
+    try:
+        thread_id = publish_threads_image_url(image_url, _plain_caption(post))
+        post.threads_status = SocialQueuePost.STATUS_SENT
+        post.threads_external_id = thread_id
+        post.threads_error = ''
+        post.threads_at = timezone.now()
+        post.save(update_fields=[
+            'threads_status', 'threads_external_id', 'threads_error',
+            'threads_at', 'threads_attempts', 'updated_at',
+        ])
+    except Exception as exc:
+        logger.exception('Threads publish failed for social post pk=%s', post.pk)
+        post.threads_status = SocialQueuePost.STATUS_FAILED
+        post.threads_error = str(exc)[:500]
+        post.save(update_fields=[
+            'threads_status', 'threads_error', 'threads_attempts', 'updated_at',
         ])
     return post

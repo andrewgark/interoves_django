@@ -206,6 +206,11 @@ def _queue_x_ig_for_salad(
             or not post.instagram_queued_for
         ):
             queue_network(post, 'instagram', run_at)
+    if force or post.threads_status not in (
+        SocialQueuePost.STATUS_SENT, SocialQueuePost.STATUS_SKIPPED,
+    ):
+        if force or post.threads_status != SocialQueuePost.STATUS_QUEUED or not post.threads_queued_for:
+            queue_network(post, 'threads', run_at)
 
 
 def _maybe_finish_other_networks(post: SocialQueuePost, *, force: bool = False) -> None:
@@ -369,10 +374,11 @@ def schedule_salad_channel_post(
 
     if existing.telegram_ok:
         if immediate:
-            from games.social.publish import publish_instagram, publish_twitter
+            from games.social.publish import publish_instagram, publish_threads, publish_twitter
 
             publish_twitter(existing, force=force)
             publish_instagram(existing, force=force)
+            publish_threads(existing, force=force)
         else:
             run_at = schedule_at or publish_at_for_date(salad.salad_date)
             _queue_x_ig_for_salad(existing, run_at, force=force)
