@@ -3224,11 +3224,6 @@ html.new-ui-dark .new-team-switcher-active-box {
   opacity: 0.38;
 }
 
-.new-difficulty__preliminary {
-  color: var(--muted);
-  font-size: 0.78rem;
-}
-
 .new-taskcard__meta-bar .new-difficulty__brains {
   font-size: 0.88rem;
 }

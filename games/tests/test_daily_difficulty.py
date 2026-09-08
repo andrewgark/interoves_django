@@ -190,7 +190,7 @@ class DifficultyScoringTests(SimpleTestCase):
             'Сложность: 4 из 5 — сложная. '
             'Предварительная оценка.',
         )
-        self.assertIn('·</span> предварительно', html)
+        self.assertNotIn('предварительно', html)
         self.assertNotIn('title=', html)
         self.assertEqual(html.count('ph-brain'), 5)
 

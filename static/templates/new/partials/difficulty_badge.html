@@ -7,6 +7,5 @@
   <span class="new-difficulty__brains" aria-hidden="true">
     {% for filled in difficulty.star_slots %}<i class="{% if filled %}ph-fill{% else %}ph{% endif %} ph-brain{% if not filled %} new-difficulty__brain--empty{% endif %}"></i>{% endfor %}
   </span>
-  {% if difficulty.is_preliminary %}<span class="new-difficulty__preliminary"><span aria-hidden="true">·</span> предварительно</span>{% endif %}
 </span>
 {% endif %}
