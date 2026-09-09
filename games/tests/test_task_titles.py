@@ -2,10 +2,18 @@ from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
-from games.task_titles import task_display_name, task_group_page_title
+from games.task_titles import raddle_share_title, task_display_name, task_group_page_title
 
 
 class TaskTitlesTests(SimpleTestCase):
+    def test_raddle_share_title_includes_desyatochki_source(self):
+        game = SimpleNamespace(pk='des171', id='des171')
+        self.assertEqual(raddle_share_title(game, '3', '3'), 'Лесенка 171.3.3')
+
+    def test_raddle_share_title_for_other_projects(self):
+        game = SimpleNamespace(pk='desyatka', id='desyatka')
+        self.assertEqual(raddle_share_title(game, '3', '3'), 'Лесенка 3.3')
+
     def test_numbered_edition_uses_page_title(self):
         game = SimpleNamespace(pk='ladder', outside_name='Лесенка', name='Лесенка')
         placement = SimpleNamespace(number='45', name='Лесенка #45')

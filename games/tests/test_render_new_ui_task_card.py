@@ -250,6 +250,7 @@ class RenderNewUiTaskCardTests(TestCase):
                 'result_squares': '🟩',
                 'elapsed_label': '3м 46с',
                 'rows': [],
+                'share_title': 'Лесенка 3.2',
             },
         }
         task = SimpleNamespace(
@@ -271,7 +272,7 @@ class RenderNewUiTaskCardTests(TestCase):
         }
         html = render_to_string('task-content/task-raddle.html', context)
         self.assertIn('new-raddle-result', html)
-        self.assertIn('🪜 3.2 · Лесенки', html)
+        self.assertIn('🪜 Лесенка 3.2', html)
         self.assertIn('🔗 interoves.com/games/des171_test/3/2', html)
 
         context['game'] = SimpleNamespace(id='ladder', name='Лесенка', outside_name='')
@@ -286,8 +287,9 @@ class RenderNewUiTaskCardTests(TestCase):
         context['game'] = SimpleNamespace(id='desyatka', name='Десяточка', outside_name='')
         context['tg_number'] = '4'
         context['task'] = task
+        context['rd']['ui']['share_title'] = 'Лесенка 4.2'
         html = render_to_string('task-content/task-raddle.html', context)
-        self.assertIn('🪜 4.2 · Лесенки', html)
+        self.assertIn('🪜 Лесенка 4.2', html)
         self.assertIn('🔗 interoves.com/games/desyatka/4/2', html)
 
     def test_word_salad_result_share_is_limited_to_salad_game(self):

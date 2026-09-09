@@ -46,6 +46,17 @@ function payload(overrides) {
   assert.strictEqual(card.VERSION, '4');
 })();
 
+(function testMetadataAppearsInSvgHeader() {
+  var svg = card.buildShareCardSvg(payload({
+    theme: 'Города России',
+    author: 'Иван',
+    intro: 'От Парижа до Дакара',
+  }));
+  assert.ok(svg.indexOf('Тема: Города России') !== -1);
+  assert.ok(svg.indexOf('Автор: Иван') !== -1);
+  assert.ok(svg.indexOf('От Парижа до Дакара') !== -1);
+})();
+
 (function testHeaderDoesNotDuplicateTitle() {
   var svg = card.buildShareCardSvg(payload());
   var headlineHits = svg.split('Лесенка #46 решена за 4:32').length - 1;

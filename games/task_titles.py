@@ -1,6 +1,7 @@
 """Canonical user-facing titles for task groups and individual tasks."""
 
 import html
+import re
 
 from django.utils.html import strip_tags
 
@@ -14,6 +15,22 @@ def _plain_text(value) -> str:
     """Turn a possibly-HTML display name into compact plain text."""
     text = html.unescape(strip_tags(str(value or '')))
     return ' '.join(text.split())
+
+
+def raddle_share_title(game, task_group_number, task_number) -> str:
+    """Return the compact share title for a raddle task.
+
+    Desyatochki projects use ``desNNN`` as their public project id. Keep that
+    source number in the title; other project raddles only need group/task
+    numbers to remain identifiable.
+    """
+    project_id = str(getattr(game, 'id', '') or getattr(game, 'pk', '') or '')
+    group_number = str(task_group_number or '').strip()
+    task_number = str(task_number or '').strip()
+    match = re.match(r'^des(\d+)$', project_id, re.IGNORECASE)
+    if match:
+        return 'Лесенка {}.{}.{}'.format(match.group(1), group_number, task_number)
+    return 'Лесенка {}.{}'.format(group_number, task_number)
 
 
 def task_group_page_title(game, placement) -> str:

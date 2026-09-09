@@ -86,7 +86,7 @@ from games.section_hub import (
 )
 from games.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
-from games.task_titles import task_display_name, task_group_page_title
+from games.task_titles import raddle_share_title, task_display_name, task_group_page_title
 from games.models import (
     Attempt,
     AudioManager,
@@ -2935,20 +2935,23 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 'max_attempts': t.get_max_attempts(),
                 'max_points_total': t.get_results_max_points(),
             }
-            if str(getattr(game, 'id', '')) == LADDER_GAME_ID:
-                from games.daily_share_card import attach_ladder_share_card
-                attach_ladder_share_card(
-                    ui,
-                    parsed=parsed,
-                    state=state,
-                    hint_attempts=raddle_hint_attempts,
-                    game=game,
-                    task=t,
-                    placement=placement,
-                    user=user,
-                    anon_key=anon_key,
-                    attempts=ai.attempts if ai else [],
-                )
+            from games.daily_share_card import attach_ladder_share_card
+            share_title = None
+            if str(getattr(game, 'id', '')) != LADDER_GAME_ID:
+                share_title = raddle_share_title(game, placement.number, t.number)
+            attach_ladder_share_card(
+                ui,
+                parsed=parsed,
+                state=state,
+                hint_attempts=raddle_hint_attempts,
+                game=game,
+                task=t,
+                placement=placement,
+                user=user,
+                anon_key=anon_key,
+                attempts=ai.attempts if ai else [],
+                share_title=share_title,
+            )
     proportions_chips = []
     if task_group.view == 'proportions':
         proportions_chips = build_proportions_chips_for_tasks(tasks)

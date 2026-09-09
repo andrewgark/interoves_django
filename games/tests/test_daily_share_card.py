@@ -209,6 +209,35 @@ class DailyShareCardPayloadTests(SimpleTestCase):
         )
         self.assertEqual(payload['headline'], 'Лесенка #1 решена за 4:32')
 
+    def test_ladder_payload_accepts_project_share_title(self):
+        payload = _paris_payload(
+            number=3,
+            share_title='Лесенка 171.3.3',
+            elapsed_seconds=272,
+        )
+        self.assertEqual(payload['title'], 'Лесенка 171.3.3')
+        self.assertEqual(payload['headline'], 'Лесенка 171.3.3 решена за 4:32')
+
+    def test_ladder_payload_includes_author_and_intro(self):
+        payload = _paris_payload(
+            author='<b>Анна</b>',
+            intro='<p>От Парижа до Дакара.</p>',
+        )
+        self.assertEqual(payload['author'], 'Анна')
+        self.assertEqual(payload['intro'], 'От Парижа до Дакара.')
+
+    def test_salad_payload_includes_theme_and_author(self):
+        payload = build_salad_share_payload(
+            words=['МОСКВА'],
+            state=salad_default_state(),
+            number=23,
+            theme='Тема: Города России',
+            author='<i>Иван</i>',
+            grid=list('АБВГДЕЖЗИЙКЛМНОП'),
+        )
+        self.assertEqual(payload['theme'], 'Города России')
+        self.assertEqual(payload['author'], 'Иван')
+
     def test_synthetic_preview_payloads_are_marked(self):
         items = synthetic_preview_payloads()
         self.assertGreaterEqual(len(items), 6)

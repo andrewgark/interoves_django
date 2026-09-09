@@ -210,6 +210,18 @@
       prop: 'text-anchor="middle" font-family="' + FONT + '" font-size="54" font-weight="700" fill="' + accent + '"',
     }));
     y += headlineLines.length * 70 + 28;
+    var metadata = [];
+    if (payload.theme) metadata.push('Тема: ' + payload.theme);
+    if (payload.author) metadata.push('Автор: ' + payload.author);
+    if (payload.intro) metadata.push(payload.intro);
+    metadata.forEach(function (text) {
+      var lines = wrapText(text, 42).slice(0, 4);
+      parts.push(textLines(WIDTH / 2, y, lines, {
+        lh: 42,
+        prop: 'text-anchor="middle" font-family="' + FONT + '" font-size="32" fill="' + PALETTE.muted + '"',
+      }));
+      y += lines.length * 42 + 12;
+    });
     return { svg: parts.join(''), bottom: y };
   }
 

@@ -8,10 +8,12 @@ never includes puzzle answers.
 from __future__ import annotations
 
 import json
+import html
 from datetime import date, datetime
 from typing import Any, Iterable, Optional
 
 from games.share_result import format_elapsed_compact
+from django.utils.html import strip_tags
 
 RENDERER_VERSION = '4'
 CARD_WIDTH = 1080
@@ -57,6 +59,18 @@ def normalize_locale(locale: str | None) -> str:
 
 def dumps_payload(payload: dict[str, Any]) -> str:
     return json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
+
+
+def _share_text(value) -> str:
+    """Convert task metadata to safe, compact plain text for the SVG card."""
+    return ' '.join(html.unescape(strip_tags(str(value or ''))).split())
+
+
+def _task_author(task) -> str:
+    tags = getattr(task, 'tags', None) or {}
+    if not isinstance(tags, dict):
+        return ''
+    return _share_text(tags.get('author'))
 
 
 def game_title(kind: str, locale: str) -> str:
@@ -189,6 +203,7 @@ def _base_payload(
     brand_host: str,
     extra_stats: Iterable[str | None],
     seed: int | None = None,
+    title_override: str | None = None,
 ) -> dict[str, Any]:
     loc = normalize_locale(locale)
     display_number = str(number or '').strip()
@@ -196,13 +211,25 @@ def _base_payload(
         seed_value = int(seed if seed is not None else display_number or 0)
     except (TypeError, ValueError):
         seed_value = 0
-    headline = build_headline(
-        kind=kind,
-        locale=loc,
-        elapsed_seconds=elapsed_seconds,
-        number=display_number,
-        style=headline_style,
-    )
+    if title_override:
+        title = title_override
+        if elapsed_seconds is not None:
+            clock = format_elapsed_compact(elapsed_seconds)
+            if headline_style == HEADLINE_COMPACT:
+                headline = '{} · {}'.format(title, clock)
+            else:
+                headline = '{} {} {}'.format(title, _SOLVED_VERB[kind][loc], clock)
+        else:
+            headline = title
+    else:
+        title = edition_title(kind, display_number, loc)
+        headline = build_headline(
+            kind=kind,
+            locale=loc,
+            elapsed_seconds=elapsed_seconds,
+            number=display_number,
+            style=headline_style,
+        )
     clock = format_elapsed_compact(elapsed_seconds) if elapsed_seconds is not None else ''
     return {
         'kind': kind,
@@ -213,7 +240,7 @@ def _base_payload(
         'locale': loc,
         'number': display_number,
         'seed': seed_value,
-        'title': edition_title(kind, display_number, loc),
+        'title': title,
         'date_label': format_share_date(date_value, loc),
         'headline': headline,
         'headline_style': headline_style,
@@ -260,6 +287,9 @@ def build_ladder_share_payload(
     locale: str = 'ru',
     headline_style: str = HEADLINE_SOLVED_IN,
     brand_host: str = BRAND_HOST,
+    share_title: str | None = None,
+    author: str | None = None,
+    intro: str | None = None,
 ) -> dict[str, Any]:
     from games.raddle import resolve_assist_tiers
 
@@ -302,9 +332,16 @@ def build_ladder_share_payload(
         brand_host=brand_host,
         extra_stats=(_hints_label(hint_count, locale),),
         seed=number,
+        title_override=share_title,
     )
     payload['steps'] = steps
     payload['hint_count'] = hint_count
+    author_text = _share_text(author)
+    intro_text = _share_text(intro)
+    if author_text:
+        payload['author'] = author_text
+    if intro_text:
+        payload['intro'] = intro_text
     return payload
 
 
@@ -321,6 +358,7 @@ def build_salad_share_payload(
     theme: str | None = None,
     word_count: int | None = None,
     grid=None,
+    author: str | None = None,
 ) -> dict[str, Any]:
     from games.word_salad import load_state, words_in_display_order
 
@@ -357,7 +395,14 @@ def build_salad_share_payload(
         payload['grid'] = letters
     theme_text = (theme or '').strip()
     if theme_text:
-        payload['theme'] = theme_text
+        theme_text = _share_text(theme_text)
+        if theme_text.lower().startswith('тема:'):
+            theme_text = theme_text[5:].strip()
+        if theme_text:
+            payload['theme'] = theme_text
+    author_text = _share_text(author)
+    if author_text:
+        payload['author'] = author_text
     return payload
 
 
@@ -573,7 +618,10 @@ def attach_ladder_share_card(
     anon_key=None,
     attempts=None,
     locale: str = 'ru',
+    share_title: str | None = None,
 ) -> dict[str, Any]:
+    if ui and share_title:
+        ui['share_title'] = share_title
     if not ui or not ui.get('is_complete'):
         return ui
     number = getattr(placement, 'number', None)
@@ -588,6 +636,9 @@ def attach_ladder_share_card(
         date_value=publish_date_for(game, number),
         elapsed_seconds=elapsed,
         locale=locale,
+        share_title=share_title,
+        author=_task_author(task),
+        intro=getattr(task, 'text', None),
     )
     ui['share_card'] = payload
     ui['share_card_json'] = dumps_payload(payload)
@@ -624,6 +675,7 @@ def attach_salad_share_card(
         elapsed_seconds=elapsed,
         locale=locale,
         theme=theme_from_text(getattr(task, 'text', None)),
+        author=_task_author(task),
         grid=grid,
     )
     ui['share_card'] = payload
