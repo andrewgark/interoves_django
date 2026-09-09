@@ -5,8 +5,10 @@ from uuid import uuid4
 import json
 
 from django.contrib.auth.models import User
+from django.db import IntegrityError, OperationalError
 from django.test import Client, SimpleTestCase, TestCase
 
+from games import daily_timing as daily_timing_mod
 from games.daily_section import is_daily_timing_game
 from games.daily_timing import (
     ACTION_AUTO_PAUSE,
@@ -16,6 +18,8 @@ from games.daily_timing import (
     ACTION_RESUME,
     ACTION_START,
     HEARTBEAT_MAX_CREDIT_MS,
+    TIMING_DEADLOCK_ATTEMPTS,
+    _is_mysql_deadlock,
     apply_timing_event,
     canonical_elapsed_seconds,
     complete_daily_timing,
@@ -49,6 +53,17 @@ class DailyTimingScopeTests(SimpleTestCase):
         self.assertFalse(is_daily_timing_game('week_task'))
         self.assertFalse(is_daily_timing_game('des1'))
         self.assertFalse(is_daily_timing_game('walls'))
+
+    def test_detects_wrapped_mysql_deadlock_only(self):
+        inner = OperationalError(1213, 'Deadlock found when trying to get lock')
+        wrapped = OperationalError('Deadlock found when trying to get lock')
+        wrapped.__cause__ = inner
+        self.assertTrue(_is_mysql_deadlock(inner))
+        self.assertTrue(_is_mysql_deadlock(wrapped))
+        self.assertFalse(
+            _is_mysql_deadlock(OperationalError(1205, 'Lock wait timeout exceeded'))
+        )
+        self.assertFalse(_is_mysql_deadlock(IntegrityError(1062, 'Duplicate entry')))
 
 
 class DailyTimingDomainTests(TestCase):
@@ -405,6 +420,59 @@ class DailyTimingDomainTests(TestCase):
         self.assertTrue(snap['exists'])
         self.assertEqual(snap['status'], 'running')
         self.assertEqual(DailySolveTiming.objects.filter(pk=existing.pk).count(), 1)
+
+    def test_retries_mysql_deadlock_then_succeeds(self):
+        calls = {'n': 0}
+        orig = daily_timing_mod._apply_timing_event_once
+
+        def flaky(**kwargs):
+            calls['n'] += 1
+            if calls['n'] == 1:
+                raise OperationalError(1213, 'Deadlock found when trying to get lock')
+            return orig(**kwargs)
+
+        sid = uuid4()
+        with patch.object(daily_timing_mod, '_apply_timing_event_once', side_effect=flaky):
+            with self.assertLogs('games.daily_timing', level='WARNING') as logs:
+                snap = self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
+        self.assertEqual(calls['n'], 2)
+        self.assertTrue(snap['exists'])
+        joined = '\n'.join(logs.output)
+        self.assertIn('daily_timing deadlock retry attempt=1/3 action=start', joined)
+        self.assertNotIn(self.user.username, joined)
+        self.assertNotIn(self.user.email, joined)
+        self.assertNotIn(str(sid), joined)
+
+    def test_mysql_deadlock_retry_exhausts_without_other_operational_errors(self):
+        calls = {'n': 0}
+
+        def boom(**kwargs):
+            calls['n'] += 1
+            raise OperationalError(1213, 'Deadlock found when trying to get lock')
+
+        sid = uuid4()
+        with patch.object(daily_timing_mod, '_apply_timing_event_once', side_effect=boom):
+            with self.assertLogs('games.daily_timing', level='WARNING') as logs:
+                with self.assertRaises(OperationalError) as ctx:
+                    self._apply(action=ACTION_HEARTBEAT, session=sid, seq=1, now=_dt())
+        self.assertEqual(ctx.exception.args[0], 1213)
+        self.assertEqual(calls['n'], TIMING_DEADLOCK_ATTEMPTS)
+        joined = '\n'.join(logs.output)
+        self.assertIn('daily_timing deadlock exhausted attempts=3 action=heartbeat', joined)
+        self.assertNotIn(self.user.username, joined)
+        self.assertNotIn(self.user.email, joined)
+
+        calls['n'] = 0
+
+        def timeout(**kwargs):
+            calls['n'] += 1
+            raise OperationalError(1205, 'Lock wait timeout exceeded')
+
+        with patch.object(daily_timing_mod, '_apply_timing_event_once', side_effect=timeout):
+            with self.assertRaises(OperationalError) as ctx:
+                self._apply(action=ACTION_START, session=sid, seq=2, now=_dt())
+        self.assertEqual(ctx.exception.args[0], 1205)
+        self.assertEqual(calls['n'], 1)
 
     def test_merge_prefers_completed_and_does_not_sum(self):
         target = DailySolveTiming.objects.create(

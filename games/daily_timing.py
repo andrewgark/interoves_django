@@ -7,10 +7,11 @@ legacy gap into active time.
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 from uuid import UUID
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, OperationalError, transaction
 from django.utils import timezone
 
 from games.daily_section import is_daily_timing_game
@@ -34,7 +35,11 @@ HEARTBEAT_MAX_CREDIT_MS = 60_000
 LEASE_STALE_MS = 45_000
 APPLIED_EVENT_LIMIT = 64
 MAX_ACCUMULATED_MS = 12 * 60 * 60 * 1000  # 12h hard cap for one daily solve
+MYSQL_DEADLOCK_ERRNO = 1213
+TIMING_DEADLOCK_ATTEMPTS = 3
 _UNSET = object()
+
+logger = logging.getLogger(__name__)
 
 MUTATING_ACTIONS = {
     ACTION_START,
@@ -165,8 +170,78 @@ def elapsed_label_for_complete_attempts(
     )
 
 
-@transaction.atomic
+def _mysql_errno(exc: BaseException) -> int | None:
+    current = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        args = getattr(current, 'args', None)
+        if args:
+            try:
+                return int(args[0])
+            except (TypeError, ValueError):
+                pass
+        current = getattr(current, '__cause__', None)
+    return None
+
+
+def _is_mysql_deadlock(exc: BaseException) -> bool:
+    return _mysql_errno(exc) == MYSQL_DEADLOCK_ERRNO
+
+
 def apply_timing_event(
+    *,
+    game,
+    task_group,
+    user=None,
+    anon_key=None,
+    action: str,
+    session_id,
+    event_id: str,
+    seq: int,
+    claimed_ms=None,
+    now=None,
+    create: bool = True,
+) -> dict:
+    last_exc = None
+    action_label = (action or '').strip()
+    for attempt in range(1, TIMING_DEADLOCK_ATTEMPTS + 1):
+        try:
+            return _apply_timing_event_once(
+                game=game,
+                task_group=task_group,
+                user=user,
+                anon_key=anon_key,
+                action=action,
+                session_id=session_id,
+                event_id=event_id,
+                seq=seq,
+                claimed_ms=claimed_ms,
+                now=now,
+                create=create,
+            )
+        except OperationalError as exc:
+            last_exc = exc
+            if not _is_mysql_deadlock(exc):
+                raise
+            if attempt >= TIMING_DEADLOCK_ATTEMPTS:
+                logger.warning(
+                    'daily_timing deadlock exhausted attempts=%s action=%s',
+                    attempt,
+                    action_label,
+                )
+                raise
+            logger.warning(
+                'daily_timing deadlock retry attempt=%s/%s action=%s',
+                attempt,
+                TIMING_DEADLOCK_ATTEMPTS,
+                action_label,
+            )
+    raise last_exc
+
+
+@transaction.atomic
+def _apply_timing_event_once(
     *,
     game,
     task_group,
