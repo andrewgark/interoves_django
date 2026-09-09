@@ -242,7 +242,7 @@ class RenderNewUiTaskCardTests(TestCase):
             )
             self.assertIn(expected, html)
 
-    def test_raddle_result_share_is_limited_to_ladder_game(self):
+    def test_raddle_result_share_works_for_daily_and_regular_games(self):
         request = RequestFactory().get('/')
         rd = {
             'ui': {
@@ -258,6 +258,7 @@ class RenderNewUiTaskCardTests(TestCase):
             text='',
             task_type='raddle',
             get_player_hints=[],
+            number='2',
         )
         context = {
             'request': request,
@@ -269,7 +270,9 @@ class RenderNewUiTaskCardTests(TestCase):
             'share_host': 'interoves.com',
         }
         html = render_to_string('task-content/task-raddle.html', context)
-        self.assertNotIn('new-raddle-result', html)
+        self.assertIn('new-raddle-result', html)
+        self.assertIn('🪜 3.2 · Лесенки', html)
+        self.assertIn('🔗 interoves.com/games/des171_test/3/2', html)
 
         context['game'] = SimpleNamespace(id='ladder', name='Лесенка', outside_name='')
         html = render_to_string('task-content/task-raddle.html', context)
@@ -279,6 +282,13 @@ class RenderNewUiTaskCardTests(TestCase):
         self.assertIn('data-share-native', html)
         self.assertIn('⏱️ 3м 46с', html)
         self.assertIn('🔗 interoves.com/ladder/3', html)
+
+        context['game'] = SimpleNamespace(id='desyatka', name='Десяточка', outside_name='')
+        context['tg_number'] = '4'
+        context['task'] = task
+        html = render_to_string('task-content/task-raddle.html', context)
+        self.assertIn('🪜 4.2 · Лесенки', html)
+        self.assertIn('🔗 interoves.com/games/desyatka/4/2', html)
 
     def test_word_salad_result_share_is_limited_to_salad_game(self):
         request = RequestFactory().get('/')
