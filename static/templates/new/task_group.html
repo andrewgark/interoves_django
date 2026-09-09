@@ -1377,7 +1377,7 @@
   }
 
   function syncRaddleStickyPinRowState(taskRoot) {
-    var pin = taskRoot && taskRoot.querySelector('.new-raddle-sticky-pin');
+    var pin = getRaddleStickyPin(taskRoot);
     var table = getRaddleLadderTable(taskRoot);
     if (!pin || !table) return;
     pin.querySelectorAll('.new-raddle-sticky-pin__row[data-word-index]').forEach(function (pinRow) {
@@ -2028,7 +2028,8 @@
   function syncRaddlePinFromRealInput(realInput, letters) {
     if (!realInput || realInput.getAttribute('data-raddle-pin-proxy') === '1') return false;
     var taskRoot = realInput.closest('.new-raddle-task');
-    var pin = taskRoot && taskRoot.querySelector('.new-raddle-sticky-pin.is-active');
+    var pin = getRaddleStickyPin(taskRoot);
+    if (pin && !pin.classList.contains('is-active')) pin = null;
     if (!pin) return false;
     var formId = realInput.getAttribute('form');
     if (!formId) return false;
@@ -2042,7 +2043,8 @@
   function focusRaddlePlayableInput(taskRoot, realInput) {
     if (!realInput || !hasRaddleInputIntent(taskRoot)) return;
     updateRaddleStickyPinVisibility(taskRoot);
-    var pin = taskRoot && taskRoot.querySelector('.new-raddle-sticky-pin.is-active');
+    var pin = getRaddleStickyPin(taskRoot);
+    if (pin && !pin.classList.contains('is-active')) pin = null;
     if (pin) {
       var formId = realInput.getAttribute('form');
       var proxy = formId && pin.querySelector('input[data-raddle-pin-for="' + formId + '"]');
@@ -2903,16 +2905,36 @@
     restoreRaddleAnchorHighlight(taskRoot, lastRaddleAnchor);
   }
 
+  // Keep the fixed clone outside overflow/scrolling task-card ancestors.
+  // Safari can clip a position:fixed descendant of .new-taskcard__text even
+  // when its overflow is changed to visible at the mobile breakpoint.
+  function getRaddleStickyPin(taskRoot) {
+    if (!taskRoot) return null;
+    var taskId = String(taskRoot.getAttribute('data-task-id') || '');
+    if (!taskId) return null;
+    var pins = document.querySelectorAll('.new-raddle-sticky-pin[data-raddle-pin-task-id]');
+    for (var i = 0; i < pins.length; i++) {
+      if (String(pins[i].getAttribute('data-raddle-pin-task-id') || '') === taskId) {
+        return pins[i];
+      }
+    }
+    return null;
+  }
+
   function ensureRaddleStickyPin(taskRoot) {
-    var pin = taskRoot.querySelector('.new-raddle-sticky-pin');
+    var pin = getRaddleStickyPin(taskRoot);
     if (pin) return pin;
     pin = document.createElement('div');
     pin.className = 'new-raddle-sticky-pin';
+    pin.setAttribute('data-raddle-pin-task-id', String(taskRoot.getAttribute('data-task-id') || ''));
     pin.setAttribute('hidden', '');
     pin.setAttribute('aria-hidden', 'true');
     // Без класса new-raddle-table — иначе querySelector путает пин с настоящей лесенкой.
     pin.innerHTML = '<table class="new-raddle-sticky-pin__table" role="presentation"><colgroup><col class="new-raddle-col--word"><col class="new-raddle-col--check"></colgroup><tbody></tbody></table>';
-    taskRoot.appendChild(pin);
+    // Do not append inside .new-taskcard__text: iOS Safari may clip fixed
+    // descendants of an overflow container. Body also gives the pin a stable
+    // containing block when the task card is re-rendered.
+    document.body.appendChild(pin);
     return pin;
   }
 
@@ -3053,7 +3075,7 @@
   }
 
   function updateRaddleStickyPinVisibility(taskRoot) {
-    var pin = taskRoot.querySelector('.new-raddle-sticky-pin');
+    var pin = getRaddleStickyPin(taskRoot);
     if (!pin) return;
     if (!raddleIsMobileLayout()) {
       if (pin.classList.contains('is-active')) {
