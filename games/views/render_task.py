@@ -7,6 +7,38 @@ from games.views.util import has_profile
 from games.models import Attempt, GameTaskGroup, ImageManager, AudioManager
 
 
+def _task_card_public_identity(game, task_group, slot):
+    """Return the public number/hash used by result-share cards.
+
+    User-created section games have no ``GameTaskGroup`` until an offer is
+    accepted.  The normal slot lookup therefore used to fall back to ``0``
+    while rendering the post-attempt partial.
+    """
+    if slot is not None:
+        return slot.number, slot.name
+
+    if game.id == 'ladder':
+        from games.models import LadderOffer
+
+        offer = LadderOffer.objects.filter(task_group_id=task_group.pk).first()
+        if offer is not None:
+            return offer.share_hash, (offer.author or 'Лесенка').strip() or 'Лесенка'
+    elif game.id == 'salad':
+        from games.models import WordSaladOffer
+
+        offer = WordSaladOffer.objects.filter(task_group_id=task_group.pk).first()
+        if offer is not None:
+            return offer.share_hash, (offer.theme or 'Салатик').strip() or 'Салатик'
+    elif game.id == 'alphabetty':
+        from games.models import AlphabettyOffer
+
+        offer = AlphabettyOffer.objects.filter(task_group_id=task_group.pk).first()
+        if offer is not None:
+            return offer.share_hash, 'Алфавитка #{}'.format(offer.share_hash)
+
+    return 0, ''
+
+
 def get_task_to_attempts_info(game, team, mode='general'):
     task_to_attempts_info = {}
     for link in GameTaskGroup.sorted_links(game.task_group_links.select_related('task_group')):
@@ -201,8 +233,7 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
         game, task_group, tasks, team, user, anon_key, current_mode,
         placement=slot,
     )
-    tg_number = slot.number if slot else 0
-    tg_name = slot.name if slot else ''
+    tg_number, tg_name = _task_card_public_identity(game, task_group, slot)
     # Daily section cards deliberately hide the task number.  The full page
     # passes this flag through task_group.html; keep the same presentation
     # when a card is replaced after an attempt or a hint.

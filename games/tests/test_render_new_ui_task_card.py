@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase
@@ -12,14 +13,20 @@ from games.models import (
     CheckerType,
     Game,
     GameTaskGroup,
+    AlphabettyOffer,
     Hint,
     HTMLPage,
     Image,
     Project,
     Task,
     TaskGroup,
+    LadderOffer,
+    WordSaladOffer,
 )
-from games.views.render_task import render_new_ui_task_card_html
+from games.views.render_task import (
+    _task_card_public_identity,
+    render_new_ui_task_card_html,
+)
 from games.views.new_ui import _task_ui_descriptor
 
 
@@ -106,6 +113,29 @@ class RenderNewUiTaskCardTests(TestCase):
         )
         self.assertIsNotNone(html)
         self.assertIn('wall-tile-image', html)
+
+    def test_user_offer_task_cards_use_share_hash_instead_of_zero(self):
+        owner = get_user_model().objects.create_user(username='offer-owner')
+        cases = (
+            ('ladder', LadderOffer, {'author': 'Автор лесенки'}),
+            ('salad', WordSaladOffer, {'theme': 'Тема салатика'}),
+            ('alphabetty', AlphabettyOffer, {}),
+        )
+        for game_id, offer_model, fields in cases:
+            with self.subTest(game_id=game_id):
+                task_group = TaskGroup.objects.create(label='{}-offer-tg'.format(game_id), points=1)
+                offer = offer_model.objects.create(
+                    user=owner,
+                    task_group=task_group,
+                    share_hash='abc123{}'.format(game_id),
+                    **fields,
+                )
+                number, name = _task_card_public_identity(
+                    SimpleNamespace(id=game_id), task_group, None,
+                )
+                self.assertEqual(number, offer.share_hash)
+                self.assertNotEqual(number, 0)
+                self.assertTrue(name)
 
     def test_task_ui_descriptor_keeps_type_specific_renderers(self):
         default = Task(task_type='default', points=1)
