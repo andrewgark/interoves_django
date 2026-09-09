@@ -8,6 +8,7 @@
   var activeDragRoot = null;
   var lastSaladRoot = null;
   var pendingLatestAnimate = null;
+  var pendingSelection = null;
 
   var SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -42,6 +43,21 @@
     if (typeof isActive === 'function') return !!isActive(index);
     if (isActive && typeof isActive === 'object') return !!isActive[index];
     return true;
+  }
+
+  function pathContainsInactiveCell(path, isActive) {
+    return (path || []).some(function (index) {
+      return !cellIsSelectable(isActive, index);
+    });
+  }
+
+  function hasWordContinuation(word, words) {
+    var prefix = normalizeWord(word);
+    if (!prefix) return false;
+    return (words || []).some(function (candidate) {
+      candidate = normalizeWord(candidate);
+      return candidate.length > prefix.length && candidate.indexOf(prefix) === 0;
+    });
   }
 
   // Repeat events on the current cell must not toggle it off: pointermove/enter
@@ -502,6 +518,9 @@
       function setCellActive(cell, active) {
         if (!cell) return;
         cell.classList.toggle('is-active', active);
+        if (!active && pathContainsInactiveCell(currentPath, isActiveIndex)) {
+          clearSelection();
+        }
         cell.disabled = !active;
         cell.classList.remove('is-selected');
         cell.setAttribute('aria-pressed', 'false');
@@ -634,6 +653,26 @@
         configuredRares.forEach(function (word) { answers[word] = true; });
         rareWords.forEach(function (word) { answers[word] = true; });
         return answers;
+      }
+
+      function unsolvedAnswerWords() {
+        return wordRows('.new-word-salad__word:not(.is-solved)').map(function (wordRow) {
+          return wordRow.getAttribute('data-word-normalized') ||
+            wordRow.getAttribute('data-preview-normalized') || '';
+        });
+      }
+
+      function restorePendingSelection() {
+        if (!pendingSelection) return;
+        var taskId = root.getAttribute('data-task-id') || '';
+        if (String(pendingSelection.taskId) !== String(taskId)) return;
+        var path = pendingSelection.path;
+        var expectedWord = normalizeWord(pendingSelection.word);
+        pendingSelection = null;
+        if (!Array.isArray(path) || !expectedWord || pathContainsInactiveCell(path, isActiveIndex)) return;
+        var restoredWord = normalizeWord(selectedWord(path));
+        if (restoredWord !== expectedWord) return;
+        currentPath = path.slice();
       }
 
       function saveLatestFound() {
@@ -1134,12 +1173,16 @@
           }
           var taskId = root.getAttribute('data-task-id') || '';
           var hasTaskHtml = data.update_task_html_new && typeof window.applyNewUiTaskHtml === 'function';
+          var keepSelection = hasWordContinuation(solvedWord, unsolvedAnswerWords());
           latestKind = 'answer';
           latestWord = normalizeWord(solvedWord);
           saveLatestFound();
           cancelIdleFind();
           activeDragRoot = null;
           if (hasTaskHtml) {
+            pendingSelection = keepSelection
+              ? { taskId: String(taskId), path: path.slice(), word: solvedWord }
+              : null;
             pendingLatestAnimate = { taskId: String(taskId), word: latestWord };
             window.applyNewUiTaskHtml(data.update_task_html_new);
             showAnswerToast(
@@ -1224,6 +1267,7 @@
       }
       if (isPreview) restorePreviewState();
       restoreExtraWords();
+      restorePendingSelection();
       syncStoredFinds();
       restoreLatestFound();
       if (window.ResizeObserver && gridEl) {
@@ -1308,6 +1352,7 @@
     cellsAreAdjacent: cellsAreAdjacent,
     neighborPairs: neighborPairs,
     nextPath: nextWordSaladPath,
+    pathContainsInactiveCell: pathContainsInactiveCell,
     startPress: startWordSaladPress,
     movePress: moveWordSaladPress,
     endPress: endWordSaladPress,
@@ -1318,6 +1363,7 @@
     promoteConfiguredRares: promoteConfiguredRares,
     shouldCommitExtra: shouldCommitExtraWord,
     keepSelectionAfterFind: keepSelectionAfterFind,
+    hasWordContinuation: hasWordContinuation,
     feedbackForResult: feedbackForResult,
     flushAnalyticsEvents: flushAnalyticsEvents,
     EXTRA_MIN_LENGTH: EXTRA_MIN_LENGTH,

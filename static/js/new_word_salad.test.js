@@ -72,6 +72,16 @@ assert.deepStrictEqual(
   [0],
   'dragging across a deleted cell must not extend the line'
 );
+assert.strictEqual(
+  Path.pathContainsInactiveCell([0, 1], activeSet(0)),
+  true,
+  'deleting a letter already in the entered word must invalidate the word'
+);
+assert.strictEqual(
+  Path.pathContainsInactiveCell([0], activeSet(0, 1)),
+  false,
+  'an entered word remains valid while all its letters are present'
+);
 
 function press(path, index) {
   return Path.startPress(path, index);
@@ -211,6 +221,13 @@ function escapeEvent(overrides) {
   assert.strictEqual(Path.keepSelectionAfterFind('duplicate'), false);
   assert.strictEqual(Path.keepSelectionAfterFind('rare'), true);
   assert.strictEqual(Path.keepSelectionAfterFind('extra'), true);
+})();
+
+(function testWordContinuation() {
+  assert.strictEqual(Path.hasWordContinuation('нож', ['НОЖИК']), true);
+  assert.strictEqual(Path.hasWordContinuation('нож', ['НОЖ', 'КОТ']), false);
+  assert.strictEqual(Path.hasWordContinuation('ножик', ['НОЖ']), false);
+  assert.strictEqual(Path.hasWordContinuation('ёж', ['ЕЖИК']), true);
 })();
 
 (function testAnswerFeedback() {
