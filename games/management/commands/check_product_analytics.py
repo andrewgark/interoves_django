@@ -8,9 +8,11 @@ from django.utils.dateparse import parse_datetime
 from games.analytics import GAME_KIND_BY_ID
 from games.models import (
     GameTaskGroup,
+    LadderOffer,
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
+    WordSaladOffer,
 )
 
 
@@ -153,14 +155,35 @@ class Command(BaseCommand):
                 count += 1
         return count
 
+    def _unpublished_offer_exists(self):
+        """Draft/sent offer play has no GameTaskGroup until accept/publish."""
+        unpublished = {
+            'task_group_id': OuterRef('task_group_id'),
+            'accepted_link_id__isnull': True,
+        }
+        ladder = LadderOffer.objects.filter(
+            status__in=(LadderOffer.STATUS_DRAFT, LadderOffer.STATUS_SENT),
+            **unpublished
+        )
+        salad = WordSaladOffer.objects.filter(
+            status__in=(WordSaladOffer.STATUS_DRAFT, WordSaladOffer.STATUS_SENT),
+            **unpublished
+        )
+        return Exists(ladder) | Exists(salad)
+
     def _missing_placement_count(self, candidates):
         placement = GameTaskGroup.objects.filter(
             game_id=OuterRef('game_id'),
             task_group_id=OuterRef('task_group_id'),
         )
-        return candidates.annotate(
-            has_placement=Exists(placement),
-        ).filter(has_placement=False).count()
+        return (
+            candidates.annotate(
+                has_placement=Exists(placement),
+            )
+            .filter(has_placement=False)
+            .exclude(self._unpublished_offer_exists())
+            .count()
+        )
 
     def _bad_instance_id_count(self, candidates):
         count = 0

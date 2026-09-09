@@ -12,12 +12,15 @@ from games.models import (
     CheckerType,
     Game,
     GameTaskGroup,
+    LadderOffer,
     PlayerCompletedGame,
     PlayerStartedGame,
     Project,
     Task,
     TaskGroup,
+    WordSaladOffer,
 )
+from games.word_salad import WORD_SALAD_GAME_ID
 
 
 class ProductAnalyticsInstrumentationVersionTests(TestCase):
@@ -352,3 +355,85 @@ class ProductAnalyticsQualityCommandTests(TestCase):
         self.assertIn('start_unknown_game_kind\tFAIL\t1', report)
         self.assertIn('start_timestamp_in_future\tFAIL\t1', report)
         self.assertIn('start_unknown_instrumentation_version\tFAIL\t1', report)
+
+    def _offer_draft_pair(self, *, game, task_group):
+        instance_id = '{}:{}'.format(game.id, task_group.pk)
+        start = PlayerStartedGame.objects.create(
+            user=self.user,
+            game=game,
+            task_group=task_group,
+            game_kind=game.id,
+            game_instance_id=instance_id,
+            instrumentation_version=2,
+        )
+        completion = PlayerCompletedGame.objects.create(
+            user=self.user,
+            game=game,
+            task_group=task_group,
+            game_kind=game.id,
+            game_instance_id=instance_id,
+            result=PlayerCompletedGame.RESULT_SOLVED,
+            instrumentation_version=2,
+        )
+        return start, completion
+
+    def test_unpublished_ladder_offer_draft_is_not_missing_placement(self):
+        draft_group = TaskGroup.objects.create(label='ladder-offer-draft')
+        LadderOffer.objects.create(
+            user=self.user,
+            share_hash='qc-ladder-offer-draft',
+            task_group=draft_group,
+            status=LadderOffer.STATUS_DRAFT,
+        )
+        self._offer_draft_pair(game=self.game, task_group=draft_group)
+        since, until = self._bounds()
+        out = StringIO()
+        self._call(since, until, stdout=out)
+        report = out.getvalue()
+        self.assertIn('start_missing_placement\tPASS\t0', report)
+        self.assertIn('completion_missing_placement\tPASS\t0', report)
+
+    def test_unpublished_word_salad_offer_sent_is_not_missing_placement(self):
+        salad_game, _ = Game.objects.get_or_create(
+            id=WORD_SALAD_GAME_ID,
+            defaults={
+                'name': 'Salad',
+                'author': 'test',
+                'project': self.project,
+                'requires_ticket': False,
+                'is_tournament': False,
+                'is_ready': True,
+            },
+        )
+        draft_group = TaskGroup.objects.create(label='salad-offer-sent')
+        WordSaladOffer.objects.create(
+            user=self.user,
+            share_hash='qc-salad-offer-sent',
+            task_group=draft_group,
+            status=WordSaladOffer.STATUS_SENT,
+            kind=WordSaladOffer.KIND_FULL,
+        )
+        self._offer_draft_pair(game=salad_game, task_group=draft_group)
+        since, until = self._bounds()
+        out = StringIO()
+        self._call(since, until, stdout=out)
+        report = out.getvalue()
+        self.assertIn('start_missing_placement\tPASS\t0', report)
+        self.assertIn('completion_missing_placement\tPASS\t0', report)
+
+    def test_accepted_offer_without_placement_is_still_missing_placement(self):
+        accepted_group = TaskGroup.objects.create(label='ladder-offer-accepted')
+        LadderOffer.objects.create(
+            user=self.user,
+            share_hash='qc-ladder-offer-accepted',
+            task_group=accepted_group,
+            status=LadderOffer.STATUS_ACCEPTED,
+        )
+        self._offer_draft_pair(game=self.game, task_group=accepted_group)
+        since, until = self._bounds()
+        out = StringIO()
+        with self.assertRaises(CommandError):
+            self._call(since, until, stdout=out)
+        report = out.getvalue()
+        self.assertIn('start_missing_placement\tFAIL\t1', report)
+        self.assertIn('completion_missing_placement\tFAIL\t1', report)

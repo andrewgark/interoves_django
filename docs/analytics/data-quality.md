@@ -30,7 +30,10 @@ The bounded candidate set is selected by `started_at`, `completed_at`, or
 - completion without a matching start for the same actor, placement, and
   `game_instance_id`;
 - live v2 completion timestamp earlier than its first matching start;
-- missing `GameTaskGroup(game, task_group)` placement;
+- missing `GameTaskGroup(game, task_group)` placement, except unpublished
+  `LadderOffer` / `WordSaladOffer` drafts (`status` draft or sent and no
+  `accepted_link`); those flows write live analytics before a catalog
+  placement exists;
 - `game_instance_id` inconsistent with `game.id + ":" + task_group.id`;
 - `game_kind` inconsistent with the current mapping;
 - start/completion more than five minutes in the future;
