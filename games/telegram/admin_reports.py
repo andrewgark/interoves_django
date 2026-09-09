@@ -71,8 +71,14 @@ def collect_report_stats(since, until):
         'completed': completed.count(),
         'new_users': User.objects.filter(date_joined__gte=since, date_joined__lt=until).count(),
     }
-    for key, game_kind in (('ladder', 'raddle'), ('salad', 'word_salad'), ('alphabet', 'alphabet')):
-        reg, anon = _actor_counts(started.filter(game_kind=game_kind))
+    # ``ladder``/``salad`` are canonical.  Include the legacy aliases so
+    # historical rows remain visible in comparisons after the naming change.
+    for key, game_kinds in (
+        ('ladder', ('ladder', 'raddle')),
+        ('salad', ('salad', 'word_salad')),
+        ('alphabet', ('alphabet',)),
+    ):
+        reg, anon = _actor_counts(started.filter(game_kind__in=game_kinds))
         result[key] = reg + anon
         result[key + '_registered'] = reg
         result[key + '_anonymous'] = anon
@@ -102,36 +108,40 @@ def build_admin_report(*, now=None):
     current_stats = collect_report_stats(*current)
     comparison_stats = [collect_report_stats(*period) for period in comparisons]
     title = 'Недельный отчёт' if kind == TelegramAdminReport.REPORT_WEEKLY else 'Дневной отчёт'
-    period_text = '{} — {}'.format(
-        timezone.localtime(current[0]).strftime('%d.%m.%Y'),
-        (timezone.localtime(current[1]) - timedelta(seconds=1)).strftime('%d.%m.%Y'),
-    )
-    lines = ['<b>📊 {} за {}</b>'.format(title, period_text), '']
+    start_date = timezone.localtime(current[0]).strftime('%d.%m.%Y')
+    end_date = (timezone.localtime(current[1]) - timedelta(seconds=1)).strftime('%d.%m.%Y')
+    period_text = start_date if start_date == end_date else '{} — {}'.format(start_date, end_date)
+
+    def comparison_line(key):
+        values = [format_comparison(current_stats[key], baseline[key]) for baseline in comparison_stats]
+        if kind == TelegramAdminReport.REPORT_DAILY:
+            return 'вчера / неделя: {} / {}'.format(*values)
+        return 'пред. неделя: {}'.format(values[0])
+
+    lines = ['<b>📊 {} · {}</b>'.format(title, period_text), '']
     lines.append('<b>Игроки</b>')
-    lines.append('Зарегистрированные: {}'.format(_number(current_stats['registered_players'])))
-    lines.append('Анонимы: {}'.format(_number(current_stats['anonymous_players'])))
-    lines.append('Всего уникальных игроков: {}'.format(_number(current_stats['players'])))
+    lines.append('{} всего · {} зарегистрированных · {} анонимов'.format(
+        _number(current_stats['players']),
+        _number(current_stats['registered_players']),
+        _number(current_stats['anonymous_players']),
+    ))
+    lines.append('Новые пользователи: {}'.format(_number(current_stats['new_users'])))
     lines.append('')
-    lines.append('<b>Начали играть</b>')
-    for key in ('ladder', 'salad', 'alphabet', 'players', 'new_users', 'started', 'completed'):
-        label = METRIC_LABELS[key]
-        line = '{}: {}'.format(label, _number(current_stats[key]))
-        for index, baseline in enumerate(comparison_stats):
-            line += ' · {}'.format(format_comparison(current_stats[key], baseline[key]))
-            if kind == TelegramAdminReport.REPORT_DAILY and index == 0:
-                line += ' к вчера'
-            elif kind == TelegramAdminReport.REPORT_DAILY:
-                line += ' к неделе'
-            else:
-                line += ' к пред. неделе'
-        lines.append(line)
-    lines.extend(['', 'Сравнения: 🟢📈 рост · 🔴📉 снижение · ⚪️ без изменений'])
+    lines.append('<b>Игры</b>')
+    for key in ('ladder', 'salad', 'alphabet'):
+        lines.append('{}: {} · {}'.format(METRIC_LABELS[key], _number(current_stats[key]), comparison_line(key)))
+    lines.append('')
+    lines.append('<b>Итого</b>')
+    lines.append('Начали: {} · {}'.format(_number(current_stats['started']), comparison_line('started')))
+    lines.append('Завершили: {} · {}'.format(_number(current_stats['completed']), comparison_line('completed')))
+    comparison_legend = 'вчера / неделя' if kind == TelegramAdminReport.REPORT_DAILY else 'пред. неделя'
+    lines.extend(['', 'Сравнения: {} · 🟢 рост · 🔴 снижение · ⚪️ без изменений'.format(comparison_legend)])
     return _join_lines(lines), kind, current
 
 
 def process_admin_report_tick(*, now=None):
     now = timezone.localtime(now or timezone.now())
-    if now.hour != 1 or not (25 <= now.minute <= 29) or not telegram_admin_configured():
+    if now.hour != 0 or not (25 <= now.minute <= 29) or not telegram_admin_configured():
         return {'sent': 0, 'skipped': 1}
     text, kind, (start, end) = build_admin_report(now=now)
     try:

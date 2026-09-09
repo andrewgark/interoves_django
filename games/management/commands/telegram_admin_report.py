@@ -4,7 +4,7 @@ from games.telegram.admin_reports import process_admin_report_tick
 
 
 class Command(BaseCommand):
-    help = 'Send the daily or weekly Telegram activity report at 01:25 local time.'
+    help = 'Send the daily or weekly Telegram activity report at 00:25 local time.'
 
     def handle(self, *args, **options):
         result = process_admin_report_tick()

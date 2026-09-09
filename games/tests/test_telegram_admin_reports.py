@@ -25,7 +25,7 @@ class TelegramAdminReportTests(TestCase):
         self.group = TaskGroup.objects.create(label='ladder:1')
         GameTaskGroup.objects.create(game=self.game, task_group=self.group, number='1', name='Лесенка №1')
         self.user = User.objects.create_user('report-user')
-        self.now = datetime(2026, 9, 8, 1, 25, tzinfo=MOSCOW)  # Tuesday: Monday report covers Sunday.
+        self.now = datetime(2026, 9, 8, 0, 25, tzinfo=MOSCOW)  # Tuesday: Monday report covers Sunday.
 
     def _start(self, when, *, user=None, anon_key=None, game_kind='raddle'):
         row = PlayerStartedGame.objects.create(
@@ -49,18 +49,18 @@ class TelegramAdminReportTests(TestCase):
     def test_daily_report_has_both_comparison_dimensions_and_required_games(self):
         text, kind, _period = build_admin_report(now=self.now)
         self.assertEqual(kind, TelegramAdminReport.REPORT_DAILY)
-        self.assertIn('к вчера', text)
-        self.assertIn('к неделе', text)
+        self.assertIn('вчера / неделя', text)
+        self.assertIn('Сравнения:', text)
         self.assertIn('«Лесенки»', text)
         self.assertIn('«Салатики»', text)
         self.assertIn('«Алфавитки»', text)
         self.assertLess(len(text), 4096)
 
     def test_monday_is_weekly_and_tick_sends_only_once(self):
-        monday = datetime(2026, 9, 7, 1, 25, tzinfo=MOSCOW)
+        monday = datetime(2026, 9, 7, 0, 25, tzinfo=MOSCOW)
         text, kind, period = build_admin_report(now=monday)
         self.assertEqual(kind, TelegramAdminReport.REPORT_WEEKLY)
-        self.assertIn('к пред. неделе', text)
+        self.assertIn('пред. неделя:', text)
         with patch('games.telegram.admin_reports.send_admin_message', return_value=True) as send:
             self.assertEqual(process_admin_report_tick(now=monday), {'sent': 1, 'skipped': 0})
             self.assertEqual(process_admin_report_tick(now=monday.replace(minute=26)), {'sent': 0, 'skipped': 1})
