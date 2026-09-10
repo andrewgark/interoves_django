@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from games.ads_direct.constants import (
     AD_DISPLAY_PATH,
@@ -14,10 +14,11 @@ from games.ads_direct.constants import (
     CONTEXT_KEYWORDS,
     EXPERIMENT_END,
     EXPERIMENT_START,
-    GOAL_ACTIVATED,
     GOAL_GAME_COMPLETE,
+    GOAL_GAME_START,
     LANDING_URL,
     MAX_EXPERIMENT_SPEND_RUB,
+    MIN_CUSTOM_PERIOD_BUDGET_RUB,
     METRIKA_COUNTER_ID,
     REGION_RUSSIA,
     SAFE_KEYWORD_STEMS,
@@ -50,6 +51,12 @@ def custom_period_budget(*, spend_limit_rub: float, start: date, end: date) -> d
     assert_budget_cap(spend_limit_rub)
     if end <= start:
         raise ConfigError("CustomPeriodBudget EndDate must be after StartDate")
+    if end - start > timedelta(days=1) and spend_limit_rub < MIN_CUSTOM_PERIOD_BUDGET_RUB:
+        raise ConfigError(
+            "Direct requires at least {} ₽ for a custom period longer than one day; "
+            "refusing to shorten the campaign implicitly. Choose a shorter period or "
+            "explicitly raise the approved budget cap.".format(MIN_CUSTOM_PERIOD_BUDGET_RUB)
+        )
     return {
         "SpendLimit": rubles_to_micros(spend_limit_rub),
         "StartDate": start.isoformat(),
@@ -99,8 +106,8 @@ def campaign_add_item(
             "CounterIds": {"Items": [METRIKA_COUNTER_ID]},
             "PriorityGoals": {
                 "Items": [
+                    {"GoalId": GOAL_GAME_START, "Value": rubles_to_micros(1)},
                     {"GoalId": GOAL_GAME_COMPLETE, "Value": rubles_to_micros(75)},
-                    {"GoalId": GOAL_ACTIVATED, "Value": rubles_to_micros(200)},
                 ]
             },
             "TrackingParams": "utm_source=yandex&utm_medium=cpc&utm_campaign={campaign_id}&utm_content={ad_id}",
@@ -146,6 +153,14 @@ def mobile_off_bidmodifier(*, campaign_id: int) -> dict:
     return {
         "CampaignId": campaign_id,
         "MobileAdjustment": {"BidModifier": 0},
+    }
+
+
+def tablet_off_bidmodifier(*, campaign_id: int) -> dict:
+    """Coefficient 0 = do not show on tablets."""
+    return {
+        "CampaignId": campaign_id,
+        "TabletAdjustment": {"BidModifier": 0},
     }
 
 

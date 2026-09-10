@@ -19,6 +19,7 @@ from games.ads_direct.config import (
     extract_add_ids,
     keyword_add_items,
     mobile_off_bidmodifier,
+    tablet_off_bidmodifier,
 )
 from games.ads_direct.constants import (
     AD_GROUP_NAME,
@@ -161,6 +162,7 @@ def bidmodifiers_get(client: AdsClient, *, campaign_ids: list[int] | None = None
             "SelectionCriteria": criteria,
             "FieldNames": fields.BIDMODIFIER_FIELDS,
             "MobileAdjustmentFieldNames": fields.BIDMODIFIER_MOBILE_FIELDS,
+            "TabletAdjustmentFieldNames": fields.BIDMODIFIER_TABLET_FIELDS,
         },
     )
     return result.get("BidModifiers") or []
@@ -439,7 +441,12 @@ def launch(
         )
     pf = preflight(ads, spend_wait_seconds=spend_wait_seconds)
     if dry_run:
-        return {"dry_run": True, "preflight": pf, "payloads": _dry_run_payloads()}
+        return {
+            "dry_run": True,
+            "write_requests": 0,
+            "preflight": pf,
+            "payloads": _dry_run_payloads(),
+        }
     if pf["old_master_spend"]["still_spending"]:
         append_audit(
             action="abort_launch",
@@ -510,18 +517,38 @@ def launch(
 
 
 def _dry_run_payloads() -> dict:
-    campaign = campaign_add_item()
+    start = date.today()
+    end = start + timedelta(days=10)
+    try:
+        campaign = campaign_add_item(start=start, end=end)
+    except ConfigError as exc:
+        return {
+            "campaign_spec": {
+                "budget_rub": MAX_EXPERIMENT_SPEND_RUB,
+                "start_date": start.isoformat(),
+                "end_date": end.isoformat(),
+                "duration_days": (end - start).days,
+            },
+            "validation_error": str(exc),
+            "write_requests": 0,
+            "notes": ["No Direct payload generated because validation failed closed."],
+        }
     return {
         "campaigns.add": {"Campaigns": [campaign]},
         "adgroups.add": {"AdGroups": [adgroup_add_item(campaign_id=0, name=AD_GROUP_NAME)]},
         "ads.add": {"Ads": [ad_add_item(adgroup_id=0)]},
         "keywords.add": {"Keywords": keyword_add_items(adgroup_id=0)},
-        "bidmodifiers.add": {"BidModifiers": [mobile_off_bidmodifier(campaign_id=0)]},
+        "bidmodifiers.add": {
+            "BidModifiers": [
+                mobile_off_bidmodifier(campaign_id=0),
+                tablet_off_bidmodifier(campaign_id=0),
+            ]
+        },
         "notes": [
             "Search SERVING_OFF, Network WB_MAXIMUM_CLICKS + CustomPeriodBudget 500 ₽ AutoContinue=NO",
             "No WeeklySpendLimit (forbidden together with CustomPeriodBudget)",
             "No autotargeting: Master campaign AT produced IQ/quiz/crossword junk",
-            "Smartphones BidModifier=0",
+            "Smartphones and tablets BidModifier=0",
             "Region 225 only",
             "Strategy is max clicks because 500 ₽ cannot train CPA; quality via Metrika complete/activated",
         ],
@@ -530,15 +557,12 @@ def _dry_run_payloads() -> dict:
 
 def _add_campaign_resilient(ads: AdsClient, *, start: date, end: date) -> tuple[dict, dict]:
     """Create UNIFIED campaign; retry only with safer same-cap variants, never a higher budget."""
+    # Keep the requested window invariant. A previous fallback silently changed
+    # a ten-day experiment into a one-day campaign after Direct rejected the
+    # budget, which made the campaign stop before quality could be evaluated.
     attempts = [
         campaign_add_item(start=start, end=end),
-        campaign_add_item(start=start, end=start + timedelta(days=1)),
         campaign_add_item(name=f"{CAMPAIGN_NAME} — {start.isoformat()}", start=start, end=end),
-        campaign_add_item(
-            name=f"{CAMPAIGN_NAME} — {start.isoformat()}",
-            start=start,
-            end=start + timedelta(days=1),
-        ),
     ]
     last_error: Exception | None = None
     for item in attempts:
@@ -567,7 +591,7 @@ def _without_priority_goals(item: dict) -> dict:
 def _create_tree(ads: AdsClient) -> dict:
     reason = (
         "РСЯ-only UNIFIED campaign: historical РСЯ CPA and game.yandex.ru quality were better "
-        "than search; 500 ₽ must not be split; autotargeting off; smartphones off."
+        "than search; budget must not be split; autotargeting off; smartphones and tablets off."
     )
     today = date.today()
     end = today + timedelta(days=10)
@@ -646,8 +670,12 @@ def _create_tree(ads: AdsClient) -> dict:
         raise ConfigError(f"Keywords.get mismatch: {len(kws)} vs {len(keyword_ids)}")
 
     add_bm = None
+    device_adjustments = [
+        mobile_off_bidmodifier(campaign_id=campaign_id),
+        tablet_off_bidmodifier(campaign_id=campaign_id),
+    ]
     try:
-        add_bm = ads.call("bidmodifiers", "add", {"BidModifiers": [mobile_off_bidmodifier(campaign_id=campaign_id)]})
+        add_bm = ads.call("bidmodifiers", "add", {"BidModifiers": device_adjustments})
         bidmodifier_ids = extract_add_ids(add_bm)
     except (DirectApiError, ConfigError) as exc:
         append_audit(
@@ -659,15 +687,20 @@ def _create_tree(ads: AdsClient) -> dict:
         add_bm = ads.call(
             "bidmodifiers",
             "add",
-            {"BidModifiers": [{"AdGroupId": adgroup_id, "MobileAdjustment": {"BidModifier": 0}}]},
+            {
+                "BidModifiers": [
+                    {"AdGroupId": adgroup_id, "MobileAdjustment": {"BidModifier": 0}},
+                    {"AdGroupId": adgroup_id, "TabletAdjustment": {"BidModifier": 0}},
+                ]
+            },
         )
         bidmodifier_ids = extract_add_ids(add_bm)
     append_audit(
         action="create",
         object_type="bidmodifier",
         object_id=bidmodifier_ids,
-        new_value={"MobileAdjustment": 0},
-        reason="Historical smartphone CPA complete ≈ 171 ₽ vs desktop ≈ 65 ₽",
+        new_value={"MobileAdjustment": 0, "TabletAdjustment": 0},
+        reason="Exclude smartphones and tablets until device quality is revalidated",
         api_status="created",
     )
     bms = bidmodifiers_get(ads, campaign_ids=[campaign_id])
@@ -739,6 +772,17 @@ def safety_check(ads: AdsClient, campaign_id: int, created: dict | None = None) 
             mobile_zero = True
     if not mobile_zero:
         failures.append("MobileAdjustment BidModifier is not 0")
+    tablets = [
+        bm
+        for bm in bidmodifiers_get(ads, campaign_ids=[campaign_id])
+        if bm.get("Type") == "TABLET_ADJUSTMENT" or bm.get("TabletAdjustment")
+    ]
+    tablet_zero = any(
+        (bm.get("TabletAdjustment") or {}).get("BidModifier") == 0
+        for bm in tablets
+    )
+    if not tablet_zero:
+        failures.append("TabletAdjustment BidModifier is not 0")
     others = [
         c
         for c in campaigns_get(ads)
@@ -755,6 +799,7 @@ def safety_check(ads: AdsClient, campaign_id: int, created: dict | None = None) 
         "spend_limit_rub": spend,
         "auto_continue": budget.get("AutoContinue"),
         "mobile_zero": mobile_zero,
+        "tablet_zero": tablet_zero,
         "href_ok": href_ok,
     }
 
@@ -974,13 +1019,25 @@ def status(client: AdsClient | None = None) -> dict:
     cpa_start = cost / quality["game_start"] if quality["game_start"] else None
     cpa_complete = cost / quality["game_complete"] if quality["game_complete"] else None
     cpa_activated = cost / quality["activated"] if quality["activated"] else None
+    device_users = {row.get("name"): row.get("users", 0) for row in device_quality}
+    total_device_users = sum(float(value or 0) for value in device_users.values())
+    tablet_share = (
+        float(device_users.get("Tablets", 0) or 0) / total_device_users
+        if total_device_users else None
+    )
     alerts = []
+    if (camps[0] if camps else {}).get("State") == "ENDED":
+        alerts.append("STOP: campaign has ended")
     if cost >= MAX_EXPERIMENT_SPEND_RUB:
         alerts.append("STOP: spend reached 500 ₽")
     if quality["game_complete"] == 0 and cost >= 200:
         alerts.append("STOP signal: ≥200 ₽ and 0 game_complete")
     if cpa_complete and cost >= 300 and cpa_complete > 120:
         alerts.append("STOP signal: ≥300 ₽ and CPA complete > 120 ₽")
+    if quality["game_start"] == 0 and quality["visits"] >= 50:
+        alerts.append("STOP signal: ≥50 visits and 0 game_start")
+    if tablet_share is not None and tablet_share >= 0.5 and quality["game_start"] == 0:
+        alerts.append("QUALITY signal: tablet share ≥50% with 0 game_start")
     if out["old_master_today"]["cost_rub"] > 1 and cost > 0:
         alerts.append("Old Master and new campaign both show spend today")
     out.update(
@@ -1007,6 +1064,7 @@ def status(client: AdsClient | None = None) -> dict:
                 "clicks": clicks,
                 "ctr": (clicks / impressions) if impressions else None,
                 "cpc": (cost / clicks) if clicks else None,
+                "tablet_share": tablet_share,
             },
             "metrika": quality,
             "cpa": {"start": cpa_start, "complete": cpa_complete, "activated": cpa_activated},

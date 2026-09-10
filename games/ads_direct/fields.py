@@ -85,3 +85,4 @@ KEYWORD_AUTOTARGETING_FIELDS = [
 
 BIDMODIFIER_FIELDS = ["Id", "CampaignId", "AdGroupId", "Level", "Type"]
 BIDMODIFIER_MOBILE_FIELDS = ["BidModifier", "OperatingSystemType"]
+BIDMODIFIER_TABLET_FIELDS = ["BidModifier", "OperatingSystemType"]

@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "name": "Inter Oves | RSYA | Desktop | Game Start Test | 2026-09",
+  "mode": "dry_run_only",
+  "write_requests": 0,
+  "apply": false,
+  "existing_campaigns_untouched": [713889884, 714254241],
+  "channel": {
+    "campaign_type": "UNIFIED_CAMPAIGN",
+    "network": "RSYA",
+    "search": "OFF",
+    "maps": "OFF",
+    "autotargeting": "OFF",
+    "region_ids": [225]
+  },
+  "devices": {
+    "desktop": "ON",
+    "tablet": "OFF",
+    "smartphone": "OFF",
+    "connected_tv": "OFF",
+    "implementation": {
+      "mobile_adjustment": 0,
+      "tablet_adjustment": 0,
+      "desktop_only": true
+    }
+  },
+  "landing": {
+    "url": "https://interoves.com/start/",
+    "keep_existing_page": true,
+    "utm": "utm_source=yandex&utm_medium=cpc&utm_campaign={campaign_id}&utm_content={ad_id}"
+  },
+  "goals": {
+    "primary": {
+      "name": "game_start",
+      "metrika_goal_id": 595331160,
+      "label": "Начал игру"
+    },
+    "secondary": {
+      "name": "game_complete",
+      "metrika_goal_id": 595331071,
+      "label": "Завершил игру"
+    },
+    "excluded_from_optimization": [
+      {
+        "name": "activated_player",
+        "metrika_goal_id": 595331078,
+        "reason": "too sparse for this test"
+      }
+    ]
+  },
+  "strategy": {
+    "recommended": "conversion_oriented_on_game_start",
+    "api_validation": "not_performed_without_campaign_creation",
+    "fallback": "maximum_clicks_only_if_conversion_strategy_is_rejected_or_insufficient_data"
+  },
+  "budget_options_rub": [700, 1000],
+  "duration_days": 7,
+  "validation": {
+    "direct_write": false,
+    "must_validate_before_apply": [
+      "budget and seven-day custom-period minimum",
+      "conversion strategy availability for UNIFIED_CAMPAIGN",
+      "tablet and desktop-only bid modifier compatibility"
+    ]
+  },
+  "monitoring": {
+    "daily": [
+      "spend",
+      "impressions",
+      "clicks",
+      "ctr",
+      "users",
+      "visits",
+      "game_start",
+      "game_complete",
+      "device_split",
+      "top_placements"
+    ],
+    "alerts": {
+      "warning": "users >= 50 and game_start == 0",
+      "stop_recommendation": "users >= 100 and game_start == 0",
+      "fail": "users >= 150 and game_start <= 1"
+    },
+    "automatic_campaign_changes": false
+  }
+}
