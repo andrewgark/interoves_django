@@ -14,10 +14,10 @@ from games.alphabetty.core import normalize_word
 from games.alphabetty.play import hint_count as alphabetty_hint_count, load_state as load_alphabetty_state
 
 
-CACHE_VERSION = 8
+CACHE_VERSION = 9
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
-POPULAR_MIN_ENTRIES = 10
+POPULAR_MIN_ENTRIES = 5
 
 
 def cache_key(game_id, task_group_id):

@@ -58,12 +58,9 @@
       var width = hasOrder && maxOrder > 0 ? Math.max(4, Math.round(order / maxOrder * 100)) : 0;
       var tone = hasOrder ? ' is-solved' : ' is-missing';
       var complexityLabel = hasOrder ? decimal(order) : '—';
-      var complexityTooltip = hasOrder
-        ? 'Средний порядковый номер: ' + complexityLabel + '. На каком месте игроки в среднем угадывали слово без подсказки.'
-        : 'Нет данных: слово не было угадано самостоятельно или нет записи активного времени.';
       return '<li class="new-daily-statistics__salad-word' + (hasOrder ? '' : ' is-missing') + '">' +
         '<span class="new-daily-statistics__word-pill' + tone + '">' + esc(item.word) + '</span>' +
-        '<div class="new-daily-statistics__salad-bar new-daily-statistics__hover-value" data-tooltip="' + esc(complexityTooltip) + '" aria-label="' + esc(complexityTooltip) + '" tabindex="0"><i data-statistics-bar-fallback style="--bar-width:' + width + '%"></i><canvas data-statistics-bar data-bar-percent="' + width + '" aria-hidden="true"></canvas></div>' +
+        '<div class="new-daily-statistics__salad-bar"><i data-statistics-bar-fallback style="--bar-width:' + width + '%"></i><canvas data-statistics-bar data-bar-percent="' + width + '" aria-hidden="true"></canvas></div>' +
         '<strong class="new-daily-statistics__complexity-value">' + esc(complexityLabel) + '</strong>' +
         '<span class="new-daily-statistics__hint-rate"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span>' +
         '</li>';
@@ -79,12 +76,9 @@
       var hasTime = item.median_time_seconds != null && item.median_time_seconds !== '' && Number.isFinite(value) && value >= 0;
       var width = hasTime && maxSeconds > 0 ? Math.max(4, Math.round(value / maxSeconds * 100)) : 0;
       var label = hasTime ? seconds(value) : '—';
-      var timeTooltip = hasTime
-        ? 'Медианное активное время: ' + label + '. От предыдущего успешно разгаданного слова до этого, без пауз.'
-        : 'Нет данных: все наблюдения были с подсказкой или без записи активного времени.';
       return '<li class="new-daily-statistics__ladder-word' + (hasTime ? '' : ' is-missing') + '">' +
         '<span class="new-daily-statistics__word-pill' + (hasTime ? '' : ' is-missing') + '">' + esc(item.word) + '</span>' +
-        '<div class="new-daily-statistics__ladder-bar new-daily-statistics__hover-value" data-tooltip="' + esc(timeTooltip) + '" aria-label="' + esc(timeTooltip) + '" tabindex="0"><i data-statistics-bar-fallback style="--bar-width:' + width + '%"></i><canvas data-statistics-bar data-bar-percent="' + width + '" aria-hidden="true"></canvas></div>' +
+        '<div class="new-daily-statistics__ladder-bar"><i data-statistics-bar-fallback style="--bar-width:' + width + '%"></i><canvas data-statistics-bar data-bar-percent="' + width + '" aria-hidden="true"></canvas></div>' +
         '<strong>' + esc(label) + '</strong>' +
         '</li>';
     }).join('');
@@ -249,11 +243,11 @@
     else html += metric('Медиана времени', seconds(summary.median_time_seconds)) + metric('Без подсказок', percent(summary.without_hints_percent));
     html += '</div>';
     if (data.kind === 'salad') {
-      html += section('Слова', '<ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
+      html += section('Сложность слов', '<p class="new-daily-statistics__hint">Сложность считается как медиана порядкового номера, под которым это слово было найдено.</p><ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
       if ((data.popular_findings || []).length) html += '<div class="new-daily-statistics__salad-findings">' + section('Популярные находки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_findings) + '</ul>') + '</div>';
     } else if (data.kind === 'ladder') {
       if (data.word_stats_available !== false) {
-        html += section('Статистика слов', '<p class="new-daily-statistics__hint">Медианное активное время от предыдущего успешно разгаданного слова игрока до этого слова, без пауз. Первое промежуточное слово считается от начала игры.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');
+        html += section('Сложность слов', '<p class="new-daily-statistics__hint">Медианное активное время от предыдущего успешно разгаданного слова игрока до этого слова, без пауз. Первое промежуточное слово считается от начала игры.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');
       }
     } else if (data.kind === 'alphabet') {
       html += '<div class="new-daily-statistics__body">' +
