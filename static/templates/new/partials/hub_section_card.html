@@ -28,6 +28,11 @@
         <i class="ph ph-check-circle" aria-hidden="true"></i>
         <span class="new-hub-section__solved-tip" role="tooltip">Решено</span>
       </span>
+      {% if card.streak %}
+        <span class="new-hub-section__streak" title="{{ card.streak }} дней подряд" aria-label="{{ card.streak }} дней подряд">
+          <i class="ph ph-fire" aria-hidden="true"></i><span>{{ card.streak }}</span>
+        </span>
+      {% endif %}
     </div>
   {% elif card.status == 'coming_soon' %}
     <p class="new-hub-section__soon{% if card.soon_emphasis %} new-hub-section__soon--announce{% endif %}">

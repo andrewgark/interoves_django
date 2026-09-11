@@ -891,6 +891,8 @@ def _build_hub_section_cards(request, *, team):
     by_id = {}
     if project:
         for game_id in SECTION_HUB_ORDER:
+            if game_id == WEEK_TASK_HUB_ID:
+                continue
             game = Game.objects.filter(id=game_id, project=project).first()
             if not game or not game.has_access('see_game_preview', team=team):
                 continue
@@ -923,6 +925,15 @@ def _build_hub_section_cards(request, *, team):
         by_id[WEEK_TASK_HUB_ID] = card
     else:
         by_id[WEEK_TASK_HUB_ID] = get_week_task_hub_card()
+
+    if request.user.is_authenticated:
+        from games.daily_streak import daily_streaks_for_user
+        streaks = daily_streaks_for_user(
+            request.user,
+            games=[card['game'] for card in by_id.values() if card.get('game')],
+        )
+        for card in by_id.values():
+            card['streak'] = streaks.get(str(card.get('id')), 0)
 
     daily = []
     for game_id in ONBOARDING_GAME_IDS:

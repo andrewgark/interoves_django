@@ -30,11 +30,13 @@ _DES_GAME_ID_RE = re.compile(r'^des(\d+)$')
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 
-SECTION_HUB_ORDER = ('ladder', WORD_SALAD_GAME_ID, 'alphabetty', 'replacements', 'walls', 'palindromes')
+# Canonical order shared by the hub and the section navbar.  The template
+# inserts the separate «Десяточки» item between the two slices below.
+SECTION_HUB_ORDER = (WORD_SALAD_GAME_ID, 'alphabetty', 'ladder', 'week_task', 'replacements', 'walls', 'palindromes')
 
 # Группы карточек на главной (порядок внутри группы).
-HUB_DAILY_SECTION_IDS = ('ladder', WORD_SALAD_GAME_ID, 'alphabetty')
-HUB_FROM_DESYATOCHKI_SECTION_IDS = ('week_task', 'replacements', 'walls', 'palindromes')
+HUB_DAILY_SECTION_IDS = SECTION_HUB_ORDER[:3]
+HUB_FROM_DESYATOCHKI_SECTION_IDS = SECTION_HUB_ORDER[3:]
 WEEK_TASK_HUB_ID = WEEK_TASK_GAME_ID
 
 # Порядок и короткие формулировки именно для первого знакомства. Навигация

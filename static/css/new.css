@@ -1524,6 +1524,21 @@ html.new-ui-dark body.new-ui {
   z-index: 2;
 }
 
+.new-hub-section__streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.new-hub-section__streak .ph {
+  font-size: 1.1rem;
+}
+
 .new-hub-section__solved:hover .new-hub-section__solved-tip,
 .new-hub-section__solved:focus-visible .new-hub-section__solved-tip {
   opacity: 1;

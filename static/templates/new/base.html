@@ -156,15 +156,15 @@
       </div>
       {% else %}
       <div class="new-nav__sections" aria-label="Разделы">
-        <a class="new-nav__section" href="{{ ui_project_games_url|default:'/games/' }}" title="Десяточки" aria-label="Десяточки" {% if nav_desyatochki_active %}aria-current="page"{% endif %}>
-          <i class="ph ph-puzzle-piece new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Десяточки</span>
-        </a>
         {% if show_sections_nav %}
           {% for item in daily_nav_sections %}
           <a class="new-nav__section" href="{{ item.url }}" title="{{ item.title }}" aria-label="{{ item.title }}" {% if request.resolver_match.kwargs.game_id == item.id or item.id in request.resolver_match.url_name %}aria-current="page"{% endif %}>
             <i class="ph ph-{{ item.ph_icon }} new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">{{ item.title }}</span>
           </a>
           {% endfor %}
+          <a class="new-nav__section" href="{{ ui_project_games_url|default:'/games/' }}" title="Десяточки" aria-label="Десяточки" {% if nav_desyatochki_active %}aria-current="page"{% endif %}>
+            <i class="ph ph-puzzle-piece new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Десяточки</span>
+          </a>
           {% for game in section_games %}
           <a class="new-nav__section" href="{% url 'new_section_game' game.id %}" title="{{ game.outside_name|default:game.name }}" aria-label="{{ game.outside_name|default:game.name }}" {% if request.resolver_match.kwargs.game_id == game.id %}aria-current="page"{% endif %}>
             {% if game.id == 'palindromes' %}<i class="ph ph-arrows-in-line-horizontal new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Палиндромы</span>
