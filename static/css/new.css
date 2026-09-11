@@ -3141,10 +3141,10 @@ html.new-ui-dark .new-team-switcher-active-box {
 }
 
 .new-daily-timer {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 0.75rem;
+  margin: 0;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -3153,8 +3153,39 @@ html.new-ui-dark .new-team-switcher-active-box {
   display: none;
 }
 
-.new-daily-timer.is-paused .new-daily-timer__time {
-  opacity: 0.7;
+.new-daily-timer__toggle {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font: inherit;
+  line-height: 1;
+}
+
+.new-daily-timer__toggle:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.new-daily-timer__toggle:focus-visible,
+.new-daily-game-header__nav-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.new-daily-timer.is-paused .new-daily-timer__toggle {
+  color: var(--accent);
+  font-weight: 650;
 }
 
 .new-daily-timer.is-completed .new-daily-timer__time {
@@ -3166,8 +3197,169 @@ html.new-ui-dark .new-team-switcher-active-box {
   color: var(--text);
 }
 
-.new-daily-timer__time::before {
-  content: "⏱️ ";
+.new-daily-timer__popover {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  width: max-content;
+  min-width: 10rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.12);
+}
+
+.new-daily-timer__popover[hidden] {
+  display: none;
+}
+
+.new-daily-timer__popover-title {
+  margin-bottom: 0.3rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.new-daily-timer__popover .new-daily-timer__time {
+  margin-bottom: 0.6rem;
+  font-size: 1.15rem;
+}
+
+.new-daily-timer__popover .new-btn {
+  width: 100%;
+}
+
+/* Compact first row shared by daily ladder, salad and alphabetty pages. */
+.new-daily-game-header {
+  margin: 0 0 0.85rem;
+  min-width: 0;
+}
+
+.new-daily-game-header__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.new-daily-game-header__title-wrap,
+.new-daily-game-header__controls,
+.new-daily-game-header__nav {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.new-daily-game-header__title-wrap {
+  gap: 0.35rem;
+}
+
+.new-daily-game-header__title-wrap .new-heading {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.new-daily-game-header__controls {
+  flex: 0 0 auto;
+  gap: 0.5rem;
+}
+
+.new-daily-game-header__nav {
+  gap: 0.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+  overflow: hidden;
+}
+
+.new-daily-game-header__nav-button {
+  width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.new-daily-game-header__nav-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--accent);
+}
+
+.new-daily-game-header__nav-button:disabled {
+  color: var(--muted);
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.new-daily-game-header__date {
+  padding: 0 0.25rem;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.new-daily-game-header__description {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.new-rules-trigger--compact {
+  width: 1.65rem;
+  height: 1.65rem;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 560px) {
+  .new-daily-game-header__topline {
+    align-items: flex-start;
+    gap: 0.45rem;
+  }
+
+  .new-daily-game-header__title-wrap {
+    flex: 1 1 auto;
+  }
+
+  .new-daily-game-header__controls {
+    gap: 0.25rem;
+  }
+
+  .new-daily-game-header__nav-button {
+    width: 2.35rem;
+    min-height: 2.5rem;
+  }
+
+  .new-daily-game-header__date {
+    padding: 0 0.1rem;
+    font-size: 0.82rem;
+  }
+
+  .new-daily-game-header__description {
+    font-size: 0.84rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .new-daily-game-header__topline {
+    flex-wrap: wrap;
+  }
+
+  .new-daily-game-header__controls {
+    margin-left: auto;
+  }
 }
 
 .new-daily-solve {

@@ -10,6 +10,12 @@ var timer = require('./daily_solve_timer.js');
   assert.strictEqual(timer.formatElapsed(5564000), '1ч 32м 44с');
 })();
 
+(function testFormatClockForCompactTimerControl() {
+  assert.strictEqual(timer.formatClock(0), '00:00');
+  assert.strictEqual(timer.formatClock(54000), '00:54');
+  assert.strictEqual(timer.formatClock(3661000), '01:01:01');
+})();
+
 (function testShouldRunLocally() {
   assert.strictEqual(timer.shouldRunLocally({
     completed: false,

@@ -26,8 +26,10 @@
 </p>
 {% endif %}
 
+{% if is_daily_single_task %}
+{% include "new/partials/daily_game_header.html" %}
+{% else %}
 {% include "new/partials/page_heading.html" %}
-
 <p class="new-login-hint new-meta-line">
   {% if is_daily_single_task %}
   {% if daily_publish_date %}{{ daily_publish_date|date:"j E Y" }}{% endif %}
@@ -39,6 +41,7 @@
   {% endif %}
 </p>
 {% include "new/partials/daily_solve_timer.html" %}
+{% endif %}
 
 {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
 {% include "new/_rules_banner.html" %}
@@ -384,7 +387,7 @@
   }
   function appendAnonToPagerLinks() {
     if (isAuthenticated || anonCookieWorks()) return;
-    document.querySelectorAll('.new-tg-pager__link[href]').forEach(function (a) {
+    document.querySelectorAll('[data-daily-nav-link][href], .new-tg-pager__link[href]').forEach(function (a) {
       try {
         var u = new URL(a.href, window.location.origin);
         if (u.searchParams.get('anon') !== anonKey) {

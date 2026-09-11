@@ -2,7 +2,13 @@
 {% if daily_timing_enabled %}
 {{ daily_timing|json_script:"daily-timing-bootstrap" }}
 <div class="new-daily-timer" data-daily-timer data-timing-url="{{ daily_timing_url }}" hidden>
-  <span class="new-daily-timer__time" data-daily-timer-display>0с</span>
-  <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-daily-timer-pause>Пауза</button>
+  <button type="button" class="new-daily-timer__toggle" data-daily-timer-toggle aria-expanded="false" aria-label="Показать время решения" title="Время решения">
+    <i class="ph ph-clock" aria-hidden="true"></i><span data-daily-timer-toggle-label aria-hidden="true"></span>
+  </button>
+  <div class="new-daily-timer__popover" data-daily-timer-popover hidden>
+    <div class="new-daily-timer__popover-title">Время решения</div>
+    <div class="new-daily-timer__time" data-daily-timer-display>0с</div>
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-daily-timer-pause>Пауза</button>
+  </div>
 </div>
 {% endif %}

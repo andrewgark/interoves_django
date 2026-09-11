@@ -25,6 +25,15 @@
     return secs + 'с';
   }
 
+  function formatClock(ms) {
+    var seconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+    var hours = Math.floor(seconds / 3600);
+    var minutes = Math.floor((seconds % 3600) / 60);
+    var secs = seconds % 60;
+    if (hours) return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    return String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+  }
+
   function shouldRunLocally(state, visibility) {
     if (!state || state.completed || state.manually_paused) return false;
     if (state.status === 'manually_paused' || state.status === 'completed') return false;
@@ -68,6 +77,9 @@
     var rootEl = options.root;
     var displayEl = options.displayEl;
     var pauseBtn = options.pauseBtn;
+    var toggleBtn = options.toggleBtn;
+    var toggleLabel = options.toggleLabel;
+    var popover = options.popover;
     var overlay = options.overlay;
     var resumeBtn = options.resumeBtn;
     var overlayTitle = options.overlayTitle;
@@ -144,6 +156,14 @@
     function render() {
       var ms = displayedMs();
       if (displayEl) displayEl.textContent = formatElapsed(ms);
+      if (toggleBtn) {
+        var paused = manuallyPaused;
+        toggleBtn.setAttribute('aria-expanded', (!paused && popover && !popover.hidden) ? 'true' : 'false');
+        toggleBtn.setAttribute('aria-label', paused ? 'Продолжить игру' : 'Показать время решения');
+        toggleBtn.title = 'Время решения: ' + formatClock(ms);
+      }
+      if (toggleLabel) toggleLabel.textContent = manuallyPaused ? 'Продолжить' : '';
+      if (popover && manuallyPaused) popover.hidden = true;
       if (rootEl) {
         rootEl.hidden = completed;
         rootEl.classList.toggle('is-paused', manuallyPaused || (!authoritative && !completed && status !== 'running'));
@@ -421,6 +441,22 @@
 
     if (pauseBtn && pauseBtn.addEventListener) pauseBtn.addEventListener('click', pauseManual);
     if (resumeBtn && resumeBtn.addEventListener) resumeBtn.addEventListener('click', resumeManual);
+    if (toggleBtn && toggleBtn.addEventListener) toggleBtn.addEventListener('click', function () {
+      if (manuallyPaused) {
+        resumeManual();
+        return;
+      }
+      if (popover) {
+        popover.hidden = !popover.hidden;
+        toggleBtn.setAttribute('aria-expanded', popover.hidden ? 'false' : 'true');
+      }
+    });
+    if (doc && doc.addEventListener) doc.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && popover && !popover.hidden) {
+        popover.hidden = true;
+        if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
 
     applySnapshot(bootstrap, { replace: true });
     if (solved && !exists) {
@@ -469,6 +505,7 @@
     return {
       formatElapsed: formatElapsed,
       displayedMs: displayedMs,
+      formatClock: formatClock,
       state: currentState,
       applySnapshot: applySnapshot,
       startIfAllowed: startIfAllowed,
@@ -522,6 +559,9 @@
       root: timerRoot,
       displayEl: doc.querySelector('[data-daily-timer-display]'),
       pauseBtn: doc.querySelector('[data-daily-timer-pause]'),
+      toggleBtn: doc.querySelector('[data-daily-timer-toggle]'),
+      toggleLabel: doc.querySelector('[data-daily-timer-toggle-label]'),
+      popover: doc.querySelector('[data-daily-timer-popover]'),
       overlay: overlay,
       resumeBtn: doc.querySelector('[data-daily-timer-resume]'),
       overlayTitle: doc.querySelector('[data-daily-pause-title]'),
@@ -534,6 +574,7 @@
 
   return {
     formatElapsed: formatElapsed,
+    formatClock: formatClock,
     shouldRunLocally: shouldRunLocally,
     create: create,
     bindFromDocument: bindFromDocument,

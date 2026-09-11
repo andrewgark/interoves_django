@@ -8,14 +8,7 @@
   <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label|default:"К списку" }}</a>
 </p>
 
-{% include "new/partials/page_heading.html" with heading=page_title show_rules=True %}
-
-{% if daily_publish_date %}
-<p class="new-login-hint new-meta-line">
-  {% if daily_publish_date %}{{ daily_publish_date|date:"j E Y" }}{% endif %}
-</p>
-{% endif %}
-{% include "new/partials/daily_solve_timer.html" %}
+{% include "new/partials/daily_game_header.html" with heading=page_title show_rules=True %}
 
 {% include "new/_rules_banner.html" %}
 

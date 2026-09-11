@@ -11,7 +11,7 @@
 <p class="new-raddle-task__credit">Автор формата — <a href="{{ daily_format_credit_url }}" target="_blank" rel="noopener noreferrer">{{ daily_format_credit_name }}</a>, мы благодарны им за идею {{ daily_format_credit_text }}</p>
 {% endif %}
 
-{% if prev_task_group_url or next_task_group_url %}
+{% if not is_daily_single_task and prev_task_group_url or not is_daily_single_task and next_task_group_url %}
 {% firstof task_group_pager_aria_label daily_pager_aria_label "Переход между заданиями" as pager_aria_label %}
 {% firstof task_group_pager_label daily_game_label as pager_label %}
 <nav class="new-tg-pager" aria-label="{{ pager_aria_label }}">

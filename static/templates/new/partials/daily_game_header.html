@@ -1,0 +1,34 @@
+{# Compact shared header for daily single-task games. #}
+{% now "Y" as current_year %}
+<div class="new-daily-game-header" data-daily-game-header>
+  <div class="new-daily-game-header__topline">
+    <div class="new-daily-game-header__title-wrap">
+      <h1 class="new-heading new-heading--page">
+        {% if heading %}
+          {% if html_in_title %}{% autoescape off %}{{ heading }}{% endautoescape %}{% else %}{{ heading }}{% endif %}
+        {% elif is_daily_single_task and page_title %}
+          {{ page_title }}
+        {% elif "html_in_title" in game.tags %}
+          {% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}
+        {% else %}
+          {{ game.get_outside_name|default:game.outside_name|default:game.name }}
+        {% endif %}
+      </h1>
+      {% if show_rules or section_task_groups_rules_html or section_tutorial_html or show_palindrome_rules or section_rules_type or task_group.rules.html %}
+      <button type="button" class="new-rules-trigger new-rules-trigger--compact" aria-label="Правила" title="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
+      {% endif %}
+    </div>
+    <div class="new-daily-game-header__controls">
+      <nav class="new-daily-game-header__nav" aria-label="{{ daily_pager_aria_label|default:'Переход между ежедневными играми' }}">
+        {% if prev_task_group_url %}<a class="new-daily-game-header__nav-button" href="{{ prev_task_group_url }}" data-daily-nav-link aria-label="Предыдущая ежедневная игра"><i class="ph ph-caret-left" aria-hidden="true"></i></a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Предыдущая ежедневная игра"><i class="ph ph-caret-left" aria-hidden="true"></i></button>{% endif %}
+        <span class="new-daily-game-header__date">
+          {% if daily_publish_date %}{% with date_year=daily_publish_date|date:"Y" %}{{ daily_publish_date|date:"j E" }}{% if date_year == current_year %}{% else %} {{ date_year }}{% endif %}{% endwith %}{% else %}Дата не указана{% endif %}
+        </span>
+        {% if next_task_group_url %}<a class="new-daily-game-header__nav-button" href="{{ next_task_group_url }}" data-daily-nav-link aria-label="Следующая ежедневная игра"><i class="ph ph-caret-right" aria-hidden="true"></i></a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Следующая ежедневная игра"><i class="ph ph-caret-right" aria-hidden="true"></i></button>{% endif %}
+      </nav>
+      {% if daily_timing_enabled %}{% include "new/partials/daily_solve_timer.html" %}{% endif %}
+    </div>
+  </div>
+  {% firstof tagline section_tagline game.theme as page_tagline %}
+  {% if page_tagline %}<p class="new-daily-game-header__description">{{ page_tagline }}</p>{% endif %}
+</div>
