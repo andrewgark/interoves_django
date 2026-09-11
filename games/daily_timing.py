@@ -145,6 +145,23 @@ def canonical_elapsed_label(**kwargs) -> str:
     return format_elapsed(canonical_elapsed_seconds(**kwargs))
 
 
+def active_time_ms_for_attempt(*, game, task_group, user=None, anon_key=None, team=None, now=None):
+    """Return the server-side active clock at an answer submission.
+
+    This deliberately returns ``None`` when no authoritative daily timer exists;
+    callers must not turn legacy wall-clock timestamps into active timings.
+    """
+    if team is not None or not is_daily_timing_game(getattr(game, 'id', None)):
+        return None
+    row = lookup_timing(
+        game=game, task_group=task_group, user=user, anon_key=anon_key,
+    )
+    if row is None or int(row.timing_version or 0) < TIMING_VERSION_ACTIVE:
+        return None
+    snap = snapshot(row, now=now or timezone.now())
+    return max(0, int(snap.get('accumulated_ms') or 0))
+
+
 def elapsed_label_for_complete_attempts(
     attempts, *, game=None, task=None, user=None, anon_key=None, timing_row=_UNSET,
 ) -> str:

@@ -264,6 +264,30 @@ def check_attempt(attempt, *, persist_wrong=True):
         else:
             attempt.points = Decimal(str(attempt.points or 0)) * task.get_points()
 
+        # Store a server-derived cumulative active clock only for an answer
+        # that advanced the puzzle. Hint rows and wrong/duplicate submissions
+        # must never become per-answer observations.
+        if attempt.status in ('Ok', 'Partial') and task.task_type in ('raddle', 'word_salad', 'alphabetty'):
+            advanced = task.task_type == 'alphabetty' and attempt.status == 'Ok'
+            if task.task_type in ('raddle', 'word_salad'):
+                try:
+                    before = json.loads(last_attempt_state or '{}')
+                    after = json.loads(attempt.state or '{}')
+                except (TypeError, ValueError):
+                    before, after = {}, {}
+                key = 'solved_indices'
+                advanced = bool(set(after.get(key) or []) - set(before.get(key) or []))
+            if advanced:
+                from games.daily_timing import active_time_ms_for_attempt
+                attempt.active_time_ms = active_time_ms_for_attempt(
+                    game=game,
+                    task_group=task.task_group,
+                    user=user,
+                    anon_key=anon_key,
+                    team=team,
+                    now=attempt.time,
+                )
+
         # Auto-checking controls may probe a candidate without turning every typo
         # into an Attempt. The checker still runs under the chain-state lock, but
         # only a result that advances the task is committed.

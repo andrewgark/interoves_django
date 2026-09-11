@@ -7422,6 +7422,44 @@ html.is-age-gated .new-wrap {
   font-size: 0.85rem;
   color: var(--muted);
 }
+
+.new-daily-statistics {
+  margin: 1.25rem 0 0;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: color-mix(in srgb, var(--text) 2%, var(--surface));
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.new-daily-results-layout { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); align-items: start; gap: 1.25rem; }
+.new-daily-results-layout > .new-taskgrid { min-width: 0; }
+.new-daily-results-layout > .new-daily-statistics { min-width: 0; }
+.new-daily-statistics h2 { margin: 0 0 .85rem; font-size: 1.05rem; }
+.new-daily-statistics__summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.new-daily-statistics__metric { display: grid; gap: .15rem; color: var(--muted); font-size: .78rem; }
+.new-daily-statistics__metric strong { color: var(--text); font-size: 1.05rem; }
+.new-daily-statistics__section { margin-top: 1rem; }
+.new-daily-statistics__section h3 { margin: 0 0 .45rem; font-size: .85rem; }
+.new-daily-statistics__list, .new-daily-statistics__histogram { display: grid; gap: .3rem; margin: 0; padding: 0; list-style: none; }
+.new-daily-statistics__list li, .new-daily-statistics__histogram li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; align-items: center; min-width: 0; }
+.new-daily-statistics__list li span { overflow-wrap: anywhere; }
+.new-daily-statistics__list li strong, .new-daily-statistics__histogram li strong { color: var(--muted); font-size: .82rem; white-space: nowrap; }
+.new-daily-statistics__list--ladder li.is-given { color: var(--muted); }
+.new-daily-statistics__histogram li { grid-template-columns: 2rem minmax(0, 1fr) auto; }
+.new-daily-statistics__histogram i { display: block; height: .65rem; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent)); width: var(--bar); min-width: .15rem; }
+@media (min-width: 920px) {
+  .new-daily-statistics { margin-top: 1.25rem; }
+}
+@media (max-width: 919px) {
+  .new-daily-results-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 420px) {
+  .new-daily-statistics { padding: .85rem; }
+  .new-daily-statistics__summary { gap: .45rem; }
+  .new-daily-statistics__list li { gap: .4rem; }
+  .new-daily-statistics__list li strong { font-size: .76rem; }
+}
 .new-raddle-tutorial-table {
   width: 100%;
   border-collapse: collapse;

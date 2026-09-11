@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 from django.db import transaction
 from django.db.models import Min, Max
+from django.utils import timezone
 
 from games.alphabetty.core import (
     build_prefix_level,
@@ -563,6 +564,13 @@ def _commit_guess(
         state=dump_state(state),
         **actor,
     )
+    attempt.time = timezone.now()
+    if status == 'correct':
+        from games.daily_timing import active_time_ms_for_attempt
+        attempt.active_time_ms = active_time_ms_for_attempt(
+            game=game, task_group=task.task_group,
+            user=actor.get('user'), anon_key=actor.get('anon_key'), now=attempt.time,
+        )
     attempt.save()
 
     row.state = dump_state(state)

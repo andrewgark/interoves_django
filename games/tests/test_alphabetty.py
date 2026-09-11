@@ -57,7 +57,6 @@ from games.models import (
     TaskGroup,
 )
 from games.results_snapshot import build_results_snapshot_payload
-from games.tests.test_page_heading import assert_rules_beside_title
 from games.support.services.alphabetty import (
     AlphabettySupportError,
     delete_alphabetty,
@@ -568,7 +567,12 @@ class AlphabettyPlayApiTests(TestCase):
         self.game.save(update_fields=['theme'])
         r = self.client.get('/alphabetty/1/')
         self.assertEqual(r.status_code, 200)
-        assert_rules_beside_title(self, r.content.decode('utf-8'))
+        # Daily games use the compact date/navigation header rather than the
+        # generic section heading component.
+        html = r.content.decode('utf-8')
+        self.assertIn('new-daily-game-header', html)
+        self.assertIn('new-rules-trigger--compact', html)
+        self.assertIn('Угадайте слово по алфавиту', html)
 
     def test_hub_page_has_create_link(self):
         _ensure_login_modal_deps()

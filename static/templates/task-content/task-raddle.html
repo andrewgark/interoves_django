@@ -163,7 +163,7 @@
   {% if rd.ui.is_complete and rd.ui.result_squares %}
   <div class="new-raddle-result" data-raddle-result{% if rd.ui.share_card_json %} data-share-card="{{ rd.ui.share_card_json|escape }}"{% endif %}>
     <div class="new-raddle-result__head">
-      <span class="new-raddle-result__label">Результат</span>
+      <span class="new-raddle-result__label">Ваш результат</span>
       {% include "new/partials/daily_share_actions.html" %}
     </div>
     <div class="new-raddle-result__share" data-raddle-share-text><div class="new-raddle-result__title">🪜 {% if game.id == 'ladder' %}{{ tg_name|default:game.outside_name|default:game.name }}{% else %}{{ rd.ui.share_title|default:'Лесенка' }}{% endif %}</div><div class="new-raddle-result__squares">{{ rd.ui.result_squares }}</div>{% if rd.ui.elapsed_label %}<div class="new-raddle-result__squares">⏱️ {{ rd.ui.elapsed_label }}</div>{% endif %}<div class="new-raddle-result__link">🔗 {{ share_host|default:request.get_host }}{% if game.id == 'ladder' %}/ladder/{{ tg_number }}{% else %}/games/{{ game.id }}/{{ tg_number }}/{{ task.number }}{% endif %}</div></div>

@@ -762,6 +762,11 @@ def register_completed_game(
     if record is None:
         return []
 
+    # The gameplay transaction has already committed the Attempt/state at this
+    # point, so the next statistics read cannot observe a half-written solve.
+    from games.daily_statistics import invalidate_daily_statistics
+    invalidate_daily_statistics(game.id, task.task_group_id)
+
     goals = []
     if not record.is_backfilled and record.metrika_acked_at is None:
         goals.append(_completed_goal_payload(record))

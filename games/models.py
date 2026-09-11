@@ -1546,6 +1546,9 @@ class Attempt(models.Model):
     possible_status = models.CharField(blank=True, null=True, max_length=100, choices=STATUS_VARIANTS)
     points = models.DecimalField(default=0, decimal_places=3, max_digits=10, blank=True, null=True)
     time = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    # Canonical active duration of this daily solve at this successful answer.
+    # Nullable for legacy attempts which predate per-answer instrumentation.
+    active_time_ms = models.BigIntegerField(blank=True, null=True, db_index=True)
     state = models.TextField(blank=True, null=True)
 
     comment = models.TextField(blank=True, null=True)

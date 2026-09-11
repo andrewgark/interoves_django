@@ -3053,6 +3053,33 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
     }
 
 
+def daily_statistics(request, game_id, number):
+    """Spoiler-safe statistics endpoint: completed participants only."""
+    if game_id not in (LADDER_GAME_ID, WORD_SALAD_GAME_ID, ALPHABETTY_GAME_ID):
+        raise Http404()
+    game = get_object_or_404(Game, id=game_id, project_id=NEW_UI_SECTIONS_PROJECT)
+    if not scheduled_number_is_public(game, number) and not request.user.is_staff:
+        raise Http404()
+    placement = get_object_or_404(
+        GameTaskGroup.objects.select_related('task_group'), game=game, number=str(number),
+    )
+    actor = {}
+    if request.user.is_authenticated:
+        actor = {'user': request.user, 'team__isnull': True, 'anon_key__isnull': True}
+    else:
+        anon_key = _anon_key_from_request(request)
+        if not anon_key:
+            return JsonResponse({'error': 'not_completed'}, status=403)
+        actor = {'anon_key': str(anon_key), 'team__isnull': True, 'user__isnull': True}
+    if not PlayerCompletedGame.objects.filter(
+        game=game, task_group=placement.task_group,
+        result=PlayerCompletedGame.RESULT_SOLVED, **actor,
+    ).exists():
+        return JsonResponse({'error': 'not_completed'}, status=403)
+    from games.daily_statistics import build_daily_statistics
+    return JsonResponse(build_daily_statistics(game, placement.task_group))
+
+
 def new_task_group_page(request, game_id, task_group_number):
     game = get_object_or_404(
         Game.objects.select_related('section_default_rules'),
@@ -3364,7 +3391,11 @@ def new_task_group_page(request, game_id, task_group_number):
         'daily_game_label': daily_game_label,
         'daily_results_url': ladder_results_url,
         'daily_results_allowed': daily_results_allowed,
-        'daily_results_label': 'Результаты' if game.id == LADDER_GAME_ID else '',
+        'daily_results_label': 'Таблица результатов' if game.id == LADDER_GAME_ID else '',
+        'daily_statistics_url': (
+            '/daily-statistics/{}/{}/'.format(game.id, placement.number)
+            if is_daily_single_task and isinstance(placement, GameTaskGroup) else ''
+        ),
         **section_format_credit_context(game.id),
         'daily_pager_aria_label': 'Переход между {}'.format(
             'лесенками' if game.id == LADDER_GAME_ID
