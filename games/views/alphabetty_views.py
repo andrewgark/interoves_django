@@ -309,6 +309,11 @@ def alphabetty_hub_page(request):
             [(key, value) for key in request.GET for value in request.GET.getlist(key) if key != 'month']
         ), calendar_id='daily-archive-alphabetty',
         completed_keys={str(row['number']) for row in rows if row['is_solved']},
+        status_by_key={
+            str(row['number']): ('solved' if row['is_solved'] else 'partial')
+            for row in rows
+            if row['row_class'] in ('new-task--partial', 'new-task--solved')
+        },
     )
     hub = get_alphabetty_hub_context(game, published_numbers=_published_numbers(game))
     return render(request, 'new/alphabetty_hub.html', {

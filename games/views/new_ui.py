@@ -1067,7 +1067,7 @@ def _published_numbers(game):
     return {link.number for link in filter_published_links(_game_task_group_links(game), game)}
 
 
-def _daily_archive_context(request, game, links, *, completed_numbers=()):
+def _daily_archive_context(request, game, links, *, completed_numbers=(), status_by_key=None):
     """Adapt section placements to the neutral reusable archive component."""
     items = []
     for link in links:
@@ -1093,6 +1093,7 @@ def _daily_archive_context(request, game, links, *, completed_numbers=()):
         calendar_id='daily-archive-{}'.format(game.id),
         game_label=meta.get('archive_item_label') or meta.get('title') or game.name,
         completed_keys={str(number) for number in completed_numbers},
+        status_by_key=status_by_key,
     )
 
 
@@ -1898,6 +1899,11 @@ def _render_section_game_page(request, game_id):
     archive_context = _daily_archive_context(
         request, game, _hub_section_task_group_links(game),
         completed_numbers=completed_numbers,
+        status_by_key={
+            str(row['number']): ('solved' if row.get('is_fully_solved') else 'partial')
+            for row in task_group_rows
+            if row.get('row_class') in ('new-task--partial', 'new-task--solved')
+        },
     )
 
     section_today_play_url = None

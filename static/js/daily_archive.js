@@ -18,6 +18,13 @@
           picker.focus();
         }
       });
+      months.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closePicker();
+          picker.focus();
+        }
+      });
       document.addEventListener('click', function (event) {
         if (!archive.contains(event.target)) closePicker();
       });

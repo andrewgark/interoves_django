@@ -14,6 +14,10 @@ MONTH_NAMES = (
     '', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
     'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
 )
+MONTH_NAMES_GENITIVE = (
+    '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+    'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+)
 
 
 def month_key(value: date) -> str:
@@ -33,7 +37,7 @@ def parse_month(value) -> tuple[int, int] | None:
 def build_daily_archive_context(*, items, requested_month=None, today=None,
                                 archive_url='', game_label='Задание',
                                 completed_keys=(), archive_query='',
-                                calendar_id='daily-archive'):
+                                status_by_key=None, calendar_id='daily-archive'):
     """Build calendar/navigation context from neutral dated archive items.
 
     ``items`` contains ``date``, ``key``, ``anchor`` and ``href``; arbitrary
@@ -41,6 +45,7 @@ def build_daily_archive_context(*, items, requested_month=None, today=None,
     """
     today = today or date.today()
     completed_keys = {str(key) for key in completed_keys}
+    status_by_key = {str(key): value for key, value in (status_by_key or {}).items()}
     items = [item for item in items if isinstance(item.get('date'), date)]
     items_by_date = {item['date']: item for item in items}
     months = sorted({(item['date'].year, item['date'].month) for item in items})
@@ -62,6 +67,9 @@ def build_daily_archive_context(*, items, requested_month=None, today=None,
     previous = date(*months[month_index - 1], 1) if month_index else None
     following = date(*months[month_index + 1], 1) if month_index + 1 < len(months) else None
 
+    def month_label(month_value):
+        return '{} {}'.format(MONTH_NAMES[month_value.month], month_value.year)
+
     weeks = []
     for week in calendar.Calendar(firstweekday=0).monthdatescalendar(year, month):
         cells = []
@@ -69,6 +77,9 @@ def build_daily_archive_context(*, items, requested_month=None, today=None,
             item = items_by_date.get(day)
             available = item is not None and day.month == month
             completed = available and str(item.get('key')) in completed_keys
+            archive_status = status_by_key.get(str(item.get('key'))) if available else None
+            if completed:
+                archive_status = 'solved'
             label = '{} {} {}, {}'.format(day.day, MONTH_NAMES[day.month].lower(), day.year, game_label)
             if item and item.get('number'):
                 label += ' №{}'.format(item['number'])
@@ -84,6 +95,7 @@ def build_daily_archive_context(*, items, requested_month=None, today=None,
                 'is_current_month': day.month == month,
                 'is_available': available,
                 'is_completed': completed,
+                'archive_status': archive_status,
                 'is_today': day == today,
                 # A calendar day navigates within the archive.  The item's
                 # play URL remains available to the game-specific card.
@@ -97,16 +109,19 @@ def build_daily_archive_context(*, items, requested_month=None, today=None,
         'daily_archive': True,
         'daily_archive_month': month_key(month_date),
         'daily_archive_month_label': '{} {}'.format(MONTH_NAMES[month], year),
+        'daily_archive_archive_label': '{} {}'.format(MONTH_NAMES_GENITIVE[month], year),
         'daily_archive_months': [
             {'key': '{}-{:02d}'.format(y, m), 'label': '{} {}'.format(MONTH_NAMES[m], y),
              'href': url_for(date(y, m, 1)), 'is_selected': (y, m) == selected}
             for y, m in months
         ],
         'daily_archive_previous': {
-            'label': 'Предыдущий месяц', 'href': url_for(previous)
+            'label': 'Предыдущий месяц', 'month_label': month_label(previous),
+            'href': url_for(previous)
         } if previous else None,
         'daily_archive_next': {
-            'label': 'Следующий месяц', 'href': url_for(following)
+            'label': 'Следующий месяц', 'month_label': month_label(following),
+            'href': url_for(following)
         } if following else None,
         'daily_archive_weeks': weeks,
         'daily_archive_url': archive_url,

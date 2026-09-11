@@ -16,7 +16,9 @@ class DailyArchiveContextTests(SimpleTestCase):
     def test_default_month_prefers_current_month_then_latest(self):
         context = build_daily_archive_context(items=self.items(), today=date(2026, 5, 9), archive_url='/ladder/')
         self.assertEqual(context['daily_archive_month'], '2026-05')
+        self.assertEqual(context['daily_archive_archive_label'], 'мая 2026')
         self.assertEqual(context['daily_archive_previous']['href'], '/ladder/?month=2026-03')
+        self.assertEqual(context['daily_archive_previous']['month_label'], 'Март 2026')
         self.assertIsNone(context['daily_archive_next'])
 
         context = build_daily_archive_context(items=self.items(), today=date(2026, 7, 9), archive_url='/ladder/')
@@ -36,6 +38,18 @@ class DailyArchiveContextTests(SimpleTestCase):
         self.assertIn('Лесенка №2', available[2]['aria_label'])
         self.assertFalse(available[3]['is_available'])
         self.assertIn('задания нет', next(cell for cell in cells if cell['date'].day == 3)['aria_label'])
+
+    def test_archive_statuses_are_carried_to_calendar_days(self):
+        context = build_daily_archive_context(
+            items=self.items(), requested_month='2026-05', archive_url='/ladder/',
+            completed_keys={'3'}, status_by_key={'2': 'partial', '3': 'solved'},
+        )
+        cells = [cell for week in context['daily_archive_weeks'] for cell in week]
+        statuses = {
+            cell['date'].day: cell['archive_status']
+            for cell in cells if cell['archive_status']
+        }
+        self.assertEqual(statuses, {2: 'partial', 20: 'solved'})
 
     def test_month_urls_preserve_extra_query_parameters(self):
         context = build_daily_archive_context(
