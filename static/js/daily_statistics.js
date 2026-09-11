@@ -210,7 +210,7 @@
       html += section('Слова', '<ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
       if ((data.popular_findings || []).length) html += '<div class="new-daily-statistics__salad-findings">' + section('Популярные находки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_findings) + '</ul>') + '</div>';
     } else if (data.kind === 'ladder') {
-      html += section('Статистика слов', '<p class="new-daily-statistics__hint">Медианное активное время от отгадки предыдущего слова до отгадки этого, без пауз.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');
+      html += section('Статистика слов', '<p class="new-daily-statistics__hint">Медианное активное время от предыдущего успешно разгаданного слова игрока до этого слова, без пауз. Первое промежуточное слово считается от начала игры.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');
     } else if (data.kind === 'alphabet') {
       html += '<div class="new-daily-statistics__body">' +
         section('Распределение попыток', histogram(data.distribution)) +

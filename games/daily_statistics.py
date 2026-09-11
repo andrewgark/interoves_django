@@ -6,15 +6,18 @@ from statistics import mean, median
 
 from django.core.cache import cache
 from django.db.models import Q
+from django.utils import timezone
 
-from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerCompletedGame, Task
-from games.raddle import load_raddle_state, parse_raddle_data
+from games.daily_section import MOSCOW, publish_at_for
+from games.models import Attempt, ChainTaskState, DailySolveTiming, GameTaskGroup, PlayerCompletedGame, Task
+from games.raddle import load_raddle_state, parse_raddle_data, resolve_assist_tiers
 from games.word_salad import load_state as load_salad_state, parse_task_payload
 from games.alphabetty.core import normalize_word
 
 
-CACHE_VERSION = 4
+CACHE_VERSION = 5
 CACHE_TIMEOUT = 60 * 60 * 24
+LIVE_CACHE_TIMEOUT = 10 * 60
 
 
 def cache_key(game_id, task_group_id):
@@ -24,6 +27,19 @@ def cache_key(game_id, task_group_id):
 def invalidate_daily_statistics(game_id, task_group_id):
     if game_id and task_group_id:
         cache.delete(cache_key(game_id, task_group_id))
+
+
+def _cache_timeout(game, task_group):
+    """Keep today's statistics fresh while retaining a long TTL for history."""
+    placement = GameTaskGroup.objects.filter(
+        game=game, task_group=task_group,
+    ).only('number').first()
+    if placement is None:
+        return CACHE_TIMEOUT
+    published_at = publish_at_for(game, placement.number)
+    if published_at and published_at.astimezone(MOSCOW).date() == timezone.now().astimezone(MOSCOW).date():
+        return LIVE_CACHE_TIMEOUT
+    return CACHE_TIMEOUT
 
 
 def _actor_key(row):
@@ -240,7 +256,7 @@ def _ladder(task, game, actors):
     for actor in actors:
         assist = {}
         previous = set()
-        previous_active = None
+        previous_active = 0
         for row in attempts.get(actor, []):
             try:
                 state = load_raddle_state(row.state, parsed['n_words'])
@@ -250,11 +266,15 @@ def _ladder(task, game, actors):
             except (TypeError, ValueError):
                 continue
             if index in current - previous:
-                tier = int((state.get('assist_tier') or {}).get(str(index), 0) or 0)
+                # States written by older clients may contain either string or
+                # integer keys.  Normalize through the canonical helper.
+                tier = resolve_assist_tiers(state).get(index, 0)
                 assist[index] = max(assist.get(index, 0), tier)
                 if tier == 0 and row.active_time_ms is not None and index not in (0, parsed['n_words'] - 1):
-                    times[index].append((int(row.active_time_ms) - (previous_active or 0)) / 1000)
-                previous_active = row.active_time_ms if row.active_time_ms is not None else previous_active
+                    current_active = max(previous_active, int(row.active_time_ms))
+                    times[index].append((current_active - previous_active) / 1000)
+                if row.active_time_ms is not None:
+                    previous_active = max(previous_active, int(row.active_time_ms))
             previous = current
         if not assist:
             no_hints += 1
@@ -301,5 +321,5 @@ def build_daily_statistics(game, task_group):
         result = _ladder(task, game, actors)
     else:
         result = _alphabet(task, game, actors)
-    cache.set(cache_key(game.id, task_group.id), result, CACHE_TIMEOUT)
+    cache.set(cache_key(game.id, task_group.id), result, _cache_timeout(game, task_group))
     return result

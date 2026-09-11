@@ -173,3 +173,32 @@ class DailyStatisticsTests(TestCase):
         data = build_daily_statistics(game, tg)
         self.assertEqual(data['summary']['median_time_seconds'], 4.0)
         self.assertEqual([row['median_time_seconds'] for row in data['words'][1:3]], [1.0, 2.0])
+
+    def test_ladder_accepts_integer_assist_tier_keys(self):
+        game = Game.objects.filter(id='ladder', project=self.project).first()
+        if game is None:
+            game = Game.objects.create(id='ladder', name='Лесенка', project=self.project)
+        tg = TaskGroup.objects.create(label='ladder integer tiers')
+        GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='ladder')
+        checker, _ = CheckerType.objects.get_or_create(pk='raddle')
+        task = Task.objects.create(
+            task_group=tg, number='1', task_type='raddle', checker=checker,
+            checker_data=json.dumps({'lengths': [1, 1, 1], 'hints': ['a', 'b'], 'words': ['А', 'Б', 'В']}),
+        )
+        user = self.users[0]
+        for solved, elapsed, state in (
+            ([0, 1], 1000, {'solved_indices': [0, 1], 'assist_tier': {1: 0}}),
+            ([0, 1, 2], 3000, {'solved_indices': [0, 1, 2], 'assist_tier': {1: 0}}),
+        ):
+            Attempt.manager.create(
+                user=user, game=game, task=task,
+                text=json.dumps({'word_index': solved[-1], 'word': 'x'}),
+                status='Ok' if len(solved) == 3 else 'Partial', state=json.dumps(state),
+                active_time_ms=elapsed,
+            )
+        PlayerCompletedGame.objects.create(
+            user=user, game=game, task_group=tg, game_kind='ladder',
+            game_instance_id='ladder:{}'.format(tg.pk), result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        data = build_daily_statistics(game, tg)
+        self.assertEqual(data['words'][1]['median_time_seconds'], 1.0)
