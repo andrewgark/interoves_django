@@ -39,12 +39,17 @@ class DailyTaskFooterPartialTests(SimpleTestCase):
                 'daily_pager_aria_label': 'Переход между лесенками',
                 'prev_task_group_url': '/ladder/0/',
                 'prev_task_group_number': '0',
+                'next_task_group_url': '/ladder/2/',
+                'next_task_group_number': '2',
             },
         )
 
         self.assertIn('href="/ladder/1/results/"', html)
         self.assertIn('Результаты слов', html)
         self.assertIn('Лесенка №0', html)
+        self.assertIn('href="/ladder/2/"', html)
+        self.assertIn('Лесенка №2', html)
+        self.assertIn('class="new-tg-pager"', html)
 
 
 class ProjectTaskGroupFooterIntegrationTests(TestCase):
