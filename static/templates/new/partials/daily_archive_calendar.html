@@ -1,5 +1,5 @@
 {% if daily_archive %}
-<section class="daily-archive" aria-labelledby="{{ daily_archive_calendar_id }}-heading">
+<section class="daily-archive" aria-label="Календарь {{ daily_archive_month_label }}">
   <div class="daily-archive__month-nav">
     {% if daily_archive_previous %}<a class="daily-archive__month-arrow" href="{{ daily_archive_previous.href }}" aria-label="{{ daily_archive_previous.label }}"><i class="ph ph-caret-left" aria-hidden="true"></i></a>{% else %}<span class="daily-archive__month-arrow is-disabled" aria-hidden="true"><i class="ph ph-caret-left"></i></span>{% endif %}
     <button type="button" class="daily-archive__month-picker" aria-haspopup="true" aria-expanded="false" aria-controls="{{ daily_archive_calendar_id }}-months">{{ daily_archive_month_label }} <i class="ph ph-caret-down" aria-hidden="true"></i></button>
@@ -10,24 +10,5 @@
     <div class="daily-archive__weekdays" role="row"><span role="columnheader">Пн</span><span role="columnheader">Вт</span><span role="columnheader">Ср</span><span role="columnheader">Чт</span><span role="columnheader">Пт</span><span role="columnheader">Сб</span><span role="columnheader">Вс</span></div>
     {% for week in daily_archive_weeks %}<div class="daily-archive__week" role="row">{% for day in week %}<span role="gridcell" class="daily-archive__day{% if not day.is_current_month %} is-outside{% endif %}{% if day.is_available %} daily-archive__day--available{% else %} is-disabled{% endif %}{% if day.archive_status %} daily-archive__day--{{ day.archive_status }}{% endif %}{% if day.is_today %} daily-archive__day--today{% endif %}{% if day.is_completed %} daily-archive__day--completed{% endif %}">{% if day.is_available %}<a data-daily-archive-day href="{{ day.href }}#{{ day.anchor }}" aria-label="{{ day.aria_label }}">{{ day.number }}{% if day.is_completed %}<i class="ph ph-check-circle" aria-hidden="true"></i>{% endif %}</a>{% else %}<span aria-label="{{ day.aria_label }}">{{ day.number }}</span>{% endif %}</span>{% endfor %}</div>{% endfor %}
   </div>
-  <h2 id="{{ daily_archive_calendar_id }}-heading" class="new-heading new-stack-gap--lg">Архив {{ daily_archive_archive_label }}</h2>
-  {% if daily_archive_previous or daily_archive_next %}
-  <nav class="new-tg-pager daily-archive__pager" aria-label="Навигация по месяцам">
-    {% if daily_archive_previous %}
-      <a class="new-tg-pager__link new-tg-pager__link--prev" href="{{ daily_archive_previous.href }}" aria-label="Предыдущий месяц: {{ daily_archive_previous.month_label }}">
-        <span class="new-tg-pager__dir"><i class="ph ph-caret-left" aria-hidden="true"></i> Назад</span>
-        <span class="new-tg-pager__label">{{ daily_archive_previous.month_label }}</span>
-      </a>
-    {% else %}
-      <span class="new-tg-pager__spacer" aria-hidden="true"></span>
-    {% endif %}
-    {% if daily_archive_next %}
-      <a class="new-tg-pager__link new-tg-pager__link--next" href="{{ daily_archive_next.href }}" aria-label="Следующий месяц: {{ daily_archive_next.month_label }}">
-        <span class="new-tg-pager__dir">Дальше <i class="ph ph-caret-right" aria-hidden="true"></i></span>
-        <span class="new-tg-pager__label">{{ daily_archive_next.month_label }}</span>
-      </a>
-    {% endif %}
-  </nav>
-  {% endif %}
 </section>
 {% endif %}

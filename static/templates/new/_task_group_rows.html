@@ -2,12 +2,14 @@
 {% load filters %}
 
 {% if task_group_rows %}
+  {% if heading is not False %}
   <h2 class="new-heading new-stack-gap--lg">{{ heading|default:"Задания" }}</h2>
+  {% endif %}
   {% for row in task_group_rows %}
     <div id="{{ game.id }}-{{ row.number }}" class="new-task daily-archive__card {{ row.row_class|default:'' }}" data-task-group-number="{{ row.number }}" data-fully-solved="{% if row.is_fully_solved %}1{% else %}0{% endif %}">
       <a class="new-task__body" href="{{ row.play_url }}">
         {% if row.title %}
-          <strong>{% autoescape off %}{{ row.title }}{% endautoescape %}</strong>
+          <strong>{% autoescape off %}{{ row.title }}{% endautoescape %}{% if row.publish_date %} · {{ row.publish_date|date:"j E Y" }}{% endif %}</strong>
         {% else %}
           <strong>{% autoescape off %}{{ row.task_group.name }}{% endautoescape %}</strong>
         {% endif %}

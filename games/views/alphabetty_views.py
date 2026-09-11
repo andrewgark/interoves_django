@@ -293,6 +293,7 @@ def alphabetty_hub_page(request):
             row_class = 'new-task--partial'
         rows.append({
             'number': n,
+            'publish_date': alphabetty_publish_at(game, n).astimezone(MOSCOW).date() if alphabetty_publish_at(game, n) else None,
             'name': f'Алфавитка №{n}',
             'play_url': section_play_path(ALPHABETTY_GAME_ID, n),
             'results_url': '{}results/'.format(section_play_path(ALPHABETTY_GAME_ID, n)),

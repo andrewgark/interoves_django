@@ -1170,11 +1170,13 @@ def _ladder_task_group_rows(
             if is_today
             else '{} №{}'.format(item_label, p.number)
         )
+        published_at = publish_at_for(game, p.number)
         endpoints = endpoints_by_task_group.get(p.task_group_id)
         rows.append({
             'task_group': p.task_group,
             'game': game,
             'number': p.number,
+            'publish_date': published_at.astimezone(MOSCOW).date() if published_at else None,
             'n_tasks': p.n_tasks,
             'n_solved': None,
             'play_url': _play_url_for_task_group(game, p.number),
@@ -1877,7 +1879,7 @@ def _render_section_game_page(request, game_id):
             today_prefix=meta.get('archive_today_prefix', 'Сегодня'),
             item_label=meta['archive_item_label'],
         )
-        task_groups_heading = 'Архив'
+        task_groups_heading = False
         task_groups_empty_text = meta.get(
             'archive_empty_text',
             'Скоро появятся — следите за обновлениями.',
