@@ -7758,6 +7758,10 @@ html.is-age-gated .new-wrap {
 .new-raddle-sticky-pin.is-active {
   display: block;
 }
+/* The pin is appended to <body>, outside the daily board's pause overlay. */
+body.is-daily-solve-paused .new-raddle-sticky-pin {
+  display: none !important;
+}
 .new-raddle-sticky-pin__table {
   width: 100%;
   border-collapse: collapse;

@@ -3080,6 +3080,16 @@
   function updateRaddleStickyPinVisibility(taskRoot) {
     var pin = getRaddleStickyPin(taskRoot);
     if (!pin) return;
+    if (document.body && document.body.classList.contains('is-daily-solve-paused')) {
+      // The pin lives under <body>, so the board overlay cannot cover it.
+      // Do not move focus back to the real row while the game is paused.
+      var pausedActive = document.activeElement;
+      if (pausedActive && pin.contains(pausedActive) && typeof pausedActive.blur === 'function') {
+        try { pausedActive.blur(); } catch (e) {}
+      }
+      hideRaddleStickyPin(pin);
+      return;
+    }
     if (!raddleIsMobileLayout()) {
       if (pin.classList.contains('is-active')) {
         transferRaddleFocusForStickyPin(taskRoot, pin, false);
@@ -3276,6 +3286,11 @@
     });
     window.visualViewport.addEventListener('scroll', refreshAllRaddleStickyPins);
   }
+  document.addEventListener('interoves:daily-solve-paused', function (e) {
+    // The timer is initialised before the sticky pin exists on first load;
+    // refresh on resume so its visibility is recalculated from the current UI.
+    if (!e.detail || !e.detail.paused) refreshAllRaddleStickyPins();
+  });
 
   document.addEventListener('pointerdown', function (e) {
     lastRaddlePointerDown = { target: e.target || null, at: Date.now() };

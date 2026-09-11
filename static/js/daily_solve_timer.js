@@ -188,6 +188,17 @@
         if (showOverlay) wrap.setAttribute('data-daily-paused', '');
         else wrap.removeAttribute('data-daily-paused');
       }
+      // The raddle sticky pin is mounted on <body>, outside the board's
+      // stacking context. Keep it out of the pause state as well, otherwise
+      // it can paint above the pause overlay and remain interactive.
+      if (doc && doc.body) {
+        doc.body.classList.toggle('is-daily-solve-paused', showOverlay);
+        if (typeof doc.dispatchEvent === 'function' && typeof root.CustomEvent === 'function') {
+          doc.dispatchEvent(new root.CustomEvent('interoves:daily-solve-paused', {
+            detail: { paused: showOverlay },
+          }));
+        }
+      }
       if (overlay) {
         overlay.hidden = !showOverlay;
         if (boardEl) {
