@@ -293,6 +293,9 @@
       {% endif %}
     {% endif %}
 
+    {% if daily_archive %}
+      {% include "new/partials/daily_archive_calendar.html" %}
+    {% endif %}
     {% include "new/_task_group_rows.html" with heading=task_groups_heading empty_text=task_groups_empty_text %}
 
     {% if section_results_url and game|access_see_results:team %}

@@ -1,0 +1,15 @@
+{% if daily_archive %}
+<section class="daily-archive" aria-labelledby="{{ daily_archive_calendar_id }}-heading">
+  <h2 id="{{ daily_archive_calendar_id }}-heading" class="new-heading new-stack-gap--lg">Архив</h2>
+  <div class="daily-archive__month-nav">
+    {% if daily_archive_previous %}<a class="daily-archive__month-arrow" href="{{ daily_archive_previous.href }}" aria-label="{{ daily_archive_previous.label }}"><i class="ph ph-caret-left" aria-hidden="true"></i></a>{% else %}<span class="daily-archive__month-arrow is-disabled" aria-hidden="true"><i class="ph ph-caret-left"></i></span>{% endif %}
+    <button type="button" class="daily-archive__month-picker" aria-expanded="false" aria-controls="{{ daily_archive_calendar_id }}-months">{{ daily_archive_month_label }} <i class="ph ph-caret-down" aria-hidden="true"></i></button>
+    {% if daily_archive_next %}<a class="daily-archive__month-arrow" href="{{ daily_archive_next.href }}" aria-label="{{ daily_archive_next.label }}"><i class="ph ph-caret-right" aria-hidden="true"></i></a>{% else %}<span class="daily-archive__month-arrow is-disabled" aria-hidden="true"><i class="ph ph-caret-right"></i></span>{% endif %}
+    <div id="{{ daily_archive_calendar_id }}-months" class="daily-archive__months" hidden>{% for m in daily_archive_months %}<a href="{{ m.href }}"{% if m.is_selected %} aria-current="page"{% endif %}>{{ m.label }}</a>{% endfor %}</div>
+  </div>
+  <div class="daily-archive__calendar" role="grid" aria-label="{{ daily_archive_month_label }}">
+    <div class="daily-archive__weekdays" role="row"><span role="columnheader">Пн</span><span role="columnheader">Вт</span><span role="columnheader">Ср</span><span role="columnheader">Чт</span><span role="columnheader">Пт</span><span role="columnheader">Сб</span><span role="columnheader">Вс</span></div>
+    {% for week in daily_archive_weeks %}<div class="daily-archive__week" role="row">{% for day in week %}<span role="gridcell" class="daily-archive__day{% if not day.is_current_month %} is-outside{% endif %}{% if day.is_available %} daily-archive__day--available{% else %} is-disabled{% endif %}{% if day.is_today %} daily-archive__day--today{% endif %}{% if day.is_completed %} daily-archive__day--completed{% endif %}">{% if day.is_available %}<a data-daily-archive-day href="{{ day.href }}#{{ day.anchor }}" aria-label="{{ day.aria_label }}">{{ day.number }}{% if day.is_completed %}<i class="ph ph-check-circle" aria-hidden="true"></i>{% endif %}</a>{% else %}<span aria-label="{{ day.aria_label }}">{{ day.number }}</span>{% endif %}</span>{% endfor %}</div>{% endfor %}
+  </div>
+</section>
+{% endif %}

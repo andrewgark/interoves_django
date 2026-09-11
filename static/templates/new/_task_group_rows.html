@@ -4,7 +4,7 @@
 {% if task_group_rows %}
   <h2 class="new-heading new-stack-gap--lg">{{ heading|default:"Задания" }}</h2>
   {% for row in task_group_rows %}
-    <div class="new-task {{ row.row_class|default:'' }}" data-task-group-number="{{ row.number }}" data-fully-solved="{% if row.is_fully_solved %}1{% else %}0{% endif %}">
+    <div id="{{ game.id }}-{{ row.number }}" class="new-task daily-archive__card {{ row.row_class|default:'' }}" data-task-group-number="{{ row.number }}" data-fully-solved="{% if row.is_fully_solved %}1{% else %}0{% endif %}">
       <a class="new-task__body" href="{{ row.play_url }}">
         {% if row.title %}
           <strong>{% autoescape off %}{{ row.title }}{% endautoescape %}</strong>

@@ -1641,6 +1641,49 @@ html.new-ui-dark body.new-ui {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+/* Shared archive calendar for scheduled daily games. */
+.daily-archive { position: relative; }
+.daily-archive__month-nav {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  gap: .7rem; min-height: 2.75rem; margin: 0 0 .7rem;
+}
+.daily-archive__month-arrow, .daily-archive__month-picker {
+  min-width: 2.75rem; min-height: 2.75rem; display: inline-flex; align-items: center;
+  justify-content: center; border: 0; background: transparent; color: var(--text);
+  text-decoration: none; border-radius: .5rem; font: inherit; cursor: pointer;
+}
+.daily-archive__month-arrow:hover, .daily-archive__month-picker:hover,
+.daily-archive__month-arrow:focus-visible, .daily-archive__month-picker:focus-visible { background: var(--surface); color: var(--accent); }
+.daily-archive__month-arrow.is-disabled { color: var(--muted); opacity: .45; }
+.daily-archive__month-picker { font-weight: 700; gap: .45rem; }
+.daily-archive__months {
+  position: absolute; z-index: 3; top: calc(100% - .15rem); left: 50%; transform: translateX(-50%);
+  display: grid; grid-template-columns: repeat(2, minmax(8rem, 1fr)); gap: .2rem;
+  width: min(22rem, calc(100vw - 2rem)); padding: .45rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: .65rem; box-shadow: 0 .5rem 1.5rem rgba(0,0,0,.14);
+}
+.daily-archive__months a { padding: .55rem .65rem; border-radius: .4rem; color: var(--text); text-decoration: none; }
+.daily-archive__months a:hover, .daily-archive__months a:focus-visible, .daily-archive__months a[aria-current="page"] { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); }
+.daily-archive__calendar { display: grid; gap: .2rem; margin-bottom: 1.1rem; }
+.daily-archive__weekdays, .daily-archive__week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .2rem; }
+.daily-archive__weekdays { color: var(--muted); font-size: .72rem; text-align: center; }
+.daily-archive__day { min-width: 0; aspect-ratio: 1; display: grid; place-items: center; color: var(--muted); }
+.daily-archive__day > a, .daily-archive__day > span { width: 2.35rem; height: 2.35rem; max-width: 100%; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; position: relative; }
+.daily-archive__day > a { color: var(--text); text-decoration: none; font-weight: 650; }
+.daily-archive__day--available > a:hover, .daily-archive__day--available > a:focus-visible { background: color-mix(in srgb, var(--accent) 15%, var(--surface)); color: var(--accent); }
+.daily-archive__day--today > a, .daily-archive__day--today > span { box-shadow: 0 0 0 2px var(--accent); }
+.daily-archive__day--completed > a { color: var(--accent); }
+.daily-archive__day .ph-check-circle { position: absolute; right: -.1rem; bottom: -.1rem; font-size: .8rem; background: var(--surface); border-radius: 50%; }
+.daily-archive__day.is-outside { visibility: hidden; }
+.daily-archive__day.is-disabled { opacity: .42; }
+.daily-archive__card { min-height: 5rem; padding-top: 1.05rem; padding-bottom: 1.05rem; scroll-margin-top: 1.25rem; }
+.daily-archive__card--focus { outline: 3px solid var(--accent); outline-offset: 2px; transition: outline-color .3s; }
+.daily-archive__card:target { outline: 3px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 560px) {
+  .daily-archive__day > a, .daily-archive__day > span { width: 2.2rem; height: 2.2rem; }
+  .daily-archive__month-nav { margin-left: -.35rem; margin-right: -.35rem; }
+}
+
 .new-heading {
   font-size: 1.15rem;
   font-weight: 700;

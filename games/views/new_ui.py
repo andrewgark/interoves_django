@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import uuid
+from urllib.parse import urlencode
 from collections import OrderedDict
 
 import pytz
@@ -55,7 +56,9 @@ from games.daily_section import (
     scheduled_number_is_public,
     uses_daily_play_layout,
     visible_links,
+    MOSCOW,
 )
+from games.daily_archive import build_daily_archive_context
 from games.ladder_daily import (
     LADDER_GAME_ID,
     get_ladder_hub_context,
@@ -1064,6 +1067,35 @@ def _published_numbers(game):
     return {link.number for link in filter_published_links(_game_task_group_links(game), game)}
 
 
+def _daily_archive_context(request, game, links, *, completed_numbers=()):
+    """Adapt section placements to the neutral reusable archive component."""
+    items = []
+    for link in links:
+        published_at = publish_at_for(game, link.number)
+        if published_at is None:
+            continue
+        items.append({
+            'date': published_at.astimezone(MOSCOW).date(),
+            'key': str(link.number),
+            'number': link.number,
+            'anchor': '{}-{}'.format(game.id, link.number),
+            'href': _play_url_for_task_group(game, link.number),
+        })
+    meta = SECTION_HUB_META.get(game.id) or {}
+    archive_params = request.GET.copy()
+    archive_params.pop('month', None)
+    return build_daily_archive_context(
+        items=items,
+        requested_month=request.GET.get('month'),
+        today=timezone.localdate(),
+        archive_url=request.path,
+        archive_query=urlencode(archive_params, doseq=True),
+        calendar_id='daily-archive-{}'.format(game.id),
+        game_label=meta.get('archive_item_label') or meta.get('title') or game.name,
+        completed_keys={str(number) for number in completed_numbers},
+    )
+
+
 def _ladder_published_numbers(game):
     return _published_numbers(game)
 
@@ -1825,7 +1857,17 @@ def _render_section_game_page(request, game_id):
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     meta = SECTION_HUB_META.get(game_id) or {}
     today_number = current_number_for(game)
-    task_groups = _hub_section_task_group_links(game)
+    task_groups = list(_hub_section_task_group_links(game))
+    archive_context = _daily_archive_context(request, game, task_groups)
+    if archive_context.get('daily_archive'):
+        selected_year, selected_month = archive_context['daily_archive_selected']
+        task_groups = [
+            link for link in task_groups
+            if (
+                publish_at_for(game, link.number).astimezone(MOSCOW).date().year == selected_year
+                and publish_at_for(game, link.number).astimezone(MOSCOW).date().month == selected_month
+            )
+        ]
     if meta.get('archive_item_label'):
         task_group_rows = _ladder_task_group_rows(
             task_groups,
@@ -1849,6 +1891,13 @@ def _render_section_game_page(request, game_id):
         play_mode,
         task_groups,
         task_group_rows,
+    )
+    completed_numbers = [
+        row['number'] for row in task_group_rows if row.get('is_fully_solved')
+    ]
+    archive_context = _daily_archive_context(
+        request, game, _hub_section_task_group_links(game),
+        completed_numbers=completed_numbers,
     )
 
     section_today_play_url = None
@@ -1889,6 +1938,7 @@ def _render_section_game_page(request, game_id):
         'is_main_game': False,
         'task_groups_heading': task_groups_heading,
         'task_groups_empty_text': task_groups_empty_text,
+        **archive_context,
         'section_tagline': meta.get('description') or '',
         'ladder_today_number': today_number if game_id == LADDER_GAME_ID else None,
         'section_today_play_url': section_today_play_url,

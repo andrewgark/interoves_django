@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, JsonResponse
@@ -32,6 +33,8 @@ from games.analytics import (
     register_started_game,
 )
 from games.daily_transitions import next_daily_content_transition_for_game
+from games.daily_archive import build_daily_archive_context
+from games.daily_section import MOSCOW
 from games.alphabetty.suggestions import suggest_word
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
@@ -237,6 +240,30 @@ def alphabetty_hub_page(request):
             continue
         link_rows.append((n, link))
 
+    archive_items = []
+    for n, link in link_rows:
+        published_at = alphabetty_publish_at(game, n)
+        if published_at is not None:
+            archive_items.append({
+                'date': published_at.astimezone(MOSCOW).date(),
+                'key': str(n), 'number': n, 'anchor': f'alphabetty-{n}',
+                'href': section_play_path(ALPHABETTY_GAME_ID, n),
+            })
+    archive_context = build_daily_archive_context(
+        items=archive_items, requested_month=request.GET.get('month'),
+        today=timezone.localdate(), archive_url=request.path,
+        game_label='Алфавитка', archive_query=urlencode(
+            [(key, value) for key in request.GET for value in request.GET.getlist(key) if key != 'month']
+        ), calendar_id='daily-archive-alphabetty',
+    )
+    if archive_context.get('daily_archive'):
+        selected = archive_context['daily_archive_selected']
+        link_rows = [
+            (n, link) for n, link in link_rows
+            if (alphabetty_publish_at(game, n).astimezone(MOSCOW).year,
+                alphabetty_publish_at(game, n).astimezone(MOSCOW).month) == selected
+        ]
+
     tasks_by_tg = {
         t.task_group_id: t
         for t in Task.objects.filter(
@@ -275,6 +302,14 @@ def alphabetty_hub_page(request):
             'progress_meta': prog.get('progress_meta') or '',
             'difficulty': difficulties.get(link.pk),
         })
+    archive_context = build_daily_archive_context(
+        items=archive_items, requested_month=request.GET.get('month'),
+        today=timezone.localdate(), archive_url=request.path,
+        game_label='Алфавитка', archive_query=urlencode(
+            [(key, value) for key in request.GET for value in request.GET.getlist(key) if key != 'month']
+        ), calendar_id='daily-archive-alphabetty',
+        completed_keys={str(row['number']) for row in rows if row['is_solved']},
+    )
     hub = get_alphabetty_hub_context(game, published_numbers=_published_numbers(game))
     return render(request, 'new/alphabetty_hub.html', {
         'game': game,
@@ -285,6 +320,7 @@ def alphabetty_hub_page(request):
         'back_url': '/',
         'section_results_url': section_results_path(ALPHABETTY_GAME_ID),
         'can_see_results': game.has_access('see_results', team=team),
+        **archive_context,
         'live_next_transition_at': next_daily_content_transition_for_game(game),
     })
 

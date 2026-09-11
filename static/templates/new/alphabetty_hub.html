@@ -34,9 +34,9 @@
 </p>
 
 {% if rows %}
-  <h2 class="new-heading new-stack-gap--lg">Архив</h2>
+  {% include "new/partials/daily_archive_calendar.html" %}
   {% for row in rows %}
-    <div class="new-task {{ row.row_class }}" data-fully-solved="{% if row.is_solved %}1{% else %}0{% endif %}">
+    <div id="alphabetty-{{ row.number }}" class="new-task daily-archive__card {{ row.row_class }}" data-fully-solved="{% if row.is_solved %}1{% else %}0{% endif %}">
       <a class="new-task__body" href="{{ row.play_url }}">
         <strong>{% if row.is_today %}Сегодня · {% endif %}{{ row.name }}</strong>
         {% if row.progress_meta %}
