@@ -136,8 +136,11 @@ class DailyStatisticsTests(TestCase):
             )
         data = build_daily_statistics(game, tg)
         self.assertEqual(data['solved'], 2)
+        self.assertEqual(data['words'][0]['average_order'], 1.0)
+        self.assertEqual(data['words'][1]['average_order'], 2.0)
         self.assertEqual(data['words'][1]['hint_percent'], 50.0)
         self.assertEqual(data['off_topic'][0]['players'], 1)
+        self.assertEqual(data['popular_findings'][0]['word'], 'ИГРА')
 
     def test_ladder_uses_success_order_and_active_intervals(self):
         game = Game.objects.filter(id='ladder', project=self.project).first()

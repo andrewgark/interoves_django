@@ -13,7 +13,7 @@ from games.word_salad import load_state as load_salad_state, parse_task_payload
 from games.alphabetty.core import normalize_word
 
 
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 CACHE_TIMEOUT = 60 * 60 * 24
 
 
@@ -183,10 +183,10 @@ def _salad(task, game, actors):
                     continue
                 after = load_salad_state(row.state)
                 added = set(after.get('solved_indices') or []) - solved_before
-                for index in added:
+                for index in sorted(added):
                     # A hinted target is still counted in hint-rate, but is not
-                    # a self-found order/time observation.
-                    if int(hints.get(index, 0) or 0) <= 0 and row.active_time_ms is not None:
+                    # a self-found order observation.
+                    if int(hints.get(index, 0) or 0) <= 0:
                         self_position += 1
                         order[index].append(self_position)
                 solved_before |= added

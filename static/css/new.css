@@ -7477,22 +7477,29 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__histogram { position: relative; height: 180px; padding: .35rem 0 0; border-bottom: 1px solid var(--border); }
 .new-daily-statistics__histogram canvas { display: block; width: 100% !important; height: 100% !important; }
 .new-daily-statistics__list--guesses { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: .75rem; row-gap: .28rem; }
-.new-daily-statistics__guess { display: grid !important; grid-template-columns: 1.35rem minmax(0, 1fr); justify-content: initial; gap: .35rem !important; align-items: start !important; }
-.new-daily-statistics__guess strong { min-width: 0; text-align: right; }
-.new-daily-statistics__guess span { min-width: 0; overflow-wrap: anywhere; text-align: left; white-space: normal; }
-.new-daily-statistics__guess.is-rare .new-daily-statistics__finding-word { color: var(--warning-hover); cursor: help; }
-.new-daily-statistics__finding-word { position: relative; outline: none; }
-.new-daily-statistics__finding-word::after { content: attr(data-tooltip); position: absolute; z-index: 3; left: 0; bottom: calc(100% + .4rem); width: max-content; max-width: 12rem; padding: .35rem .5rem; border: 1px solid var(--border); border-radius: .4rem; background: var(--surface); color: var(--text); box-shadow: 0 .3rem .9rem color-mix(in srgb, var(--text) 15%, transparent); font-size: .72rem; font-weight: 500; line-height: 1.2; opacity: 0; pointer-events: none; transform: translateY(.15rem); transition: opacity .12s ease, transform .12s ease; }
-.new-daily-statistics__finding-word:hover::after, .new-daily-statistics__finding-word:focus-visible::after { opacity: 1; transform: translateY(0); }
+.new-daily-statistics__guess { min-width: 0; }
+.new-daily-statistics__finding-pill, .new-daily-statistics__word-pill { position: relative; display: inline-flex; align-items: center; gap: .35rem; max-width: 100%; width: fit-content; min-height: 1.9rem; padding: .25rem .65rem; border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent-hover); font-family: var(--new-font-mono); font-size: .78rem; font-weight: 700; letter-spacing: .03em; line-height: 1.15; white-space: nowrap; }
+.new-daily-statistics__finding-pill { border-color: color-mix(in srgb, var(--muted) 28%, var(--border)); background: color-mix(in srgb, var(--muted) 12%, var(--surface)); color: var(--muted); }
+.new-daily-statistics__finding-pill.is-rare, .new-daily-statistics__word-pill.is-hinted { border-color: color-mix(in srgb, var(--warning) 48%, var(--border)); background: color-mix(in srgb, var(--warning) 18%, var(--surface)); color: var(--warning-hover); }
+.new-daily-statistics__finding-pill small { font: inherit; font-size: .78em; letter-spacing: 0; }
+.new-daily-statistics__finding-pill.is-rare { cursor: help; outline: none; }
+.new-daily-statistics__finding-pill::after, .new-daily-statistics__complexity-value::after { content: attr(data-tooltip); position: absolute; z-index: 3; left: 0; bottom: calc(100% + .4rem); width: max-content; max-width: 15rem; padding: .35rem .5rem; border: 1px solid var(--border); border-radius: .4rem; background: var(--surface); color: var(--text); box-shadow: 0 .3rem .9rem color-mix(in srgb, var(--text) 15%, transparent); font-family: inherit; font-size: .72rem; font-weight: 500; letter-spacing: 0; line-height: 1.2; white-space: normal; opacity: 0; pointer-events: none; transform: translateY(.15rem); transition: opacity .12s ease, transform .12s ease; }
+.new-daily-statistics__complexity-value::after { right: 0; left: auto; }
+.new-daily-statistics__finding-pill:hover::after, .new-daily-statistics__finding-pill:focus-visible::after, .new-daily-statistics__complexity-value:hover::after, .new-daily-statistics__complexity-value:focus-visible::after { opacity: 1; transform: translateY(0); }
 .new-daily-statistics__list--salad { gap: .65rem; }
 .new-daily-statistics__salad-word { min-width: 0; }
 .new-daily-statistics__salad-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; align-items: center; min-width: 0; }
-.new-daily-statistics__salad-line > span:first-child { overflow-wrap: anywhere; }
+.new-daily-statistics__salad-line > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .new-daily-statistics__hint-rate { display: inline-flex; align-items: center; gap: .18rem; color: var(--muted); font-size: .76rem; white-space: nowrap; }
 .new-daily-statistics__hint-rate .ph { color: var(--warning); font-size: .95rem; }
-.new-daily-statistics__salad-bar { height: .35rem; margin-top: .25rem; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--muted) 13%, transparent); }
+.new-daily-statistics__complexity { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .45rem; align-items: center; margin-top: .25rem; }
+.new-daily-statistics__complexity-value { position: relative; min-width: 2.1rem; color: var(--muted); cursor: help; font-size: .74rem; text-align: right; outline: none; }
+.new-daily-statistics__salad-bar { height: .35rem; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--muted) 13%, transparent); }
 .new-daily-statistics__salad-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 65%, var(--warning))); }
-.new-daily-statistics__salad-word.is-missing .new-daily-statistics__salad-bar { opacity: .45; }
+.new-daily-statistics__salad-word.is-missing .new-daily-statistics__salad-bar, .new-daily-statistics__word-pill.is-missing { opacity: .55; }
+.new-daily-statistics__salad-findings { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 1rem; align-items: end; }
+.new-daily-statistics__salad-findings > .new-daily-statistics__section { min-width: 0; }
+.new-raddle-result--in-statistics { margin: 0 0 .15rem; }
 @media (min-width: 920px) {
   .new-daily-statistics { margin-top: 1.25rem; }
   .new-daily-statistics__summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -7501,6 +7508,8 @@ html.is-age-gated .new-wrap {
 @media (max-width: 919px) {
   .new-daily-results-layout > .new-raddle-result { align-self: center; }
   .new-daily-statistics__body { grid-template-columns: 1fr; }
+  .new-daily-statistics__salad-findings { grid-template-columns: 1fr; }
+  .new-daily-statistics__salad-findings > .new-raddle-result { justify-self: center; }
 }
 @media (max-width: 420px) {
   .new-daily-statistics { padding: .8rem; }
@@ -7511,7 +7520,7 @@ html.is-age-gated .new-wrap {
   .new-daily-statistics__histogram { height: 160px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .new-daily-statistics__finding-word::after { transition: none; }
+  .new-daily-statistics__finding-pill::after, .new-daily-statistics__complexity-value::after { transition: none; }
 }
 .new-raddle-tutorial-table {
   width: 100%;

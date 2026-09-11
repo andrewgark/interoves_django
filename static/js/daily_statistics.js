@@ -43,7 +43,8 @@
   }
   function popularity(items) {
     return (items || []).map(function (x) {
-      return '<li class="new-daily-statistics__guess' + (x.rare ? ' is-rare' : '') + '"><strong>' + esc(x.players) + '</strong><span' + (x.rare ? ' class="new-daily-statistics__finding-word" data-tooltip="Редкая находка" aria-label="Редкая находка" tabindex="0" title="Редкая находка"' : '') + '>' + esc(x.word) + '</span></li>';
+      var tooltip = x.rare ? ' data-tooltip="Редкая находка" aria-label="Редкая находка" tabindex="0" title="Редкая находка"' : '';
+      return '<li class="new-daily-statistics__guess' + (x.rare ? ' is-rare' : '') + '"><span class="new-daily-statistics__finding-pill' + (x.rare ? ' is-rare' : '') + '"' + tooltip + '><span>' + esc(x.word) + '</span><small>(' + esc(x.players) + ')</small></span></li>';
     }).join('');
   }
   function saladWords(items) {
@@ -55,9 +56,11 @@
       var order = Number(item.average_order);
       var hasOrder = item.average_order != null && item.average_order !== '' && Number.isFinite(order);
       var width = hasOrder && maxOrder > 0 ? Math.max(4, Math.round(order / maxOrder * 100)) : 0;
+      var tone = !hasOrder ? ' is-missing' : (Number(item.hint_percent) > 0 ? ' is-hinted' : '');
+      var complexityTooltip = 'Средний порядковый номер: на каком месте игроки в среднем угадывали слово без подсказки.';
       return '<li class="new-daily-statistics__salad-word' + (hasOrder ? '' : ' is-missing') + '">' +
-        '<div class="new-daily-statistics__salad-line"><span>' + esc(item.word) + '</span><span class="new-daily-statistics__hint-rate"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span></div>' +
-        '<div class="new-daily-statistics__salad-bar" aria-hidden="true"><i style="width:' + width + '%"></i></div>' +
+        '<div class="new-daily-statistics__salad-line"><span class="new-daily-statistics__word-pill' + tone + '">' + esc(item.word) + '</span><span class="new-daily-statistics__hint-rate"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span></div>' +
+        '<div class="new-daily-statistics__complexity"><div class="new-daily-statistics__salad-bar" aria-hidden="true"><i style="width:' + width + '%"></i></div><span class="new-daily-statistics__complexity-value" data-tooltip="' + complexityTooltip + '" tabindex="0">' + esc(hasOrder ? decimal(order) : '—') + '</span></div>' +
         '</li>';
     }).join('');
   }
@@ -72,7 +75,7 @@
       var width = hasTime && maxSeconds > 0 ? Math.max(4, Math.round(value / maxSeconds * 100)) : 0;
       var label = hasTime ? seconds(value) : '—';
       return '<li class="new-daily-statistics__ladder-word' + (hasTime ? '' : ' is-missing') + '">' +
-        '<div class="new-daily-statistics__ladder-line"><span>' + esc(item.word) + '</span><strong>' + esc(label) + '</strong></div>' +
+        '<div class="new-daily-statistics__ladder-line"><span class="new-daily-statistics__word-pill' + (hasTime ? '' : ' is-missing') + '">' + esc(item.word) + '</span><strong>' + esc(label) + '</strong></div>' +
         '<div class="new-daily-statistics__ladder-bar" aria-hidden="true"><i style="width:' + width + '%"></i></div>' +
         '</li>';
     }).join('');
@@ -156,7 +159,7 @@
     html += '</div>';
     if (data.kind === 'salad') {
       html += section('Слова', '<ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
-      if ((data.popular_findings || []).length) html += section('Популярные находки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_findings) + '</ul>');
+      if ((data.popular_findings || []).length) html += '<div class="new-daily-statistics__salad-findings">' + section('Популярные находки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_findings) + '</ul>') + '</div>';
     } else if (data.kind === 'ladder') {
       html += section('Статистика слов', '<p class="new-daily-statistics__hint">Медианное активное время от отгадки предыдущего слова до отгадки этого, без пауз.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');
     } else if (data.kind === 'alphabet') {
@@ -166,6 +169,14 @@
         '</div>';
     }
     root.innerHTML = html;
+    if (data.kind === 'salad') {
+      var result = document.querySelector('[data-raddle-result]');
+      var findings = root.querySelector('.new-daily-statistics__salad-findings');
+      if (result && findings) {
+        findings.appendChild(result);
+        result.classList.add('new-raddle-result--in-statistics');
+      }
+    }
     root.hidden = false;
     if (data.kind === 'alphabet') {
       window.requestAnimationFrame(function () { renderHistogram(root, data.distribution); });
