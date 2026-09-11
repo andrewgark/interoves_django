@@ -99,6 +99,17 @@ class HubSectionCardTemplateTests(SimpleTestCase):
         self.assertNotIn('new-hub-section__badge-today', html)
         self.assertIn('new-hub-section__cta--latest', html)
 
+    def test_streak_uses_correct_russian_day_form(self):
+        for streak, word in ((1, 'день'), (2, 'дня'), (4, 'дня'), (5, 'дней'), (11, 'дней'), (21, 'день')):
+            with self.subTest(streak=streak):
+                html = render_to_string(
+                    'new/partials/hub_section_card.html',
+                    {'card': {**self.card, 'streak': streak}},
+                )
+
+                self.assertIn(f'title="{streak} {word} подряд"', html)
+                self.assertIn(f'aria-label="{streak} {word} подряд"', html)
+
     def test_create_link_starts_on_new_line_for_ladder_and_alphabetty(self):
         for section_id, create_url in (
             ('ladder', '/offer_ladder/'),

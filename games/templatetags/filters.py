@@ -159,6 +159,15 @@ def ru_attempt_word(n):
         return 'попыток'
 
 
+@register.filter
+def ru_day_word(n):
+    """1 день / 2–4 дня / 5+ дней (11–14 — дней)."""
+    try:
+        return _ru_plural_form_int(int(n), 'день', 'дня', 'дней')
+    except Exception:
+        return 'дней'
+
+
 @register.simple_tag
 def meta_bar_hint_penalty(ai, task, alphabetty_hints=None):
     """Штраф подсказок для meta-bar: у алфавитки — буквенные (−1 каждая)."""

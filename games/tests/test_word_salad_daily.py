@@ -173,7 +173,7 @@ class WordSaladSectionTests(TestCase):
         self.assertEqual(section_last_path(WORD_SALAD_GAME_ID), '/salad/last/')
         self.assertEqual(
             SECTION_HUB_META['ladder']['description'],
-            'Разгадайте цепочку связанных слов по перемешанным подсказкам-связкам',
+            'Разгадайте цепочку связанных слов по перемешанным подсказкам-связкам.',
         )
         salad_live = resolve('/salad/live-state/')
         games_live = resolve('/games/salad/live-state/')
@@ -359,6 +359,6 @@ class WordSaladSectionTests(TestCase):
         # onboarding block above the daily grid, not on the Salad card itself.
         self.assertNotIn('new-hub-section--recommended', html)
         self.assertIn(
-            'Разгадайте цепочку связанных слов по перемешанным подсказкам-связкам',
+            'Разгадайте цепочку связанных слов по перемешанным подсказкам-связкам.',
             html,
         )
