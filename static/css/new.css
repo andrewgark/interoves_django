@@ -6252,7 +6252,8 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 }
 
 .new-hub-next-game-vote {
-  margin: -0.25rem 0 1.5rem;
+  /* Дополнительный воздух после блока ежедневных игр, включая лесенки. */
+  margin: 2.25rem 0 1.5rem;
 }
 
 a.new-btn.new-hub-next-game-vote__btn {

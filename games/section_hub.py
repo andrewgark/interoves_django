@@ -39,6 +39,10 @@ HUB_DAILY_SECTION_IDS = SECTION_HUB_ORDER[:3]
 HUB_FROM_DESYATOCHKI_SECTION_IDS = SECTION_HUB_ORDER[3:]
 WEEK_TASK_HUB_ID = WEEK_TASK_GAME_ID
 
+# На главной Лесенка — выделенная первая карточка, затем идут Салатик и
+# Алфавитка. Навигация должна повторять именно этот визуальный порядок.
+DAILY_NAV_SECTION_IDS = (LADDER_GAME_ID, WORD_SALAD_GAME_ID, ALPHABETTY_GAME_ID)
+
 # Порядок и короткие формулировки именно для первого знакомства. Навигация
 # сохраняет привычный порядок, а onboarding всегда начинает с Салатика.
 ONBOARDING_GAME_IDS = (WORD_SALAD_GAME_ID, 'alphabetty', 'ladder')
@@ -193,9 +197,9 @@ def section_format_credit_context(section_id):
 
 
 def daily_nav_items():
-    """Ежедневные разделы в главной навигации (лесенка, салатик, алфавитка, …)."""
+    """Ежедневные разделы в главной навигации в порядке главной страницы."""
     items = []
-    for sid in HUB_DAILY_SECTION_IDS:
+    for sid in DAILY_NAV_SECTION_IDS:
         meta = SECTION_HUB_META.get(sid) or {}
         items.append({
             'id': sid,

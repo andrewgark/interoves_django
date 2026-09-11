@@ -7,10 +7,19 @@ from django.utils import timezone
 
 from games.ladder_daily import LADDER_PUBLISH_START_TAG
 from games.section_hub import (
+    daily_nav_items,
     get_desyatochki_hub_context,
     get_ladder_section_hub_card,
     get_training_section_hub_context,
 )
+
+
+class DailyNavigationOrderTests(SimpleTestCase):
+    def test_matches_homepage_daily_card_order(self):
+        self.assertEqual(
+            [item['id'] for item in daily_nav_items()],
+            ['ladder', 'salad', 'alphabetty'],
+        )
 
 
 class _FakeGame:
