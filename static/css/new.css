@@ -1656,7 +1656,7 @@ html.new-ui-dark body.new-ui {
   justify-content: center; border: 0; background: transparent; color: var(--text);
   text-decoration: none; border-radius: .5rem; font: inherit; cursor: pointer;
 }
-.daily-archive__month-arrow:hover, .daily-archive__month-picker:hover,
+.daily-archive__month-arrow:hover,
 .daily-archive__month-arrow:focus-visible { background: var(--surface); color: var(--accent); }
 .daily-archive__month-picker {
   appearance: none; -webkit-appearance: none; padding: 0;
