@@ -220,7 +220,6 @@
 </script>
 {% endif %}
 
-{% if daily_statistics_url %}<div class="new-daily-results-layout">{% endif %}
 <div class="new-taskgrid {% if task_group.view == 'table-3-n' %}new-taskgrid--3{% elif task_group.view == 'table-4-n' %}new-taskgrid--4{% endif %}{% if daily_timing_enabled %} new-daily-solve{% endif %}">
 {% if daily_timing_enabled %}
 <div class="new-daily-solve__stage">
@@ -238,11 +237,6 @@
 </div>
 {% endif %}
 </div>
-
-{% if daily_statistics_url %}
-<section class="new-daily-statistics" data-daily-statistics data-statistics-url="{{ daily_statistics_url }}" hidden aria-live="polite"></section>
-{% endif %}
-{% if daily_statistics_url %}</div>{% endif %}
 
 <div id="new-answer-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-answer-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-answer-close></div>

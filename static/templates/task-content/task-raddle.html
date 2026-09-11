@@ -160,6 +160,8 @@
       {% endif %}
     </aside>
   </div>
+  {% if daily_statistics_url %}<div class="new-daily-results-layout">
+  {% endif %}
   {% if rd.ui.is_complete and rd.ui.result_squares %}
   <div class="new-raddle-result" data-raddle-result{% if rd.ui.share_card_json %} data-share-card="{{ rd.ui.share_card_json|escape }}"{% endif %}>
     <div class="new-raddle-result__head">
@@ -169,6 +171,7 @@
     <div class="new-raddle-result__share" data-raddle-share-text><div class="new-raddle-result__title">🪜 {% if game.id == 'ladder' %}{{ tg_name|default:game.outside_name|default:game.name }}{% else %}{{ rd.ui.share_title|default:'Лесенка' }}{% endif %}</div><div class="new-raddle-result__squares">{{ rd.ui.result_squares }}</div>{% if rd.ui.elapsed_label %}<div class="new-raddle-result__squares">⏱️ {{ rd.ui.elapsed_label }}</div>{% endif %}<div class="new-raddle-result__link">🔗 {{ share_host|default:request.get_host }}{% if game.id == 'ladder' %}/ladder/{{ tg_number }}{% else %}/games/{{ game.id }}/{{ tg_number }}/{{ task.number }}{% endif %}</div></div>
   </div>
   {% endif %}
+  {% if daily_statistics_url %}<section class="new-daily-statistics" data-daily-statistics data-statistics-url="{{ daily_statistics_url }}" hidden aria-live="polite"></section></div>{% endif %}
   {% if not wall_new_ui %}
   <p class="new-raddle-task__credit">Автор формата — <a href="https://raddle.quest" target="_blank" rel="noopener noreferrer">raddle.quest</a>, мы благодарны им за идею лесенок</p>
   {% endif %}

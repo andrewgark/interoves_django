@@ -1653,7 +1653,14 @@ html.new-ui-dark body.new-ui {
   text-decoration: none; border-radius: .5rem; font: inherit; cursor: pointer;
 }
 .daily-archive__month-arrow:hover, .daily-archive__month-picker:hover,
-.daily-archive__month-arrow:focus-visible, .daily-archive__month-picker:focus-visible { background: var(--surface); color: var(--accent); }
+.daily-archive__month-arrow:focus-visible { background: var(--surface); color: var(--accent); }
+.daily-archive__month-picker {
+  appearance: none; -webkit-appearance: none; padding: 0;
+}
+.daily-archive__month-picker[aria-expanded="true"],
+.daily-archive__month-picker:focus-visible {
+  background: var(--surface); color: var(--accent);
+}
 .daily-archive__month-arrow.is-disabled { color: var(--muted); opacity: .45; }
 .daily-archive__month-picker { font-weight: 700; gap: .45rem; }
 .daily-archive__months {
@@ -1664,7 +1671,7 @@ html.new-ui-dark body.new-ui {
 }
 .daily-archive__months a { padding: .55rem .65rem; border-radius: .4rem; color: var(--text); text-decoration: none; }
 .daily-archive__months a:hover, .daily-archive__months a:focus-visible, .daily-archive__months a[aria-current="page"] { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); }
-.daily-archive__calendar { display: grid; gap: .2rem; margin-bottom: 1.1rem; }
+.daily-archive__calendar { display: grid; gap: .2rem; width: min(100%, 22rem); margin: 0 auto 1.1rem; }
 .daily-archive__weekdays, .daily-archive__week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .2rem; }
 .daily-archive__weekdays { color: var(--muted); font-size: .72rem; text-align: center; }
 .daily-archive__day { min-width: 0; aspect-ratio: 1; display: grid; place-items: center; color: var(--muted); }
