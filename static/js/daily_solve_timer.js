@@ -79,6 +79,7 @@
     var pauseBtn = options.pauseBtn;
     var toggleBtn = options.toggleBtn;
     var toggleLabel = options.toggleLabel;
+    var tooltipValue = options.tooltipValue;
     var popover = options.popover;
     var overlay = options.overlay;
     var resumeBtn = options.resumeBtn;
@@ -160,8 +161,8 @@
         var paused = manuallyPaused;
         toggleBtn.setAttribute('aria-expanded', (!paused && popover && !popover.hidden) ? 'true' : 'false');
         toggleBtn.setAttribute('aria-label', paused ? 'Продолжить игру' : 'Показать время решения');
-        toggleBtn.title = 'Время решения: ' + formatClock(ms);
       }
+      if (tooltipValue) tooltipValue.textContent = formatClock(ms);
       if (toggleLabel) toggleLabel.textContent = manuallyPaused ? 'Продолжить' : '';
       if (popover && manuallyPaused) popover.hidden = true;
       if (rootEl) {
@@ -572,6 +573,7 @@
       pauseBtn: doc.querySelector('[data-daily-timer-pause]'),
       toggleBtn: doc.querySelector('[data-daily-timer-toggle]'),
       toggleLabel: doc.querySelector('[data-daily-timer-toggle-label]'),
+      tooltipValue: doc.querySelector('[data-daily-timer-tooltip-value]'),
       popover: doc.querySelector('[data-daily-timer-popover]'),
       overlay: overlay,
       resumeBtn: doc.querySelector('[data-daily-timer-resume]'),

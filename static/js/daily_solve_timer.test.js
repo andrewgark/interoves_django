@@ -16,6 +16,34 @@ var timer = require('./daily_solve_timer.js');
   assert.strictEqual(timer.formatClock(3661000), '01:01:01');
 })();
 
+(function testHoverTooltipUpdatesItsValueWithoutReplacingTheTooltip() {
+  var tooltipValue = { textContent: '' };
+  var toggleBtn = {
+    setAttribute: function () {},
+    title: 'must not be rewritten',
+  };
+  var ctrl = timer.create({
+    url: '/ladder/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return ''; },
+    getCsrf: function () { return ''; },
+    clock: fakeClock(0),
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({}); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    toggleBtn: toggleBtn,
+    tooltipValue: tooltipValue,
+    bootstrap: { status: 'running', is_authoritative: true, accumulated_ms: 61000, exists: true },
+  });
+  assert.strictEqual(tooltipValue.textContent, '01:01');
+  assert.strictEqual(toggleBtn.title, 'must not be rewritten');
+  ctrl.destroy();
+})();
+
 (function testShouldRunLocally() {
   assert.strictEqual(timer.shouldRunLocally({
     completed: false,

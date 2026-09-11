@@ -3171,6 +3171,34 @@ html.new-ui-dark .new-team-switcher-active-box {
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
 
+.new-daily-timer__tooltip {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 0.35rem 1rem rgba(0, 0, 0, 0.12);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-0.15rem);
+  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+}
+
+.new-daily-timer__toggle:hover + .new-daily-timer__tooltip,
+.new-daily-timer__toggle:focus-visible + .new-daily-timer__tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
 .new-daily-timer__toggle:focus-visible,
 .new-daily-game-header__nav-button:focus-visible {
   outline: 2px solid var(--accent);
