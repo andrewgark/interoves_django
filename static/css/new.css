@@ -1661,9 +1661,12 @@ html.new-ui-dark body.new-ui {
 .daily-archive__month-picker {
   appearance: none; -webkit-appearance: none; padding: 0;
 }
-.daily-archive__month-picker[aria-expanded="true"],
-.daily-archive__month-picker:focus-visible {
+.daily-archive__month-picker[aria-expanded="true"] {
   background: var(--surface); color: var(--accent);
+}
+.daily-archive__month-picker:focus { outline: none; }
+.daily-archive__month-picker:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
 }
 .daily-archive__month-arrow.is-disabled { color: var(--muted); opacity: .45; }
 .daily-archive__month-picker { font-weight: 700; gap: .45rem; }
