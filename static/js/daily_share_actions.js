@@ -10,6 +10,7 @@
   var IMAGE_COPY_FAILED = 'Не удалось скопировать картинку';
   var SHARE_FAILED = 'Не удалось поделиться';
   var SHARE_UNAVAILABLE = 'Не удалось поделиться — результат скопирован текстом';
+  var STATUS_HIDE_MS = 1800;
 
   function shareCardApi() {
     return root.DailyShareCard || globalThis.DailyShareCard;
@@ -69,7 +70,20 @@
 
   function setStatus(block, message) {
     var live = block && block.querySelector('[data-share-status]');
-    if (live) live.textContent = message || '';
+    if (!live) return;
+    if (live._statusTimer) {
+      clearTimeout(live._statusTimer);
+      live._statusTimer = 0;
+    }
+    live.textContent = message || '';
+    live.hidden = !message;
+    if (message) {
+      live._statusTimer = setTimeout(function () {
+        live.textContent = '';
+        live.hidden = true;
+        live._statusTimer = 0;
+      }, STATUS_HIDE_MS);
+    }
   }
 
   function flashButton(btn, doneLabel, restoreLabel) {

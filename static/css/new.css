@@ -7403,6 +7403,23 @@ html.is-age-gated .new-wrap {
   flex-wrap: wrap;
   gap: 0.35rem;
 }
+.new-raddle-result__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--success-soft-border);
+  border-radius: var(--btn-radius);
+  background: var(--success-soft-bg);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.new-raddle-result__status[hidden] {
+  display: none;
+}
 .new-share-icon {
   display: inline-flex;
   position: relative;
