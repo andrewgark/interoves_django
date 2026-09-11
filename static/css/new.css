@@ -596,10 +596,10 @@ html.new-ui-dark body.new-ui {
   }
 }
 
-/* На широком .new-wrap три первых варианта считываются одним рядом. */
+/* На широком .new-wrap Салатик и Алфавитка идут рядом. */
 @media (min-width: 920px) {
-  .new-hub-sections-grid--daily {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .new-hub-sections-grid--daily-secondary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -612,11 +612,6 @@ html.new-ui-dark body.new-ui {
 .new-hub-sections-grid > .new-hub-section--wide {
   grid-column: 1 / -1;
   margin-bottom: 0; /* gap сетки, не margin у --wide (он для Десяточек вне грида) */
-}
-
-/* В ежедневной тройке Салатики, Алфавитки и Лесенки всегда равноправны. */
-.new-hub-sections-grid--daily > .new-hub-section--wide {
-  grid-column: auto;
 }
 
 .new-hub-section {

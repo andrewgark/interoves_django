@@ -17,11 +17,18 @@
 {% if daily_hub_cards %}
 <section class="new-hub-group" aria-labelledby="hub-daily-heading">
   <h2 id="hub-daily-heading" class="new-heading new-hub-group__title">Ежедневные игры</h2>
-  <div class="new-hub-sections-grid new-hub-sections-grid--daily">
-    {% for card in daily_hub_cards %}
-      {% include "new/partials/hub_section_card.html" with card=card highlight_daily_cta=True %}
-    {% endfor %}
-  </div>
+  {% if daily_hub_primary_card %}
+    <div class="new-hub-sections-grid new-hub-sections-grid--daily-primary">
+      {% include "new/partials/hub_section_card.html" with card=daily_hub_primary_card highlight_daily_cta=True %}
+    </div>
+  {% endif %}
+  {% if daily_hub_secondary_cards %}
+    <div class="new-hub-sections-grid new-hub-sections-grid--daily-secondary">
+      {% for card in daily_hub_secondary_cards %}
+        {% include "new/partials/hub_section_card.html" with card=card highlight_daily_cta=True %}
+      {% endfor %}
+    </div>
+  {% endif %}
 </section>
 {% endif %}
 

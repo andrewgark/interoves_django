@@ -353,7 +353,8 @@ class WordSaladSectionTests(TestCase):
         self.assertIn('ph-bowl-food', html)
         self.assertIn('/salad/', html)
         self.assertLess(html.find('Салатик'), html.find('Алфавитка'))
-        self.assertIn('new-hub-sections-grid--daily', html)
+        self.assertIn('new-hub-sections-grid--daily-primary', html)
+        self.assertIn('new-hub-sections-grid--daily-secondary', html)
         # The first-visit recommendation now lives in the single compact
         # onboarding block above the daily grid, not on the Salad card itself.
         self.assertNotIn('new-hub-section--recommended', html)

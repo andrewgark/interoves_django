@@ -945,8 +945,14 @@ def _build_hub_section_cards(request, *, team):
     from_desyatochki = [
         by_id[i] for i in HUB_FROM_DESYATOCHKI_SECTION_IDS if i in by_id
     ]
+    daily_primary = by_id.get(LADDER_GAME_ID)
+    daily_secondary = [
+        by_id[i] for i in (WORD_SALAD_GAME_ID, ALPHABETTY_GAME_ID) if i in by_id
+    ]
     return {
         'daily_hub_cards': daily,
+        'daily_hub_primary_card': daily_primary,
+        'daily_hub_secondary_cards': daily_secondary,
         'from_desyatochki_hub_cards': from_desyatochki,
         'hub_section_cards': daily + from_desyatochki,
     }
