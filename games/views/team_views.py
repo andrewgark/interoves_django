@@ -101,15 +101,15 @@ def process_user_request(request, user_id, action):
     return redirect_to_referer(request)
 
 
-def confirm_user_joining_team(request, user_id):
+def confirm_user_joining_team(request, user_id, project_id=None):
     return process_user_request(request, user_id, 'confirm')
 
 
-def reject_user_joining_team(request, user_id):
+def reject_user_joining_team(request, user_id, project_id=None):
     return process_user_request(request, user_id, 'reject')
 
 
-def kick_out_user(request, user_id):
+def kick_out_user(request, user_id, project_id=None):
     return process_user_request(request, user_id, 'kick_out')
 
 

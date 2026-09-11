@@ -7,7 +7,7 @@ from games.views.util import has_team, redirect_to_referer
 
 
 @user_passes_test(has_team)
-def register_to_game(request, game_id):
+def register_to_game(request, game_id, project_id=None):
     with_referent = request.GET.get('with_referent', None)
     team = request.user.profile.team_on
     game = get_object_or_404(Game, id=game_id)
