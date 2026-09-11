@@ -125,7 +125,6 @@
   </div>
 
   {% if daily_statistics_url %}<div class="new-daily-results-layout">{% endif %}
-  {% if daily_statistics_url %}<section class="new-daily-statistics" data-daily-statistics data-statistics-url="{{ daily_statistics_url }}" hidden aria-live="polite"></section>{% endif %}
   <div class="new-raddle-result" id="ab-result" data-raddle-result hidden>
     <div class="new-raddle-result__head">
       <span class="new-raddle-result__label">Ваш результат</span>
@@ -133,6 +132,7 @@
     </div>
     <div class="new-raddle-result__share" data-raddle-share-text id="ab-result-share"></div>
   </div>
+  {% if daily_statistics_url %}<section class="new-daily-statistics" data-daily-statistics data-statistics-url="{{ daily_statistics_url }}" hidden aria-live="polite"></section>{% endif %}
   {% if daily_statistics_url %}</div>{% endif %}
 </div>
   </div>

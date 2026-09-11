@@ -228,12 +228,8 @@
     }
     root.innerHTML = html;
     if (data.kind === 'salad') {
-      var findings = root.querySelector('.new-daily-statistics__salad-findings');
-      if (preservedResult && findings) {
-        findings.appendChild(preservedResult);
-        preservedResult.classList.add('new-raddle-result--in-statistics');
-      } else if (preservedResult && !preservedResult.isConnected) {
-        root.appendChild(preservedResult);
+      if (preservedResult && root.parentNode) {
+        root.parentNode.insertBefore(preservedResult, root.nextSibling);
       }
     }
     root.hidden = false;

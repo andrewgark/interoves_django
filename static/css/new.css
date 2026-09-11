@@ -7519,7 +7519,6 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__salad-word.is-missing .new-daily-statistics__salad-bar, .new-daily-statistics__word-pill.is-missing { opacity: .55; }
 .new-daily-statistics__salad-findings { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 1rem; align-items: end; }
 .new-daily-statistics__salad-findings > .new-daily-statistics__section { min-width: 0; }
-.new-raddle-result--in-statistics { margin: 0 0 .15rem; }
 @media (min-width: 920px) {
   .new-daily-statistics { margin-top: 1.25rem; }
   .new-daily-statistics__summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
