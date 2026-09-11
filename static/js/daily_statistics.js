@@ -27,7 +27,7 @@
   }
   function popularity(items) {
     return (items || []).map(function (x) {
-      return '<li><span>' + esc(x.word) + '</span><strong>' + esc(x.players) + ' игроков</strong></li>';
+      return '<li><span>' + esc(x.word) + '</span><strong>' + esc(x.players) + '</strong></li>';
     }).join('');
   }
   function render(root, data) {

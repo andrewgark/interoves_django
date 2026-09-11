@@ -147,7 +147,7 @@
 {% if daily_timing_enabled %}
 <script src="{% static 'js/daily_solve_timer.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endif %}
-{% if daily_statistics_url %}<script src="{% static 'js/daily_statistics.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>{% endif %}
+{% if daily_statistics_url %}<script defer src="{% static 'js/daily_statistics.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>{% endif %}
 <script>
 (function () {
   var root = document.getElementById('alphabetty-root');

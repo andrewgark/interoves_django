@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.test import TestCase
 
-from games.daily_statistics import build_daily_statistics
+from games.daily_statistics import _alphabet_distribution, build_daily_statistics
 from games.models import (
     Attempt,
     CheckerType,
@@ -60,6 +60,11 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(data['guesses'][0]['word'], 'А')
         self.assertEqual(data['guesses'][0]['players'], 2)
         self.assertNotIn('СЛОВО', {row['word'] for row in data['guesses']})
+
+    def test_alphabet_distribution_uses_adaptive_ranges(self):
+        data = _alphabet_distribution([19, 19, 12, 7, 3])
+        self.assertEqual([row['attempts'] for row in data], ['1–5', '6–10', '11–15', '16+'])
+        self.assertEqual([row['players'] for row in data], [1, 1, 1, 2])
 
     def test_population_is_completed_players_and_salad_hint_rate(self):
         game = Game.objects.filter(id='salad', project=self.project).first()

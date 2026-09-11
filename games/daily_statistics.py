@@ -13,7 +13,7 @@ from games.word_salad import load_state as load_salad_state, parse_task_payload
 from games.alphabetty.core import normalize_word
 
 
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 CACHE_TIMEOUT = 60 * 60 * 24
 
 
@@ -40,6 +40,39 @@ def _median(values):
 
 def _pct(n, total):
     return round(100.0 * n / total, 1) if total else 0
+
+
+def _alphabet_distribution(attempt_counts):
+    """Group alphabet solves into a readable number of attempt ranges."""
+    if not attempt_counts:
+        return []
+
+    maximum = max(attempt_counts)
+    if maximum <= 8:
+        ranges = [(n, n) for n in range(1, maximum + 1)]
+    else:
+        width = 3 if maximum <= 15 else 5 if maximum <= 30 else 10
+        ranges = []
+        start = 1
+        while start <= maximum:
+            end = start + width - 1
+            ranges.append((start, end if end <= maximum else None))
+            start += width
+
+    result = []
+    for start, end in ranges:
+        players = sum(
+            1 for attempts in attempt_counts
+            if attempts >= start and (end is None or attempts <= end)
+        )
+        if start == end:
+            label = str(start)
+        elif end is None:
+            label = '{}+'.format(start)
+        else:
+            label = '{}–{}'.format(start, end)
+        result.append({'attempts': label, 'players': players})
+    return result
 
 
 def _completed_actors(game, task_group):
@@ -214,7 +247,6 @@ def _ladder(task, game, actors):
 def _alphabet(task, game, actors):
     attempts = _attempts_for(task, game, actors)
     answer = normalize_word((task.answer or '').splitlines()[0])
-    distribution = defaultdict(int)
     attempt_counts = []
     guesses = defaultdict(set)
     for actor in actors:
@@ -224,13 +256,13 @@ def _alphabet(task, game, actors):
             continue
         n = len(rows)
         attempt_counts.append(n)
-        distribution[n if n <= 8 else 9] += 1
         for row in rows:
             guess = normalize_word(row.text)
             if guess and guess != answer and row.status != 'Ok':
                 guesses[guess].add(actor)
-    max_bucket = max(distribution or {1: 0})
-    histogram = [{'attempts': ('8+' if bucket == 9 else bucket), 'players': distribution[bucket], 'percent': _pct(distribution[bucket], len(actors))} for bucket in range(1, max_bucket + 1)]
+    histogram = _alphabet_distribution(attempt_counts)
+    for row in histogram:
+        row['percent'] = _pct(row['players'], len(actors))
     return {'kind': 'alphabet', 'solved': len(actors), 'summary': {'solved': len(actors), 'median_attempts': _median(attempt_counts)}, 'distribution': histogram, 'guesses': [{'word': word, 'players': len(players)} for word, players in sorted(guesses.items(), key=lambda item: (-len(item[1]), item[0]))[:10]]}
 
 
