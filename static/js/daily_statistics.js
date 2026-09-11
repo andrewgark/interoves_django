@@ -83,17 +83,62 @@
   function histogram(items) {
     var rows = items || [];
     if (!rows.length) return '';
-    return '<div class="new-daily-statistics__histogram" role="img" aria-label="Распределение попыток"><canvas data-attempts-chart></canvas></div>';
+    var accessibleRows = rows.map(function (x) {
+      var label = String(x.label == null ? x.attempts : x.label);
+      var count = Number(x.count) || 0;
+      return '<li><span>' + esc(label) + '</span><span>' + esc(count + ' ' + playerWord(count) + ' · ' + percent(x.percent)) + '</span></li>';
+    }).join('');
+    return '<div class="new-daily-statistics__histogram"><canvas data-attempts-chart role="img" aria-label="Распределение попыток"></canvas><div data-attempts-chart-fallback hidden></div><ul class="new-visually-hidden" data-attempts-chart-data>' + accessibleRows + '</ul></div>';
   }
-  function renderHistogram(root, items) {
+  function renderHistogramFallback(root, rows) {
     var canvas = root.querySelector('[data-attempts-chart]');
-    if (!canvas || !window.Chart) return;
+    var fallback = root.querySelector('[data-attempts-chart-fallback]');
+    if (!canvas || !fallback) return;
+    var max = rows.reduce(function (value, item) { return Math.max(value, Number(item.count) || 0); }, 0);
+    var chartWidth = 900;
+    var chartHeight = 220;
+    var left = 8;
+    var bottom = 190;
+    var plotHeight = 166;
+    var slot = (chartWidth - left * 2) / rows.length;
+    var accent = window.getComputedStyle(root).getPropertyValue('--accent').trim() || '#7c3aed';
+    var muted = window.getComputedStyle(root).getPropertyValue('--muted').trim() || '#697386';
+    var bars = rows.map(function (item, index) {
+      var count = Number(item.count) || 0;
+      var label = String(item.label == null ? item.attempts : item.label);
+      var height = max ? count / max * plotHeight : 0;
+      var x = left + index * slot + slot * .2;
+      var width = Math.max(2, slot * .6);
+      var y = bottom - height;
+      var showLabel = index === 0 || index === rows.length - 1 || (Number(item.from) % 5 === 0);
+      return '<rect x="' + x.toFixed(2) + '" y="' + y.toFixed(2) + '" width="' + width.toFixed(2) + '" height="' + height.toFixed(2) + '" rx="3" fill="' + esc(accent) + '"><title>' + esc(label + ': ' + count + ' ' + playerWord(count) + ' · ' + percent(item.percent)) + '</title></rect>' +
+        (showLabel ? '<text x="' + (x + width / 2).toFixed(2) + '" y="210" text-anchor="middle" fill="' + esc(muted) + '">' + esc(label) + '</text>' : '');
+    }).join('');
+    fallback.innerHTML = '<svg viewBox="0 0 ' + chartWidth + ' ' + chartHeight + '" preserveAspectRatio="none" role="img" aria-label="Распределение попыток">' +
+      '<line x1="' + left + '" y1="' + bottom + '" x2="' + (chartWidth - left) + '" y2="' + bottom + '" stroke="' + esc(muted) + '" stroke-opacity=".35"></line>' + bars + '</svg>';
+    canvas.hidden = true;
+    fallback.hidden = false;
+  }
+  function renderHistogram(root, items, attempt) {
+    var canvas = root.querySelector('[data-attempts-chart]');
+    if (!canvas) return;
     var rows = items || [];
+    if (!window.Chart) {
+      if ((attempt || 0) < 20) {
+        window.setTimeout(function () { renderHistogram(root, rows, (attempt || 0) + 1); }, 250);
+      } else {
+        renderHistogramFallback(root, rows);
+        console.warn('Chart.js unavailable; using the histogram fallback.');
+      }
+      return;
+    }
+    if (root.__dailyHistogram) root.__dailyHistogram.destroy();
     var styles = window.getComputedStyle(root);
     var accent = styles.getPropertyValue('--accent').trim() || '#7c3aed';
     var border = styles.getPropertyValue('--border').trim() || '#d8dbe2';
     var muted = styles.getPropertyValue('--muted').trim() || '#697386';
-    new window.Chart(canvas, {
+    try {
+      root.__dailyHistogram = new window.Chart(canvas, {
       type: 'bar',
       data: {
         labels: rows.map(function (x) { return String(x.label == null ? x.attempts : x.label); }),
@@ -148,7 +193,11 @@
           y: { beginAtZero: true, display: false, grid: { color: border } }
         }
       }
-    });
+      });
+    } catch (error) {
+      renderHistogramFallback(root, rows);
+      console.error('Unable to render the attempts histogram.', error);
+    }
   }
   function render(root, data) {
     var summary = data.summary || {};
@@ -182,19 +231,6 @@
       window.requestAnimationFrame(function () { renderHistogram(root, data.distribution); });
     }
   }
-  document.addEventListener('click', function (event) {
-    var bar = event.target.closest && event.target.closest('[data-histogram-bar]');
-    document.querySelectorAll('[data-histogram-bar].is-tooltip-open').forEach(function (item) {
-      if (item !== bar) item.classList.remove('is-tooltip-open');
-    });
-    if (bar) bar.classList.toggle('is-tooltip-open');
-  });
-  document.addEventListener('keydown', function (event) {
-    if (event.key !== 'Escape') return;
-    document.querySelectorAll('[data-histogram-bar].is-tooltip-open').forEach(function (item) {
-      item.classList.remove('is-tooltip-open');
-    });
-  });
   function boot(root) {
     if (root.__dailyStatisticsBooted) return;
     root.__dailyStatisticsBooted = true;

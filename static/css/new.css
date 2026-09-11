@@ -7476,6 +7476,8 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__ladder-word.is-missing .new-daily-statistics__ladder-bar { opacity: .45; }
 .new-daily-statistics__histogram { position: relative; height: 180px; padding: .35rem 0 0; border-bottom: 1px solid var(--border); }
 .new-daily-statistics__histogram canvas { display: block; width: 100% !important; height: 100% !important; }
+.new-daily-statistics__histogram [data-attempts-chart-fallback] { width: 100%; height: 100%; }
+.new-daily-statistics__histogram [data-attempts-chart-fallback] svg { display: block; width: 100%; height: 100%; font-size: 11px; }
 .new-daily-statistics__list--guesses { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: .75rem; row-gap: .28rem; }
 .new-daily-statistics__guess { min-width: 0; }
 .new-daily-statistics__finding-pill, .new-daily-statistics__word-pill { position: relative; display: inline-flex; align-items: center; gap: .35rem; max-width: 100%; width: fit-content; min-height: 1.9rem; padding: .25rem .65rem; border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--accent-hover); font-family: var(--new-font-mono); font-size: .78rem; font-weight: 700; letter-spacing: .03em; line-height: 1.15; white-space: nowrap; }
