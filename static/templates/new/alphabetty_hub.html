@@ -36,9 +36,12 @@
 {% if rows %}
   {% include "new/partials/daily_archive_calendar.html" %}
   {% for row in rows %}
-    <div id="alphabetty-{{ row.number }}" class="new-task daily-archive__card {{ row.row_class }}" data-fully-solved="{% if row.is_solved %}1{% else %}0{% endif %}">
+    <div id="alphabetty-{{ row.number }}" class="new-task daily-archive__card {{ row.row_class }}{% if row.is_today %} new-task--today{% endif %}" data-fully-solved="{% if row.is_solved %}1{% else %}0{% endif %}">
       <a class="new-task__body" href="{{ row.play_url }}">
-        <strong>{% if row.is_today %}Сегодня · {% endif %}{{ row.name }}{% if row.publish_date %} · {{ row.publish_date|date:"j E Y" }}{% endif %}</strong>
+        <strong>{{ row.name }}</strong>
+        {% if row.publish_date %}
+          <small class="new-task__date">{{ row.publish_date|date:"j E Y" }}</small>
+        {% endif %}
         {% if row.progress_meta %}
           <small class="new-task__meta">{{ row.progress_meta }}</small>
         {% endif %}

@@ -1165,11 +1165,7 @@ def _ladder_task_group_rows(
     rows = []
     for p in task_groups:
         is_today = today_number is not None and str(p.number) == str(today_number)
-        title = (
-            '{} · {} №{}'.format(today_prefix, item_label, p.number)
-            if is_today
-            else '{} №{}'.format(item_label, p.number)
-        )
+        title = '{} №{}'.format(item_label, p.number)
         published_at = publish_at_for(game, p.number)
         endpoints = endpoints_by_task_group.get(p.task_group_id)
         rows.append({
@@ -1182,6 +1178,7 @@ def _ladder_task_group_rows(
             'play_url': _play_url_for_task_group(game, p.number),
             'results_url': _task_group_results_url(game, p.number),
             'is_fully_solved': False,
+            'is_today': is_today,
             'row_class': 'new-task--today' if is_today else '',
             'title': title,
             'progress_text': None,
