@@ -1,7 +1,7 @@
 """Aggregated post-completion statistics for the three daily games."""
 
 import json
-from collections import defaultdict
+from collections import Counter, defaultdict
 from statistics import median
 
 from django.core.cache import cache
@@ -42,37 +42,73 @@ def _pct(n, total):
     return round(100.0 * n / total, 1) if total else 0
 
 
-def _alphabet_distribution(attempt_counts):
-    """Group alphabet solves into a readable number of attempt ranges."""
-    if not attempt_counts:
+def build_attempt_histogram(values, max_buckets=8):
+    """Build a compact, deterministic histogram for positive attempt counts.
+
+    Exact values are retained whenever possible. If the integer range is too
+    wide, the right tail is folded into ``N+``. The cutoff is chosen from an
+    observed value, so a distant outlier cannot create a long empty scale.
+    """
+    if max_buckets < 1:
+        raise ValueError('max_buckets must be positive')
+
+    counts = Counter(int(value) for value in values if int(value) > 0)
+    if not counts:
         return []
 
-    maximum = max(attempt_counts)
-    if maximum <= 8:
-        ranges = [(n, n) for n in range(1, maximum + 1)]
-    else:
-        width = 3 if maximum <= 15 else 5 if maximum <= 30 else 10
-        ranges = []
-        start = 1
-        while start <= maximum:
-            end = start + width - 1
-            ranges.append((start, end if end <= maximum else None))
-            start += width
+    minimum = min(counts)
+    maximum = max(counts)
+    # Start at the first observed value. This avoids a long empty prefix for
+    # tasks whose meaningful attempt range is far above one.
+    start = minimum
+    span = maximum - start + 1
 
-    result = []
-    for start, end in ranges:
-        players = sum(
-            1 for attempts in attempt_counts
-            if attempts >= start and (end is None or attempts <= end)
+    if span <= max_buckets:
+        ranges = [(value, value) for value in range(start, maximum + 1)]
+    elif max_buckets == 1:
+        ranges = [(start, None)]
+    else:
+        # Leave one bucket for the tail. Only observed cutoff candidates are
+        # considered, avoiding empty buckets after a large gap before an
+        # outlier. The largest eligible cutoff preserves the most detail.
+        max_exact_end = start + max_buckets - 2
+        candidates = sorted(value for value in counts if value <= max_exact_end)
+        total = sum(counts.values())
+
+        def tail_count(cutoff):
+            return sum(count for value, count in counts.items() if value > cutoff)
+
+        eligible = [cutoff for cutoff in candidates if tail_count(cutoff) * 100 <= total * 10]
+        cutoff = max(eligible or candidates)
+        ranges = [(value, value) for value in range(start, cutoff + 1)]
+        ranges.append((cutoff + 1, None))
+
+    total = sum(counts.values())
+    bucket_counts = []
+    for bucket_start, bucket_end in ranges:
+        count = sum(
+            count for value, count in counts.items()
+            if value >= bucket_start and (bucket_end is None or value <= bucket_end)
         )
-        if start == end:
-            label = str(start)
-        elif end is None:
-            label = '{}+'.format(start)
-        else:
-            label = '{}–{}'.format(start, end)
-        result.append({'attempts': label, 'players': players})
-    return result
+        bucket_counts.append(count)
+
+    percentages = [_pct(count, total) for count in bucket_counts]
+    rounding_delta = round(100 - sum(percentages), 1)
+    if rounding_delta:
+        percentages[max(range(len(bucket_counts)), key=lambda index: bucket_counts[index])] += rounding_delta
+    largest_count = max(bucket_counts)
+
+    histogram = []
+    for (bucket_start, bucket_end), count, percent in zip(ranges, bucket_counts, percentages):
+        histogram.append({
+            'from': bucket_start,
+            'to': bucket_end,
+            'count': count,
+            'label': '{}+'.format(bucket_start) if bucket_end is None else str(bucket_start),
+            'percent': percent,
+            'bar_percent': round(100.0 * count / largest_count, 1),
+        })
+    return histogram
 
 
 def _completed_actors(game, task_group):
@@ -260,9 +296,7 @@ def _alphabet(task, game, actors):
             guess = normalize_word(row.text)
             if guess and guess != answer and row.status != 'Ok':
                 guesses[guess].add(actor)
-    histogram = _alphabet_distribution(attempt_counts)
-    for row in histogram:
-        row['percent'] = _pct(row['players'], len(actors))
+    histogram = build_attempt_histogram(attempt_counts)
     return {'kind': 'alphabet', 'solved': len(actors), 'summary': {'solved': len(actors), 'median_attempts': _median(attempt_counts)}, 'distribution': histogram, 'guesses': [{'word': word, 'players': len(players)} for word, players in sorted(guesses.items(), key=lambda item: (-len(item[1]), item[0]))[:10]]}
 
 

@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.test import TestCase
 
-from games.daily_statistics import _alphabet_distribution, build_daily_statistics
+from games.daily_statistics import build_attempt_histogram, build_daily_statistics
 from games.models import (
     Attempt,
     CheckerType,
@@ -56,15 +56,50 @@ class DailyStatisticsTests(TestCase):
             self._complete(tg, user)
         data = build_daily_statistics(self.game, tg)
         self.assertEqual(data['summary']['median_attempts'], 3)
-        self.assertEqual([row['players'] for row in data['distribution']], [0, 1, 1, 1])
+        self.assertEqual([row['count'] for row in data['distribution']], [1, 1, 1])
         self.assertEqual(data['guesses'][0]['word'], 'А')
         self.assertEqual(data['guesses'][0]['players'], 2)
         self.assertNotIn('СЛОВО', {row['word'] for row in data['guesses']})
 
-    def test_alphabet_distribution_uses_adaptive_ranges(self):
-        data = _alphabet_distribution([19, 19, 12, 7, 3])
-        self.assertEqual([row['attempts'] for row in data], ['1–5', '6–10', '11–15', '16+'])
-        self.assertEqual([row['players'] for row in data], [1, 1, 1, 2])
+    def test_alphabet_histogram_keeps_small_range_and_internal_zeros(self):
+        data = build_attempt_histogram([2, 3, 5])
+        self.assertEqual([row['label'] for row in data], ['2', '3', '4', '5'])
+        self.assertEqual([row['from'] for row in data], [2, 3, 4, 5])
+        self.assertEqual([row['to'] for row in data], [2, 3, 4, 5])
+        self.assertEqual([row['count'] for row in data], [1, 1, 0, 1])
+
+    def test_alphabet_histogram_keeps_exactly_eight_values(self):
+        data = build_attempt_histogram(range(1, 9))
+        self.assertEqual(len(data), 8)
+        self.assertEqual([row['label'] for row in data], [str(value) for value in range(1, 9)])
+        self.assertNotIn('+', ''.join(row['label'] for row in data))
+
+    def test_alphabet_histogram_folds_rare_tail_and_hides_outlier(self):
+        values = [1] + [2] * 5 + [3] * 18 + [4] * 34 + [5] * 29 + [6] * 16 + [7] * 8 + [8] * 4 + [9] * 2 + [10, 14]
+        data = build_attempt_histogram(values)
+        self.assertEqual([row['label'] for row in data], ['1', '2', '3', '4', '5', '6', '7', '8+'])
+        self.assertEqual(data[-1]['count'], 8)
+        self.assertEqual(data[-1]['to'], None)
+        self.assertEqual(sum(row['percent'] for row in data), 100.0)
+
+        outlier_data = build_attempt_histogram([3] * 20 + [4] * 30 + [5] * 25 + [6] * 15 + [7] * 8 + [37])
+        self.assertEqual(outlier_data[-1]['label'], '8+')
+        self.assertEqual(outlier_data[-1]['count'], 1)
+
+    def test_alphabet_histogram_prioritizes_eight_buckets_when_tail_is_large(self):
+        data = build_attempt_histogram([1] * 10 + list(range(2, 21)))
+        self.assertEqual(len(data), 8)
+        self.assertEqual([row['label'] for row in data], ['1', '2', '3', '4', '5', '6', '7', '8+'])
+        self.assertGreater(data[-1]['percent'], 10)
+
+    def test_alphabet_histogram_handles_empty_single_and_deterministic_input(self):
+        self.assertEqual(build_attempt_histogram([]), [])
+        self.assertEqual(build_attempt_histogram([4]), [{
+            'from': 4, 'to': 4, 'count': 1, 'label': '4',
+            'percent': 100.0, 'bar_percent': 100.0,
+        }])
+        values = [1, 2, 2, 3, 9, 20]
+        self.assertEqual(build_attempt_histogram(values), build_attempt_histogram(reversed(values)))
 
     def test_population_is_completed_players_and_salad_hint_rate(self):
         game = Game.objects.filter(id='salad', project=self.project).first()

@@ -44,7 +44,7 @@
     } else if (data.kind === 'ladder') {
       html += section('Статистика слов', '<ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + (data.words || []).map(function (x) { return '<li class="' + (x.given ? 'is-given' : '') + '"><span>' + esc(x.word) + '</span><strong>' + (x.given ? 'дано' : esc(seconds(x.median_time_seconds))) + '</strong></li>'; }).join('') + '</ul>');
     } else if (data.kind === 'alphabet') {
-      html += section('Распределение попыток', '<ul class="new-daily-statistics__histogram">' + (data.distribution || []).map(function (x) { return '<li><span>' + esc(x.attempts) + '</span><i style="--bar:' + Math.max(0, Math.min(100, x.percent || 0)) + '%"></i><strong>' + esc(String(x.percent).replace('.', ',') + '%') + '</strong></li>'; }).join('') + '</ul>');
+      html += section('Распределение попыток', '<ul class="new-daily-statistics__histogram">' + (data.distribution || []).map(function (x) { return '<li><span>' + esc(x.label) + '</span><i style="--bar:' + Math.max(0, Math.min(100, x.bar_percent || 0)) + '%"></i><strong>' + esc(String(x.percent).replace('.', ',') + '%') + '</strong></li>'; }).join('') + '</ul>');
       if ((data.guesses || []).length) html += section('Популярные догадки', '<ul class="new-daily-statistics__list">' + popularity(data.guesses) + '</ul>');
     }
     root.innerHTML = html;
