@@ -1694,7 +1694,7 @@ html.new-ui-dark body.new-ui {
 .daily-archive__day.is-outside { visibility: hidden; }
 .daily-archive__day.is-disabled { opacity: .42; }
 .daily-archive__pager { margin-top: .75rem; }
-.daily-archive__card { min-height: 5rem; padding-top: 1.05rem; padding-bottom: 1.05rem; scroll-margin-top: 1.25rem; }
+.daily-archive__card { min-height: 5rem; padding-top: 1.05rem; padding-bottom: 1.05rem; scroll-margin-top: calc(var(--new-ui-scroll-margin-top) + 5px); }
 .daily-archive__card--focus { outline: 3px solid var(--accent); outline-offset: 2px; transition: outline-color .3s; }
 .daily-archive__card:target { outline: 3px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 560px) {
