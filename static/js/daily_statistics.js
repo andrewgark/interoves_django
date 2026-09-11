@@ -102,8 +102,11 @@
     });
   });
   function boot(root) {
+    if (root.__dailyStatisticsBooted) return;
+    root.__dailyStatisticsBooted = true;
     var requested = false;
     function tryLoad() {
+      if (!root.isConnected) return;
       var result = document.querySelector('[data-raddle-result]:not([hidden])');
       if (!result || requested) return;
       requested = true;
@@ -117,4 +120,15 @@
     window.setTimeout(function () { window.clearInterval(timer); }, 30000);
   }
   document.querySelectorAll('[data-daily-statistics]').forEach(boot);
+  if (window.MutationObserver) {
+    new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        Array.prototype.forEach.call(mutation.addedNodes, function (node) {
+          if (node.nodeType !== 1) return;
+          if (node.matches && node.matches('[data-daily-statistics]')) boot(node);
+          if (node.querySelectorAll) node.querySelectorAll('[data-daily-statistics]').forEach(boot);
+        });
+      });
+    }).observe(document.body, {childList: true, subtree: true});
+  }
 }());
