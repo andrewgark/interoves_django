@@ -298,7 +298,7 @@
 {% if daily_timing_enabled %}
 <script src="{% static 'js/daily_solve_timer.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endif %}
-{% if daily_statistics_url %}<script defer src="{% static 'js/daily_statistics.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>{% endif %}
+{% if daily_statistics_url %}<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script><script defer src="{% static 'js/daily_statistics.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>{% endif %}
 <script>
 (function () {
   var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';

@@ -56,14 +56,14 @@
       var order = Number(item.average_order);
       var hasOrder = item.average_order != null && item.average_order !== '' && Number.isFinite(order);
       var width = hasOrder && maxOrder > 0 ? Math.max(4, Math.round(order / maxOrder * 100)) : 0;
-      var tone = !hasOrder ? ' is-missing' : (Number(item.hint_percent) > 0 ? ' is-hinted' : '');
+      var tone = hasOrder ? ' is-solved' : ' is-missing';
       var complexityLabel = hasOrder ? decimal(order) : '—';
       var complexityTooltip = hasOrder
         ? 'Средний порядковый номер: ' + complexityLabel + '. На каком месте игроки в среднем угадывали слово без подсказки.'
         : 'Нет данных: слово не было угадано самостоятельно или нет записи активного времени.';
       return '<li class="new-daily-statistics__salad-word' + (hasOrder ? '' : ' is-missing') + '">' +
         '<div class="new-daily-statistics__salad-line"><span class="new-daily-statistics__word-pill' + tone + '">' + esc(item.word) + '</span><span class="new-daily-statistics__hint-rate"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span></div>' +
-        '<div class="new-daily-statistics__complexity"><div class="new-daily-statistics__salad-bar new-daily-statistics__hover-value" data-tooltip="' + esc(complexityTooltip) + '" aria-label="' + esc(complexityTooltip) + '" tabindex="0"><i style="width:' + width + '%"></i></div></div>' +
+        '<div class="new-daily-statistics__complexity"><div class="new-daily-statistics__salad-bar new-daily-statistics__hover-value" data-tooltip="' + esc(complexityTooltip) + '" aria-label="' + esc(complexityTooltip) + '" tabindex="0"><i data-statistics-bar-fallback style="--bar-width:' + width + '%"></i><canvas data-statistics-bar data-bar-percent="' + width + '" aria-hidden="true"></canvas></div></div>' +
         '</li>';
     }).join('');
   }
@@ -82,7 +82,7 @@
         : 'Нет данных: все наблюдения были с подсказкой или без записи активного времени.';
       return '<li class="new-daily-statistics__ladder-word' + (hasTime ? '' : ' is-missing') + '">' +
         '<div class="new-daily-statistics__ladder-line"><span class="new-daily-statistics__word-pill' + (hasTime ? '' : ' is-missing') + '">' + esc(item.word) + '</span><strong>' + esc(label) + '</strong></div>' +
-        '<div class="new-daily-statistics__ladder-bar new-daily-statistics__hover-value" data-tooltip="' + esc(timeTooltip) + '" aria-label="' + esc(timeTooltip) + '" tabindex="0"><i style="width:' + width + '%"></i></div>' +
+        '<div class="new-daily-statistics__ladder-bar new-daily-statistics__hover-value" data-tooltip="' + esc(timeTooltip) + '" aria-label="' + esc(timeTooltip) + '" tabindex="0"><i data-statistics-bar-fallback style="--bar-width:' + width + '%"></i><canvas data-statistics-bar data-bar-percent="' + width + '" aria-hidden="true"></canvas></div>' +
         '</li>';
     }).join('');
   }
@@ -205,6 +205,39 @@
       console.error('Unable to render the attempts histogram.', error);
     }
   }
+  function renderMetricBars(root, attempt) {
+    var canvases = root.querySelectorAll('[data-statistics-bar]');
+    if (!canvases.length) return;
+    if (!window.Chart) {
+      if ((attempt || 0) < 20) window.setTimeout(function () { renderMetricBars(root, (attempt || 0) + 1); }, 250);
+      return;
+    }
+    var styles = window.getComputedStyle(root);
+    var accent = styles.getPropertyValue('--accent').trim() || '#1f6f5e';
+    canvases.forEach(function (canvas) {
+      var percentValue = Math.max(0, Math.min(100, Number(canvas.getAttribute('data-bar-percent')) || 0));
+      var fallback = canvas.parentNode.querySelector('[data-statistics-bar-fallback]');
+      if (fallback) fallback.hidden = true;
+      if (canvas.__statisticsBarChart) canvas.__statisticsBarChart.destroy();
+      try {
+        canvas.__statisticsBarChart = new window.Chart(canvas, {
+          type: 'bar',
+          data: { labels: [''], datasets: [{ data: [percentValue], backgroundColor: accent, borderRadius: 999, borderSkipped: false, barPercentage: 1, categoryPercentage: 1 }] },
+          options: {
+            indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
+            events: [], plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            scales: {
+              x: { display: false, min: 0, max: 100 },
+              y: { display: false }
+            }
+          }
+        });
+      } catch (error) {
+        if (fallback) fallback.hidden = false;
+        console.error('Unable to render a daily statistics bar.', error);
+      }
+    });
+  }
   function render(root, data) {
     var preservedResult = data.kind === 'salad' ? document.querySelector('[data-raddle-result]') : null;
     var summary = data.summary || {};
@@ -233,6 +266,7 @@
       }
     }
     root.hidden = false;
+    window.requestAnimationFrame(function () { renderMetricBars(root); });
     if (data.kind === 'alphabet') {
       window.requestAnimationFrame(function () { renderHistogram(root, data.distribution); });
     }
