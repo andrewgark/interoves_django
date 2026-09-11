@@ -52,19 +52,72 @@
   function histogram(items) {
     var rows = items || [];
     if (!rows.length) return '';
-    var html = '<div class="new-daily-statistics__histogram" role="list" aria-label="Распределение попыток" style="--histogram-columns:' + Math.max(1, rows.length) + '">';
-    rows.forEach(function (x, index) {
-      var count = Number(x.count) || 0;
-      var label = String(x.label == null ? x.attempts : x.label);
-      var attempts = label + ' ' + (x.to == null ? 'попыток' : attemptWord(x.from));
-      var tooltip = attempts + '\n' + count + ' ' + playerWord(count) + '\n' + percent(x.percent);
-      var showAxis = index === 0 || x.to == null || (Number(x.from) % 5 === 0);
-      html += '<div class="new-daily-statistics__histogram-item" role="listitem">' +
-        '<button type="button" class="new-daily-statistics__bar" data-histogram-bar aria-label="' + esc(tooltip.replace(/\n/g, ', ')) + '" style="--bar-height:' + Math.max(0, Math.min(100, Number(x.bar_percent) || 0)) + '%"' + (count ? ' data-nonzero="true"' : '') + '>' +
-          '<span class="new-daily-statistics__bar-fill"></span><span class="new-daily-statistics__tooltip" role="tooltip">' + esc(tooltip).replace(/\n/g, '<br>') + '</span>' +
-        '</button><span class="new-daily-statistics__axis-label' + (showAxis ? '' : ' is-hidden') + '">' + esc(label) + '</span></div>';
+    return '<div class="new-daily-statistics__histogram" role="img" aria-label="Распределение попыток"><canvas data-attempts-chart></canvas></div>';
+  }
+  function renderHistogram(root, items) {
+    var canvas = root.querySelector('[data-attempts-chart]');
+    if (!canvas || !window.Chart) return;
+    var rows = items || [];
+    var styles = window.getComputedStyle(root);
+    var accent = styles.getPropertyValue('--accent').trim() || '#7c3aed';
+    var border = styles.getPropertyValue('--border').trim() || '#d8dbe2';
+    var muted = styles.getPropertyValue('--muted').trim() || '#697386';
+    new window.Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: rows.map(function (x) { return String(x.label == null ? x.attempts : x.label); }),
+        datasets: [{
+          data: rows.map(function (x) { return Number(x.count) || 0; }),
+          backgroundColor: accent,
+          borderRadius: 3,
+          borderSkipped: false,
+          barPercentage: .62,
+          categoryPercentage: .92,
+          maxBarThickness: 12
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: 'index', intersect: false },
+        layout: { padding: { top: 6, right: 2, bottom: 0, left: 2 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            displayColors: false,
+            callbacks: {
+              title: function (contexts) {
+                var item = rows[contexts[0].dataIndex];
+                return String(item.label == null ? item.attempts : item.label);
+              },
+              label: function (context) {
+                var item = rows[context.dataIndex];
+                var count = Number(item.count) || 0;
+                return count + ' ' + playerWord(count) + ' · ' + percent(item.percent);
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            border: { color: border },
+            ticks: {
+              color: muted,
+              font: { size: 11 },
+              maxRotation: 0,
+              autoSkip: false,
+              callback: function (value, index) {
+                var item = rows[index];
+                return index === 0 || index === rows.length - 1 || (item && Number(item.from) % 5 === 0) ? this.getLabelForValue(value) : '';
+              }
+            }
+          },
+          y: { beginAtZero: true, display: false, grid: { color: border } }
+        }
+      }
     });
-    return html + '</div>';
   }
   function render(root, data) {
     var summary = data.summary || {};
@@ -86,6 +139,7 @@
         '</div>';
     }
     root.innerHTML = html;
+    if (data.kind === 'alphabet') renderHistogram(root, data.distribution);
     root.hidden = false;
   }
   document.addEventListener('click', function (event) {
