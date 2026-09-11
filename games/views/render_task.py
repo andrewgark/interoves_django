@@ -239,6 +239,10 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
     # when a card is replaced after an attempt or a hint.
     from games.daily_section import uses_daily_play_layout
     is_daily_single_task = uses_daily_play_layout(game.id)
+    daily_statistics_url = (
+        '/daily-statistics/{}/{}/'.format(game.id, slot.number)
+        if is_daily_single_task and slot is not None else ''
+    )
     difficulty = None
     if is_daily_single_task and slot is not None:
         from games.difficulty import get_cached_game_difficulties
@@ -251,6 +255,7 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
         'tg_name': tg_name,
         'share_host': share_host_from_request(request),
         'is_daily_single_task': is_daily_single_task,
+        'daily_statistics_url': daily_statistics_url,
         'difficulty': difficulty,
         'task': task,
         'mode': current_mode,
