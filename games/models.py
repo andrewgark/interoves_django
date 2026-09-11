@@ -2809,17 +2809,14 @@ class PlayerStartedGame(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['team', 'game_instance_id'],
-                condition=models.Q(team__isnull=False),
                 name='uniq_started_game_team_instance',
             ),
             models.UniqueConstraint(
                 fields=['user', 'game_instance_id'],
-                condition=models.Q(user__isnull=False),
                 name='uniq_started_game_user_instance',
             ),
             models.UniqueConstraint(
                 fields=['anon_key', 'game_instance_id'],
-                condition=models.Q(anon_key__isnull=False),
                 name='uniq_started_game_anon_instance',
             ),
         ]
@@ -2893,17 +2890,14 @@ class PlayerCompletedGame(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['team', 'game_instance_id'],
-                condition=models.Q(team__isnull=False),
                 name='uniq_completed_game_team_instance',
             ),
             models.UniqueConstraint(
                 fields=['user', 'game_instance_id'],
-                condition=models.Q(user__isnull=False),
                 name='uniq_completed_game_user_instance',
             ),
             models.UniqueConstraint(
                 fields=['anon_key', 'game_instance_id'],
-                condition=models.Q(anon_key__isnull=False),
                 name='uniq_completed_game_anon_instance',
             ),
         ]
@@ -3031,17 +3025,14 @@ class PlayerAnalyticsState(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['team'],
-                condition=models.Q(team__isnull=False),
                 name='uniq_player_analytics_state_team',
             ),
             models.UniqueConstraint(
                 fields=['user'],
-                condition=models.Q(user__isnull=False),
                 name='uniq_player_analytics_state_user',
             ),
             models.UniqueConstraint(
                 fields=['anon_key'],
-                condition=models.Q(anon_key__isnull=False),
                 name='uniq_player_analytics_state_anon',
             ),
         ]

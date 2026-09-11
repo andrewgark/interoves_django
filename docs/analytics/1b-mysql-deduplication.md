@@ -1,8 +1,9 @@
 # Stage 1B design: MySQL-compatible deduplication
 
 Status: stage 1B.1 code-first handling is implemented. The nine production
-unique indexes and the Django constraint-state changes remain stage 1B.2 and
-are not part of this release.
+unique indexes were created with `apply_player_analytics_unique_index`.
+Migration `0204_player_analytics_physical_uniques` records them in Django
+state with empty `database_operations` (no DDL).
 
 ## Stage 1B.1 code contract
 
