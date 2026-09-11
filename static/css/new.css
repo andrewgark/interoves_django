@@ -7528,7 +7528,6 @@ html.is-age-gated .new-wrap {
   .new-daily-results-layout > .new-raddle-result { align-self: center; }
   .new-daily-statistics__body { grid-template-columns: 1fr; }
   .new-daily-statistics__salad-findings { grid-template-columns: 1fr; }
-  .new-daily-statistics__salad-findings > .new-raddle-result { justify-self: center; }
 }
 @media (max-width: 420px) {
   .new-daily-statistics { padding: .8rem; }
