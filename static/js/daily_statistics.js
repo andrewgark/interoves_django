@@ -25,14 +25,50 @@
   function section(title, content) {
     return content ? '<section class="new-daily-statistics__section"><h3>' + esc(title) + '</h3>' + content + '</section>' : '';
   }
+  function percent(value) {
+    return String(value == null ? 0 : value).replace('.', ',') + '%';
+  }
+  function playerWord(value) {
+    var n = Math.abs(Number(value)) % 100;
+    var last = n % 10;
+    if (n >= 11 && n <= 19) return 'игроков';
+    if (last === 1) return 'игрок';
+    if (last >= 2 && last <= 4) return 'игрока';
+    return 'игроков';
+  }
+  function attemptWord(value) {
+    var n = Math.abs(Number(value)) % 100;
+    var last = n % 10;
+    if (n >= 11 && n <= 19) return 'попыток';
+    if (last === 1) return 'попытка';
+    if (last >= 2 && last <= 4) return 'попытки';
+    return 'попыток';
+  }
   function popularity(items) {
     return (items || []).map(function (x) {
-      return '<li><span>' + esc(x.word) + '</span><strong>' + esc(x.players) + '</strong></li>';
+      return '<li class="new-daily-statistics__guess"><span>' + esc(x.word) + '</span><strong>' + esc(x.players) + '</strong></li>';
     }).join('');
+  }
+  function histogram(items) {
+    var rows = items || [];
+    if (!rows.length) return '';
+    var html = '<div class="new-daily-statistics__histogram" role="list" aria-label="Распределение попыток" style="--histogram-columns:' + Math.max(1, rows.length) + '">';
+    rows.forEach(function (x, index) {
+      var count = Number(x.count) || 0;
+      var label = String(x.label == null ? x.attempts : x.label);
+      var attempts = label + ' ' + (x.to == null ? 'попыток' : attemptWord(x.from));
+      var tooltip = attempts + '\n' + count + ' ' + playerWord(count) + '\n' + percent(x.percent);
+      var showAxis = index === 0 || x.to == null || (Number(x.from) % 5 === 0);
+      html += '<div class="new-daily-statistics__histogram-item" role="listitem">' +
+        '<button type="button" class="new-daily-statistics__bar" data-histogram-bar aria-label="' + esc(tooltip.replace(/\n/g, ', ')) + '" style="--bar-height:' + Math.max(0, Math.min(100, Number(x.bar_percent) || 0)) + '%"' + (count ? ' data-nonzero="true"' : '') + '>' +
+          '<span class="new-daily-statistics__bar-fill"></span><span class="new-daily-statistics__tooltip" role="tooltip">' + esc(tooltip).replace(/\n/g, '<br>') + '</span>' +
+        '</button><span class="new-daily-statistics__axis-label' + (showAxis ? '' : ' is-hidden') + '">' + esc(label) + '</span></div>';
+    });
+    return html + '</div>';
   }
   function render(root, data) {
     var summary = data.summary || {};
-    var html = '<h2>Статистика</h2><div class="new-daily-statistics__summary">' +
+    var html = '<h2 class="new-daily-statistics__title">Статистика</h2><div class="new-daily-statistics__summary">' +
       metric('Решили', summary.solved || data.solved || 0);
     if (data.kind === 'alphabet') html += metric('Медиана попыток', summary.median_attempts == null ? '—' : String(summary.median_attempts).replace('.', ','));
     else html += metric('Медиана времени', seconds(summary.median_time_seconds)) + metric('Без подсказок', (summary.without_hints_percent || 0) + '%');
@@ -44,12 +80,27 @@
     } else if (data.kind === 'ladder') {
       html += section('Статистика слов', '<ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + (data.words || []).map(function (x) { return '<li class="' + (x.given ? 'is-given' : '') + '"><span>' + esc(x.word) + '</span><strong>' + (x.given ? 'дано' : esc(seconds(x.median_time_seconds))) + '</strong></li>'; }).join('') + '</ul>');
     } else if (data.kind === 'alphabet') {
-      html += section('Распределение попыток', '<ul class="new-daily-statistics__histogram">' + (data.distribution || []).map(function (x) { return '<li><span>' + esc(x.label) + '</span><i style="--bar:' + Math.max(0, Math.min(100, x.bar_percent || 0)) + '%"></i><strong>' + esc(String(x.percent).replace('.', ',') + '%') + '</strong></li>'; }).join('') + '</ul>');
-      if ((data.guesses || []).length) html += section('Популярные догадки', '<ul class="new-daily-statistics__list">' + popularity(data.guesses) + '</ul>');
+      html += '<div class="new-daily-statistics__body">' +
+        section('Распределение попыток', histogram(data.distribution)) +
+        ((data.guesses || []).length ? section('Популярные догадки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.guesses) + '</ul>') : '') +
+        '</div>';
     }
     root.innerHTML = html;
     root.hidden = false;
   }
+  document.addEventListener('click', function (event) {
+    var bar = event.target.closest && event.target.closest('[data-histogram-bar]');
+    document.querySelectorAll('[data-histogram-bar].is-tooltip-open').forEach(function (item) {
+      if (item !== bar) item.classList.remove('is-tooltip-open');
+    });
+    if (bar) bar.classList.toggle('is-tooltip-open');
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll('[data-histogram-bar].is-tooltip-open').forEach(function (item) {
+      item.classList.remove('is-tooltip-open');
+    });
+  });
   function boot(root) {
     var requested = false;
     function tryLoad() {

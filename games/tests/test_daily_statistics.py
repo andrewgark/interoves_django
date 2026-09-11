@@ -74,23 +74,28 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual([row['label'] for row in data], [str(value) for value in range(1, 9)])
         self.assertNotIn('+', ''.join(row['label'] for row in data))
 
-    def test_alphabet_histogram_folds_rare_tail_and_hides_outlier(self):
+    def test_alphabet_histogram_keeps_granularity_and_folds_rare_tail(self):
         values = [1] + [2] * 5 + [3] * 18 + [4] * 34 + [5] * 29 + [6] * 16 + [7] * 8 + [8] * 4 + [9] * 2 + [10, 14]
         data = build_attempt_histogram(values)
-        self.assertEqual([row['label'] for row in data], ['1', '2', '3', '4', '5', '6', '7', '8+'])
-        self.assertEqual(data[-1]['count'], 8)
-        self.assertEqual(data[-1]['to'], None)
+        self.assertEqual(len(data), 14)
+        self.assertEqual(data[-1]['label'], '14')
+        self.assertNotIn('+', ''.join(row['label'] for row in data))
         self.assertEqual(sum(row['percent'] for row in data), 100.0)
 
-        outlier_data = build_attempt_histogram([3] * 20 + [4] * 30 + [5] * 25 + [6] * 15 + [7] * 8 + [37])
-        self.assertEqual(outlier_data[-1]['label'], '8+')
+        outlier_data = build_attempt_histogram(values + [70])
+        self.assertEqual(outlier_data[-1]['label'], '30+')
         self.assertEqual(outlier_data[-1]['count'], 1)
+        self.assertEqual(outlier_data[-1]['to'], None)
 
-    def test_alphabet_histogram_prioritizes_eight_buckets_when_tail_is_large(self):
-        data = build_attempt_histogram([1] * 10 + list(range(2, 21)))
-        self.assertEqual(len(data), 8)
-        self.assertEqual([row['label'] for row in data], ['1', '2', '3', '4', '5', '6', '7', '8+'])
+    def test_alphabet_histogram_prioritizes_chart_width_when_tail_is_large(self):
+        data = build_attempt_histogram([1] * 10 + list(range(2, 51)))
+        self.assertEqual(len(data), 30)
+        self.assertEqual(data[-1]['label'], '30+')
         self.assertGreater(data[-1]['percent'], 10)
+
+    def test_alphabet_histogram_uses_relevant_minimum(self):
+        data = build_attempt_histogram([9, 10, 12])
+        self.assertEqual([row['label'] for row in data], ['9', '10', '11', '12'])
 
     def test_alphabet_histogram_handles_empty_single_and_deterministic_input(self):
         self.assertEqual(build_attempt_histogram([]), [])
