@@ -13,9 +13,10 @@ from games.models import Attempt, ChainTaskState, DailySolveTiming, GameTaskGrou
 from games.raddle import load_raddle_state, parse_raddle_data, resolve_assist_tiers
 from games.word_salad import load_state as load_salad_state, parse_task_payload
 from games.alphabetty.core import normalize_word
+from games.alphabetty.play import hint_count as alphabetty_hint_count, load_state as load_alphabetty_state
 
 
-CACHE_VERSION = 5
+CACHE_VERSION = 6
 CACHE_TIMEOUT = 60 * 60 * 24
 LIVE_CACHE_TIMEOUT = 10 * 60
 
@@ -283,12 +284,14 @@ def _ladder(task, game, actors):
     return {
         'kind': 'ladder', 'solved': total,
         'summary': {'solved': total, 'median_time_seconds': _median(_completed_times(game, task.task_group, actors)), 'without_hints_percent': _pct(no_hints, total)},
+        'word_stats_available': all(times[index] for index in range(1, parsed['n_words'] - 1)),
         'words': [{'word': parsed['words'][i], 'given': i in (0, parsed['n_words'] - 1), 'median_time_seconds': _median(times[i])} for i in range(parsed['n_words'])],
     }
 
 
 def _alphabet(task, game, actors):
     attempts = _attempts_for(task, game, actors)
+    states = _latest_states(task, game, actors, attempts)
     answer = normalize_word((task.answer or '').splitlines()[0])
     attempt_counts = []
     guesses = defaultdict(set)
@@ -304,7 +307,11 @@ def _alphabet(task, game, actors):
             if guess and guess != answer and row.status != 'Ok':
                 guesses[guess].add(actor)
     histogram = build_attempt_histogram(attempt_counts)
-    return {'kind': 'alphabet', 'solved': len(actors), 'summary': {'solved': len(actors), 'median_attempts': _median(attempt_counts)}, 'distribution': histogram, 'guesses': [{'word': word, 'players': len(players)} for word, players in sorted(guesses.items(), key=lambda item: (-len(item[1]), item[0]))[:10]]}
+    no_hints = sum(
+        1 for actor in actors
+        if alphabetty_hint_count(load_alphabetty_state(states.get(actor))) == 0
+    )
+    return {'kind': 'alphabet', 'solved': len(actors), 'summary': {'solved': len(actors), 'median_attempts': _median(attempt_counts), 'without_hints_percent': _pct(no_hints, len(actors))}, 'distribution': histogram, 'guesses': [{'word': word, 'players': len(players)} for word, players in sorted(guesses.items(), key=lambda item: (-len(item[1]), item[0]))[:10]]}
 
 
 def build_daily_statistics(game, task_group):

@@ -62,6 +62,24 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(data['guesses'][0]['word'], 'А')
         self.assertEqual(data['guesses'][0]['players'], 2)
         self.assertNotIn('СЛОВО', {row['word'] for row in data['guesses']})
+        self.assertEqual(data['summary']['without_hints_percent'], 100.0)
+
+    def test_alphabet_without_hints_percent_counts_completed_players(self):
+        tg, task = self._task('alphabetty')
+        for index, user in enumerate(self.users):
+            guesses = ['А', 'СЛОВО']
+            for guess_index, guess in enumerate(guesses):
+                Attempt.manager.create(
+                    user=user, game=self.game, task=task, text=guess,
+                    status='Ok' if guess == 'СЛОВО' else 'Partial',
+                    state=json.dumps({
+                        'guesses': guesses, 'won': guess == 'СЛОВО',
+                        'hints_taken': 1 if index == 0 else 0,
+                    }),
+                )
+            self._complete(tg, user)
+        data = build_daily_statistics(self.game, tg)
+        self.assertEqual(data['summary']['without_hints_percent'], 66.7)
 
     def test_alphabet_histogram_always_keeps_1_to_30_plus_scale(self):
         data = build_attempt_histogram([2, 3, 5])
@@ -172,7 +190,34 @@ class DailyStatisticsTests(TestCase):
         )
         data = build_daily_statistics(game, tg)
         self.assertEqual(data['summary']['median_time_seconds'], 4.0)
+        self.assertTrue(data['word_stats_available'])
         self.assertEqual([row['median_time_seconds'] for row in data['words'][1:3]], [1.0, 2.0])
+
+    def test_ladder_hides_word_stats_when_one_word_has_no_active_timing(self):
+        game = Game.objects.filter(id='ladder', project=self.project).first()
+        if game is None:
+            game = Game.objects.create(id='ladder', name='Лесенка', project=self.project)
+        tg = TaskGroup.objects.create(label='ladder missing timing')
+        GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='ladder')
+        checker, _ = CheckerType.objects.get_or_create(pk='raddle')
+        task = Task.objects.create(
+            task_group=tg, number='1', task_type='raddle', checker=checker,
+            checker_data=json.dumps({'lengths': [1, 1, 1, 1], 'hints': ['a', 'b', 'c'], 'words': ['А', 'Б', 'В', 'Г']}),
+        )
+        user = self.users[0]
+        for solved, elapsed in (([0, 1], 1000), ([0, 1, 2], None), ([0, 1, 2, 3], 7000)):
+            Attempt.manager.create(
+                user=user, game=game, task=task, text=json.dumps({'word_index': solved[-1], 'word': 'x'}),
+                status='Partial' if len(solved) < 4 else 'Ok',
+                state=json.dumps({'solved_indices': solved, 'assist_tier': {}}),
+                active_time_ms=elapsed,
+            )
+        PlayerCompletedGame.objects.create(
+            user=user, game=game, task_group=tg, game_kind='ladder',
+            game_instance_id='ladder:{}'.format(tg.pk), result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        data = build_daily_statistics(game, tg)
+        self.assertFalse(data['word_stats_available'])
 
     def test_ladder_accepts_integer_assist_tier_keys(self):
         game = Game.objects.filter(id='ladder', project=self.project).first()

@@ -57,10 +57,13 @@
       var hasOrder = item.average_order != null && item.average_order !== '' && Number.isFinite(order);
       var width = hasOrder && maxOrder > 0 ? Math.max(4, Math.round(order / maxOrder * 100)) : 0;
       var tone = !hasOrder ? ' is-missing' : (Number(item.hint_percent) > 0 ? ' is-hinted' : '');
-      var complexityTooltip = 'Средний порядковый номер: на каком месте игроки в среднем угадывали слово без подсказки.';
+      var complexityLabel = hasOrder ? decimal(order) : '—';
+      var complexityTooltip = hasOrder
+        ? 'Средний порядковый номер: ' + complexityLabel + '. На каком месте игроки в среднем угадывали слово без подсказки.'
+        : 'Нет данных: слово не было угадано самостоятельно или нет записи активного времени.';
       return '<li class="new-daily-statistics__salad-word' + (hasOrder ? '' : ' is-missing') + '">' +
         '<div class="new-daily-statistics__salad-line"><span class="new-daily-statistics__word-pill' + tone + '">' + esc(item.word) + '</span><span class="new-daily-statistics__hint-rate"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span></div>' +
-        '<div class="new-daily-statistics__complexity"><div class="new-daily-statistics__salad-bar" aria-hidden="true"><i style="width:' + width + '%"></i></div><span class="new-daily-statistics__complexity-value" data-tooltip="' + complexityTooltip + '" tabindex="0">' + esc(hasOrder ? decimal(order) : '—') + '</span></div>' +
+        '<div class="new-daily-statistics__complexity"><div class="new-daily-statistics__salad-bar new-daily-statistics__hover-value" data-tooltip="' + esc(complexityTooltip) + '" aria-label="' + esc(complexityTooltip) + '" tabindex="0"><i style="width:' + width + '%"></i></div></div>' +
         '</li>';
     }).join('');
   }
@@ -74,9 +77,12 @@
       var hasTime = item.median_time_seconds != null && item.median_time_seconds !== '' && Number.isFinite(value) && value >= 0;
       var width = hasTime && maxSeconds > 0 ? Math.max(4, Math.round(value / maxSeconds * 100)) : 0;
       var label = hasTime ? seconds(value) : '—';
+      var timeTooltip = hasTime
+        ? 'Медианное активное время: ' + label + '. От предыдущего успешно разгаданного слова до этого, без пауз.'
+        : 'Нет данных: все наблюдения были с подсказкой или без записи активного времени.';
       return '<li class="new-daily-statistics__ladder-word' + (hasTime ? '' : ' is-missing') + '">' +
         '<div class="new-daily-statistics__ladder-line"><span class="new-daily-statistics__word-pill' + (hasTime ? '' : ' is-missing') + '">' + esc(item.word) + '</span><strong>' + esc(label) + '</strong></div>' +
-        '<div class="new-daily-statistics__ladder-bar" aria-hidden="true"><i style="width:' + width + '%"></i></div>' +
+        '<div class="new-daily-statistics__ladder-bar new-daily-statistics__hover-value" data-tooltip="' + esc(timeTooltip) + '" aria-label="' + esc(timeTooltip) + '" tabindex="0"><i style="width:' + width + '%"></i></div>' +
         '</li>';
     }).join('');
   }
@@ -200,17 +206,20 @@
     }
   }
   function render(root, data) {
+    var preservedResult = data.kind === 'salad' ? document.querySelector('[data-raddle-result]') : null;
     var summary = data.summary || {};
     var html = '<h2 class="new-daily-statistics__title">Статистика</h2><div class="new-daily-statistics__summary">' +
       metric('Решили', summary.solved || data.solved || 0);
-    if (data.kind === 'alphabet') html += metric('Медиана попыток', summary.median_attempts == null ? '—' : String(summary.median_attempts).replace('.', ','));
+    if (data.kind === 'alphabet') html += metric('Медиана попыток', summary.median_attempts == null ? '—' : String(summary.median_attempts).replace('.', ',')) + metric('Без подсказок', percent(summary.without_hints_percent));
     else html += metric('Медиана времени', seconds(summary.median_time_seconds)) + metric('Без подсказок', percent(summary.without_hints_percent));
     html += '</div>';
     if (data.kind === 'salad') {
       html += section('Слова', '<ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
       if ((data.popular_findings || []).length) html += '<div class="new-daily-statistics__salad-findings">' + section('Популярные находки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_findings) + '</ul>') + '</div>';
     } else if (data.kind === 'ladder') {
-      html += section('Статистика слов', '<p class="new-daily-statistics__hint">Медианное активное время от предыдущего успешно разгаданного слова игрока до этого слова, без пауз. Первое промежуточное слово считается от начала игры.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');
+      if (data.word_stats_available !== false) {
+        html += section('Статистика слов', '<p class="new-daily-statistics__hint">Медианное активное время от предыдущего успешно разгаданного слова игрока до этого слова, без пауз. Первое промежуточное слово считается от начала игры.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');
+      }
     } else if (data.kind === 'alphabet') {
       html += '<div class="new-daily-statistics__body">' +
         section('Распределение попыток', histogram(data.distribution)) +
@@ -219,11 +228,12 @@
     }
     root.innerHTML = html;
     if (data.kind === 'salad') {
-      var result = document.querySelector('[data-raddle-result]');
       var findings = root.querySelector('.new-daily-statistics__salad-findings');
-      if (result && findings) {
-        findings.appendChild(result);
-        result.classList.add('new-raddle-result--in-statistics');
+      if (preservedResult && findings) {
+        findings.appendChild(preservedResult);
+        preservedResult.classList.add('new-raddle-result--in-statistics');
+      } else if (preservedResult && !preservedResult.isConnected) {
+        root.appendChild(preservedResult);
       }
     }
     root.hidden = false;
