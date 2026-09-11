@@ -6,19 +6,18 @@ from statistics import mean, median
 
 from django.core.cache import cache
 from django.db.models import Q
-from django.utils import timezone
 
-from games.daily_section import MOSCOW, publish_at_for
-from games.models import Attempt, ChainTaskState, DailySolveTiming, GameTaskGroup, PlayerCompletedGame, Task
+from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerCompletedGame, Task
 from games.raddle import load_raddle_state, parse_raddle_data, resolve_assist_tiers
 from games.word_salad import load_state as load_salad_state, parse_task_payload
 from games.alphabetty.core import normalize_word
 from games.alphabetty.play import hint_count as alphabetty_hint_count, load_state as load_alphabetty_state
 
 
-CACHE_VERSION = 6
-CACHE_TIMEOUT = 60 * 60 * 24
-LIVE_CACHE_TIMEOUT = 10 * 60
+CACHE_VERSION = 8
+CACHE_TIMEOUT = 10 * 60
+POPULAR_LIMIT = 20
+POPULAR_MIN_ENTRIES = 10
 
 
 def cache_key(game_id, task_group_id):
@@ -28,19 +27,6 @@ def cache_key(game_id, task_group_id):
 def invalidate_daily_statistics(game_id, task_group_id):
     if game_id and task_group_id:
         cache.delete(cache_key(game_id, task_group_id))
-
-
-def _cache_timeout(game, task_group):
-    """Keep today's statistics fresh while retaining a long TTL for history."""
-    placement = GameTaskGroup.objects.filter(
-        game=game, task_group=task_group,
-    ).only('number').first()
-    if placement is None:
-        return CACHE_TIMEOUT
-    published_at = publish_at_for(game, placement.number)
-    if published_at and published_at.astimezone(MOSCOW).date() == timezone.now().astimezone(MOSCOW).date():
-        return LIVE_CACHE_TIMEOUT
-    return CACHE_TIMEOUT
 
 
 def _actor_key(row):
@@ -210,9 +196,11 @@ def _salad(task, game, actors):
             except (TypeError, ValueError):
                 continue
         for word in state.get('found_rare_words') or []:
-            rare_counts[normalize_word(word)].add(actor)
+            normalized = normalize_word(word)
+            rare_counts[normalized].add(actor)
         for word in state.get('found_extra') or []:
-            extra_counts[normalize_word(word)].add(actor)
+            normalized = normalize_word(word)
+            extra_counts[normalized].add(actor)
     findings = {}
     for word, players in rare_counts.items():
         if word:
@@ -223,8 +211,9 @@ def _salad(task, game, actors):
             finding['players'].update(players)
     popular_findings = [
         {'word': word, 'players': len(item['players']), 'rare': item['rare']}
-        for word, item in sorted(findings.items(), key=lambda entry: (-len(entry[1]['players']), entry[0]))[:10]
-    ]
+        for word, item in sorted(findings.items(), key=lambda entry: (-len(entry[1]['players']), entry[0]))
+        if len(item['players']) >= POPULAR_MIN_ENTRIES
+    ][:POPULAR_LIMIT]
     rare_rows = [
         {'word': word, 'players': len(players), 'rare': True}
         for word, players in sorted(rare_counts.items(), key=lambda item: (-len(item[1]), item[0]))[:10]
@@ -311,7 +300,12 @@ def _alphabet(task, game, actors):
         1 for actor in actors
         if alphabetty_hint_count(load_alphabetty_state(states.get(actor))) == 0
     )
-    return {'kind': 'alphabet', 'solved': len(actors), 'summary': {'solved': len(actors), 'median_attempts': _median(attempt_counts), 'without_hints_percent': _pct(no_hints, len(actors))}, 'distribution': histogram, 'guesses': [{'word': word, 'players': len(players)} for word, players in sorted(guesses.items(), key=lambda item: (-len(item[1]), item[0]))[:10]]}
+    popular_guesses = [
+        {'word': word, 'players': len(players)}
+        for word, players in sorted(guesses.items(), key=lambda item: (-len(item[1]), item[0]))
+        if len(players) >= POPULAR_MIN_ENTRIES
+    ][:POPULAR_LIMIT]
+    return {'kind': 'alphabet', 'solved': len(actors), 'summary': {'solved': len(actors), 'median_attempts': _median(attempt_counts), 'without_hints_percent': _pct(no_hints, len(actors))}, 'distribution': histogram, 'guesses': popular_guesses}
 
 
 def build_daily_statistics(game, task_group):
@@ -328,5 +322,5 @@ def build_daily_statistics(game, task_group):
         result = _ladder(task, game, actors)
     else:
         result = _alphabet(task, game, actors)
-    cache.set(cache_key(game.id, task_group.id), result, _cache_timeout(game, task_group))
+    cache.set(cache_key(game.id, task_group.id), result, CACHE_TIMEOUT)
     return result

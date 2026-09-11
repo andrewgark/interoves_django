@@ -1764,6 +1764,11 @@ html.new-ui-dark body.new-ui {
   font-size: 0.8rem;
 }
 
+.new-task__date {
+  display: block;
+  margin-top: 0.2rem;
+}
+
 .new-task__action {
   flex: 0 0 auto;
   font-weight: 400;
@@ -6264,6 +6269,12 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
 }
 
+/* Текущий выпуск остаётся отмеченным и после появления статуса прогресса. */
+.new-task.new-task--today {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
 /* Заголовок раздела с кнопкой «Правила» */
 .new-section-header {
   display: flex;
@@ -7468,6 +7479,8 @@ html.is-age-gated .new-wrap {
   font-variant-numeric: tabular-nums;
 }
 .new-daily-results-layout { display: flex; flex-direction: column; align-items: stretch; gap: .8rem; }
+.new-daily-results-layout > .new-raddle-result { order: 1; }
+.new-daily-results-layout > .new-daily-statistics { order: 2; }
 .new-daily-results-layout > .new-daily-statistics { min-width: 0; }
 .new-daily-results-layout > .new-raddle-result { align-self: flex-end; margin-top: 0; }
 .new-daily-statistics__title { margin: 0 0 .65rem; color: var(--muted); font-size: .85rem; font-weight: 700; }
@@ -7484,11 +7497,10 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__list li strong, .new-daily-statistics__histogram li strong { color: var(--muted); font-size: .82rem; white-space: nowrap; }
 .new-daily-statistics__list--ladder li.is-given { color: var(--muted); }
 .new-daily-statistics__list--ladder { gap: .65rem; }
-.new-daily-statistics__ladder-word { min-width: 0; }
-.new-daily-statistics__ladder-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; align-items: center; min-width: 0; }
-.new-daily-statistics__ladder-line span { overflow-wrap: anywhere; }
-.new-daily-statistics__ladder-line strong { color: var(--muted); font-size: .82rem; white-space: nowrap; }
-.new-daily-statistics__ladder-bar { height: .35rem; margin-top: .25rem; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--muted) 13%, transparent); }
+.new-daily-statistics__list--ladder .new-daily-statistics__ladder-word { display: grid !important; grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr) auto; gap: .75rem; align-items: center; min-width: 0; }
+.new-daily-statistics__ladder-word > span { min-width: 0; overflow-wrap: anywhere; }
+.new-daily-statistics__ladder-word > strong { color: var(--muted); font-size: .82rem; white-space: nowrap; }
+.new-daily-statistics__ladder-bar { height: .35rem; min-width: 0; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--muted) 13%, transparent); }
 .new-daily-statistics__ladder-bar i, .new-daily-statistics__salad-bar i { display: block; width: var(--bar-width, 0) !important; min-width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 65%, var(--warning))); }
 .new-daily-statistics__ladder-bar canvas, .new-daily-statistics__salad-bar canvas { display: block; width: 100% !important; height: 100% !important; }
 .new-daily-statistics__ladder-word.is-missing .new-daily-statistics__ladder-bar { opacity: .45; }
@@ -7509,14 +7521,12 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__hover-value::after { right: 0; left: auto; }
 .new-daily-statistics__finding-pill:hover::after, .new-daily-statistics__finding-pill:focus-visible::after, .new-daily-statistics__hover-value:hover::after, .new-daily-statistics__hover-value:focus-visible::after { opacity: 1; transform: translateY(0); }
 .new-daily-statistics__list--salad { gap: .65rem; }
-.new-daily-statistics__salad-word { min-width: 0; }
-.new-daily-statistics__salad-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; align-items: center; min-width: 0; }
-.new-daily-statistics__salad-line > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.new-daily-statistics__list--salad .new-daily-statistics__salad-word { display: grid !important; grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr) auto auto; gap: .75rem; align-items: center; min-width: 0; }
+.new-daily-statistics__salad-word > .new-daily-statistics__word-pill { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .new-daily-statistics__hint-rate { display: inline-flex; align-items: center; gap: .18rem; color: var(--muted); font-size: .76rem; white-space: nowrap; }
 .new-daily-statistics__hint-rate .ph { color: var(--warning); font-size: .95rem; }
-.new-daily-statistics__complexity { display: block; margin-top: .25rem; }
 .new-daily-statistics__complexity-value { position: relative; min-width: 2.1rem; color: var(--muted); cursor: help; font-size: .74rem; text-align: right; outline: none; }
-.new-daily-statistics__salad-bar { height: .35rem; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--muted) 13%, transparent); }
+.new-daily-statistics__salad-bar { height: .35rem; min-width: 0; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--muted) 13%, transparent); }
 .new-daily-statistics__salad-word.is-missing .new-daily-statistics__salad-bar, .new-daily-statistics__word-pill.is-missing { opacity: .55; }
 .new-daily-statistics__salad-findings { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 1rem; align-items: end; }
 .new-daily-statistics__salad-findings > .new-daily-statistics__section { min-width: 0; }

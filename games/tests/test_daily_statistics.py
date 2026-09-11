@@ -59,8 +59,7 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(len(data['distribution']), 30)
         self.assertEqual([row['count'] for row in data['distribution'][:4]], [0, 1, 1, 1])
         self.assertEqual(data['distribution'][-1]['label'], '30+')
-        self.assertEqual(data['guesses'][0]['word'], 'А')
-        self.assertEqual(data['guesses'][0]['players'], 2)
+        self.assertEqual(data['guesses'], [])
         self.assertNotIn('СЛОВО', {row['word'] for row in data['guesses']})
         self.assertEqual(data['summary']['without_hints_percent'], 100.0)
 
@@ -158,7 +157,7 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(data['words'][1]['average_order'], 2.0)
         self.assertEqual(data['words'][1]['hint_percent'], 50.0)
         self.assertEqual(data['off_topic'][0]['players'], 1)
-        self.assertEqual(data['popular_findings'][0]['word'], 'ИГРА')
+        self.assertEqual(data['popular_findings'], [])
 
     def test_ladder_uses_success_order_and_active_intervals(self):
         game = Game.objects.filter(id='ladder', project=self.project).first()

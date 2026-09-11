@@ -62,8 +62,10 @@
         ? 'Средний порядковый номер: ' + complexityLabel + '. На каком месте игроки в среднем угадывали слово без подсказки.'
         : 'Нет данных: слово не было угадано самостоятельно или нет записи активного времени.';
       return '<li class="new-daily-statistics__salad-word' + (hasOrder ? '' : ' is-missing') + '">' +
-        '<div class="new-daily-statistics__salad-line"><span class="new-daily-statistics__word-pill' + tone + '">' + esc(item.word) + '</span><span class="new-daily-statistics__hint-rate"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span></div>' +
-        '<div class="new-daily-statistics__complexity"><div class="new-daily-statistics__salad-bar new-daily-statistics__hover-value" data-tooltip="' + esc(complexityTooltip) + '" aria-label="' + esc(complexityTooltip) + '" tabindex="0"><i data-statistics-bar-fallback style="--bar-width:' + width + '%"></i><canvas data-statistics-bar data-bar-percent="' + width + '" aria-hidden="true"></canvas></div></div>' +
+        '<span class="new-daily-statistics__word-pill' + tone + '">' + esc(item.word) + '</span>' +
+        '<div class="new-daily-statistics__salad-bar new-daily-statistics__hover-value" data-tooltip="' + esc(complexityTooltip) + '" aria-label="' + esc(complexityTooltip) + '" tabindex="0"><i data-statistics-bar-fallback style="--bar-width:' + width + '%"></i><canvas data-statistics-bar data-bar-percent="' + width + '" aria-hidden="true"></canvas></div>' +
+        '<strong class="new-daily-statistics__complexity-value">' + esc(complexityLabel) + '</strong>' +
+        '<span class="new-daily-statistics__hint-rate"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span>' +
         '</li>';
     }).join('');
   }
@@ -81,8 +83,9 @@
         ? 'Медианное активное время: ' + label + '. От предыдущего успешно разгаданного слова до этого, без пауз.'
         : 'Нет данных: все наблюдения были с подсказкой или без записи активного времени.';
       return '<li class="new-daily-statistics__ladder-word' + (hasTime ? '' : ' is-missing') + '">' +
-        '<div class="new-daily-statistics__ladder-line"><span class="new-daily-statistics__word-pill' + (hasTime ? '' : ' is-missing') + '">' + esc(item.word) + '</span><strong>' + esc(label) + '</strong></div>' +
+        '<span class="new-daily-statistics__word-pill' + (hasTime ? '' : ' is-missing') + '">' + esc(item.word) + '</span>' +
         '<div class="new-daily-statistics__ladder-bar new-daily-statistics__hover-value" data-tooltip="' + esc(timeTooltip) + '" aria-label="' + esc(timeTooltip) + '" tabindex="0"><i data-statistics-bar-fallback style="--bar-width:' + width + '%"></i><canvas data-statistics-bar data-bar-percent="' + width + '" aria-hidden="true"></canvas></div>' +
+        '<strong>' + esc(label) + '</strong>' +
         '</li>';
     }).join('');
   }
@@ -239,7 +242,6 @@
     });
   }
   function render(root, data) {
-    var preservedResult = data.kind === 'salad' ? document.querySelector('[data-raddle-result]') : null;
     var summary = data.summary || {};
     var html = '<h2 class="new-daily-statistics__title">Статистика</h2><div class="new-daily-statistics__summary">' +
       metric('Решили', summary.solved || data.solved || 0);
@@ -260,11 +262,6 @@
         '</div>';
     }
     root.innerHTML = html;
-    if (data.kind === 'salad') {
-      if (preservedResult && root.parentNode) {
-        root.parentNode.insertBefore(preservedResult, root.nextSibling);
-      }
-    }
     root.hidden = false;
     window.requestAnimationFrame(function () { renderMetricBars(root); });
     if (data.kind === 'alphabet') {
