@@ -7451,7 +7451,7 @@ html.is-age-gated .new-wrap {
 .new-daily-results-layout > .new-daily-statistics { min-width: 0; }
 .new-daily-statistics__title { margin: 0 0 .65rem; color: var(--muted); font-size: .85rem; font-weight: 700; }
 .new-daily-statistics__summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; margin-bottom: .8rem; }
-.new-daily-statistics__metric { display: grid; gap: .1rem; color: var(--muted); font-size: .78rem; }
+.new-daily-statistics__metric { display: flex; align-items: baseline; gap: .35rem; color: var(--muted); font-size: .78rem; }
 .new-daily-statistics__metric strong { color: var(--text); font-size: 1.2rem; line-height: 1.1; }
 .new-daily-statistics__body { display: grid; grid-template-columns: minmax(240px, .9fr) minmax(220px, 1.1fr); gap: 1.35rem; align-items: start; }
 .new-daily-statistics__section { margin-top: .35rem; min-width: 0; }
@@ -7476,7 +7476,8 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__axis-label { display: block; overflow: visible; color: var(--muted); font-size: .68rem; line-height: 1; text-align: center; white-space: nowrap; }
 .new-daily-statistics__axis-label.is-hidden { visibility: hidden; }
 .new-daily-statistics__list--guesses { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1rem; row-gap: .28rem; }
-.new-daily-statistics__guess { display: flex !important; justify-content: space-between; gap: .5rem !important; }
+.new-daily-statistics__guess { display: flex !important; justify-content: flex-start; gap: .5rem !important; }
+.new-daily-statistics__guess strong { min-width: 2rem; text-align: right; }
 .new-daily-statistics__guess span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (min-width: 920px) {
   .new-daily-statistics { margin-top: 1.25rem; }

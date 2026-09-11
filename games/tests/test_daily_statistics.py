@@ -56,30 +56,34 @@ class DailyStatisticsTests(TestCase):
             self._complete(tg, user)
         data = build_daily_statistics(self.game, tg)
         self.assertEqual(data['summary']['median_attempts'], 3)
-        self.assertEqual([row['count'] for row in data['distribution']], [1, 1, 1])
+        self.assertEqual(len(data['distribution']), 30)
+        self.assertEqual([row['count'] for row in data['distribution'][:4]], [0, 1, 1, 1])
+        self.assertEqual(data['distribution'][-1]['label'], '30+')
         self.assertEqual(data['guesses'][0]['word'], 'А')
         self.assertEqual(data['guesses'][0]['players'], 2)
         self.assertNotIn('СЛОВО', {row['word'] for row in data['guesses']})
 
-    def test_alphabet_histogram_keeps_small_range_and_internal_zeros(self):
+    def test_alphabet_histogram_always_keeps_1_to_30_plus_scale(self):
         data = build_attempt_histogram([2, 3, 5])
-        self.assertEqual([row['label'] for row in data], ['2', '3', '4', '5'])
-        self.assertEqual([row['from'] for row in data], [2, 3, 4, 5])
-        self.assertEqual([row['to'] for row in data], [2, 3, 4, 5])
-        self.assertEqual([row['count'] for row in data], [1, 1, 0, 1])
+        self.assertEqual(len(data), 30)
+        self.assertEqual([row['label'] for row in data[:5]], ['1', '2', '3', '4', '5'])
+        self.assertEqual([row['count'] for row in data[:5]], [0, 1, 1, 0, 1])
+        self.assertEqual(data[-1]['label'], '30+')
+        self.assertEqual(data[-1]['count'], 0)
 
-    def test_alphabet_histogram_keeps_exactly_eight_values(self):
+    def test_alphabet_histogram_keeps_empty_edges_and_internal_zeros(self):
         data = build_attempt_histogram(range(1, 9))
-        self.assertEqual(len(data), 8)
-        self.assertEqual([row['label'] for row in data], [str(value) for value in range(1, 9)])
-        self.assertNotIn('+', ''.join(row['label'] for row in data))
+        self.assertEqual(len(data), 30)
+        self.assertEqual(data[0]['count'], 1)
+        self.assertEqual(data[28]['count'], 0)
+        self.assertEqual(data[29]['count'], 0)
 
     def test_alphabet_histogram_keeps_granularity_and_folds_rare_tail(self):
         values = [1] + [2] * 5 + [3] * 18 + [4] * 34 + [5] * 29 + [6] * 16 + [7] * 8 + [8] * 4 + [9] * 2 + [10, 14]
         data = build_attempt_histogram(values)
-        self.assertEqual(len(data), 14)
-        self.assertEqual(data[-1]['label'], '14')
-        self.assertNotIn('+', ''.join(row['label'] for row in data))
+        self.assertEqual(len(data), 30)
+        self.assertEqual(data[-1]['label'], '30+')
+        self.assertEqual(data[-1]['count'], 0)
         self.assertEqual(sum(row['percent'] for row in data), 100.0)
 
         outlier_data = build_attempt_histogram(values + [70])
@@ -87,22 +91,23 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(outlier_data[-1]['count'], 1)
         self.assertEqual(outlier_data[-1]['to'], None)
 
-    def test_alphabet_histogram_prioritizes_chart_width_when_tail_is_large(self):
+    def test_alphabet_histogram_aggregates_the_30_plus_tail(self):
         data = build_attempt_histogram([1] * 10 + list(range(2, 51)))
         self.assertEqual(len(data), 30)
         self.assertEqual(data[-1]['label'], '30+')
-        self.assertGreater(data[-1]['percent'], 10)
+        self.assertEqual(data[-1]['count'], 21)
 
-    def test_alphabet_histogram_uses_relevant_minimum(self):
+    def test_alphabet_histogram_starts_at_one_even_when_minimum_is_high(self):
         data = build_attempt_histogram([9, 10, 12])
-        self.assertEqual([row['label'] for row in data], ['9', '10', '11', '12'])
+        self.assertEqual([row['label'] for row in data[:12]], [str(value) for value in range(1, 13)])
 
     def test_alphabet_histogram_handles_empty_single_and_deterministic_input(self):
         self.assertEqual(build_attempt_histogram([]), [])
-        self.assertEqual(build_attempt_histogram([4]), [{
-            'from': 4, 'to': 4, 'count': 1, 'label': '4',
-            'percent': 100.0, 'bar_percent': 100.0,
-        }])
+        data = build_attempt_histogram([4])
+        self.assertEqual(len(data), 30)
+        self.assertEqual(data[3]['count'], 1)
+        self.assertEqual(data[3]['percent'], 100.0)
+        self.assertEqual(data[3]['bar_percent'], 100.0)
         values = [1, 2, 2, 3, 9, 20]
         self.assertEqual(build_attempt_histogram(values), build_attempt_histogram(reversed(values)))
 

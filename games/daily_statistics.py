@@ -42,54 +42,17 @@ def _pct(n, total):
     return round(100.0 * n / total, 1) if total else 0
 
 
-def build_attempt_histogram(values, max_bars=30):
-    """Build a granular, deterministic histogram for positive attempt counts.
-
-    The main range keeps one bar per integer, including internal zeroes. For
-    a long right tail, the last bar becomes ``N+``. Its cutoff is selected from
-    human-friendly multiples of five and is bounded so the chart stays compact.
-    """
-    if max_bars < 2:
-        raise ValueError('max_bars must be at least 2')
+def build_attempt_histogram(values, tail_from=30):
+    """Build the fixed 1..29 plus 30+ alphabet attempt histogram."""
+    if tail_from < 2:
+        raise ValueError('tail_from must be at least 2')
 
     counts = Counter(int(value) for value in values if int(value) > 0)
     if not counts:
         return []
 
-    minimum = min(counts)
-    maximum = max(counts)
-    # Keep a little left context, but avoid a long empty prefix when the first
-    # meaningful result is far from one.
-    observed_span = maximum - minimum + 1
-    start = minimum if observed_span <= max_bars else max(1, (minimum // 5) * 5)
-    span = maximum - start + 1
-
-    if span <= max_bars:
-        ranges = [(value, value) for value in range(start, maximum + 1)]
-    else:
-        # Leave one bucket for the tail. Prefer a multiple of five, while
-        # preserving as many exact values as the chart width allows.
-        max_exact_end = start + max_bars - 2
-        candidates = list(range(((start + 4) // 5) * 5, max_exact_end + 1, 5))
-        # Prefer a ``30+``-style boundary when the bar budget ends just before
-        # a round number (29 -> 30+, 34 -> 35+, and so on).
-        if (max_exact_end + 1) % 5 == 0:
-            candidates.append(max_exact_end)
-        candidates = sorted(set(candidates))
-        if not candidates:
-            candidates = [max_exact_end]
-        total = sum(counts.values())
-
-        def tail_count(cutoff):
-            return sum(count for value, count in counts.items() if value > cutoff)
-
-        # A rare tail is the preferred stopping point. If the tail remains
-        # substantial, the width limit wins and the furthest readable cutoff
-        # is used instead.
-        eligible = [cutoff for cutoff in candidates if tail_count(cutoff) * 100 <= total * 10]
-        cutoff = max(eligible or candidates)
-        ranges = [(value, value) for value in range(start, cutoff + 1)]
-        ranges.append((cutoff + 1, None))
+    ranges = [(value, value) for value in range(1, tail_from)]
+    ranges.append((tail_from, None))
 
     total = sum(counts.values())
     bucket_counts = []

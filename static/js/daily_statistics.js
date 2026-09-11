@@ -12,7 +12,7 @@
     return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
   }
   function metric(label, value) {
-    return '<div class="new-daily-statistics__metric"><span>' + esc(label) + '</span><strong>' + esc(value) + '</strong></div>';
+    return '<div class="new-daily-statistics__metric"><strong>' + esc(value) + '</strong><span>' + esc(label) + '</span></div>';
   }
   function rows(items, type) {
     return (items || []).map(function (item) {
@@ -46,7 +46,7 @@
   }
   function popularity(items) {
     return (items || []).map(function (x) {
-      return '<li class="new-daily-statistics__guess"><span>' + esc(x.word) + '</span><strong>' + esc(x.players) + '</strong></li>';
+      return '<li class="new-daily-statistics__guess"><strong>' + esc(x.players) + '</strong><span>' + esc(x.word) + '</span></li>';
     }).join('');
   }
   function histogram(items) {
