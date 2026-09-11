@@ -589,6 +589,10 @@ html.new-ui-dark body.new-ui {
   margin-bottom: 0;
 }
 
+.new-hub-sections-grid--daily-primary {
+  margin-bottom: 1.5rem;
+}
+
 /* max-width must stay one below --new-break-wide (lint: scripts/lint_new_ui_responsive.sh). */
 @media (max-width: 919px) {
   .new-hub-sections-grid--daily {
