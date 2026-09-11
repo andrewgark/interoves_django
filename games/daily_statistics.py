@@ -2,7 +2,7 @@
 
 import json
 from collections import Counter, defaultdict
-from statistics import median
+from statistics import mean, median
 
 from django.core.cache import cache
 from django.db.models import Q
@@ -13,7 +13,7 @@ from games.word_salad import load_state as load_salad_state, parse_task_payload
 from games.alphabetty.core import normalize_word
 
 
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 CACHE_TIMEOUT = 60 * 60 * 24
 
 
@@ -36,6 +36,10 @@ def _actor_key(row):
 
 def _median(values):
     return round(float(median(values)), 1) if values else None
+
+
+def _mean(values):
+    return round(float(mean(values)), 1) if values else None
 
 
 def _pct(n, total):
@@ -157,13 +161,12 @@ def _latest_states(task, game, actors, attempts):
 
 
 def _salad(task, game, actors):
-    _grid, words, rare_words = parse_task_payload(task.checker_data, task.answer)
+    _grid, words, _rare_words = parse_task_payload(task.checker_data, task.answer)
     attempts = _attempts_for(task, game, actors)
     states = _latest_states(task, game, actors, attempts)
     total = len(actors)
     no_hints = 0
     order = defaultdict(list)
-    intervals = defaultdict(list)
     rare_counts = defaultdict(set)
     extra_counts = defaultdict(set)
     for actor in actors:
@@ -172,7 +175,6 @@ def _salad(task, game, actors):
         if not hints:
             no_hints += 1
         solved_before = set()
-        prev_active = None
         self_position = 0
         for row in attempts.get(actor, []):
             try:
@@ -187,10 +189,6 @@ def _salad(task, game, actors):
                     if int(hints.get(index, 0) or 0) <= 0 and row.active_time_ms is not None:
                         self_position += 1
                         order[index].append(self_position)
-                        intervals[index].append(
-                            int(row.active_time_ms) - (prev_active or 0)
-                        )
-                    prev_active = row.active_time_ms if row.active_time_ms is not None else prev_active
                 solved_before |= added
             except (TypeError, ValueError):
                 continue
@@ -198,20 +196,38 @@ def _salad(task, game, actors):
             rare_counts[normalize_word(word)].add(actor)
         for word in state.get('found_extra') or []:
             extra_counts[normalize_word(word)].add(actor)
-    def side_rows(counts):
-        return [
-            {'word': word, 'players': len(players)}
-            for word, players in sorted(counts.items(), key=lambda item: (-len(item[1]), item[0]))[:10]
-            if word
-        ]
+    findings = {}
+    for word, players in rare_counts.items():
+        if word:
+            findings[word] = {'players': set(players), 'rare': True}
+    for word, players in extra_counts.items():
+        if word:
+            finding = findings.setdefault(word, {'players': set(), 'rare': False})
+            finding['players'].update(players)
+    popular_findings = [
+        {'word': word, 'players': len(item['players']), 'rare': item['rare']}
+        for word, item in sorted(findings.items(), key=lambda entry: (-len(entry[1]['players']), entry[0]))[:10]
+    ]
+    rare_rows = [
+        {'word': word, 'players': len(players), 'rare': True}
+        for word, players in sorted(rare_counts.items(), key=lambda item: (-len(item[1]), item[0]))[:10]
+        if word
+    ]
+    extra_rows = [
+        {'word': word, 'players': len(players), 'rare': False}
+        for word, players in sorted(extra_counts.items(), key=lambda item: (-len(item[1]), item[0]))[:10]
+        if word
+    ]
+    word_rows = [
+        {'word': words[index], 'average_order': _mean(order[index]), 'hint_percent': _pct(sum(1 for actor in actors if int((load_salad_state(states.get(actor)).get('hint_counts') or {}).get(index, 0) or 0) > 0), total)}
+        for index in range(len(words))
+    ]
+    word_rows.sort(key=lambda item: (item['average_order'] is None, item['average_order'] if item['average_order'] is not None else 0))
     return {
         'kind': 'salad', 'solved': total,
         'summary': {'solved': total, 'median_time_seconds': _median(_completed_times(game, task.task_group, actors)), 'without_hints_percent': _pct(no_hints, total)},
-        'words': [
-            {'word': words[index], 'median_order': _median(order[index]), 'median_time_seconds': _median([v / 1000 for v in intervals[index]]), 'hint_percent': _pct(sum(1 for actor in actors if int((load_salad_state(states.get(actor)).get('hint_counts') or {}).get(index, 0) or 0) > 0), total)}
-            for index in range(len(words))
-        ],
-        'rare': side_rows(rare_counts), 'off_topic': side_rows(extra_counts),
+        'words': word_rows,
+        'popular_findings': popular_findings, 'rare': rare_rows, 'off_topic': extra_rows,
     }
 
 

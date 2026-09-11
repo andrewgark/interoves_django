@@ -7,26 +7,23 @@
     });
   }
   function seconds(value) {
-    if (value == null) return '—';
-    var n = Math.round(Number(value));
+    if (value == null || value === '' || !Number.isFinite(Number(value))) return '—';
+    var n = Math.max(0, Math.round(Number(value)));
     return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
   }
   function metric(label, value) {
     return '<div class="new-daily-statistics__metric"><strong>' + esc(value) + '</strong><span>' + esc(label) + '</span></div>';
   }
-  function rows(items, type) {
-    return (items || []).map(function (item) {
-      var value = type === 'salad'
-        ? (item.median_order == null ? '—' : String(item.median_order).replace('.', ',') + '-е') + ' · ' + seconds(item.median_time_seconds) + (item.hint_percent > 0 ? ' · подсказка ' + String(item.hint_percent).replace('.', ',') + '%' : '')
-        : (item.median_time_seconds == null ? '—' : seconds(item.median_time_seconds));
-      return '<li><span>' + esc(item.word) + '</span><strong>' + esc(value) + '</strong></li>';
-    }).join('');
-  }
   function section(title, content) {
     return content ? '<section class="new-daily-statistics__section"><h3>' + esc(title) + '</h3>' + content + '</section>' : '';
   }
   function percent(value) {
-    return String(value == null ? 0 : value).replace('.', ',') + '%';
+    return decimal(value == null ? 0 : value) + '%';
+  }
+  function decimal(value) {
+    var n = Number(value);
+    if (!Number.isFinite(n)) return '0';
+    return n.toFixed(1).replace(/\.0$/, '').replace('.', ',');
   }
   function playerWord(value) {
     var n = Math.abs(Number(value)) % 100;
@@ -46,7 +43,38 @@
   }
   function popularity(items) {
     return (items || []).map(function (x) {
-      return '<li class="new-daily-statistics__guess"><strong>' + esc(x.players) + '</strong><span>' + esc(x.word) + '</span></li>';
+      return '<li class="new-daily-statistics__guess' + (x.rare ? ' is-rare' : '') + '"><strong>' + esc(x.players) + '</strong><span' + (x.rare ? ' class="new-daily-statistics__finding-word" data-tooltip="Редкая находка" aria-label="Редкая находка" tabindex="0" title="Редкая находка"' : '') + '>' + esc(x.word) + '</span></li>';
+    }).join('');
+  }
+  function saladWords(items) {
+    var words = items || [];
+    var maxOrder = words.reduce(function (max, item) {
+      return Math.max(max, Number(item.average_order) || 0);
+    }, 0);
+    return words.map(function (item) {
+      var order = Number(item.average_order);
+      var hasOrder = item.average_order != null && item.average_order !== '' && Number.isFinite(order);
+      var width = hasOrder && maxOrder > 0 ? Math.max(4, Math.round(order / maxOrder * 100)) : 0;
+      return '<li class="new-daily-statistics__salad-word' + (hasOrder ? '' : ' is-missing') + '">' +
+        '<div class="new-daily-statistics__salad-line"><span>' + esc(item.word) + '</span><span class="new-daily-statistics__hint-rate"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span></div>' +
+        '<div class="new-daily-statistics__salad-bar" aria-hidden="true"><i style="width:' + width + '%"></i></div>' +
+        '</li>';
+    }).join('');
+  }
+  function ladderWords(items) {
+    var words = (items || []).filter(function (item) { return !item.given; });
+    var maxSeconds = words.reduce(function (max, item) {
+      return Math.max(max, Number(item.median_time_seconds) || 0);
+    }, 0);
+    return words.map(function (item) {
+      var value = Number(item.median_time_seconds);
+      var hasTime = item.median_time_seconds != null && item.median_time_seconds !== '' && Number.isFinite(value) && value >= 0;
+      var width = hasTime && maxSeconds > 0 ? Math.max(4, Math.round(value / maxSeconds * 100)) : 0;
+      var label = hasTime ? seconds(value) : '—';
+      return '<li class="new-daily-statistics__ladder-word' + (hasTime ? '' : ' is-missing') + '">' +
+        '<div class="new-daily-statistics__ladder-line"><span>' + esc(item.word) + '</span><strong>' + esc(label) + '</strong></div>' +
+        '<div class="new-daily-statistics__ladder-bar" aria-hidden="true"><i style="width:' + width + '%"></i></div>' +
+        '</li>';
     }).join('');
   }
   function histogram(items) {
@@ -124,14 +152,13 @@
     var html = '<h2 class="new-daily-statistics__title">Статистика</h2><div class="new-daily-statistics__summary">' +
       metric('Решили', summary.solved || data.solved || 0);
     if (data.kind === 'alphabet') html += metric('Медиана попыток', summary.median_attempts == null ? '—' : String(summary.median_attempts).replace('.', ','));
-    else html += metric('Медиана времени', seconds(summary.median_time_seconds)) + metric('Без подсказок', (summary.without_hints_percent || 0) + '%');
+    else html += metric('Медиана времени', seconds(summary.median_time_seconds)) + metric('Без подсказок', percent(summary.without_hints_percent));
     html += '</div>';
     if (data.kind === 'salad') {
-      html += section('Слова', '<ul class="new-daily-statistics__list">' + rows(data.words, 'salad') + '</ul>');
-      if ((data.rare || []).length) html += section('Редкие находки', '<ul class="new-daily-statistics__list">' + popularity(data.rare) + '</ul>');
-      if ((data.off_topic || []).length) html += section('Не по теме', '<ul class="new-daily-statistics__list">' + popularity(data.off_topic) + '</ul>');
+      html += section('Слова', '<ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
+      if ((data.popular_findings || []).length) html += section('Популярные находки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_findings) + '</ul>');
     } else if (data.kind === 'ladder') {
-      html += section('Статистика слов', '<ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + (data.words || []).map(function (x) { return '<li class="' + (x.given ? 'is-given' : '') + '"><span>' + esc(x.word) + '</span><strong>' + (x.given ? 'дано' : esc(seconds(x.median_time_seconds))) + '</strong></li>'; }).join('') + '</ul>');
+      html += section('Статистика слов', '<p class="new-daily-statistics__hint">Медианное активное время от отгадки предыдущего слова до отгадки этого, без пауз.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');
     } else if (data.kind === 'alphabet') {
       html += '<div class="new-daily-statistics__body">' +
         section('Распределение попыток', histogram(data.distribution)) +
