@@ -162,5 +162,11 @@ class DailyStatisticsTests(TestCase):
             user=user, game=game, task_group=tg, game_kind='ladder',
             game_instance_id='ladder:{}'.format(tg.pk), result=PlayerCompletedGame.RESULT_SOLVED,
         )
+        DailySolveTiming.objects.create(
+            user=user, game=game, task_group=tg,
+            status=DailySolveTiming.STATUS_COMPLETED,
+            frozen_ms=4000,
+        )
         data = build_daily_statistics(game, tg)
+        self.assertEqual(data['summary']['median_time_seconds'], 4.0)
         self.assertEqual([row['median_time_seconds'] for row in data['words'][1:3]], [1.0, 2.0])

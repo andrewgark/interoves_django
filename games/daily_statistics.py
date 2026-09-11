@@ -27,7 +27,7 @@ def invalidate_daily_statistics(game_id, task_group_id):
 
 
 def _actor_key(row):
-    if row.team_id:
+    if getattr(row, 'team_id', None):
         return ('team', row.team_id)
     if row.user_id:
         return ('user', row.user_id)
