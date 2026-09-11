@@ -166,8 +166,10 @@
         '</div>';
     }
     root.innerHTML = html;
-    if (data.kind === 'alphabet') renderHistogram(root, data.distribution);
     root.hidden = false;
+    if (data.kind === 'alphabet') {
+      window.requestAnimationFrame(function () { renderHistogram(root, data.distribution); });
+    }
   }
   document.addEventListener('click', function (event) {
     var bar = event.target.closest && event.target.closest('[data-histogram-bar]');
