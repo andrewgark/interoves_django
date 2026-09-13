@@ -34,7 +34,7 @@ class DailyArchiveContextTests(SimpleTestCase):
         available = {cell['date'].day: cell for cell in cells}
         self.assertTrue(available[2]['is_today'])
         self.assertTrue(available[2]['is_completed'])
-        self.assertEqual(available[2]['href'], '/ladder/?month=2026-05')
+        self.assertEqual(available[2]['href'], '/ladder/2/')
         self.assertIn('Лесенка №2', available[2]['aria_label'])
         self.assertFalse(available[3]['is_available'])
         self.assertIn('задания нет', next(cell for cell in cells if cell['date'].day == 3)['aria_label'])

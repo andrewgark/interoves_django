@@ -97,9 +97,9 @@ def build_daily_archive_context(*, items, requested_month=None, today=None,
                 'is_completed': completed,
                 'archive_status': archive_status,
                 'is_today': day == today,
-                # A calendar day navigates within the archive.  The item's
-                # play URL remains available to the game-specific card.
-                'href': url_for(month_date) if available else '',
+                # A calendar day opens the game's task directly.  The archive
+                # month navigation still uses ``url_for`` below.
+                'href': item.get('href') if available else '',
                 'anchor': item.get('anchor') if available else '',
                 'aria_label': label,
             })
