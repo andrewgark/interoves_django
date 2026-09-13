@@ -468,6 +468,28 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Geometry
+  // ─────────────────────────────────────────────────────────────────────────
+  /**
+   * How much of the top of the screen the sticky header takes, in
+   * visual-viewport coordinates.
+   *
+   * The header is sticky in the *layout* viewport, so an open keyboard panning
+   * the page slides it above the visible area. Reserving its full height there
+   * leaves the pin floating below an empty strip where the menu no longer is;
+   * 0 means "the header is out of sight, the pin may sit at the very top".
+   *
+   * @param navBottom         header rect.bottom, layout coordinates
+   * @param viewportOffsetTop visualViewport.offsetTop
+   */
+  function visibleNavOffset(navBottom, viewportOffsetTop) {
+    if (navBottom === null || navBottom === undefined || navBottom === '') return null;
+    var bottom = Number(navBottom);
+    if (!isFinite(bottom)) return null;
+    return Math.max(0, bottom - (finite(viewportOffsetTop, 0) || 0));
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Focus target
   // ─────────────────────────────────────────────────────────────────────────
   /**
@@ -568,6 +590,7 @@
     createRequestRegistry: createRequestRegistry,
     createInputSession: createInputSession,
     mayApplyEffect: mayApplyEffect,
+    visibleNavOffset: visibleNavOffset,
     decideInputTarget: decideInputTarget,
     pickNearestPlayable: pickNearestPlayable,
     shouldApplyRemoteDraft: shouldApplyRemoteDraft,

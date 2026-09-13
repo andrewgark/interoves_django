@@ -458,6 +458,27 @@ function testHiddenPinWithoutPinFocusLeavesTheDomAlone() {
   }), 'keep');
 }
 
+// ── Where the top of the screen actually begins ───────────────────────────
+function testNavOffsetIsTheHeaderBottomWhenNothingIsPanned() {
+  assert.strictEqual(S.visibleNavOffset(56, 0), 56);
+}
+
+function testKeyboardPanShrinksTheReservedHeaderStrip() {
+  // Клавиатура «панит» страницу на 20px: от шапки видно только 36px.
+  assert.strictEqual(S.visibleNavOffset(56, 20), 36);
+}
+
+function testHeaderPannedOffScreenReservesNothing() {
+  // Шапка уехала выше видимой области — пин должен встать в самый верх экрана,
+  // а не висеть под пустой полосой там, где меню уже нет.
+  assert.strictEqual(S.visibleNavOffset(56, 300), 0);
+}
+
+function testNavOffsetWithoutGeometryIsUnknown() {
+  assert.strictEqual(S.visibleNavOffset(null, 0), null, 'нет замера — пусть решает CSS-константа');
+  assert.strictEqual(S.visibleNavOffset(56, null), 56);
+}
+
 // ── Advance onto an unplayable step ───────────────────────────────────────
 function testGoingUpFromTheBottomNeverLandsOnTheTopOfTheLadder() {
   // Идём снизу вверх; напарник уже взял 5 и 4, играбельны только 1 и 6.
@@ -577,6 +598,10 @@ testFocusReturnsToTheRealFieldWhenThePairIsVisibleAgain();
 testFocusIsDroppedWhenTheRealFieldIsOffScreen();
 testFocusIsDroppedWhenTheUserFinishedTyping();
 testHiddenPinWithoutPinFocusLeavesTheDomAlone();
+testNavOffsetIsTheHeaderBottomWhenNothingIsPanned();
+testKeyboardPanShrinksTheReservedHeaderStrip();
+testHeaderPannedOffScreenReservesNothing();
+testNavOffsetWithoutGeometryIsUnknown();
 testGoingUpFromTheBottomNeverLandsOnTheTopOfTheLadder();
 testNearestPlayablePrefersTheDirectionOfTravel();
 testNearestPlayableTakesTheRequestedStepWhenItIsPlayable();

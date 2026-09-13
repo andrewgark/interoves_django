@@ -7939,7 +7939,9 @@ html.is-age-gated .new-wrap {
   display: none;
   box-sizing: border-box;
   position: fixed;
-  top: var(--new-ui-scroll-margin-top);
+  /* Вертикаль целиком за JS (positionRaddleStickyPin): отступ под шапку зависит
+     от того, сколько от неё реально видно при открытой клавиатуре. */
+  top: 0;
   z-index: 6;
   margin: 0;
   padding: 0;

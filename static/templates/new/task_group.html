@@ -1231,7 +1231,11 @@
     });
   })();
 
-  function highlightRaddleClue(taskRoot, hintIndex) {
+  // allowScroll ставится только там, где подсказка и есть цель действия (нажали
+  // 💡). Иначе страницу уносило к подсказке на каждом setRaddleFocus: тап по
+  // полю, верный ответ, live-update, перерисовка — то есть ровно «ввожу ответ, а
+  // страница скроллится».
+  function highlightRaddleClue(taskRoot, hintIndex, allowScroll) {
     if (!taskRoot) return;
     taskRoot.querySelectorAll('.new-raddle-clue--active').forEach(function (el) {
       el.classList.remove('new-raddle-clue--active');
@@ -1245,9 +1249,11 @@
     var correctOption = taskRoot.querySelector('[data-raddle-correct-option]');
     if (correctOption) {
       correctOption.classList.add('new-raddle-clues__list--active');
-      try {
-        correctOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      } catch (err) {}
+      if (allowScroll) {
+        try {
+          correctOption.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } catch (err) {}
+      }
       return;
     }
     var clues = taskRoot.querySelectorAll('.new-raddle-clue[data-hint-index="' + hintIndex + '"]');
@@ -1255,9 +1261,11 @@
     clues.forEach(function (clue) {
       clue.classList.add('new-raddle-clue--active');
     });
-    try {
-      clues[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    } catch (err) {}
+    if (allowScroll) {
+      try {
+        clues[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } catch (err) {}
+    }
   }
 
   function postRaddleAssistForm(form) {
@@ -1269,7 +1277,7 @@
     var tier = tierInput ? tierInput.value : '1';
     // 💡 повторно: только подсветка, без запроса (setRaddleFocus сам вызывает highlight)
     if (tier === '1' && form.getAttribute('data-clue-already-taken') === '1') {
-      if (taskRoot) setRaddleFocus(taskRoot, wordIdx);
+      if (taskRoot) setRaddleFocus(taskRoot, wordIdx, { revealClue: true });
       return;
     }
     if (form && form.dataset) form.dataset.submitting = '1';
@@ -1301,7 +1309,7 @@
           if (data.status === 'ok' && data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
             try { applyNewUiTaskHtml(data.update_task_html_new); } catch (e) {}
             var fresh = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
-            if (fresh) setRaddleFocus(fresh, wordIdx);
+            if (fresh) setRaddleFocus(fresh, wordIdx, { revealClue: true });
             return;
           }
           if (taskRoot) {
@@ -1312,7 +1320,7 @@
             ).forEach(function (clue) {
               clue.classList.add('new-raddle-clue--revealed');
             });
-            setRaddleFocus(taskRoot, wordIdx);
+            setRaddleFocus(taskRoot, wordIdx, { revealClue: true });
           }
           if (msg) {
             msg.textContent = '';
@@ -2818,7 +2826,10 @@
     // 💡💡 после первой подсказки — значит tip уже взят
     var tipTaken = !!focusRow.querySelector('.new-raddle-assist-btn--answer');
     if (tipTaken || revealed) {
-      highlightRaddleClue(taskRoot, clueIdx);
+      // revealClue и есть доказательство пользовательского действия: флаг ставят
+      // только ветки «нажали 💡». Через raddleEffectSource это не проверить —
+      // ответ подсказки приходит асинхронно, источник там уже сброшен.
+      highlightRaddleClue(taskRoot, clueIdx, !!(opts && opts.revealClue));
     } else {
       highlightRaddleClue(taskRoot, '');
     }
@@ -2841,7 +2852,24 @@
     }
   }
 
+  // Сколько сверху занято шапкой — в координатах visualViewport.
+  //
+  // Константу `--new-ui-scroll-margin-top` брать нельзя: `.new-nav` — sticky в
+  // layout viewport, и когда клавиатура «панит» страницу, шапка уезжает выше
+  // видимой области. Резервируя под неё 3.5rem, пин повисает в воздухе: сверху
+  // пустая полоса, а меню там уже нет. Ноль здесь значит «шапки не видно, пин
+  // может встать в самый верх экрана».
   function raddleNavOffsetPx() {
+    var vv = window.visualViewport;
+    var offset = vv ? Math.max(0, vv.offsetTop || 0) : 0;
+    var nav = document.querySelector('.new-nav');
+    if (nav && typeof nav.getBoundingClientRect === 'function') {
+      var rect = nav.getBoundingClientRect();
+      if (rect.height > 0) {
+        var visible = RaddleCtl.visibleNavOffset(rect.bottom, offset);
+        if (visible !== null) return visible;
+      }
+    }
     var raw = getComputedStyle(document.documentElement)
       .getPropertyValue('--new-ui-scroll-margin-top')
       .trim();
@@ -3072,11 +3100,14 @@
     var rect = table.getBoundingClientRect();
     pin.style.left = Math.max(0, rect.left) + 'px';
     pin.style.width = Math.max(0, rect.width) + 'px';
-    // position: fixed is laid out against the layout viewport, so an open
-    // keyboard panning the visual viewport would leave the pin above the screen.
+    // CSS держит top: 0; всю вертикаль считаем здесь. position: fixed отсчитывается
+    // от layout viewport, поэтому нужен сдвиг на offsetTop (иначе при открытой
+    // клавиатуре пин уезжает выше экрана) плюс реальная видимая часть шапки —
+    // так пин всегда стоит максимально высоко, но не залезает под меню.
     var vv = window.visualViewport;
     var offset = vv ? Math.max(0, vv.offsetTop || 0) : 0;
-    pin.style.transform = offset ? 'translateY(' + offset + 'px)' : '';
+    var top = offset + raddleNavOffsetPx();
+    pin.style.transform = top ? 'translateY(' + top + 'px)' : '';
   }
 
   function syncRaddleStickyPinInputsFromReal(taskRoot, pin) {
