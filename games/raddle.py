@@ -216,6 +216,9 @@ def parse_raddle_data(task):
     masks = [parse_length_mask(x) for x in lengths_raw]
     assist = _parse_raddle_assist_block(data.get('raddle_assist'))
     mixed_script = bool(data.get('mixed_script'))
+    emojis_raw = data.get('emojis')
+    emojis = list(emojis_raw) if isinstance(emojis_raw, list) else []
+    emojis = (emojis + [''] * n)[:n]
     return {
         'lengths': lengths_raw,
         'hints': list(hints),
@@ -225,6 +228,7 @@ def parse_raddle_data(task):
         'n_words': n,
         'assist': assist,
         'mixed_script': mixed_script,
+        'emojis': emojis,
     }
 
 
@@ -1274,6 +1278,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             clue_index_for_playable_word(i, solved, n) if is_playable else None
         )
         canon = parsed['words'][i]
+        emoji = str(parsed.get('emojis', [''] * n)[i] or '').strip()
         # Подпись и квадраты — по структуре ответа (пробел ≠ дефис), не по строке lengths.
         mask_html = length_mask_display(mask, canon).strip()
         length_label = length_label_from_word(canon) if canon else mask['label']
@@ -1309,6 +1314,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             'mask_html': mask_html,
             'mask_placeholder': mask_html,
             'length_label': length_label,
+            'emoji': emoji,
             'is_latin': is_latin,
             'show_latin_flag': show_latin_flag,
             'input_script': input_script,

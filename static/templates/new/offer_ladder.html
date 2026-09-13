@@ -190,34 +190,39 @@
     if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
   });
 
-  function normalizeWordState(words, hints) {
+  function normalizeWordState(words, hints, emojis) {
     var nextWords = words && words.length ? words.slice() : ['', ''];
     if (nextWords.length < 2) nextWords.push('');
     var nextHints = hints ? hints.slice() : [];
+    var nextEmojis = emojis ? emojis.slice() : [];
     while (nextHints.length < Math.max(0, nextWords.length - 1)) nextHints.push('');
     if (nextHints.length > Math.max(0, nextWords.length - 1)) {
       nextHints = nextHints.slice(0, Math.max(0, nextWords.length - 1));
     }
-    return { words: nextWords, hints: nextHints };
+    while (nextEmojis.length < nextWords.length) nextEmojis.push('');
+    if (nextEmojis.length > nextWords.length) nextEmojis = nextEmojis.slice(0, nextWords.length);
+    return { words: nextWords, hints: nextHints, emojis: nextEmojis };
   }
 
   function wordRowsFromState(state) {
-    var normalized = normalizeWordState(state.words, state.hints);
+    var normalized = normalizeWordState(state.words, state.hints, state.emojis);
     return normalized.words.map(function (word, index) {
       return {
         word: word,
-        hint: index < normalized.words.length - 1 ? (normalized.hints[index] || '') : ''
+        hint: index < normalized.words.length - 1 ? (normalized.hints[index] || '') : '',
+        emoji: normalized.emojis[index] || ''
       };
     });
   }
 
   function stateFromWordRows(rows) {
     var words = rows.map(function (row) { return row.word || ''; });
+    var emojis = rows.map(function (row) { return row.emoji || ''; });
     var hints = [];
     rows.forEach(function (row, index) {
       if (index < rows.length - 1) hints.push(row.hint || '');
     });
-    return normalizeWordState(words, hints);
+    return normalizeWordState(words, hints, emojis);
   }
 
   function insertWordAt(state, index) {
@@ -229,7 +234,7 @@
 
   function removeWordAt(state, index) {
     var rows = wordRowsFromState(state);
-    if (rows.length <= 2 || index < 0 || index >= rows.length) return normalizeWordState(state.words, state.hints);
+    if (rows.length <= 2 || index < 0 || index >= rows.length) return normalizeWordState(state.words, state.hints, state.emojis);
     rows.splice(index, 1);
     return stateFromWordRows(rows);
   }
@@ -244,12 +249,13 @@
     return stateFromWordRows(rows);
   }
 
-  function renderWordRows(words, hints) {
+  function renderWordRows(words, hints, emojis) {
     var box = document.getElementById('offer-edit-words');
     box.innerHTML = '';
-    var state = normalizeWordState(words, hints);
+    var state = normalizeWordState(words, hints, emojis);
     words = state.words;
     hints = state.hints;
+    emojis = state.emojis;
     var dragIndex = null;
     function clearDnD() {
       box.querySelectorAll('.is-dragging, .is-drop-before, .is-drop-after').forEach(function (el) {
@@ -278,6 +284,7 @@
         '<button type="button" class="support-ladder-word-row__handle" title="Перетащить" aria-label="Перетащить">⠿</button>' +
         '<span class="support-cell-mono">' + (i + 1) + '</span>' +
         '<input type="text" class="ladder-word" placeholder="СЛОВО" value="' + escapeHtml(w) + '" autocomplete="off">' +
+        '<input type="text" class="ladder-emoji" placeholder="эмодзи" value="' + escapeHtml(emojis[i] || '') + '" maxlength="16" autocomplete="off" aria-label="Эмодзи строки ' + (i + 1) + '">' +
         hintHtml +
         '<button type="button" class="new-btn new-btn--mini new-btn--ghost new-btn--icon ladder-rm-word" title="Удалить" aria-label="Удалить слово" ' +
           (words.length <= 2 ? 'disabled' : '') + '>×</button>';
@@ -316,21 +323,22 @@
       var from = dragIndex;
       if (from < to) to -= 1;
       var moved = moveWordRow(readWordRows(), from, to);
-      renderWordRows(moved.words, moved.hints);
+      renderWordRows(moved.words, moved.hints, moved.emojis);
       if (autosave) autosave.changed();
     };
   }
   function readWordRows() {
     var rows = document.querySelectorAll('#offer-edit-words .support-ladder-word-row');
-    var words = [], hints = [];
+    var words = [], hints = [], emojis = [];
     rows.forEach(function (row, i) {
       words.push((row.querySelector('.ladder-word').value || '').trim());
+      emojis.push((row.querySelector('.ladder-emoji').value || '').trim());
       if (i < rows.length - 1) {
         var h = row.querySelector('.ladder-hint');
         hints.push(h ? (h.value || '').trim() : '');
       }
     });
-    return normalizeWordState(words, hints);
+    return normalizeWordState(words, hints, emojis);
   }
 
   function readEditorPayload() {
@@ -338,6 +346,7 @@
     return {
       words: cur.words,
       hints: cur.hints,
+      emojis: cur.emojis,
       intro: document.getElementById('offer-edit-intro').value,
       author: document.getElementById('offer-edit-author').value,
       comment: document.getElementById('offer-edit-comment').value,
@@ -350,7 +359,7 @@
     document.getElementById('offer-edit-author').value = payload.author || '';
     document.getElementById('offer-edit-comment').value = payload.comment || '';
     document.getElementById('offer-edit-mixed-script').checked = !!payload.mixed_script;
-    renderWordRows(payload.words || [], payload.hints || []);
+    renderWordRows(payload.words || [], payload.hints || [], payload.emojis || []);
   }
 
   function autosaveTime(date) {
@@ -411,14 +420,14 @@
   document.getElementById('offer-add-word').addEventListener('click', function () {
     var curState = readWordRows();
     var cur = insertWordAt(curState, curState.words.length);
-    renderWordRows(cur.words, cur.hints);
+      renderWordRows(cur.words, cur.hints, cur.emojis);
     autosave.changed();
   });
   document.getElementById('offer-edit-words').addEventListener('click', function (e) {
     var insertBtn = e.target.closest('[data-insert-index]');
     if (insertBtn) {
       var curInsert = insertWordAt(readWordRows(), parseInt(insertBtn.getAttribute('data-insert-index'), 10));
-      renderWordRows(curInsert.words, curInsert.hints);
+      renderWordRows(curInsert.words, curInsert.hints, curInsert.emojis);
       autosave.changed();
       return;
     }
@@ -428,7 +437,7 @@
     var all = Array.prototype.slice.call(document.querySelectorAll('#offer-edit-words .support-ladder-word-row'));
     var idx = all.indexOf(row);
     var cur = removeWordAt(readWordRows(), idx);
-    renderWordRows(cur.words, cur.hints);
+    renderWordRows(cur.words, cur.hints, cur.emojis);
     autosave.changed();
   });
 
@@ -447,7 +456,7 @@
     document.getElementById('offer-edit-author').value = offer.author || '';
     document.getElementById('offer-edit-comment').value = offer.comment || '';
     document.getElementById('offer-edit-mixed-script').checked = !!offer.mixed_script;
-    renderWordRows(offer.words || [], offer.hints || []);
+    renderWordRows(offer.words || [], offer.hints || [], offer.emojis || []);
     document.getElementById('offer-edit-preview').href = offer.play_url || '#';
     var canEdit = !!offer.can_edit;
     ['offer-edit-intro', 'offer-edit-author', 'offer-edit-comment', 'offer-edit-mixed-script', 'offer-add-word', 'offer-edit-save', 'offer-edit-send']

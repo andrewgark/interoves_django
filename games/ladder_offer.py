@@ -133,14 +133,15 @@ def _apply_content_to_task(
     *,
     words: list[str],
     hints: list[str],
+    emojis: list[str] | None,
     intro: str,
     author: str,
     mixed_script: bool,
 ) -> None:
-    errors = validate_ladder_content(words, hints, mixed_script=mixed_script)
+    errors = validate_ladder_content(words, hints, emojis=emojis, mixed_script=mixed_script)
     if errors:
         raise LadderOfferError('; '.join(errors))
-    payload = build_checker_payload(words, hints, mixed_script=mixed_script)
+    payload = build_checker_payload(words, hints, emojis=emojis, mixed_script=mixed_script)
     checker = CheckerType.objects.get(id='raddle')
     tags = dict(task.tags or {})
     if author.strip():
@@ -177,6 +178,7 @@ class OfferRow:
     words_preview: str
     words: list[str]
     hints: list[str]
+    emojis: list[str]
     created_at: Optional[str]
     updated_at: Optional[str]
     sent_at: Optional[str]
@@ -229,6 +231,7 @@ def serialize_offer(offer: LadderOffer) -> OfferRow:
         words_preview=payload.get('words_preview') or '',
         words=list(payload.get('words') or []),
         hints=list(payload.get('hints') or []),
+        emojis=list(payload.get('emojis') or []),
         created_at=_iso(offer.created_at),
         updated_at=_iso(offer.updated_at),
         sent_at=_iso(offer.sent_at),
@@ -297,6 +300,7 @@ def update_offer_content(
     *,
     words: list[str],
     hints: list[str],
+    emojis: list[str] | None = None,
     intro: str = '',
     author: str = '',
     comment: str = '',
@@ -314,6 +318,7 @@ def update_offer_content(
         task,
         words=words,
         hints=hints,
+        emojis=emojis,
         intro=intro,
         author=author,
         mixed_script=mixed_script,

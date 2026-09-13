@@ -128,6 +128,13 @@ class RaddleWordIsLatinTests(SimpleTestCase):
 
 
 class ParseRaddleDataTests(SimpleTestCase):
+    def test_emojis_are_preserved_per_row_and_padded(self):
+        data = dict(PARIS_LADDER)
+        data['emojis'] = ['🗼']
+        p = parse_raddle_data(_task(checker_data=json.dumps(data, ensure_ascii=False)))
+        self.assertEqual(p['emojis'][0], '🗼')
+        self.assertEqual(len(p['emojis']), p['n_words'])
+
     def test_full_json(self):
         p = parse_raddle_data(_task())
         self.assertIsNotNone(p)

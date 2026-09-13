@@ -89,6 +89,7 @@ def build_checker_payload(
     words: list[str],
     hints: list[str],
     *,
+    emojis: list[str] | None = None,
     mixed_script: bool = False,
 ) -> dict:
     word_list = [str(w or '').strip().upper() for w in words]
@@ -98,9 +99,12 @@ def build_checker_payload(
         hint_list = hint_list[: max(0, len(word_list) - 1)]
     while len(hint_list) < max(0, len(word_list) - 1):
         hint_list.append('')
+    emoji_list = [str(e or '').strip() for e in (emojis or [])]
+    emoji_list = (emoji_list + [''] * len(word_list))[:len(word_list)]
     payload = {
         'lengths': [_length_from_word(w) for w in word_list],
         'hints': hint_list,
+        'emojis': emoji_list,
         'words': word_list,
         'raddle_assist': {'enabled': True, 'fractions': [1, 0.5, 0]},
     }
@@ -113,9 +117,10 @@ def validate_ladder_content(
     words: list[str],
     hints: list[str],
     *,
+    emojis: list[str] | None = None,
     mixed_script: bool = False,
 ) -> list[str]:
-    payload = build_checker_payload(words, hints, mixed_script=mixed_script)
+    payload = build_checker_payload(words, hints, emojis=emojis, mixed_script=mixed_script)
     raw = json.dumps(payload, ensure_ascii=False)
     return validate_raddle_checker_data(raw, answer_text='\n'.join(payload['words']))
 
@@ -156,6 +161,7 @@ def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
         return {
             'words': [],
             'hints': [],
+            'emojis': [],
             'author': '',
             'intro': '',
             'mixed_script': False,
@@ -164,6 +170,7 @@ def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
         }
     words: list[str] = []
     hints: list[str] = []
+    emojis: list[str] = []
     mixed_script = False
     raw = (task.checker_data or '').strip()
     if raw:
@@ -172,6 +179,7 @@ def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
             if isinstance(data, dict):
                 words = [str(w) for w in (data.get('words') or [])]
                 hints = [str(h) for h in (data.get('hints') or [])]
+                emojis = [str(e) for e in (data.get('emojis') or [])]
                 mixed_script = bool(data.get('mixed_script'))
         except (ValueError, TypeError):
             pass
@@ -186,6 +194,7 @@ def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
     return {
         'words': words,
         'hints': hints,
+        'emojis': emojis,
         'author': author,
         'intro': intro,
         'mixed_script': mixed_script,
@@ -260,6 +269,7 @@ def get_ladder_detail(link_id: int) -> dict[str, Any]:
         'author': payload['author'],
         'words': payload['words'],
         'hints': payload['hints'],
+        'emojis': payload['emojis'],
         'mixed_script': payload['mixed_script'],
         'play_url': f'/{LADDER_GAME_ID}/{number}/',
     }
@@ -400,14 +410,15 @@ def _create_task_group_and_task(
     number: int,
     words: list[str],
     hints: list[str],
+    emojis: list[str] | None = None,
     intro: str,
     author: str,
     mixed_script: bool = False,
 ) -> GameTaskGroup:
-    errors = validate_ladder_content(words, hints, mixed_script=mixed_script)
+    errors = validate_ladder_content(words, hints, emojis=emojis, mixed_script=mixed_script)
     if errors:
         raise LadderSupportError('; '.join(errors))
-    payload = build_checker_payload(words, hints, mixed_script=mixed_script)
+    payload = build_checker_payload(words, hints, emojis=emojis, mixed_script=mixed_script)
     checker = CheckerType.objects.get(id='raddle')
     game = get_ladder_game()
     task_group = TaskGroup.objects.create(
@@ -478,6 +489,7 @@ def create_ladder(
     at_number: int,
     words: list[str] | None = None,
     hints: list[str] | None = None,
+    emojis: list[str] | None = None,
     intro: str = '',
     author: str = '',
     mixed_script: bool = False,
@@ -496,6 +508,7 @@ def create_ladder(
         number=at_number,
         words=use_words,
         hints=use_hints,
+        emojis=emojis,
         intro=intro,
         author=author,
         mixed_script=mixed_script,
@@ -509,6 +522,7 @@ def update_ladder(
     *,
     words: list[str],
     hints: list[str],
+    emojis: list[str] | None = None,
     intro: str = '',
     author: str = '',
     mixed_script: bool = False,
@@ -528,10 +542,10 @@ def update_ladder(
         if old_task is not None
         else None
     )
-    errors = validate_ladder_content(words, hints, mixed_script=mixed_script)
+    errors = validate_ladder_content(words, hints, emojis=emojis, mixed_script=mixed_script)
     if errors:
         raise LadderSupportError('; '.join(errors))
-    payload = build_checker_payload(words, hints, mixed_script=mixed_script)
+    payload = build_checker_payload(words, hints, emojis=emojis, mixed_script=mixed_script)
     checker = CheckerType.objects.get(id='raddle')
     tags = {}
     if author.strip():

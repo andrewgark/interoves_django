@@ -893,15 +893,15 @@ html.new-ui-dark .support-ladder-item__mixed {
 
 .support-ladder-word-row {
   display: grid;
-  grid-template-columns: 1.5rem minmax(0, 1fr) minmax(0, 1.4fr) auto;
-  grid-template-areas: "number word hint remove";
+  grid-template-columns: 1.5rem minmax(0, 1fr) minmax(3.5rem, 0.7fr) minmax(0, 1.4fr) auto;
+  grid-template-areas: "number word emoji hint remove";
   gap: 0.35rem;
   align-items: center;
 }
 
 .support-ladder-word-row--draggable {
-  grid-template-columns: auto 1.5rem minmax(0, 1fr) minmax(0, 1.4fr) auto;
-  grid-template-areas: "handle number word hint remove";
+  grid-template-columns: auto 1.5rem minmax(0, 1fr) minmax(3.5rem, 0.7fr) minmax(0, 1.4fr) auto;
+  grid-template-areas: "handle number word emoji hint remove";
 }
 
 .support-ladder-word-row > .support-cell-mono {
@@ -922,6 +922,10 @@ html.new-ui-dark .support-ladder-item__mixed {
 .support-ladder-word-row .ladder-word {
   grid-area: word;
   text-transform: uppercase;
+}
+
+.support-ladder-word-row .ladder-emoji {
+  grid-area: emoji;
 }
 
 .support-ladder-word-row .ladder-hint,
@@ -1068,6 +1072,7 @@ html.new-ui-dark .support-ladder-item__mixed {
     grid-template-columns: 1.25rem minmax(0, 1fr) auto;
     grid-template-areas:
       "number word remove"
+      ". emoji ."
       ". hint .";
   }
 
@@ -1075,6 +1080,7 @@ html.new-ui-dark .support-ladder-item__mixed {
     grid-template-columns: auto 1.25rem minmax(0, 1fr) auto;
     grid-template-areas:
       "handle number word remove"
+      ". . emoji ."
       ". . hint .";
   }
 }

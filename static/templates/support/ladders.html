@@ -458,12 +458,13 @@
     if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
   });
 
-  function renderWordRows(words, hints) {
+  function renderWordRows(words, hints, emojis) {
     var box = document.getElementById('ladder-edit-words');
     box.innerHTML = '';
     words = words && words.length ? words.slice() : ['', ''];
     if (words.length < 2) words.push('');
     hints = hints ? hints.slice() : [];
+    emojis = emojis ? emojis.slice() : [];
     words.forEach(function (w, i) {
       var row = document.createElement('div');
       row.className = 'support-ladder-word-row';
@@ -478,6 +479,7 @@
       row.innerHTML =
         '<span class="support-cell-mono">' + (i + 1) + '</span>' +
         '<input type="text" class="ladder-word" placeholder="СЛОВО" value="' + escapeHtml(w) + '" autocomplete="off">' +
+        '<input type="text" class="ladder-emoji" placeholder="эмодзи" value="' + escapeHtml(emojis[i] || '') + '" maxlength="16" autocomplete="off" aria-label="Эмодзи строки ' + (i + 1) + '">' +
         hintHtml +
         '<button type="button" class="new-btn new-btn--mini new-btn--ghost new-btn--icon ladder-rm-word" title="Удалить" aria-label="Удалить слово" ' +
           (words.length <= 2 ? 'disabled' : '') + '>×</button>';
@@ -488,23 +490,24 @@
   function readWordRows() {
     var rows = listEl.ownerDocument.querySelectorAll('#ladder-edit-words .support-ladder-word-row');
     var words = [];
-    var hints = [];
+    var hints = [], emojis = [];
     rows.forEach(function (row, i) {
       var w = (row.querySelector('.ladder-word').value || '').trim();
       words.push(w);
+      emojis.push((row.querySelector('.ladder-emoji').value || '').trim());
       if (i < rows.length - 1) {
         var h = row.querySelector('.ladder-hint');
         hints.push(h ? (h.value || '').trim() : '');
       }
     });
-    return { words: words, hints: hints };
+    return { words: words, hints: hints, emojis: emojis };
   }
 
   document.getElementById('ladder-add-word').addEventListener('click', function () {
     var cur = readWordRows();
     cur.words.push('');
     cur.hints.push('');
-    renderWordRows(cur.words, cur.hints);
+    renderWordRows(cur.words, cur.hints, cur.emojis);
   });
 
   document.getElementById('ladder-edit-words').addEventListener('click', function (e) {
@@ -518,7 +521,7 @@
     cur.words.splice(idx, 1);
     if (idx < cur.hints.length) cur.hints.splice(idx, 1);
     else if (cur.hints.length >= cur.words.length) cur.hints.pop();
-    renderWordRows(cur.words, cur.hints);
+    renderWordRows(cur.words, cur.hints, cur.emojis);
   });
 
   function openEdit(linkId, preloaded) {
@@ -533,7 +536,7 @@
       document.getElementById('ladder-edit-intro').value = ladder.intro || '';
       document.getElementById('ladder-edit-author').value = ladder.author || '';
       document.getElementById('ladder-edit-mixed-script').checked = !!ladder.mixed_script;
-      renderWordRows(ladder.words || [], ladder.hints || []);
+      renderWordRows(ladder.words || [], ladder.hints || [], ladder.emojis || []);
       var linked = offerByLink[String(ladder.link_id)];
       var prev = document.getElementById('ladder-edit-preview');
       prev.href = (linked && linked.play_url) || ladder.play_url || '#';
@@ -606,6 +609,7 @@
     postJson(url, {
       words: cur.words,
       hints: cur.hints,
+      emojis: cur.emojis,
       intro: document.getElementById('ladder-edit-intro').value,
       author: document.getElementById('ladder-edit-author').value,
       mixed_script: document.getElementById('ladder-edit-mixed-script').checked
@@ -639,12 +643,13 @@
     el.addEventListener('click', closeOfferModal);
   });
 
-  function renderOfferWordRows(words, hints) {
+  function renderOfferWordRows(words, hints, emojis) {
     var box = document.getElementById('offer-edit-words');
     box.innerHTML = '';
     words = words && words.length ? words.slice() : ['', ''];
     if (words.length < 2) words.push('');
     hints = hints ? hints.slice() : [];
+    emojis = emojis ? emojis.slice() : [];
     words.forEach(function (w, i) {
       var row = document.createElement('div');
       row.className = 'support-ladder-word-row';
@@ -654,6 +659,7 @@
       row.innerHTML =
         '<span class="support-cell-mono">' + (i + 1) + '</span>' +
         '<input type="text" class="ladder-word" placeholder="СЛОВО" value="' + escapeHtml(w) + '" autocomplete="off">' +
+        '<input type="text" class="ladder-emoji" placeholder="эмодзи" value="' + escapeHtml(emojis[i] || '') + '" maxlength="16" autocomplete="off" aria-label="Эмодзи строки ' + (i + 1) + '">' +
         hintHtml +
         '<button type="button" class="new-btn new-btn--mini new-btn--ghost new-btn--icon offer-rm-word" title="Удалить" aria-label="Удалить слово" ' +
           (words.length <= 2 ? 'disabled' : '') + '>×</button>';
@@ -662,21 +668,22 @@
   }
   function readOfferWordRows() {
     var rows = document.querySelectorAll('#offer-edit-words .support-ladder-word-row');
-    var words = [], hints = [];
+    var words = [], hints = [], emojis = [];
     rows.forEach(function (row, i) {
       words.push((row.querySelector('.ladder-word').value || '').trim());
+      emojis.push((row.querySelector('.ladder-emoji').value || '').trim());
       if (i < rows.length - 1) {
         var h = row.querySelector('.ladder-hint');
         hints.push(h ? (h.value || '').trim() : '');
       }
     });
-    return { words: words, hints: hints };
+    return { words: words, hints: hints, emojis: emojis };
   }
   document.getElementById('offer-add-word').addEventListener('click', function () {
     var cur = readOfferWordRows();
     cur.words.push('');
     cur.hints.push('');
-    renderOfferWordRows(cur.words, cur.hints);
+    renderOfferWordRows(cur.words, cur.hints, cur.emojis);
   });
   document.getElementById('offer-edit-words').addEventListener('click', function (e) {
     var btn = e.target.closest('.offer-rm-word');
@@ -688,7 +695,7 @@
     if (cur.words.length <= 2) return;
     cur.words.splice(idx, 1);
     if (idx < cur.hints.length) cur.hints.splice(idx, 1);
-    renderOfferWordRows(cur.words, cur.hints);
+    renderOfferWordRows(cur.words, cur.hints, cur.emojis);
   });
 
   function openOfferEdit(offerId, preloaded) {
@@ -704,7 +711,7 @@
       document.getElementById('offer-edit-comment').value = offer.comment || '';
       document.getElementById('offer-edit-admin-note').value = offer.admin_note || '';
       document.getElementById('offer-edit-mixed-script').checked = !!offer.mixed_script;
-      renderOfferWordRows(offer.words || [], offer.hints || []);
+      renderOfferWordRows(offer.words || [], offer.hints || [], offer.emojis || []);
       document.getElementById('offer-edit-preview').href = offer.play_url || '#';
       openOfferModal();
     }
@@ -726,6 +733,7 @@
     postJson(endpoints.offerSaveTpl.replace('{id}', String(editOfferId)), {
       words: cur.words,
       hints: cur.hints,
+      emojis: cur.emojis,
       intro: document.getElementById('offer-edit-intro').value,
       author: document.getElementById('offer-edit-author').value,
       comment: document.getElementById('offer-edit-comment').value,
@@ -748,6 +756,7 @@
     postJson(endpoints.offerSaveTpl.replace('{id}', String(editOfferId)), {
       words: cur.words,
       hints: cur.hints,
+      emojis: cur.emojis,
       intro: document.getElementById('offer-edit-intro').value,
       author: document.getElementById('offer-edit-author').value,
       comment: document.getElementById('offer-edit-comment').value,

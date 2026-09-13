@@ -113,11 +113,15 @@ def offer_ladder_detail(request, offer_id):
     hints = body.get('hints')
     if not isinstance(words, list) or not isinstance(hints, list):
         return JsonResponse({'ok': False, 'error': 'Нужны words и hints'}, status=400)
+    emojis = body.get('emojis')
+    if emojis is not None and not isinstance(emojis, list):
+        return JsonResponse({'ok': False, 'error': 'emojis должен быть списком'}, status=400)
     try:
         offer = update_offer_content(
             offer,
             words=words,
             hints=hints,
+            emojis=emojis,
             intro=str(body.get('intro') or ''),
             author=str(body.get('author') or profile_display_name(request.user.profile)),
             comment=str(body.get('comment') or ''),

@@ -903,11 +903,15 @@ def ladders_create(request):
         return JsonResponse({'ok': False, 'error': 'words должен быть списком'}, status=400)
     if hints is not None and not isinstance(hints, list):
         return JsonResponse({'ok': False, 'error': 'hints должен быть списком'}, status=400)
+    emojis = body.get('emojis')
+    if emojis is not None and not isinstance(emojis, list):
+        return JsonResponse({'ok': False, 'error': 'emojis должен быть списком'}, status=400)
     try:
         detail = create_ladder(
             at_number=at_number,
             words=words,
             hints=hints,
+            emojis=emojis,
             intro=str(body.get('intro') or ''),
             author=str(body.get('author') or ''),
             mixed_script=bool(body.get('mixed_script')),
@@ -932,11 +936,15 @@ def ladders_update(request, link_id):
     hints = body.get('hints')
     if not isinstance(words, list) or not isinstance(hints, list):
         return JsonResponse({'ok': False, 'error': 'Нужны words и hints (списки)'}, status=400)
+    emojis = body.get('emojis')
+    if emojis is not None and not isinstance(emojis, list):
+        return JsonResponse({'ok': False, 'error': 'emojis должен быть списком'}, status=400)
     try:
         detail = update_ladder(
             int(link_id),
             words=words,
             hints=hints,
+            emojis=emojis,
             intro=str(body.get('intro') or ''),
             author=str(body.get('author') or ''),
             mixed_script=bool(body.get('mixed_script')),
