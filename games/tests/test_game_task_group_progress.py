@@ -155,7 +155,7 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertFalse(row['is_fully_solved'])
         self.assertEqual(row['row_class'], 'new-task--partial')
 
-    def test_progress_api_without_actor_returns_empty(self):
+    def test_progress_api_without_prior_history_returns_empty_progress(self):
         game = self._create_section_game('sec_prog3')
         with patch('games.views.track.track_task_change'):
             tg = TaskGroup.objects.create(label='tg3')
@@ -163,7 +163,9 @@ class GameTaskGroupProgressTests(TestCase):
 
         resp = self.client.get('/games/sec_prog3/progress/')
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json()['rows'], {})
+        row = resp.json()['rows']['1']
+        self.assertEqual(row['n_solved'], 0)
+        self.assertFalse(row['is_fully_solved'])
 
     def test_ladder_progress_api_returns_result_squares(self):
         from games.ladder_daily import LADDER_PUBLISH_START_TAG

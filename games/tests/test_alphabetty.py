@@ -362,6 +362,9 @@ class AlphabettyPlayApiTests(TestCase):
         )
         self.client = Client()
 
+    def _anon(self, key, client=None):
+        (client or self.client).cookies['interoves_anon'] = key
+
     def tearDown(self):
         # In-memory extras переживают rollback БД между тестами.
         invalidate_approved_extras()
@@ -378,6 +381,7 @@ class AlphabettyPlayApiTests(TestCase):
 
     def test_guess_flow(self):
         # earlier
+        self._anon('testanon1')
         r = self.client.post(
             '/alphabetty/1/guess/',
             data=json.dumps({'word': 'год', 'anon_key': 'testanon1'}),
@@ -451,6 +455,7 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(ai.get_result_points(), Decimal('10'))
 
     def test_invalid_guess_does_not_start_game(self):
+        self._anon('invalid-anon')
         response = self.client.post(
             '/alphabetty/1/guess/',
             data=json.dumps({'word': 'qqqqqq', 'anon_key': 'invalid-anon'}),
@@ -462,6 +467,7 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertFalse(PlayerStartedGame.objects.filter(anon_key='invalid-anon').exists())
 
     def test_hint_flow(self):
+        self._anon('hintanon')
         r = self.client.post(
             '/alphabetty/1/hint/',
             data=json.dumps({'anon_key': 'hintanon'}),
@@ -517,6 +523,7 @@ class AlphabettyPlayApiTests(TestCase):
             game=self.game, task_group=tg, number='9', name='Алфавитка #9',
         )
         anon = 'hint-skip'
+        self._anon(anon)
         self.client.post(
             '/alphabetty/9/guess/',
             data=json.dumps({'word': 'псих', 'anon_key': anon}),
@@ -891,6 +898,7 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(rows[0]['display'], 'РИМ+')
 
     def test_state_endpoint_uses_anon_header(self):
+        self._anon('stateanon')
         self.client.post(
             '/alphabetty/1/guess/',
             data=json.dumps({'word': 'год', 'anon_key': 'stateanon'}),
@@ -931,6 +939,7 @@ class AlphabettyPlayApiTests(TestCase):
 
     def test_invalid_guess_does_not_create_chain_task_state(self):
         before = ChainTaskState.objects.filter(anon_key='inv1', task=self.task).count()
+        self._anon('inv1')
         r = self.client.post(
             '/alphabetty/1/guess/',
             data=json.dumps({'word': 'QQNOTAWORD', 'anon_key': 'inv1'}),
@@ -946,6 +955,7 @@ class AlphabettyPlayApiTests(TestCase):
 
     def test_suggest_and_approve_makes_word_valid(self):
         self.assertFalse(is_valid_guess(_FAKE_WORD))
+        self._anon('sug1')
         r = self.client.post(
             '/alphabetty/1/suggest/',
             data=json.dumps({'word': _FAKE_WORD, 'anon_key': 'sug1'}),
@@ -964,6 +974,7 @@ class AlphabettyPlayApiTests(TestCase):
 
         # Отдельный Client: иначе cookie interoves_anon от sug1 перебьёт header.
         c2 = Client()
+        self._anon('sug2', c2)
         r2 = c2.post(
             '/alphabetty/1/suggest/',
             data=json.dumps({'word': _FAKE_WORD, 'anon_key': 'sug2'}),
@@ -985,6 +996,7 @@ class AlphabettyPlayApiTests(TestCase):
 
         # После approve guess принимает слово
         c3 = Client()
+        self._anon('sug3', c3)
         r3 = c3.post(
             '/alphabetty/1/guess/',
             data=json.dumps({'word': _FAKE_WORD, 'anon_key': 'sug3'}),
@@ -996,6 +1008,7 @@ class AlphabettyPlayApiTests(TestCase):
     def test_suggest_makes_guess_valid_for_proposer(self):
         suggest_word(_FAKE_WORD, anon_key='me-only')
         c_me = Client()
+        self._anon('me-only', c_me)
         r = c_me.post(
             '/alphabetty/1/guess/',
             data=json.dumps({'word': _FAKE_WORD, 'anon_key': 'me-only'}),
@@ -1004,6 +1017,7 @@ class AlphabettyPlayApiTests(TestCase):
         )
         self.assertEqual(r.json()['status'], 'earlier')
         c_other = Client()
+        self._anon('stranger', c_other)
         r_other = c_other.post(
             '/alphabetty/1/guess/',
             data=json.dumps({'word': _FAKE_WORD, 'anon_key': 'stranger'}),

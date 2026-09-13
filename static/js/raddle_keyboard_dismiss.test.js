@@ -255,8 +255,23 @@ function testStickyPinStaysWhileTypingIfKeyboardPansRealPair() {
     pinH: 96,
     viewportOffsetTop: 300,
     viewportHeight: 360,
-    pinHasFocus: true,
+    pinKeepsPan: true,
   }), true);
+}
+
+function testStickyPinHidesWhenUserScrollsThePairBackIntoView() {
+  // Та же геометрия, что и при keyboard pan, но жест пользователя уже снял
+  // pan-hold: держать пин нельзя, иначе пара видна и в пине, и в лесенке.
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: 400,
+    firstBottom: 448,
+    taskBottom: 900,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 300,
+    viewportHeight: 360,
+    pinKeepsPan: false,
+  }), false);
 }
 
 function testStickyPinHidesWhenLookingAtWordsAboveEvenIfPinHadFocus() {
@@ -268,8 +283,108 @@ function testStickyPinHidesWhenLookingAtWordsAboveEvenIfPinHadFocus() {
     pinH: 96,
     viewportOffsetTop: 0,
     viewportHeight: 360,
-    pinHasFocus: true,
+    pinKeepsPan: true,
   }), false);
+}
+
+function testStickyPinStaysUnderNavRegardlessOfPanHold() {
+  // Пара под шапкой — пин нужен независимо от того, печатает ли пользователь.
+  var geometry = {
+    firstTop: -40,
+    firstBottom: 8,
+    taskBottom: 800,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 0,
+    viewportHeight: 640,
+  };
+  assert.strictEqual(D.shouldShowStickyPin(geometry), true);
+  assert.strictEqual(
+    D.shouldShowStickyPin(Object.assign({}, geometry, { pinKeepsPan: false })),
+    true,
+    'a scroll gesture does not hide a pin the geometry still requires'
+  );
+}
+
+function testStickyPinHiddenWhenTaskScrolledOffScreen() {
+  // Задание уехало вверх целиком — пина быть не должно.
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: -400,
+    firstBottom: -352,
+    taskBottom: 40,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 0,
+    viewportHeight: 640,
+  }), false);
+}
+
+function testStickyPinShowsAsSoonAsTheTopEdgeCrossesTheNav() {
+  // Фидбек «фиксируется слишком поздно»: пин обязан появиться, как только пара
+  // начала уезжать под шапку, а не когда первая строка скрылась целиком.
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: 50,
+    firstBottom: 98,
+    taskBottom: 800,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 0,
+    viewportHeight: 640,
+  }), true);
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: 58,
+    firstBottom: 106,
+    taskBottom: 800,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 0,
+    viewportHeight: 640,
+  }), false, 'пара ещё целиком под шапкой — пин не нужен');
+}
+
+function testStickyPinShowsWhilePairIsPartlyUnderTheNav() {
+  // Пара уехала под шапку лишь частично: верх скрыт, низ на границе.
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: 20,
+    firstBottom: 60,
+    taskBottom: 800,
+    navTop: 56,
+    pinH: 96,
+    viewportOffsetTop: 0,
+    viewportHeight: 640,
+  }), true);
+}
+
+function testStickyPinKeyboardPanIsJudgedInVisualViewport() {
+  // Тот же layout-прямоугольник: без клавиатуры пара под шапкой (пин нужен),
+  // с клавиатурой (offsetTop) она в остатке экрана — прятать нельзя по факту
+  // panning, только по реальному положению в visualViewport.
+  var layout = {
+    firstTop: 300,
+    firstBottom: 348,
+    taskBottom: 900,
+    navTop: 56,
+    pinH: 96,
+    viewportHeight: 640,
+  };
+  assert.strictEqual(D.shouldShowStickyPin(Object.assign({}, layout, {
+    viewportOffsetTop: 300,
+  })), true, 'pan past the pair keeps the pin');
+  assert.strictEqual(D.shouldShowStickyPin(Object.assign({}, layout, {
+    viewportOffsetTop: 0,
+  })), false, 'pair fully visible below the nav needs no pin');
+}
+
+function testStickyPinToleratesMissingBottomAndViewportHeight() {
+  assert.strictEqual(D.shouldShowStickyPin({
+    firstTop: -60,
+    taskBottom: 800,
+    navTop: 56,
+  }), true);
+  assert.strictEqual(D.shouldShowStickyPin({
+    taskBottom: 800,
+    navTop: 56,
+  }), false, 'no geometry at all → no pin');
 }
 
 testDismissRetargetFromEmptySpace();
@@ -291,5 +406,12 @@ testStickyPinHiddenWhileKeyboardKeepsPairInView();
 testStickyPinShowsWhenVisualViewportPansPastPair();
 testStickyPinHiddenWhenPairIsBelowTheViewport();
 testStickyPinStaysWhileTypingIfKeyboardPansRealPair();
+testStickyPinHidesWhenUserScrollsThePairBackIntoView();
 testStickyPinHidesWhenLookingAtWordsAboveEvenIfPinHadFocus();
+testStickyPinStaysUnderNavRegardlessOfPanHold();
+testStickyPinHiddenWhenTaskScrolledOffScreen();
+testStickyPinShowsAsSoonAsTheTopEdgeCrossesTheNav();
+testStickyPinShowsWhilePairIsPartlyUnderTheNav();
+testStickyPinKeyboardPanIsJudgedInVisualViewport();
+testStickyPinToleratesMissingBottomAndViewportHeight();
 console.log('raddle_keyboard_dismiss.test.js: ok');

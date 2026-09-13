@@ -173,24 +173,13 @@
   function persistAnon(key) {
     if (!key) return;
     try { localStorage.setItem('interoves_anon_key', key); } catch (e) {}
-    try {
-      document.cookie = 'interoves_anon=' + encodeURIComponent(key) +
-        '; path=/; SameSite=Lax; max-age=31622400';
-    } catch (e) {}
   }
   function resolveAnonKey() {
     if (isAuthenticated) return '';
-    var key = '';
-    try { key = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
-    if (!key) key = readAnonCookie();
+    var key = readAnonCookie();
     if (!key) key = serverAnon;
     if (!key) {
-      try {
-        if (window.crypto && crypto.randomUUID) key = crypto.randomUUID();
-        else key = String(Date.now()) + '-' + String(Math.random()).slice(2);
-      } catch (e) {
-        key = String(Date.now()) + '-' + String(Math.random()).slice(2);
-      }
+      try { key = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
     }
     persistAnon(key);
     return key;
@@ -1166,12 +1155,12 @@
   function resolveAnonKey() {
     if (isAuthenticated) return '';
     var key = '';
-    try { key = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
+    try {
+      var m = document.cookie.match(/(?:^|;\s*)interoves_anon=([^;]+)/);
+      if (m) key = decodeURIComponent(m[1]);
+    } catch (e2) {}
     if (!key) {
-      try {
-        var m = document.cookie.match(/(?:^|;\s*)interoves_anon=([^;]+)/);
-        if (m) key = decodeURIComponent(m[1]);
-      } catch (e2) {}
+      try { key = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
     }
     if (!key && root) key = root.getAttribute('data-anon-key') || '';
     return key || '';

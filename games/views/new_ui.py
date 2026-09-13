@@ -47,6 +47,12 @@ from games.analytics import (
     ticket_purchase_goal_payload,
     yandex_goal_payload,
 )
+from games.analytics_identity import (
+    browser_anon_key,
+    gameplay_anon_key,
+    is_valid_anon_key,
+    rotate_anonymous_identity,
+)
 from games.alphabetty_daily import ALPHABETTY_GAME_ID
 from games.daily_section import (
     current_number_for,
@@ -108,7 +114,6 @@ from games.models import (
     Profile,
     ProfileTeamMembership,
     Project,
-    StatisticsEvent,
     Task,
     TaskGroup,
     Team,
@@ -168,15 +173,10 @@ logger = logging.getLogger(__name__)
 
 
 def _anon_key_from_request(request):
-    """Идентификатор анонимного игрока в личном режиме: ?anon= / ?anon_key=, cookie interoves_anon или X-Interoves-Anon."""
+    """Canonical browser anonymous identity. GET/POST/header/URL are not authority."""
     if request.user.is_authenticated:
         return None
-    return (
-        request.GET.get('anon')
-        or request.GET.get('anon_key')
-        or request.COOKIES.get('interoves_anon')
-        or request.headers.get('X-Interoves-Anon')
-    )
+    return gameplay_anon_key(request)
 
 
 def _age_gate_context(game, task_group=None, *, back_url='/'):
@@ -1024,7 +1024,7 @@ def _has_gameplay_history(**actor):
 
 def _anonymous_gameplay_history(anon_key):
     anon_key = str(anon_key or '').strip()
-    if not _valid_anon_key(anon_key):
+    if not is_valid_anon_key(anon_key):
         return False
     actor = {
         'anon_key': anon_key,
@@ -1044,9 +1044,7 @@ def _is_first_time_player(request):
         # Registration and the optional anon-progress merge are separate
         # requests. Honour this browser's cookie in between so onboarding does
         # not flash back immediately after a player signs up.
-        return not _anonymous_gameplay_history(
-            request.COOKIES.get('interoves_anon')
-        )
+        return not _anonymous_gameplay_history(browser_anon_key(request))
 
     return not _anonymous_gameplay_history(_anon_key_from_request(request))
 
@@ -3863,7 +3861,7 @@ def new_like_dislike(request, task_id):
         if request.user.is_authenticated:
             user = request.user
         else:
-            anon_key = request.POST.get('anon_key')
+            anon_key = gameplay_anon_key(request)
             if not anon_key:
                 raise Http404()
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
@@ -3914,7 +3912,7 @@ def new_bug_report(request, task_id):
             raise Http404()
     else:
         if user is None:
-            anon_key = request.POST.get('anon_key')
+            anon_key = gameplay_anon_key(request)
             if not anon_key:
                 raise Http404()
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
@@ -3977,17 +3975,16 @@ def new_set_play_mode(request):
 
 
 def _valid_anon_key(value):
-    value = (value or '').strip()
-    return bool(
-        8 <= len(value) <= 64
-        and all(char.isalnum() or char in '-_.~' for char in value)
-    )
+    return is_valid_anon_key(value)
 
 
 def _anon_key_matches_browser(request, anon_key):
-    """A cookie, when available, is stronger proof than a posted bearer key."""
-    cookie_key = (request.COOKIES.get('interoves_anon') or '').strip()
-    return not cookie_key or hmac.compare_digest(cookie_key, anon_key)
+    """Claim proof is the canonical browser cookie, not a posted/header UUID."""
+    cookie_key = (browser_anon_key(request) or '').strip()
+    presented = (anon_key or '').strip()
+    if not cookie_key or not presented:
+        return False
+    return hmac.compare_digest(cookie_key, presented)
 
 
 def _anon_task_group_link(attempt):
@@ -4022,13 +4019,18 @@ def _anon_task_group_link(attempt):
 def new_anon_migrate_count(request):
     if not has_profile(request.user):
         raise Http404()
-    anon_key = (request.GET.get('anon_key') or '').strip()
-    if not anon_key:
-        return JsonResponse({'attempts': 0, 'show_prompt': False})
-    if not _valid_anon_key(anon_key):
-        return JsonResponse({'status': 'invalid_anon_key', 'show_prompt': False}, status=400)
-    if not _anon_key_matches_browser(request, anon_key):
+    canonical = (browser_anon_key(request) or '').strip()
+    posted = (request.GET.get('anon_key') or '').strip()
+    if not canonical:
         return JsonResponse({'status': 'anon_key_mismatch', 'show_prompt': False}, status=403)
+    if posted:
+        if not is_valid_anon_key(posted):
+            return JsonResponse({'status': 'invalid_anon_key', 'show_prompt': False}, status=400)
+        if not _anon_key_matches_browser(request, posted):
+            return JsonResponse({'status': 'anon_key_mismatch', 'show_prompt': False}, status=403)
+        anon_key = posted
+    else:
+        anon_key = canonical
 
     from games.anon_migrate import anon_migration_counts
     from games.models import AnonAccountClaim, HiddenAnonKey
@@ -4109,89 +4111,32 @@ def new_migrate_anon_attempts(request):
     anon_key = (request.POST.get('anon_key') or '').strip()
     if not anon_key:
         raise Http404()
-    if not _valid_anon_key(anon_key):
+    if not is_valid_anon_key(anon_key):
         return JsonResponse({'status': 'invalid_anon_key'}, status=400)
     if not _anon_key_matches_browser(request, anon_key):
         return JsonResponse({'status': 'anon_key_mismatch'}, status=403)
 
-    from games.anon_migrate import anon_migration_counts
-    from games.models import AnonAccountClaim, HiddenAnonKey
+    from games.anon_migrate import claim_and_migrate_anon_history
 
-    if HiddenAnonKey.objects.select_for_update().filter(anon_key=anon_key).exists():
+    result = claim_and_migrate_anon_history(request.user, anon_key)
+    status = result.get('status')
+    if status == 'hidden_anon':
         return JsonResponse({'status': 'hidden_anon'}, status=409)
-    claim = AnonAccountClaim.objects.select_for_update().filter(anon_key=anon_key).first()
-    if claim is not None and claim.user_id != request.user.pk:
+    if status == 'claimed_elsewhere':
         return JsonResponse({'status': 'claimed_elsewhere'}, status=409)
-    before_counts = anon_migration_counts(anon_key)
-    if claim is None and any(before_counts.values()):
-        # get_or_create resolves the unique-key race if two authenticated
-        # sessions try to claim the same browser identity simultaneously.
-        claim, _ = AnonAccountClaim.objects.get_or_create(
-            anon_key=anon_key,
-            defaults={'user': request.user},
-        )
-        if claim.user_id != request.user.pk:
-            return JsonResponse({'status': 'claimed_elsewhere'}, status=409)
-    moved = Attempt.manager.filter(anon_key=anon_key, user__isnull=True, team__isnull=True).update(
-        user=request.user,
-        anon_key=None,
-    )
-    moved_hints = HintAttempt.objects.filter(anon_key=anon_key, user__isnull=True, team__isnull=True).update(
-        user=request.user,
-        anon_key=None,
-    )
-    from games.anon_migrate import (
-        migrate_anon_analytics_state,
-        migrate_anon_attributions,
-        migrate_anon_chain_task_states,
-        migrate_anon_completed_games,
-        migrate_anon_daily_timings,
-        migrate_anon_likes,
-        migrate_anon_personal_dict_words,
-        migrate_anon_started_games,
-    )
-    moved_states = migrate_anon_chain_task_states(request.user, anon_key)
-    moved_starts = migrate_anon_started_games(request.user, anon_key)
-    moved_timings = migrate_anon_daily_timings(request.user, anon_key)
-    moved_completions = migrate_anon_completed_games(request.user, anon_key)
-    moved_analytics_state = migrate_anon_analytics_state(request.user, anon_key)
-    moved_personal_dict = migrate_anon_personal_dict_words(request.user, anon_key)
-    moved_likes = migrate_anon_likes(request.user, anon_key)
-    moved_attributions = migrate_anon_attributions(request.user, anon_key)
-    moved_bug_reports = moved_attributions['bug_reports']
-    moved_dict_suggestions = moved_attributions['dict_suggestions']
-    if (
-        moved or moved_hints or moved_states or moved_starts or moved_timings or moved_completions
-        or moved_analytics_state or moved_personal_dict or moved_likes
-        or moved_bug_reports or moved_dict_suggestions
-    ):
-        StatisticsEvent.record(
-            StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
-            user=request.user,
-            anon_key=anon_key,
-            moved=moved,
-            moved_hints=moved_hints,
-            moved_states=moved_states,
-            moved_starts=moved_starts,
-            moved_completions=moved_completions,
-            moved_analytics_state=moved_analytics_state,
-            moved_personal_dict=moved_personal_dict,
-            moved_likes=moved_likes,
-            moved_bug_reports=moved_bug_reports,
-            moved_dict_suggestions=moved_dict_suggestions,
-        )
+    rotate_anonymous_identity(request)
     return JsonResponse({
         'status': 'ok',
-        'moved': moved,
-        'moved_hints': moved_hints,
-        'moved_states': moved_states,
-        'moved_starts': moved_starts,
-        'moved_completions': moved_completions,
-        'moved_analytics_state': moved_analytics_state,
-        'moved_personal_dict': moved_personal_dict,
-        'moved_likes': moved_likes,
-        'moved_bug_reports': moved_bug_reports,
-        'moved_dict_suggestions': moved_dict_suggestions,
+        'moved': result.get('moved', 0),
+        'moved_hints': result.get('moved_hints', 0),
+        'moved_states': result.get('moved_states', 0),
+        'moved_starts': result.get('moved_starts', 0),
+        'moved_completions': result.get('moved_completions', 0),
+        'moved_analytics_state': result.get('moved_analytics_state', 0),
+        'moved_personal_dict': result.get('moved_personal_dict', 0),
+        'moved_likes': result.get('moved_likes', 0),
+        'moved_bug_reports': result.get('moved_bug_reports', 0),
+        'moved_dict_suggestions': result.get('moved_dict_suggestions', 0),
     })
 
 

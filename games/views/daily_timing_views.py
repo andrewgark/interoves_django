@@ -19,7 +19,8 @@ from games.daily_timing import (
     snapshot,
 )
 from games.models import Game, GameTaskGroup
-from games.views.new_ui import NEW_UI_SECTIONS_PROJECT, _anon_key_from_request
+from games.views.new_ui import NEW_UI_SECTIONS_PROJECT
+from games.analytics_identity import gameplay_anon_key
 from games.views.util import has_profile
 
 
@@ -47,11 +48,7 @@ def _payload(request):
 def _resolve_actor(request, payload):
     if request.user.is_authenticated:
         return request.user, None
-    anon_key = (
-        payload.get('anon_key')
-        or _anon_key_from_request(request)
-        or request.headers.get('X-Interoves-Anon')
-    )
+    anon_key = gameplay_anon_key(request)
     if anon_key:
         return None, str(anon_key)
     return None, None

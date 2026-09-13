@@ -16,8 +16,9 @@ explicit offsets are preferred.
 
 The command prints only check name, `PASS`/`FAIL`, aggregate count, and the
 requested window. It never prints row IDs, user/team values, full `anon_key`,
-email, username, or other PII. Any failed mandatory invariant raises
-`CommandError`, which gives `manage.py` a non-zero process exit status.
+email, username, or other PII. A failed **FAIL** invariant raises `CommandError` (non-zero exit). **WARN**
+lines do not fail the process. The command never prints row IDs, user/team
+values, full `anon_key`, email, username, or other PII.
 
 ## Checked invariants
 
@@ -27,8 +28,8 @@ The bounded candidate set is selected by `started_at`, `completed_at`, or
 - exactly one of `user_id`, `team_id`, and `anon_key` on start, completion, and
   lifecycle-state rows;
 - a later duplicate start or completion for the same actor and placement;
-- completion without a matching start for the same actor, placement, and
-  `game_instance_id`;
+- live v2 completion without a matching start (**FAIL**);
+- legacy/backfill completion without a matching start (**WARN**);
 - live v2 completion timestamp earlier than its first matching start;
 - missing `GameTaskGroup(game, task_group)` placement, except unpublished
   `LadderOffer` / `WordSaladOffer` drafts (`status` draft or sent and no
@@ -38,7 +39,9 @@ The bounded candidate set is selected by `started_at`, `completed_at`, or
 - `game_kind` inconsistent with the current mapping;
 - start/completion more than five minutes in the future;
 - physical instrumentation version outside `NULL` or `2`;
-- a backfilled row incorrectly marked version 2.
+- a backfilled row incorrectly marked version 2;
+- anonymous start/completion in the window whose `anon_key` already has an
+  `AnonAccountClaim` (**WARN**; indexed Exists on the unique claim key).
 
 For “completion without start”, only completions inside the requested window are
 candidates, but the matching indexed lookup is allowed to find a start earlier
@@ -69,74 +72,60 @@ candidates. Their inner lookups use existing actor, game/task-group foreign-key,
 and `game_instance_id` indexes. Game-kind and instance-id consistency is evaluated
 while streaming only candidate rows.
 
-No index is added in 1A. Production `EXPLAIN` results and any index recommendation
-must be recorded in the implementation report. If a plan is unsafe at production
-volume, schedule a separate additive-index change rather than widening this
-stage.
+No index is added in this stage. The nine player-analytics UNIQUE indexes from
+stage 1B.2 also provide `(actor, game_instance_id)` lookup prefixes for
+duplicate and counterpart checks. Keep using short post-deploy windows and
+monitor duration before using the 31-day maximum.
 
 ### Production plan snapshot, 2026-09-02
 
-Read-only `EXPLAIN FORMAT=JSON` against the current MySQL structure, using an
-18-day window, showed:
-
-- start candidate scan: range/skip-scan, about 951 rows examined;
-- registered-user duplicate-start check: about 3,849 outer index rows and about
-  34 task-group-index rows per matching inner probe; estimated query cost about
-  11,951;
-- registered-user completion-without-start: about 6,999 outer index rows, with a
-  materialized anti-join over about 3,849 eligible start rows; estimated cost
-  about 1,829;
-- completion-placement check: optimizer chose a full scan of about 13,093
-  completion rows plus the 1,428-row unique placement index; estimated cost
-  about 2,277;
-- lifecycle-state window: full scan of 655 rows; estimated cost about 67.
-
-At the audited sizes these are bounded operational checks, not heavy production
-scans. They are not good long-term plans: the user duplicate branch in particular
-lacks `(user_id, game_instance_id)` or equivalent uniqueness/lookup support, and
-the optimizer may materialize a sizeable eligible-start subset for the anti-join.
-The three actor-specific unique indexes evaluated in [stage 1B](1b-mysql-deduplication.md)
-would also provide the missing lookup prefixes. Their creation remains separately
-gated; until then, run short post-deploy windows and monitor duration before using
-the 31-day maximum.
+Read-only `EXPLAIN FORMAT=JSON` against the then-current MySQL structure, using
+an 18-day window, showed bounded operational checks rather than full-history
+scans. Unique indexes from 1B.2 later supplied the missing actor+instance
+prefixes. Re-run EXPLAIN if the command is widened.
 
 ## Interpretation
 
-A clean result means no checked invariant violation was found among candidates in
-that window. It does not prove:
+A clean **FAIL** result means no checked mandatory invariant was violated among
+candidates in that window. WARN lines are informational. The command does not
+prove:
 
-- ownership or continuity of anonymous identity;
-- absence of actors split between anon and user namespaces;
-- database-enforced uniqueness under concurrent writes;
+- ownership of anonymous identity before the recorded identity cutover;
+- absence of actors split between anon and user namespaces unless claimed;
 - complete client-to-Metrika delivery;
 - correctness of historical periods before instrumentation coverage.
 
-Version 2 means known write semantics and eligibility for these checks, not full
-analytics reliability.
+`instrumentation_version=2` means known write semantics, not identity cutover
+and not full analytics reliability.
+
+Trusted identity cutover SHA/timestamp is written only after production
+rollout and post-deploy validation.
 
 ## Post-deploy runbook
 
-After migration and application rollout, operators should:
+After application rollout, operators should:
 
 1. record the deployment timestamp and code revision;
-2. confirm migration `0195_product_analytics_instrumentation_version` is applied;
-3. verify new live start and completion rows are version `2`, while old and
-   backfilled rows remain `NULL` and physical value `1` is absent;
-4. during a rolling deploy, accept temporary new `NULL` rows from old instances;
-5. after all instances run the new code, run the command on a short window wholly
-   after rollout, then daily windows, never exceeding 31 days;
-6. compare backend live completions with Metrika acknowledgement coverage using
-   `report_yandex_goals`, understanding that blocked/unavailable Metrika is not a
-   backend invariant violation;
-7. investigate failures without editing or backfilling production data.
+2. confirm migrations `0195` and `0204_player_analytics_physical_uniques` are
+   applied (`0204` is state-only; do not recreate physical indexes);
+3. confirm the nine EXACT unique indexes are unchanged;
+4. verify new live start/completion rows are version `2`;
+5. after all instances run the new identity code, run this command on a short
+   window wholly after rollout;
+6. manually confirm issuance, revisit, header-only spoof rejection, signup
+   auto-claim, login without auto-claim, logout rotation;
+7. compare backend live completions with Metrika acknowledgement coverage using
+   `report_yandex_goals`;
+8. investigate failures without editing or backfilling production data;
+9. only then record the identity cutover SHA/timestamp in the operations log.
 
 Local tests do not complete this production verification.
 
 ## Rollback
 
-Application rollback is safe while the nullable columns remain: old code ignores
-them and writes `NULL`. Do not reverse migration `0195` during a rolling rollback,
-because new instances may still reference the columns. A later, separately
-approved cleanup can remove them only after all code is rolled back and no reader
-depends on them. The quality command can simply be omitted from scheduling during
-rollback; it never mutates data.
+Application rollback reverts to trusting client header/POST actor fields and
+stops logout rotation. HMAC cookies are ignored by old code. Do not reverse
+`0204` or drop the nine unique indexes. Do not reverse `0195` during a rolling
+rollback. Already-migrated signup claims are not automatically undone. The
+quality command can be omitted from scheduling during rollback; it never
+mutates data.

@@ -69,10 +69,16 @@
 
   /**
    * Show the sticky pin when the highlighted pair has gone under the nav in
-   * the visual viewport. If the user is already typing in the pin, keep it
-   * even when the keyboard pans the real pair back into the leftover view
-   * (hiding it would jump the page). Never keep it when the pair has gone
-   * *below* the viewport — that is looking at words above the current step.
+   * the visual viewport.
+   *
+   * Never keep it when the pair has gone *below* the viewport — that is
+   * looking at words above the current step.
+   *
+   * `pinKeepsPan` is the one exception to the geometry: while the user types in
+   * the pin and the soft keyboard pans the real pair back into the leftover
+   * view, hiding the pin would hand focus back and jump the page. That hold is
+   * released by the first scroll gesture (RaddleState session), because a pair
+   * the user deliberately scrolled back on screen must not be shown twice.
    */
   function shouldShowStickyPin(opts) {
     opts = opts || {};
@@ -94,9 +100,12 @@
     if (!taskStillVisible) return false;
     var pairBelowView = isFinite(vh) && firstTop >= vh - sliver;
     if (pairBelowView) return false;
-    if (opts.pinHasFocus) return true;
-    var underNav = (firstBottom - navTop) < sliver;
-    return underNav;
+    // Как настоящий position: sticky — пара останавливается у шапки, а не уезжает
+    // под неё, чтобы вернуться пином строкой позже. Порог по верхней кромке:
+    // ждать, пока строка скроется целиком, значит «фиксировать слишком поздно».
+    var underNav = firstTop < navTop - 1;
+    if (underNav) return true;
+    return !!opts.pinKeepsPan;
   }
 
   global.RaddleKeyboardDismiss = {

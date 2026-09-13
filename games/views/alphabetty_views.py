@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import uuid
 from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
@@ -60,10 +59,10 @@ from games.task_titles import task_display_name, task_group_page_title
 from games.views.daily_timing_views import daily_timing_page_context
 from games.views.new_ui import (
     NEW_UI_SECTIONS_PROJECT,
-    _anon_key_from_request,
     _neighbors_by_pk,
     _task_group_page_nav_context,
 )
+from games.analytics_identity import gameplay_anon_key
 from games.views.util import has_profile
 
 
@@ -87,16 +86,10 @@ def _published_numbers(game):
 
 
 def _resolve_actor(request, *, body=None):
-    """Актор: залогиненный user, иначе anon из cookie/header/body (без генерации UUID)."""
-    body = body or {}
+    """Logged-in user, otherwise the canonical browser anonymous cookie."""
     if request.user.is_authenticated:
         return request.user, None
-    anon_key = (
-        _anon_key_from_request(request)
-        or request.POST.get('anon_key')
-        or request.headers.get('X-Interoves-Anon')
-        or body.get('anon_key')
-    )
+    anon_key = gameplay_anon_key(request)
     if anon_key:
         return None, str(anon_key)
     return None, None
@@ -565,13 +558,6 @@ def alphabetty_state(request, number):
         placement=load_meta.get('accepted_link') if not load_meta.get('offer') else None,
     )
     response = JsonResponse(payload)
-    if user is None and anon_key:
-        response.set_cookie(
-            'interoves_anon',
-            anon_key,
-            max_age=60 * 60 * 24 * 365,
-            samesite='Lax',
-        )
     return response
 
 
@@ -588,10 +574,6 @@ def alphabetty_guess(request, number):
     word = body.get('word') or request.POST.get('word') or ''
 
     user, anon_key = _resolve_actor(request, body=body)
-    if user is None and not anon_key:
-        # Последний шанс — клиент обязан прислать anon; иначе сгенерируем стабильный
-        # только для этого ответа (и проставим cookie), не трогая чужой localStorage на GET.
-        anon_key = uuid.uuid4().hex
 
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
@@ -652,13 +634,6 @@ def alphabetty_guess(request, number):
         )
     with timing_phase(request, 'serialize_response'):
         response = JsonResponse(result)
-    if user is None and anon_key:
-        response.set_cookie(
-            'interoves_anon',
-            anon_key,
-            max_age=60 * 60 * 24 * 365,
-            samesite='Lax',
-        )
     return response
 
 
@@ -696,8 +671,6 @@ def alphabetty_hint(request, number):
         body = {}
 
     user, anon_key = _resolve_actor(request, body=body)
-    if user is None and not anon_key:
-        anon_key = uuid.uuid4().hex
 
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
@@ -730,13 +703,6 @@ def alphabetty_hint(request, number):
         placement=load_meta.get('accepted_link') if not load_meta.get('offer') else None,
     )
     response = JsonResponse(result)
-    if user is None and anon_key:
-        response.set_cookie(
-            'interoves_anon',
-            anon_key,
-            max_age=60 * 60 * 24 * 365,
-            samesite='Lax',
-        )
     return response
 
 
@@ -753,16 +719,6 @@ def alphabetty_suggest(request, number):
         body = {}
     word = body.get('word') or request.POST.get('word') or ''
     user, anon_key = _resolve_actor(request, body=body)
-    if user is None and not anon_key:
-        anon_key = uuid.uuid4().hex
 
     result = suggest_word(word, user=user, anon_key=anon_key)
-    response = JsonResponse(result)
-    if user is None and anon_key:
-        response.set_cookie(
-            'interoves_anon',
-            anon_key,
-            max_age=60 * 60 * 24 * 365,
-            samesite='Lax',
-        )
-    return response
+    return JsonResponse(result)

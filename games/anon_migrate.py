@@ -14,16 +14,101 @@ from games.analytics_persistence import (
 from games.models import (
     AlphabettyDictSuggestion,
     AlphabettyPersonalDictWord,
+    AnonAccountClaim,
     Attempt,
     BugReport,
     ChainTaskState,
+    HiddenAnonKey,
     HintAttempt,
     Like,
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
     DailySolveTiming,
+    StatisticsEvent,
 )
+
+
+@transaction.atomic
+def claim_and_migrate_anon_history(user, anon_key):
+    """Idempotently move guest-owned rows onto ``user``. Does not copy events.
+
+    Returns a dict with ``status`` (``ok``, ``hidden_anon``, ``claimed_elsewhere``)
+    and move counts when status is ``ok``. Callers must already have proven
+    browser possession of ``anon_key``.
+    """
+    if not user or not anon_key:
+        return {'status': 'ok', 'moved_any': False}
+
+    if HiddenAnonKey.objects.select_for_update().filter(anon_key=anon_key).exists():
+        return {'status': 'hidden_anon', 'moved_any': False}
+    claim = AnonAccountClaim.objects.select_for_update().filter(anon_key=anon_key).first()
+    if claim is not None and claim.user_id != user.pk:
+        return {'status': 'claimed_elsewhere', 'moved_any': False}
+    before_counts = anon_migration_counts(anon_key)
+    if claim is None and any(before_counts.values()):
+        # get_or_create resolves the unique-key race if two authenticated
+        # sessions try to claim the same browser identity simultaneously.
+        claim, _ = AnonAccountClaim.objects.get_or_create(
+            anon_key=anon_key,
+            defaults={'user': user},
+        )
+        if claim.user_id != user.pk:
+            return {'status': 'claimed_elsewhere', 'moved_any': False}
+
+    moved = Attempt.manager.filter(anon_key=anon_key, user__isnull=True, team__isnull=True).update(
+        user=user,
+        anon_key=None,
+    )
+    moved_hints = HintAttempt.objects.filter(anon_key=anon_key, user__isnull=True, team__isnull=True).update(
+        user=user,
+        anon_key=None,
+    )
+    moved_states = migrate_anon_chain_task_states(user, anon_key)
+    moved_starts = migrate_anon_started_games(user, anon_key)
+    moved_timings = migrate_anon_daily_timings(user, anon_key)
+    moved_completions = migrate_anon_completed_games(user, anon_key)
+    moved_analytics_state = migrate_anon_analytics_state(user, anon_key)
+    moved_personal_dict = migrate_anon_personal_dict_words(user, anon_key)
+    moved_likes = migrate_anon_likes(user, anon_key)
+    moved_attributions = migrate_anon_attributions(user, anon_key)
+    moved_bug_reports = moved_attributions['bug_reports']
+    moved_dict_suggestions = moved_attributions['dict_suggestions']
+    moved_any = bool(
+        moved or moved_hints or moved_states or moved_starts or moved_timings or moved_completions
+        or moved_analytics_state or moved_personal_dict or moved_likes
+        or moved_bug_reports or moved_dict_suggestions
+    )
+    if moved_any:
+        StatisticsEvent.record(
+            StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
+            user=user,
+            anon_key=anon_key,
+            moved=moved,
+            moved_hints=moved_hints,
+            moved_states=moved_states,
+            moved_starts=moved_starts,
+            moved_completions=moved_completions,
+            moved_analytics_state=moved_analytics_state,
+            moved_personal_dict=moved_personal_dict,
+            moved_likes=moved_likes,
+            moved_bug_reports=moved_bug_reports,
+            moved_dict_suggestions=moved_dict_suggestions,
+        )
+    return {
+        'status': 'ok',
+        'moved_any': moved_any,
+        'moved': moved,
+        'moved_hints': moved_hints,
+        'moved_states': moved_states,
+        'moved_starts': moved_starts,
+        'moved_completions': moved_completions,
+        'moved_analytics_state': moved_analytics_state,
+        'moved_personal_dict': moved_personal_dict,
+        'moved_likes': moved_likes,
+        'moved_bug_reports': moved_bug_reports,
+        'moved_dict_suggestions': moved_dict_suggestions,
+    }
 
 
 def anon_migration_counts(anon_key):

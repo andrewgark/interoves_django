@@ -32,6 +32,7 @@ from games.views.hint_views import _get_play_mode, create_hint_attempt
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
+from games.analytics_identity import gameplay_anon_key
 
 
 def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_key=None, task=None, game=None):
@@ -63,7 +64,7 @@ def _actor_from_request(request, game):
                 return None, None, None, 'no_profile'
             user = request.user
         else:
-            anon_key = request.POST.get('anon_key') or request.headers.get('X-Interoves-Anon')
+            anon_key = gameplay_anon_key(request)
             if not anon_key:
                 return None, None, None, 'no_anon'
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):

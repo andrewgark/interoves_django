@@ -70,6 +70,7 @@ class AttemptRequestValidationTests(TestCase):
     def _request(self, data):
         request = RequestFactory().post('/send/', dict(data, anon_key='validation-anon'))
         request.user = AnonymousUser()
+        request.COOKIES['interoves_anon'] = 'validation-anon'
         return request
 
     def _process(self, task, data):

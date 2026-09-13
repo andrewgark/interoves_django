@@ -1,88 +1,128 @@
 # Current product analytics identity
 
-Stage 1A documents the existing model; it does not add `AnalyticsActor`, change
-cookies, or alter signup/login/logout/claim behavior.
+Stage 1C hardens anonymous identity without introducing `AnalyticsActor`,
+aliases, or a generic event warehouse. Product rows still store exactly one of
+`user_id`, `anon_key`, or `team_id`.
 
 ## Identity namespaces
-
-Product rows store exactly one identity:
 
 | Field | Meaning | Created/selected by |
 | --- | --- | --- |
 | `user_id` | registered Django account | authenticated request / `analytics_user` |
-| `anon_key` | anonymous browser-held bearer value | frontend JS, normally `crypto.randomUUID()` |
+| `anon_key` | anonymous browser identity | server-issued opaque UUID in cookie `interoves_anon` |
 | `team_id` | team attribution supported by schema | team-mode fallback where no analytics user is selected |
 
 The type is part of the actor key. User `42`, team `42`, and anon string `"42"`
 are three different actors.
 
-## Anonymous key lifecycle
+## Cookie protocol
 
-For unauthenticated new-UI pages, the browser reads in this order:
+Canonical UUID cookie (JS-readable, needed by the existing claim UI):
 
-1. `localStorage['interoves_anon_key']`;
-2. cookie `interoves_anon`;
-3. `anon` or `anon_key` URL parameter as a fallback;
-4. a newly generated value (`crypto.randomUUID()` where available; a weaker
-   time/random fallback otherwise).
+    interoves_anon=<opaque uuid>
 
-It persists the value to localStorage and a JS-readable `SameSite=Lax`, path `/`
-cookie. Existing templates currently set inconsistent maximum ages: the base
-template uses 31,622,400 seconds (about 366 days), while the game template can
-refresh it to two years. LocalStorage has no application expiry. This is a
-confirmed limitation, not normalized in 1A.
+HttpOnly HMAC signature cookie (JS must not read it):
 
-Multiple tabs normally share localStorage and the cookie, so they normally reuse
-one key. If storage is blocked, in-memory/URL fallback behavior can create a new
-identity. A damaged, absent, or cleared value creates a new key.
+    interoves_anon_sig=<hex hmac-sha256>
 
-The server currently accepts the anonymous key from URL, cookie, header, or form
-data in different endpoints. It validates syntax in the claim flow, but ordinary
-gameplay treats the key as a bearer identifier. It is not signed and possession
-is not generally proven. Therefore it is opaque in the common UUID path but not
-a hardened identity credential.
+Signing uses an explicit context `interoves-anon-identity-v1` and setting
+`ANALYTICS_ANON_SIGNING_KEY` (dev/test may fall back to `SECRET_KEY`).
+Production should set the same dedicated secret on every instance. Rotating
+that secret invalidates signatures and needs a separate dual-key rollout;
+Stage 1C does not implement secret rotation.
+
+Both cookies use `path=/`, `SameSite=Lax`, `Secure` when `SESSION_COOKIE_SECURE`
+is on, and `max-age=31622400` (about 366 days), matching the previous anonymous
+retention.
+
+GET, POST, header (`X-Interoves-Anon`), and URL `?anon=` / `?anon_key=` are
+**not** authority for gameplay or analytics attribution. Old clients may still
+send those fields; the backend ignores them as actor selectors.
+
+## Issuance and validation
+
+`games.analytics_identity` plus `AnonymousIdentityMiddleware` bind one identity
+per request (except static/health/`/meta/` paths):
+
+1. Valid UUID cookie + valid signature → reuse.
+2. Valid UUID cookie and **no** signature → **compat adopt** and upgrade with a
+   signature (unsigned legacy cookie window; Phase E mandatory-signature is
+   **not** in Stage 1C).
+3. Missing, malformed, or **invalid signature** → issue a fresh server UUID
+   (UUID4) and new signature. Gameplay is not 500.
+
+Tabs and revisits share the cookies, so they share one anonymous identity.
+Corrupt cookies mint a new identity instead of failing the request.
+
+Do not log raw UUID or signature. Diagnostics may use
+`anon_key_fingerprint()`, which is not reversible.
+
+## Rolling deploy limitation
+
+During a mixed old/new deploy:
+
+- New instances ignore header/POST/URL for actor selection immediately.
+- Old instances still trust those client fields.
+- New instances still **adopt an unsigned `interoves_anon` cookie** and mint a
+  signature. An attacker who can **set that cookie** to a known legacy UUID can
+  still inherit that legacy actor until a later mandatory-signature phase.
+- Header-only spoof of another UUID does **not** work on new instances.
 
 ## Authentication transitions
 
-### Signup or login
+### Signup
 
-After authentication, new product activity is attributed to `user_id`. Anonymous
-history is not silently aliased for reporting. The UI may offer an explicit
-“move this device's game” flow. That flow checks syntax, compares the posted key
-to the cookie when a cookie exists, checks `HiddenAnonKey`, and uses the unique
-`AnonAccountClaim` record to prevent a key being claimed by two different users.
-It then physically moves or merges attempts, state, starts, completions, and
-analytics state.
+`user_signed_up` (request is available on the allauth signal) auto-claims the
+**current canonical browser cookie** through the existing
+`claim_and_migrate_anon_history` / `AnonAccountClaim` path. Rows are reassigned
+or merged, not copied. The operation is idempotent. A later repeat of the
+signal does not create duplicate attempts or events. If migrate fails, signup
+itself still succeeds.
 
-If the cookie is unavailable, `_anon_key_matches_browser` currently accepts the
-posted bearer key. This does not fully prove browser ownership. Repeated claim by
-the same user is intended to be idempotent; merge functions collapse overlaps
-rather than copying event history wholesale.
+### Login of an existing account
+
+Ordinary login does **not** auto-migrate. New authenticated activity uses
+`user_id`. Previous anonymous history stays on `anon_key` until the explicit
+claim UI.
+
+### Explicit claim
+
+The claim endpoints accept only the canonical browser cookie identity. A POST
+or GET UUID must match that cookie. Missing cookie, posted foreign UUID, or
+header-only identity is 403 (`anon_key_mismatch`) with no partial migration and
+no `AnonAccountClaim` write. `claimed_elsewhere` / `hidden_anon` remain 409.
+A successful claim rotates the browser to a new server-issued anonymous
+identity so the claimed key does not stay in the cookie.
 
 ### Registered user on another device
 
-Authenticated activity uses the same `user_id`, so new activity joins the
-account without needing the old browser key. Anonymous history created on the
-new device remains separate unless explicitly claimed.
+Authenticated activity uses the same `user_id`. Anonymous history created on
+the new device remains separate unless explicitly claimed.
 
 ### Logout and shared devices
 
-Logout does not rotate or clear `interoves_anon_key` / `interoves_anon`. A later
-anonymous visitor in the same browser can therefore reuse the previous browser's
-anonymous key. A successful claim UI rotates the browser key, but logout alone
-does not. This shared-device risk remains for stage 1C.
+Successful Django logout (`user_logged_out`, including `/logout/` and support
+logout) rotates `interoves_anon` and `interoves_anon_sig`. Account history
+stays on `user_id`. The next person in the browser gets a **new** anonymous
+UUID; they do not keep writing as the previous user or the previous anon key.
+
+Failed logout does not rotate.
+
+Two accounts using one browser sequentially: logout rotation prevents B from
+inheriting A's anonymous cookie. A's registered history remains on A's
+`user_id`.
 
 ## Reporting consequences
 
 - Do not equate Metrika visitors with backend actors.
-- Do not join anon and user histories by heuristics.
+- Do not join anon and user histories by heuristics; only claim/migrate does.
 - Do not use email, Telegram username, names, phone, or IP for product metrics.
 - Use only rows with exactly one identity.
-- Treat anonymous and registered identities as separate unless the existing
-  claim/migration has actually reassigned the rows.
-- `instrumentation_version=2` versions event-writing semantics only. It neither
-  authenticates `anon_key` nor changes any transition described above.
+- `instrumentation_version=2` versions event-writing semantics only. It is not
+  the identity cutover.
 
-The alternatives and migration trade-offs for hardening this model are evaluated
-without implementation in [stage 1C](1c-anonymous-identity-hardening.md).
+Trusted identity cutover SHA/timestamp is recorded **only after** production
+rollout and post-deploy validation. Until then, do not describe production
+anonymous identity as fully trusted.
 
+See also the Stage 1C design notes in [1c-anonymous-identity-hardening.md](1c-anonymous-identity-hardening.md).

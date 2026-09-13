@@ -4,6 +4,43 @@
 
 Матрица сценариев в коде: [`games/raddle_response_contract.py`](../games/raddle_response_contract.py) (источник правды для тестов).
 
+## Клиентская архитектура
+
+Решения клиента вынесены в **`static/js/raddle_state.js`** (`window.RaddleState`) —
+DOM-free, тестируется в node. `task_group.html` только читает DOM и применяет
+разрешённые эффекты.
+
+| Что | Где | Зачем |
+|-----|-----|-------|
+| Матрица ответов сервера | `classifyAttemptResponse(data)` | один исполнитель для авто-режима и турнирной кнопки/Enter |
+| Политика ретраев | `classifyRequestFailure(err, attempt, max)` | abort ≠ offline ≠ HTML 403 |
+| In-flight + «то же значение» | `createRequestRegistry()` | живёт в памяти, а не на DOM → переживает `applyNewUiTaskHtml` |
+| Сессия ввода | `createInputSession()` | `owner: real\|pin`, `keyboardState`, `anchor`, dismiss-окно |
+| Что чему разрешено | `SOURCE_EFFECTS` / `mayApplyEffect(source, effect)` | passive viewport/scroll не могут `focus()` и `scrollTo()` |
+| Куда каретку | `decideInputTarget()` | `pin` / `real` / `blur` / `keep` |
+| Черновик напарника | `shouldApplyRemoteDraft()` | локальное редактирование важнее remote |
+| Каскад | `shouldCascadeSubmit()` | только вне турнира и только при живой сессии |
+
+**Источники событий** (`SOURCE_EFFECTS`): `init`, `user.pointer`, `user.key`,
+`user.tab`, `user.input`, `server.advance`, `server.feedback`, `live.update`,
+`viewport.resize`, `viewport.scroll`, `page.scroll`, `keyboard.closed`, `pause`.
+Различаются **`moveFocus`** (перенести каретку на другое поле) и
+**`restoreFocus`** (вернуть туда, где сессия уже была). `live.update` умеет
+только второе; passive viewport-хендлеры — ни то, ни другое.
+
+В `task_group.html` текущий источник задаётся через `withRaddleSource(source, fn)`;
+вложенные `setRaddleFocus` → `updateRaddleStickyPin` → перенос фокуса читают его,
+чтобы не тащить параметр через все сигнатуры. Дефолт — самый строгий из
+пересобирающих пин (`live.update`).
+
+**«Пин владеет вводом»** определяется `raddleSession.ownsPin()`, а не
+`document.activeElement`: Android сохраняет focus после Back.
+
+Пин пересобирается только при смене подписи (`data-raddle-pin-signature`:
+ступеньки + структурные классы + form id). `--wrong` / `--checking` в подпись не
+входят — их зеркалит `syncRaddleStickyPinRowState`. Каждая пересборка убивает
+сфокусированный proxy-input и на части Android закрывает IME.
+
 ## Главный принцип
 
 > UI может перерисовывать задание и переносить фокус **только** когда сервер явно сигнализирует продвижение состояния.
@@ -31,9 +68,9 @@
 
 ### Клиент (авто-режим, не турнир)
 
-- `raddleLast` — блокировка двойной отправки **того же** значения; ставится только если fetch реально ушёл; сбрасывается при ошибке сети, при `length !== maxlength`, при sync.
-- Клиентский abort/timeout **не** авто-ретраится (сервер мог уже записать ход; повтор бьёт в `select_for_update` напарника). TypeError (offline) — до 3 попыток. HTML 403 не ретраится и не маскируется под «Ошибку сети».
-- In-flight ключ `taskId:wordIndex` переживает `applyNewUiTaskHtml`: чужой live-update не запускает второй POST того же слова.
+- Блокировка двойной отправки **того же** значения — `raddleRequests.markSubmitted()`; ставится только после того, как fetch реально ушёл; сбрасывается при ошибке сети, при `length !== maxlength` (`onChange`), при sync и по явному Enter / «Повторить».
+- Клиентский abort/timeout **не** авто-ретраится (сервер мог уже записать ход; повтор бьёт в `select_for_update` напарника). TypeError (offline) — до 3 попыток. HTML 403 не ретраится и **не** маскируется под «Ошибку сети» (отдельный текст «Сессия устарела»).
+- In-flight ключ `taskId:wordIndex` живёт в `raddleRequests` (память, не DOM) и переживает `applyNewUiTaskHtml`: чужой live-update не запускает второй POST того же слова.
 - Если строка уже `new-raddle-row--solved` после live-HTML, «Ошибку сети» не показываем.
 - `paste` — fallback через `setTimeout(0)` только если busy / уже отправлено.
 - **Mobile sticky-пин** — отдельный контракт ниже. Коротко: пока текущая пара
@@ -75,10 +112,17 @@
 ### Что ещё обязательно (иначе снова ломается)
 
 - Пара целиком видна под шапкой — пина нет, печатаем в настоящей форме.
+- Пин появляется, как только **верхняя кромка** пары ушла под шапку, как повёл
+  бы себя настоящий `position: sticky`. Ждать, пока первая строка скроется
+  целиком, нельзя: это и есть «фиксируется слишком поздно».
 - Смотришь слова **выше** текущей пары (пара уехала вниз за экран) — пина нет.
   Иначе задвоение «поле сверху + живая пара ниже».
 - Вернул пару на экран скроллом вверх — пин прячется, фокус в настоящее поле
-  **без** рывка страницы.
+  **без** рывка страницы. Клавиатурный pan — не скролл: он пин не прячет
+  (см. pan-hold ниже).
+- Пока пин показан, содержимое исходных строк в лесенке скрыто
+  (`is-raddle-pin-source`, `visibility: hidden` — высота и рамки на месте).
+  Задвоение должно быть невозможно структурно, а не «по геометрии».
 - Back или тап по пустому месту закрывает клавиатуру, но **не** переносит
   каретку/подсветку на слово выше (ghost-click, кража фокуса браузером).
   Явный тап по другой строке — переключает.
@@ -91,36 +135,85 @@
 
 - Прятать пин, потому что клавиатура «вытащила» настоящее поле в visualViewport.
 - Держать пин «раз уж открыт», когда пользователь смотрит слова выше пары.
+- Держать пин «раз уж в нём печатают», когда пара уже целиком на экране: это и
+  есть задвоение оригинала и копии, которое видно на телефоне.
+- Заменять клон на `position: sticky`: строка таблицы прилипает только внутри
+  своей таблицы, а пин нужен и когда лесенка уехала, а на экране подсказки
+  (в мобильном стеке они ниже). Плюс `overflow: hidden` на `.new-raddle-table` и
+  `overflow-x: auto` на `.new-taskcard__text` делают sticky неработающим.
 - После верного слова вызывать `focus()` на настоящее поле под шапкой.
 - Писать буквы в пин, пока он `display: none` (IMask рисует пустое).
 - Скроллить пару к низу/верху экрана при закрытии клавиатуры.
 
 ### Статус в коде (не путать с целью)
 
-Пин показывается, когда пара уехала под шапку в visualViewport. Если фокус уже
-в пине, клавиатурный pan настоящей пары пин не прячет; если смотришь слова
-выше (пара ниже экрана) — прячет. Пока пин на экране и есть сессия ввода,
-фокус переводится в клон; скролл лесенки intent не сбрасывает. После advance
-фокус остаётся в пине, страница не скроллится. Настоящее поле только зеркалит
-значение без `scrollIntoView`.
+Пин показывается, когда пара уехала под шапку в visualViewport
+(`RaddleKeyboardDismiss.shouldShowStickyPin`). Геометрия решает первой; если
+смотришь слова выше (пара ниже экрана) — прячет всегда.
+
+Единственное исключение — **pan-hold** (`raddleSession.pinKeepsPan()`, **не**
+`activeElement`): пока в пине печатают и пользователь ещё не скроллил, пин
+остаётся, даже если клавиатурный pan вернул настоящую пару в остаток экрана —
+иначе фокус уехал бы назад и страницу дёрнуло. Первый жест скролла
+(`noteUserScroll`) hold снимает, сессию пина при этом не закрывая: дальше судьбу
+пина решает только положение пары. Программный `setOwner('pin')` из проходов
+видимости hold **не** возвращает — иначе инерционный скролл снова прилипал бы
+к пину.
+Пока пин на экране и есть сессия ввода, фокус переводится в клон; скролл
+лесенки сессию пина не сбрасывает (скролл при вводе в настоящее поле — сбрасывает).
+После advance фокус остаётся в пине, страница не скроллится. Настоящее поле
+только зеркалит значение без `scrollIntoView`. `position: fixed` считается от
+layout viewport, поэтому пин дополнительно сдвигается на
+`visualViewport.offsetTop` (иначе при открытой клавиатуре уезжает за экран).
+
+## Куда уходит фокус после хода
+
+Сервер отдаёт `default_focus_index` = **первая playable сверху**
+(`games/raddle.py`). Клиент не имеет права принимать это за «текущую пару»:
+решающий снизу вверх иначе получает прыжок фокуса на верх лесенки.
+
+- `initRaddleUi` (то есть каждая перерисовка через `applyNewUiTaskHtml`:
+  live-update напарника, `raddle_stale_ui`) держится за `raddleSession.anchor`,
+  а не за `data-default-focus`. Anchor переживает замену HTML и закрытие
+  клавиатуры.
+- Если запрошенная ступенька уже не playable (напарник её взял, черновик
+  середины, только что решённое своё слово), берётся **ближайшая** playable в
+  сторону движения: `RaddleState.pickNearestPlayable`. Брать
+  `querySelector('.new-raddle-row--playable')`, то есть первую по документу,
+  нельзя — это ровно тот прыжок на верх лесенки.
+- Направление движения — `raddleSession.direction`, пишется в `setRaddleFocus`
+  из `data-ref-role` текущей пары (`next` = идём вверх). Оно живёт дольше
+  сессии ввода: перерисовка после закрытой клавиатуры тоже должна знать сторону.
 
 ## Тесты
 
 ```bash
-../venv/interoves_django/bin/python manage.py test games.tests.test_raddle games.tests.test_raddle_send_attempt games.tests.test_raddle_response_contract
+../venv/interoves_django/bin/python manage.py test \
+  games.tests.test_raddle games.tests.test_raddle_send_attempt \
+  games.tests.test_raddle_response_contract games.tests.test_raddle_ui_sync
+node static/js/raddle_state.test.js
+node static/js/raddle_keyboard_dismiss.test.js
 node static/js/raddle_tab_nav.test.js
+node static/js/raddle_masked_input.test.js
+../venv/interoves_django/bin/python scripts/check_inline_js_syntax.py static/templates/new/task_group.html
 ```
 
 - `test_raddle.py` — checker, UI context, парсинг.
 - `test_raddle_send_attempt.py` — интеграция view: ok / wrong / duplicate / needs_sync.
-- `test_raddle_response_contract.py` — матрица контракта непротиворечива.
+- `test_raddle_response_contract.py` — матрица контракта непротиворечива **и** совпадает с клиентской в `raddle_state.js` (ids, порядок, флаги, покрытие в JS-тесте).
+- `test_raddle_ui_sync.py` — черновики и метки подсказок через `/send_raddle_ui/`.
+- `raddle_state.test.js` — матрица ответов, ретраи, in-flight/paste дедупликация, сессия ввода и Android Back, effect gate, focus real↔pin, remote drafts, каскад.
+- `raddle_keyboard_dismiss.test.js` — ghost-focus и геометрия sticky-пина (`visualViewport`).
+- `check_inline_js_syntax.py` — `node --check` для inline-скрипта `task_group.html` (Django-теги нейтрализуются).
 
 ## PR checklist (raddle / task_group.html)
 
 Перед merge изменений в авто-submit или `send_attempt` для raddle:
 
+- [ ] Новый флаг ответа добавлен и в `RADDLE_RESPONSE_SCENARIOS`, и в `RESPONSE_MATRIX` (`raddle_state.js`)? Иначе `test_raddle_response_contract` падает.
 - [ ] Есть ли вызов `applyNewUiTaskHtml` без `raddle_correct` / `raddle_needs_sync` / `raddle_duplicate_solved`?
-- [ ] Сбрасывается ли `raddleLast` при `catch` и когда `postRaddleAutoForm` вернул `false`?
+- [ ] Новый `focus()` / `scrollTo()` объявлен через `withRaddleSource` с честным источником (не из passive viewport-хендлера)?
+- [ ] Сбрасывается ли submit-lock при `catch` и когда `postRaddleAutoForm` вернул `false`?
 - [ ] Abort/timeout не ставится в очередь ретраев? In-flight того же слова переживает замену HTML?
 - [ ] Черновик середины / зачёркивание подсказки уходят через `send_raddle_ui` без `applyNewUiTaskHtml`?
 - [ ] Может ли один жест (paste + input) отправить два одинаковых запроса?

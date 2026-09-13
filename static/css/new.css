@@ -7982,6 +7982,14 @@ body.is-daily-solve-paused .new-raddle-sticky-pin {
   .new-taskcard__text:has(.new-raddle-task) {
     overflow: visible;
   }
+  /* Пока пин показывает пару, сама строка в лесенке пустая: keyboard pan может
+     вернуть её в остаток экрана прямо под пином, и одна ступенька была бы видна
+     дважды. visibility — высота строки и рамки таблицы на месте, скролла нет. */
+  .new-raddle-ladder .new-raddle-row.is-raddle-pin-source > td > .new-raddle-word-cell,
+  .new-raddle-ladder .new-raddle-row.is-raddle-pin-source > td > .new-raddle-word-msg,
+  .new-raddle-ladder .new-raddle-row.is-raddle-pin-source > td > .new-raddle-actions {
+    visibility: hidden;
+  }
 }
 @media (min-width: 920px) {
   .new-raddle-sticky-pin {

@@ -1,8 +1,10 @@
 """Интеграционные тесты POST /send_attempt/ для raddle — контракт JSON-ответа."""
 import json
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.test import Client, TestCase
+from django.utils import timezone
 
 from games.models import (
     Attempt,
@@ -46,6 +48,7 @@ class RaddleSendAttemptTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         _ensure_fixtures()
+        now = timezone.now()
         with patch('games.views.track.track_task_change'):
             cls.game = Game.objects.create(
                 id='raddle_send_test',
@@ -54,6 +57,9 @@ class RaddleSendAttemptTests(TestCase):
                 author_extra='',
                 project_id='sections',
                 is_ready=True,
+                is_tournament=False,
+                start_time=now - timedelta(days=1),
+                end_time=now + timedelta(days=1),
             )
             cls.tg = TaskGroup.objects.create(label='raddle_send_tg')
             GameTaskGroup.objects.create(

@@ -32,8 +32,8 @@ or `2` (new live write path). Any other value is invalid. See
 | Required links | exactly one actor; `game`; `task_group`; valid placement; `game_kind`; `game_instance_id` |
 | Time | `started_at`; first insertion time, or earliest attempt time for explicit historical backfill |
 | Logical multiplicity | at most one per actor-placement |
-| Application dedupe | `get_or_create(actor, game_instance_id)` |
-| Database dedupe | Django conditional constraints exist, but MySQL does not create partial unique indexes; not guaranteed until 1B |
+| Application dedupe | `create_or_reread` with IntegrityError recovery |
+| Database dedupe | physical UNIQUE `(user|anon_key|team, game_instance_id)` |
 | Metrika | `game_start`, retried until signed callback ack; delivery failure does not undo the backend row |
 | v2 rule | newly inserted live row gets `2`; backfill and pre-existing rows stay `NULL` |
 
@@ -50,8 +50,8 @@ The exact qualifying actions for every currently instrumented format are in
 | Required links | exactly one actor; `game`; `task_group`; valid placement; supported `game_kind`; `game_instance_id`; `result` |
 | Time | `completed_at`; insertion/reconstruction time, not original time for historical backfill |
 | Logical multiplicity | at most one per actor-placement |
-| Application dedupe | `get_or_create(actor, game_instance_id)` |
-| Database dedupe | not guaranteed by MySQL until 1B |
+| Application dedupe | `create_or_reread` with IntegrityError recovery |
+| Database dedupe | physical UNIQUE `(user|anon_key|team, game_instance_id)` |
 | Metrika | `game_complete` only for non-backfilled server-confirmed completion, retried until signed callback ack |
 | v2 rule | newly inserted live row gets `2`; automatic/history backfill and pre-existing rows stay `NULL` |
 
@@ -70,7 +70,8 @@ conditions are listed in [definitions](definitions.md#game_complete).
 | Instrumentation version | not added to `PlayerAnalyticsState` in 1A |
 
 This event retains its existing “third unique completion” meaning. It inherits
-the current identity and MySQL concurrency limitations.
+the current identity namespaces. Concurrent duplicate completions are prevented
+by the physical unique indexes from stage 1B.
 
 ### Signup marker
 
@@ -98,7 +99,8 @@ can be missing or duplicated relative to backend actors, so these goals describe
 Metrika funnel behavior, not canonical actor counts.
 
 There is no canonical `game_view` or `signup_start` in the current system. They
-must not be synthesized from page requests or existing event names.
+must not be synthesized from page requests or existing event names. Stage 1C
+does not add backend rows for `onboarding_view` or `onboarding_game_select`.
 
 ## Delivery and failure behavior
 

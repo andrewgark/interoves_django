@@ -1,3 +1,5 @@
+import logging
+
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -17,6 +19,8 @@ from games.models import (
     Task,
 )
 from games.recheck import recheck_queue_from_next, recheck_full
+
+logger = logging.getLogger(__name__)
 
 
 def _avatar_url_from_extra(extra):
@@ -219,15 +223,33 @@ def analytics_user_signed_up(request, user, sociallogin=None, **kwargs):
     # may neither replace the first timestamp nor attach its method to it.
     state.refresh_from_db()
     payload = signup_goal_payload(state)
-    if payload is None:
+    if payload is not None:
+        queue_pending_goal(
+            request,
+            payload['goal'],
+            params=payload['params'],
+            key=payload['key'],
+            ack=payload['ack'],
+        )
+    _auto_claim_signup_anon_history(request, user)
+
+
+def _auto_claim_signup_anon_history(request, user):
+    """Link this browser's confirmed anonymous history to the new account."""
+    if request is None or user is None:
         return
-    queue_pending_goal(
-        request,
-        payload['goal'],
-        params=payload['params'],
-        key=payload['key'],
-        ack=payload['ack'],
-    )
+    try:
+        from games.analytics_identity import browser_anon_key, rotate_anonymous_identity
+        from games.anon_migrate import claim_and_migrate_anon_history
+
+        anon_key = browser_anon_key(request)
+        if not anon_key:
+            return
+        result = claim_and_migrate_anon_history(user, anon_key)
+        if result.get('status') == 'ok' and result.get('moved_any'):
+            rotate_anonymous_identity(request)
+    except Exception:
+        logger.exception('signup anonymous auto-claim failed')
 
 
 def _mark_daily_difficulty_changed(*, task_id=None, game_id=None, task_group_id=None):

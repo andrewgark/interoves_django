@@ -7,6 +7,7 @@ from django.utils.dateparse import parse_datetime
 
 from games.analytics import GAME_KIND_BY_ID
 from games.models import (
+    AnonAccountClaim,
     GameTaskGroup,
     LadderOffer,
     PlayerAnalyticsState,
@@ -120,6 +121,30 @@ class Command(BaseCommand):
             ).filter(has_start=False).count()
         return total
 
+    def _claimed_anon_writes_count(self, starts, completions):
+        claimed = AnonAccountClaim.objects.filter(anon_key=OuterRef('anon_key'))
+        start_n = (
+            starts.filter(
+                user_id__isnull=True,
+                team_id__isnull=True,
+                anon_key__isnull=False,
+            )
+            .annotate(is_claimed=Exists(claimed))
+            .filter(is_claimed=True)
+            .count()
+        )
+        completion_n = (
+            completions.filter(
+                user_id__isnull=True,
+                team_id__isnull=True,
+                anon_key__isnull=False,
+            )
+            .annotate(is_claimed=Exists(claimed))
+            .filter(is_claimed=True)
+            .count()
+        )
+        return start_n + completion_n
+
     def _completion_before_start_count(self, completions):
         total = 0
         live_v2 = completions.filter(
@@ -231,7 +256,15 @@ class Command(BaseCommand):
                 'duplicate_completions',
                 self._duplicate_count(PlayerCompletedGame, completions),
             ),
-            ('completion_without_start', self._completion_without_start_count(completions)),
+            (
+                'completion_without_start',
+                self._completion_without_start_count(
+                    completions.filter(
+                        is_backfilled=False,
+                        instrumentation_version=KNOWN_INSTRUMENTATION_VERSION,
+                    )
+                ),
+            ),
             ('completion_before_start', self._completion_before_start_count(completions)),
             ('start_missing_placement', self._missing_placement_count(starts)),
             ('completion_missing_placement', self._missing_placement_count(completions)),
@@ -282,12 +315,31 @@ class Command(BaseCommand):
                 ).count(),
             ),
         ]
+        warn_checks = [
+            (
+                'completion_without_start_legacy',
+                self._completion_without_start_count(
+                    completions.filter(
+                        Q(is_backfilled=True) | Q(instrumentation_version__isnull=True)
+                    )
+                ),
+            ),
+            (
+                'anon_writes_after_claim',
+                self._claimed_anon_writes_count(starts, completions),
+            ),
+        ]
 
         self.stdout.write('check\tstatus\tcount')
         failed = 0
+        warned = 0
         for name, count in checks:
             status = 'PASS' if count == 0 else 'FAIL'
             failed += int(count > 0)
+            self.stdout.write('{}\t{}\t{}'.format(name, status, count))
+        for name, count in warn_checks:
+            status = 'PASS' if count == 0 else 'WARN'
+            warned += int(count > 0)
             self.stdout.write('{}\t{}\t{}'.format(name, status, count))
         self.stdout.write(
             'window\tINFO\t{} <= timestamp < {}'.format(
@@ -298,4 +350,9 @@ class Command(BaseCommand):
             raise CommandError(
                 'product analytics quality check failed: {} invariant(s) violated'.format(failed)
             )
+        if warned:
+            self.stdout.write(self.style.WARNING(
+                'product analytics quality check passed with {} warning(s)'.format(warned)
+            ))
+            return
         self.stdout.write(self.style.SUCCESS('product analytics quality check passed'))

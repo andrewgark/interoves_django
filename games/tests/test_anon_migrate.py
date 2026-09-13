@@ -78,6 +78,7 @@ class AnonMigrateTests(TestCase):
     def setUp(self):
         self.client = Client()
         self.assertTrue(self.client.login(username='migrate_user', password='secret'))
+        self.client.cookies['interoves_anon'] = self.anon_key
         with patch('games.views.track.track_task_change'):
             Attempt.manager.create(
                 anon_key=self.anon_key,
@@ -486,8 +487,12 @@ class AnonMigrateTests(TestCase):
         self.assertNotIn('example_url', data)
 
     def test_empty_migrate_does_not_record_event(self):
+        from games.analytics_identity import attach_anon_cookie
+
+        empty_key = 'no-such-anon'
+        attach_anon_cookie(self.client, empty_key)
         url = reverse('new_migrate_anon_attempts')
-        resp = self.client.post(url, {'anon_key': 'no-such-anon'})
+        resp = self.client.post(url, {'anon_key': empty_key})
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()['moved'], 0)
         self.assertEqual(
@@ -546,6 +551,7 @@ class AnonMigrateTests(TestCase):
     def test_hint_only_guest_progress_is_offered(self):
         key = 'hint-only-anon-key'
         HintAttempt.objects.create(anon_key=key, hint=self.hint)
+        self.client.cookies['interoves_anon'] = key
 
         data = self.client.get(
             reverse('new_anon_migrate_count'), {'anon_key': key},

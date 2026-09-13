@@ -10,6 +10,7 @@ from games.exception import (
     NoGameAccessException,
 )
 from games.analytics import register_started_game
+from games.analytics_identity import gameplay_anon_key
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
 from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
@@ -95,7 +96,7 @@ def process_send_hint_attempt(request, task_id):
                 return {'status': 'no_profile'}
             user = request.user
         else:
-            anon_key = request.POST.get('anon_key') or request.headers.get('X-Interoves-Anon')
+            anon_key = gameplay_anon_key(request)
             if not anon_key:
                 return {'status': 'no_anon'}
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):

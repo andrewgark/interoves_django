@@ -292,6 +292,7 @@
 <script src="{% static 'js/raddle_masked_input.js' %}"></script>
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
 <script src="{% static 'js/raddle_keyboard_dismiss.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/raddle_state.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/raddle_tab_nav.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/new_task_hints.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
@@ -304,15 +305,8 @@
   var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';
   var playMode = "{{ play_mode|escapejs }}";
   var ANON_KEY_NAME = 'interoves_anon_key';
-  var ANON_COOKIE_NAME = 'interoves_anon';
   var anonKeyMem = null;
   var hintConfirm = window.InterovesHintConfirm.create();
-  function genAnonKey() {
-    try {
-      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
-    } catch (e) {}
-    return String(Date.now()) + '-' + String(Math.random()).slice(2);
-  }
   function readAnonCookie() {
     try {
       var m = document.cookie.match(/(?:^|;\s*)interoves_anon=([^;]+)/);
@@ -320,29 +314,18 @@
     } catch (e) { return ''; }
   }
   function persistAnonKey(key) {
+    if (!key) return;
     try { localStorage.setItem(ANON_KEY_NAME, key); } catch (e) {}
-    try {
-      document.cookie = ANON_COOKIE_NAME + '=' + encodeURIComponent(key) +
-        '; path=/; max-age=' + (60 * 60 * 24 * 365 * 2) + '; SameSite=Lax';
-    } catch (e) {}
   }
-  // Возвращаем ключ, устойчивый к заблокированному localStorage (приватный режим,
-  // встроенные браузеры Telegram/VK/Instagram): localStorage → cookie → память.
-  function readAnonParam() {
-    try {
-      var u = new URL(window.location.href);
-      return u.searchParams.get('anon') || u.searchParams.get('anon_key') || '';
-    } catch (e) { return ''; }
-  }
+  // Cookie is source of truth. Do not mint a UUID or treat ?anon= as authority.
   function getAnonKey() {
     if (anonKeyMem) return anonKeyMem;
-    var key = '';
-    try { key = localStorage.getItem(ANON_KEY_NAME) || ''; } catch (e) {}
-    if (!key) key = readAnonCookie();
-    if (!key) key = readAnonParam();
-    if (!key) key = genAnonKey();
-    anonKeyMem = key;
-    persistAnonKey(key);
+    var key = readAnonCookie();
+    if (!key) {
+      try { key = localStorage.getItem(ANON_KEY_NAME) || ''; } catch (e) {}
+    }
+    anonKeyMem = key || null;
+    if (key) persistAnonKey(key);
     return key;
   }
 
@@ -420,78 +403,101 @@
     catch (e) { try { el.focus(); } catch (e2) {} }
   }
 
+  // ── Raddle state machine ────────────────────────────────────────────────
+  // Single owner of "is the user typing right now". Native focus is not that
+  // answer: Android keeps an input focused after Back dismisses the keyboard.
+  // Decisions live in static/js/raddle_state.js (node-testable); this layer
+  // only reads the DOM and applies the effects the controller allows.
+  var RaddleCtl = window.RaddleState;
   var raddleInputIntent = window.MobileInputIntent
     ? window.MobileInputIntent.create({ keyboardCloseDelta: 120 })
-    : {
-        context: '',
-        activate: function (context) { this.context = String(context || ''); },
-        clear: function () { this.context = ''; },
-        isActive: function (context) {
-          return !!this.context && this.context === String(context || '');
-        },
-        observeViewport: function () { return false; },
-      };
-  // Tap-empty clears typing intent before the keyboard finishes closing.
-  // A second observer still sees that close so Back/ghost-focus can restore
-  // the last pair without scrolling or changing sticky-pin rules.
+    : null;
+  var raddleSession = RaddleCtl.createInputSession({ intent: raddleInputIntent });
+  var raddleRequests = RaddleCtl.createRequestRegistry();
+  // Observes the same viewport as the session, purely to detect the keyboard
+  // closing even when a tap on empty space already ended the session.
   var raddleKeyboardCloseIntent = window.MobileInputIntent
     ? window.MobileInputIntent.create({ keyboardCloseDelta: 120 })
-    : {
-        activate: function () {},
-        isActive: function () { return false; },
-        observeViewport: function () { return false; },
-      };
-  var lastRaddleAnchor = null;
-  var lastRaddlePointerDown = null;
-  var raddleKeyboardClosedAt = 0;
+    : null;
 
+  // The sticky pin is appended to <body>, outside .new-raddle-task, so it
+  // carries the task id itself.
   function raddleTaskIdFromElement(el) {
-    var taskRoot = el && el.closest ? el.closest('.new-raddle-task') : null;
+    if (!el || !el.closest) return '';
+    var pin = el.closest('.new-raddle-sticky-pin[data-raddle-pin-task-id]');
+    if (pin) return String(pin.getAttribute('data-raddle-pin-task-id') || '');
+    var taskRoot = el.closest('.new-raddle-task');
     return taskRoot ? String(taskRoot.getAttribute('data-task-id') || '') : '';
   }
 
-  function rememberRaddleAnchor(el) {
-    if (!el || !el.closest) return;
-    var taskRoot = el.closest('.new-raddle-task');
+  function raddleAnchorFromElement(el) {
+    if (!el || !el.closest) return null;
+    var taskId = raddleTaskIdFromElement(el);
     var row = el.closest('.new-raddle-row[data-word-index]');
-    if (!taskRoot || !row) return;
-    var wordIndex = row.getAttribute('data-word-index');
-    if (row.closest('.new-raddle-sticky-pin')) {
-      row = taskRoot.querySelector(
-        '.new-raddle-ladder .new-raddle-row[data-word-index="' + wordIndex + '"]'
-      );
-    }
-    if (!row) return;
-    lastRaddleAnchor = {
-      taskId: String(taskRoot.getAttribute('data-task-id') || ''),
-      wordIndex: wordIndex,
+    if (!taskId || !row) return null;
+    return {
+      taskId: taskId,
+      wordIndex: row.getAttribute('data-word-index'),
+      owner: el.closest('.new-raddle-sticky-pin') ? 'pin' : 'real',
     };
   }
 
-  function activateRaddleInputIntent(el) {
-    var taskId = raddleTaskIdFromElement(el);
-    if (taskId) {
-      raddleInputIntent.activate(taskId);
-      raddleKeyboardCloseIntent.activate(taskId);
+  // Explicit user action (tap, typing, Tab): opens or re-opens the session.
+  function beginRaddleInputSession(el) {
+    var at = raddleAnchorFromElement(el);
+    if (at) {
+      raddleSession.begin(at.taskId, at.wordIndex, at.owner);
+      if (raddleKeyboardCloseIntent) raddleKeyboardCloseIntent.activate(at.taskId);
+      return;
     }
-    rememberRaddleAnchor(el);
+    var taskId = raddleTaskIdFromElement(el);
+    if (!taskId) return;
+    raddleSession.begin(taskId, null, 'real');
+    if (raddleKeyboardCloseIntent) raddleKeyboardCloseIntent.activate(taskId);
   }
 
-  function clearRaddleInputIntent() {
-    raddleInputIntent.clear();
+  // Ступенька, вокруг которой пользователь работает: anchor сессии, если он от
+  // этого задания. Слово может быть уже решено (своим ходом или напарником) —
+  // тогда setRaddleFocus сам возьмёт ближайшую playable в сторону движения.
+  function raddleAnchoredFocusIndex(taskRoot) {
+    var anchor = raddleSession.anchor;
+    if (!anchor || !taskRoot) return null;
+    if (String(anchor.taskId) !== String(taskRoot.getAttribute('data-task-id') || '')) {
+      return null;
+    }
+    return anchor.wordIndex;
   }
 
   function hasRaddleInputIntent(taskRoot) {
     if (!taskRoot) return false;
-    return raddleInputIntent.isActive(String(taskRoot.getAttribute('data-task-id') || ''));
+    return raddleSession.isActive(String(taskRoot.getAttribute('data-task-id') || ''));
+  }
+
+  function raddleMayApply(source, effect, taskRoot) {
+    return RaddleCtl.mayApplyEffect(source, effect, {
+      sessionActive: hasRaddleInputIntent(taskRoot),
+    });
+  }
+
+  // Which event is currently driving the DOM. Nested helpers (setRaddleFocus →
+  // updateRaddleStickyPin → focus transfer) read it instead of passing a source
+  // through every signature. The default is the most restrictive rebuild-capable
+  // source, so an unlabelled path can never move focus on its own.
+  var raddleEffectSource = 'live.update';
+  function withRaddleSource(source, run) {
+    var previous = raddleEffectSource;
+    raddleEffectSource = source;
+    try { return run(); } finally { raddleEffectSource = previous; }
   }
 
   function observeRaddleViewport() {
     var viewport = window.visualViewport;
     var width = viewport ? viewport.width : window.innerWidth;
     var height = viewport ? viewport.height : window.innerHeight;
-    raddleInputIntent.observeViewport(width, height);
-    var closed = raddleKeyboardCloseIntent.observeViewport(width, height);
+    if (raddleInputIntent) raddleInputIntent.observeViewport(width, height);
+    var closed = raddleKeyboardCloseIntent
+      ? raddleKeyboardCloseIntent.observeViewport(width, height)
+      : false;
     if (closed) onRaddleKeyboardClosed();
   }
   observeRaddleViewport();
@@ -612,6 +618,19 @@
           return;
         }
         flushAnalyticsEvents(data);
+        // Лесенка (турнирная кнопка / Enter) идёт через ту же матрицу ответов,
+        // что и авто-режим: второй набор условий здесь расходился с контрактом
+        // (duplicate обрабатывался ниже, без raddle_duplicate_solved).
+        if (isRaddleLineForm(form)) {
+          var lineInput = document.querySelector('input[name="word"][form="' + form.id + '"]');
+          var lineRow = lineInput ? lineInput.closest('.new-raddle-row') : null;
+          withRaddleSource('server.advance', function () {
+            applyRaddleAttemptResponse(
+              form, lineInput, lineRow, data, form.getAttribute('data-word-index')
+            );
+          });
+          return;
+        }
         if (data.status === 'ok') {
           // Keep the hints panel open on the taken hint (in-place HTML, else reload).
           if (form && form.classList && form.classList.contains('new-hint-form') && form.getAttribute('data-skip-hints-open') !== '1') {
@@ -634,25 +653,7 @@
             }
           }
           if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-            if (isRaddleLineForm(form) && !data.raddle_correct && !data.raddle_needs_sync) {
-              var rwi = document.querySelector('input[name="word"][form="' + form.id + '"]');
-              var rrow = rwi ? rwi.closest('.new-raddle-row') : null;
-              var rmsg = document.querySelector('[data-msg-for="' + form.id + '"]');
-              showRaddleWrongFeedback(rrow, rwi, rmsg, '');
-              return;
-            }
-            var raddleFocusInfo = null;
-            if (isRaddleLineForm(form) && data.raddle_correct) {
-              var wi = document.querySelector('input[name="word"][form="' + form.id + '"]');
-              var rrow = wi ? wi.closest('.new-raddle-row') : null;
-              raddleFocusInfo = {
-                taskId: form.getAttribute('data-task-id'),
-                idx: (data.raddle_word_index !== undefined && data.raddle_word_index !== null)
-                  ? data.raddle_word_index : form.getAttribute('data-word-index'),
-                refRole: rrow ? (rrow.getAttribute('data-ref-role') || 'prev') : 'prev',
-              };
-            }
-            if (!isRaddleLineForm(form) && shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
+            if (shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
               rememberOrdinaryWrongFeedback(
                 data.task_id || attemptFeedbackTaskId,
                 submittedAttemptText,
@@ -662,16 +663,13 @@
             try {
               applyNewUiTaskHtml(data.update_task_html_new);
             } catch (e) {}
-            if (!isRaddleLineForm(form) && shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
+            if (shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
               restoreOrdinaryWrongFeedback(data.task_id || attemptFeedbackTaskId);
               openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
             }
-            if (raddleFocusInfo && typeof focusRaddleNext === 'function') {
-              focusRaddleNext(raddleFocusInfo.taskId, raddleFocusInfo.idx, raddleFocusInfo.refRole);
-            }
             return;
           }
-          if (!isRaddleLineForm(form) && shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
+          if (shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
             rememberAttemptsPopoverAfterReload(
               data.task_id || attemptFeedbackTaskId,
               data.attempt_id,
@@ -694,15 +692,10 @@
           if (msg) msg.textContent = 'Не удалось отправить ответ. Обновите страницу и попробуйте ещё раз.';
           return;
         }
+        // Ниже — только не-raddle формы: лесенка вышла из этого потока выше.
         if (data.status === 'duplicate') {
-          if (msg) {
-            msg.textContent = isRaddleLineForm(form)
-              ? 'Вы уже отправляли это слово.'
-              : 'Вы уже отправляли такой ответ.';
-          }
-          if (!isRaddleLineForm(form)) {
-            openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
-          }
+          if (msg) msg.textContent = 'Вы уже отправляли такой ответ.';
+          openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
           return;
         }
         if (data.status === 'not_all_required_hints_taken') {
@@ -710,19 +703,11 @@
           return;
         }
         if (data.status === 'attempt_limit_exceeded') {
-          if (msg) {
-            msg.textContent = isRaddleLineForm(form)
-              ? 'Попытки по этому слову закончились.'
-              : 'Попытки закончились.';
-          }
+          if (msg) msg.textContent = 'Попытки закончились.';
           return;
         }
         if (data.status === 'empty') {
-          if (msg) {
-            msg.textContent = isRaddleLineForm(form)
-              ? 'Пустой ответ.'
-              : 'Пустой ответ. Заполните хотя бы одно слово в строке.';
-          }
+          if (msg) msg.textContent = 'Пустой ответ. Заполните хотя бы одно слово в строке.';
           return;
         }
         if (data.status === 'invalid_form') {
@@ -1375,7 +1360,9 @@
       no_profile: 'Нужно заполнить профиль.',
       no_anon: 'Не удалось отправить ответ. Обновите страницу и попробуйте ещё раз.',
       no_access: 'Нет доступа к отправке.',
-      invalid_form: 'Не удалось отправить ответ.',
+      invalid_form: 'Не удалось отправить ответ (проверьте поле и попробуйте ещё раз).',
+      attempt_limit_exceeded: 'Попытки по этому слову закончились.',
+      not_all_required_hints_taken: 'Сначала возьмите требуемые подсказки.',
     };
     return texts[status] || ('Не удалось отправить: ' + status);
   }
@@ -1453,11 +1440,10 @@
   }
 
   var raddleRestoringDrafts = false;
-  var raddleInFlight = Object.create(null);
+  // In-flight and "same value already sent" locks live in raddleRequests, not on
+  // DOM nodes, so both survive applyNewUiTaskHtml() replacing the task card.
   function raddleFlightKeyFromIds(taskId, wordIdx) {
-    if (taskId === null || taskId === undefined || taskId === '') return '';
-    if (wordIdx === null || wordIdx === undefined || wordIdx === '') return '';
-    return String(taskId) + ':' + String(wordIdx);
+    return raddleRequests.key(taskId, wordIdx);
   }
   function raddleFlightKey(form, wordIdx) {
     var taskId = form && form.getAttribute && form.getAttribute('data-task-id');
@@ -1465,7 +1451,20 @@
     if (idx === null || idx === undefined || idx === '') {
       idx = form && form.getAttribute ? form.getAttribute('data-word-index') : '';
     }
-    return raddleFlightKeyFromIds(taskId, idx);
+    return raddleRequests.key(taskId, idx);
+  }
+  function raddleFlightKeyForInput(input) {
+    if (!input) return '';
+    var taskRoot = input.closest ? input.closest('.new-raddle-task') : null;
+    var row = input.closest ? input.closest('.new-raddle-row[data-word-index]') : null;
+    if (!taskRoot || !row) return '';
+    return raddleRequests.key(
+      taskRoot.getAttribute('data-task-id'),
+      row.getAttribute('data-word-index')
+    );
+  }
+  function releaseRaddleSubmitLock(input) {
+    raddleRequests.clearSubmitted(raddleFlightKeyForInput(input));
   }
 
   // Черновики средних слов + struck-метки подсказок (sessionStorage переживает re-render HTML).
@@ -1552,9 +1551,6 @@
         // Уже заполненное (💡💡 revealed или bind с value) не перезаписываем черновиком.
         if (current) {
           keep[String(idx)] = current;
-          if (raddleInFlight[raddleFlightKeyFromIds(taskId, idx)]) {
-            input.dataset.raddleLast = current;
-          }
           updateRaddleDraftHourglass(row, current);
           return;
         }
@@ -1562,9 +1558,6 @@
         if (letters) {
           keep[String(idx)] = letters;
           softSetRaddleLetters(input, letters);
-          if (raddleInFlight[raddleFlightKeyFromIds(taskId, idx)]) {
-            input.dataset.raddleLast = letters;
-          }
         }
         updateRaddleDraftHourglass(row, letters);
       });
@@ -1702,8 +1695,15 @@
           '.new-raddle-ladder .new-raddle-row[data-word-index="' + idx + '"]'
         );
         var input = row && row.querySelector('input.new-raddle-input[data-raddle-format]');
-        if (!input || (row && row.classList.contains('new-raddle-row--solved'))) return;
-        if (getRaddleInputLetters(input) === letters) return;
+        if (!input) return;
+        if (!RaddleCtl.shouldApplyRemoteDraft({
+          fromRemote: fromRemote,
+          locallyEditing: raddleRowIsLocallyEditing(taskRoot, idx),
+          hasPendingLocal: Object.prototype.hasOwnProperty.call(pending, String(idx)),
+          rowSolved: !!(row && row.classList.contains('new-raddle-row--solved')),
+          currentLetters: getRaddleInputLetters(input),
+          remoteLetters: letters,
+        })) return;
         raddleRestoringDrafts = true;
         try { softSetRaddleLetters(input, letters); }
         finally { raddleRestoringDrafts = false; }
@@ -1729,37 +1729,50 @@
     });
   }
   window.applyRaddleUiState = applyRaddleUiState;
+  // Каскад после продвижения: только обычный режим (data-raddle-auto есть
+  // лишь вне турнира) и только пока сессия ввода пользователя ещё открыта —
+  // клавиатуру могли закрыть, пока запрос был в полёте.
   function maybeCascadeRaddlePlayable(taskRoot) {
-    if (!taskRoot || !hasRaddleInputIntent(taskRoot)) return;
+    if (!taskRoot) return;
     var focusRow = taskRoot.querySelector(
       '.new-raddle-ladder .new-raddle-row--focus.new-raddle-row--playable'
     );
     if (!focusRow) return;
-    var input = focusRow.querySelector('input.new-raddle-input[data-raddle-auto="1"]');
+    var input = focusRow.querySelector('input.new-raddle-input[data-raddle-format]');
     if (!input) return;
     var letters = getRaddleInputLetters(input);
     var fmt = input.getAttribute('data-raddle-format') || '';
     var target = (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.slotCount)
       ? RaddleMaskedInput.slotCount(fmt) : 0;
-    if (!target || !letters || letters.length !== target) return;
+    if (!RaddleCtl.shouldCascadeSubmit({
+      isTournament: input.getAttribute('data-raddle-auto') !== '1',
+      hasAuto: input.getAttribute('data-raddle-auto') === '1',
+      filled: !!(target && letters && letters.length === target),
+      sessionActive: hasRaddleInputIntent(taskRoot),
+    })) return;
     submitRaddleAuto(input, letters);
   }
 
   // Raddle auto-submit — контракт: agents/raddle.md, games/raddle_response_contract.py
-  function syncRaddleUiAfterAdvance(form, data, row, input, wordIdx) {
+  //
+  // Одна функция синхронизации на все сценарии продвижения. advanceFocus
+  // отделён от перерисовки: raddle_stale_ui обновляет HTML, но текущий ввод
+  // «продвинутым» не считает и фокус не переносит.
+  function syncRaddleUiAfterAdvance(form, data, row, input, wordIdx, advanceFocus) {
     var refRole = row ? (row.getAttribute('data-ref-role') || 'prev') : 'prev';
-    var solvedIdx = (data.raddle_word_index !== undefined && data.raddle_word_index !== null)
-      ? data.raddle_word_index : wordIdx;
-    if (input) delete input.dataset.raddleLast;
-    if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-      var taskId = form.getAttribute('data-task-id');
-      applyNewUiTaskHtml(data.update_task_html_new);
-      focusRaddleNext(taskId, solvedIdx, refRole);
-      var fresh = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
-      maybeCascadeRaddlePlayable(fresh);
+    var solvedIdx = RaddleCtl.resolveWordIndex(data, wordIdx);
+    var taskId = form.getAttribute('data-task-id');
+    releaseRaddleSubmitLock(input);
+    raddleRequests.clearSubmitted(raddleRequests.key(taskId, wordIdx));
+    if (!data.update_task_html_new || typeof applyNewUiTaskHtml !== 'function') {
+      window.location.reload();
       return true;
     }
-    window.location.reload();
+    applyNewUiTaskHtml(data.update_task_html_new);
+    if (!advanceFocus) return true;
+    focusRaddleNext(taskId, solvedIdx, refRole);
+    var fresh = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
+    maybeCascadeRaddlePlayable(fresh);
     return true;
   }
 
@@ -1788,50 +1801,35 @@
     return { input: liveInput, row: liveRow };
   }
 
+  function raddleVerdictMessage(verdict, data) {
+    if (verdict.messageKey === 'duplicate') return raddleStatusText('duplicate');
+    if (verdict.messageKey === 'bad_response') return 'Ошибка ответа.';
+    if (verdict.messageKey === 'status') return raddleStatusText(data && data.status);
+    return '';
+  }
+
+  // Единственный исполнитель матрицы ответов сервера: решение принимает
+  // RaddleState.classifyAttemptResponse, здесь только применяются эффекты.
   function applyRaddleAttemptResponse(form, input, row, data, wordIdx) {
     var live = raddleLiveElements(form, input, row);
     input = live.input;
     row = live.row;
     var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
-    if (!data || !data.status) {
-      if (msg) { msg.style.display = 'block'; msg.textContent = 'Ошибка ответа.'; }
+    var verdict = RaddleCtl.classifyAttemptResponse(data);
+    if (verdict.releaseSubmitLock) releaseRaddleSubmitLock(input);
+    if (verdict.replaceHtml) {
+      if (verdict.clearMessage && msg) { msg.textContent = ''; msg.style.display = 'none'; }
+      syncRaddleUiAfterAdvance(form, data, row, input, wordIdx, verdict.advanceFocus);
       return;
     }
-    if (data.status === 'ok' && data.raddle_correct) {
-      syncRaddleUiAfterAdvance(form, data, row, input, wordIdx);
+    if (verdict.markWrong) {
+      showRaddleWrongFeedback(row, input, msg, raddleVerdictMessage(verdict, data));
       return;
     }
-    if (data.status === 'ok' && data.raddle_needs_sync) {
-      if (data.raddle_stale_ui) {
-        // Устаревший DOM: перерисовать по серверу, без «продвижения» с этого word_index.
-        if (input) delete input.dataset.raddleLast;
-        if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-          applyNewUiTaskHtml(data.update_task_html_new);
-        } else {
-          window.location.reload();
-        }
-        if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
-        return;
-      }
-      syncRaddleUiAfterAdvance(form, data, row, input, wordIdx);
-      if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
-      return;
+    if (verdict.messageKey && msg) {
+      msg.style.display = 'block';
+      msg.textContent = raddleVerdictMessage(verdict, data);
     }
-    if (data.status === 'duplicate') {
-      if (input) delete input.dataset.raddleLast;
-      if (data.raddle_duplicate_solved) {
-        syncRaddleUiAfterAdvance(form, data, row, input, wordIdx);
-        if (msg) { msg.textContent = ''; msg.style.display = 'none'; }
-        return;
-      }
-      showRaddleWrongFeedback(row, input, msg, raddleStatusText('duplicate'));
-      return;
-    }
-    if (data.status === 'ok') {
-      showRaddleWrongFeedback(row, input, msg, '');
-      return;
-    }
-    if (msg) { msg.style.display = 'block'; msg.textContent = raddleStatusText(data.status); }
   }
 
   function liveRaddleForm(form) {
@@ -1848,14 +1846,12 @@
     return false;
   }
 
-  function postRaddleAutoForm(form, input) {
+  function postRaddleAutoForm(form, input, submitValue) {
     if (!form) return false;
     var wordIdx = form.getAttribute('data-word-index');
     var flightKey = raddleFlightKey(form, wordIdx);
-    if ((form.dataset && form.dataset.submitting === '1') || (flightKey && raddleInFlight[flightKey])) {
-      return false;
-    }
-    if (flightKey) raddleInFlight[flightKey] = true;
+    if (form.dataset && form.dataset.submitting === '1') return false;
+    if (!raddleRequests.begin(flightKey)) return false;
     if (form.dataset) form.dataset.submitting = '1';
     setRaddleInputBusy(input, true);
     var row = input ? input.closest('.new-raddle-row') : null;
@@ -1864,7 +1860,7 @@
     // На протяжении всех автопопыток вход остаётся busy, а спиннер крутится,
     // чтобы не улетело два параллельных запроса и не мигал крестик.
     function finish() {
-      if (flightKey) delete raddleInFlight[flightKey];
+      raddleRequests.end(flightKey);
       var currentForm = liveRaddleForm(form) || form;
       var live = raddleLiveElements(currentForm, input, row);
       if (currentForm && currentForm.dataset) currentForm.dataset.submitting = '0';
@@ -1884,12 +1880,18 @@
       }
       var requestForm = currentForm;
       var requestInput = live.input || input;
-      fetchWithTimeout(formSubmitUrl(requestForm), {
+      var pending = fetchWithTimeout(formSubmitUrl(requestForm), {
         method: 'POST',
         headers: anonFetchHeaders(),
         body: formPostBody(requestForm),
         credentials: 'same-origin',
-      }, RADDLE_FETCH_TIMEOUT_MS)
+      }, RADDLE_FETCH_TIMEOUT_MS);
+      // Блокировка того же значения ставится только теперь, когда fetch реально
+      // ушёл: иначе неотправленное слово нельзя было бы отправить повторно.
+      if (attempt === 1 && submitValue != null) {
+        raddleRequests.markSubmitted(flightKey, submitValue);
+      }
+      pending
         .then(parseFetchJson)
         .then(function (data) {
           finish();
@@ -1905,23 +1907,22 @@
           }
         })
         .catch(function (err) {
+          // Строка уже решена (живой апдейт напарника) — ошибку не показываем.
           if (raddleWordAlreadySolved(form, wordIdx)) {
             finish();
             return;
           }
-          var retryable = window.InterovesFetchJson
-            ? window.InterovesFetchJson.shouldRetry(err, attempt, RADDLE_MAX_ATTEMPTS)
-            : (attempt < RADDLE_MAX_ATTEMPTS);
-          if (retryable) {
+          var failure = RaddleCtl.classifyRequestFailure(err, attempt, RADDLE_MAX_ATTEMPTS);
+          if (failure.retry) {
             setTimeout(function () { attemptOnce(attempt + 1); }, RADDLE_RETRY_DELAY_MS);
             return;
           }
           finish();
-          if (requestInput) delete requestInput.dataset.raddleLast;
-          if (input) delete input.dataset.raddleLast;
+          // Слово не ушло — снимаем блокировку, чтобы «Повторить» и Enter работали.
+          raddleRequests.clearSubmitted(flightKey);
           var errForm = liveRaddleForm(form) || form;
           var errLive = raddleLiveElements(errForm, input, row);
-          showRaddleNetworkError(errForm, errLive.input || input);
+          showRaddleRequestError(errForm, errLive.input || input, failure);
         });
     }
 
@@ -1929,24 +1930,29 @@
     return true;
   }
 
-  // Сетевая ошибка/таймаут: показываем сообщение с явной кнопкой «Повторить»
-  // (то же слово уже в поле; Enter тоже переотправляет).
-  function showRaddleNetworkError(form, input) {
+  // Сетевая ошибка/таймаут: сообщение с явной кнопкой «Повторить» (то же слово
+  // уже в поле, поле не очищаем). HTML 403 под «Ошибку сети» не маскируем.
+  function showRaddleRequestError(form, input, failure) {
     form = liveRaddleForm(form) || form;
     if (!form || !form.id) return;
     var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
     if (!msg) return;
     msg.style.display = 'block';
+    if (failure && failure.messageKey === 'stale_session') {
+      msg.textContent = 'Сессия устарела. Обновите страницу.';
+      return;
+    }
     msg.textContent = 'Ошибка сети. ';
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'new-raddle-retry-btn';
     btn.textContent = 'Повторить';
     btn.addEventListener('click', function () {
-      if (input) delete input.dataset.raddleLast;
+      var value = getRaddleInputLetters(input) || raddleInputValue(input);
+      releaseRaddleSubmitLock(input);
       msg.textContent = '';
       msg.style.display = 'none';
-      postRaddleAutoForm(form, input);
+      postRaddleAutoForm(form, input, value);
     });
     msg.appendChild(btn);
   }
@@ -1955,15 +1961,16 @@
     return {
       onChange: function (input, letters) {
         if (!input || raddlePinSyncing || raddleRestoringDrafts) return;
-        activateRaddleInputIntent(input);
+        beginRaddleInputSession(input);
         if (input.getAttribute('data-raddle-pin-proxy') === '1') {
+          raddleSession.setOwner('pin');
           var realPin = findRealRaddleInputFromPin(input);
           if (realPin) {
             preservePageScroll(function () {
               softSetRaddleLetters(realPin, letters);
             });
             clearRaddleWrong(realPin.closest('.new-raddle-row'));
-            delete realPin.dataset.raddleLast;
+            releaseRaddleSubmitLock(realPin);
             saveRaddleDraftLetters(realPin, letters);
           }
           return;
@@ -1978,14 +1985,16 @@
         var target = (typeof RaddleMaskedInput !== 'undefined' && RaddleMaskedInput.slotCount)
           ? RaddleMaskedInput.slotCount(fmt) : 0;
         if (!target || letters.length !== target) {
+          // Неполная длина: снимаем блокировку значения, чтобы дописанное слово ушло.
           clearRaddleWrong(row);
-          delete input.dataset.raddleLast;
+          releaseRaddleSubmitLock(input);
         }
       },
       onComplete: function (input, letters) {
         if (!input || raddlePinSyncing || raddleRestoringDrafts) return;
-        activateRaddleInputIntent(input);
+        beginRaddleInputSession(input);
         if (input.getAttribute('data-raddle-pin-proxy') === '1') {
+          raddleSession.setOwner('pin');
           var realDone = findRealRaddleInputFromPin(input);
           if (realDone) {
             preservePageScroll(function () {
@@ -2074,25 +2083,23 @@
 
   function submitRaddleAuto(input, val) {
     if (!input || input.getAttribute('data-raddle-busy') === '1') return;
-    if (input.dataset.raddleLast === val) return;
     var row = input.closest('.new-raddle-row');
     if (row && !row.classList.contains('new-raddle-row--playable')) {
       // Устаревший DOM (bfcache / смена сессии): не шлём not-playable.
-      delete input.dataset.raddleLast;
+      releaseRaddleSubmitLock(input);
       return;
     }
     var formId = input.getAttribute('form');
     var form = formId ? document.getElementById(formId) : null;
     if (!form) return;
     var flightKey = raddleFlightKey(form, form.getAttribute('data-word-index'));
-    if (flightKey && raddleInFlight[flightKey]) {
-      input.dataset.raddleLast = val;
+    // paste + input + complete в одном жесте: то же значение уходит один раз.
+    if (raddleRequests.isDuplicateSubmit(flightKey, val)) return;
+    if (raddleRequests.isInFlight(flightKey)) {
+      raddleRequests.markSubmitted(flightKey, val);
       return;
     }
-    input.dataset.raddleLast = val;
-    if (!postRaddleAutoForm(form, input)) {
-      delete input.dataset.raddleLast;
-    }
+    postRaddleAutoForm(form, input, val);
   }
 
   document.addEventListener('submit', function (e) {
@@ -2114,7 +2121,8 @@
       var autoInput = document.querySelector('input[name="word"][form="' + form.id + '"]');
       if (autoInput) {
         var av = raddleInputValue(autoInput);
-        if (av) { autoInput.dataset.raddleLast = ''; submitRaddleAuto(autoInput, av); }
+        // Явный Enter — намеренный повтор того же слова.
+        if (av) { releaseRaddleSubmitLock(autoInput); submitRaddleAuto(autoInput, av); }
       }
       return;
     }
@@ -2725,7 +2733,24 @@
     return raddleRenderClueTemplate(tpl, word, '...');
   }
 
-  function setRaddleFocus(taskRoot, wordIndex) {
+  // Запрошенная ступенька может быть уже не playable: напарник её взял, или это
+  // черновик середины. Берём ближайшую playable в ту сторону, куда шёл
+  // пользователь — иначе фокус с низа лесенки улетает на самый верх.
+  function nearestRaddlePlayableRow(table, fromIndex, prefer) {
+    var byIndex = Object.create(null);
+    var indices = [];
+    table.querySelectorAll('.new-raddle-row--playable[data-word-index]').forEach(function (row) {
+      var raw = row.getAttribute('data-word-index');
+      var idx = parseInt(raw, 10);
+      if (isNaN(idx) || byIndex[idx]) return;
+      byIndex[idx] = row;
+      indices.push(idx);
+    });
+    var pick = RaddleCtl.pickNearestPlayable(indices, fromIndex, prefer);
+    return pick === null ? null : (byIndex[pick] || null);
+  }
+
+  function setRaddleFocus(taskRoot, wordIndex, opts) {
     if (!taskRoot) return;
     var table = getRaddleLadderTable(taskRoot);
     if (!table) return;
@@ -2742,10 +2767,19 @@
       }
     });
     if (!focusRow || !focusRow.classList.contains('new-raddle-row--playable')) {
-      focusRow = table.querySelector('.new-raddle-row--playable');
+      focusRow = nearestRaddlePlayableRow(
+        table,
+        (opts && opts.from !== undefined) ? opts.from : wordIndex,
+        opts && opts.prefer
+      );
       if (!focusRow) return;
       wordIndex = focusRow.getAttribute('data-word-index');
     }
+    // ref-role=next — ступенька берётся снизу вверх. Направление нужно потом,
+    // чтобы перерисовка не увела пару в другой конец лесенки.
+    raddleSession.noteDirection(
+      focusRow.getAttribute('data-ref-role') === 'next' ? 'up' : 'down'
+    );
     var dualNeighbors = focusRow.getAttribute('data-dual-neighbors') === '1';
     var focusIdx = parseInt(focusRow.getAttribute('data-word-index'), 10);
     if (dualNeighbors && !isNaN(focusIdx)) {
@@ -2788,7 +2822,7 @@
     } else {
       highlightRaddleClue(taskRoot, '');
     }
-    updateRaddleStickyPin(taskRoot);
+    updateRaddleStickyPin(taskRoot, opts);
   }
 
   function getRaddleLadderTable(taskRoot) {
@@ -2835,16 +2869,6 @@
     return out;
   }
 
-  function recentRaddlePointerDown() {
-    var down = lastRaddlePointerDown;
-    if (down && Date.now() - down.at > 700) return null;
-    return down;
-  }
-
-  function raddleKeyboardClosedRecently() {
-    return !!raddleKeyboardClosedAt && (Date.now() - raddleKeyboardClosedAt < 700);
-  }
-
   function restoreRaddleAnchorHighlight(taskRoot, anchor) {
     if (!taskRoot || !anchor) return;
     var row = taskRoot.querySelector(
@@ -2859,18 +2883,20 @@
   }
 
   function raddleFocusMoveOpts(input, row, taskRoot) {
-    var down = recentRaddlePointerDown();
+    var down = raddleSession.recentPointerDown(700);
     return {
       pointerDownTarget: down && down.target,
       focusInput: input,
       focusRow: row,
-      keyboardClosedRecently: raddleKeyboardClosedRecently(),
-      dismissSessionActive: !!(
+      keyboardClosedRecently: raddleSession.keyboardClosedRecently(700),
+      // Either the close is already recorded, or Back is stealing focus before
+      // visualViewport has reported it (close-detection context still open).
+      dismissSessionActive: raddleSession.dismissSessionActive() || !!(
         raddleKeyboardCloseIntent &&
         typeof raddleKeyboardCloseIntent.isActive === 'function' &&
         raddleKeyboardCloseIntent.isActive()
       ),
-      anchor: lastRaddleAnchor,
+      anchor: raddleSession.anchor,
       taskId: taskRoot ? String(taskRoot.getAttribute('data-task-id') || '') : '',
       wordIndex: row ? row.getAttribute('data-word-index') : '',
     };
@@ -2882,11 +2908,15 @@
     return Dismiss.shouldBlockFocusMove(raddleFocusMoveOpts(input, row, taskRoot));
   }
 
+  // Back / «свернуть клавиатуру»: сессия ввода закрывается, пара остаётся той
+  // же. Ни focus(), ни scroll здесь недопустимы — только снять чужой фокус,
+  // который браузер успел украсть на слово выше.
   function onRaddleKeyboardClosed() {
-    raddleKeyboardClosedAt = Date.now();
-    if (!lastRaddleAnchor) return;
+    var anchor = raddleSession.anchor;
+    raddleSession.noteKeyboardClosed();
+    if (!anchor) return;
     var taskRoot = document.querySelector(
-      '.new-raddle-task[data-task-id="' + lastRaddleAnchor.taskId + '"]'
+      '.new-raddle-task[data-task-id="' + anchor.taskId + '"]'
     );
     if (!taskRoot) return;
     var active = document.activeElement;
@@ -2895,7 +2925,7 @@
       active.classList.contains('new-raddle-input') &&
       window.RaddleKeyboardDismiss &&
       window.RaddleKeyboardDismiss.isStolenFocus({
-        anchor: lastRaddleAnchor,
+        anchor: anchor,
         taskId: String(taskRoot.getAttribute('data-task-id') || ''),
         wordIndex: (function () {
           var row = active.closest ? active.closest('.new-raddle-row[data-word-index]') : null;
@@ -2906,7 +2936,8 @@
     if (stolen && typeof active.blur === 'function') {
       try { active.blur(); } catch (e) {}
     }
-    restoreRaddleAnchorHighlight(taskRoot, lastRaddleAnchor);
+    restoreRaddleAnchorHighlight(taskRoot, anchor);
+    updateRaddleStickyPinVisibility(taskRoot);
   }
 
   // Keep the fixed clone outside overflow/scrolling task-card ancestors.
@@ -2952,6 +2983,8 @@
     var tr = sourceRow.cloneNode(true);
     tr.classList.add('new-raddle-sticky-pin__row');
     tr.classList.remove('new-raddle-row--playable');
+    // Иначе клон унаследует «содержимое скрыто» от исходной строки.
+    tr.classList.remove('is-raddle-pin-source');
     tr.setAttribute('data-raddle-pin-row', '1');
     tr.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
     tr.querySelectorAll('.new-raddle-word-msg').forEach(function (el) { el.remove(); });
@@ -3002,11 +3035,35 @@
     return tr;
   }
 
-  function hideRaddleStickyPin(pin) {
+  // Пока пин показывает пару, содержимое исходных строк скрыто: иначе при
+  // keyboard pan (пара вернулась в остаток экрана прямо под пином) одна и та же
+  // ступенька видна дважды, и непонятно, в какое поле печатать. visibility, а не
+  // display — высота строк и рамки таблицы остаются, скролл не дёргается.
+  function markRaddlePinnedSourceRows(taskRoot, rows) {
+    if (!taskRoot) return;
+    var keep = rows || [];
+    var active = document.activeElement;
+    // Строку со сфокусированным полем скрывать нельзя: браузер снимет фокус, а
+    // вернуть его в visibility:hidden элемент потом уже не получится.
+    var activeRow = active && active.closest && taskRoot.contains(active)
+      ? active.closest('.new-raddle-row')
+      : null;
+    taskRoot.querySelectorAll('.new-raddle-row.is-raddle-pin-source').forEach(function (row) {
+      if (keep.indexOf(row) === -1 || row === activeRow) {
+        row.classList.remove('is-raddle-pin-source');
+      }
+    });
+    keep.forEach(function (row) {
+      if (row !== activeRow) row.classList.add('is-raddle-pin-source');
+    });
+  }
+
+  function hideRaddleStickyPin(pin, taskRoot) {
     if (!pin) return;
     pin.classList.remove('is-active');
     pin.setAttribute('hidden', '');
     pin.setAttribute('aria-hidden', 'true');
+    markRaddlePinnedSourceRows(taskRoot, []);
   }
 
   function positionRaddleStickyPin(taskRoot, pin) {
@@ -3015,6 +3072,11 @@
     var rect = table.getBoundingClientRect();
     pin.style.left = Math.max(0, rect.left) + 'px';
     pin.style.width = Math.max(0, rect.width) + 'px';
+    // position: fixed is laid out against the layout viewport, so an open
+    // keyboard panning the visual viewport would leave the pin above the screen.
+    var vv = window.visualViewport;
+    var offset = vv ? Math.max(0, vv.offsetTop || 0) : 0;
+    pin.style.transform = offset ? 'translateY(' + offset + 'px)' : '';
   }
 
   function syncRaddleStickyPinInputsFromReal(taskRoot, pin) {
@@ -3026,12 +3088,18 @@
     });
   }
 
+  // Пока пин виден, настоящее поле только зеркалит значение: фокус, каретка и
+  // IME живут в прокси. Направление перехода решает RaddleState.decideInputTarget.
   function transferRaddleFocusForStickyPin(taskRoot, pin, becomingActive) {
+    // Фокус возвращается в настоящее поле — сначала показать его содержимое:
+    // сфокусировать visibility:hidden элемент нельзя.
+    if (!becomingActive) markRaddlePinnedSourceRows(taskRoot, []);
     var active = document.activeElement;
     if (!active || !active.getAttribute) return;
+    var focusInPin = active.getAttribute('data-raddle-pin-proxy') === '1' && pin.contains(active);
+    var sessionActive = hasRaddleInputIntent(taskRoot);
     if (becomingActive) {
-      if (!hasRaddleInputIntent(taskRoot)) return;
-      if (active.getAttribute('data-raddle-pin-proxy') === '1' && pin.contains(active)) return;
+      if (focusInPin) { raddleSession.setOwner('pin'); return; }
       if (!taskRoot.contains(active)) return;
       if (!active.classList || !active.classList.contains('new-raddle-input')) return;
       if (active.closest('.new-raddle-sticky-pin')) return;
@@ -3039,21 +3107,31 @@
       if (!formId) return;
       var proxy = pin.querySelector('input[data-raddle-pin-for="' + formId + '"]');
       if (!proxy) return;
+      if (RaddleCtl.decideInputTarget({
+        pinVisible: true, sessionActive: sessionActive, focusInPin: false,
+      }) !== 'pin') return;
       preservePageScroll(function () {
         softSetRaddleLetters(proxy, getRaddleInputLetters(active));
         if (document.activeElement !== proxy) focusPreventScroll(proxy);
       });
+      raddleSession.setOwner('pin');
       return;
     }
-    if (active.getAttribute('data-raddle-pin-proxy') !== '1') return;
-    if (!pin.contains(active)) return;
+    if (!focusInPin) return;
     var real = findRealRaddleInputFromPin(active);
     if (!real) return;
+    var target = RaddleCtl.decideInputTarget({
+      pinVisible: false,
+      sessionActive: sessionActive,
+      focusInPin: true,
+      realVisible: raddleInputVisuallyOnScreen(real),
+    });
     preservePageScroll(function () {
       softSetRaddleLetters(real, getRaddleInputLetters(active));
-      if (hasRaddleInputIntent(taskRoot) && raddleInputVisuallyOnScreen(real)) {
+      if (target === 'real') {
         focusPreventScroll(real);
-      } else if (typeof active.blur === 'function') {
+        raddleSession.setOwner('real');
+      } else if (target === 'blur' && typeof active.blur === 'function') {
         active.blur();
       }
     });
@@ -3071,11 +3149,11 @@
     return bottom > navTop + 8 && top < vh - 8;
   }
 
-  function raddlePinHasFocus(taskRoot, pin) {
-    var active = document.activeElement;
-    return !!(
-      hasRaddleInputIntent(taskRoot) && active && pin && pin.contains(active)
-    );
+  // Пин «владеет вводом», только если это подтверждённая сессия ввода. Native
+  // focus доказательством не является: Android сохраняет его после Back.
+  function raddlePinOwnsInput(taskRoot, pin) {
+    if (!pin || !raddleSession.ownsPin()) return false;
+    return hasRaddleInputIntent(taskRoot);
   }
 
   function updateRaddleStickyPinVisibility(taskRoot) {
@@ -3088,14 +3166,14 @@
       if (pausedActive && pin.contains(pausedActive) && typeof pausedActive.blur === 'function') {
         try { pausedActive.blur(); } catch (e) {}
       }
-      hideRaddleStickyPin(pin);
+      hideRaddleStickyPin(pin, taskRoot);
       return;
     }
     if (!raddleIsMobileLayout()) {
       if (pin.classList.contains('is-active')) {
         transferRaddleFocusForStickyPin(taskRoot, pin, false);
       }
-      hideRaddleStickyPin(pin);
+      hideRaddleStickyPin(pin, taskRoot);
       return;
     }
     var rows = getRaddleStickySourceRows(taskRoot);
@@ -3103,7 +3181,7 @@
       if (pin.classList.contains('is-active')) {
         transferRaddleFocusForStickyPin(taskRoot, pin, false);
       }
-      hideRaddleStickyPin(pin);
+      hideRaddleStickyPin(pin, taskRoot);
       return;
     }
     positionRaddleStickyPin(taskRoot, pin);
@@ -3116,7 +3194,8 @@
     var viewportOffsetTop = vv ? (vv.offsetTop || 0) : 0;
     var viewportHeight = vv && typeof vv.height === 'number' ? vv.height : window.innerHeight;
     var pinH = pin.offsetHeight || (rows.length * 48);
-    var pinOwnsFocus = !!(document.activeElement && pin.contains(document.activeElement));
+    var pinOwnsFocus = raddlePinOwnsInput(taskRoot, pin);
+    var pinKeepsPan = pinOwnsFocus && raddleSession.pinKeepsPan();
     var Dismiss = window.RaddleKeyboardDismiss;
     var shouldShow = Dismiss && Dismiss.shouldShowStickyPin
       ? Dismiss.shouldShowStickyPin({
@@ -3127,16 +3206,15 @@
           pinH: pinH,
           viewportOffsetTop: viewportOffsetTop,
           viewportHeight: viewportHeight,
-          pinHasFocus: pinOwnsFocus,
+          pinKeepsPan: pinKeepsPan,
         })
       : (function () {
           var visualTop = firstTop - viewportOffsetTop;
-          var visualBottom = firstBottom - viewportOffsetTop;
           var visualTaskBottom = taskBottom - viewportOffsetTop;
           if (visualTaskBottom <= navTop + Math.min(pinH, 24)) return false;
           if (visualTop >= viewportHeight - 24) return false;
-          if (pinOwnsFocus) return true;
-          return visualBottom <= navTop + 0.5;
+          if (visualTop < navTop - 1) return true;
+          return pinKeepsPan;
         })();
     var wasActive = pin.classList.contains('is-active');
     if (shouldShow) {
@@ -3144,7 +3222,7 @@
       pin.removeAttribute('hidden');
       pin.setAttribute('aria-hidden', 'false');
       // Сначала display, потом sync: IMask не рисует value, пока пин display:none.
-      if (!raddlePinHasFocus(taskRoot, pin)) {
+      if (!pinOwnsFocus) {
         syncRaddleStickyPinInputsFromReal(taskRoot, pin);
         pin.querySelectorAll('input[data-raddle-pin-proxy="1"]').forEach(function (proxy) {
           if (window.RaddleMaskedInput && RaddleMaskedInput.refresh) {
@@ -3153,18 +3231,50 @@
         });
       }
       transferRaddleFocusForStickyPin(taskRoot, pin, true);
+      // После переноса фокуса: иначе прячем поле, с которого ещё не ушёл focus.
+      markRaddlePinnedSourceRows(taskRoot, rows);
     } else {
       if (wasActive) transferRaddleFocusForStickyPin(taskRoot, pin, false);
-      hideRaddleStickyPin(pin);
+      hideRaddleStickyPin(pin, taskRoot);
     }
   }
 
-  function updateRaddleStickyPin(taskRoot) {
+  // Какие ступеньки и с какими буквами сейчас в пине. Пока подпись не менялась,
+  // tbody не пересобираем: каждая пересборка уничтожает сфокусированный
+  // proxy-input и на части Android закрывает IME/клавиатуру.
+  // Транзиентные --wrong / --checking в подпись не входят: их зеркалит
+  // syncRaddleStickyPinRowState, пересобирать из-за них пин нельзя. Так же и
+  // is-raddle-pin-source: его ставит сам показ пина, и он не меняет содержимое.
+  var RADDLE_PIN_VOLATILE_CLASSES = /\s*(new-raddle-row--(wrong|checking)|is-raddle-pin-source)\b/g;
+  function raddleStickyPinSignature(taskRoot, rows) {
+    var parts = [];
+    rows.forEach(function (row) {
+      var input = row.querySelector('input.new-raddle-input');
+      parts.push([
+        row.getAttribute('data-word-index'),
+        String(row.className || '').replace(RADDLE_PIN_VOLATILE_CLASSES, ''),
+        input ? (input.getAttribute('form') || '') : '',
+      ].join('|'));
+    });
+    return String(taskRoot.getAttribute('data-task-id') || '') + '#' + parts.join('/');
+  }
+
+  function updateRaddleStickyPin(taskRoot, opts) {
     if (!taskRoot) return;
     var pin = ensureRaddleStickyPin(taskRoot);
     var tbody = pin.querySelector('tbody');
     if (!tbody) return;
     var rows = getRaddleStickySourceRows(taskRoot);
+    var signature = raddleStickyPinSignature(taskRoot, rows);
+    if (
+      !(opts && opts.force) &&
+      pin.getAttribute('data-raddle-pin-signature') === signature
+    ) {
+      syncRaddleStickyPinRowState(taskRoot);
+      updateRaddleStickyPinVisibility(taskRoot);
+      return;
+    }
+    pin.setAttribute('data-raddle-pin-signature', signature);
     var keepFocus = null;
     var keepFocusWasProxy = false;
     var keepLetters = null;
@@ -3184,7 +3294,10 @@
         keepLetters = getRaddleInputLetters(active);
       }
     }
-    var restoreFocus = !!keepFocus && hasRaddleInputIntent(taskRoot);
+    // Rebuilding destroys the focused proxy, so focus is *restored* (put back
+    // where the session already was), never *moved* to a new field.
+    var source = (opts && opts.source) || raddleEffectSource;
+    var restoreFocus = !!keepFocus && raddleMayApply(source, 'restoreFocus', taskRoot);
     tbody.innerHTML = '';
     rows.forEach(function (row) {
       tbody.appendChild(buildRaddleStickyPinRow(row));
@@ -3201,18 +3314,28 @@
       });
     }
     updateRaddleStickyPinVisibility(taskRoot);
-    if (restoreFocus && pin.classList.contains('is-active')) {
+    if (!restoreFocus) return;
+    var pinVisible = pin.classList.contains('is-active');
+    var realBack = document.querySelector(
+      'input.new-raddle-input[name="word"][form="' + keepFocus + '"]'
+    );
+    var target = RaddleCtl.decideInputTarget({
+      pinVisible: pinVisible,
+      sessionActive: hasRaddleInputIntent(taskRoot),
+      focusInPin: keepFocusWasProxy,
+      realVisible: !!realBack && raddleInputVisuallyOnScreen(realBack),
+    });
+    if (target === 'pin') {
       var proxyBack = pin.querySelector('input[data-raddle-pin-for="' + keepFocus + '"]');
       if (proxyBack && document.activeElement !== proxyBack) {
         preservePageScroll(function () { focusPreventScroll(proxyBack); });
       }
-    } else if (restoreFocus && keepFocusWasProxy && !pin.classList.contains('is-active')) {
-      var realBack = document.querySelector(
-        'input.new-raddle-input[name="word"][form="' + keepFocus + '"]'
-      );
-      if (realBack && document.activeElement !== realBack && raddleInputVisuallyOnScreen(realBack)) {
-        preservePageScroll(function () { focusPreventScroll(realBack); });
-      }
+      raddleSession.setOwner('pin');
+      return;
+    }
+    if (target === 'real' && realBack && document.activeElement !== realBack) {
+      preservePageScroll(function () { focusPreventScroll(realBack); });
+      raddleSession.setOwner('real');
     }
   }
 
@@ -3225,13 +3348,31 @@
     var fresh = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
     if (!fresh) return;
     var idx = parseInt(solvedIndex, 10);
-    if (isNaN(idx)) { setRaddleFocus(fresh, null); return; }
-    var target = (refRole === 'next') ? (idx - 1) : (idx + 1);
-    setRaddleFocus(fresh, target);
-    var focusRow = fresh.querySelector('.new-raddle-ladder .new-raddle-row--focus');
-    rememberRaddleAnchor(focusRow);
-    var input = focusRow && focusRow.querySelector('[data-raddle-focus-input]');
-    focusRaddlePlayableInput(fresh, input);
+    // ref-role=next — пользователь идёт вверх (к нулевому индексу), иначе вниз.
+    var prefer = (refRole === 'next') ? 'up' : 'down';
+    withRaddleSource('server.advance', function () {
+      if (isNaN(idx)) {
+        // Индекса решённого слова нет — держимся хотя бы за текущий anchor,
+        // чтобы фокус не уехал на первую playable ступеньку лесенки.
+        var anchor = raddleSession.anchor;
+        var anchorIndex = anchor && String(anchor.taskId) === String(taskId)
+          ? anchor.wordIndex
+          : null;
+        setRaddleFocus(fresh, null, { prefer: prefer, from: anchorIndex });
+        return;
+      }
+      var target = (refRole === 'next') ? (idx - 1) : (idx + 1);
+      setRaddleFocus(fresh, target, { prefer: prefer, from: target });
+      var focusRow = fresh.querySelector('.new-raddle-ladder .new-raddle-row--focus');
+      // Anchor follows the confirmed advance; it does not re-open a session the
+      // user may already have ended by closing the keyboard.
+      var anchorRow = focusRow || null;
+      if (anchorRow) {
+        raddleSession.moveAnchor(taskId, anchorRow.getAttribute('data-word-index'));
+      }
+      var input = focusRow && focusRow.querySelector('[data-raddle-focus-input]');
+      focusRaddlePlayableInput(fresh, input);
+    });
   }
   window.focusRaddleNext = focusRaddleNext;
 
@@ -3241,96 +3382,112 @@
     scope.querySelectorAll('.new-raddle-task').forEach(function (taskRoot) {
       restoreRaddleDrafts(taskRoot);
       restoreRaddleClueMarks(taskRoot);
+      // data-default-focus — первая playable ступенька сверху. Если пользователь
+      // уже работает ниже, перерисовка (live-update напарника, raddle_stale_ui)
+      // не имеет права утащить выделенную пару на верх лесенки: держимся за
+      // anchor сессии, он переживает замену HTML.
       var focus = taskRoot.getAttribute('data-default-focus');
-      if (focus !== null && focus !== '') {
-        setRaddleFocus(taskRoot, focus);
-      } else {
-        setRaddleFocus(taskRoot, null);
-      }
+      var anchored = raddleAnchoredFocusIndex(taskRoot);
+      if (anchored !== null) focus = anchored;
+      // A re-rendered card needs its pin rebuilt even when the highlighted pair
+      // is unchanged: the rows the pin cloned no longer exist.
+      setRaddleFocus(taskRoot, (focus !== null && focus !== '') ? focus : null, {
+        force: true,
+        prefer: raddleSession.direction,
+      });
     });
   }
   window.initRaddleUi = initRaddleUi;
   window.setRaddleFocus = setRaddleFocus;
-  initRaddleUi(document);
+  withRaddleSource('init', function () { initRaddleUi(document); });
 
   // bfcache: после back/forward DOM может быть от другого актёра (login↔anon).
+  // deploy_version_check.js тоже слушает pageshow и может увести страницу —
+  // перезагружаем ровно один раз, чтобы не получить двойную навигацию.
+  var raddleBfcacheReloading = false;
   window.addEventListener('pageshow', function (e) {
-    if (!e.persisted) return;
+    if (!e.persisted || raddleBfcacheReloading) return;
     if (!document.querySelector('.new-raddle-task')) return;
+    raddleBfcacheReloading = true;
     window.location.reload();
   });
 
   var raddleStickyResizeTimer = null;
-  function refreshAllRaddleStickyPins() {
-    // Android keeps an input focused after Back dismisses the soft keyboard.
-    // A scroll/viewport event must only move the sticky clone: calling focus()
-    // here would treat that stale focus as intent to type and reopen the keyboard.
-    document.querySelectorAll('.new-raddle-task').forEach(updateRaddleStickyPinVisibility);
+  // Passive viewport/scroll handlers may only reposition and show/hide the fixed
+  // clone. They never rebuild it and never call focus(): Android keeps an input
+  // focused after Back, and treating that stale focus as intent to type would
+  // reopen the keyboard the user just dismissed. RaddleState.SOURCE_EFFECTS
+  // encodes the same rule for every nested helper.
+  function refreshAllRaddleStickyPins(source) {
+    withRaddleSource(source || 'page.scroll', function () {
+      document.querySelectorAll('.new-raddle-task').forEach(updateRaddleStickyPinVisibility);
+    });
   }
   window.addEventListener('resize', function () {
     if (raddleStickyResizeTimer) clearTimeout(raddleStickyResizeTimer);
     raddleStickyResizeTimer = setTimeout(function () {
       observeRaddleViewport();
-      // Mobile keyboards resize the viewport when they open and close. Rebuilding
-      // the pin here removes its focused proxy input and the focus restoration in
-      // updateRaddleStickyPin opens the keyboard again. The rows themselves have
-      // not changed on resize, so keep their DOM (and native keyboard state) and
-      // only refresh the fixed pin's position/visibility.
-      document.querySelectorAll('.new-raddle-task').forEach(updateRaddleStickyPinVisibility);
+      refreshAllRaddleStickyPins('viewport.resize');
     }, 100);
   });
-  window.addEventListener('scroll', refreshAllRaddleStickyPins, { passive: true });
+  window.addEventListener('scroll', function () {
+    refreshAllRaddleStickyPins('page.scroll');
+  }, { passive: true });
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', function () {
       observeRaddleViewport();
-      refreshAllRaddleStickyPins();
+      refreshAllRaddleStickyPins('viewport.resize');
     });
-    window.visualViewport.addEventListener('scroll', refreshAllRaddleStickyPins);
+    window.visualViewport.addEventListener('scroll', function () {
+      refreshAllRaddleStickyPins('viewport.scroll');
+    });
   }
   document.addEventListener('interoves:daily-solve-paused', function (e) {
     // The timer is initialised before the sticky pin exists on first load;
     // refresh on resume so its visibility is recalculated from the current UI.
-    if (!e.detail || !e.detail.paused) refreshAllRaddleStickyPins();
+    if (!e.detail || !e.detail.paused) refreshAllRaddleStickyPins('pause');
   });
 
   document.addEventListener('pointerdown', function (e) {
-    lastRaddlePointerDown = { target: e.target || null, at: Date.now() };
+    raddleSession.notePointerDown(e.target || null);
     var target = e.target && e.target.closest ? e.target : null;
     if (!target) {
-      clearRaddleInputIntent();
+      raddleSession.end();
       return;
     }
     var input = target.closest('input.new-raddle-input');
     if (input) {
-      activateRaddleInputIntent(input);
+      beginRaddleInputSession(input);
       return;
     }
     var submit = target.closest('form.new-raddle-line-form button[type="submit"]');
     if (submit) {
-      activateRaddleInputIntent(submit);
+      beginRaddleInputSession(submit);
       return;
     }
     var row = target.closest('.new-raddle-row--playable, .new-raddle-row--draft');
     if (row && !target.closest('button, a, select, textarea, label')) {
-      activateRaddleInputIntent(row);
+      beginRaddleInputSession(row);
       return;
     }
-    clearRaddleInputIntent();
+    // Тап по пустому месту закрывает клавиатуру, но текущую пару не меняет.
+    raddleSession.end();
   }, { passive: true });
 
   document.addEventListener('beforeinput', function (e) {
     var input = e.target && e.target.closest
       ? e.target.closest('input.new-raddle-input') : null;
-    if (input) activateRaddleInputIntent(input);
+    if (!input) return;
+    // Реальный ввод — единственное доказательство, что клавиатура открыта.
+    beginRaddleInputSession(input);
+    raddleSession.noteInput();
   });
 
   // A deliberate page gesture means that a later async response must not pull
   // the user back into an input. Native focus can remain untouched while the
   // sticky controller stops treating it as permission to call focus() again.
   function onRaddleScrollGesture() {
-    var pin = document.querySelector('.new-raddle-sticky-pin.is-active');
-    if (pin) return;
-    clearRaddleInputIntent();
+    raddleSession.noteUserScroll();
   }
   document.addEventListener('touchmove', onRaddleScrollGesture, { passive: true });
   document.addEventListener('wheel', onRaddleScrollGesture, { passive: true });
@@ -3339,27 +3496,33 @@
     var input = e.target && e.target.closest ? e.target.closest('input.new-raddle-input') : null;
     if (!input) return;
     if (input.getAttribute('data-raddle-pin-proxy') === '1') {
-      activateRaddleInputIntent(input);
-      rememberRaddleAnchor(input);
+      beginRaddleInputSession(input);
+      raddleSession.setOwner('pin');
       return;
     }
     var row = input.closest('.new-raddle-row');
     var taskRoot = input.closest('.new-raddle-task');
     if (!row || !taskRoot) return;
     if (row.getAttribute('data-raddle-pin-row') === '1') return;
+    // Ghost-click после Back: браузер отдал фокус слову выше — не принимаем.
     if (shouldKeepRaddleAnchor(input, row, taskRoot)) {
       try { input.blur(); } catch (err) {}
-      restoreRaddleAnchorHighlight(taskRoot, lastRaddleAnchor);
+      withRaddleSource('keyboard.closed', function () {
+        restoreRaddleAnchorHighlight(taskRoot, raddleSession.anchor);
+      });
       return;
     }
     if (input.getAttribute('data-raddle-focus-input') == null) return;
-    setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
+    raddleSession.setOwner('real');
+    withRaddleSource('user.pointer', function () {
+      setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
+    });
     syncRaddlePinFromRealInput(input);
   });
 
   function focusRaddleTabTarget(input) {
     if (!input) return;
-    activateRaddleInputIntent(input);
+    beginRaddleInputSession(input);
     preservePageScroll(function () {
       focusPreventScroll(input);
       if (!raddleIsMobileLayout()) {
@@ -3376,12 +3539,12 @@
       : null;
     if (dest) {
       e.preventDefault();
-      focusRaddleTabTarget(dest);
+      withRaddleSource('user.tab', function () { focusRaddleTabTarget(dest); });
       return;
     }
     var raddleInput = e.target && e.target.closest
       ? e.target.closest('input.new-raddle-input') : null;
-    if (raddleInput) activateRaddleInputIntent(raddleInput);
+    if (raddleInput) beginRaddleInputSession(raddleInput);
     if (e.key !== 'Enter' && e.keyCode !== 13) return;
     var draft = e.target && e.target.closest ? e.target.closest('[data-raddle-draft="1"]') : null;
     if (!draft) return;
@@ -3410,11 +3573,14 @@
     if (!taskRoot) return;
     var input = row.querySelector('[data-raddle-focus-input]');
     if (shouldKeepRaddleAnchor(input || row, row, taskRoot)) return;
-    rememberRaddleAnchor(row);
-    setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
-    if (input && document.activeElement !== input) {
-      focusPreventScroll(input);
-    }
+    // Тап по полю уже обработан focusin; здесь остаётся только тап по строке
+    // мимо инпута, иначе один жест дважды пересобирал бы пин.
+    var alreadyFocused = !!input && document.activeElement === input;
+    beginRaddleInputSession(row);
+    withRaddleSource('user.pointer', function () {
+      if (!alreadyFocused) setRaddleFocus(taskRoot, row.getAttribute('data-word-index'));
+      if (input && !alreadyFocused) focusPreventScroll(input);
+    });
   });
 
   function openAnswer(html) {
@@ -3760,19 +3926,29 @@
     };
   }
 
+  // После замены HTML возвращаем каретку туда, где сессия ввода уже была. Это
+  // restoreFocus, а не moveFocus: live-update напарника не имеет права уводить
+  // фокус на другое слово и не должен открывать клавиатуру заново.
   function restoreActiveRaddleInput(taskId, state) {
     if (!state) return;
     var taskRoot = document.querySelector(
       '.new-raddle-task[data-task-id="' + taskId + '"]'
     );
-    if (!taskRoot || !hasRaddleInputIntent(taskRoot)) return;
+    if (!taskRoot) return;
+    if (!raddleMayApply(raddleEffectSource, 'restoreFocus', taskRoot)) return;
     var row = taskRoot.querySelector(
       '.new-raddle-ladder .new-raddle-row[data-word-index="' + state.wordIndex + '"]'
     );
     var input = row && row.querySelector('input.new-raddle-input[data-raddle-format]');
     if (!input) return;
     if (row.classList.contains('new-raddle-row--playable')) {
-      setRaddleFocus(taskRoot, state.wordIndex);
+      // Re-align the highlighted pair (and therefore the pin's rows) to the word
+      // the user is in before restoring focus, otherwise the pin would hold a
+      // different pair and focus would land on the real field under the nav.
+      var focusRow = taskRoot.querySelector('.new-raddle-ladder .new-raddle-row--focus');
+      if (!focusRow || String(focusRow.getAttribute('data-word-index')) !== String(state.wordIndex)) {
+        setRaddleFocus(taskRoot, state.wordIndex, { force: true });
+      }
       focusRaddlePlayableInput(taskRoot, input);
     } else {
       focusPreventScroll(input);

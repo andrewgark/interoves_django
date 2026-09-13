@@ -26,6 +26,7 @@ from games.raddle import (
     serialize_raddle_attempt_text,
     word_matches,
 )
+from games.analytics_identity import gameplay_anon_key
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
 from games.grid_puzzle import (
     GridPuzzleDataError,
@@ -395,7 +396,7 @@ def process_send_attempt(request, task_id):
                 return {'status': 'no_profile'}
             user = request.user
         else:
-            anon_key = request.POST.get('anon_key') or request.headers.get('X-Interoves-Anon')
+            anon_key = gameplay_anon_key(request)
             if not anon_key:
                 return {'status': 'no_anon'}
 
@@ -788,7 +789,7 @@ def _raddle_duplicate_response(request, task_id):
                 return {'raddle_word_index': word_index}
             user = request.user
         else:
-            anon_key = request.POST.get('anon_key') or request.headers.get('X-Interoves-Anon')
+            anon_key = gameplay_anon_key(request)
             if not anon_key:
                 return {'raddle_word_index': word_index}
     current_mode = game.get_current_mode(Attempt(time=timezone.now()))

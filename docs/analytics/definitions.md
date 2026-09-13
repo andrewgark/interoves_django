@@ -32,8 +32,10 @@ The three identity namespaces are distinct. They become one history only when
 the existing explicit anonymous-progress migration physically reassigns or
 merges rows.
 
-This is a reporting key, not proof of a person. In particular, the current
-unsigned client-provided `anon_key` is not a hardened credential.
+This is a reporting key, not proof of a person. After Stage 1C the anonymous
+`anon_key` is a server-issued opaque UUID stored in cookie `interoves_anon`,
+with an HttpOnly HMAC signature cookie. POST, header, and URL values are not
+authority for attribution. See [identity](identity.md).
 
 ## Game and audience metrics
 
@@ -94,9 +96,11 @@ the row:
 - other supported task formats: first persisted attempt or real hint routed
   through the generic instrumentation.
 
-The logical key is actor plus placement. The application uses `get_or_create`,
-but MySQL currently does not enforce the conditional unique constraints declared
-in the Django models; concurrent duplicates remain possible until stage 1B.
+The logical key is actor plus placement. The application uses `create_or_reread` plus nine physical MySQL UNIQUE indexes
+(actor + `game_instance_id` for starts/completions; actor for lifecycle state).
+Django models declare matching unconditional `UniqueConstraint`s. Migration
+`0204_player_analytics_physical_uniques` records that schema in Django state
+without repeating DDL.
 
 ### `game_complete`
 
@@ -166,8 +170,23 @@ when state is repaired, `activation_is_backfilled=true` and no historical
 activation goal is sent.
 
 This is “third unique completion”, not signup, first start, third active day, or
-a retained player. Because uniqueness is not yet enforced by MySQL, a concurrent
-duplicate can incorrectly advance the count; stage 1B addresses that risk.
+a retained player. Physical unique indexes keep the distinct-completion count
+stable under concurrent writes.
+
+### Core player
+
+Core player is a **query-defined reporting segment**, not a stored flag and not
+an event. Do not write `core_player=true` onto a user or analytics row. After
+the identity cutover, compute from valid post-cutover `game_start` /
+`game_complete` rows, for example in a 30-day window:
+
+- ≥7 active days / 30d;
+- ≥10 completions / 30d;
+- ≥20 completions / 30d;
+- ≥3 active calendar weeks / 30d.
+
+Exact and rolling retention remain separate metrics; none of these segments is
+a retention event.
 
 ## Session limitations
 
@@ -191,10 +210,10 @@ can continue writing `NULL`; new instances explicitly write `2`. Existing rows
 found by a new instance are not upgraded. Backfilled rows remain `NULL`.
 
 `instrumentation_version=2` proves only that this particular start/completion was
-inserted by the new code with the documented event semantics. It does not prove
-anonymous identity ownership, merge legacy actors, or eliminate concurrent
-duplicates before stage 1B. Version-2 rows have a known semantics version and can
-pass the documented quality checks; they must not be described as fully reliable.
+inserted by the new live write path with the documented event semantics. It is
+**not** the Stage 1C identity cutover. Identity cutover SHA/timestamp is recorded
+only after production rollout and post-deploy validation; until then, do not
+treat anonymous ownership as fully trusted.
 
 Known historical boundaries from migrations and git history:
 

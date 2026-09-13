@@ -71,59 +71,21 @@
   {% if not user.is_authenticated %}
   <script>
   (function () {
-    function genKey() {
-      try {
-        if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
-      } catch (e) {}
-      return String(Date.now()) + '-' + String(Math.random()).slice(2);
-    }
     function readAnonCookie() {
       try {
         var m = document.cookie.match(/(?:^|;\s*)interoves_anon=([^;]+)/);
         return m ? decodeURIComponent(m[1]) : '';
       } catch (e) { return ''; }
     }
-    function readAnonParam() {
-      try {
-        var u = new URL(window.location.href);
-        return u.searchParams.get('anon') || u.searchParams.get('anon_key') || '';
-      } catch (e) { return ''; }
-    }
-    // Устойчивый ключ: localStorage → cookie → ?anon в URL → генерация.
-    // ?anon= в URL — только fallback, когда cookie не сохраняется
-    // (приватный режим, встроенные браузеры); иначе достаточно cookie.
-    function ensureAnonKey() {
-      var key = '';
-      try { key = localStorage.getItem('interoves_anon_key') || ''; } catch (e) {}
-      if (!key) key = readAnonCookie();
-      if (!key) key = readAnonParam();
-      if (!key) key = genKey();
-      try { localStorage.setItem('interoves_anon_key', key); } catch (e) {}
-      return key;
-    }
-    function setAnonCookie(key) {
-      try {
-        document.cookie = 'interoves_anon=' + encodeURIComponent(key) + '; path=/; SameSite=Lax; max-age=31622400';
-      } catch (e) {}
-    }
-    function anonCookieWorks(key) {
-      setAnonCookie(key);
-      return readAnonCookie() === key;
-    }
+    // Server issues the identity cookie. Do not mint a UUID or treat ?anon= as authority.
     try {
-      var key = ensureAnonKey();
-      if (!key) return;
-      var cookieOk = anonCookieWorks(key);
+      var key = readAnonCookie();
+      if (key) {
+        try { localStorage.setItem('interoves_anon_key', key); } catch (e) {}
+      }
       var url = new URL(window.location.href);
-      var urlAnon = url.searchParams.get('anon') || url.searchParams.get('anon_key') || '';
-      if (cookieOk) {
-        if (url.searchParams.has('anon') || url.searchParams.has('anon_key')) {
-          url.searchParams.delete('anon');
-          url.searchParams.delete('anon_key');
-          window.location.replace(url.toString());
-        }
-      } else if (urlAnon !== key) {
-        url.searchParams.set('anon', key);
+      if (url.searchParams.has('anon') || url.searchParams.has('anon_key')) {
+        url.searchParams.delete('anon');
         url.searchParams.delete('anon_key');
         window.location.replace(url.toString());
       }
@@ -409,6 +371,14 @@
   <script>
   (function () {
     function getAnonKey() {
+      try {
+        var m = document.cookie.match(/(?:^|;\s*)interoves_anon=([^;]+)/);
+        if (m) {
+          var cookieKey = decodeURIComponent(m[1]);
+          try { localStorage.setItem('interoves_anon_key', cookieKey); } catch (e) {}
+          return cookieKey;
+        }
+      } catch (e) {}
       try { return localStorage.getItem('interoves_anon_key') || ''; } catch (e) { return ''; }
     }
     var userId = document.body.getAttribute('data-user-id') || '';
@@ -450,15 +420,7 @@
       close();
     }
     function rotateAnonKey() {
-      var key = '';
-      try {
-        key = window.crypto && crypto.randomUUID ? crypto.randomUUID() : '';
-      } catch (e) {}
-      if (!key) key = String(Date.now()) + '-' + String(Math.random()).slice(2);
-      try { localStorage.setItem('interoves_anon_key', key); } catch (e) {}
-      try {
-        document.cookie = 'interoves_anon=' + encodeURIComponent(key) + '; path=/; SameSite=Lax; max-age=31622400';
-      } catch (e) {}
+      try { localStorage.removeItem('interoves_anon_key'); } catch (e) {}
     }
     function postCSRF() {
       if (window.InterovesPageCsrf) return window.InterovesPageCsrf.pageToken();

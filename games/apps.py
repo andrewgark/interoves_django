@@ -12,6 +12,7 @@ class GamesConfig(AppConfig):
         auth_observability.log_startup_auth_configuration()
         import games.tribute_checks  # noqa: F401
         import games.signals
+        import games.analytics_identity  # noqa: F401 — logout rotation receiver
         import games.telegram.models  # noqa: F401
         import games.instagram.models  # noqa: F401
         import games.social.models  # noqa: F401

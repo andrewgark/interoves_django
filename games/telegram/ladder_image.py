@@ -195,7 +195,13 @@ def screenshot_page_element_png(
             )
             if emoji_font:
                 _install_emoji_font_route(page, emoji_font)
-            page.goto(url, wait_until='networkidle', timeout=60000)
+            # The game pages may keep analytics, font, or other background
+            # requests open for the lifetime of the document.  Waiting for
+            # ``networkidle`` therefore makes a screenshot depend on those
+            # unrelated requests and can time out even when the game is ready.
+            # DOMContentLoaded is sufficient here: the selector-specific
+            # visibility wait below is the readiness check for the screenshot.
+            page.goto(url, wait_until='domcontentloaded', timeout=60000)
             confirm = page.locator('[data-age-gate-confirm]')
             if confirm.count() and confirm.first.is_visible():
                 confirm.first.click()

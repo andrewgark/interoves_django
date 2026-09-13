@@ -83,6 +83,8 @@ def parse_actor_spec(request) -> ActorSpec:
     if user_raw.isdigit():
         return ActorSpec(kind='user', user_id=int(user_raw), play_mode='personal')
 
+    # Support actor lookup by explicit id. This is not gameplay attribution:
+    # staff search a known key; the canonical cookie resolver is not used here.
     anon_key = (request.GET.get('anon') or request.GET.get('anon_key') or '').strip()
     if anon_key:
         return ActorSpec(kind='anon', anon_key=anon_key, play_mode='personal')

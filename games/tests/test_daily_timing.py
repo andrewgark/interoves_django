@@ -507,6 +507,7 @@ class DailyTimingApiTests(TestCase):
         )
         self.anon = 'anon-timing-api'
         self.client = Client()
+        self.client.cookies['interoves_anon'] = self.anon
 
     def _post(self, payload):
         import json

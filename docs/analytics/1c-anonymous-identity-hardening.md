@@ -1,6 +1,17 @@
 # Stage 1C design: anonymous identity hardening
 
-Status: read-only design. Stage 1A does not implement any option below.
+Status: **implemented in Stage 1C** as option 2+3 hybrid without `AnalyticsActor`:
+
+- server-issued opaque `anon_key` (same column);
+- cookie `interoves_anon` is source of truth;
+- HttpOnly HMAC cookie `interoves_anon_sig`;
+- unsigned cookie still adopted (no Phase E mandatory signature);
+- GET/POST/header/URL ignored for attribution;
+- signup auto-claim of the current cookie;
+- existing-account login does **not** auto-claim;
+- logout rotates the browser identity.
+
+The option comparison below is retained as historical design context.
 
 ## Confirmed baseline
 
@@ -172,7 +183,10 @@ selected merely because it is the most comprehensive design.
    combinations.
 6. Keep PII out of credentials, aliases, logs, diagnostics, and analytics rows.
 
-No option is selected by stage 1A. Option 2 or 3 may be sufficient if the only
-confirmed requirement is preventing arbitrary `anon_key` substitution; option 4
-is reserved for broader identity lifecycle requirements.
+No option is selected by stage 1A. Stage 1C implemented the cookie + HMAC
+approach above (unsigned compat retained; no Actor table). Option 4 remains
+unused.
+
+Trusted identity cutover SHA/timestamp is **not** declared in this document; it
+is recorded only after production rollout and post-deploy validation.
 

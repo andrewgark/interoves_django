@@ -200,6 +200,15 @@ SECRET_KEY = load_secret("django_secret_key.txt", env_var="DJANGO_SECRET_KEY")
 # value on every production instance via AUTH_LOG_FINGERPRINT_KEY.
 AUTH_LOG_FINGERPRINT_KEY = (os.environ.get('AUTH_LOG_FINGERPRINT_KEY') or '').strip()
 
+# HMAC key for the anonymous analytics identity signature cookie.
+# Production should set ANALYTICS_ANON_SIGNING_KEY to the same high-entropy
+# value on every instance. Dev/test may fall back to SECRET_KEY.
+# Rotating this secret invalidates signatures and needs a separate rollout;
+# Stage 1C does not implement dual-key rotation.
+ANALYTICS_ANON_SIGNING_KEY = (
+    os.environ.get('ANALYTICS_ANON_SIGNING_KEY') or ''
+).strip() or SECRET_KEY
+
 # Production: DEBUG only when explicitly enabled. Dev: DEBUG on unless DEBUG_ON is "false".
 if IS_PROD:
     DEBUG = _env_flag("DEBUG_ON")
@@ -331,6 +340,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'games.middleware.anonymous_identity.AnonymousIdentityMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
