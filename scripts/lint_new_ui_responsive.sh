@@ -19,19 +19,19 @@ grep -qE "@media \(max-width: ${stack_max_px}px\)" "$CSS" \
   || fail "raddle stack must use @media (max-width: ${stack_max_px}px) (= --new-break-wide - 1)"
 
 raddle_chunk="$(sed -n '/─── Raddle/,/─── Тёмная тема/p' "$CSS")"
-echo "$raddle_chunk" | grep -qE '@media \(max-width: 720px\)' \
+grep -qE '@media \(max-width: 720px\)' <<<"$raddle_chunk" \
   && fail "raddle section must not use @media (max-width: 720px); use ${stack_max_px}px"
 
-echo "$raddle_chunk" | grep -q 'container-type: inline-size' \
+grep -q 'container-type: inline-size' <<<"$raddle_chunk" \
   || fail ".new-raddle-task must set container-type: inline-size"
 
-echo "$raddle_chunk" | grep -q '@container raddle-task' \
+grep -q '@container raddle-task' <<<"$raddle_chunk" \
   || fail "raddle must have @container raddle-task stack rule"
 
-echo "$raddle_chunk" | grep -q 'var(--raddle-clues-min)' \
+grep -q 'var(--raddle-clues-min)' <<<"$raddle_chunk" \
   || fail "raddle grid must use minmax(var(--raddle-clues-min), 1fr)"
 
-echo "$raddle_chunk" | grep -q 'min-width: 0' \
+grep -q 'min-width: 0' <<<"$raddle_chunk" \
   || fail "raddle section must include min-width: 0 on shrinkable children"
 
 grep -qE '^\s*--new-task-actions-stack:' "$CSS" \
