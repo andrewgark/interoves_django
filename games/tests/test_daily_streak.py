@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 from django.contrib.auth.models import User
 from django.test import TestCase
 
-from games.daily_streak import daily_streaks_for_user, streak_from_completion_dates
+from games.daily_streak import daily_streaks_for_actor, daily_streaks_for_user, streak_from_completion_dates
 from games.models import Game, GameTaskGroup, PlayerCompletedGame, Project, TaskGroup
 
 
@@ -50,6 +50,18 @@ class DailyStreakLogicTests(TestCase):
             task_group=link.task_group,
             game_kind=game_id,
             game_instance_id='{}-{}-{}'.format(game_id, day, suffix or completed_at.timestamp()),
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        PlayerCompletedGame.objects.filter(pk=row.pk).update(completed_at=completed_at)
+
+    def anon_completion(self, game_id, day, completed_at, anon_key='anon-streak'):
+        link = self.links[game_id][day]
+        row = PlayerCompletedGame.objects.create(
+            anon_key=anon_key,
+            game=self.games[game_id],
+            task_group=link.task_group,
+            game_kind=game_id,
+            game_instance_id='anon-{}-{}-{}'.format(game_id, day, completed_at.timestamp()),
             result=PlayerCompletedGame.RESULT_SOLVED,
         )
         PlayerCompletedGame.objects.filter(pk=row.pk).update(completed_at=completed_at)
@@ -101,6 +113,16 @@ class DailyStreakLogicTests(TestCase):
         utc = ZoneInfo('UTC')
         self.completion('ladder', 10, datetime(2026, 9, 10, 20, 59, tzinfo=utc))
         self.assertEqual(self.streak('ladder')['ladder'], 1)
+
+    def test_anonymous_actor_streak(self):
+        for day in range(7, 12):
+            self.anon_completion('ladder', day, datetime(2026, 9, day, 18, tzinfo=MOSCOW))
+        self.assertEqual(
+            daily_streaks_for_actor(
+                anon_key='anon-streak', games=[self.games['ladder']], now=self.now,
+            )['ladder'],
+            5,
+        )
 
     def test_date_helper_keeps_unfinished_today(self):
         self.assertEqual(

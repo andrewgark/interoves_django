@@ -24,8 +24,8 @@ def streak_from_completion_dates(completed_dates, *, today):
     return streak
 
 
-def daily_streaks_for_user(user, *, games, now=None):
-    """Return ``{game_id: streak}`` for an authenticated user in one query.
+def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
+    """Return ``{game_id: streak}`` for one personal actor in one query.
 
     The link query supplies the publication date for each task group.  The
     completion query is one bounded-by-scope query for all daily games, not one
@@ -33,7 +33,11 @@ def daily_streaks_for_user(user, *, games, now=None):
     """
     games = list(games)
     result = {str(game.id): 0 for game in games if str(game.id) in DAILY_TIMING_GAME_IDS}
-    if not getattr(user, 'is_authenticated', False) or not result:
+    if not result or (
+        user is None and not anon_key
+    ) or (
+        user is not None and not getattr(user, 'is_authenticated', False)
+    ):
         return result
 
     now = now or timezone.now()
@@ -52,11 +56,15 @@ def daily_streaks_for_user(user, *, games, now=None):
             link_dates[(str(link.game_id), link.task_group_id)] = published_at.astimezone(MOSCOW).date()
 
     completed_dates = {game_id: set() for game_id in game_ids}
-    completions = (
-        PlayerCompletedGame.objects
-        .filter(user=user, game_id__in=game_ids, result=PlayerCompletedGame.RESULT_SOLVED)
-        .only('game_id', 'task_group_id', 'completed_at')
-    )
+    completions = PlayerCompletedGame.objects.filter(
+        game_id__in=game_ids,
+        result=PlayerCompletedGame.RESULT_SOLVED,
+        **(
+            {'user': user, 'team__isnull': True, 'anon_key__isnull': True}
+            if user is not None
+            else {'anon_key': str(anon_key), 'team__isnull': True, 'user__isnull': True}
+        ),
+    ).only('game_id', 'task_group_id', 'completed_at')
     for completion in completions:
         game_id = str(completion.game_id)
         published_date = link_dates.get((game_id, completion.task_group_id))
@@ -69,3 +77,8 @@ def daily_streaks_for_user(user, *, games, now=None):
     for game_id, dates in completed_dates.items():
         result[game_id] = streak_from_completion_dates(dates, today=today)
     return result
+
+
+def daily_streaks_for_user(user, *, games, now=None):
+    """Backward-compatible wrapper for authenticated-user callers."""
+    return daily_streaks_for_actor(user=user, games=games, now=now)

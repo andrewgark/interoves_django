@@ -929,14 +929,15 @@ def _build_hub_section_cards(request, *, team):
     else:
         by_id[WEEK_TASK_HUB_ID] = get_week_task_hub_card()
 
+    from games.daily_streak import daily_streaks_for_actor
+    streak_kwargs = {'games': [card['game'] for card in by_id.values() if card.get('game')]}
     if request.user.is_authenticated:
-        from games.daily_streak import daily_streaks_for_user
-        streaks = daily_streaks_for_user(
-            request.user,
-            games=[card['game'] for card in by_id.values() if card.get('game')],
-        )
-        for card in by_id.values():
-            card['streak'] = streaks.get(str(card.get('id')), 0)
+        streak_kwargs['user'] = request.user
+    else:
+        streak_kwargs['anon_key'] = _anon_key_from_request(request)
+    streaks = daily_streaks_for_actor(**streak_kwargs)
+    for card in by_id.values():
+        card['streak'] = streaks.get(str(card.get('id')), 0)
 
     daily = []
     for game_id in ONBOARDING_GAME_IDS:
