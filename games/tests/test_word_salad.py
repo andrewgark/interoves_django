@@ -618,6 +618,50 @@ class WordSaladTests(TestCase):
         self.assertIn('data-word-salad-solved>Решено!</div>', html)
         self.assertIn('data-word-salad-extras', html)
 
+    def test_saving_task_resets_word_salad_chain_state_for_new_revision(self):
+        anon_key = 'word-salad-task-edit-reset'
+        with patch('games.views.attempt_views.track_actor_task_change'):
+            first = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': anon_key,
+                    'action': 'solve',
+                    'path': json.dumps(_path()),
+                    'correct_only': '1',
+                },
+            )
+        self.assertTrue(first.json()['word_salad_correct'])
+        anon_key = Attempt.manager.get(task=self.task).anon_key
+        chain = ChainTaskState.objects.filter(
+            task=self.task,
+            game=self.game,
+            anon_key=anon_key,
+        ).get()
+        self.assertTrue(json.loads(chain.state)['solved_indices'])
+
+        # Admin edits create a new task revision. Historical attempts remain,
+        # but their accumulated projection must not remain authoritative.
+        self.task.text = 'Изменённая тема'
+        self.task.save(update_fields=['text'])
+        chain.refresh_from_db()
+        self.assertEqual(json.loads(chain.state)['solved_indices'], [])
+        self.assertEqual(json.loads(chain.state)['active'], list(range(16)))
+        self.assertIsNone(chain.last_attempt_id)
+
+        with patch('games.views.attempt_views.track_actor_task_change'):
+            second = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': anon_key,
+                    'action': 'solve',
+                    'path': json.dumps(_path()),
+                    'correct_only': '1',
+                },
+            )
+        self.assertTrue(second.json()['word_salad_correct'])
+
     def test_supported_salad_completion_returns_start_then_complete_once(self):
         anon_key = 'word-salad-onboarding-flow'
         with patch.dict('games.analytics.GAME_KIND_BY_ID', {self.game.id: 'salad'}), patch(

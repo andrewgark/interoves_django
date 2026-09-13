@@ -821,12 +821,25 @@ class Task(models.Model):
 
     def save(self, *args, **kwargs):
         from games.views.track import track_task_change
+        is_existing = not self._state.adding
         if not self._state.adding:
             self.attempt_revision = uuid.uuid4()
             update_fields = kwargs.get('update_fields')
             if update_fields is not None:
                 kwargs['update_fields'] = set(update_fields) | {'attempt_revision'}
         super(Task, self).save(*args, **kwargs)
+        # A task revision starts a new chain.  Keep historical Attempt rows for
+        # audit/results, but do not let the old Word Salad projection reject
+        # words in the newly saved puzzle as already opened.
+        if is_existing and self.task_type == 'word_salad':
+            from games.word_salad import default_state, dump_state
+            ChainTaskState.objects.filter(task=self).update(
+                # A non-null empty state is intentional: check_attempt falls
+                # back to historical Attempt.state only when the projection is
+                # null (used for legacy anon-key migrations).
+                state=dump_state(default_state()),
+                last_attempt=None,
+            )
         track_task_change(self)
 
     def clean(self):
