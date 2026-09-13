@@ -226,6 +226,15 @@
     status.textContent = result.errors[0] + (result.missingWords.length ? ' Не находятся: ' + result.missingWords.join(', ') + '.' : '');
   }
 
+  function uppercaseField(field) {
+    var start = field.selectionStart;
+    var end = field.selectionEnd;
+    var upper = field.value.toUpperCase();
+    if (field.value === upper) return;
+    field.value = upper;
+    if (start !== null && end !== null) field.setSelectionRange(start, end);
+  }
+
   function readEditorPayload() {
     return {
       theme: document.getElementById('offer-edit-theme').value,
@@ -242,8 +251,12 @@
     document.getElementById('offer-edit-theme').value = payload.theme || '';
     document.getElementById('offer-edit-idea').value = payload.idea_text || '';
     document.getElementById('offer-edit-suggested').value = payload.suggested_words || '';
-    document.getElementById('offer-edit-words').value = payload.words_text || '';
-    document.getElementById('offer-edit-rare-words').value = payload.rare_words_text || '';
+    var wordsField = document.getElementById('offer-edit-words');
+    var rareWordsField = document.getElementById('offer-edit-rare-words');
+    wordsField.value = payload.words_text || '';
+    rareWordsField.value = payload.rare_words_text || '';
+    uppercaseField(wordsField);
+    uppercaseField(rareWordsField);
     document.getElementById('offer-edit-comment').value = payload.comment || '';
     if (editKind === 'full' && gridApi) gridApi.setGrid(payload.grid_text || '');
     updateValidation();
@@ -300,6 +313,7 @@
 
   modal.addEventListener('input', function (e) {
     if (e.target.matches('input, textarea')) {
+      if (e.target.id === 'offer-edit-words' || e.target.id === 'offer-edit-rare-words') uppercaseField(e.target);
       autosave.changed();
       if (e.target.id === 'offer-edit-words' || e.target.id === 'offer-edit-rare-words') updateValidation();
     }
@@ -328,8 +342,12 @@
     document.getElementById('offer-edit-theme').value = offer.theme || '';
     document.getElementById('offer-edit-idea').value = offer.idea_text || '';
     document.getElementById('offer-edit-suggested').value = offer.suggested_words || '';
-    document.getElementById('offer-edit-words').value = offer.words_text || '';
-    document.getElementById('offer-edit-rare-words').value = offer.rare_words_text || '';
+    var wordsField = document.getElementById('offer-edit-words');
+    var rareWordsField = document.getElementById('offer-edit-rare-words');
+    wordsField.value = offer.words_text || '';
+    rareWordsField.value = offer.rare_words_text || '';
+    uppercaseField(wordsField);
+    uppercaseField(rareWordsField);
     document.getElementById('offer-edit-comment').value = offer.comment || '';
     var preview = document.getElementById('offer-edit-preview');
     if (offer.is_playable && offer.play_url) {
