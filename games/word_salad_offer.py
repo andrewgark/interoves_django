@@ -25,6 +25,7 @@ from games.word_salad import (
     format_grid_text,
     format_words_text,
     parse_grid,
+    parse_rare_words,
     parse_task_data,
     parse_words,
     serialize_task_data,
@@ -179,18 +180,22 @@ def _placeholder_checker_data() -> str:
     return serialize_task_data(_PLACEHOLDER_GRID, _PLACEHOLDER_WORDS)
 
 
-def _try_apply_draft_puzzle(task: Task, *, theme: str, grid_text: str, words_text: str) -> None:
+def _try_apply_draft_puzzle(
+    task: Task, *, theme: str, grid_text: str, words_text: str, rare_words_text: str,
+) -> None:
     _apply_theme(task, theme)
     try:
         grid = parse_grid(grid_text)
         words = parse_words(words_text)
+        parse_rare_words(rare_words_text)
+        checker_data = serialize_task_data(grid, words, rare_words_text)
     except ValueError:
         # Не оставляем предыдущий валидный пазл: иначе hash/send смотрят в устаревший checker_data.
         task.checker_data = _placeholder_checker_data()
         task.answer = ''
         task.save(update_fields=['text', 'checker_data', 'answer'])
         return
-    task.checker_data = serialize_task_data(grid, words)
+    task.checker_data = checker_data
     task.answer = ''
     task.save(update_fields=['text', 'checker_data', 'answer'])
 
@@ -210,6 +215,7 @@ class OfferRow:
     suggested_words: str
     grid_text: str
     words_text: str
+    rare_words_text: str
     comment: str
     admin_note: str
     created_at: Optional[str]
@@ -282,6 +288,7 @@ def serialize_offer(offer: WordSaladOffer) -> OfferRow:
         suggested_words=offer.suggested_words or '',
         grid_text=grid_text,
         words_text=words_text,
+        rare_words_text=offer.rare_words_text or '',
         comment=offer.comment or '',
         admin_note=offer.admin_note or '',
         created_at=_iso(offer.created_at),
@@ -368,6 +375,7 @@ def update_offer_content(
     suggested_words: str = '',
     grid_text: str = '',
     words_text: str = '',
+    rare_words_text: str = '',
     comment: str = '',
     author: str | None = None,
     allow_non_draft: bool = False,
@@ -390,17 +398,21 @@ def update_offer_content(
         return offer
     offer.grid_text = grid_text or ''
     offer.words_text = words_text or ''
+    offer.rare_words_text = rare_words_text or ''
     task = _ensure_full_task(offer)
     _try_apply_draft_puzzle(
         task,
         theme=offer.theme,
         grid_text=offer.grid_text,
         words_text=offer.words_text,
+        rare_words_text=offer.rare_words_text,
     )
     if author is not None:
         apply_author_tag(task, offer.author)
         task.save(update_fields=['tags'])
-    full_fields = ['theme', 'grid_text', 'words_text', 'comment', 'updated_at']
+    full_fields = [
+        'theme', 'grid_text', 'words_text', 'rare_words_text', 'comment', 'updated_at',
+    ]
     if author is not None:
         full_fields.append('author')
     offer.save(update_fields=full_fields)
@@ -418,7 +430,9 @@ def send_offer(offer: WordSaladOffer) -> WordSaladOffer:
             raise WordSaladOfferError('Опишите идею')
     else:
         try:
-            grid, words = validate_puzzle(offer.grid_text, offer.words_text)
+            grid, words = validate_puzzle(
+                offer.grid_text, offer.words_text, offer.rare_words_text,
+            )
         except ValueError as exc:
             if not (offer.grid_text or '').strip() and not (offer.words_text or '').strip():
                 raise WordSaladOfferError('Замените заглушку на настоящий салатик') from exc
@@ -429,7 +443,7 @@ def send_offer(offer: WordSaladOffer) -> WordSaladOffer:
             raise WordSaladOfferError('Укажите тему')
         task = _ensure_full_task(offer)
         task.text = offer.theme
-        task.checker_data = serialize_task_data(grid, words)
+        task.checker_data = serialize_task_data(grid, words, offer.rare_words_text)
         task.answer = ''
         task.save(update_fields=['text', 'checker_data', 'answer'])
     offer.status = WordSaladOffer.STATUS_SENT

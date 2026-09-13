@@ -20,7 +20,12 @@ from games.models import (
 )
 from games.support.constants import SUPPORT_CONSOLE_GROUP
 from games.support.services.word_salad import ensure_word_salad_game, set_publish_start
-from games.word_salad import WORD_SALAD_GAME_ID, parse_task_data, validate_puzzle
+from games.word_salad import (
+    WORD_SALAD_GAME_ID,
+    parse_task_data,
+    parse_task_payload,
+    validate_puzzle,
+)
 from games.word_salad_daily import WORD_SALAD_PUBLISH_START_TAG
 from games.word_salad_offer import (
     accept_offer,
@@ -110,6 +115,7 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertNotContains(resp, 'Отправить Андрею')
         self.assertContains(resp, 'word_salad_grid_editor.js')
         self.assertContains(resp, 'offer_draft_autosave.js')
+        self.assertContains(resp, 'Редкие слова')
 
     def test_idea_create_send_accept_without_task_or_schedule(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_IDEA)
@@ -148,6 +154,7 @@ class WordSaladOfferFlowTests(TestCase):
             theme='Алфавитная дорожка',
             grid_text=VALID_GRID,
             words_text=VALID_WORDS,
+            rare_words_text='BCDE',
             comment='готово',
         )
         Attempt.manager.create(
@@ -167,8 +174,10 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertEqual(offer.accepted_link.task_group_id, offer.task_group_id)
         self.assertEqual(Task.objects.filter(task_group=offer.task_group).count(), 1)
         self.assertEqual(Attempt.manager.filter(task=task, game=self.game).count(), 1)
-        grid, words = parse_task_data(task.checker_data, '')
+        task.refresh_from_db()
+        grid, words, rare_words = parse_task_payload(task.checker_data, '')
         validate_puzzle(grid, words)
+        self.assertEqual(rare_words, ['BCDE'])
         task.refresh_from_db()
         self.assertEqual(task.tags.get('author'), 'Анна Автор')
         self.assertEqual(offer.author, 'Анна Автор')
@@ -357,5 +366,3 @@ class WordSaladOfferFlowTests(TestCase):
         accept_offer(offer)
         task = Task.objects.get(task_group=offer.task_group, number='1')
         self.assertEqual(task.tags.get('author'), 'Гость')
-
-

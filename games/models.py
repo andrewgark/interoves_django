@@ -3320,6 +3320,7 @@ class WordSaladOffer(models.Model):
     suggested_words = models.TextField(blank=True, default='')
     grid_text = models.TextField(blank=True, default='')
     words_text = models.TextField(blank=True, default='')
+    rare_words_text = models.TextField(blank=True, default='')
     comment = models.TextField(
         blank=True,
         default='',

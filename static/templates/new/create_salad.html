@@ -76,6 +76,10 @@
         <span>Слова — по одному на строку</span>
         <textarea id="offer-edit-words" rows="8" spellcheck="false"></textarea>
       </label>
+      <label class="support-ladders-field support-ladders-field--spaced">
+        <span>Редкие слова — по одному на строку, необязательно</span>
+        <textarea id="offer-edit-rare-words" rows="5" spellcheck="false"></textarea>
+      </label>
       <p class="ws-grid-editor__status" id="offer-edit-validation" hidden></p>
     </div>
     <label class="support-ladders-field">
@@ -207,7 +211,8 @@
     if (!Editor || !status || editKind !== 'full') return;
     var result = Editor.validateLive(
       gridApi ? gridApi.getGrid() : [],
-      document.getElementById('offer-edit-words').value
+      document.getElementById('offer-edit-words').value,
+      document.getElementById('offer-edit-rare-words').value
     );
     if (gridApi) gridApi.highlightRemovable(result.removableCells);
     if (!result.errors.length) {
@@ -228,6 +233,7 @@
       suggested_words: document.getElementById('offer-edit-suggested').value,
       grid_text: gridApi ? gridApi.getGridText() : '',
       words_text: document.getElementById('offer-edit-words').value,
+      rare_words_text: document.getElementById('offer-edit-rare-words').value,
       comment: document.getElementById('offer-edit-comment').value
     };
   }
@@ -237,6 +243,7 @@
     document.getElementById('offer-edit-idea').value = payload.idea_text || '';
     document.getElementById('offer-edit-suggested').value = payload.suggested_words || '';
     document.getElementById('offer-edit-words').value = payload.words_text || '';
+    document.getElementById('offer-edit-rare-words').value = payload.rare_words_text || '';
     document.getElementById('offer-edit-comment').value = payload.comment || '';
     if (editKind === 'full' && gridApi) gridApi.setGrid(payload.grid_text || '');
     updateValidation();
@@ -294,7 +301,7 @@
   modal.addEventListener('input', function (e) {
     if (e.target.matches('input, textarea')) {
       autosave.changed();
-      if (e.target.id === 'offer-edit-words') updateValidation();
+      if (e.target.id === 'offer-edit-words' || e.target.id === 'offer-edit-rare-words') updateValidation();
     }
   });
   modal.addEventListener('change', function (e) {
@@ -322,6 +329,7 @@
     document.getElementById('offer-edit-idea').value = offer.idea_text || '';
     document.getElementById('offer-edit-suggested').value = offer.suggested_words || '';
     document.getElementById('offer-edit-words').value = offer.words_text || '';
+    document.getElementById('offer-edit-rare-words').value = offer.rare_words_text || '';
     document.getElementById('offer-edit-comment').value = offer.comment || '';
     var preview = document.getElementById('offer-edit-preview');
     if (offer.is_playable && offer.play_url) {
@@ -346,7 +354,7 @@
       updateValidation();
     }
     var canEdit = !!offer.can_edit;
-    ['offer-edit-theme', 'offer-edit-idea', 'offer-edit-suggested', 'offer-edit-words', 'offer-edit-comment', 'offer-edit-save', 'offer-edit-send']
+    ['offer-edit-theme', 'offer-edit-idea', 'offer-edit-suggested', 'offer-edit-words', 'offer-edit-rare-words', 'offer-edit-comment', 'offer-edit-save', 'offer-edit-send']
       .forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.disabled = !canEdit;
