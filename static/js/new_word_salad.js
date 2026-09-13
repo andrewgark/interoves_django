@@ -108,7 +108,7 @@
   }
 
   var EXTRA_MIN_LENGTH = 3;
-  var EXTRA_COMMIT_DELAY_MS = 500;
+  var EXTRA_COMMIT_DELAY_MS = 1000;
 
   function shouldCommitExtraWord(pathKey, currentPathKey, isDragging, isConnected) {
     return !!pathKey && pathKey === currentPathKey && isConnected !== false;

@@ -200,7 +200,7 @@ function escapeEvent(overrides) {
 })();
 
 (function testDelayedExtraCommitOnlyForUnchangedPath() {
-  assert.strictEqual(Path.EXTRA_COMMIT_DELAY_MS, 500);
+  assert.strictEqual(Path.EXTRA_COMMIT_DELAY_MS, 1000);
   assert.strictEqual(Path.shouldCommitExtra('0,1,2,3', '0,1,2,3', false, true), true);
   assert.strictEqual(
     Path.shouldCommitExtra('0,1,2,3', '0,1,2,3,4', false, true),
