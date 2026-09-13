@@ -60,7 +60,7 @@
       var complexityLabel = hasOrder ? decimal(order) : '—';
       return '<li class="new-daily-statistics__salad-word' + (hasOrder ? '' : ' is-missing') + '">' +
         '<span class="new-daily-statistics__word-pill' + tone + '">' + esc(item.word) + '</span>' +
-        '<div class="new-daily-statistics__salad-bar"><i data-statistics-bar-fallback style="--bar-width:' + width + '%"></i><canvas data-statistics-bar data-bar-percent="' + width + '" aria-hidden="true"></canvas></div>' +
+        '<div class="new-daily-statistics__salad-bar"><i style="--bar-width:' + width + '%"></i></div>' +
         '<strong class="new-daily-statistics__complexity-value">' + esc(complexityLabel) + '</strong>' +
         '<span class="new-daily-statistics__hint-rate"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span>' +
         '</li>';
@@ -78,7 +78,7 @@
       var label = hasTime ? seconds(value) : '—';
       return '<li class="new-daily-statistics__ladder-word' + (hasTime ? '' : ' is-missing') + '">' +
         '<span class="new-daily-statistics__word-pill' + (hasTime ? '' : ' is-missing') + '">' + esc(item.word) + '</span>' +
-        '<div class="new-daily-statistics__ladder-bar"><i data-statistics-bar-fallback style="--bar-width:' + width + '%"></i><canvas data-statistics-bar data-bar-percent="' + width + '" aria-hidden="true"></canvas></div>' +
+        '<div class="new-daily-statistics__ladder-bar"><i style="--bar-width:' + width + '%"></i></div>' +
         '<strong>' + esc(label) + '</strong>' +
         '</li>';
     }).join('');
@@ -202,39 +202,6 @@
       console.error('Unable to render the attempts histogram.', error);
     }
   }
-  function renderMetricBars(root, attempt) {
-    var canvases = root.querySelectorAll('[data-statistics-bar]');
-    if (!canvases.length) return;
-    if (!window.Chart) {
-      if ((attempt || 0) < 20) window.setTimeout(function () { renderMetricBars(root, (attempt || 0) + 1); }, 250);
-      return;
-    }
-    var styles = window.getComputedStyle(root);
-    var accent = styles.getPropertyValue('--accent').trim() || '#1f6f5e';
-    canvases.forEach(function (canvas) {
-      var percentValue = Math.max(0, Math.min(100, Number(canvas.getAttribute('data-bar-percent')) || 0));
-      var fallback = canvas.parentNode.querySelector('[data-statistics-bar-fallback]');
-      if (fallback) fallback.hidden = true;
-      if (canvas.__statisticsBarChart) canvas.__statisticsBarChart.destroy();
-      try {
-        canvas.__statisticsBarChart = new window.Chart(canvas, {
-          type: 'bar',
-          data: { labels: [''], datasets: [{ data: [percentValue], backgroundColor: accent, borderRadius: 999, borderSkipped: false, barPercentage: 1, categoryPercentage: 1 }] },
-          options: {
-            indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
-            events: [], plugins: { legend: { display: false }, tooltip: { enabled: false } },
-            scales: {
-              x: { display: false, min: 0, max: 100 },
-              y: { display: false }
-            }
-          }
-        });
-      } catch (error) {
-        if (fallback) fallback.hidden = false;
-        console.error('Unable to render a daily statistics bar.', error);
-      }
-    });
-  }
   function render(root, data) {
     var summary = data.summary || {};
     var html = '<h2 class="new-daily-statistics__title">Статистика</h2><div class="new-daily-statistics__summary">' +
@@ -257,7 +224,6 @@
     }
     root.innerHTML = html;
     root.hidden = false;
-    window.requestAnimationFrame(function () { renderMetricBars(root); });
     if (data.kind === 'alphabet') {
       window.requestAnimationFrame(function () { renderHistogram(root, data.distribution); });
     }
