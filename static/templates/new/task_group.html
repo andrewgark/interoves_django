@@ -2708,8 +2708,8 @@
     return String(tpl || '').split(/(\s+)/).map(function (part) {
       var out = escapeHtml(part);
       var hasReplacement = false;
-      if (prevWord && /_{2,}/.test(part)) {
-        out = out.replace(/_{2,}/g, raddleClueChip(prevWord, 'prev'));
+      if (prevWord && /_{4}/.test(part)) {
+        out = out.replace(/_{4}/g, raddleClueChip(prevWord, 'prev'));
         hasReplacement = true;
       }
       if (nextWord && /(?:\.{3}|…)/.test(part)) {

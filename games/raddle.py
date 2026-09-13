@@ -722,10 +722,10 @@ def raddle_word_solved_list(parsed, attempts=None):
 
 _CLUE_PREV_PLACEHOLDER_RE = re.compile(r'\{(prev|word|from)\}', re.IGNORECASE)
 _CLUE_NEXT_PLACEHOLDER_RE = re.compile(r'\{next\}', re.IGNORECASE)
-_CLUE_BLANK_RE = re.compile(r'_{2,}')
+_CLUE_BLANK_RE = re.compile(r'_{1,}')
 _CLUE_BLANK_TOKEN = '____'
+_CLUE_SLOT_RE = re.compile(r'_{4}')
 _CLUE_NEXT_TOKEN = '...'
-_CLUE_REPEATED_BLANK_RE = re.compile(r'____(?:\s*____)+')
 _CLUE_ELLIPSIS_RE = re.compile(r'\.{3}|…')
 
 
@@ -743,14 +743,21 @@ def clue_has_next_slot(hint_text):
 def clue_blank_template(hint_text):
     """
     Нормализует плейсхолдеры:
-      {prev}/{word}/{from} и подряд идущие _ → ____
+      {prev}/{word}/{from} → один слот;
+      1–7 подчёркиваний → один слот, затем каждые 4 подчёркивания добавляют слот
       {next} → ...
     """
     text = str(hint_text or '')
     text = _CLUE_PREV_PLACEHOLDER_RE.sub(_CLUE_BLANK_TOKEN, text)
     text = _CLUE_NEXT_PLACEHOLDER_RE.sub(_CLUE_NEXT_TOKEN, text)
-    text = _CLUE_BLANK_RE.sub(_CLUE_BLANK_TOKEN, text)
-    text = _CLUE_REPEATED_BLANK_RE.sub(_CLUE_BLANK_TOKEN, text)
+    def _repeat_blank(match):
+        count = len(match.group(0))
+        # 1–7 underscores are one slot; from 8 onwards each next block of
+        # four underscores adds one more slot (8–11 = 2, 12–15 = 3, ...).
+        slots = 1 if count <= 7 else 1 + (count - 8) // 4 + 1
+        return _CLUE_BLANK_TOKEN * slots
+
+    text = _CLUE_BLANK_RE.sub(_repeat_blank, text)
     return text
 
 
@@ -783,8 +790,8 @@ def _render_transition_clue_html(
     for part in re.split(r'(\s+)', template):
         escaped_part = str(escape(part))
         has_replacement = False
-        if prev_replacement and _CLUE_BLANK_RE.search(part):
-            escaped_part = _CLUE_BLANK_RE.sub(prev_replacement, escaped_part)
+        if prev_replacement and _CLUE_SLOT_RE.search(part):
+            escaped_part = _CLUE_SLOT_RE.sub(prev_replacement, escaped_part)
             has_replacement = True
         if next_replacement and _CLUE_ELLIPSIS_RE.search(part):
             escaped_part = _CLUE_ELLIPSIS_RE.sub(next_replacement, escaped_part)
@@ -858,7 +865,7 @@ def render_transition_clue(
 
     if prev_known and prev_word:
         repl = str(prev_word)
-        out = _CLUE_BLANK_RE.sub(repl, out)
+        out = _CLUE_SLOT_RE.sub(repl, out)
 
     if next_known and next_word:
         repl = str(next_word)
@@ -890,7 +897,8 @@ def render_raddle_clue(hint_text, prev_word, prev_solved=True):
 
 
 def clue_display_for_hint(
-    hint_text, hint_index, words, solved, *, focus_ref_word=None, focus_ref_role=None, html=False,
+    hint_text, hint_index, words, solved, *, focus_ref_word=None, focus_ref_role=None,
+    html=False,
 ):
     """
     Неиспользованная подсказка: не подставляем реально отгаданные слова перехода
@@ -982,7 +990,9 @@ def last_word_role_for_index(word_index, focus_index, *, dual_clues):
     return ''
 
 
-def render_last_word_transition_clue(hint_text, before_word, after_word, *, pair):
+def render_last_word_transition_clue(
+    hint_text, before_word, after_word, *, pair,
+):
     """
     Подсказка финала: подставляем только известные А и В; Б не показываем.
     pair='ab' → А (жёлтый) в ____, слот Б остаётся пустым;
@@ -1017,7 +1027,9 @@ def last_word_clue_options_seed(parsed, focus_index):
     return int(hashlib.md5(material.encode('utf-8')).hexdigest()[:8], 16)
 
 
-def build_last_word_clue_options(parsed, focus_index, *, revealed_clue_indices, clue_marks=None):
+def build_last_word_clue_options(
+    parsed, focus_index, *, revealed_clue_indices, clue_marks=None,
+):
     """
     Два варианта расстановки двух оставшихся подсказок.
 
@@ -1384,7 +1396,9 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             item = {
                 **base,
                 'display': used_clue_display(hint, hi, parsed['words']),
-                'display_html': used_clue_display(hint, hi, parsed['words'], html=True),
+                'display_html': used_clue_display(
+                    hint, hi, parsed['words'], html=True,
+                ),
             }
             used.append(item)
         elif not last_word_dual_clues:

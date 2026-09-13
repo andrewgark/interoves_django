@@ -509,6 +509,26 @@ class RaddleCheckerTests(SimpleTestCase):
 
 
 class RaddleUiContextTests(SimpleTestCase):
+    def test_repeated_clue_placeholders_follow_underscore_count(self):
+        from games.raddle import render_transition_clue
+
+        self.assertEqual(
+            render_transition_clue('________', prev_word='СЛОВО', prev_known=True),
+            'СЛОВОСЛОВО',
+        )
+        self.assertEqual(
+            render_transition_clue('_', prev_word='СЛОВО', prev_known=True),
+            'СЛОВО',
+        )
+        self.assertEqual(
+            render_transition_clue('_______', prev_word='СЛОВО', prev_known=True),
+            'СЛОВО',
+        )
+        self.assertEqual(
+            render_transition_clue('____________', prev_word='СЛОВО', prev_known=True),
+            'СЛОВОСЛОВОСЛОВО',
+        )
+
     def test_assist_penalties_follow_configured_fractions(self):
         parsed = parse_raddle_data(_task(checker_data=json.dumps({
             **PARIS_LADDER,
@@ -531,8 +551,11 @@ class RaddleUiContextTests(SimpleTestCase):
 
     def test_clue_prev_placeholder(self):
         from games.raddle import render_transition_clue
-        # {prev} и ____ — один blank; после подстановки не дублируем слово
-        self.assertEqual(render_raddle_clue('{prev} ________', 'BRICK', True), 'BRICK')
+        # {prev} и ________ — один обычный placeholder и два повторных.
+        self.assertEqual(
+            render_raddle_clue('{prev} ________', 'BRICK', True),
+            'BRICK BRICKBRICK',
+        )
         self.assertEqual(render_raddle_clue('{word} test', 'BRICK', False), '____ test')
         self.assertEqual(render_raddle_clue('Житель ____а', 'ПАРИЖ', True), 'Житель ПАРИЖа')
         # нет слота следующего → стрелка
