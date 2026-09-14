@@ -101,8 +101,9 @@ and not full analytics reliability.
 Trusted identity cutover is SHA `6c53989`, validation completed
 2026-09-13T21:24:38Z. See [identity.md](identity.md). Anonymous ownership
 before that SHA is not retroactively trusted. Phase E (mandatory signature) is
-implemented in code; do not treat it as production-trusted until the live
-unsigned-reject check after deploy.
+implemented in code; unknown unsigned cookies are not adopted, but a returning
+unsigned key with existing history is upgraded in place. Do not treat it as
+production-trusted until the live check after deploy.
 
 ## Post-deploy runbook
 

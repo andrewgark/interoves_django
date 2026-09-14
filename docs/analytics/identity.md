@@ -45,13 +45,21 @@ send those fields; the backend ignores them as actor selectors.
 per request (except static/health/`/meta/` paths):
 
 1. Valid UUID cookie + valid signature → reuse.
-2. Missing, malformed, **unsigned**, or **invalid signature** → issue a fresh
-   server UUID (UUID4) and new signature. Gameplay is not 500.
+2. Valid UUID cookie, **no** signature, and that key already has anonymous
+   history → **keep the same UUID**, mint `interoves_anon_sig`, and continue
+   writing to the existing rows. This is the returning-visitor upgrade, not a
+   new actor.
+3. Missing, malformed, unknown unsigned, or **invalid signature** → issue a
+   fresh server UUID (UUID4) and new signature. Gameplay is not 500.
 
-A well-formed `interoves_anon` cookie without `interoves_anon_sig` is not
-adopted. Visitors who already have the HttpOnly signature (anyone who hit a
-Stage 1C or later instance) keep the same UUID. Visitors with only the JS
-cookie get a new identity; the previous `anon_key` history stays unclaimed.
+A well-formed `interoves_anon` cookie without `interoves_anon_sig` is adopted
+only when we already have rows for that key (starts, attempts, completions,
+chain/salad state, daily timing, analytics state, hints, a claim, or an
+Alphabetty personal dictionary). A random unsigned UUID with no history is not
+inherited. Visitors who already have the HttpOnly signature keep the same UUID.
+
+Setting someone else's **known** unsigned cookie can still inherit that
+legacy actor until that browser receives a signature. Header/POST/URL cannot.
 
 Tabs and revisits share the cookies, so they share one anonymous identity.
 Corrupt cookies mint a new identity instead of failing the request.
@@ -64,19 +72,13 @@ Do not log raw UUID or signature. Diagnostics may use
 During a mixed Stage 1C / Phase E deploy:
 
 - Phase E instances ignore header/POST/URL for actor selection (same as 1C).
-- Phase E instances **mint a fresh identity** when `interoves_anon` is present
-  without a valid `interoves_anon_sig`.
-- Remaining 1C instances still **adopt an unsigned cookie** and mint a
-  signature.
+- Phase E instances **keep a known unsigned `interoves_anon`** (one that
+  already has history) and mint a signature. Unknown unsigned cookies get a
+  fresh identity.
+- Remaining 1C instances still adopt any well-formed unsigned cookie.
 - A visitor who already has a signature is stable on both code versions.
-- A visitor with only the unsigned JS cookie who hits a Phase E instance first
-  loses that legacy UUID. If they later hit a 1C instance while the unsigned
-  cookie is still around, that instance may still adopt it. Mixed deploy can
-  therefore split remaining unsigned legacy history. Finish the rollout
-  promptly.
-
-Setting only `interoves_anon` (no HttpOnly signature) is not enough to inherit
-a known legacy actor on Phase E instances.
+- Finish the rollout promptly. Mixed deploy can still split brand-new
+  unsigned cookies that 1C would have adopted and Phase E would not.
 
 ## Authentication transitions
 
@@ -157,14 +159,12 @@ Cookie issuance, reuse, unsigned adopt, invalid-signature rotation, and header/q
 ## Phase E: mandatory signature
 
 Phase E is implemented in this tree. It is **not** production-trusted until a
-live unsigned-reject check after deploy.
+live check after deploy: unknown unsigned cookies mint a fresh identity;
+unsigned cookies that already have history keep the same `anon_key` and receive
+a signature.
 
-Unsigned well-formed `interoves_anon` is no longer adopted: the server issues a
-fresh UUID and signature instead of inheriting the presented key. Returning
-visitors who already carry `interoves_anon_sig` keep their identity.
-
-Do not treat this as a new analytics schema cutover. No `AnalyticsActor`. No
-1B.2 index work. Dual-key `ANALYTICS_ANON_SIGNING_KEY` rotation is a later
-stage, not this one.
+Do not treat this as a new analytics schema cutover. No `AnalyticsActor`, no
+alias table, no copy of rows. Dual-key `ANALYTICS_ANON_SIGNING_KEY` rotation is
+a later stage, not this one.
 
 See also the Stage 1C design notes in [1c-anonymous-identity-hardening.md](1c-anonymous-identity-hardening.md).

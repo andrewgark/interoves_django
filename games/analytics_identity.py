@@ -5,9 +5,11 @@ header, query, and localStorage values are never authority for gameplay or
 analytics attribution. A separate HttpOnly signature cookie proves the UUID
 was issued or upgraded by this server.
 
-Phase E requires a valid HMAC signature. A well-formed unsigned ``interoves_anon``
-cookie is no longer adopted: the server issues a fresh identity instead.
-Header-only spoofing is rejected because those fields are ignored.
+Phase E requires a valid HMAC signature for unknown cookies. A well-formed
+unsigned ``interoves_anon`` is adopted and signed only when that key already
+has anonymous history; otherwise the server issues a fresh identity. The UUID
+stays the same, so returning visitors keep their rows. Header-only spoofing is
+rejected because those fields are ignored.
 """
 from __future__ import annotations
 
@@ -132,6 +134,41 @@ def issue_fresh_identity() -> AnonymousIdentity:
     )
 
 
+def _model_has_anon_key(model, key: str) -> bool:
+    manager = getattr(model, 'manager', None) or model._default_manager
+    return manager.filter(anon_key=key).exists()
+
+
+def unsigned_legacy_key_has_history(key: str) -> bool:
+    """True when this UUID already owns anonymous rows we should not drop."""
+    from games.models import (
+        AlphabettyPersonalDictWord,
+        AnonAccountClaim,
+        Attempt,
+        ChainTaskState,
+        DailySolveTiming,
+        HintAttempt,
+        PlayerAnalyticsState,
+        PlayerCompletedGame,
+        PlayerStartedGame,
+    )
+
+    for model in (
+        PlayerStartedGame,
+        Attempt,
+        PlayerCompletedGame,
+        ChainTaskState,
+        DailySolveTiming,
+        PlayerAnalyticsState,
+        HintAttempt,
+        AnonAccountClaim,
+        AlphabettyPersonalDictWord,
+    ):
+        if _model_has_anon_key(model, key):
+            return True
+    return False
+
+
 def resolve_anonymous_identity(request) -> AnonymousIdentity:
     """Build the canonical browser identity from cookies only.
 
@@ -145,6 +182,12 @@ def resolve_anonymous_identity(request) -> AnonymousIdentity:
                 return AnonymousIdentity(
                     key=presented,
                     signature=signature,
+                )
+            if not signature and unsigned_legacy_key_has_history(presented):
+                return AnonymousIdentity(
+                    key=presented,
+                    signature=sign_anon_key(presented),
+                    issue_sig_cookie=True,
                 )
         return issue_fresh_identity()
     except Exception:
@@ -232,7 +275,7 @@ def attach_anon_cookie(client, key: str | None = None) -> str:
 
 
 def attach_unsigned_anon_cookie(client, key: str | None = None) -> str:
-    """Test helper: present only ``interoves_anon`` (Phase E must not adopt it)."""
+    """Test helper: present only ``interoves_anon`` (adopted only if history exists)."""
     if not key:
         key = new_anonymous_key()
     client.cookies[ANON_COOKIE_NAME] = key

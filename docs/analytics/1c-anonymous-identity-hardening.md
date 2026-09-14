@@ -7,8 +7,9 @@ Status: **closed on production** after account-flow validation on SHA
 - server-issued opaque `anon_key` (same column);
 - cookie `interoves_anon` is source of truth;
 - HttpOnly HMAC cookie `interoves_anon_sig`;
-- at 1C cutover, unsigned cookies were still adopted (Phase E later required
-  the signature; see [identity.md](identity.md));
+- at 1C cutover, unsigned cookies were still adopted (Phase E later requires a
+  signature except when that unsigned key already has history; see
+  [identity.md](identity.md));
 - GET/POST/header/URL ignored for attribution;
 - signup auto-claim of the current cookie;
 - existing-account login does **not** auto-claim;
@@ -192,5 +193,6 @@ Option 4 remains unused.
 
 Trusted identity cutover is recorded in [identity.md](identity.md): production
 SHA `6c53989`, validation completed 2026-09-13T21:24:38Z. Phase E later requires
-the HMAC signature; unsigned cookies are no longer adopted.
+the HMAC signature, except that an unsigned cookie with existing history is
+upgraded in place.
 

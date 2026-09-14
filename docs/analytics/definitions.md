@@ -34,9 +34,10 @@ merges rows.
 
 This is a reporting key, not proof of a person. After Stage 1C the anonymous
 `anon_key` is a server-issued opaque UUID stored in cookie `interoves_anon`,
-with an HttpOnly HMAC signature cookie. After Phase E the signature is
-required: an unsigned cookie is not adopted. POST, header, and URL values are
-not authority for attribution. See [identity](identity.md).
+with an HttpOnly HMAC signature cookie. After Phase E an unsigned cookie is
+adopted only when that key already has history; otherwise a fresh identity is
+issued. POST, header, and URL values are not authority for attribution. See
+[identity](identity.md).
 
 ## Game and audience metrics
 
@@ -215,8 +216,8 @@ inserted by the new live write path with the documented event semantics. It is
 **not** the Stage 1C identity cutover. The identity cutover is production SHA
 `6c53989`, validated 2026-09-13T21:24:38Z; see [identity.md](identity.md).
 Do not treat anonymous ownership before that SHA as fully trusted.
-Phase E requires the HMAC signature; it is not production-trusted until the
-live unsigned-reject check after deploy.
+Phase E adopts an unsigned cookie only when that key already has history;
+it is not production-trusted until the live check after deploy.
 
 Known historical boundaries from migrations and git history:
 

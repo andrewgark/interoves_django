@@ -131,6 +131,7 @@ class AnalyticsIdentityTests(TestCase):
 
     def test_invalid_signature_issues_fresh_identity(self):
         key = attach_anon_cookie(self.client, 'signed-then-tampered-key')
+        self._started(anon_key=key)
         self.client.cookies[ANON_SIG_COOKIE_NAME] = '0' * 64
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
@@ -138,7 +139,7 @@ class AnalyticsIdentityTests(TestCase):
         self.assertNotEqual(issued, key)
         self.assertTrue(signature_is_valid(issued, response.cookies[ANON_SIG_COOKIE_NAME].value))
 
-    def test_unsigned_legacy_cookie_is_not_adopted(self):
+    def test_unsigned_unknown_cookie_is_not_adopted(self):
         key = attach_unsigned_anon_cookie(self.client, 'legacy-unsigned-cookie-key')
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
@@ -146,6 +147,20 @@ class AnalyticsIdentityTests(TestCase):
         self.assertNotEqual(issued, key)
         self.assertTrue(is_valid_anon_key(issued))
         self.assertTrue(signature_is_valid(issued, response.cookies[ANON_SIG_COOKIE_NAME].value))
+
+    def test_unsigned_legacy_cookie_with_history_is_adopted_and_signed(self):
+        key = 'legacy-unsigned-with-history'
+        start = self._started(anon_key=key)
+        attach_unsigned_anon_cookie(self.client, key)
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(ANON_COOKIE_NAME, response.cookies)
+        self.assertEqual(self.client.cookies[ANON_COOKIE_NAME].value, key)
+        sig = response.cookies[ANON_SIG_COOKIE_NAME].value
+        self.assertTrue(signature_is_valid(key, sig))
+        start.refresh_from_db()
+        self.assertEqual(start.anon_key, key)
+        self.assertIsNone(start.user_id)
 
     def test_header_and_post_and_query_cannot_steal_another_actor(self):
         victim = 'victim-anon-identity-key'
