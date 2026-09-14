@@ -1,6 +1,8 @@
 # Stage 1C design: anonymous identity hardening
 
-Status: **implemented in Stage 1C** as option 2+3 hybrid without `AnalyticsActor`:
+Status: **closed on production** after account-flow validation on SHA
+`6c53989` at 2026-09-13T21:24:38Z. Implemented as option 2+3 hybrid without
+`AnalyticsActor`:
 
 - server-issued opaque `anon_key` (same column);
 - cookie `interoves_anon` is source of truth;
@@ -187,6 +189,7 @@ No option is selected by stage 1A. Stage 1C implemented the cookie + HMAC
 approach above (unsigned compat retained; no Actor table). Option 4 remains
 unused.
 
-Trusted identity cutover SHA/timestamp is **not** declared in this document; it
-is recorded only after production rollout and post-deploy validation.
+Trusted identity cutover is recorded in [identity.md](identity.md): production
+SHA `6c53989`, validation completed 2026-09-13T21:24:38Z. Unsigned-cookie
+compatibility remains until Phase E.
 

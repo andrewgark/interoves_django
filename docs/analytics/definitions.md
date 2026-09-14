@@ -211,9 +211,10 @@ found by a new instance are not upgraded. Backfilled rows remain `NULL`.
 
 `instrumentation_version=2` proves only that this particular start/completion was
 inserted by the new live write path with the documented event semantics. It is
-**not** the Stage 1C identity cutover. Identity cutover SHA/timestamp is recorded
-only after production rollout and post-deploy validation; until then, do not
-treat anonymous ownership as fully trusted.
+**not** the Stage 1C identity cutover. The identity cutover is production SHA
+`6c53989`, validated 2026-09-13T21:24:38Z; see [identity.md](identity.md).
+Do not treat anonymous ownership before that SHA as fully trusted.
+Unsigned-cookie compatibility remains until Phase E.
 
 Known historical boundaries from migrations and git history:
 

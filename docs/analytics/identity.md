@@ -121,8 +121,29 @@ inheriting A's anonymous cookie. A's registered history remains on A's
 - `instrumentation_version=2` versions event-writing semantics only. It is not
   the identity cutover.
 
-Trusted identity cutover SHA/timestamp is recorded **only after** production
-rollout and post-deploy validation. Until then, do not describe production
-anonymous identity as fully trusted.
+## Trusted identity cutover
+
+Stage 1C is **closed on production**. Anonymous identity is trusted from this
+boundary forward under the cookie + HMAC protocol above.
+
+| Field | Value |
+| --- | --- |
+| Production SHA | `6c53989` |
+| Validation completed | 2026-09-13T21:24:38Z (2026-09-14 01:24 +04) |
+| What this means | Production anonymous actor is the server-issued `interoves_anon` cookie, proved by `interoves_anon_sig` (or the unsigned compat adopt path) |
+| What this is not | `instrumentation_version=2` — that only versions live start/completion write semantics |
+| Still open | Unsigned `interoves_anon` is still adopted; Phase E (mandatory signature) is the next stage |
+
+Validated on `6c53989` against production data:
+
+- signup auto-claim of the current cookie; rows reassigned, not copied; claim idempotent; cookie rotated;
+- existing-account login does not write `AnonAccountClaim` and leaves prior anon starts on `anon_key`;
+- logout rotates `interoves_anon` / `interoves_anon_sig`; later anonymous writes use the new key, not the previous user or key;
+- explicit claim is 403 `anon_key_mismatch` without the matching cookie; success moves the start, writes one `AnonAccountClaim`, and rotates the cookie;
+- `check_product_analytics --since 2026-09-13T21:24:00+00:00 --until 2026-09-13T21:26:00+00:00`: FAIL=0; `completion_without_start` and `completion_without_start_legacy` both 0 in that window (the earlier 15 legacy WARN rows stay outside it); no `anon_writes_after_claim`; no Traceback / IntegrityError / HTTP 500 in the test minute.
+
+Cookie issuance, reuse, unsigned adopt, invalid-signature rotation, and header/query spoof rejection were first confirmed on `37858ee` after the identity deploy and remain in this SHA.
+
+Next work is **not** more Stage 1C analytics schema. Next stage: Phase E mandatory signature. Signing-key dual-key rotation is separate and not urgent.
 
 See also the Stage 1C design notes in [1c-anonymous-identity-hardening.md](1c-anonymous-identity-hardening.md).

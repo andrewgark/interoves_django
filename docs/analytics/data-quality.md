@@ -98,8 +98,10 @@ prove:
 `instrumentation_version=2` means known write semantics, not identity cutover
 and not full analytics reliability.
 
-Trusted identity cutover SHA/timestamp is written only after production
-rollout and post-deploy validation.
+Trusted identity cutover is SHA `6c53989`, validation completed
+2026-09-13T21:24:38Z. See [identity.md](identity.md). Anonymous ownership
+before that SHA is not retroactively trusted. Unsigned-cookie compatibility
+remains until Phase E.
 
 ## Post-deploy runbook
 
@@ -118,6 +120,10 @@ After application rollout, operators should:
    `report_yandex_goals`;
 8. investigate failures without editing or backfilling production data;
 9. only then record the identity cutover SHA/timestamp in the operations log.
+
+This runbook was completed for Stage 1C on SHA `6c53989` at
+2026-09-13T21:24:38Z (account flows + short-window QC). Step 7 (Metrika
+coverage) is not part of the identity cutover gate.
 
 Local tests do not complete this production verification.
 
