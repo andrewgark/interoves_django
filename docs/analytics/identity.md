@@ -167,4 +167,8 @@ Do not treat this as a new analytics schema cutover. No `AnalyticsActor`, no
 alias table, no copy of rows. Dual-key `ANALYTICS_ANON_SIGNING_KEY` rotation is
 a later stage, not this one.
 
+Stage 2A product metrics (`games.product_metrics`) use the Stage 1C cutover
+above, not Phase E and not `instrumentation_version=2`. A future Phase E live
+check still does not move that metrics boundary.
+
 See also the Stage 1C design notes in [1c-anonymous-identity-hardening.md](1c-anonymous-identity-hardening.md).

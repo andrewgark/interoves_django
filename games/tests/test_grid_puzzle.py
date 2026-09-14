@@ -436,6 +436,7 @@ class GridPuzzleIntegrationTests(TestCase):
         )
         self.assertNotIn('data-grid-reset-walls', html)
         self.assertNotIn('data-grid-notes-toggle', html)
+        attach_anon_cookie(self.client, 'disabled-tools')
         response = self.client.post(
             '/send_attempt/{}/'.format(task.pk),
             {

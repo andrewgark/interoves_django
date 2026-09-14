@@ -69,20 +69,39 @@ Rows failing the identity, placement, instance-id, or game-kind checks in
 
 ### New player
 
-A new player in period `[from, to)` is an actor whose earliest valid
-`started_at` in all available `PlayerStartedGame` history lies in that period.
-The lookup for the earliest start must not be restricted to the reporting
-period.
+A new player in period `[from, to)` is an actor whose earliest **trusted**
+`PlayerStartedGame` (`started_at >=` Stage 1C cutover `6c53989` /
+`2026-09-13T21:24:38Z`, valid identity, not backfilled) lies in that period.
+The lookup is not restricted to the reporting window, but it **is** restricted
+to trusted history. Pre-cutover play is invisible here, so an actor who only
+played before the cutover and then starts again after it looks new. That is
+intentional; do not paper over it with Attempt heuristics.
 
-This means “new in available backend history”, not necessarily first-ever human
-visit. Starts were not durably available for the whole historical lifetime, and
-anonymous/registered histories can remain separate.
+This is “new in trusted backend history”, not first-ever human visit.
+Anonymous and registered histories stay separate until an explicit claim
+physically reassigns rows. Phase E (signed cookies) does not move this
+cutover.
 
 ### Active day
 
 An active day is a `Europe/Moscow` calendar date on which an actor has at least
 one valid backend `game_start`. Multiple starts on that date count once for the
-actor.
+actor. Calendar conversion is `astimezone(Europe/Moscow).date()`, not UTC.
+
+### DAU, WAU, MAU
+
+These are computed by `games.product_metrics` / `manage.py product_metrics`,
+not by `check_product_analytics`.
+
+- **DAU average**: mean unique actors with an active day, over **complete**
+  Moscow calendar days contained in `[since, until)`. A partial first or last
+  day is omitted.
+- **WAU**: unique actors with a trusted start in the rolling 7 days ending at
+  `until`.
+- **MAU**: the same with 30 days.
+- Unless the window is explicitly legacy-contaminated (`since` before cutover),
+  WAU/MAU clip their lookback to the trusted identity cutover rather than
+  inventing pre-cutover audience.
 
 ### `game_start`
 
@@ -121,16 +140,17 @@ row was reconstructed, not necessarily the original completion time.
 
 ### Completion rate
 
-The canonical product completion rate is:
+The canonical product completion rate is **cohort-by-start**:
 
 ```text
-unique actor-placement completions / unique actor-placement starts
+unique actor-placements started in [since, until) that later complete
+/ unique actor-placements started in [since, until)
 ```
 
-Both numerator and denominator use the same actor definition, placement key,
-time/cohort filter, and quality eligibility. This rate is canonical because it
-measures whether distinct started placements reached a server-confirmed terminal
-state without inflating repeated delivery attempts.
+The completion may fall after `until`. A completion in the window whose start
+was before `since` is **out** of this rate (it can still appear in the raw
+`completions` count). Completing a different placement does not close the
+started one. Count unique actor-placements, not the event ratio of rows.
 
 The diagnostic event ratio is separately:
 
@@ -139,13 +159,12 @@ number of completion rows / number of start rows
 ```
 
 It is useful for detecting instrumentation anomalies but is not the product
-completion rate. It can exceed expectations because of legacy coverage,
-backfill, identity splits, or duplicates.
+completion rate.
 
 ### Exact retention
 
-Let `D0` be the `Europe/Moscow` calendar date of an actor's earliest valid start
-in all available history.
+Let `D0` be the `Europe/Moscow` calendar date of an actor's earliest trusted
+start (`started_at >=` identity cutover).
 
 - Exact D1 retention: fraction of the D0 new-player cohort with at least one
   valid start on calendar date `D0 + 1 day`.
@@ -153,14 +172,18 @@ in all available history.
   `D0 + 7 days`.
 
 Each actor counts at most once in a cohort and once in the retained numerator.
-Only mature cohorts whose target date has fully elapsed should be reported.
+Report a rate only when the target Moscow date has **fully elapsed** before
+`until` (that is, `until` is at least the next midnight after the target day).
+Immature windows use `status: not_yet_observable` and `value: null`. Do not
+substitute 0.
 
 ### Rolling retention
 
 Rolling Dn retention is the fraction of the D0 cohort with at least one valid
 start on `D0 + n days` or any later calendar date. It is not interchangeable
 with exact retention. The current project does not store a separate rolling
-retention event; it is derived from starts.
+retention event; it is derived from starts. The same observation-window rule
+applies: immature rolling D7 is `not_yet_observable`, not 0.
 
 ### `activated_player`
 
@@ -218,6 +241,31 @@ inserted by the new live write path with the documented event semantics. It is
 Do not treat anonymous ownership before that SHA as fully trusted.
 Phase E adopts an unsigned cookie only when that key already has history;
 it is not production-trusted until the live check after deploy.
+**Stage 2A product metrics use this same 1C timestamp.** Signed-cookie
+enforcement does not move the trusted metrics boundary.
+
+## Stage 2A command
+
+Canonical numbers live in `games.product_metrics.build_product_metrics_report`
+and `manage.py product_metrics`. They are not a quality-check output.
+
+```bash
+../venv/interoves_django/bin/python manage.py product_metrics
+../venv/interoves_django/bin/python manage.py product_metrics \
+  --since 2026-09-14T00:00:00+03:00 \
+  --until 2026-09-21T00:00:00+03:00 \
+  --format json
+../venv/interoves_django/bin/python manage.py product_metrics \
+  --game-type salad --placement 'word_salad:123'
+```
+
+`--since` / `--until` are ISO datetimes, `[since, until)`. Naive values use
+the configured project timezone (`Europe/Moscow`), same as
+`check_product_analytics`. Default `since` is the trusted cutover; default
+`until` is now. `--game-type` filters the stored `game_kind` field;
+`--placement` filters `game_instance_id`. If `--since` is before the cutover,
+the report sets `legacy_contaminated=true` and the text format prints a
+WARNING. Pre-cutover identity is still not trusted.
 
 Known historical boundaries from migrations and git history:
 

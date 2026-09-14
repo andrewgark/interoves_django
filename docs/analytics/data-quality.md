@@ -105,6 +105,12 @@ implemented in code; unknown unsigned cookies are not adopted, but a returning
 unsigned key with existing history is upgraded in place. Do not treat it as
 production-trusted until the live check after deploy.
 
+Canonical product KPIs (players, new players, completion rate, DAU/WAU/MAU,
+retention, core segments) are **not** produced by this quality command. They
+live in [definitions.md](definitions.md) and `manage.py product_metrics`.
+`product_metrics` warns and sets `legacy_contaminated` if `--since` is before
+the cutover; this checker does not compute those KPIs.
+
 ## Post-deploy runbook
 
 After application rollout, operators should:
