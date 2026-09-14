@@ -11,6 +11,8 @@ from django.test import Client, TestCase
 
 from allauth.socialaccount.models import SocialApp
 
+from games.analytics_identity import attach_anon_cookie
+
 from games.alphabetty.core import (
     build_prefix_level,
     compare_words,
@@ -363,7 +365,7 @@ class AlphabettyPlayApiTests(TestCase):
         self.client = Client()
 
     def _anon(self, key, client=None):
-        (client or self.client).cookies['interoves_anon'] = key
+        attach_anon_cookie(client or self.client, key)
 
     def tearDown(self):
         # In-memory extras переживают rollback БД между тестами.
@@ -371,7 +373,7 @@ class AlphabettyPlayApiTests(TestCase):
 
     def test_progress_api_returns_rows(self):
         # Раньше 500: list от filter_published_* передавали в order_queryset_by_number.
-        self.client.cookies['interoves_anon'] = 'test-anon-alphabetty-progress'
+        attach_anon_cookie(self.client, 'test-anon-alphabetty-progress')
         resp = self.client.get('/alphabetty/progress/')
         self.assertEqual(resp.status_code, 200)
         rows = resp.json()['rows']
@@ -592,7 +594,7 @@ class AlphabettyPlayApiTests(TestCase):
     def test_hub_shows_attempts_and_elapsed_when_solved(self):
         _ensure_login_modal_deps()
         anon_key = 'test-anon-alphabetty-hub-time'
-        self.client.cookies['interoves_anon'] = anon_key
+        attach_anon_cookie(self.client, anon_key)
         guess = self.client.post(
             '/alphabetty/1/guess/',
             data=json.dumps({'word': 'слово', 'anon_key': anon_key}),

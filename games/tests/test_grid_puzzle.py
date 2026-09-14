@@ -7,6 +7,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
 from django.test import Client, RequestFactory, TestCase
 
+from games.analytics_identity import attach_anon_cookie
 from games.check import GridShadingChecker, GridWallChecker
 from games.grid_puzzle import (
     GridPuzzleDataError,
@@ -284,7 +285,7 @@ class GridPuzzleIntegrationTests(TestCase):
 
     def setUp(self):
         self.client = Client()
-        self.client.cookies['interoves_anon'] = self.anon_key
+        attach_anon_cookie(self.client, self.anon_key)
 
     def post_walls(self, walls):
         return self.client.post(

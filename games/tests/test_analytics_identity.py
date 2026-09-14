@@ -14,9 +14,11 @@ from games.analytics_identity import (
     ANON_COOKIE_NAME,
     ANON_SIG_COOKIE_NAME,
     attach_anon_cookie,
+    attach_unsigned_anon_cookie,
     gameplay_anon_key,
     is_valid_anon_key,
     signature_is_valid,
+    stamp_anon_identity,
 )
 from games.models import (
     AnonAccountClaim,
@@ -136,14 +138,14 @@ class AnalyticsIdentityTests(TestCase):
         self.assertNotEqual(issued, key)
         self.assertTrue(signature_is_valid(issued, response.cookies[ANON_SIG_COOKIE_NAME].value))
 
-    def test_unsigned_legacy_cookie_is_adopted_and_signed(self):
-        key = attach_anon_cookie(self.client, 'legacy-unsigned-cookie-key')
+    def test_unsigned_legacy_cookie_is_not_adopted(self):
+        key = attach_unsigned_anon_cookie(self.client, 'legacy-unsigned-cookie-key')
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
-        self.assertNotIn(ANON_COOKIE_NAME, response.cookies)
-        self.assertEqual(self.client.cookies[ANON_COOKIE_NAME].value, key)
-        sig = response.cookies[ANON_SIG_COOKIE_NAME].value
-        self.assertTrue(signature_is_valid(key, sig))
+        issued = response.cookies[ANON_COOKIE_NAME].value
+        self.assertNotEqual(issued, key)
+        self.assertTrue(is_valid_anon_key(issued))
+        self.assertTrue(signature_is_valid(issued, response.cookies[ANON_SIG_COOKIE_NAME].value))
 
     def test_header_and_post_and_query_cannot_steal_another_actor(self):
         victim = 'victim-anon-identity-key'
@@ -164,7 +166,7 @@ class AnalyticsIdentityTests(TestCase):
             HTTP_X_INTEROVES_ANON=victim,
         )
         request.user = AnonymousUser()
-        request.COOKIES[ANON_COOKIE_NAME] = 'attacker-anon-identity-key'
+        stamp_anon_identity(request, 'attacker-anon-identity-key')
         self.assertEqual(gameplay_anon_key(request), 'attacker-anon-identity-key')
 
         stolen = factory.post(
@@ -180,7 +182,7 @@ class AnalyticsIdentityTests(TestCase):
         start = self._started(anon_key=key)
         user = User.objects.create_user('signup-claim-user', 'signup-claim@example.com', 'x')
         request = RequestFactory().post('/accounts/signup/')
-        request.COOKIES[ANON_COOKIE_NAME] = key
+        stamp_anon_identity(request, key)
         request.user = user
         user_signed_up.send(sender=User, request=request, user=user)
         start.refresh_from_db()

@@ -6,6 +6,7 @@ from unittest.mock import patch
 from django.test import Client, TestCase
 from django.utils import timezone
 
+from games.analytics_identity import attach_anon_cookie
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -79,7 +80,7 @@ class RaddleSendAttemptTests(TestCase):
 
     def setUp(self):
         self.client = Client()
-        self.client.cookies['interoves_anon'] = self.anon_key
+        attach_anon_cookie(self.client, self.anon_key)
 
     def _post_word(self, word_index, word):
         return self.client.post(
@@ -196,7 +197,7 @@ class RaddleSendAttemptTests(TestCase):
             )
         url = '/send_attempt/{}/'.format(long_task.id)
         anon = 'raddle-premature-anon'
-        self.client.cookies['interoves_anon'] = anon
+        attach_anon_cookie(self.client, anon)
 
         def post(word_index, word):
             return self.client.post(
@@ -248,7 +249,7 @@ class RaddleSendAttemptTests(TestCase):
             )
         url = '/send_attempt/{}/'.format(long_task.id)
         anon = 'raddle-stale-anon'
-        self.client.cookies['interoves_anon'] = anon
+        attach_anon_cookie(self.client, anon)
 
         resp = self.client.post(
             url,

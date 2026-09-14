@@ -5,9 +5,9 @@ header, query, and localStorage values are never authority for gameplay or
 analytics attribution. A separate HttpOnly signature cookie proves the UUID
 was issued or upgraded by this server.
 
-Stage 1C keeps a compatibility window: a well-formed unsigned ``interoves_anon``
-cookie is adopted and upgraded with a signature. Header-only spoofing is
-rejected because those fields are ignored.
+Phase E requires a valid HMAC signature. A well-formed unsigned ``interoves_anon``
+cookie is no longer adopted: the server issues a fresh identity instead.
+Header-only spoofing is rejected because those fields are ignored.
 """
 from __future__ import annotations
 
@@ -146,13 +146,6 @@ def resolve_anonymous_identity(request) -> AnonymousIdentity:
                     key=presented,
                     signature=signature,
                 )
-            if not signature:
-                # Compat: adopt a legacy unsigned cookie and upgrade it.
-                return AnonymousIdentity(
-                    key=presented,
-                    signature=sign_anon_key(presented),
-                    issue_sig_cookie=True,
-                )
         return issue_fresh_identity()
     except Exception:
         logger.exception('anonymous identity resolve failed; issuing a fresh key')
@@ -215,8 +208,31 @@ def apply_anonymous_identity_cookies(request, response) -> None:
         logger.exception('anonymous identity cookie write failed')
 
 
+def stamp_anon_identity(target, key: str | None = None) -> str:
+    """Put a signed identity on a Django test Client or a request ``COOKIES`` map."""
+    if not key:
+        key = new_anonymous_key()
+    signature = sign_anon_key(key)
+    jar = getattr(target, 'cookies', None)
+    mapping = getattr(target, 'COOKIES', None)
+    if jar is not None:
+        jar[ANON_COOKIE_NAME] = key
+        jar[ANON_SIG_COOKIE_NAME] = signature
+    if mapping is not None:
+        mapping[ANON_COOKIE_NAME] = key
+        mapping[ANON_SIG_COOKIE_NAME] = signature
+    if jar is None and mapping is None:
+        raise TypeError('stamp_anon_identity needs a test Client or request COOKIES map')
+    return key
+
+
 def attach_anon_cookie(client, key: str | None = None) -> str:
-    """Test helper: present a legacy unsigned cookie (compat adopt + sig upgrade)."""
+    """Test helper: present a signed server-issued anonymous identity."""
+    return stamp_anon_identity(client, key)
+
+
+def attach_unsigned_anon_cookie(client, key: str | None = None) -> str:
+    """Test helper: present only ``interoves_anon`` (Phase E must not adopt it)."""
     if not key:
         key = new_anonymous_key()
     client.cookies[ANON_COOKIE_NAME] = key

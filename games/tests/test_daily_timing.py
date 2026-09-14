@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.db import IntegrityError, OperationalError
 from django.test import Client, SimpleTestCase, TestCase
 
+from games.analytics_identity import attach_anon_cookie
 from games import daily_timing as daily_timing_mod
 from games.daily_section import is_daily_timing_game
 from games.daily_timing import (
@@ -507,7 +508,7 @@ class DailyTimingApiTests(TestCase):
         )
         self.anon = 'anon-timing-api'
         self.client = Client()
-        self.client.cookies['interoves_anon'] = self.anon
+        attach_anon_cookie(self.client, self.anon)
 
     def _post(self, payload):
         import json

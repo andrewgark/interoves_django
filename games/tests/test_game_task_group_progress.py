@@ -8,6 +8,7 @@ from django.test import Client, RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
+from games.analytics_identity import attach_anon_cookie, stamp_anon_identity
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Attempt
 from games.views.new_ui import (
     _game_page_progress_context,
@@ -82,7 +83,7 @@ class GameTaskGroupProgressTests(TestCase):
         request = factory.get('/section/sec_prog/')
         request.user = AnonymousUser()
         request.session = {}
-        request.COOKIES['interoves_anon'] = 'test-anon-page-key'
+        stamp_anon_identity(request, 'test-anon-page-key')
 
         task_groups = _game_task_group_links(game)
         rows = _task_group_rows_skeleton(task_groups, game)
@@ -116,7 +117,7 @@ class GameTaskGroupProgressTests(TestCase):
                 points=6,
             )
 
-        self.client.cookies['interoves_anon'] = anon_key
+        attach_anon_cookie(self.client, anon_key)
         resp = self.client.get('/games/sec_prog2/progress/')
         self.assertEqual(resp.status_code, 200)
         row = resp.json()['rows']['2']
@@ -146,7 +147,7 @@ class GameTaskGroupProgressTests(TestCase):
                 points=2,
             )
 
-        self.client.cookies['interoves_anon'] = anon_key
+        attach_anon_cookie(self.client, anon_key)
         resp = self.client.get('/games/sec_scored_progress/progress/')
 
         self.assertEqual(resp.status_code, 200)
@@ -210,7 +211,7 @@ class GameTaskGroupProgressTests(TestCase):
                 }, ensure_ascii=False),
             )
 
-        self.client.cookies['interoves_anon'] = anon_key
+        attach_anon_cookie(self.client, anon_key)
         resp = self.client.get('/ladder/progress/')
         self.assertEqual(resp.status_code, 200)
         row = resp.json()['rows']['1']
@@ -260,7 +261,7 @@ class GameTaskGroupProgressTests(TestCase):
                 }, ensure_ascii=False),
             )
 
-        self.client.cookies['interoves_anon'] = anon_key
+        attach_anon_cookie(self.client, anon_key)
         resp = self.client.get('/ladder/progress/')
         self.assertEqual(resp.status_code, 200)
         row = resp.json()['rows']['1']
@@ -310,7 +311,7 @@ class GameTaskGroupProgressTests(TestCase):
                 }, ensure_ascii=False),
             )
 
-        self.client.cookies['interoves_anon'] = anon_key
+        attach_anon_cookie(self.client, anon_key)
         resp = self.client.get('/ladder/progress/')
         self.assertEqual(resp.status_code, 200)
         row = resp.json()['rows']['1']
@@ -378,7 +379,7 @@ class GameTaskGroupProgressTests(TestCase):
         Attempt.manager.filter(pk=first.pk).update(time=t0)
         Attempt.manager.filter(pk=last.pk).update(time=t0 + timedelta(seconds=226))
 
-        self.client.cookies['interoves_anon'] = anon_key
+        attach_anon_cookie(self.client, anon_key)
         resp = self.client.get('/ladder/progress/')
         self.assertEqual(resp.status_code, 200)
         row = resp.json()['rows']['1']
@@ -441,7 +442,7 @@ class GameTaskGroupProgressTests(TestCase):
         Attempt.manager.filter(pk=first.pk).update(time=t0)
         Attempt.manager.filter(pk=last.pk).update(time=t0 + timedelta(seconds=226))
 
-        self.client.cookies['interoves_anon'] = anon_key
+        attach_anon_cookie(self.client, anon_key)
         resp = self.client.get('/salad/progress/')
         self.assertEqual(resp.status_code, 200)
         row = resp.json()['rows']['1']
@@ -582,7 +583,7 @@ class GameTaskGroupProgressTests(TestCase):
                 state=json.dumps({'solved_indices': [0, 1], 'hint_counts': {}}),
             )
 
-        self.client.cookies['interoves_anon'] = actor_key
+        attach_anon_cookie(self.client, actor_key)
         response = self.client.get('/salad/')
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context['task_group_progress_embedded'])
@@ -592,7 +593,7 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertIn('🟩🟩', html)
         self.assertNotIn('/salad/progress/', html)
 
-        self.client.cookies['interoves_anon'] = 'different-salad-actor'
+        attach_anon_cookie(self.client, 'different-salad-actor')
         other_response = self.client.get('/salad/')
         other_html = other_response.content.decode('utf-8')
         self.assertIn('data-fully-solved="0"', other_html)
@@ -608,7 +609,7 @@ class GameTaskGroupProgressTests(TestCase):
         request = RequestFactory().get('/games/progress_fallback/')
         request.user = AnonymousUser()
         request.session = {}
-        request.COOKIES['interoves_anon'] = 'fallback-actor'
+        stamp_anon_identity(request, 'fallback-actor')
 
         with patch(
             'games.views.new_ui._task_group_progress_payload',

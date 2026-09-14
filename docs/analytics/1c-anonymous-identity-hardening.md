@@ -7,7 +7,8 @@ Status: **closed on production** after account-flow validation on SHA
 - server-issued opaque `anon_key` (same column);
 - cookie `interoves_anon` is source of truth;
 - HttpOnly HMAC cookie `interoves_anon_sig`;
-- unsigned cookie still adopted (no Phase E mandatory signature);
+- at 1C cutover, unsigned cookies were still adopted (Phase E later required
+  the signature; see [identity.md](identity.md));
 - GET/POST/header/URL ignored for attribution;
 - signup auto-claim of the current cookie;
 - existing-account login does **not** auto-claim;
@@ -186,10 +187,10 @@ selected merely because it is the most comprehensive design.
 6. Keep PII out of credentials, aliases, logs, diagnostics, and analytics rows.
 
 No option is selected by stage 1A. Stage 1C implemented the cookie + HMAC
-approach above (unsigned compat retained; no Actor table). Option 4 remains
-unused.
+approach above (unsigned compat retained at that cutover; no Actor table).
+Option 4 remains unused.
 
 Trusted identity cutover is recorded in [identity.md](identity.md): production
-SHA `6c53989`, validation completed 2026-09-13T21:24:38Z. Unsigned-cookie
-compatibility remains until Phase E.
+SHA `6c53989`, validation completed 2026-09-13T21:24:38Z. Phase E later requires
+the HMAC signature; unsigned cookies are no longer adopted.
 

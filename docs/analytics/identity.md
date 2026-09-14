@@ -29,7 +29,7 @@ Signing uses an explicit context `interoves-anon-identity-v1` and setting
 `ANALYTICS_ANON_SIGNING_KEY` (dev/test may fall back to `SECRET_KEY`).
 Production should set the same dedicated secret on every instance. Rotating
 that secret invalidates signatures and needs a separate dual-key rollout;
-Stage 1C does not implement secret rotation.
+this is not implemented in Phase E either.
 
 Both cookies use `path=/`, `SameSite=Lax`, `Secure` when `SESSION_COOKIE_SECURE`
 is on, and `max-age=31622400` (about 366 days), matching the previous anonymous
@@ -45,11 +45,13 @@ send those fields; the backend ignores them as actor selectors.
 per request (except static/health/`/meta/` paths):
 
 1. Valid UUID cookie + valid signature → reuse.
-2. Valid UUID cookie and **no** signature → **compat adopt** and upgrade with a
-   signature (unsigned legacy cookie window; Phase E mandatory-signature is
-   **not** in Stage 1C).
-3. Missing, malformed, or **invalid signature** → issue a fresh server UUID
-   (UUID4) and new signature. Gameplay is not 500.
+2. Missing, malformed, **unsigned**, or **invalid signature** → issue a fresh
+   server UUID (UUID4) and new signature. Gameplay is not 500.
+
+A well-formed `interoves_anon` cookie without `interoves_anon_sig` is not
+adopted. Visitors who already have the HttpOnly signature (anyone who hit a
+Stage 1C or later instance) keep the same UUID. Visitors with only the JS
+cookie get a new identity; the previous `anon_key` history stays unclaimed.
 
 Tabs and revisits share the cookies, so they share one anonymous identity.
 Corrupt cookies mint a new identity instead of failing the request.
@@ -59,14 +61,22 @@ Do not log raw UUID or signature. Diagnostics may use
 
 ## Rolling deploy limitation
 
-During a mixed old/new deploy:
+During a mixed Stage 1C / Phase E deploy:
 
-- New instances ignore header/POST/URL for actor selection immediately.
-- Old instances still trust those client fields.
-- New instances still **adopt an unsigned `interoves_anon` cookie** and mint a
-  signature. An attacker who can **set that cookie** to a known legacy UUID can
-  still inherit that legacy actor until a later mandatory-signature phase.
-- Header-only spoof of another UUID does **not** work on new instances.
+- Phase E instances ignore header/POST/URL for actor selection (same as 1C).
+- Phase E instances **mint a fresh identity** when `interoves_anon` is present
+  without a valid `interoves_anon_sig`.
+- Remaining 1C instances still **adopt an unsigned cookie** and mint a
+  signature.
+- A visitor who already has a signature is stable on both code versions.
+- A visitor with only the unsigned JS cookie who hits a Phase E instance first
+  loses that legacy UUID. If they later hit a 1C instance while the unsigned
+  cookie is still around, that instance may still adopt it. Mixed deploy can
+  therefore split remaining unsigned legacy history. Finish the rollout
+  promptly.
+
+Setting only `interoves_anon` (no HttpOnly signature) is not enough to inherit
+a known legacy actor on Phase E instances.
 
 ## Authentication transitions
 
@@ -130,9 +140,9 @@ boundary forward under the cookie + HMAC protocol above.
 | --- | --- |
 | Production SHA | `6c53989` |
 | Validation completed | 2026-09-13T21:24:38Z (2026-09-14 01:24 +04) |
-| What this means | Production anonymous actor is the server-issued `interoves_anon` cookie, proved by `interoves_anon_sig` (or the unsigned compat adopt path) |
+| What this means | Production anonymous actor is the server-issued `interoves_anon` cookie, proved by `interoves_anon_sig` (or, at this SHA, the unsigned compat adopt path) |
 | What this is not | `instrumentation_version=2` — that only versions live start/completion write semantics |
-| Still open | Unsigned `interoves_anon` is still adopted; Phase E (mandatory signature) is the next stage |
+| Still open at this SHA | Unsigned `interoves_anon` was still adopted; Phase E (mandatory signature) follows |
 
 Validated on `6c53989` against production data:
 
@@ -144,6 +154,17 @@ Validated on `6c53989` against production data:
 
 Cookie issuance, reuse, unsigned adopt, invalid-signature rotation, and header/query spoof rejection were first confirmed on `37858ee` after the identity deploy and remain in this SHA.
 
-Next work is **not** more Stage 1C analytics schema. Next stage: Phase E mandatory signature. Signing-key dual-key rotation is separate and not urgent.
+## Phase E: mandatory signature
+
+Phase E is implemented in this tree. It is **not** production-trusted until a
+live unsigned-reject check after deploy.
+
+Unsigned well-formed `interoves_anon` is no longer adopted: the server issues a
+fresh UUID and signature instead of inheriting the presented key. Returning
+visitors who already carry `interoves_anon_sig` keep their identity.
+
+Do not treat this as a new analytics schema cutover. No `AnalyticsActor`. No
+1B.2 index work. Dual-key `ANALYTICS_ANON_SIGNING_KEY` rotation is a later
+stage, not this one.
 
 See also the Stage 1C design notes in [1c-anonymous-identity-hardening.md](1c-anonymous-identity-hardening.md).

@@ -5,6 +5,7 @@ from django.urls import resolve, reverse
 from django.utils import timezone
 from allauth.socialaccount.models import SocialApp
 
+from games.analytics_identity import attach_anon_cookie
 from games.models import (
     Attempt,
     CheckerType,
@@ -274,7 +275,7 @@ class FirstVisitOnboardingTests(TestCase):
     def test_anonymous_browser_with_game_start_does_not_get_onboarding(self):
         anon_key = 'onboarding-anon-key'
         self._started_game(anon_key=anon_key)
-        self.client.cookies['interoves_anon'] = anon_key
+        attach_anon_cookie(self.client, anon_key)
 
         response = self.client.get('/')
 
@@ -313,7 +314,7 @@ class FirstVisitOnboardingTests(TestCase):
     def test_anonymous_browser_with_completion_but_no_start_is_not_new(self):
         anon_key = 'legacy-completed-anon'
         self._completed_game(anon_key=anon_key)
-        self.client.cookies['interoves_anon'] = anon_key
+        attach_anon_cookie(self.client, anon_key)
 
         response = self.client.get('/')
 
@@ -322,7 +323,7 @@ class FirstVisitOnboardingTests(TestCase):
     def test_authenticated_browser_keeps_anon_history_before_optional_merge(self):
         anon_key = 'pre-signup-anon-history'
         self._started_game(anon_key=anon_key)
-        self.client.cookies['interoves_anon'] = anon_key
+        attach_anon_cookie(self.client, anon_key)
         self.client.force_login(self.user)
 
         response = self.client.get('/')

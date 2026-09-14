@@ -6,6 +6,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
+from games.analytics_identity import stamp_anon_identity
 from games.exception import DuplicateAttemptException
 from games.analytics_persistence import AnalyticsRowInvariantError
 from games.models import (
@@ -70,7 +71,7 @@ class AttemptRequestValidationTests(TestCase):
     def _request(self, data):
         request = RequestFactory().post('/send/', dict(data, anon_key='validation-anon'))
         request.user = AnonymousUser()
-        request.COOKIES['interoves_anon'] = 'validation-anon'
+        stamp_anon_identity(request, 'validation-anon')
         return request
 
     def _process(self, task, data):
