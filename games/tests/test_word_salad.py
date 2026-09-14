@@ -618,7 +618,7 @@ class WordSaladTests(TestCase):
         self.assertIn('data-word-salad-solved>Решено!</div>', html)
         self.assertIn('data-word-salad-extras', html)
 
-    def test_saving_task_resets_word_salad_chain_state_for_new_revision(self):
+    def test_saving_task_keeps_word_salad_chain_state_when_grid_is_unchanged(self):
         anon_key = 'word-salad-task-edit-reset'
         with patch('games.views.attempt_views.track_actor_task_change'):
             first = self.client.post(
@@ -640,27 +640,15 @@ class WordSaladTests(TestCase):
         ).get()
         self.assertTrue(json.loads(chain.state)['solved_indices'])
 
-        # Admin edits create a new task revision. Historical attempts remain,
-        # but their accumulated projection must not remain authoritative.
+        # A theme-only edit creates a new task revision, but the grid and the
+        # historical attempts are unchanged, so the accumulated projection
+        # remains authoritative.
         self.task.text = 'Изменённая тема'
         self.task.save(update_fields=['text'])
         chain.refresh_from_db()
-        self.assertEqual(json.loads(chain.state)['solved_indices'], [])
-        self.assertEqual(json.loads(chain.state)['active'], list(range(16)))
-        self.assertIsNone(chain.last_attempt_id)
-
-        with patch('games.views.attempt_views.track_actor_task_change'):
-            second = self.client.post(
-                '/send_attempt/{}/'.format(self.task.pk),
-                {
-                    'game_id': self.game.pk,
-                    'anon_key': anon_key,
-                    'action': 'solve',
-                    'path': json.dumps(_path()),
-                    'correct_only': '1',
-                },
-            )
-        self.assertTrue(second.json()['word_salad_correct'])
+        self.assertEqual(json.loads(chain.state)['solved_indices'], [0])
+        self.assertEqual(json.loads(chain.state)['active'], [])
+        self.assertIsNotNone(chain.last_attempt_id)
 
     def test_supported_salad_completion_returns_start_then_complete_once(self):
         anon_key = 'word-salad-onboarding-flow'
@@ -974,6 +962,69 @@ class WordSaladTests(TestCase):
             Attempt.manager.filter(task=self.task, anon_key=anon_key).count(),
             3,
         )
+
+    def test_answer_list_edit_keeps_chain_state_until_recheck(self):
+        anon_key = 'word-salad-answer-list-edit'
+        with patch('games.views.attempt_views.track_actor_task_change'):
+            response = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': anon_key,
+                    'action': 'solve',
+                    'path': json.dumps(_path()),
+                    'correct_only': '1',
+                },
+            )
+        self.assertTrue(response.json()['word_salad_correct'])
+        anon_key = Attempt.manager.get(task=self.task).anon_key
+        before = ChainTaskState.objects.get(
+            task=self.task, anon_key=anon_key, game=self.game, game_mode='general',
+        )
+        self.assertEqual(json.loads(before.state)['solved_indices'], [0])
+
+        payload = json.loads(self.task.checker_data)
+        payload['words'] = ['ABCDEFGHIJKLMNOP', 'ABCD']
+        self.task.checker_data = json.dumps(payload, ensure_ascii=False)
+        with patch('games.views.track.track_task_change'):
+            self.task.save(update_fields=['checker_data'])
+
+        # Saving only the answer set must not make the player appear to have
+        # lost the already solved grid while the recheck is being run.
+        before.refresh_from_db()
+        self.assertEqual(json.loads(before.state)['solved_indices'], [0])
+
+        with patch('games.views.track.track_actor_task_change'):
+            recheck_word_salad_task(self.task, game=self.game, notify=False)
+        after = ChainTaskState.objects.get(
+            task=self.task, anon_key=anon_key, game=self.game, game_mode='general',
+        )
+        self.assertEqual(json.loads(after.state)['solved_indices'], [0, 1])
+
+    def test_grid_edit_resets_word_salad_chain_state(self):
+        anon_key = 'word-salad-grid-edit'
+        with patch('games.views.attempt_views.track_actor_task_change'):
+            response = self.client.post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': anon_key,
+                    'action': 'solve',
+                    'path': json.dumps(_path()),
+                    'correct_only': '1',
+                },
+            )
+        self.assertTrue(response.json()['word_salad_correct'])
+        anon_key = Attempt.manager.get(task=self.task).anon_key
+        payload = json.loads(self.task.checker_data)
+        payload['grid'][0], payload['grid'][1] = payload['grid'][1], payload['grid'][0]
+        self.task.checker_data = json.dumps(payload, ensure_ascii=False)
+        with patch('games.views.track.track_task_change'):
+            self.task.save(update_fields=['checker_data'])
+        state = ChainTaskState.objects.get(
+            task=self.task, anon_key=anon_key, game=self.game, game_mode='general',
+        )
+        self.assertEqual(json.loads(state.state)['solved_indices'], [])
 
     def test_recheck_does_not_complete_unfinished_actor(self):
         anon_key = 'word-salad-recheck-hint'

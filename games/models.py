@@ -822,16 +822,26 @@ class Task(models.Model):
     def save(self, *args, **kwargs):
         from games.views.track import track_task_change
         is_existing = not self._state.adding
+        previous_word_salad = None
+        if is_existing and self.task_type == 'word_salad':
+            previous_word_salad = type(self).objects.filter(pk=self.pk).values_list(
+                'checker_data', 'task_type',
+            ).first()
         if not self._state.adding:
             self.attempt_revision = uuid.uuid4()
             update_fields = kwargs.get('update_fields')
             if update_fields is not None:
                 kwargs['update_fields'] = set(update_fields) | {'attempt_revision'}
         super(Task, self).save(*args, **kwargs)
-        # A task revision starts a new chain.  Keep historical Attempt rows for
-        # audit/results, but do not let the old Word Salad projection reject
-        # words in the newly saved puzzle as already opened.
-        if is_existing and self.task_type == 'word_salad':
+        # A changed Word Salad grid starts a new chain.  Changing only the
+        # answer/rare-word lists must keep the accumulated projection alive:
+        # the existing attempts are still valid evidence and the recheck can
+        # replay them into the corrected ChainTaskState.
+        if (
+            is_existing
+            and self.task_type == 'word_salad'
+            and self._word_salad_grid_changed(previous_word_salad)
+        ):
             from games.word_salad import default_state, dump_state
             ChainTaskState.objects.filter(task=self).update(
                 # A non-null empty state is intentional: check_attempt falls
@@ -841,6 +851,20 @@ class Task(models.Model):
                 last_attempt=None,
             )
         track_task_change(self)
+
+    def _word_salad_grid_changed(self, previous):
+        """Return whether this save changes the Word Salad 4x4 grid."""
+        from games.word_salad import parse_task_payload
+
+        if previous is None or previous[1] != 'word_salad':
+            return True
+        try:
+            old_grid, _old_words, _old_rare = parse_task_payload(previous[0], '')
+            new_grid, _new_words, _new_rare = parse_task_payload(self.checker_data, '')
+        except (TypeError, ValueError, json.JSONDecodeError):
+            # A malformed/legacy payload is unsafe to treat as the same grid.
+            return True
+        return old_grid != new_grid
 
     def clean(self):
         if self.task_type == 'word_salad':
