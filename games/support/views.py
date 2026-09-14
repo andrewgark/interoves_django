@@ -433,6 +433,7 @@ def word_salad_offer_save(request, offer_id):
             suggested_words=str(body.get('suggested_words') or ''),
             grid_text=str(body.get('grid_text') or ''),
             words_text=str(body.get('words_text') or ''),
+            rare_words_text=str(body.get('rare_words_text') or ''),
             comment=str(body.get('comment') or ''),
             author=str(body.get('author') or ''),
             allow_non_draft=True,

@@ -70,6 +70,7 @@ class WordSaladRow:
     task_id: Optional[int]
     number: int
     name: str
+    theme: str
     publish_date: Optional[str]
     is_published: bool
     is_today: bool
@@ -260,6 +261,7 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
             task_id=task.pk if task else None,
             number=number,
             name=link.name or _salad_title(number),
+            theme=(task.text or '').strip() if task is not None else '',
             publish_date=published_at.date().isoformat() if published_at else None,
             is_published=(
                 is_word_salad_number_published(game, number, now)

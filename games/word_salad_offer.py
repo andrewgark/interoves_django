@@ -231,6 +231,7 @@ class OfferRow:
     telegram_handle: str
     task_id: Optional[int]
     accepted_link_id: Optional[int]
+    converted_from_id: Optional[int]
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -304,6 +305,7 @@ def serialize_offer(offer: WordSaladOffer) -> OfferRow:
         telegram_handle=tg,
         task_id=task.pk if task else None,
         accepted_link_id=offer.accepted_link_id,
+        converted_from_id=offer.converted_from_id,
     )
 
 
@@ -527,6 +529,28 @@ def request_revision(offer: WordSaladOffer, *, admin_note: str = '') -> WordSala
 def list_user_offers(user: User) -> list[OfferRow]:
     qs = _offers_queryset_base().filter(user=user).order_by('-updated_at')
     return [serialize_offer(o) for o in qs]
+
+
+@transaction.atomic
+def convert_accepted_idea(offer: WordSaladOffer) -> WordSaladOffer:
+    """Create an editable 4x4 draft from an accepted idea."""
+    offer = WordSaladOffer.objects.select_for_update().get(pk=offer.pk)
+    if offer.kind != WordSaladOffer.KIND_IDEA or offer.status != WordSaladOffer.STATUS_ACCEPTED:
+        raise WordSaladOfferError('Превратить можно только принятую идею')
+    existing = offer.converted_offers.filter(
+        kind=WordSaladOffer.KIND_FULL,
+        status=WordSaladOffer.STATUS_DRAFT,
+    ).order_by('-updated_at').first()
+    if existing is not None:
+        return existing
+    draft = create_offer(offer.user, kind=WordSaladOffer.KIND_FULL)
+    draft.converted_from = offer
+    draft.theme = offer.theme
+    draft.idea_text = offer.idea_text
+    draft.suggested_words = offer.suggested_words
+    draft.comment = offer.comment
+    draft.save(update_fields=['converted_from', 'theme', 'idea_text', 'suggested_words', 'comment', 'updated_at'])
+    return draft
 
 
 def list_sent_offers() -> list[OfferRow]:

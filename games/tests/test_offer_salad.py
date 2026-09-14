@@ -29,6 +29,7 @@ from games.word_salad import (
 from games.word_salad_daily import WORD_SALAD_PUBLISH_START_TAG
 from games.word_salad_offer import (
     accept_offer,
+    convert_accepted_idea,
     create_offer,
     request_revision,
     send_offer,
@@ -138,6 +139,34 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertIsNone(offer.accepted_link_id)
         self.assertFalse(GameTaskGroup.objects.filter(game_id=WORD_SALAD_GAME_ID).exists())
 
+    def test_accepted_idea_can_be_converted_to_editable_grid_draft(self):
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_IDEA)
+        update_offer_content(offer, theme='Города', idea_text='Столицы Европы', suggested_words='РИМ')
+        send_offer(offer)
+        accept_offer(offer)
+
+        draft = convert_accepted_idea(offer)
+        self.assertEqual(draft.kind, WordSaladOffer.KIND_FULL)
+        self.assertEqual(draft.status, WordSaladOffer.STATUS_DRAFT)
+        self.assertEqual(draft.converted_from_id, offer.pk)
+        self.assertEqual(draft.theme, 'Города')
+        self.assertEqual(draft.idea_text, 'Столицы Европы')
+        self.assertTrue(draft.task_group_id)
+        self.assertEqual(convert_accepted_idea(offer).pk, draft.pk)
+
+    def test_create_page_has_accepted_ideas_tab_and_convert_endpoint(self):
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_IDEA)
+        update_offer_content(offer, theme='Города', idea_text='Столицы Европы')
+        send_offer(offer)
+        accept_offer(offer)
+        c = Client()
+        c.force_login(self.user)
+        page = c.get('/create_salad/')
+        self.assertContains(page, 'Принятые идеи')
+        response = c.post('/create_salad/{}/convert/'.format(offer.pk))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['offer']['kind'], WordSaladOffer.KIND_FULL)
+
     def test_idea_send_requires_theme_and_text(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_IDEA)
         with self.assertRaisesRegex(Exception, 'тему'):
@@ -202,6 +231,7 @@ class WordSaladOfferFlowTests(TestCase):
             theme='Города',
             grid_text=VALID_GRID,
             words_text=VALID_WORDS,
+            rare_words_text='BCDE',
         )
         update_offer_content(
             offer,

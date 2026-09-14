@@ -45,6 +45,10 @@
   <button type="button" class="new-btn" id="offer-create-idea-btn">Предложить идею</button>
   <button type="button" class="new-btn new-btn--ghost" id="offer-create-full-btn">Собрать салатик</button>
 </div>
+<div class="support-tabs new-stack-gap" role="tablist" aria-label="Ваши салатики">
+  <button type="button" class="new-btn new-btn--mini" data-offer-tab="all" role="tab" aria-selected="true">Все предложения</button>
+  <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-offer-tab="accepted" role="tab" aria-selected="false">Принятые идеи</button>
+</div>
 <section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши салатики"></section>
 
 <div id="offer-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="offer-edit-title" aria-modal="true" hidden>
@@ -114,11 +118,13 @@
   var editId = null;
   var editKind = 'full';
   var busy = false;
+  var activeTab = 'all';
   var autosave = null;
   var endpoints = {
     create: "{% url 'new_create_salad_create' %}",
     detailTpl: "{% url 'new_create_salad_detail' 0 %}".replace('/0/', '/{id}/'),
-    sendTpl: "{% url 'new_create_salad_send' 0 %}".replace('/0/', '/{id}/')
+    sendTpl: "{% url 'new_create_salad_send' 0 %}".replace('/0/', '/{id}/'),
+    convertTpl: "{% url 'new_create_salad_convert' 0 %}".replace('/0/', '/{id}/')
   };
 
   function csrf() {
@@ -152,17 +158,25 @@
   }
   function renderList() {
     listEl.innerHTML = '';
-    if (!offers.length) {
-      listEl.innerHTML = '<p class="support-empty">Пока нет предложений. Нажмите «Предложить идею» или «Собрать салатик».</p>';
+    var visibleOffers = activeTab === 'accepted'
+      ? offers.filter(function (o) { return o.kind === 'idea' && o.status === 'accepted'; })
+      : offers;
+    if (!visibleOffers.length) {
+      listEl.innerHTML = activeTab === 'accepted'
+        ? '<p class="support-empty">Принятых идей пока нет.</p>'
+        : '<p class="support-empty">Пока нет предложений. Нажмите «Предложить идею» или «Собрать салатик».</p>';
       return;
     }
-    offers.forEach(function (o) {
+    visibleOffers.forEach(function (o) {
       var item = document.createElement('div');
       item.className = 'support-ladder-item';
       var num = o.production_number != null ? ('№' + o.production_number) : ('#' + o.id);
       var date = o.production_publish_date || (o.sent_at || o.created_at || '').slice(0, 10) || '—';
       var play = (o.is_playable && o.play_url)
         ? '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">Решать</a>'
+        : '';
+      var convert = (o.kind === 'idea' && o.status === 'accepted')
+        ? '<button type="button" class="new-btn new-btn--mini" data-convert="' + o.id + '">Собрать сетку</button>'
         : '';
       item.innerHTML =
         '<div class="support-ladder-item__num">' + escapeHtml(num) + '</div>' +
@@ -178,6 +192,7 @@
         '<div class="support-ladder-item__actions">' +
           (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">править</button>' : '') +
           (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Предложить опубликовать</button>' : '') +
+          convert +
           play +
         '</div>';
       listEl.appendChild(item);
@@ -411,6 +426,18 @@
       .finally(function () { busy = false; });
   }
 
+  function convertOfferById(id) {
+    if (!id || busy) return;
+    busy = true;
+    postJson(endpoints.convertTpl.replace('{id}', String(id)), {})
+      .then(function (data) {
+        upsert(data.offer);
+        openEdit(data.offer);
+      })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { busy = false; });
+  }
+
   listEl.addEventListener('click', function (e) {
     var editBtn = e.target.closest('[data-edit]');
     if (editBtn) {
@@ -422,7 +449,24 @@
     var sendBtn = e.target.closest('[data-send]');
     if (sendBtn) {
       sendOfferById(parseInt(sendBtn.getAttribute('data-send'), 10));
+      return;
     }
+    var convertBtn = e.target.closest('[data-convert]');
+    if (convertBtn) {
+      convertOfferById(parseInt(convertBtn.getAttribute('data-convert'), 10));
+    }
+  });
+
+  document.querySelectorAll('[data-offer-tab]').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      activeTab = tab.getAttribute('data-offer-tab');
+      document.querySelectorAll('[data-offer-tab]').forEach(function (other) {
+        var selected = other === tab;
+        other.setAttribute('aria-selected', selected ? 'true' : 'false');
+        other.classList.toggle('new-btn--ghost', !selected);
+      });
+      renderList();
+    });
   });
 
   document.getElementById('offer-create-idea-btn').addEventListener('click', function () {

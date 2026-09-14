@@ -62,6 +62,7 @@ urlpatterns = [
     path('create_salad/create/', ui.offer_salad_create, name='new_create_salad_create'),
     path('create_salad/<int:offer_id>/', ui.offer_salad_detail, name='new_create_salad_detail'),
     path('create_salad/<int:offer_id>/send/', ui.offer_salad_send, name='new_create_salad_send'),
+    path('create_salad/<int:offer_id>/convert/', ui.offer_salad_convert, name='new_create_salad_convert'),
     path('create_salad/<int:offer_id>/reset/', ui.offer_salad_reset, name='new_create_salad_reset'),
     re_path(
         r'^salad/(?P<task_group_number>[a-f0-9]{16,32})/$',

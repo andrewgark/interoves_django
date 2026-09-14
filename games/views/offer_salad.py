@@ -14,6 +14,7 @@ from games.views.util import has_profile
 from games.word_salad_offer import (
     WordSaladOfferError,
     create_offer,
+    convert_accepted_idea,
     list_user_offers,
     normalize_telegram_handle,
     profile_ready_for_offers,
@@ -144,6 +145,19 @@ def offer_salad_send(request, offer_id):
     except WordSaladOfferError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     return JsonResponse({'ok': True, 'offer': serialize_offer(offer).to_dict()})
+
+
+@login_required
+@require_POST
+def offer_salad_convert(request, offer_id):
+    offer = _offer_for_user(request, offer_id)
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    try:
+        draft = convert_accepted_idea(offer)
+    except WordSaladOfferError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'offer': serialize_offer(draft).to_dict()})
 
 
 @login_required

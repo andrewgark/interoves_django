@@ -48,6 +48,7 @@ from games.views.offer_ladder import (  # noqa: E402
 )
 from games.views.offer_salad import (  # noqa: E402
     offer_salad_create,
+    offer_salad_convert,
     offer_salad_detail,
     offer_salad_page,
     offer_salad_reset,

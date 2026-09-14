@@ -3358,6 +3358,13 @@ class WordSaladOffer(models.Model):
         null=True,
         on_delete=models.SET_NULL,
     )
+    converted_from = models.ForeignKey(
+        'self',
+        related_name='converted_offers',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     sent_at = models.DateTimeField(blank=True, null=True)

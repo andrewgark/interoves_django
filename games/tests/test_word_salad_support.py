@@ -69,6 +69,7 @@ class WordSaladSupportTests(TestCase):
             )
             self.assertEqual(updated['intro'], 'Тема: реки')
             self.assertEqual(updated['rare_words_text'], 'ABCD')
+            self.assertEqual(list_word_salad_rows()[0].theme, 'Тема: реки')
             self.assertEqual(updated['name'], 'Салатик #1')
             self.assertEqual(updated['author'], '')
             named = update_word_salad(
@@ -295,6 +296,7 @@ class WordSaladSupportTests(TestCase):
         self.assertContains(response, 'data-recheck-url')
         self.assertContains(response, 'data-tab="sent"')
         self.assertContains(response, 'word_salad_grid_editor.js')
+        self.assertContains(response, 'word-salad-offer-rare-words')
 
     def test_recheck_endpoint_rebuilds_empty_salad(self):
         self.client.force_login(self.support_user)

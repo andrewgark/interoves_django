@@ -240,7 +240,7 @@
           'aria-label="Перетащить выпуск №' + row.number + '" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>' +
         '<div class="support-ladder-item__num">№' + row.number + '</div>' +
         '<div class="support-ladder-item__body">' +
-          '<div class="support-ladder-item__title">' + support.escapeHtml('Салатик #' + row.number) +
+          '<div class="support-ladder-item__title">' + support.escapeHtml(row.theme || row.name || ('Салатик #' + row.number)) +
             ' <span class="support-flag ' + support.statusClass(row) + '">' + support.statusLabel(row) + '</span>' +
             (linkedOffer ? ' <span class="support-flag">автор</span>' : '') +
             '</div>' +
@@ -294,6 +294,9 @@
     var offerWordsField = document.getElementById('word-salad-offer-words');
     offerWordsField.value = offer.words_text || '';
     uppercaseField(offerWordsField);
+    var offerRareWordsField = document.getElementById('word-salad-offer-rare-words');
+    offerRareWordsField.value = offer.rare_words_text || '';
+    uppercaseField(offerRareWordsField);
     document.getElementById('word-salad-offer-comment').value = offer.comment || '';
     document.getElementById('word-salad-offer-admin-note').value = offer.admin_note || '';
     document.getElementById('word-salad-offer-idea-fields').hidden = offer.kind !== 'idea';
@@ -308,7 +311,7 @@
     document.getElementById('word-salad-offer-reset-progress').hidden = offer.kind === 'idea';
     if (offer.kind === 'full') {
       ensureOfferGrid(offer.grid_text || '');
-      updateValidation('word-salad-offer-validation', offerGrid, 'word-salad-offer-words');
+      updateValidation('word-salad-offer-validation', offerGrid, 'word-salad-offer-words', 'word-salad-offer-rare-words');
     }
     clearOfferError();
   }
@@ -441,7 +444,11 @@
   });
   document.getElementById('word-salad-offer-words').addEventListener('input', function () {
     uppercaseField(this);
-    updateValidation('word-salad-offer-validation', offerGrid, 'word-salad-offer-words');
+    updateValidation('word-salad-offer-validation', offerGrid, 'word-salad-offer-words', 'word-salad-offer-rare-words');
+  });
+  document.getElementById('word-salad-offer-rare-words').addEventListener('input', function () {
+    uppercaseField(this);
+    updateValidation('word-salad-offer-validation', offerGrid, 'word-salad-offer-words', 'word-salad-offer-rare-words');
   });
 
   document.getElementById('word-salad-edit-save').addEventListener('click', function () {
@@ -505,6 +512,7 @@
       suggested_words: document.getElementById('word-salad-offer-suggested').value,
       grid_text: offerGrid ? offerGrid.getGridText() : '',
       words_text: document.getElementById('word-salad-offer-words').value,
+      rare_words_text: document.getElementById('word-salad-offer-rare-words').value,
       comment: document.getElementById('word-salad-offer-comment').value
     }).then(function (data) {
       setOffers(data.offers || sentOffers);
