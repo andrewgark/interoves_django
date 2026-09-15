@@ -730,12 +730,15 @@ def _merge_club_subscriptions(target, source):
     except LookupError:
         return 0
     source_sub = ClubSubscription.objects.select_for_update().filter(user=source).first()
+    SavedPaymentMethod = apps.get_model('games', 'SavedPaymentMethod')
+    SavedPaymentMethod.objects.filter(user=source).update(user=target)
     if source_sub is None:
         return 0
     target_sub = ClubSubscription.objects.select_for_update().filter(user=target).first()
     if target_sub is None:
         source_sub.user = target
         source_sub.save(update_fields=['user'])
+        source_sub.yookassa_payments.update(user=target)
         return 1
     source_end = source_sub.paid_until
     target_end = target_sub.paid_until
@@ -746,9 +749,24 @@ def _merge_club_subscriptions(target, source):
         target_sub.currency = source_sub.currency or target_sub.currency
         target_sub.amount = source_sub.amount or target_sub.amount
         target_sub.last_payment_at = source_sub.last_payment_at or target_sub.last_payment_at
+        if source_sub.saved_payment_method_id and not target_sub.saved_payment_method_id:
+            target_sub.saved_payment_method_id = source_sub.saved_payment_method_id
+        if source_sub.plan and not target_sub.plan:
+            target_sub.plan = source_sub.plan
+        if source_sub.intro_offer_used_at and (
+            target_sub.intro_offer_used_at is None
+            or source_sub.intro_offer_used_at < target_sub.intro_offer_used_at
+        ):
+            target_sub.intro_offer_used_at = source_sub.intro_offer_used_at
+    elif source_sub.intro_offer_used_at and target_sub.intro_offer_used_at is None:
+        target_sub.intro_offer_used_at = source_sub.intro_offer_used_at
     if source_sub.auto_renew:
         target_sub.auto_renew = True
         target_sub.cancelled_at = None
+    detached_dates = [dt for dt in (source_sub.payment_method_detached_at,
+                                   target_sub.payment_method_detached_at) if dt]
+    if detached_dates:
+        target_sub.payment_method_detached_at = max(detached_dates)
     target_sub.duplicate_detected = True
     if source_sub.telegram_user_id and not target_sub.telegram_user_id:
         target_sub.telegram_user_id = source_sub.telegram_user_id
@@ -764,6 +782,14 @@ def _merge_club_subscriptions(target, source):
     ClubSubscriptionEvent.objects.filter(club_subscription=source_sub).update(
         club_subscription=target_sub,
     )
+    try:
+        ClubYooKassaPayment = apps.get_model('games', 'ClubYooKassaPayment')
+        ClubYooKassaPayment.objects.filter(club_subscription=source_sub).update(
+            club_subscription=target_sub,
+            user=target,
+        )
+    except LookupError:
+        pass
     source_sub.delete()
     return 1
 

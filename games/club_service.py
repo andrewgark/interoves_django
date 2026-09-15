@@ -247,12 +247,17 @@ def process_subscription_event(event_name: str, payload: dict, *, envelope_creat
             profile.save(update_fields=['telegram_username'])
 
         if event_name in PAID_EVENTS:
-            if data['amount'] != product.amount or data['currency'] != product.currency:
+            if (
+                data['currency'] != product.currency
+                or not product.accepts_amount(data['amount'])
+            ):
                 event.result = ClubSubscriptionEvent.RESULT_MALFORMED
                 event.save(update_fields=['result'])
                 logger.warning(
-                    'tribute_club_amount_mismatch event=%s subscription_id=%s amount=%s currency=%s',
+                    'tribute_club_amount_mismatch event=%s subscription_id=%s amount=%s currency=%s '
+                    'accepted=%s',
                     event_name, data['subscription_id'], data['amount'], data['currency'],
+                    sorted(product.accepted_amounts),
                 )
                 return ClubProcessResult(event)
             if data['expires_at'] is None:

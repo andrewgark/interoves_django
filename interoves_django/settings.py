@@ -830,14 +830,31 @@ TRIBUTE_INTENT_TTL_MINUTES = int(os.environ.get('TRIBUTE_INTENT_TTL_MINUTES') or
 # The public /subscription/ page is hidden (noindex, no nav links). Archive
 # gating stays off until CLUB_SUBSCRIPTION_ENABLED is explicitly turned on.
 CLUB_SUBSCRIPTION_ENABLED = _env_flag_default('CLUB_SUBSCRIPTION_ENABLED', False)
+# RUB Club billing via YooKassa (separate from Tribute EUR). Default off.
+CLUB_YOOKASSA_ENABLED = _env_flag_default('CLUB_YOOKASSA_ENABLED', False)
+# Automatic monthly renewals. Keep false in production until YooKassa enables autopayments.
+YOOKASSA_RECURRING_ENABLED = _env_flag_default('YOOKASSA_RECURRING_ENABLED', False)
 TRIBUTE_CLUB_SUBSCRIPTION_RUB_ID = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_ID') or '').strip()
 TRIBUTE_CLUB_SUBSCRIPTION_RUB_URL = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_URL') or '').strip()
 TRIBUTE_CLUB_SUBSCRIPTION_RUB_AMOUNT = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_AMOUNT') or '75000').strip()
 TRIBUTE_CLUB_SUBSCRIPTION_RUB_CURRENCY = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_CURRENCY') or 'RUB').strip()
-TRIBUTE_CLUB_SUBSCRIPTION_USD_ID = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_USD_ID') or '').strip()
-TRIBUTE_CLUB_SUBSCRIPTION_USD_URL = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_USD_URL') or '').strip()
-TRIBUTE_CLUB_SUBSCRIPTION_USD_AMOUNT = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_USD_AMOUNT') or '900').strip()
-TRIBUTE_CLUB_SUBSCRIPTION_USD_CURRENCY = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_USD_CURRENCY') or 'USD').strip()
+TRIBUTE_CLUB_SUBSCRIPTION_RUB_FIRST_AMOUNT = (
+    os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_FIRST_AMOUNT') or ''
+).strip()
+TRIBUTE_CLUB_SUBSCRIPTION_RUB_YEARLY_AMOUNT = (
+    os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_YEARLY_AMOUNT') or ''
+).strip()
+# International Tribute plan: €10/mo (promo €7 first month) or €100/year.
+TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID') or '').strip()
+TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL') or '').strip()
+TRIBUTE_CLUB_SUBSCRIPTION_EUR_AMOUNT = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_EUR_AMOUNT') or '1000').strip()
+TRIBUTE_CLUB_SUBSCRIPTION_EUR_FIRST_AMOUNT = (
+    os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_EUR_FIRST_AMOUNT') or '700'
+).strip()
+TRIBUTE_CLUB_SUBSCRIPTION_EUR_YEARLY_AMOUNT = (
+    os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_EUR_YEARLY_AMOUNT') or '10000'
+).strip()
+TRIBUTE_CLUB_SUBSCRIPTION_EUR_CURRENCY = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_EUR_CURRENCY') or 'EUR').strip()
 TRIBUTE_CLUB_MANAGEMENT_URL = (os.environ.get('TRIBUTE_CLUB_MANAGEMENT_URL') or '').strip()
 
 # One-off next-game donation vote (7–27 Sep 2026). Three regular Tribute donations

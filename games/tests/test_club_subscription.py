@@ -28,6 +28,8 @@ from games.tribute_util import compute_webhook_signature
 
 CLUB_SETTINGS = {
     'CLUB_SUBSCRIPTION_ENABLED': True,
+    'CLUB_YOOKASSA_ENABLED': False,
+    'YOOKASSA_RECURRING_ENABLED': False,
     'TRIBUTE_ENABLED': True,
     'TRIBUTE_LEGAL_REVIEW_APPROVED': True,
     'TRIBUTE_MERCHANT': 'ru_self_employed',
@@ -44,10 +46,12 @@ CLUB_SETTINGS = {
     'TRIBUTE_CLUB_SUBSCRIPTION_RUB_URL': 'https://web.tribute.tg/s/club-rub',
     'TRIBUTE_CLUB_SUBSCRIPTION_RUB_AMOUNT': '75000',
     'TRIBUTE_CLUB_SUBSCRIPTION_RUB_CURRENCY': 'RUB',
-    'TRIBUTE_CLUB_SUBSCRIPTION_USD_ID': '9002',
-    'TRIBUTE_CLUB_SUBSCRIPTION_USD_URL': 'https://t.me/tribute?start=club-usd',
-    'TRIBUTE_CLUB_SUBSCRIPTION_USD_AMOUNT': '900',
-    'TRIBUTE_CLUB_SUBSCRIPTION_USD_CURRENCY': 'USD',
+    'TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID': '262466',
+    'TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL': 'https://t.me/tribute/app?startapp=s16hk',
+    'TRIBUTE_CLUB_SUBSCRIPTION_EUR_AMOUNT': '1000',
+    'TRIBUTE_CLUB_SUBSCRIPTION_EUR_FIRST_AMOUNT': '700',
+    'TRIBUTE_CLUB_SUBSCRIPTION_EUR_YEARLY_AMOUNT': '10000',
+    'TRIBUTE_CLUB_SUBSCRIPTION_EUR_CURRENCY': 'EUR',
     'TELEGRAM_BOT_TOKEN': 'test-bot-token',
     'TELEGRAM_BOT_USERNAME': 'interoves_test_bot',
 }
@@ -91,9 +95,14 @@ class ClubSubscriptionPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.content.decode()
         self.assertIn('Клубная подписка', body)
-        self.assertIn('Войти и оформить подписку', body)
-        self.assertIn('750 ₽ в месяц', body)
-        self.assertIn('$9 в месяц', body)
+        self.assertIn('Войти и оформить', body)
+        self.assertIn('700 ₽', body)
+        self.assertIn('900 ₽', body)
+        self.assertIn('9000 ₽', body)
+        self.assertIn('€10 в месяц', body)
+        self.assertIn('первый месяц €7', body)
+        self.assertIn('€100 в год', body)
+        self.assertIn('последние 7 заданий', body)
         self.assertIn('noindex,nofollow', body)
         self.assertIn('data-login-open', body)
         self.assertNotIn('Оформить вторую', body)
@@ -108,8 +117,7 @@ class ClubSubscriptionPageTests(TestCase):
         body = self.client.get(reverse('new_subscription')).content.decode()
         self.assertIn('Оформить', body)
         self.assertNotIn('Привязать Telegram', body)
-        self.assertIn('value="rub"', body)
-        self.assertIn('value="usd"', body)
+        self.assertIn('value="eur"', body)
 
     def test_unlinked_user_reuses_telegram_link_flow(self):
         self.client.force_login(self.unlinked)
@@ -142,21 +150,21 @@ class ClubSubscriptionPageTests(TestCase):
         self.assertNotIn('value="rub"', body)
         self.assertIn('t.me/tribute', body)
 
-    def test_usd_active_page_shows_dollar_price_not_checkout(self):
+    def test_eur_active_page_shows_euro_price_not_checkout(self):
         ClubSubscription.objects.create(
             user=self.user,
             status=ClubSubscription.STATUS_ACTIVE,
             auto_renew=True,
-            currency='USD',
-            amount=900,
+            currency='EUR',
+            amount=1000,
             paid_until=timezone.now() + timedelta(days=20),
-            tribute_subscription_id=9002,
+            tribute_subscription_id=262466,
             telegram_user_id=424242,
         )
         self.client.force_login(self.user)
         body = self.client.get(reverse('new_subscription')).content.decode()
         self.assertIn('Подписка активна', body)
-        self.assertIn('$9 в месяц', body)
+        self.assertIn('€10 в месяц', body)
         self.assertIn('Следующее списание', body)
         self.assertNotIn('value="rub"', body)
 
@@ -174,8 +182,7 @@ class ClubSubscriptionPageTests(TestCase):
         self.client.force_login(self.user)
         body = self.client.get(reverse('new_subscription')).content.decode()
         self.assertIn('Оплаченный период закончился', body)
-        self.assertIn('value="rub"', body)
-        self.assertIn('value="usd"', body)
+        self.assertIn('value="eur"', body)
         self.assertNotIn('Следующее списание', body)
 
     def test_checkout_requires_csrf_and_telegram(self):
@@ -280,25 +287,53 @@ class ClubWebhookAndMappingTests(TestCase):
             ClubSubscriptionEvent.RESULT_IGNORED_PRODUCT,
         )
 
-    def test_usd_and_rub_give_the_same_entitlement(self):
+    def test_eur_and_rub_give_the_same_entitlement(self):
         self._post(self._payload())
         ClubSubscription.objects.filter(user=self.user).update(
             paid_until=timezone.now() - timedelta(days=1),
             auto_renew=False,
             status=ClubSubscription.STATUS_EXPIRED,
         )
-        usd = self._payload(
-            subscription_id=9002,
-            amount=900,
-            price=900,
-            currency='usd',
+        eur = self._payload(
+            subscription_id=262466,
+            amount=1000,
+            price=1000,
+            currency='eur',
             period_id=22,
         )
-        response = self._post(usd, created_at='2026-09-06T12:00:00Z')
+        response = self._post(eur, created_at='2026-09-06T12:00:00Z')
         self.assertEqual(response.status_code, 200)
         sub = ClubSubscription.objects.get(user=self.user)
-        self.assertEqual(sub.currency, 'USD')
-        self.assertEqual(sub.amount, 900)
+        self.assertEqual(sub.currency, 'EUR')
+        self.assertEqual(sub.amount, 1000)
+        self.assertTrue(has_club_access(self.user))
+
+    def test_eur_first_month_and_yearly_amounts_are_accepted(self):
+        first = self._payload(
+            subscription_id=262466,
+            amount=700,
+            price=700,
+            currency='eur',
+            period_id=492551,
+        )
+        self.assertEqual(self._post(first).status_code, 200)
+        self.assertTrue(has_club_access(self.user))
+        ClubSubscription.objects.filter(user=self.user).update(
+            paid_until=timezone.now() - timedelta(days=1),
+            auto_renew=False,
+            status=ClubSubscription.STATUS_EXPIRED,
+        )
+        yearly = self._payload(
+            subscription_id=262466,
+            amount=10000,
+            price=10000,
+            currency='eur',
+            period_id=492550,
+            expires_at=(timezone.now() + timedelta(days=365)).isoformat().replace('+00:00', 'Z'),
+        )
+        self.assertEqual(self._post(yearly, created_at='2026-09-06T12:00:00Z').status_code, 200)
+        sub = ClubSubscription.objects.get(user=self.user)
+        self.assertEqual(sub.amount, 10000)
         self.assertTrue(has_club_access(self.user))
 
     def test_renewal_extends_paid_until_and_is_idempotent(self):
@@ -380,7 +415,7 @@ class ClubWebhookAndMappingTests(TestCase):
     def test_duplicate_paid_subscriptions_are_flagged(self):
         self._post(self._payload())
         self._post(
-            self._payload(subscription_id=9002, amount=900, price=900, currency='usd', period_id=99),
+            self._payload(subscription_id=262466, amount=1000, price=1000, currency='eur', period_id=99),
             created_at='2026-09-06T12:00:00Z',
         )
         sub = ClubSubscription.objects.get(user=self.user)
@@ -485,8 +520,12 @@ class ClubArchiveAccessTests(TestCase):
         from games.daily_section import current_number_for
 
         cls.today = current_number_for(game) or 60
-        cls.archive_number = 1 if cls.today != 1 else 2
-        for number in (cls.archive_number, cls.today):
+        cls.recent_free = max(1, int(cls.today) - 3)
+        cls.archive_number = max(1, int(cls.today) - 20)
+        assert cls.archive_number < int(cls.today) - 6, (
+            'fixture needs an archive number older than the free window'
+        )
+        for number in {cls.archive_number, cls.recent_free, cls.today}:
             tg = TaskGroup.objects.create(label='club-archive-{}'.format(number))
             GameTaskGroup.objects.create(
                 game=game, task_group=tg, number=str(number), name='#{}'.format(number),
@@ -495,6 +534,7 @@ class ClubArchiveAccessTests(TestCase):
                 task_group=tg, number='1', task_type='default', checker_data='ok',
             )
         cls.archive_url = '/ladder/{}/'.format(cls.archive_number)
+        cls.recent_free_url = '/ladder/{}/'.format(cls.recent_free)
         cls.today_url = '/ladder/{}/'.format(cls.today)
         cls.archive_task = Task.objects.get(
             task_group__game_links__game=game,
@@ -504,10 +544,16 @@ class ClubArchiveAccessTests(TestCase):
     def test_anonymous_cannot_open_archive_url(self):
         response = self.client.get(self.archive_url)
         self.assertEqual(response.status_code, 403)
-        self.assertIn('клубной подпиской', response.content.decode())
+        body = response.content.decode()
+        self.assertIn('клубной подпиской', body)
+        self.assertIn('последних 7', body)
 
     def test_today_stays_free(self):
         response = self.client.get(self.today_url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_recent_seven_stay_free_without_subscription(self):
+        response = self.client.get(self.recent_free_url)
         self.assertEqual(response.status_code, 200)
 
     def test_cancelled_but_paid_opens_archive(self):
@@ -545,8 +591,8 @@ class ClubArchiveAccessTests(TestCase):
             status=ClubSubscription.STATUS_ACTIVE,
             auto_renew=True,
             paid_until=timezone.now() + timedelta(days=5),
-            currency='USD',
-            amount=900,
+            currency='EUR',
+            amount=1000,
         )
         self.client.force_login(self.user)
         self.assertEqual(self.client.get(self.archive_url).status_code, 200)

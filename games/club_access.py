@@ -15,6 +15,9 @@ CLUB_ARCHIVE_GAME_IDS = frozenset({
     WORD_SALAD_GAME_ID,
     'week_task',
 })
+# Without a club subscription, the current issue plus this many previous
+# published numbers in the same section stay free.
+FREE_ARCHIVE_COUNT = 7
 
 
 def get_club_subscription(user):
@@ -58,8 +61,20 @@ def _numeric_number(number) -> int | None:
     return value
 
 
+def is_within_free_archive_window(game, number, *, now=None) -> bool:
+    """True for the latest FREE_ARCHIVE_COUNT published numbers in a section."""
+    current = current_number_for(game, now)
+    if current is None:
+        return True
+    n = _numeric_number(number)
+    if n is None:
+        return False
+    oldest_free = int(current) - FREE_ARCHIVE_COUNT + 1
+    return oldest_free <= n <= int(current)
+
+
 def scheduled_number_requires_club(game, number, *, now=None) -> bool:
-    """True for an official published-but-not-current daily/weekly archive item."""
+    """True for official archive items older than the free rolling window."""
     if not club_archive_gating_enabled():
         return False
     if not is_club_archive_game(getattr(game, 'id', None)):
@@ -68,7 +83,7 @@ def scheduled_number_requires_club(game, number, *, now=None) -> bool:
         return False
     if not is_scheduled_game(getattr(game, 'id', None)):
         return False
-    return not is_current_scheduled_number(game, number, now=now)
+    return not is_within_free_archive_window(game, number, now=now)
 
 
 def user_can_access_scheduled_number(user, game, number, *, now=None) -> bool:

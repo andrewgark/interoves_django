@@ -82,6 +82,11 @@ ticket_payment_status = new_ticket_payment_status
 from games.views.subscription import (  # noqa: E402
     subscription_checkout,
     subscription_page,
+    subscription_payment_method_detach,
+    subscription_yookassa_annual_start,
+    subscription_yookassa_cancel,
+    subscription_yookassa_monthly_start,
+    subscription_yookassa_resume,
 )
 donate_page = new_donate_page
 create_crypto_donation = new_create_crypto_donation

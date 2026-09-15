@@ -72,6 +72,7 @@ from games.models import (
     TributePurchase,
     ClubSubscription,
     ClubSubscriptionEvent,
+    ClubYooKassaPayment,
     NextGameVoteAdjustment,
     NextGameVoteCampaignState,
     NextGameVoteEvent,
@@ -570,17 +571,33 @@ class TelegramLinkTokenAdmin(admin.ModelAdmin):
 @admin.register(ClubSubscription)
 class ClubSubscriptionAdmin(admin.ModelAdmin):
     list_display = (
-        'updated_at', 'user', 'status', 'currency', 'amount', 'auto_renew',
-        'paid_until', 'tribute_subscription_id', 'telegram_user_id',
+        'updated_at', 'user', 'provider', 'plan', 'status', 'currency', 'amount', 'auto_renew',
+        'paid_until', 'next_charge_at', 'tribute_subscription_id', 'telegram_user_id',
         'duplicate_detected', 'last_webhook_event',
     )
-    list_filter = ('status', 'currency', 'auto_renew', 'duplicate_detected', 'provider')
+    list_filter = ('provider', 'plan', 'status', 'currency', 'auto_renew', 'duplicate_detected')
     search_fields = (
         'user__username', 'user__email', 'telegram_user_id', 'tribute_subscription_id',
     )
     raw_id_fields = ('user',)
     readonly_fields = [field.name for field in ClubSubscription._meta.fields]
     date_hierarchy = 'updated_at'
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(ClubYooKassaPayment)
+class ClubYooKassaPaymentAdmin(admin.ModelAdmin):
+    list_display = (
+        'created_at', 'user', 'kind', 'status', 'amount', 'currency',
+        'yookassa_payment_id', 'period_key', 'club_subscription',
+    )
+    list_filter = ('kind', 'status', 'currency')
+    search_fields = ('yookassa_payment_id', 'idempotency_key', 'period_key', 'user__username')
+    raw_id_fields = ('club_subscription', 'user')
+    readonly_fields = [field.name for field in ClubYooKassaPayment._meta.fields]
+    date_hierarchy = 'created_at'
 
     def has_add_permission(self, request):
         return False

@@ -143,14 +143,33 @@ Required EB env vars:
 
 Amounts use Tribute's smallest currency units (EUR cents or RUB kopecks). Currency must be `EUR` or `RUB`; web links must use `https://web.tribute.tg/p/...`.
 
-Club recurring subscriptions (hidden `/subscription/` page) use two pre-created Tribute **creator subscriptions**, not Shop API. Webhooks arrive at the same `/tribute/webhook/` URL.
+Club recurring subscriptions (hidden `/subscription/` page):
 
-- `CLUB_SUBSCRIPTION_ENABLED=true` turns on checkout **and** daily-archive gating
-- `TRIBUTE_CLUB_SUBSCRIPTION_RUB_ID`, `TRIBUTE_CLUB_SUBSCRIPTION_RUB_URL`, `TRIBUTE_CLUB_SUBSCRIPTION_RUB_AMOUNT` (kopecks, default 75000), `TRIBUTE_CLUB_SUBSCRIPTION_RUB_CURRENCY=RUB`
-- `TRIBUTE_CLUB_SUBSCRIPTION_USD_ID`, `TRIBUTE_CLUB_SUBSCRIPTION_USD_URL`, `TRIBUTE_CLUB_SUBSCRIPTION_USD_AMOUNT` (cents, default 900), `TRIBUTE_CLUB_SUBSCRIPTION_USD_CURRENCY=USD`
-- optional `TRIBUTE_CLUB_MANAGEMENT_URL` (default `https://t.me/tribute`)
+**Tribute (EUR / foreign cards):** pre-created creator subscriptions; webhooks at `/tribute/webhook/`.
+
+- `CLUB_SUBSCRIPTION_ENABLED=true` turns on archive gating (free rolling window: latest 7 numbers per section)
+- EUR: `TRIBUTE_CLUB_SUBSCRIPTION_EUR_*` (see below)
+
+**YooKassa (RUB):** monthly intro 700 → then 900, annual 9000 one-shot. Does not use TicketRequest.
+
+- `CLUB_YOOKASSA_ENABLED=true` enables RUB checkout on `/subscription/`
+- `YOOKASSA_RECURRING_ENABLED=true` enables automatic monthly renewals (keep **false** in production until YooKassa enables autopayments for the shop)
+- Renewals: `manage.py renew_club_yookassa_subscriptions` (wire to EB minute/hour cron when enabling)
+- Existing `YOOKASSA_SHOP_ID` / `YOOKASSA_SECRET_KEY` are reused; ticket payments unchanged
+- Webhook: same `/yookassa/webhook/`; club payments use `metadata.purpose=club_subscription`
 
 Do not add public nav links to `/subscription/` until the launch is explicit.
+
+```bash
+eb setenv CLUB_YOOKASSA_ENABLED=false YOOKASSA_RECURRING_ENABLED=false \
+  CLUB_SUBSCRIPTION_ENABLED=false \
+  TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID='262466' \
+  TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL='https://t.me/tribute/app?startapp=s16hk' \
+  TRIBUTE_CLUB_SUBSCRIPTION_EUR_AMOUNT='1000' \
+  TRIBUTE_CLUB_SUBSCRIPTION_EUR_FIRST_AMOUNT='700' \
+  TRIBUTE_CLUB_SUBSCRIPTION_EUR_YEARLY_AMOUNT='10000' \
+  TRIBUTE_CLUB_SUBSCRIPTION_EUR_CURRENCY='EUR'
+```
 
 ```bash
 eb setenv TRIBUTE_ENABLED=false TRIBUTE_API_KEY='...' \

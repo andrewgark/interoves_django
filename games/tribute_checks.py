@@ -48,8 +48,8 @@ def tribute_configuration_check(app_configs, **kwargs):
             for name in (
                 'TRIBUTE_CLUB_SUBSCRIPTION_RUB_ID',
                 'TRIBUTE_CLUB_SUBSCRIPTION_RUB_URL',
-                'TRIBUTE_CLUB_SUBSCRIPTION_USD_ID',
-                'TRIBUTE_CLUB_SUBSCRIPTION_USD_URL',
+                'TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID',
+                'TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL',
             )
         )
         if any_club_value and club_errors:

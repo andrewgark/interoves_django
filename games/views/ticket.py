@@ -144,6 +144,12 @@ def yookassa_webhook(request):
         return HttpResponse(status=200)
 
     metadata = payment_data.get('metadata') or {}
+    if str(metadata.get('purpose') or '') == 'club_subscription':
+        from games.club_yookassa import process_yookassa_club_payment_event
+
+        process_yookassa_club_payment_event(event, payment_data)
+        return HttpResponse(status=200)
+
     ticket_request_id = metadata.get('ticket_request_id')
     if not ticket_request_id:
         logger.warning(

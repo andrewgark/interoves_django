@@ -9,10 +9,11 @@ from django.conf import settings
 
 
 SUPPORTED_CURRENCIES = frozenset({'EUR', 'RUB'})
-CLUB_SUPPORTED_CURRENCIES = frozenset({'RUB', 'USD'})
+CLUB_SUPPORTED_CURRENCIES = frozenset({'RUB', 'EUR'})
 SUPPORTED_MERCHANTS = frozenset({'ru_self_employed', 'am_ie'})
 CLUB_URL_HOSTS = frozenset({'web.tribute.tg', 'tribute.tg', 't.me'})
 TRIBUTE_MANAGEMENT_BOT_URL = 'https://t.me/tribute'
+CLUB_PRODUCT_KINDS = ('RUB', 'EUR')
 # INTERNAL: existing legacy Tribute rows use legacy_unspecified, so seller review
 # is required before this route can be enabled. Never expose this marker in UI.
 TRIBUTE_LEGAL_REVIEW = 'existing_tribute_merchant_is_not_proven_by_repository_configuration'
@@ -145,6 +146,11 @@ class ClubTributeProduct:
     web_url: str
     amount: int
     currency: str
+    accepted_amounts: frozenset[int] = frozenset()
+
+    def __post_init__(self):
+        if not self.accepted_amounts:
+            object.__setattr__(self, 'accepted_amounts', frozenset({self.amount}))
 
     @property
     def amount_major(self) -> Decimal:
@@ -161,9 +167,35 @@ class ClubTributeProduct:
     def price_label(self) -> str:
         if self.currency == 'RUB':
             return '{} ₽ в месяц'.format(self.amount_display)
-        if self.currency == 'USD':
-            return '${} в месяц'.format(self.amount_display)
+        if self.currency == 'EUR':
+            return '€{} в месяц'.format(self.amount_display)
         return '{} {} в месяц'.format(self.amount_display, self.currency)
+
+    def accepts_amount(self, amount: int | None) -> bool:
+        try:
+            value = int(amount)
+        except (TypeError, ValueError):
+            return False
+        return value in self.accepted_amounts
+
+
+def _club_kind_touched(kind: str) -> bool:
+    prefix = 'TRIBUTE_CLUB_SUBSCRIPTION_{}_'.format(kind.upper())
+    return any(
+        str(getattr(settings, prefix + suffix, '') or '').strip()
+        for suffix in ('ID', 'URL', 'AMOUNT', 'CURRENCY', 'FIRST_AMOUNT', 'YEARLY_AMOUNT')
+    )
+
+
+def _parse_positive_int(raw: str, *, field: str, errors: list[str]) -> int:
+    try:
+        value = int(str(raw or '').strip())
+        if value <= 0:
+            raise ValueError
+        return value
+    except (TypeError, ValueError):
+        errors.append('{} must be a positive integer in cents/kopecks'.format(field))
+        return 0
 
 
 def _read_club_product(kind: str) -> tuple[ClubTributeProduct | None, list[str]]:
@@ -172,6 +204,8 @@ def _read_club_product(kind: str) -> tuple[ClubTributeProduct | None, list[str]]
     web_url = str(getattr(settings, prefix + 'URL', '') or '').strip()
     raw_amount = str(getattr(settings, prefix + 'AMOUNT', '') or '').strip()
     currency = str(getattr(settings, prefix + 'CURRENCY', '') or '').strip().upper()
+    raw_first = str(getattr(settings, prefix + 'FIRST_AMOUNT', '') or '').strip()
+    raw_yearly = str(getattr(settings, prefix + 'YEARLY_AMOUNT', '') or '').strip()
     errors = []
 
     try:
@@ -182,16 +216,19 @@ def _read_club_product(kind: str) -> tuple[ClubTributeProduct | None, list[str]]
         errors.append('{}ID must be a positive integer'.format(prefix))
         subscription_id = 0
 
-    try:
-        amount = int(raw_amount)
-        if amount <= 0:
-            raise ValueError
-    except (TypeError, ValueError):
-        errors.append('{}AMOUNT must be a positive integer in cents/kopecks'.format(prefix))
-        amount = 0
+    amount = _parse_positive_int(raw_amount, field=prefix + 'AMOUNT', errors=errors)
+    accepted = {amount} if amount else set()
+    if raw_first:
+        first = _parse_positive_int(raw_first, field=prefix + 'FIRST_AMOUNT', errors=errors)
+        if first:
+            accepted.add(first)
+    if raw_yearly:
+        yearly = _parse_positive_int(raw_yearly, field=prefix + 'YEARLY_AMOUNT', errors=errors)
+        if yearly:
+            accepted.add(yearly)
 
     if currency not in CLUB_SUPPORTED_CURRENCIES:
-        errors.append('{}CURRENCY must be RUB or USD'.format(prefix))
+        errors.append('{}CURRENCY must be RUB or EUR'.format(prefix))
 
     parsed = urlparse(web_url)
     host = (parsed.hostname or '').lower()
@@ -203,19 +240,29 @@ def _read_club_product(kind: str) -> tuple[ClubTributeProduct | None, list[str]]
 
     if errors:
         return None, errors
-    return ClubTributeProduct(kind.lower(), subscription_id, web_url, amount, currency), []
+    return ClubTributeProduct(
+        kind.lower(),
+        subscription_id,
+        web_url,
+        amount,
+        currency,
+        frozenset(accepted),
+    ), []
 
 
 def club_product_configuration() -> tuple[dict[str, ClubTributeProduct], list[str]]:
     products = {}
     errors = []
-    for kind in ('RUB', 'USD'):
+    for kind in CLUB_PRODUCT_KINDS:
+        if not _club_kind_touched(kind):
+            continue
         product, product_errors = _read_club_product(kind)
         errors.extend(product_errors)
         if product is not None:
             products[kind.lower()] = product
-    if len(products) == 2 and products['rub'].subscription_id == products['usd'].subscription_id:
-        errors.append('Tribute club RUB and USD subscription IDs must be different')
+    ids = [product.subscription_id for product in products.values()]
+    if len(ids) >= 2 and len(set(ids)) < len(ids):
+        errors.append('Tribute club subscription IDs must be different across currencies')
         products = {}
     return products, errors
 
@@ -231,7 +278,9 @@ def configured_club_product(kind: str) -> ClubTributeProduct | None:
 
 
 def club_configuration_errors() -> list[str]:
-    _products, errors = club_product_configuration()
+    products, errors = club_product_configuration()
+    if not products and not errors:
+        errors.append('Configure at least one Tribute club subscription (EUR and/or RUB)')
     if not str(getattr(settings, 'TRIBUTE_API_KEY', '') or '').strip():
         errors.append('TRIBUTE_API_KEY is required')
     if not str(getattr(settings, 'TELEGRAM_BOT_USERNAME', '') or '').strip():

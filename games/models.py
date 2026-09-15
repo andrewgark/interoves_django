@@ -2181,19 +2181,54 @@ class TributePurchase(models.Model):
         return 'Tribute purchase {} ({})'.format(self.purchase_id, self.status)
 
 
+class SavedPaymentMethod(models.Model):
+    """Minimal reusable credential; detachment permanently erases the token."""
+
+    user = models.ForeignKey('auth.User', on_delete=models.PROTECT, related_name='saved_payment_methods')
+    provider = models.CharField(max_length=16, default='yookassa')
+    provider_payment_method_id = models.CharField(max_length=64, null=True, blank=True)
+    method_type = models.CharField(max_length=32, default='bank_card')
+    card_last4 = models.CharField(max_length=4, blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    detached_at = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def display_name(self):
+        if self.method_type != 'bank_card':
+            return 'Сохранённый способ оплаты'
+        return 'Банковская карта' + (' •••• ' + self.card_last4 if self.card_last4 else '')
+
+    def __str__(self):
+        return 'Saved payment method {} user={}'.format(self.pk, self.user_id)
+
+
 class ClubSubscription(models.Model):
-    """Canonical Inter Oves Club access granted by a Tribute recurring subscription."""
+    """Canonical Inter Oves Club access (Tribute and/or YooKassa billing)."""
 
     PROVIDER_TRIBUTE = 'tribute'
+    PROVIDER_YOOKASSA = 'yookassa'
     PROVIDER_CHOICES = (
         (PROVIDER_TRIBUTE, 'Tribute'),
+        (PROVIDER_YOOKASSA, 'YooKassa'),
     )
 
+    PLAN_MONTHLY = 'monthly'
+    PLAN_ANNUAL = 'annual'
+    PLAN_CHOICES = (
+        ('', 'Unspecified'),
+        (PLAN_MONTHLY, 'Monthly'),
+        (PLAN_ANNUAL, 'Annual'),
+    )
+
+    STATUS_PENDING = 'pending'
     STATUS_ACTIVE = 'active'
     STATUS_CANCELLED = 'cancelled'
     STATUS_EXPIRED = 'expired'
     STATUS_PAST_DUE = 'past_due'
     STATUS_CHOICES = (
+        (STATUS_PENDING, 'Pending'),
         (STATUS_ACTIVE, 'Active'),
         (STATUS_CANCELLED, 'Cancelled'),
         (STATUS_EXPIRED, 'Expired'),
@@ -2211,6 +2246,13 @@ class ClubSubscription(models.Model):
         default=PROVIDER_TRIBUTE,
         db_index=True,
     )
+    plan = models.CharField(
+        max_length=16,
+        choices=PLAN_CHOICES,
+        blank=True,
+        default='',
+        db_index=True,
+    )
     status = models.CharField(
         max_length=24,
         choices=STATUS_CHOICES,
@@ -2220,6 +2262,15 @@ class ClubSubscription(models.Model):
     tribute_subscription_id = models.BigIntegerField(blank=True, null=True, db_index=True)
     tribute_period_id = models.BigIntegerField(blank=True, null=True)
     telegram_user_id = models.BigIntegerField(blank=True, null=True, db_index=True)
+    saved_payment_method = models.ForeignKey(
+        SavedPaymentMethod, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='subscriptions',
+    )
+    payment_method_detached_at = models.DateTimeField(null=True, blank=True)
+    payment_method_save_failed = models.BooleanField(default=False)
+    intro_offer_used_at = models.DateTimeField(blank=True, null=True)
+    current_period_start = models.DateTimeField(blank=True, null=True)
+    next_charge_at = models.DateTimeField(blank=True, null=True, db_index=True)
     currency = models.CharField(max_length=3, blank=True, default='')
     amount = models.BigIntegerField(blank=True, null=True, help_text='Smallest currency units')
     auto_renew = models.BooleanField(default=False)
@@ -2253,10 +2304,93 @@ class ClubSubscription(models.Model):
 
     def effective_status(self, now=None) -> str:
         if not self.grants_access(now):
+            if self.status == self.STATUS_PENDING and not self.paid_until:
+                return self.STATUS_PENDING
+            if (
+                self.provider == self.PROVIDER_YOOKASSA
+                and self.auto_renew
+                and self.paid_until
+                and self.status == self.STATUS_PAST_DUE
+            ):
+                return self.STATUS_PAST_DUE
             return self.STATUS_EXPIRED
         if self.auto_renew:
             return self.STATUS_ACTIVE
         return self.STATUS_CANCELLED
+
+
+class ClubYooKassaPayment(models.Model):
+    """One YooKassa payment attempt for Club billing (initial, renewal, or annual)."""
+
+    KIND_INITIAL_MONTHLY = 'initial_monthly'
+    KIND_RECURRING_MONTHLY = 'recurring_monthly'
+    KIND_ANNUAL = 'annual'
+    KIND_CHOICES = (
+        (KIND_INITIAL_MONTHLY, 'Initial monthly'),
+        (KIND_RECURRING_MONTHLY, 'Recurring monthly'),
+        (KIND_ANNUAL, 'Annual'),
+    )
+
+    STATUS_PENDING = 'pending'
+    STATUS_SUCCEEDED = 'succeeded'
+    STATUS_CANCELED = 'canceled'
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_SUCCEEDED, 'Succeeded'),
+        (STATUS_CANCELED, 'Canceled'),
+    )
+
+    club_subscription = models.ForeignKey(
+        ClubSubscription,
+        related_name='yookassa_payments',
+        on_delete=models.PROTECT,
+    )
+    user = models.ForeignKey(
+        'auth.User',
+        related_name='club_yookassa_payments',
+        on_delete=models.PROTECT,
+    )
+    yookassa_payment_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    kind = models.CharField(max_length=32, choices=KIND_CHOICES, db_index=True)
+    period_start = models.DateTimeField(blank=True, null=True)
+    period_end = models.DateTimeField(blank=True, null=True)
+    period_key = models.CharField(
+        max_length=64,
+        help_text='Stable billing-period key for uniqueness, e.g. 2026-10-15:recurring_monthly',
+    )
+    amount = models.PositiveIntegerField(help_text='Kopecks')
+    currency = models.CharField(max_length=3, default='RUB')
+    status = models.CharField(
+        max_length=16,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        db_index=True,
+    )
+    idempotency_key = models.CharField(max_length=64, unique=True)
+    confirmation_url = models.URLField(max_length=500, blank=True, default='')
+    failure_code = models.CharField(max_length=64, blank=True, default='')
+    cancellation_reason = models.CharField(max_length=255, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    succeeded_at = models.DateTimeField(blank=True, null=True)
+    submitted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['yookassa_payment_id'],
+                condition=~models.Q(yookassa_payment_id=''),
+                name='club_yk_payment_yookassa_id_uniq',
+            ),
+            models.UniqueConstraint(
+                fields=['club_subscription', 'period_key'],
+                name='club_yk_payment_period_key_uniq',
+            ),
+        ]
+
+    def __str__(self):
+        return 'ClubYooKassaPayment {} {} ({})'.format(self.pk, self.kind, self.status)
 
 
 class ClubSubscriptionEvent(models.Model):

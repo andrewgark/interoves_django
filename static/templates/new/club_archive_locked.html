@@ -9,11 +9,12 @@
   <header class="new-pay-checkout__header">
     <p class="new-pay-checkout__eyebrow">Архив</p>
     <h1 class="new-heading new-heading--page">Задание из архива</h1>
-    <p class="new-pay-checkout__lead">Этот выпуск уже вышел ранее. Архив заданий доступен с клубной подпиской. Сегодняшние игры по-прежнему бесплатны.</p>
+    <p class="new-pay-checkout__lead">Этот выпуск старше последних 7 бесплатных заданий в разделе. Весь архив открывается с клубной подпиской.</p>
   </header>
   <div class="new-card new-pay-order-card">
     <div class="new-pay-order__name">Весь архив заданий</div>
-    <div class="new-pay-order__meta">Клубная подписка открывает все уже опубликованные выпуски.</div>
+    <div class="new-pay-order__meta">Без подписки доступны последние 7 заданий в каждом разделе. Более ранние — по подписке.</div>
   </div>
+  <p><a class="new-btn" href="{% url 'new_subscription' %}">Клубная подписка</a></p>
 </div>
 {% endblock %}
