@@ -315,6 +315,11 @@ class CheckerType(models.Model):
 
 
 class Game(models.Model):
+    # These section games are daily puzzles, never tournament rounds.  Keep
+    # this invariant at the model boundary because ``is_tournament`` defaults
+    # to True for the legacy Tenfold games and admin/import code may omit it.
+    DAILY_NON_TOURNAMENT_GAME_IDS = frozenset({'ladder', 'alphabetty', 'salad'})
+
     id = models.CharField(primary_key=True, max_length=100)
     name = models.TextField()
     outside_name = models.TextField(null=True, blank=True)
@@ -401,6 +406,11 @@ class Game(models.Model):
         if self.has_access(action='attempt_is_tournament', attempt=attempt):
             return 'tournament'
         return 'general'
+
+    def save(self, *args, **kwargs):
+        if self.pk in self.DAILY_NON_TOURNAMENT_GAME_IDS:
+            self.is_tournament = False
+        return super().save(*args, **kwargs)
 
     def has_registered(self, team):
         if team is None:

@@ -107,6 +107,15 @@ class WordSaladTests(TestCase):
             attach_anon_cookie(self.client, key)
         return self.client.post(path, data, **kwargs)
 
+    def test_daily_game_ids_are_always_general_mode(self):
+        game = Game(
+            id='salad', name='Салатик', author='test',
+            project_id='sections', is_tournament=True,
+        )
+        game.save()
+        game.refresh_from_db()
+        self.assertFalse(game.is_tournament)
+
     def test_validate_task_data_accepts_puzzle(self):
         grid, words = validate_task_data(self.task.checker_data, '')
         self.assertEqual(len(grid), 16)
