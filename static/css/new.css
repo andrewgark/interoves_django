@@ -7496,11 +7496,12 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__list li span { overflow-wrap: anywhere; }
 .new-daily-statistics__list li strong, .new-daily-statistics__histogram li strong { color: var(--muted); font-size: .82rem; white-space: nowrap; }
 .new-daily-statistics__list--ladder li.is-given { color: var(--muted); }
-.new-daily-statistics__list--ladder { gap: .65rem; }
-.new-daily-statistics__list--ladder .new-daily-statistics__ladder-word { display: grid !important; grid-template-columns: minmax(6rem, 8rem) minmax(4rem, 1fr) max-content; gap: .6rem; align-items: center; min-width: 0; }
-.new-daily-statistics__ladder-word > span { min-width: 0; overflow-wrap: anywhere; }
-.new-daily-statistics__ladder-word > strong { color: var(--muted); font-size: .82rem; white-space: nowrap; }
-.new-daily-statistics__ladder-bar { height: .35rem; min-width: 0; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--muted) 13%, transparent); }
+.new-daily-statistics__list--ladder { gap: .85rem; }
+/* Keep the comparison bars equally wide, independent of word length. */
+.new-daily-statistics__list--ladder .new-daily-statistics__ladder-word { display: grid !important; grid-template-columns: minmax(0, 1fr) max-content; grid-template-areas: "word time" "bar bar"; gap: .35rem .6rem; align-items: center; min-width: 0; }
+.new-daily-statistics__ladder-word > .new-daily-statistics__word-pill { grid-area: word; min-width: 0; border-radius: .75rem; white-space: normal; overflow-wrap: anywhere; }
+.new-daily-statistics__ladder-word > strong { grid-area: time; color: var(--muted); font-size: .82rem; white-space: nowrap; }
+.new-daily-statistics__ladder-bar { grid-area: bar; height: .35rem; min-width: 0; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--muted) 13%, transparent); }
 .new-daily-statistics__ladder-bar i, .new-daily-statistics__salad-bar i { display: block; width: var(--bar-width, 0) !important; min-width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 65%, var(--warning))); }
 .new-daily-statistics__ladder-bar canvas, .new-daily-statistics__salad-bar canvas { display: block; width: 100% !important; height: 100% !important; }
 .new-daily-statistics__ladder-word.is-missing .new-daily-statistics__ladder-bar { opacity: .45; }
@@ -7518,8 +7519,9 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__finding-pill.is-rare { cursor: help; outline: none; }
 .new-daily-statistics__finding-pill.is-rare::after { content: attr(data-tooltip); position: absolute; z-index: 3; left: 0; bottom: calc(100% + .4rem); width: max-content; max-width: 15rem; padding: .35rem .5rem; border: 1px solid var(--border); border-radius: .4rem; background: var(--surface); color: var(--text); box-shadow: 0 .3rem .9rem color-mix(in srgb, var(--text) 15%, transparent); font-family: inherit; font-size: .72rem; font-weight: 500; letter-spacing: 0; line-height: 1.2; white-space: normal; opacity: 0; pointer-events: none; transform: translateY(.15rem); transition: opacity .12s ease, transform .12s ease; }
 .new-daily-statistics__finding-pill.is-rare:hover::after, .new-daily-statistics__finding-pill.is-rare:focus-visible::after { opacity: 1; transform: translateY(0); }
-.new-daily-statistics__list--salad { gap: .65rem; }
-.new-daily-statistics__list--salad .new-daily-statistics__salad-word { display: grid !important; grid-template-columns: minmax(6rem, 8rem) minmax(4rem, 1fr) max-content max-content; gap: .6rem; align-items: center; min-width: 0; }
+/* Share column widths across rows, including complexity and hint percentages. */
+.new-daily-statistics__list--salad { grid-template-columns: minmax(6rem, 8rem) minmax(4rem, 1fr) max-content max-content; gap: .65rem .6rem; }
+.new-daily-statistics__list--salad .new-daily-statistics__salad-word { display: grid !important; grid-column: 1 / -1; grid-template-columns: subgrid; gap: inherit; align-items: center; min-width: 0; }
 .new-daily-statistics__salad-word > .new-daily-statistics__word-pill { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .new-daily-statistics__hint-rate { display: inline-flex; align-items: center; gap: .18rem; color: var(--muted); font-size: .76rem; white-space: nowrap; }
 .new-daily-statistics__hint-rate .ph { color: var(--warning); font-size: .95rem; }
@@ -7541,9 +7543,7 @@ html.is-age-gated .new-wrap {
   .new-daily-statistics { padding: .8rem; }
   .new-daily-statistics__summary { gap: .45rem; }
   .new-daily-statistics__list li { gap: .4rem; }
-  .new-daily-statistics__list--ladder .new-daily-statistics__ladder-word,
-  .new-daily-statistics__list--salad .new-daily-statistics__salad-word { grid-template-columns: minmax(5rem, 7rem) minmax(3rem, 1fr) max-content; gap: .4rem; }
-  .new-daily-statistics__list--salad .new-daily-statistics__salad-word { grid-template-columns: minmax(5rem, 7rem) minmax(3rem, 1fr) max-content max-content; }
+  .new-daily-statistics__list--salad { grid-template-columns: minmax(5rem, 7rem) minmax(3rem, 1fr) max-content max-content; column-gap: .4rem; }
   .new-daily-statistics__list li strong { font-size: .76rem; }
   .new-daily-statistics__body { gap: .8rem; }
   .new-daily-statistics__histogram { height: 160px; }
