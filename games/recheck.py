@@ -427,7 +427,11 @@ def recheck_word_salad_actor(
 
     credited = 0
     with transaction.atomic():
-        for mode in ('general', 'tournament'):
+        # Daily section games are permanently non-tournament.  Creating an
+        # empty tournament projection for every actor here made the repair
+        # path recreate the very rows it was supposed to remove.
+        modes = ('general', 'tournament') if game.is_tournament else ('general',)
+        for mode in modes:
             ChainTaskState.objects.get_or_create(
                 team=team, user=user, anon_key=anon_key,
                 task=task, game=game, game_mode=mode,
