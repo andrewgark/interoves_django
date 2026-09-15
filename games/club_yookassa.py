@@ -59,6 +59,17 @@ def _active_method(subscription):
     ).exclude(provider_payment_method_id='').first()
 
 
+def renewal_pending_at_detach(subscription):
+    """Keep an unresolved pre-detach charge visible until its verified outcome."""
+    if not subscription or not subscription.payment_method_detached_at:
+        return False
+    return subscription.yookassa_payments.filter(
+        kind=ClubYooKassaPayment.KIND_RECURRING_MONTHLY,
+        status=ClubYooKassaPayment.STATUS_PENDING,
+        submitted_at__lte=subscription.payment_method_detached_at,
+    ).exists()
+
+
 def detach_yookassa_payment_method(user) -> StartPaymentResult:
     with _billing_lock(user.pk):
         subscription = ClubSubscription.objects.select_for_update().filter(user=user).first()
@@ -79,10 +90,7 @@ def detach_yookassa_payment_method(user) -> StartPaymentResult:
                 subscription.cancelled_at = subscription.cancelled_at or now
                 if subscription.plan == ClubSubscription.PLAN_MONTHLY:
                     subscription.status = ClubSubscription.STATUS_CANCELLED
-                pending = subscription.yookassa_payments.filter(
-                    kind=ClubYooKassaPayment.KIND_RECURRING_MONTHLY,
-                    status=ClubYooKassaPayment.STATUS_PENDING, submitted_at__isnull=False,
-                ).exists()
+                pending = renewal_pending_at_detach(subscription)
                 transaction.on_commit(lambda: logger.info(
                     'subscription_auto_renew_disabled user_id=%s subscription_id=%s reason=detach',
                     user.pk, subscription.pk,
@@ -753,6 +761,7 @@ def _renew_one(subscription_id: int, *, now) -> bool:
             status=ClubYooKassaPayment.STATUS_PENDING,
             idempotency_key=uuid.uuid4().hex,
             submitted_at=now,
+            failure_code='submission_reserved',
         )
         # Push next_charge_at forward so parallel workers skip until this attempt settles.
         subscription.next_charge_at = now + timedelta(days=1)
@@ -765,6 +774,19 @@ def _renew_one(subscription_id: int, *, now) -> bool:
 
 def _submit_renewal(payment_pk):
     attempt = ClubYooKassaPayment.objects.get(pk=payment_pk)
+    # Claim dispatch durably before the HTTP transaction. Neither another worker
+    # nor a restart may replay a request whose outcome is unknown. Provider
+    # idempotence keys alone are insufficient: their retention is finite.
+    with _billing_lock(attempt.user_id):
+        local = ClubYooKassaPayment.objects.select_for_update().get(pk=payment_pk)
+        if (local.kind != ClubYooKassaPayment.KIND_RECURRING_MONTHLY
+                or local.status != ClubYooKassaPayment.STATUS_PENDING
+                or local.failure_code != 'submission_reserved'
+                or local.yookassa_payment_id):
+            return False
+        local.failure_code = 'submission_unknown'
+        local.save(update_fields=['failure_code', 'updated_at'])
+
     with _billing_lock(attempt.user_id):
         subscription = ClubSubscription.objects.select_for_update().get(pk=attempt.club_subscription_id)
         local = ClubYooKassaPayment.objects.select_for_update().get(pk=payment_pk)
@@ -805,7 +827,8 @@ def _submit_renewal(payment_pk):
             return False
 
         local.yookassa_payment_id = payment_data.get('id') or ''
-        local.save(update_fields=['yookassa_payment_id', 'updated_at'])
+        local.failure_code = '' if local.yookassa_payment_id else 'submission_unknown'
+        local.save(update_fields=['yookassa_payment_id', 'failure_code', 'updated_at'])
         logger.info('subscription_renewal_created subscription_id=%s payment_pk=%s',
                     subscription_id, local.pk)
         status = str(payment_data.get('status') or '')

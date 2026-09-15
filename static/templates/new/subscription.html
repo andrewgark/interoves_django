@@ -24,10 +24,14 @@
       <p class="new-pay-checkout__lead">Оплаченный период закончился. Оформите подписку снова, чтобы открыть весь архив заданий Inter Oves.</p>
     {% elif club_status == 'pending' %}
       <p class="new-pay-checkout__lead">Ожидаем подтверждение оплаты. Если уже оплатили — обновите страницу через минуту.</p>
-    {% else %}
+    {% elif not approval_preview %}
       <p class="new-pay-checkout__lead"><strong>Откройте весь архив заданий Inter Oves.</strong></p>
     {% endif %}
   </header>
+
+  {% if approval_preview %}
+    <p class="new-login-hint">Предпросмотр для согласования ЮKassa. Демонстрационные данные; действия не меняют подписку.</p>
+  {% endif %}
 
   {% if telegram_linked_notice %}
     <p class="new-login-hint">Telegram привязан{% if telegram_username %}: @{{ telegram_username }}{% endif %}. Можно оформить подписку через Tribute.</p>
@@ -63,7 +67,7 @@
   </div>
 
   {% if saved_payment_method_label %}
-    <section class="new-card new-pay-payment-card" aria-labelledby="new-sub-payment-method-title">
+    <section id="new-sub-payment-method" class="new-card new-pay-payment-card" aria-labelledby="new-sub-payment-method-title">
       <h2 id="new-sub-payment-method-title" class="new-pay-section-title">Способ оплаты</h2>
       <p>{{ saved_payment_method_label }}</p>
       <p class="new-pay-order__meta">При отключении автопродления карта остаётся привязанной: с ней можно возобновить подписку. Отвязать карту можно в любой момент.</p>
@@ -76,20 +80,29 @@
         <h2 id="new-sub-detach-title" class="new-pay-section-title">Отвязать карту?</h2>
         <p>После отвязки автоматическое продление подписки будет отключено.</p>
         <p>Доступ сохранится до конца уже оплаченного периода{% if paid_until_label %} — {{ paid_until_label }}{% endif %}.</p>
-        <form method="post" action="{% url 'new_subscription_payment_method_detach' %}" id="new-sub-detach-form">
-          {% csrf_token %}
+        <form id="new-sub-detach-form" {% if approval_preview %}method="get" action="{% url 'new_subscription' %}" data-approval-preview="1"{% else %}method="post" action="{% url 'new_subscription_payment_method_detach' %}"{% endif %}>
+          {% if approval_preview %}
+            <input type="hidden" name="approval_preview" value="1">
+          {% else %}
+            {% csrf_token %}
+          {% endif %}
           <button type="button" class="new-btn" data-detach-close>Отмена</button>
           <button type="submit" class="new-btn">Отвязать карту</button>
         </form>
         <p id="new-sub-detach-message" class="new-login-hint" role="status" aria-live="polite"></p>
       </div>
     </div>
-  {% elif payment_method_detached %}
-    <section class="new-card new-pay-payment-card" aria-labelledby="new-sub-detached-title">
+  {% endif %}
+  {% if payment_method_detached or approval_preview %}
+    <section id="new-sub-detached" class="new-card new-pay-payment-card" aria-labelledby="new-sub-detached-title" {% if approval_preview %}hidden tabindex="-1"{% endif %}>
       <h2 id="new-sub-detached-title" class="new-pay-section-title">Карта отвязана</h2>
       <p>Автопродление отключено.</p>
       {% if has_club_access %}<p>Доступ к подписке сохранится до {{ paid_until_label }}.</p>{% endif %}
     </section>
+  {% endif %}
+
+  {% if renewal_pending_at_detach %}
+    <p class="new-login-hint" role="status">Платёж на продление был запущен до отвязки карты; он ещё может завершиться. Отвязка не отменяет уже запущенный платёж. Новых списаний по отвязанной карте не будет.</p>
   {% endif %}
 
   {% if show_checkout %}
@@ -186,7 +199,7 @@
       <p class="new-pay-order__meta">Inter Oves не получает и не хранит данные банковской карты. <a href="/privacy/" target="_blank">Политика конфиденциальности</a> · <a href="/refunds/" target="_blank">Возвраты</a></p>
       <p id="new-sub-message" class="new-login-hint new-pay-message" aria-live="polite"></p>
     </div>
-  {% else %}
+  {% elif not approval_preview %}
     <div class="new-card new-pay-payment-card">
       {% if is_yookassa and is_monthly_plan and club_status == 'active' %}
         <p class="new-pay-security">Автопродление включено. Отключить можно в любой момент — доступ сохранится до конца оплаченного периода.</p>
@@ -319,6 +332,14 @@
     });
     form.addEventListener('submit', function (event) {
       event.preventDefault();
+      if (form.dataset.approvalPreview === '1') {
+        closeModal();
+        document.getElementById('new-sub-payment-method').hidden = true;
+        var detached = document.getElementById('new-sub-detached');
+        detached.hidden = false;
+        detached.focus({preventScroll: true});
+        return;
+      }
       if (submitting) return;
       submitting = true;
       var button = form.querySelector('[type="submit"]');

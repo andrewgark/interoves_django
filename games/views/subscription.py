@@ -23,11 +23,13 @@ from games.club_yookassa import (
     AMOUNT_ANNUAL_KOPECKS,
     AMOUNT_INTRO_KOPECKS,
     AMOUNT_MONTHLY_KOPECKS,
+    add_calendar_months,
     cancel_yookassa_subscription,
     club_yookassa_enabled,
     detach_yookassa_payment_method,
     initial_monthly_amount_kopecks,
     intro_available,
+    renewal_pending_at_detach,
     resume_yookassa_subscription,
     start_annual_subscription,
     start_monthly_subscription,
@@ -93,6 +95,22 @@ def _price_label(subscription: ClubSubscription | None) -> str:
 
 
 def _subscription_page_context(request):
+    if (request.user.is_authenticated
+            and (request.user.is_staff or request.user.is_superuser)
+            and request.GET.get('approval_preview') == '1'):
+        # Presentation-only values: do not load credentials or construct model
+        # instances. Preview must work even before billing has been enabled.
+        return {
+            'page_title': 'Клубная подписка',
+            'robots_noindex': True,
+            'approval_preview': True,
+            'saved_payment_method_label': 'Банковская карта •••• 4242',
+            'has_club_access': True,  # Display only; no entitlement is granted.
+            'paid_until_label': format_club_date(
+                add_calendar_months(timezone.now(), 1), _user_tz(request),
+            ),
+            **_project_urls_context(NEW_UI_PROJECT),
+        }
     telegram_linked = False
     if request.user.is_authenticated and has_profile(request.user):
         telegram_linked = user_has_telegram_link(request.user)
@@ -159,6 +177,7 @@ def _subscription_page_context(request):
         'payment_method_detached': bool(
             subscription and subscription.payment_method_detached_at and not saved_method
         ),
+        'renewal_pending_at_detach': renewal_pending_at_detach(subscription),
         'can_resume_yookassa': bool(saved_method and subscription
                                     and saved_method.method_type == 'bank_card'
                                     and subscription.saved_payment_method_id == saved_method.pk),
@@ -178,13 +197,15 @@ def _subscription_page_context(request):
 @never_cache
 @require_http_methods(['GET'])
 def subscription_page(request):
-    queue_pending_goal(
-        request,
-        YANDEX_GOAL_SUBSCRIPTION_VIEW,
-        params={'provider': 'club'},
-        key='subscription_view',
-    )
-    return render(request, 'ui/subscription.html', _subscription_page_context(request))
+    context = _subscription_page_context(request)
+    if not context.get('approval_preview'):
+        queue_pending_goal(
+            request,
+            YANDEX_GOAL_SUBSCRIPTION_VIEW,
+            params={'provider': 'club'},
+            key='subscription_view',
+        )
+    return render(request, 'ui/subscription.html', context)
 
 
 def _auth_json_guard(request):

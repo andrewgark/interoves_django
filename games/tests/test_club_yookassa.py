@@ -16,6 +16,7 @@ from games.club_yookassa import (
     AMOUNT_ANNUAL_KOPECKS,
     AMOUNT_INTRO_KOPECKS,
     AMOUNT_MONTHLY_KOPECKS,
+    _submit_renewal,
     add_calendar_months,
     cancel_yookassa_subscription,
     detach_yookassa_payment_method,
@@ -500,6 +501,19 @@ class ClubYooKassaDetachTests(TestCase):
         self.assertIsNone(self.sub.next_charge_at)
         self.assertFalse(SavedPaymentMethod.objects.exclude(provider_payment_method_id=None).exists())
 
+    def test_unresolved_charge_warning_survives_refresh_until_verified_outcome(self):
+        local = self._pending()
+        self.client.force_login(self.user)
+        self.client.post(self.url)
+        for _ in range(2):
+            response = self.client.get(reverse('new_subscription'))
+            self.assertContains(response, 'Отвязка не отменяет уже запущенный платёж.')
+            self.assertNotContains(response, 'secret-old-token')
+        process_yookassa_club_payment_event('payment.succeeded', _payment_payload(local))
+        response = self.client.get(reverse('new_subscription'))
+        self.assertNotContains(response, 'Отвязка не отменяет уже запущенный платёж.')
+        self.assertContains(response, 'Карта отвязана')
+
     def test_late_recurring_success_after_cancel_does_not_reenable_renewal(self):
         local = self._pending()
         cancel_yookassa_subscription(self.user)
@@ -564,9 +578,31 @@ class ClubYooKassaDetachTests(TestCase):
         local = ClubYooKassaPayment.objects.get()
         self.assertEqual(local.status, 'pending')
         self.assertEqual(local.failure_code, 'submission_unknown')
+        self.assertFalse(_submit_renewal(local.pk))
         self.assertIn('ещё может завершиться', detach_yookassa_payment_method(self.user).message)
+        self.assertFalse(_submit_renewal(local.pk))
+        local.refresh_from_db()
+        self.assertEqual(local.status, 'pending')
         renew_due_subscriptions()
         self.assertEqual(create.call_count, 1)
+
+    @patch('games.club_yookassa._create_yookassa_payment')
+    def test_pending_provider_response_cannot_be_submitted_again(self, create):
+        create.return_value = {'id': 'pending-provider-payment', 'status': 'pending'}
+        self.assertEqual(renew_due_subscriptions()['created'], 1)
+        local = ClubYooKassaPayment.objects.get()
+        self.assertFalse(_submit_renewal(local.pk))
+        create.assert_called_once()
+
+    @patch('games.club_yookassa._create_yookassa_payment', side_effect=SystemExit)
+    def test_crash_during_submission_leaves_durable_claim_and_cannot_replay(self, create):
+        with self.assertRaises(SystemExit):
+            renew_due_subscriptions()
+        local = ClubYooKassaPayment.objects.get()
+        self.assertEqual(local.failure_code, 'submission_unknown')
+        self.assertFalse(_submit_renewal(local.pk))
+        self.assertIn('ещё может завершиться', detach_yookassa_payment_method(self.user).message)
+        create.assert_called_once()
 
 
 @override_settings(**YK_SETTINGS)

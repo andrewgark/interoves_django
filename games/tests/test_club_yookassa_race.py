@@ -121,3 +121,27 @@ class ClubYooKassaRaceTests(TransactionTestCase):
             self.assertEqual(billing.renew_due_subscriptions()['created'], 0)
             api.assert_not_called()
         self.assertEqual(ClubYooKassaPayment.objects.get().status, 'canceled')
+
+    def test_two_dispatchers_cannot_send_the_same_reserved_attempt(self):
+        with patch.object(billing, '_submit_renewal', return_value=False):
+            billing.renew_due_subscriptions()
+        local = ClubYooKassaPayment.objects.get()
+        sending, release = Event(), Event()
+
+        def create(*args, **kwargs):
+            sending.set()
+            if not release.wait(5):
+                raise AssertionError('Test did not release provider response')
+            return {'id': 'single-dispatch', 'status': 'pending'}
+
+        with patch.object(billing, '_create_yookassa_payment', side_effect=create) as api, \
+                ThreadPoolExecutor(2) as pool:
+            first = pool.submit(self._thread_call, lambda: billing._submit_renewal(local.pk))
+            try:
+                self.assertTrue(sending.wait(5))
+                second = pool.submit(self._thread_call, lambda: billing._submit_renewal(local.pk))
+            finally:
+                release.set()
+            self.assertTrue(first.result(timeout=5))
+            self.assertFalse(second.result(timeout=5))
+            api.assert_called_once()
