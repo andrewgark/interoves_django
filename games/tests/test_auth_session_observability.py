@@ -13,6 +13,7 @@ from django.contrib.auth import (
     SESSION_KEY,
     get_user_model,
 )
+from django.contrib.auth.signals import user_login_failed
 from django.contrib.auth.middleware import AuthenticationMiddleware
 from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.middleware import SessionMiddleware
@@ -25,10 +26,12 @@ from django.utils import timezone
 from games.auth_observability import (
     log_auth_event,
     log_startup_auth_configuration,
+    normalized_user_agent,
     session_fingerprint,
 )
 from games.middleware.auth_session_observability import (
     AuthSessionDiagnosticMiddleware,
+    AuthenticatedRequestAuditMiddleware,
     RequestCorrelationMiddleware,
     _inspect_persisted_session,
 )
@@ -69,7 +72,9 @@ class AuthSessionObservabilityTests(TestCase):
         handler = RequestCorrelationMiddleware(
             SessionMiddleware(
                 AuthSessionDiagnosticMiddleware(
-                    AuthenticationMiddleware(view),
+                    AuthenticatedRequestAuditMiddleware(
+                        AuthenticationMiddleware(view),
+                    ),
                 ),
             ),
         )
@@ -97,6 +102,7 @@ class AuthSessionObservabilityTests(TestCase):
             ))
         login_payload = json.loads(login_logs.records[-1].getMessage())
         self.assertEqual(login_payload['event'], 'login')
+        self.assertEqual(login_payload['event_name'], 'auth_login_success')
         self.assertEqual(login_payload['user_id'], str(self.user.pk))
         self.assertNotEqual(login_payload['session_expires_at'], 'unavailable')
 
@@ -234,6 +240,90 @@ class AuthSessionObservabilityTests(TestCase):
         self.assertEqual(payload['user_id'], str(self.user.pk))
         self.assertEqual(payload['session_fingerprint'], session_fingerprint(session_key))
         self.assertFalse(Session.objects.filter(session_key=session_key).exists())
+
+    def test_authenticated_request_audit_contains_safe_context(self):
+        session_key = self._new_auth_session()
+        request = self.factory.post(
+            '/send_attempt/6159/',
+            HTTP_HOST='interoves.com',
+            HTTP_USER_AGENT=(
+                'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) '
+                'AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'
+            ),
+            HTTP_COOKIE='{}={}'.format(settings.SESSION_COOKIE_NAME, session_key),
+        )
+        request.interoves_request_id = 'request-audit-id'
+        handler = SessionMiddleware(
+            AuthenticatedRequestAuditMiddleware(
+                AuthenticationMiddleware(lambda req: JsonResponse({}, status=200)),
+            ),
+        )
+        with self.assertLogs('interoves.auth', level='INFO') as logs:
+            response = handler(request)
+        payload = next(
+            json.loads(record.getMessage())
+            for record in logs.records
+            if json.loads(record.getMessage()).get('event') == 'authenticated_request'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload['request_id'], 'request-audit-id')
+        self.assertEqual(payload['user_id'], str(self.user.pk))
+        self.assertEqual(payload['status'], 200)
+        self.assertEqual(payload['user_agent']['browser_family'], 'Safari')
+        self.assertEqual(payload['user_agent']['browser_major'], '18')
+        self.assertEqual(payload['user_agent']['os_family'], 'iOS')
+        self.assertEqual(payload['user_agent']['device_family'], 'iPhone')
+        self.assertNotIn('HTTP_USER_AGENT', payload)
+
+    def test_authenticated_request_audit_allowlist_does_not_log_other_paths(self):
+        session_key = self._new_auth_session()
+        request = self.factory.get(
+            '/games/ladder/track/',
+            HTTP_HOST='interoves.com',
+            HTTP_COOKIE='{}={}'.format(settings.SESSION_COOKIE_NAME, session_key),
+        )
+        request.interoves_request_id = 'not-audited-id'
+        handler = SessionMiddleware(
+            AuthenticatedRequestAuditMiddleware(
+                AuthenticationMiddleware(lambda req: JsonResponse({}, status=200)),
+            ),
+        )
+        with self.assertNoLogs('interoves.auth', level='INFO'):
+            handler(request)
+
+    def test_failed_login_event_never_logs_credentials(self):
+        request = self.factory.post(
+            '/accounts/login/',
+            HTTP_HOST='interoves.com',
+            HTTP_USER_AGENT='test-client/1.0',
+        )
+        request.interoves_request_id = 'failed-login-id'
+        with self.assertLogs('interoves.auth', level='INFO') as logs:
+            user_login_failed.send(
+                sender=type(self.user),
+                request=request,
+                credentials={
+                    'username': 'private@example.com',
+                    'password': 'must-not-be-logged',
+                },
+            )
+        payload = json.loads(logs.records[-1].getMessage())
+        self.assertEqual(payload['event_name'], 'auth_login_failure')
+        self.assertEqual(payload['failure_class'], 'authentication_failed')
+        output = '\n'.join(record.getMessage() for record in logs.records)
+        self.assertNotIn('private@example.com', output)
+        self.assertNotIn('must-not-be-logged', output)
+
+    def test_user_agent_normalization_does_not_keep_raw_header(self):
+        raw = 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/153.0.0.0 Mobile Safari/537.36'
+        normalized = normalized_user_agent(raw)
+        self.assertEqual(normalized, {
+            'browser_family': 'Chrome',
+            'browser_major': '153',
+            'os_family': 'Android',
+            'device_family': 'Android phone',
+        })
+        self.assertNotIn(raw, normalized)
 
     def test_missing_cookie_is_classifiable_but_normal_anonymous_is_not_logged(self):
         self.assertEqual(

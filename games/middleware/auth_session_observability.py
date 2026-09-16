@@ -17,7 +17,22 @@ from django.core import signing
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 
-from games.auth_observability import log_auth_event, session_fingerprint
+from games.auth_observability import (
+    log_auth_event,
+    log_authenticated_request,
+    session_fingerprint,
+)
+
+
+def _is_authenticated_audit_path(path: str) -> bool:
+    return (
+        path.startswith('/send_attempt/')
+        or path.startswith('/accounts/')
+        or path.startswith('/telegram/login/')
+        or path.startswith('/telegram/callback/')
+        or path == '/logout/'
+        or path.endswith('/migrate-anon-attempts/')
+    )
 
 
 class RequestCorrelationMiddleware:
@@ -180,4 +195,17 @@ class AuthSessionDiagnosticMiddleware:
                 user_id=str(user_id)[:64] if user_id is not None else None,
                 session_fingerprint=session_fingerprint(raw_session_key),
             )
+        return response
+
+
+class AuthenticatedRequestAuditMiddleware:
+    """Correlate selected authenticated requests without logging payloads."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if _is_authenticated_audit_path(getattr(request, 'path', '') or '/'):
+            log_authenticated_request(request, response)
         return response

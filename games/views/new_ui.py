@@ -38,6 +38,7 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
 
 from games.account_merge import social_provider_label
+from games.auth_observability import log_auth_event
 from games.telegram_linking import user_has_telegram_link
 
 from games.access import game_has_started
@@ -4120,6 +4121,20 @@ def new_migrate_anon_attempts(request):
 
     result = claim_and_migrate_anon_history(request.user, anon_key)
     status = result.get('status')
+    log_auth_event(
+        'auth_account_claim',
+        request,
+        user_id=str(request.user.pk),
+        success=status == 'ok',
+        claim_status=status,
+        moved_counts={
+            key: result.get(key, 0)
+            for key in (
+                'moved', 'moved_hints', 'moved_states', 'moved_starts',
+                'moved_completions', 'moved_analytics_state',
+            )
+        } if status == 'ok' else {},
+    )
     if status == 'hidden_anon':
         return JsonResponse({'status': 'hidden_anon'}, status=409)
     if status == 'claimed_elsewhere':
