@@ -277,6 +277,27 @@
     return el ? el.value : '';
   }
 
+  function gameplayHeaders() {
+    var headers = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrf(),
+      'Accept': 'application/json'
+    };
+    if (anonKey) headers['X-Interoves-Anon'] = anonKey;
+    var gameplayContext = root.getAttribute('data-gameplay-context') || '';
+    if (gameplayContext) headers['X-Interoves-Gameplay-Context'] = gameplayContext;
+    return headers;
+  }
+
+  function handleGameplayContextResponse(response, data) {
+    if (response && response.status === 409 && data && data.reload_required) {
+      showMsg('Аккаунт изменился в другой вкладке. Игра будет перезагружена.', 'error');
+      window.setTimeout(function () { window.location.reload(); }, 250);
+      return true;
+    }
+    return false;
+  }
+
   function normalizeWord(s) {
     s = String(s || '').trim().toUpperCase().replace(/Ё/g, 'Е');
     var out = '';
@@ -1139,7 +1160,6 @@
   var currentTaskId = null;
   var root = document.getElementById('alphabetty-root');
   var isAuthenticated = root && root.getAttribute('data-authenticated') === '1';
-  var gameplayContext = root && root.getAttribute('data-gameplay-context') || '';
 
   function csrf() {
     var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
@@ -1159,26 +1179,6 @@
     }
     if (!key && root) key = root.getAttribute('data-anon-key') || '';
     return key || '';
-  }
-
-  function gameplayHeaders() {
-    var headers = {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': csrf(),
-      'Accept': 'application/json'
-    };
-    if (anonKey) headers['X-Interoves-Anon'] = anonKey;
-    if (gameplayContext) headers['X-Interoves-Gameplay-Context'] = gameplayContext;
-    return headers;
-  }
-
-  function handleGameplayContextResponse(response, data) {
-    if (response && response.status === 409 && data && data.reload_required) {
-      showMsg('Аккаунт изменился в другой вкладке. Игра будет перезагружена.', 'error');
-      window.setTimeout(function () { window.location.reload(); }, 250);
-      return true;
-    }
-    return false;
   }
 
   function resetBugReportForm() {
