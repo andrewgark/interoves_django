@@ -4062,6 +4062,32 @@
     if (btn) btn.innerHTML = hide ? '<i class=\"ph ph-eye-slash\" aria-hidden=\"true\"></i>' : '<i class=\"ph ph-eye\" aria-hidden=\"true\"></i>';
   }
 
+  // A delayed HTTP response or a queued live event may contain an older
+  // raddle projection than the one already visible in this tab. Never replace
+  // a card with a projection that loses solved words: the server state is
+  // authoritative, but stale HTML must not make the UI appear to roll back.
+  function raddleSolvedIndices(root) {
+    var out = {};
+    if (!root || !root.querySelectorAll) return out;
+    root.querySelectorAll('.new-raddle-row--solved[data-word-index]').forEach(function (row) {
+      out[String(row.getAttribute('data-word-index'))] = true;
+    });
+    return out;
+  }
+
+  function incomingRaddleIsOlder(current, html) {
+    if (!current || !html || typeof document === 'undefined') return false;
+    var currentTask = current.querySelector('.new-raddle-task');
+    if (!currentTask) return false;
+    var holder = document.createElement('div');
+    holder.innerHTML = html;
+    var incomingTask = holder.querySelector('.new-raddle-task');
+    if (!incomingTask) return false;
+    var have = raddleSolvedIndices(currentTask);
+    var incoming = raddleSolvedIndices(incomingTask);
+    return Object.keys(have).some(function (idx) { return !incoming[idx]; });
+  }
+
   function applyNewUiTaskHtml(map) {
     if (!map) return;
     // Replacing a task card removes an open popover from the top layer. Remember
@@ -4093,6 +4119,7 @@
         var html = map[tid];
         var el = document.getElementById('new-task-' + tid);
         if (!el || !html) return;
+        if (incomingRaddleIsOlder(el, html)) return;
         el.outerHTML = html;
         var fresh = document.getElementById('new-task-' + tid);
         if (fresh) {

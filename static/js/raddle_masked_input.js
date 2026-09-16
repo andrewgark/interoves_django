@@ -184,12 +184,18 @@
     var mask = IMask(input, buildMaskOptions(fmt, script));
     setMaskInstance(input, mask);
 
+    // Restoring the initial value is programmatic (for example after a live
+    // task-card replacement). It must not look like a user completion: IMask
+    // may emit `complete` when `unmaskedValue` is assigned.
+    var initializing = true;
+
     function syncDataset() {
       input.dataset.raddleLetters = mask.unmaskedValue || '';
     }
 
     mask.on('accept', function () {
       syncDataset();
+      if (initializing) return;
       if (typeof hooks.onChange === 'function') {
         hooks.onChange(input, mask.unmaskedValue || '');
       }
@@ -197,6 +203,7 @@
 
     mask.on('complete', function () {
       syncDataset();
+      if (initializing) return;
       if (typeof hooks.onComplete === 'function') {
         hooks.onComplete(input, mask.unmaskedValue || '');
       }
@@ -207,6 +214,7 @@
     } else {
       syncDataset();
     }
+    initializing = false;
   }
 
   function refresh(input) {

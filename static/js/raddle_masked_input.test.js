@@ -177,6 +177,18 @@ function testBindInputUsesImaskForEditing() {
   assert.strictEqual(input.value, '');
 }
 
+function testBindInputDoesNotCompleteInitialValue() {
+  var input = makeImaskInput('#####');
+  input.value = 'САНКТ';
+  var completed = 0;
+  M.bindInput(input, {onComplete: function () { completed += 1; }});
+  assert.strictEqual(M.getSubmitValue(input), 'САНКТ');
+  assert.strictEqual(completed, 0);
+  M.setLetters(input, 'МОСКВ', {});
+  // Subsequent programmatic/user edits retain normal completion behavior.
+  assert.strictEqual(M.getSubmitValue(input), 'МОСКВ');
+}
+
 function testBindInputLatinRejectsCyrillic() {
   var input = makeImaskInput('#####', 'latin');
   M.bindInput(input, {});
@@ -227,6 +239,7 @@ testPasteOverflowTruncates();
 testImaskFormatsMatchServerTemplate();
 testImaskLatinFormats();
 testBindInputUsesImaskForEditing();
+testBindInputDoesNotCompleteInitialValue();
 testBindInputLatinRejectsCyrillic();
 testBindInputMixedAllowsBoth();
 testBindInputNormalizesYo();
