@@ -21,6 +21,7 @@ from games.daily_timing import (
 from games.models import Game, GameTaskGroup
 from games.views.new_ui import NEW_UI_SECTIONS_PROJECT
 from games.analytics_identity import gameplay_anon_key
+from games.gameplay_context import context_error_response, validate_gameplay_context
 from games.views.util import has_profile
 
 
@@ -98,8 +99,16 @@ def daily_timing_page_context(
     )
     state = empty_snapshot()
     url = ''
+    gameplay_context_token = ''
     if enabled:
         url = '/{}/{}/timing/'.format(game.id, placement.number)
+        from games.gameplay_context import issue_gameplay_context
+        gameplay_context_token = issue_gameplay_context(
+            task_group=placement.task_group,
+            game=game,
+            user=user,
+            anon_key=anon_key,
+        )
         if user is not None or anon_key:
             state = snapshot(lookup_timing(
                 game=game,
@@ -111,6 +120,7 @@ def daily_timing_page_context(
         'daily_timing_enabled': enabled,
         'daily_timing': state,
         'daily_timing_url': url,
+        'daily_timing_context_token': gameplay_context_token,
     }
 
 
@@ -139,6 +149,17 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
     action = (payload.get('action') or ACTION_START).strip()
     if action not in MUTATING_ACTIONS:
         return _json_error('bad_action', 400)
+    context_error = validate_gameplay_context(
+        request,
+        task_group=task_group,
+        game=game,
+        user=user,
+        anon_key=anon_key,
+    )
+    if context_error:
+        response = context_error_response(context_error)
+        if response is not None:
+            return response
     result = apply_timing_event(
         game=game,
         task_group=task_group,

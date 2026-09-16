@@ -17,6 +17,7 @@
   <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
     {% csrf_token %}
     <input type="hidden" name="game_id" value="{{ game.id }}">
+    <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
     <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
     <div class="new-attempt-row">
       {{ task.get_attempt_form.text }}

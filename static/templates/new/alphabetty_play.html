@@ -50,6 +50,7 @@
      data-hint-penalty="{{ alphabetty_hint_penalty }}"
      data-hint-points-word="{{ alphabetty_hint_penalty|ru_points_word }}"
      data-suggest-url="{{ suggest_url }}"
+     data-gameplay-context="{{ gameplay_context_token }}"
      data-anon-key="{{ anon_key|default:'' }}"
      data-authenticated="{% if is_authenticated %}1{% else %}0{% endif %}">
 
@@ -931,12 +932,7 @@
     busy = true;
     showMsg('');
     stateGen += 1;
-    var headers = {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': csrf(),
-      'Accept': 'application/json'
-    };
-    if (anonKey) headers['X-Interoves-Anon'] = anonKey;
+    var headers = gameplayHeaders();
     fetch(guessUrl, {
       method: 'POST',
       headers: headers,
@@ -945,6 +941,7 @@
     })
       .then(function (r) {
         return r.json().then(function (data) {
+          if (handleGameplayContextResponse(r, data)) return data;
           if (!r.ok && data && data.status === 'error') throw new Error(data.error || 'Ошибка');
           return data;
         });
@@ -994,12 +991,7 @@
     updateHintButton();
     showMsg('');
     stateGen += 1;
-    var headers = {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': csrf(),
-      'Accept': 'application/json'
-    };
-    if (anonKey) headers['X-Interoves-Anon'] = anonKey;
+    var headers = gameplayHeaders();
     fetch(hintUrl, {
       method: 'POST',
       headers: headers,
@@ -1008,6 +1000,7 @@
     })
       .then(function (r) {
         return r.json().then(function (data) {
+          if (handleGameplayContextResponse(r, data)) return data;
           if (!r.ok && data && data.status === 'error') throw new Error(data.error || 'Ошибка');
           return data;
         });
@@ -1065,20 +1058,21 @@
     elSuggest.addEventListener('click', function () {
       if (!suggestUrl || !pendingSuggestWord || elSuggest.disabled) return;
       elSuggest.disabled = true;
-      var headers = {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrf(),
-        'Accept': 'application/json'
-      };
-      if (anonKey) headers['X-Interoves-Anon'] = anonKey;
+      var headers = gameplayHeaders();
       fetch(suggestUrl, {
         method: 'POST',
         headers: headers,
         credentials: 'same-origin',
         body: JSON.stringify({ word: pendingSuggestWord, anon_key: anonKey })
       })
-        .then(function (r) { return r.json(); })
+        .then(function (r) {
+          return r.json().then(function (data) {
+            if (handleGameplayContextResponse(r, data)) return { context_mismatch: true };
+            return data;
+          });
+        })
         .then(function (data) {
+          if (data && data.context_mismatch) return;
           var status = data && data.status;
           var wordToReplay = pendingSuggestWord;
           hideSuggest();
@@ -1145,6 +1139,7 @@
   var currentTaskId = null;
   var root = document.getElementById('alphabetty-root');
   var isAuthenticated = root && root.getAttribute('data-authenticated') === '1';
+  var gameplayContext = root && root.getAttribute('data-gameplay-context') || '';
 
   function csrf() {
     var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
@@ -1164,6 +1159,26 @@
     }
     if (!key && root) key = root.getAttribute('data-anon-key') || '';
     return key || '';
+  }
+
+  function gameplayHeaders() {
+    var headers = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrf(),
+      'Accept': 'application/json'
+    };
+    if (anonKey) headers['X-Interoves-Anon'] = anonKey;
+    if (gameplayContext) headers['X-Interoves-Gameplay-Context'] = gameplayContext;
+    return headers;
+  }
+
+  function handleGameplayContextResponse(response, data) {
+    if (response && response.status === 409 && data && data.reload_required) {
+      showMsg('Аккаунт изменился в другой вкладке. Игра будет перезагружена.', 'error');
+      window.setTimeout(function () { window.location.reload(); }, 250);
+      return true;
+    }
+    return false;
   }
 
   function resetBugReportForm() {

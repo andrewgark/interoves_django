@@ -38,7 +38,9 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialAccount
 
 from games.account_merge import social_provider_label
-from games.auth_observability import log_auth_event
+from games.auth_observability import log_auth_event, request_session_fingerprint
+from games.gameplay_context import issue_gameplay_context
+from games.gameplay_context import anonymous_actor_fingerprint
 from games.telegram_linking import user_has_telegram_link
 
 from games.access import game_has_started
@@ -1727,6 +1729,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'wall_max_points_meta_by_task_id': ctx_dicts['wall_max_points_meta_by_task_id'],
         'likes_meta_by_task_id': ctx_dicts['likes_meta_by_task_id'],
         'task_ui_by_task_id': ctx_dicts['task_ui_by_task_id'],
+        'gameplay_context_tokens': ctx_dicts['gameplay_context_tokens'],
         'can_like': True,
         'has_profile_user': has_profile(request.user),
         'mode': mode,
@@ -2748,6 +2751,12 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
         )
         for t in tasks
     }
+    gameplay_context_tokens = {
+        t.id: issue_gameplay_context(
+            task=t, game=game, team=team, user=user, anon_key=anon_key,
+        )
+        for t in tasks
+    }
     grid_puzzle_data = {}
     for t in tasks:
         if t.task_type != 'grid-puzzle':
@@ -3055,6 +3064,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
         'raddle_data': raddle_data,
         'proportions_chips': proportions_chips,
         'task_ui_by_task_id': task_ui_by_task_id,
+        'gameplay_context_tokens': gameplay_context_tokens,
     }
 
 
@@ -3364,6 +3374,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'wall_max_points_meta_by_task_id': ctx_dicts['wall_max_points_meta_by_task_id'],
         'likes_meta_by_task_id': ctx_dicts['likes_meta_by_task_id'],
         'task_ui_by_task_id': ctx_dicts['task_ui_by_task_id'],
+        'gameplay_context_tokens': ctx_dicts['gameplay_context_tokens'],
         'can_like': True,
         'has_profile_user': has_profile(request.user),
         'mode': mode,
@@ -4125,6 +4136,8 @@ def new_migrate_anon_attempts(request):
         'auth_account_claim',
         request,
         user_id=str(request.user.pk),
+        session_fingerprint=request_session_fingerprint(request),
+        anon_fingerprint=anonymous_actor_fingerprint(anon_key),
         success=status == 'ok',
         claim_status=status,
         moved_counts={

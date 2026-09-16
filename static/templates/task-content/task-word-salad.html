@@ -60,6 +60,7 @@
             {% if word.can_hint %}
             <form class="new-hint-form new-word-salad__hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-skip-hints-open="1">
               {% csrf_token %}
+              <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
               <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
               <input type="hidden" name="game_id" value="{{ game.id }}">
               <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
@@ -121,6 +122,7 @@
 
     <form class="new-attempt-form new-word-salad__form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" hidden>
       {% csrf_token %}
+      <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
       <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
       <input type="hidden" name="game_id" value="{{ game.id }}">
       <input type="hidden" name="anon_key" class="new-anon-key-field" value="">

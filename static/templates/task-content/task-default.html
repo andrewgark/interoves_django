@@ -30,6 +30,7 @@
   {% if not attempts_info or mode == 'general' or attempts_info.get_n_attempts < task.get_max_attempts %}
     <form class="attempt-form" action="/send_attempt/{{ task.id }}/" method="post">
       {% csrf_token %}
+      <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
       {% if game %}<input type="hidden" name="game_id" value="{{ game.id }}">{% endif %}
       <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
       Попытка {{ attempts_info.get_n_attempts|get_new_attempt_number }}{% if mode == 'tournament' %}/{{ task.get_max_attempts }}{% endif %}:
@@ -57,4 +58,3 @@
 {% if attempts_info %}
   {% include "task-content/attempts.html" %}
 {% endif %}
-

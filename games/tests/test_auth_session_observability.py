@@ -25,6 +25,8 @@ from django.utils import timezone
 
 from games.auth_observability import (
     log_auth_event,
+    log_authenticated_request,
+    log_gameplay_attempt_created,
     log_startup_auth_configuration,
     normalized_user_agent,
     session_fingerprint,
@@ -112,6 +114,39 @@ class AuthSessionObservabilityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(observed['is_authenticated'])
         self.assertEqual(observed['user_id'], self.user.pk)
+
+    def test_authenticated_gameplay_and_attempt_events_are_correlatable(self):
+        request = self.factory.post(
+            '/send_attempt/6159/',
+            HTTP_HOST='interoves.com',
+            HTTP_USER_AGENT='Mozilla/5.0 (X11; Linux x86_64) Chrome/152.0.0.0 Safari/537.36',
+        )
+        request.user = self.user
+        request.session = SessionStore()
+        request.session[SESSION_KEY] = str(self.user.pk)
+        request.interoves_request_id = 'request-correlation-test'
+        request.interoves_gameplay_request = True
+        request.interoves_gameplay_actor_kind = 'user'
+        request.interoves_gameplay_task_id = '6159'
+        request.interoves_gameplay_context_result = 'valid'
+        response = JsonResponse({}, status=200)
+        attempt = type('AttemptStub', (), {
+            'pk': 539223,
+            'user': self.user,
+            'task': type('TaskStub', (), {'pk': 6159})(),
+        })()
+        with self.assertLogs('interoves.auth', level='INFO') as logs:
+            log_authenticated_request(request, response)
+            log_gameplay_attempt_created(request, attempt=attempt, actor_kind='user')
+        payloads = [json.loads(record.getMessage()) for record in logs.records]
+        self.assertEqual(payloads[0]['request_id'], payloads[1]['request_id'])
+        self.assertEqual(payloads[0]['request_id'], 'request-correlation-test')
+        self.assertEqual(payloads[0]['session_fingerprint'], payloads[1]['session_fingerprint'])
+        self.assertEqual(payloads[1]['attempt_id'], 539223)
+        self.assertEqual(payloads[1]['task_id'], 6159)
+        serialized = '\n'.join(record.getMessage() for record in logs.records)
+        for forbidden in ('sessionid', 'Authorization', 'password', 'csrfmiddlewaretoken'):
+            self.assertNotIn(forbidden, serialized)
 
     def test_shared_db_session_is_accepted_by_another_instance(self):
         session_key = self._new_auth_session()

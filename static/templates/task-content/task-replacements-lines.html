@@ -37,6 +37,7 @@
         {% else %}
           <form class="new-replacements-line-form new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-line-index="{{ line_idx }}" id="repl-form-{{ task.id }}-{{ line_idx }}">
             {% csrf_token %}
+            <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
             <input type="hidden" name="game_id" value="{{ game.id }}">
             <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
             <input type="hidden" name="line_index" value="{{ line_idx }}">

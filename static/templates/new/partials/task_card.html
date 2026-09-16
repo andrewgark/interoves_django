@@ -3,7 +3,7 @@
 {% with task_ui=task_ui_by_task_id|get_item:task.id %}
 {% with rld=replacements_lines_data|get_item:task.id rd=raddle_data|get_item:task.id %}
 {% with ws=word_salad_data|get_item:task.id gp=grid_puzzle_data|get_item:task.id %}
-<div class="new-taskcard" id="new-task-{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}">
+<div class="new-taskcard" id="new-task-{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}" data-gameplay-context="{{ gameplay_context_tokens|get_item:task.id }}">
   <button type="button" class="new-taskcard__bug-btn" data-bug-report-open data-task-id="{{ task.id }}" data-task-label="{{ task_ui.display_name|default:task.number }}" aria-label="Сообщить о проблеме: {{ task_ui.display_name|default:task.number }}" title="Сообщить о проблеме"><i class="ph ph-bug" aria-hidden="true"></i></button>
   {% with base_max=task_ui.base_max wall_max_title=task_ui.max_points_title %}
     {% include "new/task-content/task-meta-bar.html" %}
@@ -49,6 +49,7 @@
                   <form class="new-hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
                     {% csrf_token %}
                     <input type="hidden" name="game_id" value="{{ game.id }}">
+                    <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
                     <input type="hidden" name="hint_number" value="{{ hint.number }}">
                     <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                     <input type="hidden" name="__ui_hint_penalty" value="{% if ai.is_solved %}0{% else %}{{ hint.points_penalty }}{% endif %}">

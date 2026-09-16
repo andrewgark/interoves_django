@@ -153,7 +153,12 @@ def log_auth_event(event: str, request=None, **fields) -> None:
         **fields,
     }
     payload = {key: value for key, value in payload.items() if value is not None}
-    logger.info(json.dumps(payload, sort_keys=True, separators=(',', ':')))
+    try:
+        logger.info(json.dumps(payload, sort_keys=True, separators=(',', ':')))
+    except Exception:
+        # Security telemetry must never turn a successful gameplay request into
+        # an application error (for example, during a broken stderr handler).
+        return
 
 
 def _request_session_key(request) -> str | None:
@@ -164,6 +169,10 @@ def _request_session_key(request) -> str | None:
     if session_key:
         return session_key
     return getattr(request, 'COOKIES', {}).get(settings.SESSION_COOKIE_NAME)
+
+
+def request_session_fingerprint(request) -> str:
+    return session_fingerprint(_request_session_key(request))
 
 
 def _request_session_expiry(request) -> str:
@@ -250,11 +259,39 @@ def log_authenticated_request(request, response) -> None:
     if not getattr(user, 'is_authenticated', False):
         return
     log_auth_event(
-        'authenticated_request',
+        'authenticated_gameplay_request' if getattr(
+            request, 'interoves_gameplay_request', False
+        ) else 'authenticated_request',
         request,
         user_id=_safe_user_id(getattr(user, 'pk', None)),
         session_fingerprint=session_fingerprint(_request_session_key(request)),
         status=getattr(response, 'status_code', None),
+        actor_kind=getattr(request, 'interoves_gameplay_actor_kind', None),
+        task_id=getattr(request, 'interoves_gameplay_task_id', None),
+        route_name=getattr(request, 'resolver_match', None).url_name
+        if getattr(request, 'resolver_match', None) else None,
+        result=getattr(request, 'interoves_gameplay_context_result', None),
+        attempt_id=getattr(request, 'interoves_attempt_id', None),
+    )
+
+
+def log_gameplay_attempt_created(request, *, attempt, actor_kind=None) -> None:
+    """Emit a minimal request-to-row link without logging attempt content."""
+    anon_fingerprint = None
+    if actor_kind == 'anon':
+        from games.gameplay_context import anonymous_actor_fingerprint
+        anon_fingerprint = anonymous_actor_fingerprint(getattr(attempt, 'anon_key', None))
+    log_auth_event(
+        'gameplay_attempt_created',
+        request,
+        attempt_id=getattr(attempt, 'pk', None),
+        user_id=_safe_user_id(getattr(getattr(attempt, 'user', None), 'pk', None)),
+        actor_kind=actor_kind,
+        anon_fingerprint=anon_fingerprint,
+        task_id=getattr(getattr(attempt, 'task', None), 'pk', None),
+        session_fingerprint=session_fingerprint(_request_session_key(request))
+        if getattr(getattr(request, 'user', None), 'is_authenticated', False)
+        else None,
     )
 
 

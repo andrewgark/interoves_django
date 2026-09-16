@@ -27,6 +27,11 @@ from games.auth_observability import (
 def _is_authenticated_audit_path(path: str) -> bool:
     return (
         path.startswith('/send_attempt/')
+        or path.startswith('/send_hint_attempt/')
+        or path.startswith('/send_raddle_assist/')
+        or path.startswith('/send_raddle_ui/')
+        or path.startswith('/alphabetty/') and path.endswith(('/guess/', '/hint/', '/suggest/'))
+        or path.endswith('/timing/')
         or path.startswith('/accounts/')
         or path.startswith('/telegram/login/')
         or path.startswith('/telegram/callback/')

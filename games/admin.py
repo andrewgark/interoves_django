@@ -1467,6 +1467,17 @@ class AttemptAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         return qs.select_related('team', 'task', 'user')
 
+    def get_readonly_fields(self, request, obj=None):
+        """Keep ownership immutable in ordinary Attempt editing.
+
+        Ownership transfers have dedicated claim/merge paths and must not be
+        indistinguishable from routine checker/status edits in the admin.
+        """
+        fields = list(super().get_readonly_fields(request, obj))
+        if obj is not None:
+            fields.extend(field for field in ('user', 'anon_key', 'team') if field not in fields)
+        return tuple(fields)
+
 
 @admin.register(PendingAttempt)
 class PendingAttemptsAdmin(admin.ModelAdmin):

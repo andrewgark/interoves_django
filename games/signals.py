@@ -241,11 +241,29 @@ def _auto_claim_signup_anon_history(request, user):
     try:
         from games.analytics_identity import browser_anon_key, rotate_anonymous_identity
         from games.anon_migrate import claim_and_migrate_anon_history
+        from games.auth_observability import log_auth_event, request_session_fingerprint
+        from games.gameplay_context import anonymous_actor_fingerprint
 
         anon_key = browser_anon_key(request)
         if not anon_key:
             return
         result = claim_and_migrate_anon_history(user, anon_key)
+        log_auth_event(
+            'auth_account_claim',
+            request,
+            user_id=str(user.pk),
+            session_fingerprint=request_session_fingerprint(request),
+            anon_fingerprint=anonymous_actor_fingerprint(anon_key),
+            success=result.get('status') == 'ok',
+            claim_status=result.get('status'),
+            moved_counts={
+                key: result.get(key, 0)
+                for key in (
+                    'moved', 'moved_hints', 'moved_states', 'moved_starts',
+                    'moved_completions', 'moved_analytics_state',
+                )
+            } if result.get('status') == 'ok' else {},
+        )
         if result.get('status') == 'ok' and result.get('moved_any'):
             rotate_anonymous_identity(request)
     except Exception:

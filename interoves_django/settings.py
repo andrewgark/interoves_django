@@ -199,6 +199,12 @@ SECRET_KEY = load_secret("django_secret_key.txt", env_var="DJANGO_SECRET_KEY")
 # There is intentionally no SECRET_KEY fallback: configure the same high-entropy
 # value on every production instance via AUTH_LOG_FINGERPRINT_KEY.
 AUTH_LOG_FINGERPRINT_KEY = (os.environ.get('AUTH_LOG_FINGERPRINT_KEY') or '').strip()
+# Phase A compatibility: pages without the new signed context remain usable.
+# Set to true only after token coverage has been measured in production.
+GAMEPLAY_CONTEXT_REQUIRE_TOKEN = (
+    os.environ.get('GAMEPLAY_CONTEXT_REQUIRE_TOKEN', '').strip().lower()
+    in ('1', 'true', 'yes', 'on')
+)
 
 # HMAC key for the anonymous analytics identity signature cookie.
 # Production should set ANALYTICS_ANON_SIGNING_KEY to the same high-entropy

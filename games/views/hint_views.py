@@ -11,6 +11,7 @@ from games.exception import (
 )
 from games.analytics import register_started_game
 from games.analytics_identity import gameplay_anon_key
+from games.gameplay_context import context_error_response, validate_gameplay_context
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
 from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
@@ -105,6 +106,12 @@ def process_send_hint_attempt(request, task_id):
     if task.task_type == 'autohint':
         raise InvalidFormException('Hints in this task can only be taken by answer submit')
 
+    context_error = validate_gameplay_context(
+        request, task=task, game=game, team=team, user=user, anon_key=anon_key,
+    )
+    if context_error:
+        return context_error
+
     hint_number = str(request.POST.get('hint_number', '')).strip()
     if not hint_number:
         raise InvalidFormException('hint_number is required')
@@ -158,4 +165,7 @@ def send_hint_attempt(request, task_id):
         response = {'status': 'invalid_form'}
     except NoGameAccessException:
         response = {'status': 'no_access'}
+    context_response = context_error_response(response)
+    if context_response is not None:
+        return context_response
     return JsonResponse(response) 

@@ -5,6 +5,8 @@ from games.views.new_ui import (
 )
 from games.views.util import has_profile
 from games.models import Attempt, GameTaskGroup, ImageManager, AudioManager
+from games.analytics_identity import gameplay_anon_key
+from games.gameplay_context import issue_gameplay_context
 
 
 def _task_card_public_identity(game, task_group, slot):
@@ -178,6 +180,15 @@ def render_task(task, request, team, current_mode, game=None):
         'task_text_with_forms_to_html': task_text_with_forms_to_html,
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
+        'gameplay_context_tokens': {
+            task.id: issue_gameplay_context(
+                task=task,
+                game=game,
+                team=team,
+                user=request.user if request.user.is_authenticated else None,
+                anon_key=gameplay_anon_key(request) if not request.user.is_authenticated else None,
+            ),
+        } if game is not None else {},
     }).content.decode('UTF-8')
 
 

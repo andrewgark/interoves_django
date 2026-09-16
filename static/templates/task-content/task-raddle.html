@@ -59,6 +59,7 @@
               <div class="new-raddle-actions">
                 <form class="new-raddle-line-form new-attempt-form{% if not rd.ui.is_tournament %} new-raddle-auto-form{% endif %}" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" id="raddle-form-{{ task.id }}-{{ row.index }}">
                   {% csrf_token %}
+                  <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
                   <input type="hidden" name="game_id" value="{{ game.id }}">
                   <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                   <input type="hidden" name="word_index" value="{{ row.index }}">
@@ -73,6 +74,7 @@
                 {% if row.can_clue_assist %}
                 <form class="new-raddle-assist-form" action="/send_raddle_assist/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}">
                   {% csrf_token %}
+                  <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
                   <input type="hidden" name="game_id" value="{{ game.id }}">
                   <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                   <input type="hidden" name="word_index" value="{{ row.index }}">
@@ -84,6 +86,7 @@
                 {% elif row.can_answer_assist %}
                 <form class="new-raddle-assist-form" action="/send_raddle_assist/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}">
                   {% csrf_token %}
+                  <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
                   <input type="hidden" name="game_id" value="{{ game.id }}">
                   <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
                   <input type="hidden" name="word_index" value="{{ row.index }}">

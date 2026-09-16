@@ -62,6 +62,7 @@
     options = options || {};
     var doc = options.document || (root && root.document);
     var url = options.url || '';
+    var gameplayContext = options.gameplayContext || '';
     var getAnonKey = options.getAnonKey || function () { return ''; };
     var getCsrf = options.getCsrf || function () { return ''; };
     var fetchFn = options.fetch || (root && root.fetch && root.fetch.bind(root));
@@ -290,6 +291,7 @@
       };
       var anon = getAnonKey();
       if (anon) headers['X-Interoves-Anon'] = anon;
+      if (gameplayContext) headers['X-Interoves-Gameplay-Context'] = gameplayContext;
       if (!fetchFn) return Promise.resolve(null);
       var init = {
         method: 'POST',
@@ -568,6 +570,7 @@
       solved: solved,
       getAnonKey: extras.getAnonKey,
       getCsrf: extras.getCsrf,
+      gameplayContext: extras.gameplayContext || (timerRoot && timerRoot.getAttribute('data-gameplay-context')) || '',
       root: timerRoot,
       displayEl: doc.querySelector('[data-daily-timer-display]'),
       pauseBtn: doc.querySelector('[data-daily-timer-pause]'),

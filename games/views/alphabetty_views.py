@@ -63,6 +63,11 @@ from games.views.new_ui import (
     _task_group_page_nav_context,
 )
 from games.analytics_identity import gameplay_anon_key
+from games.gameplay_context import (
+    context_error_response,
+    issue_gameplay_context,
+    validate_gameplay_context,
+)
 from games.views.util import has_profile
 
 
@@ -457,6 +462,9 @@ def alphabetty_play_page(request, number):
         'suggest_url': f'{play_path}suggest/',
         'anon_key': anon_key if user is None else '',
         'is_authenticated': bool(user),
+        'gameplay_context_token': issue_gameplay_context(
+            task=task, game=game, user=user, anon_key=anon_key,
+        ),
         'prev_task_group_url': (
             section_play_path(ALPHABETTY_GAME_ID, prev_tg.number) if prev_tg else None
         ),
@@ -575,6 +583,12 @@ def alphabetty_guess(request, number):
 
     user, anon_key = _resolve_actor(request, body=body)
 
+    context_error = validate_gameplay_context(
+        request, task=task, game=game, user=user, anon_key=anon_key,
+    )
+    if context_error:
+        return context_error_response(context_error)
+
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
     with timing_phase(request, 'apply_guess'):
@@ -672,6 +686,12 @@ def alphabetty_hint(request, number):
 
     user, anon_key = _resolve_actor(request, body=body)
 
+    context_error = validate_gameplay_context(
+        request, task=task, game=game, user=user, anon_key=anon_key,
+    )
+    if context_error:
+        return context_error_response(context_error)
+
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
     result = apply_hint(
@@ -719,6 +739,12 @@ def alphabetty_suggest(request, number):
         body = {}
     word = body.get('word') or request.POST.get('word') or ''
     user, anon_key = _resolve_actor(request, body=body)
+
+    context_error = validate_gameplay_context(
+        request, task=task, game=game, user=user, anon_key=anon_key,
+    )
+    if context_error:
+        return context_error_response(context_error)
 
     result = suggest_word(word, user=user, anon_key=anon_key)
     return JsonResponse(result)

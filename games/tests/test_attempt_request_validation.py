@@ -9,6 +9,7 @@ from django.utils import timezone
 from games.analytics_identity import stamp_anon_identity
 from games.exception import DuplicateAttemptException
 from games.analytics_persistence import AnalyticsRowInvariantError
+from games.gameplay_context import issue_gameplay_context
 from games.models import (
     Attempt,
     CheckerType,
@@ -114,6 +115,22 @@ class AttemptRequestValidationTests(TestCase):
         self.test_malformed_wall_json_returns_invalid_form()
         self.test_bad_replacements_index_returns_invalid_form()
         self.test_bad_raddle_index_returns_invalid_form()
+        self.assertFalse(Attempt.manager.filter(game=self.game).exists())
+
+    def test_stale_actor_context_is_rejected_before_attempt_creation(self):
+        stale_token = issue_gameplay_context(
+            task=self.default,
+            game=self.game,
+            anon_key='old-anonymous-actor',
+        )
+        result = self._process(self.default, {
+            'text': 'answer',
+            'game_id': self.game.pk,
+            'gameplay_context': stale_token,
+        })
+        self.assertEqual(result['status'], 'error')
+        self.assertEqual(result['error'], 'gameplay_actor_context_mismatch')
+        self.assertTrue(result['reload_required'])
         self.assertFalse(Attempt.manager.filter(game=self.game).exists())
 
     def test_hint_request_without_number_returns_json_status(self):

@@ -358,6 +358,16 @@
     }
     return h;
   }
+  function gameplayContextForTask(taskId) {
+    var root = document.querySelector(
+      '.new-taskcard[data-gameplay-context][id="new-task-' + taskId + '"]'
+    );
+    return root ? (root.getAttribute('data-gameplay-context') || '') : '';
+  }
+  function showGameplayContextMismatch(msg) {
+    if (msg) msg.textContent = 'Аккаунт изменился в другой вкладке. Игра будет перезагружена.';
+    window.setTimeout(function () { window.location.reload(); }, 250);
+  }
   function flushAnalyticsEvents(events) {
     var payload = events;
     if (payload && !Array.isArray(payload)) {
@@ -559,9 +569,13 @@
   }
 
   function parseFetchJson(r) {
-    return window.InterovesFetchJson
+    var parsed = window.InterovesFetchJson
       ? window.InterovesFetchJson.parseJsonResponse(r)
       : r.json();
+    return parsed.then(function (data) {
+      if (r.status === 409 && data && data.reload_required) data.context_mismatch = true;
+      return data;
+    });
   }
 
   function postForm(form) {
@@ -615,6 +629,10 @@
         if (submitBtn) submitBtn.disabled = false;
         if (!data || !data.status) {
           if (msg) msg.textContent = 'Ошибка: пустой ответ.';
+          return;
+        }
+        if (data.context_mismatch) {
+          showGameplayContextMismatch(msg);
           return;
         }
         flushAnalyticsEvents(data);
@@ -1651,12 +1669,17 @@
     var headers = anonFetchHeaders({
       'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
     });
+    var context = gameplayContextForTask(taskId);
+    if (context) headers['X-Interoves-Gameplay-Context'] = context;
     return fetch('/send_raddle_ui/' + taskId + '/', {
       method: 'POST',
       headers: headers,
       body: params.toString(),
       credentials: 'same-origin',
-    }).then(parseFetchJson).catch(function () { return null; });
+    }).then(parseFetchJson).then(function (data) {
+      if (data && data.context_mismatch) showGameplayContextMismatch(null);
+      return data;
+    }).catch(function () { return null; });
   }
 
   function scheduleRaddleDraftSync(taskId, wordIdx, letters) {
@@ -1823,6 +1846,10 @@
     input = live.input;
     row = live.row;
     var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
+    if (data && data.context_mismatch) {
+      showGameplayContextMismatch(msg);
+      return;
+    }
     var verdict = RaddleCtl.classifyAttemptResponse(data);
     if (verdict.releaseSubmitLock) releaseRaddleSubmitLock(input);
     if (verdict.replaceHtml) {
@@ -4199,6 +4226,8 @@
     params.set('game_id', '{{ game.id }}');
     if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampParams(params, csrfToken);
     else if (csrfToken) params.set('csrfmiddlewaretoken', csrfToken);
+    var context = gameplayContextForTask(taskId);
+    if (context) params.set('gameplay_context', context);
     return fetch('/send_attempt/' + taskId + '/', {
       method: 'POST',
       headers: {

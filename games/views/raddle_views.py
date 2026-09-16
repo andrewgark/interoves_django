@@ -33,6 +33,8 @@ from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
 from games.analytics_identity import gameplay_anon_key
+from games.auth_observability import log_gameplay_attempt_created
+from games.gameplay_context import context_error_response, validate_gameplay_context
 
 
 def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_key=None, task=None, game=None):
@@ -123,6 +125,12 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
     except DuplicateAttemptException:
         pass
 
+    if attempt.pk:
+        request.interoves_attempt_id = attempt.pk
+        log_gameplay_attempt_created(
+            request, attempt=attempt, actor_kind=request.interoves_gameplay_actor_kind,
+        )
+
     result = {'status': 'ok', 'task_id': task.id}
     analytics_events = register_started_game(
         team=team,
@@ -183,6 +191,12 @@ def process_send_raddle_assist(request, task_id):
     team, user, anon_key, err = _actor_from_request(request, game)
     if err:
         return {'status': err}
+
+    context_error = validate_gameplay_context(
+        request, task=task, game=game, team=team, user=user, anon_key=anon_key,
+    )
+    if context_error:
+        return context_error
 
     try:
         word_index = int(request.POST.get('word_index', -1))
@@ -300,6 +314,12 @@ def process_send_raddle_ui(request, task_id):
     if err:
         return {'status': err}
 
+    context_error = validate_gameplay_context(
+        request, task=task, game=game, team=team, user=user, anon_key=anon_key,
+    )
+    if context_error:
+        return context_error
+
     drafts_patch = _parse_raddle_ui_patch(request.POST.get('drafts'))
     marks_patch = _parse_raddle_ui_patch(request.POST.get('clue_marks'))
     if drafts_patch is None and marks_patch is None:
@@ -352,6 +372,9 @@ def send_raddle_ui(request, task_id):
         response = process_send_raddle_ui(request, task_id)
     except NoGameAccessException:
         response = {'status': 'no_access'}
+    context_response = context_error_response(response)
+    if context_response is not None:
+        return context_response
     return JsonResponse(response)
 
 
@@ -361,4 +384,7 @@ def send_raddle_assist(request, task_id):
         response = process_send_raddle_assist(request, task_id)
     except NoGameAccessException:
         response = {'status': 'no_access'}
+    context_response = context_error_response(response)
+    if context_response is not None:
+        return context_response
     return JsonResponse(response)

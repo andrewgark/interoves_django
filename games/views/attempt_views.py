@@ -27,6 +27,8 @@ from games.raddle import (
     word_matches,
 )
 from games.analytics_identity import gameplay_anon_key
+from games.auth_observability import log_gameplay_attempt_created
+from games.gameplay_context import context_error_response, validate_gameplay_context
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
 from games.grid_puzzle import (
     GridPuzzleDataError,
@@ -412,6 +414,12 @@ def process_send_attempt(request, task_id):
     if not user_can_access_task_archive(request.user, game, task):
         raise NoGameAccessException('Club subscription required for archived game')
 
+    context_error = validate_gameplay_context(
+        request, task=task, game=game, team=team, user=user, anon_key=anon_key,
+    )
+    if context_error:
+        return context_error
+
     is_game_start_interaction = False
     if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         form = AttemptForm(request.POST)
@@ -562,6 +570,13 @@ def process_send_attempt(request, task_id):
     )
     with timing_phase(request, 'check_attempt'):
         attempt_persisted = check_attempt(attempt, persist_wrong=not correct_only)
+    if attempt_persisted:
+        request.interoves_attempt_id = attempt.pk
+        log_gameplay_attempt_created(
+            request,
+            attempt=attempt,
+            actor_kind=request.interoves_gameplay_actor_kind,
+        )
 
     if attempt_persisted and task.task_type == 'autohint' and attempt.status in ('Pending', 'Wrong'):
         hint = get_first_new_hint_actor(task, team=team, user=user, anon_key=anon_key)
@@ -835,5 +850,8 @@ def send_attempt(request, task_id):
         response = {'status': 'invalid_form'}
     except NoGameAccessException:
         response = {'status': 'no_access'}
+    context_response = context_error_response(response)
+    if context_response is not None:
+        return context_response
     with timing_phase(request, 'serialize_response'):
         return JsonResponse(response)
