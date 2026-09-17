@@ -57,13 +57,13 @@ def alphabetty_hint_penalty_points(hints: int) -> int:
     return max(0, int(hints or 0)) * ALPHABETTY_HINT_PENALTY
 
 
-def letter_hint_penalty_for_actor(*, game, task, user=None, anon_key=None, team=None) -> int:
+def letter_hint_penalty_for_actor(*, game, task, user=None, anon_key=None, team=None, replay_slot=None) -> int:
     """Штраф за буквенные подсказки из ChainTaskState (−1 за каждую)."""
     if task is None or getattr(task, 'task_type', None) != 'alphabetty':
         return 0
     if game is None:
         return 0
-    qs = ChainTaskState.objects.filter(task=task, game=game, game_mode='general')
+    qs = ChainTaskState.objects.filter(task=task, game=game, game_mode='general', replay_slot=replay_slot)
     if team is not None:
         qs = qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
     elif user is not None:
@@ -126,6 +126,7 @@ def elapsed_seconds_for_actor(*, game: Game, task: Task, actor: dict) -> int:
         task_group=getattr(task, 'task_group', None),
         user=actor.get('user'),
         anon_key=actor.get('anon_key'),
+        replay_slot=actor.get('replay_slot'),
         attempts=attempts,
     )
 
@@ -186,6 +187,9 @@ def attach_solve_meta(
     )
     payload['elapsed_seconds'] = elapsed
     payload['elapsed_label'] = format_elapsed(elapsed)
+    if actor.get('replay_slot') is not None:
+        # Replay results are private and must never produce a public share card.
+        return payload
     payload['share_lines'] = lines
     payload['share_text'] = '\n'.join(lines)
     from games.daily_share_card import build_alphabetty_share_payload, publish_date_for
@@ -227,12 +231,15 @@ def hub_progress_for_actor(
             game=game,
             game_mode='general',
             task_id__in=task_ids,
+            replay_slot__isnull=True,
             **actor,
         )
     }
     # Время по всем task_id одним запросом.
     timing_rows = (
-        Attempt.manager.filter(task_id__in=task_ids, game=game, **actor)
+        Attempt.manager.filter(
+            task_id__in=task_ids, game=game, replay_slot__isnull=True, **actor,
+        )
         .exclude(time__isnull=True)
         .values('task_id')
         .annotate(t0=Min('time'), t1=Max('time'))
@@ -396,6 +403,7 @@ def apply_hint(
     number: int | str | None = None,
     share_host: str = 'interoves.com',
     play_path: str | None = None,
+    replay_slot=None,
 ) -> dict[str, Any]:
     """Раскрыть следующую букву загаданного слова."""
     actor = _actor_filters(user=user, anon_key=anon_key)
@@ -408,6 +416,7 @@ def apply_hint(
             'error': 'Нужен пользователь или anon_key',
             **public_payload(default_state(), secret),
         }
+    actor['replay_slot'] = replay_slot
 
     num = number if number is not None else task.task_group_id
 
@@ -514,6 +523,7 @@ def _commit_guess(
     num: int | str,
     share_host: str,
     play_path: str | None,
+    replay_slot=None,
 ) -> dict[str, Any]:
     """Persist a new valid guess (caller already checked dict + duplicate without lock)."""
     ChainTaskState.objects.get_or_create(
@@ -569,7 +579,8 @@ def _commit_guess(
         from games.daily_timing import active_time_ms_for_attempt
         attempt.active_time_ms = active_time_ms_for_attempt(
             game=game, task_group=task.task_group,
-            user=actor.get('user'), anon_key=actor.get('anon_key'), now=attempt.time,
+            user=actor.get('user'), anon_key=actor.get('anon_key'),
+            replay_slot=replay_slot, now=attempt.time,
         )
     attempt.save()
 
@@ -602,6 +613,7 @@ def apply_guess(
     number: int | str | None = None,
     share_host: str = 'interoves.com',
     play_path: str | None = None,
+    replay_slot=None,
 ) -> dict[str, Any]:
     """Применить отгадку; вернуть публичный payload + status."""
     actor = _actor_filters(user=user, anon_key=anon_key)
@@ -612,6 +624,7 @@ def apply_guess(
             **public_payload(default_state(), secret_from_task(task)),
         }
 
+    actor['replay_slot'] = replay_slot
     secret = secret_from_task(task)
     if not secret:
         return {'status': 'error', 'error': 'Загадка не настроена'}
@@ -654,6 +667,7 @@ def apply_guess(
         num=num,
         share_host=share_host,
         play_path=play_path,
+        replay_slot=replay_slot,
     )
 
 
@@ -666,10 +680,13 @@ def get_play_state(
     number: int | str | None = None,
     share_host: str = 'interoves.com',
     play_path: str | None = None,
+    replay_slot=None,
 ) -> dict[str, Any]:
     """Прочитать прогресс. Не создаёт пустой ChainTaskState (иначе anon-migrate
     может проиграть merge пустому state от простого открытия страницы)."""
     actor = _actor_filters(user=user, anon_key=anon_key)
+    if actor is not None:
+        actor['replay_slot'] = replay_slot
     secret = secret_from_task(task)
     num = number if number is not None else 0
     if actor is None:

@@ -677,6 +677,7 @@ def _backfill_supported_game_completions(
     qs = (
         ChainTaskState.objects.select_related('task', 'task__task_group', 'game')
         .filter(**actor)
+        .filter(replay_slot__isnull=True)
         .filter(task__task_type__in=(
             'raddle', 'replacements_lines', 'alphabetty', 'word_salad',
         ))

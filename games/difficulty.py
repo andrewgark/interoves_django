@@ -204,7 +204,7 @@ def calculate_observed_metrics(placement, *, now=None):
     attempts_by_actor = defaultdict(list)
 
     attempts = (
-        Attempt.manager.filter(task_id__in=task_ids, skip=False)
+        Attempt.manager.filter(task_id__in=task_ids, skip=False, replay_slot__isnull=True)
         .filter(Q(game=placement.game) | Q(game__isnull=True))
         .select_related('task', 'team', 'user')
         .order_by('time', 'pk')
@@ -227,6 +227,7 @@ def calculate_observed_metrics(placement, *, now=None):
             HintAttempt.objects.filter(
                 hint__task_id__in=task_ids,
                 is_real_request=True,
+                replay_slot__isnull=True,
             )
             .select_related('team', 'user')
         )
@@ -244,6 +245,7 @@ def calculate_observed_metrics(placement, *, now=None):
                 task_id__in=task_ids,
                 game=placement.game,
                 game_mode='general',
+                replay_slot__isnull=True,
             )
             .select_related('team', 'user')
         )

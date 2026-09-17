@@ -39,6 +39,7 @@ from games.models import (
     PlayerCompletedGame,
     PlayerStartedGame,
     DailySolveTiming,
+    ReplaySlot,
     Profile,
     PlayerAnalyticsState,
     PlayerCompletedGame,
@@ -49,6 +50,7 @@ from games.models import (
     StatisticsEvent,
     TicketRequest,
 )
+from games.replay import replay_actor_key
 
 
 PENDING_ACCOUNT_MERGE_SESSION_KEY = 'interoves_pending_account_merge'
@@ -607,6 +609,7 @@ def _merge_chain_states(target, source):
             task_id=row.task_id,
             game_id=row.game_id,
             game_mode=row.game_mode,
+            replay_slot=row.replay_slot,
         ).first()
         if existing is None:
             row.user = target
@@ -672,6 +675,7 @@ def _merge_daily_timings(target, source):
             user=target,
             game_id=row.game_id,
             task_group_id=row.task_group_id,
+            replay_slot=row.replay_slot,
         ).first()
         if existing is None:
             row.user = target
@@ -679,6 +683,25 @@ def _merge_daily_timings(target, source):
             moved += 1
             continue
         merge_timing_rows(existing, row)
+        moved += 1
+    return moved
+
+
+def _merge_replay_slots(target, source):
+    """Keep one deterministic private replay slot per game/task group."""
+    moved = 0
+    rows = list(ReplaySlot.objects.select_for_update().filter(user=source).order_by('pk'))
+    for row in rows:
+        existing = ReplaySlot.objects.select_for_update().filter(
+            user=target, team__isnull=True, anon_key__isnull=True,
+            game_id=row.game_id, task_group_id=row.task_group_id,
+        ).first()
+        if existing is not None:
+            row.delete()
+        else:
+            row.user = target
+            row.actor_key = replay_actor_key(user=target)
+            row.save(update_fields=['user', 'actor_key', 'updated_at'])
         moved += 1
     return moved
 
@@ -831,6 +854,7 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
     # chronological guess order from both histories.
     summary['attempts'] = Attempt.manager.filter(user=source).update(user=target)
     summary['hints'] = HintAttempt.objects.filter(user=source).update(user=target)
+    summary['replay_slots'] = _merge_replay_slots(target, source)
     summary['chain_states'] = _merge_chain_states(target, source)
     summary['likes'] = _merge_likes(target, source)
     summary['personal_dict_words'] = _merge_personal_words(target, source)

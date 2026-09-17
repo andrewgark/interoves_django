@@ -23,7 +23,7 @@ from django.urls import reverse
 from django.utils.html import format_html, strip_tags
 from django.utils.safestring import mark_safe
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
 from games.forms import CreateTeamForm, JoinTeamForm
 from games.daily_transitions import (
@@ -122,6 +122,7 @@ from games.models import (
     Team,
     TicketRequest,
 )
+from games.replay import active_replay, start_or_reset_replay
 from games.models import GameResultsSnapshot, TICKET_REQUESTS_PAGE_SIZE
 from games.util import clean_text
 from games.replacements_lines import canonical_replacements_checker_line, parse_replacements_lines_text
@@ -2740,7 +2741,7 @@ def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=
     }
 
 
-def build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode, placement=None):
+def build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode, placement=None, replay_slot=None):
     """
     Shared context for task_group.html and new/partials/task_card.html
     (attempts, walls, replacements_lines, likes, proportions pool).
@@ -2748,12 +2749,14 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
     attempts_info_by_task_id = {
         t.id: Attempt.manager.get_attempts_info(
             team=team, task=t, mode=mode, user=user, anon_key=anon_key, game=game,
+            replay_slot=replay_slot,
         )
         for t in tasks
     }
     gameplay_context_tokens = {
         t.id: issue_gameplay_context(
             task=t, game=game, team=team, user=user, anon_key=anon_key,
+            replay_slot=replay_slot,
         )
         for t in tasks
     }
@@ -2930,7 +2933,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             ai = attempts_info_by_task_id.get(t.id)
             state = load_word_salad_state(None)
             if game is not None:
-                cts_qs = ChainTaskState.objects.filter(task=t, game=game)
+                cts_qs = ChainTaskState.objects.filter(task=t, game=game, replay_slot=replay_slot)
                 if team is not None:
                     cts_qs = cts_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
                 elif user is not None:
@@ -2982,7 +2985,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             state = load_raddle_state(None, parsed['n_words'])
             # Предпочитаем ChainTaskState (источник правды для чекера); иначе Attempt.state.
             if game is not None:
-                cts_qs = ChainTaskState.objects.filter(task=t, game=game)
+                cts_qs = ChainTaskState.objects.filter(task=t, game=game, replay_slot=replay_slot)
                 if team is not None:
                     cts_qs = cts_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
                 elif user is not None:
@@ -3256,6 +3259,20 @@ def new_task_group_page(request, game_id, task_group_number):
         prev_tg, next_tg = _neighbors_by_pk(published_nav, placement)
     else:
         prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
+    replay_slot = None
+    if draft_offer is None:
+        replay_slot = active_replay(
+            request=request,
+            game=game,
+            task_group=task_group,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+        )
+    actor_filter = {'team': team, 'user': user, 'anon_key': anon_key}
+    official_completed = PlayerCompletedGame.objects.filter(
+        game=game, task_group=task_group, **actor_filter,
+    ).exists()
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     section_rules_type = game.id if game.id in SECTION_RULES_GAME_IDS else None
     section_tutorial_html = _section_tutorial_html_for_game(game)
@@ -3269,6 +3286,7 @@ def new_task_group_page(request, game_id, task_group_number):
     ctx_dicts = build_task_group_task_context_dicts(
         game, task_group, tasks, team, user, anon_key, mode,
         placement=placement if isinstance(placement, GameTaskGroup) else None,
+        replay_slot=replay_slot,
     )
     week_task_source_line = None
     week_task_source_url = None
@@ -3378,6 +3396,10 @@ def new_task_group_page(request, game_id, task_group_number):
         'can_like': True,
         'has_profile_user': has_profile(request.user),
         'mode': mode,
+        'replay_slot': replay_slot,
+        'replay_active': replay_slot is not None,
+        'replay_completed': bool(replay_slot and replay_slot.status == 'completed'),
+        'official_completed': official_completed,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'anon_key': anon_key,
@@ -3451,8 +3473,44 @@ def new_task_group_page(request, game_id, task_group_number):
             anon_key=anon_key,
             play_mode=play_mode,
             is_offer=draft_offer is not None,
+            replay_slot=replay_slot,
         ),
     })
+
+
+@require_POST
+def new_replay_start(request, game_id, task_group_number):
+    """Explicitly start/reset the private replay slot for one task group."""
+    game = get_object_or_404(Game, id=game_id)
+    placement = get_object_or_404(
+        GameTaskGroup.objects.select_related('task_group'),
+        game=game,
+        number=str(task_group_number),
+    )
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
+    team = user = anon_key = None
+    if play_mode == 'team':
+        if not request.user.is_authenticated or not has_team(request.user):
+            raise Http404()
+        team = request.user.profile.team_on
+    elif request.user.is_authenticated:
+        if not has_profile(request.user):
+            raise Http404()
+        user = request.user
+    else:
+        anon_key = _anon_key_from_request(request)
+        if not anon_key:
+            raise Http404()
+    start_or_reset_replay(
+        request=request,
+        game=game,
+        task_group=placement.task_group,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+    )
+    return redirect(_play_url_for_task_group(game, placement.number))
 
 
 @never_cache

@@ -152,7 +152,9 @@ def _bulk_actor_task_result_points_sql(
 
     from games.raddle import is_raddle_in_game_assist_hint
 
-    att_qs = Attempt.manager.filter(task_id__in=task_ids, skip=False).filter(**actor.filter_kwargs())
+    att_qs = Attempt.manager.filter(
+        task_id__in=task_ids, skip=False, replay_slot__isnull=True,
+    ).filter(**actor.filter_kwargs())
     if (game is not None) and (not include_other_games):
         att_qs = att_qs.filter(game=game)
 
@@ -187,7 +189,10 @@ def _bulk_actor_task_result_points_sql(
     )
 
     hint_rows = list(
-        HintAttempt.objects.filter(hint__task_id__in=task_ids, is_real_request=True)
+        HintAttempt.objects.filter(
+            hint__task_id__in=task_ids, is_real_request=True,
+            replay_slot__isnull=True,
+        )
         .filter(**actor.filter_kwargs())
         .values('hint__task_id', 'hint__desc', 'hint__points_penalty')
     )
@@ -226,7 +231,9 @@ def _bulk_actor_task_result_points_orm(
     include_other_games: bool = False,
 ) -> Dict[int, Tuple[float, bool, Optional[str]]]:
     # Attempts
-    att_qs = Attempt.manager.filter(task_id__in=task_ids, skip=False).filter(**actor.filter_kwargs())
+    att_qs = Attempt.manager.filter(
+        task_id__in=task_ids, skip=False, replay_slot__isnull=True,
+    ).filter(**actor.filter_kwargs())
     if (game is not None) and (not include_other_games):
         att_qs = att_qs.filter(game=game)
     att_qs = att_qs.select_related("task", "game").order_by("time")
@@ -234,7 +241,9 @@ def _bulk_actor_task_result_points_orm(
 
     # Hint attempts
     hint_qs = (
-        HintAttempt.objects.filter(hint__task_id__in=task_ids)
+        HintAttempt.objects.filter(
+            hint__task_id__in=task_ids, replay_slot__isnull=True,
+        )
         .filter(**actor.filter_kwargs())
         .select_related("hint", "hint__task")
         .order_by("time")

@@ -221,7 +221,9 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None):
     task_ids = list(task_ids)
     hidden_anons = hidden_anon_keys()
 
-    attempt_base = Attempt.manager.filter(task_id__in=task_ids, skip=False)
+    attempt_base = Attempt.manager.filter(
+        task_id__in=task_ids, skip=False, replay_slot__isnull=True,
+    )
     if game is not None:
         attempt_base = attempt_base.filter(game=game)
 
@@ -283,6 +285,7 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None):
         HintAttempt.objects.filter(
             hint__task_id__in=task_ids,
             is_real_request=True,
+            replay_slot__isnull=True,
         )
         .annotate(actor_key=_hint_actor_key_annotation())
         .exclude(actor_key='')
@@ -332,6 +335,7 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None):
         task_id__in=task_ids,
         task__task_type='alphabetty',
         game_mode='general',
+        replay_slot__isnull=True,
     )
     if game is not None:
         chain_state_qs = chain_state_qs.filter(game=game)

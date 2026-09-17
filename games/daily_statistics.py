@@ -124,6 +124,7 @@ def _attempts_for(task, game, actors):
         return {}
     rows = Attempt.manager.filter(
         task=task, game=game, skip=False, status__in=('Ok', 'Partial'),
+        replay_slot__isnull=True,
     ).filter(_actor_q(actors)).only(
         'id', 'team_id', 'user_id', 'anon_key', 'text', 'state', 'status',
         'time', 'active_time_ms',
@@ -139,6 +140,7 @@ def _completed_times(game, task_group, actors):
         return []
     rows = DailySolveTiming.objects.filter(
         game=game, task_group=task_group, status=DailySolveTiming.STATUS_COMPLETED,
+        replay_slot__isnull=True,
     ).filter(_timing_actor_q(actors)).only('user_id', 'anon_key', 'frozen_ms', 'timing_version')
     values = {}
     for row in rows:
@@ -150,7 +152,7 @@ def _completed_times(game, task_group, actors):
 def _latest_states(task, game, actors, attempts):
     states = {}
     rows = ChainTaskState.objects.filter(
-        task=task, game=game, game_mode='general',
+        task=task, game=game, game_mode='general', replay_slot__isnull=True,
     ).filter(_actor_q(actors)).only('team_id', 'user_id', 'anon_key', 'state')
     for row in rows:
         states[_actor_key(row)] = row.state

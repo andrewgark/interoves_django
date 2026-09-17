@@ -14,6 +14,7 @@ from games.check import CheckerFactory
 from games.exception import DuplicateAttemptException, TooManyAttemptsException, InvalidFormException, NoGameAccessException
 from games.forms import AttemptForm
 from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, Team, CHAIN_TASK_TYPES
+from games.replay import StaleReplayError, replay_for_request
 from games.middleware.request_timing import timing_phase
 from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
@@ -40,7 +41,7 @@ from games.grid_puzzle import (
 )
 
 
-def _raddle_chain_state(task, team, user, anon_key, game, current_mode):
+def _raddle_chain_state(task, team, user, anon_key, game, current_mode, replay_slot=None):
     """Актуальный raddle state для актёра (CTS, иначе последняя Attempt.state)."""
     parsed = parse_raddle_data(task)
     if not parsed:
@@ -49,11 +50,13 @@ def _raddle_chain_state(task, team, user, anon_key, game, current_mode):
     chain_row = ChainTaskState.objects.filter(
         team=team, user=user, anon_key=anon_key,
         task=task, game=game, game_mode=current_mode,
+        replay_slot=replay_slot,
     ).first()
     if chain_row and chain_row.state:
         return parsed, load_raddle_state(chain_row.state, n)
     attempts = Attempt.manager.get_attempts(
         team, task, mode=current_mode, user=user, anon_key=anon_key, game=game,
+        replay_slot=replay_slot,
     )
     for prev in reversed(attempts):
         if prev.state:
@@ -61,12 +64,12 @@ def _raddle_chain_state(task, team, user, anon_key, game, current_mode):
     return parsed, load_raddle_state(None, n)
 
 
-def _raddle_stale_submit_response(request, task, team, user, anon_key, game, current_mode, word_index):
+def _raddle_stale_submit_response(request, task, team, user, anon_key, game, current_mode, word_index, replay_slot=None):
     """
     Устаревший UI (bfcache / смена anon↔login): форма на некрайнем или уже
     решённом слове. Не пишем Attempt — только синхронизируем HTML.
     """
-    parsed, state = _raddle_chain_state(task, team, user, anon_key, game, current_mode)
+    parsed, state = _raddle_chain_state(task, team, user, anon_key, game, current_mode, replay_slot=replay_slot)
     if not parsed or state is None:
         return None
     solved = set(state.get('solved_indices') or [])
@@ -83,18 +86,20 @@ def _raddle_stale_submit_response(request, task, team, user, anon_key, game, cur
         }
         update_html = update_task_html(
             request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+            replay_slot=replay_slot,
         )
-        track_actor_task_change(
-            task,
-            team=team,
-            update_html=update_html,
-            request=request,
-            game=game,
-            user=user,
-            anon_key=anon_key,
-            current_mode=current_mode,
-            reason='raddle.stale_ui_sync',
-        )
+        if replay_slot is None:
+            track_actor_task_change(
+                task,
+                team=team,
+                update_html=update_html,
+                request=request,
+                game=game,
+                user=user,
+                anon_key=anon_key,
+                current_mode=current_mode,
+                reason='raddle.stale_ui_sync',
+            )
         result.update(update_html)
         return result
     return None
@@ -108,7 +113,6 @@ def check_attempt(attempt, *, persist_wrong=True):
     game = attempt.game or GameTaskGroup.resolve_game_for_task(task)
     if game is None:
         raise Exception('Cannot resolve game for attempt (set Attempt.game or use a single-linked task group)')
-
     current_mode = game.get_current_mode(attempt)
     if attempt._state.adding and attempt.task_revision is None:
         attempt.task_revision = task.attempt_revision
@@ -137,17 +141,20 @@ def check_attempt(attempt, *, persist_wrong=True):
             ChainTaskState.objects.get_or_create(
                 team=team, user=user, anon_key=anon_key,
                 task=task, game=game, game_mode=current_mode,
+                replay_slot=attempt.replay_slot,
                 defaults={'state': None},
             )
             chain_state_row = ChainTaskState.objects.select_for_update().get(
                 team=team, user=user, anon_key=anon_key,
                 task=task, game=game, game_mode=current_mode,
+                replay_slot=attempt.replay_slot,
             )
             last_attempt_state = chain_state_row.state
 
         for mode in modes:
             attempts = Attempt.manager.get_attempts_before(
                 team, task, attempt.time, mode, user=user, anon_key=anon_key, game=game,
+                replay_slot=attempt.replay_slot,
             )
             revision_attempts = [
                 previous for previous in attempts
@@ -288,6 +295,7 @@ def check_attempt(attempt, *, persist_wrong=True):
                     user=user,
                     anon_key=anon_key,
                     team=team,
+                    replay_slot=attempt.replay_slot,
                     now=attempt.time,
                 )
 
@@ -354,17 +362,26 @@ def get_first_new_hint(task, team):
     return None
 
 
-def get_first_new_hint_actor(task, team=None, user=None, anon_key=None):
+def get_first_new_hint_actor(task, team=None, user=None, anon_key=None, replay_slot=None):
     from games.models import Hint, HintAttempt
     hints = Hint.objects.filter(task=task)
     hints = sorted(hints, key=lambda h: h.key_sort())
     for hint in hints:
         if team is not None:
-            exists = HintAttempt.objects.filter(team=team, user__isnull=True, anon_key__isnull=True, hint=hint).exists()
+            exists = HintAttempt.objects.filter(
+                team=team, user__isnull=True, anon_key__isnull=True,
+                hint=hint, replay_slot=replay_slot,
+            ).exists()
         elif user is not None:
-            exists = HintAttempt.objects.filter(user=user, team__isnull=True, anon_key__isnull=True, hint=hint).exists()
+            exists = HintAttempt.objects.filter(
+                user=user, team__isnull=True, anon_key__isnull=True,
+                hint=hint, replay_slot=replay_slot,
+            ).exists()
         else:
-            exists = HintAttempt.objects.filter(anon_key=anon_key, team__isnull=True, user__isnull=True, hint=hint).exists()
+            exists = HintAttempt.objects.filter(
+                anon_key=anon_key, team__isnull=True, user__isnull=True,
+                hint=hint, replay_slot=replay_slot,
+            ).exists()
         if not exists:
             return hint
     return None
@@ -420,6 +437,17 @@ def process_send_attempt(request, task_id):
     if context_error:
         return context_error
 
+    try:
+        replay_slot = replay_for_request(
+            request=request,
+            game=game,
+            task_group=task.task_group,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+        )
+    except StaleReplayError:
+        return {'status': 'error', 'error': 'stale_replay', 'reload_required': True}
     is_game_start_interaction = False
     if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         form = AttemptForm(request.POST)
@@ -488,7 +516,7 @@ def process_send_attempt(request, task_id):
         action = (request.POST.get('action') or 'solve').strip().lower()
         if action == 'sync_finds':
             return _process_word_salad_sync_finds(
-                request, task, team, user, anon_key, game,
+                request, task, team, user, anon_key, game, replay_slot=replay_slot,
             )
         if action == 'hint':
             try:
@@ -553,12 +581,34 @@ def process_send_attempt(request, task_id):
     attempt.task = task
     attempt.time = timezone.now()
     attempt.game = game
+    attempt.replay_slot = replay_slot
+
+    if replay_slot is None:
+        from games.replay import _official_exists
+        if _official_exists(
+            game=game,
+            task_group=task.task_group,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+        ):
+            duplicate = Attempt.manager.filter(
+                task=task,
+                game=game,
+                team=team,
+                user=user,
+                anon_key=anon_key,
+                replay_slot=None,
+                text=attempt.text,
+            ).exists()
+            if not duplicate:
+                return {'status': 'error', 'error': 'replay_required', 'reload_required': True}
 
     current_mode = game.get_current_mode(attempt)
 
     if task.task_type == 'raddle':
         stale = _raddle_stale_submit_response(
-            request, task, team, user, anon_key, game, current_mode, word_index,
+            request, task, team, user, anon_key, game, current_mode, word_index, replay_slot,
         )
         if stale is not None:
             return stale
@@ -579,14 +629,19 @@ def process_send_attempt(request, task_id):
         )
 
     if attempt_persisted and task.task_type == 'autohint' and attempt.status in ('Pending', 'Wrong'):
-        hint = get_first_new_hint_actor(task, team=team, user=user, anon_key=anon_key)
+        hint = get_first_new_hint_actor(
+            task, team=team, user=user, anon_key=anon_key, replay_slot=replay_slot,
+        )
         if hint is not None:
             from games.views.hint_views import create_hint_attempt
-            create_hint_attempt(hint, team=team, user=user, anon_key=anon_key, game=game)
+            create_hint_attempt(
+                hint, team=team, user=user, anon_key=anon_key,
+                game=game, replay_slot=replay_slot,
+            )
 
     analytics_events = []
     daily_timing = None
-    if attempt_persisted or is_game_start_interaction:
+    if (attempt_persisted or is_game_start_interaction) and replay_slot is None:
         analytics_events.extend(register_started_game(
             team=team,
             user=user,
@@ -596,23 +651,28 @@ def process_send_attempt(request, task_id):
             game=game,
         ))
     if attempt_persisted and supported_game_kind(game) and is_task_completion_state(task, attempt.state):
-        analytics_events.extend(register_completed_game(
-            team=team,
-            user=user,
-            anon_key=anon_key,
-            analytics_user=request.user if request.user.is_authenticated else None,
-            task=task,
-            game=game,
-            result=PlayerCompletedGame.RESULT_SOLVED,
-        ))
-        from games.daily_timing import complete_daily_timing
-        daily_timing = complete_daily_timing(
-            game=game,
-            task_group=task.task_group,
-            user=user,
-            anon_key=anon_key,
-            team=team,
-        )
+        if replay_slot is not None:
+            from games.replay import mark_replay_completed
+            mark_replay_completed(replay_slot)
+        else:
+            analytics_events.extend(register_completed_game(
+                team=team,
+                user=user,
+                anon_key=anon_key,
+                analytics_user=request.user if request.user.is_authenticated else None,
+                task=task,
+                game=game,
+                result=PlayerCompletedGame.RESULT_SOLVED,
+            ))
+            from games.daily_timing import complete_daily_timing
+            daily_timing = complete_daily_timing(
+                game=game,
+                task_group=task.task_group,
+                user=user,
+                anon_key=anon_key,
+                team=team,
+                replay_slot=None,
+            )
 
     result = {
         'status': 'ok',
@@ -711,7 +771,7 @@ def process_send_attempt(request, task_id):
     return result
 
 
-def _process_word_salad_sync_finds(request, task, team, user, anon_key, game):
+def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, replay_slot=None):
     try:
         raw_words = json.loads(request.POST.get('words') or '[]')
     except (TypeError, ValueError, json.JSONDecodeError):
@@ -724,7 +784,7 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game):
 
     stats = sync_word_salad_finds(
         task, raw_words,
-        team=team, user=user, anon_key=anon_key, game=game,
+        team=team, user=user, anon_key=anon_key, game=game, replay_slot=replay_slot,
     )
     grid, words, rares = parse_task_payload(task.checker_data, task.answer or '')
     ui = build_ui_context(grid, words, stats['state'], rare_words=rares)
@@ -738,7 +798,7 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game):
     credited = stats['credited']
     credited_any = bool(credited['extra'] or credited['rare'] or credited['answer'])
     analytics_events = []
-    if credited_any:
+    if credited_any and replay_slot is None:
         analytics_events.extend(register_started_game(
             team=team,
             user=user,
@@ -748,33 +808,39 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game):
             game=game,
         ))
     if credited['answer'] and supported_game_kind(game) and is_task_completion_state(task, stats['state']):
-        analytics_events.extend(register_completed_game(
-            team=team,
-            user=user,
-            anon_key=anon_key,
-            analytics_user=request.user if request.user.is_authenticated else None,
-            task=task,
-            game=game,
-            result=PlayerCompletedGame.RESULT_SOLVED,
-        ))
+        if replay_slot is not None:
+            from games.replay import mark_replay_completed
+            mark_replay_completed(replay_slot)
+        else:
+            analytics_events.extend(register_completed_game(
+                team=team,
+                user=user,
+                anon_key=anon_key,
+                analytics_user=request.user if request.user.is_authenticated else None,
+                task=task,
+                game=game,
+                result=PlayerCompletedGame.RESULT_SOLVED,
+            ))
     if analytics_events:
         result['analytics_events'] = analytics_events
     if credited['answer']:
         current_mode = game.get_current_mode(Attempt(time=timezone.now(), game=game, task=task))
         update_html = update_task_html(
             request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+            replay_slot=replay_slot,
         )
-        track_actor_task_change(
-            task,
-            team=team,
-            update_html=update_html,
-            request=request,
-            game=game,
-            user=user,
-            anon_key=anon_key,
-            current_mode=current_mode,
-            reason='attempt.submitted',
-        )
+        if replay_slot is None:
+            track_actor_task_change(
+                task,
+                team=team,
+                update_html=update_html,
+                request=request,
+                game=game,
+                user=user,
+                anon_key=anon_key,
+                current_mode=current_mode,
+                reason='attempt.submitted',
+            )
         result.update(update_html)
     return result
 

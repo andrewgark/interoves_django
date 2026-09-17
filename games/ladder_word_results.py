@@ -69,7 +69,7 @@ def _load_chain_states_by_actor(task, game):
     Keys: ('team', team_id) | ('user', user_id) | ('anon', anon_key)
     """
     rows = ChainTaskState.objects.filter(
-        task=task, game=game, game_mode='general',
+        task=task, game=game, game_mode='general', replay_slot__isnull=True,
     ).only('team_id', 'user_id', 'anon_key', 'state')
     out = {}
     for row in rows:
@@ -96,7 +96,7 @@ def _load_fallback_attempt_states(task, game, actor_keys):
         if not wanted:
             continue
         qs = (
-            Attempt.manager.filter(task=task, game=game, skip=False)
+            Attempt.manager.filter(task=task, game=game, skip=False, replay_slot__isnull=True)
             .filter(actor_filter, **{'{}__in'.format(actor_field): wanted})
             .exclude(Q(state__isnull=True) | Q(state=''))
             .annotate(
@@ -116,7 +116,7 @@ def _load_fallback_attempt_states(task, game, actor_keys):
 
 def _load_max_times_by_actor(task, game):
     out = {}
-    base = Attempt.manager.filter(task=task, game=game, skip=False)
+    base = Attempt.manager.filter(task=task, game=game, skip=False, replay_slot__isnull=True)
     for kind, actor_field, actor_filter in _attempt_actor_specs():
         rows = (
             base.filter(actor_filter)
@@ -131,7 +131,9 @@ def _load_max_times_by_actor(task, game):
 def _load_assist_hint_attempts_by_actor(task):
     """actor key → list of fake HintAttempt-like objects for resolve_assist_tiers."""
     rows = (
-        HintAttempt.objects.filter(hint__task=task, is_real_request=True)
+        HintAttempt.objects.filter(
+            hint__task=task, is_real_request=True, replay_slot__isnull=True,
+        )
         .filter(
             Q(hint__desc__istartswith='raddle_clue:')
             | Q(hint__desc__istartswith='raddle_answer:')

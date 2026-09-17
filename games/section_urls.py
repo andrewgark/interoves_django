@@ -114,6 +114,10 @@ def section_root_urlpatterns(
             ui.task_group_page,
             name=task_group_url_name,
         ),
+        re_path(
+            r'^(?P<game_id>' + _SECTION_GAME_ID_RE + r')/(?P<task_group_number>\d+(?:\.\d+)?)/replay/$',
+            ui.new_replay_start,
+        ),
     ]
 
     for game_id in STANDARD_ROOT_SECTION_GAME_IDS:

@@ -1089,10 +1089,14 @@ class AttemptsInfo:
 
 
 class AttemptManager(models.Manager):
-    def get_all_task_attempts(self, task, exclude_skip=True, game=None):
+    def _namespace(self, queryset, replay_slot=None):
+        return queryset.filter(replay_slot=replay_slot)
+
+    def get_all_task_attempts(self, task, exclude_skip=True, game=None, replay_slot=None):
         queryset = super().get_queryset().filter(task=task).select_related('team', 'user')
         if game is not None:
             queryset = queryset.filter(game=game)
+        queryset = self._namespace(queryset, replay_slot)
         if exclude_skip:
             queryset = queryset.exclude(skip=True)
         return sorted(queryset, key=lambda x: x.time)
@@ -1116,7 +1120,7 @@ class AttemptManager(models.Manager):
             return hint_game
         return GameTaskGroup.resolve_game_for_task(row.hint.task)
 
-    def get_all_attempts(self, team, task, exclude_skip=True, user=None, anon_key=None, game=None):
+    def get_all_attempts(self, team, task, exclude_skip=True, user=None, anon_key=None, game=None, replay_slot=None):
         queryset = super().get_queryset()
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
@@ -1124,9 +1128,10 @@ class AttemptManager(models.Manager):
         queryset = queryset.filter(task=task)
         if game is not None:
             queryset = queryset.filter(game=game)
+        queryset = self._namespace(queryset, replay_slot)
         return sorted(queryset, key=lambda x: x.time)
 
-    def get_all_attempts_after_equal(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None):
+    def get_all_attempts_after_equal(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None, replay_slot=None):
         queryset = super().get_queryset()
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
@@ -1134,9 +1139,10 @@ class AttemptManager(models.Manager):
         queryset = queryset.filter(task=task, time__gte=time)
         if game is not None:
             queryset = queryset.filter(game=game)
+        queryset = self._namespace(queryset, replay_slot)
         return sorted(queryset, key=lambda x: x.time)
 
-    def get_all_attempts_after(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None):
+    def get_all_attempts_after(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None, replay_slot=None):
         queryset = super().get_queryset()
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
@@ -1144,9 +1150,10 @@ class AttemptManager(models.Manager):
         queryset = queryset.filter(task=task, time__gt=time)
         if game is not None:
             queryset = queryset.filter(game=game)
+        queryset = self._namespace(queryset, replay_slot)
         return sorted(queryset, key=lambda x: x.time)
 
-    def get_all_attempts_before(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None):
+    def get_all_attempts_before(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None, replay_slot=None):
         queryset = super().get_queryset()
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
@@ -1154,6 +1161,7 @@ class AttemptManager(models.Manager):
         queryset = queryset.filter(task=task, time__lt=time)
         if game is not None:
             queryset = queryset.filter(game=game)
+        queryset = self._namespace(queryset, replay_slot)
         return sorted(queryset, key=lambda x: x.time)
 
     def filter_attempts_with_mode(self, attempts, mode='general', is_hint_attempts=False, hint_game=None):
@@ -1168,32 +1176,32 @@ class AttemptManager(models.Manager):
             ]
         raise Exception('Unknown mode: {}'.format(mode))
 
-    def get_attempts(self, team, task, mode="general", user=None, anon_key=None, game=None):
-        attempts = self.get_all_attempts(team, task, user=user, anon_key=anon_key, game=game)
+    def get_attempts(self, team, task, mode="general", user=None, anon_key=None, game=None, replay_slot=None):
+        attempts = self.get_all_attempts(team, task, user=user, anon_key=anon_key, game=game, replay_slot=replay_slot)
         return self.filter_attempts_with_mode(attempts, mode, hint_game=game)
 
-    def get_hint_attempts(self, team, task, mode="general", user=None, anon_key=None, game=None):
+    def get_hint_attempts(self, team, task, mode="general", user=None, anon_key=None, game=None, replay_slot=None):
         hint_attempts = []
         for hint in task.hints.all():
             if team is not None:
-                hint_attempts.extend(list(HintAttempt.objects.filter(team=team, user__isnull=True, anon_key__isnull=True, hint=hint)))
+                hint_attempts.extend(list(HintAttempt.objects.filter(team=team, user__isnull=True, anon_key__isnull=True, hint=hint, replay_slot=replay_slot)))
             elif user is not None:
-                hint_attempts.extend(list(HintAttempt.objects.filter(user=user, team__isnull=True, anon_key__isnull=True, hint=hint)))
+                hint_attempts.extend(list(HintAttempt.objects.filter(user=user, team__isnull=True, anon_key__isnull=True, hint=hint, replay_slot=replay_slot)))
             elif anon_key is not None:
-                hint_attempts.extend(list(HintAttempt.objects.filter(anon_key=anon_key, team__isnull=True, user__isnull=True, hint=hint)))
+                hint_attempts.extend(list(HintAttempt.objects.filter(anon_key=anon_key, team__isnull=True, user__isnull=True, hint=hint, replay_slot=replay_slot)))
         return self.filter_attempts_with_mode(hint_attempts, mode, is_hint_attempts=True, hint_game=game)
 
-    def get_attempts_before(self, team, task, time, mode="general", user=None, anon_key=None, game=None):
-        attempts = self.get_all_attempts_before(team, task, time, user=user, anon_key=anon_key, game=game)
+    def get_attempts_before(self, team, task, time, mode="general", user=None, anon_key=None, game=None, replay_slot=None):
+        attempts = self.get_all_attempts_before(team, task, time, user=user, anon_key=anon_key, game=game, replay_slot=replay_slot)
         return self.filter_attempts_with_mode(attempts, mode, hint_game=game)
 
-    def get_task_attempts(self, task, mode="general", game=None):
-        attempts = self.get_all_task_attempts(task, game=game)
+    def get_task_attempts(self, task, mode="general", game=None, replay_slot=None):
+        attempts = self.get_all_task_attempts(task, game=game, replay_slot=replay_slot)
         return self.filter_attempts_with_mode(attempts, mode)
 
-    def get_task_hint_attempts(self, task, mode="general", game=None):
+    def get_task_hint_attempts(self, task, mode="general", game=None, replay_slot=None):
         hint_attempts = list(
-            HintAttempt.objects.filter(hint__task=task).select_related('hint', 'team', 'user')
+            HintAttempt.objects.filter(hint__task=task, replay_slot=replay_slot).select_related('hint', 'team', 'user')
         )
         return self.filter_attempts_with_mode(hint_attempts, mode, is_hint_attempts=True, hint_game=game)
 
@@ -1206,9 +1214,9 @@ class AttemptManager(models.Manager):
                 best_attempt = attempt
         return best_attempt
 
-    def get_attempts_info(self, team, task, mode="general", user=None, anon_key=None, game=None):
-        attempts = self.get_attempts(team, task, mode, user=user, anon_key=anon_key, game=game)
-        hint_attempts = self.get_hint_attempts(team, task, mode, user=user, anon_key=anon_key, game=game)
+    def get_attempts_info(self, team, task, mode="general", user=None, anon_key=None, game=None, replay_slot=None):
+        attempts = self.get_attempts(team, task, mode, user=user, anon_key=anon_key, game=game, replay_slot=replay_slot)
+        hint_attempts = self.get_hint_attempts(team, task, mode, user=user, anon_key=anon_key, game=game, replay_slot=replay_slot)
         best_attempt = self.get_best_attempt(attempts, mode)
         return AttemptsInfo(best_attempt, attempts, hint_attempts)
 
@@ -1221,6 +1229,7 @@ class AttemptManager(models.Manager):
         anon_key=None,
         mode="general",
         game=None,
+        replay_slot=None,
     ):
         """Load one actor's AttemptsInfo for many tasks in two queries."""
         task_ids = [int(task_id) for task_id in (task_ids or []) if task_id is not None]
@@ -1233,7 +1242,7 @@ class AttemptManager(models.Manager):
         if mode != 'general' and game is None:
             attempt_related.append('task')
         attempts_qs = self._filter_by_actor(
-            self.filter(task_id__in=task_ids).exclude(skip=True),
+            self.filter(task_id__in=task_ids, replay_slot=replay_slot).exclude(skip=True),
             team=team,
             user=user,
             anon_key=anon_key,
@@ -1249,7 +1258,7 @@ class AttemptManager(models.Manager):
         if mode != 'general' and game is None:
             hint_related.append('hint__task')
         hint_attempts_qs = self._filter_by_actor(
-            HintAttempt.objects.filter(hint__task_id__in=task_ids),
+            HintAttempt.objects.filter(hint__task_id__in=task_ids, replay_slot=replay_slot),
             team=team,
             user=user,
             anon_key=anon_key,
@@ -1279,9 +1288,9 @@ class AttemptManager(models.Manager):
         }
 
     # for results page
-    def get_task_attempts_infos(self, task, mode="general", game=None):
-        attempts = self.get_task_attempts(task, mode, game=game)
-        hint_attempts = self.get_task_hint_attempts(task, mode, game=game)
+    def get_task_attempts_infos(self, task, mode="general", game=None, replay_slot=None):
+        attempts = self.get_task_attempts(task, mode, game=game, replay_slot=replay_slot)
+        hint_attempts = self.get_task_hint_attempts(task, mode, game=game, replay_slot=replay_slot)
 
         teams = set()
 
@@ -1319,7 +1328,7 @@ class AttemptManager(models.Manager):
             return ('anon', str(ak))
         return None
 
-    def get_bulk_game_actor_rows(self, task_ids, mode='general', game=None):
+    def get_bulk_game_actor_rows(self, task_ids, mode='general', game=None, replay_slot=None):
         """
         O(1) bulk alternative to calling get_general_results_task_actor_rows or
         get_task_attempts_infos for every task individually.
@@ -1345,7 +1354,7 @@ class AttemptManager(models.Manager):
 
         # 1 query: all attempts for all tasks (optionally scoped to one game).
         attempt_related = ['team', 'user', 'game']
-        attempt_qs = self.filter(task_id__in=task_ids, skip=False).select_related(*attempt_related).order_by('time')
+        attempt_qs = self.filter(task_id__in=task_ids, skip=False, replay_slot=replay_slot).select_related(*attempt_related).order_by('time')
         if game is not None:
             attempt_qs = attempt_qs.filter(game=game)
         all_attempts = list(attempt_qs)
@@ -1355,7 +1364,7 @@ class AttemptManager(models.Manager):
         # 1 query: all hint attempts for all hints in these tasks.
         hint_related = ['hint', 'team', 'user']
         all_hint_attempts = list(
-            HintAttempt.objects.filter(hint__task_id__in=task_ids)
+            HintAttempt.objects.filter(hint__task_id__in=task_ids, replay_slot=replay_slot)
             .select_related(*hint_related)
         )
         if mode == 'tournament':
@@ -1417,12 +1426,12 @@ class AttemptManager(models.Manager):
 
         return result
 
-    def get_general_results_task_actor_rows(self, task, game=None):
+    def get_general_results_task_actor_rows(self, task, game=None, replay_slot=None):
         """
         Для общей таблицы: по одному AttemptsInfo на команду или на личного/анонимного участника.
         """
-        attempts = self.get_task_attempts(task, mode='general', game=game)
-        hint_attempts = self.get_task_hint_attempts(task, mode='general', game=game)
+        attempts = self.get_task_attempts(task, mode='general', game=game, replay_slot=replay_slot)
+        hint_attempts = self.get_task_hint_attempts(task, mode='general', game=game, replay_slot=replay_slot)
 
         buckets = {}
         for attempt in attempts:
@@ -1500,6 +1509,10 @@ class ChainTaskState(models.Model):
         Game, related_name='chain_task_states',
         on_delete=models.CASCADE,
     )
+    replay_slot = models.ForeignKey(
+        'ReplaySlot', related_name='chain_task_states',
+        blank=True, null=True, on_delete=models.CASCADE,
+    )
     game_mode = models.CharField(max_length=20)   # 'general' | 'tournament'
 
     state = models.TextField(blank=True, null=True)
@@ -1513,17 +1526,17 @@ class ChainTaskState(models.Model):
         # Partial unique indexes per actor type: correct NULL handling on all DBs.
         constraints = [
             models.UniqueConstraint(
-                fields=['team', 'task', 'game', 'game_mode'],
+                fields=['team', 'task', 'game', 'game_mode', 'replay_slot'],
                 condition=models.Q(team__isnull=False),
                 name='unique_chain_state_team_game',
             ),
             models.UniqueConstraint(
-                fields=['user', 'task', 'game', 'game_mode'],
+                fields=['user', 'task', 'game', 'game_mode', 'replay_slot'],
                 condition=models.Q(user__isnull=False),
                 name='unique_chain_state_user_game',
             ),
             models.UniqueConstraint(
-                fields=['anon_key', 'task', 'game', 'game_mode'],
+                fields=['anon_key', 'task', 'game', 'game_mode', 'replay_slot'],
                 condition=models.Q(anon_key__isnull=False),
                 name='unique_chain_state_anon_key_game',
             ),
@@ -1532,6 +1545,7 @@ class ChainTaskState(models.Model):
             models.Index(fields=['team', 'task', 'game', 'game_mode']),
             models.Index(fields=['user', 'task', 'game', 'game_mode']),
             models.Index(fields=['anon_key', 'task', 'game', 'game_mode']),
+            models.Index(fields=['replay_slot', 'task', 'game', 'game_mode']),
         ]
 
     def __str__(self):
@@ -1583,6 +1597,10 @@ class Attempt(models.Model):
         Game, related_name='game_attempts',
         blank=True, null=True, on_delete=models.SET_NULL,
     )
+    replay_slot = models.ForeignKey(
+        'ReplaySlot', related_name='attempts',
+        blank=True, null=True, on_delete=models.CASCADE,
+    )
     manager = AttemptManager()
 
     # Task revision seen when this attempt was checked. Null is allowed for
@@ -1609,6 +1627,7 @@ class Attempt(models.Model):
             models.Index(fields=['task', 'anon_key', 'time']),
             models.Index(fields=['task', 'status']),
             models.Index(fields=['skip', 'time'], name='games_attempt_skip_time_idx'),
+            models.Index(fields=['replay_slot', 'task', 'game', 'time'], name='games_att_rep_task_time_idx'),
         ]
 
     def __str__(self):
@@ -1912,6 +1931,10 @@ class HintAttempt(models.Model):
     user = models.ForeignKey('auth.User', related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
     anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     hint = models.ForeignKey(Hint, related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
+    replay_slot = models.ForeignKey(
+        'ReplaySlot', related_name='hint_attempts',
+        blank=True, null=True, on_delete=models.CASCADE,
+    )
     time = models.DateTimeField(auto_now_add=True, blank=True)
     is_real_request = models.BooleanField(default=False)
 
@@ -1921,6 +1944,7 @@ class HintAttempt(models.Model):
             models.Index(fields=['hint', 'user', 'time']),
             models.Index(fields=['hint', 'anon_key', 'time']),
             models.Index(fields=['hint', 'is_real_request']),
+            models.Index(fields=['replay_slot', 'hint', 'time']),
         ]
 
     def __str__(self):
@@ -2951,6 +2975,67 @@ class AnonAccountClaim(models.Model):
         return '{} -> {}'.format(self.anon_key, self.user_id)
 
 
+class ReplaySlot(models.Model):
+    """The single private replay slot for one actor/game/task-group pair."""
+
+    id = models.AutoField(primary_key=True)
+    team = models.ForeignKey(
+        Team, related_name='replay_slots', blank=True, null=True, on_delete=models.CASCADE,
+    )
+    user = models.ForeignKey(
+        'auth.User', related_name='replay_slots', blank=True, null=True, on_delete=models.CASCADE,
+    )
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    actor_key = models.CharField(max_length=128, editable=False)
+    game = models.ForeignKey(Game, related_name='replay_slots', on_delete=models.CASCADE)
+    task_group = models.ForeignKey(
+        TaskGroup, related_name='replay_slots', on_delete=models.CASCADE,
+    )
+    run_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    status = models.CharField(max_length=16, default='active')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['actor_key', 'game', 'task_group'],
+                name='uniq_replay_slot_actor_key_game_tg',
+            ),
+            models.UniqueConstraint(
+                fields=['team', 'game', 'task_group'],
+                condition=models.Q(team__isnull=False),
+                name='uniq_replay_slot_team_game_tg',
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'game', 'task_group'],
+                condition=models.Q(user__isnull=False),
+                name='uniq_replay_slot_user_game_tg',
+            ),
+            models.UniqueConstraint(
+                fields=['anon_key', 'game', 'task_group'],
+                condition=models.Q(anon_key__isnull=False),
+                name='uniq_replay_slot_anon_game_tg',
+            ),
+            models.CheckConstraint(
+                check=(
+                    (models.Q(team__isnull=False) & models.Q(user__isnull=True) & models.Q(anon_key__isnull=True))
+                    | (models.Q(team__isnull=True) & models.Q(user__isnull=False) & models.Q(anon_key__isnull=True))
+                    | (models.Q(team__isnull=True) & models.Q(user__isnull=True) & models.Q(anon_key__isnull=False))
+                ),
+                name='replay_slot_exactly_one_actor',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['game', 'task_group', 'updated_at'], name='games_replay_slot_game_tg_idx'),
+            models.Index(fields=['run_id'], name='games_replay_slot_run_idx'),
+        ]
+
+    def __str__(self):
+        actor = self.team or self.user or self.anon_key or '—'
+        return '{} · {}:{} · {}'.format(actor, self.game_id, self.task_group_id, self.run_id)
+
+
 class PlayerStartedGame(models.Model):
     """One unique started game instance for one analytics actor."""
 
@@ -3133,6 +3218,10 @@ class DailySolveTiming(models.Model):
         related_name='daily_solve_timings',
         on_delete=models.CASCADE,
     )
+    replay_slot = models.ForeignKey(
+        'ReplaySlot', related_name='daily_timings',
+        blank=True, null=True, on_delete=models.CASCADE,
+    )
     timing_version = models.PositiveSmallIntegerField(default=TIMING_VERSION_ACTIVE)
     accumulated_ms = models.BigIntegerField(default=0)
     status = models.CharField(
@@ -3155,12 +3244,12 @@ class DailySolveTiming(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['user', 'game', 'task_group'],
+                fields=['user', 'game', 'task_group', 'replay_slot'],
                 condition=models.Q(user__isnull=False),
                 name='uniq_daily_timing_user_game_tg',
             ),
             models.UniqueConstraint(
-                fields=['anon_key', 'game', 'task_group'],
+                fields=['anon_key', 'game', 'task_group', 'replay_slot'],
                 condition=models.Q(anon_key__isnull=False),
                 name='uniq_daily_timing_anon_game_tg',
             ),
@@ -3169,6 +3258,7 @@ class DailySolveTiming(models.Model):
             models.Index(fields=['game', 'task_group'], name='games_dst_game_tg_idx'),
             models.Index(fields=['user', 'game'], name='games_dst_user_game_idx'),
             models.Index(fields=['anon_key', 'game'], name='games_dst_anon_game_idx'),
+            models.Index(fields=['replay_slot', 'game', 'task_group'], name='games_dst_replay_game_tg_idx'),
         ]
         verbose_name = 'время прохождения ежедневной игры'
         verbose_name_plural = 'времена прохождения ежедневных игр'

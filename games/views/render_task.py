@@ -187,6 +187,7 @@ def render_task(task, request, team, current_mode, game=None):
                 team=team,
                 user=request.user if request.user.is_authenticated else None,
                 anon_key=gameplay_anon_key(request) if not request.user.is_authenticated else None,
+                replay_slot=replay_slot,
             ),
         } if game is not None else {},
     }).content.decode('UTF-8')
@@ -224,7 +225,7 @@ def render_game_title(game, request, team, current_mode):
     }).content.decode('UTF-8')
 
 
-def render_new_ui_task_card_html(request, task, team, current_mode, user=None, anon_key=None, game=None):
+def render_new_ui_task_card_html(request, task, team, current_mode, user=None, anon_key=None, game=None, replay_slot=None):
     """
     HTML for one new-UI task card (#new-task-{id}). Used in JSON + WebSocket to avoid full page reload.
     Returns None when this page is not the new UI or when the task is rendered only inside proportions sheet.
@@ -242,7 +243,7 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
     slot = GameTaskGroup.objects.filter(game=game, task_group=task_group).first()
     ctx_dicts = build_task_group_task_context_dicts(
         game, task_group, tasks, team, user, anon_key, current_mode,
-        placement=slot,
+        placement=slot, replay_slot=replay_slot,
     )
     tg_number, tg_name = _task_card_public_identity(game, task_group, slot)
     # Daily section cards deliberately hide the task number.  The full page
@@ -279,7 +280,7 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
     }).content.decode('UTF-8')
 
 
-def update_task_html(request, task, team, current_mode, user=None, anon_key=None, game=None):
+def update_task_html(request, task, team, current_mode, user=None, anon_key=None, game=None, replay_slot=None):
     if game is None:
         game = GameTaskGroup.resolve_game_for_task(task)
     if game is None:
@@ -304,6 +305,7 @@ def update_task_html(request, task, team, current_mode, user=None, anon_key=None
     for t in tasks_to_patch:
         frag = render_new_ui_task_card_html(
             request, t, team, current_mode, user=user, anon_key=anon_key, game=game,
+            replay_slot=replay_slot,
         )
         if frag:
             new_fragments[str(t.id)] = frag

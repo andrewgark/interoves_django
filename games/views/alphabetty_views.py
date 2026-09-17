@@ -69,6 +69,7 @@ from games.gameplay_context import (
     validate_gameplay_context,
 )
 from games.views.util import has_profile
+from games.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
 
 
 def _share_host(request) -> str:
@@ -101,7 +102,9 @@ def _resolve_actor(request, *, body=None):
 
 
 def _alphabetty_hints_taken(*, game, task, user, anon_key) -> int:
-    qs = ChainTaskState.objects.filter(task=task, game=game, game_mode='general')
+    qs = ChainTaskState.objects.filter(
+        task=task, game=game, game_mode='general', replay_slot__isnull=True,
+    )
     if user is not None:
         qs = qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
     elif anon_key:
@@ -387,6 +390,10 @@ def alphabetty_play_page(request, number):
         n = play_number
 
     user, anon_key = _resolve_actor(request)
+    replay_slot = active_replay(
+        request=request, game=game, task_group=task.task_group,
+        user=user, anon_key=anon_key,
+    )
     # Не генерируем anon на сервере: иначе перетирается localStorage из base.html
     # и теряется прогресс. Клиент подтянет state через /state/ со своим ключом.
     state = get_play_state(
@@ -397,6 +404,7 @@ def alphabetty_play_page(request, number):
         number=play_number,
         share_host=_share_host(request),
         play_path=play_path,
+        replay_slot=replay_slot,
     )
     pub_at = alphabetty_publish_at(game, n) if offer is None else None
     daily_publish_date = pub_at.date() if pub_at is not None else None
@@ -588,6 +596,17 @@ def alphabetty_guess(request, number):
     )
     if context_error:
         return context_error_response(context_error)
+    try:
+        replay_slot = replay_for_request(
+            request=request, game=game, task_group=task.task_group,
+            user=user, anon_key=anon_key,
+        )
+    except StaleReplayError:
+        return JsonResponse({'status': 'error', 'error': 'stale_replay', 'reload_required': True})
+    if replay_slot is None and _official_exists(
+        game=game, task_group=task.task_group, user=user, anon_key=anon_key,
+    ):
+        return JsonResponse({'status': 'error', 'error': 'replay_required', 'reload_required': True})
 
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
@@ -601,9 +620,10 @@ def alphabetty_guess(request, number):
             number=play_number,
             share_host=_share_host(request),
             play_path=play_path,
+            replay_slot=replay_slot,
         )
     analytics_events = []
-    if result.get('status') in ('earlier', 'later', 'correct'):
+    if replay_slot is None and result.get('status') in ('earlier', 'later', 'correct'):
         analytics_events.extend(register_started_game(
             user=user,
             anon_key=anon_key,
@@ -617,7 +637,11 @@ def alphabetty_guess(request, number):
         'hint_prefix': result.get('hint_prefix') or '',
         'hints_taken': result.get('hints') or 0,
     })):
-        analytics_events.extend(register_completed_game(
+        if replay_slot is not None:
+            from games.replay import mark_replay_completed
+            mark_replay_completed(replay_slot)
+        else:
+            analytics_events.extend(register_completed_game(
             user=user,
             anon_key=anon_key,
             analytics_user=request.user if request.user.is_authenticated else None,
@@ -625,13 +649,13 @@ def alphabetty_guess(request, number):
             game=game,
             result=PlayerCompletedGame.RESULT_SOLVED,
         ))
-        from games.daily_timing import complete_daily_timing
-        timing = complete_daily_timing(
+            from games.daily_timing import complete_daily_timing
+            timing = complete_daily_timing(
             game=game,
             task_group=task.task_group,
             user=user,
             anon_key=anon_key,
-        )
+            )
         if timing:
             result['daily_timing'] = timing
     if analytics_events:
@@ -691,6 +715,17 @@ def alphabetty_hint(request, number):
     )
     if context_error:
         return context_error_response(context_error)
+    try:
+        replay_slot = replay_for_request(
+            request=request, game=game, task_group=task.task_group,
+            user=user, anon_key=anon_key,
+        )
+    except StaleReplayError:
+        return JsonResponse({'status': 'error', 'error': 'stale_replay', 'reload_required': True})
+    if replay_slot is None and _official_exists(
+        game=game, task_group=task.task_group, user=user, anon_key=anon_key,
+    ):
+        return JsonResponse({'status': 'error', 'error': 'replay_required', 'reload_required': True})
 
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
@@ -702,9 +737,10 @@ def alphabetty_hint(request, number):
         number=play_number,
         share_host=_share_host(request),
         play_path=play_path,
+        replay_slot=replay_slot,
     )
     if result.get('status') == 'ok':
-        analytics_events = register_started_game(
+        analytics_events = [] if replay_slot is not None else register_started_game(
             user=user,
             anon_key=anon_key,
             analytics_user=request.user if request.user.is_authenticated else None,

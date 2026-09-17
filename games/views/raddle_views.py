@@ -35,14 +35,16 @@ from games.views.util import effective_play_mode, get_public_task_or_404, has_pr
 from games.analytics_identity import gameplay_anon_key
 from games.auth_observability import log_gameplay_attempt_created
 from games.gameplay_context import context_error_response, validate_gameplay_context
+from games.replay import replay_for_request, StaleReplayError, _official_exists
 
 
-def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_key=None, task=None, game=None):
+def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_key=None, task=None, game=None, replay_slot=None):
     """load_raddle_state из CTS; если пусто — из последней Attempt.state (после anon-migrate)."""
     if row.state:
         return load_raddle_state(row.state, n_words)
     attempts = Attempt.manager.get_all_attempts(
         team=team, task=task, user=user, anon_key=anon_key, game=game,
+        replay_slot=replay_slot,
     )
     for a in reversed(attempts):
         if a.state:
@@ -74,7 +76,7 @@ def _actor_from_request(request, game):
     return team, user, anon_key, None
 
 
-def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, word_index, current_mode):
+def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, word_index, current_mode, replay_slot=None):
     """Тир 2 (💡💡): открыть ответ, послав верную посылку, чтобы слово зачлось."""
     from games.views.attempt_views import check_attempt
 
@@ -83,14 +85,17 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
         ChainTaskState.objects.get_or_create(
             team=team, user=user, anon_key=anon_key,
             task=task, game=game, game_mode=current_mode,
+            replay_slot=replay_slot,
             defaults={'state': None},
         )
         row = ChainTaskState.objects.select_for_update().get(
             team=team, user=user, anon_key=anon_key,
             task=task, game=game, game_mode=current_mode,
+            replay_slot=replay_slot,
         )
         state = _chain_state_with_attempt_fallback(
             row, n, team=team, user=user, anon_key=anon_key, task=task, game=game,
+            replay_slot=replay_slot,
         )
         if word_index in set(state.get('solved_indices') or []):
             return {'status': 'already_solved'}
@@ -103,7 +108,7 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
         hint = find_raddle_assist_hint(task, word_index, 2)
         if hint is not None:
             try:
-                create_hint_attempt(hint, team=team, user=user, anon_key=anon_key, game=game)
+                create_hint_attempt(hint, team=team, user=user, anon_key=anon_key, game=game, replay_slot=replay_slot)
             except DuplicateAttemptException:
                 pass
 
@@ -120,6 +125,7 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
     attempt.task = task
     attempt.time = timezone.now()
     attempt.game = game
+    attempt.replay_slot = replay_slot
     try:
         check_attempt(attempt)
     except DuplicateAttemptException:
@@ -132,7 +138,7 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
         )
 
     result = {'status': 'ok', 'task_id': task.id}
-    analytics_events = register_started_game(
+    analytics_events = [] if replay_slot is not None else register_started_game(
         team=team,
         user=user,
         anon_key=anon_key,
@@ -141,7 +147,11 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
         game=game,
     )
     if supported_game_kind(game) and is_task_completion_state(task, attempt.state):
-        analytics_events.extend(register_completed_game(
+        if replay_slot is not None:
+            from games.replay import mark_replay_completed
+            mark_replay_completed(replay_slot)
+        else:
+            analytics_events.extend(register_completed_game(
             team=team,
             user=user,
             anon_key=anon_key,
@@ -150,32 +160,34 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
             game=game,
             result=PlayerCompletedGame.RESULT_SOLVED,
         ))
-        from games.daily_timing import complete_daily_timing
-        timing = complete_daily_timing(
+            from games.daily_timing import complete_daily_timing
+            timing = complete_daily_timing(
             game=game,
             task_group=task.task_group,
             user=user,
             anon_key=anon_key,
             team=team,
-        )
+            )
         if timing:
             result['daily_timing'] = timing
     if analytics_events:
         result['analytics_events'] = analytics_events
     update_html = update_task_html(
         request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+        replay_slot=replay_slot,
     )
-    track_actor_task_change(
-        task,
-        team=team,
-        update_html=update_html,
-        request=request,
-        game=game,
-        user=user,
-        anon_key=anon_key,
-        current_mode=current_mode,
-        reason='raddle.answer_revealed',
-    )
+    if replay_slot is None:
+        track_actor_task_change(
+            task,
+            team=team,
+            update_html=update_html,
+            request=request,
+            game=game,
+            user=user,
+            anon_key=anon_key,
+            current_mode=current_mode,
+            reason='raddle.answer_revealed',
+        )
     result.update(update_html)
     return result
 
@@ -197,6 +209,17 @@ def process_send_raddle_assist(request, task_id):
     )
     if context_error:
         return context_error
+    try:
+        replay_slot = replay_for_request(
+            request=request, game=game, task_group=task.task_group,
+            team=team, user=user, anon_key=anon_key,
+        )
+    except StaleReplayError:
+        return {'status': 'error', 'error': 'stale_replay', 'reload_required': True}
+    if replay_slot is None and _official_exists(
+        game=game, task_group=task.task_group, team=team, user=user, anon_key=anon_key,
+    ):
+        return {'status': 'error', 'error': 'replay_required', 'reload_required': True}
 
     try:
         word_index = int(request.POST.get('word_index', -1))
@@ -221,21 +244,24 @@ def process_send_raddle_assist(request, task_id):
     if tier == 2:
         return _reveal_raddle_answer(
             request, task, game, team, user, anon_key,
-            parsed, word_index, current_mode,
+            parsed, word_index, current_mode, replay_slot,
         )
 
     with transaction.atomic():
         ChainTaskState.objects.get_or_create(
             team=team, user=user, anon_key=anon_key,
             task=task, game=game, game_mode=current_mode,
+            replay_slot=replay_slot,
             defaults={'state': None},
         )
         chain_row = ChainTaskState.objects.select_for_update().get(
             team=team, user=user, anon_key=anon_key,
             task=task, game=game, game_mode=current_mode,
+            replay_slot=replay_slot,
         )
         state = _chain_state_with_attempt_fallback(
             chain_row, n, team=team, user=user, anon_key=anon_key, task=task, game=game,
+            replay_slot=replay_slot,
         )
         if word_index in set(state.get('solved_indices') or []):
             return {'status': 'already_solved'}
@@ -252,7 +278,7 @@ def process_send_raddle_assist(request, task_id):
         hint = find_raddle_assist_hint(task, word_index, tier)
         if hint is not None:
             try:
-                create_hint_attempt(hint, team=team, user=user, anon_key=anon_key, game=game)
+                create_hint_attempt(hint, team=team, user=user, anon_key=anon_key, game=game, replay_slot=replay_slot)
             except DuplicateAttemptException:
                 return {'status': 'duplicate'}
 
@@ -261,7 +287,7 @@ def process_send_raddle_assist(request, task_id):
         chain_row.save(update_fields=['state', 'updated_at'])
 
     result = {'status': 'ok', 'task_id': task.id}
-    analytics_events = register_started_game(
+    analytics_events = [] if replay_slot is not None else register_started_game(
         team=team,
         user=user,
         anon_key=anon_key,
@@ -273,18 +299,20 @@ def process_send_raddle_assist(request, task_id):
         result['analytics_events'] = analytics_events
     update_html = update_task_html(
         request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+        replay_slot=replay_slot,
     )
-    track_actor_task_change(
-        task,
-        team=team,
-        update_html=update_html,
-        request=request,
-        game=game,
-        user=user,
-        anon_key=anon_key,
-        current_mode=current_mode,
-        reason='raddle.assist_taken',
-    )
+    if replay_slot is None:
+        track_actor_task_change(
+            task,
+            team=team,
+            update_html=update_html,
+            request=request,
+            game=game,
+            user=user,
+            anon_key=anon_key,
+            current_mode=current_mode,
+            reason='raddle.assist_taken',
+        )
     result.update(update_html)
     return result
 
@@ -319,6 +347,17 @@ def process_send_raddle_ui(request, task_id):
     )
     if context_error:
         return context_error
+    try:
+        replay_slot = replay_for_request(
+            request=request, game=game, task_group=task.task_group,
+            team=team, user=user, anon_key=anon_key,
+        )
+    except StaleReplayError:
+        return {'status': 'error', 'error': 'stale_replay', 'reload_required': True}
+    if replay_slot is None and _official_exists(
+        game=game, task_group=task.task_group, team=team, user=user, anon_key=anon_key,
+    ):
+        return {'status': 'error', 'error': 'replay_required', 'reload_required': True}
 
     drafts_patch = _parse_raddle_ui_patch(request.POST.get('drafts'))
     marks_patch = _parse_raddle_ui_patch(request.POST.get('clue_marks'))
@@ -335,14 +374,17 @@ def process_send_raddle_ui(request, task_id):
         ChainTaskState.objects.get_or_create(
             team=team, user=user, anon_key=anon_key,
             task=task, game=game, game_mode=current_mode,
+            replay_slot=replay_slot,
             defaults={'state': None},
         )
         chain_row = ChainTaskState.objects.select_for_update().get(
             team=team, user=user, anon_key=anon_key,
             task=task, game=game, game_mode=current_mode,
+            replay_slot=replay_slot,
         )
         state = _chain_state_with_attempt_fallback(
             chain_row, n, team=team, user=user, anon_key=anon_key, task=task, game=game,
+            replay_slot=replay_slot,
         )
         state = merge_raddle_ui_state(
             state, n, drafts_patch=drafts_patch, clue_marks_patch=marks_patch,
@@ -351,16 +393,17 @@ def process_send_raddle_ui(request, task_id):
         chain_row.save(update_fields=['state', 'updated_at'])
 
     payload = {'raddle_ui': raddle_ui_payload(state, task.id)}
-    track_actor_task_change(
-        task,
-        team=team,
-        update_html=payload,
-        game=game,
-        user=user,
-        anon_key=anon_key,
-        current_mode=current_mode,
-        reason='raddle.ui_state',
-    )
+    if replay_slot is None:
+        track_actor_task_change(
+            task,
+            team=team,
+            update_html=payload,
+            game=game,
+            user=user,
+            anon_key=anon_key,
+            current_mode=current_mode,
+            reason='raddle.ui_state',
+        )
     result = {'status': 'ok', 'task_id': task.id}
     result.update(payload)
     return result

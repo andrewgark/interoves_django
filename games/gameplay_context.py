@@ -39,7 +39,10 @@ def actor_descriptor(*, team=None, user=None, anon_key=None):
     return None, None
 
 
-def issue_gameplay_context(*, task=None, task_group=None, game, team=None, user=None, anon_key=None):
+def issue_gameplay_context(
+    *, task=None, task_group=None, game, team=None, user=None, anon_key=None,
+    replay_slot=None,
+):
     actor_kind, actor_id = actor_descriptor(team=team, user=user, anon_key=anon_key)
     if not actor_kind:
         return ''
@@ -55,6 +58,9 @@ def issue_gameplay_context(*, task=None, task_group=None, game, team=None, user=
         payload['task_group_id'] = str(task_group.pk)
     else:
         raise ValueError('task or task_group is required')
+    if replay_slot is not None:
+        payload['replay_slot_id'] = str(replay_slot.pk)
+        payload['replay_run_id'] = str(replay_slot.run_id)
     return signing.dumps(payload, salt=GAMEPLAY_CONTEXT_SALT, compress=True)
 
 
@@ -107,6 +113,8 @@ def validate_gameplay_context(
     request.interoves_gameplay_actor_kind = current_kind
     request.interoves_gameplay_task_id = str(task.pk) if task is not None else None
     request.interoves_gameplay_task_group_id = str(task_group.pk) if task_group is not None else None
+    request.interoves_replay_slot_id = None
+    request.interoves_replay_run_id = None
     if not token:
         request.interoves_gameplay_context_result = 'missing_legacy'
         request.interoves_gameplay_context_expected = None
@@ -126,6 +134,8 @@ def validate_gameplay_context(
 
     if not isinstance(payload, dict):
         return _error(request, 'invalid_gameplay_context', current=current_kind)
+    request.interoves_replay_slot_id = payload.get('replay_slot_id')
+    request.interoves_replay_run_id = payload.get('replay_run_id')
     expected_kind = payload.get('actor_kind')
     expected_id = payload.get('actor_id')
     if payload.get('v') != GAMEPLAY_CONTEXT_VERSION:

@@ -220,7 +220,7 @@ def _resolve_word_salad_actor(team_id, user_id, anon_key):
     return {'team': team, 'user': user, 'anon_key': anon_key}
 
 
-def _word_salad_attempts(task, *, team=None, user=None, anon_key=None, game=None):
+def _word_salad_attempts(task, *, team=None, user=None, anon_key=None, game=None, replay_slot=None):
     queryset = Attempt.manager._filter_by_actor(
         Attempt.manager.filter(task=task),
         team=team,
@@ -229,6 +229,7 @@ def _word_salad_attempts(task, *, team=None, user=None, anon_key=None, game=None
     )
     if game is not None:
         queryset = queryset.filter(game=game)
+    queryset = queryset.filter(replay_slot=replay_slot)
     return list(queryset.order_by('time', 'id'))
 
 
@@ -523,6 +524,7 @@ def sync_word_salad_finds(
     user=None,
     anon_key=None,
     game=None,
+    replay_slot=None,
 ):
     """Persist localStorage finds against the current answer/rare/extra lists."""
     from games.word_salad import (
@@ -560,22 +562,25 @@ def sync_word_salad_finds(
         probe = Attempt(
             time=timezone.now(), task=task, game=game,
             team=team, user=user, anon_key=anon_key,
+            replay_slot=replay_slot,
         )
         mode = game.get_current_mode(probe)
         ChainTaskState.objects.get_or_create(
             team=team, user=user, anon_key=anon_key,
             task=task, game=game, game_mode=mode,
+            replay_slot=replay_slot,
             defaults={'state': None},
         )
         row = ChainTaskState.objects.select_for_update().get(
             team=team, user=user, anon_key=anon_key,
-            task=task, game=game, game_mode=mode,
+            task=task, game=game, game_mode=mode, replay_slot=replay_slot,
         )
         grid, required, rares = parse_task_payload(task.checker_data, task.answer or '')
         last_state = row.state
         state = load_state(last_state)
         existing = _word_salad_attempts(
             task, team=team, user=user, anon_key=anon_key, game=game,
+            replay_slot=replay_slot,
         )
         seen_texts = {attempt.text for attempt in existing}
         stamp = next(
@@ -611,6 +616,7 @@ def sync_word_salad_finds(
                     team=team, user=user, anon_key=anon_key,
                     task=task, game=game, text=text,
                     status='Pending', points=0,
+                    replay_slot=replay_slot,
                 )
                 attempt.task_revision = task.attempt_revision
                 result = _check_word_salad_attempt(

@@ -25,8 +25,10 @@ from games.models import (
     PlayerCompletedGame,
     PlayerStartedGame,
     DailySolveTiming,
+    ReplaySlot,
     StatisticsEvent,
 )
+from games.replay import replay_actor_key
 
 
 @transaction.atomic
@@ -56,6 +58,7 @@ def claim_and_migrate_anon_history(user, anon_key):
         if claim.user_id != user.pk:
             return {'status': 'claimed_elsewhere', 'moved_any': False}
 
+    moved_replays = migrate_anon_replay_slots(user, anon_key)
     moved = Attempt.manager.filter(anon_key=anon_key, user__isnull=True, team__isnull=True).update(
         user=user,
         anon_key=None,
@@ -77,7 +80,7 @@ def claim_and_migrate_anon_history(user, anon_key):
     moved_any = bool(
         moved or moved_hints or moved_states or moved_starts or moved_timings or moved_completions
         or moved_analytics_state or moved_personal_dict or moved_likes
-        or moved_bug_reports or moved_dict_suggestions
+        or moved_bug_reports or moved_dict_suggestions or moved_replays
     )
     if moved_any:
         StatisticsEvent.record(
@@ -94,6 +97,7 @@ def claim_and_migrate_anon_history(user, anon_key):
             moved_likes=moved_likes,
             moved_bug_reports=moved_bug_reports,
             moved_dict_suggestions=moved_dict_suggestions,
+            moved_replays=moved_replays,
         )
     return {
         'status': 'ok',
@@ -108,7 +112,33 @@ def claim_and_migrate_anon_history(user, anon_key):
         'moved_likes': moved_likes,
         'moved_bug_reports': moved_bug_reports,
         'moved_dict_suggestions': moved_dict_suggestions,
+        'moved_replays': moved_replays,
     }
+
+
+@transaction.atomic
+def migrate_anon_replay_slots(user, anon_key):
+    """Claim replay slots; an existing user slot wins deterministically."""
+    if not user or not anon_key:
+        return 0
+    moved = 0
+    rows = list(ReplaySlot.objects.select_for_update().filter(
+        anon_key=anon_key, user__isnull=True, team__isnull=True,
+    ).order_by('pk'))
+    for row in rows:
+        target = ReplaySlot.objects.select_for_update().filter(
+            user=user, team__isnull=True, anon_key__isnull=True,
+            game_id=row.game_id, task_group_id=row.task_group_id,
+        ).first()
+        if target is not None:
+            row.delete()
+        else:
+            row.user = user
+            row.anon_key = None
+            row.actor_key = replay_actor_key(user=user)
+            row.save(update_fields=['user', 'anon_key', 'actor_key', 'updated_at'])
+        moved += 1
+    return moved
 
 
 def anon_migration_counts(anon_key):
@@ -138,6 +168,9 @@ def anon_migration_counts(anon_key):
             anon_key=anon_key, user__isnull=True,
         ).count(),
         'completed_games': PlayerCompletedGame.objects.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).count(),
+        'replay_slots': ReplaySlot.objects.filter(
             anon_key=anon_key, user__isnull=True, team__isnull=True,
         ).count(),
         'analytics_states': PlayerAnalyticsState.objects.filter(
@@ -400,6 +433,7 @@ def migrate_anon_chain_task_states(user, anon_key):
             task_id=row.task_id,
             game_id=row.game_id,
             game_mode=row.game_mode,
+            replay_slot=row.replay_slot,
         ).first()
         if existing is None:
             row.user = user
@@ -480,6 +514,7 @@ def migrate_anon_daily_timings(user, anon_key):
             anon_key__isnull=True,
             game_id=row.game_id,
             task_group_id=row.task_group_id,
+            replay_slot=row.replay_slot,
         ).first()
         if existing is None:
             row.user = user

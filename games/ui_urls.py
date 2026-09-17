@@ -140,6 +140,7 @@ urlpatterns = [
     path('games/<str:game_id>/results/', ui.results_page, name='ui_results'),
     path('games/<str:game_id>/tournament-results/', ui.tournament_results_page, name='ui_tournament_results'),
     path('games/<str:game_id>/<str:number>/results/', ui.game_task_results_page, name='ui_game_task_results'),
+    path('games/<str:game_id>/<str:task_group_number>/replay/', ui.new_replay_start, name='ui_replay_start'),
     path('games/<str:game_id>/<str:task_group_number>/', ui.task_group_page, name='ui_task_group'),
     path('team/name-check/', ui.team_name_check, name='ui_team_name_check'),
     path('team/info/', ui.team_info, name='ui_team_info'),

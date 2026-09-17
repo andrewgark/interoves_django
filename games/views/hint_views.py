@@ -13,6 +13,7 @@ from games.analytics import register_started_game
 from games.analytics_identity import gameplay_anon_key
 from games.gameplay_context import context_error_response, validate_gameplay_context
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
+from games.replay import StaleReplayError, replay_for_request
 from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
@@ -34,7 +35,7 @@ def _hintattempt_filter(team=None, user=None, anon_key=None):
     return {'anon_key': anon_key, 'team__isnull': True, 'user__isnull': True}
 
 
-def create_hint_attempt(hint, team=None, user=None, anon_key=None, game=None):
+def create_hint_attempt(hint, team=None, user=None, anon_key=None, game=None, replay_slot=None):
     task = hint.task
     if game is None:
         game = GameTaskGroup.resolve_game_for_task(task)
@@ -46,12 +47,12 @@ def create_hint_attempt(hint, team=None, user=None, anon_key=None, game=None):
         # allowed two simultaneous requests to create duplicate rows.
         Task.objects.select_for_update().only('pk').get(pk=task.pk)
         actor_filter = _hintattempt_filter(team=team, user=user, anon_key=anon_key)
-        if HintAttempt.objects.filter(hint=hint, **actor_filter).exists():
+        if HintAttempt.objects.filter(hint=hint, replay_slot=replay_slot, **actor_filter).exists():
             raise DuplicateAttemptException('Вы уже запрашивали эту подсказку')
 
         required_hints = set(hint.required_hints.all())
         taken_required = HintAttempt.objects.filter(
-            hint__in=required_hints, **actor_filter
+            hint__in=required_hints, replay_slot=replay_slot, **actor_filter
         ).values('hint_id').distinct().count()
         if taken_required < len(required_hints):
             raise NotAllRequiredHintsTakenException('Вы не можете пока взять эту подсказку')
@@ -61,11 +62,13 @@ def create_hint_attempt(hint, team=None, user=None, anon_key=None, game=None):
             user=user,
             anon_key=anon_key,
             hint=hint,
+            replay_slot=replay_slot,
             time=timezone.now(),
         )
         current_mode = game.get_current_mode(hint_attempt)
         attempts_info = Attempt.manager.get_attempts_info(
             team=team, user=user, anon_key=anon_key, task=task, mode=current_mode, game=game,
+            replay_slot=replay_slot,
         )
         hint_attempt.is_real_request = not attempts_info.is_solved()
         hint_attempt.save()
@@ -112,13 +115,25 @@ def process_send_hint_attempt(request, task_id):
     if context_error:
         return context_error
 
+    try:
+        replay_slot = replay_for_request(
+            request=request, game=game, task_group=task.task_group,
+            team=team, user=user, anon_key=anon_key,
+        )
+    except StaleReplayError:
+        return {'status': 'error', 'error': 'stale_replay', 'reload_required': True}
+    if replay_slot is None:
+        from games.replay import _official_exists
+        if _official_exists(game=game, task_group=task.task_group, team=team, user=user, anon_key=anon_key):
+            return {'status': 'error', 'error': 'replay_required', 'reload_required': True}
+
     hint_number = str(request.POST.get('hint_number', '')).strip()
     if not hint_number:
         raise InvalidFormException('hint_number is required')
     hint = get_object_or_404(Hint, task=task, number=hint_number)
 
     hint_attempt, current_mode = create_hint_attempt(
-        hint, team=team, user=user, anon_key=anon_key, game=game,
+        hint, team=team, user=user, anon_key=anon_key, game=game, replay_slot=replay_slot,
     )
 
     result = {
@@ -126,7 +141,7 @@ def process_send_hint_attempt(request, task_id):
         'task_id': task.id,
     }
     if hint_attempt.is_real_request:
-        analytics_events = register_started_game(
+        analytics_events = [] if replay_slot is not None else register_started_game(
             team=team,
             user=user,
             anon_key=anon_key,
@@ -138,18 +153,20 @@ def process_send_hint_attempt(request, task_id):
             result['analytics_events'] = analytics_events
     update_html = update_task_html(
         request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+        replay_slot=replay_slot,
     )
-    track_actor_task_change(
-        task,
-        team=team,
-        current_mode=current_mode,
-        update_html=update_html,
-        request=request,
-        game=game,
-        user=user,
-        anon_key=anon_key,
-        reason='hint.taken',
-    )
+    if replay_slot is None:
+        track_actor_task_change(
+            task,
+            team=team,
+            current_mode=current_mode,
+            update_html=update_html,
+            request=request,
+            game=game,
+            user=user,
+            anon_key=anon_key,
+            reason='hint.taken',
+        )
     result.update(update_html)
     return result
 

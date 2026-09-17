@@ -89,6 +89,7 @@ def daily_timing_page_context(
     anon_key=None,
     play_mode='personal',
     is_offer=False,
+    replay_slot=None,
 ):
     enabled = bool(
         game is not None
@@ -108,6 +109,7 @@ def daily_timing_page_context(
             game=game,
             user=user,
             anon_key=anon_key,
+            replay_slot=replay_slot,
         )
         if user is not None or anon_key:
             state = snapshot(lookup_timing(
@@ -115,6 +117,7 @@ def daily_timing_page_context(
                 task_group=placement.task_group,
                 user=user,
                 anon_key=anon_key,
+                replay_slot=replay_slot,
             ))
     return {
         'daily_timing_enabled': enabled,
@@ -133,12 +136,18 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
 
     if request.method == 'GET':
         session_id = request.GET.get('session_id') or ''
+        from games.replay import active_replay
+        replay_slot = active_replay(
+            request=request, game=game, task_group=task_group,
+            user=user, anon_key=anon_key,
+        )
         body = snapshot(
             lookup_timing(
                 game=game,
                 task_group=task_group,
                 user=user,
                 anon_key=anon_key,
+                replay_slot=replay_slot,
             ),
             session_id=session_id or None,
         )
@@ -146,6 +155,18 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
         return JsonResponse(body)
 
     payload = _payload(request)
+    from games.replay import replay_for_request, StaleReplayError, _official_exists
+    try:
+        replay_slot = replay_for_request(
+            request=request, game=game, task_group=task_group,
+            user=user, anon_key=anon_key,
+        )
+    except StaleReplayError:
+        return _json_error('stale_replay', 409)
+    if replay_slot is None and _official_exists(
+        game=game, task_group=task_group, user=user, anon_key=anon_key,
+    ):
+        return _json_error('replay_required', 409)
     action = (payload.get('action') or ACTION_START).strip()
     if action not in MUTATING_ACTIONS:
         return _json_error('bad_action', 400)
@@ -171,6 +192,7 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
         seq=payload.get('seq') or 0,
         claimed_ms=payload.get('claimed_ms'),
         create=True,
+        replay_slot=replay_slot,
     )
     if not result.get('exists') and action not in (ACTION_START, ACTION_RESUME):
         result['ok'] = False
