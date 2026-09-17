@@ -1,3 +1,8 @@
+:root {
+	--home-section-padding: 50px;
+	--home-content-gap: 32px;
+}
+
 body, html {
 	font-family: 'Open Sans', sans-serif;
 	text-rendering: optimizeLegibility !important;
@@ -253,8 +258,28 @@ header .btn-custom {
 }
 /* Games Section */
 #games {
-	padding: 50px 0;
+	padding: var(--home-section-padding) 0;
 	background: #f6f6f6;
+}
+
+#games .section-title,
+#myteam .section-title {
+	margin-top: 0;
+	margin-bottom: var(--home-content-gap);
+}
+
+#games .games-container {
+	padding-top: 0;
+	padding-bottom: 0;
+}
+
+#games .games-grid {
+	margin-bottom: 0;
+}
+
+#games .smart-scrollbar-container {
+	margin-top: var(--home-content-gap);
+	margin-bottom: 0;
 }
 #games i.fa {
 	font-size: 38px;
@@ -270,12 +295,15 @@ header .btn-custom {
 }
 /* Register Section */
 #myteam {
-	padding: 50px 0 10px 0;
+	padding: var(--home-section-padding) 0;
 	background: linear-gradient(to right, #6372ff 0%, #5ca9fb 100%);
 	color: rgba(255,255,255,.75);
 }
-#myteam .section-title {
-	margin-bottom: 40px;
+
+@media (max-width: 991px) {
+	.team-layout > [class*="col-"] + [class*="col-"] {
+		margin-top: var(--home-content-gap);
+	}
 }
 #myteam .section-title p {
 	font-size: 16px;
