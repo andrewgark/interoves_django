@@ -83,6 +83,9 @@ urlpatterns = [
     path('alphabetty/results/', ui.section_results_page, {'game_id': 'alphabetty'}, name='new_alphabetty_results'),
     path('alphabetty/<str:number>/results/', ui.section_task_results_page, {'game_id': 'alphabetty'}, name='new_alphabetty_task_results'),
     path('alphabetty/<str:number>/', ui.alphabetty_play_page, name='new_alphabetty_play'),
+    # Must precede the legacy /games/alphabetty/<path:rest> redirect below;
+    # replay is a POST endpoint and must be handled by the replay view.
+    path('games/<str:game_id>/<str:task_group_number>/replay/', ui.new_replay_start, name='new_replay_start'),
     path('games/ladder/today/', RedirectView.as_view(url='/ladder/today/', permanent=True, query_string=True)),
     path('games/ladder/last/', RedirectView.as_view(url='/ladder/last/', permanent=True, query_string=True)),
     path('games/ladder/live-state/', ui.task_group_live_state, {'game_id': 'ladder'}),
@@ -103,7 +106,6 @@ urlpatterns = [
     path('games/<str:game_id>/results/', ui.results_page, name='new_results'),
     path('games/<str:game_id>/tournament-results/', ui.tournament_results_page, name='new_tournament_results'),
     path('games/<str:game_id>/<str:number>/results/', ui.game_task_results_page, name='new_game_task_results'),
-    path('games/<str:game_id>/<str:task_group_number>/replay/', ui.new_replay_start, name='new_replay_start'),
     path('games/<str:game_id>/<str:task_group_number>/', ui.task_group_page, name='new_task_group'),
     path('team/name-check/', ui.team_name_check, name='new_team_name_check'),
     path('team/info/', ui.team_info, name='new_team_info'),
