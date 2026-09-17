@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from games.models import Attempt, ChainTaskState, CHAIN_TASK_TYPES, GameTaskGroup, Team
+from games.models import Attempt, ChainTaskState, CHAIN_TASK_TYPES, Game, GameTaskGroup, Team
 from games.views.views import check_attempt
 from games.views.track import track_actor_task_change, track_attempt_change
 
@@ -21,6 +21,15 @@ def recheck(_, attempt_id, *, notify=True):
         print('REASON: {}'.format(e))
         attempt.skip = True
         attempt.save()
+    if attempt.task.task_type not in CHAIN_TASK_TYPES:
+        from games.analytics import reconcile_completed_game_after_recheck
+        reconcile_completed_game_after_recheck(
+            task=attempt.task,
+            game=attempt.game,
+            team=attempt.team,
+            user=attempt.user if attempt.user_id else None,
+            anon_key=attempt.anon_key,
+        )
     if notify:
         track_attempt_change(attempt, reason='attempt.rechecked')
     return attempt
@@ -46,32 +55,65 @@ def _recheck_many(attempts, *, reason):
 def recheck_full(_, attempt_id=None, task=None):
     if task is None:
         task = get_object_or_404(Attempt, id=attempt_id).task
-    return _recheck_many(
-        Attempt.manager.get_all_task_attempts(task=task, exclude_skip=False),
-        reason='task.rechecked_full',
-    )
+    attempts = list(Attempt.manager.get_all_task_attempts(task=task, exclude_skip=False))
+    if task.task_type in CHAIN_TASK_TYPES:
+        actors = {(a.team_id, a.user_id, a.anon_key, a.game_id) for a in attempts}
+        for team_id, user_id, anon_key, game_id in actors:
+            recheck_chain_task(
+                task=task,
+                team=Team.objects.filter(pk=team_id).first() if team_id else None,
+                user=User.objects.filter(pk=user_id).first() if user_id else None,
+                anon_key=anon_key,
+                game=Game.objects.get(pk=game_id),
+            )
+        return attempts
+    result = _recheck_many(attempts, reason='task.rechecked_full')
+    _reconcile_rechecked_attempts(result)
+    return result
+
+
+def _reconcile_rechecked_attempts(attempts):
+    from games.analytics import reconcile_completed_game_after_recheck
+
+    seen = set()
+    for attempt in attempts:
+        key = (attempt.task_id, attempt.game_id, attempt.team_id, attempt.user_id, attempt.anon_key)
+        if key in seen or attempt.task.task_type in CHAIN_TASK_TYPES:
+            continue
+        seen.add(key)
+        reconcile_completed_game_after_recheck(
+            task=attempt.task,
+            game=attempt.game,
+            team=attempt.team,
+            user=attempt.user if attempt.user_id else None,
+            anon_key=attempt.anon_key,
+        )
 
 
 def recheck_queue_from_this(_, attempt_id):
     this_attempt = get_object_or_404(Attempt, id=attempt_id)
-    return _recheck_many(Attempt.manager.get_all_attempts_after_equal(
+    result = _recheck_many(Attempt.manager.get_all_attempts_after_equal(
         team=this_attempt.team, task=this_attempt.task,
         time=this_attempt.time, exclude_skip=False,
         user=this_attempt.user if this_attempt.user_id else None,
         anon_key=this_attempt.anon_key,
         game=this_attempt.game,
     ), reason='task.rechecked_from_attempt')
+    _reconcile_rechecked_attempts(result)
+    return result
 
 
 def recheck_queue_from_next(_, attempt_id):
     this_attempt = get_object_or_404(Attempt, id=attempt_id)
-    return _recheck_many(Attempt.manager.get_all_attempts_after(
+    result = _recheck_many(Attempt.manager.get_all_attempts_after(
         team=this_attempt.team, task=this_attempt.task,
         time=this_attempt.time, exclude_skip=False,
         user=this_attempt.user if this_attempt.user_id else None,
         anon_key=this_attempt.anon_key,
         game=this_attempt.game,
     ), reason='task.rechecked_after_attempt')
+    _reconcile_rechecked_attempts(result)
+    return result
 
 
 def recheck_team_task_all_chronological(_, attempt_id):
@@ -97,7 +139,9 @@ def recheck_team_task_all_chronological(_, attempt_id):
     attempts = Attempt.manager.get_all_attempts(
         team, task, exclude_skip=False, user=user, anon_key=anon_key,
     )
-    return _recheck_many(attempts, reason='task.rechecked_chronological')
+    result = _recheck_many(attempts, reason='task.rechecked_chronological')
+    _reconcile_rechecked_attempts(result)
+    return result
 
 
 def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None, *, notify=True):
@@ -113,6 +157,7 @@ def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None, *, 
     - Each Attempt.state is updated in the DB as the audit trail.
     """
     from games.check import CheckerFactory
+    from games.analytics import reconcile_completed_game_after_recheck
 
     if game is None:
         game = GameTaskGroup.resolve_game_for_task(task)
@@ -185,6 +230,14 @@ def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None, *, 
         # Persist updated ChainTaskState rows.
         for row in locked_rows.values():
             row.save(update_fields=['state', 'last_attempt', 'updated_at'])
+
+        reconcile_completed_game_after_recheck(
+            task=task,
+            game=game,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+        )
 
     if notify:
         track_actor_task_change(

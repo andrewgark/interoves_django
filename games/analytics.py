@@ -755,6 +755,58 @@ def _ensure_completed_record(
     return record, created
 
 
+def reconcile_completed_game_after_recheck(
+    *, team=None, user=None, anon_key=None, task, game, mode='general',
+):
+    """Reconcile the official completion flag with the rebuilt game state.
+
+    Rechecks can both add and remove the final solved step.  Keep the
+    PlayerCompletedGame row in sync without emitting a new analytics goal for
+    a historical/admin repair.
+    """
+    game_kind = supported_game_kind(game)
+    actor = _actor_kwargs(team=team, user=user, anon_key=anon_key)
+    task_group = getattr(task, 'task_group', None)
+    if not game_kind or actor is None or task_group is None:
+        return False
+
+    instance_id = game_instance_id_for_task_group(game, task_group)
+    completion_qs = PlayerCompletedGame.objects.filter(
+        game_instance_id=instance_id,
+        **actor,
+    )
+    if is_task_group_complete(
+        task_group=task_group,
+        game=game,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        mode=mode,
+        replay_slot=None,
+    ):
+        record, _created = _ensure_completed_record(
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            game=game,
+            task=task,
+            game_kind=game_kind,
+            result=PlayerCompletedGame.RESULT_SOLVED,
+            is_backfilled=True,
+            source='task_recheck',
+            mode=mode,
+        )
+        if record is not None and record.result != PlayerCompletedGame.RESULT_SOLVED:
+            completion_qs.update(result=PlayerCompletedGame.RESULT_SOLVED)
+        changed = True
+    else:
+        changed = bool(completion_qs.delete()[0])
+
+    from games.daily_statistics import invalidate_daily_statistics
+    invalidate_daily_statistics(game.id, task_group.id)
+    return changed
+
+
 def _backfill_supported_game_completions(
     *, team=None, user=None, anon_key=None, exclude_instance_id=None
 ):

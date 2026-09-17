@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from games.models import (
     Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, HTMLPage,
-    Project, Task, TaskGroup, Team, CHAIN_TASK_TYPES,
+    PlayerCompletedGame, Project, Task, TaskGroup, Team, CHAIN_TASK_TYPES,
 )
 from games.exception import DuplicateAttemptException
 from games.recheck import recheck_chain_task
@@ -451,6 +451,50 @@ class ModeIsolationTests(_ChainFixture, TestCase):
 # recheck_chain_task: rebuilds state correctly from scratch
 # ===========================================================================
 class RecheckChainTaskTests(_ChainFixture, TestCase):
+
+    def test_recheck_creates_completion_flag_when_group_becomes_complete(self):
+        self.repl_task.text = 'line 0\nline 1'
+        self.repl_task.save(update_fields=['text'])
+        a1 = _make_attempt(self.repl_task, self.team, _repl_text(0, ['answer1']))
+        check_attempt(a1)
+        a2 = _make_attempt(self.repl_task, self.team, _repl_text(1, ['answer2']))
+        check_attempt(a2)
+
+        # The fixture uses a team actor; the completion row is keyed by that team.
+        with patch('games.analytics.supported_game_kind', return_value='replacement'):
+            recheck_chain_task(task=self.repl_task, team=self.team)
+
+        self.assertTrue(PlayerCompletedGame.objects.filter(
+            team=self.team,
+            game=self.game,
+            task_group=self.repl_task.task_group,
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        ).exists())
+
+    def test_recheck_removes_stale_completion_flag_when_group_becomes_incomplete(self):
+        self.repl_task.text = 'line 0\nline 1'
+        self.repl_task.save(update_fields=['text'])
+        a1 = _make_attempt(self.repl_task, self.team, _repl_text(0, ['answer1']))
+        check_attempt(a1)
+        PlayerCompletedGame.objects.create(
+            team=self.team,
+            game=self.game,
+            task_group=self.repl_task.task_group,
+            game_kind='replacement',
+            game_instance_id='{}:{}'.format(self.game.id, self.repl_task.task_group_id),
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        a1.text = _repl_text(0, ['wrong'])
+        a1.save(update_fields=['text'])
+
+        with patch('games.analytics.supported_game_kind', return_value='replacement'):
+            recheck_chain_task(task=self.repl_task, team=self.team)
+
+        self.assertFalse(PlayerCompletedGame.objects.filter(
+            team=self.team,
+            game=self.game,
+            task_group=self.repl_task.task_group,
+        ).exists())
 
     def test_recheck_rebuilds_state_from_scratch(self):
         """After recheck, ChainTaskState matches what check_attempt would produce."""
