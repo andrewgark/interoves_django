@@ -45,6 +45,36 @@ def assert_rules_beside_title(test_case, html):
 
 
 class PageHeadingPartialTests(SimpleTestCase):
+    def test_daily_header_keeps_replay_button_during_a_replay(self):
+        html = render_to_string(
+            'new/partials/daily_game_header.html',
+            {
+                'heading': 'Салатик №25',
+                'daily_publish_date': timezone.localdate(),
+                'official_completed': True,
+                'replay_active': True,
+                'replay_completed': True,
+                'game': SimpleNamespace(id='word_salad', theme='', tags={}),
+                'tg_number': 25,
+            },
+        )
+        self.assertIn('Сыграть заново', html)
+
+    def test_daily_header_hides_replay_button_without_official_completion(self):
+        html = render_to_string(
+            'new/partials/daily_game_header.html',
+            {
+                'heading': 'Салатик №25',
+                'daily_publish_date': timezone.localdate(),
+                'official_completed': False,
+                'replay_active': True,
+                'replay_completed': False,
+                'game': SimpleNamespace(id='word_salad', theme='', tags={}),
+                'tg_number': 25,
+            },
+        )
+        self.assertNotIn('Сыграть заново', html)
+
     def test_daily_header_combines_date_navigation_and_timer(self):
         today = timezone.localdate()
         html = render_to_string(

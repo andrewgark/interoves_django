@@ -97,6 +97,7 @@ def daily_timing_page_context(
         and is_daily_timing_game(game.id)
         and not is_offer
         and play_mode != 'team'
+        and replay_slot is None
     )
     state = empty_snapshot()
     url = ''

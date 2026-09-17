@@ -27,6 +27,7 @@ from games.daily_timing import (
     lookup_timing,
     merge_timing_rows,
 )
+from games.views.daily_timing_views import daily_timing_page_context
 from games.models import (
     CheckerType,
     DailySolveTiming,
@@ -65,6 +66,16 @@ class DailyTimingScopeTests(SimpleTestCase):
             _is_mysql_deadlock(OperationalError(1205, 'Lock wait timeout exceeded'))
         )
         self.assertFalse(_is_mysql_deadlock(IntegrityError(1062, 'Duplicate entry')))
+
+    def test_replays_do_not_enable_the_official_timer(self):
+        context = daily_timing_page_context(
+            None,
+            SimpleNamespace(id=WORD_SALAD_GAME_ID),
+            SimpleNamespace(number='26', task_group=SimpleNamespace()),
+            replay_slot=SimpleNamespace(),
+        )
+        self.assertFalse(context['daily_timing_enabled'])
+        self.assertEqual(context['daily_timing_url'], '')
 
 
 class DailyTimingDomainTests(TestCase):
