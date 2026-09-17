@@ -1,5 +1,5 @@
 {% load filters %}
-<div class="new-word-salad" data-word-salad-root data-task-id="{{ task.id }}" data-replay-run-id="{{ replay_slot.run_id|default:'' }}" data-word-points="{{ ws.word_points|minimize_digits }}" data-hint-penalty="{{ ws.hint_penalty|minimize_digits }}" data-rare-words="{{ ws.rare_normalized|join:',' }}">
+<div class="new-word-salad" data-word-salad-root data-task-id="{{ task.id }}" data-task-revision="{{ task.attempt_revision }}" data-replay-run-id="{{ replay_slot.run_id|default:'' }}" data-word-points="{{ ws.word_points|minimize_digits }}" data-hint-penalty="{{ ws.hint_penalty|minimize_digits }}" data-rare-words="{{ ws.rare_normalized|join:',' }}">
   {% with theme=task.text|word_salad_theme %}
   {% if theme %}
     <p class="new-word-salad__intro">

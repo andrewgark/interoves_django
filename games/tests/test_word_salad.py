@@ -48,6 +48,7 @@ from games.word_salad import (
     RARE_FOUND_TOOLTIP,
     validate_task_data,
 )
+from games.word_salad_offer import reset_all_salad_progress
 
 
 def _setup_db():
@@ -1042,6 +1043,30 @@ class WordSaladTests(TestCase):
             task=self.task, anon_key=anon_key, game=self.game, game_mode='general',
         )
         self.assertEqual(json.loads(state.state)['solved_indices'], [])
+
+    def test_reset_all_progress_rotates_task_revision_for_browser_caches(self):
+        with patch('games.views.attempt_views.track_actor_task_change'):
+            response = self._post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': 'word-salad-reset-cache',
+                    'action': 'solve',
+                    'path': json.dumps(_path()),
+                    'correct_only': '1',
+                },
+            )
+        self.assertTrue(response.json()['word_salad_correct'])
+        old_revision = self.task.attempt_revision
+
+        stats = reset_all_salad_progress(task=self.task, game_id=self.game.pk)
+
+        self.assertEqual(stats['attempts'], 1)
+        self.assertEqual(stats['chains'], 1)
+        self.task.refresh_from_db()
+        self.assertNotEqual(self.task.attempt_revision, old_revision)
+        self.assertFalse(Attempt.manager.filter(task=self.task).exists())
+        self.assertFalse(ChainTaskState.objects.filter(task=self.task).exists())
 
     def test_recheck_does_not_complete_unfinished_actor(self):
         anon_key = 'word-salad-recheck-hint'

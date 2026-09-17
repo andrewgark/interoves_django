@@ -340,8 +340,9 @@
   function extrasStorageKey(root) {
     try {
       var taskId = root.getAttribute('data-task-id') || '';
+      var taskRevision = root.getAttribute('data-task-revision') || '';
       var replayRunId = root.getAttribute('data-replay-run-id') || '';
-      return 'interoves_word_salad_extras_v2:' + taskId + ':' + replayRunId;
+      return 'interoves_word_salad_extras_v3:' + taskId + ':' + taskRevision + ':' + replayRunId;
     } catch (error) {
       return '';
     }
@@ -350,8 +351,9 @@
   function latestStorageKey(root) {
     try {
       var taskId = root.getAttribute('data-task-id') || '';
+      var taskRevision = root.getAttribute('data-task-revision') || '';
       var replayRunId = root.getAttribute('data-replay-run-id') || '';
-      return 'interoves_word_salad_latest_v2:' + taskId + ':' + replayRunId;
+      return 'interoves_word_salad_latest_v3:' + taskId + ':' + taskRevision + ':' + replayRunId;
     } catch (error) {
       return '';
     }

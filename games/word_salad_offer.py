@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import secrets
+import uuid
 from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
@@ -632,6 +633,10 @@ def reset_all_salad_progress(
     n_chains = chain_qs.count()
     chain_qs.delete()
     attempt_qs.delete()
+    # The new UI also keeps dictionary finds in localStorage. Rotate the
+    # task's attempt revision so an old browser-side cache cannot be sent back
+    # through sync_finds after this reset.
+    Task.objects.filter(pk=task.pk).update(attempt_revision=uuid.uuid4())
     return {
         'attempts': n_attempts,
         'chains': n_chains,
