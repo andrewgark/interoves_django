@@ -954,6 +954,29 @@
     showMsg('');
     stateGen += 1;
     var headers = gameplayHeaders();
+    function recoverGuessFromState() {
+      if (!stateUrl) return Promise.reject(new Error('Состояние игры недоступно'));
+      var url = stateUrl;
+      if (!isAuthenticated && anonKey) {
+        url += (url.indexOf('?') >= 0 ? '&' : '?') + 'anon=' + encodeURIComponent(anonKey);
+      }
+      return fetch(url, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      }).then(function (response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.json();
+      }).then(function (data) {
+        if (!data || data.status === 'error') throw new Error('Состояние игры недоступно');
+        applyState(data);
+        if (!Array.isArray(data.guesses) || data.guesses.indexOf(word) < 0) {
+          throw new Error('Ответ не найден в состоянии игры');
+        }
+        input.value = '';
+        expanded = {};
+        showMsg(data.won ? 'Верно!' : '');
+      });
+    }
     fetch(guessUrl, {
       method: 'POST',
       headers: headers,
@@ -961,7 +984,14 @@
       body: JSON.stringify({ word: word, anon_key: anonKey })
     })
       .then(function (r) {
-        return r.json().then(function (data) {
+        return r.text().then(function (text) {
+          var data;
+          try {
+            data = JSON.parse(text);
+          } catch (error) {
+            error.response = r;
+            throw error;
+          }
           if (handleGameplayContextResponse(r, data)) return data;
           if (!r.ok && data && data.status === 'error') throw new Error(data.error || 'Ошибка');
           return data;
@@ -1002,7 +1032,14 @@
         if (data.status === 'correct') showMsg('Верно!', 'ok');
         else showMsg('');
       })
-      .catch(function (e) { showMsg((e && e.message) || 'Сеть недоступна', 'error'); })
+      .catch(function (e) {
+        // The guess may already be committed when a proxy returns an HTML
+        // error page instead of the JSON response. Reconcile from the server
+        // before showing a false network error to the player.
+        return recoverGuessFromState().catch(function () {
+          showMsg((e && e.message) || 'Сеть недоступна', 'error');
+        });
+      })
       .finally(function () { busy = false; updateHintButton(); });
   }
 
