@@ -352,6 +352,13 @@ def _task_group_results_url(game, number, *, project_base=''):
     return '/games/{}/{}/results/'.format(game.id, number)
 
 
+def _task_group_replay_url(game, number, *, project_base=''):
+    if project_base:
+        return '{}/games/{}/{}/replay/'.format(project_base, game.id, number)
+    from games.section_paths import section_replay_path
+    return section_replay_path(game.id, number)
+
+
 def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
     """Подписи верхнего «назад к списку» и нижнего пейджера кругов."""
     if game.project_id == NEW_UI_SECTIONS_PROJECT:
@@ -1744,6 +1751,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'prev_task_group_url': '{}/games/{}/{}/'.format(base, game.id, prev_tg.number) if prev_tg else None,
         'next_task_group_url': '{}/games/{}/{}/'.format(base, game.id, next_tg.number) if next_tg else None,
         'task_group_results_url': _task_group_results_url(game, placement.number, project_base=base),
+        'replay_url': _task_group_replay_url(game, placement.number, project_base=base),
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
         'tg_number': placement.number,
         'tg_name': placement.name,
@@ -3414,6 +3422,7 @@ def new_task_group_page(request, game_id, task_group_number):
             _play_url_for_task_group(game, next_tg.number) if next_tg else None
         ),
         'task_group_results_url': _task_group_results_url(game, placement.number),
+        'replay_url': _task_group_replay_url(game, placement.number),
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
         'tg_number': placement.number,
         'tg_name': placement.name,
@@ -3479,9 +3488,13 @@ def new_task_group_page(request, game_id, task_group_number):
 
 
 @require_POST
-def new_replay_start(request, game_id, task_group_number):
+def new_replay_start(request, game_id, task_group_number, project_id=None):
     """Explicitly start/reset the private replay slot for one task group."""
-    game = get_object_or_404(Game, id=game_id)
+    if project_id:
+        project = get_object_or_404(Project, id=project_id)
+        game = get_object_or_404(Game, id=game_id, project=project)
+    else:
+        game = get_object_or_404(Game, id=game_id)
     placement = get_object_or_404(
         GameTaskGroup.objects.select_related('task_group'),
         game=game,
@@ -3510,6 +3523,10 @@ def new_replay_start(request, game_id, task_group_number):
         user=user,
         anon_key=anon_key,
     )
+    if project_id:
+        return redirect(_play_url_for_task_group(
+            game, placement.number, project_base=_project_base(project_id),
+        ))
     return redirect(_play_url_for_task_group(game, placement.number))
 
 

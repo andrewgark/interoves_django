@@ -23,6 +23,7 @@ urlpatterns = [
     path('ladder/progress/', ui.game_task_group_progress, {'game_id': 'ladder'}, name='new_ladder_progress'),
     path('ladder/live-state/', ui.task_group_live_state, {'game_id': 'ladder'}, name='new_ladder_live_state'),
     path('ladder/', ui.ladder_hub_page, name='new_ladder_hub'),
+    path('ladder/<str:task_group_number>/replay/', ui.new_replay_start, {'game_id': 'ladder'}),
     # Must precede ladder/<str>/ so "results" is not treated as a task-group number.
     path('ladder/results/', ui.section_results_page, {'game_id': 'ladder'}),
     path('ladder/<str:task_group_number>/results/', ui.ladder_word_results_page, name='new_ladder_word_results'),
@@ -48,6 +49,8 @@ urlpatterns = [
     path('alphabetty/progress/', ui.game_task_group_progress, {'game_id': 'alphabetty'}, name='new_alphabetty_progress'),
     path('alphabetty/live-state/', ui.task_group_live_state, {'game_id': 'alphabetty'}, name='new_alphabetty_live_state'),
     path('alphabetty/', ui.alphabetty_hub_page, name='new_alphabetty_hub'),
+    path('alphabetty/<str:task_group_number>/replay/', ui.new_replay_start, {'game_id': 'alphabetty'}),
+    path('salad/<str:task_group_number>/replay/', ui.new_replay_start, {'game_id': 'salad'}),
     path('create_alphabetty/', ui.alphabetty_create_page, name='new_create_alphabetty'),
     path('create_alphabetty/create/', ui.alphabetty_create_submit, name='new_create_alphabetty_create'),
     path('create_alphabetty/<int:offer_id>/', ui.offer_alphabetty_detail, name='new_create_alphabetty_detail'),

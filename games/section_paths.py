@@ -52,6 +52,13 @@ def section_progress_path(game_id: str) -> str:
     return '/games/{}/progress/'.format(game_id)
 
 
+def section_replay_path(game_id: str, number) -> str:
+    """POST endpoint for replaying one task group, next to its play URL."""
+    if is_root_section_game(game_id):
+        return '/{}/{}/replay/'.format(game_id, number)
+    return '/games/{}/{}/replay/'.format(game_id, number)
+
+
 def section_results_path(game_id: str) -> str:
     if game_id == LADDER_GAME_ID:
         return '/ladder/results/'

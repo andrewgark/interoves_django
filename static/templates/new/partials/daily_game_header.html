@@ -27,13 +27,13 @@
         {% if next_task_group_url %}<a class="new-daily-game-header__nav-button" href="{{ next_task_group_url }}" data-daily-nav-link aria-label="Следующая ежедневная игра"><i class="ph ph-caret-right" aria-hidden="true"></i></a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Следующая ежедневная игра"><i class="ph ph-caret-right" aria-hidden="true"></i></button>{% endif %}
       </nav>
       {% if daily_timing_enabled %}{% include "new/partials/daily_solve_timer.html" %}{% endif %}
-      <form class="new-replay-control" method="post" action="/games/{{ game.id }}/{{ tg_number }}/replay/" data-replay-submit data-replay-control{% if not official_completed %} hidden{% endif %}>
+      {% if official_completed %}<form class="new-replay-control" method="post" action="{% if replay_url %}{{ replay_url }}{% else %}/games/{{ game.id }}/{{ tg_number }}/replay/{% endif %}" data-replay-submit data-replay-control>
         {% csrf_token %}
         <button type="submit" class="new-replay-control__button" aria-label="Сыграть заново. Для статистики при этом сохранится ваше первое решение." title="Сыграть заново (для статистики при этом сохранится ваше первое решение)">
           <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
         </button>
         <span class="new-replay-control__tooltip" role="tooltip">Сыграть заново<br><span>(для статистики при этом сохранится ваше первое решение)</span></span>
-      </form>
+      </form>{% endif %}
     </div>
   </div>
   {% firstof tagline section_tagline game.theme as page_tagline %}
