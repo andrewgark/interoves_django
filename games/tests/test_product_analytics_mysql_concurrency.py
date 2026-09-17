@@ -63,6 +63,11 @@ class ProductAnalyticsMySQLConcurrencyTests(TransactionTestCase):
                 )
 
     def setUp(self):
+        self._completion_check = patch(
+            'games.analytics.is_task_group_complete', return_value=True,
+        )
+        self._completion_check.start()
+        self.addCleanup(self._completion_check.stop)
         for name in (
             'Правила Десяточки',
             'Правила турнирного режима',

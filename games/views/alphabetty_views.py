@@ -677,6 +677,7 @@ def alphabetty_guess(request, number):
             task=task,
             game=game,
             result=PlayerCompletedGame.RESULT_SOLVED,
+            mode=game.get_current_mode(Attempt(time=timezone.now())),
         ))
             from games.daily_timing import complete_daily_timing
             timing = complete_daily_timing(

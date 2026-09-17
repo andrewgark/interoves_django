@@ -2,6 +2,7 @@ import json
 from datetime import timedelta
 from io import StringIO
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from allauth.account.signals import user_signed_up
 from django.contrib.auth.models import User
@@ -36,6 +37,15 @@ from games.models import (
 
 
 class ProductAnalyticsTests(TestCase):
+    def setUp(self):
+        # These tests exercise analytics delivery/idempotency directly.  The
+        # gameplay invariant is covered by test_completion_invariant.py.
+        self._completion_check = patch(
+            'games.analytics.is_task_group_complete', return_value=True,
+        )
+        self._completion_check.start()
+        self.addCleanup(self._completion_check.stop)
+
     @classmethod
     def setUpTestData(cls):
         for name in ('Правила Десяточки', 'Правила турнирного режима', 'Правила тренировочного режима'):

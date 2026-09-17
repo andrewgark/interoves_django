@@ -685,6 +685,7 @@ def process_send_attempt(request, task_id):
                 task=task,
                 game=game,
                 result=PlayerCompletedGame.RESULT_SOLVED,
+                mode=current_mode,
             ))
             from games.daily_timing import complete_daily_timing
             daily_timing = complete_daily_timing(
@@ -862,6 +863,7 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
                 task=task,
                 game=game,
                 result=PlayerCompletedGame.RESULT_SOLVED,
+                mode=current_mode,
             ))
     if analytics_events:
         result['analytics_events'] = analytics_events

@@ -172,6 +172,7 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
             task=task,
             game=game,
             result=PlayerCompletedGame.RESULT_SOLVED,
+            mode=current_mode,
         ))
             from games.daily_timing import complete_daily_timing
             timing = complete_daily_timing(

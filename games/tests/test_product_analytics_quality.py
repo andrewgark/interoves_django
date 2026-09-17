@@ -1,5 +1,6 @@
 from datetime import timedelta
 from io import StringIO
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.management import call_command
@@ -24,6 +25,13 @@ from games.word_salad import WORD_SALAD_GAME_ID
 
 
 class ProductAnalyticsInstrumentationVersionTests(TestCase):
+    def setUp(self):
+        self._completion_check = patch(
+            'games.analytics.is_task_group_complete', return_value=True,
+        )
+        self._completion_check.start()
+        self.addCleanup(self._completion_check.stop)
+
     @classmethod
     def setUpTestData(cls):
         CheckerType.objects.get_or_create(id='equals_with_possible_spaces')

@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 
@@ -657,11 +658,36 @@ def _ensure_completed_record(
     user=None,
     anon_key=None,
     game,
-    task_group,
+    task,
     game_kind,
     result,
     is_backfilled=False,
+    source='unknown',
+    mode='general',
+    completion_team=None,
+    completion_user=None,
+    completion_anon_key=None,
 ):
+    """Persist a completion only after the canonical group check passes.
+
+    Callers may supply a separate gameplay actor for the completion check when
+    analytics attribution intentionally uses another identity (for example a
+    logged-in user playing for a team).
+    """
+    task_group = getattr(task, 'task_group', None)
+    check_team = team if completion_team is None else completion_team
+    check_user = user if completion_user is None else completion_user
+    check_anon_key = anon_key if completion_anon_key is None else completion_anon_key
+    if task is None or task_group is None or not is_task_group_complete(
+        task_group=task_group,
+        game=game,
+        team=check_team,
+        user=check_user,
+        anon_key=check_anon_key,
+        mode=mode,
+        replay_slot=None,
+    ):
+        return None, False
     actor = _actor_kwargs(team=team, user=user, anon_key=anon_key)
     if actor is None:
         return None, False
@@ -702,12 +728,41 @@ def _ensure_completed_record(
         updated.append('result')
     if updated:
         record.save(update_fields=updated)
+    if created:
+        if team is not None:
+            actor_type, actor_id = 'team', str(team.pk)
+        elif user is not None:
+            actor_type, actor_id = 'user', str(user.pk)
+        elif anon_key:
+            actor_type, actor_id = 'anon', hashlib.sha256(str(anon_key).encode()).hexdigest()[:16]
+        else:
+            actor_type, actor_id = 'unknown', 'unavailable'
+        required_count = task_group.tasks.visible().count()
+        logger.info(
+            'player_completed_game_created',
+            extra={
+                'event': 'player_completed_game_created',
+                'actor_type': actor_type,
+                'actor_id': actor_id,
+                'game': game.id,
+                'game_instance_id': instance_id,
+                'task_group_id': task_group.id,
+                'completed_required_count': required_count,
+                'total_required_count': required_count,
+                'source': source,
+            },
+        )
     return record, created
 
 
 def _backfill_supported_game_completions(
     *, team=None, user=None, anon_key=None, exclude_instance_id=None
 ):
+    """Backfill analytics rows from completed chain tasks, never from one task alone.
+
+    A completed chain state is only a candidate.  The mandatory group check in
+    ``_ensure_completed_record`` decides whether a row may be created.
+    """
     actor = _actor_kwargs(team=team, user=user, anon_key=anon_key)
     if actor is None:
         return
@@ -721,6 +776,7 @@ def _backfill_supported_game_completions(
             'raddle', 'replacements_lines', 'alphabetty', 'word_salad',
         ))
     )
+    candidates = {}
     for row in qs.iterator():
         game_kind = supported_game_kind(row.game)
         if not game_kind:
@@ -729,15 +785,23 @@ def _backfill_supported_game_completions(
             continue
         if game_instance_id_for_task_group(row.game, row.task.task_group) == exclude_instance_id:
             continue
+        candidates.setdefault(
+            (row.game_id, row.task.task_group_id, row.game_mode),
+            (row, game_kind),
+        )
+
+    for row, game_kind in candidates.values():
         _ensure_completed_record(
             team=team,
             user=user,
             anon_key=anon_key,
             game=row.game,
-            task_group=row.task.task_group,
+            task=row.task,
             game_kind=game_kind,
             result=PlayerCompletedGame.RESULT_SOLVED,
             is_backfilled=True,
+            source='analytics_backfill',
+            mode=row.game_mode,
         )
 
 
@@ -752,6 +816,7 @@ def register_completed_game(
     task,
     game,
     result=PlayerCompletedGame.RESULT_SOLVED,
+    mode='general',
 ):
     game_kind = supported_game_kind(game)
     if not game_kind or task is None or task.task_group is None:
@@ -794,16 +859,21 @@ def register_completed_game(
     record, created = _ensure_completed_record(
         **analytics_actor,
         game=game,
-        task_group=task.task_group,
+        task=task,
         game_kind=game_kind,
         result=result,
         is_backfilled=False,
+        source='task_completion',
+        mode=mode,
+        completion_team=team,
+        completion_user=user,
+        completion_anon_key=anon_key,
     )
     if record is None:
         return []
 
-    # The gameplay transaction has already committed the Attempt/state at this
-    # point, so the next statistics read cannot observe a half-written solve.
+    # The gameplay path has saved the Attempt/state before reaching this point,
+    # so the completion check reads the canonical persisted representation.
     from games.daily_statistics import invalidate_daily_statistics
     invalidate_daily_statistics(game.id, task.task_group_id)
 
