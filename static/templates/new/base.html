@@ -108,6 +108,9 @@
 
       {% if focused_header %}
       <div class="new-nav__focused">
+        <a class="new-nav__salad-cta" href="https://interoves.com/create_salad/">
+          <i class="ph ph-bowl-food" aria-hidden="true"></i> Конструктор Салатиков
+        </a>
         <a href="/">Все игры</a>
         {% if user.is_authenticated %}
           <a href="{% url 'new_profile' %}">Профиль</a>
@@ -141,6 +144,9 @@
 
       <div class="new-nav__end">
         {% with un=request.resolver_match.url_name %}
+        <a class="new-nav__salad-cta" href="https://interoves.com/create_salad/">
+          <i class="ph ph-bowl-food" aria-hidden="true"></i> Конструктор Салатиков
+        </a>
         {% if user.is_authenticated %}
           <a class="new-nav__quick new-nav__quick--profile"
              href="{% if ui_project_base %}{{ ui_project_profile_url }}{% else %}{% url 'new_profile' %}{% endif %}"
@@ -225,6 +231,9 @@
             <i class="ph ph-monitor" aria-hidden="true"></i>
           </button>
         </div>
+        <a class="new-nav__drawer-link new-nav__drawer-link--salad" href="https://interoves.com/create_salad/">
+          <i class="ph ph-bowl-food" aria-hidden="true"></i> Конструктор Салатиков
+        </a>
         {% if play_mode and user.is_authenticated %}
           {% if lock_personal_play_mode %}
             <span class="new-nav__drawer-link new-mode-toggle new-mode-toggle--locked"><i class="ph ph-users" aria-hidden="true"></i> В команде</span>
