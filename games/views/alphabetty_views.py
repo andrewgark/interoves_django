@@ -488,6 +488,7 @@ def alphabetty_play_page(request, number):
         'is_authenticated': bool(user),
         'gameplay_context_token': issue_gameplay_context(
             task=task, game=game, user=user, anon_key=anon_key,
+            replay_slot=replay_slot,
         ),
         'prev_task_group_url': (
             section_play_path(ALPHABETTY_GAME_ID, prev_tg.number) if prev_tg else None
@@ -571,6 +572,10 @@ def alphabetty_state(request, number):
     user, anon_key = _resolve_actor(request)
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
+    replay_slot = active_replay(
+        request=request, game=game, task_group=task.task_group,
+        user=user, anon_key=anon_key,
+    )
     state = get_play_state(
         game=game,
         task=task,
@@ -579,6 +584,7 @@ def alphabetty_state(request, number):
         number=play_number,
         share_host=_share_host(request),
         play_path=play_path,
+        replay_slot=replay_slot,
     )
     payload = _with_meta_bar(
         {'status': 'ok', **state},
