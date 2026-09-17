@@ -41,11 +41,14 @@
 <p class="new-login-hint new-stack-gap">
   Можно предложить идею без сетки или сразу собрать играбельный салатик 4×4.
 </p>
-<div class="new-stack-gap new-stack-gap--after-button support-action-row">
+<div class="new-stack-gap new-stack-gap--after-button support-action-row salad-create-actions">
   <button type="button" class="new-btn" id="offer-create-idea-btn">Предложить идею</button>
-  <button type="button" class="new-btn new-btn--ghost" id="offer-create-full-btn">
-    <i class="ph ph-bowl-food" aria-hidden="true"></i> Конструктор Салатиков
-  </button>
+  <button type="button" class="new-btn" id="offer-create-full-btn">Предложить готовый салатик</button>
+  <a class="new-btn new-btn--yellow salad-constructor-btn"
+     href="https://vikhrovvs.github.io/word-grid/" target="_blank" rel="noopener">
+    <i class="ph ph-bowl-food" aria-hidden="true"></i> Конструктор салатиков
+    <span aria-hidden="true">↗</span>
+  </a>
 </div>
 <div class="support-tabs new-stack-gap" role="tablist" aria-label="Ваши салатики">
   <button type="button" class="new-btn new-btn--mini" data-offer-tab="all" role="tab" aria-selected="true">Все предложения</button>
@@ -166,7 +169,7 @@
     if (!visibleOffers.length) {
       listEl.innerHTML = activeTab === 'accepted'
         ? '<p class="support-empty">Принятых идей пока нет.</p>'
-        : '<p class="support-empty">Пока нет предложений. Нажмите «Предложить идею» или «Собрать салатик».</p>';
+        : '<p class="support-empty">Пока нет предложений. Нажмите «Предложить идею» или «Предложить готовый салатик».</p>';
       return;
     }
     visibleOffers.forEach(function (o) {

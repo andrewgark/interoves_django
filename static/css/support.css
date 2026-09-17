@@ -367,6 +367,39 @@
   gap: 0.25rem 0.35rem;
 }
 
+/* Salad creation: the two local offers share the green primary treatment;
+   the external grid builder is intentionally separated as a featured CTA. */
+.salad-create-actions {
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.salad-constructor-btn {
+  margin-left: 0.35rem;
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--warning) 65%, #000);
+}
+
+.salad-constructor-btn span {
+  font-size: 1.05em;
+  line-height: 1;
+}
+
+@media (max-width: 560px) {
+  .salad-create-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .salad-create-actions .new-btn {
+    width: 100%;
+  }
+
+  .salad-constructor-btn {
+    margin-left: 0;
+    margin-top: 0.25rem;
+  }
+}
+
 .support-action-form {
   margin: 0;
   display: inline;

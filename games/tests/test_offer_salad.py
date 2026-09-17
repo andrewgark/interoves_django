@@ -105,13 +105,15 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(resp.context['profile_ready'])
 
-    def test_create_page_has_two_actions(self):
+    def test_create_page_has_three_actions(self):
         c = Client()
         c.force_login(self.user)
         resp = c.get('/create_salad/')
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Предложить идею')
-        self.assertContains(resp, 'Конструктор Салатиков')
+        self.assertContains(resp, 'Предложить готовый салатик')
+        self.assertContains(resp, 'Конструктор салатиков')
+        self.assertContains(resp, 'https://vikhrovvs.github.io/word-grid/')
         self.assertContains(resp, 'Предложить опубликовать')
         self.assertNotContains(resp, 'Отправить Андрею')
         self.assertContains(resp, 'word_salad_grid_editor.js')
