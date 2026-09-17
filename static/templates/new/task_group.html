@@ -42,7 +42,7 @@
 </p>
 {% include "new/partials/daily_solve_timer.html" %}
 {% if official_completed %}
-<form class="new-replay-control new-replay-control--standalone" method="post" action="/games/{{ game.id }}/{{ tg_number }}/replay/">
+<form class="new-replay-control new-replay-control--standalone" method="post" action="/games/{{ game.id }}/{{ tg_number }}/replay/" data-replay-submit>
   {% csrf_token %}
   <button type="submit" class="new-btn new-btn--ghost new-btn--icon new-btn--mini" aria-label="Переиграть" title="Переиграть">
     <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>

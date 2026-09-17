@@ -367,6 +367,10 @@
 
     function onHidden() {
       if (completed || manuallyPaused) return;
+      // Navigating into a private replay invalidates the official page's
+      // gameplay context immediately. Do not send a stale auto_pause request
+      // while the browser is unloading this page.
+      if (doc && doc.documentElement && doc.documentElement.hasAttribute('data-replay-navigation')) return;
       var claimed = freezeOpenInterval();
       authoritative = false;
       status = 'auto_paused';
@@ -426,6 +430,12 @@
         else onVisible();
       });
       root.addEventListener && root.addEventListener('pagehide', onHidden);
+      doc.addEventListener('submit', function (event) {
+        var form = event && event.target;
+        if (form && form.closest && form.closest('form[data-replay-submit]') && doc.documentElement) {
+          doc.documentElement.setAttribute('data-replay-navigation', '1');
+        }
+      }, true);
       doc.addEventListener('interoves:daily-timing', function (ev) {
         if (ev && ev.detail) {
           if (ev.detail.completed) markComplete(ev.detail);
