@@ -754,19 +754,21 @@ def process_send_attempt(request, task_id):
         with timing_phase(request, 'render_task'):
             update_html = update_task_html(
                 request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+                replay_slot=replay_slot,
             )
-        with timing_phase(request, 'schedule_realtime'):
-            track_actor_task_change(
-                task,
-                team=team,
-                update_html=update_html,
-                request=request,
-                game=game,
-                user=user,
-                anon_key=anon_key,
-                current_mode=current_mode,
-                reason='attempt.submitted',
-            )
+        if replay_slot is None:
+            with timing_phase(request, 'schedule_realtime'):
+                track_actor_task_change(
+                    task,
+                    team=team,
+                    update_html=update_html,
+                    request=request,
+                    game=game,
+                    user=user,
+                    anon_key=anon_key,
+                    current_mode=current_mode,
+                    reason='attempt.submitted',
+                )
         result.update(update_html)
     return result
 

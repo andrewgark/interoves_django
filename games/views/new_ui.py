@@ -3572,6 +3572,16 @@ def new_task_group_live_state(request, game_id):
     tasks_by_id = {task.pk: task for task in tasks}
     tasks = [tasks_by_id[task_id] for task_id in task_ids]
 
+    task_group = tasks[0].task_group
+    replay_slot = active_replay(
+        request=request,
+        game=game,
+        task_group=task_group,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+    )
+
     placements = list(
         GameTaskGroup.objects.filter(
             game=game,
@@ -3616,6 +3626,7 @@ def new_task_group_live_state(request, game_id):
             user=user,
             anon_key=anon_key,
             game=game,
+            replay_slot=replay_slot,
         )
         if fragment:
             fragments[str(task.pk)] = fragment
