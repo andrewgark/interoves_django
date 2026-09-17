@@ -272,43 +272,6 @@ html.new-ui-dark body.new-ui {
   color: var(--accent);
 }
 
-.new-nav__salad-cta,
-.new-nav__focused > a.new-nav__salad-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-height: var(--btn-height-mini);
-  box-sizing: border-box;
-  padding: 0.28rem 0.7rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 62%, var(--border));
-  border-radius: var(--control-radius);
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-  color: var(--accent);
-  font-size: 0.88rem;
-  font-weight: 700;
-  line-height: 1.2;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: border-color 0.14s ease, color 0.14s ease, background-color 0.14s ease, transform 0.14s ease;
-}
-
-.new-nav__salad-cta:hover,
-.new-nav__salad-cta:focus-visible {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 24%, var(--surface));
-  color: var(--accent);
-}
-
-.new-nav__salad-cta:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 3px var(--focus-ring);
-}
-
-.new-nav__salad-cta .ph {
-  font-size: 1.1em;
-}
-
 .new-clock {
   color: var(--muted);
   font-size: 0.85rem;
@@ -1409,13 +1372,6 @@ html.new-ui-dark body.new-ui {
 
 .new-nav__drawer-link--btn {
   font: inherit;
-}
-
-.new-nav__drawer-link--salad {
-  border: 1px solid color-mix(in srgb, var(--accent) 62%, var(--border));
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
-  color: var(--accent);
-  font-weight: 700;
 }
 
 .new-clock--drawer {
