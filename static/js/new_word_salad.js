@@ -1162,6 +1162,9 @@
           // its payload before replacing the task HTML, including the final
           // answer response where both goals can arrive together.
           flushAnalyticsEvents(data);
+          if (data && data.replay_available && typeof window.revealReplayControl === 'function') {
+            window.revealReplayControl();
+          }
           var solvedWord = selectedWord(path);
           if (data && data.status === 'duplicate') {
             finishWrong(pathKey);

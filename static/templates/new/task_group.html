@@ -41,15 +41,13 @@
   {% endif %}
 </p>
 {% include "new/partials/daily_solve_timer.html" %}
-{% if official_completed %}
-<form class="new-replay-control new-replay-control--standalone" method="post" action="/games/{{ game.id }}/{{ tg_number }}/replay/" data-replay-submit>
+<form class="new-replay-control new-replay-control--standalone" method="post" action="/games/{{ game.id }}/{{ tg_number }}/replay/" data-replay-submit data-replay-control{% if not official_completed %} hidden{% endif %}>
   {% csrf_token %}
   <button type="submit" class="new-replay-control__button" aria-label="Сыграть заново. Для статистики при этом сохранится ваше первое решение." title="Сыграть заново (для статистики при этом сохранится ваше первое решение)">
     <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
   </button>
   <span class="new-replay-control__tooltip" role="tooltip">Сыграть заново<br><span>(для статистики при этом сохранится ваше первое решение)</span></span>
 </form>
-{% endif %}
 {% endif %}
 
 {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
@@ -390,6 +388,11 @@
     if (!window.interovesAnalytics || !window.interovesAnalytics.flushPendingGoals) return;
     window.interovesAnalytics.flushPendingGoals(events || []);
   }
+  window.revealReplayControl = function () {
+    document.querySelectorAll('[data-replay-control]').forEach(function (control) {
+      control.hidden = false;
+    });
+  };
   function appendAnonToPagerLinks() {
     if (isAuthenticated || anonCookieWorks()) return;
     document.querySelectorAll('[data-daily-nav-link][href], .new-tg-pager__link[href]').forEach(function (a) {

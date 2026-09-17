@@ -648,6 +648,7 @@ def process_send_attempt(request, task_id):
 
     analytics_events = []
     daily_timing = None
+    replay_available = False
     if (attempt_persisted or is_game_start_interaction) and replay_slot is None:
         analytics_events.extend(register_started_game(
             team=team,
@@ -675,6 +676,7 @@ def process_send_attempt(request, task_id):
             from games.replay import mark_replay_completed
             mark_replay_completed(replay_slot)
         else:
+            replay_available = True
             analytics_events.extend(register_completed_game(
                 team=team,
                 user=user,
@@ -700,6 +702,8 @@ def process_send_attempt(request, task_id):
     }
     if daily_timing:
         result['daily_timing'] = daily_timing
+    if replay_available:
+        result['replay_available'] = True
     # The transport status above only says that the submission was processed.
     # Give the new UI the persisted verdict as well, so ordinary tasks can show
     # explicit feedback without trying to infer it from freshly rendered HTML.
@@ -821,6 +825,7 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
     credited_any = bool(credited['extra'] or credited['rare'] or credited['answer'])
     current_mode = game.get_current_mode(Attempt(time=timezone.now(), game=game, task=task))
     analytics_events = []
+    replay_available = False
     if credited_any and replay_slot is None:
         analytics_events.extend(register_started_game(
             team=team,
@@ -848,6 +853,7 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
             from games.replay import mark_replay_completed
             mark_replay_completed(replay_slot)
         else:
+            replay_available = True
             analytics_events.extend(register_completed_game(
                 team=team,
                 user=user,
@@ -859,6 +865,8 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
             ))
     if analytics_events:
         result['analytics_events'] = analytics_events
+    if replay_available:
+        result['replay_available'] = True
     if credited['answer']:
         update_html = update_task_html(
             request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
