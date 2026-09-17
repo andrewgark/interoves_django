@@ -138,7 +138,7 @@ class Command(BaseCommand):
                     }
                 continue
 
-            attempts = Attempt.objects.filter(
+            attempts = Attempt.manager.filter(
                 task=task,
                 game_id=record.game_id,
                 replay_slot__isnull=True,
