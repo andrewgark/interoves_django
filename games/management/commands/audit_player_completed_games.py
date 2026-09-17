@@ -54,6 +54,10 @@ class Command(BaseCommand):
         )
         parser.add_argument('--id', dest='record_ids', action='append', type=int)
         parser.add_argument('--game', dest='game_id')
+        parser.add_argument(
+            '--suspect-only', action='store_true',
+            help='Report only rows whose current visible task group is incomplete.',
+        )
 
     def handle(self, *args, **options):
         if not options['dry_run']:
@@ -74,6 +78,10 @@ class Command(BaseCommand):
         }
         for record in qs.iterator():
             item = self._audit_record(record)
+            if options['suspect_only'] and (
+                item['completed_tasks_current'] == item['required_tasks_current']
+            ):
+                continue
             summary['total_checked'] += 1
             classification = item['classification']
             if classification == 'VALID':
