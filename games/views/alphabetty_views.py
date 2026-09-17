@@ -453,6 +453,7 @@ def alphabetty_play_page(request, number):
     return render(request, 'new/alphabetty_play.html', {
         'game': game,
         'number': play_number,
+        'tg_number': play_number,
         'link': link,
         'task': task,
         'page_title': page_title,
