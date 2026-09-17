@@ -6,6 +6,7 @@ from django.utils import timezone
 from games.analytics import (
     PlayerCompletedGame,
     is_task_completion_state,
+    is_task_group_complete,
     register_completed_game,
     register_started_game,
     supported_game_kind,
@@ -388,7 +389,13 @@ def get_first_new_hint_actor(task, team=None, user=None, anon_key=None, replay_s
 
 
 def _get_play_mode(request, game):
-    mode = request.session.get('play_mode_{}'.format(game.project_id or 'main'))
+    # The mode is stored in the session for navigation, but a session is shared
+    # by all tabs.  Keep a page's in-flight submissions on the mode with which
+    # that page was rendered; the signed gameplay context is still validated
+    # below and independently binds the request to the current actor.
+    mode = request.headers.get('X-Interoves-Play-Mode')
+    if mode not in ('team', 'personal'):
+        mode = request.session.get('play_mode_{}'.format(game.project_id or 'main'))
     if mode not in ('team', 'personal'):
         mode = 'personal' if game.project_id == 'sections' else 'team'
     return effective_play_mode(mode, game, user=request.user)
@@ -650,7 +657,20 @@ def process_send_attempt(request, task_id):
             task=task,
             game=game,
         ))
-    if attempt_persisted and supported_game_kind(game) and is_task_completion_state(task, attempt.state):
+    if (
+        attempt_persisted
+        and supported_game_kind(game)
+        and is_task_completion_state(task, attempt.state)
+        and is_task_group_complete(
+            task_group=task.task_group,
+            game=game,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            mode=current_mode,
+            replay_slot=replay_slot,
+        )
+    ):
         if replay_slot is not None:
             from games.replay import mark_replay_completed
             mark_replay_completed(replay_slot)
@@ -809,7 +829,20 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
             task=task,
             game=game,
         ))
-    if credited['answer'] and supported_game_kind(game) and is_task_completion_state(task, stats['state']):
+    if (
+        credited['answer']
+        and supported_game_kind(game)
+        and is_task_completion_state(task, stats['state'])
+        and is_task_group_complete(
+            task_group=task.task_group,
+            game=game,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            mode=current_mode,
+            replay_slot=replay_slot,
+        )
+    ):
         if replay_slot is not None:
             from games.replay import mark_replay_completed
             mark_replay_completed(replay_slot)

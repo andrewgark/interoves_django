@@ -313,6 +313,7 @@
 (function () {
   var isAuthenticated = document.body && document.body.dataset && document.body.dataset.authenticated === '1';
   var playMode = "{{ play_mode|escapejs }}";
+  window.InterovesPlayMode = playMode;
   var ANON_KEY_NAME = 'interoves_anon_key';
   var anonKeyMem = null;
   var hintConfirm = window.InterovesHintConfirm.create();
@@ -360,6 +361,7 @@
   function anonFetchHeaders(extra) {
     var h = extra || {};
     h['X-Requested-With'] = 'XMLHttpRequest';
+    h['X-Interoves-Play-Mode'] = playMode;
     if (!isAuthenticated && anonKey) h['X-Interoves-Anon'] = anonKey;
     if (window.InterovesPageCsrf) {
       var csrfToken = window.InterovesPageCsrf.pageToken();
@@ -582,7 +584,15 @@
       ? window.InterovesFetchJson.parseJsonResponse(r)
       : r.json();
     return parsed.then(function (data) {
-      if (r.status === 409 && data && data.reload_required) data.context_mismatch = true;
+      if (
+        r.status === 409 && data && data.reload_required &&
+        [
+          'invalid_gameplay_context',
+          'gameplay_context_required',
+          'gameplay_context_task_mismatch',
+          'gameplay_actor_context_mismatch',
+        ].indexOf(data.error) >= 0
+      ) data.context_mismatch = true;
       return data;
     });
   }
@@ -642,6 +652,15 @@
         }
         if (data.context_mismatch) {
           showGameplayContextMismatch(msg);
+          return;
+        }
+        if (data.error === 'replay_required') {
+          if (msg) msg.textContent = 'Игра уже завершена. Нажмите «Сыграть заново», чтобы продолжить.';
+          return;
+        }
+        if (data.error === 'stale_replay') {
+          if (msg) msg.textContent = 'Сессия повторной игры устарела. Страница будет обновлена.';
+          window.setTimeout(function () { window.location.reload(); }, 250);
           return;
         }
         flushAnalyticsEvents(data);
@@ -4242,6 +4261,7 @@
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
         'X-CSRFToken': csrfToken,
+        'X-Interoves-Play-Mode': playMode,
         'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
       },
       body: params.toString(),
@@ -4369,7 +4389,7 @@
   var btn = document.getElementById('ladder-offer-reset-btn');
   if (!btn) return;
   btn.addEventListener('click', function () {
-    if (!window.confirm('Сбросить ваше решение по этой лесенке?')) return;
+    if (!window.confirm('Сбросить ваше решение?')) return;
     var csrf = (window.InterovesPageCsrf && window.InterovesPageCsrf.pageToken())
       || (document.querySelector('#interoves-page-csrf input[name=csrfmiddlewaretoken]') || {}).value
       || '';

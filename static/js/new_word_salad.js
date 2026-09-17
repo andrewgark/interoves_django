@@ -868,7 +868,12 @@
         body.set('words', JSON.stringify(extraWords));
         fetch(formSubmitUrl(form), {
           method: 'POST',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            // The session is shared by tabs. Keep this submission bound to
+            // the mode in which the page (and its gameplay context) loaded.
+            'X-Interoves-Play-Mode': global.InterovesPlayMode || ''
+          },
           body: body,
           credentials: 'same-origin'
         }).then(function (response) {
@@ -1138,7 +1143,12 @@
         body.set('correct_only', '1');
         fetch(formSubmitUrl(form), {
           method: 'POST',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            // The session is shared by tabs. Keep this submission bound to
+            // the mode in which the page (and its gameplay context) loaded.
+            'X-Interoves-Play-Mode': global.InterovesPlayMode || ''
+          },
           body: body,
           credentials: 'same-origin'
         }).then(function (response) {

@@ -11,6 +11,8 @@ from games.alphabetty_daily import ALPHABETTY_GAME_ID
 from games.ladder_daily import LADDER_GAME_ID
 from games.word_salad import WORD_SALAD_GAME_ID
 from games.models import (
+    Attempt,
+    ChainTaskState,
     GameTaskGroup,
     PlayerAnalyticsState,
     PlayerCompletedGame,
@@ -233,6 +235,43 @@ def is_task_completion_state(task, state_raw):
     if task.task_type == 'word_salad':
         return _state_complete_word_salad(task, state_raw)
     return False
+
+
+def is_task_group_complete(*, task_group, game, team=None, user=None, anon_key=None,
+                           mode='general', replay_slot=None):
+    """Return whether every visible task in this game group is solved by actor."""
+    tasks = list(task_group.tasks.visible())
+    if not tasks:
+        return False
+
+    chain_types = {'raddle', 'replacements_lines', 'alphabetty', 'word_salad'}
+    chain_mode = 'tournament' if mode == 'tournament' else 'general'
+    actor = _actor_kwargs(team=team, user=user, anon_key=anon_key)
+    for task in tasks:
+        if task.task_type in chain_types:
+            state = ChainTaskState.objects.filter(
+                task=task,
+                game=game,
+                replay_slot=replay_slot,
+                game_mode=chain_mode,
+                **actor,
+            ).values_list('state', flat=True).first()
+            if not is_task_completion_state(task, state):
+                return False
+            continue
+
+        attempts = Attempt.manager.get_attempts_info(
+            team=team,
+            task=task,
+            mode=mode,
+            user=user,
+            anon_key=anon_key,
+            game=game,
+            replay_slot=replay_slot,
+        )
+        if not attempts.is_solved():
+            return False
+    return True
 
 
 def resolve_task_group_link(game, task_group):

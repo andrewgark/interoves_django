@@ -21,7 +21,11 @@ from games.views.util import effective_play_mode, get_public_task_or_404, has_pr
 
 
 def _get_play_mode(request, game):
-    mode = request.session.get('play_mode_{}'.format(game.project_id or 'main'))
+    # Navigation stores the mode in the session, which is shared by tabs.  A
+    # gameplay POST must keep the mode of the page that initiated it.
+    mode = request.headers.get('X-Interoves-Play-Mode')
+    if mode not in ('team', 'personal'):
+        mode = request.session.get('play_mode_{}'.format(game.project_id or 'main'))
     if mode not in ('team', 'personal'):
         mode = 'personal' if game.project_id == 'sections' else 'team'
     return effective_play_mode(mode, game, user=request.user)
