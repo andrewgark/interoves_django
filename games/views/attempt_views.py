@@ -819,6 +819,7 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
     }
     credited = stats['credited']
     credited_any = bool(credited['extra'] or credited['rare'] or credited['answer'])
+    current_mode = game.get_current_mode(Attempt(time=timezone.now(), game=game, task=task))
     analytics_events = []
     if credited_any and replay_slot is None:
         analytics_events.extend(register_started_game(
@@ -859,7 +860,6 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
     if analytics_events:
         result['analytics_events'] = analytics_events
     if credited['answer']:
-        current_mode = game.get_current_mode(Attempt(time=timezone.now(), game=game, task=task))
         update_html = update_task_html(
             request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
             replay_slot=replay_slot,

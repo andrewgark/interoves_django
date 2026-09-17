@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
 
-from games.analytics import game_instance_id_for_task_group
+from games.analytics import game_instance_id_for_task_group, is_task_group_complete
 from games.analytics_identity import stamp_anon_identity
 from games.models import (
     Attempt,
@@ -109,6 +109,26 @@ class ReplaySlotTests(TestCase):
             result = process_send_attempt(request, self.task.pk)
         self.assertEqual(result['error'], 'replay_required')
         self.assertFalse(Attempt.manager.filter(anon_key=anon_key).exists())
+
+    def test_task_group_completion_requires_every_task(self):
+        second = Task.objects.create(
+            task_group=self.group, number='2', checker=CheckerType.objects.get(pk='equals'),
+            answer='ok', points=10,
+        )
+        Attempt.manager.create(
+            user=self.user, game=self.game, task=self.task,
+            text='ok', status='Ok', points=10,
+        )
+        self.assertFalse(is_task_group_complete(
+            task_group=self.group, game=self.game, user=self.user,
+        ))
+        Attempt.manager.create(
+            user=self.user, game=self.game, task=second,
+            text='ok', status='Ok', points=10,
+        )
+        self.assertTrue(is_task_group_complete(
+            task_group=self.group, game=self.game, user=self.user,
+        ))
 
     def test_sql_results_ignore_replay_attempts_and_hints(self):
         slot = ReplaySlot.objects.create(

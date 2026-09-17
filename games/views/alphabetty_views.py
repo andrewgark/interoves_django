@@ -28,6 +28,7 @@ from games.alphabetty.play import (
 from games.analytics import (
     PlayerCompletedGame,
     is_task_completion_state,
+    is_task_group_complete,
     register_completed_game,
     register_started_game,
 )
@@ -636,7 +637,14 @@ def alphabetty_guess(request, number):
         'won': result.get('won'),
         'hint_prefix': result.get('hint_prefix') or '',
         'hints_taken': result.get('hints') or 0,
-    })):
+    })) and is_task_group_complete(
+        task_group=task.task_group,
+        game=game,
+        user=user,
+        anon_key=anon_key,
+        mode=game.get_current_mode(Attempt(time=timezone.now())),
+        replay_slot=replay_slot,
+    ):
         if replay_slot is not None:
             from games.replay import mark_replay_completed
             mark_replay_completed(replay_slot)

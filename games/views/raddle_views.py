@@ -8,6 +8,7 @@ from django.views.decorators.http import require_http_methods
 from games.analytics import (
     PlayerCompletedGame,
     is_task_completion_state,
+    is_task_group_complete,
     register_completed_game,
     register_started_game,
     supported_game_kind,
@@ -146,7 +147,19 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
         task=task,
         game=game,
     )
-    if supported_game_kind(game) and is_task_completion_state(task, attempt.state):
+    if (
+        supported_game_kind(game)
+        and is_task_completion_state(task, attempt.state)
+        and is_task_group_complete(
+            task_group=task.task_group,
+            game=game,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            mode=current_mode,
+            replay_slot=replay_slot,
+        )
+    ):
         if replay_slot is not None:
             from games.replay import mark_replay_completed
             mark_replay_completed(replay_slot)
