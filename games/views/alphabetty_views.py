@@ -423,6 +423,19 @@ def alphabetty_play_page(request, number):
     team = None
     if user is not None and has_profile(user):
         team = user.profile.team_on
+    official_completed = False
+    if offer is None:
+        actor_filter = (
+            {'user': user, 'team__isnull': True, 'anon_key__isnull': True}
+            if user is not None
+            else {'anon_key': anon_key, 'team__isnull': True, 'user__isnull': True}
+        )
+        official_completed = PlayerCompletedGame.objects.filter(
+            game=game,
+            task_group=task.task_group,
+            result=PlayerCompletedGame.RESULT_SOLVED,
+            **actor_filter,
+        ).exists()
     meta_ctx = _alphabetty_meta_context(
         request,
         game=game,
@@ -457,6 +470,7 @@ def alphabetty_play_page(request, number):
         'daily_results_allowed': offer is None and game.has_access('see_results', team=team),
         'daily_results_label': 'Таблица результатов',
         'daily_statistics_url': f'/daily-statistics/{ALPHABETTY_GAME_ID}/{play_number}/' if offer is None else '',
+        'official_completed': official_completed,
         **section_format_credit_context(ALPHABETTY_GAME_ID),
         'daily_pager_aria_label': 'Переход между алфавитками',
         'show_sections_nav': True,
