@@ -155,7 +155,7 @@ def get_all_text_with_forms_to_html(request, game, team, mode):
     return result
 
 
-def render_task(task, request, team, current_mode, game=None):
+def render_task(task, request, team, current_mode, game=None, replay_slot=None):
     if game is None:
         game = GameTaskGroup.resolve_game_for_task(task)
     task_text_with_forms_to_html = {}
@@ -317,7 +317,7 @@ def update_task_html(request, task, team, current_mode, user=None, anon_key=None
     slot_number = link.number if link else 0
     return {
         'update_task_html': {
-            str(t.id): render_task(t, request, team, current_mode, game=game)
+            str(t.id): render_task(t, request, team, current_mode, game=game, replay_slot=replay_slot)
             for t in tasks_to_patch
         },
         'update_task_group_title_html': {

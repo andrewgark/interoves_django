@@ -339,7 +339,9 @@
 
   function extrasStorageKey(root) {
     try {
-      return 'interoves_word_salad_extras_v1:' + (root.getAttribute('data-task-id') || '');
+      var taskId = root.getAttribute('data-task-id') || '';
+      var replayRunId = root.getAttribute('data-replay-run-id') || '';
+      return 'interoves_word_salad_extras_v2:' + taskId + ':' + replayRunId;
     } catch (error) {
       return '';
     }
@@ -347,7 +349,9 @@
 
   function latestStorageKey(root) {
     try {
-      return 'interoves_word_salad_latest_v1:' + (root.getAttribute('data-task-id') || '');
+      var taskId = root.getAttribute('data-task-id') || '';
+      var replayRunId = root.getAttribute('data-replay-run-id') || '';
+      return 'interoves_word_salad_latest_v2:' + taskId + ':' + replayRunId;
     } catch (error) {
       return '';
     }
