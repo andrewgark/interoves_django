@@ -41,28 +41,15 @@
   {% endif %}
 </p>
 {% include "new/partials/daily_solve_timer.html" %}
-{% endif %}
-
 {% if official_completed %}
-<div class="new-card new-replay-card">
-  {% if replay_active %}
-    {% if replay_completed %}
-      <p class="new-login-hint"><strong>Последняя переигровка завершена</strong></p>
-    {% else %}
-      <p class="new-login-hint"><strong>Продолжить переигровку</strong></p>
-    {% endif %}
-    <p class="new-login-hint">Результат переигровки виден только вам и не влияет на таблицу результатов.</p>
-  {% else %}
-    <p class="new-login-hint"><strong>Первый результат сохранён</strong></p>
-    <p class="new-login-hint">Вы можете переиграть игру. Переигровка видна только вам и не влияет на таблицу результатов.</p>
-  {% endif %}
-  <form method="post" action="/games/{{ game.id }}/{{ tg_number }}/replay/">
-    {% csrf_token %}
-    <button type="submit" class="new-btn new-btn--ghost new-btn--mini">
-      {% if replay_active %}Начать переигровку заново{% else %}Переиграть{% endif %}
-    </button>
-  </form>
-</div>
+<form class="new-replay-control new-replay-control--standalone" method="post" action="/games/{{ game.id }}/{{ tg_number }}/replay/">
+  {% csrf_token %}
+  <button type="submit" class="new-btn new-btn--ghost new-btn--icon new-btn--mini" aria-label="Переиграть" title="Переиграть">
+    <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
+  </button>
+  <span class="new-replay-control__tooltip" role="tooltip">Переиграть</span>
+</form>
+{% endif %}
 {% endif %}
 
 {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
