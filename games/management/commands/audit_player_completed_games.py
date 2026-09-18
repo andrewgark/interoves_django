@@ -153,15 +153,19 @@ class Command(BaseCommand):
                     if not any(row.updated_at <= record.completed_at for row in solved):
                         missing_at.append(task.id)
             else:
-                rows = [row for row in snapshot['attempts'].get(key, []) if row.status == 'Ok']
+                rows = snapshot['attempts'].get(key, [])
                 before = [row for row in rows if row.time <= record.completed_at]
-                if before:
+                best_current = Attempt.manager.get_best_attempt(rows)
+                best_before = Attempt.manager.get_best_attempt(before)
+                if best_current and best_current.status == 'Ok':
                     completed.append(task.id)
-                    attempt_times[str(task.id)] = [iso(row.time) for row in rows]
+                    attempt_times[str(task.id)] = [iso(row.time) for row in rows if row.status == 'Ok']
                 else:
                     missing.append(task.id); missing_at.append(task.id)
-                    if rows:
-                        attempt_times[str(task.id)] = [iso(row.time) for row in rows]
+                    if any(row.status == 'Ok' for row in rows):
+                        attempt_times[str(task.id)] = [iso(row.time) for row in rows if row.status == 'Ok']
+                if (best_before is None or best_before.status != 'Ok') and task.id not in missing_at:
+                    missing_at.append(task.id)
         current_complete = bool(tasks) and not missing
         in_window = BUG_START <= record.completed_at.astimezone(timezone.utc) <= BUG_END
         near_trigger = trigger_time and abs((record.completed_at - trigger_time).total_seconds()) <= 300
