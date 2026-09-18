@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from io import StringIO
 
 from django.contrib.auth.models import User
@@ -200,6 +201,9 @@ class CompletionInvariantTests(TestCase):
             game_kind='forensic_batch',
             game_instance_id='forensic-batch:1',
             is_backfilled=True,
+        )
+        PlayerCompletedGame.objects.filter(pk=completion.pk).update(
+            completed_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
         )
         before = list(Attempt.manager.filter(user=self.user).values_list('pk', 'status'))
 

@@ -56,13 +56,12 @@ class Command(BaseCommand):
         if options.get('game_id'):
             qs = qs.filter(game_id=options['game_id'])
         if options['suspect_only']:
-            # The known historical corruption path is the legacy backfill.
-            # Restrict the expensive snapshot to rows explicitly marked as
-            # backfilled; classification still happens from persisted task
-            # state in Python.  Do not infer suspicion from current task count:
-            # mutable groups can have one visible task today while their old
-            # completion was created against a different membership.
-            qs = qs.filter(is_backfilled=True)
+            # All known premature-completion paths were active in this UTC
+            # interval.  Keep the expensive snapshot bounded by that proven
+            # bug window; classification still uses persisted task state.
+            # Do not use is_backfilled or current task count: neither covers
+            # every old path, and current groups are mutable.
+            qs = qs.filter(completed_at__gte=BUG_START, completed_at__lte=BUG_END)
         items = []
         query_count = 0
         started = time.monotonic()
