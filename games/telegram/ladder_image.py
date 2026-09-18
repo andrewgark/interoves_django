@@ -186,13 +186,18 @@ def screenshot_page_element_png(
         logger.warning('NotoColorEmoji.ttf not found; emoji masks may be missing in screenshot')
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        # Cron must fail fast if Chromium itself or the target page becomes
+        # unreachable.  Without an explicit launch timeout, a wedged browser
+        # leaves SocialQueuePost in ``publishing`` and holds the minute-cron
+        # flock indefinitely.
+        browser = p.chromium.launch(headless=True, timeout=30000)
         try:
             page = browser.new_page(
                 viewport={'width': viewport_width, 'height': 1600},
                 device_scale_factor=2,
                 color_scheme='light',
             )
+            page.set_default_timeout(10000)
             if emoji_font:
                 _install_emoji_font_route(page, emoji_font)
             # The game pages may keep analytics, font, or other background
@@ -201,7 +206,7 @@ def screenshot_page_element_png(
             # unrelated requests and can time out even when the game is ready.
             # DOMContentLoaded is sufficient here: the selector-specific
             # visibility wait below is the readiness check for the screenshot.
-            page.goto(url, wait_until='domcontentloaded', timeout=60000)
+            page.goto(url, wait_until='domcontentloaded', timeout=30000)
             confirm = page.locator('[data-age-gate-confirm]')
             if confirm.count() and confirm.first.is_visible():
                 confirm.first.click()
@@ -218,12 +223,12 @@ def screenshot_page_element_png(
                     continue
                 try:
                     loc.wait_for(state='visible', timeout=10000)
-                    raw = loc.screenshot(type='png')
+                    raw = loc.screenshot(type='png', timeout=10000)
                     break
                 except Exception:
                     continue
             if raw is None:
-                raw = page.screenshot(type='png', full_page=True)
+                raw = page.screenshot(type='png', full_page=True, timeout=10000)
             return _add_white_frame(raw, pad_px=20)
         finally:
             browser.close()
