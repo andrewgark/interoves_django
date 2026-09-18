@@ -53,15 +53,18 @@ class RequestTimingMiddleware:
         finally:
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             if elapsed_ms >= self.slow_ms:
+                phases_total_ms = sum(request._interoves_timing_phases.values())
+                unaccounted_ms = max(0.0, elapsed_ms - phases_total_ms)
                 phases = ','.join(
                     '{}:{:.0f}'.format(name, duration_ms)
                     for name, duration_ms in request._interoves_timing_phases.items()
                 ) or '-'
                 logger.warning(
-                    'slow_request path=%s method=%s status=%s duration_ms=%.0f phases=%s',
+                    'slow_request path=%s method=%s status=%s duration_ms=%.0f unaccounted_ms=%.0f phases=%s',
                     path,
                     request.method,
                     getattr(response, 'status_code', 'exception'),
                     elapsed_ms,
+                    unaccounted_ms,
                     phases,
                 )
