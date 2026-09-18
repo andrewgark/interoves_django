@@ -114,8 +114,12 @@ class Command(BaseCommand):
             actor_q |= Q(team_id=record.team_id) if record.team_id else Q(user_id=record.user_id) if record.user_id else Q(anon_key=record.anon_key)
             tasks_by_group[record.task_group_id] = list(record.task_group.tasks.all())
             task_ids.update(task.id for task in tasks_by_group[record.task_group_id])
-        attempts = Attempt.manager.filter(actor_q, game_id__in=game_ids, task_id__in=task_ids,
-                                          replay_slot__isnull=True, status='Ok', skip=False).order_by('time') if task_ids else []
+        attempts = Attempt.manager.filter(
+            actor_q,
+            game_id__in=game_ids,
+            task_id__in=task_ids,
+            replay_slot__isnull=True,
+        ).exclude(skip=True).order_by('time') if task_ids else []
         states = ChainTaskState.objects.filter(actor_q, game_id__in=game_ids, task_id__in=task_ids,
                                                 replay_slot__isnull=True).order_by('updated_at') if task_ids else []
         attempt_map, state_map = {}, {}
@@ -149,7 +153,7 @@ class Command(BaseCommand):
                     if not any(row.updated_at <= record.completed_at for row in solved):
                         missing_at.append(task.id)
             else:
-                rows = snapshot['attempts'].get(key, [])
+                rows = [row for row in snapshot['attempts'].get(key, []) if row.status == 'Ok']
                 before = [row for row in rows if row.time <= record.completed_at]
                 if before:
                     completed.append(task.id)
