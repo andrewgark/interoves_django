@@ -225,7 +225,18 @@ def render_game_title(game, request, team, current_mode):
     }).content.decode('UTF-8')
 
 
-def render_new_ui_task_card_html(request, task, team, current_mode, user=None, anon_key=None, game=None, replay_slot=None):
+def render_new_ui_task_card_html(
+    request,
+    task,
+    team,
+    current_mode,
+    user=None,
+    anon_key=None,
+    game=None,
+    replay_slot=None,
+    placement=None,
+    context_dicts=None,
+):
     """
     HTML for one new-UI task card (#new-task-{id}). Used in JSON + WebSocket to avoid full page reload.
     Returns None when this page is not the new UI or when the task is rendered only inside proportions sheet.
@@ -240,11 +251,15 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
     # A card update needs context for this task only.  Building the whole group
     # made every attempt reload every task's complete history and like totals.
     tasks = [task]
-    slot = GameTaskGroup.objects.filter(game=game, task_group=task_group).first()
-    ctx_dicts = build_task_group_task_context_dicts(
-        game, task_group, tasks, team, user, anon_key, current_mode,
-        placement=slot, replay_slot=replay_slot,
-    )
+    slot = placement
+    if slot is None:
+        slot = GameTaskGroup.objects.filter(game=game, task_group=task_group).first()
+    ctx_dicts = context_dicts
+    if ctx_dicts is None:
+        ctx_dicts = build_task_group_task_context_dicts(
+            game, task_group, tasks, team, user, anon_key, current_mode,
+            placement=slot, replay_slot=replay_slot,
+        )
     tg_number, tg_name = _task_card_public_identity(game, task_group, slot)
     # Daily section cards deliberately hide the task number.  The full page
     # passes this flag through task_group.html; keep the same presentation
@@ -302,11 +317,25 @@ def update_task_html(request, task, team, current_mode, user=None, anon_key=None
     # и давало 4–5 сек на проверку ответа. Старый HTML оставляем только как
     # фолбэк для легаси /old/-страниц, где нового фрагмента нет.
     # Ключи — строки: Redis/msgpack (channels_redis) с strict_map_key не принимает int keys.
+    placement = GameTaskGroup.objects.filter(
+        game=game, task_group=task.task_group,
+    ).first()
+    context_dicts = build_task_group_task_context_dicts(
+        game,
+        task.task_group,
+        tasks_to_patch,
+        team,
+        user,
+        anon_key,
+        current_mode,
+        placement=placement,
+        replay_slot=replay_slot,
+    )
     new_fragments = {}
     for t in tasks_to_patch:
         frag = render_new_ui_task_card_html(
             request, t, team, current_mode, user=user, anon_key=anon_key, game=game,
-            replay_slot=replay_slot,
+            replay_slot=replay_slot, placement=placement, context_dicts=context_dicts,
         )
         if frag:
             new_fragments[str(t.id)] = frag
