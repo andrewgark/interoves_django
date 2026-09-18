@@ -1,5 +1,6 @@
 import hashlib
 import json
+import time
 from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand, CommandError
@@ -44,26 +45,33 @@ class Command(BaseCommand):
         parser.add_argument('--json', action='store_true', dest='json_output')
         parser.add_argument('--id', dest='record_ids', action='append', type=int)
         parser.add_argument('--game', dest='game_id')
+        parser.add_argument('--batch-size', type=int, default=100)
 
     def handle(self, *args, **options):
         if not options['dry_run']:
             raise CommandError('Read-only audit requires --dry-run.')
-        qs = PlayerCompletedGame.objects.select_related('game', 'task_group').prefetch_related(
-            Prefetch('task_group__tasks', queryset=Task.objects.filter(is_removed=False).order_by('pk'))
-        ).order_by('pk')
+        qs = PlayerCompletedGame.objects.order_by('pk')
         if options.get('record_ids'):
             qs = qs.filter(pk__in=options['record_ids'])
         if options.get('game_id'):
             qs = qs.filter(game_id=options['game_id'])
-        records = list(qs)
-        snapshot = self._snapshot(records)
         items = []
-        for record in records:
-            item = self._audit(record, snapshot)
-            if options['suspect_only'] and not item['missing_tasks_current']:
-                continue
-            items.append(item)
-        summary = self._summary(items, snapshot['query_count'])
+        query_count = 0
+        started = time.monotonic()
+        record_ids = list(qs.values_list('pk', flat=True))
+        batch_size = max(1, options['batch_size'])
+        for offset in range(0, len(record_ids), batch_size):
+            records = list(PlayerCompletedGame.objects.select_related('game', 'task_group').prefetch_related(
+                Prefetch('task_group__tasks', queryset=Task.objects.filter(is_removed=False).order_by('pk'))
+            ).filter(pk__in=record_ids[offset:offset + batch_size]).order_by('pk'))
+            snapshot = self._snapshot(records)
+            query_count += snapshot['query_count']
+            for record in records:
+                item = self._audit(record, snapshot)
+                if options['suspect_only'] and not item['missing_tasks_current']:
+                    continue
+                items.append(item)
+        summary = self._summary(items, query_count)
         if options['json_output']:
             for item in items:
                 self.stdout.write(json.dumps(item, ensure_ascii=False, sort_keys=True))
@@ -84,7 +92,8 @@ class Command(BaseCommand):
                         'missing_at_completion': item['missing_at_completion'],
                         'classification_reason': item['reason'],
                     }, ensure_ascii=False, sort_keys=True)))
-        self.stdout.write('query_count={}'.format(snapshot['query_count']))
+        self.stdout.write('query_count={}'.format(query_count))
+        self.stdout.write('runtime_seconds={:.3f}'.format(time.monotonic() - started))
 
     def _snapshot(self, records):
         tasks_by_group = {}
