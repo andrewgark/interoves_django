@@ -2779,13 +2779,15 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
     Shared context for task_group.html and new/partials/task_card.html
     (attempts, walls, replacements_lines, likes, proportions pool).
     """
-    attempts_info_by_task_id = {
-        t.id: Attempt.manager.get_attempts_info(
-            team=team, task=t, mode=mode, user=user, anon_key=anon_key, game=game,
-            replay_slot=replay_slot,
-        )
-        for t in tasks
-    }
+    attempts_info_by_task_id = Attempt.manager.get_bulk_actor_attempts_infos(
+        [t.id for t in tasks],
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        mode=mode,
+        game=game,
+        replay_slot=replay_slot,
+    )
     gameplay_context_tokens = {
         t.id: issue_gameplay_context(
             task=t, game=game, team=team, user=user, anon_key=anon_key,
