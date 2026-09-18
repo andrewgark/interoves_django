@@ -10226,6 +10226,14 @@ button.new-word-salad__hint-btn:disabled {
   overflow: visible;
 }
 
+.new-word-salad__separator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  white-space: pre;
+}
+
 .new-word-salad__glyph.is-blank {
   height: 1.12em;
   color: transparent;

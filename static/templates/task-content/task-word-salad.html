@@ -74,8 +74,10 @@
                   {% for ch in word.mask_chars %}
                     {% if ch == '⬜' %}
                       <span class="new-word-salad__glyph is-blank" aria-hidden="true">⬜</span>
-                    {% else %}
+                    {% elif ch.isalpha %}
                       <span class="new-word-salad__glyph">{{ ch }}</span>
+                    {% else %}
+                      <span class="new-word-salad__separator">{{ ch }}</span>
                     {% endif %}
                   {% endfor %}
                 </span>
@@ -84,15 +86,21 @@
             </form>
             {% else %}
             <span class="new-word-salad__pill">
-              <span class="new-word-salad__mask">
-                {% for ch in word.mask_chars %}
-                  {% if ch == '⬜' %}
-                    <span class="new-word-salad__glyph is-blank" aria-hidden="true">⬜</span>
-                  {% else %}
-                    <span class="new-word-salad__glyph">{{ ch }}</span>
-                  {% endif %}
-                {% endfor %}
-              </span>
+              {% if word.is_solved %}
+                <span class="new-word-salad__mask">{{ word.original }}</span>
+              {% else %}
+                <span class="new-word-salad__mask">
+                  {% for ch in word.mask_chars %}
+                    {% if ch == '⬜' %}
+                      <span class="new-word-salad__glyph is-blank" aria-hidden="true">⬜</span>
+                    {% elif ch.isalpha %}
+                      <span class="new-word-salad__glyph">{{ ch }}</span>
+                    {% else %}
+                      <span class="new-word-salad__separator">{{ ch }}</span>
+                    {% endif %}
+                  {% endfor %}
+                </span>
+              {% endif %}
               {% if word.length_label %}<span class="new-word-salad__len">{{ word.length_label }}</span>{% endif %}
             </span>
             {% endif %}

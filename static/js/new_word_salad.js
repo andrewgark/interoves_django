@@ -226,11 +226,21 @@
 
   function renderMaskEl(el, text) {
     if (!el) return;
+    text = String(text || '');
     el.textContent = '';
-    Array.prototype.forEach.call(String(text || ''), function (ch) {
+    // A solved answer does not need per-letter boxes. Keeping it as one text
+    // node preserves spaces and punctuation exactly as authored.
+    if (text.indexOf('⬜') < 0) {
+      el.textContent = text;
+      return;
+    }
+    Array.prototype.forEach.call(text, function (ch) {
       var span = document.createElement('span');
       var blank = ch === '⬜';
-      span.className = 'new-word-salad__glyph' + (blank ? ' is-blank' : '');
+      var isLetter = /[А-ЯЁA-Z]/i.test(ch);
+      span.className = blank || isLetter
+        ? 'new-word-salad__glyph' + (blank ? ' is-blank' : '')
+        : 'new-word-salad__separator';
       span.textContent = ch;
       if (blank) span.setAttribute('aria-hidden', 'true');
       el.appendChild(span);
