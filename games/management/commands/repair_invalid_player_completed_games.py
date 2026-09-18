@@ -16,6 +16,14 @@ REPAIR_COHORT = frozenset({
     19417, 19971, 20327, 20330, 20340, 20979, 22284, 22735,
 })
 
+CURRENT_INCOMPLETE_COHORT = frozenset({
+    67, 103, 417, 1350, 1353, 2004, 2008, 2208, 2216, 2218,
+    2222, 2232, 2239, 2246, 2250, 2251, 2255, 2258, 2527, 2641,
+    2990, 3175, 3264, 3554, 3577, 4236, 4338, 4340, 4592, 4595,
+    5115, 5448, 6022, 6025, 6026, 6031, 7526, 7716, 9571, 9631,
+    9633, 9634, 13730, 14915, 19905, 21019, 21900,
+})
+
 
 def _json_value(value):
     if isinstance(value, (datetime, date)):
@@ -37,6 +45,10 @@ class Command(BaseCommand):
             help='Comma-separated explicit PlayerCompletedGame IDs; no implicit scope is allowed.',
         )
         parser.add_argument(
+            '--current-incomplete-only', action='store_true',
+            help='Use the frozen current-incomplete cohort; ignore historical bug classification.',
+        )
+        parser.add_argument(
             '--export',
             help='Write a local JSON backup/evidence export before completing the command.',
         )
@@ -44,10 +56,12 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         ids = self._parse_ids(options['ids'])
         requested = len(ids)
-        unknown = sorted(set(ids) - REPAIR_COHORT)
+        current_only = options['current_incomplete_only']
+        allowed_cohort = CURRENT_INCOMPLETE_COHORT if current_only else REPAIR_COHORT
+        unknown = sorted(set(ids) - allowed_cohort)
         if unknown:
             raise CommandError(
-                'IDs are not in the frozen forensic repair cohort: {}'.format(unknown)
+                'IDs are not in the selected frozen repair cohort: {}'.format(unknown)
             )
         if options['apply'] and not options.get('export'):
             raise CommandError('--apply requires --export so the pre-write backup is explicit.')
@@ -82,7 +96,10 @@ class Command(BaseCommand):
             elif item is None:
                 reason = 'forensic validation did not produce a result'
                 report['skipped_ambiguous'].append(pk)
-            elif item['classification'] == 'CONFIRMED_INVALID':
+            elif current_only and item['missing_tasks_current']:
+                report['eligible'].append(pk)
+                reason = 'current canonical task-group state is incomplete'
+            elif not current_only and item['classification'] == 'CONFIRMED_INVALID':
                 report['still_confirmed_invalid'].append(pk)
                 report['eligible'].append(pk)
                 reason = item['reason']
@@ -101,10 +118,11 @@ class Command(BaseCommand):
             })
 
         if options.get('export'):
+            report['current_incomplete_only'] = current_only
             self._export(options['export'], records, report)
 
         if options['apply']:
-            report = self._apply_after_revalidation(ids, report)
+            report = self._apply_after_revalidation(ids, report, current_only=current_only)
 
         self.stdout.write(json.dumps({
             key: report[key]
@@ -137,7 +155,9 @@ class Command(BaseCommand):
         path = Path(raw_path)
         payload = {
             'model': 'games.PlayerCompletedGame',
-            'frozen_repair_cohort': sorted(REPAIR_COHORT),
+            'frozen_repair_cohort': sorted(
+                CURRENT_INCOMPLETE_COHORT if report.get('current_incomplete_only') else REPAIR_COHORT
+            ),
             'records': [
                 {
                     field.attname: _json_value(getattr(record, field.attname))
@@ -149,7 +169,7 @@ class Command(BaseCommand):
         }
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + '\n')
 
-    def _apply_after_revalidation(self, ids, initial_report):
+    def _apply_after_revalidation(self, ids, initial_report, *, current_only=False):
         with transaction.atomic():
             # Lock first, then rebuild the snapshot immediately before the
             # write.  The expensive scan is limited to the explicit cohort.
@@ -165,14 +185,19 @@ class Command(BaseCommand):
                 pk for pk in ids
                 if pk in current_by_id
                 and current_by_id[pk].game.is_tournament
-                and current_validation.get(pk, {}).get('classification') == 'CONFIRMED_INVALID'
+                and (
+                    current_validation.get(pk, {}).get('missing_tasks_current')
+                    if current_only else
+                    current_validation.get(pk, {}).get('classification') == 'CONFIRMED_INVALID'
+                )
             ]
             deleted, _details = PlayerCompletedGame.objects.filter(pk__in=eligible).delete()
         initial_eligible = set(initial_report['eligible'])
         current_eligible = set(eligible)
         for pk in sorted(initial_eligible - current_eligible):
             initial_report['eligible'].remove(pk)
-            initial_report['still_confirmed_invalid'].remove(pk)
+            if pk in initial_report['still_confirmed_invalid']:
+                initial_report['still_confirmed_invalid'].remove(pk)
             item = current_validation.get(pk)
             if item is None:
                 if pk not in initial_report['missing']:
@@ -183,6 +208,6 @@ class Command(BaseCommand):
             else:
                 initial_report['skipped_ambiguous'].append(pk)
         initial_report['eligible'] = eligible
-        initial_report['still_confirmed_invalid'] = eligible
+        initial_report['still_confirmed_invalid'] = [] if current_only else eligible
         initial_report['records_changed'] = deleted
         return initial_report

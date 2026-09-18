@@ -355,8 +355,20 @@ class CompletionInvariantTests(TestCase):
         self.assertEqual(payload['records_changed'], 0)
         self.assertTrue(PlayerCompletedGame.objects.filter(pk=completion.pk).exists())
 
+    def test_current_incomplete_repair_mode_allows_ambiguous_scope(self):
+        completion, _state, _tasks = self._repair_fixture(21900, classification='ambiguous')
+        output = StringIO()
+        call_command(
+            'repair_invalid_player_completed_games', '--dry-run',
+            '--current-incomplete-only', '--ids', '21900', stdout=output,
+        )
+        payload = json.loads(output.getvalue().splitlines()[0])
+        self.assertEqual(payload['eligible'], [21900])
+        self.assertEqual(payload['records_changed'], 0)
+        self.assertTrue(PlayerCompletedGame.objects.filter(pk=completion.pk).exists())
+
     def test_repair_requires_explicit_frozen_ids(self):
-        with self.assertRaisesMessage(CommandError, 'frozen forensic repair cohort'):
+        with self.assertRaisesMessage(CommandError, 'selected frozen repair cohort'):
             call_command(
                 'repair_invalid_player_completed_games', '--dry-run', '--ids', '999999',
             )
