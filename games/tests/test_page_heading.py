@@ -98,12 +98,32 @@ class PageHeadingPartialTests(SimpleTestCase):
         )
         self.assertIn('new-daily-game-header', html)
         self.assertIn('Салатик №20', html)
+
         self.assertIn('data-rules-open', html)
         self.assertIn('data-daily-timer-toggle', html)
         self.assertIn('data-daily-timer-pause', html)
         self.assertIn('Сетка 4×4', html)
         self.assertIn('disabled aria-label="Следующая ежедневная игра"', html)
         self.assertNotIn(str(today.year), html.split('new-daily-game-header__date', 1)[1].split('</span>', 1)[0])
+
+    def test_custom_daily_header_has_reset_without_date_navigation(self):
+        html = render_to_string(
+            'new/partials/daily_game_header.html',
+            {
+                'heading': 'Мой салатик',
+                'custom_daily_task': True,
+                'custom_reset_enabled': True,
+                'custom_reset_url': '/create_salad/7/reset/',
+                'official_completed': True,
+                'daily_publish_date': None,
+                'prev_task_group_url': '/salad/1/',
+                'next_task_group_url': '/salad/3/',
+                'game': SimpleNamespace(id='salad', theme='', tags={}),
+            },
+        )
+        self.assertIn('Полностью сбросить решение', html)
+        self.assertNotIn('Дата не указана', html)
+        self.assertNotIn('new-daily-game-header__nav', html)
 
     def test_daily_header_shows_year_for_other_year(self):
         date = timezone.localdate() - timedelta(days=400)

@@ -612,6 +612,8 @@ def reset_salad_progress(
     n = attempt_qs.count()
     chain_qs.delete()
     attempt_qs.delete()
+    # Invalidate the browser-side finds cache as well as server-side progress.
+    Task.objects.filter(pk=task.pk).update(attempt_revision=uuid.uuid4())
     return n
 
 

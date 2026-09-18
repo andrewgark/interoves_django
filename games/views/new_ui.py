@@ -3381,6 +3381,8 @@ def new_task_group_page(request, game_id, task_group_number):
             elif salad_offer is not None:
                 offer_reset_url = '/create_salad/{}/reset/'.format(salad_offer.pk)
 
+    custom_daily_task = draft_offer is not None
+
     if ladder_offer is not None:
         ladder_results_url = ladder_word_results_path(ladder_offer.share_hash)
     elif game.id == LADDER_GAME_ID:
@@ -3460,6 +3462,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'week_task_source_url': week_task_source_url,
         'source_desyatka': source_desyatka,
         'is_daily_single_task': is_daily_single_task,
+        'custom_daily_task': custom_daily_task,
         'daily_publish_date': daily_publish_date,
         'difficulty': difficulty,
         'ladder_word_results_url': ladder_results_url,
@@ -3482,6 +3485,8 @@ def new_task_group_page(request, game_id, task_group_number):
         'ladder_offer': ladder_offer,
         'can_reset_ladder_offer': can_reset_offer,
         'ladder_offer_reset_url': offer_reset_url,
+        'custom_reset_enabled': can_reset_offer,
+        'custom_reset_url': offer_reset_url,
         'back_url': back_url,
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
         'page_title': page_title,

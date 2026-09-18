@@ -19,6 +19,7 @@
       {% endif %}
     </div>
     <div class="new-daily-game-header__controls">
+      {% if not custom_daily_task %}
       <nav class="new-daily-game-header__nav" aria-label="{{ daily_pager_aria_label|default:'Переход между ежедневными играми' }}">
         {% if prev_task_group_url %}<a class="new-daily-game-header__nav-button" href="{{ prev_task_group_url }}" data-daily-nav-link aria-label="Предыдущая ежедневная игра"><i class="ph ph-caret-left" aria-hidden="true"></i></a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Предыдущая ежедневная игра"><i class="ph ph-caret-left" aria-hidden="true"></i></button>{% endif %}
         <span class="new-daily-game-header__date">
@@ -26,8 +27,9 @@
         </span>
         {% if next_task_group_url %}<a class="new-daily-game-header__nav-button" href="{{ next_task_group_url }}" data-daily-nav-link aria-label="Следующая ежедневная игра"><i class="ph ph-caret-right" aria-hidden="true"></i></a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Следующая ежедневная игра"><i class="ph ph-caret-right" aria-hidden="true"></i></button>{% endif %}
       </nav>
+      {% endif %}
       {% if daily_timing_enabled %}{% include "new/partials/daily_solve_timer.html" %}{% endif %}
-      {% include "new/partials/replay_controls.html" %}
+      {% include "new/partials/replay_controls.html" with custom_reset_url=custom_reset_url custom_reset_enabled=custom_reset_enabled %}
     </div>
   </div>
   {% firstof tagline section_tagline game.theme as page_tagline %}
