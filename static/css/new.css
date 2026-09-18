@@ -3369,6 +3369,10 @@ html.new-ui-dark .new-team-switcher-active-box {
   gap: 0.5rem;
 }
 
+.new-replay-controls[hidden] {
+  display: none;
+}
+
 .new-replay-controls--standalone {
   margin: 0 0 0.85rem;
 }

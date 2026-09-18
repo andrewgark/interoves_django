@@ -110,9 +110,12 @@
       ta.value = text;
       ta.setAttribute('readonly', '');
       ta.style.position = 'absolute';
+      ta.style.top = '0';
       ta.style.left = '-9999px';
       document.body.appendChild(ta);
+      ta.focus();
       ta.select();
+      ta.setSelectionRange(0, ta.value.length);
       var ok = document.execCommand('copy');
       document.body.removeChild(ta);
       return !!ok;
@@ -123,6 +126,12 @@
 
   function copyTextToClipboard(text) {
     var nav = root.navigator || (root.window && root.window.navigator);
+
+    // execCommand is synchronous and therefore keeps the user activation from
+    // the button click.  This matters in Yandex Browser when Clipboard API is
+    // unavailable (or the page is not considered a secure context).
+    if (fallbackCopyText(text)) return Promise.resolve();
+
     if (nav && nav.clipboard && typeof nav.clipboard.writeText === 'function') {
       return nav.clipboard.writeText(text).catch(function () {
         if (!fallbackCopyText(text)) throw new Error('copy-text-failed');
@@ -135,11 +144,12 @@
   }
 
   function canWriteClipboardImage(nav) {
+    var ClipboardItemCtor = root.ClipboardItem || (root.window && root.window.ClipboardItem);
     return !!(
       nav &&
       nav.clipboard &&
       typeof nav.clipboard.write === 'function' &&
-      typeof root.ClipboardItem === 'function'
+      typeof ClipboardItemCtor === 'function'
     );
   }
 
@@ -149,16 +159,75 @@
       return Promise.reject(Object.assign(new Error('clipboard-image-unsupported'), { code: 'unsupported' }));
     }
     var item;
+    var ClipboardItemCtor = root.ClipboardItem || (root.window && root.window.ClipboardItem);
     try {
-      item = new root.ClipboardItem({ 'image/png': blob });
+      item = new ClipboardItemCtor({ 'image/png': blob });
     } catch (err) {
       try {
-        item = new root.ClipboardItem({ 'image/png': Promise.resolve(blob) });
+        item = new ClipboardItemCtor({ 'image/png': Promise.resolve(blob) });
       } catch (err2) {
         return Promise.reject(Object.assign(err2, { code: 'unsupported' }));
       }
     }
     return nav.clipboard.write([item]);
+  }
+
+  function fallbackCopyImage(blob) {
+    var doc = root.document || (root.window && root.window.document);
+    var FileReaderCtor = root.FileReader || (root.window && root.window.FileReader);
+    if (!doc || !doc.body || typeof FileReaderCtor !== 'function') {
+      return Promise.reject(new Error('copy-image-failed'));
+    }
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReaderCtor();
+      reader.onerror = function () { reject(new Error('copy-image-failed')); };
+      reader.onload = function () {
+        var holder;
+        try {
+          holder = doc.createElement('div');
+          holder.contentEditable = 'true';
+          holder.style.position = 'fixed';
+          holder.style.left = '-9999px';
+          holder.style.top = '0';
+          var image = doc.createElement('img');
+          image.src = reader.result;
+          image.alt = '';
+          holder.appendChild(image);
+          doc.body.appendChild(holder);
+          var copied = false;
+          function copyLoadedImage() {
+            if (copied) return;
+            copied = true;
+            try {
+              var range = doc.createRange();
+              range.selectNode(image);
+              var selection = (root.getSelection && root.getSelection()) ||
+                (doc.getSelection && doc.getSelection());
+              if (!selection) throw new Error('copy-image-failed');
+              selection.removeAllRanges();
+              selection.addRange(range);
+              holder.focus();
+              if (!doc.execCommand('copy')) throw new Error('copy-image-failed');
+              doc.body.removeChild(holder);
+              resolve();
+            } catch (copyErr) {
+              if (holder && holder.parentNode) holder.parentNode.removeChild(holder);
+              reject(copyErr);
+            }
+          }
+          image.onload = copyLoadedImage;
+          image.onerror = function () {
+            if (holder && holder.parentNode) holder.parentNode.removeChild(holder);
+            reject(new Error('copy-image-failed'));
+          };
+          if (image.complete) copyLoadedImage();
+        } catch (err) {
+          if (holder && holder.parentNode) holder.parentNode.removeChild(holder);
+          reject(err);
+        }
+      };
+      reader.readAsDataURL(blob);
+    });
   }
 
   function pngFileFromBlob(blob, filename) {
@@ -216,7 +285,9 @@
       return Promise.resolve();
     }
     return getPngBlob(block).then(function (blob) {
-      return writePngToClipboard(blob);
+      return writePngToClipboard(blob).catch(function () {
+        return fallbackCopyImage(blob);
+      });
     }).then(function () {
       setStatus(block, COPY_IMAGE_DONE);
       flashButton(btn, COPY_IMAGE_DONE, COPY_IMAGE_LABEL);
