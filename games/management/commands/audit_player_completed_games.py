@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand, CommandError
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Prefetch, Q
 
 from games.analytics import is_task_completion_state
 from games.models import Attempt, ChainTaskState, PlayerCompletedGame, Task
@@ -56,16 +56,13 @@ class Command(BaseCommand):
         if options.get('game_id'):
             qs = qs.filter(game_id=options['game_id'])
         if options['suspect_only']:
-            # A currently incomplete completion must have at least two current
-            # required tasks.  Keep this as a cheap SQL candidate filter; the
-            # forensic classification still happens from the batch snapshot.
-            qs = qs.annotate(
-                required_task_count=Count(
-                    'task_group__tasks',
-                    filter=Q(task_group__tasks__is_removed=False),
-                    distinct=True,
-                )
-            ).filter(required_task_count__gt=1)
+            # The known historical corruption path is the legacy backfill.
+            # Restrict the expensive snapshot to rows explicitly marked as
+            # backfilled; classification still happens from persisted task
+            # state in Python.  Do not infer suspicion from current task count:
+            # mutable groups can have one visible task today while their old
+            # completion was created against a different membership.
+            qs = qs.filter(is_backfilled=True)
         items = []
         query_count = 0
         started = time.monotonic()

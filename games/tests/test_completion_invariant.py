@@ -199,6 +199,7 @@ class CompletionInvariantTests(TestCase):
             task_group=group,
             game_kind='forensic_batch',
             game_instance_id='forensic-batch:1',
+            is_backfilled=True,
         )
         before = list(Attempt.manager.filter(user=self.user).values_list('pk', 'status'))
 
