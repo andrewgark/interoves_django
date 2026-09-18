@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
 import re
@@ -135,6 +136,41 @@ def _request_user_agent(request) -> dict:
     return normalized_user_agent(request.META.get('HTTP_USER_AGENT'))
 
 
+def _request_ip_fields(request) -> dict:
+    """Return proxy-aware IP context without logging the whole forwarded chain.
+
+    Production traffic reaches Django through the EB/ALB proxy, so the first
+    X-Forwarded-For value is the client address and REMOTE_ADDR is the direct
+    peer.  Validate both values before putting them in structured logs; these
+    headers are client-controlled outside the trusted proxy path.
+    """
+    if request is None:
+        return {'client_ip': 'unavailable', 'peer_ip': 'unavailable'}
+
+    peer_raw = (request.META.get('REMOTE_ADDR') or '').strip()
+    peer_ip = peer_raw
+    try:
+        ipaddress.ip_address(peer_raw)
+    except ValueError:
+        peer_ip = 'invalid'
+
+    forwarded = request.META.get('HTTP_X_FORWARDED_FOR') or ''
+    client_ip = None
+    for candidate in forwarded.split(','):
+        candidate = candidate.strip()
+        try:
+            ipaddress.ip_address(candidate)
+        except ValueError:
+            continue
+        client_ip = candidate
+        break
+
+    return {
+        'client_ip': client_ip or peer_ip or 'unavailable',
+        'peer_ip': peer_ip or 'unavailable',
+    }
+
+
 def _safe_user_id(value):
     if value is None:
         return None
@@ -264,7 +300,9 @@ def log_authenticated_request(request, response) -> None:
         ) else 'authenticated_request',
         request,
         user_id=_safe_user_id(getattr(user, 'pk', None)),
+        username=_safe_user_id(getattr(user, 'get_username', lambda: '')()),
         session_fingerprint=session_fingerprint(_request_session_key(request)),
+        **_request_ip_fields(request),
         status=getattr(response, 'status_code', None),
         actor_kind=getattr(request, 'interoves_gameplay_actor_kind', None),
         task_id=getattr(request, 'interoves_gameplay_task_id', None),
@@ -272,6 +310,62 @@ def log_authenticated_request(request, response) -> None:
         if getattr(request, 'resolver_match', None) else None,
         result=getattr(request, 'interoves_gameplay_context_result', None),
         attempt_id=getattr(request, 'interoves_attempt_id', None),
+    )
+
+
+def log_post_request(request, response=None, *, error=False) -> None:
+    """Audit every POST without recording body, query, cookies, or credentials."""
+    user = getattr(request, 'user', None)
+    is_authenticated = bool(getattr(user, 'is_authenticated', False))
+    fields = {
+        'user_id': _safe_user_id(getattr(user, 'pk', None)) if is_authenticated else None,
+        'username': _safe_user_id(getattr(user, 'get_username', lambda: '')())
+        if is_authenticated else None,
+        'authenticated': is_authenticated,
+        'status': getattr(response, 'status_code', 500 if error else None),
+        'error': bool(error),
+        'route_name': getattr(request, 'resolver_match', None).url_name
+        if getattr(request, 'resolver_match', None) else None,
+        'session_fingerprint': session_fingerprint(_request_session_key(request))
+        if is_authenticated else None,
+        **_request_ip_fields(request),
+    }
+    log_auth_event('post_request', request, **fields)
+
+
+def log_realtime_sync(
+    direction: str,
+    *,
+    request=None,
+    game_id=None,
+    task_id=None,
+    user_id=None,
+    team_id=None,
+    recipient_user_id=None,
+    reason=None,
+    seq=None,
+    seq_namespace=None,
+    delivery=None,
+    missed_namespaces=None,
+) -> None:
+    """Log sync metadata only; never include rendered HTML or client payloads."""
+    log_auth_event(
+        'realtime_sync',
+        request,
+        direction=direction,
+        game_id=_safe_user_id(game_id),
+        task_id=_safe_user_id(task_id),
+        user_id=_safe_user_id(user_id),
+        team_id=_safe_user_id(team_id),
+        recipient_user_id=_safe_user_id(recipient_user_id),
+        reason=str(reason)[:120] if reason is not None else None,
+        seq=seq,
+        seq_namespace=str(seq_namespace)[:160] if seq_namespace is not None else None,
+        delivery=delivery,
+        missed_namespaces=(
+            [str(value)[:160] for value in missed_namespaces[:20]]
+            if isinstance(missed_namespaces, (list, tuple)) else None
+        ),
     )
 
 

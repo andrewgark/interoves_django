@@ -37,6 +37,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from games.models import Attempt, Game, GameTaskGroup, Task
+from games.auth_observability import log_realtime_sync
 from games.views.render_task import update_task_html
 
 logger = logging.getLogger(__name__)
@@ -134,6 +135,14 @@ class TrackWsLifecycleMixin:
                 for namespace, current in versions.items()
                 if namespace in seen and _track_seq_int(seen.get(namespace)) < current
             }
+            log_realtime_sync(
+                'reconcile_request',
+                game_id=getattr(self, 'game_id', None),
+                user_id=getattr(self, 'user_id', None),
+                team_id=getattr(self, 'team_id', None),
+                delivery='websocket',
+                missed_namespaces=list(missed),
+            )
             await self.send_json({
                 'type': 'track.resync_required' if missed else 'track.synced',
                 'versions': versions,
@@ -551,6 +560,12 @@ def track_task_change(
                 event_body, g.id,
             )
             if team is not None:
+                log_realtime_sync(
+                    'publish', request=request, game_id=g.id, task_id=task.id,
+                    user_id=getattr(user, 'id', None), team_id=team.pk,
+                    reason=reason, seq=event_body['seq'],
+                    seq_namespace=event_body['seq_namespace'], delivery='team',
+                )
                 async_to_sync(channel_layer.group_send)(
                     CHANNEL_GROUPS['game_team'](g.id, team.pk),
                     channel_event,
@@ -561,6 +576,12 @@ def track_task_change(
                     channel_event,
                 )
             elif user is not None:
+                log_realtime_sync(
+                    'publish', request=request, game_id=g.id, task_id=task.id,
+                    user_id=user.id, recipient_user_id=user.id, reason=reason,
+                    seq=event_body['seq'], seq_namespace=event_body['seq_namespace'],
+                    delivery='user',
+                )
                 async_to_sync(channel_layer.group_send)(
                     CHANNEL_GROUPS['user'](user.id),
                     channel_event,
@@ -570,6 +591,11 @@ def track_task_change(
                 # содержит HTML для текущей вкладки.
                 continue
             else:
+                log_realtime_sync(
+                    'publish', request=request, game_id=g.id, task_id=task.id,
+                    reason=reason, seq=event_body['seq'],
+                    seq_namespace=event_body['seq_namespace'], delivery='game',
+                )
                 async_to_sync(channel_layer.group_send)(
                     CHANNEL_GROUPS['game'](g.id),
                     channel_event,
@@ -709,6 +735,12 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
 
     async def task_changed(self, event):
         self._track_touch_activity()
+        log_realtime_sync(
+            'deliver', game_id=getattr(self, 'game_id', None),
+            task_id=event.get('task'), recipient_user_id=getattr(self, 'user_id', None),
+            reason=event.get('reason'), seq=event.get('seq'),
+            seq_namespace=event.get('seq_namespace'), delivery='websocket',
+        )
         if event['by'] == 'admin':
             event = await self._build_task_changed_for_admin(event)
         if 'seq' not in event:
@@ -720,6 +752,12 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
     async def track_event(self, event):
         """User-targeted messages (type='track.event' in group_send body)."""
         self._track_touch_activity()
+        log_realtime_sync(
+            'deliver', game_id=getattr(self, 'game_id', None),
+            recipient_user_id=getattr(self, 'user_id', None),
+            reason=event.get('event'), seq=event.get('seq'),
+            seq_namespace=event.get('seq_namespace'), delivery='websocket',
+        )
         event = msgpack_safe_keys(event)
         if 'seq' not in event:
             event = dict(event)
@@ -770,6 +808,12 @@ class UserTrackConsumer(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
     async def task_changed(self, event):
         """Personal task updates may share the user group with a hub socket."""
         self._track_touch_activity()
+        log_realtime_sync(
+            'deliver', task_id=event.get('task'),
+            recipient_user_id=getattr(self, 'user_id', None),
+            reason=event.get('reason'), seq=event.get('seq'),
+            seq_namespace=event.get('seq_namespace'), delivery='websocket',
+        )
         if 'seq' not in event:
             event = dict(event)
             event['seq_namespace'] = user_track_namespace(self.user_id)

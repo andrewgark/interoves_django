@@ -20,6 +20,7 @@ from django.utils.crypto import constant_time_compare
 from games.auth_observability import (
     log_auth_event,
     log_authenticated_request,
+    log_post_request,
     session_fingerprint,
 )
 
@@ -210,7 +211,23 @@ class AuthenticatedRequestAuditMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        response = self.get_response(request)
-        if _is_authenticated_audit_path(getattr(request, 'path', '') or '/'):
+        try:
+            response = self.get_response(request)
+        except Exception:
+            if getattr(request, 'method', '') == 'POST':
+                log_post_request(request, error=True)
+            raise
+        if getattr(request, 'method', '') == 'POST':
+            user = getattr(request, 'user', None)
+            if (
+                getattr(user, 'is_authenticated', False)
+                and _is_authenticated_audit_path(getattr(request, 'path', '') or '/')
+            ):
+                # Preserve the established event name for the gameplay/auth
+                # allowlist while enriching it with the same forensic context.
+                log_authenticated_request(request, response)
+            else:
+                log_post_request(request, response)
+        elif _is_authenticated_audit_path(getattr(request, 'path', '') or '/'):
             log_authenticated_request(request, response)
         return response

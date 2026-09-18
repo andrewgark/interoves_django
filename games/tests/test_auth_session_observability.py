@@ -27,6 +27,7 @@ from games.auth_observability import (
     log_auth_event,
     log_authenticated_request,
     log_gameplay_attempt_created,
+    log_post_request,
     log_startup_auth_configuration,
     normalized_user_agent,
     session_fingerprint,
@@ -325,6 +326,59 @@ class AuthSessionObservabilityTests(TestCase):
         )
         with self.assertNoLogs('interoves.auth', level='INFO'):
             handler(request)
+
+    def test_every_post_logs_account_device_and_proxy_aware_ip_without_payload(self):
+        session_key = self._new_auth_session()
+        request = self.factory.post(
+            '/post-audit-test/',
+            data={'clue_marks': 'must-not-be-logged'},
+            HTTP_HOST='interoves.com',
+            HTTP_USER_AGENT=(
+                'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 '
+                'Chrome/153.0.0.0 Mobile Safari/537.36'
+            ),
+            HTTP_X_FORWARDED_FOR='198.51.100.24, 10.0.0.8',
+            REMOTE_ADDR='10.0.0.8',
+            HTTP_COOKIE='{}={}'.format(settings.SESSION_COOKIE_NAME, session_key),
+        )
+        request.interoves_request_id = 'post-audit-id'
+        handler = SessionMiddleware(
+            AuthenticatedRequestAuditMiddleware(
+                AuthenticationMiddleware(lambda req: JsonResponse({}, status=204)),
+            ),
+        )
+        with self.assertLogs('interoves.auth', level='INFO') as logs:
+            response = handler(request)
+        payload = next(
+            json.loads(record.getMessage())
+            for record in logs.records
+            if json.loads(record.getMessage()).get('event') == 'post_request'
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(payload['request_id'], 'post-audit-id')
+        self.assertEqual(payload['user_id'], str(self.user.pk))
+        self.assertEqual(payload['username'], self.user.username)
+        self.assertEqual(payload['client_ip'], '198.51.100.24')
+        self.assertEqual(payload['peer_ip'], '10.0.0.8')
+        self.assertEqual(payload['user_agent']['device_family'], 'Android phone')
+        self.assertNotIn('must-not-be-logged', json.dumps(payload))
+
+    def test_anonymous_post_is_logged_and_view_exception_is_re_raised(self):
+        request = self.factory.post('/send_raddle_ui/6820/', HTTP_USER_AGENT='test-client/1.0')
+        request.interoves_request_id = 'anonymous-post-id'
+
+        def failing_view(_request):
+            raise RuntimeError('expected test failure')
+
+        handler = AuthenticatedRequestAuditMiddleware(failing_view)
+        with self.assertLogs('interoves.auth', level='INFO') as logs:
+            with self.assertRaises(RuntimeError):
+                handler(request)
+        payload = json.loads(logs.records[-1].getMessage())
+        self.assertEqual(payload['event'], 'post_request')
+        self.assertFalse(payload['authenticated'])
+        self.assertTrue(payload['error'])
+        self.assertEqual(payload['status'], 500)
 
     def test_failed_login_event_never_logs_credentials(self):
         request = self.factory.post(
