@@ -1,9 +1,10 @@
 import json
 from datetime import datetime, timezone
 from io import StringIO
+from tempfile import TemporaryDirectory
 
 from django.contrib.auth.models import User
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.test import TestCase
 
 from games.analytics import (
@@ -242,3 +243,130 @@ class CompletionInvariantTests(TestCase):
 
         self.assertIn('candidate_count=0', output.getvalue())
         self.assertIn('total_suspect: 0', output.getvalue())
+
+    def _repair_fixture(self, pk, *, classification='invalid'):
+        game = self._game('replacements')
+        game.is_tournament = True
+        game.save(update_fields=['is_tournament'])
+        group, tasks = self._group(
+            game,
+            [('0', 'replacements_lines'), ('1', 'default')],
+        )
+        state = self._set_state(tasks[0], game)
+        if classification == 'invalid':
+            timestamp = datetime(2026, 8, 16, 11, 47, 52, tzinfo=timezone.utc)
+            ChainTaskState.objects.filter(pk=state.pk).update(updated_at=timestamp)
+            completed_at = timestamp.replace(microsecond=756257)
+        elif classification == 'ambiguous':
+            completed_at = datetime(2026, 9, 18, 1, 0, tzinfo=timezone.utc)
+        else:
+            Attempt.manager.create(
+                user=self.user, game=game, task=tasks[1], status='Ok', text='ok', points=1,
+            )
+            completed_at = datetime(2026, 9, 18, 1, 0, tzinfo=timezone.utc)
+        completion = PlayerCompletedGame.objects.create(
+            pk=pk,
+            user=self.user,
+            game=game,
+            task_group=group,
+            game_kind='replacements',
+            game_instance_id='replacements:repair:{}'.format(pk),
+            is_backfilled=True,
+        )
+        PlayerCompletedGame.objects.filter(pk=completion.pk).update(completed_at=completed_at)
+        return completion, state, tasks
+
+    def test_repair_dry_run_revalidates_and_never_touches_ambiguous_or_valid(self):
+        invalid, invalid_state, invalid_tasks = self._repair_fixture(5910)
+        ambiguous, _ambiguous_state, _ = self._repair_fixture(6738, classification='ambiguous')
+        valid, _valid_state, _ = self._repair_fixture(7491, classification='valid')
+        before_attempts = Attempt.manager.count()
+        before_states = ChainTaskState.objects.count()
+        output = StringIO()
+        with TemporaryDirectory() as tmpdir:
+            call_command(
+                'repair_invalid_player_completed_games', '--dry-run',
+                '--ids', '5910,6738,7491', '--export', '{}/backup.json'.format(tmpdir),
+                stdout=output,
+            )
+        payload = json.loads(output.getvalue().splitlines()[0])
+        self.assertEqual(payload['eligible'], [5910])
+        self.assertEqual(payload['skipped_ambiguous'], [6738])
+        self.assertEqual(payload['skipped_now_valid'], [7491])
+        self.assertEqual(payload['records_changed'], 0)
+        self.assertEqual(PlayerCompletedGame.objects.filter(pk__in=[5910, 6738, 7491]).count(), 3)
+        self.assertEqual(Attempt.manager.count(), before_attempts)
+        self.assertEqual(ChainTaskState.objects.count(), before_states)
+        self.assertTrue(ChainTaskState.objects.filter(pk=invalid_state.pk).exists())
+        self.assertTrue(PlayerCompletedGame.objects.filter(pk=invalid.pk).exists())
+        self.assertTrue(PlayerCompletedGame.objects.filter(pk=ambiguous.pk).exists())
+        self.assertTrue(PlayerCompletedGame.objects.filter(pk=valid.pk).exists())
+        self.assertEqual(invalid_tasks[1].task_group_id, invalid.task_group_id)
+
+    def test_repair_apply_deletes_only_pcg_and_allows_real_recompletion(self):
+        completion, state, tasks = self._repair_fixture(5910)
+        attempt_count = Attempt.manager.count()
+        state_count = ChainTaskState.objects.count()
+        output = StringIO()
+        with TemporaryDirectory() as tmpdir:
+            call_command(
+                'repair_invalid_player_completed_games', '--apply',
+                '--ids', '5910', '--export', '{}/backup.json'.format(tmpdir),
+                stdout=output,
+            )
+        payload = json.loads(output.getvalue().splitlines()[0])
+        self.assertEqual(payload['eligible'], [5910])
+        self.assertEqual(payload['records_changed'], 1)
+        self.assertFalse(PlayerCompletedGame.objects.filter(pk=completion.pk).exists())
+        self.assertEqual(Attempt.manager.count(), attempt_count)
+        self.assertEqual(ChainTaskState.objects.count(), state_count)
+        Attempt.manager.create(
+            user=self.user, game=completion.game, task=tasks[1], status='Ok', text='ok', points=1,
+        )
+        register_completed_game(user=self.user, task=tasks[1], game=completion.game)
+        self.assertEqual(
+            PlayerCompletedGame.objects.filter(
+                user=self.user, game=completion.game, task_group=completion.task_group,
+            ).count(),
+            1,
+        )
+        second_output = StringIO()
+        with TemporaryDirectory() as tmpdir:
+            call_command(
+                'repair_invalid_player_completed_games', '--apply',
+                '--ids', '5910', '--export', '{}/backup.json'.format(tmpdir),
+                stdout=second_output,
+            )
+        second_payload = json.loads(second_output.getvalue().splitlines()[0])
+        self.assertEqual(second_payload['missing'], [5910])
+        self.assertEqual(second_payload['records_changed'], 0)
+
+    def test_repair_apply_refuses_ambiguous_row(self):
+        completion, _state, _tasks = self._repair_fixture(6738, classification='ambiguous')
+        output = StringIO()
+        with TemporaryDirectory() as tmpdir:
+            call_command(
+                'repair_invalid_player_completed_games', '--apply',
+                '--ids', '6738', '--export', '{}/backup.json'.format(tmpdir),
+                stdout=output,
+            )
+        payload = json.loads(output.getvalue().splitlines()[0])
+        self.assertEqual(payload['eligible'], [])
+        self.assertEqual(payload['records_changed'], 0)
+        self.assertTrue(PlayerCompletedGame.objects.filter(pk=completion.pk).exists())
+
+    def test_repair_requires_explicit_frozen_ids(self):
+        with self.assertRaisesMessage(CommandError, 'frozen forensic repair cohort'):
+            call_command(
+                'repair_invalid_player_completed_games', '--dry-run', '--ids', '999999',
+            )
+
+    def test_repair_missing_frozen_id_is_safe_skip(self):
+        output = StringIO()
+        call_command(
+            'repair_invalid_player_completed_games', '--dry-run', '--ids', '5910',
+            stdout=output,
+        )
+        payload = json.loads(output.getvalue().splitlines()[0])
+        self.assertEqual(payload['missing'], [5910])
+        self.assertEqual(payload['eligible'], [])
