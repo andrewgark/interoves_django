@@ -27,6 +27,7 @@ from games.models import (
 from games.replay import StaleReplayError, replay_for_request, start_or_reset_replay
 from games.account_merge import _merge_replay_slots
 from games.views.attempt_views import process_send_attempt
+from games.views.new_ui import new_replay_exit
 from games.results_sql_aggregate import get_sql_aggregated_game_actor_rows
 
 
@@ -90,6 +91,22 @@ class ReplaySlotTests(TestCase):
             replay_for_request(
                 request=request, game=self.game, task_group=self.group, user=self.user,
             )
+
+    def test_replay_exit_clears_session_and_keeps_slot(self):
+        self._official()
+        request = self._request()
+        slot = start_or_reset_replay(
+            request=request, game=self.game, task_group=self.group, user=self.user,
+        )
+        request.user = self.user
+        with patch('games.views.new_ui._get_play_mode', return_value=('personal', 'personal')), \
+             patch('games.views.new_ui.has_profile', return_value=True):
+            response = new_replay_exit(request, self.game.id, '1')
+        self.assertEqual(response.status_code, 302)
+        self.assertIsNone(
+            request.session.get('interoves_replay:{}:{}'.format(self.game.pk, self.group.pk))
+        )
+        self.assertTrue(ReplaySlot.objects.filter(pk=slot.pk).exists())
 
     def test_normal_submission_after_official_completion_is_replay_required(self):
         anon_key = 'replay-direct-anon'

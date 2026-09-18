@@ -1,0 +1,16 @@
+<div class="new-replay-controls{% if replay_controls_standalone %} new-replay-controls--standalone{% endif %}" data-replay-control{% if not official_completed %} hidden{% endif %}>
+  <form class="new-replay-control" method="post" action="{% if replay_url %}{{ replay_url }}{% else %}/games/{{ game.id }}/{{ tg_number }}/replay/{% endif %}" data-replay-submit>
+    {% csrf_token %}
+    <button type="submit" class="new-replay-control__button" aria-label="Сыграть заново. Для статистики при этом сохранится ваше первое решение.">
+      <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
+    </button>
+    <span class="new-replay-control__tooltip" role="tooltip">Сыграть заново<br><span>(для статистики при этом сохранится ваше первое решение)</span></span>
+  </form>
+  {% if replay_active %}<form class="new-replay-control" method="post" action="{% if replay_exit_url %}{{ replay_exit_url }}{% else %}/games/{{ game.id }}/{{ tg_number }}/replay/exit/{% endif %}">
+    {% csrf_token %}
+    <button type="submit" class="new-replay-control__button" aria-label="Вернуться к первому решению. Показать его результат.">
+      <i class="ph ph-arrow-u-up-left" aria-hidden="true"></i>
+    </button>
+    <span class="new-replay-control__tooltip" role="tooltip">Вернуться к первому решению<br><span>(показывает результат первого решения; replay не учитывается в статистике)</span></span>
+  </form>{% endif %}
+</div>

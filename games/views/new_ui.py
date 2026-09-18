@@ -122,7 +122,7 @@ from games.models import (
     Team,
     TicketRequest,
 )
-from games.replay import active_replay, start_or_reset_replay
+from games.replay import active_replay, clear_replay_session, start_or_reset_replay
 from games.models import GameResultsSnapshot, TICKET_REQUESTS_PAGE_SIZE
 from games.util import clean_text
 from games.replacements_lines import canonical_replacements_checker_line, parse_replacements_lines_text
@@ -357,6 +357,10 @@ def _task_group_replay_url(game, number, *, project_base=''):
         return '{}/games/{}/{}/replay/'.format(project_base, game.id, number)
     from games.section_paths import section_replay_path
     return section_replay_path(game.id, number)
+
+
+def _task_group_replay_exit_url(game, number, *, project_base=''):
+    return _task_group_replay_url(game, number, project_base=project_base).rstrip('/') + '/exit/'
 
 
 def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
@@ -1719,10 +1723,23 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
             return redirect('project_task_group', project_id=project.id, game_id=game.id, task_group_number=fallback.number)
         raise Http404()
     task_group = placement.task_group
+    replay_slot = active_replay(
+        request=request,
+        game=game,
+        task_group=task_group,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+    )
+    actor_filter = {'team': team, 'user': user, 'anon_key': anon_key}
+    official_completed = PlayerCompletedGame.objects.filter(
+        game=game, task_group=task_group, **actor_filter,
+    ).exists()
     prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     ctx_dicts = build_task_group_task_context_dicts(
-        game, task_group, tasks, team, user, anon_key, mode, placement=placement,
+        game, task_group, tasks, team, user, anon_key, mode,
+        placement=placement, replay_slot=replay_slot,
     )
     return render(request, 'ui/task_group.html', {
         'project': project,
@@ -1743,6 +1760,10 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'mode': mode,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
+        'replay_slot': replay_slot,
+        'replay_active': replay_slot is not None,
+        'replay_completed': bool(replay_slot and replay_slot.status == 'completed'),
+        'official_completed': official_completed,
         'anon_key': anon_key,
         'team': team,
         'show_palindrome_rules': False,
@@ -1752,6 +1773,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'next_task_group_url': '{}/games/{}/{}/'.format(base, game.id, next_tg.number) if next_tg else None,
         'task_group_results_url': _task_group_results_url(game, placement.number, project_base=base),
         'replay_url': _task_group_replay_url(game, placement.number, project_base=base),
+        'replay_exit_url': _task_group_replay_exit_url(game, placement.number, project_base=base),
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
         'tg_number': placement.number,
         'tg_name': placement.name,
@@ -3423,6 +3445,7 @@ def new_task_group_page(request, game_id, task_group_number):
         ),
         'task_group_results_url': _task_group_results_url(game, placement.number),
         'replay_url': _task_group_replay_url(game, placement.number),
+        'replay_exit_url': _task_group_replay_exit_url(game, placement.number),
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
         'tg_number': placement.number,
         'tg_name': placement.name,
@@ -3487,19 +3510,7 @@ def new_task_group_page(request, game_id, task_group_number):
     })
 
 
-@require_POST
-def new_replay_start(request, game_id, task_group_number, project_id=None):
-    """Explicitly start/reset the private replay slot for one task group."""
-    if project_id:
-        project = get_object_or_404(Project, id=project_id)
-        game = get_object_or_404(Game, id=game_id, project=project)
-    else:
-        game = get_object_or_404(Game, id=game_id)
-    placement = get_object_or_404(
-        GameTaskGroup.objects.select_related('task_group'),
-        game=game,
-        number=str(task_group_number),
-    )
+def _replay_actor_for_request(request, game):
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     team = user = anon_key = None
@@ -3515,6 +3526,36 @@ def new_replay_start(request, game_id, task_group_number, project_id=None):
         anon_key = _anon_key_from_request(request)
         if not anon_key:
             raise Http404()
+    return team, user, anon_key
+
+
+def _replay_game_and_placement(game_id, task_group_number, project_id=None):
+    if project_id:
+        project = get_object_or_404(Project, id=project_id)
+        game = get_object_or_404(Game, id=game_id, project=project)
+    else:
+        game = get_object_or_404(Game, id=game_id)
+    placement = get_object_or_404(
+        GameTaskGroup.objects.select_related('task_group'),
+        game=game,
+        number=str(task_group_number),
+    )
+    return game, placement
+
+
+def _redirect_after_replay_action(game, number, project_id=None):
+    if project_id:
+        return _play_url_for_task_group(
+            game, number, project_base=_project_base(project_id),
+        )
+    return _play_url_for_task_group(game, number)
+
+
+@require_POST
+def new_replay_start(request, game_id, task_group_number, project_id=None):
+    """Explicitly start/reset the private replay slot for one task group."""
+    game, placement = _replay_game_and_placement(game_id, task_group_number, project_id)
+    team, user, anon_key = _replay_actor_for_request(request, game)
     start_or_reset_replay(
         request=request,
         game=game,
@@ -3523,11 +3564,16 @@ def new_replay_start(request, game_id, task_group_number, project_id=None):
         user=user,
         anon_key=anon_key,
     )
-    if project_id:
-        return redirect(_play_url_for_task_group(
-            game, placement.number, project_base=_project_base(project_id),
-        ))
-    return redirect(_play_url_for_task_group(game, placement.number))
+    return redirect(_redirect_after_replay_action(game, placement.number, project_id))
+
+
+@require_POST
+def new_replay_exit(request, game_id, task_group_number, project_id=None):
+    """Leave the private replay and show the preserved official solution."""
+    game, placement = _replay_game_and_placement(game_id, task_group_number, project_id)
+    team, user, anon_key = _replay_actor_for_request(request, game)
+    clear_replay_session(request, game, placement.task_group)
+    return redirect(_redirect_after_replay_action(game, placement.number, project_id))
 
 
 @never_cache

@@ -26,6 +26,7 @@ urlpatterns = [
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<number>\d+(?:\.\d+)?)/results/$', ui.game_task_results_page, name='project_game_task_results'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group_number>\d+(?:\.\d+)?)/$', ui.project_task_group_page, name='project_task_group'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group_number>\d+(?:\.\d+)?)/replay/$', ui.new_replay_start, name='project_replay_start'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group_number>\d+(?:\.\d+)?)/replay/exit/$', ui.new_replay_exit, name='project_replay_exit'),
     # Legacy but needed actions/pages referenced by UI (keep inside project prefix).
     re_path(r'^' + _PROJECT_ID_RE + r'/register/(?P<game_id>[a-zA-Z0-9_]+)/$', register_to_game),
     re_path(r'^' + _PROJECT_ID_RE + r'/confirm_user_joining_team/(?P<user_id>\d+)/$', confirm_user_joining_team),
@@ -65,6 +66,7 @@ urlpatterns = [
     path('ladder/live-state/', ui.task_group_live_state, {'game_id': 'ladder'}, name='ui_ladder_live_state'),
     path('ladder/', ui.ladder_hub_page, name='ui_ladder_hub'),
     path('ladder/<str:task_group_number>/replay/', ui.new_replay_start, {'game_id': 'ladder'}),
+    path('ladder/<str:task_group_number>/replay/exit/', ui.new_replay_exit, {'game_id': 'ladder'}),
     # Must precede ladder/<str>/ so "results" is not treated as a task-group number.
     path('ladder/results/', ui.section_results_page, {'game_id': 'ladder'}),
     path('ladder/<str:task_group_number>/results/', ui.ladder_word_results_page, name='ui_ladder_word_results'),
@@ -112,7 +114,9 @@ urlpatterns = [
     path('alphabetty/live-state/', ui.task_group_live_state, {'game_id': 'alphabetty'}, name='ui_alphabetty_live_state'),
     path('alphabetty/', ui.alphabetty_hub_page, name='ui_alphabetty_hub'),
     path('alphabetty/<str:task_group_number>/replay/', ui.new_replay_start, {'game_id': 'alphabetty'}),
+    path('alphabetty/<str:task_group_number>/replay/exit/', ui.new_replay_exit, {'game_id': 'alphabetty'}),
     path('salad/<str:task_group_number>/replay/', ui.new_replay_start, {'game_id': 'salad'}),
+    path('salad/<str:task_group_number>/replay/exit/', ui.new_replay_exit, {'game_id': 'salad'}),
     path(
         'alphabetty/<str:number>/timing/',
         ui.daily_solve_timing,
@@ -130,6 +134,7 @@ urlpatterns = [
     # Keep this before the legacy section redirects below: those redirects only
     # support GET and would otherwise consume the replay POST and return 405.
     path('games/<str:game_id>/<str:task_group_number>/replay/', ui.new_replay_start, name='ui_replay_start'),
+    path('games/<str:game_id>/<str:task_group_number>/replay/exit/', ui.new_replay_exit, name='ui_replay_exit'),
     # Legacy /games/ladder/… and /games/alphabetty/… → short paths.
     path('games/ladder/today/', RedirectView.as_view(url='/ladder/today/', permanent=True, query_string=True)),
     path('games/ladder/last/', RedirectView.as_view(url='/ladder/last/', permanent=True, query_string=True)),

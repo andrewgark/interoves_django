@@ -3363,7 +3363,13 @@ html.new-ui-dark .new-team-switcher-active-box {
   align-items: center;
 }
 
-.new-replay-control--standalone {
+.new-replay-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.new-replay-controls--standalone {
   margin: 0 0 0.85rem;
 }
 

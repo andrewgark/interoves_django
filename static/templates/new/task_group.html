@@ -41,13 +41,7 @@
   {% endif %}
 </p>
 {% include "new/partials/daily_solve_timer.html" %}
-<form class="new-replay-control new-replay-control--standalone" method="post" action="{% if replay_url %}{{ replay_url }}{% else %}/games/{{ game.id }}/{{ tg_number }}/replay/{% endif %}" data-replay-submit data-replay-control{% if not official_completed %} hidden{% endif %}>
-  {% csrf_token %}
-  <button type="submit" class="new-replay-control__button" aria-label="Сыграть заново. Для статистики при этом сохранится ваше первое решение.">
-    <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i>
-  </button>
-  <span class="new-replay-control__tooltip" role="tooltip">Сыграть заново<br><span>(для статистики при этом сохранится ваше первое решение)</span></span>
-</form>
+{% include "new/partials/replay_controls.html" with replay_controls_standalone=True %}
 {% endif %}
 
 {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}

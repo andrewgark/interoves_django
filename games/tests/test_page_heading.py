@@ -59,6 +59,7 @@ class PageHeadingPartialTests(SimpleTestCase):
             },
         )
         self.assertIn('Сыграть заново', html)
+        self.assertIn('Вернуться к первому решению', html)
 
     def test_daily_header_hides_replay_button_without_official_completion(self):
         html = render_to_string(
@@ -67,13 +68,15 @@ class PageHeadingPartialTests(SimpleTestCase):
                 'heading': 'Салатик №25',
                 'daily_publish_date': timezone.localdate(),
                 'official_completed': False,
-                'replay_active': True,
+                'replay_active': False,
                 'replay_completed': False,
                 'game': SimpleNamespace(id='word_salad', theme='', tags={}),
                 'tg_number': 25,
             },
         )
-        self.assertNotIn('Сыграть заново', html)
+        self.assertIn('Сыграть заново', html)
+        self.assertNotIn('Вернуться к первому решению', html)
+        self.assertIn('data-replay-control hidden', html)
 
     def test_daily_header_combines_date_navigation_and_timer(self):
         today = timezone.localdate()
