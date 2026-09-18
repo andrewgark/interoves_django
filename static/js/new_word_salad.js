@@ -352,7 +352,9 @@
       var taskId = root.getAttribute('data-task-id') || '';
       var taskRevision = root.getAttribute('data-task-revision') || '';
       var replayRunId = root.getAttribute('data-replay-run-id') || '';
-      return 'interoves_word_salad_extras_v3:' + taskId + ':' + taskRevision + ':' + replayRunId;
+      // v4 drops the pre-replay-namespace cache, which could contain replay
+      // finds under the official key after a dynamic card refresh.
+      return 'interoves_word_salad_extras_v4:' + taskId + ':' + taskRevision + ':' + replayRunId;
     } catch (error) {
       return '';
     }
@@ -363,7 +365,7 @@
       var taskId = root.getAttribute('data-task-id') || '';
       var taskRevision = root.getAttribute('data-task-revision') || '';
       var replayRunId = root.getAttribute('data-replay-run-id') || '';
-      return 'interoves_word_salad_latest_v3:' + taskId + ':' + taskRevision + ':' + replayRunId;
+      return 'interoves_word_salad_latest_v4:' + taskId + ':' + taskRevision + ':' + replayRunId;
     } catch (error) {
       return '';
     }

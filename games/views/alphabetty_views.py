@@ -55,7 +55,7 @@ from games.models import (
 )
 from games.middleware.request_timing import timing_phase
 from games.section_hub import onboarding_followup_context, section_format_credit_context
-from games.section_paths import section_hub_path, section_play_path, section_results_path
+from games.section_paths import section_hub_path, section_play_path, section_replay_path, section_results_path
 from games.task_titles import task_display_name, task_group_page_title
 from games.views.daily_timing_views import daily_timing_page_context
 from games.views.new_ui import (
@@ -472,6 +472,10 @@ def alphabetty_play_page(request, number):
         'daily_results_label': 'Таблица результатов',
         'daily_statistics_url': f'/daily-statistics/{ALPHABETTY_GAME_ID}/{play_number}/' if offer is None else '',
         'official_completed': official_completed,
+        'replay_active': replay_slot is not None,
+        'replay_completed': bool(replay_slot and replay_slot.status == 'completed'),
+        'replay_url': section_replay_path(ALPHABETTY_GAME_ID, play_number),
+        'replay_exit_url': section_replay_path(ALPHABETTY_GAME_ID, play_number).rstrip('/') + '/exit/',
         **section_format_credit_context(ALPHABETTY_GAME_ID),
         'daily_pager_aria_label': 'Переход между алфавитками',
         'show_sections_nav': True,
@@ -507,6 +511,7 @@ def alphabetty_play_page(request, number):
             anon_key=anon_key,
             play_mode='personal',
             is_offer=offer is not None,
+            official_completed=official_completed,
         ),
     })
 

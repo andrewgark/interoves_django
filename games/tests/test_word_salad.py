@@ -20,6 +20,7 @@ from games.models import (
     HTMLPage,
     PlayerCompletedGame,
     PlayerStartedGame,
+    ReplaySlot,
     Project,
     Task,
     TaskGroup,
@@ -28,6 +29,7 @@ from games.models import (
 from games.views.attempt_views import check_attempt
 from games.views.hint_views import process_send_hint_attempt
 from games.views.new_ui import build_task_group_task_context_dicts, new_task_group_page
+from games.views.render_task import render_new_ui_task_card_html
 from games.recheck import recheck_word_salad_task
 from games.word_salad import (
     OVERFLOW_HINT_SQUARE,
@@ -753,6 +755,25 @@ class WordSaladTests(TestCase):
         self.assertEqual(len(context['word_salad_data'][self.task.pk]['words']), 1)
         self.assertEqual(context['task_ui_by_task_id'][self.task.pk]['base_max'], 1)
         self.assertEqual(context['task_group_pager_label'], 'Word Salad test')
+
+    def test_dynamic_word_salad_card_keeps_replay_run_namespace(self):
+        slot = ReplaySlot.objects.create(
+            team=self.team,
+            game=self.game,
+            task_group=self.tg,
+            actor_key='team:{}'.format(self.team.pk),
+        )
+        request = RequestFactory().get('/games/{}/1/'.format(self.game.pk))
+        request.user = AnonymousUser()
+        html = render_new_ui_task_card_html(
+            request,
+            self.task,
+            self.team,
+            'general',
+            game=self.game,
+            replay_slot=slot,
+        )
+        self.assertIn('data-replay-run-id="{}"'.format(slot.run_id), html)
 
     def test_rare_word_is_persisted_without_points(self):
         self.task.checker_data = serialize_task_data(

@@ -273,6 +273,7 @@ def render_new_ui_task_card_html(request, task, team, current_mode, user=None, a
         'mode': current_mode,
         'team': team,
         'request': request,
+        'replay_slot': replay_slot,
         'has_profile_user': has_profile(request.user),
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),

@@ -90,6 +90,7 @@ def daily_timing_page_context(
     play_mode='personal',
     is_offer=False,
     replay_slot=None,
+    official_completed=False,
 ):
     enabled = bool(
         game is not None
@@ -98,6 +99,7 @@ def daily_timing_page_context(
         and not is_offer
         and play_mode != 'team'
         and replay_slot is None
+        and not official_completed
     )
     state = empty_snapshot()
     url = ''

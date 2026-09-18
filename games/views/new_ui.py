@@ -1733,7 +1733,10 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
     )
     actor_filter = {'team': team, 'user': user, 'anon_key': anon_key}
     official_completed = PlayerCompletedGame.objects.filter(
-        game=game, task_group=task_group, **actor_filter,
+        game=game,
+        task_group=task_group,
+        result=PlayerCompletedGame.RESULT_SOLVED,
+        **actor_filter,
     ).exists()
     prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
@@ -3301,7 +3304,10 @@ def new_task_group_page(request, game_id, task_group_number):
         )
     actor_filter = {'team': team, 'user': user, 'anon_key': anon_key}
     official_completed = PlayerCompletedGame.objects.filter(
-        game=game, task_group=task_group, **actor_filter,
+        game=game,
+        task_group=task_group,
+        result=PlayerCompletedGame.RESULT_SOLVED,
+        **actor_filter,
     ).exists()
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     section_rules_type = game.id if game.id in SECTION_RULES_GAME_IDS else None
@@ -3506,6 +3512,7 @@ def new_task_group_page(request, game_id, task_group_number):
             play_mode=play_mode,
             is_offer=draft_offer is not None,
             replay_slot=replay_slot,
+            official_completed=official_completed,
         ),
     })
 

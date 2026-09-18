@@ -77,6 +77,16 @@ class DailyTimingScopeTests(SimpleTestCase):
         self.assertFalse(context['daily_timing_enabled'])
         self.assertEqual(context['daily_timing_url'], '')
 
+    def test_completed_official_game_does_not_enable_the_timer(self):
+        context = daily_timing_page_context(
+            None,
+            SimpleNamespace(id=WORD_SALAD_GAME_ID),
+            SimpleNamespace(number='26', task_group=SimpleNamespace()),
+            official_completed=True,
+        )
+        self.assertFalse(context['daily_timing_enabled'])
+        self.assertEqual(context['daily_timing_url'], '')
+
 
 class DailyTimingDomainTests(TestCase):
     @classmethod
