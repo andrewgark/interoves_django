@@ -1350,7 +1350,7 @@
         // 💡: ok или duplicate → подсветить; при ok обновить HTML
         if (tier === '1' && (data.status === 'ok' || data.status === 'duplicate')) {
           if (data.status === 'ok' && data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-            try { applyNewUiTaskHtml(data.update_task_html_new); } catch (e) {}
+            if (!applyRaddleTaskHtmlOrReload(data, taskId, 'assist-clue')) return;
             var fresh = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
             if (fresh) setRaddleFocus(fresh, wordIdx, { revealClue: true });
             return;
@@ -1373,7 +1373,7 @@
         }
         if (data.status === 'ok') {
           if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-            try { applyNewUiTaskHtml(data.update_task_html_new); } catch (e) {}
+            if (!applyRaddleTaskHtmlOrReload(data, taskId, data.raddle_auto_solved ? 'assist-auto-solved' : 'assist')) return;
             return;
           }
           window.location.reload();
@@ -1824,7 +1824,7 @@
       window.location.reload();
       return true;
     }
-    applyNewUiTaskHtml(data.update_task_html_new);
+    if (!applyRaddleTaskHtmlOrReload(data, taskId, 'attempt')) return false;
     if (!advanceFocus) return true;
     focusRaddleNext(taskId, solvedIdx, refRole);
     var fresh = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
@@ -1862,6 +1862,30 @@
     if (verdict.messageKey === 'bad_response') return 'Ошибка ответа.';
     if (verdict.messageKey === 'status') return raddleStatusText(data && data.status);
     return '';
+  }
+
+  function applyRaddleTaskHtmlOrReload(data, taskId, source) {
+    if (!data || !data.update_task_html_new || typeof applyNewUiTaskHtml !== 'function') {
+      window.location.reload();
+      return false;
+    }
+    try {
+      applyNewUiTaskHtml(data.update_task_html_new);
+      return true;
+    } catch (err) {
+      // The answer is already committed on the server. Never leave the old
+      // DOM looking unsolved because a post-response hook failed.
+      try {
+        console.error('raddle_html_apply_failed', {
+          taskId: taskId,
+          wordIndex: data.raddle_word_index,
+          source: source || 'unknown',
+          error: err,
+        });
+      } catch (loggingError) {}
+      window.location.reload();
+      return false;
+    }
   }
 
   // Единственный исполнитель матрицы ответов сервера: решение принимает
@@ -1961,9 +1985,8 @@
             flushAnalyticsEvents(data);
             applyRaddleAttemptResponse(appliedForm, applied.input, applied.row, data, wordIdx);
           } catch (e) {
-            if (data && data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-              try { applyNewUiTaskHtml(data.update_task_html_new); } catch (e2) {}
-            }
+            var fallbackTaskId = data && (data.task_id || (requestForm && requestForm.getAttribute('data-task-id')));
+            applyRaddleTaskHtmlOrReload(data, fallbackTaskId, 'attempt-response-exception');
           }
         })
         .catch(function (err) {

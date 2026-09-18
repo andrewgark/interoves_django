@@ -138,7 +138,17 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
             request, attempt=attempt, actor_kind=request.interoves_gameplay_actor_kind,
         )
 
-    result = {'status': 'ok', 'task_id': task.id}
+    result = {
+        'status': 'ok',
+        'task_id': task.id,
+        # Tier 2 creates the successful Attempt on the server itself. Keep
+        # this explicit so the client does not infer progress from HTML.
+        'raddle_auto_solved': True,
+        'raddle_correct': True,
+        'raddle_word_index': word_index,
+    }
+    if attempt.pk:
+        result['attempt_id'] = attempt.pk
     analytics_events = [] if replay_slot is not None else register_started_game(
         team=team,
         user=user,

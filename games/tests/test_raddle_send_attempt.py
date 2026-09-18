@@ -98,6 +98,18 @@ class RaddleSendAttemptTests(TestCase):
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
 
+    def _post_assist(self, word_index, tier):
+        return self.client.post(
+            '/send_raddle_assist/{}/'.format(self.task.id),
+            {
+                'game_id': self.game.id,
+                'anon_key': self.anon_key,
+                'word_index': word_index,
+                'tier': tier,
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
     def test_correct_response_contract(self):
         resp = self._post_word(1, 'BBB')
         self.assertEqual(resp.status_code, 200)
@@ -107,6 +119,24 @@ class RaddleSendAttemptTests(TestCase):
         self.assertEqual(data['raddle_word_index'], 1)
         self.assertNotIn('raddle_needs_sync', data)
         self.assertIn('update_task_html_new', data)
+
+    def test_tier_two_assist_explicitly_reports_auto_solved_word(self):
+        clue = self._post_assist(1, 1)
+        self.assertEqual(clue.status_code, 200)
+        self.assertEqual(clue.json()['status'], 'ok')
+
+        response = self._post_assist(1, 2)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertTrue(data['raddle_auto_solved'])
+        self.assertTrue(data['raddle_correct'])
+        self.assertEqual(data['raddle_word_index'], 1)
+        self.assertIn('attempt_id', data)
+        self.assertIn('update_task_html_new', data)
+
+        attempt = Attempt.manager.get(pk=data['attempt_id'])
+        self.assertEqual(json.loads(attempt.text)['word'], 'BBB')
 
     def test_wrong_response_contract(self):
         resp = self._post_word(1, 'ZZZ')

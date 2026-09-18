@@ -7,6 +7,13 @@ RADDLE_UI_PRINCIPLE = (
     'без raddle_stale_ui, или duplicate с raddle_duplicate_solved).'
 )
 
+RADDLE_ASSIST_PROGRESS_FIELDS = (
+    'raddle_auto_solved',
+    'raddle_correct',
+    'raddle_word_index',
+    'attempt_id',
+)
+
 # Матрица: ответ сервера → ожидаемое поведение клиента (applyRaddleAttemptResponse).
 RADDLE_RESPONSE_SCENARIOS = (
     {
