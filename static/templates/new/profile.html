@@ -3,6 +3,7 @@
 {% block title %}Профиль{% endblock %}
 {% block content %}
 <h1 class="new-heading new-heading--page">Профиль</h1>
+<p class="new-login-hint new-profile-user-id">ID пользователя: <strong>{{ request.user.pk }}</strong></p>
 <form method="post" class="new-form">
   {% csrf_token %}
   <div class="new-profile-head">

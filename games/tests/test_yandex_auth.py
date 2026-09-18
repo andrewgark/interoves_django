@@ -217,6 +217,7 @@ class YandexAuthTests(TestCase):
         self.assertContains(response, 'Яндекс')
         self.assertContains(response, 'ivan@yandex.ru')
         self.assertContains(response, 'data-provider-label="Яндекс"')
+        self.assertContains(response, 'ID пользователя: <strong>{}</strong>'.format(user.pk))
 
     def test_merge_confirm_uses_yandex_label(self):
         target = User.objects.create_user('yandex-target', password='secret')
