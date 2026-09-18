@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timezone
 
 from django.core.management.base import BaseCommand, CommandError
-from django.db.models import Prefetch, Q
+from django.db.models import Count, Prefetch, Q
 
 from games.analytics import is_task_completion_state
 from games.models import Attempt, ChainTaskState, PlayerCompletedGame, Task
@@ -55,6 +55,17 @@ class Command(BaseCommand):
             qs = qs.filter(pk__in=options['record_ids'])
         if options.get('game_id'):
             qs = qs.filter(game_id=options['game_id'])
+        if options['suspect_only']:
+            # A currently incomplete completion must have at least two current
+            # required tasks.  Keep this as a cheap SQL candidate filter; the
+            # forensic classification still happens from the batch snapshot.
+            qs = qs.annotate(
+                required_task_count=Count(
+                    'task_group__tasks',
+                    filter=Q(task_group__tasks__is_removed=False),
+                    distinct=True,
+                )
+            ).filter(required_task_count__gt=1)
         items = []
         query_count = 0
         started = time.monotonic()
@@ -72,6 +83,7 @@ class Command(BaseCommand):
                     continue
                 items.append(item)
         summary = self._summary(items, query_count)
+        summary['candidate_count'] = len(record_ids)
         if options['json_output']:
             for item in items:
                 self.stdout.write(json.dumps(item, ensure_ascii=False, sort_keys=True))
@@ -93,6 +105,7 @@ class Command(BaseCommand):
                         'classification_reason': item['reason'],
                     }, ensure_ascii=False, sort_keys=True)))
         self.stdout.write('query_count={}'.format(query_count))
+        self.stdout.write('candidate_count={}'.format(summary['candidate_count']))
         self.stdout.write('runtime_seconds={:.3f}'.format(time.monotonic() - started))
 
     def _snapshot(self, records):

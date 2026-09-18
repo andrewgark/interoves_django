@@ -1,6 +1,8 @@
 import json
+from io import StringIO
 
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.test import TestCase
 
 from games.analytics import (
@@ -187,3 +189,31 @@ class CompletionInvariantTests(TestCase):
             self.assertEqual(
                 PlayerCompletedGame.objects.filter(user=self.user, game=game).count(), 1,
             )
+
+    def test_forensic_suspect_audit_uses_multi_task_candidate_filter(self):
+        game = self._game('forensic_batch')
+        group, tasks = self._group(game, [('1', 'default'), ('2', 'default')])
+        completion = PlayerCompletedGame.objects.create(
+            user=self.user,
+            game=game,
+            task_group=group,
+            game_kind='forensic_batch',
+            game_instance_id='forensic-batch:1',
+        )
+        before = list(Attempt.manager.filter(user=self.user).values_list('pk', 'status'))
+
+        output = StringIO()
+        call_command(
+            'audit_player_completed_games', '--dry-run', '--suspect-only',
+            '--id', str(completion.pk), stdout=output,
+        )
+
+        self.assertIn('candidate_count=1', output.getvalue())
+        self.assertIn('total_suspect: 1', output.getvalue())
+        self.assertIn('ambiguous: 1', output.getvalue())
+        self.assertEqual(
+            list(Attempt.manager.filter(user=self.user).values_list('pk', 'status')),
+            before,
+        )
+        self.assertEqual(PlayerCompletedGame.objects.get(pk=completion.pk).task_group_id, group.pk)
+        self.assertEqual(len(tasks), 2)
