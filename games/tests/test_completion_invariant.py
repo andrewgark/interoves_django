@@ -222,3 +222,23 @@ class CompletionInvariantTests(TestCase):
         )
         self.assertEqual(PlayerCompletedGame.objects.get(pk=completion.pk).task_group_id, group.pk)
         self.assertEqual(len(tasks), 2)
+
+    def test_forensic_scope_excludes_structural_daily_completion(self):
+        game = self._game('ladder')
+        group, _tasks = self._group(game, [('1', 'raddle')])
+        completion = PlayerCompletedGame.objects.create(
+            user=self.user,
+            game=game,
+            task_group=group,
+            game_kind='ladder',
+            game_instance_id='ladder:forensic-scope:1',
+        )
+
+        output = StringIO()
+        call_command(
+            'audit_player_completed_games', '--dry-run', '--suspect-only',
+            '--id', str(completion.pk), stdout=output,
+        )
+
+        self.assertIn('candidate_count=0', output.getvalue())
+        self.assertIn('total_suspect: 0', output.getvalue())

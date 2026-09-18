@@ -56,12 +56,12 @@ class Command(BaseCommand):
         if options.get('game_id'):
             qs = qs.filter(game_id=options['game_id'])
         if options['suspect_only']:
-            # All known premature-completion paths were active in this UTC
-            # interval.  Keep the expensive snapshot bounded by that proven
-            # bug window; classification still uses persisted task state.
-            # Do not use is_backfilled or current task count: neither covers
-            # every old path, and current groups are mutable.
-            qs = qs.filter(completed_at__gte=BUG_START, completed_at__lte=BUG_END)
+            # The task-group forensic universe is structural: tournament
+            # games use task-group completion, while section daily games are
+            # explicitly non-tournament at the Game model boundary.  Current
+            # incompleteness is decided from the persisted batch snapshot
+            # below; dates and backfill flags are forensic evidence only.
+            qs = qs.filter(game__is_tournament=True)
         items = []
         query_count = 0
         started = time.monotonic()
@@ -177,7 +177,8 @@ class Command(BaseCommand):
                 'attempt_success_timestamps': attempt_times, 'missing_at_completion': missing_at,
                 'trigger_chain_task_id': trigger_task, 'trigger_chain_completed_at': iso(trigger_time),
                 'classification': classification, 'reason': reason, 'confidence': confidence,
-                'proposed_action': action}
+                'proposed_action': action, 'candidate_reason': 'current_task_group_incomplete',
+                'outside_known_bug_window': not in_window}
 
     def _summary(self, items, query_count):
         breakdown, counts = {}, {'VALID': 0, 'CONFIRMED_INVALID': 0, 'AMBIGUOUS': 0}
