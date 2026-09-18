@@ -1,5 +1,7 @@
 """Bind server-issued anonymous identity on normal site requests."""
 
+from games.middleware.request_timing import timing_phase
+
 
 class AnonymousIdentityMiddleware:
     def __init__(self, get_response):
@@ -11,7 +13,9 @@ class AnonymousIdentityMiddleware:
             bind_anonymous_identity,
         )
 
-        bind_anonymous_identity(request)
+        with timing_phase(request, 'anonymous_identity_pre'):
+            bind_anonymous_identity(request)
         response = self.get_response(request)
-        apply_anonymous_identity_cookies(request, response)
+        with timing_phase(request, 'anonymous_identity_post'):
+            apply_anonymous_identity_cookies(request, response)
         return response

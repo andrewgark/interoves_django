@@ -23,6 +23,7 @@ from games.auth_observability import (
     log_post_request,
     session_fingerprint,
 )
+from games.middleware.request_timing import timing_phase
 
 
 def _is_authenticated_audit_path(path: str) -> bool:
@@ -144,30 +145,32 @@ class AuthSessionDiagnosticMiddleware:
             # client marker there is no safe way to call it a logout, so do not log.
             return self.get_response(request)
 
-        try:
-            pre_auth_data = dict(request.session.items())
-        except Exception:
-            pre_auth_data = None
+        with timing_phase(request, 'auth_session_load'):
+            try:
+                pre_auth_data = dict(request.session.items())
+            except Exception:
+                pre_auth_data = None
 
         classification = None
         user_id = None
         auth_payload = None
 
-        if pre_auth_data is None:
-            classification, restored_data = _inspect_persisted_session(raw_session_key)
-            if restored_data and SESSION_KEY in restored_data:
-                auth_payload = restored_data
-                classification = None
-        elif SESSION_KEY in pre_auth_data:
-            auth_payload = pre_auth_data
-        elif not pre_auth_data:
-            classification, restored_data = _inspect_persisted_session(raw_session_key)
-            if restored_data and SESSION_KEY in restored_data:
-                auth_payload = restored_data
-                classification = None
-            elif restored_data is not None:
-                # A valid anonymous session is not an auth anomaly.
-                classification = None
+        with timing_phase(request, 'auth_session_recovery'):
+            if pre_auth_data is None:
+                classification, restored_data = _inspect_persisted_session(raw_session_key)
+                if restored_data and SESSION_KEY in restored_data:
+                    auth_payload = restored_data
+                    classification = None
+            elif SESSION_KEY in pre_auth_data:
+                auth_payload = pre_auth_data
+            elif not pre_auth_data:
+                classification, restored_data = _inspect_persisted_session(raw_session_key)
+                if restored_data and SESSION_KEY in restored_data:
+                    auth_payload = restored_data
+                    classification = None
+                elif restored_data is not None:
+                    # A valid anonymous session is not an auth anomaly.
+                    classification = None
 
         try:
             response = self.get_response(request)
@@ -184,23 +187,24 @@ class AuthSessionDiagnosticMiddleware:
                 )
             raise
 
-        if auth_payload is not None:
-            try:
-                is_authenticated = bool(request.user.is_authenticated)
-            except Exception:
-                is_authenticated = False
-            if is_authenticated:
-                return response
-            classification, user_id = _classify_auth_payload(auth_payload)
+        with timing_phase(request, 'auth_session_post'):
+            if auth_payload is not None:
+                try:
+                    is_authenticated = bool(request.user.is_authenticated)
+                except Exception:
+                    is_authenticated = False
+                if is_authenticated:
+                    return response
+                classification, user_id = _classify_auth_payload(auth_payload)
 
-        if classification:
-            log_auth_event(
-                'auth_session_anomaly',
-                request,
-                classification=classification,
-                user_id=str(user_id)[:64] if user_id is not None else None,
-                session_fingerprint=session_fingerprint(raw_session_key),
-            )
+            if classification:
+                log_auth_event(
+                    'auth_session_anomaly',
+                    request,
+                    classification=classification,
+                    user_id=str(user_id)[:64] if user_id is not None else None,
+                    session_fingerprint=session_fingerprint(raw_session_key),
+                )
         return response
 
 
@@ -217,17 +221,18 @@ class AuthenticatedRequestAuditMiddleware:
             if getattr(request, 'method', '') == 'POST':
                 log_post_request(request, error=True)
             raise
-        if getattr(request, 'method', '') == 'POST':
-            user = getattr(request, 'user', None)
-            if (
-                getattr(user, 'is_authenticated', False)
-                and _is_authenticated_audit_path(getattr(request, 'path', '') or '/')
-            ):
-                # Preserve the established event name for the gameplay/auth
-                # allowlist while enriching it with the same forensic context.
+        with timing_phase(request, 'auth_audit_response'):
+            if getattr(request, 'method', '') == 'POST':
+                user = getattr(request, 'user', None)
+                if (
+                    getattr(user, 'is_authenticated', False)
+                    and _is_authenticated_audit_path(getattr(request, 'path', '') or '/')
+                ):
+                    # Preserve the established event name for the gameplay/auth
+                    # allowlist while enriching it with the same forensic context.
+                    log_authenticated_request(request, response)
+                else:
+                    log_post_request(request, response)
+            elif _is_authenticated_audit_path(getattr(request, 'path', '') or '/'):
                 log_authenticated_request(request, response)
-            else:
-                log_post_request(request, response)
-        elif _is_authenticated_audit_path(getattr(request, 'path', '') or '/'):
-            log_authenticated_request(request, response)
         return response
