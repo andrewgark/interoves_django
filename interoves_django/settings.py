@@ -337,6 +337,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'games.middleware.auth_session_observability.RequestCorrelationMiddleware',
+    # Keep request timing outermost so slow_request covers session/auth
+    # middleware and response-side session persistence, not only the view.
+    'games.middleware.request_timing.RequestTimingMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
 
@@ -353,7 +356,6 @@ MIDDLEWARE = [
 
     # 'yet_another_django_profiler.middleware.ProfilerMiddleware',
     'allauth.account.middleware.AccountMiddleware',
-    'games.middleware.request_timing.RequestTimingMiddleware',
 ]
 
 ROOT_URLCONF = 'interoves_django.urls'
