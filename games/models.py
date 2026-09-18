@@ -1181,14 +1181,20 @@ class AttemptManager(models.Manager):
         return self.filter_attempts_with_mode(attempts, mode, hint_game=game)
 
     def get_hint_attempts(self, team, task, mode="general", user=None, anon_key=None, game=None, replay_slot=None):
-        hint_attempts = []
-        for hint in task.hints.all():
-            if team is not None:
-                hint_attempts.extend(list(HintAttempt.objects.filter(team=team, user__isnull=True, anon_key__isnull=True, hint=hint, replay_slot=replay_slot)))
-            elif user is not None:
-                hint_attempts.extend(list(HintAttempt.objects.filter(user=user, team__isnull=True, anon_key__isnull=True, hint=hint, replay_slot=replay_slot)))
-            elif anon_key is not None:
-                hint_attempts.extend(list(HintAttempt.objects.filter(anon_key=anon_key, team__isnull=True, user__isnull=True, hint=hint, replay_slot=replay_slot)))
+        # The previous implementation queried HintAttempt once per hint.  Raddle
+        # cards can contain many hints, so rendering a card after a correct
+        # answer turned into an N+1 query path.  Filter by task in one query;
+        # hint_id/time preserves the old task.hints/default-id ordering.
+        hint_attempts_qs = self._filter_by_actor(
+            HintAttempt.objects.filter(
+                hint__task=task,
+                replay_slot=replay_slot,
+            ).select_related('hint'),
+            team=team,
+            user=user,
+            anon_key=anon_key,
+        ).order_by('hint_id', 'time', 'pk')
+        hint_attempts = list(hint_attempts_qs)
         return self.filter_attempts_with_mode(hint_attempts, mode, is_hint_attempts=True, hint_game=game)
 
     def get_attempts_before(self, team, task, time, mode="general", user=None, anon_key=None, game=None, replay_slot=None):

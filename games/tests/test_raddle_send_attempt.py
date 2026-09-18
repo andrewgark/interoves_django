@@ -3,6 +3,8 @@ import json
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.test import Client, TestCase
 from django.utils import timezone
 
@@ -14,6 +16,8 @@ from games.models import (
     Game,
     GameTaskGroup,
     HTMLPage,
+    Hint,
+    HintAttempt,
     Project,
     PlayerStartedGame,
     Task,
@@ -271,6 +275,25 @@ class RaddleSendAttemptTests(TestCase):
             Attempt.manager.filter(task=long_task, anon_key=anon).count(),
             0,
         )
+
+    def test_hint_attempts_for_task_use_one_query(self):
+        hints = [
+            Hint.objects.create(task=self.task, number=str(index))
+            for index in range(1, 4)
+        ]
+        HintAttempt.objects.create(hint=hints[0], anon_key=self.anon_key)
+        HintAttempt.objects.create(hint=hints[2], anon_key=self.anon_key)
+
+        with CaptureQueriesContext(connection) as queries:
+            hint_attempts = Attempt.manager.get_hint_attempts(
+                team=None,
+                user=None,
+                anon_key=self.anon_key,
+                task=self.task,
+            )
+
+        self.assertEqual(len(queries), 1)
+        self.assertEqual([row.hint_id for row in hint_attempts], [hints[0].id, hints[2].id])
 
 
 class RaddleDuplicateHelpersTests(TestCase):
