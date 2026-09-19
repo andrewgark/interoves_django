@@ -128,12 +128,16 @@ def check_attempt(attempt, *, persist_wrong=True):
         last_attempt_state = None
         chain_state_row = None
 
-        # Every new submission for a task must observe all submissions committed
-        # before it acquired the lock.  Without this lock two tabs can both pass
-        # duplicate/limit checks and then save.  Chain tasks additionally lock
-        # their actor-specific state row below.
-        if attempt._state.adding:
+        # Ordinary tasks need the Task row as a stable lock so concurrent
+        # submissions cannot both pass duplicate/limit checks.  Chain tasks
+        # have a narrower actor-specific ChainTaskState lock below; taking the
+        # global Task lock as well makes every teammate block every other
+        # teammate on the same ladder, and can end in MySQL lock wait timeout
+        # (especially while raddle.ui_state is saving drafts).
+        if attempt._state.adding and not is_chain_task:
             Task.objects.select_for_update().only('pk').get(pk=task.pk)
+            attempt.time = timezone.now()
+        elif attempt._state.adding:
             attempt.time = timezone.now()
 
         if is_chain_task:
