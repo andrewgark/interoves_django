@@ -240,6 +240,20 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(event['by'], 'team')
         self.assertEqual(event['extra'], 'x')
 
+    def test_build_event_task_change_personal_render_keeps_actor_context(self):
+        with patch('games.views.track.update_task_html', return_value={'extra': 'x'}) as render:
+            event = build_event_task_change(
+                self.task,
+                user=self.user,
+                current_mode='general',
+                game=self.game,
+            )
+
+        self.assertEqual(event['by'], 'personal')
+        self.assertEqual(event['extra'], 'x')
+        self.assertEqual(render.call_args.kwargs['user'], self.user)
+        self.assertIsNone(render.call_args.args[2])
+
     def test_build_event_task_change_admin(self):
         event = build_event_task_change(
             self.task,

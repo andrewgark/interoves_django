@@ -485,7 +485,15 @@ def build_event_task_change(
             request.user = request_user
 
     if update_html is None and request is not None:
-        update_html = update_task_html(request, task, team, current_mode, game=game)
+        update_html = update_task_html(
+            request,
+            task,
+            team,
+            current_mode,
+            user=user,
+            anon_key=anon_key,
+            game=game,
+        )
     if update_html is None:
         update_html = {}
 
