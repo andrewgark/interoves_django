@@ -128,7 +128,7 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
     attempt.game = game
     attempt.replay_slot = replay_slot
     try:
-        check_attempt(attempt)
+        check_attempt(attempt, timing_request=request)
     except DuplicateAttemptException:
         pass
 

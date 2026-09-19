@@ -106,7 +106,7 @@ def _raddle_stale_submit_response(request, task, team, user, anon_key, game, cur
     return None
 
 
-def check_attempt(attempt, *, persist_wrong=True):
+def check_attempt(attempt, *, persist_wrong=True, timing_request=None):
     task = attempt.task
     team = attempt.team
     user = getattr(attempt, 'user', None)
@@ -143,17 +143,19 @@ def check_attempt(attempt, *, persist_wrong=True):
         if is_chain_task:
             # Ensure the state row exists, then acquire an exclusive row lock.
             # Two-step pattern avoids needing a single unique_together over nullable fields.
-            ChainTaskState.objects.get_or_create(
-                team=team, user=user, anon_key=anon_key,
-                task=task, game=game, game_mode=current_mode,
-                replay_slot=attempt.replay_slot,
-                defaults={'state': None},
-            )
-            chain_state_row = ChainTaskState.objects.select_for_update().get(
-                team=team, user=user, anon_key=anon_key,
-                task=task, game=game, game_mode=current_mode,
-                replay_slot=attempt.replay_slot,
-            )
+            with timing_phase(timing_request, 'chain_state_ensure'):
+                ChainTaskState.objects.get_or_create(
+                    team=team, user=user, anon_key=anon_key,
+                    task=task, game=game, game_mode=current_mode,
+                    replay_slot=attempt.replay_slot,
+                    defaults={'state': None},
+                )
+            with timing_phase(timing_request, 'chain_state_lock'):
+                chain_state_row = ChainTaskState.objects.select_for_update().get(
+                    team=team, user=user, anon_key=anon_key,
+                    task=task, game=game, game_mode=current_mode,
+                    replay_slot=attempt.replay_slot,
+                )
             last_attempt_state = chain_state_row.state
 
         for mode in modes:
@@ -343,7 +345,7 @@ def check_attempt(attempt, *, persist_wrong=True):
         tag_attempts = Attempt.manager.filter(task=tag_task, team=tag_team, game=game)
         rechecked = False
         for tag_attempt in tag_attempts:
-            check_attempt(tag_attempt)
+            check_attempt(tag_attempt, timing_request=timing_request)
             rechecked = True
         # Attempt.save() deliberately has no broadcast side effect.  Notify the
         # affected team once after the dependent task has been fully rechecked.
@@ -630,7 +632,11 @@ def process_send_attempt(request, task_id):
         and request.POST.get('correct_only') == '1'
     )
     with timing_phase(request, 'check_attempt'):
-        attempt_persisted = check_attempt(attempt, persist_wrong=not correct_only)
+        attempt_persisted = check_attempt(
+            attempt,
+            persist_wrong=not correct_only,
+            timing_request=request,
+        )
     if attempt_persisted:
         request.interoves_attempt_id = attempt.pk
         log_gameplay_attempt_created(
