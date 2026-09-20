@@ -169,7 +169,11 @@ def validate_gameplay_context(
         actual_id = str(user.pk) if user is not None else None
     else:
         actual_id = _anonymous_identifier(anon_key)
-    if not hmac.compare_digest(str(expected_id or ''), str(actual_id or '')):
+    # Team.name is the primary key and may contain arbitrary Unicode. Python's
+    # compare_digest(str, str) only accepts ASCII, so compare encoded bytes.
+    expected_id_bytes = str(expected_id or '').encode('utf-8')
+    actual_id_bytes = str(actual_id or '').encode('utf-8')
+    if not hmac.compare_digest(expected_id_bytes, actual_id_bytes):
         return _error(
             request,
             'gameplay_actor_context_mismatch',
