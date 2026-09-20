@@ -181,9 +181,11 @@ class ClubTributeProduct:
 
 def _club_kind_touched(kind: str) -> bool:
     prefix = 'TRIBUTE_CLUB_SUBSCRIPTION_{}_'.format(kind.upper())
+    # Amount/currency have non-empty defaults for backwards compatibility;
+    # they must not implicitly enable a currency whose subscription is absent.
     return any(
         str(getattr(settings, prefix + suffix, '') or '').strip()
-        for suffix in ('ID', 'URL', 'AMOUNT', 'CURRENCY', 'FIRST_AMOUNT', 'YEARLY_AMOUNT')
+        for suffix in ('ID', 'URL')
     )
 
 

@@ -23,6 +23,7 @@ from games.models import (
     TributePurchase,
 )
 from games.telegram_linking import consume_link_token, create_link_token, user_has_telegram_link
+from games.tribute_config import club_checkout_enabled, club_product_configuration
 from games.tribute_util import compute_webhook_signature
 
 
@@ -106,6 +107,22 @@ class ClubSubscriptionPageTests(TestCase):
         self.assertIn('noindex,nofollow', body)
         self.assertIn('data-login-open', body)
         self.assertNotIn('Оформить вторую', body)
+
+    def test_eur_only_tribute_club_configuration_is_valid(self):
+        eur_only = {
+            key: value
+            for key, value in CLUB_SETTINGS.items()
+            if not key.startswith('TRIBUTE_CLUB_SUBSCRIPTION_RUB_')
+        }
+        eur_only.update({
+            'TRIBUTE_CLUB_SUBSCRIPTION_RUB_ID': '',
+            'TRIBUTE_CLUB_SUBSCRIPTION_RUB_URL': '',
+        })
+        with self.settings(**eur_only):
+            products, errors = club_product_configuration()
+            self.assertEqual(set(products), {'eur'})
+            self.assertEqual(errors, [])
+            self.assertTrue(club_checkout_enabled())
 
     def test_login_modal_returns_to_subscription(self):
         body = self.client.get(reverse('new_subscription')).content.decode()
