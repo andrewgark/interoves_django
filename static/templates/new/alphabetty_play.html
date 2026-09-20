@@ -264,6 +264,9 @@
       if (payload.daily_timing) {
         document.dispatchEvent(new CustomEvent('interoves:daily-timing', { detail: payload.daily_timing }));
       }
+      if (payload.replay_available && typeof window.revealReplayControl === 'function') {
+        window.revealReplayControl();
+      }
       events = payload.analytics_events;
     }
     if (!window.interovesAnalytics || !window.interovesAnalytics.flushPendingGoals) return;

@@ -10,6 +10,18 @@
   var pendingLatestAnimate = null;
   var pendingSelection = null;
 
+  // Completion responses for every daily format use this shared projection.
+  // Keep the control hidden in the initial HTML, then reveal it immediately
+  // when the authoritative completion response arrives.
+  if (typeof global.revealReplayControl !== 'function') {
+    global.revealReplayControl = function () {
+      if (!global.document) return;
+      global.document.querySelectorAll('[data-replay-control]').forEach(function (control) {
+        control.hidden = false;
+      });
+    };
+  }
+
   var SVG_NS = 'http://www.w3.org/2000/svg';
 
   function cellsAreAdjacent(left, right) {
@@ -215,6 +227,9 @@
     if (payload && !Array.isArray(payload)) {
       if (payload.daily_timing && global.document) {
         global.document.dispatchEvent(new CustomEvent('interoves:daily-timing', { detail: payload.daily_timing }));
+      }
+      if (payload.replay_available && typeof global.revealReplayControl === 'function') {
+        global.revealReplayControl();
       }
       events = payload.analytics_events;
     }
