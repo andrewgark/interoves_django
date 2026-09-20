@@ -22,7 +22,6 @@ from games.telegram.models import TelegramDailyReview
 from games.telegram.notify import send_admin_message
 
 REVIEW_HOUR = 22
-REVIEW_WINDOW_MINUTES = 5
 DAILY_SCHEDULES = (
     LADDER_SCHEDULE,
     ALPHABETTY_SCHEDULE,
@@ -261,11 +260,14 @@ def build_daily_review(target_date: date) -> tuple[str, dict]:
 
 
 def _in_review_window(msk_now: datetime) -> bool:
-    return msk_now.hour == REVIEW_HOUR and msk_now.minute < REVIEW_WINDOW_MINUTES
+    # Cron runs every minute, but can be delayed by deploys or instance load.
+    # Keep retrying through the rest of the Moscow day so a missed first few
+    # ticks do not lose this date's review.
+    return msk_now.hour >= REVIEW_HOUR
 
 
 def process_daily_review_tick(now: datetime | None = None) -> dict[str, int]:
-    """Send tomorrow's review once during the 22:00–22:04 MSK cron window."""
+    """Send tomorrow's review once from 22:00 until midnight MSK."""
     now = now or timezone.now()
     msk_now = now.astimezone(MOSCOW)
     stats = {'sent': 0, 'skipped': 1}
