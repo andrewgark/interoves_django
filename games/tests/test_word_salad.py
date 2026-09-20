@@ -1002,6 +1002,58 @@ class WordSaladTests(TestCase):
             3,
         )
 
+    def test_recheck_keeps_official_and_replay_namespaces_separate(self):
+        user = User.objects.create_user(
+            username='word-salad-recheck-replay-user',
+            password='secret',
+        )
+        slot = ReplaySlot.objects.create(
+            user=user,
+            game=self.game,
+            task_group=self.tg,
+            actor_key='user:{}'.format(user.pk),
+        )
+        text = json.dumps({'action': 'solve', 'path': _path()})
+        Attempt.manager.create(
+            user=user,
+            task=self.task,
+            game=self.game,
+            text=text,
+            status='Wrong',
+            points=0,
+        )
+        Attempt.manager.create(
+            user=user,
+            task=self.task,
+            game=self.game,
+            replay_slot=slot,
+            text=text,
+            status='Wrong',
+            points=0,
+        )
+
+        with patch('games.views.track.track_actor_task_change'):
+            stats = recheck_word_salad_task(self.task, game=self.game, notify=False)
+
+        self.assertEqual(stats['actors'], 2)
+        self.assertEqual(
+            Attempt.manager.filter(task=self.task, user=user, replay_slot__isnull=True).count(),
+            1,
+        )
+        self.assertEqual(
+            Attempt.manager.filter(task=self.task, user=user, replay_slot=slot).count(),
+            1,
+        )
+        for replay_slot in (None, slot):
+            state = ChainTaskState.objects.get(
+                task=self.task,
+                user=user,
+                game=self.game,
+                game_mode='general',
+                replay_slot=replay_slot,
+            )
+            self.assertEqual(json.loads(state.state)['solved_indices'], [0])
+
     def test_answer_list_edit_keeps_chain_state_until_recheck(self):
         anon_key = 'word-salad-answer-list-edit'
         with patch('games.views.attempt_views.track_actor_task_change'):

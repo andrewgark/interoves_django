@@ -253,24 +253,31 @@ def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None, *, 
 def _word_salad_actor_keys(task, game):
     keys = set()
     for qs in (
-        Attempt.manager.filter(task=task, game=game).values_list('team_id', 'user_id', 'anon_key'),
+        Attempt.manager.filter(task=task, game=game).values_list(
+            'team_id', 'user_id', 'anon_key', 'replay_slot_id',
+        ),
         ChainTaskState.objects.filter(task=task, game=game).values_list(
-            'team_id', 'user_id', 'anon_key',
+            'team_id', 'user_id', 'anon_key', 'replay_slot_id',
         ),
     ):
-        for team_id, user_id, anon_key in qs:
-            keys.add((team_id, user_id, anon_key or None))
+        for team_id, user_id, anon_key, replay_slot_id in qs:
+            keys.add((team_id, user_id, anon_key or None, replay_slot_id))
     return keys
 
 
-def _resolve_word_salad_actor(team_id, user_id, anon_key):
+def _resolve_word_salad_actor(team_id, user_id, anon_key, replay_slot_id=None):
     team = Team.objects.filter(pk=team_id).first() if team_id else None
     if team_id and team is None:
         return None
     user = User.objects.filter(pk=user_id).first() if user_id else None
     if user_id and user is None:
         return None
-    return {'team': team, 'user': user, 'anon_key': anon_key}
+    return {
+        'team': team,
+        'user': user,
+        'anon_key': anon_key,
+        'replay_slot': replay_slot_id,
+    }
 
 
 def _word_salad_attempts(task, *, team=None, user=None, anon_key=None, game=None, replay_slot=None):
@@ -403,6 +410,7 @@ def _credit_new_word_salad_answers(
     team=None,
     user=None,
     anon_key=None,
+    replay_slot=None,
     game=None,
     last_ok_times=None,
     attempts=None,
@@ -451,6 +459,7 @@ def _credit_new_word_salad_answers(
                 anon_key=anon_key,
                 task=task,
                 game=game,
+                replay_slot_id=replay_slot,
                 text=text,
                 status='Pending',
                 points=0,
@@ -470,6 +479,7 @@ def recheck_word_salad_actor(
     team=None,
     user=None,
     anon_key=None,
+    replay_slot=None,
     game=None,
     notify=True,
 ):
@@ -488,17 +498,20 @@ def recheck_word_salad_actor(
         for mode in modes:
             ChainTaskState.objects.get_or_create(
                 team=team, user=user, anon_key=anon_key,
-                task=task, game=game, game_mode=mode,
+                task=task, game=game, game_mode=mode, replay_slot_id=replay_slot,
                 defaults={'state': None},
             )
         locked_rows = {
             row.game_mode: row
             for row in ChainTaskState.objects.select_for_update().filter(
-                team=team, user=user, anon_key=anon_key, task=task, game=game,
+                team=team, user=user, anon_key=anon_key,
+                task=task, game=game, replay_slot_id=replay_slot,
             )
         }
         attempts = _word_salad_attempts(
-            task, team=team, user=user, anon_key=anon_key, game=game,
+            task,
+            team=team, user=user, anon_key=anon_key, game=game,
+            replay_slot=replay_slot,
         )
         last_ok_times = {}
         for attempt in attempts:
@@ -512,6 +525,7 @@ def recheck_word_salad_actor(
                 team=team,
                 user=user,
                 anon_key=anon_key,
+                replay_slot=replay_slot,
                 game=game,
                 last_ok_times=last_ok_times,
                 attempts=attempts,
@@ -519,7 +533,9 @@ def recheck_word_salad_actor(
             credited = len(created)
             if created:
                 attempts = _word_salad_attempts(
-                    task, team=team, user=user, anon_key=anon_key, game=game,
+                    task,
+                    team=team, user=user, anon_key=anon_key, game=game,
+                    replay_slot=replay_slot,
                 )
 
         _replay_word_salad_attempts(
@@ -555,11 +571,13 @@ def recheck_word_salad_task(task, *, game=None, notify=True):
         raise ValueError('recheck_word_salad_task: pass game= for tasks in multiple games')
 
     stats = {'actors': 0, 'credited': 0, 'attempts': 0}
-    for team_id, user_id, anon_key in sorted(
+    for team_id, user_id, anon_key, replay_slot_id in sorted(
         _word_salad_actor_keys(task, game),
-        key=lambda item: (item[0] or '', item[1] or 0, item[2] or ''),
+        key=lambda item: (item[0] or '', item[1] or 0, item[2] or '', item[3] or 0),
     ):
-        actor = _resolve_word_salad_actor(team_id, user_id, anon_key)
+        actor = _resolve_word_salad_actor(
+            team_id, user_id, anon_key, replay_slot_id,
+        )
         if actor is None:
             continue
         result = recheck_word_salad_actor(task, game=game, notify=notify, **actor)
