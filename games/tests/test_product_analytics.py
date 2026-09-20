@@ -170,6 +170,75 @@ class ProductAnalyticsTests(TestCase):
             2,
         )
 
+    def test_completion_timing_logs_phases_and_aggregate_backfill_counts(self):
+        old_game, old_task = self._make_supported_task('alphabetty', 'alphabetty', 1)
+        ChainTaskState.objects.create(
+            user=self.user,
+            task=old_task,
+            game=old_game,
+            game_mode='general',
+            state=json.dumps({'won': True}),
+        )
+        game, task = self._make_supported_task('ladder', 'raddle', 2)
+
+        with self.assertLogs('interoves.analytics_timing', level='INFO') as first_logs:
+            register_completed_game(user=self.user, task=task, game=game)
+        first_log = next(
+            line for line in first_logs.output
+            if 'analytics_completed_timing' in line
+        )
+        self.assertEqual(
+            {
+                item.split('=', 1)[0]
+                for item in first_log.split()
+                if '=' in item
+            },
+            {
+                'total_ms',
+                'history_backfill_ms',
+                'chain_states_scanned',
+                'completion_candidates',
+                'existing_records',
+                'created_records',
+                'analytics_state_get_or_create_ms',
+                'completed_count_before_ms',
+                'completion_group_check_ms',
+                'current_completion_record_ms',
+                'daily_statistics_invalidation_ms',
+                'completed_count_after_ms',
+                'activation_state_ms',
+                'other_ms',
+            },
+        )
+        for phase in (
+            'history_backfill_ms=',
+            'analytics_state_get_or_create_ms=',
+            'completed_count_before_ms=',
+            'completion_group_check_ms=',
+            'current_completion_record_ms=',
+            'daily_statistics_invalidation_ms=',
+            'completed_count_after_ms=',
+            'activation_state_ms=',
+            'other_ms=',
+        ):
+            self.assertIn(phase, first_log)
+        self.assertIn('chain_states_scanned=1', first_log)
+        self.assertIn('completion_candidates=1', first_log)
+        self.assertIn('existing_records=0', first_log)
+        self.assertIn('created_records=1', first_log)
+        self.assertNotIn('user_id=', first_log)
+        self.assertNotIn('actor_id=', first_log)
+        self.assertNotIn(self.user.username, first_log)
+
+        with self.assertLogs('interoves.analytics_timing', level='INFO') as retry_logs:
+            register_completed_game(user=self.user, task=task, game=game)
+        retry_log = next(
+            line for line in retry_logs.output
+            if 'analytics_completed_timing' in line
+        )
+        self.assertIn('existing_records=1', retry_log)
+        self.assertIn('created_records=0', retry_log)
+
     def test_game_start_is_generic_unique_and_repeats_until_metrika_ack(self):
         game, task = self._make_supported_task('walls-custom', 'wall', 1)
 

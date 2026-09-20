@@ -979,6 +979,11 @@ LOGGING = {
             'handlers': ['stderr'],
             'level': 'WARNING',
         },
+        'interoves.analytics_timing': {
+            'handlers': ['stderr'],
+            'level': 'INFO',
+            'propagate': False,
+        },
         'interoves.auth': {
             'handlers': ['stderr'],
             'level': 'INFO',

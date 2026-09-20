@@ -1,6 +1,9 @@
 import hashlib
 import json
 import logging
+import time
+from contextlib import contextmanager
+from functools import wraps
 
 from django.core import signing
 from django.db import transaction
@@ -26,6 +29,65 @@ from games.analytics_persistence import (
 
 
 logger = logging.getLogger(__name__)
+analytics_timing_logger = logging.getLogger('interoves.analytics_timing')
+
+
+@contextmanager
+def _analytics_timed_phase(phases, name):
+    """Accumulate elapsed time for a completion-analytics phase, when enabled."""
+    if phases is None:
+        yield
+        return
+    started = time.perf_counter()
+    try:
+        yield
+    finally:
+        phases[name] = phases.get(name, 0.0) + (time.perf_counter() - started) * 1000.0
+
+
+def _measure_completed_game_timing(func):
+    """Log privacy-safe phase timings for the synchronous completion path."""
+    @wraps(func)
+    def wrapped(*args, **kwargs):
+        phases = {}
+        backfill_counts = {
+            'chain_states_scanned': 0,
+            'completion_candidates': 0,
+            'existing_records': 0,
+            'created_records': 0,
+        }
+        kwargs['_timing_phases'] = phases
+        kwargs['_backfill_counts'] = backfill_counts
+        started = time.perf_counter()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            total_ms = (time.perf_counter() - started) * 1000.0
+            phases['other_ms'] = max(0.0, total_ms - sum(phases.values()))
+            analytics_timing_logger.info(
+                'analytics_completed_timing total_ms=%.1f '
+                'history_backfill_ms=%.1f chain_states_scanned=%d '
+                'completion_candidates=%d existing_records=%d created_records=%d '
+                'analytics_state_get_or_create_ms=%.1f completed_count_before_ms=%.1f '
+                'completion_group_check_ms=%.1f current_completion_record_ms=%.1f '
+                'daily_statistics_invalidation_ms=%.1f completed_count_after_ms=%.1f '
+                'activation_state_ms=%.1f other_ms=%.1f',
+                total_ms,
+                phases.get('history_backfill_ms', 0.0),
+                backfill_counts['chain_states_scanned'],
+                backfill_counts['completion_candidates'],
+                backfill_counts['existing_records'],
+                backfill_counts['created_records'],
+                phases.get('analytics_state_get_or_create_ms', 0.0),
+                phases.get('completed_count_before_ms', 0.0),
+                phases.get('completion_group_check_ms', 0.0),
+                phases.get('current_completion_record_ms', 0.0),
+                phases.get('daily_statistics_invalidation_ms', 0.0),
+                phases.get('completed_count_after_ms', 0.0),
+                phases.get('activation_state_ms', 0.0),
+                phases['other_ms'],
+            )
+    return wrapped
 
 
 YANDEX_GOAL_SIGNUP = 'signup'
@@ -667,6 +729,7 @@ def _ensure_completed_record(
     completion_team=None,
     completion_user=None,
     completion_anon_key=None,
+    _timing_phases=None,
 ):
     """Persist a completion only after the canonical group check passes.
 
@@ -678,80 +741,85 @@ def _ensure_completed_record(
     check_team = team if completion_team is None else completion_team
     check_user = user if completion_user is None else completion_user
     check_anon_key = anon_key if completion_anon_key is None else completion_anon_key
-    if task is None or task_group is None or not is_task_group_complete(
-        task_group=task_group,
-        game=game,
-        team=check_team,
-        user=check_user,
-        anon_key=check_anon_key,
-        mode=mode,
-        replay_slot=None,
-    ):
+    if task is None or task_group is None:
+        return None, False
+    with _analytics_timed_phase(_timing_phases, 'completion_group_check_ms'):
+        group_is_complete = is_task_group_complete(
+            task_group=task_group,
+            game=game,
+            team=check_team,
+            user=check_user,
+            anon_key=check_anon_key,
+            mode=mode,
+            replay_slot=None,
+        )
+    if not group_is_complete:
         return None, False
     actor = _actor_kwargs(team=team, user=user, anon_key=anon_key)
     if actor is None:
         return None, False
-    instance_id = game_instance_id_for_task_group(game, task_group)
-    public_id = public_game_id_for_task_group(game, task_group)
-    defaults = {
-        'game': game,
-        'task_group': task_group,
-        'game_kind': game_kind,
-        'public_game_id': public_id,
-        'result': result,
-        'is_backfilled': is_backfilled,
-        'instrumentation_version': (
-            None if is_backfilled else PRODUCT_ANALYTICS_INSTRUMENTATION_VERSION
-        ),
-    }
-    lookup = dict(actor, game_instance_id=instance_id)
-    record, created = create_or_reread_analytics_row(
-        PlayerCompletedGame,
-        lookup=lookup,
-        defaults=defaults,
-    )
-    updated = []
-    if record.game_id != game.id:
-        record.game = game
-        updated.append('game')
-    if record.task_group_id != task_group.id:
-        record.task_group = task_group
-        updated.append('task_group')
-    if record.game_kind != game_kind:
-        record.game_kind = game_kind
-        updated.append('game_kind')
-    if record.public_game_id != public_id:
-        record.public_game_id = public_id
-        updated.append('public_game_id')
-    if created and record.result != result:
-        record.result = result
-        updated.append('result')
-    if updated:
-        record.save(update_fields=updated)
-    if created:
-        if team is not None:
-            actor_type, actor_id = 'team', str(team.pk)
-        elif user is not None:
-            actor_type, actor_id = 'user', str(user.pk)
-        elif anon_key:
-            actor_type, actor_id = 'anon', hashlib.sha256(str(anon_key).encode()).hexdigest()[:16]
-        else:
-            actor_type, actor_id = 'unknown', 'unavailable'
-        required_count = task_group.tasks.visible().count()
-        logger.info(
-            'player_completed_game_created',
-            extra={
-                'event': 'player_completed_game_created',
-                'actor_type': actor_type,
-                'actor_id': actor_id,
-                'game': game.id,
-                'game_instance_id': instance_id,
-                'task_group_id': task_group.id,
-                'completed_required_count': required_count,
-                'total_required_count': required_count,
-                'source': source,
-            },
+    with _analytics_timed_phase(_timing_phases, 'current_completion_record_ms'):
+        instance_id = game_instance_id_for_task_group(game, task_group)
+        public_id = public_game_id_for_task_group(game, task_group)
+        defaults = {
+            'game': game,
+            'task_group': task_group,
+            'game_kind': game_kind,
+            'public_game_id': public_id,
+            'result': result,
+            'is_backfilled': is_backfilled,
+            'instrumentation_version': (
+                None if is_backfilled else PRODUCT_ANALYTICS_INSTRUMENTATION_VERSION
+            ),
+        }
+        lookup = dict(actor, game_instance_id=instance_id)
+        record, created = create_or_reread_analytics_row(
+            PlayerCompletedGame,
+            lookup=lookup,
+            defaults=defaults,
         )
+        updated = []
+        if record.game_id != game.id:
+            record.game = game
+            updated.append('game')
+        if record.task_group_id != task_group.id:
+            record.task_group = task_group
+            updated.append('task_group')
+        if record.game_kind != game_kind:
+            record.game_kind = game_kind
+            updated.append('game_kind')
+        if record.public_game_id != public_id:
+            record.public_game_id = public_id
+            updated.append('public_game_id')
+        if created and record.result != result:
+            record.result = result
+            updated.append('result')
+        if updated:
+            record.save(update_fields=updated)
+        if created:
+            if team is not None:
+                actor_type, actor_id = 'team', str(team.pk)
+            elif user is not None:
+                actor_type, actor_id = 'user', str(user.pk)
+            elif anon_key:
+                actor_type, actor_id = 'anon', hashlib.sha256(str(anon_key).encode()).hexdigest()[:16]
+            else:
+                actor_type, actor_id = 'unknown', 'unavailable'
+            required_count = task_group.tasks.visible().count()
+            logger.info(
+                'player_completed_game_created',
+                extra={
+                    'event': 'player_completed_game_created',
+                    'actor_type': actor_type,
+                    'actor_id': actor_id,
+                    'game': game.id,
+                    'game_instance_id': instance_id,
+                    'task_group_id': task_group.id,
+                    'completed_required_count': required_count,
+                    'total_required_count': required_count,
+                    'source': source,
+                },
+            )
     return record, created
 
 
@@ -808,7 +876,8 @@ def reconcile_completed_game_after_recheck(
 
 
 def _backfill_supported_game_completions(
-    *, team=None, user=None, anon_key=None, exclude_instance_id=None
+    *, team=None, user=None, anon_key=None, exclude_instance_id=None,
+    _backfill_counts=None,
 ):
     """Backfill analytics rows from completed chain tasks, never from one task alone.
 
@@ -817,8 +886,20 @@ def _backfill_supported_game_completions(
     """
     actor = _actor_kwargs(team=team, user=user, anon_key=anon_key)
     if actor is None:
-        return
+        return _backfill_counts or {
+            'chain_states_scanned': 0,
+            'completion_candidates': 0,
+            'existing_records': 0,
+            'created_records': 0,
+        }
     from games.models import ChainTaskState
+
+    counts = _backfill_counts if _backfill_counts is not None else {
+        'chain_states_scanned': 0,
+        'completion_candidates': 0,
+        'existing_records': 0,
+        'created_records': 0,
+    }
 
     qs = (
         ChainTaskState.objects.select_related('task', 'task__task_group', 'game')
@@ -830,6 +911,7 @@ def _backfill_supported_game_completions(
     )
     candidates = {}
     for row in qs.iterator():
+        counts['chain_states_scanned'] += 1
         game_kind = supported_game_kind(row.game)
         if not game_kind:
             continue
@@ -842,8 +924,9 @@ def _backfill_supported_game_completions(
             (row, game_kind),
         )
 
+    counts['completion_candidates'] = len(candidates)
     for row, game_kind in candidates.values():
-        _ensure_completed_record(
+        record, created = _ensure_completed_record(
             team=team,
             user=user,
             anon_key=anon_key,
@@ -855,9 +938,16 @@ def _backfill_supported_game_completions(
             source='analytics_backfill',
             mode=row.game_mode,
         )
+        if record is not None:
+            if created:
+                counts['created_records'] += 1
+            else:
+                counts['existing_records'] += 1
+    return counts
 
 
 @_swallow_analytics_invariant
+@_measure_completed_game_timing
 @transaction.atomic
 def register_completed_game(
     *,
@@ -869,6 +959,8 @@ def register_completed_game(
     game,
     result=PlayerCompletedGame.RESULT_SOLVED,
     mode='general',
+    _timing_phases=None,
+    _backfill_counts=None,
 ):
     game_kind = supported_game_kind(game)
     if not game_kind or task is None or task.task_group is None:
@@ -886,27 +978,32 @@ def register_completed_game(
 
     # Безопасно бэкфиллим только личную/анонимную историю: командные CTS/Attempt
     # не содержат автора попытки, поэтому их нельзя корректно приписывать user-level activation.
-    if team is None:
-        _backfill_supported_game_completions(
-            **analytics_actor,
-            exclude_instance_id=current_instance_id,
+    with _analytics_timed_phase(_timing_phases, 'history_backfill_ms'):
+        if team is None:
+            _backfill_supported_game_completions(
+                **analytics_actor,
+                exclude_instance_id=current_instance_id,
+                _backfill_counts=_backfill_counts,
+            )
+    with _analytics_timed_phase(_timing_phases, 'analytics_state_get_or_create_ms'):
+        state, _ = create_or_reread_analytics_row(
+            PlayerAnalyticsState,
+            lookup=analytics_actor,
         )
-    state, _ = create_or_reread_analytics_row(
-        PlayerAnalyticsState,
-        lookup=analytics_actor,
-    )
-    before_count = _completed_games_qs(**analytics_actor).count()
-    if before_count >= 3 and state.activated_at is None:
-        activated_at = timezone.now()
-        PlayerAnalyticsState.objects.filter(
-            pk=state.pk,
-            activated_at__isnull=True,
-        ).update(
-            activated_at=activated_at,
-            activation_is_backfilled=True,
-            updated_at=activated_at,
-        )
-        state.refresh_from_db()
+    with _analytics_timed_phase(_timing_phases, 'completed_count_before_ms'):
+        before_count = _completed_games_qs(**analytics_actor).count()
+    with _analytics_timed_phase(_timing_phases, 'activation_state_ms'):
+        if before_count >= 3 and state.activated_at is None:
+            activated_at = timezone.now()
+            PlayerAnalyticsState.objects.filter(
+                pk=state.pk,
+                activated_at__isnull=True,
+            ).update(
+                activated_at=activated_at,
+                activation_is_backfilled=True,
+                updated_at=activated_at,
+            )
+            state.refresh_from_db()
 
     record, created = _ensure_completed_record(
         **analytics_actor,
@@ -920,6 +1017,7 @@ def register_completed_game(
         completion_team=team,
         completion_user=user,
         completion_anon_key=anon_key,
+        _timing_phases=_timing_phases,
     )
     if record is None:
         return []
@@ -927,31 +1025,34 @@ def register_completed_game(
     # The gameplay path has saved the Attempt/state before reaching this point,
     # so the completion check reads the canonical persisted representation.
     from games.daily_statistics import invalidate_daily_statistics
-    invalidate_daily_statistics(game.id, task.task_group_id)
+    with _analytics_timed_phase(_timing_phases, 'daily_statistics_invalidation_ms'):
+        invalidate_daily_statistics(game.id, task.task_group_id)
 
     goals = []
     if not record.is_backfilled and record.metrika_acked_at is None:
         goals.append(_completed_goal_payload(record))
 
-    after_count = _completed_games_qs(**analytics_actor).count()
-    if before_count < 3 <= after_count and state.activated_at is None:
-        activated_at = timezone.now()
-        PlayerAnalyticsState.objects.filter(
-            pk=state.pk,
-            activated_at__isnull=True,
-        ).update(
-            activated_at=activated_at,
-            activation_is_backfilled=False,
-            updated_at=activated_at,
-        )
-    # A concurrent completion/signup may have won either conditional update.
-    # Build any goal only from the canonical database state, never this stale
-    # Python instance.
-    state.refresh_from_db()
-    if (
-        state.activated_at is not None
-        and not state.activation_is_backfilled
-        and state.activation_goal_acked_at is None
-    ):
-        goals.append(_activation_goal_payload(state, max(3, after_count)))
+    with _analytics_timed_phase(_timing_phases, 'completed_count_after_ms'):
+        after_count = _completed_games_qs(**analytics_actor).count()
+    with _analytics_timed_phase(_timing_phases, 'activation_state_ms'):
+        if before_count < 3 <= after_count and state.activated_at is None:
+            activated_at = timezone.now()
+            PlayerAnalyticsState.objects.filter(
+                pk=state.pk,
+                activated_at__isnull=True,
+            ).update(
+                activated_at=activated_at,
+                activation_is_backfilled=False,
+                updated_at=activated_at,
+            )
+        # A concurrent completion/signup may have won either conditional update.
+        # Build any goal only from the canonical database state, never this stale
+        # Python instance.
+        state.refresh_from_db()
+        if (
+            state.activated_at is not None
+            and not state.activation_is_backfilled
+            and state.activation_goal_acked_at is None
+        ):
+            goals.append(_activation_goal_payload(state, max(3, after_count)))
     return goals
