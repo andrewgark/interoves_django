@@ -639,78 +639,83 @@ def process_send_attempt(request, task_id):
         )
     if attempt_persisted:
         request.interoves_attempt_id = attempt.pk
-        log_gameplay_attempt_created(
-            request,
-            attempt=attempt,
-            actor_kind=request.interoves_gameplay_actor_kind,
-        )
+        with timing_phase(request, 'attempt_created_log'):
+            log_gameplay_attempt_created(
+                request,
+                attempt=attempt,
+                actor_kind=request.interoves_gameplay_actor_kind,
+            )
 
     if attempt_persisted and task.task_type == 'autohint' and attempt.status in ('Pending', 'Wrong'):
-        hint = get_first_new_hint_actor(
-            task, team=team, user=user, anon_key=anon_key, replay_slot=replay_slot,
-        )
-        if hint is not None:
-            from games.views.hint_views import create_hint_attempt
-            create_hint_attempt(
-                hint, team=team, user=user, anon_key=anon_key,
-                game=game, replay_slot=replay_slot,
+        with timing_phase(request, 'autohint'):
+            hint = get_first_new_hint_actor(
+                task, team=team, user=user, anon_key=anon_key, replay_slot=replay_slot,
             )
+            if hint is not None:
+                from games.views.hint_views import create_hint_attempt
+                create_hint_attempt(
+                    hint, team=team, user=user, anon_key=anon_key,
+                    game=game, replay_slot=replay_slot,
+                )
 
     analytics_events = []
     daily_timing = None
     replay_available = False
     if (attempt_persisted or is_game_start_interaction) and replay_slot is None:
-        analytics_events.extend(register_started_game(
-            team=team,
-            user=user,
-            anon_key=anon_key,
-            analytics_user=request.user if request.user.is_authenticated else None,
-            task=task,
-            game=game,
-        ))
-    if (
-        attempt_persisted
-        and supported_game_kind(game)
-        and is_task_completion_state(task, attempt.state)
-        and is_task_group_complete(
-            task_group=task.task_group,
-            game=game,
-            team=team,
-            user=user,
-            anon_key=anon_key,
-            mode=current_mode,
-            replay_slot=replay_slot,
-        )
-    ):
-        if replay_slot is not None:
-            from games.replay import mark_replay_completed
-            mark_replay_completed(replay_slot)
-        else:
-            replay_available = True
-            analytics_events.extend(register_completed_game(
+        with timing_phase(request, 'analytics_started'):
+            analytics_events.extend(register_started_game(
                 team=team,
                 user=user,
                 anon_key=anon_key,
                 analytics_user=request.user if request.user.is_authenticated else None,
                 task=task,
                 game=game,
-                result=PlayerCompletedGame.RESULT_SOLVED,
-                mode=current_mode,
             ))
-            from games.daily_timing import complete_daily_timing
-            daily_timing = complete_daily_timing(
-                game=game,
+    completion_ready = False
+    if attempt_persisted and supported_game_kind(game) and is_task_completion_state(task, attempt.state):
+        with timing_phase(request, 'completion_check'):
+            completion_ready = is_task_group_complete(
                 task_group=task.task_group,
+                game=game,
+                team=team,
                 user=user,
                 anon_key=anon_key,
-                team=team,
-                replay_slot=None,
+                mode=current_mode,
+                replay_slot=replay_slot,
             )
+    if completion_ready:
+        if replay_slot is not None:
+            from games.replay import mark_replay_completed
+            mark_replay_completed(replay_slot)
+        else:
+            replay_available = True
+            with timing_phase(request, 'analytics_completed'):
+                analytics_events.extend(register_completed_game(
+                    team=team,
+                    user=user,
+                    anon_key=anon_key,
+                    analytics_user=request.user if request.user.is_authenticated else None,
+                    task=task,
+                    game=game,
+                    result=PlayerCompletedGame.RESULT_SOLVED,
+                    mode=current_mode,
+                ))
+            from games.daily_timing import complete_daily_timing
+            with timing_phase(request, 'daily_timing_complete'):
+                daily_timing = complete_daily_timing(
+                    game=game,
+                    task_group=task.task_group,
+                    user=user,
+                    anon_key=anon_key,
+                    team=team,
+                    replay_slot=None,
+                )
 
-    result = {
-        'status': 'ok',
-        'task_id': task.id,
-    }
+    with timing_phase(request, 'response_payload'):
+        result = {
+            'status': 'ok',
+            'task_id': task.id,
+        }
     if daily_timing:
         result['daily_timing'] = daily_timing
     if replay_available:
