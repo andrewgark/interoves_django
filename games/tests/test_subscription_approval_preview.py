@@ -21,7 +21,8 @@ from games.tests.test_club_yookassa import _ensure_reference_rows
 
 
 @override_settings(
-    CLUB_SUBSCRIPTION_ENABLED=False,
+    CLUB_PAYMENTS_ENABLED=False,
+    CLUB_ARCHIVE_GATING_ENABLED=False,
     CLUB_YOOKASSA_ENABLED=False,
     YOOKASSA_RECURRING_ENABLED=False,
 )

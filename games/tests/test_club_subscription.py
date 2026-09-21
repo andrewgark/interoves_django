@@ -28,7 +28,8 @@ from games.tribute_util import compute_webhook_signature
 
 
 CLUB_SETTINGS = {
-    'CLUB_SUBSCRIPTION_ENABLED': True,
+    'CLUB_PAYMENTS_ENABLED': True,
+    'CLUB_ARCHIVE_GATING_ENABLED': True,
     'CLUB_YOOKASSA_ENABLED': False,
     'YOOKASSA_RECURRING_ENABLED': False,
     'TRIBUTE_ENABLED': True,

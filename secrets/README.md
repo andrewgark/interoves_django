@@ -147,7 +147,8 @@ Club recurring subscriptions (hidden `/subscription/` page):
 
 **Tribute (EUR / foreign cards):** pre-created creator subscriptions; webhooks at `/tribute/webhook/`.
 
-- `CLUB_SUBSCRIPTION_ENABLED=true` turns on archive gating (free rolling window: latest 7 numbers per section)
+- `CLUB_PAYMENTS_ENABLED=true` enables club checkout (defaults to true)
+- `CLUB_ARCHIVE_GATING_ENABLED=true` restricts older archive items to club members; everyone else keeps access to the latest 7 numbers in each section (defaults to false)
 - EUR: `TRIBUTE_CLUB_SUBSCRIPTION_EUR_*` (see below)
 
 **YooKassa (RUB):** monthly intro 700 → then 900, annual 9000 one-shot. Does not use TicketRequest.
@@ -161,8 +162,8 @@ Club recurring subscriptions (hidden `/subscription/` page):
 Do not add public nav links to `/subscription/` until the launch is explicit.
 
 ```bash
-eb setenv CLUB_YOOKASSA_ENABLED=false YOOKASSA_RECURRING_ENABLED=false \
-  CLUB_SUBSCRIPTION_ENABLED=false \
+eb setenv CLUB_PAYMENTS_ENABLED=true CLUB_ARCHIVE_GATING_ENABLED=false \
+  CLUB_YOOKASSA_ENABLED=false YOOKASSA_RECURRING_ENABLED=false \
   TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID='262466' \
   TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL='https://t.me/tribute/app?startapp=s16hk' \
   TRIBUTE_CLUB_SUBSCRIPTION_EUR_AMOUNT='1000' \
@@ -217,4 +218,3 @@ Separate OAuth app from site login. Local files (gitignored):
 Accesses typically: `metrika:read`, `direct:api`. Do not overwrite the `yandex_oauth_*` login files.
 
 CLI: `manage.py ads` (`preflight`, `launch`, `status`, getters/setters). Token is read via `load_secret`; never logged.
-

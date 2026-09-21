@@ -36,7 +36,7 @@ def tribute_configuration_check(app_configs, **kwargs):
     if any_product_value and product_errors and not getattr(settings, 'TRIBUTE_ENABLED', False):
         errors.extend(Warning(message, id='games.W_TRIBUTE_CONFIG') for message in product_errors)
 
-    if getattr(settings, 'CLUB_SUBSCRIPTION_ENABLED', False):
+    if getattr(settings, 'CLUB_PAYMENTS_ENABLED', False):
         errors.extend(
             Error(message, id='games.E_CLUB_TRIBUTE_CONFIG')
             for message in club_configuration_errors()

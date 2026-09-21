@@ -31,7 +31,8 @@ from games.models import ClubSubscription, ClubYooKassaPayment, HTMLPage, Profil
 
 
 YK_SETTINGS = {
-    'CLUB_SUBSCRIPTION_ENABLED': True,
+    'CLUB_PAYMENTS_ENABLED': True,
+    'CLUB_ARCHIVE_GATING_ENABLED': True,
     'CLUB_YOOKASSA_ENABLED': True,
     'YOOKASSA_RECURRING_ENABLED': True,
     'TRIBUTE_API_KEY': 'test-tribute-key',

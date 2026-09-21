@@ -108,7 +108,10 @@ def detach_yookassa_payment_method(user) -> StartPaymentResult:
 
 
 def club_yookassa_enabled() -> bool:
-    return bool(getattr(settings, 'CLUB_YOOKASSA_ENABLED', False))
+    return (
+        bool(getattr(settings, 'CLUB_PAYMENTS_ENABLED', False))
+        and bool(getattr(settings, 'CLUB_YOOKASSA_ENABLED', False))
+    )
 
 
 def yookassa_recurring_enabled() -> bool:

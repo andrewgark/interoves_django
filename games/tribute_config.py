@@ -293,11 +293,11 @@ def club_configuration_errors() -> list[str]:
 
 
 def club_checkout_enabled() -> bool:
-    return bool(getattr(settings, 'CLUB_SUBSCRIPTION_ENABLED', False)) and not club_configuration_errors()
+    return bool(getattr(settings, 'CLUB_PAYMENTS_ENABLED', False)) and not club_configuration_errors()
 
 
 def club_archive_gating_enabled() -> bool:
-    return bool(getattr(settings, 'CLUB_SUBSCRIPTION_ENABLED', False))
+    return bool(getattr(settings, 'CLUB_ARCHIVE_GATING_ENABLED', False))
 
 
 def club_management_url() -> str:
