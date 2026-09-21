@@ -51,6 +51,11 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
     link_dates = {}
     for link in links:
         schedule = schedule_for(link.game_id)
+        if schedule is None:
+            # Some public daily sections use daily timing without having a
+            # calendar-backed publication schedule.  They cannot contribute
+            # to a publication-date streak, but must not break the hub.
+            continue
         published_at = schedule.publish_at(games_by_id[str(link.game_id)], link.number)
         if published_at is not None:
             link_dates[(str(link.game_id), link.task_group_id)] = published_at.astimezone(MOSCOW).date()

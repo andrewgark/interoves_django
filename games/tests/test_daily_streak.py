@@ -124,6 +124,34 @@ class DailyStreakLogicTests(TestCase):
             5,
         )
 
+    def test_unscheduled_daily_timing_game_does_not_break_streaks(self):
+        game = Game.objects.create(
+            id='walls',
+            name='walls',
+            author='test',
+            project=self.project,
+        )
+        task_group = TaskGroup.objects.create(label='walls-1-streak')
+        link = GameTaskGroup.objects.create(
+            game=game,
+            task_group=task_group,
+            number='1',
+            name='1',
+        )
+        PlayerCompletedGame.objects.create(
+            user=self.user,
+            game=game,
+            task_group=link.task_group,
+            game_kind='walls',
+            game_instance_id='walls-1',
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+
+        self.assertEqual(
+            daily_streaks_for_user(self.user, games=[game], now=self.now),
+            {'walls': 0},
+        )
+
     def test_date_helper_keeps_unfinished_today(self):
         self.assertEqual(
             streak_from_completion_dates({self.now.date() - timedelta(days=1)}, today=self.now.date()),
