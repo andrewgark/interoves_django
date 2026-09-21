@@ -823,6 +823,7 @@ class DailyDifficultyQueueStatus(models.Model):
     last_refreshed_count = models.PositiveIntegerField(default=0)
     last_limit = models.PositiveIntegerField(default=0)
     last_worker = models.CharField(max_length=255, blank=True, default='')
+    last_health_check_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         verbose_name = 'состояние очереди сложности'

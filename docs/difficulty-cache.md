@@ -182,6 +182,12 @@ A real formula or baseline change is a **manual rebuild** (section 10).
 | Log | `/var/log/difficulty_cron.log` |
 | Telegram cron | `.ebextensions/telegram_cron.config` — **separate** job |
 
+An hourly health check runs at minute 7 through the same EB script with a
+separate local lock. It repairs queue metadata, runs an extra refresh tick,
+then checks for missing snapshots, published editions never calculated,
+remaining due work, and calculation failures. If the queue is still unhealthy,
+it sends an admin Telegram message. Command: `manage.py check_daily_difficulty`.
+
 Difficulty refresh is not invoked from `telegram_cron.sh`. A hung Playwright
 screenshot must not block ratings; a difficulty exception must not block the
 ladder channel post.

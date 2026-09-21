@@ -7,24 +7,44 @@ set -euo pipefail
 
 APP_DIR=/var/app/current
 LOG=/var/log/difficulty_cron.log
-LOCK=/var/lock/difficulty_cron.lock
+if [[ "${1:-}" == "--health-check" ]]; then
+  LOCK=/var/lock/difficulty_healthcheck.lock
+else
+  LOCK=/var/lock/difficulty_cron.lock
+fi
 
 exec 9>"$LOCK"
 if ! flock -n 9; then
   exit 0
 fi
 
-eval "$(/opt/elasticbeanstalk/bin/get-config environment | python3 -c '
-import json, shlex, sys
-env = json.load(sys.stdin)
-for key, value in env.items():
-    print("export {}={}".format(key, shlex.quote(str(value))))
-')"
-
-cd "$APP_DIR"
-# shellcheck disable=SC1091
-source /var/app/venv/*/bin/activate
 {
   echo "---- $(date -Is) refresh_daily_difficulty ----"
-  python manage.py refresh_daily_difficulty --limit 10
+  python3 - "$APP_DIR" "${1:-}" <<'PY'
+import glob
+import os
+import subprocess
+import sys
+
+app_dir, mode = sys.argv[1:]
+try:
+    pid = subprocess.check_output(['pgrep', '-of', 'daphne'], text=True).strip()
+except subprocess.CalledProcessError as exc:
+    raise SystemExit('Could not find the running Daphne process for EB environment') from exc
+
+env = os.environ.copy()
+with open('/proc/{}/environ'.format(pid), 'rb') as source:
+    for item in source.read().split(b'\0'):
+        if b'=' in item:
+            key, value = item.split(b'=', 1)
+            env[key.decode()] = value.decode()
+
+python = sorted(glob.glob('/var/app/venv/*/bin/python'))[-1]
+args = [python, 'manage.py']
+if mode == '--health-check':
+    args.append('check_daily_difficulty')
+else:
+    args.extend(['refresh_daily_difficulty', '--limit', '10'])
+subprocess.run(args, cwd=app_dir, env=env, check=True)
+PY
 } >>"$LOG" 2>&1
