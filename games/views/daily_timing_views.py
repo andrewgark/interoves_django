@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_http_methods
 
-from games.daily_section import is_daily_timing_game, scheduled_number_is_public
+from games.daily_section import is_daily_team_timing_game, is_daily_timing_game, scheduled_number_is_public
 from games.daily_timing import (
     ACTION_RESUME,
     ACTION_START,
@@ -22,7 +22,7 @@ from games.models import Game, GameTaskGroup
 from games.views.new_ui import NEW_UI_SECTIONS_PROJECT
 from games.analytics_identity import gameplay_anon_key
 from games.gameplay_context import context_error_response, validate_gameplay_context
-from games.views.util import has_profile
+from games.views.util import effective_play_mode, has_profile, has_team
 
 
 def _json_error(code, http_status=400):
@@ -46,38 +46,48 @@ def _payload(request):
     return data
 
 
-def _resolve_actor(request, payload):
+def _resolve_actor(request, game):
     if request.user.is_authenticated:
-        return request.user, None
+        if not has_profile(request.user):
+            return None, None, None
+        from games.views.new_ui import _get_play_mode
+        play_mode, _ = _get_play_mode(request, game.project_id)
+        play_mode = effective_play_mode(play_mode, game, user=request.user)
+        if play_mode == 'team':
+            if not has_team(request.user) or not is_daily_team_timing_game(game.id):
+                return None, None, None
+            return request.user.profile.team_on, None, None
+        return None, request.user, None
     anon_key = gameplay_anon_key(request)
     if anon_key:
-        return None, str(anon_key)
-    return None, None
+        return None, None, str(anon_key)
+    return None, None, None
 
 
 def _load_daily_target(request, game_id, number):
     if not is_daily_timing_game(game_id):
-        return None, None, None, None, _json_error('not_daily', 404)
+        return None, None, None, None, None, _json_error('not_daily', 404)
     game = get_object_or_404(Game, id=game_id, project_id=NEW_UI_SECTIONS_PROJECT)
     raw_number = str(number or '').strip()
     if not raw_number or not raw_number.replace('.', '', 1).isdigit():
-        return None, None, None, None, _json_error('not_daily', 404)
+        return None, None, None, None, None, _json_error('not_daily', 404)
     if not scheduled_number_is_public(game, raw_number) and not request.user.is_staff:
-        return None, None, None, None, _json_error('not_published', 404)
+        return None, None, None, None, None, _json_error('not_published', 404)
     from games.club_access import user_can_access_scheduled_number
 
     if not user_can_access_scheduled_number(request.user, game, raw_number):
-        return None, None, None, None, _json_error('club_required', 403)
+        return None, None, None, None, None, _json_error('club_required', 403)
     link = GameTaskGroup.objects.filter(game=game, number=raw_number).select_related('task_group').first()
     if link is None:
-        return None, None, None, None, _json_error('missing', 404)
-    payload = _payload(request)
-    user, anon_key = _resolve_actor(request, payload)
-    if user is None and not anon_key:
-        return None, None, None, None, _json_error('no_anon', 400)
-    if user is not None and not has_profile(user) and request.user.is_authenticated:
-        return None, None, None, None, _json_error('no_profile', 403)
-    return game, link.task_group, user, anon_key, None
+        return None, None, None, None, None, _json_error('missing', 404)
+    team, user, anon_key = _resolve_actor(request, game)
+    if team is None and user is None and anon_key is None:
+        return None, None, None, None, None, _json_error('no_actor', 400)
+    if request.user.is_authenticated and user is None and team is None:
+        return None, None, None, None, None, _json_error('no_profile_or_team', 403)
+    if team is not None and not game.has_access('play', team=team):
+        return None, None, None, None, None, _json_error('team_access_required', 403)
+    return game, link.task_group, team, user, anon_key, None
 
 
 def daily_timing_page_context(
@@ -85,6 +95,7 @@ def daily_timing_page_context(
     game,
     placement,
     *,
+    team=None,
     user=None,
     anon_key=None,
     play_mode='personal',
@@ -97,7 +108,7 @@ def daily_timing_page_context(
         and placement is not None
         and is_daily_timing_game(game.id)
         and not is_offer
-        and play_mode != 'team'
+        and (play_mode != 'team' or (team is not None and is_daily_team_timing_game(game.id)))
         and replay_slot is None
         and not official_completed
     )
@@ -110,14 +121,16 @@ def daily_timing_page_context(
         gameplay_context_token = issue_gameplay_context(
             task_group=placement.task_group,
             game=game,
+            team=team,
             user=user,
             anon_key=anon_key,
             replay_slot=replay_slot,
         )
-        if user is not None or anon_key:
+        if team is not None or user is not None or anon_key:
             state = snapshot(lookup_timing(
                 game=game,
                 task_group=placement.task_group,
+                team=team,
                 user=user,
                 anon_key=anon_key,
                 replay_slot=replay_slot,
@@ -133,7 +146,7 @@ def daily_timing_page_context(
 @require_http_methods(['GET', 'POST'])
 def daily_solve_timing(request, game_id, number=None, task_group_number=None):
     number = number if number is not None else task_group_number
-    game, task_group, user, anon_key, err = _load_daily_target(request, game_id, number)
+    game, task_group, team, user, anon_key, err = _load_daily_target(request, game_id, number)
     if err is not None:
         return err
 
@@ -142,12 +155,13 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
         from games.replay import active_replay
         replay_slot = active_replay(
             request=request, game=game, task_group=task_group,
-            user=user, anon_key=anon_key,
+            team=team, user=user, anon_key=anon_key,
         )
         body = snapshot(
             lookup_timing(
                 game=game,
                 task_group=task_group,
+                team=team,
                 user=user,
                 anon_key=anon_key,
                 replay_slot=replay_slot,
@@ -162,12 +176,12 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
     try:
         replay_slot = replay_for_request(
             request=request, game=game, task_group=task_group,
-            user=user, anon_key=anon_key,
+            team=team, user=user, anon_key=anon_key,
         )
     except StaleReplayError:
         return _json_error('stale_replay', 409)
     if replay_slot is None and _official_exists(
-        game=game, task_group=task_group, user=user, anon_key=anon_key,
+        game=game, task_group=task_group, team=team, user=user, anon_key=anon_key,
     ):
         return _json_error('replay_required', 409)
     action = (payload.get('action') or ACTION_START).strip()
@@ -177,6 +191,7 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
         request,
         task_group=task_group,
         game=game,
+        team=team,
         user=user,
         anon_key=anon_key,
     )
@@ -187,6 +202,7 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
     result = apply_timing_event(
         game=game,
         task_group=task_group,
+        team=team,
         user=user,
         anon_key=anon_key,
         action=action,

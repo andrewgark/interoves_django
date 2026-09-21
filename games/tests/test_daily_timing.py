@@ -5,12 +5,13 @@ from uuid import uuid4
 import json
 
 from django.contrib.auth.models import User
-from django.db import IntegrityError, OperationalError
+from django.db import IntegrityError, OperationalError, transaction
 from django.test import Client, SimpleTestCase, TestCase
+from django.urls import resolve
 
 from games.analytics_identity import attach_anon_cookie
 from games import daily_timing as daily_timing_mod
-from games.daily_section import is_daily_timing_game
+from games.daily_section import is_daily_team_timing_game, is_daily_timing_game
 from games.daily_timing import (
     ACTION_AUTO_PAUSE,
     ACTION_COMPLETE,
@@ -36,8 +37,10 @@ from games.models import (
     HTMLPage,
     Profile,
     Project,
+    ReplaySlot,
     Task,
     TaskGroup,
+    Team,
 )
 from games.share_result import elapsed_seconds_from_attempts as share_elapsed
 from games.word_salad import WORD_SALAD_GAME_ID
@@ -48,13 +51,18 @@ def _dt(seconds=0):
 
 
 class DailyTimingScopeTests(SimpleTestCase):
-    def test_only_official_daily_games(self):
-        self.assertTrue(is_daily_timing_game('ladder'))
-        self.assertTrue(is_daily_timing_game('alphabetty'))
-        self.assertTrue(is_daily_timing_game(WORD_SALAD_GAME_ID))
-        self.assertFalse(is_daily_timing_game('week_task'))
+    def test_all_public_section_games_use_authoritative_active_timing(self):
+        for game_id in ('ladder', 'salad', 'alphabetty', 'replacements', 'walls', 'palindromes', 'week_task'):
+            self.assertTrue(is_daily_timing_game(game_id), game_id)
+        self.assertFalse(is_daily_team_timing_game('alphabetty'))
+        for game_id in ('ladder', 'salad', 'replacements', 'walls', 'palindromes', 'week_task'):
+            self.assertTrue(is_daily_team_timing_game(game_id), game_id)
         self.assertFalse(is_daily_timing_game('des1'))
-        self.assertFalse(is_daily_timing_game('walls'))
+
+    def test_new_section_game_timing_routes_resolve_to_shared_endpoint(self):
+        for game_id in ('replacements', 'walls', 'palindromes', 'week_task'):
+            match = resolve('/{}/123/timing/'.format(game_id))
+            self.assertEqual(match.func.__name__, 'daily_solve_timing', game_id)
 
     def test_detects_wrapped_mysql_deadlock_only(self):
         inner = OperationalError(1213, 'Deadlock found when trying to get lock')
@@ -134,6 +142,35 @@ class DailyTimingDomainTests(TestCase):
         else:
             kwargs['anon_key'] = self.anon
         return apply_timing_event(**kwargs)
+
+    def test_database_constraints_enforce_team_actor_shape_and_play_uniqueness(self):
+        team = Team.objects.create(name='timing-constraint-team', project_id='sections')
+        first = DailySolveTiming.objects.create(
+            team=team, game=self.game, task_group=self.tg,
+            team_timing_key='first',
+        )
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                DailySolveTiming.objects.create(
+                    team=team, game=self.game, task_group=self.tg,
+                    team_timing_key='first',
+                )
+
+        replay = ReplaySlot.objects.create(
+            actor_key='team:{}'.format(team.pk), team=team, game=self.game,
+            task_group=self.tg,
+        )
+        replay_row = DailySolveTiming.objects.create(
+            team=team, game=self.game, task_group=self.tg, replay_slot=replay,
+            team_timing_key='replay:{}'.format(replay.pk),
+        )
+        self.assertNotEqual(first.pk, replay_row.pk)
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                DailySolveTiming.objects.create(
+                    team=team, user=self.user, game=self.game, task_group=self.tg,
+                    team_timing_key='invalid-actor',
+                )
 
     def test_continuous_solve_accumulates_from_server_clock(self):
         sid = uuid4()
@@ -257,6 +294,22 @@ class DailyTimingDomainTests(TestCase):
             226,
         )
 
+    def test_existing_legacy_attempt_cannot_receive_a_late_guessed_start(self):
+        from games.models import Attempt
+
+        Attempt.manager.create(
+            game=self.game, task=self.task, user=self.user, text='ok', status='Ok', points=1,
+            time=_dt(5),
+        )
+        result = apply_timing_event(
+            game=self.game, task_group=self.tg, user=self.user,
+            action=ACTION_START, session_id=uuid4(), event_id='late-start', seq=1, now=_dt(10),
+        )
+        self.assertFalse(result['exists'])
+        self.assertFalse(DailySolveTiming.objects.filter(
+            game=self.game, task_group=self.tg, user=self.user,
+        ).exists())
+
     def test_overlapping_devices_use_lease(self):
         phone = uuid4()
         laptop = uuid4()
@@ -349,22 +402,124 @@ class DailyTimingDomainTests(TestCase):
         )
         self.assertEqual(share_elapsed(attempts), 50)
 
-    def test_team_actor_stays_on_legacy_formula(self):
+    def test_team_actor_without_authoritative_row_has_no_guessed_duration(self):
         t0 = _dt()
         attempts = [
             SimpleNamespace(time=t0),
             SimpleNamespace(time=t0 + timedelta(seconds=90)),
         ]
-        self.assertEqual(
+        team = Team.objects.create(name='legacy-team')
+        self.assertIsNone(
             canonical_elapsed_seconds(
                 game=self.game,
                 task_group=self.tg,
                 user=self.user,
-                team=SimpleNamespace(name='x'),
+                team=team,
                 attempts=attempts,
             ),
-            90,
         )
+
+    def test_team_shared_timer_is_one_row_across_member_sessions_and_pauses(self):
+        team = Team.objects.create(name='timing-team', project_id='sections')
+        page_context = daily_timing_page_context(
+            None, self.game, self.link, team=team, play_mode='team',
+        )
+        self.assertTrue(page_context['daily_timing_enabled'])
+        session_a = uuid4()
+        session_b = uuid4()
+        first = apply_timing_event(
+            game=self.game, task_group=self.tg, team=team,
+            action=ACTION_START, session_id=session_a, event_id='team-start-a', seq=1, now=_dt(),
+        )
+        # A second teammate's start takes over the same lease rather than making another timer.
+        second = apply_timing_event(
+            game=self.game, task_group=self.tg, team=team,
+            action=ACTION_START, session_id=session_b, event_id='team-start-b', seq=1, now=_dt(5),
+        )
+        self.assertTrue(first['exists'])
+        self.assertTrue(second['is_authoritative'])
+        self.assertEqual(DailySolveTiming.objects.filter(team=team, game=self.game, task_group=self.tg).count(), 1)
+        apply_timing_event(
+            game=self.game, task_group=self.tg, team=team,
+            action=ACTION_HEARTBEAT, session_id=session_b, event_id='team-heartbeat-before-pause',
+            seq=2, claimed_ms=5000, now=_dt(10),
+        )
+
+        paused = apply_timing_event(
+            game=self.game, task_group=self.tg, team=team,
+            action=ACTION_PAUSE, session_id=session_a, event_id='team-pause', seq=1,
+            claimed_ms=5000, now=_dt(15),
+        )
+        self.assertEqual(paused['status'], DailySolveTiming.STATUS_MANUALLY_PAUSED)
+        self.assertEqual(paused['committed_ms'], 5000)
+        # A repeated pause is harmless; resume starts a new shared active interval.
+        apply_timing_event(
+            game=self.game, task_group=self.tg, team=team,
+            action=ACTION_PAUSE, session_id=session_b, event_id='team-pause-again', seq=2,
+            now=_dt(12),
+        )
+        resumed = apply_timing_event(
+            game=self.game, task_group=self.tg, team=team,
+            action=ACTION_RESUME, session_id=session_b, event_id='team-resume', seq=3,
+            now=_dt(20),
+        )
+        self.assertTrue(resumed['is_authoritative'])
+        apply_timing_event(
+            game=self.game, task_group=self.tg, team=team,
+            action=ACTION_HEARTBEAT, session_id=session_b, event_id='team-heartbeat-after-resume',
+            seq=4, claimed_ms=10000, now=_dt(30),
+        )
+        completed = complete_daily_timing(
+            game=self.game, task_group=self.tg, team=team, now=_dt(30),
+        )
+        self.assertEqual(completed['frozen_ms'], 15000)
+        self.assertEqual(
+            canonical_elapsed_seconds(game=self.game, task_group=self.tg, team=team),
+            15,
+        )
+        first_row = lookup_timing(game=self.game, task_group=self.tg, team=team)
+        replay = ReplaySlot.objects.create(
+            game=self.game, task_group=self.tg, team=team, actor_key='team:{}'.format(team.pk),
+        )
+        apply_timing_event(
+            game=self.game, task_group=self.tg, team=team, replay_slot=replay,
+            action=ACTION_START, session_id=uuid4(), event_id='team-replay-start', seq=1, now=_dt(),
+        )
+        complete_daily_timing(game=self.game, task_group=self.tg, team=team, replay_slot=replay, now=_dt(90))
+        self.assertEqual(lookup_timing(game=self.game, task_group=self.tg, team=team).pk, first_row.pk)
+        self.assertEqual(DailySolveTiming.objects.filter(team=team, game=self.game, task_group=self.tg).count(), 2)
+
+    def test_each_daily_section_type_uses_the_same_timing_lifecycle(self):
+        team_ids = {'ladder', 'salad', 'replacements', 'walls', 'palindromes', 'week_task'}
+        team = Team.objects.create(name='timing-all-sections', project_id='sections')
+        for game_id in ('ladder', 'salad', 'alphabetty', 'replacements', 'walls', 'palindromes', 'week_task'):
+            game = Game.objects.filter(pk=game_id).first()
+            if game is None:
+                game = Game.objects.create(
+                    id=game_id, name=game_id, author='tests', project_id='sections', is_ready=True,
+                )
+            group = TaskGroup.objects.create(label='timing-{}'.format(game_id))
+            GameTaskGroup.objects.create(game=game, task_group=group, number='991', name='Timing')
+            actor_kwargs = {'team': team} if game_id in team_ids else {'user': self.user}
+            sid = uuid4()
+            started = apply_timing_event(
+                game=game, task_group=group, action=ACTION_START, session_id=sid,
+                event_id='{}-start'.format(game_id), seq=1, now=_dt(), **actor_kwargs,
+            )
+            self.assertTrue(started['exists'], game_id)
+            apply_timing_event(
+                game=game, task_group=group, action=ACTION_PAUSE, session_id=sid,
+                event_id='{}-pause'.format(game_id), seq=2, claimed_ms=5000, now=_dt(5), **actor_kwargs,
+            )
+            apply_timing_event(
+                game=game, task_group=group, action=ACTION_RESUME, session_id=sid,
+                event_id='{}-resume'.format(game_id), seq=3, now=_dt(10), **actor_kwargs,
+            )
+            complete_daily_timing(game=game, task_group=group, now=_dt(20), **actor_kwargs)
+            self.assertEqual(
+                canonical_elapsed_seconds(game=game, task_group=group, **actor_kwargs), 15,
+                game_id,
+            )
 
     def test_crash_without_flush_caps_to_heartbeat_window(self):
         sid = uuid4()
@@ -555,6 +710,83 @@ class DailyTimingApiTests(TestCase):
         self.assertTrue(data['is_authoritative'])
 
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    def test_payload_and_header_cannot_spoof_anonymous_or_registered_actor(self, _pub):
+        forged = 'attacker-chosen-anon'
+        response = self.client.post(
+            '/ladder/91002/timing/',
+            data=json.dumps({
+                'action': ACTION_START, 'session_id': str(uuid4()),
+                'event_id': 'spoofed-actor', 'seq': 1,
+                'anon_key': forged, 'user_id': 999999, 'team_id': 'not-my-team',
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON=forged,
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(DailySolveTiming.objects.filter(
+            anon_key=self.anon, game=self.game, task_group=self.tg,
+        ).exists())
+        self.assertFalse(DailySolveTiming.objects.filter(
+            anon_key=forged, game=self.game, task_group=self.tg,
+        ).exists())
+        self.assertFalse(DailySolveTiming.objects.filter(
+            user_id=999999, game=self.game, task_group=self.tg,
+        ).exists())
+
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    def test_replay_id_in_payload_cannot_select_replay_timing_namespace(self, _pub):
+        slot = ReplaySlot.objects.create(
+            game=self.game, task_group=self.tg, anon_key=self.anon,
+            actor_key='a:{}'.format(self.anon),
+        )
+        response = self.client.post(
+            '/ladder/91002/timing/',
+            data=json.dumps({
+                'action': ACTION_START, 'session_id': str(uuid4()),
+                'event_id': 'spoofed-replay', 'seq': 1,
+                'replay_slot_id': slot.pk, 'replay_run_id': 'not-current-session',
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        row = DailySolveTiming.objects.get(game=self.game, task_group=self.tg)
+        self.assertIsNone(row.replay_slot_id)
+
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    def test_timing_mutation_keeps_gameplay_csrf_protection(self, _pub):
+        strict_client = Client(enforce_csrf_checks=True)
+        attach_anon_cookie(strict_client, 'csrf-timing-test')
+        response = strict_client.post(
+            '/ladder/91002/timing/',
+            data=json.dumps({
+                'action': ACTION_START, 'session_id': str(uuid4()),
+                'event_id': 'csrf-missing', 'seq': 1,
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(DailySolveTiming.objects.filter(game=self.game, task_group=self.tg).exists())
+
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=False)
+    def test_unpublished_release_cannot_start_timing(self, _pub):
+        response = self._post({
+            'action': ACTION_START, 'session_id': str(uuid4()),
+            'event_id': 'private', 'seq': 1,
+        })
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(DailySolveTiming.objects.filter(game=self.game, task_group=self.tg).exists())
+
+    @patch('games.club_access.user_can_access_scheduled_number', return_value=False)
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    def test_inaccessible_release_cannot_start_timing(self, _pub, _access):
+        response = self._post({
+            'action': ACTION_START, 'session_id': str(uuid4()),
+            'event_id': 'inaccessible', 'seq': 1,
+        })
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(DailySolveTiming.objects.filter(game=self.game, task_group=self.tg).exists())
+
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     def test_authenticated_start(self, _pub):
         user = User.objects.create_user('timing_api_user', 'api@example.com', 'secret')
         Profile.objects.create(user=user, first_name='A', last_name='P')
@@ -576,6 +808,59 @@ class DailyTimingApiTests(TestCase):
         self.assertTrue(
             DailySolveTiming.objects.filter(user=user, game=self.game, task_group=self.link.task_group).exists()
         )
+
+    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.models.Game.has_access', return_value=True)
+    def test_team_api_uses_server_resolved_shared_actor(self, _access, _pub, _club):
+        team = Team.objects.create(name='timing-api-team', project_id='sections')
+        user = User.objects.create_user('timing_team_user', 'team@example.com', 'secret')
+        Profile.objects.create(user=user, first_name='T', last_name='M', team_on=team)
+        self.client.force_login(user)
+        session = self.client.session
+        session['play_mode_sections'] = 'team'
+        session.save()
+        response = self.client.post(
+            '/ladder/91002/timing/',
+            data=json.dumps({
+                'action': ACTION_START, 'session_id': str(uuid4()), 'event_id': 'team-start', 'seq': 1,
+                'team_id': 'forged-other-team', 'user_id': 999999,
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(DailySolveTiming.objects.filter(
+            team=team, game=self.game, task_group=self.link.task_group,
+        ).exists())
+        self.assertFalse(DailySolveTiming.objects.filter(
+            user=user, game=self.game, task_group=self.link.task_group,
+        ).exists())
+
+        teammate = User.objects.create_user('timing_team_user_b', 'team-b@example.com', 'secret')
+        Profile.objects.create(user=teammate, first_name='T', last_name='N', team_on=team)
+        other_client = Client()
+        other_client.force_login(teammate)
+        other_session = other_client.session
+        other_session['play_mode_sections'] = 'team'
+        other_session.save()
+        teammate_session_id = str(uuid4())
+        second_response = other_client.post(
+            '/ladder/91002/timing/',
+            data=json.dumps({'action': ACTION_START, 'session_id': teammate_session_id, 'event_id': 'team-start-b', 'seq': 1}),
+            content_type='application/json',
+        )
+        self.assertEqual(second_response.status_code, 200, second_response.content)
+        self.assertEqual(DailySolveTiming.objects.filter(
+            team=team, game=self.game, task_group=self.link.task_group,
+        ).count(), 1)
+        finish = other_client.post(
+            '/ladder/91002/timing/',
+            data=json.dumps({'action': ACTION_COMPLETE, 'session_id': teammate_session_id, 'event_id': 'team-finish-b', 'seq': 2}),
+            content_type='application/json',
+        )
+        self.assertEqual(finish.status_code, 200, finish.content)
+        self.assertTrue(finish.json()['completed'])
+
 
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     def test_unknown_action_is_not_ok(self, _pub):
@@ -713,9 +998,9 @@ class DailyTimingApiTests(TestCase):
         self.assertTrue(data['is_authoritative'])
 
     def test_week_task_has_no_timing_route_semantics(self):
-        self.assertFalse(is_daily_timing_game('week_task'))
+        self.assertTrue(is_daily_timing_game('week_task'))
 
-    def test_non_daily_url_404(self):
+    def test_missing_section_release_timing_url_404(self):
         resp = self.client.post(
             '/walls/1/timing/',
             data=json.dumps({'action': 'start', 'session_id': str(uuid4()), 'event_id': 'x', 'seq': 1}),
@@ -723,3 +1008,32 @@ class DailyTimingApiTests(TestCase):
             HTTP_X_INTEROVES_ANON=self.anon,
         )
         self.assertEqual(resp.status_code, 404)
+
+
+class DailyTimingAuditCommandTests(TestCase):
+    def test_audit_reports_counts_without_mutation_or_anonymous_keys(self):
+        from django.core.management import call_command
+        from io import StringIO
+        from games.models import Attempt
+
+        game = Game.objects.get(pk='ladder')
+        group = TaskGroup.objects.create(label='timing-audit')
+        link = GameTaskGroup.objects.create(game=game, task_group=group, number='99991', name='Audit')
+        task = Task.objects.create(task_group=group, number='1', points=1, checker_data='x', text='x')
+        Attempt.manager.create(
+            game=game, task=task, anon_key='secret-anonymous-key', text='x', status='Ok', points=1,
+        )
+        output = StringIO()
+        call_command('audit_daily_solve_timing', game='ladder', stdout=output)
+        report = output.getvalue()
+        self.assertIn('actor=anon results=1 timed=0 missing=1', report)
+        self.assertNotIn('secret-anonymous-key', report)
+        self.assertFalse(DailySolveTiming.objects.filter(game=game, task_group=link.task_group).exists())
+
+        DailySolveTiming.objects.create(
+            game=game, task_group=group, anon_key='secret-anonymous-key',
+            status=DailySolveTiming.STATUS_COMPLETED, accumulated_ms=1000, frozen_ms=1000,
+        )
+        output = StringIO()
+        call_command('audit_daily_solve_timing', game='ladder', stdout=output)
+        self.assertIn('actor=anon results=1 timed=1 missing=0', output.getvalue())

@@ -2,6 +2,7 @@ import json
 from decimal import Decimal
 
 from django.test import TestCase
+from django.db import transaction
 from django.core.management import call_command
 from io import StringIO
 from django.test import RequestFactory
@@ -10,7 +11,11 @@ from django.db import connection
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth.models import User
 
-from games.daily_result_projection import _canonical_group_results, refresh_daily_result_projection
+from games.daily_result_projection import (
+    _canonical_group_results,
+    refresh_daily_result_projection,
+    schedule_actor_projection,
+)
 from games.models import (
     Attempt, DailyResultProjection, DailyResultProjectionState, Game, GameTaskGroup, HTMLPage, Project,
     ChainTaskState, Hint, HintAttempt, Profile, ReplaySlot, Task, TaskGroup, HiddenAnonKey,
@@ -100,6 +105,38 @@ class DailyResultProjectionTests(TestCase):
         refresh_daily_result_projection(self.game, self.group)
         self.assertEqual(DailyResultProjection.objects.filter(game=self.game, task_group=self.group).count(), 1)
         self.assertEqual(DailyResultProjection.objects.get().score, Decimal('7'))
+
+    def test_actor_projection_hook_runs_after_commit_and_is_discarded_on_rollback(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            with transaction.atomic():
+                Attempt.manager.create(
+                    task=task, game=self.game, anon_key='committed-hook',
+                    text='answer', status='Ok', points=7,
+                )
+                schedule_actor_projection(
+                    self.game, self.group, anon_key='committed-hook',
+                )
+        self.assertEqual(DailyResultProjection.objects.get().score, Decimal('7'))
+
+        DailyResultProjection.objects.all().delete()
+        with self.captureOnCommitCallbacks(execute=True):
+            try:
+                with transaction.atomic():
+                    Attempt.manager.create(
+                        task=task, game=self.game, anon_key='rolled-back-hook',
+                        text='answer', status='Ok', points=9,
+                    )
+                    schedule_actor_projection(
+                        self.game, self.group, anon_key='rolled-back-hook',
+                    )
+                    raise RuntimeError('rollback source write')
+            except RuntimeError:
+                pass
+        self.assertFalse(DailyResultProjection.objects.exists())
 
     def test_rebuild_command_dry_run_then_idempotent_apply(self):
         task = Task.objects.create(

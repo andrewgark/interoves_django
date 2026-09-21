@@ -226,15 +226,26 @@ DAILY_TIMING_GAME_IDS = frozenset({
     LADDER_SCHEDULE.game_id,
     ALPHABETTY_SCHEDULE.game_id,
     WORD_SALAD_SCHEDULE.game_id,
+    'replacements',
+    'walls',
+    'palindromes',
+    WEEK_TASK_SCHEDULE.game_id,
 })
+
+DAILY_TEAM_TIMING_GAME_IDS = DAILY_TIMING_GAME_IDS - {ALPHABETTY_SCHEDULE.game_id}
 
 
 def is_daily_timing_game(game_id) -> bool:
-    """Official daily sections whose solve duration uses active solving time.
+    """Public section games whose solve duration uses active solving time.
 
-    Weekly tasks, user-created offers, team play and ordinary games are out of scope.
+    User-created offers and ordinary Desyatochka games remain outside this scope.
     """
     return str(game_id or '') in DAILY_TIMING_GAME_IDS
+
+
+def is_daily_team_timing_game(game_id) -> bool:
+    """Whether the current section play UI actually records Team gameplay."""
+    return str(game_id or '') in DAILY_TEAM_TIMING_GAME_IDS
 
 
 def scheduled_number_is_public(game, number, now: datetime | None = None) -> bool:

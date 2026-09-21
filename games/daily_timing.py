@@ -1,8 +1,9 @@
-"""Active solving time for official daily games (ladder, alphabetty, salad).
+"""Active solving time for official section daily games.
 
-Canonical duration lives on ``DailySolveTiming``. Absence of a row means the
-legacy first-to-last attempt formula. Timing version 1 never backfills that
-legacy gap into active time.
+Canonical duration lives on ``DailySolveTiming``. The legacy UI may still use
+its historical fallback for personal/anonymous rows, but public leaderboard
+timing never infers a duration when this row is absent. Version 1 never
+backfills that gap.
 """
 
 from __future__ import annotations
@@ -51,16 +52,39 @@ MUTATING_ACTIONS = {
 }
 
 
-def actor_filter(*, user=None, anon_key=None, replay_slot=None) -> dict | None:
+def _has_prior_statistical_activity(*, game, task_group, actor, replay_slot=None):
+    """Do not attach a fresh clock to a legacy first play with unknown start."""
+    if replay_slot is not None:
+        return False
+    from games.models import Attempt, HintAttempt
+
+    identity = {key: value for key, value in actor.items() if key != 'replay_slot'}
+    attempts_exist = Attempt.manager.filter(
+        game=game, task__task_group=task_group, skip=False,
+        replay_slot__isnull=True, **identity,
+    ).exists()
+    if attempts_exist:
+        return True
+    return HintAttempt.objects.filter(
+        hint__task__task_group=task_group, replay_slot__isnull=True, **identity,
+    ).exists()
+
+
+def actor_filter(*, team=None, user=None, anon_key=None, replay_slot=None) -> dict | None:
+    identities = sum(value is not None and value != '' for value in (team, user, anon_key))
+    if identities != 1:
+        return None
+    if team is not None:
+        return {'team': team, 'user__isnull': True, 'anon_key__isnull': True, 'replay_slot': replay_slot}
     if user is not None:
-        return {'user': user, 'anon_key__isnull': True, 'replay_slot': replay_slot}
+        return {'user': user, 'team__isnull': True, 'anon_key__isnull': True, 'replay_slot': replay_slot}
     if anon_key:
-        return {'anon_key': str(anon_key), 'user__isnull': True, 'replay_slot': replay_slot}
+        return {'anon_key': str(anon_key), 'user__isnull': True, 'team__isnull': True, 'replay_slot': replay_slot}
     return None
 
 
-def lookup_timing(*, game, task_group, user=None, anon_key=None, replay_slot=None) -> DailySolveTiming | None:
-    filters = actor_filter(user=user, anon_key=anon_key, replay_slot=replay_slot)
+def lookup_timing(*, game, task_group, team=None, user=None, anon_key=None, replay_slot=None) -> DailySolveTiming | None:
+    filters = actor_filter(team=team, user=user, anon_key=anon_key, replay_slot=replay_slot)
     if filters is None or game is None or task_group is None:
         return None
     return DailySolveTiming.objects.filter(
@@ -123,9 +147,10 @@ def canonical_elapsed_seconds(
     team=None,
     replay_slot=None,
     timing_row=_UNSET,
-) -> int:
-    """Seconds to display after a solve. Team / non-daily / legacy stay first-to-last."""
-    if team is not None or not is_daily_timing_game(getattr(game, 'id', None)):
+) -> int | None:
+    """Canonical active seconds, or legacy display fallback outside timing scope."""
+    timed_daily = is_daily_timing_game(getattr(game, 'id', None))
+    if not timed_daily:
         return elapsed_seconds_from_attempts(attempts)
     if timing_row is _UNSET:
         tg = task_group
@@ -133,20 +158,21 @@ def canonical_elapsed_seconds(
             task = getattr(attempts[0], 'task', None)
             tg = getattr(task, 'task_group', None)
         row = lookup_timing(
-            game=game, task_group=tg, user=user, anon_key=anon_key,
+            game=game, task_group=tg, team=team, user=user, anon_key=anon_key,
             replay_slot=replay_slot,
         )
     else:
         row = timing_row
     if row is None or int(row.timing_version or 0) < TIMING_VERSION_ACTIVE:
+        if team is not None:
+            return None
         return elapsed_seconds_from_attempts(attempts)
-    if row.status == STATUS_COMPLETED and row.frozen_ms is not None:
-        return max(0, int(row.frozen_ms) // 1000)
-    return max(0, int(row.accumulated_ms) // 1000)
+    return max(0, int(snapshot(row).get('accumulated_ms') or 0) // 1000)
 
 
 def canonical_elapsed_label(**kwargs) -> str:
-    return format_elapsed(canonical_elapsed_seconds(**kwargs))
+    seconds = canonical_elapsed_seconds(**kwargs)
+    return '—' if seconds is None else format_elapsed(seconds)
 
 
 def active_time_ms_for_attempt(*, game, task_group, user=None, anon_key=None, team=None, replay_slot=None, now=None):
@@ -155,10 +181,10 @@ def active_time_ms_for_attempt(*, game, task_group, user=None, anon_key=None, te
     This deliberately returns ``None`` when no authoritative daily timer exists;
     callers must not turn legacy wall-clock timestamps into active timings.
     """
-    if team is not None or not is_daily_timing_game(getattr(game, 'id', None)):
+    if not is_daily_timing_game(getattr(game, 'id', None)):
         return None
     row = lookup_timing(
-        game=game, task_group=task_group, user=user, anon_key=anon_key, replay_slot=replay_slot,
+        game=game, task_group=task_group, team=team, user=user, anon_key=anon_key, replay_slot=replay_slot,
     )
     if row is None or int(row.timing_version or 0) < TIMING_VERSION_ACTIVE:
         return None
@@ -177,6 +203,7 @@ def elapsed_label_for_complete_attempts(
         user = getattr(first, 'user', None)
     if not anon_key:
         anon_key = getattr(first, 'anon_key', None)
+    team = getattr(first, 'team', None) if user is None and not anon_key else None
     tg = None
     if timing_row is _UNSET:
         task = task or getattr(first, 'task', None)
@@ -186,6 +213,7 @@ def elapsed_label_for_complete_attempts(
         task_group=tg,
         user=user,
         anon_key=anon_key,
+        team=team,
         attempts=attempts,
         timing_row=timing_row,
     )
@@ -216,6 +244,7 @@ def apply_timing_event(
     task_group,
     user=None,
     anon_key=None,
+    team=None,
     action: str,
     session_id,
     event_id: str,
@@ -234,6 +263,7 @@ def apply_timing_event(
                 task_group=task_group,
                 user=user,
                 anon_key=anon_key,
+                team=team,
                 action=action,
                 session_id=session_id,
                 event_id=event_id,
@@ -270,6 +300,7 @@ def _apply_timing_event_once(
     task_group,
     user=None,
     anon_key=None,
+    team=None,
     action: str,
     session_id,
     event_id: str,
@@ -283,7 +314,7 @@ def _apply_timing_event_once(
     action = (action or '').strip()
     if action not in MUTATING_ACTIONS:
         return empty_snapshot()
-    filters = actor_filter(user=user, anon_key=anon_key, replay_slot=replay_slot)
+    filters = actor_filter(team=team, user=user, anon_key=anon_key, replay_slot=replay_slot)
     if filters is None or game is None or task_group is None:
         return empty_snapshot()
     if not is_daily_timing_game(getattr(game, 'id', None)):
@@ -298,6 +329,19 @@ def _apply_timing_event_once(
     if row is None:
         if not create or action not in (ACTION_START, ACTION_RESUME):
             return empty_snapshot()
+        # A missing timing row cannot itself be locked. Serialize first-row
+        # creation on its release so concurrent tabs/team members observe the
+        # row created by the winner even on databases where UNIQUE indexes
+        # treat NULL replay_slot values as distinct (notably MySQL).
+        from games.models import TaskGroup
+        TaskGroup.objects.select_for_update().only('pk').get(pk=task_group.pk)
+        row = qs.select_for_update().first()
+    if row is None:
+        if _has_prior_statistical_activity(
+            game=game, task_group=task_group, actor=filters, replay_slot=replay_slot,
+        ):
+            logger.info('daily_timing_start_skipped game=%s task_group=%s prior_result=1', game.pk, task_group.pk)
+            return empty_snapshot()
         create_kwargs = {
             'game': game,
             'task_group': task_group,
@@ -308,6 +352,11 @@ def _apply_timing_event_once(
         }
         if user is not None:
             create_kwargs['user'] = user
+        elif team is not None:
+            create_kwargs['team'] = team
+            create_kwargs['team_timing_key'] = (
+                'first' if replay_slot is None else 'replay:{}'.format(replay_slot.pk)
+            )
         else:
             create_kwargs['anon_key'] = str(anon_key)
         try:
@@ -339,10 +388,10 @@ def _apply_timing_event_once(
 @transaction.atomic
 def complete_daily_timing(*, game, task_group, user=None, anon_key=None, team=None, replay_slot=None, now=None) -> dict | None:
     """Freeze an existing v1 row. Do not create a row — that would rewrite legacy solves."""
-    if team is not None or not is_daily_timing_game(getattr(game, 'id', None)):
+    if not is_daily_timing_game(getattr(game, 'id', None)):
         return None
     now = now or timezone.now()
-    filters = actor_filter(user=user, anon_key=anon_key, replay_slot=replay_slot)
+    filters = actor_filter(team=team, user=user, anon_key=anon_key, replay_slot=replay_slot)
     if filters is None or task_group is None:
         return None
     row = (
@@ -616,9 +665,9 @@ def _remember_event(row: DailySolveTiming, event_id: str, seq: int):
 
 
 def timing_rows_for_task_groups(*, game, task_group_ids, user=None, anon_key=None, team=None):
-    if team is not None or not is_daily_timing_game(getattr(game, 'id', None)):
+    if not is_daily_timing_game(getattr(game, 'id', None)):
         return {}
-    filters = actor_filter(user=user, anon_key=anon_key)
+    filters = actor_filter(team=team, user=user, anon_key=anon_key)
     if filters is None or not task_group_ids:
         return {}
     rows = DailySolveTiming.objects.filter(

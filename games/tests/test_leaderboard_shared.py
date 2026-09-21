@@ -115,10 +115,10 @@ class LeaderboardSharedTests(TestCase):
         )
 
     def test_prepublication_timing_start_hides_even_if_result_is_later(self):
-        actor = PersonalResultsParticipant(user=self.author)
+        actor = PersonalResultsParticipant(user=self.other)
         publish = timezone.now()
         row = DailySolveTiming.objects.create(
-            user=self.author, game=self.game, task_group=self.group,
+            user=self.other, game=self.game, task_group=self.group,
             status=DailySolveTiming.STATUS_COMPLETED, accumulated_ms=9000, frozen_ms=9000,
         )
         DailySolveTiming.objects.filter(pk=row.pk).update(created_at=publish - timedelta(seconds=2))
@@ -126,12 +126,47 @@ class LeaderboardSharedTests(TestCase):
             [actor], task_group=self.group, game=self.game, published_at=publish,
             result_times={actor: publish + timedelta(seconds=2)},
         ), [])
+
+        team = Team.objects.create(name='prepublication-team')
+        team_result = DailySolveTiming.objects.create(
+            team=team, game=self.game, task_group=self.group,
+            status=DailySolveTiming.STATUS_COMPLETED, accumulated_ms=9000, frozen_ms=9000,
+        )
+        DailySolveTiming.objects.filter(pk=team_result.pk).update(created_at=publish - timedelta(seconds=1))
+        self.assertEqual(eligible_public_actors(
+            [team], task_group=self.group, game=self.game, published_at=publish,
+            result_times={team: publish + timedelta(seconds=2)},
+        ), [])
+        postpublication_team = Team.objects.create(name='postpublication-team')
+        postpublication_row = DailySolveTiming.objects.create(
+            team=postpublication_team, game=self.game, task_group=self.group,
+            status=DailySolveTiming.STATUS_COMPLETED, accumulated_ms=4000, frozen_ms=4000,
+        )
+        DailySolveTiming.objects.filter(pk=postpublication_row.pk).update(
+            created_at=publish + timedelta(seconds=1),
+        )
+        self.assertEqual(eligible_public_actors(
+            [postpublication_team], task_group=self.group, game=self.game, published_at=publish,
+            result_times={postpublication_team: publish + timedelta(seconds=2)},
+        ), [postpublication_team])
+        replay = ReplaySlot.objects.create(actor_key='team:{}'.format(team.pk), team=team,
+                                           game=self.game, task_group=self.group)
+        DailySolveTiming.objects.create(
+            team=team, game=self.game, task_group=self.group, replay_slot=replay,
+            team_timing_key='replay:{}'.format(replay.pk),
+            status=DailySolveTiming.STATUS_COMPLETED, frozen_ms=1000, accumulated_ms=1000,
+            created_at=publish + timedelta(minutes=1),
+        )
+        self.assertEqual(eligible_public_actors(
+            [team], task_group=self.group, game=self.game, published_at=publish,
+            result_times={team: publish + timedelta(seconds=2)},
+        ), [])
         replay = ReplaySlot.objects.create(
-            actor_key='user:{}'.format(self.author.pk), user=self.author,
+            actor_key='user:{}'.format(self.other.pk), user=self.other,
             game=self.game, task_group=self.group,
         )
         DailySolveTiming.objects.create(
-            user=self.author, game=self.game, task_group=self.group, replay_slot=replay,
+            user=self.other, game=self.game, task_group=self.group, replay_slot=replay,
             status=DailySolveTiming.STATUS_COMPLETED, frozen_ms=1000, accumulated_ms=1000,
             created_at=publish + timedelta(minutes=1),
         )
@@ -148,6 +183,14 @@ class LeaderboardSharedTests(TestCase):
         ), [actor])
         self.assertEqual(canonical_leaderboard_durations(
             game=self.game, task_group=self.group, actors=[actor],
+        ), {})
+        old_team_result = DailySolveTiming.objects.create(
+            team=Team.objects.create(name='legacy-no-time'), game=self.game, task_group=self.group,
+            status=DailySolveTiming.STATUS_COMPLETED, accumulated_ms=50000, frozen_ms=50000,
+            timing_version=0,
+        )
+        self.assertEqual(canonical_leaderboard_durations(
+            game=self.game, task_group=self.group, actors=[old_team_result.team],
         ), {})
         self.assertEqual(eligible_public_actors(
             [actor], task_group=self.group, game=self.game, published_at=publish,
@@ -204,6 +247,16 @@ class LeaderboardSharedTests(TestCase):
         self.assertEqual(canonical_leaderboard_durations(
             game=self.game, task_group=self.group, actors=[actor],
         )[actor], 277)
+
+    def test_team_canonical_duration_is_available_to_individual_leaderboard(self):
+        team = Team.objects.create(name='timed-team')
+        DailySolveTiming.objects.create(
+            team=team, game=self.game, task_group=self.group,
+            status=DailySolveTiming.STATUS_COMPLETED, accumulated_ms=111000, frozen_ms=111000,
+        )
+        self.assertEqual(canonical_leaderboard_durations(
+            game=self.game, task_group=self.group, actors=[team],
+        )[team], 111)
 
     def test_author_backfill_dry_run_apply_idempotency_and_ambiguity(self):
         self.group.authors.clear()

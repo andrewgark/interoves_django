@@ -3317,6 +3317,17 @@ class DailySolveTiming(models.Model):
         null=True,
         on_delete=models.CASCADE,
     )
+    team = models.ForeignKey(
+        Team,
+        related_name='daily_solve_timings',
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+    )
+    # Non-null namespace key makes Team×release uniqueness enforceable on
+    # MySQL, where conditional unique indexes are not supported. 'first' is
+    # the statistical play; replay rows use their ReplaySlot primary key.
+    team_timing_key = models.CharField(max_length=64, default='first', blank=True)
     anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     game = models.ForeignKey(
         Game,
@@ -3363,10 +3374,23 @@ class DailySolveTiming(models.Model):
                 condition=models.Q(anon_key__isnull=False),
                 name='uniq_daily_timing_anon_game_tg',
             ),
+            models.UniqueConstraint(
+                fields=['team', 'game', 'task_group', 'team_timing_key'],
+                name='uniq_daily_timing_team_key',
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(user__isnull=False, team__isnull=True, anon_key__isnull=True)
+                    | models.Q(user__isnull=True, team__isnull=False, anon_key__isnull=True)
+                    | models.Q(user__isnull=True, team__isnull=True, anon_key__isnull=False)
+                ),
+                name='daily_timing_actor_shape',
+            ),
         ]
         indexes = [
             models.Index(fields=['game', 'task_group'], name='games_dst_game_tg_idx'),
             models.Index(fields=['user', 'game'], name='games_dst_user_game_idx'),
+            models.Index(fields=['team', 'game'], name='games_dst_team_game_idx'),
             models.Index(fields=['anon_key', 'game'], name='games_dst_anon_game_idx'),
             models.Index(fields=['replay_slot', 'game', 'task_group'], name='games_dst_replay_game_tg_idx'),
         ]
@@ -3374,7 +3398,7 @@ class DailySolveTiming(models.Model):
         verbose_name_plural = 'времена прохождения ежедневных игр'
 
     def __str__(self):
-        actor = self.user or self.anon_key or '—'
+        actor = self.team or self.user or self.anon_key or '—'
         return '{} · {} · {}'.format(actor, self.game_id, self.status)
 
 

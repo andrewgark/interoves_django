@@ -194,3 +194,14 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual(count, 3)
         self.assertEqual(page, 1)
         self.assertEqual([row['place'] for row in rows], [1, 1, 3])
+
+    def test_scorer_semantic_version_mismatch_invalidates_projection_read_path(self):
+        for link, _task in self.links:
+            DailyResultProjectionState.objects.create(
+                game=self.game, task_group=link.task_group, adapter_version=1,
+            )
+        with patch('games.daily_result_projection.scorer_adapter_version', return_value=2):
+            with patch('games.results_sql_aggregate.get_sql_aggregated_game_actor_rows', return_value={}):
+                with patch('games.aggregate_leaderboard._projection_rank_page', side_effect=AssertionError('stale projection read')):
+                    result = build_aggregate_page(self._request(), self.game)
+        self.assertEqual(result['aggregate_rows'], [])

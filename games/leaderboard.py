@@ -46,12 +46,15 @@ def eligible_public_actors(actors, *, task_group=None, game=None, published_at=N
     if task_group is not None and game is not None and published_at is not None:
         timings = DailySolveTiming.objects.filter(
             game=game, task_group=task_group, replay_slot__isnull=True,
-        ).filter(Q(user_id__in=user_ids) | Q(anon_key__in=anon_keys)).only(
-            'user_id', 'anon_key', 'created_at',
+        ).filter(Q(team_id__in=team_ids) | Q(user_id__in=user_ids) | Q(anon_key__in=anon_keys)).only(
+            'team_id', 'user_id', 'anon_key', 'created_at',
         )
         for row in timings:
             if row.created_at and row.created_at < published_at:
-                prepublication.add(('user', row.user_id) if row.user_id else ('anon', row.anon_key))
+                key = ('team', row.team_id) if row.team_id else (
+                    ('user', row.user_id) if row.user_id else ('anon', row.anon_key)
+                )
+                prepublication.add(key)
         for actor, submitted_at in (result_times or {}).items():
             key = actor_key(actor)
             # If first-start telemetry is absent, the canonical result's first
@@ -101,14 +104,17 @@ def eligible_release_actor_keys(release_actors, *, game, published_at_by_release
     users = {a.user_id for a in globally_eligible if getattr(a, 'user_id', None)}
     anons = {a.anon_key for a in globally_eligible if getattr(a, 'anon_key', None)}
     starts = {}
-    if release_ids and (users or anons):
+    if release_ids and (team_ids or users or anons):
         qs = DailySolveTiming.objects.filter(
             game=game, task_group_id__in=release_ids, replay_slot__isnull=True,
-        ).filter(Q(user_id__in=users) | Q(anon_key__in=anons)).values_list(
-            'task_group_id', 'user_id', 'anon_key', 'created_at',
+        ).filter(Q(team_id__in=team_ids) | Q(user_id__in=users) | Q(anon_key__in=anons)).values_list(
+            'task_group_id', 'team_id', 'user_id', 'anon_key', 'created_at',
         )
-        for release_id, user_id, anon_key, started_at in qs:
-            starts[(release_id, ('user', user_id) if user_id else ('anon', anon_key))] = started_at
+        for release_id, team_id, user_id, anon_key, started_at in qs:
+            actor = ('team', team_id) if team_id else (
+                ('user', user_id) if user_id else ('anon', anon_key)
+            )
+            starts[(release_id, actor)] = started_at
 
     output = {}
     for release_id, actors in release_actors.items():
@@ -149,17 +155,20 @@ def canonical_leaderboard_durations(*, game, task_group, actors):
     actors = list(actors)
     users = {getattr(a, 'user_id', None) for a in actors} - {None}
     anons = {getattr(a, 'anon_key', None) for a in actors} - {None}
-    if not users and not anons:
+    teams = {a.pk for a in actors if isinstance(a, Team)}
+    if not users and not anons and not teams:
         return {}
     rows = DailySolveTiming.objects.filter(
         game=game, task_group=task_group, replay_slot__isnull=True,
-    ).filter(Q(user_id__in=users) | Q(anon_key__in=anons)).only(
-        'user_id', 'anon_key', 'timing_version', 'status', 'frozen_ms', 'accumulated_ms',
+    ).filter(Q(team_id__in=teams) | Q(user_id__in=users) | Q(anon_key__in=anons)).only(
+        'team_id', 'user_id', 'anon_key', 'timing_version', 'status', 'frozen_ms', 'accumulated_ms',
     )
     from games.daily_timing import canonical_elapsed_seconds
     result = {}
     by_key = {
-        (('user', row.user_id) if row.user_id else ('anon', row.anon_key)): row
+        (('team', row.team_id) if row.team_id else (
+            ('user', row.user_id) if row.user_id else ('anon', row.anon_key)
+        )): row
         for row in rows
     }
     for actor in actors:

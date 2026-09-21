@@ -438,17 +438,17 @@ class PlayerCompletedGameAdmin(admin.ModelAdmin):
 
 @admin.register(DailySolveTiming)
 class DailySolveTimingAdmin(admin.ModelAdmin):
-    raw_id_fields = ['user', 'game', 'task_group']
+    raw_id_fields = ['team', 'user', 'game', 'task_group', 'replay_slot']
     list_display = [
         'updated_at', 'actor_label', 'game', 'status', 'accumulated_ms',
         'timing_version', 'completed_at',
     ]
     list_filter = ['status', 'timing_version']
-    search_fields = ['anon_key', 'user__username']
+    search_fields = ['anon_key', 'user__username', 'team__name', 'team__visible_name']
     readonly_fields = ['created_at', 'updated_at']
 
     def actor_label(self, obj):
-        return obj.user or obj.anon_key or '—'
+        return obj.team or obj.user or obj.anon_key or '—'
 
     actor_label.short_description = 'Игрок'
 

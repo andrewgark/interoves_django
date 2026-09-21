@@ -3666,6 +3666,7 @@ def new_task_group_page(request, game_id, task_group_number):
             request,
             game,
             placement if isinstance(placement, GameTaskGroup) else None,
+            team=team,
             user=user,
             anon_key=anon_key,
             play_mode=play_mode,

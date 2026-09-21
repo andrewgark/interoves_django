@@ -15,11 +15,12 @@ class Command(BaseCommand):
     help = 'Rebuild derived canonical score rows for daily section releases (default: dry-run).'
 
     def add_arguments(self, parser):
-        parser.add_argument('--apply', action='store_true', help='Persist projection rows; omitted means dry-run.')
+        mode = parser.add_mutually_exclusive_group()
+        mode.add_argument('--apply', action='store_true', help='Persist projection rows; omitted means dry-run.')
         parser.add_argument('--game', help='Limit to one game id.')
         parser.add_argument('--task-group', type=int, help='Limit to one TaskGroup id.')
         parser.add_argument('--batch-size', type=int, default=100, help='Maximum releases handled in one batch.')
-        parser.add_argument(
+        mode.add_argument(
             '--reconcile', action='store_true',
             help='Compare persisted projections to canonical sources; always read-only.',
         )
@@ -63,12 +64,6 @@ class Command(BaseCommand):
                         len(different), stale,
                     )
                 )
-                if missing:
-                    self.stdout.write('  missing actors: {}'.format(', '.join('{}:{}'.format(*key) for key in missing[:20])))
-                if extra:
-                    self.stdout.write('  extra actors: {}'.format(', '.join('{}:{}'.format(*key) for key in extra[:20])))
-                if different:
-                    self.stdout.write('  score mismatches: {}'.format(', '.join('{}:{}'.format(*key) for key in different[:20])))
             else:
                 self.stdout.write('{} task_group={} canonical_actors={}'.format(link.game_id, link.task_group_id, count))
             if options['apply'] and not options['reconcile']:

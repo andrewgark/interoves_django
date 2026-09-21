@@ -12,7 +12,7 @@ from django.db.models import Min
 from games.leaderboard import actor_key
 from games.models import (
     Attempt, DailyResultProjection, DailyResultProjectionState, GameTaskGroup,
-    Task,
+    Task, Team,
 )
 
 # Bump when canonical score adaptation semantics change; old releases then
@@ -107,12 +107,16 @@ def _prepublication(game, link, actor, first_at):
         return False
     user_id = getattr(actor, 'user_id', None)
     anon_key = getattr(actor, 'anon_key', None)
-    if user_id is not None or anon_key:
+    team_id = actor.pk if isinstance(actor, Team) else None
+    if user_id is not None or anon_key or team_id is not None:
         timing = DailySolveTiming.objects.filter(
             game=game, task_group=link.task_group, replay_slot__isnull=True,
-        ).filter(user_id=user_id, anon_key__isnull=True) if user_id is not None else DailySolveTiming.objects.filter(
+        ).filter(user_id=user_id, team__isnull=True, anon_key__isnull=True) if user_id is not None else DailySolveTiming.objects.filter(
             game=game, task_group=link.task_group, replay_slot__isnull=True,
-            user__isnull=True, anon_key=anon_key,
+            user__isnull=True, team_id=team_id, anon_key__isnull=True,
+        ) if team_id is not None else DailySolveTiming.objects.filter(
+            game=game, task_group=link.task_group, replay_slot__isnull=True,
+            user__isnull=True, team__isnull=True, anon_key=anon_key,
         )
         started_at = timing.values_list('created_at', flat=True).first()
         if started_at is not None:

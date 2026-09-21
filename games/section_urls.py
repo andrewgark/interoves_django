@@ -123,6 +123,11 @@ def section_root_urlpatterns(
     for game_id in STANDARD_ROOT_SECTION_GAME_IDS:
         patterns += [
             path(
+                '{}/<str:task_group_number>/timing/'.format(game_id),
+                ui.daily_solve_timing,
+                {'game_id': game_id},
+            ),
+            path(
                 '{}/progress/'.format(game_id),
                 ui.game_task_group_progress,
                 {'game_id': game_id},
