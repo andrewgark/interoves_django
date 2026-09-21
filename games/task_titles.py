@@ -37,7 +37,14 @@ def task_group_page_title(game, placement) -> str:
     """Return the canonical heading for a task-group page."""
     game_title = game.outside_name or game.name or game.pk
     if str(game.pk) in NUMBERED_EDITION_GAME_IDS:
-        return '{} №{}'.format(game_title, placement.number)
+        title = '{} №{}'.format(game_title, placement.number)
+        # Daily/weekly releases have a more useful stable title than the
+        # internal number alone. Keep the date in the site's Moscow timezone.
+        from games.daily_section import MOSCOW, publish_at_for
+        published_at = publish_at_for(game, placement.number)
+        if published_at is not None:
+            title += ' · {}'.format(published_at.astimezone(MOSCOW).strftime('%d.%m.%Y'))
+        return title
     return '{} · {}'.format(game_title, placement.name)
 
 

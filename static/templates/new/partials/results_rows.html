@@ -15,7 +15,9 @@
     {% endif %}
     {% for cell in team_to_cells|get_item:t %}
       <td class="{{ cell.cls }}"{% if results_variant == 'ladder' and cell.hint_numbers %} title="Подсказки: {{ cell.hint_numbers|join:', ' }}"{% endif %}>
-        {% if cell.n_attempts|default:0 > 0 %}
+        {% if results_variant == 'ladder_words' %}
+          {% if cell.solved and team and team == t or cell.solved and me_personal and me_personal == t or cell.solved and me_anon_participant and me_anon_participant == t %}{{ cell.answer }}{% else %}{{ cell.number }}{% endif %}
+        {% elif cell.n_attempts|default:0 > 0 %}
           {{ cell.result_points|minimize_digits }}
         {% endif %}
         {% if cell.hint_numbers and results_variant != 'ladder' %}

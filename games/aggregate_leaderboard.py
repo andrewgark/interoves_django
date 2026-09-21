@@ -17,6 +17,13 @@ WINDOW_CHOICES = (10, 20, 30)
 PAGE_SIZE = 50
 
 
+def _format_aggregate_time(seconds):
+    if seconds is None:
+        return ''
+    from games.share_result import format_elapsed_compact
+    return format_elapsed_compact(seconds)
+
+
 @dataclass(frozen=True)
 class ReleaseColumn:
     link: object
@@ -222,6 +229,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
     team = q('games_team')
     profile = q('games_profile')
     hidden_anon = q('games_hiddenanonkey')
+    timing = q('games_dailysolvetiming')
     author = q('games_taskgroup_authors')
     membership = q('games_profileteammembership')
     # IDs and all values are bound parameters. Table identifiers are fixed app
@@ -249,8 +257,14 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
         cursor.execute(
             f'''WITH actor_totals AS (
                     SELECT p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key,
-                           SUM(p.score) AS window_score, COUNT(p.id) AS played_count
-                    FROM {projection} p WHERE {eligibility}
+                           SUM(p.score) AS window_score, COUNT(p.id) AS played_count,
+                           CASE WHEN COUNT(dt.id) = 0 THEN NULL ELSE SUM(COALESCE(dt.frozen_ms, dt.accumulated_ms)) END AS total_time_ms
+                    FROM {projection} p LEFT JOIN {timing} dt ON dt.game_id = p.game_id
+                      AND dt.task_group_id = p.task_group_id AND dt.replay_slot_id IS NULL
+                      AND ((p.actor_type = 'team' AND dt.team_id = p.team_id)
+                        OR (p.actor_type = 'user' AND dt.user_id = p.user_id)
+                        OR (p.actor_type = 'anon' AND dt.anon_key = p.anon_key))
+                    WHERE {eligibility}
                     GROUP BY p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key
                 ) SELECT COUNT(*) FROM actor_totals''',
             base_params,
@@ -261,17 +275,23 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
         cursor.execute(
             f'''WITH actor_totals AS (
                     SELECT p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key,
-                           SUM(p.score) AS window_score, COUNT(p.id) AS played_count
-                    FROM {projection} p WHERE {eligibility}
+                           SUM(p.score) AS window_score, COUNT(p.id) AS played_count,
+                           CASE WHEN COUNT(dt.id) = 0 THEN NULL ELSE SUM(COALESCE(dt.frozen_ms, dt.accumulated_ms)) END AS total_time_ms
+                    FROM {projection} p LEFT JOIN {timing} dt ON dt.game_id = p.game_id
+                      AND dt.task_group_id = p.task_group_id AND dt.replay_slot_id IS NULL
+                      AND ((p.actor_type = 'team' AND dt.team_id = p.team_id)
+                        OR (p.actor_type = 'user' AND dt.user_id = p.user_id)
+                        OR (p.actor_type = 'anon' AND dt.anon_key = p.anon_key))
+                    WHERE {eligibility}
                     GROUP BY p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key
                 ), ranked AS (
                     SELECT actor_type, actor_key, team_id, user_id, anon_key,
-                           window_score, played_count,
-                           RANK() OVER (ORDER BY window_score DESC) AS place
+                           window_score, played_count, total_time_ms,
+                           RANK() OVER (ORDER BY window_score DESC, total_time_ms IS NULL, total_time_ms) AS place
                     FROM actor_totals
                 ) SELECT actor_type, actor_key, team_id, user_id, anon_key,
-                         window_score, played_count, place
-                  FROM ranked ORDER BY window_score DESC, actor_type, actor_key
+                         window_score, played_count, total_time_ms, place
+                  FROM ranked ORDER BY window_score DESC, total_time_ms IS NULL, total_time_ms, actor_type, actor_key
                   LIMIT %s OFFSET %s''',
             [*base_params, PAGE_SIZE, (page_number - 1) * PAGE_SIZE],
         )
@@ -353,8 +373,10 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
     task_ids = list(task_by_id)
     totals = defaultdict(float)
     played = defaultdict(set)
+    attempt_counts = defaultdict(int)
     cells = defaultdict(dict)
     actors = {}
+    release_durations = {}
 
     if task_ids:
         scoped_game = results_attempts_scope_game(game, 'general')
@@ -380,6 +402,10 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
                 if key[0] not in actor_types:
                     continue
                 actors.setdefault(key, actor)
+                try:
+                    attempt_counts[key] += int(info.get_n_attempts() or 0)
+                except (AttributeError, TypeError, ValueError):
+                    pass
                 by_release[column.link.task_group_id].add(key)
                 tentative_scores[(column.link.task_group_id, key)][task_id] = float(info.get_result_points() or 0)
                 attempts = [attempt for attempt in (info.attempts or ()) if getattr(attempt, 'time', None)]
@@ -388,6 +414,10 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
                     prev = result_times[column.link.task_group_id].get(key)
                     if prev is None or first_completion < prev:
                         result_times[column.link.task_group_id][key] = first_completion
+                timed = [getattr(attempt, 'active_time_ms', None) for attempt in (info.attempts or ())]
+                timed = [value for value in timed if value is not None]
+                if timed:
+                    release_durations[(key, column.link.task_group_id)] = max(timed) / 1000
 
         # Bulk task-aware exclusions per release. Hidden actors, authors,
         # team rosters and first-start telemetry are loaded in bounded queries.
@@ -413,8 +443,30 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
                 totals[key] += release_score
                 played[key].add(column.link.pk)
 
-    # Shared sports rank is score only; actor key only orders ties for display.
-    ordered_keys = sorted(actors, key=lambda key: (-totals[key], str(key)))
+    total_durations = defaultdict(int)
+    for key in actors:
+        for column in columns:
+            if column.link.pk not in cells[key]:
+                continue
+            seconds = release_durations.get((key, column.link.task_group_id))
+            if seconds is not None:
+                total_durations[key] += seconds
+
+    # Aggregate standings use the same sporting tuple as a single release:
+    # points first, then total active solving time.
+    aggregate_sort = request.GET.get('sort') if game.id == 'alphabetty' else 'time'
+    if aggregate_sort not in ('attempts', 'time'):
+        aggregate_sort = 'attempts'
+
+    def rank_key(key):
+        duration = total_durations.get(key)
+        secondary = (
+            (attempt_counts[key], duration is None, duration or 0)
+            if aggregate_sort == 'attempts' else
+            (duration is None, duration or 0, attempt_counts[key])
+        )
+        return (-totals[key], *secondary, str(key))
+    ordered_keys = sorted(actors, key=rank_key)
     user_ids = {key[1] for key in actors if key[0] == 'user'}
     profile_names = {
         user_id: (first_name, last_name)
@@ -430,7 +482,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
             if not label and getattr(actor, '_user', None) is not None:
                 label = (actor._user.get_full_name() or actor._user.get_username()).strip()
             actor._display_name_override = label
-    keys = {key: (-totals[key],) for key in ordered_keys}
+    keys = {key: rank_key(key)[:-1] for key in ordered_keys}
     ranks = sports_rank(ordered_keys, keys)
     paginator = Paginator(ordered_keys, PAGE_SIZE)
     page_obj = paginator.get_page(request.GET.get('page', 1))
@@ -443,6 +495,9 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
             'actor': actors[key], 'actor_label': _actor_presentation(actors[key])[0],
             'actor_kind': _actor_presentation(actors[key])[1], 'place': ranks[key], 'score': totals[key],
             'max_score': window_max, 'played': len(played[key]),
+            'time_seconds': total_durations.get(key),
+            'time_display': _format_aggregate_time(total_durations.get(key)),
+            'attempts': attempt_counts.get(key, 0),
             'cells': cells[key],
             'cell_meta': {release_id: _aggregate_cell(score, column_max.get(release_id)) for release_id, score in cells[key].items()},
         })
@@ -464,6 +519,8 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
         'team_to_place': {row['actor']: row['place'] for row in rows},
         'teams_sorted': [row['actor'] for row in rows],
         'aggregate_actor_types': actor_types,
+        'aggregate_sort': aggregate_sort,
+        'aggregate_show_attempts': game.id == 'alphabetty',
     }
 
 
@@ -482,6 +539,10 @@ def build_aggregate_page(request, game):
     from games.daily_section import publish_at_for
 
     logger = logging.getLogger(__name__)
+    # The projection predates aggregate attempt counts. Keep alphabetty on the
+    # canonical bounded builder until that statistic is persisted there too.
+    if game.id == 'alphabetty':
+        return _build_legacy_aggregate_page(request, game)
     try:
         requested = int(request.GET.get('limit', '10'))
     except (TypeError, ValueError):
@@ -554,6 +615,8 @@ def build_aggregate_page(request, game):
             'actor': actor, 'actor_label': _actor_presentation(actor)[0],
             'actor_kind': _actor_presentation(actor)[1], 'place': result['place'], 'score': result['window_score'],
             'max_score': window_max, 'played': result['played_count'],
+            'time_seconds': (float(result['total_time_ms']) / 1000) if result.get('total_time_ms') is not None else None,
+            'time_display': _format_aggregate_time((float(result['total_time_ms']) / 1000) if result.get('total_time_ms') is not None else None),
             'cells': {link.pk: cells[identity][link.task_group_id] for link in window if link.task_group_id in cells[identity]},
             'cell_meta': {link.pk: _aggregate_cell(cells[identity][link.task_group_id], column_max.get(link.pk)) for link in window if link.task_group_id in cells[identity]},
         })

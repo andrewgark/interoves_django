@@ -90,15 +90,17 @@
             <tr>
               <th class="is-sticky-left is-sticky-top">#</th>
               <th class="is-sticky-left-2 is-sticky-top col-team">{% if section_results %}Участник{% elif mode == 'general' %}Команда / участник{% else %}Команда{% endif %}</th>
-              <th class="is-sticky-left-3 is-sticky-top col-score">Сумма</th>
+              <th class="is-sticky-left-3 is-sticky-top col-score"{% if results_variant == 'salad_words' or is_ladder_word_results %} title="Сумма баллов"{% endif %}>{% if results_variant == 'salad_words' or is_ladder_word_results %}<i class="ph ph-sigma" aria-hidden="true"></i><span class="sr-only">Сумма баллов</span>{% else %}Сумма{% endif %}</th>
               {% if show_alphabetty_detail %}<th class="is-sticky-top">Попытки</th>{% endif %}
               {% if mode == 'tournament' %}
                 <th class="is-sticky-left-4 is-sticky-top">Время</th>
               {% elif show_solve_duration %}
-                <th class="is-sticky-top">Время решения</th>
+                <th class="is-sticky-top"{% if results_variant == 'salad_words' or is_ladder_word_results %} title="Время решения"{% endif %}>{% if results_variant == 'salad_words' or is_ladder_word_results %}<i class="ph ph-clock" aria-hidden="true"></i><span class="sr-only">Время решения</span>{% else %}Время решения{% endif %}</th>
               {% endif %}
               {% if results_variant == 'ladder_words' %}
-                <th class="is-sticky-top col-ladder" colspan="{{ ladder_word_count }}">{{ ladder_number }}</th>
+                {% for task_group in task_groups %}
+                  {% for task in task_group_to_tasks|get_item:task_group.number %}<th class="is-sticky-top col-ladder">{{ task.number }}</th>{% endfor %}
+                {% endfor %}
               {% elif results_variant == 'ladder' or results_variant == 'alphabetty' %}
                 {% for task_group in task_groups %}
                   <th class="is-sticky-top col-ladder" colspan="{{ task_group.get_n_tasks_for_results }}">
@@ -117,7 +119,7 @@
                 {% endfor %}
               {% endif %}
             </tr>
-            {% if results_variant != 'ladder' and results_variant != 'alphabetty' %}
+            {% if results_variant != 'ladder' and results_variant != 'alphabetty' and results_variant != 'ladder_words' %}
             <tr>
               <th class="is-sticky-left is-sticky-top-2"></th>
               <th class="is-sticky-left-2 is-sticky-top-2"></th>

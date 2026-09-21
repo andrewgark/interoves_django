@@ -2213,10 +2213,10 @@ def _new_results_compute(game, mode, task_group_number=None, alphabetty_sort='at
             )
             if task_points and task_points > 0:
                 team_to_score[participant] += task_points
-                if participant not in team_to_max_best_time:
-                    team_to_max_best_time[participant] = result_attempt.time
-                else:
-                    team_to_max_best_time[participant] = max(team_to_max_best_time[participant], result_attempt.time)
+                result_time = getattr(result_attempt, 'time', None)
+                previous_time = team_to_max_best_time.get(participant)
+                if result_time is not None and (previous_time is None or result_time > previous_time):
+                    team_to_max_best_time[participant] = result_time
 
             team_task_to_attempts_info[(participant, task)] = attempts_info
 
@@ -2541,6 +2541,20 @@ def new_section_results_page(request, game_id):
 
     from games.aggregate_leaderboard import build_aggregate_page
     data = build_aggregate_page(request, game)
+    aggregate_column_labels = {}
+    if game_id == ALPHABETTY_GAME_ID:
+        current_actor = team if play_mode == 'team' else (me_personal or me_anon_participant)
+        current_row = next(
+            (row for row in data.get('aggregate_rows', []) if row.get('actor') == current_actor),
+            None,
+        ) if current_actor is not None else None
+        if current_row:
+            for column in data.get('aggregate_columns', []):
+                score = current_row.get('cells', {}).get(column.link.pk)
+                tasks = getattr(column.link.task_group, 'result_tasks', ()) or ()
+                answer = getattr(tasks[0], 'answer', '') if tasks else ''
+                if score is not None and float(score or 0) > 0 and answer:
+                    aggregate_column_labels[column.link.pk] = answer
 
     def query_url(**overrides):
         params = request.GET.copy()
@@ -2585,6 +2599,12 @@ def new_section_results_page(request, game_id):
         'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
         'limit_urls': {limit: query_url(limit=limit, page=None) for limit in (10, 20, 30)},
         'aggregate_actor_filter_urls': actor_filter_urls,
+        'aggregate_column_labels': aggregate_column_labels,
+        'aggregate_show_attempts': data.get('aggregate_show_attempts', False),
+        'aggregate_sort_urls': {
+            value: query_url(sort=value, page=None)
+            for value in ('attempts', 'time')
+        },
         'older_url': query_url(anchor=data['aggregate_older_anchor'], page=None) if data['aggregate_older_anchor'] else None,
         'newer_url': query_url(anchor=data['aggregate_newer_anchor'], page=None) if data['aggregate_newer_anchor'] else None,
         'previous_page_url': query_url(page=data['aggregate_page'].previous_page_number()) if data['aggregate_page'].has_previous() else None,
@@ -2615,6 +2635,10 @@ def _render_task_group_results_page(request, game, number, back_url):
     results_variant = 'alphabetty' if game.id == ALPHABETTY_GAME_ID else 'salad_words' if game.id == 'salad' else 'standard'
     if game.id == 'salad':
         data = _word_salad_release_breakdown(data, game, number)
+    placement = GameTaskGroup.objects.filter(
+        game=game, number=str(number),
+    ).first()
+    results_title = task_group_page_title(game, placement) if placement else '{} №{}'.format(game.name, number)
     data = _paginate_results_rows(request, data, per_page=50)
     return render(request, 'ui/results.html', {
         'mode': 'general',
@@ -2631,7 +2655,7 @@ def _render_task_group_results_page(request, game, number, back_url):
         **data,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
-        'page_title': 'Результаты: {} №{}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name, number),
+        'page_title': 'Результаты: {}'.format(results_title),
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
@@ -2647,8 +2671,9 @@ class _SaladResultHeader:
 
 
 class _SaladResultWord:
-    def __init__(self, word):
-        self.number = word
+    def __init__(self, number, word):
+        self.number = str(number)
+        self.answer = word
 
 
 def _word_salad_release_breakdown(data, game, number):
@@ -2668,7 +2693,9 @@ def _word_salad_release_breakdown(data, game, number):
     except Exception:
         words = []
     data['task_groups'] = [_SaladResultHeader(number)]
-    data['task_group_to_tasks'] = {str(number): [_SaladResultWord(word) for word in words]}
+    data['task_group_to_tasks'] = {
+        str(number): [_SaladResultWord(index + 1, word) for index, word in enumerate(words)]
+    }
     cells_by_actor = {}
     infos_by_actor = {}
     # The individual page scopes the data to one group. The AttemptInfo list
@@ -2681,7 +2708,7 @@ def _word_salad_release_breakdown(data, game, number):
         solved = set(state.get('solved_indices') or [])
         hint_counts = state.get('hint_counts') or {}
         cells = []
-        for index, _word in enumerate(words):
+        for index, word in enumerate(words):
             hints = int(hint_counts.get(str(index), hint_counts.get(index, 0)) or 0)
             is_solved = index in solved
             net = (1.0 if is_solved else 0.0) - 0.5 * hints
@@ -2690,6 +2717,9 @@ def _word_salad_release_breakdown(data, game, number):
                 'n_attempts': 1 if is_solved or hints else 0,
                 'result_points': net,
                 'hint_numbers': list(range(1, hints + 1)),
+                'number': index + 1,
+                'answer': word,
+                'solved': is_solved,
             })
         cells_by_actor[actor] = cells
         infos_by_actor[actor] = [info] * len(cells)
@@ -2832,7 +2862,7 @@ def new_ladder_word_results_page(request, task_group_number):
         ladder_title = placement.name or 'Лесенка'
         back_url = '/ladder/{}/'.format(ladder_offer.share_hash)
     else:
-        ladder_title = placement.name or 'Лесенка №{}'.format(placement.number)
+        ladder_title = task_group_page_title(game, placement)
         back_url = _play_url_for_task_group(game, placement.number)
 
     if request.GET.get('partial') == '1':

@@ -40,10 +40,11 @@ class _WordColHeader:
 
 
 class _WordColTask:
-    __slots__ = ('number',)
+    __slots__ = ('number', 'answer')
 
-    def __init__(self, number):
+    def __init__(self, number, answer):
         self.number = str(number)
+        self.answer = answer
 
 
 def _to_float(x):
@@ -221,7 +222,10 @@ def build_ladder_word_results_context(game, placement, task):
     max_word_points = _to_float(word_solve_credit(0, assist_cfg)) * task_mul
 
     task_groups = [_WordColHeader(i) for i in range(1, len(middle_indices) + 1)]
-    task_group_to_tasks = {h.number: [_WordColTask(h.number)] for h in task_groups}
+    task_group_to_tasks = {
+        h.number: [_WordColTask(h.number, parsed['words'][middle_indices[index]])]
+        for index, h in enumerate(task_groups)
+    }
 
     chain_by_actor = _load_chain_states_by_actor(task, game)
     max_times = _load_max_times_by_actor(task, game)
@@ -277,6 +281,9 @@ def build_ladder_word_results_context(game, placement, task):
                 'n_attempts': n_attempts,
                 'result_points': points,
                 'hint_numbers': hint_numbers,
+                'number': wi,
+                'answer': parsed['words'][wi],
+                'solved': wi in solved,
             })
 
         # Skip empty rows (no solved middles and no assist markers).
@@ -334,7 +341,10 @@ def ladder_word_results_headers_context(task):
     n_words = parsed['n_words']
     middle_indices = list(range(1, max(0, n_words - 1)))
     task_groups = [_WordColHeader(i) for i in range(1, len(middle_indices) + 1)]
-    task_group_to_tasks = {h.number: [_WordColTask(h.number)] for h in task_groups}
+    task_group_to_tasks = {
+        h.number: [_WordColTask(h.number, parsed['words'][middle_indices[index]])]
+        for index, h in enumerate(task_groups)
+    }
     return {
         'task_groups': task_groups,
         'task_group_to_tasks': task_group_to_tasks,
