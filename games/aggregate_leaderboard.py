@@ -23,6 +23,7 @@ class ReleaseColumn:
     max_score: float | None
     label: str
     url: str
+    published_at: object = None
 
 
 def _numbered_links(game):
@@ -146,6 +147,36 @@ def _actor_key(actor):
     return None
 
 
+def aggregate_actor_filter_types(request):
+    """Return the actor kinds enabled by the aggregate-page filter."""
+    raw = request.GET.get('actors')
+    allowed = {'user', 'team', 'anon'}
+    if raw is None:
+        return allowed
+    selected = {value.strip() for value in str(raw).split(',') if value.strip()}
+    return selected & allowed
+
+
+def _aggregate_cell(score, maximum):
+    if maximum is None:
+        return {'score': score, 'cls': 'cell-no'}
+    if score == maximum:
+        cls = 'cell-full'
+    elif score <= 0:
+        cls = 'cell-zero'
+    else:
+        cls = 'cell-partial'
+    return {'score': score, 'cls': cls}
+
+
+def _actor_presentation(actor):
+    if getattr(actor, 'is_team_results_row', False):
+        return actor.visible_name, 'team'
+    if getattr(actor, 'anon_key', None):
+        return actor.visible_name, 'anon'
+    return actor.visible_name, 'user'
+
+
 class _AggregatePage:
     def __init__(self, rows, number, count, per_page):
         self.object_list = rows
@@ -178,10 +209,12 @@ class _AggregatePage:
         return (self.number - 1) * self.paginator.per_page + len(self.object_list)
 
 
-def _projection_rank_page(game, group_ids, page_number):
+def _projection_rank_page(game, group_ids, page_number, actor_types=None):
     """Aggregate, rank and page persisted score rows without hydrating all actors."""
     from django.db import connection
 
+    if actor_types is None:
+        actor_types = {'user', 'team', 'anon'}
     if not group_ids:
         return [], 0, 1
     q = connection.ops.quote_name
@@ -194,7 +227,9 @@ def _projection_rank_page(game, group_ids, page_number):
     # IDs and all values are bound parameters. Table identifiers are fixed app
     # schema names quoted through the active database backend.
     placeholders = ', '.join(['%s'] * len(group_ids))
+    actor_placeholders = ', '.join(['%s'] * len(actor_types)) or "NULL"
     eligibility = f'''p.game_id = %s AND p.task_group_id IN ({placeholders})
+      AND p.actor_type IN ({actor_placeholders})
       AND p.is_prepublication = %s
       AND (p.team_id IS NULL OR EXISTS (
           SELECT 1 FROM {team} t WHERE t.name = p.team_id AND t.is_hidden = %s))
@@ -209,7 +244,7 @@ def _projection_rank_page(game, group_ids, page_number):
                   WHERE a.taskgroup_id = p.task_group_id AND m.team_id = p.team_id)
           OR EXISTS (SELECT 1 FROM {author} a JOIN {profile} pr ON pr.user_id = a.profile_id
                      WHERE a.taskgroup_id = p.task_group_id AND pr.team_on_id = p.team_id)))'''
-    base_params = [game.pk, *group_ids, False, True, True, 'user', 'team']
+    base_params = [game.pk, *group_ids, *sorted(actor_types), False, True, True, 'user', 'team']
     with connection.cursor() as cursor:
         cursor.execute(
             f'''WITH actor_totals AS (
@@ -310,8 +345,10 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
                 link=link, max_score=maximum,
                 label=link.number,
                 url=section_play_path(game.id, link.number) + 'results/',
+                published_at=publish_at_for(game, link.number),
             ))
 
+    actor_types = aggregate_actor_filter_types(request)
     task_by_id = {task.id: (column, task) for column in columns for task in column.link.task_group.result_tasks}
     task_ids = list(task_by_id)
     totals = defaultdict(float)
@@ -339,6 +376,8 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
             for actor, info in rows:
                 key = _actor_key(actor)
                 if key is None or not (info.attempts or info.hint_attempts):
+                    continue
+                if key[0] not in actor_types:
                     continue
                 actors.setdefault(key, actor)
                 by_release[column.link.task_group_id].add(key)
@@ -396,13 +435,16 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
     paginator = Paginator(ordered_keys, PAGE_SIZE)
     page_obj = paginator.get_page(request.GET.get('page', 1))
 
+    column_max = {link.pk: column.max_score for link, column in ((c.link, c) for c in columns)}
     rows = []
     window_max = sum(c.max_score for c in columns if c.max_score is not None)
     for key in page_obj.object_list:
         rows.append({
-            'actor': actors[key], 'place': ranks[key], 'score': totals[key],
+            'actor': actors[key], 'actor_label': _actor_presentation(actors[key])[0],
+            'actor_kind': _actor_presentation(actors[key])[1], 'place': ranks[key], 'score': totals[key],
             'max_score': window_max, 'played': len(played[key]),
             'cells': cells[key],
+            'cell_meta': {release_id: _aggregate_cell(score, column_max.get(release_id)) for release_id, score in cells[key].items()},
         })
 
     return {
@@ -421,6 +463,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
         'team_to_score': {row['actor']: row['score'] for row in rows},
         'team_to_place': {row['actor']: row['place'] for row in rows},
         'teams_sorted': [row['actor'] for row in rows],
+        'aggregate_actor_types': actor_types,
     }
 
 
@@ -436,6 +479,7 @@ def build_aggregate_page(request, game):
         Team, User,
     )
     from games.daily_result_projection import scorer_adapter_version
+    from games.daily_section import publish_at_for
 
     logger = logging.getLogger(__name__)
     try:
@@ -450,6 +494,7 @@ def build_aggregate_page(request, game):
         columns.append(ReleaseColumn(
             link=link, max_score=maximum, label=link.number,
             url=section_play_path(game.id, link.number) + 'results/',
+            published_at=publish_at_for(game, link.number),
         ))
 
     group_ids = [link.task_group_id for link in window]
@@ -475,7 +520,8 @@ def build_aggregate_page(request, game):
         requested_page = int(request.GET.get('page', '1'))
     except (TypeError, ValueError):
         requested_page = 1
-    page_values, total_count, current_page = _projection_rank_page(game, group_ids, requested_page)
+    actor_types = aggregate_actor_filter_types(request)
+    page_values, total_count, current_page = _projection_rank_page(game, group_ids, requested_page, actor_types)
     page_obj = _AggregatePage(page_values, current_page, total_count, PAGE_SIZE)
     team_ids = {r['team_id'] for r in page_values if r['team_id']}
     user_ids = {r['user_id'] for r in page_values if r['user_id']}
@@ -493,6 +539,7 @@ def build_aggregate_page(request, game):
     cells = _projection_page_cells(game, group_ids, page_values)
 
     window_max = sum(c.max_score for c in columns if c.max_score is not None)
+    column_max = {column.link.pk: column.max_score for column in columns}
     rows = []
     for result in page_values:
         identity = (result['actor_type'], result['actor_key'])
@@ -504,9 +551,11 @@ def build_aggregate_page(request, game):
             if profile:
                 actor._display_name_override = '{} {}'.format(profile.first_name or '', profile.last_name or '').strip()
         rows.append({
-            'actor': actor, 'place': result['place'], 'score': result['window_score'],
+            'actor': actor, 'actor_label': _actor_presentation(actor)[0],
+            'actor_kind': _actor_presentation(actor)[1], 'place': result['place'], 'score': result['window_score'],
             'max_score': window_max, 'played': result['played_count'],
             'cells': {link.pk: cells[identity][link.task_group_id] for link in window if link.task_group_id in cells[identity]},
+            'cell_meta': {link.pk: _aggregate_cell(cells[identity][link.task_group_id], column_max.get(link.pk)) for link in window if link.task_group_id in cells[identity]},
         })
     return {
         'aggregate_leaderboard': True, 'aggregate_columns': columns,
@@ -521,4 +570,5 @@ def build_aggregate_page(request, game):
         'team_to_score': {row['actor']: row['score'] for row in rows},
         'team_to_place': {row['actor']: row['place'] for row in rows},
         'teams_sorted': [row['actor'] for row in rows],
+        'aggregate_actor_types': actor_types,
     }

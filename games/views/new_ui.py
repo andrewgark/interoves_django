@@ -2554,6 +2554,25 @@ def new_section_results_page(request, game_id):
         query = params.urlencode()
         return request.path + ('?' + query if query else '')
 
+    selected_actor_types = data.get('aggregate_actor_types', {'user', 'team', 'anon'})
+    actor_filter_defs = (
+        ('user', 'Пользователи', 'ph-user'),
+        ('team', 'Команды', 'ph-users'),
+        ('anon', 'Анонимы', 'ph-detective'),
+    )
+    actor_filter_urls = []
+    for kind, label, icon in actor_filter_defs:
+        next_types = set(selected_actor_types)
+        if kind in next_types:
+            next_types.remove(kind)
+        else:
+            next_types.add(kind)
+        actor_filter_urls.append({
+            'label': label, 'icon': icon, 'active': kind in selected_actor_types,
+            'title': ('Скрыть ' if kind in selected_actor_types else 'Показать ') + label.lower(),
+            'url': query_url(actors=','.join(value for value in ('user', 'team', 'anon') if value in next_types), page=None),
+        })
+
     data.update({
         'mode': 'general',
         'section_results': True,
@@ -2565,6 +2584,7 @@ def new_section_results_page(request, game_id):
         'me_anon_participant': me_anon_participant,
         'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
         'limit_urls': {limit: query_url(limit=limit, page=None) for limit in (10, 20, 30)},
+        'aggregate_actor_filter_urls': actor_filter_urls,
         'older_url': query_url(anchor=data['aggregate_older_anchor'], page=None) if data['aggregate_older_anchor'] else None,
         'newer_url': query_url(anchor=data['aggregate_newer_anchor'], page=None) if data['aggregate_newer_anchor'] else None,
         'previous_page_url': query_url(page=data['aggregate_page'].previous_page_number()) if data['aggregate_page'].has_previous() else None,
