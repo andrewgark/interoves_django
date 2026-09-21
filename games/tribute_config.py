@@ -147,6 +147,8 @@ class ClubTributeProduct:
     amount: int
     currency: str
     accepted_amounts: frozenset[int] = frozenset()
+    first_amount: int | None = None
+    yearly_amount: int | None = None
 
     def __post_init__(self):
         if not self.accepted_amounts:
@@ -158,10 +160,22 @@ class ClubTributeProduct:
 
     @property
     def amount_display(self) -> str:
-        value = self.amount_major
+        return self.format_amount(self.amount)
+
+    @staticmethod
+    def format_amount(amount: int) -> str:
+        value = Decimal(amount) / Decimal('100')
         if value == value.to_integral():
             return '{:,.0f}'.format(value).replace(',', ' ')
         return '{:,.2f}'.format(value).replace(',', ' ')
+
+    @property
+    def first_amount_display(self) -> str:
+        return self.format_amount(self.first_amount) if self.first_amount else ''
+
+    @property
+    def yearly_amount_display(self) -> str:
+        return self.format_amount(self.yearly_amount) if self.yearly_amount else ''
 
     @property
     def price_label(self) -> str:
@@ -220,13 +234,17 @@ def _read_club_product(kind: str) -> tuple[ClubTributeProduct | None, list[str]]
 
     amount = _parse_positive_int(raw_amount, field=prefix + 'AMOUNT', errors=errors)
     accepted = {amount} if amount else set()
+    first_amount = None
     if raw_first:
         first = _parse_positive_int(raw_first, field=prefix + 'FIRST_AMOUNT', errors=errors)
         if first:
+            first_amount = first
             accepted.add(first)
+    yearly_amount = None
     if raw_yearly:
         yearly = _parse_positive_int(raw_yearly, field=prefix + 'YEARLY_AMOUNT', errors=errors)
         if yearly:
+            yearly_amount = yearly
             accepted.add(yearly)
 
     if currency not in CLUB_SUPPORTED_CURRENCIES:
@@ -249,6 +267,8 @@ def _read_club_product(kind: str) -> tuple[ClubTributeProduct | None, list[str]]
         amount,
         currency,
         frozenset(accepted),
+        first_amount,
+        yearly_amount,
     ), []
 
 

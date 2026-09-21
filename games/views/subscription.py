@@ -67,6 +67,20 @@ def format_club_date(dt, tz) -> str:
     return date_format(local, 'j E Y')
 
 
+def _format_minor_amount(amount: int, currency: str) -> str:
+    major = amount / 100
+    display = '{:,.0f}'.format(major) if major == int(major) else '{:,.2f}'.format(major)
+    display = display.replace(',', ' ')
+    return '{} {}'.format(display, currency)
+
+
+def _annual_saving_percent(monthly_amount: int, annual_amount: int) -> int:
+    regular_year_amount = monthly_amount * 12
+    if annual_amount <= 0 or annual_amount >= regular_year_amount:
+        return 0
+    return round((regular_year_amount - annual_amount) * 100 / regular_year_amount)
+
+
 def _display_status(subscription: ClubSubscription | None, *, now=None) -> str:
     if subscription is None:
         return 'none'
@@ -141,6 +155,13 @@ def _subscription_page_context(request):
         show_checkout = False
     intro = intro_available(subscription)
     monthly_amount = initial_monthly_amount_kopecks(subscription)
+    monthly_intro_label = _format_minor_amount(AMOUNT_INTRO_KOPECKS, '₽')
+    monthly_regular_label = _format_minor_amount(AMOUNT_MONTHLY_KOPECKS, '₽')
+    annual_label = _format_minor_amount(AMOUNT_ANNUAL_KOPECKS, '₽')
+    tribute_annual_saving_percent = (
+        _annual_saving_percent(eur.amount, eur.yearly_amount)
+        if eur and eur.yearly_amount else 0
+    )
     yk_enabled = club_yookassa_enabled()
     saved_method = (SavedPaymentMethod.objects.filter(
         user=request.user, provider='yookassa', is_active=True,
@@ -166,6 +187,7 @@ def _subscription_page_context(request):
         'club_yookassa_enabled': yk_enabled,
         'yookassa_recurring_enabled': yookassa_recurring_enabled(),
         'club_eur': eur,
+        'club_eur_annual_saving_percent': tribute_annual_saving_percent,
         'club_management_url': club_management_url(),
         'tribute_seller': seller,
         'tribute_seller_url': seller_url,
@@ -187,8 +209,14 @@ def _subscription_page_context(request):
         'monthly_intro_kopecks': AMOUNT_INTRO_KOPECKS,
         'monthly_regular_kopecks': AMOUNT_MONTHLY_KOPECKS,
         'annual_kopecks': AMOUNT_ANNUAL_KOPECKS,
-        'monthly_cta_label': (
-            'Подписаться за 700 ₽' if intro else 'Подписаться за 900 ₽'
+        'monthly_intro_label': monthly_intro_label,
+        'monthly_regular_label': monthly_regular_label,
+        'annual_label': annual_label,
+        'yookassa_annual_saving_percent': _annual_saving_percent(
+            AMOUNT_MONTHLY_KOPECKS, AMOUNT_ANNUAL_KOPECKS,
+        ),
+        'monthly_cta_label': 'Подписаться за {}'.format(
+            monthly_intro_label if intro else monthly_regular_label,
         ),
         **_project_urls_context(NEW_UI_PROJECT),
     }

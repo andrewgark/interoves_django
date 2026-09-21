@@ -8,7 +8,7 @@
 {% block content %}
 <p class="new-tg-back"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
 
-<div class="new-pay-checkout">
+<div class="new-pay-checkout new-pay-checkout--subscription">
   <header class="new-pay-checkout__header">
     <p class="new-pay-checkout__eyebrow">Inter Oves</p>
     <h1 class="new-heading new-heading--page">Клубная подписка</h1>
@@ -113,85 +113,117 @@
     </form>
     {% endif %}
 
-    <div class="new-card new-pay-payment-card">
+    <div class="new-card new-pay-payment-card new-sub-checkout-card">
       <h2 class="new-pay-section-title">Оформить подписку</h2>
-      <p class="new-pay-order__meta">Одна подписка, несколько способов оплаты. Права доступа одинаковые.</p>
+      <p class="new-pay-order__meta">Выберите платёжный сервис. В обоих случаях открывается один и тот же архив заданий.</p>
 
-      <div class="new-sub-plans">
-        <div class="new-pay-method new-sub-plan">
-          <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
-          <span class="new-pay-method__body">
-            <strong>Российская карта · месяц</strong>
-            {% if intro_available %}
-              <span>Первый месяц — 700 ₽, затем — 900 ₽ / месяц</span>
+      <div class="new-sub-providers">
+        <section class="new-sub-provider" aria-labelledby="new-sub-yookassa-title">
+          <header class="new-sub-provider__header">
+            <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
+            <div>
+              <h3 id="new-sub-yookassa-title">ЮKassa</h3>
+              <p>Оплата российской картой · ₽</p>
+            </div>
+          </header>
+          <div class="new-sub-provider__offers">
+            <article class="new-sub-offer">
+              <div class="new-sub-offer__term">Каждый месяц</div>
+              {% if intro_available %}
+                <strong class="new-sub-offer__price">{{ monthly_intro_label }} <span>первый месяц</span></strong>
+                <p>Затем {{ monthly_regular_label }} в месяц. Автопродление можно отменить в любой момент.</p>
+              {% else %}
+                <strong class="new-sub-offer__price">{{ monthly_regular_label }} <span>в месяц</span></strong>
+                <p>Автопродление можно отменить в любой момент.</p>
+              {% endif %}
+            </article>
+            <article class="new-sub-offer">
+              <div class="new-sub-offer__term">12 месяцев</div>
+              <strong class="new-sub-offer__price">{{ annual_label }} <span>за год</span></strong>
+              {% if yookassa_annual_saving_percent %}
+                <p>Разовая оплата, без автопродления. Экономия {{ yookassa_annual_saving_percent }}% по сравнению с обычной помесячной оплатой.</p>
+              {% else %}
+                <p>Разовая оплата. Без автопродления.</p>
+              {% endif %}
+            </article>
+          </div>
+          <div class="new-sub-provider__action">
+            {% if not user.is_authenticated %}
+              <button type="button" class="new-btn" data-login-open>Войти, чтобы оформить</button>
+            {% elif club_yookassa_enabled %}
+              <div class="new-sub-provider__plan-actions">
+                <form method="post" action="{% url 'new_subscription_yookassa_monthly' %}" data-sub-yk data-plan="monthly">
+                  {% csrf_token %}
+                  <button type="submit" class="new-btn">{{ monthly_cta_label }} · в месяц</button>
+                </form>
+                <form method="post" action="{% url 'new_subscription_yookassa_annual' %}" data-sub-yk data-plan="annual">
+                  {% csrf_token %}
+                  <button type="submit" class="new-btn">Оплатить {{ annual_label }} за 12 месяцев</button>
+                </form>
+              </div>
             {% else %}
-              <span>900 ₽ / месяц</span>
+              <button type="button" class="new-btn" disabled>Пока недоступно</button>
             {% endif %}
-            <span class="new-pay-order__meta">Автоматическое продление. Отменить можно в любой момент.</span>
-          </span>
-          {% if not user.is_authenticated %}
-            <button type="button" class="new-btn" data-login-open>Войти и оформить</button>
-          {% elif club_yookassa_enabled %}
-            <form method="post" action="{% url 'new_subscription_yookassa_monthly' %}" data-sub-yk data-plan="monthly">
-              {% csrf_token %}
-              <button type="submit" class="new-btn">{{ monthly_cta_label }}</button>
-            </form>
-          {% else %}
-            <button type="button" class="new-btn" disabled>Пока недоступно</button>
-          {% endif %}
-        </div>
+          </div>
+        </section>
 
-        <div class="new-pay-method new-sub-plan">
-          <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-calendar"></i></span>
-          <span class="new-pay-method__body">
-            <strong>Российская карта · год</strong>
-            <span>9000 ₽ за год</span>
-            <span class="new-pay-order__meta">Разовая оплата за 12 месяцев. Без автопродления.</span>
-          </span>
-          {% if not user.is_authenticated %}
-            <button type="button" class="new-btn" data-login-open>Войти и оформить</button>
-          {% elif club_yookassa_enabled %}
-            <form method="post" action="{% url 'new_subscription_yookassa_annual' %}" data-sub-yk data-plan="annual">
-              {% csrf_token %}
-              <button type="submit" class="new-btn">Оплатить 9000 ₽</button>
-            </form>
-          {% else %}
-            <button type="button" class="new-btn" disabled>Пока недоступно</button>
-          {% endif %}
-        </div>
-
-        <div class="new-pay-method new-sub-plan">
-          <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
-          <span class="new-pay-method__body">
-            <strong>Иностранная карта</strong>
-            <span>€10 в месяц · первый месяц €7</span>
-            <span class="new-pay-order__meta">или €100 в год · через Tribute</span>
-          </span>
-          {% if not user.is_authenticated %}
-            <button type="button" class="new-btn" data-login-open>Войти и оформить</button>
-          {% elif not telegram_linked %}
-            <button type="submit" class="new-btn" form="new-sub-telegram-link-form">Привязать Telegram</button>
-          {% elif club_checkout_enabled and club_eur %}
-            <form method="post" action="{% url 'new_subscription_checkout' %}" data-sub-checkout data-currency="eur">
-              {% csrf_token %}
-              <input type="hidden" name="currency" value="eur">
-              <button type="submit" class="new-btn">Оформить в Tribute</button>
-            </form>
-          {% else %}
-            <button type="button" class="new-btn" disabled>Пока недоступно</button>
-          {% endif %}
-        </div>
+        <section class="new-sub-provider" aria-labelledby="new-sub-tribute-title">
+          <header class="new-sub-provider__header">
+            <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
+            <div>
+              <h3 id="new-sub-tribute-title">Tribute</h3>
+              <p>Оплата иностранной картой · €</p>
+            </div>
+          </header>
+          <div class="new-sub-provider__offers">
+            {% if club_eur %}
+              <article class="new-sub-offer">
+                <div class="new-sub-offer__term">Каждый месяц</div>
+                {% if club_eur.first_amount_display %}
+                  <strong class="new-sub-offer__price">€{{ club_eur.first_amount_display }} <span>первый месяц</span></strong>
+                  <p>Затем €{{ club_eur.amount_display }} в месяц. Управление подпиской — в Tribute.</p>
+                {% else %}
+                  <strong class="new-sub-offer__price">€{{ club_eur.amount_display }} <span>в месяц</span></strong>
+                  <p>Управление подпиской — в Tribute.</p>
+                {% endif %}
+              </article>
+              {% if club_eur.yearly_amount_display %}
+                <article class="new-sub-offer">
+                  <div class="new-sub-offer__term">12 месяцев</div>
+                  <strong class="new-sub-offer__price">€{{ club_eur.yearly_amount_display }} <span>за год</span></strong>
+                  {% if club_eur_annual_saving_percent %}
+                    <p>Разовая оплата, без автопродления. Экономия {{ club_eur_annual_saving_percent }}% по сравнению с обычной помесячной оплатой.</p>
+                  {% else %}
+                    <p>Разовая оплата. Без автопродления.</p>
+                  {% endif %}
+                </article>
+              {% endif %}
+            {% else %}
+              <article class="new-sub-offer">
+                <div class="new-sub-offer__term">Тарифы</div>
+                <p>Сейчас оплата через Tribute недоступна.</p>
+              </article>
+            {% endif %}
+          </div>
+          <div class="new-sub-provider__action">
+            {% if not user.is_authenticated %}
+              <button type="button" class="new-btn" data-login-open>Войти, чтобы оформить</button>
+            {% elif not telegram_linked %}
+              <button type="submit" class="new-btn" form="new-sub-telegram-link-form">Привязать Telegram</button>
+            {% elif club_checkout_enabled and club_eur %}
+              <form method="post" action="{% url 'new_subscription_checkout' %}" data-sub-checkout data-currency="eur">
+                {% csrf_token %}
+                <input type="hidden" name="currency" value="eur">
+                <button type="submit" class="new-btn">Перейти к выбору тарифа</button>
+              </form>
+            {% else %}
+              <button type="button" class="new-btn" disabled>Пока недоступно</button>
+            {% endif %}
+            <p>Месяц или год выберете на странице Tribute. Там выберите Telegram, не email.</p>
+          </div>
+        </section>
       </div>
 
-      {% if club_yookassa_enabled %}
-        {% if intro_available %}
-          <p class="new-pay-security">Сегодня будет списано <strong>700 ₽</strong>. Далее — <strong>900 ₽</strong> автоматически каждый месяц до отмены.</p>
-        {% else %}
-          <p class="new-pay-security">Месячная подписка: <strong>900 ₽</strong> автоматически каждый месяц до отмены.</p>
-        {% endif %}
-        <p class="new-pay-security">Годовая подписка: разовый платёж <strong>9000 ₽</strong>, без автопродления.</p>
-      {% endif %}
-      <p class="new-pay-security"><strong>В Tribute выберите Telegram, не email.</strong></p>
       <p class="new-pay-seller">
         <span>{{ tribute_seller }}</span>
         <a href="{{ tribute_seller_url }}">Реквизиты</a>
