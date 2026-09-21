@@ -318,6 +318,12 @@ def process_subscription_event(event_name: str, payload: dict, *, envelope_creat
             subscription.tribute_period_id = data['period_id']
             subscription.currency = data['currency']
             subscription.amount = data['amount']
+            if (
+                product.first_amount
+                and data['amount'] == product.first_amount
+                and subscription.intro_offer_used_at is None
+            ):
+                subscription.intro_offer_used_at = now
             subscription.auto_renew = True
             subscription.cancelled_at = None
             subscription.last_payment_at = now

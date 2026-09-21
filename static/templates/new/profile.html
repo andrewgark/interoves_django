@@ -6,6 +6,7 @@
 <p class="new-login-hint new-profile-user-id">ID пользователя: <strong>{{ request.user.pk }}</strong></p>
 <form method="post" class="new-form">
   {% csrf_token %}
+  {% if profile_next_path %}<input type="hidden" name="next" value="{{ profile_next_path }}">{% endif %}
   <div class="new-profile-head">
     <button type="button" class="new-avatar" aria-label="Фото профиля" title="Нажмите, чтобы изменить фото" data-avatar-open
       {% if form.instance.avatar_url %}style="background-image:url('{{ form.instance.avatar_url|escape }}')" {% endif %}

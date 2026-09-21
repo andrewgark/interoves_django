@@ -4618,9 +4618,19 @@ def new_profile_report_detail(request, report_id, project_id=None):
 @login_required
 @require_http_methods(['GET', 'POST'])
 def new_profile(request, project_id=None):
+    profile_next_path = '/subscription/' if (
+        request.GET.get('next') == '/subscription/'
+        or request.POST.get('next') == '/subscription/'
+    ) else ''
     if not has_profile(request.user):
-        return _profile_unavailable_redirect(request)
-    profile = request.user.profile
+        profile, created = Profile.objects.get_or_create(
+            user=request.user,
+            defaults={'first_name': '', 'last_name': ''},
+        )
+        if created:
+            messages.info(request, 'Заполните имя и фамилию профиля, чтобы продолжить оформление.')
+    else:
+        profile = request.user.profile
     connected_accounts = list(
         SocialAccount.objects.filter(user=request.user).order_by('provider', 'id')
     )
@@ -4646,6 +4656,8 @@ def new_profile(request, project_id=None):
         if form.is_valid():
             form.save()
             messages.success(request, 'Профиль сохранён.')
+            if profile_next_path:
+                return redirect('new_subscription')
             return _profile_redirect(request)
     else:
         form = ProfileSettingsForm(instance=profile)
@@ -4671,6 +4683,7 @@ def new_profile(request, project_id=None):
     from games.feedback import profile_cabinet_flags
     ctx = {
         'form': form,
+        'profile_next_path': profile_next_path,
         'connected_providers': connected,
         'connected_accounts': connected_accounts,
         'connected_account_labels': connected_account_labels,

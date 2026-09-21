@@ -35,9 +35,10 @@ from games.club_yookassa import (
     start_monthly_subscription,
     yookassa_recurring_enabled,
 )
-from games.models import ClubSubscription, SavedPaymentMethod
+from games.models import ClubSubscription, ClubSubscriptionEvent, SavedPaymentMethod
 from games.telegram_linking import user_has_telegram_link
 from games.tribute_config import (
+    club_archive_gating_enabled,
     club_checkout_enabled,
     club_management_url,
     configured_club_product,
@@ -118,6 +119,7 @@ def _subscription_page_context(request):
             'page_title': 'Клубная подписка',
             'robots_noindex': True,
             'approval_preview': True,
+            'club_archive_gating_enabled': club_archive_gating_enabled(),
             'saved_payment_method_label': 'Банковская карта •••• 4242',
             'has_club_access': True,  # Display only; no entitlement is granted.
             'paid_until_label': format_club_date(
@@ -162,6 +164,16 @@ def _subscription_page_context(request):
         _annual_saving_percent(eur.amount, eur.yearly_amount)
         if eur and eur.yearly_amount else 0
     )
+    tribute_intro_used = bool(
+        subscription
+        and eur
+        and eur.first_amount
+        and subscription.events.filter(
+            event_name='new_subscription',
+            result__in=(ClubSubscriptionEvent.RESULT_APPLIED, ClubSubscriptionEvent.RESULT_ANOMALY),
+            payload_excerpt__amount=eur.first_amount,
+        ).exists()
+    )
     yk_enabled = club_yookassa_enabled()
     saved_method = (SavedPaymentMethod.objects.filter(
         user=request.user, provider='yookassa', is_active=True,
@@ -171,6 +183,7 @@ def _subscription_page_context(request):
         'page_title': 'Клубная подписка',
         'robots_noindex': True,
         'telegram_linked': telegram_linked,
+        'has_profile_user': bool(request.user.is_authenticated and has_profile(request.user)),
         'telegram_username': (
             request.user.profile.telegram_username
             if telegram_linked else ''
@@ -183,6 +196,7 @@ def _subscription_page_context(request):
         'next_charge_amount_label': next_charge_amount_label,
         'price_label': _price_label(subscription),
         'show_checkout': show_checkout,
+        'club_archive_gating_enabled': club_archive_gating_enabled(),
         'club_checkout_enabled': club_checkout_enabled(),
         'club_yookassa_enabled': yk_enabled,
         'yookassa_recurring_enabled': yookassa_recurring_enabled(),
@@ -205,6 +219,7 @@ def _subscription_page_context(request):
                                     and subscription.saved_payment_method_id == saved_method.pk),
         'is_annual_plan': is_annual,
         'intro_available': intro,
+        'tribute_intro_available': intro and not tribute_intro_used,
         'monthly_amount_kopecks': monthly_amount,
         'monthly_intro_kopecks': AMOUNT_INTRO_KOPECKS,
         'monthly_regular_kopecks': AMOUNT_MONTHLY_KOPECKS,

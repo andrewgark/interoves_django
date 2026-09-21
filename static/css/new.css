@@ -10790,11 +10790,32 @@ button.new-word-salad__hint-btn:disabled {
   background: var(--surface);
 }
 
+.new-sub-provider--unavailable {
+  border-style: dashed;
+  background: var(--tile);
+}
+
 .new-sub-provider__header {
   display: flex;
   align-items: center;
   gap: 0.7rem;
   min-height: 3rem;
+}
+
+.new-sub-provider__header > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.new-sub-provider__availability {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: var(--tile);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
 }
 
 .new-sub-provider__header h3 {

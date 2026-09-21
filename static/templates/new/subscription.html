@@ -13,19 +13,35 @@
     <p class="new-pay-checkout__eyebrow">Inter Oves</p>
     <h1 class="new-heading new-heading--page">Клубная подписка</h1>
     {% if club_status == 'active' %}
-      <p class="new-pay-checkout__lead"><strong>Подписка активна.</strong> Весь архив заданий доступен.</p>
-    {% elif club_status == 'cancelled' %}
-      {% if is_annual_plan %}
-        <p class="new-pay-checkout__lead"><strong>Годовая подписка.</strong> Архив доступен{% if paid_until_label %} до {{ paid_until_label }}{% endif %}. Автопродления нет.</p>
+      {% if club_archive_gating_enabled %}
+        <p class="new-pay-checkout__lead"><strong>Подписка активна.</strong> Весь архив заданий доступен.</p>
       {% else %}
+        <p class="new-pay-checkout__lead"><strong>Подписка активна.</strong> Спасибо, что поддерживаете Inter Oves.</p>
+      {% endif %}
+    {% elif club_status == 'cancelled' %}
+      {% if club_archive_gating_enabled and is_annual_plan %}
+        <p class="new-pay-checkout__lead"><strong>Годовая подписка.</strong> Архив доступен{% if paid_until_label %} до {{ paid_until_label }}{% endif %}. Автопродления нет.</p>
+      {% elif is_annual_plan %}
+        <p class="new-pay-checkout__lead"><strong>Годовая подписка действует{% if paid_until_label %} до {{ paid_until_label }}{% endif %}.</strong> Автопродления нет. Спасибо за поддержку проекта.</p>
+      {% elif club_archive_gating_enabled %}
         <p class="new-pay-checkout__lead"><strong>Автопродление отключено.</strong> Архив останется доступен{% if paid_until_label %} до {{ paid_until_label }}{% endif %}.</p>
+      {% else %}
+        <p class="new-pay-checkout__lead"><strong>Автопродление отключено.</strong> Подписка действует{% if paid_until_label %} до {{ paid_until_label }}{% endif %}. Спасибо за поддержку проекта.</p>
       {% endif %}
     {% elif club_status == 'expired' %}
-      <p class="new-pay-checkout__lead">Оплаченный период закончился. Оформите подписку снова, чтобы открыть весь архив заданий Inter Oves.</p>
+      {% if club_archive_gating_enabled %}
+        <p class="new-pay-checkout__lead">Оплаченный период закончился. Оформите подписку снова, чтобы открыть весь архив заданий Inter Oves.</p>
+      {% else %}
+        <p class="new-pay-checkout__lead">Период подписки закончился. Если хотите и дальше поддерживать Inter Oves, её можно оформить снова.</p>
+      {% endif %}
     {% elif club_status == 'pending' %}
       <p class="new-pay-checkout__lead">Ожидаем подтверждение оплаты. Если уже оплатили — обновите страницу через минуту.</p>
     {% elif not approval_preview %}
-      <p class="new-pay-checkout__lead"><strong>Откройте весь архив заданий Inter Oves.</strong></p>
+      {% if club_archive_gating_enabled %}
+        <p class="new-pay-checkout__lead"><strong>Откройте весь архив заданий Inter Oves.</strong></p>
+      {% else %}
+        <p class="new-pay-checkout__lead"><strong>Поддержите развитие Inter Oves клубной подпиской.</strong></p>
+      {% endif %}
     {% endif %}
   </header>
 
@@ -37,12 +53,21 @@
     <p class="new-login-hint">Telegram привязан{% if telegram_username %}: @{{ telegram_username }}{% endif %}. Можно оформить подписку через Tribute.</p>
   {% endif %}
   {% if payment_return %}
-    <p class="new-login-hint">Если оплата прошла, доступ откроется после подтверждения от ЮKassa. Обновите страницу через несколько секунд.</p>
+    {% if club_archive_gating_enabled %}
+      <p class="new-login-hint">Если оплата прошла, доступ к архиву откроется после подтверждения от ЮKassa. Обновите страницу через несколько секунд.</p>
+    {% else %}
+      <p class="new-login-hint">Если оплата прошла, статус подписки обновится после подтверждения от ЮKassa. Обновите страницу через несколько секунд.</p>
+    {% endif %}
   {% endif %}
 
   <div class="new-card new-pay-order-card">
-    <div class="new-pay-order__name">Весь архив заданий</div>
-    <div class="new-pay-order__meta">Без подписки в каждом разделе доступны последние 7 заданий. Более ранние выпуски — с клубной подпиской.</div>
+    {% if club_archive_gating_enabled %}
+      <div class="new-pay-order__name">Весь архив заданий</div>
+      <div class="new-pay-order__meta">Без подписки в каждом разделе доступны последние 7 заданий. Более ранние выпуски — с клубной подпиской.</div>
+    {% else %}
+      <div class="new-pay-order__name">Поддержка проекта</div>
+      <div class="new-pay-order__meta">Клубная подписка помогает развивать Inter Oves и создавать новые задания.</div>
+    {% endif %}
     {% if club_status == 'active' or club_status == 'cancelled' %}
       <dl class="new-sub-status">
         {% if paid_until_label %}
@@ -106,7 +131,7 @@
   {% endif %}
 
   {% if show_checkout %}
-    {% if user.is_authenticated and not telegram_linked %}
+    {% if user.is_authenticated and has_profile_user and not telegram_linked %}
     <form id="new-sub-telegram-link-form" method="post" action="{% url 'new_telegram_link_start' %}">
       {% csrf_token %}
       <input type="hidden" name="next" value="/subscription/?telegram=linked">
@@ -115,16 +140,17 @@
 
     <div class="new-card new-pay-payment-card new-sub-checkout-card">
       <h2 class="new-pay-section-title">Оформить подписку</h2>
-      <p class="new-pay-order__meta">Выберите платёжный сервис. В обоих случаях открывается один и тот же архив заданий.</p>
+      <p class="new-pay-order__meta">Одна клубная подписка, два способа оплаты. Выберите подходящий.</p>
 
       <div class="new-sub-providers">
-        <section class="new-sub-provider" aria-labelledby="new-sub-yookassa-title">
+        <section class="new-sub-provider{% if not club_yookassa_enabled %} new-sub-provider--unavailable{% endif %}" aria-labelledby="new-sub-yookassa-title">
           <header class="new-sub-provider__header">
             <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
             <div>
               <h3 id="new-sub-yookassa-title">ЮKassa</h3>
               <p>Оплата российской картой · ₽</p>
             </div>
+            {% if not club_yookassa_enabled %}<span class="new-sub-provider__availability">Временно недоступна</span>{% endif %}
           </header>
           <div class="new-sub-provider__offers">
             <article class="new-sub-offer">
@@ -148,9 +174,13 @@
             </article>
           </div>
           <div class="new-sub-provider__action">
-            {% if not user.is_authenticated %}
+            {% if not club_yookassa_enabled %}
+              <button type="button" class="new-btn" disabled>Этот способ временно недоступен</button>
+            {% elif not user.is_authenticated %}
               <button type="button" class="new-btn" data-login-open>Войти, чтобы оформить</button>
-            {% elif club_yookassa_enabled %}
+            {% elif not has_profile_user %}
+              <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
+            {% else %}
               <div class="new-sub-provider__plan-actions">
                 <form method="post" action="{% url 'new_subscription_yookassa_monthly' %}" data-sub-yk data-plan="monthly">
                   {% csrf_token %}
@@ -161,25 +191,24 @@
                   <button type="submit" class="new-btn">Оплатить {{ annual_label }} за 12 месяцев</button>
                 </form>
               </div>
-            {% else %}
-              <button type="button" class="new-btn" disabled>Пока недоступно</button>
             {% endif %}
           </div>
         </section>
 
-        <section class="new-sub-provider" aria-labelledby="new-sub-tribute-title">
+        <section class="new-sub-provider{% if not club_checkout_enabled or not club_eur %} new-sub-provider--unavailable{% endif %}" aria-labelledby="new-sub-tribute-title">
           <header class="new-sub-provider__header">
             <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
             <div>
               <h3 id="new-sub-tribute-title">Tribute</h3>
               <p>Оплата иностранной картой · €</p>
             </div>
+            {% if not club_checkout_enabled or not club_eur %}<span class="new-sub-provider__availability">Временно недоступна</span>{% endif %}
           </header>
           <div class="new-sub-provider__offers">
             {% if club_eur %}
               <article class="new-sub-offer">
                 <div class="new-sub-offer__term">Каждый месяц</div>
-                {% if club_eur.first_amount_display %}
+                {% if club_eur.first_amount_display and tribute_intro_available %}
                   <strong class="new-sub-offer__price">€{{ club_eur.first_amount_display }} <span>первый месяц</span></strong>
                   <p>Затем €{{ club_eur.amount_display }} в месяц. Управление подпиской — в Tribute.</p>
                 {% else %}
@@ -206,18 +235,20 @@
             {% endif %}
           </div>
           <div class="new-sub-provider__action">
-            {% if not user.is_authenticated %}
+            {% if not club_checkout_enabled or not club_eur %}
+              <button type="button" class="new-btn" disabled>Этот способ временно недоступен</button>
+            {% elif not user.is_authenticated %}
               <button type="button" class="new-btn" data-login-open>Войти, чтобы оформить</button>
+            {% elif not has_profile_user %}
+              <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
             {% elif not telegram_linked %}
               <button type="submit" class="new-btn" form="new-sub-telegram-link-form">Привязать Telegram</button>
-            {% elif club_checkout_enabled and club_eur %}
+            {% else %}
               <form method="post" action="{% url 'new_subscription_checkout' %}" data-sub-checkout data-currency="eur">
                 {% csrf_token %}
                 <input type="hidden" name="currency" value="eur">
                 <button type="submit" class="new-btn">Перейти к выбору тарифа</button>
               </form>
-            {% else %}
-              <button type="button" class="new-btn" disabled>Пока недоступно</button>
             {% endif %}
             <p>Месяц или год выберете на странице Tribute. Там выберите Telegram, не email.</p>
           </div>
