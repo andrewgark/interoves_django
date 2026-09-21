@@ -207,7 +207,7 @@ def _actor_key_from_kind(kind, raw):
     return '{}:{}'.format(prefix, raw)
 
 
-def get_sql_aggregated_game_actor_rows(task_ids, game=None):
+def get_sql_aggregated_game_actor_rows(task_ids, game=None, actor_filter=None, include_hidden=False):
     """
     General-mode standings cells via SQL aggregates.
 
@@ -219,22 +219,24 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None):
         return {}
 
     task_ids = list(task_ids)
-    hidden_anons = hidden_anon_keys()
+    hidden_anons = set() if include_hidden else hidden_anon_keys()
 
     attempt_base = Attempt.manager.filter(
         task_id__in=task_ids, skip=False, replay_slot__isnull=True,
     )
     if game is not None:
         attempt_base = attempt_base.filter(game=game)
+    if actor_filter:
+        attempt_base = attempt_base.filter(**actor_filter)
 
     # Query each native actor column separately. The previous CASE/CONCAT
     # partition key prevented MySQL from using the existing task+actor indexes
     # and dominated slow-query logs on large games.
     count_rows = []
     best_by = {}
-    for kind, actor_field, actor_filter in _attempt_actor_specs():
+    for kind, actor_field, actor_clause in _attempt_actor_specs():
         actor_counts = (
-            attempt_base.filter(actor_filter)
+            attempt_base.filter(actor_clause)
             .values('task_id', actor_field)
             .annotate(
                 n_attempts=Count('id'),
@@ -260,7 +262,7 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None):
             })
 
         best_qs = (
-            attempt_base.filter(actor_filter)
+            attempt_base.filter(actor_clause)
             .annotate(
                 status_rank=_status_rank_annotation(),
                 rn=Window(
@@ -287,6 +289,7 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None):
             is_real_request=True,
             replay_slot__isnull=True,
         )
+        .filter(**(actor_filter or {}))
         .annotate(actor_key=_hint_actor_key_annotation())
         .exclude(actor_key='')
         .values(
@@ -339,6 +342,8 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None):
     )
     if game is not None:
         chain_state_qs = chain_state_qs.filter(game=game)
+    if actor_filter:
+        chain_state_qs = chain_state_qs.filter(**actor_filter)
 
     alphabetty_penalty = {}
     for row in chain_state_qs.values(
@@ -412,7 +417,7 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None):
             kind, raw = parsed
             if kind == 'team':
                 team = teams.get(raw)
-                if team is None or team.is_hidden:
+                if team is None or (team.is_hidden and not include_hidden):
                     continue
                 actor = team
             elif kind == 'user':

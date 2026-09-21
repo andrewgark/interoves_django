@@ -7,6 +7,12 @@
     {% if mode == 'tournament' %}
       <th class="is-sticky-left-4">{{ team_to_max_best_time|get_item:t|date:'H:i' }}</th>
     {% endif %}
+    {% if show_alphabetty_detail %}
+      <td>{{ team_to_attempts|get_item:t|default:0 }}</td>
+    {% endif %}
+    {% if mode != 'tournament' and show_solve_duration %}
+      <td>{{ team_to_solve_duration|get_item:t|default:'—' }}</td>
+    {% endif %}
     {% for cell in team_to_cells|get_item:t %}
       <td class="{{ cell.cls }}"{% if results_variant == 'ladder' and cell.hint_numbers %} title="Подсказки: {{ cell.hint_numbers|join:', ' }}"{% endif %}>
         {% if cell.n_attempts|default:0 > 0 %}

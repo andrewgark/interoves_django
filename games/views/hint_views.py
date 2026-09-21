@@ -76,6 +76,9 @@ def create_hint_attempt(hint, team=None, user=None, anon_key=None, game=None, re
         )
         hint_attempt.is_real_request = not attempts_info.is_solved()
         hint_attempt.save()
+        if getattr(game, 'project_id', None) == 'sections':
+            from games.daily_result_projection import schedule_actor_projection
+            schedule_actor_projection(game, task.task_group, team=team, user=user, anon_key=anon_key)
     return hint_attempt, current_mode
    
 

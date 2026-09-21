@@ -2166,7 +2166,7 @@ def _results_me_participants(request, play_mode):
     return me_personal, me_anon_participant
 
 
-def _new_results_compute(game, mode, task_group_number=None):
+def _new_results_compute(game, mode, task_group_number=None, alphabetty_sort='attempts'):
     team_to_list_attempts_info = {}
     team_to_score = {}
     team_to_max_best_time = {}
@@ -2234,15 +2234,82 @@ def _new_results_compute(game, mode, task_group_number=None):
         # Sort by a comparable primitive to avoid tz-awareness issues.
         max_best_time_ts = max_best_time.timestamp() if hasattr(max_best_time, "timestamp") else float("inf")
         teams_sorted.append((-score, max_best_time_ts, participant))
-    teams_sorted = [p for anti_score, max_best_time_ts, p in sorted(teams_sorted, key=lambda t: (t[0], t[1], str(t[2])))]
-
-    team_to_place = {}
-    for i, participant in enumerate(teams_sorted):
-        team_to_place[participant] = 1 + i
-        if i:
-            prev = teams_sorted[i - 1]
-            if team_to_score[participant] == team_to_score[prev]:
-                team_to_place[participant] = team_to_place[prev]
+    from games.leaderboard import (
+        canonical_leaderboard_durations, eligible_public_actors,
+        individual_sports_key, sports_rank,
+    )
+    solve_duration_seconds = {}
+    result_times = {}
+    scoped_group = None
+    published_at = None
+    if mode == 'general' and task_group_number is not None:
+        scoped_group = GameTaskGroup.objects.filter(
+            game=game, number=str(task_group_number),
+        ).select_related('task_group').first()
+        if scoped_group:
+            from games.daily_section import publish_at_for
+            published_at = publish_at_for(game, scoped_group.number)
+            for actor in team_to_score:
+                relevant = [
+                    team_task_to_attempts_info.get((actor, task))
+                    for task in tasks_flat
+                    if task.task_group_id == scoped_group.task_group_id
+                ]
+                submitted = []
+                for info in relevant:
+                    # When authoritative start telemetry is unavailable, use
+                    # the earliest persisted canonical attempt as the
+                    # conservative publication fallback. A later retry must
+                    # not make a pre-publication first play public.
+                    for attempt in getattr(info, 'attempts', ()) if info else ():
+                        if attempt.time is not None:
+                            submitted.append(attempt.time)
+                if submitted:
+                    result_times[actor] = min(submitted)
+            solve_duration_seconds = canonical_leaderboard_durations(
+                game=game, task_group=scoped_group.task_group, actors=team_to_score,
+            )
+    eligible = set(eligible_public_actors(
+        team_to_score, task_group=scoped_group.task_group if scoped_group else None,
+        game=game if scoped_group else None, published_at=published_at,
+        result_times=result_times,
+    ))
+    team_to_score = {actor: score for actor, score in team_to_score.items() if actor in eligible}
+    solve_duration_seconds = {actor: value for actor, value in solve_duration_seconds.items() if actor in eligible}
+    team_to_attempts = {}
+    if mode == 'tournament':
+        # Keep the current tournament window and actor policy; use the actual
+        # last counted submission timestamp as its sports tie-break.
+        tournament_rows = [row[2] for row in sorted(teams_sorted, key=lambda row: (row[0], row[1], str(row[2]))) if row[2] in team_to_score]
+        # `team_to_max_best_time` is the canonical last counted scoring time.
+        sports_keys = {
+            actor: (-team_to_score[actor], team_to_max_best_time[actor].timestamp() if team_to_max_best_time.get(actor) else float('inf'))
+            for actor in tournament_rows
+        }
+    else:
+        variant = getattr(game, 'id', '')
+        attempt_counts = {}
+        if variant == ALPHABETTY_GAME_ID:
+            for actor in team_to_score:
+                attempt_counts[actor] = sum(
+                    int(info.get_n_attempts() or 0)
+                    for task in tasks_flat
+                    if task.task_group_id == getattr(scoped_group, 'task_group_id', None)
+                    for info in [team_task_to_attempts_info.get((actor, task))]
+                    if info is not None
+                )
+            team_to_attempts = attempt_counts
+        sort_mode = alphabetty_sort
+        def sport_key(actor):
+            return individual_sports_key(
+                score=team_to_score[actor],
+                duration=solve_duration_seconds.get(actor),
+                game_id=variant, attempts=attempt_counts.get(actor, 0),
+                alphabetty_sort=sort_mode,
+            )
+        teams_sorted = sorted(team_to_score, key=lambda actor: (*sport_key(actor), str(actor)))
+        sports_keys = {actor: sport_key(actor) for actor in teams_sorted}
+    team_to_place = sports_rank(teams_sorted, sports_keys)
 
     # Prepare per-cell metadata for templates: color by points vs max.
     tasks_flat = []
@@ -2316,6 +2383,14 @@ def _new_results_compute(game, mode, task_group_number=None):
             })
         team_to_cells[participant] = cells
 
+    team_to_solve_duration = {}
+    if mode == 'general' and task_group_number is not None:
+        from games.share_result import format_elapsed_compact
+        team_to_solve_duration = {
+            actor: format_elapsed_compact(seconds)
+            for actor, seconds in solve_duration_seconds.items() if actor in teams_sorted
+        }
+
     return {
         'task_groups': task_group_headers,
         'task_group_to_tasks': task_group_to_tasks,
@@ -2325,6 +2400,8 @@ def _new_results_compute(game, mode, task_group_number=None):
         'team_to_score': team_to_score,
         'team_to_place': team_to_place,
         'team_to_max_best_time': team_to_max_best_time,
+        'team_to_solve_duration': team_to_solve_duration,
+        'team_to_attempts': team_to_attempts,
     }
 
 
@@ -2453,7 +2530,6 @@ def new_section_results_page(request, game_id):
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
 
-    progressive_page_size = 50
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
@@ -2463,33 +2539,22 @@ def new_section_results_page(request, game_id):
         else 'standard'
     )
 
-    # Row data is loaded incrementally (?partial=1); initial response is headers only.
-    if request.GET.get('partial') == '1':
-        data = _load_game_results_data(game, mode='general')
-        data = _paginate_results_rows(request, data, per_page=progressive_page_size)
-        return render(request, 'new/partials/results_rows.html', {
-            'mode': 'general',
-            'section_results': True,
-            'is_ladder_results': game_id == LADDER_GAME_ID,
-            'results_variant': results_variant,
-            'game': game,
-            'team': team,
-            'me_personal': me_personal,
-            'me_anon_participant': me_anon_participant,
-            **data,
-        })
+    from games.aggregate_leaderboard import build_aggregate_page
+    data = build_aggregate_page(request, game)
 
-    snap = GameResultsSnapshot.objects.filter(game=game, mode='general').first()
-    if snap and snap.payload:
-        header_data = snapshot_headers_context(snap.payload)
-    else:
-        header_data = _results_table_headers_context(game)
-    data = {**header_data, **_results_rows_empty_context()}
-    data['results_column_count'] = _results_column_count(
-        data.get('task_groups'), mode='general'
-    )
+    def query_url(**overrides):
+        params = request.GET.copy()
+        if 'anchor' not in overrides and data.get('aggregate_window_anchor') and not params.get('anchor'):
+            params['anchor'] = data['aggregate_window_anchor']
+        for key, value in overrides.items():
+            if value is None:
+                params.pop(key, None)
+            else:
+                params[key] = str(value)
+        query = params.urlencode()
+        return request.path + ('?' + query if query else '')
 
-    return render(request, 'ui/results.html', {
+    data.update({
         'mode': 'general',
         'section_results': True,
         'is_ladder_results': game_id == LADDER_GAME_ID,
@@ -2498,16 +2563,21 @@ def new_section_results_page(request, game_id):
         'team': team,
         'me_personal': me_personal,
         'me_anon_participant': me_anon_participant,
+        'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
+        'limit_urls': {limit: query_url(limit=limit, page=None) for limit in (10, 20, 30)},
+        'older_url': query_url(anchor=data['aggregate_older_anchor'], page=None) if data['aggregate_older_anchor'] else None,
+        'newer_url': query_url(anchor=data['aggregate_newer_anchor'], page=None) if data['aggregate_newer_anchor'] else None,
+        'previous_page_url': query_url(page=data['aggregate_page'].previous_page_number()) if data['aggregate_page'].has_previous() else None,
+        'next_page_url': query_url(page=data['aggregate_page'].next_page_number()) if data['aggregate_page'].has_next() else None,
         'back_url': _sections_hub_url(game.id),
-        'progressive_results': True,
-        'progressive_page_size': progressive_page_size,
-        **data,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
-        'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
+    })
+    return render(request, 'new/aggregate_results.html', {
+        **data,
     })
 
 
@@ -2517,17 +2587,27 @@ def _render_task_group_results_page(request, game, number, back_url):
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
-    data = _new_results_compute(game, mode='general', task_group_number=number)
+    alphabetty_sort = 'time' if game.id == ALPHABETTY_GAME_ID and request.GET.get('sort') == 'time' else 'attempts'
+    data = _new_results_compute(
+        game, mode='general', task_group_number=number,
+        alphabetty_sort=alphabetty_sort,
+    )
+    results_variant = 'alphabetty' if game.id == ALPHABETTY_GAME_ID else 'salad_words' if game.id == 'salad' else 'standard'
+    if game.id == 'salad':
+        data = _word_salad_release_breakdown(data, game, number)
     data = _paginate_results_rows(request, data, per_page=50)
     return render(request, 'ui/results.html', {
         'mode': 'general',
         'section_results': True,
-        'results_variant': 'standard',
+        'results_variant': results_variant,
         'game': game,
         'team': team,
         'me_personal': me_personal,
         'me_anon_participant': me_anon_participant,
         'back_url': back_url,
+        'show_solve_duration': True,
+        'alphabetty_sort': alphabetty_sort,
+        'show_alphabetty_detail': game.id == ALPHABETTY_GAME_ID,
         **data,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
@@ -2536,6 +2616,66 @@ def _render_task_group_results_page(request, game, number, back_url):
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
     })
+
+
+class _SaladResultHeader:
+    def __init__(self, number):
+        self.number = str(number)
+
+    def get_n_tasks_for_results(self):
+        return 1
+
+
+class _SaladResultWord:
+    def __init__(self, word):
+        self.number = word
+
+
+def _word_salad_release_breakdown(data, game, number):
+    """Expand the existing Word Salad attempt state into one result cell per word."""
+    placement = GameTaskGroup.objects.filter(game=game, number=str(number)).select_related(
+        'task_group',
+    ).first()
+    if not placement:
+        return data
+    tasks = list(placement.task_group.tasks.visible().filter(task_type='word_salad'))
+    if not tasks:
+        return data
+    task = tasks[0]
+    from games.word_salad import load_state, parse_task_payload
+    try:
+        _grid, words, _rare = parse_task_payload(task.checker_data, task.text or '')
+    except Exception:
+        words = []
+    data['task_groups'] = [_SaladResultHeader(number)]
+    data['task_group_to_tasks'] = {str(number): [_SaladResultWord(word) for word in words]}
+    cells_by_actor = {}
+    infos_by_actor = {}
+    # The individual page scopes the data to one group. The AttemptInfo list
+    # follows that group's task ordering, including only visible result tasks.
+    for actor in data.get('teams_sorted', []):
+        infos = data.get('team_to_list_attempts_info', {}).get(actor, [])
+        info = infos[0] if infos else None
+        attempts = getattr(info, 'attempts', None) or []
+        state = load_state(attempts[-1].state if attempts else None)
+        solved = set(state.get('solved_indices') or [])
+        hint_counts = state.get('hint_counts') or {}
+        cells = []
+        for index, _word in enumerate(words):
+            hints = int(hint_counts.get(str(index), hint_counts.get(index, 0)) or 0)
+            is_solved = index in solved
+            net = (1.0 if is_solved else 0.0) - 0.5 * hints
+            cells.append({
+                'cls': 'cell-full' if is_solved and hints == 0 else 'cell-partial' if is_solved or hints else '',
+                'n_attempts': 1 if is_solved or hints else 0,
+                'result_points': net,
+                'hint_numbers': list(range(1, hints + 1)),
+            })
+        cells_by_actor[actor] = cells
+        infos_by_actor[actor] = [info] * len(cells)
+    data['team_to_cells'] = cells_by_actor
+    data['team_to_list_attempts_info'] = infos_by_actor
+    return data
 
 
 def new_section_task_results_page(request, game_id, number):
@@ -2677,6 +2817,16 @@ def new_ladder_word_results_page(request, task_group_number):
 
     if request.GET.get('partial') == '1':
         data = build_ladder_word_results_context(game, placement, task)
+        from games.leaderboard import apply_release_policy
+        from games.daily_section import publish_at_for
+        data = apply_release_policy(
+            data, game=game, task_group=placement.task_group,
+            published_at=(
+                publish_at_for(game, placement.number)
+                if scheduled_number_is_public(game, placement.number) else None
+            ),
+            result_times=data.get('team_to_max_best_time', {}),
+        )
         data = _paginate_results_rows(request, data, per_page=progressive_page_size)
         return render(request, 'new/partials/results_rows.html', {
             'mode': 'general',
@@ -2684,6 +2834,7 @@ def new_ladder_word_results_page(request, task_group_number):
             'is_ladder_results': True,
             'is_ladder_word_results': True,
             'results_variant': 'ladder_words',
+            'show_solve_duration': True,
             'game': game,
             'team': team,
             'me_personal': me_personal,
@@ -2703,6 +2854,7 @@ def new_ladder_word_results_page(request, task_group_number):
         'is_ladder_results': True,
         'is_ladder_word_results': True,
         'results_variant': 'ladder_words',
+        'show_solve_duration': True,
         'ladder_number': placement.number,
         'game': game,
         'team': team,

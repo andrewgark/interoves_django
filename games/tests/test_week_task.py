@@ -6,8 +6,9 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from django.test import TestCase
+from django.contrib.auth.models import User
 
-from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
+from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Profile, Project, Task, TaskGroup
 from games.support.services.banned import banned_unit_keys, list_banned_units
 from games.support.services.week_tasks import (
     WeekTaskSupportError,
@@ -24,6 +25,7 @@ from games.support.services.week_tasks import (
 )
 from games.week_task_pool import (
     enumerate_units_for_gtg,
+    materialize_unit,
     pick_random_units,
     resolve_unit,
     scheduled_exclude_keys,
@@ -214,6 +216,16 @@ class WeekTaskPoolSplitTests(TestCase):
                 task_numbers=['1'],
             )
             self.assertEqual(enumerate_units_for_gtg(gtg), [])
+
+    def test_materialized_week_release_copies_structured_authors(self):
+        gtg = _add_circle(self.des, number=12, name='Authored', task_numbers=['1'])
+        user = User.objects.create_user(username='weekly-author')
+        profile = Profile.objects.create(user=user, first_name='Weekly', last_name='Author')
+        gtg.task_group.authors.add(profile)
+        week_game = _ensure_week_task_game()
+        unit = enumerate_units_for_gtg(gtg)[0]
+        week_link = materialize_unit(unit, week_number=9900, week_task_game=week_game)
+        self.assertEqual(list(week_link.task_group.authors.all()), [profile])
 
 
 class WeekTaskSupportTests(TestCase):

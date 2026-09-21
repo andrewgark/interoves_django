@@ -1,0 +1,71 @@
+{% extends "new/base.html" %}
+{% load filters %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<section class="new-page-shell new-results-page">
+  <div class="new-page-heading">
+    <a class="new-btn new-btn--ghost new-btn--mini" href="{{ back_url }}">← К разделу</a>
+    <h1>{{ page_title }}</h1>
+    <p class="new-meta-kicker">Результаты за выбранный период</p>
+  </div>
+
+  <nav class="aggregate-controls" aria-label="Период результатов">
+    <span>Выпусков:</span>
+    {% for size, url in limit_urls.items %}
+      <a class="new-btn new-btn--ghost new-btn--mini{% if size == aggregate_limit %} is-active{% endif %}" href="{{ url }}"{% if size == aggregate_limit %} aria-current="true"{% endif %}>{{ size }}</a>
+    {% endfor %}
+    <span class="aggregate-window-range">{% if aggregate_first_number %}№{{ aggregate_first_number }}–№{{ aggregate_last_number }}{% else %}Нет опубликованных выпусков{% endif %}</span>
+    <span class="aggregate-window-nav">
+      {% if newer_url %}<a href="{{ newer_url }}">← Более новые</a>{% endif %}
+      {% if older_url %}<a href="{{ older_url }}">Более старые →</a>{% endif %}
+    </span>
+  </nav>
+  {% if aggregate_has_unknown_max %}<p class="new-meta-kicker">Для некоторых опубликованных выпусков максимум не определён. Они остаются в таблице, но не входят в показанный знаменатель.</p>{% endif %}
+
+  <div class="aggregate-table-wrap" role="region" aria-label="Сводная таблица результатов" tabindex="0">
+    <table class="new-results-table aggregate-results-table">
+      <thead><tr>
+        <th class="aggregate-sticky aggregate-place">Место</th>
+        <th class="aggregate-sticky aggregate-participant">Участник</th>
+        <th class="aggregate-score">Результат</th>
+        <th class="aggregate-played">Сыграно</th>
+        {% for column in aggregate_columns %}<th class="aggregate-release"><a href="{{ column.url }}" title="Результаты выпуска {{ column.label }}">{{ column.label }}</a></th>{% endfor %}
+      </tr></thead>
+      <tbody>
+        {% for row in aggregate_rows %}
+        <tr>
+          <td class="aggregate-sticky aggregate-place">{{ row.place }}</td>
+          <td class="aggregate-sticky aggregate-participant">{{ row.actor }}</td>
+          <td class="aggregate-score"><strong>{{ row.score|floatformat:"-3" }} / {{ row.max_score|floatformat:"-3" }}</strong></td>
+          <td class="aggregate-played">{{ row.played }} / {{ aggregate_columns|length }}</td>
+          {% for column in aggregate_columns %}<td class="aggregate-release">{% if column.link.pk in row.cells %}{{ row.cells|get_item:column.link.pk|floatformat:"-3" }}/{% if column.max_score != None %}{{ column.max_score|floatformat:"-3" }}{% else %}—{% endif %}{% else %}—{% endif %}</td>{% endfor %}
+        </tr>
+        {% empty %}
+        <tr><td colspan="{{ aggregate_columns|length|add:4 }}">Пока нет результатов.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if aggregate_page.has_next %}<nav class="aggregate-pagination" aria-label="Страницы участников"><span>Участники {{ aggregate_page.start_index }}–{{ aggregate_page.end_index }} из {{ aggregate_page.paginator.count }}</span> <a class="new-btn new-btn--ghost new-btn--mini" href="{{ next_page_url }}">Показать ещё</a></nav>{% elif aggregate_page.paginator.count %}<p class="aggregate-pagination">Показаны все {{ aggregate_page.paginator.count }} участников.</p>{% endif %}
+</section>
+
+<style>
+.aggregate-controls,.aggregate-window-nav,.aggregate-pagination{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin:.8rem 0}
+.aggregate-window-range{font-size:.9rem;color:var(--muted,#667085);margin-left:.5rem}
+.aggregate-window-nav{margin-left:auto}.aggregate-window-nav a{white-space:nowrap}
+.aggregate-table-wrap{max-width:100%;overflow:auto;border-radius:12px;overscroll-behavior-x:contain}
+.aggregate-results-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0}
+.aggregate-results-table th,.aggregate-results-table td{white-space:nowrap;padding:.55rem .65rem}
+.aggregate-sticky{position:sticky;z-index:2;background:var(--surface,#fff)}
+.aggregate-sticky.aggregate-place{left:0;min-width:4rem}.aggregate-sticky.aggregate-participant{left:4rem;min-width:10rem}
+.aggregate-results-table thead .aggregate-sticky{z-index:4;background:var(--surface,#fff)}
+.aggregate-score{position:sticky;left:14rem;z-index:2;background:var(--surface,#fff);font-variant-numeric:tabular-nums}
+.aggregate-results-table thead .aggregate-score{z-index:4}
+.aggregate-played,.aggregate-release{text-align:center;font-variant-numeric:tabular-nums}
+.aggregate-release{min-width:3.8rem}.aggregate-pagination{justify-content:flex-end}
+@media(max-width:640px){.aggregate-sticky.aggregate-participant{min-width:8rem;left:3.5rem}.aggregate-sticky.aggregate-place{min-width:3.5rem}.aggregate-score{left:11.5rem}.aggregate-results-table th,.aggregate-results-table td{padding:.45rem .5rem}}
+</style>
+{% endblock %}

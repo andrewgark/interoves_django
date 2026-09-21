@@ -262,6 +262,33 @@ def snapshot_to_results_context(game, payload):
         team_to_list_attempts_info[participant] = [None] * len(cells)
         team_to_cells[participant] = cells
 
+    from games.leaderboard import eligible_public_actors, sports_rank
+    eligible = set(eligible_public_actors(teams_sorted))
+    teams_sorted = [actor for actor in teams_sorted if actor in eligible]
+    mode = payload.get('mode') or 'general'
+
+    def actor_fallback(actor):
+        if isinstance(actor, Team):
+            return ('team', str(actor.pk))
+        if getattr(actor, 'user_id', None) is not None:
+            return ('user', int(actor.user_id))
+        return ('anon', str(getattr(actor, 'anon_key', '') or ''))
+
+    if mode == 'tournament':
+        def sports_key(actor):
+            stamp = team_to_max_best_time.get(actor)
+            return (-team_to_score[actor], stamp.timestamp() if stamp else float('inf'))
+    else:
+        def sports_key(actor):
+            return (-team_to_score[actor],)
+
+    teams_sorted.sort(key=lambda actor: (*sports_key(actor), actor_fallback(actor)))
+    team_to_place = sports_rank(teams_sorted, {actor: sports_key(actor) for actor in teams_sorted})
+    for mapping in (team_to_score, team_to_max_best_time, team_to_list_attempts_info, team_to_cells):
+        for actor in list(mapping):
+            if actor not in eligible:
+                mapping.pop(actor, None)
+
     return {
         'task_groups': task_groups,
         'task_group_to_tasks': task_group_to_tasks,
@@ -409,23 +436,31 @@ def build_results_snapshot_payload(game, mode='tournament'):
 
     participants = list(participant_to_score.keys())
 
-    def _participant_sort_key(p):
+    def _fallback_key(p):
+        if isinstance(p, Team):
+            return ('team', str(p.pk))
+        if getattr(p, 'user_id', None) is not None:
+            return ('user', int(p.user_id))
+        return ('anon', str(getattr(p, 'anon_key', '') or ''))
+
+    mode = mode or 'general'
+    is_tournament = mode == 'tournament'
+
+    def _sports_key(p):
         score = _json_num(participant_to_score.get(p, 0))
+        if not is_tournament:
+            return (-score,)
         max_t = participant_to_max_best_time.get(p)
-        if max_t is None:
-            max_t = datetime.datetime.now()
-        label = p.visible_name if hasattr(p, 'visible_name') else str(p)
-        return (-score, max_t, label)
+        return (-score, max_t.timestamp() if max_t else float('inf'))
 
-    participants_sorted = sorted(participants, key=_participant_sort_key)
-
-    participant_to_place = {}
-    for i, p in enumerate(participants_sorted):
-        participant_to_place[p] = 1 + i
-        if i:
-            prev = participants_sorted[i - 1]
-            if participant_to_score.get(p, 0) == participant_to_score.get(prev, 0):
-                participant_to_place[p] = participant_to_place[prev]
+    participants_sorted = sorted(
+        participants,
+        key=lambda p: (*_sports_key(p), _fallback_key(p)),
+    )
+    from games.leaderboard import sports_rank
+    participant_to_place = sports_rank(
+        participants_sorted, {p: _sports_key(p) for p in participants_sorted},
+    )
 
     rows = []
     for p in participants_sorted:

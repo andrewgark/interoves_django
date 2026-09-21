@@ -292,6 +292,7 @@ def materialize_unit(unit: WeekUnit, *, week_number: int, week_task_game: Game) 
         view=source_tg.view,
         is_18_plus=source_tg.is_18_plus,
     )
+    new_tg.authors.set(source_tg.authors.all())
     for task in sorted(tasks_to_copy, key=lambda t: t.key_sort()):
         _copy_task(task, new_tg)
 
@@ -519,6 +520,7 @@ def rematerialize_link(link: GameTaskGroup, unit: WeekUnit) -> GameTaskGroup:
     week_tg.view = source_tg.view
     week_tg.is_18_plus = source_tg.is_18_plus
     week_tg.save()
+    week_tg.authors.set(source_tg.authors.all())
 
     for task in sorted(tasks_to_copy, key=lambda t: t.key_sort()):
         _copy_task(task, week_tg)

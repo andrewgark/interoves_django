@@ -210,6 +210,11 @@ class ProfileTeamMembership(models.Model):
 
 class Profile(models.Model):
     user = models.OneToOneField(User, related_name='profile', primary_key=True, on_delete=models.CASCADE)
+    is_hidden = models.BooleanField(
+        default=False,
+        verbose_name='Скрыт из публичных результатов',
+        help_text='Не удаляет результаты; скрывает профиль из публичных таблиц.',
+    )
     first_name = models.TextField()
     last_name = models.TextField()
     avatar_url = models.TextField(blank=True, null=True)
@@ -466,6 +471,11 @@ class TaskGroup(models.Model):
     max_attempts = models.IntegerField(default=3, blank=True, null=True)
     image_width = models.IntegerField(default=300, null=True, blank=True)
     tags = models.JSONField(default=dict, null=True, blank=True)
+    authors = models.ManyToManyField(
+        'Profile', related_name='authored_task_groups', blank=True,
+        verbose_name='Авторы задания',
+        help_text='Зарегистрированные авторы для исключения из таблицы результатов этого выпуска.',
+    )
 
     VIEW_VARIANTS = (
         ('default', 'default'),
@@ -574,6 +584,7 @@ class GameTaskGroup(models.Model):
     def key_sort(self):
         return self.number_key(self.number)
 
+
     @classmethod
     def sorted_links(cls, queryset=None, *, game=None, reverse=False):
         if queryset is None:
@@ -669,6 +680,67 @@ class GameTaskGroup(models.Model):
             return Game.objects.filter(pk=WORD_SALAD_GAME_ID).first()
         return None
 
+
+class DailyResultProjection(models.Model):
+    """Derived canonical score for one actor on one scheduled section release.
+
+    Attempts / HintAttempts / chain state remain the gameplay source of truth.
+    This row is a rebuildable query projection used by aggregate standings.
+    Actor identity deliberately follows the existing team/user/anon buckets;
+    anonymous keys are stored verbatim and never collapsed to display names.
+    """
+    ACTOR_TEAM = 'team'
+    ACTOR_USER = 'user'
+    ACTOR_ANON = 'anon'
+    ACTOR_CHOICES = (
+        (ACTOR_TEAM, 'Team'),
+        (ACTOR_USER, 'Profile'),
+        (ACTOR_ANON, 'Anonymous'),
+    )
+
+    game = models.ForeignKey(Game, related_name='daily_result_projections', on_delete=models.CASCADE)
+    task_group = models.ForeignKey(TaskGroup, related_name='daily_result_projections', on_delete=models.CASCADE)
+    actor_type = models.CharField(max_length=8, choices=ACTOR_CHOICES)
+    actor_key = models.CharField(max_length=100)
+    team = models.ForeignKey(Team, related_name='daily_result_projections', blank=True, null=True, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name='daily_result_projections', blank=True, null=True, on_delete=models.CASCADE)
+    anon_key = models.CharField(max_length=64, blank=True, null=True)
+    score = models.DecimalField(max_digits=12, decimal_places=3)
+    is_prepublication = models.BooleanField(default=False, help_text='Rebuildable eligibility metadata from canonical first-play data.')
+    projected_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=('game', 'task_group', 'team'), condition=models.Q(team__isnull=False), name='uniq_daily_proj_team'),
+            models.UniqueConstraint(fields=('game', 'task_group', 'user'), condition=models.Q(user__isnull=False), name='uniq_daily_proj_user'),
+            models.UniqueConstraint(fields=('game', 'task_group', 'anon_key'), condition=models.Q(anon_key__isnull=False), name='uniq_daily_proj_anon'),
+            models.CheckConstraint(
+                check=(
+                    models.Q(actor_type='team', team__isnull=False, user__isnull=True, anon_key__isnull=True)
+                    | models.Q(actor_type='user', team__isnull=True, user__isnull=False, anon_key__isnull=True)
+                    | models.Q(actor_type='anon', team__isnull=True, user__isnull=True, anon_key__isnull=False)
+                ),
+                name='daily_proj_actor_shape',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=('game', 'task_group', 'actor_type', 'actor_key'), name='games_drp_release_actor_idx'),
+            models.Index(fields=('actor_type', 'actor_key', 'game'), name='games_drp_actor_game_idx'),
+        ]
+
+    def __str__(self):
+        return '{} · {} · {}:{} = {}'.format(self.game_id, self.task_group_id, self.actor_type, self.actor_key, self.score)
+
+
+class DailyResultProjectionState(models.Model):
+    """Coverage marker: an empty but rebuilt release is distinguishable from a miss."""
+    game = models.ForeignKey(Game, related_name='daily_result_projection_states', on_delete=models.CASCADE)
+    task_group = models.ForeignKey(TaskGroup, related_name='daily_result_projection_states', on_delete=models.CASCADE)
+    completed_at = models.DateTimeField(auto_now=True)
+    adapter_version = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('game', 'task_group'), name='uniq_daily_proj_state_release')]
 
 class DailyGameDifficulty(models.Model):
     """Cached, explainable difficulty for one scheduled daily-game edition.
@@ -843,6 +915,10 @@ class Task(models.Model):
             if update_fields is not None:
                 kwargs['update_fields'] = set(update_fields) | {'attempt_revision'}
         super(Task, self).save(*args, **kwargs)
+        if self.task_group_id:
+            DailyResultProjectionState.objects.filter(
+                task_group_id=self.task_group_id, game__project_id='sections',
+            ).delete()
         # A changed Word Salad grid starts a new chain.  Changing only the
         # answer/rare-word lists must keep the accumulated projection alive:
         # the existing attempts are still valid evidence and the recheck can
@@ -1334,7 +1410,7 @@ class AttemptManager(models.Manager):
             return ('anon', str(ak))
         return None
 
-    def get_bulk_game_actor_rows(self, task_ids, mode='general', game=None, replay_slot=None):
+    def get_bulk_game_actor_rows(self, task_ids, mode='general', game=None, replay_slot=None, actor_filter=None, include_hidden=False):
         """
         O(1) bulk alternative to calling get_general_results_task_actor_rows or
         get_task_attempts_infos for every task individually.
@@ -1361,6 +1437,8 @@ class AttemptManager(models.Manager):
         # 1 query: all attempts for all tasks (optionally scoped to one game).
         attempt_related = ['team', 'user', 'game']
         attempt_qs = self.filter(task_id__in=task_ids, skip=False, replay_slot=replay_slot).select_related(*attempt_related).order_by('time')
+        if actor_filter:
+            attempt_qs = attempt_qs.filter(**actor_filter)
         if game is not None:
             attempt_qs = attempt_qs.filter(game=game)
         all_attempts = list(attempt_qs)
@@ -1371,6 +1449,7 @@ class AttemptManager(models.Manager):
         hint_related = ['hint', 'team', 'user']
         all_hint_attempts = list(
             HintAttempt.objects.filter(hint__task_id__in=task_ids, replay_slot=replay_slot)
+            .filter(**(actor_filter or {}))
             .select_related(*hint_related)
         )
         if mode == 'tournament':
@@ -1419,13 +1498,13 @@ class AttemptManager(models.Manager):
                 kind, key = b
                 obj = actor_obj_cache.get(b)
                 if kind == 'team':
-                    if obj is None or obj.is_hidden:
+                    if obj is None or (obj.is_hidden and not include_hidden):
                         continue
                     rows.append((obj, ai))
                 elif kind == 'user':
                     rows.append((PersonalResultsParticipant(user=obj), ai))
                 else:
-                    if key in hidden_anons:
+                    if key in hidden_anons and not include_hidden:
                         continue
                     rows.append((PersonalResultsParticipant(anon_key=key), ai))
             result[task_id] = rows
@@ -1642,6 +1721,17 @@ class Attempt(models.Model):
         return '[{}]: ({}) - {} [{}] ({})'.format(
             actor, self.task, self.get_pretty_text(), self.status, time_s
         )
+
+    def save(self, *args, **kwargs):
+        existing = not self._state.adding
+        super().save(*args, **kwargs)
+        if existing and self.task_id:
+            group_id = Task.objects.filter(pk=self.task_id).values_list('task_group_id', flat=True).first()
+            if group_id:
+                DailyResultProjectionState.objects.filter(
+                    game__project_id='sections', game_id=self.game_id,
+                    task_group_id=group_id,
+                ).delete()
 
     def get_answer(self):
         if self.task is None:
@@ -1929,6 +2019,10 @@ class Hint(models.Model):
     def save(self, *args, **kwargs):
         from games.views.track import track_task_change
         super(Hint, self).save(*args, **kwargs)
+        if self.task_id and self.task.task_group_id:
+            DailyResultProjectionState.objects.filter(
+                task_group_id=self.task.task_group_id, game__project_id='sections',
+            ).delete()
         track_task_change(self.task)
 
 class HintAttempt(models.Model):
@@ -1952,6 +2046,16 @@ class HintAttempt(models.Model):
             models.Index(fields=['hint', 'is_real_request']),
             models.Index(fields=['replay_slot', 'hint', 'time']),
         ]
+
+    def save(self, *args, **kwargs):
+        existing = not self._state.adding
+        super().save(*args, **kwargs)
+        if existing and self.hint_id:
+            group_id = Hint.objects.filter(pk=self.hint_id).values_list('task__task_group_id', flat=True).first()
+            if group_id:
+                DailyResultProjectionState.objects.filter(
+                    game__project_id='sections', task_group_id=group_id,
+                ).delete()
 
     def __str__(self):
         actor = self.team if self.team is not None else (self.user if self.user is not None else self.anon_key)

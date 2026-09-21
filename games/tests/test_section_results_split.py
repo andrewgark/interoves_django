@@ -137,7 +137,7 @@ class SectionResultsSplitTests(TestCase):
         self.assertIs(results_attempts_scope_game(ladder, 'general'), ladder)
         self.assertIs(results_attempts_scope_game(section, 'tournament'), section)
 
-    def test_ladder_initial_page_skips_bulk_attempts(self):
+    def test_ladder_aggregate_page_uses_bounded_results_template(self):
         ladder = Game.objects.get(pk=LADDER_GAME_ID)
         request = self.factory.get('/ladder/results/')
         request.user = AnonymousUser()
@@ -147,12 +147,14 @@ class SectionResultsSplitTests(TestCase):
                 new_section_results_page(request, LADDER_GAME_ID)
                 bulk_mock.assert_not_called()
                 ctx = render_mock.call_args[0][2]
-                self.assertEqual(ctx['teams_sorted'], [])
-                self.assertTrue(ctx['progressive_results'])
+                self.assertEqual(ctx['aggregate_rows'], [])
+                self.assertEqual(ctx['aggregate_limit'], 10)
+                self.assertNotIn('progressive_results', ctx)
                 self.assertTrue(ctx['is_ladder_results'])
                 self.assertTrue(ctx['section_results'])
+                self.assertEqual(render_mock.call_args[0][1], 'new/aggregate_results.html')
 
-    def test_ladder_partial_page_loads_rows(self):
+    def test_ladder_aggregate_page_has_bounded_release_headers(self):
         ladder = Game.objects.get(pk=LADDER_GAME_ID)
         with patch('games.views.track.track_task_change'):
             tg = TaskGroup.objects.create(label='tg_ladder_partial')
@@ -166,22 +168,17 @@ class SectionResultsSplitTests(TestCase):
                 text='y',
             )
 
-        request = self.factory.get('/ladder/results/?page=1&partial=1')
+        request = self.factory.get('/ladder/results/?limit=10')
         request.user = AnonymousUser()
         request.session = {}
-        payload = self._minimal_live_payload(ladder, task, number='9001', name='L9001')
-        with patch(
-            'games.results_snapshot.build_results_snapshot_payload',
-            return_value=payload,
-        ) as builder:
-            with patch('games.views.new_ui.render') as render_mock:
-                new_section_results_page(request, LADDER_GAME_ID)
-                builder.assert_called_once()
-                self.assertEqual(render_mock.call_args[0][1], 'new/partials/results_rows.html')
-                self.assertEqual(render_mock.call_args[0][2].get('page_size'), 50)
-                self.assertTrue(render_mock.call_args[0][2].get('is_ladder_results'))
+        with patch('games.views.new_ui.render') as render_mock:
+            new_section_results_page(request, LADDER_GAME_ID)
+            ctx = render_mock.call_args[0][2]
+            self.assertEqual(render_mock.call_args[0][1], 'new/aggregate_results.html')
+            self.assertLessEqual(len(ctx['aggregate_columns']), 10)
+            self.assertTrue(ctx['is_ladder_results'])
 
-    def test_ladder_partial_pages_reuse_live_cache(self):
+    def test_ladder_aggregate_pagination_renders_normal_page(self):
         ladder = Game.objects.get(pk=LADDER_GAME_ID)
         with patch('games.views.track.track_task_change'):
             tg = TaskGroup.objects.create(label='tg_ladder_cache')
@@ -195,20 +192,14 @@ class SectionResultsSplitTests(TestCase):
                 text='y',
             )
 
-        payload = self._minimal_live_payload(ladder, task, number='9002', name='L9002')
-        with patch(
-            'games.results_snapshot.build_results_snapshot_payload',
-            return_value=payload,
-        ) as builder:
-            with patch('games.views.new_ui.render'):
-                for page in (1, 2):
-                    request = self.factory.get(
-                        '/ladder/results/?page={}&partial=1'.format(page)
-                    )
-                    request.user = AnonymousUser()
-                    request.session = {}
-                    new_section_results_page(request, LADDER_GAME_ID)
-                self.assertEqual(builder.call_count, 1)
+        with patch('games.views.new_ui.render') as render_mock:
+            for page in (1, 2):
+                request = self.factory.get('/ladder/results/?page={}'.format(page))
+                request.user = AnonymousUser()
+                request.session = {}
+                new_section_results_page(request, LADDER_GAME_ID)
+            self.assertEqual(render_mock.call_count, 2)
+            self.assertEqual(render_mock.call_args[0][1], 'new/aggregate_results.html')
 
     def test_headers_context_without_snapshot(self):
         game = self._create_section_game('sec_res3')
@@ -255,11 +246,11 @@ class SectionResultsSplitTests(TestCase):
 
         self.assertRegex(
             response.content.decode(),
-            r'<th class="is-sticky-top" colspan="1">\s*14\s*</th>',
+            r'<th class="aggregate-release"><a href="/games/sec_short_header/14/results/"[^>]*>14</a></th>',
         )
         self.assertNotContains(response, '14. Алфавитка #14')
 
-    def test_ladder_initial_with_snapshot_uses_headers_only(self):
+    def test_ladder_aggregate_page_uses_release_window_instead_of_snapshot_headers(self):
         ladder = Game.objects.get(pk=LADDER_GAME_ID)
         GameResultsSnapshot.objects.update_or_create(
             game=ladder,
@@ -280,6 +271,7 @@ class SectionResultsSplitTests(TestCase):
                 new_section_results_page(request, LADDER_GAME_ID)
                 full_snap.assert_not_called()
                 ctx = render_mock.call_args[0][2]
-                self.assertEqual(ctx['teams_sorted'], [])
+                self.assertEqual(ctx['aggregate_rows'], [])
                 self.assertTrue(ctx['is_ladder_results'])
-                self.assertEqual(len(ctx['task_groups']), 1)
+                self.assertLessEqual(len(ctx['aggregate_columns']), 10)
+                self.assertTrue(ctx['aggregate_leaderboard'])

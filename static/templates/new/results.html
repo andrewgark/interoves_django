@@ -32,6 +32,16 @@
       {% endif %}
     </div>
 
+    {% if show_alphabetty_detail %}
+      <nav class="new-results-pager" aria-label="Порядок результатов">
+        <span class="new-results-pager__meta">Вторичный критерий:</span>
+        <span class="new-results-pager__actions">
+          <a class="new-btn new-btn--mini {% if alphabetty_sort == 'attempts' %}new-btn--primary{% else %}new-btn--ghost{% endif %}" href="{{ request.path }}?sort=attempts">По попыткам</a>
+          <a class="new-btn new-btn--mini {% if alphabetty_sort == 'time' %}new-btn--primary{% else %}new-btn--ghost{% endif %}" href="{{ request.path }}?sort=time">По времени</a>
+        </span>
+      </nav>
+    {% endif %}
+
     {% if not section_results %}
     <div class="new-card new-card--after-heading">
       <div class="new-card__text new-card__text--flush">
@@ -81,8 +91,11 @@
               <th class="is-sticky-left is-sticky-top">#</th>
               <th class="is-sticky-left-2 is-sticky-top col-team">{% if section_results %}Участник{% elif mode == 'general' %}Команда / участник{% else %}Команда{% endif %}</th>
               <th class="is-sticky-left-3 is-sticky-top col-score">Сумма</th>
+              {% if show_alphabetty_detail %}<th class="is-sticky-top">Попытки</th>{% endif %}
               {% if mode == 'tournament' %}
                 <th class="is-sticky-left-4 is-sticky-top">Время</th>
+              {% elif show_solve_duration %}
+                <th class="is-sticky-top">Время решения</th>
               {% endif %}
               {% if results_variant == 'ladder_words' %}
                 <th class="is-sticky-top col-ladder" colspan="{{ ladder_word_count }}">{{ ladder_number }}</th>
@@ -111,6 +124,8 @@
               <th class="is-sticky-left-3 is-sticky-top-2"></th>
               {% if mode == 'tournament' %}
                 <th class="is-sticky-left-4 is-sticky-top-2"></th>
+              {% elif show_solve_duration %}
+                <th class="is-sticky-top-2"></th>
               {% endif %}
               {% for task_group in task_groups %}
                 {% for task in task_group_to_tasks|get_item:task_group.number %}

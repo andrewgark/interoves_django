@@ -984,6 +984,7 @@ class TaskGroupAdmin(admin.ModelAdmin):
     list_display = ['__str__', 'label', 'is_18_plus']
     search_fields = ['label', 'id']
     readonly_fields = ['week_task_source_link']
+    autocomplete_fields = ['authors']
 
     def week_task_source_link(self, obj):
         from django.utils.html import format_html
@@ -1050,6 +1051,7 @@ def copy_game(modeladmin, request, queryset):
                 is_18_plus=old_tg.is_18_plus,
             )
             new_tg.save()
+            new_tg.authors.set(old_tg.authors.all())
             GameTaskGroup.objects.create(
                 game=game,
                 task_group=new_tg,
@@ -1557,10 +1559,10 @@ reject_ticket_request.short_description = "Reject Ticket Request"
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
     list_display = [
-        '__str__', 'team_on', 'team_requested', 'telegram_handle', 'telegram_user_id',
+        '__str__', 'is_hidden', 'team_on', 'team_requested', 'telegram_handle', 'telegram_user_id',
         'telegram_username', 'telegram_verified', 'telegram_linked_at', 'vk_url',
     ]
-    list_filter = ['telegram_verified']
+    list_filter = ['telegram_verified', 'is_hidden']
     search_fields = ['user__username', 'telegram_handle', 'telegram_user_id', 'telegram_username']
     raw_id_fields = ['user', 'team_on', 'team_requested']
     actions = [confirm_profile_team_request, clear_profile_team]
