@@ -4419,7 +4419,11 @@
     fetch(btn.getAttribute('data-reset-url'), {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' },
+      headers: {
+        'X-CSRFToken': csrf,
+        'Content-Type': 'application/json',
+        'X-Interoves-Play-Mode': btn.getAttribute('data-reset-play-mode') || 'personal'
+      },
       body: '{}'
     }).then(function (r) { return r.json(); }).then(function (data) {
       if (!data.ok) throw new Error(data.error || 'Ошибка');
