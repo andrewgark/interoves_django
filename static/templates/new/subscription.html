@@ -157,7 +157,8 @@
               <div class="new-sub-offer__term">Каждый месяц</div>
               {% if intro_available %}
                 <strong class="new-sub-offer__price">{{ monthly_intro_label }} <span>первый месяц</span></strong>
-                <p>Затем {{ monthly_regular_label }} в месяц. Автопродление можно отменить в любой момент.</p>
+                <strong class="new-sub-offer__price new-sub-offer__price--regular">Затем {{ monthly_regular_label }} <span>в месяц</span></strong>
+                <p>Автопродление можно отменить в любой момент.</p>
               {% else %}
                 <strong class="new-sub-offer__price">{{ monthly_regular_label }} <span>в месяц</span></strong>
                 <p>Автопродление можно отменить в любой момент.</p>

@@ -10875,6 +10875,10 @@ button.new-word-salad__hint-btn:disabled {
   line-height: 1.25;
 }
 
+.new-sub-offer__price--regular {
+  font-size: 1.05rem;
+}
+
 .new-sub-offer__price span {
   color: var(--muted);
   font-size: 0.84rem;
