@@ -458,6 +458,7 @@ def update_word_salad(
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
     checker_data = _validated_checker_data(grid_text, words_text, rare_words_text)
+    previous_checker_data = task.checker_data
     task.text = intro or ''
     task.checker_data = checker_data
     task.answer = ''
@@ -466,6 +467,13 @@ def update_word_salad(
         _apply_author_tag(task, author)
         update_fields.append('tags')
     task.save(update_fields=update_fields)
+    # Task.save() schedules a live update on commit. Rebuild actor projections
+    # before that commit so clients cannot render the new word indices against
+    # the old ChainTaskState and mistake it for a progress reset.
+    grid_changed = task._word_salad_grid_changed((previous_checker_data, 'word_salad'))
+    if previous_checker_data != checker_data and not grid_changed:
+        from games.recheck import recheck_word_salad_task
+        recheck_word_salad_task(task, game=link.game, notify=False)
     try:
         number = int(link.number)
     except (TypeError, ValueError):
