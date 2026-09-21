@@ -51,6 +51,8 @@ the sandbox first.
 
 For Elastic Beanstalk, RDS, Redis (ElastiCache), IAM, and local AWS CLI with the **`ai-bot`** role, read **[agents/aws-eb.md](aws-eb.md)** — especially **Agent playbook** and **RDS / Redis**. Use `required_permissions: ["network", "all"]` when running AWS/SSH scripts from tools.
 
+For deploy tasks, also use [`.cursor/skills/interoves-deploy/SKILL.md`](../.cursor/skills/interoves-deploy/SKILL.md) to decide whether `BUNDLE_MICROSITES=1` is needed. Ordinary Django deploys leave it unset.
+
 ## Social queue (schedule posts)
 
 To schedule Telegram / X / Instagram posts into prod `SocialQueuePost`, use the personal skill **`interoves-social-queue`** (`~/.cursor/skills/interoves-social-queue/SKILL.md`): `POST /support/social/create/` with `mode=tg_defer`. Do not upload images via `eb_run`/SCP.

@@ -16,6 +16,8 @@ secrets/*
 .cursor/skills/*
 !.cursor/skills/interoves-realtime/
 !.cursor/skills/interoves-realtime/**
+!.cursor/skills/interoves-deploy/
+!.cursor/skills/interoves-deploy/**
 __pycache__
 media
 

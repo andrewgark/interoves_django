@@ -3,7 +3,11 @@
 # Optional: set EB_BIN to full path to eb if it is not on PATH.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
-./scripts/bundle_microsites.sh
+if [[ "${BUNDLE_MICROSITES:-0}" == "1" ]]; then
+  ./scripts/bundle_microsites.sh
+else
+  echo "Skipping microsite bundling (set BUNDLE_MICROSITES=1 to refresh local bundles)."
+fi
 if [[ ! -x nutrimatic_bundle/build/find-expr ]]; then
   echo "ERROR: nutrimatic_bundle/build/find-expr missing or not executable." >&2
   echo "Run scripts/bundle_microsites.sh (needs ~/nutrimatic-ru/build/find-expr) or restore the committed binary." >&2
