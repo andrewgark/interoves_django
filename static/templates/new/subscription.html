@@ -210,17 +210,18 @@
               <article class="new-sub-offer">
                 <div class="new-sub-offer__term">Каждый месяц</div>
                 {% if club_eur.first_amount_display and tribute_intro_available %}
-                  <strong class="new-sub-offer__price">€{{ club_eur.first_amount_display }} <span>первый месяц</span></strong>
-                  <p>Затем €{{ club_eur.amount_display }} в месяц. Управление подпиской — в Tribute.</p>
+                  <strong class="new-sub-offer__price">€{{ club_eur.first_amount_display }} <span>первый месяц · + Service Fee</span></strong>
+                  <strong class="new-sub-offer__price new-sub-offer__price--regular">Затем €{{ club_eur.amount_display }} <span>в месяц · + Service Fee</span></strong>
+                  <p>Управление подпиской — в Tribute.</p>
                 {% else %}
-                  <strong class="new-sub-offer__price">€{{ club_eur.amount_display }} <span>в месяц</span></strong>
+                  <strong class="new-sub-offer__price">€{{ club_eur.amount_display }} <span>в месяц · + Service Fee</span></strong>
                   <p>Управление подпиской — в Tribute.</p>
                 {% endif %}
               </article>
               {% if club_eur.yearly_amount_display %}
                 <article class="new-sub-offer">
                   <div class="new-sub-offer__term">12 месяцев</div>
-                  <strong class="new-sub-offer__price">€{{ club_eur.yearly_amount_display }} <span>за год</span></strong>
+                  <strong class="new-sub-offer__price">€{{ club_eur.yearly_amount_display }} <span>за год · + Service Fee</span></strong>
                   {% if club_eur_annual_saving_percent %}
                     <p>Разовая оплата, без автопродления. Экономия {{ club_eur_annual_saving_percent }}% по сравнению с обычной помесячной оплатой.</p>
                   {% else %}
