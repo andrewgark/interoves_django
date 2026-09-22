@@ -2699,8 +2699,8 @@ def new_section_results_page(request, game_id):
             solved = score is not None and float(score or 0) > 0
             if task is not None:
                 from games.alphabetty.play import load_state
-                state_row = _chain_state_for_actor(game, task, current_actor)
-                solved = solved or bool(state_row and load_state(state_row.state).get('won'))
+                raw_state = _latest_actor_task_state(game, task, current_actor)
+                solved = solved or bool(raw_state and load_state(raw_state).get('won'))
             if solved and answer:
                 aggregate_column_labels[column.link.pk] = answer
 
@@ -2869,6 +2869,31 @@ def _chain_state_for_actor(game, task, actor):
     return ChainTaskState.objects.filter(**filters).only('state').first()
 
 
+def _latest_actor_task_state(game, task, actor):
+    chain_row = _chain_state_for_actor(game, task, actor)
+    if chain_row is not None and chain_row.state:
+        return chain_row.state
+    if actor is None or task is None:
+        return None
+    filters = {
+        'task': task,
+        'game': game,
+        'replay_slot__isnull': True,
+        'skip': False,
+    }
+    if getattr(actor, 'is_team_results_row', False):
+        filters.update(team=actor, user__isnull=True, anon_key__isnull=True)
+    elif getattr(actor, 'user_id', None) is not None:
+        filters.update(user_id=actor.user_id, team__isnull=True, anon_key__isnull=True)
+    elif getattr(actor, 'anon_key', None):
+        filters.update(anon_key=actor.anon_key, team__isnull=True, user__isnull=True)
+    else:
+        return None
+    return Attempt.manager.filter(**filters).exclude(
+        state__isnull=True,
+    ).exclude(state='').order_by('-time').values_list('state', flat=True).first()
+
+
 def _set_current_result_header_answers(data, actor, game=None):
     """Expose solved words in result headers only for the current actor."""
     if actor is None:
@@ -2912,8 +2937,8 @@ def _set_current_result_header_answers(data, actor, game=None):
         solved = cell.get('solved')
         if not solved and game is not None and getattr(task, 'task_type', None) == 'alphabetty':
             from games.alphabetty.play import load_state
-            state_row = _chain_state_for_actor(game, task, actor)
-            solved = bool(state_row and load_state(state_row.state).get('won'))
+            raw_state = _latest_actor_task_state(game, task, actor)
+            solved = bool(raw_state and load_state(raw_state).get('won'))
         answer = cell.get('answer') or getattr(task, 'answer', '')
         if solved and answer:
             task.display_answer = answer
@@ -2957,6 +2982,23 @@ def _word_salad_release_breakdown(data, game, number):
             continue
         chain_states[key] = row.state
 
+    attempt_states = {}
+    for row in Attempt.manager.filter(
+        task=task,
+        game=game,
+        replay_slot__isnull=True,
+        skip=False,
+    ).exclude(state__isnull=True).exclude(state='').order_by('time').only(
+        'team_id', 'user_id', 'anon_key', 'state',
+    ):
+        key = (
+            ('team', row.team_id) if row.team_id else
+            ('user', row.user_id) if row.user_id else
+            ('anon', row.anon_key)
+        )
+        if key[1] is not None:
+            attempt_states[key] = row.state
+
     def actor_key(actor):
         if getattr(actor, 'is_team_results_row', False):
             return ('team', actor.pk)
@@ -2975,6 +3017,8 @@ def _word_salad_release_breakdown(data, game, number):
         info = infos[0] if infos else None
         attempts = getattr(info, 'attempts', None) or []
         raw_state = chain_states.get(actor_key(actor))
+        if raw_state is None:
+            raw_state = attempt_states.get(actor_key(actor))
         if raw_state is None:
             raw_state = attempts[-1].state if attempts else None
         state = load_state(raw_state)
