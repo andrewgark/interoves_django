@@ -97,7 +97,7 @@
 
   <div class="new-results-fullbleed">
     <div class="new-results-wrap" role="region" aria-label="Таблица результатов">
-      <table class="new-results-table{% if is_ladder_results or results_variant == 'alphabetty' %} new-results-table--daily{% endif %}">
+      <table class="new-results-table{% if is_ladder_results or results_variant == 'alphabetty' %} new-results-table--daily{% endif %}{% if results_variant == 'ladder_words' or results_variant == 'salad_words' or results_variant == 'alphabetty' %} new-results-table--word-answers{% endif %}">
           <thead>
             <tr>
               <th class="is-sticky-left is-sticky-top">#</th>

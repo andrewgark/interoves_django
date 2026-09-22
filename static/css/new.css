@@ -6622,7 +6622,7 @@ a.new-btn.new-hub-next-game-vote__btn {
   /* Ширины первых колонок — переменные, на узких экранах уменьшаются (ниже). */
   --results-col-rank: 3.1rem;
   --results-col-team: 12.5rem;
-  --results-col-score: 5.7rem;
+  --results-col-score: calc(3ch + 1rem);
   --results-col-time: 4.8rem;
   border-collapse: separate;
   border-spacing: 0;
@@ -6745,6 +6745,17 @@ a.new-btn.new-hub-next-game-vote__btn {
 }
 .new-results-table--ladder th.col-ladder a:hover{
   text-decoration: underline;
+}
+
+/* Word answers in result headers must determine their own column width. */
+.new-results-table--word-answers th.col-ladder,
+.new-results-table--word-answers tbody td{
+  width: auto;
+  min-width: 2.5rem;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .new-results-table th.col-score,
