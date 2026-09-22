@@ -2954,13 +2954,18 @@ def _set_current_result_header_answers(data, actor, game=None):
                 task.display_answer = answer
         return data
 
-    for task, cell in zip(tasks, cells):
+    for index, task in enumerate(tasks):
+        cell = cells[index] if index < len(cells) else {}
         solved = cell.get('solved')
         if not solved and game is not None and getattr(task, 'task_type', None) == 'alphabetty':
             from games.alphabetty.play import load_state
             raw_state = _latest_actor_task_state(game, task, actor)
             solved = bool(raw_state and load_state(raw_state).get('won'))
         answer = cell.get('answer') or getattr(task, 'answer', '')
+        if not answer and game is not None and getattr(game, 'id', None) == ALPHABETTY_GAME_ID:
+            # A few older Alphabetty tasks kept the secret in checker_data
+            # while leaving Task.answer empty.
+            answer = (getattr(task, 'checker_data', '') or '').strip().splitlines()[0]
         if solved and answer:
             task.display_answer = answer
     return data
