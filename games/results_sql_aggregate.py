@@ -92,12 +92,22 @@ def _hint_actor_key_annotation():
     )
 
 
+class _AggHint:
+    __slots__ = ('number',)
+
+    def __init__(self, number):
+        self.number = number
+
+    def key_sort(self):
+        return Hint.number_key(self.number) if self.number is not None else ()
+
+
 class _AggHintAttempt:
     __slots__ = ('is_real_request', 'hint')
 
     def __init__(self, number):
         self.is_real_request = True
-        self.hint = SimpleNamespace(number=number, key_sort=lambda n=number: Hint.number_key(n) if n is not None else ())
+        self.hint = _AggHint(number)
 
 
 class AggregatedAttemptsInfo:

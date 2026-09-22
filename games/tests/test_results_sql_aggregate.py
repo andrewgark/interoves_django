@@ -1,6 +1,7 @@
 """SQL results aggregate: parity with ORM bulk + snapshot wiring."""
 
 import json
+import pickle
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -219,6 +220,11 @@ class ResultsSqlAggregateTests(TestCase):
         self.assertEqual(float(team_row.get_sum_hint_penalty()), 2.0)
         nums = [ha.hint.number for ha in team_row.hint_attempts]
         self.assertEqual(sorted(nums), ['1', '2'])
+
+    def test_sql_aggregate_rows_are_cache_serializable(self):
+        sql = get_sql_aggregated_game_actor_rows([self.task2.id], game=self.game)
+
+        pickle.dumps(sql)
 
     def test_snapshot_general_uses_sql_not_bulk(self):
         with patch(
