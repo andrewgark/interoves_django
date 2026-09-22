@@ -40,11 +40,12 @@ class _WordColHeader:
 
 
 class _WordColTask:
-    __slots__ = ('number', 'answer')
+    __slots__ = ('number', 'answer', 'display_answer')
 
     def __init__(self, number, answer):
         self.number = str(number)
         self.answer = answer
+        self.display_answer = ''
 
 
 def _to_float(x):

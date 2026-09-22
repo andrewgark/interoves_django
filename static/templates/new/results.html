@@ -103,7 +103,7 @@
               {% endif %}
             {% if results_variant == 'ladder_words' or results_variant == 'salad_words' %}
               {% for task_group in task_groups %}
-                  {% for task in task_group_to_tasks|get_item:task_group.number %}<th class="is-sticky-top col-ladder">{{ task.display_number|default:task.number }}</th>{% endfor %}
+                  {% for task in task_group_to_tasks|get_item:task_group.number %}<th class="is-sticky-top col-ladder">{% if task.display_answer %}{{ task.display_answer }}{% else %}{{ task.display_number|default:task.number }}{% endif %}</th>{% endfor %}
                 {% endfor %}
               {% elif results_variant == 'ladder' or results_variant == 'alphabetty' %}
                 {% for task_group in task_groups %}

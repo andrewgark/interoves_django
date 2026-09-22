@@ -1723,6 +1723,10 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
             return redirect('project_task_group', project_id=project.id, game_id=game.id, task_group_number=fallback.number)
         raise Http404()
     task_group = placement.task_group
+    if is_scheduled_game(game.id):
+        from games.daily_progress_reset import reset_current_daily_release_progress
+
+        reset_current_daily_release_progress(now=timezone.now(), game_ids=(game.id,))
     replay_slot = active_replay(
         request=request,
         game=game,
@@ -2637,6 +2641,9 @@ def _render_task_group_results_page(request, game, number, back_url):
     results_variant = 'alphabetty' if game.id == ALPHABETTY_GAME_ID else 'salad_words' if game.id == 'salad' else 'standard'
     if game.id == 'salad':
         data = _word_salad_release_breakdown(data, game, number)
+    data = _set_current_result_header_answers(
+        data, me_personal or me_anon_participant or team,
+    )
     placement = GameTaskGroup.objects.filter(
         game=game, number=str(number),
     ).first()
@@ -2679,6 +2686,23 @@ class _SaladResultWord:
         self.number = word
         self.display_number = str(number)
         self.answer = word
+        self.display_answer = ''
+
+
+def _set_current_result_header_answers(data, actor):
+    """Expose solved words in result headers only for the current actor."""
+    if actor is None:
+        return data
+    cells = (data.get('team_to_cells') or {}).get(actor) or []
+    tasks = [
+        task
+        for task_group in (data.get('task_groups') or [])
+        for task in (data.get('task_group_to_tasks') or {}).get(task_group.number, [])
+    ]
+    for task, cell in zip(tasks, cells):
+        if cell.get('solved') and cell.get('answer'):
+            task.display_answer = cell['answer']
+    return data
 
 
 def _word_salad_release_breakdown(data, game, number):
@@ -2872,6 +2896,9 @@ def new_ladder_word_results_page(request, task_group_number):
 
     if request.GET.get('partial') == '1':
         data = build_ladder_word_results_context(game, placement, task)
+        data = _set_current_result_header_answers(
+            data, me_personal or me_anon_participant or team,
+        )
         from games.leaderboard import apply_release_policy
         from games.daily_section import publish_at_for
         data = apply_release_policy(
@@ -2897,7 +2924,10 @@ def new_ladder_word_results_page(request, task_group_number):
             **data,
         })
 
-    header_data = ladder_word_results_headers_context(task)
+    header_data = build_ladder_word_results_context(game, placement, task)
+    header_data = _set_current_result_header_answers(
+        header_data, me_personal or me_anon_participant or team,
+    )
     data = {**header_data, **_results_rows_empty_context()}
     data['results_column_count'] = _results_column_count(
         data.get('task_groups'), mode='general'
@@ -3492,6 +3522,10 @@ def new_task_group_page(request, game_id, task_group_number):
                 return redirect(_play_url_for_task_group(game, fallback.number))
             raise Http404()
     task_group = placement.task_group
+    if is_scheduled_game(game.id) and isinstance(placement, GameTaskGroup):
+        from games.daily_progress_reset import reset_current_daily_release_progress
+
+        reset_current_daily_release_progress(now=timezone.now(), game_ids=(game.id,))
     if (game.id == LADDER_GAME_ID and ladder_offer is not None) or (
         game.id == WORD_SALAD_GAME_ID and salad_offer is not None
     ):
