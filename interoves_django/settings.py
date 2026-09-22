@@ -378,6 +378,7 @@ TEMPLATES = [
                 'games.context_processors.site_deploy_version',
                 'games.context_processors.analytics_bootstrap',
                 'games.context_processors.feedback_nav',
+                'games.context_processors.club_archive_ui',
             ],
         },
     },

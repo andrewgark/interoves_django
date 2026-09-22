@@ -7,7 +7,7 @@
   {% endif %}
   {% for row in task_group_rows %}
     <div id="{{ game.id }}-{{ row.number }}" class="new-task daily-archive__card {{ row.row_class|default:'' }}{% if row.is_today %} new-task--today{% endif %}" data-task-group-number="{{ row.number }}" data-fully-solved="{% if row.is_fully_solved %}1{% else %}0{% endif %}">
-      <a class="new-task__body" href="{{ row.play_url }}">
+      <a class="new-task__body{% if row.is_archive_locked %} is-archive-locked{% endif %}" href="{% if row.is_archive_locked %}/subscription/{% else %}{{ row.play_url }}{% endif %}"{% if row.is_archive_locked %} title="Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽."{% endif %}>
         {% if row.title %}
           <strong>{% autoescape off %}{{ row.title }}{% endautoescape %}</strong>
         {% else %}
@@ -31,6 +31,7 @@
         {% endif %}
       </a>
       <span class="new-task__actions">
+        {% if row.is_archive_locked %}<span class="club-lock-badge" title="Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽." aria-label="Задание доступно по клубной подписке"><i class="ph ph-lock-key" aria-hidden="true"></i></span>{% endif %}
         <span class="new-task__action" data-task-action>
           {% if row.is_fully_solved %}
             <span class="new-pill new-pill--ok" title="Решено">ок</span>
@@ -40,7 +41,7 @@
           {% include "new/partials/difficulty_badge.html" with difficulty=row.difficulty %}
         {% endif %}
         {% if row.results_url and game|access_see_results:team %}
-          <a class="new-task__results" href="{{ row.results_url }}">Результаты</a>
+          <a class="new-task__results" href="{% if row.is_archive_locked %}/subscription/{% else %}{{ row.results_url }}{% endif %}"{% if row.is_archive_locked %} title="Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽."{% endif %}>Результаты{% if row.is_archive_locked %} <i class="ph ph-lock-key" aria-hidden="true"></i>{% endif %}</a>
         {% endif %}
       </span>
     </div>

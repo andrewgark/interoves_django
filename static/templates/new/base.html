@@ -93,6 +93,40 @@
   })();
   </script>
   {% endif %}
+  {% if club_archive_offer_available %}
+  <div id="club-archive-offer" class="new-rules-modal" role="dialog" aria-labelledby="club-archive-offer-title" aria-modal="true" hidden>
+    <div class="new-rules-overlay" data-club-offer-close></div>
+    <div class="new-rules-modal__box pal-card">
+      <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-club-offer-close><i class="ph ph-x" aria-hidden="true"></i></button>
+      <p class="pal-kicker">Клуб Inter Oves</p>
+      <h2 id="club-archive-offer-title" class="pal-title">Вы решили 7 заданий — отличный результат!</h2>
+      <p class="pal-lead">Откройте весь архив Inter Oves: все прошлые задания, без ограничений.</p>
+      <p class="pal-lead">Клубная подписка: первый месяц — 420 ₽.</p>
+      <div class="new-rules-modal__actions new-rules-modal__actions--flush">
+        <a class="new-btn new-btn--yellow" href="/subscription/">Открыть весь архив</a>
+        <button type="button" class="new-btn new-btn--ghost" data-club-offer-close>Позже</button>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var modal = document.getElementById('club-archive-offer');
+    if (!modal) return;
+    var key = 'interoves_club_archive_offer_seen';
+    try { if (sessionStorage.getItem(key) === '1') return; } catch (e) {}
+    modal.hidden = false;
+    modal.classList.add('is-open');
+    document.body.classList.add('new-modal-open');
+    function close() {
+      modal.classList.remove('is-open'); modal.hidden = true;
+      document.body.classList.remove('new-modal-open');
+      try { sessionStorage.setItem(key, '1'); } catch (e) {}
+    }
+    modal.querySelectorAll('[data-club-offer-close]').forEach(function (el) { el.addEventListener('click', close); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); }, { once: true });
+  })();
+  </script>
+  {% endif %}
   <nav class="new-nav" aria-label="Главное меню">
     <div class="new-nav__inner">
       <a class="new-nav__brand" href="{{ ui_project_home_url|default:'/' }}">

@@ -443,9 +443,30 @@ def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
             'title': '{} · {}'.format(p.number, p.name),
             'progress_text': None,
             'difficulty': difficulties.get(p.pk),
+            'is_archive_locked': False,
         }
         for p in task_groups
     ]
+
+
+def _mark_locked_archive_rows(request, game, rows):
+    from games.club_access import scheduled_number_requires_club, user_can_access_scheduled_number
+    for row in rows:
+        row['is_archive_locked'] = (
+            scheduled_number_requires_club(game, row.get('number'))
+            and not row.get('is_fully_solved')
+            and not user_can_access_scheduled_number(request.user, game, row.get('number'))
+        )
+    return rows
+
+
+def _archive_nav_target(request, game, placement, href):
+    """Return a navigation target with the same paywall semantics as a card."""
+    from games.club_access import user_can_access_scheduled_number
+    if not placement:
+        return None, False
+    locked = not user_can_access_scheduled_number(request.user, game, placement.number)
+    return ('/subscription/' if locked else href), locked
 
 
 def _task_group_progress_payload(game, task_groups, *, team=None, user=None, anon_key=None, mode='general'):
@@ -640,6 +661,7 @@ def _initial_task_group_progress(
         return task_group_rows, progress_context
 
     _merge_task_group_progress_rows(task_group_rows, progress_rows)
+    _mark_locked_archive_rows(request, game, task_group_rows)
     progress_context['load_task_group_progress'] = False
     progress_context['task_group_progress_embedded'] = True
     return task_group_rows, progress_context
@@ -1102,7 +1124,8 @@ def _published_numbers(game):
     return {link.number for link in filter_published_links(_game_task_group_links(game), game)}
 
 
-def _daily_archive_context(request, game, links, *, completed_numbers=(), status_by_key=None):
+def _daily_archive_context(request, game, links, *, completed_numbers=(), status_by_key=None,
+                           locked_keys=()):
     """Adapt section placements to the neutral reusable archive component."""
     items = []
     for link in links:
@@ -1129,6 +1152,7 @@ def _daily_archive_context(request, game, links, *, completed_numbers=(), status
         game_label=meta.get('archive_item_label') or meta.get('title') or game.name,
         completed_keys={str(number) for number in completed_numbers},
         status_by_key=status_by_key,
+        locked_keys=locked_keys,
     )
 
 
@@ -1960,6 +1984,7 @@ def _render_section_game_page(request, game_id):
         task_groups,
         task_group_rows,
     )
+    _mark_locked_archive_rows(request, game, task_group_rows)
     completed_numbers = [
         row['number'] for row in task_group_rows if row.get('is_fully_solved')
     ]
@@ -1971,6 +1996,7 @@ def _render_section_game_page(request, game_id):
             for row in task_group_rows
             if row.get('row_class') in ('new-task--partial', 'new-task--solved')
         },
+        locked_keys={row['number'] for row in task_group_rows if row.get('is_archive_locked')},
     )
 
     section_today_play_url = None
@@ -3084,6 +3110,10 @@ def new_section_task_results_page(request, game_id, number):
         raise Http404()
     if not scheduled_number_is_public(game, number):
         raise Http404()
+    from games.club_access import reject_if_club_archive_blocked
+    locked = reject_if_club_archive_blocked(request, game, number=number)
+    if locked is not None:
+        return locked
     team = request.user.profile.team_on if has_profile(request.user) else None
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
@@ -3104,6 +3134,10 @@ def new_game_task_results_page(request, game_id, number, project_id=None):
     """Results for one task group in a project-scoped game."""
     expected_project_id = project_id or NEW_UI_PROJECT
     game = get_object_or_404(Game, id=game_id, project_id=expected_project_id)
+    from games.club_access import reject_if_club_archive_blocked
+    locked = reject_if_club_archive_blocked(request, game, number=number)
+    if locked is not None:
+        return locked
     team = _team_for_access(request)
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
@@ -3184,6 +3218,10 @@ def new_ladder_word_results_page(request, task_group_number):
         )
         if not placement:
             raise Http404()
+        from games.club_access import reject_if_club_archive_blocked
+        locked = reject_if_club_archive_blocked(request, game, number=placement.number)
+        if locked is not None:
+            return locked
 
     if ladder_offer is not None:
         task = (
@@ -4008,12 +4046,22 @@ def new_task_group_page(request, game_id, task_group_number):
         'show_palindrome_rules': show_palindrome_rules,
         'section_rules_type': section_rules_type,
         'section_tutorial_html': section_tutorial_html,
-        'prev_task_group_url': (
-            _play_url_for_task_group(game, prev_tg.number) if prev_tg else None
-        ),
-        'next_task_group_url': (
-            _play_url_for_task_group(game, next_tg.number) if next_tg else None
-        ),
+        'prev_task_group_url': _archive_nav_target(
+            request, game, prev_tg,
+            _play_url_for_task_group(game, prev_tg.number) if prev_tg else None,
+        )[0],
+        'next_task_group_url': _archive_nav_target(
+            request, game, next_tg,
+            _play_url_for_task_group(game, next_tg.number) if next_tg else None,
+        )[0],
+        'prev_task_group_locked': _archive_nav_target(
+            request, game, prev_tg,
+            _play_url_for_task_group(game, prev_tg.number) if prev_tg else None,
+        )[1],
+        'next_task_group_locked': _archive_nav_target(
+            request, game, next_tg,
+            _play_url_for_task_group(game, next_tg.number) if next_tg else None,
+        )[1],
         'task_group_results_url': _task_group_results_url(game, placement.number),
         'replay_url': _task_group_replay_url(game, placement.number),
         'replay_exit_url': _task_group_replay_exit_url(game, placement.number),
@@ -4131,6 +4179,10 @@ def _redirect_after_replay_action(game, number, project_id=None):
 def new_replay_start(request, game_id, task_group_number, project_id=None):
     """Explicitly start/reset the private replay slot for one task group."""
     game, placement = _replay_game_and_placement(game_id, task_group_number, project_id)
+    from games.club_access import reject_if_club_archive_blocked
+    locked = reject_if_club_archive_blocked(request, game, number=placement.number)
+    if locked is not None:
+        return locked
     team, user, anon_key = _replay_actor_for_request(request, game)
     start_or_reset_replay(
         request=request,
@@ -4423,6 +4475,10 @@ def new_get_replacements_line_answer(request, task_id, line_index):
     game = game_from_request_for_task(request, task)
     if game is None:
         raise Http404()
+    from games.club_access import reject_if_club_archive_blocked
+    locked = reject_if_club_archive_blocked(request, game, task=task, json_mode=True)
+    if locked is not None:
+        return locked
 
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
@@ -4479,6 +4535,10 @@ def new_get_raddle_word_answer(request, task_id, word_index):
     game = game_from_request_for_task(request, task)
     if game is None:
         raise Http404()
+    from games.club_access import reject_if_club_archive_blocked
+    locked = reject_if_club_archive_blocked(request, game, task=task, json_mode=True)
+    if locked is not None:
+        return locked
 
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)

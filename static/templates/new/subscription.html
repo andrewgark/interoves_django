@@ -90,6 +90,9 @@
       </dl>
     {% endif %}
   </div>
+  {% if club_archive_telegram_url %}
+  <p class="club-member-chat"><a class="new-btn new-btn--ghost" href="{{ club_archive_telegram_url }}" target="_blank" rel="noopener noreferrer"><i class="ph ph-telegram-logo" aria-hidden="true"></i> Чат клуба Inter Oves Elite</a></p>
+  {% endif %}
 
   {% if saved_payment_method_label %}
     <section id="new-sub-payment-method" class="new-card new-pay-payment-card" aria-labelledby="new-sub-payment-method-title">

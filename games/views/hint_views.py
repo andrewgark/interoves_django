@@ -90,6 +90,9 @@ def process_send_hint_attempt(request, task_id):
     game = game_from_request_for_task(request, task)
     if game is None:
         return {'status': 'ambiguous_game'}
+    from games.club_access import user_can_access_task_archive
+    if not user_can_access_task_archive(request.user, game, task):
+        raise NoGameAccessException('Club subscription required for archived game')
     play_mode = _get_play_mode(request, game)
 
     team = None

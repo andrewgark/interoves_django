@@ -91,7 +91,21 @@ def user_can_access_scheduled_number(user, game, number, *, now=None) -> bool:
         return True
     if getattr(user, 'is_staff', False):
         return True
-    return has_club_access(user, now=now)
+    if has_club_access(user, now=now):
+        return True
+    # A solved archive item remains available to its solver after the free
+    # rolling window expires. This is intentionally checked only when gating
+    # is enabled, so the old behaviour remains byte-for-byte unchanged while
+    # the feature flag is off.
+    if getattr(user, 'is_authenticated', False):
+        from games.models import GameTaskGroup, PlayerCompletedGame
+        placement = GameTaskGroup.objects.filter(game=game, number=number).only('task_group_id').first()
+        if placement and PlayerCompletedGame.objects.filter(
+            user=user, game=game, task_group_id=placement.task_group_id,
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        ).exists():
+            return True
+    return False
 
 
 def club_archive_number_for_task(game, task):
@@ -142,6 +156,10 @@ def reject_if_club_archive_blocked(request, game, *, number=None, task=None, jso
         resolved = club_archive_number_for_task(game, task)
     if resolved is None:
         return None
-    if user_can_access_scheduled_number(request.user, game, resolved):
+    if task is not None:
+        allowed = user_can_access_task_archive(request.user, game, task)
+    else:
+        allowed = user_can_access_scheduled_number(request.user, game, resolved)
+    if allowed:
         return None
     return club_archive_locked_response(request, game, resolved, json_mode=json_mode)

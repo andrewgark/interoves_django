@@ -16,6 +16,34 @@ def site_deploy_version(_request):
     return {"site_deploy_version": str(v).strip()}
 
 
+def club_archive_ui(request):
+    """Feature-flagged archive upsell UI and subscriber community link."""
+    if not getattr(settings, 'CLUB_ARCHIVE_GATING_ENABLED', False):
+        return {'club_archive_gating_enabled': False}
+    user = getattr(request, 'user', None)
+    from games.club_access import has_club_access
+    if not user or not user.is_authenticated:
+        return {
+            'club_archive_gating_enabled': True,
+            'club_archive_offer_available': False,
+            'club_archive_telegram_url': '',
+        }
+    from games.models import PlayerCompletedGame
+    solved_count = PlayerCompletedGame.objects.filter(
+        user=user, result=PlayerCompletedGame.RESULT_SOLVED,
+    ).values('game_id', 'task_group_id').distinct().count()
+    club_access = has_club_access(user)
+    return {
+        'club_archive_gating_enabled': True,
+        'club_archive_offer_available': (
+            solved_count >= 7 and not club_access
+            and getattr(request, 'path', '') != '/subscription/'
+        ),
+        'club_archive_solved_count': solved_count,
+        'club_archive_telegram_url': 'https://t.me/+JYd2AYTihi9iNTky' if club_access else '',
+    }
+
+
 def analytics_bootstrap(request):
     counter_id = getattr(settings, 'YANDEX_METRIKA_COUNTER_ID', 0) or 0
     user = getattr(request, 'user', None)

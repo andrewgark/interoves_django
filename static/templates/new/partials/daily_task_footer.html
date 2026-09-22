@@ -16,16 +16,16 @@
 {% firstof task_group_pager_label daily_game_label as pager_label %}
 <nav class="new-tg-pager" aria-label="{{ pager_aria_label }}">
   {% if prev_task_group_url %}
-    <a class="new-tg-pager__link new-tg-pager__link--prev" href="{{ prev_task_group_url }}">
-      <span class="new-tg-pager__dir"><i class="ph ph-caret-left" aria-hidden="true"></i> Назад</span>
+    <a class="new-tg-pager__link new-tg-pager__link--prev" href="{{ prev_task_group_url }}"{% if prev_task_group_locked %} title="Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽." aria-label="Предыдущее задание, доступ по клубной подписке"{% endif %}>
+      <span class="new-tg-pager__dir">{% if prev_task_group_locked %}<i class="ph ph-lock-key" aria-hidden="true"></i>{% else %}<i class="ph ph-caret-left" aria-hidden="true"></i>{% endif %} Назад</span>
       <span class="new-tg-pager__label">{{ pager_label }}{% if pager_label %} №{% endif %}{{ prev_task_group_number }}</span>
     </a>
   {% else %}
     <span class="new-tg-pager__spacer" aria-hidden="true"></span>
   {% endif %}
   {% if next_task_group_url %}
-    <a class="new-tg-pager__link new-tg-pager__link--next" href="{{ next_task_group_url }}">
-      <span class="new-tg-pager__dir">Дальше <i class="ph ph-caret-right" aria-hidden="true"></i></span>
+    <a class="new-tg-pager__link new-tg-pager__link--next" href="{{ next_task_group_url }}"{% if next_task_group_locked %} title="Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽." aria-label="Следующее задание, доступ по клубной подписке"{% endif %}>
+      <span class="new-tg-pager__dir">Дальше {% if next_task_group_locked %}<i class="ph ph-lock-key" aria-hidden="true"></i>{% else %}<i class="ph ph-caret-right" aria-hidden="true"></i>{% endif %}</span>
       <span class="new-tg-pager__label">{{ pager_label }}{% if pager_label %} №{% endif %}{{ next_task_group_number }}</span>
     </a>
   {% endif %}

@@ -61,6 +61,7 @@ from games.views.daily_timing_views import daily_timing_page_context
 from games.views.new_ui import (
     NEW_UI_SECTIONS_PROJECT,
     _neighbors_by_pk,
+    _mark_locked_archive_rows,
     _task_group_page_nav_context,
 )
 from games.analytics_identity import gameplay_anon_key
@@ -298,13 +299,16 @@ def alphabetty_hub_page(request):
             'publish_date': alphabetty_publish_at(game, n).astimezone(MOSCOW).date() if alphabetty_publish_at(game, n) else None,
             'name': f'Алфавитка №{n}',
             'play_url': section_play_path(ALPHABETTY_GAME_ID, n),
-            'results_url': '{}results/'.format(section_play_path(ALPHABETTY_GAME_ID, n)),
+        'results_url': '{}results/'.format(section_play_path(ALPHABETTY_GAME_ID, n)),
             'is_today': today_number is not None and n == today_number,
             'is_solved': bool(prog.get('is_solved')),
             'row_class': row_class,
             'progress_meta': prog.get('progress_meta') or '',
             'difficulty': difficulties.get(link.pk),
         })
+    for row in rows:
+        row['is_fully_solved'] = row['is_solved']
+    _mark_locked_archive_rows(request, game, rows)
     archive_context = build_daily_archive_context(
         items=archive_items, requested_month=request.GET.get('month'),
         today=timezone.localdate(), archive_url=request.path,
@@ -317,6 +321,7 @@ def alphabetty_hub_page(request):
             for row in rows
             if row['row_class'] in ('new-task--partial', 'new-task--solved')
         },
+        locked_keys={row['number'] for row in rows if row.get('is_archive_locked')},
     )
     hub = get_alphabetty_hub_context(game, published_numbers=_published_numbers(game))
     return render(request, 'new/alphabetty_hub.html', {
@@ -494,12 +499,22 @@ def alphabetty_play_page(request, number):
             task=task, game=game, user=user, anon_key=anon_key,
             replay_slot=replay_slot,
         ),
-        'prev_task_group_url': (
-            section_play_path(ALPHABETTY_GAME_ID, prev_tg.number) if prev_tg else None
-        ),
-        'next_task_group_url': (
-            section_play_path(ALPHABETTY_GAME_ID, next_tg.number) if next_tg else None
-        ),
+        'prev_task_group_url': _archive_nav_target(
+            request, game, prev_tg,
+            section_play_path(ALPHABETTY_GAME_ID, prev_tg.number) if prev_tg else None,
+        )[0],
+        'next_task_group_url': _archive_nav_target(
+            request, game, next_tg,
+            section_play_path(ALPHABETTY_GAME_ID, next_tg.number) if next_tg else None,
+        )[0],
+        'prev_task_group_locked': _archive_nav_target(
+            request, game, prev_tg,
+            section_play_path(ALPHABETTY_GAME_ID, prev_tg.number) if prev_tg else None,
+        )[1],
+        'next_task_group_locked': _archive_nav_target(
+            request, game, next_tg,
+            section_play_path(ALPHABETTY_GAME_ID, next_tg.number) if next_tg else None,
+        )[1],
         **(onboarding_followup_context(ALPHABETTY_GAME_ID) if offer is None else {}),
         **meta_ctx,
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),

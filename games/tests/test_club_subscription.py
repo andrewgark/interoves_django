@@ -17,6 +17,7 @@ from games.models import (
     GameTaskGroup,
     HTMLPage,
     Profile,
+    PlayerCompletedGame,
     Project,
     Task,
     TaskGroup,
@@ -590,6 +591,18 @@ class ClubArchiveAccessTests(TestCase):
         self.assertTrue(has_club_access(self.user))
         response = self.client.get(self.archive_url)
         self.assertEqual(response.status_code, 200)
+
+    def test_fully_solved_archive_stays_open_without_subscription(self):
+        PlayerCompletedGame.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.archive_task.task_group,
+            game_kind='ladder',
+            game_instance_id='solved-archive-1',
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(self.archive_url).status_code, 200)
 
     def test_expired_closes_archive_and_attempts(self):
         ClubSubscription.objects.create(

@@ -51,6 +51,18 @@ class DailyArchiveContextTests(SimpleTestCase):
         }
         self.assertEqual(statuses, {2: 'partial', 20: 'solved'})
 
+    def test_locked_days_point_to_subscription_and_keep_original_href_elsewhere(self):
+        context = build_daily_archive_context(
+            items=self.items(), requested_month='2026-05', archive_url='/ladder/',
+            locked_keys={'2'}, subscription_url='/subscription/',
+        )
+        cells = [cell for week in context['daily_archive_weeks'] for cell in week]
+        by_day = {cell['date'].day: cell for cell in cells if cell['date'].month == 5}
+        self.assertTrue(by_day[2]['is_locked'])
+        self.assertEqual(by_day[2]['href'], '/subscription/')
+        self.assertFalse(by_day[20]['is_locked'])
+        self.assertEqual(by_day[20]['href'], '/ladder/3/')
+
     def test_month_urls_preserve_extra_query_parameters(self):
         context = build_daily_archive_context(
             items=self.items(), requested_month='2026-05', archive_url='/ladder/',

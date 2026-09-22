@@ -223,6 +223,9 @@ def process_send_raddle_assist(request, task_id):
     game = game_from_request_for_task(request, task)
     if game is None:
         return {'status': 'ambiguous_game'}
+    from games.club_access import user_can_access_task_archive
+    if not user_can_access_task_archive(request.user, game, task):
+        raise NoGameAccessException('Club subscription required for archived game')
 
     team, user, anon_key, err = _actor_from_request(request, game)
     if err:
@@ -361,6 +364,9 @@ def process_send_raddle_ui(request, task_id):
     game = game_from_request_for_task(request, task)
     if game is None:
         return {'status': 'ambiguous_game'}
+    from games.club_access import user_can_access_task_archive
+    if not user_can_access_task_archive(request.user, game, task):
+        raise NoGameAccessException('Club subscription required for archived game')
 
     team, user, anon_key, err = _actor_from_request(request, game)
     if err:

@@ -1690,6 +1690,8 @@ html.new-ui-dark body.new-ui {
 .daily-archive__day--available > a:hover, .daily-archive__day--available > a:focus-visible { background: color-mix(in srgb, var(--accent) 15%, var(--surface)); color: var(--accent); }
 .daily-archive__day--today > a, .daily-archive__day--today > span { box-shadow: 0 0 0 2px var(--accent); }
 .daily-archive__day--completed > a { color: var(--text); }
+.daily-archive__day--locked > a { background: color-mix(in srgb, var(--warning) 26%, var(--surface)); color: #5b4700; }
+.club-lock-icon { position: absolute; right: -.15rem; bottom: -.15rem; display: grid; place-items: center; width: .9rem; height: .9rem; border-radius: 50%; background: var(--warning); color: #1a1a1a; font-size: .55rem; }
 .daily-archive__day .ph-check-circle { position: absolute; right: -.1rem; bottom: -.1rem; font-size: .8rem; background: var(--surface); border-radius: 50%; }
 .daily-archive__day.is-outside { visibility: hidden; }
 .daily-archive__day.is-disabled { opacity: .42; }
@@ -1697,6 +1699,15 @@ html.new-ui-dark body.new-ui {
 .daily-archive__card { min-height: 5rem; padding-top: 1.05rem; padding-bottom: 1.05rem; scroll-margin-top: calc(var(--new-ui-scroll-margin-top) + 5px); }
 .daily-archive__card--focus { outline: 3px solid var(--accent); outline-offset: 2px; transition: outline-color .3s; }
 .daily-archive__card:target { outline: 3px solid var(--accent); outline-offset: 2px; }
+.club-lock-badge { display: inline-grid; place-items: center; width: 1.7rem; height: 1.7rem; flex: 0 0 auto; border-radius: 50%; background: var(--warning); color: #1a1a1a; font-size: .85rem; }
+.new-task__body.is-archive-locked { cursor: pointer; }
+.new-daily-game-header__nav-button.is-archive-locked { color: #6b5500; background: color-mix(in srgb, var(--warning) 24%, var(--surface)); }
+.new-tg-pager__link:has(.ph-lock-key) { color: #6b5500; }
+.new-hub-group__heading-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.new-hub-group__heading-row .new-hub-group__title { margin-bottom: .85rem; }
+.club-subscription-cta { white-space: nowrap; }
+.club-member-chat { margin-top: 1rem; }
+body.new-modal-open { overflow: hidden; }
 @media (max-width: 560px) {
   .daily-archive__day > a, .daily-archive__day > span { width: 2.2rem; height: 2.2rem; }
   .daily-archive__month-nav { margin-left: -.35rem; margin-right: -.35rem; }

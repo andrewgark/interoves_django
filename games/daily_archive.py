@@ -37,7 +37,9 @@ def parse_month(value) -> tuple[int, int] | None:
 def build_daily_archive_context(*, items, requested_month=None, today=None,
                                 archive_url='', game_label='Задание',
                                 completed_keys=(), archive_query='',
-                                status_by_key=None, calendar_id='daily-archive'):
+                                status_by_key=None, locked_keys=(),
+                                subscription_url='/subscription/',
+                                calendar_id='daily-archive'):
     """Build calendar/navigation context from neutral dated archive items.
 
     ``items`` contains ``date``, ``key``, ``anchor`` and ``href``; arbitrary
@@ -46,6 +48,7 @@ def build_daily_archive_context(*, items, requested_month=None, today=None,
     today = today or date.today()
     completed_keys = {str(key) for key in completed_keys}
     status_by_key = {str(key): value for key, value in (status_by_key or {}).items()}
+    locked_keys = {str(key) for key in locked_keys}
     items = [item for item in items if isinstance(item.get('date'), date)]
     items_by_date = {item['date']: item for item in items}
     months = sorted({(item['date'].year, item['date'].month) for item in items})
@@ -95,11 +98,12 @@ def build_daily_archive_context(*, items, requested_month=None, today=None,
                 'is_current_month': day.month == month,
                 'is_available': available,
                 'is_completed': completed,
+                'is_locked': available and str(item.get('key')) in locked_keys,
                 'archive_status': archive_status,
                 'is_today': day == today,
                 # A calendar day opens the game's task directly.  The archive
                 # month navigation still uses ``url_for`` below.
-                'href': item.get('href') if available else '',
+                'href': subscription_url if available and str(item.get('key')) in locked_keys else (item.get('href') if available else ''),
                 'anchor': item.get('anchor') if available else '',
                 'aria_label': label,
             })
