@@ -730,6 +730,8 @@ def _ensure_completed_record(
     completion_user=None,
     completion_anon_key=None,
     _timing_phases=None,
+    _group_is_complete=None,
+    _suppress_creation_log=False,
 ):
     """Persist a completion only after the canonical group check passes.
 
@@ -743,16 +745,19 @@ def _ensure_completed_record(
     check_anon_key = anon_key if completion_anon_key is None else completion_anon_key
     if task is None or task_group is None:
         return None, False
-    with _analytics_timed_phase(_timing_phases, 'completion_group_check_ms'):
-        group_is_complete = is_task_group_complete(
-            task_group=task_group,
-            game=game,
-            team=check_team,
-            user=check_user,
-            anon_key=check_anon_key,
-            mode=mode,
-            replay_slot=None,
-        )
+    if _group_is_complete is None:
+        with _analytics_timed_phase(_timing_phases, 'completion_group_check_ms'):
+            group_is_complete = is_task_group_complete(
+                task_group=task_group,
+                game=game,
+                team=check_team,
+                user=check_user,
+                anon_key=check_anon_key,
+                mode=mode,
+                replay_slot=None,
+            )
+    else:
+        group_is_complete = _group_is_complete
     if not group_is_complete:
         return None, False
     actor = _actor_kwargs(team=team, user=user, anon_key=anon_key)
@@ -796,7 +801,7 @@ def _ensure_completed_record(
             updated.append('result')
         if updated:
             record.save(update_fields=updated)
-        if created:
+        if created and not _suppress_creation_log:
             if team is not None:
                 actor_type, actor_id = 'team', str(team.pk)
             elif user is not None:
@@ -892,8 +897,6 @@ def _backfill_supported_game_completions(
             'existing_records': 0,
             'created_records': 0,
         }
-    from games.models import ChainTaskState
-
     counts = _backfill_counts if _backfill_counts is not None else {
         'chain_states_scanned': 0,
         'completion_candidates': 0,
@@ -901,28 +904,11 @@ def _backfill_supported_game_completions(
         'created_records': 0,
     }
 
-    qs = (
-        ChainTaskState.objects.select_related('task', 'task__task_group', 'game')
-        .filter(**actor)
-        .filter(replay_slot__isnull=True)
-        .filter(task__task_type__in=(
-            'raddle', 'replacements_lines', 'alphabetty', 'word_salad',
-        ))
+    candidates = _legacy_completion_candidates(
+        actor=actor,
+        exclude_instance_id=exclude_instance_id,
+        counts=counts,
     )
-    candidates = {}
-    for row in qs.iterator():
-        counts['chain_states_scanned'] += 1
-        game_kind = supported_game_kind(row.game)
-        if not game_kind:
-            continue
-        if not is_task_completion_state(row.task, row.state):
-            continue
-        if game_instance_id_for_task_group(row.game, row.task.task_group) == exclude_instance_id:
-            continue
-        candidates.setdefault(
-            (row.game_id, row.task.task_group_id, row.game_mode),
-            (row, game_kind),
-        )
 
     counts['completion_candidates'] = len(candidates)
     for row, game_kind in candidates.values():
@@ -943,6 +929,164 @@ def _backfill_supported_game_completions(
                 counts['created_records'] += 1
             else:
                 counts['existing_records'] += 1
+    return counts
+
+
+def _legacy_completion_candidates(
+    *, actor, exclude_instance_id=None, counts=None, updated_before=None,
+):
+    """Return the exact candidate set used by the legacy backfill.
+
+    This is shared by the hot-path backfill, the one-time reconciliation command,
+    and its read-only audit mode so completion semantics cannot drift between
+    them.
+    """
+    from games.models import ChainTaskState
+
+    counts = counts if counts is not None else {}
+    qs = (
+        ChainTaskState.objects.select_related('task', 'task__task_group', 'game')
+        .filter(**actor)
+        .filter(replay_slot__isnull=True)
+        .filter(task__task_type__in=(
+            'raddle', 'replacements_lines', 'alphabetty', 'word_salad',
+        ))
+    )
+    if updated_before is not None:
+        qs = qs.filter(updated_at__lte=updated_before)
+    candidates = {}
+    for row in qs.iterator():
+        counts['chain_states_scanned'] = counts.get('chain_states_scanned', 0) + 1
+        game_kind = supported_game_kind(row.game)
+        if not game_kind:
+            continue
+        if not is_task_completion_state(row.task, row.state):
+            continue
+        if game_instance_id_for_task_group(row.game, row.task.task_group) == exclude_instance_id:
+            continue
+        candidates.setdefault(
+            (row.game_id, row.task.task_group_id, row.game_mode),
+            (row, game_kind),
+        )
+    counts['completion_candidates'] = len(candidates)
+    return candidates
+
+
+def reconcile_legacy_completed_games_for_actor(
+    *, user=None, anon_key=None, dry_run=False, activation_cutoff=None,
+    history_cutoff=None,
+):
+    """Reconcile one personal actor using the production backfill contract.
+
+    ``dry_run`` performs the same candidate and group checks without writes.
+    ``activation_cutoff`` prevents concurrent live completions from being
+    classified as historical activation evidence during the one-time batch.
+    """
+    actor = _actor_kwargs(user=user, anon_key=anon_key)
+    if actor is None:
+        return {
+            'chain_states_scanned': 0,
+            'completion_candidates': 0,
+            'legacy_complete_instances': 0,
+            'incomplete_candidates': 0,
+            'existing_records': 0,
+            'created_records': 0,
+            'missing_records': 0,
+            'ambiguous_records': 0,
+        }
+
+    counts = {
+        'chain_states_scanned': 0,
+        'completion_candidates': 0,
+        'legacy_complete_instances': 0,
+        'incomplete_candidates': 0,
+        'existing_records': 0,
+        'created_records': 0,
+        'missing_records': 0,
+        'ambiguous_records': 0,
+    }
+    candidates = _legacy_completion_candidates(
+        actor=actor,
+        counts=counts,
+        updated_before=history_cutoff,
+    )
+    for row, game_kind in candidates.values():
+        complete = is_task_group_complete(
+            task_group=row.task.task_group,
+            game=row.game,
+            user=user,
+            anon_key=anon_key,
+            mode=row.game_mode,
+            replay_slot=None,
+        )
+        if not complete:
+            counts['incomplete_candidates'] += 1
+            continue
+        counts['legacy_complete_instances'] += 1
+
+        instance_id = game_instance_id_for_task_group(row.game, row.task.task_group)
+        if dry_run:
+            existing = list(
+                PlayerCompletedGame.objects.filter(
+                    **actor,
+                    game_instance_id=instance_id,
+                ).values_list('pk', flat=True)[:2]
+            )
+            if len(existing) > 1:
+                counts['ambiguous_records'] += 1
+                continue
+            if existing:
+                counts['existing_records'] += 1
+            else:
+                counts['missing_records'] += 1
+            continue
+
+        record, created = _ensure_completed_record(
+            user=user,
+            anon_key=anon_key,
+            game=row.game,
+            task=row.task,
+            game_kind=game_kind,
+            result=PlayerCompletedGame.RESULT_SOLVED,
+            is_backfilled=True,
+            source='legacy_reconciliation_batch',
+            mode=row.game_mode,
+            _group_is_complete=True,
+            _suppress_creation_log=True,
+        )
+        if record is None:
+            counts['incomplete_candidates'] += 1
+        elif created:
+            counts['created_records'] += 1
+        else:
+            counts['existing_records'] += 1
+
+    if dry_run:
+        return counts
+
+    historical_count_qs = _completed_games_qs(**actor)
+    if activation_cutoff is None:
+        historical_count = historical_count_qs.count()
+    else:
+        historical_count = historical_count_qs.filter(
+            Q(is_backfilled=True) | Q(completed_at__lte=activation_cutoff),
+        ).count()
+    if historical_count < 3:
+        return counts
+    state, _ = create_or_reread_analytics_row(
+        PlayerAnalyticsState,
+        lookup=actor,
+    )
+    if historical_count >= 3 and state.activated_at is None:
+        activated_at = timezone.now()
+        PlayerAnalyticsState.objects.filter(
+            pk=state.pk,
+            activated_at__isnull=True,
+        ).update(
+            activated_at=activated_at,
+            activation_is_backfilled=True,
+            updated_at=activated_at,
+        )
     return counts
 
 
