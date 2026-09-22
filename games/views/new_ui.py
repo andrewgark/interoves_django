@@ -2691,13 +2691,18 @@ def new_section_results_page(request, game_id):
             ),
             None,
         ) if current_actor_identity is not None else None
-        if current_row:
-            for column in data.get('aggregate_columns', []):
-                score = current_row.get('cells', {}).get(column.link.pk)
-                tasks = getattr(column.link.task_group, 'result_tasks', ()) or ()
-                answer = getattr(tasks[0], 'answer', '') if tasks else ''
-                if score is not None and float(score or 0) > 0 and answer:
-                    aggregate_column_labels[column.link.pk] = answer
+        for column in data.get('aggregate_columns', []):
+            score = current_row.get('cells', {}).get(column.link.pk) if current_row else None
+            tasks = getattr(column.link.task_group, 'result_tasks', ()) or ()
+            task = tasks[0] if tasks else None
+            answer = getattr(task, 'answer', '') if task else ''
+            solved = score is not None and float(score or 0) > 0
+            if task is not None:
+                from games.alphabetty.play import load_state
+                state_row = _chain_state_for_actor(game, task, current_actor)
+                solved = solved or bool(state_row and load_state(state_row.state).get('won'))
+            if solved and answer:
+                aggregate_column_labels[column.link.pk] = answer
 
     def query_url(**overrides):
         params = request.GET.copy()
@@ -2787,7 +2792,7 @@ def _render_task_group_results_page(request, game, number, back_url):
     if game.id == 'salad':
         data = _word_salad_release_breakdown(data, game, number)
     data = _set_current_result_header_answers(
-        data, me_personal or me_anon_participant or team,
+        data, me_personal or me_anon_participant or team, game=game,
     )
     placement = GameTaskGroup.objects.filter(
         game=game, number=str(number),
@@ -2844,7 +2849,27 @@ class _SaladResultWord:
         self.display_answer = ''
 
 
-def _set_current_result_header_answers(data, actor):
+def _chain_state_for_actor(game, task, actor):
+    if actor is None or task is None:
+        return None
+    filters = {
+        'task': task,
+        'game': game,
+        'game_mode': 'general',
+        'replay_slot__isnull': True,
+    }
+    if getattr(actor, 'is_team_results_row', False):
+        filters.update(team=actor, user__isnull=True, anon_key__isnull=True)
+    elif getattr(actor, 'user_id', None) is not None:
+        filters.update(user_id=actor.user_id, team__isnull=True, anon_key__isnull=True)
+    elif getattr(actor, 'anon_key', None):
+        filters.update(anon_key=actor.anon_key, team__isnull=True, user__isnull=True)
+    else:
+        return None
+    return ChainTaskState.objects.filter(**filters).only('state').first()
+
+
+def _set_current_result_header_answers(data, actor, game=None):
     """Expose solved words in result headers only for the current actor."""
     if actor is None:
         return data
@@ -2884,7 +2909,12 @@ def _set_current_result_header_answers(data, actor):
         for task in (data.get('task_group_to_tasks') or {}).get(task_group.number, [])
     ]
     for task, cell in zip(tasks, cells):
-        if cell.get('solved') and cell.get('answer'):
+        solved = cell.get('solved')
+        if not solved and game is not None and getattr(task, 'task_type', None) == 'alphabetty':
+            from games.alphabetty.play import load_state
+            state_row = _chain_state_for_actor(game, task, actor)
+            solved = bool(state_row and load_state(state_row.state).get('won'))
+        if solved and cell.get('answer'):
             task.display_answer = cell['answer']
     return data
 
@@ -2909,6 +2939,32 @@ def _word_salad_release_breakdown(data, game, number):
     data['task_group_to_tasks'] = {
         str(number): [_SaladResultWord(index + 1, word) for index, word in enumerate(words)]
     }
+    chain_states = {}
+    for row in ChainTaskState.objects.filter(
+        task=task,
+        game=game,
+        game_mode='general',
+        replay_slot__isnull=True,
+    ).only('team_id', 'user_id', 'anon_key', 'state'):
+        if row.team_id:
+            key = ('team', row.team_id)
+        elif row.user_id:
+            key = ('user', row.user_id)
+        elif row.anon_key:
+            key = ('anon', row.anon_key)
+        else:
+            continue
+        chain_states[key] = row.state
+
+    def actor_key(actor):
+        if getattr(actor, 'is_team_results_row', False):
+            return ('team', actor.pk)
+        if getattr(actor, 'user_id', None) is not None:
+            return ('user', actor.user_id)
+        if getattr(actor, 'anon_key', None):
+            return ('anon', actor.anon_key)
+        return None
+
     cells_by_actor = {}
     infos_by_actor = {}
     # The individual page scopes the data to one group. The AttemptInfo list
@@ -2917,7 +2973,10 @@ def _word_salad_release_breakdown(data, game, number):
         infos = data.get('team_to_list_attempts_info', {}).get(actor, [])
         info = infos[0] if infos else None
         attempts = getattr(info, 'attempts', None) or []
-        state = load_state(attempts[-1].state if attempts else None)
+        raw_state = chain_states.get(actor_key(actor))
+        if raw_state is None:
+            raw_state = attempts[-1].state if attempts else None
+        state = load_state(raw_state)
         solved = set(state.get('solved_indices') or [])
         hint_counts = state.get('hint_counts') or {}
         cells = []
@@ -3081,7 +3140,7 @@ def new_ladder_word_results_page(request, task_group_number):
     def build_word_results_data():
         data = build_ladder_word_results_context(game, placement, task)
         data = _set_current_result_header_answers(
-            data, me_personal or me_anon_participant or team,
+            data, me_personal or me_anon_participant or team, game=game,
         )
         from games.leaderboard import apply_release_policy
         from games.daily_section import publish_at_for

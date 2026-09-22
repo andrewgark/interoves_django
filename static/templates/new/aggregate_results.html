@@ -29,11 +29,6 @@
           <a class="results-filter-chip{% if size == aggregate_limit %} is-active{% endif %}" href="{{ url }}"{% if size == aggregate_limit %} aria-current="true"{% endif %}>{{ size }} выпусков</a>
         {% endfor %}
       </span>
-      <span class="aggregate-window-range">{% if aggregate_first_number %}№{{ aggregate_first_number }}–№{{ aggregate_last_number }}{% else %}Нет опубликованных выпусков{% endif %}</span>
-      <span class="aggregate-window-nav">
-        {% if newer_url %}<a class="results-filter-nav" href="{{ newer_url }}"><i class="ph ph-arrow-left" aria-hidden="true"></i> Новее</a>{% endif %}
-        {% if older_url %}<a class="results-filter-nav" href="{{ older_url }}">Старше <i class="ph ph-arrow-right" aria-hidden="true"></i></a>{% endif %}
-      </span>
     </div>
     <div class="results-filter-group">
       <span class="results-filter-label">Показывать</span>
@@ -54,7 +49,7 @@
   {% if aggregate_has_unknown_max %}<p class="new-meta-kicker">Для некоторых опубликованных выпусков максимум не определён. Они остаются в таблице, но не входят в показанный знаменатель.</p>{% endif %}
 </div>
 
-<div class="new-results-fullbleed">
+<div class="new-results-fullbleed new-results-fullbleed--aggregate">
   <div class="new-results-wrap aggregate-table-wrap" role="region" aria-label="Сводная таблица результатов" tabindex="0">
     <table class="new-results-table aggregate-results-table">
       <thead><tr>

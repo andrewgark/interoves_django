@@ -6607,6 +6607,13 @@ a.new-btn.new-hub-next-game-vote__btn {
   justify-content: center;
 }
 
+/* Aggregate pages have the table and progressive controls as two siblings;
+   keep the controls on a row below the table instead of beside it. */
+.new-results-fullbleed--aggregate {
+  flex-direction: column;
+  align-items: center;
+}
+
 .new-results-wrap{
   margin-top: 0.75rem;
   border: 1px solid var(--border);
@@ -7078,23 +7085,6 @@ a.new-btn.new-hub-next-game-vote__btn {
   justify-content: flex-end;
 }
 
-.aggregate-window-range {
-  margin-left: .5rem;
-  color: var(--muted);
-  font-size: .9rem;
-}
-
-.aggregate-window-nav {
-  display: flex;
-  align-items: center;
-  gap: .55rem;
-  margin-left: auto;
-}
-
-.aggregate-window-nav a {
-  white-space: nowrap;
-}
-
 .aggregate-table-wrap {
   max-width: 100%;
   overscroll-behavior-x: contain;
@@ -7158,10 +7148,6 @@ a.new-btn.new-hub-next-game-vote__btn {
     flex: 0 0 100%;
   }
 
-  .aggregate-window-range,
-  .aggregate-window-nav {
-    margin-left: 0;
-  }
 }
 
 .is-hidden {
