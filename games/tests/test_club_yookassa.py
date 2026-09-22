@@ -149,7 +149,7 @@ class ClubYooKassaFlowTests(TestCase):
         self.assertEqual(local.kind, ClubYooKassaPayment.KIND_INITIAL_MONTHLY)
         payload = create_mock.call_args[0][0]
         self.assertTrue(payload['save_payment_method'])
-        self.assertEqual(payload['amount']['value'], '700.00')
+        self.assertEqual(payload['amount']['value'], '420.00')
 
         process_yookassa_club_payment_event(
             'payment.succeeded',
@@ -198,7 +198,7 @@ class ClubYooKassaFlowTests(TestCase):
         second = ClubYooKassaPayment.objects.exclude(pk=local.pk).get()
         self.assertEqual(second.amount, AMOUNT_MONTHLY_KOPECKS)
         payload = create_mock.call_args[0][0]
-        self.assertEqual(payload['amount']['value'], '900.00')
+        self.assertEqual(payload['amount']['value'], '600.00')
 
     @patch('games.club_yookassa.configure_yookassa_from_env')
     @patch('games.club_yookassa.Payment.create')
@@ -207,7 +207,7 @@ class ClubYooKassaFlowTests(TestCase):
         result = start_annual_subscription(self.user, return_url='https://x/return')
         self.assertTrue(result.ok)
         payload = create_mock.call_args[0][0]
-        self.assertEqual(payload['amount']['value'], '9000.00')
+        self.assertEqual(payload['amount']['value'], '6000.00')
         self.assertFalse(payload['save_payment_method'])
         local = ClubYooKassaPayment.objects.get()
         process_yookassa_club_payment_event('payment.succeeded', _payment_payload(local, saved=False))
@@ -265,7 +265,7 @@ class ClubYooKassaFlowTests(TestCase):
         renew_payment = {
             'id': 'yk-renew-1',
             'status': 'succeeded',
-            'amount': {'value': '900.00', 'currency': 'RUB'},
+            'amount': {'value': '600.00', 'currency': 'RUB'},
             'metadata': {},
             'payment_method': {'id': 'pm-saved-1', 'saved': True},
         }
@@ -305,9 +305,9 @@ class ClubYooKassaFlowTests(TestCase):
 
     def test_page_shows_yookassa_pricing(self):
         body = self.client.get(reverse('new_subscription')).content.decode()
-        self.assertIn('700 ₽', body)
-        self.assertIn('900 ₽', body)
-        self.assertIn('9000 ₽', body)
+        self.assertIn('420 ₽', body)
+        self.assertIn('600 ₽', body)
+        self.assertIn('6 000 ₽', body)
         self.assertIn('последние 7 заданий', body)
 
     def test_endpoints_require_auth(self):
@@ -461,7 +461,7 @@ class ClubYooKassaDetachTests(TestCase):
         self.assertEqual(result.payment.period_start, original_paid_until)
         self.assertEqual(result.payment.period_end, add_calendar_months(original_paid_until, 1))
         payload = create.call_args.args[0]
-        self.assertEqual(payload['amount']['value'], '900.00')
+        self.assertEqual(payload['amount']['value'], '600.00')
         self.assertTrue(payload['save_payment_method'])
         self.assertEqual(payload['payment_method_data'], {'type': 'bank_card'})
         self.assertNotIn('payment_method_id', payload)
@@ -485,7 +485,7 @@ class ClubYooKassaDetachTests(TestCase):
     def _pending(self, kind='recurring_monthly'):
         return ClubYooKassaPayment.objects.create(
             user=self.user, club_subscription=self.sub, kind=kind,
-            period_key='pending-test', idempotency_key='pending-test', amount=90000,
+            period_key='pending-test', idempotency_key='pending-test', amount=60000,
             period_start=self.sub.paid_until, period_end=self.sub.paid_until + timedelta(days=30),
             submitted_at=timezone.now(),
         )

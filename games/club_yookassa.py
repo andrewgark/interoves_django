@@ -27,9 +27,9 @@ from games.yookassa_util import configure_yookassa_from_env
 logger = logging.getLogger(__name__)
 
 CURRENCY = 'RUB'
-AMOUNT_INTRO_KOPECKS = 700_00
-AMOUNT_MONTHLY_KOPECKS = 900_00
-AMOUNT_ANNUAL_KOPECKS = 9000_00
+AMOUNT_INTRO_KOPECKS = 420_00
+AMOUNT_MONTHLY_KOPECKS = 600_00
+AMOUNT_ANNUAL_KOPECKS = 6000_00
 
 PENDING_REUSE_MINUTES = 45
 METADATA_PURPOSE = 'club_subscription'

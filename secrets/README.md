@@ -151,7 +151,7 @@ Club recurring subscriptions (hidden `/subscription/` page):
 - `CLUB_ARCHIVE_GATING_ENABLED=true` restricts older archive items to club members; everyone else keeps access to the latest 7 numbers in each section (defaults to false)
 - EUR: `TRIBUTE_CLUB_SUBSCRIPTION_EUR_*` (see below)
 
-**YooKassa (RUB):** monthly intro 700 → then 900, annual 9000 one-shot. Does not use TicketRequest.
+**YooKassa (RUB):** monthly intro 420 → then 600, annual 6000 one-shot. Does not use TicketRequest.
 
 - `CLUB_YOOKASSA_ENABLED=true` enables RUB checkout on `/subscription/`
 - `YOOKASSA_RECURRING_ENABLED=true` enables automatic monthly renewals (keep **false** in production until YooKassa enables autopayments for the shop)
@@ -166,9 +166,9 @@ eb setenv CLUB_PAYMENTS_ENABLED=true CLUB_ARCHIVE_GATING_ENABLED=false \
   CLUB_YOOKASSA_ENABLED=false YOOKASSA_RECURRING_ENABLED=false \
   TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID='262466' \
   TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL='https://t.me/tribute/app?startapp=s16hk' \
-  TRIBUTE_CLUB_SUBSCRIPTION_EUR_AMOUNT='1000' \
-  TRIBUTE_CLUB_SUBSCRIPTION_EUR_FIRST_AMOUNT='700' \
-  TRIBUTE_CLUB_SUBSCRIPTION_EUR_YEARLY_AMOUNT='10000' \
+  TRIBUTE_CLUB_SUBSCRIPTION_EUR_AMOUNT='555' \
+  TRIBUTE_CLUB_SUBSCRIPTION_EUR_FIRST_AMOUNT='389' \
+  TRIBUTE_CLUB_SUBSCRIPTION_EUR_YEARLY_AMOUNT='5800' \
   TRIBUTE_CLUB_SUBSCRIPTION_EUR_CURRENCY='EUR'
 ```
 

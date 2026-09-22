@@ -149,7 +149,7 @@ def _subscription_page_context(request):
     )
     next_charge_amount_label = ''
     if show_next_charge and is_yookassa and is_monthly:
-        next_charge_amount_label = '900 ₽ — {}'.format(paid_until_label)
+        next_charge_amount_label = '600 ₽ — {}'.format(paid_until_label)
     eur = configured_club_product('eur')
     seller, seller_url = merchant_public_copy()
     show_checkout = status in ('none', ClubSubscription.STATUS_EXPIRED, ClubSubscription.STATUS_PENDING)
