@@ -6655,7 +6655,7 @@ a.new-btn.new-hub-next-game-vote__btn {
   /* Ширины первых колонок — переменные, на узких экранах уменьшаются (ниже). */
   --results-col-rank: 3.1rem;
   --results-col-team: 12.5rem;
-  --results-col-score: calc(3ch + 1rem);
+  --results-col-score: calc(4ch + 1rem);
   --results-col-time: 4.8rem;
   --results-col-attempts: calc(3ch + 1rem);
   border-collapse: separate;
@@ -6914,7 +6914,7 @@ a.new-btn.new-hub-next-game-vote__btn {
     font-size: 0.76rem;
     --results-col-rank: 2rem;
     --results-col-team: 6.25rem;
-    --results-col-score: 3.15rem;
+    --results-col-score: 3.6rem;
     --results-col-time: 2.85rem;
     --results-col-attempts: 3.15rem;
   }
@@ -6928,7 +6928,7 @@ a.new-btn.new-hub-next-game-vote__btn {
   .new-results-table {
     --results-col-rank: 1.75rem;
     --results-col-team: 5.25rem;
-    --results-col-score: 2.85rem;
+    --results-col-score: 3.25rem;
     --results-col-time: 2.6rem;
     --results-col-attempts: 2.85rem;
   }

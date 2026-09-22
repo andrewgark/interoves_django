@@ -1,6 +1,16 @@
 (function () {
   'use strict';
 
+  function russianCountNoun(count, one, few, many) {
+    var value = Math.abs(Number(count) || 0);
+    var lastTwo = value % 100;
+    var last = value % 10;
+    if (lastTwo >= 11 && lastTwo <= 14) return many;
+    if (last === 1) return one;
+    if (last >= 2 && last <= 4) return few;
+    return many;
+  }
+
   document.querySelectorAll('[data-results-progressive]').forEach(function (root) {
     var tbody = document.querySelector(root.getAttribute('data-results-tbody'));
     var button = root.querySelector('[data-results-load-more-button]');
@@ -38,7 +48,12 @@
         ? 'Не удалось загрузить следующую порцию.'
         : nextPage
           ? 'Загружено ' + count + ' из ' + total
-          : 'Загружены все ' + count + (root.getAttribute('data-subject') || ' результатов');
+          : 'Загружены все ' + count + ' ' + russianCountNoun(
+              count,
+              root.getAttribute('data-subject-one') || 'результат',
+              root.getAttribute('data-subject-few') || 'результата',
+              root.getAttribute('data-subject-many') || 'результатов'
+            );
     }
 
     async function loadNext() {
