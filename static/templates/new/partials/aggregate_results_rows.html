@@ -1,0 +1,12 @@
+{% load filters %}
+{% for row in aggregate_rows %}
+  <tr data-result-row>
+    <th scope="row" class="is-sticky-left aggregate-place">{{ row.place }}</th>
+    <th scope="row" class="is-sticky-left-2 col-team aggregate-participant"><i class="ph {% if row.actor_kind == 'team' %}ph-users{% elif row.actor_kind == 'anon' %}ph-detective{% else %}ph-user{% endif %} aggregate-actor-icon" aria-hidden="true"></i>{{ row.actor_label }}</th>
+    <th scope="row" class="is-sticky-left-3 col-score aggregate-score"><strong>{{ row.score|minimize_digits }}</strong></th>
+    <td class="is-sticky-left-4 aggregate-time">{% if row.time_display %}{{ row.time_display }}{% else %}—{% endif %}</td>
+    {% if aggregate_show_attempts %}<td class="aggregate-attempts results-attempts">{{ row.attempts }}</td>{% endif %}
+    {% for column in aggregate_columns %}{% with cell=row.cells|get_item:column.link.pk meta=row.cell_meta|get_item:column.link.pk %}<td class="aggregate-release{% if aggregate_column_labels|get_item:column.link.pk %} aggregate-word-answer{% endif %}{% if meta %} {{ meta.cls }}{% endif %}">{% if cell != None %}{{ cell|minimize_digits }}{% endif %}</td>{% endwith %}{% endfor %}
+  </tr>
+{% endfor %}
+<template data-results-meta="1" data-has-next="{% if aggregate_page and aggregate_page.has_next %}1{% else %}0{% endif %}" data-next-page="{% if aggregate_page and aggregate_page.has_next %}{{ aggregate_page.next_page_number }}{% endif %}" data-total="{{ aggregate_page.paginator.count|default:0 }}"></template>

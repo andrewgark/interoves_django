@@ -1,84 +1,86 @@
 {% extends "new/base.html" %}
-{% load filters %}
+{% load filters static %}
 
 {% block title %}{{ page_title }}{% endblock %}
 
 {% block content %}
-<section class="new-page-shell new-results-page">
-  <div class="new-page-heading">
-    <a class="new-btn new-btn--ghost new-btn--mini" href="{{ back_url }}">← К разделу</a>
-    <h1>{{ page_title }}</h1>
-    <p class="new-meta-kicker">Результаты за выбранный период</p>
+<div class="new-ui new-ui--section">
+  <p class="new-tg-back"><a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Назад</a></p>
+
+  <div class="new-section-header new-section-header--results">
+    <div>
+      <div class="new-login-hint new-meta-kicker">Результаты</div>
+      <h1 class="new-heading new-heading--page">{{ page_title }}</h1>
+      <p class="new-meta-kicker">
+        {% if request.GET.anchor %}
+          Выбранное окно: {{ aggregate_limit }} выпусков
+        {% else %}
+          Последние {{ aggregate_limit }} выпусков
+        {% endif %}
+      </p>
+    </div>
   </div>
 
-  <nav class="aggregate-controls" aria-label="Период результатов">
-    <span>Выпусков:</span>
-    {% for size, url in limit_urls.items %}
-      <a class="new-btn new-btn--ghost new-btn--mini{% if size == aggregate_limit %} is-active{% endif %}" href="{{ url }}"{% if size == aggregate_limit %} aria-current="true"{% endif %}>{{ size }}</a>
-    {% endfor %}
-    <span class="aggregate-window-range">{% if aggregate_first_number %}№{{ aggregate_first_number }}–№{{ aggregate_last_number }}{% else %}Нет опубликованных выпусков{% endif %}</span>
-    <span class="aggregate-window-nav">
-      {% if newer_url %}<a href="{{ newer_url }}">← Более новые</a>{% endif %}
-      {% if older_url %}<a href="{{ older_url }}">Более старые →</a>{% endif %}
-    </span>
-  </nav>
-  <nav class="aggregate-actor-filters" aria-label="Тип участников">
-    <span class="aggregate-filter-label">Показывать:</span>
-    {% for item in aggregate_actor_filter_urls %}<a class="aggregate-filter{% if item.active %} is-active{% endif %}" href="{{ item.url }}" aria-pressed="{% if item.active %}true{% else %}false{% endif %}" title="{{ item.title }}"><i class="ph {{ item.icon }}" aria-hidden="true"></i><span>{{ item.label }}</span></a>{% endfor %}
-  </nav>
-  {% if aggregate_show_attempts %}
-  <nav class="aggregate-sort" aria-label="Сортировка результатов">
-    <span class="aggregate-filter-label">При равенстве баллов:</span>
-    <a class="aggregate-filter{% if aggregate_sort == 'attempts' %} is-active{% endif %}" href="{{ aggregate_sort_urls.attempts }}">по попыткам</a>
-    <a class="aggregate-filter{% if aggregate_sort == 'time' %} is-active{% endif %}" href="{{ aggregate_sort_urls.time }}">по времени</a>
-  </nav>
-  {% endif %}
+  <div class="results-filter-panel" aria-label="Фильтры результатов">
+    <div class="results-filter-group">
+      <span class="results-filter-label">Количество выпусков</span>
+      <span class="results-filter-options">
+        {% for size, url in limit_urls.items %}
+          <a class="results-filter-chip{% if size == aggregate_limit %} is-active{% endif %}" href="{{ url }}"{% if size == aggregate_limit %} aria-current="true"{% endif %}>{{ size }} выпусков</a>
+        {% endfor %}
+      </span>
+      <span class="aggregate-window-range">{% if aggregate_first_number %}№{{ aggregate_first_number }}–№{{ aggregate_last_number }}{% else %}Нет опубликованных выпусков{% endif %}</span>
+      <span class="aggregate-window-nav">
+        {% if newer_url %}<a class="results-filter-nav" href="{{ newer_url }}"><i class="ph ph-arrow-left" aria-hidden="true"></i> Новее</a>{% endif %}
+        {% if older_url %}<a class="results-filter-nav" href="{{ older_url }}">Старше <i class="ph ph-arrow-right" aria-hidden="true"></i></a>{% endif %}
+      </span>
+    </div>
+    <div class="results-filter-group">
+      <span class="results-filter-label">Показывать</span>
+      <span class="results-filter-options">
+        {% for item in aggregate_actor_filter_urls %}<a class="results-filter-chip{% if item.active %} is-active{% endif %}" href="{{ item.url }}" aria-pressed="{% if item.active %}true{% else %}false{% endif %}" title="{{ item.title }}"><i class="ph {{ item.icon }}" aria-hidden="true"></i><span>{{ item.label }}</span></a>{% endfor %}
+      </span>
+    </div>
+    {% if aggregate_show_attempts %}
+    <div class="results-filter-group">
+      <span class="results-filter-label">При равенстве баллов</span>
+      <span class="results-filter-options">
+        <a class="results-filter-chip{% if aggregate_sort == 'attempts' %} is-active{% endif %}" href="{{ aggregate_sort_urls.attempts }}">По попыткам</a>
+        <a class="results-filter-chip{% if aggregate_sort == 'time' %} is-active{% endif %}" href="{{ aggregate_sort_urls.time }}">По времени</a>
+      </span>
+    </div>
+    {% endif %}
+  </div>
   {% if aggregate_has_unknown_max %}<p class="new-meta-kicker">Для некоторых опубликованных выпусков максимум не определён. Они остаются в таблице, но не входят в показанный знаменатель.</p>{% endif %}
+</div>
 
-  <div class="aggregate-table-wrap" role="region" aria-label="Сводная таблица результатов" tabindex="0">
+<div class="new-results-fullbleed">
+  <div class="new-results-wrap aggregate-table-wrap" role="region" aria-label="Сводная таблица результатов" tabindex="0">
     <table class="new-results-table aggregate-results-table">
       <thead><tr>
-        <th class="is-sticky-left is-sticky-top aggregate-place">Место</th>
-        <th class="is-sticky-left-2 is-sticky-top col-team aggregate-participant">Участник</th>
-        <th class="is-sticky-left-3 is-sticky-top col-score aggregate-score" title="Сумма баллов за выбранные выпуски" aria-label="Сумма баллов"><i class="ph ph-sigma" aria-hidden="true"></i></th>
-        <th class="is-sticky-left-4 is-sticky-top aggregate-time" title="Суммарное время решения" aria-label="Суммарное время"><i class="ph ph-clock" aria-hidden="true"></i></th>
-        {% if aggregate_show_attempts %}<th class="is-sticky-top aggregate-attempts" title="Суммарное количество попыток" aria-label="Попытки"><i class="ph ph-repeat" aria-hidden="true"></i></th>{% endif %}
-        {% for column in aggregate_columns %}<th class="aggregate-release"><a href="{{ column.url }}" title="Выпуск {{ column.label }} · {{ column.published_at|date:'d.m.Y H:i' }}">{% if aggregate_column_labels|get_item:column.link.pk %}{{ aggregate_column_labels|get_item:column.link.pk }}{% else %}{{ column.label }}{% endif %}</a></th>{% endfor %}
+        <th scope="col" class="is-sticky-left is-sticky-top aggregate-place">Место</th>
+        <th scope="col" class="is-sticky-left-2 is-sticky-top col-team aggregate-participant">Участник</th>
+        <th scope="col" class="is-sticky-left-3 is-sticky-top col-score aggregate-score" title="Сумма баллов за выбранные выпуски" aria-label="Сумма баллов"><i class="ph ph-sigma" aria-hidden="true"></i></th>
+        <th scope="col" class="is-sticky-left-4 is-sticky-top aggregate-time" title="Суммарное время решения" aria-label="Суммарное время"><i class="ph ph-clock" aria-hidden="true"></i></th>
+        {% if aggregate_show_attempts %}<th scope="col" class="is-sticky-top aggregate-attempts results-attempts" title="Суммарное количество попыток" aria-label="Попытки"><i class="ph ph-repeat" aria-hidden="true"></i></th>{% endif %}
+        {% for column in aggregate_columns %}<th class="aggregate-release{% if aggregate_column_labels|get_item:column.link.pk %} aggregate-word-answer{% endif %}"><a href="{{ column.url }}" title="Выпуск {{ column.label }} · {{ column.published_at|date:'d.m.Y H:i' }}">{% if aggregate_column_labels|get_item:column.link.pk %}{{ aggregate_column_labels|get_item:column.link.pk }}{% else %}{{ column.label }}{% endif %}</a></th>{% endfor %}
       </tr></thead>
       <tbody>
-        {% for row in aggregate_rows %}
-        <tr>
-          <th class="is-sticky-left aggregate-place">{{ row.place }}</th>
-          <th class="is-sticky-left-2 col-team aggregate-participant"><i class="ph {% if row.actor_kind == 'team' %}ph-users{% elif row.actor_kind == 'anon' %}ph-detective{% else %}ph-user{% endif %} aggregate-actor-icon" aria-hidden="true"></i>{{ row.actor_label }}</th>
-          <th class="is-sticky-left-3 col-score aggregate-score"><strong>{{ row.score|minimize_digits }}</strong></th>
-          <td class="is-sticky-left-4 aggregate-time">{% if row.time_display %}{{ row.time_display }}{% else %}—{% endif %}</td>
-          {% if aggregate_show_attempts %}<td class="aggregate-attempts">{{ row.attempts }}</td>{% endif %}
-          {% for column in aggregate_columns %}{% with cell=row.cells|get_item:column.link.pk meta=row.cell_meta|get_item:column.link.pk %}<td class="aggregate-release{% if meta %} {{ meta.cls }}{% endif %}">{% if cell != None %}{{ cell|minimize_digits }}{% endif %}</td>{% endwith %}{% endfor %}
-        </tr>
-        {% empty %}
-        <tr><td colspan="{{ aggregate_columns|length|add:4 }}">Пока нет результатов.</td></tr>
-        {% endfor %}
+        {% include "new/partials/aggregate_results_rows.html" %}
+        {% if not aggregate_rows %}<tr><td colspan="{{ aggregate_columns|length|add:4 }}">Пока нет результатов.</td></tr>{% endif %}
       </tbody>
     </table>
   </div>
 
-  {% if aggregate_page.has_next %}<nav class="aggregate-pagination" aria-label="Страницы участников"><span>Участники {{ aggregate_page.start_index }}–{{ aggregate_page.end_index }} из {{ aggregate_page.paginator.count }}</span> <a class="new-btn new-btn--ghost new-btn--mini" href="{{ next_page_url }}">Показать ещё</a></nav>{% elif aggregate_page.paginator.count %}<p class="aggregate-pagination">Показаны все {{ aggregate_page.paginator.count }} участников.</p>{% endif %}
-</section>
+  <div class="results-load-more aggregate-pagination" data-results-progressive data-results-tbody=".aggregate-results-table tbody" data-next-page="{% if aggregate_page.has_next %}{{ aggregate_page.next_page_number }}{% else %}0{% endif %}" data-total="{{ aggregate_page.paginator.count|default:0 }}" data-subject=" участников">
+    <span class="results-load-more__status" data-aggregate-load-more-status aria-live="polite">Показаны {{ aggregate_page.start_index|default:0 }}–{{ aggregate_page.end_index|default:0 }} из {{ aggregate_page.paginator.count|default:0 }}</span>
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-results-load-more-button{% if not aggregate_page.has_next %} hidden{% endif %}>Загрузить ещё</button>
+  </div>
+  <noscript class="results-noscript-pager">
+    {% if aggregate_page.has_next %}<a class="new-btn new-btn--ghost new-btn--mini" href="{{ next_page_url }}">Показать следующих участников</a>{% else %}Показаны все участники.{% endif %}
+  </noscript>
+  </div>
+</div>
 
-<style>
-.aggregate-controls,.aggregate-window-nav,.aggregate-pagination{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin:.8rem 0}
-.aggregate-actor-filters{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin:.45rem 0 .8rem}
-.aggregate-filter-label{font-size:.82rem;color:var(--muted,#667085);margin-right:.15rem}
-.aggregate-filter{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .55rem;border:1px solid var(--border);border-radius:999px;color:var(--muted,#667085);text-decoration:none;font-size:.82rem;transition:background .15s,color .15s,border-color .15s}
-.aggregate-filter:hover,.aggregate-filter:focus-visible{border-color:var(--accent);color:var(--text);background:var(--tile)}
-.aggregate-filter.is-active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--text);font-weight:600}
-.aggregate-actor-icon{margin-right:.32rem;color:var(--muted,#667085);font-size:.9em}
-.aggregate-window-range{font-size:.9rem;color:var(--muted,#667085);margin-left:.5rem}
-.aggregate-window-nav{margin-left:auto}.aggregate-window-nav a{white-space:nowrap}
-.aggregate-table-wrap{max-width:100%;overflow:auto;overscroll-behavior-x:contain}
-.aggregate-results-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0}
-.aggregate-place,.aggregate-time,.aggregate-release{text-align:center;font-variant-numeric:tabular-nums}
-.aggregate-time{min-width:var(--results-col-time);width:var(--results-col-time)}
-.aggregate-release{min-width:2.25rem;width:2.25rem;padding-left:.3rem!important;padding-right:.3rem!important}.aggregate-pagination{justify-content:flex-end}
-</style>
+<script src="{% static 'js/results_progressive.js' %}"></script>
 {% endblock %}

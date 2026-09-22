@@ -1,5 +1,5 @@
 {% extends "new/base.html" %}
-{% load filters tz %}
+{% load filters tz static %}
 
 {% block title %}
   Результаты ·
@@ -37,20 +37,27 @@
           {% if next_task_group_url %}<a class="new-daily-game-header__nav-button" href="{{ next_task_group_url }}" aria-label="Следующая ежедневная игра"><i class="ph ph-caret-right" aria-hidden="true"></i></a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Следующая ежедневная игра"><i class="ph ph-caret-right" aria-hidden="true"></i></button>{% endif %}
         </nav>
       {% endif %}
-      {% if mode != 'tournament' %}
-        <button type="button" class="new-eye-toggle" aria-label="Скрывать анонимов" title="Скрывать анонимов" aria-pressed="false" data-hide-anon-toggle>
-          <i class="ph ph-detective" aria-hidden="true"></i>
-        </button>
-      {% endif %}
     </div>
 
-    {% if show_alphabetty_detail %}
-      <nav class="new-results-pager" aria-label="Порядок результатов">
-        <span class="new-results-pager__meta">Вторичный критерий:</span>
-        <span class="new-results-pager__actions">
-          <a class="new-btn new-btn--mini {% if alphabetty_sort == 'attempts' %}new-btn--primary{% else %}new-btn--ghost{% endif %}" href="{{ request.path }}?sort=attempts">По попыткам</a>
-          <a class="new-btn new-btn--mini {% if alphabetty_sort == 'time' %}new-btn--primary{% else %}new-btn--ghost{% endif %}" href="{{ request.path }}?sort=time">По времени</a>
-        </span>
+    {% if mode != 'tournament' or show_alphabetty_detail %}
+      <nav class="results-filter-panel" aria-label="Фильтры результатов">
+        {% if mode != 'tournament' %}
+          <div class="results-filter-group">
+            <span class="results-filter-label">Показывать</span>
+            <span class="results-filter-options">
+              {% for item in results_actor_filter_urls %}<a class="results-filter-chip{% if item.active %} is-active{% endif %}" href="{{ item.url }}" aria-current="{% if item.active %}true{% else %}false{% endif %}" title="{{ item.title }}"><i class="ph {{ item.icon }}" aria-hidden="true"></i><span>{{ item.label }}</span></a>{% endfor %}
+            </span>
+          </div>
+        {% endif %}
+        {% if show_alphabetty_detail %}
+          <div class="results-filter-group">
+            <span class="results-filter-label">При равенстве баллов</span>
+            <span class="results-filter-options">
+              <a class="results-filter-chip{% if alphabetty_sort == 'attempts' %} is-active{% endif %}" href="{{ request.path }}?sort=attempts">По попыткам</a>
+              <a class="results-filter-chip{% if alphabetty_sort == 'time' %} is-active{% endif %}" href="{{ request.path }}?sort=time">По времени</a>
+            </span>
+          </div>
+        {% endif %}
       </nav>
     {% endif %}
 
@@ -71,61 +78,39 @@
     </div>
     {% endif %}
 
-    {% if is_paginated and not progressive_results %}
-      <div class="new-results-pager" role="navigation" aria-label="Страницы результатов">
-        <span class="new-results-pager__meta">
-          Показаны {{ page_obj.start_index }}–{{ page_obj.end_index }} из {{ page_total_rows }}
-          <span class="new-results-pager__sep">·</span>
-          стр. {{ page_obj.number }}/{{ paginator.num_pages }}
-        </span>
-        <span class="new-results-pager__actions">
-          {% if page_obj.has_previous %}
-            <a class="new-btn new-btn--ghost new-btn--mini new-back" href="{{ page_qs_prefix }}page={{ page_obj.previous_page_number }}"><i class="ph ph-arrow-left" aria-hidden="true"></i> Предыдущая</a>
-          {% else %}
-            <span class="new-btn new-btn--ghost new-btn--mini new-back is-disabled" aria-disabled="true"><i class="ph ph-arrow-left" aria-hidden="true"></i> Предыдущая</span>
-          {% endif %}
-          {% if page_obj.has_next %}
-            <a class="new-btn new-btn--ghost new-btn--mini new-fwd" href="{{ page_qs_prefix }}page={{ page_obj.next_page_number }}">Следующая <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
-          {% else %}
-            <span class="new-btn new-btn--ghost new-btn--mini new-fwd is-disabled" aria-disabled="true">Следующая <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
-          {% endif %}
-        </span>
-      </div>
-    {% endif %}
-
   </div>
 
   <div class="new-results-fullbleed">
     <div class="new-results-wrap" role="region" aria-label="Таблица результатов">
-      <table class="new-results-table{% if is_ladder_results or results_variant == 'alphabetty' %} new-results-table--daily{% endif %}{% if results_variant == 'ladder_words' or results_variant == 'salad_words' or results_variant == 'alphabetty' %} new-results-table--word-answers{% endif %}">
+      <table class="new-results-table{% if is_ladder_results or results_variant == 'alphabetty' %} new-results-table--daily{% endif %}{% if results_variant == 'ladder_words' or results_variant == 'salad_words' or results_variant == 'alphabetty' %} new-results-table--word-answers{% endif %}{% if results_variant == 'alphabetty' %} new-results-table--alphabetty{% endif %}">
           <thead>
             <tr>
-              <th class="is-sticky-left is-sticky-top">#</th>
-              <th class="is-sticky-left-2 is-sticky-top col-team">{% if section_results %}Участник{% elif mode == 'general' %}Команда / участник{% else %}Команда{% endif %}</th>
-              {% if results_variant != 'alphabetty' %}<th class="is-sticky-left-3 is-sticky-top col-score" title="Сумма баллов" aria-label="Сумма баллов"><i class="ph ph-sigma" aria-hidden="true"></i></th>{% endif %}
-              {% if show_alphabetty_detail %}<th class="is-sticky-top" title="Попытки" aria-label="Попытки"><i class="ph ph-repeat" aria-hidden="true"></i></th>{% endif %}
+              <th scope="col" class="is-sticky-left is-sticky-top">#</th>
+              <th scope="col" class="is-sticky-left-2 is-sticky-top col-team">{% if section_results %}Участник{% elif mode == 'general' %}Команда / участник{% else %}Команда{% endif %}</th>
+              {% if results_variant != 'alphabetty' %}<th scope="col" class="is-sticky-left-3 is-sticky-top col-score" title="Сумма баллов" aria-label="Сумма баллов"><i class="ph ph-sigma" aria-hidden="true"></i></th>{% endif %}
+              {% if show_alphabetty_detail %}<th scope="col" class="is-sticky-left-3 is-sticky-top results-attempts" title="Попытки" aria-label="Попытки"><i class="ph ph-repeat" aria-hidden="true"></i></th>{% endif %}
               {% if mode == 'tournament' %}
-                <th class="is-sticky-left-4 is-sticky-top" title="Время" aria-label="Время"><i class="ph ph-clock" aria-hidden="true"></i></th>
+                <th scope="col" class="is-sticky-left-4 is-sticky-top" title="Время" aria-label="Время"><i class="ph ph-clock" aria-hidden="true"></i></th>
               {% elif show_solve_duration %}
-                <th class="is-sticky-top" title="Время решения" aria-label="Время решения"><i class="ph ph-clock" aria-hidden="true"></i></th>
+                <th scope="col" class="is-sticky-left-4 is-sticky-top" title="Время решения" aria-label="Время решения"><i class="ph ph-clock" aria-hidden="true"></i></th>
               {% endif %}
             {% if results_variant == 'ladder_words' or results_variant == 'salad_words' %}
               {% for task_group in task_groups %}
-                  {% for task in task_group_to_tasks|get_item:task_group.number %}<th class="is-sticky-top col-ladder">{% if task.display_answer %}{{ task.display_answer }}{% else %}{{ task.display_number|default:task.number }}{% endif %}</th>{% endfor %}
+                  {% for task in task_group_to_tasks|get_item:task_group.number %}<th scope="col" class="is-sticky-top col-ladder">{% if task.display_answer %}{{ task.display_answer }}{% else %}{{ task.display_number|default:task.number }}{% endif %}</th>{% endfor %}
                 {% endfor %}
               {% elif results_variant == 'ladder' %}
                 {% for task_group in task_groups %}
-                  <th class="is-sticky-top col-ladder" colspan="{{ task_group.get_n_tasks_for_results }}">
+                  <th scope="col" class="is-sticky-top col-ladder" colspan="{{ task_group.get_n_tasks_for_results }}">
                     <a href="/ladder/{{ task_group.number }}/">{{ task_group.number }}</a>
                   </th>
                 {% endfor %}
               {% elif results_variant == 'alphabetty' %}
                 {% for task_group in task_groups %}
-                  {% for task in task_group_to_tasks|get_item:task_group.number %}<th class="is-sticky-top col-ladder">{% if task.display_answer %}{{ task.display_answer }}{% else %}{{ task.display_number|default:task_group.number }}{% endif %}</th>{% endfor %}
+                  {% for task in task_group_to_tasks|get_item:task_group.number %}<th scope="col" class="is-sticky-top col-ladder">{% if task.display_answer %}{{ task.display_answer }}{% else %}{{ task.display_number|default:task_group.number }}{% endif %}</th>{% endfor %}
                 {% endfor %}
               {% else %}
                 {% for task_group in task_groups %}
-                  <th class="is-sticky-top" colspan="{{ task_group.get_n_tasks_for_results }}">
+                  <th scope="col" class="is-sticky-top" colspan="{{ task_group.get_n_tasks_for_results }}">
                     {{ task_group.number }}
                   </th>
                 {% endfor %}
@@ -150,20 +135,22 @@
             {% endif %}
           </thead>
           <tbody id="results-tbody">
-            {% if progressive_results %}
-              <tr id="results-loading-row" class="results-loading-row">
-                <td colspan="{{ results_column_count|default:1 }}">Загрузка результатов…</td>
-              </tr>
-            {% else %}
-              {% include "new/partials/results_rows.html" %}
-              {% if not teams_sorted %}
-                <tr><td colspan="{{ results_column_count|default:1 }}">Пока нет результатов.</td></tr>
-              {% endif %}
+            {% include "new/partials/results_rows.html" %}
+            {% if not teams_sorted and not progressive_results %}
+              <tr><td colspan="{{ results_column_count|default:1 }}">Пока нет результатов.</td></tr>
             {% endif %}
           </tbody>
         </table>
         {% if progressive_results %}
-          <div id="results-sentinel" class="new-results-sentinel" aria-hidden="true"></div>
+          <div class="results-load-more" data-results-load-more-wrap data-results-progressive data-results-tbody="#results-tbody" data-next-page="{% if page_obj and page_obj.has_next %}{{ page_obj.next_page_number }}{% elif not page_obj %}1{% else %}0{% endif %}" data-total="{{ page_total_rows|default:0 }}" data-subject=" результатов">
+            <span class="results-load-more__status" data-results-load-more-status aria-live="polite">
+              Показаны {{ page_obj.start_index|default:0 }}–{{ page_obj.end_index|default:0 }} из {{ page_total_rows|default:0 }}
+            </span>
+            <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-results-load-more-button{% if page_obj and not page_obj.has_next %} hidden{% endif %}>Загрузить ещё</button>
+          </div>
+          <noscript class="results-noscript-pager">
+            {% if page_obj and page_obj.has_next %}<a class="new-btn new-btn--ghost new-btn--mini" href="{{ page_qs_prefix }}page={{ page_obj.next_page_number }}">Показать следующие результаты</a>{% else %}Показаны все результаты.{% endif %}
+          </noscript>
         {% endif %}
       </div>
     </div>
@@ -191,136 +178,5 @@
     }
   })();
   </script>
-  {% if mode != 'tournament' %}
-  <script>
-  (function () {
-    var HIDE_KEY = 'new_hide_anonymous';
-    function applyHideAnon() {
-      var hide = false;
-      try { hide = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) {}
-      document.querySelectorAll('tr[data-actor="anon"]').forEach(function (el) {
-        el.classList.toggle('is-hidden', hide);
-      });
-      document.querySelectorAll('[data-hide-anon-toggle]').forEach(function (btn) {
-        btn.classList.toggle('is-hiding', hide);
-        btn.setAttribute('aria-pressed', hide ? 'true' : 'false');
-        btn.setAttribute('aria-label', hide ? 'Показывать анонимов' : 'Скрывать анонимов');
-        btn.setAttribute('title', hide ? 'Показывать анонимов' : 'Скрывать анонимов');
-      });
-    }
-    document.querySelectorAll('[data-hide-anon-toggle]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        try {
-          var cur = localStorage.getItem(HIDE_KEY) === '1';
-          localStorage.setItem(HIDE_KEY, cur ? '0' : '1');
-        } catch (e) {}
-        applyHideAnon();
-      });
-    });
-    applyHideAnon();
-    window.interovesApplyHideAnon = applyHideAnon;
-  })();
-  </script>
-  {% endif %}
-  {% if progressive_results %}
-  <script>
-  (function () {
-    var tbody = document.getElementById('results-tbody');
-    if (!tbody) return;
-
-    var table = document.querySelector('.new-results-table');
-    var tableColumnCount = table ? Array.prototype.reduce.call(
-      table.querySelectorAll('thead tr:first-child th'),
-      function (count, cell) { return count + (parseInt(cell.getAttribute('colspan'), 10) || 1); },
-      0
-    ) : 1;
-
-    var nextPage = 1;
-    var loading = false;
-
-    async function loadNext() {
-      if (loading || !nextPage) return;
-      loading = true;
-      try {
-        var url = new URL(window.location.href);
-        url.searchParams.set('page', String(nextPage));
-        url.searchParams.set('partial', '1');
-        var resp = await fetch(url.toString(), { credentials: 'same-origin' });
-        var html = await resp.text();
-        var tmp = document.createElement('tbody');
-        tmp.innerHTML = html;
-
-        var meta = tmp.querySelector('template[data-results-meta="1"]');
-        if (meta) {
-          var hasNext = meta.getAttribute('data-has-next') === '1';
-          nextPage = hasNext ? (meta.getAttribute('data-next-page') || '') : '';
-        } else {
-          nextPage = '';
-        }
-
-        var loadingRow = document.getElementById('results-loading-row');
-        if (loadingRow) loadingRow.remove();
-
-        // Append rows (skip <template>)
-        Array.prototype.slice.call(tmp.children).forEach(function (node) {
-          if (node.tagName && node.tagName.toLowerCase() === 'template') return;
-          tbody.appendChild(node);
-        });
-
-        if (typeof window.interovesApplyHideAnon === 'function') {
-          window.interovesApplyHideAnon();
-        }
-
-        if (!tbody.children.length) {
-          tbody.innerHTML = '<tr><td colspan="' + tableColumnCount + '">Пока нет результатов.</td></tr>';
-          nextPage = '';
-        }
-      } catch (e) {
-        // keep nextPage as-is; allow retry on next trigger
-      } finally {
-        loading = false;
-      }
-    }
-
-    async function fillViewport() {
-      // Keep loading until the table is taller than the viewport (with a small buffer),
-      // or until there are no more pages. Safety cap prevents runaway loading.
-      var maxPages = 25;
-      var pagesLoaded = 0;
-      var doc = document.documentElement;
-      while (nextPage && pagesLoaded < maxPages && (doc.scrollHeight - window.innerHeight) < 400) {
-        await loadNext();
-        pagesLoaded += 1;
-        // Allow layout to settle before re-checking height.
-        await new Promise(function (resolve) { setTimeout(resolve, 0); });
-      }
-    }
-
-    function maybeLoadOnScroll() {
-      // If user is near the bottom, try to load more.
-      if (!nextPage || loading) return;
-      var doc = document.documentElement;
-      var remaining = doc.scrollHeight - (window.scrollY + window.innerHeight);
-      if (remaining < 800) loadNext();
-    }
-
-    // Start with 0 pages loaded: auto-load until viewport is filled.
-    fillViewport();
-
-    var sentinel = document.getElementById('results-sentinel');
-    if (sentinel && typeof IntersectionObserver !== 'undefined') {
-      var io = new IntersectionObserver(function (entries) {
-        for (var i = 0; i < entries.length; i++) {
-          if (entries[i].isIntersecting) loadNext();
-        }
-      }, { root: null, rootMargin: '1200px 0px 1200px 0px', threshold: 0 });
-      io.observe(sentinel);
-    } else {
-      window.addEventListener('scroll', maybeLoadOnScroll, { passive: true });
-      window.addEventListener('resize', maybeLoadOnScroll);
-      maybeLoadOnScroll();
-    }
-  })();
-  </script>
-  {% endif %}
+  {% if progressive_results %}<script src="{% static 'js/results_progressive.js' %}"></script>{% endif %}
 {% endblock %}

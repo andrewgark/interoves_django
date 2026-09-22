@@ -14,6 +14,7 @@ from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.forms import ChoiceField, ModelForm, TextInput
 from django.core.exceptions import ValidationError
+from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.http import Http404
 from django.http import JsonResponse
@@ -1612,11 +1613,13 @@ def project_results_page(request, project_id, game_id):
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
     snap = GameResultsSnapshot.objects.filter(game=game, mode='general').first()
-    if snap and snap.payload:
+    if snap and snap.payload and request.GET.get('actors') is None:
         data = snapshot_to_results_context(game, snap.payload)
     else:
-        data = _new_results_compute(game, mode='general')
+        data = _new_results_compute(game, mode='general', actor_types=_results_actor_filter_types(request))
     data = _paginate_results_rows(request, data, per_page=50)
+    if request.GET.get('partial') == '1':
+        return _render_results_rows_partial(request, data, mode='general')
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal = None
@@ -1640,6 +1643,7 @@ def project_results_page(request, project_id, game_id):
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
+        'results_actor_filter_urls': _results_actor_filter_urls(request),
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'section_games': [],
         'show_sections_nav': False,
@@ -1656,11 +1660,13 @@ def project_tournament_results_page(request, project_id, game_id):
     if not game.has_access('see_tournament_results', team=team):
         raise Http404()
     snap = GameResultsSnapshot.objects.filter(game=game, mode='tournament').first()
-    if snap and snap.payload:
+    if snap and snap.payload and request.GET.get('actors') is None:
         data = snapshot_to_results_context(game, snap.payload)
     else:
-        data = _new_results_compute(game, mode='tournament')
+        data = _new_results_compute(game, mode='tournament', actor_types=_results_actor_filter_types(request))
     data = _paginate_results_rows(request, data, per_page=50)
+    if request.GET.get('partial') == '1':
+        return _render_results_rows_partial(request, data, mode='tournament')
     return render(request, 'ui/results.html', {
         'project': project,
         'mode': 'tournament',
@@ -1675,6 +1681,7 @@ def project_tournament_results_page(request, project_id, game_id):
         ),
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты турнира: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
+        'results_actor_filter_urls': _results_actor_filter_urls(request),
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'section_games': [],
         'show_sections_nav': False,
@@ -2171,7 +2178,7 @@ def _results_rows_empty_context():
 
 def _load_game_results_data(game, mode):
     snap = GameResultsSnapshot.objects.filter(game=game, mode=mode).first()
-    if snap and snap.payload:
+    if snap and snap.payload and request.GET.get('actors') is None:
         return snapshot_to_results_context(game, snap.payload)
     # Live path: short-TTL cached snapshot-shaped payload (shared across progressive pages).
     return snapshot_to_results_context(game, get_live_results_payload(game, mode))
@@ -2190,7 +2197,52 @@ def _results_me_participants(request, play_mode):
     return me_personal, me_anon_participant
 
 
-def _new_results_compute(game, mode, task_group_number=None, alphabetty_sort='attempts'):
+def _results_actor_filter_types(request):
+    raw = request.GET.get('actors')
+    if raw is None:
+        return {'user', 'team', 'anon'}
+    return {value.strip() for value in str(raw).split(',') if value.strip()} & {'user', 'team', 'anon'}
+
+
+def _results_actor_filter_urls(request):
+    selected = _results_actor_filter_types(request)
+    definitions = (
+        ('team', 'Команды', 'ph-users'),
+        ('user', 'Игроки', 'ph-user'),
+        ('anon', 'Анонимы', 'ph-detective'),
+    )
+    result = []
+    for kind, label, icon in definitions:
+        next_types = set(selected)
+        if kind in next_types:
+            next_types.remove(kind)
+        else:
+            next_types.add(kind)
+        params = request.GET.copy()
+        params.pop('page', None)
+        params.pop('partial', None)
+        params.pop('loaded', None)
+        params['actors'] = ','.join(value for value in ('user', 'team', 'anon') if value in next_types)
+        query = params.urlencode()
+        result.append({
+            'label': label,
+            'icon': icon,
+            'active': kind in selected,
+            'url': request.path + ('?' + query if query else ''),
+            'title': ('Скрыть ' if kind in selected else 'Показать ') + label.lower(),
+        })
+    return result
+
+
+def _results_actor_kind(actor):
+    if getattr(actor, 'is_team_results_row', False):
+        return 'team'
+    if getattr(actor, 'anon_key', None):
+        return 'anon'
+    return 'user'
+
+
+def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty_sort='attempts', actor_types=None):
     team_to_list_attempts_info = {}
     team_to_score = {}
     team_to_max_best_time = {}
@@ -2299,6 +2351,8 @@ def _new_results_compute(game, mode, task_group_number=None, alphabetty_sort='at
         game=game if scoped_group else None, published_at=published_at,
         result_times=result_times,
     ))
+    if actor_types is not None:
+        eligible = {actor for actor in eligible if _results_actor_kind(actor) in actor_types}
     team_to_score = {actor: score for actor, score in team_to_score.items() if actor in eligible}
     solve_duration_seconds = {actor: value for actor, value in solve_duration_seconds.items() if actor in eligible}
     team_to_attempts = {}
@@ -2437,6 +2491,23 @@ def _new_results_compute(game, mode, task_group_number=None, alphabetty_sort='at
     }
 
 
+def _new_results_compute(game, mode, task_group_number=None, alphabetty_sort='attempts', actor_types=None):
+    """Reuse the full result calculation while progressive pages are loading."""
+    actor_key = 'all' if actor_types is None else ','.join(sorted(actor_types))
+    cache_key = 'new_results:v2:{}:{}:{}:{}:{}'.format(
+        game.id, mode, task_group_number or '-', alphabetty_sort, actor_key,
+    )
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+    data = _new_results_compute_uncached(
+        game, mode, task_group_number=task_group_number,
+        alphabetty_sort=alphabetty_sort, actor_types=actor_types,
+    )
+    cache.set(cache_key, data, 10)
+    return data
+
+
 def _paginate_results_rows(request, data, per_page=50):
     """
     Paginate the results rows (teams_sorted) without touching score/place dicts.
@@ -2462,7 +2533,27 @@ def _paginate_results_rows(request, data, per_page=50):
     out['page_qs_prefix'] = ('?' + rest + '&') if rest else '?'
     out['page_size'] = per_page
     out['page_total_rows'] = paginator.count
+    out['progressive_results'] = True
     return out
+
+
+def _render_results_rows_partial(request, data, *, mode, results_variant='standard',
+                                 team=None, me_personal=None,
+                                 me_anon_participant=None,
+                                 show_solve_duration=False,
+                                 show_alphabetty_detail=False):
+    """Render one progressive-results page without the surrounding document."""
+    return render(request, 'new/partials/results_rows.html', {
+        'mode': mode,
+        'section_results': False,
+        'results_variant': results_variant,
+        'team': team,
+        'me_personal': me_personal,
+        'me_anon_participant': me_anon_participant,
+        'show_solve_duration': show_solve_duration,
+        'show_alphabetty_detail': show_alphabetty_detail,
+        **data,
+    })
 
 
 def new_results_page(request, game_id):
@@ -2480,8 +2571,10 @@ def new_results_page(request, game_id):
     if snap and snap.payload:
         data = snapshot_to_results_context(game, snap.payload)
     else:
-        data = _new_results_compute(game, mode='general')
+        data = _new_results_compute(game, mode='general', actor_types=_results_actor_filter_types(request))
     data = _paginate_results_rows(request, data, per_page=50)
+    if request.GET.get('partial') == '1':
+        return _render_results_rows_partial(request, data, mode='general')
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal = None
@@ -2504,6 +2597,7 @@ def new_results_page(request, game_id):
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
+        'results_actor_filter_urls': _results_actor_filter_urls(request),
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
@@ -2522,10 +2616,13 @@ def new_tournament_results_page(request, game_id):
         raise Http404()
 
     snap = GameResultsSnapshot.objects.filter(game=game, mode='tournament').first()
-    if snap and snap.payload:
+    if snap and snap.payload and request.GET.get('actors') is None:
         data = snapshot_to_results_context(game, snap.payload)
     else:
-        data = _new_results_compute(game, mode='tournament')
+        data = _new_results_compute(game, mode='tournament', actor_types=_results_actor_filter_types(request))
+    data = _paginate_results_rows(request, data, per_page=50)
+    if request.GET.get('partial') == '1':
+        return _render_results_rows_partial(request, data, mode='tournament')
     return render(request, 'ui/results.html', {
         'mode': 'tournament',
         'game': game,
@@ -2539,6 +2636,7 @@ def new_tournament_results_page(request, game_id):
         ),
         'play_mode_project_id': game.project_id,
         'page_title': 'Результаты турнира: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
+        'results_actor_filter_urls': _results_actor_filter_urls(request),
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
@@ -2576,10 +2674,23 @@ def new_section_results_page(request, game_id):
     aggregate_column_labels = {}
     if game_id == ALPHABETTY_GAME_ID:
         current_actor = team if play_mode == 'team' else (me_personal or me_anon_participant)
+        def actor_identity(actor):
+            if getattr(actor, 'is_team_results_row', False):
+                return ('team', getattr(actor, 'pk', None))
+            if getattr(actor, 'user_id', None) is not None:
+                return ('user', actor.user_id)
+            if getattr(actor, 'anon_key', None):
+                return ('anon', actor.anon_key)
+            return None
+
+        current_actor_identity = actor_identity(current_actor)
         current_row = next(
-            (row for row in data.get('aggregate_rows', []) if row.get('actor') == current_actor),
+            (
+                row for row in data.get('aggregate_rows', [])
+                if actor_identity(row.get('actor')) == current_actor_identity
+            ),
             None,
-        ) if current_actor is not None else None
+        ) if current_actor_identity is not None else None
         if current_row:
             for column in data.get('aggregate_columns', []):
                 score = current_row.get('cells', {}).get(column.link.pk)
@@ -2590,6 +2701,9 @@ def new_section_results_page(request, game_id):
 
     def query_url(**overrides):
         params = request.GET.copy()
+        # The progressive participant list is a client-side view state; any
+        # filter/window change starts a fresh list from its first page.
+        params.pop('loaded', None)
         if 'anchor' not in overrides and data.get('aggregate_window_anchor') and not params.get('anchor'):
             params['anchor'] = data['aggregate_window_anchor']
         for key, value in overrides.items():
@@ -2648,6 +2762,10 @@ def new_section_results_page(request, game_id):
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
     })
+    if request.GET.get('partial') == '1':
+        return render(request, 'new/partials/aggregate_results_rows.html', {
+            **data,
+        })
     return render(request, 'new/aggregate_results.html', {
         **data,
     })
@@ -2663,6 +2781,7 @@ def _render_task_group_results_page(request, game, number, back_url):
     data = _new_results_compute(
         game, mode='general', task_group_number=number,
         alphabetty_sort=alphabetty_sort,
+        actor_types=_results_actor_filter_types(request),
     )
     results_variant = 'alphabetty' if game.id == ALPHABETTY_GAME_ID else 'salad_words' if game.id == 'salad' else 'standard'
     if game.id == 'salad':
@@ -2675,6 +2794,14 @@ def _render_task_group_results_page(request, game, number, back_url):
     ).first()
     results_title = task_group_page_title(game, placement) if placement else '{} №{}'.format(game.name, number)
     data = _paginate_results_rows(request, data, per_page=50)
+    if request.GET.get('partial') == '1':
+        return _render_results_rows_partial(
+            request, data, mode='general', results_variant=results_variant,
+            team=team, me_personal=me_personal,
+            me_anon_participant=me_anon_participant,
+            show_solve_duration=True,
+            show_alphabetty_detail=game.id == ALPHABETTY_GAME_ID,
+        )
     return render(request, 'ui/results.html', {
         'mode': 'general',
         'section_results': True,
@@ -2691,6 +2818,7 @@ def _render_task_group_results_page(request, game, number, back_url):
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'page_title': results_title,
+        'results_actor_filter_urls': _results_actor_filter_urls(request),
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
@@ -2950,14 +3078,14 @@ def new_ladder_word_results_page(request, task_group_number):
         ladder_title = task_group_page_title(game, placement)
         back_url = _play_url_for_task_group(game, placement.number)
 
-    if request.GET.get('partial') == '1':
+    def build_word_results_data():
         data = build_ladder_word_results_context(game, placement, task)
         data = _set_current_result_header_answers(
             data, me_personal or me_anon_participant or team,
         )
         from games.leaderboard import apply_release_policy
         from games.daily_section import publish_at_for
-        data = apply_release_policy(
+        return apply_release_policy(
             data, game=game, task_group=placement.task_group,
             published_at=(
                 publish_at_for(game, placement.number)
@@ -2965,6 +3093,9 @@ def new_ladder_word_results_page(request, task_group_number):
             ),
             result_times=data.get('team_to_max_best_time', {}),
         )
+
+    if request.GET.get('partial') == '1':
+        data = build_word_results_data()
         data = _paginate_results_rows(request, data, per_page=progressive_page_size)
         return render(request, 'new/partials/results_rows.html', {
             'mode': 'general',
@@ -2980,11 +3111,8 @@ def new_ladder_word_results_page(request, task_group_number):
             **data,
         })
 
-    header_data = build_ladder_word_results_context(game, placement, task)
-    header_data = _set_current_result_header_answers(
-        header_data, me_personal or me_anon_participant or team,
-    )
-    data = {**header_data, **_results_rows_empty_context()}
+    data = build_word_results_data()
+    data = _paginate_results_rows(request, data, per_page=progressive_page_size)
     data['results_column_count'] = _results_column_count(
         data.get('task_groups'), mode='general'
     )
@@ -3008,6 +3136,7 @@ def new_ladder_word_results_page(request, task_group_number):
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'page_title': ladder_title,
+        'results_actor_filter_urls': _results_actor_filter_urls(request),
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
