@@ -2720,7 +2720,36 @@ def _set_current_result_header_answers(data, actor):
     """Expose solved words in result headers only for the current actor."""
     if actor is None:
         return data
-    cells = (data.get('team_to_cells') or {}).get(actor) or []
+    cells_by_actor = data.get('team_to_cells') or {}
+    cells = cells_by_actor.get(actor) or []
+    if not cells:
+        # Keep this independent of ORM instance identity. Salad results can
+        # contain a freshly hydrated Team/User wrapper while the request
+        # context carries another instance representing the same actor.
+        actor_kind = (
+            'team' if getattr(actor, 'is_team_results_row', False)
+            else 'user' if getattr(actor, 'user_id', None) is not None
+            else 'anon'
+        )
+        actor_id = (
+            getattr(actor, 'pk', None)
+            if actor_kind == 'team'
+            else getattr(actor, 'user_id', None) or getattr(actor, 'anon_key', None)
+        )
+        for candidate, candidate_cells in cells_by_actor.items():
+            candidate_kind = (
+                'team' if getattr(candidate, 'is_team_results_row', False)
+                else 'user' if getattr(candidate, 'user_id', None) is not None
+                else 'anon'
+            )
+            candidate_id = (
+                getattr(candidate, 'pk', None)
+                if candidate_kind == 'team'
+                else getattr(candidate, 'user_id', None) or getattr(candidate, 'anon_key', None)
+            )
+            if actor_kind == candidate_kind and actor_id == candidate_id:
+                cells = candidate_cells
+                break
     tasks = [
         task
         for task_group in (data.get('task_groups') or [])
