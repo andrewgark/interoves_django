@@ -2406,6 +2406,12 @@ def _new_results_compute(game, mode, task_group_number=None, alphabetty_sort='at
                 'n_attempts': n_attempts,
                 'result_points': points,
                 'hint_numbers': hint_numbers,
+                'solved': (
+                    variant == ALPHABETTY_GAME_ID
+                    and max_points > 0
+                    and points >= max_points - 1e-9
+                ),
+                'answer': getattr(task, 'answer', '') if variant == ALPHABETTY_GAME_ID else '',
             })
         team_to_cells[participant] = cells
 
