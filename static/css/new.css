@@ -6775,6 +6775,7 @@ a.new-btn.new-hub-next-game-vote__btn {
   position: sticky;
   left: 0;
   z-index: 6;
+  box-sizing: border-box;
   width: var(--results-col-rank);
   min-width: var(--results-col-rank);
   max-width: var(--results-col-rank);
@@ -6784,6 +6785,7 @@ a.new-btn.new-hub-next-game-vote__btn {
   position: sticky;
   left: var(--results-col-rank);
   z-index: 6;
+  box-sizing: border-box;
   width: var(--results-col-team);
   min-width: var(--results-col-team);
   max-width: var(--results-col-team);
@@ -6793,6 +6795,7 @@ a.new-btn.new-hub-next-game-vote__btn {
   position: sticky;
   left: calc(var(--results-col-rank) + var(--results-col-team));
   z-index: 6;
+  box-sizing: border-box;
   width: var(--results-col-score);
   min-width: var(--results-col-score);
   max-width: var(--results-col-score);
@@ -6806,6 +6809,7 @@ a.new-btn.new-hub-next-game-vote__btn {
   position: sticky;
   left: calc(var(--results-col-rank) + var(--results-col-team) + var(--results-col-score));
   z-index: 6;
+  box-sizing: border-box;
   width: var(--results-col-time);
   min-width: var(--results-col-time);
   max-width: var(--results-col-time);
