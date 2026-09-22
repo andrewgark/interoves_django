@@ -98,9 +98,9 @@
             <tr class="sticky-header">
               <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">#</th>
               <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Команда</th>
-              <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Сумма</th>
+              <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header" title="Сумма баллов" aria-label="Сумма баллов"><i class="fa fa-bar-chart" aria-hidden="true"></i></th>
               {% if mode == 'tournament' %}
-                <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header">Время</th>
+                <th rowspan="2" scope="col" class="cell-header sticky-cell corner-header" title="Время" aria-label="Время"><i class="fa fa-clock-o" aria-hidden="true"></i></th>
               {% endif %}
               {% for task_group in task_groups %}
                 <th colspan="{{ task_group.get_n_tasks_for_results }}" scope="col" class="cell-header">

@@ -40,9 +40,9 @@
       <thead><tr>
         <th class="is-sticky-left is-sticky-top aggregate-place">Место</th>
         <th class="is-sticky-left-2 is-sticky-top col-team aggregate-participant">Участник</th>
-        <th class="is-sticky-left-3 is-sticky-top col-score aggregate-score" title="Сумма баллов за выбранные выпуски"><i class="ph ph-sigma" aria-hidden="true"></i><span class="sr-only">Сумма баллов</span></th>
-        <th class="is-sticky-left-4 is-sticky-top aggregate-time" title="Суммарное время решения"><i class="ph ph-clock" aria-hidden="true"></i><span class="sr-only">Суммарное время</span></th>
-        {% if aggregate_show_attempts %}<th class="is-sticky-top aggregate-attempts" title="Суммарное количество попыток"><i class="ph ph-repeat" aria-hidden="true"></i><span class="sr-only">Попытки</span></th>{% endif %}
+        <th class="is-sticky-left-3 is-sticky-top col-score aggregate-score" title="Сумма баллов за выбранные выпуски" aria-label="Сумма баллов"><i class="ph ph-sigma" aria-hidden="true"></i></th>
+        <th class="is-sticky-left-4 is-sticky-top aggregate-time" title="Суммарное время решения" aria-label="Суммарное время"><i class="ph ph-clock" aria-hidden="true"></i></th>
+        {% if aggregate_show_attempts %}<th class="is-sticky-top aggregate-attempts" title="Суммарное количество попыток" aria-label="Попытки"><i class="ph ph-repeat" aria-hidden="true"></i></th>{% endif %}
         {% for column in aggregate_columns %}<th class="aggregate-release"><a href="{{ column.url }}" title="Выпуск {{ column.label }} · {{ column.published_at|date:'d.m.Y H:i' }}">{% if aggregate_column_labels|get_item:column.link.pk %}{{ aggregate_column_labels|get_item:column.link.pk }}{% else %}{{ column.label }}{% endif %}</a></th>{% endfor %}
       </tr></thead>
       <tbody>

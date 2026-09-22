@@ -90,12 +90,12 @@
             <tr>
               <th class="is-sticky-left is-sticky-top">#</th>
               <th class="is-sticky-left-2 is-sticky-top col-team">{% if section_results %}Участник{% elif mode == 'general' %}Команда / участник{% else %}Команда{% endif %}</th>
-              <th class="is-sticky-left-3 is-sticky-top col-score" title="Сумма баллов"><i class="ph ph-sigma" aria-hidden="true"></i><span class="sr-only">Сумма баллов</span></th>
-              {% if show_alphabetty_detail %}<th class="is-sticky-top" title="Попытки"><i class="ph ph-repeat" aria-hidden="true"></i><span class="sr-only">Попытки</span></th>{% endif %}
+              <th class="is-sticky-left-3 is-sticky-top col-score" title="Сумма баллов" aria-label="Сумма баллов"><i class="ph ph-sigma" aria-hidden="true"></i></th>
+              {% if show_alphabetty_detail %}<th class="is-sticky-top" title="Попытки" aria-label="Попытки"><i class="ph ph-repeat" aria-hidden="true"></i></th>{% endif %}
               {% if mode == 'tournament' %}
-                <th class="is-sticky-left-4 is-sticky-top" title="Время"><i class="ph ph-clock" aria-hidden="true"></i><span class="sr-only">Время</span></th>
+                <th class="is-sticky-left-4 is-sticky-top" title="Время" aria-label="Время"><i class="ph ph-clock" aria-hidden="true"></i></th>
               {% elif show_solve_duration %}
-                <th class="is-sticky-top" title="Время решения"><i class="ph ph-clock" aria-hidden="true"></i><span class="sr-only">Время решения</span></th>
+                <th class="is-sticky-top" title="Время решения" aria-label="Время решения"><i class="ph ph-clock" aria-hidden="true"></i></th>
               {% endif %}
             {% if results_variant == 'ladder_words' or results_variant == 'salad_words' %}
               {% for task_group in task_groups %}
