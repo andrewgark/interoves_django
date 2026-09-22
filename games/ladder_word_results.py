@@ -186,7 +186,7 @@ def _resolve_participants(actor_keys):
     return participants
 
 
-def build_ladder_word_results_context(game, placement, task):
+def build_ladder_word_results_context(game, placement, task, actor_types=None):
     """
     Results context shaped like snapshot_to_results_context / results templates.
 
@@ -239,6 +239,13 @@ def build_ladder_word_results_context(game, placement, task):
 
     actor_keys = set(chain_by_actor) | set(fallback_states) | set(max_times) | set(assist_hints)
     participants = _resolve_participants(actor_keys)
+    if actor_types is not None:
+        allowed_types = set(actor_types)
+        participants = {
+            key: participant
+            for key, participant in participants.items()
+            if key[0] in allowed_types
+        }
 
     team_to_score = {}
     team_to_max_best_time = {}

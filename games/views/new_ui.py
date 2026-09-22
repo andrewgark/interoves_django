@@ -3248,7 +3248,10 @@ def new_ladder_word_results_page(request, task_group_number):
         back_url = _play_url_for_task_group(game, placement.number)
 
     def build_word_results_data():
-        data = build_ladder_word_results_context(game, placement, task)
+        data = build_ladder_word_results_context(
+            game, placement, task,
+            actor_types=_results_actor_filter_types(request),
+        )
         data = _set_current_result_header_answers(
             data, me_personal or me_anon_participant or team, game=game,
         )
