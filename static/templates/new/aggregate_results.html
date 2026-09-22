@@ -65,15 +65,14 @@
         {% if not aggregate_rows %}<tr><td colspan="{{ aggregate_columns|length|add:4 }}">Пока нет результатов.</td></tr>{% endif %}
       </tbody>
     </table>
-  </div>
 
-  <div class="results-load-more aggregate-pagination" data-results-progressive data-results-tbody=".aggregate-results-table tbody" data-next-page="{% if aggregate_page.has_next %}{{ aggregate_page.next_page_number }}{% else %}0{% endif %}" data-total="{{ aggregate_page.paginator.count|default:0 }}" data-subject=" участников">
-    <span class="results-load-more__status" data-aggregate-load-more-status aria-live="polite">Показаны {{ aggregate_page.start_index|default:0 }}–{{ aggregate_page.end_index|default:0 }} из {{ aggregate_page.paginator.count|default:0 }}</span>
-    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-results-load-more-button{% if not aggregate_page.has_next %} hidden{% endif %}>Загрузить ещё</button>
-  </div>
-  <noscript class="results-noscript-pager">
-    {% if aggregate_page.has_next %}<a class="new-btn new-btn--ghost new-btn--mini" href="{{ next_page_url }}">Показать следующих участников</a>{% else %}Показаны все участники.{% endif %}
-  </noscript>
+    <div class="results-load-more aggregate-pagination" data-results-progressive data-results-tbody=".aggregate-results-table tbody" data-next-page="{% if aggregate_page.has_next %}{{ aggregate_page.next_page_number }}{% else %}0{% endif %}" data-total="{{ aggregate_page.paginator.count|default:0 }}" data-subject=" участников">
+      <span class="results-load-more__status" data-aggregate-load-more-status aria-live="polite">Показаны {{ aggregate_page.start_index|default:0 }}–{{ aggregate_page.end_index|default:0 }} из {{ aggregate_page.paginator.count|default:0 }}</span>
+      <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-results-load-more-button{% if not aggregate_page.has_next %} hidden{% endif %}>Загрузить ещё</button>
+    </div>
+    <noscript class="results-noscript-pager">
+      {% if aggregate_page.has_next %}<a class="new-btn new-btn--ghost new-btn--mini" href="{{ next_page_url }}">Показать следующих участников</a>{% else %}Показаны все участники.{% endif %}
+    </noscript>
   </div>
 </div>
 

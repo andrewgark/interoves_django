@@ -7102,6 +7102,20 @@ a.new-btn.new-hub-next-game-vote__btn {
   border-spacing: 0;
 }
 
+.aggregate-results-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: color-mix(in srgb, var(--tile) 45%, var(--surface));
+}
+
+.aggregate-results-table thead th.is-sticky-left,
+.aggregate-results-table thead th.is-sticky-left-2,
+.aggregate-results-table thead th.is-sticky-left-3,
+.aggregate-results-table thead th.is-sticky-left-4 {
+  z-index: 7;
+}
+
 .aggregate-place,
 .aggregate-time,
 .aggregate-release {
@@ -7120,9 +7134,6 @@ a.new-btn.new-hub-next-game-vote__btn {
 }
 
 .aggregate-release {
-  position: sticky;
-  top: 0;
-  z-index: 5;
   width: 2.25rem;
   min-width: 2.25rem;
   padding-right: .3rem !important;
