@@ -3,7 +3,9 @@
 
 {% block title %}
   Результаты ·
-  {% if "html_in_title" in game.tags %}
+  {% if page_title %}
+    {{ page_title }}
+  {% elif "html_in_title" in game.tags %}
     {% autoescape off %}{{ game.get_outside_name|default:game.name }}{% endautoescape %}
   {% else %}
     {{ game.get_outside_name|default:game.name }}
@@ -18,7 +20,9 @@
       <div>
         <div class="new-login-hint new-meta-kicker">{% if section_results %}Результаты{% elif mode == 'tournament' %}Турнирная таблица{% else %}Общая таблица{% endif %}</div>
         <h1 class="new-heading new-heading--page">
-          {% if "html_in_title" in game.tags %}
+          {% if page_title %}
+            {{ page_title }}
+          {% elif "html_in_title" in game.tags %}
             {% autoescape off %}{{ game.get_outside_name|default:game.name }}{% endautoescape %}
           {% else %}
             {{ game.get_outside_name|default:game.name }}
