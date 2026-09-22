@@ -2262,8 +2262,9 @@ def _new_results_compute(game, mode, task_group_number=None, alphabetty_sort='at
                     # conservative publication fallback. A later retry must
                     # not make a pre-publication first play public.
                     for attempt in getattr(info, 'attempts', ()) if info else ():
-                        if attempt.time is not None:
-                            submitted.append(attempt.time)
+                        attempt_time = getattr(attempt, 'time', None)
+                        if attempt_time is not None:
+                            submitted.append(attempt_time)
                 if submitted:
                     result_times[actor] = min(submitted)
             solve_duration_seconds = canonical_leaderboard_durations(
@@ -2286,6 +2287,7 @@ def _new_results_compute(game, mode, task_group_number=None, alphabetty_sort='at
             actor: (-team_to_score[actor], team_to_max_best_time[actor].timestamp() if team_to_max_best_time.get(actor) else float('inf'))
             for actor in tournament_rows
         }
+        teams_sorted = tournament_rows
     else:
         variant = getattr(game, 'id', '')
         attempt_counts = {}
@@ -2638,7 +2640,7 @@ def _render_task_group_results_page(request, game, number, back_url):
     placement = GameTaskGroup.objects.filter(
         game=game, number=str(number),
     ).first()
-    results_title = task_group_page_title(game, placement) if placement else '{} №{}'.format(game.name, number)
+    results_title = task_group_page_title(game, placement, include_date=True) if placement else '{} №{}'.format(game.name, number)
     data = _paginate_results_rows(request, data, per_page=50)
     return render(request, 'ui/results.html', {
         'mode': 'general',
@@ -2672,7 +2674,10 @@ class _SaladResultHeader:
 
 class _SaladResultWord:
     def __init__(self, number, word):
-        self.number = str(number)
+        # Keep ``number`` compatible with the legacy result context (the
+        # answer), while the public table header uses display_number.
+        self.number = word
+        self.display_number = str(number)
         self.answer = word
 
 
@@ -2862,7 +2867,7 @@ def new_ladder_word_results_page(request, task_group_number):
         ladder_title = placement.name or 'Лесенка'
         back_url = '/ladder/{}/'.format(ladder_offer.share_hash)
     else:
-        ladder_title = task_group_page_title(game, placement)
+        ladder_title = task_group_page_title(game, placement, include_date=True)
         back_url = _play_url_for_task_group(game, placement.number)
 
     if request.GET.get('partial') == '1':

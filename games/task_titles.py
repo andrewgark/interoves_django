@@ -9,6 +9,10 @@ from django.utils.html import strip_tags
 # These sections identify an issue by its published edition, just like the page
 # heading does.  The task's internal number is not useful there (usually "1").
 NUMBERED_EDITION_GAME_IDS = frozenset({'ladder', 'alphabetty', 'week_task', 'salad'})
+_RUSSIAN_MONTHS_GENITIVE = (
+    '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+    'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
+)
 
 
 def _plain_text(value) -> str:
@@ -33,17 +37,23 @@ def raddle_share_title(game, task_group_number, task_number) -> str:
     return 'Лесенка {}.{}'.format(group_number, task_number)
 
 
-def task_group_page_title(game, placement) -> str:
+def task_group_page_title(game, placement, *, include_date=False) -> str:
     """Return the canonical heading for a task-group page."""
     game_title = game.outside_name or game.name or game.pk
     if str(game.pk) in NUMBERED_EDITION_GAME_IDS:
         title = '{} №{}'.format(game_title, placement.number)
-        # Daily/weekly releases have a more useful stable title than the
-        # internal number alone. Keep the date in the site's Moscow timezone.
-        from games.daily_section import MOSCOW, publish_at_for
-        published_at = publish_at_for(game, placement.number)
-        if published_at is not None:
-            title += ' · {}'.format(published_at.astimezone(MOSCOW).strftime('%d.%m.%Y'))
+        if include_date:
+            # Results pages identify the release by its publication date.
+            from games.daily_section import MOSCOW, publish_at_for
+            published_at = publish_at_for(game, placement.number)
+            if published_at is not None:
+                published_date = published_at.astimezone(MOSCOW).date()
+                title += ' {} · {} {} {}'.format(
+                    game_title,
+                    published_date.day,
+                    _RUSSIAN_MONTHS_GENITIVE[published_date.month],
+                    published_date.year,
+                )
         return title
     return '{} · {}'.format(game_title, placement.name)
 

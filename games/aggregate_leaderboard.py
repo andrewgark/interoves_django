@@ -444,6 +444,36 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
                 played[key].add(column.link.pk)
 
     total_durations = defaultdict(int)
+    if game.id == 'ladder' and actors:
+        # Ladder timings are stored in DailySolveTiming; the legacy result
+        # aggregator's Attempt-like objects do not always carry active_time_ms.
+        from games.daily_timing import canonical_elapsed_seconds
+        from games.models import DailySolveTiming
+        timing_rows = DailySolveTiming.objects.filter(
+            game=game,
+            task_group_id__in={column.link.task_group_id for column in columns},
+            replay_slot__isnull=True,
+        ).only(
+            'task_group_id', 'team_id', 'user_id', 'anon_key',
+            'timing_version', 'status', 'frozen_ms', 'accumulated_ms',
+        )
+        actors_by_key = {key: actor for key, actor in actors.items()}
+        for timing in timing_rows:
+            key = ('team', timing.team_id) if timing.team_id else (
+                ('user', timing.user_id) if timing.user_id else ('anon', timing.anon_key)
+            )
+            if key not in actors_by_key:
+                continue
+            seconds = canonical_elapsed_seconds(
+                game=game,
+                task_group=next(
+                    column.link.task_group for column in columns
+                    if column.link.task_group_id == timing.task_group_id
+                ),
+                timing_row=timing,
+            )
+            if seconds is not None:
+                release_durations[(key, timing.task_group_id)] = seconds
     for key in actors:
         for column in columns:
             if column.link.pk not in cells[key]:
