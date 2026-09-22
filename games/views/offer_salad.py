@@ -179,13 +179,19 @@ def offer_salad_reset(request, offer_id):
     task = offer.task_group.tasks.filter(number='1').first()
     if task is None:
         return JsonResponse({'ok': False, 'error': 'Задание не найдено'}, status=404)
-    reset_actor = {'user': request.user}
+    # Reset the author's personal solution regardless of the current browser
+    # mode.  In team mode the shared solution must be cleared too, otherwise
+    # changing back to team mode brings the completed draft back.
+    reset_actors = [{'user': offer.user}]
     if request.headers.get('X-Interoves-Play-Mode') == 'team':
         team = getattr(getattr(request.user, 'profile', None), 'team_on', None)
         if team is not None:
-            reset_actor = {'team': team}
+            reset_actors.append({'team': team})
     try:
-        n = reset_salad_progress(task=task, **reset_actor)
+        n = sum(
+            reset_salad_progress(task=task, **actor)
+            for actor in reset_actors
+        )
     except WordSaladOfferError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     return JsonResponse({'ok': True, 'deleted_attempts': n})

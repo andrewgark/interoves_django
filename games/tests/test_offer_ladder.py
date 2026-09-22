@@ -26,6 +26,7 @@ from games.models import (
     Profile,
     Project,
     Task,
+    Team,
 )
 from games.support.constants import SUPPORT_CONSOLE_GROUP
 
@@ -227,6 +228,32 @@ class LadderOfferFlowTests(TestCase):
         self.assertEqual(offer.status, LadderOffer.STATUS_DRAFT)
         self.assertEqual(offer.admin_note, 'поправьте подсказку')
         self.assertTrue(offer.can_author_edit())
+
+    def test_reset_offer_clears_author_and_active_team_progress(self):
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['ААА', 'БББ'], hints=['x'], author='A')
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        team = Team.objects.create(name='offer-reset-team')
+        self.user.profile.team_on = team
+        self.user.profile.save(update_fields=['team_on'])
+        Attempt.manager.create(
+            task=task, game=self.game, user=self.user, text='БББ', status='Ok', points=1,
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, team=team, text='БББ', status='Ok', points=1,
+        )
+
+        client = Client()
+        client.force_login(self.user)
+        response = client.post(
+            reverse('ui_create_ladder_reset', kwargs={'offer_id': offer.pk}),
+            HTTP_X_INTEROVES_PLAY_MODE='team',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['deleted_attempts'], 2)
+        self.assertFalse(Attempt.manager.filter(task=task, user=self.user).exists())
+        self.assertFalse(Attempt.manager.filter(task=task, team=team).exists())
 
     def test_support_accept_endpoint(self):
         offer = create_offer(self.user)
