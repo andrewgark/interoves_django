@@ -2243,6 +2243,7 @@ def _results_actor_kind(actor):
 
 
 def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty_sort='attempts', actor_types=None):
+    variant = getattr(game, 'id', '')
     team_to_list_attempts_info = {}
     team_to_score = {}
     team_to_max_best_time = {}
@@ -2367,7 +2368,6 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
         }
         teams_sorted = tournament_rows
     else:
-        variant = getattr(game, 'id', '')
         attempt_counts = {}
         if variant == ALPHABETTY_GAME_ID:
             for actor in team_to_score:

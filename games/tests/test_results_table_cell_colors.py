@@ -1,3 +1,4 @@
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.test import Client, TestCase
@@ -112,6 +113,16 @@ class ResultsTableCellColorsTest(TestCase):
         self.assertEqual(data['team_to_cells'][self.team_partial][t2_idx]['cls'], '')
         self.assertEqual(data['team_to_cells'][self.team_zero][t2_idx]['cls'], '')
 
+    def test_tournament_compute_supports_non_alphabetty_games(self):
+        now = timezone.now()
+        self.game.start_time = now - timedelta(minutes=5)
+        self.game.end_time = now + timedelta(minutes=5)
+        self.game.save(update_fields=('start_time', 'end_time'))
+
+        data = _new_results_compute(self.game, mode='tournament')
+
+        self.assertIn(self.team_max, data['teams_sorted'])
+
     def test_snapshot_payload_and_context_cell_classes(self):
         payload = build_results_snapshot_payload(self.game, mode='general')
         ctx = snapshot_to_results_context(self.game, payload)
@@ -144,4 +155,3 @@ class ResultsTableCellColorsTest(TestCase):
         self.assertEqual(team_to_cells[self.team_pending][t2_idx]['cls'], '')
         self.assertEqual(team_to_cells[self.team_partial][t2_idx]['cls'], '')
         self.assertEqual(team_to_cells[self.team_zero][t2_idx]['cls'], '')
-
