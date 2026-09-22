@@ -6777,6 +6777,7 @@ a.new-btn.new-hub-next-game-vote__btn {
   z-index: 6;
   width: var(--results-col-rank);
   min-width: var(--results-col-rank);
+  max-width: var(--results-col-rank);
   background-color: var(--surface);
 }
 .new-results-table .is-sticky-left-2{
@@ -6794,6 +6795,10 @@ a.new-btn.new-hub-next-game-vote__btn {
   z-index: 6;
   width: var(--results-col-score);
   min-width: var(--results-col-score);
+  max-width: var(--results-col-score);
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
   background-color: var(--surface);
   box-shadow: 1px 0 0 var(--border);
 }
@@ -6803,6 +6808,10 @@ a.new-btn.new-hub-next-game-vote__btn {
   z-index: 6;
   width: var(--results-col-time);
   min-width: var(--results-col-time);
+  max-width: var(--results-col-time);
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
   background-color: var(--surface);
   box-shadow: 1px 0 0 var(--border);
 }
