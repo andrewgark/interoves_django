@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Active solving timer for official daily games.
+ * Active solving timer for one task group.
  * Local display uses performance.now(); the backend is canonical.
  */
 (function (root, factory) {
@@ -12,7 +12,7 @@
   root.interovesDailySolveTimer = api;
 })(typeof window !== 'undefined' ? window : global, function (root) {
   var HEARTBEAT_MS = 15000;
-  var STORAGE_PREFIX = 'interoves_daily_timing_v1:';
+  var STORAGE_PREFIX = 'interoves_task_group_timing_v1:';
 
   function formatElapsed(ms) {
     var seconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
@@ -161,7 +161,7 @@
       if (toggleBtn) {
         var paused = manuallyPaused;
         toggleBtn.setAttribute('aria-expanded', (!paused && popover && !popover.hidden) ? 'true' : 'false');
-        toggleBtn.setAttribute('aria-label', paused ? 'Продолжить игру' : 'Показать время решения');
+        toggleBtn.setAttribute('aria-label', paused ? 'Продолжить задание' : 'Показать время решения группы');
       }
       if (tooltipValue) tooltipValue.textContent = formatClock(ms);
       if (toggleLabel) toggleLabel.textContent = manuallyPaused ? 'Продолжить' : '';
@@ -214,7 +214,7 @@
       if (overlayText) {
         overlayText.textContent = manuallyPaused
           ? 'Время остановлено. Нажмите «Продолжить», чтобы вернуться к заданию.'
-          : 'Эта же ежедневная игра открыта в другом окне. Нажмите «Продолжить», чтобы вести время здесь.';
+          : 'Это задание открыто в другом окне. Нажмите «Продолжить», чтобы вести время здесь.';
       }
       onState(currentState());
     }
@@ -446,7 +446,7 @@
 
     if (options.enableBroadcast !== false && (channelFactory || (root.BroadcastChannel && url))) {
       try {
-        channel = channelFactory ? channelFactory() : new root.BroadcastChannel('interoves-daily-timing:' + url);
+        channel = channelFactory ? channelFactory() : new root.BroadcastChannel('interoves-task-group-timing:' + url);
         channel.onmessage = function (ev) {
           var data = ev && ev.data;
           if (!data || data.session_id === sessionId) return;

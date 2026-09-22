@@ -2316,6 +2316,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
         individual_sports_key, score_rank,
     )
     solve_duration_seconds = {}
+    solve_duration_fallback = set()
     result_times = {}
     scoped_group = None
     published_at = None
@@ -2346,6 +2347,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
                     result_times[actor] = min(submitted)
             solve_duration_seconds = canonical_leaderboard_durations(
                 game=game, task_group=scoped_group.task_group, actors=team_to_score,
+                fallback_actors=solve_duration_fallback,
             )
     eligible = set(eligible_public_actors(
         team_to_score, task_group=scoped_group.task_group if scoped_group else None,
@@ -2356,6 +2358,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
         eligible = {actor for actor in eligible if _results_actor_kind(actor) in actor_types}
     team_to_score = {actor: score for actor, score in team_to_score.items() if actor in eligible}
     solve_duration_seconds = {actor: value for actor, value in solve_duration_seconds.items() if actor in eligible}
+    solve_duration_fallback &= set(solve_duration_seconds)
     team_to_attempts = {}
     if mode == 'tournament':
         # Keep the current tournament window and actor policy; use the actual
@@ -2487,6 +2490,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
         'team_to_place': team_to_place,
         'team_to_max_best_time': team_to_max_best_time,
         'team_to_solve_duration': team_to_solve_duration,
+        'team_to_solve_duration_fallback': solve_duration_fallback,
         'team_to_attempts': team_to_attempts,
     }
 
@@ -2933,6 +2937,23 @@ def _set_current_result_header_answers(data, actor, game=None):
         for task_group in (data.get('task_groups') or [])
         for task in (data.get('task_group_to_tasks') or {}).get(task_group.number, [])
     ]
+
+    # Word Salad stores progress for the whole puzzle in one state object,
+    # while the result table expands that object into one cell per answer.
+    # Do not rely only on the already-built row cells here: those rows can be
+    # projected from a different result source than the current actor's live
+    # state (especially after a fallback from Attempt.state).
+    salad_task = data.get('_salad_result_task')
+    if game is not None and getattr(game, 'id', None) == WORD_SALAD_GAME_ID and salad_task is not None:
+        from games.word_salad import load_state
+        raw_state = _latest_actor_task_state(game, salad_task, actor)
+        solved_indices = set(load_state(raw_state).get('solved_indices') or [])
+        for index, task in enumerate(tasks):
+            answer = getattr(task, 'answer', '')
+            if index in solved_indices and answer:
+                task.display_answer = answer
+        return data
+
     for task, cell in zip(tasks, cells):
         solved = cell.get('solved')
         if not solved and game is not None and getattr(task, 'task_type', None) == 'alphabetty':
@@ -2958,13 +2979,14 @@ def _word_salad_release_breakdown(data, game, number):
     task = tasks[0]
     from games.word_salad import load_state, parse_task_payload
     try:
-        _grid, words, _rare = parse_task_payload(task.checker_data, task.text or '')
+        _grid, words, _rare = parse_task_payload(task.checker_data, task.answer or task.text or '')
     except Exception:
         words = []
     data['task_groups'] = [_SaladResultHeader(number)]
     data['task_group_to_tasks'] = {
         str(number): [_SaladResultWord(index + 1, word) for index, word in enumerate(words)]
     }
+    data['_salad_result_task'] = task
     chain_states = {}
     for row in ChainTaskState.objects.filter(
         task=task,
@@ -3967,6 +3989,9 @@ def new_task_group_page(request, game_id, task_group_number):
         'can_like': True,
         'has_profile_user': has_profile(request.user),
         'mode': mode,
+        # The tournament clock still runs and is persisted, but its control is
+        # intentionally not shown until the player returns to general results.
+        'hide_task_group_timer_ui': mode == 'tournament',
         'replay_slot': replay_slot,
         'replay_active': replay_slot is not None,
         'replay_completed': bool(replay_slot and replay_slot.status == 'completed'),

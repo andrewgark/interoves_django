@@ -1,4 +1,4 @@
-"""Active solving time for official section daily games.
+"""Active solving time for one actor and one task group.
 
 Canonical duration lives on ``DailySolveTiming``. The legacy UI may still use
 its historical fallback for personal/anonymous rows, but public leaderboard
@@ -15,7 +15,6 @@ from uuid import UUID
 from django.db import IntegrityError, OperationalError, transaction
 from django.utils import timezone
 
-from games.daily_section import is_daily_timing_game
 from games.models import DailySolveTiming
 from games.share_result import elapsed_seconds_from_attempts, format_elapsed
 
@@ -149,9 +148,6 @@ def canonical_elapsed_seconds(
     timing_row=_UNSET,
 ) -> int | None:
     """Canonical active seconds, or legacy display fallback outside timing scope."""
-    timed_daily = is_daily_timing_game(getattr(game, 'id', None))
-    if not timed_daily:
-        return elapsed_seconds_from_attempts(attempts)
     if timing_row is _UNSET:
         tg = task_group
         if tg is None and attempts:
@@ -181,8 +177,6 @@ def active_time_ms_for_attempt(*, game, task_group, user=None, anon_key=None, te
     This deliberately returns ``None`` when no authoritative daily timer exists;
     callers must not turn legacy wall-clock timestamps into active timings.
     """
-    if not is_daily_timing_game(getattr(game, 'id', None)):
-        return None
     row = lookup_timing(
         game=game, task_group=task_group, team=team, user=user, anon_key=anon_key, replay_slot=replay_slot,
     )
@@ -317,9 +311,6 @@ def _apply_timing_event_once(
     filters = actor_filter(team=team, user=user, anon_key=anon_key, replay_slot=replay_slot)
     if filters is None or game is None or task_group is None:
         return empty_snapshot()
-    if not is_daily_timing_game(getattr(game, 'id', None)):
-        return empty_snapshot()
-
     qs = DailySolveTiming.objects.select_for_update().filter(
         game=game,
         task_group=task_group,
@@ -387,9 +378,7 @@ def _apply_timing_event_once(
 
 @transaction.atomic
 def complete_daily_timing(*, game, task_group, user=None, anon_key=None, team=None, replay_slot=None, now=None) -> dict | None:
-    """Freeze an existing v1 row. Do not create a row — that would rewrite legacy solves."""
-    if not is_daily_timing_game(getattr(game, 'id', None)):
-        return None
+    """Freeze an existing timing row; never create one during completion."""
     now = now or timezone.now()
     filters = actor_filter(team=team, user=user, anon_key=anon_key, replay_slot=replay_slot)
     if filters is None or task_group is None:
@@ -665,8 +654,6 @@ def _remember_event(row: DailySolveTiming, event_id: str, seq: int):
 
 
 def timing_rows_for_task_groups(*, game, task_group_ids, user=None, anon_key=None, team=None):
-    if not is_daily_timing_game(getattr(game, 'id', None)):
-        return {}
     filters = actor_filter(team=team, user=user, anon_key=anon_key)
     if filters is None or not task_group_ids:
         return {}

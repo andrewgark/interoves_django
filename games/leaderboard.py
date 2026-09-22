@@ -147,10 +147,12 @@ def eligible_release_actor_keys(release_actors, *, game, published_at_by_release
     return output
 
 
-def canonical_leaderboard_durations(*, game, task_group, actors):
-    """Known active duration seconds for first personal/anon play; missing = NULL.
+def canonical_leaderboard_durations(*, game, task_group, actors, fallback_actors=None):
+    """Active duration seconds, with a marked legacy attempt-time fallback.
 
-    This intentionally never derives a duration from Attempt timestamps.
+    The fallback is only used when no authoritative timer row exists. It is
+    deliberately returned separately so the UI can explain that the value is
+    not measured by the task-group timer.
     """
     actors = list(actors)
     users = {getattr(a, 'user_id', None) for a in actors} - {None}
@@ -178,6 +180,30 @@ def canonical_leaderboard_durations(*, game, task_group, actors):
             result[actor] = canonical_elapsed_seconds(
                 game=game, task_group=task_group, timing_row=row,
             )
+    missing = [actor for actor in actors if actor not in result]
+    if missing:
+        from games.models import Attempt
+        from games.share_result import elapsed_seconds_from_attempts
+
+        attempts_by_key = {}
+        for attempt in Attempt.manager.filter(
+            game=game, task__task_group=task_group, skip=False,
+            replay_slot__isnull=True,
+        ).only('time', 'team_id', 'user_id', 'anon_key'):
+            key = (
+                ('team', attempt.team_id) if attempt.team_id else
+                ('user', attempt.user_id) if attempt.user_id else
+                ('anon', attempt.anon_key) if attempt.anon_key else None
+            )
+            if key is not None:
+                attempts_by_key.setdefault(key, []).append(attempt)
+        for actor in missing:
+            attempts = attempts_by_key.get(actor_key(actor), [])
+            if not attempts:
+                continue
+            result[actor] = elapsed_seconds_from_attempts(attempts)
+            if fallback_actors is not None:
+                fallback_actors.add(actor)
     return result
 
 
@@ -189,7 +215,11 @@ def apply_release_policy(data, *, game, task_group, published_at=None, result_ti
         published_at=published_at, result_times=result_times,
     ))
     actors = [actor for actor in actors if actor in eligible]
-    durations = canonical_leaderboard_durations(game=game, task_group=task_group, actors=actors)
+    fallback_actors = set()
+    durations = canonical_leaderboard_durations(
+        game=game, task_group=task_group, actors=actors,
+        fallback_actors=fallback_actors,
+    )
     scores = data.get('team_to_score') or {}
     sports_keys = {
         actor: (-scores.get(actor, 0), durations.get(actor) is None, durations.get(actor, 0))
@@ -202,6 +232,7 @@ def apply_release_policy(data, *, game, task_group, published_at=None, result_ti
         actor: format_elapsed_compact(seconds)
         for actor, seconds in durations.items()
     }
+    data['team_to_solve_duration_fallback'] = fallback_actors
     for key in ('team_to_score', 'team_to_cells', 'team_to_list_attempts_info', 'team_to_max_best_time'):
         mapping = data.get(key)
         if isinstance(mapping, dict):

@@ -444,6 +444,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
                 played[key].add(column.link.pk)
 
     total_durations = defaultdict(int)
+    duration_fallback_keys = set()
     if actors:
         # Daily-game timings are stored in DailySolveTiming; the legacy result
         # aggregator's Attempt-like objects do not always carry active_time_ms.
@@ -477,6 +478,28 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
                 )
                 if seconds is not None:
                     release_durations[(key, timing.task_group_id)] = seconds
+        # Releases without a timer row still get the historical first-to-last
+        # attempt duration, marked so the results table can explain it.
+        from games.leaderboard import canonical_leaderboard_durations
+        for column in columns:
+            release_id = column.link.task_group_id
+            release_actors = [
+                actors[key] for key in actors
+                if column.link.pk in played[key]
+                and (key, release_id) not in release_durations
+            ]
+            if not release_actors:
+                continue
+            fallback_actors = set()
+            durations = canonical_leaderboard_durations(
+                game=game, task_group=column.link.task_group,
+                actors=release_actors, fallback_actors=fallback_actors,
+            )
+            for actor, seconds in durations.items():
+                actor_key = _actor_key(actor)
+                release_durations[(actor_key, release_id)] = seconds
+                if actor in fallback_actors:
+                    duration_fallback_keys.add((actor_key, release_id))
     for key in actors:
         for column in columns:
             if column.link.pk not in cells[key]:
@@ -484,6 +507,8 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
             seconds = release_durations.get((key, column.link.task_group_id))
             if seconds is not None:
                 total_durations[key] += seconds
+                if (key, column.link.task_group_id) in duration_fallback_keys:
+                    duration_fallback_keys.add(key)
 
     # Aggregate standings use the same sporting tuple as a single release:
     # points first, then total active solving time.
@@ -530,6 +555,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
             'max_score': window_max, 'played': len(played[key]),
             'time_seconds': total_durations.get(key),
             'time_display': _format_aggregate_time(total_durations.get(key)),
+            'time_fallback': key in duration_fallback_keys,
             'attempts': attempt_counts.get(key, 0),
             'cells': cells[key],
             'cell_meta': {release_id: _aggregate_cell(score, column_max.get(release_id)) for release_id, score in cells[key].items()},

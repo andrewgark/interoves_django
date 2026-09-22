@@ -3206,6 +3206,24 @@ html.new-ui-dark .new-team-switcher-active-box {
   margin: 0.25rem 0 1rem;
 }
 
+.new-task-group-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.new-task-group-meta-row > .new-meta-line {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.new-task-group-meta-row > .new-daily-timer {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .new-daily-timer {
   position: relative;
   display: inline-flex;
@@ -3217,6 +3235,9 @@ html.new-ui-dark .new-team-switcher-active-box {
 
 .new-daily-timer[hidden] {
   display: none;
+}
+.new-daily-timer--quiet {
+  display: none !important;
 }
 
 .new-daily-timer__toggle {
@@ -6857,6 +6878,11 @@ a.new-btn.new-hub-next-game-vote__btn {
   overflow: hidden;
   text-overflow: clip;
   white-space: nowrap;
+}
+
+.results-time-fallback {
+  font-style: italic;
+  opacity: 0.82;
 }
 
 .new-results-table thead .is-sticky-left,

@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from games.daily_section import is_daily_team_timing_game, is_daily_timing_game, scheduled_number_is_public
+from games.daily_section import is_scheduled_game, scheduled_number_is_public
 from games.daily_timing import (
     ACTION_RESUME,
     ACTION_START,
@@ -19,8 +19,7 @@ from games.daily_timing import (
     lookup_timing,
     snapshot,
 )
-from games.models import Game, GameTaskGroup
-from games.views.new_ui import NEW_UI_SECTIONS_PROJECT
+from games.models import Attempt, Game, GameTaskGroup
 from games.analytics_identity import gameplay_anon_key
 from games.gameplay_context import context_error_response, validate_gameplay_context
 from games.views.util import effective_play_mode, has_profile, has_team
@@ -55,7 +54,7 @@ def _resolve_actor(request, game):
         play_mode, _ = _get_play_mode(request, game.project_id)
         play_mode = effective_play_mode(play_mode, game, user=request.user)
         if play_mode == 'team':
-            if not has_team(request.user) or not is_daily_team_timing_game(game.id):
+            if not has_team(request.user):
                 return None, None, None
             return request.user.profile.team_on, None, None
         return None, request.user, None
@@ -66,13 +65,11 @@ def _resolve_actor(request, game):
 
 
 def _load_daily_target(request, game_id, number):
-    if not is_daily_timing_game(game_id):
-        return None, None, None, None, None, _json_error('not_daily', 404)
-    game = get_object_or_404(Game, id=game_id, project_id=NEW_UI_SECTIONS_PROJECT)
+    game = get_object_or_404(Game, id=game_id)
     raw_number = str(number or '').strip()
     if not raw_number or not raw_number.replace('.', '', 1).isdigit():
         return None, None, None, None, None, _json_error('not_daily', 404)
-    if not scheduled_number_is_public(game, raw_number) and not request.user.is_staff:
+    if is_scheduled_game(game.id) and not scheduled_number_is_public(game, raw_number) and not request.user.is_staff:
         return None, None, None, None, None, _json_error('not_published', 404)
     from games.club_access import user_can_access_scheduled_number
 
@@ -81,9 +78,9 @@ def _load_daily_target(request, game_id, number):
     link = GameTaskGroup.objects.filter(game=game, number=raw_number).select_related('task_group').first()
     if link is None:
         return None, None, None, None, None, _json_error('missing', 404)
-    from games.daily_progress_reset import reset_current_daily_release_progress
-
-    reset_current_daily_release_progress(now=timezone.now(), game_ids=(game.id,))
+    if is_scheduled_game(game.id):
+        from games.daily_progress_reset import reset_current_daily_release_progress
+        reset_current_daily_release_progress(now=timezone.now(), game_ids=(game.id,))
     team, user, anon_key = _resolve_actor(request, game)
     if team is None and user is None and anon_key is None:
         return None, None, None, None, None, _json_error('no_actor', 400)
@@ -91,6 +88,12 @@ def _load_daily_target(request, game_id, number):
         return None, None, None, None, None, _json_error('no_profile_or_team', 403)
     if team is not None and not game.has_access('play', team=team):
         return None, None, None, None, None, _json_error('team_access_required', 403)
+    if team is None and not game.has_access(
+        'read_googledoc', team=None, attempt=Attempt(time=timezone.now()),
+    ):
+        return None, None, None, None, None, _json_error('play_access_required', 403)
+    if team is None and not game.is_playable:
+        return None, None, None, None, None, _json_error('not_playable', 404)
     return game, link.task_group, team, user, anon_key, None
 
 
@@ -110,9 +113,8 @@ def daily_timing_page_context(
     enabled = bool(
         game is not None
         and placement is not None
-        and is_daily_timing_game(game.id)
         and not is_offer
-        and (play_mode != 'team' or (team is not None and is_daily_team_timing_game(game.id)))
+        and (play_mode != 'team' or team is not None)
         and replay_slot is None
         and not official_completed
     )

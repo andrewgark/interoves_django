@@ -11,7 +11,15 @@
       <td class="is-sticky-left-3 results-attempts">{{ team_to_attempts|get_item:t|default:0 }}</td>
     {% endif %}
     {% if mode != 'tournament' and show_solve_duration %}
-      <td class="is-sticky-left-4">{{ team_to_solve_duration|get_item:t|default:'—' }}</td>
+      <td class="is-sticky-left-4">
+        {% with duration=team_to_solve_duration|get_item:t %}
+          {% if team_to_solve_duration_fallback|get_item:t %}
+            <span class="results-time-fallback" title="Вычислено по серверному времени, без таймера">{{ duration|default:'—' }}</span>
+          {% else %}
+            {{ duration|default:'—' }}
+          {% endif %}
+        {% endwith %}
+      </td>
     {% endif %}
     {% for cell in team_to_cells|get_item:t %}
       <td class="{{ cell.cls }}"{% if results_variant == 'ladder' and cell.hint_numbers %} title="Подсказки: {{ cell.hint_numbers|join:', ' }}"{% endif %}>
