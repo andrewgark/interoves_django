@@ -91,7 +91,7 @@
               <th class="is-sticky-left is-sticky-top">#</th>
               <th class="is-sticky-left-2 is-sticky-top col-team">{% if section_results %}Участник{% elif mode == 'general' %}Команда / участник{% else %}Команда{% endif %}</th>
               <th class="is-sticky-left-3 is-sticky-top col-score" title="Сумма баллов"><i class="ph ph-sigma" aria-hidden="true"></i><span class="sr-only">Сумма баллов</span></th>
-              {% if show_alphabetty_detail %}<th class="is-sticky-top">Попытки</th>{% endif %}
+              {% if show_alphabetty_detail %}<th class="is-sticky-top" title="Попытки"><i class="ph ph-repeat" aria-hidden="true"></i><span class="sr-only">Попытки</span></th>{% endif %}
               {% if mode == 'tournament' %}
                 <th class="is-sticky-left-4 is-sticky-top" title="Время"><i class="ph ph-clock" aria-hidden="true"></i><span class="sr-only">Время</span></th>
               {% elif show_solve_duration %}
