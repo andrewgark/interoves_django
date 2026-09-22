@@ -403,6 +403,26 @@ def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
     }
 
 
+def _task_group_results_nav_context(game, placement):
+    """Navigation between adjacent daily task result pages."""
+    if not isinstance(placement, GameTaskGroup) or not is_scheduled_game(game.id):
+        return {}
+    links = list(visible_links(_game_task_group_links(game), game))
+    prev_tg, next_tg = _neighbors_by_pk(links, placement)
+    published_at = publish_at_for(game, placement.number)
+    return {
+        'daily_results_navigation': True,
+        'daily_publish_date': published_at.astimezone(MOSCOW).date() if published_at else None,
+        'prev_task_group_url': (
+            _task_group_results_url(game, prev_tg.number) if prev_tg else None
+        ),
+        'next_task_group_url': (
+            _task_group_results_url(game, next_tg.number) if next_tg else None
+        ),
+        **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
+    }
+
+
 def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
     """Task group list for game hub pages; actor progress is loaded separately."""
     task_groups = list(task_groups)
@@ -2647,7 +2667,7 @@ def _render_task_group_results_page(request, game, number, back_url):
     placement = GameTaskGroup.objects.filter(
         game=game, number=str(number),
     ).first()
-    results_title = task_group_page_title(game, placement, include_date=True) if placement else '{} №{}'.format(game.name, number)
+    results_title = task_group_page_title(game, placement) if placement else '{} №{}'.format(game.name, number)
     data = _paginate_results_rows(request, data, per_page=50)
     return render(request, 'ui/results.html', {
         'mode': 'general',
@@ -2664,10 +2684,11 @@ def _render_task_group_results_page(request, game, number, back_url):
         **data,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
-        'page_title': 'Результаты: {}'.format(results_title),
+        'page_title': results_title,
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
+        **_task_group_results_nav_context(game, placement),
     })
 
 
@@ -2891,7 +2912,7 @@ def new_ladder_word_results_page(request, task_group_number):
         ladder_title = placement.name or 'Лесенка'
         back_url = '/ladder/{}/'.format(ladder_offer.share_hash)
     else:
-        ladder_title = task_group_page_title(game, placement, include_date=True)
+        ladder_title = task_group_page_title(game, placement)
         back_url = _play_url_for_task_group(game, placement.number)
 
     if request.GET.get('partial') == '1':
@@ -2951,10 +2972,11 @@ def new_ladder_word_results_page(request, task_group_number):
         **data,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
-        'page_title': 'Результаты · {}'.format(ladder_title),
+        'page_title': ladder_title,
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
+        **_task_group_results_nav_context(game, placement),
     })
 
 
