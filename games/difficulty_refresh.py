@@ -166,6 +166,12 @@ def refresh_due_daily_difficulties(
     """One cron tick: ensure recent rows, refresh stale norms, claim, calculate."""
     now = now or timezone.now()
     game_ids = tuple(game_ids) if game_ids else None
+    from games.daily_progress_reset import reset_current_daily_release_progress
+
+    # The difficulty cron runs every minute on every EB instance.  Reuse that
+    # durable tick to perform the once-per-release progress reset before any
+    # fresh daily statistics are calculated.
+    reset_current_daily_release_progress(now=now, game_ids=game_ids or None)
     ensure_recent_difficulty_rows(now=now, game_ids=game_ids)
     refresh_stale_historical_norms(now=now, game_ids=game_ids)
     if dry_run:

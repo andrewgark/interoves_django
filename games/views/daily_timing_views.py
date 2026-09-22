@@ -6,6 +6,7 @@ import json
 
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from games.daily_section import is_daily_team_timing_game, is_daily_timing_game, scheduled_number_is_public
@@ -80,6 +81,9 @@ def _load_daily_target(request, game_id, number):
     link = GameTaskGroup.objects.filter(game=game, number=raw_number).select_related('task_group').first()
     if link is None:
         return None, None, None, None, None, _json_error('missing', 404)
+    from games.daily_progress_reset import reset_current_daily_release_progress
+
+    reset_current_daily_release_progress(now=timezone.now(), game_ids=(game.id,))
     team, user, anon_key = _resolve_actor(request, game)
     if team is None and user is None and anon_key is None:
         return None, None, None, None, None, _json_error('no_actor', 400)

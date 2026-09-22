@@ -144,7 +144,9 @@ def recheck_team_task_all_chronological(_, attempt_id):
     return result
 
 
-def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None, *, notify=True):
+def recheck_chain_task(
+    task, team=None, user=None, anon_key=None, game=None, *, replay_slot=None, notify=True,
+):
     """
     Optimised full recheck for wall / replacements_lines.
 
@@ -169,13 +171,14 @@ def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None, *, 
         for mode in ('general', 'tournament'):
             ChainTaskState.objects.get_or_create(
                 team=team, user=user, anon_key=anon_key,
-                task=task, game=game, game_mode=mode,
+                task=task, game=game, game_mode=mode, replay_slot=replay_slot,
                 defaults={'state': None},
             )
         locked_rows = {
             row.game_mode: row
             for row in ChainTaskState.objects.select_for_update().filter(
                 team=team, user=user, anon_key=anon_key, task=task, game=game,
+                replay_slot=replay_slot,
             )
         }
         # Reset both chains.
@@ -190,7 +193,8 @@ def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None, *, 
         states = {'general': None, 'tournament': None}
 
         attempts = Attempt.manager.get_all_attempts(
-            team, task, exclude_skip=False, user=user, anon_key=anon_key, game=game,
+            team, task, exclude_skip=False, user=user, anon_key=anon_key,
+            game=game, replay_slot=replay_slot,
         )
 
         for attempt in attempts:
@@ -231,13 +235,14 @@ def recheck_chain_task(task, team=None, user=None, anon_key=None, game=None, *, 
         for row in locked_rows.values():
             row.save(update_fields=['state', 'last_attempt', 'updated_at'])
 
-        reconcile_completed_game_after_recheck(
-            task=task,
-            game=game,
-            team=team,
-            user=user,
-            anon_key=anon_key,
-        )
+        if replay_slot is None:
+            reconcile_completed_game_after_recheck(
+                task=task,
+                game=game,
+                team=team,
+                user=user,
+                anon_key=anon_key,
+            )
 
     if notify:
         track_actor_task_change(
