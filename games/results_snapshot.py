@@ -262,7 +262,7 @@ def snapshot_to_results_context(game, payload):
         team_to_list_attempts_info[participant] = [None] * len(cells)
         team_to_cells[participant] = cells
 
-    from games.leaderboard import eligible_public_actors, sports_rank
+    from games.leaderboard import eligible_public_actors, score_rank
     eligible = set(eligible_public_actors(teams_sorted))
     teams_sorted = [actor for actor in teams_sorted if actor in eligible]
     mode = payload.get('mode') or 'general'
@@ -283,7 +283,7 @@ def snapshot_to_results_context(game, payload):
             return (-team_to_score[actor],)
 
     teams_sorted.sort(key=lambda actor: (*sports_key(actor), actor_fallback(actor)))
-    team_to_place = sports_rank(teams_sorted, {actor: sports_key(actor) for actor in teams_sorted})
+    team_to_place = score_rank(teams_sorted, team_to_score)
     for mapping in (team_to_score, team_to_max_best_time, team_to_list_attempts_info, team_to_cells):
         for actor in list(mapping):
             if actor not in eligible:
@@ -457,10 +457,8 @@ def build_results_snapshot_payload(game, mode='tournament'):
         participants,
         key=lambda p: (*_sports_key(p), _fallback_key(p)),
     )
-    from games.leaderboard import sports_rank
-    participant_to_place = sports_rank(
-        participants_sorted, {p: _sports_key(p) for p in participants_sorted},
-    )
+    from games.leaderboard import score_rank
+    participant_to_place = score_rank(participants_sorted, participant_to_score)
 
     rows = []
     for p in participants_sorted:

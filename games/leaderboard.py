@@ -197,7 +197,7 @@ def apply_release_policy(data, *, game, task_group, published_at=None, result_ti
     }
     actors.sort(key=lambda actor: (*sports_keys[actor], str(actor)))
     data['teams_sorted'] = actors
-    data['team_to_place'] = sports_rank(actors, sports_keys)
+    data['team_to_place'] = score_rank(actors, scores)
     data['team_to_solve_duration'] = {
         actor: format_elapsed_compact(seconds)
         for actor, seconds in durations.items()
@@ -219,6 +219,24 @@ def sports_rank(ordered_actors, sports_keys):
         if key != previous:
             place = index
             previous = key
+        places[actor] = place
+    return places
+
+
+def score_rank(ordered_actors, scores):
+    """Rank an already sorted result list by score only.
+
+    Secondary criteria (time, attempts) may determine row order, but never
+    split equal-score places.
+    """
+    places = {}
+    previous_score = object()
+    place = 0
+    for index, actor in enumerate(ordered_actors, 1):
+        score = scores.get(actor, 0)
+        if score != previous_score:
+            place = index
+            previous_score = score
         places[actor] = place
     return places
 

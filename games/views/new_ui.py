@@ -2313,7 +2313,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
         teams_sorted.append((-score, max_best_time_ts, participant))
     from games.leaderboard import (
         canonical_leaderboard_durations, eligible_public_actors,
-        individual_sports_key, sports_rank,
+        individual_sports_key, score_rank,
     )
     solve_duration_seconds = {}
     result_times = {}
@@ -2389,7 +2389,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
             )
         teams_sorted = sorted(team_to_score, key=lambda actor: (*sport_key(actor), str(actor)))
         sports_keys = {actor: sport_key(actor) for actor in teams_sorted}
-    team_to_place = sports_rank(teams_sorted, sports_keys)
+    team_to_place = score_rank(teams_sorted, team_to_score)
 
     # Prepare per-cell metadata for templates: color by points vs max.
     tasks_flat = []
@@ -2914,8 +2914,9 @@ def _set_current_result_header_answers(data, actor, game=None):
             from games.alphabetty.play import load_state
             state_row = _chain_state_for_actor(game, task, actor)
             solved = bool(state_row and load_state(state_row.state).get('won'))
-        if solved and cell.get('answer'):
-            task.display_answer = cell['answer']
+        answer = cell.get('answer') or getattr(task, 'answer', '')
+        if solved and answer:
+            task.display_answer = answer
     return data
 
 

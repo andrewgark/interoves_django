@@ -2284,6 +2284,11 @@ html.new-ui-dark body.new-ui {
     opacity 0.14s ease;
 }
 
+/* Keep the native hidden state effective despite the button display rule. */
+.new-btn[hidden] {
+  display: none !important;
+}
+
 .new-btn:hover {
   background: var(--accent-hover);
   color: #fff;

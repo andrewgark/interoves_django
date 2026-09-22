@@ -42,7 +42,7 @@ class LeaderboardSharedTests(TestCase):
         self.assertEqual(sports_rank(ordered, {a: (-10, 1), b: (-10, 2), c: (-9, 0)}), {a: 1, b: 2, c: 3})
         self.assertEqual(sports_rank(ordered, {a: (-10, 1), b: (-10, 1), c: (-9, 0)}), {a: 1, b: 1, c: 3})
 
-    def test_tournament_snapshot_place_uses_finish_time_but_general_snapshot_does_not(self):
+    def test_snapshot_places_use_score_only_while_tournament_order_uses_finish_time(self):
         from games.results_snapshot import snapshot_to_results_context
         early = Team.objects.create(name='snapshot-early')
         late = Team.objects.create(name='snapshot-late')
@@ -56,7 +56,7 @@ class LeaderboardSharedTests(TestCase):
             self.game, {'mode': 'tournament', 'task_groups': [], 'rows': rows},
         )
         self.assertEqual(tournament['teams_sorted'], [early, late])
-        self.assertEqual(tournament['team_to_place'], {early: 1, late: 2})
+        self.assertEqual(tournament['team_to_place'], {early: 1, late: 1})
         general = snapshot_to_results_context(
             self.game, {'mode': 'general', 'task_groups': [], 'rows': rows},
         )
@@ -224,7 +224,7 @@ class LeaderboardSharedTests(TestCase):
             'team_to_max_best_time': {},
         }, game=self.game, task_group=self.group)
         self.assertEqual(context['teams_sorted'], [fast, slow, missing])
-        self.assertEqual(context['team_to_place'], {fast: 1, slow: 2, missing: 3})
+        self.assertEqual(context['team_to_place'], {fast: 1, slow: 1, missing: 1})
 
     def test_canonical_duration_uses_frozen_active_milliseconds_and_ignores_replay(self):
         actor = PersonalResultsParticipant(user=self.other)

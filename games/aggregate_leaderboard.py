@@ -8,7 +8,7 @@ from django.core.paginator import Paginator
 from django.db.models import Prefetch, IntegerField
 from django.db.models.functions import Cast
 
-from games.leaderboard import eligible_release_actor_keys, sports_rank
+from games.leaderboard import eligible_release_actor_keys, score_rank
 from games.models import GameTaskGroup, PersonalResultsParticipant, Profile, Task, TaskGroup
 from games.section_paths import section_play_path
 
@@ -287,7 +287,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
                 ), ranked AS (
                     SELECT actor_type, actor_key, team_id, user_id, anon_key,
                            window_score, played_count, total_time_ms,
-                           RANK() OVER (ORDER BY window_score DESC, total_time_ms IS NULL, total_time_ms) AS place
+                           RANK() OVER (ORDER BY window_score DESC) AS place
                     FROM actor_totals
                 ) SELECT actor_type, actor_key, team_id, user_id, anon_key,
                          window_score, played_count, total_time_ms, place
@@ -516,7 +516,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
                 label = (actor._user.get_full_name() or actor._user.get_username()).strip()
             actor._display_name_override = label
     keys = {key: rank_key(key)[:-1] for key in ordered_keys}
-    ranks = sports_rank(ordered_keys, keys)
+    ranks = score_rank(ordered_keys, totals)
     paginator = Paginator(ordered_keys, PAGE_SIZE)
     page_obj = paginator.get_page(request.GET.get('page', 1))
 
