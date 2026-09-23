@@ -1706,12 +1706,20 @@ html.new-ui-dark .daily-archive__day--locked > a { color: #17130a; font-weight: 
 .new-tg-pager__link:has(.ph-lock-key) { color: #6b5500; }
 .new-hub-group__heading-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .new-hub-group__heading-row .new-hub-group__title { margin-bottom: .85rem; }
-.club-subscription-cta { white-space: nowrap; }
+.club-subscription-cta {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+}
 .club-member-chat { margin-top: 1rem; }
 body.new-modal-open { overflow: hidden; }
 @media (max-width: 560px) {
   .daily-archive__day > a, .daily-archive__day > span { width: 2.2rem; height: 2.2rem; }
   .daily-archive__month-nav { margin-left: -.35rem; margin-right: -.35rem; }
+  .club-subscription-cta {
+    flex-basis: 100%;
+    width: 100%;
+  }
 }
 
 .new-heading {
