@@ -460,7 +460,7 @@ def _subscription_goal_payload(subscription, kind):
     from games.models import ClubSubscription
 
     params = {
-        'provider': ClubSubscription.PROVIDER_TRIBUTE,
+        'provider': subscription.provider,
         'currency': (subscription.currency or '').lower(),
         'amount': subscription.amount,
     }

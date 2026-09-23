@@ -8,6 +8,20 @@
 {% block content %}
 <p class="new-tg-back"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
 
+{% if payment_success_return and club_archive_telegram_url %}
+<div id="new-sub-payment-success-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-sub-payment-success-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-sub-payment-success-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-sub-payment-success-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <p class="pal-kicker">Inter Oves Elite</p>
+    <h2 id="new-sub-payment-success-title" class="pal-title">Вы успешно оплатили клубную подписку!</h2>
+    <p class="pal-lead">Вступите в Telegram-чат клуба Inter Oves Elite.</p>
+    <p><a class="new-btn new-btn--yellow" href="{{ club_archive_telegram_url }}" target="_blank" rel="noopener noreferrer"><i class="ph ph-telegram-logo" aria-hidden="true"></i> Вступить в чат</a></p>
+    <button type="button" class="new-btn new-btn--ghost" data-sub-payment-success-close>Позже</button>
+  </div>
+</div>
+{% endif %}
+
 <div class="new-pay-checkout new-pay-checkout--subscription">
   <header class="new-pay-checkout__header">
     <p class="new-pay-checkout__eyebrow">Inter Oves</p>
@@ -33,9 +47,7 @@
     {% elif club_status == 'pending' %}
       <p class="new-pay-checkout__lead">Ожидаем подтверждение оплаты. Если уже оплатили — обновите страницу через минуту.</p>
     {% elif not approval_preview %}
-      {% if club_archive_gating_enabled %}
-        <p class="new-pay-checkout__lead"><strong>Откройте весь архив заданий Inter Oves.</strong></p>
-      {% else %}
+      {% if not club_archive_gating_enabled %}
         <p class="new-pay-checkout__lead"><strong>Поддержите развитие Inter Oves клубной подпиской.</strong></p>
       {% endif %}
     {% endif %}
@@ -48,7 +60,7 @@
   {% if telegram_linked_notice %}
     <p class="new-login-hint">Telegram привязан{% if telegram_username %}: @{{ telegram_username }}{% endif %}. Можно оформить подписку через Tribute.</p>
   {% endif %}
-  {% if payment_return %}
+  {% if payment_return and not payment_success_return %}
     {% if club_archive_gating_enabled %}
       <p class="new-login-hint">Если оплата прошла, доступ к архиву откроется после подтверждения от ЮKassa. Обновите страницу через несколько секунд.</p>
     {% else %}
@@ -401,6 +413,18 @@
         button.disabled = false;
       });
     });
+  }
+  var successModal = document.getElementById('new-sub-payment-success-modal');
+  if (successModal) {
+    function closeSuccessModal() {
+      successModal.classList.remove('is-open');
+      successModal.hidden = true;
+    }
+    successModal.querySelectorAll('[data-sub-payment-success-close]').forEach(function (button) {
+      button.addEventListener('click', closeSuccessModal);
+    });
+    successModal.hidden = false;
+    successModal.classList.add('is-open');
   }
 })();
 </script>

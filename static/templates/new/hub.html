@@ -18,7 +18,7 @@
 <section class="new-hub-group" aria-labelledby="hub-daily-heading">
   <div class="new-hub-group__heading-row">
     <h2 id="hub-daily-heading" class="new-heading new-hub-group__title">Ежедневные игры</h2>
-    {% if club_archive_gating_enabled %}<a class="new-btn new-btn--yellow new-btn--mini club-subscription-cta" href="/subscription/"><i class="ph ph-lock-key" aria-hidden="true"></i> Клубная подписка, доступ ко всему архиву</a>{% endif %}
+    {% if club_archive_gating_enabled %}<a class="new-btn new-btn--yellow new-btn--mini club-subscription-cta" href="/subscription/">{% if club_archive_has_access %}<i class="ph ph-crown" aria-hidden="true"></i> Вы оплатили клубную подписку, вам доступен весь архив{% else %}<i class="ph ph-lock-key" aria-hidden="true"></i> Клубная подписка, доступ ко всему архиву{% endif %}</a>{% endif %}
   </div>
   {% if daily_hub_primary_card %}
     <div class="new-hub-sections-grid new-hub-sections-grid--daily-primary">

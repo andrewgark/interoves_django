@@ -64,6 +64,46 @@ def send_admin_message(text: str, *, reply_markup: dict | None = None, force: bo
     return send_message(admin_chat_id(), text, reply_markup=reply_markup)
 
 
+def notify_admin_club_subscription(subscription_id: int, event_name: str, *, payment_kind: str = '') -> bool:
+    """Notify the admin chat about a durable Club subscription state change."""
+    try:
+        from games.models import ClubSubscription
+
+        subscription = ClubSubscription.objects.select_related('user', 'user__profile').get(
+            pk=subscription_id,
+        )
+        profile = getattr(subscription.user, 'profile', None)
+        username = getattr(profile, 'telegram_username', '') or ''
+        telegram_id = getattr(profile, 'telegram_user_id', '') or subscription.telegram_user_id or ''
+        telegram_label = '@{}'.format(_escape(username)) if username else '—'
+        if telegram_id:
+            telegram_label += ' (id {})'.format(_escape(telegram_id))
+        if event_name in ('new_subscription', 'payment.succeeded'):
+            title = '🟢 <b>Новая клубная подписка</b>'
+        elif event_name in ('cancelled_subscription', 'subscription_cancelled'):
+            title = '🔴 <b>Отмена клубной подписки</b>'
+        else:
+            title = '🔄 <b>Продление клубной подписки</b>'
+        lines = [
+            title,
+            '',
+            'Пользователь: <b>{}</b>'.format(_escape(subscription.user.get_username())),
+            'Telegram: {}'.format(telegram_label),
+            'Провайдер: {}'.format(_escape(subscription.provider)),
+            'Сумма: {} {}'.format(
+                _escape(subscription.amount), _escape(subscription.currency),
+            ),
+        ]
+        if payment_kind:
+            lines.append('Тип платежа: {}'.format(_escape(payment_kind)))
+        if subscription.paid_until:
+            lines.append('Доступ до: {}'.format(subscription.paid_until.strftime('%d.%m.%Y %H:%M UTC')))
+        return send_admin_message(_join_lines(lines), force=True)
+    except Exception:
+        logger.exception('Failed to notify admin about club subscription %s', subscription_id)
+        return False
+
+
 def send_announce_message(text: str, *, reply_markup: dict | None = None) -> bool:
     if not telegram_bot_configured():
         return False

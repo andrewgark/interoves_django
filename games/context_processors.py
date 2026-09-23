@@ -26,6 +26,7 @@ def club_archive_ui(request):
         return {
             'club_archive_gating_enabled': True,
             'club_archive_offer_available': False,
+            'club_archive_has_access': False,
             'club_archive_telegram_url': '',
         }
     from games.models import PlayerCompletedGame
@@ -39,6 +40,7 @@ def club_archive_ui(request):
             solved_count >= 7 and not club_access
             and getattr(request, 'path', '') != '/subscription/'
         ),
+        'club_archive_has_access': club_access,
         'club_archive_solved_count': solved_count,
         'club_archive_telegram_url': 'https://t.me/+JYd2AYTihi9iNTky' if club_access else '',
     }

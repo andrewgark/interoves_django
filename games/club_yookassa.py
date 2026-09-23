@@ -357,13 +357,24 @@ def cancel_yookassa_subscription(user) -> StartPaymentResult:
         subscription.cancelled_at = timezone.now()
         subscription.next_charge_at = None
         subscription.status = ClubSubscription.STATUS_CANCELLED
+        from games.club_service import _queue_goal
+
+        _queue_goal(subscription, 'cancelled', subscription.cancelled_at)
         subscription.save(update_fields=[
-            'auto_renew', 'cancelled_at', 'next_charge_at', 'status', 'updated_at',
+            'auto_renew', 'cancelled_at', 'next_charge_at', 'status',
+            'cancelled_goal_queued_at', 'updated_at',
         ])
         transaction.on_commit(lambda: logger.info(
             'subscription_auto_renew_disabled user_id=%s subscription_id=%s reason=cancel',
             user.pk, subscription.pk,
         ))
+        from games.telegram.notify import notify_admin_club_subscription
+
+        transaction.on_commit(
+            lambda sid=subscription.pk: notify_admin_club_subscription(
+                sid, 'subscription_cancelled', payment_kind='yookassa'
+            )
+        )
     logger.info('subscription_cancel_requested user_id=%s subscription_id=%s', user.pk, subscription.pk)
     return StartPaymentResult(True, message='Автопродление отключено.')
 
@@ -510,7 +521,21 @@ def _apply_succeeded_payment(local: ClubYooKassaPayment, payment_data: dict) -> 
             if subscription.payment_method_save_failed:
                 logger.warning('subscription_payment_method_not_saved payment_pk=%s', local.pk)
 
+    from games.club_service import _queue_goal
+
+    _queue_goal(
+        subscription,
+        'renewal' if local.kind == ClubYooKassaPayment.KIND_RECURRING_MONTHLY else 'payment',
+        now,
+    )
     subscription.save()
+    from games.telegram.notify import notify_admin_club_subscription
+
+    transaction.on_commit(
+        lambda sid=subscription.pk, kind=local.kind: notify_admin_club_subscription(
+            sid, 'payment.succeeded', payment_kind=kind
+        )
+    )
     logger.info(
         'subscription_payment_succeeded payment_pk=%s user_id=%s kind=%s paid_until=%s',
         local.pk, subscription.user_id, local.kind, subscription.paid_until,

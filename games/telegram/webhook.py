@@ -101,6 +101,15 @@ def _dispatch_update(update: dict) -> None:
     chat = message.get('chat') or {}
     chat_id = chat.get('id')
     text = _extract_message_text(message)
+    sender = message.get('from') or {}
+    logger.info(
+        'telegram_message_received chat_id=%s chat_type=%s title=%r user_id=%s text=%r',
+        chat_id,
+        chat.get('type'),
+        chat.get('title'),
+        sender.get('id'),
+        text[:200],
+    )
     if not text:
         return
 

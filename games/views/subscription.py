@@ -188,6 +188,10 @@ def _subscription_page_context(request):
         'tribute_seller_url': seller_url,
         'telegram_linked_notice': request.GET.get('telegram') == 'linked',
         'payment_return': request.GET.get('payment') == 'return',
+        'payment_success_return': (
+            request.GET.get('payment') == 'return'
+            and has_club_access(request.user, now=now)
+        ),
         'is_yookassa': is_yookassa,
         'is_monthly_plan': is_monthly,
         'saved_payment_method_label': saved_method.display_name if saved_method else '',

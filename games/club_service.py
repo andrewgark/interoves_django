@@ -348,6 +348,15 @@ def process_subscription_event(event_name: str, payload: dict, *, envelope_creat
             ClubSubscriptionEvent.RESULT_ANOMALY if anomaly else ClubSubscriptionEvent.RESULT_APPLIED
         )
         event.save(update_fields=['club_subscription', 'result'])
+        if event.result in (
+            ClubSubscriptionEvent.RESULT_APPLIED,
+            ClubSubscriptionEvent.RESULT_ANOMALY,
+        ):
+            from games.telegram.notify import notify_admin_club_subscription
+
+            transaction.on_commit(
+                lambda sid=subscription.pk, ev=event_name: notify_admin_club_subscription(sid, ev)
+            )
         logger.info(
             'tribute_club_applied event=%s user_id=%s subscription_id=%s status=%s paid_until=%s',
             event_name, profile.user_id, data['subscription_id'],
