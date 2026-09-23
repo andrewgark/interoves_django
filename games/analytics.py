@@ -974,7 +974,7 @@ def _legacy_completion_candidates(
 
 def reconcile_legacy_completed_games_for_actor(
     *, user=None, anon_key=None, dry_run=False, activation_cutoff=None,
-    history_cutoff=None,
+    history_cutoff=None, _timings=None,
 ):
     """Reconcile one personal actor using the production backfill contract.
 
@@ -1005,20 +1005,22 @@ def reconcile_legacy_completed_games_for_actor(
         'missing_records': 0,
         'ambiguous_records': 0,
     }
-    candidates = _legacy_completion_candidates(
-        actor=actor,
-        counts=counts,
-        updated_before=history_cutoff,
-    )
-    for row, game_kind in candidates.values():
-        complete = is_task_group_complete(
-            task_group=row.task.task_group,
-            game=row.game,
-            user=user,
-            anon_key=anon_key,
-            mode=row.game_mode,
-            replay_slot=None,
+    with _analytics_timed_phase(_timings, 'legacy_completion_candidates_ms'):
+        candidates = _legacy_completion_candidates(
+            actor=actor,
+            counts=counts,
+            updated_before=history_cutoff,
         )
+    for row, game_kind in candidates.values():
+        with _analytics_timed_phase(_timings, 'task_group_complete_ms'):
+            complete = is_task_group_complete(
+                task_group=row.task.task_group,
+                game=row.game,
+                user=user,
+                anon_key=anon_key,
+                mode=row.game_mode,
+                replay_slot=None,
+            )
         if not complete:
             counts['incomplete_candidates'] += 1
             continue
@@ -1026,12 +1028,13 @@ def reconcile_legacy_completed_games_for_actor(
 
         instance_id = game_instance_id_for_task_group(row.game, row.task.task_group)
         if dry_run:
-            existing = list(
-                PlayerCompletedGame.objects.filter(
-                    **actor,
-                    game_instance_id=instance_id,
-                ).values_list('pk', flat=True)[:2]
-            )
+            with _analytics_timed_phase(_timings, 'player_completed_game_exists_ms'):
+                existing = list(
+                    PlayerCompletedGame.objects.filter(
+                        **actor,
+                        game_instance_id=instance_id,
+                    ).values_list('pk', flat=True)[:2]
+                )
             if len(existing) > 1:
                 counts['ambiguous_records'] += 1
                 continue
@@ -1064,13 +1067,14 @@ def reconcile_legacy_completed_games_for_actor(
     if dry_run:
         return counts
 
-    historical_count_qs = _completed_games_qs(**actor)
-    if activation_cutoff is None:
-        historical_count = historical_count_qs.count()
-    else:
-        historical_count = historical_count_qs.filter(
-            Q(is_backfilled=True) | Q(completed_at__lte=activation_cutoff),
-        ).count()
+    with _analytics_timed_phase(_timings, 'activation_audit_logic_ms'):
+        historical_count_qs = _completed_games_qs(**actor)
+        if activation_cutoff is None:
+            historical_count = historical_count_qs.count()
+        else:
+            historical_count = historical_count_qs.filter(
+                Q(is_backfilled=True) | Q(completed_at__lte=activation_cutoff),
+            ).count()
     if historical_count < 3:
         return counts
     state, _ = create_or_reread_analytics_row(
