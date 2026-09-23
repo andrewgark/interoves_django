@@ -232,6 +232,19 @@ def run():
                                 row.last_attempt = last_attempt
                                 row.save(update_fields=['state', 'last_attempt', 'updated_at'])
 
+                    if apply_changes:
+                        # This script writes authoritative attempt/chain state
+                        # directly, so keep the canonical PCG in the same
+                        # transaction and never emit historical analytics goals.
+                        from games.analytics import reconcile_completed_game_after_recheck
+                        reconcile_completed_game_after_recheck(
+                            task=task,
+                            game=game,
+                            team=combo['team'],
+                            user=combo['user'],
+                            anon_key=combo['anon_key'],
+                        )
+
                     if combo_changed:
                         print('  {}: {} attempt(s) improve/update'.format(label, combo_changed))
                     if combo['user'] is not None and combo['user'].pk in TARGET_USER_IDS:

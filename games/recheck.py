@@ -553,6 +553,18 @@ def recheck_word_salad_actor(
         )
         for row in locked_rows.values():
             row.save(update_fields=['state', 'last_attempt', 'updated_at'])
+        # Rechecks can change the authoritative completion state in either
+        # direction.  Keep the canonical PCG in the same transaction and use
+        # the repair path so historical corrections never emit goals.
+        if replay_slot is None:
+            from games.analytics import reconcile_completed_game_after_recheck
+            reconcile_completed_game_after_recheck(
+                task=task,
+                game=game,
+                team=team,
+                user=user,
+                anon_key=anon_key,
+            )
 
     if notify:
         track_actor_task_change(

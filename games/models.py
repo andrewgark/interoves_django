@@ -906,10 +906,32 @@ class Task(models.Model):
         from games.views.track import track_task_change
         is_existing = not self._state.adding
         previous_word_salad = None
+        previous_semantics = None
+        old_actor_keys = set()
+        old_game_ids = set()
         if is_existing and self.task_type == 'word_salad':
             previous_word_salad = type(self).objects.filter(pk=self.pk).values_list(
                 'checker_data', 'task_type',
             ).first()
+        if is_existing:
+            previous_semantics = type(self).objects.filter(pk=self.pk).values(
+                'task_group_id', 'is_removed', 'task_type', 'checker_id',
+                'checker_data', 'answer', 'text', 'points', 'max_attempts',
+            ).first()
+            if previous_semantics:
+                from games.targeted_completion_reconciliation import _actor_keys_for_group
+                from games.models import GameTaskGroup
+                old_group_id = previous_semantics['task_group_id']
+                if old_group_id:
+                    old_game_ids = set(
+                        GameTaskGroup.objects.filter(task_group_id=old_group_id)
+                        .values_list('game_id', flat=True)
+                    )
+                    for old_game_id in old_game_ids:
+                        old_actor_keys.update(_actor_keys_for_group(
+                            game_id=old_game_id,
+                            task_group_id=old_group_id,
+                        ))
         if not self._state.adding:
             self.attempt_revision = uuid.uuid4()
             update_fields = kwargs.get('update_fields')
@@ -936,6 +958,55 @@ class Task(models.Model):
                 # null (used for legacy anon-key migrations).
                 state=dump_state(default_state()),
                 last_attempt=None,
+            )
+        if is_existing and previous_semantics:
+            changed_fields = {
+                field for field in (
+                    'task_group_id', 'is_removed', 'task_type', 'checker_id',
+                    'checker_data', 'answer', 'text', 'points', 'max_attempts',
+                ) if previous_semantics[field] != getattr(self, field)
+            }
+            if changed_fields:
+                from games.targeted_completion_reconciliation import (
+                    schedule_task_semantics_reconciliation,
+                )
+                from games.models import GameTaskGroup
+                new_game_ids = set(
+                    GameTaskGroup.objects.filter(task_group_id=self.task_group_id)
+                    .values_list('game_id', flat=True)
+                ) if self.task_group_id else set()
+                rebuild_task_id = self.pk if changed_fields.intersection({
+                    'task_group_id', 'task_type', 'checker_id', 'checker_data',
+                    'answer', 'text', 'points', 'max_attempts',
+                }) else None
+                schedule_task_semantics_reconciliation(
+                    old_group_id=previous_semantics['task_group_id'],
+                    new_group_id=self.task_group_id,
+                    game_ids=old_game_ids | new_game_ids,
+                    actor_keys=old_actor_keys,
+                    rebuild_task_id=rebuild_task_id,
+                )
+        elif not is_existing and self.task_group_id:
+            from games.targeted_completion_reconciliation import (
+                _actor_keys_for_group,
+                schedule_task_semantics_reconciliation,
+            )
+            from games.models import GameTaskGroup
+            new_game_ids = set(
+                GameTaskGroup.objects.filter(task_group_id=self.task_group_id)
+                .values_list('game_id', flat=True)
+            )
+            actor_keys = set()
+            for game_id in new_game_ids:
+                actor_keys.update(_actor_keys_for_group(
+                    game_id=game_id,
+                    task_group_id=self.task_group_id,
+                ))
+            schedule_task_semantics_reconciliation(
+                old_group_id=None,
+                new_group_id=self.task_group_id,
+                game_ids=new_game_ids,
+                actor_keys=actor_keys,
             )
         track_task_change(self)
 

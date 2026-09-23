@@ -612,6 +612,13 @@ def reset_salad_progress(
     n = attempt_qs.count()
     chain_qs.delete()
     attempt_qs.delete()
+    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    actor_key = (team.pk if team is not None else None, user.pk if user is not None else None, anon_key)
+    reconcile_task_group_actors(
+        game_id=game_id,
+        task_group_id=task.task_group_id,
+        actor_keys={actor_key},
+    )
     # Invalidate the browser-side finds cache as well as server-side progress.
     Task.objects.filter(pk=task.pk).update(attempt_revision=uuid.uuid4())
     return n
@@ -631,10 +638,24 @@ def reset_all_salad_progress(
 
     attempt_qs = Attempt.manager.filter(task=task, game=game)
     chain_qs = ChainTaskState.objects.filter(task=task, game=game)
+    actor_keys = set()
+    for queryset in (attempt_qs, chain_qs):
+        actor_keys.update(
+            (team_id, user_id, anon_key)
+            for team_id, user_id, anon_key in queryset.filter(replay_slot__isnull=True).values_list(
+                'team_id', 'user_id', 'anon_key',
+            )
+        )
     n_attempts = attempt_qs.count()
     n_chains = chain_qs.count()
     chain_qs.delete()
     attempt_qs.delete()
+    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    reconcile_task_group_actors(
+        game_id=game_id,
+        task_group_id=task.task_group_id,
+        actor_keys=actor_keys,
+    )
     # The new UI also keeps dictionary finds in localStorage. Rotate the
     # task's attempt revision so an old browser-side cache cannot be sent back
     # through sync_finds after this reset.

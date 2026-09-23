@@ -845,6 +845,9 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
     ).exists():
         raise AccountMergeError('Подтверждённый аккаунт провайдера больше не найден.')
 
+    from games.targeted_completion_reconciliation import completion_pairs_for_actor
+    affected_pairs = completion_pairs_for_actor(user=target) | completion_pairs_for_actor(user=source)
+
     summary = {}
     _merge_profiles(target, source, summary)
     _merge_user_fields(target, source)
@@ -873,6 +876,13 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
     summary['daily_timings'] = _merge_daily_timings(target, source)
     summary['completed_games'] = _merge_completed_games(target, source)
     summary['analytics_states'] = _merge_analytics(target, source)
+    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    for game_id, task_group_id in affected_pairs:
+        reconcile_task_group_actors(
+            game_id=game_id,
+            task_group_id=task_group_id,
+            actor_keys={(None, target.pk, None)},
+        )
     # A source-profile deep link must not remain usable after deactivation.
     telegram_link_tokens = getattr(source, 'telegram_link_tokens', None)
     if telegram_link_tokens is not None:

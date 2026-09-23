@@ -58,6 +58,9 @@ def claim_and_migrate_anon_history(user, anon_key):
         if claim.user_id != user.pk:
             return {'status': 'claimed_elsewhere', 'moved_any': False}
 
+    from games.targeted_completion_reconciliation import completion_pairs_for_actor
+    affected_pairs = completion_pairs_for_actor(anon_key=anon_key)
+
     moved_replays = migrate_anon_replay_slots(user, anon_key)
     moved = Attempt.manager.filter(anon_key=anon_key, user__isnull=True, team__isnull=True).update(
         user=user,
@@ -77,6 +80,13 @@ def claim_and_migrate_anon_history(user, anon_key):
     moved_attributions = migrate_anon_attributions(user, anon_key)
     moved_bug_reports = moved_attributions['bug_reports']
     moved_dict_suggestions = moved_attributions['dict_suggestions']
+    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    for game_id, task_group_id in affected_pairs:
+        reconcile_task_group_actors(
+            game_id=game_id,
+            task_group_id=task_group_id,
+            actor_keys={(None, user.pk, None)},
+        )
     moved_any = bool(
         moved or moved_hints or moved_states or moved_starts or moved_timings or moved_completions
         or moved_analytics_state or moved_personal_dict or moved_likes

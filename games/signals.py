@@ -1,6 +1,6 @@
 import logging
 
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from allauth.account.signals import user_signed_up
@@ -19,6 +19,87 @@ from games.models import (
     Task,
 )
 from games.recheck import recheck_queue_from_next, recheck_full
+
+
+@receiver(pre_save, sender=GameTaskGroup, dispatch_uid='completion-mapping-old-snapshot')
+def completion_mapping_old_snapshot(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._completion_mapping_old = None
+        instance._completion_mapping_actor_keys = set()
+        return
+    old = GameTaskGroup.objects.filter(pk=instance.pk).first()
+    instance._completion_mapping_old = old
+    instance._completion_mapping_actor_keys = set()
+    if old is not None:
+        from games.targeted_completion_reconciliation import _actor_keys_for_group
+        instance._completion_mapping_actor_keys = _actor_keys_for_group(
+            game_id=old.game_id,
+            task_group_id=old.task_group_id,
+        )
+
+
+@receiver(post_save, sender=GameTaskGroup, dispatch_uid='completion-mapping-reconcile')
+def completion_mapping_reconcile(sender, instance, created, **kwargs):
+    old = getattr(instance, '_completion_mapping_old', None)
+    if old is not None and (
+        old.game_id == instance.game_id
+        and old.task_group_id == instance.task_group_id
+    ):
+        return
+    from games.targeted_completion_reconciliation import schedule_mapping_reconciliation
+    schedule_mapping_reconciliation(
+        old=old,
+        instance=instance,
+        actor_keys=getattr(instance, '_completion_mapping_actor_keys', set()),
+    )
+
+
+@receiver(pre_delete, sender=GameTaskGroup, dispatch_uid='completion-mapping-delete-snapshot')
+def completion_mapping_delete_snapshot(sender, instance, **kwargs):
+    from games.targeted_completion_reconciliation import _actor_keys_for_group
+    instance._completion_mapping_actor_keys = _actor_keys_for_group(
+        game_id=instance.game_id,
+        task_group_id=instance.task_group_id,
+    )
+
+
+@receiver(post_delete, sender=GameTaskGroup, dispatch_uid='completion-mapping-delete-reconcile')
+def completion_mapping_delete_reconcile(sender, instance, **kwargs):
+    from games.targeted_completion_reconciliation import schedule_mapping_reconciliation
+    schedule_mapping_reconciliation(
+        old=instance,
+        instance=None,
+        actor_keys=getattr(instance, '_completion_mapping_actor_keys', set()),
+    )
+
+
+@receiver(pre_delete, sender=Task, dispatch_uid='completion-task-delete-snapshot')
+def completion_task_delete_snapshot(sender, instance, **kwargs):
+    from games.targeted_completion_reconciliation import _actor_keys_for_group
+    instance._completion_task_old_group_id = instance.task_group_id
+    instance._completion_task_old_game_ids = set(
+        GameTaskGroup.objects.filter(task_group_id=instance.task_group_id)
+        .values_list('game_id', flat=True)
+    ) if instance.task_group_id else set()
+    instance._completion_task_actor_keys = set()
+    for game_id in instance._completion_task_old_game_ids:
+        instance._completion_task_actor_keys.update(_actor_keys_for_group(
+            game_id=game_id,
+            task_group_id=instance.task_group_id,
+        ))
+
+
+@receiver(post_delete, sender=Task, dispatch_uid='completion-task-delete-reconcile')
+def completion_task_delete_reconcile(sender, instance, **kwargs):
+    if not getattr(instance, '_completion_task_old_group_id', None):
+        return
+    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    for game_id in getattr(instance, '_completion_task_old_game_ids', set()):
+        reconcile_task_group_actors(
+            game_id=game_id,
+            task_group_id=instance._completion_task_old_group_id,
+            actor_keys=getattr(instance, '_completion_task_actor_keys', set()),
+        )
 
 logger = logging.getLogger(__name__)
 
