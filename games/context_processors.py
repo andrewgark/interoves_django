@@ -22,6 +22,7 @@ def club_archive_ui(request):
         return {'club_archive_gating_enabled': False}
     user = getattr(request, 'user', None)
     from games.club_access import has_club_access
+    from games.telegram.config import club_invite_url
     if not user or not user.is_authenticated:
         return {
             'club_archive_gating_enabled': True,
@@ -42,7 +43,7 @@ def club_archive_ui(request):
         ),
         'club_archive_has_access': club_access,
         'club_archive_solved_count': solved_count,
-        'club_archive_telegram_url': 'https://t.me/+JYd2AYTihi9iNTky' if club_access else '',
+        'club_archive_telegram_url': club_invite_url() if club_access else '',
     }
 
 

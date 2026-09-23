@@ -810,6 +810,9 @@ TELEGRAM_ADMIN_CHAT_ID = _load_telegram_admin_chat_id()
 TELEGRAM_NOTIFY_CHAT_ID = TELEGRAM_ADMIN_CHAT_ID
 TELEGRAM_ANNOUNCE_CHAT_IDS = _load_telegram_announce_chat_ids()
 TELEGRAM_CHANNEL_CHAT_ID = _load_telegram_channel_chat_id()
+TELEGRAM_CLUB_INVITE_URL = (
+    os.environ.get('TELEGRAM_CLUB_INVITE_URL') or 'https://t.me/+JYd2AYTihi9iNTky'
+).strip()
 TELEGRAM_WEBHOOK_SECRET = load_secret('telegram_webhook_secret.txt', env_var='TELEGRAM_WEBHOOK_SECRET', default='')
 # User MTProto (Telethon) for channel schedule_date — not the bot token.
 TELEGRAM_API_ID = _load_telegram_api_id()

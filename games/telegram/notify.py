@@ -20,6 +20,7 @@ from games.telegram.config import (
     admin_chat_id,
     admin_is_muted,
     announce_chat_ids,
+    club_invite_url,
     telegram_admin_configured,
     telegram_bot_configured,
 )
@@ -98,9 +99,36 @@ def notify_admin_club_subscription(subscription_id: int, event_name: str, *, pay
             lines.append('Тип платежа: {}'.format(_escape(payment_kind)))
         if subscription.paid_until:
             lines.append('Доступ до: {}'.format(subscription.paid_until.strftime('%d.%m.%Y %H:%M UTC')))
+        invite_url = club_invite_url()
+        if invite_url and event_name in ('new_subscription', 'payment.succeeded'):
+            lines.extend([
+                '',
+                '<a href="{}">Ссылка на вступление в Inter Oves Elite</a>'.format(
+                    _escape(invite_url),
+                ),
+            ])
         return send_admin_message(_join_lines(lines), force=True)
     except Exception:
         logger.exception('Failed to notify admin about club subscription %s', subscription_id)
+        return False
+
+
+def notify_club_subscription_user(subscription_id: int) -> bool:
+    """Send the club invite to the subscriber after their first payment."""
+    try:
+        from games.models import ClubSubscription
+
+        subscription = ClubSubscription.objects.select_related('user').get(pk=subscription_id)
+        invite_url = club_invite_url()
+        if not invite_url:
+            return False
+        return send_user_telegram_message(
+            subscription.user,
+            '✅ <b>Клубная подписка Inter Oves активна!</b>\n\n'
+            'Вступите в закрытый чат клуба Inter Oves Elite:\n{}'.format(invite_url),
+        )
+    except Exception:
+        logger.exception('Failed to send club invite to subscription %s', subscription_id)
         return False
 
 

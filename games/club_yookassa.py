@@ -529,13 +529,20 @@ def _apply_succeeded_payment(local: ClubYooKassaPayment, payment_data: dict) -> 
         now,
     )
     subscription.save()
-    from games.telegram.notify import notify_admin_club_subscription
+    from games.telegram.notify import (
+        notify_admin_club_subscription,
+        notify_club_subscription_user,
+    )
 
     transaction.on_commit(
         lambda sid=subscription.pk, kind=local.kind: notify_admin_club_subscription(
             sid, 'payment.succeeded', payment_kind=kind
         )
     )
+    if local.kind != ClubYooKassaPayment.KIND_RECURRING_MONTHLY:
+        transaction.on_commit(
+            lambda sid=subscription.pk: notify_club_subscription_user(sid)
+        )
     logger.info(
         'subscription_payment_succeeded payment_pk=%s user_id=%s kind=%s paid_until=%s',
         local.pk, subscription.user_id, local.kind, subscription.paid_until,

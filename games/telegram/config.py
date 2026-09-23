@@ -44,6 +44,10 @@ def announce_chat_ids() -> list[str]:
 def channel_chat_id() -> str:
     return str(getattr(settings, 'TELEGRAM_CHANNEL_CHAT_ID', '') or '')
 
+
+def club_invite_url() -> str:
+    return str(getattr(settings, 'TELEGRAM_CLUB_INVITE_URL', '') or '').strip()
+
 def is_admin_chat(chat_id) -> bool:
     configured = admin_chat_id()
     return bool(configured) and str(chat_id) == configured
