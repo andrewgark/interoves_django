@@ -138,6 +138,25 @@ class DailyResultProjectionTests(TestCase):
                 pass
         self.assertFalse(DailyResultProjection.objects.exists())
 
+    def test_actor_projection_skips_unlinked_group_without_breaking_commit(self):
+        game = Game.objects.create(
+            id='unlinked_projection_test', name='Unlinked projection test', author='test',
+            author_extra='', project_id='sections', is_ready=True,
+        )
+        group = TaskGroup.objects.create(label='unlinked projection group')
+        task = Task.objects.create(
+            task_group=group, number='1', task_type='default', points=1,
+            checker_data='answer', text='Question',
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            with transaction.atomic():
+                Attempt.manager.create(
+                    task=task, game=game, anon_key='unlinked-hook',
+                    text='answer', status='Ok', points=1,
+                )
+                schedule_actor_projection(game, group, anon_key='unlinked-hook')
+        self.assertFalse(DailyResultProjection.objects.exists())
+
     def test_rebuild_command_dry_run_then_idempotent_apply(self):
         task = Task.objects.create(
             task_group=self.group, number='1', task_type='default', points=1,

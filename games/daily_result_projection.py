@@ -186,6 +186,13 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter):
         if identity:
             DailyResultProjection.objects.filter(game=game, task_group=group, **identity).delete()
         return
+    link = GameTaskGroup.objects.filter(game=game, task_group=group).first()
+    if link is None:
+        # Some gameplay groups (notably historical/non-official salad groups)
+        # have no GameTaskGroup release link.  They are not eligible for the
+        # daily projection, but their gameplay transaction must still be able
+        # to continue into completion analytics.
+        return
     data = next(iter(results.values()))
     actor_data = _projection_actor(data['actor'])
     user_id = actor_data.pop('user_id', None)
@@ -193,7 +200,7 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter):
         'team': actor_data['team'], 'user_id': user_id,
         'anon_key': actor_data['anon_key'], 'score': data['score'],
         'is_prepublication': _prepublication(
-            game, GameTaskGroup.objects.get(game=game, task_group=group),
+            game, link,
             data['actor'], data['first_at'],
         ),
     }
