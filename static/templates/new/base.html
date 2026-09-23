@@ -395,6 +395,10 @@
         На этом устройстве есть ответы без входа. Перенести их в текущий профиль?
       </p>
       <p class="new-field-error" data-migrate-error hidden></p>
+      <div data-migrate-progress hidden aria-live="polite">
+        <p class="pal-lead" data-migrate-progress-label>Подготавливаем перенос…</p>
+        <progress class="new-audio-progress" data-migrate-progress-bar value="0" max="1"></progress>
+      </div>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
         <button type="button" class="new-btn" data-migrate-confirm>Перенести</button>
         <button type="button" class="new-btn new-btn--text" data-migrate-close>Позже</button>
@@ -464,33 +468,79 @@
     function migrate() {
       var btn = modal.querySelector('[data-migrate-confirm]');
       var error = modal.querySelector('[data-migrate-error]');
+      var progress = modal.querySelector('[data-migrate-progress]');
+      var progressBar = modal.querySelector('[data-migrate-progress-bar]');
+      var progressLabel = modal.querySelector('[data-migrate-progress-label]');
+      var steps = ['prepare', 'ui_states', 'replays', 'attempts', 'hints', 'states', 'starts', 'timings', 'completions', 'analytics', 'personal_dict', 'likes', 'attributions', 'reconcile', 'finish'];
+      var pairTotal = 0;
+      var pairIndex = 0;
+      var labels = {
+        prepare: 'Подготавливаем перенос…',
+        ui_states: 'Переносим состояние игр…',
+        replays: 'Переносим повторы…',
+        attempts: 'Переносим ответы…',
+        hints: 'Переносим подсказки…',
+        states: 'Обновляем прогресс игр…',
+        starts: 'Переносим начатые игры…',
+        timings: 'Переносим время прохождения…',
+        completions: 'Переносим завершённые игры…',
+        analytics: 'Переносим статистику…',
+        personal_dict: 'Переносим личный словарь…',
+        likes: 'Переносим реакции…',
+        attributions: 'Завершаем перенос данных…',
+        reconcile: 'Проверяем перенесённый прогресс…',
+        finish: 'Сохраняем результат…',
+      };
       if (btn) { btn.disabled = true; btn.textContent = 'Переносим…'; }
       if (error) { error.hidden = true; error.textContent = ''; }
-      fetch("{% url 'new_migrate_anon_attempts' %}", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRFToken': postCSRF(),
-        },
-        body: "anon_key=" + encodeURIComponent(anonKey),
-        credentials: 'same-origin',
-      }).then(function (r) {
-        return r.json().catch(function () { return {}; }).then(function (data) {
-          if (!r.ok || !data || data.status !== 'ok') throw new Error(data.status || 'request_failed');
-          return data;
-        });
-      }).then(function () {
-        rotateAnonKey();
-        close();
-        window.location.reload();
-      }).catch(function () {
+      if (progress) progress.hidden = false;
+
+      function updateProgress(phase) {
+        var index = Math.max(0, steps.indexOf(phase));
+        var value = (index + (phase === 'reconcile' && pairTotal ? pairIndex / pairTotal : 0.5)) / steps.length;
+        if (progressBar) progressBar.value = Math.min(1, value);
+        if (progressLabel) progressLabel.textContent = labels[phase] || 'Переносим данные…';
+      }
+      function runStep(phase) {
+        updateProgress(phase);
+        var body = 'anon_key=' + encodeURIComponent(anonKey)
+          + '&phase=' + encodeURIComponent(phase)
+          + '&pair_index=' + encodeURIComponent(pairIndex);
+        fetch("{% url 'new_migrate_anon_attempts' %}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': postCSRF(),
+          },
+          body: body,
+          credentials: 'same-origin',
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            if (!r.ok || !data || data.status !== 'ok') throw new Error(data.status || 'request_failed');
+            return data;
+          });
+        }).then(function (data) {
+          pairTotal = data.pair_total || pairTotal;
+          pairIndex = data.pair_index || pairIndex;
+          if (data.done) {
+            if (progressBar) progressBar.value = 1;
+            rotateAnonKey();
+            close();
+            window.location.reload();
+            return;
+          }
+          runStep(data.next_phase);
+        }).catch(function () {
         if (btn) { btn.disabled = false; btn.textContent = 'Повторить'; }
         if (error) {
           error.textContent = 'Не удалось перенести прогресс. Ничего не потеряно — попробуйте ещё раз.';
           error.hidden = false;
         }
+        if (progress) progress.hidden = true;
       });
+      }
+      runStep('prepare');
     }
     document.querySelectorAll('[data-migrate-close]').forEach(function (el) {
       el.addEventListener('click', postpone);

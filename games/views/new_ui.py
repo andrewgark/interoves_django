@@ -4999,6 +4999,113 @@ def new_migrate_anon_attempts(request):
     if not _anon_key_matches_browser(request, anon_key):
         return JsonResponse({'status': 'anon_key_mismatch'}, status=403)
 
+    # Large guest histories are migrated by short browser-driven steps.  This
+    # keeps a single 1200+ row history from occupying Daphne until the proxy
+    # timeout and also gives the user honest progress feedback.
+    phase = (request.POST.get('phase') or '').strip()
+    if phase:
+        from games.anon_migrate import (
+            ANON_MIGRATION_STEPS,
+            migrate_anon_history_step,
+        )
+        from games.targeted_completion_reconciliation import completion_pairs_for_actor
+
+        if phase not in ANON_MIGRATION_STEPS:
+            return JsonResponse({'status': 'invalid_phase'}, status=400)
+        state_key = 'interoves_anon_migration:' + anon_key
+        state = request.session.get(state_key)
+        if phase != 'prepare' and not state:
+            return JsonResponse({'status': 'migration_not_started'}, status=409)
+        state = state or {
+            'moved': {},
+            'moved_any': False,
+            'event_recorded': False,
+            'pairs': [],
+        }
+        try:
+            pair_index = max(0, int(request.POST.get('pair_index') or 0))
+        except (TypeError, ValueError):
+            return JsonResponse({'status': 'invalid_pair_index'}, status=400)
+        if phase == 'prepare':
+            result = migrate_anon_history_step(request.user, anon_key, 'prepare')
+            if result.get('status') != 'ok':
+                return JsonResponse(result, status=409)
+            state['pairs'] = [
+                list(pair) for pair in sorted(completion_pairs_for_actor(anon_key=anon_key))
+            ]
+            state['moved'] = {}
+            state['moved_any'] = bool(result.get('moved_any'))
+            state['event_recorded'] = False
+            request.session[state_key] = state
+            request.session.modified = True
+        else:
+            result = migrate_anon_history_step(
+                request.user,
+                anon_key,
+                phase,
+                affected_pairs=state.get('pairs') or (),
+                pair_index=pair_index,
+            )
+            if result.get('status') != 'ok':
+                return JsonResponse(result, status=409)
+            for key in (
+                'moved', 'moved_hints', 'moved_states', 'moved_starts',
+                'moved_timings', 'moved_completions', 'moved_analytics_state',
+                'moved_personal_dict', 'moved_likes', 'moved_bug_reports',
+                'moved_dict_suggestions', 'moved_replays', 'moved_ui_states',
+            ):
+                if result.get(key):
+                    state['moved'][key] = state['moved'].get(key, 0) + result[key]
+                    state['moved_any'] = True
+
+            if phase == 'finish':
+                if state['moved_any'] and not state['event_recorded']:
+                    from games.models import StatisticsEvent
+                    StatisticsEvent.record(
+                        StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
+                        user=request.user,
+                        anon_key=anon_key,
+                        **state['moved'],
+                    )
+                    state['event_recorded'] = True
+                log_auth_event(
+                    'auth_account_claim',
+                    request,
+                    user_id=str(request.user.pk),
+                    session_fingerprint=request_session_fingerprint(request),
+                    anon_fingerprint=anonymous_actor_fingerprint(anon_key),
+                    success=True,
+                    claim_status='ok',
+                    moved_counts={
+                        key: state['moved'].get(key, 0)
+                        for key in (
+                            'moved', 'moved_hints', 'moved_states', 'moved_starts',
+                            'moved_completions', 'moved_analytics_state',
+                        )
+                    },
+                )
+                request.session.pop(state_key, None)
+                request.session.modified = True
+                rotate_anonymous_identity(request)
+                return JsonResponse({'status': 'ok', 'done': True, **state['moved']})
+            request.session[state_key] = state
+            request.session.modified = True
+
+        next_index = ANON_MIGRATION_STEPS.index(phase) + 1
+        next_phase = ANON_MIGRATION_STEPS[next_index] if next_index < len(ANON_MIGRATION_STEPS) else 'finish'
+        if phase == 'reconcile' and pair_index + 1 < len(state.get('pairs') or ()):
+            next_phase = 'reconcile'
+            pair_index += 1
+        return JsonResponse({
+            'status': 'ok',
+            'done': False,
+            'phase': phase,
+            'next_phase': next_phase,
+            'pair_index': pair_index,
+            'pair_total': len(state.get('pairs') or ()),
+            'moved': state.get('moved') or {},
+        })
+
     from games.anon_migrate import claim_and_migrate_anon_history
 
     result = claim_and_migrate_anon_history(request.user, anon_key)

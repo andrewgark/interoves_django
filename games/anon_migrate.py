@@ -32,6 +32,25 @@ from games.models import (
 from games.replay import replay_actor_key
 
 
+ANON_MIGRATION_STEPS = (
+    'prepare',
+    'ui_states',
+    'replays',
+    'attempts',
+    'hints',
+    'states',
+    'starts',
+    'timings',
+    'completions',
+    'analytics',
+    'personal_dict',
+    'likes',
+    'attributions',
+    'reconcile',
+    'finish',
+)
+
+
 @transaction.atomic
 def claim_and_migrate_anon_history(user, anon_key):
     """Idempotently move guest-owned rows onto ``user``. Does not copy events.
@@ -134,6 +153,85 @@ def claim_and_migrate_anon_history(user, anon_key):
         'moved_replays': moved_replays,
         'moved_ui_states': moved_ui_states,
     }
+
+
+@transaction.atomic
+def migrate_anon_history_step(user, anon_key, step, *, affected_pairs=(), pair_index=0):
+    """Run one small, retryable part of anonymous-history migration.
+
+    The browser drives these steps so no request holds the ASGI worker while a
+    large guest history is being moved.  Every operation only touches rows
+    still owned by ``anon_key`` and is therefore safe to retry after a timeout.
+    """
+    if step == 'prepare':
+        if HiddenAnonKey.objects.select_for_update().filter(anon_key=anon_key).exists():
+            return {'status': 'hidden_anon', 'moved_any': False}
+        claim = AnonAccountClaim.objects.select_for_update().filter(anon_key=anon_key).first()
+        if claim is not None and claim.user_id != user.pk:
+            return {'status': 'claimed_elsewhere', 'moved_any': False}
+        counts = anon_migration_counts(anon_key)
+        if claim is None and any(counts.values()):
+            claim, _ = AnonAccountClaim.objects.get_or_create(
+                anon_key=anon_key, defaults={'user': user},
+            )
+            if claim.user_id != user.pk:
+                return {'status': 'claimed_elsewhere', 'moved_any': False}
+        return {'status': 'ok', 'moved_any': bool(any(counts.values())), 'counts': counts}
+
+    if step == 'attempts':
+        return {'status': 'ok', 'moved': Attempt.manager.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).update(user=user, anon_key=None)}
+    if step == 'ui_states':
+        return {'status': 'ok', 'moved_ui_states': migrate_anon_raddle_ui_states(user, anon_key)}
+    if step == 'replays':
+        return {'status': 'ok', 'moved_replays': migrate_anon_replay_slots(user, anon_key)}
+    if step == 'hints':
+        return {'status': 'ok', 'moved_hints': HintAttempt.objects.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).update(user=user, anon_key=None)}
+    if step == 'states':
+        return {'status': 'ok', 'moved_states': migrate_anon_chain_task_states(user, anon_key)}
+    if step == 'starts':
+        return {'status': 'ok', 'moved_starts': migrate_anon_started_games(user, anon_key)}
+    if step == 'timings':
+        return {'status': 'ok', 'moved_timings': migrate_anon_daily_timings(user, anon_key)}
+    if step == 'completions':
+        return {'status': 'ok', 'moved_completions': migrate_anon_completed_games(user, anon_key)}
+    if step == 'analytics':
+        return {'status': 'ok', 'moved_analytics_state': migrate_anon_analytics_state(user, anon_key)}
+    if step == 'personal_dict':
+        return {'status': 'ok', 'moved_personal_dict': migrate_anon_personal_dict_words(user, anon_key)}
+    if step == 'likes':
+        return {'status': 'ok', 'moved_likes': migrate_anon_likes(user, anon_key)}
+    if step == 'attributions':
+        moved = migrate_anon_attributions(user, anon_key)
+        return {
+            'status': 'ok',
+            'moved_bug_reports': moved['bug_reports'],
+            'moved_dict_suggestions': moved['dict_suggestions'],
+        }
+    if step == 'reconcile':
+        pairs = list(affected_pairs)
+        if pair_index >= len(pairs):
+            return {'status': 'ok', 'reconciled': 0, 'pair_index': pair_index}
+        game_id, task_group_id = pairs[pair_index]
+        from games.daily_result_projection import mark_projection_dirty
+        from games.models import Game, TaskGroup
+        from games.targeted_completion_reconciliation import reconcile_task_group_actors
+        game = Game.objects.filter(pk=game_id, project_id='sections').first()
+        task_group = TaskGroup.objects.filter(pk=task_group_id).first()
+        if game is not None and task_group is not None:
+            mark_projection_dirty(game, task_group, full=True)
+        reconcile_task_group_actors(
+            game_id=game_id,
+            task_group_id=task_group_id,
+            actor_keys={(None, user.pk, None)},
+        )
+        return {'status': 'ok', 'reconciled': 1, 'pair_index': pair_index + 1}
+    if step == 'finish':
+        return {'status': 'ok'}
+    raise ValueError('unknown anonymous migration step')
 
 
 def migrate_anon_raddle_ui_states(user, anon_key):
