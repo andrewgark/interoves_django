@@ -1678,6 +1678,7 @@
   var RADDLE_UI_DEBOUNCE_MS = 200;
   var raddleUiDraftTimers = Object.create(null);
   var raddleUiDraftPending = Object.create(null);
+  var raddleUiRevisions = Object.create(null);
 
   function raddleRowIsLocallyEditing(taskRoot, wordIdx) {
     if (!taskRoot || !hasRaddleInputIntent(taskRoot)) return false;
@@ -1695,6 +1696,9 @@
     if (anonKey) params.set('anon_key', anonKey);
     if (draftsPatch) params.set('drafts', JSON.stringify(draftsPatch));
     if (marksPatch) params.set('clue_marks', JSON.stringify(marksPatch));
+    var nextRevision = Number(raddleUiRevisions[taskId] || 0) + 1;
+    raddleUiRevisions[taskId] = nextRevision;
+    params.set('ui_revision', String(nextRevision));
     if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampParams(params);
     var headers = anonFetchHeaders({
       'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
@@ -1708,6 +1712,13 @@
       credentials: 'same-origin',
     }).then(parseFetchJson).then(function (data) {
       if (data && data.context_mismatch) showGameplayContextMismatch(null);
+      var payload = data && data.raddle_ui && data.raddle_ui[String(taskId)];
+      var serverRevision = payload && Number(payload.revision);
+      if (Number.isFinite(serverRevision)) {
+        raddleUiRevisions[taskId] = Math.max(
+          Number(raddleUiRevisions[taskId] || 0), serverRevision,
+        );
+      }
       return data;
     }).catch(function () { return null; });
   }
@@ -1732,6 +1743,12 @@
     Object.keys(uiMap).forEach(function (taskId) {
       var payload = uiMap[taskId];
       if (!payload || typeof payload !== 'object') return;
+      var remoteRevision = Number(payload.revision);
+      if (Number.isFinite(remoteRevision)) {
+        raddleUiRevisions[taskId] = Math.max(
+          Number(raddleUiRevisions[taskId] || 0), remoteRevision,
+        );
+      }
       var taskRoot = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
       if (!taskRoot) return;
       var drafts = payload.drafts && typeof payload.drafts === 'object' ? payload.drafts : {};

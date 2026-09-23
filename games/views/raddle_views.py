@@ -16,7 +16,7 @@ from games.analytics import (
 )
 from games.completion_coordinator import complete_logical_game
 from games.exception import DuplicateAttemptException, NoGameAccessException
-from games.models import Attempt, ChainTaskState, Task
+from games.models import Attempt, ChainTaskState, RaddleUiState, Task
 from games.mysql_retry import is_mysql_lock_retryable
 from games.analytics_identity import gameplay_anon_key
 from games.auth_observability import log_gameplay_attempt_created
@@ -28,7 +28,7 @@ from games.raddle import (
     ensure_raddle_assist_hints,
     find_raddle_assist_hint,
     load_raddle_state,
-    merge_raddle_ui_state,
+    merge_raddle_ui_payload,
     parse_raddle_data,
     playable_word_indices,
     raddle_ui_payload,
@@ -364,6 +364,36 @@ def _parse_raddle_ui_patch(raw):
     return data if isinstance(data, dict) else None
 
 
+def _legacy_raddle_ui_state(*, task, game, current_mode, team, user, anon_key, replay_slot, n_words):
+    """Read legacy UI keys without locking or writing ChainTaskState."""
+    row = ChainTaskState.objects.filter(
+        team=team, user=user, anon_key=anon_key,
+        task=task, game=game, game_mode=current_mode,
+        replay_slot=replay_slot,
+    ).only('state').first()
+    if not row or not row.state:
+        return {'drafts': {}, 'clue_marks': {}}
+    legacy = load_raddle_state(row.state, n_words)
+    return {
+        'drafts': dict(legacy.get('drafts') or {}),
+        'clue_marks': dict(legacy.get('clue_marks') or {}),
+    }
+
+
+def _raddle_ui_identity(*, team, user, anon_key, replay_run_id):
+    if team is not None:
+        actor_key = 'team:{}'.format(team.pk)
+    elif user is not None:
+        actor_key = 'user:{}'.format(user.pk)
+    else:
+        actor_key = 'anon:{}'.format(anon_key)
+    namespace_key = (
+        'replay:{}'.format(replay_run_id)
+        if replay_run_id is not None else 'official'
+    )
+    return actor_key, namespace_key
+
+
 def process_send_raddle_ui(request, task_id):
     """Collaborative drafts + unused-clue strikethrough. No HTML redraw."""
     task = get_public_task_or_404(task_id)
@@ -396,9 +426,18 @@ def process_send_raddle_ui(request, task_id):
         game=game, task_group=task.task_group, team=team, user=user, anon_key=anon_key,
     ):
         return {'status': 'error', 'error': 'replay_required', 'reload_required': True}
+    replay_run_id = replay_slot.run_id if replay_slot is not None else None
 
     drafts_patch = _parse_raddle_ui_patch(request.POST.get('drafts'))
     marks_patch = _parse_raddle_ui_patch(request.POST.get('clue_marks'))
+    raw_revision = request.POST.get('ui_revision')
+    if raw_revision in (None, ''):
+        requested_revision = None
+    else:
+        try:
+            requested_revision = max(0, int(raw_revision))
+        except (TypeError, ValueError):
+            requested_revision = None
     if drafts_patch is None and marks_patch is None:
         return {'status': 'empty'}
 
@@ -407,30 +446,57 @@ def process_send_raddle_ui(request, task_id):
         return {'status': 'invalid'}
     n = parsed['n_words']
     current_mode = game.get_current_mode(Attempt(time=timezone.now()))
+    actor_key, namespace_key = _raddle_ui_identity(
+        team=team, user=user, anon_key=anon_key, replay_run_id=replay_run_id,
+    )
 
     for lock_attempt in range(1, RADDLE_UI_LOCK_RETRY_ATTEMPTS + 1):
         try:
             with transaction.atomic():
-                ChainTaskState.objects.get_or_create(
+                legacy_state = _legacy_raddle_ui_state(
+                    task=task,
+                    game=game,
+                    current_mode=current_mode,
+                    team=team,
+                    user=user,
+                    anon_key=anon_key,
+                    replay_slot=replay_slot,
+                    n_words=n,
+                )
+                RaddleUiState.objects.get_or_create(
                     team=team, user=user, anon_key=anon_key,
                     task=task, game=game, game_mode=current_mode,
                     replay_slot=replay_slot,
-                    defaults={'state': None},
+                    replay_run_id=replay_run_id,
+                    actor_key=actor_key,
+                    namespace_key=namespace_key,
+                    defaults=legacy_state,
                 )
-                chain_row = ChainTaskState.objects.select_for_update().get(
+                ui_row = RaddleUiState.objects.select_for_update().get(
                     team=team, user=user, anon_key=anon_key,
                     task=task, game=game, game_mode=current_mode,
                     replay_slot=replay_slot,
+                    replay_run_id=replay_run_id,
+                    actor_key=actor_key,
+                    namespace_key=namespace_key,
                 )
-                state = _chain_state_with_attempt_fallback(
-                    chain_row, n, team=team, user=user, anon_key=anon_key, task=task, game=game,
-                    replay_slot=replay_slot,
+                state = {
+                    'drafts': dict(ui_row.drafts or {}),
+                    'clue_marks': dict(ui_row.clue_marks or {}),
+                }
+                stale = (
+                    requested_revision is not None
+                    and requested_revision <= ui_row.revision
                 )
-                state = merge_raddle_ui_state(
-                    state, n, drafts_patch=drafts_patch, clue_marks_patch=marks_patch,
-                )
-                chain_row.state = json.dumps(state, ensure_ascii=False)
-                chain_row.save(update_fields=['state', 'updated_at'])
+                if not stale:
+                    state = merge_raddle_ui_payload(
+                        state, n, drafts_patch=drafts_patch, clue_marks_patch=marks_patch,
+                    )
+                    ui_row.drafts = state['drafts']
+                    ui_row.clue_marks = state['clue_marks']
+                    ui_row.revision = max(ui_row.revision + 1, requested_revision or 0)
+                    ui_row.save(update_fields=['drafts', 'clue_marks', 'revision', 'updated_at'])
+                revision = ui_row.revision
             break
         except OperationalError as exc:
             if not is_mysql_lock_retryable(exc) or lock_attempt >= RADDLE_UI_LOCK_RETRY_ATTEMPTS:
@@ -442,7 +508,9 @@ def process_send_raddle_ui(request, task_id):
                 task.pk,
             )
 
-    payload = {'raddle_ui': raddle_ui_payload(state, task.id)}
+    payload = {'raddle_ui': raddle_ui_payload(state, task.id, revision=revision)}
+    if stale:
+        payload['raddle_ui_stale'] = True
     if replay_slot is None:
         track_actor_task_change(
             task,

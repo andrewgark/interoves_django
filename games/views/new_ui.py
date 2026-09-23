@@ -118,6 +118,7 @@ from games.models import (
     Profile,
     ProfileTeamMembership,
     Project,
+    RaddleUiState,
     Task,
     TaskGroup,
     Team,
@@ -2911,6 +2912,47 @@ def _chain_state_for_actor(game, task, actor):
     return ChainTaskState.objects.filter(**filters).only('state').first()
 
 
+def _raddle_ui_state_for_actor(
+    game, task, *, team=None, user=None, anon_key=None,
+    mode='general', replay_slot=None,
+):
+    if game is None or task is None:
+        return None
+    filters = {
+        'task': task,
+        'game': game,
+        'game_mode': 'tournament' if mode == 'tournament' else 'general',
+        'replay_slot': replay_slot,
+        'replay_run_id': getattr(replay_slot, 'run_id', None),
+    }
+    if team is not None:
+        filters['actor_key'] = 'team:{}'.format(team.pk)
+        filters['namespace_key'] = (
+            'replay:{}'.format(getattr(replay_slot, 'run_id', None))
+            if replay_slot is not None else 'official'
+        )
+        filters.update(team=team, user__isnull=True, anon_key__isnull=True)
+    elif user is not None:
+        filters['actor_key'] = 'user:{}'.format(user.pk)
+        filters['namespace_key'] = (
+            'replay:{}'.format(getattr(replay_slot, 'run_id', None))
+            if replay_slot is not None else 'official'
+        )
+        filters.update(user=user, team__isnull=True, anon_key__isnull=True)
+    elif anon_key:
+        filters['actor_key'] = 'anon:{}'.format(anon_key)
+        filters['namespace_key'] = (
+            'replay:{}'.format(getattr(replay_slot, 'run_id', None))
+            if replay_slot is not None else 'official'
+        )
+        filters.update(anon_key=anon_key, team__isnull=True, user__isnull=True)
+    else:
+        return None
+    return RaddleUiState.objects.filter(**filters).only(
+        'drafts', 'clue_marks', 'revision',
+    ).first()
+
+
 def _latest_actor_task_state(game, task, actor):
     chain_row = _chain_state_for_actor(game, task, actor)
     if chain_row is not None and chain_row.state:
@@ -3650,6 +3692,14 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                     if a.state:
                         state = load_raddle_state(a.state, parsed['n_words'])
                         break
+            ui_state = _raddle_ui_state_for_actor(
+                game, t, team=team, user=user, anon_key=anon_key,
+                mode=mode,
+                replay_slot=replay_slot,
+            )
+            if ui_state is not None:
+                state['drafts'] = dict(ui_state.drafts or {})
+                state['clue_marks'] = dict(ui_state.clue_marks or {})
             ui = build_raddle_ui_context(
                 parsed, state, ai.attempts if ai else [],
                 max_attempts=t.get_max_attempts(), mode=mode,

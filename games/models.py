@@ -1742,6 +1742,90 @@ class ChainTaskState(models.Model):
         return (self.state or '')[:100]
 
 
+class RaddleUiState(models.Model):
+    """Persistent, non-authoritative Raddle draft and clue display state.
+
+    This deliberately has a separate row from ``ChainTaskState``.  UI
+    autosave may lock this row, but must never serialize authoritative answer
+    submission or overwrite checker state.
+    """
+
+    team = models.ForeignKey(
+        Team, related_name='raddle_ui_states',
+        blank=True, null=True, on_delete=models.CASCADE,
+    )
+    user = models.ForeignKey(
+        'auth.User', related_name='raddle_ui_states',
+        blank=True, null=True, on_delete=models.CASCADE,
+    )
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    task = models.ForeignKey(Task, related_name='raddle_ui_states', on_delete=models.CASCADE)
+    game = models.ForeignKey(Game, related_name='raddle_ui_states', on_delete=models.CASCADE)
+    replay_slot = models.ForeignKey(
+        'ReplaySlot', related_name='raddle_ui_states',
+        blank=True, null=True, on_delete=models.CASCADE,
+    )
+    replay_run_id = models.UUIDField(blank=True, null=True, editable=False)
+    actor_key = models.CharField(max_length=128, editable=False)
+    namespace_key = models.CharField(max_length=128, editable=False)
+    game_mode = models.CharField(max_length=20)
+    drafts = models.JSONField(default=dict, blank=True)
+    clue_marks = models.JSONField(default=dict, blank=True)
+    revision = models.PositiveBigIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['actor_key', 'task', 'game', 'game_mode', 'namespace_key'],
+                name='unique_raddle_ui_actor_context',
+            ),
+            models.UniqueConstraint(
+                fields=['team', 'task', 'game', 'game_mode', 'replay_slot', 'replay_run_id'],
+                condition=models.Q(team__isnull=False),
+                name='unique_raddle_ui_team_game',
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'task', 'game', 'game_mode', 'replay_slot', 'replay_run_id'],
+                condition=models.Q(user__isnull=False),
+                name='unique_raddle_ui_user_game',
+            ),
+            models.UniqueConstraint(
+                fields=['anon_key', 'task', 'game', 'game_mode', 'replay_slot', 'replay_run_id'],
+                condition=models.Q(anon_key__isnull=False),
+                name='unique_raddle_ui_anon_game',
+            ),
+            models.CheckConstraint(
+                check=(
+                    (models.Q(team__isnull=False) & models.Q(user__isnull=True) & models.Q(anon_key__isnull=True))
+                    | (models.Q(team__isnull=True) & models.Q(user__isnull=False) & models.Q(anon_key__isnull=True))
+                    | (models.Q(team__isnull=True) & models.Q(user__isnull=True) & models.Q(anon_key__isnull=False))
+                ),
+                name='raddle_ui_exactly_one_actor',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['game', 'task', 'game_mode'], name='games_raddle_ui_game_task_idx'),
+            models.Index(fields=['replay_slot', 'replay_run_id', 'task', 'game'], name='games_raddle_ui_replay_idx'),
+        ]
+
+    def save(self, *args, **kwargs):
+        actor_values = [self.team_id, self.user_id, self.anon_key]
+        if sum(value is not None and value != '' for value in actor_values) != 1:
+            raise ValueError('RaddleUiState requires exactly one actor')
+        if self.team_id is not None:
+            self.actor_key = 'team:{}'.format(self.team_id)
+        elif self.user_id is not None:
+            self.actor_key = 'user:{}'.format(self.user_id)
+        else:
+            self.actor_key = 'anon:{}'.format(self.anon_key)
+        self.namespace_key = (
+            'replay:{}'.format(self.replay_run_id)
+            if self.replay_run_id is not None else 'official'
+        )
+        return super().save(*args, **kwargs)
+
+
 class Attempt(models.Model):
     STATUS_VARIANTS = (
         ('Ok', 'Ok'),

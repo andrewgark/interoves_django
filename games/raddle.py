@@ -513,13 +513,46 @@ def dump_raddle_state(state, n_words):
     return out
 
 
-def raddle_ui_payload(state, task_id):
+def raddle_ui_payload(state, task_id, revision=0):
     state = state or {}
     return {
         str(task_id): {
             'drafts': dict(state.get('drafts') or {}),
             'clue_marks': dict(state.get('clue_marks') or {}),
+            'revision': int(revision or 0),
         }
+    }
+
+
+def merge_raddle_ui_payload(state, n_words, drafts_patch=None, clue_marks_patch=None):
+    """Merge only presentation state, without carrying checker keys."""
+    state = state or {}
+    drafts = dict(normalize_raddle_drafts(state.get('drafts'), n_words))
+    if isinstance(drafts_patch, dict):
+        for key, val in drafts_patch.items():
+            try:
+                idx = str(int(key))
+            except (TypeError, ValueError):
+                continue
+            if val is None or val == '':
+                drafts.pop(idx, None)
+            else:
+                drafts[idx] = val
+
+    marks = dict(normalize_raddle_clue_marks(state.get('clue_marks')))
+    if isinstance(clue_marks_patch, dict):
+        for key, val in clue_marks_patch.items():
+            try:
+                idx = str(int(key))
+            except (TypeError, ValueError):
+                continue
+            if val:
+                marks[idx] = True
+            else:
+                marks.pop(idx, None)
+    return {
+        'drafts': drafts,
+        'clue_marks': marks,
     }
 
 

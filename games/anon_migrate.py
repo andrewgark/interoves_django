@@ -24,6 +24,7 @@ from games.models import (
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
+    RaddleUiState,
     DailySolveTiming,
     ReplaySlot,
     StatisticsEvent,
@@ -61,6 +62,7 @@ def claim_and_migrate_anon_history(user, anon_key):
     from games.targeted_completion_reconciliation import completion_pairs_for_actor
     affected_pairs = completion_pairs_for_actor(anon_key=anon_key)
 
+    moved_ui_states = migrate_anon_raddle_ui_states(user, anon_key)
     moved_replays = migrate_anon_replay_slots(user, anon_key)
     moved = Attempt.manager.filter(anon_key=anon_key, user__isnull=True, team__isnull=True).update(
         user=user,
@@ -90,7 +92,7 @@ def claim_and_migrate_anon_history(user, anon_key):
     moved_any = bool(
         moved or moved_hints or moved_states or moved_starts or moved_timings or moved_completions
         or moved_analytics_state or moved_personal_dict or moved_likes
-        or moved_bug_reports or moved_dict_suggestions or moved_replays
+        or moved_bug_reports or moved_dict_suggestions or moved_replays or moved_ui_states
     )
     if moved_any:
         StatisticsEvent.record(
@@ -108,6 +110,7 @@ def claim_and_migrate_anon_history(user, anon_key):
             moved_bug_reports=moved_bug_reports,
             moved_dict_suggestions=moved_dict_suggestions,
             moved_replays=moved_replays,
+            moved_ui_states=moved_ui_states,
         )
     return {
         'status': 'ok',
@@ -123,7 +126,61 @@ def claim_and_migrate_anon_history(user, anon_key):
         'moved_bug_reports': moved_bug_reports,
         'moved_dict_suggestions': moved_dict_suggestions,
         'moved_replays': moved_replays,
+        'moved_ui_states': moved_ui_states,
     }
+
+
+def migrate_anon_raddle_ui_states(user, anon_key):
+    """Move persistent Raddle UI drafts with the canonical anon actor."""
+    moved = 0
+    rows = list(RaddleUiState.objects.filter(
+        anon_key=anon_key, user__isnull=True, team__isnull=True,
+    ).order_by('id'))
+    for row in rows:
+        target_replay_slot = None
+        target_replay_run_id = row.replay_run_id
+        if row.replay_slot_id:
+            target_replay_slot = ReplaySlot.objects.filter(
+                user=user,
+                team__isnull=True,
+                anon_key__isnull=True,
+                game_id=row.game_id,
+                task_group_id=row.task.task_group_id,
+            ).first()
+            if target_replay_slot is not None:
+                target_replay_run_id = target_replay_slot.run_id
+        existing = RaddleUiState.objects.filter(
+            user=user,
+            team__isnull=True,
+            anon_key__isnull=True,
+            task_id=row.task_id,
+            game_id=row.game_id,
+            game_mode=row.game_mode,
+            replay_slot=target_replay_slot or row.replay_slot,
+            replay_run_id=target_replay_run_id,
+        ).first()
+        if existing is None:
+            row.user = user
+            row.anon_key = None
+            if target_replay_slot is not None:
+                row.replay_slot = target_replay_slot
+                row.replay_run_id = target_replay_run_id
+                row.save(update_fields=['user', 'anon_key', 'replay_slot', 'replay_run_id', 'updated_at'])
+            else:
+                row.save(update_fields=['user', 'anon_key', 'updated_at'])
+            moved += 1
+            continue
+        drafts = dict(row.drafts or {})
+        drafts.update(existing.drafts or {})
+        clue_marks = dict(row.clue_marks or {})
+        clue_marks.update(existing.clue_marks or {})
+        existing.drafts = drafts
+        existing.clue_marks = clue_marks
+        existing.revision = max(existing.revision, row.revision)
+        existing.save(update_fields=['drafts', 'clue_marks', 'revision', 'updated_at'])
+        row.delete()
+        moved += 1
+    return moved
 
 
 @transaction.atomic
@@ -181,6 +238,9 @@ def anon_migration_counts(anon_key):
             anon_key=anon_key, user__isnull=True, team__isnull=True,
         ).count(),
         'replay_slots': ReplaySlot.objects.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).count(),
+        'raddle_ui_states': RaddleUiState.objects.filter(
             anon_key=anon_key, user__isnull=True, team__isnull=True,
         ).count(),
         'analytics_states': PlayerAnalyticsState.objects.filter(
