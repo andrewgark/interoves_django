@@ -317,6 +317,7 @@ def _apply_timing_event_once(
         **filters,
     )
     row = qs.first()
+    created_timing_row = False
     if row is None:
         if not create or action not in (ACTION_START, ACTION_RESUME):
             return empty_snapshot()
@@ -353,6 +354,7 @@ def _apply_timing_event_once(
         try:
             with transaction.atomic():
                 row = DailySolveTiming.objects.create(**create_kwargs)
+                created_timing_row = True
         except IntegrityError:
             row = (
                 DailySolveTiming.objects.select_for_update()
@@ -373,6 +375,11 @@ def _apply_timing_event_once(
         claimed_ms=claimed_ms,
         now=now,
     )
+    if created_timing_row and replay_slot is None and getattr(game, 'project_id', None) == 'sections':
+        from games.daily_result_projection import schedule_actor_projection
+        schedule_actor_projection(
+            game, task_group, team=team, user=user, anon_key=anon_key,
+        )
     return snapshot(row, now=now, session_id=session_id)
 
 

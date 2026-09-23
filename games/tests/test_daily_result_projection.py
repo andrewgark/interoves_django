@@ -5,6 +5,7 @@ from django.test import TestCase
 from django.db import transaction
 from django.core.management import call_command
 from io import StringIO
+from unittest.mock import patch
 from django.test import RequestFactory
 from django.test.utils import CaptureQueriesContext
 from django.db import connection
@@ -55,6 +56,10 @@ class DailyResultProjectionTests(TestCase):
         refresh_daily_result_projection(self.game, self.group, results=results)
         projection = DailyResultProjection.objects.get(game=self.game, task_group=self.group)
         self.assertEqual(projection.score, expected)
+        state = DailyResultProjectionState.objects.get(game=self.game, task_group=self.group)
+        self.assertTrue(state.coverage_complete)
+        self.assertTrue(state.is_valid)
+        self.assertFalse(state.full_refresh_required)
 
     def test_ordinary_projection_uses_best_attempt_and_hint_penalty(self):
         task = Task.objects.create(
@@ -105,6 +110,64 @@ class DailyResultProjectionTests(TestCase):
         refresh_daily_result_projection(self.game, self.group)
         self.assertEqual(DailyResultProjection.objects.filter(game=self.game, task_group=self.group).count(), 1)
         self.assertEqual(DailyResultProjection.objects.get().score, Decimal('7'))
+
+    def test_partial_refresh_failure_never_publishes_valid_state(self):
+        with patch(
+            'games.daily_result_projection._canonical_group_results',
+            side_effect=RuntimeError('canonical failure'),
+        ):
+            with self.assertRaises(RuntimeError):
+                refresh_daily_result_projection(self.game, self.group)
+        state = DailyResultProjectionState.objects.get(
+            game=self.game, task_group=self.group,
+        )
+        self.assertFalse(state.is_valid)
+        self.assertFalse(state.coverage_complete)
+        self.assertTrue(state.full_refresh_required)
+
+    def test_attempt_and_hint_mutations_refresh_existing_actor(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        attempt = Attempt.manager.create(
+            task=task, game=self.game, anon_key='mutable-actor',
+            text='answer', status='Ok', points=4,
+        )
+        hint = Hint.objects.create(task=task, number='1', points_penalty=Decimal('2'))
+        refresh_daily_result_projection(self.game, self.group)
+        with self.captureOnCommitCallbacks(execute=True):
+            attempt.points = 8
+            attempt.save(update_fields=['points'])
+        self.assertEqual(DailyResultProjection.objects.get().score, Decimal('8'))
+        with self.captureOnCommitCallbacks(execute=True):
+            HintAttempt.objects.create(
+                hint=hint, anon_key='mutable-actor', is_real_request=True,
+            )
+        state = DailyResultProjectionState.objects.get(
+            game=self.game, task_group=self.group,
+        )
+        self.assertEqual(DailyResultProjection.objects.get().score, Decimal('6'))
+        self.assertTrue(state.is_valid)
+        self.assertFalse(state.full_refresh_required)
+
+    def test_reconciliation_repairs_missing_release_and_is_read_only_by_default(self):
+        output = StringIO()
+        call_command(
+            'reconcile_daily_result_projections', game=self.game.pk,
+            limit=1, stdout=output,
+        )
+        self.assertIn('missing=1', output.getvalue())
+        self.assertFalse(DailyResultProjectionState.objects.exists())
+        call_command(
+            'reconcile_daily_result_projections', game=self.game.pk,
+            limit=1, apply=True, stdout=StringIO(),
+        )
+        state = DailyResultProjectionState.objects.get(
+            game=self.game, task_group=self.group,
+        )
+        self.assertTrue(state.is_valid)
+        self.assertTrue(state.coverage_complete)
 
     def test_actor_projection_hook_runs_after_commit_and_is_discarded_on_rollback(self):
         task = Task.objects.create(
@@ -189,9 +252,11 @@ class DailyResultProjectionTests(TestCase):
             game=self.game, task_group=self.group, actor_type='anon',
             actor_key='reconcile-orphan', anon_key='reconcile-orphan', score=2,
         )
-        state = DailyResultProjectionState.objects.create(
-            game=self.game, task_group=self.group, adapter_version=0,
+        state = DailyResultProjectionState.objects.get(
+            game=self.game, task_group=self.group,
         )
+        state.adapter_version = 0
+        state.save(update_fields=['adapter_version'])
         output = StringIO()
         call_command('rebuild_daily_result_summaries', game=self.game.pk, reconcile=True, stdout=output)
         self.assertIn('missing=1 extra=1 score_mismatch=1 stale_version=True', output.getvalue())

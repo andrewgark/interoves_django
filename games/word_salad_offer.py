@@ -609,6 +609,8 @@ def reset_salad_progress(
         chain_qs = chain_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
     else:
         raise WordSaladOfferError('Нужен актор для сброса')
+    from games.daily_result_projection import mark_projection_dirty
+    mark_projection_dirty(game, task.task_group, full=True)
     n = attempt_qs.count()
     chain_qs.delete()
     attempt_qs.delete()
@@ -648,6 +650,8 @@ def reset_all_salad_progress(
         )
     n_attempts = attempt_qs.count()
     n_chains = chain_qs.count()
+    from games.daily_result_projection import mark_projection_dirty
+    mark_projection_dirty(game, task.task_group, full=True)
     chain_qs.delete()
     attempt_qs.delete()
     from games.targeted_completion_reconciliation import reconcile_task_group_actors

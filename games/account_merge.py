@@ -877,7 +877,13 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
     summary['completed_games'] = _merge_completed_games(target, source)
     summary['analytics_states'] = _merge_analytics(target, source)
     from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    from games.daily_result_projection import mark_projection_dirty
+    from games.models import Game, TaskGroup
     for game_id, task_group_id in affected_pairs:
+        game = Game.objects.filter(pk=game_id, project_id='sections').first()
+        task_group = TaskGroup.objects.filter(pk=task_group_id).first()
+        if game is not None and task_group is not None:
+            mark_projection_dirty(game, task_group, full=True)
         reconcile_task_group_actors(
             game_id=game_id,
             task_group_id=task_group_id,

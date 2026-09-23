@@ -165,6 +165,12 @@ def reset_daily_release_progress(placement, *, now=None):
     )):
         return _empty_reset_result()
 
+    # The canonical delete commits before the post-commit rebuild callback can
+    # run. Invalidate the read model in this transaction so the old state can
+    # never authorize a stale results page during that interval.
+    from games.daily_result_projection import mark_projection_dirty
+    mark_projection_dirty(placement.game, placement.task_group, full=True)
+
     chain_ids = {task.pk for task in tasks if task.task_type in CHAIN_TYPES}
     actors = defaultdict(set)
     for task_id, team_id, user_id, anon_key, replay_slot_id in old_attempts.values_list(

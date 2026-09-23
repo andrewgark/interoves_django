@@ -332,10 +332,6 @@ def check_attempt(attempt, *, persist_wrong=True, timing_request=None):
     if not persisted:
         return False
 
-    if getattr(game, 'project_id', None) == 'sections':
-        from games.daily_result_projection import schedule_actor_projection
-        schedule_actor_projection(game, task.task_group, team=team, user=user, anon_key=anon_key)
-
     # if some task had tag on this task, recheck it too
     if task.task_type == 'with_tag':
         tag_task_number = task.tags.get('task')

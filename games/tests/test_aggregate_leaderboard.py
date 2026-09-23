@@ -147,7 +147,9 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual({r['actor'].pk for r in first['aggregate_rows']} & {r['actor'].pk for r in second['aggregate_rows']}, set())
         self.assertEqual({r['place'] for r in second['aggregate_rows']}, {1})
         self.assertEqual(len(first_queries), len(second_queries))
-        self.assertEqual(len(second_queries), 10)
+        # The coverage marker adds one bounded state lookup and the fallback
+        # remains backend-bounded regardless of the number of releases.
+        self.assertEqual(len(second_queries), 12)
 
     def test_release_selection_query_count_is_bounded_for_10_and_30(self):
         with patch('games.views.track.track_task_change'):
@@ -184,6 +186,7 @@ class AggregateLeaderboardTests(TestCase):
         group = self.links[0][0].task_group
         DailyResultProjectionState.objects.create(
             game=self.game, task_group=group, adapter_version=1,
+            coverage_complete=True, is_valid=True, full_refresh_required=False,
         )
         for actor, score in (('rank-a', 100), ('rank-b', 100), ('rank-c', 90)):
             DailyResultProjection.objects.create(
@@ -199,6 +202,7 @@ class AggregateLeaderboardTests(TestCase):
         for link, _task in self.links:
             DailyResultProjectionState.objects.create(
                 game=self.game, task_group=link.task_group, adapter_version=1,
+                coverage_complete=True, is_valid=True, full_refresh_required=False,
             )
         with patch('games.daily_result_projection.scorer_adapter_version', return_value=2):
             with patch('games.results_sql_aggregate.get_sql_aggregated_game_actor_rows', return_value={}):

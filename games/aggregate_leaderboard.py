@@ -594,7 +594,7 @@ def build_aggregate_page(request, game):
         DailyResultProjection, DailyResultProjectionState,
         Team, User,
     )
-    from games.daily_result_projection import scorer_adapter_version
+    from games.daily_result_projection import projection_state_is_valid
     from games.daily_section import publish_at_for
 
     logger = logging.getLogger(__name__)
@@ -619,12 +619,12 @@ def build_aggregate_page(request, game):
 
     group_ids = [link.task_group_id for link in window]
     states = {
-        state.task_group_id: state.adapter_version
+        state.task_group_id: state
         for state in DailyResultProjectionState.objects.filter(game=game, task_group_id__in=group_ids)
     } if group_ids else {}
     stale_groups = [
         link.task_group_id for link in window
-        if states.get(link.task_group_id) != scorer_adapter_version(game, link.task_group)
+        if not projection_state_is_valid(states.get(link.task_group_id), game)
     ]
     covered = len(set(group_ids)) - len(set(stale_groups))
     if stale_groups:

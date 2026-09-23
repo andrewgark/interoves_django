@@ -738,11 +738,21 @@ class DailyResultProjection(models.Model):
 
 
 class DailyResultProjectionState(models.Model):
-    """Coverage marker: an empty but rebuilt release is distinguishable from a miss."""
+    """Durable validity/coverage marker for one materialized release.
+
+    ``DailyResultProjection`` is a rebuildable read model.  This row is the
+    authority for whether the read model may be used: a few projection rows
+    are never sufficient evidence of coverage.
+    """
     game = models.ForeignKey(Game, related_name='daily_result_projection_states', on_delete=models.CASCADE)
     task_group = models.ForeignKey(TaskGroup, related_name='daily_result_projection_states', on_delete=models.CASCADE)
     completed_at = models.DateTimeField(auto_now=True)
     adapter_version = models.PositiveIntegerField(default=1)
+    source_revision = models.PositiveBigIntegerField(default=0)
+    coverage_complete = models.BooleanField(default=False, db_index=True)
+    is_valid = models.BooleanField(default=False, db_index=True)
+    full_refresh_required = models.BooleanField(default=True, db_index=True)
+    pending_actor_refreshes = models.PositiveIntegerField(default=0)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=('game', 'task_group'), name='uniq_daily_proj_state_release')]
@@ -925,7 +935,6 @@ class Task(models.Model):
             ).first()
             if previous_semantics:
                 from games.targeted_completion_reconciliation import _actor_keys_for_group
-                from games.models import GameTaskGroup
                 old_group_id = previous_semantics['task_group_id']
                 if old_group_id:
                     old_game_ids = set(
@@ -943,10 +952,17 @@ class Task(models.Model):
             if update_fields is not None:
                 kwargs['update_fields'] = set(update_fields) | {'attempt_revision'}
         super(Task, self).save(*args, **kwargs)
-        if self.task_group_id:
-            DailyResultProjectionState.objects.filter(
-                task_group_id=self.task_group_id, game__project_id='sections',
-            ).delete()
+        projection_groups = {self.task_group_id}
+        if previous_semantics:
+            projection_groups.add(previous_semantics['task_group_id'])
+        from games.daily_result_projection import mark_projection_dirty
+        for group_id in projection_groups:
+            if not group_id:
+                continue
+            for link in GameTaskGroup.objects.filter(
+                task_group_id=group_id, game__project_id='sections',
+            ).select_related('game', 'task_group'):
+                mark_projection_dirty(link.game, link.task_group, full=True)
         # A changed Word Salad grid starts a new chain.  Changing only the
         # answer/rare-word lists must keep the accumulated projection alive:
         # the existing attempts are still valid evidence and the recheck can
@@ -975,7 +991,6 @@ class Task(models.Model):
                 from games.targeted_completion_reconciliation import (
                     schedule_task_semantics_reconciliation,
                 )
-                from games.models import GameTaskGroup
                 new_game_ids = set(
                     GameTaskGroup.objects.filter(task_group_id=self.task_group_id)
                     .values_list('game_id', flat=True)
@@ -996,7 +1011,6 @@ class Task(models.Model):
                 _actor_keys_for_group,
                 schedule_task_semantics_reconciliation,
             )
-            from games.models import GameTaskGroup
             new_game_ids = set(
                 GameTaskGroup.objects.filter(task_group_id=self.task_group_id)
                 .values_list('game_id', flat=True)
@@ -1884,15 +1898,24 @@ class Attempt(models.Model):
         )
 
     def save(self, *args, **kwargs):
-        existing = not self._state.adding
-        super().save(*args, **kwargs)
-        if existing and self.task_id:
-            group_id = Task.objects.filter(pk=self.task_id).values_list('task_group_id', flat=True).first()
-            if group_id:
-                DailyResultProjectionState.objects.filter(
-                    game__project_id='sections', game_id=self.game_id,
-                    task_group_id=group_id,
-                ).delete()
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if self.task_id and self.game_id and self.replay_slot_id is None:
+                group_id = Task.objects.filter(
+                    pk=self.task_id,
+                ).values_list('task_group_id', flat=True).first()
+                game = Game.objects.filter(
+                    pk=self.game_id, project_id='sections',
+                ).first()
+                if group_id and game is not None:
+                    from games.daily_result_projection import schedule_actor_projection
+                    schedule_actor_projection(
+                        game,
+                        TaskGroup.objects.get(pk=group_id),
+                        team_id=self.team_id,
+                        user_id=self.user_id,
+                        anon_key=self.anon_key,
+                    )
 
     def get_answer(self):
         if self.task is None:
@@ -2181,9 +2204,11 @@ class Hint(models.Model):
         from games.views.track import track_task_change
         super(Hint, self).save(*args, **kwargs)
         if self.task_id and self.task.task_group_id:
-            DailyResultProjectionState.objects.filter(
+            from games.daily_result_projection import mark_projection_dirty
+            for link in GameTaskGroup.objects.filter(
                 task_group_id=self.task.task_group_id, game__project_id='sections',
-            ).delete()
+            ).select_related('game', 'task_group'):
+                mark_projection_dirty(link.game, link.task_group, full=True)
         track_task_change(self.task)
 
 class HintAttempt(models.Model):
@@ -2209,14 +2234,26 @@ class HintAttempt(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        existing = not self._state.adding
-        super().save(*args, **kwargs)
-        if existing and self.hint_id:
-            group_id = Hint.objects.filter(pk=self.hint_id).values_list('task__task_group_id', flat=True).first()
-            if group_id:
-                DailyResultProjectionState.objects.filter(
-                    game__project_id='sections', task_group_id=group_id,
-                ).delete()
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if self.hint_id and self.replay_slot_id is None:
+                group_id = Hint.objects.filter(
+                    pk=self.hint_id,
+                ).values_list('task__task_group_id', flat=True).first()
+                task_group = TaskGroup.objects.filter(pk=group_id).first() if group_id else None
+                game_ids = GameTaskGroup.objects.filter(
+                    task_group_id=group_id, game__project_id='sections',
+                ).values_list('game_id', flat=True) if group_id else []
+                if task_group is not None:
+                    from games.daily_result_projection import schedule_actor_projection
+                    for game_id in game_ids:
+                        game = Game.objects.get(pk=game_id)
+                        schedule_actor_projection(
+                            game, task_group,
+                            team_id=self.team_id,
+                            user_id=self.user_id,
+                            anon_key=self.anon_key,
+                        )
 
     def __str__(self):
         actor = self.team if self.team is not None else (self.user if self.user is not None else self.anon_key)

@@ -40,6 +40,9 @@ def completion_mapping_old_snapshot(sender, instance, **kwargs):
 
 @receiver(post_save, sender=GameTaskGroup, dispatch_uid='completion-mapping-reconcile')
 def completion_mapping_reconcile(sender, instance, created, **kwargs):
+    if getattr(instance.game, 'project_id', None) == 'sections':
+        from games.daily_result_projection import mark_projection_dirty
+        mark_projection_dirty(instance.game, instance.task_group, full=True)
     old = getattr(instance, '_completion_mapping_old', None)
     if old is not None and (
         old.game_id == instance.game_id
@@ -94,12 +97,56 @@ def completion_task_delete_reconcile(sender, instance, **kwargs):
     if not getattr(instance, '_completion_task_old_group_id', None):
         return
     from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    from games.daily_result_projection import mark_projection_dirty
     for game_id in getattr(instance, '_completion_task_old_game_ids', set()):
+        game = Game.objects.filter(pk=game_id, project_id='sections').first()
+        if game is not None:
+            from games.models import TaskGroup
+            task_group = TaskGroup.objects.filter(pk=instance._completion_task_old_group_id).first()
+            if task_group is not None:
+                mark_projection_dirty(game, task_group, full=True)
         reconcile_task_group_actors(
             game_id=game_id,
             task_group_id=instance._completion_task_old_group_id,
             actor_keys=getattr(instance, '_completion_task_actor_keys', set()),
         )
+
+
+@receiver(post_delete, sender=Attempt, dispatch_uid='daily-result-projection-attempt-delete')
+def daily_result_projection_attempt_delete(sender, instance, **kwargs):
+    if instance.replay_slot_id is not None or not instance.game_id or not instance.task_id:
+        return
+    task_group_id = Task.objects.filter(pk=instance.task_id).values_list(
+        'task_group_id', flat=True,
+    ).first()
+    if not task_group_id:
+        return
+    from games.daily_result_projection import mark_projection_dirty
+    from games.models import TaskGroup
+    task_group = TaskGroup.objects.filter(pk=task_group_id).first()
+    game = Game.objects.filter(pk=instance.game_id, project_id='sections').first()
+    if task_group is not None and game is not None:
+        mark_projection_dirty(game, task_group, full=True)
+
+
+@receiver(post_delete, sender=HintAttempt, dispatch_uid='daily-result-projection-hint-delete')
+def daily_result_projection_hint_delete(sender, instance, **kwargs):
+    if instance.replay_slot_id is not None or not instance.hint_id:
+        return
+    task_group_id = Task.objects.filter(
+        hints__pk=instance.hint_id,
+    ).values_list('task_group_id', flat=True).first()
+    if not task_group_id:
+        return
+    from games.daily_result_projection import mark_projection_dirty
+    from games.models import TaskGroup
+    task_group = TaskGroup.objects.filter(pk=task_group_id).first()
+    if task_group is None:
+        return
+    for game in Game.objects.filter(
+        project_id='sections', task_group_links__task_group=task_group,
+    ).distinct():
+        mark_projection_dirty(game, task_group, full=True)
 
 logger = logging.getLogger(__name__)
 

@@ -588,13 +588,6 @@ def _commit_guess(
     row.last_attempt = attempt
     row.save(update_fields=['state', 'last_attempt', 'updated_at'])
 
-    if getattr(game, 'project_id', None) == 'sections':
-        from games.daily_result_projection import schedule_actor_projection
-        schedule_actor_projection(
-            game, task.task_group, team=actor.get('team'), user=actor.get('user'),
-            anon_key=actor.get('anon_key'),
-        )
-
     payload = public_payload(state, secret)
     payload['status'] = status
     if status == 'correct':
