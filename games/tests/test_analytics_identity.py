@@ -20,6 +20,7 @@ from games.analytics_identity import (
     signature_is_valid,
     stamp_anon_identity,
 )
+from games.anonymous_merge import claim_next_merge_job, process_merge_job
 from games.models import (
     AnonAccountClaim,
     Attempt,
@@ -254,8 +255,11 @@ class AnalyticsIdentityTests(TestCase):
 
         attach_anon_cookie(client, key)
         ok = client.post(url, {'anon_key': key})
-        self.assertEqual(ok.status_code, 200)
+        self.assertEqual(ok.status_code, 202)
         self.assertEqual(ok.json()['status'], 'ok')
+        claimed = claim_next_merge_job(worker='test')
+        self.assertIsNotNone(claimed)
+        process_merge_job(claimed[0], claimed[1], max_operations=100)
         self.assertFalse(PlayerStartedGame.objects.filter(anon_key=key).exists())
         self.assertTrue(PlayerStartedGame.objects.filter(user=user, anon_key__isnull=True).exists())
 

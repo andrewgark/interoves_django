@@ -4991,159 +4991,59 @@ def new_anon_migrate_count(request):
 def new_migrate_anon_attempts(request):
     if not has_profile(request.user):
         raise Http404()
-    anon_key = (request.POST.get('anon_key') or '').strip()
+    # The cookie is the authority.  The posted value is retained only as a
+    # compatibility check for old clients and is never used to select a source.
+    anon_key = (browser_anon_key(request) or '').strip()
+    posted_anon_key = (request.POST.get('anon_key') or '').strip()
     if not anon_key:
         raise Http404()
-    if not is_valid_anon_key(anon_key):
+    if posted_anon_key and not is_valid_anon_key(posted_anon_key):
         return JsonResponse({'status': 'invalid_anon_key'}, status=400)
-    if not _anon_key_matches_browser(request, anon_key):
+    if posted_anon_key and not _anon_key_matches_browser(request, posted_anon_key):
         return JsonResponse({'status': 'anon_key_mismatch'}, status=403)
+    from games.anonymous_merge import enqueue_anonymous_merge, serialize_merge_job
 
-    # Large guest histories are migrated by short browser-driven steps.  This
-    # keeps a single 1200+ row history from occupying Daphne until the proxy
-    # timeout and also gives the user honest progress feedback.
-    phase = (request.POST.get('phase') or '').strip()
-    if phase:
-        from games.anon_migrate import (
-            ANON_MIGRATION_STEPS,
-            migrate_anon_history_step,
-        )
-        from games.targeted_completion_reconciliation import completion_pairs_for_actor
-
-        if phase not in ANON_MIGRATION_STEPS:
-            return JsonResponse({'status': 'invalid_phase'}, status=400)
-        state_key = 'interoves_anon_migration:' + anon_key
-        state = request.session.get(state_key)
-        if phase != 'prepare' and not state:
-            return JsonResponse({'status': 'migration_not_started'}, status=409)
-        state = state or {
-            'moved': {},
-            'moved_any': False,
-            'event_recorded': False,
-            'pairs': [],
-        }
-        try:
-            pair_index = max(0, int(request.POST.get('pair_index') or 0))
-        except (TypeError, ValueError):
-            return JsonResponse({'status': 'invalid_pair_index'}, status=400)
-        if phase == 'prepare':
-            result = migrate_anon_history_step(request.user, anon_key, 'prepare')
-            if result.get('status') != 'ok':
-                return JsonResponse(result, status=409)
-            state['pairs'] = [
-                list(pair) for pair in sorted(completion_pairs_for_actor(anon_key=anon_key))
-            ]
-            state['moved'] = {}
-            state['moved_any'] = bool(result.get('moved_any'))
-            state['event_recorded'] = False
-            request.session[state_key] = state
-            request.session.modified = True
-        else:
-            result = migrate_anon_history_step(
-                request.user,
-                anon_key,
-                phase,
-                affected_pairs=state.get('pairs') or (),
-                pair_index=pair_index,
-            )
-            if result.get('status') != 'ok':
-                return JsonResponse(result, status=409)
-            for key in (
-                'moved', 'moved_hints', 'moved_states', 'moved_starts',
-                'moved_timings', 'moved_completions', 'moved_analytics_state',
-                'moved_personal_dict', 'moved_likes', 'moved_bug_reports',
-                'moved_dict_suggestions', 'moved_replays', 'moved_ui_states',
-            ):
-                if result.get(key):
-                    state['moved'][key] = state['moved'].get(key, 0) + result[key]
-                    state['moved_any'] = True
-
-            if phase == 'finish':
-                if state['moved_any'] and not state['event_recorded']:
-                    from games.models import StatisticsEvent
-                    StatisticsEvent.record(
-                        StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED,
-                        user=request.user,
-                        anon_key=anon_key,
-                        **state['moved'],
-                    )
-                    state['event_recorded'] = True
-                log_auth_event(
-                    'auth_account_claim',
-                    request,
-                    user_id=str(request.user.pk),
-                    session_fingerprint=request_session_fingerprint(request),
-                    anon_fingerprint=anonymous_actor_fingerprint(anon_key),
-                    success=True,
-                    claim_status='ok',
-                    moved_counts={
-                        key: state['moved'].get(key, 0)
-                        for key in (
-                            'moved', 'moved_hints', 'moved_states', 'moved_starts',
-                            'moved_completions', 'moved_analytics_state',
-                        )
-                    },
-                )
-                request.session.pop(state_key, None)
-                request.session.modified = True
-                rotate_anonymous_identity(request)
-                return JsonResponse({'status': 'ok', 'done': True, **state['moved']})
-            request.session[state_key] = state
-            request.session.modified = True
-
-        next_index = ANON_MIGRATION_STEPS.index(phase) + 1
-        next_phase = ANON_MIGRATION_STEPS[next_index] if next_index < len(ANON_MIGRATION_STEPS) else 'finish'
-        if phase == 'reconcile' and pair_index + 1 < len(state.get('pairs') or ()):
-            next_phase = 'reconcile'
-            pair_index += 1
-        return JsonResponse({
-            'status': 'ok',
-            'done': False,
-            'phase': phase,
-            'next_phase': next_phase,
-            'pair_index': pair_index,
-            'pair_total': len(state.get('pairs') or ()),
-            'moved': state.get('moved') or {},
-        })
-
-    from games.anon_migrate import claim_and_migrate_anon_history
-
-    result = claim_and_migrate_anon_history(request.user, anon_key)
-    status = result.get('status')
+    job, status = enqueue_anonymous_merge(request.user, anon_key)
+    if status == 'hidden_anon':
+        return JsonResponse({'status': status}, status=409)
+    if status == 'claimed_elsewhere':
+        return JsonResponse({'status': status}, status=409)
+    if status == 'empty':
+        return JsonResponse({'status': 'empty', 'show_prompt': False})
     log_auth_event(
         'auth_account_claim',
         request,
         user_id=str(request.user.pk),
         session_fingerprint=request_session_fingerprint(request),
         anon_fingerprint=anonymous_actor_fingerprint(anon_key),
-        success=status == 'ok',
-        claim_status=status,
-        moved_counts={
-            key: result.get(key, 0)
-            for key in (
-                'moved', 'moved_hints', 'moved_states', 'moved_starts',
-                'moved_completions', 'moved_analytics_state',
-            )
-        } if status == 'ok' else {},
+        success=True,
+        claim_status='queued',
+        merge_job_id=str(job.id),
     )
-    if status == 'hidden_anon':
-        return JsonResponse({'status': 'hidden_anon'}, status=409)
-    if status == 'claimed_elsewhere':
-        return JsonResponse({'status': 'claimed_elsewhere'}, status=409)
+    # Stop accepting new anonymous gameplay under the claimed identity.  The
+    # job retains the source key server-side and the status endpoint is user-scoped.
     rotate_anonymous_identity(request)
-    return JsonResponse({
-        'status': 'ok',
-        'moved': result.get('moved', 0),
-        'moved_hints': result.get('moved_hints', 0),
-        'moved_states': result.get('moved_states', 0),
-        'moved_starts': result.get('moved_starts', 0),
-        'moved_completions': result.get('moved_completions', 0),
-        'moved_analytics_state': result.get('moved_analytics_state', 0),
-        'moved_personal_dict': result.get('moved_personal_dict', 0),
-        'moved_likes': result.get('moved_likes', 0),
-        'moved_bug_reports': result.get('moved_bug_reports', 0),
-        'moved_dict_suggestions': result.get('moved_dict_suggestions', 0),
-    })
+    return JsonResponse({'status': 'ok', 'queued': True, 'job': serialize_merge_job(job)}, status=202)
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def new_anon_merge_job_status(request, job_id=None):
+    from games.anonymous_merge import active_merge_job_for_user, serialize_merge_job
+    from games.models import AnonymousMergeJob
+
+    if job_id:
+        job = AnonymousMergeJob.objects.filter(pk=job_id, user=request.user).first()
+    else:
+        job = active_merge_job_for_user(request.user)
+    if job is None:
+        return JsonResponse({'status': 'not_found'}, status=404)
+    if request.method == 'POST':
+        from games.anonymous_merge import retry_merge_job
+        job = retry_merge_job(request.user, job.id)
+        if job is None:
+            return JsonResponse({'status': 'not_retryable'}, status=409)
+    return JsonResponse({'status': 'ok', 'job': serialize_merge_job(job)})
 
 
 class ProfileSettingsForm(ModelForm):

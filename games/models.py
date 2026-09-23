@@ -3317,6 +3317,107 @@ class AnonAccountClaim(models.Model):
         return '{} -> {}'.format(self.anon_key, self.user_id)
 
 
+class AnonymousMergeJob(models.Model):
+    """Durable server-side merge of one anonymous identity into one user."""
+
+    STATUS_PENDING = 'pending'
+    STATUS_RUNNING = 'running'
+    STATUS_COMPLETED = 'completed'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Ожидает обработки'),
+        (STATUS_RUNNING, 'Выполняется'),
+        (STATUS_COMPLETED, 'Завершено'),
+        (STATUS_FAILED, 'Ошибка'),
+    )
+
+    STAGE_ANALYZING = 'analyzing'
+    STAGE_MOVING = 'moving'
+    STAGE_RECONCILING = 'reconciling'
+    STAGE_FINALIZING = 'finalizing'
+    STAGE_CHOICES = (
+        (STAGE_ANALYZING, 'Подготовка'),
+        (STAGE_MOVING, 'Перенос данных'),
+        (STAGE_RECONCILING, 'Проверка прогресса'),
+        (STAGE_FINALIZING, 'Завершение'),
+    )
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    anon_key = models.CharField(max_length=64, unique=True, db_index=True)
+    user = models.ForeignKey(
+        'auth.User', related_name='anonymous_merge_jobs', on_delete=models.CASCADE,
+    )
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    stage = models.CharField(max_length=16, choices=STAGE_CHOICES, default=STAGE_ANALYZING)
+    move_step = models.CharField(max_length=32, blank=True, default='')
+    total_submissions = models.PositiveIntegerField(default=0)
+    moved_submissions = models.PositiveIntegerField(default=0)
+    moved_counts = models.JSONField(default=dict, blank=True)
+    total_reconciliation_units = models.PositiveIntegerField(default=0)
+    completed_reconciliation_units = models.PositiveIntegerField(default=0)
+    attempt_count = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True, default='')
+    claim_token = models.UUIDField(blank=True, null=True)
+    claimed_until = models.DateTimeField(blank=True, null=True)
+    next_attempt_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    event_recorded = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    started_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['status', 'next_attempt_at'], name='games_amj_due_idx'),
+            models.Index(fields=['user', 'status'], name='games_amj_user_status_idx'),
+        ]
+
+
+class AnonymousMergeReconcileItem(models.Model):
+    """One idempotent game/task-group reconciliation unit for a merge job."""
+
+    STATUS_PENDING = 'pending'
+    STATUS_RUNNING = 'running'
+    STATUS_COMPLETED = 'completed'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Ожидает обработки'),
+        (STATUS_RUNNING, 'Выполняется'),
+        (STATUS_COMPLETED, 'Завершено'),
+        (STATUS_FAILED, 'Ошибка'),
+    )
+
+    id = models.BigAutoField(primary_key=True)
+    job = models.ForeignKey(
+        AnonymousMergeJob, related_name='reconcile_items', on_delete=models.CASCADE,
+    )
+    game = models.ForeignKey(Game, related_name='anonymous_merge_reconcile_items', on_delete=models.CASCADE)
+    task_group = models.ForeignKey(
+        TaskGroup, related_name='anonymous_merge_reconcile_items', on_delete=models.CASCADE,
+    )
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    attempt_count = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True, default='')
+    claim_token = models.UUIDField(blank=True, null=True)
+    claimed_until = models.DateTimeField(blank=True, null=True)
+    next_attempt_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['job', 'game', 'task_group'],
+                name='games_amri_job_game_group_uniq',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['job', 'status', 'next_attempt_at'], name='games_amri_due_idx'),
+        ]
+
+
 class ReplaySlot(models.Model):
     """The single private replay slot for one actor/game/task-group pair."""
 

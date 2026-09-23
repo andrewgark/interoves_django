@@ -398,6 +398,7 @@
       <div data-migrate-progress hidden aria-live="polite">
         <p class="pal-lead" data-migrate-progress-label>Подготавливаем перенос…</p>
         <progress class="new-audio-progress" data-migrate-progress-bar value="0" max="1"></progress>
+        <p class="pal-lead" data-migrate-background hidden>Можно закрыть эту страницу — перенос продолжится автоматически.</p>
       </div>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
         <button type="button" class="new-btn" data-migrate-confirm>Перенести</button>
@@ -465,55 +466,103 @@
       var el = document.querySelector('#interoves-page-csrf input[name=csrfmiddlewaretoken]');
       return el ? el.value : '';
     }
+    var activeJobId = null;
     function migrate() {
       var btn = modal.querySelector('[data-migrate-confirm]');
       var error = modal.querySelector('[data-migrate-error]');
       var progress = modal.querySelector('[data-migrate-progress]');
       var progressBar = modal.querySelector('[data-migrate-progress-bar]');
       var progressLabel = modal.querySelector('[data-migrate-progress-label]');
-      var steps = ['prepare', 'ui_states', 'replays', 'attempts', 'hints', 'states', 'starts', 'timings', 'completions', 'analytics', 'personal_dict', 'likes', 'attributions', 'reconcile', 'finish'];
-      var pairTotal = 0;
-      var pairIndex = 0;
-      var labels = {
-        prepare: 'Подготавливаем перенос…',
-        ui_states: 'Переносим состояние игр…',
-        replays: 'Переносим повторы…',
-        attempts: 'Переносим ответы…',
-        hints: 'Переносим подсказки…',
-        states: 'Обновляем прогресс игр…',
-        starts: 'Переносим начатые игры…',
-        timings: 'Переносим время прохождения…',
-        completions: 'Переносим завершённые игры…',
-        analytics: 'Переносим статистику…',
-        personal_dict: 'Переносим личный словарь…',
-        likes: 'Переносим реакции…',
-        attributions: 'Завершаем перенос данных…',
-        reconcile: 'Проверяем перенесённый прогресс…',
-        finish: 'Сохраняем результат…',
-      };
+      var backgroundNote = modal.querySelector('[data-migrate-background]');
+      if (activeJobId) {
+        fetch("{% url 'new_anon_merge_job_status' job_id='00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000', encodeURIComponent(activeJobId)), {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': postCSRF() },
+          credentials: 'same-origin',
+        }).then(function (r) {
+          if (!r.ok) throw new Error('retry_failed');
+          return r.json();
+        }).then(function (data) {
+          if (!data.job) throw new Error('missing_job');
+          if (error) { error.hidden = true; error.textContent = ''; }
+          if (progress) progress.hidden = false;
+          if (btn) { btn.disabled = true; btn.textContent = 'Переносим…'; }
+          pollJob(data.job.id);
+        }).catch(function () { showError('Не удалось повторно запустить перенос. Попробуйте позже.'); });
+        return;
+      }
       if (btn) { btn.disabled = true; btn.textContent = 'Переносим…'; }
       if (error) { error.hidden = true; error.textContent = ''; }
       if (progress) progress.hidden = false;
+      if (backgroundNote) backgroundNote.hidden = false;
 
-      function updateProgress(phase) {
-        var index = Math.max(0, steps.indexOf(phase));
-        var value = (index + (phase === 'reconcile' && pairTotal ? pairIndex / pairTotal : 0.5)) / steps.length;
-        if (progressBar) progressBar.value = Math.min(1, value);
-        if (progressLabel) progressLabel.textContent = labels[phase] || 'Переносим данные…';
+      function formatNumber(value) {
+        return Number(value || 0).toLocaleString('ru-RU');
       }
-      function runStep(phase) {
-        updateProgress(phase);
-        var body = 'anon_key=' + encodeURIComponent(anonKey)
-          + '&phase=' + encodeURIComponent(phase)
-          + '&pair_index=' + encodeURIComponent(pairIndex);
-        fetch("{% url 'new_migrate_anon_attempts' %}", {
+
+      function renderJob(job) {
+        var stage = job.stage || 'analyzing';
+        var label = 'Подготавливаем перенос…';
+        if (stage === 'moving') {
+          label = 'Переносим посылки: ' + formatNumber(job.moved_submissions) + ' из ' + formatNumber(job.total_submissions);
+        } else if (stage === 'reconciling') {
+          label = 'Проверяем прогресс: ' + formatNumber(job.completed_reconciliation_units) + ' из ' + formatNumber(job.total_reconciliation_units);
+        } else if (stage === 'finalizing') {
+          label = 'Сохраняем результат…';
+        }
+        if (job.status === 'completed') label = 'Перенос завершён.';
+        if (progressBar) progressBar.value = Math.max(0, Math.min(1, Number(job.progress || 0) / 100));
+        if (progressLabel) progressLabel.textContent = label;
+        if (backgroundNote) backgroundNote.hidden = false;
+      }
+
+      function showError(message) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Повторить'; }
+        if (error) {
+          error.textContent = message || 'Не удалось перенести прогресс. Попробуем продолжить позже.';
+          error.hidden = false;
+        }
+        if (progress) progress.hidden = true;
+      }
+
+      function pollJob(id) {
+        activeJobId = id;
+        fetch("{% url 'new_anon_merge_job_status' job_id='00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000', encodeURIComponent(id)), {
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            if (!r.ok || !data || data.status !== 'ok') throw new Error(data.status || 'request_failed');
+            return data.job;
+          });
+        }).then(function (job) {
+          renderJob(job);
+          if (job.status === 'completed') {
+            if (progressBar) progressBar.value = 1;
+            rotateAnonKey();
+            setTimeout(function () { window.location.reload(); }, 800);
+            return;
+          }
+          if (job.status === 'failed') {
+            showError('Не удалось полностью перенести прогресс. Попробуйте запустить перенос ещё раз.');
+            return;
+          }
+          setTimeout(function () { pollJob(id); }, 1500);
+        }).catch(function () {
+          // A transient polling error must not turn a durable server job into a
+          // client failure.  Keep polling while the modal remains open.
+          setTimeout(function () { pollJob(id); }, 2500);
+        });
+      }
+
+      fetch("{% url 'new_migrate_anon_attempts' %}", {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
             'X-Requested-With': 'XMLHttpRequest',
             'X-CSRFToken': postCSRF(),
           },
-          body: body,
+          body: 'anon_key=' + encodeURIComponent(anonKey),
           credentials: 'same-origin',
         }).then(function (r) {
           return r.json().catch(function () { return {}; }).then(function (data) {
@@ -521,26 +570,12 @@
             return data;
           });
         }).then(function (data) {
-          pairTotal = data.pair_total || pairTotal;
-          pairIndex = data.pair_index || pairIndex;
-          if (data.done) {
-            if (progressBar) progressBar.value = 1;
-            rotateAnonKey();
-            close();
-            window.location.reload();
-            return;
-          }
-          runStep(data.next_phase);
+          if (!data.job || !data.job.id) throw new Error('missing_job');
+          renderJob(data.job);
+          pollJob(data.job.id);
         }).catch(function () {
-        if (btn) { btn.disabled = false; btn.textContent = 'Повторить'; }
-        if (error) {
-          error.textContent = 'Не удалось перенести прогресс. Ничего не потеряно — попробуйте ещё раз.';
-          error.hidden = false;
-        }
-        if (progress) progress.hidden = true;
-      });
-      }
-      runStep('prepare');
+          showError('Не удалось запустить перенос. Попробуйте ещё раз.');
+        });
     }
     document.querySelectorAll('[data-migrate-close]').forEach(function (el) {
       el.addEventListener('click', postpone);
@@ -552,6 +587,67 @@
     modal.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') postpone();
     });
+
+    // A reload or a new page must recover an unfinished server-side job even
+    // though the original anonymous cookie was rotated when it was queued.
+    (function resumeActiveJob() {
+      fetch("{% url 'new_anon_merge_job_current' %}", {
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      }).then(function (r) {
+        if (!r.ok) return null;
+        return r.json();
+      }).then(function (data) {
+        if (!data || !data.job) return;
+        var job = data.job;
+        modal.removeAttribute('hidden');
+        modal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+        var progress = modal.querySelector('[data-migrate-progress]');
+        var progressBar = modal.querySelector('[data-migrate-progress-bar]');
+        var progressLabel = modal.querySelector('[data-migrate-progress-label]');
+        var backgroundNote = modal.querySelector('[data-migrate-background]');
+        if (progress) progress.hidden = false;
+        if (backgroundNote) backgroundNote.hidden = false;
+        function update(jobData) {
+          var label = 'Подготавливаем перенос…';
+          if (jobData.stage === 'moving') label = 'Переносим посылки: ' + Number(jobData.moved_submissions || 0).toLocaleString('ru-RU') + ' из ' + Number(jobData.total_submissions || 0).toLocaleString('ru-RU');
+          if (jobData.stage === 'reconciling') label = 'Проверяем прогресс: ' + Number(jobData.completed_reconciliation_units || 0).toLocaleString('ru-RU') + ' из ' + Number(jobData.total_reconciliation_units || 0).toLocaleString('ru-RU');
+          if (jobData.stage === 'finalizing') label = 'Сохраняем результат…';
+          if (jobData.status === 'completed') label = 'Перенос завершён.';
+          if (progressLabel) progressLabel.textContent = label;
+          if (progressBar) progressBar.value = Math.max(0, Math.min(1, Number(jobData.progress || 0) / 100));
+        }
+        function poll() {
+          fetch("{% url 'new_anon_merge_job_status' job_id='00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000', encodeURIComponent(job.id)), {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          }).then(function (r) { return r.json(); }).then(function (payload) {
+            if (!payload.job) return;
+            update(payload.job);
+            if (payload.job.status === 'completed') {
+              if (progressBar) progressBar.value = 1;
+              setTimeout(function () { window.location.reload(); }, 800);
+              return;
+            }
+            if (payload.job.status === 'failed') {
+              activeJobId = payload.job.id;
+              var retryButton = modal.querySelector('[data-migrate-confirm]');
+              var retryError = modal.querySelector('[data-migrate-error]');
+              if (retryButton) { retryButton.disabled = false; retryButton.textContent = 'Повторить'; }
+              if (retryError) {
+                retryError.textContent = 'Не удалось полностью перенести прогресс. Попробуйте ещё раз.';
+                retryError.hidden = false;
+              }
+              return;
+            }
+            setTimeout(poll, 1500);
+          }).catch(function () { setTimeout(poll, 2500); });
+        }
+        update(job);
+        poll();
+      }).catch(function () {});
+    })();
 
     fetch("{% url 'new_anon_migrate_count' %}?anon_key=" + encodeURIComponent(anonKey), {
       credentials: 'same-origin',

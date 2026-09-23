@@ -1,4 +1,5 @@
 from datetime import timedelta
+import json
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
@@ -27,11 +28,17 @@ from games.models import (
     StatisticsEvent,
     Task,
     TaskGroup,
+    AnonymousMergeJob,
 )
 from games.analytics_identity import attach_anon_cookie
 from games.anon_migrate import (
     heal_orphaned_likes_from_migrate_events,
     migrate_anon_chain_task_states,
+)
+from games.anonymous_merge import (
+    claim_next_merge_job,
+    process_merge_job,
+    serialize_merge_job,
 )
 
 
@@ -99,6 +106,25 @@ class AnonMigrateTests(TestCase):
                 anon_key=self.anon_key,
                 hint=self.hint,
             )
+        raw_post = self.client.post
+
+        def post_and_drain(*args, **kwargs):
+            response = raw_post(*args, **kwargs)
+            if response.status_code != 202:
+                return response
+            payload = response.json()
+            claimed = claim_next_merge_job(worker='test')
+            self.assertIsNotNone(claimed)
+            job, token = claimed
+            process_merge_job(job, token, max_operations=100)
+            job.refresh_from_db()
+            self.assertEqual(job.status, AnonymousMergeJob.STATUS_COMPLETED, job.last_error)
+            final_payload = {'status': 'ok', 'done': True, **serialize_merge_job(job)}
+            response.status_code = 200
+            response.content = json.dumps(final_payload).encode('utf-8')
+            return response
+
+        self.client.post = post_and_drain
 
     def test_migrate_moves_attempts_and_records_statistics_event(self):
         PlayerStartedGame.objects.create(
@@ -126,6 +152,9 @@ class AnonMigrateTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertEqual(data['status'], 'ok')
+        data = StatisticsEvent.objects.get(
+            kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED, user=self.user,
+        ).payload
         self.assertEqual(data['moved'], 2)
         self.assertEqual(data['moved_hints'], 1)
         self.assertEqual(data['moved_starts'], 1)
@@ -177,7 +206,9 @@ class AnonMigrateTests(TestCase):
         )
 
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json()['moved_likes'], 1)
+        self.assertEqual(StatisticsEvent.objects.get(
+            kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED, user=self.user,
+        ).payload['moved_likes'], 1)
         self.assertFalse(Like.manager.filter(anon_key=self.anon_key).exists())
         self.assertEqual(
             Like.manager.filter(user=self.user, task=self.task, value=1).count(),
@@ -197,7 +228,9 @@ class AnonMigrateTests(TestCase):
             reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
         )
 
-        self.assertEqual(resp.json()['moved_likes'], 1)
+        self.assertEqual(StatisticsEvent.objects.get(
+            kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED, user=self.user,
+        ).payload['moved_likes'], 1)
         self.assertFalse(Like.manager.filter(anon_key=self.anon_key).exists())
         self.assertEqual(
             Like.manager.filter(user=self.user, task=self.task).count(),
@@ -217,7 +250,9 @@ class AnonMigrateTests(TestCase):
             reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
         )
 
-        self.assertEqual(resp.json()['moved_likes'], 1)
+        self.assertEqual(StatisticsEvent.objects.get(
+            kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED, user=self.user,
+        ).payload['moved_likes'], 1)
         self.assertFalse(Like.manager.filter(anon_key=self.anon_key).exists())
         user_reactions = Like.manager.filter(user=self.user, task=self.task)
         self.assertEqual(user_reactions.count(), 1)
@@ -258,7 +293,9 @@ class AnonMigrateTests(TestCase):
         resp = self.client.post(url, {'anon_key': self.anon_key})
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        self.assertEqual(data['moved_states'], 1)
+        self.assertEqual(StatisticsEvent.objects.get(
+            kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED, user=self.user,
+        ).payload['moved_states'], 1)
 
         self.assertFalse(
             ChainTaskState.objects.filter(anon_key=self.anon_key).exists(),
@@ -292,7 +329,9 @@ class AnonMigrateTests(TestCase):
         resp = self.client.post(
             reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
         )
-        self.assertEqual(resp.json()['moved_states'], 1)
+        self.assertEqual(StatisticsEvent.objects.get(
+            kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED, user=self.user,
+        ).payload['moved_states'], 1)
         row = ChainTaskState.objects.get(
             user=self.user, task=self.task, game=self.game, game_mode='general',
         )
@@ -321,7 +360,9 @@ class AnonMigrateTests(TestCase):
         resp = self.client.post(
             reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
         )
-        self.assertEqual(resp.json()['moved_states'], 1)
+        self.assertEqual(StatisticsEvent.objects.get(
+            kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED, user=self.user,
+        ).payload['moved_states'], 1)
         row = ChainTaskState.objects.get(
             user=self.user, task=self.task, game=self.game, game_mode='general',
         )
@@ -346,7 +387,9 @@ class AnonMigrateTests(TestCase):
         resp = self.client.post(
             reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
         )
-        self.assertEqual(resp.json()['moved_states'], 1)
+        self.assertEqual(StatisticsEvent.objects.get(
+            kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED, user=self.user,
+        ).payload['moved_states'], 1)
         row = ChainTaskState.objects.get(
             user=self.user, task=self.task, game=self.game, game_mode='general',
         )
@@ -493,7 +536,7 @@ class AnonMigrateTests(TestCase):
         url = reverse('new_migrate_anon_attempts')
         resp = self.client.post(url, {'anon_key': empty_key})
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json()['moved'], 0)
+        self.assertEqual(resp.json()['status'], 'empty')
         self.assertEqual(
             StatisticsEvent.objects.filter(kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED).count(),
             0,
@@ -515,6 +558,9 @@ class AnonMigrateTests(TestCase):
             reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
         ).json()
 
+        data = StatisticsEvent.objects.get(
+            kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED, user=self.user,
+        ).payload
         self.assertEqual(data['moved_bug_reports'], 1)
         self.assertEqual(data['moved_dict_suggestions'], 1)
         self.assertEqual(AnonAccountClaim.objects.get(anon_key=self.anon_key).user, self.user)
