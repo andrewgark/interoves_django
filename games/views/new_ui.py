@@ -105,6 +105,7 @@ from games.models import (
     AudioManager,
     BugReport,
     ChainTaskState,
+    ClubSubscription,
     Donation,
     Game,
     GameTaskGroup,
@@ -2281,6 +2282,33 @@ def _results_actor_kind(actor):
     return 'user'
 
 
+def _club_subscriber_user_ids(actors):
+    """Return active Club subscribers among the displayed result actors."""
+    user_ids = {
+        actor.user_id
+        for actor in actors
+        if getattr(actor, 'user_id', None) is not None
+        and not getattr(actor, 'is_team_results_row', False)
+    }
+    if not user_ids:
+        return set()
+    return set(ClubSubscription.objects.filter(
+        user_id__in=user_ids,
+        paid_until__gt=timezone.now(),
+    ).values_list('user_id', flat=True))
+
+
+def _attach_results_club_badges(data):
+    """Attach display-only Club badges without changing result/filter semantics."""
+    actors = data.get('teams_sorted') or []
+    subscriber_ids = _club_subscriber_user_ids(actors)
+    data['team_to_club_subscriber'] = {
+        actor: getattr(actor, 'user_id', None) in subscriber_ids
+        for actor in actors
+    }
+    return data
+
+
 def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty_sort='attempts', actor_types=None):
     variant = getattr(game, 'id', '')
     team_to_list_attempts_info = {}
@@ -2562,6 +2590,7 @@ def _paginate_results_rows(request, data, per_page=50):
 
     # Keep templates working by slicing teams_sorted to the visible page.
     out = dict(data)
+    _attach_results_club_badges(out)
     out['teams_sorted'] = list(page_obj.object_list)
     out['page_obj'] = page_obj
     out['paginator'] = paginator
@@ -2714,6 +2743,12 @@ def new_section_results_page(request, game_id):
 
     from games.aggregate_leaderboard import build_aggregate_page
     data = build_aggregate_page(request, game)
+    aggregate_subscriber_ids = _club_subscriber_user_ids(
+        row.get('actor') for row in data.get('aggregate_rows', [])
+    )
+    for row in data.get('aggregate_rows', []):
+        actor = row.get('actor')
+        row['is_club_subscriber'] = getattr(actor, 'user_id', None) in aggregate_subscriber_ids
     aggregate_column_labels = {}
     if game_id == ALPHABETTY_GAME_ID:
         current_actor = team if play_mode == 'team' else (me_personal or me_anon_participant)

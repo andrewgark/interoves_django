@@ -1,11 +1,16 @@
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.utils import timezone
+from django.template.loader import render_to_string
 
-from games.models import Attempt, CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Team
-from games.views.new_ui import _new_results_compute
+from games.models import (
+    Attempt, CheckerType, ClubSubscription, Game, GameTaskGroup, HTMLPage,
+    PersonalResultsParticipant, Project, Task, TaskGroup, Team,
+)
+from games.views.new_ui import _attach_results_club_badges, _new_results_compute
 from games.results_snapshot import build_results_snapshot_payload, snapshot_to_results_context
 
 
@@ -122,6 +127,47 @@ class ResultsTableCellColorsTest(TestCase):
         data = _new_results_compute(self.game, mode='tournament')
 
         self.assertIn(self.team_max, data['teams_sorted'])
+
+    def test_active_club_subscriber_uses_crown_in_results_rows(self):
+        user = User.objects.create_user(username='club-results-user')
+        ClubSubscription.objects.create(
+            user=user,
+            paid_until=timezone.now() + timedelta(days=1),
+        )
+        participant = PersonalResultsParticipant(user=user)
+        data = _attach_results_club_badges({'teams_sorted': [participant]})
+
+        html = render_to_string('new/partials/results_rows.html', {
+            'teams_sorted': [participant],
+            'team_to_club_subscriber': data['team_to_club_subscriber'],
+            'team_to_place': {participant: 1},
+            'team_to_score': {participant: 10},
+            'team_to_cells': {participant: []},
+            'mode': 'general',
+            'results_variant': 'standard',
+        })
+
+        self.assertIn('ph-crown', html)
+        self.assertIn('Резидент клуба', html)
+        self.assertNotIn('ph-user new-results-actor', html)
+
+        aggregate_html = render_to_string('new/partials/aggregate_results_rows.html', {
+            'aggregate_rows': [{
+                'actor': participant,
+                'actor_kind': 'user',
+                'actor_label': participant.visible_name,
+                'is_club_subscriber': True,
+                'place': 1,
+                'score': 10,
+                'time_display': '',
+                'cells': {},
+                'cell_meta': {},
+            }],
+            'aggregate_columns': [],
+        })
+
+        self.assertIn('ph-crown', aggregate_html)
+        self.assertIn('Резидент клуба', aggregate_html)
 
     def test_snapshot_payload_and_context_cell_classes(self):
         payload = build_results_snapshot_payload(self.game, mode='general')

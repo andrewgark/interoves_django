@@ -2,7 +2,7 @@
 {% for row in aggregate_rows %}
   <tr data-result-row>
     <th scope="row" class="is-sticky-left aggregate-place">{{ row.place }}</th>
-    <th scope="row" class="is-sticky-left-2 col-team aggregate-participant"><i class="ph {% if row.actor_kind == 'team' %}ph-users{% elif row.actor_kind == 'anon' %}ph-detective{% else %}ph-user{% endif %} aggregate-actor-icon" aria-hidden="true"></i>{{ row.actor_label }}</th>
+    <th scope="row" class="is-sticky-left-2 col-team aggregate-participant"><i class="ph {% if row.actor_kind == 'team' %}ph-users{% elif row.actor_kind == 'anon' %}ph-detective{% elif row.is_club_subscriber %}ph-crown aggregate-actor-icon--club{% else %}ph-user{% endif %} aggregate-actor-icon" aria-hidden="true" title="{% if row.is_club_subscriber %}Резидент клуба{% endif %}"></i>{{ row.actor_label }}</th>
     <th scope="row" class="is-sticky-left-3 col-score aggregate-score"><strong>{{ row.score|minimize_digits }}</strong></th>
     <td class="is-sticky-left-4 aggregate-time">{% if row.time_display %}{% if row.time_fallback %}<span class="results-time-fallback" title="Вычислено по серверному времени, без таймера">{{ row.time_display }}</span>{% else %}{{ row.time_display }}{% endif %}{% else %}—{% endif %}</td>
     {% if aggregate_show_attempts %}<td class="aggregate-attempts results-attempts">{{ row.attempts }}</td>{% endif %}
