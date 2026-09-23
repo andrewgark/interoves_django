@@ -151,7 +151,7 @@ class ProductAnalyticsTests(TestCase):
             game_kind='salad',
         ).exists())
 
-    def test_current_completed_state_is_not_swallowed_by_history_backfill(self):
+    def test_current_completion_does_not_run_legacy_history_backfill(self):
         game, task = self._make_supported_task('alphabetty', 'alphabetty', 1)
         ChainTaskState.objects.create(
             user=self.user,
@@ -161,8 +161,10 @@ class ProductAnalyticsTests(TestCase):
             state=json.dumps({'won': True}),
         )
 
-        goals = register_completed_game(user=self.user, task=task, game=game)
+        with patch('games.analytics._backfill_supported_game_completions') as legacy_backfill:
+            goals = register_completed_game(user=self.user, task=task, game=game)
 
+        legacy_backfill.assert_not_called()
         self.assertEqual([item['goal'] for item in goals], ['game_complete'])
         self.assertFalse(PlayerCompletedGame.objects.get(user=self.user).is_backfilled)
         self.assertEqual(
@@ -170,7 +172,7 @@ class ProductAnalyticsTests(TestCase):
             2,
         )
 
-    def test_completion_timing_logs_phases_and_aggregate_backfill_counts(self):
+    def test_completion_timing_logs_zero_legacy_scan_after_cutover(self):
         old_game, old_task = self._make_supported_task('alphabetty', 'alphabetty', 1)
         ChainTaskState.objects.create(
             user=self.user,
@@ -222,10 +224,11 @@ class ProductAnalyticsTests(TestCase):
             'other_ms=',
         ):
             self.assertIn(phase, first_log)
-        self.assertIn('chain_states_scanned=1', first_log)
-        self.assertIn('completion_candidates=1', first_log)
+        self.assertIn('history_backfill_ms=0.0', first_log)
+        self.assertIn('chain_states_scanned=0', first_log)
+        self.assertIn('completion_candidates=0', first_log)
         self.assertIn('existing_records=0', first_log)
-        self.assertIn('created_records=1', first_log)
+        self.assertIn('created_records=0', first_log)
         self.assertNotIn('user_id=', first_log)
         self.assertNotIn('actor_id=', first_log)
         self.assertNotIn(self.user.username, first_log)
@@ -236,8 +239,31 @@ class ProductAnalyticsTests(TestCase):
             line for line in retry_logs.output
             if 'analytics_completed_timing' in line
         )
-        self.assertIn('existing_records=1', retry_log)
+        self.assertIn('existing_records=0', retry_log)
         self.assertIn('created_records=0', retry_log)
+
+    def test_activation_uses_historical_pcgs_without_legacy_scan(self):
+        historical = []
+        for number in (1, 2):
+            game, task = self._make_supported_task('ladder', 'raddle', number)
+            historical.append(PlayerCompletedGame.objects.create(
+                user=self.user,
+                game=game,
+                task_group=task.task_group,
+                game_kind='ladder',
+                game_instance_id='{}:{}'.format(game.pk, task.task_group_id),
+                is_backfilled=True,
+            ))
+        game, task = self._make_supported_task('ladder', 'raddle', 3)
+
+        with patch('games.analytics._backfill_supported_game_completions') as legacy_backfill:
+            goals = register_completed_game(user=self.user, task=task, game=game)
+
+        legacy_backfill.assert_not_called()
+        self.assertEqual([item['goal'] for item in goals], ['game_complete', 'activated_player'])
+        state = PlayerAnalyticsState.objects.get(user=self.user)
+        self.assertIsNotNone(state.activated_at)
+        self.assertFalse(state.activation_is_backfilled)
 
     def test_game_start_is_generic_unique_and_repeats_until_metrika_ack(self):
         game, task = self._make_supported_task('walls-custom', 'wall', 1)

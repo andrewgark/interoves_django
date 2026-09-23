@@ -1118,17 +1118,6 @@ def register_completed_game(
     if analytics_actor is None:
         return []
 
-    current_instance_id = game_instance_id_for_task_group(game, task.task_group)
-
-    # Безопасно бэкфиллим только личную/анонимную историю: командные CTS/Attempt
-    # не содержат автора попытки, поэтому их нельзя корректно приписывать user-level activation.
-    with _analytics_timed_phase(_timing_phases, 'history_backfill_ms'):
-        if team is None:
-            _backfill_supported_game_completions(
-                **analytics_actor,
-                exclude_instance_id=current_instance_id,
-                _backfill_counts=_backfill_counts,
-            )
     with _analytics_timed_phase(_timing_phases, 'analytics_state_get_or_create_ms'):
         state, _ = create_or_reread_analytics_row(
             PlayerAnalyticsState,
