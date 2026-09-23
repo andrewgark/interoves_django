@@ -1723,6 +1723,10 @@ class ChainTaskState(models.Model):
         'ReplaySlot', related_name='chain_task_states',
         blank=True, null=True, on_delete=models.CASCADE,
     )
+    # MySQL treats NULL values as distinct in a unique index.  Keep a
+    # non-null namespace key so the official (no replay) state can also be
+    # unique per actor/task/mode.
+    replay_slot_key = models.PositiveBigIntegerField(default=0, editable=False)
     game_mode = models.CharField(max_length=20)   # 'general' | 'tournament'
 
     state = models.TextField(blank=True, null=True)
@@ -1736,17 +1740,17 @@ class ChainTaskState(models.Model):
         # Partial unique indexes per actor type: correct NULL handling on all DBs.
         constraints = [
             models.UniqueConstraint(
-                fields=['team', 'task', 'game', 'game_mode', 'replay_slot'],
+                fields=['team', 'task', 'game', 'game_mode', 'replay_slot_key'],
                 condition=models.Q(team__isnull=False),
                 name='unique_chain_state_team_game',
             ),
             models.UniqueConstraint(
-                fields=['user', 'task', 'game', 'game_mode', 'replay_slot'],
+                fields=['user', 'task', 'game', 'game_mode', 'replay_slot_key'],
                 condition=models.Q(user__isnull=False),
                 name='unique_chain_state_user_game',
             ),
             models.UniqueConstraint(
-                fields=['anon_key', 'task', 'game', 'game_mode', 'replay_slot'],
+                fields=['anon_key', 'task', 'game', 'game_mode', 'replay_slot_key'],
                 condition=models.Q(anon_key__isnull=False),
                 name='unique_chain_state_anon_key_game',
             ),
@@ -1757,6 +1761,13 @@ class ChainTaskState(models.Model):
             models.Index(fields=['anon_key', 'task', 'game', 'game_mode']),
             models.Index(fields=['replay_slot', 'task', 'game', 'game_mode']),
         ]
+
+    def save(self, *args, **kwargs):
+        self.replay_slot_key = self.replay_slot_id or 0
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None and 'replay_slot_key' not in update_fields:
+            kwargs['update_fields'] = set(update_fields) | {'replay_slot_key'}
+        super().save(*args, **kwargs)
 
     def __str__(self):
         actor = self.team if self.team_id else (self.user if self.user_id else self.anon_key)

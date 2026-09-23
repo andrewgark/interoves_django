@@ -3,6 +3,7 @@ Tests for ChainTaskState: wall and replacements_lines chain integrity,
 mode isolation, race-condition serialisation, and recheck correctness.
 """
 import json
+from django.db import IntegrityError, transaction
 import threading
 from unittest.mock import patch
 
@@ -177,6 +178,22 @@ class ChainTaskStateCreationTests(_ChainFixture, TestCase):
             task=self.repl_task, team=self.team, game_mode='general',
         ).count()
         self.assertEqual(count, 1)
+
+    def test_official_chain_state_is_unique_when_replay_slot_is_null(self):
+        ChainTaskState.objects.create(
+            task=self.repl_task,
+            team=self.team,
+            game=self.game,
+            game_mode='general',
+        )
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                ChainTaskState.objects.create(
+                    task=self.repl_task,
+                    team=self.team,
+                    game=self.game,
+                    game_mode='general',
+                )
 
     def test_two_teams_have_independent_chain_state_rows(self):
         a1 = _make_attempt(self.repl_task, self.team, _repl_text(0, ['answer1']))
