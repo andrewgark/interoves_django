@@ -122,9 +122,12 @@ def _rebuild_projection_after_reset(game_id, task_group_id):
 def reset_daily_release_progress(placement, *, now=None):
     """Delete official and replay attempts before publication and rebuild state."""
     now = now or timezone.now()
-    placement = GameTaskGroup.objects.select_for_update().select_related(
-        'game', 'task_group',
-    ).get(pk=placement.pk)
+    # Lock only the placement row.  Joining ``game`` here makes MySQL's
+    # SELECT ... FOR UPDATE lock the parent Game row as well.  Completion
+    # holds DailySolveTiming while its PlayerCompletedGame insert performs an
+    # implicit shared FK check on Game, which would reverse the lock order and
+    # deadlock with this reset transaction.
+    placement = GameTaskGroup.objects.select_for_update().get(pk=placement.pk)
     published_at = publish_at_for(placement.game, placement.number)
     if published_at is None or published_at > now:
         return _empty_reset_result()
