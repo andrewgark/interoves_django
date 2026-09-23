@@ -16,9 +16,11 @@ from games.daily_result_projection import (
     _canonical_group_results,
     refresh_daily_result_projection,
     schedule_actor_projection,
+    schedule_full_projection_refresh,
 )
+from games.anon_migrate import claim_and_migrate_anon_history
 from games.models import (
-    Attempt, DailyResultProjection, DailyResultProjectionState, Game, GameTaskGroup, HTMLPage, Project,
+    AnonAccountClaim, Attempt, DailyResultProjection, DailyResultProjectionState, Game, GameTaskGroup, HTMLPage, Project,
     ChainTaskState, Hint, HintAttempt, Profile, ReplaySlot, Task, TaskGroup, HiddenAnonKey,
 )
 from games.word_salad import dump_state, score_for_state
@@ -219,6 +221,134 @@ class DailyResultProjectionTests(TestCase):
                 )
                 schedule_actor_projection(game, group, anon_key='unlinked-hook')
         self.assertFalse(DailyResultProjection.objects.exists())
+
+    def _projection_rows(self):
+        return list(
+            DailyResultProjection.objects.filter(game=self.game, task_group=self.group)
+            .values('actor_type', 'actor_key', 'score', 'is_prepublication')
+            .order_by('actor_type', 'actor_key')
+        )
+
+    def test_anon_claim_invalidates_and_full_refreshes_projection(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        anon_key = 'identity-transition-anon'
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key=anon_key,
+            text='answer', status='Ok', points=7,
+        )
+        refresh_daily_result_projection(self.game, self.group)
+        self.assertEqual(self._projection_rows()[0]['actor_type'], 'anon')
+        previous_revision = DailyResultProjectionState.objects.get(
+            game=self.game, task_group=self.group,
+        ).source_revision
+
+        user = User.objects.create_user('claimed-user', 'claimed@example.com', 'secret')
+        with self.captureOnCommitCallbacks(execute=True):
+            with transaction.atomic():
+                result = claim_and_migrate_anon_history(user, anon_key)
+        self.assertEqual(result['status'], 'ok')
+        state = DailyResultProjectionState.objects.get(
+            game=self.game, task_group=self.group,
+        )
+        state.refresh_from_db()
+        self.assertGreater(state.source_revision, previous_revision)
+        self.assertTrue(state.is_valid)
+        self.assertFalse(state.full_refresh_required)
+        self.assertEqual(
+            self._projection_rows(),
+            [{'actor_type': 'user', 'actor_key': str(user.pk), 'score': 7,
+              'is_prepublication': False}],
+        )
+        self.assertFalse(DailyResultProjection.objects.filter(anon_key=anon_key).exists())
+        self.assertTrue(AnonAccountClaim.objects.filter(anon_key=anon_key, user=user).exists())
+
+    def test_anon_claim_with_existing_user_rebuilds_one_canonical_representation(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        anon_key = 'identity-transition-existing'
+        user = User.objects.create_user('existing-user', 'existing@example.com', 'secret')
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key=anon_key,
+            text='answer', status='Ok', points=5,
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, user=user,
+            text='answer', status='Ok', points=8,
+        )
+        refresh_daily_result_projection(self.game, self.group)
+        self.assertEqual(len(self._projection_rows()), 2)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            result = claim_and_migrate_anon_history(user, anon_key)
+        self.assertEqual(result['status'], 'ok')
+        state = DailyResultProjectionState.objects.get(game=self.game, task_group=self.group)
+        self.assertTrue(state.is_valid)
+        self.assertEqual(len(self._projection_rows()), 1)
+        self.assertFalse(DailyResultProjection.objects.filter(anon_key=anon_key).exists())
+        canonical = _canonical_group_results(self.game, self.group)
+        self.assertEqual(len(canonical), 1)
+        row = self._projection_rows()[0]
+        self.assertEqual((row['actor_type'], row['actor_key'], row['score']),
+                         ('user', str(user.pk), canonical[('user', user.pk)]['score']))
+
+    def test_claim_refresh_failure_leaves_state_invalid_for_reconciliation(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        anon_key = 'identity-transition-failure'
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key=anon_key,
+            text='answer', status='Ok', points=7,
+        )
+        refresh_daily_result_projection(self.game, self.group)
+        user = User.objects.create_user('failed-claim', 'failed@example.com', 'secret')
+        with patch(
+            'games.daily_result_projection.refresh_daily_result_projection',
+            side_effect=RuntimeError('refresh failed'),
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                result = claim_and_migrate_anon_history(user, anon_key)
+        self.assertEqual(result['status'], 'ok')
+        state = DailyResultProjectionState.objects.get(game=self.game, task_group=self.group)
+        self.assertFalse(state.is_valid)
+        self.assertTrue(state.full_refresh_required)
+        self.assertTrue(AnonAccountClaim.objects.filter(anon_key=anon_key, user=user).exists())
+
+    def test_historical_stale_anon_row_is_found_and_repaired_by_full_reconciliation(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        anon_key = 'historical-stale-anon'
+        user = User.objects.create_user('historical-user', 'historical@example.com', 'secret')
+        attempt = Attempt.manager.create(
+            task=task, game=self.game, anon_key=anon_key,
+            text='answer', status='Ok', points=7,
+        )
+        refresh_daily_result_projection(self.game, self.group)
+        AnonAccountClaim.objects.create(anon_key=anon_key, user=user)
+        Attempt.manager.filter(pk=attempt.pk).update(user=user, anon_key=None)
+
+        self.assertTrue(DailyResultProjectionState.objects.get(
+            game=self.game, task_group=self.group,
+        ).is_valid)
+        from games.targeted_completion_reconciliation import completion_pairs_for_actor
+        self.assertIn(
+            (self.game.pk, self.group.pk),
+            completion_pairs_for_actor(anon_key=anon_key),
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            schedule_full_projection_refresh(self.game, self.group)
+        self.assertFalse(DailyResultProjection.objects.filter(anon_key=anon_key).exists())
+        self.assertTrue(DailyResultProjection.objects.filter(
+            game=self.game, task_group=self.group, user=user,
+        ).exists())
 
     def test_rebuild_command_dry_run_then_idempotent_apply(self):
         task = Task.objects.create(

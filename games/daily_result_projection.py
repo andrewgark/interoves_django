@@ -285,6 +285,44 @@ def schedule_actor_projection(
     )
 
 
+def schedule_full_projection_refresh(game, task_group):
+    """Invalidate a materialized release and rebuild it after the mutation commits.
+
+    Identity transitions can change the actor representation of several rows at
+    once.  A targeted actor refresh cannot remove the old identity, so these
+    mutations must publish a complete canonical replacement instead.
+    """
+    revision = mark_projection_dirty(game, task_group, full=True)
+    if revision is None:
+        return None
+
+    def run(game_id=game.pk, group_id=task_group.pk):
+        from games.models import Game, TaskGroup
+
+        current_game = Game.objects.filter(pk=game_id).first()
+        current_group = TaskGroup.objects.filter(pk=group_id).first()
+        if current_game is None or current_group is None:
+            return
+        try:
+            refresh_daily_result_projection(current_game, current_group)
+        except Exception:
+            logger.exception(
+                'daily_result_projection_full_refresh_failed game=%s task_group=%s',
+                game_id, group_id,
+            )
+            # mark_projection_dirty has already made the state non-authoritative.
+            # Keep it that way if the post-commit repair fails; reconciliation can
+            # safely retry the release later.
+            with transaction.atomic():
+                state = _state_for_update(current_game, current_group)
+                state.is_valid = False
+                state.full_refresh_required = True
+                state.save(update_fields=['is_valid', 'full_refresh_required', 'completed_at'])
+
+    transaction.on_commit(run)
+    return revision
+
+
 def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=None):
     from games.models import Game, TaskGroup
 

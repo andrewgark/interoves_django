@@ -13,6 +13,8 @@ from django.db import transaction
 from games.models import (
     Attempt,
     ChainTaskState,
+    DailyResultProjection,
+    HintAttempt,
     Game,
     PlayerCompletedGame,
     Task,
@@ -44,6 +46,18 @@ def completion_pairs_for_actor(*, user=None, anon_key=None):
     )
     pairs.update(
         PlayerCompletedGame.objects.filter(**keys, team__isnull=True)
+        .values_list('game_id', 'task_group_id')
+    )
+    # A previously materialized release is itself evidence of affected scope.
+    # This covers historical/stale rows after an identity transition even when
+    # the source gameplay rows have already been moved or merged.
+    projection_keys = {}
+    if user is not None:
+        projection_keys['user'] = user
+    if anon_key is not None:
+        projection_keys['anon_key'] = anon_key
+    pairs.update(
+        DailyResultProjection.objects.filter(**projection_keys)
         .values_list('game_id', 'task_group_id')
     )
     return {(game_id, group_id) for game_id, group_id in pairs if game_id and group_id}
