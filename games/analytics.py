@@ -400,6 +400,80 @@ def _activation_goal_payload(state, games_completed):
     )
 
 
+@transaction.atomic
+def publish_completion_analytics(
+    *,
+    record,
+    created,
+    analytics_user=None,
+    user=None,
+    anon_key=None,
+    game=None,
+    task_group=None,
+):
+    """Persist non-canonical analytics after canonical completion commits.
+
+    ``PlayerCompletedGame`` is created by the completion coordinator.  This
+    function intentionally never creates or mutates that canonical row; it
+    only preserves the legacy analytics goals/activation side effects for
+    normal HTTP responses.
+    """
+    if record is None:
+        return []
+    analytics_actor = _analytics_actor_kwargs(
+        analytics_user=analytics_user,
+        user=user,
+        anon_key=anon_key,
+    )
+    if analytics_actor is None:
+        return []
+
+    state, _ = create_or_reread_analytics_row(
+        PlayerAnalyticsState,
+        lookup=analytics_actor,
+    )
+    completed_count = _completed_games_qs(**analytics_actor).count()
+    before_count = max(0, completed_count - 1) if created else completed_count
+    if before_count >= 3 and state.activated_at is None:
+        activated_at = timezone.now()
+        PlayerAnalyticsState.objects.filter(
+            pk=state.pk,
+            activated_at__isnull=True,
+        ).update(
+            activated_at=activated_at,
+            activation_is_backfilled=True,
+            updated_at=activated_at,
+        )
+
+    from games.daily_statistics import invalidate_daily_statistics
+    if game is not None and task_group is not None:
+        invalidate_daily_statistics(game.id, task_group.id)
+
+    goals = []
+    if created and not record.is_backfilled and record.metrika_acked_at is None:
+        goals.append(_completed_goal_payload(record))
+
+    if before_count < 3 <= completed_count and state.activated_at is None:
+        activated_at = timezone.now()
+        PlayerAnalyticsState.objects.filter(
+            pk=state.pk,
+            activated_at__isnull=True,
+        ).update(
+            activated_at=activated_at,
+            activation_is_backfilled=False,
+            updated_at=activated_at,
+        )
+    state.refresh_from_db()
+    if (
+        state.activated_at is not None
+        and not state.activation_is_backfilled
+        and state.activation_goal_acked_at is None
+        and before_count < 3 <= completed_count
+    ):
+        goals.append(_activation_goal_payload(state, completed_count))
+    return goals
+
+
 def signup_goal_payload(state):
     if state is None or state.signup_at is None or state.signup_goal_acked_at is not None:
         return None

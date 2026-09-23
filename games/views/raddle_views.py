@@ -1,6 +1,7 @@
 import json
+import logging
 
-from django.db import transaction
+from django.db import OperationalError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -9,12 +10,18 @@ from games.analytics import (
     PlayerCompletedGame,
     is_task_completion_state,
     is_task_group_complete,
-    register_completed_game,
+    publish_completion_analytics,
     register_started_game,
     supported_game_kind,
 )
+from games.completion_coordinator import complete_logical_game
 from games.exception import DuplicateAttemptException, NoGameAccessException
 from games.models import Attempt, ChainTaskState, Task
+from games.mysql_retry import is_mysql_lock_retryable
+from games.analytics_identity import gameplay_anon_key
+from games.auth_observability import log_gameplay_attempt_created
+from games.gameplay_context import context_error_response, validate_gameplay_context
+from games.replay import replay_for_request, StaleReplayError, _official_exists
 from games.raddle import (
     apply_assist_tier,
     dump_raddle_state,
@@ -33,10 +40,10 @@ from games.views.hint_views import _get_play_mode, create_hint_attempt
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
-from games.analytics_identity import gameplay_anon_key
-from games.auth_observability import log_gameplay_attempt_created
-from games.gameplay_context import context_error_response, validate_gameplay_context
-from games.replay import replay_for_request, StaleReplayError, _official_exists
+
+
+logger = logging.getLogger(__name__)
+RADDLE_UI_LOCK_RETRY_ATTEMPTS = 2
 
 
 def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_key=None, task=None, game=None, replay_slot=None):
@@ -170,30 +177,31 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
             replay_slot=replay_slot,
         )
     ):
-        if replay_slot is not None:
-            from games.replay import mark_replay_completed
-            mark_replay_completed(replay_slot)
-        else:
-            analytics_events.extend(register_completed_game(
-            team=team,
-            user=user,
-            anon_key=anon_key,
-            analytics_user=request.user if request.user.is_authenticated else None,
-            task=task,
-            game=game,
-            result=PlayerCompletedGame.RESULT_SOLVED,
-            mode=current_mode,
-        ))
-            from games.daily_timing import complete_daily_timing
-            timing = complete_daily_timing(
+        completion = complete_logical_game(
+            actor={'team': team, 'user': user, 'anon_key': anon_key},
             game=game,
             task_group=task.task_group,
-            user=user,
-            anon_key=anon_key,
-            team=team,
-            )
-        if timing:
-            result['daily_timing'] = timing
+            task=task,
+            replay_slot=replay_slot,
+            run_id=getattr(request, 'interoves_replay_run_id', None),
+            analytics_user=request.user if request.user.is_authenticated else None,
+            result=PlayerCompletedGame.RESULT_SOLVED,
+            mode=current_mode,
+            source='raddle_assist',
+        )
+        if completion is not None:
+            if completion['timing']:
+                result['daily_timing'] = completion['timing']
+            if replay_slot is None:
+                analytics_events.extend(publish_completion_analytics(
+                    record=completion['record'],
+                    created=completion['created'],
+                    user=user,
+                    anon_key=anon_key,
+                    analytics_user=request.user if request.user.is_authenticated else None,
+                    game=game,
+                    task_group=task.task_group,
+                ))
     if analytics_events:
         result['analytics_events'] = analytics_events
     update_html = update_task_html(
@@ -400,27 +408,39 @@ def process_send_raddle_ui(request, task_id):
     n = parsed['n_words']
     current_mode = game.get_current_mode(Attempt(time=timezone.now()))
 
-    with transaction.atomic():
-        ChainTaskState.objects.get_or_create(
-            team=team, user=user, anon_key=anon_key,
-            task=task, game=game, game_mode=current_mode,
-            replay_slot=replay_slot,
-            defaults={'state': None},
-        )
-        chain_row = ChainTaskState.objects.select_for_update().get(
-            team=team, user=user, anon_key=anon_key,
-            task=task, game=game, game_mode=current_mode,
-            replay_slot=replay_slot,
-        )
-        state = _chain_state_with_attempt_fallback(
-            chain_row, n, team=team, user=user, anon_key=anon_key, task=task, game=game,
-            replay_slot=replay_slot,
-        )
-        state = merge_raddle_ui_state(
-            state, n, drafts_patch=drafts_patch, clue_marks_patch=marks_patch,
-        )
-        chain_row.state = json.dumps(state, ensure_ascii=False)
-        chain_row.save(update_fields=['state', 'updated_at'])
+    for lock_attempt in range(1, RADDLE_UI_LOCK_RETRY_ATTEMPTS + 1):
+        try:
+            with transaction.atomic():
+                ChainTaskState.objects.get_or_create(
+                    team=team, user=user, anon_key=anon_key,
+                    task=task, game=game, game_mode=current_mode,
+                    replay_slot=replay_slot,
+                    defaults={'state': None},
+                )
+                chain_row = ChainTaskState.objects.select_for_update().get(
+                    team=team, user=user, anon_key=anon_key,
+                    task=task, game=game, game_mode=current_mode,
+                    replay_slot=replay_slot,
+                )
+                state = _chain_state_with_attempt_fallback(
+                    chain_row, n, team=team, user=user, anon_key=anon_key, task=task, game=game,
+                    replay_slot=replay_slot,
+                )
+                state = merge_raddle_ui_state(
+                    state, n, drafts_patch=drafts_patch, clue_marks_patch=marks_patch,
+                )
+                chain_row.state = json.dumps(state, ensure_ascii=False)
+                chain_row.save(update_fields=['state', 'updated_at'])
+            break
+        except OperationalError as exc:
+            if not is_mysql_lock_retryable(exc) or lock_attempt >= RADDLE_UI_LOCK_RETRY_ATTEMPTS:
+                raise
+            logger.warning(
+                'raddle_ui lock retry attempt=%s/%s task=%s',
+                lock_attempt,
+                RADDLE_UI_LOCK_RETRY_ATTEMPTS,
+                task.pk,
+            )
 
     payload = {'raddle_ui': raddle_ui_payload(state, task.id)}
     if replay_slot is None:

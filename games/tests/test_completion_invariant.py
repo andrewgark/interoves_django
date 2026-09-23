@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timezone
 from io import StringIO
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.management import CommandError, call_command
@@ -12,6 +13,8 @@ from games.analytics import (
     is_task_group_complete,
     register_completed_game,
 )
+from games.completion_coordinator import complete_logical_game
+from games.daily_timing import STATUS_COMPLETED
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -20,6 +23,8 @@ from games.models import (
     GameTaskGroup,
     HTMLPage,
     PlayerCompletedGame,
+    DailySolveTiming,
+    ReplaySlot,
     Project,
     Task,
     TaskGroup,
@@ -105,6 +110,99 @@ class CompletionInvariantTests(TestCase):
             task=task, game=game, user=user, anon_key=anon_key,
             game_mode='general', state=json.dumps(state),
         )
+
+    def test_coordinator_is_idempotent_and_keeps_official_result_immutable(self):
+        game = self._game('ladder')
+        group, tasks = self._group(game, [('0', 'raddle')])
+        self._set_state(tasks[0], game)
+        timing = DailySolveTiming.objects.create(
+            user=self.user,
+            game=game,
+            task_group=group,
+            status='running',
+            active_session_id=None,
+        )
+
+        first = complete_logical_game(
+            actor={'user': self.user}, game=game, task_group=group,
+            task=tasks[0], source='test', result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        second = complete_logical_game(
+            actor={'user': self.user}, game=game, task_group=group,
+            task=tasks[0], source='test-retry', result=PlayerCompletedGame.RESULT_FAILED,
+        )
+
+        self.assertTrue(first['created'])
+        self.assertFalse(second['created'])
+        self.assertEqual(first['record'].pk, second['record'].pk)
+        self.assertEqual(
+            PlayerCompletedGame.objects.get(pk=first['record'].pk).result,
+            PlayerCompletedGame.RESULT_SOLVED,
+        )
+        timing.refresh_from_db()
+        self.assertEqual(timing.status, STATUS_COMPLETED)
+        self.assertEqual(timing.frozen_ms, second['timing']['frozen_ms'])
+
+    def test_coordinator_rolls_back_timing_when_completion_record_fails(self):
+        game = self._game('ladder')
+        group, tasks = self._group(game, [('0', 'raddle')])
+        self._set_state(tasks[0], game)
+        DailySolveTiming.objects.create(
+            user=self.user,
+            game=game,
+            task_group=group,
+            status='running',
+        )
+
+        with self.assertRaises(RuntimeError):
+            with patch(
+                'games.completion_coordinator._ensure_completed_record',
+                side_effect=RuntimeError('completion failure'),
+            ):
+                complete_logical_game(
+                    actor={'user': self.user}, game=game, task_group=group,
+                    task=tasks[0], source='test-failure',
+                )
+
+        self.assertFalse(PlayerCompletedGame.objects.filter(user=self.user, game=game).exists())
+        self.assertEqual(
+            DailySolveTiming.objects.get(user=self.user, game=game, task_group=group).status,
+            'running',
+        )
+
+    def test_replay_completion_never_creates_official_record(self):
+        game = self._game('ladder')
+        group, tasks = self._group(game, [('0', 'raddle')])
+        slot = ReplaySlot.objects.create(
+            user=self.user,
+            actor_key='user:{}'.format(self.user.pk),
+            game=game,
+            task_group=group,
+        )
+        ChainTaskState.objects.create(
+            task=tasks[0], game=game, user=self.user,
+            game_mode='general', replay_slot=slot,
+            state=json.dumps({'solved_indices': [0, 1, 2, 3]}),
+        )
+
+        replay = complete_logical_game(
+            actor={'user': self.user}, game=game, task_group=group,
+            task=tasks[0], replay_slot=slot, run_id=slot.run_id,
+            source='replay-test',
+        )
+
+        self.assertTrue(replay['replay_completed'])
+        self.assertFalse(PlayerCompletedGame.objects.filter(user=self.user, game=game).exists())
+        slot.refresh_from_db()
+        self.assertEqual(slot.status, 'completed')
+
+        self._set_state(tasks[0], game)
+        official = complete_logical_game(
+            actor={'user': self.user}, game=game, task_group=group,
+            task=tasks[0], source='official-after-replay-test',
+        )
+        self.assertIsNotNone(official['record'])
+        self.assertTrue(PlayerCompletedGame.objects.filter(user=self.user, game=game).exists())
 
     def test_replacements_chain_completion_does_not_complete_group(self):
         game = self._game('replacements')

@@ -29,9 +29,10 @@ from games.analytics import (
     PlayerCompletedGame,
     is_task_completion_state,
     is_task_group_complete,
-    register_completed_game,
+    publish_completion_analytics,
     register_started_game,
 )
+from games.completion_coordinator import complete_logical_game
 from games.daily_transitions import next_daily_content_transition_for_game
 from games.daily_archive import build_daily_archive_context
 from games.daily_section import MOSCOW
@@ -687,28 +688,31 @@ def alphabetty_guess(request, number):
         mode=game.get_current_mode(Attempt(time=timezone.now())),
         replay_slot=replay_slot,
     ):
-        if replay_slot is not None:
-            from games.replay import mark_replay_completed
-            mark_replay_completed(replay_slot)
-        else:
-            analytics_events.extend(register_completed_game(
-            user=user,
-            anon_key=anon_key,
-            analytics_user=request.user if request.user.is_authenticated else None,
-            task=task,
-            game=game,
-            result=PlayerCompletedGame.RESULT_SOLVED,
-            mode=game.get_current_mode(Attempt(time=timezone.now())),
-        ))
-            from games.daily_timing import complete_daily_timing
-            timing = complete_daily_timing(
+        completion = complete_logical_game(
+            actor={'team': None, 'user': user, 'anon_key': anon_key},
             game=game,
             task_group=task.task_group,
-            user=user,
-            anon_key=anon_key,
-            )
-        if timing:
-            result['daily_timing'] = timing
+            task=task,
+            replay_slot=replay_slot,
+            run_id=getattr(request, 'interoves_replay_run_id', None),
+            analytics_user=request.user if request.user.is_authenticated else None,
+            result=PlayerCompletedGame.RESULT_SOLVED,
+            mode=game.get_current_mode(Attempt(time=timezone.now())),
+            source='alphabetty',
+        )
+        if completion is not None:
+            if completion['timing']:
+                result['daily_timing'] = completion['timing']
+            if replay_slot is None:
+                analytics_events.extend(publish_completion_analytics(
+                    record=completion['record'],
+                    created=completion['created'],
+                    user=user,
+                    anon_key=anon_key,
+                    analytics_user=request.user if request.user.is_authenticated else None,
+                    game=game,
+                    task_group=task.task_group,
+                ))
     if analytics_events:
         result['analytics_events'] = analytics_events
     with timing_phase(request, 'render_meta'):

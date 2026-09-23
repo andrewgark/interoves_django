@@ -376,18 +376,30 @@ def _apply_timing_event_once(
     return snapshot(row, now=now, session_id=session_id)
 
 
-@transaction.atomic
-def complete_daily_timing(*, game, task_group, user=None, anon_key=None, team=None, replay_slot=None, now=None) -> dict | None:
-    """Freeze an existing timing row; never create one during completion."""
+def complete_daily_timing_in_transaction(
+    *, game, task_group, user=None, anon_key=None, team=None,
+    replay_slot=None, now=None, timing_phases=None,
+) -> dict | None:
+    """Freeze an existing timing row inside the caller's transaction.
+
+    Completion owns the transaction boundary.  This primitive deliberately
+    does not create a savepoint or retry: callers that need the legacy public
+    API should use ``complete_daily_timing`` below.
+    """
     now = now or timezone.now()
     filters = actor_filter(team=team, user=user, anon_key=anon_key, replay_slot=replay_slot)
     if filters is None or task_group is None:
         return None
+    started = timezone.now()
     row = (
         DailySolveTiming.objects.select_for_update()
         .filter(game=game, task_group=task_group, **filters)
         .first()
     )
+    if timing_phases is not None:
+        timing_phases['timing_lock_ms'] = (
+            timezone.now() - started
+        ).total_seconds() * 1000.0
     if row is None:
         return None
     _apply_to_row(
@@ -400,6 +412,20 @@ def complete_daily_timing(*, game, task_group, user=None, anon_key=None, team=No
         now=now,
     )
     return snapshot(row, now=now)
+
+
+@transaction.atomic
+def complete_daily_timing(*, game, task_group, user=None, anon_key=None, team=None, replay_slot=None, now=None) -> dict | None:
+    """Legacy public wrapper for callers outside a completion transaction."""
+    return complete_daily_timing_in_transaction(
+        game=game,
+        task_group=task_group,
+        user=user,
+        anon_key=anon_key,
+        team=team,
+        replay_slot=replay_slot,
+        now=now,
+    )
 
 
 def merge_timing_rows(target: DailySolveTiming, source: DailySolveTiming) -> DailySolveTiming:

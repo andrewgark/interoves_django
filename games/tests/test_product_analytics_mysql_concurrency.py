@@ -9,6 +9,7 @@ from django.db import close_old_connections, connection
 from django.test import TransactionTestCase
 
 from games.analytics import register_completed_game, register_started_game
+from games.completion_coordinator import complete_logical_game
 from games.analytics_persistence import (
     ANALYTICS_UNIQUE_SPECS,
     create_or_reread_analytics_row,
@@ -17,6 +18,7 @@ from games.account_merge import merge_accounts
 from games.anon_migrate import migrate_anon_started_games
 from games.models import (
     AccountMerge,
+    ChainTaskState,
     CheckerType,
     Game,
     HTMLPage,
@@ -296,6 +298,41 @@ class ProductAnalyticsMySQLConcurrencyTests(TransactionTestCase):
 
         self.assertEqual(results[0].pk, results[1].pk)
         self.assertEqual(AccountMerge.objects.count(), 1)
+
+    def test_parallel_completion_coordinator_is_idempotent(self):
+        task = self.tasks[0]
+        ChainTaskState.objects.create(
+            user=self.user,
+            game=self.game,
+            task=task,
+            game_mode='general',
+            state='{}',
+        )
+        with patch(
+            'games.completion_coordinator.is_task_group_complete',
+            return_value=True,
+        ):
+            results = self._parallel(
+                lambda: complete_logical_game(
+                    actor={'user': self.user},
+                    game=self.game,
+                    task_group=task.task_group,
+                    task=task,
+                    source='mysql-concurrency-test',
+                ),
+                lambda: complete_logical_game(
+                    actor={'user': self.user},
+                    game=self.game,
+                    task_group=task.task_group,
+                    task=task,
+                    source='mysql-concurrency-test',
+                ),
+            )
+        self.assertEqual(PlayerCompletedGame.objects.filter(
+            user=self.user,
+            game_instance_id='{}:{}'.format(self.game.pk, task.task_group_id),
+        ).count(), 1)
+        self.assertEqual(sum(bool(result['created']) for result in results), 1)
 
     def test_code_remains_compatible_before_user_start_index(self):
         """Without the unique index, concurrent first inserts still converge to one row."""
