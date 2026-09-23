@@ -491,6 +491,18 @@ class ClubYooKassaDetachTests(TestCase):
         self.assertIsNone(self.sub.next_charge_at)
         self.assertFalse(SavedPaymentMethod.objects.exclude(provider_payment_method_id=None).exists())
 
+    @patch('games.telegram.notify.notify_admin_club_renewal_failed')
+    def test_canceled_recurring_payment_notifies_admin(self, notify_mock):
+        local = self._pending()
+        with self.captureOnCommitCallbacks(execute=True):
+            process_yookassa_club_payment_event(
+                'payment.canceled',
+                _payment_payload(local, status='canceled'),
+            )
+        notify_mock.assert_called_once()
+        self.assertEqual(notify_mock.call_args.args[0], self.sub.pk)
+        self.assertEqual(notify_mock.call_args.kwargs['payment_id'], local.pk)
+
     def test_unresolved_charge_warning_survives_refresh_until_verified_outcome(self):
         local = self._pending()
         self.client.force_login(self.user)

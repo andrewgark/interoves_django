@@ -307,6 +307,22 @@ class ClubWebhookAndMappingTests(TestCase):
         self.assertIn('Сумма: 3.89 EUR', message)
         self.assertNotIn('Сумма: 389 EUR', message)
 
+    @patch('games.telegram.notify.send_admin_message', return_value=True)
+    def test_admin_notification_labels_recurring_payment_as_renewal(self, send_admin):
+        subscription = ClubSubscription.objects.create(
+            user=self.user,
+            provider=ClubSubscription.PROVIDER_YOOKASSA,
+            status=ClubSubscription.STATUS_ACTIVE,
+            currency='RUB',
+            amount=60000,
+            paid_until=timezone.now() + timedelta(days=30),
+        )
+
+        self.assertTrue(notify_admin_club_subscription(
+            subscription.pk, 'payment.succeeded', payment_kind='recurring_monthly',
+        ))
+        self.assertIn('Продление клубной подписки', send_admin.call_args.args[0])
+
     def test_invalid_signature_is_rejected(self):
         response = self._post(self._payload(), signature=False)
         self.assertEqual(response.status_code, 401)

@@ -217,10 +217,17 @@ class AuthenticatedRequestAuditMiddleware:
     def __call__(self, request):
         try:
             response = self.get_response(request)
-        except Exception:
+        except Exception as exc:
             if getattr(request, 'method', '') == 'POST':
                 log_post_request(request, error=True)
+            from games.telegram.notify import notify_admin_site_error
+
+            notify_admin_site_error(request, exception=exc)
             raise
+        if getattr(response, 'status_code', 0) >= 500:
+            from games.telegram.notify import notify_admin_site_error
+
+            notify_admin_site_error(request, status_code=response.status_code)
         with timing_phase(request, 'auth_audit_response'):
             if getattr(request, 'method', '') == 'POST':
                 user = getattr(request, 'user', None)

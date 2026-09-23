@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import (
@@ -363,12 +364,14 @@ class AuthSessionObservabilityTests(TestCase):
         self.assertEqual(payload['user_agent']['device_family'], 'Android phone')
         self.assertNotIn('must-not-be-logged', json.dumps(payload))
 
-    def test_anonymous_post_is_logged_and_view_exception_is_re_raised(self):
+    @patch('games.telegram.notify.notify_admin_site_error')
+    def test_anonymous_post_is_logged_and_view_exception_is_re_raised(self, notify_mock):
         request = self.factory.post('/send_raddle_ui/6820/', HTTP_USER_AGENT='test-client/1.0')
         request.interoves_request_id = 'anonymous-post-id'
+        mock_exception = RuntimeError('expected test failure')
 
         def failing_view(_request):
-            raise RuntimeError('expected test failure')
+            raise mock_exception
 
         handler = AuthenticatedRequestAuditMiddleware(failing_view)
         with self.assertLogs('interoves.auth', level='INFO') as logs:
@@ -379,6 +382,19 @@ class AuthSessionObservabilityTests(TestCase):
         self.assertFalse(payload['authenticated'])
         self.assertTrue(payload['error'])
         self.assertEqual(payload['status'], 500)
+        notify_mock.assert_called_once_with(request, exception=mock_exception)
+
+    @patch('games.telegram.notify.notify_admin_site_error')
+    def test_server_error_response_notifies_admin(self, notify_mock):
+        request = self.factory.get('/broken/', HTTP_HOST='interoves.com')
+        request.interoves_request_id = 'site-error-id'
+
+        def failing_response(_request):
+            return JsonResponse({'error': 'broken'}, status=503)
+
+        response = AuthenticatedRequestAuditMiddleware(failing_response)(request)
+        self.assertEqual(response.status_code, 503)
+        notify_mock.assert_called_once_with(request, status_code=503)
 
     def test_failed_login_event_never_logs_credentials(self):
         request = self.factory.post(

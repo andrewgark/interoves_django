@@ -3,6 +3,7 @@ import logging
 from typing import Iterable
 
 from django.conf import settings
+from django.core.cache import cache
 
 from games.models import (
     AlphabettyOffer,
@@ -94,6 +95,86 @@ def notify_admin_club_subscription_attempt_failed(
         return False
 
 
+def notify_admin_club_renewal_failed(
+    subscription_id: int, *, payment_id: int | None = None, reason: str = '',
+) -> bool:
+    """Notify the admin chat when a recurring Club charge needs attention."""
+    try:
+        from games.models import ClubSubscription, ClubYooKassaPayment
+
+        subscription = ClubSubscription.objects.select_related('user', 'user__profile').get(
+            pk=subscription_id,
+        )
+        payment = (
+            ClubYooKassaPayment.objects.filter(pk=payment_id).first()
+            if payment_id else None
+        )
+        profile = getattr(subscription.user, 'profile', None)
+        username = getattr(profile, 'telegram_username', '') or ''
+        telegram_id = getattr(profile, 'telegram_user_id', '') or ''
+        telegram_label = '@{}'.format(_escape(username)) if username else '—'
+        if telegram_id:
+            telegram_label += ' (id {})'.format(_escape(telegram_id))
+        lines = [
+            '⚠️ <b>Ошибка автопродления клубной подписки</b>',
+            '',
+            'Пользователь: <b>{}</b>'.format(_escape(subscription.user.get_username())),
+            'Telegram: {}'.format(telegram_label),
+            'Провайдер: {}'.format(_escape(subscription.provider)),
+            'Сумма: {} {}'.format(
+                _escape(subscription.amount or ''), _escape(subscription.currency or ''),
+            ),
+        ]
+        if payment is not None:
+            lines.append('Платёж: #{}'.format(payment.pk))
+            if payment.failure_code:
+                lines.append('Код: {}'.format(_escape(payment.failure_code)))
+        if reason:
+            lines.append('Причина: {}'.format(_escape(reason)))
+        if subscription.paid_until:
+            lines.append('Доступ до: {}'.format(subscription.paid_until.strftime('%d.%m.%Y %H:%M UTC')))
+        return send_admin_message(_join_lines(lines), force=True)
+    except Exception:
+        logger.exception('Failed to notify admin about renewal failure subscription=%s', subscription_id)
+        return False
+
+
+def notify_admin_site_error(request, *, status_code: int = 500, exception=None) -> bool:
+    """Alert the admin chat about a rate-limited server-side error."""
+    try:
+        path = str(getattr(request, 'path', '') or '/')[:160]
+        cache_key = 'telegram:admin:site-error:{}:{}'.format(status_code, path)
+        if not cache.add(cache_key, 1, timeout=300):
+            return False
+        resolver_match = getattr(request, 'resolver_match', None)
+        route_name = getattr(resolver_match, 'url_name', '') if resolver_match else ''
+        user_label = 'anonymous'
+        try:
+            user = getattr(request, 'user', None)
+            if getattr(user, 'is_authenticated', False):
+                user_label = '{} (# {})'.format(user.get_username(), user.pk)
+        except Exception:
+            user_label = 'unknown (auth lookup failed)'
+        lines = [
+            '🚨 <b>Критическая ошибка сайта</b>',
+            '',
+            'Статус: <b>{}</b>'.format(status_code),
+            'Путь: <code>{}</code>'.format(_escape(path)),
+            'Маршрут: {}'.format(_escape(route_name or '—')),
+            'Пользователь: {}'.format(_escape(user_label)),
+        ]
+        request_id = getattr(request, 'interoves_request_id', '')
+        if request_id:
+            lines.append('Request ID: <code>{}</code>'.format(_escape(request_id)))
+        if exception is not None:
+            lines.append('Ошибка: {}'.format(_escape(str(exception)[:500])))
+        lines.append('Повторные ошибки этого типа подавлены на 5 минут.')
+        return send_admin_message(_join_lines(lines), force=True)
+    except Exception:
+        logger.exception('Failed to notify admin about site error')
+        return False
+
+
 def notify_admin_club_subscription(subscription_id: int, event_name: str, *, payment_kind: str = '') -> bool:
     """Notify the admin chat about a durable Club subscription state change."""
     try:
@@ -108,7 +189,9 @@ def notify_admin_club_subscription(subscription_id: int, event_name: str, *, pay
         telegram_label = '@{}'.format(_escape(username)) if username else '—'
         if telegram_id:
             telegram_label += ' (id {})'.format(_escape(telegram_id))
-        if event_name in ('new_subscription', 'payment.succeeded'):
+        if event_name == 'payment.succeeded' and payment_kind == 'recurring_monthly':
+            title = '🔄 <b>Продление клубной подписки</b>'
+        elif event_name in ('new_subscription', 'payment.succeeded'):
             title = '🟢 <b>Новая клубная подписка</b>'
         elif event_name in ('cancelled_subscription', 'subscription_cancelled'):
             title = '🔴 <b>Отмена клубной подписки</b>'
