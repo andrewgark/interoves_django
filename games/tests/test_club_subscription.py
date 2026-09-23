@@ -49,13 +49,11 @@ CLUB_SETTINGS = {
     'TRIBUTE_CLUB_SUBSCRIPTION_RUB_URL': 'https://web.tribute.tg/s/club-rub',
     'TRIBUTE_CLUB_SUBSCRIPTION_RUB_AMOUNT': '60000',
     'TRIBUTE_CLUB_SUBSCRIPTION_RUB_FIRST_AMOUNT': '42000',
-    'TRIBUTE_CLUB_SUBSCRIPTION_RUB_YEARLY_AMOUNT': '600000',
     'TRIBUTE_CLUB_SUBSCRIPTION_RUB_CURRENCY': 'RUB',
     'TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID': '262466',
     'TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL': 'https://t.me/tribute/app?startapp=s16hk',
     'TRIBUTE_CLUB_SUBSCRIPTION_EUR_AMOUNT': '555',
     'TRIBUTE_CLUB_SUBSCRIPTION_EUR_FIRST_AMOUNT': '389',
-    'TRIBUTE_CLUB_SUBSCRIPTION_EUR_YEARLY_AMOUNT': '5800',
     'TRIBUTE_CLUB_SUBSCRIPTION_EUR_CURRENCY': 'EUR',
     'TELEGRAM_BOT_TOKEN': 'test-bot-token',
     'TELEGRAM_BOT_USERNAME': 'interoves_test_bot',
@@ -103,11 +101,11 @@ class ClubSubscriptionPageTests(TestCase):
         self.assertIn('Войти, чтобы оформить', body)
         self.assertIn('420 ₽', body)
         self.assertIn('600 ₽', body)
-        self.assertIn('6 000 ₽', body)
         self.assertIn('€5.55', body)
         self.assertIn('первый месяц', body)
         self.assertIn('€3.89', body)
-        self.assertIn('€58', body)
+        self.assertNotIn('12 месяцев', body)
+        self.assertNotIn('за год', body)
         self.assertIn('последние 7 заданий', body)
         self.assertIn('noindex,nofollow', body)
         self.assertIn('data-login-open', body)
@@ -330,7 +328,7 @@ class ClubWebhookAndMappingTests(TestCase):
         self.assertEqual(sub.amount, 555)
         self.assertTrue(has_club_access(self.user))
 
-    def test_eur_first_month_and_yearly_amounts_are_accepted(self):
+    def test_eur_first_month_is_accepted_but_yearly_amount_is_rejected(self):
         first = self._payload(
             subscription_id=262466,
             amount=389,
@@ -355,8 +353,8 @@ class ClubWebhookAndMappingTests(TestCase):
         )
         self.assertEqual(self._post(yearly, created_at='2026-09-06T12:00:00Z').status_code, 200)
         sub = ClubSubscription.objects.get(user=self.user)
-        self.assertEqual(sub.amount, 5800)
-        self.assertTrue(has_club_access(self.user))
+        self.assertNotEqual(sub.amount, 5800)
+        self.assertFalse(has_club_access(self.user))
 
     def test_renewal_extends_paid_until_and_is_idempotent(self):
         first_end = timezone.now() + timedelta(days=30)

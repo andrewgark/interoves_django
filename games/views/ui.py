@@ -83,7 +83,6 @@ from games.views.subscription import (  # noqa: E402
     subscription_checkout,
     subscription_page,
     subscription_payment_method_detach,
-    subscription_yookassa_annual_start,
     subscription_yookassa_cancel,
     subscription_yookassa_monthly_start,
     subscription_yookassa_resume,

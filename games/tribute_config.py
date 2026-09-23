@@ -148,7 +148,6 @@ class ClubTributeProduct:
     currency: str
     accepted_amounts: frozenset[int] = frozenset()
     first_amount: int | None = None
-    yearly_amount: int | None = None
 
     def __post_init__(self):
         if not self.accepted_amounts:
@@ -172,10 +171,6 @@ class ClubTributeProduct:
     @property
     def first_amount_display(self) -> str:
         return self.format_amount(self.first_amount) if self.first_amount else ''
-
-    @property
-    def yearly_amount_display(self) -> str:
-        return self.format_amount(self.yearly_amount) if self.yearly_amount else ''
 
     @property
     def price_label(self) -> str:
@@ -221,7 +216,6 @@ def _read_club_product(kind: str) -> tuple[ClubTributeProduct | None, list[str]]
     raw_amount = str(getattr(settings, prefix + 'AMOUNT', '') or '').strip()
     currency = str(getattr(settings, prefix + 'CURRENCY', '') or '').strip().upper()
     raw_first = str(getattr(settings, prefix + 'FIRST_AMOUNT', '') or '').strip()
-    raw_yearly = str(getattr(settings, prefix + 'YEARLY_AMOUNT', '') or '').strip()
     errors = []
 
     try:
@@ -240,13 +234,6 @@ def _read_club_product(kind: str) -> tuple[ClubTributeProduct | None, list[str]]
         if first:
             first_amount = first
             accepted.add(first)
-    yearly_amount = None
-    if raw_yearly:
-        yearly = _parse_positive_int(raw_yearly, field=prefix + 'YEARLY_AMOUNT', errors=errors)
-        if yearly:
-            yearly_amount = yearly
-            accepted.add(yearly)
-
     if currency not in CLUB_SUPPORTED_CURRENCIES:
         errors.append('{}CURRENCY must be RUB or EUR'.format(prefix))
 
@@ -268,7 +255,6 @@ def _read_club_product(kind: str) -> tuple[ClubTributeProduct | None, list[str]]
         currency,
         frozenset(accepted),
         first_amount,
-        yearly_amount,
     ), []
 
 

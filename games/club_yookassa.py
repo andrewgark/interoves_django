@@ -1,4 +1,4 @@
-"""YooKassa billing for Inter Oves Club (RUB monthly + annual).
+"""YooKassa billing for Inter Oves Club (RUB monthly).
 
 Does not touch TicketRequest / team-ticket payments. Entitlement remains
 ClubSubscription.paid_until via games.club_access.has_club_access.
@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 CURRENCY = 'RUB'
 AMOUNT_INTRO_KOPECKS = 420_00
 AMOUNT_MONTHLY_KOPECKS = 600_00
-AMOUNT_ANNUAL_KOPECKS = 6000_00
 
 PENDING_REUSE_MINUTES = 45
 METADATA_PURPOSE = 'club_subscription'
@@ -334,96 +333,6 @@ def start_monthly_subscription(user, *, return_url: str) -> StartPaymentResult:
     return StartPaymentResult(True, payment=local, confirmation_url=confirmation_url)
 
 
-def start_annual_subscription(user, *, return_url: str) -> StartPaymentResult:
-    if not club_yookassa_enabled():
-        return StartPaymentResult(
-            False, 'disabled', 'Оплата российской картой пока недоступна.', http_status=503,
-        )
-    with _billing_lock(user.pk):
-        subscription = ClubSubscription.objects.select_for_update().filter(user=user).first()
-        if subscription is None:
-            subscription = ClubSubscription.objects.create(
-                user=user,
-                provider=ClubSubscription.PROVIDER_YOOKASSA,
-                status=ClubSubscription.STATUS_EXPIRED,
-            )
-            subscription = ClubSubscription.objects.select_for_update().get(pk=subscription.pk)
-        if subscription.grants_access():
-            return StartPaymentResult(
-                False,
-                'already_subscribed',
-                'Подписка уже активна. Дождитесь конца оплаченного периода.',
-                http_status=409,
-            )
-
-        reused = _reuse_pending_payment(subscription, ClubYooKassaPayment.KIND_ANNUAL)
-        if reused is not None:
-            return StartPaymentResult(
-                True, payment=reused, confirmation_url=reused.confirmation_url,
-            )
-
-        now = timezone.now()
-        period_end = add_calendar_years(now, 1)
-        idempotency_key = uuid.uuid4().hex
-        period_key = '{}:{}'.format(ClubYooKassaPayment.KIND_ANNUAL, idempotency_key)
-        try:
-            local = ClubYooKassaPayment.objects.create(
-                club_subscription=subscription,
-                user=user,
-                kind=ClubYooKassaPayment.KIND_ANNUAL,
-                period_start=now,
-                period_end=period_end,
-                period_key=period_key,
-                amount=AMOUNT_ANNUAL_KOPECKS,
-                currency=CURRENCY,
-                status=ClubYooKassaPayment.STATUS_PENDING,
-                idempotency_key=idempotency_key,
-            )
-        except IntegrityError:
-            return StartPaymentResult(
-                False, 'conflict', 'Платёж уже создаётся. Обновите страницу.', http_status=409,
-            )
-
-        subscription.provider = ClubSubscription.PROVIDER_YOOKASSA
-        subscription.plan = ClubSubscription.PLAN_ANNUAL
-        subscription.status = ClubSubscription.STATUS_PENDING
-        subscription.save(update_fields=['provider', 'plan', 'status', 'updated_at'])
-
-    try:
-        payment_data = _create_yookassa_payment(
-            local_payment=local,
-            amount_kopecks=AMOUNT_ANNUAL_KOPECKS,
-            description='Доступ к Inter Oves — 12 месяцев',
-            save_payment_method=False,
-            return_url=return_url,
-        )
-    except Exception:
-        logger.error(
-            'subscription_annual_payment_created_failed user_id=%s payment_id=%s',
-            user.pk, local.pk,
-        )
-        local.failure_code = 'create_failed'
-        local.status = ClubYooKassaPayment.STATUS_CANCELED
-        local.save(update_fields=['failure_code', 'status', 'updated_at'])
-        return StartPaymentResult(
-            False, 'yookassa', 'Не получилось создать платёж. Попробуйте позже.', http_status=502,
-        )
-
-    confirmation_url = (payment_data.get('confirmation') or {}).get('confirmation_url') or ''
-    local.yookassa_payment_id = payment_data.get('id') or ''
-    local.confirmation_url = confirmation_url
-    local.save(update_fields=['yookassa_payment_id', 'confirmation_url', 'updated_at'])
-    logger.info(
-        'subscription_initial_payment_created user_id=%s payment_pk=%s kind=annual',
-        user.pk, local.pk,
-    )
-    if not confirmation_url:
-        return StartPaymentResult(
-            False, 'yookassa', 'Не получилось открыть оплату. Попробуйте позже.', http_status=502,
-        )
-    return StartPaymentResult(True, payment=local, confirmation_url=confirmation_url)
-
-
 def cancel_yookassa_subscription(user) -> StartPaymentResult:
     with _billing_lock(user.pk):
         subscription = (
@@ -439,7 +348,7 @@ def cancel_yookassa_subscription(user) -> StartPaymentResult:
             return StartPaymentResult(
                 False,
                 'not_monthly',
-                'Годовая подписка без автопродления — отменять нечего.',
+                'Автопродление доступно только для месячной подписки.',
                 http_status=400,
             )
         if not subscription.auto_renew:

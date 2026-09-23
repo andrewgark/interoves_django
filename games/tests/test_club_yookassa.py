@@ -13,7 +13,6 @@ from allauth.socialaccount.models import SocialApp
 
 from games.club_access import has_club_access
 from games.club_yookassa import (
-    AMOUNT_ANNUAL_KOPECKS,
     AMOUNT_INTRO_KOPECKS,
     AMOUNT_MONTHLY_KOPECKS,
     _submit_renewal,
@@ -24,7 +23,6 @@ from games.club_yookassa import (
     process_yookassa_club_payment_event,
     renew_due_subscriptions,
     resume_yookassa_subscription,
-    start_annual_subscription,
     start_monthly_subscription,
 )
 from games.models import ClubSubscription, ClubYooKassaPayment, HTMLPage, Profile, Project, SavedPaymentMethod
@@ -202,25 +200,6 @@ class ClubYooKassaFlowTests(TestCase):
 
     @patch('games.club_yookassa.configure_yookassa_from_env')
     @patch('games.club_yookassa.Payment.create')
-    def test_annual_is_9000_without_save_method(self, create_mock, _cfg):
-        create_mock.return_value = self._mock_create(payment_id='yk-year')
-        result = start_annual_subscription(self.user, return_url='https://x/return')
-        self.assertTrue(result.ok)
-        payload = create_mock.call_args[0][0]
-        self.assertEqual(payload['amount']['value'], '6000.00')
-        self.assertFalse(payload['save_payment_method'])
-        local = ClubYooKassaPayment.objects.get()
-        process_yookassa_club_payment_event('payment.succeeded', _payment_payload(local, saved=False))
-        sub = ClubSubscription.objects.get(user=self.user)
-        self.assertTrue(has_club_access(self.user))
-        self.assertEqual(sub.plan, ClubSubscription.PLAN_ANNUAL)
-        self.assertFalse(sub.auto_renew)
-        self.assertIsNone(sub.saved_payment_method_id)
-        self.assertIsNone(sub.intro_offer_used_at)
-        self.assertGreater(sub.paid_until, timezone.now() + timedelta(days=360))
-
-    @patch('games.club_yookassa.configure_yookassa_from_env')
-    @patch('games.club_yookassa.Payment.create')
     def test_cancel_keeps_access_until_paid_through(self, create_mock, _cfg):
         create_mock.return_value = self._mock_create()
         start_monthly_subscription(self.user, return_url='https://x/return')
@@ -307,13 +286,12 @@ class ClubYooKassaFlowTests(TestCase):
         body = self.client.get(reverse('new_subscription')).content.decode()
         self.assertIn('420 ₽', body)
         self.assertIn('600 ₽', body)
-        self.assertIn('6 000 ₽', body)
+        self.assertNotIn('6 000 ₽', body)
         self.assertIn('последние 7 заданий', body)
 
     def test_endpoints_require_auth(self):
         for name in (
             'new_subscription_yookassa_monthly',
-            'new_subscription_yookassa_annual',
             'new_subscription_yookassa_cancel',
             'new_subscription_yookassa_resume',
         ):

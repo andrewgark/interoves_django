@@ -20,7 +20,6 @@ from games.analytics import (
 )
 from games.club_access import get_club_subscription, has_club_access
 from games.club_yookassa import (
-    AMOUNT_ANNUAL_KOPECKS,
     AMOUNT_INTRO_KOPECKS,
     AMOUNT_MONTHLY_KOPECKS,
     add_calendar_months,
@@ -31,7 +30,6 @@ from games.club_yookassa import (
     intro_available,
     renewal_pending_at_detach,
     resume_yookassa_subscription,
-    start_annual_subscription,
     start_monthly_subscription,
     yookassa_recurring_enabled,
 )
@@ -75,13 +73,6 @@ def _format_minor_amount(amount: int, currency: str) -> str:
     return '{} {}'.format(display, currency)
 
 
-def _annual_saving_percent(monthly_amount: int, annual_amount: int) -> int:
-    regular_year_amount = monthly_amount * 12
-    if annual_amount <= 0 or annual_amount >= regular_year_amount:
-        return 0
-    return round((regular_year_amount - annual_amount) * 100 / regular_year_amount)
-
-
 def _display_status(subscription: ClubSubscription | None, *, now=None) -> str:
     if subscription is None:
         return 'none'
@@ -96,8 +87,6 @@ def _price_label(subscription: ClubSubscription | None) -> str:
         display = '{:,.0f}'.format(major).replace(',', ' ')
     else:
         display = '{:,.2f}'.format(major).replace(',', ' ')
-    if subscription.plan == ClubSubscription.PLAN_ANNUAL and subscription.currency == 'RUB':
-        return '{} ₽ за год'.format(display)
     if subscription.currency == 'RUB':
         if subscription.provider == ClubSubscription.PROVIDER_YOOKASSA:
             return '{} ₽ в месяц'.format('{:,.0f}'.format(AMOUNT_MONTHLY_KOPECKS / 100).replace(',', ' '))
@@ -139,13 +128,11 @@ def _subscription_page_context(request):
         subscription and subscription.provider == ClubSubscription.PROVIDER_YOOKASSA
     )
     is_monthly = bool(subscription and subscription.plan == ClubSubscription.PLAN_MONTHLY)
-    is_annual = bool(subscription and subscription.plan == ClubSubscription.PLAN_ANNUAL)
     show_next_charge = bool(
         status == ClubSubscription.STATUS_ACTIVE
         and subscription
         and subscription.paid_until
         and subscription.auto_renew
-        and not is_annual
     )
     next_charge_amount_label = ''
     if show_next_charge and is_yookassa and is_monthly:
@@ -159,11 +146,6 @@ def _subscription_page_context(request):
     monthly_amount = initial_monthly_amount_kopecks(subscription)
     monthly_intro_label = _format_minor_amount(AMOUNT_INTRO_KOPECKS, '₽')
     monthly_regular_label = _format_minor_amount(AMOUNT_MONTHLY_KOPECKS, '₽')
-    annual_label = _format_minor_amount(AMOUNT_ANNUAL_KOPECKS, '₽')
-    tribute_annual_saving_percent = (
-        _annual_saving_percent(eur.amount, eur.yearly_amount)
-        if eur and eur.yearly_amount else 0
-    )
     tribute_intro_used = bool(
         subscription
         and eur
@@ -201,7 +183,6 @@ def _subscription_page_context(request):
         'club_yookassa_enabled': yk_enabled,
         'yookassa_recurring_enabled': yookassa_recurring_enabled(),
         'club_eur': eur,
-        'club_eur_annual_saving_percent': tribute_annual_saving_percent,
         'club_management_url': club_management_url(),
         'tribute_seller': seller,
         'tribute_seller_url': seller_url,
@@ -217,19 +198,13 @@ def _subscription_page_context(request):
         'can_resume_yookassa': bool(saved_method and subscription
                                     and saved_method.method_type == 'bank_card'
                                     and subscription.saved_payment_method_id == saved_method.pk),
-        'is_annual_plan': is_annual,
         'intro_available': intro,
         'tribute_intro_available': intro and not tribute_intro_used,
         'monthly_amount_kopecks': monthly_amount,
         'monthly_intro_kopecks': AMOUNT_INTRO_KOPECKS,
         'monthly_regular_kopecks': AMOUNT_MONTHLY_KOPECKS,
-        'annual_kopecks': AMOUNT_ANNUAL_KOPECKS,
         'monthly_intro_label': monthly_intro_label,
         'monthly_regular_label': monthly_regular_label,
-        'annual_label': annual_label,
-        'yookassa_annual_saving_percent': _annual_saving_percent(
-            AMOUNT_MONTHLY_KOPECKS, AMOUNT_ANNUAL_KOPECKS,
-        ),
         'monthly_cta_label': 'Подписаться за {}'.format(
             monthly_intro_label if intro else monthly_regular_label,
         ),
@@ -360,33 +335,6 @@ def subscription_yookassa_monthly_start(request):
                 YANDEX_GOAL_SUBSCRIPTION_CHECKOUT,
                 params={'provider': 'yookassa', 'plan': 'monthly', 'amount': amount},
                 key='subscription_yk_monthly:{}:{}'.format(
-                    request.user.pk, getattr(result.payment, 'pk', 'x'),
-                ),
-            ),
-        ],
-    })
-
-
-@require_http_methods(['POST'])
-def subscription_yookassa_annual_start(request):
-    guard = _auth_json_guard(request)
-    if guard is not None:
-        return guard
-    return_url = request.build_absolute_uri('/subscription/?payment=return')
-    result = start_annual_subscription(request.user, return_url=return_url)
-    if not result.ok:
-        return JsonResponse(
-            {'status': 'error', 'reason': result.reason, 'message': result.message},
-            status=result.http_status,
-        )
-    return JsonResponse({
-        'status': 'ok',
-        'payment_url': result.confirmation_url,
-        'analytics_events': [
-            yandex_goal_payload(
-                YANDEX_GOAL_SUBSCRIPTION_CHECKOUT,
-                params={'provider': 'yookassa', 'plan': 'annual', 'amount': AMOUNT_ANNUAL_KOPECKS},
-                key='subscription_yk_annual:{}:{}'.format(
                     request.user.pk, getattr(result.payment, 'pk', 'x'),
                 ),
             ),

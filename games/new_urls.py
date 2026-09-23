@@ -141,11 +141,6 @@ urlpatterns = [
         name='new_subscription_yookassa_monthly',
     ),
     path(
-        'subscription/yookassa/annual/',
-        ui.subscription_yookassa_annual_start,
-        name='new_subscription_yookassa_annual',
-    ),
-    path(
         'subscription/yookassa/cancel/',
         ui.subscription_yookassa_cancel,
         name='new_subscription_yookassa_cancel',
