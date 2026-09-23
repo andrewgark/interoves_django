@@ -1,7 +1,6 @@
 import json
-import logging
 
-from django.db import OperationalError, transaction
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -20,7 +19,6 @@ from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Ta
 from games.replay import StaleReplayError, replay_for_request
 from games.completion_coordinator import complete_logical_game
 from games.middleware.request_timing import timing_phase
-from games.mysql_retry import is_mysql_lock_retryable
 from games.analytics_identity import gameplay_anon_key
 from games.auth_observability import log_gameplay_attempt_created
 from games.gameplay_context import context_error_response, validate_gameplay_context
@@ -47,10 +45,6 @@ from games.raddle import (
     serialize_raddle_attempt_text,
     word_matches,
 )
-
-
-logger = logging.getLogger(__name__)
-CHAIN_ATTEMPT_LOCK_RETRY_ATTEMPTS = 2
 
 
 def _raddle_chain_state(task, team, user, anon_key, game, current_mode, replay_slot=None):
@@ -331,33 +325,9 @@ def check_attempt(attempt, *, persist_wrong=True, timing_request=None):
             chain_state_row.save(update_fields=['state', 'last_attempt', 'updated_at'])
         return True
 
-    # The Task row is the stable lock row for ordinary submissions too. A
-    # transient InnoDB lock timeout rolls back the whole transaction, so retry
-    # the complete attempt rather than continuing inside a broken transaction.
-    persisted = None
-    for lock_attempt in range(1, CHAIN_ATTEMPT_LOCK_RETRY_ATTEMPTS + 1):
-        try:
-            with transaction.atomic():
-                persisted = _run()
-            break
-        except OperationalError as exc:
-            if (
-                not attempt._state.adding
-                or not is_mysql_lock_retryable(exc)
-                or lock_attempt >= CHAIN_ATTEMPT_LOCK_RETRY_ATTEMPTS
-            ):
-                raise
-            logger.warning(
-                'attempt lock retry attempt=%s/%s task=%s',
-                lock_attempt,
-                CHAIN_ATTEMPT_LOCK_RETRY_ATTEMPTS,
-                task.pk,
-            )
-            # _run() may have assigned a primary key before the transaction
-            # rolled back. Make the object insertable on the next try.
-            attempt.pk = None
-            attempt._state.adding = True
-            attempt._state.db = None
+    # The Task row is the stable lock row for ordinary submissions too.
+    with transaction.atomic():
+        persisted = _run()
 
     if not persisted:
         return False
