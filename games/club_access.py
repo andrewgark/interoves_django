@@ -84,6 +84,16 @@ def user_can_access_desyatka(user, game, *, now=None) -> bool:
         return True
     if getattr(user, 'is_staff', False):
         return True
+    # A team's registration is a ticket for this particular Desyatka. Keep
+    # it valid after a user's Club subscription expires: the entitlement
+    # belongs to the team, not to an individual member's subscription.
+    if getattr(user, 'is_authenticated', False):
+        from games.models import ProfileTeamMembership
+        if ProfileTeamMembership.objects.filter(
+            profile__user=user,
+            team__registrations__game=game,
+        ).exists():
+            return True
     return has_club_access(user, now=now)
 
 
