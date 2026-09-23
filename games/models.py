@@ -226,6 +226,11 @@ class Profile(models.Model):
     # Подтвержденная через Telegram-бота identity. telegram_handle выше остается
     # публичным редактируемым контактом и никогда не используется для платежного matching.
     telegram_user_id = models.BigIntegerField(blank=True, null=True, unique=True)
+    # Telegram OIDC ``sub`` is a separate stable subject, not the Bot API user ID.
+    # Keep it for account identity bookkeeping; Tribute matching uses telegram_user_id.
+    telegram_oidc_sub = models.CharField(
+        max_length=255, blank=True, null=True, unique=True, db_index=True,
+    )
     telegram_username = models.CharField(max_length=64, blank=True, default='')
     telegram_verified = models.BooleanField(default=False)
     telegram_linked_at = models.DateTimeField(blank=True, null=True)

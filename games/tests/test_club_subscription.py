@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
@@ -9,7 +10,7 @@ from django.utils import timezone
 
 from allauth.socialaccount.models import SocialApp
 
-from games.club_access import has_club_access
+from games.club_access import has_club_access, user_can_access_desyatka
 from games.models import (
     ClubSubscription,
     ClubSubscriptionEvent,
@@ -19,8 +20,10 @@ from games.models import (
     Profile,
     PlayerCompletedGame,
     Project,
+    Registration,
     Task,
     TaskGroup,
+    Team,
     TributePurchase,
 )
 from games.telegram_linking import consume_link_token, create_link_token, user_has_telegram_link
@@ -205,11 +208,23 @@ class ClubSubscriptionPageTests(TestCase):
         self.assertIn('value="eur"', body)
         self.assertNotIn('Следующее списание', body)
 
-    def test_checkout_requires_csrf_and_telegram(self):
+    @patch('games.telegram.notify.notify_admin_club_subscription_attempt_failed')
+    def test_checkout_requires_csrf_and_telegram(self, notify_mock):
         self.client.force_login(self.unlinked)
         response = self.client.post(reverse('new_subscription_checkout'), {'currency': 'rub'})
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.json()['reason'], 'telegram_unlinked')
+        notify_mock.assert_called_once()
+
+    @patch('games.telegram.notify.notify_admin_club_subscription_attempt_failed')
+    def test_failed_tribute_checkout_notifies_admin(self, notify_mock):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('new_subscription_checkout'), {'currency': 'rub'})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['reason'], 'use_yookassa')
+        notify_mock.assert_called_once()
+        self.assertEqual(notify_mock.call_args.kwargs['provider'], 'tribute')
+        self.assertEqual(notify_mock.call_args.kwargs['reason'], 'use_yookassa')
 
 
 @override_settings(**CLUB_SETTINGS)
@@ -297,6 +312,21 @@ class ClubWebhookAndMappingTests(TestCase):
         self._post(self._payload(telegram_user_id=777001, telegram_username='someone_else'))
         self.assertTrue(has_club_access(self.user))
         self.assertFalse(has_club_access(other))
+
+    def test_tribute_id_can_match_stored_oidc_subject_during_migration(self):
+        legacy_user = User.objects.create_user('legacy-oidc-club')
+        Profile.objects.create(
+            user=legacy_user,
+            first_name='Legacy',
+            last_name='OIDC',
+            telegram_user_id=888003,
+            telegram_oidc_sub='777002',
+            telegram_username='legacyclub',
+            telegram_verified=True,
+        )
+        response = self._post(self._payload(telegram_user_id=777002))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(has_club_access(legacy_user))
 
     def test_unknown_product_is_ignored(self):
         response = self._post(self._payload(subscription_id=5555))
@@ -616,6 +646,40 @@ class ClubArchiveAccessTests(TestCase):
             'text': 'answer',
         })
         self.assertEqual(attempt.json()['status'], 'no_access')
+
+    def test_registered_desyatka_team_keeps_access_without_club_subscription(self):
+        team = Team.objects.create(name='registered-desyatka-team', project_id='main')
+        self.user.profile.add_team_membership(team, make_primary=True)
+        game = Game.objects.create(
+            id='des1', name='Десяточка 1', author='test', project_id='main',
+        )
+        Registration.objects.create(game=game, team=team)
+
+        with patch('games.club_access._latest_desyatka_numbers', return_value={2, 3, 4, 5, 6, 7, 8}):
+            self.assertFalse(has_club_access(self.user))
+            self.assertTrue(user_can_access_desyatka(self.user, game))
+
+    def test_club_subscriber_can_play_archived_desyatka_as_team(self):
+        team = Team.objects.create(name='club-desyatka-team', project_id='main')
+        self.user.profile.add_team_membership(team, make_primary=True)
+        game = Game.objects.create(
+            id='des9', name='Десяточка 9', author='test', project_id='main',
+            is_ready=True, is_playable=True, is_tournament=True,
+            is_registrable=False,
+            start_time=timezone.now() - timedelta(days=30),
+            end_time=timezone.now() - timedelta(days=29),
+        )
+        ClubSubscription.objects.create(
+            user=self.user,
+            status=ClubSubscription.STATUS_ACTIVE,
+            auto_renew=True,
+            paid_until=timezone.now() + timedelta(days=5),
+        )
+
+        with patch('games.club_access._latest_desyatka_numbers', return_value={10, 11, 12, 13, 14, 15, 16}):
+            self.assertTrue(user_can_access_desyatka(self.user, game))
+            self.assertTrue(game.has_access('play', team=team))
+            self.assertTrue(game.has_access('play_with_team', team=team))
 
     def test_active_opens_archive(self):
         ClubSubscription.objects.create(

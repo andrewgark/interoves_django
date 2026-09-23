@@ -248,11 +248,15 @@ def sync_telegram_identity(sender, **kw):
     from games.telegram_oidc import telegram_user_id_from_claims
 
     telegram_user_id = telegram_user_id_from_claims(extra)
+    oidc_sub = str(account.uid or '').strip() or None
     old_oidc_uid = None
     try:
         old_oidc_uid = int(account.uid)
     except (TypeError, ValueError):
         pass
+    if oidc_sub and profile.telegram_oidc_sub != oidc_sub:
+        profile.telegram_oidc_sub = oidc_sub
+        updates.append("telegram_oidc_sub")
     if telegram_user_id is not None and (
         profile.telegram_user_id is None
         or (

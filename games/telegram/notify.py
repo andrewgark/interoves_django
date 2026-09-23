@@ -65,6 +65,35 @@ def send_admin_message(text: str, *, reply_markup: dict | None = None, force: bo
     return send_message(admin_chat_id(), text, reply_markup=reply_markup)
 
 
+def notify_admin_club_subscription_attempt_failed(
+    user, *, provider: str, reason: str, message: str, currency: str = '',
+) -> bool:
+    """Notify the admin chat when an authenticated Club checkout cannot start."""
+    try:
+        profile = getattr(user, 'profile', None)
+        username = getattr(profile, 'telegram_username', '') or ''
+        telegram_id = getattr(profile, 'telegram_user_id', '') or ''
+        telegram_label = '@{}'.format(_escape(username)) if username else '—'
+        if telegram_id:
+            telegram_label += ' (id {})'.format(_escape(telegram_id))
+        lines = [
+            '⚠️ <b>Не удалось начать новую клубную подписку</b>',
+            '',
+            'Пользователь: <b>{}</b>'.format(_escape(user.get_username())),
+            'Telegram: {}'.format(telegram_label),
+            'Провайдер: {}'.format(_escape(provider)),
+            'Причина: {}'.format(_escape(reason)),
+        ]
+        if currency:
+            lines.append('Валюта: {}'.format(_escape(currency.upper())))
+        if message:
+            lines.append('Сообщение: {}'.format(_escape(message)))
+        return send_admin_message(_join_lines(lines), force=True)
+    except Exception:
+        logger.exception('Failed to notify admin about failed club subscription attempt user=%s', user.pk)
+        return False
+
+
 def notify_admin_club_subscription(subscription_id: int, event_name: str, *, payment_kind: str = '') -> bool:
     """Notify the admin chat about a durable Club subscription state change."""
     try:

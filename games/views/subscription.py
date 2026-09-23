@@ -244,6 +244,20 @@ def _auth_json_guard(request):
     return None
 
 
+def _notify_subscription_start_failure(request, *, provider: str, reason: str, message: str, currency: str = ''):
+    if not request.user.is_authenticated:
+        return
+    from games.telegram.notify import notify_admin_club_subscription_attempt_failed
+
+    notify_admin_club_subscription_attempt_failed(
+        request.user,
+        provider=provider,
+        reason=reason,
+        message=message,
+        currency=currency,
+    )
+
+
 @require_http_methods(['POST'])
 def subscription_checkout(request):
     """Tribute EUR (and optional Tribute RUB) checkout — unchanged path."""
@@ -251,48 +265,72 @@ def subscription_checkout(request):
     if guard is not None:
         return guard
     if not user_has_telegram_link(request.user):
+        message = 'Сначала привяжите Telegram, чтобы Tribute мог открыть клубный доступ.'
+        _notify_subscription_start_failure(
+            request, provider='tribute', reason='telegram_unlinked', message=message,
+        )
         return JsonResponse(
             {
                 'status': 'error',
                 'reason': 'telegram_unlinked',
-                'message': 'Сначала привяжите Telegram, чтобы Tribute мог открыть клубный доступ.',
+                'message': message,
             },
             status=409,
         )
     if not club_checkout_enabled():
+        message = 'Оформление клубной подписки пока не настроено.'
+        _notify_subscription_start_failure(
+            request, provider='tribute', reason='club_config', message=message,
+        )
         return JsonResponse(
-            {'status': 'error', 'reason': 'club_config', 'message': 'Оформление клубной подписки пока не настроено.'},
+            {'status': 'error', 'reason': 'club_config', 'message': message},
             status=503,
         )
     status = _display_status(get_club_subscription(request.user))
     if status in (ClubSubscription.STATUS_ACTIVE, ClubSubscription.STATUS_CANCELLED):
+        message = 'Подписка уже оформлена.'
+        _notify_subscription_start_failure(
+            request, provider='tribute', reason='already_subscribed', message=message,
+        )
         return JsonResponse(
             {
                 'status': 'error',
                 'reason': 'already_subscribed',
-                'message': 'Подписка уже оформлена.',
+                'message': message,
             },
             status=409,
         )
     currency = str(request.POST.get('currency') or '').strip().lower()
     if currency not in ('rub', 'eur'):
+        message = 'Выберите способ оплаты.'
+        _notify_subscription_start_failure(
+            request, provider='tribute', reason='currency', message=message, currency=currency,
+        )
         return JsonResponse(
-            {'status': 'error', 'reason': 'currency', 'message': 'Выберите способ оплаты.'},
+            {'status': 'error', 'reason': 'currency', 'message': message},
             status=400,
         )
     if currency == 'rub':
+        message = 'Российская карта оплачивается через ЮKassa.'
+        _notify_subscription_start_failure(
+            request, provider='tribute', reason='use_yookassa', message=message, currency=currency,
+        )
         return JsonResponse(
             {
                 'status': 'error',
                 'reason': 'use_yookassa',
-                'message': 'Российская карта оплачивается через ЮKassa.',
+                'message': message,
             },
             status=400,
         )
     product = configured_club_product(currency)
     if product is None:
+        message = 'Этот вариант оплаты пока не настроен.'
+        _notify_subscription_start_failure(
+            request, provider='tribute', reason='club_config', message=message, currency=currency,
+        )
         return JsonResponse(
-            {'status': 'error', 'reason': 'club_config', 'message': 'Этот вариант оплаты пока не настроен.'},
+            {'status': 'error', 'reason': 'club_config', 'message': message},
             status=503,
         )
     logger.info(
@@ -324,6 +362,13 @@ def subscription_yookassa_monthly_start(request):
     return_url = request.build_absolute_uri('/subscription/?payment=return')
     result = start_monthly_subscription(request.user, return_url=return_url)
     if not result.ok:
+        _notify_subscription_start_failure(
+            request,
+            provider='yookassa',
+            reason=result.reason,
+            message=result.message,
+            currency='RUB',
+        )
         return JsonResponse(
             {'status': 'error', 'reason': result.reason, 'message': result.message},
             status=result.http_status,

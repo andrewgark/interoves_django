@@ -29,6 +29,7 @@ class TelegramOIDCTests(TestCase):
         )
         profile = Profile.objects.get(user=user)
         self.assertEqual(profile.telegram_user_id, 987654)
+        self.assertEqual(profile.telegram_oidc_sub, '5469547670986535499')
         self.assertTrue(profile.telegram_verified)
         self.assertEqual(profile.telegram_username, 'andrew')
 
@@ -49,6 +50,7 @@ class TelegramOIDCTests(TestCase):
         )
         profile = Profile.objects.get(user=user)
         self.assertEqual(profile.telegram_user_id, 101908)
+        self.assertEqual(profile.telegram_oidc_sub, '5469547670986535499')
         self.assertTrue(profile.telegram_verified)
 
     @patch('games.telegram_oidc.jwtkit.verify_and_decode')

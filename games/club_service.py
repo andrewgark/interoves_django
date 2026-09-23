@@ -20,6 +20,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone as dt_timezone
 
+from django.db.models import Q
 from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -52,6 +53,20 @@ class ClubProcessResult:
     event: ClubSubscriptionEvent
     subscription: ClubSubscription | None = None
     duplicate: bool = False
+
+
+def _profile_for_tribute_telegram_id(telegram_user_id):
+    """Match Tribute's numeric ID against either stored Telegram identity."""
+    return (
+        Profile.objects.select_for_update()
+        .select_related('user')
+        .filter(
+            Q(telegram_user_id=telegram_user_id)
+            | Q(telegram_oidc_sub=str(telegram_user_id)),
+            telegram_verified=True,
+        )
+        .first()
+    )
 
 
 def _parse_optional_int(value, field: str, *, required=False) -> int | None:
@@ -227,12 +242,7 @@ def process_subscription_event(event_name: str, payload: dict, *, envelope_creat
             )
             return ClubProcessResult(event)
 
-        profile = (
-            Profile.objects.select_for_update()
-            .select_related('user')
-            .filter(telegram_user_id=data['telegram_user_id'], telegram_verified=True)
-            .first()
-        )
+        profile = _profile_for_tribute_telegram_id(data['telegram_user_id'])
         if profile is None:
             event.result = ClubSubscriptionEvent.RESULT_UNMATCHED_TELEGRAM
             event.save(update_fields=['result'])

@@ -298,6 +298,17 @@ class ClubYooKassaFlowTests(TestCase):
             response = self.client.post(reverse(name))
             self.assertEqual(response.status_code, 401)
 
+    @patch('games.telegram.notify.notify_admin_club_subscription_attempt_failed')
+    @patch('games.club_yookassa.configure_yookassa_from_env')
+    @patch('games.club_yookassa.Payment.create', side_effect=RuntimeError('provider down'))
+    def test_failed_monthly_start_notifies_admin(self, _create, _cfg, notify_mock):
+        self.client.force_login(self.user)
+        response = self.client.post(reverse('new_subscription_yookassa_monthly'))
+        self.assertEqual(response.status_code, 502)
+        notify_mock.assert_called_once()
+        self.assertEqual(notify_mock.call_args.kwargs['provider'], 'yookassa')
+        self.assertEqual(notify_mock.call_args.kwargs['reason'], 'yookassa')
+
     @override_settings(YOOKASSA_RECURRING_ENABLED=False)
     @patch('games.club_yookassa.Payment.create')
     def test_recurring_flag_blocks_charges(self, create_mock):
