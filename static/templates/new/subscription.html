@@ -58,7 +58,14 @@
 
   <div class="new-card new-pay-order-card">
     {% if club_archive_gating_enabled %}
-      <div class="new-pay-order__name">Весь архив заданий</div>
+      {% if not has_club_access %}
+        <h2 class="new-pay-order__name new-pay-order__name--club">
+          <span class="new-pay-order__name--club-icons" aria-hidden="true"><i class="ph ph-key"></i><i class="ph ph-lock-key"></i></span>
+          <span>Разблокируйте весь архив заданий</span>
+        </h2>
+      {% else %}
+        <div class="new-pay-order__name">Весь архив заданий</div>
+      {% endif %}
       <div class="new-pay-order__meta">Без подписки в каждом разделе доступны последние 7 заданий. Более ранние выпуски — с клубной подпиской.</div>
     {% else %}
       <div class="new-pay-order__name">Поддержка проекта</div>

@@ -1690,9 +1690,10 @@ html.new-ui-dark body.new-ui {
 .daily-archive__day--available > a:hover, .daily-archive__day--available > a:focus-visible { background: color-mix(in srgb, var(--accent) 15%, var(--surface)); color: var(--accent); }
 .daily-archive__day--today > a, .daily-archive__day--today > span { box-shadow: 0 0 0 2px var(--accent); }
 .daily-archive__day--completed > a { color: var(--text); }
-.daily-archive__day--locked > a { background: color-mix(in srgb, var(--warning) 26%, var(--surface)); color: #5b4700; }
-.club-lock-icon { position: absolute; right: -.15rem; bottom: -.15rem; display: grid; place-items: center; width: .9rem; height: .9rem; border-radius: 50%; background: var(--warning); color: #1a1a1a; font-size: .55rem; }
-.daily-archive__day .ph-check-circle { position: absolute; right: -.1rem; bottom: -.1rem; font-size: .8rem; background: var(--surface); border-radius: 50%; }
+.daily-archive__day--locked > a { background: color-mix(in srgb, var(--warning) 26%, var(--surface)); color: #5b4700; font-weight: 750; }
+.club-lock-icon { position: absolute; right: -.2rem; bottom: -.2rem; display: grid; place-items: center; width: 1.1rem; height: 1.1rem; border: 2px solid var(--surface); border-radius: 50%; background: var(--warning); color: #1a1a1a; font-size: .68rem; }
+.daily-archive__day .ph-check-circle { position: absolute; right: -.15rem; bottom: -.15rem; font-size: 1rem; background: var(--surface); border-radius: 50%; }
+html.new-ui-dark .daily-archive__day--locked > a { color: #17130a; font-weight: 850; }
 .daily-archive__day.is-outside { visibility: hidden; }
 .daily-archive__day.is-disabled { opacity: .42; }
 .daily-archive__pager { margin-top: .75rem; }
@@ -3933,6 +3934,32 @@ html.new-ui-dark .new-team-switcher-active-box {
 .new-pay-order__name {
   font-size: 1.1rem;
   font-weight: 800;
+}
+
+.new-pay-order__name--club {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  color: var(--text);
+  font-size: clamp(1.25rem, 3vw, 1.65rem);
+  line-height: 1.15;
+  letter-spacing: -.015em;
+}
+
+.new-pay-order__name--club-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  color: var(--warning);
+  font-size: 1.6em;
+  line-height: 1;
+  filter: drop-shadow(0 2px 5px color-mix(in srgb, var(--warning) 25%, transparent));
+}
+
+.new-pay-order__name--club-icons i:last-child {
+  margin-left: -.25rem;
+  transform: translateY(.18em);
+  font-size: .72em;
 }
 
 .new-pay-order__meta {
