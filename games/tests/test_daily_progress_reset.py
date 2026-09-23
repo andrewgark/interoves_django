@@ -3,6 +3,7 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth.models import User
+from django.db import OperationalError
 from django.test import TestCase
 
 from games.daily_progress_reset import reset_current_daily_release_progress
@@ -105,3 +106,24 @@ class DailyProgressResetTests(TestCase):
 
         self.assertEqual(result, [])
         self.assertTrue(Attempt.manager.filter(pk=old.pk).exists())
+
+    @patch('games.daily_progress_reset.reset_daily_release_progress')
+    def test_retries_deadlock_and_continues(self, reset):
+        reset.side_effect = [
+            OperationalError(1213, 'Deadlock found when trying to get lock'),
+            {'reset': False, 'attempts': 0, 'hint_attempts': 0, 'chains': 0},
+        ]
+
+        result = reset_current_daily_release_progress(now=self.now, game_ids=('ladder',))
+
+        self.assertEqual(result, [])
+        self.assertEqual(reset.call_count, 2)
+
+    @patch('games.daily_progress_reset.reset_daily_release_progress')
+    def test_skips_reset_after_repeated_deadlocks(self, reset):
+        reset.side_effect = OperationalError(1213, 'Deadlock found when trying to get lock')
+
+        result = reset_current_daily_release_progress(now=self.now, game_ids=('ladder',))
+
+        self.assertEqual(result, [])
+        self.assertEqual(reset.call_count, 3)

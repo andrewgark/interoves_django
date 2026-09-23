@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import logging
 
 from django.contrib.auth.models import User
-from django.db import transaction
+from django.db import OperationalError, transaction
 from django.db.models import F
 from django.utils import timezone
 
@@ -19,10 +20,29 @@ from games.models import (
 
 DAILY_RESET_GAME_IDS = ('ladder', 'alphabetty', 'salad')
 CHAIN_TYPES = {'wall', 'replacements_lines', 'raddle', 'alphabetty', 'word_salad'}
+MYSQL_DEADLOCK_ERRNO = 1213
+RESET_DEADLOCK_ATTEMPTS = 3
+
+logger = logging.getLogger(__name__)
 
 
 def _actor_key(team_id, user_id, anon_key, replay_slot_id=None):
     return team_id, user_id, anon_key or None, replay_slot_id
+
+
+def _is_mysql_deadlock(exc):
+    current = exc
+    seen = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        args = getattr(current, 'args', None)
+        if args:
+            try:
+                return int(args[0]) == MYSQL_DEADLOCK_ERRNO
+            except (TypeError, ValueError):
+                pass
+        current = getattr(current, '__cause__', None)
+    return False
 
 
 def _actor_objects(keys):
@@ -146,7 +166,31 @@ def reset_current_daily_release_progress(*, now=None, game_ids=DAILY_RESET_GAME_
         placement = GameTaskGroup.objects.filter(game=game, number=str(number)).first() if number else None
         if placement is None:
             continue
-        result = reset_daily_release_progress(placement, now=now)
+        for attempt in range(1, RESET_DEADLOCK_ATTEMPTS + 1):
+            try:
+                result = reset_daily_release_progress(placement, now=now)
+                break
+            except OperationalError as exc:
+                if not _is_mysql_deadlock(exc):
+                    raise
+                if attempt >= RESET_DEADLOCK_ATTEMPTS:
+                    logger.warning(
+                        'daily_progress_reset deadlock exhausted attempts=%s game=%s number=%s',
+                        attempt,
+                        game.id,
+                        number,
+                    )
+                    result = None
+                    break
+                logger.warning(
+                    'daily_progress_reset deadlock retry attempt=%s/%s game=%s number=%s',
+                    attempt,
+                    RESET_DEADLOCK_ATTEMPTS,
+                    game.id,
+                    number,
+                )
+        if result is None:
+            continue
         if result['reset']:
             results.append({'game_id': game.id, 'number': str(number), **result})
     return results
