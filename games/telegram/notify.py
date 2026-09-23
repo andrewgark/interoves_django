@@ -114,6 +114,8 @@ def notify_admin_club_subscription(subscription_id: int, event_name: str, *, pay
             title = '🔴 <b>Отмена клубной подписки</b>'
         else:
             title = '🔄 <b>Продление клубной подписки</b>'
+        from games.tribute_config import ClubTributeProduct
+
         lines = [
             title,
             '',
@@ -121,7 +123,8 @@ def notify_admin_club_subscription(subscription_id: int, event_name: str, *, pay
             'Telegram: {}'.format(telegram_label),
             'Провайдер: {}'.format(_escape(subscription.provider)),
             'Сумма: {} {}'.format(
-                _escape(subscription.amount), _escape(subscription.currency),
+                _escape(ClubTributeProduct.format_amount(subscription.amount)),
+                _escape(subscription.currency),
             ),
         ]
         if payment_kind:

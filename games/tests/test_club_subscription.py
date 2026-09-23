@@ -27,6 +27,7 @@ from games.models import (
     TributePurchase,
 )
 from games.telegram_linking import consume_link_token, create_link_token, user_has_telegram_link
+from games.telegram.notify import notify_admin_club_subscription
 from games.tribute_config import club_checkout_enabled, club_product_configuration
 from games.tribute_util import compute_webhook_signature
 
@@ -290,6 +291,21 @@ class ClubWebhookAndMappingTests(TestCase):
         self.assertTrue(sub.auto_renew)
         self.assertEqual(sub.telegram_user_id, 777001)
         self.assertTrue(user_has_telegram_link(self.user))
+
+    @patch('games.telegram.notify.send_admin_message', return_value=True)
+    def test_admin_notification_formats_eur_amount_in_major_units(self, send_admin):
+        subscription = ClubSubscription.objects.create(
+            user=self.user,
+            status=ClubSubscription.STATUS_ACTIVE,
+            currency='EUR',
+            amount=389,
+            paid_until=timezone.now() + timedelta(days=30),
+        )
+
+        self.assertTrue(notify_admin_club_subscription(subscription.pk, 'new_subscription'))
+        message = send_admin.call_args.args[0]
+        self.assertIn('Сумма: 3.89 EUR', message)
+        self.assertNotIn('Сумма: 389 EUR', message)
 
     def test_invalid_signature_is_rejected(self):
         response = self._post(self._payload(), signature=False)
