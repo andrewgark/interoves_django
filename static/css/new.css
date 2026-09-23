@@ -1707,18 +1707,31 @@ html.new-ui-dark .daily-archive__day--locked > a { color: #17130a; font-weight: 
 .new-hub-group__heading-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .new-hub-group__heading-row .new-hub-group__title { margin-bottom: .85rem; }
 .club-subscription-cta {
-  min-width: 0;
-  max-width: 100%;
-  white-space: normal;
+  width: var(--btn-height-mini);
+  min-width: var(--btn-height-mini);
+  height: var(--btn-height-mini);
+  min-height: var(--btn-height-mini);
+  padding: 0;
+  flex: 0 0 var(--btn-height-mini);
+  font-size: 1.1rem;
+  line-height: 1;
+  white-space: nowrap;
 }
 .club-member-chat { margin-top: 1rem; }
 body.new-modal-open { overflow: hidden; }
 @media (max-width: 560px) {
   .daily-archive__day > a, .daily-archive__day > span { width: 2.2rem; height: 2.2rem; }
   .daily-archive__month-nav { margin-left: -.35rem; margin-right: -.35rem; }
-  .club-subscription-cta {
-    flex-basis: 100%;
-    width: 100%;
+}
+
+/* Mobile hub: keep the three daily-game blocks evenly spaced. */
+@media (max-width: 640px) {
+  .new-hub-sections-grid--daily-primary {
+    margin-bottom: .75rem;
+  }
+
+  .new-hub-group__heading-row--with-subscription {
+    margin-bottom: .75rem;
   }
 }
 

@@ -1,8 +1,6 @@
 {% extends "new/base.html" %}
 {% block title %}Игры{% endblock %}
 {% block content %}
-<h1 class="new-heading new-heading--page">Игры</h1>
-
 {% if show_first_visit_onboarding %}
 <aside class="new-first-visit" aria-labelledby="first-visit-heading">
   <div class="new-first-visit__body">
@@ -16,9 +14,9 @@
 
 {% if daily_hub_cards %}
 <section class="new-hub-group" aria-labelledby="hub-daily-heading">
-  <div class="new-hub-group__heading-row">
+  <div class="new-hub-group__heading-row{% if club_archive_gating_enabled %} new-hub-group__heading-row--with-subscription{% endif %}">
     <h2 id="hub-daily-heading" class="new-heading new-hub-group__title">Ежедневные игры</h2>
-    {% if club_archive_gating_enabled %}<a class="new-btn new-btn--yellow new-btn--mini club-subscription-cta" href="/subscription/">{% if club_archive_has_access %}<i class="ph ph-crown" aria-hidden="true"></i> Вы оплатили клубную подписку, вам доступен весь архив{% else %}<i class="ph ph-lock-key" aria-hidden="true"></i> Клубная подписка, доступ ко всему архиву{% endif %}</a>{% endif %}
+    {% if club_archive_gating_enabled %}<a class="new-btn new-btn--yellow new-btn--mini club-subscription-cta" href="/subscription/" aria-label="{% if club_archive_has_access %}Вы оплатили клубную подписку, вам доступен весь архив{% else %}Клубная подписка, доступ ко всему архиву{% endif %}" title="{% if club_archive_has_access %}Вы оплатили клубную подписку, вам доступен весь архив{% else %}Клубная подписка, доступ ко всему архиву{% endif %}">{% if club_archive_has_access %}<i class="ph ph-crown" aria-hidden="true"></i>{% else %}<i class="ph ph-lock-key" aria-hidden="true"></i>{% endif %}</a>{% endif %}
   </div>
   {% if daily_hub_primary_card %}
     <div class="new-hub-sections-grid new-hub-sections-grid--daily-primary">
