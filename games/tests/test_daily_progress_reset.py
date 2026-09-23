@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -8,7 +8,8 @@ from django.test import TestCase
 
 from games.daily_progress_reset import reset_current_daily_release_progress
 from games.models import (
-    Attempt, ChainTaskState, Game, GameTaskGroup, Project, ReplaySlot, Task, TaskGroup,
+    Attempt, ChainTaskState, DailySolveTiming, Game, GameTaskGroup,
+    PlayerCompletedGame, Project, ReplaySlot, Task, TaskGroup,
 )
 
 
@@ -106,6 +107,105 @@ class DailyProgressResetTests(TestCase):
 
         self.assertEqual(result, [])
         self.assertTrue(Attempt.manager.filter(pk=old.pk).exists())
+
+    def test_frozen_timing_updated_after_publication_is_preserved(self):
+        timing = DailySolveTiming.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.task_group,
+            status=DailySolveTiming.STATUS_COMPLETED,
+            frozen_ms=12_000,
+            completed_at=self.now + timedelta(minutes=1),
+        )
+        DailySolveTiming.objects.filter(pk=timing.pk).update(
+            created_at=self.now - timedelta(days=1),
+            updated_at=self.now + timedelta(minutes=1),
+        )
+
+        result = reset_current_daily_release_progress(now=self.now, game_ids=('ladder',))
+
+        self.assertEqual(result, [])
+        self.assertTrue(DailySolveTiming.objects.filter(pk=timing.pk).exists())
+
+    def test_truly_stale_timing_is_deleted(self):
+        timing = DailySolveTiming.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.task_group,
+            status=DailySolveTiming.STATUS_AUTO_PAUSED,
+        )
+        DailySolveTiming.objects.filter(pk=timing.pk).update(
+            created_at=self.now - timedelta(days=1),
+            updated_at=self.now - timedelta(days=1),
+        )
+
+        result = reset_current_daily_release_progress(now=self.now, game_ids=('ladder',))
+
+        self.assertEqual(result[0]['timings'], 1)
+        self.assertFalse(DailySolveTiming.objects.filter(pk=timing.pk).exists())
+
+    def test_fresh_completion_is_preserved_and_prepublication_completion_is_deleted(self):
+        fresh = PlayerCompletedGame.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.task_group,
+            game_kind='raddle',
+            game_instance_id='fresh-completion',
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        stale = PlayerCompletedGame.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.task_group,
+            game_kind='raddle',
+            game_instance_id='stale-completion',
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        PlayerCompletedGame.objects.filter(pk=fresh.pk).update(
+            completed_at=self.now + timedelta(minutes=1),
+        )
+        PlayerCompletedGame.objects.filter(pk=stale.pk).update(
+            completed_at=self.now - timedelta(days=1),
+        )
+
+        result = reset_current_daily_release_progress(now=self.now, game_ids=('ladder',))
+
+        self.assertEqual(result[0]['completed'], 1)
+        self.assertTrue(PlayerCompletedGame.objects.filter(pk=fresh.pk).exists())
+        self.assertFalse(PlayerCompletedGame.objects.filter(pk=stale.pk).exists())
+
+    @patch('games.daily_result_projection.refresh_daily_result_projection')
+    def test_projection_rebuild_is_scheduled_after_cleanup_commit(self, rebuild):
+        self._attempt(datetime(2026, 9, 21, 23, 59, tzinfo=MOSCOW))
+
+        with self.captureOnCommitCallbacks(execute=True):
+            result = reset_current_daily_release_progress(
+                now=self.now, game_ids=('ladder',),
+            )
+
+        self.assertTrue(result[0]['reset'])
+        rebuild.assert_called_once_with(self.game, self.task_group)
+
+    @patch('games.recheck.recheck_chain_task', side_effect=RuntimeError('recheck failed'))
+    def test_recheck_failure_rolls_back_cleanup(self, recheck):
+        old = self._attempt(datetime(2026, 9, 21, 23, 59, tzinfo=MOSCOW))
+        fresh = self._attempt(datetime(2026, 9, 22, 0, 1, tzinfo=MOSCOW))
+        ChainTaskState.objects.create(
+            user=self.user,
+            task=self.task,
+            game=self.game,
+            game_mode='general',
+            state='{}',
+            last_attempt=old,
+        )
+
+        with self.assertRaises(RuntimeError):
+            reset_current_daily_release_progress(now=self.now, game_ids=('ladder',))
+
+        self.assertTrue(Attempt.manager.filter(pk=old.pk).exists())
+        self.assertTrue(Attempt.manager.filter(pk=fresh.pk).exists())
+        self.assertTrue(ChainTaskState.objects.filter(pk__isnull=False, last_attempt=old).exists())
+        recheck.assert_called_once()
 
     @patch('games.daily_progress_reset.reset_daily_release_progress')
     def test_retries_deadlock_and_continues(self, reset):

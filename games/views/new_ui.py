@@ -1728,6 +1728,12 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
     project = get_object_or_404(Project, id=project_id)
     base = _project_base(project.id)
     game = get_object_or_404(Game, id=game_id, project=project)
+    if (
+        is_scheduled_game(game.id)
+        and not scheduled_number_is_public(game, task_group_number)
+        and not request.user.is_staff
+    ):
+        raise Http404()
 
     games_back = (base + '/games/') if base else '/games/'
     gate = _maybe_registration_or_announce_response(
@@ -1784,10 +1790,6 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
             return redirect('project_task_group', project_id=project.id, game_id=game.id, task_group_number=fallback.number)
         raise Http404()
     task_group = placement.task_group
-    if is_scheduled_game(game.id):
-        from games.daily_progress_reset import reset_current_daily_release_progress
-
-        reset_current_daily_release_progress(now=timezone.now(), game_ids=(game.id,))
     replay_slot = active_replay(
         request=request,
         game=game,
@@ -3982,10 +3984,6 @@ def new_task_group_page(request, game_id, task_group_number):
                 return redirect(_play_url_for_task_group(game, fallback.number))
             raise Http404()
     task_group = placement.task_group
-    if is_scheduled_game(game.id) and isinstance(placement, GameTaskGroup):
-        from games.daily_progress_reset import reset_current_daily_release_progress
-
-        reset_current_daily_release_progress(now=timezone.now(), game_ids=(game.id,))
     if (game.id == LADDER_GAME_ID and ladder_offer is not None) or (
         game.id == WORD_SALAD_GAME_ID and salad_offer is not None
     ):

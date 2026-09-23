@@ -35,7 +35,10 @@ from games.raddle import (
     resolve_assist_tiers,
     serialize_raddle_attempt_text,
 )
-from games.views.game_context import game_from_request_for_task
+from games.views.game_context import (
+    game_from_request_for_task,
+    unpublished_scheduled_task_response,
+)
 from games.views.hint_views import _get_play_mode, create_hint_attempt
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
@@ -231,6 +234,9 @@ def process_send_raddle_assist(request, task_id):
     game = game_from_request_for_task(request, task)
     if game is None:
         return {'status': 'ambiguous_game'}
+    unpublished = unpublished_scheduled_task_response(request, game, task)
+    if unpublished is not None:
+        return unpublished
     from games.club_access import user_can_access_task_archive
     if not user_can_access_task_archive(request.user, game, task):
         raise NoGameAccessException('Club subscription required for archived game')

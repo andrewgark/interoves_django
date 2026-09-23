@@ -78,9 +78,6 @@ def _load_daily_target(request, game_id, number):
     link = GameTaskGroup.objects.filter(game=game, number=raw_number).select_related('task_group').first()
     if link is None:
         return None, None, None, None, None, _json_error('missing', 404)
-    if is_scheduled_game(game.id):
-        from games.daily_progress_reset import reset_current_daily_release_progress
-        reset_current_daily_release_progress(now=timezone.now(), game_ids=(game.id,))
     team, user, anon_key = _resolve_actor(request, game)
     if team is None and user is None and anon_key is None:
         return None, None, None, None, None, _json_error('no_actor', 400)

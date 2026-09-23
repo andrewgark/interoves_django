@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import logging
+import time
 
 from django.contrib.auth.models import User
 from django.db import OperationalError, transaction
@@ -26,8 +27,19 @@ RESET_DEADLOCK_ATTEMPTS = 3
 logger = logging.getLogger(__name__)
 
 
-def _actor_key(team_id, user_id, anon_key, replay_slot_id=None):
-    return team_id, user_id, anon_key or None, replay_slot_id
+def _empty_reset_result():
+    return {
+        'reset': False,
+        'attempts': 0,
+        'hint_attempts': 0,
+        'timings': 0,
+        'started': 0,
+        'completed': 0,
+        'projections': 0,
+        'projection_states': 0,
+        'chains': 0,
+        'rechecked': False,
+    }
 
 
 def _is_mysql_deadlock(exc):
@@ -69,6 +81,39 @@ def _rebuild_chain(task, game, team, user, anon_key, replay_slot):
         recheck_chain_task(**kwargs)
 
 
+def _has_postpublication_attempt(
+    *, task_id, game, team, user, anon_key, replay_slot, published_at,
+):
+    return Attempt.manager.filter(
+        task_id=task_id,
+        game=game,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        replay_slot=replay_slot,
+        time__gte=published_at,
+    ).exists()
+
+
+def _rebuild_projection_after_reset(game_id, task_group_id):
+    """Rebuild the derived release projection after cleanup commits."""
+    from games.daily_result_projection import refresh_daily_result_projection
+    from games.models import Game, TaskGroup
+
+    game = Game.objects.filter(pk=game_id).first()
+    task_group = TaskGroup.objects.filter(pk=task_group_id).first()
+    if game is None or task_group is None:
+        return
+    try:
+        refresh_daily_result_projection(game, task_group)
+    except Exception:
+        logger.exception(
+            'daily_progress_reset projection rebuild failed game=%s task_group=%s',
+            game_id,
+            task_group_id,
+        )
+
+
 @transaction.atomic
 def reset_daily_release_progress(placement, *, now=None):
     """Delete official and replay attempts before publication and rebuild state."""
@@ -78,12 +123,12 @@ def reset_daily_release_progress(placement, *, now=None):
     ).get(pk=placement.pk)
     published_at = publish_at_for(placement.game, placement.number)
     if published_at is None or published_at > now:
-        return {'reset': False, 'attempts': 0, 'hint_attempts': 0, 'chains': 0}
+        return _empty_reset_result()
 
     tasks = list(Task.objects.filter(task_group=placement.task_group))
     task_ids = [task.pk for task in tasks]
     if not task_ids:
-        return {'reset': False, 'attempts': 0, 'hint_attempts': 0, 'chains': 0}
+        return _empty_reset_result()
 
     old_attempts = Attempt.manager.filter(
         game=placement.game, task_id__in=task_ids, time__lt=published_at,
@@ -94,6 +139,7 @@ def reset_daily_release_progress(placement, *, now=None):
     stale_timing = DailySolveTiming.objects.filter(
         game=placement.game, task_group=placement.task_group,
         created_at__lt=published_at,
+        updated_at__lt=published_at,
     )
     stale_started = PlayerStartedGame.objects.filter(
         game=placement.game, task_group=placement.task_group,
@@ -111,9 +157,9 @@ def reset_daily_release_progress(placement, *, now=None):
     )
     if not any(qs.exists() for qs in (
         old_attempts, old_hint_attempts, stale_timing, stale_started,
-        stale_completed, stale_states, stale_projection,
+        stale_completed, stale_states,
     )):
-        return {'reset': False, 'attempts': 0, 'hint_attempts': 0, 'chains': 0}
+        return _empty_reset_result()
 
     chain_ids = {task.pk for task in tasks if task.task_type in CHAIN_TYPES}
     actors = defaultdict(set)
@@ -128,31 +174,61 @@ def reset_daily_release_progress(placement, *, now=None):
         if task_id in chain_ids:
             actors[task_id].add(_actor_key(team_id, user_id, anon_key, replay_slot_id))
 
-    counts = {'attempts': old_attempts.count(), 'hint_attempts': old_hint_attempts.count()}
+    counts = {
+        'attempts': old_attempts.count(),
+        'hint_attempts': old_hint_attempts.count(),
+        'timings': stale_timing.count(),
+        'started': stale_started.count(),
+        'completed': stale_completed.count(),
+        'projections': stale_projection.count(),
+        'projection_states': DailyResultProjectionState.objects.filter(
+            game=placement.game, task_group=placement.task_group,
+        ).count(),
+    }
     old_attempts.delete()
     old_hint_attempts.delete()
     stale_timing.delete()
     stale_started.delete()
     stale_completed.delete()
-    stale_projection.delete()
-    DailyResultProjectionState.objects.filter(
-        game=placement.game, task_group=placement.task_group,
-    ).delete()
+    # Projections are derived. Keep the last committed projection visible
+    # until the post-commit rebuild succeeds; never create a missing/empty
+    # projection window inside the canonical cleanup transaction.
     DailyGameDifficulty.objects.filter(placement=placement).update(
         data_revision=F('data_revision') + 1, dirty=True,
+    )
+    transaction.on_commit(
+        lambda game_id=placement.game_id, task_group_id=placement.task_group_id:
+        _rebuild_projection_after_reset(game_id, task_group_id)
     )
 
     task_by_id = {task.pk: task for task in tasks}
     rebuilt = 0
+    rechecked = False
     for task_id, actor_keys in actors.items():
         for team, user, anon_key, replay_slot in _actor_objects(actor_keys):
             ChainTaskState.objects.filter(
                 task_id=task_id, game=placement.game,
                 team=team, user=user, anon_key=anon_key, replay_slot=replay_slot,
             ).delete()
+            if not _has_postpublication_attempt(
+                task_id=task_id,
+                game=placement.game,
+                team=team,
+                user=user,
+                anon_key=anon_key,
+                replay_slot=replay_slot,
+                published_at=published_at,
+            ):
+                continue
             _rebuild_chain(task_by_id[task_id], placement.game, team, user, anon_key, replay_slot)
             rebuilt += 1
-    return {'reset': True, **counts, 'chains': rebuilt}
+            rechecked = True
+    return {
+        'reset': True,
+        **counts,
+        'chains': rebuilt,
+        'rechecked': rechecked,
+    }
 
 
 def reset_current_daily_release_progress(*, now=None, game_ids=DAILY_RESET_GAME_IDS):
@@ -166,6 +242,7 @@ def reset_current_daily_release_progress(*, now=None, game_ids=DAILY_RESET_GAME_
         placement = GameTaskGroup.objects.filter(game=game, number=str(number)).first() if number else None
         if placement is None:
             continue
+        started_at = time.perf_counter()
         for attempt in range(1, RESET_DEADLOCK_ATTEMPTS + 1):
             try:
                 result = reset_daily_release_progress(placement, now=now)
@@ -191,6 +268,25 @@ def reset_current_daily_release_progress(*, now=None, game_ids=DAILY_RESET_GAME_
                 )
         if result is None:
             continue
+        logger.info(
+            'daily_progress_reset finished game=%s number=%s published_at=%s '
+            'duration_ms=%.1f reset=%s attempts=%s hint_attempts=%s timings=%s started=%s '
+            'completed=%s projections=%s projection_states=%s chains=%s rechecked=%s',
+            game.id,
+            number,
+            publish_at_for(game, number),
+            (time.perf_counter() - started_at) * 1000.0,
+            result.get('reset', False),
+            result.get('attempts', 0),
+            result.get('hint_attempts', 0),
+            result.get('timings', 0),
+            result.get('started', 0),
+            result.get('completed', 0),
+            result.get('projections', 0),
+            result.get('projection_states', 0),
+            result.get('chains', 0),
+            result.get('rechecked', False),
+        )
         if result['reset']:
             results.append({'game_id': game.id, 'number': str(number), **result})
     return results

@@ -33,7 +33,10 @@ from games.grid_puzzle import (
     parse_grid_shading_attempt,
     validate_grid_checker_data,
 )
-from games.views.game_context import game_from_request_for_task
+from games.views.game_context import (
+    game_from_request_for_task,
+    unpublished_scheduled_task_response,
+)
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.raddle import (
@@ -449,6 +452,9 @@ def process_send_attempt(request, task_id):
     game = game_from_request_for_task(request, task)
     if game is None:
         return {'status': 'ambiguous_game'}
+    unpublished = unpublished_scheduled_task_response(request, game, task)
+    if unpublished is not None:
+        return unpublished
     play_mode = _get_play_mode(request, game)
 
     team = None
