@@ -57,6 +57,10 @@ def _is_mysql_deadlock(exc):
     return False
 
 
+def _actor_key(team_id, user_id, anon_key, replay_slot_id=None):
+    return team_id, user_id, anon_key or None, replay_slot_id
+
+
 def _actor_objects(keys):
     teams = Team.objects.in_bulk({key[0] for key in keys if key[0]})
     users = User.objects.in_bulk({key[1] for key in keys if key[1]})
