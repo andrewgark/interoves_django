@@ -5,6 +5,7 @@ var reconnect = null;
 var reloads = 0;
 var periodicSync = null;
 var visibilityHandlers = [];
+var timeoutDelays = [];
 
 function FakeWebSocket(url) {
   this.url = url;
@@ -19,7 +20,11 @@ FakeWebSocket.prototype.close = function () {};
 global.WebSocket = FakeWebSocket;
 global.setInterval = function (fn) { periodicSync = fn; return 1; };
 global.clearInterval = function () {};
-global.setTimeout = function (fn) { reconnect = fn; return 1; };
+global.setTimeout = function (fn, delay) {
+  reconnect = fn;
+  timeoutDelays.push(delay);
+  return 1;
+};
 global.clearTimeout = function () {};
 global.window = {
   document: {
@@ -106,6 +111,7 @@ assert.deepStrictEqual(first.sent[2], {
 });
 first.onclose();
 assert.strictEqual(typeof reconnect, 'function');
+assert(timeoutDelays[0] >= 1000 && timeoutDelays[0] <= 1250);
 reconnect();
 
 var second = FakeWebSocket.instances[1];

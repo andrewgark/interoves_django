@@ -4,6 +4,7 @@
   var SYNC_MS = 25000;
   var RECONNECT_MIN_MS = 1000;
   var RECONNECT_MAX_MS = 30000;
+  var RECONNECT_JITTER_MS = 250;
 
   function proto() {
     return window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -228,10 +229,11 @@
 
     function scheduleReconnect() {
       if (stopped || reconnectTimer) return;
+      var jitter = Math.floor(Math.random() * Math.min(RECONNECT_JITTER_MS, delay / 4));
       reconnectTimer = setTimeout(function () {
         reconnectTimer = null;
         connect();
-      }, delay);
+      }, delay + jitter);
       delay = Math.min(RECONNECT_MAX_MS, delay * 2);
     }
 

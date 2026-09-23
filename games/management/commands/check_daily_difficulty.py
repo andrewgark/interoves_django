@@ -13,19 +13,27 @@ from games.difficulty_refresh import (
     run_daily_difficulty_refresh,
 )
 from games.models import DailyDifficultyQueueStatus, DailyGameDifficulty
+from games.cron_lock import distributed_cron_lock
 
 
 class Command(BaseCommand):
     help = 'Repair and verify the daily-game difficulty refresh queue.'
 
     def handle(self, *args, **options):
+        with distributed_cron_lock('daily_difficulty_health_check', ttl_seconds=180) as acquired:
+            if not acquired:
+                self.stdout.write('daily difficulty health check skipped: lock held')
+                return
+            return self._handle_locked(options)
+
+    def _handle_locked(self, options):
         now = timezone.now()
         DailyDifficultyQueueStatus.objects.get_or_create(pk=1)
-        acquired = DailyDifficultyQueueStatus.objects.filter(pk=1).filter(
+        updated = DailyDifficultyQueueStatus.objects.filter(pk=1).filter(
             Q(last_health_check_at__isnull=True)
             | Q(last_health_check_at__lte=now - timedelta(minutes=50)),
         ).update(last_health_check_at=now)
-        if not acquired:
+        if not updated:
             self.stdout.write('Hourly difficulty check already ran recently; skipping.')
             return
 

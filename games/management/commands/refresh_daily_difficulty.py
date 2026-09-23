@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 
 from games.difficulty import DUE_REFRESH_LIMIT, SUPPORTED_GAME_IDS
 from games.difficulty_refresh import refresh_due_daily_difficulties, run_daily_difficulty_refresh
+from games.cron_lock import distributed_cron_lock
 
 
 class Command(BaseCommand):
@@ -35,6 +36,13 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        with distributed_cron_lock('daily_difficulty_refresh', ttl_seconds=120) as acquired:
+            if not acquired:
+                self.stdout.write('daily difficulty cron skipped: lock held')
+                return
+            return self._handle_locked(options)
+
+    def _handle_locked(self, options):
         kwargs = {
             'game_ids': options.get('games'),
             'limit': options['limit'],

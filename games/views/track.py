@@ -23,6 +23,7 @@ cannot block Daphne application close (prod 504 / "took too long to shut down").
 import asyncio
 import hashlib
 import logging
+import socket
 import threading
 import time
 
@@ -69,7 +70,10 @@ class TrackWsLifecycleMixin:
         open_n = _track_ws_open_delta(1)
         every = getattr(settings, 'TRACK_WS_OPEN_LOG_EVERY', 50)
         if open_n == 1 or open_n % every == 0:
-            logger.info('Track WebSocket open_count=%s', open_n)
+            logger.info(
+                'websocket_connected host=%s active_count=%s',
+                socket.gethostname(), open_n,
+            )
 
     async def _track_stop_lifecycle(self):
         task = getattr(self, '_track_idle_task', None)
@@ -83,7 +87,10 @@ class TrackWsLifecycleMixin:
         open_n = _track_ws_open_delta(-1)
         every = getattr(settings, 'TRACK_WS_OPEN_LOG_EVERY', 50)
         if open_n == 0 or open_n % every == 0:
-            logger.info('Track WebSocket open_count=%s', open_n)
+            logger.info(
+                'websocket_disconnected host=%s active_count=%s',
+                socket.gethostname(), open_n,
+            )
 
     async def _track_idle_watch(self):
         timeout = float(getattr(settings, 'TRACK_WS_IDLE_TIMEOUT', 90))
