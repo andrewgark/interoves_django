@@ -34,6 +34,9 @@
       <div class="new-game-card__meta">Автор: {{ game.author }}</div>
 
       <div class="new-game-card__actions">
+        {% if game.is_archive_locked %}
+          <a href="/subscription/" class="new-btn new-btn--yellow new-btn--mini"><i class="ph ph-lock-key" aria-hidden="true"></i> Открыть архив</a>
+        {% else %}
         {% if game|access_needs_registration %}
           {% if not user.is_authenticated %}
             <button type="button" class="new-btn new-btn--mini" data-login-open>Войти</button>
@@ -85,6 +88,7 @@
         {% endif %}
         {% if game.standings_url %}
           <a href="{{ game.standings_url }}" class="new-btn new-btn--ghost new-btn--mini">Результаты</a>
+        {% endif %}
         {% endif %}
       </div>
     </div>

@@ -450,10 +450,14 @@ def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
 
 
 def _mark_locked_archive_rows(request, game, rows):
-    from games.club_access import scheduled_number_requires_club, user_can_access_scheduled_number
+    from games.club_access import (
+        desyatka_requires_club,
+        scheduled_number_requires_club,
+        user_can_access_scheduled_number,
+    )
     for row in rows:
         row['is_archive_locked'] = (
-            scheduled_number_requires_club(game, row.get('number'))
+            (scheduled_number_requires_club(game, row.get('number')) or desyatka_requires_club(game))
             and not row.get('is_fully_solved')
             and not user_can_access_scheduled_number(request.user, game, row.get('number'))
         )
@@ -1557,6 +1561,10 @@ def project_main_game_page(request, project_id, game_id):
     project = get_object_or_404(Project, id=project_id)
     base = _project_base(project.id)
     game = get_object_or_404(Game, id=game_id, project=project)
+    from games.club_access import reject_if_club_archive_blocked
+    locked = reject_if_club_archive_blocked(request, game)
+    if locked is not None:
+        return locked
 
     play_mode, _ = _get_play_mode(request, game.project_id)
     if not request.user.is_authenticated and not personal_play_mode_locked(game, user=request.user):
@@ -2068,6 +2076,10 @@ def new_main_game_page(request, game_id):
     game = get_object_or_404(Game, id=game_id)
     if game.project_id != NEW_UI_PROJECT:
         raise Http404()
+    from games.club_access import reject_if_club_archive_blocked
+    locked = reject_if_club_archive_blocked(request, game)
+    if locked is not None:
+        return locked
 
     play_mode, _ = _get_play_mode(request, game.project_id)
     if not request.user.is_authenticated and not personal_play_mode_locked(game, user=request.user):
@@ -3733,6 +3745,11 @@ def new_task_group_page(request, game_id, task_group_number):
         Game.objects.select_related('section_default_rules'),
         id=game_id,
     )
+    if game.project_id != NEW_UI_SECTIONS_PROJECT:
+        from games.club_access import reject_if_club_archive_blocked
+        locked = reject_if_club_archive_blocked(request, game, number=task_group_number)
+        if locked is not None:
+            return locked
 
     # Обычные игры: до старта / без регистрации — карточка анонса, не 404.
     if game.project_id != NEW_UI_SECTIONS_PROJECT:

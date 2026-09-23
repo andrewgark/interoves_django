@@ -26,7 +26,11 @@ class MainPageView(View):
         for game in Game.objects.filter(project=project):
             if game.has_access('see_game_preview', team=team):
                 games_list.append(game)
-        return sorted(games_list, key=lambda game: (game.start_time, game.name), reverse=True)
+        games_list = sorted(games_list, key=lambda game: (game.start_time, game.name), reverse=True)
+        from games.club_access import user_can_access_desyatka
+        for game in games_list:
+            game.is_archive_locked = not user_can_access_desyatka(request.user, game)
+        return games_list
 
     def get(self, request, *args, **kwargs):
         project = get_object_or_404(Project, id=self.project_name)
@@ -75,4 +79,4 @@ class MainPageView(View):
             'has_next': games_page.has_next(),
             'total_pages': paginator.num_pages,
             'total_games': len(all_games)
-        }) 
+        })
