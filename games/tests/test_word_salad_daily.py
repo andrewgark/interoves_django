@@ -6,7 +6,11 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import resolve
 
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
-from games.section_hub import HUB_DAILY_SECTION_IDS, SECTION_HUB_META, get_word_salad_section_hub_card
+from games.section_hub import (
+    DAILY_NAV_SECTION_IDS,
+    SECTION_HUB_META,
+    get_word_salad_section_hub_card,
+)
 from games.section_paths import section_hub_path, section_last_path
 from games.word_salad_daily import (
     WORD_SALAD_DEFAULT_PUBLISH_START,
@@ -160,7 +164,10 @@ class WordSaladSectionTests(TestCase):
         self.assertEqual(game.section_default_rules_id, 'section_tutorial_word_salad')
 
     def test_hub_meta_and_daily_order(self):
-        self.assertEqual(HUB_DAILY_SECTION_IDS, ('ladder', WORD_SALAD_GAME_ID, 'alphabetty'))
+        self.assertEqual(
+            DAILY_NAV_SECTION_IDS,
+            ('ladder', WORD_SALAD_GAME_ID, 'alphabetty'),
+        )
         meta = SECTION_HUB_META[WORD_SALAD_GAME_ID]
         self.assertEqual(meta['title'], 'Салатики')
         self.assertEqual(meta['ph_icon'], 'bowl-food')
@@ -260,7 +267,14 @@ class WordSaladSectionTests(TestCase):
         game.save(update_fields=['theme'])
         resp = self.client.get('/salad/1/')
         self.assertEqual(resp.status_code, 200)
-        assert_rules_beside_title(self, resp.content.decode('utf-8'))
+        html = resp.content.decode('utf-8')
+        self.assertRegex(
+            html,
+            r'<div class="new-daily-game-header__title-wrap">\s*'
+            r'<h1[^>]*>[\s\S]*?</h1>\s*'
+            r'<button[^>]+class="new-rules-trigger new-rules-trigger--compact"',
+        )
+        self.assertIn('new-daily-game-header__description', html)
 
     def test_section_tutorial_html_uses_default_rules_after_rename(self):
         from games.views.new_ui import _section_tutorial_html_for_game
