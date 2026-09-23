@@ -34,6 +34,7 @@ from games.models import (
     CheckerType,
     CorporateGameOrder,
     Game,
+    GameAuthor,
     GameResultsSnapshot,
     GameTaskGroup,
     HiddenAnonKey,
@@ -975,6 +976,14 @@ class GameTaskGroupInlineOnTaskGroup(admin.TabularInline):
         return GameTaskGroup.order_queryset_by_number(qs)
 
 
+class GameAuthorInline(admin.TabularInline):
+    model = GameAuthor
+    extra = 1
+    verbose_name = 'Скрытый автор'
+    verbose_name_plural = 'Скрытые авторы (доступ без клубной подписки)'
+    raw_id_fields = ['profile', 'team']
+
+
 @admin.register(TaskGroup)
 class TaskGroupAdmin(admin.ModelAdmin):
     inlines = [
@@ -1184,6 +1193,7 @@ class LikeAdmin(admin.ModelAdmin):
 class GameAdmin(admin.ModelAdmin):
     inlines = [
         TaskGroupInline,
+        GameAuthorInline,
     ]
     raw_id_fields = ['section_default_rules']
     search_fields = ['id', 'name', 'outside_name']

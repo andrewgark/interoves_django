@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 
 from django.http import JsonResponse
+from django.db.models import Q
 from django.shortcuts import render
 from django.utils import timezone
 
@@ -79,10 +80,25 @@ def desyatka_requires_club(game) -> bool:
     return number is not None and number not in _latest_desyatka_numbers()
 
 
+def _is_desyatka_author(user, game) -> bool:
+    if not getattr(user, 'is_authenticated', False) or not is_desyatka_game(game):
+        return False
+    from games.models import GameAuthor
+
+    return GameAuthor.objects.filter(
+        game=game,
+    ).filter(
+        Q(profile__user=user)
+        | Q(team__member_links__profile__user=user)
+    ).exists()
+
+
 def user_can_access_desyatka(user, game, *, now=None) -> bool:
     if not desyatka_requires_club(game):
         return True
     if getattr(user, 'is_staff', False):
+        return True
+    if _is_desyatka_author(user, game):
         return True
     # A team's registration is a ticket for this particular Desyatka. Keep
     # it valid after a user's Club subscription expires: the entitlement

@@ -10,11 +10,16 @@ from django.utils import timezone
 
 from allauth.socialaccount.models import SocialApp
 
-from games.club_access import has_club_access, user_can_access_desyatka
+from games.club_access import (
+    has_club_access,
+    user_can_access_desyatka,
+    user_can_access_task_archive,
+)
 from games.models import (
     ClubSubscription,
     ClubSubscriptionEvent,
     Game,
+    GameAuthor,
     GameTaskGroup,
     HTMLPage,
     Profile,
@@ -689,6 +694,34 @@ class ClubArchiveAccessTests(TestCase):
 
         with patch('games.club_access._latest_desyatka_numbers', return_value={2, 3, 4, 5, 6, 7, 8}):
             self.assertFalse(has_club_access(self.user))
+            self.assertTrue(user_can_access_desyatka(self.user, game))
+
+    def test_desyatka_person_author_keeps_game_and_tasks_access_without_subscription(self):
+        game = Game.objects.create(
+            id='des2', name='Десяточка 2', author='test', project_id='main',
+        )
+        task_group = TaskGroup.objects.create(label='authored-desyatka')
+        GameTaskGroup.objects.create(
+            game=game, task_group=task_group, number='1', name='#1',
+        )
+        task = Task.objects.create(
+            task_group=task_group, number='1', task_type='default', checker_data='ok',
+        )
+        GameAuthor.objects.create(game=game, profile=self.user.profile)
+
+        with patch('games.club_access._latest_desyatka_numbers', return_value={3, 4, 5, 6, 7, 8, 9}):
+            self.assertTrue(user_can_access_desyatka(self.user, game))
+            self.assertTrue(user_can_access_task_archive(self.user, game, task))
+
+    def test_desyatka_team_author_grants_access_to_all_team_members(self):
+        team = Team.objects.create(name='desyatka-author-team', project_id='main')
+        self.user.profile.add_team_membership(team, make_primary=True)
+        game = Game.objects.create(
+            id='des3', name='Десяточка 3', author='test', project_id='main',
+        )
+        GameAuthor.objects.create(game=game, team=team)
+
+        with patch('games.club_access._latest_desyatka_numbers', return_value={4, 5, 6, 7, 8, 9, 10}):
             self.assertTrue(user_can_access_desyatka(self.user, game))
 
     def test_club_subscriber_can_play_archived_desyatka_as_team(self):

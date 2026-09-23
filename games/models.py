@@ -434,6 +434,40 @@ class Game(models.Model):
         return self.visible_end_time if self.visible_end_time is not None else self.end_time
 
 
+class GameAuthor(models.Model):
+    """Hidden access grants for a game, owned by a person or a team."""
+
+    game = models.ForeignKey(Game, related_name='authors', on_delete=models.CASCADE)
+    profile = models.ForeignKey(
+        'Profile', related_name='authored_games', blank=True, null=True,
+        on_delete=models.CASCADE,
+    )
+    team = models.ForeignKey(
+        Team, related_name='authored_games', blank=True, null=True,
+        on_delete=models.CASCADE,
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(profile__isnull=False, team__isnull=True)
+                    | models.Q(profile__isnull=True, team__isnull=False)
+                ),
+                name='games_gameauthor_exactly_one_actor',
+            ),
+            models.UniqueConstraint(
+                fields=('game', 'profile'), name='games_gameauthor_game_profile_uniq',
+            ),
+            models.UniqueConstraint(
+                fields=('game', 'team'), name='games_gameauthor_game_team_uniq',
+            ),
+        ]
+
+    def __str__(self):
+        return str(self.profile or self.team or self.game)
+
+
 class GameResultsSnapshot(models.Model):
     """
     Frozen results table for a game.
