@@ -60,6 +60,7 @@ from games.task_titles import task_display_name, task_group_page_title
 from games.views.daily_timing_views import daily_timing_page_context
 from games.views.new_ui import (
     NEW_UI_SECTIONS_PROJECT,
+    _archive_nav_target,
     _neighbors_by_pk,
     _mark_locked_archive_rows,
     _task_group_page_nav_context,
