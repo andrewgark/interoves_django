@@ -1,7 +1,8 @@
+from datetime import datetime
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 
 from games.models import (
@@ -33,6 +34,7 @@ from games.telegram.notify import (
     format_bug_report_message,
     format_payment_message,
     notify_new_bug_report,
+    notify_admin_site_error,
     send_admin_message,
     send_announce_message,
     send_announce_photo,
@@ -300,6 +302,21 @@ class TelegramNotifyTests(TestCase):
         set_admin_mute(30)
         self.assertFalse(send_admin_message('muted'))
         send_message_mock.assert_not_called()
+
+    @patch('games.telegram.notify.send_admin_message', return_value=True)
+    @patch('games.telegram.notify.timezone.localtime')
+    @patch('games.telegram.notify.timezone.now')
+    def test_site_error_notification_includes_local_time(
+        self, now_mock, localtime_mock, send_message_mock,
+    ):
+        now_mock.return_value = datetime(2026, 9, 23, 9, 34, 56)
+        localtime_mock.return_value = datetime(2026, 9, 23, 12, 34, 56)
+        request = RequestFactory().get('/send_raddle_ui/6743/')
+
+        self.assertTrue(notify_admin_site_error(request))
+
+        text = send_message_mock.call_args.args[0]
+        self.assertIn('Время: <b>23.09.2026 12:34:56</b>', text)
 
     def test_format_payment_message(self):
         ticket = TicketRequest.objects.create(team=self.team, tickets=2, money=4000, status='Accepted')

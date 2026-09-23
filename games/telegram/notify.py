@@ -4,6 +4,7 @@ from typing import Iterable
 
 from django.conf import settings
 from django.core.cache import cache
+from django.utils import timezone
 
 from games.models import (
     AlphabettyOffer,
@@ -158,6 +159,9 @@ def notify_admin_site_error(request, *, status_code: int = 500, exception=None) 
         lines = [
             '🚨 <b>Критическая ошибка сайта</b>',
             '',
+            'Время: <b>{}</b>'.format(
+                timezone.localtime(timezone.now()).strftime('%d.%m.%Y %H:%M:%S'),
+            ),
             'Статус: <b>{}</b>'.format(status_code),
             'Путь: <code>{}</code>'.format(_escape(path)),
             'Маршрут: {}'.format(_escape(route_name or '—')),
