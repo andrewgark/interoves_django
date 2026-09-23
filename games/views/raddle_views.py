@@ -1,7 +1,6 @@
 import json
-import logging
 
-from django.db import OperationalError, transaction
+from django.db import transaction
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -17,7 +16,6 @@ from games.analytics import (
 from games.completion_coordinator import complete_logical_game
 from games.exception import DuplicateAttemptException, NoGameAccessException
 from games.models import Attempt, ChainTaskState, RaddleUiState, Task
-from games.mysql_retry import is_mysql_lock_retryable
 from games.analytics_identity import gameplay_anon_key
 from games.auth_observability import log_gameplay_attempt_created
 from games.gameplay_context import context_error_response, validate_gameplay_context
@@ -43,10 +41,6 @@ from games.views.hint_views import _get_play_mode, create_hint_attempt
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
-
-
-logger = logging.getLogger(__name__)
-RADDLE_UI_LOCK_RETRY_ATTEMPTS = 2
 
 
 def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_key=None, task=None, game=None, replay_slot=None):
@@ -456,63 +450,51 @@ def process_send_raddle_ui(request, task_id):
         team=team, user=user, anon_key=anon_key, replay_run_id=replay_run_id,
     )
 
-    for lock_attempt in range(1, RADDLE_UI_LOCK_RETRY_ATTEMPTS + 1):
-        try:
-            with transaction.atomic():
-                legacy_state = _legacy_raddle_ui_state(
-                    task=task,
-                    game=game,
-                    current_mode=current_mode,
-                    team=team,
-                    user=user,
-                    anon_key=anon_key,
-                    replay_slot=replay_slot,
-                    n_words=n,
-                )
-                RaddleUiState.objects.get_or_create(
-                    team=team, user=user, anon_key=anon_key,
-                    task=task, game=game, game_mode=current_mode,
-                    replay_slot=replay_slot,
-                    replay_run_id=replay_run_id,
-                    actor_key=actor_key,
-                    namespace_key=namespace_key,
-                    defaults=legacy_state,
-                )
-                ui_row = RaddleUiState.objects.select_for_update().get(
-                    team=team, user=user, anon_key=anon_key,
-                    task=task, game=game, game_mode=current_mode,
-                    replay_slot=replay_slot,
-                    replay_run_id=replay_run_id,
-                    actor_key=actor_key,
-                    namespace_key=namespace_key,
-                )
-                state = {
-                    'drafts': dict(ui_row.drafts or {}),
-                    'clue_marks': dict(ui_row.clue_marks or {}),
-                }
-                stale = (
-                    requested_revision is not None
-                    and requested_revision <= ui_row.revision
-                )
-                if not stale:
-                    state = merge_raddle_ui_payload(
-                        state, n, drafts_patch=drafts_patch, clue_marks_patch=marks_patch,
-                    )
-                    ui_row.drafts = state['drafts']
-                    ui_row.clue_marks = state['clue_marks']
-                    ui_row.revision = max(ui_row.revision + 1, requested_revision or 0)
-                    ui_row.save(update_fields=['drafts', 'clue_marks', 'revision', 'updated_at'])
-                revision = ui_row.revision
-            break
-        except OperationalError as exc:
-            if not is_mysql_lock_retryable(exc) or lock_attempt >= RADDLE_UI_LOCK_RETRY_ATTEMPTS:
-                raise
-            logger.warning(
-                'raddle_ui lock retry attempt=%s/%s task=%s',
-                lock_attempt,
-                RADDLE_UI_LOCK_RETRY_ATTEMPTS,
-                task.pk,
+    with transaction.atomic():
+        legacy_state = _legacy_raddle_ui_state(
+            task=task,
+            game=game,
+            current_mode=current_mode,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            replay_slot=replay_slot,
+            n_words=n,
+        )
+        RaddleUiState.objects.get_or_create(
+            team=team, user=user, anon_key=anon_key,
+            task=task, game=game, game_mode=current_mode,
+            replay_slot=replay_slot,
+            replay_run_id=replay_run_id,
+            actor_key=actor_key,
+            namespace_key=namespace_key,
+            defaults=legacy_state,
+        )
+        ui_row = RaddleUiState.objects.select_for_update().get(
+            team=team, user=user, anon_key=anon_key,
+            task=task, game=game, game_mode=current_mode,
+            replay_slot=replay_slot,
+            replay_run_id=replay_run_id,
+            actor_key=actor_key,
+            namespace_key=namespace_key,
+        )
+        state = {
+            'drafts': dict(ui_row.drafts or {}),
+            'clue_marks': dict(ui_row.clue_marks or {}),
+        }
+        stale = (
+            requested_revision is not None
+            and requested_revision <= ui_row.revision
+        )
+        if not stale:
+            state = merge_raddle_ui_payload(
+                state, n, drafts_patch=drafts_patch, clue_marks_patch=marks_patch,
             )
+            ui_row.drafts = state['drafts']
+            ui_row.clue_marks = state['clue_marks']
+            ui_row.revision = max(ui_row.revision + 1, requested_revision or 0)
+            ui_row.save(update_fields=['drafts', 'clue_marks', 'revision', 'updated_at'])
+        revision = ui_row.revision
 
     payload = {'raddle_ui': raddle_ui_payload(state, task.id, revision=revision)}
     if stale:
