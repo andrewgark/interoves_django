@@ -34,6 +34,7 @@ from games.support.services.schedule_links import (
     build_schedule_page_context,
     delete_future_slot,
     renumber_links,
+    shift_links,
 )
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,28 @@ def _sync_link_titles(link: GameTaskGroup, new_num: int) -> None:
 
 
 def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
-    renumber_links(ordered_links, sync_link=_sync_link_titles)
+    def sync_links(links: list[GameTaskGroup], new_numbers: list[int]) -> None:
+        task_groups = []
+        for link, new_num in zip(links, new_numbers):
+            tg = link.task_group
+            link.name = f'Алфавитка #{new_num}'
+            if (tg.label or '').startswith('alphabetty:') or not (tg.label or '').strip():
+                tg.label = f'alphabetty:{new_num}'
+                task_groups.append(tg)
+        if task_groups:
+            TaskGroup.objects.bulk_update(task_groups, ['label'])
+
+    renumber_links(ordered_links, sync_links=sync_links)
+
+
+def _tasks_for_links(links: list[GameTaskGroup]) -> dict[int, Task]:
+    task_group_ids = {link.task_group_id for link in links}
+    if not task_group_ids:
+        return {}
+    return {
+        task.task_group_id: task
+        for task in Task.objects.filter(task_group_id__in=task_group_ids, number='1')
+    }
 
 
 def list_alphabetty_rows(*, now: datetime | None = None) -> list[AlphabettyRow]:
@@ -97,13 +119,14 @@ def list_alphabetty_rows(*, now: datetime | None = None) -> list[AlphabettyRow]:
         GameTaskGroup.objects.filter(game=game).select_related('task_group'),
         reverse=False,
     )
+    tasks_by_group = _tasks_for_links(links)
     rows: list[AlphabettyRow] = []
     for link in links:
         try:
             number = int(link.number)
         except (TypeError, ValueError):
             continue
-        task = _task_for_link(link)
+        task = tasks_by_group.get(link.task_group_id)
         word = _word_from_task(task)
         pub = alphabetty_publish_at(game, number)
         pub_date = pub.date().isoformat() if pub else None
@@ -298,14 +321,11 @@ def attach_existing_task_group(
     to_shift.sort(key=lambda x: x[0], reverse=True)
     if to_shift:
         planned = [(old, old + 1, link) for old, link in to_shift]
-        temp_base = 10_000
-        for i, (_old, new, link) in enumerate(planned):
-            link.number = str(temp_base + i)
-            _sync_link_titles(link, new)
-            link.save(update_fields=['number', 'name'])
-        for _old, new, link in planned:
-            link.number = str(new)
-            link.save(update_fields=['number'])
+        shift_links(
+            [link for _old, _new, link in planned],
+            [new for _old, new, _link in planned],
+            sync_link=_sync_link_titles,
+        )
 
     if (task_group.label or '').startswith('alphabetty:') or not (task_group.label or '').strip():
         task_group.label = f'alphabetty:{at_number}'
@@ -364,14 +384,11 @@ def create_alphabetty(
     to_shift.sort(key=lambda x: x[0], reverse=True)
     if to_shift:
         planned = [(old, old + 1, link) for old, link in to_shift]
-        temp_base = 10_000
-        for i, (old, new, link) in enumerate(planned):
-            link.number = str(temp_base + i)
-            _sync_link_titles(link, new)
-            link.save(update_fields=['number', 'name'])
-        for old, new, link in planned:
-            link.number = str(new)
-            link.save(update_fields=['number'])
+        shift_links(
+            [link for _old, _new, link in planned],
+            [new for _old, new, _link in planned],
+            sync_link=_sync_link_titles,
+        )
 
     if word is None:
         picked = pick_answer_words(1, exclude=scheduled_words(now=now))

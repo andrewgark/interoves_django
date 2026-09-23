@@ -10,13 +10,13 @@ from typing import Any, Optional
 from django.db import transaction
 from django.utils import timezone
 
-from games.models import Game, GameTaskGroup
+from games.models import Game, GameTaskGroup, TaskGroup
 from games.support.services.banned import (
     add_banned_unit,
     list_banned_units,
     remove_banned_unit,
 )
-from games.support.services.schedule_links import delete_future_slot, renumber_links
+from games.support.services.schedule_links import delete_future_slot, renumber_links, shift_links
 from games.week_task_pool import (
     WEEK_TASK_SOURCE_TAG,
     materialize_unit,
@@ -84,7 +84,17 @@ def _sync_link_titles(link: GameTaskGroup, new_num: int) -> None:
 
 
 def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
-    renumber_links(ordered_links, sync_link=_sync_link_titles)
+    def sync_links(links: list[GameTaskGroup], new_numbers: list[int]) -> None:
+        task_groups = []
+        for link, new_num in zip(links, new_numbers):
+            tg = link.task_group
+            tg.label = f'week_task:{new_num}'
+            link.name = f'Задание недели #{new_num}'
+            task_groups.append(tg)
+        if task_groups:
+            TaskGroup.objects.bulk_update(task_groups, ['label'])
+
+    renumber_links(ordered_links, sync_links=sync_links)
 
 
 def _source_label(link: GameTaskGroup) -> str:
@@ -399,14 +409,11 @@ def create_week_task(
     to_shift.sort(key=lambda x: x[0], reverse=True)
     if to_shift:
         planned = [(old, old + 1, link) for old, link in to_shift]
-        temp_base = 10_000
-        for i, (old, new, link) in enumerate(planned):
-            link.number = str(temp_base + i)
-            _sync_link_titles(link, new)
-            link.save(update_fields=['number', 'name'])
-        for old, new, link in planned:
-            link.number = str(new)
-            link.save(update_fields=['number'])
+        shift_links(
+            [link for _old, _new, link in planned],
+            [new for _old, new, _link in planned],
+            sync_link=_sync_link_titles,
+        )
 
     unit = _resolve_unit_from_payload(
         source_task_group_id=source_task_group_id,

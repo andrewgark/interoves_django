@@ -36,6 +36,7 @@ from games.support.services.schedule_links import (
     build_schedule_page_context,
     delete_future_slot,
     renumber_links,
+    shift_links,
 )
 
 AUTHOR_TAG = 'author'
@@ -149,11 +150,48 @@ def _sync_link_titles(link: GameTaskGroup, new_num: int) -> None:
 
 def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
     """Двухфазно выставить number = 1..N в порядке ordered_links."""
-    renumber_links(ordered_links, sync_link=_sync_link_titles)
+    tasks_by_group = {
+        task.task_group_id: task
+        for task in Task.objects.filter(
+            task_group_id__in={link.task_group_id for link in ordered_links},
+            number='1',
+        )
+    }
+
+    def sync_links(links: list[GameTaskGroup], new_numbers: list[int]) -> None:
+        task_groups = []
+        legacy_tasks = []
+        for link, new_num in zip(links, new_numbers):
+            tg = link.task_group
+            link.name = f'Лесенка #{new_num}'
+            if (tg.label or '').startswith('ladder:') or not (tg.label or '').strip():
+                tg.label = f'ladder:{new_num}'
+                task_groups.append(tg)
+            task = tasks_by_group.get(link.task_group_id)
+            if task and task.text and _TITLE_RE.match(task.text.strip()):
+                task.text = ''
+                legacy_tasks.append(task)
+        if task_groups:
+            TaskGroup.objects.bulk_update(task_groups, ['label'])
+        # This legacy cleanup is rare; retain Task.save() side effects for it.
+        for task in legacy_tasks:
+            task.save(update_fields=['text'])
+
+    renumber_links(ordered_links, sync_links=sync_links)
 
 
 def _task_for_link(link: GameTaskGroup) -> Optional[Task]:
     return Task.objects.filter(task_group_id=link.task_group_id, number='1').first()
+
+
+def _tasks_for_links(links: list[GameTaskGroup]) -> dict[int, Task]:
+    task_group_ids = {link.task_group_id for link in links}
+    if not task_group_ids:
+        return {}
+    return {
+        task.task_group_id: task
+        for task in Task.objects.filter(task_group_id__in=task_group_ids, number='1')
+    }
 
 
 def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
@@ -211,13 +249,14 @@ def list_ladder_rows(*, now: datetime | None = None) -> list[LadderRow]:
         GameTaskGroup.objects.filter(game=game).select_related('task_group'),
         reverse=False,
     )
+    tasks_by_group = _tasks_for_links(links)
     rows: list[LadderRow] = []
     for link in links:
         try:
             number = int(link.number)
         except (TypeError, ValueError):
             continue
-        task = _task_for_link(link)
+        task = tasks_by_group.get(link.task_group_id)
         payload = _parse_task_payload(task)
         pub = ladder_publish_at(game, number)
         pub_date = pub.date().isoformat() if pub else None
@@ -395,14 +434,11 @@ def _shift_numbers_from(at_number: int) -> None:
     if not to_shift:
         return
     planned = [(old, old + 1, link) for old, link in to_shift]
-    temp_base = 10_000
-    for i, (old, new, link) in enumerate(planned):
-        link.number = str(temp_base + i)
-        _sync_link_titles(link, new)
-        link.save(update_fields=['number', 'name'])
-    for old, new, link in planned:
-        link.number = str(new)
-        link.save(update_fields=['number'])
+    shift_links(
+        [link for _old, _new, link in planned],
+        [new for _old, new, _link in planned],
+        sync_link=_sync_link_titles,
+    )
 
 
 def _create_task_group_and_task(

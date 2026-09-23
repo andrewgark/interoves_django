@@ -71,6 +71,7 @@ def renumber_links(
     ordered_links: list[GameTaskGroup],
     *,
     sync_link: Callable[[GameTaskGroup, int], None] | None = None,
+    sync_links: Callable[[list[GameTaskGroup], list[int]], None] | None = None,
 ) -> None:
     """Двухфазно выставить номера 1..N, не меняя стабильные link id.
 
@@ -78,21 +79,57 @@ def renumber_links(
     нарушить unique(game, number). ``sync_link`` синхронизирует доменные
     названия/labels с будущим публичным номером.
     """
+    if sync_link is not None and sync_links is not None:
+        raise ValueError('Укажите только sync_link или sync_links')
     if not ordered_links:
         return
     occupied = {str(link.number) for link in ordered_links}
     temp_base = 10_000
     while any(str(temp_base + i) in occupied for i in range(len(ordered_links))):
         temp_base += len(ordered_links) + 10_000
+    new_numbers = [i + 1 for i in range(len(ordered_links))]
     for i, link in enumerate(ordered_links):
-        new_num = i + 1
         link.number = str(temp_base + i)
-        if sync_link is not None:
+    if sync_links is not None:
+        sync_links(ordered_links, new_numbers)
+    elif sync_link is not None:
+        for link, new_num in zip(ordered_links, new_numbers):
             sync_link(link, new_num)
-        link.save(update_fields=['number', 'name'])
-    for i, link in enumerate(ordered_links):
-        link.number = str(i + 1)
-        link.save(update_fields=['number'])
+    GameTaskGroup.objects.bulk_update(ordered_links, ['number', 'name'])
+    for link, new_num in zip(ordered_links, new_numbers):
+        link.number = str(new_num)
+    GameTaskGroup.objects.bulk_update(ordered_links, ['number'])
+
+
+def shift_links(
+    links: list[GameTaskGroup],
+    new_numbers: list[int],
+    *,
+    sync_link: Callable[[GameTaskGroup, int], None] | None = None,
+    sync_links: Callable[[list[GameTaskGroup], list[int]], None] | None = None,
+) -> None:
+    """Пакетно сдвинуть номера выбранных ссылок с сохранением unique-ограничения."""
+    if len(links) != len(new_numbers):
+        raise ValueError('Количество ссылок и новых номеров не совпадает')
+    if sync_link is not None and sync_links is not None:
+        raise ValueError('Укажите только sync_link или sync_links')
+    if not links:
+        return
+    temp_base = 10_000
+    occupied = {str(link.number) for link in links}
+    while any(str(temp_base + i) in occupied for i in range(len(links))):
+        temp_base += len(links) + 10_000
+    for i, link in enumerate(links):
+        link.number = str(temp_base + i)
+    if sync_links is not None:
+        sync_links(links, new_numbers)
+    elif sync_link is not None:
+        for link, new_num in zip(links, new_numbers):
+            sync_link(link, new_num)
+    GameTaskGroup.objects.bulk_update(links, ['number', 'name'])
+    for link, new_num in zip(links, new_numbers):
+        link.number = str(new_num)
+    GameTaskGroup.objects.bulk_update(links, ['number'])
 
 
 def cascade_delete_link(link: GameTaskGroup) -> None:

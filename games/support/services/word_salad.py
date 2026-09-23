@@ -207,7 +207,36 @@ def _sync_link_titles(link: GameTaskGroup, new_num: int) -> None:
 
 
 def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
-    renumber_links(ordered_links, sync_link=_sync_link_titles)
+    tasks_by_group = {
+        task.task_group_id: task
+        for task in Task.objects.filter(
+            task_group_id__in={link.task_group_id for link in ordered_links},
+            number='1',
+        )
+    }
+
+    def sync_links(links: list[GameTaskGroup], new_numbers: list[int]) -> None:
+        task_groups = []
+        legacy_tasks = []
+        for link, new_num in zip(links, new_numbers):
+            title = _salad_title(new_num)
+            link.name = title
+            task_group = link.task_group
+            desired_label = f'salad:{new_num}'
+            if (task_group.label or '').strip() != desired_label:
+                task_group.label = desired_label
+                task_groups.append(task_group)
+            task = tasks_by_group.get(link.task_group_id)
+            if task and task.text and _TITLE_RE.match(task.text.strip()):
+                task.text = ''
+                legacy_tasks.append(task)
+        if task_groups:
+            TaskGroup.objects.bulk_update(task_groups, ['label'])
+        # This legacy cleanup is rare; retain Task.save() side effects for it.
+        for task in legacy_tasks:
+            task.save(update_fields=['text'])
+
+    renumber_links(ordered_links, sync_links=sync_links)
 
 
 def _validated_checker_data(grid_value, words_value, rare_words_value=None) -> str:
@@ -228,6 +257,16 @@ def _preview_text(values, *, max_items=3):
     return preview
 
 
+def _tasks_for_links(links: list[GameTaskGroup]) -> dict[int, Task]:
+    task_group_ids = {link.task_group_id for link in links}
+    if not task_group_ids:
+        return {}
+    return {
+        task.task_group_id: task
+        for task in Task.objects.filter(task_group_id__in=task_group_ids, number='1')
+    }
+
+
 def _grid_preview(grid):
     if not grid:
         return '—'
@@ -238,13 +277,15 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
     now = now or timezone.now()
     today = now.astimezone(MOSCOW).date()
     game = Game.objects.filter(pk=WORD_SALAD_GAME_ID).first()
+    links = list(_sorted_links())
+    tasks_by_group = _tasks_for_links(links)
     rows = []
-    for link in _sorted_links():
+    for link in links:
         try:
             number = int(link.number)
         except (TypeError, ValueError):
             continue
-        task = _task_for_link(link)
+        task = tasks_by_group.get(link.task_group_id)
         grid = []
         words = []
         author = ''
