@@ -135,7 +135,10 @@ def _claim_next(now=None, worker='cron'):
         ).order_by('id').select_for_update().first()
         if item is None:
             remaining = WordSaladRecheckItem.objects.filter(job=job).exclude(
-                status=WordSaladRecheckItem.STATUS_COMPLETED,
+                status__in=(
+                    WordSaladRecheckItem.STATUS_COMPLETED,
+                    WordSaladRecheckItem.STATUS_SUPERSEDED,
+                ),
             ).order_by('next_attempt_at').first()
             failed = WordSaladRecheckItem.objects.filter(
                 job=job, status=WordSaladRecheckItem.STATUS_FAILED,
@@ -168,19 +171,23 @@ def _claim_next(now=None, worker='cron'):
 def _record_item_failure(job, item, token, exc):
     now = timezone.now()
     message = '{}: {}'.format(exc.__class__.__name__, exc)[:2000]
-    exhausted = item.attempt_count >= MAX_ITEM_ATTEMPTS
-    WordSaladRecheckItem.objects.filter(pk=item.pk, claim_token=token).update(
-        status=WordSaladRecheckItem.STATUS_FAILED if exhausted else WordSaladRecheckItem.STATUS_PENDING,
-        last_error=message,
-        next_attempt_at=None if exhausted else now + timedelta(seconds=RETRY_BASE * (2 ** max(0, item.attempt_count - 1))),
-        claimed_until=None, claim_token=None, updated_at=now,
-    )
-    WordSaladRecheckJob.objects.filter(pk=job.pk, claim_token=job.claim_token).update(
-        status=WordSaladRecheckJob.STATUS_FAILED if exhausted else WordSaladRecheckJob.STATUS_PENDING,
-        last_error=message,
-        next_attempt_at=None if exhausted else now + timedelta(seconds=RETRY_BASE * (2 ** max(0, item.attempt_count - 1))),
-        claimed_until=None, claim_token=None, updated_at=now,
-    )
+    with transaction.atomic():
+        exhausted = item.attempt_count >= MAX_ITEM_ATTEMPTS
+        retry_at = None if exhausted else now + timedelta(
+            seconds=RETRY_BASE * (2 ** max(0, item.attempt_count - 1)),
+        )
+        WordSaladRecheckItem.objects.filter(pk=item.pk, claim_token=token).update(
+            status=WordSaladRecheckItem.STATUS_FAILED if exhausted else WordSaladRecheckItem.STATUS_PENDING,
+            last_error=message,
+            next_attempt_at=retry_at,
+            claimed_until=None, claim_token=None, updated_at=now,
+        )
+        WordSaladRecheckJob.objects.filter(pk=job.pk, claim_token=job.claim_token).update(
+            status=WordSaladRecheckJob.STATUS_FAILED if exhausted else WordSaladRecheckJob.STATUS_PENDING,
+            last_error=message,
+            next_attempt_at=retry_at,
+            claimed_until=None, claim_token=None, updated_at=now,
+        )
 
 
 def _schedule_actor_notification(task, actor, game):
@@ -224,6 +231,8 @@ def _claim_specific_item(*, job_id, item_id, worker='worker', now=None):
             return 'lease_conflict', item.job, item, None
 
         job = item.job
+        if job.status == WordSaladRecheckJob.STATUS_RUNNING and job.claimed_until and job.claimed_until > now:
+            return 'lease_conflict', job, item, None
         if job.status == WordSaladRecheckJob.STATUS_SUPERSEDED or job.task.attempt_revision != job.task_revision:
             item.status = WordSaladRecheckItem.STATUS_SUPERSEDED
             item.claim_token = None

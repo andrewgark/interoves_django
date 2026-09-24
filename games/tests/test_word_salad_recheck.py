@@ -2,14 +2,20 @@ import json
 import hashlib
 import hmac
 import uuid
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
+from django.utils import timezone
 
 from games.models import WordSaladRecheckItem, WordSaladRecheckJob, WordSaladRecheckOutbox
 from games.support.services.word_salad import create_word_salad
-from games.word_salad_outbox import FakeWordSaladTransport, dispatch_word_salad_recheck_outbox
+from games.word_salad_outbox import (
+    FakeWordSaladTransport,
+    dispatch_word_salad_recheck_outbox,
+    reconcile_word_salad_recheck_outbox,
+)
 from games.word_salad_recheck import (
     enqueue_word_salad_recheck,
     process_word_salad_recheck_item,
@@ -114,6 +120,35 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertEqual(dispatch_word_salad_recheck_outbox(limit=1, transport=transport)['sent'], 1)
         self.assertEqual(len(transport.messages), 2)
 
+    def test_reconciliation_is_read_only_by_default_and_repairs_missing_row(self):
+        actors = {(None, self.user.pk, None, None)}
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        item = WordSaladRecheckItem.objects.get(job=job)
+        WordSaladRecheckOutbox.objects.filter(item=item).delete()
+
+        findings = reconcile_word_salad_recheck_outbox()
+        self.assertEqual(findings[0]['kind'], 'missing_outbox')
+        self.assertFalse(WordSaladRecheckOutbox.objects.filter(item=item).exists())
+
+        findings = reconcile_word_salad_recheck_outbox(apply=True)
+        self.assertTrue(findings[0]['repaired'])
+        self.assertTrue(WordSaladRecheckOutbox.objects.filter(item=item).exists())
+
+    def test_reconciliation_reopens_stale_sending_row(self):
+        actors = {(None, self.user.pk, None, None)}
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        outbox = WordSaladRecheckOutbox.objects.get(item__job=job)
+        outbox.status = WordSaladRecheckOutbox.STATUS_SENDING
+        outbox.claimed_until = timezone.now() - timedelta(seconds=1)
+        outbox.save(update_fields=['status', 'claimed_until', 'updated_at'])
+
+        findings = reconcile_word_salad_recheck_outbox(apply=True)
+        self.assertTrue(any(f['kind'] == 'stale_sending' and f['repaired'] for f in findings))
+        outbox.refresh_from_db()
+        self.assertEqual(outbox.status, WordSaladRecheckOutbox.STATUS_PENDING)
+
     def test_replay_failure_keeps_item_retryable(self):
         actors = {(None, self.user.pk, None, None)}
         with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
@@ -137,6 +172,22 @@ class WordSaladRecheckQueueTests(TestCase):
         recheck.assert_not_called()
         item.refresh_from_db()
         self.assertEqual(item.status, WordSaladRecheckItem.STATUS_SUPERSEDED)
+
+    def test_active_job_lease_serializes_specific_item_deliveries(self):
+        actors = {
+            (None, self.user.pk, None, None),
+            (None, None, 'anonymous-actor', None),
+        }
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        items = list(WordSaladRecheckItem.objects.filter(job=job).order_by('id'))
+        with patch('games.word_salad_recheck.recheck_word_salad_actor'):
+            from games.word_salad_recheck import _claim_specific_item
+            self.assertEqual(_claim_specific_item(job_id=job.pk, item_id=items[0].pk)[0], 'claimed')
+            self.assertEqual(
+                process_word_salad_recheck_item(job_id=job.pk, item_id=items[1].pk),
+                'lease_conflict',
+            )
 
     @override_settings(ROOT_URLCONF='interoves_django.urls')
     def test_worker_endpoint_requires_hmac_and_accepts_completed_delivery(self):
@@ -165,6 +216,31 @@ class WordSaladRecheckQueueTests(TestCase):
                     HTTP_X_INTEROVES_WORKER_TIMESTAMP=timestamp,
                     HTTP_X_INTEROVES_WORKER_SIGNATURE=signature,
                 )
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(ROOT_URLCONF='interoves_django.urls')
+    def test_worker_endpoint_accepts_native_private_sqsd_delivery_on_worker_role(self):
+        actors = {(None, self.user.pk, None, None)}
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        item = WordSaladRecheckItem.objects.get(job=job)
+        payload = {
+            'version': 1,
+            'operation': 'word_salad_recheck',
+            'job_id': job.pk,
+            'item_id': item.pk,
+            'actor_id': item.pk,
+            'task_revision': str(job.task_revision),
+        }
+        with patch.dict('os.environ', {'INTEROVES_RUNTIME_ROLE': 'worker'}, clear=False), \
+             patch('games.word_salad_recheck.recheck_word_salad_actor', return_value={'credited': 0}):
+            response = Client().post(
+                '/internal/worker/word-salad-recheck/',
+                json.dumps(payload).encode(),
+                content_type='application/json',
+                HTTP_USER_AGENT='aws-sqsd/2.0',
+                HTTP_X_AWS_SQSD_MSGID='message-1',
+            )
         self.assertEqual(response.status_code, 200)
 
     def test_worker_can_claim_next_item_without_waiting_for_job_lease(self):

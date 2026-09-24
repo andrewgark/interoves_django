@@ -10,6 +10,7 @@ from datetime import timedelta
 
 import boto3
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from games.models import WordSaladRecheckItem, WordSaladRecheckOutbox
@@ -17,6 +18,7 @@ from games.models import WordSaladRecheckItem, WordSaladRecheckOutbox
 logger = logging.getLogger('application')
 OUTBOX_RETRY_BASE = 30
 OUTBOX_MAX_BACKOFF = 900
+OUTBOX_CLAIM_TIMEOUT = timedelta(minutes=5)
 
 
 class WordSaladTransportNotConfigured(RuntimeError):
@@ -90,7 +92,7 @@ def _claim_one(*, now=None):
             return None
         row.status = WordSaladRecheckOutbox.STATUS_SENDING
         row.claim_token = uuid.uuid4()
-        row.claimed_until = now + timedelta(minutes=5)
+        row.claimed_until = now + OUTBOX_CLAIM_TIMEOUT
         row.attempts += 1
         row.save(update_fields=['status', 'claim_token', 'claimed_until', 'attempts', 'updated_at'])
         return row
@@ -151,3 +153,77 @@ def dispatch_word_salad_recheck_outbox(*, limit=10, transport=None):
             sent += 1
             _mark_sent(row, message_id=message_id)
     return {'sent': sent, 'failed': failed}
+
+
+def reconcile_word_salad_recheck_outbox(*, apply=False, now=None):
+    """Audit and optionally repair durable DB-to-transport intents.
+
+    This is deliberately a narrow repair command, not a second queue.  The
+    item/job tables remain authoritative; repair only recreates a missing
+    intent or makes an interrupted send eligible for another delivery.
+    """
+    now = now or timezone.now()
+    findings = []
+
+    items = WordSaladRecheckItem.objects.select_related('job').order_by('id')
+    for item in items.iterator():
+        outbox = WordSaladRecheckOutbox.objects.filter(
+            item_id=item.pk, task_revision=item.job.task_revision,
+        ).first()
+        if outbox is None and item.status in (
+            WordSaladRecheckItem.STATUS_PENDING,
+            WordSaladRecheckItem.STATUS_RUNNING,
+        ):
+            finding = {'kind': 'missing_outbox', 'item_id': item.pk, 'job_id': item.job_id}
+            if apply:
+                with transaction.atomic():
+                    WordSaladRecheckOutbox.objects.get_or_create(
+                        item_id=item.pk,
+                        task_revision=item.job.task_revision,
+                    )
+                finding['repaired'] = True
+            findings.append(finding)
+            continue
+        if outbox is None:
+            continue
+
+        if outbox.status == WordSaladRecheckOutbox.STATUS_SENDING and (
+            outbox.claimed_until is None or outbox.claimed_until <= now
+        ):
+            finding = {'kind': 'stale_sending', 'outbox_id': outbox.pk, 'item_id': item.pk}
+            if apply:
+                updated = WordSaladRecheckOutbox.objects.filter(
+                    pk=outbox.pk,
+                    status=WordSaladRecheckOutbox.STATUS_SENDING,
+                ).filter(
+                    Q(claimed_until__isnull=True) | Q(claimed_until__lte=now),
+                ).update(
+                    status=WordSaladRecheckOutbox.STATUS_PENDING,
+                    claim_token=None,
+                    claimed_until=None,
+                    next_attempt_at=now,
+                    updated_at=now,
+                )
+                finding['repaired'] = bool(updated)
+            findings.append(finding)
+
+        if item.status in (
+            WordSaladRecheckItem.STATUS_COMPLETED,
+            WordSaladRecheckItem.STATUS_SUPERSEDED,
+        ) and outbox.status in (
+            WordSaladRecheckOutbox.STATUS_PENDING,
+            WordSaladRecheckOutbox.STATUS_SENDING,
+        ):
+            finding = {'kind': 'terminal_item_unsent', 'outbox_id': outbox.pk, 'item_id': item.pk}
+            if apply:
+                WordSaladRecheckOutbox.objects.filter(pk=outbox.pk).update(
+                    status=WordSaladRecheckOutbox.STATUS_SENT,
+                    sent_at=outbox.sent_at or now,
+                    claim_token=None,
+                    claimed_until=None,
+                    updated_at=now,
+                )
+                finding['repaired'] = True
+            findings.append(finding)
+
+    return findings

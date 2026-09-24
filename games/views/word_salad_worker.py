@@ -36,18 +36,38 @@ def _valid_signature(request, body):
     return hmac.compare_digest(signature.removeprefix('sha256='), expected)
 
 
+def _authorized_delivery(request, body):
+    """Accept signed calls or the private, native EB sqsd delivery.
+
+    sqsd does not provide a configurable HMAC header.  Its native delivery is
+    therefore protected by the private worker environment/security group and
+    by restricting this fallback to the sqsd user-agent plus message id.  A
+    signed reverse proxy can use the stronger HMAC path whenever one exists.
+    """
+    if _valid_signature(request, body):
+        return True
+    if os.environ.get('INTEROVES_RUNTIME_ROLE', '').strip().lower() != 'worker':
+        return False
+    user_agent = request.headers.get('User-Agent', '')
+    return bool(
+        request.headers.get('X-Aws-Sqsd-Msgid', '').strip()
+        and user_agent.lower().startswith('aws-sqsd')
+    )
+
+
 @csrf_exempt
 @require_POST
 def word_salad_worker(request):
     if runtime_role() == 'web':
         return HttpResponse('worker endpoint is disabled for web runtime role', status=503)
     body = request.body
-    if not _valid_signature(request, body):
+    if not _authorized_delivery(request, body):
         return HttpResponse('invalid worker signature', status=403)
     try:
         payload = json.loads(body.decode('utf-8'))
         job_id = int(payload['job_id'])
         item_id = int(payload['item_id'])
+        actor_id = int(payload['actor_id'])
         task_revision = str(payload['task_revision'])
     except (UnicodeDecodeError, ValueError, TypeError, KeyError, json.JSONDecodeError):
         return JsonResponse({'error': 'invalid payload'}, status=400)
@@ -58,6 +78,8 @@ def word_salad_worker(request):
     if item is None:
         # A deleted item cannot be made current by a stale delivery. ACK it.
         return JsonResponse({'status': 'unknown_item'}, status=200)
+    if actor_id != item.pk:
+        return JsonResponse({'error': 'actor/item mismatch'}, status=400)
     if task_revision != str(item.job.task_revision):
         return JsonResponse({'status': 'stale_revision'}, status=200)
 
