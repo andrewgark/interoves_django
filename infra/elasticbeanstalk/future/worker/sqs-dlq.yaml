@@ -1,0 +1,28 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Future-only Word Salad SQS queue and DLQ template. Do not apply directly.
+Parameters:
+  NamePrefix:
+    Type: String
+    Default: interoves-word-salad
+Resources:
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${NamePrefix}-dlq'
+      MessageRetentionPeriod: 1209600
+  Queue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref NamePrefix
+      VisibilityTimeout: 120
+      MessageRetentionPeriod: 1209600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: 5
+Outputs:
+  QueueUrl:
+    Value: !Ref Queue
+  QueueArn:
+    Value: !GetAtt Queue.Arn
+  DeadLetterQueueArn:
+    Value: !GetAtt DeadLetterQueue.Arn
