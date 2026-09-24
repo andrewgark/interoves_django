@@ -52,6 +52,13 @@ Resources:
                 Condition:
                   StringEquals:
                     cloudwatch:namespace: InterOves/Worker
+              - Sid: CloudWatchAgentMetrics
+                Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: CWAgent
               - Sid: CloudWatchAgentEc2Dimensions
                 Effect: Allow
                 Action: ec2:DescribeTags
