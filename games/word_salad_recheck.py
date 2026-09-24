@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import socket
 import time
 import uuid
@@ -20,10 +21,22 @@ from games.models import (
     WordSaladRecheckOutbox,
 )
 from games.recheck import _resolve_word_salad_actor, _word_salad_actor_keys, recheck_word_salad_actor
+from games.runtime import runtime_role
 
 logger = logging.getLogger('application')
 RETRY_BASE = 30
 MAX_ITEM_ATTEMPTS = 5
+
+
+def _validation_failpoint(name):
+    """Terminate only an explicitly isolated validation worker process."""
+    if (
+        runtime_role() == 'worker'
+        and os.environ.get('INTEROVES_VALIDATION_MODE', '').strip() == '1'
+        and os.environ.get('INTEROVES_VALIDATION_FAILPOINT', '').strip() == name
+    ):
+        logger.warning('validation failpoint terminating worker name=%s', name)
+        os._exit(86)
 
 
 def _job_lease():
@@ -297,6 +310,7 @@ def _process_claimed_item(job, item, item_token):
             if actor is not None:
                 result = recheck_word_salad_actor(task, game=job.game, notify=False, **actor)
                 credited = int(result.get('credited') or 0)
+            _validation_failpoint('crash_before_commit')
             now = timezone.now()
             updated = WordSaladRecheckItem.objects.filter(
                 pk=item.pk, status=WordSaladRecheckItem.STATUS_RUNNING, claim_token=item_token,
@@ -348,7 +362,10 @@ def process_word_salad_recheck_item(*, job_id, item_id, worker='worker'):
             job_id, item_id,
         )
         return state
-    return _process_claimed_item(job, item, item_token)
+    result = _process_claimed_item(job, item, item_token)
+    if result == 'completed':
+        _validation_failpoint('crash_after_commit')
+    return result
 
 
 def process_word_salad_rechecks(*, limit=1, worker='cron'):

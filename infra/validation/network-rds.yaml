@@ -1,0 +1,243 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Disposable Inter Oves Word Salad validation VPC and empty MySQL database.
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: 10.250.0.0/16
+  DatabaseInstanceClass:
+    Type: String
+    Default: db.t3.micro
+  EngineVersion:
+    Type: String
+    Default: '8.4.10'
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: interoves-validation-vpc
+        - Key: InterOvesValidation
+          Value: 'true'
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: interoves-validation-igw
+        - Key: InterOvesValidation
+          Value: 'true'
+
+  VpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref Vpc
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.250.0.0/24
+      AvailabilityZone: eu-central-1a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: interoves-validation-public-a
+        - Key: InterOvesValidation
+          Value: 'true'
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.250.1.0/24
+      AvailabilityZone: eu-central-1a
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: interoves-validation-private-a
+        - Key: InterOvesValidation
+          Value: 'true'
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.250.2.0/24
+      AvailabilityZone: eu-central-1b
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: interoves-validation-private-b
+        - Key: InterOvesValidation
+          Value: 'true'
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: interoves-validation-public-rt
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  NatEip:
+    Type: AWS::EC2::EIP
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: interoves-validation-nat-eip
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    DependsOn: PublicAssociation
+    Properties:
+      AllocationId: !GetAtt NatEip.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: interoves-validation-nat
+        - Key: InterOvesValidation
+          Value: 'true'
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: interoves-validation-private-rt
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateAssociationA:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateAssociationB:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetB
+      RouteTableId: !Ref PrivateRouteTable
+
+  WorkerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Validation worker egress only; no public ingress.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress: []
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: interoves-validation-worker-sg
+        - Key: InterOvesValidation
+          Value: 'true'
+
+  RdsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Validation MySQL access only from validation worker SG.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref WorkerSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: interoves-validation-rds-sg
+        - Key: InterOvesValidation
+          Value: 'true'
+
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Disposable validation private subnets.
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      Tags:
+        - Key: Name
+          Value: interoves-validation-rds-subnets
+        - Key: InterOvesValidation
+          Value: 'true'
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      DBInstanceIdentifier: interoves-validation-rds
+      Engine: mysql
+      EngineVersion: !Ref EngineVersion
+      DBInstanceClass: !Ref DatabaseInstanceClass
+      AllocatedStorage: '20'
+      StorageType: gp3
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 0
+      DeletionProtection: false
+      AutoMinorVersionUpgrade: false
+      DBName: interoves_validation
+      MasterUsername: validation_admin
+      ManageMasterUserPassword: true
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups:
+        - !GetAtt RdsSecurityGroup.GroupId
+      Tags:
+        - Key: Name
+          Value: interoves-validation-rds
+        - Key: InterOvesValidation
+          Value: 'true'
+
+Outputs:
+  VpcId:
+    Value: !Ref Vpc
+  PrivateSubnetA:
+    Value: !Ref PrivateSubnetA
+  PrivateSubnetB:
+    Value: !Ref PrivateSubnetB
+  PublicSubnet:
+    Value: !Ref PublicSubnet
+  WorkerSecurityGroup:
+    Value: !GetAtt WorkerSecurityGroup.GroupId
+  RdsSecurityGroup:
+    Value: !GetAtt RdsSecurityGroup.GroupId
+  DatabaseEndpoint:
+    Value: !GetAtt Database.Endpoint.Address
+  DatabasePort:
+    Value: !GetAtt Database.Endpoint.Port
+  DatabaseSecretArn:
+    Value: !GetAtt Database.MasterUserSecret.SecretArn

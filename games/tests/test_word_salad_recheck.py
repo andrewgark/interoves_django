@@ -279,6 +279,24 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertAlmostEqual((job.claimed_until - now).total_seconds(), 90, delta=2)
         self.assertAlmostEqual((item.claimed_until - now).total_seconds(), 90, delta=2)
 
+    def test_validation_failpoints_are_gated_to_worker_validation_mode(self):
+        from games.word_salad_recheck import _validation_failpoint
+        with patch.dict('os.environ', {
+            'INTEROVES_RUNTIME_ROLE': 'web',
+            'INTEROVES_VALIDATION_MODE': '1',
+            'INTEROVES_VALIDATION_FAILPOINT': 'crash_after_commit',
+        }, clear=False), patch('games.word_salad_recheck.os._exit') as exit_process:
+            _validation_failpoint('crash_after_commit')
+            exit_process.assert_not_called()
+
+        with patch.dict('os.environ', {
+            'INTEROVES_RUNTIME_ROLE': 'worker',
+            'INTEROVES_VALIDATION_MODE': '1',
+            'INTEROVES_VALIDATION_FAILPOINT': 'crash_after_commit',
+        }, clear=False), patch('games.word_salad_recheck.os._exit') as exit_process:
+            _validation_failpoint('crash_after_commit')
+            exit_process.assert_called_once_with(86)
+
     @override_settings(ROOT_URLCONF='interoves_django.urls')
     def test_worker_endpoint_requires_hmac_and_accepts_completed_delivery(self):
         actors = {(None, self.user.pk, None, None)}
