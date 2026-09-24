@@ -67,7 +67,7 @@ def word_salad_worker(request):
         payload = json.loads(body.decode('utf-8'))
         job_id = int(payload['job_id'])
         item_id = int(payload['item_id'])
-        actor_id = int(payload['actor_id'])
+        actor_id = str(payload['actor_id'])
         task_revision = str(payload['task_revision'])
     except (UnicodeDecodeError, ValueError, TypeError, KeyError, json.JSONDecodeError):
         return JsonResponse({'error': 'invalid payload'}, status=400)
@@ -78,7 +78,7 @@ def word_salad_worker(request):
     if item is None:
         # A deleted item cannot be made current by a stale delivery. ACK it.
         return JsonResponse({'status': 'unknown_item'}, status=200)
-    if actor_id != item.pk:
+    if actor_id != item.actor_key:
         return JsonResponse({'error': 'actor/item mismatch'}, status=400)
     if task_revision != str(item.job.task_revision):
         return JsonResponse({'status': 'stale_revision'}, status=200)

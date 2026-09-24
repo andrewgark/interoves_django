@@ -416,6 +416,16 @@ except ValueError:
 # games.middleware.request_timing — warn when send_attempt / alphabetty guess exceed this (ms).
 REQUEST_TIMING_SLOW_MS = _env_float('REQUEST_TIMING_SLOW_MS', 2000)
 
+# Word Salad queue leases remain 600 seconds by default for compatibility.
+# Validation/worker environments can shorten them only after measuring task
+# tails and crash recovery against the SQS visibility policy.
+try:
+    WORD_SALAD_JOB_LEASE_SECONDS = max(1, int(os.environ.get('WORD_SALAD_JOB_LEASE_SECONDS', '600')))
+    WORD_SALAD_ITEM_LEASE_SECONDS = max(1, int(os.environ.get('WORD_SALAD_ITEM_LEASE_SECONDS', '600')))
+except (TypeError, ValueError):
+    WORD_SALAD_JOB_LEASE_SECONDS = 600
+    WORD_SALAD_ITEM_LEASE_SECONDS = 600
+
 CHANNEL_LAYERS = {
     "default": {
         # this can only be used in single-replica deployments

@@ -14,11 +14,11 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Ref NamePrefix
-      VisibilityTimeout: 120
+      VisibilityTimeout: 180
       MessageRetentionPeriod: 1209600
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
-        maxReceiveCount: 5
+        maxReceiveCount: 8
 Outputs:
   QueueUrl:
     Value: !Ref Queue

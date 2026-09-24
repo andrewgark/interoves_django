@@ -10,6 +10,11 @@ The future bundle must use one of these role-specific configurations:
   `sqsd HttpConnections=1`.  Create it explicitly as an EB Worker/SQS tier;
   `worker/environment-tier.yaml` documents that requirement.
 
+The validation candidate timeout policy is a 90-second DB job/item lease,
+180-second SQS visibility, 60-second error visibility and eight receives.
+These values are not a production approval until p99 task duration and crash
+recovery are measured with the real MySQL backend.
+
 The dispatcher is a separate supervised service on the worker instance
 (`worker/dispatcher.service`).  It must receive the same application
 environment as the worker before being enabled; it is never installed on the

@@ -11,6 +11,7 @@ from datetime import timedelta
 
 from django.db import transaction
 from django.db.models import F, Q
+from django.conf import settings
 from django.utils import timezone
 
 from games.models import (
@@ -21,10 +22,16 @@ from games.models import (
 from games.recheck import _resolve_word_salad_actor, _word_salad_actor_keys, recheck_word_salad_actor
 
 logger = logging.getLogger('application')
-JOB_LEASE = timedelta(minutes=10)
-ITEM_LEASE = timedelta(minutes=10)
 RETRY_BASE = 30
 MAX_ITEM_ATTEMPTS = 5
+
+
+def _job_lease():
+    return timedelta(seconds=settings.WORD_SALAD_JOB_LEASE_SECONDS)
+
+
+def _item_lease():
+    return timedelta(seconds=settings.WORD_SALAD_ITEM_LEASE_SECONDS)
 
 
 def _actor_key(actor):
@@ -122,7 +129,7 @@ def _claim_next(now=None, worker='cron'):
         token = uuid.uuid4()
         job.status = WordSaladRecheckJob.STATUS_RUNNING
         job.claim_token = token
-        job.claimed_until = now + JOB_LEASE
+        job.claimed_until = now + _job_lease()
         job.attempt_count += 1
         job.started_at = job.started_at or now
         job.next_attempt_at = None
@@ -159,7 +166,7 @@ def _claim_next(now=None, worker='cron'):
         item_token = uuid.uuid4()
         item.status = WordSaladRecheckItem.STATUS_RUNNING
         item.claim_token = item_token
-        item.claimed_until = now + ITEM_LEASE
+        item.claimed_until = now + _item_lease()
         item.attempt_count += 1
         item.started_at = item.started_at or now
         item.next_attempt_at = None
@@ -247,14 +254,14 @@ def _claim_specific_item(*, job_id, item_id, worker='worker', now=None):
         item_token = uuid.uuid4()
         job.status = WordSaladRecheckJob.STATUS_RUNNING
         job.claim_token = job_token
-        job.claimed_until = now + JOB_LEASE
+        job.claimed_until = now + _job_lease()
         job.attempt_count += 1
         job.started_at = job.started_at or now
         job.next_attempt_at = None
         job.save(update_fields=['status', 'claim_token', 'claimed_until', 'attempt_count', 'started_at', 'next_attempt_at', 'updated_at'])
         item.status = WordSaladRecheckItem.STATUS_RUNNING
         item.claim_token = item_token
-        item.claimed_until = now + ITEM_LEASE
+        item.claimed_until = now + _item_lease()
         item.attempt_count += 1
         item.started_at = item.started_at or now
         item.next_attempt_at = None

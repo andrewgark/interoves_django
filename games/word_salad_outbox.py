@@ -63,9 +63,9 @@ def _payload(outbox):
         'operation': 'word_salad_recheck',
         'job_id': job.pk,
         'item_id': item.pk,
-        # item_id is the stable actor-work identifier; actor membership itself
-        # remains authoritative in the DB and is not copied into SQS.
-        'actor_id': item.pk,
+        # ``actor_id`` is the serialized actor identity, not the outbox/item
+        # primary key.  The DB item remains authoritative for resolving it.
+        'actor_id': item.actor_key,
         'task_revision': str(outbox.task_revision),
     }
 
@@ -86,7 +86,8 @@ def _claim_one(*, now=None):
         if row is None:
             row = WordSaladRecheckOutbox.objects.filter(
                 status=WordSaladRecheckOutbox.STATUS_SENDING,
-                claimed_until__lte=now,
+            ).filter(
+                Q(claimed_until__isnull=True) | Q(claimed_until__lte=now),
             ).select_for_update().select_related('item', 'item__job').order_by('id').first()
         if row is None:
             return None

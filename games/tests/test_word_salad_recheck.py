@@ -9,10 +9,18 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
-from games.models import WordSaladRecheckItem, WordSaladRecheckJob, WordSaladRecheckOutbox
+from games.models import (
+    Attempt,
+    ChainTaskState,
+    PlayerCompletedGame,
+    WordSaladRecheckItem,
+    WordSaladRecheckJob,
+    WordSaladRecheckOutbox,
+)
 from games.support.services.word_salad import create_word_salad
 from games.word_salad_outbox import (
     FakeWordSaladTransport,
+    _payload,
     dispatch_word_salad_recheck_outbox,
     reconcile_word_salad_recheck_outbox,
 )
@@ -74,6 +82,58 @@ class WordSaladRecheckQueueTests(TestCase):
         item.refresh_from_db()
         self.assertEqual(item.credited_attempts, 2)
 
+    def test_real_replay_duplicate_delivery_does_not_duplicate_credit_or_projection(self):
+        anon_key = 'real-word-salad-duplicate-delivery'
+        path = [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12]
+        Attempt.manager.create(
+            anon_key=anon_key,
+            task=self.task,
+            game=self.game,
+            text=json.dumps({'action': 'solve', 'path': path}),
+            status='Ok',
+            points=0,
+        )
+        payload = json.loads(self.task.checker_data)
+        payload['words'] = list(payload.get('words') or []) + ['ABCD']
+        self.task.checker_data = json.dumps(payload, ensure_ascii=False)
+        self.task.save(update_fields=['checker_data'])
+        with patch('games.views.track.track_actor_task_change'):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+            item = WordSaladRecheckItem.objects.get(job=job)
+            before = {
+                'attempts': Attempt.manager.filter(task=self.task, anon_key=anon_key).count(),
+                'chain': ChainTaskState.objects.filter(task=self.task, anon_key=anon_key).count(),
+                'completed': PlayerCompletedGame.objects.filter(
+                    task_group=self.task.task_group, game=self.game, anon_key=anon_key,
+                ).count(),
+            }
+            first = process_word_salad_recheck_item(job_id=job.pk, item_id=item.pk)
+            after_first = {
+                'attempts': Attempt.manager.filter(task=self.task, anon_key=anon_key).count(),
+                'chain': ChainTaskState.objects.filter(task=self.task, anon_key=anon_key).count(),
+                'completed': PlayerCompletedGame.objects.filter(
+                    task_group=self.task.task_group, game=self.game, anon_key=anon_key,
+                ).count(),
+            }
+            second = process_word_salad_recheck_item(job_id=job.pk, item_id=item.pk)
+            third = process_word_salad_recheck_item(job_id=job.pk, item_id=item.pk)
+        self.assertEqual(first, 'completed')
+        self.assertEqual(second, 'completed')
+        self.assertEqual(third, 'completed')
+        item.refresh_from_db()
+        after = {
+            'attempts': Attempt.manager.filter(task=self.task, anon_key=anon_key).count(),
+            'chain': ChainTaskState.objects.filter(task=self.task, anon_key=anon_key).count(),
+            'completed': PlayerCompletedGame.objects.filter(
+                task_group=self.task.task_group, game=self.game, anon_key=anon_key,
+            ).count(),
+        }
+        self.assertEqual(item.credited_attempts, 1)
+        self.assertEqual(after['attempts'], before['attempts'] + 1)
+        self.assertEqual(after_first['attempts'], after['attempts'])
+        self.assertEqual(after_first['chain'], after['chain'])
+        self.assertEqual(after_first['completed'], after['completed'])
+
     def test_enqueue_creates_one_outbox_row_per_item(self):
         actors = {
             (None, self.user.pk, None, None),
@@ -86,6 +146,16 @@ class WordSaladRecheckQueueTests(TestCase):
             WordSaladRecheckOutbox.objects.filter(item__job=job).values('item_id', 'task_revision').distinct().count(),
             2,
         )
+
+    def test_transport_actor_id_is_actor_key_not_item_primary_key(self):
+        actors = {(None, self.user.pk, None, None)}
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        outbox = WordSaladRecheckOutbox.objects.get(item__job=job)
+        item = outbox.item
+        payload = _payload(outbox)
+        self.assertEqual(payload['actor_id'], item.actor_key)
+        self.assertNotEqual(str(payload['actor_id']), str(item.pk))
 
     def test_outbox_dispatch_is_safe_to_repeat(self):
         actors = {(None, self.user.pk, None, None)}
@@ -189,6 +259,26 @@ class WordSaladRecheckQueueTests(TestCase):
                 'lease_conflict',
             )
 
+    @override_settings(
+        WORD_SALAD_JOB_LEASE_SECONDS=90,
+        WORD_SALAD_ITEM_LEASE_SECONDS=90,
+    )
+    def test_worker_leases_are_runtime_configurable(self):
+        actors = {(None, self.user.pk, None, None)}
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        item = WordSaladRecheckItem.objects.get(job=job)
+        now = timezone.now()
+        from games.word_salad_recheck import _claim_specific_item
+        self.assertEqual(
+            _claim_specific_item(job_id=job.pk, item_id=item.pk, now=now)[0],
+            'claimed',
+        )
+        job.refresh_from_db()
+        item.refresh_from_db()
+        self.assertAlmostEqual((job.claimed_until - now).total_seconds(), 90, delta=2)
+        self.assertAlmostEqual((item.claimed_until - now).total_seconds(), 90, delta=2)
+
     @override_settings(ROOT_URLCONF='interoves_django.urls')
     def test_worker_endpoint_requires_hmac_and_accepts_completed_delivery(self):
         actors = {(None, self.user.pk, None, None)}
@@ -200,7 +290,7 @@ class WordSaladRecheckQueueTests(TestCase):
             'operation': 'word_salad_recheck',
             'job_id': job.pk,
             'item_id': item.pk,
-            'actor_id': item.pk,
+            'actor_id': item.actor_key,
             'task_revision': str(job.task_revision),
         }
         body = json.dumps(payload, separators=(',', ':')).encode()
@@ -229,7 +319,7 @@ class WordSaladRecheckQueueTests(TestCase):
             'operation': 'word_salad_recheck',
             'job_id': job.pk,
             'item_id': item.pk,
-            'actor_id': item.pk,
+            'actor_id': item.actor_key,
             'task_revision': str(job.task_revision),
         }
         with patch.dict('os.environ', {'INTEROVES_RUNTIME_ROLE': 'worker'}, clear=False), \
