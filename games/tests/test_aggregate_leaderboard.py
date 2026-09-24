@@ -10,8 +10,9 @@ from django.utils import timezone
 
 from games.aggregate_leaderboard import build_aggregate_page
 from games.models import (
-    DailyResultProjection, DailyResultProjectionState, Game, GameTaskGroup,
-    HTMLPage, PersonalResultsParticipant, Profile, Project, Task, TaskGroup,
+    DailyResultProjection, DailyResultProjectionState, DailySolveTiming, Game,
+    GameTaskGroup, HTMLPage, PersonalResultsParticipant, Profile, Project,
+    ReplaySlot, Task, TaskGroup, Team,
 )
 
 
@@ -236,6 +237,58 @@ class AggregateLeaderboardTests(TestCase):
         )
         rows, total, page = _projection_rank_page(self.game, [group.pk], 3)
         self.assertEqual((rows, total, page), ([], 0, 1))
+
+    def test_projection_timing_join_preserves_actor_and_replay_semantics(self):
+        from games.aggregate_leaderboard import _projection_rank_page
+
+        group = self.links[0][0].task_group
+        team = Team.objects.create(
+            name='aggregate-timing-team', project_id='sections', is_hidden=True,
+        )
+        user = User.objects.create_user(username='aggregate-timing-user')
+        actors = [
+            ('team', team.name, {'team': team}, 30),
+            ('user', str(user.pk), {'user': user}, 20),
+            ('anon', 'aggregate-timing-anon', {'anon_key': 'aggregate-timing-anon'}, 10),
+            ('anon', 'aggregate-timing-none', {'anon_key': 'aggregate-timing-none'}, 5),
+        ]
+        DailyResultProjectionState.objects.create(
+            game=self.game, task_group=group, adapter_version=1,
+            coverage_complete=True, is_valid=True, full_refresh_required=False,
+        )
+        for actor_type, actor_key, identity, score in actors:
+            DailyResultProjection.objects.create(
+                game=self.game, task_group=group, actor_type=actor_type,
+                actor_key=actor_key, score=score, **identity,
+            )
+        DailySolveTiming.objects.create(
+            game=self.game, task_group=group, team=team,
+            accumulated_ms=3000, frozen_ms=3000,
+        )
+        DailySolveTiming.objects.create(
+            game=self.game, task_group=group, user=user,
+            accumulated_ms=2000, frozen_ms=2000,
+        )
+        DailySolveTiming.objects.create(
+            game=self.game, task_group=group, anon_key='aggregate-timing-anon',
+            accumulated_ms=1000, frozen_ms=1000,
+        )
+        replay_slot = ReplaySlot.objects.create(
+            game=self.game, task_group=group, user=user,
+            actor_key='u:{}'.format(user.pk),
+        )
+        DailySolveTiming.objects.create(
+            game=self.game, task_group=group, user=user, replay_slot=replay_slot,
+            accumulated_ms=9999, frozen_ms=9999,
+        )
+
+        rows, total, page = _projection_rank_page(self.game, [group.pk], 1)
+        by_actor = {row['actor_key']: row for row in rows}
+        self.assertEqual((total, page), (4, 1))
+        self.assertEqual(by_actor[team.name]['total_time_ms'], 3000)
+        self.assertEqual(by_actor[str(user.pk)]['total_time_ms'], 2000)
+        self.assertEqual(by_actor['aggregate-timing-anon']['total_time_ms'], 1000)
+        self.assertIsNone(by_actor['aggregate-timing-none']['total_time_ms'])
 
     def test_scorer_semantic_version_mismatch_invalidates_projection_read_path(self):
         for link, _task in self.links:

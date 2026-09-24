@@ -253,20 +253,29 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
           OR EXISTS (SELECT 1 FROM {author} a JOIN {profile} pr ON pr.user_id = a.profile_id
                      WHERE a.taskgroup_id = p.task_group_id AND pr.team_on_id = p.team_id)))'''
     base_params = [game.pk, *group_ids, *sorted(actor_types), False, True, True, 'user', 'team']
+    timing_branches = (
+        ('team', 'dt.team_id = p.team_id'),
+        ('user', 'dt.user_id = p.user_id'),
+        ('anon', 'dt.anon_key = p.anon_key'),
+    )
+    actor_total_branches = []
+    for actor_type, timing_identity in timing_branches:
+        actor_total_branches.append(
+            f'''SELECT p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key,
+                       SUM(p.score) AS window_score, COUNT(p.id) AS played_count,
+                       CASE WHEN COUNT(dt.id) = 0 THEN NULL ELSE SUM(COALESCE(dt.frozen_ms, dt.accumulated_ms)) END AS total_time_ms
+                FROM {projection} p LEFT JOIN {timing} dt ON dt.game_id = p.game_id
+                  AND dt.task_group_id = p.task_group_id AND dt.replay_slot_id IS NULL
+                  AND {timing_identity}
+                WHERE {eligibility} AND p.actor_type = '{actor_type}'
+                GROUP BY p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key'''
+        )
+    actor_totals_sql = '\n                    UNION ALL\n'.join(actor_total_branches)
     page_number = max(1, int(page_number or 1))
     with connection.cursor() as cursor:
         cursor.execute(
             f'''WITH actor_totals AS (
-                    SELECT p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key,
-                           SUM(p.score) AS window_score, COUNT(p.id) AS played_count,
-                           CASE WHEN COUNT(dt.id) = 0 THEN NULL ELSE SUM(COALESCE(dt.frozen_ms, dt.accumulated_ms)) END AS total_time_ms
-                    FROM {projection} p LEFT JOIN {timing} dt ON dt.game_id = p.game_id
-                      AND dt.task_group_id = p.task_group_id AND dt.replay_slot_id IS NULL
-                      AND ((p.actor_type = 'team' AND dt.team_id = p.team_id)
-                        OR (p.actor_type = 'user' AND dt.user_id = p.user_id)
-                        OR (p.actor_type = 'anon' AND dt.anon_key = p.anon_key))
-                    WHERE {eligibility}
-                    GROUP BY p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key
+                    {actor_totals_sql}
                 ), ranked AS (
                     SELECT actor_type, actor_key, team_id, user_id, anon_key,
                            window_score, played_count, total_time_ms,
@@ -292,7 +301,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
                  ORDER BY window_score DESC, total_time_ms IS NULL, total_time_ms, actor_type, actor_key
                  LIMIT %s''',
             [
-                *base_params,
+                *base_params, *base_params, *base_params,
                 page_number, PAGE_SIZE, PAGE_SIZE, page_number, PAGE_SIZE, PAGE_SIZE, PAGE_SIZE,
                 page_number, PAGE_SIZE, PAGE_SIZE, page_number, PAGE_SIZE, PAGE_SIZE, PAGE_SIZE,
                 PAGE_SIZE,
