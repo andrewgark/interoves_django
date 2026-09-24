@@ -52,6 +52,10 @@ Resources:
                 Condition:
                   StringEquals:
                     cloudwatch:namespace: InterOves/Worker
+              - Sid: CloudWatchAgentEc2Dimensions
+                Effect: Allow
+                Action: ec2:DescribeTags
+                Resource: '*'
               - Sid: WorkerLogs
                 Effect: Allow
                 Action:
