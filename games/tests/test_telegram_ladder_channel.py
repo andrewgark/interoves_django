@@ -210,14 +210,17 @@ class LadderChannelScheduleTests(TestCase):
         self.assertIn('refusing to post immediately', post.telegram_error)
         mtproto_mock.assert_not_called()
 
+    @patch('games.telegram.ladder_channel.send_message')
     @patch('games.telegram.ladder_channel.render_ladder_teaser_png', side_effect=RuntimeError('shot failed'))
-    def test_schedule_marks_failed_when_real_screenshot_unavailable(self, _render_mock):
+    def test_schedule_notifies_admin_when_real_screenshot_unavailable(self, _render_mock, admin_message_mock):
         post = schedule_ladder_channel_post(now=self.now, force=True, notify_admin=False)
         self.assertIsNotNone(post)
         self.assertEqual(post.telegram_status, SocialQueuePost.STATUS_FAILED)
         self.assertIn('ladder №1 screenshot render failed', post.telegram_error)
         self.assertIn('RuntimeError: shot failed', post.telegram_error)
         self.assertIn('fallback_to_pillow=False', post.telegram_error)
+        admin_message_mock.assert_called_once()
+        self.assertIn('Ошибка создания Telegram-поста', admin_message_mock.call_args.args[1])
 
     @patch('games.social.publish.post_tweet_with_image')
     @patch('games.social.publish.twitter_configured', return_value=True)

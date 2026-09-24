@@ -26,7 +26,7 @@ from games.social.publish import (
     queue_network,
     update_claimed_telegram_post,
 )
-from games.telegram.api import send_photo
+from games.telegram.api import send_message, send_photo
 from games.telegram.config import (
     admin_chat_id,
     telegram_admin_configured,
@@ -35,7 +35,7 @@ from games.telegram.config import (
 from games.telegram.game_urls import admin_url
 from games.telegram.ladder_image import ladder_last_screenshot_url, render_ladder_teaser_png
 from games.telegram.mtproto import telegram_user_configured
-from games.telegram.render_errors import describe_render_failure
+from games.telegram.render_errors import admin_render_failure_message, describe_render_failure
 
 logger = logging.getLogger('application')
 
@@ -326,16 +326,22 @@ def schedule_ladder_channel_post(
         caption = build_caption(ladder)
     except Exception as exc:
         logger.exception('Ladder channel render failed for №%s', ladder.number)
+        error = describe_render_failure(
+            'ladder №{}'.format(ladder.number),
+            ladder_last_screenshot_url(),
+            exc,
+        )
         complete_telegram_publish(
             existing.pk,
             claim_token,
             status=SocialQueuePost.STATUS_FAILED,
-            error=describe_render_failure(
-                'ladder №{}'.format(ladder.number),
-                ladder_last_screenshot_url(),
-                exc,
-            ),
+            error=error,
         )
+        if telegram_admin_configured():
+            try:
+                send_message(admin_chat_id(), admin_render_failure_message(error))
+            except Exception:
+                logger.exception('Failed to notify admin about ladder render failure')
         existing.refresh_from_db()
         return existing
 

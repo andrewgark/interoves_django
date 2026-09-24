@@ -20,7 +20,7 @@ from games.social.publish import (
     queue_network,
     update_claimed_telegram_post,
 )
-from games.telegram.api import send_photo
+from games.telegram.api import send_message, send_photo
 from games.telegram.config import (
     admin_chat_id,
     telegram_admin_configured,
@@ -30,7 +30,7 @@ from games.section_paths import section_play_path
 from games.telegram.game_urls import admin_url
 from games.telegram.mtproto import telegram_user_configured
 from games.telegram.word_salad_image import render_word_salad_teaser_png, word_salad_last_screenshot_url
-from games.telegram.render_errors import describe_render_failure
+from games.telegram.render_errors import admin_render_failure_message, describe_render_failure
 from games.word_salad import WORD_SALAD_GAME_ID, theme_from_text
 from games.word_salad_daily import (
     MOSCOW,
@@ -294,16 +294,22 @@ def schedule_salad_channel_post(
         caption = build_caption(salad)
     except Exception as exc:
         logger.exception('Salad channel render failed for №%s', salad.number)
+        error = describe_render_failure(
+            'salad №{}'.format(salad.number),
+            word_salad_last_screenshot_url(),
+            exc,
+        )
         complete_telegram_publish(
             existing.pk,
             claim_token,
             status=SocialQueuePost.STATUS_FAILED,
-            error=describe_render_failure(
-                'salad №{}'.format(salad.number),
-                word_salad_last_screenshot_url(),
-                exc,
-            ),
+            error=error,
         )
+        if telegram_admin_configured():
+            try:
+                send_message(admin_chat_id(), admin_render_failure_message(error))
+            except Exception:
+                logger.exception('Failed to notify admin about salad render failure')
         existing.refresh_from_db()
         return existing
 

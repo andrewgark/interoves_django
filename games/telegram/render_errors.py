@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import traceback
+from html import escape
 
 
 def describe_render_failure(kind: str, url: str, exc: BaseException) -> str:
@@ -21,3 +22,10 @@ def describe_render_failure(kind: str, url: str, exc: BaseException) -> str:
         traceback=details,
     )
     return message[:8000]
+
+
+def admin_render_failure_message(details: str) -> str:
+    """Format a bounded HTML alert for the configured Telegram admin chat."""
+    return '⚠️ <b>Ошибка создания Telegram-поста</b>\n<pre>{}</pre>'.format(
+        escape(details[:3500]),
+    )
