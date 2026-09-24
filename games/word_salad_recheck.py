@@ -195,20 +195,27 @@ def process_word_salad_rechecks(*, limit=1, worker='cron'):
                 result = recheck_word_salad_actor(task, game=job.game, notify=True, **actor)
                 credited = int(result.get('credited') or 0)
             with transaction.atomic():
+                now = timezone.now()
                 updated = WordSaladRecheckItem.objects.filter(
                     pk=item.pk, status=WordSaladRecheckItem.STATUS_RUNNING, claim_token=item_token,
                 ).update(status=WordSaladRecheckItem.STATUS_COMPLETED, credited_attempts=credited,
-                         completed_at=timezone.now(), claimed_until=None, claim_token=None, updated_at=timezone.now())
+                         completed_at=now, claimed_until=None, claim_token=None, updated_at=now)
                 if not updated:
                     continue
-                WordSaladRecheckJob.objects.filter(pk=job.pk, status=WordSaladRecheckJob.STATUS_RUNNING).update(
+                WordSaladRecheckJob.objects.filter(
+                    pk=job.pk, status=WordSaladRecheckJob.STATUS_RUNNING, claim_token=job.claim_token,
+                ).update(
                     completed_actors=F('completed_actors') + 1,
                     credited_attempts=F('credited_attempts') + credited,
-                    claimed_until=timezone.now() + JOB_LEASE, updated_at=timezone.now(),
+                    status=WordSaladRecheckJob.STATUS_PENDING,
+                    next_attempt_at=now,
+                    claimed_until=None,
+                    claim_token=None,
+                    updated_at=now,
                 )
                 if not WordSaladRecheckItem.objects.filter(job_id=job.pk).exclude(status=WordSaladRecheckItem.STATUS_COMPLETED).exists():
-                    WordSaladRecheckJob.objects.filter(pk=job.pk, status=WordSaladRecheckJob.STATUS_RUNNING).update(
-                        status=WordSaladRecheckJob.STATUS_COMPLETED, completed_at=timezone.now(),
+                    WordSaladRecheckJob.objects.filter(pk=job.pk, status=WordSaladRecheckJob.STATUS_PENDING).update(
+                        status=WordSaladRecheckJob.STATUS_COMPLETED, completed_at=now,
                         claim_token=None, claimed_until=None, updated_at=timezone.now(),
                     )
             processed += 1

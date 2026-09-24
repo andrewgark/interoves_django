@@ -46,3 +46,21 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertEqual(job.credited_attempts, 2)
         recheck.assert_called_once()
         self.assertTrue(recheck.call_args.kwargs['notify'])
+
+    def test_worker_can_claim_next_item_without_waiting_for_job_lease(self):
+        actors = {
+            (None, self.user.pk, None, None),
+            (None, None, 'anonymous-actor', None),
+        }
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        with patch('games.word_salad_recheck.recheck_word_salad_actor', return_value={'credited': 0}):
+            self.assertEqual(process_word_salad_rechecks(limit=1, worker='test'), 1)
+            job.refresh_from_db()
+            self.assertEqual(job.status, WordSaladRecheckJob.STATUS_PENDING)
+            self.assertIsNone(job.claimed_until)
+            self.assertEqual(process_word_salad_rechecks(limit=1, worker='test'), 1)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, WordSaladRecheckJob.STATUS_COMPLETED)
+        self.assertEqual(job.completed_actors, 2)
