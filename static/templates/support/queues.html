@@ -4,6 +4,7 @@
 <div class="support-page-head">
   <div><h1 class="support-page-title">Состояние очередей</h1><p class="support-hint">Проверено: {{ queue_checked_at|date:"d.m.Y H:i:s" }} UTC</p></div>
 </div>
+<div id="queues-dashboard">
 <section class="pal-card new-card">
   <div class="support-table-wrap">
     <table class="support-table">
@@ -22,6 +23,19 @@
   </div>
 </section>
 <section class="pal-card new-card new-stack-gap">
+  <h2 class="support-page-title">Heartbeat cron-only процессов</h2>
+  <div class="support-table-wrap">
+    <table class="support-table">
+      <thead><tr><th>Процесс</th><th>Здоровье</th><th>Состояние</th><th>Последний успех</th><th>Обновлено</th><th>Длительность</th><th>Worker</th><th>Ошибка</th></tr></thead>
+      <tbody>
+      {% for row in heartbeat_rows %}
+        <tr><td><strong>{{ row.name }}</strong><br><small>{{ row.queue_name }}</small></td><td>{{ row.health }}</td><td>{{ row.status }}</td><td>{{ row.last_success_at|default:"—" }}</td><td>{{ row.updated_at|default:"—" }}</td><td>{% if row.duration_ms != None %}{{ row.duration_ms }} ms{% else %}—{% endif %}</td><td>{{ row.worker|default:"—" }}</td><td>{{ row.error|default:"—" }}</td></tr>
+      {% empty %}<tr><td colspan="8">Heartbeat пока нет.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="pal-card new-card new-stack-gap">
   <h2 class="support-page-title">Активные и проблемные jobs</h2>
   <div class="support-table-wrap">
     <table class="support-table">
@@ -34,5 +48,22 @@
     </table>
   </div>
 </section>
-<p class="support-hint new-stack-gap">Обновите страницу, чтобы получить свежие агрегаты. Для durable-очередей lease позволяет продолжить работу после перезапуска инстанса.</p>
+</div>
+<p class="support-hint new-stack-gap">Страница обновляется автоматически каждые 10 секунд. Для durable-очередей lease позволяет продолжить работу после перезапуска инстанса.</p>
+<script>
+(function () {
+  var timer = window.setInterval(function () {
+    fetch(window.location.href, {headers: {'X-Requested-With': 'XMLHttpRequest'}, cache: 'no-store'})
+      .then(function (response) { return response.text(); })
+      .then(function (html) {
+        var documentCopy = new DOMParser().parseFromString(html, 'text/html');
+        var fresh = documentCopy.getElementById('queues-dashboard');
+        var current = document.getElementById('queues-dashboard');
+        if (fresh && current) current.replaceWith(fresh);
+      })
+      .catch(function () {});
+  }, 10000);
+  window.addEventListener('beforeunload', function () { window.clearInterval(timer); });
+}());
+</script>
 {% endblock %}

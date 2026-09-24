@@ -11,6 +11,7 @@ from games.models import (
     NextGameVoteEvent,
     WordSaladRecheckJob,
     WordSaladRecheckItem,
+    QueueWorkerHeartbeat,
 )
 from games.social.models import SocialQueuePost
 
@@ -131,4 +132,52 @@ def dashboard_context():
         updated=vote_goals.order_by('-analytics_goal_queued_at').values_list('analytics_goal_queued_at', flat=True).first(),
         detail='Tribute-голоса, ожидающие отправки',
     ))
-    return {'queue_cards': cards, 'queue_details': details[:40], 'queue_checked_at': now}
+    heartbeat_names = (
+        ('daily_difficulty_refresh', 'Сложность: refresh'),
+        ('daily_difficulty_health_check', 'Сложность: health-check'),
+        ('daily_result_projection_reconcile', 'Проекции результатов'),
+        ('telegram_game_announcements', 'Telegram: анонсы'),
+        ('telegram_admin_report', 'Telegram: admin report'),
+        ('instagram_refresh_token', 'Instagram: refresh token'),
+        ('anonymous_merge', 'Мердж гостевых профилей'),
+        ('word_salad_recheck', 'Салатики: recheck'),
+    )
+    heartbeats = {
+        row.queue_name: row
+        for row in QueueWorkerHeartbeat.objects.filter(
+            queue_name__in=[name for name, _ in heartbeat_names],
+        )
+    }
+    heartbeat_rows = []
+    for name, label in heartbeat_names:
+        row = heartbeats.get(name)
+        age = (now - row.updated_at).total_seconds() if row else None
+        stale_after = {
+            'daily_difficulty_health_check': 2 * 60 * 60,
+            'instagram_refresh_token': 2 * 24 * 60 * 60,
+        }.get(name, 10 * 60)
+        health = 'unknown' if row is None else (
+            'error' if row.status == QueueWorkerHeartbeat.STATUS_FAILED else
+            'stale' if age > stale_after else
+            'ok'
+        )
+        heartbeat_rows.append({
+            'name': label,
+            'queue_name': name,
+            'health': health,
+            'status': row.status if row else 'не запускалась',
+            'started_at': _iso(row.started_at) if row else None,
+            'finished_at': _iso(row.finished_at) if row else None,
+            'last_success_at': _iso(row.last_success_at) if row else None,
+            'updated_at': _iso(row.updated_at) if row else None,
+            'duration_ms': row.duration_ms if row else None,
+            'processed_count': row.processed_count if row else None,
+            'worker': row.worker if row else '',
+            'error': row.last_error if row else '',
+        })
+    return {
+        'queue_cards': cards,
+        'queue_details': details[:40],
+        'heartbeat_rows': heartbeat_rows,
+        'queue_checked_at': now,
+    }

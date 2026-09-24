@@ -882,6 +882,39 @@ class DailyDifficultyQueueStatus(models.Model):
         return self.last_worker or 'очередь сложности'
 
 
+class QueueWorkerHeartbeat(models.Model):
+    """Latest durable heartbeat for a cron/queue worker."""
+
+    STATUS_RUNNING = 'running'
+    STATUS_SUCCESS = 'success'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = (
+        (STATUS_RUNNING, 'Выполняется'),
+        (STATUS_SUCCESS, 'Успешно'),
+        (STATUS_FAILED, 'Ошибка'),
+    )
+
+    queue_name = models.CharField(max_length=80, primary_key=True)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_RUNNING)
+    worker = models.CharField(max_length=255, blank=True, default='')
+    host = models.CharField(max_length=255, blank=True, default='')
+    pid = models.PositiveIntegerField(blank=True, null=True)
+    started_at = models.DateTimeField(blank=True, null=True)
+    finished_at = models.DateTimeField(blank=True, null=True)
+    last_success_at = models.DateTimeField(blank=True, null=True)
+    duration_ms = models.PositiveIntegerField(blank=True, null=True)
+    processed_count = models.IntegerField(blank=True, null=True)
+    last_error = models.TextField(blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'heartbeat очереди'
+        verbose_name_plural = 'heartbeat очередей'
+
+    def __str__(self):
+        return '{} · {}'.format(self.queue_name, self.status)
+
+
 class WordSaladRecheckJob(models.Model):
     """Durable actor-by-actor rebuild after editing a live Word Salad."""
 
