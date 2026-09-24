@@ -1,0 +1,22 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReceiveWordSaladMessages",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ChangeMessageVisibility",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:ReceiveMessage"
+      ],
+      "Resource": "__WORD_SALAD_QUEUE_ARN__"
+    },
+    {
+      "Sid": "WorkerSecrets",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:GetSecretValue"],
+      "Resource": ["__RDS_SECRET_ARN__", "__WORKER_HMAC_SECRET_ARN__"]
+    }
+  ]
+}

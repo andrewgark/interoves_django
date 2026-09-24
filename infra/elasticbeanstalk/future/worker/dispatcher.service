@@ -1,0 +1,17 @@
+[Unit]
+Description=Inter Oves Word Salad outbox dispatcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/app/current
+EnvironmentFile=-/opt/elasticbeanstalk/deploy/configuration/containerconfiguration
+ExecStart=/bin/bash -lc 'while true; do /var/app/venv/*/bin/python manage.py dispatch_word_salad_recheck_outbox --limit 25; sleep 15; done'
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

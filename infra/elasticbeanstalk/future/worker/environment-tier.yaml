@@ -1,0 +1,6 @@
+# Future-only creation manifest.  The environment must be created as an EB
+# Worker/SQS environment; option-settings.config alone does not select that tier.
+EnvironmentTier:
+  Name: Worker
+  Type: SQS/HTTP
+EnvironmentName: interoves-worker
