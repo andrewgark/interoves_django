@@ -9,7 +9,11 @@ cat >/usr/local/bin/interoves-word-salad-dispatcher <<'RUNNER'
 #!/usr/bin/env bash
 set -euo pipefail
 APP=/var/app/current
-PYTHON=$(find /var/app/venv -path '*/bin/python' -type f -print -quit)
+PYTHON=$(find -L /var/app/venv -path '*/bin/python' -print -quit)
+if [[ -z "$PYTHON" || ! -x "$PYTHON" ]]; then
+  echo "validation/worker dispatcher: Python executable not found" >&2
+  exit 1
+fi
 exec "$PYTHON" "$APP/manage.py" dispatch_word_salad_recheck_outbox_loop --limit "${WORD_SALAD_OUTBOX_DISPATCH_LIMIT:-25}" --interval "${WORD_SALAD_OUTBOX_DISPATCH_INTERVAL:-15}"
 RUNNER
 chmod 0755 /usr/local/bin/interoves-word-salad-dispatcher
