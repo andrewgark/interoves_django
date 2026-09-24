@@ -112,15 +112,19 @@
   (function () {
     var modal = document.getElementById('club-archive-offer');
     if (!modal) return;
-    var key = 'interoves_club_archive_offer_seen';
-    try { if (sessionStorage.getItem(key) === '1') return; } catch (e) {}
+    var key = 'interoves_club_archive_offer_seen_at';
+    var cooldown = 14 * 24 * 60 * 60 * 1000;
+    try {
+      var seenAt = Number(localStorage.getItem(key) || 0);
+      if (seenAt && Date.now() - seenAt < cooldown) return;
+    } catch (e) {}
     modal.hidden = false;
     modal.classList.add('is-open');
     document.body.classList.add('new-modal-open');
     function close() {
       modal.classList.remove('is-open'); modal.hidden = true;
       document.body.classList.remove('new-modal-open');
-      try { sessionStorage.setItem(key, '1'); } catch (e) {}
+      try { localStorage.setItem(key, String(Date.now())); } catch (e) {}
     }
     modal.querySelectorAll('[data-club-offer-close]').forEach(function (el) { el.addEventListener('click', close); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); }, { once: true });
