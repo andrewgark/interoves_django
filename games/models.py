@@ -240,6 +240,9 @@ class Profile(models.Model):
     team_requested = models.ForeignKey(Team, related_name='users_requested', blank=True, null=True, on_delete=models.SET_NULL)
     # При подаче заявки в команду: сделать принятую команду активной (учитывается в confirm).
     join_accept_as_primary = models.BooleanField(default=True)
+    # Клубный upsell не должен надоедать чаще одного раза в две недели.
+    club_archive_offer_last_shown_at = models.DateTimeField(blank=True, null=True)
+    club_archive_offer_never = models.BooleanField(default=False)
 
     def __str__(self):
         return self.first_name + ' ' + self.last_name

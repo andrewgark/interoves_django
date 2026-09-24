@@ -1,5 +1,7 @@
 """Context for main UI templates (root URLs)."""
 
+from datetime import timedelta
+
 from games.analytics import (
     consume_pending_goals,
     pending_next_game_vote_payment_goals,
@@ -8,6 +10,7 @@ from games.analytics import (
     pending_ticket_purchase_goals,
 )
 from django.conf import settings
+from django.utils import timezone
 
 
 def site_deploy_version(_request):
@@ -35,12 +38,20 @@ def club_archive_ui(request):
         user=user, result=PlayerCompletedGame.RESULT_SOLVED,
     ).values('game_id', 'task_group_id').distinct().count()
     club_access = has_club_access(user)
+    profile = getattr(user, 'profile', None)
+    offer_cooldown = timezone.now() - timedelta(days=14)
+    offer_available = (
+        solved_count >= 7 and not club_access
+        and not getattr(profile, 'club_archive_offer_never', False)
+        and (
+            getattr(profile, 'club_archive_offer_last_shown_at', None) is None
+            or profile.club_archive_offer_last_shown_at <= offer_cooldown
+        )
+    )
     return {
         'club_archive_gating_enabled': True,
-        'club_archive_offer_available': (
-            solved_count >= 7 and not club_access
-            and getattr(request, 'path', '') != '/subscription/'
-        ),
+        'club_archive_offer_available': offer_available
+            and getattr(request, 'path', '') != '/subscription/',
         'club_archive_has_access': club_access,
         'club_archive_solved_count': solved_count,
         'club_archive_telegram_url': club_invite_url() if club_access else '',

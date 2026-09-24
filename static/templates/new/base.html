@@ -105,6 +105,7 @@
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
         <a class="new-btn new-btn--yellow" href="/subscription/">Открыть весь архив</a>
         <button type="button" class="new-btn new-btn--ghost" data-club-offer-close>Позже</button>
+        <button type="button" class="new-btn new-btn--ghost" data-club-offer-never>Никогда</button>
       </div>
     </div>
   </div>
@@ -112,21 +113,30 @@
   (function () {
     var modal = document.getElementById('club-archive-offer');
     if (!modal) return;
-    var key = 'interoves_club_archive_offer_seen_at';
-    var cooldown = 14 * 24 * 60 * 60 * 1000;
-    try {
-      var seenAt = Number(localStorage.getItem(key) || 0);
-      if (seenAt && Date.now() - seenAt < cooldown) return;
-    } catch (e) {}
     modal.hidden = false;
     modal.classList.add('is-open');
     document.body.classList.add('new-modal-open');
+    function action(actionName) {
+      return fetch("{% url 'new_club_archive_offer_action' %}", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': (window.InterovesPageCsrf && window.InterovesPageCsrf.pageToken()) || '',
+        },
+        body: 'action=' + encodeURIComponent(actionName),
+        credentials: 'same-origin',
+      });
+    }
+    action('shown').catch(function () {});
     function close() {
       modal.classList.remove('is-open'); modal.hidden = true;
       document.body.classList.remove('new-modal-open');
-      try { localStorage.setItem(key, String(Date.now())); } catch (e) {}
     }
+    function never() { action('never').catch(function () {}); close(); }
     modal.querySelectorAll('[data-club-offer-close]').forEach(function (el) { el.addEventListener('click', close); });
+    var neverButton = modal.querySelector('[data-club-offer-never]');
+    if (neverButton) neverButton.addEventListener('click', never);
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); }, { once: true });
   })();
   </script>

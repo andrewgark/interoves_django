@@ -4986,6 +4986,25 @@ def new_anon_migrate_count(request):
 
 
 @login_required
+@require_POST
+def new_club_archive_offer_action(request):
+    if not has_profile(request.user):
+        raise Http404()
+    action = (request.POST.get('action') or '').strip()
+    profile = request.user.profile
+    if action == 'shown':
+        if not profile.club_archive_offer_never:
+            profile.club_archive_offer_last_shown_at = timezone.now()
+            profile.save(update_fields=['club_archive_offer_last_shown_at'])
+        return JsonResponse({'status': 'ok'})
+    if action == 'never':
+        profile.club_archive_offer_never = True
+        profile.save(update_fields=['club_archive_offer_never'])
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'status': 'invalid_action'}, status=400)
+
+
+@login_required
 @require_http_methods(['POST'])
 @transaction.atomic
 def new_migrate_anon_attempts(request):

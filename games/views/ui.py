@@ -66,6 +66,7 @@ bug_report = new_bug_report
 set_play_mode = new_set_play_mode
 migrate_anon_attempts = new_migrate_anon_attempts
 anon_migrate_count = new_anon_migrate_count
+club_archive_offer_action = new_club_archive_offer_action
 profile = new_profile
 profile_reports = new_profile_reports
 profile_report_detail = new_profile_report_detail

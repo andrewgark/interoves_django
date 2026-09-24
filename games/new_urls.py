@@ -13,6 +13,7 @@ urlpatterns = [
     path('play-mode/', ui.set_play_mode, name='new_set_play_mode'),
     path('migrate-anon-attempts/', ui.migrate_anon_attempts, name='new_migrate_anon_attempts'),
     path('anon-migrate-count/', ui.anon_migrate_count, name='new_anon_migrate_count'),
+    path('club-archive-offer-action/', ui.club_archive_offer_action, name='new_club_archive_offer_action'),
     path('anon-merge-jobs/current/', ui.new_anon_merge_job_status, name='new_anon_merge_job_current'),
     path('anon-merge-jobs/<uuid:job_id>/', ui.new_anon_merge_job_status, name='new_anon_merge_job_status'),
     path('answer/<int:task_id>/', ui.get_answer, name='new_get_answer'),

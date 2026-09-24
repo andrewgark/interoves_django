@@ -488,6 +488,23 @@ class AnonMigrateTests(TestCase):
         self.assertEqual(data['example_url'], expected_url)
         self.assertEqual(data['example_label'], 'G1')
 
+    def test_club_archive_offer_last_shown_is_saved_in_profile(self):
+        before = timezone.now() - timedelta(seconds=1)
+        response = self.client.post(
+            reverse('new_club_archive_offer_action'), {'action': 'shown'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertGreater(self.user.profile.club_archive_offer_last_shown_at, before)
+
+    def test_club_archive_offer_can_be_disabled_forever(self):
+        response = self.client.post(
+            reverse('new_club_archive_offer_action'), {'action': 'never'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertTrue(self.user.profile.club_archive_offer_never)
+
     def test_show_prompt_with_enough_unsolved_attempts(self):
         # Ещё 8 анонимных посылок (в setUp уже есть 2) → всего 10.
         with patch('games.views.track.track_task_change'):

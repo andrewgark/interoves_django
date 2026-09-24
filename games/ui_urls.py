@@ -12,7 +12,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|walls|replacements|palindromes|week_task|team|profile|pay|subscription|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|anon-merge-jobs|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|walls|replacements|palindromes|week_task|team|profile|pay|subscription|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|club-archive-offer-action|anon-merge-jobs|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     path('start/', ui.start, name='ui_start'),
@@ -55,6 +55,7 @@ urlpatterns = [
     path('play-mode/', ui.set_play_mode, name='ui_set_play_mode'),
     path('migrate-anon-attempts/', ui.migrate_anon_attempts, name='ui_migrate_anon_attempts'),
     path('anon-migrate-count/', ui.anon_migrate_count, name='ui_anon_migrate_count'),
+    path('club-archive-offer-action/', ui.club_archive_offer_action, name='ui_club_archive_offer_action'),
     path('anon-merge-jobs/current/', ui.new_anon_merge_job_status, name='ui_anon_merge_job_current'),
     path('anon-merge-jobs/<uuid:job_id>/', ui.new_anon_merge_job_status, name='ui_anon_merge_job_status'),
     path('answer/<int:task_id>/', ui.get_answer, name='ui_get_answer'),
