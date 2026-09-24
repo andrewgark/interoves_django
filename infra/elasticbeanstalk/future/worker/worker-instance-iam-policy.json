@@ -8,6 +8,7 @@
         "sqs:ChangeMessageVisibility",
         "sqs:DeleteMessage",
         "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
         "sqs:ReceiveMessage"
       ],
       "Resource": "__WORD_SALAD_QUEUE_ARN__"
@@ -17,6 +18,27 @@
       "Effect": "Allow",
       "Action": ["secretsmanager:GetSecretValue"],
       "Resource": ["__RDS_SECRET_ARN__", "__WORKER_HMAC_SECRET_ARN__"]
+    },
+    {
+      "Sid": "WorkerMetrics",
+      "Effect": "Allow",
+      "Action": ["cloudwatch:PutMetricData"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "cloudwatch:namespace": "InterOves/Worker"
+        }
+      }
+    },
+    {
+      "Sid": "WorkerLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:DescribeLogStreams",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "__WORKER_LOG_GROUP_ARN__:log-stream:*"
     }
   ]
 }
