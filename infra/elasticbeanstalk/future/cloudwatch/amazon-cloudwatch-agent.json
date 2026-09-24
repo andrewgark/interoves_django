@@ -18,10 +18,6 @@
         "resources": ["/"],
         "metrics_collection_interval": 60
       },
-      "load": {
-        "measurement": ["load1", "load5", "load15"],
-        "metrics_collection_interval": 60
-      }
     }
   }
 }
