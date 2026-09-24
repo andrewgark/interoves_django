@@ -23,12 +23,15 @@ cat >/etc/systemd/system/interoves-word-salad-dispatcher.service <<'UNIT'
 Description=Inter Oves Word Salad transactional outbox dispatcher
 After=network-online.target
 Wants=network-online.target
+Requires=web-secrets-populate.service
+After=web-secrets-populate.service
 
 [Service]
 Type=simple
 User=webapp
 WorkingDirectory=/var/app/current
-EnvironmentFile=-/opt/elasticbeanstalk/deploy/configuration/containerconfiguration
+EnvironmentFile=/opt/elasticbeanstalk/deployment/env
+EnvironmentFile=/opt/elasticbeanstalk/deployment/secrets/web
 ExecStart=/usr/local/bin/interoves-word-salad-dispatcher
 Restart=always
 RestartSec=5
