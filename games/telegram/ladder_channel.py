@@ -33,8 +33,9 @@ from games.telegram.config import (
     telegram_channel_configured,
 )
 from games.telegram.game_urls import admin_url
-from games.telegram.ladder_image import render_ladder_teaser_png
+from games.telegram.ladder_image import ladder_last_screenshot_url, render_ladder_teaser_png
 from games.telegram.mtproto import telegram_user_configured
+from games.telegram.render_errors import describe_render_failure
 
 logger = logging.getLogger('application')
 
@@ -323,13 +324,17 @@ def schedule_ladder_channel_post(
             fallback_to_pillow=False,
         )
         caption = build_caption(ladder)
-    except Exception:
+    except Exception as exc:
         logger.exception('Ladder channel render failed for №%s', ladder.number)
         complete_telegram_publish(
             existing.pk,
             claim_token,
             status=SocialQueuePost.STATUS_FAILED,
-            error='render failed',
+            error=describe_render_failure(
+                'ladder №{}'.format(ladder.number),
+                ladder_last_screenshot_url(),
+                exc,
+            ),
         )
         existing.refresh_from_db()
         return existing

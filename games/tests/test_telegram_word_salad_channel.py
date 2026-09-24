@@ -249,7 +249,9 @@ class SaladChannelScheduleTests(TestCase):
         post = schedule_salad_channel_post(now=self.now, force=True, notify_admin=False)
         self.assertIsNotNone(post)
         self.assertEqual(post.telegram_status, SocialQueuePost.STATUS_FAILED)
-        self.assertEqual(post.telegram_error, 'render failed')
+        self.assertIn('salad №1 screenshot render failed', post.telegram_error)
+        self.assertIn('RuntimeError: shot failed', post.telegram_error)
+        self.assertIn('fallback_to_pillow=False', post.telegram_error)
 
     @patch('games.social.publish.post_tweet_with_image')
     @patch('games.social.publish.twitter_configured', return_value=True)

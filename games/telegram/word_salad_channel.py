@@ -29,7 +29,8 @@ from games.telegram.config import (
 from games.section_paths import section_play_path
 from games.telegram.game_urls import admin_url
 from games.telegram.mtproto import telegram_user_configured
-from games.telegram.word_salad_image import render_word_salad_teaser_png
+from games.telegram.word_salad_image import render_word_salad_teaser_png, word_salad_last_screenshot_url
+from games.telegram.render_errors import describe_render_failure
 from games.word_salad import WORD_SALAD_GAME_ID, theme_from_text
 from games.word_salad_daily import (
     MOSCOW,
@@ -291,13 +292,17 @@ def schedule_salad_channel_post(
             fallback_to_pillow=False,
         )
         caption = build_caption(salad)
-    except Exception:
+    except Exception as exc:
         logger.exception('Salad channel render failed for №%s', salad.number)
         complete_telegram_publish(
             existing.pk,
             claim_token,
             status=SocialQueuePost.STATUS_FAILED,
-            error='render failed',
+            error=describe_render_failure(
+                'salad №{}'.format(salad.number),
+                word_salad_last_screenshot_url(),
+                exc,
+            ),
         )
         existing.refresh_from_db()
         return existing
