@@ -882,6 +882,96 @@ class DailyDifficultyQueueStatus(models.Model):
         return self.last_worker or 'очередь сложности'
 
 
+class WordSaladRecheckJob(models.Model):
+    """Durable actor-by-actor rebuild after editing a live Word Salad."""
+
+    STATUS_PENDING = 'pending'
+    STATUS_RUNNING = 'running'
+    STATUS_COMPLETED = 'completed'
+    STATUS_FAILED = 'failed'
+    STATUS_SUPERSEDED = 'superseded'
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Ожидает обработки'),
+        (STATUS_RUNNING, 'Выполняется'),
+        (STATUS_COMPLETED, 'Завершено'),
+        (STATUS_FAILED, 'Ошибка'),
+        (STATUS_SUPERSEDED, 'Заменено новой версией'),
+    )
+
+    task = models.ForeignKey('Task', related_name='word_salad_recheck_jobs', on_delete=models.CASCADE)
+    game = models.ForeignKey(Game, related_name='word_salad_recheck_jobs', on_delete=models.CASCADE)
+    task_revision = models.UUIDField(default=uuid.uuid4, editable=False, db_index=True)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    total_actors = models.PositiveIntegerField(default=0)
+    completed_actors = models.PositiveIntegerField(default=0)
+    credited_attempts = models.PositiveIntegerField(default=0)
+    attempt_count = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True, default='')
+    claim_token = models.UUIDField(blank=True, null=True)
+    claimed_until = models.DateTimeField(blank=True, null=True)
+    next_attempt_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    started_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['task', 'game', 'status'], name='games_wsrj_task_status_idx'),
+            models.Index(fields=['status', 'next_attempt_at'], name='games_wsrj_due_idx'),
+        ]
+
+    @property
+    def progress(self):
+        if self.status == self.STATUS_COMPLETED:
+            return 100
+        if not self.total_actors:
+            return 0
+        return min(99, int(100 * self.completed_actors / self.total_actors))
+
+
+class WordSaladRecheckItem(models.Model):
+    """Snapshot of one actor to rebuild; actor membership must not drift."""
+
+    STATUS_PENDING = 'pending'
+    STATUS_RUNNING = 'running'
+    STATUS_COMPLETED = 'completed'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Ожидает обработки'),
+        (STATUS_RUNNING, 'Выполняется'),
+        (STATUS_COMPLETED, 'Завершено'),
+        (STATUS_FAILED, 'Ошибка'),
+    )
+
+    job = models.ForeignKey(WordSaladRecheckJob, related_name='items', on_delete=models.CASCADE)
+    actor_key = models.CharField(max_length=255)
+    team = models.ForeignKey(Team, blank=True, null=True, on_delete=models.CASCADE)
+    user = models.ForeignKey('auth.User', blank=True, null=True, on_delete=models.CASCADE)
+    anon_key = models.CharField(max_length=64, blank=True, null=True)
+    replay_slot = models.ForeignKey('ReplaySlot', blank=True, null=True, on_delete=models.CASCADE)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    attempt_count = models.PositiveIntegerField(default=0)
+    credited_attempts = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True, default='')
+    claim_token = models.UUIDField(blank=True, null=True)
+    claimed_until = models.DateTimeField(blank=True, null=True)
+    next_attempt_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    started_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['job', 'actor_key'], name='games_wsrji_job_actor_uniq'),
+        ]
+        indexes = [
+            models.Index(fields=['job', 'status', 'next_attempt_at'], name='games_wsrji_due_idx'),
+        ]
+
+
 class TaskQuerySet(models.QuerySet):
     """Задания с is_removed=True скрыты из игры и результатов, в админке видны все."""
 
@@ -952,6 +1042,7 @@ class Task(models.Model):
         return '{}: {}.{}'.format(game_name, tg_label, self.number)
 
     def save(self, *args, **kwargs):
+        skip_semantics_reconciliation = kwargs.pop('skip_semantics_reconciliation', False)
         from games.views.track import track_task_change
         is_existing = not self._state.adding
         previous_word_salad = None
@@ -1021,7 +1112,7 @@ class Task(models.Model):
                     'checker_data', 'answer', 'text', 'points', 'max_attempts',
                 ) if previous_semantics[field] != getattr(self, field)
             }
-            if changed_fields:
+            if changed_fields and not skip_semantics_reconciliation:
                 from games.targeted_completion_reconciliation import (
                     schedule_task_semantics_reconciliation,
                 )

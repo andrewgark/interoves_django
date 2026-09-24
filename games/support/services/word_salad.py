@@ -503,18 +503,21 @@ def update_word_salad(
     task.text = intro or ''
     task.checker_data = checker_data
     task.answer = ''
+    grid_changed = task._word_salad_grid_changed((previous_checker_data, 'word_salad'))
+    # The expensive actor reconciliation is represented by the durable
+    # WordSaladRecheckJob below; do not also run the generic on-commit rebuild
+    # inline in the support request.
     update_fields = ['text', 'checker_data', 'answer']
     if author is not None:
         _apply_author_tag(task, author)
         update_fields.append('tags')
-    task.save(update_fields=update_fields)
-    # Task.save() schedules a live update on commit. Rebuild actor projections
-    # before that commit so clients cannot render the new word indices against
-    # the old ChainTaskState and mistake it for a progress reset.
-    grid_changed = task._word_salad_grid_changed((previous_checker_data, 'word_salad'))
-    if previous_checker_data != checker_data and not grid_changed:
-        from games.recheck import recheck_word_salad_task
-        recheck_word_salad_task(task, game=link.game, notify=False)
+    task.save(update_fields=update_fields, skip_semantics_reconciliation=True)
+    # Task.save() schedules a live update on commit. The durable recheck job
+    # below rebuilds actor projections after the new payload is committed.
+    recheck_job = None
+    if previous_checker_data != checker_data:
+        from games.word_salad_recheck import enqueue_word_salad_recheck
+        recheck_job = enqueue_word_salad_recheck(task=task, game=link.game)
     try:
         number = int(link.number)
     except (TypeError, ValueError):
@@ -522,10 +525,14 @@ def update_word_salad(
     if number:
         _sync_link_titles(link, number)
         link.save(update_fields=['name'])
-    return get_word_salad_detail(link.pk)
+    detail = get_word_salad_detail(link.pk)
+    if recheck_job is not None:
+        from games.word_salad_recheck import serialize_job
+        detail['recheck_job'] = serialize_job(recheck_job)
+    return detail
 
 
-def recheck_word_salad(link_id: int) -> dict[str, int]:
+def recheck_word_salad(link_id: int) -> dict[str, Any]:
     link = (
         GameTaskGroup.objects.filter(game=get_word_salad_game(), pk=link_id)
         .select_related('task_group')
@@ -536,11 +543,12 @@ def recheck_word_salad(link_id: int) -> dict[str, int]:
     task = _task_for_link(link)
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
-    from games.recheck import recheck_word_salad_task
-    try:
-        return recheck_word_salad_task(task, game=link.game)
-    except ValueError as exc:
-        raise WordSaladSupportError(str(exc)) from exc
+    from games.word_salad_recheck import enqueue_word_salad_recheck, serialize_job
+    job = enqueue_word_salad_recheck(task=task, game=link.game)
+    # Keep the old response keys for support clients while the durable job is
+    # now processed asynchronously.
+    payload = serialize_job(job)
+    return {'job': payload, 'actors': 0, 'credited': 0, **payload}
 
 
 @transaction.atomic

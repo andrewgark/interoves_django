@@ -17,6 +17,7 @@
   var editOfferId = null;
   var scheduleGrid = null;
   var offerGrid = null;
+  var recheckTimer = null;
   var endpoints = {
     create: config.dataset.createUrl,
     reorder: config.dataset.reorderUrl,
@@ -24,6 +25,8 @@
     detail: config.dataset.detailUrl,
     save: config.dataset.saveUrl,
     recheck: config.dataset.recheckUrl,
+    recheckStatus: config.dataset.recheckStatusUrl,
+    recheckRetry: config.dataset.recheckRetryUrl,
     remove: config.dataset.deleteUrl,
     offerDetail: config.dataset.offerDetailUrl,
     offerSave: config.dataset.offerSaveUrl,
@@ -60,7 +63,7 @@
   function setBusy(value) {
     busy = !!value;
     list.classList.toggle('is-busy', busy);
-    document.querySelectorAll('[data-insert-end], #word-salad-edit-save, #word-salad-edit-recheck, #word-salad-edit-delete, #word-salad-offer-save, #word-salad-offer-accept').forEach(function (button) {
+    document.querySelectorAll('[data-insert-end], #word-salad-edit-save, #word-salad-edit-recheck, #word-salad-edit-delete, #word-salad-recheck-retry, #word-salad-offer-save, #word-salad-offer-accept').forEach(function (button) {
       button.disabled = busy;
     });
   }
@@ -75,6 +78,44 @@
     var error = document.getElementById('word-salad-edit-error');
     error.textContent = '';
     error.hidden = true;
+  }
+
+  function showRecheckStatus(job) {
+    var el = document.getElementById('word-salad-recheck-status');
+    var progress = document.getElementById('word-salad-recheck-progress');
+    var retry = document.getElementById('word-salad-recheck-retry');
+    if (!el || !job) return;
+    el.hidden = false;
+    if (retry) {
+      retry.hidden = job.status !== 'failed';
+      retry.dataset.jobId = job.id || '';
+    }
+    if (progress) {
+      progress.hidden = false;
+      progress.value = Math.max(0, Math.min(100, Number(job.progress || 0)));
+    }
+    if (job.status === 'completed') {
+      el.textContent = 'Перепроверка завершена: ' + job.completed_actors + ' игроков, добавлено ответов: ' + job.credited_attempts + '.';
+    } else if (job.status === 'failed') {
+      el.textContent = 'Перепроверка остановлена: ' + (job.last_error || 'ошибка') + '.';
+    } else {
+      el.textContent = 'Перепроверка в фоне: ' + (job.completed_actors || 0) + ' из ' + (job.total_actors || '…') + ' игроков (' + (job.progress || 0) + '%).';
+    }
+  }
+
+  function pollRecheck(job) {
+    if (!job || !job.id) return;
+    if (recheckTimer) clearInterval(recheckTimer);
+    showRecheckStatus(job);
+    if (job.status === 'completed' || job.status === 'failed') return;
+    recheckTimer = setInterval(function () {
+      support.requestJson(endpoint(endpoints.recheckStatus, job.id)).then(function (data) {
+        showRecheckStatus(data.recheck);
+        if (data.recheck.status === 'completed' || data.recheck.status === 'failed') {
+          clearInterval(recheckTimer); recheckTimer = null;
+        }
+      }).catch(function () {});
+    }, 2000);
   }
 
   function showOfferError(message) {
@@ -469,6 +510,7 @@
       var item = data.item;
       setRows(data.rows);
       fillEditor(item);
+      pollRecheck(item && item.recheck_job);
     }).catch(function (error) {
       showError(error.message || String(error));
     }).finally(function () { setBusy(false); });
@@ -486,13 +528,22 @@
     support.postJson(endpoint(endpoints.recheck, editLinkId), {})
       .then(function (data) {
         var stats = data.recheck || {};
-        var actors = stats.actors || 0;
-        var credited = stats.credited || 0;
-        alert('Перепроверено игроков: ' + actors + (credited ? (', добавлено ответов: ' + credited) : ''));
+        pollRecheck(stats);
+        showRecheckStatus(stats);
       })
       .catch(function (error) {
         showError(error.message || String(error));
       })
+      .finally(function () { setBusy(false); });
+  });
+
+  document.getElementById('word-salad-recheck-retry').addEventListener('click', function () {
+    var jobId = this.dataset.jobId;
+    if (!jobId || busy) return;
+    setBusy(true);
+    support.postJson(endpoint(endpoints.recheckRetry, jobId), {})
+      .then(function (data) { pollRecheck(data.recheck); })
+      .catch(function (error) { showError(error.message || String(error)); })
       .finally(function () { setBusy(false); });
   });
 

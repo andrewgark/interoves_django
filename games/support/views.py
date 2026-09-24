@@ -9,6 +9,9 @@ from django.views.decorators.http import require_GET, require_POST
 
 from games.models import Game, Team
 from games.support.access import support_console_required
+from games.support.queues import dashboard_context as queues_dashboard_context
+from games.models import WordSaladRecheckJob
+from games.word_salad_recheck import retry_word_salad_recheck, serialize_job
 from games.support.services.actor import (
     build_anon_context,
     build_game_context,
@@ -380,6 +383,25 @@ def word_salad_recheck(request, link_id):
 
 
 @support_console_required
+@require_GET
+def word_salad_recheck_status(request, job_id):
+    job = WordSaladRecheckJob.objects.filter(pk=job_id).first()
+    if job is None:
+        return JsonResponse({'ok': False, 'error': 'Очередь не найдена'}, status=404)
+    return JsonResponse({'ok': True, 'recheck': serialize_job(job)})
+
+
+@support_console_required
+@require_POST
+def word_salad_recheck_retry(request, job_id):
+    job = WordSaladRecheckJob.objects.filter(pk=job_id).first()
+    if job is None:
+        return JsonResponse({'ok': False, 'error': 'Очередь не найдена'}, status=404)
+    job = retry_word_salad_recheck(job.pk)
+    return JsonResponse({'ok': True, 'recheck': serialize_job(job)})
+
+
+@support_console_required
 @require_POST
 def word_salad_delete(request, link_id):
     try:
@@ -534,6 +556,11 @@ def stats_dashboard(request):
         'stats': collect_support_stats(hours=hours),
         'hours': hours,
     })
+
+
+@support_console_required
+def queues_dashboard(request):
+    return render(request, 'support/queues.html', queues_dashboard_context())
 
 
 @support_console_required

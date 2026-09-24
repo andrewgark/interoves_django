@@ -21,6 +21,7 @@
     <a href="{% url 'support:week_tasks' %}" {% if request.resolver_match.url_name == 'week_tasks' %}aria-current="page"{% endif %}>Задания недели</a>
     <a href="{% url 'support:social' %}" {% if request.resolver_match.url_name == 'social' %}aria-current="page"{% endif %}>Посты</a>
     <a href="{% url 'support:stats' %}" {% if request.resolver_match.url_name == 'stats' %}aria-current="page"{% endif %}>Статистика</a>
+    <a href="{% url 'support:queues' %}" {% if request.resolver_match.url_name == 'queues' %}aria-current="page"{% endif %}>Очереди</a>
     <a href="{% url 'support:pending' %}" {% if request.resolver_match.url_name == 'pending' %}aria-current="page"{% endif %}>Pending</a>
     <a href="{% url 'support:live' %}" {% if request.resolver_match.url_name == 'live' %}aria-current="page"{% endif %}>Live</a>
     <a class="support-bar__push" href="/admin/">Django admin</a>

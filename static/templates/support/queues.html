@@ -1,0 +1,38 @@
+{% extends "support/base.html" %}
+{% block title %}Очереди · Support{% endblock %}
+{% block support_content %}
+<div class="support-page-head">
+  <div><h1 class="support-page-title">Состояние очередей</h1><p class="support-hint">Проверено: {{ queue_checked_at|date:"d.m.Y H:i:s" }} UTC</p></div>
+</div>
+<section class="pal-card new-card">
+  <div class="support-table-wrap">
+    <table class="support-table">
+      <thead><tr><th>Очередь</th><th>Здоровье</th><th>Тип</th><th>Ожидают</th><th>В работе</th><th>Ошибки</th><th>Последнее обновление</th><th>Детали</th></tr></thead>
+      <tbody>
+      {% for row in queue_cards %}
+        <tr>
+          <td><strong>{{ row.name }}</strong></td><td>{{ row.health }}</td><td>{{ row.kind }}</td>
+          <td class="support-cell-mono">{{ row.pending }}</td><td class="support-cell-mono">{{ row.running }}</td>
+          <td class="support-cell-mono{% if row.failed %} support-queue-failed{% endif %}">{{ row.failed }}</td>
+          <td>{{ row.updated_at|default:"—" }}</td><td>{{ row.detail }}</td>
+        </tr>
+      {% empty %}<tr><td colspan="8">Очередей пока нет.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="pal-card new-card new-stack-gap">
+  <h2 class="support-page-title">Активные и проблемные jobs</h2>
+  <div class="support-table-wrap">
+    <table class="support-table">
+      <thead><tr><th>Очередь</th><th>ID</th><th>Состояние</th><th>Прогресс</th><th>Обновлено</th><th>Ошибка</th></tr></thead>
+      <tbody>
+      {% for row in queue_details %}
+        <tr><td>{{ row.queue }}</td><td class="support-cell-mono">{{ row.id }}</td><td>{{ row.status }}</td><td>{{ row.progress }}</td><td>{{ row.updated_at }}</td><td>{{ row.error|default:"—" }}</td></tr>
+      {% empty %}<tr><td colspan="6">Активных или проблемных jobs нет.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<p class="support-hint new-stack-gap">Обновите страницу, чтобы получить свежие агрегаты. Для durable-очередей lease позволяет продолжить работу после перезапуска инстанса.</p>
+{% endblock %}

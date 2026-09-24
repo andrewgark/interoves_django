@@ -59,6 +59,9 @@
     </label>
     <p class="ws-grid-editor__status" id="word-salad-edit-validation" hidden></p>
     <p class="support-hint support-ladder-edit-error" id="word-salad-edit-error" role="alert" hidden></p>
+    <p class="support-hint" id="word-salad-recheck-status" hidden aria-live="polite"></p>
+    <progress id="word-salad-recheck-progress" max="100" value="0" hidden></progress>
+    <button type="button" class="new-btn new-btn--mini new-btn--ghost" id="word-salad-recheck-retry" hidden>Повторить перепроверку</button>
     <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="word-salad-edit-save">Сохранить</button>
       <button type="button" class="new-btn new-btn--ghost" data-word-salad-close>Отмена</button>
@@ -139,6 +142,8 @@
   data-detail-url="{% url 'support:word_salad_detail' 0 %}"
   data-save-url="{% url 'support:word_salad_save' 0 %}"
   data-recheck-url="{% url 'support:word_salad_recheck' 0 %}"
+  data-recheck-status-url="{% url 'support:word_salad_recheck_status' 0 %}"
+  data-recheck-retry-url="{% url 'support:word_salad_recheck_retry' 0 %}"
   data-delete-url="{% url 'support:word_salad_delete' 0 %}"
   data-offer-detail-url="{% url 'support:word_salad_offer_detail' 0 %}"
   data-offer-save-url="{% url 'support:word_salad_offer_save' 0 %}"
