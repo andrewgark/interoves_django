@@ -253,25 +253,8 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
           OR EXISTS (SELECT 1 FROM {author} a JOIN {profile} pr ON pr.user_id = a.profile_id
                      WHERE a.taskgroup_id = p.task_group_id AND pr.team_on_id = p.team_id)))'''
     base_params = [game.pk, *group_ids, *sorted(actor_types), False, True, True, 'user', 'team']
+    page_number = max(1, int(page_number or 1))
     with connection.cursor() as cursor:
-        cursor.execute(
-            f'''WITH actor_totals AS (
-                    SELECT p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key,
-                           SUM(p.score) AS window_score, COUNT(p.id) AS played_count,
-                           CASE WHEN COUNT(dt.id) = 0 THEN NULL ELSE SUM(COALESCE(dt.frozen_ms, dt.accumulated_ms)) END AS total_time_ms
-                    FROM {projection} p LEFT JOIN {timing} dt ON dt.game_id = p.game_id
-                      AND dt.task_group_id = p.task_group_id AND dt.replay_slot_id IS NULL
-                      AND ((p.actor_type = 'team' AND dt.team_id = p.team_id)
-                        OR (p.actor_type = 'user' AND dt.user_id = p.user_id)
-                        OR (p.actor_type = 'anon' AND dt.anon_key = p.anon_key))
-                    WHERE {eligibility}
-                    GROUP BY p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key
-                ) SELECT COUNT(*) FROM actor_totals''',
-            base_params,
-        )
-        total = int(cursor.fetchone()[0])
-        pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
-        page_number = max(1, min(int(page_number or 1), pages))
         cursor.execute(
             f'''WITH actor_totals AS (
                     SELECT p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key,
@@ -289,14 +272,42 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
                            window_score, played_count, total_time_ms,
                            RANK() OVER (ORDER BY window_score DESC) AS place
                     FROM actor_totals
+                ), numbered AS (
+                    SELECT actor_type, actor_key, team_id, user_id, anon_key,
+                           window_score, played_count, total_time_ms, place,
+                           COUNT(*) OVER () AS total_count,
+                           ROW_NUMBER() OVER (
+                               ORDER BY window_score DESC, total_time_ms IS NULL,
+                                        total_time_ms, actor_type, actor_key
+                           ) AS page_row
+                    FROM ranked
                 ) SELECT actor_type, actor_key, team_id, user_id, anon_key,
-                         window_score, played_count, total_time_ms, place
-                  FROM ranked ORDER BY window_score DESC, total_time_ms IS NULL, total_time_ms, actor_type, actor_key
-                  LIMIT %s OFFSET %s''',
-            [*base_params, PAGE_SIZE, (page_number - 1) * PAGE_SIZE],
+                         window_score, played_count, total_time_ms, place,
+                         total_count, page_row
+                  FROM numbered
+                 WHERE page_row > ((CASE WHEN %s < ((total_count + %s - 1) / %s)
+                                         THEN %s ELSE ((total_count + %s - 1) / %s) END - 1) * %s)
+                   AND page_row <= ((CASE WHEN %s < ((total_count + %s - 1) / %s)
+                                          THEN %s ELSE ((total_count + %s - 1) / %s) END) * %s)
+                 ORDER BY window_score DESC, total_time_ms IS NULL, total_time_ms, actor_type, actor_key
+                 LIMIT %s''',
+            [
+                *base_params,
+                page_number, PAGE_SIZE, PAGE_SIZE, page_number, PAGE_SIZE, PAGE_SIZE, PAGE_SIZE,
+                page_number, PAGE_SIZE, PAGE_SIZE, page_number, PAGE_SIZE, PAGE_SIZE, PAGE_SIZE,
+                PAGE_SIZE,
+            ],
         )
         rows = [dict(zip((c[0] for c in cursor.description), row)) for row in cursor.fetchall()]
-    return rows, total, page_number
+    if not rows:
+        return [], 0, 1
+    total = int(rows[0]['total_count'])
+    first_page_row = int(rows[0]['page_row'])
+    for row in rows:
+        row.pop('total_count', None)
+        row.pop('page_row', None)
+    current_page = ((first_page_row - 1) // PAGE_SIZE) + 1
+    return rows, total, current_page
 
 
 def _projection_page_cells(game, group_ids, page_rows):

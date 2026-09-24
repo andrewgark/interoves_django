@@ -198,6 +198,45 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual(page, 1)
         self.assertEqual([row['place'] for row in rows], [1, 1, 3])
 
+    def test_projection_rank_page_has_exact_count_and_clamps_to_last_page(self):
+        from games.aggregate_leaderboard import _projection_rank_page
+
+        group = self.links[0][0].task_group
+        DailyResultProjectionState.objects.create(
+            game=self.game, task_group=group, adapter_version=1,
+            coverage_complete=True, is_valid=True, full_refresh_required=False,
+        )
+        DailyResultProjection.objects.bulk_create([
+            DailyResultProjection(
+                game=self.game, task_group=group, actor_type='anon',
+                actor_key='page-{:03}'.format(index),
+                anon_key='page-{:03}'.format(index), score=100,
+            )
+            for index in range(51)
+        ])
+
+        first, total, page = _projection_rank_page(self.game, [group.pk], 1)
+        second, second_total, second_page = _projection_rank_page(self.game, [group.pk], 2)
+        beyond, beyond_total, beyond_page = _projection_rank_page(self.game, [group.pk], 99)
+
+        self.assertEqual((len(first), total, page), (50, 51, 1))
+        self.assertEqual((len(second), second_total, second_page), (1, 51, 2))
+        self.assertEqual((len(beyond), beyond_total, beyond_page), (1, 51, 2))
+        self.assertEqual(first[-1]['actor_key'], 'page-049')
+        self.assertEqual(second[0]['actor_key'], 'page-050')
+        self.assertEqual(beyond[0]['actor_key'], 'page-050')
+
+    def test_projection_rank_page_empty_result_has_zero_count(self):
+        from games.aggregate_leaderboard import _projection_rank_page
+
+        group = self.links[0][0].task_group
+        DailyResultProjectionState.objects.create(
+            game=self.game, task_group=group, adapter_version=1,
+            coverage_complete=True, is_valid=True, full_refresh_required=False,
+        )
+        rows, total, page = _projection_rank_page(self.game, [group.pk], 3)
+        self.assertEqual((rows, total, page), ([], 0, 1))
+
     def test_scorer_semantic_version_mismatch_invalidates_projection_read_path(self):
         for link, _task in self.links:
             DailyResultProjectionState.objects.create(

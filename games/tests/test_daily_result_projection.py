@@ -500,9 +500,9 @@ class ProjectionAggregatePerformanceTests(TestCase):
             self.assertEqual(row['place'], expected_rank[anon_key], '{} score={} place={} expected={}'.format(anon_key, row['score'], row['place'], expected_rank[anon_key]))
             self.assertEqual(len(row['cells']), len(oracle[anon_key]['cells']))
         self.assertLessEqual(sum(len(row['cells']) for row in first['aggregate_rows']), 50 * 30)
-        self.assertEqual(len(first_queries), 10)
-        self.assertEqual(len(second_queries), 10)
-        self.assertEqual(len(ten_release_queries), 10)
+        self.assertEqual(len(first_queries), 9)
+        self.assertEqual(len(second_queries), 9)
+        self.assertEqual(len(ten_release_queries), 9)
         self.assertEqual(len(first_queries), len(second_queries))
         from games.aggregate_leaderboard import _build_legacy_aggregate_page
         legacy_first = _build_legacy_aggregate_page(page('/projection_perf_test/results/?limit=30'), game)
