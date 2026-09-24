@@ -85,7 +85,7 @@ class WordSaladRow:
 
 
 def _ensure_project():
-    project, _ = Project.objects.get_or_create(pk='sections', defaults={'name': 'sections'})
+    project, _ = Project.objects.get_or_create(pk='sections')
     return project
 
 
