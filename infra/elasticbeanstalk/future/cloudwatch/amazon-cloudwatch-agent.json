@@ -17,7 +17,7 @@
         "measurement": ["used_percent"],
         "resources": ["/"],
         "metrics_collection_interval": 60
-      },
+      }
     }
   }
 }
