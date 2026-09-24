@@ -28,7 +28,13 @@ class WordSaladMySQLConcurrencyTests(TransactionTestCase):
         self.user = User.objects.create_user(username='mysql-concurrency-user')
         with patch('games.views.track.track_task_change'):
             detail = create_word_salad()
-        from games.models import Game, Task
+        from games.models import Game, HTMLPage, Task
+        for name in (
+            'Правила Десяточки',
+            'Правила турнирного режима',
+            'Правила тренировочного режима',
+        ):
+            HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
         self.task = Task.objects.get(pk=detail['task_id'])
         self.game = Game.objects.get(pk='salad')
 
