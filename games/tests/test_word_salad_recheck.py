@@ -12,6 +12,7 @@ from django.utils import timezone
 from games.models import (
     Attempt,
     ChainTaskState,
+    HTMLPage,
     PlayerCompletedGame,
     WordSaladRecheckItem,
     WordSaladRecheckJob,
@@ -34,6 +35,12 @@ from games.word_salad_recheck import (
 class WordSaladRecheckQueueTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='recheck-user')
+        for name in (
+            'Правила Десяточки',
+            'Правила турнирного режима',
+            'Правила тренировочного режима',
+        ):
+            HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
         with patch('games.views.track.track_task_change'):
             detail = create_word_salad()
         from games.models import Game, Task
