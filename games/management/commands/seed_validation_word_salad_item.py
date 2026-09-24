@@ -33,15 +33,17 @@ class Command(BaseCommand):
             detail = create_word_salad()
             task = Task.objects.get(pk=detail['task_id'])
             game = Game.objects.get(pk='salad')
-            job, _ = WordSaladRecheckJob.objects.get_or_create(
-                task=task, game=game, status=WordSaladRecheckJob.STATUS_PENDING,
-                defaults={'total_actors': 1},
+            job = WordSaladRecheckJob.objects.create(
+                task=task,
+                game=game,
+                task_revision=task.attempt_revision,
+                total_actors=1,
             )
-            item, _ = WordSaladRecheckItem.objects.get_or_create(
+            item = WordSaladRecheckItem.objects.create(
                 job=job, actor_key=str(user.pk),
-                defaults={'user': user},
+                user=user,
             )
-            outbox, _ = WordSaladRecheckOutbox.objects.get_or_create(
+            outbox = WordSaladRecheckOutbox.objects.create(
                 item=item, task_revision=job.task_revision,
             )
         self.stdout.write(json.dumps({
