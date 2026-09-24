@@ -17,6 +17,23 @@ from games.word_salad_recheck import process_word_salad_recheck_item
 
 logger = logging.getLogger('application')
 MAX_SIGNATURE_AGE = 300
+VALIDATION_HTTP_500_SENTINEL = '/tmp/interoves-validation-http-500-once'
+
+
+def _validation_http_500_once():
+    if (
+        runtime_role() != 'worker'
+        or os.environ.get('INTEROVES_VALIDATION_MODE') != '1'
+        or os.environ.get('INTEROVES_VALIDATION_HTTP_500_ONCE') != '1'
+    ):
+        return False
+    try:
+        fd = os.open(VALIDATION_HTTP_500_SENTINEL, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        return False
+    else:
+        os.close(fd)
+        return True
 
 
 def _valid_signature(request, body):
@@ -82,6 +99,10 @@ def word_salad_worker(request):
         return JsonResponse({'error': 'actor/item mismatch'}, status=400)
     if task_revision != str(item.job.task_revision):
         return JsonResponse({'status': 'stale_revision'}, status=200)
+
+    if _validation_http_500_once():
+        logger.warning('validation-only worker HTTP 500 failpoint triggered item_id=%s', item_id)
+        return JsonResponse({'error': 'validation transient failure'}, status=500)
 
     result = process_word_salad_recheck_item(
         job_id=job_id,
