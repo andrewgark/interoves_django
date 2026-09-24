@@ -178,7 +178,7 @@
       if (internationalUnavailable) submit.textContent = INTERNATIONAL_UNAVAILABLE_TEXT;
       else if (tributeRoute && !tributeEnabled) submit.textContent = 'Этот способ пока недоступен';
       else if (tributeRoute && !telegramLinked) submit.textContent = 'Привязать Telegram для оплаты';
-      else if (tributeRoute) submit.textContent = 'Оплатить через Tribute · ' + amountText;
+      else if (tributeRoute) submit.textContent = 'Оплатить в Tribute';
       else submit.textContent = 'Оплатить ' + amountText;
       submit.disabled = busy || internationalUnavailable || (tributeRoute && !tributeEnabled)
         || (!tributeRoute || telegramLinked) && !consent.checked;
