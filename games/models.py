@@ -971,11 +971,13 @@ class WordSaladRecheckItem(models.Model):
     STATUS_RUNNING = 'running'
     STATUS_COMPLETED = 'completed'
     STATUS_FAILED = 'failed'
+    STATUS_SUPERSEDED = 'superseded'
     STATUS_CHOICES = (
         (STATUS_PENDING, 'Ожидает обработки'),
         (STATUS_RUNNING, 'Выполняется'),
         (STATUS_COMPLETED, 'Завершено'),
         (STATUS_FAILED, 'Ошибка'),
+        (STATUS_SUPERSEDED, 'Заменено новой версией'),
     )
 
     job = models.ForeignKey(WordSaladRecheckJob, related_name='items', on_delete=models.CASCADE)
@@ -1002,6 +1004,46 @@ class WordSaladRecheckItem(models.Model):
         ]
         indexes = [
             models.Index(fields=['job', 'status', 'next_attempt_at'], name='games_wsrji_due_idx'),
+        ]
+
+
+class WordSaladRecheckOutbox(models.Model):
+    """Transactional transport intent for one authoritative recheck item."""
+
+    STATUS_PENDING = 'pending'
+    STATUS_SENDING = 'sending'
+    STATUS_SENT = 'sent'
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Ожидает отправки'),
+        (STATUS_SENDING, 'Отправляется'),
+        (STATUS_SENT, 'Отправлено'),
+    )
+
+    item = models.ForeignKey(
+        WordSaladRecheckItem,
+        related_name='outbox_rows',
+        on_delete=models.CASCADE,
+    )
+    task_revision = models.UUIDField(db_index=True)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    claim_token = models.UUIDField(blank=True, null=True)
+    claimed_until = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    next_attempt_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    last_error = models.TextField(blank=True, default='')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['item', 'task_revision'],
+                name='games_wsr_outbox_item_revision_uniq',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['status', 'next_attempt_at'], name='games_wsr_outbox_due_idx'),
         ]
 
 
