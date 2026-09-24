@@ -1,5 +1,6 @@
 {
   "metrics": {
+    "namespace": "InterOves/Worker",
     "append_dimensions": {
       "AutoScalingGroupName": "${aws:AutoScalingGroupName}",
       "InstanceId": "${aws:InstanceId}"

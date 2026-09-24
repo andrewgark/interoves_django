@@ -37,17 +37,6 @@
       "Resource": "*"
     },
     {
-      "Sid": "CloudWatchAgentMetrics",
-      "Effect": "Allow",
-      "Action": ["cloudwatch:PutMetricData"],
-      "Resource": "*",
-      "Condition": {
-        "StringEquals": {
-          "cloudwatch:namespace": "CWAgent"
-        }
-      }
-    },
-    {
       "Sid": "WorkerLogs",
       "Effect": "Allow",
       "Action": [
