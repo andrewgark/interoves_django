@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Least-privilege IAM for the disposable Inter Oves validation worker.
+Parameters:
+  QueueArn:
+    Type: String
+  RdsSecretArn:
+    Type: String
+  DjangoSecretArn:
+    Type: String
+  HmacSecretArn:
+    Type: String
+Resources:
+  WorkerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: interoves-validation-worker-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: interoves-validation-worker-runtime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: QueueRuntime
+                Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:ChangeMessageVisibility
+                  - sqs:GetQueueAttributes
+                  - sqs:GetQueueUrl
+                  - sqs:SendMessage
+                Resource: !Ref QueueArn
+              - Sid: ValidationSecrets
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref RdsSecretArn
+                  - !Ref DjangoSecretArn
+                  - !Ref HmacSecretArn
+              - Sid: WorkerMetrics
+                Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: InterOves/Worker
+              - Sid: WorkerLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:DescribeLogStreams
+                  - logs:PutLogEvents
+                Resource: '*'
+  WorkerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: interoves-validation-worker-profile
+      Roles:
+        - !Ref WorkerRole
+Outputs:
+  WorkerRoleArn:
+    Value: !GetAtt WorkerRole.Arn
+  WorkerInstanceProfileName:
+    Value: !Ref WorkerInstanceProfile
