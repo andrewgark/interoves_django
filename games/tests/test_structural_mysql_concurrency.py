@@ -227,6 +227,61 @@ class StructuralMySQLConcurrencyTests(TransactionTestCase):
             self.assertEqual(timing.status, DailySolveTiming.STATUS_COMPLETED)
             self.assertIsNotNone(timing.frozen_ms)
 
+    def test_g_existing_timing_heartbeats_use_one_lock_order(self):
+        """Two real sessions updating one existing timing row must serialize."""
+        iterations = 100 if os.environ.get('STRUCTURAL_MYSQL_STRESS') else 50
+        for iteration in range(iterations):
+            group, _task = self._group(80 + iteration)
+            session_id = uuid4()
+            DailySolveTiming.objects.create(
+                user=self.user,
+                game=self.game,
+                task_group=group,
+                status=DailySolveTiming.STATUS_RUNNING,
+                active_session_id=session_id,
+                interval_started_at=timezone.now() - timedelta(seconds=2),
+                last_heartbeat_at=timezone.now() - timedelta(seconds=1),
+                last_seq=0,
+            )
+            barrier = Barrier(2)
+            ids, errors = [], []
+
+            def heartbeat(seq):
+                close_old_connections()
+                try:
+                    self._connection_id(ids)
+                    fresh_group = TaskGroup.objects.get(pk=group.pk)
+                    game = Game.objects.get(pk=self.game.pk)
+                    user = User.objects.get(pk=self.user.pk)
+                    barrier.wait(timeout=45)
+                    apply_timing_event(
+                        game=game,
+                        task_group=fresh_group,
+                        user=user,
+                        action=ACTION_HEARTBEAT,
+                        session_id=session_id,
+                        event_id='heartbeat-race-{}-{}'.format(iteration, seq),
+                        seq=seq,
+                        now=timezone.now(),
+                        create=True,
+                    )
+                except Exception as exc:
+                    errors.append(exc)
+                finally:
+                    close_old_connections()
+
+            self._parallel([
+                lambda: heartbeat(1),
+                lambda: heartbeat(2),
+            ])
+            self.assertEqual(errors, [], [repr(error) for error in errors])
+            self.assertEqual(len(set(ids)), 2)
+            timing = DailySolveTiming.objects.get(
+                user=self.user, game=self.game, task_group=group,
+            )
+            self.assertEqual(timing.status, DailySolveTiming.STATUS_RUNNING)
+            self.assertGreaterEqual(timing.last_seq, 2)
+
     def _reset_fixture(self, iteration):
         completion_user = User.objects.create_user(
             username='reset-completion-{}-{}'.format(iteration, uuid4().hex[:6]),

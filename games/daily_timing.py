@@ -93,6 +93,26 @@ def lookup_timing(*, game, task_group, team=None, user=None, anon_key=None, repl
     ).first()
 
 
+def _lock_existing_timing(logical_qs):
+    """Lock an existing timing row through its primary key.
+
+    The logical actor/release lookup can use one of several secondary
+    indexes.  Using that lookup directly with ``FOR UPDATE`` allowed two
+    identical heartbeats to acquire a secondary-index record lock and the
+    primary-key record lock in opposite orders.  First finding the immutable
+    row id without a lock, then taking the canonical primary-key lock, gives
+    every existing-row mutation the same InnoDB lock order.
+
+    A row may disappear between the two reads during maintenance cleanup;
+    callers treat that as the normal missing-row case and apply their
+    existing create/no-op policy.
+    """
+    row_id = logical_qs.order_by('pk').values_list('pk', flat=True).first()
+    if row_id is None:
+        return None
+    return DailySolveTiming.objects.select_for_update().filter(pk=row_id).first()
+
+
 def empty_snapshot() -> dict:
     return {
         'timing_version': TIMING_VERSION_ACTIVE,
@@ -311,12 +331,12 @@ def _apply_timing_event_once(
     filters = actor_filter(team=team, user=user, anon_key=anon_key, replay_slot=replay_slot)
     if filters is None or game is None or task_group is None:
         return empty_snapshot()
-    qs = DailySolveTiming.objects.select_for_update().filter(
+    qs = DailySolveTiming.objects.filter(
         game=game,
         task_group=task_group,
         **filters,
     )
-    row = qs.first()
+    row = _lock_existing_timing(qs)
     created_timing_row = False
     if row is None:
         if not create or action not in (ACTION_START, ACTION_RESUME):
@@ -356,10 +376,10 @@ def _apply_timing_event_once(
                 row = DailySolveTiming.objects.create(**create_kwargs)
                 created_timing_row = True
         except IntegrityError:
-            row = (
-                DailySolveTiming.objects.select_for_update()
-                .filter(game=game, task_group=task_group, **filters)
-                .first()
+            row = _lock_existing_timing(
+                DailySolveTiming.objects.filter(
+                    game=game, task_group=task_group, **filters,
+                )
             )
             if row is None:
                 return empty_snapshot()
@@ -398,10 +418,10 @@ def complete_daily_timing_in_transaction(
     if filters is None or task_group is None:
         return None
     started = timezone.now()
-    row = (
-        DailySolveTiming.objects.select_for_update()
-        .filter(game=game, task_group=task_group, **filters)
-        .first()
+    row = _lock_existing_timing(
+        DailySolveTiming.objects.filter(
+            game=game, task_group=task_group, **filters,
+        )
     )
     if timing_phases is not None:
         timing_phases['timing_lock_ms'] = (
