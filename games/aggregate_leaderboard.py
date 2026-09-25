@@ -89,10 +89,12 @@ def _choose_window(game, *, limit, anchor):
             newer_cursor = 'w:' + ','.join(str(value) for value in reversed(newer_ids)) if newer_ids else None
             return current_window, older_cursor, newer_cursor
 
-    # Changing limit from a window cursor keeps the old window's oldest release
-    # as the anchor. Legacy numeric anchors continue to resolve as release IDs.
+    # Changing the limit from a window cursor keeps the selected window's newest
+    # release as the anchor, then expands/contracts around it. The cursor is in
+    # public display order (newest first). Legacy numeric anchors continue to
+    # resolve as release IDs.
     if cursor_ids:
-        anchor = str(cursor_ids[-1])
+        anchor = str(cursor_ids[0])
     if anchor and str(anchor).isdigit():
         anchor_id = int(anchor)
         if anchor_id <= 2147483647:
