@@ -1,0 +1,2773 @@
+{
+  "plan_version": 1,
+  "generated_at": "2026-09-25T15:40:44.288451+00:00",
+  "logical_key": "game + task_group + actor(user/team/anon) + replay_slot=NULL",
+  "duplicate_groups": [
+    {
+      "game_id": "alphabetty",
+      "task_group_id": 1043,
+      "release": {
+        "number": "21",
+        "name": "Алфавитка #21"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "f6e5d0559bff790a"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 1070,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-04T19:57:12.966364+00:00",
+          "updated_at": "2026-09-04T19:57:26.055067+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-04T19:57:26.052057+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 25,
+          "last_event_id": "7697d067-9973-4f85-a20c-02f02c209395",
+          "active_session": false,
+          "applied_event_count": 12,
+          "signature": "8adabc8666b756feecf1084123f8e2363848edbc27c363ecb052a2e154897959"
+        },
+        {
+          "id": 1071,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-04T19:57:12.966744+00:00",
+          "updated_at": "2026-09-04T19:57:12.974005+00:00",
+          "started_at": "2026-09-04T19:57:12.962976+00:00",
+          "last_heartbeat_at": "2026-09-04T19:57:12.962976+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 5,
+          "last_event_id": "18e5192c-eb87-4107-b873-0a33a9d29652",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "827d877f9ee1ecd53467ae42af3cb7a990abd372977c120d1dc8f8ca5f45b410"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "alphabetty",
+      "task_group_id": 1127,
+      "release": {
+        "number": "36",
+        "name": "Алфавитка #36"
+      },
+      "actor": {
+        "type": "user",
+        "id": 1173
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 11309,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-16T15:34:46.281432+00:00",
+          "updated_at": "2026-09-16T17:40:34.885106+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-16T17:40:34.881681+00:00",
+          "completed_at": "2026-09-16T17:40:34.881681+00:00",
+          "accumulated_ms": 1040312,
+          "frozen_ms": 1040312,
+          "last_seq": 96,
+          "last_event_id": "complete:11309",
+          "active_session": false,
+          "applied_event_count": 64,
+          "signature": "fd34efeacea17c6e70314df0c5ce7835cd574b11dd66892e4d4c0059fd99732d"
+        },
+        {
+          "id": 11310,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-16T15:34:46.282949+00:00",
+          "updated_at": "2026-09-16T15:34:46.290545+00:00",
+          "started_at": "2026-09-16T15:34:46.239322+00:00",
+          "last_heartbeat_at": "2026-09-16T15:34:46.239322+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "505f0632-b3c7-4690-b01d-951af61891c4",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "578573d95fcec1ed9511318cb89aba33c9acd652089c84be735b153323c57fbe"
+        }
+      ],
+      "attempt_count": 18,
+      "attempt_points": [
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "10.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 22091,
+          "result": "solved",
+          "completed_at": "2026-09-16T17:40:34.858707+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 18121,
+          "started_at": "2026-09-16T15:34:59.320109+00:00"
+        }
+      ],
+      "keep_id": 11309,
+      "delete_id": 11310,
+      "keep_signature": "fd34efeacea17c6e70314df0c5ce7835cd574b11dd66892e4d4c0059fd99732d",
+      "delete_signature": "578573d95fcec1ed9511318cb89aba33c9acd652089c84be735b153323c57fbe"
+    },
+    {
+      "game_id": "alphabetty",
+      "task_group_id": 1141,
+      "release": {
+        "number": "43",
+        "name": "Алфавитка #43"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "bbf13eae1f4bba57"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 7783,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-12T05:54:35.585768+00:00",
+          "updated_at": "2026-09-12T05:54:35.687555+00:00",
+          "started_at": "2026-09-12T05:54:35.684270+00:00",
+          "last_heartbeat_at": "2026-09-12T05:54:35.684270+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "52b4a6a5-9d2c-4b9a-a10e-9f0ec3d6e9a2",
+          "active_session": true,
+          "applied_event_count": 3,
+          "signature": "c1bcf60ff7e83eca81f6251d3fdede19354c991487d5d06ab9dc079b6076f57b"
+        },
+        {
+          "id": 7784,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-12T05:54:35.591150+00:00",
+          "updated_at": "2026-09-12T05:54:35.604068+00:00",
+          "started_at": "2026-09-12T05:54:35.587165+00:00",
+          "last_heartbeat_at": "2026-09-12T05:54:35.587165+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "52b4a6a5-9d2c-4b9a-a10e-9f0ec3d6e9a2",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "d7370d3d9ae1ea77bc63e32955906318f240ed5381a29d7754e4a7f6cc9430fd"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "alphabetty",
+      "task_group_id": 1158,
+      "release": {
+        "number": "44",
+        "name": "Алфавитка #44"
+      },
+      "actor": {
+        "type": "user",
+        "id": 817
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 8180,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-12T21:03:49.089361+00:00",
+          "updated_at": "2026-09-12T21:07:34.898690+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-12T21:07:34.890327+00:00",
+          "completed_at": "2026-09-12T21:07:34.890327+00:00",
+          "accumulated_ms": 84104,
+          "frozen_ms": 84104,
+          "last_seq": 7,
+          "last_event_id": "complete:8180",
+          "active_session": false,
+          "applied_event_count": 11,
+          "signature": "cecc5bf58f940165f45038b6c0a36c40ed32377d75548a811ba4e944a51211c3"
+        },
+        {
+          "id": 8181,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-12T21:03:49.091759+00:00",
+          "updated_at": "2026-09-12T21:03:49.099772+00:00",
+          "started_at": "2026-09-12T21:03:49.087907+00:00",
+          "last_heartbeat_at": "2026-09-12T21:03:49.087907+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "510b0d78-d085-4dac-aafe-6a6da5543459",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "b1750dc44d793a00a0dbbe59091310495b05bb8b57caee1862008420c9cbcb4e"
+        }
+      ],
+      "attempt_count": 16,
+      "attempt_points": [
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "10.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 19815,
+          "result": "solved",
+          "completed_at": "2026-09-12T21:07:34.860254+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 15729,
+          "started_at": "2026-09-12T21:06:12.925753+00:00"
+        }
+      ],
+      "keep_id": 8180,
+      "delete_id": 8181,
+      "keep_signature": "cecc5bf58f940165f45038b6c0a36c40ed32377d75548a811ba4e944a51211c3",
+      "delete_signature": "b1750dc44d793a00a0dbbe59091310495b05bb8b57caee1862008420c9cbcb4e"
+    },
+    {
+      "game_id": "alphabetty",
+      "task_group_id": 1160,
+      "release": {
+        "number": "45",
+        "name": "Алфавитка #45"
+      },
+      "actor": {
+        "type": "user",
+        "id": 794
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 9015,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-13T21:34:53.351404+00:00",
+          "updated_at": "2026-09-13T21:38:23.770305+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-13T21:38:23.767599+00:00",
+          "completed_at": "2026-09-13T21:38:23.767599+00:00",
+          "accumulated_ms": 208788,
+          "frozen_ms": 208788,
+          "last_seq": 16,
+          "last_event_id": "complete:9015",
+          "active_session": false,
+          "applied_event_count": 15,
+          "signature": "7952e7327d88f11200d55c64d580c27151f283250a69663e6b3757c6624f8d65"
+        },
+        {
+          "id": 9016,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-13T21:34:53.351452+00:00",
+          "updated_at": "2026-09-13T21:34:53.359427+00:00",
+          "started_at": "2026-09-13T21:34:53.341410+00:00",
+          "last_heartbeat_at": "2026-09-13T21:34:53.341410+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "6549b796-0d66-42f2-b68f-93713858fe15",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "2dc161c14d90f7908d573525bf8a9a64be8132af86288c9d7136ceda7fb249fa"
+        }
+      ],
+      "attempt_count": 21,
+      "attempt_points": [
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "0.000",
+        "10.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 20410,
+          "result": "solved",
+          "completed_at": "2026-09-13T21:38:23.744072+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 16351,
+          "started_at": "2026-09-13T21:35:01.858625+00:00"
+        }
+      ],
+      "keep_id": 9015,
+      "delete_id": 9016,
+      "keep_signature": "7952e7327d88f11200d55c64d580c27151f283250a69663e6b3757c6624f8d65",
+      "delete_signature": "2dc161c14d90f7908d573525bf8a9a64be8132af86288c9d7136ceda7fb249fa"
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 969,
+      "release": {
+        "number": "6",
+        "name": "Лесенка #6"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "0bff71cd9c5d695c"
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 7068,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-11T09:56:36.097865+00:00",
+          "updated_at": "2026-09-14T07:02:59.141756+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-14T07:02:59.138747+00:00",
+          "completed_at": "2026-09-14T07:02:59.138747+00:00",
+          "accumulated_ms": 473875,
+          "frozen_ms": 473875,
+          "last_seq": 59,
+          "last_event_id": "complete:7068",
+          "active_session": false,
+          "applied_event_count": 53,
+          "signature": "4513c62f41cdf5ff7f3155466a8ecb60ca5f2ab717dc5e339b62c5264903ed96"
+        },
+        {
+          "id": 7069,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-11T09:56:36.101514+00:00",
+          "updated_at": "2026-09-11T09:56:36.106169+00:00",
+          "started_at": "2026-09-11T09:56:36.095478+00:00",
+          "last_heartbeat_at": "2026-09-11T09:56:36.095478+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "b4a9efdd-938a-4da5-ab3a-e8005b7223d9",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "fac5b098d95b42f674a671b1a2c724b96ec47714221d0fce4419ed1bc5bb8eb6"
+        }
+      ],
+      "attempt_count": 16,
+      "attempt_points": [
+        "1.000",
+        "2.000",
+        "2.000",
+        "2.000",
+        "3.000",
+        "3.000",
+        "3.500",
+        "3.500",
+        "3.500",
+        "3.500",
+        "4.000",
+        "4.000",
+        "4.000",
+        "5.000",
+        "6.000",
+        "6.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 20621,
+          "result": "solved",
+          "completed_at": "2026-09-14T07:02:59.119364+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 16549,
+          "started_at": "2026-09-14T06:34:13.470807+00:00"
+        }
+      ],
+      "keep_id": 7068,
+      "delete_id": 7069,
+      "keep_signature": "4513c62f41cdf5ff7f3155466a8ecb60ca5f2ab717dc5e339b62c5264903ed96",
+      "delete_signature": "fac5b098d95b42f674a671b1a2c724b96ec47714221d0fce4419ed1bc5bb8eb6"
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1021,
+      "release": {
+        "number": "65",
+        "name": "Лесенка #65"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "9c84f97ec8a7e90d"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 6531,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-10T16:33:34.850888+00:00",
+          "updated_at": "2026-09-10T16:35:27.815979+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-10T16:35:27.812352+00:00",
+          "completed_at": null,
+          "accumulated_ms": 34329,
+          "frozen_ms": null,
+          "last_seq": 7,
+          "last_event_id": "a100fab5-4e0b-4bdd-94ef-30269c002086",
+          "active_session": false,
+          "applied_event_count": 6,
+          "signature": "5a3b246ff4ac57aa040cfa02a3543b13561f909d6be3d799acf1aadb9b88fc8a"
+        },
+        {
+          "id": 6532,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-10T16:33:34.852497+00:00",
+          "updated_at": "2026-09-10T16:33:34.857493+00:00",
+          "started_at": "2026-09-10T16:33:34.849465+00:00",
+          "last_heartbeat_at": "2026-09-10T16:33:34.849465+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "bd7e75cd-7073-41ab-bf73-c7d142c124e1",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "517789c2ac1d41490249f4969afdd98b212bfee40c6da13a61f669d861a375f5"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1022,
+      "release": {
+        "number": "71",
+        "name": "Лесенка #71"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "1756d208e57719f2"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 10929,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-16T03:10:18.764705+00:00",
+          "updated_at": "2026-09-16T03:10:19.866569+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-16T03:10:19.863899+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 4,
+          "last_event_id": "fd30b244-b22b-48cc-950d-a7d2011fc6a5",
+          "active_session": false,
+          "applied_event_count": 2,
+          "signature": "f14f6d41250cca2f0460f68af5ec54dadd5562bdf6b412725af77906fb455175"
+        },
+        {
+          "id": 10930,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-16T03:10:18.765142+00:00",
+          "updated_at": "2026-09-16T03:10:18.769816+00:00",
+          "started_at": "2026-09-16T03:10:18.758190+00:00",
+          "last_heartbeat_at": "2026-09-16T03:10:18.758190+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "43937112-e71d-4ecd-8f23-1c141057814b",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "27599a85c51cad484087de3f0de265df20cea03046fe9d5c82071b14795da6f6"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1108,
+      "release": {
+        "number": "70",
+        "name": "Лесенка #70"
+      },
+      "actor": {
+        "type": "user",
+        "id": 2229
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 9930,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-14T21:56:41.744520+00:00",
+          "updated_at": "2026-09-14T22:09:08.222477+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-14T22:09:08.218329+00:00",
+          "completed_at": "2026-09-14T22:09:08.218329+00:00",
+          "accumulated_ms": 738166,
+          "frozen_ms": 738166,
+          "last_seq": 52,
+          "last_event_id": "complete:9930",
+          "active_session": false,
+          "applied_event_count": 51,
+          "signature": "7b18b0592843c37e6dcfcbc01a19d3380a237ce008f8afdce5f2cfc287f21481"
+        },
+        {
+          "id": 9931,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-14T21:56:41.746939+00:00",
+          "updated_at": "2026-09-14T21:56:41.753120+00:00",
+          "started_at": "2026-09-14T21:56:41.742538+00:00",
+          "last_heartbeat_at": "2026-09-14T21:56:41.742538+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "c94ecd17-516f-424c-9536-cc8226924273",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "09bca81ba161f210f1747d908511d3720219369847bd83d8f0f6ac89e1aabb1a"
+        }
+      ],
+      "attempt_count": 20,
+      "attempt_points": [
+        "1.000",
+        "2.000",
+        "3.000",
+        "3.000",
+        "3.000",
+        "3.000",
+        "3.000",
+        "3.000",
+        "3.000",
+        "3.000",
+        "3.000",
+        "3.000",
+        "3.000",
+        "3.000",
+        "4.000",
+        "4.000",
+        "5.000",
+        "6.000",
+        "7.000",
+        "8.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 21112,
+          "result": "solved",
+          "completed_at": "2026-09-14T22:09:08.192762+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 17068,
+          "started_at": "2026-09-14T21:56:53.173577+00:00"
+        }
+      ],
+      "keep_id": 9930,
+      "delete_id": 9931,
+      "keep_signature": "7b18b0592843c37e6dcfcbc01a19d3380a237ce008f8afdce5f2cfc287f21481",
+      "delete_signature": "09bca81ba161f210f1747d908511d3720219369847bd83d8f0f6ac89e1aabb1a"
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1122,
+      "release": {
+        "number": "62",
+        "name": "Лесенка #62"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "16966c3f31710a10"
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 3429,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-07T05:10:57.324832+00:00",
+          "updated_at": "2026-09-07T05:13:54.586620+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-07T05:13:54.583663+00:00",
+          "completed_at": "2026-09-07T05:13:54.583663+00:00",
+          "accumulated_ms": 136025,
+          "frozen_ms": 136025,
+          "last_seq": 22,
+          "last_event_id": "complete:3429",
+          "active_session": false,
+          "applied_event_count": 21,
+          "signature": "ac11ce2d6c20a7448ed74ac85a54a21acaabbfa6431b3571a421a03e993e67e2"
+        },
+        {
+          "id": 3430,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-07T05:10:57.324853+00:00",
+          "updated_at": "2026-09-07T05:10:57.335297+00:00",
+          "started_at": "2026-09-07T05:10:57.318942+00:00",
+          "last_heartbeat_at": "2026-09-07T05:10:57.318942+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "4dc3d2b1-52ac-4462-94f1-7195156b784d",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "82cefd16431fd0b4673c449b621846b8d9f3a8847b0f020baa5cd916e3f908ff"
+        }
+      ],
+      "attempt_count": 10,
+      "attempt_points": [
+        "0.000",
+        "1.000",
+        "2.000",
+        "3.000",
+        "4.000",
+        "4.000",
+        "5.000",
+        "6.000",
+        "7.000",
+        "8.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 16675,
+          "result": "solved",
+          "completed_at": "2026-09-07T05:13:54.563586+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 12029,
+          "started_at": "2026-09-07T05:11:11.409619+00:00"
+        }
+      ],
+      "keep_id": 3429,
+      "delete_id": 3430,
+      "keep_signature": "ac11ce2d6c20a7448ed74ac85a54a21acaabbfa6431b3571a421a03e993e67e2",
+      "delete_signature": "82cefd16431fd0b4673c449b621846b8d9f3a8847b0f020baa5cd916e3f908ff"
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1215,
+      "release": {
+        "number": "56",
+        "name": "Лесенка #56"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "2779a82ffb07cbe7"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 4330,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-07T23:15:41.176232+00:00",
+          "updated_at": "2026-09-07T23:15:44.029312+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-07T23:15:44.022633+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 4,
+          "last_event_id": "9a0fc990-6c6d-4c23-ad8a-272fd90c063f",
+          "active_session": false,
+          "applied_event_count": 2,
+          "signature": "7dc85cda188b42375e2a77f38a793771f3928238345465e0c420ba5dd7f4c461"
+        },
+        {
+          "id": 4331,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-07T23:15:41.176866+00:00",
+          "updated_at": "2026-09-07T23:15:41.183009+00:00",
+          "started_at": "2026-09-07T23:15:41.158524+00:00",
+          "last_heartbeat_at": "2026-09-07T23:15:41.158524+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "73218ca5-7465-40b5-97c2-a8c1df5d26dd",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "249d21b18fc8210dc54ca9fe5e675d80cb02f466a1f1baacda3c070da7b47ad5"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1215,
+      "release": {
+        "number": "56",
+        "name": "Лесенка #56"
+      },
+      "actor": {
+        "type": "user",
+        "id": 2234
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 343,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-04T02:57:15.880493+00:00",
+          "updated_at": "2026-09-04T03:04:07.091263+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-04T03:04:07.086341+00:00",
+          "completed_at": "2026-09-04T03:04:07.086341+00:00",
+          "accumulated_ms": 281625,
+          "frozen_ms": 281625,
+          "last_seq": 43,
+          "last_event_id": "complete:343",
+          "active_session": false,
+          "applied_event_count": 41,
+          "signature": "9c8beed47bce554267e1ee40cd5841409eba54197a4bc3e640d7de02beb25631"
+        },
+        {
+          "id": 344,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-04T02:57:15.884374+00:00",
+          "updated_at": "2026-09-04T02:57:15.889619+00:00",
+          "started_at": "2026-09-04T02:57:15.880412+00:00",
+          "last_heartbeat_at": "2026-09-04T02:57:15.880412+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "5005fca7-3d18-4736-9b42-f7342c323161",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "18df61e19520b8f30443b01615c42bf9fc82211a86a121d90b195392ba891f06"
+        }
+      ],
+      "attempt_count": 12,
+      "attempt_points": [
+        "1.000",
+        "1.000",
+        "1.000",
+        "2.000",
+        "2.000",
+        "3.000",
+        "3.000",
+        "4.000",
+        "5.000",
+        "6.000",
+        "7.000",
+        "8.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 14497,
+          "result": "solved",
+          "completed_at": "2026-09-04T03:04:07.052875+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 9350,
+          "started_at": "2026-09-04T02:57:20.785136+00:00"
+        }
+      ],
+      "keep_id": 343,
+      "delete_id": 344,
+      "keep_signature": "9c8beed47bce554267e1ee40cd5841409eba54197a4bc3e640d7de02beb25631",
+      "delete_signature": "18df61e19520b8f30443b01615c42bf9fc82211a86a121d90b195392ba891f06"
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1265,
+      "release": {
+        "number": "58",
+        "name": "Лесенка #58"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "2779a82ffb07cbe7"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 4333,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-07T23:15:44.741097+00:00",
+          "updated_at": "2026-09-07T23:15:45.670296+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-07T23:15:45.666180+00:00",
+          "completed_at": null,
+          "accumulated_ms": 821,
+          "frozen_ms": null,
+          "last_seq": 3,
+          "last_event_id": "09dc3de7-61d8-4322-a587-cbb1045048a6",
+          "active_session": false,
+          "applied_event_count": 2,
+          "signature": "4860b3c31a32a937218a7341f98110bb30860f3bae8e7994504619e2457fa0a9"
+        },
+        {
+          "id": 4334,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-07T23:15:44.743736+00:00",
+          "updated_at": "2026-09-07T23:15:44.749215+00:00",
+          "started_at": "2026-09-07T23:15:44.715033+00:00",
+          "last_heartbeat_at": "2026-09-07T23:15:44.715033+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "37f7c845-f328-4807-be93-ec9d08d55984",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "d903524b89ec42a06531f2ee93a03d03375b7230991b0b1ccdf81946b00b4086"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1265,
+      "release": {
+        "number": "58",
+        "name": "Лесенка #58"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "96fce389342ec2df"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 2984,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-06T16:08:17.130775+00:00",
+          "updated_at": "2026-09-10T20:48:05.622032+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-10T20:48:05.618524+00:00",
+          "completed_at": null,
+          "accumulated_ms": 621,
+          "frozen_ms": null,
+          "last_seq": 5,
+          "last_event_id": "729eeece-8780-4165-ae7b-7d674111d4ba",
+          "active_session": false,
+          "applied_event_count": 6,
+          "signature": "d788b3bc12c15d811c077caea8611dd2ccafefb4b398bbd24efef5b31758859a"
+        },
+        {
+          "id": 2985,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-06T16:08:17.128829+00:00",
+          "updated_at": "2026-09-06T16:08:17.220861+00:00",
+          "started_at": "2026-09-06T16:08:17.122494+00:00",
+          "last_heartbeat_at": "2026-09-06T16:08:17.122494+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 3,
+          "last_event_id": "8ed81ec1-4597-4e1f-84bd-432551ee9903",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "c3c6f6759a7ba8a074aee19002898b833d8d6f89dfa32ba4742192d0ad84ef66"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1301,
+      "release": {
+        "number": "68",
+        "name": "Лесенка #68"
+      },
+      "actor": {
+        "type": "user",
+        "id": 2207
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 8163,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-12T21:00:09.499283+00:00",
+          "updated_at": "2026-09-12T21:02:28.800654+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-12T21:02:28.797266+00:00",
+          "completed_at": "2026-09-12T21:02:28.797266+00:00",
+          "accumulated_ms": 123147,
+          "frozen_ms": 123147,
+          "last_seq": 13,
+          "last_event_id": "complete:8163",
+          "active_session": false,
+          "applied_event_count": 12,
+          "signature": "6b2f122ba6d40e5982d144544bafabe28fd4d6ebeaa4cca2e1fecf19f17427c0"
+        },
+        {
+          "id": 8164,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-12T21:00:09.550546+00:00",
+          "updated_at": "2026-09-12T21:00:09.622245+00:00",
+          "started_at": "2026-09-12T21:00:09.524900+00:00",
+          "last_heartbeat_at": "2026-09-12T21:00:09.524900+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "4eb68cf0-980f-4d69-8e1c-73aad03722a8",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "5dd07c4145ae41c10775ae4dfbf99d5b50860feacf16cb3ce986927f2ba424f6"
+        }
+      ],
+      "attempt_count": 12,
+      "attempt_points": [
+        "1.000",
+        "2.000",
+        "2.000",
+        "3.000",
+        "4.000",
+        "5.000",
+        "6.000",
+        "7.000",
+        "8.000",
+        "9.000",
+        "10.000",
+        "11.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 19800,
+          "result": "solved",
+          "completed_at": "2026-09-12T21:02:28.760336+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 15710,
+          "started_at": "2026-09-12T21:00:40.952291+00:00"
+        }
+      ],
+      "keep_id": 8163,
+      "delete_id": 8164,
+      "keep_signature": "6b2f122ba6d40e5982d144544bafabe28fd4d6ebeaa4cca2e1fecf19f17427c0",
+      "delete_signature": "5dd07c4145ae41c10775ae4dfbf99d5b50860feacf16cb3ce986927f2ba424f6"
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1341,
+      "release": {
+        "number": "74",
+        "name": "Лесенка #74"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "2ec88c7e8c59e131"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 14706,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-20T21:45:25.473863+00:00",
+          "updated_at": "2026-09-20T21:45:26.606844+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-20T21:45:26.556278+00:00",
+          "completed_at": null,
+          "accumulated_ms": 717,
+          "frozen_ms": null,
+          "last_seq": 4,
+          "last_event_id": "209df824-ef3b-43c0-9efe-454ef155e606",
+          "active_session": false,
+          "applied_event_count": 2,
+          "signature": "778fed99d08c480f5fc7a0489d1f0903ad9859e5e7fca071be605ea69f1126dc"
+        },
+        {
+          "id": 14707,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-20T21:45:25.482301+00:00",
+          "updated_at": "2026-09-20T21:45:25.491805+00:00",
+          "started_at": "2026-09-20T21:45:25.452961+00:00",
+          "last_heartbeat_at": "2026-09-20T21:45:25.452961+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "f82bdc9b-9f10-4363-b6df-de761eac2356",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "ac0dc9557b6105ad2218c4eb63acafc6b4c0f85311d3d94391ababb8a3754b24"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1364,
+      "release": {
+        "number": "69",
+        "name": "Лесенка #69"
+      },
+      "actor": {
+        "type": "user",
+        "id": 493
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 8944,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-13T21:00:21.301830+00:00",
+          "updated_at": "2026-09-13T21:03:54.701408+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-13T21:03:54.698015+00:00",
+          "completed_at": "2026-09-13T21:03:54.698015+00:00",
+          "accumulated_ms": 210693,
+          "frozen_ms": 210693,
+          "last_seq": 19,
+          "last_event_id": "complete:8944",
+          "active_session": false,
+          "applied_event_count": 17,
+          "signature": "3bf5ac484fd89698e2876753bfc5925906cc6f3b95725fcf579652557d225652"
+        },
+        {
+          "id": 8945,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-13T21:00:21.301408+00:00",
+          "updated_at": "2026-09-13T21:00:21.310619+00:00",
+          "started_at": "2026-09-13T21:00:21.294759+00:00",
+          "last_heartbeat_at": "2026-09-13T21:00:21.294759+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 3,
+          "last_event_id": "639249a9-66a5-4d60-8a35-dc4b420632af",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "f66e63333da4295dadd9ed38107f18671909322236e25ee706cdbc43fd6be052"
+        }
+      ],
+      "attempt_count": 12,
+      "attempt_points": [
+        "1.000",
+        "2.000",
+        "3.000",
+        "4.000",
+        "4.000",
+        "5.000",
+        "5.000",
+        "6.000",
+        "7.000",
+        "8.000",
+        "8.000",
+        "9.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 20361,
+          "result": "solved",
+          "completed_at": "2026-09-13T21:03:54.679022+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 16290,
+          "started_at": "2026-09-13T21:00:35.785785+00:00"
+        }
+      ]
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1364,
+      "release": {
+        "number": "69",
+        "name": "Лесенка #69"
+      },
+      "actor": {
+        "type": "user",
+        "id": 2294
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 12293,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-17T18:47:38.916923+00:00",
+          "updated_at": "2026-09-17T18:47:44.235107+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-17T18:47:44.224136+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 4,
+          "last_event_id": "dfdd0477-5dcb-48a8-bb7e-e0c7b8987c4f",
+          "active_session": false,
+          "applied_event_count": 2,
+          "signature": "f9bf3c3a0454bdcebd2a64ef9fc99bf98607d422f81f0bf057cea1b9e0305509"
+        },
+        {
+          "id": 12294,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-17T18:47:38.917806+00:00",
+          "updated_at": "2026-09-17T18:47:38.921340+00:00",
+          "started_at": "2026-09-17T18:47:38.913030+00:00",
+          "last_heartbeat_at": "2026-09-17T18:47:38.913030+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "70270e45-c765-4aa0-a65a-83aeaafd5e11",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "5e3f5baba629a45b8d0d66548d8a81d46d180946fcf7a128f9cd51dbd1f740ae"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1426,
+      "release": {
+        "number": "75",
+        "name": "Лесенка #75"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "e76e2ba8db2c7983"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 15063,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-21T11:12:57.406775+00:00",
+          "updated_at": "2026-09-21T11:12:57.426309+00:00",
+          "started_at": "2026-09-21T11:12:57.398690+00:00",
+          "last_heartbeat_at": "2026-09-21T11:12:57.398690+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "1410329a-f66d-4b1e-92a3-4303a620931b",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "cc933d55995b483f4133ad9cf2926052772346e1eaf269296d520ef7f3328254"
+        },
+        {
+          "id": 15064,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-21T11:12:57.406364+00:00",
+          "updated_at": "2026-09-21T11:12:57.425629+00:00",
+          "started_at": "2026-09-21T11:12:57.401147+00:00",
+          "last_heartbeat_at": "2026-09-21T11:12:57.401147+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "2a160918-caf0-4125-a3f3-fd7e0c932db8",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "d22bec0b5ce4212421ddb1d912edad0b001d1034bf37118d9ebf0e29d71cd415"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1426,
+      "release": {
+        "number": "75",
+        "name": "Лесенка #75"
+      },
+      "actor": {
+        "type": "user",
+        "id": 2328
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 13977,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-19T21:00:11.413651+00:00",
+          "updated_at": "2026-09-19T21:09:50.463030+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-19T21:09:50.460417+00:00",
+          "completed_at": "2026-09-19T21:09:50.460417+00:00",
+          "accumulated_ms": 508899,
+          "frozen_ms": 508899,
+          "last_seq": 49,
+          "last_event_id": "complete:13977",
+          "active_session": false,
+          "applied_event_count": 48,
+          "signature": "831109a639cef48a4c95db6fe7b94527a37dfa4e98d4b59e7e6343518992ac44"
+        },
+        {
+          "id": 13978,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-19T21:00:11.436820+00:00",
+          "updated_at": "2026-09-19T21:00:11.468754+00:00",
+          "started_at": "2026-09-19T21:00:11.377741+00:00",
+          "last_heartbeat_at": "2026-09-19T21:00:11.377741+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "1f8ed048-7573-435f-955f-3fa52090eeba",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "4c2d3ff53560ef0845acb42e9c66771b561fc90202628c1baae1199cdb7ce288"
+        }
+      ],
+      "attempt_count": 16,
+      "attempt_points": [
+        "0.000",
+        "0.000",
+        "0.000",
+        "1.000",
+        "2.000",
+        "3.000",
+        "4.000",
+        "5.000",
+        "6.000",
+        "6.000",
+        "7.000",
+        "8.000",
+        "9.000",
+        "10.000",
+        "11.000",
+        "12.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 23990,
+          "result": "solved",
+          "completed_at": "2026-09-19T21:09:50.445547+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 20250,
+          "started_at": "2026-09-19T21:00:44.387964+00:00"
+        }
+      ],
+      "keep_id": 13977,
+      "delete_id": 13978,
+      "keep_signature": "831109a639cef48a4c95db6fe7b94527a37dfa4e98d4b59e7e6343518992ac44",
+      "delete_signature": "4c2d3ff53560ef0845acb42e9c66771b561fc90202628c1baae1199cdb7ce288"
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1177,
+      "release": {
+        "number": "1",
+        "name": "Салатик #1"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "26e28770e1f0d464"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 4937,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-08T17:58:50.489256+00:00",
+          "updated_at": "2026-09-08T17:58:50.494798+00:00",
+          "started_at": "2026-09-08T17:58:50.482786+00:00",
+          "last_heartbeat_at": "2026-09-08T17:58:50.482786+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "1ad3c26d-452f-466a-aad3-22294bfeeedf",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "46de61535face0148e1c9be5d1c925728035d096e1375eae6f15b1d9cf8d4abc"
+        },
+        {
+          "id": 4938,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-08T17:58:50.489626+00:00",
+          "updated_at": "2026-09-08T17:58:50.495738+00:00",
+          "started_at": "2026-09-08T17:58:50.485877+00:00",
+          "last_heartbeat_at": "2026-09-08T17:58:50.485877+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "b0937827-fe05-47aa-a291-7873b2b4607a",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "f9aa2c690e4710246131e01b831c5cee0338289b4b47a4ee6aa1bc75d09f135f"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1184,
+      "release": {
+        "number": "23",
+        "name": "Салатик #23"
+      },
+      "actor": {
+        "type": "user",
+        "id": 2176
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 9048,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-13T21:52:59.317898+00:00",
+          "updated_at": "2026-09-13T21:53:25.099771+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-13T21:53:25.096077+00:00",
+          "completed_at": "2026-09-13T21:53:25.096077+00:00",
+          "accumulated_ms": 25606,
+          "frozen_ms": 25606,
+          "last_seq": 4,
+          "last_event_id": "complete:9048",
+          "active_session": false,
+          "applied_event_count": 3,
+          "signature": "c2e502d0a6fc796629b24b30f64c98996ea3352623e4851ec73694d5f6b3e846"
+        },
+        {
+          "id": 9049,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-13T21:52:59.319056+00:00",
+          "updated_at": "2026-09-13T21:52:59.324800+00:00",
+          "started_at": "2026-09-13T21:52:59.315776+00:00",
+          "last_heartbeat_at": "2026-09-13T21:52:59.315776+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "1f0fb293-5898-4503-842c-9c93c33d50fc",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "fab136266b75da2597f3eff43638bca33dfdd70c6fc4d93861d1eb9a23fca623"
+        }
+      ],
+      "attempt_count": 9,
+      "attempt_points": [
+        "1.000",
+        "1.000",
+        "2.000",
+        "3.000",
+        "4.000",
+        "5.000",
+        "6.000",
+        "7.000",
+        "8.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 20436,
+          "result": "solved",
+          "completed_at": "2026-09-13T21:53:25.073310+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 16382,
+          "started_at": "2026-09-13T21:53:02.809883+00:00"
+        }
+      ],
+      "keep_id": 9048,
+      "delete_id": 9049,
+      "keep_signature": "c2e502d0a6fc796629b24b30f64c98996ea3352623e4851ec73694d5f6b3e846",
+      "delete_signature": "fab136266b75da2597f3eff43638bca33dfdd70c6fc4d93861d1eb9a23fca623"
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1196,
+      "release": {
+        "number": "15",
+        "name": "Салатик #15"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "05518c1bfb549d2e"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 2905,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-06T14:21:38.575301+00:00",
+          "updated_at": "2026-09-06T14:21:38.581290+00:00",
+          "started_at": "2026-09-06T14:21:38.570273+00:00",
+          "last_heartbeat_at": "2026-09-06T14:21:38.570273+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "99f257f8-f1e1-4f40-b1e0-91191efa8303",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "c77cbc1f80dd8670fc9faefbc10536eef8607ed6320633eb1d370f6412084b8f"
+        },
+        {
+          "id": 2906,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-06T14:21:38.575757+00:00",
+          "updated_at": "2026-09-06T14:21:38.580603+00:00",
+          "started_at": "2026-09-06T14:21:38.572656+00:00",
+          "last_heartbeat_at": "2026-09-06T14:21:38.572656+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 3,
+          "last_event_id": "c1f61573-2dec-4bbf-b91d-e5202f6b13a9",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "b145aa0dcf04e9e2cfc88534bd361973add0c7f2fd6381d42f53fc43120905db"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1197,
+      "release": {
+        "number": "27",
+        "name": "Салатик #27"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "2ec88c7e8c59e131"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 13446,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-18T23:31:07.720738+00:00",
+          "updated_at": "2026-09-18T23:31:08.571479+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-18T23:31:08.567571+00:00",
+          "completed_at": null,
+          "accumulated_ms": 497,
+          "frozen_ms": null,
+          "last_seq": 3,
+          "last_event_id": "13a095a4-38a6-4c76-a462-c6ef07ebd1a2",
+          "active_session": false,
+          "applied_event_count": 2,
+          "signature": "8a1b31a3fb4afa0f685b7cbae09ff379a657ae789618f9a8f633156d7e000bb4"
+        },
+        {
+          "id": 13447,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-18T23:31:07.721245+00:00",
+          "updated_at": "2026-09-18T23:31:07.726157+00:00",
+          "started_at": "2026-09-18T23:31:07.715955+00:00",
+          "last_heartbeat_at": "2026-09-18T23:31:07.715955+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "533f2b58-bd9f-447a-a6c8-ad151d998c74",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "f83883d31f8037e539b3a0e351da44f9b8560ec46395f383f537303ac4dd3a7c"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1199,
+      "release": {
+        "number": "14",
+        "name": "Салатик #14"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "f25f0ae48fe49752"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 4435,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-08T05:37:40.046841+00:00",
+          "updated_at": "2026-09-08T05:37:50.608913+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-08T05:37:50.605838+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 5,
+          "last_event_id": "33c1952a-e892-4453-a020-4a027b463cff",
+          "active_session": false,
+          "applied_event_count": 2,
+          "signature": "cb5effe5d0c2804fb0cc9d1325076f8e88fb383f16c0e37823a48b0ed38ffb8e"
+        },
+        {
+          "id": 4436,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-08T05:37:40.047221+00:00",
+          "updated_at": "2026-09-08T05:37:40.054031+00:00",
+          "started_at": "2026-09-08T05:37:40.042966+00:00",
+          "last_heartbeat_at": "2026-09-08T05:37:40.042966+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "7f990d3f-cfbe-41ac-b899-854430e73d53",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "beb45cf26e845950525aa5c6c407dd7e5545101627320a05ea73452ba57262b9"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1199,
+      "release": {
+        "number": "14",
+        "name": "Салатик #14"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "44f16470f96334a3"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 2014,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-05T15:59:36.966520+00:00",
+          "updated_at": "2026-09-05T15:59:38.390122+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-05T15:59:38.387150+00:00",
+          "completed_at": null,
+          "accumulated_ms": 1351,
+          "frozen_ms": null,
+          "last_seq": 3,
+          "last_event_id": "3c903733-4812-4818-960c-643b87f5e99b",
+          "active_session": false,
+          "applied_event_count": 2,
+          "signature": "11eda11fa5e00ecb0d00c77130e1f49f57effe6f3431039637e23f8e69bcfe73"
+        },
+        {
+          "id": 2015,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-05T15:59:36.968184+00:00",
+          "updated_at": "2026-09-05T15:59:36.972684+00:00",
+          "started_at": "2026-09-05T15:59:36.963314+00:00",
+          "last_heartbeat_at": "2026-09-05T15:59:36.963314+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "d7b4350f-5e79-4b5f-b03b-819835bdcd9e",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "dd2273b2752130e0a893b237c839840931aa1bd0450c5ea8f3e9376121071941"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1199,
+      "release": {
+        "number": "14",
+        "name": "Салатик #14"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "0ef7d7d911a5a6a5"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 2125,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-05T18:49:42.386108+00:00",
+          "updated_at": "2026-09-06T13:04:02.271062+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-06T13:04:02.267484+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 3,
+          "last_event_id": "c908b5d2-d182-4eb9-a131-dbc204dfbf84",
+          "active_session": false,
+          "applied_event_count": 4,
+          "signature": "6f0c058cc9dec93b2ba7206ca5b74fd8dde814f68551dde2a3d30a6eea902f8a"
+        },
+        {
+          "id": 2126,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-05T18:49:42.388157+00:00",
+          "updated_at": "2026-09-05T18:49:42.393585+00:00",
+          "started_at": "2026-09-05T18:49:42.383608+00:00",
+          "last_heartbeat_at": "2026-09-05T18:49:42.383608+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "55fb3ea0-9393-4975-a888-ca1c70638fa2",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "f34ce0782b2f6454583a39923f9b216a4bb4166d32b919922b28cb25248b825e"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1299,
+      "release": {
+        "number": "16",
+        "name": "Салатик #16"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "aa8b0d97b815aeea"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 3764,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-07T11:55:24.645490+00:00",
+          "updated_at": "2026-09-07T11:55:25.851151+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-07T11:55:25.839645+00:00",
+          "completed_at": null,
+          "accumulated_ms": 797,
+          "frozen_ms": null,
+          "last_seq": 4,
+          "last_event_id": "7ddf9f41-5d35-49c9-9949-3c24f022a25f",
+          "active_session": false,
+          "applied_event_count": 2,
+          "signature": "0015e30c97e79e69be53cb11a7fbd8b57f9cd906fbd5fe429c36229789044b37"
+        },
+        {
+          "id": 3765,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-07T11:55:24.646541+00:00",
+          "updated_at": "2026-09-07T11:55:24.650671+00:00",
+          "started_at": "2026-09-07T11:55:24.642378+00:00",
+          "last_heartbeat_at": "2026-09-07T11:55:24.642378+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "8c816f1f-f0eb-4d29-9d2f-ec5280c78866",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "48a9763c38d649396557d1bd751d29dce092ea167e11787b2ab1b0e31d99f4d1"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1316,
+      "release": {
+        "number": "29",
+        "name": "Салатик #29"
+      },
+      "actor": {
+        "type": "user",
+        "id": 2328
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 14002,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-19T21:05:26.938178+00:00",
+          "updated_at": "2026-09-19T21:16:54.677125+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-19T21:16:54.665153+00:00",
+          "completed_at": "2026-09-19T21:16:54.665153+00:00",
+          "accumulated_ms": 341256,
+          "frozen_ms": 341256,
+          "last_seq": 50,
+          "last_event_id": "complete:14002",
+          "active_session": false,
+          "applied_event_count": 44,
+          "signature": "a1f2648b0a5ceaf467bc37f0209aa6d25d33bbe9c4efa4d3b46c40887a562ebe"
+        },
+        {
+          "id": 14003,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-19T21:05:26.938596+00:00",
+          "updated_at": "2026-09-19T21:05:26.943115+00:00",
+          "started_at": "2026-09-19T21:05:26.935166+00:00",
+          "last_heartbeat_at": "2026-09-19T21:05:26.935166+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "70aff3db-8707-4052-a047-e9b2330e2371",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "e129ed6f52f1167c725b564850769a020e49ffb31e3d64ee0e4c0358814f9869"
+        }
+      ],
+      "attempt_count": 17,
+      "attempt_points": [
+        "1.000",
+        "1.000",
+        "1.000",
+        "2.000",
+        "2.000",
+        "2.000",
+        "2.000",
+        "3.000",
+        "3.000",
+        "4.000",
+        "5.000",
+        "5.000",
+        "6.000",
+        "7.000",
+        "7.000",
+        "8.000",
+        "9.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 24009,
+          "result": "solved",
+          "completed_at": "2026-09-19T21:16:54.616237+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 20285,
+          "started_at": "2026-09-19T21:09:59.721376+00:00"
+        }
+      ],
+      "keep_id": 14002,
+      "delete_id": 14003,
+      "keep_signature": "a1f2648b0a5ceaf467bc37f0209aa6d25d33bbe9c4efa4d3b46c40887a562ebe",
+      "delete_signature": "e129ed6f52f1167c725b564850769a020e49ffb31e3d64ee0e4c0358814f9869"
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1330,
+      "release": {
+        "number": "19",
+        "name": "Салатик #19"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "ea758bf215eb3664"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 6431,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-10T13:17:13.586234+00:00",
+          "updated_at": "2026-09-13T11:43:24.231424+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-13T11:43:24.229177+00:00",
+          "completed_at": null,
+          "accumulated_ms": 466281,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "ee0da70e-06df-4dd6-ab10-fcbeb8b28f66",
+          "active_session": false,
+          "applied_event_count": 40,
+          "signature": "3561d2ae4813cf03e5e04c64d5eaccfb9a0aefa395bf01361710751cb70e016a"
+        },
+        {
+          "id": 6432,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-10T13:17:13.593122+00:00",
+          "updated_at": "2026-09-10T13:17:13.597551+00:00",
+          "started_at": "2026-09-10T13:17:13.589195+00:00",
+          "last_heartbeat_at": "2026-09-10T13:17:13.589195+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "5bfe0489-f359-469e-be5c-987728454add",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "e80af4038ee21ce4d2a50109e58cb5c7828fd18d5d62f62573ff7aae25d52e3b"
+        }
+      ],
+      "attempt_count": 7,
+      "attempt_points": [
+        "1.000",
+        "1.000",
+        "2.000",
+        "2.000",
+        "3.000",
+        "3.000",
+        "3.000"
+      ],
+      "completion_rows": [],
+      "start_rows": [
+        {
+          "id": 14421,
+          "started_at": "2026-09-10T13:17:16.813954+00:00"
+        }
+      ]
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1330,
+      "release": {
+        "number": "19",
+        "name": "Салатик #19"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "f8496273bb82f961"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 6116,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-10T05:41:37.021509+00:00",
+          "updated_at": "2026-09-10T05:41:37.996648+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-10T05:41:37.993893+00:00",
+          "completed_at": null,
+          "accumulated_ms": 616,
+          "frozen_ms": null,
+          "last_seq": 3,
+          "last_event_id": "03c4f278-8746-41aa-8031-66db598323ac",
+          "active_session": false,
+          "applied_event_count": 2,
+          "signature": "07bf550898886719351dba82a41460cdf684bdcc4b12f8199f535a69fef28999"
+        },
+        {
+          "id": 6117,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-10T05:41:37.021667+00:00",
+          "updated_at": "2026-09-10T05:41:37.029938+00:00",
+          "started_at": "2026-09-10T05:41:37.000305+00:00",
+          "last_heartbeat_at": "2026-09-10T05:41:37.000305+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "91c9bf9f-4df3-465e-a9eb-aeb921165914",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "3e17c8cd863c22ed7390185763bd3a9dd5032289867b6ef52c5964a770a6c86e"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1330,
+      "release": {
+        "number": "19",
+        "name": "Салатик #19"
+      },
+      "actor": {
+        "type": "user",
+        "id": 2207
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 5801,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-09T21:00:07.747879+00:00",
+          "updated_at": "2026-09-09T21:06:40.870166+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-09T21:06:40.866896+00:00",
+          "completed_at": "2026-09-09T21:06:40.866896+00:00",
+          "accumulated_ms": 390807,
+          "frozen_ms": 390807,
+          "last_seq": 29,
+          "last_event_id": "complete:5801",
+          "active_session": false,
+          "applied_event_count": 28,
+          "signature": "160634d87fa977793867ba610db78dbf07971a89fd1d6b970c1078791ad37c3d"
+        },
+        {
+          "id": 5802,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-09T21:00:07.747316+00:00",
+          "updated_at": "2026-09-09T21:00:07.766480+00:00",
+          "started_at": "2026-09-09T21:00:07.741559+00:00",
+          "last_heartbeat_at": "2026-09-09T21:00:07.741559+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "98820d1d-8c4f-4e14-bc75-33b4bb2884d9",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "38279e27eaac9d829766a0e110495f666185bdc22abaaf9a471a24b3f9db2d54"
+        }
+      ],
+      "attempt_count": 8,
+      "attempt_points": [
+        "1.000",
+        "2.000",
+        "3.000",
+        "4.000",
+        "5.000",
+        "5.000",
+        "6.000",
+        "7.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 18200,
+          "result": "solved",
+          "completed_at": "2026-09-09T21:06:40.834942+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 13902,
+          "started_at": "2026-09-09T21:00:11.162736+00:00"
+        }
+      ],
+      "keep_id": 5801,
+      "delete_id": 5802,
+      "keep_signature": "160634d87fa977793867ba610db78dbf07971a89fd1d6b970c1078791ad37c3d",
+      "delete_signature": "38279e27eaac9d829766a0e110495f666185bdc22abaaf9a471a24b3f9db2d54"
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1354,
+      "release": {
+        "number": "22",
+        "name": "Салатик #22"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "a13f05f9c7e2d0ec"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 8199,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-12T21:09:42.540116+00:00",
+          "updated_at": "2026-09-12T21:09:42.579380+00:00",
+          "started_at": "2026-09-12T21:09:42.524644+00:00",
+          "last_heartbeat_at": "2026-09-12T21:09:42.524644+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "c04ffa5f-d8a7-439e-9716-16a21aa97c82",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "591999231e45e7b968bf4578f7a83a9fef4cb64d0b49b6709fb540b666050c51"
+        },
+        {
+          "id": 8200,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-12T21:09:42.540494+00:00",
+          "updated_at": "2026-09-12T21:09:42.578502+00:00",
+          "started_at": "2026-09-12T21:09:42.535475+00:00",
+          "last_heartbeat_at": "2026-09-12T21:09:42.535475+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "c04ffa5f-d8a7-439e-9716-16a21aa97c82",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "288989330313b7acea1a43d9db4036efd49cc71106fd965f2429185ea001c777"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1354,
+      "release": {
+        "number": "22",
+        "name": "Салатик #22"
+      },
+      "actor": {
+        "type": "user",
+        "id": 817
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 8178,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-12T21:03:48.833497+00:00",
+          "updated_at": "2026-09-12T21:05:57.181409+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-12T21:05:57.175257+00:00",
+          "completed_at": "2026-09-12T21:05:57.175257+00:00",
+          "accumulated_ms": 125222,
+          "frozen_ms": 125222,
+          "last_seq": 13,
+          "last_event_id": "complete:8178",
+          "active_session": false,
+          "applied_event_count": 12,
+          "signature": "9b3da491daaccca82684ae4254b88dd3d9758a45ae589d60b56fbd90c6f14388"
+        },
+        {
+          "id": 8179,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-12T21:03:48.837458+00:00",
+          "updated_at": "2026-09-12T21:03:48.843595+00:00",
+          "started_at": "2026-09-12T21:03:48.832689+00:00",
+          "last_heartbeat_at": "2026-09-12T21:03:48.832689+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "f1715f26-267c-467d-a15e-9b9267efe152",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "851d6c1a76b68e0ea4122387c747414c6cd6ac72c99c48f20f7304797661f5d6"
+        }
+      ],
+      "attempt_count": 13,
+      "attempt_points": [
+        "1.000",
+        "2.000",
+        "3.000",
+        "4.000",
+        "4.000",
+        "5.000",
+        "6.000",
+        "7.000",
+        "8.000",
+        "9.000",
+        "10.000",
+        "11.000",
+        "12.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 19812,
+          "result": "solved",
+          "completed_at": "2026-09-12T21:05:57.124349+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 15720,
+          "started_at": "2026-09-12T21:03:55.316499+00:00"
+        }
+      ],
+      "keep_id": 8178,
+      "delete_id": 8179,
+      "keep_signature": "9b3da491daaccca82684ae4254b88dd3d9758a45ae589d60b56fbd90c6f14388",
+      "delete_signature": "851d6c1a76b68e0ea4122387c747414c6cd6ac72c99c48f20f7304797661f5d6"
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1354,
+      "release": {
+        "number": "22",
+        "name": "Салатик #22"
+      },
+      "actor": {
+        "type": "user",
+        "id": 2049
+      },
+      "classification": "SAFE_DELETE",
+      "evidence": [
+        "completed timing has frozen_ms and completed_at",
+        "solved completion or Ok attempt exists for the logical game",
+        "running timing was created in the same race window",
+        "running timing has zero duration and only its initial event"
+      ],
+      "timings": [
+        {
+          "id": 8616,
+          "status": "completed",
+          "replay_slot_id": null,
+          "created_at": "2026-09-13T11:35:35.291452+00:00",
+          "updated_at": "2026-09-13T11:40:59.950200+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-13T11:40:59.946390+00:00",
+          "completed_at": "2026-09-13T11:40:59.946390+00:00",
+          "accumulated_ms": 292470,
+          "frozen_ms": 292470,
+          "last_seq": 24,
+          "last_event_id": "complete:8616",
+          "active_session": false,
+          "applied_event_count": 22,
+          "signature": "1b8b9f23a6e133ab433667519f846e6ddca23f70b07f9e7bad8c027fe2bbd59e"
+        },
+        {
+          "id": 8617,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-13T11:35:35.292395+00:00",
+          "updated_at": "2026-09-13T11:35:35.298935+00:00",
+          "started_at": "2026-09-13T11:35:35.288595+00:00",
+          "last_heartbeat_at": "2026-09-13T11:35:35.288595+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "1df8ef53-a1d9-4b4c-8010-5555f87993f5",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "cbbb9f2b594c23a61705706c6323f3212cf70bfe5de966762c1ac31bc8bce622"
+        }
+      ],
+      "attempt_count": 13,
+      "attempt_points": [
+        "1.000",
+        "2.000",
+        "3.000",
+        "4.000",
+        "4.000",
+        "5.000",
+        "6.000",
+        "7.000",
+        "8.000",
+        "9.000",
+        "10.000",
+        "11.000",
+        "12.000"
+      ],
+      "completion_rows": [
+        {
+          "id": 20119,
+          "result": "solved",
+          "completed_at": "2026-09-13T11:40:59.925941+00:00"
+        }
+      ],
+      "start_rows": [
+        {
+          "id": 16043,
+          "started_at": "2026-09-13T11:35:40.053448+00:00"
+        }
+      ],
+      "keep_id": 8616,
+      "delete_id": 8617,
+      "keep_signature": "1b8b9f23a6e133ab433667519f846e6ddca23f70b07f9e7bad8c027fe2bbd59e",
+      "delete_signature": "cbbb9f2b594c23a61705706c6323f3212cf70bfe5de966762c1ac31bc8bce622"
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1375,
+      "release": {
+        "number": "25",
+        "name": "Салатик #25"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "05518c1bfb549d2e"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 11261,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-16T13:49:47.857157+00:00",
+          "updated_at": "2026-09-16T13:49:47.861970+00:00",
+          "started_at": "2026-09-16T13:49:47.843220+00:00",
+          "last_heartbeat_at": "2026-09-16T13:49:47.843220+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 3,
+          "last_event_id": "c318f397-bb2a-4d77-a6f1-53c0e737cbd3",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "604f2ff8520d5c15513cb275638e584ec767daac45467419bdefd167207c11b7"
+        },
+        {
+          "id": 11262,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-16T13:49:47.857576+00:00",
+          "updated_at": "2026-09-16T13:49:47.864380+00:00",
+          "started_at": "2026-09-16T13:49:47.844471+00:00",
+          "last_heartbeat_at": "2026-09-16T13:49:47.844471+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "2bfa44f3-b151-4637-9ec4-8b3140ed0a1d",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "88b003eddc58656a119f4dc15fd4f519a8d0bce82ecfb40b8017544794c3885f"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1383,
+      "release": {
+        "number": "26",
+        "name": "Салатик #26"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "2ec88c7e8c59e131"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 12563,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-17T22:43:02.184113+00:00",
+          "updated_at": "2026-09-17T22:43:03.132755+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-17T22:43:03.129273+00:00",
+          "completed_at": null,
+          "accumulated_ms": 266,
+          "frozen_ms": null,
+          "last_seq": 3,
+          "last_event_id": "855efd58-f411-4412-b9b9-c329130e36ef",
+          "active_session": false,
+          "applied_event_count": 2,
+          "signature": "f0f61000a347047290e62c01ef0b4faf86d494586efbd543e6757324b25bbdba"
+        },
+        {
+          "id": 12564,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-17T22:43:02.194639+00:00",
+          "updated_at": "2026-09-17T22:43:02.197632+00:00",
+          "started_at": "2026-09-17T22:43:02.173705+00:00",
+          "last_heartbeat_at": "2026-09-17T22:43:02.173705+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "7a2f6c5f-c1a7-46da-b586-5a8e8389a87f",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "a1727676338effa408165eb85f481754eef86c2b053aebfe3ce5aee40072e8bf"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1383,
+      "release": {
+        "number": "26",
+        "name": "Салатик #26"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "94ca7dd3b769ada1"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 12013,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-17T11:32:41.543176+00:00",
+          "updated_at": "2026-09-17T11:32:42.650688+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-17T11:32:42.643461+00:00",
+          "completed_at": null,
+          "accumulated_ms": 657,
+          "frozen_ms": null,
+          "last_seq": 4,
+          "last_event_id": "efa81b7b-1dc9-4199-b78e-d0a451b4a262",
+          "active_session": false,
+          "applied_event_count": 3,
+          "signature": "5baaed64515ece6a6861c63820b7cd2ab87f18a8fbf583a24cfeec6abcf46053"
+        },
+        {
+          "id": 12014,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-17T11:32:41.544092+00:00",
+          "updated_at": "2026-09-17T11:32:41.546461+00:00",
+          "started_at": "2026-09-17T11:32:41.541812+00:00",
+          "last_heartbeat_at": "2026-09-17T11:32:41.541812+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 2,
+          "last_event_id": "5ab2e19f-7ddf-4b10-883a-6e7433e0ac90",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "ceba8a756815d4a1dc8f4093cea2f5816346265d8ffc5870da5c217c735eceb0"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1417,
+      "release": {
+        "number": "28",
+        "name": "Салатик #28"
+      },
+      "actor": {
+        "type": "anon",
+        "id": "2ec88c7e8c59e131"
+      },
+      "classification": "AMBIGUOUS",
+      "evidence": [],
+      "timings": [
+        {
+          "id": 13803,
+          "status": "auto_paused",
+          "replay_slot_id": null,
+          "created_at": "2026-09-19T13:36:39.311005+00:00",
+          "updated_at": "2026-09-19T13:36:40.384339+00:00",
+          "started_at": null,
+          "last_heartbeat_at": "2026-09-19T13:36:40.380338+00:00",
+          "completed_at": null,
+          "accumulated_ms": 731,
+          "frozen_ms": null,
+          "last_seq": 3,
+          "last_event_id": "069c3672-4f1e-4d24-a3f6-4f81b1efff02",
+          "active_session": false,
+          "applied_event_count": 2,
+          "signature": "46a6521784703841133dbb635f8aecb63ea2d7f73cc8710722c831ad57b3a6e8"
+        },
+        {
+          "id": 13804,
+          "status": "running",
+          "replay_slot_id": null,
+          "created_at": "2026-09-19T13:36:39.311825+00:00",
+          "updated_at": "2026-09-19T13:36:39.317243+00:00",
+          "started_at": "2026-09-19T13:36:39.306412+00:00",
+          "last_heartbeat_at": "2026-09-19T13:36:39.306412+00:00",
+          "completed_at": null,
+          "accumulated_ms": 0,
+          "frozen_ms": null,
+          "last_seq": 1,
+          "last_event_id": "a4c1f07f-6b3d-4737-ae83-9f3fe44ba079",
+          "active_session": true,
+          "applied_event_count": 1,
+          "signature": "26ec660221f679cd04ddaa1cc4b757ecbd764b524b51c1a2df451c9468793968"
+        }
+      ],
+      "attempt_count": 0,
+      "attempt_points": [],
+      "completion_rows": [],
+      "start_rows": []
+    }
+  ],
+  "planned_deletes": [
+    {
+      "game_id": "alphabetty",
+      "task_group_id": 1127,
+      "keep_id": 11309,
+      "delete_id": 11310,
+      "keep_signature": "fd34efeacea17c6e70314df0c5ce7835cd574b11dd66892e4d4c0059fd99732d",
+      "delete_signature": "578573d95fcec1ed9511318cb89aba33c9acd652089c84be735b153323c57fbe",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "alphabetty",
+      "task_group_id": 1158,
+      "keep_id": 8180,
+      "delete_id": 8181,
+      "keep_signature": "cecc5bf58f940165f45038b6c0a36c40ed32377d75548a811ba4e944a51211c3",
+      "delete_signature": "b1750dc44d793a00a0dbbe59091310495b05bb8b57caee1862008420c9cbcb4e",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "alphabetty",
+      "task_group_id": 1160,
+      "keep_id": 9015,
+      "delete_id": 9016,
+      "keep_signature": "7952e7327d88f11200d55c64d580c27151f283250a69663e6b3757c6624f8d65",
+      "delete_signature": "2dc161c14d90f7908d573525bf8a9a64be8132af86288c9d7136ceda7fb249fa",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 969,
+      "keep_id": 7068,
+      "delete_id": 7069,
+      "keep_signature": "4513c62f41cdf5ff7f3155466a8ecb60ca5f2ab717dc5e339b62c5264903ed96",
+      "delete_signature": "fac5b098d95b42f674a671b1a2c724b96ec47714221d0fce4419ed1bc5bb8eb6",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1108,
+      "keep_id": 9930,
+      "delete_id": 9931,
+      "keep_signature": "7b18b0592843c37e6dcfcbc01a19d3380a237ce008f8afdce5f2cfc287f21481",
+      "delete_signature": "09bca81ba161f210f1747d908511d3720219369847bd83d8f0f6ac89e1aabb1a",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1122,
+      "keep_id": 3429,
+      "delete_id": 3430,
+      "keep_signature": "ac11ce2d6c20a7448ed74ac85a54a21acaabbfa6431b3571a421a03e993e67e2",
+      "delete_signature": "82cefd16431fd0b4673c449b621846b8d9f3a8847b0f020baa5cd916e3f908ff",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1215,
+      "keep_id": 343,
+      "delete_id": 344,
+      "keep_signature": "9c8beed47bce554267e1ee40cd5841409eba54197a4bc3e640d7de02beb25631",
+      "delete_signature": "18df61e19520b8f30443b01615c42bf9fc82211a86a121d90b195392ba891f06",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1301,
+      "keep_id": 8163,
+      "delete_id": 8164,
+      "keep_signature": "6b2f122ba6d40e5982d144544bafabe28fd4d6ebeaa4cca2e1fecf19f17427c0",
+      "delete_signature": "5dd07c4145ae41c10775ae4dfbf99d5b50860feacf16cb3ce986927f2ba424f6",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "ladder",
+      "task_group_id": 1426,
+      "keep_id": 13977,
+      "delete_id": 13978,
+      "keep_signature": "831109a639cef48a4c95db6fe7b94527a37dfa4e98d4b59e7e6343518992ac44",
+      "delete_signature": "4c2d3ff53560ef0845acb42e9c66771b561fc90202628c1baae1199cdb7ce288",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1184,
+      "keep_id": 9048,
+      "delete_id": 9049,
+      "keep_signature": "c2e502d0a6fc796629b24b30f64c98996ea3352623e4851ec73694d5f6b3e846",
+      "delete_signature": "fab136266b75da2597f3eff43638bca33dfdd70c6fc4d93861d1eb9a23fca623",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1316,
+      "keep_id": 14002,
+      "delete_id": 14003,
+      "keep_signature": "a1f2648b0a5ceaf467bc37f0209aa6d25d33bbe9c4efa4d3b46c40887a562ebe",
+      "delete_signature": "e129ed6f52f1167c725b564850769a020e49ffb31e3d64ee0e4c0358814f9869",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1330,
+      "keep_id": 5801,
+      "delete_id": 5802,
+      "keep_signature": "160634d87fa977793867ba610db78dbf07971a89fd1d6b970c1078791ad37c3d",
+      "delete_signature": "38279e27eaac9d829766a0e110495f666185bdc22abaaf9a471a24b3f9db2d54",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1354,
+      "keep_id": 8178,
+      "delete_id": 8179,
+      "keep_signature": "9b3da491daaccca82684ae4254b88dd3d9758a45ae589d60b56fbd90c6f14388",
+      "delete_signature": "851d6c1a76b68e0ea4122387c747414c6cd6ac72c99c48f20f7304797661f5d6",
+      "classification": "SAFE_DELETE"
+    },
+    {
+      "game_id": "salad",
+      "task_group_id": 1354,
+      "keep_id": 8616,
+      "delete_id": 8617,
+      "keep_signature": "1b8b9f23a6e133ab433667519f846e6ddca23f70b07f9e7bad8c027fe2bbd59e",
+      "delete_signature": "cbbb9f2b594c23a61705706c6323f3212cf70bfe5de966762c1ac31bc8bce622",
+      "classification": "SAFE_DELETE"
+    }
+  ]
+}
