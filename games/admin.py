@@ -1254,6 +1254,7 @@ class WordSaladTaskForm(ModelForm):
 
     class Media:
         js = ('js/admin_word_salad_task.js',)
+        css = {'all': ('css/admin_word_salad_task.css',)}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
