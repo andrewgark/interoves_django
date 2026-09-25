@@ -231,7 +231,6 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
     team = q('games_team')
     profile = q('games_profile')
     hidden_anon = q('games_hiddenanonkey')
-    timing = q('games_dailysolvetiming')
     author = q('games_taskgroup_authors')
     membership = q('games_profileteammembership')
     # IDs and all values are bound parameters. Table identifiers are fixed app
@@ -260,14 +259,45 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
         ('user', 'dt.user_id = p.user_id'),
         ('anon', 'dt.anon_key = p.anon_key'),
     )
+    # A historical race can leave more than one first-play timing row for the
+    # same actor/release (replay rows are a separate namespace).  Never join
+    # that raw relation to the result projection: one timing row must be
+    # selected before the result rows are aggregated, otherwise p.score is
+    # multiplied by the number of matching timing rows.
+    timing_table = q('games_dailysolvetiming')
+    canonical_timing_cte = f'''
+        canonical_timing AS (
+            SELECT id, game_id, task_group_id, team_id, user_id, anon_key,
+                   frozen_ms, accumulated_ms
+              FROM (
+                    SELECT dt.id, dt.game_id, dt.task_group_id,
+                           dt.team_id, dt.user_id, dt.anon_key,
+                           dt.frozen_ms, dt.accumulated_ms,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY dt.game_id, dt.task_group_id,
+                                            dt.team_id, dt.user_id, dt.anon_key
+                               ORDER BY
+                                   CASE WHEN dt.status = 'completed' THEN 0 ELSE 1 END,
+                                   CASE WHEN dt.frozen_ms IS NULL THEN 1 ELSE 0 END,
+                                   COALESCE(dt.frozen_ms, dt.accumulated_ms) DESC,
+                                   dt.completed_at DESC,
+                                   dt.updated_at DESC,
+                                   dt.id ASC
+                           ) AS timing_rank
+                      FROM {timing_table} dt
+                     WHERE dt.replay_slot_id IS NULL
+                   ) canonical
+             WHERE canonical.timing_rank = 1
+        ),'''
+
     actor_total_branches = []
     for actor_type, timing_identity in timing_branches:
         actor_total_branches.append(
             f'''SELECT p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key,
                        SUM(p.score) AS window_score, COUNT(p.id) AS played_count,
                        CASE WHEN COUNT(dt.id) = 0 THEN NULL ELSE SUM(COALESCE(dt.frozen_ms, dt.accumulated_ms)) END AS total_time_ms
-                FROM {projection} p LEFT JOIN {timing} dt ON dt.game_id = p.game_id
-                  AND dt.task_group_id = p.task_group_id AND dt.replay_slot_id IS NULL
+                FROM {projection} p LEFT JOIN canonical_timing dt ON dt.game_id = p.game_id
+                  AND dt.task_group_id = p.task_group_id
                   AND {timing_identity}
                 WHERE {eligibility} AND p.actor_type = '{actor_type}'
                 GROUP BY p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key'''
@@ -276,7 +306,8 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
     page_number = max(1, int(page_number or 1))
     with connection.cursor() as cursor:
         cursor.execute(
-            f'''WITH actor_totals AS (
+            f'''WITH {canonical_timing_cte}
+                actor_totals AS (
                     {actor_totals_sql}
                 ), ranked AS (
                     SELECT actor_type, actor_key, team_id, user_id, anon_key,

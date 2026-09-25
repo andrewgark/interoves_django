@@ -292,6 +292,52 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual(by_actor['aggregate-timing-anon']['total_time_ms'], 1000)
         self.assertIsNone(by_actor['aggregate-timing-none']['total_time_ms'])
 
+    def test_projection_rank_deduplicates_historical_first_play_timings(self):
+        from games.aggregate_leaderboard import _projection_rank_page
+
+        user = User.objects.create_user(username='aggregate-duplicate-timing-user')
+        groups = [self.links[0][0].task_group]
+        for label in ('duplicate-timing-release-2', 'duplicate-timing-release-3'):
+            groups.append(TaskGroup.objects.create(label=label))
+        for index, group in enumerate(groups[1:], start=3):
+            GameTaskGroup.objects.create(
+                game=self.game, task_group=group, number=str(index), name=str(index),
+            )
+        for group, score in zip(groups, (9, 4, 4)):
+            DailyResultProjection.objects.create(
+                game=self.game, task_group=group, actor_type='user',
+                actor_key=str(user.pk), user=user, score=score,
+            )
+
+        # Historical MySQL races created two first-play rows.  The completed
+        # row is canonical; the running row must not multiply the score.
+        now = timezone.now()
+        DailySolveTiming.objects.create(
+            game=self.game, task_group=groups[0], user=user,
+            status=DailySolveTiming.STATUS_COMPLETED,
+            accumulated_ms=2000, frozen_ms=2000, completed_at=now,
+        )
+        DailySolveTiming.objects.create(
+            game=self.game, task_group=groups[0], user=user,
+            status=DailySolveTiming.STATUS_RUNNING,
+            accumulated_ms=0,
+        )
+        for group, elapsed in ((groups[1], 3000), (groups[2], 4000)):
+            DailySolveTiming.objects.create(
+                game=self.game, task_group=group, user=user,
+                status=DailySolveTiming.STATUS_COMPLETED,
+                accumulated_ms=elapsed, frozen_ms=elapsed, completed_at=now,
+            )
+
+        rows, total, page = _projection_rank_page(
+            self.game, [group.pk for group in groups], 1,
+        )
+        row = next(item for item in rows if item['actor_key'] == str(user.pk))
+        self.assertEqual((total, page), (1, 1))
+        self.assertEqual(row['window_score'], 17)
+        self.assertEqual(row['played_count'], 3)
+        self.assertEqual(row['total_time_ms'], 9000)
+
     def test_scorer_semantic_version_mismatch_invalidates_projection_read_path(self):
         for link, _task in self.links:
             DailyResultProjectionState.objects.create(
