@@ -175,6 +175,33 @@
     if (start !== null && end !== null) field.setSelectionRange(start, end);
   }
 
+  var composingFields = [];
+  function isComposingField(field) {
+    return composingFields.indexOf(field) >= 0;
+  }
+  function setComposingField(field, composing) {
+    var index = composingFields.indexOf(field);
+    if (composing && index < 0) composingFields.push(field);
+    if (!composing && index >= 0) composingFields.splice(index, 1);
+  }
+
+  function uppercaseIfReady(event) {
+    if (!event.isComposing && !isComposingField(event.target)) uppercaseField(event.target);
+  }
+
+  document.addEventListener('compositionstart', function (event) {
+    if (event.target && event.target.matches && event.target.matches(
+      '#word-salad-edit-words, #word-salad-edit-rare-words, #word-salad-offer-words, #word-salad-offer-rare-words'
+    )) setComposingField(event.target, true);
+  });
+  document.addEventListener('compositionend', function (event) {
+    if (!event.target || !event.target.matches || !event.target.matches(
+      '#word-salad-edit-words, #word-salad-edit-rare-words, #word-salad-offer-words, #word-salad-offer-rare-words'
+    )) return;
+    setComposingField(event.target, false);
+    uppercaseField(event.target);
+  });
+
   function ensureScheduleGrid(gridText) {
     var host = document.getElementById('word-salad-edit-grid');
     if (scheduleGrid) scheduleGrid.destroy();
@@ -475,20 +502,20 @@
       .finally(function () { setBusy(false); });
   });
 
-  document.getElementById('word-salad-edit-words').addEventListener('input', function () {
-    uppercaseField(this);
+  document.getElementById('word-salad-edit-words').addEventListener('input', function (event) {
+    uppercaseIfReady(event);
     updateValidation('word-salad-edit-validation', scheduleGrid, 'word-salad-edit-words', 'word-salad-edit-rare-words');
   });
-  document.getElementById('word-salad-edit-rare-words').addEventListener('input', function () {
-    uppercaseField(this);
+  document.getElementById('word-salad-edit-rare-words').addEventListener('input', function (event) {
+    uppercaseIfReady(event);
     updateValidation('word-salad-edit-validation', scheduleGrid, 'word-salad-edit-words', 'word-salad-edit-rare-words');
   });
-  document.getElementById('word-salad-offer-words').addEventListener('input', function () {
-    uppercaseField(this);
+  document.getElementById('word-salad-offer-words').addEventListener('input', function (event) {
+    uppercaseIfReady(event);
     updateValidation('word-salad-offer-validation', offerGrid, 'word-salad-offer-words', 'word-salad-offer-rare-words');
   });
-  document.getElementById('word-salad-offer-rare-words').addEventListener('input', function () {
-    uppercaseField(this);
+  document.getElementById('word-salad-offer-rare-words').addEventListener('input', function (event) {
+    uppercaseIfReady(event);
     updateValidation('word-salad-offer-validation', offerGrid, 'word-salad-offer-words', 'word-salad-offer-rare-words');
   });
 

@@ -255,6 +255,19 @@
     if (start !== null && end !== null) field.setSelectionRange(start, end);
   }
 
+  var composingFields = [];
+  function isWordField(field) {
+    return field && (field.id === 'offer-edit-words' || field.id === 'offer-edit-rare-words');
+  }
+  function isComposingField(field) {
+    return composingFields.indexOf(field) >= 0;
+  }
+  function setComposingField(field, composing) {
+    var index = composingFields.indexOf(field);
+    if (composing && index < 0) composingFields.push(field);
+    if (!composing && index >= 0) composingFields.splice(index, 1);
+  }
+
   function readEditorPayload() {
     return {
       theme: document.getElementById('offer-edit-theme').value,
@@ -333,10 +346,20 @@
 
   modal.addEventListener('input', function (e) {
     if (e.target.matches('input, textarea')) {
-      if (e.target.id === 'offer-edit-words' || e.target.id === 'offer-edit-rare-words') uppercaseField(e.target);
+      if (isWordField(e.target) && !e.isComposing && !isComposingField(e.target)) uppercaseField(e.target);
       autosave.changed();
-      if (e.target.id === 'offer-edit-words' || e.target.id === 'offer-edit-rare-words') updateValidation();
+      if (isWordField(e.target)) updateValidation();
     }
+  });
+  modal.addEventListener('compositionstart', function (e) {
+    if (isWordField(e.target)) setComposingField(e.target, true);
+  });
+  modal.addEventListener('compositionend', function (e) {
+    if (!isWordField(e.target)) return;
+    setComposingField(e.target, false);
+    uppercaseField(e.target);
+    autosave.changed();
+    updateValidation();
   });
   modal.addEventListener('change', function (e) {
     if (e.target.matches('input, textarea')) autosave.changed();
