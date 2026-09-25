@@ -390,6 +390,40 @@ class AccountMergeTests(TestCase):
         self.assertFalse(preview['can_merge'])
         self.assertIn('telegram_identity_conflict', preview['conflicts'])
 
+    def test_telegram_account_merge_keeps_existing_target_oidc_identity(self):
+        target_profile = self.target.profile
+        target_profile.telegram_oidc_sub = '5437707767813386274'
+        target_profile.save(update_fields=['telegram_oidc_sub'])
+        telegram_account = SocialAccount.objects.create(
+            user=self.source,
+            provider='telegram',
+            uid='source-telegram-sub',
+            extra_data={},
+        )
+        # Reproduce legacy data where the target profile already owns the
+        # OIDC subject before the SocialAccount row is reassigned.
+        SocialAccount.objects.filter(pk=telegram_account.pk).update(
+            uid='5437707767813386274',
+        )
+        Profile.objects.filter(user=self.source).update(telegram_oidc_sub=None)
+
+        merge_accounts(
+            target_user=self.target,
+            source_user=self.source,
+            provider='vk',
+            provider_uid='vk-source',
+        )
+
+        self.assertTrue(
+            SocialAccount.objects.filter(
+                user=self.target,
+                provider='telegram',
+                uid='5437707767813386274',
+            ).exists()
+        )
+        self.target.profile.refresh_from_db()
+        self.assertEqual(self.target.profile.telegram_oidc_sub, '5437707767813386274')
+
     @skipUnless(hasattr(Profile, 'telegram_user_id'), 'Telegram identity is not installed')
     def test_source_verified_telegram_identity_moves_when_target_has_none(self):
         source_profile = self.source.profile

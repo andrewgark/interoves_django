@@ -193,6 +193,8 @@ def _conflict_message(code):
         return 'В профилях есть разные незавершённые заявки на вступление в команды.'
     if code == 'telegram_identity_conflict':
         return 'К профилям привязаны разные подтверждённые Telegram-аккаунты для оплаты.'
+    if code == 'telegram_oidc_conflict':
+        return 'К профилям привязаны разные Telegram-аккаунты для входа.'
     if code.startswith('provider:'):
         provider = social_provider_label(code.partition(':')[2])
         return 'К обоим профилям подключены разные аккаунты {}.'.format(provider)
@@ -240,6 +242,16 @@ def build_account_merge_preview(target_user, source_user):
         # A verified Telegram id is also a payment identity. Choosing either
         # one automatically would make future payment matching ambiguous.
         conflicts.append('telegram_identity_conflict')
+    target_oidc_sub = getattr(target_profile, 'telegram_oidc_sub', None)
+    source_oidc_sub = getattr(source_profile, 'telegram_oidc_sub', None)
+    if target_oidc_sub and source_oidc_sub and target_oidc_sub != source_oidc_sub:
+        conflicts.append('telegram_oidc_conflict')
+    source_telegram_subs = set(
+        SocialAccount.objects.filter(user=source_user, provider='telegram')
+        .values_list('uid', flat=True)
+    )
+    if target_oidc_sub and source_telegram_subs - {target_oidc_sub}:
+        conflicts.append('telegram_oidc_conflict')
     team_count = (
         ProfileTeamMembership.objects.filter(profile=source_profile).count()
         if source_profile is not None else 0
@@ -329,6 +341,10 @@ def _merge_profiles(target_user, source_user, summary):
             'telegram_linked_at',
         ])
         summary['telegram_identity'] = 1
+    source_oidc_sub = getattr(source, 'telegram_oidc_sub', None)
+    if source_oidc_sub and not getattr(target, 'telegram_oidc_sub', None):
+        target.telegram_oidc_sub = source_oidc_sub
+        updates.append('telegram_oidc_sub')
     if target.team_requested_id is None and source.team_requested_id is not None:
         target.team_requested_id = source.team_requested_id
         target.join_accept_as_primary = source.join_accept_as_primary
@@ -355,7 +371,26 @@ def _merge_profiles(target_user, source_user, summary):
             'telegram_user_id', 'telegram_username', 'telegram_verified',
             'telegram_linked_at',
         ])
+    if hasattr(source, 'telegram_oidc_sub'):
+        source.telegram_oidc_sub = None
+        source_updates.append('telegram_oidc_sub')
     source.save(update_fields=source_updates)
+
+
+def _move_social_account(account, target_user, target_profile):
+    """Move an account without re-running Telegram identity sync on save."""
+    if account.provider == 'telegram':
+        oidc_sub = str(account.uid or '').strip()
+        if oidc_sub and not target_profile.telegram_oidc_sub:
+            Profile.objects.filter(pk=target_profile.pk).update(
+                telegram_oidc_sub=oidc_sub,
+            )
+        # The post_save signal can otherwise write a duplicate unique OIDC sub
+        # when the target profile already contains this identity.
+        SocialAccount.objects.filter(pk=account.pk).update(user=target_user)
+        return
+    account.user = target_user
+    account.save(update_fields=['user'])
 
 
 def _merge_user_fields(target, source):
@@ -922,9 +957,12 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
     summary['club_subscriptions'] = _merge_club_subscriptions(target, source)
 
     source_accounts = list(SocialAccount.objects.select_for_update().filter(user=source))
+    target_profile = Profile.objects.get_or_create(
+        user=target,
+        defaults={'first_name': '', 'last_name': ''},
+    )[0]
     for account in source_accounts:
-        account.user = target
-        account.save(update_fields=['user'])
+        _move_social_account(account, target, target_profile)
     summary['social_accounts'] = len(source_accounts)
     summary['prior_merge_records'] = AccountMerge.objects.filter(
         target_user=source,
