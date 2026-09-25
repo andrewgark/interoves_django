@@ -4230,6 +4230,10 @@ html.new-ui-dark .new-team-switcher-active-box {
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
+.new-pay-method--primary {
+  grid-column: 1 / -1;
+}
+
 .new-pay-method:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }

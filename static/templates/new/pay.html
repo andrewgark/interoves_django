@@ -63,7 +63,7 @@
           <strong>Льготная цена для школьных и студенческих команд</strong>
           <span class="new-pay-discount-note__badge">−75%</span>
         </div>
-        <p><b>500 ₽</b> или <b>6 €</b> или <b>2 500 ֏</b> за билет вместо 2 000 ₽ или 24 € или 10 000 ֏.</p>
+        <p><b>500 ₽</b> или <b>6 €</b> за билет вместо 2 000 ₽ или 24 €.</p>
         <a class="new-pay-discount-note__link" href="https://t.me/andrewgark" target="_blank" rel="noopener noreferrer">Попросить льготу в Telegram <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
       </div>
     </div>
@@ -93,7 +93,7 @@
     <fieldset class="new-pay-method-selector">
       <legend class="new-pay-section-title">Способ оплаты</legend>
       <div class="new-pay-method-grid">
-        <label class="new-pay-method is-selected" data-pay-method-card>
+        <label class="new-pay-method new-pay-method--primary is-selected" data-pay-method-card>
           <input type="radio" name="payment_method" value="russian_card" checked
                  data-unit-price="{{ ticket_price }}" data-currency="RUB">
           <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
@@ -101,17 +101,6 @@
             <strong>Российская карта</strong>
             <span>Для карт российских банков</span>
             <b data-route-price>{{ ticket_price_display }} ₽ <small>за билет</small></b>
-          </span>
-        </label>
-        <label class="new-pay-method" data-pay-method-card>
-          <input type="radio" name="payment_method" value="international_card" disabled
-                 data-unit-price="{{ ticket_price_amd }}" data-currency="AMD">
-          <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-cards"></i></span>
-          <span class="new-pay-method__body">
-            <strong>Visa / Mastercard</strong>
-            <span>Для карт банков Армении и других стран</span>
-            <b data-route-price>{{ ticket_price_amd_display }} ֏ <small>за билет</small></b>
-            <span>Скоро</span>
           </span>
         </label>
         <label class="new-pay-method{% if not tribute_enabled %} new-pay-method--unavailable{% endif %}" data-pay-method-card>
