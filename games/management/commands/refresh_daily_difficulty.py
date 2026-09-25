@@ -36,7 +36,10 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        with distributed_cron_lock('daily_difficulty_refresh', ttl_seconds=120) as acquired:
+        # A batch may contain several expensive aggregates.  Keep the
+        # cross-instance lease longer than the normal minute tick so the
+        # hourly recovery command cannot start a second worker mid-batch.
+        with distributed_cron_lock('daily_difficulty_refresh', ttl_seconds=600) as acquired:
             if not acquired:
                 self.stdout.write('daily difficulty cron skipped: lock held')
                 return

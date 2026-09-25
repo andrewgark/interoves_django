@@ -39,14 +39,24 @@ class Command(BaseCommand):
 
         problems = []
         repair_report = {'created': 0, 'rescheduled': 0, 'due': 0}
+        refresh_skipped = False
         try:
             repair_report = repair_daily_difficulty_queue(now=now)
         except Exception as exc:
             problems.append('queue repair exception: {}: {}'.format(type(exc).__name__, exc))
-        try:
-            run_daily_difficulty_refresh(limit=100, worker='hourly-healthcheck')
-        except Exception as exc:
-            problems.append('worker exception: {}: {}'.format(type(exc).__name__, exc))
+        # The hourly check also runs a refresh tick.  It must share the
+        # minute worker's distributed lock: otherwise a long calculation can
+        # be claimed by both commands after the health-check's own lock is
+        # acquired, leaving a legitimate due row behind and producing a false
+        # alert (or, worse, competing writes).
+        with distributed_cron_lock('daily_difficulty_refresh', ttl_seconds=600) as acquired:
+            if not acquired:
+                refresh_skipped = True
+            else:
+                try:
+                    run_daily_difficulty_refresh(limit=100, worker='hourly-healthcheck')
+                except Exception as exc:
+                    problems.append('worker exception: {}: {}'.format(type(exc).__name__, exc))
 
         now = timezone.now()
         missing = [
@@ -61,11 +71,11 @@ class Command(BaseCommand):
             published_at__lte=now,
         )
         never_calculated = published.filter(calculated_at__isnull=True).count()
-        if never_calculated:
+        if never_calculated and not refresh_skipped:
             problems.append('{} published editions never calculated'.format(never_calculated))
 
         due = due_daily_difficulty_queryset(now=now).count()
-        if due:
+        if due and not refresh_skipped:
             problems.append('{} due editions still queued'.format(due))
 
         failures = published.filter(refresh_fail_count__gt=0).count()
