@@ -1,0 +1,42 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WebSecrets",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:GetSecretValue"],
+      "Resource": [
+        "__RDS_SECRET_ARN__",
+        "__DJANGO_SECRET_ARN__",
+        "__WEB_HMAC_SECRET_ARN__"
+      ]
+    },
+    {
+      "Sid": "WebMetrics",
+      "Effect": "Allow",
+      "Action": ["cloudwatch:PutMetricData"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "cloudwatch:namespace": "InterOves/Web"
+        }
+      }
+    },
+    {
+      "Sid": "CloudWatchAgentEc2Dimensions",
+      "Effect": "Allow",
+      "Action": ["ec2:DescribeTags"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "WebLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:DescribeLogStreams",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "__WEB_LOG_GROUP_ARN__:log-stream:*"
+    }
+  ]
+}

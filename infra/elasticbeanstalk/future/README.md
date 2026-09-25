@@ -10,6 +10,10 @@ The future bundle must use one of these role-specific configurations:
   `sqsd HttpConnections=1`.  Create it explicitly as an EB Worker/SQS tier;
   `worker/environment-tier.yaml` documents that requirement.
 
+Use separate instance profiles for the two tiers.  The web profile template is
+`web/web-instance-iam-policy.json` and deliberately contains no SQS actions;
+the worker-only queue permissions remain in `worker/worker-instance-iam-policy.json`.
+
 The validation candidate timeout policy is a 90-second DB job/item lease,
 180-second SQS visibility, 60-second error visibility and eight receives.
 These values are not a production approval until p99 task duration and crash
