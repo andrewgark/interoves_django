@@ -393,6 +393,7 @@ TEMPLATES = [
                 'games.context_processors.analytics_bootstrap',
                 'games.context_processors.feedback_nav',
                 'games.context_processors.club_archive_ui',
+                'games.context_processors.unverified_telegram_prompt',
             ],
         },
     },

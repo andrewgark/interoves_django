@@ -292,6 +292,7 @@ def sync_telegram_identity(sender, **kw):
         return
     extra = account.extra_data or {}
     updates = []
+    was_verified = bool(profile.telegram_verified)
     from games.telegram_oidc import telegram_user_id_from_claims
 
     telegram_user_id = telegram_user_id_from_claims(extra)
@@ -314,11 +315,16 @@ def sync_telegram_identity(sender, **kw):
         profile.telegram_user_id = telegram_user_id
         profile.telegram_verified = True
         updates.extend(["telegram_user_id", "telegram_verified"])
-    if extra.get("preferred_username") and not profile.telegram_username:
-        profile.telegram_username = str(extra["preferred_username"])[:64]
-        updates.append("telegram_username")
-    if extra.get("preferred_username") and not profile.telegram_handle:
-        profile.telegram_handle = str(extra["preferred_username"])[:64]
+    username = str(extra.get("preferred_username") or "").strip().lstrip("@")[:64]
+    if username:
+        if profile.telegram_username != username:
+            profile.telegram_username = username
+            updates.append("telegram_username")
+        if profile.telegram_handle != username:
+            profile.telegram_handle = username
+            updates.append("telegram_handle")
+    elif not was_verified and profile.telegram_handle:
+        profile.telegram_handle = ""
         updates.append("telegram_handle")
     if updates:
         profile.save(update_fields=updates)

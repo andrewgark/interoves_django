@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import secrets
 from dataclasses import dataclass
 from datetime import timedelta
@@ -14,6 +15,49 @@ from games.models import Profile, TelegramLinkToken
 
 
 TOKEN_TTL_MINUTES = 15
+_TELEGRAM_HANDLE_RE = re.compile(r'^[A-Za-z0-9_]{5,32}$')
+
+
+def verified_public_handle(profile) -> str:
+    """Username shown publicly after Telegram has confirmed this profile."""
+    if profile is None or not getattr(profile, 'telegram_verified', False):
+        return ''
+    raw = (
+        getattr(profile, 'telegram_username', '')
+        or getattr(profile, 'telegram_handle', '')
+        or ''
+    )
+    return str(raw).strip().lstrip('@')[:64]
+
+
+def offer_telegram_gaps(profile) -> list[str]:
+    """Why this profile cannot publish an offer that needs a Telegram contact."""
+    if not getattr(profile, 'telegram_verified', False):
+        return ['telegram_unverified']
+    handle = verified_public_handle(profile)
+    if not handle:
+        return ['telegram_handle']
+    if not _TELEGRAM_HANDLE_RE.match(handle):
+        return ['telegram_handle_invalid']
+    return []
+
+
+def offer_profile_error(missing) -> str:
+    if 'telegram_handle_invalid' in missing:
+        return (
+            'У привязанного Telegram нет подходящего username '
+            '(5–32 символа: латиница, цифры, _).'
+        )
+    if 'telegram_unverified' in missing or 'telegram_handle' in missing:
+        return 'Привяжите Telegram через вход. Вписать ник вручную нельзя.'
+    return 'Заполните имя и фамилию.'
+
+
+def apply_verified_telegram_handle(profile, username: str) -> None:
+    """Store the username Telegram itself reported. Never keep a typed nick."""
+    handle = str(username or '').strip().lstrip('@')[:64]
+    profile.telegram_username = handle
+    profile.telegram_handle = handle
 
 
 class TelegramLinkError(Exception):
@@ -123,11 +167,12 @@ def consume_link_token(raw_token: str, *, telegram_user_id, telegram_username=''
             )
 
         profile.telegram_user_id = numeric_id
-        profile.telegram_username = username
         profile.telegram_verified = True
         profile.telegram_linked_at = now
+        apply_verified_telegram_handle(profile, username)
         profile.save(update_fields=[
-            'telegram_user_id', 'telegram_username', 'telegram_verified', 'telegram_linked_at',
+            'telegram_user_id', 'telegram_username', 'telegram_handle',
+            'telegram_verified', 'telegram_linked_at',
         ])
         token.used_at = now
         token.save(update_fields=['used_at'])

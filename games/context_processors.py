@@ -13,6 +13,22 @@ from django.conf import settings
 from django.utils import timezone
 
 
+def unverified_telegram_prompt(request):
+    """Typed Telegram nick that still needs a real login, for the claim popup."""
+    user = getattr(request, 'user', None)
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return {'unverified_telegram_handle': ''}
+    from games.models import Profile
+    try:
+        profile = user.profile
+    except Profile.DoesNotExist:
+        return {'unverified_telegram_handle': ''}
+    if profile.telegram_verified:
+        return {'unverified_telegram_handle': ''}
+    handle = str(profile.telegram_handle or '').strip().lstrip('@')
+    return {'unverified_telegram_handle': handle}
+
+
 def site_deploy_version(_request):
     """Expose SITE_DEPLOY_VERSION for deploy_version_check.js (HTML vs live API)."""
     v = getattr(settings, "SITE_DEPLOY_VERSION", "") or ""

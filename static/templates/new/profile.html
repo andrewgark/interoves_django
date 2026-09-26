@@ -27,13 +27,13 @@
         </div>
       </div>
       <div>
-        <label for="{{ form.telegram_handle.id_for_label }}">Telegram</label>
-        {{ form.telegram_handle }}
-        {% if form.telegram_handle.errors %}<span class="new-field-error">{{ form.telegram_handle.errors }}</span>{% endif %}
-        {% if form.telegram_handle.field.disabled %}
+        <span>Telegram</span>
+        {% if form.instance.telegram_verified %}
+          <p class="new-login-hint">@{{ form.instance.telegram_username|default:form.instance.telegram_handle }}</p>
           <p class="new-login-hint new-profile-hint">Подтягивается из подключённого Telegram.</p>
         {% else %}
           <p class="new-login-hint new-profile-hint">Подключите Telegram — username подставится автоматически.</p>
+          <a class="new-account-action" href="{% url 'telegram_login' %}?process=connect&amp;next={{ request.get_full_path|urlencode }}">Подключить</a>
         {% endif %}
       </div>
       <div class="new-profile-timezone">

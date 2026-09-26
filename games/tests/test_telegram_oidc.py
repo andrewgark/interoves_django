@@ -32,6 +32,7 @@ class TelegramOIDCTests(TestCase):
         self.assertEqual(profile.telegram_oidc_sub, '5469547670986535499')
         self.assertTrue(profile.telegram_verified)
         self.assertEqual(profile.telegram_username, 'andrew')
+        self.assertEqual(profile.telegram_handle, 'andrew')
 
     def test_social_account_repairs_profile_that_stored_oidc_subject(self):
         user = get_user_model().objects.create_user(username='tg-legacy-user')
@@ -51,6 +52,22 @@ class TelegramOIDCTests(TestCase):
         profile = Profile.objects.get(user=user)
         self.assertEqual(profile.telegram_user_id, 101908)
         self.assertEqual(profile.telegram_oidc_sub, '5469547670986535499')
+        self.assertTrue(profile.telegram_verified)
+        self.assertEqual(profile.telegram_handle, 'cm_silence')
+
+    def test_social_account_overwrites_typed_handle(self):
+        user = get_user_model().objects.create_user(username='tg-typed')
+        Profile.objects.create(
+            user=user, first_name='', last_name='', telegram_handle='typed_nick',
+        )
+        SocialAccount.objects.create(
+            user=user,
+            provider='telegram',
+            uid='999',
+            extra_data={'id': '4242', 'preferred_username': 'realname'},
+        )
+        profile = Profile.objects.get(user=user)
+        self.assertEqual(profile.telegram_handle, 'realname')
         self.assertTrue(profile.telegram_verified)
 
     @patch('games.telegram_oidc.jwtkit.verify_and_decode')

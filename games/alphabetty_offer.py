@@ -37,7 +37,6 @@ _RESERVED_ALPHABETTY_SEGMENTS = frozenset({
     'today', 'last', 'progress', 'suggest', 'guess', 'state', 'prefix', 'hint',
 })
 _SHARE_HASH_RE = re.compile(r'^[a-f0-9]{16,32}$')
-_TELEGRAM_HANDLE_RE = re.compile(r'^[A-Za-z0-9_]{5,32}$')
 _DEFAULT_PLACEHOLDER = 'СЛОВО'
 
 
@@ -58,11 +57,8 @@ def profile_ready_for_offers(profile: Profile) -> tuple[bool, list[str]]:
         missing.append('first_name')
     if not (profile.last_name or '').strip():
         missing.append('last_name')
-    handle = normalize_telegram_handle(profile.telegram_handle or '')
-    if not handle:
-        missing.append('telegram_handle')
-    elif not _TELEGRAM_HANDLE_RE.match(handle):
-        missing.append('telegram_handle_invalid')
+    from games.telegram_linking import offer_telegram_gaps
+    missing.extend(offer_telegram_gaps(profile))
     return (not missing, missing)
 
 

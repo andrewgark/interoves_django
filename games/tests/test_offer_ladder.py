@@ -94,6 +94,7 @@ class LadderOfferFlowTests(TestCase):
             first_name='Анна',
             last_name='Автор',
             telegram_handle='anna_author',
+            telegram_verified=True,
         )
         cls.other = User.objects.create_user('other', password='x')
         Profile.objects.create(
@@ -101,9 +102,13 @@ class LadderOfferFlowTests(TestCase):
             first_name='Оля',
             last_name='Другая',
             telegram_handle='olya',
+            telegram_verified=True,
         )
         cls.staff = User.objects.create_user('staff', password='x', is_staff=True)
-        Profile.objects.create(user=cls.staff, first_name='S', last_name='T', telegram_handle='staff')
+        Profile.objects.create(
+            user=cls.staff, first_name='S', last_name='T',
+            telegram_handle='staff', telegram_verified=True,
+        )
         Group.objects.get_or_create(name=SUPPORT_CONSOLE_GROUP)[0].user_set.add(cls.staff)
 
     def test_profile_gate_blocks_without_telegram(self):
@@ -114,6 +119,40 @@ class LadderOfferFlowTests(TestCase):
         resp = c.get('/create_ladder/')
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(resp.context['profile_ready'])
+
+    def test_typed_handle_is_not_a_link_and_decline_clears_it(self):
+        self.user.profile.telegram_verified = False
+        self.user.profile.telegram_handle = 'typednick'
+        self.user.profile.save(update_fields=['telegram_verified', 'telegram_handle'])
+        c = Client()
+        c.force_login(self.user)
+        resp = c.get('/create_ladder/')
+        self.assertFalse(resp.context['profile_ready'])
+        self.assertContains(resp, 'Привязать Telegram?')
+        self.assertContains(resp, '@typednick')
+        self.assertNotContains(resp, 'name="telegram_handle"')
+        posted = c.post('/create_ladder/', {
+            'action': 'save_profile',
+            'first_name': 'Анна',
+            'last_name': 'Автор',
+            'telegram_handle': 'someoneelse',
+        })
+        self.assertEqual(posted.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.telegram_handle, 'typednick')
+        cleared = c.post('/profile/telegram-handle/dismiss/', {'next': '/create_ladder/'})
+        self.assertRedirects(cleared, '/create_ladder/', fetch_redirect_response=False)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.telegram_handle, '')
+
+    def test_dismiss_does_not_clear_verified_handle(self):
+        c = Client()
+        c.force_login(self.user)
+        resp = c.post('/profile/telegram-handle/dismiss/', {'next': 'https://evil.example/phish'})
+        self.assertRedirects(resp, '/profile/', fetch_redirect_response=False)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.telegram_handle, 'anna_author')
+        self.assertTrue(self.user.profile.telegram_verified)
 
     def test_create_page_explains_daily_offer(self):
         c = Client()

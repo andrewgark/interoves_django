@@ -83,6 +83,7 @@ class TelegramLinkingTests(TestCase):
         self.assertEqual(result.telegram_user_id, 123456789)
         self.assertTrue(self.user.profile.telegram_verified)
         self.assertEqual(self.user.profile.telegram_username, 'new_name')
+        self.assertEqual(self.user.profile.telegram_handle, 'new_name')
         self.assertIsNotNone(token.used_at)
 
     @patch('games.telegram.webhook.send_message')

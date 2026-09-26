@@ -5103,19 +5103,6 @@ class ProfileSettingsForm(ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['first_name'].widget.attrs.update({'placeholder': 'Имя'})
         self.fields['last_name'].widget.attrs.update({'placeholder': 'Фамилия'})
-        self.fields['telegram_handle'].required = False
-        self.fields['telegram_handle'].widget.attrs.update({
-            'placeholder': 'username без @',
-            'autocomplete': 'off',
-        })
-        if getattr(self.instance, 'telegram_verified', False):
-            verified_handle = (
-                getattr(self.instance, 'telegram_username', '')
-                or getattr(self.instance, 'telegram_handle', '')
-            )
-            if verified_handle:
-                self.initial['telegram_handle'] = verified_handle.lstrip('@')
-                self.fields['telegram_handle'].disabled = True
         # keep model field, but render as text input with datalist
         self.fields['timezone'].widget = TextInput()
         self.fields['timezone'].required = True
@@ -5145,17 +5132,12 @@ class ProfileSettingsForm(ModelForm):
 
     class Meta:
         model = Profile
-        fields = ['first_name', 'last_name', 'telegram_handle', 'avatar_url', 'timezone']
+        fields = ['first_name', 'last_name', 'avatar_url', 'timezone']
         widgets = {
             'first_name': TextInput(),
             'last_name': TextInput(),
-            'telegram_handle': TextInput(),
             'avatar_url': TextInput(),
         }
-
-    def clean_telegram_handle(self):
-        from games.ladder_offer import normalize_telegram_handle
-        return normalize_telegram_handle(self.cleaned_data.get('telegram_handle') or '')
 
     def clean_timezone(self):
         tz = (self.cleaned_data.get('timezone') or '').strip()
@@ -5244,6 +5226,25 @@ def new_profile_report_detail(request, report_id, project_id=None):
     ctx.update(_project_urls_context(scoped or NEW_UI_PROJECT))
     _merge_nav_project_for_scope(ctx, request, scoped)
     return render(request, 'ui/profile_report_detail.html', ctx)
+
+
+def _safe_profile_next(raw):
+    path = str(raw or '').strip()
+    if not path.startswith('/') or path.startswith('//') or '\\' in path:
+        return '/profile/'
+    return path[:500]
+
+
+@login_required
+@require_POST
+def new_dismiss_unverified_telegram_handle(request):
+    """Drop a typed Telegram nick when the person declines to verify it."""
+    if has_profile(request.user):
+        profile = request.user.profile
+        if not profile.telegram_verified and profile.telegram_handle:
+            profile.telegram_handle = ''
+            profile.save(update_fields=['telegram_handle'])
+    return redirect(_safe_profile_next(request.POST.get('next')))
 
 
 @login_required

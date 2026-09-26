@@ -615,6 +615,7 @@ class AlphabettyPlayApiTests(TestCase):
             first_name='А',
             last_name='Б',
             telegram_handle='ab_creator',
+            telegram_verified=True,
         )
         self.client.force_login(user)
 
@@ -640,6 +641,7 @@ class AlphabettyPlayApiTests(TestCase):
             first_name='А',
             last_name='Б',
             telegram_handle='ab_submitter',
+            telegram_verified=True,
         )
         self.client.force_login(user)
 
@@ -680,6 +682,7 @@ class AlphabettyPlayApiTests(TestCase):
             first_name='А',
             last_name='Б',
             telegram_handle='ab_owner',
+            telegram_verified=True,
         )
         self.client.force_login(user)
         offer_id = self.client.post(
@@ -710,6 +713,7 @@ class AlphabettyPlayApiTests(TestCase):
             first_name='А',
             last_name='Б',
             telegram_handle='ab_like_owner',
+            telegram_verified=True,
         )
         self.client.force_login(user)
         offer_id = self.client.post(
@@ -788,6 +792,7 @@ class AlphabettyPlayApiTests(TestCase):
             first_name='А',
             last_name='Б',
             telegram_handle='ab_embargo',
+            telegram_verified=True,
         )
         self.client.force_login(user)
         offer_id = self.client.post(

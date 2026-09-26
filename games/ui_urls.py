@@ -166,6 +166,11 @@ urlpatterns = [
     path('team/password/', ui.team_password, name='ui_team_password'),
     path('team/rename/', ui.team_rename, name='ui_team_rename'),
     path('profile/merge/', ui.account_merge_confirm, name='ui_account_merge_confirm'),
+    path(
+        'profile/telegram-handle/dismiss/',
+        ui.dismiss_unverified_telegram_handle,
+        name='ui_telegram_handle_dismiss',
+    ),
     path('profile/disconnect/', ui.social_account_disconnect, name='ui_social_account_disconnect'),
     path('profile/reports/<int:report_id>/', ui.profile_report_detail, name='ui_profile_report_detail'),
     path('profile/reports/', ui.profile_reports, name='ui_profile_reports'),

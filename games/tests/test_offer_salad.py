@@ -75,6 +75,7 @@ def _make_ready_user(username):
         first_name='Анна',
         last_name='Автор',
         telegram_handle=username.replace('-', '_')[:32],
+        telegram_verified=True,
     )
     return user
 
@@ -93,7 +94,8 @@ class WordSaladOfferFlowTests(TestCase):
         cls.other = _make_ready_user('salad-other')
         cls.staff = User.objects.create_user('salad-staff', password='x', is_staff=True)
         Profile.objects.create(
-            user=cls.staff, first_name='S', last_name='T', telegram_handle='salad_staff',
+            user=cls.staff, first_name='S', last_name='T',
+            telegram_handle='salad_staff', telegram_verified=True,
         )
         Group.objects.get_or_create(name=SUPPORT_CONSOLE_GROUP)[0].user_set.add(cls.staff)
 

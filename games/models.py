@@ -221,10 +221,11 @@ class Profile(models.Model):
     timezone = models.CharField(max_length=64, default='Europe/Moscow')
     vk_url = models.TextField(blank=True, null=True)
     email = models.TextField(blank=True, null=True)
-    # Публичный Telegram без @; нужен для предложений лесенок и связи.
+    # Публичный Telegram без @. Пишется только из подтверждённого входа или
+    # привязки ботом, не из текстового поля профиля.
     telegram_handle = models.CharField(max_length=64, blank=True, default='')
-    # Подтвержденная через Telegram-бота identity. telegram_handle выше остается
-    # публичным редактируемым контактом и никогда не используется для платежного matching.
+    # Подтвержденная через Telegram identity. telegram_handle никогда не
+    # используется для платежного matching.
     telegram_user_id = models.BigIntegerField(blank=True, null=True, unique=True)
     # Telegram OIDC ``sub`` is a separate stable subject, not the Bot API user ID.
     # Keep it for account identity bookkeeping; Tribute matching uses telegram_user_id.

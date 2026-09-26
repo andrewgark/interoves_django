@@ -68,6 +68,7 @@ migrate_anon_attempts = new_migrate_anon_attempts
 anon_migrate_count = new_anon_migrate_count
 club_archive_offer_action = new_club_archive_offer_action
 profile = new_profile
+dismiss_unverified_telegram_handle = new_dismiss_unverified_telegram_handle
 profile_reports = new_profile_reports
 profile_report_detail = new_profile_report_detail
 account_merge_confirm = new_account_merge_confirm

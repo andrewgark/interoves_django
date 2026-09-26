@@ -13,7 +13,6 @@ from games.alphabetty_offer import (
     AlphabettyOfferError,
     create_offer,
     list_user_offers,
-    normalize_telegram_handle,
     profile_ready_for_offers,
     request_revision,
     send_offer,
@@ -21,6 +20,7 @@ from games.alphabetty_offer import (
     update_offer_content,
 )
 from games.models import AlphabettyOffer
+from games.telegram_linking import offer_profile_error
 from games.views.util import has_profile
 
 
@@ -50,10 +50,7 @@ def offer_alphabetty_page(request):
     if request.method == 'POST' and request.POST.get('action') == 'save_profile':
         profile.first_name = (request.POST.get('first_name') or '').strip()
         profile.last_name = (request.POST.get('last_name') or '').strip()
-        profile.telegram_handle = normalize_telegram_handle(
-            request.POST.get('telegram_handle') or ''
-        )
-        profile.save(update_fields=['first_name', 'last_name', 'telegram_handle'])
+        profile.save(update_fields=['first_name', 'last_name'])
         ready_after, missing_after = profile_ready_for_offers(profile)
         if not ready_after:
             return render(request, 'new/create_alphabetty.html', {
@@ -63,11 +60,7 @@ def offer_alphabetty_page(request):
                 'profile': profile,
                 'offers_json': [],
                 'show_sections_nav': True,
-                'profile_error': (
-                    'Проверьте Telegram-хэндл (5–32 символа: латиница, цифры, _).'
-                    if 'telegram_handle_invalid' in missing_after
-                    else 'Заполните имя, фамилию и Telegram.'
-                ),
+                'profile_error': offer_profile_error(missing_after),
                 'back_url': '/alphabetty/',
                 'back_label': 'К алфавиткам',
             })

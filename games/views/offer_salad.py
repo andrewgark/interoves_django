@@ -10,13 +10,13 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
 from games.models import WordSaladOffer
+from games.telegram_linking import offer_profile_error
 from games.views.util import has_profile
 from games.word_salad_offer import (
     WordSaladOfferError,
     create_offer,
     convert_accepted_idea,
     list_user_offers,
-    normalize_telegram_handle,
     profile_ready_for_offers,
     reset_salad_progress,
     send_offer,
@@ -65,10 +65,7 @@ def offer_salad_page(request):
     if request.method == 'POST' and request.POST.get('action') == 'save_profile':
         profile.first_name = (request.POST.get('first_name') or '').strip()
         profile.last_name = (request.POST.get('last_name') or '').strip()
-        profile.telegram_handle = normalize_telegram_handle(
-            request.POST.get('telegram_handle') or ''
-        )
-        profile.save(update_fields=['first_name', 'last_name', 'telegram_handle'])
+        profile.save(update_fields=['first_name', 'last_name'])
         ready_after, missing_after = profile_ready_for_offers(profile)
         if not ready_after:
             return render(request, 'new/create_salad.html', _profile_context(
@@ -76,11 +73,7 @@ def offer_salad_page(request):
                 ready=False,
                 missing=missing_after,
                 offers_json=[],
-                profile_error=(
-                    'Проверьте Telegram-хэндл (5–32 символа: латиница, цифры, _).'
-                    if 'telegram_handle_invalid' in missing_after
-                    else 'Заполните имя, фамилию и Telegram.'
-                ),
+                profile_error=offer_profile_error(missing_after),
             ))
         return redirect('new_create_salad')
 
