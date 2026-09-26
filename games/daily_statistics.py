@@ -14,7 +14,7 @@ from games.alphabetty.core import normalize_word
 from games.alphabetty.play import hint_count as alphabetty_hint_count, load_state as load_alphabetty_state
 
 
-CACHE_VERSION = 9
+CACHE_VERSION = 10
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
@@ -89,12 +89,36 @@ def build_attempt_histogram(values, tail_from=30):
     return histogram
 
 
+def _results_actor(row):
+    """Same participant object the results table uses for eligibility."""
+    from games.models import PersonalResultsParticipant
+
+    if row.team_id:
+        return row.team
+    if row.user_id:
+        return PersonalResultsParticipant(user_id=row.user_id)
+    if row.anon_key:
+        return PersonalResultsParticipant(anon_key=row.anon_key)
+    return None
+
+
 def _completed_actors(game, task_group):
-    rows = PlayerCompletedGame.objects.filter(
+    rows = list(PlayerCompletedGame.objects.filter(
         game=game, task_group=task_group,
         result=PlayerCompletedGame.RESULT_SOLVED,
-    ).only('team_id', 'user_id', 'anon_key')
-    return {_actor_key(row): row for row in rows}
+    ).select_related('team').only('team_id', 'user_id', 'anon_key', 'team'))
+    from games.leaderboard import actor_key, eligible_public_actors
+
+    actors = [actor for actor in (_results_actor(row) for row in rows) if actor is not None]
+    eligible = {
+        actor_key(actor)
+        for actor in eligible_public_actors(actors, task_group=task_group)
+    }
+    return {
+        _actor_key(row): row
+        for row in rows
+        if _actor_key(row) in eligible
+    }
 
 
 def _actor_q(keys):

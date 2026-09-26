@@ -204,7 +204,11 @@
   }
   function render(root, data) {
     var summary = data.summary || {};
-    var html = '<h2 class="new-daily-statistics__title">Статистика</h2><div class="new-daily-statistics__summary">' +
+    var html = '<h2 class="new-daily-statistics__title">Статистика</h2>';
+    if (data.exclusion_notice) {
+      html += '<p class="new-daily-statistics__exclusion" role="note">' + esc(data.exclusion_notice) + '</p>';
+    }
+    html += '<div class="new-daily-statistics__summary">' +
       metric('Решили', summary.solved || data.solved || 0);
     if (data.kind === 'alphabet') html += metric('Медиана попыток', summary.median_attempts == null ? '—' : String(summary.median_attempts).replace('.', ',')) + metric('Без подсказок', percent(summary.without_hints_percent));
     else html += metric('Медиана времени', seconds(summary.median_time_seconds)) + metric('Без подсказок', percent(summary.without_hints_percent));

@@ -7,7 +7,8 @@ from django.core.management import call_command
 
 from games.leaderboard import (
     apply_release_policy, canonical_leaderboard_durations, eligible_public_actors,
-    individual_sports_key, sports_rank,
+    individual_sports_key, results_exclusion_notice, sports_rank,
+    viewer_results_exclusion_reasons,
 )
 from games.models import (
     DailySolveTiming, Game, GameTaskGroup, HiddenAnonKey, PersonalResultsParticipant,
@@ -112,6 +113,48 @@ class LeaderboardSharedTests(TestCase):
         self.assertEqual(
             eligible_public_actors([personal_author], task_group=other_group),
             [personal_author],
+        )
+        self.assertEqual(
+            viewer_results_exclusion_reasons(personal_author, task_group=self.group, user=self.author),
+            ['author'],
+        )
+        self.assertEqual(
+            viewer_results_exclusion_reasons(team_with_author, task_group=self.group, user=self.author),
+            ['author'],
+        )
+        self.assertEqual(
+            viewer_results_exclusion_reasons(team_with_author, task_group=self.group, user=self.other),
+            ['team_author'],
+        )
+        self.assertEqual(
+            viewer_results_exclusion_reasons(ordinary, task_group=self.group, user=self.other),
+            [],
+        )
+        self.assertEqual(
+            results_exclusion_notice(['author'], surface='results'),
+            'Вы не видны в результатах, потому что вы автор этого задания.',
+        )
+        self.assertEqual(
+            results_exclusion_notice(['hidden', 'author'], surface='statistics'),
+            'Вы не учтены в статистике, потому что ваш профиль отключен от статистики и вы автор этого задания.',
+        )
+        self.assertEqual(
+            results_exclusion_notice(['team_author'], surface='results'),
+            'Вы не видны в результатах, потому что в команде есть автор этого задания.',
+        )
+
+    def test_hidden_profile_exclusion_reason(self):
+        self.other.profile.is_hidden = True
+        self.other.profile.save(update_fields=['is_hidden'])
+        hidden = PersonalResultsParticipant(user=self.other)
+        self.assertEqual(
+            viewer_results_exclusion_reasons(hidden, task_group=self.group, user=self.other),
+            ['hidden'],
+        )
+        hidden_team = Team.objects.create(name='hidden-only-team', is_hidden=True)
+        self.assertEqual(
+            viewer_results_exclusion_reasons(hidden_team, task_group=self.group, user=self.other),
+            [],
         )
 
     def test_prepublication_timing_start_hides_even_if_result_is_later(self):

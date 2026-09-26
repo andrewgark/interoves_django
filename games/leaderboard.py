@@ -71,6 +71,57 @@ def eligible_public_actors(actors, *, task_group=None, game=None, published_at=N
     )]
 
 
+def _team_includes_author(team, author_ids):
+    if not author_ids:
+        return False
+    return Profile.objects.filter(user_id__in=author_ids).filter(
+        Q(team_memberships__team_id=team.pk) | Q(team_on_id=team.pk),
+    ).exists()
+
+
+def viewer_results_exclusion_reasons(actor, *, task_group, user=None):
+    """Why this results actor is omitted: hidden profile and/or task authorship.
+
+    Other eligibility rules (a hidden team, a hidden anonymous key, a
+    pre-publication start) stay silent here. The actor must already be outside
+    the public results filter, so the note never contradicts the table.
+    """
+    if actor is None or task_group is None:
+        return []
+    if actor in eligible_public_actors([actor], task_group=task_group):
+        return []
+    author_ids = set(task_group.authors.values_list('user_id', flat=True))
+    viewer_id = user.pk if user is not None and getattr(user, 'is_authenticated', False) else None
+    if isinstance(actor, Team):
+        if viewer_id and viewer_id in author_ids:
+            return ['author']
+        if _team_includes_author(actor, author_ids):
+            return ['team_author']
+        return []
+    user_id = getattr(actor, 'user_id', None)
+    reasons = []
+    if user_id and Profile.objects.filter(user_id=user_id, is_hidden=True).exists():
+        reasons.append('hidden')
+    if user_id and user_id in author_ids:
+        reasons.append('author')
+    return reasons
+
+
+def results_exclusion_notice(reasons, *, surface):
+    """Short explanation for the results table or the statistics block."""
+    because = []
+    if 'hidden' in reasons:
+        because.append('ваш профиль отключен от статистики')
+    if 'author' in reasons:
+        because.append('вы автор этого задания')
+    if 'team_author' in reasons:
+        because.append('в команде есть автор этого задания')
+    if not because:
+        return ''
+    lead = 'Вы не видны в результатах' if surface == 'results' else 'Вы не учтены в статистике'
+    return '{}, потому что {}.'.format(lead, ' и '.join(because))
+
+
 def eligible_release_actor_keys(release_actors, *, game, published_at_by_release, result_times_by_release):
     """Bulk task-aware eligibility for aggregate windows (bounded query count)."""
     from collections import defaultdict

@@ -2226,6 +2226,29 @@ def _load_game_results_data(game, mode):
     return snapshot_to_results_context(game, get_live_results_payload(game, mode))
 
 
+def _results_actor_for_request(request, game):
+    """Participant row this viewer would occupy in the current play mode."""
+    team = request.user.profile.team_on if has_profile(request.user) else None
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
+    me_personal, me_anon_participant = _results_me_participants(request, play_mode)
+    if play_mode == 'team':
+        return team
+    return me_personal or me_anon_participant
+
+
+def _public_exclusion_notice(request, game, task_group, *, surface):
+    from games.leaderboard import results_exclusion_notice, viewer_results_exclusion_reasons
+
+    user = request.user if getattr(request.user, 'is_authenticated', False) else None
+    reasons = viewer_results_exclusion_reasons(
+        _results_actor_for_request(request, game),
+        task_group=task_group,
+        user=user,
+    )
+    return results_exclusion_notice(reasons, surface=surface)
+
+
 def _results_me_participants(request, play_mode):
     me_personal = None
     me_anon_participant = None
@@ -2904,6 +2927,9 @@ def _render_task_group_results_page(request, game, number, back_url):
         'play_mode_project_id': game.project_id,
         'page_title': results_title,
         'results_actor_filter_urls': _results_actor_filter_urls(request),
+        'results_exclusion_notice': _public_exclusion_notice(
+            request, game, placement.task_group if placement else None, surface='results',
+        ),
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
@@ -3410,6 +3436,9 @@ def new_ladder_word_results_page(request, task_group_number):
         'play_mode_project_id': game.project_id,
         'page_title': ladder_title,
         'results_actor_filter_urls': _results_actor_filter_urls(request),
+        'results_exclusion_notice': _public_exclusion_notice(
+            request, game, getattr(placement, 'task_group', None), surface='results',
+        ),
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
@@ -3834,7 +3863,13 @@ def daily_statistics(request, game_id, number):
     ).exists():
         return JsonResponse({'error': 'not_completed'}, status=403)
     from games.daily_statistics import build_daily_statistics
-    return JsonResponse(build_daily_statistics(game, placement.task_group))
+    payload = build_daily_statistics(game, placement.task_group)
+    notice = _public_exclusion_notice(
+        request, game, placement.task_group, surface='statistics',
+    )
+    if notice:
+        payload = {**payload, 'exclusion_notice': notice}
+    return JsonResponse(payload)
 
 
 def new_task_group_page(request, game_id, task_group_number):

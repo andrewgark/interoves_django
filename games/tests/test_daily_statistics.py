@@ -1,4 +1,5 @@
 import json
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
@@ -12,9 +13,11 @@ from games.models import (
     Game,
     GameTaskGroup,
     PlayerCompletedGame,
+    Profile,
     Project,
     Task,
     TaskGroup,
+    Team,
 )
 
 
@@ -246,3 +249,57 @@ class DailyStatisticsTests(TestCase):
         )
         data = build_daily_statistics(game, tg)
         self.assertEqual(data['words'][1]['median_time_seconds'], 1.0)
+
+    def test_hidden_profiles_and_task_authors_are_excluded(self):
+        tg, task = self._task('alphabetty')
+        visible = self.users[0]
+        hidden_user = self.users[1]
+        author = self.users[2]
+        Profile.objects.create(user=visible, first_name='Visible', last_name='Player')
+        Profile.objects.create(user=hidden_user, first_name='Hidden', last_name='Player', is_hidden=True)
+        author_profile = Profile.objects.create(user=author, first_name='Author', last_name='Player')
+        tg.authors.add(author_profile)
+        author_team = Team.objects.create(name='author-team')
+        author_profile.add_team_membership(team=author_team, make_primary=True)
+        for user in (visible, hidden_user, author):
+            Attempt.manager.create(
+                user=user, game=self.game, task=task, text='СЛОВО', status='Ok',
+                state=json.dumps({'guesses': ['СЛОВО'], 'won': True}),
+            )
+            self._complete(tg, user)
+        Attempt.manager.create(
+            team=author_team, game=self.game, task=task, text='СЛОВО', status='Ok',
+            state=json.dumps({'guesses': ['СЛОВО'], 'won': True}),
+        )
+        PlayerCompletedGame.objects.create(
+            team=author_team, game=self.game, task_group=tg, game_kind='alphabet',
+            game_instance_id='alphabetty:{}:team'.format(tg.pk),
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        data = build_daily_statistics(self.game, tg)
+        self.assertEqual(data['summary']['solved'], 1)
+        self.assertEqual(data['summary']['median_attempts'], 1)
+
+    @patch('games.club_access.reject_if_club_archive_blocked', return_value=None)
+    @patch('games.views.new_ui.scheduled_number_is_public', return_value=True)
+    def test_results_and_statistics_explain_why_the_viewer_is_omitted(self, _public, _club):
+        tg, task = self._task('alphabetty')
+        author = self.users[0]
+        profile = Profile.objects.create(user=author, first_name='Author', last_name='Player')
+        tg.authors.add(profile)
+        self._complete(tg, author)
+        Attempt.manager.create(
+            user=author, game=self.game, task=task, text='СЛОВО', status='Ok',
+            state=json.dumps({'guesses': ['СЛОВО'], 'won': True}),
+        )
+        self.client.force_login(author)
+        results = self.client.get('/alphabetty/{}/results/'.format(tg.pk))
+        self.assertContains(
+            results, 'Вы не видны в результатах, потому что вы автор этого задания.',
+        )
+        stats = self.client.get('/daily-statistics/alphabetty/{}/'.format(tg.pk))
+        self.assertEqual(stats.status_code, 200)
+        self.assertEqual(
+            stats.json()['exclusion_notice'],
+            'Вы не учтены в статистике, потому что вы автор этого задания.',
+        )
