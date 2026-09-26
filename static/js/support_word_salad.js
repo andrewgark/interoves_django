@@ -321,7 +321,7 @@
         '</div>' +
         '<div class="support-ladder-item__actions">' +
           '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">править</button>' +
-          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + support.escapeHtml(row.preview_url) + '" target="_blank" rel="noopener">сайт</a>' +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + support.escapeHtml(row.site_url || row.preview_url) + '" target="_blank" rel="noopener">сайт</a>' +
           revisionBtn +
           (!row.is_published ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" data-delete="' + row.link_id + '">удалить</button>' : '') +
         '</div>';
@@ -341,7 +341,7 @@
     rareWordsField.value = item.rare_words_text || '';
     uppercaseField(wordsField);
     uppercaseField(rareWordsField);
-    document.getElementById('word-salad-edit-preview').href = item.preview_url || '#';
+    document.getElementById('word-salad-edit-preview').href = item.site_url || item.preview_url || '#';
     var row = rows.find(function (candidate) { return candidate.link_id === item.link_id; });
     document.getElementById('word-salad-edit-delete').hidden = !!(row && row.is_published);
     ensureScheduleGrid(item.grid_text || '');

@@ -79,6 +79,7 @@ class WordSaladRow:
     words_count: int
     author: str
     preview_url: str
+    site_url: str = ''
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -273,12 +274,36 @@ def _grid_preview(grid):
     return ' '.join(grid[:4]) + ' / ' + ' '.join(grid[4:8])
 
 
+def _site_urls_by_task_group(task_group_ids) -> dict[int, str]:
+    """Public /salad/<hash>/ for custom offers, keyed by task group."""
+    from games.models import WordSaladOffer
+
+    ids = [pk for pk in task_group_ids if pk]
+    if not ids:
+        return {}
+    paths = {}
+    offers = (
+        WordSaladOffer.objects.filter(
+            task_group_id__in=ids,
+            kind=WordSaladOffer.KIND_FULL,
+        )
+        .exclude(share_hash='')
+        .only('task_group_id', 'share_hash', 'kind')
+    )
+    for offer in offers:
+        url = offer.play_url()
+        if url and offer.task_group_id not in paths:
+            paths[offer.task_group_id] = url
+    return paths
+
+
 def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
     now = now or timezone.now()
     today = now.astimezone(MOSCOW).date()
     game = Game.objects.filter(pk=WORD_SALAD_GAME_ID).first()
     links = list(_sorted_links())
     tasks_by_group = _tasks_for_links(links)
+    site_urls = _site_urls_by_task_group(link.task_group_id for link in links)
     rows = []
     for link in links:
         try:
@@ -318,6 +343,7 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
                 link.number,
                 _PREVIEW_SPEC,
             ),
+            site_url=site_urls.get(link.task_group_id, ''),
         ))
     return rows
 
@@ -377,6 +403,7 @@ def get_word_salad_detail(link_id: int) -> dict[str, Any]:
         'words_count': len(words),
         'author': str((task.tags or {}).get(AUTHOR_TAG) or ''),
         'preview_url': preview_task_group_url(WORD_SALAD_GAME_ID, link.number, _PREVIEW_SPEC),
+        'site_url': _site_urls_by_task_group([link.task_group_id]).get(link.task_group_id, ''),
     }
 
 

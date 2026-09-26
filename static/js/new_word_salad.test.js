@@ -269,4 +269,8 @@ function escapeEvent(overrides) {
   delete global.interovesAnalytics;
 })();
 
+assert.strictEqual(Path.offerShareFromPath('/salad/41ffddf256ae6df6/'), '41ffddf256ae6df6');
+assert.strictEqual(Path.offerShareFromPath('/salad/76/'), '');
+assert.strictEqual(Path.offerShareFromPath('/ladder/41ffddf256ae6df6'), '41ffddf256ae6df6');
+
 console.log('new_word_salad.test.js: ok');

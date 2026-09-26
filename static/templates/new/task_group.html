@@ -578,6 +578,9 @@
       fd = new FormData(form);
     }
     if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampFormData(fd);
+    if (window.WordSaladPath && typeof window.WordSaladPath.stampOfferShare === 'function') {
+      window.WordSaladPath.stampOfferShare(fd);
+    }
     return fd;
   }
 

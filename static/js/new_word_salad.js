@@ -214,6 +214,17 @@
       .replace(/[^А-ЯA-Z]/g, '');
   }
 
+  function offerShareFromPath(pathname) {
+    var match = String(pathname || '').match(/\/(?:salad|ladder)\/([a-f0-9]{16,32})\/?$/i);
+    return match ? match[1].toLowerCase() : '';
+  }
+
+  function stampOfferShare(body) {
+    if (!body || typeof body.set !== 'function') return;
+    var share = offerShareFromPath(global.location && global.location.pathname);
+    if (share) body.set('offer_share', share);
+  }
+
   function formSubmitUrl(form) {
     // <input name="action"> shadows HTMLFormElement.action with the input node.
     if (!form) return '';
@@ -897,6 +908,7 @@
         if (isPreview || !form || !extraWords.length) return;
         var body = new FormData(form);
         if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
+        stampOfferShare(body);
         body.set('action', 'sync_finds');
         body.set('words', JSON.stringify(extraWords));
         fetch(formSubmitUrl(form), {
@@ -1172,6 +1184,7 @@
 
         var body = new FormData(form);
         if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
+        stampOfferShare(body);
         body.set('path', JSON.stringify(path));
         body.set('correct_only', '1');
         fetch(formSubmitUrl(form), {
@@ -1410,6 +1423,8 @@
     shouldCommitExtra: shouldCommitExtraWord,
     keepSelectionAfterFind: keepSelectionAfterFind,
     hasWordContinuation: hasWordContinuation,
+    offerShareFromPath: offerShareFromPath,
+    stampOfferShare: stampOfferShare,
     feedbackForResult: feedbackForResult,
     flushAnalyticsEvents: flushAnalyticsEvents,
     EXTRA_MIN_LENGTH: EXTRA_MIN_LENGTH,

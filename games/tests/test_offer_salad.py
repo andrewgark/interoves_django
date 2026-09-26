@@ -1,6 +1,7 @@
 """Tests for user salad offers (/create_salad, share hash, accept)."""
 
 import json
+import re
 
 from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
@@ -120,6 +121,92 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertContains(resp, 'offer_draft_autosave.js')
         self.assertContains(resp, 'Редкие слова')
 
+    def test_custom_salad_can_accept_a_word_path(self):
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
+        update_offer_content(
+            offer,
+            theme='Тестовый салатик',
+            grid_text=VALID_GRID,
+            words_text='BCDE\nFGHI\nJKLM\nNOPQ',
+        )
+        client = Client()
+        client.force_login(self.user)
+        page = client.get(offer.play_url())
+        self.assertEqual(page.status_code, 200)
+        html = page.content.decode('utf-8')
+        task_id = re.search(r'data-task-id="(\d+)"', html).group(1)
+        context = re.search(
+            r'name="gameplay_context" value="([^"]+)"', html,
+        ).group(1)
+        response = client.post(
+            '/send_attempt/{}/'.format(task_id),
+            {
+                'gameplay_context': context,
+                'variable': task_id,
+                'game_id': 'salad',
+                'action': 'solve',
+                'path': json.dumps([0, 1, 2, 3]),
+                'correct_only': '1',
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['word_salad_correct'], response.json())
+
+    def test_accepted_future_salad_accepts_attempts_from_share_link(self):
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
+        update_offer_content(
+            offer,
+            theme='Типы музыкальных коллективов',
+            grid_text=VALID_GRID,
+            words_text='BCDE\nFGHI\nJKLM\nNOPQ',
+        )
+        send_offer(offer)
+        accept_offer(offer)
+        offer.refresh_from_db()
+        self.assertIsNotNone(offer.accepted_link_id)
+        client = Client()
+        client.force_login(self.other)
+        page = client.get(offer.play_url())
+        self.assertEqual(page.status_code, 200)
+        html = page.content.decode('utf-8')
+        task_id = re.search(r'data-task-id="(\d+)"', html).group(1)
+        context = re.search(
+            r'name="gameplay_context" value="([^"]+)"', html,
+        ).group(1)
+        payload = {
+            'gameplay_context': context,
+            'variable': task_id,
+            'game_id': 'salad',
+            'action': 'solve',
+            'path': json.dumps([0, 1, 2, 3]),
+            'correct_only': '1',
+        }
+        blocked = client.post(
+            '/send_attempt/{}/'.format(task_id),
+            payload,
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(blocked.status_code, 200)
+        self.assertEqual(blocked.json()['status'], 'not_published')
+        self.assertFalse(Attempt.manager.filter(task_id=task_id).exists())
+
+        forged = dict(payload, offer_share='a' * 16)
+        still_blocked = client.post(
+            '/send_attempt/{}/'.format(task_id),
+            forged,
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(still_blocked.json()['status'], 'not_published')
+
+        allowed = client.post(
+            '/send_attempt/{}/'.format(task_id),
+            dict(payload, offer_share=offer.share_hash),
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(allowed.status_code, 200)
+        self.assertTrue(allowed.json()['word_salad_correct'], allowed.json())
+
     def test_idea_create_send_accept_without_task_or_schedule(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_IDEA)
         self.assertIsNone(offer.task_group_id)
@@ -212,6 +299,11 @@ class WordSaladOfferFlowTests(TestCase):
         task.refresh_from_db()
         self.assertEqual(task.tags.get('author'), 'Анна Автор')
         self.assertEqual(offer.author, 'Анна Автор')
+        from games.support.services.word_salad import get_word_salad_detail, list_word_salad_rows
+        row = next(item for item in list_word_salad_rows() if item.link_id == offer.accepted_link_id)
+        self.assertEqual(row.site_url, offer.play_url())
+        self.assertEqual(get_word_salad_detail(offer.accepted_link_id)['site_url'], offer.play_url())
+        self.assertNotEqual(row.site_url, row.preview_url)
 
     def test_full_send_rejects_placeholder_and_removable_letter(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
