@@ -18,5 +18,12 @@ assert.strictEqual(
   false,
   'a malformed duplicate response must not be treated as confirmed state'
 );
+assert.strictEqual(GuessResponse.isHtmlBody('<!DOCTYPE html><html></html>'), true);
+assert.strictEqual(GuessResponse.isHtmlBody('\n<!doctype html>'), true);
+assert.strictEqual(GuessResponse.isHtmlBody('{"status":"later"}'), false);
+assert.strictEqual(
+  GuessResponse.transportErrorMessage(),
+  'Не удалось проверить слово. Попробуйте ещё раз.'
+);
 
 console.log('alphabetty guess response tests passed');

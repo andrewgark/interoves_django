@@ -968,7 +968,12 @@
         headers: { 'Accept': 'application/json' }
       }).then(function (response) {
         if (!response.ok) throw new Error('HTTP ' + response.status);
-        return response.json();
+        return response.text().then(function (text) {
+          if (window.AlphabettyGuessResponse.isHtmlBody(text)) {
+            throw new Error(window.AlphabettyGuessResponse.transportErrorMessage());
+          }
+          return JSON.parse(text);
+        });
       }).then(function (data) {
         if (!data || data.status === 'error') throw new Error('Состояние игры недоступно');
         applyState(data);
@@ -980,25 +985,42 @@
         showMsg(data.won ? 'Верно!' : '');
       });
     }
-    fetch(guessUrl, {
-      method: 'POST',
-      headers: headers,
-      credentials: 'same-origin',
-      body: JSON.stringify({ word: word, anon_key: anonKey })
-    })
-      .then(function (r) {
+    function postGuess() {
+      return fetch(guessUrl, {
+        method: 'POST',
+        headers: headers,
+        credentials: 'same-origin',
+        body: JSON.stringify({ word: word, anon_key: anonKey })
+      }).then(function (r) {
         return r.text().then(function (text) {
+          if (window.AlphabettyGuessResponse.isHtmlBody(text)) {
+            var htmlErr = new Error(window.AlphabettyGuessResponse.transportErrorMessage());
+            htmlErr.htmlBody = true;
+            htmlErr.response = r;
+            throw htmlErr;
+          }
           var data;
           try {
             data = JSON.parse(text);
           } catch (error) {
-            error.response = r;
-            throw error;
+            var parseErr = new Error(window.AlphabettyGuessResponse.transportErrorMessage());
+            parseErr.htmlBody = true;
+            parseErr.response = r;
+            throw parseErr;
           }
           if (handleGameplayContextResponse(r, data)) return data;
           if (!r.ok && data && data.status === 'error') throw new Error(data.error || 'Ошибка');
           return data;
         });
+      });
+    }
+    postGuess()
+      .catch(function (error) {
+        // A proxy or load balancer can answer the first POST with an HTML
+        // error page. One retry still lands on the duplicate-recovery path
+        // if the first request was actually saved.
+        if (error && error.htmlBody) return postGuess();
+        throw error;
       })
       .then(function (data) {
         flushAnalyticsEvents(data);
@@ -1060,7 +1082,11 @@
       body: JSON.stringify({ anon_key: anonKey })
     })
       .then(function (r) {
-        return r.json().then(function (data) {
+        return r.text().then(function (text) {
+          if (window.AlphabettyGuessResponse.isHtmlBody(text)) {
+            throw new Error('Не удалось получить подсказку. Попробуйте ещё раз.');
+          }
+          var data = JSON.parse(text);
           if (handleGameplayContextResponse(r, data)) return data;
           if (!r.ok && data && data.status === 'error') throw new Error(data.error || 'Ошибка');
           return data;

@@ -16,8 +16,18 @@
     );
   }
 
+  function isHtmlBody(text) {
+    return /^\s*</.test(String(text || ''));
+  }
+
+  function transportErrorMessage() {
+    return 'Не удалось проверить слово. Попробуйте ещё раз.';
+  }
+
   var api = {
     shouldRecoverDuplicate: shouldRecoverDuplicate,
+    isHtmlBody: isHtmlBody,
+    transportErrorMessage: transportErrorMessage,
   };
 
   global.AlphabettyGuessResponse = api;
