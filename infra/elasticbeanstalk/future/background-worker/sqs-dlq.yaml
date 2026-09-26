@@ -1,0 +1,32 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Background SQS queue and DLQ. Visibility 90s from the 26 Sep 2026 difficulty tick sample.
+Parameters:
+  NamePrefix:
+    Type: String
+    Default: interoves-background
+  VisibilityTimeout:
+    Type: Number
+    Default: 90
+    Description: Seconds. Raised only after a new p99 measurement.
+Resources:
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${NamePrefix}-dlq'
+      MessageRetentionPeriod: 1209600
+  Queue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref NamePrefix
+      VisibilityTimeout: !Ref VisibilityTimeout
+      MessageRetentionPeriod: 1209600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: 3
+Outputs:
+  QueueUrl:
+    Value: !Ref Queue
+  QueueArn:
+    Value: !GetAtt Queue.Arn
+  DeadLetterQueueArn:
+    Value: !GetAtt DeadLetterQueue.Arn

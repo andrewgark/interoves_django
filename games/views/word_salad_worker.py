@@ -12,8 +12,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from games.models import WordSaladRecheckItem
-from games.runtime import runtime_role
+from games.runtime import RUNTIME_ROLE_WORKER, runtime_role
 from games.word_salad_recheck import process_word_salad_recheck_item
+from games.worker_http import is_sqsd_delivery
 
 logger = logging.getLogger('application')
 MAX_SIGNATURE_AGE = 300
@@ -63,13 +64,7 @@ def _authorized_delivery(request, body):
     """
     if _valid_signature(request, body):
         return True
-    if os.environ.get('INTEROVES_RUNTIME_ROLE', '').strip().lower() != 'worker':
-        return False
-    user_agent = request.headers.get('User-Agent', '')
-    return bool(
-        request.headers.get('X-Aws-Sqsd-Msgid', '').strip()
-        and user_agent.lower().startswith('aws-sqsd')
-    )
+    return is_sqsd_delivery(request, role=RUNTIME_ROLE_WORKER)
 
 
 @csrf_exempt

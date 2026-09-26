@@ -1,5 +1,6 @@
 #!/bin/bash
-# Minute cron on Elastic Beanstalk: refresh due daily-game difficulty snapshots.
+# Hourly health-check entry on Elastic Beanstalk.
+# The minute refresh is EventBridge schedule interoves-difficulty-refresh.
 # Canonical install path on EB: /opt/interoves/difficulty_cron.sh
 # (content is embedded in .ebextensions/difficulty_cron.config — keep in sync).
 # flock only prevents two processes on the same instance; correctness is the DB claim.

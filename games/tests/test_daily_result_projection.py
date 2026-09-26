@@ -1,4 +1,5 @@
 import json
+import os
 from decimal import Decimal
 
 from django.test import TestCase
@@ -202,6 +203,45 @@ class DailyResultProjectionTests(TestCase):
             except RuntimeError:
                 pass
         self.assertFalse(DailyResultProjection.objects.exists())
+
+    @patch.dict(os.environ, {
+        'PROJECTION_REFRESH_EVENTS': '1',
+        'PROJECTION_REFRESH_SQS_QUEUE_URL': 'https://example/interoves-background',
+    })
+    @patch('games.projection_events.boto3.client')
+    def test_actor_event_publishes_the_release_and_worker_refreshes_it(self, client):
+        from games.projection_events import run_named_projection_refresh
+
+        send = client.return_value.send_message
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            with transaction.atomic():
+                Attempt.manager.create(
+                    task=task, game=self.game, anon_key='event-hook',
+                    text='answer', status='Ok', points=7,
+                )
+                schedule_actor_projection(self.game, self.group, anon_key='event-hook')
+            with transaction.atomic():
+                schedule_actor_projection(self.game, self.group, anon_key='event-hook')
+        self.assertEqual(send.call_count, 1)
+        body = json.loads(send.call_args.kwargs['MessageBody'])
+        self.assertEqual(body['type'], 'projection.refresh')
+        self.assertEqual(body['payload'], {
+            'game_id': self.game.pk,
+            'task_group_id': self.group.pk,
+            'mode': 'actor',
+        })
+        self.assertNotIn('event-hook', send.call_args.kwargs['MessageBody'])
+        self.assertFalse(DailyResultProjection.objects.exists())
+
+        status = run_named_projection_refresh(
+            game_id=self.game.pk, task_group_id=self.group.pk, mode='actor',
+        )
+        self.assertEqual(status, 'ok')
+        self.assertEqual(DailyResultProjection.objects.get().score, Decimal('7'))
 
     def test_actor_projection_skips_unlinked_group_without_breaking_commit(self):
         game = Game.objects.create(

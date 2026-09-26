@@ -5,6 +5,17 @@ if [[ "${INTEROVES_RUNTIME_ROLE:-}" != "worker" ]]; then
   exit 0
 fi
 
+DISPATCHER_ENABLED="${WORD_SALAD_DISPATCHER_ENABLED:-false}"
+case "${DISPATCHER_ENABLED,,}" in
+  true|1|yes|on) ;;
+  *)
+    # Safe default: a newly provisioned Worker must not publish DB outbox work
+    # until migrations and reconciliation have been explicitly completed.
+    systemctl disable --now interoves-word-salad-dispatcher.service 2>/dev/null || true
+    exit 0
+    ;;
+esac
+
 cat >/usr/local/bin/interoves-word-salad-dispatcher <<'RUNNER'
 #!/usr/bin/env bash
 set -euo pipefail

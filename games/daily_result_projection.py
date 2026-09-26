@@ -279,6 +279,16 @@ def schedule_actor_projection(
     revision = mark_projection_dirty(game, task_group, actor=True)
     if revision is None:
         return
+    from games.projection_events import events_enabled, publish_projection_refresh
+
+    if events_enabled():
+        transaction.on_commit(
+            lambda game_id=game.pk, group_id=task_group.pk, filt=actor_filter, rev=revision:
+            publish_projection_refresh(
+                game_id, group_id, mode='actor', actor_filter=filt, revision=rev,
+            )
+        )
+        return
     transaction.on_commit(
         lambda game_id=game.pk, group_id=task_group.pk, filt=actor_filter, rev=revision:
         _refresh_actor_by_ids(game_id, group_id, filt, expected_revision=rev)
@@ -295,6 +305,14 @@ def schedule_full_projection_refresh(game, task_group):
     revision = mark_projection_dirty(game, task_group, full=True)
     if revision is None:
         return None
+    from games.projection_events import events_enabled, publish_projection_refresh
+
+    if events_enabled():
+        transaction.on_commit(
+            lambda game_id=game.pk, group_id=task_group.pk:
+            publish_projection_refresh(game_id, group_id, mode='full')
+        )
+        return revision
 
     def run(game_id=game.pk, group_id=task_group.pk):
         from games.models import Game, TaskGroup

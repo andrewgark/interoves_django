@@ -1,7 +1,12 @@
 from django.core.management.base import BaseCommand
 
 from games.difficulty import DUE_REFRESH_LIMIT, SUPPORTED_GAME_IDS
-from games.difficulty_refresh import refresh_due_daily_difficulties, run_daily_difficulty_refresh
+from games.difficulty_refresh import (
+    DIFFICULTY_REFRESH_LOCK,
+    DIFFICULTY_REFRESH_LOCK_TTL_SECONDS,
+    refresh_due_daily_difficulties,
+    run_daily_difficulty_refresh,
+)
 from games.cron_lock import distributed_cron_lock
 
 
@@ -39,7 +44,10 @@ class Command(BaseCommand):
         # A batch may contain several expensive aggregates.  Keep the
         # cross-instance lease longer than the normal minute tick so the
         # hourly recovery command cannot start a second worker mid-batch.
-        with distributed_cron_lock('daily_difficulty_refresh', ttl_seconds=600) as acquired:
+        with distributed_cron_lock(
+            DIFFICULTY_REFRESH_LOCK,
+            ttl_seconds=DIFFICULTY_REFRESH_LOCK_TTL_SECONDS,
+        ) as acquired:
             if not acquired:
                 self.stdout.write('daily difficulty cron skipped: lock held')
                 return

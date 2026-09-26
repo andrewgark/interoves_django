@@ -154,6 +154,7 @@ def dashboard_context():
         age = (now - row.updated_at).total_seconds() if row else None
         stale_after = {
             'daily_difficulty_health_check': 2 * 60 * 60,
+            'daily_result_projection_reconcile': 30 * 60,
             'instagram_refresh_token': 2 * 24 * 60 * 60,
         }.get(name, 10 * 60)
         health = 'unknown' if row is None else (

@@ -12,6 +12,7 @@ from games.anonymous_merge import (
     process_merge_job,
     retry_merge_job,
     run_anonymous_merge_queue,
+    run_named_merge_job,
 )
 from games.models import (
     AnonymousMergeJob,
@@ -220,3 +221,77 @@ class AnonymousMergeQueueTests(TestCase):
         AnonymousMergeReconcileItem.objects.create(job=job, game=self.game, task_group=self.groups[0])
         with self.assertRaises(Exception):
             AnonymousMergeReconcileItem.objects.create(job=job, game=self.game, task_group=self.groups[0])
+
+    def test_named_runner_does_not_steal_a_live_lease(self):
+        key = self._key('named-lease')
+        Attempt.manager.create(anon_key=key, task=self.tasks[0], game=self.game, text='x', status='Wrong')
+        job = self._enqueue(key)
+        claimed = claim_next_merge_job(worker='cron')
+        self.assertIsNotNone(claimed)
+        attempts = AnonymousMergeJob.objects.get(pk=job.pk).attempt_count
+
+        result = run_named_merge_job(str(job.pk), worker='identity')
+
+        self.assertEqual(result['status'], 'skipped_locked')
+        self.assertEqual(AnonymousMergeJob.objects.get(pk=job.pk).attempt_count, attempts)
+
+    def test_cron_skips_a_job_already_sent_to_sqs(self):
+        from games.anonymous_merge_events import mark_merge_event
+        key = self._key('event-owned')
+        Attempt.manager.create(anon_key=key, task=self.tasks[0], game=self.game, text='x', status='Wrong')
+        job = self._enqueue(key)
+        mark_merge_event(job.pk)
+        self.assertIsNone(claim_next_merge_job(worker='cron'))
+        self.assertEqual(AnonymousMergeJob.objects.get(pk=job.pk).status, AnonymousMergeJob.STATUS_PENDING)
+
+    def test_enqueue_schedules_an_event_after_commit(self):
+        from games.anonymous_merge_events import publish_anonymous_merge_event
+        key = self._key('event-schedule')
+        Attempt.manager.create(anon_key=key, task=self.tasks[0], game=self.game, text='x', status='Wrong')
+        with patch(
+            'games.anonymous_merge_events.publish_anonymous_merge_event',
+            wraps=publish_anonymous_merge_event,
+        ) as publish, self.captureOnCommitCallbacks(execute=True), patch.dict(
+            'os.environ', {'ANONYMOUS_MERGE_EVENTS': '1', 'ANONYMOUS_MERGE_SQS_QUEUE_URL': ''}, clear=False,
+        ):
+            job = self._enqueue(key)
+        publish.assert_called_once_with(job.pk)
+
+    def test_unknown_named_job_is_missing(self):
+        result = run_named_merge_job('22222222-2222-2222-2222-222222222222', worker='identity')
+        self.assertEqual(result['status'], 'missing')
+
+    def test_reconcile_publishes_only_unmarked_due_jobs(self):
+        from games.anonymous_merge import publish_unmarked_due_merge_jobs
+        from games.anonymous_merge_events import mark_merge_event
+        Attempt.manager.create(anon_key='finder-leased', task=self.tasks[0], game=self.game, text='x', status='Wrong')
+        leased = self._enqueue('finder-leased')
+        self.assertIsNotNone(claim_next_merge_job(worker='cron'))
+        Attempt.manager.create(anon_key='finder-owned', task=self.tasks[0], game=self.game, text='x', status='Wrong')
+        owned = self._enqueue('finder-owned')
+        mark_merge_event(owned.pk)
+        Attempt.manager.create(anon_key='finder-due', task=self.tasks[0], game=self.game, text='x', status='Wrong')
+        due = self._enqueue('finder-due')
+        with patch(
+            'games.anonymous_merge_events.publish_anonymous_merge_event',
+            return_value=True,
+        ) as publish:
+            published = publish_unmarked_due_merge_jobs(limit=5)
+        self.assertEqual(published, 1)
+        publish.assert_called_once_with(due.pk)
+        self.assertEqual(AnonymousMergeJob.objects.get(pk=leased.pk).status, AnonymousMergeJob.STATUS_RUNNING)
+
+    def test_cron_releases_the_lease_when_events_chain(self):
+        key = self._key('cron-handoff')
+        Attempt.manager.create(anon_key=key, task=self.tasks[0], game=self.game, text='x', status='Wrong')
+        job = self._enqueue(key)
+        with patch('games.anonymous_merge.process_merge_job'), patch(
+            'games.anonymous_merge._continue_named_merge_job',
+        ) as chain, patch.dict('os.environ', {'ANONYMOUS_MERGE_EVENTS': '1'}, clear=False):
+            processed = run_anonymous_merge_queue(limit=1, worker='cron')
+        self.assertEqual(processed, 1)
+        job.refresh_from_db()
+        self.assertEqual(job.status, AnonymousMergeJob.STATUS_PENDING)
+        self.assertIsNone(job.claim_token)
+        self.assertIsNone(job.claimed_until)
+        chain.assert_called_once()

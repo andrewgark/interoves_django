@@ -1,2 +1,2 @@
-# The future web bundle must not include this EB config file.
-.ebextensions/word_salad_recheck_cron.config
+# Word Salad minute cron is no longer in the repo.
+# Do not add .ebextensions/word_salad_recheck_cron.config back to a web bundle.

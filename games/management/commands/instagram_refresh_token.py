@@ -12,13 +12,9 @@ Behaviour:
 - --force refreshes regardless of age.
 """
 
-from django.conf import settings
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 
-from games.instagram.api import refresh_and_persist
-from games.instagram.models import InstagramToken
-from games.cron_lock import distributed_cron_lock
+from games.instagram.refresh import run_instagram_token_refresh
 
 
 class Command(BaseCommand):
@@ -38,45 +34,35 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        with distributed_cron_lock('instagram_refresh_token', ttl_seconds=300) as acquired:
-            if not acquired:
-                self.stdout.write('Instagram refresh skipped: lock held')
-                return
-            return self._handle_locked(options)
-
-    def _handle_locked(self, options):
-        row = InstagramToken.get()
-
-        if row is None:
-            seed = (getattr(settings, 'INSTAGRAM_ACCESS_TOKEN', '') or '').strip()
-            if not seed:
-                self.stderr.write(
-                    'No DB token and INSTAGRAM_ACCESS_TOKEN is unset; nothing to seed.'
-                )
-                return
-            InstagramToken.objects.create(access_token=seed)
+        result = run_instagram_token_refresh(
+            force=options['force'],
+            max_age_days=options['max_age_days'],
+        )
+        if result is None:
+            self.stdout.write('Instagram refresh skipped: lock held')
+            return
+        action = result.get('action')
+        if action == 'missing_seed':
+            self.stderr.write(
+                'No DB token and INSTAGRAM_ACCESS_TOKEN is unset; nothing to seed.'
+            )
+            return
+        if action == 'seeded':
             self.stdout.write('Seeded Instagram token in DB from INSTAGRAM_ACCESS_TOKEN.')
-            if not options['force']:
-                return
-            row = InstagramToken.get()
-
-        age_days = (timezone.now() - row.refreshed_at).days
-        if not options['force'] and age_days < options['max_age_days']:
+            return
+        if action == 'skipped':
             self.stdout.write(
                 'Token refreshed {}d ago (< {}d); skipping.'.format(
-                    age_days, options['max_age_days']
+                    result['age_days'], result['max_age_days'],
                 )
             )
             return
-
-        try:
-            payload = refresh_and_persist()
-        except RuntimeError as exc:
-            self.stderr.write('Instagram token refresh failed: {}'.format(exc))
+        if action == 'failed':
+            self.stderr.write('Instagram token refresh failed.')
             return
-
-        expires_in = payload.get('expires_in')
-        days = round(int(expires_in) / 86400) if expires_in else '?'
+        days = result.get('expires_days')
+        if days is None:
+            days = '?'
         self.stdout.write(
             self.style.SUCCESS('Instagram token refreshed; valid ~{} more days.'.format(days))
         )

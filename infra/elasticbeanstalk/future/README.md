@@ -29,12 +29,14 @@ accepts native sqsd only on the worker runtime and requires its sqsd message-id
 and user-agent; private networking/security groups remain mandatory.  The
 HMAC path is retained for a signed reverse proxy or other future transport.
 
-The current Word Salad cron file must be excluded from the web bundle. The
-runtime guard is defense-in-depth, not the primary isolation mechanism.
-The same file must be excluded from the worker bundle: the worker is driven by
-sqsd plus the supervised dispatcher, not by the legacy minute cron.  The exact
-exclusions are listed in `web/excluded-bundle-files.txt` and
-`worker/excluded-bundle-files.txt`.
+`.ebextensions/word_salad_recheck_cron.config` has been removed. Do not add it
+back. The recheck worker is driven by sqsd plus the supervised dispatcher.
+Empty Interoves cron configs and `zz_cron_stagger.config` are gone. The
+postdeploy hook removes leftover `/etc/cron.d/interoves-*` files on web.
+
+`background-worker/` is the Phase 1 difficulty.refresh template. It is not
+applied by the current deploy. Timeouts stay unmeasured until a production
+tick is timed.
 
 Apply only after the compatibility worker, outbox reconciliation, IAM, private
 networking and failure tests are approved separately.

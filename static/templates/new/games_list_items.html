@@ -1,7 +1,7 @@
 {% load filters tz %}
 {% for game in games %}
   {% with team=games_card_team %}
-  <div class="new-game-card" data-game-list-index="{{ forloop.counter0|add:game_list_offset }}">
+  <div class="new-game-card" data-game-id="{{ game.id }}" data-game-list-index="{{ forloop.counter0|add:game_list_offset }}">
     <div class="new-game-card__left">
       <div class="new-game-card__time">
         {% timezone user_timezone %}

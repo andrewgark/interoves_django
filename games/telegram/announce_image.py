@@ -49,10 +49,20 @@ def games_list_url(game) -> str:
     return admin_url('/games/')
 
 
+def announce_screenshot_url(game) -> str:
+    """Page that renders this game's list card by itself, before the game starts."""
+    return game_site_url(game)
+
+
 def _card_selector(game) -> str:
-    # Card contains links like /games/<id>/ or /proj/games/<id>/.
+    # Upcoming cards often have no «Играть» link, only a login button, so the
+    # play-path :has() selector misses them on /games/. The announce page has
+    # the one card. data-game-id covers the list once the template ships it.
+    game_id = str(getattr(game, 'id', '') or '').replace('\\', '\\\\').replace('"', '\\"')
     path = game_play_path(game).rstrip('/')
-    return '.new-game-card:has(a[href*="{}"])'.format(path)
+    return '.new-game-card[data-game-id="{}"], .new-game-card:has(a[href*="{}"])'.format(
+        game_id, path,
+    )
 
 
 def _find_game_card(page, game, *, max_pages: int = 30):
@@ -100,7 +110,8 @@ def _find_game_card(page, game, *, max_pages: int = 30):
 
 def screenshot_game_announce_png(game, *, url: str | None = None, viewport_width: int = 900) -> bytes:
     """
-    Headless Chromium screenshot of the game's `.new-game-card` on the games list.
+    Headless Chromium screenshot of the game's `.new-game-card`.
+    Opens the game announce page, where that card is rendered alone.
     Adds a 20px white frame.
     """
     from playwright.sync_api import sync_playwright
@@ -108,7 +119,7 @@ def screenshot_game_announce_png(game, *, url: str | None = None, viewport_width
     from games.telegram.ladder_image import _ensure_playwright_browsers_path
 
     _ensure_playwright_browsers_path()
-    target = url or games_list_url(game)
+    target = url or announce_screenshot_url(game)
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         try:
@@ -124,7 +135,11 @@ def screenshot_game_announce_png(game, *, url: str | None = None, viewport_width
             page.add_style_tag(content=_SCREENSHOT_HIDE_CSS)
             page.wait_for_timeout(150)
 
-            card = _find_game_card(page, game)
+            card = page.locator('.new-games-list .new-game-card').first
+            if card.count() == 0:
+                page.goto(games_list_url(game), wait_until='networkidle', timeout=60000)
+                page.add_style_tag(content=_SCREENSHOT_HIDE_CSS)
+                card = _find_game_card(page, game)
             if card is None or card.count() == 0:
                 raise RuntimeError(
                     'Game card not found on {} for game {}'.format(target, game.id),

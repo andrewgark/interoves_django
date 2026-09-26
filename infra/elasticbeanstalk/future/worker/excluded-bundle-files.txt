@@ -1,2 +1,2 @@
-# The future worker bundle must not include the legacy minute cron either.
-.ebextensions/word_salad_recheck_cron.config
+# Word Salad minute cron is no longer in the repo.
+# The recheck worker is driven by sqsd and the outbox dispatcher.

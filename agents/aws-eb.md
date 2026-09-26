@@ -272,6 +272,23 @@ aws elasticbeanstalk update-environment --region eu-central-1 \
   --version-label app-XXXX-YYYYY
 ```
 
+## Emergency DNS rollback Green → Blue
+
+Blue (`interoves-env`) stays up as the rollback target. Its minute difficulty and telegram cron lines are not durable: CloudFormation metadata still contains the active lines, and `99_stagger_interoves_cron` rewrites them whenever those files are applied. The Word Salad cron ebextension is no longer in the bundle; the stagger command deletes `/etc/cron.d/interoves-word-salad-recheck` on deploy so a `CUTOVER HOLD` file cannot be revived.
+
+Before an emergency DNS rollback, unless Green is down hard enough that waiting would extend the outage:
+
+1. Read the current Blue ASG membership.
+2. Verify every current target is healthy.
+3. Verify the Word Salad minute line is `# CUTOVER HOLD:`.
+4. Verify the difficulty minute line is `# CUTOVER HOLD:` (leave the hourly `--health-check` line).
+5. Verify the telegram minute line is `# CUTOVER HOLD:`.
+6. If either difficulty or telegram was rewritten, reapply that exact hold from `/var/backups/interoves-cutover-background/` and comment only that line.
+7. Verify `word_salad_recheck_cron.sh`, `difficulty_cron.sh`, and `telegram_cron.sh` are not running.
+8. Only then point Cloudflare apex and www back at `interoves-dev.eu-central-1.elasticbeanstalk.com`.
+
+If Green is unavailable and traffic cannot wait, switch DNS first and enforce the same holds immediately. Record that as a degraded rollback. Do not turn the paused Blue jobs back on just because HTTP returned to Blue. Keep `interoves-word-salad-reconcile.timer` active until Blue is retired or Blue creates Word Salad outbox rows itself.
+
 ## Useful log paths on the instance
 
 | Path | Contents |

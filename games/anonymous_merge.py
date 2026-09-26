@@ -128,6 +128,8 @@ def enqueue_anonymous_merge(user, anon_key):
         job.last_error = ''
         job.save(update_fields=['status', 'next_attempt_at', 'last_error', 'updated_at'])
         _reset_unfinished_reconcile_items(job)
+    from games.anonymous_merge_events import schedule_anonymous_merge_event
+    schedule_anonymous_merge_event(job.pk)
     return job, 'ok'
 
 
@@ -158,6 +160,8 @@ def retry_merge_job(user, job_id):
         'claim_token', 'claimed_until', 'updated_at',
     ])
     _reset_unfinished_reconcile_items(job)
+    from games.anonymous_merge_events import schedule_anonymous_merge_event
+    schedule_anonymous_merge_event(job.pk)
     return job
 
 
@@ -187,7 +191,9 @@ def claim_next_merge_job(*, now=None, worker='cron'):
         now,
     ).order_by('created_at')
     with transaction.atomic():
-        job = _lock_queryset(due).first()
+        candidates = list(_lock_queryset(due)[:20])
+        from games.anonymous_merge_events import merge_event_owned
+        job = next((candidate for candidate in candidates if not merge_event_owned(candidate.pk)), None)
         if job is None:
             return None
         token = uuid.uuid4()
@@ -206,6 +212,55 @@ def claim_next_merge_job(*, now=None, worker='cron'):
         job.id, worker, socket.gethostname(), job.stage, job.attempt_count,
     )
     return job, token
+
+
+def publish_unmarked_due_merge_jobs(*, limit=5, now=None):
+    """Send anonymous.merge for due jobs that cron has not been told to skip.
+
+    Does not claim a row. A live lease stays with whoever holds it.
+    """
+    from games.anonymous_merge_events import merge_event_owned, publish_anonymous_merge_event
+
+    now = now or timezone.now()
+    published = 0
+    due = _due_query(
+        AnonymousMergeJob.objects.filter(
+            Q(status=AnonymousMergeJob.STATUS_PENDING)
+            | Q(status=AnonymousMergeJob.STATUS_RUNNING, claimed_until__lte=now),
+        ),
+        now,
+    ).order_by('created_at')[:50]
+    for job in due:
+        if published >= limit:
+            break
+        if merge_event_owned(job.pk):
+            continue
+        if publish_anonymous_merge_event(job.pk):
+            published += 1
+    return published
+
+
+def _release_for_event_chain(job, token):
+    """Drop the lease after one batch so the follow-up message can claim it."""
+    from games.anonymous_merge_events import events_enabled, mark_merge_event
+
+    job.refresh_from_db()
+    if not events_enabled():
+        return job
+    if job.status in (
+        AnonymousMergeJob.STATUS_COMPLETED,
+        AnonymousMergeJob.STATUS_FAILED,
+    ):
+        return job
+    mark_merge_event(job.pk)
+    released = AnonymousMergeJob.objects.filter(pk=job.pk, claim_token=token).update(
+        status=AnonymousMergeJob.STATUS_PENDING,
+        claim_token=None,
+        claimed_until=None,
+    )
+    if released:
+        job.refresh_from_db()
+    return job
 
 
 def _renew_job(job, token):
@@ -435,6 +490,75 @@ def process_merge_job(job, token, *, max_operations=JOB_BATCH_SIZE):
         _record_job_failure(job, token, exc)
 
 
+def run_named_merge_job(job_id, *, worker='identity'):
+    """Advance one job by id. Does not scan the queue or steal a live lease.
+
+    Domain backoff stays on the row. A message for a job that is waiting,
+    finished, or already leased is acknowledged without another claim.
+    """
+    now = timezone.now()
+    try:
+        parsed_id = uuid.UUID(str(job_id))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise ValueError('invalid job_id') from exc
+    with transaction.atomic():
+        job = AnonymousMergeJob.objects.select_for_update().filter(pk=parsed_id).first()
+        if job is None:
+            return {'status': 'missing'}
+        if job.status == AnonymousMergeJob.STATUS_COMPLETED:
+            return {'status': 'completed'}
+        if job.status == AnonymousMergeJob.STATUS_FAILED:
+            return {'status': 'failed'}
+        if (
+            job.status == AnonymousMergeJob.STATUS_RUNNING
+            and job.claimed_until
+            and job.claimed_until > now
+        ):
+            return {'status': 'skipped_locked'}
+        if job.next_attempt_at and job.next_attempt_at > now:
+            _continue_named_merge_job(job)
+            return {'status': 'skipped_waiting'}
+        if job.status not in (
+            AnonymousMergeJob.STATUS_PENDING,
+            AnonymousMergeJob.STATUS_RUNNING,
+        ):
+            return {'status': 'skipped'}
+        token = uuid.uuid4()
+        job.status = AnonymousMergeJob.STATUS_RUNNING
+        job.claim_token = token
+        job.claimed_until = now + MERGE_LEASE
+        job.attempt_count += 1
+        job.started_at = job.started_at or now
+        job.next_attempt_at = None
+        job.save(update_fields=[
+            'status', 'claim_token', 'claimed_until', 'attempt_count',
+            'started_at', 'next_attempt_at', 'updated_at',
+        ])
+    logger.info(
+        'anonymous merge claimed job=%s worker=%s host=%s stage=%s attempt=%s',
+        job.id, worker, socket.gethostname(), job.stage, job.attempt_count,
+    )
+    process_merge_job(job, token)
+    job = _release_for_event_chain(job, token)
+    _continue_named_merge_job(job)
+    return {'status': 'ok', 'job_status': job.status, 'stage': job.stage}
+
+
+def _continue_named_merge_job(job):
+    from games.anonymous_merge_events import events_enabled, publish_anonymous_merge_event
+    if not events_enabled():
+        return
+    if job.status in (
+        AnonymousMergeJob.STATUS_COMPLETED,
+        AnonymousMergeJob.STATUS_FAILED,
+    ):
+        return
+    delay = 0
+    if job.next_attempt_at and job.next_attempt_at > timezone.now():
+        delay = int((job.next_attempt_at - timezone.now()).total_seconds())
+    publish_anonymous_merge_event(job.pk, delay_seconds=delay)
+
+
 def run_anonymous_merge_queue(*, limit=1, worker='cron'):
     processed = 0
     for _ in range(max(0, int(limit))):
@@ -443,5 +567,7 @@ def run_anonymous_merge_queue(*, limit=1, worker='cron'):
             break
         job, token = claimed
         process_merge_job(job, token)
+        job = _release_for_event_chain(job, token)
+        _continue_named_merge_job(job)
         processed += 1
     return processed

@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
+import json
 import os
 import requests
 import sys
@@ -49,6 +50,7 @@ def _get_site_deploy_version() -> str:
     1. SITE_DEPLOY_VERSION env (override on EB or CI).
     2. interoves_django/deploy_version.txt — write before packaging (see scripts/write_deploy_version.sh).
     3. git rev-parse --short HEAD when .git is present (local dev).
+    4. Elastic Beanstalk VersionLabel from app_version_manifest.json.
     """
     v = (os.environ.get('SITE_DEPLOY_VERSION') or '').strip()
     if v:
@@ -73,7 +75,19 @@ def _get_site_deploy_version() -> str:
             return sha
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         pass
-    return ''
+    return _eb_version_label()
+
+
+def _eb_version_label(path: str = '/opt/elasticbeanstalk/deployment/app_version_manifest.json') -> str:
+    """EB application version label. Present on instances even when the git SHA file was not packaged."""
+    try:
+        with open(path, encoding='utf-8') as handle:
+            payload = json.load(handle)
+    except (OSError, ValueError):
+        return ''
+    if not isinstance(payload, dict):
+        return ''
+    return str(payload.get('VersionLabel') or '').strip()
 
 
 SITE_DEPLOY_VERSION = _get_site_deploy_version()

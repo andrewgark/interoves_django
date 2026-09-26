@@ -59,6 +59,32 @@
         "logs:FilterLogEvents"
       ],
       "Resource": "arn:aws:logs:eu-central-1:916000456640:log-group:/aws/elasticbeanstalk/*:*"
+    },
+    {
+      "Sid": "SSMSendCommandWorkerDocument",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ssm:eu-central-1::document/AWS-RunShellScript"
+    },
+    {
+      "Sid": "SSMSendCommandWorkerNodes",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ec2:eu-central-1:916000456640:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "ssm:resourceTag/elasticbeanstalk:environment-name": "interoves-word-salad-worker"
+        }
+      }
+    },
+    {
+      "Sid": "SQSGetQueueAttributes",
+      "Effect": "Allow",
+      "Action": "sqs:GetQueueAttributes",
+      "Resource": [
+        "arn:aws:sqs:eu-central-1:916000456640:interoves-word-salad",
+        "arn:aws:sqs:eu-central-1:916000456640:interoves-word-salad-dlq"
+      ]
     }
   ]
 }

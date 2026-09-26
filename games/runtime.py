@@ -3,6 +3,9 @@ import os
 
 RUNTIME_ROLE_WEB = 'web'
 RUNTIME_ROLE_WORKER = 'worker'
+RUNTIME_ROLE_BACKGROUND = 'background-worker'
+RUNTIME_ROLE_INTEGRATION = 'integration-worker'
+RUNTIME_ROLE_IDENTITY = 'identity-worker'
 
 
 def runtime_role():

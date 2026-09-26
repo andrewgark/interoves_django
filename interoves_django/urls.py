@@ -23,6 +23,9 @@ from django.views.generic import RedirectView, TemplateView
 from microsites import views as microsites_views
 from games.views.meta_http import deploy_version
 from games.views.health import live as health_live
+from games.views.background_worker import background_worker
+from games.views.identity_worker import identity_worker
+from games.views.integrations_worker import integrations_worker
 from games.views.word_salad_worker import word_salad_worker
 from games.views.analytics_views import analytics_goal_ack
 from games.views.ticket import nowpayments_ipn, tribute_webhook, yookassa_webhook
@@ -120,6 +123,9 @@ urlpatterns = [
     path('health/live/', health_live, name='health_live'),
     path('health/', include('health_check.urls')),
     path('internal/worker/word-salad-recheck/', word_salad_worker, name='word_salad_worker'),
+    path('internal/worker/background/', background_worker, name='background_worker'),
+    path('internal/worker/integrations/', integrations_worker, name='integrations_worker'),
+    path('internal/worker/identity/', identity_worker, name='identity_worker'),
     path('meta/deploy-version/', deploy_version, name='deploy_version'),
     path('analytics/goals/ack/', analytics_goal_ack, name='analytics_goal_ack'),
 

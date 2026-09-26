@@ -51,6 +51,10 @@ def _should_consider_game(game: Game, now) -> bool:
 
 def _try_mark(game: Game, kind: str) -> bool:
     """Claim the announcement slot. Returns True if this caller should send."""
+    from games.telegram.shadow import telegram_shadow_active
+
+    if telegram_shadow_active():
+        return not TelegramGameAnnouncement.objects.filter(game=game, kind=kind).exists()
     with transaction.atomic():
         _, created = TelegramGameAnnouncement.objects.get_or_create(game=game, kind=kind)
         return created
@@ -58,6 +62,10 @@ def _try_mark(game: Game, kind: str) -> bool:
 
 def _unmark(game: Game, kind: str) -> None:
     """Release a failed delivery so the next cron tick can retry it."""
+    from games.telegram.shadow import telegram_shadow_active
+
+    if telegram_shadow_active():
+        return
     TelegramGameAnnouncement.objects.filter(game=game, kind=kind).delete()
 
 
@@ -67,6 +75,11 @@ def _mark_and_send_text(game: Game, kind: str) -> bool:
         return False
     if not _try_mark(game, kind):
         return False
+    from games.telegram.shadow import telegram_shadow_active
+
+    if telegram_shadow_active():
+        logger.info('telegram shadow would send text game=%s kind=%s', game.id, kind)
+        return True
     if send_announce_message(formatter(game)):
         return True
     _unmark(game, kind)
@@ -76,6 +89,11 @@ def _mark_and_send_text(game: Game, kind: str) -> bool:
 def _mark_and_send_photo(game: Game, kind: str, caption: str, photo_bytes: bytes | None) -> bool:
     if not _try_mark(game, kind):
         return False
+    from games.telegram.shadow import telegram_shadow_active
+
+    if telegram_shadow_active():
+        logger.info('telegram shadow would send photo game=%s kind=%s', game.id, kind)
+        return True
     if photo_bytes and send_announce_photo(photo_bytes, caption=caption, filename='results.png'):
         return True
     if send_announce_message(caption):
@@ -133,8 +151,25 @@ def _mark_and_publish_social(
     """
     if not photo_bytes:
         return False
+    from games.telegram.config import telegram_channel_configured
+    from games.telegram.mtproto import telegram_user_configured
+
+    # Screenshot can succeed while the worker has no channel session. Do not
+    # claim the slot or fan out to other networks until Telegram can send.
+    if not (telegram_user_configured() and telegram_channel_configured()):
+        logger.error(
+            'Social announce not sent: telegram channel session not configured game=%s kind=%s',
+            game.id,
+            kind,
+        )
+        return False
     if not _try_mark(game, kind):
         return False
+    from games.telegram.shadow import telegram_shadow_active
+
+    if telegram_shadow_active():
+        logger.info('telegram shadow would publish social game=%s kind=%s', game.id, kind)
+        return True
     try:
         _publish_social_now(
             game,
@@ -153,6 +188,10 @@ def _mark_and_publish_social(
 
 
 def _tournament_results_png(game: Game) -> bytes | None:
+    from games.telegram.shadow import telegram_shadow_active
+
+    if telegram_shadow_active():
+        return b'shadow'
     try:
         from games.telegram.results_image import render_tournament_results_png
 
@@ -163,6 +202,10 @@ def _tournament_results_png(game: Game) -> bytes | None:
 
 
 def _tournament_results_social_png(game: Game) -> bytes | None:
+    from games.telegram.shadow import telegram_shadow_active
+
+    if telegram_shadow_active():
+        return b'shadow'
     try:
         from games.telegram.results_image import render_tournament_results_social_png
 
@@ -174,6 +217,10 @@ def _tournament_results_social_png(game: Game) -> bytes | None:
 
 def _fresh_tournament_results_png(game: Game, cache: dict) -> bytes | None:
     """Render at most once per game/tick, after invalidating the live table cache."""
+    from games.telegram.shadow import telegram_shadow_active
+
+    if telegram_shadow_active():
+        return b'shadow'
     key = str(game.pk)
     if key not in cache:
         from games.results_snapshot import invalidate_live_results_cache
@@ -184,6 +231,10 @@ def _fresh_tournament_results_png(game: Game, cache: dict) -> bytes | None:
 
 
 def _game_announce_png(game: Game) -> bytes | None:
+    from games.telegram.shadow import telegram_shadow_active
+
+    if telegram_shadow_active():
+        return b'shadow'
     try:
         from games.telegram.announce_image import render_game_announce_png
 
@@ -549,10 +600,30 @@ def process_game_announcements(now=None) -> dict[str, int]:
             # django.core.cache: default LocMem is per-process, and EB cron starts
             # a fresh manage.py on every instance every minute.
             if _try_mark(game, TelegramGameAnnouncement.KIND_ADMIN_START_SOON):
-                if notify_admin_game_lifecycle(game, 'start_soon'):
+                from games.telegram.shadow import telegram_shadow_active
+
+                if telegram_shadow_active():
+                    logger.info(
+                        'telegram shadow would send admin_start_soon game=%s', game.id,
+                    )
+                    stats['admin_start_soon'] += 1
+                elif notify_admin_game_lifecycle(game, 'start_soon'):
                     stats['admin_start_soon'] += 1
                 else:
                     _unmark(game, TelegramGameAnnouncement.KIND_ADMIN_START_SOON)
+
+    from games.telegram.shadow import telegram_shadow_active
+
+    if telegram_shadow_active():
+        # Channel posts, buffers, and the social queue stay on the live cron
+        # until a later cutover. Shadow must not create those rows.
+        stats['ladder_scheduled'] = 0
+        stats['salad_scheduled'] = 0
+        stats['daily_review_sent'] = 0
+        stats['alphabetty_buffer_added'] = 0
+        stats['week_task_buffer_added'] = 0
+        stats['social_queue'] = {'shadow': 1}
+        return stats
 
     try:
         from games.telegram.ladder_channel import process_ladder_channel_tick
@@ -614,15 +685,6 @@ def process_game_announcements(now=None) -> dict[str, int]:
                 logger.exception('Week task buffer ensure failed')
     except Exception:
         logger.exception('Daily buffer ensure failed')
-
-    try:
-        from games.social.publish import process_social_queue_tick
-
-        queue_stats = process_social_queue_tick(now=now)
-        stats['social_queue'] = queue_stats
-    except Exception:
-        logger.exception('Social queue tick failed')
-        stats['social_queue'] = {'errors': 1}
 
     return stats
 

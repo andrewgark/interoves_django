@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import socket
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -280,6 +281,30 @@ def queue_failed_network_retries(
     return post
 
 
+def _restore_game_announce_image(post: SocialQueuePost) -> bool:
+    """Rebuild a game-announce PNG if a worker deploy wiped local media."""
+    name = os.path.basename(getattr(post.image, 'name', '') or '')
+    if post.source != SocialQueuePost.SOURCE_GAME:
+        return False
+    if not (name.startswith('announce-') and name.endswith('.png')):
+        return False
+    game_id = name[len('announce-'):-len('.png')]
+    if not game_id:
+        return False
+    from games.models import Game
+    from games.telegram.announce_image import render_game_announce_png
+
+    game = Game.objects.filter(pk=game_id).first()
+    if game is None:
+        return False
+    png = render_game_announce_png(game)
+    if not png:
+        return False
+    post.set_image_bytes(png, filename=name)
+    post.save(update_fields=['image', 'updated_at'])
+    return True
+
+
 def publish_telegram(
     post: SocialQueuePost,
     *,
@@ -309,12 +334,25 @@ def publish_telegram(
             post.pk,
             claim_token,
             status=SocialQueuePost.STATUS_SKIPPED,
-            error='Telegram channel / user session not configured',
+            error=(
+                'Telegram channel / user session not configured'
+                ' api_id={api} hash={hash} session={session} channel={channel}'
+            ).format(
+                api=int(bool(getattr(settings, 'TELEGRAM_API_ID', 0))),
+                hash=int(bool(getattr(settings, 'TELEGRAM_API_HASH', ''))),
+                session=int(bool(getattr(settings, 'TELEGRAM_USER_SESSION', ''))),
+                channel=int(bool(getattr(settings, 'TELEGRAM_CHANNEL_CHAT_ID', ''))),
+            ),
         )
         post.refresh_from_db()
         return post
 
-    data = post.image_bytes()
+    try:
+        data = post.image_bytes()
+    except FileNotFoundError:
+        data = b''
+        if _restore_game_announce_image(post):
+            data = post.image_bytes()
     if not data:
         post._telegram_completion_applied = complete_telegram_publish(
             post.pk,
@@ -571,6 +609,16 @@ def process_social_queue_tick(now: datetime | None = None) -> dict[str, Any]:
     if stats['telegram'] or stats['twitter'] or stats['instagram'] or stats['threads'] or stats['errors']:
         logger.info('Social queue tick: %s', stats)
     return stats
+
+
+def run_social_publish_live(*, now):
+    """Publish due social posts. Does not take the announcement lock."""
+    from games.cron_lock import distributed_cron_lock
+
+    with distributed_cron_lock('social_queue_publish', ttl_seconds=300) as acquired:
+        if not acquired:
+            return None
+        return process_social_queue_tick(now=now)
 
 
 def publish_twitter(post: SocialQueuePost, *, force: bool = False) -> SocialQueuePost:

@@ -32,6 +32,12 @@ from games.models import DailyDifficultyQueueStatus, DailyGameDifficulty, GameTa
 
 logger = logging.getLogger('application')
 
+# Shared with the minute cron command, the hourly health-check, and the
+# background worker.  600s covers one batch so a second executor waits it out
+# instead of starting another calculation.
+DIFFICULTY_REFRESH_LOCK = 'daily_difficulty_refresh'
+DIFFICULTY_REFRESH_LOCK_TTL_SECONDS = 600
+
 
 @dataclass(frozen=True)
 class ClaimedDifficultyRefresh:

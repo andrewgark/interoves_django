@@ -122,6 +122,24 @@ class ChatLifecycleAnnouncementTests(TestCase):
         text = announce_mock.call_args.args[0]
         self.assertIn('Начали!', text)
 
+    @patch('games.telegram.scheduling.send_announce_message', return_value=True)
+    @patch('games.telegram.scheduling.send_admin_message')
+    def test_start_redrive_does_not_send_again(self, _admin, announce_mock):
+        self._set_window(start_delta=timedelta(minutes=-5), end_delta=timedelta(hours=2))
+        first = process_game_announcements(now=self.now)
+        self.assertEqual(first['start'], 1)
+        self.assertEqual(announce_mock.call_count, 1)
+
+        second = process_game_announcements(now=self.now + timedelta(seconds=30))
+        self.assertEqual(second['start'], 0)
+        self.assertEqual(announce_mock.call_count, 1)
+        self.assertEqual(
+            TelegramGameAnnouncement.objects.filter(
+                game=self.game, kind=TelegramGameAnnouncement.KIND_START,
+            ).count(),
+            1,
+        )
+
     @patch('games.telegram.scheduling.send_announce_message', return_value=False)
     @patch('games.telegram.scheduling.send_admin_message')
     def test_failed_start_delivery_is_released_for_retry(self, _admin, announce_mock):
