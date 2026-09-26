@@ -107,8 +107,6 @@ def is_share_hash_segment(segment: str) -> bool:
     seg = (segment or '').strip().lower()
     if not seg or seg in _RESERVED_SALAD_SEGMENTS:
         return False
-    if seg.isdigit():
-        return False
     return bool(_SHARE_HASH_RE.match(seg))
 
 

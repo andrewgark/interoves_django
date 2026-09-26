@@ -194,6 +194,18 @@ class LadderOfferFlowTests(TestCase):
         resp_r = c.get('/ladder/{}/results/'.format(offer.share_hash))
         self.assertEqual(resp_r.status_code, 200)
 
+    def test_numeric_share_hash_opens_the_play_page(self):
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['ДОМ', 'СОМ'], hints=['д→с'], author='Анна')
+        offer.share_hash = '6824270918737837'
+        offer.save(update_fields=['share_hash'])
+        c = Client()
+        resp = c.get('/ladder/6824270918737837/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'data-task-label="Лесенка · Анна"')
+        missing = c.get('/ladder/6824270918737838/')
+        self.assertEqual(missing.status_code, 404)
+
     def test_create_offer_uses_new_placeholders(self):
         offer = create_offer(self.user)
         task = Task.objects.get(task_group=offer.task_group, number='1')

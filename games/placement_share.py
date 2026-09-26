@@ -22,7 +22,7 @@ _RESERVED_SEGMENTS = frozenset({
 
 def is_share_hash_segment(segment: str) -> bool:
     seg = (segment or '').strip().lower()
-    if not seg or seg in _RESERVED_SEGMENTS or seg.isdigit():
+    if not seg or seg in _RESERVED_SEGMENTS:
         return False
     return bool(_SHARE_HASH_RE.match(seg))
 
@@ -32,7 +32,7 @@ def allocate_share_hash() -> str:
 
     for _ in range(20):
         token = secrets.token_hex(8)
-        if token in _RESERVED_SEGMENTS:
+        if token in _RESERVED_SEGMENTS or token.isdigit():
             continue
         if GameTaskGroup.objects.filter(share_hash=token).exists():
             continue

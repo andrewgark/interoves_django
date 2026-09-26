@@ -76,12 +76,21 @@ class DailySchedule:
             n = int(number)
         except (TypeError, ValueError):
             return None
-        if n < 1:
+        if n < 1 or n > 100_000:
             return None
-        return moscow_midnight(start.date()) + timedelta(days=self.step_days * (n - 1))
+        try:
+            return moscow_midnight(start.date()) + timedelta(days=self.step_days * (n - 1))
+        except OverflowError:
+            return None
 
     def is_published(self, game, number: int | str, now: datetime | None = None) -> bool:
         now = now or timezone.now()
+        try:
+            n = int(number)
+        except (TypeError, ValueError):
+            n = None
+        if n is not None and (n < 1 or n > 100_000):
+            return False
         pub = self.publish_at(game, number)
         if pub is None:
             return self.open_without_start

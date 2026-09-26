@@ -41,6 +41,8 @@ class LadderDailyLogicTests(SimpleTestCase):
         self.assertFalse(is_ladder_number_published(game, 1, before))
         self.assertTrue(is_ladder_number_published(game, 1, after))
         self.assertFalse(is_ladder_number_published(game, 2, after))
+        self.assertIsNone(ladder_publish_at(game, 6824270918737837))
+        self.assertFalse(is_ladder_number_published(game, 6824270918737837, after))
 
     def test_hub_context_today(self):
         game = self._game()

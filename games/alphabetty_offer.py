@@ -76,7 +76,7 @@ def profile_display_name(profile: Profile) -> str:
 def _new_share_hash() -> str:
     for _ in range(20):
         token = secrets.token_hex(8)
-        if token in _RESERVED_ALPHABETTY_SEGMENTS:
+        if token in _RESERVED_ALPHABETTY_SEGMENTS or token.isdigit():
             continue
         if not AlphabettyOffer.objects.filter(share_hash=token).exists():
             return token
@@ -86,8 +86,6 @@ def _new_share_hash() -> str:
 def is_share_hash_segment(segment: str) -> bool:
     seg = (segment or '').strip().lower()
     if not seg or seg in _RESERVED_ALPHABETTY_SEGMENTS:
-        return False
-    if seg.isdigit():
         return False
     return bool(_SHARE_HASH_RE.match(seg))
 
