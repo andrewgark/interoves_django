@@ -56,6 +56,7 @@ class WeekTaskRow:
     is_today: bool
     source_label: str
     play_url: str
+    site_url: str
     source_url: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -138,7 +139,8 @@ def list_week_task_rows(*, now: datetime | None = None) -> list[WeekTaskRow]:
             is_published=is_pub,
             is_today=is_today,
             source_label=_source_label(link),
-            play_url=f'/games/{WEEK_TASK_GAME_ID}/{number}/',
+            play_url=f'/week_task/{number}/',
+            site_url=f'/week_task/{link.share_hash}/' if link.share_hash else f'/week_task/{number}/',
             source_url=source_play_path_from_tags(tags) or '',
         ))
     return rows
@@ -173,7 +175,8 @@ def get_week_task_detail(link_id: int) -> dict[str, Any]:
         'source_task_group_id': src.get('task_group_id'),
         'source_major': src.get('major'),
         'source_task_numbers': src.get('task_numbers'),
-        'play_url': f'/games/{WEEK_TASK_GAME_ID}/{number}/',
+        'play_url': f'/week_task/{number}/',
+        'site_url': f'/week_task/{link.share_hash}/' if link.share_hash else f'/week_task/{number}/',
         'source_url': source_play_path_from_tags(tags) or '',
     }
 

@@ -207,6 +207,58 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertEqual(allowed.status_code, 200)
         self.assertTrue(allowed.json()['word_salad_correct'], allowed.json())
 
+    def test_schedule_created_salad_has_hash_page_and_staff_number(self):
+        from games.support.services.word_salad import create_word_salad
+
+        detail = create_word_salad()
+        link = GameTaskGroup.objects.get(pk=detail['link_id'])
+        self.assertTrue(link.share_hash)
+        self.assertIn('/salad/{}/'.format(link.share_hash), detail['site_url'])
+        task = Task.objects.get(task_group_id=link.task_group_id, number='1')
+        from games.word_salad import serialize_task_data
+        task.checker_data = serialize_task_data(VALID_GRID, 'BCDE\nFGHI\nJKLM\nNOPQ')
+        task.save(update_fields=['checker_data'])
+
+        visitor = Client()
+        visitor.force_login(self.other)
+        self.assertEqual(visitor.get('/salad/{}/'.format(link.number)).status_code, 404)
+        page = visitor.get(detail['site_url'])
+        self.assertEqual(page.status_code, 200)
+        html = page.content.decode('utf-8')
+        task_id = re.search(r'data-task-id="(\d+)"', html).group(1)
+        context = re.search(r'name="gameplay_context" value="([^"]+)"', html).group(1)
+        blocked = visitor.post(
+            '/send_attempt/{}/'.format(task_id),
+            {
+                'gameplay_context': context,
+                'variable': task_id,
+                'game_id': 'salad',
+                'action': 'solve',
+                'path': json.dumps([0, 1, 2, 3]),
+                'correct_only': '1',
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(blocked.json()['status'], 'not_published')
+        opened = visitor.post(
+            '/send_attempt/{}/'.format(task_id),
+            {
+                'gameplay_context': context,
+                'variable': task_id,
+                'game_id': 'salad',
+                'action': 'solve',
+                'path': json.dumps([0, 1, 2, 3]),
+                'correct_only': '1',
+                'offer_share': link.share_hash,
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(opened.json()['status'], 'ok')
+
+        staff = Client()
+        staff.force_login(self.staff)
+        self.assertEqual(staff.get('/salad/{}/'.format(link.number)).status_code, 200)
+
     def test_idea_create_send_accept_without_task_or_schedule(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_IDEA)
         self.assertIsNone(offer.task_group_id)

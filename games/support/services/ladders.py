@@ -243,22 +243,10 @@ def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
 
 
 def _site_urls_by_task_group(task_group_ids) -> dict[int, str]:
-    from games.models import LadderOffer
+    from games.ladder_daily import LADDER_GAME_ID
+    from games.placement_share import site_urls_by_task_group
 
-    ids = [pk for pk in task_group_ids if pk]
-    if not ids:
-        return {}
-    paths = {}
-    offers = (
-        LadderOffer.objects.filter(task_group_id__in=ids)
-        .exclude(share_hash='')
-        .only('task_group_id', 'share_hash')
-    )
-    for offer in offers:
-        url = offer.play_url()
-        if url and offer.task_group_id not in paths:
-            paths[offer.task_group_id] = url
-    return paths
+    return site_urls_by_task_group(LADDER_GAME_ID, task_group_ids)
 
 
 def list_ladder_rows(*, now: datetime | None = None) -> list[LadderRow]:

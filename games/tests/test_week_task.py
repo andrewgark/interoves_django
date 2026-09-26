@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from django.test import TestCase
 from django.contrib.auth.models import User
+from django.test import Client, TestCase
 
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Profile, Project, Task, TaskGroup
 from games.support.services.banned import banned_unit_keys, list_banned_units
@@ -425,3 +425,38 @@ class WeekTaskSupportTests(TestCase):
         self.assertEqual(len(list_week_task_rows()), 0)
         self.week_game.refresh_from_db()
         self.assertTrue(list_banned_units(self.week_game))
+
+
+class WeekTaskFutureAccessTests(TestCase):
+    def test_hash_page_and_staff_number(self):
+        game = _ensure_week_task_game(**{
+            WEEK_TASK_PUBLISH_START_TAG: '2099-01-05T00:00:00+03:00',
+        })
+        checker = CheckerType.objects.get(id='equals_with_possible_spaces')
+        group = TaskGroup.objects.create(label='week', checker=checker, points=1)
+        Task.objects.create(
+            task_group=group, number='1', task_type='default', checker=checker,
+            answer='ok', text='t', points=1, is_removed=False,
+        )
+        link = GameTaskGroup.objects.create(
+            game=game, task_group=group, number='1', name='Неделя 1',
+        )
+        self.assertTrue(link.share_hash)
+        visitor = User.objects.create_user('week-visitor', password='x')
+        Profile.objects.create(
+            user=visitor, first_name='V', last_name='V', telegram_handle='week_visitor',
+        )
+        client = Client()
+        client.force_login(visitor)
+        self.assertEqual(client.get('/week_task/{}/'.format(link.number)).status_code, 404)
+        self.assertEqual(client.get('/week_task/{}/'.format(link.share_hash)).status_code, 200)
+        staff = User.objects.create_user('week-staff', password='x', is_staff=True)
+        Profile.objects.create(
+            user=staff, first_name='S', last_name='S', telegram_handle='week_staff',
+        )
+        staff_client = Client()
+        staff_client.force_login(staff)
+        self.assertEqual(staff_client.get('/week_task/{}/'.format(link.number)).status_code, 200)
+        rows = list_week_task_rows()
+        self.assertTrue(rows)
+        self.assertIn(link.share_hash, rows[0].site_url)

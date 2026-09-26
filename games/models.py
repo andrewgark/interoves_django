@@ -594,6 +594,7 @@ class GameTaskGroup(models.Model):
     task_group = models.ForeignKey(TaskGroup, related_name='game_links', on_delete=models.CASCADE)
     number = models.CharField(max_length=20, validators=[GAME_TASK_GROUP_NUMBER_VALIDATOR])
     name = models.CharField(max_length=100)
+    share_hash = models.CharField(max_length=32, unique=True, null=True, blank=True)
 
     class Meta:
         constraints = [
@@ -610,6 +611,15 @@ class GameTaskGroup(models.Model):
 
     def __str__(self):
         return '[{}] {}. {}'.format(self.game_id, self.number, self.name)
+
+    def save(self, *args, **kwargs):
+        if not self.share_hash and self.game_id in ('ladder', 'salad', 'alphabetty', 'week_task'):
+            from games.placement_share import allocate_share_hash
+            self.share_hash = allocate_share_hash()
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None:
+                kwargs['update_fields'] = set(update_fields) | {'share_hash'}
+        super().save(*args, **kwargs)
 
     @staticmethod
     def number_key(number):

@@ -39,11 +39,12 @@ def task_group_play_path(game, task_group_number) -> str:
     return '{}{}/'.format(game_play_path(game), task_group_number)
 
 
-def _offer_share_path(task) -> str:
-    """Public /<game>/<hash>/ when this task belongs to a custom offer."""
+def _offer_share_path(task, game=None) -> str:
+    """Public /<game>/<hash>/ for a custom offer or a schedule slot."""
     if task is None or not getattr(task, 'task_group_id', None):
         return ''
-    from games.models import AlphabettyOffer, LadderOffer, WordSaladOffer
+    from games.models import AlphabettyOffer, GameTaskGroup, LadderOffer, WordSaladOffer
+    from games.section_paths import section_play_path
 
     for model in (WordSaladOffer, LadderOffer, AlphabettyOffer):
         offer = (
@@ -56,7 +57,14 @@ def _offer_share_path(task) -> str:
         path = offer.play_url()
         if path:
             return path
-    return ''
+    game_id = getattr(game, 'id', None)
+    links = GameTaskGroup.objects.filter(task_group_id=task.task_group_id).exclude(share_hash='')
+    if game_id:
+        links = links.filter(game_id=game_id)
+    link = links.only('game_id', 'share_hash').first()
+    if link is None or not link.share_hash:
+        return ''
+    return section_play_path(link.game_id, link.share_hash)
 
 
 def task_play_url(game, task) -> str:
@@ -69,7 +77,7 @@ def task_play_url(game, task) -> str:
 
     if task is None:
         return game_site_url(game)
-    share = _offer_share_path(task)
+    share = _offer_share_path(task, game)
     if share:
         return admin_url('{}#new-task-{}'.format(share, task.pk))
     link = None

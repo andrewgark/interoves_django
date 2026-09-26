@@ -115,6 +115,10 @@ def section_root_urlpatterns(
             name=task_group_url_name,
         ),
         re_path(
+            r'^(?P<game_id>week_task)/(?P<task_group_number>[a-f0-9]{16,32})/$',
+            ui.task_group_page,
+        ),
+        re_path(
             r'^(?P<game_id>' + _SECTION_GAME_ID_RE + r')/(?P<task_group_number>\d+(?:\.\d+)?)/replay/$',
             ui.new_replay_start,
         ),

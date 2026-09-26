@@ -334,6 +334,8 @@ def accept_offer(offer: AlphabettyOffer, *, at_number: int | None = None) -> Alp
         raise AlphabettyOfferError(
             'Конфликт номера в расписании — обновите страницу и повторите'
         ) from exc
+    from games.placement_share import adopt_offer_share_hash
+    adopt_offer_share_hash(link, offer.share_hash)
     offer.accepted_link = link
     offer.status = AlphabettyOffer.STATUS_ACCEPTED
     offer.accepted_at = timezone.now()

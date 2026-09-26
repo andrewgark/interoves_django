@@ -510,6 +510,8 @@ def accept_offer(offer: WordSaladOffer, *, at_number: int | None = None) -> Word
         raise WordSaladOfferError(
             'Конфликт номера в расписании — обновите страницу и повторите'
         ) from exc
+    from games.placement_share import adopt_offer_share_hash
+    adopt_offer_share_hash(link, offer.share_hash)
     offer.accepted_link = link
     offer.status = WordSaladOffer.STATUS_ACCEPTED
     offer.accepted_at = timezone.now()

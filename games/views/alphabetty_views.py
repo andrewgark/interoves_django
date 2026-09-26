@@ -385,15 +385,21 @@ def alphabetty_play_page(request, number):
         raise Http404()
     if game is None or task is None:
         raise Http404()
+    from games.placement_share import may_open_unpublished_number
+
     offer = load_meta.get('offer') if load_meta else None
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
     link = load_meta.get('accepted_link') if load_meta else None
     if offer is None:
-        try:
-            n = int(play_number)
-        except (TypeError, ValueError):
-            raise Http404()
+        schedule_number = load_meta.get('schedule_number') if load_meta else None
+        if schedule_number is not None:
+            n = schedule_number
+        else:
+            try:
+                n = int(play_number)
+            except (TypeError, ValueError):
+                raise Http404()
     else:
         n = play_number
 
@@ -477,7 +483,14 @@ def alphabetty_play_page(request, number):
         'daily_results_url': f'{play_path}results/',
         'daily_results_allowed': offer is None and game.has_access('see_results', team=team),
         'daily_results_label': 'Таблица результатов',
-        'daily_statistics_url': f'/daily-statistics/{ALPHABETTY_GAME_ID}/{play_number}/' if offer is None else '',
+        'daily_statistics_url': (
+            f'/daily-statistics/{ALPHABETTY_GAME_ID}/{link.number}/'
+            if offer is None and link is not None and (
+                is_alphabetty_number_published(game, link.number)
+                or may_open_unpublished_number(request.user)
+            )
+            else ''
+        ),
         'official_completed': official_completed,
         'replay_active': replay_slot is not None,
         'replay_completed': bool(replay_slot and replay_slot.status == 'completed'),
@@ -527,7 +540,15 @@ def alphabetty_play_page(request, number):
             user=user,
             anon_key=anon_key,
             play_mode='personal',
-            is_offer=offer is not None,
+            is_offer=(
+                offer is not None
+                or (
+                    offer is None
+                    and link is not None
+                    and not is_alphabetty_number_published(game, link.number)
+                    and not may_open_unpublished_number(request.user)
+                )
+            ),
             official_completed=official_completed,
         ),
     })
@@ -545,7 +566,25 @@ def _load_visible_task(request, number, *, json_mode=True):
     game = _get_game()
     if not game:
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+    from games.placement_share import may_open_unpublished_number, placement_by_share_hash
+
     offer = get_offer_by_share_hash(str(number))
+    if offer is None:
+        share_placement = placement_by_share_hash(game, str(number))
+        if share_placement is not None:
+            task = Task.objects.filter(
+                task_group_id=share_placement.task_group_id, number='1',
+            ).first()
+            if task is None:
+                return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+            meta = {
+                'offer': None,
+                'play_number': share_placement.share_hash,
+                'play_path': section_play_path(ALPHABETTY_GAME_ID, share_placement.share_hash),
+                'accepted_link': share_placement,
+                'schedule_number': int(share_placement.number),
+            }
+            return game, task, meta, None
     if offer is not None:
         if not can_access_offer_hash(offer, request.user):
             return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
@@ -566,7 +605,7 @@ def _load_visible_task(request, number, *, json_mode=True):
         n = int(number)
     except (TypeError, ValueError):
         return None, None, None, JsonResponse({'status': 'error', 'error': 'bad number'}, status=400)
-    if not is_alphabetty_number_published(game, n):
+    if not is_alphabetty_number_published(game, n) and not may_open_unpublished_number(request.user):
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not published'}, status=404)
     from games.club_access import reject_if_club_archive_blocked
 

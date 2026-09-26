@@ -113,22 +113,10 @@ def _tasks_for_links(links: list[GameTaskGroup]) -> dict[int, Task]:
 
 
 def _site_urls_by_task_group(task_group_ids) -> dict[int, str]:
-    from games.models import AlphabettyOffer
+    from games.alphabetty_daily import ALPHABETTY_GAME_ID
+    from games.placement_share import site_urls_by_task_group
 
-    ids = [pk for pk in task_group_ids if pk]
-    if not ids:
-        return {}
-    paths = {}
-    offers = (
-        AlphabettyOffer.objects.filter(task_group_id__in=ids)
-        .exclude(share_hash='')
-        .only('task_group_id', 'share_hash')
-    )
-    for offer in offers:
-        url = offer.play_url()
-        if url and offer.task_group_id not in paths:
-            paths[offer.task_group_id] = url
-    return paths
+    return site_urls_by_task_group(ALPHABETTY_GAME_ID, task_group_ids)
 
 
 def list_alphabetty_rows(*, now: datetime | None = None) -> list[AlphabettyRow]:

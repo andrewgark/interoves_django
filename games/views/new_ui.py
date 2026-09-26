@@ -3199,7 +3199,13 @@ def new_section_task_results_page(request, game_id, number):
     game = Game.objects.filter(project=project, id=game_id).first()
     if not game:
         raise Http404()
-    if not scheduled_number_is_public(game, number):
+    from games.placement_share import is_share_hash_segment, may_open_unpublished_number, placement_by_share_hash
+    if is_share_hash_segment(str(number)):
+        share_placement = placement_by_share_hash(game, str(number))
+        if share_placement is None:
+            raise Http404()
+        number = share_placement.number
+    elif not scheduled_number_is_public(game, number) and not may_open_unpublished_number(request.user):
         raise Http404()
     from games.club_access import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game, number=number)
@@ -3278,24 +3284,28 @@ def new_ladder_word_results_page(request, task_group_number):
     if is_share_hash_segment(str(task_group_number)):
         ladder_offer = get_offer_by_share_hash(str(task_group_number))
         if ladder_offer is None:
-            raise Http404()
-        from games.ladder_offer import can_access_offer_hash
-        if not can_access_offer_hash(ladder_offer, request.user):
-            raise Http404()
-        if ladder_offer.accepted_link_id:
-            placement = (
-                GameTaskGroup.objects.select_related('task_group')
-                .filter(pk=ladder_offer.accepted_link_id)
-                .first()
-            )
+            from games.placement_share import placement_by_share_hash
+            placement = placement_by_share_hash(game, str(task_group_number))
             if placement is None:
                 raise Http404()
         else:
-            placement = SimpleNamespace(
-                number=ladder_offer.share_hash,
-                name=(ladder_offer.author or 'Лесенка').strip() or 'Лесенка',
-                task_group=ladder_offer.task_group,
-            )
+            from games.ladder_offer import can_access_offer_hash
+            if not can_access_offer_hash(ladder_offer, request.user):
+                raise Http404()
+            if ladder_offer.accepted_link_id:
+                placement = (
+                    GameTaskGroup.objects.select_related('task_group')
+                    .filter(pk=ladder_offer.accepted_link_id)
+                    .first()
+                )
+                if placement is None:
+                    raise Http404()
+            else:
+                placement = SimpleNamespace(
+                    number=ladder_offer.share_hash,
+                    name=(ladder_offer.author or 'Лесенка').strip() or 'Лесенка',
+                    task_group=ladder_offer.task_group,
+                )
     else:
         if (
             not is_ladder_number_published(game, task_group_number)
@@ -3876,46 +3886,52 @@ def new_task_group_page(request, game_id, task_group_number):
     # Для игр-разделов (project sections) хотим давать доступ всегда, без привязки к start_time.
     ladder_offer = None
     salad_offer = None
+    share_placement = None
     if game.project_id == NEW_UI_SECTIONS_PROJECT:
         preview_team = None
         if has_profile(request.user):
             preview_team = request.user.profile.team_on
         if not game.has_access('see_game_preview', team=preview_team):
             raise Http404()
-        if game_id == LADDER_GAME_ID:
-            from games.ladder_offer import get_offer_by_share_hash, is_share_hash_segment
-            if is_share_hash_segment(str(task_group_number)):
-                ladder_offer = get_offer_by_share_hash(str(task_group_number))
-                if ladder_offer is None:
+        from games.placement_share import (
+            is_share_hash_segment,
+            may_open_unpublished_number,
+            placement_by_share_hash,
+        )
+        share_placement = None
+        segment = str(task_group_number)
+        if game_id == LADDER_GAME_ID and is_share_hash_segment(segment):
+            from games.ladder_offer import can_access_offer_hash, get_offer_by_share_hash
+            ladder_offer = get_offer_by_share_hash(segment)
+            if ladder_offer is None:
+                share_placement = placement_by_share_hash(game, segment)
+                if share_placement is None:
                     raise Http404()
-                from games.ladder_offer import can_access_offer_hash
-                if not can_access_offer_hash(ladder_offer, request.user):
-                    raise Http404()
-            elif (
-                not scheduled_number_is_public(game, task_group_number)
-                and not request.user.is_staff
-            ):
+            elif not can_access_offer_hash(ladder_offer, request.user):
                 raise Http404()
-        elif game_id == WORD_SALAD_GAME_ID:
+        elif game_id == WORD_SALAD_GAME_ID and is_share_hash_segment(segment):
             from games.word_salad_offer import (
                 can_access_offer_hash as can_access_salad_offer_hash,
                 get_offer_by_share_hash as get_salad_offer_by_share_hash,
-                is_share_hash_segment as is_salad_share_hash_segment,
             )
-            if is_salad_share_hash_segment(str(task_group_number)):
-                salad_offer = get_salad_offer_by_share_hash(str(task_group_number))
-                if salad_offer is None:
+            salad_offer = get_salad_offer_by_share_hash(segment)
+            if salad_offer is None:
+                share_placement = placement_by_share_hash(game, segment)
+                if share_placement is None:
                     raise Http404()
-                if not can_access_salad_offer_hash(salad_offer, request.user):
-                    raise Http404()
-            elif (
-                not scheduled_number_is_public(game, task_group_number)
-                and not request.user.is_staff
-            ):
+            elif not can_access_salad_offer_hash(salad_offer, request.user):
                 raise Http404()
-        elif not scheduled_number_is_public(game, task_group_number):
+        elif is_scheduled_game(game_id) and is_share_hash_segment(segment):
+            share_placement = placement_by_share_hash(game, segment)
+            if share_placement is None:
+                raise Http404()
+        elif (
+            is_scheduled_game(game_id)
+            and not scheduled_number_is_public(game, task_group_number)
+            and not may_open_unpublished_number(request.user)
+        ):
             raise Http404()
-        if ladder_offer is None and salad_offer is None:
+        if ladder_offer is None and salad_offer is None and share_placement is None:
             from games.club_access import reject_if_club_archive_blocked
 
             locked = reject_if_club_archive_blocked(
@@ -3972,6 +3988,8 @@ def new_task_group_page(request, game_id, task_group_number):
                 name=theme or 'Салатик',
                 task_group=salad_offer.task_group,
             )
+    elif share_placement is not None:
+        placement = share_placement
     else:
         placement = (
             GameTaskGroup.objects.select_related('task_group', 'task_group__rules')
@@ -4187,7 +4205,15 @@ def new_task_group_page(request, game_id, task_group_number):
         'daily_results_label': 'Таблица результатов' if game.id == LADDER_GAME_ID else '',
         'daily_statistics_url': (
             '/daily-statistics/{}/{}/'.format(game.id, placement.number)
-            if is_daily_single_task and isinstance(placement, GameTaskGroup) else ''
+            if (
+                is_daily_single_task
+                and isinstance(placement, GameTaskGroup)
+                and (
+                    scheduled_number_is_public(game, placement.number)
+                    or may_open_unpublished_number(request.user)
+                )
+            )
+            else ''
         ),
         **section_format_credit_context(game.id),
         'daily_pager_aria_label': 'Переход между {}'.format(
@@ -4230,7 +4256,14 @@ def new_task_group_page(request, game_id, task_group_number):
             user=user,
             anon_key=anon_key,
             play_mode=play_mode,
-            is_offer=draft_offer is not None,
+            is_offer=(
+                draft_offer is not None
+                or (
+                    share_placement is not None
+                    and not scheduled_number_is_public(game, share_placement.number)
+                    and not may_open_unpublished_number(request.user)
+                )
+            ),
             replay_slot=replay_slot,
             official_completed=official_completed,
         ),

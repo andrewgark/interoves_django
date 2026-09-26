@@ -232,7 +232,7 @@
         '</div>' +
         '<div class="support-ladder-item__actions">' +
           '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">править</button>' +
-          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + row.play_url + '" target="_blank" rel="noopener">сайт</a>' +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + (row.site_url || row.play_url) + '" target="_blank" rel="noopener">сайт</a>' +
           sourceBtn +
           (!row.is_published
             ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-forbid" data-forbid="' +
@@ -530,7 +530,7 @@
         sourceBtn.removeAttribute('href');
         sourceBtn.hidden = true;
       }
-      document.getElementById('wt-edit-preview').href = d.play_url || '#';
+      document.getElementById('wt-edit-preview').href = d.site_url || d.play_url || '#';
       document.getElementById('wt-edit-error').hidden = true;
       var changeCb = document.getElementById('wt-edit-change-source');
       var picker = document.getElementById('wt-edit-picker');

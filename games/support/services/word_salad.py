@@ -275,26 +275,10 @@ def _grid_preview(grid):
 
 
 def _site_urls_by_task_group(task_group_ids) -> dict[int, str]:
-    """Public /salad/<hash>/ for custom offers, keyed by task group."""
-    from games.models import WordSaladOffer
+    from games.placement_share import site_urls_by_task_group
+    from games.word_salad import WORD_SALAD_GAME_ID
 
-    ids = [pk for pk in task_group_ids if pk]
-    if not ids:
-        return {}
-    paths = {}
-    offers = (
-        WordSaladOffer.objects.filter(
-            task_group_id__in=ids,
-            kind=WordSaladOffer.KIND_FULL,
-        )
-        .exclude(share_hash='')
-        .only('task_group_id', 'share_hash', 'kind')
-    )
-    for offer in offers:
-        url = offer.play_url()
-        if url and offer.task_group_id not in paths:
-            paths[offer.task_group_id] = url
-    return paths
+    return site_urls_by_task_group(WORD_SALAD_GAME_ID, task_group_ids)
 
 
 def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:

@@ -212,7 +212,7 @@
       var handle = row.is_published
         ? '<span class="support-ladder-item__handle support-ladder-item__handle--locked">·</span>'
         : '<button type="button" class="support-ladder-item__handle support-schedule-handle" aria-label="Перетащить" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>';
-      var previewUrl = row.site_url || (linkedOffer && linkedOffer.play_url) || row.play_url;
+      var previewUrl = row.site_url || row.play_url;
       var revisionBtn = (linkedOffer && linkedOffer.status !== 'draft')
         ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-revision-link="' +
             row.link_id + '">на доработку</button>'
@@ -328,7 +328,7 @@
       document.getElementById('ab-edit-sub').textContent = '№' + d.number + ' · ' + (d.publish_date || '');
       document.getElementById('ab-edit-word').value = d.word || '';
       var linked = offerByLink[String(d.link_id)];
-      document.getElementById('ab-edit-preview').href = d.site_url || (linked && linked.play_url) || d.play_url || '#';
+      document.getElementById('ab-edit-preview').href = d.site_url || d.play_url || '#';
       document.getElementById('ab-edit-error').hidden = true;
       modal.hidden = false;
       modal.classList.add('is-open');

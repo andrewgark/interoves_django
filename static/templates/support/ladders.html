@@ -246,7 +246,7 @@
       var handle = row.is_published
         ? '<span class="support-ladder-item__handle support-ladder-item__handle--locked" title="Вышла — порядок зафиксирован">·</span>'
         : '<button type="button" class="support-ladder-item__handle support-schedule-handle" aria-label="Перетащить" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>';
-      var previewUrl = row.site_url || (linkedOffer && linkedOffer.play_url) || row.play_url;
+      var previewUrl = row.site_url || row.play_url;
       var revisionBtn = (linkedOffer && linkedOffer.status !== 'draft')
         ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-revision-link="' +
             row.link_id + '">на доработку</button>'
@@ -539,7 +539,7 @@
       renderWordRows(ladder.words || [], ladder.hints || [], ladder.emojis || []);
       var linked = offerByLink[String(ladder.link_id)];
       var prev = document.getElementById('ladder-edit-preview');
-      prev.href = ladder.site_url || (linked && linked.play_url) || ladder.play_url || '#';
+      prev.href = ladder.site_url || ladder.play_url || '#';
       var revBtn = document.getElementById('ladder-edit-revision');
       if (linked && linked.status !== 'draft') {
         revBtn.hidden = false;
