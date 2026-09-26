@@ -100,6 +100,91 @@ def enqueue_word_salad_recheck(*, task, game):
     return job
 
 
+def _close_jobs_without_open_items(job_ids, now):
+    for job_id in job_ids:
+        still_open = WordSaladRecheckItem.objects.filter(
+            job_id=job_id,
+            status__in=(
+                WordSaladRecheckItem.STATUS_PENDING,
+                WordSaladRecheckItem.STATUS_RUNNING,
+            ),
+        ).exists()
+        if still_open:
+            continue
+        WordSaladRecheckJob.objects.filter(
+            pk=job_id,
+            status__in=(
+                WordSaladRecheckJob.STATUS_PENDING,
+                WordSaladRecheckJob.STATUS_RUNNING,
+            ),
+        ).update(
+            status=WordSaladRecheckJob.STATUS_SUPERSEDED,
+            claim_token=None,
+            claimed_until=None,
+            updated_at=now,
+        )
+
+
+@transaction.atomic
+def enqueue_actor_rechecks(*, task, game, actors):
+    """Queue a chronological replay for specific actors. Other actors stay queued."""
+    if game is None:
+        raise ValueError('enqueue_actor_rechecks: pass game=')
+    task = type(task).objects.select_for_update().get(pk=task.pk)
+    normalized = []
+    seen = set()
+    for actor in actors:
+        key = (actor[0], actor[1], actor[2] or None, actor[3])
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized.append(key)
+    now = timezone.now()
+    actor_keys = [_actor_key(actor) for actor in normalized]
+    open_items = WordSaladRecheckItem.objects.select_for_update().filter(
+        job__task=task,
+        job__game=game,
+        actor_key__in=actor_keys,
+        status__in=(
+            WordSaladRecheckItem.STATUS_PENDING,
+            WordSaladRecheckItem.STATUS_RUNNING,
+        ),
+    )
+    touched_jobs = set(open_items.values_list('job_id', flat=True))
+    open_items.update(
+        status=WordSaladRecheckItem.STATUS_SUPERSEDED,
+        claim_token=None,
+        claimed_until=None,
+        updated_at=now,
+    )
+    _close_jobs_without_open_items(touched_jobs, now)
+    job = WordSaladRecheckJob.objects.create(
+        task=task,
+        game=game,
+        task_revision=task.attempt_revision,
+        status=WordSaladRecheckJob.STATUS_PENDING,
+        total_actors=len(normalized),
+        next_attempt_at=now,
+    )
+    WordSaladRecheckItem.objects.bulk_create([
+        WordSaladRecheckItem(
+            job=job,
+            actor_key=_actor_key(actor),
+            team_id=actor[0],
+            user_id=actor[1],
+            anon_key=actor[2],
+            replay_slot_id=actor[3],
+            next_attempt_at=now,
+        )
+        for actor in normalized
+    ])
+    WordSaladRecheckOutbox.objects.bulk_create([
+        WordSaladRecheckOutbox(item=item, task_revision=job.task_revision)
+        for item in WordSaladRecheckItem.objects.filter(job=job).only('id')
+    ])
+    return job
+
+
 @transaction.atomic
 def retry_word_salad_recheck(job_id):
     job = WordSaladRecheckJob.objects.select_for_update().get(pk=job_id)
@@ -210,7 +295,7 @@ def _record_item_failure(job, item, token, exc):
         )
 
 
-def _schedule_actor_notification(task, actor, game):
+def _schedule_actor_notification(task, actor, game, *, reason='task.word_salad_rechecked'):
     """Publish realtime state only after replay and queue state commit."""
     from games.views.track import track_actor_task_change
 
@@ -222,7 +307,7 @@ def _schedule_actor_notification(task, actor, game):
                 user=actor.get('user'),
                 anon_key=actor.get('anon_key'),
                 game=game,
-                reason='task.word_salad_rechecked',
+                reason=reason,
             )
         except Exception:
             # Realtime delivery is derived state; it must never turn a
@@ -307,9 +392,25 @@ def _process_claimed_item(job, item, item_token):
                     pk=job.pk, status=WordSaladRecheckJob.STATUS_RUNNING, claim_token=job.claim_token,
                 ).update(claim_token=None, claimed_until=None, updated_at=timezone.now())
                 return 'superseded'
-            if actor is not None:
+            reason = 'task.word_salad_rechecked'
+            if actor is not None and task.task_type == 'word_salad':
                 result = recheck_word_salad_actor(task, game=job.game, notify=False, **actor)
                 credited = int(result.get('credited') or 0)
+            elif actor is not None:
+                from games.recheck import recheck_chain_task
+                recheck_chain_task(
+                    task,
+                    team=actor.get('team'),
+                    user=actor.get('user'),
+                    anon_key=actor.get('anon_key'),
+                    game=job.game,
+                    replay_slot=actor.get('replay_slot'),
+                    notify=False,
+                )
+                credited = 0
+                reason = 'task.chain_rechecked'
+            else:
+                credited = 0
             _validation_failpoint('crash_before_commit')
             now = timezone.now()
             updated = WordSaladRecheckItem.objects.filter(
@@ -337,7 +438,7 @@ def _process_claimed_item(job, item, item_token):
                     claim_token=None, claimed_until=None, updated_at=now,
                 )
             if actor is not None:
-                _schedule_actor_notification(task, actor, job.game)
+                _schedule_actor_notification(task, actor, job.game, reason=reason)
         logger.info(
             'word_salad_task_completed job_id=%s item_id=%s task_revision=%s duration_ms=%.1f credited=%s',
             job.pk, item.pk, job.task_revision, (time.perf_counter() - started) * 1000, credited,

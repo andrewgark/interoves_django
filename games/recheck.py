@@ -121,8 +121,8 @@ def recheck_team_task_all_chronological(_, attempt_id):
     Перепроверить все посылки того же актора (команда / личный / аноним), что и у выбранной,
     по тому же заданию, в хронологическом порядке.
 
-    For chain tasks (wall, replacements_lines) delegates to recheck_chain_task which
-    replays the whole chain in a single transaction in O(N) without per-attempt DB reads.
+    Chain tasks (wall, replacements, raddle, alphabetty, word salad) are queued.
+    The worker replays that one actor. Other task types still run in this request.
     """
     this_attempt = get_object_or_404(Attempt, id=attempt_id)
     task = this_attempt.task
@@ -131,10 +131,19 @@ def recheck_team_task_all_chronological(_, attempt_id):
     anon_key = this_attempt.anon_key
 
     if task.task_type in CHAIN_TASK_TYPES:
-        recheck_chain_task(
-            task=task, team=team, user=user, anon_key=anon_key, game=this_attempt.game,
+        from games.word_salad_recheck import enqueue_actor_rechecks
+        if this_attempt.game_id is None:
+            raise ValueError('chronological chain recheck needs the attempt game')
+        return enqueue_actor_rechecks(
+            task=task,
+            game=this_attempt.game,
+            actors=[(
+                team.pk if team is not None else None,
+                user.pk if user is not None else None,
+                anon_key or None,
+                this_attempt.replay_slot_id,
+            )],
         )
-        return
 
     attempts = Attempt.manager.get_all_attempts(
         team, task, exclude_skip=False, user=user, anon_key=anon_key,

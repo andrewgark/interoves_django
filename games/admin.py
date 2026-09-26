@@ -80,7 +80,6 @@ from games.models import (
     NextGameVoteGoalMapping,
 )
 from games.recheck import (
-    recheck_chain_task,
     recheck_full,
     recheck_queue_from_this,
     recheck_queue_from_next,
@@ -1403,8 +1402,21 @@ def recheck_queue_from_next_attempt(modeladmin, request, queryset):
 
 
 def recheck_team_task_all_chronological_action(modeladmin, request, queryset):
-    for attempt_id in queryset.values_list('id'):
-        recheck_team_task_all_chronological(request, attempt_id[0])
+    from django.contrib import messages
+
+    from games.models import WordSaladRecheckJob
+
+    queued = 0
+    for attempt_id in queryset.values_list('id', flat=True):
+        result = recheck_team_task_all_chronological(request, attempt_id)
+        if isinstance(result, WordSaladRecheckJob):
+            queued += 1
+    if queued:
+        modeladmin.message_user(
+            request,
+            'Queued chronological recheck for {} actor(s). The worker will replay them.'.format(queued),
+            level=messages.SUCCESS,
+        )
 
 
 def _set_ok(attempt):
@@ -1518,13 +1530,30 @@ class PendingAttemptsAdmin(admin.ModelAdmin):
 
 
 def recheck_chain_task_action(modeladmin, request, queryset):
+    from django.contrib import messages
+
+    from games.word_salad_recheck import enqueue_actor_rechecks
+
+    queued = 0
     for state_row in queryset.select_related('task', 'team', 'user', 'game'):
-        recheck_chain_task(
+        if state_row.game_id is None:
+            continue
+        enqueue_actor_rechecks(
             task=state_row.task,
-            team=state_row.team,
-            user=state_row.user if state_row.user_id else None,
-            anon_key=state_row.anon_key,
             game=state_row.game,
+            actors=[(
+                state_row.team_id,
+                state_row.user_id,
+                state_row.anon_key or None,
+                state_row.replay_slot_id,
+            )],
+        )
+        queued += 1
+    if queued:
+        modeladmin.message_user(
+            request,
+            'Queued full-chain recheck for {} actor(s).'.format(queued),
+            level=messages.SUCCESS,
         )
 
 

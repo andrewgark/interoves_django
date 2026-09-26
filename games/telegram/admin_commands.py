@@ -396,9 +396,13 @@ def _cmd_recheck(args) -> str:
         return 'attempt_id должен быть числом.'
 
     try:
-        recheck_team_task_all_chronological(None, attempt_id)
+        result = recheck_team_task_all_chronological(None, attempt_id)
     except Exception as exc:
         return 'Recheck failed: {}'.format(_escape(exc))
+    if getattr(result, 'total_actors', None) is not None:
+        return 'Recheck поставлен в очередь для attempt #{} (job #{}).'.format(
+            attempt_id, result.pk,
+        )
     return 'Recheck запущен для attempt #{}.'.format(attempt_id)
 
 
