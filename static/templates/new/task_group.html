@@ -4175,6 +4175,39 @@
     return out;
   }
 
+  function saladSolvedWords(root) {
+    var out = {};
+    if (!root || !root.querySelectorAll) return out;
+    root.querySelectorAll('.new-word-salad__word.is-solved[data-word-normalized]').forEach(function (row) {
+      var word = row.getAttribute('data-word-normalized');
+      if (word) out[word] = true;
+    });
+    return out;
+  }
+
+  // A team-scoped or in-flight recheck card can list the same answers with
+  // none of them solved. Keep the words already on screen; a later snapshot
+  // that still contains those solves replaces the card as usual.
+  function incomingSaladDropsSolved(current, html) {
+    if (!current || !html || typeof document === 'undefined') return false;
+    var currentRoot = current.querySelector('[data-word-salad-root]');
+    if (!currentRoot) return false;
+    var holder = document.createElement('div');
+    holder.innerHTML = html;
+    var incomingRoot = holder.querySelector('[data-word-salad-root]');
+    if (!incomingRoot) return false;
+    var have = saladSolvedWords(currentRoot);
+    var incomingSolved = saladSolvedWords(incomingRoot);
+    var incomingListed = {};
+    incomingRoot.querySelectorAll('.new-word-salad__word[data-word-normalized]').forEach(function (row) {
+      var word = row.getAttribute('data-word-normalized');
+      if (word) incomingListed[word] = true;
+    });
+    return Object.keys(have).some(function (word) {
+      return incomingListed[word] && !incomingSolved[word];
+    });
+  }
+
   function incomingRaddleIsOlder(current, html) {
     if (!current || !html || typeof document === 'undefined') return false;
     var currentTask = current.querySelector('.new-raddle-task');
@@ -4219,7 +4252,7 @@
         var html = map[tid];
         var el = document.getElementById('new-task-' + tid);
         if (!el || !html) return;
-        if (incomingRaddleIsOlder(el, html)) return;
+        if (incomingRaddleIsOlder(el, html) || incomingSaladDropsSolved(el, html)) return;
         el.outerHTML = html;
         var fresh = document.getElementById('new-task-' + tid);
         if (fresh) {

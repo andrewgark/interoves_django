@@ -39,6 +39,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from games.models import Attempt, Game, GameTaskGroup, Task
 from games.auth_observability import log_realtime_sync
+from games.share_result import DEFAULT_SHARE_HOST
 from games.views.render_task import update_task_html
 
 logger = logging.getLogger(__name__)
@@ -455,6 +456,31 @@ def notify_user_after_commit(user_id, body, *, seq_namespace=None):
     _schedule_channel_broadcast(send, prepare=prepare)
 
 
+def live_page_actor(user, session, game):
+    """Actor whose progress the open game page is showing.
+
+    Admin broadcasts have no actor of their own. Rebuilding the card from
+    ``profile.team_on`` drops personal progress: a sections player who also
+    belongs to a team then sees an empty salad.
+    """
+    from games.views.new_ui import _get_play_mode
+    from games.views.util import effective_play_mode, has_profile, has_team
+
+    class _SessionRequest:
+        pass
+
+    request = _SessionRequest()
+    request.session = session if session is not None else {}
+    request.user = user
+    play_mode, _key = _get_play_mode(request, getattr(game, 'project_id', None))
+    play_mode = effective_play_mode(play_mode, game, user=user)
+    if play_mode == 'team' and has_team(user):
+        return user.profile.team_on, None
+    if getattr(user, 'is_authenticated', False) and has_profile(user):
+        return None, user
+    return None, None
+
+
 def build_event_task_change(
     task,
     team=None,
@@ -488,7 +514,14 @@ def build_event_task_change(
             profile = team.roster_profiles.first()
             request_user = profile.user if profile is not None else None
         if request_user is not None:
-            request = RequestFactory().get(f'/games/{game.id}')
+            # RequestFactory's default host is "testserver", which production
+            # ALLOWED_HOSTS rejects. Salad/raddle share text calls get_host
+            # while the template argument is resolved, so the live card never
+            # renders and the recheck push is dropped.
+            request = RequestFactory().get(
+                f'/games/{game.id}',
+                HTTP_HOST=DEFAULT_SHARE_HOST,
+            )
             request.user = request_user
 
     if update_html is None and request is not None:
@@ -737,14 +770,12 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def _build_task_changed_for_admin(self, event):
         user = self.scope['user']
-        team = None
-        profile = getattr(user, 'profile', None)
-        if profile is not None:
-            team = profile.team_on
         game = get_object_or_404(Game, id=self.game_id)
+        team, actor_user = live_page_actor(user, self.scope.get('session'), game)
         return build_event_task_change(
             get_object_or_404(Task, id=event['task']),
             team,
+            user=actor_user,
             game=game,
         )
 

@@ -34,6 +34,7 @@ from games.models import (
 from games.views.track import (
     CHANNEL_GROUPS,
     build_event_task_change,
+    live_page_actor,
     current_track_seq,
     envelope_track_message,
     game_track_namespace,
@@ -253,6 +254,27 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(event['extra'], 'x')
         self.assertEqual(render.call_args.kwargs['user'], self.user)
         self.assertIsNone(render.call_args.args[2])
+        self.assertEqual(render.call_args.args[0].get_host(), 'interoves.com')
+
+    def test_live_page_actor_uses_personal_progress_for_section_games(self):
+        project, _created = Project.objects.get_or_create(pk='sections')
+        game = Game.objects.create(
+            pk='section_actor_game',
+            name='Section actor',
+            author='test',
+            author_extra='',
+            project=project,
+            is_ready=True,
+            is_tournament=False,
+        )
+        team, actor_user = live_page_actor(self.user, {}, game)
+        self.assertIsNone(team)
+        self.assertEqual(actor_user, self.user)
+
+    def test_live_page_actor_uses_team_for_main_games(self):
+        team, actor_user = live_page_actor(self.user, {}, self.game)
+        self.assertEqual(team, self.team)
+        self.assertIsNone(actor_user)
 
     def test_build_event_task_change_admin(self):
         event = build_event_task_change(
