@@ -809,6 +809,13 @@ class AlphabettyPlayApiTests(TestCase):
         offer = AlphabettyOffer.objects.get(pk=offer_id)
         accept_alphabetty_offer(offer)
         offer.refresh_from_db()
+        from games.support.services.alphabetty import get_alphabetty_detail, list_alphabetty_rows
+        from games.telegram.game_urls import task_play_url
+        row = next(item for item in list_alphabetty_rows() if item.link_id == offer.accepted_link_id)
+        self.assertEqual(row.site_url, offer.play_url())
+        self.assertEqual(get_alphabetty_detail(offer.accepted_link_id)['site_url'], offer.play_url())
+        task = offer.task_group.tasks.get(number='1')
+        self.assertIn(offer.share_hash, task_play_url(self.game, task))
 
         _ensure_login_modal_deps()
         anon = Client()

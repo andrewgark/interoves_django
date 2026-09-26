@@ -170,6 +170,12 @@ class LadderOfferFlowTests(TestCase):
         self.assertIsNotNone(offer.accepted_link_id)
         self.assertEqual(offer.accepted_link.task_group_id, offer.task_group_id)
         self.assertEqual(Task.objects.filter(task_group=offer.task_group).count(), 1)
+        from games.support.services.ladders import get_ladder_detail, list_ladder_rows
+        from games.telegram.game_urls import task_play_url
+        row = next(item for item in list_ladder_rows() if item.link_id == offer.accepted_link_id)
+        self.assertEqual(row.site_url, offer.play_url())
+        self.assertEqual(get_ladder_detail(offer.accepted_link_id)['site_url'], offer.play_url())
+        self.assertIn(offer.share_hash, task_play_url(self.game, task))
         self.assertEqual(Attempt.manager.filter(task=task, game=self.game).count(), 1)
         self.assertEqual(Like.manager.filter(task=task).count(), 1)
 

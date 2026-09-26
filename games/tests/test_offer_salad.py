@@ -304,6 +304,8 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertEqual(row.site_url, offer.play_url())
         self.assertEqual(get_word_salad_detail(offer.accepted_link_id)['site_url'], offer.play_url())
         self.assertNotEqual(row.site_url, row.preview_url)
+        from games.telegram.game_urls import task_play_url
+        self.assertIn(offer.share_hash, task_play_url(self.game, task))
 
     def test_full_send_rejects_placeholder_and_removable_letter(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)

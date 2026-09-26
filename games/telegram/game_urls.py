@@ -39,15 +39,39 @@ def task_group_play_path(game, task_group_number) -> str:
     return '{}{}/'.format(game_play_path(game), task_group_number)
 
 
+def _offer_share_path(task) -> str:
+    """Public /<game>/<hash>/ when this task belongs to a custom offer."""
+    if task is None or not getattr(task, 'task_group_id', None):
+        return ''
+    from games.models import AlphabettyOffer, LadderOffer, WordSaladOffer
+
+    for model in (WordSaladOffer, LadderOffer, AlphabettyOffer):
+        offer = (
+            model.objects.filter(task_group_id=task.task_group_id)
+            .exclude(share_hash='')
+            .first()
+        )
+        if offer is None:
+            continue
+        path = offer.play_url()
+        if path:
+            return path
+    return ''
+
+
 def task_play_url(game, task) -> str:
     """
     Absolute URL of the task on the site (task group page + #new-task-<id>).
+    A custom offer's share link wins over the numeric daily slot.
     Falls back to the game hub if the task is not linked into the game.
     """
     from games.models import GameTaskGroup
 
     if task is None:
         return game_site_url(game)
+    share = _offer_share_path(task)
+    if share:
+        return admin_url('{}#new-task-{}'.format(share, task.pk))
     link = None
     if task.task_group_id:
         link = (

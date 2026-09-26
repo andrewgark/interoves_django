@@ -56,6 +56,7 @@ class AlphabettyRow:
     is_today: bool
     word: str
     play_url: str
+    site_url: str = ''
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -111,6 +112,25 @@ def _tasks_for_links(links: list[GameTaskGroup]) -> dict[int, Task]:
     }
 
 
+def _site_urls_by_task_group(task_group_ids) -> dict[int, str]:
+    from games.models import AlphabettyOffer
+
+    ids = [pk for pk in task_group_ids if pk]
+    if not ids:
+        return {}
+    paths = {}
+    offers = (
+        AlphabettyOffer.objects.filter(task_group_id__in=ids)
+        .exclude(share_hash='')
+        .only('task_group_id', 'share_hash')
+    )
+    for offer in offers:
+        url = offer.play_url()
+        if url and offer.task_group_id not in paths:
+            paths[offer.task_group_id] = url
+    return paths
+
+
 def list_alphabetty_rows(*, now: datetime | None = None) -> list[AlphabettyRow]:
     game = get_alphabetty_game()
     now = now or timezone.now()
@@ -120,6 +140,7 @@ def list_alphabetty_rows(*, now: datetime | None = None) -> list[AlphabettyRow]:
         reverse=False,
     )
     tasks_by_group = _tasks_for_links(links)
+    site_urls = _site_urls_by_task_group(link.task_group_id for link in links)
     rows: list[AlphabettyRow] = []
     for link in links:
         try:
@@ -143,6 +164,7 @@ def list_alphabetty_rows(*, now: datetime | None = None) -> list[AlphabettyRow]:
             is_today=is_today,
             word=word,
             play_url=f'/{ALPHABETTY_GAME_ID}/{number}/',
+            site_url=site_urls.get(link.task_group_id, ''),
         ))
     return rows
 
@@ -171,6 +193,7 @@ def get_alphabetty_detail(link_id: int) -> dict[str, Any]:
         'publish_date': pub.date().isoformat() if pub else None,
         'word': _word_from_task(task),
         'play_url': f'/{ALPHABETTY_GAME_ID}/{number}/',
+        'site_url': _site_urls_by_task_group([link.task_group_id]).get(link.task_group_id, ''),
     }
 
 

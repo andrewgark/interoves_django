@@ -67,6 +67,7 @@ class LadderRow:
     intro: str
     play_url: str
     mixed_script: bool = False
+    site_url: str = ''
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -241,6 +242,25 @@ def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
     }
 
 
+def _site_urls_by_task_group(task_group_ids) -> dict[int, str]:
+    from games.models import LadderOffer
+
+    ids = [pk for pk in task_group_ids if pk]
+    if not ids:
+        return {}
+    paths = {}
+    offers = (
+        LadderOffer.objects.filter(task_group_id__in=ids)
+        .exclude(share_hash='')
+        .only('task_group_id', 'share_hash')
+    )
+    for offer in offers:
+        url = offer.play_url()
+        if url and offer.task_group_id not in paths:
+            paths[offer.task_group_id] = url
+    return paths
+
+
 def list_ladder_rows(*, now: datetime | None = None) -> list[LadderRow]:
     game = get_ladder_game()
     now = now or timezone.now()
@@ -250,6 +270,7 @@ def list_ladder_rows(*, now: datetime | None = None) -> list[LadderRow]:
         reverse=False,
     )
     tasks_by_group = _tasks_for_links(links)
+    site_urls = _site_urls_by_task_group(link.task_group_id for link in links)
     rows: list[LadderRow] = []
     for link in links:
         try:
@@ -277,6 +298,7 @@ def list_ladder_rows(*, now: datetime | None = None) -> list[LadderRow]:
             intro=payload['intro'],
             play_url=f'/{LADDER_GAME_ID}/{number}/',
             mixed_script=bool(payload.get('mixed_script')),
+            site_url=site_urls.get(link.task_group_id, ''),
         ))
     return rows
 
@@ -311,6 +333,7 @@ def get_ladder_detail(link_id: int) -> dict[str, Any]:
         'emojis': payload['emojis'],
         'mixed_script': payload['mixed_script'],
         'play_url': f'/{LADDER_GAME_ID}/{number}/',
+        'site_url': _site_urls_by_task_group([link.task_group_id]).get(link.task_group_id, ''),
     }
 
 
