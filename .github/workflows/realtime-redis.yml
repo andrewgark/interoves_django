@@ -50,4 +50,7 @@ jobs:
           REDIS_HOST: 127.0.0.1
           REDIS_PORT: '6379'
           DEFER_CHANNEL_BROADCAST: '0'
+          # This job does not exercise Tribute payments. Keep their production
+          # default from making Django's unrelated system check fail in CI.
+          CLUB_PAYMENTS_ENABLED: '0'
         run: python manage.py test games.tests.test_realtime_redis
