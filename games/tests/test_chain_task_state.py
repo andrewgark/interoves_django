@@ -14,7 +14,7 @@ from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
 from games.models import (
-    Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, HTMLPage,
+    Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, HTMLPage, ReplaySlot,
     PlayerCompletedGame, Project, Task, TaskGroup, Team, CHAIN_TASK_TYPES,
 )
 from games.exception import DuplicateAttemptException, TooManyAttemptsException
@@ -906,3 +906,30 @@ class EdgeCaseTests(_ChainFixture, TestCase):
         state = json.loads(row.state)
         self.assertIn(0, state['solved_lines'])
         self.assertIn(1, state['solved_lines'])
+
+    def test_replacements_state_audit_is_read_only_and_sees_replay_slots(self):
+        from django.core.management import call_command
+        from io import StringIO
+
+        replay = ReplaySlot.objects.create(
+            team=self.team,
+            actor_key='team:{}'.format(self.team.pk),
+            game=self.game,
+            task_group=self.repl_task.task_group,
+        )
+        a = _make_attempt(self.repl_task, self.team, _repl_text(0, ['answer1']))
+        a.replay_slot = replay
+        check_attempt(a)
+        out = StringIO()
+        call_command(
+            'audit_replacements_chain_states', '--dry-run', '--task-id',
+            str(self.repl_task.id), '--json', stdout=out,
+        )
+        report = json.loads(out.getvalue())
+        self.assertEqual(report['summary']['candidate_count'], 1)
+        self.assertEqual(report['summary']['suspect_count'], 0)
+        self.assertTrue(
+            ChainTaskState.objects.filter(
+                task=self.repl_task, team=self.team, replay_slot=replay,
+            ).exists()
+        )

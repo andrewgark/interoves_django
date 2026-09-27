@@ -1,5 +1,5 @@
 """
-Backfill ChainTaskState for all existing wall / replacements_lines attempts.
+Backfill ChainTaskState for existing wall / replacements_lines attempts.
 
 Run once after deploying the ChainTaskState feature to populate state rows for
 all historical data.  Safe to run multiple times (idempotent).
@@ -11,7 +11,7 @@ Usage:
 """
 from django.core.management.base import BaseCommand
 
-from games.models import Attempt, CHAIN_TASK_TYPES, GameTaskGroup
+from games.models import Attempt, GameTaskGroup
 from games.recheck import recheck_chain_task
 
 
@@ -35,7 +35,7 @@ class Command(BaseCommand):
         # Collect unique (team_id, user_id, anon_key, task) actor+task combos
         # by scanning all attempts for chain task types.
         qs = Attempt.manager.select_related('task', 'team', 'user').filter(
-            task__task_type__in=CHAIN_TASK_TYPES,
+            task__task_type__in=('wall', 'replacements_lines'),
         )
         if task_id_filter:
             qs = qs.filter(task_id=task_id_filter)
@@ -43,7 +43,10 @@ class Command(BaseCommand):
         seen = set()
         combos = []
         for attempt in qs.iterator():
-            key = (attempt.team_id, attempt.user_id, attempt.anon_key, attempt.task_id, attempt.game_id)
+            key = (
+                attempt.team_id, attempt.user_id, attempt.anon_key,
+                attempt.task_id, attempt.game_id, attempt.replay_slot_id,
+            )
             if key in seen:
                 continue
             seen.add(key)
@@ -58,6 +61,7 @@ class Command(BaseCommand):
                 'user': attempt.user if attempt.user_id else None,
                 'anon_key': attempt.anon_key,
                 'game': g,
+                'replay_slot': attempt.replay_slot,
             })
 
         self.stdout.write('Found {} actor+task combination(s) to backfill.'.format(len(combos)))
