@@ -17,7 +17,7 @@ from games.models import (
     Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, HTMLPage,
     PlayerCompletedGame, Project, Task, TaskGroup, Team, CHAIN_TASK_TYPES,
 )
-from games.exception import DuplicateAttemptException
+from games.exception import DuplicateAttemptException, TooManyAttemptsException
 from games.recheck import recheck_chain_task
 from games.views.attempt_views import check_attempt
 from games.wall import Wall
@@ -303,6 +303,29 @@ class ReplacementsChainTests(_ChainFixture, TestCase):
 
         self.assertIsNotNone(corrected.pk)
         self.assertEqual(corrected.status, 'Partial')
+
+    def test_server_generated_correct_attempt_can_bypass_attempt_limit(self):
+        self.repl_task.max_attempts = 1
+        with patch('games.views.track.track_task_change'):
+            self.repl_task.save(update_fields=['max_attempts'])
+
+        with patch.object(Game, 'get_current_mode', return_value='tournament'), \
+                patch.object(
+                    Attempt.manager,
+                    'filter_attempts_with_mode',
+                    side_effect=lambda attempts, *args, **kwargs: attempts,
+                ):
+            wrong = _make_attempt(self.repl_task, self.team, _repl_text(0, ['wrong']))
+            check_attempt(wrong)
+
+            with self.assertRaises(TooManyAttemptsException):
+                check_attempt(_make_attempt(self.repl_task, self.team, _repl_text(0, ['answer1'])))
+
+            generated = _make_attempt(self.repl_task, self.team, _repl_text(0, ['answer1']))
+            check_attempt(generated, bypass_attempt_limit=True)
+
+        self.assertIsNotNone(generated.pk)
+        self.assertEqual(generated.status, 'Partial')
 
 
 # ===========================================================================

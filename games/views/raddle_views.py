@@ -86,6 +86,11 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
     from games.views.attempt_views import check_attempt
 
     n = parsed['n_words']
+    attempt = None
+    attempt_persisted = False
+    # Keep the state mutation and the server-generated correct Attempt in one
+    # transaction.  If validation/checking fails, tier 2 must not remain stuck
+    # in state without the corresponding solved word.
     with transaction.atomic():
         ChainTaskState.objects.get_or_create(
             team=team, user=user, anon_key=anon_key,
@@ -122,21 +127,25 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
         row.state = json.dumps(dump_raddle_state(state, n), ensure_ascii=False)
         row.save(update_fields=['state', 'updated_at'])
 
-    word = parsed['words'][word_index]
-    attempt = Attempt(text=serialize_raddle_attempt_text(word_index, word))
-    attempt.team = team
-    attempt.user = user
-    attempt.anon_key = anon_key
-    attempt.task = task
-    attempt.time = timezone.now()
-    attempt.game = game
-    attempt.replay_slot = replay_slot
-    try:
-        check_attempt(attempt, timing_request=request)
-    except DuplicateAttemptException:
-        pass
+        word = parsed['words'][word_index]
+        attempt = Attempt(text=serialize_raddle_attempt_text(word_index, word))
+        attempt.team = team
+        attempt.user = user
+        attempt.anon_key = anon_key
+        attempt.task = task
+        attempt.time = timezone.now()
+        attempt.game = game
+        attempt.replay_slot = replay_slot
+        try:
+            attempt_persisted = check_attempt(
+                attempt,
+                timing_request=request,
+                bypass_attempt_limit=True,
+            )
+        except DuplicateAttemptException:
+            pass
 
-    if attempt.pk:
+    if attempt_persisted and attempt.pk:
         request.interoves_attempt_id = attempt.pk
         log_gameplay_attempt_created(
             request, attempt=attempt, actor_kind=request.interoves_gameplay_actor_kind,
@@ -151,7 +160,7 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
         'raddle_correct': True,
         'raddle_word_index': word_index,
     }
-    if attempt.pk:
+    if attempt_persisted and attempt.pk:
         result['attempt_id'] = attempt.pk
     analytics_events = [] if replay_slot is not None else register_started_game(
         team=team,

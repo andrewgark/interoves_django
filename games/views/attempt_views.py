@@ -111,7 +111,20 @@ def _raddle_stale_submit_response(request, task, team, user, anon_key, game, cur
     return None
 
 
-def check_attempt(attempt, *, persist_wrong=True, timing_request=None):
+def check_attempt(
+    attempt,
+    *,
+    persist_wrong=True,
+    timing_request=None,
+    bypass_attempt_limit=False,
+):
+    """Check and optionally persist an attempt.
+
+    ``bypass_attempt_limit`` is reserved for server-generated successful
+    attempts (currently Raddle's answer assist).  It does not bypass duplicate
+    detection or any checker/state validation; it only allows that authoritative
+    answer to be persisted after the player's typo quota is exhausted.
+    """
     task = attempt.task
     team = attempt.team
     user = getattr(attempt, 'user', None)
@@ -189,7 +202,7 @@ def check_attempt(attempt, *, persist_wrong=True, timing_request=None):
                 if last_attempt_state is None:
                     last_attempt_state = attempts[-1].state
 
-            if mode == 'tournament':
+            if mode == 'tournament' and not bypass_attempt_limit:
                 if task.task_type == 'wall':
                     current_state = chain_state_row.state if chain_state_row else None
                     validation_data = task.get_wall().validate_max_attempts(
