@@ -15,6 +15,7 @@ from games.replacements_lines import (
     replacements_strip_hash_literals,
     split_slot_answer_alternatives,
     task_replacements_canonical_answer_row,
+    validate_replacements_checker_json_data,
 )
 
 
@@ -52,6 +53,19 @@ class CanonicalReplacementsCheckerLineTests(SimpleTestCase):
 
 
 class ParseReplacementsLinesTextTests(SimpleTestCase):
+    def test_json_checker_rows_are_not_silently_shifted_by_malformed_row(self):
+        raw = json.dumps({'lines': [['A'], 'broken', ['C']]})
+        self.assertIsNone(parse_replacements_checker_json_lines(raw))
+
+    def test_json_checker_validation_rejects_malformed_rows(self):
+        with self.assertRaises(ValueError):
+            validate_replacements_checker_json_data(
+                json.dumps({'lines': [['A'], 'broken']})
+            )
+
+    def test_plain_checker_data_remains_supported_by_validation(self):
+        validate_replacements_checker_json_data('ANSWER\nSECOND ANSWER')
+
     def test_json_checker_lines_not_parsed_as_caps_from_whole_blob(self):
         """JSON checker_data не должен прогоняться через _segments_and_slot_values целиком."""
         left = (
@@ -269,6 +283,57 @@ class ReplacementsLinesCheckerTests(SimpleTestCase):
         payload = '{"line_index": 0, "answers": ["CITROËN"]}'
         r = ch.check(payload, att)
         self.assertEqual(r.status, 'Ok')
+
+    def test_solved_slot_cannot_regress_and_next_attempt_completes_line(self):
+        """A later attempt adds the missing slot without undoing prior progress."""
+        checker_data = json.dumps({'lines': [['ВЕРНО', 'ВЕРНО']]}, ensure_ascii=False)
+        ch = ReplacementsLinesChecker(checker_data, None)
+        att = self._attempt('', '')
+
+        first = ch.check(
+            json.dumps({'line_index': 0, 'answers': ['ВЕРНО', 'неверно']}, ensure_ascii=False),
+            att,
+        )
+        self.assertEqual(first.status, 'Partial')
+        first_state = json.loads(first.state)
+        self.assertEqual(first_state['solved_slots'], {'0': [0]})
+        self.assertEqual(first_state['solved_lines'], [])
+
+        second_checker = ReplacementsLinesChecker(checker_data, first.state)
+        second = second_checker.check(
+            json.dumps({'line_index': 0, 'answers': ['неверно', 'ВЕРНО']}, ensure_ascii=False),
+            att,
+        )
+        self.assertEqual(second.status, 'Ok')
+        second_state = json.loads(second.state)
+        self.assertEqual(second_state['solved_slots'], {'0': [0, 1]})
+        self.assertEqual(second_state['solved_lines'], [0])
+        self.assertEqual(second.points, 1)
+
+    def test_legacy_solved_lines_are_fallback_only_when_slot_state_is_absent(self):
+        checker_data = json.dumps({'lines': [['a', 'b']]})
+        att = self._attempt('', '')
+        state = json.dumps({
+            'solved_slots': {'0': [0]},
+            'solved_lines': [0],
+            'total': 1,
+        })
+        result = ReplacementsLinesChecker(checker_data, state).check(
+            json.dumps({'line_index': 0, 'answers': ['wrong', 'wrong']}),
+            att,
+        )
+        self.assertNotEqual(result.status, 'Ok')
+        self.assertEqual(json.loads(result.state)['solved_slots'], {'0': [0]})
+
+    def test_extra_answers_do_not_complete_a_line(self):
+        checker_data = json.dumps({'lines': [['a']]})
+        att = self._attempt('', '')
+        result = ReplacementsLinesChecker(checker_data, None).check(
+            json.dumps({'line_index': 0, 'answers': ['a', 'unexpected']}),
+            att,
+        )
+        self.assertNotEqual(result.status, 'Ok')
+        self.assertEqual(json.loads(result.state)['solved_lines'], [])
 
     def test_tournament_partial_when_line_correct_but_task_not_complete(self):
         """Верная строка без полного решения: Partial, не Ok и не Pending."""

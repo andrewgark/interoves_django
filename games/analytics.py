@@ -251,14 +251,27 @@ def _state_complete_replacements(task, state_raw):
     if not state_raw:
         return False
     try:
-        from games.replacements_lines import parse_replacements_lines_text
+        from games.replacements_lines import (
+            parse_replacements_checker_json_lines,
+            parse_replacements_lines_text,
+            replacements_solved_slots_from_state,
+        )
 
         parsed = parse_replacements_lines_text(task.text, (task.checker_data or '').strip() or None)
-        total = len(parsed.get('left_lines') or [])
+        checker_rows = parse_replacements_checker_json_lines(task.checker_data or '')
+        answer_rows = checker_rows[0] if checker_rows else (parsed.get('answers') or [])
+        total = len(answer_rows)
         if total <= 0:
             return False
         state = json.loads(state_raw)
-        return len(set(state.get('solved_lines') or [])) >= total
+        solved_slots = replacements_solved_slots_from_state(
+            state,
+            dict(parsed, answers=answer_rows),
+        )
+        return all(
+            bool(row) and len(solved_slots.get(index, set())) == len(row)
+            for index, row in enumerate(answer_rows)
+        )
     except Exception:
         return False
 

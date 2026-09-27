@@ -210,6 +210,41 @@ class ChainTaskStateCreationTests(_ChainFixture, TestCase):
 # ===========================================================================
 class ReplacementsChainTests(_ChainFixture, TestCase):
 
+    def test_replacements_accumulates_slots_atomically(self):
+        """A wrong value cannot erase a slot solved by an earlier submission."""
+        with patch('games.views.track.track_task_change'):
+            tg = TaskGroup.objects.create(label='tg_repl_slots')
+            GameTaskGroup.objects.create(
+                game=self.game, task_group=tg, number=3, name='tg_repl_slots',
+            )
+            task = Task.objects.create(
+                task_group=tg,
+                number='1',
+                task_type='replacements_lines',
+                checker_data=json.dumps({'lines': [['answer1', 'answer2']]}),
+            )
+
+        first = _make_attempt(task, self.team, _repl_text(0, ['answer1', 'wrong']))
+        check_attempt(first)
+        self.assertEqual(first.status, 'Partial')
+
+        second = _make_attempt(task, self.team, _repl_text(0, ['wrong', 'answer2']))
+        check_attempt(second)
+        self.assertEqual(second.status, 'Ok')
+        self.assertEqual(second.points, 1)
+
+        row = ChainTaskState.objects.get(task=task, team=self.team, game_mode='general')
+        state = json.loads(row.state)
+        self.assertEqual(state['solved_slots'], {'0': [0, 1]})
+        self.assertEqual(state['solved_lines'], [0])
+
+        # Chronological replay must rebuild the same monotonic slot state.
+        row.state = json.dumps({'solved_slots': {}, 'solved_lines': [], 'total': 0})
+        row.save(update_fields=['state'])
+        recheck_chain_task(task, team=self.team, game=self.game, notify=False)
+        row.refresh_from_db()
+        self.assertEqual(json.loads(row.state), state)
+
     def test_first_attempt_sets_state(self):
         a = _make_attempt(self.repl_task, self.team, _repl_text(0, ['answer1']))
         check_attempt(a)
@@ -678,6 +713,16 @@ class ConcurrentSubmissionTests(TransactionTestCase):
                 checker=CheckerType.objects.get(pk='equals_with_possible_spaces'),
                 checker_data='answer',
             )
+            slot_group = TaskGroup.objects.create(label='tg_repl_slots_race', points=1)
+            GameTaskGroup.objects.create(
+                game=self.game, task_group=slot_group, number=4, name='replacements slots race',
+            )
+            self.slot_repl_task = Task.objects.create(
+                task_group=slot_group,
+                number='1',
+                task_type='replacements_lines',
+                checker_data=json.dumps({'lines': [['answer1', 'answer2']]}),
+            )
 
     def test_concurrent_attempts_both_complete_without_duplication(self):
         if connection.vendor == 'sqlite':
@@ -735,6 +780,34 @@ class ConcurrentSubmissionTests(TransactionTestCase):
         )
         self.assertEqual(len(errors), 1)
         self.assertIsInstance(errors[0], DuplicateAttemptException)
+
+    def test_concurrent_complementary_replacements_preserve_both_slots(self):
+        if connection.vendor == 'sqlite':
+            self.skipTest('SELECT FOR UPDATE row locking not supported on SQLite')
+        errors = []
+
+        def submit(answers):
+            try:
+                check_attempt(_make_attempt(
+                    self.slot_repl_task, self.team,
+                    _repl_text(0, answers),
+                ))
+            except Exception as exc:
+                errors.append(exc)
+
+        first = threading.Thread(target=submit, args=(['answer1', 'wrong'],))
+        second = threading.Thread(target=submit, args=(['wrong', 'answer2'],))
+        first.start()
+        second.start()
+        first.join(timeout=10)
+        second.join(timeout=10)
+
+        self.assertEqual(errors, [], 'Threads raised: {}'.format(errors))
+        row = ChainTaskState.objects.get(task=self.slot_repl_task, team=self.team)
+        state = json.loads(row.state)
+        self.assertEqual(state['solved_slots'], {'0': [0, 1]})
+        self.assertEqual(state['solved_lines'], [0])
+        self.assertEqual(state['total'], 1)
 
 
 # ===========================================================================

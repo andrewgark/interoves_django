@@ -128,7 +128,13 @@ from games.models import (
 from games.replay import active_replay, clear_replay_session, start_or_reset_replay
 from games.models import GameResultsSnapshot, TICKET_REQUESTS_PAGE_SIZE
 from games.util import clean_text
-from games.replacements_lines import canonical_replacements_checker_line, parse_replacements_lines_text
+from games.replacements_lines import (
+    canonical_replacements_checker_line,
+    parse_replacements_lines_text,
+    replacements_line_done_from_state,
+    replacements_solved_slots_from_state,
+    task_replacements_canonical_answer_row,
+)
 from games.raddle import (
     build_raddle_ui_context,
     load_raddle_state,
@@ -3557,6 +3563,34 @@ def _wall_ui_context(task, attempts_info, mode):
     }
 
 
+def _replacements_current_state(
+    task, *, game=None, team=None, user=None, anon_key=None, mode='general',
+    replay_slot=None, attempts_info=None,
+):
+    """Read authoritative replacements state, with a legacy attempt fallback."""
+    state = None
+    if game is not None:
+        filters = {
+            'task': task,
+            'game': game,
+            'game_mode': 'tournament' if mode == 'tournament' else 'general',
+            'replay_slot': replay_slot,
+        }
+        if team is not None:
+            filters.update(team=team, user__isnull=True, anon_key__isnull=True)
+        elif user is not None:
+            filters.update(user=user, team__isnull=True, anon_key__isnull=True)
+        elif anon_key is not None:
+            filters.update(anon_key=anon_key, team__isnull=True, user__isnull=True)
+        else:
+            filters = None
+        if filters is not None:
+            state = ChainTaskState.objects.filter(**filters).values_list('state', flat=True).first()
+    if state is None and attempts_info and attempts_info.attempts:
+        state = attempts_info.attempts[-1].state
+    return state
+
+
 def build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode, placement=None, replay_slot=None):
     """
     Shared context for task_group.html and new/partials/task_card.html
@@ -3687,12 +3721,8 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             line_solved = [False] * n_lines
             line_attempts = [0] * n_lines
             answers_by_line = parsed.get('answers', [])
-            accept_by_line = parsed.get('answer_accept') or []
-            slot_correct = [
-                [False] * len(answers_by_line[i]) for i in range(n_lines)
-            ]
             line_done = [False] * n_lines
-            solved_lines_from_state = set()
+            solved_slots_from_state = {}
             ai = attempts_info_by_task_id.get(t.id)
             hint_attempts = ai.hint_attempts if ai else []
             if ai and ai.attempts:
@@ -3702,42 +3732,30 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                         idx = int(p.get('line_index', -1))
                         if 0 <= idx < n_lines:
                             line_attempts[idx] += 1
-                            user_answers = p.get('answers', []) or []
-                            correct_answers = answers_by_line[idx] if idx < len(answers_by_line) else []
-                            opts_row = (
-                                accept_by_line[idx]
-                                if idx < len(accept_by_line)
-                                else [[c] for c in correct_answers]
-                            )
-                            for j in range(min(len(user_answers), len(correct_answers))):
-                                opts = opts_row[j] if j < len(opts_row) else [correct_answers[j]]
-                                if any(clean_text(user_answers[j]) == clean_text(o) for o in opts):
-                                    slot_correct[idx][j] = True
                     except (ValueError, TypeError):
                         pass
-                    # Состояние накопительных очков/решённых строк хранится в a.state
-                    if a.state:
-                        try:
-                            st = json.loads(a.state)
-                            solved_lines_from_state = set(st.get('solved_lines', []) or [])
-                        except (ValueError, TypeError):
-                            pass
+            # ChainTaskState is authoritative. Do not reconstruct a solved
+            # line by combining slots from different attempts.
+            state = _replacements_current_state(
+                t, game=game, team=team, user=user, anon_key=anon_key,
+                mode=mode, replay_slot=replay_slot, attempts_info=ai,
+            )
+            solved_slots_from_state = replacements_solved_slots_from_state(
+                state, parsed,
+            )
             for i in range(n_lines):
-                if i in solved_lines_from_state:
-                    line_done[i] = True
-            for i in range(n_lines):
-                # Строка считается завершённой, если либо была попытка Ok,
-                # либо уже все слоты совпали (по накопленным slot_correct).
-                if not line_done[i]:
-                    # fallback для старых данных без state: если все слоты совпали по компонентам
-                    line_done[i] = bool(slot_correct[i]) and all(slot_correct[i])
+                solved = solved_slots_from_state.get(i, set())
+                line_done[i] = bool(answers_by_line[i]) and len(solved) == len(answers_by_line[i])
             slot_counts = [len(answers_by_line[i]) for i in range(n_lines)]
             replacements_lines_data[t.id] = {
                 'parsed': parsed,
                 'line_solved': line_solved,
                 'line_done': line_done,
                 'line_attempts': line_attempts,
-                'slot_correct': slot_correct,
+                'slot_correct': [
+                    [j in solved_slots_from_state.get(i, set()) for j in range(len(answers_by_line[i]))]
+                    for i in range(n_lines)
+                ],
                 'n_lines': n_lines,
                 'slot_counts': slot_counts,
                 'max_attempts': t.get_max_attempts(),
@@ -4560,7 +4578,10 @@ def new_task_group_live_state(request, game_id):
     })
 
 
-def _replacements_lines_line_done_list(task, attempts_info):
+def _replacements_lines_line_done_list(
+    task, attempts_info, *, game=None, team=None, user=None, anon_key=None,
+    mode='general', replay_slot=None,
+):
     """
     Какие строки задания «Замены» считаются сданными для актора (как rld.line_done в new_task_group_page).
     """
@@ -4571,44 +4592,11 @@ def _replacements_lines_line_done_list(task, attempts_info):
     if not n_lines:
         return []
     answers_by_line = parsed.get('answers', [])
-    accept_by_line = parsed.get('answer_accept') or []
-    slot_correct = [
-        [False] * len(answers_by_line[i]) for i in range(n_lines)
-    ]
-    line_done = [False] * n_lines
-    solved_lines_from_state = set()
-    attempts = attempts_info.attempts if attempts_info else []
-    for a in attempts:
-        try:
-            p = json.loads(a.text)
-            idx = int(p.get('line_index', -1))
-            if 0 <= idx < n_lines:
-                user_answers = p.get('answers', []) or []
-                correct_answers = answers_by_line[idx] if idx < len(answers_by_line) else []
-                opts_row = (
-                    accept_by_line[idx]
-                    if idx < len(accept_by_line)
-                    else [[c] for c in correct_answers]
-                )
-                for j in range(min(len(user_answers), len(correct_answers))):
-                    opts = opts_row[j] if j < len(opts_row) else [correct_answers[j]]
-                    if any(clean_text(user_answers[j]) == clean_text(o) for o in opts):
-                        slot_correct[idx][j] = True
-        except (ValueError, TypeError):
-            pass
-        if a.state:
-            try:
-                st = json.loads(a.state)
-                solved_lines_from_state = set(st.get('solved_lines', []) or [])
-            except (ValueError, TypeError):
-                pass
-    for i in range(n_lines):
-        if i in solved_lines_from_state:
-            line_done[i] = True
-    for i in range(n_lines):
-        if not line_done[i]:
-            line_done[i] = bool(slot_correct[i]) and all(slot_correct[i])
-    return line_done
+    state = _replacements_current_state(
+        task, game=game, team=team, user=user, anon_key=anon_key,
+        mode=mode, replay_slot=replay_slot, attempts_info=attempts_info,
+    )
+    return replacements_line_done_from_state(state, parsed)
 
 
 def _answer_popup_html(answer_text, answer_comment=None):
@@ -4661,7 +4649,9 @@ def new_get_answer(request, task_id):
         return locked
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
-    attempts_info = Attempt.manager.get_attempts_info(team=team, user=user, anon_key=anon_key, task=task, mode=mode)
+    attempts_info = Attempt.manager.get_attempts_info(
+        team=team, user=user, anon_key=anon_key, task=task, mode=mode, game=game,
+    )
     if mode != 'general' and not attempts_info.is_solved():
         return JsonResponse({'html': '<div class="new-login-hint">Ответ доступен после верного решения.</div>'})
 
@@ -4734,24 +4724,26 @@ def new_get_replacements_line_answer(request, task_id, line_index):
             raise Http404()
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
-    attempts_info = Attempt.manager.get_attempts_info(team=team, user=user, anon_key=anon_key, task=task, mode=mode)
+    attempts_info = Attempt.manager.get_attempts_info(
+        team=team, user=user, anon_key=anon_key, task=task, mode=mode, game=game,
+    )
     try:
         line_index_int = int(line_index)
     except (TypeError, ValueError):
         line_index_int = -1
-    line_done_list = _replacements_lines_line_done_list(task, attempts_info)
+    line_done_list = _replacements_lines_line_done_list(
+        task, attempts_info, game=game, team=team, user=user, anon_key=anon_key,
+        mode=mode,
+    )
     if mode != 'general':
-        if not attempts_info.is_solved():
+        task_complete = bool(line_done_list) and all(line_done_list)
+        if not task_complete:
             if line_index_int < 0 or line_index_int >= len(line_done_list) or not line_done_list[line_index_int]:
                 return JsonResponse({'html': '<div class="new-login-hint">Ответ доступен после верного решения.</div>'})
 
     # Для replacements_lines ответы живут в checker_data (output-текст).
-    lines = (task.checker_data or '').splitlines()
-    if line_index_int < 0 or line_index_int >= len(lines):
-        raw = ''
-    else:
-        raw = lines[line_index_int]
-    text = canonical_replacements_checker_line(raw)
+    row = task_replacements_canonical_answer_row(task, line_index_int)
+    text = ' | '.join(str(cell) for cell in (row or []))
     if not text.strip():
         return JsonResponse({'html': '<div class="new-login-hint">Нет ответа.</div>'})
     return JsonResponse({'html': _answer_popup_html(text, task.answer_comment)})

@@ -34,6 +34,94 @@ _SLOT_UNDERSCORE = re.compile(r'_([^_]+)_')
 _HASH_LITERAL = re.compile(r'(?<!&)#([^#]+)#(?!\d)')
 
 
+def replacements_solved_slots_from_state(state, parsed):
+    """Return solved slot indexes per line, including legacy solved_lines state."""
+    if isinstance(state, str):
+        try:
+            state = json.loads(state)
+        except (TypeError, ValueError):
+            state = {}
+    if not isinstance(state, dict):
+        state = {}
+
+    rows = parsed.get('answers') or []
+    solved = {}
+    raw_slots = state.get('solved_slots')
+    has_slot_state = isinstance(raw_slots, dict)
+    if has_slot_state:
+        for raw_line, raw_indexes in raw_slots.items():
+            try:
+                line_index = int(raw_line)
+            except (TypeError, ValueError):
+                continue
+            if not 0 <= line_index < len(rows) or not isinstance(raw_indexes, (list, tuple, set)):
+                continue
+            indexes = set()
+            for raw_index in raw_indexes:
+                try:
+                    indexes.add(int(raw_index))
+                except (TypeError, ValueError):
+                    continue
+            indexes.intersection_update(range(len(rows[line_index])))
+            if indexes:
+                solved[line_index] = indexes
+
+    # Backward compatibility for states written before slot-level progress.
+    # Once solved_slots exists, it is authoritative; do not let a stale legacy
+    # solved_lines field silently upgrade a contradictory state.
+    if not has_slot_state:
+        for raw_line in state.get('solved_lines') or []:
+            try:
+                line_index = int(raw_line)
+            except (TypeError, ValueError):
+                continue
+            if 0 <= line_index < len(rows):
+                solved[line_index] = set(range(len(rows[line_index])))
+    return solved
+
+
+def replacements_state_payload(solved_slots, parsed):
+    """Build the canonical cumulative state persisted by the checker."""
+    rows = parsed.get('answers') or []
+    normalized = {}
+    solved_lines = []
+    for raw_line, raw_indexes in (solved_slots or {}).items():
+        try:
+            line_index = int(raw_line)
+        except (TypeError, ValueError):
+            continue
+        if not 0 <= line_index < len(rows):
+            continue
+        indexes = set()
+        for raw_index in raw_indexes or []:
+            try:
+                indexes.add(int(raw_index))
+            except (TypeError, ValueError):
+                continue
+        indexes.intersection_update(range(len(rows[line_index])))
+        if not indexes:
+            continue
+        normalized[str(line_index)] = sorted(indexes)
+        if len(indexes) == len(rows[line_index]):
+            solved_lines.append(line_index)
+    solved_lines.sort()
+    return {
+        'solved_slots': normalized,
+        'solved_lines': solved_lines,
+        'total': len(solved_lines),
+    }
+
+
+def replacements_line_done_from_state(state, parsed):
+    """Return line completion flags from one authoritative state snapshot."""
+    rows = parsed.get('answers') or []
+    solved_slots = replacements_solved_slots_from_state(state, parsed)
+    return [
+        bool(row) and len(solved_slots.get(index, set())) == len(row)
+        for index, row in enumerate(rows)
+    ]
+
+
 def _chars_with_unicode_categories(categories):
     out = []
     for i in range(0x110000):
@@ -221,14 +309,17 @@ def parse_replacements_checker_json_lines(checker_data):
     if not raw:
         return None
     try:
-        jl = json.loads(raw).get('lines')
+        payload = json.loads(raw)
+        if not isinstance(payload, dict) or 'lines' not in payload:
+            return None
+        jl = payload['lines']
         if not isinstance(jl, list) or not jl:
             return None
         canonical_rows = []
         accept_rows = []
         for row in jl:
             if not isinstance(row, list):
-                continue
+                return None
             cr, ar = [], []
             for cell in row:
                 cn, opts = split_slot_answer_alternatives(str(cell))
@@ -239,8 +330,39 @@ def parse_replacements_checker_json_lines(checker_data):
         if not canonical_rows:
             return None
         return canonical_rows, accept_rows
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, AttributeError):
         return None
+
+
+def validate_replacements_checker_json_data(checker_data):
+    """Validate the structured replacements answer format when it is used.
+
+    Plain multiline checker data remains supported.  A JSON object declaring
+    ``lines`` must be structurally complete; otherwise the parser could skip a
+    malformed row and silently shift every following line by one.
+    """
+    raw = (checker_data or '').strip()
+    if not raw or not raw.startswith('{'):
+        return
+    try:
+        payload = json.loads(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError('checker_data JSON is invalid') from exc
+    if not isinstance(payload, dict) or 'lines' not in payload:
+        return
+    rows = payload['lines']
+    if not isinstance(rows, list) or not rows:
+        raise ValueError('checker_data.lines must be a non-empty list')
+    for row_index, row in enumerate(rows):
+        if not isinstance(row, list):
+            raise ValueError('checker_data.lines[{}] must be a list'.format(row_index))
+        for cell_index, cell in enumerate(row):
+            if cell is None or isinstance(cell, (dict, list)):
+                raise ValueError(
+                    'checker_data.lines[{}][{}] must be a scalar answer'.format(
+                        row_index, cell_index,
+                    )
+                )
 
 
 def canonical_replacements_checker_line(line):

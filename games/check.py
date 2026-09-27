@@ -8,6 +8,8 @@ from games.models import Task, Attempt
 from games.replacements_lines import (
     parse_replacements_checker_json_lines,
     parse_replacements_lines_text,
+    replacements_solved_slots_from_state,
+    replacements_state_payload,
     split_slot_answer_alternatives,
 )
 from games.raddle import (
@@ -591,53 +593,62 @@ class ReplacementsLinesChecker(BaseChecker):
         correct = canonical_rows[line_index]
         opts_row = accept_rows[line_index] if line_index < len(accept_rows) else [[c] for c in correct]
 
-        def _answer_has_empty_slot(answers, n_slots):
-            """Незаполненный слот: не хватает ячеек или есть пустая строка."""
-            if len(answers) < n_slots:
-                return True
-            return any(not str(u).strip() for u in answers)
+        parsed = {'answers': canonical_rows}
+        solved_slots = replacements_solved_slots_from_state(self.last_state, parsed)
+        if len(user_answers) > len(correct):
+            preserved = replacements_state_payload(solved_slots, parsed)
+            already_complete = len(preserved['solved_lines']) >= len(canonical_rows)
+            status = 'Ok' if already_complete else ('Partial' if preserved['solved_lines'] else 'Wrong')
+            return CheckResult(
+                status,
+                status if status == 'Ok' else 'Pending',
+                preserved['total'],
+                state=json.dumps(preserved, ensure_ascii=False),
+                comment='Слишком много ответов для строки',
+            )
+        line_slots = solved_slots.setdefault(line_index, set())
+        added_slot = False
+        submitted_wrong_unsolved = False
 
-        if len(user_answers) != len(correct):
-            # Не меняем накопленное состояние
-            state = self.last_state or {'solved_lines': [], 'total': 0}
-            total = int(state.get('total', 0) or 0)
-            solved = set(state.get('solved_lines', []) or [])
-            status = 'Partial' if solved else 'Wrong'
-            # Не хватает ячеек — «ещё не готово»: не Pending и не Ok
-            # (Ok только когда сданы все строки задания).
-            incomplete = len(user_answers) < len(correct)
-            tournament_status = status if incomplete else 'Pending'
-            return CheckResult(status, tournament_status, total, state=json.dumps({'solved_lines': sorted(list(solved)), 'total': total}, ensure_ascii=False))
+        # Progress is monotonic: a later answer can add an unsolved slot, but
+        # it can never erase a slot accepted by an earlier answer.  A value for
+        # an already solved slot is deliberately ignored.
+        for slot_index, user_answer in enumerate(user_answers[:len(correct)]):
+            if slot_index in line_slots:
+                continue
+            if not str(user_answer).strip():
+                continue
+            opts = opts_row[slot_index] if slot_index < len(opts_row) else [correct[slot_index]]
+            if any(clean_text(user_answer) == clean_text(option) for option in opts):
+                line_slots.add(slot_index)
+                added_slot = True
+            else:
+                submitted_wrong_unsolved = True
 
-        is_correct = True
-        for u, opts in zip(user_answers, opts_row):
-            if not any(clean_text(u) == clean_text(o) for o in opts):
-                is_correct = False
-                break
-
-        state = self.last_state or {'solved_lines': [], 'total': 0}
-        solved = set(state.get('solved_lines', []) or [])
-        total = int(state.get('total', 0) or 0)
-
-        if is_correct and line_index not in solved:
-            solved.add(line_index)
-            total += 1
-
-        all_lines = len(canonical_rows)
-        if all_lines and len(solved) >= all_lines:
+        new_state = replacements_state_payload(solved_slots, parsed)
+        complete = len(new_state['solved_lines']) >= len(canonical_rows)
+        if complete:
             status = 'Ok'
             tournament_status = 'Ok'
+        elif new_state['solved_lines'] or added_slot:
+            status = 'Partial'
+            tournament_status = 'Partial'
         else:
-            status = 'Partial' if solved else 'Wrong'
-            # Ok только при полном решении. Верная строка / пустые ячейки —
-            # оставляем реальный status (Partial/Wrong), чтобы таблица не
-            # показывала Ok при неполном ChainTaskState. Полностью
-            # заполненный неверный ответ — Pending (на проверку).
-            has_empty = _answer_has_empty_slot(user_answers, len(correct))
-            tournament_status = status if (is_correct or has_empty) else 'Pending'
+            status = 'Wrong'
+            # A fully supplied wrong answer remains pending in tournament mode;
+            # incomplete/empty input is a resolved client-side partial attempt.
+            supplied_all_slots = len(user_answers) >= len(correct)
+            has_empty = len(user_answers) < len(correct) or any(
+                not str(value).strip() for value in user_answers[:len(correct)]
+            )
+            tournament_status = 'Pending' if supplied_all_slots and submitted_wrong_unsolved and not has_empty else status
 
-        new_state = {'solved_lines': sorted(list(solved)), 'total': total}
-        return CheckResult(status, tournament_status, total, state=json.dumps(new_state, ensure_ascii=False))
+        return CheckResult(
+            status,
+            tournament_status,
+            new_state['total'],
+            state=json.dumps(new_state, ensure_ascii=False),
+        )
 
 
 class RaddleChecker(BaseChecker):

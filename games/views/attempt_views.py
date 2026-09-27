@@ -701,7 +701,10 @@ def process_send_attempt(request, task_id):
                 game=game,
             ))
     completion_ready = False
-    if attempt_persisted and supported_game_kind(game) and is_task_completion_state(task, attempt.state):
+    if attempt_persisted and supported_game_kind(game) and (
+        task.task_type in CHAIN_TASK_TYPES
+        or is_task_completion_state(task, attempt.state)
+    ):
         with timing_phase(request, 'completion_check'):
             completion_ready = is_task_group_complete(
                 task_group=task.task_group,

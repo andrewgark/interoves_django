@@ -1273,6 +1273,12 @@ class Task(models.Model):
                 validate_grid_checker_data(parsed, grid_checker_id(self))
             except GridPuzzleDataError as exc:
                 raise ValidationError({'checker_data': str(exc)})
+        if self.task_type == 'replacements_lines':
+            from games.replacements_lines import validate_replacements_checker_json_data
+            try:
+                validate_replacements_checker_json_data(self.checker_data)
+            except ValueError as exc:
+                raise ValidationError({'checker_data': str(exc)})
 
     def get_checker(self):
         if self.checker:
@@ -1480,7 +1486,7 @@ class AttemptManager(models.Manager):
         queryset = self._namespace(queryset, replay_slot)
         if exclude_skip:
             queryset = queryset.exclude(skip=True)
-        return sorted(queryset, key=lambda x: x.time)
+        return sorted(queryset, key=lambda x: (x.time, x.pk))
 
     def _filter_by_actor(self, queryset, team=None, user=None, anon_key=None):
         if team is not None:
@@ -1510,7 +1516,7 @@ class AttemptManager(models.Manager):
         if game is not None:
             queryset = queryset.filter(game=game)
         queryset = self._namespace(queryset, replay_slot)
-        return sorted(queryset, key=lambda x: x.time)
+        return sorted(queryset, key=lambda x: (x.time, x.pk))
 
     def get_all_attempts_after_equal(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None, replay_slot=None):
         queryset = super().get_queryset()
@@ -1521,7 +1527,7 @@ class AttemptManager(models.Manager):
         if game is not None:
             queryset = queryset.filter(game=game)
         queryset = self._namespace(queryset, replay_slot)
-        return sorted(queryset, key=lambda x: x.time)
+        return sorted(queryset, key=lambda x: (x.time, x.pk))
 
     def get_all_attempts_after(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None, replay_slot=None):
         queryset = super().get_queryset()
@@ -1532,7 +1538,7 @@ class AttemptManager(models.Manager):
         if game is not None:
             queryset = queryset.filter(game=game)
         queryset = self._namespace(queryset, replay_slot)
-        return sorted(queryset, key=lambda x: x.time)
+        return sorted(queryset, key=lambda x: (x.time, x.pk))
 
     def get_all_attempts_before(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None, replay_slot=None):
         queryset = super().get_queryset()
@@ -1543,7 +1549,7 @@ class AttemptManager(models.Manager):
         if game is not None:
             queryset = queryset.filter(game=game)
         queryset = self._namespace(queryset, replay_slot)
-        return sorted(queryset, key=lambda x: x.time)
+        return sorted(queryset, key=lambda x: (x.time, x.pk))
 
     def filter_attempts_with_mode(self, attempts, mode='general', is_hint_attempts=False, hint_game=None):
         if mode == 'general' or not attempts:
@@ -1633,7 +1639,7 @@ class AttemptManager(models.Manager):
             team=team,
             user=user,
             anon_key=anon_key,
-        ).order_by('time')
+        ).order_by('time', 'pk')
         if attempt_related:
             attempts_qs = attempts_qs.select_related(*attempt_related)
         if game is not None:
@@ -1649,7 +1655,7 @@ class AttemptManager(models.Manager):
             team=team,
             user=user,
             anon_key=anon_key,
-        ).select_related(*hint_related).order_by('time')
+        ).select_related(*hint_related).order_by('time', 'pk')
         hint_attempts = list(hint_attempts_qs)
         hint_attempts = list(self.filter_attempts_with_mode(
             hint_attempts,
