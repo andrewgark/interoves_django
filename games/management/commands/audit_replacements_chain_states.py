@@ -1,6 +1,7 @@
 """Read-only audit for the replacements_lines ChainTaskState migration."""
 
 import json
+from collections import defaultdict
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand, CommandError
@@ -37,6 +38,7 @@ class Command(BaseCommand):
         parser.add_argument('--task-id', type=int)
         parser.add_argument('--game-id')
         parser.add_argument('--limit', type=int)
+        parser.add_argument('--batch-size', type=int, default=100)
         parser.add_argument('--json', action='store_true', dest='json_output')
 
     def handle(self, *args, **options):
@@ -74,10 +76,37 @@ class Command(BaseCommand):
             ordered_keys = ordered_keys[:max(0, options['limit'])]
 
         items = []
-        for key in ordered_keys:
-            item = self._audit_key(key)
-            if item['state_mismatch'] or item['attempt_mismatch'] or item['errors']:
-                items.append(item)
+        batch_size = max(1, options['batch_size'])
+        checker_type = CheckerType.objects.get(pk='replacements_lines')
+        for offset in range(0, len(ordered_keys), batch_size):
+            batch = ordered_keys[offset:offset + batch_size]
+            task_ids = {key[0] for key in batch}
+            game_ids = {key[1] for key in batch if key[1] is not None}
+            tasks = Task.objects.in_bulk(task_ids)
+            games = Game.objects.in_bulk(game_ids)
+            attempts_by_key = defaultdict(list)
+            for attempt in Attempt.manager.filter(
+                task_id__in=task_ids,
+                game_id__in=game_ids,
+            ).order_by('time', 'pk'):
+                attempts_by_key[self._key_for_row(attempt)].append(attempt)
+            states_by_key = defaultdict(dict)
+            for row in ChainTaskState.objects.filter(
+                task_id__in=task_ids,
+                game_id__in=game_ids,
+            ):
+                states_by_key[self._key_for_row(row)][row.game_mode] = row
+            for key in batch:
+                item = self._audit_key(
+                    key,
+                    task=tasks.get(key[0]),
+                    game=games.get(key[1]),
+                    attempts=attempts_by_key.get(key, []),
+                    rows=states_by_key.get(key, {}),
+                    checker_type=checker_type,
+                )
+                if item['state_mismatch'] or item['attempt_mismatch'] or item['errors']:
+                    items.append(item)
 
         summary = {
             'candidate_count': len(ordered_keys),
@@ -96,11 +125,18 @@ class Command(BaseCommand):
             for item in items:
                 self.stdout.write('suspect={}'.format(json.dumps(item, ensure_ascii=False, sort_keys=True)))
 
-    def _audit_key(self, key):
+    @staticmethod
+    def _key_for_row(row):
+        return (
+            row.task_id, row.game_id, row.team_id, row.user_id,
+            row.anon_key, row.replay_slot_id,
+        )
+
+    def _audit_key(self, key, *, task=None, game=None, attempts=None, rows=None, checker_type=None):
         task_id, game_id, team_id, user_id, anon_key, replay_slot_id = key
-        task = Task.objects.get(pk=task_id)
+        task = task or Task.objects.get(pk=task_id)
         if game_id:
-            game = Game.objects.get(pk=game_id)
+            game = game or Game.objects.get(pk=game_id)
         else:
             try:
                 game = GameTaskGroup.resolve_game_for_task(task)
@@ -131,19 +167,13 @@ class Command(BaseCommand):
                     'errors': ['cannot resolve game'],
                 }
         actor = _actor_filter(team_id, user_id, anon_key)
-        attempts = list(Attempt.manager.filter(
-            task_id=task_id, game_id=game_id, replay_slot_id=replay_slot_id, **actor,
-        ).order_by('time', 'pk'))
-        rows = {
-            row.game_mode: row
-            for row in ChainTaskState.objects.filter(
-                task_id=task_id, game_id=game_id, replay_slot_id=replay_slot_id, **actor,
-            )
-        }
+        attempts = list(attempts or [])
+        rows = rows or {}
         states = {'general': None, 'tournament': None}
         attempt_mismatch = 0
+        mismatched_attempts = []
         errors = []
-        checker_type = CheckerType.objects.get(pk='replacements_lines')
+        checker_type = checker_type or CheckerType.objects.get(pk='replacements_lines')
 
         for attempt in attempts:
             mode = game.get_current_mode(attempt)
@@ -154,13 +184,24 @@ class Command(BaseCommand):
                 result = checker.check(attempt.text, attempt)
                 expected_status = result.status
                 expected_points = Decimal(str(result.points or 0)) * task.get_points()
-                if (
+                mismatch = (
                     attempt.status != expected_status
                     or Decimal(str(attempt.points or 0)) != expected_points
                     or not _json_equal(attempt.state, result.state)
                     or attempt.skip
-                ):
+                )
+                if mismatch:
                     attempt_mismatch += 1
+                    mismatched_attempts.append({
+                        'id': attempt.pk,
+                        'mode': mode,
+                        'status': attempt.status,
+                        'expected_status': expected_status,
+                        'points': str(attempt.points or 0),
+                        'expected_points': str(expected_points),
+                        'state_matches': _json_equal(attempt.state, result.state),
+                        'skip': attempt.skip,
+                    })
                 states[mode] = result.state
             except Exception as exc:  # report bad historical rows, never abort the audit
                 errors.append('attempt {}: {}'.format(attempt.pk, exc))
@@ -184,5 +225,11 @@ class Command(BaseCommand):
             'attempt_count': len(attempts),
             'state_mismatch': state_mismatch,
             'attempt_mismatch': attempt_mismatch,
+            'mismatched_attempts': mismatched_attempts,
+            'calculated_states': states,
+            'stored_states': {
+                mode: (row.state if row else None)
+                for mode, row in rows.items()
+            },
             'errors': errors,
         }
