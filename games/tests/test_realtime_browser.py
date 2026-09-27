@@ -597,14 +597,14 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
         self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
 
-    def test_pending_set_ok_updates_both_team_pages(self):
+    def test_pending_accept_updates_both_team_pages(self):
         from playwright.sync_api import expect
 
         first, second, first_document_id, second_document_id = self.open_pending_attempt()
         staff = self.browser_page_for(self.staff)
         staff.goto(f'{self.live_server_url}/support/pending/')
         staff.locator(
-            'form:has(input[name="action"][value="set_ok"]) button[type="submit"]'
+            'form:has(input[name="action"][value="accept_pending"]) button[type="submit"]'
         ).first.click()
 
         for page in (first, second):
@@ -614,14 +614,14 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
         self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
 
-    def test_pending_confirm_wrong_updates_both_team_pages(self):
+    def test_pending_reject_updates_both_team_pages(self):
         from playwright.sync_api import expect
 
         first, second, first_document_id, second_document_id = self.open_pending_attempt()
         staff = self.browser_page_for(self.staff)
         staff.goto(f'{self.live_server_url}/support/pending/')
         staff.locator(
-            'form:has(input[name="action"][value="confirm_prestatus"]) button[type="submit"]'
+            'form:has(input[name="action"][value="reject_pending"]) button[type="submit"]'
         ).first.click()
 
         for page in (first, second):

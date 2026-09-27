@@ -13,6 +13,7 @@ from games.models import (
     Project,
     Task,
     TaskGroup,
+    WordSaladRecheckJob,
 )
 from games.recheck import recheck_word_salad_actor
 from games.word_salad_offer import reset_all_salad_progress, reset_salad_progress
@@ -144,6 +145,17 @@ class TargetedCompletionReconciliationTests(TestCase):
         )
         self.assertFalse(PlayerCompletedGame.objects.filter(user=self.user).exists())
         self.assertFalse(PlayerAnalyticsState.objects.filter(user=self.user).exists())
+
+    def test_word_salad_checker_edit_queues_actor_replay(self):
+        _group, task = self._fixture()
+        task.checker_data = json.dumps({'grid': list('ZYXWVUTSRQPONMLK'), 'words': ['ABCD']})
+
+        with self.captureOnCommitCallbacks(execute=True):
+            task.save(update_fields=['checker_data'])
+
+        job = WordSaladRecheckJob.objects.get(task=task)
+        self.assertEqual(job.items.count(), 1)
+        self.assertEqual(job.items.get().user_id, self.user.id)
 
     def test_salad_reset_removes_pcg_for_the_reset_actor(self):
         group, task = self._fixture()

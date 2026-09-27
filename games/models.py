@@ -1747,7 +1747,7 @@ class AttemptManager(models.Manager):
 
         # 1 query: all attempts for all tasks (optionally scoped to one game).
         attempt_related = ['team', 'user', 'game']
-        attempt_qs = self.filter(task_id__in=task_ids, skip=False, replay_slot=replay_slot).select_related(*attempt_related).order_by('time')
+        attempt_qs = self.filter(task_id__in=task_ids, skip=False, replay_slot=replay_slot).select_related(*attempt_related).order_by('time', 'pk')
         if actor_filter:
             attempt_qs = attempt_qs.filter(**actor_filter)
         if game is not None:

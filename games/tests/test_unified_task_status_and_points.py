@@ -3,7 +3,6 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from games.admin import _set_ok
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Team, Attempt
 from games.views.new_ui import _compute_solved_task_ids, _new_results_compute
 
@@ -68,30 +67,6 @@ class UnifiedStatusAndPointsTests(TestCase):
         )
         self.assertIn(task.id, solved_task_ids)
         self.assertEqual(tg_to_task_ids[tg.id], [task.id])
-
-    def test_admin_set_ok_uses_effective_max_for_replacements_lines(self):
-        game = Game.objects.create(id='u2', name='g', author='a', author_extra='')
-        team = Team.objects.create(name='u2_team', visible_name='T')
-
-        with patch('games.views.track.track_task_change'):
-            tg = TaskGroup.objects.create(label='tg2')
-            GameTaskGroup.objects.create(game=game, task_group=tg, number=1, name='tg')
-            checker_data = json.dumps({'lines': [['a'], ['b'], ['c']]})
-            task = Task.objects.create(
-                task_group=tg,
-                number='1',
-                task_type='replacements_lines',
-                points=2,
-                checker_data=checker_data,
-                text='',
-            )
-            attempt = Attempt.manager.create(task=task, team=team, game=game, text='x', status='Wrong', points=0)
-
-        _set_ok(attempt)
-        attempt.refresh_from_db()
-        self.assertEqual(float(task.get_results_max_points()), 6.0)
-        self.assertEqual(float(attempt.points), 6.0)
-        self.assertEqual(attempt.status, 'Ok')
 
     def test_sections_solved_is_shared_across_games_for_same_task_group(self):
         """
@@ -164,4 +139,3 @@ class UnifiedStatusAndPointsTests(TestCase):
         self.assertEqual(len(cells), 1)
         self.assertEqual(cells[0]['n_attempts'], 1)
         self.assertGreaterEqual(float(cells[0]['result_points']), 2.0)
-

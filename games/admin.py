@@ -16,19 +16,16 @@ from django.utils import timezone
 from games.google.actions import create_google_doc
 from games.ops_actions import (
     accept_ticket,
-    add_attempt_to_checker,
     confirm_attempt_prestatus,
     reject_ticket,
     run_recheck,
-    run_recheck_after_add_to_checker,
-    set_attempt_ok,
-    set_ok_and_create_new_task,
 )
 from games.models import (
     AccountMerge,
     AnonAccountClaim,
     AlphabettyDictSuggestion,
     Attempt,
+    CHAIN_TASK_TYPES,
     Audio,
     ChainTaskState,
     CheckerType,
@@ -1381,24 +1378,46 @@ def clear_profile_team(modeladmin, request, queryset):
         profile.save()
 
 
+def _bulk_chain_recheck_ids(queryset, *, full_task=False):
+    chain_ids = list(
+        queryset.filter(task__task_type__in=CHAIN_TASK_TYPES)
+        .values_list('id', flat=True)
+    )
+    if chain_ids:
+        from games.attempt_admin_bulk import recheck_chain_attempts
+        recheck_chain_attempts(chain_ids, full_task=full_task)
+    return set(chain_ids)
+
+
 def recheck_attempt(modeladmin, request, queryset):
+    chain_ids = _bulk_chain_recheck_ids(queryset)
     for attempt_id in queryset.values_list('id'):
-        run_recheck(attempt_id[0])
+        if attempt_id[0] not in chain_ids:
+            run_recheck(attempt_id[0])
 
 
 def recheck_full_attempt(modeladmin, request, queryset):
-    for attempt_id in queryset.values_list('id'):
-        recheck_full(request, attempt_id[0])
+    chain_ids = _bulk_chain_recheck_ids(queryset, full_task=True)
+    non_chain_task_ids = set(
+        queryset.exclude(task__task_type__in=CHAIN_TASK_TYPES)
+        .values_list('task_id', flat=True)
+    )
+    for task_id in non_chain_task_ids:
+        recheck_full(request, task=Task.objects.get(pk=task_id))
 
 
 def recheck_queue_from_this_attempt(modeladmin, request, queryset):
+    chain_ids = _bulk_chain_recheck_ids(queryset)
     for attempt_id in queryset.values_list('id'):
-        recheck_queue_from_this(request, attempt_id[0])
+        if attempt_id[0] not in chain_ids:
+            recheck_queue_from_this(request, attempt_id[0])
 
 
 def recheck_queue_from_next_attempt(modeladmin, request, queryset):
+    chain_ids = _bulk_chain_recheck_ids(queryset)
     for attempt_id in queryset.values_list('id'):
-        recheck_queue_from_next(request, attempt_id[0])
+        if attempt_id[0] not in chain_ids:
+            recheck_queue_from_next(request, attempt_id[0])
 
 
 def recheck_team_task_all_chronological_action(modeladmin, request, queryset):
@@ -1406,8 +1425,22 @@ def recheck_team_task_all_chronological_action(modeladmin, request, queryset):
 
     from games.models import WordSaladRecheckJob
 
+    chain_ids = _bulk_chain_recheck_ids(queryset)
+
     queued = 0
-    for attempt_id in queryset.values_list('id', flat=True):
+    non_chain_actor_keys = {}
+    for attempt in queryset.exclude(task__task_type__in=CHAIN_TASK_TYPES).select_related('task', 'game', 'team', 'user'):
+        actor_key = (
+            attempt.task_id,
+            attempt.game_id,
+            attempt.team_id,
+            attempt.user_id,
+            attempt.anon_key,
+        )
+        non_chain_actor_keys[actor_key] = min(
+            attempt.pk, non_chain_actor_keys.get(actor_key, attempt.pk),
+        )
+    for attempt_id in sorted(non_chain_actor_keys.values()):
         result = recheck_team_task_all_chronological(request, attempt_id)
         if isinstance(result, WordSaladRecheckJob):
             queued += 1
@@ -1419,32 +1452,37 @@ def recheck_team_task_all_chronological_action(modeladmin, request, queryset):
         )
 
 
-def _set_ok(attempt):
-    set_attempt_ok(attempt)
-
-
-def set_ok(modeladmin, request, queryset):
-    for attempt in queryset.all():
-        set_attempt_ok(attempt)
-
-
-def _add_to_checker(attempt):
-    add_attempt_to_checker(attempt)
-
-
 def add_to_checker(modeladmin, request, queryset):
-    for attempt in queryset.all():
-        add_attempt_to_checker(attempt)
+    from games.attempt_admin_bulk import add_attempts_to_checker
+    add_attempts_to_checker(queryset.values_list('id', flat=True))
 
 
 def add_to_checker_and_recheck(modeladmin, request, queryset):
-    for attempt in queryset.all():
-        run_recheck_after_add_to_checker(attempt.id)
+    from games.attempt_admin_bulk import add_attempts_to_checker
+    add_attempts_to_checker(
+        queryset.values_list('id', flat=True),
+        recheck_selected_non_chain=True,
+    )
 
 
-def set_ok_and_create_new_task_action(modeladmin, request, queryset):
-    for attempt in queryset.all():
-        set_ok_and_create_new_task(attempt)
+def accept_pending(modeladmin, request, queryset):
+    from games.attempt_admin_bulk import accept_pending_attempts
+    chain_count = queryset.filter(task__task_type__in=CHAIN_TASK_TYPES).count()
+    accepted = accept_pending_attempts(queryset.values_list('id', flat=True))
+    suffix = ''
+    if chain_count:
+        suffix = ' Для {} chain-посылок replay поставлен в durable queue.'.format(chain_count)
+    modeladmin.message_user(
+        request,
+        'Принято ответов: {}.{}'.format(accepted, suffix),
+        messages.SUCCESS,
+    )
+
+
+def reject_pending(modeladmin, request, queryset):
+    from games.attempt_admin_bulk import reject_pending_attempts
+    rejected = reject_pending_attempts(queryset.values_list('id', flat=True))
+    modeladmin.message_user(request, 'Отклонено ответов: {}'.format(rejected), messages.SUCCESS)
 
 
 def confirm_prestatus(modeladmin, request, queryset):
@@ -1462,10 +1500,10 @@ recheck_queue_from_next_attempt.short_description = "Recheck attempts strictly a
 recheck_team_task_all_chronological_action.short_description = (
     "Recheck all attempts by this actor on this task (chronological, same team/user)"
 )
-set_ok.short_description = "Set OK (and max points)"
 add_to_checker.short_description = "Add to checker"
 add_to_checker_and_recheck.short_description = "Add to checker and recheck"
-set_ok_and_create_new_task_action.short_description = "Set OK and create new task (Game 49)"
+accept_pending.short_description = "ДА — засчитать и перепроверить хронологически"
+reject_pending.short_description = "НЕТ — отклонить ответ"
 confirm_prestatus.short_description = "Confirm Prestatus"
 
 
@@ -1477,7 +1515,6 @@ class AttemptAdmin(admin.ModelAdmin):
     raw_id_fields = ['task', 'team', 'user', 'game']
     list_display = ['__str__', 'team', 'task', 'game', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points', 'skip', 'time']
     actions = [
-        set_ok,
         confirm_prestatus,
         add_to_checker,
         add_to_checker_and_recheck,
@@ -1485,7 +1522,6 @@ class AttemptAdmin(admin.ModelAdmin):
         recheck_full_attempt,
         recheck_queue_from_this_attempt,
         recheck_team_task_all_chronological_action,
-        set_ok_and_create_new_task_action,
     ]
 
     def get_queryset(self, request):
@@ -1517,15 +1553,8 @@ class PendingAttemptsAdmin(admin.ModelAdmin):
 
     list_display = ['__str__', 'team', 'task', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points', 'time']
     actions = [
-        set_ok,
-        confirm_prestatus,
-        add_to_checker,
-        add_to_checker_and_recheck,
-        recheck_attempt,
-        recheck_full_attempt,
-        recheck_queue_from_this_attempt,
-        recheck_team_task_all_chronological_action,
-        set_ok_and_create_new_task_action,
+        accept_pending,
+        reject_pending,
     ]
 
 

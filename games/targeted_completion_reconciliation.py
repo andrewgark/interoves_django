@@ -196,6 +196,19 @@ def schedule_task_semantics_reconciliation(
     pairs = {(game_id, group_id) for game_id in game_ids for group_id in (old_group_id, new_group_id) if group_id}
 
     def run():
+        rebuild = Task.objects.filter(pk=rebuild_task_id).first() if rebuild_task_id else None
+        if rebuild is not None and rebuild.task_type in (
+            'wall', 'replacements_lines', 'raddle', 'alphabetty', 'word_salad',
+        ):
+            # Gameplay-semantic Task edits use the same durable actor replay
+            # queue as PendingAttempt → YES.  Do not replay a whole actor in
+            # the admin request and do not create one job per actor manually.
+            from games.replay_planner import queue_chain_replays_for_tasks
+            queue_chain_replays_for_tasks([rebuild.pk])
+            # A task-group move can still affect completion rows for the old
+            # mapping; the normal reconciliation below handles that case.
+            if old_group_id == new_group_id:
+                return
         for game_id, group_id in pairs:
             reconcile_task_group_actors(
                 game_id=game_id,

@@ -10,13 +10,16 @@ from games.ops_actions import (
     confirm_attempt_prestatus,
     reject_ticket,
     run_recheck,
-    set_attempt_ok,
 )
+from games.attempt_admin_bulk import accept_pending_attempts, reject_pending_attempts
 from games.recheck import recheck_chain_task
 from games.support.access import support_console_required
 from games.support.services.chain import is_chain_task
 
-ATTEMPT_ACTIONS = frozenset({'recheck', 'set_ok', 'confirm_prestatus', 'chain_replay'})
+ATTEMPT_ACTIONS = frozenset({
+    'accept_pending', 'reject_pending',
+    'recheck', 'confirm_prestatus', 'chain_replay',
+})
 TICKET_ACTIONS = frozenset({'ticket_accept', 'ticket_reject'})
 BUG_ACTIONS = frozenset({'bug_reviewed', 'bug_fixed', 'bug_dismissed', 'bug_reply'})
 
@@ -45,7 +48,12 @@ def perform_action(request):
     try:
         if kind == 'attempt' and action in ATTEMPT_ACTIONS:
             _perform_attempt_action(obj_id, action)
-            messages.success(request, 'Посылка #{}: {}'.format(obj_id, action))
+            if action == 'accept_pending':
+                messages.success(request, 'Посылка #{}: ДА — checker обновлён, перепроверка запущена; для chain через очередь.'.format(obj_id))
+            elif action == 'reject_pending':
+                messages.success(request, 'Посылка #{}: НЕТ — подтверждён prestatus.'.format(obj_id))
+            else:
+                messages.success(request, 'Посылка #{}: {}'.format(obj_id, action))
         elif kind == 'ticket' and action in TICKET_ACTIONS:
             _perform_ticket_action(obj_id, action)
             messages.success(request, 'Билет #{}: {}'.format(obj_id, action))
@@ -72,11 +80,14 @@ def _perform_attempt_action(attempt_id: int, action: str) -> None:
     attempt = Attempt.manager.select_related('task', 'team').filter(pk=attempt_id).first()
     if attempt is None:
         raise Attempt.DoesNotExist
+    if action == 'accept_pending':
+        accept_pending_attempts([attempt_id])
+        return
+    if action == 'reject_pending':
+        reject_pending_attempts([attempt_id])
+        return
     if action == 'recheck':
         run_recheck(attempt_id)
-        return
-    if action == 'set_ok':
-        set_attempt_ok(attempt)
         return
     if action == 'confirm_prestatus':
         if not attempt.possible_status:

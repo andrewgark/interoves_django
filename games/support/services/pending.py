@@ -64,7 +64,7 @@ def get_pending_queue(*, limit: int = 100) -> List[PendingItem]:
             game_id=attempt.game_id,
             game_url=_game_url(attempt.game_id),
             admin_url=reverse('admin:games_attempt_change', args=[attempt.pk]),
-            actions=('recheck', 'set_ok', 'confirm_prestatus'),
+            actions=('accept_pending', 'reject_pending'),
         ))
 
     tickets = (

@@ -147,6 +147,7 @@ def recheck_team_task_all_chronological(_, attempt_id):
 
     attempts = Attempt.manager.get_all_attempts(
         team, task, exclude_skip=False, user=user, anon_key=anon_key,
+        game=this_attempt.game, replay_slot=this_attempt.replay_slot_id,
     )
     result = _recheck_many(attempts, reason='task.rechecked_chronological')
     _reconcile_rechecked_attempts(result)

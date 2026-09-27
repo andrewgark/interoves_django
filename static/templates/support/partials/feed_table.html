@@ -49,12 +49,14 @@
                 {% if item.kind == 'attempt' %}
                   <div class="support-action-row">
                     {% if item.chain_url %}<a href="{{ item.chain_url }}" class="new-btn new-btn--mini new-btn--ghost">chain</a>{% endif %}
-                    {% include "support/partials/action_form.html" with kind='attempt' object_id=item.object_id action='recheck' next_url=request.get_full_path %}
-                    {% if item.status != 'Ok' %}
-                      {% include "support/partials/action_form.html" with kind='attempt' object_id=item.object_id action='set_ok' next_url=request.get_full_path %}
-                    {% endif %}
-                    {% if item.chain_url %}
-                      {% include "support/partials/action_form.html" with kind='attempt' object_id=item.object_id action='chain_replay' next_url=request.get_full_path %}
+                    {% if item.status == 'Pending' %}
+                      {% include "support/partials/action_form.html" with kind='attempt' object_id=item.object_id action='accept_pending' next_url=request.get_full_path %}
+                      {% include "support/partials/action_form.html" with kind='attempt' object_id=item.object_id action='reject_pending' next_url=request.get_full_path %}
+                    {% else %}
+                      {% include "support/partials/action_form.html" with kind='attempt' object_id=item.object_id action='recheck' next_url=request.get_full_path %}
+                      {% if item.chain_url %}
+                        {% include "support/partials/action_form.html" with kind='attempt' object_id=item.object_id action='chain_replay' next_url=request.get_full_path %}
+                      {% endif %}
                     {% endif %}
                   </div>
                 {% else %}

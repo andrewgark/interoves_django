@@ -268,7 +268,7 @@ class SupportPendingActionsTests(TestCase):
         self.assertContains(response, 'Билет #{}'.format(self.ticket.pk))
         self.assertContains(response, 'Баг #{}'.format(self.bug.pk))
 
-    def test_set_ok_action(self):
+    def test_set_ok_action_is_disabled(self):
         url = reverse('support:action')
         response = self.client.post(url, {
             'kind': 'attempt',
@@ -278,7 +278,7 @@ class SupportPendingActionsTests(TestCase):
         })
         self.assertEqual(response.status_code, 302)
         self.attempt.refresh_from_db()
-        self.assertEqual(self.attempt.status, 'Ok')
+        self.assertEqual(self.attempt.status, 'Pending')
 
     def test_ticket_accept_action(self):
         url = reverse('support:action')
