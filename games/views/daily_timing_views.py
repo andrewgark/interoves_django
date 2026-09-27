@@ -119,7 +119,8 @@ def daily_timing_page_context(
     url = ''
     gameplay_context_token = ''
     if enabled:
-        url = '/{}/{}/timing/'.format(game.id, placement.number)
+        from games.section_paths import section_play_path
+        url = '{}timing/'.format(section_play_path(game.id, placement.number))
         from games.gameplay_context import issue_gameplay_context
         gameplay_context_token = issue_gameplay_context(
             task_group=placement.task_group,

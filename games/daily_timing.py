@@ -349,7 +349,12 @@ def _apply_timing_event_once(
         TaskGroup.objects.select_for_update().only('pk').get(pk=task_group.pk)
         row = qs.select_for_update().first()
     if row is None:
-        if _has_prior_statistical_activity(
+        # Public dailies must not grow a fresh clock after a legacy first play:
+        # that short row would replace the wall-clock fallback. Ordinary games
+        # (Десяточки and test copies) have no such fallback, so a missed start
+        # — for example a timer URL that 404'd — can still begin from now.
+        from games.daily_section import is_daily_timing_game
+        if is_daily_timing_game(getattr(game, 'id', None)) and _has_prior_statistical_activity(
             game=game, task_group=task_group, actor=filters, replay_slot=replay_slot,
         ):
             logger.info('daily_timing_start_skipped game=%s task_group=%s prior_result=1', game.pk, task_group.pk)

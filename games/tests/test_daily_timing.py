@@ -64,6 +64,22 @@ class DailyTimingScopeTests(SimpleTestCase):
             match = resolve('/{}/123/timing/'.format(game_id))
             self.assertEqual(match.func.__name__, 'daily_solve_timing', game_id)
 
+    def test_timing_url_follows_the_play_page(self):
+        ladder = daily_timing_page_context(
+            None,
+            SimpleNamespace(id='ladder'),
+            SimpleNamespace(number='12', task_group=SimpleNamespace()),
+        )
+        self.assertEqual(ladder['daily_timing_url'], '/ladder/12/timing/')
+        desyatka = daily_timing_page_context(
+            None,
+            SimpleNamespace(id='des173_test'),
+            SimpleNamespace(number='1', task_group=SimpleNamespace()),
+        )
+        self.assertEqual(desyatka['daily_timing_url'], '/games/des173_test/1/timing/')
+        match = resolve('/games/des173_test/1/timing/')
+        self.assertEqual(match.func.__name__, 'daily_solve_timing')
+
     def test_detects_wrapped_mysql_deadlock_only(self):
         inner = OperationalError(1213, 'Deadlock found when trying to get lock')
         wrapped = OperationalError('Deadlock found when trying to get lock')
@@ -309,6 +325,30 @@ class DailyTimingDomainTests(TestCase):
         self.assertFalse(DailySolveTiming.objects.filter(
             game=self.game, task_group=self.tg, user=self.user,
         ).exists())
+
+    def test_ordinary_game_can_start_after_an_attempt_without_a_clock(self):
+        from games.models import Attempt
+
+        Project.objects.get_or_create(pk='main', defaults={})
+        game = Game.objects.create(
+            id='des_timing_probe', name='probe', author='t', project_id='main', is_ready=True,
+        )
+        tg = TaskGroup.objects.create(label='des-timing-tg')
+        Task.objects.create(
+            task_group=tg, number='1', checker=CheckerType.objects.get(pk='equals'),
+            points=1, answer='ok',
+        )
+        Attempt.manager.create(
+            game=game, task=tg.tasks.get(), user=self.user, text='x', status='Partial', points=0,
+            time=_dt(5),
+        )
+        result = apply_timing_event(
+            game=game, task_group=tg, user=self.user,
+            action=ACTION_START, session_id=uuid4(), event_id='des-late-start', seq=1, now=_dt(10),
+        )
+        self.assertTrue(result['exists'])
+        self.assertEqual(result['status'], 'running')
+        self.assertEqual(result['accumulated_ms'], 0)
 
     def test_overlapping_devices_use_lease(self):
         phone = uuid4()
