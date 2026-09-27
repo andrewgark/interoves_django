@@ -146,11 +146,11 @@
           </tbody>
         </table>
         {% if progressive_results %}
-          <div class="results-load-more" data-results-load-more-wrap data-results-progressive data-results-tbody="#results-tbody" data-next-page="{% if page_obj and page_obj.has_next %}{{ page_obj.next_page_number }}{% elif not page_obj %}1{% else %}0{% endif %}" data-total="{{ page_total_rows|default:0 }}" data-subject-one="результат" data-subject-few="результата" data-subject-many="результатов">
+          <div class="results-load-more" data-results-load-more-wrap data-results-progressive data-results-tbody="#results-tbody" data-next-page="{% if page_obj and page_obj.has_next %}{{ page_obj.next_page_number }}{% else %}0{% endif %}" data-total="{{ page_total_rows|default:0 }}" data-subject-one="результат" data-subject-few="результата" data-subject-many="результатов">
             <span class="results-load-more__status" data-results-load-more-status aria-live="polite">
               Показаны {{ page_obj.start_index|default:0 }}–{{ page_obj.end_index|default:0 }} из {{ page_total_rows|default:0 }}
             </span>
-            <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-results-load-more-button{% if page_obj and not page_obj.has_next %} hidden{% endif %}>Загрузить ещё</button>
+            <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-results-load-more-button{% if not page_obj or not page_obj.has_next %} hidden{% endif %}>Загрузить ещё</button>
           </div>
           <noscript class="results-noscript-pager">
             {% if page_obj and page_obj.has_next %}<a class="new-btn new-btn--ghost new-btn--mini" href="{{ page_qs_prefix }}page={{ page_obj.next_page_number }}">Показать следующие результаты</a>{% else %}Показаны все результаты.{% endif %}

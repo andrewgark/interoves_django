@@ -42,6 +42,7 @@
 
     function updateState() {
       var count = countRows();
+      if (nextPage && count >= total) nextPage = 0;
       button.hidden = !nextPage && !loadError;
       if (!status) return;
       status.textContent = loadError
