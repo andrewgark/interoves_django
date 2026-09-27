@@ -98,6 +98,28 @@ class RaddleSendAttemptTests(TestCase):
             HTTP_X_REQUESTED_WITH='XMLHttpRequest',
         )
 
+    def test_get_is_rejected_instead_of_returning_json(self):
+        response = self.client.get(self.post_url)
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_native_browser_form_post_redirects_back_to_game(self):
+        response = self.client.post(
+            self.post_url,
+            {
+                'game_id': self.game.id,
+                'anon_key': self.anon_key,
+                'word_index': 1,
+                'word': 'BBB',
+            },
+            HTTP_ACCEPT='text/html,application/xhtml+xml',
+            HTTP_REFERER='/ladder/1/',
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/ladder/1/')
+        self.assertEqual(Attempt.manager.filter(task=self.task).count(), 1)
+
     def _post_assist(self, word_index, tier):
         return self.client.post(
             '/send_raddle_assist/{}/'.format(self.task.id),
