@@ -40,11 +40,15 @@ def _validation_failpoint(name):
 
 
 def _job_lease():
-    return timedelta(seconds=settings.WORD_SALAD_JOB_LEASE_SECONDS)
+    return timedelta(seconds=getattr(
+        settings, 'RECHECK_JOB_LEASE_SECONDS', settings.WORD_SALAD_JOB_LEASE_SECONDS,
+    ))
 
 
 def _item_lease():
-    return timedelta(seconds=settings.WORD_SALAD_ITEM_LEASE_SECONDS)
+    return timedelta(seconds=getattr(
+        settings, 'RECHECK_ITEM_LEASE_SECONDS', settings.WORD_SALAD_ITEM_LEASE_SECONDS,
+    ))
 
 
 def _actor_key(actor):

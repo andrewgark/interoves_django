@@ -1,4 +1,4 @@
-"""DB-backed dispatcher for Word Salad recheck transport intents."""
+"""DB-backed dispatcher for generic recheck transport intents."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from django.utils import timezone
 from games.models import WordSaladRecheckItem, WordSaladRecheckOutbox
 
 logger = logging.getLogger('application')
+RECHECK_OPERATION = 'recheck'
 OUTBOX_RETRY_BASE = 30
 OUTBOX_MAX_BACKOFF = 900
 OUTBOX_CLAIM_TIMEOUT = timedelta(minutes=5)
@@ -27,12 +28,17 @@ class WordSaladTransportNotConfigured(RuntimeError):
 
 class SQSWordSaladTransport:
     def __init__(self, *, queue_url=None, client=None):
-        self.queue_url = queue_url or os.environ.get('WORD_SALAD_SQS_QUEUE_URL', '').strip()
+        self.queue_url = queue_url or os.environ.get(
+            'RECHECK_SQS_QUEUE_URL',
+            os.environ.get('WORD_SALAD_SQS_QUEUE_URL', ''),
+        ).strip()
         self.client = client
 
     def send(self, payload):
         if not self.queue_url:
-            raise WordSaladTransportNotConfigured('WORD_SALAD_SQS_QUEUE_URL is not configured')
+            raise WordSaladTransportNotConfigured(
+                'RECHECK_SQS_QUEUE_URL is not configured'
+            )
         client = self.client or boto3.client(
             'sqs',
             region_name=os.environ.get('AWS_REGION') or os.environ.get('AWS_DEFAULT_REGION', 'eu-central-1'),
@@ -60,7 +66,7 @@ def _payload(outbox):
     job = item.job
     return {
         'version': 1,
-        'operation': 'word_salad_recheck',
+        'operation': RECHECK_OPERATION,
         'job_id': job.pk,
         'item_id': item.pk,
         # ``actor_id`` is the serialized actor identity, not the outbox/item
@@ -228,3 +234,11 @@ def reconcile_word_salad_recheck_outbox(*, apply=False, now=None):
             findings.append(finding)
 
     return findings
+
+
+# Canonical generic names.  Keep the old imports as aliases until every worker
+# has completed the rolling migration.
+SQSRecheckTransport = SQSWordSaladTransport
+FakeRecheckTransport = FakeWordSaladTransport
+dispatch_recheck_outbox = dispatch_word_salad_recheck_outbox
+reconcile_recheck_outbox = reconcile_word_salad_recheck_outbox

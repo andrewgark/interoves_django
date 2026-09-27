@@ -2,7 +2,7 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "ReceiveWordSaladMessages",
+      "Sid": "ReceiveRecheckMessages",
       "Effect": "Allow",
       "Action": [
         "sqs:ChangeMessageVisibility",
@@ -11,7 +11,7 @@
         "sqs:GetQueueUrl",
         "sqs:ReceiveMessage"
       ],
-      "Resource": "__WORD_SALAD_QUEUE_ARN__"
+      "Resource": "__RECHECK_QUEUE_ARN__"
     },
     {
       "Sid": "WorkerSecrets",

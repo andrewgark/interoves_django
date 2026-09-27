@@ -267,6 +267,8 @@ class WordSaladRecheckQueueTests(TestCase):
             )
 
     @override_settings(
+        RECHECK_JOB_LEASE_SECONDS=90,
+        RECHECK_ITEM_LEASE_SECONDS=90,
         WORD_SALAD_JOB_LEASE_SECONDS=90,
         WORD_SALAD_ITEM_LEASE_SECONDS=90,
     )
@@ -312,7 +314,7 @@ class WordSaladRecheckQueueTests(TestCase):
         item = WordSaladRecheckItem.objects.get(job=job)
         payload = {
             'version': 1,
-            'operation': 'word_salad_recheck',
+            'operation': 'recheck',
             'job_id': job.pk,
             'item_id': item.pk,
             'actor_id': item.actor_key,
@@ -350,7 +352,7 @@ class WordSaladRecheckQueueTests(TestCase):
         with patch.dict('os.environ', {'INTEROVES_RUNTIME_ROLE': 'worker'}, clear=False), \
              patch('games.word_salad_recheck.recheck_word_salad_actor', return_value={'credited': 0}):
             response = Client().post(
-                '/internal/worker/word-salad-recheck/',
+                '/internal/worker/recheck/',
                 json.dumps(payload).encode(),
                 content_type='application/json',
                 HTTP_USER_AGENT='aws-sqsd/2.0',

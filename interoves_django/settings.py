@@ -430,15 +430,25 @@ except ValueError:
 # games.middleware.request_timing — warn when send_attempt / alphabetty guess exceed this (ms).
 REQUEST_TIMING_SLOW_MS = _env_float('REQUEST_TIMING_SLOW_MS', 2000)
 
-# Word Salad queue leases remain 600 seconds by default for compatibility.
-# Validation/worker environments can shorten them only after measuring task
-# tails and crash recovery against the SQS visibility policy.
+# Recheck queue leases remain 600 seconds by default for compatibility.
+# RECHECK_* is the canonical name; WORD_SALAD_* remains an input fallback while
+# old worker environments are being drained.
 try:
-    WORD_SALAD_JOB_LEASE_SECONDS = max(1, int(os.environ.get('WORD_SALAD_JOB_LEASE_SECONDS', '600')))
-    WORD_SALAD_ITEM_LEASE_SECONDS = max(1, int(os.environ.get('WORD_SALAD_ITEM_LEASE_SECONDS', '600')))
+    RECHECK_JOB_LEASE_SECONDS = max(1, int(os.environ.get(
+        'RECHECK_JOB_LEASE_SECONDS',
+        os.environ.get('WORD_SALAD_JOB_LEASE_SECONDS', '600'),
+    )))
+    RECHECK_ITEM_LEASE_SECONDS = max(1, int(os.environ.get(
+        'RECHECK_ITEM_LEASE_SECONDS',
+        os.environ.get('WORD_SALAD_ITEM_LEASE_SECONDS', '600'),
+    )))
 except (TypeError, ValueError):
-    WORD_SALAD_JOB_LEASE_SECONDS = 600
-    WORD_SALAD_ITEM_LEASE_SECONDS = 600
+    RECHECK_JOB_LEASE_SECONDS = 600
+    RECHECK_ITEM_LEASE_SECONDS = 600
+
+# Keep the legacy settings available to rolling-deploy code and existing tests.
+WORD_SALAD_JOB_LEASE_SECONDS = RECHECK_JOB_LEASE_SECONDS
+WORD_SALAD_ITEM_LEASE_SECONDS = RECHECK_ITEM_LEASE_SECONDS
 
 CHANNEL_LAYERS = {
     "default": {

@@ -38,7 +38,10 @@ def _validation_http_500_once():
 
 
 def _valid_signature(request, body):
-    secret = os.environ.get('WORD_SALAD_WORKER_HMAC_SECRET', '').encode()
+    secret = os.environ.get(
+        'RECHECK_WORKER_HMAC_SECRET',
+        os.environ.get('WORD_SALAD_WORKER_HMAC_SECRET', ''),
+    ).encode()
     timestamp = request.headers.get('X-Interoves-Worker-Timestamp', '')
     signature = request.headers.get('X-Interoves-Worker-Signature', '')
     if not secret or not timestamp or not signature:
@@ -69,7 +72,7 @@ def _authorized_delivery(request, body):
 
 @csrf_exempt
 @require_POST
-def word_salad_worker(request):
+def recheck_worker(request):
     if runtime_role() == 'web':
         return HttpResponse('worker endpoint is disabled for web runtime role', status=503)
     body = request.body
@@ -83,7 +86,9 @@ def word_salad_worker(request):
         task_revision = str(payload['task_revision'])
     except (UnicodeDecodeError, ValueError, TypeError, KeyError, json.JSONDecodeError):
         return JsonResponse({'error': 'invalid payload'}, status=400)
-    if payload.get('version') != 1 or payload.get('operation') != 'word_salad_recheck':
+    if payload.get('version') != 1 or payload.get('operation') not in (
+        'recheck', 'word_salad_recheck',
+    ):
         return JsonResponse({'error': 'unsupported operation'}, status=400)
 
     item = WordSaladRecheckItem.objects.select_related('job').filter(pk=item_id, job_id=job_id).first()
@@ -113,3 +118,7 @@ def word_salad_worker(request):
     if result == 'lease_conflict':
         return JsonResponse({'status': result}, status=409)
     return JsonResponse({'status': result}, status=500)
+
+
+# Legacy route/import name kept for the rolling migration.
+word_salad_worker = recheck_worker

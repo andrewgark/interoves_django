@@ -2,10 +2,10 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "DispatchWordSaladMessages",
+      "Sid": "DispatchRecheckMessages",
       "Effect": "Allow",
       "Action": ["sqs:SendMessage"],
-      "Resource": "__WORD_SALAD_QUEUE_ARN__"
+      "Resource": "__RECHECK_QUEUE_ARN__"
     },
     {
       "Sid": "DispatcherSecrets",

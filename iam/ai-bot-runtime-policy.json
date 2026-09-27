@@ -73,7 +73,10 @@
       "Resource": "arn:aws:ec2:eu-central-1:916000456640:instance/*",
       "Condition": {
         "StringEquals": {
-          "ssm:resourceTag/elasticbeanstalk:environment-name": "interoves-word-salad-worker"
+          "ssm:resourceTag/elasticbeanstalk:environment-name": [
+            "interoves-word-salad-worker",
+            "interoves-recheck-worker"
+          ]
         }
       }
     },
@@ -83,7 +86,9 @@
       "Action": "sqs:GetQueueAttributes",
       "Resource": [
         "arn:aws:sqs:eu-central-1:916000456640:interoves-word-salad",
-        "arn:aws:sqs:eu-central-1:916000456640:interoves-word-salad-dlq"
+        "arn:aws:sqs:eu-central-1:916000456640:interoves-word-salad-dlq",
+        "arn:aws:sqs:eu-central-1:916000456640:interoves-recheck",
+        "arn:aws:sqs:eu-central-1:916000456640:interoves-recheck-dlq"
       ]
     }
   ]

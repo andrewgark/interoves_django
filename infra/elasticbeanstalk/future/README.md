@@ -1,4 +1,4 @@
-# Future Word Salad split deployment
+# Future generic recheck split deployment
 
 These files are templates only. They are intentionally outside `.ebextensions`
 and are not applied by the current `interoves-env` deployment.
@@ -30,7 +30,8 @@ and user-agent; private networking/security groups remain mandatory.  The
 HMAC path is retained for a signed reverse proxy or other future transport.
 
 `.ebextensions/word_salad_recheck_cron.config` has been removed. Do not add it
-back. The recheck worker is driven by sqsd plus the supervised dispatcher.
+back. The generic recheck worker is driven by sqsd plus the supervised
+dispatcher; the old Word Salad names remain only as rolling-deploy aliases.
 Empty Interoves cron configs and `zz_cron_stagger.config` are gone. The
 postdeploy hook removes leftover `/etc/cron.d/interoves-*` files on web.
 

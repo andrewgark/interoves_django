@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Future-only Word Salad SQS queue and DLQ template. Do not apply directly.
+Description: Future-only generic recheck SQS queue and DLQ template. Do not apply directly.
 Parameters:
   NamePrefix:
     Type: String
-    Default: interoves-word-salad
+    Default: interoves-recheck
 Resources:
   DeadLetterQueue:
     Type: AWS::SQS::Queue

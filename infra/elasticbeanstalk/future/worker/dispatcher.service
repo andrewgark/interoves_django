@@ -1,5 +1,5 @@
 [Unit]
-Description=Inter Oves Word Salad outbox dispatcher
+Description=Inter Oves recheck outbox dispatcher
 After=network-online.target
 Wants=network-online.target
 
@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=/var/app/current
 EnvironmentFile=-/opt/elasticbeanstalk/deploy/configuration/containerconfiguration
-ExecStart=/bin/bash -lc 'while true; do /var/app/venv/*/bin/python manage.py dispatch_word_salad_recheck_outbox --limit 25; sleep 15; done'
+ExecStart=/bin/bash -lc 'while true; do /var/app/venv/*/bin/python manage.py dispatch_recheck_outbox_loop --limit 25 --interval 15; done'
 Restart=always
 RestartSec=5
 KillSignal=SIGTERM
