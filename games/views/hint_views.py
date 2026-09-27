@@ -2,6 +2,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.views.decorators.http import require_POST
 
 from games.exception import (
     DuplicateAttemptException,
@@ -17,7 +18,14 @@ from games.replay import StaleReplayError, replay_for_request
 from games.views.game_context import game_from_request_for_task
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
-from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
+from games.views.util import (
+    effective_play_mode,
+    get_public_task_or_404,
+    has_profile,
+    has_team,
+    is_browser_form_submission,
+    redirect_after_browser_submission,
+)
 
 
 def _get_play_mode(request, game):
@@ -178,6 +186,7 @@ def process_send_hint_attempt(request, task_id):
     return result
 
 
+@require_POST
 def send_hint_attempt(request, task_id):
     try:
         response = process_send_hint_attempt(request, task_id)
@@ -191,5 +200,9 @@ def send_hint_attempt(request, task_id):
         response = {'status': 'no_access'}
     context_response = context_error_response(response)
     if context_response is not None:
+        if is_browser_form_submission(request):
+            return redirect_after_browser_submission(request)
         return context_response
+    if is_browser_form_submission(request):
+        return redirect_after_browser_submission(request)
     return JsonResponse(response) 

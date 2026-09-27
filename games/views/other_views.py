@@ -1,13 +1,20 @@
 from django.contrib.auth.decorators import user_passes_test
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404
+from django.views.decorators.http import require_POST
 from games.exception import NoGameAccessException
 from games.models import Like
 from games.views.game_context import game_from_request_for_task
-from games.views.util import get_public_task_or_404, has_team
+from games.views.util import (
+    get_public_task_or_404,
+    has_team,
+    is_browser_form_submission,
+    redirect_after_browser_submission,
+)
 
 
 @user_passes_test(has_team)
+@require_POST
 def like_dislike(request, task_id):
     task = get_public_task_or_404(task_id)
 
@@ -32,10 +39,13 @@ def like_dislike(request, task_id):
     if reaction is not None:
         Like.manager.set_actor_reaction(task, reaction, team=team)
 
-    return JsonResponse({
+    response = JsonResponse({
         'likes': Like.manager.get_likes(task),
         'dislikes': Like.manager.get_dislikes(task)
     })
+    if is_browser_form_submission(request):
+        return redirect_after_browser_submission(request)
+    return response
 
 
 # for game 29 :)

@@ -3,9 +3,7 @@ import json
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
-from django.shortcuts import redirect
 from django.utils import timezone
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 from games.analytics import (
     PlayerCompletedGame,
@@ -25,7 +23,14 @@ from games.middleware.request_timing import timing_phase
 from games.analytics_identity import gameplay_anon_key
 from games.auth_observability import log_gameplay_attempt_created
 from games.gameplay_context import context_error_response, validate_gameplay_context
-from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
+from games.views.util import (
+    effective_play_mode,
+    get_public_task_or_404,
+    has_profile,
+    has_team,
+    is_browser_form_submission,
+    redirect_after_browser_submission,
+)
 from games.grid_puzzle import (
     GridPuzzleDataError,
     grid_checker_id,
@@ -993,26 +998,6 @@ def _raddle_duplicate_response(request, task_id):
     return result
 
 
-def _is_browser_form_submission(request):
-    """Return true for a native browser form POST, not AJAX/fetch or API calls."""
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return False
-    # Keep the programmatic/API compatibility of callers that do not send an
-    # Accept header, while handling the browser's native HTML form fallback.
-    return 'text/html' in request.headers.get('Accept', '').lower()
-
-
-def _redirect_after_browser_attempt(request):
-    referer = request.META.get('HTTP_REFERER', '')
-    if url_has_allowed_host_and_scheme(
-        referer,
-        allowed_hosts={request.get_host()},
-        require_https=request.is_secure(),
-    ):
-        return redirect(referer)
-    return redirect('/')
-
-
 @require_POST
 def send_attempt(request, task_id):
     try:
@@ -1033,10 +1018,10 @@ def send_attempt(request, task_id):
         response = {'status': 'no_access'}
     context_response = context_error_response(response)
     if context_response is not None:
-        if _is_browser_form_submission(request):
-            return _redirect_after_browser_attempt(request)
+        if is_browser_form_submission(request):
+            return redirect_after_browser_submission(request)
         return context_response
-    if _is_browser_form_submission(request):
-        return _redirect_after_browser_attempt(request)
+    if is_browser_form_submission(request):
+        return redirect_after_browser_submission(request)
     with timing_phase(request, 'serialize_response'):
         return JsonResponse(response)

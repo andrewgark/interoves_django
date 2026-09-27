@@ -103,6 +103,11 @@ class RaddleSendAttemptTests(TestCase):
 
         self.assertEqual(response.status_code, 405)
 
+    def test_raddle_auxiliary_gets_are_rejected(self):
+        for endpoint in ('send_raddle_ui', 'send_raddle_assist'):
+            response = self.client.get('/{}/{}/'.format(endpoint, self.task.id))
+            self.assertEqual(response.status_code, 405)
+
     def test_native_browser_form_post_redirects_back_to_game(self):
         response = self.client.post(
             self.post_url,

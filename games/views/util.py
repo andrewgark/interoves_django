@@ -1,5 +1,6 @@
 from django.http import HttpResponseRedirect, HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from games.access import game_has_ended, game_is_going_now
 
@@ -19,6 +20,27 @@ def redirect_to_referer(request):
     if 'next' in request.GET and request.GET.get('next'):
         return HttpResponseRedirect(request.GET.get('next'))
     return HttpResponseRedirect('/')
+
+
+def is_browser_form_submission(request):
+    """True for a native HTML form POST, not an AJAX/fetch request."""
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return False
+    # Callers without an Accept header are kept API-compatible; real browser
+    # form submissions advertise HTML and can safely be redirected.
+    return 'text/html' in request.headers.get('Accept', '').lower()
+
+
+def redirect_after_browser_submission(request):
+    """Return to a same-host page after a native browser mutation POST."""
+    referer = request.META.get('HTTP_REFERER', '')
+    if url_has_allowed_host_and_scheme(
+        referer,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(referer)
+    return redirect('/')
 
 
 def has_profile(user):

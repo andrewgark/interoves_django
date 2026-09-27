@@ -3,7 +3,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
-from django.test import RequestFactory, TestCase
+from django.test import Client, RequestFactory, TestCase
 from django.utils import timezone
 
 from games.analytics_identity import stamp_anon_identity
@@ -141,6 +141,11 @@ class AttemptRequestValidationTests(TestCase):
         ), patch('games.views.hint_views._get_play_mode', return_value='personal'):
             response = send_hint_attempt(request, self.default.pk)
         self.assertEqual(json.loads(response.content)['status'], 'invalid_form')
+
+    def test_hint_get_is_rejected_instead_of_returning_json(self):
+        response = Client().get('/send_hint_attempt/{}/'.format(self.default.pk))
+
+        self.assertEqual(response.status_code, 405)
 
     def test_hint_creation_is_single_save_and_duplicate_safe(self):
         with patch('games.views.track.track_task_change') as track:

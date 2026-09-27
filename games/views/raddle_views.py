@@ -3,7 +3,7 @@ import json
 from django.db import transaction
 from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_POST
 
 from games.analytics import (
     PlayerCompletedGame,
@@ -40,6 +40,7 @@ from games.views.game_context import (
 from games.views.hint_views import _get_play_mode, create_hint_attempt
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
+from games.views.util import is_browser_form_submission, redirect_after_browser_submission
 from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
 
 
@@ -524,7 +525,7 @@ def process_send_raddle_ui(request, task_id):
     return result
 
 
-@require_http_methods(['POST'])
+@require_POST
 def send_raddle_ui(request, task_id):
     try:
         response = process_send_raddle_ui(request, task_id)
@@ -532,11 +533,15 @@ def send_raddle_ui(request, task_id):
         response = {'status': 'no_access'}
     context_response = context_error_response(response)
     if context_response is not None:
+        if is_browser_form_submission(request):
+            return redirect_after_browser_submission(request)
         return context_response
+    if is_browser_form_submission(request):
+        return redirect_after_browser_submission(request)
     return JsonResponse(response)
 
 
-@require_http_methods(['POST'])
+@require_POST
 def send_raddle_assist(request, task_id):
     try:
         response = process_send_raddle_assist(request, task_id)
@@ -544,5 +549,9 @@ def send_raddle_assist(request, task_id):
         response = {'status': 'no_access'}
     context_response = context_error_response(response)
     if context_response is not None:
+        if is_browser_form_submission(request):
+            return redirect_after_browser_submission(request)
         return context_response
+    if is_browser_form_submission(request):
+        return redirect_after_browser_submission(request)
     return JsonResponse(response)
