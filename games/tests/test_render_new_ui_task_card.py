@@ -27,7 +27,7 @@ from games.views.render_task import (
     _task_card_public_identity,
     render_new_ui_task_card_html,
 )
-from games.views.new_ui import _task_ui_descriptor
+from games.views.new_ui import _task_ui_descriptor, _wall_ui_context
 
 
 def _setup_db():
@@ -177,6 +177,47 @@ class RenderNewUiTaskCardTests(TestCase):
             _task_ui_descriptor(self.task, wall_meta={'total': 6, 'title': 'wall'})['max_points_title'],
             'wall',
         )
+
+    def test_wall_ui_uses_stage_limits_and_separates_explanations(self):
+        self.task.text = json.dumps({
+            'words': ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
+            'n_cat': 2, 'n_words': 4, 'attempts': [5, 4, 3],
+        })
+        self.task.checker_data = json.dumps({
+            'answers': [
+                {'words': ['a', 'b', 'c', 'd'], 'checker': 'cat1'},
+                {'words': ['e', 'f', 'g', 'h'], 'checker': 'cat2'},
+            ],
+            'points_words': 1, 'points_explanation': 1, 'points_bonus': 1,
+        })
+
+        def make_attempt(payload, guessed_words, status='Wrong'):
+            return SimpleNamespace(
+                task=self.task, status='Wrong', points=0, time=1,
+                text=json.dumps(payload),
+                state=json.dumps({
+                    'guessed_words': guessed_words,
+                    'last_attempt': {**payload, 'status': status, 'points': 0},
+                }),
+            )
+
+        first = make_attempt({'stage': 'cat_words', 'words': ['x']}, [])
+        solved = make_attempt(
+            {'stage': 'cat_words', 'words': ['a', 'b', 'c', 'd']}, [], 'Ok'
+        )
+        explanation = make_attempt(
+            {'stage': 'cat_explanation', 'words': ['a', 'b', 'c', 'd'], 'explanation': 'x'},
+            [['a', 'b', 'c', 'd']],
+        )
+        info = SimpleNamespace(
+            attempts=[first, solved, explanation], last_attempt=explanation,
+        )
+        ui = _wall_ui_context(self.task, info, 'tournament')
+        self.assertEqual(ui['word_attempt_count'], 0)
+        self.assertEqual(ui['word_attempt_limit'], 4)
+        self.assertEqual(ui['word_attempt_slot'], 1)
+        self.assertEqual(len(ui['word_attempts']), 2)
+        self.assertEqual(len(ui['explanation_attempts'][0]), 1)
 
     def test_default_and_proportions_keep_single_text_container(self):
         for task_type, task_number in (('default', '2'), ('proportions', '3')):

@@ -3499,6 +3499,64 @@ def _task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=
     }
 
 
+def _wall_ui_context(task, attempts_info, mode):
+    """Build the stage-aware attempt counters and split wall attempt lists."""
+    if task.task_type != 'wall':
+        return None
+
+    from games.templatetags.filters import attempts_with_status
+
+    wall = task.get_wall()
+    attempts = list(attempts_info.attempts if attempts_info else [])
+    counters = wall.get_n_max_attempts_dict(attempts)
+    word_items = []
+    explanation_items = {}
+    for item in attempts_with_status(attempts):
+        attempt = item['attempt']
+        try:
+            payload = json.loads(attempt.text)
+            state = json.loads(attempt.state or '{}')
+        except (TypeError, ValueError):
+            continue
+        if payload.get('stage') == 'cat_words':
+            guessed_words = state.get('guessed_words') or []
+            slot = wall._cat_words_slot_index(
+                len(guessed_words), after_ok=state.get('last_attempt', {}).get('status') == 'Ok'
+            )
+            word_items.append({**item, 'stage_slot': slot})
+        elif payload.get('stage') == 'cat_explanation':
+            category = next(
+                (i for i, words in enumerate(state.get('guessed_words') or [])
+                 if words == payload.get('words')),
+                None,
+            )
+            if category is not None:
+                explanation_items.setdefault(category, []).append(item)
+
+    last_state = {}
+    if attempts_info and attempts_info.last_attempt:
+        try:
+            last_state = json.loads(attempts_info.last_attempt.state or '{}')
+        except (TypeError, ValueError):
+            pass
+    active_slot = min(
+        len(last_state.get('guessed_words') or []),
+        max(0, len(wall.max_attempts) - 1),
+    )
+    active_counter = counters['cat_words'][active_slot]
+    return {
+        'word_attempts': word_items,
+        'explanation_attempts': explanation_items,
+        'word_attempt_count': active_counter['n_attempts'],
+        'word_attempt_limit': active_counter['max_attempts'],
+        'word_attempt_slot': active_slot,
+        'word_attempt_total': len(word_items),
+        'explanation_total': sum(len(rows) for rows in explanation_items.values()),
+        'explanation_limit': task.get_max_attempts(),
+        'mode': mode,
+    }
+
+
 def build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode, placement=None, replay_slot=None):
     """
     Shared context for task_group.html and new/partials/task_card.html
@@ -3822,6 +3880,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 gp=grid_puzzle_data.get(t.id),
             ),
             'display_name': task_display_name(game, t, placement=placement),
+            'wall': _wall_ui_context(t, attempts_info_by_task_id.get(t.id), mode),
         }
         for t in tasks
     }

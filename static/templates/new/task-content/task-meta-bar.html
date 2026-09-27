@@ -13,7 +13,23 @@
     </span>
     {% if task_ui.show_attempts %}
     {% with n=ai.get_n_attempts %}
-    {% if task.task_type == 'raddle' and mode == 'tournament' and rd %}
+    {% if task.task_type == 'wall' and task_ui.wall %}
+    {% with wu=task_ui.wall %}
+    <span class="new-proportions-compact-stat new-proportions-compact-stat--plain" title="Попытки на разбиение стены; объяснения считаются отдельно">
+      <span class="new-proportions-compact-stat__paren">(</span>{{ wu.word_attempt_count }} {{ wu.word_attempt_count|ru_attempt_word }}{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ wu.word_attempt_limit }} {{ wu.word_attempt_limit|ru_attempt_word }} до отгадывания {{ wu.word_attempt_slot|add:'1' }} категории{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
+    </span>
+    <button type="button" class="new-proportions-compact-textbtn new-proportions-compact-textbtn--plain" popovertarget="prop-wall-words-{{ task.id }}" title="Открыть попытки разбиения стены" aria-label="Попытки разбиения стены: {{ wu.word_attempt_total }}">попытки</button>
+    <div id="prop-wall-words-{{ task.id }}" popover="auto" class="new-proportions-attempts-popover">
+      <div class="new-proportions-attempts-popover__header"><div class="new-proportions-attempts-popover__title">Попытки разбиения стены</div><button type="button" class="new-proportions-attempts-popover__close" popovertarget="prop-wall-words-{{ task.id }}" popovertargetaction="hide" aria-label="Закрыть список попыток"><i class="ph ph-x" aria-hidden="true"></i></button></div>
+      <div class="new-attempts__list new-proportions-attempts-popover__list new-wall-attempts-list">
+        {% for item in wu.word_attempts %}
+          {% ifchanged item.stage_slot %}<div class="new-wall-attempts-list__boundary">До отгадывания {{ item.stage_slot|add:'1' }} категории</div>{% endifchanged %}
+          {% with a=item.attempt %}{% include "new/task-content/attempt-row.html" %}{% endwith %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endwith %}
+    {% elif task.task_type == 'raddle' and mode == 'tournament' and rd %}
     <span class="new-proportions-compact-stat new-proportions-compact-stat--plain new-raddle-attempt-stats" title="Лимит попыток считается отдельно для каждого слова">
       <span class="new-raddle-attempt-stats__item">Верхнее слово: ({{ rd.ui.top_attempts }} {{ rd.ui.top_attempts|ru_attempt_word }} / {{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }})</span>
       <span class="new-proportions-compact-stat__sep"> · </span>
