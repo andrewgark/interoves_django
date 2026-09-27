@@ -25,6 +25,7 @@
     } catch (e) {}
     var loading = false;
     var loadError = false;
+    var loadedMore = false;
 
     function countRows() {
       return tbody.querySelectorAll('tr[data-result-row]:not(.is-hidden)').length;
@@ -43,8 +44,10 @@
     function updateState() {
       var count = countRows();
       if (nextPage && count >= total) nextPage = 0;
+      root.hidden = !loadedMore && !nextPage && !loadError;
       button.hidden = !nextPage && !loadError;
       if (!status) return;
+      status.hidden = !loadedMore && !nextPage && !loadError;
       status.textContent = loadError
         ? 'Не удалось загрузить следующую порцию.'
         : nextPage
@@ -75,6 +78,7 @@
         if (controller) fetchOptions.signal = controller.signal;
         var response = await fetch(url.toString(), fetchOptions);
         if (!response.ok) throw new Error('HTTP ' + response.status);
+        var rowsBefore = countRows();
         var tmp = document.createElement('tbody');
         tmp.innerHTML = await response.text();
         var meta = tmp.querySelector('template[data-results-meta="1"]');
@@ -87,6 +91,7 @@
           tbody.appendChild(node);
         });
         if (typeof window.interovesApplyHideAnon === 'function') window.interovesApplyHideAnon();
+        loadedMore = loadedMore || countRows() > rowsBefore;
         updateUrl(countRows());
       } catch (error) {
         loadError = true;
