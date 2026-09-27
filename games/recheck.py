@@ -220,7 +220,7 @@ def recheck_chain_task(
                     ct = checker_type
                 checker = CheckerFactory().create_checker(ct, checker_data, last_state)
                 result = checker.check(attempt.text, attempt)
-                attempt.status = result.status
+                _apply_replay_status(attempt, result, mode)
                 attempt.points = Decimal(str(result.points or 0))
                 if task.task_type != 'word_salad':
                     attempt.points *= task.get_points()
@@ -369,8 +369,18 @@ def _check_word_salad_attempt(checker_type, checker_data, last_state, attempt, *
     return retry
 
 
-def _apply_word_salad_check_result(attempt, result):
-    attempt.status = result.status
+def _apply_replay_status(attempt, result, mode):
+    """Apply checker status using the same tournament split as check_attempt."""
+    attempt.possible_status = None
+    if mode == 'tournament' and result.status != 'Ok':
+        attempt.possible_status = result.status
+        attempt.status = result.tournament_status
+    else:
+        attempt.status = result.status
+
+
+def _apply_word_salad_check_result(attempt, result, mode):
+    _apply_replay_status(attempt, result, mode)
     attempt.points = Decimal(str(result.points or 0))
     attempt.state = result.state
     attempt.comment = result.comment
@@ -405,7 +415,7 @@ def _replay_word_salad_attempts(
                 attempt,
                 expand_active=expand_active,
             )
-            _apply_word_salad_check_result(attempt, result)
+            _apply_word_salad_check_result(attempt, result, mode)
         except Exception as exc:
             print('SKIP Attempt {} while RECHECKING word salad'.format(attempt))
             print('REASON: {}'.format(exc))

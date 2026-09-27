@@ -3,6 +3,7 @@ Tests for ChainTaskState: wall and replacements_lines chain integrity,
 mode isolation, race-condition serialisation, and recheck correctness.
 """
 import json
+from datetime import timedelta
 from django.db import IntegrityError, transaction
 import threading
 from unittest.mock import patch
@@ -526,6 +527,35 @@ class ModeIsolationTests(_ChainFixture, TestCase):
 # recheck_chain_task: rebuilds state correctly from scratch
 # ===========================================================================
 class RecheckChainTaskTests(_ChainFixture, TestCase):
+
+    def test_recheck_refreshes_possible_status_from_checker_result(self):
+        now = timezone.now()
+        self.game.start_time = now - timedelta(minutes=1)
+        self.game.end_time = now + timedelta(minutes=1)
+        self.game.save(update_fields=['start_time', 'end_time'])
+
+        first = _make_attempt(self.repl_task, self.team, _repl_text(0, ['answer1']))
+        check_attempt(first)
+        self.assertEqual(first.status, 'Partial')
+        self.assertEqual(first.possible_status, 'Partial')
+        first.status = 'Wrong'
+        first.possible_status = 'Wrong'
+        first.save(update_fields=['status', 'possible_status'])
+
+        second = _make_attempt(self.repl_task, self.team, _repl_text(1, ['answer2']))
+        check_attempt(second)
+        self.assertEqual(second.status, 'Ok')
+        second.possible_status = 'Wrong'
+        second.save(update_fields=['possible_status'])
+
+        recheck_chain_task(task=self.repl_task, team=self.team, game=self.game, notify=False)
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.status, 'Partial')
+        self.assertEqual(first.possible_status, 'Partial')
+        self.assertEqual(second.status, 'Ok')
+        self.assertIsNone(second.possible_status)
 
     def test_recheck_creates_completion_flag_when_group_becomes_complete(self):
         self.repl_task.text = 'line 0\nline 1'

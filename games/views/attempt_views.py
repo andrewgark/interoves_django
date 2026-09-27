@@ -297,6 +297,9 @@ def check_attempt(
         checker = CheckerFactory().create_checker(checker_type, checker_data, last_attempt_state)
         check_result = checker.check(attempt.text, attempt)
         attempt.status, attempt.points, attempt.state, attempt.comment = check_result.status, check_result.points, check_result.state, check_result.comment
+        # Recompute the hidden checker result on every check; do not retain a
+        # stale value after a replay or a checker change.
+        attempt.possible_status = None
         if 'tournament' in modes and attempt.status != 'Ok':
             attempt.possible_status = attempt.status
             attempt.status = check_result.tournament_status
