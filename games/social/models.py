@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from django.db import models
 
+from games.storage_backends import social_queue_storage
+
 
 class SocialQueuePost(models.Model):
     """Image + caption draft with independent publish status per network."""
@@ -44,9 +46,15 @@ class SocialQueuePost(models.Model):
     )
 
     caption = models.TextField(blank=True, default='')
-    image = models.ImageField(upload_to='social_queue/', blank=True, null=True)
+    image = models.ImageField(
+        upload_to='social_queue/',
+        storage=social_queue_storage,
+        blank=True,
+        null=True,
+    )
     social_image = models.ImageField(
         upload_to='social_queue/',
+        storage=social_queue_storage,
         blank=True,
         null=True,
         help_text='Optional compact image for X, Instagram and Threads; Telegram uses image.',

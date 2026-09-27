@@ -31,3 +31,19 @@ class ProxyMediaStorage(PublicMediaStorage):
     def url(self, name, parameters=None, expire=None, http_method=None):
         name = (name or "").lstrip("/")
         return f"/media/{name}"
+
+
+def social_queue_storage():
+    """Store social-queue images in the public bucket.
+
+    The integrations worker keeps ``USE_S3`` false (it must not collectstatic),
+    but Instagram and Threads fetch these files by public URL from the web tier.
+    A local file on the worker is invisible there and the URL 500s.
+    """
+    from django.conf import settings
+    from django.core.files.storage import default_storage
+
+    bucket = (getattr(settings, 'SOCIAL_QUEUE_S3_BUCKET', '') or '').strip()
+    if not bucket:
+        return default_storage
+    return ProxyMediaStorage(bucket_name=bucket)

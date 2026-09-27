@@ -672,6 +672,13 @@ else:
     MEDIA_URL = '/media/'
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
 
+# Social-queue images are fetched by public URL (Instagram / Threads).
+# Leave empty to use default storage. Set this on the integrations worker only
+# after its role can PutObject to media/social_queue/* — USE_S3 stays false there.
+SOCIAL_QUEUE_S3_BUCKET = (os.environ.get('SOCIAL_QUEUE_S3_BUCKET') or '').strip()
+if not SOCIAL_QUEUE_S3_BUCKET and USE_S3:
+    SOCIAL_QUEUE_S3_BUCKET = AWS_STORAGE_BUCKET_NAME
+
 STATICFILES_DIRS = (
     os.path.join(BASE_DIR, 'static'),
 )
