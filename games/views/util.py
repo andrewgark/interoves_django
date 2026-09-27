@@ -13,12 +13,11 @@ def get_public_task_or_404(task_id):
 
 
 def redirect_to_referer(request):
-    if 'HTTP_REFERER' in request.META:
-        return HttpResponseRedirect(request.META.get('HTTP_REFERER'))
-    if 'next' in request.POST and request.POST.get('next'):
-        return HttpResponseRedirect(request.POST.get('next'))
-    if 'next' in request.GET and request.GET.get('next'):
-        return HttpResponseRedirect(request.GET.get('next'))
+    for target in (request.META.get('HTTP_REFERER'), request.POST.get('next'), request.GET.get('next')):
+        if target and url_has_allowed_host_and_scheme(
+            target, allowed_hosts={request.get_host()}, require_https=request.is_secure(),
+        ):
+            return HttpResponseRedirect(target)
     return HttpResponseRedirect('/')
 
 

@@ -2,7 +2,6 @@ from django.contrib.auth.decorators import user_passes_test
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_POST
-from games.exception import NoGameAccessException
 from games.models import Like
 from games.views.game_context import game_from_request_for_task
 from games.views.util import (
@@ -21,10 +20,10 @@ def like_dislike(request, task_id):
     team = request.user.profile.team_on
     game = game_from_request_for_task(request, task)
     if game is None:
-        return NoGameAccessException('Cannot resolve game for task {}'.format(task.id))
+        return JsonResponse({'error': 'not found'}, status=404)
 
     if not game.has_access('send_attempt', team=team):
-        return NoGameAccessException('User {} has no access to game {}'.format(request.user.profile, game))
+        return JsonResponse({'error': 'no access'}, status=403)
 
     likes = int(request.POST.get('likes', 0))
     dislikes = int(request.POST.get('dislikes', 0))

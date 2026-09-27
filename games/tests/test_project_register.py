@@ -57,8 +57,9 @@ class ProjectScopedRegisterTests(TestCase):
         self.assertTrue(self.client.login(username='gb_reg_user', password='secret'))
 
     def test_project_register_url_accepts_project_id_and_creates_registration(self):
-        response = self.client.get(
-            '/glowbyte/register/glowbyte_des_12/?next=/glowbyte/',
+        response = self.client.post(
+            '/glowbyte/register/glowbyte_des_12/',
+            {'next': '/glowbyte/'},
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response['Location'], '/glowbyte/')
@@ -67,8 +68,9 @@ class ProjectScopedRegisterTests(TestCase):
         )
 
     def test_project_team_moderation_urls_accept_project_id(self):
-        response = self.client.get(
+        response = self.client.post(
             '/glowbyte/kick_out_user/%d/' % self.other.pk,
+            {'next': '/glowbyte/team/'},
             HTTP_REFERER='/glowbyte/team/',
         )
         self.assertEqual(response.status_code, 302)

@@ -93,7 +93,7 @@ class MultiTeamTests(TestCase):
         applicant.profile.save(update_fields=['team_requested'])
         self.client.logout()
         self.assertTrue(self.client.login(username='mt_captain', password='secret'))
-        self.client.get('/reject_user_joining_team/%d/' % applicant.pk)
+        self.client.post('/reject_user_joining_team/%d/' % applicant.pk)
         applicant.profile.refresh_from_db()
         self.assertIsNone(applicant.profile.team_requested)
         self.assertEqual(applicant.profile.team_on_id, self.team_b.pk)
@@ -110,7 +110,7 @@ class MultiTeamTests(TestCase):
         applicant.profile.save(update_fields=['team_requested', 'join_accept_as_primary'])
         self.client.logout()
         self.assertTrue(self.client.login(username='mt_cap2', password='secret'))
-        self.client.get('/confirm_user_joining_team/%d/' % applicant.pk)
+        self.client.post('/confirm_user_joining_team/%d/' % applicant.pk)
         applicant.profile.refresh_from_db()
         self.assertIsNone(applicant.profile.team_requested)
         self.assertTrue(applicant.profile.join_accept_as_primary)
@@ -118,4 +118,3 @@ class MultiTeamTests(TestCase):
         self.assertTrue(
             ProfileTeamMembership.objects.filter(profile=applicant.profile, team=self.team_a).exists()
         )
-

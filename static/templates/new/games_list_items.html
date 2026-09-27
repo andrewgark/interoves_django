@@ -53,19 +53,19 @@
         {% elif game|access_register:team %}
           {% if game.requires_ticket %}
             {% if team and team.tickets > 0 %}
-              <a href="{{ ui_project_home_url|default:'/' }}register/{{ game.id }}/?next={{ request.path }}" class="new-btn new-btn--mini">Зарегистрироваться (-1 билет)</a>
+              <form action="{{ ui_project_home_url|default:'/' }}register/{{ game.id }}/" method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button type="submit" class="new-btn new-btn--mini">Зарегистрироваться (-1 билет)</button></form>
             {% else %}
               <a href="{% url 'new_pay' %}" class="new-btn new-btn--ghost new-btn--mini">Приобрести билет</a>
             {% endif %}
             {% if team %}
               {% for referent in game|get_available_referents:team %}
-                <a href="{{ ui_project_home_url|default:'/' }}register/{{ game.id }}/?with_referent={{ referent.name }}&next={{ request.path }}" class="new-btn new-btn--ghost new-btn--mini">
+                <form action="{{ ui_project_home_url|default:'/' }}register/{{ game.id }}/" method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="with_referent" value="{{ referent.name }}"><input type="hidden" name="next" value="{{ request.path }}"><button type="submit" class="new-btn new-btn--ghost new-btn--mini">
                   Зарегистрироваться по приглашению «{{ referent.visible_name }}»
-                </a>
+                </button></form>
               {% endfor %}
             {% endif %}
           {% else %}
-            <a href="{{ ui_project_home_url|default:'/' }}register/{{ game.id }}/?next={{ request.path }}" class="new-btn new-btn--mini">Зарегистрироваться</a>
+            <form action="{{ ui_project_home_url|default:'/' }}register/{{ game.id }}/" method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button type="submit" class="new-btn new-btn--mini">Зарегистрироваться</button></form>
           {% endif %}
         {% endif %}
 

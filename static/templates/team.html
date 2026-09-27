@@ -25,7 +25,9 @@
           <ul class="list-rectangle team-on-list">
             {% for team_member in user.profile.team_on.roster_profiles %}
               <li>{{ team_member }}
-                <a href="/kick_out_user/{{ team_member.user.id }}/?team={{ user.profile.team_on.pk }}" next="{{ request.path }}" class="btn btn-custom btn-custom-sm btn-sm page-scroll">-</a>    
+                <form action="/kick_out_user/{{ team_member.user.id }}/" method="post" style="display:inline">
+                  {% csrf_token %}<input type="hidden" name="team" value="{{ user.profile.team_on.pk }}"><input type="hidden" name="next" value="{{ request.path }}"><button type="submit" class="btn btn-custom btn-custom-sm btn-sm">-</button>
+                </form>
               </li>
             {% endfor %}
           </ul>
@@ -36,14 +38,20 @@
               {% for user_requested in user.profile.team_on.users_requested.all %}
                 <li>{{ user_requested }}
                   {% if user != user_requested %}
-                    <a href="/confirm_user_joining_team/{{ user_requested.user.id }}" next="{{ request.path }}" class="btn btn-custom btn-custom-sm btn-sm page-scroll">+</a>
-                    <a href="/reject_user_joining_team/{{ user_requested.user.id }}" next="{{ request.path }}" class="btn btn-custom btn-custom-sm btn-sm page-scroll">-</a>                  
+                    <form action="/confirm_user_joining_team/{{ user_requested.user.id }}/" method="post" style="display:inline">
+                      {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button type="submit" class="btn btn-custom btn-custom-sm btn-sm">+</button>
+                    </form>
+                    <form action="/reject_user_joining_team/{{ user_requested.user.id }}/" method="post" style="display:inline">
+                      {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button type="submit" class="btn btn-custom btn-custom-sm btn-sm">-</button>
+                    </form>
                   {% endif %}
                 </li>
               {% endfor %}
             </ul>
           {% endif %}
-          <a href="/quit_from_team"  next="{{ request.path }}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Выйти из команды</a>
+          <form action="/quit_from_team" method="post">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><input type="hidden" name="team" value="{{ user.profile.team_on.pk }}"><button type="submit" class="btn btn-custom btn-custom-lg btn-lg">Выйти из команды</button>
+          </form>
         {% elif user.profile.team_requested  %}
           <h2>Вы подали заявку в команду: <b>{{ user.profile.team_requested }}</b></h2>
           <p>Чтобы участвовать в играх, необходимо иметь команду.</p>
@@ -64,7 +72,9 @@
               <li>{{ user_requested }}</li>
             {% endfor %}
           </ul>
-          <a href="/quit_from_team" next="{{ request.path }}" class="btn btn-custom btn-custom-lg btn-lg page-scroll">Отменить заявку</a>
+          <form action="/quit_from_team" method="post">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><input type="hidden" name="cancel_request" value="1"><button type="submit" class="btn btn-custom btn-custom-lg btn-lg">Отменить заявку</button>
+          </form>
         {% else %}
           <h2>У вас нет команды</h2>
           <p>Чтобы участвовать в играх, необходимо иметь команду.</p>

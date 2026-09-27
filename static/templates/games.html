@@ -24,15 +24,15 @@
       {% elif game|access_register:team %}
         {% if game.requires_ticket %}
           {% if team.tickets > 0 %}
-            <p><a href="/register/{{ game.id }}" next="{{ request.path }}"><b>Зарегистрироваться<br>(потратить билет)</b></a></p>
+            <form action="/register/{{ game.id }}/" method="post">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button type="submit"><b>Зарегистрироваться<br>(потратить билет)</b></button></form>
           {% else %}
             <p><a href="/tickets"><b>Приобрести билет</b></a></p>
           {% endif %}
 	  {% for referent in game|get_available_referents:team %}
-	    <p><a href="/register/{{ game.id }}?with_referent={{ referent.name }}" next="{{ request.path }}"><b>Зарегистрироваться<br>(с помощью приглашенной команды "{{ referent.visible_name }}")</b></a></p>
+	    <form action="/register/{{ game.id }}/" method="post"><input type="hidden" name="with_referent" value="{{ referent.name }}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button type="submit"><b>Зарегистрироваться<br>(с помощью приглашенной команды "{{ referent.visible_name }}")</b></button></form>
 	  {% endfor %}
         {% else %}
-          <p><a href="/register/{{ game.id }}" next="{{ request.path }}"><b>Зарегистрироваться</b></a></p>
+          <form action="/register/{{ game.id }}/" method="post">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button type="submit"><b>Зарегистрироваться</b></button></form>
         {% endif %}
       {% endif %}
       {% if game|access_see_tournament_results:team  %}

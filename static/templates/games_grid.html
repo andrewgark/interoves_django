@@ -40,7 +40,7 @@
         {% if game.requires_ticket %}
           {% if team.tickets > 0 %}
             <div class="game-actions-row">
-              <a href="/register/{{ game.id }}?next={{ request.path }}" class="btn btn-warning btn-sm">Зарегистрироваться (-1 билет)</a>
+              <form action="/register/{{ game.id }}/" method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button type="submit" class="btn btn-warning btn-sm">Зарегистрироваться (-1 билет)</button></form>
             </div>
           {% else %}
             <div class="game-actions-row">
@@ -49,12 +49,12 @@
           {% endif %}
           {% for referent in game|get_available_referents:team %}
             <div class="game-actions-row">
-              <a href="/register/{{ game.id }}?with_referent={{ referent.name }}&next={{ request.path }}" class="btn btn-warning btn-sm">Зарегистрироваться, используя приглашение команды "{{ referent.visible_name }}"</a>
+              <form action="/register/{{ game.id }}/" method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="with_referent" value="{{ referent.name }}"><input type="hidden" name="next" value="{{ request.path }}"><button type="submit" class="btn btn-warning btn-sm">Зарегистрироваться, используя приглашение команды "{{ referent.visible_name }}"</button></form>
             </div>
           {% endfor %}
         {% else %}
           <div class="game-actions-row">
-            <a href="/register/{{ game.id }}?next={{ request.path }}" class="btn btn-warning btn-sm">Зарегистрироваться</a>
+            <form action="/register/{{ game.id }}/" method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button type="submit" class="btn btn-warning btn-sm">Зарегистрироваться</button></form>
           </div>
         {% endif %}
       {% endif %}
@@ -100,4 +100,4 @@
     </div>
     {% endwith %}
   </div>
-{% endfor %} 
+{% endfor %}

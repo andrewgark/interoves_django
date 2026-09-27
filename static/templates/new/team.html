@@ -71,7 +71,9 @@
         <li>
           <i class="ph ph-user" aria-hidden="true"></i> {{ team_member }}
           {% if user != team_member %}
-          <a class="new-btn new-btn--danger new-btn--mini" href="{% if ui_project_base %}{{ ui_project_base }}{% endif %}/kick_out_user/{{ team_member.user.id }}/?team={{ user.profile.team_on.pk }}" data-confirm-kick>Исключить</a>
+          <form action="{% if ui_project_base %}{{ ui_project_base }}{% endif %}/kick_out_user/{{ team_member.user.id }}/" method="post" style="display:inline" data-confirm-kick-form>
+            {% csrf_token %}<input type="hidden" name="team" value="{{ user.profile.team_on.pk }}"><input type="hidden" name="next" value="{{ new_team_url }}"><button type="submit" class="new-btn new-btn--danger new-btn--mini">Исключить</button>
+          </form>
           {% endif %}
         </li>
         {% endfor %}
@@ -83,8 +85,12 @@
         <li>
           {{ user_requested }}
           {% if user != user_requested %}
-          <a class="new-btn new-btn--ghost new-btn--mini" href="{% if ui_project_base %}{{ ui_project_base }}{% endif %}/confirm_user_joining_team/{{ user_requested.user.id }}/">Принять</a>
-          <a class="new-btn new-btn--text new-btn--mini" href="{% if ui_project_base %}{{ ui_project_base }}{% endif %}/reject_user_joining_team/{{ user_requested.user.id }}/">Отклонить</a>
+          <form action="{% if ui_project_base %}{{ ui_project_base }}{% endif %}/confirm_user_joining_team/{{ user_requested.user.id }}/" method="post" style="display:inline">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ new_team_url }}"><button type="submit" class="new-btn new-btn--ghost new-btn--mini">Принять</button>
+          </form>
+          <form action="{% if ui_project_base %}{{ ui_project_base }}{% endif %}/reject_user_joining_team/{{ user_requested.user.id }}/" method="post" style="display:inline">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ new_team_url }}"><button type="submit" class="new-btn new-btn--text new-btn--mini">Отклонить</button>
+          </form>
           {% endif %}
         </li>
         {% endfor %}
@@ -119,7 +125,9 @@
           <li>
             <i class="ph ph-user" aria-hidden="true"></i> {{ team_member }}
             {% if user != team_member %}
-            <a class="new-btn new-btn--danger new-btn--mini" href="{% if ui_project_base %}{{ ui_project_base }}{% endif %}/kick_out_user/{{ team_member.user.id }}/?team={{ sec_team.pk }}" data-confirm-kick>Исключить</a>
+            <form action="{% if ui_project_base %}{{ ui_project_base }}{% endif %}/kick_out_user/{{ team_member.user.id }}/" method="post" style="display:inline" data-confirm-kick-form>
+              {% csrf_token %}<input type="hidden" name="team" value="{{ sec_team.pk }}"><input type="hidden" name="next" value="{{ new_team_url }}"><button type="submit" class="new-btn new-btn--danger new-btn--mini">Исключить</button>
+            </form>
             {% endif %}
           </li>
           {% endfor %}

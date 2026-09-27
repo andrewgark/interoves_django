@@ -1,14 +1,16 @@
 from django.http import JsonResponse
 from django.contrib.auth.decorators import user_passes_test
 from django.shortcuts import get_object_or_404
+from django.views.decorators.http import require_POST
 from games.exception import *
 from games.models import Registration, Game, Team
 from games.views.util import has_team, redirect_to_referer
 
 
 @user_passes_test(has_team)
+@require_POST
 def register_to_game(request, game_id, project_id=None):
-    with_referent = request.GET.get('with_referent', None)
+    with_referent = request.POST.get('with_referent') or request.GET.get('with_referent')
     team = request.user.profile.team_on
     game = get_object_or_404(Game, id=game_id)
     referent = get_object_or_404(Team, name=with_referent) if with_referent is not None else None

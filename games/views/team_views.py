@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import user_passes_test
 from django.db import transaction
 from django.shortcuts import get_object_or_404, render
+from django.views.decorators.http import require_POST
 from games.forms import CreateTeamForm, JoinTeamForm
 from games.models import ProfileTeamMembership, Team
 from games.views.util import redirect_to_referer, has_profile, has_team
@@ -38,15 +39,10 @@ def join_team(request):
 
 
 @user_passes_test(has_profile)
+@require_POST
 def quit_from_team(request):
     user = request.user
     profile = user.profile
-    if request.method == 'GET':
-        ProfileTeamMembership.objects.filter(profile=profile).delete()
-        profile.team_on = None
-        profile.team_requested = None
-        profile.save()
-        return redirect_to_referer(request)
     if request.POST.get('cancel_request') == '1':
         profile.team_requested = None
         profile.join_accept_as_primary = True
@@ -65,6 +61,7 @@ def quit_from_team(request):
 
 
 @user_passes_test(has_team)
+@require_POST
 def process_user_request(request, user_id, action):
     active_user = request.user
     passive_user = get_object_or_404(get_user_model(), id=int(user_id))
