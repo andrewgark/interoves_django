@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import socket
 import uuid
 from importlib import import_module
 
@@ -24,6 +26,85 @@ from games.auth_observability import (
     session_fingerprint,
 )
 from games.middleware.request_timing import timing_phase
+
+
+logger = logging.getLogger('application')
+
+
+def _request_error_context(request) -> dict:
+    """Return safe request metadata for an HTTP 500 forensic log."""
+    resolver_match = getattr(request, 'resolver_match', None)
+    return {
+        'request_id': getattr(request, 'interoves_request_id', 'unavailable'),
+        'method': getattr(request, 'method', 'unknown') or 'unknown',
+        # Deliberately use path instead of get_full_path(): query parameters can
+        # contain OAuth codes, tokens, or user-provided secrets.
+        'path': getattr(request, 'path', '/') or '/',
+        'route': getattr(resolver_match, 'url_name', None) or 'unavailable',
+        'instance': (
+            getattr(settings, 'INSTANCE_ID', '')
+            or socket.gethostname()
+            or 'unknown'
+        ),
+        'deploy_version': getattr(settings, 'SITE_DEPLOY_VERSION', '') or 'unavailable',
+    }
+
+
+def _db_error_details(exception):
+    """Extract bounded DB driver details from an exception chain."""
+    seen = set()
+    current = exception
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        args = getattr(current, 'args', ()) or ()
+        module_name = current.__class__.__module__
+        code = getattr(current, 'errno', None)
+        is_db_error = code is not None or module_name.startswith(
+            ('django.db', 'MySQLdb', 'psycopg')
+        )
+        if is_db_error:
+            if code is None and args and isinstance(args[0], int):
+                code = args[0]
+            # Keep driver args useful but bounded; never include request
+            # query/body/cookies in this record.
+            safe_args = tuple(str(value)[:300] for value in args[:4])
+            return code, repr(safe_args)[:800]
+        current = getattr(current, '__cause__', None) or getattr(current, '__context__', None)
+    return None, None
+
+
+def _log_http_500_exception(request, exception) -> None:
+    context = _request_error_context(request)
+    db_code, db_args = _db_error_details(exception)
+    logger.exception(
+        'http_500_uncaught request_id=%s method=%s path=%s route=%s '
+        'instance=%s deploy_version=%s exception_type=%s db_error_code=%s '
+        'db_error_args=%s',
+        context['request_id'],
+        context['method'],
+        context['path'],
+        context['route'],
+        context['instance'],
+        context['deploy_version'],
+        f'{exception.__class__.__module__}.{exception.__class__.__name__}',
+        db_code if db_code is not None else 'unavailable',
+        db_args or 'unavailable',
+    )
+
+
+def _log_http_500_response(request, status_code) -> None:
+    context = _request_error_context(request)
+    logger.error(
+        'http_5xx_response status=%s request_id=%s method=%s path=%s route=%s '
+        'instance=%s deploy_version=%s',
+        status_code,
+        context['request_id'],
+        context['method'],
+        context['path'],
+        context['route'],
+        context['instance'],
+        context['deploy_version'],
+    )
 
 
 def _is_authenticated_audit_path(path: str) -> bool:
@@ -218,6 +299,7 @@ class AuthenticatedRequestAuditMiddleware:
         try:
             response = self.get_response(request)
         except Exception as exc:
+            _log_http_500_exception(request, exc)
             if getattr(request, 'method', '') == 'POST':
                 log_post_request(request, error=True)
             from games.telegram.notify import notify_admin_site_error
@@ -225,6 +307,7 @@ class AuthenticatedRequestAuditMiddleware:
             notify_admin_site_error(request, exception=exc)
             raise
         if getattr(response, 'status_code', 0) >= 500:
+            _log_http_500_response(request, response.status_code)
             from games.telegram.notify import notify_admin_site_error
 
             notify_admin_site_error(request, status_code=response.status_code)

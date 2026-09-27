@@ -20,6 +20,7 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.sessions.models import Session
 from django.core import signing
+from django.db import OperationalError
 from django.http import JsonResponse
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.utils import timezone
@@ -385,6 +386,32 @@ class AuthSessionObservabilityTests(TestCase):
         notify_mock.assert_called_once_with(request, exception=mock_exception)
 
     @patch('games.telegram.notify.notify_admin_site_error')
+    def test_uncaught_500_log_contains_forensic_context_and_db_details(self, notify_mock):
+        request = self.factory.get(
+            '/broken/?token=must-not-be-logged',
+            HTTP_COOKIE='sessionid=must-not-be-logged',
+        )
+        request.interoves_request_id = 'uncaught-500-id'
+        mock_exception = OperationalError(1213, 'deadlock while updating task')
+
+        def failing_view(_request):
+            raise mock_exception
+
+        with self.assertLogs('application', level='ERROR') as logs:
+            with self.assertRaises(OperationalError):
+                AuthenticatedRequestAuditMiddleware(failing_view)(request)
+
+        output = '\n'.join(record.getMessage() for record in logs.records)
+        self.assertIn('http_500_uncaught', output)
+        self.assertIn('uncaught-500-id', output)
+        self.assertIn('path=/broken/', output)
+        self.assertIn('exception_type=django.db.utils.OperationalError', output)
+        self.assertIn('db_error_code=1213', output)
+        self.assertIn('deadlock while updating task', output)
+        self.assertNotIn('must-not-be-logged', output)
+        notify_mock.assert_called_once_with(request, exception=mock_exception)
+
+    @patch('games.telegram.notify.notify_admin_site_error')
     def test_server_error_response_notifies_admin(self, notify_mock):
         request = self.factory.get('/broken/', HTTP_HOST='interoves.com')
         request.interoves_request_id = 'site-error-id'
@@ -392,8 +419,11 @@ class AuthSessionObservabilityTests(TestCase):
         def failing_response(_request):
             return JsonResponse({'error': 'broken'}, status=503)
 
-        response = AuthenticatedRequestAuditMiddleware(failing_response)(request)
+        with self.assertLogs('application', level='ERROR') as logs:
+            response = AuthenticatedRequestAuditMiddleware(failing_response)(request)
         self.assertEqual(response.status_code, 503)
+        self.assertIn('http_5xx_response', logs.records[0].getMessage())
+        self.assertIn('status=503', logs.records[0].getMessage())
         notify_mock.assert_called_once_with(request, status_code=503)
 
     def test_failed_login_event_never_logs_credentials(self):
