@@ -343,6 +343,10 @@ def _merge_profiles(target_user, source_user, summary):
         summary['telegram_identity'] = 1
     source_oidc_sub = getattr(source, 'telegram_oidc_sub', None)
     if source_oidc_sub and not getattr(target, 'telegram_oidc_sub', None):
+        # telegram_oidc_sub is unique. Assigning it to the surviving profile
+        # while the source row still holds it raises IntegrityError.
+        source.telegram_oidc_sub = None
+        source.save(update_fields=['telegram_oidc_sub'])
         target.telegram_oidc_sub = source_oidc_sub
         updates.append('telegram_oidc_sub')
     if target.team_requested_id is None and source.team_requested_id is not None:

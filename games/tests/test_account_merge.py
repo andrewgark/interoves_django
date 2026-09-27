@@ -390,6 +390,41 @@ class AccountMergeTests(TestCase):
         self.assertFalse(preview['can_merge'])
         self.assertIn('telegram_identity_conflict', preview['conflicts'])
 
+    def test_source_telegram_oidc_sub_moves_without_unique_collision(self):
+        source_profile = self.source.profile
+        source_profile.telegram_oidc_sub = '9455378736856410794'
+        source_profile.telegram_user_id = 313591829
+        source_profile.telegram_verified = True
+        source_profile.save(update_fields=[
+            'telegram_oidc_sub', 'telegram_user_id', 'telegram_verified',
+        ])
+        SocialAccount.objects.create(
+            user=self.source,
+            provider='telegram',
+            uid='9455378736856410794',
+            extra_data={'preferred_username': 'kontrprimer'},
+        )
+
+        merge_accounts(
+            target_user=self.target,
+            source_user=self.source,
+            provider='telegram',
+            provider_uid='9455378736856410794',
+        )
+
+        target_profile = Profile.objects.get(user=self.target)
+        source_profile.refresh_from_db()
+        self.assertEqual(target_profile.telegram_oidc_sub, '9455378736856410794')
+        self.assertEqual(target_profile.telegram_user_id, 313591829)
+        self.assertIsNone(source_profile.telegram_oidc_sub)
+        self.assertTrue(
+            SocialAccount.objects.filter(
+                user=self.target,
+                provider='telegram',
+                uid='9455378736856410794',
+            ).exists()
+        )
+
     def test_telegram_account_merge_keeps_existing_target_oidc_identity(self):
         target_profile = self.target.profile
         target_profile.telegram_oidc_sub = '5437707767813386274'
