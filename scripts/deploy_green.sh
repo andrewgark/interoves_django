@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Prepare and, only with --deploy, release the production Green web bundle.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
+APP="interoves"
+ENV_NAME="interoves-web-green"
+DO_DEPLOY=0
+for arg in "$@"; do
+    case "$arg" in
+        --deploy) DO_DEPLOY=1 ;;
+        --dry-run|--prepare-only) DO_DEPLOY=0 ;;
+        *) echo "Usage: $0 [--dry-run|--deploy]" >&2; exit 2 ;;
+    esac
+done
+
+if [[ "$DO_DEPLOY" == "1" ]]; then
+    echo "Target: $ENV_NAME (production Green)"
+else
+    echo "Dry run: target would be $ENV_NAME (no AWS mutation)"
+fi
+
+workdir="$(mktemp -d /tmp/interoves-green-deploy.XXXXXX)"
+trap 'rm -rf "$workdir"' EXIT
+bundle="$workdir/interoves-green.zip"
+"$ROOT/scripts/prepare_eb_bundle.sh" "$ENV_NAME" "$bundle" 1
+
+sha="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf unknown)"
+label="app-green-${sha}-$(date -u +%Y%m%d%H%M%S)"
+if [[ "$DO_DEPLOY" == "0" ]]; then
+    echo "Prepared version label: $label"
+    exit 0
+fi
+
+source "$ROOT/scripts/interoves_aws_bootstrap.sh"
+interoves_aws_bootstrap "$ROOT"
+account_id=$("$ROOT/scripts/aws_with_role.sh" aws sts get-caller-identity --query Account --output text)
+bucket="elasticbeanstalk-${REGION}-${account_id}"
+key="interoves/green/${label}.zip"
+"$ROOT/scripts/aws_with_role.sh" aws s3 cp "$bundle" "s3://${bucket}/${key}" --region "$REGION" --only-show-errors
+"$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk create-application-version \
+    --region "$REGION" --application-name "$APP" --version-label "$label" \
+    --source-bundle S3Bucket="$bucket",S3Key="$key" >/dev/null
+"$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk update-environment \
+    --region "$REGION" --application-name "$APP" --environment-name "$ENV_NAME" \
+    --version-label "$label" >/dev/null
+"$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk wait environment-updated \
+    --region "$REGION" --environment-names "$ENV_NAME"
+"$ROOT/scripts/smoke_prod_pages.sh"
+echo "Green deploy complete: $label"

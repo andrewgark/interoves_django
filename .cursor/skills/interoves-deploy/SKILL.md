@@ -1,31 +1,68 @@
 ---
 name: interoves-deploy
-description: Prepare and run an Interoves Django Elastic Beanstalk deploy. Use when a task asks to deploy, release, or decide whether deploy.sh should refresh generated microsite bundles.
+description: Prepare an explicitly targeted Interoves Django Elastic Beanstalk release. Use when a task asks to deploy or release, and require an explicit environment before any deploy command.
 ---
 
 # Interoves deploy
 
-## Choose whether to rebuild microsites
+## Safety boundary
 
-`./deploy.sh` skips microsite bundling by default. Set `BUNDLE_MICROSITES=1` only when the requested release needs fresh generated inputs copied into this repository by `scripts/bundle_microsites.sh`:
+“prod”, “production”, “сайт” and an unqualified “давай задеплоим” mean the web
+production environment `interoves-web-green`. `./deploy.sh` is the canonical
+Green entrypoint. `interoves-env` is Blue, kept only for DNS rollback; Blue must
+not be deployed or repaired unless the user explicitly requests a Blue operation.
 
-- Nutrimatic runtime files from `NUTRIMATIC_SRC` (by default `~/nutrimatic-ru`), such as a newly built `build/find-expr` or updated CGI scripts.
-- Eurovision booklet output from `BOOKLET_SRC` / `BOOKLET_HTML_SRC` (by default `~/eurovision2026booklet/dist`), or shared assets from its repository.
+Before any deploy command, require the user to name the environment explicitly:
 
-For ordinary Django, games, templates, CSS/JS, migrations, admin, or configuration changes, leave the variable unset. Those changes are deployed from the checkout as-is; bundling would only copy unrelated generated files and add work. If the task specifically updates a checked-in microsite bundle file directly, deploy it as-is; do not rebuild unless the source bundle also needs to be refreshed.
+- production web: `interoves-web-green`;
+- workers: the exact named worker environment;
+- rollback Blue: `interoves-env`, only with explicit authorization.
 
-Typical commands:
+## Green web deployment
 
-```bash
-./deploy.sh
-BUNDLE_MICROSITES=1 ./deploy.sh
-```
+Do not run `eb deploy` from the git tree against Green. The repository does not
+contain the live Green `.ebextensions/zzzz-green-web.config` and `.platform`
+hooks; a normal checkout deploy can replace VPC, instance type, IAM profile, or
+fail with `You cannot remove an environment from a VPC`.
 
-If an updated bundle was staged in an earlier step (for example by `stage_nutrimatic_find_expr_docker_al2023.sh`), use the normal deploy command unless the task also requires refreshing the booklet or other bundled inputs.
+For Green, use `./deploy.sh --dry-run` to prepare a bundle or `./deploy.sh` to
+release it. The script downloads the current Green zip, overlays only the
+intended application code, preserves live `.ebextensions` and `.platform`, and
+updates only `interoves-web-green`. Never use `rsync --delete` over those
+directories. The collectstatic skip required by Green belongs only in the zip,
+not in the repository. If EB application-version metadata has no SourceBundle,
+the wrapper may use the standard retained EB S3 object for the current version
+label; if that object is also absent, stop instead of using a plain checkout
+deploy.
 
-## Before deploying
+Apply required schema changes through `./scripts/with_rds.sh` before releasing
+code that reads new columns. Deployment migrations are disabled unless
+`RUN_PRODUCTION_MIGRATIONS=true`.
 
-- Read [`../../../agents/AGENTS.md`](../../../agents/AGENTS.md) and [`../../../agents/aws-eb.md`](../../../agents/aws-eb.md) for project and production deployment constraints.
-- Inspect the working tree before changing generated bundle files. Preserve unrelated user changes and do not rebuild assets unless the task calls for them.
-- `deploy.sh` runs the Elastic Beanstalk deploy and then `scripts/smoke_prod_pages.sh`. Run it only when the user asks for a deploy or has otherwise authorized a production release.
-- Deploy policy is rolling, one instance at a time. Keep migrations compatible with old and new app versions during the rollout; use the background migration pattern in `agents/aws-eb.md` for blocking DDL or backfills.
+## Worker deployment
+
+Deploy each worker with `./scripts/deploy_worker.sh WORKER_ENVIRONMENT`; add
+`--dry-run` for packaging only or `--deploy` for the AWS mutation. The Word Salad
+worker is not the Green web bundle and must not receive Green web ebextensions.
+Verify the target queue/environment explicitly before deploying.
+
+## Microsites
+
+`./deploy.sh` controls microsite bundling for the Green bundle. Set
+`BUNDLE_MICROSITES=1` only
+when the explicitly authorized release needs fresh generated inputs from
+`NUTRIMATIC_SRC`, `BOOKLET_SRC`, or `BOOKLET_HTML_SRC`; ordinary Django/game/UI
+changes leave it unset. Adapt the generated files into the explicitly prepared
+  Green or worker zip instead.
+
+## Before and after
+
+- Read [`../../../agents/AGENTS.md`](../../../agents/AGENTS.md) and
+  [`../../../agents/aws-eb.md`](../../../agents/aws-eb.md).
+- Check the working tree and preserve unrelated changes.
+- Confirm the exact EB environment and current status/version before acting.
+- After an authorized Green release, check `/health/live/` and the deploy
+  version on `https://interoves.com`; do not treat Blue status as production
+  status.
+- Run `scripts/smoke_prod_pages.sh` only as an explicitly authorized smoke
+  check; it does not make `deploy.sh` safe for Green.

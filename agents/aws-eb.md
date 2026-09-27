@@ -1,314 +1,191 @@
-# AWS / Elastic Beanstalk — lifehacks & useful commands
+# AWS / Elastic Beanstalk — Green, Blue и worker-окружения
 
-## Agent playbook (Cursor / automation)
+Аккаунт `916000456640`, регион `eu-central-1`. Состояние ниже проверено
+2026-09-28 read-only запросами. Секреты, chat id и значения EB option settings
+намеренно не приводятся.
 
-Use this order when operating on **prod** (account `916000456640`, region **`eu-central-1`**).
+## Кто сейчас прод
 
-### Prerequisites
+Прод для игроков — Green, окружение `interoves-web-green`. Cloudflare records
+для `interoves.com` и `www.interoves.com` указывают на
+`interoves-web-green.eu-central-1.elasticbeanstalk.com`, его ALB обслуживает
+игровой трафик. Blue, `interoves-env`, остаётся поднятым только как аварийный
+откат через DNS на `interoves-dev.eu-central-1.elasticbeanstalk.com`.
 
-1. **Python:** `../venv/interoves_django/bin/python` (see [`agents/AGENTS.md`](AGENTS.md)).
-2. **AWS credentials:** `secrets/aws.env` (gitignored) — at minimum `export AWS_PROFILE=interoves` and `export INTEROVES_AWS_ROLE_ARN=arn:aws:iam::916000456640:role/ai-bot`. Scripts `with_rds.sh`, `eb_run.sh`, `rds_mysql.sh` call `scripts/interoves_aws_bootstrap.sh`, which loads `secrets/aws.env` and **assumes `ai-bot`** when base credentials allow.
-3. **Tooling:** Shell commands that hit AWS, SSM, or SSH need **`required_permissions: ["network", "all"]`** in Cursor.
+На момент проверки:
 
-### Two IAM identities
+- `GET https://interoves.com/health/live/` вернул `200` и `ok`;
+- страница сайта отдала `data-site-deploy-version="890091c"`;
+- Green и Blue были `Ready/Green`; Green имел version label
+  `app-890g-260926_232655`, Blue — `app-3517-260928_022920979823`;
+- четыре worker environment также были `Ready/Green`.
 
-| Identity | When |
-|----------|------|
-| **`interoves` IAM user** | Credentials in `~/.aws/credentials` / SSO profile. |
-| **`ai-bot` role** (assumed) | After bootstrap; `aws sts get-caller-identity` shows `assumed-role/ai-bot/...`. Same policies are attached to **`ai-bot`** for EB/RDS/SSM so `./scripts/aws_with_role.sh eb status` works. |
+Для следующей проверки не доверяйте этой таблице как источнику текущего
+прода: сопоставьте Cloudflare DNS, `/health/live/`, deploy version на сайте и
+`describe-environments`. `deploy.sh` и старая строка `EB environment =
+interoves-env` для определения прода не подходят.
 
-### What to run for what
+| Окружение | Роль | Прод? | Примечание |
+|---|---|---:|---|
+| `interoves-web-green` | web, `INTEROVES_RUNTIME_ROLE=web` | да | 2× `c7i.large`, ASG 2/4, On-Demand, `RollingWithAdditionalBatch`, health `/health/live/` |
+| `interoves-env` | Blue web | нет | только rollback DNS; Blue не деплоить и не «чинить» без явного запроса |
+| `interoves-background-worker` | background-worker | нет | difficulty, проекции результатов, фоновые тики |
+| `interoves-identity-worker` | identity-worker | нет | анонимный merge |
+| `interoves-word-salad-worker` | worker | нет | очередь Word Salad и `WordSaladRecheckJob` |
+| `interoves-integrations-worker` | integration-worker | нет | Telegram/Instagram/social тики и карточки игр |
 
-| Goal | Command |
-|------|---------|
-| **AWS CLI / EB** (as `ai-bot`) | `./scripts/aws_with_role.sh aws …` or `./scripts/aws_with_role.sh eb status` |
-| **Same AWS CLI as `interoves` only** (no assume-role) | `AWS_PROFILE=interoves aws …` or `eb` after `export AWS_PROFILE=interoves` |
-| **Prod Django + RDS** (same env as Daphne on the instance) **— preferred** | `./scripts/eb_run.sh manage.py check --database default`, `migrate --plan`, `shell`, etc. |
-| **RDS from laptop** (SSM tunnel `localhost:13306`) | `./scripts/with_rds.sh manage.py dbshell` — requires `secrets/rds.env` with `RDS_HOSTNAME` + **`RDS_SECRET_ARN`** (same as EB `eb printenv`). Boto3 must resolve credentials (bootstrap + profile). |
-| **MySQL one-off** (password from Secrets Manager) | `./scripts/rds_mysql.sh -e "SELECT 1"` (direct to RDS host; often blocked by SG from home — use **`with_rds`** or **`eb_run`** instead). |
-| **Post-deploy page smoke** | `./scripts/smoke_prod_pages.sh` — curls paths from [`scripts/smoke_prod_pages.list`](../scripts/smoke_prod_pages.list) (also runs at end of `./deploy.sh`) |
+Кроны Blue (`difficulty`, `telegram`, `word salad`) должны оставаться
+выключенными: Blue, Green и workers делят одну RDS, поэтому Blue может
+перехватить ту же работу.
 
-### RDS access — verified pattern
+## Как деплоить
 
-- **Reliable:** `./scripts/eb_run.sh manage.py check --database default` — confirms MySQL from the EB app host (Secrets Manager + RDS in VPC).
-- **`with_rds.sh`:** Can fail with MySQL **2013** / TLS handshake over the tunnel if Django does not use RDS SSL options for the tunneled path; if that happens, use **`eb_run`** for DB checks or run Django with MySQL SSL options for `127.0.0.1:13306` (advanced).
+### Green web
 
-### Redis (ElastiCache) — “red” / channel layer
+Обычный `eb deploy` checkout на `interoves-web-green` запрещён. В git нет
+живого `.ebextensions/zzzz-green-web.config`; такой deploy может попытаться
+подменить VPC, instance type и IAM profile репозитория (`t3.small`,
+`aws-elasticbeanstalk-ec2-role`) или завершиться ошибкой `You cannot remove an
+environment from a VPC`.
 
-- **Not** exposed to the public internet. `REDIS_HOST` / `REDIS_TLS` / `REDIS_PORT` exist only on EB (`eb printenv`).
-- **From an agent:** do **not** expect a Redis tunnel like `with_rds`. Use **`./scripts/eb_run.sh manage.py shell`** (or code paths that hit Redis on the instance) to validate behavior, or inspect Redis from a component inside the VPC.
-- If Channels/WebSockets misbehave, check **`eb_run`** logs and `REDIS_*` env on the instance.
+Правильный процесс выполняет `./deploy.sh`: скачать текущий zip Green, наложить
+в него код приложения, сохранить живые `.ebextensions` и `.platform`, затем
+создать application version и обновить только `interoves-web-green`.
+Не делать `rsync --delete` по `.ebextensions` или `.platform`: в живом zip есть
+хуки, которых нет в git. `eb deploy` должен быть направлен явно на
+`interoves-web-green` и только на заранее подготовленный такой zip.
 
-## AWS role for local CLI / agents
+`./deploy.sh --dry-run` только собирает и проверяет локальный bundle. Реальный
+релиз выполняет `./deploy.sh` (эквивалентно `./deploy.sh --deploy`). Если EB
+metadata не содержит `SourceBundle`, упаковщик проверяет стандартный retained
+object `s3://elasticbeanstalk-<region>-<account>/<application>/<VersionLabel>.zip`.
+Если не найден и он, упаковка останавливается; обычный deploy из git checkout
+не является fallback.
 
-`secrets/aws.env` (copy from `secrets/aws.env.example`) can set `INTEROVES_AWS_ROLE_ARN` and a base `AWS_PROFILE` or keys. Scripts call `interoves_aws_bootstrap` to `sts:AssumeRole` before using the AWS CLI. Ad-hoc:
+В zip Green сохраняются также следующие особенности:
+
+- `.ebignore` означает, что EB пакует рабочее дерево; `.gitignore` для этого
+  не является заменой `.ebignore`;
+- роль `interoves-green-web-role` может `s3:GetObject` для
+  `arn:aws:s3:::interoves-django-static/*`, но не `PutObject`;
+- `scripts/collectstatic_if_changed.sh` запускается на свежей инстанции;
+  container command `03_collectstatic` требует, чтобы скрипт в zip сразу
+  завершался с кодом 0 (этот skip остаётся только в zip, в git его не коммитить);
+- статику отдельно публикует IAM user `interoves`: `AWS_PROFILE=interoves`,
+  `USE_S3=1`, bucket `interoves-django-static`, `manage.py collectstatic`;
+  имена файлов стабильны, без manifest hash, поэтому старый и новый static
+  могут временно разъехаться.
+
+Миграции при деплое не выполняются: `01_migrate` из `django.config` работает
+только при `RUN_PRODUCTION_MIGRATIONS=true`. Колонки для нового кода сначала
+накатываются через `./scripts/with_rds.sh`, затем выкладывается Green; иначе
+возможен HTML 500 (например, `games_gametaskgroup.share_hash`).
+
+### Worker environments
+
+Каждый EB worker environment — одна очередь и один `HttpPath`. Ответ игры от
+них не зависит, но все они делят ту же RDS; в комментарии `django.config`
+указан лимит `max_connections=60`, у Green `ASGI_THREADS=4`.
+
+`interoves-word-salad-worker` деплоится своим zip и своими worker settings, не
+веб-zip и не Green web ebextensions. Он переигрывает цепочки: стена,
+замены, лесенка, алфавитка и салатик. Старый код worker может переиграть стену
+как салатик.
+
+`interoves-integrations-worker` имеет `USE_S3=FALSE`: файлы на его диске
+исчезают при деплое. Playwright-скриншот карточки игры и текст «за день / за
+час / старт / конец» Десяточки отправляет именно этот worker.
+
+Telegram routing:
+
+- `TELEGRAM_ANNOUNCE_CHAT_IDS` обязан быть на integrations worker; пустое
+  значение оставляет тик живым и коротким, без сообщений в чаты. Переменная на
+  Green или Blue этот тик не кормит;
+- admin chat нужен integrations worker для отчёта и «старт через час», а Green
+  — для веб-сигналов билетов и оплат;
+- `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_USER_SESSION` и
+  `TELEGRAM_CHANNEL_CHAT_ID` относятся к постам в канал, не к списку игровых
+  чатов; bot token — секрет;
+- integrations worker выполняет `telegram.announcements`,
+  `telegram.admin_report`, `instagram.token_refresh`, `social.publish`.
+
+Read-only snapshot option names from AWS on 2026-09-28 (наличие переменной не
+означает, что этот environment должен выполнять соответствующий тик):
+
+| Environment | Найденные `TELEGRAM_*` names |
+|---|---|
+| `interoves-web-green` | `ADMIN_CHAT_ID`, `ANNOUNCE_CHAT_IDS`, `API_ID`, `CHANNEL_CHAT_ID`, `OIDC_CLIENT_ID`, `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
+| `interoves-env` (Blue) | `ADMIN_CHAT_ID`, `ANNOUNCE_CHAT_IDS`, `API_ID`, `NOTIFY_CHAT_ID`, `CHANNEL_CHAT_ID`, `OIDC_CLIENT_ID`, `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
+| `interoves-background-worker` | `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
+| `interoves-identity-worker` | `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
+| `interoves-word-salad-worker` | none |
+| `interoves-integrations-worker` | `ADMIN_CHAT_ID`, `ANNOUNCE_CHAT_IDS`, `API_ID`, `CHANNEL_CHAT_ID`, `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
+
+Смена EB option settings — это configuration deployment и рестарт. Отдельный
+restart app server уже запущенный процесс новыми options не наполняет.
+
+## AWS и безопасные read-only проверки
+
+Для AWS CLI используй `./scripts/aws_with_role.sh` (роль `ai-bot`), не печатай
+секреты и значения options:
 
 ```bash
 ./scripts/aws_with_role.sh aws sts get-caller-identity
+./scripts/aws_with_role.sh aws elasticbeanstalk describe-environments \
+  --region eu-central-1 --application-name interoves \
+  --environment-names interoves-web-green interoves-env \
+  interoves-background-worker interoves-identity-worker \
+  interoves-word-salad-worker interoves-integrations-worker
+curl -sS https://interoves.com/health/live/
 ```
 
-See `secrets/README.md`.
+`./scripts/eb_run.sh` и `./scripts/with_rds.sh` сейчас подключаются через
+`interoves-env`/Blue. Это туннель и management access, а не доказательство,
+что Blue — прод. Для RDS локальный порт — `13306`; не выполняйте миграции
+через него без явной проверки плана.
 
-## Environment basics
-
-```bash
-eb status                          # health, version, last event
-eb logs --zip                      # download all logs → .elasticbeanstalk/logs/
-eb printenv                        # show all env vars on the instance
-eb setenv KEY=value                # set / update env var (triggers redeploy of env config only)
-eb deploy --timeout 15             # deploy; 15-min CLI wait (actual EB timeout set in .ebextensions)
-```
-
-Active instance ID:
-```bash
-aws ec2 describe-instances --region eu-central-1 \
-  --filters "Name=tag:elasticbeanstalk:environment-name,Values=interoves-env" \
-            "Name=instance-state-name,Values=running" \
-  --query 'Reservations[0].Instances[0].InstanceId' --output text
-```
-
-## RDS password — Secrets Manager pattern
-
-EB's RDS plugin injects `RDS_PASSWORD` from **stale CloudFormation metadata** on every
-deploy, overwriting `eb setenv` values. Work around it in `settings.py`:
-
-```python
-if 'RDS_HOSTNAME' in os.environ:
-    _pw = os.environ.get('RDS_PASSWORD', '')
-    _arn = os.environ.get('RDS_SECRET_ARN', '')
-    if _arn:
-        import boto3, json
-        _secret = boto3.client('secretsmanager', region_name='eu-central-1') \
-                       .get_secret_value(SecretId=_arn)['SecretString']
-        _pw = json.loads(_secret)['password']
-    DATABASES = {'default': {'ENGINE': 'django.db.backends.mysql',
-                             'PASSWORD': _pw, ...}}
-```
-
-Set `RDS_SECRET_ARN` via `option_settings` in `.ebextensions/django.config` so it
-survives every deploy.
-
-If `RDS_SECRET_ARN` is set, **`interoves_django/settings.py` refuses to fall back to
-`RDS_PASSWORD`** when Secrets Manager fails (so a bad/stale EB password cannot silently
-take effect). Fix IAM or the ARN; for local tunnel use without AWS creds, omit
-`RDS_SECRET_ARN` and use `RDS_PASSWORD` in `secrets/rds.env` only.
-
-## EC2 IAM role — grant Secrets Manager access
-
-```bash
-aws iam put-role-policy \
-  --role-name aws-elasticbeanstalk-ec2-role \
-  --policy-name interoves-rds-secret-read \
-  --policy-document '{
-    "Version":"2012-10-17",
-    "Statement":[{"Effect":"Allow","Action":"secretsmanager:GetSecretValue",
-                  "Resource":"<secret-arn>"}]}'
-```
-
-## Reaching prod from local — `eb_run.sh` (preferred)
-
-`scripts/eb_run.sh` uses **EC2 Instance Connect** — the proper "IAM as the key" approach:
-1. Generates a throw-away RSA key pair
-2. Pushes the public half to the instance for 60 s via `aws ec2-instance-connect send-ssh-public-key` (IAM-authenticated)
-3. SSHes in, pipes a Python script over stdin, reads env from the running Daphne process's `/proc` entry (avoids quoting issues in the EB env file)
-4. Temp key is deleted on exit via `trap`
-
-No security group changes. No static secrets. Just IAM.
-
-```bash
-# Management commands (prod env injected automatically):
-./scripts/eb_run.sh manage.py check_background_migrations
-./scripts/eb_run.sh manage.py migrate --plan
-./scripts/eb_run.sh manage.py shell
-
-# Raw shell (read logs, run anything):
-./scripts/eb_run.sh --raw "cat /var/log/app/background_migrations.log"
-./scripts/eb_run.sh --raw "tail -50 /var/log/web.stdout.log"
-```
-
-**Agents**: use `./scripts/eb_run.sh` for all prod management commands.
-Requires `required_permissions: ["all"]` in the Shell tool call.
-
-## Connecting to RDS from local machine — `with_rds.sh`
-
-Uses **SSM port forwarding**: tunnels `localhost:13306 → EC2 instance → RDS:3306`
-via the SSM session. No security group changes, auth is IAM.
-Requires `session-manager-plugin` on PATH (`sudo dpkg -i session-manager-plugin.deb`).
-
-```bash
-./scripts/with_rds.sh manage.py check_background_migrations
-./scripts/with_rds.sh manage.py dbshell
-./scripts/with_rds.sh --raw ./scripts/rds_mysql.sh -e "SHOW TABLES"
-```
-
-Django's `RDS_HOSTNAME` / `RDS_PORT` are overridden to `127.0.0.1:13306` automatically
-so no code changes are needed.
-
-## Slow / blocking migrations — background pattern
-
-Long `manage.py migrate` steps kill EB deploys (single-instance = downtime).
-
-**Fix:**
-1. `SeparateDatabaseAndState(state_operations=[...], database_operations=[])` — Django
-   records the migration as applied instantly; no SQL runs.
-2. For data backfills: make the `RunPython` body `pass`.
-3. Add `.platform/hooks/postdeploy/02_background_migrations.sh` — runs **after** Daphne
-   is up; launches actual DDL/backfill with `nohup ... & disown`; idempotency checks
-   prevent re-runs on subsequent deploys.
-
-Check progress with:
-```bash
-../venv/interoves_django/bin/python manage.py check_background_migrations
-```
-
-## Site 504 / Daphne hang playbook
-
-Symptom: Cloudflare/ALB **504**, EB **Red**, TG `Target.Timeout`, SSM `ConnectionLost`, but EC2 status checks still **ok**.
-
-Cause pattern (2026-08-04): single Daphne process wedged (Channels `/ws/track/` + Redis `group_discard`); hypervisor healthy so **EC2** ASG health never replaced the box.
-
-**Safety net (`.ebextensions/health.config`):** ASG `HealthCheckType=ELB` + `HealthCheckGracePeriod=600` on `AWSEBAutoScalingGroup`, TG checks on `/health/`, and `IgnoreHealthCheck=true` so a brief Daphne restart during deploy does not spawn replacement instances mid-roll.
-
-**Alert:** CloudWatch alarm `interoves-elb-unhealthy-hosts` (no SNS — `interoves` IAM lacks `SNS:CreateTopic`). Create/refresh with:
-
-```bash
-AWS_PROFILE=interoves ./scripts/ensure_eb_health_alarm.sh
-```
-
-If SNS is granted later, re-run and pass an email to subscribe. Until then the alarm is visible in CloudWatch console only.
-**Manual recovery** (if replace is slow / mid-investigation):
-
-| Action | Who | Notes |
-|--------|-----|--------|
-| Soft reboot | `AWS_PROFILE=interoves aws ec2 reboot-instances --instance-ids …` | Guest may ignore ACPI if fully hung; often works in a few minutes |
-| Terminate (ASG replaces) | `AWS_PROFILE=interoves aws ec2 terminate-instances …` or ASG terminate-in-ASG with `--no-should-decrement-desired-capacity` | Preferred hard recovery; new public IP if no EIP (ALB path unaffected) |
-| Stop / start | **Not allowed** for `interoves` IAM (`ec2:StopInstances` denied) | Use terminate+replace instead |
-
-Checks:
-
-```bash
-curl -sS -o /dev/null -w '%{http_code}\n' https://interoves.com/
-./scripts/aws_with_role.sh eb status   # expect Health: Green
-# TG health:
-aws elbv2 describe-target-health --region eu-central-1 \
-  --target-group-arn "$(aws elbv2 describe-target-groups --region eu-central-1 \
-    --query "TargetGroups[?contains(TargetGroupName,'AWSEB')].TargetGroupArn" --output text | awk '{print $1}')"
-```
-
-On-instance clues (after recovery): `/var/log/messages` — Daphne `took too long to shut down` on `/ws/track/`.
-
-## ASG weekly capacity (do not put in CFN)
-
-Baseline **MinSize=2** (HA: two `t3.small` behind ALB). Schedules are **CLI-only** (`./scripts/ensure_asg_schedule.sh`):
-
-| When (Europe/Moscow) | Min / Max |
-|----------------------|-----------|
-| Default / Mon 00:00  | **2 / 2** |
-| Sun 17:00            | **3 / 3** |
-
-CloudFormation `AWS::AutoScaling::ScheduledAction` in `.ebextensions` re-applies min/max on stack updates and can force Sunday peak mid-week — do not put schedules there.
-
-## Cost hygiene (runbook)
-
-Order for one-shot savings / HA (account `916000456640`, `eu-central-1`; prefer `AWS_PROFILE=interoves`):
-
-1. Capacity: ASG `min=2 desired=2 max=3`, then `./scripts/ensure_asg_schedule.sh`.
-2. `./scripts/cleanup_eb_app_versions.sh` — keep newest 20 app versions (large EB S3 savings).
-3. `./scripts/ensure_eb_bucket_lifecycle.sh` — expire `interoves/` objects in the EB bucket after 60 days.
-4. Release idle EIPs; delete old **manual** RDS snapshots (keep `interoves-pre-mysql84-*` + automated).
-5. Terminate abandoned grey EB environments (no instances).
-6. RDS: `--no-publicly-accessible` if still public; verify with `./scripts/eb_run.sh manage.py check --database default`.
-7. Redis (needs ElastiCache IAM on `interoves` / `ai-bot`): `./scripts/resize_redis_cost.sh` — disables failover, drops replica, resizes to `cache.t4g.micro`. Channels/WS may drop briefly.
-
-**Grey zombie EB envs** (`interoves-dev` / `interoves-prod` / `interoves-django-env`): terminate can fail with “security group has a dependent object” because orphan **available** RDS ENIs still reference old `AWSEBRDSDBSecurityGroup`s. Delete these ENIs in the console (or with `ec2:DeleteNetworkInterface`), then `aws elasticbeanstalk terminate-environment --environment-name …` again:
-
-- `eni-03deb107964a04eac` (dev)
-- `eni-065063e23bd143f26` (prod)
-- `eni-088ae7bffa29a1c6b` (django-env)
-
-They cost almost nothing while stuck; no instances / ALBs.
-
-Smoke: `eb status`, two healthy TG targets, `./scripts/smoke_prod_pages.sh` (list in [`scripts/smoke_prod_pages.list`](../scripts/smoke_prod_pages.list); also runs at the end of [`deploy.sh`](../deploy.sh)).
-
-## Rolling deploy (zero-downtime with MinSize=2)
-
-**Config:** [`.ebextensions/deploy.config`](../.ebextensions/deploy.config) — `DeploymentPolicy=Rolling`, `BatchSize=1` (one instance at a time). Second instance keeps serving HTTP while the first updates Daphne; then swap. Deploy takes ~2× longer than `AllAtOnce`.
-
-**ALB health:** [`.ebextensions/health.config`](../.ebextensions/health.config) + [`scaling.config`](../.ebextensions/scaling.config) — target check on `/health/`, `DeregistrationDelay=20` (drain in-flight requests before instance update).
-
-**After first rolling deploy**, verify in console / CLI:
-
-```bash
-./scripts/aws_with_role.sh aws elasticbeanstalk describe-configuration-settings \
-  --region eu-central-1 --application-name interoves --environment-name interoves-env \
-  --query "ConfigurationSettings[0].OptionSettings[?OptionName=='DeploymentPolicy' || OptionName=='BatchSize']"
-```
-
-Smoke during `./deploy.sh`: in another terminal `while true; do curl -sS -o /dev/null -w '%{http_code} %{time_total}s\n' https://interoves.com/; sleep 1; done` — expect no long runs of 502/504.
-
-| Caveat | Notes |
-|--------|--------|
-| WebSocket | Clients on the updating instance reconnect; Redis channel layer required (already on prod). |
-| Breaking migrations | Use background migration pattern; schema must stay compatible across the roll. |
-| `IgnoreHealthCheck=true` | Kept so a slow Daphne restart does not abort the roll; once rolling is stable, try `false` for stricter gating. |
-| Stricter option | `RollingWithAdditionalBatch` + `MaxSize=3` spins a 3rd instance during deploy (~15 min extra EC2 cost per deploy). |
-
-## EB deploy troubleshooting
-
-| Symptom | Likely cause | Fix |
-|---------|-------------|-----|
-| Deploy stuck 60+ min | Long-running migration in `container_commands` | Background pattern above |
-| "Must be Ready" on `eb deploy` | Env already updating | Wait, then retry |
-| Site 000 after timeout | Old AllAtOnce: both instances restarted together | Rolling deploy (deploy.config); redeploy last good version if needed |
-| Brief 502 during deploy | AllAtOnce or both targets unhealthy | Confirm `DeploymentPolicy=Rolling`, MinSize=2, `/health/` on TG |
-| Site 504, EB Red, EC2 ok | Daphne/event loop hung; historically EC2-only ASG health | ELB health replace (above); reboot/terminate |
-| `Access denied` for MySQL | Stale `RDS_PASSWORD` from CloudFormation | Secrets Manager pattern above |
-| `eb logs --zip` HTTP 400 | Env in invalid/updating state | Wait until Ready |
-
-Redeploy a specific known-good version:
-```bash
-aws elasticbeanstalk update-environment --region eu-central-1 \
-  --environment-name interoves-env \
-  --version-label app-XXXX-YYYYY
-```
+Скрипты `eb status`, `eb logs`, `eb printenv` и команды вида `eb deploy` или
+`update-environment` с `interoves-env` ниже в старых runbook-примерах означают
+**Blue**, не production Green. Для Green используйте `./deploy.sh`; для worker
+— `./scripts/deploy_worker.sh WORKER_ENVIRONMENT`.
 
 ## Emergency DNS rollback Green → Blue
 
-Blue (`interoves-env`) stays up as the rollback target. Its minute difficulty and telegram cron lines are not durable: CloudFormation metadata still contains the active lines, and `99_stagger_interoves_cron` rewrites them whenever those files are applied. The Word Salad cron ebextension is no longer in the bundle; the stagger command deletes `/etc/cron.d/interoves-word-salad-recheck` on deploy so a `CUTOVER HOLD` file cannot be revived.
+Blue (`interoves-env`) остаётся rollback target. Перед откатом убедитесь, что
+его difficulty, telegram и Word Salad jobs выключены (`CUTOVER HOLD`), процессы
+не запущены, а текущие targets Blue здоровы. Не включайте эти jobs после
+возврата HTTP на Blue.
 
-Before an emergency DNS rollback, unless Green is down hard enough that waiting would extend the outage:
+Если Green доступен для проверки, порядок такой:
 
-1. Read the current Blue ASG membership.
-2. Verify every current target is healthy.
-3. Verify the Word Salad minute line is `# CUTOVER HOLD:`.
-4. Verify the difficulty minute line is `# CUTOVER HOLD:` (leave the hourly `--health-check` line).
-5. Verify the telegram minute line is `# CUTOVER HOLD:`.
-6. If either difficulty or telegram was rewritten, reapply that exact hold from `/var/backups/interoves-cutover-background/` and comment only that line.
-7. Verify `word_salad_recheck_cron.sh`, `difficulty_cron.sh`, and `telegram_cron.sh` are not running.
-8. Only then point Cloudflare apex and www back at `interoves-dev.eu-central-1.elasticbeanstalk.com`.
+1. прочитать текущие Blue ASG targets и проверить их health;
+2. проверить hold для Word Salad, difficulty и telegram; hourly `--health-check`
+   difficulty можно оставить;
+3. проверить, что `word_salad_recheck_cron.sh`, `difficulty_cron.sh` и
+   `telegram_cron.sh` не выполняются;
+4. только затем направить apex и `www` Cloudflare на
+   `interoves-dev.eu-central-1.elasticbeanstalk.com`.
 
-If Green is unavailable and traffic cannot wait, switch DNS first and enforce the same holds immediately. Record that as a degraded rollback. Do not turn the paused Blue jobs back on just because HTTP returned to Blue. Keep `interoves-word-salad-reconcile.timer` active until Blue is retired or Blue creates Word Salad outbox rows itself.
+Если Green недоступен и ждать нельзя, DNS переключается первым, а holds
+накладываются сразу после этого. Это degraded rollback; Blue jobs всё равно не
+включать.
 
-## Useful log paths on the instance
+## RDS и известные ограничения
 
-| Path | Contents |
-|------|----------|
-| `/var/log/eb-engine.log` | Deploy pipeline (container_commands, hooks) |
-| `/var/log/cfn-init.log` | cfn-init / ebextension commands detail |
-| `/var/log/web.stdout.log` | App stdout (Daphne / Django) |
-| `/var/log/nginx/error.log` | Nginx errors |
-| `/var/log/app/*.log` | Background migration logs (added via `.ebextensions/logs.config`) |
+- Предпочтительная проверка БД из VPC: `./scripts/eb_run.sh manage.py check --database default`.
+- SSM-туннель: `./scripts/with_rds.sh`; он использует Blue и `localhost:13306`.
+- Секрет БД берётся через Secrets Manager; не печатать password/ARN.
+- Долгие DDL и backfill выполняются отдельным background-процессом после
+  совместимой state migration, а не во время EB deploy.
 
-`eb logs --zip` downloads all of the above to `.elasticbeanstalk/logs/latest_v2/<instance-id>/`.
+## Ключевые идентификаторы
 
-## Key resource IDs (eu-central-1)
-
-| Resource | ID / ARN |
-|----------|----------|
-| EB environment | `interoves-env` |
+| Resource | Значение |
+|---|---|
 | EB application | `interoves` |
-| RDS security group | `sg-0631c0b9e45b0f6b3` |
-| RDS secret ARN | `arn:aws:secretsmanager:eu-central-1:916000456640:secret:rds!db-ce1a594a-9964-4a32-a9d3-9483ada5368c-0O6ead` |
-| EC2 IAM role | `aws-elasticbeanstalk-ec2-role` |
-| SNS health alerts | topic `interoves-eb-health-alerts` via `./scripts/ensure_eb_health_alarm.sh` |
-| CW alarm | `interoves-elb-unhealthy-hosts` |
+| Production web | `interoves-web-green` |
+| Blue rollback | `interoves-env` |
+| Region | `eu-central-1` |
+| Account | `916000456640` |
+| EC2 role Blue/legacy | `aws-elasticbeanstalk-ec2-role` |
+| Green role | `interoves-green-web-role` |

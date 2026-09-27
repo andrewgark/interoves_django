@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Prepare and, only with --deploy, release an explicitly named worker bundle.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
+APP="interoves"
+ENV_NAME="${1:-}"
+DO_DEPLOY=0
+case "$ENV_NAME" in
+    interoves-background-worker|interoves-identity-worker|interoves-word-salad-worker|interoves-integrations-worker) ;;
+    *) echo "Usage: $0 WORKER_ENVIRONMENT [--dry-run|--deploy]" >&2; exit 2 ;;
+esac
+shift
+for arg in "$@"; do
+    case "$arg" in
+        --deploy) DO_DEPLOY=1 ;;
+        --dry-run|--prepare-only) DO_DEPLOY=0 ;;
+        *) echo "Usage: $0 WORKER_ENVIRONMENT [--dry-run|--deploy]" >&2; exit 2 ;;
+    esac
+done
+
+workdir="$(mktemp -d /tmp/interoves-worker-deploy.XXXXXX)"
+trap 'rm -rf "$workdir"' EXIT
+bundle="$workdir/${ENV_NAME}.zip"
+"$ROOT/scripts/prepare_eb_bundle.sh" "$ENV_NAME" "$bundle" 0
+sha="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf unknown)"
+label="app-${ENV_NAME#interoves-}-${sha}-$(date -u +%Y%m%d%H%M%S)"
+[[ "$DO_DEPLOY" == "1" ]] || { echo "Prepared worker version label: $label"; exit 0; }
+
+source "$ROOT/scripts/interoves_aws_bootstrap.sh"
+interoves_aws_bootstrap "$ROOT"
+account_id=$("$ROOT/scripts/aws_with_role.sh" aws sts get-caller-identity --query Account --output text)
+bucket="elasticbeanstalk-${REGION}-${account_id}"
+key="interoves/workers/${label}.zip"
+"$ROOT/scripts/aws_with_role.sh" aws s3 cp "$bundle" "s3://${bucket}/${key}" --region "$REGION" --only-show-errors
+"$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk create-application-version \
+    --region "$REGION" --application-name "$APP" --version-label "$label" \
+    --source-bundle S3Bucket="$bucket",S3Key="$key" >/dev/null
+"$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk update-environment \
+    --region "$REGION" --application-name "$APP" --environment-name "$ENV_NAME" \
+    --version-label "$label" >/dev/null
+"$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk wait environment-updated \
+    --region "$REGION" --environment-names "$ENV_NAME"
+echo "Worker deploy complete: $ENV_NAME / $label"
