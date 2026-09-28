@@ -82,6 +82,18 @@ rsync -a --delete-delay \
     --exclude='/.elasticbeanstalk/***' \
     "$ROOT/" "$stage/"
 
+# The dedicated recheck worker owns the dispatcher hook in this checkout.  The
+# rest of the EB configuration remains inherited from the live bundle above.
+if [[ "$ENV_NAME" == "interoves-recheck-worker" ]]; then
+    install -D -m 0755 \
+        "$ROOT/.platform/hooks/postdeploy/09_populate_recheck_secret.sh" \
+        "$stage/.platform/hooks/postdeploy/09_populate_recheck_secret.sh"
+    install -D -m 0755 \
+        "$ROOT/.platform/hooks/postdeploy/10_enable_word_salad_dispatcher.sh" \
+        "$stage/.platform/hooks/postdeploy/10_enable_word_salad_dispatcher.sh"
+    : > "$stage/.platform/recheck-worker.marker"
+fi
+
 if [[ "$SKIP_COLLECTSTATIC" == "1" ]]; then
     collectstatic="$stage/scripts/collectstatic_if_changed.sh"
     [[ -f "$collectstatic" ]] || { echo "Missing collectstatic script in bundle" >&2; exit 1; }
