@@ -310,7 +310,7 @@ class DailyTimingDomainTests(TestCase):
             226,
         )
 
-    def test_existing_legacy_attempt_cannot_receive_a_late_guessed_start(self):
+    def test_existing_legacy_attempt_bootstraps_a_late_timer_start(self):
         from games.models import Attempt
 
         Attempt.manager.create(
@@ -321,8 +321,10 @@ class DailyTimingDomainTests(TestCase):
             game=self.game, task_group=self.tg, user=self.user,
             action=ACTION_START, session_id=uuid4(), event_id='late-start', seq=1, now=_dt(10),
         )
-        self.assertFalse(result['exists'])
-        self.assertFalse(DailySolveTiming.objects.filter(
+        self.assertTrue(result['exists'])
+        self.assertEqual(result['status'], 'running')
+        self.assertEqual(result['accumulated_ms'], 0)
+        self.assertTrue(DailySolveTiming.objects.filter(
             game=self.game, task_group=self.tg, user=self.user,
         ).exists())
 

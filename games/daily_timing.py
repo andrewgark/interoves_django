@@ -348,23 +348,37 @@ def _apply_timing_event_once(
         from games.models import TaskGroup
         TaskGroup.objects.select_for_update().only('pk').get(pk=task_group.pk)
         row = qs.select_for_update().first()
+    legacy_elapsed_ms = 0
     if row is None:
-        # Public dailies must not grow a fresh clock after a legacy first play:
-        # that short row would replace the wall-clock fallback. Ordinary games
-        # (Десяточки and test copies) have no such fallback, so a missed start
-        # — for example a timer URL that 404'd — can still begin from now.
+        # If the timer endpoint was unavailable during an earlier visit, the
+        # player may already have attempts but no DailySolveTiming row. Seed
+        # the new active clock from the same legacy elapsed-time formula used
+        # by results, then let the current session take over. Returning an
+        # empty snapshot here leaves the timer permanently frozen for exactly
+        # those players.
         from games.daily_section import is_daily_timing_game
         if is_daily_timing_game(getattr(game, 'id', None)) and _has_prior_statistical_activity(
             game=game, task_group=task_group, actor=filters, replay_slot=replay_slot,
         ):
-            logger.info('daily_timing_start_skipped game=%s task_group=%s prior_result=1', game.pk, task_group.pk)
-            return empty_snapshot()
+            from games.models import Attempt
+            legacy_attempts = list(Attempt.manager.filter(
+                game=game,
+                task__task_group=task_group,
+                skip=False,
+                replay_slot__isnull=True,
+                **filters,
+            ).order_by('time', 'pk'))
+            legacy_elapsed_ms = max(0, int(elapsed_seconds_from_attempts(legacy_attempts) or 0)) * 1000
+            logger.info(
+                'daily_timing_bootstrap_legacy game=%s task_group=%s elapsed_ms=%s',
+                game.pk, task_group.pk, legacy_elapsed_ms,
+            )
         create_kwargs = {
             'game': game,
             'task_group': task_group,
             'timing_version': TIMING_VERSION_ACTIVE,
             'status': STATUS_AUTO_PAUSED,
-            'accumulated_ms': 0,
+            'accumulated_ms': legacy_elapsed_ms,
             'replay_slot': replay_slot,
         }
         if user is not None:
