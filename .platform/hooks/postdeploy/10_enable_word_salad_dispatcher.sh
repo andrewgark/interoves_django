@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${INTEROVES_RUNTIME_ROLE:-}" != "worker" ]]; then
+# The dispatcher is enabled explicitly per EB environment.  Some worker
+# environments do not expose INTEROVES_RUNTIME_ROLE to platform hooks, so an
+# absent role must not silently disable the service.  Only an explicit web
+# role is forbidden from installing the dispatcher.
+if [[ "${INTEROVES_RUNTIME_ROLE:-}" == "web" ]]; then
   exit 0
 fi
 
