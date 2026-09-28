@@ -262,7 +262,7 @@ def snapshot_to_results_context(game, payload):
         team_to_list_attempts_info[participant] = [None] * len(cells)
         team_to_cells[participant] = cells
 
-    from games.leaderboard import eligible_public_actors, score_rank
+    from games.results.leaderboard import eligible_public_actors, score_rank
     eligible = set(eligible_public_actors(teams_sorted))
     teams_sorted = [actor for actor in teams_sorted if actor in eligible]
     mode = payload.get('mode') or 'general'
@@ -318,7 +318,7 @@ def build_results_snapshot_payload(game, mode='tournament'):
     # Use the same ordering/filtering rules as results pages.
     from django.db.models import Q
 
-    from games.daily_section import is_scheduled_game, visible_links
+    from games.daily.section import is_scheduled_game, visible_links
     from games.models import GameTaskGroup
 
     links = game.task_group_links.select_related('task_group')
@@ -457,7 +457,7 @@ def build_results_snapshot_payload(game, mode='tournament'):
         participants,
         key=lambda p: (*_sports_key(p), _fallback_key(p)),
     )
-    from games.leaderboard import score_rank
+    from games.results.leaderboard import score_rank
     participant_to_place = score_rank(participants_sorted, participant_to_score)
 
     rows = []

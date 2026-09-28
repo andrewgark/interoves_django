@@ -400,7 +400,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
         tasks_need_orm_results_aggregate,
     )
     from games.daily.section import publish_at_for
-    from games.results_snapshot import results_attempts_scope_game
+    from games.results.snapshot import results_attempts_scope_game
 
     if window_context is not None:
         limit, window, older, newer, columns = window_context
