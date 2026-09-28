@@ -157,6 +157,8 @@ from games.replay_navigation import (
     replay_actor_for_request,
     replay_game_and_placement,
 )
+from games.replacements_state import current_state as replacements_current_state
+from games.replacements_state import line_done_list as replacements_line_done_list
 from games.models import (
     Attempt,
     AudioManager,
@@ -188,7 +190,6 @@ from games.util import clean_text
 from games.replacements_lines import (
     canonical_replacements_checker_line,
     parse_replacements_lines_text,
-    replacements_line_done_from_state,
     replacements_solved_slots_from_state,
     task_replacements_canonical_answer_row,
 )
@@ -2983,28 +2984,17 @@ def _replacements_current_state(
     task, *, game=None, team=None, user=None, anon_key=None, mode='general',
     replay_slot=None, attempts_info=None,
 ):
-    """Read authoritative replacements state, with a legacy attempt fallback."""
-    state = None
-    if game is not None:
-        filters = {
-            'task': task,
-            'game': game,
-            'game_mode': 'tournament' if mode == 'tournament' else 'general',
-            'replay_slot': replay_slot,
-        }
-        if team is not None:
-            filters.update(team=team, user__isnull=True, anon_key__isnull=True)
-        elif user is not None:
-            filters.update(user=user, team__isnull=True, anon_key__isnull=True)
-        elif anon_key is not None:
-            filters.update(anon_key=anon_key, team__isnull=True, user__isnull=True)
-        else:
-            filters = None
-        if filters is not None:
-            state = ChainTaskState.objects.filter(**filters).values_list('state', flat=True).first()
-    if state is None and attempts_info and attempts_info.attempts:
-        state = attempts_info.attempts[-1].state
-    return state
+    """Compatibility wrapper for replacements state resolution."""
+    return replacements_current_state(
+        task,
+        game=game,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        mode=mode,
+        replay_slot=replay_slot,
+        attempts_info=attempts_info,
+    )
 
 
 def build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode, placement=None, replay_slot=None):
@@ -3978,21 +3968,17 @@ def _replacements_lines_line_done_list(
     task, attempts_info, *, game=None, team=None, user=None, anon_key=None,
     mode='general', replay_slot=None,
 ):
-    """
-    Какие строки задания «Замены» считаются сданными для актора (как rld.line_done в new_task_group_page).
-    """
-    if task.task_type != 'replacements_lines':
-        return []
-    parsed = parse_replacements_lines_text(task.text, (task.checker_data or '').strip() or None)
-    n_lines = len(parsed['left_lines'])
-    if not n_lines:
-        return []
-    answers_by_line = parsed.get('answers', [])
-    state = _replacements_current_state(
-        task, game=game, team=team, user=user, anon_key=anon_key,
-        mode=mode, replay_slot=replay_slot, attempts_info=attempts_info,
+    """Compatibility wrapper for replacements line completion."""
+    return replacements_line_done_list(
+        task,
+        attempts_info,
+        game=game,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        mode=mode,
+        replay_slot=replay_slot,
     )
-    return replacements_line_done_from_state(state, parsed)
 
 
 def _answer_popup_html(answer_text, answer_comment=None):
