@@ -121,7 +121,12 @@ from games.play_mode import (
     session_play_mode_key,
 )
 from games.section_navigation import section_ui_context
-from games.results_context import empty_results_rows_context, results_column_count
+from games.results_context import (
+    empty_results_rows_context,
+    results_actor_filter_types,
+    results_actor_filter_urls,
+    results_column_count,
+)
 from games.models import (
     Attempt,
     AudioManager,
@@ -2128,40 +2133,11 @@ def _results_me_participants(request, play_mode):
 
 
 def _results_actor_filter_types(request):
-    raw = request.GET.get('actors')
-    if raw is None:
-        return {'user', 'team', 'anon'}
-    return {value.strip() for value in str(raw).split(',') if value.strip()} & {'user', 'team', 'anon'}
+    return results_actor_filter_types(request)
 
 
 def _results_actor_filter_urls(request):
-    selected = _results_actor_filter_types(request)
-    definitions = (
-        ('team', 'Команды', 'ph-users'),
-        ('user', 'Игроки', 'ph-user'),
-        ('anon', 'Анонимы', 'ph-detective'),
-    )
-    result = []
-    for kind, label, icon in definitions:
-        next_types = set(selected)
-        if kind in next_types:
-            next_types.remove(kind)
-        else:
-            next_types.add(kind)
-        params = request.GET.copy()
-        params.pop('page', None)
-        params.pop('partial', None)
-        params.pop('loaded', None)
-        params['actors'] = ','.join(value for value in ('user', 'team', 'anon') if value in next_types)
-        query = params.urlencode()
-        result.append({
-            'label': label,
-            'icon': icon,
-            'active': kind in selected,
-            'url': request.path + ('?' + query if query else ''),
-            'title': ('Скрыть ' if kind in selected else 'Показать ') + label.lower(),
-        })
-    return result
+    return results_actor_filter_urls(request)
 
 
 def _results_actor_kind(actor):
