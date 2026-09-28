@@ -55,5 +55,8 @@ receive loop; the SQS visibility timeout remains the protection for an
 in-flight message.
 
 The task definition passes only references and non-secret runtime metadata as
-environment variables. The application loads the actual JSON configuration
-through the task role using `INTEROVES_CONFIG_SECRET_ID`.
+environment variables. The application loads the actual values through the
+task role using either `INTEROVES_CONFIG_SECRET_ID` (one JSON bundle) or
+`INTEROVES_CONFIG_SECRET_MAP` (the current per-variable Secrets Manager
+layout). For the first pilot, use the map and grant `GetSecretValue` only for
+the exact referenced ARNs.

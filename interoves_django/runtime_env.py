@@ -1,9 +1,9 @@
 """Opt-in runtime environment loading for all worker deployment modes.
 
-The deployment only supplies ``INTEROVES_CONFIG_SECRET_ID`` and a profile.
-The process IAM role reads a JSON object from Secrets Manager.  Explicit
-environment variables always win, which keeps local development and the
-current EB configuration backwards compatible.
+The deployment supplies either ``INTEROVES_CONFIG_SECRET_ID`` for one JSON
+bundle or ``INTEROVES_CONFIG_SECRET_MAP`` for the current per-variable AWS
+Secrets Manager layout. Explicit environment variables always win, which
+keeps local development and the current EB configuration backwards compatible.
 """
 
 from __future__ import annotations
@@ -32,14 +32,15 @@ _RESERVED_ENV_NAMES = {
 def load_runtime_environment(environ=None, *, client=None):
     """Populate missing environment keys from an opt-in Secrets Manager secret.
 
-    The secret is expected to contain either a flat JSON object of environment
-    values or a mapping keyed by ``INTEROVES_CONFIG_PROFILE``.  Secret values
-    are never logged.  Returns a small metadata dict useful for diagnostics.
+    The bundle secret contains a flat JSON object or a mapping keyed by
+    ``INTEROVES_CONFIG_PROFILE``. The map contains environment names mapped to
+    individual Secrets Manager IDs. Secret values are never logged.
     """
     if environ is None:
         environ = os.environ
     secret_id = (environ.get("INTEROVES_CONFIG_SECRET_ID") or "").strip()
-    if not secret_id:
+    secret_map_raw = (environ.get("INTEROVES_CONFIG_SECRET_MAP") or "").strip()
+    if not secret_id and not secret_map_raw:
         return {"source": "environment", "loaded": 0}
 
     if client is None:
@@ -53,6 +54,17 @@ def load_runtime_environment(environ=None, *, client=None):
                 or "eu-central-1"
             ),
         )
+    profile = (environ.get("INTEROVES_CONFIG_PROFILE") or "production").strip()
+    values = {}
+    if secret_id:
+        values.update(_load_bundle(client, secret_id, profile))
+    if secret_map_raw:
+        values.update(_load_secret_map(client, secret_map_raw))
+    loaded = _apply_values(environ, values)
+    return {"source": "secrets-manager", "loaded": loaded, "profile": profile}
+
+
+def _load_bundle(client, secret_id, profile):
     try:
         response = client.get_secret_value(SecretId=secret_id)
         raw = response.get("SecretString")
@@ -67,9 +79,40 @@ def load_runtime_environment(environ=None, *, client=None):
         raise RuntimeEnvironmentError(
             "could not load runtime configuration from Secrets Manager"
         ) from exc
+    return _profile_values(payload, profile)
 
-    profile = (environ.get("INTEROVES_CONFIG_PROFILE") or "production").strip()
-    values = _profile_values(payload, profile)
+
+def _load_secret_map(client, raw_map):
+    try:
+        secret_map = json.loads(raw_map)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeEnvironmentError(
+            "INTEROVES_CONFIG_SECRET_MAP must be valid JSON"
+        ) from exc
+    if not isinstance(secret_map, Mapping):
+        raise RuntimeEnvironmentError("INTEROVES_CONFIG_SECRET_MAP must be a JSON object")
+    values = {}
+    for name, secret_id in secret_map.items():
+        if not isinstance(name, str) or not isinstance(secret_id, str) or not secret_id.strip():
+            raise RuntimeEnvironmentError("runtime secret map contains an invalid entry")
+        try:
+            response = client.get_secret_value(SecretId=secret_id.strip())
+            raw = response.get("SecretString")
+            if raw is None:
+                raise RuntimeEnvironmentError(
+                    "runtime secret {} has no SecretString".format(name)
+                )
+            values[name] = raw
+        except RuntimeEnvironmentError:
+            raise
+        except Exception as exc:
+            raise RuntimeEnvironmentError(
+                "could not load runtime secret {} from Secrets Manager".format(name)
+            ) from exc
+    return values
+
+
+def _apply_values(environ, values):
     loaded = 0
     for name, value in values.items():
         if (
@@ -88,7 +131,7 @@ def load_runtime_environment(environ=None, *, client=None):
         if name not in environ:
             environ[name] = str(value)
             loaded += 1
-    return {"source": "secrets-manager", "loaded": loaded, "profile": profile}
+    return loaded
 
 
 def _profile_values(payload, profile):

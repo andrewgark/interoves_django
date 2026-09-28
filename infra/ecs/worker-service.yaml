@@ -26,6 +26,11 @@ Parameters:
   ConfigSecretArn:
     Type: String
     NoEcho: true
+    Default: ''
+  ConfigSecretMap:
+    Type: String
+    NoEcho: true
+    Default: '{}'
   SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
   SecurityGroupIds:
@@ -90,6 +95,8 @@ Resources:
               Value: !Ref QueueUrl
             - Name: INTEROVES_CONFIG_SECRET_ID
               Value: !Ref ConfigSecretArn
+            - Name: INTEROVES_CONFIG_SECRET_MAP
+              Value: !Ref ConfigSecretMap
             - Name: AWS_DEFAULT_REGION
               Value: !Ref AWS::Region
           LogConfiguration:

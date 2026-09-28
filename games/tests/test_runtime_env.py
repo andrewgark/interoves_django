@@ -11,7 +11,8 @@ class FakeSecretsManager:
 
     def get_secret_value(self, *, SecretId):
         self.secret_id = SecretId
-        return {'SecretString': json.dumps(self.payload)}
+        value = self.payload.get(SecretId, self.payload)
+        return {'SecretString': value if isinstance(value, str) else json.dumps(value)}
 
 
 class RuntimeEnvironmentTests(SimpleTestCase):
@@ -33,6 +34,22 @@ class RuntimeEnvironmentTests(SimpleTestCase):
         environ = {'INTEROVES_CONFIG_SECRET_ID': 'secret/test'}
         load_runtime_environment(environ, client=FakeSecretsManager({'FLAG': True}))
         self.assertEqual(environ['FLAG'], 'True')
+
+    def test_per_variable_secret_map_matches_existing_aws_layout(self):
+        environ = {
+            'INTEROVES_CONFIG_SECRET_MAP': json.dumps({
+                'DJANGO_SECRET_KEY': 'secret/django',
+                'TELEGRAM_BOT_TOKEN': 'secret/telegram',
+            }),
+        }
+        client = FakeSecretsManager({
+            'secret/django': 'django-value',
+            'secret/telegram': 'telegram-value',
+        })
+        result = load_runtime_environment(environ, client=client)
+        self.assertEqual(result['loaded'], 2)
+        self.assertEqual(environ['DJANGO_SECRET_KEY'], 'django-value')
+        self.assertEqual(environ['TELEGRAM_BOT_TOKEN'], 'telegram-value')
 
     def test_missing_profile_fails_without_revealing_values(self):
         environ = {
