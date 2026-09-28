@@ -65,6 +65,7 @@ cat >/etc/systemd/system/interoves-recheck-dispatcher.service <<'UNIT'
 Description=Inter Oves recheck transactional outbox dispatcher
 After=network-online.target
 Wants=network-online.target
+Requires=web-secrets-populate.service
 After=web-secrets-populate.service
 
 [Service]
