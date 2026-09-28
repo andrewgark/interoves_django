@@ -148,7 +148,7 @@ class DailySchedule:
             if start is None or (first is not None and now < first):
                 status = 'coming_soon'
 
-        from games.section_paths import section_hub_path, section_last_path
+        from games.sections.paths import section_hub_path, section_last_path
         play_url = section_last_path(self.game_id) if cta_number else None
         section_url = section_hub_path(self.game_id)
 

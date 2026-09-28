@@ -2,7 +2,7 @@
 
 from django.utils.html import strip_tags
 
-from games.section_hub import SECTION_HUB_META
+from games.sections.hub import SECTION_HUB_META
 
 
 def neighbors_by_pk(links, placement):
@@ -53,7 +53,7 @@ def task_group_page_nav_context(game, *, previous=None, following=None,
 def play_url_for_task_group(game, number, *, project_base=''):
     if project_base:
         return '{}/games/{}/{}/'.format(project_base, game.id, number)
-    from games.section_paths import is_root_section_game, section_play_path
+    from games.sections.paths import is_root_section_game, section_play_path
     if is_root_section_game(game.id):
         return section_play_path(game.id, number)
     return '/games/{}/{}/'.format(game.id, number)
@@ -62,7 +62,7 @@ def play_url_for_task_group(game, number, *, project_base=''):
 def results_url_for_task_group(game, number, *, project_base=''):
     if project_base:
         return '{}/games/{}/{}/results/'.format(project_base, game.id, number)
-    from games.section_paths import is_root_section_game, section_play_path
+    from games.sections.paths import is_root_section_game, section_play_path
     if is_root_section_game(game.id):
         return '{}results/'.format(section_play_path(game.id, number))
     return '/games/{}/{}/results/'.format(game.id, number)
@@ -71,7 +71,7 @@ def results_url_for_task_group(game, number, *, project_base=''):
 def replay_url_for_task_group(game, number, *, project_base=''):
     if project_base:
         return '{}/games/{}/{}/replay/'.format(project_base, game.id, number)
-    from games.section_paths import section_replay_path
+    from games.sections.paths import section_replay_path
     return section_replay_path(game.id, number)
 
 

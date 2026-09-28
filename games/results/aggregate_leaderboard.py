@@ -10,7 +10,7 @@ from django.db.models.functions import Cast
 
 from games.results.leaderboard import eligible_release_actor_keys, score_rank
 from games.models import GameTaskGroup, PersonalResultsParticipant, Profile, Task, TaskGroup
-from games.section_paths import section_play_path
+from games.sections.paths import section_play_path
 
 
 WINDOW_CHOICES = (10, 20, 30)
