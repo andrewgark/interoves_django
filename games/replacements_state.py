@@ -1,6 +1,6 @@
 """Authoritative actor state for replacements-lines tasks."""
 
-from games.models import ChainTaskState
+from games.actor_state import chain_state_for_actor
 from games.replacements_lines import (
     parse_replacements_lines_text,
     replacements_line_done_from_state,
@@ -14,24 +14,16 @@ def current_state(
     """Read ChainTaskState, falling back to the latest legacy attempt state."""
     state = None
     if game is not None:
-        filters = {
-            'task': task,
-            'game': game,
-            'game_mode': 'tournament' if mode == 'tournament' else 'general',
-            'replay_slot': replay_slot,
-        }
-        if team is not None:
-            filters.update(team=team, user__isnull=True, anon_key__isnull=True)
-        elif user is not None:
-            filters.update(user=user, team__isnull=True, anon_key__isnull=True)
-        elif anon_key is not None:
-            filters.update(anon_key=anon_key, team__isnull=True, user__isnull=True)
-        else:
-            filters = None
-        if filters is not None:
-            state = ChainTaskState.objects.filter(**filters).values_list(
-                'state', flat=True,
-            ).first()
+        row = chain_state_for_actor(
+            task,
+            game,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            mode=mode,
+            replay_slot=replay_slot,
+        )
+        state = row.state if row is not None else None
     if state is None and attempts_info and attempts_info.attempts:
         state = attempts_info.attempts[-1].state
     return state

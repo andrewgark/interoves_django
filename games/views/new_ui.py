@@ -159,6 +159,7 @@ from games.replay_navigation import (
 )
 from games.replacements_state import current_state as replacements_current_state
 from games.replacements_state import line_done_list as replacements_line_done_list
+from games.actor_state import chain_state_for_actor
 from games.models import (
     Attempt,
     AudioManager,
@@ -3175,17 +3176,15 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             ai = attempts_info_by_task_id.get(t.id)
             state = load_word_salad_state(None)
             if game is not None:
-                cts_qs = ChainTaskState.objects.filter(task=t, game=game, replay_slot=replay_slot)
-                if team is not None:
-                    cts_qs = cts_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
-                elif user is not None:
-                    cts_qs = cts_qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
-                elif anon_key is not None:
-                    cts_qs = cts_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
-                else:
-                    cts_qs = cts_qs.none()
-                play_mode_key = 'tournament' if mode == 'tournament' else 'general'
-                cts = cts_qs.filter(game_mode=play_mode_key).first()
+                cts = chain_state_for_actor(
+                    t,
+                    game,
+                    team=team,
+                    user=user,
+                    anon_key=anon_key,
+                    mode=mode,
+                    replay_slot=replay_slot,
+                )
                 if cts and cts.state:
                     state = load_word_salad_state(cts.state)
                 elif ai and ai.attempts:
@@ -3227,17 +3226,15 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             state = load_raddle_state(None, parsed['n_words'])
             # Предпочитаем ChainTaskState (источник правды для чекера); иначе Attempt.state.
             if game is not None:
-                cts_qs = ChainTaskState.objects.filter(task=t, game=game, replay_slot=replay_slot)
-                if team is not None:
-                    cts_qs = cts_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
-                elif user is not None:
-                    cts_qs = cts_qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
-                elif anon_key is not None:
-                    cts_qs = cts_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
-                else:
-                    cts_qs = cts_qs.none()
-                play_mode_key = 'tournament' if mode == 'tournament' else 'general'
-                cts = cts_qs.filter(game_mode=play_mode_key).first()
+                cts = chain_state_for_actor(
+                    t,
+                    game,
+                    team=team,
+                    user=user,
+                    anon_key=anon_key,
+                    mode=mode,
+                    replay_slot=replay_slot,
+                )
                 if cts and cts.state:
                     state = load_raddle_state(cts.state, parsed['n_words'])
                 elif ai and ai.attempts:
