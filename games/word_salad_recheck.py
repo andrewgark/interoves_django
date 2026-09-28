@@ -402,7 +402,7 @@ def _process_claimed_item(job, item, item_token):
             if actor is not None and task.task_type == 'word_salad':
                 result = recheck_word_salad_actor(
                     task, game=job.game, notify=False,
-                    pending_resolution=job.pending_resolution.get(str(task.pk), {}),
+                    pending_resolution=job.pending_resolution,
                     **actor,
                 )
                 credited = int(result.get('credited') or 0)
@@ -416,7 +416,7 @@ def _process_claimed_item(job, item, item_token):
                     game=job.game,
                     replay_slot=actor.get('replay_slot'),
                     notify=False,
-                    pending_resolution=job.pending_resolution.get(str(task.pk), {}),
+                    pending_resolution=job.pending_resolution,
                 )
                 credited = 0
                 reason = 'task.chain_rechecked'
