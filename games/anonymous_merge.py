@@ -312,18 +312,22 @@ def _move_one_step(job, token):
     if not _renew_job(job, token):
         return False
     result = migrate_anon_history_step(job.user, job.anon_key, job.move_step)
-    next_index = MOVE_STEPS.index(job.move_step) + 1
     with transaction.atomic():
         locked = AnonymousMergeJob.objects.select_for_update().get(pk=job.pk)
         if locked.claim_token != token or locked.status != AnonymousMergeJob.STATUS_RUNNING:
             return False
         if result.get('moved'):
-            locked.moved_submissions = max(locked.moved_submissions, result['moved'])
+            locked.moved_submissions += int(result['moved'] or 0)
         moved_counts = dict(locked.moved_counts or {})
         for key, value in result.items():
             if key.startswith('moved_') or key == 'moved':
                 moved_counts[key] = moved_counts.get(key, 0) + int(value or 0)
         locked.moved_counts = moved_counts
+        if not result.get('complete', True):
+            locked.claimed_until = timezone.now() + MERGE_LEASE
+            locked.save(update_fields=['moved_submissions', 'moved_counts', 'claimed_until', 'updated_at'])
+            return True
+        next_index = MOVE_STEPS.index(job.move_step) + 1
         if next_index >= len(MOVE_STEPS):
             locked.stage = AnonymousMergeJob.STAGE_RECONCILING
             locked.move_step = ''

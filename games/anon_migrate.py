@@ -31,6 +31,7 @@ from games.models import (
 )
 from games.replay import replay_actor_key
 
+ANON_MIGRATION_BATCH_SIZE = 200
 
 ANON_MIGRATION_STEPS = (
     'prepare',
@@ -155,61 +156,84 @@ def claim_and_migrate_anon_history(user, anon_key):
     }
 
 
-@transaction.atomic
-def migrate_anon_history_step(user, anon_key, step, *, affected_pairs=(), pair_index=0):
+def migrate_anon_history_step(
+    user, anon_key, step, *, affected_pairs=(), pair_index=0,
+    batch_size=ANON_MIGRATION_BATCH_SIZE,
+):
     """Run one small, retryable part of anonymous-history migration.
 
     The browser drives these steps so no request holds the ASGI worker while a
     large guest history is being moved.  Every operation only touches rows
     still owned by ``anon_key`` and is therefore safe to retry after a timeout.
     """
+    batch_size = max(1, int(batch_size))
     if step == 'prepare':
-        if HiddenAnonKey.objects.select_for_update().filter(anon_key=anon_key).exists():
-            return {'status': 'hidden_anon', 'moved_any': False}
-        claim = AnonAccountClaim.objects.select_for_update().filter(anon_key=anon_key).first()
-        if claim is not None and claim.user_id != user.pk:
-            return {'status': 'claimed_elsewhere', 'moved_any': False}
-        counts = anon_migration_counts(anon_key)
-        if claim is None and any(counts.values()):
-            claim, _ = AnonAccountClaim.objects.get_or_create(
-                anon_key=anon_key, defaults={'user': user},
-            )
-            if claim.user_id != user.pk:
-                return {'status': 'claimed_elsewhere', 'moved_any': False}
-        return {'status': 'ok', 'moved_any': bool(any(counts.values())), 'counts': counts}
+        with transaction.atomic():
+            if HiddenAnonKey.objects.select_for_update().filter(anon_key=anon_key).exists():
+                return {'status': 'hidden_anon', 'moved_any': False, 'complete': True}
+            claim = AnonAccountClaim.objects.select_for_update().filter(anon_key=anon_key).first()
+            if claim is not None and claim.user_id != user.pk:
+                return {'status': 'claimed_elsewhere', 'moved_any': False, 'complete': True}
+            counts = anon_migration_counts(anon_key)
+            if claim is None and any(counts.values()):
+                claim, _ = AnonAccountClaim.objects.get_or_create(
+                    anon_key=anon_key, defaults={'user': user},
+                )
+                if claim.user_id != user.pk:
+                    return {'status': 'claimed_elsewhere', 'moved_any': False, 'complete': True}
+            return {
+                'status': 'ok', 'moved_any': bool(any(counts.values())),
+                'counts': counts, 'complete': True,
+            }
 
     if step == 'attempts':
-        return {'status': 'ok', 'moved': Attempt.manager.filter(
-            anon_key=anon_key, user__isnull=True, team__isnull=True,
-        ).update(user=user, anon_key=None)}
+        with transaction.atomic():
+            ids = list(Attempt.manager.filter(
+                anon_key=anon_key, user__isnull=True, team__isnull=True,
+            ).order_by('id').values_list('id', flat=True)[:batch_size])
+            moved = Attempt.manager.filter(id__in=ids).update(user=user, anon_key=None)
+        return {'status': 'ok', 'moved': moved, 'complete': not bool(ids) or moved < batch_size}
     if step == 'ui_states':
-        return {'status': 'ok', 'moved_ui_states': migrate_anon_raddle_ui_states(user, anon_key)}
+        moved = migrate_anon_raddle_ui_states(user, anon_key, batch_size=batch_size)
+        return {'status': 'ok', 'moved_ui_states': moved, 'complete': moved < batch_size}
     if step == 'replays':
-        return {'status': 'ok', 'moved_replays': migrate_anon_replay_slots(user, anon_key)}
+        moved = migrate_anon_replay_slots(user, anon_key, batch_size=batch_size)
+        return {'status': 'ok', 'moved_replays': moved, 'complete': moved < batch_size}
     if step == 'hints':
-        return {'status': 'ok', 'moved_hints': HintAttempt.objects.filter(
-            anon_key=anon_key, user__isnull=True, team__isnull=True,
-        ).update(user=user, anon_key=None)}
+        with transaction.atomic():
+            ids = list(HintAttempt.objects.filter(
+                anon_key=anon_key, user__isnull=True, team__isnull=True,
+            ).order_by('id').values_list('id', flat=True)[:batch_size])
+            moved = HintAttempt.objects.filter(id__in=ids).update(user=user, anon_key=None)
+        return {'status': 'ok', 'moved_hints': moved, 'complete': not bool(ids) or moved < batch_size}
     if step == 'states':
-        return {'status': 'ok', 'moved_states': migrate_anon_chain_task_states(user, anon_key)}
+        moved = migrate_anon_chain_task_states(user, anon_key, batch_size=batch_size)
+        return {'status': 'ok', 'moved_states': moved, 'complete': moved < batch_size}
     if step == 'starts':
-        return {'status': 'ok', 'moved_starts': migrate_anon_started_games(user, anon_key)}
+        moved = migrate_anon_started_games(user, anon_key, batch_size=batch_size)
+        return {'status': 'ok', 'moved_starts': moved, 'complete': moved < batch_size}
     if step == 'timings':
-        return {'status': 'ok', 'moved_timings': migrate_anon_daily_timings(user, anon_key)}
+        moved = migrate_anon_daily_timings(user, anon_key, batch_size=batch_size)
+        return {'status': 'ok', 'moved_timings': moved, 'complete': moved < batch_size}
     if step == 'completions':
-        return {'status': 'ok', 'moved_completions': migrate_anon_completed_games(user, anon_key)}
+        moved = migrate_anon_completed_games(user, anon_key, batch_size=batch_size)
+        return {'status': 'ok', 'moved_completions': moved, 'complete': moved < batch_size}
     if step == 'analytics':
-        return {'status': 'ok', 'moved_analytics_state': migrate_anon_analytics_state(user, anon_key)}
+        moved = migrate_anon_analytics_state(user, anon_key, batch_size=batch_size)
+        return {'status': 'ok', 'moved_analytics_state': moved, 'complete': moved < batch_size}
     if step == 'personal_dict':
-        return {'status': 'ok', 'moved_personal_dict': migrate_anon_personal_dict_words(user, anon_key)}
+        moved = migrate_anon_personal_dict_words(user, anon_key, batch_size=batch_size)
+        return {'status': 'ok', 'moved_personal_dict': moved, 'complete': moved < batch_size}
     if step == 'likes':
-        return {'status': 'ok', 'moved_likes': migrate_anon_likes(user, anon_key)}
+        moved = migrate_anon_likes(user, anon_key, batch_size=batch_size)
+        return {'status': 'ok', 'moved_likes': moved, 'complete': moved < batch_size}
     if step == 'attributions':
-        moved = migrate_anon_attributions(user, anon_key)
+        moved = migrate_anon_attributions(user, anon_key, batch_size=batch_size)
         return {
             'status': 'ok',
             'moved_bug_reports': moved['bug_reports'],
             'moved_dict_suggestions': moved['dict_suggestions'],
+            'complete': moved['complete'],
         }
     if step == 'reconcile':
         pairs = list(affected_pairs)
@@ -234,10 +258,12 @@ def migrate_anon_history_step(user, anon_key, step, *, affected_pairs=(), pair_i
     raise ValueError('unknown anonymous migration step')
 
 
-def migrate_anon_raddle_ui_states(user, anon_key):
+def migrate_anon_raddle_ui_states(user, anon_key, *, batch_size=None):
     """Move persistent Raddle UI drafts with the canonical anon actor."""
     moved = 0
     rows = list(RaddleUiState.objects.filter(
+        anon_key=anon_key, user__isnull=True, team__isnull=True,
+    ).order_by('id')[:batch_size] if batch_size else RaddleUiState.objects.filter(
         anon_key=anon_key, user__isnull=True, team__isnull=True,
     ).order_by('id'))
     for row in rows:
@@ -288,12 +314,14 @@ def migrate_anon_raddle_ui_states(user, anon_key):
 
 
 @transaction.atomic
-def migrate_anon_replay_slots(user, anon_key):
+def migrate_anon_replay_slots(user, anon_key, *, batch_size=None):
     """Claim replay slots; an existing user slot wins deterministically."""
     if not user or not anon_key:
         return 0
     moved = 0
     rows = list(ReplaySlot.objects.select_for_update().filter(
+        anon_key=anon_key, user__isnull=True, team__isnull=True,
+    ).order_by('pk')[:batch_size] if batch_size else ReplaySlot.objects.select_for_update().filter(
         anon_key=anon_key, user__isnull=True, team__isnull=True,
     ).order_by('pk'))
     for row in rows:
@@ -359,17 +387,26 @@ def anon_migration_counts(anon_key):
     }
 
 
-def migrate_anon_attributions(user, anon_key):
+def migrate_anon_attributions(user, anon_key, *, batch_size=None):
     """Attach guest reports/suggestions that do not need conflict merging."""
     if not user or not anon_key:
         return {'bug_reports': 0, 'dict_suggestions': 0}
+    bug_ids = list(BugReport.objects.filter(
+        anon_key=anon_key, user__isnull=True, team__isnull=True,
+    ).order_by('id').values_list('id', flat=True)[:batch_size] if batch_size else BugReport.objects.filter(
+        anon_key=anon_key, user__isnull=True, team__isnull=True,
+    ).order_by('id').values_list('id', flat=True))
+    dict_ids = list(AlphabettyDictSuggestion.objects.filter(
+        anon_key=anon_key, user__isnull=True,
+    ).order_by('id').values_list('id', flat=True)[:batch_size] if batch_size else AlphabettyDictSuggestion.objects.filter(
+        anon_key=anon_key, user__isnull=True,
+    ).order_by('id').values_list('id', flat=True))
+    moved_bug_reports = BugReport.objects.filter(id__in=bug_ids).update(user=user, anon_key=None)
+    moved_dict_suggestions = AlphabettyDictSuggestion.objects.filter(id__in=dict_ids).update(user=user, anon_key=None)
     return {
-        'bug_reports': BugReport.objects.filter(
-            anon_key=anon_key, user__isnull=True, team__isnull=True,
-        ).update(user=user, anon_key=None),
-        'dict_suggestions': AlphabettyDictSuggestion.objects.filter(
-            anon_key=anon_key, user__isnull=True,
-        ).update(user=user, anon_key=None),
+        'bug_reports': moved_bug_reports,
+        'dict_suggestions': moved_dict_suggestions,
+        'complete': (not batch_size or (moved_bug_reports < batch_size and moved_dict_suggestions < batch_size)),
     }
 
 
@@ -501,7 +538,7 @@ def _rebuild_alphabetty_state_from_attempts(*, user, task, game, anon_json, user
     }, ensure_ascii=False)
 
 
-def migrate_anon_personal_dict_words(user, anon_key):
+def migrate_anon_personal_dict_words(user, anon_key, *, batch_size=None):
     """Переносит AlphabettyPersonalDictWord с anon_key на user. Возвращает число строк."""
     if not user or not anon_key:
         return 0
@@ -509,7 +546,8 @@ def migrate_anon_personal_dict_words(user, anon_key):
     qs = AlphabettyPersonalDictWord.objects.filter(
         anon_key=anon_key, user__isnull=True,
     )
-    for row in qs.iterator():
+    rows = qs.order_by('id')[:batch_size] if batch_size else qs.iterator()
+    for row in rows:
         if AlphabettyPersonalDictWord.objects.filter(user=user, word=row.word).exists():
             row.delete()
             moved += 1
@@ -522,7 +560,7 @@ def migrate_anon_personal_dict_words(user, anon_key):
 
 
 @transaction.atomic
-def migrate_anon_likes(user, anon_key):
+def migrate_anon_likes(user, anon_key, *, batch_size=None):
     """Переносит реакции anon→user, оставляя одну реакцию на задание.
 
     Если профиль уже успел поставить реакцию на то же задание, она считается
@@ -537,6 +575,8 @@ def migrate_anon_likes(user, anon_key):
 
     anon_rows = list(
         Like.manager.select_for_update()
+        .filter(anon_key=anon_key, user__isnull=True, team__isnull=True)
+        .order_by('task_id', '-id')[:batch_size] if batch_size else Like.manager.select_for_update()
         .filter(anon_key=anon_key, user__isnull=True, team__isnull=True)
         .order_by('task_id', '-id')
     )
@@ -582,7 +622,7 @@ def migrate_anon_likes(user, anon_key):
     return len(anon_rows)
 
 
-def migrate_anon_chain_task_states(user, anon_key):
+def migrate_anon_chain_task_states(user, anon_key, *, batch_size=None):
     """
     Переносит ChainTaskState с anon_key на user.
 
@@ -599,7 +639,8 @@ def migrate_anon_chain_task_states(user, anon_key):
     qs = ChainTaskState.objects.filter(
         anon_key=anon_key, user__isnull=True, team__isnull=True,
     )
-    for row in qs.iterator():
+    rows = qs.order_by('id')[:batch_size] if batch_size else qs.iterator()
+    for row in rows:
         existing = ChainTaskState.objects.filter(
             user=user,
             team__isnull=True,
@@ -641,7 +682,7 @@ def migrate_anon_chain_task_states(user, anon_key):
 
 
 @transaction.atomic
-def migrate_anon_started_games(user, anon_key):
+def migrate_anon_started_games(user, anon_key, *, batch_size=None):
     """Merge unique server-side game starts from an anonymous actor into a user."""
     if not user or not anon_key:
         return 0
@@ -651,6 +692,8 @@ def migrate_anon_started_games(user, anon_key):
             anon_key=anon_key,
             user__isnull=True,
             team__isnull=True,
+        ).order_by('game_instance_id', 'pk')[:batch_size] if batch_size else PlayerStartedGame.objects.select_for_update().filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
         ).order_by('game_instance_id', 'pk')
     )
     for row in rows:
@@ -669,7 +712,7 @@ def migrate_anon_started_games(user, anon_key):
 
 
 @transaction.atomic
-def migrate_anon_daily_timings(user, anon_key):
+def migrate_anon_daily_timings(user, anon_key, *, batch_size=None):
     """Move or merge daily active-time rows from an anonymous actor onto a user."""
     if not user or not anon_key:
         return 0
@@ -680,6 +723,8 @@ def migrate_anon_daily_timings(user, anon_key):
         DailySolveTiming.objects.select_for_update().filter(
             anon_key=anon_key,
             user__isnull=True,
+        )[:batch_size] if batch_size else DailySolveTiming.objects.select_for_update().filter(
+            anon_key=anon_key, user__isnull=True,
         )
     )
     for row in rows:
@@ -702,7 +747,7 @@ def migrate_anon_daily_timings(user, anon_key):
 
 
 @transaction.atomic
-def migrate_anon_completed_games(user, anon_key):
+def migrate_anon_completed_games(user, anon_key, *, batch_size=None):
     """Merge completion delivery state into the authenticated analytics actor."""
     if not user or not anon_key:
         return 0
@@ -712,6 +757,8 @@ def migrate_anon_completed_games(user, anon_key):
             anon_key=anon_key,
             user__isnull=True,
             team__isnull=True,
+        ).order_by('game_instance_id', 'pk')[:batch_size] if batch_size else PlayerCompletedGame.objects.select_for_update().filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
         ).order_by('game_instance_id', 'pk')
     )
     for row in rows:
@@ -730,7 +777,7 @@ def migrate_anon_completed_games(user, anon_key):
 
 
 @transaction.atomic
-def migrate_anon_analytics_state(user, anon_key):
+def migrate_anon_analytics_state(user, anon_key, *, batch_size=None):
     """Merge the anonymous activation marker into the authenticated actor."""
     if not user or not anon_key:
         return 0
