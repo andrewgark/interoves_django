@@ -216,7 +216,7 @@ def canonical_leaderboard_durations(*, game, task_group, actors, fallback_actors
     ).filter(Q(team_id__in=teams) | Q(user_id__in=users) | Q(anon_key__in=anons)).only(
         'team_id', 'user_id', 'anon_key', 'timing_version', 'status', 'frozen_ms', 'accumulated_ms',
     )
-    from games.daily_timing import canonical_elapsed_seconds
+    from games.daily.timing import canonical_elapsed_seconds
     result = {}
     by_key = {
         (('team', row.team_id) if row.team_id else (
