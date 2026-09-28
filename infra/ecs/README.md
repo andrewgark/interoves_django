@@ -35,6 +35,11 @@ all production queues.
 6. Process a synthetic message and inspect CloudWatch logs/DLQ behavior.
 7. Set `DesiredCount=1` only after the smoke test.
 
+For the first non-browser pilot, build `Dockerfile.worker` and use it only for
+`background`, `identity`, or `recheck`. It deliberately excludes local
+credentials, databases, media, and caches through `.dockerignore`. The image
+still receives all runtime values through the task environment/config loader.
+
 For `ecs-fargate-spot`, the workload must tolerate interruption. Start with
 `background` or `recheck`; keep `integrations` on On-Demand until its retry and
 external API side effects have been verified.
