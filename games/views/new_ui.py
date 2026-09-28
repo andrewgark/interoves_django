@@ -101,6 +101,12 @@ from games.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
 from games.task_titles import raddle_share_title, task_display_name, task_group_page_title
 from games.task_progress import compute_task_progress, merge_task_group_progress_rows
+from games.task_group_navigation import (
+    play_url_for_task_group,
+    replay_exit_url_for_task_group,
+    replay_url_for_task_group,
+    results_url_for_task_group,
+)
 from games.models import (
     Attempt,
     AudioManager,
@@ -300,33 +306,19 @@ def _resolve_game_page_actor(request, play_mode):
 
 
 def _play_url_for_task_group(game, number, *, project_base=''):
-    if project_base:
-        return '{}/games/{}/{}/'.format(project_base, game.id, number)
-    from games.section_paths import is_root_section_game, section_play_path
-    if is_root_section_game(game.id):
-        return section_play_path(game.id, number)
-    return '/games/{}/{}/'.format(game.id, number)
+    return play_url_for_task_group(game, number, project_base=project_base)
 
 
 def _task_group_results_url(game, number, *, project_base=''):
-    """Canonical results URL for one task group, alongside its play URL."""
-    if project_base:
-        return '{}/games/{}/{}/results/'.format(project_base, game.id, number)
-    from games.section_paths import is_root_section_game, section_play_path
-    if is_root_section_game(game.id):
-        return '{}results/'.format(section_play_path(game.id, number))
-    return '/games/{}/{}/results/'.format(game.id, number)
+    return results_url_for_task_group(game, number, project_base=project_base)
 
 
 def _task_group_replay_url(game, number, *, project_base=''):
-    if project_base:
-        return '{}/games/{}/{}/replay/'.format(project_base, game.id, number)
-    from games.section_paths import section_replay_path
-    return section_replay_path(game.id, number)
+    return replay_url_for_task_group(game, number, project_base=project_base)
 
 
 def _task_group_replay_exit_url(game, number, *, project_base=''):
-    return _task_group_replay_url(game, number, project_base=project_base).rstrip('/') + '/exit/'
+    return replay_exit_url_for_task_group(game, number, project_base=project_base)
 
 
 def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
