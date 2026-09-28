@@ -1,32 +1,38 @@
 from django.db import migrations, models
+from django.db.models import Count
 
 
 def backfill_actor_keys_and_reject_duplicates(apps, schema_editor):
     ChainTaskState = apps.get_model('games', 'ChainTaskState')
-    seen = set()
-    rows = ChainTaskState.objects.all().order_by('pk').iterator()
-    for row in rows:
-        if row.team_id is not None:
-            actor_key = 'team:{}'.format(row.team_id)
-        elif row.user_id is not None:
-            actor_key = 'user:{}'.format(row.user_id)
-        elif row.anon_key is not None:
-            actor_key = 'anon:{}'.format(row.anon_key)
-        else:
-            raise RuntimeError(
-                'Cannot backfill ChainTaskState.actor_key for row {}'.format(row.pk)
-            )
-        logical_key = (
-            actor_key, row.task_id, row.game_id, row.game_mode, row.replay_slot_key,
+    invalid = ChainTaskState.objects.filter(
+        team_id__isnull=True, user_id__isnull=True, anon_key__isnull=True,
+    ).values_list('pk', flat=True).first()
+    if invalid is not None:
+        raise RuntimeError(
+            'Cannot backfill ChainTaskState.actor_key for row {}'.format(invalid)
         )
-        if logical_key in seen:
-            raise RuntimeError(
-                'Duplicate ChainTaskState logical key before unique constraint: {}'.format(
-                    logical_key,
-                )
+
+    # Check the future unique key before adding its constraint, then backfill
+    # with one SQL UPDATE instead of 43k individual ORM UPDATE statements.
+    duplicates = ChainTaskState.objects.values(
+        'team_id', 'user_id', 'anon_key', 'task_id', 'game_id',
+        'game_mode', 'replay_slot_key',
+    ).annotate(n=Count('pk')).filter(n__gt=1).first()
+    if duplicates is not None:
+        raise RuntimeError(
+            'Duplicate ChainTaskState logical key before unique constraint: {}'.format(
+                duplicates,
             )
-        seen.add(logical_key)
-        ChainTaskState.objects.filter(pk=row.pk).update(actor_key=actor_key)
+        )
+
+    table = schema_editor.quote_name(ChainTaskState._meta.db_table)
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            "UPDATE {} SET actor_key = CASE "
+            "WHEN team_id IS NOT NULL THEN CONCAT('team:', team_id) "
+            "WHEN user_id IS NOT NULL THEN CONCAT('user:', user_id) "
+            "ELSE CONCAT('anon:', anon_key) END".format(table)
+        )
 
 
 class Migration(migrations.Migration):
