@@ -518,10 +518,16 @@ def _replay_word_salad_attempts(
         row.last_attempt = None
     states = {'general': None, 'tournament': None}
     last_by_mode = {}
+    pending_resolution = pending_resolution or {}
+    accepted_attempt_ids = set(pending_resolution.get('attempt_ids', ()))
+    accepted_scopes = pending_resolution.get('scopes', ())
 
     for attempt in attempts:
         if attempt.status == 'Pending' and not _pending_is_accepted(
-            attempt, pending_resolution or {},
+            attempt,
+            pending_resolution,
+            accepted_attempt_ids=accepted_attempt_ids,
+            accepted_scopes=accepted_scopes,
         ):
             continue
         mode = game.get_current_mode(attempt)
