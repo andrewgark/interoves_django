@@ -17,6 +17,14 @@ import sys
 
 from django.core.exceptions import ImproperlyConfigured
 
+from interoves_django.runtime_env import load_runtime_environment
+
+
+# All deployment modes may opt into the same Secrets Manager-backed environment
+# loader.  With no INTEROVES_CONFIG_SECRET_ID this is a no-op, preserving the
+# current EB/local behavior.
+load_runtime_environment()
+
 
 def _env_flag(name: str) -> bool:
     """True if env var is a common affirmative value (handles EB / console quirks)."""
