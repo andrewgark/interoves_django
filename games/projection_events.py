@@ -34,6 +34,10 @@ def _mark_key(game_id, task_group_id):
     return 'projection-refresh-event:{}:{}'.format(game_id, task_group_id)
 
 
+def _mode_key(game_id, task_group_id):
+    return 'projection-refresh-mode:{}:{}'.format(game_id, task_group_id)
+
+
 def _actors_key(game_id, task_group_id):
     return 'projection-refresh-actors:{}:{}'.format(game_id, task_group_id)
 
@@ -41,7 +45,16 @@ def _actors_key(game_id, task_group_id):
 def push_actor_refresh(game_id, task_group_id, actor_filter, revision):
     key = _actors_key(game_id, task_group_id)
     pending = list(_cache().get(key) or [])
-    pending.append({'filter': actor_filter, 'revision': revision})
+    item = {'filter': actor_filter, 'revision': revision}
+    for index, existing in enumerate(pending):
+        if existing.get('filter') == actor_filter:
+            # A later source revision includes the earlier mutation too, so
+            # one actor refresh is sufficient.  Keep the newest revision to
+            # avoid an unnecessary second projection write.
+            pending[index] = item
+            break
+    else:
+        pending.append(item)
     _cache().set(key, pending, timeout=EVENT_TTL_SECONDS)
 
 
@@ -54,6 +67,7 @@ def take_actor_refreshes(game_id, task_group_id):
 
 def clear_projection_refresh_mark(game_id, task_group_id):
     _cache().delete(_mark_key(game_id, task_group_id))
+    _cache().delete(_mode_key(game_id, task_group_id))
 
 
 def publish_projection_refresh(game_id, task_group_id, *, mode, actor_filter=None, revision=None):
@@ -63,6 +77,14 @@ def publish_projection_refresh(game_id, task_group_id, *, mode, actor_filter=Non
     if actor_filter is not None:
         push_actor_refresh(game_id, task_group_id, actor_filter, revision)
     mark_key = _mark_key(game_id, task_group_id)
+    mode_key = _mode_key(game_id, task_group_id)
+    if mode == 'full':
+        # A full refresh supersedes actor refreshes already buffered for this
+        # release.  The worker reads this marker even when the SQS message
+        # itself was originally published with mode=actor.
+        _cache().set(mode_key, 'full', timeout=EVENT_TTL_SECONDS)
+    else:
+        _cache().add(mode_key, 'actor', timeout=EVENT_TTL_SECONDS)
     # ``get`` followed by ``set`` is racy across web/worker instances: two
     # callers can both enqueue a refresh and then contend on the same
     # DailyResultProjectionState row.  RedisCache.add() is backed by SETNX,
@@ -131,6 +153,8 @@ def run_named_projection_refresh(*, game_id, task_group_id, mode):
         return 'missing'
 
     for _pass in range(2):
+        if _cache().get(_mode_key(game_id, task_group_id)) == 'full':
+            mode = 'full'
         actors = take_actor_refreshes(game_id, task_group_id)
         if mode == 'full' or not actors:
             refresh_daily_result_projection(game, group)
