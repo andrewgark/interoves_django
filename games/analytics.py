@@ -323,15 +323,21 @@ def is_task_group_complete(*, task_group, game, team=None, user=None, anon_key=N
     chain_types = {'raddle', 'replacements_lines', 'alphabetty', 'word_salad'}
     chain_mode = 'tournament' if mode == 'tournament' else 'general'
     actor = _actor_kwargs(team=team, user=user, anon_key=anon_key)
-    for task in tasks:
-        if task.task_type in chain_types:
-            state = ChainTaskState.objects.filter(
-                task=task,
+    chain_tasks = [task for task in tasks if task.task_type in chain_types]
+    chain_states = {}
+    if chain_tasks:
+        chain_states = dict(
+            ChainTaskState.objects.filter(
+                task_id__in=[task.pk for task in chain_tasks],
                 game=game,
                 replay_slot=replay_slot,
                 game_mode=chain_mode,
                 **actor,
-            ).values_list('state', flat=True).first()
+            ).values_list('task_id', 'state')
+        )
+    for task in tasks:
+        if task.task_type in chain_types:
+            state = chain_states.get(task.pk)
             if not is_task_completion_state(task, state):
                 return False
             continue
