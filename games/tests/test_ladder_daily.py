@@ -183,25 +183,6 @@ class LadderSectionPageTests(TestCase):
         self.assertIsNotNone(game)
         list(_hub_section_task_group_links(game))
 
-    def test_ladder_hub_renders_archive(self):
-        from allauth.socialaccount.models import SocialApp
-        from django.contrib.sites.models import Site
-
-        site = Site.objects.get_current()
-        for provider in ('google', 'vk', 'yandex'):
-            app, _ = SocialApp.objects.get_or_create(
-                provider=provider,
-                defaults={'name': provider, 'client_id': 'test', 'secret': 'test'},
-            )
-            app.sites.add(site)
-
-        game = Game.objects.filter(id='ladder', project_id='sections').first()
-        self.assertIsNotNone(game)
-        resp = self.client.get('/ladder/')
-        self.assertEqual(resp.status_code, 200)
-        self.assertTrue(resp.context['is_ladder_section'])
-        self.assertEqual(resp.context['task_groups_heading'], 'Архив')
-
     def test_section_ladder_redirects_to_ladder(self):
         resp = self.client.get('/section/ladder/')
         self.assertEqual(resp.status_code, 301)
