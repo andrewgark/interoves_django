@@ -1454,21 +1454,46 @@ def recheck_team_task_all_chronological_action(modeladmin, request, queryset):
 
 def add_to_checker(modeladmin, request, queryset):
     from games.attempt_admin_bulk import add_attempts_to_checker
-    add_attempts_to_checker(queryset.values_list('id', flat=True))
+    from django.contrib import messages
+    result = add_attempts_to_checker(
+        queryset.values_list('id', flat=True), return_receipt=True,
+    )
+    job_ids = [job['id'] for job in result['queue_receipt']['jobs']]
+    suffix = ' Jobs: {}.'.format(', '.join('#{}'.format(job_id) for job_id in job_ids)) if job_ids else ''
+    modeladmin.message_user(
+        request,
+        'Добавлено в checker ответов: {}.{}'.format(result['accepted_count'], suffix),
+        messages.SUCCESS,
+    )
 
 
 def add_to_checker_and_recheck(modeladmin, request, queryset):
     from games.attempt_admin_bulk import add_attempts_to_checker
-    add_attempts_to_checker(
+    from django.contrib import messages
+    result = add_attempts_to_checker(
         queryset.values_list('id', flat=True),
         recheck_selected_non_chain=True,
+        return_receipt=True,
+    )
+    job_ids = [job['id'] for job in result['queue_receipt']['jobs']]
+    suffix = ' Jobs: {}.'.format(', '.join('#{}'.format(job_id) for job_id in job_ids)) if job_ids else ''
+    modeladmin.message_user(
+        request,
+        'Добавлено в checker и поставлено на recheck ответов: {}.{}'.format(
+            result['accepted_count'], suffix,
+        ),
+        messages.SUCCESS,
     )
 
 
 def accept_pending(modeladmin, request, queryset):
     from games.attempt_admin_bulk import accept_pending_attempts
     chain_count = queryset.filter(task__task_type__in=CHAIN_TASK_TYPES).count()
-    accepted = accept_pending_attempts(queryset.values_list('id', flat=True))
+    result = accept_pending_attempts(
+        queryset.values_list('id', flat=True), return_receipt=True,
+    )
+    accepted = result['accepted_count']
+    job_ids = [job['id'] for job in result['queue_receipt']['jobs']]
     suffix = ''
     if chain_count:
         suffix = (
@@ -1477,7 +1502,11 @@ def accept_pending(modeladmin, request, queryset):
         )
     modeladmin.message_user(
         request,
-        'Принято ответов: {}.{}'.format(accepted, suffix),
+        'Принято ответов: {}.{}{}'.format(
+            accepted,
+            suffix,
+            ' Jobs: {}.'.format(', '.join('#{}'.format(job_id) for job_id in job_ids)) if job_ids else '',
+        ),
         messages.SUCCESS,
     )
 

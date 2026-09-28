@@ -71,6 +71,38 @@ def serialize_enqueue_result(result):
     }
 
 
+def serialize_enqueue_results(results):
+    """Combine receipts from one bulk operation without duplicate jobs."""
+    results = list(results)
+    jobs = []
+    seen_jobs = set()
+    new_jobs = existing_jobs = new_items = existing_items = superseded_items = 0
+    superseded_job_ids = []
+    for result in results:
+        payload = serialize_enqueue_result(result)
+        for job in payload['jobs']:
+            if job['id'] not in seen_jobs:
+                jobs.append(job)
+                seen_jobs.add(job['id'])
+        new_jobs += payload['new_jobs']
+        existing_jobs += payload['existing_jobs']
+        new_items += payload['new_items']
+        existing_items += payload['existing_items']
+        superseded_items += payload['superseded_items']
+        for job_id in payload['superseded_jobs']:
+            if job_id not in superseded_job_ids:
+                superseded_job_ids.append(job_id)
+    return {
+        'jobs': jobs,
+        'new_jobs': new_jobs,
+        'existing_jobs': existing_jobs,
+        'new_items': new_items,
+        'existing_items': existing_items,
+        'superseded_jobs': superseded_job_ids,
+        'superseded_items': superseded_items,
+    }
+
+
 def _validation_failpoint(name):
     """Terminate only an explicitly isolated validation worker process."""
     if (

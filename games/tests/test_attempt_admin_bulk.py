@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from games.attempt_admin_bulk import (
     add_to_checker,
+    accept_pending_attempts,
     reject_pending_attempts,
     recheck_chain_attempts,
 )
@@ -149,6 +150,22 @@ class AttemptAdminBulkTests(_ChainFixture, TestCase):
         jobs = list(WordSaladRecheckJob.objects.filter(task=self.wall_task))
         self.assertEqual(len(jobs), 1)
         self.assertEqual(jobs[0].items.count(), 2)
+
+    def test_bulk_accept_returns_queue_receipt(self):
+        first = _make_attempt(
+            self.wall_task,
+            self.team,
+            _wall_text(['A', 'B', 'C', 'D'], stage='cat_explanation', explanation='receipt'),
+        )
+        first.status = 'Pending'
+        first.save()
+        with self.captureOnCommitCallbacks(execute=True):
+            result = accept_pending_attempts([first.pk], return_receipt=True)
+        receipt = result['queue_receipt']
+        self.assertEqual(result['accepted_count'], 1)
+        self.assertEqual(receipt['new_jobs'], 1)
+        self.assertEqual(receipt['new_items'], 1)
+        self.assertEqual(len(receipt['jobs']), 1)
 
     def test_chain_recheck_deduplicates_same_actor(self):
         first = _make_attempt(

@@ -75,7 +75,9 @@ def _queue_after_commit(task_ids, selected_keys=None):
     )
 
 
-def add_attempts_to_checker(attempt_ids, *, pending_only=False, recheck_selected_non_chain=False):
+def add_attempts_to_checker(
+    attempt_ids, *, pending_only=False, recheck_selected_non_chain=False, return_receipt=False,
+):
     """Merge selected answers atomically and queue affected chain replays."""
     attempts = _load_attempts(attempt_ids, pending_only=pending_only)
     by_task = defaultdict(list)
@@ -93,8 +95,29 @@ def add_attempts_to_checker(attempt_ids, *, pending_only=False, recheck_selected
                 skip_semantics_reconciliation=(task.task_type in CHAIN_TASK_TYPES),
             )
             task_ids.append(task_id)
+        receipts = []
+        bulk_result = {
+            'accepted_count': len(attempts),
+            'queue_receipt': {
+                'jobs': [],
+                'new_jobs': 0,
+                'existing_jobs': 0,
+                'new_items': 0,
+                'existing_items': 0,
+                'superseded_jobs': [],
+                'superseded_items': 0,
+            },
+        }
+
         def after_commit():
-            queue_chain_replays_for_tasks(task_ids, pending_resolution=pending_resolution)
+            receipts.extend(queue_chain_replays_for_tasks(
+                task_ids,
+                pending_resolution=pending_resolution,
+                return_receipt=return_receipt,
+            ) or ())
+            if return_receipt:
+                from games.word_salad_recheck import serialize_enqueue_results
+                bulk_result['queue_receipt'] = serialize_enqueue_results(receipts)
             if recheck_selected_non_chain:
                 from games.recheck import recheck
                 for attempt in attempts:
@@ -102,15 +125,18 @@ def add_attempts_to_checker(attempt_ids, *, pending_only=False, recheck_selected
                         recheck(None, attempt.pk)
 
         transaction.on_commit(after_commit)
+    if return_receipt:
+        return bulk_result
     return len(attempts)
 
 
-def accept_pending_attempts(attempt_ids):
+def accept_pending_attempts(attempt_ids, *, return_receipt=False):
     """Accept pending answers, extend the checker, and queue chronological replay."""
     return add_attempts_to_checker(
         attempt_ids,
         pending_only=True,
         recheck_selected_non_chain=True,
+        return_receipt=return_receipt,
     )
 
 
