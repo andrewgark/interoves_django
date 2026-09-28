@@ -20,6 +20,10 @@
 </div>
 {% endblock %}
 
+{% block schedule_before_content %}
+<div id="support-queue-receipt" class="support-queue-receipt" role="status" aria-live="polite" hidden></div>
+{% endblock %}
+
 {% block schedule_toolbar_hint %}
   Перетаскивайте только будущие выпуски за ⠿. «+» между карточками вставляет новый
   салатик в выбранную позицию. Вышедшие не двигаются.

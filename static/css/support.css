@@ -105,6 +105,20 @@
   margin: 0 0 1rem;
 }
 
+.support-queue-receipt {
+  margin: 0 0 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent, #2f6fed);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.support-queue-receipt ul {
+  margin: 0.45rem 0 0.7rem 1.2rem;
+  padding: 0;
+}
+
 .queue-observatory__summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));

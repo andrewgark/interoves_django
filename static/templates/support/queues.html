@@ -194,6 +194,10 @@
       .then(function (payload) { if (payload.ok) renderDetail(payload.job); })
       .catch(function () {});
   }
+  function loadHashJob() {
+    var match = window.location.hash.match(/^#job-(\d+)$/);
+    if (match) loadDetail(match[1]);
+  }
   function load() {
     if (state.loading) return;
     state.loading = true;
@@ -215,6 +219,8 @@
   previousButton.addEventListener('click', function () { if (state.page > 1) { state.page -= 1; load(); } });
   nextButton.addEventListener('click', function () { if (state.hasNext) { state.page += 1; load(); } });
   load();
+  loadHashJob();
+  window.addEventListener('hashchange', loadHashJob);
   var timer = window.setInterval(load, 3000);
   window.addEventListener('beforeunload', function () { window.clearInterval(timer); });
 }());

@@ -80,6 +80,23 @@
     error.hidden = true;
   }
 
+  function showQueueReceipt(receipt) {
+    var node = document.getElementById('support-queue-receipt');
+    if (!node || !receipt || !receipt.jobs || !receipt.jobs.length) return;
+    var jobs = receipt.jobs.map(function (job) {
+      var label = job.created ? 'Создана' : 'Добавлено в существующую';
+      var href = job.observatory_url || job.url;
+      return '<li>' + label + ' <a href="' + href + '">Job #' + job.id + '</a>' +
+        ' · ' + (job.new_items || 0) + ' новых items' +
+        (job.existing_items ? ', ' + job.existing_items + ' уже были в job' : '') + '</li>';
+    }).join('');
+    var total = (receipt.new_items || 0) + (receipt.existing_items || 0);
+    node.innerHTML = '<strong>В очередь добавлено: ' + receipt.jobs.length + ' jobs · ' + total + ' items</strong>' +
+      '<ul>' + jobs + '</ul>' +
+      '<a class="new-btn new-btn--mini new-btn--ghost" href="/support/queues/">Открыть очередь</a>';
+    node.hidden = false;
+  }
+
   function showRecheckStatus(job) {
     var el = document.getElementById('word-salad-recheck-status');
     var progress = document.getElementById('word-salad-recheck-progress');
@@ -537,6 +554,7 @@
       var item = data.item;
       setRows(data.rows);
       fillEditor(item);
+      showQueueReceipt(item && item.queue_receipt);
       pollRecheck(item && item.recheck_job);
     }).catch(function (error) {
       showError(error.message || String(error));
@@ -555,6 +573,7 @@
     support.postJson(endpoint(endpoints.recheck, editLinkId), {})
       .then(function (data) {
         var stats = data.recheck || {};
+        showQueueReceipt(stats.queue_receipt);
         pollRecheck(stats);
         showRecheckStatus(stats);
       })
