@@ -1910,6 +1910,7 @@ class ChainTaskState(models.Model):
         'ReplaySlot', related_name='chain_task_states',
         blank=True, null=True, on_delete=models.CASCADE,
     )
+    actor_key = models.CharField(max_length=128, editable=False)
     # MySQL treats NULL values as distinct in a unique index.  Keep a
     # non-null namespace key so the official (no replay) state can also be
     # unique per actor/task/mode.
@@ -1926,6 +1927,10 @@ class ChainTaskState(models.Model):
     class Meta:
         # Partial unique indexes per actor type: correct NULL handling on all DBs.
         constraints = [
+            models.UniqueConstraint(
+                fields=['actor_key', 'task', 'game', 'game_mode', 'replay_slot_key'],
+                name='unique_chain_state_actor_context',
+            ),
             models.UniqueConstraint(
                 fields=['team', 'task', 'game', 'game_mode', 'replay_slot_key'],
                 condition=models.Q(team__isnull=False),
@@ -1950,10 +1955,16 @@ class ChainTaskState(models.Model):
         ]
 
     def save(self, *args, **kwargs):
+        if self.team_id is not None:
+            self.actor_key = 'team:{}'.format(self.team_id)
+        elif self.user_id is not None:
+            self.actor_key = 'user:{}'.format(self.user_id)
+        else:
+            self.actor_key = 'anon:{}'.format(self.anon_key)
         self.replay_slot_key = self.replay_slot_id or 0
         update_fields = kwargs.get('update_fields')
         if update_fields is not None and 'replay_slot_key' not in update_fields:
-            kwargs['update_fields'] = set(update_fields) | {'replay_slot_key'}
+            kwargs['update_fields'] = set(update_fields) | {'actor_key', 'replay_slot_key'}
         super().save(*args, **kwargs)
 
     def __str__(self):

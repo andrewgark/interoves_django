@@ -5,6 +5,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.db import OperationalError
 from django.test import Client, TestCase
 from django.utils import timezone
 
@@ -22,6 +23,10 @@ from games.models import (
     Task,
     TaskGroup,
     Team,
+)
+from games.raddle_concurrency import (
+    RADDLE_DEADLOCK_ATTEMPTS,
+    run_raddle_atomic_with_deadlock_retry,
 )
 
 LONG_LADDER = {
@@ -76,6 +81,45 @@ class RaddleUiSyncTests(TestCase):
         client = Client()
         self.assertTrue(client.login(username=username, password='pw'))
         return client
+
+    def test_deadlock_retry_retries_only_1213(self):
+        calls = {'count': 0}
+
+        def flaky():
+            calls['count'] += 1
+            if calls['count'] == 1:
+                raise OperationalError(1213, 'Deadlock found when trying to get lock')
+            return 'ok'
+
+        with self.assertLogs('games.raddle_concurrency', level='WARNING') as logs:
+            self.assertEqual(
+                run_raddle_atomic_with_deadlock_retry(flaky, label='test'),
+                'ok',
+            )
+        self.assertEqual(calls['count'], 2)
+        self.assertIn('raddle deadlock retry attempt=1/3 label=test', '\n'.join(logs.output))
+
+    def test_deadlock_retry_does_not_retry_lock_timeout(self):
+        calls = {'count': 0}
+
+        def timeout():
+            calls['count'] += 1
+            raise OperationalError(1205, 'Lock wait timeout exceeded')
+
+        with self.assertRaises(OperationalError):
+            run_raddle_atomic_with_deadlock_retry(timeout, label='test')
+        self.assertEqual(calls['count'], 1)
+
+    def test_deadlock_retry_is_bounded(self):
+        calls = {'count': 0}
+
+        def deadlock():
+            calls['count'] += 1
+            raise OperationalError(1213, 'Deadlock found when trying to get lock')
+
+        with self.assertRaises(OperationalError):
+            run_raddle_atomic_with_deadlock_retry(deadlock, label='test')
+        self.assertEqual(calls['count'], RADDLE_DEADLOCK_ATTEMPTS)
 
     def test_draft_and_clue_mark_persist_without_task_html(self):
         first = self._client('raddle_ui_one')

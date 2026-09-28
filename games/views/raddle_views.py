@@ -33,6 +33,10 @@ from games.raddle import (
     resolve_assist_tiers,
     serialize_raddle_attempt_text,
 )
+from games.raddle_concurrency import (
+    lock_or_create_raddle_state,
+    run_raddle_atomic_with_deadlock_retry,
+)
 from games.views.game_context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
@@ -459,34 +463,40 @@ def process_send_raddle_ui(request, task_id):
     actor_key, namespace_key = _raddle_ui_identity(
         team=team, user=user, anon_key=anon_key, replay_run_id=replay_run_id,
     )
+    state = {}
+    stale = False
+    revision = 0
 
-    with transaction.atomic():
-        legacy_state = _legacy_raddle_ui_state(
+    def _save_ui_state():
+        nonlocal state, stale, revision
+        lookup = {
+            'team': team,
+            'user': user,
+            'anon_key': anon_key,
+            'task': task,
+            'game': game,
+            'game_mode': current_mode,
+            'replay_slot': replay_slot,
+            'replay_run_id': replay_run_id,
+            'actor_key': actor_key,
+            'namespace_key': namespace_key,
+        }
+        # Compute the legacy fallback only after the first-row parent lock. A
+        # concurrent answer submission may create ChainTaskState while we wait.
+        ui_row = lock_or_create_raddle_state(
+            queryset=RaddleUiState.objects.filter(**lookup),
             task=task,
-            game=game,
-            current_mode=current_mode,
-            team=team,
-            user=user,
-            anon_key=anon_key,
-            replay_slot=replay_slot,
-            n_words=n,
-        )
-        RaddleUiState.objects.get_or_create(
-            team=team, user=user, anon_key=anon_key,
-            task=task, game=game, game_mode=current_mode,
-            replay_slot=replay_slot,
-            replay_run_id=replay_run_id,
-            actor_key=actor_key,
-            namespace_key=namespace_key,
-            defaults=legacy_state,
-        )
-        ui_row = RaddleUiState.objects.select_for_update().get(
-            team=team, user=user, anon_key=anon_key,
-            task=task, game=game, game_mode=current_mode,
-            replay_slot=replay_slot,
-            replay_run_id=replay_run_id,
-            actor_key=actor_key,
-            namespace_key=namespace_key,
+            lookup=lookup,
+            defaults=lambda: _legacy_raddle_ui_state(
+                task=task,
+                game=game,
+                current_mode=current_mode,
+                team=team,
+                user=user,
+                anon_key=anon_key,
+                replay_slot=replay_slot,
+                n_words=n,
+            ),
         )
         state = {
             'drafts': dict(ui_row.drafts or {}),
@@ -505,6 +515,8 @@ def process_send_raddle_ui(request, task_id):
             ui_row.revision = max(ui_row.revision + 1, requested_revision or 0)
             ui_row.save(update_fields=['drafts', 'clue_marks', 'revision', 'updated_at'])
         revision = ui_row.revision
+
+    run_raddle_atomic_with_deadlock_retry(_save_ui_state, label='ui_state')
 
     payload = {'raddle_ui': raddle_ui_payload(state, task.id, revision=revision)}
     if stale:

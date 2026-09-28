@@ -53,6 +53,7 @@ from games.raddle import (
     serialize_raddle_attempt_text,
     word_matches,
 )
+from games.raddle_concurrency import lock_or_create_raddle_state
 
 
 def _raddle_chain_state(task, team, user, anon_key, game, current_mode, replay_slot=None):
@@ -167,21 +168,36 @@ def check_attempt(
             attempt.time = timezone.now()
 
         if is_chain_task:
-            # Ensure the state row exists, then acquire an exclusive row lock.
-            # Two-step pattern avoids needing a single unique_together over nullable fields.
+            # First-row creation is serialized on Task because MySQL does not
+            # materialize Django's conditional UNIQUE constraints here.
+            if team is not None:
+                chain_actor_key = 'team:{}'.format(team.pk)
+            elif user is not None:
+                chain_actor_key = 'user:{}'.format(user.pk)
+            else:
+                chain_actor_key = 'anon:{}'.format(anon_key)
+            chain_lookup = {
+                'team': team,
+                'user': user,
+                'anon_key': anon_key,
+                'task': task,
+                'game': game,
+                'game_mode': current_mode,
+                'replay_slot': attempt.replay_slot,
+                'replay_slot_key': attempt.replay_slot_id or 0,
+                'actor_key': chain_actor_key,
+            }
             with timing_phase(timing_request, 'chain_state_ensure'):
-                ChainTaskState.objects.get_or_create(
-                    team=team, user=user, anon_key=anon_key,
-                    task=task, game=game, game_mode=current_mode,
-                    replay_slot=attempt.replay_slot,
+                chain_state_row = lock_or_create_raddle_state(
+                    queryset=ChainTaskState.objects.filter(**chain_lookup),
+                    task=task,
+                    lookup=chain_lookup,
                     defaults={'state': None},
                 )
             with timing_phase(timing_request, 'chain_state_lock'):
-                chain_state_row = ChainTaskState.objects.select_for_update().get(
-                    team=team, user=user, anon_key=anon_key,
-                    task=task, game=game, game_mode=current_mode,
-                    replay_slot=attempt.replay_slot,
-                )
+                # The helper returns the row locked by primary key. Keep this
+                # phase for timing compatibility with existing observability.
+                chain_state_row = ChainTaskState.objects.select_for_update().get(pk=chain_state_row.pk)
             last_attempt_state = chain_state_row.state
 
         for mode in modes:

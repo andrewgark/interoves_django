@@ -157,7 +157,14 @@ class RaddleUiMySQLConcurrencyTests(TransactionTestCase):
         self.assertEqual([response.status_code for response in results], [200, 200])
         ui_state = RaddleUiState.objects.get(task=self.task, game=self.game)
         self.assertEqual(ui_state.user_id, self.user.pk)
-        self.assertTrue(Attempt.manager.filter(task=self.task, user=self.user).exists())
+        self.assertEqual(
+            Attempt.manager.filter(task=self.task, user=self.user).count(),
+            1,
+        )
+        self.assertEqual(
+            RaddleUiState.objects.filter(task=self.task, game=self.game).count(),
+            1,
+        )
         chain = ChainTaskState.objects.filter(user=self.user, task=self.task).first()
         if chain is not None:
             self.assertNotIn('drafts', json.loads(chain.state or '{}'))
@@ -177,5 +184,9 @@ class RaddleUiMySQLConcurrencyTests(TransactionTestCase):
         self.assertEqual(len(set(ids)), 2)
         self.assertEqual([response.status_code for response in results], [200, 200])
         self.assertEqual(ChainTaskState.objects.filter(user=self.user).count(), 0)
+        self.assertEqual(
+            RaddleUiState.objects.filter(task=self.task, game=self.game).count(),
+            1,
+        )
         ui_state = RaddleUiState.objects.get(task=self.task, game=self.game)
         self.assertEqual(ui_state.user_id, self.user.pk)
