@@ -129,7 +129,12 @@ from games.results_context import (
     results_actor_filter_urls,
     results_actor_kind,
     results_column_count,
-    results_me_participants,
+)
+from games.results_access import (
+    anon_key_from_request,
+    public_exclusion_notice,
+    results_actor_for_request,
+    results_me_participants as build_results_me_participants,
 )
 from games.results_tables import (
     ResultsTaskGroupHeader,
@@ -224,9 +229,7 @@ logger = logging.getLogger(__name__)
 
 def _anon_key_from_request(request):
     """Canonical browser anonymous identity. GET/POST/header/URL are not authority."""
-    if request.user.is_authenticated:
-        return None
-    return gameplay_anon_key(request)
+    return anon_key_from_request(request)
 
 
 def _age_gate_context(game, task_group=None, *, back_url='/'):
@@ -2063,34 +2066,27 @@ def _load_game_results_data(game, mode):
 
 
 def _results_actor_for_request(request, game):
-    """Participant row this viewer would occupy in the current play mode."""
-    team = request.user.profile.team_on if has_profile(request.user) else None
-    play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game, user=request.user)
-    me_personal, me_anon_participant = _results_me_participants(request, play_mode)
-    if play_mode == 'team':
-        return team
-    return me_personal or me_anon_participant
+    """Compatibility wrapper for the viewer's results actor."""
+    return results_actor_for_request(
+        request,
+        game,
+        sections_project_id=NEW_UI_SECTIONS_PROJECT,
+    )
 
 
 def _public_exclusion_notice(request, game, task_group, *, surface):
-    from games.leaderboard import results_exclusion_notice, viewer_results_exclusion_reasons
-
-    user = request.user if getattr(request.user, 'is_authenticated', False) else None
-    reasons = viewer_results_exclusion_reasons(
-        _results_actor_for_request(request, game),
-        task_group=task_group,
-        user=user,
+    """Compatibility wrapper for the public results exclusion notice."""
+    return public_exclusion_notice(
+        request,
+        game,
+        task_group,
+        surface=surface,
+        sections_project_id=NEW_UI_SECTIONS_PROJECT,
     )
-    return results_exclusion_notice(reasons, surface=surface)
 
 
 def _results_me_participants(request, play_mode):
-    return results_me_participants(
-        request,
-        play_mode,
-        anon_key_from_request=_anon_key_from_request,
-    )
+    return build_results_me_participants(request, play_mode)
 
 
 def _results_actor_filter_types(request):
