@@ -121,7 +121,7 @@ from games.play_mode import (
     session_play_mode_key,
 )
 from games.section_navigation import section_ui_context
-from games.results_context import (
+from games.results.context import (
     attach_results_club_badges,
     club_subscriber_user_ids,
     empty_results_rows_context,
@@ -130,18 +130,18 @@ from games.results_context import (
     results_actor_kind,
     results_column_count,
 )
-from games.results_access import (
+from games.results.access import (
     anon_key_from_request,
     public_exclusion_notice,
     results_actor_for_request,
     results_me_participants as build_results_me_participants,
 )
-from games.results_tables import (
+from games.results.tables import (
     ResultsTaskGroupHeader,
     load_results_placements_and_tasks,
     results_table_headers_context,
 )
-from games.results_presentation import paginate_results_rows, render_results_rows_partial
+from games.results.presentation import paginate_results_rows, render_results_rows_partial
 from games.task_result_details import (
     SaladResultHeader,
     SaladResultWord,
