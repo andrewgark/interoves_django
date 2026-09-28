@@ -2125,6 +2125,7 @@ class Attempt(models.Model):
 
     class Meta:
         indexes = [
+            models.Index(fields=['status'], name='games_attempt_status_idx'),
             models.Index(fields=['task', 'team', 'time']),
             models.Index(fields=['task', 'user', 'time']),
             models.Index(fields=['task', 'anon_key', 'time']),

@@ -18,7 +18,9 @@ for required in \
     "$ROOT/games/management/commands/dispatch_recheck_outbox_loop.py" \
     "$ROOT/.platform/hooks/postdeploy/10_enable_word_salad_dispatcher.sh" \
     "$ROOT/games/migrations/0233_wordsaladrecheckjob_pending_resolution.py" \
-    "$ROOT/games/migrations/0234_chaintaskstate_actor_key.py"; do
+    "$ROOT/games/migrations/0234_chaintaskstate_actor_key.py" \
+    "$ROOT/games/migrations/0235_attempt_games_attempt_status_idx.py" \
+    "$ROOT/games/migrations/0236_merge_legacy_chain_state_duplicates.py"; do
     [[ -f "$required" ]] || { echo "Missing recheck prerequisite: $required" >&2; exit 1; }
 done
 
