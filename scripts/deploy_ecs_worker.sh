@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Plan or deploy one ECS worker service. Secret values never leave Secrets Manager.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
+AWS_PROFILE_NAME="${AWS_PROFILE:-default}"
+DEPLOY_PROFILE="normal"
+WORKER="${1:-}"
+IMAGE_URI="${2:-}"
+APPLY=0
+DESIRED_COUNT=0
+MODE=""
+
+usage() {
+    echo "Usage: $0 WORKER IMAGE_URI [--profile quiet|normal|game-day] [--mode ecs-fargate|ecs-fargate-spot] [--desired-count N] [--apply]" >&2
+    exit 2
+}
+
+case "$WORKER" in background|identity|integrations|recheck) ;; *) usage ;; esac
+[[ -n "$IMAGE_URI" ]] || usage
+shift 2
+PROFILE_MODE=""
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        --profile) DEPLOY_PROFILE="${2:-}"; shift 2 ;;
+        --mode) MODE="${2:-}"; shift 2 ;;
+        --desired-count) DESIRED_COUNT="${2:-}"; shift 2 ;;
+        --apply) APPLY=1; shift ;;
+        *) usage ;;
+    esac
+done
+
+case "$DEPLOY_PROFILE" in
+    quiet) [[ "$WORKER" == background ]] && PROFILE_MODE=lambda || PROFILE_MODE=ecs-fargate-spot ;;
+    normal) [[ "$WORKER" == background || "$WORKER" == recheck ]] && PROFILE_MODE=ecs-fargate-spot || PROFILE_MODE=ecs-fargate ;;
+    game-day) PROFILE_MODE=ecs-fargate ;;
+    *) echo "Unsupported profile: $DEPLOY_PROFILE" >&2; exit 2 ;;
+esac
+MODE="${MODE:-$PROFILE_MODE}"
+case "$MODE" in ecs-fargate|ecs-fargate-spot) ;; *) echo "This script deploys ECS modes only: $MODE" >&2; exit 2 ;; esac
+if [[ "$WORKER" == integrations && "$MODE" == ecs-fargate-spot ]]; then
+    echo "Integrations worker is On-Demand only until external side effects are verified." >&2
+    exit 2
+fi
+[[ "$DESIRED_COUNT" =~ ^[0-9]+$ ]] || { echo "Desired count must be a non-negative integer." >&2; exit 2; }
+
+aws_cmd() { AWS_PROFILE="$AWS_PROFILE_NAME" AWS_DEFAULT_REGION="$REGION" aws "$@"; }
+PYTHON="$ROOT/../venv/interoves_django/bin/python"
+[[ -x "$PYTHON" ]] || { echo "Missing project venv: $PYTHON" >&2; exit 2; }
+
+ENVIRONMENT="interoves-${WORKER}-worker"
+[[ "$WORKER" == recheck ]] && ENVIRONMENT=interoves-recheck-worker
+env_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name "$ENVIRONMENT" --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environment`].{name:OptionName,value:Value}' --output json)"
+secret_names_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name "$ENVIRONMENT" --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environmentsecrets`].OptionName' --output json)"
+all_secrets_json="$(aws_cmd secretsmanager list-secrets --query "SecretList[?starts_with(Name, 'interoves/production/')].{name:Name,arn:ARN}" --output json)"
+config_json="$(printf '%s\0%s\0%s\0' "$env_json" "$secret_names_json" "$all_secrets_json" | "$PYTHON" -c '
+import json, sys
+env, names, secrets = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:3]]
+values = {item["name"]: item.get("value", "") for item in env}
+arns = {item["name"]: item["arn"] for item in secrets}
+secret_map = {}
+for name in names:
+    arn = arns.get("interoves/production/" + name)
+    if not arn:
+        raise SystemExit("Missing Secrets Manager reference: " + name)
+    secret_map[name] = arn
+print(json.dumps({"values": values, "secret_map": secret_map}, separators=(",", ":")))
+')"
+value() { printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(json.load(sys.stdin)["values"].get(sys.argv[1], ""))' "$1"; }
+secret_map="$(printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["secret_map"], separators=(",", ":")))')"
+secret_arns="$(printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(",".join(json.load(sys.stdin)["secret_map"].values()))')"
+RDS_SECRET_ARN="$(value RDS_SECRET_ARN)"
+[[ -n "$RDS_SECRET_ARN" && "$RDS_SECRET_ARN" != None ]] || { echo "RDS_SECRET_ARN missing in $ENVIRONMENT" >&2; exit 1; }
+secret_arns="$secret_arns,$RDS_SECRET_ARN"
+
+QUEUE_NAME="interoves-${WORKER}"
+QUEUE_URL="$(aws_cmd sqs get-queue-url --queue-name "$QUEUE_NAME" --query QueueUrl --output text)"
+QUEUE_ARN="$(aws_cmd sqs get-queue-attributes --queue-url "$QUEUE_URL" --attribute-names QueueArn --query Attributes.QueueArn --output text)"
+TASK_ROLE_STACK="interoves-${WORKER}-task-role"
+SERVICE_STACK="interoves-${WORKER}-ecs-service"
+TASK_ROLE_ARN="$(aws_cmd cloudformation describe-stacks --stack-name "$TASK_ROLE_STACK" --query "Stacks[0].Outputs[?OutputKey=='TaskRoleArn'].OutputValue" --output text 2>/dev/null || true)"
+EXECUTION_ROLE_ARN="$(aws_cmd cloudformation describe-stacks --stack-name interoves-ecs-foundation --query "Stacks[0].Outputs[?OutputKey=='ExecutionRoleArn'].OutputValue" --output text)"
+
+echo "worker=$WORKER environment=$ENVIRONMENT profile=$DEPLOY_PROFILE aws_profile=$AWS_PROFILE_NAME mode=$MODE desired_count=$DESIRED_COUNT"
+echo "image=$IMAGE_URI queue=$QUEUE_NAME service_stack=$SERVICE_STACK"
+if [[ "$APPLY" != 1 ]]; then echo "plan_only=true (pass --apply to change AWS)"; exit 0; fi
+
+aws_cmd cloudformation deploy --stack-name "$TASK_ROLE_STACK" --template-file "$ROOT/infra/ecs/worker-task-role.yaml" --parameter-overrides WorkerName="$WORKER" QueueArn="$QUEUE_ARN" ConfigSecretArns="$secret_arns" --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset
+TASK_ROLE_ARN="$(aws_cmd cloudformation describe-stacks --stack-name "$TASK_ROLE_STACK" --query "Stacks[0].Outputs[?OutputKey=='TaskRoleArn'].OutputValue" --output text)"
+aws_cmd cloudformation deploy --stack-name "$SERVICE_STACK" --template-file "$ROOT/infra/ecs/worker-service.yaml" --parameter-overrides ClusterName=interoves-workers ServiceName="interoves-${WORKER}-ecs" WorkerName="$WORKER" RuntimeRole="${WORKER}-worker" DeploymentMode="$MODE" ImageUri="$IMAGE_URI" TaskExecutionRoleArn="$EXECUTION_ROLE_ARN" TaskRoleArn="$TASK_ROLE_ARN" QueueUrl="$QUEUE_URL" ConfigSecretArn='' ConfigSecretMap="$secret_map" SubnetIds=subnet-0e7ac84df47a7682e,subnet-0b535aae08d1dd20f SecurityGroupIds=sg-0e8becbf991186aba DesiredCount="$DESIRED_COUNT" LogGroupName="/interoves/workers/$WORKER" RdsSecretArn="$RDS_SECRET_ARN" RdsDbName="$(value RDS_DB_NAME)" RdsHostname="$(value RDS_HOSTNAME)" RdsPort="$(value RDS_PORT)" RdsUsername="$(value RDS_USERNAME)" RedisHost="$(value REDIS_HOST)" RedisPort="$(value REDIS_PORT)" RedisTls="$(value REDIS_TLS)" IsProd="$(value IS_PROD)" DebugOn="$(value DEBUG_ON)" AsgiThreads="$(value ASGI_THREADS)" ExtraAllowedHosts="$(value EXTRA_ALLOWED_HOSTS)" TributeClubSubscriptionEurId="$(value TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID)" TributeClubSubscriptionEurUrl="$(value TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL)" --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset
