@@ -1,7 +1,7 @@
 from django.urls import path, re_path
 from django.views.generic import RedirectView
 
-from games.section_urls import section_root_urlpatterns
+from games.sections.urls import section_root_urlpatterns
 from games.views import ui
 from games.views.registration import register_to_game
 from games.views.views import (

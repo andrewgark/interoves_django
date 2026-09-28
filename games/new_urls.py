@@ -3,7 +3,7 @@
 from django.urls import path, re_path
 from django.views.generic import RedirectView
 
-from games.section_urls import section_root_urlpatterns
+from games.sections.urls import section_root_urlpatterns
 from games.views import ui
 
 urlpatterns = [
