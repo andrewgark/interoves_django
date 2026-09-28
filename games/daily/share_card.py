@@ -12,7 +12,7 @@ import html
 from datetime import date, datetime
 from typing import Any, Iterable, Optional
 
-from games.share_result import format_elapsed_compact
+from games.results.share import format_elapsed_compact
 from django.utils.html import strip_tags
 
 RENDERER_VERSION = '4'

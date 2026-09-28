@@ -19,7 +19,7 @@ from games.models import (
     AnonAccountClaim, Attempt, DailySolveTiming, GameTaskGroup, HintAttempt,
     PlayerCompletedGame, PlayerStartedGame,
 )
-from games.share_result import elapsed_seconds_from_attempts
+from games.results.share import elapsed_seconds_from_attempts
 
 
 TIMING_FIELDS = (

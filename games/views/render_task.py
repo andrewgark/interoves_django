@@ -274,7 +274,7 @@ def render_new_ui_task_card_html(
     if is_daily_single_task and slot is not None:
         from games.difficulty import get_cached_game_difficulties
         difficulty = get_cached_game_difficulties([slot]).get(slot.pk)
-    from games.share_result import share_host_from_request
+    from games.results.share import share_host_from_request
     return render(request, 'new/partials/task_card.html', {
         'game': game,
         'task_group': task_group,

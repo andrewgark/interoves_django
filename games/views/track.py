@@ -39,7 +39,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from games.models import Attempt, Game, GameTaskGroup, Task
 from games.auth_observability import log_realtime_sync
-from games.share_result import DEFAULT_SHARE_HOST
+from games.results.share import DEFAULT_SHARE_HOST
 from games.views.render_task import update_task_html
 
 logger = logging.getLogger(__name__)

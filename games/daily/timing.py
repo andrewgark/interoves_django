@@ -16,7 +16,7 @@ from django.db import IntegrityError, OperationalError, transaction
 from django.utils import timezone
 
 from games.models import DailySolveTiming
-from games.share_result import elapsed_seconds_from_attempts, format_elapsed
+from games.results.share import elapsed_seconds_from_attempts, format_elapsed
 
 TIMING_VERSION_ACTIVE = DailySolveTiming.TIMING_VERSION_ACTIVE
 STATUS_RUNNING = DailySolveTiming.STATUS_RUNNING

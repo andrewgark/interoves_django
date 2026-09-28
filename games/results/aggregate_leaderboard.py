@@ -20,7 +20,7 @@ PAGE_SIZE = 50
 def _format_aggregate_time(seconds):
     if seconds is None:
         return ''
-    from games.share_result import format_elapsed_compact
+    from games.results.share import format_elapsed_compact
     return format_elapsed_compact(seconds)
 
 

@@ -209,7 +209,7 @@ from games.word_salad import (
     parse_task_payload as parse_word_salad_task_payload,
     salad_hub_result_for_actor,
 )
-from games.share_result import share_host_from_request
+from games.results.share import share_host_from_request
 from games.proportions import build_proportions_chips_for_tasks
 from games.views.game_context import game_from_request_for_task
 from games.views.main_page import MainPageView
@@ -2359,7 +2359,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
 
     team_to_solve_duration = {}
     if mode == 'general' and task_group_number is not None:
-        from games.share_result import format_elapsed_compact
+        from games.results.share import format_elapsed_compact
         team_to_solve_duration = {
             actor: format_elapsed_compact(seconds)
             for actor, seconds in solve_duration_seconds.items() if actor in teams_sorted

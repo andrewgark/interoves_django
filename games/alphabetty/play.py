@@ -18,7 +18,7 @@ from games.alphabetty.core import (
     normalize_word,
 )
 from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
-from games.share_result import format_elapsed, format_share_link, share_path
+from games.results.share import format_elapsed, format_share_link, share_path
 
 # Базовые очки за угаданное слово; каждая буквенная подсказка −1.
 ALPHABETTY_BASE_POINTS = 10

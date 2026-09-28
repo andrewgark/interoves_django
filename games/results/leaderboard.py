@@ -1,7 +1,7 @@
 """Shared public leaderboard eligibility and sporting-place semantics."""
 
 from django.db.models import Q
-from games.share_result import format_elapsed_compact
+from games.results.share import format_elapsed_compact
 
 from games.models import DailySolveTiming, HiddenAnonKey, Profile, TaskGroup, Team
 
@@ -234,7 +234,7 @@ def canonical_leaderboard_durations(*, game, task_group, actors, fallback_actors
     missing = [actor for actor in actors if actor not in result]
     if missing:
         from games.models import Attempt
-        from games.share_result import elapsed_seconds_from_attempts
+        from games.results.share import elapsed_seconds_from_attempts
 
         attempts_by_key = {}
         for attempt in Attempt.manager.filter(
