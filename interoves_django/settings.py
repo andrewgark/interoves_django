@@ -887,7 +887,7 @@ TRIBUTE_INTENT_TTL_MINUTES = int(os.environ.get('TRIBUTE_INTENT_TTL_MINUTES') or
 # Club recurring subscriptions (Tribute creator subscriptions, not Shop API).
 # The public /subscription/ page is hidden (noindex, no nav links).
 # Payments and archive gating can be enabled independently.
-CLUB_PAYMENTS_ENABLED = _env_flag_default('CLUB_PAYMENTS_ENABLED', True)
+CLUB_PAYMENTS_ENABLED = _env_flag_default('CLUB_PAYMENTS_ENABLED', IS_PROD)
 CLUB_ARCHIVE_GATING_ENABLED = _env_flag_default('CLUB_ARCHIVE_GATING_ENABLED', False)
 # RUB Club billing via YooKassa (separate from Tribute EUR). Default off.
 CLUB_YOOKASSA_ENABLED = _env_flag_default('CLUB_YOOKASSA_ENABLED', False)
