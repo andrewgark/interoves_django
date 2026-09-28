@@ -64,3 +64,8 @@ the exact referenced ARNs.
 The ECS polling adapter uses the same private native-sqsd compatibility path as
 the current recheck worker, so `RECHECK_WORKER_HMAC_SECRET` is not required for
 that mode. HMAC remains available for explicitly signed HTTP callers.
+
+`ecr.yaml` defines the image repository separately. Tags are immutable, scans
+run on push, and old untagged/tagged images are cleaned up by lifecycle rules.
+The repository has `Retain` deletion policies so deleting a stack cannot delete
+worker images accidentally.
