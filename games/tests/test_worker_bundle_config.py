@@ -1,0 +1,26 @@
+import json
+from pathlib import Path
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+class RecheckWorkerBundleConfigTests(unittest.TestCase):
+    def test_packaging_includes_dedicated_worker_hooks(self):
+        script = (ROOT / 'scripts' / 'prepare_eb_bundle.sh').read_text()
+        self.assertIn('interoves-recheck-worker', script)
+        self.assertIn('09_populate_recheck_secret.sh', script)
+        self.assertIn('10_enable_word_salad_dispatcher.sh', script)
+        self.assertIn('.platform/recheck-worker.marker', script)
+
+    def test_worker_template_has_django_secret_and_dispatcher_permissions(self):
+        options = (ROOT / 'infra/elasticbeanstalk/future/worker/option-settings.config').read_text()
+        self.assertIn('DJANGO_SECRET_KEY: __DJANGO_SECRET_KEY_ARN__', options)
+
+        policy = json.loads(
+            (ROOT / 'infra/elasticbeanstalk/future/worker/worker-instance-iam-policy.json').read_text()
+        )
+        statements = {statement['Sid']: statement for statement in policy['Statement']}
+        self.assertIn('sqs:SendMessage', statements['ReceiveRecheckMessages']['Action'])
+        self.assertIn('__DJANGO_SECRET_KEY_ARN__', statements['WorkerSecrets']['Resource'])

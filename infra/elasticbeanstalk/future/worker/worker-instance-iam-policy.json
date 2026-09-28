@@ -9,7 +9,8 @@
         "sqs:DeleteMessage",
         "sqs:GetQueueAttributes",
         "sqs:GetQueueUrl",
-        "sqs:ReceiveMessage"
+        "sqs:ReceiveMessage",
+        "sqs:SendMessage"
       ],
       "Resource": "__RECHECK_QUEUE_ARN__"
     },
@@ -17,7 +18,11 @@
       "Sid": "WorkerSecrets",
       "Effect": "Allow",
       "Action": ["secretsmanager:GetSecretValue"],
-      "Resource": ["__RDS_SECRET_ARN__", "__WORKER_HMAC_SECRET_ARN__"]
+      "Resource": [
+        "__RDS_SECRET_ARN__",
+        "__DJANGO_SECRET_KEY_ARN__",
+        "__WORKER_HMAC_SECRET_ARN__"
+      ]
     },
     {
       "Sid": "WorkerMetrics",
@@ -40,6 +45,7 @@
       "Sid": "WorkerLogs",
       "Effect": "Allow",
       "Action": [
+        "logs:CreateLogGroup",
         "logs:CreateLogStream",
         "logs:DescribeLogStreams",
         "logs:PutLogEvents"
