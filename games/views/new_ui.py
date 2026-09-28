@@ -120,6 +120,7 @@ from games.play_mode import (
     get_play_mode,
     session_play_mode_key,
 )
+from games.section_navigation import section_ui_context
 from games.models import (
     Attempt,
     AudioManager,
@@ -688,17 +689,13 @@ def _project_urls_context(project_id: str | None):
 
 def _section_ui_context(game):
     """Common section flags and URLs; format-specific views add their own extras."""
-    is_section = getattr(game, 'project_id', None) == NEW_UI_SECTIONS_PROJECT
-    if not is_section:
-        return {}
-    from games.section_paths import section_results_path
-
-    return {
-        'is_ladder_section': game.id == LADDER_GAME_ID,
-        'is_alphabetty_section': game.id == ALPHABETTY_GAME_ID,
-        'is_salad_section': game.id == WORD_SALAD_GAME_ID,
-        'section_results_url': section_results_path(game.id),
-    }
+    return section_ui_context(
+        game,
+        sections_project_id=NEW_UI_SECTIONS_PROJECT,
+        ladder_game_id=LADDER_GAME_ID,
+        alphabetty_game_id=ALPHABETTY_GAME_ID,
+        salad_game_id=WORD_SALAD_GAME_ID,
+    )
 
 
 def _scoped_project_id(request) -> str | None:
