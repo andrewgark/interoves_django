@@ -2,7 +2,7 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import user_passes_test
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
-from games.exception import *
+from games.exception import CantRegisterException, NoTicketsException
 from games.models import Registration, Game, Team
 from games.views.util import has_team, redirect_to_referer
 

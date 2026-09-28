@@ -1,7 +1,7 @@
 from django.core.validators import validate_email
 from django.forms import Form, ModelForm, ChoiceField, TextInput, HiddenInput, BooleanField, RadioSelect
 from django import forms
-from games.models import *
+from games.models import Attempt, CorporateGameOrder, Team, TicketRequest
 
 
 class CreateTeamForm(ModelForm):    
