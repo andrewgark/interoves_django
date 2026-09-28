@@ -53,7 +53,7 @@ def serialize_enqueue_result(result):
         'jobs': [{
             'id': job.pk,
             'url': '/support/queues/api/jobs/{}/'.format(job.pk),
-            'observatory_url': '/support/queues/#job-{}'.format(job.pk),
+            'observatory_url': '/support/queues/recheck/{}/'.format(job.pk),
             'created': result.created,
             'coalesced': result.coalesced,
             'status': job.status,

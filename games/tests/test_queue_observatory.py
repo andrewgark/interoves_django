@@ -116,6 +116,24 @@ class QueueObservatoryTests(TestCase):
         self.assertEqual(payload['explanation']['code'], 'waiting_for_dispatch')
         self.assertEqual(payload['items'][0]['explanation']['code'], 'waiting_for_dispatch')
 
+    def test_canonical_job_page_contains_items_and_outbox(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(
+            reverse('support:queue_observatory_job_page', kwargs={'job_id': self.job.pk}),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Queue job #{}'.format(self.job.pk))
+        self.assertContains(response, 'Items')
+        self.assertContains(response, 'Outbox')
+        self.assertContains(response, '#{}'.format(self.item.pk))
+
+    def test_canonical_job_page_requires_support_access(self):
+        response = self.client.get(
+            reverse('support:queue_observatory_job_page', kwargs={'job_id': self.job.pk}),
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/support/login/', response.url)
+
     def test_running_expired_lease_is_explained_as_stale(self):
         self.job.status = WordSaladRecheckJob.STATUS_RUNNING
         self.job.claimed_until = timezone.now() - timedelta(seconds=1)

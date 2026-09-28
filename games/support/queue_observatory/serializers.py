@@ -91,6 +91,7 @@ def serialize_job_summary(job, *, counts=None, now=None):
     return {
         'id': job.pk,
         'url': reverse('support:queue_observatory_job_detail', kwargs={'job_id': job.pk}),
+        'observatory_url': reverse('support:queue_observatory_job_page', kwargs={'job_id': job.pk}),
         'task_id': job.task_id,
         'game_id': job.game_id,
         'task_revision': str(job.task_revision),

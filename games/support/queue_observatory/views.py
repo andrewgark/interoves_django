@@ -1,6 +1,7 @@
 """Read-only JSON endpoints for queue observability."""
 
 from django.http import JsonResponse
+from django.shortcuts import render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_GET
@@ -90,3 +91,15 @@ def job_detail(request, job_id):
     if job is None:
         return JsonResponse({'ok': False, 'error': 'Job not found'}, status=404)
     return JsonResponse({'ok': True, 'job': serialize_job_detail(job, items=job.items.all())})
+
+
+@support_console_required
+@require_GET
+def job_detail_page(request, job_id):
+    job = job_detail_queryset().filter(pk=job_id).first()
+    if job is None:
+        from django.http import Http404
+        raise Http404('Job not found')
+    return render(request, 'support/queue_observatory/job_detail.html', {
+        'job': serialize_job_detail(job, items=job.items.all()),
+    })

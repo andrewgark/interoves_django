@@ -1,0 +1,46 @@
+{% extends "support/base.html" %}
+{% block title %}Queue job #{{ job.id }} · Support{% endblock %}
+{% block support_content %}
+<div class="support-page-head">
+  <div>
+    <h1 class="support-page-title">Queue job #{{ job.id }}</h1>
+    <p class="support-hint">{{ job.explanation.label }} · {{ job.status }} · {{ job.replay_mode }}</p>
+  </div>
+  <div class="support-links"><a href="{% url 'support:queues' %}#job-{{ job.id }}">← Observatory</a></div>
+</div>
+
+<section class="pal-card new-card">
+  <h2 class="support-page-title">Job</h2>
+  <p>Task {{ job.task_id }} · Game {{ job.game_id }} · revision {{ job.task_revision }}</p>
+  <p>Progress: {{ job.completed_items }} / {{ job.total_items }} ({{ job.progress }}%) · created {{ job.created_at }}</p>
+  <p>Started: {{ job.started_at|default:'—' }} · finished: {{ job.completed_at|default:'—' }} · attempts: {{ job.attempt_count }}</p>
+  {% if job.last_error %}<p class="support-queue-failed">{{ job.last_error }}</p>{% endif %}
+</section>
+
+<section class="pal-card new-card">
+  <h2 class="support-page-title">Items</h2>
+  <div class="support-table-wrap"><table class="support-table support-table--compact">
+    <thead><tr><th>ID</th><th>Actor</th><th>Status</th><th>Attempts</th><th>Created</th><th>Started</th><th>Finished</th><th>Why</th><th>Error</th></tr></thead>
+    <tbody>{% for item in job.items %}
+      <tr>
+        <td class="support-cell-mono">#{{ item.id }}</td>
+        <td>{{ item.actor.team_name|default:item.actor.username|default:item.actor.anon_key|default:item.actor.actor_key }}</td>
+        <td>{{ item.status }}</td><td>{{ item.attempt_count }}</td>
+        <td>{{ item.created_at }}</td><td>{{ item.started_at|default:'—' }}</td><td>{{ item.completed_at|default:'—' }}</td>
+        <td>{{ item.explanation.label }}</td><td>{{ item.last_error|default:'—' }}</td>
+      </tr>
+    {% empty %}<tr><td colspan="9">Items нет.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+
+<section class="pal-card new-card">
+  <h2 class="support-page-title">Outbox</h2>
+  <div class="support-table-wrap"><table class="support-table support-table--compact">
+    <thead><tr><th>ID</th><th>Item</th><th>Status</th><th>Attempts</th><th>Created</th><th>Sent</th><th>Next attempt</th><th>Error</th></tr></thead>
+    <tbody>{% for row in job.outbox %}
+      <tr><td class="support-cell-mono">#{{ row.id }}</td><td>#{{ row.item_id }}</td><td>{{ row.status }}</td><td>{{ row.attempts }}</td><td>{{ row.created_at }}</td><td>{{ row.sent_at|default:'—' }}</td><td>{{ row.next_attempt_at|default:'—' }}</td><td>{{ row.last_error|default:'—' }}</td></tr>
+    {% empty %}<tr><td colspan="8">Outbox records нет.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="support-hint">Timeline событий здесь не синтезируется: текущая архитектура не хранит полноценный event log.</p>
+</section>
+{% endblock %}

@@ -137,7 +137,7 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertEqual(second_payload['jobs'][0]['id'], first.job.pk)
         self.assertEqual(
             second_payload['jobs'][0]['observatory_url'],
-            '/support/queues/#job-{}'.format(first.job.pk),
+            '/support/queues/recheck/{}/'.format(first.job.pk),
         )
 
     def test_full_recheck_receipt_lists_superseded_work(self):
