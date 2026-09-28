@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Parameterized Interoves worker service for ECS Fargate or Fargate Spot.
+
+Parameters:
+  ClusterName:
+    Type: String
+  ServiceName:
+    Type: String
+  WorkerName:
+    Type: String
+    AllowedValues: [background, identity, integrations, recheck]
+  RuntimeRole:
+    Type: String
+  DeploymentMode:
+    Type: String
+    AllowedValues: [ecs-fargate, ecs-fargate-spot]
+  ImageUri:
+    Type: String
+    Description: Immutable application image URI, preferably including a digest.
+  TaskExecutionRoleArn:
+    Type: String
+  TaskRoleArn:
+    Type: String
+  QueueUrl:
+    Type: String
+  ConfigSecretArn:
+    Type: String
+    NoEcho: true
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+  SecurityGroupIds:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+  Cpu:
+    Type: String
+    Default: '512'
+  Memory:
+    Type: String
+    Default: '1024'
+  DesiredCount:
+    Type: Number
+    Default: 1
+    MinValue: 0
+  LogGroupName:
+    Type: String
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+
+Conditions:
+  IsSpot: !Equals [!Ref DeploymentMode, ecs-fargate-spot]
+
+Resources:
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref LogGroupName
+      RetentionInDays: !Ref LogRetentionDays
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref ServiceName
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: !Ref Cpu
+      Memory: !Ref Memory
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      ContainerDefinitions:
+        - Name: !Ref WorkerName
+          Image: !Ref ImageUri
+          Essential: true
+          WorkingDirectory: /app
+          Command:
+            - python
+            - manage.py
+            - run_worker
+            - --worker
+            - !Ref WorkerName
+            - --mode
+            - !Ref DeploymentMode
+          Environment:
+            - Name: INTEROVES_RUNTIME_ROLE
+              Value: !Ref RuntimeRole
+            - Name: INTEROVES_WORKER_NAME
+              Value: !Ref WorkerName
+            - Name: INTEROVES_DEPLOYMENT_MODE
+              Value: !Ref DeploymentMode
+            - Name: WORKER_QUEUE_URL
+              Value: !Ref QueueUrl
+            - Name: INTEROVES_CONFIG_SECRET_ID
+              Value: !Ref ConfigSecretArn
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref AWS::Region
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroupName
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: !Ref WorkerName
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn: LogGroup
+    Properties:
+      ServiceName: !Ref ServiceName
+      Cluster: !Ref ClusterName
+      DesiredCount: !Ref DesiredCount
+      CapacityProviderStrategy:
+        - CapacityProvider: !If [IsSpot, FARGATE_SPOT, FARGATE]
+          Weight: 1
+      TaskDefinition: !Ref TaskDefinition
+      EnableECSManagedTags: true
+      PropagateTags: SERVICE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups: !Ref SecurityGroupIds
+
+Outputs:
+  ServiceName:
+    Value: !Ref Service
+  TaskDefinitionArn:
+    Value: !Ref TaskDefinition
