@@ -1512,7 +1512,7 @@ class AttemptManager(models.Manager):
         return GameTaskGroup.resolve_game_for_task(row.hint.task)
 
     def get_all_attempts(self, team, task, exclude_skip=True, user=None, anon_key=None, game=None, replay_slot=None):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().select_related('task')
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
         queryset = self._filter_by_actor(queryset, team=team, user=user, anon_key=anon_key)
