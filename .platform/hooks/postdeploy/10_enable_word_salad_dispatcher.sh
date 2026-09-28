@@ -35,16 +35,17 @@ cat >/etc/systemd/system/interoves-recheck-dispatcher.service <<'UNIT'
 Description=Inter Oves recheck transactional outbox dispatcher
 After=network-online.target
 Wants=network-online.target
-Requires=web-secrets-populate.service
 After=web-secrets-populate.service
 
 [Service]
 Type=simple
 User=webapp
 WorkingDirectory=/var/app/current
-EnvironmentFile=/opt/elasticbeanstalk/deployment/env
-EnvironmentFile=/opt/elasticbeanstalk/deployment/secrets/web
+EnvironmentFile=-/opt/elasticbeanstalk/deployment/env
+EnvironmentFile=-/opt/elasticbeanstalk/deployment/secrets/web
 ExecStart=/usr/local/bin/interoves-recheck-dispatcher
+StandardOutput=append:/var/log/app/recheck-dispatcher.log
+StandardError=append:/var/log/app/recheck-dispatcher.log
 Restart=always
 RestartSec=5
 KillSignal=SIGTERM
