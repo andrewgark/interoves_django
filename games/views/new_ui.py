@@ -109,6 +109,7 @@ from games.task_group_navigation import (
     results_url_for_task_group,
     task_group_page_nav_context,
 )
+from games.project_navigation import project_base, project_urls_context
 from games.models import (
     Attempt,
     AudioManager,
@@ -660,37 +661,19 @@ def _section_tutorial_html_for_game(game):
 
 
 def _project_base(project_id: str | None) -> str:
-    """
-    URL base prefix for project-scoped UI.
-
-    - main project lives at site root -> ""
-    - other projects live under "/<project_id>" -> "/glowbyte"
-    """
-    pid = (project_id or '').strip()
-    # "sections" is a DB project for hub tiles (/section/<id>/), not a URL prefix like /glowbyte/.
-    if not pid or pid in (NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT):
-        return ''
-    # Project ids in this repo are simple slugs, but keep it defensive.
-    if '/' in pid:
-        pid = pid.replace('/', '')
-    return '/' + pid
+    return project_base(
+        project_id,
+        main_project_id=NEW_UI_PROJECT,
+        sections_project_id=NEW_UI_SECTIONS_PROJECT,
+    )
 
 
 def _project_urls_context(project_id: str | None):
-    """
-    Common URLs for templates to keep navigation inside current project scope.
-    """
-    base = _project_base(project_id)
-    return {
-        'ui_project_id': project_id or NEW_UI_PROJECT,
-        'ui_project_base': base,  # no trailing slash
-        'ui_project_home_url': (base + '/') or '/',
-        'ui_project_games_url': (base + '/games/') if base else '/games/',
-        'ui_project_team_url': (base + '/team/') if base else '/team/',
-        'ui_project_profile_url': (base + '/profile/') if base else '/profile/',
-        'ui_project_reports_url': (base + '/profile/reports/') if base else '/profile/reports/',
-        'ui_project_pay_url': (base + '/pay/') if base else '/pay/',
-    }
+    return project_urls_context(
+        project_id,
+        main_project_id=NEW_UI_PROJECT,
+        sections_project_id=NEW_UI_SECTIONS_PROJECT,
+    )
 
 
 def _section_ui_context(game):
