@@ -10,11 +10,17 @@ if [[ -r /opt/elasticbeanstalk/deployment/env ]]; then
   set +a
 fi
 
+WORKER_BUNDLE_MARKER=/var/app/current/.recheck-worker
+if [[ -f "$WORKER_BUNDLE_MARKER" ]]; then
+  INTEROVES_RUNTIME_ROLE=worker
+  RECHECK_DISPATCHER_ENABLED=true
+fi
+
 # The dispatcher is enabled explicitly per EB environment.  Some worker
 # environments do not expose INTEROVES_RUNTIME_ROLE to platform hooks, so an
 # absent role must not silently disable the service.  Only an explicit web
 # role is forbidden from installing the dispatcher.
-if [[ "${INTEROVES_RUNTIME_ROLE:-}" == "web" ]]; then
+if [[ "${INTEROVES_RUNTIME_ROLE:-}" == "web" && ! -f "$WORKER_BUNDLE_MARKER" ]]; then
   exit 0
 fi
 
