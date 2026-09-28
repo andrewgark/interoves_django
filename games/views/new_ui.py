@@ -109,7 +109,12 @@ from games.task_group_navigation import (
     results_url_for_task_group,
     task_group_page_nav_context,
 )
-from games.project_navigation import project_base, project_urls_context
+from games.project_navigation import (
+    main_team_page_urls,
+    project_base,
+    project_team_page_urls,
+    project_urls_context,
+)
 from games.models import (
     Attempt,
     AudioManager,
@@ -704,34 +709,11 @@ def _scoped_project_id(request) -> str | None:
 
 
 def _main_team_page_urls():
-    return {
-        'ui_team_url_hub': reverse('new_team'),
-        'ui_team_url_create': reverse('new_team_create'),
-        'ui_team_url_join': reverse('new_team_join_page'),
-        'ui_team_url_name_check': reverse('new_team_name_check'),
-        'ui_team_url_info': reverse('new_team_info'),
-        'ui_team_url_request_join': reverse('new_team_request_join'),
-        'ui_team_url_join_by_password': reverse('new_team_join_by_password'),
-        'ui_team_url_password': reverse('new_team_password'),
-        'ui_team_url_rename': reverse('new_team_rename'),
-        'ui_team_url_set_primary': reverse('new_team_set_primary'),
-    }
+    return main_team_page_urls()
 
 
 def _project_team_page_urls(project_id: str):
-    k = {'project_id': project_id}
-    return {
-        'ui_team_url_hub': reverse('project_team', kwargs=k),
-        'ui_team_url_create': reverse('project_team_create', kwargs=k),
-        'ui_team_url_join': reverse('project_team_join_page', kwargs=k),
-        'ui_team_url_name_check': reverse('project_team_name_check', kwargs=k),
-        'ui_team_url_info': reverse('project_team_info', kwargs=k),
-        'ui_team_url_request_join': reverse('project_team_request_join', kwargs=k),
-        'ui_team_url_join_by_password': reverse('project_team_join_by_password', kwargs=k),
-        'ui_team_url_password': reverse('project_team_password', kwargs=k),
-        'ui_team_url_rename': reverse('project_team_rename', kwargs=k),
-        'ui_team_url_set_primary': reverse('project_team_set_primary', kwargs=k),
-    }
+    return project_team_page_urls(project_id)
 
 
 def _merge_nav_project_for_scope(ctx: dict, request, scoped_id: str | None):
