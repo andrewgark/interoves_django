@@ -85,6 +85,10 @@ rsync -a --delete-delay \
 # The dedicated recheck worker owns the dispatcher hook in this checkout.  The
 # rest of the EB configuration remains inherited from the live bundle above.
 if [[ "$ENV_NAME" == "interoves-recheck-worker" ]]; then
+    # This dedicated queue worker must not run the legacy web/background
+    # migration hook during every code deploy.  It can fail on worker-only
+    # configuration and block the dispatcher from starting.
+    rm -f "$stage/.platform/hooks/postdeploy/02_background_migrations.sh"
     install -D -m 0755 \
         "$ROOT/.platform/hooks/postdeploy/09_populate_recheck_secret.sh" \
         "$stage/.platform/hooks/postdeploy/09_populate_recheck_secret.sh"
