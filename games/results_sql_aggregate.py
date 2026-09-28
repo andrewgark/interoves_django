@@ -239,58 +239,76 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None, actor_filter=None, i
     if actor_filter:
         attempt_base = attempt_base.filter(**actor_filter)
 
-    # Query each native actor column separately. The previous CASE/CONCAT
-    # partition key prevented MySQL from using the existing task+actor indexes
-    # and dominated slow-query logs on large games.
-    count_rows = []
+    # Partition by native actor columns instead of a CASE/CONCAT actor key so
+    # MySQL can still use the task+actor indexes.  Count and pending state are
+    # window aggregates in the same query as best-attempt selection: the old
+    # implementation did three count queries plus three ROW_NUMBER queries.
+    actor_clause = Q()
+    for _kind, _actor_field, clause in _attempt_actor_specs():
+        actor_clause |= clause
+    attempt_base = attempt_base.filter(actor_clause)
+
     best_by = {}
-    for kind, actor_field, actor_clause in _attempt_actor_specs():
-        actor_counts = (
-            attempt_base.filter(actor_clause)
-            .values('task_id', actor_field)
-            .annotate(
-                n_attempts=Count('id'),
-                has_pending=Max(
+    actor_partition = [
+        F('task_id'), F('team_id'), F('user_id'), F('anon_key'),
+    ]
+    best_qs = (
+        attempt_base
+        .annotate(
+            status_rank=_status_rank_annotation(),
+            n_attempts=Window(
+                expression=Count('id'),
+                partition_by=actor_partition,
+            ),
+            has_pending=Window(
+                expression=Max(
                     Case(
                         When(status='Pending', then=Value(1)),
                         default=Value(0),
                         output_field=IntegerField(),
                     )
                 ),
-            )
+                partition_by=actor_partition,
+            ),
+            rn=Window(
+                expression=RowNumber(),
+                partition_by=actor_partition,
+                order_by=[
+                    F('points').desc(),
+                    F('status_rank').desc(),
+                    F('time').asc(),
+                ],
+            ),
         )
-        for row in actor_counts:
-            actor_key = _actor_key_from_kind(kind, row[actor_field])
-            count_rows.append({
-                'task_id': row['task_id'],
-                'actor_key': actor_key,
-                'team_id': row[actor_field] if kind == 'team' else None,
-                'user_id': row[actor_field] if kind == 'user' else None,
-                'anon_key': row[actor_field] if kind == 'anon' else None,
-                'n_attempts': row['n_attempts'],
-                'has_pending': row['has_pending'],
-            })
-
-        best_qs = (
-            attempt_base.filter(actor_clause)
-            .annotate(
-                status_rank=_status_rank_annotation(),
-                rn=Window(
-                    expression=RowNumber(),
-                    partition_by=[F('task_id'), F(actor_field)],
-                    order_by=[
-                        F('points').desc(),
-                        F('status_rank').desc(),
-                        F('time').asc(),
-                    ],
-                ),
-            )
-            .filter(rn=1)
-            .values('task_id', actor_field, 'game_id', 'points', 'status', 'time')
+        .filter(rn=1)
+        .values(
+            'task_id', 'team_id', 'user_id', 'anon_key', 'game_id',
+            'points', 'status', 'time', 'n_attempts', 'has_pending',
         )
-        for row in best_qs:
-            actor_key = _actor_key_from_kind(kind, row[actor_field])
-            best_by[(row['task_id'], actor_key)] = row
+    )
+    for row in best_qs:
+        if row['team_id'] is not None:
+            kind, raw = 'team', row['team_id']
+        elif row['user_id'] is not None:
+            kind, raw = 'user', row['user_id']
+        elif row['anon_key']:
+            kind, raw = 'anon', row['anon_key']
+        else:
+            continue
+        actor_key = _actor_key_from_kind(kind, raw)
+        best_by[(row['task_id'], actor_key)] = {
+            'task_id': row['task_id'],
+            'actor_key': actor_key,
+            'team_id': row['team_id'],
+            'user_id': row['user_id'],
+            'anon_key': row['anon_key'],
+            'game_id': row['game_id'],
+            'points': row['points'],
+            'status': row['status'],
+            'time': row['time'],
+            'n_attempts': row['n_attempts'],
+            'has_pending': row['has_pending'],
+        }
 
     # --- hint attempts: small volume; mirror AttemptsInfo penalty + hint_numbers ---
     hint_rows = list(
@@ -383,13 +401,13 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None, actor_filter=None, i
 
     # Actors that only have hints (no attempts) still need a row.
     actors_by_task = defaultdict(dict)  # task_id -> actor_key -> meta
-    for row in count_rows:
-        actors_by_task[row['task_id']][row['actor_key']] = {
-            'team_id': row['team_id'],
-            'user_id': row['user_id'],
-            'anon_key': row['anon_key'],
-            'n_attempts': row['n_attempts'],
-            'has_pending': bool(row['has_pending']),
+    for (task_id, actor_key), best in best_by.items():
+        actors_by_task[task_id][actor_key] = {
+            'team_id': best['team_id'],
+            'user_id': best['user_id'],
+            'anon_key': best['anon_key'],
+            'n_attempts': best['n_attempts'],
+            'has_pending': bool(best['has_pending']),
         }
     for (task_id, actor_key) in list(hint_penalty.keys()) + list(hint_numbers.keys()):
         if actor_key not in actors_by_task[task_id]:

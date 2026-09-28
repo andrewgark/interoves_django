@@ -5,7 +5,9 @@ import pickle
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from datetime import timedelta
 
 from django.utils import timezone
@@ -206,6 +208,15 @@ class ResultsSqlAggregateTests(TestCase):
         )
         sql = get_sql_aggregated_game_actor_rows(task_ids, game=self.game)
         self.assertEqual(_normalize_actor_rows(orm), _normalize_actor_rows(sql))
+
+    def test_attempt_best_and_counts_use_one_database_query(self):
+        with CaptureQueriesContext(connection) as captured:
+            get_sql_aggregated_game_actor_rows([self.task1.id, self.task2.id], game=self.game)
+        attempt_queries = [
+            query['sql'] for query in captured
+            if 'games_attempt' in query['sql']
+        ]
+        self.assertEqual(len(attempt_queries), 1)
 
     def test_alphabetty_letter_hint_penalty_is_bulk_aggregated(self):
         sql = get_sql_aggregated_game_actor_rows([self.task3.id], game=self.game)
