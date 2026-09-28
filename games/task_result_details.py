@@ -1,6 +1,10 @@
 """State-backed details used when rendering task-level results."""
 
 from games.alphabetty_daily import ALPHABETTY_GAME_ID
+from games.actor_state import (
+    chain_state_for_result_actor,
+    latest_attempt_state_for_result_actor,
+)
 from games.models import Attempt, ChainTaskState, GameTaskGroup, RaddleUiState
 from games.word_salad import WORD_SALAD_GAME_ID
 
@@ -24,23 +28,7 @@ class SaladResultWord:
 
 
 def chain_state_for_actor(game, task, actor):
-    if actor is None or task is None:
-        return None
-    filters = {
-        'task': task,
-        'game': game,
-        'game_mode': 'general',
-        'replay_slot__isnull': True,
-    }
-    if getattr(actor, 'is_team_results_row', False):
-        filters.update(team=actor, user__isnull=True, anon_key__isnull=True)
-    elif getattr(actor, 'user_id', None) is not None:
-        filters.update(user_id=actor.user_id, team__isnull=True, anon_key__isnull=True)
-    elif getattr(actor, 'anon_key', None):
-        filters.update(anon_key=actor.anon_key, team__isnull=True, user__isnull=True)
-    else:
-        return None
-    return ChainTaskState.objects.filter(**filters).only('state').first()
+    return chain_state_for_result_actor(game, task, actor)
 
 
 def raddle_ui_state_for_actor(
@@ -88,25 +76,7 @@ def latest_actor_task_state(game, task, actor):
     chain_row = chain_state_for_actor(game, task, actor)
     if chain_row is not None and chain_row.state:
         return chain_row.state
-    if actor is None or task is None:
-        return None
-    filters = {
-        'task': task,
-        'game': game,
-        'replay_slot__isnull': True,
-        'skip': False,
-    }
-    if getattr(actor, 'is_team_results_row', False):
-        filters.update(team=actor, user__isnull=True, anon_key__isnull=True)
-    elif getattr(actor, 'user_id', None) is not None:
-        filters.update(user_id=actor.user_id, team__isnull=True, anon_key__isnull=True)
-    elif getattr(actor, 'anon_key', None):
-        filters.update(anon_key=actor.anon_key, team__isnull=True, user__isnull=True)
-    else:
-        return None
-    return Attempt.manager.filter(**filters).exclude(
-        state__isnull=True,
-    ).exclude(state='').order_by('-time').values_list('state', flat=True).first()
+    return latest_attempt_state_for_result_actor(game, task, actor)
 
 
 def set_current_result_header_answers(data, actor, game=None):
