@@ -35,4 +35,7 @@ class Command(BaseCommand):
             )
             self.stdout.flush()
             if not stopped:
-                time.sleep(interval)
+                # Drain a backlog without inserting the idle polling delay
+                # between successful batches.  Keep the delay after an empty
+                # or failed poll so an unavailable transport cannot hot-loop.
+                time.sleep(0 if result['sent'] else interval)
