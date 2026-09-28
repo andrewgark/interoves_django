@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# EB application settings are available to systemd through this file, but are
+# not guaranteed to be exported in the platform-hook shell environment.
+if [[ -r /opt/elasticbeanstalk/deployment/env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  . /opt/elasticbeanstalk/deployment/env
+  set +a
+fi
+
 # The dispatcher is enabled explicitly per EB environment.  Some worker
 # environments do not expose INTEROVES_RUNTIME_ROLE to platform hooks, so an
 # absent role must not silently disable the service.  Only an explicit web
