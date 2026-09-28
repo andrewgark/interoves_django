@@ -1061,6 +1061,7 @@ class WordSaladRecheckOutbox(models.Model):
         ]
         indexes = [
             models.Index(fields=['status', 'next_attempt_at'], name='games_wsr_outbox_due_idx'),
+            models.Index(fields=['status', 'claimed_until'], name='games_wsr_outbox_claim_idx'),
         ]
 
 
