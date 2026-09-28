@@ -12,7 +12,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--limit', type=int, default=25)
-        parser.add_argument('--interval', type=float, default=15.0)
+        parser.add_argument('--interval', type=float, default=3.0)
 
     def handle(self, *args, **options):
         if not heavy_processing_allowed():

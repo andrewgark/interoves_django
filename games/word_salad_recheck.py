@@ -88,6 +88,28 @@ def enqueue_word_salad_recheck(*, task, game, pending_resolution=None):
         status__in=(WordSaladRecheckJob.STATUS_PENDING, WordSaladRecheckJob.STATUS_RUNNING),
     )
     now = timezone.now()
+    active_job_ids = list(active.values_list('id', flat=True))
+    if active_job_ids:
+        pending_items = WordSaladRecheckItem.objects.filter(
+            job_id__in=active_job_ids,
+            status=WordSaladRecheckItem.STATUS_PENDING,
+        )
+        pending_item_ids = list(pending_items.values_list('id', flat=True))
+        pending_items.update(
+            status=WordSaladRecheckItem.STATUS_SUPERSEDED,
+            claim_token=None,
+            claimed_until=None,
+            updated_at=now,
+        )
+        WordSaladRecheckOutbox.objects.filter(
+            item_id__in=pending_item_ids,
+            status=WordSaladRecheckOutbox.STATUS_PENDING,
+        ).update(
+            status=WordSaladRecheckOutbox.STATUS_CANCELLED,
+            claim_token=None,
+            claimed_until=None,
+            updated_at=now,
+        )
     active.update(status=WordSaladRecheckJob.STATUS_SUPERSEDED,
                   claim_token=None, claimed_until=None, updated_at=now)
     job = WordSaladRecheckJob.objects.create(
@@ -161,6 +183,16 @@ def enqueue_actor_rechecks(*, task, game, actors, pending_resolution=None):
         ),
     )
     touched_jobs = set(open_items.values_list('job_id', flat=True))
+    open_item_ids = list(open_items.values_list('id', flat=True))
+    WordSaladRecheckOutbox.objects.filter(
+        item_id__in=open_item_ids,
+        status=WordSaladRecheckOutbox.STATUS_PENDING,
+    ).update(
+        status=WordSaladRecheckOutbox.STATUS_CANCELLED,
+        claim_token=None,
+        claimed_until=None,
+        updated_at=now,
+    )
     open_items.update(
         status=WordSaladRecheckItem.STATUS_SUPERSEDED,
         claim_token=None,

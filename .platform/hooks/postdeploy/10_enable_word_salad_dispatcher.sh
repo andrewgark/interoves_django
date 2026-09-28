@@ -67,7 +67,7 @@ if [[ -n "$PID" && -r "/proc/$PID/environ" ]]; then
     esac
   done < "/proc/$PID/environ"
 fi
-exec "$PYTHON" "$APP/manage.py" dispatch_recheck_outbox_loop --limit "${RECHECK_OUTBOX_DISPATCH_LIMIT:-${WORD_SALAD_OUTBOX_DISPATCH_LIMIT:-25}}" --interval "${RECHECK_OUTBOX_DISPATCH_INTERVAL:-${WORD_SALAD_OUTBOX_DISPATCH_INTERVAL:-15}}"
+exec "$PYTHON" "$APP/manage.py" dispatch_recheck_outbox_loop --limit "${RECHECK_OUTBOX_DISPATCH_LIMIT:-${WORD_SALAD_OUTBOX_DISPATCH_LIMIT:-25}}" --interval "${RECHECK_OUTBOX_DISPATCH_INTERVAL:-${WORD_SALAD_OUTBOX_DISPATCH_INTERVAL:-3}}"
 RUNNER
 chmod 0755 /usr/local/bin/interoves-recheck-dispatcher
 

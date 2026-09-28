@@ -1028,10 +1028,12 @@ class WordSaladRecheckOutbox(models.Model):
     STATUS_PENDING = 'pending'
     STATUS_SENDING = 'sending'
     STATUS_SENT = 'sent'
+    STATUS_CANCELLED = 'cancelled'
     STATUS_CHOICES = (
         (STATUS_PENDING, 'Ожидает отправки'),
         (STATUS_SENDING, 'Отправляется'),
         (STATUS_SENT, 'Отправлено'),
+        (STATUS_CANCELLED, 'Отменено'),
     )
 
     item = models.ForeignKey(

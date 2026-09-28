@@ -61,6 +61,34 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertEqual(item.user_id, self.user.pk)
         self.assertEqual(item.status, WordSaladRecheckItem.STATUS_PENDING)
 
+    def test_superseding_job_cancels_unsent_previous_outbox(self):
+        actors = {(None, self.user.pk, None, None)}
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            first = enqueue_word_salad_recheck(task=self.task, game=self.game)
+            first_item = WordSaladRecheckItem.objects.get(job=first)
+            second = enqueue_word_salad_recheck(task=self.task, game=self.game)
+
+        first.refresh_from_db()
+        first_item.refresh_from_db()
+        first_outbox = WordSaladRecheckOutbox.objects.get(item=first_item)
+        self.assertEqual(first.status, WordSaladRecheckJob.STATUS_SUPERSEDED)
+        self.assertEqual(first_item.status, WordSaladRecheckItem.STATUS_SUPERSEDED)
+        self.assertEqual(first_outbox.status, WordSaladRecheckOutbox.STATUS_CANCELLED)
+        self.assertEqual(WordSaladRecheckItem.objects.filter(job=second).count(), 1)
+
+    def test_targeted_supersede_cancels_unsent_previous_outbox(self):
+        actor = (None, self.user.pk, None, None)
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value={actor}):
+            first = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        from games.word_salad_recheck import enqueue_actor_rechecks
+        second = enqueue_actor_rechecks(task=self.task, game=self.game, actors=[actor])
+
+        first_item = WordSaladRecheckItem.objects.get(job=first)
+        first_outbox = WordSaladRecheckOutbox.objects.get(item=first_item)
+        self.assertEqual(first_item.status, WordSaladRecheckItem.STATUS_SUPERSEDED)
+        self.assertEqual(first_outbox.status, WordSaladRecheckOutbox.STATUS_CANCELLED)
+        self.assertEqual(WordSaladRecheckItem.objects.filter(job=second).count(), 1)
+
     def test_worker_completes_one_item_and_notifies_actor(self):
         actors = {(None, self.user.pk, None, None)}
         with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
@@ -219,6 +247,55 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertEqual(dispatch_word_salad_recheck_outbox(limit=1, transport=transport)['sent'], 0)
         self.assertEqual(len(transport.messages), 1)
         self.assertEqual(transport.messages[0]['item_id'], WordSaladRecheckItem.objects.get(job=job).pk)
+
+    def test_outbox_dispatch_uses_batches_of_at_most_ten(self):
+        actors = {(None, self.user.pk, None, None)}
+        actors.update(
+            (None, None, 'anonymous-actor-{}'.format(index), None)
+            for index in range(11)
+        )
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        transport = FakeWordSaladTransport()
+        batch_sizes = []
+        original_send_batch = transport.send_batch
+
+        def send_batch(rows):
+            batch_sizes.append(len(rows))
+            return original_send_batch(rows)
+
+        transport.send_batch = send_batch
+        result = dispatch_word_salad_recheck_outbox(limit=25, transport=transport)
+
+        self.assertEqual(result, {'sent': 12, 'failed': 0})
+        self.assertEqual(batch_sizes, [10, 2])
+        self.assertEqual(len(transport.messages), 12)
+        self.assertEqual(
+            WordSaladRecheckOutbox.objects.filter(item__job=job, status='sent').count(),
+            12,
+        )
+
+    def test_outbox_dispatch_retries_missing_batch_outcome(self):
+        actors = {
+            (None, self.user.pk, None, None),
+            (None, None, 'anonymous-partial', None),
+        }
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        rows = list(WordSaladRecheckOutbox.objects.filter(item__job=job).order_by('id'))
+
+        class PartialTransport:
+            def send_batch(self, batch):
+                return {batch[0].pk: 'accepted'}
+
+        result = dispatch_word_salad_recheck_outbox(limit=2, transport=PartialTransport())
+
+        self.assertEqual(result, {'sent': 1, 'failed': 1})
+        rows[0].refresh_from_db()
+        rows[1].refresh_from_db()
+        self.assertEqual(rows[0].status, WordSaladRecheckOutbox.STATUS_SENT)
+        self.assertEqual(rows[1].status, WordSaladRecheckOutbox.STATUS_PENDING)
+        self.assertIsNotNone(rows[1].next_attempt_at)
 
     def test_outbox_duplicate_send_after_send_before_mark_is_tolerated(self):
         actors = {(None, self.user.pk, None, None)}
