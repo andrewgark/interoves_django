@@ -142,7 +142,7 @@ from games.results.tables import (
     results_table_headers_context,
 )
 from games.results.presentation import paginate_results_rows, render_results_rows_partial
-from games.task_result_details import (
+from games.tasks.result_details import (
     SaladResultHeader,
     SaladResultWord,
     chain_state_for_actor,
