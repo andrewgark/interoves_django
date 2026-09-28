@@ -136,6 +136,7 @@ from games.results_tables import (
     load_results_placements_and_tasks,
     results_table_headers_context,
 )
+from games.results_presentation import paginate_results_rows, render_results_rows_partial
 from games.models import (
     Attempt,
     AudioManager,
@@ -2384,33 +2385,8 @@ def _new_results_compute(game, mode, task_group_number=None, alphabetty_sort='at
 
 
 def _paginate_results_rows(request, data, per_page=50):
-    """
-    Paginate the results rows (teams_sorted) without touching score/place dicts.
-    Places remain global (computed for full list), only the rendered rows are sliced.
-    """
-    rows = list(data.get('teams_sorted') or [])
-    paginator = Paginator(rows, per_page)
-    page_obj = paginator.get_page(request.GET.get('page') or 1)
-
-    # Keep templates working by slicing teams_sorted to the visible page.
-    out = dict(data)
-    _attach_results_club_badges(out)
-    out['teams_sorted'] = list(page_obj.object_list)
-    out['page_obj'] = page_obj
-    out['paginator'] = paginator
-    out['is_paginated'] = paginator.num_pages > 1
-
-    qs = request.GET.copy()
-    try:
-        qs.pop('page', None)
-    except Exception:
-        pass
-    rest = qs.urlencode()
-    out['page_qs_prefix'] = ('?' + rest + '&') if rest else '?'
-    out['page_size'] = per_page
-    out['page_total_rows'] = paginator.count
-    out['progressive_results'] = True
-    return out
+    """Compatibility wrapper for progressive results pagination."""
+    return paginate_results_rows(request, data, per_page=per_page)
 
 
 def _render_results_rows_partial(request, data, *, mode, results_variant='standard',
@@ -2418,18 +2394,18 @@ def _render_results_rows_partial(request, data, *, mode, results_variant='standa
                                  me_anon_participant=None,
                                  show_solve_duration=False,
                                  show_alphabetty_detail=False):
-    """Render one progressive-results page without the surrounding document."""
-    return render(request, 'new/partials/results_rows.html', {
-        'mode': mode,
-        'section_results': False,
-        'results_variant': results_variant,
-        'team': team,
-        'me_personal': me_personal,
-        'me_anon_participant': me_anon_participant,
-        'show_solve_duration': show_solve_duration,
-        'show_alphabetty_detail': show_alphabetty_detail,
-        **data,
-    })
+    """Compatibility wrapper for progressive results partial rendering."""
+    return render_results_rows_partial(
+        request,
+        data,
+        mode=mode,
+        results_variant=results_variant,
+        team=team,
+        me_personal=me_personal,
+        me_anon_participant=me_anon_participant,
+        show_solve_duration=show_solve_duration,
+        show_alphabetty_detail=show_alphabetty_detail,
+    )
 
 
 def new_results_page(request, game_id):
