@@ -71,7 +71,7 @@ def serialize_job(job):
 
 
 @transaction.atomic
-def enqueue_word_salad_recheck(*, task, game):
+def enqueue_word_salad_recheck(*, task, game, pending_resolution=None):
     """Snapshot actors and fence older jobs for this task/game."""
     task = type(task).objects.select_for_update().get(pk=task.pk)
     actors = sorted(
@@ -87,6 +87,7 @@ def enqueue_word_salad_recheck(*, task, game):
                   claim_token=None, claimed_until=None, updated_at=now)
     job = WordSaladRecheckJob.objects.create(
         task=task, game=game, task_revision=task.attempt_revision,
+        pending_resolution=pending_resolution or {},
         status=WordSaladRecheckJob.STATUS_PENDING, total_actors=len(actors),
         next_attempt_at=now,
     )
@@ -130,7 +131,7 @@ def _close_jobs_without_open_items(job_ids, now):
 
 
 @transaction.atomic
-def enqueue_actor_rechecks(*, task, game, actors):
+def enqueue_actor_rechecks(*, task, game, actors, pending_resolution=None):
     """Queue a chronological replay for specific actors. Other actors stay queued."""
     if game is None:
         raise ValueError('enqueue_actor_rechecks: pass game=')
@@ -166,6 +167,7 @@ def enqueue_actor_rechecks(*, task, game, actors):
         task=task,
         game=game,
         task_revision=task.attempt_revision,
+        pending_resolution=pending_resolution or {},
         status=WordSaladRecheckJob.STATUS_PENDING,
         total_actors=len(normalized),
         next_attempt_at=now,
@@ -398,7 +400,11 @@ def _process_claimed_item(job, item, item_token):
                 return 'superseded'
             reason = 'task.word_salad_rechecked'
             if actor is not None and task.task_type == 'word_salad':
-                result = recheck_word_salad_actor(task, game=job.game, notify=False, **actor)
+                result = recheck_word_salad_actor(
+                    task, game=job.game, notify=False,
+                    pending_resolution=job.pending_resolution.get(str(task.pk), {}),
+                    **actor,
+                )
                 credited = int(result.get('credited') or 0)
             elif actor is not None:
                 from games.recheck import recheck_chain_task
@@ -410,6 +416,7 @@ def _process_claimed_item(job, item, item_token):
                     game=job.game,
                     replay_slot=actor.get('replay_slot'),
                     notify=False,
+                    pending_resolution=job.pending_resolution.get(str(task.pk), {}),
                 )
                 credited = 0
                 reason = 'task.chain_rechecked'

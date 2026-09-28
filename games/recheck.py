@@ -155,7 +155,8 @@ def recheck_team_task_all_chronological(_, attempt_id):
 
 
 def recheck_chain_task(
-    task, team=None, user=None, anon_key=None, game=None, *, replay_slot=None, notify=True,
+    task, team=None, user=None, anon_key=None, game=None, *, replay_slot=None,
+    notify=True, pending_resolution=None,
 ):
     """
     Optimised full recheck for wall / replacements_lines.
@@ -210,6 +211,10 @@ def recheck_chain_task(
         for attempt in attempts:
             mode = game.get_current_mode(attempt)
             last_state = states[mode]
+            if attempt.status == 'Pending' and not _pending_is_accepted(
+                attempt, pending_resolution or {},
+            ):
+                continue
             try:
                 from games.models import CheckerType as CT
                 if task.task_type == 'replacements_lines':
@@ -379,6 +384,28 @@ def _apply_replay_status(attempt, result, mode):
         attempt.status = result.status
 
 
+def _pending_is_accepted(attempt, pending_resolution):
+    if not pending_resolution:
+        return False
+    if attempt.pk in set(pending_resolution.get('attempt_ids', ())):
+        return True
+    try:
+        payload = json.loads(attempt.text)
+    except (TypeError, ValueError):
+        return False
+    scopes = pending_resolution.get('scopes', ())
+    if attempt.task.task_type == 'wall':
+        words = sorted(str(x).strip().lower() for x in payload.get('words', []))
+        return {'type': 'wall_words', 'value': words} in scopes
+    if attempt.task.task_type == 'replacements_lines':
+        try:
+            line = int(payload['line_index'])
+        except (KeyError, TypeError, ValueError):
+            return False
+        return {'type': 'replacement_line', 'value': line} in scopes
+    return False
+
+
 def _apply_word_salad_check_result(attempt, result, mode):
     _apply_replay_status(attempt, result, mode)
     attempt.points = Decimal(str(result.points or 0))
@@ -395,6 +422,7 @@ def _replay_word_salad_attempts(
     *,
     expand_active=False,
     persist=True,
+    pending_resolution=None,
 ):
     checker_type = task.get_checker()
     checker_data = task.checker_data or ''
@@ -405,6 +433,10 @@ def _replay_word_salad_attempts(
     last_by_mode = {}
 
     for attempt in attempts:
+        if attempt.status == 'Pending' and not _pending_is_accepted(
+            attempt, pending_resolution or {},
+        ):
+            continue
         mode = game.get_current_mode(attempt)
         last_state = states[mode]
         try:
@@ -442,6 +474,7 @@ def _credit_new_word_salad_answers(
     game=None,
     last_ok_times=None,
     attempts=None,
+    pending_resolution=None,
 ):
     from games.word_salad import find_paths, load_state, parse_task_payload
 
@@ -464,6 +497,7 @@ def _credit_new_word_salad_answers(
             preview,
             expand_active=True,
             persist=False,
+            pending_resolution=pending_resolution,
         )
         state = load_state(states.get(mode))
         solved = set(state.get('solved_indices') or [])
@@ -510,6 +544,7 @@ def recheck_word_salad_actor(
     replay_slot=None,
     game=None,
     notify=True,
+    pending_resolution=None,
 ):
     """Rebuild one actor's Word Salad chain and credit new required words at last Ok time."""
     if game is None:
@@ -557,6 +592,7 @@ def recheck_word_salad_actor(
                 game=game,
                 last_ok_times=last_ok_times,
                 attempts=attempts,
+                pending_resolution=pending_resolution,
             )
             credited = len(created)
             if created:
@@ -573,6 +609,7 @@ def recheck_word_salad_actor(
             attempts,
             expand_active=True,
             persist=True,
+            pending_resolution=pending_resolution,
         )
         for row in locked_rows.values():
             row.save(update_fields=['state', 'last_attempt', 'updated_at'])

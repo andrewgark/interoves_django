@@ -42,6 +42,27 @@ def _apply_checker_additions(task, attempts):
     task.checker_data = current + ''.join('\n{}'.format(a.text) for a in attempts)
 
 
+def _pending_resolution(attempts):
+    result = defaultdict(lambda: {'attempt_ids': [], 'scopes': []})
+    for attempt in attempts:
+        entry = result[str(attempt.task_id)]
+        entry['attempt_ids'].append(attempt.pk)
+        try:
+            payload = json.loads(attempt.text)
+        except (TypeError, ValueError):
+            continue
+        if attempt.task.task_type == 'wall':
+            words = tuple(sorted(str(x).strip().lower() for x in payload.get('words', [])))
+            if words:
+                entry['scopes'].append({'type': 'wall_words', 'value': list(words)})
+        elif attempt.task.task_type == 'replacements_lines':
+            try:
+                entry['scopes'].append({'type': 'replacement_line', 'value': int(payload['line_index'])})
+            except (KeyError, TypeError, ValueError):
+                pass
+    return dict(result)
+
+
 def _queue_after_commit(task_ids, selected_keys=None):
     transaction.on_commit(
         lambda ids=tuple(task_ids), keys=selected_keys: queue_chain_replays_for_tasks(
@@ -60,6 +81,7 @@ def add_attempts_to_checker(attempt_ids, *, pending_only=False, recheck_selected
 
     with transaction.atomic():
         task_ids = []
+        pending_resolution = _pending_resolution(attempts) if pending_only else {}
         for task_id, task_attempts in by_task.items():
             task = Task.objects.select_for_update().get(pk=task_id)
             _apply_checker_additions(task, task_attempts)
@@ -68,7 +90,7 @@ def add_attempts_to_checker(attempt_ids, *, pending_only=False, recheck_selected
             )
             task_ids.append(task_id)
         def after_commit():
-            queue_chain_replays_for_tasks(task_ids)
+            queue_chain_replays_for_tasks(task_ids, pending_resolution=pending_resolution)
             if recheck_selected_non_chain:
                 from games.recheck import recheck
                 for attempt in attempts:

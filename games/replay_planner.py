@@ -39,7 +39,7 @@ def _actor_groups(task_ids, *, selected_keys=None):
     return groups
 
 
-def queue_chain_replays_for_tasks(task_ids, *, selected_keys=None):
+def queue_chain_replays_for_tasks(task_ids, *, selected_keys=None, pending_resolution=None):
     """Create one durable replay job per task/game, with unique actors."""
     from games.word_salad_recheck import enqueue_actor_rechecks
 
@@ -51,4 +51,5 @@ def queue_chain_replays_for_tasks(task_ids, *, selected_keys=None):
             task=Task.objects.get(pk=task_id),
             game=Game.objects.get(pk=game_id),
             actors=sorted(actor_keys, key=str),
+            pending_resolution=(pending_resolution or {}).get(str(task_id), {}),
         )

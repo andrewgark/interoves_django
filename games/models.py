@@ -948,6 +948,7 @@ class WordSaladRecheckJob(models.Model):
     task = models.ForeignKey('Task', related_name='word_salad_recheck_jobs', on_delete=models.CASCADE)
     game = models.ForeignKey(Game, related_name='word_salad_recheck_jobs', on_delete=models.CASCADE)
     task_revision = models.UUIDField(default=uuid.uuid4, editable=False, db_index=True)
+    pending_resolution = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
     total_actors = models.PositiveIntegerField(default=0)
     completed_actors = models.PositiveIntegerField(default=0)

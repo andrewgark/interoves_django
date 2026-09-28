@@ -10,6 +10,7 @@ from games.attempt_admin_bulk import (
     reject_pending_attempts,
     recheck_chain_attempts,
 )
+from games.recheck import recheck_chain_task
 from games.views.attempt_views import check_attempt
 from games.models import ChainTaskState, WordSaladRecheckItem, WordSaladRecheckJob
 from games.tests.test_chain_task_state import (
@@ -20,6 +21,52 @@ from games.tests.test_chain_task_state import (
 
 
 class AttemptAdminBulkTests(_ChainFixture, TestCase):
+    def test_replay_keeps_unrelated_wall_pending_attempt_pending(self):
+        first_words = _make_attempt(
+            self.wall_task, self.team, _wall_text(['A', 'B', 'C', 'D']),
+        )
+        check_attempt(first_words)
+        second_words = _make_attempt(
+            self.wall_task, self.team, _wall_text(['E', 'F', 'G', 'H']),
+        )
+        check_attempt(second_words)
+
+        accepted = _make_attempt(
+            self.wall_task, self.team,
+            _wall_text(['A', 'B', 'C', 'D'], stage='cat_explanation', explanation='accepted'),
+        )
+        accepted.status = 'Pending'
+        accepted.possible_status = 'Wrong'
+        accepted.save()
+        unrelated = _make_attempt(
+            self.wall_task, self.team,
+            _wall_text(['E', 'F', 'G', 'H'], stage='cat_explanation', explanation='unrelated'),
+        )
+        unrelated.status = 'Pending'
+        unrelated.possible_status = 'Wrong'
+        unrelated.save()
+
+        with patch('games.views.track.track_task_change'):
+            with self.captureOnCommitCallbacks(execute=True):
+                add_to_checker([accepted.pk])
+
+        recheck_chain_task(
+            self.wall_task,
+            team=self.team,
+            game=self.game,
+            notify=False,
+            pending_resolution={
+                'attempt_ids': [accepted.pk],
+                'scopes': [{'type': 'wall_words', 'value': ['a', 'b', 'c', 'd']}],
+            },
+        )
+
+        accepted.refresh_from_db()
+        unrelated.refresh_from_db()
+        self.assertNotEqual(accepted.status, 'Pending')
+        self.assertEqual(unrelated.status, 'Pending')
+        self.assertEqual(unrelated.possible_status, 'Wrong')
+
     def test_wall_checker_add_merges_selected_rows_and_queues_one_job(self):
         first = _make_attempt(
             self.wall_task,
