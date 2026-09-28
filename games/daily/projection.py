@@ -122,7 +122,7 @@ def mark_projection_dirty(game, task_group, *, actor=False, full=False):
 
 def _canonical_group_results(game, task_group, *, actor_filter=None):
     """Return exact existing AttemptsInfo scores for the release, grouped by actor."""
-    from games.results_snapshot import results_attempts_scope_game
+    from games.results.snapshot import results_attempts_scope_game
 
     tasks = list(Task.objects.visible().filter(task_group=task_group).exclude(task_type='text_with_forms').order_by('number', 'pk'))
     if not tasks:
