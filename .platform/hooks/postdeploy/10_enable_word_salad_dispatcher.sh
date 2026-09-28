@@ -19,6 +19,10 @@ if [[ "${FORCE_RECHECK_DISPATCHER:-}" == "true" ]]; then
   INTEROVES_RUNTIME_ROLE=worker
   RECHECK_DISPATCHER_ENABLED=true
 fi
+printf 'role=%q enabled=%q force=%q marker=%s\n' \
+  "${INTEROVES_RUNTIME_ROLE:-}" "${RECHECK_DISPATCHER_ENABLED:-}" \
+  "${FORCE_RECHECK_DISPATCHER:-}" "$WORKER_BUNDLE_MARKER" \
+  >>/var/log/app/recheck-dispatcher-hook.log
 
 # The dispatcher is enabled explicitly per EB environment.  Some worker
 # environments do not expose INTEROVES_RUNTIME_ROLE to platform hooks, so an
@@ -30,8 +34,11 @@ fi
 
 DISPATCHER_ENABLED="${RECHECK_DISPATCHER_ENABLED:-${WORD_SALAD_DISPATCHER_ENABLED:-false}}"
 case "${DISPATCHER_ENABLED,,}" in
-  true|1|yes|on) ;;
+  true|1|yes|on)
+    echo 'dispatcher branch=enabled' >>/var/log/app/recheck-dispatcher-hook.log
+    ;;
   *)
+    echo 'dispatcher branch=disabled' >>/var/log/app/recheck-dispatcher-hook.log
     # Safe default: a newly provisioned Worker must not publish DB outbox work
     # until migrations and reconciliation have been explicitly completed.
     systemctl disable --now interoves-recheck-dispatcher.service 2>/dev/null || true
