@@ -42,27 +42,22 @@ if [[ "$APPLY" != 1 ]]; then
     echo "plan_only=true (pass --apply to change AWS)"
     exit 0
 fi
-if [[ "$VISIBLE" != 0 || "$IN_FLIGHT" != 0 ]]; then
-    echo "Refusing cutover while production queue is not empty/in-flight." >&2
-    exit 1
-fi
-
-aws_cmd elasticbeanstalk update-environment --application-name interoves \
-    --environment-name "$EB_ENV" \
-    --option-settings Namespace=aws:autoscaling:asg,OptionName=MinSize,Value=0 \
-    Namespace=aws:autoscaling:asg,OptionName=MaxSize,Value=0 >/dev/null
-aws_cmd elasticbeanstalk wait environment-updated --environment-names "$EB_ENV"
+aws_cmd autoscaling update-auto-scaling-group \
+    --auto-scaling-group-name "$ASG_NAME" \
+    --min-size 0 --max-size 0 --desired-capacity 0
 
 deadline=$((SECONDS + DRAIN_SECONDS))
 while (( SECONDS < deadline )); do
     desired="$(aws_cmd autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$ASG_NAME" --query 'AutoScalingGroups[0].DesiredCapacity' --output text)"
     instances="$(aws_cmd autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$ASG_NAME" --query 'length(AutoScalingGroups[0].Instances)' --output text)"
-    [[ "$desired" == 0 && "$instances" == 0 ]] && break
+    in_flight="$(aws_cmd sqs get-queue-attributes --queue-url "$QUEUE_URL" --attribute-names ApproximateNumberOfMessagesNotVisible --query 'Attributes.ApproximateNumberOfMessagesNotVisible' --output text)"
+    [[ "$desired" == 0 && "$instances" == 0 && "$in_flight" == 0 ]] && break
     sleep 10
 done
 desired="$(aws_cmd autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$ASG_NAME" --query 'AutoScalingGroups[0].DesiredCapacity' --output text)"
 instances="$(aws_cmd autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$ASG_NAME" --query 'length(AutoScalingGroups[0].Instances)' --output text)"
-[[ "$desired" == 0 && "$instances" == 0 ]] || { echo "EB ASG did not drain before timeout." >&2; exit 1; }
+in_flight="$(aws_cmd sqs get-queue-attributes --queue-url "$QUEUE_URL" --attribute-names ApproximateNumberOfMessagesNotVisible --query 'Attributes.ApproximateNumberOfMessagesNotVisible' --output text)"
+[[ "$desired" == 0 && "$instances" == 0 && "$in_flight" == 0 ]] || { echo "EB ASG/queue did not drain before timeout." >&2; exit 1; }
 
 "$ROOT/scripts/deploy_ecs_worker.sh" background "$IMAGE_URI" --profile normal --desired-count 1 --apply
 echo "Background cutover complete: EB=0, ECS=1"
