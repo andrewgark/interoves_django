@@ -395,7 +395,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
     The existing score aggregators remain authoritative. Their input is limited
     to this page's <=30 releases, and no attempt/subtask cells reach the template.
     """
-    from games.results_sql_aggregate import (
+    from games.results.sql_aggregate import (
         get_sql_aggregated_game_actor_rows,
         tasks_need_orm_results_aggregate,
     )

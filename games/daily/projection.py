@@ -129,7 +129,7 @@ def _canonical_group_results(game, task_group, *, actor_filter=None):
         return {}
     scope_game = results_attempts_scope_game(game, 'general')
     task_ids = [task.pk for task in tasks]
-    from games.results_sql_aggregate import get_sql_aggregated_game_actor_rows, tasks_need_orm_results_aggregate
+    from games.results.sql_aggregate import get_sql_aggregated_game_actor_rows, tasks_need_orm_results_aggregate
     if tasks_need_orm_results_aggregate(tasks):
         result_rows = Attempt.manager.get_bulk_game_actor_rows(
             task_ids, mode='general', game=scope_game, actor_filter=actor_filter, include_hidden=True,

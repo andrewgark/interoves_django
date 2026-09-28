@@ -354,7 +354,7 @@ def build_results_snapshot_payload(game, mode='tournament'):
     bulk_game = results_scope_game if mode == 'general' else game
     task_ids = [t.id for t in tasks_flat]
     if mode == 'general':
-        from games.results_sql_aggregate import (
+        from games.results.sql_aggregate import (
             get_sql_aggregated_game_actor_rows,
             tasks_need_orm_results_aggregate,
         )
