@@ -199,6 +199,12 @@ def recheck_chain_task(
 
         checker_type = task.get_checker()
         checker_data = task.checker_data or ''
+        from games.models import CheckerType as CT
+        if task.task_type == 'replacements_lines':
+            checker_type = CT.objects.get(id='replacements_lines')
+        elif task.task_type == 'raddle':
+            checker_type = CT.objects.get(id='raddle')
+        checker_factory = CheckerFactory()
 
         # current in-memory chain state per game_mode
         states = {'general': None, 'tournament': None}
@@ -217,14 +223,7 @@ def recheck_chain_task(
             ):
                 continue
             try:
-                from games.models import CheckerType as CT
-                if task.task_type == 'replacements_lines':
-                    ct = CT.objects.get(id='replacements_lines')
-                elif task.task_type == 'raddle':
-                    ct = CT.objects.get(id='raddle')
-                else:
-                    ct = checker_type
-                checker = CheckerFactory().create_checker(ct, checker_data, last_state)
+                checker = checker_factory.create_checker(checker_type, checker_data, last_state)
                 result = checker.check(attempt.text, attempt)
                 _apply_replay_status(attempt, result, mode)
                 attempt.points = Decimal(str(result.points or 0))
