@@ -102,6 +102,7 @@ from games.week_task_pool import source_play_path_from_tags, source_summary_from
 from games.task_titles import raddle_share_title, task_display_name, task_group_page_title
 from games.task_progress import compute_task_progress, merge_task_group_progress_rows
 from games.task_group_navigation import (
+    neighbors_by_pk,
     play_url_for_task_group,
     replay_exit_url_for_task_group,
     replay_url_for_task_group,
@@ -280,15 +281,7 @@ def _player_visible_task_group_links(game):
 
 def _neighbors_by_pk(links, placement):
     """Предыдущая/следующая ссылка в упорядоченном списке по pk placement."""
-    links = list(links)
-    pks = [l.pk for l in links]
-    try:
-        idx = pks.index(placement.pk)
-    except ValueError:
-        return None, None
-    prev_l = links[idx - 1] if idx > 0 else None
-    next_l = links[idx + 1] if idx + 1 < len(links) else None
-    return prev_l, next_l
+    return neighbors_by_pk(links, placement)
 
 
 def _resolve_game_page_actor(request, play_mode):

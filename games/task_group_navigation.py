@@ -1,6 +1,19 @@
 """Canonical URLs for task-group navigation."""
 
 
+def neighbors_by_pk(links, placement):
+    """Return previous and next links around a placement ordered by primary key."""
+    links = list(links)
+    pks = [link.pk for link in links]
+    try:
+        index = pks.index(placement.pk)
+    except ValueError:
+        return None, None
+    previous = links[index - 1] if index > 0 else None
+    following = links[index + 1] if index + 1 < len(links) else None
+    return previous, following
+
+
 def play_url_for_task_group(game, number, *, project_base=''):
     if project_base:
         return '{}/games/{}/{}/'.format(project_base, game.id, number)
