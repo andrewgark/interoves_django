@@ -100,6 +100,7 @@ from games.section_hub import (
 from games.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
 from games.task_titles import raddle_share_title, task_display_name, task_group_page_title
+from games.task_progress import compute_task_progress
 from games.models import (
     Attempt,
     AudioManager,
@@ -241,59 +242,15 @@ class _ResultsTaskGroupHeader:
         return self._n_tasks
 
 
-def _compute_task_progress(game, task_groups, team=None, user=None, anon_key=None, mode='general'):
-    """
-    Returns:
-      - solved_task_ids: set(task_id) solved by current actor
-      - tg_to_task_ids: {task_group_id: [task_id, ...]} (for computing per-group stats)
-      - task_result_points: {task_id: actor's result points}
-    """
-    from games.scoring import Actor, bulk_actor_task_progress
-
-    tg_ids = [tg.id for tg in task_groups]
-    tasks = list(Task.objects.filter(task_group_id__in=tg_ids).visible())
-
-    solved_task_ids = set()
-    task_result_points = {}
-    if tasks:
-        actor = None
-        if team is not None:
-            actor = Actor(team_id=team.pk)
-        elif user is not None:
-            actor = Actor(user_id=user.pk)
-        elif anon_key is not None:
-            actor = Actor(anon_key=str(anon_key))
-        if actor is not None:
-            # For "sections" (training) we treat a task solved if it was solved in ANY game
-            # that references the same canonical TaskGroup (same Task rows, different Game).
-            include_other_games = game.project_id == NEW_UI_SECTIONS_PROJECT
-            solved_task_ids, progress_by_task_id = bulk_actor_task_progress(
-                tasks=tasks,
-                actor=actor,
-                mode=mode,
-                game=game,
-                include_other_games=include_other_games,
-            )
-            task_result_points = {
-                task_id: progress[0]
-                for task_id, progress in progress_by_task_id.items()
-            }
-
-    tg_to_task_ids = {}
-    for task in tasks:
-        tg_to_task_ids.setdefault(task.task_group_id, []).append(task.id)
-
-    return solved_task_ids, tg_to_task_ids, task_result_points
-
-
 def _compute_solved_task_ids(game, task_groups, team=None, user=None, anon_key=None, mode='general'):
-    solved_task_ids, tg_to_task_ids, _task_result_points = _compute_task_progress(
+    solved_task_ids, tg_to_task_ids, _task_result_points = compute_task_progress(
         game,
         task_groups,
         team=team,
         user=user,
         anon_key=anon_key,
         mode=mode,
+        include_other_games=game.project_id == NEW_UI_SECTIONS_PROJECT,
     )
 
     return solved_task_ids, tg_to_task_ids
@@ -483,13 +440,14 @@ def _archive_nav_target(request, game, placement, href):
 
 def _task_group_progress_payload(game, task_groups, *, team=None, user=None, anon_key=None, mode='general'):
     canonical_groups = [p.task_group for p in task_groups]
-    solved_task_ids, tg_to_task_ids, task_result_points = _compute_task_progress(
+    solved_task_ids, tg_to_task_ids, task_result_points = compute_task_progress(
         game=game,
         task_groups=canonical_groups,
         team=team,
         user=user,
         anon_key=anon_key,
         mode=mode,
+        include_other_games=game.project_id == NEW_UI_SECTIONS_PROJECT,
     )
     result_squares_by_number = {}
     elapsed_by_number = {}
