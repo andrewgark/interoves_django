@@ -50,6 +50,43 @@ Parameters:
   LogRetentionDays:
     Type: Number
     Default: 30
+  IsProd:
+    Type: String
+    Default: 'TRUE'
+  DebugOn:
+    Type: String
+    Default: 'FALSE'
+  AsgiThreads:
+    Type: String
+    Default: '1'
+  RdsSecretArn:
+    Type: String
+    NoEcho: true
+  RdsDbName:
+    Type: String
+    Default: ebdb
+  RdsHostname:
+    Type: String
+  RdsPort:
+    Type: String
+    Default: '3306'
+  RdsUsername:
+    Type: String
+    Default: admin
+  RedisHost:
+    Type: String
+  RedisPort:
+    Type: String
+    Default: '6379'
+  RedisTls:
+    Type: String
+    Default: '1'
+  UseS3:
+    Type: String
+    Default: 'FALSE'
+  ExtraAllowedHosts:
+    Type: String
+    Default: localhost
 
 Conditions:
   IsSpot: !Equals [!Ref DeploymentMode, ecs-fargate-spot]
@@ -97,6 +134,34 @@ Resources:
               Value: !Ref ConfigSecretMap
             - Name: AWS_DEFAULT_REGION
               Value: !Ref AWS::Region
+            - Name: DJANGO_SETTINGS_MODULE
+              Value: interoves_django.settings
+            - Name: IS_PROD
+              Value: !Ref IsProd
+            - Name: DEBUG_ON
+              Value: !Ref DebugOn
+            - Name: ASGI_THREADS
+              Value: !Ref AsgiThreads
+            - Name: RDS_SECRET_ARN
+              Value: !Ref RdsSecretArn
+            - Name: RDS_DB_NAME
+              Value: !Ref RdsDbName
+            - Name: RDS_HOSTNAME
+              Value: !Ref RdsHostname
+            - Name: RDS_PORT
+              Value: !Ref RdsPort
+            - Name: RDS_USERNAME
+              Value: !Ref RdsUsername
+            - Name: REDIS_HOST
+              Value: !Ref RedisHost
+            - Name: REDIS_PORT
+              Value: !Ref RedisPort
+            - Name: REDIS_TLS
+              Value: !Ref RedisTls
+            - Name: USE_S3
+              Value: !Ref UseS3
+            - Name: EXTRA_ALLOWED_HOSTS
+              Value: !Ref ExtraAllowedHosts
           LogConfiguration:
             LogDriver: awslogs
             Options:
