@@ -143,6 +143,7 @@ def recheck_team_task_all_chronological(_, attempt_id):
                 anon_key or None,
                 this_attempt.replay_slot_id,
             )],
+            coalesce=False,
         )
 
     attempts = Attempt.manager.get_all_attempts(
