@@ -20,5 +20,19 @@
         "metrics_collection_interval": 60
       }
     }
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/app/recheck-dispatcher.log",
+            "log_group_name": "/aws/elasticbeanstalk/interoves/recheck-dispatcher",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 7
+          }
+        ]
+      }
+    }
   }
 }
