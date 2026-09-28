@@ -63,7 +63,11 @@ def publish_projection_refresh(game_id, task_group_id, *, mode, actor_filter=Non
     if actor_filter is not None:
         push_actor_refresh(game_id, task_group_id, actor_filter, revision)
     mark_key = _mark_key(game_id, task_group_id)
-    if _cache().get(mark_key):
+    # ``get`` followed by ``set`` is racy across web/worker instances: two
+    # callers can both enqueue a refresh and then contend on the same
+    # DailyResultProjectionState row.  RedisCache.add() is backed by SETNX,
+    # so only one caller becomes the owner of the in-flight refresh mark.
+    if not _cache().add(mark_key, '1', timeout=EVENT_TTL_SECONDS):
         logger.info(
             'projection refresh coalesced game=%s task_group=%s mode=%s',
             game_id, task_group_id, mode,
@@ -76,7 +80,6 @@ def publish_projection_refresh(game_id, task_group_id, *, mode, actor_filter=Non
             game_id, task_group_id,
         )
         return False
-    _cache().set(mark_key, '1', timeout=EVENT_TTL_SECONDS)
     body = {
         'version': 1,
         'type': 'projection.refresh',
