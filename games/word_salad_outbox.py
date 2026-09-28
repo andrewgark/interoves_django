@@ -177,6 +177,32 @@ def _mark_sent(row, message_id=''):
     logger.info('word salad outbox sent outbox_id=%s item_id=%s message_id=%s', row.pk, row.item_id, message_id)
 
 
+def _mark_sent_many(rows, message_ids):
+    """Finalize successful claims in one guarded update."""
+    if not rows:
+        return 0
+    now = timezone.now()
+    claim_filter = Q()
+    for row in rows:
+        claim_filter |= Q(pk=row.pk, claim_token=row.claim_token)
+    updated = WordSaladRecheckOutbox.objects.filter(
+        status=WordSaladRecheckOutbox.STATUS_SENDING,
+    ).filter(claim_filter).update(
+        status=WordSaladRecheckOutbox.STATUS_SENT,
+        sent_at=now,
+        claimed_until=None,
+        claim_token=None,
+        last_error='',
+        updated_at=now,
+    )
+    for row in rows:
+        logger.info(
+            'word salad outbox sent outbox_id=%s item_id=%s message_id=%s',
+            row.pk, row.item_id, message_ids.get(row.pk, ''),
+        )
+    return updated
+
+
 def _mark_cancelled(row):
     now = timezone.now()
     WordSaladRecheckOutbox.objects.filter(
@@ -240,6 +266,8 @@ def dispatch_word_salad_recheck_outbox(*, limit=10, transport=None):
             batch_outcomes = {row.pk: exc for row in batch}
         outcomes.update(batch_outcomes)
 
+    successful_rows = []
+    successful_message_ids = {}
     for row in active_rows:
         outcome = outcomes.get(
             row.pk,
@@ -253,8 +281,10 @@ def dispatch_word_salad_recheck_outbox(*, limit=10, transport=None):
                 row.pk, row.item_id, exc_info=(type(outcome), outcome, outcome.__traceback__),
             )
         else:
-            sent += 1
-            _mark_sent(row, message_id=outcome or '')
+            successful_rows.append(row)
+            successful_message_ids[row.pk] = outcome or ''
+    sent += len(successful_rows)
+    _mark_sent_many(successful_rows, successful_message_ids)
     return {'sent': sent, 'failed': failed}
 
 
