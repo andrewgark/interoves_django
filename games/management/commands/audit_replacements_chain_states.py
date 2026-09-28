@@ -4,10 +4,14 @@ import json
 from collections import defaultdict
 from decimal import Decimal
 
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
 from games.check import CheckerFactory
-from games.models import Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, Task
+from games.models import (
+    Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, ReplaySlot, Task, Team,
+)
+from games.recheck import recheck_chain_task
 
 
 def _actor_filter(team_id, user_id, anon_key):
@@ -28,22 +32,29 @@ def _json_equal(left, right):
 
 
 class Command(BaseCommand):
-    help = 'Read-only audit of replacements_lines ChainTaskState migration candidates.'
+    help = 'Audit or explicitly apply the replacements_lines ChainTaskState migration.'
 
     def add_arguments(self, parser):
+        parser.add_argument('--dry-run', action='store_true', help='Read-only mode.')
+        parser.add_argument('--apply', action='store_true', help='Apply the audited rechecks.')
         parser.add_argument(
-            '--dry-run', action='store_true', required=True,
-            help='Required safety flag; this command never writes data.',
+            '--confirm', default='',
+            help='Required with --apply: REPLACEMENTS_STATE_MIGRATION.',
         )
         parser.add_argument('--task-id', type=int)
         parser.add_argument('--game-id')
         parser.add_argument('--limit', type=int)
         parser.add_argument('--batch-size', type=int, default=100)
         parser.add_argument('--json', action='store_true', dest='json_output')
+        parser.add_argument('--summary-only', action='store_true')
 
     def handle(self, *args, **options):
-        if not options['dry_run']:
-            raise CommandError('Read-only audit requires --dry-run.')
+        if options['apply'] and options['dry_run']:
+            raise CommandError('--apply and --dry-run are mutually exclusive.')
+        if not options['apply'] and not options['dry_run']:
+            raise CommandError('Choose --dry-run or --apply.')
+        if options['apply'] and options['confirm'] != 'REPLACEMENTS_STATE_MIGRATION':
+            raise CommandError('--apply requires --confirm REPLACEMENTS_STATE_MIGRATION.')
 
         keys = set()
         attempt_keys = Attempt.manager.filter(
@@ -115,15 +126,53 @@ class Command(BaseCommand):
             'attempt_mismatch_count': sum(item['attempt_mismatch'] for item in items),
             'error_count': sum(bool(item['errors']) for item in items),
         }
+        if options['apply']:
+            applied = 0
+            apply_errors = []
+            for item in items:
+                if item['errors']:
+                    continue
+                try:
+                    self._apply_item(item)
+                    applied += 1
+                except Exception as exc:
+                    apply_errors.append('{}: {}'.format(item['task_id'], exc))
+            summary['applied_count'] = applied
+            summary['apply_error_count'] = len(apply_errors)
+            summary['apply_errors'] = apply_errors
         if options['json_output']:
             self.stdout.write(json.dumps(
-                {'summary': summary, 'items': items},
+                {
+                    'summary': summary,
+                    'items': [] if options['summary_only'] else items,
+                },
                 ensure_ascii=False, sort_keys=True,
             ))
         else:
             self.stdout.write('summary={}'.format(json.dumps(summary, ensure_ascii=False)))
-            for item in items:
-                self.stdout.write('suspect={}'.format(json.dumps(item, ensure_ascii=False, sort_keys=True)))
+            if not options['summary_only']:
+                for item in items:
+                    self.stdout.write('suspect={}'.format(json.dumps(item, ensure_ascii=False, sort_keys=True)))
+
+    def _apply_item(self, item):
+        task = Task.objects.get(pk=item['task_id'])
+        game = Game.objects.get(pk=item['game_id'])
+        team = Team.objects.filter(pk=item['team_id']).first() if item['team_id'] else None
+        user_model = get_user_model()
+        user = user_model.objects.filter(pk=item['user_id']).first() if item['user_id'] else None
+        replay_slot = (
+            ReplaySlot.objects.filter(pk=item['replay_slot_id']).first()
+            if item['replay_slot_id'] else None
+        )
+        recheck_chain_task(
+            task=task,
+            team=team,
+            user=user,
+            anon_key=item['anon_key'],
+            game=game,
+            replay_slot=replay_slot,
+            notify=False,
+        )
 
     @staticmethod
     def _key_for_row(row):
@@ -166,7 +215,6 @@ class Command(BaseCommand):
                     'attempt_mismatch': 0,
                     'errors': ['cannot resolve game'],
                 }
-        actor = _actor_filter(team_id, user_id, anon_key)
         attempts = list(attempts or [])
         rows = rows or {}
         states = {'general': None, 'tournament': None}

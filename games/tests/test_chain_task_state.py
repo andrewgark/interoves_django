@@ -958,6 +958,7 @@ class EdgeCaseTests(_ChainFixture, TestCase):
         report = json.loads(out.getvalue())
         self.assertEqual(report['summary']['candidate_count'], 1)
         self.assertEqual(report['summary']['suspect_count'], 0)
+        self.assertEqual(report['items'], [])
         self.assertTrue(
             ChainTaskState.objects.filter(
                 task=self.repl_task, team=self.team, replay_slot=replay,
