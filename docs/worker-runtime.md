@@ -40,6 +40,12 @@ process proof of concept; it is not a production deployment until the task IAM
 role, queue URL delivery, visibility timeout, alarms, and graceful shutdown
 are provisioned.
 
+Lambda has the same compatibility boundary through
+`games.worker_lambda.handle_sqs_event`.  It returns partial batch failures for
+5xx and 409 responses, while treating ordinary 4xx responses as poison
+messages.  Only `background` is enabled for Lambda in the registry for now;
+the other workers need duration/memory and browser compatibility measurements.
+
 ## Configuration boundary
 
 Every runtime can now load configuration from one opt-in Secrets Manager JSON
