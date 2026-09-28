@@ -17,7 +17,10 @@ def backfill_actor_keys_and_reject_duplicates(apps, schema_editor):
     duplicates = ChainTaskState.objects.values(
         'team_id', 'user_id', 'anon_key', 'task_id', 'game_id',
         'game_mode', 'replay_slot_key',
-    ).annotate(n=Count('pk')).filter(n__gt=1).first()
+    ).annotate(n=Count('pk')).filter(n__gt=1).order_by(
+        'team_id', 'user_id', 'anon_key', 'task_id', 'game_id',
+        'game_mode', 'replay_slot_key',
+    ).first()
     if duplicates is not None:
         raise RuntimeError(
             'Duplicate ChainTaskState logical key before unique constraint: {}'.format(
