@@ -205,6 +205,8 @@ def recheck_chain_task(
         elif task.task_type == 'raddle':
             checker_type = CT.objects.get(id='raddle')
         checker_factory = CheckerFactory()
+        accepted_attempt_ids = set((pending_resolution or {}).get('attempt_ids', ()))
+        accepted_scopes = (pending_resolution or {}).get('scopes', ())
 
         # current in-memory chain state per game_mode
         states = {'general': None, 'tournament': None}
@@ -219,7 +221,10 @@ def recheck_chain_task(
             mode = game.get_current_mode(attempt)
             last_state = states[mode]
             if attempt.status == 'Pending' and not _pending_is_accepted(
-                attempt, pending_resolution or {},
+                attempt,
+                pending_resolution or {},
+                accepted_attempt_ids=accepted_attempt_ids,
+                accepted_scopes=accepted_scopes,
             ):
                 continue
             try:
@@ -400,16 +405,20 @@ def _apply_replay_status(attempt, result, mode):
         attempt.status = result.status
 
 
-def _pending_is_accepted(attempt, pending_resolution):
+def _pending_is_accepted(
+    attempt, pending_resolution, *, accepted_attempt_ids=None, accepted_scopes=None,
+):
     if not pending_resolution or pending_resolution.get('version', 1) != 1:
         return False
-    if attempt.pk in set(pending_resolution.get('attempt_ids', ())):
+    if accepted_attempt_ids is None:
+        accepted_attempt_ids = set(pending_resolution.get('attempt_ids', ()))
+    if attempt.pk in accepted_attempt_ids:
         return True
     try:
         payload = json.loads(attempt.text)
     except (TypeError, ValueError):
         return False
-    scopes = pending_resolution.get('scopes', ())
+    scopes = pending_resolution.get('scopes', ()) if accepted_scopes is None else accepted_scopes
     if attempt.task.task_type == 'wall':
         words = sorted(str(x).strip().lower() for x in payload.get('words', []))
         return {'type': 'wall_words', 'value': words} in scopes
