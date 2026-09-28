@@ -18,7 +18,7 @@ from django.db import connection, transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
-from games.difficulty import (
+from games.difficulty_domain.core import (
     DUE_REFRESH_LIMIT,
     REFRESH_CLAIM_LEASE,
     SUPPORTED_GAME_IDS,
@@ -244,7 +244,7 @@ def run_daily_difficulty_refresh(
 
 def repair_daily_difficulty_queue(*, now=None):
     """Repair recoverable queue metadata without doing heavy calculations."""
-    from games.difficulty import backfill_daily_difficulty_rows
+    from games.difficulty_domain.core import backfill_daily_difficulty_rows
 
     now = now or timezone.now()
     rescheduled = DailyGameDifficulty.objects.filter(
