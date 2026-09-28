@@ -2126,6 +2126,18 @@ class Attempt(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['status'], name='games_attempt_status_idx'),
+            models.Index(
+                fields=['task', 'team', 'replay_slot', 'game', 'skip', 'points', 'time'],
+                name='games_att_task_team_scope_idx',
+            ),
+            models.Index(
+                fields=['task', 'user', 'replay_slot', 'game', 'skip', 'points', 'time'],
+                name='games_att_task_user_scope_idx',
+            ),
+            models.Index(
+                fields=['task', 'anon_key', 'replay_slot', 'game', 'skip', 'points', 'time'],
+                name='games_att_task_anon_scope_idx',
+            ),
             models.Index(fields=['task', 'team', 'time']),
             models.Index(fields=['task', 'user', 'time']),
             models.Index(fields=['task', 'anon_key', 'time']),
