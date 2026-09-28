@@ -7,6 +7,11 @@ workers. It creates an ECS service and task definition with the same command:
 python manage.py run_worker --worker <name> --mode <ecs-fargate|ecs-fargate-spot>
 ```
 
+Sizing and quiet/normal/game-day mode defaults are recorded in
+`worker-profiles.yaml`. It is a reviewable source of intent, not an automatic
+production switch. The deploy command must validate that the selected mode is
+allowed for the worker before applying it.
+
 The template does not create a cluster, VPC, subnets, security groups, queues,
 or IAM roles. Those resources are intentionally supplied as parameters or
 managed separately so deploying a worker cannot accidentally modify the
@@ -43,6 +48,11 @@ still receives all runtime values through the task environment/config loader.
 For `ecs-fargate-spot`, the workload must tolerate interruption. Start with
 `background` or `recheck`; keep `integrations` on On-Demand until its retry and
 external API side effects have been verified.
+
+The polling command handles SIGTERM/SIGINT and stops after the current receive
+cycle. ECS can therefore replace a task without immediately starting another
+receive loop; the SQS visibility timeout remains the protection for an
+in-flight message.
 
 The task definition passes only references and non-secret runtime metadata as
 environment variables. The application loads the actual JSON configuration

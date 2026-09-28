@@ -1,0 +1,52 @@
+# Deployment defaults only. This file contains no account ids, subnet ids,
+# image digests, queue URLs, or secret values.
+workers:
+  background:
+    runtime_role: background-worker
+    cpu: '512'
+    memory: '1024'
+    visibility_timeout: 90
+    allowed_modes:
+      - ecs-fargate
+      - ecs-fargate-spot
+      - lambda
+  identity:
+    runtime_role: identity-worker
+    cpu: '1024'
+    memory: '2048'
+    visibility_timeout: 180
+    allowed_modes:
+      - ecs-fargate
+      - ecs-fargate-spot
+  recheck:
+    runtime_role: worker
+    cpu: '1024'
+    memory: '2048'
+    visibility_timeout: 180
+    allowed_modes:
+      - ecs-fargate
+      - ecs-fargate-spot
+  integrations:
+    runtime_role: integration-worker
+    cpu: '1024'
+    memory: '2048'
+    visibility_timeout: 200
+    allowed_modes:
+      - ecs-fargate
+
+profiles:
+  quiet:
+    background: lambda
+    identity: ecs-fargate-spot
+    recheck: ecs-fargate-spot
+    integrations: ecs-fargate
+  normal:
+    background: ecs-fargate-spot
+    identity: ecs-fargate
+    recheck: ecs-fargate-spot
+    integrations: ecs-fargate
+  game-day:
+    background: ecs-fargate
+    identity: ecs-fargate
+    recheck: ecs-fargate
+    integrations: ecs-fargate

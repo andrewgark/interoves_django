@@ -1,6 +1,7 @@
 """Run one worker through the runtime-neutral SQS polling adapter."""
 
 import os
+import signal
 
 from django.core.management.base import BaseCommand, CommandError
 
@@ -46,6 +47,15 @@ class Command(BaseCommand):
             region_name=os.environ.get('AWS_REGION')
             or os.environ.get('AWS_DEFAULT_REGION', 'eu-central-1'),
         )
+        stopping = False
+
+        def request_stop(signum, frame):
+            nonlocal stopping
+            stopping = True
+            self.stdout.write('worker_stop_requested signal={}'.format(signum))
+
+        signal.signal(signal.SIGTERM, request_stop)
+        signal.signal(signal.SIGINT, request_stop)
         while True:
             result = poll_once(
                 worker_name=config.worker.name,
@@ -55,5 +65,7 @@ class Command(BaseCommand):
                 visibility_timeout=options.get('visibility_timeout'),
             )
             self.stdout.write(str(result))
-            if options['once']:
+            if options['once'] or stopping:
+                if stopping:
+                    self.stdout.write('worker_stopped=graceful')
                 return
