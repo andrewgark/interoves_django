@@ -8,6 +8,7 @@ from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.models import SocialAccount, SocialApp, SocialLogin
 from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
+from django.db import IntegrityError
 from django.contrib.sites.models import Site
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
@@ -35,6 +36,7 @@ from games.models import (
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
+    NextGameVoteEvent,
     Profile,
     ProfileTeamMembership,
     Project,
@@ -554,6 +556,50 @@ class AccountMergeTests(TestCase):
         self.assertEqual(TributePaymentIntent.objects.get(pk=intent.pk).user, self.target)
         self.assertEqual(TributePurchase.objects.get(pk=purchase.pk).matched_user, self.target)
         self.assertFalse(TelegramLinkToken.objects.filter(user=self.source).exists())
+
+    def test_merge_reassigns_next_game_vote_event_owner(self):
+        event = NextGameVoteEvent.objects.create(
+            idempotency_key='merge-vote-event',
+            event_name='new_donation',
+            result=NextGameVoteEvent.RESULT_COUNTED,
+            matched_user=self.source,
+        )
+
+        merge_accounts(
+            target_user=self.target,
+            source_user=self.source,
+            provider='vk',
+            provider_uid='vk-source',
+        )
+
+        event.refresh_from_db()
+        self.assertEqual(event.matched_user, self.target)
+
+    def test_confirm_view_handles_unexpected_database_conflict(self):
+        client = Client()
+        client.force_login(self.target)
+        session = client.session
+        session[PENDING_ACCOUNT_MERGE_SESSION_KEY] = {
+            'target_user_id': self.target.pk,
+            'source_user_id': self.source.pk,
+            'provider': 'vk',
+            'provider_uid': 'vk-source',
+            'created_at': __import__('time').time(),
+            'nonce': 'integrity-nonce',
+            'next': '/profile/',
+        }
+        session.save()
+
+        with patch('games.account_merge.merge_accounts', side_effect=IntegrityError('duplicate')):
+            response = client.post(reverse('ui_account_merge_confirm'), {
+                'action': 'merge',
+                'nonce': 'integrity-nonce',
+            })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Не удалось объединить профили')
+        self.source.refresh_from_db()
+        self.assertTrue(self.source.is_active)
 
     def test_merge_promotes_shared_verified_email_without_constraint_error(self):
         EmailAddress.objects.create(

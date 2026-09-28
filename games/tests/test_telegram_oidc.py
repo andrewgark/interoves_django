@@ -1,15 +1,31 @@
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.shortcuts import redirect
+from django.test import RequestFactory, TestCase
 
+from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.models import SocialAccount
 
 from games.models import Profile
-from games.telegram_oidc import TelegramProvider
+from games.telegram_oidc import TelegramCallbackView, TelegramProvider, telegram_callback
 
 
 class TelegramOIDCTests(TestCase):
+    def test_callback_boundary_turns_merge_response_into_http_redirect(self):
+        request = RequestFactory().get('/accounts/telegram/callback/')
+        response = redirect('ui_account_merge_confirm')
+
+        with patch.object(
+            TelegramCallbackView,
+            'dispatch',
+            side_effect=ImmediateHttpResponse(response),
+        ):
+            result = telegram_callback(request)
+
+        self.assertEqual(result.status_code, 302)
+        self.assertEqual(result.url, '/profile/merge/')
+
     def test_provider_uses_stable_sub_and_profile_fields(self):
         provider = object.__new__(TelegramProvider)
         self.assertEqual(provider.extract_uid({'sub': 12345}), '12345')

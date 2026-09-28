@@ -32,7 +32,7 @@ from games.daily_transitions import (
     next_daily_content_transition_for_games,
 )
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
 
@@ -5462,6 +5462,18 @@ def new_account_merge_confirm(request):
             )
         except AccountMergeError as exc:
             messages.error(request, str(exc))
+        except IntegrityError:
+            logger.exception(
+                'Account merge database conflict target=%s source=%s provider=%s',
+                request.user.pk,
+                pending['source_user_id'],
+                pending['provider'],
+            )
+            messages.error(
+                request,
+                'Не удалось объединить профили из-за конфликта данных. '
+                'Попробуйте ещё раз позже или обратитесь в поддержку.',
+            )
         else:
             next_url = pending['next']
             clear_pending_account_merge(request)

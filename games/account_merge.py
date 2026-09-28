@@ -34,17 +34,12 @@ from games.models import (
     LadderOffer,
     WordSaladOffer,
     Like,
-    PlayerAnalyticsState,
+    NextGameVoteEvent,
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
     DailySolveTiming,
     ReplaySlot,
-    Profile,
-    PlayerAnalyticsState,
-    PlayerCompletedGame,
-    PlayerStartedGame,
-    DailySolveTiming,
     Profile,
     ProfileTeamMembership,
     StatisticsEvent,
@@ -867,6 +862,16 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
     if target is None or source is None:
         raise AccountMergeError('Один из профилей больше не существует.')
 
+    # Lock both users' social identities before previewing or moving them.
+    # OAuth callbacks can otherwise change the provider set between those
+    # operations and invalidate the conflict checks.
+    locked_accounts = list(
+        SocialAccount.objects.select_for_update()
+        .filter(user_id__in=(target.pk, source.pk))
+        .order_by('user_id', 'pk')
+    )
+    source_accounts = [account for account in locked_accounts if account.user_id == source.pk]
+
     previous = AccountMerge.objects.filter(
         source_user_id_snapshot=source.pk,
         target_user_id_snapshot=target.pk,
@@ -934,6 +939,9 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
         summary['telegram_link_tokens'] = telegram_link_tokens.count()
         telegram_link_tokens.all().delete()
 
+    # Transfer ownership fields. Audit actors (excluded_by, created_by and
+    # frozen_by) intentionally remain attached to the original administrator;
+    # they are not account ownership and must not be rewritten by a merge.
     related_models = [
         ('ticket_requests', TicketRequest, 'created_by'),
         ('donations', Donation, 'user'),
@@ -944,6 +952,7 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
         ('ladder_offers', LadderOffer, 'user'),
         ('alphabetty_offers', AlphabettyOffer, 'user'),
         ('word_salad_offers', WordSaladOffer, 'user'),
+        ('next_game_vote_events', NextGameVoteEvent, 'matched_user'),
     ]
     # Payment models can be installed independently of account merging. When
     # present, keep their audit records attached to the surviving user.
@@ -960,7 +969,6 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
         summary[label] = model.objects.filter(**{field: source}).update(**{field: target})
     summary['club_subscriptions'] = _merge_club_subscriptions(target, source)
 
-    source_accounts = list(SocialAccount.objects.select_for_update().filter(user=source))
     target_profile = Profile.objects.get_or_create(
         user=target,
         defaults={'first_name': '', 'last_name': ''},
