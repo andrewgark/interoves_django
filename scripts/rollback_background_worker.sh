@@ -41,9 +41,7 @@ if [[ "$APPLY" != 1 ]]; then
 fi
 
 "$ROOT/scripts/deploy_ecs_worker.sh" background "$IMAGE_URI" --profile normal --desired-count 0 --apply
-aws_cmd elasticbeanstalk update-environment --application-name interoves \
-    --environment-name "$EB_ENV" \
-    --option-settings Namespace=aws:autoscaling:asg,OptionName=MinSize,Value="$RESTORE_MIN" \
-    Namespace=aws:autoscaling:asg,OptionName=MaxSize,Value="$RESTORE_MAX" >/dev/null
-aws_cmd elasticbeanstalk wait environment-updated --environment-names "$EB_ENV"
+aws_cmd autoscaling update-auto-scaling-group \
+    --auto-scaling-group-name "$ASG_NAME" \
+    --min-size "$RESTORE_MIN" --max-size "$RESTORE_MAX" --desired-capacity "$RESTORE_MIN"
 echo "Background rollback complete: ECS=0, EB=${RESTORE_MIN}/${RESTORE_MAX}"

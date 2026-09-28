@@ -27,8 +27,10 @@ starting ECS.
 
 ## Cutover
 
-1. Apply an EB configuration change that sets the background worker ASG
-   `MinSize=0` and `MaxSize=0`; wait until its instance is terminated.
+1. Set the discovered EB background ASG directly to `MinSize=0`, `MaxSize=0`,
+   and `DesiredCapacity=0`; wait until its instance is terminated. EB worker
+   environments may normalize persisted option settings back to `1/1`, so the
+   ASG state itself is the handoff control.
 2. Confirm the queue has no in-flight messages and that EB is no longer
    receiving messages.
 3. Start one ECS Spot task using the immutable image digest:
@@ -45,7 +47,8 @@ starting ECS.
 ## Rollback
 
 1. Run the deploy script with `--desired-count 0` and the same image digest.
-2. Restore the EB background ASG to its recorded `MinSize`/`MaxSize` values.
+2. Restore the EB background ASG to its recorded `MinSize`/`MaxSize` values
+   and desired capacity.
 3. Wait for EB to become `Ready/Green` and verify queue consumption resumes.
 
 Do not change the queue visibility timeout or delete production messages as
