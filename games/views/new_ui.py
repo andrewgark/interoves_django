@@ -152,6 +152,11 @@ from games.task_result_details import (
     word_salad_release_breakdown,
 )
 from games.task_presentation import task_ui_descriptor, wall_ui_context
+from games.replay_navigation import (
+    redirect_after_replay_action,
+    replay_actor_for_request,
+    replay_game_and_placement,
+)
 from games.models import (
     Attempt,
     AudioManager,
@@ -3794,44 +3799,24 @@ def new_task_group_page(request, game_id, task_group_number):
 
 
 def _replay_actor_for_request(request, game):
-    play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game, user=request.user)
-    team = user = anon_key = None
-    if play_mode == 'team':
-        if not request.user.is_authenticated or not has_team(request.user):
-            raise Http404()
-        team = request.user.profile.team_on
-    elif request.user.is_authenticated:
-        if not has_profile(request.user):
-            raise Http404()
-        user = request.user
-    else:
-        anon_key = _anon_key_from_request(request)
-        if not anon_key:
-            raise Http404()
-    return team, user, anon_key
+    """Compatibility wrapper for replay actor resolution."""
+    return replay_actor_for_request(
+        request,
+        game,
+        sections_project_id=NEW_UI_SECTIONS_PROJECT,
+        play_mode_getter=_get_play_mode,
+        has_profile_checker=has_profile,
+        has_team_checker=has_team,
+        anon_key_getter=_anon_key_from_request,
+    )
 
 
 def _replay_game_and_placement(game_id, task_group_number, project_id=None):
-    if project_id:
-        project = get_object_or_404(Project, id=project_id)
-        game = get_object_or_404(Game, id=game_id, project=project)
-    else:
-        game = get_object_or_404(Game, id=game_id)
-    placement = get_object_or_404(
-        GameTaskGroup.objects.select_related('task_group'),
-        game=game,
-        number=str(task_group_number),
-    )
-    return game, placement
+    return replay_game_and_placement(game_id, task_group_number, project_id)
 
 
 def _redirect_after_replay_action(game, number, project_id=None):
-    if project_id:
-        return _play_url_for_task_group(
-            game, number, project_base=_project_base(project_id),
-        )
-    return _play_url_for_task_group(game, number)
+    return redirect_after_replay_action(game, number, project_id)
 
 
 @require_POST
