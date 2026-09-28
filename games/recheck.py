@@ -385,7 +385,7 @@ def _apply_replay_status(attempt, result, mode):
 
 
 def _pending_is_accepted(attempt, pending_resolution):
-    if not pending_resolution:
+    if not pending_resolution or pending_resolution.get('version', 1) != 1:
         return False
     if attempt.pk in set(pending_resolution.get('attempt_ids', ())):
         return True

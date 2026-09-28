@@ -56,6 +56,7 @@ class AttemptAdminBulkTests(_ChainFixture, TestCase):
             game=self.game,
             notify=False,
             pending_resolution={
+                'version': 1,
                 'attempt_ids': [accepted.pk],
                 'scopes': [{'type': 'wall_words', 'value': ['a', 'b', 'c', 'd']}],
             },

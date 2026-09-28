@@ -29,6 +29,7 @@ from games.word_salad_recheck import (
     enqueue_word_salad_recheck,
     process_word_salad_recheck_item,
     process_word_salad_rechecks,
+    serialize_job,
 )
 
 
@@ -63,7 +64,11 @@ class WordSaladRecheckQueueTests(TestCase):
     def test_worker_completes_one_item_and_notifies_actor(self):
         actors = {(None, self.user.pk, None, None)}
         with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
-            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+            job = enqueue_word_salad_recheck(
+                task=self.task,
+                game=self.game,
+                pending_resolution={'version': 1, 'attempt_ids': [123], 'scopes': []},
+            )
         with patch(
             'games.word_salad_recheck.recheck_word_salad_actor',
             return_value={'credited': 2},
@@ -76,6 +81,46 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertEqual(job.credited_attempts, 2)
         recheck.assert_called_once()
         self.assertFalse(recheck.call_args.kwargs['notify'])
+        self.assertEqual(
+            recheck.call_args.kwargs['pending_resolution'],
+            {'version': 1, 'attempt_ids': [123], 'scopes': []},
+        )
+
+    def test_successful_retry_clears_stale_errors(self):
+        actors = {(None, self.user.pk, None, None)}
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        item = WordSaladRecheckItem.objects.get(job=job)
+        job.last_error = 'old transient error'
+        job.save(update_fields=['last_error'])
+        item.last_error = 'old transient error'
+        item.save(update_fields=['last_error'])
+        with patch(
+            'games.word_salad_recheck.recheck_word_salad_actor',
+            return_value={'credited': 0},
+        ):
+            self.assertEqual(process_word_salad_rechecks(limit=1, worker='test'), 1)
+        job.refresh_from_db()
+        item.refresh_from_db()
+        self.assertEqual(job.last_error, '')
+        self.assertEqual(item.last_error, '')
+
+    def test_job_serialization_exposes_pending_resolution_scope(self):
+        actors = {(None, self.user.pk, None, None)}
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            job = enqueue_word_salad_recheck(
+                task=self.task,
+                game=self.game,
+                pending_resolution={
+                    'version': 1,
+                    'attempt_ids': [123, 456],
+                    'scopes': [{'type': 'wall_words', 'value': ['африка']}],
+                },
+            )
+        payload = serialize_job(job)
+        self.assertEqual(payload['pending_resolution_version'], 1)
+        self.assertEqual(payload['pending_attempt_count'], 2)
+        self.assertEqual(payload['pending_scope_count'], 1)
 
     def test_duplicate_item_delivery_is_a_noop(self):
         actors = {(None, self.user.pk, None, None)}

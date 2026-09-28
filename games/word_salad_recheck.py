@@ -56,6 +56,7 @@ def _actor_key(actor):
 
 
 def serialize_job(job):
+    pending_resolution = job.pending_resolution or {}
     return {
         'id': job.pk, 'task_id': job.task_id, 'game_id': job.game_id,
         'status': job.status, 'total_actors': job.total_actors,
@@ -63,6 +64,9 @@ def serialize_job(job):
         'credited_attempts': job.credited_attempts,
         'attempt_count': job.attempt_count, 'progress': job.progress,
         'last_error': job.last_error,
+        'pending_resolution_version': pending_resolution.get('version', 1),
+        'pending_attempt_count': len(pending_resolution.get('attempt_ids') or []),
+        'pending_scope_count': len(pending_resolution.get('scopes') or []),
         'created_at': job.created_at.isoformat() if job.created_at else None,
         'updated_at': job.updated_at.isoformat() if job.updated_at else None,
         'started_at': job.started_at.isoformat() if job.started_at else None,
@@ -427,6 +431,7 @@ def _process_claimed_item(job, item, item_token):
             updated = WordSaladRecheckItem.objects.filter(
                 pk=item.pk, status=WordSaladRecheckItem.STATUS_RUNNING, claim_token=item_token,
             ).update(status=WordSaladRecheckItem.STATUS_COMPLETED, credited_attempts=credited,
+                     last_error='',
                      completed_at=now, claimed_until=None, claim_token=None, updated_at=now)
             if not updated:
                 return 'lease_lost'
@@ -435,6 +440,7 @@ def _process_claimed_item(job, item, item_token):
             ).update(
                 completed_actors=F('completed_actors') + 1,
                 credited_attempts=F('credited_attempts') + credited,
+                last_error='',
                 status=WordSaladRecheckJob.STATUS_PENDING,
                 next_attempt_at=now,
                 claimed_until=None,

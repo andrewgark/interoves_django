@@ -8,7 +8,7 @@ APP="interoves"
 ENV_NAME="${1:-}"
 DO_DEPLOY=0
 case "$ENV_NAME" in
-    interoves-recheck-worker|interoves-background-worker|interoves-identity-worker|interoves-word-salad-worker|interoves-integrations-worker) ;;
+    interoves-recheck-worker|interoves-background-worker|interoves-identity-worker|interoves-integrations-worker) ;;
     *) echo "Usage: $0 WORKER_ENVIRONMENT [--dry-run|--deploy]" >&2; exit 2 ;;
 esac
 shift
@@ -19,6 +19,10 @@ for arg in "$@"; do
         *) echo "Usage: $0 WORKER_ENVIRONMENT [--dry-run|--deploy]" >&2; exit 2 ;;
     esac
 done
+
+if [[ "$ENV_NAME" == "interoves-recheck-worker" ]]; then
+    "$ROOT/scripts/recheck_preflight.sh" $([[ "$DO_DEPLOY" == "1" ]] && echo --schema)
+fi
 
 workdir="$(mktemp -d /tmp/interoves-worker-deploy.XXXXXX)"
 trap 'rm -rf "$workdir"' EXIT

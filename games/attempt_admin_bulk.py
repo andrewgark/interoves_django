@@ -43,7 +43,7 @@ def _apply_checker_additions(task, attempts):
 
 
 def _pending_resolution(attempts):
-    result = defaultdict(lambda: {'attempt_ids': [], 'scopes': []})
+    result = defaultdict(lambda: {'version': 1, 'attempt_ids': [], 'scopes': []})
     for attempt in attempts:
         entry = result[str(attempt.task_id)]
         entry['attempt_ids'].append(attempt.pk)

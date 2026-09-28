@@ -1471,7 +1471,10 @@ def accept_pending(modeladmin, request, queryset):
     accepted = accept_pending_attempts(queryset.values_list('id', flat=True))
     suffix = ''
     if chain_count:
-        suffix = ' Для {} chain-посылок replay поставлен в durable queue.'.format(chain_count)
+        suffix = (
+            ' Для {} chain-посылок replay поставлен в durable queue; '
+            'Pending по другим категориям сохраняются до отдельного решения.'.format(chain_count)
+        )
     modeladmin.message_user(
         request,
         'Принято ответов: {}.{}'.format(accepted, suffix),

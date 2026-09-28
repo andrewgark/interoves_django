@@ -31,7 +31,6 @@ interoves-env` для определения прода не подходят.
 | `interoves-env` | Blue web | нет | только rollback DNS; Blue не деплоить и не «чинить» без явного запроса |
 | `interoves-background-worker` | background-worker | нет | difficulty, проекции результатов, фоновые тики |
 | `interoves-identity-worker` | identity-worker | нет | анонимный merge |
-| `interoves-word-salad-worker` | worker | нет | очередь Word Salad и `WordSaladRecheckJob` |
 | `interoves-integrations-worker` | integration-worker | нет | Telegram/Instagram/social тики и карточки игр |
 
 Кроны Blue (`difficulty`, `telegram`, `word salad`) должны оставаться
@@ -87,10 +86,11 @@ object `s3://elasticbeanstalk-<region>-<account>/<application>/<VersionLabel>.zi
 них не зависит, но все они делят ту же RDS; в комментарии `django.config`
 указан лимит `max_connections=60`, у Green `ASGI_THREADS=4`.
 
-`interoves-word-salad-worker` деплоится своим zip и своими worker settings, не
+`interoves-recheck-worker` деплоится своим zip и своими worker settings, не
 веб-zip и не Green web ebextensions. Он переигрывает цепочки: стена,
-замены, лесенка, алфавитка и салатик. Старый код worker может переиграть стену
-как салатик.
+замены, лесенка, алфавитка и салатик. Старое окружение
+`interoves-word-salad-worker` удалено как legacy; очередь обслуживается только
+`interoves-recheck-worker`.
 
 `interoves-integrations-worker` имеет `USE_S3=FALSE`: файлы на его диске
 исчезают при деплое. Playwright-скриншот карточки игры и текст «за день / за
@@ -118,7 +118,6 @@ Read-only snapshot option names from AWS on 2026-09-28 (наличие пере�
 | `interoves-env` (Blue) | `ADMIN_CHAT_ID`, `ANNOUNCE_CHAT_IDS`, `API_ID`, `NOTIFY_CHAT_ID`, `CHANNEL_CHAT_ID`, `OIDC_CLIENT_ID`, `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
 | `interoves-background-worker` | `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
 | `interoves-identity-worker` | `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
-| `interoves-word-salad-worker` | none |
 | `interoves-integrations-worker` | `ADMIN_CHAT_ID`, `ANNOUNCE_CHAT_IDS`, `API_ID`, `CHANNEL_CHAT_ID`, `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
 
 Смена EB option settings — это configuration deployment и рестарт. Отдельный
@@ -135,7 +134,7 @@ restart app server уже запущенный процесс новыми optio
   --region eu-central-1 --application-name interoves \
   --environment-names interoves-web-green interoves-env \
   interoves-background-worker interoves-identity-worker \
-  interoves-word-salad-worker interoves-integrations-worker
+  interoves-integrations-worker
 curl -sS https://interoves.com/health/live/
 ```
 
