@@ -9,7 +9,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from games.daily_section import MOSCOW, DAILY_TIMING_GAME_IDS, schedule_for
+from games.daily.section import MOSCOW, DAILY_TIMING_GAME_IDS, schedule_for
 from games.models import GameTaskGroup, PlayerCompletedGame
 
 
