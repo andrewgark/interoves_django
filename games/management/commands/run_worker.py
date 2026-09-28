@@ -4,6 +4,7 @@ import os
 import signal
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db import close_old_connections
 
 from games.worker_config import load_worker_config
 from games.worker_contract import WORKER_REGISTRY
@@ -57,6 +58,20 @@ class Command(BaseCommand):
         signal.signal(signal.SIGTERM, request_stop)
         signal.signal(signal.SIGINT, request_stop)
         while True:
+            if config.worker.name == 'recheck':
+                try:
+                    from games.word_salad_outbox import dispatch_recheck_outbox
+                    close_old_connections()
+                    dispatched = dispatch_recheck_outbox(limit=10)
+                    self.stdout.write(
+                        'recheck outbox sent={sent} failed={failed}.'.format(**dispatched),
+                    )
+                except Exception as exc:
+                    self.stderr.write(
+                        'recheck outbox dispatch failed: {}: {}'.format(
+                            exc.__class__.__name__, exc,
+                        ),
+                    )
             result = poll_once(
                 worker_name=config.worker.name,
                 client=client,

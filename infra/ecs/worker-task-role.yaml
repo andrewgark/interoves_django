@@ -17,6 +17,7 @@ Parameters:
 
 Conditions:
   HasValidationQueue: !Not [!Equals [!Ref ValidationQueueArn, '']]
+  IsRecheck: !Equals [!Ref WorkerName, recheck]
 
 Resources:
   TaskRole:
@@ -58,6 +59,22 @@ Resources:
           Value: interoves-workers
         - Key: Worker
           Value: !Ref WorkerName
+
+  PublishRecheckOutboxPolicy:
+    Type: AWS::IAM::Policy
+    Condition: IsRecheck
+    Properties:
+      PolicyName: PublishRecheckOutbox
+      Roles:
+        - !Ref TaskRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublishRecheckOutbox
+            Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource: !Ref QueueArn
 
   ValidationQueuePolicy:
     Type: AWS::IAM::Policy

@@ -94,6 +94,7 @@ Parameters:
 
 Conditions:
   IsSpot: !Equals [!Ref DeploymentMode, ecs-fargate-spot]
+  IsRecheck: !Equals [!Ref WorkerName, recheck]
 
 Resources:
   LogGroup:
@@ -132,6 +133,8 @@ Resources:
               Value: !Ref DeploymentMode
             - Name: WORKER_QUEUE_URL
               Value: !Ref QueueUrl
+            - Name: RECHECK_SQS_QUEUE_URL
+              Value: !If [IsRecheck, !Ref QueueUrl, '']
             - Name: INTEROVES_CONFIG_SECRET_ID
               Value: !Ref ConfigSecretArn
             - Name: INTEROVES_CONFIG_SECRET_MAP
