@@ -121,6 +121,7 @@ from games.play_mode import (
     session_play_mode_key,
 )
 from games.section_navigation import section_ui_context
+from games.results_context import empty_results_rows_context, results_column_count
 from games.models import (
     Attempt,
     AudioManager,
@@ -2075,23 +2076,11 @@ def _results_table_headers_context(game, task_group_number=None):
 
 
 def _results_column_count(task_groups, mode='general'):
-    """Return the actual number of columns in the shared results table."""
-    fixed_columns = 4 if mode == 'tournament' else 3
-    task_columns = sum(
-        group.get_n_tasks_for_results() for group in (task_groups or [])
-    )
-    return fixed_columns + task_columns
+    return results_column_count(task_groups, mode=mode)
 
 
 def _results_rows_empty_context():
-    return {
-        'teams_sorted': [],
-        'team_to_list_attempts_info': {},
-        'team_to_cells': {},
-        'team_to_score': {},
-        'team_to_place': {},
-        'team_to_max_best_time': {},
-    }
+    return empty_results_rows_context()
 
 
 def _load_game_results_data(game, mode):
