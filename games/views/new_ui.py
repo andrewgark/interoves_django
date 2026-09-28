@@ -99,9 +99,9 @@ from games.section_hub import (
 )
 from games.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
-from games.task_titles import raddle_share_title, task_display_name, task_group_page_title
-from games.task_progress import compute_task_progress, merge_task_group_progress_rows
-from games.task_group_navigation import (
+from games.tasks.titles import raddle_share_title, task_display_name, task_group_page_title
+from games.tasks.progress import compute_task_progress, merge_task_group_progress_rows
+from games.tasks.navigation import (
     neighbors_by_pk,
     play_url_for_task_group,
     replay_exit_url_for_task_group,
@@ -151,15 +151,15 @@ from games.task_result_details import (
     set_current_result_header_answers,
     word_salad_release_breakdown,
 )
-from games.task_presentation import task_ui_descriptor, wall_ui_context
+from games.tasks.presentation import task_ui_descriptor, wall_ui_context
 from games.replay_navigation import (
     redirect_after_replay_action,
     replay_actor_for_request,
     replay_game_and_placement,
 )
-from games.replacements_state import current_state as replacements_current_state
-from games.replacements_state import line_done_list as replacements_line_done_list
-from games.actor_state import chain_state_for_actor
+from games.tasks.replacements_state import current_state as replacements_current_state
+from games.tasks.replacements_state import line_done_list as replacements_line_done_list
+from games.tasks.actor_state import chain_state_for_actor
 from games.models import (
     Attempt,
     AudioManager,

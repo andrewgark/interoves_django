@@ -1,7 +1,7 @@
 """State-backed details used when rendering task-level results."""
 
 from games.alphabetty_daily import ALPHABETTY_GAME_ID
-from games.actor_state import (
+from games.tasks.actor_state import (
     chain_state_for_result_actor,
     latest_attempt_state_for_result_actor,
 )

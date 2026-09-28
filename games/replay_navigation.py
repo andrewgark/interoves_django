@@ -7,7 +7,7 @@ from games.analytics_identity import gameplay_anon_key
 from games.models import Game, GameTaskGroup, Project
 from games.play_mode import get_play_mode
 from games.project_navigation import project_base
-from games.task_group_navigation import play_url_for_task_group
+from games.tasks.navigation import play_url_for_task_group
 from games.views.util import effective_play_mode, has_profile, has_team
 
 

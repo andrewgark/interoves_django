@@ -1,55 +1,5 @@
-"""Authoritative actor state for replacements-lines tasks."""
+"""Compatibility facade for replacements task state helpers."""
 
-from games.actor_state import chain_state_for_actor
-from games.replacements_lines import (
-    parse_replacements_lines_text,
-    replacements_line_done_from_state,
-)
+from games.tasks.replacements_state import current_state, line_done_list
 
-
-def current_state(
-    task, *, game=None, team=None, user=None, anon_key=None, mode='general',
-    replay_slot=None, attempts_info=None,
-):
-    """Read ChainTaskState, falling back to the latest legacy attempt state."""
-    state = None
-    if game is not None:
-        row = chain_state_for_actor(
-            task,
-            game,
-            team=team,
-            user=user,
-            anon_key=anon_key,
-            mode=mode,
-            replay_slot=replay_slot,
-        )
-        state = row.state if row is not None else None
-    if state is None and attempts_info and attempts_info.attempts:
-        state = attempts_info.attempts[-1].state
-    return state
-
-
-def line_done_list(
-    task, attempts_info, *, game=None, team=None, user=None, anon_key=None,
-    mode='general', replay_slot=None,
-):
-    """Return solved-line flags for a replacements-lines task and actor."""
-    if task.task_type != 'replacements_lines':
-        return []
-    parsed = parse_replacements_lines_text(
-        task.text,
-        (task.checker_data or '').strip() or None,
-    )
-    if not parsed['left_lines']:
-        return []
-    state = current_state(
-        task,
-        game=game,
-        team=team,
-        user=user,
-        anon_key=anon_key,
-        mode=mode,
-        replay_slot=replay_slot,
-        attempts_info=attempts_info,
-    )
-    return replacements_line_done_from_state(state, parsed)
+__all__ = ['current_state', 'line_done_list']
