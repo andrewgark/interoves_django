@@ -19,6 +19,12 @@ placeholders with the exact queue ARN and configuration secret ARN. Keep one
 task role per worker where practical. Do not grant `sqs:*` on `*` or read access
 to the common secret unless that worker actually needs it.
 
+This is intentionally only the baseline consume policy. If a worker publishes
+follow-up messages, add a separate `sqs:SendMessage` statement for each exact
+destination queue. Verify the identity merge reconcile path and any future
+outbox dispatcher before moving them to ECS; never grant broad write access to
+all production queues.
+
 ## First deployment sequence
 
 1. Build and publish an immutable application image.
