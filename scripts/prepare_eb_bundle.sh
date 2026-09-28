@@ -54,11 +54,17 @@ read -r source_bucket source_key <<< "$bundle_meta"
 if [[ -z "$source_bucket" || -z "$source_key" || "$source_bucket" == "None" || "$source_key" == "None" ]]; then
     account_id=$("$ROOT/scripts/aws_with_role.sh" aws sts get-caller-identity --query Account --output text)
     source_bucket="elasticbeanstalk-${REGION}-${account_id}"
-    source_key="${APP}/${current_version}.zip"
-    if ! "$ROOT/scripts/aws_with_role.sh" aws s3api head-object --region "$REGION" \
-        --bucket "$source_bucket" --key "$source_key" >/dev/null 2>&1; then
+    source_key=""
+    for candidate in "${APP}/${current_version}.zip" "${APP}/green/${current_version}.zip" "${APP}/workers/${current_version}.zip"; do
+        if "$ROOT/scripts/aws_with_role.sh" aws s3api head-object --region "$REGION" \
+            --bucket "$source_bucket" --key "$candidate" >/dev/null 2>&1; then
+            source_key="$candidate"
+            break
+        fi
+    done
+    if [[ -z "$source_key" ]]; then
         echo "Could not resolve source bundle for $ENV_NAME version $current_version." >&2
-        echo "Neither EB metadata nor ${source_bucket}/${source_key} exists." >&2
+        echo "Neither EB metadata nor retained standard/green/worker S3 objects exist." >&2
         exit 1
     fi
     echo "Using retained EB S3 object ${source_bucket}/${source_key} (application-version metadata is absent)." >&2
