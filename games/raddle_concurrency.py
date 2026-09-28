@@ -2,10 +2,7 @@
 
 import logging
 
-from django.db import OperationalError, transaction
-
-from games.models import Task
-
+from django.db import IntegrityError, OperationalError, transaction
 
 MYSQL_DEADLOCK_ERRNO = 1213
 RADDLE_DEADLOCK_ATTEMPTS = 3
@@ -54,21 +51,29 @@ def run_raddle_atomic_with_deadlock_retry(operation, *, label):
 def lock_or_create_raddle_state(*, queryset, task, lookup, defaults):
     """Return a locked state row, serializing only first-row creation.
 
-    MySQL does not create the conditional UNIQUE constraints Django declares
-    for nullable actor columns.  A missing row therefore needs a stable parent
-    lock before creation.  Existing rows are locked by primary key, avoiding
+    The state models have a non-null actor-context unique key
+    (``actor_key``/``namespace_key`` or ``actor_key``/``replay_slot_key``).
+    Let that key arbitrate concurrent first-row creation instead of locking the
+    parent Task.  The parent lock serialized every actor on the same task and
+    made UI autosaves contend with answer submissions for up to InnoDB's lock
+    wait timeout.  Existing rows are locked by primary key, avoiding
     secondary-index/primary-key lock-order inversions.
     """
     row_id = queryset.order_by('pk').values_list('pk', flat=True).first()
     if row_id is not None:
         return queryset.model.objects.select_for_update().get(pk=row_id)
 
-    Task.objects.select_for_update().only('pk').get(pk=task.pk)
-    row = queryset.select_for_update().order_by('pk').first()
-    if row is not None:
-        return row
-
     if callable(defaults):
         defaults = defaults()
-    row = queryset.model.objects.create(**lookup, **defaults)
+    try:
+        # Keep the duplicate-key failure inside a savepoint so callers can
+        # continue using their surrounding transaction after another request
+        # wins the first-row race.
+        with transaction.atomic():
+            row = queryset.model.objects.create(**lookup, **defaults)
+    except IntegrityError:
+        row_id = queryset.order_by('pk').values_list('pk', flat=True).first()
+        if row_id is None:
+            raise
+        return queryset.model.objects.select_for_update().get(pk=row_id)
     return queryset.model.objects.select_for_update().get(pk=row.pk)

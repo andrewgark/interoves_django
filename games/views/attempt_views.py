@@ -53,7 +53,10 @@ from games.raddle import (
     serialize_raddle_attempt_text,
     word_matches,
 )
-from games.raddle_concurrency import lock_or_create_raddle_state
+from games.raddle_concurrency import (
+    lock_or_create_raddle_state,
+    run_raddle_atomic_with_deadlock_retry,
+)
 
 
 def _raddle_chain_state(task, team, user, anon_key, game, current_mode, replay_slot=None):
@@ -365,9 +368,17 @@ def check_attempt(
             chain_state_row.save(update_fields=['state', 'last_attempt', 'updated_at'])
         return True
 
-    # The Task row is the stable lock row for ordinary submissions too.
-    with transaction.atomic():
-        persisted = _run()
+    # Chain submissions can deadlock with the collaborative UI state writer.
+    # Retry the complete transaction so MySQL has rolled back every lock held
+    # by the failed attempt before we evaluate the answer again.
+    if is_chain_task:
+        persisted = run_raddle_atomic_with_deadlock_retry(
+            _run, label='check_attempt',
+        )
+    else:
+        # The Task row is the stable lock row for ordinary submissions too.
+        with transaction.atomic():
+            persisted = _run()
 
     if not persisted:
         return False
