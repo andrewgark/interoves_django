@@ -110,6 +110,8 @@
     var exists = !!bootstrap.exists;
     var runningSince = null;
     var heartbeatTimer = null;
+    var startRetryTimer = null;
+    var startAttempts = 0;
     var raf = null;
     var started = false;
     var destroyed = false;
@@ -322,13 +324,38 @@
     }
 
     function startIfAllowed() {
-      if (destroyed || completed || manuallyPaused) return;
+      if (destroyed || completed || manuallyPaused || awaitingServer) return;
       if (visibilityOf(doc) !== 'visible') return;
+      if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
+      startRetryTimer = null;
       started = true;
       awaitingServer = true;
+      startAttempts += 1;
       post('start').then(function (data) {
         awaitingServer = false;
         if (data && data.is_authoritative) foreignHold = false;
+        if (data && data.ok) {
+          startAttempts = 0;
+          render();
+          return;
+        }
+        // A transient network/5xx/CSRF failure used to leave the clock frozen
+        // at 0s forever. Retry a few times while the page is visible; a
+        // gameplay-context error is deliberate and must be handled by reload.
+        if (
+          !destroyed
+          && visibilityOf(doc) === 'visible'
+          && !(data && data.reload_required)
+          && startAttempts < 6
+          && root.setTimeout
+        ) {
+          var delay = Math.min(15000, 1000 * Math.pow(2, startAttempts - 1));
+          if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
+          startRetryTimer = root.setTimeout(function () {
+            startRetryTimer = null;
+            startIfAllowed();
+          }, delay);
+        }
         render();
       });
     }
@@ -367,6 +394,8 @@
 
     function onHidden() {
       if (completed || manuallyPaused) return;
+      if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
+      startRetryTimer = null;
       // Navigating into a private replay invalidates the official page's
       // gameplay context immediately. Do not send a stale auto_pause request
       // while the browser is unloading this page.
@@ -542,6 +571,8 @@
       destroy: function () {
         destroyed = true;
         awaitingServer = false;
+        if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
+        startRetryTimer = null;
         if (heartbeatTimer && root.clearInterval) root.clearInterval(heartbeatTimer);
         heartbeatTimer = null;
         if (raf && root.cancelAnimationFrame) root.cancelAnimationFrame(raf);
