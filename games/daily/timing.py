@@ -39,7 +39,8 @@ MYSQL_DEADLOCK_ERRNO = 1213
 TIMING_DEADLOCK_ATTEMPTS = 3
 _UNSET = object()
 
-logger = logging.getLogger(__name__)
+# Keep the established logger name while the implementation moves namespaces.
+logger = logging.getLogger('games.daily_timing')
 
 MUTATING_ACTIONS = {
     ACTION_START,
@@ -356,7 +357,7 @@ def _apply_timing_event_once(
         # by results, then let the current session take over. Returning an
         # empty snapshot here leaves the timer permanently frozen for exactly
         # those players.
-        from games.daily_section import is_daily_timing_game
+        from games.daily.section import is_daily_timing_game
         if is_daily_timing_game(getattr(game, 'id', None)) and _has_prior_statistical_activity(
             game=game, task_group=task_group, actor=filters, replay_slot=replay_slot,
         ):
