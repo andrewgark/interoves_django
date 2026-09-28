@@ -51,3 +51,23 @@ def compute_task_progress(
         tg_to_task_ids.setdefault(task.task_group_id, []).append(task.id)
 
     return solved_task_ids, tg_to_task_ids, task_result_points
+
+
+def merge_task_group_progress_rows(task_group_rows, progress_rows):
+    """Apply an actor projection to already-built task-group display rows."""
+    for row in task_group_rows:
+        progress = progress_rows.get(str(row.get('number')))
+        if not progress:
+            continue
+        for key in (
+            'n_solved',
+            'n_tasks',
+            'is_fully_solved',
+            'row_class',
+            'progress_text',
+            'result_squares',
+            'elapsed_label',
+        ):
+            if key in progress:
+                row[key] = progress[key]
+    return task_group_rows

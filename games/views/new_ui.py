@@ -100,7 +100,7 @@ from games.section_hub import (
 from games.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
 from games.task_titles import raddle_share_title, task_display_name, task_group_page_title
-from games.task_progress import compute_task_progress
+from games.task_progress import compute_task_progress, merge_task_group_progress_rows
 from games.models import (
     Attempt,
     AudioManager,
@@ -581,22 +581,7 @@ def _game_page_progress_context(request, game, play_mode):
 
 def _merge_task_group_progress_rows(task_group_rows, progress_rows):
     """Apply an authoritative actor projection to already-built display rows."""
-    for row in task_group_rows:
-        progress = progress_rows.get(str(row.get('number')))
-        if not progress:
-            continue
-        for key in (
-            'n_solved',
-            'n_tasks',
-            'is_fully_solved',
-            'row_class',
-            'progress_text',
-            'result_squares',
-            'elapsed_label',
-        ):
-            if key in progress:
-                row[key] = progress[key]
-    return task_group_rows
+    return merge_task_group_progress_rows(task_group_rows, progress_rows)
 
 
 def _initial_task_group_progress(
