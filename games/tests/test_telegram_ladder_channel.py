@@ -222,6 +222,19 @@ class LadderChannelScheduleTests(TestCase):
         admin_message_mock.assert_called_once()
         self.assertIn('Ошибка создания Telegram-поста', admin_message_mock.call_args.args[1])
 
+    @patch('games.telegram.ladder_channel.send_message')
+    @patch.object(SocialQueuePost, 'set_image_bytes', side_effect=PermissionError('S3 denied'))
+    @patch('games.telegram.ladder_channel.render_ladder_teaser_png', return_value=_tiny_png_bytes())
+    def test_schedule_marks_storage_failure_and_notifies_admin(
+        self, _render_mock, _set_image_mock, admin_message_mock,
+    ):
+        post = schedule_ladder_channel_post(now=self.now, force=True, notify_admin=False)
+        self.assertIsNotNone(post)
+        self.assertEqual(post.telegram_status, SocialQueuePost.STATUS_FAILED)
+        self.assertIn('stage=prepare_or_publish', post.telegram_error)
+        self.assertIn('PermissionError: S3 denied', post.telegram_error)
+        admin_message_mock.assert_called_once()
+
     @patch('games.social.publish.post_tweet_with_image')
     @patch('games.social.publish.twitter_configured', return_value=True)
     @patch('games.social.publish.publish_image_url')

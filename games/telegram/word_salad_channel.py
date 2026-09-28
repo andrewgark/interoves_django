@@ -30,7 +30,12 @@ from games.section_paths import section_play_path
 from games.telegram.game_urls import admin_url
 from games.telegram.mtproto import telegram_user_configured
 from games.telegram.word_salad_image import render_word_salad_teaser_png, word_salad_last_screenshot_url
-from games.telegram.render_errors import admin_render_failure_message, describe_render_failure
+from games.telegram.render_errors import (
+    admin_post_failure_message,
+    admin_render_failure_message,
+    describe_post_failure,
+    describe_render_failure,
+)
 from games.word_salad import WORD_SALAD_GAME_ID, theme_from_text
 from games.word_salad_daily import (
     MOSCOW,
@@ -147,6 +152,23 @@ def build_caption(salad: TodaySalad) -> str:
 
 def salad_channel_ready() -> bool:
     return telegram_user_configured() and telegram_channel_configured()
+
+
+def _mark_salad_post_failed(post, claim_token: str, *, stage: str, exc: BaseException):
+    error = describe_post_failure('Салатик №{}'.format(post.ladder_number), stage, exc)
+    complete_telegram_publish(
+        post.pk,
+        claim_token,
+        status=SocialQueuePost.STATUS_FAILED,
+        error=error,
+    )
+    if telegram_admin_configured():
+        try:
+            send_message(admin_chat_id(), admin_post_failure_message(error))
+        except Exception:
+            logger.exception('Failed to notify admin about salad post failure')
+    post.refresh_from_db()
+    return post
 
 
 def preview_salad_to_admin(*, now: datetime | None = None) -> tuple[bool, str]:
@@ -316,48 +338,67 @@ def schedule_salad_channel_post(
     existing.ladder_number = salad.number
     existing.play_url = salad.play_url
     existing.caption = caption
-    existing.set_image_bytes(image_png, filename='salad-{}.png'.format(salad.number))
-    if not update_claimed_telegram_post(
-        existing.pk,
-        claim_token,
-        ladder_number=salad.number,
-        play_url=salad.play_url,
-        caption=caption,
-        image=existing.image.name,
-    ):
-        existing.refresh_from_db()
-        return existing
-    existing.refresh_from_db()
-
-    schedule_at = None if immediate else publish_at_for_date(salad.salad_date)
-    msk = moscow_now(now)
-    if schedule_at is not None and schedule_at <= msk + timedelta(seconds=10):
-        error = (
-            '14:30 MSK already passed for {}; refusing to post immediately. '
-            'Use --now only if you really want to publish now.'.format(salad.salad_date)
-        )
-        logger.warning(error)
-        complete_telegram_publish(
+    try:
+        existing.set_image_bytes(image_png, filename='salad-{}.png'.format(salad.number))
+        if not update_claimed_telegram_post(
             existing.pk,
             claim_token,
-            status=SocialQueuePost.STATUS_FAILED,
-            error=error,
-            scheduled_for=schedule_at,
-        )
+            ladder_number=salad.number,
+            play_url=salad.play_url,
+            caption=caption,
+            image=existing.image.name,
+        ):
+            existing.refresh_from_db()
+            return existing
         existing.refresh_from_db()
-        return existing
 
-    publish_telegram(
-        existing,
-        immediate=immediate,
-        schedule_at=schedule_at,
-        force=force,
-        claim_token=claim_token,
-    )
+        schedule_at = None if immediate else publish_at_for_date(salad.salad_date)
+        msk = moscow_now(now)
+        if schedule_at is not None and schedule_at <= msk + timedelta(seconds=10):
+            error = (
+                '14:30 MSK already passed for {}; refusing to post immediately. '
+                'Use --now only if you really want to post now.'.format(salad.salad_date)
+            )
+            logger.warning(error)
+            complete_telegram_publish(
+                existing.pk,
+                claim_token,
+                status=SocialQueuePost.STATUS_FAILED,
+                error=error,
+                scheduled_for=schedule_at,
+            )
+            if telegram_admin_configured():
+                try:
+                    send_message(admin_chat_id(), admin_post_failure_message(error))
+                except Exception:
+                    logger.exception('Failed to notify admin about late salad post')
+            existing.refresh_from_db()
+            return existing
+
+        publish_telegram(
+            existing,
+            immediate=immediate,
+            schedule_at=schedule_at,
+            force=force,
+            claim_token=claim_token,
+        )
+    except Exception as exc:
+        logger.exception('Salad channel post preparation failed for №%s', salad.number)
+        return _mark_salad_post_failed(existing, claim_token, stage='prepare_or_publish', exc=exc)
+
     completed_by_caller = bool(
         getattr(existing, '_telegram_completion_applied', False)
     )
     existing.refresh_from_db()
+
+    if existing.telegram_status == SocialQueuePost.STATUS_FAILED:
+        error = existing.telegram_error or 'Telegram publish failed without details'
+        if telegram_admin_configured():
+            try:
+                send_message(admin_chat_id(), admin_post_failure_message(error))
+            except Exception:
+                logger.exception('Failed to notify admin about salad Telegram failure')
+        return existing
 
     if (
         completed_by_caller

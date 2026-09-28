@@ -29,3 +29,28 @@ def admin_render_failure_message(details: str) -> str:
     return '⚠️ <b>Ошибка создания Telegram-поста</b>\n<pre>{}</pre>'.format(
         escape(details[:3500]),
     )
+
+
+def describe_post_failure(kind: str, stage: str, exc: BaseException) -> str:
+    """Keep preparation/publish failures in the queue row and admin alert."""
+    details = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+    message = (
+        '{kind} Telegram post failed\n'
+        'stage={stage}\n'
+        'exception={exception}: {error}\n'
+        'traceback:\n{traceback}'
+    ).format(
+        kind=kind,
+        stage=stage,
+        exception=exc.__class__.__name__,
+        error=str(exc) or repr(exc),
+        traceback=details,
+    )
+    return message[:8000]
+
+
+def admin_post_failure_message(details: str) -> str:
+    """Format a bounded HTML alert for any daily Telegram post failure."""
+    return '⚠️ <b>Ошибка создания Telegram-поста</b>\n<pre>{}</pre>'.format(
+        escape(details[:3500]),
+    )

@@ -35,7 +35,12 @@ from games.telegram.config import (
 from games.telegram.game_urls import admin_url
 from games.telegram.ladder_image import ladder_last_screenshot_url, render_ladder_teaser_png
 from games.telegram.mtproto import telegram_user_configured
-from games.telegram.render_errors import admin_render_failure_message, describe_render_failure
+from games.telegram.render_errors import (
+    admin_post_failure_message,
+    admin_render_failure_message,
+    describe_post_failure,
+    describe_render_failure,
+)
 
 logger = logging.getLogger('application')
 
@@ -178,6 +183,23 @@ def build_caption(ladder: TodayLadder, *, parsed=None) -> str:
 
 def ladder_channel_ready() -> bool:
     return telegram_user_configured() and telegram_channel_configured()
+
+
+def _mark_ladder_post_failed(post, claim_token: str, *, stage: str, exc: BaseException):
+    error = describe_post_failure('Лесенка №{}'.format(post.ladder_number), stage, exc)
+    complete_telegram_publish(
+        post.pk,
+        claim_token,
+        status=SocialQueuePost.STATUS_FAILED,
+        error=error,
+    )
+    if telegram_admin_configured():
+        try:
+            send_message(admin_chat_id(), admin_post_failure_message(error))
+        except Exception:
+            logger.exception('Failed to notify admin about ladder post failure')
+    post.refresh_from_db()
+    return post
 
 
 def preview_ladder_to_admin(*, now: datetime | None = None) -> tuple[bool, str]:
@@ -348,48 +370,67 @@ def schedule_ladder_channel_post(
     existing.ladder_number = ladder.number
     existing.play_url = ladder.play_url
     existing.caption = caption
-    existing.set_image_bytes(image_png, filename='ladder-{}.png'.format(ladder.number))
-    if not update_claimed_telegram_post(
-        existing.pk,
-        claim_token,
-        ladder_number=ladder.number,
-        play_url=ladder.play_url,
-        caption=caption,
-        image=existing.image.name,
-    ):
-        existing.refresh_from_db()
-        return existing
-    existing.refresh_from_db()
-
-    schedule_at = None if immediate else publish_at_for_date(ladder.ladder_date)
-    msk = moscow_now(now)
-    if schedule_at is not None and schedule_at <= msk + timedelta(seconds=10):
-        error = (
-            '16:30 MSK already passed for {}; refusing to post immediately. '
-            'Use --now only if you really want to publish now.'.format(ladder.ladder_date)
-        )
-        logger.warning(error)
-        complete_telegram_publish(
+    try:
+        existing.set_image_bytes(image_png, filename='ladder-{}.png'.format(ladder.number))
+        if not update_claimed_telegram_post(
             existing.pk,
             claim_token,
-            status=SocialQueuePost.STATUS_FAILED,
-            error=error,
-            scheduled_for=schedule_at,
-        )
+            ladder_number=ladder.number,
+            play_url=ladder.play_url,
+            caption=caption,
+            image=existing.image.name,
+        ):
+            existing.refresh_from_db()
+            return existing
         existing.refresh_from_db()
-        return existing
 
-    publish_telegram(
-        existing,
-        immediate=immediate,
-        schedule_at=schedule_at,
-        force=force,
-        claim_token=claim_token,
-    )
+        schedule_at = None if immediate else publish_at_for_date(ladder.ladder_date)
+        msk = moscow_now(now)
+        if schedule_at is not None and schedule_at <= msk + timedelta(seconds=10):
+            error = (
+                '16:30 MSK already passed for {}; refusing to post immediately. '
+                'Use --now only if you really want to publish now.'.format(ladder.ladder_date)
+            )
+            logger.warning(error)
+            complete_telegram_publish(
+                existing.pk,
+                claim_token,
+                status=SocialQueuePost.STATUS_FAILED,
+                error=error,
+                scheduled_for=schedule_at,
+            )
+            if telegram_admin_configured():
+                try:
+                    send_message(admin_chat_id(), admin_post_failure_message(error))
+                except Exception:
+                    logger.exception('Failed to notify admin about late ladder post')
+            existing.refresh_from_db()
+            return existing
+
+        publish_telegram(
+            existing,
+            immediate=immediate,
+            schedule_at=schedule_at,
+            force=force,
+            claim_token=claim_token,
+        )
+    except Exception as exc:
+        logger.exception('Ladder channel post preparation failed for №%s', ladder.number)
+        return _mark_ladder_post_failed(existing, claim_token, stage='prepare_or_publish', exc=exc)
+
     completed_by_caller = bool(
         getattr(existing, '_telegram_completion_applied', False)
     )
     existing.refresh_from_db()
+
+    if existing.telegram_status == SocialQueuePost.STATUS_FAILED:
+        error = existing.telegram_error or 'Telegram publish failed without details'
+        if telegram_admin_configured():
+            try:
+                send_message(admin_chat_id(), admin_post_failure_message(error))
+            except Exception:
+                logger.exception('Failed to notify admin about ladder Telegram failure')
+        return existing
 
     if (
         completed_by_caller
