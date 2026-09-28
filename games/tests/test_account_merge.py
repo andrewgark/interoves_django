@@ -156,6 +156,30 @@ class AccountMergeTests(TestCase):
         self.assertEqual(pending['source_user_id'], self.source.pk)
         self.assertEqual(pending['provider'], 'vk')
 
+    def test_adapter_stashes_telegram_merge_without_connect_process(self):
+        telegram = SocialAccount.objects.create(
+            user=self.source,
+            provider='telegram',
+            uid='9455378736856410794',
+            extra_data={'id': '313591829', 'preferred_username': 'kontrprimer'},
+        )
+        request = RequestFactory().get('/accounts/telegram/callback/')
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.session.save()
+        request.user = self.target
+        sociallogin = SocialLogin(user=self.source, account=telegram)
+        sociallogin.state = {'next': '/profile/'}
+
+        with self.assertRaises(ImmediateHttpResponse) as caught:
+            SocialAccountAdapter().pre_social_login(request, sociallogin)
+
+        self.assertEqual(caught.exception.response.url, reverse('ui_account_merge_confirm'))
+        pending = request.session[PENDING_ACCOUNT_MERGE_SESSION_KEY]
+        self.assertEqual(pending['target_user_id'], self.target.pk)
+        self.assertEqual(pending['source_user_id'], self.source.pk)
+        self.assertEqual(pending['provider'], 'telegram')
+        self.assertEqual(pending['provider_uid'], '9455378736856410794')
+
     def test_adapter_links_only_unique_verified_email_on_login(self):
         EmailAddress.objects.create(
             user=self.target,

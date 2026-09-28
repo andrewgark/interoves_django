@@ -65,11 +65,14 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         # A successful connect callback proves ownership of the provider
         # identity. If it belongs to another Interoves user, pause allauth's
         # unsupported connect flow and ask for an explicit account merge.
-        if (
-            process == 'connect'
-            and request.user.is_authenticated
+        existing_foreign_account = (
+            request.user.is_authenticated
             and sociallogin.is_existing
             and sociallogin.user.pk != request.user.pk
+        )
+        if existing_foreign_account and (
+            process == 'connect'
+            or sociallogin.account.provider == 'telegram'
         ):
             stash_pending_account_merge(request, sociallogin)
             raise ImmediateHttpResponse(redirect('ui_account_merge_confirm'))
