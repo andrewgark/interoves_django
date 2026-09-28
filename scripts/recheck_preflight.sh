@@ -20,7 +20,8 @@ for required in \
     "$ROOT/games/migrations/0233_wordsaladrecheckjob_pending_resolution.py" \
     "$ROOT/games/migrations/0234_chaintaskstate_actor_key.py" \
     "$ROOT/games/migrations/0235_attempt_games_attempt_status_idx.py" \
-    "$ROOT/games/migrations/0236_merge_legacy_chain_state_duplicates.py"; do
+    "$ROOT/games/migrations/0236_merge_legacy_chain_state_duplicates.py" \
+    "$ROOT/games/migrations/0237_attempt_actor_scope_indexes.py"; do
     [[ -f "$required" ]] || { echo "Missing recheck prerequisite: $required" >&2; exit 1; }
 done
 
