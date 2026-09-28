@@ -335,6 +335,16 @@ def is_task_group_complete(*, task_group, game, team=None, user=None, anon_key=N
                 **actor,
             ).values_list('task_id', 'state')
         )
+    non_chain_tasks = [task for task in tasks if task.task_type not in chain_types]
+    non_chain_infos = Attempt.manager.get_bulk_actor_attempts_infos(
+        [task.pk for task in non_chain_tasks],
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        mode=mode,
+        game=game,
+        replay_slot=replay_slot,
+    ) if non_chain_tasks else {}
     for task in tasks:
         if task.task_type in chain_types:
             state = chain_states.get(task.pk)
@@ -342,15 +352,7 @@ def is_task_group_complete(*, task_group, game, team=None, user=None, anon_key=N
                 return False
             continue
 
-        attempts = Attempt.manager.get_attempts_info(
-            team=team,
-            task=task,
-            mode=mode,
-            user=user,
-            anon_key=anon_key,
-            game=game,
-            replay_slot=replay_slot,
-        )
+        attempts = non_chain_infos.get(task.pk)
         if not attempts.is_solved():
             return False
     return True
