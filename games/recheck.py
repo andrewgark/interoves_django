@@ -207,6 +207,7 @@ def recheck_chain_task(
             team, task, exclude_skip=False, user=user, anon_key=anon_key,
             game=game, replay_slot=replay_slot,
         )
+        replayed_attempts = []
 
         for attempt in attempts:
             mode = game.get_current_mode(attempt)
@@ -238,13 +239,29 @@ def recheck_chain_task(
                 print('REASON: {}'.format(e))
                 attempt.skip = True
                 attempt.state = last_state  # preserve previous state so chain continues
-            attempt.save()
+            replayed_attempts.append(attempt)
 
             if not attempt.skip:
                 states[mode] = attempt.state
                 if mode in locked_rows:
                     locked_rows[mode].state = attempt.state
                     locked_rows[mode].last_attempt = attempt
+
+        if replayed_attempts:
+            # Attempt.save() also schedules one projection/difficulty update per
+            # row.  Chain replay already reconciles the actor/task projection
+            # once below, so persist the replay result in one write and mark
+            # difficulty dirty once explicitly.
+            Attempt.manager.bulk_update(
+                replayed_attempts,
+                ['status', 'possible_status', 'points', 'state', 'comment', 'skip'],
+            )
+            from games.difficulty import mark_game_difficulty_changed
+            mark_game_difficulty_changed(
+                task_id=task.pk,
+                game_id=game.pk,
+                task_group_id=task.task_group_id,
+            )
 
         # Persist updated ChainTaskState rows.
         for row in locked_rows.values():
