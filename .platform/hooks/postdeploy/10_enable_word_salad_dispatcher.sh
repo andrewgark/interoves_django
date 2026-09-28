@@ -10,7 +10,7 @@ if [[ -r /opt/elasticbeanstalk/deployment/env ]]; then
   set +a
 fi
 
-WORKER_BUNDLE_MARKER=/var/app/current/.recheck-worker
+WORKER_BUNDLE_MARKER=/var/app/current/.platform/recheck-worker.marker
 if [[ -f "$WORKER_BUNDLE_MARKER" ]]; then
   INTEROVES_RUNTIME_ROLE=worker
   RECHECK_DISPATCHER_ENABLED=true
