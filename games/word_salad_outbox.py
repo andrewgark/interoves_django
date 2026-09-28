@@ -127,35 +127,38 @@ def _claim_one(*, now=None):
 
 def _claim_many(*, limit, now=None):
     now = now or timezone.now()
-    rows = []
+    limit = max(0, int(limit))
+    if not limit:
+        return []
+
     with transaction.atomic():
-        for _ in range(max(0, int(limit))):
-            row = WordSaladRecheckOutbox.objects.filter(
-                status=WordSaladRecheckOutbox.STATUS_PENDING,
-            ).filter(
-                next_attempt_at__isnull=True,
-            ).select_for_update().select_related('item', 'item__job').order_by('id').first()
-            if row is None:
-                row = WordSaladRecheckOutbox.objects.filter(
-                    status=WordSaladRecheckOutbox.STATUS_PENDING,
-                    next_attempt_at__lte=now,
-                ).select_for_update().select_related('item', 'item__job').order_by('id').first()
-            if row is None:
-                row = WordSaladRecheckOutbox.objects.filter(
-                    status=WordSaladRecheckOutbox.STATUS_SENDING,
-                ).filter(
-                    Q(claimed_until__isnull=True) | Q(claimed_until__lte=now),
-                ).select_for_update().select_related('item', 'item__job').order_by('id').first()
-            if row is None:
-                break
-            rows.append(row)
-            # This row is now invisible to the three candidate queries above
-            # until its claim expires, while the transaction keeps the lock.
-            row.status = WordSaladRecheckOutbox.STATUS_SENDING
-            row.claim_token = uuid.uuid4()
-            row.claimed_until = now + OUTBOX_CLAIM_TIMEOUT
-            row.attempts += 1
-            row.save(update_fields=['status', 'claim_token', 'claimed_until', 'attempts', 'updated_at'])
+        eligible = (
+            Q(status=WordSaladRecheckOutbox.STATUS_PENDING)
+            & (Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now))
+        ) | (
+            Q(status=WordSaladRecheckOutbox.STATUS_SENDING)
+            & (Q(claimed_until__isnull=True) | Q(claimed_until__lte=now))
+        )
+        rows = list(
+            WordSaladRecheckOutbox.objects.filter(eligible)
+            .select_for_update()
+            .select_related('item', 'item__job')
+            .order_by('id')[:limit]
+        )
+        if rows:
+            claimed_until = now + OUTBOX_CLAIM_TIMEOUT
+            for row in rows:
+                row.status = WordSaladRecheckOutbox.STATUS_SENDING
+                row.claim_token = uuid.uuid4()
+                row.claimed_until = claimed_until
+                row.attempts += 1
+                row.updated_at = now
+            # The rows are locked until this transaction commits.  Updating
+            # them together avoids one UPDATE per outbox message.
+            WordSaladRecheckOutbox.objects.bulk_update(
+                rows,
+                ['status', 'claim_token', 'claimed_until', 'attempts', 'updated_at'],
+            )
     return rows
 
 
