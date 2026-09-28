@@ -1,5 +1,11 @@
 # Agent instructions (Interoves Django)
 
+Общие правила читаемости, границ слоёв и безопасного рефакторинга находятся в
+[docs/development.md](../docs/development.md). План постепенного улучшения — в
+[docs/code-health-roadmap.md](../docs/code-health-roadmap.md). При изменении
+существующего кода сначала следуй этим документам, затем применяй предметные
+правила ниже.
+
 ## Python virtual environment
 
 Use this virtualenv for **every** Python command in this project (install deps, `manage.py`, tests, one-off scripts):
