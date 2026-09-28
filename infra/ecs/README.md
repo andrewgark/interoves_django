@@ -33,6 +33,9 @@ destination queue. Verify the identity merge reconcile path and any future
 outbox dispatcher before moving them to ECS; never grant broad write access to
 all production queues.
 
+`ValidationQueueArn` is an optional, temporary second policy for a disposable
+smoke queue. Set it only for validation and remove it again after the test.
+
 ## First deployment sequence
 
 1. Build and publish an immutable application image.

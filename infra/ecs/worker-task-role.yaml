@@ -10,6 +10,13 @@ Parameters:
   ConfigSecretArns:
     Type: CommaDelimitedList
     Description: Exact Secrets Manager ARNs referenced by the worker config map.
+  ValidationQueueArn:
+    Type: String
+    Default: ''
+    Description: Optional disposable validation queue; omit for normal deployments.
+
+Conditions:
+  HasValidationQueue: !Not [!Equals [!Ref ValidationQueueArn, '']]
 
 Resources:
   TaskRole:
@@ -51,6 +58,25 @@ Resources:
           Value: interoves-workers
         - Key: Worker
           Value: !Ref WorkerName
+
+  ValidationQueuePolicy:
+    Type: AWS::IAM::Policy
+    Condition: HasValidationQueue
+    Properties:
+      PolicyName: ConsumeDisposableValidationQueue
+      Roles:
+        - !Ref TaskRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ConsumeDisposableValidationQueue
+            Effect: Allow
+            Action:
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:ChangeMessageVisibility
+              - sqs:GetQueueAttributes
+            Resource: !Ref ValidationQueueArn
 
 Outputs:
   TaskRoleArn:
