@@ -2,67 +2,220 @@
 {% block title %}Очереди · Support{% endblock %}
 {% block support_content %}
 <div class="support-page-head">
-  <div><h1 class="support-page-title">Состояние очередей</h1><p class="support-hint">Проверено: {{ queue_checked_at|date:"d.m.Y H:i:s" }} UTC</p></div>
+  <div>
+    <h1 class="support-page-title">Queue Observatory</h1>
+    <p class="support-hint">Durable recheck jobs обновляются автоматически. Источник истины — DB Job/Item/Outbox.</p>
+  </div>
 </div>
-<div id="queues-dashboard">
-<section class="pal-card new-card">
-  <div class="support-table-wrap">
-    <table class="support-table">
-      <thead><tr><th>Очередь</th><th>Здоровье</th><th>Тип</th><th>Ожидают</th><th>В работе</th><th>Ошибки</th><th>Последнее обновление</th><th>Детали</th></tr></thead>
-      <tbody>
-      {% for row in queue_cards %}
-        <tr>
-          <td><strong>{{ row.name }}</strong></td><td>{{ row.health }}</td><td>{{ row.kind }}</td>
-          <td class="support-cell-mono">{{ row.pending }}</td><td class="support-cell-mono">{{ row.running }}</td>
-          <td class="support-cell-mono{% if row.failed %} support-queue-failed{% endif %}">{{ row.failed }}</td>
-          <td>{{ row.updated_at|default:"—" }}</td><td>{{ row.detail }}</td>
-        </tr>
-      {% empty %}<tr><td colspan="8">Очередей пока нет.</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
+
+<section
+  id="queue-observatory"
+  class="queue-observatory"
+  data-summary-url="{% url 'support:queue_observatory_summary' %}"
+  data-jobs-url="{% url 'support:queue_observatory_jobs' %}"
+>
+  <div id="queue-observatory-summary" class="queue-observatory__summary" aria-live="polite"></div>
+
+  <section class="pal-card new-card">
+    <div class="queue-observatory__toolbar">
+      <div>
+        <h2 class="support-page-title">Word Salad recheck jobs</h2>
+        <p id="queue-observatory-updated" class="support-hint">Загрузка…</p>
+      </div>
+      <label class="queue-observatory__filter">
+        Состояние
+        <select id="queue-observatory-status">
+          <option value="">Все</option>
+          <option value="pending">Ожидают</option>
+          <option value="running">В работе</option>
+          <option value="failed">Ошибки</option>
+          <option value="completed">Завершены</option>
+          <option value="superseded">Заменены</option>
+        </select>
+      </label>
+      <button id="queue-observatory-refresh" class="new-btn new-btn--secondary" type="button">Обновить</button>
+    </div>
+    <div class="support-table-wrap">
+      <table class="support-table queue-observatory__jobs">
+        <thead>
+          <tr>
+            <th>Job</th><th>Task / game</th><th>Состояние</th><th>Прогресс</th>
+            <th>Items</th><th>Создана</th><th>Возраст</th><th>Почему ждёт</th>
+          </tr>
+        </thead>
+        <tbody id="queue-observatory-jobs">
+          <tr><td colspan="8">Загрузка…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="support-pagination">
+      <span id="queue-observatory-page-info" class="support-pagination__info"></span>
+      <div>
+        <button id="queue-observatory-prev" class="new-btn new-btn--secondary" type="button">Назад</button>
+        <button id="queue-observatory-next" class="new-btn new-btn--secondary" type="button">Вперёд</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="queue-observatory-detail" class="pal-card new-card" hidden></section>
 </section>
-<section class="pal-card new-card new-stack-gap">
-  <h2 class="support-page-title">Heartbeat cron-only процессов</h2>
-  <div class="support-table-wrap">
-    <table class="support-table">
-      <thead><tr><th>Процесс</th><th>Здоровье</th><th>Состояние</th><th>Последний успех</th><th>Обновлено</th><th>Длительность</th><th>Worker</th><th>Ошибка</th></tr></thead>
-      <tbody>
-      {% for row in heartbeat_rows %}
-        <tr><td><strong>{{ row.name }}</strong><br><small>{{ row.queue_name }}</small></td><td>{{ row.health }}</td><td>{{ row.status }}</td><td>{{ row.last_success_at|default:"—" }}</td><td>{{ row.updated_at|default:"—" }}</td><td>{% if row.duration_ms != None %}{{ row.duration_ms }} ms{% else %}—{% endif %}</td><td>{{ row.worker|default:"—" }}</td><td>{{ row.error|default:"—" }}</td></tr>
-      {% empty %}<tr><td colspan="8">Heartbeat пока нет.</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-<section class="pal-card new-card new-stack-gap">
-  <h2 class="support-page-title">Активные и проблемные jobs</h2>
-  <div class="support-table-wrap">
-    <table class="support-table">
-      <thead><tr><th>Очередь</th><th>ID</th><th>Состояние</th><th>Прогресс</th><th>Обновлено</th><th>Ошибка</th></tr></thead>
-      <tbody>
-      {% for row in queue_details %}
-        <tr><td>{{ row.queue }}</td><td class="support-cell-mono">{{ row.id }}</td><td>{{ row.status }}</td><td>{{ row.progress }}</td><td>{{ row.updated_at }}</td><td>{{ row.error|default:"—" }}</td></tr>
-      {% empty %}<tr><td colspan="6">Активных или проблемных jobs нет.</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
-</section>
-</div>
-<p class="support-hint new-stack-gap">Страница обновляется автоматически каждые 10 секунд. Для durable-очередей lease позволяет продолжить работу после перезапуска инстанса.</p>
+
+<details class="new-stack-gap">
+  <summary class="support-hint">Другие queue snapshots и cron heartbeat</summary>
+  <section class="pal-card new-card">
+    <p class="support-hint">Эти очереди пока не подключены к live JSON Observatory.</p>
+    <div class="support-table-wrap">
+      <table class="support-table">
+        <thead><tr><th>Очередь</th><th>Здоровье</th><th>Тип</th><th>Ожидают</th><th>В работе</th><th>Ошибки</th><th>Последнее обновление</th><th>Детали</th></tr></thead>
+        <tbody>
+        {% for row in queue_cards %}
+          <tr>
+            <td><strong>{{ row.name }}</strong></td><td>{{ row.health }}</td><td>{{ row.kind }}</td>
+            <td class="support-cell-mono">{{ row.pending }}</td><td class="support-cell-mono">{{ row.running }}</td>
+            <td class="support-cell-mono{% if row.failed %} support-queue-failed{% endif %}">{{ row.failed }}</td>
+            <td>{{ row.updated_at|default:"—" }}</td><td>{{ row.detail }}</td>
+          </tr>
+        {% empty %}<tr><td colspan="8">Очередей пока нет.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section class="pal-card new-card">
+    <h2 class="support-page-title">Heartbeat cron-only процессов</h2>
+    <div class="support-table-wrap">
+      <table class="support-table">
+        <thead><tr><th>Процесс</th><th>Здоровье</th><th>Состояние</th><th>Последний успех</th><th>Обновлено</th><th>Длительность</th><th>Worker</th><th>Ошибка</th></tr></thead>
+        <tbody>
+        {% for row in heartbeat_rows %}
+          <tr><td><strong>{{ row.name }}</strong><br><small>{{ row.queue_name }}</small></td><td>{{ row.health }}</td><td>{{ row.status }}</td><td>{{ row.last_success_at|default:"—" }}</td><td>{{ row.updated_at|default:"—" }}</td><td>{% if row.duration_ms != None %}{{ row.duration_ms }} ms{% else %}—{% endif %}</td><td>{{ row.worker|default:"—" }}</td><td>{{ row.error|default:"—" }}</td></tr>
+        {% empty %}<tr><td colspan="8">Heartbeat пока нет.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</details>
+
 <script>
 (function () {
-  var timer = window.setInterval(function () {
-    fetch(window.location.href, {headers: {'X-Requested-With': 'XMLHttpRequest'}, cache: 'no-store'})
-      .then(function (response) { return response.text(); })
-      .then(function (html) {
-        var documentCopy = new DOMParser().parseFromString(html, 'text/html');
-        var fresh = documentCopy.getElementById('queues-dashboard');
-        var current = document.getElementById('queues-dashboard');
-        if (fresh && current) current.replaceWith(fresh);
-      })
+  var root = document.getElementById('queue-observatory');
+  if (!root) return;
+  var state = {page: 1, pageSize: 50, hasNext: false, loading: false};
+  var statusSelect = document.getElementById('queue-observatory-status');
+  var summaryNode = document.getElementById('queue-observatory-summary');
+  var jobsNode = document.getElementById('queue-observatory-jobs');
+  var detailNode = document.getElementById('queue-observatory-detail');
+  var updatedNode = document.getElementById('queue-observatory-updated');
+  var pageInfoNode = document.getElementById('queue-observatory-page-info');
+  var previousButton = document.getElementById('queue-observatory-prev');
+  var nextButton = document.getElementById('queue-observatory-next');
+
+  function esc(value) {
+    return String(value == null ? '—' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+  function statusLabel(value) {
+    return ({pending: 'Ожидает', running: 'В работе', completed: 'Завершено', failed: 'Ошибка', superseded: 'Заменено'})[value] || value || '—';
+  }
+  function ageLabel(seconds) {
+    if (seconds == null) return '—';
+    if (seconds < 60) return seconds + ' с';
+    if (seconds < 3600) return Math.floor(seconds / 60) + ' мин';
+    return Math.floor(seconds / 3600) + ' ч ' + Math.floor((seconds % 3600) / 60) + ' мин';
+  }
+  function dateLabel(value) {
+    if (!value) return '—';
+    try { return new Date(value).toLocaleString(); } catch (error) { return value; }
+  }
+  function card(label, value, extraClass) {
+    return '<div class="queue-observatory__card ' + (extraClass || '') + '"><span>' + esc(label) + '</span><strong>' + esc(value) + '</strong></div>';
+  }
+  function renderSummary(summary) {
+    var jobs = summary.jobs || {}, items = summary.items || {}, outbox = summary.outbox || {};
+    summaryNode.innerHTML = [
+      card('Jobs pending', jobs.pending || 0), card('Jobs running', jobs.running || 0),
+      card('Jobs failed', jobs.failed || 0, jobs.failed ? 'is-error' : ''),
+      card('Items pending', items.pending || 0), card('Items running', items.running || 0),
+      card('Items failed', items.failed || 0, items.failed ? 'is-error' : ''),
+      card('Retrying items', summary.retrying_items || 0), card('Outbox pending', outbox.pending || 0),
+      card('Stale leases', (summary.stale_jobs || 0) + (summary.stale_items || 0) + (summary.stale_outbox || 0), summary.stale_jobs || summary.stale_items || summary.stale_outbox ? 'is-warning' : ''),
+      card('Oldest pending', ageLabel(summary.oldest_pending_job_age_seconds))
+    ].join('');
+  }
+  function renderJobs(data) {
+    state.hasNext = data.has_next;
+    var rows = data.jobs || [];
+    if (!rows.length) {
+      jobsNode.innerHTML = '<tr><td colspan="8">Jobs не найдены.</td></tr>';
+    } else {
+      jobsNode.innerHTML = rows.map(function (job) {
+        var counts = job.counts || {};
+        var reason = job.explanation ? job.explanation.label : '—';
+        return '<tr>' +
+          '<td class="support-cell-mono"><a href="#job-' + esc(job.id) + '" data-job-id="' + esc(job.id) + '">#' + esc(job.id) + '</a></td>' +
+          '<td>task ' + esc(job.task_id) + '<br><small>' + esc(job.game_id) + '</small></td>' +
+          '<td>' + esc(statusLabel(job.status)) + '<br><small>' + esc(job.replay_mode) + '</small></td>' +
+          '<td>' + esc(job.completed_items) + ' / ' + esc(job.total_items) + ' (' + esc(job.progress) + '%)</td>' +
+          '<td>p ' + esc(counts.pending || 0) + ' · r ' + esc(counts.running || 0) + ' · f ' + esc(counts.failed || 0) + '</td>' +
+          '<td>' + esc(dateLabel(job.created_at)) + '</td>' +
+          '<td>' + esc(ageLabel(job.age_seconds)) + '</td>' +
+          '<td>' + esc(reason) + (job.last_error ? '<br><small>' + esc(job.last_error) + '</small>' : '') + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+    pageInfoNode.textContent = 'Страница ' + state.page;
+    previousButton.disabled = state.page <= 1;
+    nextButton.disabled = !state.hasNext;
+    jobsNode.querySelectorAll('[data-job-id]').forEach(function (link) {
+      link.addEventListener('click', function (event) {
+        event.preventDefault();
+        loadDetail(link.getAttribute('data-job-id'));
+      });
+    });
+  }
+  function renderDetail(job) {
+    var items = job.items || [];
+    detailNode.hidden = false;
+    detailNode.innerHTML = '<div class="queue-observatory__detail-head"><div><h2 class="support-page-title">Job #' + esc(job.id) + '</h2><p class="support-hint">' + esc(job.explanation && job.explanation.label) + ' · ' + esc(statusLabel(job.status)) + '</p></div><button type="button" class="new-btn new-btn--secondary" data-close-detail>Закрыть</button></div>' +
+      '<p>Task ' + esc(job.task_id) + ' · Game ' + esc(job.game_id) + ' · Progress ' + esc(job.completed_items) + ' / ' + esc(job.total_items) + ' · Создана ' + esc(dateLabel(job.created_at)) + '</p>' +
+      (job.last_error ? '<p class="support-queue-failed">' + esc(job.last_error) + '</p>' : '') +
+      '<div class="support-table-wrap"><table class="support-table support-table--compact"><thead><tr><th>Item</th><th>Actor</th><th>Status</th><th>Attempts</th><th>Explanation</th><th>Error</th></tr></thead><tbody>' +
+      (items.length ? items.map(function (item) {
+        var actor = item.actor || {};
+        return '<tr><td class="support-cell-mono">#' + esc(item.id) + '</td><td>' + esc(actor.team_name || actor.username || actor.anon_key || actor.actor_key) + '</td><td>' + esc(statusLabel(item.status)) + '</td><td>' + esc(item.attempt_count) + '</td><td>' + esc(item.explanation && item.explanation.label) + '</td><td>' + esc(item.last_error || '—') + '</td></tr>';
+      }).join('') : '<tr><td colspan="6">Items нет.</td></tr>') +
+      '</tbody></table></div>';
+    detailNode.querySelector('[data-close-detail]').addEventListener('click', function () { detailNode.hidden = true; });
+    detailNode.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
+  function loadDetail(id) {
+    fetch(root.dataset.jobsUrl + id + '/', {headers: {'X-Requested-With': 'XMLHttpRequest'}, cache: 'no-store'})
+      .then(function (response) { return response.json(); })
+      .then(function (payload) { if (payload.ok) renderDetail(payload.job); })
       .catch(function () {});
-  }, 10000);
+  }
+  function load() {
+    if (state.loading) return;
+    state.loading = true;
+    var params = new URLSearchParams({page: String(state.page), page_size: String(state.pageSize)});
+    if (statusSelect.value) params.set('status', statusSelect.value);
+    Promise.all([
+      fetch(root.dataset.summaryUrl, {headers: {'X-Requested-With': 'XMLHttpRequest'}, cache: 'no-store'}).then(function (response) { return response.json(); }),
+      fetch(root.dataset.jobsUrl + '?' + params.toString(), {headers: {'X-Requested-With': 'XMLHttpRequest'}, cache: 'no-store'}).then(function (response) { return response.json(); })
+    ]).then(function (payloads) {
+      if (payloads[0].ok) renderSummary(payloads[0].summary);
+      if (payloads[1].ok) renderJobs(payloads[1]);
+      updatedNode.textContent = 'Обновлено: ' + new Date().toLocaleTimeString();
+    }).catch(function () {
+      updatedNode.textContent = 'Не удалось обновить observability API';
+    }).finally(function () { state.loading = false; });
+  }
+  statusSelect.addEventListener('change', function () { state.page = 1; load(); });
+  document.getElementById('queue-observatory-refresh').addEventListener('click', load);
+  previousButton.addEventListener('click', function () { if (state.page > 1) { state.page -= 1; load(); } });
+  nextButton.addEventListener('click', function () { if (state.hasNext) { state.page += 1; load(); } });
+  load();
+  var timer = window.setInterval(load, 3000);
   window.addEventListener('beforeunload', function () { window.clearInterval(timer); });
 }());
 </script>

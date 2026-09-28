@@ -105,6 +105,78 @@
   margin: 0 0 1rem;
 }
 
+.queue-observatory__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+}
+
+.queue-observatory__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 4.2rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.queue-observatory__card span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.queue-observatory__card strong {
+  font-size: 1.35rem;
+}
+
+.queue-observatory__card.is-warning strong,
+.queue-observatory__card.is-error strong,
+.support-queue-failed {
+  color: var(--danger, #b42318);
+}
+
+.queue-observatory__toolbar,
+.queue-observatory__detail-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.queue-observatory__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.queue-observatory__filter select {
+  min-width: 10rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.queue-observatory__jobs td {
+  vertical-align: top;
+}
+
+.queue-observatory__detail-head {
+  align-items: flex-start;
+}
+
+.queue-observatory__detail-head .support-page-title {
+  margin-bottom: 0;
+}
+
 .support-card {
   margin-bottom: 1.25rem;
 }

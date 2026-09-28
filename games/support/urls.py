@@ -4,6 +4,7 @@ from django.views.generic import RedirectView
 
 from games.support import actions
 from games.support import views
+from games.support.queue_observatory import views as queue_observatory_views
 
 app_name = 'support'
 
@@ -129,6 +130,9 @@ urlpatterns = [
     path('social/<int:post_id>/delete/', views.social_delete, name='social_delete'),
     path('stats/', views.stats_dashboard, name='stats'),
     path('queues/', views.queues_dashboard, name='queues'),
+    path('queues/api/summary/', queue_observatory_views.summary, name='queue_observatory_summary'),
+    path('queues/api/jobs/', queue_observatory_views.jobs, name='queue_observatory_jobs'),
+    path('queues/api/jobs/<int:job_id>/', queue_observatory_views.job_detail, name='queue_observatory_job_detail'),
     path('pending/', views.pending_queue, name='pending'),
     path('live/', views.live_dashboard, name='live'),
     path('live/feed.json', views.live_feed_json, name='live_feed_json'),
