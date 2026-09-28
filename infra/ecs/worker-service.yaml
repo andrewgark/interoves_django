@@ -87,6 +87,10 @@ Parameters:
   ExtraAllowedHosts:
     Type: String
     Default: localhost
+  TributeClubSubscriptionEurId:
+    Type: String
+  TributeClubSubscriptionEurUrl:
+    Type: String
 
 Conditions:
   IsSpot: !Equals [!Ref DeploymentMode, ecs-fargate-spot]
@@ -162,6 +166,10 @@ Resources:
               Value: !Ref UseS3
             - Name: EXTRA_ALLOWED_HOSTS
               Value: !Ref ExtraAllowedHosts
+            - Name: TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID
+              Value: !Ref TributeClubSubscriptionEurId
+            - Name: TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL
+              Value: !Ref TributeClubSubscriptionEurUrl
           LogConfiguration:
             LogDriver: awslogs
             Options:
