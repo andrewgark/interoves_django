@@ -115,6 +115,11 @@ from games.project_navigation import (
     project_team_page_urls,
     project_urls_context,
 )
+from games.play_mode import (
+    default_play_mode,
+    get_play_mode,
+    session_play_mode_key,
+)
 from games.models import (
     Attempt,
     AudioManager,
@@ -762,19 +767,22 @@ def _team_join_redirect(request):
 
 
 def _session_play_mode_key(project_id):
-    return 'play_mode_{}'.format(project_id or 'main')
+    return session_play_mode_key(project_id)
 
 
 def _default_play_mode(project_id):
-    return 'personal' if project_id == NEW_UI_SECTIONS_PROJECT else 'team'
+    return default_play_mode(
+        project_id,
+        sections_project_id=NEW_UI_SECTIONS_PROJECT,
+    )
 
 
 def _get_play_mode(request, project_id):
-    key = _session_play_mode_key(project_id)
-    mode = request.session.get(key)
-    if mode not in ('team', 'personal'):
-        mode = _default_play_mode(project_id)
-    return mode, key
+    return get_play_mode(
+        request,
+        project_id,
+        sections_project_id=NEW_UI_SECTIONS_PROJECT,
+    )
 
 # Один общий раздел «Десяточки» (игры из project main); остальные — по одной игре из project sections.
 NEW_UI_FOLDERS = [
