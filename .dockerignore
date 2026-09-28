@@ -1,6 +1,7 @@
 .git
 .gitignore
 .dockerignore
+.elasticbeanstalk
 .venv
 venv
 secrets
@@ -10,6 +11,10 @@ db.sqlite3
 media
 tmp
 var
+static
+microsites
+nutrimatic_bundle
+reports
 __pycache__
 *.pyc
 .vscode
