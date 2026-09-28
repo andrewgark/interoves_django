@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Shared ECS foundation for Interoves worker services.
+
+Parameters:
+  ClusterName:
+    Type: String
+    Default: interoves-workers
+  ExecutionRoleName:
+    Type: String
+    Default: interoves-ecs-task-execution-role
+
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      ClusterName: !Ref ClusterName
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      ClusterSettings:
+        - Name: containerInsights
+          Value: disabled
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref ExecutionRoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Tags:
+        - Key: Service
+          Value: interoves-workers
+
+Outputs:
+  ClusterArn:
+    Value: !GetAtt Cluster.Arn
+  ClusterName:
+    Value: !Ref Cluster
+  ExecutionRoleArn:
+    Value: !GetAtt ExecutionRole.Arn

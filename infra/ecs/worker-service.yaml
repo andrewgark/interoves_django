@@ -77,8 +77,6 @@ Resources:
           Essential: true
           WorkingDirectory: /app
           Command:
-            - python
-            - manage.py
             - run_worker
             - --worker
             - !Ref WorkerName

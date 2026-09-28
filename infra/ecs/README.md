@@ -1,5 +1,8 @@
 # ECS worker deployment
 
+`foundation.yaml` creates the shared ECS cluster and task execution role.
+It has no running tasks and therefore does not start worker costs by itself.
+`worker-task-role.yaml` creates one least-privilege task role for one worker.
 `worker-service.yaml` is one parameterized CloudFormation template for all
 workers. It creates an ECS service and task definition with the same command:
 
@@ -33,8 +36,9 @@ all production queues.
 ## First deployment sequence
 
 1. Build and publish an immutable application image.
-2. Create a dedicated ECS task role with the rendered policy.
-3. Verify the role can read only the selected queue and secret.
+2. Create the shared foundation stack and a dedicated ECS task role with the
+   exact queue and secret ARNs.
+3. Verify the role can read only the selected queue and secrets.
 4. Deploy with `DesiredCount=0` and run one task manually against a test queue.
 5. Run `manage.py worker_config check --worker <name> --mode ecs-fargate --strict`.
 6. Process a synthetic message and inspect CloudWatch logs/DLQ behavior.

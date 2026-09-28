@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Least-privilege ECS task role for one Interoves worker.
+
+Parameters:
+  WorkerName:
+    Type: String
+    AllowedValues: [background, identity, integrations, recheck]
+  QueueArn:
+    Type: String
+  ConfigSecretArns:
+    Type: CommaDelimitedList
+    Description: Exact Secrets Manager ARNs referenced by the worker config map.
+
+Resources:
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub interoves-${WorkerName}-ecs-task-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ConsumeConfiguredWorkerQueue
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ConsumeConfiguredWorkerQueue
+                Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:ChangeMessageVisibility
+                  - sqs:GetQueueAttributes
+                Resource: !Ref QueueArn
+        - PolicyName: ReadWorkerRuntimeConfiguration
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadWorkerRuntimeConfiguration
+                Effect: Allow
+                Action:
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref ConfigSecretArns
+      Tags:
+        - Key: Service
+          Value: interoves-workers
+        - Key: Worker
+          Value: !Ref WorkerName
+
+Outputs:
+  TaskRoleArn:
+    Value: !GetAtt TaskRole.Arn
