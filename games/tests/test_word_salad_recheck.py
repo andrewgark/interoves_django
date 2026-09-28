@@ -80,6 +80,8 @@ class WordSaladRecheckQueueTests(TestCase):
         actor = (None, self.user.pk, None, None)
         with patch('games.word_salad_recheck._word_salad_actor_keys', return_value={actor}):
             first = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        first.status = WordSaladRecheckJob.STATUS_RUNNING
+        first.save(update_fields=['status', 'updated_at'])
         from games.word_salad_recheck import enqueue_actor_rechecks
         second = enqueue_actor_rechecks(task=self.task, game=self.game, actors=[actor])
 
@@ -88,6 +90,29 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertEqual(first_item.status, WordSaladRecheckItem.STATUS_SUPERSEDED)
         self.assertEqual(first_outbox.status, WordSaladRecheckOutbox.STATUS_CANCELLED)
         self.assertEqual(WordSaladRecheckItem.objects.filter(job=second).count(), 1)
+
+    def test_queued_actor_replays_are_coalesced_and_resolution_is_merged(self):
+        from games.word_salad_recheck import enqueue_actor_rechecks
+        first_actor = (None, self.user.pk, None, None)
+        second_actor = (None, None, 'coalesced-anon', None)
+        first = enqueue_actor_rechecks(
+            task=self.task,
+            game=self.game,
+            actors=[first_actor],
+            pending_resolution={'version': 1, 'attempt_ids': [101], 'scopes': []},
+        )
+        second = enqueue_actor_rechecks(
+            task=self.task,
+            game=self.game,
+            actors=[second_actor],
+            pending_resolution={'version': 1, 'attempt_ids': [202], 'scopes': []},
+        )
+
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(second.total_actors, 2)
+        self.assertEqual(set(second.pending_resolution['attempt_ids']), {101, 202})
+        self.assertEqual(WordSaladRecheckItem.objects.filter(job=second).count(), 2)
+        self.assertEqual(WordSaladRecheckOutbox.objects.filter(item__job=second).count(), 2)
 
     def test_worker_completes_one_item_and_notifies_actor(self):
         actors = {(None, self.user.pk, None, None)}

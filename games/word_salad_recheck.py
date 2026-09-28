@@ -55,6 +55,28 @@ def _actor_key(actor):
     return json.dumps(list(actor), ensure_ascii=False, separators=(',', ':'))
 
 
+def _merge_pending_resolution(existing, incoming):
+    """Union retry metadata when queued actor replays are coalesced."""
+    merged = dict(existing or {})
+    incoming = incoming or {}
+    if not incoming:
+        return merged
+    merged['version'] = max(merged.get('version', 1), incoming.get('version', 1))
+    if 'replay_mode' in incoming:
+        modes = {merged.get('replay_mode', 'full_recheck'), incoming['replay_mode']}
+        merged['replay_mode'] = 'full_recheck' if 'full_recheck' in modes else incoming['replay_mode']
+    for field in ('attempt_ids', 'actor_keys', 'scopes'):
+        values = list(merged.get(field) or [])
+        seen = {json.dumps(value, ensure_ascii=False, sort_keys=True) for value in values}
+        for value in incoming.get(field) or []:
+            marker = json.dumps(value, ensure_ascii=False, sort_keys=True)
+            if marker not in seen:
+                values.append(value)
+                seen.add(marker)
+        merged[field] = values
+    return merged
+
+
 def serialize_job(job):
     pending_resolution = job.pending_resolution or {}
     return {
@@ -173,6 +195,56 @@ def enqueue_actor_rechecks(*, task, game, actors, pending_resolution=None):
         normalized.append(key)
     now = timezone.now()
     actor_keys = [_actor_key(actor) for actor in normalized]
+
+    queued_job = WordSaladRecheckJob.objects.select_for_update().filter(
+        task=task,
+        game=game,
+        task_revision=task.attempt_revision,
+        status=WordSaladRecheckJob.STATUS_PENDING,
+    ).order_by('-created_at', '-id').first()
+    if queued_job is not None:
+        existing_items = {
+            item.actor_key: item.status
+            for item in WordSaladRecheckItem.objects.select_for_update().filter(job=queued_job)
+        }
+        # An actor that is already running or terminal cannot be appended:
+        # running work must be fenced, while the job has a unique actor key.
+        if not any(
+            existing_items.get(key) in (
+                WordSaladRecheckItem.STATUS_RUNNING,
+                WordSaladRecheckItem.STATUS_COMPLETED,
+                WordSaladRecheckItem.STATUS_SUPERSEDED,
+            )
+            for key in actor_keys
+        ):
+            new_actors = [
+                actor for actor, key in zip(normalized, actor_keys)
+                if existing_items.get(key) != WordSaladRecheckItem.STATUS_PENDING
+            ]
+            new_items = [
+                WordSaladRecheckItem(
+                    job=queued_job,
+                    actor_key=_actor_key(actor),
+                    team_id=actor[0],
+                    user_id=actor[1],
+                    anon_key=actor[2],
+                    replay_slot_id=actor[3],
+                    next_attempt_at=now,
+                )
+                for actor in new_actors
+            ]
+            WordSaladRecheckItem.objects.bulk_create(new_items)
+            WordSaladRecheckOutbox.objects.bulk_create([
+                WordSaladRecheckOutbox(item=item, task_revision=queued_job.task_revision)
+                for item in new_items
+            ])
+            queued_job.total_actors += len(new_items)
+            queued_job.pending_resolution = _merge_pending_resolution(
+                queued_job.pending_resolution, pending_resolution,
+            )
+            queued_job.save(update_fields=['total_actors', 'pending_resolution', 'updated_at'])
+            return queued_job
+
     open_items = WordSaladRecheckItem.objects.select_for_update().filter(
         job__task=task,
         job__game=game,
