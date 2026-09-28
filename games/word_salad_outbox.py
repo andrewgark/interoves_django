@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 import uuid
 from datetime import timedelta
 
@@ -232,11 +233,19 @@ def _mark_failed(row, exc):
     )
 
 
+def _outbox_wait_ms(created_at):
+    if created_at is None:
+        return None
+    return round(max(0.0, (timezone.now() - created_at).total_seconds() * 1000), 1)
+
+
 def dispatch_word_salad_recheck_outbox(*, limit=10, transport=None):
     """Send at most ``limit`` intents; duplicate sends are expected and safe."""
+    started = time.perf_counter()
     transport = transport or SQSWordSaladTransport()
     sent = failed = 0
     rows = _claim_many(limit=limit)
+    oldest_created_at = min((row.created_at for row in rows), default=None)
     active_rows = []
     for row in rows:
         if row.item.status in (
@@ -249,11 +258,20 @@ def dispatch_word_salad_recheck_outbox(*, limit=10, transport=None):
         active_rows.append(row)
 
     if not active_rows:
+        logger.info(
+            'word salad outbox dispatch claimed=%s active=%s sent=%s failed=%s '
+            'batch_count=%s duration_ms=%.1f oldest_wait_ms=%s',
+            len(rows), 0, sent, failed, 0,
+            (time.perf_counter() - started) * 1000,
+            _outbox_wait_ms(oldest_created_at),
+        )
         return {'sent': sent, 'failed': failed}
 
     outcomes = {}
+    batch_count = 0
     for offset in range(0, len(active_rows), 10):
         batch = active_rows[offset:offset + 10]
+        batch_count += 1
         try:
             if hasattr(transport, 'send_batch'):
                 batch_outcomes = transport.send_batch(batch)
@@ -285,6 +303,13 @@ def dispatch_word_salad_recheck_outbox(*, limit=10, transport=None):
             successful_message_ids[row.pk] = outcome or ''
     sent += len(successful_rows)
     _mark_sent_many(successful_rows, successful_message_ids)
+    logger.info(
+        'word salad outbox dispatch claimed=%s active=%s sent=%s failed=%s '
+        'batch_count=%s duration_ms=%.1f oldest_wait_ms=%s',
+        len(rows), len(active_rows), sent, failed, batch_count,
+        (time.perf_counter() - started) * 1000,
+        _outbox_wait_ms(oldest_created_at),
+    )
     return {'sent': sent, 'failed': failed}
 
 
