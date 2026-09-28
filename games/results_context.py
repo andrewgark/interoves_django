@@ -1,4 +1,8 @@
-"""Small, request-independent helpers for results table contexts."""
+"""Helpers for results table display contexts and actor filters."""
+
+from django.utils import timezone
+
+from games.models import ClubSubscription, PersonalResultsParticipant
 
 
 def results_column_count(task_groups, mode='general'):
@@ -73,3 +77,44 @@ def results_actor_kind(actor):
     if getattr(actor, 'anon_key', None):
         return 'anon'
     return 'user'
+
+
+def results_me_participants(request, play_mode, *, anon_key_from_request):
+    """Return the personal or anonymous participant for the current viewer."""
+    me_personal = None
+    me_anon_participant = None
+    if play_mode == 'personal':
+        if request.user.is_authenticated:
+            me_personal = PersonalResultsParticipant(user=request.user)
+        else:
+            anon_key = anon_key_from_request(request)
+            if anon_key:
+                me_anon_participant = PersonalResultsParticipant(anon_key=anon_key)
+    return me_personal, me_anon_participant
+
+
+def club_subscriber_user_ids(actors):
+    """Return active Club subscribers among displayed result actors."""
+    user_ids = {
+        actor.user_id
+        for actor in actors
+        if getattr(actor, 'user_id', None) is not None
+        and not getattr(actor, 'is_team_results_row', False)
+    }
+    if not user_ids:
+        return set()
+    return set(ClubSubscription.objects.filter(
+        user_id__in=user_ids,
+        paid_until__gt=timezone.now(),
+    ).values_list('user_id', flat=True))
+
+
+def attach_results_club_badges(data):
+    """Attach display-only Club badges without changing result semantics."""
+    actors = data.get('teams_sorted') or []
+    subscriber_ids = club_subscriber_user_ids(actors)
+    data['team_to_club_subscriber'] = {
+        actor: getattr(actor, 'user_id', None) in subscriber_ids
+        for actor in actors
+    }
+    return data

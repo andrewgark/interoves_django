@@ -122,11 +122,14 @@ from games.play_mode import (
 )
 from games.section_navigation import section_ui_context
 from games.results_context import (
+    attach_results_club_badges,
+    club_subscriber_user_ids,
     empty_results_rows_context,
     results_actor_filter_types,
     results_actor_filter_urls,
     results_actor_kind,
     results_column_count,
+    results_me_participants,
 )
 from games.models import (
     Attempt,
@@ -2121,16 +2124,11 @@ def _public_exclusion_notice(request, game, task_group, *, surface):
 
 
 def _results_me_participants(request, play_mode):
-    me_personal = None
-    me_anon_participant = None
-    if play_mode == 'personal':
-        if request.user.is_authenticated:
-            me_personal = PersonalResultsParticipant(user=request.user)
-        else:
-            ak = _anon_key_from_request(request)
-            if ak:
-                me_anon_participant = PersonalResultsParticipant(anon_key=ak)
-    return me_personal, me_anon_participant
+    return results_me_participants(
+        request,
+        play_mode,
+        anon_key_from_request=_anon_key_from_request,
+    )
 
 
 def _results_actor_filter_types(request):
@@ -2146,30 +2144,12 @@ def _results_actor_kind(actor):
 
 
 def _club_subscriber_user_ids(actors):
-    """Return active Club subscribers among the displayed result actors."""
-    user_ids = {
-        actor.user_id
-        for actor in actors
-        if getattr(actor, 'user_id', None) is not None
-        and not getattr(actor, 'is_team_results_row', False)
-    }
-    if not user_ids:
-        return set()
-    return set(ClubSubscription.objects.filter(
-        user_id__in=user_ids,
-        paid_until__gt=timezone.now(),
-    ).values_list('user_id', flat=True))
+    return club_subscriber_user_ids(actors)
 
 
 def _attach_results_club_badges(data):
     """Attach display-only Club badges without changing result/filter semantics."""
-    actors = data.get('teams_sorted') or []
-    subscriber_ids = _club_subscriber_user_ids(actors)
-    data['team_to_club_subscriber'] = {
-        actor: getattr(actor, 'user_id', None) in subscriber_ids
-        for actor in actors
-    }
-    return data
+    return attach_results_club_badges(data)
 
 
 def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty_sort='attempts', actor_types=None):
