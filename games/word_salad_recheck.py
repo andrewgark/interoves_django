@@ -180,7 +180,7 @@ def _close_jobs_without_open_items(job_ids, now):
 
 
 @transaction.atomic
-def enqueue_actor_rechecks(*, task, game, actors, pending_resolution=None):
+def enqueue_actor_rechecks(*, task, game, actors, pending_resolution=None, coalesce=True):
     """Queue a chronological replay for specific actors. Other actors stay queued."""
     if game is None:
         raise ValueError('enqueue_actor_rechecks: pass game=')
@@ -201,15 +201,26 @@ def enqueue_actor_rechecks(*, task, game, actors, pending_resolution=None):
         game=game,
         task_revision=task.attempt_revision,
         status=WordSaladRecheckJob.STATUS_PENDING,
-    ).order_by('-created_at', '-id').first()
+    ).order_by('-created_at', '-id').first() if coalesce else None
     if queued_job is not None:
+        other_open_actor_keys = set(
+            WordSaladRecheckItem.objects.select_for_update().filter(
+                job__task=task,
+                job__game=game,
+                actor_key__in=actor_keys,
+                status__in=(
+                    WordSaladRecheckItem.STATUS_PENDING,
+                    WordSaladRecheckItem.STATUS_RUNNING,
+                ),
+            ).exclude(job=queued_job).values_list('actor_key', flat=True)
+        )
         existing_items = {
             item.actor_key: item.status
             for item in WordSaladRecheckItem.objects.select_for_update().filter(job=queued_job)
         }
         # An actor that is already running or terminal cannot be appended:
         # running work must be fenced, while the job has a unique actor key.
-        if not any(
+        if not other_open_actor_keys and not any(
             existing_items.get(key) in (
                 WordSaladRecheckItem.STATUS_RUNNING,
                 WordSaladRecheckItem.STATUS_COMPLETED,
