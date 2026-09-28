@@ -8,6 +8,7 @@ import os
 import socket
 import time
 import uuid
+from dataclasses import dataclass
 from datetime import timedelta
 
 from django.db import transaction
@@ -26,6 +27,48 @@ from games.runtime import runtime_role
 logger = logging.getLogger('application')
 RETRY_BASE = 30
 MAX_ITEM_ATTEMPTS = 5
+
+
+@dataclass(frozen=True)
+class EnqueueResult:
+    """Receipt metadata for one durable enqueue operation."""
+
+    job: WordSaladRecheckJob
+    created: bool
+    coalesced: bool
+    new_item_ids: tuple[int, ...] = ()
+    existing_item_ids: tuple[int, ...] = ()
+    superseded_job_ids: tuple[int, ...] = ()
+    superseded_item_ids: tuple[int, ...] = ()
+
+
+def _return_enqueue_result(result, *, return_receipt):
+    return result if return_receipt else result.job
+
+
+def serialize_enqueue_result(result):
+    """Return a stable JSON-friendly receipt without exposing claim tokens."""
+    job = result.job
+    return {
+        'jobs': [{
+            'id': job.pk,
+            'url': '/support/queues/api/jobs/{}/'.format(job.pk),
+            'created': result.created,
+            'coalesced': result.coalesced,
+            'status': job.status,
+            'task_id': job.task_id,
+            'game_id': job.game_id,
+            'total_items': job.total_actors,
+            'new_items': len(result.new_item_ids),
+            'existing_items': len(result.existing_item_ids),
+        }],
+        'new_jobs': 1 if result.created else 0,
+        'existing_jobs': 1 if result.coalesced else 0,
+        'new_items': len(result.new_item_ids),
+        'existing_items': len(result.existing_item_ids),
+        'superseded_jobs': list(result.superseded_job_ids),
+        'superseded_items': len(result.superseded_item_ids),
+    }
 
 
 def _validation_failpoint(name):
@@ -98,7 +141,7 @@ def serialize_job(job):
 
 
 @transaction.atomic
-def enqueue_word_salad_recheck(*, task, game, pending_resolution=None):
+def enqueue_word_salad_recheck(*, task, game, pending_resolution=None, return_receipt=False):
     """Snapshot actors and fence older jobs for this task/game."""
     task = type(task).objects.select_for_update().get(pk=task.pk)
     actors = sorted(
@@ -111,12 +154,14 @@ def enqueue_word_salad_recheck(*, task, game, pending_resolution=None):
     )
     now = timezone.now()
     active_job_ids = list(active.values_list('id', flat=True))
+    superseded_item_ids = []
     if active_job_ids:
         pending_items = WordSaladRecheckItem.objects.filter(
             job_id__in=active_job_ids,
             status=WordSaladRecheckItem.STATUS_PENDING,
         )
         pending_item_ids = list(pending_items.values_list('id', flat=True))
+        superseded_item_ids = pending_item_ids
         pending_items.update(
             status=WordSaladRecheckItem.STATUS_SUPERSEDED,
             claim_token=None,
@@ -151,7 +196,15 @@ def enqueue_word_salad_recheck(*, task, game, pending_resolution=None):
         WordSaladRecheckOutbox(item=item, task_revision=job.task_revision)
         for item in WordSaladRecheckItem.objects.filter(job=job).only('id')
     ])
-    return job
+    result = EnqueueResult(
+        job=job,
+        created=True,
+        coalesced=False,
+        new_item_ids=tuple(item.pk for item in WordSaladRecheckItem.objects.filter(job=job).only('pk')),
+        superseded_job_ids=tuple(active_job_ids),
+        superseded_item_ids=tuple(superseded_item_ids),
+    )
+    return _return_enqueue_result(result, return_receipt=return_receipt)
 
 
 def _close_jobs_without_open_items(job_ids, now):
@@ -180,7 +233,9 @@ def _close_jobs_without_open_items(job_ids, now):
 
 
 @transaction.atomic
-def enqueue_actor_rechecks(*, task, game, actors, pending_resolution=None, coalesce=True):
+def enqueue_actor_rechecks(
+    *, task, game, actors, pending_resolution=None, coalesce=True, return_receipt=False,
+):
     """Queue a chronological replay for specific actors. Other actors stay queued."""
     if game is None:
         raise ValueError('enqueue_actor_rechecks: pass game=')
@@ -254,7 +309,19 @@ def enqueue_actor_rechecks(*, task, game, actors, pending_resolution=None, coale
                 queued_job.pending_resolution, pending_resolution,
             )
             queued_job.save(update_fields=['total_actors', 'pending_resolution', 'updated_at'])
-            return queued_job
+            result = EnqueueResult(
+                job=queued_job,
+                created=False,
+                coalesced=True,
+                new_item_ids=tuple(item.pk for item in new_items),
+                existing_item_ids=tuple(
+                    item.pk for item in WordSaladRecheckItem.objects.filter(
+                        job=queued_job, actor_key__in=actor_keys,
+                        status=WordSaladRecheckItem.STATUS_PENDING,
+                    ).exclude(pk__in=[item.pk for item in new_items])
+                ),
+            )
+            return _return_enqueue_result(result, return_receipt=return_receipt)
 
     open_items = WordSaladRecheckItem.objects.select_for_update().filter(
         job__task=task,
@@ -265,6 +332,7 @@ def enqueue_actor_rechecks(*, task, game, actors, pending_resolution=None, coale
             WordSaladRecheckItem.STATUS_RUNNING,
         ),
     )
+    superseded_item_ids = tuple(open_items.values_list('id', flat=True))
     touched_jobs = set(open_items.values_list('job_id', flat=True))
     open_item_ids = list(open_items.values_list('id', flat=True))
     WordSaladRecheckOutbox.objects.filter(
@@ -308,7 +376,15 @@ def enqueue_actor_rechecks(*, task, game, actors, pending_resolution=None, coale
         WordSaladRecheckOutbox(item=item, task_revision=job.task_revision)
         for item in WordSaladRecheckItem.objects.filter(job=job).only('id')
     ])
-    return job
+    result = EnqueueResult(
+        job=job,
+        created=True,
+        coalesced=False,
+        new_item_ids=tuple(item.pk for item in WordSaladRecheckItem.objects.filter(job=job).only('pk')),
+        superseded_job_ids=tuple(touched_jobs),
+        superseded_item_ids=superseded_item_ids,
+    )
+    return _return_enqueue_result(result, return_receipt=return_receipt)
 
 
 @transaction.atomic

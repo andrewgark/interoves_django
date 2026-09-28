@@ -526,9 +526,17 @@ def update_word_salad(
     # Task.save() schedules a live update on commit. The durable recheck job
     # below rebuilds actor projections after the new payload is committed.
     recheck_job = None
+    queue_receipt = None
     if previous_checker_data != checker_data:
-        from games.word_salad_recheck import enqueue_word_salad_recheck
-        recheck_job = enqueue_word_salad_recheck(task=task, game=link.game)
+        from games.word_salad_recheck import (
+            enqueue_word_salad_recheck,
+            serialize_enqueue_result,
+        )
+        enqueue_result = enqueue_word_salad_recheck(
+            task=task, game=link.game, return_receipt=True,
+        )
+        recheck_job = enqueue_result.job
+        queue_receipt = serialize_enqueue_result(enqueue_result)
     try:
         number = int(link.number)
     except (TypeError, ValueError):
@@ -540,6 +548,7 @@ def update_word_salad(
     if recheck_job is not None:
         from games.word_salad_recheck import serialize_job
         detail['recheck_job'] = serialize_job(recheck_job)
+        detail['queue_receipt'] = queue_receipt
     return detail
 
 
@@ -554,12 +563,25 @@ def recheck_word_salad(link_id: int) -> dict[str, Any]:
     task = _task_for_link(link)
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
-    from games.word_salad_recheck import enqueue_word_salad_recheck, serialize_job
-    job = enqueue_word_salad_recheck(task=task, game=link.game)
+    from games.word_salad_recheck import (
+        enqueue_word_salad_recheck,
+        serialize_enqueue_result,
+        serialize_job,
+    )
+    enqueue_result = enqueue_word_salad_recheck(
+        task=task, game=link.game, return_receipt=True,
+    )
+    job = enqueue_result.job
     # Keep the old response keys for support clients while the durable job is
     # now processed asynchronously.
     payload = serialize_job(job)
-    return {'job': payload, 'actors': 0, 'credited': 0, **payload}
+    return {
+        'job': payload,
+        'queue_receipt': serialize_enqueue_result(enqueue_result),
+        'actors': 0,
+        'credited': 0,
+        **payload,
+    }
 
 
 @transaction.atomic

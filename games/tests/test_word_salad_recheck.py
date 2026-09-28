@@ -27,8 +27,10 @@ from games.word_salad_outbox import (
 )
 from games.word_salad_recheck import (
     enqueue_word_salad_recheck,
+    enqueue_actor_rechecks,
     process_word_salad_recheck_item,
     process_word_salad_rechecks,
+    serialize_enqueue_result,
     serialize_job,
 )
 
@@ -92,7 +94,6 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertEqual(WordSaladRecheckItem.objects.filter(job=second).count(), 1)
 
     def test_queued_actor_replays_are_coalesced_and_resolution_is_merged(self):
-        from games.word_salad_recheck import enqueue_actor_rechecks
         first_actor = (None, self.user.pk, None, None)
         second_actor = (None, None, 'coalesced-anon', None)
         first = enqueue_actor_rechecks(
@@ -113,6 +114,40 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertEqual(set(second.pending_resolution['attempt_ids']), {101, 202})
         self.assertEqual(WordSaladRecheckItem.objects.filter(job=second).count(), 2)
         self.assertEqual(WordSaladRecheckOutbox.objects.filter(item__job=second).count(), 2)
+
+    def test_enqueue_receipt_distinguishes_created_and_coalesced_items(self):
+        first_actor = (None, self.user.pk, None, None)
+        second_actor = (None, None, 'receipt-anon', None)
+        first = enqueue_actor_rechecks(
+            task=self.task, game=self.game, actors=[first_actor], return_receipt=True,
+        )
+        second = enqueue_actor_rechecks(
+            task=self.task, game=self.game, actors=[second_actor], return_receipt=True,
+        )
+        first_payload = serialize_enqueue_result(first)
+        second_payload = serialize_enqueue_result(second)
+        self.assertTrue(first.created)
+        self.assertFalse(first.coalesced)
+        self.assertEqual(first_payload['new_jobs'], 1)
+        self.assertEqual(first_payload['new_items'], 1)
+        self.assertFalse(second.created)
+        self.assertTrue(second.coalesced)
+        self.assertEqual(second_payload['existing_jobs'], 1)
+        self.assertEqual(second_payload['new_items'], 1)
+        self.assertEqual(second_payload['jobs'][0]['id'], first.job.pk)
+
+    def test_full_recheck_receipt_lists_superseded_work(self):
+        actors = {(None, self.user.pk, None, None)}
+        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+            first = enqueue_word_salad_recheck(
+                task=self.task, game=self.game, return_receipt=True,
+            )
+            second = enqueue_word_salad_recheck(
+                task=self.task, game=self.game, return_receipt=True,
+            )
+        payload = serialize_enqueue_result(second)
+        self.assertEqual(payload['superseded_jobs'], [first.job.pk])
+        self.assertEqual(payload['superseded_items'], 1)
 
     def test_worker_completes_one_item_and_notifies_actor(self):
         actors = {(None, self.user.pk, None, None)}

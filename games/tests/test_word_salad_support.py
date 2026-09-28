@@ -310,3 +310,7 @@ class WordSaladSupportTests(TestCase):
         self.assertTrue(response.json()['ok'])
         self.assertEqual(response.json()['recheck']['actors'], 0)
         self.assertEqual(response.json()['recheck']['credited'], 0)
+        receipt = response.json()['recheck']['queue_receipt']
+        self.assertEqual(receipt['new_jobs'], 1)
+        self.assertEqual(len(receipt['jobs']), 1)
+        self.assertIn('/support/queues/api/jobs/', receipt['jobs'][0]['url'])
