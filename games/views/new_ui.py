@@ -1,5 +1,6 @@
 """Main UI: hub, games folder, profile, team."""
 import datetime
+from datetime import timedelta
 import hmac
 import json
 import logging
@@ -4495,9 +4496,15 @@ def new_club_archive_offer_action(request):
             profile.club_archive_offer_last_shown_at = timezone.now()
             profile.save(update_fields=['club_archive_offer_last_shown_at'])
         return JsonResponse({'status': 'ok'})
+    if action == 'defer':
+        if not profile.club_archive_offer_never:
+            profile.club_archive_offer_deferred_until = timezone.now() + timedelta(days=14)
+            profile.save(update_fields=['club_archive_offer_deferred_until'])
+        return JsonResponse({'status': 'ok'})
     if action == 'never':
         profile.club_archive_offer_never = True
-        profile.save(update_fields=['club_archive_offer_never'])
+        profile.club_archive_offer_deferred_until = None
+        profile.save(update_fields=['club_archive_offer_never', 'club_archive_offer_deferred_until'])
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'invalid_action'}, status=400)
 

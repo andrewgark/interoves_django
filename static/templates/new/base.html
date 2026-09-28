@@ -113,19 +113,44 @@
   (function () {
     var modal = document.getElementById('club-archive-offer');
     if (!modal) return;
+    var userId = document.body.getAttribute('data-user-id') || '';
+    var storageKey = 'interoves_club_archive_offer:' + userId;
+    var deferDays = 14;
+    function readLocalState() {
+      try { return JSON.parse(localStorage.getItem(storageKey) || 'null'); } catch (e) { return null; }
+    }
+    function isLocallySuppressed() {
+      var state = readLocalState();
+      if (!state) return false;
+      if (state.state === 'never') return true;
+      if (state.state === 'later' && Number(state.until || 0) > Date.now()) return true;
+      try { localStorage.removeItem(storageKey); } catch (e) {}
+      return false;
+    }
+    if (isLocallySuppressed()) return;
+    function saveLocalState(state, until) {
+      try { localStorage.setItem(storageKey, JSON.stringify({state: state, until: until || 0})); } catch (e) {}
+    }
+    var laterUntil = Date.now() + deferDays * 24 * 60 * 60 * 1000;
     modal.hidden = false;
     modal.classList.add('is-open');
     document.body.classList.add('new-modal-open');
+    function csrfToken() {
+      if (window.InterovesPageCsrf) return window.InterovesPageCsrf.pageToken();
+      var el = document.querySelector('#interoves-page-csrf input[name="csrfmiddlewaretoken"]');
+      return el ? el.value : '';
+    }
     function action(actionName) {
       return fetch("{% url 'new_club_archive_offer_action' %}", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
           'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRFToken': (window.InterovesPageCsrf && window.InterovesPageCsrf.pageToken()) || '',
+          'X-CSRFToken': csrfToken(),
         },
         body: 'action=' + encodeURIComponent(actionName),
         credentials: 'same-origin',
+        keepalive: true,
       });
     }
     action('shown').catch(function () {});
@@ -133,11 +158,20 @@
       modal.classList.remove('is-open'); modal.hidden = true;
       document.body.classList.remove('new-modal-open');
     }
-    function never() { action('never').catch(function () {}); close(); }
-    modal.querySelectorAll('[data-club-offer-close]').forEach(function (el) { el.addEventListener('click', close); });
+    function defer() {
+      saveLocalState('later', laterUntil);
+      action('defer').catch(function () {});
+      close();
+    }
+    function never() {
+      saveLocalState('never');
+      action('never').catch(function () {});
+      close();
+    }
+    modal.querySelectorAll('[data-club-offer-close]').forEach(function (el) { el.addEventListener('click', defer); });
     var neverButton = modal.querySelector('[data-club-offer-never]');
     if (neverButton) neverButton.addEventListener('click', never);
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); }, { once: true });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') defer(); }, { once: true });
   })();
   </script>
   {% endif %}

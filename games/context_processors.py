@@ -56,9 +56,14 @@ def club_archive_ui(request):
     club_access = has_club_access(user)
     profile = getattr(user, 'profile', None)
     offer_cooldown = timezone.now() - timedelta(days=14)
+    now = timezone.now()
     offer_available = (
         solved_count >= 7 and not club_access
         and not getattr(profile, 'club_archive_offer_never', False)
+        and (
+            getattr(profile, 'club_archive_offer_deferred_until', None) is None
+            or profile.club_archive_offer_deferred_until <= now
+        )
         and (
             getattr(profile, 'club_archive_offer_last_shown_at', None) is None
             or profile.club_archive_offer_last_shown_at <= offer_cooldown

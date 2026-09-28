@@ -505,6 +505,19 @@ class AnonMigrateTests(TestCase):
         self.user.profile.refresh_from_db()
         self.assertTrue(self.user.profile.club_archive_offer_never)
 
+    def test_club_archive_offer_can_be_deferred(self):
+        before = timezone.now() + timedelta(days=13, hours=23)
+        response = self.client.post(
+            reverse('new_club_archive_offer_action'), {'action': 'defer'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.user.profile.refresh_from_db()
+        self.assertGreater(self.user.profile.club_archive_offer_deferred_until, before)
+        self.assertLess(
+            self.user.profile.club_archive_offer_deferred_until,
+            timezone.now() + timedelta(days=14, seconds=2),
+        )
+
     def test_show_prompt_with_enough_unsolved_attempts(self):
         # Ещё 8 анонимных посылок (в setUp уже есть 2) → всего 10.
         with patch('games.views.track.track_task_change'):

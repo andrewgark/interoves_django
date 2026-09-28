@@ -243,6 +243,7 @@ class Profile(models.Model):
     join_accept_as_primary = models.BooleanField(default=True)
     # Клубный upsell не должен надоедать чаще одного раза в две недели.
     club_archive_offer_last_shown_at = models.DateTimeField(blank=True, null=True)
+    club_archive_offer_deferred_until = models.DateTimeField(blank=True, null=True)
     club_archive_offer_never = models.BooleanField(default=False)
 
     def __str__(self):
