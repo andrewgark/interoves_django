@@ -1,5 +1,9 @@
 """Canonical URLs for task-group navigation."""
 
+from django.utils.html import strip_tags
+
+from games.section_hub import SECTION_HUB_META
+
 
 def neighbors_by_pk(links, placement):
     """Return previous and next links around a placement ordered by primary key."""
@@ -12,6 +16,53 @@ def neighbors_by_pk(links, placement):
     previous = links[index - 1] if index > 0 else None
     following = links[index + 1] if index + 1 < len(links) else None
     return previous, following
+
+
+def task_group_page_nav_context(
+    game,
+    *,
+    previous=None,
+    following=None,
+    sections_project_id='sections',
+    main_project_id='main',
+):
+    """Build labels and adjacent task-group values for a game page."""
+    if game.project_id == sections_project_id:
+        back_label = 'К списку'
+    elif game.project_id == main_project_id:
+        back_label = 'К игре'
+    else:
+        back_label = 'Назад'
+
+    section_meta = SECTION_HUB_META.get(game.id) or {}
+    if section_meta.get('pager_label'):
+        pager_label = section_meta['pager_label']
+        pager_aria_label = (
+            section_meta.get('pager_aria_label')
+            or 'Переход между заданиями «{}»'.format(pager_label)
+        )
+        results_label = section_meta.get('results_label') or 'Результаты'
+    else:
+        raw_label = (
+            section_meta.get('title')
+            or game.no_html_name
+            or game.outside_name
+            or game.name
+            or 'Задание'
+        )
+        pager_label = strip_tags(str(raw_label)).strip() or 'Задание'
+        pager_aria_label = 'Переход между заданиями «{}»'.format(pager_label)
+        results_label = 'Результаты'
+    return {
+        'back_label': back_label,
+        'task_group_pager_label': pager_label,
+        'task_group_pager_aria_label': pager_aria_label,
+        'task_group_results_label': results_label,
+        'prev_task_group_number': previous.number if previous else None,
+        'prev_task_group_name': previous.name if previous else None,
+        'next_task_group_number': following.number if following else None,
+        'next_task_group_name': following.name if following else None,
+    }
 
 
 def play_url_for_task_group(game, number, *, project_base=''):

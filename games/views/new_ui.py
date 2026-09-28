@@ -107,6 +107,7 @@ from games.task_group_navigation import (
     replay_exit_url_for_task_group,
     replay_url_for_task_group,
     results_url_for_task_group,
+    task_group_page_nav_context,
 )
 from games.models import (
     Attempt,
@@ -316,42 +317,13 @@ def _task_group_replay_exit_url(game, number, *, project_base=''):
 
 def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
     """Подписи верхнего «назад к списку» и нижнего пейджера кругов."""
-    if game.project_id == NEW_UI_SECTIONS_PROJECT:
-        back_label = 'К списку'
-    elif game.project_id == NEW_UI_PROJECT:
-        back_label = 'К игре'
-    else:
-        back_label = 'Назад'
-
-    section_meta = SECTION_HUB_META.get(game.id) or {}
-    if section_meta.get('pager_label'):
-        pager_label = section_meta['pager_label']
-        pager_aria_label = (
-            section_meta.get('pager_aria_label')
-            or 'Переход между заданиями «{}»'.format(pager_label)
-        )
-        results_label = section_meta.get('results_label') or 'Результаты'
-    else:
-        raw_label = (
-            section_meta.get('title')
-            or game.no_html_name
-            or game.outside_name
-            or game.name
-            or 'Задание'
-        )
-        pager_label = strip_tags(str(raw_label)).strip() or 'Задание'
-        pager_aria_label = 'Переход между заданиями «{}»'.format(pager_label)
-        results_label = 'Результаты'
-    return {
-        'back_label': back_label,
-        'task_group_pager_label': pager_label,
-        'task_group_pager_aria_label': pager_aria_label,
-        'task_group_results_label': results_label,
-        'prev_task_group_number': prev_tg.number if prev_tg else None,
-        'prev_task_group_name': prev_tg.name if prev_tg else None,
-        'next_task_group_number': next_tg.number if next_tg else None,
-        'next_task_group_name': next_tg.name if next_tg else None,
-    }
+    return task_group_page_nav_context(
+        game,
+        previous=prev_tg,
+        following=next_tg,
+        sections_project_id=NEW_UI_SECTIONS_PROJECT,
+        main_project_id=NEW_UI_PROJECT,
+    )
 
 
 def _task_group_results_nav_context(game, placement):
