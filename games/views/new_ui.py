@@ -125,6 +125,7 @@ from games.results_context import (
     empty_results_rows_context,
     results_actor_filter_types,
     results_actor_filter_urls,
+    results_actor_kind,
     results_column_count,
 )
 from games.models import (
@@ -2141,11 +2142,7 @@ def _results_actor_filter_urls(request):
 
 
 def _results_actor_kind(actor):
-    if getattr(actor, 'is_team_results_row', False):
-        return 'team'
-    if getattr(actor, 'anon_key', None):
-        return 'anon'
-    return 'user'
+    return results_actor_kind(actor)
 
 
 def _club_subscriber_user_ids(actors):

@@ -64,3 +64,12 @@ def results_actor_filter_urls(request):
             'title': ('Скрыть ' if kind in selected else 'Показать ') + label.lower(),
         })
     return result
+
+
+def results_actor_kind(actor):
+    """Return the stable display category for a result actor."""
+    if getattr(actor, 'is_team_results_row', False):
+        return 'team'
+    if getattr(actor, 'anon_key', None):
+        return 'anon'
+    return 'user'
