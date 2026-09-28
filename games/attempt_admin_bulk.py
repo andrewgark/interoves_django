@@ -43,10 +43,14 @@ def _apply_checker_additions(task, attempts):
 
 
 def _pending_resolution(attempts):
-    result = defaultdict(lambda: {'version': 1, 'attempt_ids': [], 'scopes': []})
+    result = defaultdict(lambda: {
+        'version': 1, 'replay_mode': 'checker_extension',
+        'attempt_ids': [], 'actor_keys': [], 'scopes': [],
+    })
     for attempt in attempts:
         entry = result[str(attempt.task_id)]
         entry['attempt_ids'].append(attempt.pk)
+        entry['actor_keys'].append(list(actor_key(attempt)))
         try:
             payload = json.loads(attempt.text)
         except (TypeError, ValueError):

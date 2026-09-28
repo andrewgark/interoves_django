@@ -119,6 +119,7 @@ class WordSaladRecheckQueueTests(TestCase):
             )
         payload = serialize_job(job)
         self.assertEqual(payload['pending_resolution_version'], 1)
+        self.assertEqual(payload['replay_mode'], 'full_recheck')
         self.assertEqual(payload['pending_attempt_count'], 2)
         self.assertEqual(payload['pending_scope_count'], 1)
 

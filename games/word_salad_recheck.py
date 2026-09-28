@@ -65,6 +65,7 @@ def serialize_job(job):
         'attempt_count': job.attempt_count, 'progress': job.progress,
         'last_error': job.last_error,
         'pending_resolution_version': pending_resolution.get('version', 1),
+        'replay_mode': pending_resolution.get('replay_mode', 'full_recheck'),
         'pending_attempt_count': len(pending_resolution.get('attempt_ids') or []),
         'pending_scope_count': len(pending_resolution.get('scopes') or []),
         'created_at': job.created_at.isoformat() if job.created_at else None,
@@ -403,6 +404,7 @@ def _process_claimed_item(job, item, item_token):
                 ).update(claim_token=None, claimed_until=None, updated_at=timezone.now())
                 return 'superseded'
             reason = 'task.word_salad_rechecked'
+            skipped_complete = False
             if actor is not None and task.task_type == 'word_salad':
                 result = recheck_word_salad_actor(
                     task, game=job.game, notify=False,
@@ -412,18 +414,32 @@ def _process_claimed_item(job, item, item_token):
                 credited = int(result.get('credited') or 0)
             elif actor is not None:
                 from games.recheck import recheck_chain_task
-                recheck_chain_task(
+                from games.recheck import _checker_extension_actor_is_complete
+                skipped_complete = _checker_extension_actor_is_complete(
                     task,
+                    job.game,
                     team=actor.get('team'),
                     user=actor.get('user'),
                     anon_key=actor.get('anon_key'),
-                    game=job.game,
                     replay_slot=actor.get('replay_slot'),
-                    notify=False,
                     pending_resolution=job.pending_resolution,
                 )
+                if not skipped_complete:
+                    recheck_chain_task(
+                        task,
+                        team=actor.get('team'),
+                        user=actor.get('user'),
+                        anon_key=actor.get('anon_key'),
+                        game=job.game,
+                        replay_slot=actor.get('replay_slot'),
+                        notify=False,
+                        pending_resolution=job.pending_resolution,
+                    )
                 credited = 0
-                reason = 'task.chain_rechecked'
+                reason = (
+                    'task.chain_recheck_skipped_complete'
+                    if skipped_complete else 'task.chain_rechecked'
+                )
             else:
                 credited = 0
             _validation_failpoint('crash_before_commit')
@@ -454,7 +470,7 @@ def _process_claimed_item(job, item, item_token):
                     status=WordSaladRecheckJob.STATUS_COMPLETED, completed_at=now,
                     claim_token=None, claimed_until=None, updated_at=now,
                 )
-            if actor is not None:
+            if actor is not None and not skipped_complete:
                 _schedule_actor_notification(task, actor, job.game, reason=reason)
         logger.info(
             'word_salad_task_completed job_id=%s item_id=%s task_revision=%s duration_ms=%.1f credited=%s',

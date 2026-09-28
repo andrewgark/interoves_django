@@ -406,6 +406,68 @@ def _pending_is_accepted(attempt, pending_resolution):
     return False
 
 
+def _checker_extension_actor_is_complete(
+    task, game, *, team=None, user=None, anon_key=None, replay_slot=None,
+    pending_resolution=None,
+):
+    """Return whether a non-selected actor can skip a monotonic checker replay.
+
+    This is intentionally narrow: only the admin "ДА" path marks a replay as
+    ``checker_extension``.  A direct task edit, points change, or full replay
+    keeps the conservative all-actors behavior.
+    """
+    pending_resolution = pending_resolution or {}
+    if pending_resolution.get('replay_mode') != 'checker_extension':
+        return False
+    selected = {
+        tuple(key) for key in pending_resolution.get('actor_keys', ())
+    }
+    current = (team.pk if team is not None else None,
+               user.pk if user is not None else None,
+               anon_key or None, replay_slot)
+    if current in selected:
+        return False
+
+    modes = ('general', 'tournament') if game.is_tournament else ('general',)
+    states = list(ChainTaskState.objects.filter(
+        task=task, game=game, team=team, user=user, anon_key=anon_key,
+        replay_slot=replay_slot, game_mode__in=modes,
+    ).values_list('state', flat=True))
+    if len(states) != len(modes) or any(not state for state in states):
+        return False
+
+    try:
+        parsed_states = [json.loads(state) for state in states]
+    except (TypeError, ValueError):
+        return False
+
+    if task.task_type == 'replacements_lines':
+        from games.replacements_lines import parse_replacements_lines_text
+        parsed = parse_replacements_lines_text(
+            task.text or '', (task.checker_data or '').strip() or None,
+        )
+        total_lines = len(parsed.get('answers') or [])
+        return total_lines > 0 and all(
+            len(state.get('solved_lines') or []) >= total_lines
+            for state in parsed_states
+        )
+
+    if task.task_type == 'wall':
+        try:
+            checker_data = json.loads(task.checker_data or '{}')
+            max_points = (
+                checker_data['points_words'] + checker_data['points_explanation']
+            ) * len(checker_data['answers'])
+        except (KeyError, TypeError, ValueError):
+            return False
+        return all(
+            (state.get('best_points') or 0) >= max_points
+            for state in parsed_states
+        )
+
+    return False
+
+
 def _apply_word_salad_check_result(attempt, result, mode):
     _apply_replay_status(attempt, result, mode)
     attempt.points = Decimal(str(result.points or 0))

@@ -31,7 +31,9 @@ def _actor_groups(task_ids, *, selected_keys=None):
         task_id__in=task_ids,
         task__task_type__in=CHAIN_TASK_TYPES,
         game_id__isnull=False,
-    ).values_list('task_id', 'game_id', 'team_id', 'user_id', 'anon_key', 'replay_slot_id')
+    ).exclude(state__isnull=True).exclude(state='').values_list(
+        'task_id', 'game_id', 'team_id', 'user_id', 'anon_key', 'replay_slot_id',
+    )
     for task_id, game_id, team_id, user_id, anon_key, replay_slot_id in rows:
         key = (team_id, user_id, anon_key or None, replay_slot_id)
         if selected_keys is None or (task_id, game_id, key) in selected_keys:

@@ -10,7 +10,11 @@ from games.attempt_admin_bulk import (
     reject_pending_attempts,
     recheck_chain_attempts,
 )
-from games.recheck import recheck_chain_task
+from games.replay_planner import _actor_groups
+from games.recheck import (
+    _checker_extension_actor_is_complete,
+    recheck_chain_task,
+)
 from games.views.attempt_views import check_attempt
 from games.models import ChainTaskState, WordSaladRecheckItem, WordSaladRecheckJob
 from games.tests.test_chain_task_state import (
@@ -21,6 +25,56 @@ from games.tests.test_chain_task_state import (
 
 
 class AttemptAdminBulkTests(_ChainFixture, TestCase):
+    def test_replay_planner_ignores_empty_chain_state_actor(self):
+        ChainTaskState.objects.create(
+            task=self.wall_task,
+            game=self.game,
+            team=self.team2,
+            game_mode='general',
+            state=None,
+        )
+
+        groups = _actor_groups([self.wall_task.pk])
+
+        self.assertNotIn(
+            (self.team2.pk, None, None, None),
+            groups[(self.wall_task.pk, self.game.pk)],
+        )
+
+    def test_checker_extension_skips_complete_unselected_wall_actor(self):
+        ChainTaskState.objects.create(
+            task=self.wall_task,
+            game=self.game,
+            team=self.team2,
+            game_mode='general',
+            state=json.dumps({'best_points': 9}),
+        )
+        ChainTaskState.objects.create(
+            task=self.wall_task,
+            game=self.game,
+            team=self.team2,
+            game_mode='tournament',
+            state=json.dumps({'best_points': 9}),
+        )
+        resolution = {
+            'version': 1,
+            'replay_mode': 'checker_extension',
+            'actor_keys': [[self.team.pk, None, None, None]],
+        }
+
+        self.assertTrue(_checker_extension_actor_is_complete(
+            self.wall_task,
+            self.game,
+            team=self.team2,
+            pending_resolution=resolution,
+        ))
+        self.assertFalse(_checker_extension_actor_is_complete(
+            self.wall_task,
+            self.game,
+            team=self.team,
+            pending_resolution=resolution,
+        ))
+
     def test_replay_keeps_unrelated_wall_pending_attempt_pending(self):
         first_words = _make_attempt(
             self.wall_task, self.team, _wall_text(['A', 'B', 'C', 'D']),
