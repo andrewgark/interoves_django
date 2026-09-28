@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
+from django.utils.html import format_html, format_html_join
 from games.google.actions import create_google_doc
 from games.ops_actions import (
     accept_ticket,
@@ -1389,6 +1390,18 @@ def _bulk_chain_recheck_ids(queryset, *, full_task=False):
     return set(chain_ids)
 
 
+def _queue_receipt_links(receipt):
+    jobs = (receipt or {}).get('jobs') or []
+    if not jobs:
+        return ''
+    links = format_html_join(
+        ', ',
+        '<a href="{}">Job #{}</a>',
+        ((job.get('observatory_url') or job.get('url'), job['id']) for job in jobs),
+    )
+    return format_html(' Jobs: {}.', links)
+
+
 def recheck_attempt(modeladmin, request, queryset):
     chain_ids = _bulk_chain_recheck_ids(queryset)
     for attempt_id in queryset.values_list('id'):
@@ -1458,11 +1471,13 @@ def add_to_checker(modeladmin, request, queryset):
     result = add_attempts_to_checker(
         queryset.values_list('id', flat=True), return_receipt=True,
     )
-    job_ids = [job['id'] for job in result['queue_receipt']['jobs']]
-    suffix = ' Jobs: {}.'.format(', '.join('#{}'.format(job_id) for job_id in job_ids)) if job_ids else ''
     modeladmin.message_user(
         request,
-        'Добавлено в checker ответов: {}.{}'.format(result['accepted_count'], suffix),
+        format_html(
+            'Добавлено в checker ответов: {}.{}',
+            result['accepted_count'],
+            _queue_receipt_links(result['queue_receipt']),
+        ),
         messages.SUCCESS,
     )
 
@@ -1475,12 +1490,12 @@ def add_to_checker_and_recheck(modeladmin, request, queryset):
         recheck_selected_non_chain=True,
         return_receipt=True,
     )
-    job_ids = [job['id'] for job in result['queue_receipt']['jobs']]
-    suffix = ' Jobs: {}.'.format(', '.join('#{}'.format(job_id) for job_id in job_ids)) if job_ids else ''
     modeladmin.message_user(
         request,
-        'Добавлено в checker и поставлено на recheck ответов: {}.{}'.format(
-            result['accepted_count'], suffix,
+        format_html(
+            'Добавлено в checker и поставлено на recheck ответов: {}.{}',
+            result['accepted_count'],
+            _queue_receipt_links(result['queue_receipt']),
         ),
         messages.SUCCESS,
     )
@@ -1493,7 +1508,6 @@ def accept_pending(modeladmin, request, queryset):
         queryset.values_list('id', flat=True), return_receipt=True,
     )
     accepted = result['accepted_count']
-    job_ids = [job['id'] for job in result['queue_receipt']['jobs']]
     suffix = ''
     if chain_count:
         suffix = (
@@ -1502,10 +1516,11 @@ def accept_pending(modeladmin, request, queryset):
         )
     modeladmin.message_user(
         request,
-        'Принято ответов: {}.{}{}'.format(
+        format_html(
+            'Принято ответов: {}.{}{}',
             accepted,
             suffix,
-            ' Jobs: {}.'.format(', '.join('#{}'.format(job_id) for job_id in job_ids)) if job_ids else '',
+            _queue_receipt_links(result['queue_receipt']),
         ),
         messages.SUCCESS,
     )
