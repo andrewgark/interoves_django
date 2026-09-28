@@ -131,6 +131,11 @@ from games.results_context import (
     results_column_count,
     results_me_participants,
 )
+from games.results_tables import (
+    ResultsTaskGroupHeader,
+    load_results_placements_and_tasks,
+    results_table_headers_context,
+)
 from games.models import (
     Attempt,
     AudioManager,
@@ -258,18 +263,7 @@ def _ru_iz_punkt_word(n):
     return _ru_plural_form_int(n, 'пункта', 'пунктов', 'пунктов')
 
 
-class _ResultsTaskGroupHeader:
-    """Заголовок столбца результатов: номер/название из GameTaskGroup."""
-
-    __slots__ = ('number', 'name', '_n_tasks')
-
-    def __init__(self, number, name, n_tasks):
-        self.number = number
-        self.name = name
-        self._n_tasks = n_tasks
-
-    def get_n_tasks_for_results(self):
-        return self._n_tasks
+_ResultsTaskGroupHeader = ResultsTaskGroupHeader
 
 
 def _compute_solved_task_ids(game, task_groups, team=None, user=None, anon_key=None, mode='general'):
@@ -2042,46 +2036,13 @@ def new_main_game_page(request, game_id):
 
 
 def _load_results_placements_and_tasks(game, task_group_number=None):
-    """Placements + visible tasks for results table (headers and full compute)."""
-    links = list(
-        game.task_group_links.select_related('task_group').prefetch_related(
-            Prefetch(
-                'task_group__tasks',
-                queryset=Task.objects.visible().filter(~Q(task_type='text_with_forms')),
-                to_attr='result_tasks',
-            )
-        )
-    )
-    if is_scheduled_game(game.id):
-        placements = visible_links(links, game, reverse=False)
-    else:
-        placements = sorted(links, key=lambda p: p.key_sort())
-    if task_group_number is not None:
-        placements = [p for p in placements if str(p.number) == str(task_group_number)]
-    task_group_to_tasks = {}
-    for p in placements:
-        tg = p.task_group
-        task_group_to_tasks[p.number] = sorted(
-            getattr(tg, 'result_tasks', []) or [], key=lambda t: t.key_sort()
-        )
-    tasks_flat = [t for p in placements for t in task_group_to_tasks[p.number]]
-    task_ids = [t.id for t in tasks_flat]
-    task_group_headers = [
-        _ResultsTaskGroupHeader(p.number, p.name, len(task_group_to_tasks[p.number]))
-        for p in placements
-    ]
-    return placements, task_group_to_tasks, tasks_flat, task_ids, task_group_headers
+    """Compatibility wrapper for results consumers outside this module."""
+    return load_results_placements_and_tasks(game, task_group_number=task_group_number)
 
 
 def _results_table_headers_context(game, task_group_number=None):
-    """Fast context for results table thead only."""
-    _placements, task_group_to_tasks, _tasks_flat, _task_ids, task_group_headers = (
-        _load_results_placements_and_tasks(game, task_group_number=task_group_number)
-    )
-    return {
-        'task_groups': task_group_headers,
-        'task_group_to_tasks': task_group_to_tasks,
-    }
+    """Compatibility wrapper for the results table header context."""
+    return results_table_headers_context(game, task_group_number=task_group_number)
 
 
 def _results_column_count(task_groups, mode='general'):
