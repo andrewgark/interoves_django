@@ -553,6 +553,7 @@ def recheck_word_salad_actor(
         raise ValueError('recheck_word_salad_actor: pass game= for tasks in multiple games')
 
     credited = 0
+    replay_pending_resolution = dict(pending_resolution or {})
     with transaction.atomic():
         # Daily section games are permanently non-tournament.  Creating an
         # empty tournament projection for every actor here made the repair
@@ -596,6 +597,10 @@ def recheck_word_salad_actor(
             )
             credited = len(created)
             if created:
+                replay_pending_resolution.setdefault('version', 1)
+                replay_pending_resolution['attempt_ids'] = tuple(
+                    replay_pending_resolution.get('attempt_ids', ())
+                ) + tuple(attempt.pk for attempt in created)
                 attempts = _word_salad_attempts(
                     task,
                     team=team, user=user, anon_key=anon_key, game=game,
@@ -609,7 +614,7 @@ def recheck_word_salad_actor(
             attempts,
             expand_active=True,
             persist=True,
-            pending_resolution=pending_resolution,
+            pending_resolution=replay_pending_resolution,
         )
         for row in locked_rows.values():
             row.save(update_fields=['state', 'last_attempt', 'updated_at'])
@@ -776,7 +781,7 @@ def sync_word_salad_finds(
                 )
                 if result.status not in ('Ok', 'Partial'):
                     continue
-                _apply_word_salad_check_result(attempt, result)
+                _apply_word_salad_check_result(attempt, result, mode)
                 attempt.save()
                 if stamp is not None:
                     Attempt.manager.filter(pk=attempt.pk).update(time=stamp)
