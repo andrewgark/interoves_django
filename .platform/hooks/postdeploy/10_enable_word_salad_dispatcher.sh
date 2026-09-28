@@ -15,6 +15,10 @@ if [[ -f "$WORKER_BUNDLE_MARKER" ]]; then
   INTEROVES_RUNTIME_ROLE=worker
   RECHECK_DISPATCHER_ENABLED=true
 fi
+if [[ "${FORCE_RECHECK_DISPATCHER:-}" == "true" ]]; then
+  INTEROVES_RUNTIME_ROLE=worker
+  RECHECK_DISPATCHER_ENABLED=true
+fi
 
 # The dispatcher is enabled explicitly per EB environment.  Some worker
 # environments do not expose INTEROVES_RUNTIME_ROLE to platform hooks, so an
