@@ -5,10 +5,11 @@
 # No security group changes — auth is purely IAM via the SSM session.
 # Requires: aws CLI + session-manager-plugin, both on PATH.
 #
-# Usage (from repo root):
+# Usage (from repo root; production defaults to Green):
 #   ./scripts/with_rds.sh manage.py check_background_migrations
 #   ./scripts/with_rds.sh manage.py dbshell
 #   ./scripts/with_rds.sh manage.py migrate --plan
+#   ./scripts/with_rds.sh --environment interoves-env manage.py migrate --plan  # explicit Blue
 #   ./scripts/with_rds.sh manage.py shell
 #
 # Pass --raw to run an arbitrary command instead of manage.py:
@@ -24,18 +25,34 @@ interoves_aws_bootstrap "$REPO_ROOT"
 PYTHON="${REPO_ROOT}/../venv/interoves_django/bin/python"
 ENV_FILE="${REPO_ROOT}/secrets/rds.env"
 REGION="eu-central-1"
-ENV_NAME="interoves-env"
+ENV_NAME="interoves-web-green"
 TUNNEL_PORT=13306   # local port; avoids conflict with any local MySQL on 3306
 
 # ---- Parse --raw flag -------------------------------------------------------
 RAW=0
-if [[ "${1:-}" == "--raw" ]]; then
-    RAW=1
-    shift
-fi
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --raw)
+            RAW=1
+            shift
+            ;;
+        --environment|-e)
+            [[ $# -ge 2 ]] || { echo "--environment requires an EB environment name" >&2; exit 1; }
+            ENV_NAME="$2"
+            shift 2
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
 
 if [[ $# -eq 0 ]]; then
-    echo "Usage: $0 [--raw] manage.py <command> [args...]" >&2
+    echo "Usage: $0 [--environment ENV] [--raw] manage.py <command> [args...]" >&2
     exit 1
 fi
 

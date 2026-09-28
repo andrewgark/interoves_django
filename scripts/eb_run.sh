@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Run a command on the live EB instance using EC2 Instance Connect.
+# Run a command on a live EB instance using EC2 Instance Connect over SSM SSH.
 #
 # Auth: IAM only — generates a throw-away SSH key, pushes the public half to
 # the instance for 60 s via aws ec2-instance-connect, then SSHes in.
-# No static key file, no security group changes, no SSM agent needed.
+# No static key file, public IP, or security group changes.
 #
 # Usage (from repo root):
 #   ./scripts/eb_run.sh manage.py check_background_migrations
 #   ./scripts/eb_run.sh manage.py migrate --plan
-#   ./scripts/eb_run.sh manage.py shell
+#   ./scripts/eb_run.sh --environment interoves-env manage.py migrate --plan  # explicit Blue
 #   ./scripts/eb_run.sh --raw "cat /var/log/app/background_migrations.log"
 #   ./scripts/eb_run.sh --raw "tail -f /var/log/web.stdout.log"
 
@@ -20,20 +20,36 @@ source "${REPO_ROOT}/scripts/interoves_aws_bootstrap.sh"
 interoves_aws_bootstrap "$REPO_ROOT"
 
 REGION="eu-central-1"
-ENV_NAME="interoves-env"
+ENV_NAME="interoves-web-green"
 OS_USER="ec2-user"
 APP_DIR="/var/app/current"
 KEY_FILE="$(mktemp -u /tmp/eb_ic_XXXXXX)"
 
 # ---- Parse flags ------------------------------------------------------------
 RAW=0
-if [[ "${1:-}" == "--raw" ]]; then
-    RAW=1
-    shift
-fi
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --raw)
+            RAW=1
+            shift
+            ;;
+        --environment|-e)
+            [[ $# -ge 2 ]] || { echo "--environment requires an EB environment name" >&2; exit 1; }
+            ENV_NAME="$2"
+            shift 2
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
 
 if [[ $# -eq 0 ]]; then
-    echo "Usage: $0 [--raw] manage.py <command> [args...]" >&2
+    echo "Usage: $0 [--environment ENV] [--raw] manage.py <command> [args...]" >&2
     exit 1
 fi
 
@@ -41,12 +57,13 @@ fi
 INSTANCE_ID=$(aws ec2 describe-instances --region "$REGION" \
     --filters "Name=tag:elasticbeanstalk:environment-name,Values=${ENV_NAME}" \
               "Name=instance-state-name,Values=running" \
-    --query 'Reservations[0].Instances[0].InstanceId' --output text)
-INSTANCE_IP=$(aws ec2 describe-instances --region "$REGION" \
-    --instance-ids "$INSTANCE_ID" \
-    --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+    --query 'Reservations[].Instances[].InstanceId | [0]' --output text)
+if [[ -z "$INSTANCE_ID" || "$INSTANCE_ID" == "None" ]]; then
+    echo "No running instance found for EB environment ${ENV_NAME}" >&2
+    exit 1
+fi
 
-echo "Instance: ${INSTANCE_ID} (${INSTANCE_IP})"
+echo "Instance: ${INSTANCE_ID} (${ENV_NAME}, SSM SSH)"
 
 # ---- Generate a throw-away key pair -----------------------------------------
 cleanup() { rm -f "$KEY_FILE" "${KEY_FILE}.pub"; }
@@ -63,8 +80,11 @@ aws ec2-instance-connect send-ssh-public-key \
     && echo "SSH key pushed (60 s window)" \
     || { echo "Failed to push SSH key" >&2; exit 1; }
 
-# ---- SSH helper (no host-key prompts) ---------------------------------------
-SSH="ssh -i ${KEY_FILE} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=10 ${OS_USER}@${INSTANCE_IP}"
+# ---- SSH helper through SSM (no public IP or direct SG route required) ------
+SSH=(ssh -i "$KEY_FILE" \
+    -o "ProxyCommand=aws ssm start-session --region ${REGION} --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p" \
+    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    -o LogLevel=ERROR -o ConnectTimeout=10 "${OS_USER}@${INSTANCE_ID}")
 
 # ---- Build and run remote command -------------------------------------------
 # Pipe a Python script over stdin so we never need to escape arguments for bash.
@@ -77,7 +97,7 @@ if [[ $RAW -eq 1 ]]; then
     # Raw mode: run a shell command with the EB env injected
     RAW_CMD="$*"
     RAW_CMD_B64=$(python3 -c "import base64, sys; print(base64.b64encode(sys.argv[1].encode()).decode())" "$RAW_CMD")
-    $SSH "sudo python3" <<PYEOF
+    "${SSH[@]}" "sudo python3" <<PYEOF
 import base64, os, subprocess, sys
 pid = subprocess.check_output(['pgrep','-of','daphne'], text=True).strip()
 env = dict(os.environ)
@@ -91,7 +111,7 @@ sys.exit(subprocess.call(['bash', '-c', raw_cmd], env=env))
 PYEOF
 else
     # manage.py mode: discover venv Python and run manage.py with prod env
-    $SSH "sudo python3" <<PYEOF
+    "${SSH[@]}" "sudo python3" <<PYEOF
 import base64, glob, json, os, subprocess, sys
 args = json.loads(base64.b64decode('${ARGS_B64}').decode())
 pid = subprocess.check_output(['pgrep','-of','daphne'], text=True).strip()

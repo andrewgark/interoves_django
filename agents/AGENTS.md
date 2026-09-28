@@ -49,7 +49,7 @@ the sandbox first.
 
 ## AWS / prod access (agents)
 
-For Elastic Beanstalk, RDS, Redis (ElastiCache), IAM, and local AWS CLI with the **`ai-bot`** role, read **[agents/aws-eb.md](aws-eb.md)**. Production web is **Green** (`interoves-web-green`); `interoves-env` is **Blue rollback**. `deploy.sh` is the Green production entrypoint; workers use `scripts/deploy_worker.sh`. Use `required_permissions: ["network", "all"]` when running AWS/SSH scripts from tools.
+For Elastic Beanstalk, RDS, Redis (ElastiCache), IAM, and local AWS CLI with the **`ai-bot`** role, read **[agents/aws-eb.md](aws-eb.md)**. Production web is **Green** (`interoves-web-green`); `interoves-env` is **Blue rollback**. `deploy.sh` is the Green production entrypoint; `eb_run.sh` and `with_rds.sh` default to Green and accept `--environment` for an explicit target; workers use `scripts/deploy_worker.sh`. Use `required_permissions: ["network", "all"]` when running AWS/SSH scripts from tools.
 
 For deploy tasks, also use [`.cursor/skills/interoves-deploy/SKILL.md`](../.cursor/skills/interoves-deploy/SKILL.md) to decide whether `BUNDLE_MICROSITES=1` is needed. Ordinary Django deploys leave it unset.
 

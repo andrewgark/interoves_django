@@ -139,10 +139,22 @@ restart app server уже запущенный процесс новыми optio
 curl -sS https://interoves.com/health/live/
 ```
 
-`./scripts/eb_run.sh` и `./scripts/with_rds.sh` сейчас подключаются через
-`interoves-env`/Blue. Это туннель и management access, а не доказательство,
-что Blue — прод. Для RDS локальный порт — `13306`; не выполняйте миграции
-через него без явной проверки плана.
+`./scripts/eb_run.sh` и `./scripts/with_rds.sh` по умолчанию подключаются к
+`interoves-web-green`/Green. `eb_run.sh` выбирает running instance по EB tag и
+идёт к нему через SSM `AWS-StartSSHSession`; public IP для Green не требуется.
+`with_rds.sh` делает SSM RDS tunnel через Green. Blue выбирается только явно:
+
+```bash
+./scripts/eb_run.sh --environment interoves-env manage.py check --database default
+./scripts/with_rds.sh --environment interoves-env manage.py migrate --plan
+```
+
+Это management access и не меняет, куда смотрит Cloudflare. Для RDS локальный
+порт — `13306`; не выполняйте миграции через него без явной проверки плана.
+`eb_run.sh` получает production environment из процесса Daphne и потому
+предназначен прежде всего для web. Для worker management-команд нужен отдельный
+worker-aware SSM режим; отсутствие Daphne на worker не означает, что нужно
+подключаться к Blue.
 
 Скрипты `eb status`, `eb logs`, `eb printenv` и команды вида `eb deploy` или
 `update-environment` с `interoves-env` ниже в старых runbook-примерах означают
@@ -172,8 +184,8 @@ Blue (`interoves-env`) остаётся rollback target. Перед откато
 
 ## RDS и известные ограничения
 
-- Предпочтительная проверка БД из VPC: `./scripts/eb_run.sh manage.py check --database default`.
-- SSM-туннель: `./scripts/with_rds.sh`; он использует Blue и `localhost:13306`.
+- Предпочтительная проверка БД из production web: `./scripts/eb_run.sh manage.py check --database default`.
+- SSM-туннель: `./scripts/with_rds.sh`; по умолчанию он использует Green и `localhost:13306`.
 - Секрет БД берётся через Secrets Manager; не печатать password/ARN.
 - Долгие DDL и backfill выполняются отдельным background-процессом после
   совместимой state migration, а не во время EB deploy.
