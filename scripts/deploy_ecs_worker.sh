@@ -53,6 +53,30 @@ ENVIRONMENT="interoves-${WORKER}-worker"
 [[ "$WORKER" == recheck ]] && ENVIRONMENT=interoves-recheck-worker
 env_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name "$ENVIRONMENT" --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environment`].{name:OptionName,value:Value}' --output json)"
 secret_names_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name "$ENVIRONMENT" --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environmentsecrets`].OptionName' --output json)"
+# The legacy recheck EB environment predates the shared Tribute/Telegram
+# settings required by Django system checks.  Reuse only missing shared
+# settings from identity; keep all recheck-specific values authoritative.
+if [[ "$WORKER" == recheck ]]; then
+    shared_env_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name interoves-identity-worker --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environment`].{name:OptionName,value:Value}' --output json)"
+    shared_secret_names_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name interoves-identity-worker --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environmentsecrets`].OptionName' --output json)"
+    env_json="$(printf '%s\0%s\0' "$env_json" "$shared_env_json" | "$PYTHON" -c '
+import json, sys
+base, shared = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:2]]
+names = {item["name"] for item in base}
+base.extend(item for item in shared if item["name"] not in names)
+print(json.dumps(base, separators=(",", ":")))
+')"
+    secret_names_json="$(printf '%s\0%s\0' "$secret_names_json" "$shared_secret_names_json" | "$PYTHON" -c '
+import json, sys
+base, shared = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:2]]
+seen = set(base)
+for name in shared:
+    if name not in seen:
+        base.append(name)
+        seen.add(name)
+print(json.dumps(base, separators=(",", ":")))
+')"
+fi
 all_secrets_json="$(aws_cmd secretsmanager list-secrets --query "SecretList[?starts_with(Name, 'interoves/production/')].{name:Name,arn:ARN}" --output json)"
 config_json="$(printf '%s\0%s\0%s\0' "$env_json" "$secret_names_json" "$all_secrets_json" | "$PYTHON" -c '
 import json, sys
