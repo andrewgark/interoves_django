@@ -56,6 +56,17 @@ if [[ -z "$PYTHON" || ! -x "$PYTHON" ]]; then
   echo "validation/worker dispatcher: Python executable not found" >&2
   exit 1
 fi
+# Elastic Beanstalk injects the Django secret into the Daphne process.  The
+# systemd unit is started separately and may not receive it through deployment
+# env files, so copy only this required secret from the app process.
+PID=$(pgrep -of daphne || true)
+if [[ -n "$PID" && -r "/proc/$PID/environ" ]]; then
+  while IFS= read -r -d '' entry; do
+    case "$entry" in
+      DJANGO_SECRET_KEY=*) export "$entry" ;;
+    esac
+  done < "/proc/$PID/environ"
+fi
 exec "$PYTHON" "$APP/manage.py" dispatch_recheck_outbox_loop --limit "${RECHECK_OUTBOX_DISPATCH_LIMIT:-${WORD_SALAD_OUTBOX_DISPATCH_LIMIT:-25}}" --interval "${RECHECK_OUTBOX_DISPATCH_INTERVAL:-${WORD_SALAD_OUTBOX_DISPATCH_INTERVAL:-15}}"
 RUNNER
 chmod 0755 /usr/local/bin/interoves-recheck-dispatcher
@@ -72,6 +83,7 @@ After=web-secrets-populate.service
 Type=simple
 User=webapp
 WorkingDirectory=/var/app/current
+Environment=CLUB_PAYMENTS_ENABLED=FALSE
 EnvironmentFile=-/opt/elasticbeanstalk/deployment/env
 EnvironmentFile=-/opt/elasticbeanstalk/deployment/secrets/web
 ExecStart=/usr/local/bin/interoves-recheck-dispatcher
