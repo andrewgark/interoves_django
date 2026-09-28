@@ -60,3 +60,7 @@ task role using either `INTEROVES_CONFIG_SECRET_ID` (one JSON bundle) or
 `INTEROVES_CONFIG_SECRET_MAP` (the current per-variable Secrets Manager
 layout). For the first pilot, use the map and grant `GetSecretValue` only for
 the exact referenced ARNs.
+
+The ECS polling adapter uses the same private native-sqsd compatibility path as
+the current recheck worker, so `RECHECK_WORKER_HMAC_SECRET` is not required for
+that mode. HMAC remains available for explicitly signed HTTP callers.

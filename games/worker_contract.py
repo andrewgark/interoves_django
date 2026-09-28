@@ -120,6 +120,5 @@ WORKER_REGISTRY = WorkerRegistry((
         message_types=("word_salad.recheck",),
         allowed_modes=("eb", "ecs-fargate", "ecs-fargate-spot"),
         queue_url_env="RECHECK_SQS_QUEUE_URL",
-        required_env=("RECHECK_WORKER_HMAC_SECRET",),
     ),
 ))
