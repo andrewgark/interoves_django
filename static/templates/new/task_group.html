@@ -1527,11 +1527,15 @@
   }
 
   // Черновики средних слов + struck-метки подсказок (sessionStorage переживает re-render HTML).
+  function raddleStorageRevision(taskId) {
+    var root = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
+    return root ? (root.getAttribute('data-raddle-storage-revision') || '') : '';
+  }
   function raddleDraftsStorageKey(taskId) {
-    return 'raddle_drafts_' + taskId;
+    return 'raddle_drafts_' + taskId + '_' + (raddleStorageRevision(taskId) || 'legacy');
   }
   function raddleClueMarksStorageKey(taskId) {
-    return 'raddle_clue_marks_' + taskId;
+    return 'raddle_clue_marks_' + taskId + '_' + (raddleStorageRevision(taskId) || 'legacy');
   }
   function readRaddleJsonMap(key) {
     try {
@@ -1821,6 +1825,8 @@
       try {
         sessionStorage.removeItem(raddleDraftsStorageKey(taskId));
         sessionStorage.removeItem(raddleClueMarksStorageKey(taskId));
+        sessionStorage.removeItem('raddle_drafts_' + taskId);
+        sessionStorage.removeItem('raddle_clue_marks_' + taskId);
       } catch (e) {}
     });
   }

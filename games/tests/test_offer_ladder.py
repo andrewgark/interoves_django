@@ -300,6 +300,7 @@ class LadderOfferFlowTests(TestCase):
         Attempt.manager.create(
             task=task, game=self.game, team=team, text='БББ', status='Ok', points=1,
         )
+        old_revision = task.attempt_revision
         RaddleUiState.objects.create(
             task=task, game=self.game, user=self.user, game_mode='general',
             drafts={'1': 'ААА'},
@@ -322,6 +323,8 @@ class LadderOfferFlowTests(TestCase):
         self.assertFalse(Attempt.manager.filter(task=task, team=team).exists())
         self.assertFalse(RaddleUiState.objects.filter(task=task, user=self.user).exists())
         self.assertFalse(RaddleUiState.objects.filter(task=task, team=team).exists())
+        task.refresh_from_db()
+        self.assertNotEqual(task.attempt_revision, old_revision)
 
     def test_support_accept_endpoint(self):
         offer = create_offer(self.user)

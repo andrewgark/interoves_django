@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import secrets
+import uuid
 from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
@@ -460,6 +461,7 @@ def offers_by_link_ids(link_ids: list[int]) -> dict[int, OfferRow]:
     return {o.accepted_link_id: serialize_offer(o) for o in qs if o.accepted_link_id}
 
 
+@transaction.atomic
 def reset_raddle_progress(
     *,
     task: Task,
@@ -468,7 +470,7 @@ def reset_raddle_progress(
     team=None,
     anon_key: Optional[str] = None,
 ) -> int:
-    """Удалить попытки / chain / hint attempts актора по заданию. Возвращает число Attempt."""
+    """Атомарно удалить прогресс и UI-черновики актора по заданию."""
     from games.models import Game
     try:
         game = Game.objects.get(pk=game_id)
@@ -507,6 +509,7 @@ def reset_raddle_progress(
     ui_qs.delete()
     hint_qs.delete()
     attempt_qs.delete()
+    Task.objects.filter(pk=task.pk).update(attempt_revision=uuid.uuid4())
     return n
 
 
@@ -542,6 +545,7 @@ def reset_all_raddle_progress(
     ui_qs.delete()
     hint_qs.delete()
     attempt_qs.delete()
+    Task.objects.filter(pk=task.pk).update(attempt_revision=uuid.uuid4())
     return {
         'attempts': n_attempts,
         'chains': n_chains,
