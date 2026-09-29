@@ -4825,8 +4825,8 @@ def new_account_merge_confirm(request):
         build_account_merge_preview,
         clear_pending_account_merge,
         get_pending_account_merge,
-        merge_accounts,
     )
+    from games.account_merge_queue import enqueue_account_merge
 
     pending = get_pending_account_merge(request)
     if pending is None:
@@ -4854,7 +4854,7 @@ def new_account_merge_confirm(request):
             messages.error(request, 'Запрос устарел. Подключите аккаунт ещё раз.')
             return redirect('ui_profile')
         try:
-            merge = merge_accounts(
+            job = enqueue_account_merge(
                 target_user=request.user,
                 source_user=source,
                 provider=pending['provider'],
@@ -4877,18 +4877,41 @@ def new_account_merge_confirm(request):
         else:
             next_url = pending['next']
             clear_pending_account_merge(request)
-            messages.success(
+            messages.info(
                 request,
-                'Профили объединены. Можно входить через {}.'.format(
+                'Профили поставлены в очередь на объединение. Можно продолжать работу; '
+                'вход через {} будет доступен после завершения.'.format(
                     provider_label,
                 ),
             )
-            return redirect(next_url)
+            return redirect('ui_account_merge_status', job_id=job.id)
 
     return render(request, 'ui/account_merge_confirm.html', {
         'preview': preview,
         'pending_merge': pending,
         'provider_label': provider_label,
+        'page_title': 'Объединение аккаунтов',
+    })
+
+
+@login_required
+@require_http_methods(['GET'])
+def new_account_merge_status(request, job_id):
+    from games.account_merge_queue import serialize_account_merge_job
+    from games.models import AccountMergeJob
+
+    job = AccountMergeJob.objects.filter(
+        pk=job_id,
+        target_user=request.user,
+    ).first()
+    if job is None:
+        raise Http404()
+    payload = serialize_account_merge_job(job)
+    if request.headers.get('Accept') == 'application/json':
+        return JsonResponse(payload)
+    return render(request, 'ui/account_merge_status.html', {
+        'job': payload,
+        'job_id': job.id,
         'page_title': 'Объединение аккаунтов',
     })
 

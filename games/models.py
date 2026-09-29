@@ -3524,6 +3524,71 @@ class AccountMerge(models.Model):
         )
 
 
+class AccountMergeJob(models.Model):
+    """Durable queue job for an authenticated account merge."""
+
+    STATUS_PENDING = 'pending'
+    STATUS_RUNNING = 'running'
+    STATUS_COMPLETED = 'completed'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Ожидает обработки'),
+        (STATUS_RUNNING, 'Выполняется'),
+        (STATUS_COMPLETED, 'Завершено'),
+        (STATUS_FAILED, 'Ошибка'),
+    )
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    target_user = models.ForeignKey(
+        'auth.User', related_name='account_merge_jobs_target',
+        blank=True, null=True, on_delete=models.SET_NULL,
+    )
+    source_user = models.ForeignKey(
+        'auth.User', related_name='account_merge_jobs_source',
+        blank=True, null=True, on_delete=models.SET_NULL,
+    )
+    target_user_id_snapshot = models.PositiveIntegerField(db_index=True)
+    source_user_id_snapshot = models.PositiveIntegerField(db_index=True)
+    provider = models.CharField(max_length=32, blank=True, default='')
+    provider_uid = models.CharField(max_length=191, blank=True, default='')
+    status = models.CharField(
+        max_length=16, choices=STATUS_CHOICES,
+        default=STATUS_PENDING, db_index=True,
+    )
+    attempt_count = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True, default='')
+    claim_token = models.UUIDField(blank=True, null=True)
+    claimed_until = models.DateTimeField(blank=True, null=True)
+    next_attempt_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    account_merge = models.OneToOneField(
+        AccountMerge, related_name='job', blank=True, null=True,
+        on_delete=models.SET_NULL,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    started_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=(
+                    'target_user_id_snapshot', 'source_user_id_snapshot',
+                    'provider', 'provider_uid',
+                ),
+                name='games_amj_identity_uniq',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['status', 'next_attempt_at'], name='games_acmj_due_idx'),
+            models.Index(
+                fields=['target_user_id_snapshot', 'status'],
+                name='games_acmj_target_status_idx',
+            ),
+        ]
+
+
 class AnonAccountClaim(models.Model):
     """Permanent ownership claim preventing one guest identity being stolen twice."""
 

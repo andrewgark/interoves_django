@@ -590,7 +590,10 @@ class AccountMergeTests(TestCase):
         }
         session.save()
 
-        with patch('games.account_merge.merge_accounts', side_effect=IntegrityError('duplicate')):
+        with patch(
+            'games.account_merge_queue.enqueue_account_merge',
+            side_effect=IntegrityError('duplicate'),
+        ):
             response = client.post(reverse('ui_account_merge_confirm'), {
                 'action': 'merge',
                 'nonce': 'integrity-nonce',
@@ -673,9 +676,10 @@ class AccountMergeTests(TestCase):
             'nonce': 'merge-nonce',
         })
 
-        self.assertRedirects(response, '/profile/', fetch_redirect_response=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/profile/merge/status/', response.url)
         self.source.refresh_from_db()
-        self.assertFalse(self.source.is_active)
+        self.assertTrue(self.source.is_active)
         self.assertNotIn(PENDING_ACCOUNT_MERGE_SESSION_KEY, client.session)
 
     def test_confirm_view_renders_preview_before_merge(self):

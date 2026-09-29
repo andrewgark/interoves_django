@@ -1,0 +1,46 @@
+{% extends "new/base.html" %}
+{% block title %}Объединение аккаунтов{% endblock %}
+{% block content %}
+<h1 class="new-heading new-heading--page">Объединение аккаунтов</h1>
+
+<div class="new-card" id="account-merge-status" data-status-url="{% url 'ui_account_merge_status' job_id %}">
+  <p id="account-merge-status-text">
+    {% if job.status == 'completed' %}
+      Профили объединены. Теперь можно входить через подключённый аккаунт.
+    {% elif job.status == 'failed' %}
+      Не удалось объединить профили. Попробуйте ещё раз позже или обратитесь в поддержку.
+    {% else %}
+      Профили объединяются. Можно оставить эту страницу открытой.
+    {% endif %}
+  </p>
+  <p><a class="new-back" href="{% url 'ui_profile' %}">Вернуться в профиль</a></p>
+</div>
+
+{% if job.status != 'completed' and job.status != 'failed' %}
+<script>
+  (function () {
+    var root = document.getElementById('account-merge-status');
+    var text = document.getElementById('account-merge-status-text');
+    if (!root || !text) return;
+    var url = root.dataset.statusUrl;
+    var poll = function () {
+      fetch(url, {headers: {Accept: 'application/json'}, credentials: 'same-origin'})
+        .then(function (response) { return response.json(); })
+        .then(function (job) {
+          if (job.status === 'completed') {
+            text.textContent = 'Профили объединены. Теперь можно входить через подключённый аккаунт.';
+            return;
+          }
+          if (job.status === 'failed') {
+            text.textContent = 'Не удалось объединить профили. Попробуйте ещё раз позже или обратитесь в поддержку.';
+            return;
+          }
+          window.setTimeout(poll, 3000);
+        })
+        .catch(function () { window.setTimeout(poll, 5000); });
+    };
+    window.setTimeout(poll, 3000);
+  }());
+</script>
+{% endif %}
+{% endblock %}

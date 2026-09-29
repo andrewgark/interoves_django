@@ -41,6 +41,13 @@ class Command(BaseCommand):
                 )
             )
 
+        visibility_timeout = options.get('visibility_timeout')
+        if visibility_timeout is None and config.worker.name == 'identity':
+            # Authenticated account merges are intentionally atomic and may
+            # touch many related tables. Keep the SQS message invisible for
+            # the full worker lease instead of redelivering it mid-transaction.
+            visibility_timeout = 900
+
         import boto3
 
         client = boto3.client(
@@ -77,7 +84,7 @@ class Command(BaseCommand):
                 client=client,
                 queue_url=queue_url,
                 wait_seconds=options['wait_seconds'],
-                visibility_timeout=options.get('visibility_timeout'),
+                visibility_timeout=visibility_timeout,
             )
             self.stdout.write(str(result))
             if options['once'] or stopping:

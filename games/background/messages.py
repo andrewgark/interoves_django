@@ -14,6 +14,7 @@ PROJECTION_RECONCILE = 'projection.reconcile'
 PROJECTION_REFRESH = 'projection.refresh'
 ANONYMOUS_MERGE = 'anonymous.merge'
 ANONYMOUS_MERGE_RECONCILE = 'anonymous.merge_reconcile'
+ACCOUNT_MERGE = 'account.merge'
 INSTAGRAM_TOKEN_REFRESH = 'instagram.token_refresh'
 SOCIAL_PUBLISH = 'social.publish'
 STALE_AFTER = timedelta(minutes=2)

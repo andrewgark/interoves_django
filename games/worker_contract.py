@@ -89,7 +89,9 @@ WORKER_REGISTRY = WorkerRegistry((
         runtime_role="identity-worker",
         queue_name="interoves-identity",
         endpoint="/internal/worker/identity/",
-        message_types=("anonymous.merge", "anonymous.merge_reconcile"),
+        message_types=(
+            "anonymous.merge", "anonymous.merge_reconcile", "account.merge",
+        ),
         allowed_modes=("eb", "ecs-fargate", "ecs-fargate-spot", "green-process"),
         queue_url_env="IDENTITY_SQS_QUEUE_URL",
         required_env=(

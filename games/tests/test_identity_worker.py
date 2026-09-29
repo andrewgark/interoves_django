@@ -61,11 +61,30 @@ class IdentityWorkerTests(SimpleTestCase):
         run.assert_called_once()
         self.assertEqual(run.call_args.kwargs['worker'], 'identity:message-1')
 
+    def test_account_merge_job_is_acked(self):
+        with patch(
+            'games.views.identity_worker.run_account_merge_job',
+            return_value={'status': 'completed', 'merge_id': 7},
+        ) as run:
+            response = self._post(_body(
+                type='account.merge',
+                dedupe_key='account.merge:job',
+            ))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'status': 'completed'})
+        run.assert_called_once_with(
+            '11111111-1111-1111-1111-111111111111',
+            worker='identity:message-1',
+        )
+
     def test_reconcile_publishes_without_claiming(self):
         with patch(
             'games.views.identity_worker.publish_unmarked_due_merge_jobs',
             return_value=2,
-        ) as publish, patch(
+        ) as publish_anon, patch(
+            'games.views.identity_worker.publish_unmarked_account_merge_jobs',
+            return_value=0,
+        ) as publish_account, patch(
             'games.views.identity_worker.run_named_merge_job',
         ) as run, patch(
             'games.views.identity_worker.start_queue_heartbeat',
@@ -80,7 +99,8 @@ class IdentityWorkerTests(SimpleTestCase):
             ))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'status': 'ok', 'published': 2})
-        publish.assert_called_once_with(limit=5)
+        publish_anon.assert_called_once_with(limit=5)
+        publish_account.assert_called_once_with(limit=5)
         run.assert_not_called()
         finish.assert_called_once()
         self.assertTrue(finish.call_args.kwargs['success'])

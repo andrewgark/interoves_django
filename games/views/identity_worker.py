@@ -12,8 +12,13 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from games.account_merge_queue import (
+    publish_unmarked_account_merge_jobs,
+    run_account_merge_job,
+)
 from games.anonymous_merge import publish_unmarked_due_merge_jobs, run_named_merge_job
 from games.background.messages import (
+    ACCOUNT_MERGE,
     ANONYMOUS_MERGE,
     ANONYMOUS_MERGE_RECONCILE,
     InvalidBackgroundMessage,
@@ -46,7 +51,10 @@ def identity_worker(request):
             worker='identity:{}'.format(message_id or 'unknown'),
         )
         try:
-            published = publish_unmarked_due_merge_jobs(limit=5)
+            published = (
+                publish_unmarked_due_merge_jobs(limit=5)
+                + publish_unmarked_account_merge_jobs(limit=5)
+            )
         except Exception as exc:
             finish_queue_heartbeat(
                 'anonymous_merge',
@@ -71,6 +79,29 @@ def identity_worker(request):
             (time.perf_counter() - started) * 1000,
         )
         return JsonResponse({'status': 'ok', 'published': published}, status=200)
+    if message['type'] == ACCOUNT_MERGE:
+        job_id = message['payload'].get('job_id')
+        if not isinstance(job_id, str) or not job_id:
+            return JsonResponse({'error': 'job_id is required'}, status=400)
+        message_id = sqsd_message_id(request)
+        started = time.perf_counter()
+        try:
+            result = run_account_merge_job(
+                job_id,
+                worker='identity:{}'.format(message_id or 'unknown'),
+            )
+        except Exception:
+            logger.exception(
+                'identity account merge failed run_id=%s job_id=%s message_id=%s',
+                message['run_id'], job_id, message_id,
+            )
+            return JsonResponse({'status': 'failed'}, status=500)
+        logger.info(
+            'identity account merge %s run_id=%s job_id=%s message_id=%s duration_ms=%.1f',
+            result['status'], message['run_id'], job_id, message_id,
+            (time.perf_counter() - started) * 1000,
+        )
+        return JsonResponse({'status': result['status']}, status=200)
     if message['type'] != ANONYMOUS_MERGE:
         return JsonResponse({'error': 'unsupported type'}, status=400)
     job_id = message['payload'].get('job_id')
