@@ -1,7 +1,8 @@
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import Client, TestCase
+from django.urls import reverse
 
 from allauth.socialaccount.models import SocialAccount
 
@@ -91,3 +92,39 @@ class AccountMergeQueueTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, AccountMergeJob.STATUS_RUNNING)
         self.assertEqual(str(job.claim_token), '22222222-2222-2222-2222-222222222222')
+
+    def test_status_page_renders_for_owner(self):
+        job = AccountMergeJob.objects.create(
+            target_user=self.target,
+            source_user=self.source,
+            target_user_id_snapshot=self.target.pk,
+            source_user_id_snapshot=self.source.pk,
+            provider='telegram',
+            provider_uid='telegram-source',
+            next_url='/profile/',
+        )
+        client = Client()
+        client.force_login(self.target)
+        response = client.get(reverse('ui_account_merge_status', args=[job.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Профили объединяются')
+
+    @patch('games.account_merge_queue.schedule_account_merge_event')
+    def test_failed_status_can_be_retried(self, schedule):
+        job = AccountMergeJob.objects.create(
+            target_user=self.target,
+            source_user=self.source,
+            target_user_id_snapshot=self.target.pk,
+            source_user_id_snapshot=self.source.pk,
+            provider='telegram',
+            provider_uid='telegram-source',
+            status=AccountMergeJob.STATUS_FAILED,
+            next_url='/profile/',
+        )
+        client = Client()
+        client.force_login(self.target)
+        response = client.post(reverse('ui_account_merge_retry', args=[job.pk]))
+        self.assertEqual(response.status_code, 302)
+        job.refresh_from_db()
+        self.assertEqual(job.status, AccountMergeJob.STATUS_PENDING)
+        schedule.assert_called_once_with(job.pk)

@@ -8,7 +8,7 @@ this file and the live AWS resources before changing production.
 
 | Worker | Current runtime | Queue | DLQ | CloudWatch log group | Message types |
 |---|---|---|---|---|---|
-| identity | ECS service `interoves-identity-ecs` | `interoves-identity` | `interoves-identity-dlq` | `/interoves/workers/identity` | `anonymous.merge`, `anonymous.merge_reconcile` |
+| identity | ECS service `interoves-identity-ecs` | `interoves-identity` | `interoves-identity-dlq` | `/interoves/workers/identity` | `anonymous.merge`, `anonymous.merge_reconcile`, `account.merge` |
 | background | Check live ECS/EB deployment before operating | `interoves-background` | AWS queue configuration | `/interoves/workers/background` | `difficulty.refresh`, `difficulty.health_check`, `projection.reconcile`, `projection.refresh` |
 | integrations | Check live ECS/EB deployment before operating | `interoves-integrations` | AWS queue configuration | `/interoves/workers/integrations` | `telegram.announcements`, `telegram.admin_report`, `instagram.token_refresh`, `social.publish` |
 | recheck | Check live ECS/EB deployment before operating | `interoves-recheck` | AWS queue configuration | `/interoves/workers/recheck` | `word_salad.recheck` |
@@ -30,8 +30,8 @@ for identity message consumption; treat it as legacy/compatibility state.
 - `infra/ecs/worker-service.yaml` — injects `QueueUrl` as `WORKER_QUEUE_URL` and,
   for identity, `ANONYMOUS_MERGE_SQS_QUEUE_URL`;
 - `games/anonymous_merge_events.py` — publishes identity merge events;
-- `games/models.py` — durable merge state in `AnonymousMergeJob` and
-  `AnonymousMergeReconcileItem`.
+- `games/models.py` — durable merge state in `AccountMergeJob`,
+  `AnonymousMergeJob`, and `AnonymousMergeReconcileItem`.
 
 The SQS message is transport state, not the full merge queue history. For
 history and retries, query the two database tables; for delivery failures,

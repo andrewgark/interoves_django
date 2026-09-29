@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 import uuid
 from datetime import timedelta
 
@@ -25,6 +26,7 @@ MERGE_LEASE = timedelta(minutes=15)
 MAX_ATTEMPTS = 5
 RETRY_DELAY = timedelta(seconds=30)
 EVENT_RETRY_AFTER = timedelta(minutes=5)
+LEASE_HEARTBEAT_INTERVAL = 60
 QUEUE_URL_ENV = 'IDENTITY_SQS_QUEUE_URL'
 
 
@@ -223,6 +225,53 @@ def _claim_job(job_id, *, now=None, worker='identity'):
     return job, 'claimed'
 
 
+def renew_account_merge_lease(job_id, claim_token):
+    """Extend an active lease without allowing a stale worker to revive it."""
+    now = timezone.now()
+    updated = AccountMergeJob.objects.filter(
+        pk=job_id,
+        status=AccountMergeJob.STATUS_RUNNING,
+        claim_token=claim_token,
+    ).update(
+        claimed_until=now + MERGE_LEASE,
+        updated_at=now,
+    )
+    return bool(updated)
+
+
+class _LeaseHeartbeat:
+    def __init__(self, job_id, claim_token):
+        self.job_id = job_id
+        self.claim_token = claim_token
+        self.stop_event = threading.Event()
+        self.thread = threading.Thread(
+            target=self._run,
+            name='account-merge-lease',
+            daemon=True,
+        )
+
+    def _run(self):
+        from django.db import close_old_connections
+
+        while not self.stop_event.wait(LEASE_HEARTBEAT_INTERVAL):
+            close_old_connections()
+            try:
+                if not renew_account_merge_lease(self.job_id, self.claim_token):
+                    return
+            except Exception:
+                logger.exception('account merge lease heartbeat failed job=%s', self.job_id)
+            finally:
+                close_old_connections()
+
+    def __enter__(self):
+        self.thread.start()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.stop_event.set()
+        self.thread.join(timeout=5)
+
+
 def _mark_completed(job_id, merge, claim_token):
     now = timezone.now()
     updated = AccountMergeJob.objects.filter(
@@ -309,12 +358,13 @@ def run_account_merge_job(job_id, *, worker='identity'):
         return {'status': 'failed' if marked else 'stale'}
 
     try:
-        merge = merge_accounts(
-            target_user=target,
-            source_user=source,
-            provider=job.provider,
-            provider_uid=job.provider_uid,
-        )
+        with _LeaseHeartbeat(job.pk, job.claim_token):
+            merge = merge_accounts(
+                target_user=target,
+                source_user=source,
+                provider=job.provider,
+                provider_uid=job.provider_uid,
+            )
     except AccountMergeError as exc:
         marked = _mark_failed(job.pk, exc, job.claim_token)
         return {'status': 'failed' if marked else 'stale'}

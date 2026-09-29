@@ -46,7 +46,7 @@ class Command(BaseCommand):
             # Authenticated account merges are intentionally atomic and may
             # touch many related tables. Keep the SQS message invisible for
             # the full worker lease instead of redelivering it mid-transaction.
-            visibility_timeout = 900
+            visibility_timeout = 1800
 
         import boto3
 
