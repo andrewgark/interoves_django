@@ -37,6 +37,7 @@ RECONCILE_ITEM_LEASE = timedelta(minutes=2)
 MAX_JOB_ATTEMPTS = 8
 MAX_ITEM_ATTEMPTS = 5
 JOB_BATCH_SIZE = 5
+MERGE_EVENT_RETRY_AFTER = timedelta(minutes=5)
 MOVE_STEPS = tuple(step for step in ANON_MIGRATION_STEPS if step not in ('prepare', 'reconcile', 'finish'))
 
 
@@ -215,13 +216,17 @@ def claim_next_merge_job(*, now=None, worker='cron'):
 
 
 def publish_unmarked_due_merge_jobs(*, limit=5, now=None):
-    """Send anonymous.merge for due jobs that cron has not been told to skip.
+    """Send due merge events and recover continuations lost from the broker.
 
-    Does not claim a row. A live lease stays with whoever holds it.
+    A recent event marker means another message is expected and is left alone.
+    Once a pending/expired job has been quiet for the retry window, the marker
+    is no longer trusted and the event is republished. The named runner still
+    fences duplicate deliveries with the database lease.
     """
     from games.anonymous_merge_events import merge_event_owned, publish_anonymous_merge_event
 
     now = now or timezone.now()
+    stale_at = now - MERGE_EVENT_RETRY_AFTER
     published = 0
     due = _due_query(
         AnonymousMergeJob.objects.filter(
@@ -233,7 +238,7 @@ def publish_unmarked_due_merge_jobs(*, limit=5, now=None):
     for job in due:
         if published >= limit:
             break
-        if merge_event_owned(job.pk):
+        if merge_event_owned(job.pk) and job.updated_at > stale_at:
             continue
         if publish_anonymous_merge_event(job.pk):
             published += 1

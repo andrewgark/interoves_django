@@ -17,6 +17,7 @@ done
 
 if [[ "$DO_DEPLOY" == "1" ]]; then
     echo "Target: $ENV_NAME (production Green)"
+    "$ROOT/scripts/deploy_preflight.sh"
 else
     echo "Dry run: target would be $ENV_NAME (no AWS mutation)"
 fi

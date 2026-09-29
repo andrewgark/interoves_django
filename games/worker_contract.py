@@ -92,6 +92,10 @@ WORKER_REGISTRY = WorkerRegistry((
         message_types=("anonymous.merge", "anonymous.merge_reconcile"),
         allowed_modes=("eb", "ecs-fargate", "ecs-fargate-spot", "green-process"),
         queue_url_env="IDENTITY_SQS_QUEUE_URL",
+        required_env=(
+            "ANONYMOUS_MERGE_EVENTS",
+            "ANONYMOUS_MERGE_SQS_QUEUE_URL",
+        ),
     ),
     WorkerSpec(
         name="integrations",

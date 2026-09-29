@@ -29,6 +29,14 @@ class WorkerConfigTests(SimpleTestCase):
             ('TELEGRAM_API_ID', 'TELEGRAM_API_HASH', 'TELEGRAM_BOT_TOKEN'),
         )
 
+    def test_identity_requires_merge_continuation_settings(self):
+        config = load_worker_config(worker_name='identity', environ={})
+
+        self.assertEqual(
+            config.missing,
+            ('ANONYMOUS_MERGE_EVENTS', 'ANONYMOUS_MERGE_SQS_QUEUE_URL'),
+        )
+
     def test_recheck_compatibility_poller_does_not_require_hmac_secret(self):
         config = load_worker_config(worker_name='recheck', mode='ecs-fargate', environ={})
         self.assertEqual(config.missing, ())

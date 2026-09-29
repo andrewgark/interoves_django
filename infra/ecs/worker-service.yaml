@@ -138,6 +138,8 @@ Resources:
               Value: !If [IsRecheck, !Ref QueueUrl, '']
             - Name: ANONYMOUS_MERGE_SQS_QUEUE_URL
               Value: !If [IsIdentity, !Ref QueueUrl, '']
+            - Name: ANONYMOUS_MERGE_EVENTS
+              Value: !If [IsIdentity, '1', '']
             - Name: INTEROVES_CONFIG_SECRET_ID
               Value: !Ref ConfigSecretArn
             - Name: INTEROVES_CONFIG_SECRET_MAP
