@@ -8,7 +8,7 @@
 set -euo pipefail
 
 REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
-export AWS_PROFILE="${AWS_PROFILE:-interoves}"
+export AWS_PROFILE="${AWS_PROFILE:-default}"
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN 2>/dev/null || true
 
 ALARM_NAME="interoves-elb-unhealthy-hosts"
@@ -60,4 +60,34 @@ aws cloudwatch put-metric-alarm --region "$REGION" \
   --dimensions "Name=TargetGroup,Value=${TG_DIM}" "Name=LoadBalancer,Value=${LB_DIM}" \
   "${ACTIONS[@]+"${ACTIONS[@]}"}"
 
-echo "Alarm upserted: $ALARM_NAME"
+aws cloudwatch put-metric-alarm --region "$REGION" \
+  --alarm-name interoves-elb-target-5xx \
+  --alarm-description "ALB target returned 5xx responses" \
+  --namespace AWS/ApplicationELB \
+  --metric-name HTTPCode_Target_5XX_Count \
+  --statistic Sum \
+  --period 300 \
+  --evaluation-periods 1 \
+  --datapoints-to-alarm 1 \
+  --threshold 1 \
+  --comparison-operator GreaterThanOrEqualToThreshold \
+  --treat-missing-data notBreaching \
+  --dimensions "Name=TargetGroup,Value=${TG_DIM}" "Name=LoadBalancer,Value=${LB_DIM}" \
+  "${ACTIONS[@]+"${ACTIONS[@]}"}"
+
+aws cloudwatch put-metric-alarm --region "$REGION" \
+  --alarm-name interoves-elb-no-healthy-hosts \
+  --alarm-description "ALB has no healthy production targets" \
+  --namespace AWS/ApplicationELB \
+  --metric-name HealthyHostCount \
+  --statistic Minimum \
+  --period 60 \
+  --evaluation-periods 2 \
+  --datapoints-to-alarm 2 \
+  --threshold 1 \
+  --comparison-operator LessThanThreshold \
+  --treat-missing-data breaching \
+  --dimensions "Name=TargetGroup,Value=${TG_DIM}" "Name=LoadBalancer,Value=${LB_DIM}" \
+  "${ACTIONS[@]+"${ACTIONS[@]}"}"
+
+echo "Web ALB alarms upserted: $ALARM_NAME, interoves-elb-target-5xx, interoves-elb-no-healthy-hosts"
