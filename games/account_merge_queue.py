@@ -52,11 +52,12 @@ def serialize_account_merge_job(job):
         'error': 'merge_failed' if job.status == AccountMergeJob.STATUS_FAILED else '',
         'created_at': job.created_at.isoformat() if job.created_at else '',
         'completed_at': job.completed_at.isoformat() if job.completed_at else '',
+        'next_url': job.next_url or '',
     }
 
 
 @transaction.atomic
-def enqueue_account_merge(*, target_user, source_user, provider, provider_uid):
+def enqueue_account_merge(*, target_user, source_user, provider, provider_uid, next_url=''):
     """Create or reuse a short-lived durable merge request."""
     if target_user.pk == source_user.pk:
         raise AccountMergeError('Нельзя объединить профиль с самим собой.')
@@ -88,6 +89,7 @@ def enqueue_account_merge(*, target_user, source_user, provider, provider_uid):
                 source_user_id_snapshot=source.pk,
                 provider=str(provider or ''),
                 provider_uid=str(provider_uid or ''),
+                next_url=str(next_url or ''),
             )
         created = True
     except IntegrityError:
@@ -221,9 +223,13 @@ def _claim_job(job_id, *, now=None, worker='identity'):
     return job, 'claimed'
 
 
-def _mark_completed(job_id, merge):
+def _mark_completed(job_id, merge, claim_token):
     now = timezone.now()
-    AccountMergeJob.objects.filter(pk=job_id).update(
+    updated = AccountMergeJob.objects.filter(
+        pk=job_id,
+        status=AccountMergeJob.STATUS_RUNNING,
+        claim_token=claim_token,
+    ).update(
         status=AccountMergeJob.STATUS_COMPLETED,
         account_merge=merge,
         claim_token=None,
@@ -232,11 +238,16 @@ def _mark_completed(job_id, merge):
         completed_at=now,
         updated_at=now,
     )
+    return bool(updated)
 
 
-def _mark_failed(job_id, error):
+def _mark_failed(job_id, error, claim_token):
     now = timezone.now()
-    AccountMergeJob.objects.filter(pk=job_id).update(
+    updated = AccountMergeJob.objects.filter(
+        pk=job_id,
+        status=AccountMergeJob.STATUS_RUNNING,
+        claim_token=claim_token,
+    ).update(
         status=AccountMergeJob.STATUS_FAILED,
         last_error=str(error)[:4000],
         claim_token=None,
@@ -244,15 +255,20 @@ def _mark_failed(job_id, error):
         next_attempt_at=None,
         updated_at=now,
     )
-    _clear_event(job_id)
+    if updated:
+        _clear_event(job_id)
+    return bool(updated)
 
 
 def _schedule_retry(job, error):
     now = timezone.now()
     if job.attempt_count >= MAX_ATTEMPTS:
-        _mark_failed(job.pk, error)
-        return 'failed'
-    AccountMergeJob.objects.filter(pk=job.pk).update(
+        return 'failed' if _mark_failed(job.pk, error, job.claim_token) else 'stale'
+    updated = AccountMergeJob.objects.filter(
+        pk=job.pk,
+        status=AccountMergeJob.STATUS_RUNNING,
+        claim_token=job.claim_token,
+    ).update(
         status=AccountMergeJob.STATUS_PENDING,
         last_error=str(error)[:4000],
         claim_token=None,
@@ -260,6 +276,8 @@ def _schedule_retry(job, error):
         next_attempt_at=now + RETRY_DELAY,
         updated_at=now,
     )
+    if not updated:
+        return 'stale'
     _clear_event(job.pk)
     schedule_account_merge_event(job.pk, delay_seconds=int(RETRY_DELAY.total_seconds()))
     return 'retry_scheduled'
@@ -275,15 +293,20 @@ def run_account_merge_job(job_id, *, worker='identity'):
         source_user_id_snapshot=job.source_user_id_snapshot,
     ).first()
     if existing is not None:
-        _mark_completed(job.pk, existing)
-        return {'status': 'completed', 'merge_id': existing.pk}
+        marked = _mark_completed(job.pk, existing, job.claim_token)
+        return {
+            'status': 'completed' if marked else 'stale',
+            'merge_id': existing.pk,
+        }
 
     User = get_user_model()
     target = User.objects.filter(pk=job.target_user_id_snapshot).first()
     source = User.objects.filter(pk=job.source_user_id_snapshot).first()
     if target is None or source is None:
-        _mark_failed(job.pk, 'Один из профилей больше не существует.')
-        return {'status': 'failed'}
+        marked = _mark_failed(
+            job.pk, 'Один из профилей больше не существует.', job.claim_token,
+        )
+        return {'status': 'failed' if marked else 'stale'}
 
     try:
         merge = merge_accounts(
@@ -293,11 +316,14 @@ def run_account_merge_job(job_id, *, worker='identity'):
             provider_uid=job.provider_uid,
         )
     except AccountMergeError as exc:
-        _mark_failed(job.pk, exc)
-        return {'status': 'failed'}
+        marked = _mark_failed(job.pk, exc, job.claim_token)
+        return {'status': 'failed' if marked else 'stale'}
     except Exception as exc:
         logger.exception('account merge worker failed job=%s', job.pk)
         return {'status': _schedule_retry(job, exc)}
 
-    _mark_completed(job.pk, merge)
-    return {'status': 'completed', 'merge_id': merge.pk}
+    marked = _mark_completed(job.pk, merge, job.claim_token)
+    return {
+        'status': 'completed' if marked else 'stale',
+        'merge_id': merge.pk,
+    }

@@ -5,7 +5,12 @@ from django.test import TestCase
 
 from allauth.socialaccount.models import SocialAccount
 
-from games.account_merge_queue import enqueue_account_merge, run_account_merge_job
+from games.account_merge_queue import (
+    _claim_job,
+    _mark_failed,
+    enqueue_account_merge,
+    run_account_merge_job,
+)
 from games.models import AccountMerge, AccountMergeJob
 
 
@@ -66,3 +71,23 @@ class AccountMergeQueueTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, AccountMergeJob.STATUS_COMPLETED)
         self.assertIsNotNone(job.account_merge_id)
+
+    def test_expired_worker_cannot_overwrite_new_claim(self):
+        job = AccountMergeJob.objects.create(
+            target_user=self.target,
+            source_user=self.source,
+            target_user_id_snapshot=self.target.pk,
+            source_user_id_snapshot=self.source.pk,
+            provider='telegram',
+            provider_uid='telegram-source',
+        )
+        claimed, state = _claim_job(job.pk, worker='old')
+        self.assertEqual(state, 'claimed')
+
+        AccountMergeJob.objects.filter(pk=job.pk).update(
+            claim_token='22222222-2222-2222-2222-222222222222',
+        )
+        self.assertFalse(_mark_failed(job.pk, 'stale failure', claimed.claim_token))
+        job.refresh_from_db()
+        self.assertEqual(job.status, AccountMergeJob.STATUS_RUNNING)
+        self.assertEqual(str(job.claim_token), '22222222-2222-2222-2222-222222222222')
