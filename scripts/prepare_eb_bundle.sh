@@ -98,6 +98,16 @@ if [[ "$ENV_NAME" == "interoves-recheck-worker" ]]; then
     : > "$stage/.platform/recheck-worker.marker"
 fi
 
+# The integrations worker renders Telegram images with Playwright.  Its live
+# EB bundle is intentionally protected above, so it does not inherit the web
+# tier's browser provisioning config.  Inject the worker-specific config into
+# only this bundle; the other workers do not need Chromium.
+if [[ "$ENV_NAME" == "interoves-integrations-worker" ]]; then
+    install -D -m 0644 \
+        "$ROOT/infra/elasticbeanstalk/future/integrations-worker/playwright.config" \
+        "$stage/.ebextensions/playwright-integrations-worker.config"
+fi
+
 if [[ "$SKIP_COLLECTSTATIC" == "1" ]]; then
     collectstatic="$stage/scripts/collectstatic_if_changed.sh"
     [[ -f "$collectstatic" ]] || { echo "Missing collectstatic script in bundle" >&2; exit 1; }

@@ -35,3 +35,11 @@ class RecheckWorkerBundleConfigTests(unittest.TestCase):
         statements = {statement['Sid']: statement for statement in policy['Statement']}
         self.assertIn('sqs:SendMessage', statements['ReceiveRecheckMessages']['Action'])
         self.assertIn('__DJANGO_SECRET_KEY_ARN__', statements['WorkerSecrets']['Resource'])
+
+    def test_integrations_bundle_injects_playwright_provisioning(self):
+        script = (ROOT / 'scripts' / 'prepare_eb_bundle.sh').read_text()
+        config = (ROOT / 'infra' / 'elasticbeanstalk' / 'future' / 'integrations-worker' / 'playwright.config').read_text()
+        self.assertIn('interoves-integrations-worker', script)
+        self.assertIn('playwright.config', script)
+        self.assertIn('/home/app/.cache/ms-playwright', config)
+        self.assertIn('python -m playwright install chromium', config)

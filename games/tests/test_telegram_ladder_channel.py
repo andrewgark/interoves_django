@@ -597,6 +597,22 @@ class EnsurePlaywrightBrowsersPathTests(TestCase):
                 '/home/webapp/.cache/ms-playwright',
             )
 
+    def test_uses_integrations_worker_cache_when_webapp_cache_is_missing(self):
+        from games.telegram import ladder_image as li
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('PLAYWRIGHT_BROWSERS_PATH', None)
+            with patch.object(
+                li.os.path,
+                'isdir',
+                side_effect=lambda path: path == '/home/app/.cache/ms-playwright',
+            ):
+                li._ensure_playwright_browsers_path()
+            self.assertEqual(
+                os.environ.get('PLAYWRIGHT_BROWSERS_PATH'),
+                '/home/app/.cache/ms-playwright',
+            )
+
     def test_does_not_override_existing_env(self):
         from games.telegram import ladder_image as li
 

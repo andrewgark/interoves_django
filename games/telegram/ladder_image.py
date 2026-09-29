@@ -30,8 +30,12 @@ _FONT_DIRS = (
     '/usr/share/fonts/truetype',
 )
 
-# EB installs Chromium for the webapp user; cron often runs as root.
-_EB_PLAYWRIGHT_BROWSERS_PATH = '/home/webapp/.cache/ms-playwright'
+# EB installs Chromium for the runtime user; cron often runs as root.  The web
+# tier uses ``webapp``, while the dedicated integrations worker uses ``app``.
+_EB_PLAYWRIGHT_BROWSERS_PATHS = (
+    '/home/webapp/.cache/ms-playwright',
+    '/home/app/.cache/ms-playwright',
+)
 
 # Public page that redirects to the latest published ladder.
 LADDER_LAST_PATH = '/ladder/last/'
@@ -56,8 +60,10 @@ def _ensure_playwright_browsers_path() -> None:
     """
     if os.environ.get('PLAYWRIGHT_BROWSERS_PATH'):
         return
-    if os.path.isdir(_EB_PLAYWRIGHT_BROWSERS_PATH):
-        os.environ['PLAYWRIGHT_BROWSERS_PATH'] = _EB_PLAYWRIGHT_BROWSERS_PATH
+    for browsers_path in _EB_PLAYWRIGHT_BROWSERS_PATHS:
+        if os.path.isdir(browsers_path):
+            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browsers_path
+            return
 
 _SCREENSHOT_HIDE_CSS = '''
   .new-nav,

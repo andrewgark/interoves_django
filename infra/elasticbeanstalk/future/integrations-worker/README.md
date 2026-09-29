@@ -21,6 +21,11 @@ Live since 26 Sep 2026.
 - schedule `interoves-telegram-announcements`, `cron(* * * * ? *)`, `Europe/Moscow`
 - schedule `interoves-telegram-admin-report`, `cron(25-29 0 * * ? *)`, `Europe/Moscow`
 
+The worker bundle must be prepared with `scripts/deploy_worker.sh`, which
+injects `playwright.config` for this environment.  It installs Chromium into
+`/home/app/.cache/ms-playwright`; without that provisioning the Python
+Playwright package can be present while the browser executable is missing.
+
 Announcements older than 3 minutes are `skipped_stale`. An admin-report
 message whose `scheduled_for` is inside 00:25–00:29 still runs if it is read
 within 20 minutes.
