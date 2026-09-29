@@ -2,6 +2,7 @@ import json
 import os
 from datetime import datetime, timedelta
 from io import BytesIO
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -564,6 +565,34 @@ class TelegramClaimTests(TestCase):
             now=self.now + SOCIAL_QUEUE_RETRY_DELAY,
         ))
 
+    def test_failed_render_attempts_stop_after_retry_limit(self):
+        from games.social.publish import (
+            SOCIAL_QUEUE_MAX_ATTEMPTS,
+            claim_telegram_post,
+            complete_telegram_publish,
+        )
+
+        for attempt in range(SOCIAL_QUEUE_MAX_ATTEMPTS):
+            attempt_at = self.now + (attempt + 1) * timedelta(minutes=6)
+            token = claim_telegram_post(
+                self.post.pk,
+                now=attempt_at,
+            )
+            self.assertTrue(token)
+            self.assertTrue(complete_telegram_publish(
+                self.post.pk,
+                token,
+                status=SocialQueuePost.STATUS_FAILED,
+                error='browser unavailable',
+                count_attempt=True,
+            ))
+            SocialQueuePost.objects.filter(pk=self.post.pk).update(updated_at=attempt_at)
+
+        self.assertIsNone(claim_telegram_post(
+            self.post.pk,
+            now=self.now + timedelta(minutes=30),
+        ))
+
     def test_claim_token_fences_stale_completion(self):
         from games.social.publish import (
             QUEUE_CLAIM_TIMEOUT,
@@ -602,12 +631,28 @@ class TelegramClaimTests(TestCase):
 
 
 class EnsurePlaywrightBrowsersPathTests(TestCase):
+    def test_detects_headless_shell_cache(self):
+        from games.telegram import ladder_image as li
+
+        with TemporaryDirectory() as directory:
+            executable = os.path.join(
+                directory,
+                'chromium_headless_shell-1243',
+                'chrome-headless-shell-linux64',
+                'chrome-headless-shell',
+            )
+            os.makedirs(os.path.dirname(executable))
+            with open(executable, 'wb'):
+                pass
+            os.chmod(executable, 0o755)
+            self.assertTrue(li._playwright_cache_has_chromium(directory))
+
     def test_sets_eb_webapp_cache_when_env_missing(self):
         from games.telegram import ladder_image as li
 
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop('PLAYWRIGHT_BROWSERS_PATH', None)
-            with patch.object(li.os.path, 'isdir', return_value=True):
+            with patch.object(li, '_playwright_cache_has_chromium', return_value=True):
                 li._ensure_playwright_browsers_path()
             self.assertEqual(
                 os.environ.get('PLAYWRIGHT_BROWSERS_PATH'),
@@ -620,8 +665,8 @@ class EnsurePlaywrightBrowsersPathTests(TestCase):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop('PLAYWRIGHT_BROWSERS_PATH', None)
             with patch.object(
-                li.os.path,
-                'isdir',
+                li,
+                '_playwright_cache_has_chromium',
                 side_effect=lambda path: path == '/home/app/.cache/ms-playwright',
             ):
                 li._ensure_playwright_browsers_path()
@@ -634,6 +679,6 @@ class EnsurePlaywrightBrowsersPathTests(TestCase):
         from games.telegram import ladder_image as li
 
         with patch.dict(os.environ, {'PLAYWRIGHT_BROWSERS_PATH': '/custom/browsers'}):
-            with patch.object(li.os.path, 'isdir', return_value=True):
+            with patch.object(li, '_playwright_cache_has_chromium', return_value=True):
                 li._ensure_playwright_browsers_path()
             self.assertEqual(os.environ.get('PLAYWRIGHT_BROWSERS_PATH'), '/custom/browsers')

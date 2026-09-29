@@ -12,7 +12,10 @@ from pathlib import Path
 from django.conf import settings
 
 from games.daily.share_card import CARD_HEIGHT, CARD_WIDTH
-from games.telegram.ladder_image import _ensure_playwright_browsers_path
+from games.telegram.ladder_image import (
+    _ensure_playwright_browsers_path,
+    _playwright_cache_has_chromium,
+)
 
 logger = logging.getLogger('application')
 
@@ -28,26 +31,17 @@ def _renderer_js() -> str:
     return renderer_js_path().read_text(encoding='utf-8')
 
 
-def _chromium_present(directory: str | None) -> bool:
-    if not directory or not os.path.isdir(directory):
-        return False
-    for name in os.listdir(directory):
-        if name.startswith('chromium'):
-            return True
-    return False
-
-
 def _prepare_playwright_env() -> None:
     """Prefer a cache that actually contains Chromium (local ~/.cache, then EB)."""
     _ensure_playwright_browsers_path()
     current = os.environ.get('PLAYWRIGHT_BROWSERS_PATH')
-    if _chromium_present(current):
+    if _playwright_cache_has_chromium(current):
         return
     home_cache = os.path.expanduser('~/.cache/ms-playwright')
-    if _chromium_present(home_cache):
+    if _playwright_cache_has_chromium(home_cache):
         os.environ['PLAYWRIGHT_BROWSERS_PATH'] = home_cache
         return
-    if current and not _chromium_present(current):
+    if current and not _playwright_cache_has_chromium(current):
         os.environ.pop('PLAYWRIGHT_BROWSERS_PATH', None)
 
 

@@ -75,6 +75,7 @@ def claim_telegram_post(
             | (
                 Q(telegram_status=SocialQueuePost.STATUS_FAILED)
                 & Q(updated_at__lte=now - SOCIAL_QUEUE_RETRY_DELAY)
+                & Q(telegram_attempts__lt=SOCIAL_QUEUE_MAX_ATTEMPTS)
             )
         )
 
@@ -156,6 +157,7 @@ def complete_telegram_publish(
     external_id: str | object = _UNSET,
     telegram_at: datetime | None | object = _UNSET,
     scheduled_for: datetime | None | object = _UNSET,
+    count_attempt: bool = False,
 ) -> bool:
     """Finish a Telegram delivery only if the caller still owns its claim."""
     updates: dict[str, Any] = {
@@ -171,6 +173,8 @@ def complete_telegram_publish(
         updates['telegram_at'] = telegram_at
     if scheduled_for is not _UNSET:
         updates['telegram_scheduled_for'] = scheduled_for
+    if count_attempt:
+        updates['telegram_attempts'] = F('telegram_attempts') + 1
 
     completed = SocialQueuePost.objects.filter(
         pk=post_id,

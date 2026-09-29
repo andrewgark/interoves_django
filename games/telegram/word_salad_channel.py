@@ -326,6 +326,7 @@ def schedule_salad_channel_post(
             claim_token,
             status=SocialQueuePost.STATUS_FAILED,
             error=error,
+            count_attempt=True,
         )
         if telegram_admin_configured():
             try:

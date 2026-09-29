@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import glob
 import io
 import logging
 import os
@@ -51,6 +52,27 @@ _EMOJI_FONT_CANDIDATES = (
 )
 
 
+def _playwright_cache_has_chromium(directory: str | None) -> bool:
+    """Return whether a Playwright cache contains an executable Chromium."""
+    if not directory or not os.path.isdir(directory):
+        return False
+    executable_suffixes = (
+        'chrome-linux/chrome',
+        'chrome-linux64/chrome',
+        'chrome-headless-shell-linux64/chrome-headless-shell',
+    )
+    browser_dirs = (
+        glob.glob(os.path.join(directory, 'chromium-*'))
+        + glob.glob(os.path.join(directory, 'chromium_headless_shell-*'))
+    )
+    for browser_dir in browser_dirs:
+        for suffix in executable_suffixes:
+            executable = os.path.join(browser_dir, suffix)
+            if os.path.isfile(executable) and os.access(executable, os.X_OK):
+                return True
+    return False
+
+
 def _ensure_playwright_browsers_path() -> None:
     """
     Point Playwright at the EB webapp browser cache when cron/root has none.
@@ -61,7 +83,7 @@ def _ensure_playwright_browsers_path() -> None:
     if os.environ.get('PLAYWRIGHT_BROWSERS_PATH'):
         return
     for browsers_path in _EB_PLAYWRIGHT_BROWSERS_PATHS:
-        if os.path.isdir(browsers_path):
+        if _playwright_cache_has_chromium(browsers_path):
             os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browsers_path
             return
 
