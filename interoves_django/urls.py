@@ -22,7 +22,7 @@ from django.views.generic import RedirectView, TemplateView
 
 from microsites import views as microsites_views
 from games.views.meta_http import deploy_version
-from games.views.health import live as health_live
+from games.views.health import live as health_live, ready as health_ready
 from games.views.background_worker import background_worker
 from games.views.identity_worker import identity_worker
 from games.views.integrations_worker import integrations_worker
@@ -121,6 +121,7 @@ urlpatterns = [
     # ALB uses the dependency-free liveness endpoint. Keep /health/ as the
     # detailed operational check for DB, Redis caches and storage.
     path('health/live/', health_live, name='health_live'),
+    path('health/ready/', health_ready, name='health_ready'),
     path('health/', include('health_check.urls')),
     path('internal/worker/word-salad-recheck/', word_salad_worker, name='word_salad_worker'),
     path('internal/worker/recheck/', recheck_worker, name='recheck_worker'),

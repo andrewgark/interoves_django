@@ -10,6 +10,7 @@ from games.analytics_identity import attach_anon_cookie
 from games.anonymous_merge import (
     claim_next_merge_job,
     process_merge_job,
+    publish_unmarked_due_merge_jobs,
     retry_merge_job,
     run_anonymous_merge_queue,
     run_named_merge_job,
@@ -243,6 +244,23 @@ class AnonymousMergeQueueTests(TestCase):
         mark_merge_event(job.pk)
         self.assertIsNone(claim_next_merge_job(worker='cron'))
         self.assertEqual(AnonymousMergeJob.objects.get(pk=job.pk).status, AnonymousMergeJob.STATUS_PENDING)
+
+    def test_cron_recovers_a_stale_event_marker(self):
+        from games.anonymous_merge import MERGE_EVENT_RETRY_AFTER
+        from games.anonymous_merge_events import mark_merge_event
+
+        key = self._key('stale-event')
+        Attempt.manager.create(anon_key=key, task=self.tasks[0], game=self.game, text='x', status='Wrong')
+        job = self._enqueue(key)
+        mark_merge_event(job.pk)
+        AnonymousMergeJob.objects.filter(pk=job.pk).update(
+            updated_at=timezone.now() - MERGE_EVENT_RETRY_AFTER - timedelta(seconds=1),
+        )
+
+        with patch('games.anonymous_merge_events.publish_anonymous_merge_event', return_value=True) as publish:
+            self.assertEqual(publish_unmarked_due_merge_jobs(limit=1), 1)
+
+        publish.assert_called_once_with(job.pk)
 
     def test_enqueue_schedules_an_event_after_commit(self):
         from games.anonymous_merge_events import publish_anonymous_merge_event

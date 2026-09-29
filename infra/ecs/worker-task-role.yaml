@@ -18,6 +18,7 @@ Parameters:
 Conditions:
   HasValidationQueue: !Not [!Equals [!Ref ValidationQueueArn, '']]
   IsRecheck: !Equals [!Ref WorkerName, recheck]
+  IsIdentity: !Equals [!Ref WorkerName, identity]
 
 Resources:
   TaskRole:
@@ -71,6 +72,22 @@ Resources:
         Version: '2012-10-17'
         Statement:
           - Sid: PublishRecheckOutbox
+            Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource: !Ref QueueArn
+
+  PublishIdentityContinuationPolicy:
+    Type: AWS::IAM::Policy
+    Condition: IsIdentity
+    Properties:
+      PolicyName: PublishIdentityContinuation
+      Roles:
+        - !Ref TaskRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublishIdentityContinuation
             Effect: Allow
             Action:
               - sqs:SendMessage

@@ -95,6 +95,7 @@ Parameters:
 Conditions:
   IsSpot: !Equals [!Ref DeploymentMode, ecs-fargate-spot]
   IsRecheck: !Equals [!Ref WorkerName, recheck]
+  IsIdentity: !Equals [!Ref WorkerName, identity]
 
 Resources:
   LogGroup:
@@ -135,6 +136,10 @@ Resources:
               Value: !Ref QueueUrl
             - Name: RECHECK_SQS_QUEUE_URL
               Value: !If [IsRecheck, !Ref QueueUrl, '']
+            - Name: ANONYMOUS_MERGE_SQS_QUEUE_URL
+              Value: !If [IsIdentity, !Ref QueueUrl, '']
+            - Name: ANONYMOUS_MERGE_EVENTS
+              Value: !If [IsIdentity, '1', '']
             - Name: INTEROVES_CONFIG_SECRET_ID
               Value: !Ref ConfigSecretArn
             - Name: INTEROVES_CONFIG_SECRET_MAP
