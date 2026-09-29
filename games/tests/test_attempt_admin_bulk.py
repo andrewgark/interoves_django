@@ -190,6 +190,43 @@ class AttemptAdminBulkTests(_ChainFixture, TestCase):
         self.assertEqual(accepted.possible_status, accepted.status)
         self.assertEqual(unrelated.status, 'Pending')
 
+    def test_replay_does_not_reopen_rejected_pending_attempt(self):
+        accepted = _make_attempt(
+            self.wall_task, self.team,
+            _wall_text(['A', 'B', 'C', 'D'], stage='cat_explanation', explanation='accepted'),
+        )
+        accepted.status = 'Pending'
+        accepted.possible_status = 'Wrong'
+        accepted.save()
+        rejected = _make_attempt(
+            self.wall_task, self.team,
+            _wall_text(['E', 'F', 'G', 'H'], stage='cat_explanation', explanation='rejected'),
+        )
+        rejected.status = 'Wrong'
+        rejected.possible_status = 'Wrong'
+        rejected.save()
+
+        with patch('games.views.track.track_task_change'):
+            with self.captureOnCommitCallbacks(execute=True):
+                add_to_checker([accepted.pk])
+
+        with patch.object(Game, 'get_current_mode', return_value='tournament'):
+            recheck_chain_task(
+                self.wall_task,
+                team=self.team,
+                game=self.game,
+                notify=False,
+                pending_resolution={
+                    'version': 1,
+                    'attempt_ids': [accepted.pk],
+                    'scopes': [{'type': 'wall_words', 'value': ['a', 'b', 'c', 'd']}],
+                },
+            )
+
+        rejected.refresh_from_db()
+        self.assertNotEqual(rejected.status, 'Pending')
+        self.assertEqual(rejected.status, rejected.possible_status)
+
     def test_bulk_accept_returns_queue_receipt(self):
         first = _make_attempt(
             self.wall_task,

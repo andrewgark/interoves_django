@@ -401,10 +401,14 @@ def _check_word_salad_attempt(checker_type, checker_data, last_state, attempt, *
 
 def _apply_replay_status(attempt, result, mode):
     """Apply checker status using the same tournament split as check_attempt."""
+    was_resolved = attempt.status != 'Pending'
     attempt.possible_status = None
     if mode == 'tournament' and result.status != 'Ok':
         attempt.possible_status = result.status
-        attempt.status = result.tournament_status
+        # A manual "NO" resolves a pending attempt to its hidden checker
+        # status.  Replaying a later accepted answer must not turn that
+        # already-resolved attempt back into Pending.
+        attempt.status = result.status if was_resolved else result.tournament_status
     else:
         attempt.status = result.status
 
