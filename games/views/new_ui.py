@@ -4859,7 +4859,6 @@ def new_account_merge_confirm(request):
                 source_user=source,
                 provider=pending['provider'],
                 provider_uid=pending['provider_uid'],
-                next_url=pending['next'],
             )
         except AccountMergeError as exc:
             messages.error(request, str(exc))
@@ -4876,6 +4875,7 @@ def new_account_merge_confirm(request):
                 'Попробуйте ещё раз позже или обратитесь в поддержку.',
             )
         else:
+            next_url = pending['next']
             clear_pending_account_merge(request)
             messages.info(
                 request,
@@ -4909,47 +4909,11 @@ def new_account_merge_status(request, job_id):
     payload = serialize_account_merge_job(job)
     if request.headers.get('Accept') == 'application/json':
         return JsonResponse(payload)
-    return render(request, 'new/account_merge_status.html', {
+    return render(request, 'ui/account_merge_status.html', {
         'job': payload,
         'job_id': job.id,
         'page_title': 'Объединение аккаунтов',
     })
-
-
-@login_required
-@require_http_methods(['POST'])
-def new_account_merge_retry(request, job_id):
-    from django.contrib.auth import get_user_model
-    from games.account_merge import AccountMergeError
-    from games.account_merge_queue import enqueue_account_merge
-    from games.models import AccountMergeJob
-
-    job = AccountMergeJob.objects.filter(
-        pk=job_id,
-        target_user=request.user,
-        status=AccountMergeJob.STATUS_FAILED,
-    ).first()
-    if job is None:
-        raise Http404()
-    source = get_user_model().objects.filter(
-        pk=job.source_user_id_snapshot,
-    ).first()
-    if source is None:
-        messages.error(request, 'Второй профиль больше не найден.')
-        return redirect('ui_account_merge_status', job_id=job.id)
-    try:
-        job = enqueue_account_merge(
-            target_user=request.user,
-            source_user=source,
-            provider=job.provider,
-            provider_uid=job.provider_uid,
-            next_url=job.next_url,
-        )
-    except AccountMergeError as exc:
-        messages.error(request, str(exc))
-        return redirect('ui_account_merge_status', job_id=job.id)
-    messages.info(request, 'Повторная попытка объединения поставлена в очередь.')
-    return redirect('ui_account_merge_status', job_id=job.id)
 
 
 @login_required

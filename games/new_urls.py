@@ -129,7 +129,6 @@ urlpatterns = [
     path('team/join/', ui.team_join_page, name='new_team_join_page'),
     path('profile/merge/', ui.account_merge_confirm, name='new_account_merge_confirm'),
     path('profile/merge/status/<uuid:job_id>/', ui.account_merge_status, name='new_account_merge_status'),
-    path('profile/merge/status/<uuid:job_id>/retry/', ui.account_merge_retry, name='new_account_merge_retry'),
     path('profile/disconnect/', ui.social_account_disconnect, name='new_social_account_disconnect'),
     path('profile/reports/<int:report_id>/', ui.profile_report_detail, name='new_profile_report_detail'),
     path('profile/reports/', ui.profile_reports, name='new_profile_reports'),

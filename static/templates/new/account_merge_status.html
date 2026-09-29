@@ -13,12 +13,6 @@
       Профили объединяются. Можно оставить эту страницу открытой.
     {% endif %}
   </p>
-  {% if job.status == 'failed' %}
-  <form method="post" action="{% url 'ui_account_merge_retry' job_id %}">
-    {% csrf_token %}
-    <button type="submit">Повторить</button>
-  </form>
-  {% endif %}
   <p><a class="new-back" href="{% url 'ui_profile' %}">Вернуться в профиль</a></p>
 </div>
 
@@ -35,7 +29,6 @@
         .then(function (job) {
           if (job.status === 'completed') {
             text.textContent = 'Профили объединены. Теперь можно входить через подключённый аккаунт.';
-            if (job.next_url) window.location.assign(job.next_url);
             return;
           }
           if (job.status === 'failed') {

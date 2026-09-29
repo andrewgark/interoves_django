@@ -167,7 +167,6 @@ urlpatterns = [
     path('team/rename/', ui.team_rename, name='ui_team_rename'),
     path('profile/merge/', ui.account_merge_confirm, name='ui_account_merge_confirm'),
     path('profile/merge/status/<uuid:job_id>/', ui.account_merge_status, name='ui_account_merge_status'),
-    path('profile/merge/status/<uuid:job_id>/retry/', ui.account_merge_retry, name='ui_account_merge_retry'),
     path(
         'profile/telegram-handle/dismiss/',
         ui.dismiss_unverified_telegram_handle,
