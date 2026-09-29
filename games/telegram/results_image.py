@@ -292,7 +292,7 @@ def screenshot_tournament_results_png(
     _ensure_playwright_browsers_path()
     target = url or game_tournament_results_url(game)
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(headless=True, timeout=30000)
         try:
             page = browser.new_page(
                 viewport={'width': viewport_width, 'height': 1800},

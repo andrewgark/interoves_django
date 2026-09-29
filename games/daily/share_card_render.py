@@ -64,7 +64,7 @@ def render_share_card_png(payload: dict) -> bytes:
     script = _renderer_js()
     payload_json = json.dumps(payload, ensure_ascii=False)
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        browser = playwright.chromium.launch(headless=True, timeout=30000)
         try:
             page = browser.new_page(
                 viewport={'width': CARD_WIDTH, 'height': CARD_HEIGHT},

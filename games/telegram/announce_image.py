@@ -121,7 +121,7 @@ def screenshot_game_announce_png(game, *, url: str | None = None, viewport_width
     _ensure_playwright_browsers_path()
     target = url or announce_screenshot_url(game)
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(headless=True, timeout=30000)
         try:
             page = browser.new_page(
                 viewport={'width': viewport_width, 'height': 1400},

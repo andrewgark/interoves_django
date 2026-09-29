@@ -43,3 +43,12 @@ class RecheckWorkerBundleConfigTests(unittest.TestCase):
         self.assertIn('playwright.config', script)
         self.assertIn('/home/app/.cache/ms-playwright', config)
         self.assertIn('python -m playwright install chromium', config)
+        self.assertIn('python -m playwright install chromium &&', config)
+
+    def test_web_playwright_install_does_not_hide_install_failure(self):
+        config = (ROOT / '.ebextensions' / 'playwright.config').read_text()
+        install_line = next(
+            line for line in config.splitlines()
+            if 'python -m playwright install chromium' in line
+        )
+        self.assertNotIn('chown -R webapp:webapp /home/webapp/.cache/ms-playwright /home/webapp/.fonts || true', install_line)
