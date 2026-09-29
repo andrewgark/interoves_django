@@ -147,7 +147,7 @@ def _bulk_actor_task_result_points_sql(
     include_other_games: bool = False,
 ) -> Dict[int, Tuple[float, bool, Optional[str]]]:
     """SQL best-attempt + hint penalty for one actor (general mode)."""
-    from django.db.models import Case, F, IntegerField, Max, Value, When, Window
+    from django.db.models import Case, Count, F, IntegerField, Value, When, Window
     from django.db.models.functions import RowNumber
 
     from games.raddle import is_raddle_in_game_assist_hint
@@ -169,6 +169,10 @@ def _bulk_actor_task_result_points_sql(
     best_rows = (
         att_qs.annotate(
             status_rank=status_rank,
+            attempt_count=Window(
+                expression=Count('id'),
+                partition_by=[F('task_id')],
+            ),
             rn=Window(
                 expression=RowNumber(),
                 partition_by=[F('task_id')],
@@ -180,13 +184,12 @@ def _bulk_actor_task_result_points_sql(
             ),
         )
         .filter(rn=1)
-        .values('task_id', 'points', 'status')
+        .values('task_id', 'points', 'status', 'attempt_count')
     )
     best_by = {r['task_id']: r for r in best_rows}
-
-    has_attempt_tasks = set(
-        att_qs.values_list('task_id', flat=True).distinct()
-    )
+    # Every task represented by rn=1 has at least one attempt.  The window
+    # count above replaces a second DISTINCT task_id query.
+    has_attempt_tasks = set(best_by)
 
     hint_rows = list(
         HintAttempt.objects.filter(
