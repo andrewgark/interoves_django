@@ -8,7 +8,7 @@
 set -euo pipefail
 
 REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
-export AWS_PROFILE="${AWS_PROFILE:-default}"
+export AWS_PROFILE="${AWS_PROFILE:-interoves}"
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN 2>/dev/null || true
 
 ALARM_NAME="interoves-elb-unhealthy-hosts"
