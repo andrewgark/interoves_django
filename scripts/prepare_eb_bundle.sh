@@ -82,6 +82,15 @@ rsync -a --delete-delay \
     --exclude='/.elasticbeanstalk/***' \
     "$ROOT/" "$stage/"
 
+# The live Green bundle protects its platform configuration from the checkout.
+# Inject only the Green origin hook so an EB replacement keeps the Cloudflare
+# origin EIP stable.  Blue rollback and worker bundles must not claim it.
+if [[ "$ENV_NAME" == "interoves-web-green" ]]; then
+    install -D -m 0755 \
+        "$ROOT/.platform/hooks/postdeploy/11_associate_green_origin_eip.sh" \
+        "$stage/.platform/hooks/postdeploy/11_associate_green_origin_eip.sh"
+fi
+
 # The dedicated recheck worker owns the dispatcher hook in this checkout.  The
 # rest of the EB configuration remains inherited from the live bundle above.
 if [[ "$ENV_NAME" == "interoves-recheck-worker" ]]; then

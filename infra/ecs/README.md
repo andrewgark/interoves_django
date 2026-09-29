@@ -20,6 +20,15 @@ or IAM roles. Those resources are intentionally supplied as parameters or
 managed separately so deploying a worker cannot accidentally modify the
 production web network.
 
+The default network remains the private worker subnets with
+`AssignPublicIp=DISABLED`. For the NAT removal migration, a worker may be
+explicitly deployed into public subnets with `INTEROVES_ECS_SUBNET_IDS` and
+`INTEROVES_ECS_ASSIGN_PUBLIC_IP=ENABLED`. Use this only with the worker
+security group, which has no inbound rules, and verify task startup, Secrets
+Manager, SQS, ECR pulls, and CloudWatch logs before changing the route table or
+deleting the NAT Gateway. These variables are an explicit migration switch,
+not a new global default.
+
 ## Required task role permissions
 
 Render `worker-task-role-policy.json` for one worker and replace the two

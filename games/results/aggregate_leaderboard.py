@@ -5,9 +5,11 @@ from dataclasses import dataclass
 from datetime import date
 from types import SimpleNamespace
 
+from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db.models import Prefetch, IntegerField
 from django.db.models.functions import Cast
+from django.utils.dateparse import parse_datetime
 from games.results.leaderboard import eligible_release_actor_keys, score_rank
 from games.models import GameTaskGroup, PersonalResultsParticipant, Profile, Task, TaskGroup
 from games.sections.paths import section_play_path
@@ -17,6 +19,7 @@ from games.daily.section import publish_at_for, MOSCOW
 
 WINDOW_CHOICES = (10, 20, 30)
 PAGE_SIZE = 50
+MONTH_INDEX_CACHE_SECONDS = 300
 
 
 def _format_aggregate_time(seconds):
@@ -129,15 +132,29 @@ def _choose_window(game, *, limit, anchor):
 
 def _monthly_release_context(game, requested_month=None):
     """Return the published ladder releases belonging to one calendar month."""
-    links = list(_with_result_tasks(_numbered_links(game)))
+    cache_key = 'aggregate:monthly-release-index:v1:{}'.format(game.pk)
+    release_index = cache.get(cache_key)
+    if release_index is None:
+        release_index = []
+        for link in _numbered_links(game):
+            published_at = publish_at_for(game, link.number)
+            if published_at is not None:
+                release_index.append({
+                    'pk': link.pk,
+                    'number': link.number,
+                    'release_number': link._release_number,
+                    'published_at': published_at.isoformat(),
+                })
+        cache.set(cache_key, release_index, MONTH_INDEX_CACHE_SECONDS)
+
     dated = []
     published_at_by_link = {}
-    for link in links:
-        published_at = publish_at_for(game, link.number)
+    for item in release_index:
+        published_at = parse_datetime(item['published_at'])
         if published_at is None:
             continue
-        published_at_by_link[link.pk] = published_at
-        dated.append((link, published_at.astimezone(MOSCOW).date()))
+        published_at_by_link[item['pk']] = published_at
+        dated.append((item, published_at.astimezone(MOSCOW).date()))
     months = sorted({(published.year, published.month) for _link, published in dated})
     if not months:
         return [], None, None, None, {}
@@ -148,7 +165,11 @@ def _monthly_release_context(game, requested_month=None):
     selected_date = date(*selected, 1)
     previous = date(*months[month_index - 1], 1) if month_index else None
     following = date(*months[month_index + 1], 1) if month_index + 1 < len(months) else None
-    selected_links = [link for link, published in dated if (published.year, published.month) == selected]
+    selected_items = [item for item, published in dated if (published.year, published.month) == selected]
+    selected_ids = [item['pk'] for item in selected_items]
+    selected_links = list(_with_result_tasks(
+        _numbered_links(game).filter(pk__in=selected_ids),
+    ))
     selected_links.sort(key=lambda link: (-link._release_number, -link.pk))
     return selected_links, selected_date, previous, following, published_at_by_link
 
@@ -821,6 +842,10 @@ def build_aggregate_page(request, game):
             if not projection_state_is_valid(states.get(column.link.task_group_id), game)
         ]
         if stale_groups:
+            logger.warning(
+                'monthly_result_projection_incomplete game=%s month=%s stale=%s expected=%s; using canonical legacy builder',
+                game.pk, selected_month, len(stale_groups), len(group_ids),
+            )
             return _build_legacy_aggregate_page(request, game, month_context=month_context)
         return _build_projection_aggregate_page(
             request, game, columns, aggregate_period='month', month_context=month_context,

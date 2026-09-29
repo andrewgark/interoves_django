@@ -31,10 +31,18 @@ Parameters:
     Type: String
     NoEcho: true
     Default: '{}'
+  ConfigEnvJson:
+    Type: String
+    NoEcho: true
+    Default: '{}'
   SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
   SecurityGroupIds:
     Type: List<AWS::EC2::SecurityGroup::Id>
+  AssignPublicIp:
+    Type: String
+    AllowedValues: [ENABLED, DISABLED]
+    Default: DISABLED
   Cpu:
     Type: String
     Default: '512'
@@ -138,6 +146,8 @@ Resources:
               Value: !If [IsRecheck, !Ref QueueUrl, '']
             - Name: ANONYMOUS_MERGE_SQS_QUEUE_URL
               Value: !If [IsIdentity, !Ref QueueUrl, '']
+            - Name: IDENTITY_SQS_QUEUE_URL
+              Value: !If [IsIdentity, !Ref QueueUrl, '']
             - Name: ANONYMOUS_MERGE_EVENTS
               Value: !If [IsIdentity, '1', '']
             - Name: INTEROVES_CLOUDWATCH_METRICS
@@ -146,6 +156,8 @@ Resources:
               Value: !Ref ConfigSecretArn
             - Name: INTEROVES_CONFIG_SECRET_MAP
               Value: !Ref ConfigSecretMap
+            - Name: INTEROVES_CONFIG_VALUES
+              Value: !Ref ConfigEnvJson
             - Name: AWS_DEFAULT_REGION
               Value: !Ref AWS::Region
             - Name: DJANGO_SETTINGS_MODULE
@@ -205,6 +217,7 @@ Resources:
           AssignPublicIp: DISABLED
           Subnets: !Ref SubnetIds
           SecurityGroups: !Ref SecurityGroupIds
+          AssignPublicIp: !Ref AssignPublicIp
 
 Outputs:
   ServiceName:

@@ -1,11 +1,12 @@
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import AnonymousUser, User
 from django.db import connection
 from django.test import RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
+from django.core.cache import cache
 from django.utils import timezone
 
 from games.aggregate_leaderboard import build_aggregate_page
@@ -105,11 +106,17 @@ class AggregateLeaderboardTests(TestCase):
             SimpleNamespace(pk=3, number='3', _release_number=3),
         ]
         published = {
-            '1': datetime(2026, 8, 31, tzinfo=dt_timezone.utc),
+            '1': datetime(2026, 8, 31, 12, tzinfo=dt_timezone.utc),
             '2': datetime(2026, 9, 1, tzinfo=dt_timezone.utc),
             '3': datetime(2026, 9, 30, tzinfo=dt_timezone.utc),
         }
-        with patch('games.results.aggregate_leaderboard._numbered_links', return_value=links), \
+        links_qs = MagicMock()
+        links_qs.__iter__.return_value = iter(links)
+        links_qs.filter.side_effect = lambda **kwargs: [
+            link for link in links if link.pk in kwargs['pk__in']
+        ]
+        cache.delete('aggregate:monthly-release-index:v1:{}'.format(self.game.pk))
+        with patch('games.results.aggregate_leaderboard._numbered_links', return_value=links_qs), \
              patch('games.results.aggregate_leaderboard._with_result_tasks', side_effect=lambda value: value), \
              patch('games.results.aggregate_leaderboard.publish_at_for', side_effect=lambda _game, number: published[number]):
             selected, month, previous, following, published_at_by_link = _monthly_release_context(
@@ -121,6 +128,26 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual(previous.isoformat(), '2026-08-01')
         self.assertIsNone(following)
         self.assertEqual(len(published_at_by_link), 3)
+
+    def test_monthly_projection_builder_marks_month_period(self):
+        from games.results.aggregate_leaderboard import build_aggregate_page
+
+        ladder = Game.objects.get(id='ladder')
+        request = self._request()
+        request.path = '/ladder/results/'
+        month = date(2026, 9, 1)
+        with patch(
+            'games.results.aggregate_leaderboard._monthly_columns',
+            return_value=([], month, None, None, {}),
+        ), patch(
+            'games.daily.projection.projection_state_is_valid',
+            return_value=True,
+        ):
+            result = build_aggregate_page(request, ladder)
+
+        self.assertEqual(result['aggregate_period'], 'month')
+        self.assertEqual(result['aggregate_month'], month)
+        self.assertEqual(result['aggregate_columns'], [])
 
     def test_window_scores_denominator_cells_and_tied_rank_ignore_played_count(self):
         user = User.objects.create_user(username='agg-player')

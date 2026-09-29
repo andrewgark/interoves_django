@@ -16,6 +16,19 @@ class FakeSecretsManager:
 
 
 class RuntimeEnvironmentTests(SimpleTestCase):
+    def test_plain_values_fill_only_missing_environment_keys(self):
+        environ = {
+            'INTEROVES_CONFIG_VALUES': json.dumps({
+                'TELEGRAM_API_ID': '123',
+                'EXISTING': 'from-config',
+            }),
+            'EXISTING': 'explicit',
+        }
+        result = load_runtime_environment(environ)
+        self.assertEqual(environ['TELEGRAM_API_ID'], '123')
+        self.assertEqual(environ['EXISTING'], 'explicit')
+        self.assertEqual(result['loaded'], 1)
+
     def test_secret_values_fill_only_missing_environment_keys(self):
         environ = {
             'INTEROVES_CONFIG_SECRET_ID': 'secret/test',

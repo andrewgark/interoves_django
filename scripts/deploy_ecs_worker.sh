@@ -4,13 +4,15 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
-AWS_PROFILE_NAME="${AWS_PROFILE:-default}"
+AWS_PROFILE_NAME="${AWS_PROFILE:-interoves}"
 DEPLOY_PROFILE="normal"
 WORKER="${1:-}"
 IMAGE_URI="${2:-}"
 APPLY=0
 DESIRED_COUNT=0
 MODE=""
+ECS_SUBNET_IDS="${INTEROVES_ECS_SUBNET_IDS:-subnet-0e7ac84df47a7682e,subnet-0b535aae08d1dd20f}"
+ECS_ASSIGN_PUBLIC_IP="${INTEROVES_ECS_ASSIGN_PUBLIC_IP:-DISABLED}"
 
 usage() {
     echo "Usage: $0 WORKER IMAGE_URI [--profile quiet|normal|game-day] [--mode ecs-fargate|ecs-fargate-spot] [--desired-count N] [--apply]" >&2
@@ -103,15 +105,29 @@ QUEUE_URL="$(aws_cmd sqs get-queue-url --queue-name "$QUEUE_NAME" --query QueueU
 QUEUE_ARN="$(aws_cmd sqs get-queue-attributes --queue-url "$QUEUE_URL" --attribute-names QueueArn --query Attributes.QueueArn --output text)"
 RUNTIME_ROLE="${WORKER}-worker"
 [[ "$WORKER" == recheck ]] && RUNTIME_ROLE=worker
+[[ "$WORKER" == integrations ]] && RUNTIME_ROLE=integration-worker
 TASK_ROLE_STACK="interoves-${WORKER}-task-role"
 SERVICE_STACK="interoves-${WORKER}-ecs-service"
 TASK_ROLE_ARN="$(aws_cmd cloudformation describe-stacks --stack-name "$TASK_ROLE_STACK" --query "Stacks[0].Outputs[?OutputKey=='TaskRoleArn'].OutputValue" --output text 2>/dev/null || true)"
 EXECUTION_ROLE_ARN="$(aws_cmd cloudformation describe-stacks --stack-name interoves-ecs-foundation --query "Stacks[0].Outputs[?OutputKey=='ExecutionRoleArn'].OutputValue" --output text)"
 
-echo "worker=$WORKER environment=$ENVIRONMENT profile=$DEPLOY_PROFILE aws_profile=$AWS_PROFILE_NAME mode=$MODE desired_count=$DESIRED_COUNT"
+case "$ECS_ASSIGN_PUBLIC_IP" in ENABLED|DISABLED) ;; *) echo "INTEROVES_ECS_ASSIGN_PUBLIC_IP must be ENABLED or DISABLED" >&2; exit 2 ;; esac
+[[ "$ECS_SUBNET_IDS" == subnet-* ]] || { echo "INTEROVES_ECS_SUBNET_IDS must be a comma-separated subnet list." >&2; exit 2; }
+
+echo "worker=$WORKER environment=$ENVIRONMENT profile=$DEPLOY_PROFILE aws_profile=$AWS_PROFILE_NAME mode=$MODE desired_count=$DESIRED_COUNT subnet_ids=$ECS_SUBNET_IDS assign_public_ip=$ECS_ASSIGN_PUBLIC_IP"
 echo "image=$IMAGE_URI queue=$QUEUE_NAME service_stack=$SERVICE_STACK"
 if [[ "$APPLY" != 1 ]]; then echo "plan_only=true (pass --apply to change AWS)"; exit 0; fi
 
 aws_cmd cloudformation deploy --stack-name "$TASK_ROLE_STACK" --template-file "$ROOT/infra/ecs/worker-task-role.yaml" --parameter-overrides WorkerName="$WORKER" QueueArn="$QUEUE_ARN" ConfigSecretArns="$secret_arns" --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset
 TASK_ROLE_ARN="$(aws_cmd cloudformation describe-stacks --stack-name "$TASK_ROLE_STACK" --query "Stacks[0].Outputs[?OutputKey=='TaskRoleArn'].OutputValue" --output text)"
-aws_cmd cloudformation deploy --stack-name "$SERVICE_STACK" --template-file "$ROOT/infra/ecs/worker-service.yaml" --parameter-overrides ClusterName=interoves-workers ServiceName="interoves-${WORKER}-ecs" WorkerName="$WORKER" RuntimeRole="$RUNTIME_ROLE" DeploymentMode="$MODE" ImageUri="$IMAGE_URI" TaskExecutionRoleArn="$EXECUTION_ROLE_ARN" TaskRoleArn="$TASK_ROLE_ARN" QueueUrl="$QUEUE_URL" ConfigSecretArn='' ConfigSecretMap="$secret_map" SubnetIds=subnet-0e7ac84df47a7682e,subnet-0b535aae08d1dd20f SecurityGroupIds=sg-0e8becbf991186aba DesiredCount="$DESIRED_COUNT" LogGroupName="/interoves/workers/$WORKER" RdsSecretArn="$RDS_SECRET_ARN" RdsDbName="$(value RDS_DB_NAME)" RdsHostname="$(value RDS_HOSTNAME)" RdsPort="$(value RDS_PORT)" RdsUsername="$(value RDS_USERNAME)" RedisHost="$(value REDIS_HOST)" RedisPort="$(value REDIS_PORT)" RedisTls="$(value REDIS_TLS)" IsProd="$(value IS_PROD)" DebugOn="$(value DEBUG_ON)" AsgiThreads="$(value ASGI_THREADS)" ExtraAllowedHosts="$(value EXTRA_ALLOWED_HOSTS)" TributeClubSubscriptionEurId="$(value TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID)" TributeClubSubscriptionEurUrl="$(value TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL)" --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset
+plain_env_json="$(printf '%s' "$config_json" | "$PYTHON" -c '
+import json, sys
+values = json.load(sys.stdin)["values"]
+reserved = {
+    "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
+    "AWS_PROFILE", "DJANGO_SETTINGS_MODULE", "INTEROVES_CONFIG_SECRET_ID",
+    "INTEROVES_CONFIG_VALUES", "INTEROVES_CONFIG_PROFILE", "PYTHONPATH",
+}
+print(json.dumps({key: value for key, value in values.items() if key not in reserved}, separators=(",", ":")))
+')"
+aws_cmd cloudformation deploy --stack-name "$SERVICE_STACK" --template-file "$ROOT/infra/ecs/worker-service.yaml" --parameter-overrides ClusterName=interoves-workers ServiceName="interoves-${WORKER}-ecs" WorkerName="$WORKER" RuntimeRole="$RUNTIME_ROLE" DeploymentMode="$MODE" ImageUri="$IMAGE_URI" TaskExecutionRoleArn="$EXECUTION_ROLE_ARN" TaskRoleArn="$TASK_ROLE_ARN" QueueUrl="$QUEUE_URL" ConfigSecretArn='' ConfigSecretMap="$secret_map" ConfigEnvJson="$plain_env_json" SubnetIds="$ECS_SUBNET_IDS" SecurityGroupIds=sg-0e8becbf991186aba AssignPublicIp="$ECS_ASSIGN_PUBLIC_IP" DesiredCount="$DESIRED_COUNT" LogGroupName="/interoves/workers/$WORKER" RdsSecretArn="$RDS_SECRET_ARN" RdsDbName="$(value RDS_DB_NAME)" RdsHostname="$(value RDS_HOSTNAME)" RdsPort="$(value RDS_PORT)" RdsUsername="$(value RDS_USERNAME)" RedisHost="$(value REDIS_HOST)" RedisPort="$(value REDIS_PORT)" RedisTls="$(value REDIS_TLS)" IsProd="$(value IS_PROD)" DebugOn="$(value DEBUG_ON)" AsgiThreads="$(value ASGI_THREADS)" ExtraAllowedHosts="$(value EXTRA_ALLOWED_HOSTS)" TributeClubSubscriptionEurId="$(value TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID)" TributeClubSubscriptionEurUrl="$(value TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL)" --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset

@@ -2,8 +2,10 @@
 
 The deployment supplies either ``INTEROVES_CONFIG_SECRET_ID`` for one JSON
 bundle or ``INTEROVES_CONFIG_SECRET_MAP`` for the current per-variable AWS
-Secrets Manager layout. Explicit environment variables always win, which
-keeps local development and the current EB configuration backwards compatible.
+Secrets Manager layout. Plain deployment variables may be carried in
+``INTEROVES_CONFIG_VALUES`` so ECS and EB share one configuration contract.
+Explicit environment variables always win, which keeps local development and
+the current EB configuration backwards compatible.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ _RESERVED_ENV_NAMES = {
     "AWS_PROFILE",
     "DJANGO_SETTINGS_MODULE",
     "INTEROVES_CONFIG_SECRET_ID",
+    "INTEROVES_CONFIG_VALUES",
     "INTEROVES_CONFIG_PROFILE",
     "PYTHONPATH",
 }
@@ -40,7 +43,8 @@ def load_runtime_environment(environ=None, *, client=None):
         environ = os.environ
     secret_id = (environ.get("INTEROVES_CONFIG_SECRET_ID") or "").strip()
     secret_map_raw = (environ.get("INTEROVES_CONFIG_SECRET_MAP") or "").strip()
-    if not secret_id and not secret_map_raw:
+    plain_values_raw = (environ.get("INTEROVES_CONFIG_VALUES") or "").strip()
+    if not secret_id and not secret_map_raw and not plain_values_raw:
         return {"source": "environment", "loaded": 0}
 
     if client is None:
@@ -56,12 +60,26 @@ def load_runtime_environment(environ=None, *, client=None):
         )
     profile = (environ.get("INTEROVES_CONFIG_PROFILE") or "production").strip()
     values = {}
+    if plain_values_raw:
+        values.update(_load_plain_values(plain_values_raw))
     if secret_id:
         values.update(_load_bundle(client, secret_id, profile))
     if secret_map_raw:
         values.update(_load_secret_map(client, secret_map_raw))
     loaded = _apply_values(environ, values)
     return {"source": "secrets-manager", "loaded": loaded, "profile": profile}
+
+
+def _load_plain_values(raw_values):
+    try:
+        values = json.loads(raw_values)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeEnvironmentError(
+            "INTEROVES_CONFIG_VALUES must be valid JSON"
+        ) from exc
+    if not isinstance(values, Mapping):
+        raise RuntimeEnvironmentError("INTEROVES_CONFIG_VALUES must be a JSON object")
+    return values
 
 
 def _load_bundle(client, secret_id, profile):
