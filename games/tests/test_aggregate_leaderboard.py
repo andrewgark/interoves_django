@@ -245,11 +245,15 @@ class AggregateLeaderboardTests(TestCase):
 
         group = self.links[0][0].task_group
         team = Team.objects.create(
-            name='aggregate-timing-team', project_id='sections', is_hidden=True,
+            name='aggregate-timing-team', project_id='sections', is_hidden=False,
+        )
+        hidden_team = Team.objects.create(
+            name='aggregate-timing-hidden-team', project_id='sections', is_hidden=True,
         )
         user = User.objects.create_user(username='aggregate-timing-user')
         actors = [
             ('team', team.name, {'team': team}, 30),
+            ('team', hidden_team.name, {'team': hidden_team}, 25),
             ('user', str(user.pk), {'user': user}, 20),
             ('anon', 'aggregate-timing-anon', {'anon_key': 'aggregate-timing-anon'}, 10),
             ('anon', 'aggregate-timing-none', {'anon_key': 'aggregate-timing-none'}, 5),
@@ -266,6 +270,10 @@ class AggregateLeaderboardTests(TestCase):
         DailySolveTiming.objects.create(
             game=self.game, task_group=group, team=team,
             accumulated_ms=3000, frozen_ms=3000,
+        )
+        DailySolveTiming.objects.create(
+            game=self.game, task_group=group, team=hidden_team,
+            accumulated_ms=2500, frozen_ms=2500,
         )
         DailySolveTiming.objects.create(
             game=self.game, task_group=group, user=user,
@@ -287,6 +295,7 @@ class AggregateLeaderboardTests(TestCase):
         rows, total, page = _projection_rank_page(self.game, [group.pk], 1)
         by_actor = {row['actor_key']: row for row in rows}
         self.assertEqual((total, page), (4, 1))
+        self.assertNotIn(hidden_team.name, by_actor)
         self.assertEqual(by_actor[team.name]['total_time_ms'], 3000)
         self.assertEqual(by_actor[str(user.pk)]['total_time_ms'], 2000)
         self.assertEqual(by_actor['aggregate-timing-anon']['total_time_ms'], 1000)
