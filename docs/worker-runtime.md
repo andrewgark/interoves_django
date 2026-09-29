@@ -3,18 +3,23 @@
 Workers have one application contract and multiple delivery adapters.  The
 domain handler must not know whether a message arrived through Elastic
 Beanstalk `sqsd`, an ECS SQS poller, Lambda SQS event source mapping, or a
-supervised process on Green.
+supervised process on Green.  The production queue/runtime map is maintained
+in `docs/worker-queues.md`; check it before operating a worker.
 
 The registry lives in `games/worker_contract.py`.  It defines the worker name,
 runtime role, queue, endpoint, accepted message types, supported deployment
 modes, and required worker-specific environment names.  `games/worker_config.py`
 normalizes the mode and validates configuration without ever printing values.
 
-## Current safe phase
+## Current runtime state
 
-The existing EB HTTP endpoints remain the production adapters.  This change
-does not alter queues, IAM, environment settings, or deployment scripts.  The
-first new command is read-only:
+Identity merge is currently consumed by the ECS service
+`interoves-identity-ecs` from the `interoves-identity` queue.  The old EB
+identity environment is legacy/compatibility state.  Other workers may still
+use EB or ECS depending on the live deployment; do not infer their runtime
+from the directory name alone.
+
+The registry and configuration checks are read-only:
 
 ```bash
 ../venv/interoves_django/bin/python manage.py worker_config list

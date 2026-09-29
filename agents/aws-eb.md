@@ -30,7 +30,7 @@ interoves-env` для определения прода не подходят.
 | `interoves-web-green` | web, `INTEROVES_RUNTIME_ROLE=web` | да | 2× `c7i.large`, ASG 2/4, On-Demand, `RollingWithAdditionalBatch`, health `/health/live/` |
 | `interoves-env` | Blue web | нет | только rollback DNS; Blue не деплоить и не «чинить» без явного запроса |
 | `interoves-background-worker` | background-worker | нет | difficulty, проекции результатов, фоновые тики |
-| `interoves-identity-worker` | identity-worker | нет | анонимный merge |
+| `interoves-identity-worker` | legacy EB identity-worker | нет | неактуальный consumer; identity merge сейчас обслуживает ECS `interoves-identity-ecs` |
 | `interoves-integrations-worker` | integration-worker | нет | Telegram/Instagram/social тики и карточки игр |
 
 Кроны Blue (`difficulty`, `telegram`, `word salad`) должны оставаться
@@ -85,6 +85,12 @@ object `s3://elasticbeanstalk-<region>-<account>/<application>/<VersionLabel>.zi
 Каждый EB worker environment — одна очередь и один `HttpPath`. Ответ игры от
 них не зависит, но все они делят ту же RDS; в комментарии `django.config`
 указан лимит `max_connections=60`, у Green `ASGI_THREADS=4`.
+
+Исключение: identity merge больше не нужно искать в EB environment. Его
+актуальный consumer — ECS service `interoves-identity-ecs`, queue
+`interoves-identity`, DLQ `interoves-identity-dlq`, logs
+`/interoves/workers/identity`. Полная карта очередей находится в
+`docs/worker-queues.md`.
 
 `interoves-recheck-worker` деплоится своим zip и своими worker settings, не
 веб-zip и не Green web ebextensions. Он переигрывает цепочки: стена,

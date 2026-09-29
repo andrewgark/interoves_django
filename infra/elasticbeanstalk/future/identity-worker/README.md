@@ -1,4 +1,10 @@
-# Identity worker
+# Legacy EB identity worker
+
+This is historical migration documentation for the former Elastic Beanstalk
+identity worker.  It is not the current source of truth for production queue
+consumption.  See [`docs/worker-queues.md`](../../../docs/worker-queues.md) for
+the current runtime map; identity is currently consumed by ECS service
+`interoves-identity-ecs`.
 
 Not applied by `deploy.sh`.
 
