@@ -33,6 +33,16 @@ _RADDLE_LETTER_RE = re.compile(r'[^0-9a-zа-яё]', re.I)
 _RADDLE_IS_LETTER_RE = re.compile(r'^[0-9a-zа-яё]$', re.I)
 _RADDLE_HAS_LATIN_RE = re.compile(r'[a-z]', re.I)
 _RADDLE_HAS_CYRILLIC_RE = re.compile(r'[а-яё]', re.I)
+_RADDLE_HAS_DIGIT_RE = re.compile(r'[0-9]')
+_RADDLE_WORD_CATEGORY_LABELS = {
+    'cyrillic': 'слово на кириллице',
+    'latin': 'слово на латинице',
+    'digits': 'слово только из цифр',
+    'cyrillic_digits': 'слово из кириллицы и цифр',
+    'latin_digits': 'слово из латиницы и цифр',
+    'mixed': 'слово из кириллицы и латиницы',
+    'mixed_digits': 'слово из кириллицы, латиницы и цифр',
+}
 RADDLE_INPUT_FORMAT_SLOT = '#'
 
 
@@ -45,6 +55,47 @@ def raddle_word_is_latin(word):
     """Ответ на латинице: есть латинские буквы и нет кириллицы (пунктуация/цифры не мешают)."""
     s = str(word or '')
     return bool(_RADDLE_HAS_LATIN_RE.search(s)) and not bool(_RADDLE_HAS_CYRILLIC_RE.search(s))
+
+
+def raddle_word_class(word):
+    """Класс алфавита слова; пунктуация в классификации не участвует."""
+    s = str(word or '')
+    has_latin = bool(_RADDLE_HAS_LATIN_RE.search(s))
+    has_cyrillic = bool(_RADDLE_HAS_CYRILLIC_RE.search(s))
+    has_digits = bool(_RADDLE_HAS_DIGIT_RE.search(s))
+    return _raddle_word_class_from_flags(has_latin, has_cyrillic, has_digits)
+
+
+def _raddle_word_class_from_flags(has_latin, has_cyrillic, has_digits):
+    if has_latin and has_cyrillic:
+        category = 'mixed_digits' if has_digits else 'mixed'
+    elif has_latin:
+        category = 'latin_digits' if has_digits else 'latin'
+    elif has_cyrillic:
+        category = 'cyrillic_digits' if has_digits else 'cyrillic'
+    elif has_digits:
+        category = 'digits'
+    else:
+        category = 'cyrillic'
+    return {
+        'category': category,
+        'category_label': _RADDLE_WORD_CATEGORY_LABELS[category],
+        'has_latin': has_latin,
+        'has_cyrillic': has_cyrillic,
+        'has_digits': has_digits,
+    }
+
+
+def raddle_word_class_for_options(words):
+    """Объединённый класс для всех допустимых вариантов одного ответа."""
+    classes = [raddle_word_class(word) for word in (words or [])]
+    if not classes:
+        return raddle_word_class('')
+    return _raddle_word_class_from_flags(
+        any(item['has_latin'] for item in classes),
+        any(item['has_cyrillic'] for item in classes),
+        any(item['has_digits'] for item in classes),
+    )
 
 
 def count_latin_raddle_words(words):
@@ -1327,15 +1378,15 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         # Подпись и квадраты — по структуре ответа (пробел ≠ дефис), не по строке lengths.
         mask_html = length_mask_display(mask, canon).strip()
         length_label = length_label_from_word(canon) if canon else mask['label']
-        is_latin = raddle_word_is_latin(canon) if canon else False
-        show_latin_flag = is_latin and not mixed_script
+        word_options = parsed.get('word_accept', [])[i] if parsed.get('word_accept') else [canon]
+        word_class = raddle_word_class_for_options(word_options)
+        is_latin = word_class['has_latin'] and not word_class['has_cyrillic']
+        show_latin_flag = word_class['has_latin'] and not mixed_script
         # В mixed_script все поля принимают оба алфавита; иначе — по языку ответа.
         if mixed_script:
-            input_script = 'mixed'
-        elif is_latin:
-            input_script = 'latin'
+            input_script = 'mixed_digits' if word_class['has_digits'] else 'mixed'
         else:
-            input_script = 'cyrillic'
+            input_script = word_class['category']
         ref_idx = reference_word_for_playable(i, solved, n) if is_playable else None
         ref_role = reference_role_for_playable(i, solved, n) if is_playable else None
         dual_neighbors = is_playable and both_neighbors_solved(i, solved, n)
@@ -1362,6 +1413,15 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             'emoji': emoji,
             'is_latin': is_latin,
             'show_latin_flag': show_latin_flag,
+            'word_category': word_class['category'],
+            'word_category_label': word_class['category_label'],
+            'has_digits': word_class['has_digits'],
+            'show_cyrillic_flag': (
+                word_class['has_cyrillic']
+                and (word_class['has_digits'] or word_class['has_latin'])
+                and not mixed_script
+            ),
+            'show_digits_flag': word_class['has_digits'],
             'input_script': input_script,
             'mask_slots': mask_slot_count(mask, canon),
             'max_length': mask_slot_count(mask, canon),

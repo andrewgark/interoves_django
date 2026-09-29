@@ -25,6 +25,8 @@ from games.raddle import (
     raddle_input_format,
     raddle_word_core,
     raddle_word_is_latin,
+    raddle_word_class,
+    raddle_word_class_for_options,
     mixed_script_notice,
     word_length_matches,
     word_matches,
@@ -125,6 +127,28 @@ class RaddleWordIsLatinTests(SimpleTestCase):
             '5 слов должны быть написаны на латинице, остальное на кириллице',
         )
         self.assertEqual(mixed_script_notice(0), '')
+
+    def test_word_classes_ignore_punctuation_and_keep_digits(self):
+        cases = {
+            'слово': ('cyrillic', False, True, False),
+            'HELLO': ('latin', True, False, False),
+            '123-45': ('digits', False, False, True),
+            'АБВ-123': ('cyrillic_digits', False, True, True),
+            'ABC/123': ('latin_digits', True, False, True),
+            'ABC-АБВ': ('mixed', True, True, False),
+            'ABC-АБВ-12': ('mixed_digits', True, True, True),
+        }
+        for word, expected in cases.items():
+            actual = raddle_word_class(word)
+            self.assertEqual(
+                (actual['category'], actual['has_latin'], actual['has_cyrillic'], actual['has_digits']),
+                expected,
+            )
+
+    def test_word_class_for_options_unites_alphabets_and_digits(self):
+        actual = raddle_word_class_for_options(['ABC', 'АБВ-12'])
+        self.assertEqual(actual['category'], 'mixed_digits')
+        self.assertEqual(actual['category_label'], 'слово из кириллицы, латиницы и цифр')
 
 
 class ParseRaddleDataTests(SimpleTestCase):
@@ -889,6 +913,40 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertEqual(ctx['rows'][1]['length_label'], '5')
         self.assertFalse(ctx['mixed_script'])
         self.assertEqual(ctx['mixed_script_notice'], '')
+
+    def test_script_markers_match_word_category(self):
+        data = {
+            'lengths': [5, 5, 5, 5, 5, 5],
+            'hints': ['a', 'b', 'c', 'd', 'e'],
+            'words': ['СЛОВО', 'HELLO', '12345', 'АБВ12', 'ABC12', 'ABCАБВ'],
+            'raddle_assist': {'enabled': False, 'fractions': [1, 0.5, 0]},
+        }
+        parsed = parse_raddle_data(_task(checker_data=json.dumps(data, ensure_ascii=False)))
+        rows = build_raddle_ui_context(parsed, default_raddle_state(6))['rows']
+        self.assertEqual(
+            [(r['word_category'], r['show_digits_flag'], r['show_cyrillic_flag'], r['show_latin_flag']) for r in rows],
+            [
+                ('cyrillic', False, False, False),
+                ('latin', False, False, True),
+                ('digits', True, False, False),
+                ('cyrillic_digits', True, True, False),
+                ('latin_digits', True, False, True),
+                ('mixed', False, True, True),
+            ],
+        )
+
+    def test_script_markers_include_alternative_answer_scripts(self):
+        data = {
+            'lengths': [4, 4, 4],
+            'hints': ['a', 'b'],
+            'words': ['СТАРТ', 'ABCD|АБВГ', 'ФИНИШ'],
+            'raddle_assist': {'enabled': False, 'fractions': [1, 0.5, 0]},
+        }
+        parsed = parse_raddle_data(_task(checker_data=json.dumps(data, ensure_ascii=False)))
+        row = build_raddle_ui_context(parsed, default_raddle_state(3))['rows'][1]
+        self.assertEqual(row['input_script'], 'mixed')
+        self.assertTrue(row['show_cyrillic_flag'])
+        self.assertTrue(row['show_latin_flag'])
 
     def test_mixed_script_hides_flag_and_allows_both(self):
         data = {

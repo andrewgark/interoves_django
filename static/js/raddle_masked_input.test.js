@@ -29,6 +29,13 @@ function testExtractLatinLetters() {
   assert.strictEqual(M.extractLetters('привет', 'cyrillic'), 'ПРИВЕТ');
 }
 
+function testExtractDigitsAndCombinedScripts() {
+  assert.strictEqual(M.extractLetters('123-45', 'digits'), '12345');
+  assert.strictEqual(M.extractLetters('АБ-12', 'cyrillic_digits'), 'АБ12');
+  assert.strictEqual(M.extractLetters('AB/12', 'latin_digits'), 'AB12');
+  assert.strictEqual(M.extractLetters('AB-аб-12', 'mixed_digits'), 'ABАБ12');
+}
+
 function testLettersToDisplayHyphenAfterFive() {
   var fmt = '#####' + '-' + '#########';
   assert.strictEqual(M.lettersToDisplay(fmt, ''), '');
@@ -161,6 +168,21 @@ function testImaskLatinFormats() {
   assert.strictEqual(mask.unmaskedValue, 'NEWYORK');
 }
 
+function testImaskDigitFormats() {
+  var cases = [
+    ['#####', 'digits', '12345', '12345'],
+    ['#####', 'cyrillic_digits', 'АБВ12', 'АБВ12'],
+    ['#####', 'latin_digits', 'ABC12', 'ABC12'],
+    ['#####', 'mixed_digits', 'ABАБ1', 'ABАБ1'],
+  ];
+  cases.forEach(function (item) {
+    var mask = IMask.createMask(M.buildMaskOptions(item[0], item[1]));
+    mask.unmaskedValue = item[2];
+    assert.strictEqual(mask.value, item[3], item[1]);
+    assert.strictEqual(mask.unmaskedValue, item[2], item[1] + ' unmasked');
+  });
+}
+
 function testBindInputUsesImaskForEditing() {
   var input = makeImaskInput('#####');
   M.bindInput(input, {});
@@ -230,6 +252,7 @@ function testRefreshKeepsVisibleValue() {
 testSlotCount();
 testExtractRussianLetters();
 testExtractLatinLetters();
+testExtractDigitsAndCombinedScripts();
 testLettersToDisplayHyphenAfterFive();
 testLettersToDisplaySpace();
 testLettersToDisplayCommaAndApostrophe();
@@ -238,6 +261,7 @@ testSetLettersCapsAtMax();
 testPasteOverflowTruncates();
 testImaskFormatsMatchServerTemplate();
 testImaskLatinFormats();
+testImaskDigitFormats();
 testBindInputUsesImaskForEditing();
 testBindInputDoesNotCompleteInitialValue();
 testBindInputLatinRejectsCyrillic();

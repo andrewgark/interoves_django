@@ -1,7 +1,8 @@
 /**
  * Маскированный ввод для лесенки (raddle): IMask.js + шаблон с сервера.
  * Шаблон: # — слот буквы, остальные символы — фиксированные литералы (дефис, пробел…).
- * data-raddle-script="latin" — только латиница; иначе кириллица.
+ * data-raddle-script задаёт допустимые буквы: cyrillic, latin, mixed и их
+ * варианты с _digits. Пунктуация приходит из маски отдельно.
  * Локальная проверка: node static/js/raddle_masked_input.test.js
  */
 (function (global) {
@@ -14,6 +15,14 @@
   var LATIN_EXTRACT_RE = /[a-zA-Z]/g;
   var MIXED_LETTER_RE = /[a-zA-Zа-яёА-ЯЁ]/;
   var MIXED_EXTRACT_RE = /[a-zA-Zа-яёА-ЯЁ]/g;
+  var DIGIT_RE = /[0-9]/;
+  var CYRILLIC_DIGIT_RE = /[а-яёА-ЯЁ0-9]/;
+  var LATIN_DIGIT_RE = /[a-zA-Z0-9]/;
+  var MIXED_DIGIT_RE = /[a-zA-Zа-яёА-ЯЁ0-9]/;
+  var DIGIT_EXTRACT_RE = /[0-9]/g;
+  var CYRILLIC_DIGIT_EXTRACT_RE = /[а-яёА-ЯЁ0-9]/g;
+  var LATIN_DIGIT_EXTRACT_RE = /[a-zA-Z0-9]/g;
+  var MIXED_DIGIT_EXTRACT_RE = /[a-zA-Zа-яёА-ЯЁ0-9]/g;
   var BOUND = 'data-raddle-mask-bound';
   var maskByInput = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
   var maskByInputFallback = null;
@@ -29,7 +38,8 @@
   function inputScript(input) {
     if (!input || typeof input.getAttribute !== 'function') return 'cyrillic';
     var s = input.getAttribute('data-raddle-script');
-    if (s === 'latin' || s === 'mixed') return s;
+    if (s === 'latin' || s === 'mixed' || s === 'digits' ||
+        s === 'cyrillic_digits' || s === 'latin_digits' || s === 'mixed_digits') return s;
     return 'cyrillic';
   }
 
@@ -44,7 +54,7 @@
   function normalizeLetter(ch, script) {
     var s = String(ch || '');
     if (isLatinScript(script)) return s.toUpperCase();
-    // mixed и cyrillic: ё→е для кириллицы, латиница просто upper
+    // Для цифр и смешанных режимов меняем только регистр букв.
     return s.replace(/ё/gi, function (m) {
       return m === 'ё' ? 'е' : 'Е';
     }).toUpperCase();
@@ -68,8 +78,18 @@
     return m.map(function (ch) { return normalizeLetter(ch, 'mixed'); }).join('');
   }
 
+  function extractMatching(text, re, script) {
+    var m = String(text || '').match(re);
+    if (!m) return '';
+    return m.map(function (ch) { return /[0-9]/.test(ch) ? ch : normalizeLetter(ch, script); }).join('');
+  }
+
   function extractLetters(text, script) {
     if (isLatinScript(script)) return extractLatinLetters(text);
+    if (script === 'digits') return extractMatching(text, DIGIT_EXTRACT_RE, script);
+    if (script === 'cyrillic_digits') return extractMatching(text, CYRILLIC_DIGIT_EXTRACT_RE, 'cyrillic');
+    if (script === 'latin_digits') return extractMatching(text, LATIN_DIGIT_EXTRACT_RE, 'latin');
+    if (script === 'mixed_digits') return extractMatching(text, MIXED_DIGIT_EXTRACT_RE, 'mixed');
     if (isMixedScript(script)) return extractMixedLetters(text);
     return extractRussianLetters(text);
   }
@@ -111,6 +131,10 @@
 
   function letterReForScript(script) {
     if (isLatinScript(script)) return LATIN_LETTER_RE;
+    if (script === 'digits') return DIGIT_RE;
+    if (script === 'cyrillic_digits') return CYRILLIC_DIGIT_RE;
+    if (script === 'latin_digits') return LATIN_DIGIT_RE;
+    if (script === 'mixed_digits') return MIXED_DIGIT_RE;
     if (isMixedScript(script)) return MIXED_LETTER_RE;
     return CYRILLIC_LETTER_RE;
   }
