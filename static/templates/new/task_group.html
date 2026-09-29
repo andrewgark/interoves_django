@@ -1810,6 +1810,22 @@
     });
   }
   window.applyRaddleUiState = applyRaddleUiState;
+
+  function clearRaddleUiStateForReset() {
+    document.querySelectorAll('.new-raddle-task[data-task-id]').forEach(function (taskRoot) {
+      var taskId = taskRoot.getAttribute('data-task-id');
+      if (!taskId) return;
+      clearTimeout(raddleUiDraftTimers[taskId]);
+      raddleUiDraftTimers[taskId] = null;
+      raddleUiDraftPending[taskId] = {};
+      try {
+        sessionStorage.removeItem(raddleDraftsStorageKey(taskId));
+        sessionStorage.removeItem(raddleClueMarksStorageKey(taskId));
+      } catch (e) {}
+    });
+  }
+  window.clearRaddleUiStateForReset = clearRaddleUiStateForReset;
+
   // Каскад после продвижения: только обычный режим (data-raddle-auto есть
   // лишь вне турнира) и только пока сессия ввода пользователя ещё открыта —
   // клавиатуру могли закрыть, пока запрос был в полёте.
@@ -4468,6 +4484,9 @@
   if (!btn) return;
   btn.addEventListener('click', function () {
     if (!window.confirm('Сбросить ваше решение?')) return;
+    if (typeof window.clearRaddleUiStateForReset === 'function') {
+      window.clearRaddleUiStateForReset();
+    }
     var csrf = (window.InterovesPageCsrf && window.InterovesPageCsrf.pageToken())
       || (document.querySelector('#interoves-page-csrf input[name=csrfmiddlewaretoken]') || {}).value
       || '';
@@ -4482,6 +4501,9 @@
       body: '{}'
     }).then(function (r) { return r.json(); }).then(function (data) {
       if (!data.ok) throw new Error(data.error || 'Ошибка');
+      if (typeof window.clearRaddleUiStateForReset === 'function') {
+        window.clearRaddleUiStateForReset();
+      }
       window.location.reload();
     }).catch(function (e) { alert(e.message || String(e)); });
   });

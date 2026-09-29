@@ -25,6 +25,7 @@ from games.models import (
     Like,
     Profile,
     Project,
+    RaddleUiState,
     Task,
     Team,
 )
@@ -299,6 +300,14 @@ class LadderOfferFlowTests(TestCase):
         Attempt.manager.create(
             task=task, game=self.game, team=team, text='БББ', status='Ok', points=1,
         )
+        RaddleUiState.objects.create(
+            task=task, game=self.game, user=self.user, game_mode='general',
+            drafts={'1': 'ААА'},
+        )
+        RaddleUiState.objects.create(
+            task=task, game=self.game, team=team, game_mode='general',
+            drafts={'1': 'БББ'},
+        )
 
         client = Client()
         client.force_login(self.user)
@@ -311,6 +320,8 @@ class LadderOfferFlowTests(TestCase):
         self.assertEqual(response.json()['deleted_attempts'], 2)
         self.assertFalse(Attempt.manager.filter(task=task, user=self.user).exists())
         self.assertFalse(Attempt.manager.filter(task=task, team=team).exists())
+        self.assertFalse(RaddleUiState.objects.filter(task=task, user=self.user).exists())
+        self.assertFalse(RaddleUiState.objects.filter(task=task, team=team).exists())
 
     def test_support_accept_endpoint(self):
         offer = create_offer(self.user)

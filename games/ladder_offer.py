@@ -21,6 +21,7 @@ from games.models import (
     HintAttempt,
     LadderOffer,
     Profile,
+    RaddleUiState,
     Task,
     TaskGroup,
 )
@@ -476,20 +477,24 @@ def reset_raddle_progress(
 
     attempt_qs = Attempt.manager.filter(task=task, game=game)
     chain_qs = ChainTaskState.objects.filter(task=task, game=game)
+    ui_qs = RaddleUiState.objects.filter(task=task, game=game)
     hint_ids = list(task.hints.values_list('id', flat=True))
     hint_qs = HintAttempt.objects.filter(hint_id__in=hint_ids) if hint_ids else HintAttempt.objects.none()
 
     if team is not None:
         attempt_qs = attempt_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
         chain_qs = chain_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
+        ui_qs = ui_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
         hint_qs = hint_qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
     elif user is not None:
         attempt_qs = attempt_qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
         chain_qs = chain_qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
+        ui_qs = ui_qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
         hint_qs = hint_qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
     elif anon_key:
         attempt_qs = attempt_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
         chain_qs = chain_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
+        ui_qs = ui_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
         hint_qs = hint_qs.filter(anon_key=anon_key, team__isnull=True, user__isnull=True)
     else:
         raise LadderOfferError('Нужен актор для сброса')
@@ -499,6 +504,7 @@ def reset_raddle_progress(
     n = attempt_qs.count()
     # Chain.last_attempt → SET_NULL, можно удалять attempts.
     chain_qs.delete()
+    ui_qs.delete()
     hint_qs.delete()
     attempt_qs.delete()
     return n
@@ -519,6 +525,7 @@ def reset_all_raddle_progress(
 
     attempt_qs = Attempt.manager.filter(task=task, game=game)
     chain_qs = ChainTaskState.objects.filter(task=task, game=game)
+    ui_qs = RaddleUiState.objects.filter(task=task, game=game)
     hint_ids = list(task.hints.values_list('id', flat=True))
     hint_qs = (
         HintAttempt.objects.filter(hint_id__in=hint_ids)
@@ -527,15 +534,18 @@ def reset_all_raddle_progress(
     )
     n_attempts = attempt_qs.count()
     n_chains = chain_qs.count()
+    n_ui_states = ui_qs.count()
     n_hints = hint_qs.count()
     from games.daily_result_projection import mark_projection_dirty
     mark_projection_dirty(game, task.task_group, full=True)
     chain_qs.delete()
+    ui_qs.delete()
     hint_qs.delete()
     attempt_qs.delete()
     return {
         'attempts': n_attempts,
         'chains': n_chains,
+        'ui_states': n_ui_states,
         'hint_attempts': n_hints,
     }
 
