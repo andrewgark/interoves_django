@@ -112,12 +112,15 @@ class AggregateLeaderboardTests(TestCase):
         with patch('games.results.aggregate_leaderboard._numbered_links', return_value=links), \
              patch('games.results.aggregate_leaderboard._with_result_tasks', side_effect=lambda value: value), \
              patch('games.results.aggregate_leaderboard.publish_at_for', side_effect=lambda _game, number: published[number]):
-            selected, month, previous, following = _monthly_release_context(self.game, '2026-09')
+            selected, month, previous, following, published_at_by_link = _monthly_release_context(
+                self.game, '2026-09',
+            )
 
         self.assertEqual([link.number for link in selected], ['3', '2'])
         self.assertEqual(month.isoformat(), '2026-09-01')
         self.assertEqual(previous.isoformat(), '2026-08-01')
         self.assertIsNone(following)
+        self.assertEqual(len(published_at_by_link), 3)
 
     def test_window_scores_denominator_cells_and_tied_rank_ignore_played_count(self):
         user = User.objects.create_user(username='agg-player')

@@ -131,14 +131,16 @@ def _monthly_release_context(game, requested_month=None):
     """Return the published ladder releases belonging to one calendar month."""
     links = list(_with_result_tasks(_numbered_links(game)))
     dated = []
+    published_at_by_link = {}
     for link in links:
         published_at = publish_at_for(game, link.number)
         if published_at is None:
             continue
+        published_at_by_link[link.pk] = published_at
         dated.append((link, published_at.astimezone(MOSCOW).date()))
     months = sorted({(published.year, published.month) for _link, published in dated})
     if not months:
-        return [], None, None, None
+        return [], None, None, None, {}
 
     requested = parse_month(requested_month)
     selected = requested if requested in months else months[-1]
@@ -148,20 +150,21 @@ def _monthly_release_context(game, requested_month=None):
     following = date(*months[month_index + 1], 1) if month_index + 1 < len(months) else None
     selected_links = [link for link, published in dated if (published.year, published.month) == selected]
     selected_links.sort(key=lambda link: (-link._release_number, -link.pk))
-    return selected_links, selected_date, previous, following
+    return selected_links, selected_date, previous, following, published_at_by_link
 
 
 def _monthly_columns(game, requested_month=None):
-    links, selected_date, previous, following = _monthly_release_context(game, requested_month)
-    from games.daily.section import publish_at_for
+    links, selected_date, previous, following, published_at_by_link = _monthly_release_context(
+        game, requested_month,
+    )
     columns = [ReleaseColumn(
         link=link,
         max_score=_max_score(link.task_group.result_tasks),
         label=link.number,
         url=section_play_path(game.id, link.number) + 'results/',
-        published_at=publish_at_for(game, link.number),
+        published_at=published_at_by_link[link.pk],
     ) for link in links]
-    return columns, selected_date, previous, following
+    return columns, selected_date, previous, following, published_at_by_link
 
 
 def _max_score(tasks):
@@ -432,7 +435,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
     """Build one bounded release window and one backend-paginated actor page.
 
     The existing score aggregators remain authoritative. Their input is limited
-    to this page's <=30 releases, and no attempt/subtask cells reach the template.
+    to the selected release set, and no attempt/subtask cells reach the template.
     """
     from games.results.sql_aggregate import (
         get_sql_aggregated_game_actor_rows,
@@ -442,7 +445,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
     from games.results.snapshot import results_attempts_scope_game
 
     if month_context is not None:
-        columns, selected_month, previous_month, next_month = month_context
+        columns, selected_month, previous_month, next_month, _published_at = month_context
         limit = len(columns) or 10
         window = [column.link for column in columns]
         older = newer = None
@@ -677,8 +680,110 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
         'aggregate_actor_types': actor_types,
         'aggregate_sort': aggregate_sort,
         'aggregate_show_attempts': game.id == 'alphabetty',
+        'aggregate_period': 'month' if month_context is not None else 'window',
     }
     if month_context is not None:
+        result.update({
+            'aggregate_month': selected_month,
+            'aggregate_previous_month': previous_month,
+            'aggregate_next_month': next_month,
+        })
+    return result
+
+
+def _build_projection_aggregate_page(request, game, columns, *, aggregate_period='window',
+                                      month_context=None):
+    """Build a paginated leaderboard from validated daily-result projections."""
+    from games.models import DailyResultProjection, Team, User
+
+    group_ids = [column.link.task_group_id for column in columns]
+    try:
+        requested_page = int(request.GET.get('page', '1'))
+    except (TypeError, ValueError):
+        requested_page = 1
+    actor_types = aggregate_actor_filter_types(request)
+    page_values, total_count, current_page = _projection_rank_page(
+        game, group_ids, requested_page, actor_types,
+    )
+    page_obj = _AggregatePage(page_values, current_page, total_count, PAGE_SIZE)
+    team_ids = {row['team_id'] for row in page_values if row['team_id']}
+    user_ids = {row['user_id'] for row in page_values if row['user_id']}
+    teams = {team.pk: team for team in Team.objects.filter(pk__in=team_ids)}
+    users = {
+        user.pk: user
+        for user in User.objects.filter(pk__in=user_ids).select_related('profile')
+    }
+    actor_by_identity = {}
+    for result in page_values:
+        identity = (result['actor_type'], result['actor_key'])
+        if result['actor_type'] == DailyResultProjection.ACTOR_TEAM:
+            actor_by_identity[identity] = teams.get(result['team_id'])
+        elif result['actor_type'] == DailyResultProjection.ACTOR_USER:
+            user = users.get(result['user_id'])
+            actor_by_identity[identity] = PersonalResultsParticipant(user=user) if user else None
+        else:
+            actor_by_identity[identity] = PersonalResultsParticipant(anon_key=result['anon_key'])
+
+    cells = _projection_page_cells(game, group_ids, page_values)
+    window_max = sum(column.max_score for column in columns if column.max_score is not None)
+    column_max = {column.link.pk: column.max_score for column in columns}
+    release_links = [column.link for column in columns]
+    rows = []
+    for result in page_values:
+        identity = (result['actor_type'], result['actor_key'])
+        actor = actor_by_identity.get(identity)
+        if actor is None:
+            continue
+        if result['actor_type'] == DailyResultProjection.ACTOR_USER:
+            profile = getattr(actor._user, 'profile', None)
+            if profile:
+                actor._display_name_override = '{} {}'.format(
+                    profile.first_name or '', profile.last_name or '',
+                ).strip()
+        elapsed = (
+            float(result['total_time_ms']) / 1000
+            if result.get('total_time_ms') is not None else None
+        )
+        rows.append({
+            'actor': actor, 'actor_label': _actor_presentation(actor)[0],
+            'actor_kind': _actor_presentation(actor)[1], 'place': result['place'],
+            'score': result['window_score'], 'max_score': window_max,
+            'played': result['played_count'], 'time_seconds': elapsed,
+            'time_display': _format_aggregate_time(elapsed),
+            'cells': {
+                link.pk: cells[identity][link.task_group_id]
+                for link in release_links if link.task_group_id in cells[identity]
+            },
+            'cell_meta': {
+                link.pk: _aggregate_cell(
+                    cells[identity][link.task_group_id], column_max.get(link.pk),
+                )
+                for link in release_links if link.task_group_id in cells[identity]
+            },
+        })
+
+    result = {
+        'aggregate_leaderboard': True,
+        'aggregate_columns': columns,
+        'aggregate_rows': rows,
+        'aggregate_window_max': window_max,
+        'aggregate_has_unknown_max': any(column.max_score is None for column in columns),
+        # Kept for compatibility with callers that still inspect this field.
+        'aggregate_limit': len(columns) or 10,
+        'aggregate_period': aggregate_period,
+        'aggregate_page': page_obj,
+        'aggregate_older_anchor': None,
+        'aggregate_newer_anchor': None,
+        'aggregate_window_anchor': None,
+        'aggregate_first_number': columns[-1].label if columns else None,
+        'aggregate_last_number': columns[0].label if columns else None,
+        'team_to_score': {row['actor']: row['score'] for row in rows},
+        'team_to_place': {row['actor']: row['place'] for row in rows},
+        'teams_sorted': [row['actor'] for row in rows],
+        'aggregate_actor_types': actor_types,
+    }
+    if month_context is not None:
+        _, selected_month, previous_month, next_month, _ = month_context
         result.update({
             'aggregate_month': selected_month,
             'aggregate_previous_month': previous_month,
@@ -694,94 +799,32 @@ def build_aggregate_page(request, game):
     a whole-page fallback; it never mixes projected totals with missing rows.
     """
     import logging
-    from games.models import (
-        DailyResultProjection, DailyResultProjectionState,
-        Team, User,
-    )
+    from games.models import DailyResultProjectionState
     from games.daily.projection import projection_state_is_valid
     from games.daily.section import publish_at_for
 
     logger = logging.getLogger(__name__)
     if game.id == 'ladder':
-        columns, selected_month, previous_month, next_month = _monthly_columns(
+        columns, selected_month, previous_month, next_month, published_at_by_link = _monthly_columns(
             game, request.GET.get('month'),
         )
-        month_context = (columns, selected_month, previous_month, next_month)
+        month_context = (
+            columns, selected_month, previous_month, next_month, published_at_by_link,
+        )
         group_ids = [column.link.task_group_id for column in columns]
         states = {
             state.task_group_id: state
             for state in DailyResultProjectionState.objects.filter(game=game, task_group_id__in=group_ids)
         } if group_ids else {}
         stale_groups = [
-            link.task_group_id for link in (column.link for column in columns)
-            if not projection_state_is_valid(states.get(link.task_group_id), game)
+            column.link.task_group_id for column in columns
+            if not projection_state_is_valid(states.get(column.link.task_group_id), game)
         ]
         if stale_groups:
-            return _build_legacy_aggregate_page(
-                request, game, month_context=month_context,
-            )
-        try:
-            requested_page = int(request.GET.get('page', '1'))
-        except (TypeError, ValueError):
-            requested_page = 1
-        actor_types = aggregate_actor_filter_types(request)
-        page_values, total_count, current_page = _projection_rank_page(
-            game, group_ids, requested_page, actor_types,
+            return _build_legacy_aggregate_page(request, game, month_context=month_context)
+        return _build_projection_aggregate_page(
+            request, game, columns, aggregate_period='month', month_context=month_context,
         )
-        page_obj = _AggregatePage(page_values, current_page, total_count, PAGE_SIZE)
-        team_ids = {r['team_id'] for r in page_values if r['team_id']}
-        user_ids = {r['user_id'] for r in page_values if r['user_id']}
-        teams = {t.pk: t for t in Team.objects.filter(pk__in=team_ids)}
-        users = {u.pk: u for u in User.objects.filter(pk__in=user_ids).select_related('profile')}
-        actor_by_identity = {}
-        for row in page_values:
-            if row['actor_type'] == DailyResultProjection.ACTOR_TEAM:
-                actor_by_identity[(row['actor_type'], row['actor_key'])] = teams.get(row['team_id'])
-            elif row['actor_type'] == DailyResultProjection.ACTOR_USER:
-                user = users.get(row['user_id'])
-                actor_by_identity[(row['actor_type'], row['actor_key'])] = PersonalResultsParticipant(user=user) if user else None
-            else:
-                actor_by_identity[(row['actor_type'], row['actor_key'])] = PersonalResultsParticipant(anon_key=row['anon_key'])
-        cells = _projection_page_cells(game, group_ids, page_values)
-        window_max = sum(c.max_score for c in columns if c.max_score is not None)
-        column_max = {column.link.pk: column.max_score for column in columns}
-        rows = []
-        for result in page_values:
-            identity = (result['actor_type'], result['actor_key'])
-            actor = actor_by_identity.get(identity)
-            if actor is None:
-                continue
-            if result['actor_type'] == DailyResultProjection.ACTOR_USER:
-                profile = getattr(actor._user, 'profile', None)
-                if profile:
-                    actor._display_name_override = '{} {}'.format(profile.first_name or '', profile.last_name or '').strip()
-            elapsed = (float(result['total_time_ms']) / 1000) if result.get('total_time_ms') is not None else None
-            rows.append({
-                'actor': actor, 'actor_label': _actor_presentation(actor)[0],
-                'actor_kind': _actor_presentation(actor)[1], 'place': result['place'], 'score': result['window_score'],
-                'max_score': window_max, 'played': result['played_count'],
-                'time_seconds': elapsed, 'time_display': _format_aggregate_time(elapsed),
-                'cells': {link.pk: cells[identity][link.task_group_id] for link in (c.link for c in columns) if link.task_group_id in cells[identity]},
-                'cell_meta': {link.pk: _aggregate_cell(cells[identity][link.task_group_id], column_max.get(link.pk)) for link in (c.link for c in columns) if link.task_group_id in cells[identity]},
-            })
-        return {
-            'aggregate_leaderboard': True, 'aggregate_columns': columns,
-            'aggregate_rows': rows, 'aggregate_window_max': window_max,
-            'aggregate_has_unknown_max': any(c.max_score is None for c in columns),
-            'aggregate_limit': len(columns) or 10, 'aggregate_page': page_obj,
-            'aggregate_older_anchor': None, 'aggregate_newer_anchor': None,
-            'aggregate_window_anchor': None,
-            'aggregate_first_number': columns[-1].label if columns else None,
-            'aggregate_last_number': columns[0].label if columns else None,
-            'team_to_score': {row['actor']: row['score'] for row in rows},
-            'team_to_place': {row['actor']: row['place'] for row in rows},
-            'teams_sorted': [row['actor'] for row in rows],
-            'aggregate_actor_types': actor_types, 'aggregate_sort': 'attempts',
-            'aggregate_show_attempts': False,
-            'aggregate_month': selected_month,
-            'aggregate_previous_month': previous_month,
-            'aggregate_next_month': next_month,
-        }
 
     # The projection predates aggregate attempt counts. Keep alphabetty on the
     # canonical bounded builder until that statistic is persisted there too.
@@ -821,61 +864,12 @@ def build_aggregate_page(request, game):
             request, game, window_context=(limit, window, older, newer, columns),
         )
 
-    try:
-        requested_page = int(request.GET.get('page', '1'))
-    except (TypeError, ValueError):
-        requested_page = 1
-    actor_types = aggregate_actor_filter_types(request)
-    page_values, total_count, current_page = _projection_rank_page(game, group_ids, requested_page, actor_types)
-    page_obj = _AggregatePage(page_values, current_page, total_count, PAGE_SIZE)
-    team_ids = {r['team_id'] for r in page_values if r['team_id']}
-    user_ids = {r['user_id'] for r in page_values if r['user_id']}
-    teams = {t.pk: t for t in Team.objects.filter(pk__in=team_ids)}
-    users = {u.pk: u for u in User.objects.filter(pk__in=user_ids).select_related('profile')}
-    actor_by_identity = {}
-    for row in page_values:
-        if row['actor_type'] == DailyResultProjection.ACTOR_TEAM:
-            actor_by_identity[(row['actor_type'], row['actor_key'])] = teams.get(row['team_id'])
-        elif row['actor_type'] == DailyResultProjection.ACTOR_USER:
-            user = users.get(row['user_id'])
-            actor_by_identity[(row['actor_type'], row['actor_key'])] = PersonalResultsParticipant(user=user) if user else None
-        else:
-            actor_by_identity[(row['actor_type'], row['actor_key'])] = PersonalResultsParticipant(anon_key=row['anon_key'])
-    cells = _projection_page_cells(game, group_ids, page_values)
-
-    window_max = sum(c.max_score for c in columns if c.max_score is not None)
-    column_max = {column.link.pk: column.max_score for column in columns}
-    rows = []
-    for result in page_values:
-        identity = (result['actor_type'], result['actor_key'])
-        actor = actor_by_identity.get(identity)
-        if actor is None:
-            continue
-        if result['actor_type'] == DailyResultProjection.ACTOR_USER:
-            profile = getattr(actor._user, 'profile', None)
-            if profile:
-                actor._display_name_override = '{} {}'.format(profile.first_name or '', profile.last_name or '').strip()
-        rows.append({
-            'actor': actor, 'actor_label': _actor_presentation(actor)[0],
-            'actor_kind': _actor_presentation(actor)[1], 'place': result['place'], 'score': result['window_score'],
-            'max_score': window_max, 'played': result['played_count'],
-            'time_seconds': (float(result['total_time_ms']) / 1000) if result.get('total_time_ms') is not None else None,
-            'time_display': _format_aggregate_time((float(result['total_time_ms']) / 1000) if result.get('total_time_ms') is not None else None),
-            'cells': {link.pk: cells[identity][link.task_group_id] for link in window if link.task_group_id in cells[identity]},
-            'cell_meta': {link.pk: _aggregate_cell(cells[identity][link.task_group_id], column_max.get(link.pk)) for link in window if link.task_group_id in cells[identity]},
-        })
-    return {
-        'aggregate_leaderboard': True, 'aggregate_columns': columns,
-        'aggregate_rows': rows, 'aggregate_window_max': window_max,
-        'aggregate_has_unknown_max': any(c.max_score is None for c in columns),
-        'aggregate_limit': limit, 'aggregate_page': page_obj,
+    result = _build_projection_aggregate_page(request, game, columns)
+    result.update({
+        'aggregate_limit': limit,
         'aggregate_older_anchor': older,
         'aggregate_newer_anchor': newer,
         'aggregate_window_anchor': 'w:' + ','.join(str(link.pk) for link in window) if window else None,
-        'aggregate_first_number': window[-1].number if window else None,
-        'aggregate_last_number': window[0].number if window else None,
-        'team_to_score': {row['actor']: row['score'] for row in rows},
-        'team_to_place': {row['actor']: row['place'] for row in rows},
-        'teams_sorted': [row['actor'] for row in rows],
-        'aggregate_actor_types': actor_types,
-    }
+        'aggregate_period': 'window',
+    })
+    return result

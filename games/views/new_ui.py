@@ -2611,7 +2611,10 @@ def new_section_results_page(request, game_id):
         })
 
     def month_url(month):
-        return query_url(month=month.strftime('%Y-%m'), page=None)
+        return query_url(
+            month=month.strftime('%Y-%m'), page=None,
+            anchor=None, limit=None, loaded=None,
+        )
 
     data.update({
         'mode': 'general',

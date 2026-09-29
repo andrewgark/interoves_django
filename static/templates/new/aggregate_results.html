@@ -12,7 +12,7 @@
       <div class="new-login-hint new-meta-kicker">Результаты</div>
       <h1 class="new-heading new-heading--page">{{ page_title }}</h1>
       <p class="new-meta-kicker">
-        {% if is_ladder_results %}
+        {% if aggregate_period == 'month' %}
           Выпуски за выбранный месяц
         {% elif request.GET.anchor %}
           Выбранное окно: {{ aggregate_limit }} выпусков
@@ -24,7 +24,7 @@
   </div>
 
   <div class="results-filter-panel" aria-label="Фильтры результатов">
-    {% if is_ladder_results %}
+    {% if aggregate_period == 'month' %}
     <div class="results-filter-group">
       <span class="results-filter-label">Месяц</span>
       <nav class="new-daily-game-header__nav" aria-label="Переход между месяцами">

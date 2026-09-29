@@ -1,3 +1,5 @@
+from datetime import date
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
@@ -149,10 +151,49 @@ class SectionResultsSplitTests(TestCase):
                 ctx = render_mock.call_args[0][2]
                 self.assertEqual(ctx['aggregate_rows'], [])
                 self.assertEqual(ctx['aggregate_limit'], 10)
+                self.assertEqual(ctx['aggregate_period'], 'month')
                 self.assertNotIn('progressive_results', ctx)
                 self.assertTrue(ctx['is_ladder_results'])
                 self.assertTrue(ctx['section_results'])
                 self.assertEqual(render_mock.call_args[0][1], 'new/aggregate_results.html')
+
+    def test_ladder_month_navigation_drops_legacy_window_params(self):
+        ladder = Game.objects.get(pk=LADDER_GAME_ID)
+        request = self.factory.get(
+            '/ladder/results/?month=2026-09&anchor=old&limit=10&loaded=50',
+        )
+        request.user = AnonymousUser()
+        request.session = {}
+        page = SimpleNamespace(
+            has_previous=lambda: False,
+            has_next=lambda: False,
+            paginator=SimpleNamespace(count=0),
+        )
+        aggregate_data = {
+            'aggregate_rows': [], 'aggregate_columns': [],
+            'aggregate_actor_types': {'user', 'team', 'anon'},
+            'aggregate_show_attempts': False, 'aggregate_sort': 'attempts',
+            'aggregate_page': page,
+            'aggregate_older_anchor': None, 'aggregate_newer_anchor': None,
+            'aggregate_window_anchor': None,
+            'aggregate_month': date(2026, 9, 1),
+            'aggregate_previous_month': date(2026, 8, 1),
+            'aggregate_next_month': date(2026, 10, 1),
+            'aggregate_period': 'month', 'aggregate_limit': 10,
+        }
+        with patch('games.aggregate_leaderboard.build_aggregate_page', return_value=aggregate_data):
+            with patch('games.views.new_ui.render') as render_mock:
+                new_section_results_page(request, ladder.id)
+
+        context = render_mock.call_args[0][2]
+        self.assertEqual(
+            context['aggregate_previous_month_url'],
+            '/ladder/results/?month=2026-08',
+        )
+        self.assertEqual(
+            context['aggregate_next_month_url'],
+            '/ladder/results/?month=2026-10',
+        )
 
     def test_ladder_aggregate_page_has_bounded_release_headers(self):
         ladder = Game.objects.get(pk=LADDER_GAME_ID)
