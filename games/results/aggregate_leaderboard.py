@@ -253,7 +253,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
                   WHERE a.taskgroup_id = p.task_group_id AND m.team_id = p.team_id)
           OR EXISTS (SELECT 1 FROM {author} a JOIN {profile} pr ON pr.user_id = a.profile_id
                      WHERE a.taskgroup_id = p.task_group_id AND pr.team_on_id = p.team_id)))'''
-    base_params = [game.pk, *group_ids, *sorted(actor_types), False, True, True, 'user', 'team']
+    base_params = [game.pk, *group_ids, *sorted(actor_types), False, False, True, 'user', 'team']
     timing_branches = (
         ('team', 'dt.team_id = p.team_id'),
         ('user', 'dt.user_id = p.user_id'),
@@ -376,7 +376,7 @@ def _projection_page_cells(game, group_ids, page_rows):
       AND NOT (p.actor_type=%s AND (
         EXISTS (SELECT 1 FROM {author} a JOIN {membership} m ON m.profile_id=a.profile_id WHERE a.taskgroup_id=p.task_group_id AND m.team_id=p.team_id)
         OR EXISTS (SELECT 1 FROM {author} a JOIN {profile} pr ON pr.user_id=a.profile_id WHERE a.taskgroup_id=p.task_group_id AND pr.team_on_id=p.team_id)))'''
-    params = [game.pk, *group_ids, False, True, True, 'user', 'team', *identity_args]
+    params = [game.pk, *group_ids, False, False, True, 'user', 'team', *identity_args]
     with connection.cursor() as cursor:
         cursor.execute(
             f'''SELECT p.actor_type, p.actor_key, p.task_group_id, p.score
