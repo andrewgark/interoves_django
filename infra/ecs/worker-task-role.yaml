@@ -77,6 +77,25 @@ Resources:
               - sqs:SendMessage
             Resource: !Ref QueueArn
 
+  PublishRecheckMetricsPolicy:
+    Type: AWS::IAM::Policy
+    Condition: IsRecheck
+    Properties:
+      PolicyName: PublishRecheckMetrics
+      Roles:
+        - !Ref TaskRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublishRecheckMetrics
+            Effect: Allow
+            Action:
+              - cloudwatch:PutMetricData
+            Resource: '*'
+            Condition:
+              StringEquals:
+                cloudwatch:namespace: InterOves/Recheck
+
   PublishIdentityContinuationPolicy:
     Type: AWS::IAM::Policy
     Condition: IsIdentity

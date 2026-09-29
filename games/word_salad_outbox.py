@@ -10,7 +10,7 @@ import uuid
 from datetime import timedelta
 
 import boto3
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -21,6 +21,7 @@ RECHECK_OPERATION = 'recheck'
 OUTBOX_RETRY_BASE = 30
 OUTBOX_MAX_BACKOFF = 900
 OUTBOX_CLAIM_TIMEOUT = timedelta(minutes=5)
+CLOUDWATCH_NAMESPACE = 'InterOves/Recheck'
 
 
 class WordSaladTransportNotConfigured(RuntimeError):
@@ -239,6 +240,42 @@ def _outbox_wait_ms(created_at):
     return round(max(0.0, (timezone.now() - created_at).total_seconds() * 1000), 1)
 
 
+def _publish_recheck_metrics():
+    """Publish bounded DB health metrics without affecting dispatch success."""
+    if os.environ.get('INTEROVES_CLOUDWATCH_METRICS', '').lower() not in ('1', 'true', 'yes'):
+        return
+    try:
+        now = timezone.now()
+        oldest = WordSaladRecheckOutbox.objects.filter(
+            status=WordSaladRecheckOutbox.STATUS_PENDING,
+        ).order_by('created_at').values_list('created_at', flat=True).first()
+        pending = WordSaladRecheckOutbox.objects.filter(
+            status=WordSaladRecheckOutbox.STATUS_PENDING,
+        ).count()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'SELECT COUNT(*), COALESCE(MAX(TIMESTAMPDIFF(SECOND, trx_started, NOW())), 0) '
+                'FROM information_schema.innodb_trx WHERE trx_started IS NOT NULL'
+            )
+            active_transactions, oldest_transaction_age = cursor.fetchone()
+        oldest_age = max(0, (now - oldest).total_seconds()) if oldest else 0
+        boto3.client(
+            'cloudwatch',
+            region_name=os.environ.get('AWS_REGION')
+            or os.environ.get('AWS_DEFAULT_REGION', 'eu-central-1'),
+        ).put_metric_data(
+            Namespace=CLOUDWATCH_NAMESPACE,
+            MetricData=[
+                {'MetricName': 'OutboxOldestAgeSeconds', 'Unit': 'Seconds', 'Value': oldest_age},
+                {'MetricName': 'OutboxPendingCount', 'Unit': 'Count', 'Value': pending},
+                {'MetricName': 'ActiveInnoDBTransactions', 'Unit': 'Count', 'Value': active_transactions},
+                {'MetricName': 'OldestInnoDBTransactionAgeSeconds', 'Unit': 'Seconds', 'Value': oldest_transaction_age},
+            ],
+        )
+    except Exception:
+        logger.exception('recheck health metrics publish failed')
+
+
 def dispatch_word_salad_recheck_outbox(*, limit=10, transport=None):
     """Send at most ``limit`` intents; duplicate sends are expected and safe."""
     started = time.perf_counter()
@@ -265,6 +302,7 @@ def dispatch_word_salad_recheck_outbox(*, limit=10, transport=None):
             (time.perf_counter() - started) * 1000,
             _outbox_wait_ms(oldest_created_at),
         )
+        _publish_recheck_metrics()
         return {'sent': sent, 'failed': failed}
 
     outcomes = {}
@@ -310,6 +348,7 @@ def dispatch_word_salad_recheck_outbox(*, limit=10, transport=None):
         (time.perf_counter() - started) * 1000,
         _outbox_wait_ms(oldest_created_at),
     )
+    _publish_recheck_metrics()
     return {'sent': sent, 'failed': failed}
 
 

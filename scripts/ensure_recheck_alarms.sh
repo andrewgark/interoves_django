@@ -36,7 +36,7 @@ aws cloudwatch put-metric-alarm --region "$REGION" \
 aws logs put-metric-filter --region "$REGION" \
   --log-group-name "$LOG_GROUP" \
   --filter-name interoves-recheck-dispatch-errors \
-  --filter-pattern '\"recheck outbox dispatch failed\"' \
+  --filter-pattern '"recheck outbox dispatch failed"' \
   --metric-transformations \
     metricName=DispatcherErrors,metricNamespace="$METRIC_NAMESPACE",metricValue=1,defaultValue=0
 
@@ -46,6 +46,22 @@ aws cloudwatch put-metric-alarm --region "$REGION" \
   --namespace "$METRIC_NAMESPACE" --metric-name DispatcherErrors \
   --statistic Sum --period 300 --evaluation-periods 1 --datapoints-to-alarm 1 \
   --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold \
+  --treat-missing-data notBreaching
+
+aws cloudwatch put-metric-alarm --region "$REGION" \
+  --alarm-name interoves-recheck-oldest-outbox \
+  --alarm-description 'Recheck DB outbox item has waited too long' \
+  --namespace "$METRIC_NAMESPACE" --metric-name OutboxOldestAgeSeconds \
+  --statistic Maximum --period 60 --evaluation-periods 5 --datapoints-to-alarm 3 \
+  --threshold 600 --comparison-operator GreaterThanOrEqualToThreshold \
+  --treat-missing-data notBreaching
+
+aws cloudwatch put-metric-alarm --region "$REGION" \
+  --alarm-name interoves-rds-oldest-transaction \
+  --alarm-description 'An InnoDB transaction has remained open for too long' \
+  --namespace "$METRIC_NAMESPACE" --metric-name OldestInnoDBTransactionAgeSeconds \
+  --statistic Maximum --period 60 --evaluation-periods 5 --datapoints-to-alarm 3 \
+  --threshold 600 --comparison-operator GreaterThanOrEqualToThreshold \
   --treat-missing-data notBreaching
 
 echo "Recheck alarms upserted in ${REGION}."
