@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -95,6 +95,29 @@ class AggregateLeaderboardTests(TestCase):
             [column.link.pk for column in anchored['aggregate_columns']],
             [column.link.pk for column in default['aggregate_columns']],
         )
+
+    def test_ladder_month_context_selects_month_and_adjacent_navigation(self):
+        from games.results.aggregate_leaderboard import _monthly_release_context
+
+        links = [
+            SimpleNamespace(pk=1, number='1', _release_number=1),
+            SimpleNamespace(pk=2, number='2', _release_number=2),
+            SimpleNamespace(pk=3, number='3', _release_number=3),
+        ]
+        published = {
+            '1': datetime(2026, 8, 31, tzinfo=dt_timezone.utc),
+            '2': datetime(2026, 9, 1, tzinfo=dt_timezone.utc),
+            '3': datetime(2026, 9, 30, tzinfo=dt_timezone.utc),
+        }
+        with patch('games.results.aggregate_leaderboard._numbered_links', return_value=links), \
+             patch('games.results.aggregate_leaderboard._with_result_tasks', side_effect=lambda value: value), \
+             patch('games.results.aggregate_leaderboard.publish_at_for', side_effect=lambda _game, number: published[number]):
+            selected, month, previous, following = _monthly_release_context(self.game, '2026-09')
+
+        self.assertEqual([link.number for link in selected], ['3', '2'])
+        self.assertEqual(month.isoformat(), '2026-09-01')
+        self.assertEqual(previous.isoformat(), '2026-08-01')
+        self.assertIsNone(following)
 
     def test_window_scores_denominator_cells_and_tied_rank_ignore_played_count(self):
         user = User.objects.create_user(username='agg-player')

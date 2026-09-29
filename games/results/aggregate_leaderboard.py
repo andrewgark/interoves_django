@@ -2,15 +2,17 @@
 
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date
 from types import SimpleNamespace
 
 from django.core.paginator import Paginator
 from django.db.models import Prefetch, IntegerField
 from django.db.models.functions import Cast
-
 from games.results.leaderboard import eligible_release_actor_keys, score_rank
 from games.models import GameTaskGroup, PersonalResultsParticipant, Profile, Task, TaskGroup
 from games.sections.paths import section_play_path
+from games.daily.archive import parse_month
+from games.daily.section import publish_at_for, MOSCOW
 
 
 WINDOW_CHOICES = (10, 20, 30)
@@ -123,6 +125,43 @@ def _choose_window(game, *, limit, anchor):
     older_cursor = 'w:' + ','.join(str(value) for value in older_ids) if older_ids else None
     newer_cursor = 'w:' + ','.join(str(value) for value in reversed(newer_ids)) if newer_ids else None
     return current_window, older_cursor, newer_cursor
+
+
+def _monthly_release_context(game, requested_month=None):
+    """Return the published ladder releases belonging to one calendar month."""
+    links = list(_with_result_tasks(_numbered_links(game)))
+    dated = []
+    for link in links:
+        published_at = publish_at_for(game, link.number)
+        if published_at is None:
+            continue
+        dated.append((link, published_at.astimezone(MOSCOW).date()))
+    months = sorted({(published.year, published.month) for _link, published in dated})
+    if not months:
+        return [], None, None, None
+
+    requested = parse_month(requested_month)
+    selected = requested if requested in months else months[-1]
+    month_index = months.index(selected)
+    selected_date = date(*selected, 1)
+    previous = date(*months[month_index - 1], 1) if month_index else None
+    following = date(*months[month_index + 1], 1) if month_index + 1 < len(months) else None
+    selected_links = [link for link, published in dated if (published.year, published.month) == selected]
+    selected_links.sort(key=lambda link: (-link._release_number, -link.pk))
+    return selected_links, selected_date, previous, following
+
+
+def _monthly_columns(game, requested_month=None):
+    links, selected_date, previous, following = _monthly_release_context(game, requested_month)
+    from games.daily.section import publish_at_for
+    columns = [ReleaseColumn(
+        link=link,
+        max_score=_max_score(link.task_group.result_tasks),
+        label=link.number,
+        url=section_play_path(game.id, link.number) + 'results/',
+        published_at=publish_at_for(game, link.number),
+    ) for link in links]
+    return columns, selected_date, previous, following
 
 
 def _max_score(tasks):
@@ -389,7 +428,7 @@ def _projection_page_cells(game, group_ids, page_rows):
     return cells
 
 
-def _build_legacy_aggregate_page(request, game, *, window_context=None):
+def _build_legacy_aggregate_page(request, game, *, window_context=None, month_context=None):
     """Build one bounded release window and one backend-paginated actor page.
 
     The existing score aggregators remain authoritative. Their input is limited
@@ -402,7 +441,12 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
     from games.daily.section import publish_at_for
     from games.results.snapshot import results_attempts_scope_game
 
-    if window_context is not None:
+    if month_context is not None:
+        columns, selected_month, previous_month, next_month = month_context
+        limit = len(columns) or 10
+        window = [column.link for column in columns]
+        older = newer = None
+    elif window_context is not None:
         limit, window, older, newer, columns = window_context
     else:
         try:
@@ -614,7 +658,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
             'cell_meta': {release_id: _aggregate_cell(score, column_max.get(release_id)) for release_id, score in cells[key].items()},
         })
 
-    return {
+    result = {
         'aggregate_leaderboard': True,
         'aggregate_columns': columns,
         'aggregate_rows': rows,
@@ -634,6 +678,13 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None):
         'aggregate_sort': aggregate_sort,
         'aggregate_show_attempts': game.id == 'alphabetty',
     }
+    if month_context is not None:
+        result.update({
+            'aggregate_month': selected_month,
+            'aggregate_previous_month': previous_month,
+            'aggregate_next_month': next_month,
+        })
+    return result
 
 
 def build_aggregate_page(request, game):
@@ -651,6 +702,87 @@ def build_aggregate_page(request, game):
     from games.daily.section import publish_at_for
 
     logger = logging.getLogger(__name__)
+    if game.id == 'ladder':
+        columns, selected_month, previous_month, next_month = _monthly_columns(
+            game, request.GET.get('month'),
+        )
+        month_context = (columns, selected_month, previous_month, next_month)
+        group_ids = [column.link.task_group_id for column in columns]
+        states = {
+            state.task_group_id: state
+            for state in DailyResultProjectionState.objects.filter(game=game, task_group_id__in=group_ids)
+        } if group_ids else {}
+        stale_groups = [
+            link.task_group_id for link in (column.link for column in columns)
+            if not projection_state_is_valid(states.get(link.task_group_id), game)
+        ]
+        if stale_groups:
+            return _build_legacy_aggregate_page(
+                request, game, month_context=month_context,
+            )
+        try:
+            requested_page = int(request.GET.get('page', '1'))
+        except (TypeError, ValueError):
+            requested_page = 1
+        actor_types = aggregate_actor_filter_types(request)
+        page_values, total_count, current_page = _projection_rank_page(
+            game, group_ids, requested_page, actor_types,
+        )
+        page_obj = _AggregatePage(page_values, current_page, total_count, PAGE_SIZE)
+        team_ids = {r['team_id'] for r in page_values if r['team_id']}
+        user_ids = {r['user_id'] for r in page_values if r['user_id']}
+        teams = {t.pk: t for t in Team.objects.filter(pk__in=team_ids)}
+        users = {u.pk: u for u in User.objects.filter(pk__in=user_ids).select_related('profile')}
+        actor_by_identity = {}
+        for row in page_values:
+            if row['actor_type'] == DailyResultProjection.ACTOR_TEAM:
+                actor_by_identity[(row['actor_type'], row['actor_key'])] = teams.get(row['team_id'])
+            elif row['actor_type'] == DailyResultProjection.ACTOR_USER:
+                user = users.get(row['user_id'])
+                actor_by_identity[(row['actor_type'], row['actor_key'])] = PersonalResultsParticipant(user=user) if user else None
+            else:
+                actor_by_identity[(row['actor_type'], row['actor_key'])] = PersonalResultsParticipant(anon_key=row['anon_key'])
+        cells = _projection_page_cells(game, group_ids, page_values)
+        window_max = sum(c.max_score for c in columns if c.max_score is not None)
+        column_max = {column.link.pk: column.max_score for column in columns}
+        rows = []
+        for result in page_values:
+            identity = (result['actor_type'], result['actor_key'])
+            actor = actor_by_identity.get(identity)
+            if actor is None:
+                continue
+            if result['actor_type'] == DailyResultProjection.ACTOR_USER:
+                profile = getattr(actor._user, 'profile', None)
+                if profile:
+                    actor._display_name_override = '{} {}'.format(profile.first_name or '', profile.last_name or '').strip()
+            elapsed = (float(result['total_time_ms']) / 1000) if result.get('total_time_ms') is not None else None
+            rows.append({
+                'actor': actor, 'actor_label': _actor_presentation(actor)[0],
+                'actor_kind': _actor_presentation(actor)[1], 'place': result['place'], 'score': result['window_score'],
+                'max_score': window_max, 'played': result['played_count'],
+                'time_seconds': elapsed, 'time_display': _format_aggregate_time(elapsed),
+                'cells': {link.pk: cells[identity][link.task_group_id] for link in (c.link for c in columns) if link.task_group_id in cells[identity]},
+                'cell_meta': {link.pk: _aggregate_cell(cells[identity][link.task_group_id], column_max.get(link.pk)) for link in (c.link for c in columns) if link.task_group_id in cells[identity]},
+            })
+        return {
+            'aggregate_leaderboard': True, 'aggregate_columns': columns,
+            'aggregate_rows': rows, 'aggregate_window_max': window_max,
+            'aggregate_has_unknown_max': any(c.max_score is None for c in columns),
+            'aggregate_limit': len(columns) or 10, 'aggregate_page': page_obj,
+            'aggregate_older_anchor': None, 'aggregate_newer_anchor': None,
+            'aggregate_window_anchor': None,
+            'aggregate_first_number': columns[-1].label if columns else None,
+            'aggregate_last_number': columns[0].label if columns else None,
+            'team_to_score': {row['actor']: row['score'] for row in rows},
+            'team_to_place': {row['actor']: row['place'] for row in rows},
+            'teams_sorted': [row['actor'] for row in rows],
+            'aggregate_actor_types': actor_types, 'aggregate_sort': 'attempts',
+            'aggregate_show_attempts': False,
+            'aggregate_month': selected_month,
+            'aggregate_previous_month': previous_month,
+            'aggregate_next_month': next_month,
+        }
+
     # The projection predates aggregate attempt counts. Keep alphabetty on the
     # canonical bounded builder until that statistic is persisted there too.
     if game.id == 'alphabetty':

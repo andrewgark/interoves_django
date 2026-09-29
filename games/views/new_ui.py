@@ -69,7 +69,7 @@ from games.daily_section import (
     visible_links,
     MOSCOW,
 )
-from games.daily_archive import build_daily_archive_context
+from games.daily_archive import MONTH_NAMES, build_daily_archive_context
 from games.ladder_daily import (
     LADDER_GAME_ID,
     get_ladder_hub_context,
@@ -2610,6 +2610,9 @@ def new_section_results_page(request, game_id):
             'url': query_url(actors=','.join(value for value in ('user', 'team', 'anon') if value in next_types), page=None),
         })
 
+    def month_url(month):
+        return query_url(month=month.strftime('%Y-%m'), page=None)
+
     data.update({
         'mode': 'general',
         'section_results': True,
@@ -2621,6 +2624,14 @@ def new_section_results_page(request, game_id):
         'me_anon_participant': me_anon_participant,
         'page_title': 'Результаты: {}'.format(game.get_no_html_name() if hasattr(game, 'get_no_html_name') else game.name),
         'limit_urls': {limit: query_url(limit=limit, page=None) for limit in (10, 20, 30)},
+        'aggregate_month_label': (
+            '{} {}'.format(
+                MONTH_NAMES[data['aggregate_month'].month],
+                data['aggregate_month'].year,
+            ) if data.get('aggregate_month') else None
+        ),
+        'aggregate_previous_month_url': month_url(data['aggregate_previous_month']) if data.get('aggregate_previous_month') else None,
+        'aggregate_next_month_url': month_url(data['aggregate_next_month']) if data.get('aggregate_next_month') else None,
         'aggregate_actor_filter_urls': actor_filter_urls,
         'aggregate_column_labels': aggregate_column_labels,
         'aggregate_show_attempts': data.get('aggregate_show_attempts', False),

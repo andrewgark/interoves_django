@@ -12,7 +12,9 @@
       <div class="new-login-hint new-meta-kicker">Результаты</div>
       <h1 class="new-heading new-heading--page">{{ page_title }}</h1>
       <p class="new-meta-kicker">
-        {% if request.GET.anchor %}
+        {% if is_ladder_results %}
+          Выпуски за выбранный месяц
+        {% elif request.GET.anchor %}
           Выбранное окно: {{ aggregate_limit }} выпусков
         {% else %}
           Последние {{ aggregate_limit }} выпусков
@@ -22,6 +24,16 @@
   </div>
 
   <div class="results-filter-panel" aria-label="Фильтры результатов">
+    {% if is_ladder_results %}
+    <div class="results-filter-group">
+      <span class="results-filter-label">Месяц</span>
+      <nav class="new-daily-game-header__nav" aria-label="Переход между месяцами">
+        {% if aggregate_previous_month_url %}<a class="new-daily-game-header__nav-button" href="{{ aggregate_previous_month_url }}" aria-label="Предыдущий месяц"><i class="ph ph-caret-left" aria-hidden="true"></i></a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Предыдущий месяц"><i class="ph ph-caret-left" aria-hidden="true"></i></button>{% endif %}
+        <span class="new-daily-game-header__date">{{ aggregate_month_label|default:"Нет данных" }}</span>
+        {% if aggregate_next_month_url %}<a class="new-daily-game-header__nav-button" href="{{ aggregate_next_month_url }}" aria-label="Следующий месяц"><i class="ph ph-caret-right" aria-hidden="true"></i></a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Следующий месяц"><i class="ph ph-caret-right" aria-hidden="true"></i></button>{% endif %}
+      </nav>
+    </div>
+    {% else %}
     <div class="results-filter-group">
       <span class="results-filter-label">Количество выпусков</span>
       <span class="results-filter-options">
@@ -30,6 +42,7 @@
         {% endfor %}
       </span>
     </div>
+    {% endif %}
     <div class="results-filter-group">
       <span class="results-filter-label">Показывать</span>
       <span class="results-filter-options">
