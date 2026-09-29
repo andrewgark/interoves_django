@@ -17,7 +17,7 @@ from games.recheck import (
     recheck_chain_task,
 )
 from games.views.attempt_views import check_attempt
-from games.models import ChainTaskState, WordSaladRecheckItem, WordSaladRecheckJob
+from games.models import ChainTaskState, Game, WordSaladRecheckItem, WordSaladRecheckJob
 from games.tests.test_chain_task_state import (
     _ChainFixture,
     _make_attempt,
@@ -150,6 +150,45 @@ class AttemptAdminBulkTests(_ChainFixture, TestCase):
         jobs = list(WordSaladRecheckJob.objects.filter(task=self.wall_task))
         self.assertEqual(len(jobs), 1)
         self.assertEqual(jobs[0].items.count(), 2)
+
+    def test_accepting_pending_tournament_attempt_finalizes_selected_status(self):
+        accepted = _make_attempt(
+            self.wall_task, self.team,
+            _wall_text(['A', 'B', 'C', 'D'], stage='cat_explanation', explanation='accepted'),
+        )
+        accepted.status = 'Pending'
+        accepted.possible_status = 'Wrong'
+        accepted.save()
+        unrelated = _make_attempt(
+            self.wall_task, self.team,
+            _wall_text(['E', 'F', 'G', 'H'], stage='cat_explanation', explanation='unrelated'),
+        )
+        unrelated.status = 'Pending'
+        unrelated.possible_status = 'Wrong'
+        unrelated.save()
+
+        with patch('games.views.track.track_task_change'):
+            with self.captureOnCommitCallbacks(execute=True):
+                add_to_checker([accepted.pk])
+
+        with patch.object(Game, 'get_current_mode', return_value='tournament'):
+            recheck_chain_task(
+                self.wall_task,
+                team=self.team,
+                game=self.game,
+                notify=False,
+                pending_resolution={
+                    'version': 1,
+                    'attempt_ids': [accepted.pk],
+                    'scopes': [{'type': 'wall_words', 'value': ['a', 'b', 'c', 'd']}],
+                },
+            )
+
+        accepted.refresh_from_db()
+        unrelated.refresh_from_db()
+        self.assertNotEqual(accepted.status, 'Pending')
+        self.assertEqual(accepted.possible_status, accepted.status)
+        self.assertEqual(unrelated.status, 'Pending')
 
     def test_bulk_accept_returns_queue_receipt(self):
         first = _make_attempt(

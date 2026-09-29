@@ -221,12 +221,13 @@ def recheck_chain_task(
         for attempt in attempts:
             mode = game.get_current_mode(attempt)
             last_state = states[mode]
-            if attempt.status == 'Pending' and not _pending_is_accepted(
+            accepted_pending = attempt.status == 'Pending' and _pending_is_accepted(
                 attempt,
                 pending_resolution or {},
                 accepted_attempt_ids=accepted_attempt_ids,
                 accepted_scopes=accepted_scopes,
-            ):
+            )
+            if attempt.status == 'Pending' and not accepted_pending:
                 continue
             try:
                 checker = checker_factory.create_checker(checker_type, checker_data, last_state)
@@ -239,6 +240,8 @@ def recheck_chain_task(
                 if task.task_type == 'word_salad':
                     attempt.comment = result.comment
                 attempt.skip = False
+                if accepted_pending and attempt.status == 'Pending' and attempt.possible_status:
+                    attempt.status = attempt.possible_status
             except Exception as e:
                 print('SKIP Attempt {} while RECHECKING chain'.format(attempt))
                 print('REASON: {}'.format(e))
@@ -524,12 +527,13 @@ def _replay_word_salad_attempts(
     accepted_scopes = pending_resolution.get('scopes', ())
 
     for attempt in attempts:
-        if attempt.status == 'Pending' and not _pending_is_accepted(
+        accepted_pending = attempt.status == 'Pending' and _pending_is_accepted(
             attempt,
             pending_resolution,
             accepted_attempt_ids=accepted_attempt_ids,
             accepted_scopes=accepted_scopes,
-        ):
+        )
+        if attempt.status == 'Pending' and not accepted_pending:
             continue
         mode = game.get_current_mode(attempt)
         last_state = states[mode]
@@ -542,6 +546,8 @@ def _replay_word_salad_attempts(
                 expand_active=expand_active,
             )
             _apply_word_salad_check_result(attempt, result, mode)
+            if accepted_pending and attempt.status == 'Pending' and attempt.possible_status:
+                attempt.status = attempt.possible_status
         except Exception as exc:
             print('SKIP Attempt {} while RECHECKING word salad'.format(attempt))
             print('REASON: {}'.format(exc))
