@@ -1,6 +1,7 @@
 """Safe, explicit merging of two authenticated Interoves users."""
 
 import json
+import logging
 import secrets
 import time
 
@@ -46,6 +47,8 @@ from games.models import (
     TicketRequest,
 )
 from games.replay import replay_actor_key
+
+logger = logging.getLogger('application')
 
 
 PENDING_ACCOUNT_MERGE_SESSION_KEY = 'interoves_pending_account_merge'
@@ -852,7 +855,7 @@ def _merge_club_subscriptions(target, source):
 
 
 @transaction.atomic
-def merge_accounts(*, target_user, source_user, provider, provider_uid):
+def _merge_accounts_atomic(*, target_user, source_user, provider, provider_uid):
     """Merge source into target, preserving target identity and profile choices."""
     User = get_user_model()
     ids = sorted((target_user.pk, source_user.pk))
@@ -994,4 +997,37 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
     source.email = ''
     source.set_unusable_password()
     source.save(update_fields=['is_active', 'email', 'password'])
+    return merge
+
+
+def merge_accounts(*, target_user, source_user, provider, provider_uid):
+    """Merge two authenticated users and emit safe timing/audit events."""
+    started = time.perf_counter()
+    logger.info(
+        'profile merge started merge_kind=authenticated target_user_id=%s '
+        'source_user_id=%s provider=%s',
+        target_user.pk, source_user.pk, provider,
+    )
+    try:
+        merge = _merge_accounts_atomic(
+            target_user=target_user,
+            source_user=source_user,
+            provider=provider,
+            provider_uid=provider_uid,
+        )
+    except Exception as exc:
+        logger.exception(
+            'profile merge failed merge_kind=authenticated target_user_id=%s '
+            'source_user_id=%s provider=%s error_type=%s duration_ms=%.1f',
+            target_user.pk, source_user.pk, provider,
+            exc.__class__.__name__, (time.perf_counter() - started) * 1000,
+        )
+        raise
+    logger.info(
+        'profile merge completed merge_kind=authenticated merge_id=%s '
+        'target_user_id=%s source_user_id=%s provider=%s duration_ms=%.1f '
+        'summary=%s',
+        merge.pk, target_user.pk, source_user.pk, provider,
+        (time.perf_counter() - started) * 1000, merge.summary or {},
+    )
     return merge

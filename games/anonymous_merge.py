@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import socket
+import time
 import uuid
 from datetime import timedelta
 
@@ -269,7 +270,7 @@ def _renew_job(job, token):
     ).update(claimed_until=timezone.now() + MERGE_LEASE)
 
 
-def _record_job_failure(job, token, exc):
+def _record_job_failure(job, token, exc, *, duration_ms=None):
     message = '{}: {}'.format(exc.__class__.__name__, exc)[:2000]
     exhausted = job.attempt_count >= MAX_JOB_ATTEMPTS
     updates = {
@@ -280,10 +281,16 @@ def _record_job_failure(job, token, exc):
         'claimed_until': None,
     }
     AnonymousMergeJob.objects.filter(pk=job.pk, claim_token=token).update(**updates)
-    logger.exception('anonymous merge failed job=%s exhausted=%s', job.id, exhausted)
+    logger.exception(
+        'profile merge failed merge_kind=anonymous job_id=%s exhausted=%s '
+        'error_type=%s duration_ms=%s',
+        job.id, exhausted, exc.__class__.__name__,
+        '%.1f' % duration_ms if duration_ms is not None else 'unknown',
+    )
 
 
 def _analyze(job, token):
+    started = time.perf_counter()
     now = timezone.now()
     with transaction.atomic():
         locked = AnonymousMergeJob.objects.select_for_update().get(pk=job.pk)
@@ -305,10 +312,18 @@ def _analyze(job, token):
             'total_submissions', 'total_reconciliation_units', 'stage', 'move_step',
             'claimed_until', 'updated_at',
         ])
+    logger.info(
+        'profile merge stage_completed merge_kind=anonymous job_id=%s '
+        'stage=analyzing duration_ms=%.1f total_submissions=%s '
+        'reconciliation_units=%s',
+        job.id, (time.perf_counter() - started) * 1000,
+        locked.total_submissions, locked.total_reconciliation_units,
+    )
     return True
 
 
 def _move_one_step(job, token):
+    started = time.perf_counter()
     if not _renew_job(job, token):
         return False
     result = migrate_anon_history_step(job.user, job.anon_key, job.move_step)
@@ -326,6 +341,13 @@ def _move_one_step(job, token):
         if not result.get('complete', True):
             locked.claimed_until = timezone.now() + MERGE_LEASE
             locked.save(update_fields=['moved_submissions', 'moved_counts', 'claimed_until', 'updated_at'])
+            logger.info(
+                'profile merge stage_completed merge_kind=anonymous job_id=%s '
+                'stage=moving move_step=%s complete=false duration_ms=%.1f '
+                'moved=%s',
+                job.id, job.move_step, (time.perf_counter() - started) * 1000,
+                result.get('moved', 0),
+            )
             return True
         next_index = MOVE_STEPS.index(job.move_step) + 1
         if next_index >= len(MOVE_STEPS):
@@ -335,6 +357,12 @@ def _move_one_step(job, token):
             locked.move_step = MOVE_STEPS[next_index]
         locked.claimed_until = timezone.now() + MERGE_LEASE
         locked.save(update_fields=['moved_submissions', 'moved_counts', 'stage', 'move_step', 'claimed_until', 'updated_at'])
+    logger.info(
+        'profile merge stage_completed merge_kind=anonymous job_id=%s '
+        'stage=moving move_step=%s complete=true duration_ms=%.1f moved=%s',
+        job.id, job.move_step, (time.perf_counter() - started) * 1000,
+        result.get('moved', 0),
+    )
     return True
 
 
@@ -363,6 +391,7 @@ def _claim_reconcile_item(job, token):
 
 
 def _reconcile_one(job, job_token):
+    started = time.perf_counter()
     claimed = _claim_reconcile_item(job, job_token)
     if claimed is None:
         return False
@@ -400,6 +429,11 @@ def _reconcile_one(job, job_token):
                 ).count()
                 current_job.claimed_until = timezone.now() + MERGE_LEASE
                 current_job.save(update_fields=['completed_reconciliation_units', 'claimed_until', 'updated_at'])
+        logger.info(
+            'profile merge stage_completed merge_kind=anonymous job_id=%s '
+            'stage=reconciling item_id=%s duration_ms=%.1f',
+            job.id, item.id, (time.perf_counter() - started) * 1000,
+        )
         return True
     except Exception as exc:
         message = '{}: {}'.format(exc.__class__.__name__, exc)[:2000]
@@ -411,11 +445,17 @@ def _reconcile_one(job, job_token):
             claimed_until=None,
             claim_token=None,
         )
-        logger.exception('anonymous merge reconcile failed job=%s item=%s exhausted=%s', job.id, item.id, exhausted)
+        logger.exception(
+            'profile merge failed merge_kind=anonymous job_id=%s stage=reconciling '
+            'item_id=%s exhausted=%s error_type=%s duration_ms=%.1f',
+            job.id, item.id, exhausted, exc.__class__.__name__,
+            (time.perf_counter() - started) * 1000,
+        )
         return True
 
 
 def _finalize(job, token):
+    started = time.perf_counter()
     with transaction.atomic():
         locked = AnonymousMergeJob.objects.select_for_update().get(pk=job.pk)
         if locked.claim_token != token or locked.status != AnonymousMergeJob.STATUS_RUNNING:
@@ -447,14 +487,24 @@ def _finalize(job, token):
             'completed_at', 'completed_reconciliation_units', 'updated_at',
         ])
     logger.info(
+        'profile merge completed merge_kind=anonymous job_id=%s user_id=%s '
+        'moved_submissions=%s reconciliation_units=%s finalize_duration_ms=%.1f '
+        'total_duration_ms=%.1f',
+        locked.id, locked.user_id, locked.moved_submissions, locked.total_reconciliation_units,
+        (time.perf_counter() - started) * 1000,
+        max(0.0, (timezone.now() - locked.started_at).total_seconds() * 1000)
+        if locked.started_at else 0.0,
+    )
+    logger.info(
         'auth_account_claim_completed job=%s user_id=%s moved_submissions=%s reconciliation=%s',
-        job.id, job.user_id, job.moved_submissions, job.total_reconciliation_units,
+        locked.id, locked.user_id, locked.moved_submissions, locked.total_reconciliation_units,
     )
     return True
 
 
 def process_merge_job(job, token, *, max_operations=JOB_BATCH_SIZE):
     """Advance one claimed job by bounded, independently committed units."""
+    started = time.perf_counter()
     try:
         operations = 0
         while operations < max_operations:
@@ -491,7 +541,7 @@ def process_merge_job(job, token, *, max_operations=JOB_BATCH_SIZE):
                 return
             operations += 1
     except Exception as exc:
-        _record_job_failure(job, token, exc)
+        _record_job_failure(job, token, exc, duration_ms=(time.perf_counter() - started) * 1000)
 
 
 def run_named_merge_job(job_id, *, worker='identity'):
@@ -538,6 +588,11 @@ def run_named_merge_job(job_id, *, worker='identity'):
             'status', 'claim_token', 'claimed_until', 'attempt_count',
             'started_at', 'next_attempt_at', 'updated_at',
         ])
+    logger.info(
+        'profile merge started merge_kind=anonymous job_id=%s worker=%s '
+        'host=%s stage=%s attempt=%s',
+        job.id, worker, socket.gethostname(), job.stage, job.attempt_count,
+    )
     logger.info(
         'anonymous merge claimed job=%s worker=%s host=%s stage=%s attempt=%s',
         job.id, worker, socket.gethostname(), job.stage, job.attempt_count,
