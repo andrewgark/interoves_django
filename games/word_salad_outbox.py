@@ -266,10 +266,26 @@ def _publish_recheck_metrics():
         ).put_metric_data(
             Namespace=CLOUDWATCH_NAMESPACE,
             MetricData=[
-                {'MetricName': 'OutboxOldestAgeSeconds', 'Unit': 'Seconds', 'Value': oldest_age},
-                {'MetricName': 'OutboxPendingCount', 'Unit': 'Count', 'Value': pending},
-                {'MetricName': 'ActiveInnoDBTransactions', 'Unit': 'Count', 'Value': active_transactions},
-                {'MetricName': 'OldestInnoDBTransactionAgeSeconds', 'Unit': 'Seconds', 'Value': oldest_transaction_age},
+                {
+                    'MetricName': 'OutboxOldestAgeSeconds',
+                    'Unit': 'Seconds',
+                    'Value': oldest_age,
+                },
+                {
+                    'MetricName': 'OutboxPendingCount',
+                    'Unit': 'Count',
+                    'Value': pending,
+                },
+                {
+                    'MetricName': 'ActiveInnoDBTransactions',
+                    'Unit': 'Count',
+                    'Value': active_transactions,
+                },
+                {
+                    'MetricName': 'OldestInnoDBTransactionAgeSeconds',
+                    'Unit': 'Seconds',
+                    'Value': oldest_transaction_age,
+                },
             ],
         )
     except Exception:
