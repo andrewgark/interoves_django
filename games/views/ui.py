@@ -5,6 +5,7 @@ from games.views.new_ui import (
     get_section_games,
     new_account_merge_confirm,
     new_account_merge_status,
+    new_account_merge_retry,
     new_anon_migrate_count,
     new_anon_merge_job_status,
     new_bug_report,
@@ -139,6 +140,7 @@ profile_reports = new_profile_reports
 profile_report_detail = new_profile_report_detail
 account_merge_confirm = new_account_merge_confirm
 account_merge_status = new_account_merge_status
+account_merge_retry = new_account_merge_retry
 social_account_disconnect = new_social_account_disconnect
 team = new_team
 pay_page = new_pay_page

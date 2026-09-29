@@ -547,6 +547,23 @@ class TelegramClaimTests(TestCase):
         self.assertTrue(token_a)
         self.assertIsNone(token_b)
 
+    def test_recent_failed_claim_waits_for_retry_backoff(self):
+        from games.social.publish import SOCIAL_QUEUE_RETRY_DELAY, claim_telegram_post
+
+        SocialQueuePost.objects.filter(pk=self.post.pk).update(
+            telegram_status=SocialQueuePost.STATUS_FAILED,
+            updated_at=self.now,
+        )
+
+        self.assertIsNone(claim_telegram_post(
+            self.post.pk,
+            now=self.now + SOCIAL_QUEUE_RETRY_DELAY - timedelta(seconds=1),
+        ))
+        self.assertTrue(claim_telegram_post(
+            self.post.pk,
+            now=self.now + SOCIAL_QUEUE_RETRY_DELAY,
+        ))
+
     def test_claim_token_fences_stale_completion(self):
         from games.social.publish import (
             QUEUE_CLAIM_TIMEOUT,

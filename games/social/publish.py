@@ -71,9 +71,10 @@ def claim_telegram_post(
     else:
         base = base.filter(telegram_external_id='')
         available = base.filter(
-            telegram_status__in=(
-                SocialQueuePost.STATUS_PENDING,
-                SocialQueuePost.STATUS_FAILED,
+            Q(telegram_status=SocialQueuePost.STATUS_PENDING)
+            | (
+                Q(telegram_status=SocialQueuePost.STATUS_FAILED)
+                & Q(updated_at__lte=now - SOCIAL_QUEUE_RETRY_DELAY)
             )
         )
 

@@ -3551,6 +3551,7 @@ class AccountMergeJob(models.Model):
     source_user_id_snapshot = models.PositiveIntegerField(db_index=True)
     provider = models.CharField(max_length=32, blank=True, default='')
     provider_uid = models.CharField(max_length=191, blank=True, default='')
+    next_url = models.URLField(max_length=2048, blank=True, default='')
     status = models.CharField(
         max_length=16, choices=STATUS_CHOICES,
         default=STATUS_PENDING, db_index=True,
