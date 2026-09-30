@@ -125,6 +125,19 @@ class PageHeadingPartialTests(SimpleTestCase):
         self.assertNotIn('Дата не указана', html)
         self.assertNotIn('new-daily-game-header__nav', html)
 
+    def test_random_alphabetty_header_hides_daily_date_navigation(self):
+        html = render_to_string(
+            'new/partials/daily_game_header.html',
+            {
+                'heading': 'Алфавитка #слово',
+                'daily_publish_date': None,
+                'hide_daily_navigation': True,
+                'game': SimpleNamespace(id='alphabetty', theme='', tags={}),
+            },
+        )
+        self.assertNotIn('Дата не указана', html)
+        self.assertNotIn('new-daily-game-header__nav', html)
+
     def test_daily_header_shows_year_for_other_year(self):
         date = timezone.localdate() - timedelta(days=400)
         html = render_to_string(

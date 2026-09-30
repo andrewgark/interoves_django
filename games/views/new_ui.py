@@ -82,6 +82,7 @@ from games.daily.board import (
     get_daily_board_adapter,
 )
 from games.daily.results import get_daily_results_adapter
+from games.daily.placement import is_random_alphabetty_placement
 from games.ladder_daily import (
     LADDER_GAME_ID,
     get_ladder_hub_context,
@@ -374,7 +375,11 @@ def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
 
 def _task_group_results_nav_context(game, placement):
     """Navigation between adjacent daily task result pages."""
-    if not isinstance(placement, GameTaskGroup) or not is_scheduled_game(game.id):
+    if (
+        not isinstance(placement, GameTaskGroup)
+        or not is_scheduled_game(game.id)
+        or is_random_alphabetty_placement(placement)
+    ):
         return {}
     links = list(visible_links(_game_task_group_links(game), game))
     prev_tg, next_tg = _neighbors_by_pk(links, placement)

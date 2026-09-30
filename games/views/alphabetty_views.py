@@ -531,6 +531,7 @@ def alphabetty_play_page(request, number):
         'page_title': page_title,
         'bug_report_task_label': bug_report_task_label,
         'daily_publish_date': daily_publish_date,
+        'hide_daily_navigation': is_random,
         'live_next_transition_at': (
             next_daily_content_transition_for_game(game) if offer is None else None
         ),
