@@ -34,7 +34,17 @@ def task_group_page_nav_context(game, *, previous=None, following=None,
         )
         results_label = section_meta.get('results_label') or 'Результаты'
     else:
-        raw_label = section_meta.get('title') or game.no_html_name or game.outside_name or game.name or 'Задание'
+        from games.daily.registry import get_daily_game
+
+        daily_definition = get_daily_game(game.id)
+        raw_label = (
+            section_meta.get('title')
+            or (daily_definition.title if daily_definition else None)
+            or game.no_html_name
+            or game.outside_name
+            or game.name
+            or 'Задание'
+        )
         pager_label = strip_tags(str(raw_label)).strip() or 'Задание'
         pager_aria_label = 'Переход между заданиями «{}»'.format(pager_label)
         results_label = 'Результаты'

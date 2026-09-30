@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
@@ -67,3 +68,17 @@ class TaskGroupNavigationTests(SimpleTestCase):
         self.assertEqual(context['task_group_pager_label'], 'Demo game')
         self.assertEqual(context['prev_task_group_number'], '1')
         self.assertEqual(context['next_task_group_name'], 'Three')
+
+    def test_daily_registry_provides_fallback_label(self):
+        game = SimpleNamespace(
+            id='salad',
+            project_id='custom',
+            no_html_name='',
+            outside_name='',
+            name='',
+        )
+
+        with patch.dict('games.tasks.navigation.SECTION_HUB_META', {'salad': {}}, clear=False):
+            context = task_group_page_nav_context(game)
+
+        self.assertEqual(context['task_group_pager_label'], 'Салатик')
