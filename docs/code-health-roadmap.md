@@ -89,23 +89,38 @@ breakpoints и границы legacy Bootstrap. Новый UI не должен 
 
 Подготовительный слой для следующей ежедневной игры уже начат:
 
-- `games/daily/registry.py` — identity, расписание, capabilities и варианты
-  results;
+- `games/daily/registry.py` — identity, расписание, capabilities, варианты
+  results и ключи board/share/statistics adapters;
 - `games/daily/archive.py` — нейтральная модель элементов архива;
 - `games/daily/page_context.py` — общие labels, aria-навигация и statistics URL;
+- `games/daily/board.py` — adapter dispatch для board payload и подготовки state;
+- `games/daily/share.py` — adapter dispatch для share-card payload;
+- `games/daily/statistics.py` — adapter dispatch для агрегированной статистики;
+- `games/daily/completion.py` — общий lifecycle для timing и analytics effects;
+- `static/templates/new/partials/daily_task_board.html` — общий shell task board;
+- reset и statistics endpoints используют registry вместо отдельных списков игр;
 - старые module paths остаются compatibility facades.
 
 Следующий цикл делать в таком порядке:
 
-1. Вынести из `new_task_group_page` только общий daily context, не перенося
-   игровой board payload и механику хода.
+1. Вынести из `new_task_group_page` оставшийся общий lifecycle context, не
+   перенося игровой board payload и механику хода.
 2. Для новой игры сначала определить adapter-контракт по реальному аналогу:
    state, ход, completion, UI payload, share card и results.
-3. Подключить одну существующую игру к adapter-контракту и покрыть его
-   contract-тестом.
-4. Добавить общий template shell с game-specific board block.
-5. Только после этого добавить новую игру через registry, adapter и board
-   template; общий lifecycle не должен получать новую ветку `if game.id`.
+3. Подключить новую игру через registry, adapters и board template; общий
+   lifecycle не должен получать новую ветку `if game.id`.
+4. Покрыть новый контракт contract-тестами и только затем добавить
+   game-specific механику хода.
+5. Не обобщать task-type ветки в `attempt_views.py`, `models.py` и `recheck.py`,
+   пока не появится второй реальный игровой алгоритм с тем же контрактом.
+
+Ранее выполненные пункты этого цикла:
+
+- подключить одну существующую игру к adapter-контракту и покрыть его
+  contract-тестом;
+- добавить общий template shell с game-specific board block;
+- перевести results/statistics/reset/board/share dispatch на registry-driven
+  границы без изменения URL и legacy module paths.
 
 Не следует заранее объединять разные results payload или share-card builder:
 их общая часть станет понятна после появления второго реального adapter.
