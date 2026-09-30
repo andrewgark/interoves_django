@@ -95,23 +95,24 @@ breakpoints и границы legacy Bootstrap. Новый UI не должен 
 - `games/daily/page_context.py` — общие labels, aria-навигация и statistics URL;
 - `games/daily/board.py` — adapter dispatch для board payload и подготовки state;
 - `games/daily/share.py` — adapter dispatch для share-card payload;
+- `games/daily/results.py` — adapter contract для aggregate/task results;
 - `games/daily/statistics.py` — adapter dispatch для агрегированной статистики;
 - `games/daily/completion.py` — общий lifecycle для timing и analytics effects;
 - `static/templates/new/partials/daily_task_board.html` — общий shell task board;
+- `new_ui.py`, Alphabetty play и partial renderer используют общий lifecycle
+  context/URL builder;
 - reset и statistics endpoints используют registry вместо отдельных списков игр;
 - старые module paths остаются compatibility facades.
 
 Следующий цикл делать в таком порядке:
 
-1. Вынести из `new_task_group_page` оставшийся общий lifecycle context, не
-   перенося игровой board payload и механику хода.
-2. Для новой игры сначала определить adapter-контракт по реальному аналогу:
+1. Для новой игры определить adapter-контракт по реальному аналогу:
    state, ход, completion, UI payload, share card и results.
-3. Подключить новую игру через registry, adapters и board template; общий
+2. Подключить новую игру через registry, adapters и board template; общий
    lifecycle не должен получать новую ветку `if game.id`.
-4. Покрыть новый контракт contract-тестами и только затем добавить
+3. Покрыть новый контракт contract-тестами и только затем добавить
    game-specific механику хода.
-5. Не обобщать task-type ветки в `attempt_views.py`, `models.py` и `recheck.py`,
+4. Не обобщать task-type ветки в `attempt_views.py`, `models.py` и `recheck.py`,
    пока не появится второй реальный игровой алгоритм с тем же контрактом.
 
 Ранее выполненные пункты этого цикла:
