@@ -79,6 +79,10 @@ from games.daily.page_context import (
     build_daily_lifecycle_context,
 )
 from games.daily.state import latest_daily_state
+from games.daily.board import (
+    build_raddle_board_data,
+    build_word_salad_board_data,
+)
 from games.ladder_daily import (
     LADDER_GAME_ID,
     get_ladder_hub_context,
@@ -205,7 +209,6 @@ from games.replacements_lines import (
     task_replacements_canonical_answer_row,
 )
 from games.raddle import (
-    build_raddle_ui_context,
     load_raddle_state,
     parse_raddle_data,
     raddle_hub_result_for_actor,
@@ -214,7 +217,6 @@ from games.raddle import (
 from games.word_salad import (
     WORD_SALAD_GAME_ID,
     archive_card_meta as word_salad_archive_card_meta,
-    build_ui_context as build_word_salad_ui_context,
     load_state as load_word_salad_state,
     parse_task_payload as parse_word_salad_task_payload,
     salad_hub_result_for_actor,
@@ -3219,24 +3221,18 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                     'replay_slot': replay_slot,
                 },
             )
-            word_salad_data[t.id] = build_word_salad_ui_context(
-                grid, words, state, attempts=ai.attempts if ai else [],
+            word_salad_data[t.id] = build_word_salad_board_data(
+                game=game,
+                task=t,
+                placement=placement,
+                grid=grid,
+                words=words,
                 rare_words=rare_words,
+                state=state,
+                attempts=ai.attempts if ai else [],
+                user=user,
+                anon_key=anon_key,
             )
-            if str(getattr(game, 'id', '')) == WORD_SALAD_GAME_ID:
-                from games.daily_share_card import attach_salad_share_card
-                attach_salad_share_card(
-                    word_salad_data[t.id],
-                    words=words,
-                    grid=grid,
-                    state=state,
-                    game=game,
-                    task=t,
-                    placement=placement,
-                    user=user,
-                    anon_key=anon_key,
-                    attempts=ai.attempts if ai else [],
-                )
     raddle_data = {}
     for t in tasks:
         if t.task_type == 'raddle':
@@ -3270,36 +3266,22 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 mode=mode,
                 replay_slot=replay_slot,
             )
-            if ui_state is not None:
-                state['drafts'] = dict(ui_state.drafts or {})
-                state['clue_marks'] = dict(ui_state.clue_marks or {})
-            ui = build_raddle_ui_context(
-                parsed, state, ai.attempts if ai else [],
-                max_attempts=t.get_max_attempts(), mode=mode,
-                hint_attempts=raddle_hint_attempts,
-            )
-            raddle_data[t.id] = {
-                'parsed': parsed,
-                'ui': ui,
-                'max_attempts': t.get_max_attempts(),
-                'max_points_total': t.get_results_max_points(),
-            }
-            from games.daily_share_card import attach_ladder_share_card
             share_title = None
             if str(getattr(game, 'id', '')) != LADDER_GAME_ID:
                 share_title = raddle_share_title(game, placement.number, t.number)
-            attach_ladder_share_card(
-                ui,
-                parsed=parsed,
-                state=state,
-                hint_attempts=raddle_hint_attempts,
+            raddle_data[t.id] = build_raddle_board_data(
                 game=game,
                 task=t,
                 placement=placement,
+                parsed=parsed,
+                state=state,
+                attempts=ai.attempts if ai else [],
+                hint_attempts=raddle_hint_attempts,
+                mode=mode,
+                ui_state=ui_state,
+                share_title=share_title,
                 user=user,
                 anon_key=anon_key,
-                attempts=ai.attempts if ai else [],
-                share_title=share_title,
             )
     proportions_chips = []
     if task_group.view == 'proportions':
