@@ -443,6 +443,15 @@ def send_offer(offer: WordSaladOffer) -> WordSaladOffer:
         task.checker_data = serialize_task_data(grid, words, offer.rare_words_text)
         task.answer = ''
         task.save(update_fields=['text', 'checker_data', 'answer'])
+        from games.word_salad_recheck import enqueue_word_salad_recheck
+        link = (
+            task.task_group.game_links.filter(game_id=WORD_SALAD_GAME_ID).first()
+            if task.task_group is not None else None
+        )
+        if link is not None:
+            enqueue_word_salad_recheck(
+                task=task, game=link.game, include_dictionary_scan=True,
+            )
     offer.status = WordSaladOffer.STATUS_SENT
     offer.sent_at = timezone.now()
     offer.admin_note = ''

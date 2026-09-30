@@ -350,6 +350,42 @@ def find_paths(grid, word, active=None, limit=1):
     return result
 
 
+@lru_cache(maxsize=1)
+def _extra_word_trie():
+    trie = {}
+    for word in load_extra_noun_set():
+        node = trie
+        for letter in word:
+            node = node.setdefault(letter, {})
+        node[None] = word
+    return trie
+
+
+@lru_cache(maxsize=256)
+def longest_dictionary_words(grid, excluded=(), limit=5):
+    """Return the longest dictionary words that can be traced in a salad grid."""
+    grid = tuple(grid)
+    excluded = frozenset(excluded)
+    found = set()
+
+    def visit(index, node, used, written):
+        next_node = node.get(grid[index])
+        if next_node is None:
+            return
+        written += grid[index]
+        word = next_node.get(None)
+        if word is not None and word not in excluded:
+            found.add(word)
+        used = used | {index}
+        for other in neighbours(index):
+            if other not in used:
+                visit(other, next_node, used, written)
+
+    for index in range(len(grid)):
+        visit(index, _extra_word_trie(), set(), '')
+    return tuple(sorted(found, key=lambda word: (-len(word), word))[:limit])
+
+
 def all_words_solvable(grid, words, active):
     return all(find_paths(grid, word, active=active, limit=1) for word in words)
 
@@ -561,11 +597,22 @@ def format_words_text(words):
 def serialize_task_data(grid_value, words_value, rare_words_value=None):
     grid = parse_grid(grid_value)
     words = parse_words(words_value)
-    payload = {'grid': grid, 'words': words}
     rare_words = parse_rare_words(rare_words_value)
+    payload = {'grid': grid, 'words': words}
     if rare_words:
         payload['rare_words'] = rare_words
     return json.dumps(payload, ensure_ascii=False)
+
+
+def add_longest_missing_words(checker_data):
+    """Add the saved dictionary snapshot to an already validated puzzle."""
+    data = json.loads(checker_data or '{}')
+    grid, words, rare_words = parse_task_payload(checker_data, '')
+    data['longest_missing_words'] = list(longest_dictionary_words(
+        tuple(grid),
+        tuple(normalize_word(word) for word in words + rare_words),
+    ))
+    return json.dumps(data, ensure_ascii=False)
 
 
 def side_finds_from_state(state, rare_words=None):

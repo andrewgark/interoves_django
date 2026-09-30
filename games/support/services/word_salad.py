@@ -514,7 +514,6 @@ def update_word_salad(
     task.text = intro or ''
     task.checker_data = checker_data
     task.answer = ''
-    grid_changed = task._word_salad_grid_changed((previous_checker_data, 'word_salad'))
     # The expensive actor reconciliation is represented by the durable
     # WordSaladRecheckJob below; do not also run the generic on-commit rebuild
     # inline in the support request.
@@ -534,6 +533,9 @@ def update_word_salad(
         )
         enqueue_result = enqueue_word_salad_recheck(
             task=task, game=link.game, return_receipt=True,
+            # The snapshot also excludes answers and rare words, so refresh it
+            # when any puzzle payload changes, not only when the grid changes.
+            include_dictionary_scan=True,
         )
         recheck_job = enqueue_result.job
         queue_receipt = serialize_enqueue_result(enqueue_result)
@@ -570,6 +572,7 @@ def recheck_word_salad(link_id: int) -> dict[str, Any]:
     )
     enqueue_result = enqueue_word_salad_recheck(
         task=task, game=link.game, return_receipt=True,
+        include_dictionary_scan=True,
     )
     job = enqueue_result.job
     # Keep the old response keys for support clients while the durable job is

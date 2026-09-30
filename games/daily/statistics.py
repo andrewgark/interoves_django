@@ -9,12 +9,16 @@ from django.db.models import Q
 
 from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerCompletedGame, Task
 from games.raddle import load_raddle_state, parse_raddle_data, resolve_assist_tiers
-from games.word_salad import load_state as load_salad_state, parse_task_payload
+from games.word_salad import (
+    load_state as load_salad_state,
+    longest_dictionary_words,
+    parse_task_payload,
+)
 from games.alphabetty.core import normalize_word
 from games.alphabetty.play import hint_count as alphabetty_hint_count, load_state as load_alphabetty_state
 
 
-CACHE_VERSION = 10
+CACHE_VERSION = 11
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
@@ -190,7 +194,7 @@ def _latest_states(task, game, actors, attempts):
 
 
 def _salad(task, game, actors):
-    _grid, words, _rare_words = parse_task_payload(task.checker_data, task.answer)
+    grid, words, rare_words = parse_task_payload(task.checker_data, task.answer)
     attempts = _attempts_for(task, game, actors)
     states = _latest_states(task, game, actors, attempts)
     total = len(actors)
@@ -250,6 +254,33 @@ def _salad(task, game, actors):
         for word, players in sorted(extra_counts.items(), key=lambda item: (-len(item[1]), item[0]))[:10]
         if word
     ]
+    found_words = {}
+    for word in words:
+        normalized = normalize_word(word)
+        if normalized:
+            found_words[normalized] = {'word': word, 'kind': 'answer'}
+    for word in rare_counts:
+        if word and word not in found_words:
+            found_words[word] = {'word': word, 'kind': 'rare'}
+    for word in extra_counts:
+        if word and word not in found_words:
+            found_words[word] = {'word': word, 'kind': 'extra'}
+    long_found = sorted(
+        found_words.values(), key=lambda item: (-len(normalize_word(item['word'])), normalize_word(item['word']))
+    )[:5]
+    try:
+        payload = json.loads(task.checker_data or '{}')
+    except (TypeError, ValueError):
+        payload = {}
+    saved_missing = payload.get('longest_missing_words') or longest_dictionary_words(
+        tuple(grid), tuple(normalize_word(word) for word in words + rare_words),
+    )
+    missing_found = set(found_words)
+    long_missing = [
+        {'word': word, 'kind': 'missing'}
+        for word in saved_missing
+        if normalize_word(word) not in missing_found
+    ][:5]
     word_rows = [
         {'word': words[index], 'average_order': _mean(order[index]), 'hint_percent': _pct(sum(1 for actor in actors if int((load_salad_state(states.get(actor)).get('hint_counts') or {}).get(index, 0) or 0) > 0), total)}
         for index in range(len(words))
@@ -260,6 +291,7 @@ def _salad(task, game, actors):
         'summary': {'solved': total, 'median_time_seconds': _median(_completed_times(game, task.task_group, actors)), 'without_hints_percent': _pct(no_hints, total)},
         'words': word_rows,
         'popular_findings': popular_findings, 'rare': rare_rows, 'off_topic': extra_rows,
+        'long_found': long_found, 'long_missing': long_missing,
     }
 
 

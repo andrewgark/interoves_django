@@ -27,6 +27,7 @@ from games.runtime import runtime_role
 logger = logging.getLogger('application')
 RETRY_BASE = 30
 MAX_ITEM_ATTEMPTS = 5
+DICTIONARY_SCAN_ACTOR_KEY = '__dictionary_scan__'
 
 
 @dataclass(frozen=True)
@@ -174,7 +175,10 @@ def serialize_job(job):
 
 
 @transaction.atomic
-def enqueue_word_salad_recheck(*, task, game, pending_resolution=None, return_receipt=False):
+def enqueue_word_salad_recheck(
+    *, task, game, pending_resolution=None, return_receipt=False,
+    include_dictionary_scan=False,
+):
     """Snapshot actors and fence older jobs for this task/game."""
     task = type(task).objects.select_for_update().get(pk=task.pk)
     actors = sorted(
@@ -215,7 +219,8 @@ def enqueue_word_salad_recheck(*, task, game, pending_resolution=None, return_re
     job = WordSaladRecheckJob.objects.create(
         task=task, game=game, task_revision=task.attempt_revision,
         pending_resolution=pending_resolution or {},
-        status=WordSaladRecheckJob.STATUS_PENDING, total_actors=len(actors),
+        status=WordSaladRecheckJob.STATUS_PENDING,
+        total_actors=len(actors) + (1 if include_dictionary_scan else 0),
         next_attempt_at=now,
     )
     items = [
@@ -224,6 +229,10 @@ def enqueue_word_salad_recheck(*, task, game, pending_resolution=None, return_re
             anon_key=actor[2], replay_slot_id=actor[3], next_attempt_at=now,
         ) for actor in actors
     ]
+    if include_dictionary_scan:
+        items.append(WordSaladRecheckItem(
+            job=job, actor_key=DICTIONARY_SCAN_ACTOR_KEY, next_attempt_at=now,
+        ))
     WordSaladRecheckItem.objects.bulk_create(items)
     WordSaladRecheckOutbox.objects.bulk_create([
         WordSaladRecheckOutbox(item=item, task_revision=job.task_revision)
@@ -611,7 +620,10 @@ def _process_claimed_item(job, item, item_token):
     )
     try:
         task = job.task
-        actor = _resolve_word_salad_actor(item.team_id, item.user_id, item.anon_key, item.replay_slot_id)
+        is_dictionary_scan = item.actor_key == DICTIONARY_SCAN_ACTOR_KEY
+        actor = None if is_dictionary_scan else _resolve_word_salad_actor(
+            item.team_id, item.user_id, item.anon_key, item.replay_slot_id,
+        )
         credited = 0
         with transaction.atomic():
             if job.status == WordSaladRecheckJob.STATUS_SUPERSEDED or task.attempt_revision != job.task_revision:
@@ -629,7 +641,20 @@ def _process_claimed_item(job, item, item_token):
                 return 'superseded'
             reason = 'task.word_salad_rechecked'
             skipped_complete = False
-            if actor is not None and task.task_type == 'word_salad':
+            if is_dictionary_scan:
+                from games.daily_statistics import invalidate_daily_statistics
+                from games.word_salad import add_longest_missing_words
+
+                checker_data = add_longest_missing_words(task.checker_data)
+                updated = type(task).objects.filter(
+                    pk=task.pk, attempt_revision=job.task_revision,
+                ).update(checker_data=checker_data)
+                if not updated:
+                    return 'superseded'
+                invalidate_daily_statistics(job.game.id, task.task_group_id)
+                skipped_complete = True
+                reason = 'task.word_salad_dictionary_scanned'
+            elif actor is not None and task.task_type == 'word_salad':
                 result = recheck_word_salad_actor(
                     task, game=job.game, notify=False,
                     pending_resolution=job.pending_resolution,

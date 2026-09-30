@@ -178,6 +178,18 @@ class WordSaladRecheckQueueTests(TestCase):
             {'version': 1, 'attempt_ids': [123], 'scopes': []},
         )
 
+    def test_worker_builds_dictionary_snapshot_as_recheck_item(self):
+        job = enqueue_word_salad_recheck(
+            task=self.task, game=self.game, include_dictionary_scan=True,
+        )
+        item = WordSaladRecheckItem.objects.get(job=job)
+        self.assertEqual(item.actor_key, '__dictionary_scan__')
+        self.assertEqual(process_word_salad_rechecks(limit=1, worker='test'), 1)
+        job.refresh_from_db()
+        self.task.refresh_from_db()
+        self.assertEqual(job.status, WordSaladRecheckJob.STATUS_COMPLETED)
+        self.assertIn('longest_missing_words', json.loads(self.task.checker_data))
+
     def test_successful_retry_clears_stale_errors(self):
         actors = {(None, self.user.pk, None, None)}
         with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):

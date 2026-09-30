@@ -66,6 +66,14 @@
         '</li>';
     }).join('');
   }
+  function longWords(items) {
+    return (items || []).map(function (item) {
+      var kind = item.kind || 'missing';
+      var label = kind === 'rare' ? 'Редкая находка' : kind === 'extra' ? 'Находка не по теме' : kind === 'answer' ? 'Ответ' : 'Не найдено';
+      var cls = kind === 'rare' ? ' is-rare' : kind === 'answer' ? ' is-answer' : kind === 'missing' ? ' is-missing' : '';
+      return '<li class="new-daily-statistics__guess"><span class="new-daily-statistics__finding-pill' + cls + '" title="' + esc(label) + '">' + esc(item.word) + '</span></li>';
+    }).join('');
+  }
   function ladderWords(items) {
     var words = (items || []).filter(function (item) { return !item.given; });
     var maxSeconds = words.reduce(function (max, item) {
@@ -216,6 +224,12 @@
     if (data.kind === 'salad') {
       html += section('Сложность слов', '<p class="new-daily-statistics__hint">Сложность считается как медиана порядкового номера, под которым это слово было найдено.</p><ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
       if ((data.popular_findings || []).length) html += '<div class="new-daily-statistics__salad-findings">' + section('Популярные находки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_findings) + '</ul>') + '</div>';
+      if ((data.long_found || []).length || (data.long_missing || []).length) {
+        html += '<div class="new-daily-statistics__salad-long"><h3>Длинные находки</h3><div class="new-daily-statistics__salad-long-grid">' +
+          section('Найденные', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + longWords(data.long_found) + '</ul>') +
+          section('Ненайденные', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + longWords(data.long_missing) + '</ul>') +
+          '</div></div>';
+      }
     } else if (data.kind === 'ladder') {
       if (data.word_stats_available !== false) {
         html += section('Сложность слов', '<p class="new-daily-statistics__hint">Медианное активное время от предыдущего успешно разгаданного слова игрока до этого слова, без пауз. Первое промежуточное слово считается от начала игры.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');

@@ -34,6 +34,7 @@ from games.recheck import recheck_word_salad_task
 from games.word_salad import (
     OVERFLOW_HINT_SQUARE,
     archive_card_meta,
+    add_longest_missing_words,
     build_ui_context,
     hint_numbers_from_attempts,
     length_label,
@@ -262,6 +263,10 @@ class WordSaladTests(TestCase):
             'ABCD',
         ))
         self.assertEqual(payload['rare_words'], ['ABCD'])
+        scanned = json.loads(add_longest_missing_words(serialize_task_data(
+            _puzzle()['grid'], _puzzle()['words'], 'ABCD',
+        )))
+        self.assertIn('longest_missing_words', scanned)
 
     def test_validate_rejects_rare_word_overlap(self):
         from games.word_salad import validate_puzzle
