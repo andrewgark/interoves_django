@@ -19,7 +19,7 @@ from games.forms import AttemptForm
 from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, Team, CHAIN_TASK_TYPES
 from games.replay import StaleReplayError, replay_for_request
 from games.completion_coordinator import complete_logical_game
-from games.daily.completion import daily_completion_effects
+from games.daily.completion import daily_completion_effects_for_game
 from games.middleware.request_timing import timing_phase
 from games.analytics_identity import gameplay_anon_key
 from games.auth_observability import log_gameplay_attempt_created
@@ -763,7 +763,8 @@ def process_send_attempt(request, task_id):
             replay_available = replay_slot is None
             if replay_available:
                 with timing_phase(request, 'analytics_completed'):
-                    effects = daily_completion_effects(
+                    effects = daily_completion_effects_for_game(
+                        game.id,
                         completion,
                         replay_slot=replay_slot,
                         publish_analytics=publish_completion_analytics,
@@ -779,7 +780,8 @@ def process_send_attempt(request, task_id):
                     )
                 daily_timing = effects['timing']
             else:
-                effects = daily_completion_effects(
+                effects = daily_completion_effects_for_game(
+                    game.id,
                     completion,
                     replay_slot=replay_slot,
                     publish_analytics=publish_completion_analytics,
@@ -955,7 +957,8 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
         )
         if completion is not None:
             replay_available = replay_slot is None
-            effects = daily_completion_effects(
+            effects = daily_completion_effects_for_game(
+                game.id,
                 completion,
                 replay_slot=replay_slot,
                 publish_analytics=publish_completion_analytics,
