@@ -70,6 +70,7 @@ from games.daily_section import (
     MOSCOW,
 )
 from games.daily_archive import MONTH_NAMES, build_daily_archive_context
+from games.daily.registry import get_daily_game
 from games.ladder_daily import (
     LADDER_GAME_ID,
     get_ladder_hub_context,
@@ -3640,7 +3641,12 @@ def new_task_group_page(request, game_id, task_group_number):
         ladder_results_url = None
 
     daily_footer_enabled = is_daily_single_task
-    daily_game_label = section_nav_title(game.id) or None
+    daily_definition = get_daily_game(game.id)
+    daily_game_label = (
+        daily_definition.short_title
+        if daily_definition is not None
+        else section_nav_title(game.id) or None
+    )
     daily_results_allowed = bool(
         ladder_results_url
         and game.has_access('see_results', mode='general', team=team)
@@ -3739,6 +3745,10 @@ def new_task_group_page(request, game_id, task_group_number):
                 is_daily_single_task
                 and isinstance(placement, GameTaskGroup)
                 and (
+                    daily_definition is None
+                    or daily_definition.capabilities.statistics
+                )
+                and (
                     scheduled_number_is_public(game, placement.number)
                     or may_open_unpublished_number(request.user)
                 )
@@ -3747,7 +3757,8 @@ def new_task_group_page(request, game_id, task_group_number):
         ),
         **section_format_credit_context(game.id),
         'daily_pager_aria_label': 'Переход между {}'.format(
-            'лесенками' if game.id == LADDER_GAME_ID
+            daily_definition.pager_label if daily_definition is not None
+            else 'лесенками' if game.id == LADDER_GAME_ID
             else 'салатиками' if game.id == WORD_SALAD_GAME_ID
             else 'заданиями недели' if game.id == WEEK_TASK_GAME_ID
             else 'кругами'

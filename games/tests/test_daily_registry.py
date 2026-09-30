@@ -15,6 +15,7 @@ class DailyGameRegistryTests(TestCase):
 
         self.assertIsNotNone(salad)
         self.assertEqual(salad.task_type, 'word_salad')
+        self.assertEqual(salad.pager_label, 'салатиками')
         self.assertEqual(salad.schedule.game_id, salad.game_id)
         self.assertTrue(salad.capabilities.statistics)
 
