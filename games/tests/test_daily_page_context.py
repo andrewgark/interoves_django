@@ -1,6 +1,10 @@
 from unittest import TestCase
 
-from games.daily.page_context import build_daily_page_context, daily_statistics_url
+from games.daily.page_context import (
+    build_daily_lifecycle_context,
+    build_daily_page_context,
+    daily_statistics_url,
+)
 
 
 class DailyPageContextTests(TestCase):
@@ -32,3 +36,20 @@ class DailyPageContextTests(TestCase):
             '/daily-statistics/salad/12/',
         )
         self.assertEqual(daily_statistics_url('salad', 12, enabled=False), '')
+
+    def test_lifecycle_context_keeps_shared_daily_flags_together(self):
+        context = build_daily_lifecycle_context(
+            'salad',
+            is_daily_single_task=True,
+            placement_number=12,
+            placement_is_task_group=True,
+            number_is_public=True,
+            allow_unpublished=False,
+        )
+
+        self.assertTrue(context['is_daily_single_task'])
+        self.assertTrue(context['daily_footer_enabled'])
+        self.assertEqual(
+            context['daily_statistics_url'],
+            '/daily-statistics/salad/12/',
+        )

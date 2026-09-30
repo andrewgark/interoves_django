@@ -76,8 +76,7 @@ from games.daily_archive import (
 )
 from games.daily.registry import get_daily_game
 from games.daily.page_context import (
-    build_daily_page_context,
-    daily_statistics_url,
+    build_daily_lifecycle_context,
 )
 from games.ladder_daily import (
     LADDER_GAME_ID,
@@ -3649,9 +3648,13 @@ def new_task_group_page(request, game_id, task_group_number):
     else:
         ladder_results_url = None
 
-    daily_footer_enabled = is_daily_single_task
-    daily_page_context = build_daily_page_context(
+    daily_lifecycle_context = build_daily_lifecycle_context(
         game.id,
+        is_daily_single_task=is_daily_single_task,
+        placement_number=placement.number,
+        placement_is_task_group=isinstance(placement, GameTaskGroup),
+        number_is_public=scheduled_number_is_public(game, placement.number),
+        allow_unpublished=may_open_unpublished_number(request.user),
         fallback_label=section_nav_title(game.id) or None,
         fallback_pager_label=(
             'лесенками' if game.id == LADDER_GAME_ID
@@ -3742,28 +3745,14 @@ def new_task_group_page(request, game_id, task_group_number):
         'week_task_source_line': week_task_source_line,
         'week_task_source_url': week_task_source_url,
         'source_desyatka': source_desyatka,
-        'is_daily_single_task': is_daily_single_task,
         'custom_daily_task': custom_daily_task,
         'daily_publish_date': daily_publish_date,
         'difficulty': difficulty,
         'ladder_word_results_url': ladder_results_url,
-        'daily_footer_enabled': daily_footer_enabled,
-        **daily_page_context,
         'daily_results_url': ladder_results_url,
         'daily_results_allowed': daily_results_allowed,
         'daily_results_label': 'Таблица результатов' if game.id == LADDER_GAME_ID else '',
-        'daily_statistics_url': daily_statistics_url(
-            game.id,
-            placement.number,
-            enabled=(
-                is_daily_single_task
-                and isinstance(placement, GameTaskGroup)
-                and (
-                    scheduled_number_is_public(game, placement.number)
-                    or may_open_unpublished_number(request.user)
-                )
-            ),
-        ),
+        **daily_lifecycle_context,
         **section_format_credit_context(game.id),
         'ladder_offer': ladder_offer,
         'can_reset_ladder_offer': can_reset_offer,
