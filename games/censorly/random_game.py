@@ -28,7 +28,12 @@ def _get_game() -> Game:
     return Game.objects.get(pk=CENSORLY_GAME_ID)
 
 
-def _create_from_article(article: WikiArticle, *, game: Game | None = None) -> RandomCensorlyGame:
+def _create_from_article(
+    article: WikiArticle,
+    *,
+    game: Game | None = None,
+    pool_title: str | None = None,
+) -> RandomCensorlyGame:
     game = game or _get_game()
     existing = (
         RandomCensorlyGame.objects.filter(wiki_title=article.title)
@@ -42,9 +47,12 @@ def _create_from_article(article: WikiArticle, *, game: Game | None = None) -> R
         wiki_title=article.title,
         body_text=article.extract,
         wiki_pageid=article.pageid,
+        truncated=bool(getattr(article, 'truncated', False)),
     )
     if not title_content_lemmas(puzzle):
         raise WikiFetchError('В названии нет угадываемых слов')
+    if pool_title and pool_title != article.title:
+        puzzle['source_pool_title'] = pool_title
     checker = CheckerType.objects.get(pk=CENSORLY_CHECKER_ID)
     with transaction.atomic():
         existing = (
@@ -88,6 +96,36 @@ def _create_from_article(article: WikiArticle, *, game: Game | None = None) -> R
         return row
 
 
+def used_censorly_titles() -> set[str]:
+    """Titles already used by any Цензурка (daily + random), including pool aliases."""
+    used: set[str] = set(
+        RandomCensorlyGame.objects.values_list('wiki_title', flat=True)
+    )
+    for answer in Task.objects.filter(
+        task_type=CENSORLY_TASK_TYPE, is_removed=False,
+    ).exclude(answer='').values_list('answer', flat=True):
+        if answer:
+            used.add(str(answer).strip())
+    for tags in Task.objects.filter(
+        task_type=CENSORLY_TASK_TYPE, is_removed=False,
+    ).values_list('tags', flat=True):
+        if not isinstance(tags, dict):
+            continue
+        payload = tags.get(CENSORLY_TAGS_KEY) or {}
+        if not isinstance(payload, dict):
+            continue
+        for key in ('wiki_title', 'source_pool_title'):
+            alias = (payload.get(key) or '').strip()
+            if alias:
+                used.add(alias)
+    return used
+
+
+def _used_pool_titles() -> set[str]:
+    """Compatibility alias for random pool selection."""
+    return used_censorly_titles()
+
+
 def create_from_title(title_or_url: str) -> RandomCensorlyGame:
     """Fetch Wikipedia article and create (or return existing) permanent game."""
     title = title_from_user_input(title_or_url)
@@ -98,9 +136,8 @@ def create_from_title(title_or_url: str) -> RandomCensorlyGame:
     )
     if existing is not None:
         return existing
-    # Also match by resolved title after fetch
     article = fetch_article(title)
-    return _create_from_article(article)
+    return _create_from_article(article, pool_title=title if title != article.title else None)
 
 
 def get_or_create_random_game(*, max_attempts: int = 12) -> RandomCensorlyGame:
@@ -110,21 +147,33 @@ def get_or_create_random_game(*, max_attempts: int = 12) -> RandomCensorlyGame:
         raise EmptyCensorlyPool('Пул статей Цензурок пуст')
 
     game = _get_game()
-    used = set(RandomCensorlyGame.objects.values_list('wiki_title', flat=True))
+    used = _used_pool_titles()
     available = [t for t in pool if t not in used]
     if not available:
         raise CensorlyPoolExhausted('Все статьи из пула уже использованы')
 
     random.shuffle(available)
     errors: list[str] = []
-    for title in available[:max_attempts]:
+    tried = 0
+    for title in available:
+        if tried >= max_attempts:
+            break
+        tried += 1
         try:
             article = fetch_article(title)
         except WikiFetchError as exc:
             errors.append(f'{title}: {exc}')
             continue
+        if article.title in used:
+            # Pool alias redirects to an already-used article.
+            used.add(title)
+            continue
+        if RandomCensorlyGame.objects.filter(wiki_title=article.title).exists():
+            used.add(article.title)
+            used.add(title)
+            continue
         try:
-            return _create_from_article(article, game=game)
+            return _create_from_article(article, game=game, pool_title=title)
         except IntegrityError:
             existing = (
                 RandomCensorlyGame.objects.filter(wiki_title=article.title)
@@ -133,14 +182,9 @@ def get_or_create_random_game(*, max_attempts: int = 12) -> RandomCensorlyGame:
             )
             if existing is not None:
                 return existing
-            existing = (
-                RandomCensorlyGame.objects.filter(wiki_title=title)
-                .select_related('task_group')
-                .first()
-            )
-            if existing is not None:
-                return existing
-            raise
+            used.add(article.title)
+            used.add(title)
+            continue
     detail = '; '.join(errors[:3]) if errors else 'нет доступных статей'
     raise CensorlyPoolExhausted(f'Не удалось создать цензурку ({detail})')
 

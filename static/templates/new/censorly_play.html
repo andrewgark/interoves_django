@@ -90,6 +90,10 @@
       </div>
       <h2 class="censorly__title" id="censorly-title" aria-label="Заголовок статьи"></h2>
       <article class="censorly__body" id="censorly-body" aria-label="Текст статьи"></article>
+      <p class="censorly__truncated" id="censorly-truncated" hidden>
+        Текст статьи сокращён для игры.
+        <a id="censorly-wiki-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Полная статья на Википедии</a>
+      </p>
     </div>
 
     <aside class="censorly__dock" id="censorly-dock">
@@ -161,6 +165,11 @@
 {% endif %}
 <script src="{% static 'js/censorly_play.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script>
+window.revealReplayControl = window.revealReplayControl || function () {
+  document.querySelectorAll('[data-replay-control]').forEach(function (control) {
+    control.hidden = false;
+  });
+};
 (function () {
   var modal = document.getElementById('new-bug-report-modal');
   if (!modal) return;

@@ -9,7 +9,7 @@ from typing import Any
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from games.censorly import CENSORLY_TAGS_KEY
+from games.censorly import CENSORLY_SHOW_MASK_ENDINGS, CENSORLY_TAGS_KEY
 from games.censorly.normalize import is_guessable_word, lemma_of, normalize_surface
 from games.censorly.redact import (
     build_public_view,
@@ -119,11 +119,11 @@ def puzzle_from_task(task: Task) -> dict[str, Any] | None:
     return None
 
 
-def _actor_filters(user=None, anon_key=None):
+def _actor_filters(user=None, anon_key=None, replay_slot=None):
     if user is not None and getattr(user, 'is_authenticated', False):
-        return {'user': user, 'team': None, 'anon_key': None}
+        return {'user': user, 'team': None, 'anon_key': None, 'replay_slot': replay_slot}
     if anon_key:
-        return {'user': None, 'team': None, 'anon_key': str(anon_key)}
+        return {'user': None, 'team': None, 'anon_key': str(anon_key), 'replay_slot': replay_slot}
     return None
 
 
@@ -228,6 +228,11 @@ def attach_solve_meta(
     if not payload.get('won') or not actor:
         return payload
     elapsed = elapsed_seconds_for_actor(game=game, task=task, actor=actor)
+    payload['elapsed_seconds'] = elapsed
+    payload['elapsed_label'] = format_elapsed(elapsed)
+    if actor.get('replay_slot') is not None:
+        # Replay results are private and must never produce a public share card.
+        return payload
     lines = build_share_lines(
         number=number,
         attempts=attempts,
@@ -236,8 +241,6 @@ def attach_solve_meta(
         host=host,
         play_path=play_path,
     )
-    payload['elapsed_seconds'] = elapsed
-    payload['elapsed_label'] = format_elapsed(elapsed)
     payload['share_lines'] = lines
     payload['share_text'] = '\n'.join(lines)
     return payload
@@ -275,7 +278,10 @@ def public_payload(
         'points': float(pts),
         'max_points': float(task.get_points() if task is not None else CENSORLY_BASE_POINTS),
         'hint_penalty': CENSORLY_HINT_PENALTY,
-        'title_color_map': view.get('title_color_map') or {},
+        'show_mask_endings': bool(view.get('show_mask_endings', CENSORLY_SHOW_MASK_ENDINGS)),
+        'truncated': bool(payload.get('truncated')),
+        # Only after win — curid/title links must not spoil the article.
+        'wiki_pageid': payload.get('wiki_pageid') if won else None,
     }
 
 
@@ -288,11 +294,12 @@ def get_play_state(
     number: int | str | None = None,
     share_host: str = 'interoves.com',
     play_path: str | None = None,
+    replay_slot=None,
 ) -> dict[str, Any]:
     payload = puzzle_from_task(task)
     if payload is None:
         return {'status': 'error', 'error': 'Пазл не настроен'}
-    actor = _actor_filters(user=user, anon_key=anon_key)
+    actor = _actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot)
     state = default_state() if actor is None else _read_actor_state(
         game=game, task=task, actor=actor,
     )
@@ -341,12 +348,13 @@ def apply_guess(
     number: int | str | None = None,
     share_host: str = 'interoves.com',
     play_path: str | None = None,
+    replay_slot=None,
 ) -> dict[str, Any]:
     payload = puzzle_from_task(task)
     if payload is None:
         return {'status': 'error', 'error': 'Пазл не настроен'}
 
-    actor = _actor_filters(user=user, anon_key=anon_key)
+    actor = _actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot)
     if actor is None:
         return {
             'status': 'error',
@@ -480,12 +488,13 @@ def apply_hint(
     number: int | str | None = None,
     share_host: str = 'interoves.com',
     play_path: str | None = None,
+    replay_slot=None,
 ) -> dict[str, Any]:
-    """Reveal one non-title-color content lemma for −1 point."""
+    """Reveal one non-title content lemma for −1 point."""
     payload = puzzle_from_task(task)
     if payload is None:
         return {'status': 'error', 'error': 'Пазл не настроен'}
-    actor = _actor_filters(user=user, anon_key=anon_key)
+    actor = _actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot)
     if actor is None:
         return {'status': 'error', 'error': 'Нужен пользователь'}
 

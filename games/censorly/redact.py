@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
+from games.censorly import CENSORLY_SHOW_MASK_ENDINGS
 from games.censorly.normalize import strip_combining_marks
 from games.censorly.tokenize import all_tokens, title_content_lemmas
 
@@ -15,6 +16,7 @@ def _token_public(
     last_lemma: str | None,
     won: bool,
     title_lemmas: set[str],
+    show_endings: bool,
 ) -> dict[str, Any]:
     kind = tok.get('kind') or 'content'
     out: dict[str, Any] = {
@@ -22,9 +24,7 @@ def _token_public(
         'kind': kind,
         'in_title': bool(tok.get('in_title')),
     }
-    if tok.get('title_color') is not None:
-        out['title_color'] = int(tok['title_color'])
-    if kind in ('space', 'punct', 'stop'):
+    if kind in ('space', 'punct', 'stop', 'heading'):
         out['text'] = tok.get('surface') or ''
         out['revealed'] = True
         return out
@@ -32,14 +32,26 @@ def _token_public(
     lemma = tok.get('lemma') or ''
     length = int(tok.get('length') or 0)
     out['length'] = length
-    out['lemma'] = lemma
     if lemma and lemma in title_lemmas:
         out['title_lemma'] = True
-    is_open = won or (lemma and lemma in revealed_lemmas)
+    player_opened = bool(lemma and lemma in revealed_lemmas)
+    is_open = won or player_opened
     out['revealed'] = bool(is_open)
+    out['guessed'] = player_opened
     if is_open:
+        out['lemma'] = lemma
         out['text'] = tok.get('surface') or ''
         out['just_revealed'] = bool(last_lemma and lemma == last_lemma)
+    elif show_endings:
+        ending = (tok.get('ending') or '').strip()
+        if ending:
+            out['ending'] = ending
+            try:
+                stem_len = int(tok.get('stem_length') or 0)
+            except (TypeError, ValueError):
+                stem_len = 0
+            if stem_len > 0:
+                out['stem_length'] = stem_len
     return out
 
 
@@ -49,20 +61,22 @@ def build_public_view(
     revealed_lemmas: Iterable[str] | None = None,
     last_lemma: str | None = None,
     won: bool = False,
+    show_endings: bool | None = None,
 ) -> dict[str, Any]:
     revealed = {str(x) for x in (revealed_lemmas or []) if x}
     title_lemmas = title_content_lemmas(payload)
+    endings_on = CENSORLY_SHOW_MASK_ENDINGS if show_endings is None else bool(show_endings)
     title = [
         _token_public(
             t, revealed_lemmas=revealed, last_lemma=last_lemma, won=won,
-            title_lemmas=title_lemmas,
+            title_lemmas=title_lemmas, show_endings=endings_on,
         )
         for t in (payload.get('title_tokens') or [])
     ]
     body = [
         _token_public(
             t, revealed_lemmas=revealed, last_lemma=last_lemma, won=won,
-            title_lemmas=title_lemmas,
+            title_lemmas=title_lemmas, show_endings=endings_on,
         )
         for t in (payload.get('body_tokens') or [])
     ]
@@ -73,7 +87,7 @@ def build_public_view(
         'body_tokens': body,
         'title_complete': bool(won or opened_title),
         'wiki_title': payload.get('wiki_title') if won else None,
-        'title_color_map': dict(payload.get('title_color_map') or {}),
+        'show_mask_endings': endings_on,
     }
 
 

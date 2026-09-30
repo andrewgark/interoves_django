@@ -35,33 +35,59 @@
   function renderToken(tok, overrides) {
     overrides = overrides || {};
     var kind = tok.kind || 'content';
+    if (kind === 'heading') {
+      var heading = el('span', 'censorly-tok censorly-tok--heading');
+      heading.textContent = tok.text || '';
+      return heading;
+    }
     if (kind === 'space' || kind === 'punct' || kind === 'stop') {
       var open = el('span', 'censorly-tok censorly-tok--' + kind);
       open.textContent = tok.text || '';
       return open;
     }
-    var color = tok.title_color;
     if (tok.revealed) {
-      var revealed = el(
-        'span',
-        'censorly-tok censorly-tok--revealed' + (tok.just_revealed ? ' censorly-tok--just' : '')
-      );
+      var revealedClass = 'censorly-tok censorly-tok--revealed';
+      if (tok.guessed) revealedClass += ' censorly-tok--guessed';
+      if (tok.just_revealed) revealedClass += ' censorly-tok--just';
+      var revealed = el('span', revealedClass);
       revealed.dataset.id = String(tok.id);
       if (tok.lemma) revealed.dataset.lemma = tok.lemma;
-      if (color != null && color !== '') revealed.dataset.titleColor = String(color);
-      if (tok.title_lemma) revealed.dataset.titleLemma = '1';
-      revealed.textContent = tok.text || '';
+      if (tok.title_lemma) {
+        revealed.dataset.titleLemma = '1';
+        revealed.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
+      }
+      revealed.appendChild(document.createTextNode(tok.text || ''));
       return revealed;
     }
     var mask = el('span', 'censorly-tok censorly-tok--mask');
     mask.dataset.id = String(tok.id);
     if (tok.lemma) mask.dataset.lemma = tok.lemma;
-    if (color != null && color !== '') mask.dataset.titleColor = String(color);
-    if (tok.title_lemma) mask.dataset.titleLemma = '1';
-    mask.style.setProperty('--ch', String(tok.length || 1));
-    mask.dataset.len = String(tok.length || 0);
-    mask.title = (tok.length || 0) + ' букв';
-    mask.setAttribute('aria-label', 'скрытое слово, ' + (tok.length || 0) + ' букв');
+    if (tok.title_lemma) {
+      mask.dataset.titleLemma = '1';
+      mask.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
+    }
+    var stemLen = tok.stem_length || tok.length || 1;
+    var ending = tok.ending || '';
+    if (ending) {
+      mask.classList.add('censorly-tok--mask-ending');
+      mask.style.setProperty('--ch', String(stemLen));
+      var bars = el('span', 'censorly-tok__bars');
+      bars.setAttribute('aria-hidden', 'true');
+      mask.appendChild(bars);
+      var endEl = el('span', 'censorly-tok__ending', ending);
+      mask.appendChild(endEl);
+      mask.dataset.len = String(tok.length || 0);
+      mask.title = (tok.length || 0) + ' букв';
+      mask.setAttribute(
+        'aria-label',
+        'скрытое слово, ' + (tok.length || 0) + ' букв, окончание «' + ending + '»'
+      );
+    } else {
+      mask.style.setProperty('--ch', String(tok.length || 1));
+      mask.dataset.len = String(tok.length || 0);
+      mask.title = (tok.length || 0) + ' букв';
+      mask.setAttribute('aria-label', 'скрытое слово, ' + (tok.length || 0) + ' букв');
+    }
     if (overrides.lenForced != null) {
       mask.dataset.lenForced = overrides.lenForced ? '1' : '0';
     }
@@ -201,6 +227,23 @@
 
     renderTokens(title, state.title_tokens || [], lenForced);
     renderTokens(body, state.body_tokens || [], lenForced);
+    var trunc = root.querySelector('#censorly-truncated');
+    var wikiLink = root.querySelector('#censorly-wiki-link');
+    if (trunc) {
+      trunc.hidden = !state.truncated;
+      if (wikiLink) {
+        if (state.won && state.wiki_title) {
+          wikiLink.href = 'https://ru.wikipedia.org/wiki/' + encodeURIComponent(state.wiki_title);
+          wikiLink.hidden = false;
+        } else if (state.won && state.wiki_pageid) {
+          wikiLink.href = 'https://ru.wikipedia.org/?curid=' + encodeURIComponent(String(state.wiki_pageid));
+          wikiLink.hidden = false;
+        } else {
+          wikiLink.removeAttribute('href');
+          wikiLink.hidden = true;
+        }
+      }
+    }
     if (attempts) attempts.textContent = ruAttempts(state.attempts || 0);
     if (won) won.hidden = !state.won;
     renderGuessTable(root, state.guesses || []);
@@ -220,7 +263,22 @@
       document.title = state.wiki_title
         ? ('Цензурка · ' + state.wiki_title)
         : document.title;
+      if (typeof window.revealReplayControl === 'function') {
+        window.revealReplayControl();
+      }
     }
+  }
+
+  function handleReplayFlags(data) {
+    if (!data) return;
+    if (data.reload_required) {
+      window.location.reload();
+      return true;
+    }
+    if (data.replay_available && typeof window.revealReplayControl === 'function') {
+      window.revealReplayControl();
+    }
+    return false;
   }
 
   function setFeedback(root, text, kind) {
@@ -251,7 +309,21 @@
       },
       body: JSON.stringify(body),
     }).then(function (res) {
-      return res.json().then(function (data) {
+      return res.text().then(function (text) {
+        var data = null;
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (err) {
+          data = null;
+        }
+        if (!data || typeof data !== 'object') {
+          var clean = (text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+          return {
+            status: 'error',
+            error: clean.slice(0, 240) || ('HTTP ' + res.status),
+            __http: res.status,
+          };
+        }
         data.__http = res.status;
         return data;
       });
@@ -287,7 +359,15 @@
         credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       })
-        .then(function (r) { return r.json(); })
+        .then(function (r) {
+          return r.text().then(function (text) {
+            try {
+              return text ? JSON.parse(text) : null;
+            } catch (err) {
+              return null;
+            }
+          });
+        })
         .then(function (data) {
           if (data && data.status !== 'error') applyState(root, data, { preserveLen: true });
         })
@@ -314,7 +394,7 @@
       var mask = ev.target.closest('.censorly-tok--mask');
       if (mask && root.contains(mask)) {
         if (root.classList.contains('censorly--hint-pick')) {
-          if (mask.dataset.titleLemma === '1' || (mask.dataset.titleColor != null && mask.dataset.titleColor !== '')) {
+          if (mask.dataset.titleLemma === '1') {
             setFeedback(root, 'Нельзя открывать слова из названия', 'error');
             return;
           }
@@ -322,6 +402,7 @@
           busy = true;
           postJson(hintUrl, { token_id: Number(mask.dataset.id) }, root)
             .then(function (data) {
+              if (handleReplayFlags(data)) return;
               if (data.status === 'error') {
                 setFeedback(root, data.error || 'Не удалось взять подсказку', 'error');
                 return;
@@ -382,6 +463,7 @@
         setFeedback(root, '');
         postJson(guessUrl, { word: word }, root)
           .then(function (data) {
+            if (handleReplayFlags(data)) return;
             if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'error') {
               setFeedback(root, data.error || 'Не удалось отправить', 'error');
               applyState(root, data, { preserveLen: true });

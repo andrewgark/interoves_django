@@ -17,6 +17,7 @@ from games.censorly.random_game import (
     create_from_title,
     get_or_create_random_game,
     puzzle_json_size,
+    used_censorly_titles,
 )
 from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
 from games.censorly.wiki import WikiFetchError, fetch_article
@@ -185,13 +186,16 @@ def set_publish_start(date_iso: str) -> str:
     return d.isoformat()
 
 
-def _create_numbered_slot(*, number: int, article) -> GameTaskGroup:
+def _create_numbered_slot(*, number: int, article, pool_title: str | None = None) -> GameTaskGroup:
     game = get_censorly_game()
     puzzle = build_puzzle_payload(
         wiki_title=article.title,
         body_text=article.extract,
         wiki_pageid=article.pageid,
+        truncated=bool(getattr(article, 'truncated', False)),
     )
+    if pool_title and pool_title != article.title:
+        puzzle['source_pool_title'] = pool_title
     if not title_content_lemmas(puzzle):
         raise CensorlySupportError('В названии нет угадываемых слов')
     checker = CheckerType.objects.get(pk=CENSORLY_CHECKER_ID)
@@ -249,31 +253,34 @@ def create_at_number(at_number: int, *, title_or_url: str | None = None) -> dict
         )
     if title_or_url:
         article = fetch_article(title_or_url)
+        link = _create_numbered_slot(number=at_number, article=article)
     else:
-        # Use pool via temporary random create path then convert — fetch first unused.
+        # Use pool; skip redirects to already-used articles.
         from games.censorly.article_pool import load_article_pool
         import random
-        used = set(
-            Task.objects.filter(
-                task_group__game_links__game_id=CENSORLY_GAME_ID,
-                number='1',
-            ).values_list('answer', flat=True)
-        )
+        used = used_censorly_titles()
         pool = [t for t in load_article_pool() if t not in used]
         if not pool:
             raise CensorlySupportError('Пул статей исчерпан')
         random.shuffle(pool)
         article = None
+        pool_title = None
         errors = []
-        for title in pool[:8]:
+        for title in pool[:12]:
             try:
-                article = fetch_article(title)
-                break
+                candidate = fetch_article(title)
             except WikiFetchError as exc:
                 errors.append(str(exc))
+                continue
+            if candidate.title in used:
+                used.add(title)
+                continue
+            article = candidate
+            pool_title = title
+            break
         if article is None:
             raise CensorlySupportError('Не удалось загрузить статью: ' + '; '.join(errors[:2]))
-    link = _create_numbered_slot(number=at_number, article=article)
+        link = _create_numbered_slot(number=at_number, article=article, pool_title=pool_title)
     rows = list_schedule_rows()
     return {'link_id': link.pk, 'number': at_number, 'wiki_title': article.title, 'rows': [r.to_dict() for r in rows]}
 

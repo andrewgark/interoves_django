@@ -49,7 +49,8 @@ from games.gameplay_context import (
 from games.middleware.request_timing import timing_phase
 from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Like, RandomCensorlyGame, Task
 from games.section_hub import onboarding_followup_context, section_format_credit_context
-from games.section_paths import section_hub_path, section_play_path, section_results_path
+from games.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
+from games.section_paths import section_hub_path, section_play_path, section_replay_path, section_results_path
 from games.support.access import user_has_support_access
 from games.task_titles import task_display_name, task_group_page_title
 from games.views.daily_timing_views import daily_timing_page_context
@@ -271,7 +272,8 @@ def _load_visible_task(request, number, *, json_mode=True, random_hash=None):
     try:
         n = int(number)
     except (TypeError, ValueError):
-        return None, None, None, JsonResponse({'status': 'error', 'error': 'bad number'}, status=400)
+        # Permanent random games use share_hash as GameTaskGroup.number.
+        return _load_visible_task(request, None, json_mode=json_mode, random_hash=str(number))
     if not is_censorly_number_published(game, n) and not _may_open_unpublished(request.user):
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not published'}, status=404)
     from games.club_access import reject_if_club_archive_blocked
@@ -360,6 +362,10 @@ def _render_play(request, *, game, task, load_meta):
     n = None if is_random else schedule_number
 
     user, anon_key = _resolve_actor(request)
+    replay_slot = active_replay(
+        request=request, game=game, task_group=task.task_group,
+        user=user, anon_key=anon_key,
+    )
     state = get_play_state(
         game=game,
         task=task,
@@ -368,6 +374,7 @@ def _render_play(request, *, game, task, load_meta):
         number=play_number,
         share_host=_share_host(request),
         play_path=play_path,
+        replay_slot=replay_slot,
     )
     pub_at = censorly_publish_at(game, n) if n is not None else None
     daily_publish_date = pub_at.date() if pub_at is not None else None
@@ -411,7 +418,8 @@ def _render_play(request, *, game, task, load_meta):
         page_title = task_group_page_title(game, link)
         bug_report_task_label = task_display_name(game, task, placement=link)
     else:
-        page_title = f'Цензурка #{play_number}'
+        # Never put wiki_title here before win — it spoils the tab title.
+        page_title = f'Цензурка · {play_number}'
         bug_report_task_label = page_title
 
     daily_lifecycle_context = build_daily_lifecycle_context(
@@ -428,6 +436,7 @@ def _render_play(request, *, game, task, load_meta):
         fallback_pager_label='цензурками',
     )
     stats_enabled = bool(get_daily_game(CENSORLY_GAME_ID) and get_daily_game(CENSORLY_GAME_ID).capabilities.statistics)
+    stats_number = play_number if is_random else (link.number if link else play_number)
     return render(request, 'new/censorly_play.html', {
         'game': game,
         'number': play_number,
@@ -450,13 +459,18 @@ def _render_play(request, *, game, task, load_meta):
         'daily_results_allowed': not is_random and game.has_access('see_results', team=team),
         'daily_results_label': 'Таблица результатов',
         'official_completed': official_completed,
-        'daily_statistics_url': daily_statistics_url(
-            CENSORLY_GAME_ID,
-            play_number if is_random else (link.number if link else play_number),
-            enabled=stats_enabled,
-        ),
+        'replay_active': replay_slot is not None,
+        'replay_completed': bool(replay_slot and replay_slot.status == 'completed'),
+        'replay_url': section_replay_path(CENSORLY_GAME_ID, play_number),
+        'replay_exit_url': section_replay_path(CENSORLY_GAME_ID, play_number).rstrip('/') + '/exit/',
         **section_format_credit_context(CENSORLY_GAME_ID),
         **daily_lifecycle_context,
+        # After lifecycle unpack so we don't get overwritten.
+        'daily_statistics_url': daily_statistics_url(
+            CENSORLY_GAME_ID,
+            stats_number,
+            enabled=stats_enabled,
+        ),
         'show_sections_nav': False,
         'back_url': section_hub_path(CENSORLY_GAME_ID),
         'back_label': 'К списку',
@@ -474,6 +488,7 @@ def _render_play(request, *, game, task, load_meta):
         'is_authenticated': bool(user),
         'gameplay_context_token': issue_gameplay_context(
             task=task, game=game, user=user, anon_key=anon_key,
+            replay_slot=replay_slot,
         ),
         'prev_task_group_url': _archive_nav_target(
             request, game, prev_tg,
@@ -509,6 +524,7 @@ def _render_play(request, *, game, task, load_meta):
                     and not _may_open_unpublished(request.user)
                 )
             ),
+            replay_slot=replay_slot,
             official_completed=official_completed,
         ),
     })
@@ -527,9 +543,9 @@ def censorly_play_page(request, number=None, share_hash=None):
     return _render_play(request, game=game, task=task, load_meta=load_meta)
 
 
-def _finish_completion(request, *, game, task, user, anon_key, result):
+def _finish_completion(request, *, game, task, user, anon_key, result, replay_slot=None):
     analytics_events = []
-    if result.get('status') in ('hit', 'miss', 'already_open', 'won', 'hint'):
+    if replay_slot is None and result.get('status') in ('hit', 'miss', 'already_open', 'won', 'hint'):
         analytics_events.extend(register_started_game(
             user=user,
             anon_key=anon_key,
@@ -551,12 +567,15 @@ def _finish_completion(request, *, game, task, user, anon_key, result):
         user=user,
         anon_key=anon_key,
         mode=game.get_current_mode(Attempt(time=timezone.now())),
+        replay_slot=replay_slot,
     ):
         completion = complete_logical_game(
             actor={'team': None, 'user': user, 'anon_key': anon_key},
             game=game,
             task_group=task.task_group,
             task=task,
+            replay_slot=replay_slot,
+            run_id=getattr(request, 'interoves_replay_run_id', None),
             analytics_user=request.user if request.user.is_authenticated else None,
             result=PlayerCompletedGame.RESULT_SOLVED,
             mode=game.get_current_mode(Attempt(time=timezone.now())),
@@ -574,6 +593,8 @@ def _finish_completion(request, *, game, task, user, anon_key, result):
                 game=game,
                 task_group=task.task_group,
             ))
+        if replay_slot is None:
+            result['replay_available'] = True
     if analytics_events:
         result['analytics_events'] = analytics_events
     return result
@@ -589,6 +610,13 @@ def censorly_state(request, number=None, share_hash=None):
     user, anon_key = _resolve_actor(request)
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(CENSORLY_GAME_ID, number)
+    try:
+        replay_slot = replay_for_request(
+            request=request, game=game, task_group=task.task_group,
+            user=user, anon_key=anon_key,
+        )
+    except StaleReplayError:
+        return JsonResponse({'status': 'error', 'error': 'stale_replay', 'reload_required': True})
     state = get_play_state(
         game=game,
         task=task,
@@ -597,6 +625,7 @@ def censorly_state(request, number=None, share_hash=None):
         number=play_number,
         share_host=_share_host(request),
         play_path=play_path,
+        replay_slot=replay_slot,
     )
     payload = _with_meta_bar(
         {'status': 'ok', **state},
@@ -628,6 +657,17 @@ def censorly_guess(request, number=None, share_hash=None):
     )
     if context_error:
         return context_error_response(context_error)
+    try:
+        replay_slot = replay_for_request(
+            request=request, game=game, task_group=task.task_group,
+            user=user, anon_key=anon_key,
+        )
+    except StaleReplayError:
+        return JsonResponse({'status': 'error', 'error': 'stale_replay', 'reload_required': True})
+    if replay_slot is None and _official_exists(
+        game=game, task_group=task.task_group, user=user, anon_key=anon_key,
+    ):
+        return JsonResponse({'status': 'error', 'error': 'replay_required', 'reload_required': True})
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(CENSORLY_GAME_ID, number)
     with timing_phase(request, 'apply_guess'):
@@ -640,9 +680,11 @@ def censorly_guess(request, number=None, share_hash=None):
             number=play_number,
             share_host=_share_host(request),
             play_path=play_path,
+            replay_slot=replay_slot,
         )
     result = _finish_completion(
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
+        replay_slot=replay_slot,
     )
     with timing_phase(request, 'render_meta'):
         result = _with_meta_bar(
@@ -681,6 +723,17 @@ def censorly_hint(request, number=None, share_hash=None):
     )
     if context_error:
         return context_error_response(context_error)
+    try:
+        replay_slot = replay_for_request(
+            request=request, game=game, task_group=task.task_group,
+            user=user, anon_key=anon_key,
+        )
+    except StaleReplayError:
+        return JsonResponse({'status': 'error', 'error': 'stale_replay', 'reload_required': True})
+    if replay_slot is None and _official_exists(
+        game=game, task_group=task.task_group, user=user, anon_key=anon_key,
+    ):
+        return JsonResponse({'status': 'error', 'error': 'replay_required', 'reload_required': True})
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(CENSORLY_GAME_ID, number)
     result = apply_hint(
@@ -692,9 +745,11 @@ def censorly_hint(request, number=None, share_hash=None):
         number=play_number,
         share_host=_share_host(request),
         play_path=play_path,
+        replay_slot=replay_slot,
     )
     result = _finish_completion(
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
+        replay_slot=replay_slot,
     )
     result = _with_meta_bar(
         result,

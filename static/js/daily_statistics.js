@@ -245,7 +245,7 @@
       html += '<div class="new-daily-statistics__body">' +
         section('Распределение попыток', histogram(data.distribution)) +
         ((data.popular_words || []).length ? section('Популярные слова', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_words) + '</ul>') : '') +
-        ((data.last_words || []).length ? section('Слова, после которых взяли', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.last_words) + '</ul>') : '') +
+        ((data.last_words || []).length ? section('Последняя догадка перед победой', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.last_words) + '</ul>') : '') +
         '</div>';
     }
     root.innerHTML = html;

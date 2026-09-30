@@ -12,8 +12,29 @@ import requests
 WIKI_API = 'https://ru.wikipedia.org/w/api.php'
 USER_AGENT = 'InterovesCensorly/1.0 (https://interoves.com; game puzzle generator)'
 MIN_BODY_CHARS = 400
-# Keep payloads playable: full extracts create 20k+ DOM nodes / multi‑MB JSON.
-MAX_BODY_CHARS = 12_000
+# Cap for playable payloads; full Москва extract is ~100k chars / huge DOM.
+MAX_BODY_CHARS = 28_000
+
+# Trailing wiki sections that add noise for guessing (notes, links, nav).
+_TAIL_SECTION_NAMES = (
+    'примечания',
+    'литература',
+    'ссылки',
+    'внешние ссылки',
+    'см. также',
+    'см также',
+    'источники',
+    'примечания и ссылки',
+    'литература и ссылки',
+    'галерея',
+    'навигация',
+    'категории',
+)
+
+_SECTION_HEADING_RE = re.compile(
+    r'^(={2,})\s*(.+?)\s*\1\s*$',
+    re.MULTILINE,
+)
 
 
 class WikiFetchError(Exception):
@@ -25,6 +46,7 @@ class WikiArticle:
     title: str
     pageid: int
     extract: str
+    truncated: bool = False
 
 
 _TITLE_FROM_PATH = re.compile(r'^/wiki/([^?#]+)$')
@@ -58,16 +80,84 @@ def _looks_like_disambiguation(extract: str) -> bool:
     return any(marker in head for marker in _DISAMBIG_MARKERS)
 
 
-def _trim_extract(extract: str) -> str:
-    if len(extract) <= MAX_BODY_CHARS:
+def _normalize_section_name(name: str) -> str:
+    return (name or '').strip().lower().replace('ё', 'е').rstrip('.')
+
+
+def _strip_tail_sections(extract: str) -> str:
+    """Drop Примечания / Ссылки / … and everything after the first such heading."""
+    if not extract:
         return extract
-    cut = extract[:MAX_BODY_CHARS]
-    # Prefer ending on a paragraph boundary so we don't mid-word truncate.
-    for sep in ('\n\n', '\n', '. '):
-        idx = cut.rfind(sep)
-        if idx >= MIN_BODY_CHARS:
-            return cut[: idx + len(sep)].rstrip()
-    return cut.rstrip()
+    earliest = None
+    for match in _SECTION_HEADING_RE.finditer(extract):
+        name = _normalize_section_name(match.group(2))
+        # Exact name, or "Ссылки …" / "Примечания и …" — not "Литературный обзор".
+        is_tail = name in _TAIL_SECTION_NAMES or any(
+            name == base or name.startswith(base + ' ') or name.startswith(base + ' и ')
+            for base in _TAIL_SECTION_NAMES
+        )
+        if is_tail:
+            earliest = match.start() if earliest is None else min(earliest, match.start())
+    if earliest is None or earliest < MIN_BODY_CHARS:
+        return extract
+    return extract[:earliest].rstrip()
+
+
+def _strip_orphan_heading(extract: str) -> str:
+    """Remove a trailing == Section == with no body after it."""
+    text = (extract or '').rstrip()
+    match = list(_SECTION_HEADING_RE.finditer(text))
+    if not match:
+        return text
+    last = match[-1]
+    after = text[last.end():].strip()
+    if after:
+        return text
+    # Keep if the whole article is somehow just a heading (shouldn't happen).
+    if last.start() < MIN_BODY_CHARS // 2:
+        return text
+    return text[: last.start()].rstrip()
+
+
+def _headings_to_marked(extract: str) -> str:
+    """Wrap == Heading == as marked spans for larger play UI (tokenize kind=heading)."""
+    from games.censorly.tokenize import HEADING_END, HEADING_START
+
+    def repl(match: re.Match[str]) -> str:
+        name = (match.group(2) or '').strip()
+        if not name:
+            return ''
+        return f'\n{HEADING_START}{name}{HEADING_END}\n'
+
+    return _SECTION_HEADING_RE.sub(repl, extract or '')
+
+
+def _trim_extract(extract: str) -> tuple[str, bool]:
+    """Return (text, truncated). Prefer cutting before a section heading."""
+    text = _strip_tail_sections(extract or '')
+    text = _strip_orphan_heading(text)
+    if len(text) <= MAX_BODY_CHARS:
+        return _headings_to_marked(text), False
+
+    cut = text[:MAX_BODY_CHARS]
+    # Prefer ending just before the last full section heading in the window.
+    best = -1
+    for match in _SECTION_HEADING_RE.finditer(cut):
+        if match.start() >= MIN_BODY_CHARS:
+            best = match.start()
+    if best >= MIN_BODY_CHARS:
+        trimmed = cut[:best].rstrip()
+    else:
+        trimmed = cut
+        for sep in ('\n\n', '\n', '. '):
+            idx = trimmed.rfind(sep)
+            if idx >= MIN_BODY_CHARS:
+                trimmed = trimmed[: idx + len(sep)].rstrip()
+                break
+        else:
+            trimmed = trimmed.rstrip()
+    trimmed = _strip_orphan_heading(trimmed)
+    return _headings_to_marked(trimmed), True
 
 
 def fetch_article(title: str, *, session: Optional[requests.Session] = None) -> WikiArticle:
@@ -80,7 +170,8 @@ def fetch_article(title: str, *, session: Optional[requests.Session] = None) -> 
         'prop': 'extracts|info|pageprops',
         'ppprop': 'disambiguation',
         'explaintext': 1,
-        'exsectionformat': 'plain',
+        # wiki headings (== Name ==) so we can strip tails / trim on sections.
+        'exsectionformat': 'wiki',
         'redirects': 1,
         'titles': title,
         'inprop': 'displaytitle',
@@ -114,9 +205,12 @@ def fetch_article(title: str, *, session: Optional[requests.Session] = None) -> 
         raise WikiFetchError('Похоже на страницу неоднозначности')
     if len(extract) < MIN_BODY_CHARS:
         raise WikiFetchError('Статья слишком короткая')
-    extract = _trim_extract(extract)
+    extract, truncated = _trim_extract(extract)
+    if len(extract) < MIN_BODY_CHARS:
+        raise WikiFetchError('Статья слишком короткая после очистки')
     return WikiArticle(
         title=resolved_title,
         pageid=int(page['pageid']),
         extract=extract,
+        truncated=truncated,
     )

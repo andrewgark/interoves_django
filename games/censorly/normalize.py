@@ -35,6 +35,33 @@ def lemma_of(word: str) -> str:
         return n
 
 
+def split_stem_ending(surface: str) -> tuple[str, str]:
+    """Split a word into (stem, ending) via common prefix with its lemma.
+
+    Ending is lowercase without accents. Empty ending means show a solid mask.
+    """
+    plain = normalize_surface(surface)
+    if not plain or plain.isdigit() or '-' in plain:
+        return plain, ''
+    lemma = lemma_of(plain)
+    if not lemma or lemma == plain:
+        return plain, ''
+    i = 0
+    limit = min(len(plain), len(lemma))
+    while i < limit and plain[i] == lemma[i]:
+        i += 1
+    # Keep a real stem; skip tiny leftovers that would leak most of the word.
+    if i < 2:
+        return plain, ''
+    ending = plain[i:]
+    if not ending or len(ending) > 8:
+        return plain, ''
+    # Ending should be shorter than the stem so *** still dominates.
+    if len(ending) >= i:
+        return plain, ''
+    return plain[:i], ending
+
+
 def is_guessable_word(word: str) -> bool:
     """One token: Cyrillic and/or Latin letters, digits, hyphens."""
     n = normalize_surface(word)

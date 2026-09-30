@@ -88,6 +88,7 @@ class CensorlyEngineTests(TestCase):
         self.assertFalse(content[0]['revealed'])
         self.assertIn('length', content[0])
         self.assertNotIn('text', content[0])
+        self.assertNotIn('lemma', content[0])
 
         view2 = build_public_view(
             payload,
@@ -201,8 +202,63 @@ class CensorlyWikiHelperTests(TestCase):
     def test_trim_extract_caps_size(self):
         from games.censorly.wiki import MAX_BODY_CHARS, _trim_extract
         big = ('абзац текста. ' * 5000)
-        trimmed = _trim_extract(big)
+        trimmed, truncated = _trim_extract(big)
+        self.assertTrue(truncated)
         self.assertLessEqual(len(trimmed), MAX_BODY_CHARS)
+
+    def test_trim_strips_tail_sections_and_orphan_heading(self):
+        from games.censorly.wiki import _trim_extract
+        text = (
+            'Вводный абзац про тему.\n\n'
+            + ('Ещё текст. ' * 80)
+            + '\n\n== История ==\n'
+            + ('Исторический абзац. ' * 40)
+            + '\n\n== Примечания ==\n'
+            + '1. Сноска\n'
+            + '== Ссылки ==\n'
+            + '* https://example.com\n'
+        )
+        trimmed, _truncated = _trim_extract(text)
+        self.assertNotIn('Сноска', trimmed)
+        self.assertNotIn('example.com', trimmed)
+        self.assertIn('Вводный абзац', trimmed)
+        # Orphan heading at end of a long cut should not leave a bare section title.
+        long_body = ('Лид абзац про климат региона. ' * 2000) + '\n\n== Климат ==\n'
+        trimmed2, truncated2 = _trim_extract(long_body)
+        self.assertTrue(truncated2)
+        self.assertFalse(trimmed2.rstrip().endswith('Климат'))
+
+    def test_trim_keeps_literary_review_section(self):
+        from games.censorly.wiki import _trim_extract
+        text = (
+            'Лид статьи.\n\n'
+            + ('Текст. ' * 50)
+            + '\n\n== Литературный обзор ==\n'
+            + 'Обзор книг.\n'
+        )
+        trimmed, _truncated = _trim_extract(text)
+        self.assertIn('Обзор книг', trimmed)
+        self.assertIn('Литературный обзор', trimmed)
+
+    def test_public_payload_hides_wiki_pageid_until_won(self):
+        from games.censorly.play import public_payload
+        from games.censorly.tokenize import build_puzzle_payload
+        payload = build_puzzle_payload(
+            wiki_title='Кот',
+            body_text='Кот и собака живут вместе в доме.',
+            wiki_pageid=12345,
+            truncated=True,
+        )
+        before = public_payload({'revealed_lemmas': [], 'guesses': [], 'won': False}, payload)
+        self.assertTrue(before['truncated'])
+        self.assertIsNone(before.get('wiki_pageid'))
+        self.assertIsNone(before.get('wiki_title'))
+        after = public_payload(
+            {'revealed_lemmas': list(title_content_lemmas(payload)), 'guesses': [], 'won': True},
+            payload,
+        )
+        self.assertEqual(after.get('wiki_pageid'), 12345)
+        self.assertEqual(after.get('wiki_title'), 'Кот')
 
 
 class CensorlyLatinGuessTests(TestCase):
@@ -330,20 +386,18 @@ class CensorlyUxDailyTests(TestCase):
         self.assertEqual(content['length'], 4)
         self.assertIn('\u0301', content['surface'])
 
-    def test_title_color_indices_stable(self):
-        from games.censorly.tokenize import title_lemma_color_map
+    def test_title_lemmas_marked_without_colors(self):
+        from games.censorly.redact import build_public_view
         payload = build_puzzle_payload(
             wiki_title='Красная площадь Москва',
             body_text='Красная площадь в Москве.',
         )
-        mapping = payload['title_color_map']
-        self.assertEqual(mapping, title_lemma_color_map(payload['title_tokens']))
-        self.assertLessEqual(len(mapping), 5)
-        body_colored = [
-            t for t in payload['body_tokens']
-            if t.get('kind') == 'content' and t.get('title_color') is not None
-        ]
-        self.assertTrue(body_colored)
+        self.assertNotIn('title_color_map', payload)
+        view = build_public_view(payload, revealed_lemmas=set(), won=False)
+        title_masks = [t for t in view['title_tokens'] if t.get('kind') == 'content']
+        self.assertTrue(title_masks)
+        self.assertTrue(all(t.get('title_lemma') for t in title_masks))
+        self.assertTrue(all('title_color' not in t for t in title_masks))
 
     def test_hint_forbidden_on_title_lemma(self):
         from games.censorly.play import apply_hint
@@ -371,8 +425,8 @@ class CensorlyUxDailyTests(TestCase):
         self.assertEqual(ok['hints_taken'], 1)
         self.assertEqual(ok['points'], 19)
 
-    def test_hint_forbidden_on_uncolored_sixth_title_lemma(self):
-        """Title color cap is 5; 6th title lemma must still be unhintable."""
+    def test_hint_forbidden_on_any_title_lemma_in_body(self):
+        """Title words repeated in the body stay unhintable."""
         from games.censorly.play import apply_hint, puzzle_from_task
         title = 'Альфа Бета Гамма Дельта Эпсилон Дзета'
         body = 'Альфа и дзета встречаются в тексте.'
@@ -380,20 +434,59 @@ class CensorlyUxDailyTests(TestCase):
         self.task.tags = {CENSORLY_TAGS_KEY: puzzle}
         self.task.answer = title
         self.task.save(update_fields=['tags', 'answer'])
-        from games.censorly.tokenize import title_content_lemmas, title_lemma_color_map
-        lemmas = list(title_content_lemmas(puzzle))
+        from games.censorly.tokenize import title_content_lemmas
+        lemmas = title_content_lemmas(puzzle)
         self.assertGreaterEqual(len(lemmas), 6)
-        colored = title_lemma_color_map(puzzle['title_tokens'])
-        uncolored = [lem for lem in lemmas if lem not in colored]
-        self.assertTrue(uncolored)
         tok = next(
-            t for t in puzzle['title_tokens'] + puzzle['body_tokens']
-            if t.get('kind') == 'content' and t.get('lemma') == uncolored[0]
+            t for t in puzzle['body_tokens']
+            if t.get('kind') == 'content' and t.get('lemma') in lemmas
         )
         result = apply_hint(
             game=self.game, task=self.task, token_id=tok['id'], user=self.staff,
         )
         self.assertEqual(result['status'], 'error')
+        self.assertIsNotNone(puzzle_from_task(self.task))
+
+    def test_mask_endings_and_heading_tokens(self):
+        from games.censorly.redact import build_public_view
+        from games.censorly.tokenize import HEADING_END, HEADING_START, build_puzzle_payload
+        payload = build_puzzle_payload(
+            wiki_title='Кот',
+            body_text=(
+                f'Красивого кота.\n{HEADING_START}История{HEADING_END}\n'
+                'Дальше текст.'
+            ),
+        )
+        headings = [t for t in payload['body_tokens'] if t['kind'] == 'heading']
+        self.assertEqual(len(headings), 1)
+        self.assertEqual(headings[0]['surface'], 'История')
+        content = next(
+            t for t in payload['body_tokens']
+            if t.get('kind') == 'content' and t.get('ending')
+        )
+        self.assertTrue(content['ending'])
+        view = build_public_view(payload, revealed_lemmas=set(), won=False, show_endings=True)
+        masked = next(t for t in view['body_tokens'] if t.get('id') == content['id'])
+        self.assertEqual(masked.get('ending'), content['ending'])
+        self.assertFalse(masked.get('revealed'))
+
+    def test_only_guessed_words_marked_after_win(self):
+        from games.censorly.redact import build_public_view
+        from games.censorly.normalize import lemma_of
+        payload = build_puzzle_payload(
+            wiki_title='Кот',
+            body_text='Кот и собака рядом.',
+        )
+        guessed = {lemma_of('кот')}
+        view = build_public_view(payload, revealed_lemmas=guessed, won=True)
+        by_lemma = {
+            t.get('lemma'): t
+            for t in view['body_tokens']
+            if t.get('kind') == 'content'
+        }
+        self.assertTrue(by_lemma[lemma_of('кот')]['guessed'])
+        self.assertTrue(by_lemma[lemma_of('собака')]['revealed'])
+        self.assertFalse(by_lemma[lemma_of('собака')]['guessed'])
 
     def test_accented_guess_is_accepted(self):
         from games.censorly.normalize import is_guessable_word, normalize_surface
