@@ -75,6 +75,10 @@ from games.daily_archive import (
     build_daily_archive_items,
 )
 from games.daily.registry import get_daily_game
+from games.daily.page_context import (
+    build_daily_page_context,
+    daily_statistics_url,
+)
 from games.ladder_daily import (
     LADDER_GAME_ID,
     get_ladder_hub_context,
@@ -3646,11 +3650,15 @@ def new_task_group_page(request, game_id, task_group_number):
         ladder_results_url = None
 
     daily_footer_enabled = is_daily_single_task
-    daily_definition = get_daily_game(game.id)
-    daily_game_label = (
-        daily_definition.short_title
-        if daily_definition is not None
-        else section_nav_title(game.id) or None
+    daily_page_context = build_daily_page_context(
+        game.id,
+        fallback_label=section_nav_title(game.id) or None,
+        fallback_pager_label=(
+            'лесенками' if game.id == LADDER_GAME_ID
+            else 'салатиками' if game.id == WORD_SALAD_GAME_ID
+            else 'заданиями недели' if game.id == WEEK_TASK_GAME_ID
+            else 'кругами'
+        ),
     )
     daily_results_allowed = bool(
         ladder_results_url
@@ -3740,34 +3748,23 @@ def new_task_group_page(request, game_id, task_group_number):
         'difficulty': difficulty,
         'ladder_word_results_url': ladder_results_url,
         'daily_footer_enabled': daily_footer_enabled,
-        'daily_game_label': daily_game_label,
+        **daily_page_context,
         'daily_results_url': ladder_results_url,
         'daily_results_allowed': daily_results_allowed,
         'daily_results_label': 'Таблица результатов' if game.id == LADDER_GAME_ID else '',
-        'daily_statistics_url': (
-            '/daily-statistics/{}/{}/'.format(game.id, placement.number)
-            if (
+        'daily_statistics_url': daily_statistics_url(
+            game.id,
+            placement.number,
+            enabled=(
                 is_daily_single_task
                 and isinstance(placement, GameTaskGroup)
-                and (
-                    daily_definition is None
-                    or daily_definition.capabilities.statistics
-                )
                 and (
                     scheduled_number_is_public(game, placement.number)
                     or may_open_unpublished_number(request.user)
                 )
-            )
-            else ''
+            ),
         ),
         **section_format_credit_context(game.id),
-        'daily_pager_aria_label': 'Переход между {}'.format(
-            daily_definition.pager_label if daily_definition is not None
-            else 'лесенками' if game.id == LADDER_GAME_ID
-            else 'салатиками' if game.id == WORD_SALAD_GAME_ID
-            else 'заданиями недели' if game.id == WEEK_TASK_GAME_ID
-            else 'кругами'
-        ),
         'ladder_offer': ladder_offer,
         'can_reset_ladder_offer': can_reset_offer,
         'ladder_offer_reset_url': offer_reset_url,
