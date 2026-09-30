@@ -97,6 +97,7 @@ breakpoints и границы legacy Bootstrap. Новый UI не должен 
 - `games/daily/share.py` — adapter dispatch для share-card payload;
 - `games/daily/results.py` — adapter contract для aggregate/task results;
 - `games/daily/projection.py` — registry-driven scorer adapter version;
+- `games/daily/progress_reset.py` — registry-driven recheck adapter selection;
 - `games/daily/statistics.py` — adapter dispatch для агрегированной статистики;
 - `games/daily/completion.py` — registry-backed adapter для replay-safe timing и
   analytics effects;
