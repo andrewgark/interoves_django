@@ -5,14 +5,15 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Optional
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 import requests
 
 WIKI_API = 'https://ru.wikipedia.org/w/api.php'
 USER_AGENT = 'InterovesCensorly/1.0 (https://interoves.com; game puzzle generator)'
 MIN_BODY_CHARS = 400
-MAX_BODY_CHARS = 80_000
+# Keep payloads playable: full extracts create 20k+ DOM nodes / multi‑MB JSON.
+MAX_BODY_CHARS = 12_000
 
 
 class WikiFetchError(Exception):
@@ -27,6 +28,12 @@ class WikiArticle:
 
 
 _TITLE_FROM_PATH = re.compile(r'^/wiki/([^?#]+)$')
+_DISAMBIG_MARKERS = (
+    'многозначный термин',
+    'может означать',
+    'может относиться',
+    'список значений',
+)
 
 
 def title_from_user_input(raw: str) -> str:
@@ -37,10 +44,30 @@ def title_from_user_input(raw: str) -> str:
     if 'wikipedia.org' in text or text.startswith('http://') or text.startswith('https://'):
         parsed = urlparse(text)
         m = _TITLE_FROM_PATH.match(parsed.path or '')
-        if not m:
-            raise WikiFetchError('Не удалось разобрать URL Википедии')
-        return unquote(m.group(1).replace('_', ' '))
+        if m:
+            return unquote(m.group(1).replace('_', ' '))
+        qs = parse_qs(parsed.query or '')
+        if qs.get('title'):
+            return unquote(qs['title'][0].replace('_', ' '))
+        raise WikiFetchError('Не удалось разобрать URL Википедии')
     return text
+
+
+def _looks_like_disambiguation(extract: str) -> bool:
+    head = (extract or '')[:400].lower().replace('ё', 'е')
+    return any(marker in head for marker in _DISAMBIG_MARKERS)
+
+
+def _trim_extract(extract: str) -> str:
+    if len(extract) <= MAX_BODY_CHARS:
+        return extract
+    cut = extract[:MAX_BODY_CHARS]
+    # Prefer ending on a paragraph boundary so we don't mid-word truncate.
+    for sep in ('\n\n', '\n', '. '):
+        idx = cut.rfind(sep)
+        if idx >= MIN_BODY_CHARS:
+            return cut[: idx + len(sep)].rstrip()
+    return cut.rstrip()
 
 
 def fetch_article(title: str, *, session: Optional[requests.Session] = None) -> WikiArticle:
@@ -50,7 +77,8 @@ def fetch_article(title: str, *, session: Optional[requests.Session] = None) -> 
     params = {
         'action': 'query',
         'format': 'json',
-        'prop': 'extracts|info',
+        'prop': 'extracts|info|pageprops',
+        'ppprop': 'disambiguation',
         'explaintext': 1,
         'exsectionformat': 'plain',
         'redirects': 1,
@@ -79,15 +107,14 @@ def fetch_article(title: str, *, session: Optional[requests.Session] = None) -> 
         raise WikiFetchError('Статья не найдена')
     extract = (page.get('extract') or '').strip()
     resolved_title = (page.get('title') or title).strip()
-    if page.get('pageprops', {}).get('disambiguation') is not None:
+    pageprops = page.get('pageprops') or {}
+    if 'disambiguation' in pageprops:
         raise WikiFetchError('Это страница неоднозначности')
-    # Heuristic: disambiguation pages often start with «… — многозначный термин»
-    if 'может означать' in extract[:200].lower() and len(extract) < 2000:
+    if _looks_like_disambiguation(extract):
         raise WikiFetchError('Похоже на страницу неоднозначности')
     if len(extract) < MIN_BODY_CHARS:
         raise WikiFetchError('Статья слишком короткая')
-    if len(extract) > MAX_BODY_CHARS:
-        extract = extract[:MAX_BODY_CHARS].rsplit('\n', 1)[0] or extract[:MAX_BODY_CHARS]
+    extract = _trim_extract(extract)
     return WikiArticle(
         title=resolved_title,
         pageid=int(page['pageid']),

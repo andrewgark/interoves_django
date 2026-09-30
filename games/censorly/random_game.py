@@ -9,7 +9,7 @@ from django.db import IntegrityError, transaction
 
 from games.censorly import CENSORLY_CHECKER_ID, CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
 from games.censorly.article_pool import load_article_pool
-from games.censorly.tokenize import build_puzzle_payload
+from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
 from games.censorly.wiki import WikiArticle, WikiFetchError, fetch_article, title_from_user_input
 from games.models import CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
 from games.placement_share import allocate_share_hash
@@ -42,6 +42,8 @@ def _create_from_article(article: WikiArticle, *, game: Game | None = None) -> R
         body_text=article.extract,
         wiki_pageid=article.pageid,
     )
+    if not title_content_lemmas(puzzle):
+        raise WikiFetchError('В названии нет угадываемых слов')
     checker = CheckerType.objects.get(pk=CENSORLY_CHECKER_ID)
     with transaction.atomic():
         existing = (
@@ -117,11 +119,19 @@ def get_or_create_random_game(*, max_attempts: int = 12) -> RandomCensorlyGame:
     for title in available[:max_attempts]:
         try:
             article = fetch_article(title)
-            return _create_from_article(article, game=game)
         except WikiFetchError as exc:
             errors.append(f'{title}: {exc}')
             continue
+        try:
+            return _create_from_article(article, game=game)
         except IntegrityError:
+            existing = (
+                RandomCensorlyGame.objects.filter(wiki_title=article.title)
+                .select_related('task_group')
+                .first()
+            )
+            if existing is not None:
+                return existing
             existing = (
                 RandomCensorlyGame.objects.filter(wiki_title=title)
                 .select_related('task_group')

@@ -26,8 +26,14 @@ def lemma_of(word: str) -> str:
         return n
 
 
-def is_cyrillic_word(word: str) -> bool:
+def is_guessable_word(word: str) -> bool:
+    """One token: Cyrillic and/or Latin letters, digits, hyphens."""
     n = normalize_surface(word)
     if not n:
         return False
-    return bool(re.fullmatch(r'[а-я0-9\-]+', n))
+    return bool(re.fullmatch(r'[a-zа-я0-9\-]+', n))
+
+
+# Back-compat alias used by older call sites / tests.
+def is_cyrillic_word(word: str) -> bool:
+    return is_guessable_word(word)

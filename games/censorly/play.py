@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 from typing import Any, Optional
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from games.censorly import CENSORLY_TAGS_KEY
-from games.censorly.normalize import is_cyrillic_word, lemma_of, normalize_surface
+from games.censorly.normalize import is_guessable_word, lemma_of, normalize_surface
 from games.censorly.redact import (
     build_public_view,
     count_hits,
@@ -185,11 +185,11 @@ def apply_guess(
         }
 
     normalized = normalize_surface(word)
-    if not normalized or not is_cyrillic_word(normalized):
+    if not normalized or not is_guessable_word(normalized):
         state = _read_actor_state(game=game, task=task, actor=actor)
         out = public_payload(state, payload)
         out['status'] = 'invalid'
-        out['error'] = 'Введите русское слово'
+        out['error'] = 'Введите одно слово (буквы/цифры)'
         return out
 
     guess_lemma = lemma_of(normalized)
@@ -208,23 +208,17 @@ def apply_guess(
         return out
 
     matched = lemmas_matching_guess(payload, guess_lemma, normalized)
-    hits = 0
-    newly: list[int] = []
-    primary_lemma = ''
-    if matched:
-        # Prefer the guess lemma if it matched; else first hit.
-        primary_lemma = guess_lemma if guess_lemma in matched else next(iter(matched))
-        for lem in matched:
-            hits += count_hits(payload, lem)
-            newly.extend(newly_revealed_ids(payload, lem))
 
-    ChainTaskState.objects.get_or_create(
-        task=task,
-        game=game,
-        game_mode='general',
-        defaults={'state': dump_state(default_state())},
-        **actor,
-    )
+    try:
+        ChainTaskState.objects.get_or_create(
+            task=task,
+            game=game,
+            game_mode='general',
+            defaults={'state': dump_state(default_state())},
+            **actor,
+        )
+    except IntegrityError:
+        pass
     row = ChainTaskState.objects.select_for_update().get(
         task=task,
         game=game,
@@ -242,8 +236,20 @@ def apply_guess(
         out['error'] = 'Это слово уже вводили'
         return out
 
-    revealed = set(state.get('revealed_lemmas') or [])
-    revealed |= matched
+    already_revealed = set(state.get('revealed_lemmas') or [])
+    new_matched = matched - already_revealed
+    hits = 0
+    newly: list[int] = []
+    primary_lemma = ''
+    if new_matched:
+        primary_lemma = guess_lemma if guess_lemma in new_matched else next(iter(new_matched))
+        for lem in new_matched:
+            hits += count_hits(payload, lem)
+            newly.extend(newly_revealed_ids(payload, lem))
+    elif matched:
+        primary_lemma = guess_lemma if guess_lemma in matched else next(iter(matched))
+
+    revealed = already_revealed | new_matched
     state['revealed_lemmas'] = sorted(revealed)
     state['guesses'] = list(state.get('guesses') or []) + [{
         'word': normalized,
@@ -275,6 +281,8 @@ def apply_guess(
         out['status'] = 'won'
     elif hits:
         out['status'] = 'hit'
+    elif matched:
+        out['status'] = 'already_open'
     else:
         out['status'] = 'miss'
     out['hits'] = hits

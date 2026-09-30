@@ -121,6 +121,7 @@
     var guessUrl = root.getAttribute('data-guess-url') || bootstrap.guess_url;
     var form = root.querySelector('#censorly-form');
     var input = root.querySelector('#censorly-word');
+    var submit = root.querySelector('#censorly-submit');
     var busy = false;
 
     applyState(root, bootstrap.state || {});
@@ -132,6 +133,7 @@
       var word = (input.value || '').trim();
       if (!word) return;
       busy = true;
+      if (submit) submit.disabled = true;
       setFeedback(root, '');
       fetch(guessUrl, {
         method: 'POST',
@@ -143,7 +145,17 @@
         body: JSON.stringify({ word: word }),
       })
         .then(function (res) {
-          return res.json().then(function (data) {
+          return res.text().then(function (text) {
+            var data = null;
+            try {
+              data = text ? JSON.parse(text) : {};
+            } catch (err) {
+              data = null;
+            }
+            if (!data) {
+              var clean = (text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+              throw new Error(clean.slice(0, 240) || ('HTTP ' + res.status));
+            }
             return { ok: res.ok, data: data };
           });
         })
@@ -154,6 +166,8 @@
             setFeedback(root, 'Найдено: ' + (data.hits || 0), 'ok');
           } else if (data.status === 'miss') {
             setFeedback(root, 'Нет в тексте', 'error');
+          } else if (data.status === 'already_open') {
+            setFeedback(root, 'Уже открыто', 'ok');
           } else if (data.status === 'won') {
             setFeedback(root, 'Название открыто: ' + (data.wiki_title || ''), 'ok');
           } else if (data.status === 'duplicate') {
@@ -168,11 +182,15 @@
             input.focus();
           }
         })
-        .catch(function () {
-          setFeedback(root, 'Сеть недоступна', 'error');
+        .catch(function (err) {
+          setFeedback(root, (err && err.message) || 'Не удалось отправить', 'error');
         })
         .finally(function () {
           busy = false;
+          if (submit && !(bootstrap.state && bootstrap.state.won)) {
+            var wonEl = root.querySelector('#censorly-won');
+            if (!wonEl || wonEl.hidden) submit.disabled = false;
+          }
         });
     });
   }

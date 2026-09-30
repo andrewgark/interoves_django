@@ -179,6 +179,55 @@ class CensorlyPuzzleStorageTests(TestCase):
         self.assertEqual(len(loaded['title_tokens']), len(puzzle['title_tokens']))
 
 
+class CensorlyWikiHelperTests(TestCase):
+    def test_parse_index_php_title_url(self):
+        from games.censorly.wiki import title_from_user_input
+        title = title_from_user_input(
+            'https://ru.wikipedia.org/w/index.php?title=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0'
+        )
+        self.assertEqual(title, 'Москва')
+
+    def test_disambiguation_heuristic(self):
+        from games.censorly.wiki import _looks_like_disambiguation
+        self.assertTrue(_looks_like_disambiguation(
+            'Москва — многозначный термин. Существует несколько значений.'
+        ))
+        self.assertFalse(_looks_like_disambiguation(
+            'Москва — столица России. Город на Москве-реке.'
+        ))
+
+    def test_trim_extract_caps_size(self):
+        from games.censorly.wiki import MAX_BODY_CHARS, _trim_extract
+        big = ('абзац текста. ' * 5000)
+        trimmed = _trim_extract(big)
+        self.assertLessEqual(len(trimmed), MAX_BODY_CHARS)
+
+
+class CensorlyLatinGuessTests(TestCase):
+    def test_latin_title_word_is_guessable(self):
+        game, task, _h, _p = _make_puzzle_task(
+            title='USB',
+            body='USB — стандарт передачи данных. Кабель USB удобен.',
+        )
+        user = User.objects.create_user('cz_latin', password='x')
+        result = apply_guess(game=game, task=task, word='usb', user=user)
+        self.assertEqual(result['status'], 'won')
+
+    def test_already_open_lemma_does_not_recount_hits(self):
+        game, task, _h, _p = _make_puzzle_task(
+            title='Чёрный кот',
+            body='Кот и коты сидят. Чёрный цвет популярен.',
+        )
+        user = User.objects.create_user('cz_open', password='x')
+        a = apply_guess(game=game, task=task, word='кот', user=user)
+        self.assertEqual(a['status'], 'hit')
+        self.assertGreater(a['hits'], 0)
+        b = apply_guess(game=game, task=task, word='коты', user=user)
+        self.assertEqual(b['status'], 'already_open')
+        self.assertEqual(b['hits'], 0)
+        self.assertFalse(b['won'])
+
+
 class CensorlySupportViewTests(TestCase):
     def setUp(self):
         Project.objects.get_or_create(id='sections')
