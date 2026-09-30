@@ -107,7 +107,7 @@ class Command(BaseCommand):
             raise CommandError('wall checker must have at least two categories')
         return categories
 
-    def _create_pair(self, task, game, team, marker, same_category):
+    def _create_pair(self, task, game, team, marker, same_category, distinct_actors=False):
         categories = self._categories(task)
         first_category = categories[0]
         second_category = first_category if same_category else categories[1]
@@ -128,6 +128,7 @@ class Command(BaseCommand):
                 points=0,
                 state='{}',
                 skip=False,
+                anon_key='{}-actor-{}'.format(marker, index) if distinct_actors else None,
             )
             created.append(row)
         Attempt.manager.filter(pk=created[0].pk).update(time=timezone.now() - timedelta(seconds=2))
@@ -175,7 +176,9 @@ class Command(BaseCommand):
         return {'name': 'different_category_reject_late_accept_early', 'checks': checks, 'jobs': jobs}
 
     def _bulk_one_job(self, task, game, team, marker, wait_seconds):
-        first, second = self._create_pair(task, game, team, marker + '-bulk', False)
+        first, second = self._create_pair(
+            task, game, team, marker + '-bulk', False, distinct_actors=True,
+        )
         receipt = accept_pending_attempts([first.pk, second.pk], return_receipt=True)
         jobs = self._new_jobs(receipt)
         checks = {
