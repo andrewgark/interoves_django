@@ -60,7 +60,7 @@ def serialize_enqueue_result(result):
             'status': job.status,
             'task_id': job.task_id,
             'game_id': job.game_id,
-            'total_items': job.total_actors,
+            'total_items': WordSaladRecheckItem.objects.filter(job=job).count(),
             'new_items': len(result.new_item_ids),
             'existing_items': len(result.existing_item_ids),
         }],
@@ -220,19 +220,20 @@ def enqueue_word_salad_recheck(
         task=task, game=game, task_revision=task.attempt_revision,
         pending_resolution=pending_resolution or {},
         status=WordSaladRecheckJob.STATUS_PENDING,
-        total_actors=len(actors) + (1 if include_dictionary_scan else 0),
+        total_actors=len(actors),
         next_attempt_at=now,
     )
-    items = [
-        WordSaladRecheckItem(
-            job=job, actor_key=_actor_key(actor), team_id=actor[0], user_id=actor[1],
-            anon_key=actor[2], replay_slot_id=actor[3], next_attempt_at=now,
-        ) for actor in actors
-    ]
+    items = []
     if include_dictionary_scan:
         items.append(WordSaladRecheckItem(
             job=job, actor_key=DICTIONARY_SCAN_ACTOR_KEY, next_attempt_at=now,
         ))
+    items.extend([
+        WordSaladRecheckItem(
+            job=job, actor_key=_actor_key(actor), team_id=actor[0], user_id=actor[1],
+            anon_key=actor[2], replay_slot_id=actor[3], next_attempt_at=now,
+        ) for actor in actors
+    ])
     WordSaladRecheckItem.objects.bulk_create(items)
     WordSaladRecheckOutbox.objects.bulk_create([
         WordSaladRecheckOutbox(item=item, task_revision=job.task_revision)
@@ -700,18 +701,20 @@ def _process_claimed_item(job, item, item_token):
                      completed_at=now, claimed_until=None, claim_token=None, updated_at=now)
             if not updated:
                 return 'lease_lost'
+            job_update = {
+                'credited_attempts': F('credited_attempts') + credited,
+                'last_error': '',
+                'status': WordSaladRecheckJob.STATUS_PENDING,
+                'next_attempt_at': now,
+                'claimed_until': None,
+                'claim_token': None,
+                'updated_at': now,
+            }
+            if not is_dictionary_scan:
+                job_update['completed_actors'] = F('completed_actors') + 1
             WordSaladRecheckJob.objects.filter(
                 pk=job.pk, status=WordSaladRecheckJob.STATUS_RUNNING, claim_token=job.claim_token,
-            ).update(
-                completed_actors=F('completed_actors') + 1,
-                credited_attempts=F('credited_attempts') + credited,
-                last_error='',
-                status=WordSaladRecheckJob.STATUS_PENDING,
-                next_attempt_at=now,
-                claimed_until=None,
-                claim_token=None,
-                updated_at=now,
-            )
+            ).update(**job_update)
             if not WordSaladRecheckItem.objects.filter(job_id=job.pk).exclude(
                 status__in=(WordSaladRecheckItem.STATUS_COMPLETED, WordSaladRecheckItem.STATUS_SUPERSEDED),
             ).exists():

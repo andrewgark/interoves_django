@@ -23,6 +23,7 @@ from games.word_salad import (
     format_words_text,
     parse_task_payload,
     serialize_task_data,
+    task_data_signature,
     validate_puzzle,
 )
 from games.word_salad_daily import (
@@ -510,7 +511,7 @@ def update_word_salad(
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
     checker_data = _validated_checker_data(grid_text, words_text, rare_words_text)
-    previous_checker_data = task.checker_data
+    previous_signature = task_data_signature(task.checker_data, task.answer)
     task.text = intro or ''
     task.checker_data = checker_data
     task.answer = ''
@@ -526,7 +527,7 @@ def update_word_salad(
     # below rebuilds actor projections after the new payload is committed.
     recheck_job = None
     queue_receipt = None
-    if previous_checker_data != checker_data:
+    if previous_signature != task_data_signature(checker_data):
         from games.word_salad_recheck import (
             enqueue_word_salad_recheck,
             serialize_enqueue_result,

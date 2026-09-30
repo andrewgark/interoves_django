@@ -4,13 +4,14 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser, User
+from django.contrib.admin import site
 from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.utils import timezone
 
 from games.analytics_identity import attach_anon_cookie
 
 from games.check import CheckerFactory
-from games.admin import WordSaladTaskForm
+from games.admin import TaskAdmin, WordSaladTaskForm
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -119,6 +120,28 @@ class WordSaladTests(TestCase):
         game.save()
         game.refresh_from_db()
         self.assertFalse(game.is_tournament)
+
+    def test_admin_save_enqueues_salad_recheck_with_dictionary_scan(self):
+        salad, _ = Game.objects.get_or_create(
+            id='salad',
+            defaults={
+                'name': 'Салатик', 'author': 'test', 'author_extra': '',
+                'project_id': 'sections', 'is_ready': True,
+            },
+        )
+        GameTaskGroup.objects.create(
+            game=salad, task_group=self.tg, number='1', name='Салатик',
+        )
+        self.task.checker_data = serialize_task_data(
+            _puzzle()['grid'], ['ABCDEFGHIJKLMNOP', 'ABCD'], ['ABCD'],
+        )
+        request = RequestFactory().post('/admin/games/task/{}/change/'.format(self.task.pk))
+        with patch('games.word_salad_recheck.enqueue_word_salad_recheck') as enqueue:
+            TaskAdmin(Task, site).save_model(request, self.task, SimpleNamespace(), change=True)
+
+        enqueue.assert_called_once_with(
+            task=self.task, game=salad, include_dictionary_scan=True,
+        )
 
     def test_validate_task_data_accepts_puzzle(self):
         grid, words = validate_task_data(self.task.checker_data, '')

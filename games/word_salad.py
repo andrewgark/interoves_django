@@ -16,6 +16,7 @@ WORD_SALAD_GAME_ID = 'salad'
 WORD_POINTS = Decimal('1')
 HINT_PENALTY = Decimal('0.5')
 EXTRA_MIN_LENGTH = 4
+LONGEST_MISSING_CANDIDATES_LIMIT = 20
 EXTRA_NOT_FOUND_COMMENT = 'Слово не найдено'
 EXTRA_FOUND_COMMENT = 'Находка не по теме'
 RARE_FOUND_COMMENT = 'Редкая находка'
@@ -362,27 +363,26 @@ def _extra_word_trie():
 
 
 @lru_cache(maxsize=256)
-def longest_dictionary_words(grid, excluded=(), limit=5):
+def longest_dictionary_words(grid, excluded=(), limit=LONGEST_MISSING_CANDIDATES_LIMIT):
     """Return the longest dictionary words that can be traced in a salad grid."""
     grid = tuple(grid)
     excluded = frozenset(excluded)
     found = set()
 
-    def visit(index, node, used, written):
+    def visit(index, node, used):
         next_node = node.get(grid[index])
         if next_node is None:
             return
-        written += grid[index]
         word = next_node.get(None)
         if word is not None and word not in excluded:
             found.add(word)
         used = used | {index}
         for other in neighbours(index):
             if other not in used:
-                visit(other, next_node, used, written)
+                visit(other, next_node, used)
 
     for index in range(len(grid)):
-        visit(index, _extra_word_trie(), set(), '')
+        visit(index, _extra_word_trie(), set())
     return tuple(sorted(found, key=lambda word: (-len(word), word))[:limit])
 
 
@@ -604,6 +604,19 @@ def serialize_task_data(grid_value, words_value, rare_words_value=None):
     return json.dumps(payload, ensure_ascii=False)
 
 
+def task_data_signature(checker_data, answer=''):
+    """Return puzzle semantics without derived metadata fields."""
+    try:
+        grid, words, rare_words = parse_task_payload(checker_data, answer)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return (checker_data or '',)
+    return (
+        tuple(grid),
+        tuple(normalize_word(word) for word in words),
+        tuple(normalize_word(word) for word in rare_words),
+    )
+
+
 def add_longest_missing_words(checker_data):
     """Add the saved dictionary snapshot to an already validated puzzle."""
     data = json.loads(checker_data or '{}')
@@ -611,6 +624,7 @@ def add_longest_missing_words(checker_data):
     data['longest_missing_words'] = list(longest_dictionary_words(
         tuple(grid),
         tuple(normalize_word(word) for word in words + rare_words),
+        limit=LONGEST_MISSING_CANDIDATES_LIMIT,
     ))
     return json.dumps(data, ensure_ascii=False)
 

@@ -188,6 +188,8 @@ class WordSaladRecheckQueueTests(TestCase):
         job.refresh_from_db()
         self.task.refresh_from_db()
         self.assertEqual(job.status, WordSaladRecheckJob.STATUS_COMPLETED)
+        self.assertEqual(job.total_actors, 0)
+        self.assertEqual(job.completed_actors, 0)
         self.assertIn('longest_missing_words', json.loads(self.task.checker_data))
 
     def test_successful_retry_clears_stale_errors(self):

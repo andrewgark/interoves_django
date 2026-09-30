@@ -144,6 +144,29 @@ class WordSaladSupportTests(TestCase):
                 self.assertEqual(task.checker_data, original_checker_data)
                 self.assertEqual(task.text, '')
 
+    def test_repeating_same_puzzle_does_not_enqueue_another_recheck(self):
+        with patch('games.views.track.track_task_change'):
+            detail = create_word_salad()
+            update_word_salad(
+                detail['link_id'],
+                intro='Тема: реки',
+                grid_text='A B C D\nH G F E\nI J K L\nP O N M',
+                words_text='ABCDEFGHIJKLMNOP',
+                rare_words_text='ABCD',
+            )
+
+        from games.models import WordSaladRecheckJob
+
+        self.assertEqual(WordSaladRecheckJob.objects.count(), 1)
+        update_word_salad(
+            detail['link_id'],
+            intro='Тема: реки',
+            grid_text='A B C D\nH G F E\nI J K L\nP O N M',
+            words_text='ABCDEFGHIJKLMNOP',
+            rare_words_text='ABCD',
+        )
+        self.assertEqual(WordSaladRecheckJob.objects.count(), 1)
+
     def test_reorder_keeps_ids_and_updates_default_titles(self):
         with patch('games.views.track.track_task_change'):
             first = create_word_salad()

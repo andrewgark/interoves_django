@@ -1379,6 +1379,14 @@ class TaskAdmin(admin.ModelAdmin):
         return form
 
     def save_model(self, request, obj, form, change):
+        previous_signature = None
+        if obj.task_type == 'word_salad' and obj.pk:
+            previous = Task.objects.filter(pk=obj.pk).values('checker_data', 'answer').first()
+            if previous:
+                from games.word_salad import task_data_signature
+                previous_signature = task_data_signature(
+                    previous['checker_data'], previous['answer'],
+                )
         if obj.task_type == 'raddle':
             from games.raddle import validate_raddle_checker_data
             errors = validate_raddle_checker_data(obj.checker_data, obj.answer)
@@ -1387,6 +1395,15 @@ class TaskAdmin(admin.ModelAdmin):
                     messages.error(request, 'Raddle: {}'.format(err))
                 return
         super(TaskAdmin, self).save_model(request, obj, form, change)
+        if obj.task_type == 'word_salad' and obj.task_group is not None:
+            from games.word_salad import task_data_signature
+            current_signature = task_data_signature(obj.checker_data, obj.answer)
+            if previous_signature != current_signature:
+                from games.word_salad_recheck import enqueue_word_salad_recheck
+                for link in obj.task_group.game_links.filter(game_id='salad').select_related('game'):
+                    enqueue_word_salad_recheck(
+                        task=obj, game=link.game, include_dictionary_scan=True,
+                    )
 
 
 def confirm_profile_team_request(modeladmin, request, queryset):

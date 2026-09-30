@@ -140,11 +140,14 @@ class DailyStatisticsTests(TestCase):
         checker, _ = CheckerType.objects.get_or_create(pk='word_salad')
         task = Task.objects.create(
             task_group=tg, number='1', task_type='word_salad', checker=checker,
-            checker_data=json.dumps({'grid': list('ABCDEFGHIJKLMNOP'), 'words': ['ABCD', 'EFGH']}),
+            checker_data=json.dumps({
+                'grid': list('ABCDEFGHIJKLMNOP'), 'words': ['ABCD', 'EFGH'],
+                'longest_missing_words': ['ДЛИННОЕ', 'СЛЕДУЮЩЕЕ'],
+            }),
         )
         for user, state in zip(self.users[:2], (
             {'solved_indices': [0, 1], 'hint_counts': {}, 'found_extra': [], 'found_rare_words': []},
-            {'solved_indices': [0, 1], 'hint_counts': {'1': 1}, 'found_extra': ['ИГРА'], 'found_rare_words': []},
+            {'solved_indices': [0, 1], 'hint_counts': {'1': 1}, 'found_extra': ['ДЛИННОЕ'], 'found_rare_words': []},
         )):
             Attempt.manager.create(
                 user=user, game=game, task=task, text=json.dumps({'action': 'solve', 'path': [0]}),
@@ -161,8 +164,8 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(data['words'][1]['hint_percent'], 50.0)
         self.assertEqual(data['off_topic'][0]['players'], 1)
         self.assertEqual(data['popular_findings'], [])
-        self.assertEqual(data['long_found'][0]['kind'], 'answer')
-        self.assertIn('long_missing', data)
+        self.assertEqual({row['kind'] for row in data['long_found']}, {'answer', 'extra'})
+        self.assertEqual([row['word'] for row in data['long_missing']], ['СЛЕДУЮЩЕЕ'])
 
     def test_ladder_uses_success_order_and_active_intervals(self):
         game = Game.objects.filter(id='ladder', project=self.project).first()
