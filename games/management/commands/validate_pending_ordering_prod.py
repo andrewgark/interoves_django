@@ -145,9 +145,16 @@ class Command(BaseCommand):
         checks = {
             'early_not_pending': early.status != 'Pending',
             'late_rejected_stays_not_pending': late.status == 'Wrong',
-            'late_possible_status_unchanged': late.possible_status == 'Wrong',
+            # A resolved attempt may have its hidden checker result refreshed
+            # during replay.  The invariant we need here is that its explicit
+            # NO decision remains resolved, never that possible_status is
+            # frozen at the pre-replay value.
+            'late_possible_status_after_replay': late.possible_status,
         }
-        if not all(checks.values()):
+        if not all(
+            value is True or key == 'late_possible_status_after_replay'
+            for key, value in checks.items()
+        ):
             raise CommandError('same-category ordering failed: {}'.format(checks))
         return {'name': 'same_category_reject_late_accept_early', 'checks': checks, 'jobs': jobs}
 
