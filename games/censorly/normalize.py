@@ -13,7 +13,7 @@ _WORD_RE = re.compile(r'[A-Za-zА-Яа-яЁё0-9]+', re.UNICODE)
 # Single letters and irregular leftovers (ек, л, …) are intentionally excluded.
 _HINT_ENDINGS = frozenset({
     # adjectives / participles
-    'ого', 'его', 'ому', 'ему', 'ыми', 'ими',
+    'ого', 'его', 'ому', 'ему', 'ыми', 'ими', 'ми',
     'ых', 'их', 'ая', 'яя', 'ое', 'ее', 'ые', 'ие',
     'ую', 'юю', 'ой', 'ый', 'ий', 'ей',
     'ом', 'ем', 'ым', 'им',
