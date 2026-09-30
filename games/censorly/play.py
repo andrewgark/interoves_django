@@ -452,6 +452,7 @@ def apply_guess(
         attempt.active_time_ms = active_time_ms_for_attempt(
             game=game, task_group=task.task_group,
             user=actor.get('user'), anon_key=actor.get('anon_key'),
+            replay_slot=actor.get('replay_slot'),
             now=attempt.time,
         )
     attempt.save()
@@ -551,6 +552,7 @@ def apply_hint(
         attempt.active_time_ms = active_time_ms_for_attempt(
             game=game, task_group=task.task_group,
             user=actor.get('user'), anon_key=actor.get('anon_key'),
+            replay_slot=actor.get('replay_slot'),
             now=attempt.time,
         )
     attempt.save()
