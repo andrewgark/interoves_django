@@ -27,6 +27,15 @@ trap 'rm -rf "$workdir"' EXIT
 bundle="$workdir/interoves-green.zip"
 "$ROOT/scripts/prepare_eb_bundle.sh" "$ENV_NAME" "$bundle" 1
 
+if [[ "$DO_DEPLOY" == "1" ]]; then
+    # Green bundles intentionally skip EB-side collectstatic because the live
+    # instances do not have S3 write permissions. Publish the matching static
+    # sources explicitly before releasing the application bundle.
+    "$ROOT/scripts/publish_static.sh"
+else
+    echo "Skipping static publish (dry run)."
+fi
+
 sha="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf unknown)"
 label="app-green-${sha}-$(date -u +%Y%m%d%H%M%S)"
 if [[ "$DO_DEPLOY" == "0" ]]; then
