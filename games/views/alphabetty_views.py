@@ -38,6 +38,7 @@ from games.daily_archive import (
     build_daily_archive_context,
     build_daily_archive_items,
 )
+from games.daily.registry import get_daily_game
 from games.daily_section import MOSCOW
 from games.alphabetty.suggestions import suggest_word
 from games.alphabetty_daily import (
@@ -459,6 +460,7 @@ def alphabetty_play_page(request, number):
         anon_key=anon_key,
         placement=link if offer is None else None,
     )
+    daily_definition = get_daily_game(ALPHABETTY_GAME_ID)
     if offer is None and link is not None:
         page_title = task_group_page_title(game, link)
         bug_report_task_label = task_display_name(game, task, placement=link)
@@ -481,15 +483,21 @@ def alphabetty_play_page(request, number):
         'task_results_url': f'{play_path}results/',
         'can_see_results': offer is None and game.has_access('see_results', team=team),
         'daily_footer_enabled': True,
-        'daily_game_label': 'Алфавитка',
+        'daily_game_label': daily_definition.short_title if daily_definition else 'Алфавитка',
         'daily_results_url': f'{play_path}results/',
         'daily_results_allowed': offer is None and game.has_access('see_results', team=team),
         'daily_results_label': 'Таблица результатов',
         'daily_statistics_url': (
             f'/daily-statistics/{ALPHABETTY_GAME_ID}/{link.number}/'
-            if offer is None and link is not None and (
-                is_alphabetty_number_published(game, link.number)
-                or may_open_unpublished_number(request.user)
+            if (
+                daily_definition is not None
+                and daily_definition.capabilities.statistics
+                and offer is None
+                and link is not None
+                and (
+                    is_alphabetty_number_published(game, link.number)
+                    or may_open_unpublished_number(request.user)
+                )
             )
             else ''
         ),
@@ -499,7 +507,9 @@ def alphabetty_play_page(request, number):
         'replay_url': section_replay_path(ALPHABETTY_GAME_ID, play_number),
         'replay_exit_url': section_replay_path(ALPHABETTY_GAME_ID, play_number).rstrip('/') + '/exit/',
         **section_format_credit_context(ALPHABETTY_GAME_ID),
-        'daily_pager_aria_label': 'Переход между алфавитками',
+        'daily_pager_aria_label': 'Переход между {}'.format(
+            daily_definition.pager_label if daily_definition else 'алфавитками'
+        ),
         'show_sections_nav': True,
         'back_url': '/create_alphabetty/' if offer is not None else section_hub_path(ALPHABETTY_GAME_ID),
         'back_label': 'К списку',
