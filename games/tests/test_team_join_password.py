@@ -53,6 +53,19 @@ class JoinByPasswordTests(TestCase):
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.team_on_id, self.team.pk)
 
+    def test_visible_name_wins_over_another_team_stable_name(self):
+        Team.objects.create(
+            name='Bad Treap',
+            visible_name='Another Team',
+            join_password='00000000',
+        )
+        resp = self.client.get(
+            reverse('new_team_info'),
+            {'name': 'Bad Treap'},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['visible_name'], 'Bad Treap')
+
     def test_wrong_password_rejected(self):
         url = reverse('new_team_join_by_password')
         resp = self.client.post(

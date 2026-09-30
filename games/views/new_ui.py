@@ -4976,21 +4976,21 @@ def _team_name_key(value):
 
 
 def _find_team_by_input(value):
-    """Resolve a team by its stable name or normalized display name."""
+    """Resolve user input by display name first, then by stable name."""
     name = (value or '').strip()
-    team = Team.objects.filter(name=name).first()
-    if team:
-        return team
     key = _team_name_key(name)
     if not key:
         return None
-    return next(
+    display_team = next(
         (
             candidate for candidate in Team.objects.all().only('name', 'visible_name')
             if _team_name_key(candidate.visible_name or candidate.name) == key
         ),
         None,
     )
+    if display_team:
+        return display_team
+    return Team.objects.filter(name=name).first()
 
 
 def _team_display_name_taken(value, *, exclude_name=None):
