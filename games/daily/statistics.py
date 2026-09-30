@@ -2,7 +2,9 @@
 
 import json
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from statistics import mean, median
+from typing import Callable
 
 from django.core.cache import cache
 from django.db.models import Q
@@ -16,12 +18,35 @@ from games.word_salad import (
 )
 from games.alphabetty.core import normalize_word
 from games.alphabetty.play import hint_count as alphabetty_hint_count, load_state as load_alphabetty_state
+from games.daily.registry import DAILY_GAME_REGISTRY
 
 
 CACHE_VERSION = 11
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
+
+
+@dataclass(frozen=True)
+class DailyStatisticsAdapter:
+    """Dispatch entry for one daily game's aggregate statistics."""
+
+    key: str
+    build: Callable
+
+
+DAILY_STATISTICS_ADAPTERS = {}
+
+
+def get_daily_statistics_adapter(task_type):
+    """Return the registered statistics adapter for a task type."""
+    for definition in DAILY_GAME_REGISTRY.all():
+        if definition.task_type == task_type:
+            adapter = DAILY_STATISTICS_ADAPTERS.get(definition.statistics_adapter_key)
+            if adapter is None:
+                return None
+            return adapter
+    return None
 
 
 def cache_key(game_id, task_group_id):
@@ -366,19 +391,29 @@ def _alphabet(task, game, actors):
     return {'kind': 'alphabet', 'solved': len(actors), 'summary': {'solved': len(actors), 'median_attempts': _median(attempt_counts), 'without_hints_percent': _pct(no_hints, len(actors))}, 'distribution': histogram, 'guesses': popular_guesses}
 
 
+DAILY_STATISTICS_ADAPTERS.update({
+    'salad': DailyStatisticsAdapter('salad', _salad),
+    'ladder': DailyStatisticsAdapter('ladder', _ladder),
+    'alphabet': DailyStatisticsAdapter('alphabet', _alphabet),
+})
+
+
 def build_daily_statistics(game, task_group):
     cached = cache.get(cache_key(game.id, task_group.id))
     if cached is not None:
         return cached
     actors = _completed_actors(game, task_group)
-    task = Task.objects.filter(task_group=task_group, task_type__in=('raddle', 'word_salad', 'alphabetty')).order_by('id').first()
+    supported_task_types = tuple(
+        definition.task_type
+        for definition in DAILY_GAME_REGISTRY.all()
+        if definition.capabilities.statistics and definition.statistics_adapter_key
+    )
+    task = Task.objects.filter(task_group=task_group, task_type__in=supported_task_types).order_by('id').first()
     if task is None:
         return {'kind': None, 'solved': len(actors), 'summary': {'solved': len(actors)}}
-    if task.task_type == 'word_salad':
-        result = _salad(task, game, actors)
-    elif task.task_type == 'raddle':
-        result = _ladder(task, game, actors)
-    else:
-        result = _alphabet(task, game, actors)
+    adapter = get_daily_statistics_adapter(task.task_type)
+    if adapter is None:
+        return {'kind': None, 'solved': len(actors), 'summary': {'solved': len(actors)}}
+    result = adapter.build(task, game, actors)
     cache.set(cache_key(game.id, task_group.id), result, CACHE_TIMEOUT)
     return result

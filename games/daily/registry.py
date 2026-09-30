@@ -43,6 +43,7 @@ class DailyGameDefinition:
     task_results_variant: str = 'standard'
     board_adapter_key: str | None = None
     share_adapter_key: str | None = None
+    statistics_adapter_key: str | None = None
 
 
 class DailyGameRegistry:
@@ -88,6 +89,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         aggregate_results_variant='ladder',
         board_adapter_key='raddle',
         share_adapter_key='ladder',
+        statistics_adapter_key='ladder',
     ),
     DailyGameDefinition(
         game_id=ALPHABETTY_SCHEDULE.game_id,
@@ -98,6 +100,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         schedule=ALPHABETTY_SCHEDULE,
         aggregate_results_variant='alphabetty',
         task_results_variant='alphabetty',
+        statistics_adapter_key='alphabet',
     ),
     DailyGameDefinition(
         game_id=WORD_SALAD_SCHEDULE.game_id,
@@ -109,6 +112,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         task_results_variant='salad_words',
         board_adapter_key='word_salad',
         share_adapter_key='salad',
+        statistics_adapter_key='salad',
     ),
 ))
 
