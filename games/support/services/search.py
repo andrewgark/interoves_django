@@ -84,7 +84,7 @@ def search(query: str, *, limit: int = 25):
             add(SearchHit(
                 kind='team',
                 label=team.visible_name or team.name,
-                detail='Команда · {}'.format(team.name),
+                detail='Команда · {}'.format(team.visible_name or team.name),
                 url=_team_url(team.name),
             ))
 

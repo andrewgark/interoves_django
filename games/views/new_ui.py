@@ -5856,7 +5856,9 @@ def new_team_create(request, project_id=None):
     referer_name = (request.POST.get('referer') or '').strip()
     referer = None
     if referer_name:
-        referer = Team.objects.filter(name=referer_name, is_hidden=False).first()
+        referer = _find_team_by_input(referer_name)
+        if referer and referer.is_hidden:
+            referer = None
     team = Team(name=name, project=project, referer=referer)
     team.save()
     request.user.profile.add_team_membership(team, make_primary=_post_make_new_team_primary(request))

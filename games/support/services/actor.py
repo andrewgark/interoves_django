@@ -14,7 +14,7 @@ def build_team_context(team, *, feed_kwargs):
     return {
         'actor_kind': 'team',
         'actor_title': team.visible_name or team.name,
-        'actor_subtitle': 'Команда · {}'.format(team.name),
+        'actor_subtitle': 'Команда · {}'.format(team.visible_name or team.name),
         'team': team,
         'members': list(team.roster_profiles),
         'flags': _team_flags(team),

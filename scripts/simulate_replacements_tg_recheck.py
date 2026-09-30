@@ -35,7 +35,7 @@ def _actor_label(team, user, anon_key):
     if anon_key:
         return f'anon:{anon_key[:8]}…'
     if team:
-        return f'team:{team.pk} ({getattr(team, "visible_name", team.name)})'
+        return f'team:{team.pk} ({getattr(team, "visible_name", None) or team.name})'
     return 'unknown'
 
 

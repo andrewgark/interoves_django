@@ -187,7 +187,7 @@
         <label for="new-team-referer">Команда-реферер</label>
         <input id="new-team-referer" type="text" name="referer" list="new-team-referers" placeholder="Выберите (необязательно)">
         <datalist id="new-team-referers">
-          {% for t in teams %}<option value="{{ t.name }}">{{ t.visible_name }}</option>{% endfor %}
+          {% for t in teams %}<option value="{{ t.visible_name|default:t.name }}">{% endfor %}
         </datalist>
       </div>
     </form>
@@ -203,7 +203,7 @@
       <label for="new-team-join-name">Команда</label>
       <input id="new-team-join-name" type="text" name="name" list="new-team-list" placeholder="Начните вводить название команды" autocomplete="off">
       <datalist id="new-team-list">
-        {% for t in teams %}<option value="{{ t.name }}">{{ t.visible_name }}</option>{% endfor %}
+        {% for t in teams %}<option value="{{ t.visible_name|default:t.name }}">{% endfor %}
       </datalist>
       <p class="new-login-hint new-text-danger new-team-field-hint" data-join-pick-team-error hidden role="alert"></p>
       <div class="new-login-hint new-team-field-hint" data-join-info></div>
