@@ -5,7 +5,8 @@ import json
 
 def task_ui_descriptor(
     task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=None,
-    board_context_key=None,
+    board_context_key=None, body_template_override=None,
+    body_wrapper_override=None,
 ):
     body_templates = {
         'wall': 'task-content/task-wall.html',
@@ -19,7 +20,7 @@ def task_ui_descriptor(
         'with_tag': 'new/task-content/task-default.html',
         'distribute_to_teams': 'new/task-content/task-default.html',
     }
-    body_template = body_templates.get(task.task_type)
+    body_template = body_template_override or body_templates.get(task.task_type)
     body_error = ''
     if task.task_type == 'replacements_lines' and (not rld or not rld.get('n_lines')):
         body_template = None
@@ -45,16 +46,19 @@ def task_ui_descriptor(
         base_max = task.get_points()
     attempts_hidden = {'replacements_lines', 'alphabetty', 'word_salad'}
     answer_hidden = {'replacements_lines', 'raddle', 'alphabetty', 'word_salad'}
+    body_wrapper = task.task_type in {'wall', 'replacements_lines', 'raddle', 'word_salad'}
+    if body_wrapper_override is not None:
+        body_wrapper = body_wrapper_override
     return {
         'body_template': body_template,
         'body_error': body_error,
         'board_context_key': board_context_key,
-        'body_wrapper': task.task_type in {'wall', 'replacements_lines', 'raddle', 'word_salad'},
+        'body_wrapper': body_wrapper,
         'base_max': base_max,
         'max_points_title': wall_meta.get('title', '') if wall_meta else '',
         'show_attempts': task.task_type not in attempts_hidden,
         'show_answer': task.task_type not in answer_hidden,
-        'unsupported': task.task_type not in body_templates,
+        'unsupported': body_template is None,
         'unsupported_label': 'Не получилось показать это задание. Обновите страницу или напишите о проблеме.',
     }
 

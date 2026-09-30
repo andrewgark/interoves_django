@@ -23,6 +23,8 @@ class DailyBoardAdapter:
     build: Callable
     prepare: Callable
     context_key: str
+    body_template: str | None = None
+    body_wrapper: bool | None = None
 
 
 def build_word_salad_board_data(
@@ -229,12 +231,16 @@ DAILY_BOARD_ADAPTERS = {
             build_word_salad_board_data,
             prepare_word_salad_board_data,
             'word_salad',
+            'task-content/task-word-salad.html',
+            True,
         ),
         DailyBoardAdapter(
             'raddle',
             build_raddle_board_data,
             prepare_raddle_board_data,
             'raddle',
+            'task-content/task-raddle.html',
+            True,
         ),
     )
 }

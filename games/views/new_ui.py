@@ -2996,7 +2996,8 @@ def new_ladder_word_results_page(request, task_group_number):
 
 def _task_ui_descriptor(
     task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=None,
-    board_context_key=None,
+    board_context_key=None, body_template_override=None,
+    body_wrapper_override=None,
 ):
     """Compatibility wrapper for the task-card presentation contract."""
     return task_ui_descriptor(
@@ -3007,6 +3008,8 @@ def _task_ui_descriptor(
         ws=ws,
         gp=gp,
         board_context_key=board_context_key,
+        body_template_override=body_template_override,
+        body_wrapper_override=body_wrapper_override,
     )
 
 
@@ -3204,6 +3207,8 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             }
     raddle_data = {}
     daily_board_context_key_by_task_id = {}
+    daily_board_template_by_task_id = {}
+    daily_board_wrapper_by_task_id = {}
     board_data_by_context = {
         'word_salad': word_salad_data,
         'raddle': raddle_data,
@@ -3236,6 +3241,8 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
         if data is not None:
             board_data_by_context.setdefault(adapter.context_key, {})[t.id] = data
             daily_board_context_key_by_task_id[t.id] = adapter.context_key
+            daily_board_template_by_task_id[t.id] = adapter.body_template
+            daily_board_wrapper_by_task_id[t.id] = adapter.body_wrapper
     proportions_chips = []
     if task_group.view == 'proportions':
         proportions_chips = build_proportions_chips_for_tasks(tasks)
@@ -3253,6 +3260,8 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 ws=word_salad_data.get(t.id),
                 gp=grid_puzzle_data.get(t.id),
                 board_context_key=daily_board_context_key_by_task_id.get(t.id),
+                body_template_override=daily_board_template_by_task_id.get(t.id),
+                body_wrapper_override=daily_board_wrapper_by_task_id.get(t.id),
             ),
             'display_name': task_display_name(game, t, placement=placement),
             'wall': _wall_ui_context(t, attempts_info_by_task_id.get(t.id), mode),
