@@ -19,6 +19,7 @@ from games.forms import AttemptForm
 from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, Team, CHAIN_TASK_TYPES
 from games.replay import StaleReplayError, replay_for_request
 from games.completion_coordinator import complete_logical_game
+from games.daily.completion import daily_completion_effects
 from games.middleware.request_timing import timing_phase
 from games.analytics_identity import gameplay_anon_key
 from games.auth_observability import log_gameplay_attempt_created
@@ -759,21 +760,32 @@ def process_send_attempt(request, task_id):
             source='send_attempt',
         )
         if completion is not None:
-            if replay_slot is not None:
-                replay_available = False
-            else:
-                replay_available = True
-                daily_timing = completion['timing']
+            replay_available = replay_slot is None
+            if replay_available:
                 with timing_phase(request, 'analytics_completed'):
-                    analytics_events.extend(publish_completion_analytics(
-                        record=completion['record'],
-                        created=completion['created'],
-                        user=user,
-                        anon_key=anon_key,
-                        analytics_user=request.user if request.user.is_authenticated else None,
-                        game=game,
-                        task_group=task.task_group,
-                    ))
+                    effects = daily_completion_effects(
+                        completion,
+                        replay_slot=replay_slot,
+                        publish_analytics=publish_completion_analytics,
+                        analytics_kwargs={
+                            'record': completion['record'],
+                            'created': completion['created'],
+                            'user': user,
+                            'anon_key': anon_key,
+                            'analytics_user': request.user if request.user.is_authenticated else None,
+                            'game': game,
+                            'task_group': task.task_group,
+                        },
+                    )
+                daily_timing = effects['timing']
+            else:
+                effects = daily_completion_effects(
+                    completion,
+                    replay_slot=replay_slot,
+                    publish_analytics=publish_completion_analytics,
+                    analytics_kwargs={},
+                )
+            analytics_events.extend(effects['analytics_events'])
 
     with timing_phase(request, 'response_payload'):
         result = {
@@ -941,17 +953,23 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
             mode=current_mode,
             source='word_salad',
         )
-        if completion is not None and replay_slot is None:
-            replay_available = True
-            analytics_events.extend(publish_completion_analytics(
-                record=completion['record'],
-                created=completion['created'],
-                user=user,
-                anon_key=anon_key,
-                analytics_user=request.user if request.user.is_authenticated else None,
-                game=game,
-                task_group=task.task_group,
-            ))
+        if completion is not None:
+            replay_available = replay_slot is None
+            effects = daily_completion_effects(
+                completion,
+                replay_slot=replay_slot,
+                publish_analytics=publish_completion_analytics,
+                analytics_kwargs={
+                    'record': completion['record'],
+                    'created': completion['created'],
+                    'user': user,
+                    'anon_key': anon_key,
+                    'analytics_user': request.user if request.user.is_authenticated else None,
+                    'game': game,
+                    'task_group': task.task_group,
+                },
+            )
+            analytics_events.extend(effects['analytics_events'])
     if analytics_events:
         result['analytics_events'] = analytics_events
     if replay_available:

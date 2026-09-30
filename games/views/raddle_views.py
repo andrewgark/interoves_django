@@ -14,6 +14,7 @@ from games.analytics import (
     supported_game_kind,
 )
 from games.completion_coordinator import complete_logical_game
+from games.daily.completion import daily_completion_effects
 from games.exception import DuplicateAttemptException, NoGameAccessException
 from games.models import Attempt, ChainTaskState, RaddleUiState, Task
 from games.analytics_identity import gameplay_anon_key
@@ -201,18 +202,23 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
             source='raddle_assist',
         )
         if completion is not None:
-            if completion['timing']:
-                result['daily_timing'] = completion['timing']
-            if replay_slot is None:
-                analytics_events.extend(publish_completion_analytics(
-                    record=completion['record'],
-                    created=completion['created'],
-                    user=user,
-                    anon_key=anon_key,
-                    analytics_user=request.user if request.user.is_authenticated else None,
-                    game=game,
-                    task_group=task.task_group,
-                ))
+            effects = daily_completion_effects(
+                completion,
+                replay_slot=replay_slot,
+                publish_analytics=publish_completion_analytics,
+                analytics_kwargs={
+                    'record': completion['record'],
+                    'created': completion['created'],
+                    'user': user,
+                    'anon_key': anon_key,
+                    'analytics_user': request.user if request.user.is_authenticated else None,
+                    'game': game,
+                    'task_group': task.task_group,
+                },
+            )
+            if effects['timing']:
+                result['daily_timing'] = effects['timing']
+            analytics_events.extend(effects['analytics_events'])
     if analytics_events:
         result['analytics_events'] = analytics_events
     update_html = update_task_html(
