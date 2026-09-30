@@ -11,7 +11,7 @@ from django.db import OperationalError, transaction
 from django.db.models import F
 from django.utils import timezone
 
-from games.daily.registry import DAILY_GAME_REGISTRY
+from games.daily.registry import DAILY_GAME_REGISTRY, get_daily_game
 from games.daily.section import current_number_for, publish_at_for, schedule_for
 from games.models import (
     Attempt, ChainTaskState, DailyGameDifficulty, DailyResultProjection,
@@ -84,10 +84,18 @@ def _rebuild_chain(task, game, team, user, anon_key, replay_slot):
 
     kwargs = dict(task=task, game=game, team=team, user=user, anon_key=anon_key,
                   replay_slot=replay_slot, notify=False)
-    if task.task_type == 'word_salad':
+    definition = get_daily_game(getattr(game, 'id', None))
+    adapter_key = (
+        definition.recheck_adapter_key
+        if definition is not None and definition.recheck_adapter_key
+        else 'chain'
+    )
+    if adapter_key == 'word_salad':
         recheck_word_salad_actor(**kwargs)
-    else:
+    elif adapter_key == 'chain':
         recheck_chain_task(**kwargs)
+    else:
+        raise KeyError('unknown daily recheck adapter: {}'.format(adapter_key))
 
 
 def _has_postpublication_attempt(

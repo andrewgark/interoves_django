@@ -30,6 +30,7 @@ class DailyGameRegistryTests(TestCase):
         self.assertEqual(salad.statistics_adapter_key, 'salad')
         self.assertEqual(salad.results_adapter_key, 'salad')
         self.assertEqual(salad.projection_adapter_key, 'salad_state')
+        self.assertEqual(salad.recheck_adapter_key, 'word_salad')
         self.assertEqual(salad.schedule.game_id, salad.game_id)
         self.assertTrue(salad.capabilities.statistics)
 
