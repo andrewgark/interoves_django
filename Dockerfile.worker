@@ -1,12 +1,12 @@
-# Runtime image for non-browser workers (background, identity, recheck).
-# Integrations remains on its current EB image until a dedicated browser image
-# and Playwright smoke test are introduced.
+# Runtime image for background workers, including integrations that render
+# Telegram images with Playwright.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    DJANGO_SETTINGS_MODULE=interoves_django.settings
+    DJANGO_SETTINGS_MODULE=interoves_django.settings \
+    PLAYWRIGHT_BROWSERS_PATH=/home/app/.cache/ms-playwright
 
 WORKDIR /app
 
@@ -20,10 +20,16 @@ RUN apt-get update \
 COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Playwright's Python package does not include browser binaries. Install the
+# browser and its OS dependencies in the image so every runtime replica has
+# the executable expected by the installed package.
+RUN mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}" \
+    && python -m playwright install --with-deps chromium
+
 COPY . .
 
 RUN useradd --create-home --uid 10001 app \
-    && chown -R app:app /app
+    && chown -R app:app /app "${PLAYWRIGHT_BROWSERS_PATH}"
 USER app
 
 ENTRYPOINT ["python", "manage.py"]

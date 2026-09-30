@@ -45,6 +45,12 @@ class RecheckWorkerBundleConfigTests(unittest.TestCase):
         self.assertIn('python -m playwright install chromium', config)
         self.assertIn('python -m playwright install chromium &&', config)
 
+    def test_worker_image_contains_playwright_browser_for_integrations(self):
+        dockerfile = (ROOT / 'Dockerfile.worker').read_text()
+        self.assertIn('PLAYWRIGHT_BROWSERS_PATH=/home/app/.cache/ms-playwright', dockerfile)
+        self.assertIn('python -m playwright install --with-deps chromium', dockerfile)
+        self.assertIn('chown -R app:app /app "${PLAYWRIGHT_BROWSERS_PATH}"', dockerfile)
+
     def test_web_playwright_install_does_not_hide_install_failure(self):
         config = (ROOT / '.ebextensions' / 'playwright.config').read_text()
         install_line = next(
