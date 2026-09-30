@@ -85,6 +85,31 @@ breakpoints и границы legacy Bootstrap. Новый UI не должен 
 - после каждого шага запускать тесты затронутого домена и `manage.py check`;
 - перед merge сравнивать публичные URL, webhook и worker-контракты.
 
+## Daily-game contract: текущая точка и следующий цикл
+
+Подготовительный слой для следующей ежедневной игры уже начат:
+
+- `games/daily/registry.py` — identity, расписание, capabilities и варианты
+  results;
+- `games/daily/archive.py` — нейтральная модель элементов архива;
+- `games/daily/page_context.py` — общие labels, aria-навигация и statistics URL;
+- старые module paths остаются compatibility facades.
+
+Следующий цикл делать в таком порядке:
+
+1. Вынести из `new_task_group_page` только общий daily context, не перенося
+   игровой board payload и механику хода.
+2. Для новой игры сначала определить adapter-контракт по реальному аналогу:
+   state, ход, completion, UI payload, share card и results.
+3. Подключить одну существующую игру к adapter-контракту и покрыть его
+   contract-тестом.
+4. Добавить общий template shell с game-specific board block.
+5. Только после этого добавить новую игру через registry, adapter и board
+   template; общий lifecycle не должен получать новую ветку `if game.id`.
+
+Не следует заранее объединять разные results payload или share-card builder:
+их общая часть станет понятна после появления второго реального adapter.
+
 ## Первые задачи backlog
 
 1. Добавить минимальный статический baseline для изменяемых Python-файлов.
