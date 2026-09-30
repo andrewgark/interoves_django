@@ -39,6 +39,7 @@ from games.daily_archive import (
     build_daily_archive_items,
 )
 from games.daily.registry import get_daily_game
+from games.daily.page_context import build_daily_lifecycle_context
 from games.daily_section import MOSCOW
 from games.alphabetty.suggestions import suggest_word
 from games.alphabetty_daily import (
@@ -394,9 +395,12 @@ def alphabetty_play_page(request, number):
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
     link = load_meta.get('accepted_link') if load_meta else None
+    is_random = bool(load_meta.get('is_random')) if load_meta else False
     if offer is None:
         schedule_number = load_meta.get('schedule_number') if load_meta else None
-        if schedule_number is not None:
+        if is_random:
+            n = None
+        elif schedule_number is not None:
             n = schedule_number
         else:
             try:
@@ -467,6 +471,19 @@ def alphabetty_play_page(request, number):
     else:
         page_title = f'Алфавитка #{play_number}'
         bug_report_task_label = page_title
+    daily_lifecycle_context = build_daily_lifecycle_context(
+        ALPHABETTY_GAME_ID,
+        is_daily_single_task=True,
+        placement_number=link.number if link is not None else play_number,
+        placement_is_task_group=link is not None,
+        number_is_public=(
+            is_random
+            or (link is not None and is_alphabetty_number_published(game, link.number))
+        ),
+        allow_unpublished=may_open_unpublished_number(request.user),
+        fallback_label='Алфавитка',
+        fallback_pager_label='алфавитками',
+    )
     return render(request, 'new/alphabetty_play.html', {
         'game': game,
         'number': play_number,
@@ -482,34 +499,16 @@ def alphabetty_play_page(request, number):
         'section_results_url': section_results_path(ALPHABETTY_GAME_ID),
         'task_results_url': f'{play_path}results/',
         'can_see_results': offer is None and game.has_access('see_results', team=team),
-        'daily_footer_enabled': True,
-        'daily_game_label': daily_definition.short_title if daily_definition else 'Алфавитка',
         'daily_results_url': f'{play_path}results/',
         'daily_results_allowed': offer is None and game.has_access('see_results', team=team),
         'daily_results_label': 'Таблица результатов',
-        'daily_statistics_url': (
-            f'/daily-statistics/{ALPHABETTY_GAME_ID}/{link.number}/'
-            if (
-                daily_definition is not None
-                and daily_definition.capabilities.statistics
-                and offer is None
-                and link is not None
-                and (
-                    is_alphabetty_number_published(game, link.number)
-                    or may_open_unpublished_number(request.user)
-                )
-            )
-            else ''
-        ),
         'official_completed': official_completed,
         'replay_active': replay_slot is not None,
         'replay_completed': bool(replay_slot and replay_slot.status == 'completed'),
         'replay_url': section_replay_path(ALPHABETTY_GAME_ID, play_number),
         'replay_exit_url': section_replay_path(ALPHABETTY_GAME_ID, play_number).rstrip('/') + '/exit/',
         **section_format_credit_context(ALPHABETTY_GAME_ID),
-        'daily_pager_aria_label': 'Переход между {}'.format(
-            daily_definition.pager_label if daily_definition else 'алфавитками'
-        ),
+        **daily_lifecycle_context,
         'show_sections_nav': True,
         'back_url': '/create_alphabetty/' if offer is not None else section_hub_path(ALPHABETTY_GAME_ID),
         'back_label': 'К списку',
