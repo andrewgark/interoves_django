@@ -6,7 +6,8 @@ import json
 def task_ui_descriptor(
     task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=None,
     board_context_key=None, body_template_override=None,
-    body_wrapper_override=None,
+    body_wrapper_override=None, show_attempts_override=None,
+    show_answer_override=None,
 ):
     body_templates = {
         'wall': 'task-content/task-wall.html',
@@ -49,6 +50,12 @@ def task_ui_descriptor(
     body_wrapper = task.task_type in {'wall', 'replacements_lines', 'raddle', 'word_salad'}
     if body_wrapper_override is not None:
         body_wrapper = body_wrapper_override
+    show_attempts = task.task_type not in attempts_hidden
+    if show_attempts_override is not None:
+        show_attempts = show_attempts_override
+    show_answer = task.task_type not in answer_hidden
+    if show_answer_override is not None:
+        show_answer = show_answer_override
     return {
         'body_template': body_template,
         'body_error': body_error,
@@ -56,8 +63,8 @@ def task_ui_descriptor(
         'body_wrapper': body_wrapper,
         'base_max': base_max,
         'max_points_title': wall_meta.get('title', '') if wall_meta else '',
-        'show_attempts': task.task_type not in attempts_hidden,
-        'show_answer': task.task_type not in answer_hidden,
+        'show_attempts': show_attempts,
+        'show_answer': show_answer,
         'unsupported': body_template is None,
         'unsupported_label': 'Не получилось показать это задание. Обновите страницу или напишите о проблеме.',
     }

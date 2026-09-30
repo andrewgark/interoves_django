@@ -25,6 +25,8 @@ class DailyBoardAdapter:
     context_key: str
     body_template: str | None = None
     body_wrapper: bool | None = None
+    show_attempts: bool | None = None
+    show_answer: bool | None = None
 
 
 def build_word_salad_board_data(
@@ -233,6 +235,8 @@ DAILY_BOARD_ADAPTERS = {
             'word_salad',
             'task-content/task-word-salad.html',
             True,
+            False,
+            False,
         ),
         DailyBoardAdapter(
             'raddle',
@@ -241,6 +245,8 @@ DAILY_BOARD_ADAPTERS = {
             'raddle',
             'task-content/task-raddle.html',
             True,
+            True,
+            False,
         ),
     )
 }

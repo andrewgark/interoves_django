@@ -178,6 +178,19 @@ class RenderNewUiTaskCardTests(TestCase):
             'wall',
         )
 
+    def test_task_ui_descriptor_accepts_adapter_visibility_contract(self):
+        task = Task(task_type='future_daily', points=1)
+
+        descriptor = _task_ui_descriptor(
+            task,
+            body_template_override='new/task-content/task-default.html',
+            show_attempts_override=False,
+            show_answer_override=False,
+        )
+
+        self.assertFalse(descriptor['show_attempts'])
+        self.assertFalse(descriptor['show_answer'])
+
     def test_daily_adapter_can_supply_a_new_task_body_template(self):
         future_task = Task(task_type='future_daily', points=1)
 
