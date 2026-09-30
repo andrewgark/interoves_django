@@ -3291,11 +3291,22 @@ def daily_statistics(request, game_id, number):
     if definition is None or not definition.capabilities.statistics:
         raise Http404()
     game = get_object_or_404(Game, id=game_id, project_id=NEW_UI_SECTIONS_PROJECT)
-    if not scheduled_number_is_public(game, number) and not request.user.is_staff:
-        raise Http404()
-    placement = get_object_or_404(
-        GameTaskGroup.objects.select_related('task_group'), game=game, number=str(number),
-    )
+    from games.models import RandomAlphabettyGame
+    from games.placement_share import is_share_hash_segment, placement_by_share_hash
+
+    placement = None
+    if is_share_hash_segment(str(number)):
+        placement = placement_by_share_hash(game, str(number))
+        if placement is None or not RandomAlphabettyGame.objects.filter(
+            task_group_id=placement.task_group_id,
+        ).exists():
+            raise Http404()
+    else:
+        if not scheduled_number_is_public(game, number) and not request.user.is_staff:
+            raise Http404()
+        placement = get_object_or_404(
+            GameTaskGroup.objects.select_related('task_group'), game=game, number=str(number),
+        )
     actor = {}
     if request.user.is_authenticated:
         actor = {'user': request.user, 'team__isnull': True, 'anon_key__isnull': True}

@@ -6,6 +6,7 @@ import json
 from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
@@ -59,6 +60,7 @@ from games.models import (
     Like,
     Task,
 )
+from games.club_access import has_club_access
 from games.middleware.request_timing import timing_phase
 from games.section_hub import onboarding_followup_context, section_format_credit_context
 from games.section_paths import section_hub_path, section_play_path, section_replay_path, section_results_path
@@ -344,6 +346,42 @@ def alphabetty_hub_page(request):
     })
 
 
+@require_POST
+def alphabetty_random_game(request):
+    """Create or reuse a permanent random game for a Club resident."""
+    if not has_club_access(request.user):
+        return redirect('/subscription/')
+    if _get_game() is None:
+        raise Http404()
+    from games.alphabetty.random_game import (
+        EmptyRandomAlphabettyDictionary,
+        RandomAlphabettyDictionaryExhausted,
+        get_or_create_random_game,
+    )
+
+    try:
+        random_game = get_or_create_random_game(game=_get_game())
+    except EmptyRandomAlphabettyDictionary:
+        messages.warning(
+            request,
+            'Словарь случайных алфавиток пока пуст. Попробуйте ещё раз позже.',
+        )
+        return redirect('new_alphabetty_hub')
+    except RandomAlphabettyDictionaryExhausted:
+        messages.info(
+            request,
+            'Все слова из словаря уже стали случайными алфавитками.',
+        )
+        return redirect('new_alphabetty_hub')
+    except LookupError:
+        messages.error(
+            request,
+            'Не удалось создать случайную алфавитку. Попробуйте ещё раз.',
+        )
+        return redirect('new_alphabetty_hub')
+    return redirect(section_play_path(ALPHABETTY_GAME_ID, random_game.share_hash))
+
+
 def alphabetty_today_page(request):
     game = _get_game()
     if not game:
@@ -427,12 +465,12 @@ def alphabetty_play_page(request, number):
         play_path=play_path,
         replay_slot=replay_slot,
     )
-    pub_at = alphabetty_publish_at(game, n) if offer is None else None
+    pub_at = alphabetty_publish_at(game, n) if offer is None and n is not None else None
     daily_publish_date = pub_at.date() if pub_at is not None else None
     # Соседи только среди уже вышедших алфавиток (как у лесенок).
     prev_tg = None
     next_tg = None
-    if offer is None and link is not None:
+    if offer is None and link is not None and not is_random:
         visible_links = list(
             visible_alphabetty_links(
                 GameTaskGroup.objects.filter(game=game),
@@ -552,7 +590,8 @@ def alphabetty_play_page(request, number):
             anon_key=anon_key,
             play_mode='personal',
             is_offer=(
-                offer is not None
+                is_random
+                or offer is not None
                 or (
                     offer is None
                     and link is not None
@@ -578,6 +617,7 @@ def _load_visible_task(request, number, *, json_mode=True):
     if not game:
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
     from games.placement_share import may_open_unpublished_number, placement_by_share_hash
+    from games.models import RandomAlphabettyGame
 
     offer = get_offer_by_share_hash(str(number))
     if offer is None:
@@ -588,12 +628,16 @@ def _load_visible_task(request, number, *, json_mode=True):
             ).first()
             if task is None:
                 return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+            is_random = RandomAlphabettyGame.objects.filter(
+                task_group_id=share_placement.task_group_id,
+            ).exists()
             meta = {
                 'offer': None,
                 'play_number': share_placement.share_hash,
                 'play_path': section_play_path(ALPHABETTY_GAME_ID, share_placement.share_hash),
                 'accepted_link': share_placement,
-                'schedule_number': int(share_placement.number),
+                'schedule_number': None if is_random else int(share_placement.number),
+                'is_random': is_random,
             }
             return game, task, meta, None
     if offer is not None:

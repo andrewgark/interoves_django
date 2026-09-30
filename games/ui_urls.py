@@ -117,6 +117,7 @@ urlpatterns = [
     path('alphabetty/progress/', ui.game_task_group_progress, {'game_id': 'alphabetty'}, name='ui_alphabetty_progress'),
     path('alphabetty/live-state/', ui.task_group_live_state, {'game_id': 'alphabetty'}, name='ui_alphabetty_live_state'),
     path('alphabetty/', ui.alphabetty_hub_page, name='ui_alphabetty_hub'),
+    path('alphabetty/random/', ui.alphabetty_random_game, name='ui_alphabetty_random'),
     path('alphabetty/<str:task_group_number>/replay/', ui.new_replay_start, {'game_id': 'alphabetty'}),
     path('alphabetty/<str:task_group_number>/replay/exit/', ui.new_replay_exit, {'game_id': 'alphabetty'}),
     path('salad/<str:task_group_number>/replay/', ui.new_replay_start, {'game_id': 'salad'}),

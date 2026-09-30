@@ -24,6 +24,7 @@ from games.models import (
     GameTaskGroup,
     HiddenAnonKey,
     HintAttempt,
+    RandomAlphabettyGame,
 )
 
 
@@ -129,6 +130,17 @@ def _safe_state(raw):
     except (TypeError, ValueError):
         return {}
     return state if isinstance(state, dict) else {}
+
+
+def _is_random_alphabetty_placement(placement) -> bool:
+    """Random alphabetty games are permanent, not scheduled daily editions."""
+    return bool(
+        placement is not None
+        and placement.game_id == 'alphabetty'
+        and RandomAlphabettyGame.objects.filter(
+            task_group_id=placement.task_group_id,
+        ).exists()
+    )
 
 
 def _is_salad_hint(attempt):
@@ -347,7 +359,10 @@ def _ratio(value, typical, *, additive=0.0):
 def _norm_values_from_snapshots(game_id):
     mature = {metric: [] for metric in NORM_METRICS}
     available = {metric: [] for metric in NORM_METRICS}
-    rows = DailyGameDifficulty.objects.filter(placement__game_id=game_id).only('n', 'payload')
+    rows = DailyGameDifficulty.objects.filter(
+        placement__game_id=game_id,
+        placement__task_group__random_alphabetty_game__isnull=True,
+    ).only('n', 'payload')
     for row in rows.iterator():
         metrics = (row.payload or {}).get('metrics') or {}
         for metric in NORM_METRICS:
@@ -498,7 +513,7 @@ def calculate_game_difficulty(placement, *, now=None, metrics=None, save=False):
     ``save=True`` is for admin/manual rebuilds. Request handlers must not call
     this; they read ``DailyGameDifficulty`` via ``get_game_difficulty``.
     """
-    if placement.game_id not in SUPPORTED_GAME_IDS:
+    if placement.game_id not in SUPPORTED_GAME_IDS or _is_random_alphabetty_placement(placement):
         return None
     now = now or timezone.now()
     metrics = metrics or calculate_observed_metrics(placement, now=now)
@@ -616,6 +631,7 @@ def _supported_placements(*, game_ids=None):
         GameTaskGroup.objects.filter(
             game_id__in=game_ids,
             task_group__tasks__task_type__in=[TASK_TYPE_BY_GAME_ID[g] for g in game_ids],
+            task_group__random_alphabetty_game__isnull=True,
         )
         .select_related('game', 'task_group')
         .distinct()
@@ -665,7 +681,11 @@ def retry_delay_for_fail_count(fail_count):
 
 
 def ensure_daily_difficulty_row(placement, *, now=None):
-    if placement is None or placement.game_id not in SUPPORTED_GAME_IDS:
+    if (
+        placement is None
+        or placement.game_id not in SUPPORTED_GAME_IDS
+        or _is_random_alphabetty_placement(placement)
+    ):
         return None
     now = now or timezone.now()
     published_at = published_at_for_placement(placement, now=now)
@@ -707,7 +727,9 @@ def sync_daily_difficulty_schedule(game, *, now=None):
         }
     now = now or timezone.now()
     placements = list(
-        game.task_group_links.select_related('game', 'task_group').all()
+        game.task_group_links.select_related('game', 'task_group').filter(
+            task_group__random_alphabetty_game__isnull=True,
+        )
     )
     snapshots = {
         row.placement_id: row
@@ -922,6 +944,7 @@ def get_cached_game_difficulties(placements):
         placement
         for placement in placements
         if placement.game_id in SUPPORTED_GAME_IDS
+        and not _is_random_alphabetty_placement(placement)
     ]
     if not eligible:
         return {}
@@ -938,7 +961,11 @@ def get_cached_game_difficulties(placements):
 
 def get_game_difficulty(placement, *, force=False, now=None):
     """Read the stored public rating. Recalc only when ``force=True`` (admin)."""
-    if placement is None or placement.game_id not in SUPPORTED_GAME_IDS:
+    if (
+        placement is None
+        or placement.game_id not in SUPPORTED_GAME_IDS
+        or _is_random_alphabetty_placement(placement)
+    ):
         return None
     if force:
         result = calculate_game_difficulty(placement, now=now, save=True)

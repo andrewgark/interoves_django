@@ -36,6 +36,8 @@ def get_club_subscription(user):
 
 def has_club_access(user, *, now=None) -> bool:
     """True when the authenticated user has paid Club access at `now`."""
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return False
     now = now or timezone.now()
     subscription = get_club_subscription(user)
     if subscription is not None and subscription.grants_access(now):

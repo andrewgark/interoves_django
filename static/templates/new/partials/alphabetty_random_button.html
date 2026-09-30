@@ -1,0 +1,16 @@
+<p class="new-stack-gap new-alphabetty-random-cta">
+  {% if random_alphabetty_has_access %}
+    <form method="post" action="{% url 'new_alphabetty_random' %}">
+      {% csrf_token %}
+      <button type="submit" class="new-btn new-btn--yellow">
+        <i class="ph ph-shuffle" aria-hidden="true"></i> Случайная игра
+      </button>
+    </form>
+  {% else %}
+    <a class="new-btn new-btn--yellow" href="/subscription/"
+       title="Доступна только для подписчиков клуба"
+       aria-label="Случайная игра. Доступна только для подписчиков клуба">
+      <i class="ph ph-lock-key" aria-hidden="true"></i> Случайная игра
+    </a>
+  {% endif %}
+</p>

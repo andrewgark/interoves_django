@@ -37,9 +37,19 @@ def site_deploy_version(_request):
 
 def club_archive_ui(request):
     """Feature-flagged archive upsell UI and subscriber community link."""
-    if not getattr(settings, 'CLUB_ARCHIVE_GATING_ENABLED', False):
-        return {'club_archive_gating_enabled': False}
     user = getattr(request, 'user', None)
+    if not getattr(settings, 'CLUB_ARCHIVE_GATING_ENABLED', False):
+        from games.club_access import has_club_access
+        random_access = bool(
+            user
+            and user.is_authenticated
+            and getattr(request, 'path', '').startswith('/alphabetty')
+            and has_club_access(user)
+        )
+        return {
+            'club_archive_gating_enabled': False,
+            'random_alphabetty_has_access': random_access,
+        }
     from games.club_access import has_club_access
     from games.telegram.config import club_invite_url
     if not user or not user.is_authenticated:
@@ -47,13 +57,14 @@ def club_archive_ui(request):
             'club_archive_gating_enabled': True,
             'club_archive_offer_available': False,
             'club_archive_has_access': False,
+            'random_alphabetty_has_access': False,
             'club_archive_telegram_url': '',
         }
+    club_access = has_club_access(user)
     from games.models import PlayerCompletedGame
     solved_count = PlayerCompletedGame.objects.filter(
         user=user, result=PlayerCompletedGame.RESULT_SOLVED,
     ).values('game_id', 'task_group_id').distinct().count()
-    club_access = has_club_access(user)
     profile = getattr(user, 'profile', None)
     offer_cooldown = timezone.now() - timedelta(days=14)
     now = timezone.now()
@@ -74,6 +85,7 @@ def club_archive_ui(request):
         'club_archive_offer_available': offer_available
             and getattr(request, 'path', '') != '/subscription/',
         'club_archive_has_access': club_access,
+        'random_alphabetty_has_access': club_access,
         'club_archive_solved_count': solved_count,
         'club_archive_telegram_url': club_invite_url() if club_access else '',
     }

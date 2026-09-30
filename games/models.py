@@ -643,12 +643,41 @@ class GameTaskGroup(models.Model):
     def sorted_links(cls, queryset=None, *, game=None, reverse=False):
         if queryset is None:
             queryset = cls.objects.filter(game=game)
+        # Permanent random Alphabetty games use a hash as ``number`` and do
+        # not belong in numeric schedule/navigation lists.
+        if hasattr(queryset, 'exclude'):
+            queryset = queryset.exclude(
+                game_id='alphabetty',
+                task_group__random_alphabetty_game__isnull=False,
+            )
+        else:
+            links = list(queryset)
+            task_group_ids = [link.task_group_id for link in links]
+            if task_group_ids:
+                from games.models import RandomAlphabettyGame
+
+                random_task_group_ids = set(
+                    RandomAlphabettyGame.objects.filter(
+                        task_group_id__in=task_group_ids,
+                    ).values_list('task_group_id', flat=True)
+                )
+                queryset = [
+                    link for link in links
+                    if not (
+                        link.game_id == 'alphabetty'
+                        and link.task_group_id in random_task_group_ids
+                    )
+                ]
         links = sorted(queryset, key=lambda link: link.key_sort(), reverse=reverse)
         return links
 
     @classmethod
     def order_queryset_by_number(cls, queryset, *, reverse=False):
         """Числовая сортировка номера круга (1, 2, …, 10), не лексикографическая."""
+        queryset = queryset.exclude(
+            game_id='alphabetty',
+            task_group__random_alphabetty_game__isnull=False,
+        )
         links = list(queryset)
         if not links:
             return queryset.none()

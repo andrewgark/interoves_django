@@ -29,7 +29,24 @@ def load_results_placements_and_tasks(game, task_group_number=None):
         )
     )
     if is_scheduled_game(game.id):
-        placements = visible_links(links, game, reverse=False)
+        # A scoped result page may target a permanent random-game hash. Such
+        # a placement is intentionally outside the numeric daily schedule.
+        from games.placement_share import is_share_hash_segment
+
+        is_random_hash = False
+        if task_group_number is not None and is_share_hash_segment(str(task_group_number)):
+            from games.models import RandomAlphabettyGame
+
+            is_random_hash = RandomAlphabettyGame.objects.filter(
+                share_hash=str(task_group_number).strip().lower(),
+            ).exists()
+        if is_random_hash:
+            placements = [
+                placement for placement in links
+                if str(placement.number) == str(task_group_number)
+            ]
+        else:
+            placements = visible_links(links, game, reverse=False)
     else:
         placements = sorted(links, key=lambda placement: placement.key_sort())
     if task_group_number is not None:
