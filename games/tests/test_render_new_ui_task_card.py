@@ -178,6 +178,24 @@ class RenderNewUiTaskCardTests(TestCase):
             'wall',
         )
 
+    def test_daily_adapter_can_supply_a_new_task_body_template(self):
+        future_task = Task(task_type='future_daily', points=1)
+
+        descriptor = _task_ui_descriptor(
+            future_task,
+            board_context_key='future_daily',
+            body_template_override='new/task-content/task-future-daily.html',
+            body_wrapper_override=True,
+        )
+
+        self.assertEqual(
+            descriptor['body_template'],
+            'new/task-content/task-future-daily.html',
+        )
+        self.assertEqual(descriptor['board_context_key'], 'future_daily')
+        self.assertTrue(descriptor['body_wrapper'])
+        self.assertFalse(descriptor['unsupported'])
+
     def test_wall_ui_uses_stage_limits_and_separates_explanations(self):
         self.task.text = json.dumps({
             'words': ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
