@@ -3221,7 +3221,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             share_title=share_title,
         )
         if data is not None:
-            board_data_by_context[adapter.context_key][t.id] = data
+            board_data_by_context.setdefault(adapter.context_key, {})[t.id] = data
     proportions_chips = []
     if task_group.view == 'proportions':
         proportions_chips = build_proportions_chips_for_tasks(tasks)
@@ -3249,12 +3249,11 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
         'wall_max_points_meta_by_task_id': wall_max_points_meta_by_task_id,
         'likes_meta_by_task_id': likes_meta_by_task_id,
         'replacements_lines_data': replacements_lines_data,
-        'word_salad_data': word_salad_data,
         'grid_puzzle_data': grid_puzzle_data,
-        'raddle_data': raddle_data,
         'proportions_chips': proportions_chips,
         'task_ui_by_task_id': task_ui_by_task_id,
         'gameplay_context_tokens': gameplay_context_tokens,
+        **board_data_by_context,
     }
 
 

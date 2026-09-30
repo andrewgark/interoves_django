@@ -11,6 +11,7 @@ from django.db import OperationalError, transaction
 from django.db.models import F
 from django.utils import timezone
 
+from games.daily.registry import DAILY_GAME_REGISTRY
 from games.daily.section import current_number_for, publish_at_for, schedule_for
 from games.models import (
     Attempt, ChainTaskState, DailyGameDifficulty, DailyResultProjection,
@@ -19,8 +20,12 @@ from games.models import (
 )
 
 
-DAILY_RESET_GAME_IDS = ('ladder', 'alphabetty', 'salad')
-CHAIN_TYPES = {'wall', 'replacements_lines', 'raddle', 'alphabetty', 'word_salad'}
+DAILY_RESET_GAME_IDS = tuple(definition.game_id for definition in DAILY_GAME_REGISTRY.all())
+CHAIN_TYPES = {
+    'wall',
+    'replacements_lines',
+    *(definition.task_type for definition in DAILY_GAME_REGISTRY.all()),
+}
 MYSQL_DEADLOCK_ERRNO = 1213
 RESET_DEADLOCK_ATTEMPTS = 3
 
