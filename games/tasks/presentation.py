@@ -3,7 +3,10 @@
 import json
 
 
-def task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=None):
+def task_ui_descriptor(
+    task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=None,
+    board_context_key=None,
+):
     body_templates = {
         'wall': 'task-content/task-wall.html',
         'replacements_lines': 'task-content/task-replacements-lines.html',
@@ -45,6 +48,7 @@ def task_ui_descriptor(task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=N
     return {
         'body_template': body_template,
         'body_error': body_error,
+        'board_context_key': board_context_key,
         'body_wrapper': task.task_type in {'wall', 'replacements_lines', 'raddle', 'word_salad'},
         'base_max': base_max,
         'max_points_title': wall_meta.get('title', '') if wall_meta else '',
