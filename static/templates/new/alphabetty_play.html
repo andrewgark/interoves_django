@@ -191,6 +191,7 @@
 
   if (window.interovesDailySolveTimer) {
     window.interovesDailySolveTimer.bindFromDocument(document, {
+      teamMode: {% if daily_timing_team_mode %}true{% else %}false{% endif %},
       getAnonKey: function () {
         var root = document.getElementById('alphabetty-root');
         if (root && root.getAttribute('data-authenticated') === '1') return '';

@@ -32,6 +32,7 @@ from games.views.daily_timing_views import daily_timing_page_context
 from games.models import (
     CheckerType,
     DailySolveTiming,
+    DailySolveTimingSession,
     Game,
     GameTaskGroup,
     HTMLPage,
@@ -141,7 +142,7 @@ class DailyTimingDomainTests(TestCase):
         Profile.objects.create(user=cls.user, first_name='T', last_name='U')
         cls.anon = 'anon-daily-timing-1'
 
-    def _apply(self, *, action, session, seq, event=None, claimed=None, now=None, user='user', create=True):
+    def _apply(self, *, action, session, seq, event=None, claimed=None, now=None, user='user', team=None, create=True):
         kwargs = {
             'game': self.game,
             'task_group': self.tg,
@@ -153,7 +154,9 @@ class DailyTimingDomainTests(TestCase):
             'now': now or _dt(),
             'create': create,
         }
-        if user == 'user':
+        if team is not None:
+            kwargs['team'] = team
+        elif user == 'user':
             kwargs['user'] = self.user
         else:
             kwargs['anon_key'] = self.anon
@@ -473,13 +476,14 @@ class DailyTimingDomainTests(TestCase):
             game=self.game, task_group=self.tg, team=team,
             action=ACTION_START, session_id=session_a, event_id='team-start-a', seq=1, now=_dt(),
         )
-        # A second teammate's start takes over the same lease rather than making another timer.
+        # A second teammate starts an independent session on the same aggregate.
         second = apply_timing_event(
             game=self.game, task_group=self.tg, team=team,
             action=ACTION_START, session_id=session_b, event_id='team-start-b', seq=1, now=_dt(5),
         )
         self.assertTrue(first['exists'])
         self.assertTrue(second['is_authoritative'])
+        self.assertEqual(second['active_sessions_count'], 2)
         self.assertEqual(DailySolveTiming.objects.filter(team=team, game=self.game, task_group=self.tg).count(), 1)
         apply_timing_event(
             game=self.game, task_group=self.tg, team=team,
@@ -489,35 +493,36 @@ class DailyTimingDomainTests(TestCase):
 
         paused = apply_timing_event(
             game=self.game, task_group=self.tg, team=team,
-            action=ACTION_PAUSE, session_id=session_a, event_id='team-pause', seq=1,
+            action=ACTION_PAUSE, session_id=session_a, event_id='team-pause', seq=2,
             claimed_ms=5000, now=_dt(15),
         )
-        self.assertEqual(paused['status'], DailySolveTiming.STATUS_MANUALLY_PAUSED)
-        self.assertEqual(paused['committed_ms'], 5000)
-        # A repeated pause is harmless; resume starts a new shared active interval.
+        self.assertEqual(paused['status'], DailySolveTiming.STATUS_RUNNING)
+        self.assertEqual(paused['committed_ms'], 0)
+        self.assertEqual(paused['active_sessions_count'], 1)
+        # Pausing A is local; pausing B later ends the shared active interval.
         apply_timing_event(
             game=self.game, task_group=self.tg, team=team,
-            action=ACTION_PAUSE, session_id=session_b, event_id='team-pause-again', seq=2,
-            now=_dt(12),
+            action=ACTION_PAUSE, session_id=session_b, event_id='team-pause-again', seq=3,
+            now=_dt(15),
         )
         resumed = apply_timing_event(
             game=self.game, task_group=self.tg, team=team,
-            action=ACTION_RESUME, session_id=session_b, event_id='team-resume', seq=3,
+            action=ACTION_RESUME, session_id=session_b, event_id='team-resume', seq=4,
             now=_dt(20),
         )
         self.assertTrue(resumed['is_authoritative'])
         apply_timing_event(
             game=self.game, task_group=self.tg, team=team,
             action=ACTION_HEARTBEAT, session_id=session_b, event_id='team-heartbeat-after-resume',
-            seq=4, claimed_ms=10000, now=_dt(30),
+            seq=5, claimed_ms=10000, now=_dt(30),
         )
         completed = complete_daily_timing(
             game=self.game, task_group=self.tg, team=team, now=_dt(30),
         )
-        self.assertEqual(completed['frozen_ms'], 15000)
+        self.assertEqual(completed['frozen_ms'], 25000)
         self.assertEqual(
             canonical_elapsed_seconds(game=self.game, task_group=self.tg, team=team),
-            15,
+            25,
         )
         first_row = lookup_timing(game=self.game, task_group=self.tg, team=team)
         replay = ReplaySlot.objects.create(
@@ -530,6 +535,31 @@ class DailyTimingDomainTests(TestCase):
         complete_daily_timing(game=self.game, task_group=self.tg, team=team, replay_slot=replay, now=_dt(90))
         self.assertEqual(lookup_timing(game=self.game, task_group=self.tg, team=team).pk, first_row.pk)
         self.assertEqual(DailySolveTiming.objects.filter(team=team, game=self.game, task_group=self.tg).count(), 2)
+
+    def test_team_member_pause_does_not_pause_other_session(self):
+        team = Team.objects.create(name='timing-session-scoped-pause', project_id='sections')
+        session_a, session_b = uuid4(), uuid4()
+        self._apply(action=ACTION_START, session=session_a, seq=1, now=_dt(), team=team)
+        self._apply(action=ACTION_START, session=session_b, seq=1, now=_dt(2), team=team)
+        paused = self._apply(
+            action=ACTION_PAUSE, session=session_a, seq=2, now=_dt(5), team=team,
+        )
+        self.assertEqual(paused['status'], DailySolveTiming.STATUS_RUNNING)
+        self.assertEqual(paused['active_sessions_count'], 1)
+        self.assertFalse(paused['session_active'])
+        other = self._apply(
+            action=ACTION_HEARTBEAT, session=session_b, seq=2, now=_dt(10), team=team,
+        )
+        self.assertTrue(other['session_active'])
+        self.assertEqual(other['active_sessions_count'], 1)
+        self.assertEqual(other['committed_ms'], 0)
+        row = lookup_timing(game=self.game, task_group=self.tg, team=team)
+        self.assertEqual(
+            DailySolveTimingSession.objects.filter(
+                timing=row, status=DailySolveTimingSession.STATUS_PAUSED,
+            ).count(),
+            1,
+        )
 
     def test_each_daily_section_type_uses_the_same_timing_lifecycle(self):
         team_ids = {'ladder', 'salad', 'replacements', 'walls', 'palindromes', 'week_task'}

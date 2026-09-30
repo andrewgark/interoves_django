@@ -144,6 +144,7 @@ def daily_timing_page_context(
         'daily_timing': state,
         'daily_timing_url': url,
         'daily_timing_context_token': gameplay_context_token,
+        'daily_timing_team_mode': bool(team is not None),
     }
 
 

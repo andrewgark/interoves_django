@@ -4155,6 +4155,8 @@ class DailySolveTiming(models.Model):
     active_session_id = models.UUIDField(blank=True, null=True)
     interval_started_at = models.DateTimeField(blank=True, null=True)
     last_heartbeat_at = models.DateTimeField(blank=True, null=True)
+    active_sessions_count = models.PositiveIntegerField(default=0)
+    team_interval_started_at = models.DateTimeField(blank=True, null=True)
     last_seq = models.BigIntegerField(default=0)
     last_event_id = models.CharField(max_length=64, blank=True, default='')
     applied_event_ids = models.JSONField(default=list, blank=True)
@@ -4201,6 +4203,55 @@ class DailySolveTiming(models.Model):
     def __str__(self):
         actor = self.team or self.user or self.anon_key or '—'
         return '{} · {} · {}'.format(actor, self.game_id, self.status)
+
+
+class DailySolveTimingSession(models.Model):
+    """One device/tab's participation in a daily timing row.
+
+    Team timing is an aggregate over independent sessions.  A session pause or
+    lease expiry must never take ownership away from another team member.
+    """
+
+    STATUS_RUNNING = 'running'
+    STATUS_PAUSED = 'paused'
+    STATUS_CLOSED = 'closed'
+    STATUS_CHOICES = (
+        (STATUS_RUNNING, 'Running'),
+        (STATUS_PAUSED, 'Paused'),
+        (STATUS_CLOSED, 'Closed'),
+    )
+
+    timing = models.ForeignKey(
+        DailySolveTiming,
+        related_name='sessions',
+        on_delete=models.CASCADE,
+    )
+    session_id = models.UUIDField()
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PAUSED)
+    started_at = models.DateTimeField(blank=True, null=True)
+    last_heartbeat_at = models.DateTimeField(blank=True, null=True)
+    paused_at = models.DateTimeField(blank=True, null=True)
+    closed_at = models.DateTimeField(blank=True, null=True)
+    close_reason = models.CharField(max_length=32, blank=True, default='')
+    last_seq = models.BigIntegerField(default=0)
+    last_event_id = models.CharField(max_length=64, blank=True, default='')
+    applied_event_ids = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['timing', 'session_id'],
+                name='uniq_daily_timing_session',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['timing', 'status'], name='games_dt_session_status_idx'),
+        ]
+
+    def __str__(self):
+        return '{} · {}'.format(self.timing_id, self.session_id)
 
 
 class PlayerAnalyticsState(models.Model):

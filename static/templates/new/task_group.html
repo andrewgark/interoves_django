@@ -324,6 +324,7 @@
 
   if (window.interovesDailySolveTimer) {
     window.interovesDailySolveTimer.bindFromDocument(document, {
+      teamMode: {% if daily_timing_team_mode %}true{% else %}false{% endif %},
       getAnonKey: function () { return isAuthenticated ? '' : anonKey; },
       getCsrf: function () {
         if (window.InterovesPageCsrf) return window.InterovesPageCsrf.pageToken();

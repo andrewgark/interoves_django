@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from django.db import IntegrityError, OperationalError, transaction
 from django.utils import timezone
 
 from games.db_retry import is_mysql_retryable_lock_error, log_lock_retry
-from games.models import DailySolveTiming
+from games.models import DailySolveTiming, DailySolveTimingSession
 from games.results.share import elapsed_seconds_from_attempts, format_elapsed
 
 TIMING_VERSION_ACTIVE = DailySolveTiming.TIMING_VERSION_ACTIVE
@@ -123,6 +123,9 @@ def empty_snapshot() -> dict:
         'committed_ms': 0,
         'frozen_ms': None,
         'is_authoritative': False,
+        'session_active': False,
+        'session_status': None,
+        'active_sessions_count': 0,
         'manually_paused': False,
         'completed': False,
         'exists': False,
@@ -134,28 +137,67 @@ def snapshot(row: DailySolveTiming | None, *, now=None, session_id=None) -> dict
         return empty_snapshot()
     now = now or timezone.now()
     open_ms = 0
-    if row.status == STATUS_RUNNING:
+    session = None
+    if row.team_id:
+        session = _team_session_for_snapshot(row, session_id)
+        open_ms = _team_open_interval_ms(row, now)
+    elif row.status == STATUS_RUNNING:
         open_ms = _open_interval_ms(row, now)
     display_ms = int(row.accumulated_ms) + open_ms
     if row.status == STATUS_COMPLETED and row.frozen_ms is not None:
         display_ms = int(row.frozen_ms)
     sid = _as_uuid(session_id) if session_id else None
+    session_running = bool(session and session.status == DailySolveTimingSession.STATUS_RUNNING)
     return {
         'timing_version': int(row.timing_version or TIMING_VERSION_ACTIVE),
         'status': row.status,
         'accumulated_ms': display_ms,
         'committed_ms': int(row.accumulated_ms),
         'frozen_ms': int(row.frozen_ms) if row.frozen_ms is not None else None,
-        'is_authoritative': bool(
+        'is_authoritative': session_running if row.team_id else bool(
             sid
             and row.active_session_id
             and sid == row.active_session_id
             and row.status == STATUS_RUNNING
         ),
-        'manually_paused': row.status == STATUS_MANUALLY_PAUSED,
+        'session_active': session_running,
+        'session_status': session.status if session else None,
+        'active_sessions_count': int(row.active_sessions_count or 0) if row.team_id else 0,
+        'manually_paused': (
+            bool(session and session.close_reason == 'manual')
+            if row.team_id else row.status == STATUS_MANUALLY_PAUSED
+        ),
         'completed': row.status == STATUS_COMPLETED,
         'exists': True,
     }
+
+
+def _team_session_for_snapshot(row: DailySolveTiming, session_id):
+    sid = _as_uuid(session_id) if session_id else None
+    if not sid:
+        return None
+    return DailySolveTimingSession.objects.filter(timing=row, session_id=sid).first()
+
+
+def _team_open_interval_ms(row: DailySolveTiming, now) -> int:
+    """Return the current union interval without mutating the aggregate row."""
+    if not row.team_id or not row.team_interval_started_at:
+        return 0
+    running = list(row.sessions.filter(status=DailySolveTimingSession.STATUS_RUNNING))
+    if not running:
+        return 0
+    fresh_cutoff = now - timedelta(milliseconds=LEASE_STALE_MS)
+    effective_end = now if any(
+        session.last_heartbeat_at and session.last_heartbeat_at >= fresh_cutoff
+        for session in running
+    ) else max(
+        (session.last_heartbeat_at for session in running if session.last_heartbeat_at),
+        default=row.team_interval_started_at,
+    )
+    return min(
+        MAX_ACCUMULATED_MS,
+        _ms_between(row.team_interval_started_at, effective_end),
+    )
 
 
 def canonical_elapsed_seconds(
@@ -412,15 +454,25 @@ def _apply_timing_event_once(
         else:
             row = DailySolveTiming.objects.select_for_update().get(pk=row.pk)
 
-    _apply_to_row(
-        row,
-        action=action,
-        session_id=session_id,
-        event_id=event_id,
-        seq=seq,
-        claimed_ms=claimed_ms,
-        now=now,
-    )
+    if team is not None:
+        _apply_to_team_row(
+            row,
+            action=action,
+            session_id=session_id,
+            event_id=event_id,
+            seq=seq,
+            now=now,
+        )
+    else:
+        _apply_to_row(
+            row,
+            action=action,
+            session_id=session_id,
+            event_id=event_id,
+            seq=seq,
+            claimed_ms=claimed_ms,
+            now=now,
+        )
     if created_timing_row and replay_slot is None and getattr(game, 'project_id', None) == 'sections':
         from games.daily_result_projection import schedule_actor_projection
         schedule_actor_projection(
@@ -455,15 +507,31 @@ def complete_daily_timing_in_transaction(
         ).total_seconds() * 1000.0
     if row is None:
         return None
-    _apply_to_row(
-        row,
-        action=ACTION_COMPLETE,
-        session_id=row.active_session_id,
-        event_id='complete:{}'.format(row.pk),
-        seq=max(int(row.last_seq or 0) + 1, 1),
-        claimed_ms=None,
-        now=now,
-    )
+    if team is not None:
+        active_session = row.sessions.filter(
+            status=DailySolveTimingSession.STATUS_RUNNING,
+        ).order_by('pk').first()
+        next_seq = max(
+            [int(value) for value in row.sessions.values_list('last_seq', flat=True)] or [0],
+        ) + 1
+        _apply_to_team_row(
+            row,
+            action=ACTION_COMPLETE,
+            session_id=(active_session.session_id if active_session else uuid4()),
+            event_id='complete:{}'.format(row.pk),
+            seq=next_seq,
+            now=now,
+        )
+    else:
+        _apply_to_row(
+            row,
+            action=ACTION_COMPLETE,
+            session_id=row.active_session_id,
+            event_id='complete:{}'.format(row.pk),
+            seq=max(int(row.last_seq or 0) + 1, 1),
+            claimed_ms=None,
+            now=now,
+        )
     return snapshot(row, now=now)
 
 
@@ -543,6 +611,198 @@ def _seq_stale_for_owner(row: DailySolveTiming, sid, seq) -> bool:
     if not _owns_lease(row, sid):
         return False
     return seq <= int(row.last_seq or 0)
+
+
+def _team_session(row, sid, *, create=True, now=None):
+    sid = _as_uuid(sid)
+    if not sid:
+        return None
+    session = DailySolveTimingSession.objects.select_for_update().filter(
+        timing=row, session_id=sid,
+    ).first()
+    if session is not None or not create:
+        return session
+
+    # Rows created before the team-session rollout may still contain one legacy
+    # lease. Convert it lazily while the aggregate row is already locked.
+    if row.active_session_id and not row.sessions.exists():
+        legacy = DailySolveTimingSession.objects.create(
+            timing=row,
+            session_id=row.active_session_id,
+            status=DailySolveTimingSession.STATUS_RUNNING,
+            started_at=row.interval_started_at,
+            last_heartbeat_at=row.last_heartbeat_at,
+        )
+        row.active_sessions_count = 1
+        row.team_interval_started_at = row.interval_started_at
+        row.active_session_id = None
+        row.interval_started_at = None
+        row.last_heartbeat_at = None
+        row.save(update_fields=[
+            'active_sessions_count', 'team_interval_started_at',
+            'active_session_id', 'interval_started_at', 'last_heartbeat_at',
+            'updated_at',
+        ])
+        if legacy.session_id == sid:
+            return legacy
+
+    return DailySolveTimingSession.objects.create(
+        timing=row,
+        session_id=sid,
+        status=DailySolveTimingSession.STATUS_PAUSED,
+    )
+
+
+def _team_remember_event(session, event_id, seq):
+    session.last_seq = seq
+    if event_id:
+        session.last_event_id = event_id
+        ids = [item for item in (session.applied_event_ids or []) if item != event_id]
+        ids.append(event_id)
+        session.applied_event_ids = ids[-APPLIED_EVENT_LIMIT:]
+
+
+def _team_event_is_stale(session, event_id, seq):
+    if event_id and event_id in (session.applied_event_ids or []):
+        return True
+    return seq <= int(session.last_seq or 0)
+
+
+def _team_close_aggregate_interval(row, end):
+    if row.team_interval_started_at is not None:
+        row.accumulated_ms = min(
+            MAX_ACCUMULATED_MS,
+            int(row.accumulated_ms or 0) + _ms_between(row.team_interval_started_at, end),
+        )
+    row.team_interval_started_at = None
+
+
+def _team_expire_sessions(row, now):
+    running = list(row.sessions.select_for_update().filter(
+        status=DailySolveTimingSession.STATUS_RUNNING,
+    ))
+    cutoff = now - timedelta(milliseconds=LEASE_STALE_MS)
+    for session in running:
+        if session.last_heartbeat_at and session.last_heartbeat_at < cutoff:
+            session.status = DailySolveTimingSession.STATUS_PAUSED
+            session.paused_at = session.last_heartbeat_at
+            session.close_reason = 'stale'
+            session.save(update_fields=['status', 'paused_at', 'close_reason', 'updated_at'])
+    active = [
+        session for session in running
+        if session.status == DailySolveTimingSession.STATUS_RUNNING
+    ]
+    row.active_sessions_count = len(active)
+    if not active:
+        end = max(
+            (session.last_heartbeat_at for session in running if session.last_heartbeat_at),
+            default=now,
+        )
+        _team_close_aggregate_interval(row, end)
+    return active
+
+
+def _apply_to_team_row(row, *, action, session_id, event_id, seq, now):
+    if row.status == STATUS_COMPLETED:
+        return
+    sid = _as_uuid(session_id)
+    if not sid:
+        return
+    _team_expire_sessions(row, now)
+    session = _team_session(row, sid, now=now)
+    if session is None:
+        return
+    try:
+        seq = int(seq or 0)
+    except (TypeError, ValueError):
+        return
+    event_id = str(event_id or '').strip()[:64]
+    if _team_event_is_stale(session, event_id, seq):
+        return
+
+    if action == ACTION_COMPLETE:
+        active = list(row.sessions.select_for_update().filter(
+            status=DailySolveTimingSession.STATUS_RUNNING,
+        ))
+        if active:
+            fresh_cutoff = now - timedelta(milliseconds=LEASE_STALE_MS)
+            end = now if any(
+                item.last_heartbeat_at and item.last_heartbeat_at >= fresh_cutoff
+                for item in active
+            ) else max(
+                (item.last_heartbeat_at for item in active if item.last_heartbeat_at),
+                default=now,
+            )
+            _team_close_aggregate_interval(row, end)
+        for item in active:
+            item.status = DailySolveTimingSession.STATUS_CLOSED
+            item.closed_at = now
+            item.close_reason = 'completed'
+            item.save(update_fields=['status', 'closed_at', 'close_reason', 'updated_at'])
+        row.active_sessions_count = 0
+        row.status = STATUS_COMPLETED
+        row.frozen_ms = min(MAX_ACCUMULATED_MS, max(0, int(row.accumulated_ms or 0)))
+        row.accumulated_ms = row.frozen_ms
+        row.completed_at = now
+        _team_remember_event(session, event_id, seq)
+        session.save(update_fields=['last_seq', 'last_event_id', 'applied_event_ids', 'updated_at'])
+        row.save()
+        return
+
+    if action == ACTION_HEARTBEAT:
+        if session.status != DailySolveTimingSession.STATUS_RUNNING:
+            return
+        session.last_heartbeat_at = now
+        _team_remember_event(session, event_id, seq)
+        session.save(update_fields=['last_heartbeat_at', 'last_seq', 'last_event_id', 'applied_event_ids', 'updated_at'])
+        row.status = STATUS_RUNNING
+        row.save(update_fields=['status', 'active_sessions_count', 'team_interval_started_at', 'accumulated_ms', 'updated_at'])
+        return
+
+    if action in (ACTION_PAUSE, ACTION_AUTO_PAUSE):
+        if session.status != DailySolveTimingSession.STATUS_RUNNING:
+            return
+        session.status = DailySolveTimingSession.STATUS_PAUSED
+        session.paused_at = now
+        session.close_reason = 'manual' if action == ACTION_PAUSE else 'auto'
+        _team_remember_event(session, event_id, seq)
+        session.save(update_fields=[
+            'status', 'paused_at', 'close_reason', 'last_seq', 'last_event_id',
+            'applied_event_ids', 'updated_at',
+        ])
+        row.active_sessions_count = max(0, int(row.active_sessions_count or 0) - 1)
+        if row.active_sessions_count == 0:
+            _team_close_aggregate_interval(row, now)
+            row.status = STATUS_MANUALLY_PAUSED if action == ACTION_PAUSE else STATUS_AUTO_PAUSED
+        row.save(update_fields=[
+            'status', 'active_sessions_count', 'team_interval_started_at',
+            'accumulated_ms', 'updated_at',
+        ])
+        return
+
+    if action in (ACTION_START, ACTION_RESUME):
+        if session.status == DailySolveTimingSession.STATUS_RUNNING:
+            session.last_heartbeat_at = now
+        elif action == ACTION_START and session.close_reason == 'manual':
+            return
+        else:
+            if int(row.active_sessions_count or 0) == 0:
+                row.team_interval_started_at = now
+            row.active_sessions_count = int(row.active_sessions_count or 0) + 1
+            session.status = DailySolveTimingSession.STATUS_RUNNING
+            session.started_at = session.started_at or now
+            session.last_heartbeat_at = now
+            session.paused_at = None
+            session.close_reason = ''
+        _team_remember_event(session, event_id, seq)
+        session.save(update_fields=[
+            'status', 'started_at', 'last_heartbeat_at', 'paused_at', 'close_reason',
+            'last_seq', 'last_event_id', 'applied_event_ids', 'updated_at',
+        ])
+        row.status = STATUS_RUNNING
+        row.save(update_fields=[
+            'status', 'active_sessions_count', 'team_interval_started_at', 'updated_at',
+        ])
 
 
 def _apply_to_row(row: DailySolveTiming, *, action, session_id, event_id, seq, claimed_ms, now):

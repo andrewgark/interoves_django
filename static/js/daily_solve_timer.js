@@ -70,6 +70,7 @@
     var localStore = options.localStorage || (root && root.localStorage);
     var clock = options.clock || root.performance || { now: function () { return Date.now(); } };
     var bootstrap = options.bootstrap || {};
+    var teamMode = !!options.teamMode;
     var solved = !!options.solved;
     var channelFactory = options.broadcastChannel;
     var heartbeatMs = options.heartbeatMs || HEARTBEAT_MS;
@@ -170,15 +171,17 @@
       if (popover && manuallyPaused) popover.hidden = true;
       if (rootEl) {
         rootEl.hidden = completed;
-        rootEl.classList.toggle('is-paused', manuallyPaused || (!authoritative && !completed && status !== 'running'));
+        rootEl.classList.toggle('is-paused', manuallyPaused || (!teamMode && !authoritative && !completed && status !== 'running'));
         rootEl.classList.toggle('is-completed', completed);
       }
       if (pauseBtn) pauseBtn.hidden = completed;
       var showOverlay = false;
       if (!completed) {
         if (manuallyPaused) showOverlay = true;
-        else if (foreignHold && !authoritative && visibilityOf(doc) === 'visible') showOverlay = true;
+        else if (!teamMode && foreignHold && !authoritative && visibilityOf(doc) === 'visible') showOverlay = true;
         else if (
+          !teamMode
+          &&
           !awaitingServer
           && exists
           && started
@@ -479,7 +482,7 @@
         channel.onmessage = function (ev) {
           var data = ev && ev.data;
           if (!data || data.session_id === sessionId) return;
-          if (data.type === 'authoritative' && !completed && !manuallyPaused) {
+          if (data.type === 'authoritative' && !teamMode && !completed && !manuallyPaused) {
             foreignHold = true;
             authoritative = false;
             status = 'auto_paused';
@@ -624,6 +627,7 @@
       overlayTitle: doc.querySelector('[data-daily-pause-title]'),
       overlayText: doc.querySelector('[data-daily-pause-text]'),
       boardEl: board,
+      teamMode: !!extras.teamMode,
     });
     controller.boot();
     return controller;

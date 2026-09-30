@@ -476,5 +476,27 @@ function parsePostBody(init) {
   assert.strictEqual(ctrl.displayedMs(), 2000);
 })();
 
+(function testTeamModeIgnoresForeignTabBroadcast() {
+  var channel = {};
+  var ctrl = timer.create({
+    url: '/ladder/team/timing/',
+    teamMode: true,
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return ''; },
+    getCsrf: function () { return ''; },
+    clock: fakeClock(0),
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    broadcastChannel: function () { return channel; },
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({}); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    bootstrap: { status: 'running', is_authoritative: true, accumulated_ms: 0, exists: true },
+  });
+  channel.onmessage({ data: { type: 'authoritative', session_id: 'another-device' } });
+  assert.strictEqual(ctrl.state().is_authoritative, true);
+  ctrl.destroy();
+})();
+
 console.log('daily_solve_timer tests ok');
 process.exit(0);
