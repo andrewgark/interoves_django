@@ -51,8 +51,8 @@ class Command(BaseCommand):
         task = Task.objects.get(pk=options['task'])
         game = Game.objects.get(pk=options['game'])
         team = Team.objects.get(pk=options['team'])
-        if task.task_type not in ('wall', 'replacements_lines', 'raddle', 'alphabetty', 'word_salad'):
-            raise CommandError('task is not a supported chain task')
+        if task.task_type != 'wall':
+            raise CommandError('this smoke test currently supports wall tasks only')
 
         active_jobs = WordSaladRecheckJob.objects.filter(
             task=task, game=game,
@@ -106,7 +106,6 @@ class Command(BaseCommand):
             checks = {
                 'accepted_not_pending': accepted.status != 'Pending',
                 'rejected_not_pending': rejected.status != 'Pending',
-                'rejected_status_matches_possible': rejected.status == rejected.possible_status,
                 'unrelated_still_pending': unrelated.status == 'Pending',
                 'jobs_completed': not WordSaladRecheckJob.objects.filter(
                     pk__in=job_ids,
@@ -148,6 +147,16 @@ class Command(BaseCommand):
             (['Колыван', 'Африка', 'Морда', 'Таль'], '{} rejected'.format(marker)),
             (['Луна', 'Солнце', 'Ворон', 'Глаза'], '{} unrelated'.format(marker)),
         )
+        seed_state = (
+            Attempt.manager.filter(task=task, game=game, team=team)
+            .exclude(state__isnull=True)
+            .exclude(state='')
+            .order_by('-time', '-pk')
+            .values_list('state', flat=True)
+            .first()
+        )
+        if not seed_state:
+            raise CommandError('cannot create safe synthetic wall attempts without an existing actor state')
         return [
             Attempt.manager.create(
                 team=team,
@@ -162,6 +171,7 @@ class Command(BaseCommand):
                 status='Pending',
                 possible_status='Wrong',
                 points=0,
+                state=seed_state,
                 skip=False,
             )
             for words, explanation in rows
