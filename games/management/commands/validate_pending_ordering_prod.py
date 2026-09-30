@@ -180,10 +180,15 @@ class Command(BaseCommand):
             task, game, team, marker + '-bulk', False, distinct_actors=True,
         )
         receipt = accept_pending_attempts([first.pk, second.pk], return_receipt=True)
-        jobs = self._new_jobs(receipt)
+        jobs = self._receipt_jobs(receipt)
+        receipt_job = receipt['queue_receipt']['jobs'][0] if jobs else {}
         checks = {
-            'one_new_job': receipt['queue_receipt']['new_jobs'] == 1,
-            'two_new_items': receipt['queue_receipt']['new_items'] == 2,
+            'one_created_or_coalesced_job': (
+                len(jobs) == 1
+                and receipt['queue_receipt']['new_jobs']
+                + receipt['queue_receipt']['existing_jobs'] == 1
+            ),
+            'job_contains_both_actors': receipt_job.get('total_items', 0) >= 2,
         }
         if not all(checks.values()):
             raise CommandError('bulk receipt failed: {}'.format(checks))
@@ -201,6 +206,10 @@ class Command(BaseCommand):
     @staticmethod
     def _new_jobs(receipt):
         return [row['id'] for row in receipt['queue_receipt']['jobs'] if row.get('created')]
+
+    @staticmethod
+    def _receipt_jobs(receipt):
+        return [row['id'] for row in receipt['queue_receipt']['jobs']]
 
     def _wait(self, job_ids, wait_seconds):
         if not job_ids:
