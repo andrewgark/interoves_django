@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from games.club_access import has_club_access
 from games.models import ClubEntitlement, Profile, SubscriptionGift
-from games.subscription_gifts import claim_gift, create_gift
+from games.subscription_gifts import claim_gift, create_gift, gift_duration_label
 from games.telegram.admin_commands import handle_admin_command
 
 
@@ -94,11 +94,25 @@ class SubscriptionGiftTests(TestCase):
     def test_admin_gift_command_creates_and_sends_gift(self, send_message):
         reply = handle_admin_command('/gift @gift_recipient 3')
 
-        self.assertIn('на 3 месяцев', reply)
+        self.assertIn('на 3 месяца', reply)
         gift = SubscriptionGift.objects.get()
         self.assertEqual(gift.duration_months, 3)
         self.assertIsNotNone(gift.sent_at)
         send_message.assert_called_once()
+
+    def test_gift_duration_label_uses_russian_month_forms(self):
+        expected = {
+            1: '1 месяц',
+            2: '2 месяца',
+            4: '4 месяца',
+            5: '5 месяцев',
+            11: '11 месяцев',
+            21: '21 месяц',
+            24: '24 месяца',
+        }
+        for months, label in expected.items():
+            gift = SubscriptionGift(duration_months=months, is_forever=False)
+            self.assertEqual(gift_duration_label(gift), label)
 
     def test_admin_gift_command_can_create_manual_code(self):
         reply = handle_admin_command('/gift 3')

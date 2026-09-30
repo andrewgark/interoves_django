@@ -23,9 +23,20 @@ def _new_code() -> str:
 
 
 def _gift_duration_label(gift: SubscriptionGift) -> str:
-    return 'навсегда' if gift.is_forever else '{} {}'.format(
-        gift.duration_months, 'месяц' if gift.duration_months == 1 else 'месяцев',
-    )
+    if gift.is_forever:
+        return 'навсегда'
+
+    months = gift.duration_months
+    months_mod_100 = months % 100
+    if 11 <= months_mod_100 <= 14:
+        word = 'месяцев'
+    elif months % 10 == 1:
+        word = 'месяц'
+    elif 2 <= months % 10 <= 4:
+        word = 'месяца'
+    else:
+        word = 'месяцев'
+    return '{} {}'.format(months, word)
 
 
 @dataclass(frozen=True)
