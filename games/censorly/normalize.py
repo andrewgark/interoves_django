@@ -3,15 +3,24 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from games.matcher.norm_matcher import get_norm_form
 
 _WORD_RE = re.compile(r'[A-Za-zА-Яа-яЁё0-9]+', re.UNICODE)
 
 
+def strip_combining_marks(text: str) -> str:
+    """Drop Mn marks (e.g. combining acute) after NFC."""
+    return ''.join(
+        ch for ch in unicodedata.normalize('NFC', text or '')
+        if unicodedata.category(ch) != 'Mn'
+    )
+
+
 def normalize_surface(text: str) -> str:
-    """Lowercase, ё→е, strip; keep only letters/digits for matching."""
-    s = (text or '').strip().lower().replace('ё', 'е').replace('Ё', 'е')
+    """Lowercase, ё→е, strip accents; keep letters/digits/hyphens for matching."""
+    s = strip_combining_marks(text or '').strip().lower().replace('ё', 'е').replace('Ё', 'е')
     return s
 
 

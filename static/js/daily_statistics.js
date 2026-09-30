@@ -218,7 +218,7 @@
     }
     html += '<div class="new-daily-statistics__summary">' +
       metric('Решили', summary.solved || data.solved || 0);
-    if (data.kind === 'alphabet') html += metric('Медиана попыток', summary.median_attempts == null ? '—' : String(summary.median_attempts).replace('.', ',')) + metric('Без подсказок', percent(summary.without_hints_percent));
+    if (data.kind === 'alphabet' || data.kind === 'censorly') html += metric('Медиана попыток', summary.median_attempts == null ? '—' : String(summary.median_attempts).replace('.', ',')) + metric('Без подсказок', percent(summary.without_hints_percent));
     else html += metric('Медиана времени', seconds(summary.median_time_seconds)) + metric('Без подсказок', percent(summary.without_hints_percent));
     html += '</div>';
     if (data.kind === 'salad') {
@@ -238,11 +238,19 @@
       html += '<div class="new-daily-statistics__body">' +
         section('Распределение попыток', histogram(data.distribution)) +
         ((data.guesses || []).length ? section('Популярные догадки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.guesses) + '</ul>') : '') +
+        ((data.above_words || []).length ? section('Слово сверху перед взятием', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.above_words) + '</ul>') : '') +
+        ((data.below_words || []).length ? section('Слово снизу перед взятием', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.below_words) + '</ul>') : '') +
+        '</div>';
+    } else if (data.kind === 'censorly') {
+      html += '<div class="new-daily-statistics__body">' +
+        section('Распределение попыток', histogram(data.distribution)) +
+        ((data.popular_words || []).length ? section('Популярные слова', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_words) + '</ul>') : '') +
+        ((data.last_words || []).length ? section('Слова, после которых взяли', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.last_words) + '</ul>') : '') +
         '</div>';
     }
     root.innerHTML = html;
     root.hidden = false;
-    if (data.kind === 'alphabet') {
+    if (data.kind === 'alphabet' || data.kind === 'censorly') {
       window.requestAnimationFrame(function () { renderHistogram(root, data.distribution); });
     }
   }

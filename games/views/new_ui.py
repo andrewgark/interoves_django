@@ -673,7 +673,8 @@ NEW_UI_SECTIONS_PROJECT = 'sections'
 PALINDROMES_GAME_ID = 'palindromes'
 # Разделы с собственным туториалом (модалка правил)
 SECTION_RULES_GAME_IDS = (
-    'palindromes', 'replacements', 'walls', 'ladder', 'alphabetty', 'week_task', WORD_SALAD_GAME_ID,
+    'palindromes', 'replacements', 'walls', 'ladder', 'alphabetty', 'censorly',
+    'week_task', WORD_SALAD_GAME_ID,
 )
 
 
@@ -3311,13 +3312,13 @@ def daily_statistics(request, game_id, number):
     game = get_object_or_404(Game, id=game_id, project_id=NEW_UI_SECTIONS_PROJECT)
     from games.placement_share import is_share_hash_segment
     from games.daily.placement import (
-        is_random_alphabetty_placement,
+        is_random_daily_placement,
         resolve_daily_placement,
     )
 
     placement = resolve_daily_placement(game, number)
     if is_share_hash_segment(str(number)):
-        if placement is None or not is_random_alphabetty_placement(placement):
+        if placement is None or not is_random_daily_placement(placement):
             raise Http404()
     else:
         if not scheduled_number_is_public(game, number) and not request.user.is_staff:

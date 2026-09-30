@@ -9,15 +9,16 @@ ROOT_SECTION_GAME_IDS = frozenset({
     LADDER_GAME_ID,
     ALPHABETTY_GAME_ID,
     WORD_SALAD_GAME_ID,
+    'censorly',
     'replacements',
     'walls',
     'palindromes',
     'week_task',
 })
 
-# Hub + task_group at /{id}/… (ladder/alphabetty have extra routes: today, guess, …).
+# Hub + task_group at /{id}/… (ladder/alphabetty/censorly have extra routes).
 STANDARD_ROOT_SECTION_GAME_IDS = tuple(
-    sorted(g for g in ROOT_SECTION_GAME_IDS if g not in (LADDER_GAME_ID, ALPHABETTY_GAME_ID))
+    sorted(g for g in ROOT_SECTION_GAME_IDS if g not in (LADDER_GAME_ID, ALPHABETTY_GAME_ID, 'censorly'))
 )
 
 

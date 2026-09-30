@@ -26,3 +26,21 @@ def is_random_alphabetty_placement(placement):
             task_group_id=placement.task_group_id,
         ).exists()
     )
+
+
+def is_random_censorly_placement(placement):
+    """Whether a placement is a permanent random Цензурка game."""
+    from games.models import RandomCensorlyGame
+
+    return bool(
+        placement is not None
+        and placement.game_id == 'censorly'
+        and RandomCensorlyGame.objects.filter(
+            task_group_id=placement.task_group_id,
+        ).exists()
+    )
+
+
+def is_random_daily_placement(placement):
+    """Share-hash random editions that may expose daily statistics."""
+    return is_random_alphabetty_placement(placement) or is_random_censorly_placement(placement)

@@ -114,6 +114,7 @@ GAME_KIND_BY_ID = {
     LADDER_GAME_ID: 'ladder',
     ALPHABETTY_GAME_ID: 'alphabet',
     WORD_SALAD_GAME_ID: 'salad',
+    'censorly': 'censorly',
     'replacements': 'replacement',
 }
 
@@ -286,6 +287,10 @@ def _state_complete_alphabetty(state_raw):
     return bool(state.get('won'))
 
 
+def _state_complete_censorly(state_raw):
+    return _state_complete_alphabetty(state_raw)
+
+
 def _state_complete_word_salad(task, state_raw):
     if not state_raw:
         return False
@@ -308,6 +313,8 @@ def is_task_completion_state(task, state_raw):
         return _state_complete_replacements(task, state_raw)
     if task.task_type == 'alphabetty':
         return _state_complete_alphabetty(state_raw)
+    if task.task_type == 'censorly':
+        return _state_complete_censorly(state_raw)
     if task.task_type == 'word_salad':
         return _state_complete_word_salad(task, state_raw)
     return False
@@ -320,7 +327,7 @@ def is_task_group_complete(*, task_group, game, team=None, user=None, anon_key=N
     if not tasks:
         return False
 
-    chain_types = {'raddle', 'replacements_lines', 'alphabetty', 'word_salad'}
+    chain_types = {'raddle', 'replacements_lines', 'alphabetty', 'censorly', 'word_salad'}
     chain_mode = 'tournament' if mode == 'tournament' else 'general'
     actor = _actor_kwargs(team=team, user=user, anon_key=anon_key)
     chain_tasks = [task for task in tasks if task.task_type in chain_types]
@@ -1044,7 +1051,7 @@ def _legacy_completion_candidates(
         .filter(**actor)
         .filter(replay_slot__isnull=True)
         .filter(task__task_type__in=(
-            'raddle', 'replacements_lines', 'alphabetty', 'word_salad',
+            'raddle', 'replacements_lines', 'alphabetty', 'censorly', 'word_salad',
         ))
     )
     if updated_before is not None:

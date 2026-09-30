@@ -1,10 +1,84 @@
 /* Цензурки play UI */
 
 .censorly {
+  --censorly-title-0: #1a7f37;
+  --censorly-title-1: #b08900;
+  --censorly-title-2: #c23b22;
+  --censorly-title-3: #1f6feb;
+  --censorly-title-4: #8250df;
+  container-type: inline-size;
+  container-name: censorly;
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding-bottom: 1rem;
+}
+
+html[data-theme="dark"] .censorly,
+:root[data-theme="dark"] .censorly {
+  --censorly-title-0: #3fb950;
+  --censorly-title-1: #d4a72c;
+  --censorly-title-2: #f85149;
+  --censorly-title-3: #58a6ff;
+  --censorly-title-4: #a371f7;
+}
+
+.censorly__toolbar {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.censorly__meta-card {
+  position: relative;
+  padding-right: 2.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.censorly__layout {
   display: grid;
   gap: 1rem;
   min-width: 0;
-  padding-bottom: 7rem;
+  align-items: start;
+}
+
+@container censorly (min-width: 52rem) {
+  .censorly__layout {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
+  }
+
+  .censorly__dock {
+    position: sticky;
+    top: 1rem;
+    bottom: auto;
+    padding: 0.75rem;
+    border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+    border-radius: 8px;
+    background: var(--surface, var(--bg, #fff));
+    box-shadow: none;
+  }
+
+  .censorly {
+    padding-bottom: 1rem;
+  }
+}
+
+@container censorly (max-width: 51.99rem) {
+  .censorly {
+    padding-bottom: 7rem;
+  }
+
+  .censorly__dock {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    margin-inline: -0.25rem;
+    padding: 0.65rem 0.5rem calc(0.65rem + env(safe-area-inset-bottom, 0));
+    background: color-mix(in srgb, var(--bg, #fff) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+  }
 }
 
 .censorly__status {
@@ -19,6 +93,17 @@
 .censorly__status #censorly-won {
   color: var(--text);
   font-weight: 700;
+}
+
+.censorly__hint-mode {
+  color: var(--accent, #b08900);
+  font-weight: 600;
+}
+
+.censorly.censorly--hint-pick .censorly-tok--mask:not([data-title-lemma]):not([data-title-color]) {
+  cursor: pointer;
+  outline: 2px dashed color-mix(in srgb, var(--accent, #b08900) 70%, transparent);
+  outline-offset: 2px;
 }
 
 .censorly__title,
@@ -47,6 +132,7 @@
 
 .censorly-tok--mask {
   display: inline-block;
+  position: relative;
   width: calc(var(--ch, 4) * 0.55em + 0.1em);
   height: 0.85em;
   margin: 0 0.03em;
@@ -54,6 +140,25 @@
   border-radius: 2px;
   background: var(--text);
   opacity: 0.78;
+  cursor: pointer;
+}
+
+.censorly-tok--mask::after {
+  content: none;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.7em;
+  font-weight: 700;
+  color: var(--bg, #fff);
+  opacity: 0.95;
+  pointer-events: none;
+}
+
+.censorly.censorly--show-lengths .censorly-tok--mask:not([data-len-forced="0"])::after,
+.censorly-tok--mask[data-len-forced="1"]::after {
+  content: attr(data-len);
 }
 
 .censorly-tok--revealed {
@@ -70,74 +175,84 @@
   animation: censorly-flash 1.6s ease-out;
 }
 
+.censorly-tok[data-title-color="0"] { color: var(--censorly-title-0); }
+.censorly-tok[data-title-color="1"] { color: var(--censorly-title-1); }
+.censorly-tok[data-title-color="2"] { color: var(--censorly-title-2); }
+.censorly-tok[data-title-color="3"] { color: var(--censorly-title-3); }
+.censorly-tok[data-title-color="4"] { color: var(--censorly-title-4); }
+
+.censorly-tok--mask[data-title-color="0"] { background: var(--censorly-title-0); opacity: 0.9; }
+.censorly-tok--mask[data-title-color="1"] { background: var(--censorly-title-1); opacity: 0.9; }
+.censorly-tok--mask[data-title-color="2"] { background: var(--censorly-title-2); opacity: 0.9; }
+.censorly-tok--mask[data-title-color="3"] { background: var(--censorly-title-3); opacity: 0.9; }
+.censorly-tok--mask[data-title-color="4"] { background: var(--censorly-title-4); opacity: 0.9; }
+
 @keyframes censorly-flash {
   0% { background: color-mix(in srgb, var(--accent, #c9a227) 55%, transparent); }
   100% { background: transparent; }
 }
 
-.censorly__dock {
-  position: sticky;
-  bottom: 0;
-  z-index: 5;
-  margin: 0 -0.25rem;
-  padding: 0.75rem 0.25rem 0.35rem;
-  background: linear-gradient(to top, var(--bg, #fff) 70%, transparent);
-}
-
 .censorly__form {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  min-width: 0;
+  gap: 0.4rem;
+  align-items: stretch;
 }
 
 .censorly__input {
-  flex: 1 1 12rem;
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: 100%;
-  font-size: 1.05rem;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--border);
+  font: inherit;
+  padding: 0.55rem 0.7rem;
   border-radius: 6px;
-  background: var(--surface, #fff);
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.18));
+  background: var(--bg, #fff);
   color: var(--text);
 }
 
 .censorly__feedback {
   margin: 0.4rem 0 0;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   color: var(--muted);
 }
 
-.censorly__feedback.is-error {
-  color: #b42318;
-}
-
-.censorly__feedback.is-ok {
-  color: var(--text);
-}
+.censorly__feedback.is-error { color: var(--censorly-title-2); }
+.censorly__feedback.is-hit { color: var(--censorly-title-0); }
 
 .censorly__history {
   margin-top: 0.65rem;
-  font-size: 0.9rem;
-}
-
-.censorly__guess-list {
-  margin: 0.4rem 0 0;
-  padding-left: 1.25rem;
-  max-height: 12rem;
+  max-height: min(50vh, 22rem);
   overflow: auto;
 }
 
-.censorly__guess-list li[data-hits="0"] {
-  opacity: 0.55;
+.censorly__guess-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
 }
 
-html.new-ui-dark .censorly__dock {
-  background: linear-gradient(to top, var(--bg, #121212) 70%, transparent);
+.censorly__guess-table th,
+.censorly__guess-table td {
+  text-align: left;
+  padding: 0.25rem 0.35rem;
+  border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.08));
 }
 
-html.new-ui-dark .censorly-tok--mask {
-  opacity: 0.88;
+.censorly__guess-table tbody tr {
+  cursor: pointer;
 }
+
+.censorly__guess-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent, #c9a227) 12%, transparent);
+}
+
+.censorly__col-n { width: 2.5ch; }
+.censorly__col-hits { width: 3.5ch; }
+
+.censorly__history-empty {
+  color: var(--muted);
+  font-style: italic;
+  cursor: default;
+}
+
+.censorly.censorly--digits-2 .censorly__col-n { width: 3.5ch; }
+.censorly.censorly--digits-3 .censorly__col-n { width: 4.5ch; }

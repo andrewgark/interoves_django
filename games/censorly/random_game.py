@@ -9,6 +9,7 @@ from django.db import IntegrityError, transaction
 
 from games.censorly import CENSORLY_CHECKER_ID, CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
 from games.censorly.article_pool import load_article_pool
+from games.censorly.play import CENSORLY_BASE_POINTS
 from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
 from games.censorly.wiki import WikiArticle, WikiFetchError, fetch_article, title_from_user_input
 from games.models import CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
@@ -56,7 +57,7 @@ def _create_from_article(article: WikiArticle, *, game: Game | None = None) -> R
         task_group = TaskGroup.objects.create(
             label=('censorly:random:' + article.title)[:100],
             checker=checker,
-            points=1,
+            points=CENSORLY_BASE_POINTS,
             max_attempts=None,
         )
         Task.objects.create(
@@ -68,7 +69,7 @@ def _create_from_article(article: WikiArticle, *, game: Game | None = None) -> R
             answer=article.title,
             text='',
             tags={CENSORLY_TAGS_KEY: puzzle},
-            points=1,
+            points=CENSORLY_BASE_POINTS,
             is_removed=False,
         )
         share_hash = allocate_share_hash()

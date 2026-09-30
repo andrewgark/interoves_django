@@ -66,6 +66,30 @@ class DailyStatisticsTests(TestCase):
         self.assertNotIn('СЛОВО', {row['word'] for row in data['guesses']})
         self.assertEqual(data['summary']['without_hints_percent'], 100.0)
 
+    def test_alphabet_bound_words_aggregate_nearest_ladder_bounds(self):
+        tg, task = self._task('alphabetty')
+        users = [User.objects.create_user('bound{}'.format(i)) for i in range(5)]
+        for user in users:
+            for guess in ('Б', 'СЛОВО'):
+                Attempt.manager.create(
+                    user=user, game=self.game, task=task, text=guess,
+                    status='Ok' if guess == 'СЛОВО' else 'Partial',
+                    state=json.dumps({'guesses': ['Б', 'СЛОВО'], 'won': guess == 'СЛОВО'}),
+                )
+            self._complete(tg, user)
+        extra = [User.objects.create_user('bound_below{}'.format(i)) for i in range(5)]
+        for user in extra:
+            for guess in ('Я', 'СЛОВО'):
+                Attempt.manager.create(
+                    user=user, game=self.game, task=task, text=guess,
+                    status='Ok' if guess == 'СЛОВО' else 'Partial',
+                    state=json.dumps({'guesses': ['Я', 'СЛОВО'], 'won': guess == 'СЛОВО'}),
+                )
+            self._complete(tg, user)
+        data = build_daily_statistics(self.game, tg)
+        self.assertEqual(data['above_words'], [{'word': 'Б', 'players': 5}])
+        self.assertEqual(data['below_words'], [{'word': 'Я', 'players': 5}])
+
     def test_alphabet_without_hints_percent_counts_completed_players(self):
         tg, task = self._task('alphabetty')
         for index, user in enumerate(self.users):

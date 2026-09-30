@@ -137,10 +137,25 @@ urlpatterns = [
     path('alphabetty/<str:number>/results/', ui.section_task_results_page, {'game_id': 'alphabetty'}, name='ui_alphabetty_task_results'),
     path('alphabetty/<str:number>/', ui.alphabetty_play_page, name='ui_alphabetty_play'),
     # Цензурки (phase 1: staff/support only; not on hub/nav).
+    path('censorly/today/', ui.censorly_today_page, name='ui_censorly_today'),
+    path('censorly/last/', ui.censorly_last_page, name='ui_censorly_last'),
     path('censorly/', ui.censorly_hub_page, name='ui_censorly_hub'),
-    path('censorly/r/<str:share_hash>/guess/', ui.censorly_guess, name='ui_censorly_guess'),
-    path('censorly/r/<str:share_hash>/state/', ui.censorly_state, name='ui_censorly_state'),
-    path('censorly/r/<str:share_hash>/', ui.censorly_play_page, name='ui_censorly_play'),
+    path('censorly/r/<str:share_hash>/guess/', ui.censorly_guess_random, name='ui_censorly_guess_random'),
+    path('censorly/r/<str:share_hash>/state/', ui.censorly_state_random, name='ui_censorly_state_random'),
+    path('censorly/r/<str:share_hash>/hint/', ui.censorly_hint_random, name='ui_censorly_hint_random'),
+    path('censorly/r/<str:share_hash>/', ui.censorly_play_random, name='ui_censorly_play_random'),
+    path(
+        'censorly/<str:number>/timing/',
+        ui.daily_solve_timing,
+        {'game_id': 'censorly'},
+        name='ui_censorly_timing',
+    ),
+    path('censorly/<str:number>/guess/', ui.censorly_guess, name='ui_censorly_guess'),
+    path('censorly/<str:number>/state/', ui.censorly_state, name='ui_censorly_state'),
+    path('censorly/<str:number>/hint/', ui.censorly_hint, name='ui_censorly_hint'),
+    path('censorly/results/', ui.section_results_page, {'game_id': 'censorly'}, name='ui_censorly_results'),
+    path('censorly/<str:number>/results/', ui.section_task_results_page, {'game_id': 'censorly'}, name='ui_censorly_task_results'),
+    path('censorly/<str:number>/', ui.censorly_play_page, name='ui_censorly_play'),
     # Keep this before the legacy section redirects below: those redirects only
     # support GET and would otherwise consume the replay POST and return 405.
     path('games/<str:game_id>/<str:task_group_number>/replay/', ui.new_replay_start, name='ui_replay_start'),

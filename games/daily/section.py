@@ -190,6 +190,14 @@ ALPHABETTY_SCHEDULE = DailySchedule(
     daily_play_layout=False,
 )
 
+CENSORLY_SCHEDULE = DailySchedule(
+    game_id='censorly',
+    publish_start_tag='censorly_publish_start',
+    cta_today='Сегодняшняя цензурка',
+    cta_latest='Последняя цензурка',
+    daily_play_layout=False,
+)
+
 WORD_SALAD_SCHEDULE = DailySchedule(
     game_id=WORD_SALAD_GAME_ID,
     publish_start_tag='word_salad_publish_start',
@@ -211,6 +219,7 @@ WEEK_TASK_SCHEDULE = DailySchedule(
 SCHEDULES: dict[str, DailySchedule] = {
     LADDER_SCHEDULE.game_id: LADDER_SCHEDULE,
     ALPHABETTY_SCHEDULE.game_id: ALPHABETTY_SCHEDULE,
+    CENSORLY_SCHEDULE.game_id: CENSORLY_SCHEDULE,
     WORD_SALAD_SCHEDULE.game_id: WORD_SALAD_SCHEDULE,
     WEEK_TASK_SCHEDULE.game_id: WEEK_TASK_SCHEDULE,
 }
@@ -237,7 +246,10 @@ DAILY_TIMING_GAME_IDS = frozenset(SCHEDULES) | frozenset({
     'palindromes',
 })
 
-DAILY_TEAM_TIMING_GAME_IDS = DAILY_TIMING_GAME_IDS - {ALPHABETTY_SCHEDULE.game_id}
+DAILY_TEAM_TIMING_GAME_IDS = DAILY_TIMING_GAME_IDS - {
+    ALPHABETTY_SCHEDULE.game_id,
+    CENSORLY_SCHEDULE.game_id,
+}
 
 
 def is_daily_timing_game(game_id) -> bool:

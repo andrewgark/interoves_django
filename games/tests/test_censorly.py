@@ -133,6 +133,9 @@ class CensorlyEngineTests(TestCase):
 class CensorlyAccessTests(TestCase):
     def setUp(self):
         self.game, self.task, self.share_hash, _ = _make_puzzle_task()
+        # Soft-launch gate ignores is_ready; production migration sets ready=True.
+        self.game.is_ready = True
+        self.game.save(update_fields=['is_ready'])
         self.staff = User.objects.create_user('cz_staff', password='x', is_staff=True)
         self.plain = User.objects.create_user('cz_plain', password='x', is_staff=False)
         self.client = Client()
@@ -140,10 +143,9 @@ class CensorlyAccessTests(TestCase):
     def test_anon_gets_redirect_or_404(self):
         url = f'/censorly/r/{self.share_hash}/'
         resp = self.client.get(url)
-        # login_required → redirect to login
         self.assertIn(resp.status_code, (302, 404))
 
-    def test_plain_user_404(self):
+    def test_plain_user_404_even_when_ready(self):
         self.client.force_login(self.plain)
         resp = self.client.get(f'/censorly/r/{self.share_hash}/')
         self.assertEqual(resp.status_code, 404)
@@ -163,7 +165,7 @@ class CensorlyAccessTests(TestCase):
         data = guess.json()
         self.assertIn(data['status'], ('hit', 'miss', 'won'))
 
-    def test_hub_staff_only(self):
+    def test_hub_staff_only_when_ready(self):
         self.client.force_login(self.plain)
         self.assertEqual(self.client.get('/censorly/').status_code, 404)
         self.client.force_login(self.staff)
@@ -222,10 +224,12 @@ class CensorlyLatinGuessTests(TestCase):
         a = apply_guess(game=game, task=task, word='кот', user=user)
         self.assertEqual(a['status'], 'hit')
         self.assertGreater(a['hits'], 0)
+        attempts_after_hit = a['attempts']
         b = apply_guess(game=game, task=task, word='коты', user=user)
         self.assertEqual(b['status'], 'already_open')
         self.assertEqual(b['hits'], 0)
         self.assertFalse(b['won'])
+        self.assertEqual(b['attempts'], attempts_after_hit)
 
 
 class CensorlySupportViewTests(TestCase):
@@ -253,9 +257,9 @@ class CensorlySupportViewTests(TestCase):
     def test_generate_random_does_not_shadow_service(self):
         """Regression: view must call service, not recurse into itself."""
         from unittest.mock import patch
-        from games.support.services.censorly import CensorlyRow
+        from games.support.services.censorly import CensorlyRandomRow
 
-        fake = CensorlyRow(
+        fake = CensorlyRandomRow(
             id=1,
             wiki_title='Тест',
             share_hash='abcd1234abcd1234',
@@ -278,3 +282,147 @@ class CensorlySupportViewTests(TestCase):
         self.assertTrue(resp.json()['ok'])
         self.assertEqual(resp.json()['row']['wiki_title'], 'Тест')
         mocked.assert_called_once_with()
+
+
+class CensorlyUxDailyTests(TestCase):
+    def setUp(self):
+        self.game, self.task, self.share_hash, self.puzzle = _make_puzzle_task(
+            title='Кот',
+            body='Кот сидит на окне. Собака лает. Птица летит.',
+        )
+        from datetime import timedelta
+        from django.utils import timezone
+        start = (timezone.now() + timedelta(days=30)).date()
+        tags = dict(self.game.tags or {})
+        tags['censorly_publish_start'] = f'{start.isoformat()}T00:00:00+03:00'
+        self.game.tags = tags
+        self.game.is_ready = True
+        self.game.save(update_fields=['tags', 'is_ready'])
+        link = GameTaskGroup.objects.filter(
+            game=self.game, task_group=self.task.task_group,
+        ).first()
+        link.number = '1'
+        link.name = 'Цензурка #1'
+        link.save(update_fields=['number', 'name'])
+        self.staff = User.objects.create_user('cz_ux_staff', password='x', is_staff=True)
+        self.plain = User.objects.create_user('cz_ux_plain', password='x', is_staff=False)
+        self.client = Client()
+        self.task.points = 20
+        self.task.save(update_fields=['points'])
+        self.task.task_group.points = 20
+        self.task.task_group.save(update_fields=['points'])
+
+    def test_staff_opens_unpublished_number(self):
+        self.client.force_login(self.staff)
+        resp = self.client.get('/censorly/1/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'censorly-root')
+
+    def test_plain_cannot_open_unpublished(self):
+        self.client.force_login(self.plain)
+        self.assertEqual(self.client.get('/censorly/1/').status_code, 404)
+
+    def test_accent_length_ignores_combining_marks(self):
+        from games.censorly.tokenize import letter_length, tokenize_text
+        self.assertEqual(letter_length('мо́ре'), 4)
+        toks = tokenize_text('мо́ре')
+        content = [t for t in toks if t['kind'] == 'content'][0]
+        self.assertEqual(content['length'], 4)
+        self.assertIn('\u0301', content['surface'])
+
+    def test_title_color_indices_stable(self):
+        from games.censorly.tokenize import title_lemma_color_map
+        payload = build_puzzle_payload(
+            wiki_title='Красная площадь Москва',
+            body_text='Красная площадь в Москве.',
+        )
+        mapping = payload['title_color_map']
+        self.assertEqual(mapping, title_lemma_color_map(payload['title_tokens']))
+        self.assertLessEqual(len(mapping), 5)
+        body_colored = [
+            t for t in payload['body_tokens']
+            if t.get('kind') == 'content' and t.get('title_color') is not None
+        ]
+        self.assertTrue(body_colored)
+
+    def test_hint_forbidden_on_title_lemma(self):
+        from games.censorly.play import apply_hint
+        from games.censorly.tokenize import title_content_lemmas
+        title_lemmas = title_content_lemmas(self.puzzle)
+        title_tok = next(
+            t for t in self.puzzle['title_tokens']
+            if t.get('kind') == 'content' and t.get('lemma') in title_lemmas
+        )
+        result = apply_hint(
+            game=self.game, task=self.task, token_id=title_tok['id'], user=self.staff,
+        )
+        self.assertEqual(result['status'], 'error')
+
+        body_tok = next(
+            t for t in self.puzzle['body_tokens']
+            if t.get('kind') == 'content'
+            and t.get('lemma')
+            and t.get('lemma') not in title_lemmas
+        )
+        ok = apply_hint(
+            game=self.game, task=self.task, token_id=body_tok['id'], user=self.staff,
+        )
+        self.assertEqual(ok['status'], 'hint')
+        self.assertEqual(ok['hints_taken'], 1)
+        self.assertEqual(ok['points'], 19)
+
+    def test_hint_forbidden_on_uncolored_sixth_title_lemma(self):
+        """Title color cap is 5; 6th title lemma must still be unhintable."""
+        from games.censorly.play import apply_hint, puzzle_from_task
+        title = 'Альфа Бета Гамма Дельта Эпсилон Дзета'
+        body = 'Альфа и дзета встречаются в тексте.'
+        puzzle = build_puzzle_payload(wiki_title=title, body_text=body)
+        self.task.tags = {CENSORLY_TAGS_KEY: puzzle}
+        self.task.answer = title
+        self.task.save(update_fields=['tags', 'answer'])
+        from games.censorly.tokenize import title_content_lemmas, title_lemma_color_map
+        lemmas = list(title_content_lemmas(puzzle))
+        self.assertGreaterEqual(len(lemmas), 6)
+        colored = title_lemma_color_map(puzzle['title_tokens'])
+        uncolored = [lem for lem in lemmas if lem not in colored]
+        self.assertTrue(uncolored)
+        tok = next(
+            t for t in puzzle['title_tokens'] + puzzle['body_tokens']
+            if t.get('kind') == 'content' and t.get('lemma') == uncolored[0]
+        )
+        result = apply_hint(
+            game=self.game, task=self.task, token_id=tok['id'], user=self.staff,
+        )
+        self.assertEqual(result['status'], 'error')
+
+    def test_accented_guess_is_accepted(self):
+        from games.censorly.normalize import is_guessable_word, normalize_surface
+        self.assertTrue(is_guessable_word('мо́ре'))
+        self.assertEqual(normalize_surface('мо́ре'), 'море')
+        game, task, _h, _p = _make_puzzle_task(
+            title='Море',
+            body='Море шумит. В море плавают.',
+        )
+        # Rebuild with accented surface in body
+        puzzle = build_puzzle_payload(
+            wiki_title='Море',
+            body_text='Мо́ре шумит у берега.',
+        )
+        task.tags = {CENSORLY_TAGS_KEY: puzzle}
+        task.save(update_fields=['tags'])
+        user = User.objects.create_user('cz_accent', password='x')
+        result = apply_guess(game=game, task=task, word='мо́ре', user=user)
+        self.assertIn(result['status'], ('hit', 'won'))
+
+    def test_results_adapter_registered(self):
+        from games.daily.results import get_daily_results_adapter
+        adapter = get_daily_results_adapter('censorly')
+        self.assertIsNotNone(adapter)
+        self.assertEqual(adapter.task_variant, 'alphabetty')
+
+    def test_statistics_adapter_smoke(self):
+        from games.daily.statistics import DAILY_STATISTICS_ADAPTERS, _censorly
+        self.assertIn('censorly', DAILY_STATISTICS_ADAPTERS)
+        data = _censorly(self.task, self.game, {})
+        self.assertEqual(data['kind'], 'censorly')
+        self.assertEqual(data['solved'], 0)

@@ -17,14 +17,20 @@ from games.word_salad import (
     parse_task_payload,
 )
 from games.alphabetty.core import normalize_word
-from games.alphabetty.play import hint_count as alphabetty_hint_count, load_state as load_alphabetty_state
+from games.alphabetty.play import (
+    hint_count as alphabetty_hint_count,
+    load_state as load_alphabetty_state,
+    secret_from_task,
+    split_ladder,
+)
 from games.daily.registry import DAILY_GAME_REGISTRY
 
 
-CACHE_VERSION = 11
+CACHE_VERSION = 13
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
+BOUND_WORDS_LIMIT = 10
 
 
 @dataclass(frozen=True)
@@ -361,12 +367,33 @@ def _ladder(task, game, actors):
     }
 
 
+def _popular_word_rows(counts, *, limit):
+    return [
+        {'word': word, 'players': len(players)}
+        for word, players in sorted(counts.items(), key=lambda item: (-len(item[1]), item[0]))
+        if len(players) >= POPULAR_MIN_ENTRIES
+    ][:limit]
+
+
+def _pre_win_guesses(rows, answer):
+    guesses = []
+    for row in rows:
+        if row.status == 'Ok' and normalize_word(row.text) == answer:
+            break
+        guess = normalize_word(row.text)
+        if guess and guess != answer:
+            guesses.append(guess)
+    return guesses
+
+
 def _alphabet(task, game, actors):
     attempts = _attempts_for(task, game, actors)
     states = _latest_states(task, game, actors, attempts)
-    answer = normalize_word((task.answer or '').splitlines()[0])
+    answer = secret_from_task(task)
     attempt_counts = []
     guesses = defaultdict(set)
+    above_bounds = defaultdict(set)
+    below_bounds = defaultdict(set)
     for actor in actors:
         rows = attempts.get(actor, [])
         won = [row for row in rows if row.status == 'Ok']
@@ -378,23 +405,123 @@ def _alphabet(task, game, actors):
             guess = normalize_word(row.text)
             if guess and guess != answer and row.status != 'Ok':
                 guesses[guess].add(actor)
+        pre_win = _pre_win_guesses(rows, answer)
+        if pre_win and answer:
+            earlier, later = split_ladder(pre_win, answer)
+            if earlier:
+                above_bounds[earlier[-1]].add(actor)
+            if later:
+                below_bounds[later[0]].add(actor)
     histogram = build_attempt_histogram(attempt_counts)
     no_hints = sum(
         1 for actor in actors
         if alphabetty_hint_count(load_alphabetty_state(states.get(actor))) == 0
     )
-    popular_guesses = [
+    popular_guesses = _popular_word_rows(guesses, limit=POPULAR_LIMIT)
+    above_words = _popular_word_rows(above_bounds, limit=BOUND_WORDS_LIMIT)
+    below_words = _popular_word_rows(below_bounds, limit=BOUND_WORDS_LIMIT)
+    return {
+        'kind': 'alphabet',
+        'solved': len(actors),
+        'summary': {
+            'solved': len(actors),
+            'median_attempts': _median(attempt_counts),
+            'without_hints_percent': _pct(no_hints, len(actors)),
+        },
+        'distribution': histogram,
+        'guesses': popular_guesses,
+        'above_words': above_words,
+        'below_words': below_words,
+    }
+
+
+def _censorly(task, game, actors):
+    """Popular guessed lemmas + last lemma before win (excluding title answers)."""
+    from games.censorly.normalize import lemma_of, normalize_surface
+    from games.censorly.play import hint_count as censorly_hint_count
+    from games.censorly.play import load_state as load_censorly_state
+    from games.censorly.play import puzzle_from_task
+    from games.censorly.tokenize import title_content_lemmas
+
+    attempts = _attempts_for(task, game, actors)
+    states = _latest_states(task, game, actors, attempts)
+    payload = puzzle_from_task(task) or {}
+    title_lemmas = title_content_lemmas(payload)
+    attempt_counts = []
+    lemma_players = defaultdict(set)
+    last_before_win = defaultdict(set)
+    no_hints = 0
+
+    def lemma_from_row(row):
+        try:
+            dumped = json.loads(row.state or '{}')
+            guesses = dumped.get('guesses') or []
+            if guesses:
+                lemma = (guesses[-1] or {}).get('lemma') or ''
+                if lemma:
+                    return lemma
+        except (TypeError, ValueError):
+            pass
+        return lemma_of(normalize_surface(row.text or ''))
+
+    for actor in actors:
+        rows = attempts.get(actor, [])
+        if not any(row.status == 'Ok' for row in rows):
+            continue
+        real_guesses = [
+            row for row in rows
+            if row.text and not str(row.text).startswith('#hint:')
+        ]
+        attempt_counts.append(len(real_guesses))
+        state = load_censorly_state(states.get(actor))
+        if censorly_hint_count(state) == 0:
+            no_hints += 1
+        for row in real_guesses:
+            lemma = lemma_from_row(row)
+            if lemma and lemma not in title_lemmas:
+                lemma_players[lemma].add(actor)
+        pre_win = []
+        for row in rows:
+            if row.status == 'Ok':
+                break
+            if row.text and not str(row.text).startswith('#hint:'):
+                pre_win.append(row)
+        if pre_win:
+            lemma = lemma_from_row(pre_win[-1])
+            if lemma and lemma not in title_lemmas:
+                last_before_win[lemma].add(actor)
+
+    popular = [
         {'word': word, 'players': len(players)}
-        for word, players in sorted(guesses.items(), key=lambda item: (-len(item[1]), item[0]))
+        for word, players in sorted(lemma_players.items(), key=lambda item: (-len(item[1]), item[0]))
         if len(players) >= POPULAR_MIN_ENTRIES
     ][:POPULAR_LIMIT]
-    return {'kind': 'alphabet', 'solved': len(actors), 'summary': {'solved': len(actors), 'median_attempts': _median(attempt_counts), 'without_hints_percent': _pct(no_hints, len(actors))}, 'distribution': histogram, 'guesses': popular_guesses}
+    # Last-before-win can be sparse; show from 1 player.
+    last_words = [
+        {'word': word, 'players': len(players)}
+        for word, players in sorted(last_before_win.items(), key=lambda item: (-len(item[1]), item[0]))
+        if len(players) >= 1
+    ][:POPULAR_LIMIT]
+    histogram = build_attempt_histogram(attempt_counts)
+    return {
+        'kind': 'censorly',
+        'solved': len(actors),
+        'summary': {
+            'solved': len(actors),
+            'median_attempts': _median(attempt_counts),
+            'without_hints_percent': _pct(no_hints, len(actors)),
+        },
+        'distribution': histogram,
+        'popular_words': popular,
+        'last_words': last_words,
+    }
 
 
 DAILY_STATISTICS_ADAPTERS.update({
     'salad': DailyStatisticsAdapter('salad', _salad),
     'ladder': DailyStatisticsAdapter('ladder', _ladder),
     'alphabet': DailyStatisticsAdapter('alphabet', _alphabet),
+    'censorly': DailyStatisticsAdapter('censorly', _censorly),
 })
 
 

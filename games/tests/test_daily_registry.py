@@ -15,7 +15,7 @@ class DailyGameRegistryTests(TestCase):
     def test_existing_daily_games_are_registered(self):
         self.assertEqual(
             [definition.game_id for definition in DAILY_GAME_REGISTRY.all()],
-            ['ladder', 'alphabetty', 'salad'],
+            ['ladder', 'alphabetty', 'censorly', 'salad'],
         )
 
     def test_definition_connects_identity_to_schedule(self):

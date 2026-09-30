@@ -17,6 +17,7 @@ class DailyResultsAdapter:
 DAILY_RESULTS_ADAPTERS = {
     'ladder': DailyResultsAdapter('ladder', 'ladder', 'standard'),
     'alphabetty': DailyResultsAdapter('alphabetty', 'alphabetty', 'alphabetty'),
+    'censorly': DailyResultsAdapter('censorly', 'alphabetty', 'alphabetty'),
     'salad': DailyResultsAdapter('salad', 'standard', 'salad_words'),
 }
 

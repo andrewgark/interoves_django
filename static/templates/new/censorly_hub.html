@@ -7,16 +7,31 @@
 
 <header class="new-daily-header">
   <h1 class="pal-title"><i class="ph ph-highlighter" aria-hidden="true"></i> Цензурки</h1>
-  <p class="pal-lead">Фаза теста: генерация и прорешивание только для staff/support. На главной пока нет.</p>
+  <p class="pal-lead">Staff/support preview: нумерованное расписание и случайные партии. На главной пока нет.</p>
 </header>
 
 <p class="new-login-hint">
   <a class="new-btn" href="{{ support_url }}">Открыть генератор в Support</a>
+  {% if censorly_cta_number %}<a class="new-btn new-btn--ghost" href="/censorly/{{ censorly_cta_number }}/">{{ censorly_cta_label|default:"Играть" }}</a>{% endif %}
 </p>
+
+{% if schedule_links %}
+<section class="pal-card" style="margin-top:1rem">
+  <h2 class="pal-title" style="margin-top:0">Расписание</h2>
+  <ul class="new-task-list">
+    {% for link in schedule_links %}
+      <li class="new-task">
+        <a href="/censorly/{{ link.number }}/">Цензурка #{{ link.number }}</a>
+        <small class="new-task__meta">{{ link.name }}</small>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 
 {% if rows %}
 <section class="pal-card" style="margin-top:1rem">
-  <h2 class="pal-title" style="margin-top:0">Недавние</h2>
+  <h2 class="pal-title" style="margin-top:0">Случайные</h2>
   <ul class="new-task-list">
     {% for row in rows %}
       <li class="new-task">
@@ -27,6 +42,6 @@
   </ul>
 </section>
 {% else %}
-<p class="new-login-hint">Пока нет партий — создайте первую в Support.</p>
+<p class="new-login-hint">Случайных партий пока нет — создайте в Support.</p>
 {% endif %}
 {% endblock %}

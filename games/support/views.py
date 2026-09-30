@@ -37,10 +37,13 @@ from games.support.services.alphabetty import (
 )
 from games.support.services.censorly import (
     CensorlySupportError,
+    create_at_number as censorly_create_at_number,
     dashboard_context as censorly_dashboard_context,
     generate_from_title as censorly_create_from_title,
+    generate_more as censorly_generate_more,
     generate_random as censorly_create_random,
     reset_my_progress as censorly_reset_my_progress,
+    set_publish_start as censorly_set_publish_start_service,
 )
 from games.support.services.week_tasks import (
     WeekTaskSupportError,
@@ -1392,13 +1395,72 @@ def censorly_generate_from_title(request):
 def censorly_reset_progress(request):
     body = _json_body(request) or {}
     share_hash = (body.get('share_hash') or '').strip()
-    if not share_hash:
-        return JsonResponse({'ok': False, 'error': 'Нужен share_hash'}, status=400)
+    number = (body.get('number') or '').strip()
     try:
-        deleted = censorly_reset_my_progress(user=request.user, share_hash=share_hash)
+        deleted = censorly_reset_my_progress(
+            user=request.user,
+            share_hash=share_hash,
+            number=number,
+        )
     except CensorlySupportError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     return JsonResponse({'ok': True, 'deleted': deleted})
+
+
+@support_console_required
+@require_POST
+def censorly_set_publish_start(request):
+    body = _json_body(request) or {}
+    date_iso = body.get('publish_start') or body.get('date')
+    if not date_iso:
+        return JsonResponse({'ok': False, 'error': 'Нужна publish_start (YYYY-MM-DD)'}, status=400)
+    try:
+        new_date = censorly_set_publish_start_service(str(date_iso))
+        ctx = censorly_dashboard_context()
+    except CensorlySupportError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({
+        'ok': True,
+        'publish_start': new_date,
+        'rows': ctx['schedule_json'],
+    })
+
+
+@support_console_required
+@require_POST
+def censorly_schedule_create(request):
+    body = _json_body(request) or {}
+    try:
+        at_number = int(body.get('at_number'))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Нужен at_number'}, status=400)
+    title = (body.get('title') or body.get('url') or '').strip() or None
+    try:
+        detail = censorly_create_at_number(at_number, title_or_url=title)
+    except CensorlySupportError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    except Exception as exc:
+        logging.getLogger(__name__).exception('censorly schedule create failed')
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=500)
+    return JsonResponse({'ok': True, **detail})
+
+
+@support_console_required
+@require_POST
+def censorly_schedule_generate(request):
+    body = _json_body(request) or {}
+    try:
+        n = int(body.get('n') or 5)
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Нужен n'}, status=400)
+    try:
+        result = censorly_generate_more(n)
+    except CensorlySupportError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    except Exception as exc:
+        logging.getLogger(__name__).exception('censorly schedule generate failed')
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=500)
+    return JsonResponse({'ok': True, **result})
 
 
 @support_console_required

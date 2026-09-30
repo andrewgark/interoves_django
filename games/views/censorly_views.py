@@ -1,22 +1,79 @@
-"""Цензурки: staff/support play pages and guess API (phase 1)."""
+"""Цензурки: daily numbered play + random hash play + APIs."""
 
 from __future__ import annotations
 
 import json
 
-from django.contrib.auth.decorators import login_required
 from django.http import Http404, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
-from games.censorly import CENSORLY_GAME_ID
-from games.censorly.play import apply_guess, get_play_state, puzzle_from_task
-from games.models import Game, RandomCensorlyGame, Task
+from games.analytics import (
+    PlayerCompletedGame,
+    is_task_completion_state,
+    is_task_group_complete,
+    publish_completion_analytics,
+    register_started_game,
+)
+from games.analytics_identity import gameplay_anon_key
+from games.censorly.play import (
+    CENSORLY_HINT_PENALTY,
+    apply_guess,
+    apply_hint,
+    get_play_state,
+    get_task_for_number,
+    hint_count,
+    load_state,
+    ru_hint_word,
+)
+from games.censorly_daily import (
+    CENSORLY_GAME_ID,
+    censorly_publish_at,
+    current_censorly_number,
+    filter_published_censorly_links,
+    get_censorly_hub_context,
+    is_censorly_number_published,
+    visible_censorly_links,
+)
+from games.completion_coordinator import complete_logical_game
+from games.daily.page_context import build_daily_lifecycle_context, daily_statistics_url
+from games.daily.registry import get_daily_game
+from games.daily_transitions import next_daily_content_transition_for_game
+from games.gameplay_context import (
+    context_error_response,
+    issue_gameplay_context,
+    validate_gameplay_context,
+)
+from games.middleware.request_timing import timing_phase
+from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Like, RandomCensorlyGame, Task
+from games.section_hub import onboarding_followup_context, section_format_credit_context
+from games.section_paths import section_hub_path, section_play_path, section_results_path
 from games.support.access import user_has_support_access
-from games.views.new_ui import NEW_UI_SECTIONS_PROJECT
+from games.task_titles import task_display_name, task_group_page_title
+from games.views.daily_timing_views import daily_timing_page_context
+from games.views.new_ui import (
+    NEW_UI_SECTIONS_PROJECT,
+    _archive_nav_target,
+    _neighbors_by_pk,
+    _task_group_page_nav_context,
+)
+from games.views.util import has_profile
 
 
-def _may_play_censorly(user) -> bool:
+def _share_host(request) -> str:
+    return request.get_host() or 'interoves.com'
+
+
+def _get_game():
+    return Game.objects.filter(
+        id=CENSORLY_GAME_ID,
+        project_id=NEW_UI_SECTIONS_PROJECT,
+    ).first()
+
+
+def _may_preview(user) -> bool:
     if not getattr(user, 'is_authenticated', False):
         return False
     if getattr(user, 'is_staff', False):
@@ -24,11 +81,147 @@ def _may_play_censorly(user) -> bool:
     return user_has_support_access(user)
 
 
-def _get_game() -> Game | None:
-    return Game.objects.filter(
-        id=CENSORLY_GAME_ID,
-        project_id=NEW_UI_SECTIONS_PROJECT,
-    ).first()
+def _censorly_is_public(game) -> bool:
+    """Opt-in public launch via Game.tags['censorly_public']; soft-launch otherwise."""
+    tags = game.tags if isinstance(game.tags, dict) else {}
+    return bool(tags.get('censorly_public'))
+
+
+def _may_open_unpublished(user) -> bool:
+    """Staff or support may preview unpublished numbered slots during soft launch."""
+    return _may_preview(user)
+
+
+def _may_access_censorly(request, game) -> bool:
+    """Soft launch: staff/support only. After censorly_public: normal see_game_preview."""
+    if _may_preview(request.user):
+        return True
+    if not _censorly_is_public(game):
+        return False
+    team = None
+    if has_profile(request.user):
+        team = request.user.profile.team_on
+    return bool(game.has_access('see_game_preview', team=team))
+
+
+def _published_numbers(game):
+    links = GameTaskGroup.objects.filter(game=game)
+    return {
+        link.number
+        for link in filter_published_censorly_links(links, game)
+        if str(link.number).isdigit()
+    }
+
+
+def _resolve_actor(request, *, body=None):
+    if request.user.is_authenticated:
+        return request.user, None
+    anon_key = gameplay_anon_key(request)
+    if anon_key:
+        return None, str(anon_key)
+    return None, None
+
+
+def _hints_taken(*, game, task, user, anon_key) -> int:
+    qs = ChainTaskState.objects.filter(
+        task=task, game=game, game_mode='general', replay_slot__isnull=True,
+    )
+    if user is not None:
+        qs = qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
+    elif anon_key:
+        qs = qs.filter(anon_key=str(anon_key), team__isnull=True, user__isnull=True)
+    else:
+        return 0
+    row = qs.first()
+    if row is None:
+        return 0
+    return hint_count(load_state(row.state))
+
+
+def _meta_context(request, *, game, task, user, anon_key, placement=None):
+    mode = game.get_current_mode(Attempt(time=timezone.now()))
+    ai = Attempt.manager.get_attempts_info(
+        team=None,
+        task=task,
+        mode=mode,
+        user=user,
+        anon_key=anon_key,
+        game=game,
+    )
+    hints_n = _hints_taken(game=game, task=task, user=user, anon_key=anon_key)
+    difficulty = None
+    if placement is not None:
+        from games.difficulty import get_game_difficulty
+        difficulty = get_game_difficulty(placement)
+    return {
+        'game': game,
+        'task': task,
+        'ai': ai,
+        'mode': mode,
+        'base_max': task.get_points(),
+        'wall_max_title': '',
+        'task_ui': {
+            'show_attempts': False,
+            'show_answer': False,
+            'alphabetty_hints_label': (
+                f'{hints_n} {ru_hint_word(hints_n)}' if hints_n > 0 else ''
+            ),
+        },
+        'is_daily_single_task': True,
+        'difficulty': difficulty,
+        'has_profile_user': has_profile(request.user),
+        'user': request.user,
+        'likes_meta_by_task_id': {
+            task.id: {
+                'likes': Like.manager.get_total_likes(task),
+                'dislikes': Like.manager.get_total_dislikes(task),
+                'liked': Like.manager.actor_has_like(
+                    task, team=None, user=user, anon_key=anon_key,
+                ),
+                'disliked': Like.manager.actor_has_dislike(
+                    task, team=None, user=user, anon_key=anon_key,
+                ),
+            },
+        },
+        'alphabetty_hints': hints_n,
+        'alphabetty_hints_label': (
+            f'{hints_n} {ru_hint_word(hints_n)}' if hints_n > 0 else ''
+        ),
+    }
+
+
+def _meta_bar_html(request, *, game, task, user, anon_key, placement=None) -> str:
+    return render_to_string(
+        'new/task-content/task-meta-bar.html',
+        _meta_context(
+            request,
+            game=game,
+            task=task,
+            user=user,
+            anon_key=anon_key,
+            placement=placement,
+        ),
+        request=request,
+    )
+
+
+def _with_meta_bar(payload, request, *, game, task, user, anon_key, placement=None):
+    out = dict(payload)
+    out['meta_bar_html'] = _meta_bar_html(
+        request,
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        placement=placement,
+    )
+    return out
+
+
+def _preview_denied(request, game):
+    if _may_access_censorly(request, game):
+        return None
+    return JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
 
 
 def _load_random(share_hash: str):
@@ -42,99 +235,476 @@ def _load_random(share_hash: str):
     task = Task.objects.filter(task_group_id=row.task_group_id, number='1').first()
     if task is None:
         raise LookupError('task_not_found')
-    return row, task
+    link = GameTaskGroup.objects.filter(
+        game_id=CENSORLY_GAME_ID,
+        task_group_id=row.task_group_id,
+    ).first()
+    return row, task, link
 
 
-@login_required
-def censorly_hub_page(request):
-    if not _may_play_censorly(request.user):
-        raise Http404()
+def _load_visible_task(request, number, *, json_mode=True, random_hash=None):
     game = _get_game()
-    if game is None:
-        raise Http404()
-    rows = list(
-        RandomCensorlyGame.objects.order_by('-created_at')[:40]
-    )
-    return render(request, 'new/censorly_hub.html', {
-        'page_title': 'Цензурки (тест)',
-        'game': game,
-        'rows': rows,
-        'support_url': '/support/censorly/',
-    })
+    if not game:
+        return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
 
-
-@login_required
-def censorly_play_page(request, share_hash):
-    if not _may_play_censorly(request.user):
-        raise Http404()
-    game = _get_game()
-    if game is None:
-        raise Http404()
-    try:
-        row, task = _load_random(share_hash)
-    except LookupError:
-        raise Http404()
-    payload = puzzle_from_task(task)
-    if payload is None:
-        raise Http404()
-    state = get_play_state(game=game, task=task, user=request.user)
-    bootstrap = {
-        'share_hash': row.share_hash,
-        'guess_url': f'/censorly/r/{row.share_hash}/guess/',
-        'state_url': f'/censorly/r/{row.share_hash}/state/',
-        'state': state,
-    }
-    return render(request, 'new/censorly_play.html', {
-        'page_title': f'Цензурка · {row.wiki_title}' if state.get('won') else 'Цензурка',
-        'game': game,
-        'task': task,
-        'row': row,
-        'bootstrap': bootstrap,
-        'back_url': '/censorly/',
-        'back_label': 'К списку',
-    })
-
-
-@login_required
-@require_http_methods(['GET'])
-def censorly_state(request, share_hash):
-    if not _may_play_censorly(request.user):
-        return JsonResponse({'status': 'error', 'error': 'Forbidden'}, status=403)
-    game = _get_game()
-    if game is None:
-        return JsonResponse({'status': 'error', 'error': 'Not found'}, status=404)
-    try:
-        _row, task = _load_random(share_hash)
-    except LookupError:
-        return JsonResponse({'status': 'error', 'error': 'Not found'}, status=404)
-    return JsonResponse(get_play_state(game=game, task=task, user=request.user))
-
-
-@login_required
-@require_POST
-def censorly_guess(request, share_hash):
-    if not _may_play_censorly(request.user):
-        return JsonResponse({'status': 'error', 'error': 'Forbidden'}, status=403)
-    game = _get_game()
-    if game is None:
-        return JsonResponse({'status': 'error', 'error': 'Not found'}, status=404)
-    try:
-        _row, task = _load_random(share_hash)
-    except LookupError:
-        return JsonResponse({'status': 'error', 'error': 'Not found'}, status=404)
-
-    word = ''
-    content_type = (request.content_type or '').lower()
-    if 'application/json' in content_type:
+    if random_hash:
         try:
-            body = json.loads(request.body.decode('utf-8') or '{}')
-        except (TypeError, ValueError, UnicodeDecodeError):
-            body = {}
-        word = (body.get('word') or body.get('guess') or '').strip()
-    else:
-        word = (request.POST.get('word') or request.POST.get('guess') or '').strip()
+            row, task, link = _load_random(random_hash)
+        except LookupError:
+            return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+        denied = _preview_denied(request, game)
+        if denied is not None:
+            return None, None, None, denied
+        meta = {
+            'play_number': row.share_hash,
+            'play_path': f'/censorly/r/{row.share_hash}/',
+            'accepted_link': link,
+            'schedule_number': None,
+            'is_random': True,
+            'random_row': row,
+        }
+        return game, task, meta, None
 
-    result = apply_guess(game=game, task=task, word=word, user=request.user)
+    denied = _preview_denied(request, game)
+    if denied is not None:
+        return None, None, None, denied
+    try:
+        n = int(number)
+    except (TypeError, ValueError):
+        return None, None, None, JsonResponse({'status': 'error', 'error': 'bad number'}, status=400)
+    if not is_censorly_number_published(game, n) and not _may_open_unpublished(request.user):
+        return None, None, None, JsonResponse({'status': 'error', 'error': 'not published'}, status=404)
+    from games.club_access import reject_if_club_archive_blocked
+
+    locked = reject_if_club_archive_blocked(request, game, number=n, json_mode=json_mode)
+    if locked is not None:
+        return None, None, None, locked
+    try:
+        link, task = get_task_for_number(game, n)
+    except LookupError:
+        return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+    meta = {
+        'play_number': n,
+        'play_path': section_play_path(CENSORLY_GAME_ID, n),
+        'accepted_link': link,
+        'schedule_number': n,
+        'is_random': False,
+        'random_row': None,
+    }
+    return game, task, meta, None
+
+
+def censorly_hub_page(request):
+    game = _get_game()
+    if not game:
+        raise Http404()
+    if not _may_access_censorly(request, game):
+        raise Http404()
+    hub = get_censorly_hub_context(game, published_numbers=_published_numbers(game))
+    random_rows = list(RandomCensorlyGame.objects.order_by('-created_at')[:40])
+    # Soft-launch / staff: show all numeric slots. Public: only published.
+    show_unpublished = _may_open_unpublished(request.user)
+    schedule_links = []
+    for link in GameTaskGroup.objects.filter(game=game).select_related('task_group'):
+        if not str(link.number).isdigit():
+            continue
+        if show_unpublished or is_censorly_number_published(game, int(link.number)):
+            schedule_links.append(link)
+    schedule_links.sort(key=lambda link: int(link.number))
+    return render(request, 'new/censorly_hub.html', {
+        'page_title': 'Цензурки',
+        'game': game,
+        'rows': random_rows,
+        'schedule_links': schedule_links,
+        'support_url': '/support/censorly/',
+        'show_sections_nav': False,
+        **hub,
+    })
+
+
+def censorly_today_page(request):
+    game = _get_game()
+    if not game:
+        raise Http404()
+    if not _may_access_censorly(request, game):
+        raise Http404()
+    n = current_censorly_number(game)
+    if not n:
+        return redirect('ui_censorly_hub')
+    return redirect(section_play_path(CENSORLY_GAME_ID, n))
+
+
+def censorly_last_page(request):
+    game = _get_game()
+    if not game:
+        raise Http404()
+    if not _may_access_censorly(request, game):
+        raise Http404()
+    ints = []
+    for n in _published_numbers(game):
+        try:
+            ints.append(int(n))
+        except (TypeError, ValueError):
+            continue
+    if not ints:
+        return redirect('ui_censorly_hub')
+    return redirect(section_play_path(CENSORLY_GAME_ID, max(ints)))
+
+
+def _render_play(request, *, game, task, load_meta):
+    play_number = load_meta.get('play_number')
+    play_path = load_meta.get('play_path')
+    link = load_meta.get('accepted_link')
+    is_random = bool(load_meta.get('is_random'))
+    schedule_number = load_meta.get('schedule_number')
+    n = None if is_random else schedule_number
+
+    user, anon_key = _resolve_actor(request)
+    state = get_play_state(
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        number=play_number,
+        share_host=_share_host(request),
+        play_path=play_path,
+    )
+    pub_at = censorly_publish_at(game, n) if n is not None else None
+    daily_publish_date = pub_at.date() if pub_at is not None else None
+
+    prev_tg = None
+    next_tg = None
+    if link is not None and not is_random:
+        visible_links = list(
+            visible_censorly_links(
+                GameTaskGroup.objects.filter(game=game),
+                game,
+            )
+        )
+        visible_links = [x for x in visible_links if str(x.number).isdigit()]
+        prev_tg, next_tg = _neighbors_by_pk(visible_links, link)
+
+    team = None
+    if user is not None and has_profile(user):
+        team = user.profile.team_on
+    actor_filter = (
+        {'user': user, 'team__isnull': True, 'anon_key__isnull': True}
+        if user is not None
+        else {'anon_key': anon_key, 'team__isnull': True, 'user__isnull': True}
+    )
+    official_completed = PlayerCompletedGame.objects.filter(
+        game=game,
+        task_group=task.task_group,
+        result=PlayerCompletedGame.RESULT_SOLVED,
+        **actor_filter,
+    ).exists() if anon_key or user else False
+
+    meta_ctx = _meta_context(
+        request,
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        placement=link if not is_random else None,
+    )
+    if link is not None and not is_random:
+        page_title = task_group_page_title(game, link)
+        bug_report_task_label = task_display_name(game, task, placement=link)
+    else:
+        page_title = f'Цензурка #{play_number}'
+        bug_report_task_label = page_title
+
+    daily_lifecycle_context = build_daily_lifecycle_context(
+        CENSORLY_GAME_ID,
+        is_daily_single_task=True,
+        placement_number=link.number if link is not None else play_number,
+        placement_is_task_group=link is not None,
+        number_is_public=(
+            is_random
+            or (link is not None and is_censorly_number_published(game, link.number))
+        ),
+        allow_unpublished=_may_open_unpublished(request.user),
+        fallback_label='Цензурка',
+        fallback_pager_label='цензурками',
+    )
+    stats_enabled = bool(get_daily_game(CENSORLY_GAME_ID) and get_daily_game(CENSORLY_GAME_ID).capabilities.statistics)
+    return render(request, 'new/censorly_play.html', {
+        'game': game,
+        'number': play_number,
+        'tg_number': play_number,
+        'link': link,
+        'task': task,
+        'page_title': page_title if not state.get('won') else (
+            state.get('wiki_title') or page_title
+        ),
+        'bug_report_task_label': bug_report_task_label,
+        'daily_publish_date': daily_publish_date,
+        'hide_daily_navigation': is_random,
+        'live_next_transition_at': (
+            next_daily_content_transition_for_game(game) if not is_random else None
+        ),
+        'section_results_url': section_results_path(CENSORLY_GAME_ID),
+        'task_results_url': f'{play_path}results/',
+        'can_see_results': not is_random and game.has_access('see_results', team=team),
+        'daily_results_url': f'{play_path}results/',
+        'daily_results_allowed': not is_random and game.has_access('see_results', team=team),
+        'daily_results_label': 'Таблица результатов',
+        'official_completed': official_completed,
+        'daily_statistics_url': daily_statistics_url(
+            CENSORLY_GAME_ID,
+            play_number if is_random else (link.number if link else play_number),
+            enabled=stats_enabled,
+        ),
+        **section_format_credit_context(CENSORLY_GAME_ID),
+        **daily_lifecycle_context,
+        'show_sections_nav': False,
+        'back_url': section_hub_path(CENSORLY_GAME_ID),
+        'back_label': 'К списку',
+        'bootstrap': {
+            **state,
+            'guess_url': f'{play_path}guess/',
+            'state_url': f'{play_path}state/',
+            'hint_url': f'{play_path}hint/',
+        },
+        'guess_url': f'{play_path}guess/',
+        'state_url': f'{play_path}state/',
+        'hint_url': f'{play_path}hint/',
+        'censorly_hint_penalty': CENSORLY_HINT_PENALTY,
+        'anon_key': anon_key if user is None else '',
+        'is_authenticated': bool(user),
+        'gameplay_context_token': issue_gameplay_context(
+            task=task, game=game, user=user, anon_key=anon_key,
+        ),
+        'prev_task_group_url': _archive_nav_target(
+            request, game, prev_tg,
+            section_play_path(CENSORLY_GAME_ID, prev_tg.number) if prev_tg else None,
+        )[0],
+        'next_task_group_url': _archive_nav_target(
+            request, game, next_tg,
+            section_play_path(CENSORLY_GAME_ID, next_tg.number) if next_tg else None,
+        )[0],
+        'prev_task_group_locked': _archive_nav_target(
+            request, game, prev_tg,
+            section_play_path(CENSORLY_GAME_ID, prev_tg.number) if prev_tg else None,
+        )[1],
+        'next_task_group_locked': _archive_nav_target(
+            request, game, next_tg,
+            section_play_path(CENSORLY_GAME_ID, next_tg.number) if next_tg else None,
+        )[1],
+        **(onboarding_followup_context(CENSORLY_GAME_ID) if not is_random else {}),
+        **meta_ctx,
+        **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
+        **daily_timing_page_context(
+            request,
+            game,
+            link,
+            user=user,
+            anon_key=anon_key,
+            play_mode='personal',
+            is_offer=(
+                is_random
+                or (
+                    link is not None
+                    and not is_censorly_number_published(game, link.number)
+                    and not _may_open_unpublished(request.user)
+                )
+            ),
+            official_completed=official_completed,
+        ),
+    })
+
+
+def censorly_play_page(request, number=None, share_hash=None):
+    game, task, load_meta, err = _load_visible_task(
+        request, number, json_mode=False, random_hash=share_hash,
+    )
+    if err is not None:
+        if getattr(err, 'status_code', None) == 403:
+            return err
+        raise Http404()
+    if game is None or task is None:
+        raise Http404()
+    return _render_play(request, game=game, task=task, load_meta=load_meta)
+
+
+def _finish_completion(request, *, game, task, user, anon_key, result):
+    analytics_events = []
+    if result.get('status') in ('hit', 'miss', 'already_open', 'won', 'hint'):
+        analytics_events.extend(register_started_game(
+            user=user,
+            anon_key=anon_key,
+            analytics_user=request.user if request.user.is_authenticated else None,
+            task=task,
+            game=game,
+        ))
+    state_blob = json.dumps({
+        'guesses': result.get('guesses') or [],
+        'won': result.get('won'),
+        'hints_taken': result.get('hints') or result.get('hints_taken') or 0,
+        'revealed_lemmas': [
+            g.get('lemma') for g in (result.get('guesses') or []) if isinstance(g, dict)
+        ],
+    })
+    if is_task_completion_state(task, state_blob) and is_task_group_complete(
+        task_group=task.task_group,
+        game=game,
+        user=user,
+        anon_key=anon_key,
+        mode=game.get_current_mode(Attempt(time=timezone.now())),
+    ):
+        completion = complete_logical_game(
+            actor={'team': None, 'user': user, 'anon_key': anon_key},
+            game=game,
+            task_group=task.task_group,
+            task=task,
+            analytics_user=request.user if request.user.is_authenticated else None,
+            result=PlayerCompletedGame.RESULT_SOLVED,
+            mode=game.get_current_mode(Attempt(time=timezone.now())),
+            source='censorly',
+        )
+        if completion is not None:
+            if completion.get('timing'):
+                result['daily_timing'] = completion['timing']
+            analytics_events.extend(publish_completion_analytics(
+                record=completion['record'],
+                created=completion['created'],
+                user=user,
+                anon_key=anon_key,
+                analytics_user=request.user if request.user.is_authenticated else None,
+                game=game,
+                task_group=task.task_group,
+            ))
+    if analytics_events:
+        result['analytics_events'] = analytics_events
+    return result
+
+
+@require_http_methods(['GET'])
+def censorly_state(request, number=None, share_hash=None):
+    game, task, load_meta, err = _load_visible_task(
+        request, number, random_hash=share_hash,
+    )
+    if err is not None:
+        return err
+    user, anon_key = _resolve_actor(request)
+    play_number = load_meta.get('play_number') if load_meta else number
+    play_path = load_meta.get('play_path') if load_meta else section_play_path(CENSORLY_GAME_ID, number)
+    state = get_play_state(
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        number=play_number,
+        share_host=_share_host(request),
+        play_path=play_path,
+    )
+    payload = _with_meta_bar(
+        {'status': 'ok', **state},
+        request,
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        placement=load_meta.get('accepted_link') if not load_meta.get('is_random') else None,
+    )
+    return JsonResponse(payload)
+
+
+@require_POST
+def censorly_guess(request, number=None, share_hash=None):
+    game, task, load_meta, err = _load_visible_task(
+        request, number, random_hash=share_hash,
+    )
+    if err is not None:
+        return err
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, TypeError, UnicodeDecodeError):
+        body = {}
+    word = body.get('word') or body.get('guess') or request.POST.get('word') or ''
+    user, anon_key = _resolve_actor(request, body=body)
+    context_error = validate_gameplay_context(
+        request, task=task, game=game, user=user, anon_key=anon_key,
+    )
+    if context_error:
+        return context_error_response(context_error)
+    play_number = load_meta.get('play_number') if load_meta else number
+    play_path = load_meta.get('play_path') if load_meta else section_play_path(CENSORLY_GAME_ID, number)
+    with timing_phase(request, 'apply_guess'):
+        result = apply_guess(
+            game=game,
+            task=task,
+            word=word,
+            user=user,
+            anon_key=anon_key,
+            number=play_number,
+            share_host=_share_host(request),
+            play_path=play_path,
+        )
+    result = _finish_completion(
+        request, game=game, task=task, user=user, anon_key=anon_key, result=result,
+    )
+    with timing_phase(request, 'render_meta'):
+        result = _with_meta_bar(
+            result,
+            request,
+            game=game,
+            task=task,
+            user=user,
+            anon_key=anon_key,
+            placement=load_meta.get('accepted_link') if not load_meta.get('is_random') else None,
+        )
+    status_code = 200
+    if result.get('status') == 'error':
+        status_code = 400
+    return JsonResponse(result, status=status_code)
+
+
+@require_POST
+def censorly_hint(request, number=None, share_hash=None):
+    game, task, load_meta, err = _load_visible_task(
+        request, number, random_hash=share_hash,
+    )
+    if err is not None:
+        return err
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, TypeError, UnicodeDecodeError):
+        body = {}
+    try:
+        token_id = int(body.get('token_id'))
+    except (TypeError, ValueError):
+        return JsonResponse({'status': 'error', 'error': 'Укажите token_id'}, status=400)
+    user, anon_key = _resolve_actor(request, body=body)
+    context_error = validate_gameplay_context(
+        request, task=task, game=game, user=user, anon_key=anon_key,
+    )
+    if context_error:
+        return context_error_response(context_error)
+    play_number = load_meta.get('play_number') if load_meta else number
+    play_path = load_meta.get('play_path') if load_meta else section_play_path(CENSORLY_GAME_ID, number)
+    result = apply_hint(
+        game=game,
+        task=task,
+        token_id=token_id,
+        user=user,
+        anon_key=anon_key,
+        number=play_number,
+        share_host=_share_host(request),
+        play_path=play_path,
+    )
+    result = _finish_completion(
+        request, game=game, task=task, user=user, anon_key=anon_key, result=result,
+    )
+    result = _with_meta_bar(
+        result,
+        request,
+        game=game,
+        task=task,
+        user=user,
+        anon_key=anon_key,
+        placement=load_meta.get('accepted_link') if not load_meta.get('is_random') else None,
+    )
     status_code = 200
     if result.get('status') == 'error':
         status_code = 400

@@ -12,7 +12,14 @@
   <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label|default:"К списку" }}</a>
 </p>
 
-{% include "new/partials/daily_game_header.html" with heading="Цензурка" show_rules=True hide_daily_navigation=True tagline="Угадайте статью русской Википедии слово за словом" %}
+{% if daily_timing_enabled %}
+<div class="new-daily-play" data-daily-timer-root
+     data-timing-url="{{ daily_timing_url }}"
+     data-context-token="{{ daily_timing_context_token|default:'' }}"
+     data-timing='{{ daily_timing|default_if_none:"{}"|escape }}'>
+{% endif %}
+
+{% include "new/partials/daily_game_header.html" with heading="Цензурка" show_rules=True hide_daily_navigation=hide_daily_navigation tagline="Угадайте статью русской Википедии слово за словом" %}
 
 {% include "new/_rules_banner.html" %}
 
@@ -25,40 +32,186 @@
   </div>
 </div>
 
-<div class="censorly" id="censorly-root"
-     data-guess-url="{{ bootstrap.guess_url }}"
-     data-state-url="{{ bootstrap.state_url }}">
-
-  <div class="censorly__status" id="censorly-status" aria-live="polite">
-    <span id="censorly-attempts">0 попыток</span>
-    <span id="censorly-won" hidden>Решено!</span>
-  </div>
-
-  <h2 class="censorly__title" id="censorly-title" aria-label="Заголовок статьи"></h2>
-  <article class="censorly__body" id="censorly-body" aria-label="Текст статьи"></article>
-
-  <div class="censorly__dock">
-    <form class="censorly__form" id="censorly-form" autocomplete="off">
-      {% csrf_token %}
-      <input type="text"
-             id="censorly-word"
-             class="censorly__input"
-             name="word"
-             maxlength="64"
-             placeholder="Русское слово"
-             autocapitalize="off"
-             autocomplete="off"
-             spellcheck="true"
-             required>
-      <button type="submit" class="new-btn" id="censorly-submit">Угадать</button>
-    </form>
-    <p class="censorly__feedback" id="censorly-feedback" hidden></p>
-    <details class="censorly__history" id="censorly-history-wrap">
-      <summary>История догадок</summary>
-      <ol class="censorly__guess-list" id="censorly-guess-list"></ol>
-    </details>
+<div id="new-bug-report-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-bug-report-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-bug-report-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-bug-report-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <h2 id="new-bug-report-title" class="pal-title">Сообщить о проблеме</h2>
+    <p class="new-login-hint new-bug-report-lead"><strong id="new-bug-report-task-label"></strong>. Опишите, что не так: опечатка, баг в проверке, непонятная формулировка и т.п.</p>
+    <textarea id="new-bug-report-text" class="new-bug-report-textarea" rows="5" maxlength="5000" placeholder="Что именно пошло не так?"></textarea>
+    <p id="new-bug-report-error" class="new-bug-report-error" hidden></p>
+    <p id="new-bug-report-success" class="new-bug-report-success" hidden>Спасибо! Репорт отправлен. <a id="new-bug-report-success-link" href="{{ ui_project_reports_url|default:'/profile/reports/' }}">Мои обращения</a></p>
+    <div class="new-rules-modal__actions">
+      <button type="button" class="new-btn" data-bug-report-submit>Отправить</button>
+      <button type="button" class="new-btn new-btn--text" data-bug-report-close>Отмена</button>
+    </div>
   </div>
 </div>
 
+<div class="censorly" id="censorly-root"
+     data-guess-url="{{ guess_url }}"
+     data-state-url="{{ state_url }}"
+     data-hint-url="{{ hint_url }}"
+     data-hint-penalty="{{ censorly_hint_penalty }}"
+     data-authenticated="{% if is_authenticated %}1{% else %}0{% endif %}"
+     data-anon-key="{{ anon_key|default:'' }}"
+     data-context-token="{{ gameplay_context_token|default:'' }}">
+
+  <div class="censorly__toolbar">
+    <button type="button"
+            class="new-btn new-btn--ghost new-btn--icon new-btn--mini"
+            id="censorly-lengths-toggle"
+            aria-pressed="false"
+            title="Показать длины слов"
+            aria-label="Показать длины слов">
+      <i class="ph ph-hash" aria-hidden="true"></i>
+    </button>
+    <button type="button"
+            class="new-btn new-btn--ghost new-btn--icon new-btn--mini"
+            id="censorly-hint-btn"
+            title="Взять подсказку"
+            aria-label="Взять подсказку">
+      <i class="ph ph-lightbulb" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <div class="new-taskcard censorly__meta-card" id="new-task-{{ task.id }}">
+    <button type="button" class="new-taskcard__bug-btn" data-bug-report-open data-task-id="{{ task.id }}" data-task-label="{{ bug_report_task_label|default:page_title }}" aria-label="Сообщить о проблеме: {{ bug_report_task_label|default:page_title }}" title="Сообщить о проблеме"><i class="ph ph-bug" aria-hidden="true"></i></button>
+    {% include "new/task-content/task-meta-bar.html" %}
+  </div>
+  <div id="censorly-meta-host" class="censorly__meta-host" hidden></div>
+
+  <div class="censorly__layout">
+    <div class="censorly__article">
+      <div class="censorly__status" id="censorly-status" aria-live="polite">
+        <span id="censorly-attempts">0 попыток</span>
+        <span id="censorly-won" hidden>Решено!</span>
+        <span id="censorly-hint-mode" class="censorly__hint-mode" hidden>Выберите слово…</span>
+      </div>
+      <h2 class="censorly__title" id="censorly-title" aria-label="Заголовок статьи"></h2>
+      <article class="censorly__body" id="censorly-body" aria-label="Текст статьи"></article>
+    </div>
+
+    <aside class="censorly__dock" id="censorly-dock">
+      <form class="censorly__form" id="censorly-form" autocomplete="off">
+        {% csrf_token %}
+        <button type="button"
+                class="new-btn new-btn--ghost new-btn--icon"
+                id="censorly-history-toggle"
+                aria-pressed="false"
+                title="История догадок"
+                aria-label="История догадок">
+          <i class="ph ph-list-numbers" aria-hidden="true"></i>
+        </button>
+        <input type="text"
+               id="censorly-word"
+               class="censorly__input"
+               name="word"
+               maxlength="64"
+               placeholder="Русское слово"
+               autocapitalize="off"
+               autocomplete="off"
+               spellcheck="true"
+               required>
+        <button type="submit" class="new-btn new-btn--icon" id="censorly-submit" aria-label="Угадать" title="Угадать">
+          <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+        </button>
+      </form>
+      <p class="censorly__feedback" id="censorly-feedback" hidden></p>
+      <div class="censorly__history" id="censorly-history-wrap" hidden>
+        <table class="censorly__guess-table" id="censorly-guess-table">
+          <colgroup>
+            <col class="censorly__col-n" id="censorly-col-n">
+            <col class="censorly__col-hits">
+            <col class="censorly__col-word">
+          </colgroup>
+          <thead>
+            <tr><th scope="col">#</th><th scope="col">×</th><th scope="col">Слово</th></tr>
+          </thead>
+          <tbody id="censorly-guess-list"></tbody>
+        </table>
+      </div>
+    </aside>
+  </div>
+
+  {% if daily_statistics_url %}<div class="new-daily-results-layout">{% endif %}
+  <div class="new-raddle-result" id="censorly-result" data-raddle-result hidden>
+    <div class="new-raddle-result__head">
+      <span class="new-raddle-result__label">Ваш результат</span>
+      {% include "new/partials/daily_share_actions.html" %}
+    </div>
+    <div class="new-raddle-result__share" data-raddle-share-text id="censorly-result-share"></div>
+  </div>
+  {% if daily_statistics_url %}<section class="new-daily-statistics" data-daily-statistics data-statistics-url="{{ daily_statistics_url }}" hidden aria-live="polite"></section>{% endif %}
+  {% if daily_statistics_url %}</div>{% endif %}
+</div>
+
+{% if daily_timing_enabled %}</div>{% endif %}
+
+{% include "new/partials/daily_task_footer.html" %}
+{% include "new/_hint_confirm_modal.html" %}
+
+<script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% if daily_timing_enabled %}
+<script src="{% static 'js/daily_solve_timer.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% endif %}
+{% if daily_statistics_url %}
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script defer src="{% static 'js/daily_statistics.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% endif %}
 <script src="{% static 'js/censorly_play.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+<script>
+(function () {
+  var modal = document.getElementById('new-bug-report-modal');
+  if (!modal) return;
+  var textEl = document.getElementById('new-bug-report-text');
+  var labelEl = document.getElementById('new-bug-report-task-label');
+  var errorEl = document.getElementById('new-bug-report-error');
+  var successEl = document.getElementById('new-bug-report-success');
+  var currentTaskId = null;
+  function csrf() {
+    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function close() {
+    modal.setAttribute('hidden', '');
+    modal.classList.remove('is-open');
+  }
+  function open(btn) {
+    currentTaskId = btn.getAttribute('data-task-id');
+    if (labelEl) labelEl.textContent = btn.getAttribute('data-task-label') || '';
+    if (textEl) textEl.value = '';
+    if (errorEl) errorEl.hidden = true;
+    if (successEl) successEl.hidden = true;
+    modal.removeAttribute('hidden');
+    modal.classList.add('is-open');
+    if (textEl) textEl.focus();
+  }
+  document.addEventListener('click', function (e) {
+    var openBtn = e.target.closest && e.target.closest('[data-bug-report-open]');
+    if (openBtn) { e.preventDefault(); open(openBtn); return; }
+    if (e.target.closest && e.target.closest('[data-bug-report-close]')) { close(); return; }
+    if (e.target.closest && e.target.closest('[data-bug-report-submit]')) {
+      if (!currentTaskId || !textEl) return;
+      var url = "{% url 'new_bug_report' 0 %}".replace('/0/', '/' + currentTaskId + '/');
+      fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+        body: JSON.stringify({ text: textEl.value || '' }),
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok && d.ok !== false, data: d }; }); })
+        .then(function (pack) {
+          if (!pack.ok) {
+            if (errorEl) { errorEl.hidden = false; errorEl.textContent = (pack.data && pack.data.error) || 'Не удалось отправить'; }
+            return;
+          }
+          if (successEl) successEl.hidden = false;
+          if (errorEl) errorEl.hidden = true;
+        }).catch(function () {
+          if (errorEl) { errorEl.hidden = false; errorEl.textContent = 'Сеть недоступна'; }
+        });
+    }
+  });
+})();
+</script>
 {% endblock %}

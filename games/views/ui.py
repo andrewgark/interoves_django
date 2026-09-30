@@ -102,10 +102,30 @@ from games.views.alphabetty_views import (  # noqa: E402
 )
 from games.views.censorly_views import (  # noqa: E402
     censorly_guess,
+    censorly_hint,
     censorly_hub_page,
+    censorly_last_page,
     censorly_play_page,
     censorly_state,
+    censorly_today_page,
 )
+
+
+def censorly_play_random(request, share_hash):
+    return censorly_play_page(request, share_hash=share_hash)
+
+
+def censorly_guess_random(request, share_hash):
+    return censorly_guess(request, share_hash=share_hash)
+
+
+def censorly_state_random(request, share_hash):
+    return censorly_state(request, share_hash=share_hash)
+
+
+def censorly_hint_random(request, share_hash):
+    return censorly_hint(request, share_hash=share_hash)
+
 from games.views.offer_alphabetty import (  # noqa: E402
     offer_alphabetty_create as alphabetty_create_submit,
     offer_alphabetty_detail,
