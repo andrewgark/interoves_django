@@ -207,7 +207,7 @@ class Command(BaseCommand):
             WordSaladRecheckJob.objects.filter(pk__in=job_ids).delete()
 
             for pk, values in attempt_snapshot.items():
-                Attempt.objects.filter(pk=pk).update(**values)
+                Attempt.manager.filter(pk=pk).update(**values)
 
             current_ids = set(
                 ChainTaskState.objects.filter(task=task, game=game, team=team)
