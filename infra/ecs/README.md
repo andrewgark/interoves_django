@@ -70,6 +70,18 @@ cycle. ECS can therefore replace a task without immediately starting another
 receive loop; the SQS visibility timeout remains the protection for an
 in-flight message.
 
+Build worker images with an immutable Git-SHA tag and deploy the resulting
+digest URI. The deploy script records the same SHA in the task definition tag
+and in `INTEROVES_IMAGE_COMMIT`, so the running task can be matched to source:
+
+```bash
+IMAGE_URI="$(./scripts/build_worker_image.sh 0c6e9b5 | tail -1)"
+./scripts/deploy_ecs_worker.sh integrations "$IMAGE_URI" \
+  --image-commit 0c6e9b5 --profile normal --desired-count 1 --apply
+```
+
+Do not use a floating `latest` tag for production workers.
+
 The task definition passes only references and non-secret runtime metadata as
 environment variables. The application loads the actual values through the
 task role using either `INTEROVES_CONFIG_SECRET_ID` (one JSON bundle) or

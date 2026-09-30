@@ -17,6 +17,9 @@ Parameters:
   ImageUri:
     Type: String
     Description: Immutable application image URI, preferably including a digest.
+  ImageCommit:
+    Type: String
+    Description: Git commit identifier baked into the worker image.
   TaskExecutionRoleArn:
     Type: String
   TaskRoleArn:
@@ -122,6 +125,9 @@ Resources:
       Memory: !Ref Memory
       ExecutionRoleArn: !Ref TaskExecutionRoleArn
       TaskRoleArn: !Ref TaskRoleArn
+      Tags:
+        - Key: interoves:commit
+          Value: !Ref ImageCommit
       ContainerDefinitions:
         - Name: !Ref WorkerName
           Image: !Ref ImageUri
@@ -138,6 +144,8 @@ Resources:
               Value: !Ref RuntimeRole
             - Name: INTEROVES_WORKER_NAME
               Value: !Ref WorkerName
+            - Name: INTEROVES_IMAGE_COMMIT
+              Value: !Ref ImageCommit
             - Name: INTEROVES_DEPLOYMENT_MODE
               Value: !Ref DeploymentMode
             - Name: WORKER_QUEUE_URL
