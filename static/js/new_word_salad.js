@@ -998,6 +998,22 @@
         renderSelection();
       }
 
+      // A transport/server failure is not a rejected word. Keep the selected
+      // path intact and never let it go through finishWrong(), which paints the
+      // path as an ordinary negative answer. The caller retries while the
+      // checking indicator is still visible.
+      function finishRequestFailure(pathKey) {
+        busy = false;
+        setChecking(false);
+        if (currentPath.join(',') !== pathKey) {
+          renderSelection();
+          maybeCheck();
+          scheduleIdleFind();
+          return;
+        }
+        renderSelection();
+      }
+
       function ensureSolvedPill(wordRow) {
         var hintForm = wordRow.querySelector('.new-word-salad__hint-form');
         var mask = wordRow.querySelector('.new-word-salad__mask');
@@ -1176,8 +1192,12 @@
         if (opts.fromIdle) finishWrong(pathKey);
       }
 
-      function submitPath(path, pathKey) {
-        if (!form || busy) return;
+      var SALAD_MAX_ATTEMPTS = 3;
+      var SALAD_RETRY_DELAY_MS = 400;
+
+      function submitPath(path, pathKey, attempt) {
+        attempt = attempt || 1;
+        if (!form || (busy && attempt === 1)) return;
         busy = true;
         setChecking(true);
         renderSelection();
@@ -1198,7 +1218,18 @@
           body: body,
           credentials: 'same-origin'
         }).then(function (response) {
-          return response.json();
+          return response.json().then(function (data) {
+            // HTTP errors and explicit error payloads describe the request,
+            // not the submitted word. They must not become "wrong" below.
+            if (!response.ok || !data ||
+                (data.status !== 'ok' && data.status !== 'duplicate')) {
+              var responseError = new Error('word-salad-request-failed');
+              responseError.retryable = true;
+              responseError.responseStatus = response.status;
+              throw responseError;
+            }
+            return data;
+          });
         }).then(function (data) {
           // The backend is authoritative for game_start/game_complete. Forward
           // its payload before replacing the task HTML, including the final
@@ -1252,7 +1283,17 @@
           } else {
             window.location.reload();
           }
-        }).catch(function () { finishWrong(pathKey); });
+        }).catch(function () {
+          if (attempt < SALAD_MAX_ATTEMPTS && currentPath.join(',') === pathKey) {
+            // Keep busy/checking true: a transient failure is still being
+            // checked and must never flash the red wrong-state feedback.
+            setTimeout(function () {
+              submitPath(path, pathKey, attempt + 1);
+            }, SALAD_RETRY_DELAY_MS);
+            return;
+          }
+          finishRequestFailure(pathKey);
+        });
       }
 
       function maybeCheck(opts) {
