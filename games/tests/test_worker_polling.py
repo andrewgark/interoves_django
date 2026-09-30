@@ -1,4 +1,5 @@
 from unittest.mock import patch
+import time
 
 from django.test import SimpleTestCase
 
@@ -9,6 +10,7 @@ class FakeSqs:
     def __init__(self, messages):
         self.messages = messages
         self.deleted = []
+        self.visibility_changes = []
 
     def receive_message(self, **kwargs):
         self.receive_kwargs = kwargs
@@ -16,6 +18,9 @@ class FakeSqs:
 
     def delete_message(self, **kwargs):
         self.deleted.append(kwargs)
+
+    def change_message_visibility(self, **kwargs):
+        self.visibility_changes.append(kwargs)
 
 
 class WorkerPollingTests(SimpleTestCase):
@@ -44,3 +49,36 @@ class WorkerPollingTests(SimpleTestCase):
             result = poll_once(worker_name='background', client=sqs, queue_url='queue')
         self.assertEqual(result['status'], 'drop')
         self.assertEqual(len(sqs.deleted), 1)
+
+    def test_identity_extends_visibility_during_long_handler(self):
+        sqs = FakeSqs([{'MessageId': 'm1', 'ReceiptHandle': 'r1', 'Body': '{}'}])
+
+        def slow_handler(*args, **kwargs):
+            time.sleep(0.03)
+            return 200
+
+        with patch('games.worker_polling.VISIBILITY_HEARTBEAT_INTERVAL', 0.01), \
+             patch('games.worker_polling._deliver', side_effect=slow_handler):
+            result = poll_once(
+                worker_name='identity',
+                client=sqs,
+                queue_url='queue',
+                visibility_timeout=30,
+            )
+
+        self.assertEqual(result['status'], 'ack')
+        self.assertTrue(sqs.visibility_changes)
+        self.assertEqual(sqs.visibility_changes[0]['QueueUrl'], 'queue')
+        self.assertEqual(sqs.visibility_changes[0]['ReceiptHandle'], 'r1')
+        self.assertEqual(sqs.visibility_changes[0]['VisibilityTimeout'], 30)
+
+    def test_non_identity_worker_does_not_change_visibility(self):
+        sqs = FakeSqs([{'MessageId': 'm1', 'ReceiptHandle': 'r1', 'Body': '{}'}])
+        with patch('games.worker_polling._deliver', return_value=200):
+            poll_once(
+                worker_name='background',
+                client=sqs,
+                queue_url='queue',
+                visibility_timeout=30,
+            )
+        self.assertEqual(sqs.visibility_changes, [])

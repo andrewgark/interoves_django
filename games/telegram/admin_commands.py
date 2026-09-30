@@ -2,7 +2,7 @@ import shlex
 from datetime import datetime, timedelta, timezone as dt_timezone
 
 from django.db import connection
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.utils import timezone
 
 from games.access import game_has_ended, game_has_started
@@ -48,6 +48,7 @@ def _help_text() -> str:
         '/salad — превью сегодняшнего салатика (картинка в этот чат)',
         '/mute &lt;мин&gt; — заглушить рутину',
         '/unmute — включить уведомления',
+        '/gift @username 1|N|forever — подарить подписку',
         '',
         'Публичные (личка и чаты): /des, /des_results',
         'Чат-мод: бот шлёт анонсы в группы из TELEGRAM_ANNOUNCE_CHAT_IDS.',
@@ -55,7 +56,7 @@ def _help_text() -> str:
     ])
 
 
-def handle_admin_command(text: str) -> str:
+def handle_admin_command(text: str, *, telegram_user_id=None) -> str:
     text = (text or '').strip()
     if not text:
         return 'Пустая команда. /help'
@@ -92,15 +93,87 @@ def handle_admin_command(text: str) -> str:
         '/salad': _cmd_salad,
         '/mute': _cmd_mute,
         '/unmute': _cmd_unmute,
+        '/gift': _cmd_gift,
     }
     handler = handlers.get(command)
     if handler is None:
         return 'Неизвестная команда. /help'
+    if command == '/gift':
+        return handler(args, telegram_user_id=telegram_user_id)
     return handler(args)
 
 
 def _cmd_help(_args) -> str:
     return _help_text()
+
+
+def _cmd_gift(args, *, telegram_user_id=None) -> str:
+    from django.contrib.auth import get_user_model
+    from games.models import Profile
+    from games.subscription_gifts import create_gift, gift_duration_label
+    from games.telegram.api import send_message
+
+    if len(args) != 2:
+        return 'Формат: /gift @username 1|N|forever'
+    recipient = args[0].strip()
+    duration = args[1].strip().lower()
+    profile_qs = Profile.objects.filter(telegram_verified=True)
+    if recipient.startswith('@'):
+        profile = profile_qs.filter(
+            Q(telegram_username__iexact=recipient[1:])
+            | Q(telegram_handle__iexact=recipient[1:])
+        ).first()
+    else:
+        try:
+            profile = profile_qs.filter(telegram_user_id=int(recipient)).first()
+        except ValueError:
+            profile = None
+    if profile is None or not profile.telegram_user_id:
+        return 'Получатель не найден. Нужен привязанный Telegram @username или numeric Telegram ID.'
+
+    is_forever = duration in ('forever', 'навсегда', '永久')
+    try:
+        duration_months = None if is_forever else int(duration)
+    except ValueError:
+        return 'Срок должен быть числом месяцев или forever.'
+    creator = (
+        Profile.objects.filter(telegram_user_id=telegram_user_id, telegram_verified=True)
+        .select_related('user').values_list('user', flat=True).first()
+    )
+    User = get_user_model()
+    creator = User.objects.filter(pk=creator).first() if creator else User.objects.filter(is_superuser=True).first()
+    if creator is None:
+        return 'Не найден аккаунт администратора для аудита подарка.'
+    try:
+        created = create_gift(
+            created_by=creator,
+            recipient_telegram_user_id=profile.telegram_user_id,
+            recipient_telegram_username=profile.telegram_username,
+            duration_months=duration_months,
+            is_forever=is_forever,
+            created_by_telegram_user_id=telegram_user_id,
+        )
+    except ValueError as exc:
+        return str(exc)
+
+    gift = created.gift
+    from django.conf import settings
+    base_url = (getattr(settings, 'SITE_BASE_URL', '') or 'https://interoves.com').rstrip('/')
+    text = (
+        '🎁 <b>Вам подарок — подписка Inter Oves на {}</b>\n\n'
+        'Откройте <a href="{}/subscription/">страницу подписки</a> и введите код:\n'
+        '<code>{}</code>'
+    ).format(gift_duration_label(gift), base_url, created.code)
+    delivered = send_message(profile.telegram_user_id, text)
+    if delivered:
+        gift.sent_at = timezone.now()
+        gift.save(update_fields=['sent_at'])
+    return 'Подарок создан для @{} на {}. Код: <code>{}</code>{}'.format(
+        profile.telegram_username or profile.telegram_user_id,
+        gift_duration_label(gift),
+        created.code,
+        '' if delivered else ' (сообщение не доставлено)',
+    )
 
 
 def _get_game(game_id: str) -> Game | None:

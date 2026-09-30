@@ -38,9 +38,14 @@ def has_club_access(user, *, now=None) -> bool:
     """True when the authenticated user has paid Club access at `now`."""
     now = now or timezone.now()
     subscription = get_club_subscription(user)
-    if subscription is None:
-        return False
-    return subscription.grants_access(now)
+    if subscription is not None and subscription.grants_access(now):
+        return True
+    from games.models import ClubEntitlement
+
+    return ClubEntitlement.objects.filter(
+        user=user, revoked_at__isnull=True, starts_at__lte=now,
+        kind__in=(ClubEntitlement.KIND_GIFT, ClubEntitlement.KIND_MANUAL),
+    ).filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now)).exists()
 
 
 def is_club_archive_game(game_id) -> bool:

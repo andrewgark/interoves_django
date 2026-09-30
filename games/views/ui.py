@@ -92,6 +92,7 @@ from games.views.alphabetty_views import (  # noqa: E402
     alphabetty_guess,
     alphabetty_hint,
     alphabetty_hub_page,
+    alphabetty_random_game,
     alphabetty_last_page,
     alphabetty_play_page,
     alphabetty_prefix,
@@ -157,6 +158,7 @@ from games.views.subscription import (  # noqa: E402
     subscription_yookassa_cancel,
     subscription_yookassa_monthly_start,
     subscription_yookassa_resume,
+    subscription_claim_gift,
 )
 donate_page = new_donate_page
 create_crypto_donation = new_create_crypto_donation

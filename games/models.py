@@ -2902,7 +2902,13 @@ class ClubSubscription(models.Model):
         from django.utils import timezone as dj_timezone
 
         now = now or dj_timezone.now()
-        return bool(self.paid_until and self.paid_until > now)
+        if self.paid_until and self.paid_until > now:
+            return True
+        return self.entitlements.filter(
+            kind__in=(ClubEntitlement.KIND_GIFT, ClubEntitlement.KIND_MANUAL),
+            revoked_at__isnull=True,
+            starts_at__lte=now,
+        ).filter(models.Q(ends_at__isnull=True) | models.Q(ends_at__gt=now)).exists()
 
     def effective_status(self, now=None) -> str:
         if not self.grants_access(now):
@@ -2919,6 +2925,117 @@ class ClubSubscription(models.Model):
         if self.auto_renew:
             return self.STATUS_ACTIVE
         return self.STATUS_CANCELLED
+
+
+class SubscriptionGift(models.Model):
+    """A one-time subscription gift created by an administrator."""
+
+    STATUS_CREATED = 'created'
+    STATUS_CLAIMED = 'claimed'
+    STATUS_REVOKED = 'revoked'
+    STATUS_CHOICES = (
+        (STATUS_CREATED, 'Created'),
+        (STATUS_CLAIMED, 'Claimed'),
+        (STATUS_REVOKED, 'Revoked'),
+    )
+
+    recipient_telegram_user_id = models.BigIntegerField(db_index=True)
+    recipient_telegram_username = models.CharField(max_length=64, blank=True, default='')
+    code_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    duration_months = models.PositiveIntegerField(blank=True, null=True)
+    is_forever = models.BooleanField(default=False)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_CREATED, db_index=True)
+    created_by = models.ForeignKey(
+        'auth.User', related_name='created_subscription_gifts', on_delete=models.PROTECT,
+    )
+    created_by_telegram_user_id = models.BigIntegerField(blank=True, null=True, db_index=True)
+    claimed_by = models.ForeignKey(
+        'auth.User', related_name='claimed_subscription_gifts', blank=True, null=True,
+        on_delete=models.PROTECT,
+    )
+    claimed_at = models.DateTimeField(blank=True, null=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    telegram_message_id = models.BigIntegerField(blank=True, null=True)
+    revoked_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.CheckConstraint(
+                check=(models.Q(is_forever=True, duration_months__isnull=True)
+                       | models.Q(is_forever=False, duration_months__isnull=False)),
+                name='subscription_gift_duration_valid',
+            ),
+        ]
+
+    def __str__(self):
+        duration = 'навсегда' if self.is_forever else '{} мес.'.format(self.duration_months)
+        return 'Подарок #{} ({})'.format(self.pk, duration)
+
+
+class ClubEntitlement(models.Model):
+    """Immutable-ish ledger entry granting Club access for a concrete period."""
+
+    KIND_PAID = 'paid'
+    KIND_GIFT = 'gift'
+    KIND_MANUAL = 'manual'
+    KIND_CHOICES = (
+        (KIND_PAID, 'Paid'),
+        (KIND_GIFT, 'Gift'),
+        (KIND_MANUAL, 'Manual'),
+    )
+
+    user = models.ForeignKey(
+        'auth.User', related_name='club_entitlements', on_delete=models.PROTECT,
+    )
+    kind = models.CharField(max_length=16, choices=KIND_CHOICES, db_index=True)
+    starts_at = models.DateTimeField(db_index=True)
+    ends_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    gift = models.ForeignKey(
+        SubscriptionGift, related_name='entitlements', blank=True, null=True,
+        on_delete=models.PROTECT,
+    )
+    club_subscription = models.ForeignKey(
+        ClubSubscription, related_name='entitlements', blank=True, null=True,
+        on_delete=models.PROTECT,
+    )
+    yookassa_payment = models.ForeignKey(
+        'ClubYooKassaPayment', related_name='entitlements', blank=True, null=True,
+        on_delete=models.PROTECT,
+    )
+    tribute_event = models.ForeignKey(
+        'ClubSubscriptionEvent', related_name='entitlements', blank=True, null=True,
+        on_delete=models.PROTECT,
+    )
+    created_by = models.ForeignKey(
+        'auth.User', related_name='created_club_entitlements', blank=True, null=True,
+        on_delete=models.PROTECT,
+    )
+    revoked_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-starts_at', '-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=('yookassa_payment',),
+                condition=models.Q(yookassa_payment__isnull=False),
+                name='club_entitlement_yookassa_payment_uniq',
+            ),
+            models.UniqueConstraint(
+                fields=('tribute_event',),
+                condition=models.Q(tribute_event__isnull=False),
+                name='club_entitlement_tribute_event_uniq',
+            ),
+            models.CheckConstraint(
+                check=models.Q(ends_at__isnull=True) | models.Q(ends_at__gt=models.F('starts_at')),
+                name='club_entitlement_period_valid',
+            ),
+        ]
+
+    def __str__(self):
+        return 'Club access user={} {}—{}'.format(self.user_id, self.starts_at, self.ends_at or 'forever')
 
 
 class ClubYooKassaPayment(models.Model):
@@ -4215,6 +4332,25 @@ class LadderOffer(models.Model):
 
     def results_url(self):
         return '/ladder/{}/results/'.format(self.share_hash)
+
+
+class RandomAlphabettyGame(models.Model):
+    """Permanent deduplicated alphabetty game created from a dictionary word."""
+
+    word = models.CharField(max_length=64, unique=True)
+    share_hash = models.CharField(max_length=32, unique=True, db_index=True)
+    task_group = models.OneToOneField(
+        TaskGroup,
+        related_name='random_alphabetty_game',
+        on_delete=models.CASCADE,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Случайная алфавитка #{self.share_hash}: {self.word}'
 
 
 class AlphabettyOffer(models.Model):

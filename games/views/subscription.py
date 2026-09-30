@@ -5,6 +5,8 @@ import logging
 from zoneinfo import ZoneInfo
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import redirect
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -34,6 +36,7 @@ from games.club_yookassa import (
     yookassa_recurring_enabled,
 )
 from games.models import ClubSubscription, ClubSubscriptionEvent, SavedPaymentMethod
+from games.subscription_gifts import claim_gift, gift_duration_label
 from games.telegram_linking import user_has_telegram_link
 from games.tribute_config import (
     club_archive_gating_enabled,
@@ -124,6 +127,16 @@ def _subscription_page_context(request):
     status = _display_status(subscription, now=now)
     tz = _user_tz(request)
     paid_until_label = format_club_date(subscription.paid_until, tz) if subscription else ''
+    if subscription and not subscription.paid_until:
+        active_entitlement = subscription.entitlements.filter(
+            kind__in=('gift', 'manual'),
+            revoked_at__isnull=True, starts_at__lte=now,
+        ).order_by('-ends_at').first()
+        if active_entitlement:
+            paid_until_label = (
+                'навсегда' if active_entitlement.ends_at is None
+                else format_club_date(active_entitlement.ends_at, tz)
+            )
     is_yookassa = bool(
         subscription and subscription.provider == ClubSubscription.PROVIDER_YOOKASSA
     )
@@ -228,6 +241,22 @@ def subscription_page(request):
             key='subscription_view',
         )
     return render(request, 'ui/subscription.html', context)
+
+
+@login_required
+@require_http_methods(['POST'])
+def subscription_claim_gift(request):
+    code = request.POST.get('code', '')
+    try:
+        gift, entitlement = claim_gift(code=code, user=request.user)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(
+            request,
+            'Подарок активирован: подписка Inter Oves {}.'.format(gift_duration_label(gift)),
+        )
+    return redirect('new_subscription')
 
 
 def _auth_json_guard(request):

@@ -180,6 +180,7 @@ urlpatterns = [
     path('team/', ui.team, name='ui_team'),
     path('pay/', ui.pay_page, name='ui_pay'),
     path('subscription/', ui.subscription_page, name='ui_subscription'),
+    path('subscription/claim-gift/', ui.subscription_claim_gift, name='ui_subscription_claim_gift'),
     path('subscription/checkout/', ui.subscription_checkout, name='ui_subscription_checkout'),
     path('pay/create-ticket-payment/', ui.create_ticket_payment, name='ui_create_ticket_payment'),
     path('pay/create-crypto-ticket-payment/', ui.create_crypto_ticket_payment, name='ui_create_crypto_ticket_payment'),

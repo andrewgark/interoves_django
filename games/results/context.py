@@ -1,8 +1,9 @@
 """Helpers for results table display contexts and actor filters."""
 
+from django.db.models import Q
 from django.utils import timezone
 
-from games.models import ClubSubscription, PersonalResultsParticipant
+from games.models import ClubEntitlement, ClubSubscription, PersonalResultsParticipant
 
 
 def results_column_count(task_groups, mode='general'):
@@ -94,10 +95,17 @@ def club_subscriber_user_ids(actors):
     }
     if not user_ids:
         return set()
-    return set(ClubSubscription.objects.filter(
+    paid_ids = set(ClubSubscription.objects.filter(
         user_id__in=user_ids,
         paid_until__gt=timezone.now(),
     ).values_list('user_id', flat=True))
+    paid_ids.update(ClubEntitlement.objects.filter(
+        user_id__in=user_ids,
+        revoked_at__isnull=True,
+        starts_at__lte=timezone.now(),
+        kind__in=(ClubEntitlement.KIND_GIFT, ClubEntitlement.KIND_MANUAL),
+    ).filter(Q(ends_at__isnull=True) | Q(ends_at__gt=timezone.now())).values_list('user_id', flat=True))
+    return paid_ids
 
 
 def attach_results_club_badges(data):

@@ -128,6 +128,6 @@ def _dispatch_update(update: dict) -> None:
         send_message(chat_id, 'Этот бот принимает команды только в admin-чате.')
         return
 
-    reply = handle_admin_command(text)
+    reply = handle_admin_command(text, telegram_user_id=sender.get('id'))
     if reply:
         send_message(chat_id, reply)

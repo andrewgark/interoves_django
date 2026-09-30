@@ -72,6 +72,8 @@ from games.models import (
     ClubSubscription,
     ClubSubscriptionEvent,
     ClubYooKassaPayment,
+    ClubEntitlement,
+    SubscriptionGift,
     NextGameVoteAdjustment,
     NextGameVoteCampaignState,
     NextGameVoteEvent,
@@ -612,6 +614,35 @@ class ClubSubscriptionEventAdmin(admin.ModelAdmin):
     raw_id_fields = ('club_subscription',)
     readonly_fields = [field.name for field in ClubSubscriptionEvent._meta.fields]
     date_hierarchy = 'received_at'
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(SubscriptionGift)
+class SubscriptionGiftAdmin(admin.ModelAdmin):
+    list_display = (
+        'created_at', 'status', 'recipient_telegram_username', 'recipient_telegram_user_id',
+        'duration_months', 'is_forever', 'created_by', 'created_by_telegram_user_id',
+        'claimed_by', 'claimed_at', 'sent_at',
+    )
+    list_filter = ('status', 'is_forever')
+    search_fields = ('recipient_telegram_username', 'recipient_telegram_user_id', 'created_by__username')
+    raw_id_fields = ('created_by', 'claimed_by')
+    readonly_fields = [field.name for field in SubscriptionGift._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(ClubEntitlement)
+class ClubEntitlementAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'user', 'kind', 'starts_at', 'ends_at', 'gift', 'created_by', 'revoked_at')
+    list_filter = ('kind', 'revoked_at')
+    search_fields = ('user__username', 'user__email')
+    raw_id_fields = ('user', 'gift', 'club_subscription', 'yookassa_payment', 'tribute_event', 'created_by')
+    readonly_fields = [field.name for field in ClubEntitlement._meta.fields]
+    date_hierarchy = 'created_at'
 
     def has_add_permission(self, request):
         return False

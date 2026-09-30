@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 
 from django.db import close_old_connections
 from django.test import RequestFactory
@@ -17,6 +18,9 @@ from django.test import RequestFactory
 from games.worker_contract import WORKER_REGISTRY, WorkerSpec
 
 logger = logging.getLogger('application')
+
+VISIBILITY_HEARTBEAT_INTERVAL = 60
+VISIBILITY_EXTENSION_SECONDS = 1800
 
 
 VIEW_BY_WORKER = {
@@ -53,7 +57,16 @@ def poll_once(*, worker_name, client, queue_url, wait_seconds=20, visibility_tim
         return {'status': 'empty'}
 
     message = messages[0]
-    status_code = _deliver(spec, message)
+    if spec.name == 'identity' and visibility_timeout:
+        with _SqsVisibilityHeartbeat(
+            client,
+            queue_url,
+            message['ReceiptHandle'],
+            max(1, int(visibility_timeout)),
+        ):
+            status_code = _deliver(spec, message)
+    else:
+        status_code = _deliver(spec, message)
     receipt = message['ReceiptHandle']
     if 200 <= status_code < 300 or (400 <= status_code < 500 and status_code != 409):
         client.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt)
@@ -65,6 +78,47 @@ def poll_once(*, worker_name, client, queue_url, wait_seconds=20, visibility_tim
         'message_id': message.get('MessageId', ''),
         'http_status': status_code,
     }
+
+
+class _SqsVisibilityHeartbeat:
+    """Keep a long-running worker message hidden until its handler returns."""
+
+    def __init__(self, client, queue_url, receipt_handle, visibility_timeout):
+        self.client = client
+        self.queue_url = queue_url
+        self.receipt_handle = receipt_handle
+        self.visibility_timeout = min(
+            VISIBILITY_EXTENSION_SECONDS,
+            max(1, int(visibility_timeout)),
+        )
+        self.stop_event = threading.Event()
+        self.thread = threading.Thread(
+            target=self._run,
+            name='sqs-visibility-heartbeat',
+            daemon=True,
+        )
+
+    def _run(self):
+        while not self.stop_event.wait(VISIBILITY_HEARTBEAT_INTERVAL):
+            try:
+                self.client.change_message_visibility(
+                    QueueUrl=self.queue_url,
+                    ReceiptHandle=self.receipt_handle,
+                    VisibilityTimeout=self.visibility_timeout,
+                )
+            except Exception:
+                logger.exception(
+                    'sqs visibility heartbeat failed queue=%s receipt=%s',
+                    self.queue_url, self.receipt_handle,
+                )
+
+    def __enter__(self):
+        self.thread.start()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.stop_event.set()
+        self.thread.join(timeout=5)
 
 
 def _deliver(spec, message):

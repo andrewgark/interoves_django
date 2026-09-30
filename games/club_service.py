@@ -25,7 +25,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from games.models import ClubSubscription, ClubSubscriptionEvent, Profile
+from games.models import ClubEntitlement, ClubSubscription, ClubSubscriptionEvent, Profile
 from games.tribute_config import club_products_by_id
 
 logger = logging.getLogger(__name__)
@@ -321,6 +321,7 @@ def process_subscription_event(event_name: str, payload: dict, *, envelope_creat
         subscription.last_event_created_at = created_at
 
         if event_name in PAID_EVENTS:
+            paid_period_start = max(subscription.paid_until or now, now)
             incoming_end = data['expires_at']
             if subscription.paid_until is None or incoming_end > subscription.paid_until:
                 subscription.paid_until = incoming_end
@@ -353,6 +354,19 @@ def process_subscription_event(event_name: str, payload: dict, *, envelope_creat
 
         subscription.status = _derived_status(subscription, now=now)
         subscription.save()
+        if (
+            event_name in PAID_EVENTS
+            and data['expires_at'] is not None
+            and data['expires_at'] > paid_period_start
+        ):
+            ClubEntitlement.objects.get_or_create(
+                user=subscription.user,
+                kind=ClubEntitlement.KIND_PAID,
+                starts_at=paid_period_start,
+                ends_at=data['expires_at'],
+                club_subscription=subscription,
+                tribute_event=event,
+            )
         event.club_subscription = subscription
         event.result = (
             ClubSubscriptionEvent.RESULT_ANOMALY if anomaly else ClubSubscriptionEvent.RESULT_APPLIED

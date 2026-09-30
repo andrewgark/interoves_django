@@ -529,6 +529,15 @@ def _apply_succeeded_payment(local: ClubYooKassaPayment, payment_data: dict) -> 
         now,
     )
     subscription.save()
+    from games.models import ClubEntitlement
+    ClubEntitlement.objects.get_or_create(
+        user=subscription.user,
+        kind=ClubEntitlement.KIND_PAID,
+        starts_at=period_start,
+        ends_at=period_end,
+        club_subscription=subscription,
+        yookassa_payment=local,
+    )
     from games.telegram.notify import (
         notify_admin_club_subscription,
         notify_club_subscription_user,
