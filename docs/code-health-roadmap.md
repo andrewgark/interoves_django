@@ -90,7 +90,7 @@ breakpoints и границы legacy Bootstrap. Новый UI не должен 
 Подготовительный слой для следующей ежедневной игры уже начат:
 
 - `games/daily/registry.py` — identity, расписание, capabilities, варианты
-  results и ключи board/share/statistics adapters;
+  results и ключи board/completion/share/statistics/projection/recheck adapters;
 - `games/daily/archive.py` — нейтральная модель элементов архива;
 - `games/daily/page_context.py` — общие labels, aria-навигация и statistics URL;
 - `games/daily/board.py` — adapter dispatch для board payload и подготовки state;

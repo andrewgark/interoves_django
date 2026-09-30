@@ -1,8 +1,9 @@
 """Canonical metadata for games with the daily-game lifecycle.
 
-This registry is intentionally metadata-only for now.  It gives new daily
-games one place to declare their identity and supported shared features before
-we start routing existing views through adapters.
+This registry is the canonical declaration point for daily-game identity,
+capabilities, schedules, and shared adapter keys.  Game-specific mechanics
+remain in their own modules; shared lifecycle code resolves them through this
+registry instead of growing new game-id branches.
 """
 
 from __future__ import annotations
