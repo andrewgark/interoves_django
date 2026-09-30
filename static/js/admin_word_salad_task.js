@@ -53,8 +53,8 @@
     var controls = [
       ['rotate-left', '↶', 'Повернуть против часовой стрелки'],
       ['rotate-right', '↷', 'Повернуть по часовой стрелке'],
-      ['flip-left-right', '↔', 'Отразить слева направо'],
-      ['flip-top-bottom', '↕', 'Отразить сверху вниз']
+      ['flip-left-right', '↔', 'Отразить горизонтально'],
+      ['flip-top-bottom', '↕', 'Отразить вертикально']
     ];
     var $toolbar = $('<div class="word-salad-grid-controls" role="toolbar" aria-label="Преобразования сетки"></div>');
 

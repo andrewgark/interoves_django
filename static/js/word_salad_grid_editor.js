@@ -39,6 +39,34 @@
     return rows.join('\n');
   }
 
+  function transformGrid(grid, operation) {
+    var source = parseGrid(grid);
+    var result = Array.from({ length: CELL_COUNT }, function () { return ''; });
+    var row;
+    var col;
+    var targetRow;
+    var targetCol;
+    for (row = 0; row < 4; row += 1) {
+      for (col = 0; col < 4; col += 1) {
+        targetRow = row;
+        targetCol = col;
+        if (operation === 'rotate-counterclockwise') {
+          targetRow = 3 - col;
+          targetCol = row;
+        } else if (operation === 'rotate-clockwise') {
+          targetRow = col;
+          targetCol = 3 - row;
+        } else if (operation === 'flip-horizontal') {
+          targetCol = 3 - col;
+        } else if (operation === 'flip-vertical') {
+          targetRow = 3 - row;
+        }
+        result[targetRow * 4 + targetCol] = source[row * 4 + col];
+      }
+    }
+    return result;
+  }
+
   function parseWords(value) {
     if (Array.isArray(value)) {
       return value.map(function (word) { return String(word || '').trim(); }).filter(Boolean);
@@ -178,7 +206,11 @@
     var cells = parseGrid(options.grid);
     var inputs = [];
     var destroyed = false;
+    var transformButtons = [];
     var row;
+    var board = document.createElement('div');
+    board.className = 'ws-grid-editor__board';
+    host.appendChild(board);
     for (row = 0; row < 4; row += 1) {
       var rowEl = document.createElement('div');
       rowEl.className = 'ws-grid-editor__row';
@@ -199,8 +231,34 @@
         rowEl.appendChild(input);
         inputs.push(input);
       }
-      host.appendChild(rowEl);
+      board.appendChild(rowEl);
     }
+
+    var toolbar = document.createElement('div');
+    toolbar.className = 'ws-grid-editor__controls';
+    toolbar.setAttribute('role', 'toolbar');
+    toolbar.setAttribute('aria-label', 'Преобразования сетки');
+    [
+      ['rotate-clockwise', 'ph-arrow-clockwise', 'Повернуть по часовой стрелке'],
+      ['rotate-counterclockwise', 'ph-arrow-counter-clockwise', 'Повернуть против часовой стрелки'],
+      ['flip-horizontal', 'ph-arrows-left-right', 'Отразить горизонтально'],
+      ['flip-vertical', 'ph-arrows-down-up', 'Отразить вертикально']
+    ].forEach(function (control) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'ws-grid-editor__control';
+      button.dataset.operation = control[0];
+      button.title = control[2];
+      button.setAttribute('aria-label', control[2]);
+      button.innerHTML = '<i class="ph ' + control[1] + '" aria-hidden="true"></i>';
+      button.addEventListener('click', function () {
+        writeGrid(transformGrid(readGrid(), control[0]));
+        emitChange();
+      });
+      toolbar.appendChild(button);
+      transformButtons.push(button);
+    });
+    host.appendChild(toolbar);
 
     function readGrid() {
       return inputs.map(function (input) { return normalizeLetter(input.value); });
@@ -305,6 +363,7 @@
       },
       setDisabled: function (value) {
         inputs.forEach(function (input) { input.disabled = !!value; });
+        transformButtons.forEach(function (button) { button.disabled = !!value; });
       },
       destroy: function () {
         destroyed = true;
@@ -325,6 +384,7 @@
     parseGrid: parseGrid,
     parseWords: parseWords,
     formatGridText: formatGridText,
+    transformGrid: transformGrid,
     findPaths: findPaths,
     normalizeWord: normalizeWord
   };

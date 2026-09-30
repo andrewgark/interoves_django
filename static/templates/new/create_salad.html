@@ -116,6 +116,7 @@
   var modal = document.getElementById('offer-edit-modal');
   var Editor = window.WordSaladGridEditor;
   var gridApi = null;
+  var gridEditable = false;
   var editId = null;
   var editKind = 'full';
   var busy = false;
@@ -131,6 +132,10 @@
   function csrf() {
     var el = document.querySelector('input[name=csrfmiddlewaretoken]');
     return el ? el.value : '';
+  }
+  function setBusy(value) {
+    busy = !!value;
+    if (gridApi) gridApi.setDisabled(busy || !gridEditable);
   }
   function postJson(url, body) {
     return fetch(url, {
@@ -210,6 +215,7 @@
       gridApi.destroy();
       gridApi = null;
     }
+    gridEditable = false;
     modal.classList.remove('is-open');
     modal.hidden = true;
     document.body.style.overflow = '';
@@ -411,12 +417,13 @@
       updateValidation();
     }
     var canEdit = !!offer.can_edit;
+    gridEditable = canEdit;
     ['offer-edit-theme', 'offer-edit-idea', 'offer-edit-suggested', 'offer-edit-words', 'offer-edit-rare-words', 'offer-edit-comment', 'offer-edit-save', 'offer-edit-send']
       .forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.disabled = !canEdit;
       });
-    if (gridApi) gridApi.setDisabled(!canEdit);
+    if (gridApi) gridApi.setDisabled(!canEdit || busy);
     document.getElementById('offer-autosave-status').hidden = !canEdit;
     if (canEdit) autosave.open(offer.id, readEditorPayload());
     openModal();
@@ -424,20 +431,20 @@
 
   function createKind(kind) {
     if (busy) return;
-    busy = true;
+    setBusy(true);
     postJson(endpoints.create, { kind: kind })
       .then(function (data) {
         upsert(data.offer);
         openEdit(data.offer);
       })
       .catch(function (e) { alert(e.message || String(e)); })
-      .finally(function () { busy = false; });
+      .finally(function () { setBusy(false); });
   }
 
   function sendOfferById(id) {
     if (!id || busy) return;
     if (!window.confirm('Предложить опубликовать? После этого редактировать нельзя.')) return;
-    busy = true;
+    setBusy(true);
     var pending = (editId === id && autosave) ? autosave.flush() : Promise.resolve();
     pending.then(function () {
       return postJson(endpoints.sendTpl.replace('{id}', String(id)), {});
@@ -447,19 +454,19 @@
         if (editId === id) closeModal();
       })
       .catch(function (e) { alert(e.message || String(e)); })
-      .finally(function () { busy = false; });
+      .finally(function () { setBusy(false); });
   }
 
   function convertOfferById(id) {
     if (!id || busy) return;
-    busy = true;
+    setBusy(true);
     postJson(endpoints.convertTpl.replace('{id}', String(id)), {})
       .then(function (data) {
         upsert(data.offer);
         openEdit(data.offer);
       })
       .catch(function (e) { alert(e.message || String(e)); })
-      .finally(function () { busy = false; });
+      .finally(function () { setBusy(false); });
   }
 
   listEl.addEventListener('click', function (e) {
@@ -503,21 +510,21 @@
   document.getElementById('offer-edit-save').addEventListener('click', function () {
     if (!editId || busy) return;
     var err = document.getElementById('offer-edit-error');
-    busy = true;
+    setBusy(true);
     autosave.flush().then(function () {
       err.hidden = true;
       closeModal();
     }).catch(function (e) {
       err.hidden = false;
       err.textContent = e.message || String(e);
-    }).finally(function () { busy = false; });
+    }).finally(function () { setBusy(false); });
   });
 
   document.getElementById('offer-edit-send').addEventListener('click', function () {
     if (!editId || busy) return;
     if (!window.confirm('Предложить опубликовать? После этого редактировать нельзя.')) return;
     var sendingId = editId;
-    busy = true;
+    setBusy(true);
     autosave.flush().then(function () {
       return postJson(endpoints.sendTpl.replace('{id}', String(sendingId)), {});
     }).then(function (data) {
@@ -528,7 +535,7 @@
       var err = document.getElementById('offer-edit-error');
       err.hidden = false;
       err.textContent = e.message || String(e);
-    }).finally(function () { busy = false; });
+    }).finally(function () { setBusy(false); });
   });
 
   renderList();

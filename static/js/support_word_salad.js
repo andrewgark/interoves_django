@@ -66,6 +66,8 @@
     document.querySelectorAll('[data-insert-end], #word-salad-edit-save, #word-salad-edit-recheck, #word-salad-edit-delete, #word-salad-recheck-retry, #word-salad-offer-save, #word-salad-offer-accept').forEach(function (button) {
       button.disabled = busy;
     });
+    if (scheduleGrid) scheduleGrid.setDisabled(busy);
+    if (offerGrid) offerGrid.setDisabled(busy);
   }
 
   function showError(message) {
