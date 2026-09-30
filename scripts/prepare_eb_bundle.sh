@@ -9,6 +9,7 @@ APP="interoves"
 ENV_NAME="${1:-}"
 OUTPUT_ZIP="${2:-}"
 SKIP_COLLECTSTATIC="${3:-0}"
+SOURCE_BUNDLE_URI="${EB_BUNDLE_SOURCE_URI:-}"
 
 if [[ -z "$ENV_NAME" || -z "$OUTPUT_ZIP" ]]; then
     echo "Usage: $0 ENVIRONMENT OUTPUT_ZIP [SKIP_COLLECTSTATIC=0|1]" >&2
@@ -39,19 +40,27 @@ while IFS= read -r pattern || [[ -n "$pattern" ]]; do
     fi
 done < "$ROOT/.ebignore"
 
-current_version=$("$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk describe-environments \
-    --region "$REGION" --application-name "$APP" --environment-names "$ENV_NAME" \
-    --query 'Environments[0].VersionLabel' --output text)
-if [[ -z "$current_version" || "$current_version" == "None" ]]; then
-    echo "Could not resolve current version for $ENV_NAME" >&2
-    exit 1
-fi
+if [[ -z "$SOURCE_BUNDLE_URI" ]]; then
+    current_version=$("$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk describe-environments \
+        --region "$REGION" --application-name "$APP" --environment-names "$ENV_NAME" \
+        --query 'Environments[0].VersionLabel' --output text)
+    if [[ -z "$current_version" || "$current_version" == "None" ]]; then
+        echo "Could not resolve current version for $ENV_NAME" >&2
+        exit 1
+    fi
 
-bundle_meta=$("$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk describe-application-versions \
-    --region "$REGION" --application-name "$APP" --version-label "$current_version" \
-    --query 'Versions[0].SourceBundle.[S3Bucket,S3Key]' --output text 2>/dev/null || true)
-read -r source_bucket source_key <<< "$bundle_meta"
-if [[ -z "$source_bucket" || -z "$source_key" || "$source_bucket" == "None" || "$source_key" == "None" ]]; then
+    # Application-version metadata is not consistent across retained EB
+    # versions, so prefer the known S3 naming conventions when metadata is
+    # absent.  The explicit override below is for recovery when an old
+    # worker's original bundle was garbage-collected.
+    bundle_meta=$("$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk describe-application-versions \
+        --region "$REGION" --application-name "$APP" --version-label "$current_version" \
+        --query 'ApplicationVersions[0].SourceBundle.[S3Bucket,S3Key]' --output text 2>/dev/null || true)
+    read -r source_bucket source_key <<< "$bundle_meta"
+fi
+if [[ -n "$SOURCE_BUNDLE_URI" ]]; then
+    source_uri="$SOURCE_BUNDLE_URI"
+elif [[ -z "${source_bucket:-}" || -z "${source_key:-}" || "$source_bucket" == "None" || "$source_key" == "None" ]]; then
     account_id=$("$ROOT/scripts/aws_with_role.sh" aws sts get-caller-identity --query Account --output text)
     source_bucket="elasticbeanstalk-${REGION}-${account_id}"
     source_key=""
@@ -67,11 +76,17 @@ if [[ -z "$source_bucket" || -z "$source_key" || "$source_bucket" == "None" || "
         echo "Neither EB metadata nor retained standard/green/worker S3 objects exist." >&2
         exit 1
     fi
-    echo "Using retained EB S3 object ${source_bucket}/${source_key} (application-version metadata is absent)." >&2
+    source_uri="s3://${source_bucket}/${source_key}"
+elif [[ -n "$source_bucket" && -n "$source_key" ]]; then
+    source_uri="s3://${source_bucket}/${source_key}"
 fi
 
-echo "Downloading live source bundle for $ENV_NAME version $current_version"
-"$ROOT/scripts/aws_with_role.sh" aws s3 cp "s3://${source_bucket}/${source_key}" "$live_zip" --region "$REGION" --only-show-errors
+if [[ -n "$SOURCE_BUNDLE_URI" ]]; then
+    echo "Using explicit source bundle $SOURCE_BUNDLE_URI for $ENV_NAME" >&2
+else
+    echo "Downloading live source bundle for $ENV_NAME version $current_version"
+fi
+"$ROOT/scripts/aws_with_role.sh" aws s3 cp "$source_uri" "$live_zip" --region "$REGION" --only-show-errors
 unzip -q "$live_zip" -d "$stage"
 
 # .ebignore filters checkout files; live EB configuration is protected from the checkout.
@@ -81,6 +96,19 @@ rsync -a --delete-delay \
     --exclude='/.platform/***' \
     --exclude='/.elasticbeanstalk/***' \
     "$ROOT/" "$stage/"
+
+# A recovery base can come from the recheck worker when the target worker's
+# original bundle has been garbage-collected.  Do not carry recheck-only
+# dispatcher state or the generic web Playwright provisioning into the other
+# worker roles.
+if [[ "$ENV_NAME" != "interoves-recheck-worker" ]]; then
+    rm -f \
+        "$stage/.platform/recheck-worker.marker" \
+        "$stage/.platform/hooks/postdeploy/09_populate_recheck_secret.sh" \
+        "$stage/.platform/hooks/postdeploy/10_enable_word_salad_dispatcher.sh" \
+        "$stage/.platform/hooks/postdeploy/11_force_recheck_dispatcher.sh" \
+        "$stage/.ebextensions/playwright.config"
+fi
 
 # The live Green bundle protects its platform configuration from the checkout.
 # The legacy single-instance Green environment is the only target that may
