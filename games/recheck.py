@@ -8,6 +8,7 @@ from django.utils import timezone
 from games.models import Attempt, ChainTaskState, CHAIN_TASK_TYPES, Game, GameTaskGroup, Team
 from games.views.views import check_attempt
 from games.views.track import track_actor_task_change, track_attempt_change
+from games.raddle_concurrency import lock_or_create_raddle_state
 
 
 def recheck(_, attempt_id, *, notify=True):
@@ -155,6 +156,30 @@ def recheck_team_task_all_chronological(_, attempt_id):
     return result
 
 
+def _chain_state_actor_key(*, team=None, user=None, anon_key=None):
+    if team is not None:
+        return 'team:{}'.format(team.pk)
+    if user is not None:
+        return 'user:{}'.format(user.pk)
+    return 'anon:{}'.format(anon_key)
+
+
+def _chain_state_lookup(
+    *, team, user, anon_key, task, game, game_mode, replay_slot, actor_key,
+):
+    return {
+        'team': team,
+        'user': user,
+        'anon_key': anon_key,
+        'task': task,
+        'game': game,
+        'game_mode': game_mode,
+        'replay_slot': replay_slot,
+        'replay_slot_key': replay_slot.pk if replay_slot is not None else 0,
+        'actor_key': actor_key,
+    }
+
+
 def recheck_chain_task(
     task, team=None, user=None, anon_key=None, game=None, *, replay_slot=None,
     notify=True, pending_resolution=None,
@@ -179,11 +204,19 @@ def recheck_chain_task(
         raise ValueError('recheck_chain_task: pass game= for tasks in multiple games')
 
     with transaction.atomic():
-        # Lock (and create if missing) both possible ChainTaskState rows upfront.
+        # The actor-context key arbitrates first-row creation.  Do not lock the
+        # Task row here: that would serialize unrelated actors on the same task.
+        actor_key = _chain_state_actor_key(team=team, user=user, anon_key=anon_key)
         for mode in ('general', 'tournament'):
-            ChainTaskState.objects.get_or_create(
+            lookup = _chain_state_lookup(
                 team=team, user=user, anon_key=anon_key,
-                task=task, game=game, game_mode=mode, replay_slot=replay_slot,
+                task=task, game=game, game_mode=mode,
+                replay_slot=replay_slot, actor_key=actor_key,
+            )
+            lock_or_create_raddle_state(
+                queryset=ChainTaskState.objects.filter(**lookup),
+                task=task,
+                lookup=lookup,
                 defaults={'state': None},
             )
         locked_rows = {
@@ -663,10 +696,17 @@ def recheck_word_salad_actor(
         # empty tournament projection for every actor here made the repair
         # path recreate the very rows it was supposed to remove.
         modes = ('general', 'tournament') if game.is_tournament else ('general',)
+        actor_key = _chain_state_actor_key(team=team, user=user, anon_key=anon_key)
         for mode in modes:
-            ChainTaskState.objects.get_or_create(
+            lookup = _chain_state_lookup(
                 team=team, user=user, anon_key=anon_key,
-                task=task, game=game, game_mode=mode, replay_slot_id=replay_slot,
+                task=task, game=game, game_mode=mode,
+                replay_slot=replay_slot, actor_key=actor_key,
+            )
+            lock_or_create_raddle_state(
+                queryset=ChainTaskState.objects.filter(**lookup),
+                task=task,
+                lookup=lookup,
                 defaults={'state': None},
             )
         locked_rows = {

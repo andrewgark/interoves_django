@@ -59,9 +59,11 @@ def lock_or_create_raddle_state(*, queryset, task, lookup, defaults):
     wait timeout.  Existing rows are locked by primary key, avoiding
     secondary-index/primary-key lock-order inversions.
     """
-    row_id = queryset.order_by('pk').values_list('pk', flat=True).first()
-    if row_id is not None:
-        return queryset.model.objects.select_for_update().get(pk=row_id)
+    # A locking read is important here.  A normal read can use a stale
+    # REPEATABLE READ snapshot after another transaction wins the insert race.
+    row = queryset.select_for_update().order_by('pk').first()
+    if row is not None:
+        return row
 
     if callable(defaults):
         defaults = defaults()
@@ -72,8 +74,10 @@ def lock_or_create_raddle_state(*, queryset, task, lookup, defaults):
         with transaction.atomic():
             row = queryset.model.objects.create(**lookup, **defaults)
     except IntegrityError:
-        row_id = queryset.order_by('pk').values_list('pk', flat=True).first()
-        if row_id is None:
+        # select_for_update() is a current read on MySQL and therefore sees
+        # the committed row that caused the duplicate-key error.
+        row = queryset.select_for_update().order_by('pk').first()
+        if row is None:
             raise
-        return queryset.model.objects.select_for_update().get(pk=row_id)
+        return row
     return queryset.model.objects.select_for_update().get(pk=row.pk)

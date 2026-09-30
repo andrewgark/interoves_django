@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import unittest
 
-from django.db import connection
+from django.db import close_old_connections, connection
 from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
@@ -838,6 +838,45 @@ class ConcurrentSubmissionTests(TransactionTestCase):
         self.assertEqual(state['solved_slots'], {'0': [0, 1]})
         self.assertEqual(state['solved_lines'], [0])
         self.assertEqual(state['total'], 1)
+
+    def test_concurrent_rechecks_create_one_state_per_mode(self):
+        """Two first replays must arbitrate missing ChainTaskState rows safely."""
+        if connection.vendor == 'sqlite':
+            self.skipTest('row locking and concurrent inserts are not reliable on SQLite')
+
+        _make_attempt(self.repl_task, self.team, _repl_text(0, ['answer1']))
+        ChainTaskState.objects.filter(task=self.repl_task, team=self.team).delete()
+
+        errors = []
+        start = threading.Barrier(2)
+
+        def replay():
+            close_old_connections()
+            try:
+                start.wait(timeout=10)
+                recheck_chain_task(
+                    task=self.repl_task,
+                    team=self.team,
+                    game=self.game,
+                    notify=False,
+                )
+            except Exception as exc:
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        first = threading.Thread(target=replay)
+        second = threading.Thread(target=replay)
+        first.start()
+        second.start()
+        first.join(timeout=15)
+        second.join(timeout=15)
+
+        self.assertEqual(errors, [], 'Threads raised: {}'.format(errors))
+        self.assertEqual(
+            ChainTaskState.objects.filter(task=self.repl_task, team=self.team).count(),
+            2,
+        )
 
 
 # ===========================================================================
