@@ -201,7 +201,7 @@ class Command(BaseCommand):
                 update_fields=['checker_data'],
                 skip_semantics_reconciliation=True,
             )
-            Attempt.objects.filter(pk__in=[attempt.pk for attempt in attempts]).delete()
+            Attempt.manager.filter(pk__in=[attempt.pk for attempt in attempts]).delete()
             WordSaladRecheckOutbox.objects.filter(item__job_id__in=job_ids).delete()
             WordSaladRecheckItem.objects.filter(job_id__in=job_ids).delete()
             WordSaladRecheckJob.objects.filter(pk__in=job_ids).delete()
