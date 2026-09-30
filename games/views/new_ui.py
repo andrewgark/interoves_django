@@ -313,7 +313,7 @@ def _compute_solved_task_ids(game, task_groups, team=None, user=None, anon_key=N
 
 def _game_task_group_links(game):
     return GameTaskGroup.sorted_links(
-        GameTaskGroup.objects.filter(game=game)
+        GameTaskGroup.objects.filter(game=game, is_deferred=False)
         .select_related('task_group')
         .annotate(n_tasks=Count('task_group__tasks', filter=Q(task_group__tasks__is_removed=False)))
     )

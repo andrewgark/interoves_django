@@ -601,6 +601,7 @@ class GameTaskGroup(models.Model):
         default=False,
         help_text='Временно убрано из расписания support.',
     )
+    deferred_number = models.CharField(max_length=20, blank=True, default='')
 
     class Meta:
         constraints = [
@@ -644,18 +645,22 @@ class GameTaskGroup(models.Model):
 
 
     @classmethod
-    def sorted_links(cls, queryset=None, *, game=None, reverse=False):
+    def sorted_links(cls, queryset=None, *, game=None, reverse=False, include_deferred=False):
         if queryset is None:
             queryset = cls.objects.filter(game=game)
         # Permanent random Alphabetty games use a hash as ``number`` and do
         # not belong in numeric schedule/navigation lists.
         if hasattr(queryset, 'exclude'):
+            if not include_deferred:
+                queryset = queryset.filter(is_deferred=False)
             queryset = queryset.exclude(
                 game_id='alphabetty',
                 task_group__random_alphabetty_game__isnull=False,
             )
         else:
             links = list(queryset)
+            if not include_deferred:
+                links = [link for link in links if not link.is_deferred]
             task_group_ids = [link.task_group_id for link in links]
             if task_group_ids:
                 from games.models import RandomAlphabettyGame
@@ -676,12 +681,14 @@ class GameTaskGroup(models.Model):
         return links
 
     @classmethod
-    def order_queryset_by_number(cls, queryset, *, reverse=False):
+    def order_queryset_by_number(cls, queryset, *, reverse=False, include_deferred=False):
         """Числовая сортировка номера круга (1, 2, …, 10), не лексикографическая."""
         queryset = queryset.exclude(
             game_id='alphabetty',
             task_group__random_alphabetty_game__isnull=False,
         )
+        if not include_deferred:
+            queryset = queryset.filter(is_deferred=False)
         links = list(queryset)
         if not links:
             return queryset.none()

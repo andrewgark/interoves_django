@@ -5,17 +5,18 @@
   }
 
   function rowsForTab(allRows, tab) {
+    if (tab === 'deferred') return allRows.filter(function (r) { return r.is_deferred; });
     if (tab === 'published') {
-      return allRows.filter(function (r) { return r.is_published; }).sort(function (a, b) {
+      return allRows.filter(function (r) { return !r.is_deferred && r.is_published; }).sort(function (a, b) {
         return (b.publish_date || '').localeCompare(a.publish_date || '');
       });
     }
     if (tab === 'future') {
-      return allRows.filter(function (r) { return !r.is_published; }).sort(function (a, b) {
+      return allRows.filter(function (r) { return !r.is_deferred && !r.is_published; }).sort(function (a, b) {
         return a.number - b.number;
       });
     }
-    return allRows;
+    return allRows.filter(function (r) { return !r.is_deferred; });
   }
 
   function lastPublishedNumber(rows) {
@@ -64,6 +65,21 @@
         el.classList.toggle('is-active', el === btn);
       });
       onChange(btn.getAttribute('data-tab'));
+    });
+  }
+
+  function mountDeferredActions(list, onDone) {
+    list.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-defer-action]');
+      if (!button) return;
+      var id = button.getAttribute('data-link-id');
+      var template = list.getAttribute(button.getAttribute('data-defer-action') === 'restore' ? 'data-restore-url' : 'data-defer-url');
+      if (!id || !template) return;
+      event.preventDefault();
+      button.disabled = true;
+      postJson(endpoint(template, id), {}).then(function (data) {
+        if (onDone) onDone(data.rows || []);
+      }).catch(function (err) { alert(err.message); button.disabled = false; });
     });
   }
 
@@ -311,5 +327,6 @@
     postJson: postJson,
     mountModal: mountModal,
     mountSortable: mountSortable,
+    mountDeferredActions: mountDeferredActions,
   };
 })(window);

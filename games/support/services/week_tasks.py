@@ -16,7 +16,7 @@ from games.support.services.banned import (
     list_banned_units,
     remove_banned_unit,
 )
-from games.support.services.schedule_links import delete_future_slot, renumber_links, shift_links
+from games.support.services.schedule_links import delete_future_slot, renumber_links, shift_links, defer_future_slot, restore_deferred_slot
 from games.week_task_pool import (
     WEEK_TASK_SOURCE_TAG,
     materialize_unit,
@@ -58,6 +58,7 @@ class WeekTaskRow:
     play_url: str
     site_url: str
     source_url: str
+    is_deferred: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -117,17 +118,17 @@ def list_week_task_rows(*, now: datetime | None = None) -> list[WeekTaskRow]:
     today_num = current_week_task_number(game, now)
     links = GameTaskGroup.sorted_links(
         GameTaskGroup.objects.filter(game=game).select_related('task_group'),
-        reverse=False,
+        reverse=False, include_deferred=True,
     )
     rows: list[WeekTaskRow] = []
     for link in links:
         try:
-            number = int(link.number)
+            number = int(link.deferred_number or link.number) if link.is_deferred else int(link.number)
         except (TypeError, ValueError):
             continue
         pub = week_task_publish_at(game, number)
         pub_date = pub.date().isoformat() if pub else None
-        is_pub = is_week_task_number_published(game, number, now)
+        is_pub = False if link.is_deferred else is_week_task_number_published(game, number, now)
         is_today = bool(today_num is not None and number == today_num and is_pub)
         tags = (link.task_group.tags or {}) if link.task_group_id else {}
         rows.append(WeekTaskRow(
@@ -142,6 +143,7 @@ def list_week_task_rows(*, now: datetime | None = None) -> list[WeekTaskRow]:
             play_url=f'/week_task/{number}/',
             site_url=f'/week_task/{link.share_hash}/' if link.share_hash else f'/week_task/{number}/',
             source_url=source_play_path_from_tags(tags) or '',
+            is_deferred=link.is_deferred,
         ))
     return rows
 
@@ -240,7 +242,7 @@ def reorder_week_tasks(
         raise WeekTaskSupportError('Дубликаты id в порядке')
 
     existing = list(
-        GameTaskGroup.objects.filter(game=game).select_related('task_group')
+        GameTaskGroup.objects.filter(game=game, is_deferred=False).select_related('task_group')
     )
     by_id = {link.pk: link for link in existing}
     if set(ordered_link_ids) != set(by_id):
@@ -522,6 +524,19 @@ def delete_week_task(link_id: int, *, now: datetime | None = None) -> list[WeekT
         published_msg='Нельзя удалять уже вышедшее задание №{number}',
         now=now,
     )
+
+
+def defer_week_task(link_id: int, *, now=None):
+    return defer_future_slot(game=get_week_task_game(), link_id=link_id,
+        is_number_published=is_week_task_number_published, renumber_links=_renumber_links,
+        list_rows=list_week_task_rows, error_cls=WeekTaskSupportError,
+        not_found_msg='Задание недели не найдено', published_msg='Нельзя откладывать уже вышедшее задание №{number}', now=now)
+
+
+def restore_week_task(link_id: int, *, now=None):
+    return restore_deferred_slot(game=get_week_task_game(), link_id=link_id,
+        renumber_links=_renumber_links, list_rows=list_week_task_rows,
+        error_cls=WeekTaskSupportError, not_found_msg='Отложенное задание не найдено', now=now)
 
 
 @transaction.atomic

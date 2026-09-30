@@ -35,6 +35,8 @@ from games.support.services.schedule_links import (
     delete_future_slot,
     renumber_links,
     shift_links,
+    defer_future_slot,
+    restore_deferred_slot,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,6 +59,7 @@ class AlphabettyRow:
     word: str
     play_url: str
     site_url: str = ''
+    is_deferred: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -125,21 +128,21 @@ def list_alphabetty_rows(*, now: datetime | None = None) -> list[AlphabettyRow]:
     today = now.astimezone(MOSCOW).date()
     links = GameTaskGroup.sorted_links(
         GameTaskGroup.objects.filter(game=game).select_related('task_group'),
-        reverse=False,
+        reverse=False, include_deferred=True,
     )
     tasks_by_group = _tasks_for_links(links)
     site_urls = _site_urls_by_task_group(link.task_group_id for link in links)
     rows: list[AlphabettyRow] = []
     for link in links:
         try:
-            number = int(link.number)
+            number = int(link.deferred_number or link.number) if link.is_deferred else int(link.number)
         except (TypeError, ValueError):
             continue
         task = tasks_by_group.get(link.task_group_id)
         word = _word_from_task(task)
         pub = alphabetty_publish_at(game, number)
         pub_date = pub.date().isoformat() if pub else None
-        is_pub = is_alphabetty_number_published(game, number, now)
+        is_pub = False if link.is_deferred else is_alphabetty_number_published(game, number, now)
         is_today = bool(pub and pub.date() == today)
         rows.append(AlphabettyRow(
             link_id=link.pk,
@@ -153,6 +156,7 @@ def list_alphabetty_rows(*, now: datetime | None = None) -> list[AlphabettyRow]:
             word=word,
             play_url=f'/{ALPHABETTY_GAME_ID}/{number}/',
             site_url=site_urls.get(link.task_group_id, ''),
+            is_deferred=link.is_deferred,
         ))
     return rows
 
@@ -243,7 +247,7 @@ def reorder_alphabetty(
         raise AlphabettySupportError('Дубликаты id в порядке')
 
     existing = list(
-        GameTaskGroup.objects.filter(game=game).select_related('task_group')
+        GameTaskGroup.objects.filter(game=game, is_deferred=False).select_related('task_group')
     )
     by_id = {link.pk: link for link in existing}
     if set(ordered_link_ids) != set(by_id):
@@ -562,6 +566,19 @@ def delete_alphabetty(link_id: int, *, now: datetime | None = None) -> list[Alph
         published_msg='Нельзя удалять уже вышедшую алфавитку №{number}',
         now=now,
     )
+
+
+def defer_alphabetty(link_id: int, *, now=None):
+    return defer_future_slot(game=get_alphabetty_game(), link_id=link_id,
+        is_number_published=is_alphabetty_number_published, renumber_links=_renumber_links,
+        list_rows=list_alphabetty_rows, error_cls=AlphabettySupportError,
+        not_found_msg='Алфавитка не найдена', published_msg='Нельзя откладывать уже вышедшую алфавитку №{number}', now=now)
+
+
+def restore_alphabetty(link_id: int, *, now=None):
+    return restore_deferred_slot(game=get_alphabetty_game(), link_id=link_id,
+        renumber_links=_renumber_links, list_rows=list_alphabetty_rows,
+        error_cls=AlphabettySupportError, not_found_msg='Отложенная алфавитка не найдена', now=now)
 
 
 @transaction.atomic

@@ -26,14 +26,15 @@ def build_schedule_page_context(
     today_number: int | None = None,
 ) -> dict:
     """Нормализованный контекст общего шаблона ежедневного расписания."""
+    scheduled_rows = [row for row in rows if not getattr(row, 'is_deferred', False)]
     published_count = sum(
-        1 for row in rows if getattr(row, 'is_published', False)
+        1 for row in scheduled_rows if getattr(row, 'is_published', False)
     )
     if today_number is None:
         today_number = next(
             (
                 getattr(row, 'number')
-                for row in rows
+                for row in scheduled_rows
                 if getattr(row, 'is_today', False)
             ),
             None,
@@ -42,12 +43,57 @@ def build_schedule_page_context(
         'schedule_title': title,
         'schedule_prefix': prefix,
         'schedule_list_label': list_label,
-        'schedule_count': len(rows),
+        'schedule_count': len(scheduled_rows),
         'publish_start': publish_start,
         'published_count': published_count,
-        'future_count': len(rows) - published_count,
+        'future_count': len(scheduled_rows) - published_count,
+        'deferred_count': len(rows) - len(scheduled_rows),
         'today_number': today_number,
     }
+
+
+@transaction.atomic
+def defer_future_slot(*, game, link_id, is_number_published, renumber_links,
+                      list_rows, error_cls, not_found_msg, published_msg,
+                      now=None):
+    link = GameTaskGroup.objects.filter(game=game, pk=link_id).select_related('task_group').first()
+    if link is None:
+        raise error_cls(not_found_msg)
+    try:
+        number = int(link.number)
+    except (TypeError, ValueError) as exc:
+        raise error_cls('Некорректный номер слота') from exc
+    if is_number_published(game, number, now):
+        raise error_cls(published_msg.format(number=number))
+    link.deferred_number = str(link.number)
+    # Free the old numeric slot before renumbering the remaining links.
+    link.number = str(max(
+        [int(item.number) for item in GameTaskGroup.objects.filter(game=game)
+         if str(item.number).lstrip('-').isdigit()], default=0
+    ) + 10000)
+    link.is_deferred = True
+    link.save(update_fields=['is_deferred', 'deferred_number', 'number'])
+    active = list(GameTaskGroup.sorted_links(
+        GameTaskGroup.objects.filter(game=game, is_deferred=False).select_related('task_group'),
+    ))
+    if active:
+        renumber_links(active)
+    return list_rows(now=now)
+
+
+@transaction.atomic
+def restore_deferred_slot(*, game, link_id, renumber_links, list_rows, error_cls,
+                          not_found_msg, now=None):
+    link = GameTaskGroup.objects.filter(game=game, pk=link_id).select_related('task_group').first()
+    if link is None or not link.is_deferred:
+        raise error_cls(not_found_msg)
+    link.is_deferred = False
+    link.save(update_fields=['is_deferred'])
+    active = list(GameTaskGroup.sorted_links(
+        GameTaskGroup.objects.filter(game=game, is_deferred=False).select_related('task_group'),
+    ))
+    renumber_links(active)
+    return list_rows(now=now)
 
 
 def assert_future_only_order(

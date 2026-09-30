@@ -34,6 +34,7 @@ from games.word_salad_daily import (
     word_salad_publish_start,
 )
 from games.daily_section import MOSCOW
+from games.support.services.schedule_links import defer_future_slot, restore_deferred_slot
 
 WORD_SALAD_SECTION_TITLE = 'Салатик'
 WORD_SALAD_SECTION_ICON = '🥗'
@@ -81,6 +82,7 @@ class WordSaladRow:
     author: str
     preview_url: str
     site_url: str = ''
+    is_deferred: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -178,7 +180,7 @@ def _sorted_links():
         return GameTaskGroup.objects.none()
     return GameTaskGroup.order_queryset_by_number(
         GameTaskGroup.objects.filter(game=game).select_related('task_group'),
-        reverse=False,
+        reverse=False, include_deferred=True,
     )
 
 
@@ -292,7 +294,7 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
     rows = []
     for link in links:
         try:
-            number = int(link.number)
+            number = int(link.deferred_number or link.number) if link.is_deferred else int(link.number)
         except (TypeError, ValueError):
             continue
         task = tasks_by_group.get(link.task_group_id)
@@ -315,7 +317,7 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
             theme=(task.text or '').strip() if task is not None else '',
             publish_date=published_at.date().isoformat() if published_at else None,
             is_published=(
-                is_word_salad_number_published(game, number, now)
+                (not link.is_deferred and is_word_salad_number_published(game, number, now))
                 if game is not None else False
             ),
             is_today=bool(published_at and published_at.date() == today),
@@ -323,6 +325,7 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
             words_preview=_preview_text(words),
             words_count=len(words),
             author=author,
+            is_deferred=link.is_deferred,
             preview_url=preview_task_group_url(
                 WORD_SALAD_GAME_ID,
                 link.number,
@@ -600,7 +603,7 @@ def reorder_word_salads(
     if len(set(ordered_link_ids)) != len(ordered_link_ids):
         raise WordSaladSupportError('Дубликаты id в порядке')
     existing = list(
-        GameTaskGroup.objects.filter(game=game).select_related('task_group')
+        GameTaskGroup.objects.filter(game=game, is_deferred=False).select_related('task_group')
     )
     by_id = {link.pk: link for link in existing}
     if set(ordered_link_ids) != set(by_id):
@@ -637,6 +640,19 @@ def delete_word_salad(
         published_msg='Нельзя удалять уже вышедший салатик №{number}',
         now=now,
     )
+
+
+def defer_word_salad(link_id: int, *, now=None):
+    return defer_future_slot(game=get_word_salad_game(), link_id=link_id,
+        is_number_published=is_word_salad_number_published, renumber_links=_renumber_links,
+        list_rows=list_word_salad_rows, error_cls=WordSaladSupportError,
+        not_found_msg='Салатик не найден', published_msg='Нельзя откладывать уже вышедший салатик №{number}', now=now)
+
+
+def restore_word_salad(link_id: int, *, now=None):
+    return restore_deferred_slot(game=get_word_salad_game(), link_id=link_id,
+        renumber_links=_renumber_links, list_rows=list_word_salad_rows,
+        error_cls=WordSaladSupportError, not_found_msg='Отложенный салатик не найден', now=now)
 
 
 def dashboard_context(

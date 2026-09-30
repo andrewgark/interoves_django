@@ -32,6 +32,8 @@ from games.support.services.alphabetty import (
     set_publish_start as alphabetty_set_publish_start_service,
     unban_alphabetty_word,
     update_alphabetty,
+    defer_alphabetty,
+    restore_alphabetty,
 )
 from games.support.services.week_tasks import (
     WeekTaskSupportError,
@@ -45,6 +47,8 @@ from games.support.services.week_tasks import (
     set_publish_start as week_tasks_set_publish_start_service,
     unban_week_task_unit,
     update_week_task,
+    defer_week_task,
+    restore_week_task,
     week_task_dashboard_context,
 )
 from games.support.services.ladders import (
@@ -56,6 +60,8 @@ from games.support.services.ladders import (
     reorder_ladders,
     set_publish_start,
     update_ladder,
+    defer_ladder,
+    restore_ladder,
 )
 from games.support.services.word_salad import (
     WordSaladSupportError,
@@ -68,6 +74,8 @@ from games.support.services.word_salad import (
     reorder_word_salads,
     set_publish_start as word_salad_set_publish_start_service,
     update_word_salad,
+    defer_word_salad,
+    restore_word_salad,
 )
 from games.ladder_offer import (
     LadderOfferError,
@@ -157,6 +165,62 @@ def _ordered_ids_from_request(request):
 
 def _ladder_error_response(exc: LadderSupportError, status=400):
     return JsonResponse({'ok': False, 'error': str(exc)}, status=status)
+
+
+def _schedule_move_response(operation, link_id):
+    try:
+        rows = operation(link_id)
+    except Exception as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'rows': [row.to_dict() for row in rows]})
+
+
+@support_console_required
+@require_POST
+def ladders_defer(request, link_id):
+    return _schedule_move_response(defer_ladder, link_id)
+
+
+@support_console_required
+@require_POST
+def ladders_restore(request, link_id):
+    return _schedule_move_response(restore_ladder, link_id)
+
+
+@support_console_required
+@require_POST
+def alphabetty_defer(request, link_id):
+    return _schedule_move_response(defer_alphabetty, link_id)
+
+
+@support_console_required
+@require_POST
+def alphabetty_restore(request, link_id):
+    return _schedule_move_response(restore_alphabetty, link_id)
+
+
+@support_console_required
+@require_POST
+def week_tasks_defer(request, link_id):
+    return _schedule_move_response(defer_week_task, link_id)
+
+
+@support_console_required
+@require_POST
+def week_tasks_restore(request, link_id):
+    return _schedule_move_response(restore_week_task, link_id)
+
+
+@support_console_required
+@require_POST
+def word_salad_defer(request, link_id):
+    return _schedule_move_response(defer_word_salad, link_id)
+
+
+@support_console_required
+@require_POST
+def word_salad_restore(request, link_id):
+    return _schedule_move_response(restore_word_salad, link_id)
 
 
 class SupportLoginView(LoginView):

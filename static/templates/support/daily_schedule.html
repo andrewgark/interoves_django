@@ -41,11 +41,16 @@
   <button type="button" class="support-tabs__btn is-active" data-tab="schedule">Расписание</button>
   <button type="button" class="support-tabs__btn" data-tab="published">Вышедшие</button>
   <button type="button" class="support-tabs__btn" data-tab="future">Будущие</button>
+  <button type="button" class="support-tabs__btn" data-tab="deferred">Отложенные{% if deferred_count %} ({{ deferred_count }}){% endif %}</button>
   {% block schedule_extra_tabs %}{% endblock %}
 </nav>
 
 <section class="pal-card support-card">
-  <div class="support-ladder-list support-schedule-list" id="{{ schedule_prefix }}-list" aria-label="{{ schedule_list_label }}"></div>
+  <div class="support-ladder-list support-schedule-list" id="{{ schedule_prefix }}-list" aria-label="{{ schedule_list_label }}"
+    {% if schedule_prefix == 'ladder' %}data-defer-url="{% url 'support:ladders_defer' 0 %}" data-restore-url="{% url 'support:ladders_restore' 0 %}"
+    {% elif schedule_prefix == 'ab' %}data-defer-url="{% url 'support:alphabetty_defer' 0 %}" data-restore-url="{% url 'support:alphabetty_restore' 0 %}"
+    {% elif schedule_prefix == 'word-salad' %}data-defer-url="{% url 'support:word_salad_defer' 0 %}" data-restore-url="{% url 'support:word_salad_restore' 0 %}"
+    {% elif schedule_prefix == 'week-task' %}data-defer-url="{% url 'support:week_tasks_defer' 0 %}" data-restore-url="{% url 'support:week_tasks_restore' 0 %}"{% endif %}></div>
   <div class="support-ladder-insert support-ladder-insert--end">
     <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-insert-end>+ В конец</button>
   </div>

@@ -37,6 +37,8 @@ from games.support.services.schedule_links import (
     delete_future_slot,
     renumber_links,
     shift_links,
+    defer_future_slot,
+    restore_deferred_slot,
 )
 
 AUTHOR_TAG = 'author'
@@ -68,6 +70,7 @@ class LadderRow:
     play_url: str
     mixed_script: bool = False
     site_url: str = ''
+    is_deferred: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -255,21 +258,21 @@ def list_ladder_rows(*, now: datetime | None = None) -> list[LadderRow]:
     today = now.astimezone(MOSCOW).date()
     links = GameTaskGroup.sorted_links(
         GameTaskGroup.objects.filter(game=game).select_related('task_group'),
-        reverse=False,
+        reverse=False, include_deferred=True,
     )
     tasks_by_group = _tasks_for_links(links)
     site_urls = _site_urls_by_task_group(link.task_group_id for link in links)
     rows: list[LadderRow] = []
     for link in links:
         try:
-            number = int(link.number)
+            number = int(link.deferred_number or link.number) if link.is_deferred else int(link.number)
         except (TypeError, ValueError):
             continue
         task = tasks_by_group.get(link.task_group_id)
         payload = _parse_task_payload(task)
         pub = ladder_publish_at(game, number)
         pub_date = pub.date().isoformat() if pub else None
-        is_pub = is_ladder_number_published(game, number, now)
+        is_pub = False if link.is_deferred else is_ladder_number_published(game, number, now)
         is_today = bool(pub and pub.date() == today)
         rows.append(LadderRow(
             link_id=link.pk,
@@ -287,6 +290,7 @@ def list_ladder_rows(*, now: datetime | None = None) -> list[LadderRow]:
             play_url=f'/{LADDER_GAME_ID}/{number}/',
             mixed_script=bool(payload.get('mixed_script')),
             site_url=site_urls.get(link.task_group_id, ''),
+            is_deferred=link.is_deferred,
         ))
     return rows
 
@@ -386,7 +390,7 @@ def reorder_ladders(
         raise LadderSupportError('Дубликаты id в порядке')
 
     existing = list(
-        GameTaskGroup.objects.filter(game=game).select_related('task_group')
+        GameTaskGroup.objects.filter(game=game, is_deferred=False).select_related('task_group')
     )
     by_id = {link.pk: link for link in existing}
     if set(ordered_link_ids) != set(by_id):
@@ -648,6 +652,19 @@ def delete_ladder(link_id: int, *, now: datetime | None = None) -> list[LadderRo
         published_msg='Нельзя удалять уже вышедшую лесенку №{number}',
         now=now,
     )
+
+
+def defer_ladder(link_id: int, *, now=None):
+    return defer_future_slot(game=get_ladder_game(), link_id=link_id,
+        is_number_published=is_ladder_number_published, renumber_links=_renumber_links,
+        list_rows=list_ladder_rows, error_cls=LadderSupportError,
+        not_found_msg='Лесенка не найдена', published_msg='Нельзя откладывать уже вышедшую лесенку №{number}', now=now)
+
+
+def restore_ladder(link_id: int, *, now=None):
+    return restore_deferred_slot(game=get_ladder_game(), link_id=link_id,
+        renumber_links=_renumber_links, list_rows=list_ladder_rows,
+        error_cls=LadderSupportError, not_found_msg='Отложенная лесенка не найдена', now=now)
 
 
 def dashboard_context(*, now: datetime | None = None) -> dict[str, Any]:
