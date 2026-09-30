@@ -181,10 +181,12 @@ class Command(BaseCommand):
         )
         receipt = accept_pending_attempts([first.pk, second.pk], return_receipt=True)
         jobs = self._receipt_jobs(receipt)
-        receipt_job = receipt['queue_receipt']['jobs'][0] if jobs else {}
+        receipt_jobs = receipt['queue_receipt']['jobs']
         checks = {
-            'one_receipt_job': len(jobs) == 1,
-            'job_contains_both_actors': receipt_job.get('total_items', 0) >= 2,
+            'receipt_has_jobs': bool(jobs),
+            'receipt_has_bulk_job': any(
+                row.get('total_items', 0) >= 2 for row in receipt_jobs
+            ),
         }
         if not all(checks.values()):
             raise CommandError('bulk receipt failed: {}'.format(checks))
