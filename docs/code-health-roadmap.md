@@ -104,6 +104,7 @@ breakpoints и границы legacy Bootstrap. Новый UI не должен 
 - `static/templates/new/partials/daily_task_board.html` — общий shell task board;
 - `static/templates/new/partials/task_card.html` — generic `daily_board`
   contract для game-specific board templates при сохранении legacy `rd/ws`;
+- daily board adapters также декларативно задают body template и wrapper policy;
 - `new_ui.py`, Alphabetty play и partial renderer используют общий lifecycle
   context/URL builder;
 - reset и statistics endpoints используют registry вместо отдельных списков игр;
