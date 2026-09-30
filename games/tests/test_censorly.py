@@ -492,24 +492,17 @@ class CensorlyUxDailyTests(TestCase):
         self.assertEqual(split_stem_ending('бежал')[1], '')
         self.assertEqual(split_stem_ending('красивого')[1], 'ого')
         self.assertEqual(split_stem_ending('кошками')[1], 'ми')
-        payload = build_puzzle_payload(
-            wiki_title='Кот',
-            body_text='В городах бежал кошек красивого вида.',
-        )
+        payload = build_puzzle_payload(wiki_title='Кот', body_text='Красивого вида.')
         # Inject a legacy noisy ending that older puzzles may still store.
-        for tok in payload['body_tokens']:
-            if tok.get('surface', '').lower().startswith('город'):
-                tok['ending'] = 'а'
-                tok['stem_length'] = 5
-                break
-        view = build_public_view(payload, revealed_lemmas=set(), won=False, show_endings=True)
-        noisy = next(
-            t for t in view['body_tokens']
-            if t.get('kind') == 'content' and (t.get('length') or 0) >= 5
-            and not t.get('revealed')
-            and 'город' in (t.get('lemma') or '')
+        target = next(
+            t for t in payload['body_tokens']
+            if t.get('kind') == 'content' and t.get('ending') == 'ого'
         )
-        self.assertNotIn('ending', noisy)
+        target['ending'] = 'а'
+        target['stem_length'] = 5
+        view = build_public_view(payload, revealed_lemmas=set(), won=False, show_endings=True)
+        masked = next(t for t in view['body_tokens'] if t.get('id') == target['id'])
+        self.assertNotIn('ending', masked)
 
     def test_only_guessed_words_marked_after_win(self):
         from games.censorly.redact import build_public_view
