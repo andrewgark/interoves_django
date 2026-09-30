@@ -32,21 +32,29 @@
     return (tok && tok.lemma) || '';
   }
 
+  function headingClass(tok) {
+    return tok && tok.in_heading ? ' is-heading' : '';
+  }
+
   function renderToken(tok, overrides) {
     overrides = overrides || {};
     var kind = tok.kind || 'content';
+    if (kind === 'heading_break') {
+      return el('span', 'censorly-tok censorly-tok--heading-break');
+    }
     if (kind === 'heading') {
+      // Legacy whole-heading token from pre-refresh puzzles.
       var heading = el('span', 'censorly-tok censorly-tok--heading');
       heading.textContent = tok.text || '';
       return heading;
     }
     if (kind === 'space' || kind === 'punct' || kind === 'stop') {
-      var open = el('span', 'censorly-tok censorly-tok--' + kind);
+      var open = el('span', 'censorly-tok censorly-tok--' + kind + headingClass(tok));
       open.textContent = tok.text || '';
       return open;
     }
     if (tok.revealed) {
-      var revealedClass = 'censorly-tok censorly-tok--revealed';
+      var revealedClass = 'censorly-tok censorly-tok--revealed' + headingClass(tok);
       if (tok.guessed) revealedClass += ' censorly-tok--guessed';
       if (tok.just_revealed) revealedClass += ' censorly-tok--just';
       var revealed = el('span', revealedClass);
@@ -59,7 +67,8 @@
       revealed.appendChild(document.createTextNode(tok.text || ''));
       return revealed;
     }
-    var mask = el('span', 'censorly-tok censorly-tok--mask');
+    // Mask: [lock?] [stem] [ending?] — length lives inside the stem bar.
+    var mask = el('span', 'censorly-tok censorly-tok--mask' + headingClass(tok));
     mask.dataset.id = String(tok.id);
     if (tok.lemma) mask.dataset.lemma = tok.lemma;
     if (tok.title_lemma) {
@@ -68,27 +77,23 @@
     }
     var stemLen = tok.stem_length || tok.length || 1;
     var ending = tok.ending || '';
+    var totalLen = tok.length || 0;
+    mask.style.setProperty('--ch', String(stemLen));
+    var stem = el('span', 'censorly-tok__stem');
+    stem.setAttribute('aria-hidden', 'true');
+    stem.dataset.len = String(totalLen);
+    mask.appendChild(stem);
     if (ending) {
-      mask.classList.add('censorly-tok--mask-ending');
-      mask.style.setProperty('--ch', String(stemLen));
-      var bars = el('span', 'censorly-tok__bars');
-      bars.setAttribute('aria-hidden', 'true');
-      bars.dataset.len = String(tok.length || 0);
-      mask.appendChild(bars);
-      var endEl = el('span', 'censorly-tok__ending', ending);
-      mask.appendChild(endEl);
-      mask.dataset.len = String(tok.length || 0);
-      mask.title = (tok.length || 0) + ' букв';
+      mask.appendChild(el('span', 'censorly-tok__ending', ending));
       mask.setAttribute(
         'aria-label',
-        'скрытое слово, ' + (tok.length || 0) + ' букв, окончание «' + ending + '»'
+        'скрытое слово, ' + totalLen + ' букв, окончание «' + ending + '»'
       );
     } else {
-      mask.style.setProperty('--ch', String(tok.length || 1));
-      mask.dataset.len = String(tok.length || 0);
-      mask.title = (tok.length || 0) + ' букв';
-      mask.setAttribute('aria-label', 'скрытое слово, ' + (tok.length || 0) + ' букв');
+      mask.setAttribute('aria-label', 'скрытое слово, ' + totalLen + ' букв');
     }
+    mask.dataset.len = String(totalLen);
+    mask.title = totalLen + ' букв';
     if (overrides.lenForced != null) {
       mask.dataset.lenForced = overrides.lenForced ? '1' : '0';
     }
@@ -202,22 +207,30 @@
     if (!box || !text) return;
     if (!state.won) {
       box.hidden = true;
-      return;
-    }
-    var lines = state.share_lines;
-    var body = '';
-    if (Array.isArray(lines) && lines.length) {
-      body = lines.join('\n');
-    } else if (state.share_text) {
-      body = state.share_text;
-    }
-    if (!body) {
-      // Replay wins intentionally omit share cards.
-      box.hidden = true;
       text.textContent = '';
       return;
     }
-    text.textContent = body;
+    var lines = state.share_lines;
+    if (!Array.isArray(lines) || !lines.length) {
+      if (state.share_text) {
+        lines = String(state.share_text).split('\n');
+      } else {
+        // Replay wins intentionally omit share cards.
+        box.hidden = true;
+        text.textContent = '';
+        return;
+      }
+    }
+    // One <div> per line — DailyShareActions joins them with \n for copy.
+    text.textContent = '';
+    lines.forEach(function (line, i) {
+      var div = document.createElement('div');
+      if (i === 0) div.className = 'new-raddle-result__title';
+      else if (i === lines.length - 1) div.className = 'new-raddle-result__link';
+      else div.className = 'new-raddle-result__squares';
+      div.textContent = line;
+      text.appendChild(div);
+    });
     box.hidden = false;
   }
 

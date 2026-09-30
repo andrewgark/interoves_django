@@ -19,6 +19,16 @@ from games.wall import Wall
 from allauth.socialaccount.models import SocialAccount
 
 
+def _schedule_actor_projection_after_commit(game_id, task_group_id, actor_ids):
+    """Invalidate a daily projection only after its source row committed."""
+    game = Game.objects.filter(pk=game_id, project_id='sections').first()
+    task_group = TaskGroup.objects.filter(pk=task_group_id).first()
+    if game is None or task_group is None:
+        return
+    from games.daily_result_projection import schedule_actor_projection
+    schedule_actor_projection(game, task_group, **actor_ids)
+
+
 class Project(models.Model):
     id = models.CharField(primary_key=True, max_length=100)
 
@@ -2209,13 +2219,17 @@ class Attempt(models.Model):
                     pk=self.game_id, project_id='sections',
                 ).first()
                 if group_id and game is not None:
-                    from games.daily_result_projection import schedule_actor_projection
-                    schedule_actor_projection(
-                        game,
-                        TaskGroup.objects.get(pk=group_id),
-                        team_id=self.team_id,
-                        user_id=self.user_id,
-                        anon_key=self.anon_key,
+                    actor_ids = {
+                        'team_id': self.team_id,
+                        'user_id': self.user_id,
+                        'anon_key': self.anon_key,
+                    }
+                    transaction.on_commit(
+                        lambda game_id=game.pk, group_id=group_id, actor_ids=actor_ids:
+                        _schedule_actor_projection_after_commit(
+                            game_id, group_id, actor_ids,
+                        ),
+                        robust=True,
                     )
 
     def get_answer(self):
@@ -2546,14 +2560,18 @@ class HintAttempt(models.Model):
                     task_group_id=group_id, game__project_id='sections',
                 ).values_list('game_id', flat=True) if group_id else []
                 if task_group is not None:
-                    from games.daily_result_projection import schedule_actor_projection
+                    actor_ids = {
+                        'team_id': self.team_id,
+                        'user_id': self.user_id,
+                        'anon_key': self.anon_key,
+                    }
                     for game_id in game_ids:
-                        game = Game.objects.get(pk=game_id)
-                        schedule_actor_projection(
-                            game, task_group,
-                            team_id=self.team_id,
-                            user_id=self.user_id,
-                            anon_key=self.anon_key,
+                        transaction.on_commit(
+                            lambda game_id=game_id, group_id=group_id, actor_ids=actor_ids:
+                            _schedule_actor_projection_after_commit(
+                                game_id, group_id, actor_ids,
+                            ),
+                            robust=True,
                         )
 
     def __str__(self):

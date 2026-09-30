@@ -82,7 +82,7 @@ class RaddleUiSyncTests(TestCase):
         self.assertTrue(client.login(username=username, password='pw'))
         return client
 
-    def test_deadlock_retry_retries_only_1213(self):
+    def test_lock_retry_retries_mysql_deadlock(self):
         calls = {'count': 0}
 
         def flaky():
@@ -97,9 +97,9 @@ class RaddleUiSyncTests(TestCase):
                 'ok',
             )
         self.assertEqual(calls['count'], 2)
-        self.assertIn('raddle deadlock retry attempt=1/3 label=test', '\n'.join(logs.output))
+        self.assertIn('mysql lock retry attempt=1/3 label=test errno=1213', '\n'.join(logs.output))
 
-    def test_deadlock_retry_does_not_retry_lock_timeout(self):
+    def test_lock_timeout_is_retried(self):
         calls = {'count': 0}
 
         def timeout():
@@ -108,7 +108,7 @@ class RaddleUiSyncTests(TestCase):
 
         with self.assertRaises(OperationalError):
             run_raddle_atomic_with_deadlock_retry(timeout, label='test')
-        self.assertEqual(calls['count'], 1)
+        self.assertEqual(calls['count'], RADDLE_DEADLOCK_ATTEMPTS)
 
     def test_deadlock_retry_is_bounded(self):
         calls = {'count': 0}

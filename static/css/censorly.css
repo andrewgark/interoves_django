@@ -121,95 +121,133 @@
   color: var(--muted);
 }
 
+/* Result card uses [hidden]; global .new-raddle-result { display:block } must not win. */
+.censorly .new-raddle-result[hidden] {
+  display: none !important;
+}
+
 .censorly-tok {
   display: inline;
 }
 
+/* Legacy whole-heading blob (pre-refresh puzzles). */
 .censorly-tok--heading {
   display: block;
   margin: 0.55em 0 0.25em;
-  font-size: 1.28em;
+  font-size: 1.22em;
   font-weight: 700;
   line-height: 1.35;
   letter-spacing: 0.01em;
 }
 
-.censorly-tok--mask {
-  display: inline-block;
-  position: relative;
-  width: calc(var(--ch, 4) * 0.55em + 0.1em);
-  height: 0.85em;
-  margin: 0 0.03em;
-  vertical-align: -0.1em;
-  border-radius: 2px;
-  background: var(--text);
-  opacity: 0.78;
-  cursor: pointer;
-}
-
-.censorly-tok--mask-ending {
-  display: inline-flex;
-  align-items: flex-end;
-  width: auto;
-  height: auto;
-  min-height: 0.85em;
-  vertical-align: baseline;
-  background: transparent;
-  opacity: 1;
-  gap: 0;
-}
-
-.censorly-tok--mask-ending .censorly-tok__bars {
-  display: inline-block;
-  position: relative;
-  width: calc(var(--ch, 4) * 0.55em + 0.1em);
-  height: 0.85em;
-  border-radius: 2px;
-  background: var(--text);
-  opacity: 0.78;
-  vertical-align: -0.1em;
-}
-
-.censorly-tok--mask-ending .censorly-tok__ending {
-  display: inline;
-  color: var(--censorly-ending);
-  font-size: 0.92em;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  margin-left: 0.02em;
+/* Section break around wiki headings — words inside use .is-heading. */
+.censorly-tok--heading-break {
+  display: block;
+  width: 100%;
+  height: 0.55em;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
   user-select: none;
 }
 
-.censorly-tok--mask::after {
+.censorly-tok.is-heading {
+  font-size: 1.22em;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+}
+
+/*
+  Mask layout: [lock?] [stem bar with length] [ending?]
+  Lock and ending sit on the text baseline; length lives inside the bar.
+*/
+.censorly-tok--mask {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.14em;
+  margin: 0 0.04em;
+  vertical-align: baseline;
+  cursor: pointer;
+  background: transparent;
+  opacity: 1;
+  width: auto;
+  height: auto;
+  position: static;
+  border-radius: 0;
+}
+
+.censorly-tok__lock {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  font-size: 0.78em;
+  line-height: 1;
+  color: var(--censorly-lock);
+  opacity: 0.9;
+  position: static;
+  transform: none;
+  pointer-events: none;
+  align-self: center;
+}
+
+.censorly-tok__stem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  /* Wider than letter-count alone so 1–2 digit lengths fit inside the bar. */
+  width: calc(var(--ch, 4) * 0.68em + 0.55em);
+  min-width: 1.35em;
+  height: 0.72em;
+  border-radius: 2px;
+  background: var(--text);
+  opacity: 0.82;
+  position: relative;
+  /* Sit slightly below the x-height so the bar meets the text baseline. */
+  transform: translateY(0.08em);
+}
+
+.censorly-tok.is-heading .censorly-tok__stem {
+  height: 0.78em;
+  width: calc(var(--ch, 4) * 0.68em + 0.65em);
+}
+
+.censorly-tok__stem::after {
   content: none;
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 0.7em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68em;
   font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
   color: var(--bg, #fff);
   opacity: 0.95;
   pointer-events: none;
+  font-variant-numeric: tabular-nums;
 }
 
-.censorly.censorly--show-lengths .censorly-tok--mask:not(.censorly-tok--mask-ending):not([data-len-forced="0"])::after,
-.censorly-tok--mask:not(.censorly-tok--mask-ending)[data-len-forced="1"]::after {
+.censorly.censorly--show-lengths .censorly-tok--mask:not([data-len-forced="0"]) .censorly-tok__stem::after,
+.censorly-tok--mask[data-len-forced="1"] .censorly-tok__stem::after {
   content: attr(data-len);
 }
 
-.censorly.censorly--show-lengths .censorly-tok--mask-ending:not([data-len-forced="0"]) .censorly-tok__bars::after,
-.censorly-tok--mask-ending[data-len-forced="1"] .censorly-tok__bars::after {
-  content: attr(data-len);
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 0.7em;
-  font-weight: 700;
-  color: var(--bg, #fff);
-  opacity: 0.95;
-  pointer-events: none;
+.censorly-tok__ending {
+  flex: 0 0 auto;
+  color: var(--censorly-ending);
+  font-size: 1em;
+  font-weight: 500;
+  line-height: inherit;
+  letter-spacing: 0.01em;
+  user-select: none;
 }
 
 .censorly-tok--revealed {
@@ -228,37 +266,6 @@
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
   animation: censorly-flash 1.6s ease-out;
-}
-
-.censorly-tok__lock {
-  display: inline;
-  margin-right: 0.12em;
-  font-size: 0.78em;
-  color: var(--censorly-lock);
-  opacity: 0.9;
-  vertical-align: 0.05em;
-}
-
-.censorly-tok--mask .censorly-tok__lock {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -55%);
-  margin: 0;
-  z-index: 1;
-  color: var(--bg, #fff);
-  font-size: 0.7em;
-  opacity: 0.95;
-  pointer-events: none;
-}
-
-.censorly-tok--mask-ending .censorly-tok__lock {
-  position: static;
-  transform: none;
-  margin-right: 0.1em;
-  color: var(--censorly-lock);
-  font-size: 0.72em;
-  vertical-align: 0.08em;
 }
 
 @keyframes censorly-flash {

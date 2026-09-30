@@ -18,7 +18,7 @@ from games.censorly.redact import (
     newly_revealed_ids,
     token_by_id,
 )
-from games.censorly.tokenize import title_content_lemmas
+from games.censorly.tokenize import title_content_lemmas, upgrade_puzzle_payload
 from games.models import Attempt, ChainTaskState, Game, Task
 from games.results.share import format_elapsed, format_share_link, share_path
 
@@ -107,7 +107,7 @@ def puzzle_from_task(task: Task) -> dict[str, Any] | None:
     tags = task.tags if isinstance(task.tags, dict) else {}
     payload = tags.get(CENSORLY_TAGS_KEY)
     if isinstance(payload, dict) and payload.get('title_tokens') is not None:
-        return payload
+        return upgrade_puzzle_payload(payload)
     raw = (task.checker_data or '').strip()
     if raw.startswith('{'):
         try:
@@ -115,7 +115,7 @@ def puzzle_from_task(task: Task) -> dict[str, Any] | None:
         except (TypeError, ValueError):
             return None
         if isinstance(data, dict) and data.get('title_tokens') is not None:
-            return data
+            return upgrade_puzzle_payload(data)
     return None
 
 

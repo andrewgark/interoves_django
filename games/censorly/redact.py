@@ -24,7 +24,10 @@ def _token_public(
         'kind': kind,
         'in_title': bool(tok.get('in_title')),
     }
-    if kind in ('space', 'punct', 'stop', 'heading'):
+    if tok.get('in_heading'):
+        out['in_heading'] = True
+    # Always-open structural tokens (legacy `heading` = whole section title blob).
+    if kind in ('space', 'punct', 'stop', 'heading', 'heading_break'):
         out['text'] = tok.get('surface') or ''
         out['revealed'] = True
         return out
@@ -40,7 +43,7 @@ def _token_public(
     out['guessed'] = player_opened
     if is_open:
         out['lemma'] = lemma
-        out['text'] = tok.get('surface') or ''
+        out['text'] = strip_combining_marks(tok.get('surface') or '')
         out['just_revealed'] = bool(last_lemma and lemma == last_lemma)
     elif show_endings:
         ending = (tok.get('ending') or '').strip()

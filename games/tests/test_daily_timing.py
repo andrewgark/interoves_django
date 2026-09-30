@@ -657,7 +657,7 @@ class DailyTimingDomainTests(TestCase):
         self.assertEqual(calls['n'], 2)
         self.assertTrue(snap['exists'])
         joined = '\n'.join(logs.output)
-        self.assertIn('daily_timing deadlock retry attempt=1/3 action=start', joined)
+        self.assertIn('mysql lock retry attempt=1/3 label=daily_timing action=start errno=1213', joined)
         self.assertNotIn(self.user.username, joined)
         self.assertNotIn(self.user.email, joined)
         self.assertNotIn(str(sid), joined)
@@ -691,7 +691,7 @@ class DailyTimingDomainTests(TestCase):
             with self.assertRaises(OperationalError) as ctx:
                 self._apply(action=ACTION_START, session=sid, seq=2, now=_dt())
         self.assertEqual(ctx.exception.args[0], 1205)
-        self.assertEqual(calls['n'], 1)
+        self.assertEqual(calls['n'], TIMING_DEADLOCK_ATTEMPTS)
 
     def test_merge_prefers_completed_and_does_not_sum(self):
         target = DailySolveTiming.objects.create(

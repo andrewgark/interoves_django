@@ -6,14 +6,14 @@ import re
 import unicodedata
 from typing import Any
 
-from games.censorly.normalize import lemma_of, normalize_surface, split_stem_ending
+from games.censorly.normalize import lemma_of, normalize_surface, split_stem_ending, strip_combining_marks
 from games.censorly.stopwords import is_stop_word
 
 # Private-use markers wrap wiki section titles after fetch (see wiki._headings_to_marked).
 HEADING_START = '\ufdd0'
 HEADING_END = '\ufdd1'
 
-# Combining marks stay with the letter so accents remain in `surface`.
+# Combining marks stay with the letter during match; surfaces are stripped afterward.
 _TOKEN_RE = re.compile(
     r'[A-Za-zА-Яа-яЁё0-9\u0300-\u036f]+(?:-[A-Za-zА-Яа-яЁё0-9\u0300-\u036f]+)*|[^\s\w]+|\s+',
     re.UNICODE,
@@ -44,22 +44,40 @@ def letter_length(surface: str) -> int:
 
 
 def _kind_for_word(surface: str) -> str:
-    # Strip combining marks before stop-word check.
-    plain = ''.join(
-        ch for ch in unicodedata.normalize('NFC', surface)
-        if unicodedata.category(ch) != 'Mn'
-    )
+    plain = strip_combining_marks(surface)
     if is_stop_word(plain):
         return 'stop'
     return 'content'
 
 
-def _tokenize_chunk(text: str, *, in_title: bool, start_id: int) -> list[dict[str, Any]]:
+def _heading_break(tid: int) -> dict[str, Any]:
+    return {
+        'id': tid,
+        'surface': '',
+        'kind': 'heading_break',
+        'lemma': '',
+        'length': 0,
+        'in_title': False,
+        'in_heading': False,
+    }
+
+
+def _tokenize_chunk(
+    text: str,
+    *,
+    in_title: bool,
+    start_id: int,
+    in_heading: bool = False,
+) -> list[dict[str, Any]]:
     tokens: list[dict[str, Any]] = []
     tid = start_id
     for match in _TOKEN_RE.finditer(unicodedata.normalize('NFC', text or '')):
-        surface = match.group(0)
-        if not surface:
+        raw = match.group(0)
+        if not raw:
+            continue
+        # Drop combining accents from play surfaces (guessing / display).
+        surface = raw if raw.isspace() else strip_combining_marks(raw)
+        if not surface and not raw.isspace():
             continue
         if surface.isspace():
             kind = 'space'
@@ -67,11 +85,9 @@ def _tokenize_chunk(text: str, *, in_title: bool, start_id: int) -> list[dict[st
             length = 0
             ending = ''
             stem_length = 0
-        elif _WORD_CORE_RE.fullmatch(surface):
+        elif _WORD_CORE_RE.fullmatch(raw) or _WORD_CORE_RE.fullmatch(surface):
             kind = _kind_for_word(surface)
-            plain = ''.join(
-                ch for ch in surface if unicodedata.category(ch) != 'Mn'
-            )
+            plain = strip_combining_marks(surface)
             lemma = lemma_of(plain) if kind == 'content' else normalize_surface(plain)
             length = letter_length(surface)
             ending = ''
@@ -92,6 +108,7 @@ def _tokenize_chunk(text: str, *, in_title: bool, start_id: int) -> list[dict[st
             'lemma': lemma,
             'length': length,
             'in_title': bool(in_title),
+            'in_heading': bool(in_heading),
         }
         if kind == 'content' and ending:
             tok['ending'] = ending
@@ -102,7 +119,7 @@ def _tokenize_chunk(text: str, *, in_title: bool, start_id: int) -> list[dict[st
 
 
 def tokenize_text(text: str, *, in_title: bool = False, start_id: int = 0) -> list[dict[str, Any]]:
-    """Split plaintext into tokens with lemma/kind/length; wiki headings → kind=heading."""
+    """Split plaintext into tokens; wiki headings → word tokens with in_heading."""
     raw = unicodedata.normalize('NFC', text or '')
     tokens: list[dict[str, Any]] = []
     tid = start_id
@@ -112,16 +129,16 @@ def tokenize_text(text: str, *, in_title: bool = False, start_id: int = 0) -> li
             chunk = _tokenize_chunk(raw[pos:match.start()], in_title=in_title, start_id=tid)
             tokens.extend(chunk)
             tid = tid + len(chunk)
-        heading = (match.group(1) or '').strip()
+        heading = strip_combining_marks((match.group(1) or '').strip())
         if heading:
-            tokens.append({
-                'id': tid,
-                'surface': heading,
-                'kind': 'heading',
-                'lemma': '',
-                'length': 0,
-                'in_title': False,
-            })
+            tokens.append(_heading_break(tid))
+            tid += 1
+            chunk = _tokenize_chunk(
+                heading, in_title=False, start_id=tid, in_heading=True,
+            )
+            tokens.extend(chunk)
+            tid = tid + len(chunk)
+            tokens.append(_heading_break(tid))
             tid += 1
         pos = match.end()
     if pos < len(raw):
@@ -171,3 +188,73 @@ def ordered_title_lemmas(payload: dict[str, Any]) -> list[str]:
         if lemma and lemma not in seen:
             seen.append(lemma)
     return seen
+
+
+def _strip_token_surface(tok: dict[str, Any]) -> dict[str, Any]:
+    surface = tok.get('surface') or ''
+    if not surface or surface.isspace():
+        return tok
+    plain = strip_combining_marks(surface)
+    if plain == surface:
+        return tok
+    out = dict(tok)
+    out['surface'] = plain
+    return out
+
+
+def _expand_legacy_heading(tok: dict[str, Any], start_id: int) -> list[dict[str, Any]]:
+    """Turn one kind=heading blob into break + maskable heading words + break."""
+    surface = strip_combining_marks((tok.get('surface') or '').strip())
+    if not surface:
+        return []
+    out: list[dict[str, Any]] = [_heading_break(start_id)]
+    tid = start_id + 1
+    chunk = _tokenize_chunk(surface, in_title=False, start_id=tid, in_heading=True)
+    out.extend(chunk)
+    tid = tid + len(chunk)
+    out.append(_heading_break(tid))
+    return out
+
+
+def upgrade_puzzle_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Normalize stored puzzles: strip accents, expand legacy heading blobs.
+
+    Ids are reassigned sequentially so expand stays consistent. Callers must not
+    persist player state keyed only by old heading token ids (hints on headings
+    were never allowed for title lemmas; body heading hints are rare).
+    """
+    if not isinstance(payload, dict):
+        return payload
+    changed = False
+    new_title: list[dict[str, Any]] = []
+    new_body: list[dict[str, Any]] = []
+    for key, dest in (('title_tokens', new_title), ('body_tokens', new_body)):
+        for tok in payload.get(key) or []:
+            if not isinstance(tok, dict):
+                continue
+            if tok.get('kind') == 'heading':
+                dest.extend(_expand_legacy_heading(tok, start_id=0))
+                changed = True
+                continue
+            stripped = _strip_token_surface(tok)
+            if stripped is not tok:
+                changed = True
+            if 'in_heading' not in stripped and stripped.get('kind') != 'heading_break':
+                stripped = dict(stripped)
+                stripped['in_heading'] = False
+            dest.append(stripped)
+    if not changed and all(
+        'in_heading' in t or t.get('kind') == 'heading_break'
+        for t in (payload.get('title_tokens') or []) + (payload.get('body_tokens') or [])
+        if isinstance(t, dict)
+    ):
+        return payload
+    # Reassign ids so expand stays unique and sequential.
+    tid = 0
+    for tok in new_title + new_body:
+        tok['id'] = tid
+        tid += 1
+    out = dict(payload)
+    out['title_tokens'] = new_title
+    out['body_tokens'] = new_body
+    return out

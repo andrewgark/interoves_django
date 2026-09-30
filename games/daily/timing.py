@@ -15,6 +15,7 @@ from uuid import UUID
 from django.db import IntegrityError, OperationalError, transaction
 from django.utils import timezone
 
+from games.db_retry import is_mysql_retryable_lock_error, log_lock_retry
 from games.models import DailySolveTiming
 from games.results.share import elapsed_seconds_from_attempts, format_elapsed
 
@@ -253,6 +254,10 @@ def _is_mysql_deadlock(exc: BaseException) -> bool:
     return _mysql_errno(exc) == MYSQL_DEADLOCK_ERRNO
 
 
+def _is_mysql_lock_retryable(exc: BaseException) -> bool:
+    return is_mysql_retryable_lock_error(exc)
+
+
 def apply_timing_event(
     *,
     game,
@@ -290,7 +295,7 @@ def apply_timing_event(
             )
         except OperationalError as exc:
             last_exc = exc
-            if not _is_mysql_deadlock(exc):
+            if not _is_mysql_lock_retryable(exc):
                 raise
             if attempt >= TIMING_DEADLOCK_ATTEMPTS:
                 logger.warning(
@@ -299,11 +304,12 @@ def apply_timing_event(
                     action_label,
                 )
                 raise
-            logger.warning(
-                'daily_timing deadlock retry attempt=%s/%s action=%s',
-                attempt,
-                TIMING_DEADLOCK_ATTEMPTS,
-                action_label,
+            log_lock_retry(
+                logger,
+                label='daily_timing action={}'.format(action_label),
+                attempt=attempt,
+                max_attempts=TIMING_DEADLOCK_ATTEMPTS,
+                exc=exc,
             )
     raise last_exc
 

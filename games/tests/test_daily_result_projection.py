@@ -412,8 +412,12 @@ class DailyResultProjectionTests(TestCase):
             task_group=self.group, number='1', task_type='default', points=10,
             checker_data='answer', text='Question',
         )
-        Attempt.manager.create(task=task, game=self.game, anon_key='reconcile-a', text='answer', status='Ok', points=7)
-        Attempt.manager.create(task=task, game=self.game, anon_key='reconcile-b', text='answer', status='Ok', points=8)
+        with self.captureOnCommitCallbacks(execute=True):
+            Attempt.manager.create(task=task, game=self.game, anon_key='reconcile-a', text='answer', status='Ok', points=7)
+            Attempt.manager.create(task=task, game=self.game, anon_key='reconcile-b', text='answer', status='Ok', points=8)
+        # The model hook now refreshes asynchronously after commit; this test
+        # builds an intentionally mismatched projection by hand.
+        DailyResultProjection.objects.all().delete()
         DailyResultProjection.objects.create(
             game=self.game, task_group=self.group, actor_type='anon',
             actor_key='reconcile-a', anon_key='reconcile-a', score=6,

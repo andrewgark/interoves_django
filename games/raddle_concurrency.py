@@ -4,6 +4,8 @@ import logging
 
 from django.db import IntegrityError, OperationalError, transaction
 
+from games.db_retry import is_mysql_retryable_lock_error, log_lock_retry
+
 MYSQL_DEADLOCK_ERRNO = 1213
 RADDLE_DEADLOCK_ATTEMPTS = 3
 
@@ -34,17 +36,20 @@ def run_raddle_atomic_with_deadlock_retry(operation, *, label):
             with transaction.atomic():
                 return operation()
         except OperationalError as exc:
-            if not is_mysql_deadlock(exc):
+            if not is_mysql_retryable_lock_error(exc):
                 raise
             if attempt >= RADDLE_DEADLOCK_ATTEMPTS:
                 logger.warning(
-                    'raddle deadlock exhausted attempts=%s label=%s',
-                    attempt, label,
+                    'raddle lock retry exhausted attempts=%s label=%s errno=%s',
+                    attempt, label, _mysql_errno(exc),
                 )
                 raise
-            logger.warning(
-                'raddle deadlock retry attempt=%s/%s label=%s',
-                attempt, RADDLE_DEADLOCK_ATTEMPTS, label,
+            log_lock_retry(
+                logger,
+                label=label,
+                attempt=attempt,
+                max_attempts=RADDLE_DEADLOCK_ATTEMPTS,
+                exc=exc,
             )
 
 

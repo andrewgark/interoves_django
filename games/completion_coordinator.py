@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import time
 
-from django.db import transaction
+from django.db import OperationalError, transaction
 from django.utils import timezone
 
 from games.analytics import (
@@ -26,6 +26,7 @@ from games.analytics import (
     supported_game_kind,
 )
 from games.daily_timing import complete_daily_timing_in_transaction
+from games.db_retry import is_mysql_retryable_lock_error, log_lock_retry
 from games.models import ChainTaskState, PlayerCompletedGame
 from games.replay import StaleReplayError
 
@@ -74,7 +75,7 @@ def _lock_authoritative_state(*, task, game, actor, task_group, replay_slot, mod
     return ChainTaskState.objects.select_for_update().filter(**filters).first()
 
 
-def complete_logical_game(
+def _complete_logical_game_once(
     *,
     actor,
     game,
@@ -218,3 +219,52 @@ def complete_logical_game(
         'replay_completed': replay_completed,
         'replay': replay_slot is not None,
     }
+
+
+def complete_logical_game(
+    *,
+    actor,
+    game,
+    task_group,
+    task=None,
+    replay_slot=None,
+    run_id=None,
+    analytics_user=None,
+    result=PlayerCompletedGame.RESULT_SOLVED,
+    mode='general',
+    source='task_completion',
+    now=None,
+):
+    """Finalize completion, retrying the whole transaction on MySQL locks.
+
+    A lock timeout invalidates the current transaction.  Therefore the retry
+    is deliberately around the complete coordinator call, never around an
+    individual query.  The completion row and timing update are idempotent,
+    so a retry is safe after another actor won the race.
+    """
+    attempts = 3
+    for attempt in range(1, attempts + 1):
+        try:
+            return _complete_logical_game_once(
+                actor=actor,
+                game=game,
+                task_group=task_group,
+                task=task,
+                replay_slot=replay_slot,
+                run_id=run_id,
+                analytics_user=analytics_user,
+                result=result,
+                mode=mode,
+                source=source,
+                now=now,
+            )
+        except OperationalError as exc:
+            if not is_mysql_retryable_lock_error(exc) or attempt >= attempts:
+                raise
+            log_lock_retry(
+                logger,
+                label='completion source={}'.format(source),
+                attempt=attempt,
+                max_attempts=attempts,
+                exc=exc,
+            )

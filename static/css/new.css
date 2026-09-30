@@ -3990,6 +3990,31 @@ html.new-ui-dark .new-team-switcher-active-box {
   overflow-wrap: break-word;
 }
 
+.new-pay-order__also {
+  margin-top: .7rem;
+  font-weight: 700;
+}
+
+.new-pay-order__benefits {
+  display: grid;
+  gap: .35rem;
+  margin: .75rem 0 0;
+  padding: 0;
+  color: var(--text);
+  line-height: 1.4;
+  list-style: none;
+}
+
+.new-pay-order__benefits li {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.new-pay-order__benefits .ph-crown {
+  margin-right: .25rem;
+  color: var(--warning);
+}
+
 .new-pay-team-select {
   width: min(100%, 24rem);
   margin-top: 0.3rem;

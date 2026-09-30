@@ -384,7 +384,9 @@ class CensorlyUxDailyTests(TestCase):
         toks = tokenize_text('мо́ре')
         content = [t for t in toks if t['kind'] == 'content'][0]
         self.assertEqual(content['length'], 4)
-        self.assertIn('\u0301', content['surface'])
+        # Surfaces are stored without combining accents.
+        self.assertNotIn('\u0301', content['surface'])
+        self.assertEqual(content['surface'], 'море')
 
     def test_title_lemmas_marked_without_colors(self):
         from games.censorly.redact import build_public_view
@@ -457,9 +459,13 @@ class CensorlyUxDailyTests(TestCase):
                 'Дальше текст.'
             ),
         )
-        headings = [t for t in payload['body_tokens'] if t['kind'] == 'heading']
-        self.assertEqual(len(headings), 1)
-        self.assertEqual(headings[0]['surface'], 'История')
+        heading_words = [
+            t for t in payload['body_tokens']
+            if t.get('in_heading') and t.get('kind') == 'content'
+        ]
+        self.assertEqual(len(heading_words), 1)
+        self.assertEqual(heading_words[0]['surface'], 'История')
+        self.assertTrue(any(t.get('kind') == 'heading_break' for t in payload['body_tokens']))
         content = next(
             t for t in payload['body_tokens']
             if t.get('kind') == 'content' and t.get('ending')
@@ -469,6 +475,12 @@ class CensorlyUxDailyTests(TestCase):
         masked = next(t for t in view['body_tokens'] if t.get('id') == content['id'])
         self.assertEqual(masked.get('ending'), content['ending'])
         self.assertFalse(masked.get('revealed'))
+        heading_view = next(
+            t for t in view['body_tokens']
+            if t.get('in_heading') and t.get('kind') == 'content'
+        )
+        self.assertFalse(heading_view.get('revealed'))
+        self.assertTrue(heading_view.get('in_heading'))
 
     def test_only_guessed_words_marked_after_win(self):
         from games.censorly.redact import build_public_view

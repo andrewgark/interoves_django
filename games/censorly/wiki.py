@@ -120,7 +120,7 @@ def _strip_orphan_heading(extract: str) -> str:
 
 
 def _headings_to_marked(extract: str) -> str:
-    """Wrap == Heading == as marked spans for larger play UI (tokenize kind=heading)."""
+    """Wrap == Heading == as marked spans for larger play UI (tokenize in_heading)."""
     from games.censorly.tokenize import HEADING_END, HEADING_START
 
     def repl(match: re.Match[str]) -> str:

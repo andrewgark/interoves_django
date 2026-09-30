@@ -271,6 +271,14 @@
     tryLoad();
     var timer = window.setInterval(tryLoad, 300);
     window.setTimeout(function () { window.clearInterval(timer); }, 30000);
+    // Games often take >30s; also load when the result card is unhidden.
+    var result = document.querySelector('[data-raddle-result]');
+    if (result && window.MutationObserver) {
+      new MutationObserver(function () { tryLoad(); }).observe(result, {
+        attributes: true,
+        attributeFilter: ['hidden'],
+      });
+    }
   }
   document.querySelectorAll('[data-daily-statistics]').forEach(boot);
   if (window.MutationObserver) {
