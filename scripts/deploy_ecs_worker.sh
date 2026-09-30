@@ -11,8 +11,12 @@ IMAGE_URI="${2:-}"
 APPLY=0
 DESIRED_COUNT=0
 MODE=""
-ECS_SUBNET_IDS="${INTEROVES_ECS_SUBNET_IDS:-subnet-0e7ac84df47a7682e,subnet-0b535aae08d1dd20f}"
-ECS_ASSIGN_PUBLIC_IP="${INTEROVES_ECS_ASSIGN_PUBLIC_IP:-DISABLED}"
+# ECS workers currently run in the VPC's public subnets.  Keep these defaults
+# aligned with the live services so an ordinary deploy does not accidentally
+# place Fargate tasks in the isolated legacy subnets, where they cannot reach
+# ECR without NAT/VPC endpoints.
+ECS_SUBNET_IDS="${INTEROVES_ECS_SUBNET_IDS:-subnet-df8b26a2,subnet-29483d42}"
+ECS_ASSIGN_PUBLIC_IP="${INTEROVES_ECS_ASSIGN_PUBLIC_IP:-ENABLED}"
 
 usage() {
     echo "Usage: $0 WORKER IMAGE_URI [--profile quiet|normal|game-day] [--mode ecs-fargate|ecs-fargate-spot] [--desired-count N] [--apply]" >&2
