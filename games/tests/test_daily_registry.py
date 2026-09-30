@@ -1,6 +1,11 @@
+from dataclasses import replace
 from unittest import TestCase
 
-from games.daily.registry import DAILY_GAME_REGISTRY, get_daily_game
+from games.daily.registry import (
+    DAILY_GAME_REGISTRY,
+    DailyGameRegistry,
+    get_daily_game,
+)
 
 
 class DailyGameRegistryTests(TestCase):
@@ -29,7 +34,12 @@ class DailyGameRegistryTests(TestCase):
 
     def test_registry_rejects_duplicate_ids(self):
         definition = DAILY_GAME_REGISTRY.require('ladder')
-        from games.daily.registry import DailyGameRegistry
 
         with self.assertRaises(ValueError):
             DailyGameRegistry((definition, definition))
+
+    def test_registry_rejects_schedule_identity_mismatch(self):
+        definition = DAILY_GAME_REGISTRY.require('ladder')
+
+        with self.assertRaisesRegex(ValueError, 'must match its schedule'):
+            DailyGameRegistry((replace(definition, game_id='other'),))

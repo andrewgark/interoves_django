@@ -47,6 +47,13 @@ class DailyGameRegistry:
     """Immutable lookup table for registered daily games."""
 
     def __init__(self, definitions: tuple[DailyGameDefinition, ...]):
+        for definition in definitions:
+            if definition.game_id != definition.schedule.game_id:
+                raise ValueError(
+                    'daily game id must match its schedule game id: {}'.format(
+                        definition.game_id,
+                    )
+                )
         by_id = {definition.game_id: definition for definition in definitions}
         if len(by_id) != len(definitions):
             raise ValueError('daily game ids must be unique')
