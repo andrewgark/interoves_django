@@ -3,12 +3,19 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from games.daily.board import (
+    DAILY_BOARD_ADAPTERS,
     build_raddle_board_data,
     build_word_salad_board_data,
+    get_daily_board_adapter,
 )
 
 
 class DailyBoardBuilderTests(TestCase):
+    def test_known_task_types_have_one_dispatch_entry(self):
+        self.assertIs(get_daily_board_adapter('word_salad'), DAILY_BOARD_ADAPTERS['word_salad'])
+        self.assertIs(get_daily_board_adapter('raddle'), DAILY_BOARD_ADAPTERS['raddle'])
+        self.assertIsNone(get_daily_board_adapter('future_daily_game'))
+
     @patch('games.daily.board.attach_salad_share_card')
     @patch('games.daily.board.build_word_salad_ui_context', return_value={'board': 'ui'})
     def test_salad_builder_keeps_ui_shape_and_share_boundary(

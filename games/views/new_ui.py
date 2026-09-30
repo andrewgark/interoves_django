@@ -80,8 +80,7 @@ from games.daily.page_context import (
 )
 from games.daily.state import latest_daily_state
 from games.daily.board import (
-    build_raddle_board_data,
-    build_word_salad_board_data,
+    get_daily_board_adapter,
 )
 from games.ladder_daily import (
     LADDER_GAME_ID,
@@ -3221,7 +3220,8 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                     'replay_slot': replay_slot,
                 },
             )
-            word_salad_data[t.id] = build_word_salad_board_data(
+            word_salad_adapter = get_daily_board_adapter(t.task_type)
+            word_salad_data[t.id] = word_salad_adapter.build(
                 game=game,
                 task=t,
                 placement=placement,
@@ -3269,7 +3269,8 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             share_title = None
             if str(getattr(game, 'id', '')) != LADDER_GAME_ID:
                 share_title = raddle_share_title(game, placement.number, t.number)
-            raddle_data[t.id] = build_raddle_board_data(
+            raddle_adapter = get_daily_board_adapter(t.task_type)
+            raddle_data[t.id] = raddle_adapter.build(
                 game=game,
                 task=t,
                 placement=placement,
