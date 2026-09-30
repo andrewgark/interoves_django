@@ -597,6 +597,68 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
         self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
 
+    def test_parallel_replacements_inputs_survive_teammate_live_update(self):
+        from playwright.sync_api import expect
+
+        first = self.browser_page_for(self.user_one)
+        second = self.browser_page_for(self.user_two)
+        url = f'{self.live_server_url}/games/{self.game.pk}/3/'
+        first.goto(url)
+        second.goto(url)
+        first_document_id = first.evaluate('window.__interovesDocumentId')
+        second_document_id = second.evaluate('window.__interovesDocumentId')
+        card = f'#new-task-{self.replacements_task.pk}'
+        first_row = f'{card} tr.new-replacements-row[data-line-index="0"]'
+        second_row = f'{card} tr.new-replacements-row[data-line-index="1"]'
+
+        first.locator(f'{first_row} input.new-replacements-input').fill('FOO')
+        second_input = second.locator(f'{second_row} input.new-replacements-input')
+        second_input.fill('BAR')
+        second_document_before = second.evaluate('window.__interovesDocumentId')
+
+        held = []
+
+        def hold_second_submit(route):
+            if route.request.method == 'POST' and '/send_attempt/' in route.request.url:
+                held.append(route)
+                return
+            route.continue_()
+
+        second.route('**/*', hold_second_submit)
+        try:
+            second.locator(f'{second_row} button[type="submit"]').click()
+            for _ in range(50):
+                if held:
+                    break
+                second.wait_for_timeout(100)
+            self.assertTrue(held, 'second replacements submit was not intercepted')
+
+            first.locator(f'{first_row} button[type="submit"]').click()
+            expect(first.locator(f'{first_row}')).to_have_class(
+                re.compile(r'.*new-replacements-row--solved.*'), timeout=10_000,
+            )
+            expect(second_input).to_have_value('BAR', timeout=10_000)
+            expect(second_input).to_be_visible()
+
+            for route in held:
+                route.continue_()
+            for page in (first, second):
+                expect(page.locator(f'{second_row}')).to_have_class(
+                    re.compile(r'.*new-replacements-row--solved.*'), timeout=10_000,
+                )
+                expect(page.get_by_text('Ошибка сети')).to_have_count(0)
+        finally:
+            for route in held:
+                try:
+                    route.continue_()
+                except Exception:
+                    pass
+            second.unroute('**/*')
+
+        self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
+        self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
+        self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_before)
+
     def test_pending_accept_updates_both_team_pages(self):
         from playwright.sync_api import expect
 

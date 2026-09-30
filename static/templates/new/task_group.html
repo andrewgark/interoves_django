@@ -673,7 +673,15 @@
             var tid = form.getAttribute('data-task-id') || '';
             var hintNumber = hintFormValue(form, 'hint_number', '');
             if (tid && data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-              try { applyNewUiTaskHtml(data.update_task_html_new); } catch (e) {}
+              try {
+                if (!applyNewUiTaskHtml(data.update_task_html_new)) {
+                  window.location.reload();
+                  return;
+                }
+              } catch (e) {
+                window.location.reload();
+                return;
+              }
               if (window.InterovesTaskHints) window.InterovesTaskHints.reveal(tid, hintNumber);
               return;
             }
@@ -697,8 +705,14 @@
               );
             }
             try {
-              applyNewUiTaskHtml(data.update_task_html_new);
-            } catch (e) {}
+              if (!applyNewUiTaskHtml(data.update_task_html_new)) {
+                window.location.reload();
+                return;
+              }
+            } catch (e) {
+              window.location.reload();
+              return;
+            }
             if (shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
               restoreOrdinaryWrongFeedback(data.task_id || attemptFeedbackTaskId);
               openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
@@ -1902,7 +1916,10 @@
       return false;
     }
     try {
-      applyNewUiTaskHtml(data.update_task_html_new);
+      if (!applyNewUiTaskHtml(data.update_task_html_new)) {
+        window.location.reload();
+        return false;
+      }
       return true;
     } catch (err) {
       // The answer is already committed on the server. Never leave the old
@@ -4229,7 +4246,8 @@
   }
 
   function applyNewUiTaskHtml(map) {
-    if (!map) return;
+    if (!map) return 0;
+    var handledCount = 0;
     // Replacing a task card removes an open popover from the top layer. Remember
     // it so a near-simultaneous WebSocket refresh does not hide user feedback.
     var reopenAttempts = {};
@@ -4259,6 +4277,7 @@
         var html = map[tid];
         var el = document.getElementById('new-task-' + tid);
         if (!el || !html) return;
+        handledCount += 1;
         if (incomingRaddleIsOlder(el, html) || incomingSaladDropsSolved(el, html)) return;
         el.outerHTML = html;
         var fresh = document.getElementById('new-task-' + tid);
@@ -4289,6 +4308,7 @@
         btn.classList.toggle('is-active', btn.getAttribute('data-disliked') === '1');
       });
     });
+    return handledCount;
   }
   window.applyNewUiTaskHtml = applyNewUiTaskHtml;
 
@@ -4382,7 +4402,10 @@
     }
     flushAnalyticsEvents(data);
     if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-      applyNewUiTaskHtml(data.update_task_html_new);
+      if (!applyNewUiTaskHtml(data.update_task_html_new)) {
+        window.location.reload();
+        return false;
+      }
       if (shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
         openAttemptsPopoverForTask(taskId, data.attempt_id);
       }

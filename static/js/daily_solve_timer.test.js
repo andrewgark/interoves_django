@@ -498,5 +498,50 @@ function parsePostBody(init) {
   ctrl.destroy();
 })();
 
+(function testTeamModeDoesNotShowForeignSessionOverlay() {
+  var overlay = { hidden: true };
+  var board = {
+    setAttribute: function () {},
+    removeAttribute: function () {},
+    closest: function () { return null; },
+  };
+  var rootEl = {
+    hidden: false,
+    classList: { toggle: function () {} },
+  };
+  var ctrl = timer.create({
+    url: '/ladder/team/timing/',
+    teamMode: true,
+    document: {
+      visibilityState: 'visible',
+      body: { classList: { toggle: function () {} } },
+      addEventListener: function () {},
+      dispatchEvent: function () {},
+    },
+    getAnonKey: function () { return ''; },
+    getCsrf: function () { return ''; },
+    clock: fakeClock(0),
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({}); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    root: rootEl,
+    boardEl: board,
+    overlay: overlay,
+    bootstrap: {
+      status: 'running',
+      is_authoritative: false,
+      accumulated_ms: 1000,
+      exists: true,
+    },
+  });
+  assert.strictEqual(overlay.hidden, true);
+  assert.strictEqual(ctrl.state().is_authoritative, false);
+  ctrl.destroy();
+})();
+
 console.log('daily_solve_timer tests ok');
 process.exit(0);
