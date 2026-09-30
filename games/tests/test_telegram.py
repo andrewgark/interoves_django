@@ -10,6 +10,7 @@ from games.models import (
     Attempt,
     BugReport,
     Game,
+    GameTaskGroup,
     HTMLPage,
     Project,
     Registration,
@@ -443,6 +444,23 @@ class TelegramCommandTests(TestCase):
     def test_unknown_command(self):
         text = handle_admin_command('/nope')
         self.assertIn('Неизвестная', text)
+
+    def test_stuck_command_uses_attempt_manager_and_team_ids(self):
+        task_group = TaskGroup.objects.create(label='stuck tg')
+        task = Task.objects.create(task_group=task_group, number='1', text='task')
+        GameTaskGroup.objects.create(
+            game=self.game, task_group=task_group, number='1', name='Section',
+        )
+        team = Team.objects.create(name='stuck_team', visible_name='Stuck Team')
+        Registration.objects.create(game=self.game, team=team)
+        Attempt.manager.create(
+            game=self.game, task=task, team=team, text='ok', status='Ok',
+        )
+
+        text = handle_admin_command('/stuck {}'.format(self.game.pk))
+
+        self.assertIn('Все активные команды с недавним прогрессом.', text)
+        self.assertNotIn('Stuck Team', text)
 
 
 class TelegramDigestTests(TestCase):

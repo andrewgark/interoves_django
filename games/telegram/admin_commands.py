@@ -344,7 +344,7 @@ def _cmd_stuck(args) -> str:
         return 'У игры нет заданий.'
 
     recent_ok_teams = set(
-        Attempt.objects.filter(
+        Attempt.manager.filter(
             game=game, task_id__in=task_ids, status='Ok', time__gte=cutoff,
         ).exclude(team__isnull=True).values_list('team_id', flat=True)
     )
@@ -354,9 +354,9 @@ def _cmd_stuck(args) -> str:
         team = reg.team
         if team is None or team.is_hidden or team.is_tester:
             continue
-        if team.name in recent_ok_teams:
+        if team.pk in recent_ok_teams:
             continue
-        last_attempt = Attempt.objects.filter(game=game, team=team).aggregate(last=Max('time'))['last']
+        last_attempt = Attempt.manager.filter(game=game, team=team).aggregate(last=Max('time'))['last']
         stuck.append((team.visible_name or team.name, last_attempt))
 
     stuck.sort(key=lambda row: row[1] or datetime.min.replace(tzinfo=dt_timezone.utc))
