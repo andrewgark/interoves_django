@@ -3253,7 +3253,11 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
         'proportions_chips': proportions_chips,
         'task_ui_by_task_id': task_ui_by_task_id,
         'gameplay_context_tokens': gameplay_context_tokens,
-        **board_data_by_context,
+        'daily_board_contexts': board_data_by_context,
+        **{
+            '{}_data'.format(context_key): data
+            for context_key, data in board_data_by_context.items()
+        },
     }
 
 
@@ -3612,6 +3616,11 @@ def new_task_group_page(request, game_id, task_group_number):
         'replacements_lines_data': ctx_dicts['replacements_lines_data'],
         'word_salad_data': ctx_dicts['word_salad_data'],
         'raddle_data': ctx_dicts['raddle_data'],
+        **{
+            '{}_data'.format(context_key): data
+            for context_key, data in ctx_dicts['daily_board_contexts'].items()
+            if context_key not in ('word_salad', 'raddle')
+        },
         'proportions_chips': ctx_dicts['proportions_chips'],
         'wall_max_points_meta_by_task_id': ctx_dicts['wall_max_points_meta_by_task_id'],
         'likes_meta_by_task_id': ctx_dicts['likes_meta_by_task_id'],
