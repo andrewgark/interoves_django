@@ -6,7 +6,9 @@ from games.daily.registry import (
     DailyGameRegistry,
     get_daily_game,
 )
+from games.daily.board import DAILY_BOARD_ADAPTERS
 from games.daily.results import get_daily_results_adapter
+from games.daily.share import DAILY_SHARE_ADAPTERS
 
 
 class DailyGameRegistryTests(TestCase):
@@ -45,6 +47,17 @@ class DailyGameRegistryTests(TestCase):
         self.assertEqual(alphabetty.task_variant, 'alphabetty')
         self.assertEqual(salad.aggregate_variant, 'standard')
         self.assertEqual(salad.task_variant, 'salad_words')
+
+    def test_declared_adapter_keys_resolve_for_every_registered_game(self):
+        for definition in DAILY_GAME_REGISTRY.all():
+            if definition.results_adapter_key:
+                adapter = get_daily_results_adapter(definition.game_id)
+                self.assertIsNotNone(adapter, definition.game_id)
+                self.assertEqual(adapter.key, definition.results_adapter_key)
+            if definition.board_adapter_key:
+                self.assertIn(definition.board_adapter_key, DAILY_BOARD_ADAPTERS)
+            if definition.share_adapter_key:
+                self.assertIn(definition.share_adapter_key, DAILY_SHARE_ADAPTERS)
 
     def test_registry_rejects_duplicate_ids(self):
         definition = DAILY_GAME_REGISTRY.require('ladder')
