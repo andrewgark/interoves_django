@@ -6,6 +6,7 @@ from games.daily.registry import (
     DailyGameRegistry,
     get_daily_game,
 )
+from games.daily.results import get_daily_results_adapter
 
 
 class DailyGameRegistryTests(TestCase):
@@ -25,6 +26,7 @@ class DailyGameRegistryTests(TestCase):
         self.assertEqual(salad.board_adapter_key, 'word_salad')
         self.assertEqual(salad.share_adapter_key, 'salad')
         self.assertEqual(salad.statistics_adapter_key, 'salad')
+        self.assertEqual(salad.results_adapter_key, 'salad')
         self.assertEqual(salad.schedule.game_id, salad.game_id)
         self.assertTrue(salad.capabilities.statistics)
 
@@ -34,6 +36,15 @@ class DailyGameRegistryTests(TestCase):
     def test_require_reports_unknown_game(self):
         with self.assertRaisesRegex(KeyError, 'unknown daily game'):
             DAILY_GAME_REGISTRY.require('new_game_not_registered')
+
+    def test_results_adapter_exposes_both_daily_results_variants(self):
+        alphabetty = get_daily_results_adapter('alphabetty')
+        salad = get_daily_results_adapter('salad')
+
+        self.assertEqual(alphabetty.aggregate_variant, 'alphabetty')
+        self.assertEqual(alphabetty.task_variant, 'alphabetty')
+        self.assertEqual(salad.aggregate_variant, 'standard')
+        self.assertEqual(salad.task_variant, 'salad_words')
 
     def test_registry_rejects_duplicate_ids(self):
         definition = DAILY_GAME_REGISTRY.require('ladder')

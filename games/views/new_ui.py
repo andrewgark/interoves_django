@@ -81,6 +81,7 @@ from games.daily.page_context import (
 from games.daily.board import (
     get_daily_board_adapter,
 )
+from games.daily.results import get_daily_results_adapter
 from games.ladder_daily import (
     LADDER_GAME_ID,
     get_ladder_hub_context,
@@ -2530,10 +2531,10 @@ def new_section_results_page(request, game_id):
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
-    daily_definition = get_daily_game(game_id)
+    results_adapter = get_daily_results_adapter(game_id)
     results_variant = (
-        daily_definition.aggregate_results_variant
-        if daily_definition is not None
+        results_adapter.aggregate_variant
+        if results_adapter is not None
         else 'standard'
     )
 
@@ -2670,10 +2671,10 @@ def _render_task_group_results_page(request, game, number, back_url):
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
-    daily_definition = get_daily_game(game.id)
+    results_adapter = get_daily_results_adapter(game.id)
     results_variant = (
-        daily_definition.task_results_variant
-        if daily_definition is not None
+        results_adapter.task_variant
+        if results_adapter is not None
         else 'standard'
     )
     alphabetty_sort = 'time' if results_variant == 'alphabetty' and request.GET.get('sort') == 'time' else 'attempts'
