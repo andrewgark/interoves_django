@@ -127,7 +127,8 @@ def _headings_to_marked(extract: str) -> str:
         name = (match.group(2) or '').strip()
         if not name:
             return ''
-        return f'\n{HEADING_START}{name}{HEADING_END}\n'
+        # No extra blank lines — body uses white-space:pre-wrap + block headings.
+        return f'{HEADING_START}{name}{HEADING_END}'
 
     return _SECTION_HEADING_RE.sub(repl, extract or '')
 

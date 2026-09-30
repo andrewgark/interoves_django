@@ -73,6 +73,7 @@
       mask.style.setProperty('--ch', String(stemLen));
       var bars = el('span', 'censorly-tok__bars');
       bars.setAttribute('aria-hidden', 'true');
+      bars.dataset.len = String(tok.length || 0);
       mask.appendChild(bars);
       var endEl = el('span', 'censorly-tok__ending', ending);
       mask.appendChild(endEl);
@@ -204,13 +205,19 @@
       return;
     }
     var lines = state.share_lines;
+    var body = '';
     if (Array.isArray(lines) && lines.length) {
-      text.textContent = lines.join('\n');
+      body = lines.join('\n');
     } else if (state.share_text) {
-      text.textContent = state.share_text;
-    } else {
-      text.textContent = '';
+      body = state.share_text;
     }
+    if (!body) {
+      // Replay wins intentionally omit share cards.
+      box.hidden = true;
+      text.textContent = '';
+      return;
+    }
+    text.textContent = body;
     box.hidden = false;
   }
 
@@ -228,20 +235,19 @@
     renderTokens(title, state.title_tokens || [], lenForced);
     renderTokens(body, state.body_tokens || [], lenForced);
     var trunc = root.querySelector('#censorly-truncated');
+    var wikiWrap = root.querySelector('#censorly-wiki');
     var wikiLink = root.querySelector('#censorly-wiki-link');
-    if (trunc) {
-      trunc.hidden = !state.truncated;
-      if (wikiLink) {
-        if (state.won && state.wiki_title) {
-          wikiLink.href = 'https://ru.wikipedia.org/wiki/' + encodeURIComponent(state.wiki_title);
-          wikiLink.hidden = false;
-        } else if (state.won && state.wiki_pageid) {
-          wikiLink.href = 'https://ru.wikipedia.org/?curid=' + encodeURIComponent(String(state.wiki_pageid));
-          wikiLink.hidden = false;
-        } else {
-          wikiLink.removeAttribute('href');
-          wikiLink.hidden = true;
-        }
+    if (trunc) trunc.hidden = !state.truncated;
+    if (wikiWrap && wikiLink) {
+      if (state.won && state.wiki_title) {
+        wikiLink.href = 'https://ru.wikipedia.org/wiki/' + encodeURIComponent(state.wiki_title);
+        wikiWrap.hidden = false;
+      } else if (state.won && state.wiki_pageid) {
+        wikiLink.href = 'https://ru.wikipedia.org/?curid=' + encodeURIComponent(String(state.wiki_pageid));
+        wikiWrap.hidden = false;
+      } else {
+        wikiLink.removeAttribute('href');
+        wikiWrap.hidden = true;
       }
     }
     if (attempts) attempts.textContent = ruAttempts(state.attempts || 0);

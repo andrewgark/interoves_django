@@ -5,7 +5,7 @@ import re
 
 from django.utils.html import strip_tags
 
-NUMBERED_EDITION_GAME_IDS = frozenset({'ladder', 'alphabetty', 'week_task', 'salad'})
+NUMBERED_EDITION_GAME_IDS = frozenset({'ladder', 'alphabetty', 'week_task', 'salad', 'censorly'})
 _RUSSIAN_MONTHS_GENITIVE = (
     '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
     'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',

@@ -114,7 +114,8 @@
   white-space: pre-wrap;
 }
 
-.censorly__truncated {
+.censorly__truncated,
+.censorly__wiki {
   margin: 0.75rem 0 0;
   font-size: 0.9rem;
   color: var(--muted);
@@ -126,7 +127,7 @@
 
 .censorly-tok--heading {
   display: block;
-  margin: 1.15em 0 0.4em;
+  margin: 0.55em 0 0.25em;
   font-size: 1.28em;
   font-weight: 700;
   line-height: 1.35;
@@ -160,6 +161,7 @@
 
 .censorly-tok--mask-ending .censorly-tok__bars {
   display: inline-block;
+  position: relative;
   width: calc(var(--ch, 4) * 0.55em + 0.1em);
   height: 0.85em;
   border-radius: 2px;
@@ -194,6 +196,20 @@
 .censorly.censorly--show-lengths .censorly-tok--mask:not(.censorly-tok--mask-ending):not([data-len-forced="0"])::after,
 .censorly-tok--mask:not(.censorly-tok--mask-ending)[data-len-forced="1"]::after {
   content: attr(data-len);
+}
+
+.censorly.censorly--show-lengths .censorly-tok--mask-ending:not([data-len-forced="0"]) .censorly-tok__bars::after,
+.censorly-tok--mask-ending[data-len-forced="1"] .censorly-tok__bars::after {
+  content: attr(data-len);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.7em;
+  font-weight: 700;
+  color: var(--bg, #fff);
+  opacity: 0.95;
+  pointer-events: none;
 }
 
 .censorly-tok--revealed {
