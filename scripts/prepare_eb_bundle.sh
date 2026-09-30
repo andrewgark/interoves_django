@@ -110,6 +110,15 @@ if [[ "$ENV_NAME" != "interoves-recheck-worker" ]]; then
         "$stage/.ebextensions/playwright.config"
 fi
 
+# Background and identity are legacy SingleInstance environments.  Their
+# retained worker configuration must not inherit the recheck base's
+# LoadBalanced ASG/health topology.
+if [[ "$ENV_NAME" == "interoves-background-worker" || "$ENV_NAME" == "interoves-identity-worker" ]]; then
+    rm -f \
+        "$stage/.ebextensions/scaling.config" \
+        "$stage/.ebextensions/health.config"
+fi
+
 # The live Green bundle protects its platform configuration from the checkout.
 # The legacy single-instance Green environment is the only target that may
 # receive the origin-EIP hook. The active ALB environment must never claim an
