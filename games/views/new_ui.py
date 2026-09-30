@@ -78,6 +78,7 @@ from games.daily.registry import get_daily_game
 from games.daily.page_context import (
     build_daily_lifecycle_context,
 )
+from games.daily.state import latest_daily_state
 from games.ladder_daily import (
     LADDER_GAME_ID,
     get_ladder_hub_context,
@@ -3198,29 +3199,26 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             except Exception:
                 continue
             ai = attempts_info_by_task_id.get(t.id)
-            state = load_word_salad_state(None)
-            if game is not None:
-                cts = chain_state_for_actor(
-                    t,
-                    game,
-                    team=team,
-                    user=user,
-                    anon_key=anon_key,
-                    mode=mode,
-                    replay_slot=replay_slot,
-                )
-                if cts and cts.state:
-                    state = load_word_salad_state(cts.state)
-                elif ai and ai.attempts:
-                    for a in reversed(ai.attempts):
-                        if a.state:
-                            state = load_word_salad_state(a.state)
-                            break
-            elif ai and ai.attempts:
-                for a in reversed(ai.attempts):
-                    if a.state:
-                        state = load_word_salad_state(a.state)
-                        break
+            state = latest_daily_state(
+                t,
+                game,
+                ai,
+                default_state=load_word_salad_state(None),
+                decode_state=load_word_salad_state,
+                team=team,
+                user=user,
+                anon_key=anon_key,
+                mode=mode,
+                replay_slot=replay_slot,
+                resolve_chain_state=chain_state_for_actor,
+                chain_state_kwargs={
+                    'team': team,
+                    'user': user,
+                    'anon_key': anon_key,
+                    'mode': mode,
+                    'replay_slot': replay_slot,
+                },
+            )
             word_salad_data[t.id] = build_word_salad_ui_context(
                 grid, words, state, attempts=ai.attempts if ai else [],
                 rare_words=rare_words,
@@ -3247,30 +3245,26 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 continue
             ai = attempts_info_by_task_id.get(t.id)
             raddle_hint_attempts = ai.hint_attempts if ai else []
-            state = load_raddle_state(None, parsed['n_words'])
-            # Предпочитаем ChainTaskState (источник правды для чекера); иначе Attempt.state.
-            if game is not None:
-                cts = chain_state_for_actor(
-                    t,
-                    game,
-                    team=team,
-                    user=user,
-                    anon_key=anon_key,
-                    mode=mode,
-                    replay_slot=replay_slot,
-                )
-                if cts and cts.state:
-                    state = load_raddle_state(cts.state, parsed['n_words'])
-                elif ai and ai.attempts:
-                    for a in reversed(ai.attempts):
-                        if a.state:
-                            state = load_raddle_state(a.state, parsed['n_words'])
-                            break
-            elif ai and ai.attempts:
-                for a in reversed(ai.attempts):
-                    if a.state:
-                        state = load_raddle_state(a.state, parsed['n_words'])
-                        break
+            state = latest_daily_state(
+                t,
+                game,
+                ai,
+                default_state=load_raddle_state(None, parsed['n_words']),
+                decode_state=lambda raw: load_raddle_state(raw, parsed['n_words']),
+                team=team,
+                user=user,
+                anon_key=anon_key,
+                mode=mode,
+                replay_slot=replay_slot,
+                resolve_chain_state=chain_state_for_actor,
+                chain_state_kwargs={
+                    'team': team,
+                    'user': user,
+                    'anon_key': anon_key,
+                    'mode': mode,
+                    'replay_slot': replay_slot,
+                },
+            )
             ui_state = _raddle_ui_state_for_actor(
                 game, t, team=team, user=user, anon_key=anon_key,
                 mode=mode,
