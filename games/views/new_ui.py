@@ -2529,9 +2529,10 @@ def new_section_results_page(request, game_id):
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
+    daily_definition = get_daily_game(game_id)
     results_variant = (
-        'ladder' if game_id == LADDER_GAME_ID
-        else 'alphabetty' if game_id == ALPHABETTY_GAME_ID
+        daily_definition.aggregate_results_variant
+        if daily_definition is not None
         else 'standard'
     )
 
@@ -2674,7 +2675,12 @@ def _render_task_group_results_page(request, game, number, back_url):
         alphabetty_sort=alphabetty_sort,
         actor_types=_results_actor_filter_types(request),
     )
-    results_variant = 'alphabetty' if game.id == ALPHABETTY_GAME_ID else 'salad_words' if game.id == 'salad' else 'standard'
+    daily_definition = get_daily_game(game.id)
+    results_variant = (
+        daily_definition.task_results_variant
+        if daily_definition is not None
+        else 'standard'
+    )
     if game.id == 'salad':
         data = _word_salad_release_breakdown(data, game, number)
     data = _set_current_result_header_answers(
