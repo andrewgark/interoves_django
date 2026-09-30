@@ -5,7 +5,7 @@
 # No security group changes — auth is purely IAM via the SSM session.
 # Requires: aws CLI + session-manager-plugin, both on PATH.
 #
-# Usage (from repo root; production defaults to Green):
+# Usage (from repo root; production defaults to the active Green ALB):
 #   ./scripts/with_rds.sh manage.py check_background_migrations
 #   ./scripts/with_rds.sh manage.py dbshell
 #   ./scripts/with_rds.sh manage.py migrate --plan
@@ -25,7 +25,7 @@ interoves_aws_bootstrap "$REPO_ROOT"
 PYTHON="${REPO_ROOT}/../venv/interoves_django/bin/python"
 ENV_FILE="${REPO_ROOT}/secrets/rds.env"
 REGION="eu-central-1"
-ENV_NAME="interoves-web-green"
+ENV_NAME="${GREEN_ENV_NAME:-interoves-web-green-lb}"
 TUNNEL_PORT=13306   # local port; avoids conflict with any local MySQL on 3306
 
 # ---- Parse --raw flag -------------------------------------------------------

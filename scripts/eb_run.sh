@@ -20,7 +20,7 @@ source "${REPO_ROOT}/scripts/interoves_aws_bootstrap.sh"
 interoves_aws_bootstrap "$REPO_ROOT"
 
 REGION="eu-central-1"
-ENV_NAME="interoves-web-green"
+ENV_NAME="${GREEN_ENV_NAME:-interoves-web-green-lb}"
 OS_USER="ec2-user"
 APP_DIR="/var/app/current"
 KEY_FILE="$(mktemp -u /tmp/eb_ic_XXXXXX)"

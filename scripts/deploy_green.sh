@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Prepare and, only with --deploy, release the production Green web bundle.
+# Prepare and, only with --deploy, release the production Green ALB bundle.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
 APP="interoves"
-ENV_NAME="interoves-web-green"
+ENV_NAME="${GREEN_ENV_NAME:-interoves-web-green-lb}"
 DO_DEPLOY=0
 for arg in "$@"; do
     case "$arg" in
@@ -16,7 +16,7 @@ for arg in "$@"; do
 done
 
 if [[ "$DO_DEPLOY" == "1" ]]; then
-    echo "Target: $ENV_NAME (production Green)"
+    echo "Target: $ENV_NAME (production Green ALB)"
     "$ROOT/scripts/deploy_preflight.sh"
 else
     echo "Dry run: target would be $ENV_NAME (no AWS mutation)"

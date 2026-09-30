@@ -83,8 +83,9 @@ rsync -a --delete-delay \
     "$ROOT/" "$stage/"
 
 # The live Green bundle protects its platform configuration from the checkout.
-# Inject only the Green origin hook so an EB replacement keeps the Cloudflare
-# origin EIP stable.  Blue rollback and worker bundles must not claim it.
+# The legacy single-instance Green environment is the only target that may
+# receive the origin-EIP hook. The active ALB environment must never claim an
+# origin EIP; its stable origin is the load balancer DNS name.
 if [[ "$ENV_NAME" == "interoves-web-green" ]]; then
     install -D -m 0755 \
         "$ROOT/.platform/hooks/postdeploy/11_associate_green_origin_eip.sh" \

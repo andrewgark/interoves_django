@@ -6,11 +6,11 @@
 
 ## Кто сейчас прод
 
-Прод для игроков — Green, окружение `interoves-web-green`. Cloudflare records
-для `interoves.com` и `www.interoves.com` указывают на
-`interoves-web-green.eu-central-1.elasticbeanstalk.com`, его ALB обслуживает
-игровой трафик. Blue, `interoves-env`, остаётся поднятым только как аварийный
-откат через DNS на `interoves-dev.eu-central-1.elasticbeanstalk.com`.
+Прод для игроков — Green ALB, окружение `interoves-web-green-lb`. Cloudflare
+records для `interoves.com` и `www.interoves.com` указывают на DNS-имя его
+Application Load Balancer. Старое single-instance окружение
+`interoves-web-green` выведено из production и удаляется. Blue,
+`interoves-env`, остаётся поднятым только как аварийный откат через DNS.
 
 На момент проверки:
 
@@ -27,7 +27,7 @@ interoves-env` для определения прода не подходят.
 
 | Окружение | Роль | Прод? | Примечание |
 |---|---|---:|---|
-| `interoves-web-green` | web, `INTEROVES_RUNTIME_ROLE=web` | да | 2× `c7i.large`, ASG 2/4, On-Demand, `RollingWithAdditionalBatch`, health `/health/live/` |
+| `interoves-web-green-lb` | web, `INTEROVES_RUNTIME_ROLE=web` | да | ALB, baseline 1× `t3.small`, ASG 1/2, On-Demand, health `/health/live/` |
 | `interoves-env` | Blue web | нет | только rollback DNS; Blue не деплоить и не «чинить» без явного запроса |
 | `interoves-background-worker` | background-worker | нет | difficulty, проекции результатов, фоновые тики |
 | `interoves-identity-worker` | legacy EB identity-worker | нет | неактуальный consumer; identity merge сейчас обслуживает ECS `interoves-identity-ecs` |
@@ -41,7 +41,7 @@ interoves-env` для определения прода не подходят.
 
 ### Green web
 
-Обычный `eb deploy` checkout на `interoves-web-green` запрещён. В git нет
+Обычный `eb deploy` checkout на `interoves-web-green-lb` запрещён. В git нет
 живого `.ebextensions/zzzz-green-web.config`; такой deploy может попытаться
 подменить VPC, instance type и IAM profile репозитория (`t3.small`,
 `aws-elasticbeanstalk-ec2-role`) или завершиться ошибкой `You cannot remove an
@@ -49,10 +49,10 @@ environment from a VPC`.
 
 Правильный процесс выполняет `./deploy.sh`: скачать текущий zip Green, наложить
 в него код приложения, сохранить живые `.ebextensions` и `.platform`, затем
-создать application version и обновить только `interoves-web-green`.
+создать application version и обновить только `interoves-web-green-lb`.
 Не делать `rsync --delete` по `.ebextensions` или `.platform`: в живом zip есть
 хуки, которых нет в git. `eb deploy` должен быть направлен явно на
-`interoves-web-green` и только на заранее подготовленный такой zip.
+`interoves-web-green-lb` и только на заранее подготовленный такой zip.
 
 `./deploy.sh --dry-run` только собирает и проверяет локальный bundle. Реальный
 релиз выполняет `./deploy.sh` (эквивалентно `./deploy.sh --deploy`). Если EB
@@ -120,7 +120,7 @@ Read-only snapshot option names from AWS on 2026-09-28 (наличие пере�
 
 | Environment | Найденные `TELEGRAM_*` names |
 |---|---|
-| `interoves-web-green` | `ADMIN_CHAT_ID`, `ANNOUNCE_CHAT_IDS`, `API_ID`, `CHANNEL_CHAT_ID`, `OIDC_CLIENT_ID`, `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
+| `interoves-web-green-lb` | `ADMIN_CHAT_ID`, `ANNOUNCE_CHAT_IDS`, `API_ID`, `CHANNEL_CHAT_ID`, `OIDC_CLIENT_ID`, `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
 | `interoves-env` (Blue) | `ADMIN_CHAT_ID`, `ANNOUNCE_CHAT_IDS`, `API_ID`, `NOTIFY_CHAT_ID`, `CHANNEL_CHAT_ID`, `OIDC_CLIENT_ID`, `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
 | `interoves-background-worker` | `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
 | `interoves-identity-worker` | `API_HASH`, `BOT_TOKEN`, `OIDC_CLIENT_SECRET`, `USER_SESSION`, `WEBHOOK_SECRET` |
@@ -138,14 +138,14 @@ restart app server уже запущенный процесс новыми optio
 ./scripts/aws_with_role.sh aws sts get-caller-identity
 ./scripts/aws_with_role.sh aws elasticbeanstalk describe-environments \
   --region eu-central-1 --application-name interoves \
-  --environment-names interoves-web-green interoves-env \
+  --environment-names interoves-web-green-lb interoves-env \
   interoves-background-worker interoves-identity-worker \
   interoves-integrations-worker
 curl -sS https://interoves.com/health/live/
 ```
 
 `./scripts/eb_run.sh` и `./scripts/with_rds.sh` по умолчанию подключаются к
-`interoves-web-green`/Green. `eb_run.sh` выбирает running instance по EB tag и
+`interoves-web-green-lb`/Green ALB. `eb_run.sh` выбирает running instance по EB tag и
 идёт к нему через SSM `AWS-StartSSHSession`; public IP для Green не требуется.
 `with_rds.sh` делает SSM RDS tunnel через Green. Blue выбирается только явно:
 
@@ -200,7 +200,7 @@ Blue (`interoves-env`) остаётся rollback target. Перед откато
 | Resource | Значение |
 |---|---|
 | EB application | `interoves` |
-| Production web | `interoves-web-green` |
+| Production web | `interoves-web-green-lb` |
 | Blue rollback | `interoves-env` |
 | Region | `eu-central-1` |
 | Account | `916000456640` |

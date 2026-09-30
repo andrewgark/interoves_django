@@ -55,7 +55,7 @@ the sandbox first.
 
 ## AWS / prod access (agents)
 
-For Elastic Beanstalk, RDS, Redis (ElastiCache), IAM, and local AWS CLI with the **`ai-bot`** role, read **[agents/aws-eb.md](aws-eb.md)**. Production web is **Green** (`interoves-web-green`); `interoves-env` is **Blue rollback**. `deploy.sh` is the Green production entrypoint; `eb_run.sh` and `with_rds.sh` default to Green and accept `--environment` for an explicit target; workers use `scripts/deploy_worker.sh`. Use `required_permissions: ["network", "all"]` when running AWS/SSH scripts from tools.
+For Elastic Beanstalk, RDS, Redis (ElastiCache), IAM, and local AWS CLI with the **`ai-bot`** role, read **[agents/aws-eb.md](aws-eb.md)**. Production web is the **Green ALB environment** (`interoves-web-green-lb`); `interoves-env` is **Blue rollback**. `deploy.sh` is the Green production entrypoint; `eb_run.sh` and `with_rds.sh` default to the active Green ALB and accept `--environment` for an explicit target; workers use `scripts/deploy_worker.sh`. Use `required_permissions: ["network", "all"]` when running AWS/SSH scripts from tools.
 
 For deploy tasks, also use [`.cursor/skills/interoves-deploy/SKILL.md`](../.cursor/skills/interoves-deploy/SKILL.md) to decide whether `BUNDLE_MICROSITES=1` is needed. Ordinary Django deploys leave it unset.
 
@@ -78,7 +78,7 @@ Do **not** add another modal library (e.g. Bootstrap modal, Magnific Popup) for 
 
 **`SITE_DEPLOY_VERSION`** (see `interoves_django/settings.py`) is resolved in order: **`SITE_DEPLOY_VERSION` env** → file **`interoves_django/deploy_version.txt`** → **`git rev-parse --short HEAD`** (local dev when `.git` exists). When it changes, `deploy_version_check.js` hits **`GET /meta/deploy-version/`** (no-store), syncs `localStorage`, then **`location.replace`** with **`_interoves_cb`**.
 
-- **Elastic Beanstalk:** repo **`deploy.sh`** is the production Green entrypoint. It prepares a bundle from the current `interoves-web-green` source bundle, preserves live `.ebextensions`/`.platform`, and updates only `interoves-web-green`. It does not deploy Blue. Green packaging must not replace live `.ebextensions` or `.platform` from the git tree.
+- **Elastic Beanstalk:** repo **`deploy.sh`** is the production Green entrypoint. It prepares a bundle from the current `interoves-web-green-lb` source bundle, preserves live `.ebextensions`/`.platform`, and updates only `interoves-web-green-lb`. It does not deploy Blue. Green packaging must not replace live `.ebextensions` or `.platform` from the git tree.
 - **CI:** generate the same file or set the env to `$CODEBUILD_RESOLVED_SOURCE_VERSION` / `$GITHUB_SHA` / etc.
 
 If the resolved version is empty, the client check is skipped.

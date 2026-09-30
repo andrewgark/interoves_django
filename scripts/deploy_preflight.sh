@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Production deploy guardrails for the Green web environment.
+# Production deploy guardrails for the active Green ALB environment.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
