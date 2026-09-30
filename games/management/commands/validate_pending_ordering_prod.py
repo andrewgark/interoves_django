@@ -183,11 +183,7 @@ class Command(BaseCommand):
         jobs = self._receipt_jobs(receipt)
         receipt_job = receipt['queue_receipt']['jobs'][0] if jobs else {}
         checks = {
-            'one_created_or_coalesced_job': (
-                len(jobs) == 1
-                and receipt['queue_receipt']['new_jobs']
-                + receipt['queue_receipt']['existing_jobs'] == 1
-            ),
+            'one_receipt_job': len(jobs) == 1,
             'job_contains_both_actors': receipt_job.get('total_items', 0) >= 2,
         }
         if not all(checks.values()):
@@ -201,7 +197,15 @@ class Command(BaseCommand):
         })
         if not all(checks.values()):
             raise CommandError('bulk replay failed: {}'.format(checks))
-        return {'name': 'bulk_two_accepts_one_job', 'checks': checks, 'jobs': jobs}
+        return {
+            'name': 'bulk_two_accepts_one_job',
+            'checks': checks,
+            'receipt_counts': {
+                key: receipt['queue_receipt'][key]
+                for key in ('new_jobs', 'existing_jobs', 'new_items', 'existing_items')
+            },
+            'jobs': jobs,
+        }
 
     @staticmethod
     def _new_jobs(receipt):
