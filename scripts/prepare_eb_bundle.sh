@@ -116,7 +116,8 @@ fi
 if [[ "$ENV_NAME" == "interoves-background-worker" || "$ENV_NAME" == "interoves-identity-worker" ]]; then
     rm -f \
         "$stage/.ebextensions/scaling.config" \
-        "$stage/.ebextensions/health.config"
+        "$stage/.ebextensions/health.config" \
+        "$stage/.ebextensions/deploy.config"
 fi
 
 # The live Green bundle protects its platform configuration from the checkout.
