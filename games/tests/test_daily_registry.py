@@ -72,3 +72,16 @@ class DailyGameRegistryTests(TestCase):
 
         with self.assertRaisesRegex(ValueError, 'must match its schedule'):
             DailyGameRegistry((replace(definition, game_id='other'),))
+
+    def test_registry_rejects_duplicate_task_types(self):
+        ladder = DAILY_GAME_REGISTRY.require('ladder')
+        alphabetty = DAILY_GAME_REGISTRY.require('alphabetty')
+
+        with self.assertRaisesRegex(ValueError, 'task types must be unique'):
+            DailyGameRegistry((ladder, replace(alphabetty, task_type=ladder.task_type)))
+
+    def test_definition_requires_adapter_for_enabled_feature(self):
+        ladder = DAILY_GAME_REGISTRY.require('ladder')
+
+        with self.assertRaisesRegex(ValueError, 'enables statistics'):
+            replace(ladder, statistics_adapter_key=None)

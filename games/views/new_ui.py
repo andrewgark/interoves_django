@@ -2773,9 +2773,10 @@ def new_section_task_results_page(request, game_id, number):
     game = Game.objects.filter(project=project, id=game_id).first()
     if not game:
         raise Http404()
-    from games.placement_share import is_share_hash_segment, may_open_unpublished_number, placement_by_share_hash
+    from games.placement_share import is_share_hash_segment, may_open_unpublished_number
+    from games.daily.placement import resolve_daily_placement
     if is_share_hash_segment(str(number)):
-        share_placement = placement_by_share_hash(game, str(number))
+        share_placement = resolve_daily_placement(game, number)
         if share_placement is None:
             raise Http404()
         number = share_placement.number
@@ -2788,11 +2789,7 @@ def new_section_task_results_page(request, game_id, number):
     team = request.user.profile.team_on if has_profile(request.user) else None
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
-    placement = (
-        GameTaskGroup.objects.filter(game=game, number=str(number))
-        .select_related('task_group')
-        .first()
-    )
+    placement = resolve_daily_placement(game, number)
     if not placement:
         raise Http404()
 
@@ -3291,22 +3288,21 @@ def daily_statistics(request, game_id, number):
     if definition is None or not definition.capabilities.statistics:
         raise Http404()
     game = get_object_or_404(Game, id=game_id, project_id=NEW_UI_SECTIONS_PROJECT)
-    from games.models import RandomAlphabettyGame
-    from games.placement_share import is_share_hash_segment, placement_by_share_hash
+    from games.placement_share import is_share_hash_segment
+    from games.daily.placement import (
+        is_random_alphabetty_placement,
+        resolve_daily_placement,
+    )
 
-    placement = None
+    placement = resolve_daily_placement(game, number)
     if is_share_hash_segment(str(number)):
-        placement = placement_by_share_hash(game, str(number))
-        if placement is None or not RandomAlphabettyGame.objects.filter(
-            task_group_id=placement.task_group_id,
-        ).exists():
+        if placement is None or not is_random_alphabetty_placement(placement):
             raise Http404()
     else:
         if not scheduled_number_is_public(game, number) and not request.user.is_staff:
             raise Http404()
-        placement = get_object_or_404(
-            GameTaskGroup.objects.select_related('task_group'), game=game, number=str(number),
-        )
+        if placement is None:
+            raise Http404()
     actor = {}
     if request.user.is_authenticated:
         actor = {'user': request.user, 'team__isnull': True, 'anon_key__isnull': True}

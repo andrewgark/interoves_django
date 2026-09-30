@@ -50,6 +50,22 @@ class DailyGameDefinition:
     share_adapter_key: str | None = None
     statistics_adapter_key: str | None = None
 
+    def __post_init__(self):
+        """Reject definitions that advertise unsupported shared features."""
+        required_keys = (
+            ('statistics', self.capabilities.statistics, self.statistics_adapter_key),
+            ('results', self.capabilities.aggregate_results, self.results_adapter_key),
+            ('share card', self.capabilities.share_card, self.share_adapter_key),
+        )
+        for feature, enabled, adapter_key in required_keys:
+            if enabled and not adapter_key:
+                raise ValueError(
+                    'daily game {} enables {} but declares no adapter'.format(
+                        self.game_id,
+                        feature,
+                    )
+                )
+
 
 class DailyGameRegistry:
     """Immutable lookup table for registered daily games."""
@@ -65,6 +81,9 @@ class DailyGameRegistry:
         by_id = {definition.game_id: definition for definition in definitions}
         if len(by_id) != len(definitions):
             raise ValueError('daily game ids must be unique')
+        task_types = {definition.task_type for definition in definitions}
+        if len(task_types) != len(definitions):
+            raise ValueError('daily task types must be unique')
         self._definitions = tuple(definitions)
         self._by_id = by_id
 
@@ -107,6 +126,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         short_title='Алфавитка',
         pager_label='алфавитками',
         schedule=ALPHABETTY_SCHEDULE,
+        capabilities=DailyGameCapabilities(share_card=False),
         aggregate_results_variant='alphabetty',
         task_results_variant='alphabetty',
         statistics_adapter_key='alphabet',
