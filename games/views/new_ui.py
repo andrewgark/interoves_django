@@ -111,6 +111,7 @@ from games.section_hub import (
     section_nav_title,
 )
 from games.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
+from games.placement_share import may_open_unpublished_number
 from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
 from games.tasks.titles import raddle_share_title, task_display_name, task_group_page_title
 from games.tasks.progress import compute_task_progress, merge_task_group_progress_rows
@@ -3399,7 +3400,6 @@ def new_task_group_page(request, game_id, task_group_number):
             raise Http404()
         from games.placement_share import (
             is_share_hash_segment,
-            may_open_unpublished_number,
             placement_by_share_hash,
         )
         share_placement = None
