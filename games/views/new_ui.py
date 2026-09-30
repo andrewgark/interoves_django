@@ -3259,7 +3259,8 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
 
 def daily_statistics(request, game_id, number):
     """Spoiler-safe statistics endpoint: completed participants only."""
-    if game_id not in (LADDER_GAME_ID, WORD_SALAD_GAME_ID, ALPHABETTY_GAME_ID):
+    definition = get_daily_game(game_id)
+    if definition is None or not definition.capabilities.statistics:
         raise Http404()
     game = get_object_or_404(Game, id=game_id, project_id=NEW_UI_SECTIONS_PROJECT)
     if not scheduled_number_is_public(game, number) and not request.user.is_staff:
