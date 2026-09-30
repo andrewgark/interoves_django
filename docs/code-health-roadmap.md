@@ -96,6 +96,7 @@ breakpoints и границы legacy Bootstrap. Новый UI не должен 
 - `games/daily/board.py` — adapter dispatch для board payload и подготовки state;
 - `games/daily/share.py` — adapter dispatch для share-card payload;
 - `games/daily/results.py` — adapter contract для aggregate/task results;
+- `games/daily/projection.py` — registry-driven scorer adapter version;
 - `games/daily/statistics.py` — adapter dispatch для агрегированной статистики;
 - `games/daily/completion.py` — общий lifecycle для timing и analytics effects;
 - `static/templates/new/partials/daily_task_board.html` — общий shell task board;
