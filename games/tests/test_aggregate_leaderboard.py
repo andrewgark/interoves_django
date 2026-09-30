@@ -149,6 +149,28 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual(result['aggregate_month'], month)
         self.assertEqual(result['aggregate_columns'], [])
 
+    def test_all_scheduled_games_use_monthly_aggregate_period(self):
+        from games.daily.section import SCHEDULES
+        from games.results.aggregate_leaderboard import build_aggregate_page
+
+        month = date(2026, 9, 1)
+        for game_id in SCHEDULES:
+            game = SimpleNamespace(id=game_id, pk=1000 + len(game_id))
+            request = self._request()
+            request.path = '/{}/results/'.format(game_id)
+            with self.subTest(game_id=game_id), patch(
+                'games.results.aggregate_leaderboard._monthly_columns',
+                return_value=([], month, None, None, {}),
+            ) as monthly_columns, patch(
+                'games.daily.projection.projection_state_is_valid',
+                return_value=True,
+            ):
+                result = build_aggregate_page(request, game)
+
+            monthly_columns.assert_called_once_with(game, None)
+            self.assertEqual(result['aggregate_period'], 'month')
+            self.assertEqual(result['aggregate_month'], month)
+
     def test_window_scores_denominator_cells_and_tied_rank_ignore_played_count(self):
         user = User.objects.create_user(username='agg-player')
         actor_a = PersonalResultsParticipant(user=user)

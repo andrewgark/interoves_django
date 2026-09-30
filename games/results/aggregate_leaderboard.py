@@ -131,7 +131,7 @@ def _choose_window(game, *, limit, anchor):
 
 
 def _monthly_release_context(game, requested_month=None):
-    """Return the published ladder releases belonging to one calendar month."""
+    """Return published scheduled releases belonging to one calendar month."""
     cache_key = 'aggregate:monthly-release-index:v1:{}'.format(game.pk)
     release_index = cache.get(cache_key)
     if release_index is None:
@@ -822,10 +822,14 @@ def build_aggregate_page(request, game):
     import logging
     from games.models import DailyResultProjectionState
     from games.daily.projection import projection_state_is_valid
-    from games.daily.section import publish_at_for
+    from games.daily.section import is_scheduled_game, publish_at_for
 
     logger = logging.getLogger(__name__)
-    if game.id == 'ladder':
+    # All daily and weekly tasks are published on a calendar schedule, so their
+    # aggregate table is navigated by publication month rather than by an
+    # arbitrary release window.  Keep the check schedule-based so newly added
+    # daily games get the same behavior without another game-id branch.
+    if is_scheduled_game(game.id):
         columns, selected_month, previous_month, next_month, published_at_by_link = _monthly_columns(
             game, request.GET.get('month'),
         )
