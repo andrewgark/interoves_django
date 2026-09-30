@@ -223,23 +223,7 @@
 </script>
 {% endif %}
 
-<div class="new-taskgrid {% if task_group.view == 'table-3-n' %}new-taskgrid--3{% elif task_group.view == 'table-4-n' %}new-taskgrid--4{% endif %}{% if daily_timing_enabled %} new-daily-solve{% endif %}">
-{% if daily_timing_enabled %}
-<div class="new-daily-solve__stage">
-{% include "new/partials/daily_solve_pause_overlay.html" %}
-<div data-daily-solve-board>
-{% endif %}
-{% for task in tasks %}
-  {% if task_group.view == 'proportions' and task.task_type == 'proportions' %}
-  {% else %}
-  {% include "new/partials/task_card.html" %}
-  {% endif %}
-{% endfor %}
-{% if daily_timing_enabled %}
-</div>
-</div>
-{% endif %}
-</div>
+{% include "new/partials/daily_task_board.html" %}
 
 <div id="new-answer-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-answer-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-answer-close></div>
