@@ -102,6 +102,8 @@ breakpoints и границы legacy Bootstrap. Новый UI не должен 
 - `games/daily/completion.py` — registry-backed adapter для replay-safe timing и
   analytics effects;
 - `static/templates/new/partials/daily_task_board.html` — общий shell task board;
+- `static/templates/new/partials/task_card.html` — generic `daily_board`
+  contract для game-specific board templates при сохранении legacy `rd/ws`;
 - `new_ui.py`, Alphabetty play и partial renderer используют общий lifecycle
   context/URL builder;
 - reset и statistics endpoints используют registry вместо отдельных списков игр;
