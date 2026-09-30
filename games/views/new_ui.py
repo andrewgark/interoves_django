@@ -78,7 +78,6 @@ from games.daily.registry import get_daily_game
 from games.daily.page_context import (
     build_daily_lifecycle_context,
 )
-from games.daily.state import latest_daily_state
 from games.daily.board import (
     get_daily_board_adapter,
 )
@@ -208,7 +207,6 @@ from games.replacements_lines import (
     task_replacements_canonical_answer_row,
 )
 from games.raddle import (
-    load_raddle_state,
     parse_raddle_data,
     raddle_hub_result_for_actor,
     raddle_word_solved_list,
@@ -216,8 +214,6 @@ from games.raddle import (
 from games.word_salad import (
     WORD_SALAD_GAME_ID,
     archive_card_meta as word_salad_archive_card_meta,
-    load_state as load_word_salad_state,
-    parse_task_payload as parse_word_salad_task_payload,
     salad_hub_result_for_actor,
 )
 from games.results.share import share_host_from_request
@@ -3194,102 +3190,38 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 'max_attempts': t.get_max_attempts(),
                 'max_points_total': t.get_results_max_points(),
             }
-        elif t.task_type == 'word_salad':
-            try:
-                grid, words, rare_words = parse_word_salad_task_payload(t.checker_data, t.answer)
-            except Exception:
-                continue
-            ai = attempts_info_by_task_id.get(t.id)
-            state = latest_daily_state(
-                t,
-                game,
-                ai,
-                default_state=load_word_salad_state(None),
-                decode_state=load_word_salad_state,
-                team=team,
-                user=user,
-                anon_key=anon_key,
-                mode=mode,
-                replay_slot=replay_slot,
-                resolve_chain_state=chain_state_for_actor,
-                chain_state_kwargs={
-                    'team': team,
-                    'user': user,
-                    'anon_key': anon_key,
-                    'mode': mode,
-                    'replay_slot': replay_slot,
-                },
-            )
-            word_salad_adapter = get_daily_board_adapter(
-                t.task_type,
-                game_id=getattr(game, 'id', None),
-            )
-            word_salad_data[t.id] = word_salad_adapter.build(
-                game=game,
-                task=t,
-                placement=placement,
-                grid=grid,
-                words=words,
-                rare_words=rare_words,
-                state=state,
-                attempts=ai.attempts if ai else [],
-                user=user,
-                anon_key=anon_key,
-            )
     raddle_data = {}
+    board_data_by_context = {
+        'word_salad': word_salad_data,
+        'raddle': raddle_data,
+    }
     for t in tasks:
-        if t.task_type == 'raddle':
-            parsed = parse_raddle_data(t)
-            if not parsed:
-                continue
-            ai = attempts_info_by_task_id.get(t.id)
-            raddle_hint_attempts = ai.hint_attempts if ai else []
-            state = latest_daily_state(
-                t,
-                game,
-                ai,
-                default_state=load_raddle_state(None, parsed['n_words']),
-                decode_state=lambda raw: load_raddle_state(raw, parsed['n_words']),
-                team=team,
-                user=user,
-                anon_key=anon_key,
-                mode=mode,
-                replay_slot=replay_slot,
-                resolve_chain_state=chain_state_for_actor,
-                chain_state_kwargs={
-                    'team': team,
-                    'user': user,
-                    'anon_key': anon_key,
-                    'mode': mode,
-                    'replay_slot': replay_slot,
-                },
-            )
-            ui_state = _raddle_ui_state_for_actor(
-                game, t, team=team, user=user, anon_key=anon_key,
-                mode=mode,
-                replay_slot=replay_slot,
-            )
-            share_title = None
-            if str(getattr(game, 'id', '')) != LADDER_GAME_ID:
-                share_title = raddle_share_title(game, placement.number, t.number)
-            raddle_adapter = get_daily_board_adapter(
-                t.task_type,
-                game_id=getattr(game, 'id', None),
-            )
-            raddle_data[t.id] = raddle_adapter.build(
-                game=game,
-                task=t,
-                placement=placement,
-                parsed=parsed,
-                state=state,
-                attempts=ai.attempts if ai else [],
-                hint_attempts=raddle_hint_attempts,
-                mode=mode,
-                ui_state=ui_state,
-                share_title=share_title,
-                user=user,
-                anon_key=anon_key,
-            )
+        adapter = get_daily_board_adapter(
+            t.task_type,
+            game_id=getattr(game, 'id', None),
+        )
+        if adapter is None:
+            continue
+        ai = attempts_info_by_task_id.get(t.id)
+        share_title = None
+        if adapter.context_key == 'raddle' and str(getattr(game, 'id', '')) != LADDER_GAME_ID:
+            share_title = raddle_share_title(game, placement.number, t.number)
+        data = adapter.prepare(
+            game=game,
+            task=t,
+            placement=placement,
+            attempts_info=ai,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            mode=mode,
+            replay_slot=replay_slot,
+            resolve_chain_state=chain_state_for_actor,
+            raddle_ui_state_for_actor=_raddle_ui_state_for_actor,
+            share_title=share_title,
+        )
+        if data is not None:
+            board_data_by_context[adapter.context_key][t.id] = data
     proportions_chips = []
     if task_group.view == 'proportions':
         proportions_chips = build_proportions_chips_for_tasks(tasks)

@@ -102,3 +102,63 @@ class DailyBoardBuilderTests(TestCase):
         self.assertEqual(result['max_points_total'], 10)
         build_ui.assert_called_once()
         attach_share.assert_called_once()
+
+    @patch('games.daily.board.build_word_salad_board_data', return_value={'prepared': 'salad'})
+    @patch('games.daily.board.latest_daily_state', return_value={'state': 'salad'})
+    @patch(
+        'games.daily.board.parse_word_salad_task_payload',
+        return_value=(['A'], ['WORD'], []),
+    )
+    def test_salad_adapter_pipeline_is_explicit(
+        self, parse_task, resolve_state, build_board,
+    ):
+        task = SimpleNamespace(checker_data='payload', answer='answer')
+        attempts = SimpleNamespace(attempts=['attempt'])
+
+        result = get_daily_board_adapter('word_salad').prepare(
+            game=SimpleNamespace(id='salad'),
+            task=task,
+            placement='placement',
+            attempts_info=attempts,
+            team=None,
+            user=None,
+            anon_key='anon',
+            mode='general',
+            replay_slot=None,
+            resolve_chain_state=lambda *args, **kwargs: None,
+        )
+
+        self.assertEqual(result, {'prepared': 'salad'})
+        parse_task.assert_called_once_with('payload', 'answer')
+        resolve_state.assert_called_once()
+        build_board.assert_called_once()
+
+    @patch('games.daily.board.build_raddle_board_data', return_value={'prepared': 'raddle'})
+    @patch('games.daily.board.latest_daily_state', return_value={'state': 'raddle'})
+    @patch('games.daily.board.parse_raddle_data', return_value={'n_words': 2})
+    def test_raddle_adapter_pipeline_passes_ui_state_and_share_title(
+        self, parse_task, resolve_state, build_board,
+    ):
+        task = SimpleNamespace()
+        attempts = SimpleNamespace(attempts=['attempt'], hint_attempts=['hint'])
+        ui_state = lambda *args, **kwargs: SimpleNamespace(drafts={}, clue_marks={})
+
+        result = get_daily_board_adapter('raddle').prepare(
+            game=SimpleNamespace(id='ladder'),
+            task=task,
+            placement='placement',
+            attempts_info=attempts,
+            team=None,
+            user=None,
+            anon_key='anon',
+            mode='general',
+            replay_slot=None,
+            resolve_chain_state=lambda *args, **kwargs: None,
+            raddle_ui_state_for_actor=ui_state,
+            share_title=None,
+        )
+
+        self.assertEqual(result, {'prepared': 'raddle'})
+        parse_task.assert_called_once_with(task)
+        resolve_state.assert_called_once()
+        build_board.assert_called_once()
