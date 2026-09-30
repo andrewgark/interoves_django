@@ -231,14 +231,10 @@ def uses_daily_play_layout(game_id) -> bool:
     return bool(sched and sched.daily_play_layout)
 
 
-DAILY_TIMING_GAME_IDS = frozenset({
-    LADDER_SCHEDULE.game_id,
-    ALPHABETTY_SCHEDULE.game_id,
-    WORD_SALAD_SCHEDULE.game_id,
+DAILY_TIMING_GAME_IDS = frozenset(SCHEDULES) | frozenset({
     'replacements',
     'walls',
     'palindromes',
-    WEEK_TASK_SCHEDULE.game_id,
 })
 
 DAILY_TEAM_TIMING_GAME_IDS = DAILY_TIMING_GAME_IDS - {ALPHABETTY_SCHEDULE.game_id}
