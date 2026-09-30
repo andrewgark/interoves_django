@@ -470,7 +470,7 @@ class CensorlyUxDailyTests(TestCase):
             t for t in payload['body_tokens']
             if t.get('kind') == 'content' and t.get('ending')
         )
-        self.assertTrue(content['ending'])
+        self.assertEqual(content['ending'], 'ого')
         view = build_public_view(payload, revealed_lemmas=set(), won=False, show_endings=True)
         masked = next(t for t in view['body_tokens'] if t.get('id') == content['id'])
         self.assertEqual(masked.get('ending'), content['ending'])
@@ -481,6 +481,35 @@ class CensorlyUxDailyTests(TestCase):
         )
         self.assertFalse(heading_view.get('revealed'))
         self.assertTrue(heading_view.get('in_heading'))
+
+    def test_noisy_endings_are_suppressed(self):
+        from games.censorly.normalize import split_stem_ending
+        from games.censorly.redact import build_public_view
+        from games.censorly.tokenize import build_puzzle_payload
+        # One-letter / irregular leftovers must not leak into the mask UI.
+        self.assertEqual(split_stem_ending('города')[1], '')
+        self.assertEqual(split_stem_ending('кошек')[1], '')
+        self.assertEqual(split_stem_ending('бежал')[1], '')
+        self.assertEqual(split_stem_ending('красивого')[1], 'ого')
+        self.assertEqual(split_stem_ending('кошками')[1], 'ми')
+        payload = build_puzzle_payload(
+            wiki_title='Кот',
+            body_text='В городах бежал кошек красивого вида.',
+        )
+        # Inject a legacy noisy ending that older puzzles may still store.
+        for tok in payload['body_tokens']:
+            if tok.get('surface', '').lower().startswith('город'):
+                tok['ending'] = 'а'
+                tok['stem_length'] = 5
+                break
+        view = build_public_view(payload, revealed_lemmas=set(), won=False, show_endings=True)
+        noisy = next(
+            t for t in view['body_tokens']
+            if t.get('kind') == 'content' and (t.get('length') or 0) >= 5
+            and not t.get('revealed')
+            and 'город' in (t.get('lemma') or '')
+        )
+        self.assertNotIn('ending', noisy)
 
     def test_only_guessed_words_marked_after_win(self):
         from games.censorly.redact import build_public_view
