@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 
+from games.daily.page_context import daily_statistics_url
 from games.views.new_ui import (
     build_task_group_task_context_dicts,
 )
@@ -266,9 +267,10 @@ def render_new_ui_task_card_html(
     # when a card is replaced after an attempt or a hint.
     from games.daily_section import uses_daily_play_layout
     is_daily_single_task = uses_daily_play_layout(game.id)
-    daily_statistics_url = (
-        '/daily-statistics/{}/{}/'.format(game.id, slot.number)
-        if is_daily_single_task and slot is not None else ''
+    statistics_url = daily_statistics_url(
+        game.id,
+        slot.number if slot is not None else None,
+        enabled=is_daily_single_task and slot is not None,
     )
     difficulty = None
     if is_daily_single_task and slot is not None:
@@ -282,7 +284,7 @@ def render_new_ui_task_card_html(
         'tg_name': tg_name,
         'share_host': share_host_from_request(request),
         'is_daily_single_task': is_daily_single_task,
-        'daily_statistics_url': daily_statistics_url,
+        'daily_statistics_url': statistics_url,
         'difficulty': difficulty,
         'task': task,
         'mode': current_mode,
