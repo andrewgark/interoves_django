@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block support_content %}
+{% csrf_token %}
 {{ rows_json|json_script:"censorly-rows" }}
 
 <h1 class="support-page-title">Цензурки</h1>
@@ -22,7 +23,7 @@
       <span>Заголовок или URL ru.wikipedia.org</span>
       <input type="text" id="cz-title" placeholder="Москва или https://ru.wikipedia.org/wiki/…" autocomplete="off">
     </label>
-    <button type="submit" class="new-btn">Создать по title</button>
+    <button type="submit" class="new-btn" id="cz-title-submit">Создать по title</button>
   </form>
   <p class="support-hint support-ladder-edit-error" id="cz-error" hidden></p>
 </section>
@@ -58,14 +59,32 @@
     </table>
   </div>
   {% else %}
-  <p class="support-empty">Пока пусто — нажмите «Случайная из пула».</p>
+  <p class="support-empty" id="cz-empty">Пока пусто — нажмите «Случайная из пула».</p>
+  <div class="support-table-wrap" id="cz-table-wrap" hidden>
+    <table class="support-table" id="cz-table">
+      <thead>
+        <tr>
+          <th>Статья</th>
+          <th>Hash</th>
+          <th>Токены</th>
+          <th>Создано</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
   {% endif %}
 </section>
 
 <script>
 (function () {
+  var busy = false;
+
   function csrf() {
-    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+    if (el && el.value) return el.value;
+    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
     return m ? decodeURIComponent(m[1]) : '';
   }
   function setError(msg) {
@@ -79,6 +98,13 @@
     var el = document.getElementById('cz-status');
     if (el) el.textContent = msg || '';
   }
+  function setBusy(on) {
+    busy = !!on;
+    var randomBtn = document.getElementById('cz-random');
+    var titleBtn = document.getElementById('cz-title-submit');
+    if (randomBtn) randomBtn.disabled = busy;
+    if (titleBtn) titleBtn.disabled = busy;
+  }
   function post(url, body) {
     return fetch(url, {
       method: 'POST',
@@ -89,26 +115,50 @@
       },
       body: JSON.stringify(body || {}),
     }).then(function (r) {
-      return r.json().then(function (data) {
-        return { ok: r.ok && data.ok, data: data, status: r.status };
+      return r.text().then(function (text) {
+        var data = null;
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (err) {
+          data = null;
+        }
+        if (!data) {
+          var clean = (text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+          throw new Error(clean.slice(0, 240) || ('HTTP ' + r.status));
+        }
+        return { ok: r.ok && data.ok !== false, data: data, status: r.status };
       });
     });
   }
-  function prependRow(row) {
+  function ensureTableBody() {
     var tbody = document.querySelector('#cz-table tbody');
+    if (tbody) return tbody;
+    var wrap = document.getElementById('cz-table-wrap');
+    var empty = document.getElementById('cz-empty');
+    if (wrap) wrap.hidden = false;
+    if (empty) empty.hidden = true;
+    return document.querySelector('#cz-table tbody');
+  }
+  function escapeAttr(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+  function prependRow(row) {
+    var tbody = ensureTableBody();
     if (!tbody) {
       location.reload();
       return;
     }
+    var existing = tbody.querySelector('tr[data-hash="' + CSS.escape(row.share_hash) + '"]');
+    if (existing) existing.remove();
     var tr = document.createElement('tr');
     tr.dataset.hash = row.share_hash;
     tr.innerHTML =
-      '<td><a href="' + row.play_url + '" target="_blank" rel="noopener"></a></td>' +
+      '<td><a href="' + escapeAttr(row.play_url) + '" target="_blank" rel="noopener"></a></td>' +
       '<td><code></code></td>' +
       '<td></td><td></td>' +
       '<td class="support-action-row">' +
-      '<a class="new-btn new-btn--mini" href="' + row.play_url + '" target="_blank" rel="noopener">Играть</a> ' +
-      '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-reset="' + row.share_hash + '">Сбросить мой прогресс</button>' +
+      '<a class="new-btn new-btn--mini" href="' + escapeAttr(row.play_url) + '" target="_blank" rel="noopener">Играть</a> ' +
+      '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-reset="' + escapeAttr(row.share_hash) + '">Сбросить мой прогресс</button>' +
       '</td>';
     tr.querySelector('a').textContent = row.wiki_title;
     tr.querySelector('code').textContent = row.share_hash;
@@ -118,30 +168,33 @@
   }
 
   document.getElementById('cz-random').addEventListener('click', function () {
+    if (busy) return;
     setError('');
-    setStatus('Загрузка статьи…');
+    setBusy(true);
+    setStatus('Загрузка статьи из Википедии…');
     post("{% url 'support:censorly_generate' %}", {}).then(function (pack) {
-      setStatus('');
       if (!pack.ok) {
         setError((pack.data && pack.data.error) || 'Ошибка генерации');
         return;
       }
       prependRow(pack.data.row);
       setStatus('Создано: ' + pack.data.row.wiki_title);
-    }).catch(function () {
-      setStatus('');
-      setError('Сеть недоступна');
+    }).catch(function (err) {
+      setError((err && err.message) || 'Не удалось создать');
+    }).finally(function () {
+      setBusy(false);
     });
   });
 
   document.getElementById('cz-title-form').addEventListener('submit', function (ev) {
     ev.preventDefault();
+    if (busy) return;
     var title = (document.getElementById('cz-title').value || '').trim();
     if (!title) return;
     setError('');
+    setBusy(true);
     setStatus('Загрузка…');
     post("{% url 'support:censorly_from_title' %}", { title: title }).then(function (pack) {
-      setStatus('');
       if (!pack.ok) {
         setError((pack.data && pack.data.error) || 'Ошибка');
         return;
@@ -149,24 +202,30 @@
       prependRow(pack.data.row);
       setStatus('Создано: ' + pack.data.row.wiki_title);
       document.getElementById('cz-title').value = '';
-    }).catch(function () {
-      setStatus('');
-      setError('Сеть недоступна');
+    }).catch(function (err) {
+      setError((err && err.message) || 'Не удалось создать');
+    }).finally(function () {
+      setBusy(false);
     });
   });
 
   document.addEventListener('click', function (ev) {
     var btn = ev.target.closest('[data-cz-reset]');
-    if (!btn) return;
+    if (!btn || busy) return;
     var hash = btn.getAttribute('data-cz-reset');
     if (!hash) return;
     if (!confirm('Сбросить ваш прогресс по этой цензурке?')) return;
+    setBusy(true);
     post("{% url 'support:censorly_reset_progress' %}", { share_hash: hash }).then(function (pack) {
       if (!pack.ok) {
         setError((pack.data && pack.data.error) || 'Не удалось сбросить');
         return;
       }
       setStatus('Прогресс сброшен');
+    }).catch(function (err) {
+      setError((err && err.message) || 'Не удалось сбросить');
+    }).finally(function () {
+      setBusy(false);
     });
   });
 })();

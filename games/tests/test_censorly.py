@@ -177,3 +177,55 @@ class CensorlyPuzzleStorageTests(TestCase):
         self.assertIsNotNone(loaded)
         self.assertEqual(loaded['wiki_title'], puzzle['wiki_title'])
         self.assertEqual(len(loaded['title_tokens']), len(puzzle['title_tokens']))
+
+
+class CensorlySupportViewTests(TestCase):
+    def setUp(self):
+        Project.objects.get_or_create(id='sections')
+        CheckerType.objects.get_or_create(id='censorly')
+        project = Project.objects.get(id='sections')
+        Game.objects.update_or_create(
+            id=CENSORLY_GAME_ID,
+            defaults={
+                'name': 'Цензурки',
+                'outside_name': 'Цензурки',
+                'theme': 'test',
+                'project': project,
+                'author': 'test',
+                'is_ready': False,
+                'is_playable': True,
+                'is_tournament': False,
+            },
+        )
+        self.staff = User.objects.create_superuser('cz_sup', 'a@b.c', 'x')
+        self.client = Client()
+        self.client.force_login(self.staff)
+
+    def test_generate_random_does_not_shadow_service(self):
+        """Regression: view must call service, not recurse into itself."""
+        from unittest.mock import patch
+        from games.support.services.censorly import CensorlyRow
+
+        fake = CensorlyRow(
+            id=1,
+            wiki_title='Тест',
+            share_hash='abcd1234abcd1234',
+            play_url='/censorly/r/abcd1234abcd1234/',
+            created_at='2026-01-01 00:00',
+            task_id=1,
+            token_count=10,
+            payload_bytes=100,
+        )
+        with patch(
+            'games.support.views.censorly_create_random',
+            return_value=fake,
+        ) as mocked:
+            resp = self.client.post(
+                '/support/censorly/generate/',
+                data=b'{}',
+                content_type='application/json',
+            )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+        self.assertEqual(resp.json()['row']['wiki_title'], 'Тест')
+        mocked.assert_called_once_with()

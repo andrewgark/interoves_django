@@ -38,8 +38,8 @@ from games.support.services.alphabetty import (
 from games.support.services.censorly import (
     CensorlySupportError,
     dashboard_context as censorly_dashboard_context,
-    generate_from_title as censorly_generate_from_title,
-    generate_random as censorly_generate_random,
+    generate_from_title as censorly_create_from_title,
+    generate_random as censorly_create_random,
     reset_my_progress as censorly_reset_my_progress,
 )
 from games.support.services.week_tasks import (
@@ -1361,9 +1361,12 @@ def censorly_dashboard(request):
 @require_POST
 def censorly_generate_random(request):
     try:
-        row = censorly_generate_random()
+        row = censorly_create_random()
     except CensorlySupportError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    except Exception as exc:
+        logging.getLogger(__name__).exception('censorly generate random failed')
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=500)
     return JsonResponse({'ok': True, 'row': row.to_dict()})
 
 
@@ -1375,9 +1378,12 @@ def censorly_generate_from_title(request):
     if not title:
         return JsonResponse({'ok': False, 'error': 'Укажите заголовок или URL'}, status=400)
     try:
-        row = censorly_generate_from_title(title)
+        row = censorly_create_from_title(title)
     except CensorlySupportError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    except Exception as exc:
+        logging.getLogger(__name__).exception('censorly generate from title failed')
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=500)
     return JsonResponse({'ok': True, 'row': row.to_dict()})
 
 

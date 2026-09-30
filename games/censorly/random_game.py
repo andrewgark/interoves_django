@@ -52,7 +52,7 @@ def _create_from_article(article: WikiArticle, *, game: Game | None = None) -> R
         if existing is not None:
             return existing
         task_group = TaskGroup.objects.create(
-            label=f'censorly:random:{article.title}',
+            label=('censorly:random:' + article.title)[:100],
             checker=checker,
             points=1,
             max_attempts=None,
@@ -79,7 +79,7 @@ def _create_from_article(article: WikiArticle, *, game: Game | None = None) -> R
             game=game,
             task_group=task_group,
             number=share_hash,
-            name=f'Цензурка: {article.title}',
+            name=('Цензурка: ' + article.title)[:100],
             share_hash=share_hash,
         )
         return row
