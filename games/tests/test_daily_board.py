@@ -23,11 +23,12 @@ class DailyBoardBuilderTests(TestCase):
         self.assertIs(get_daily_board_adapter('word_salad'), DAILY_BOARD_ADAPTERS['word_salad'])
         self.assertIsNone(get_daily_board_adapter('future_daily_game'))
 
-    @patch('games.daily.board.attach_salad_share_card')
+    @patch('games.daily.board.get_daily_share_adapter')
     @patch('games.daily.board.build_word_salad_ui_context', return_value={'board': 'ui'})
     def test_salad_builder_keeps_ui_shape_and_share_boundary(
-        self, build_ui, attach_share,
+        self, build_ui, get_share,
     ):
+        attach_share = get_share.return_value.attach
         game = SimpleNamespace(id='salad')
         ui = build_word_salad_board_data(
             game=game,
@@ -44,13 +45,15 @@ class DailyBoardBuilderTests(TestCase):
 
         self.assertEqual(ui, {'board': 'ui'})
         build_ui.assert_called_once()
+        get_share.assert_called_once_with('salad')
         attach_share.assert_called_once()
 
-    @patch('games.daily.board.attach_salad_share_card')
+    @patch('games.daily.board.get_daily_share_adapter')
     @patch('games.daily.board.build_word_salad_ui_context', return_value={'board': 'ui'})
     def test_salad_builder_does_not_attach_share_card_for_other_games(
-        self, build_ui, attach_share,
+        self, build_ui, get_share,
     ):
+        get_share.return_value = None
         build_word_salad_board_data(
             game=SimpleNamespace(id='other'),
             task='task',
@@ -65,13 +68,14 @@ class DailyBoardBuilderTests(TestCase):
         )
 
         build_ui.assert_called_once()
-        attach_share.assert_not_called()
+        get_share.assert_called_once_with('other')
 
-    @patch('games.daily.board.attach_ladder_share_card')
+    @patch('games.daily.board.get_daily_share_adapter')
     @patch('games.daily.board.build_raddle_ui_context', return_value={'board': 'ui'})
     def test_raddle_builder_preserves_ui_state_and_result_shape(
-        self, build_ui, attach_share,
+        self, build_ui, get_share,
     ):
+        attach_share = get_share.return_value.attach
         state = {}
         task = SimpleNamespace(
             get_max_attempts=lambda: 5,

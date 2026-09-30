@@ -3,13 +3,12 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from games.daily.share_card import attach_ladder_share_card, attach_salad_share_card
 from games.daily.registry import get_daily_game
+from games.daily.share import get_daily_share_adapter
 from games.daily.state import latest_daily_state
 from games.raddle import load_raddle_state, parse_raddle_data
 from games.raddle import build_raddle_ui_context
 from games.word_salad import (
-    WORD_SALAD_GAME_ID,
     build_ui_context as build_word_salad_ui_context,
     load_state as load_word_salad_state,
     parse_task_payload as parse_word_salad_task_payload,
@@ -47,8 +46,9 @@ def build_word_salad_board_data(
         attempts=attempts,
         rare_words=rare_words,
     )
-    if str(getattr(game, 'id', '')) == WORD_SALAD_GAME_ID:
-        attach_salad_share_card(
+    share_adapter = get_daily_share_adapter(game.id)
+    if share_adapter is not None:
+        share_adapter.attach(
             ui,
             words=words,
             grid=grid,
@@ -90,7 +90,7 @@ def build_raddle_board_data(
         mode=mode,
         hint_attempts=hint_attempts,
     )
-    attach_ladder_share_card(
+    get_daily_share_adapter(game.id, fallback_key='ladder').attach(
         ui,
         parsed=parsed,
         state=state,
