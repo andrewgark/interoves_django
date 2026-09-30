@@ -20,7 +20,9 @@ IMAGE_TAG="${REGISTRY}/${REPOSITORY}:${COMMIT}"
 echo "Logging in to ${REGISTRY} as AWS profile ${AWS_PROFILE_NAME}"
 aws_cmd ecr get-login-password | docker login --username AWS --password-stdin "$REGISTRY" >/dev/null
 echo "Building ${IMAGE_TAG} from commit ${COMMIT}"
-docker build --pull --file "$ROOT/Dockerfile.worker" --tag "$IMAGE_TAG" "$ROOT"
+# ECR currently accepts the standard image manifest but rejects BuildKit's
+# OCI attestation manifest with the deploy user's minimal repository policy.
+docker build --pull --provenance=false --file "$ROOT/Dockerfile.worker" --tag "$IMAGE_TAG" "$ROOT"
 docker push "$IMAGE_TAG" >/dev/null
 
 DIGEST="$(aws_cmd ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$COMMIT" --query 'imageDetails[0].imageDigest' --output text)"
