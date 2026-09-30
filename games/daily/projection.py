@@ -13,6 +13,7 @@ from django.db.models import F, Min
 from django.utils import timezone
 
 from games.leaderboard import actor_key
+from games.daily.registry import get_daily_game
 from games.models import (
     Attempt, DailyResultProjection, DailyResultProjectionState, GameTaskGroup,
     Task, Team,
@@ -32,8 +33,12 @@ SCORER_ADAPTER_VERSIONS = {
 
 
 def scorer_adapter_version(game, task_group=None):
-    from games.word_salad import WORD_SALAD_GAME_ID
-    adapter = 'salad_state' if str(getattr(game, 'id', '')) == WORD_SALAD_GAME_ID else 'attempts_info'
+    definition = get_daily_game(getattr(game, 'id', None))
+    adapter = (
+        definition.projection_adapter_key
+        if definition is not None and definition.projection_adapter_key
+        else 'attempts_info'
+    )
     return SCORER_ADAPTER_VERSIONS[adapter]
 
 
