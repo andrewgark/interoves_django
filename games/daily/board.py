@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from games.daily.share_card import attach_ladder_share_card, attach_salad_share_card
+from games.daily.registry import get_daily_game
 from games.raddle import build_raddle_ui_context
 from games.word_salad import WORD_SALAD_GAME_ID, build_ui_context as build_word_salad_ui_context
 
@@ -110,6 +111,12 @@ DAILY_BOARD_ADAPTERS = {
 }
 
 
-def get_daily_board_adapter(task_type):
-    """Return the board adapter for a task type, if one is registered."""
-    return DAILY_BOARD_ADAPTERS.get(str(task_type or ''))
+def get_daily_board_adapter(task_type, *, game_id=None):
+    """Return the registered board adapter, with task-type compatibility fallback."""
+    definition = get_daily_game(game_id)
+    adapter_key = (
+        definition.board_adapter_key
+        if definition is not None and definition.board_adapter_key
+        else task_type
+    )
+    return DAILY_BOARD_ADAPTERS.get(str(adapter_key or ''))

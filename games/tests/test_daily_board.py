@@ -12,8 +12,15 @@ from games.daily.board import (
 
 class DailyBoardBuilderTests(TestCase):
     def test_known_task_types_have_one_dispatch_entry(self):
+        self.assertIs(
+            get_daily_board_adapter('other', game_id='salad'),
+            DAILY_BOARD_ADAPTERS['word_salad'],
+        )
+        self.assertIs(
+            get_daily_board_adapter('other', game_id='ladder'),
+            DAILY_BOARD_ADAPTERS['raddle'],
+        )
         self.assertIs(get_daily_board_adapter('word_salad'), DAILY_BOARD_ADAPTERS['word_salad'])
-        self.assertIs(get_daily_board_adapter('raddle'), DAILY_BOARD_ADAPTERS['raddle'])
         self.assertIsNone(get_daily_board_adapter('future_daily_game'))
 
     @patch('games.daily.board.attach_salad_share_card')

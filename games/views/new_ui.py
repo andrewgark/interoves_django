@@ -3220,7 +3220,10 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                     'replay_slot': replay_slot,
                 },
             )
-            word_salad_adapter = get_daily_board_adapter(t.task_type)
+            word_salad_adapter = get_daily_board_adapter(
+                t.task_type,
+                game_id=getattr(game, 'id', None),
+            )
             word_salad_data[t.id] = word_salad_adapter.build(
                 game=game,
                 task=t,
@@ -3269,7 +3272,10 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             share_title = None
             if str(getattr(game, 'id', '')) != LADDER_GAME_ID:
                 share_title = raddle_share_title(game, placement.number, t.number)
-            raddle_adapter = get_daily_board_adapter(t.task_type)
+            raddle_adapter = get_daily_board_adapter(
+                t.task_type,
+                game_id=getattr(game, 'id', None),
+            )
             raddle_data[t.id] = raddle_adapter.build(
                 game=game,
                 task=t,
