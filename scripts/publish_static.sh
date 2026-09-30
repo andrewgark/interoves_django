@@ -28,7 +28,8 @@ fi
 
 AWS_PROFILE="$AWS_PROFILE_NAME" AWS_DEFAULT_REGION="$REGION" \
     USE_S3=1 IS_PROD=1 AWS_STORAGE_BUCKET_NAME="$BUCKET" \
-    "$PYTHON" manage.py collectstatic --noinput --ignore 'eurovision_booklet'
+    "$PYTHON" manage.py collectstatic --noinput \
+        --ignore 'eurovision_booklet' --ignore 'templates'
 
 printf '%s\n' "$CURRENT" | AWS_PROFILE="$AWS_PROFILE_NAME" AWS_DEFAULT_REGION="$REGION" \
     aws s3 cp - "s3://${BUCKET}/${MARKER_KEY}" --only-show-errors \
