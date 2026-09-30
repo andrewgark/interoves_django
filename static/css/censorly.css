@@ -160,39 +160,42 @@
 }
 
 /*
-  Mask layout: [lock?] [stem bar with length] [ending?]
-  Lock and ending sit on the text baseline; length lives inside the bar.
+  Mask layout (variant B):
+  one word-slot [.censorly-tok__unit] sized to full letter count;
+  black stem fills leftover; optional ending on the right;
+  title-lock sits inside the stem (left), length digit centered in stem.
 */
 .censorly-tok--mask {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.14em;
-  margin: 0 0.04em;
+  display: inline;
+  margin: 0 0.03em;
   vertical-align: baseline;
   cursor: pointer;
   background: transparent;
   opacity: 1;
-  width: auto;
-  height: auto;
   position: static;
   border-radius: 0;
 }
 
-.censorly-tok__lock {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  padding: 0;
-  font-size: 0.78em;
-  line-height: 1;
-  color: var(--censorly-lock);
-  opacity: 0.9;
-  position: static;
-  transform: none;
-  pointer-events: none;
-  align-self: center;
+/* Slot ≈ full word: stem fills leftover; grows if ending needs more room. */
+.censorly-tok__unit {
+  display: inline-grid;
+  grid-template-columns: minmax(0.85em, 1fr) auto;
+  align-items: baseline;
+  box-sizing: border-box;
+  /* Calibrated to IBM Plex Serif Cyrillic advances. */
+  min-width: calc(var(--ch, 4) * 0.58em + 0.18em);
+  max-width: 100%;
+  vertical-align: baseline;
+}
+
+.censorly-tok.is-heading .censorly-tok__unit {
+  min-width: calc(var(--ch, 4) * 0.58em + 0.24em);
+}
+
+.censorly.censorly--show-lengths .censorly-tok__unit,
+.censorly-tok--mask[data-len-forced="1"] .censorly-tok__unit {
+  /* Room for a 2-digit length inside short stems. */
+  min-width: max(calc(var(--ch, 4) * 0.58em + 0.18em), 1.55em);
 }
 
 .censorly-tok__stem {
@@ -200,22 +203,44 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  flex: 0 0 auto;
-  /* Wider than letter-count alone so 1–2 digit lengths fit inside the bar. */
-  width: calc(var(--ch, 4) * 0.68em + 0.55em);
-  min-width: 1.35em;
-  height: 0.72em;
+  width: 100%;
+  min-width: 0.85em;
+  height: 0.74em;
   border-radius: 2px;
   background: var(--text);
-  opacity: 0.82;
+  opacity: 0.84;
   position: relative;
-  /* Sit slightly below the x-height so the bar meets the text baseline. */
-  transform: translateY(0.08em);
+  transform: translateY(0.1em);
 }
 
 .censorly-tok.is-heading .censorly-tok__stem {
-  height: 0.78em;
-  width: calc(var(--ch, 4) * 0.68em + 0.65em);
+  height: 0.8em;
+}
+
+.censorly.censorly--show-lengths .censorly-tok__stem,
+.censorly-tok--mask[data-len-forced="1"] .censorly-tok__stem {
+  height: 0.9em;
+  transform: translateY(0.06em);
+}
+
+/* Title lemma: lock inside the black bar, left edge. */
+.censorly-tok__stem .censorly-tok__lock {
+  position: absolute;
+  left: 0.12em;
+  top: 50%;
+  transform: translateY(-52%);
+  margin: 0;
+  padding: 0;
+  font-size: 0.58em;
+  line-height: 1;
+  color: var(--bg, #fff);
+  opacity: 0.95;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.censorly-tok--mask[data-title-lemma] .censorly-tok__stem {
+  padding-left: 0.85em;
 }
 
 .censorly-tok__stem::after {
@@ -230,9 +255,14 @@
   line-height: 1;
   letter-spacing: 0;
   color: var(--bg, #fff);
-  opacity: 0.95;
+  opacity: 0.96;
   pointer-events: none;
   font-variant-numeric: tabular-nums;
+  font-family: "IBM Plex Sans", "Source Sans 3", system-ui, sans-serif;
+}
+
+.censorly-tok--mask[data-title-lemma] .censorly-tok__stem::after {
+  padding-left: 0.7em;
 }
 
 .censorly.censorly--show-lengths .censorly-tok--mask:not([data-len-forced="0"]) .censorly-tok__stem::after,
@@ -241,13 +271,24 @@
 }
 
 .censorly-tok__ending {
-  flex: 0 0 auto;
   color: var(--censorly-ending);
   font-size: 1em;
   font-weight: 500;
   line-height: inherit;
   letter-spacing: 0.01em;
   user-select: none;
+  margin-left: 0.01em;
+  white-space: nowrap;
+}
+
+/* Revealed title words keep a quiet lock before the text. */
+.censorly-tok--revealed > .censorly-tok__lock {
+  display: inline;
+  margin-right: 0.1em;
+  font-size: 0.78em;
+  color: var(--censorly-lock);
+  opacity: 0.85;
+  vertical-align: 0.05em;
 }
 
 .censorly-tok--revealed {

@@ -9,13 +9,13 @@ import json
 import os
 import time
 from datetime import datetime, timedelta
-from threading import Barrier, Thread
+from threading import Barrier, Event, Thread
 from unittest import skipUnless
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth.models import User
-from django.db import close_old_connections, connection
+from django.db import close_old_connections, connection, transaction
 from django.test import TransactionTestCase
 from django.utils import timezone
 
@@ -191,6 +191,73 @@ class StructuralMySQLConcurrencyTests(TransactionTestCase):
             timing = DailySolveTiming.objects.get(user=self.user, task_group_id=group_id)
             self.assertEqual(timing.status, DailySolveTiming.STATUS_COMPLETED)
             self.assertIsNotNone(timing.frozen_ms)
+
+    def test_completion_retries_after_real_mysql_lock_wait_timeout(self):
+        """A real InnoDB 1205 rolls back the attempt before completion retries."""
+        group_id, task_id = self._complete_fixture(25)
+        lock_acquired = Event()
+        release_lock = Event()
+        errors = []
+        results = []
+
+        def blocker():
+            close_old_connections()
+            try:
+                with transaction.atomic():
+                    TaskGroup.objects.select_for_update().get(pk=group_id)
+                    lock_acquired.set()
+                    self.assertTrue(release_lock.wait(timeout=15))
+            except Exception as exc:
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        def completion():
+            close_old_connections()
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute('SET SESSION innodb_lock_wait_timeout = 1')
+                group = TaskGroup.objects.get(pk=group_id)
+                task = Task.objects.get(pk=task_id)
+                game = Game.objects.get(pk=self.game.pk)
+                user = User.objects.get(pk=self.user.pk)
+                results.append(complete_logical_game(
+                    actor={'user': user}, game=game, task_group=group,
+                    task=task, source='mysql-lock-timeout-test',
+                ))
+            except Exception as exc:
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        blocker_thread = Thread(target=blocker)
+        completion_thread = Thread(target=completion)
+        blocker_thread.start()
+        self.assertTrue(lock_acquired.wait(timeout=15))
+        with self.assertLogs('games.completion_coordinator', level='WARNING') as retry_logs:
+            completion_thread.start()
+            # The completion session must hit its one-second InnoDB wait
+            # timeout before the blocker releases the parent row.  Its next
+            # full transaction attempt then proceeds normally.
+            time.sleep(1.25)
+            release_lock.set()
+            blocker_thread.join(timeout=15)
+            completion_thread.join(timeout=15)
+
+        self.assertFalse(blocker_thread.is_alive())
+        self.assertFalse(completion_thread.is_alive())
+        self.assertEqual(errors, [], [repr(error) for error in errors])
+        self.assertTrue(
+            any('errno=1205' in message for message in retry_logs.output),
+            retry_logs.output,
+        )
+        self.assertEqual(len(results), 1)
+        self.assertIsNotNone(results[0])
+        self.assertEqual(
+            PlayerCompletedGame.objects.filter(
+                user=self.user, game=self.game, task_group_id=group_id,
+            ).count(), 1,
+        )
 
     def test_b_completion_and_heartbeat_preserve_frozen_timing(self):
         for iteration in range(20):

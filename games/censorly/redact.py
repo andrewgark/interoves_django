@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from games.censorly import CENSORLY_SHOW_MASK_ENDINGS
-from games.censorly.normalize import strip_combining_marks
+from games.censorly.normalize import is_hintable_ending, strip_combining_marks
 from games.censorly.tokenize import all_tokens, title_content_lemmas
 
 
@@ -47,12 +47,18 @@ def _token_public(
         out['just_revealed'] = bool(last_lemma and lemma == last_lemma)
     elif show_endings:
         ending = (tok.get('ending') or '').strip()
-        if ending:
+        try:
+            stem_len = int(tok.get('stem_length') or 0)
+        except (TypeError, ValueError):
+            stem_len = 0
+        # Re-validate so older puzzles drop noisy one-letter / irregular tails.
+        stem_guess = ''
+        if stem_len > 0:
+            stem_guess = 'x' * stem_len
+        elif ending and length > len(ending):
+            stem_guess = 'x' * (length - len(ending))
+        if ending and is_hintable_ending(ending, stem=stem_guess):
             out['ending'] = ending
-            try:
-                stem_len = int(tok.get('stem_length') or 0)
-            except (TypeError, ValueError):
-                stem_len = 0
             if stem_len > 0:
                 out['stem_length'] = stem_len
     return out

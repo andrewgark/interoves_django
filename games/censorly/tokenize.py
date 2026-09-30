@@ -192,13 +192,28 @@ def ordered_title_lemmas(payload: dict[str, Any]) -> list[str]:
 
 def _strip_token_surface(tok: dict[str, Any]) -> dict[str, Any]:
     surface = tok.get('surface') or ''
-    if not surface or surface.isspace():
-        return tok
-    plain = strip_combining_marks(surface)
-    if plain == surface:
-        return tok
-    out = dict(tok)
-    out['surface'] = plain
+    out = tok
+    if surface and not surface.isspace():
+        plain = strip_combining_marks(surface)
+        if plain != surface:
+            out = dict(tok)
+            out['surface'] = plain
+    # Drop noisy endings stored before the allowlist filter.
+    ending = (out.get('ending') or '').strip()
+    if ending:
+        from games.censorly.normalize import is_hintable_ending
+        stem = ''
+        try:
+            stem_len = int(out.get('stem_length') or 0)
+        except (TypeError, ValueError):
+            stem_len = 0
+        if stem_len > 0:
+            stem = 'x' * stem_len
+        if not is_hintable_ending(ending, stem=stem):
+            if out is tok:
+                out = dict(tok)
+            out.pop('ending', None)
+            out.pop('stem_length', None)
     return out
 
 
