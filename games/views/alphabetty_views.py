@@ -34,7 +34,10 @@ from games.analytics import (
 )
 from games.completion_coordinator import complete_logical_game
 from games.daily_transitions import next_daily_content_transition_for_game
-from games.daily_archive import build_daily_archive_context
+from games.daily_archive import (
+    build_daily_archive_context,
+    build_daily_archive_items,
+)
 from games.daily_section import MOSCOW
 from games.alphabetty.suggestions import suggest_word
 from games.alphabetty_daily import (
@@ -245,15 +248,14 @@ def alphabetty_hub_page(request):
             continue
         link_rows.append((n, link))
 
-    archive_items = []
-    for n, link in link_rows:
-        published_at = alphabetty_publish_at(game, n)
-        if published_at is not None:
-            archive_items.append({
-                'date': published_at.astimezone(MOSCOW).date(),
-                'key': str(n), 'number': n, 'anchor': f'alphabetty-{n}',
-                'href': section_play_path(ALPHABETTY_GAME_ID, n),
-            })
+    archive_items = build_daily_archive_items(
+        link_rows,
+        game_id=ALPHABETTY_GAME_ID,
+        publish_at_for_number=lambda number: alphabetty_publish_at(game, number),
+        href_for_number=lambda number: section_play_path(ALPHABETTY_GAME_ID, number),
+        timezone_name=MOSCOW,
+        number_for_link=lambda pair: pair[0],
+    )
     archive_context = build_daily_archive_context(
         items=archive_items, requested_month=request.GET.get('month'),
         today=timezone.localdate(), archive_url=request.path,

@@ -16,6 +16,26 @@ MONTH_NAMES_GENITIVE = (
 )
 
 
+def build_daily_archive_items(links, *, game_id, publish_at_for_number,
+                              href_for_number, timezone_name,
+                              number_for_link=None):
+    """Build neutral calendar items from game-specific published links."""
+    items = []
+    for link in links:
+        number = number_for_link(link) if number_for_link else link.number
+        published_at = publish_at_for_number(number)
+        if published_at is None:
+            continue
+        items.append({
+            'date': published_at.astimezone(timezone_name).date(),
+            'key': str(number),
+            'number': number,
+            'anchor': '{}-{}'.format(game_id, number),
+            'href': href_for_number(number),
+        })
+    return items
+
+
 def month_key(value: date) -> str:
     return value.strftime('%Y-%m')
 

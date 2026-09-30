@@ -69,7 +69,11 @@ from games.daily_section import (
     visible_links,
     MOSCOW,
 )
-from games.daily_archive import MONTH_NAMES, build_daily_archive_context
+from games.daily_archive import (
+    MONTH_NAMES,
+    build_daily_archive_context,
+    build_daily_archive_items,
+)
 from games.daily.registry import get_daily_game
 from games.ladder_daily import (
     LADDER_GAME_ID,
@@ -1036,18 +1040,13 @@ def _published_numbers(game):
 def _daily_archive_context(request, game, links, *, completed_numbers=(), status_by_key=None,
                            locked_keys=()):
     """Adapt section placements to the neutral reusable archive component."""
-    items = []
-    for link in links:
-        published_at = publish_at_for(game, link.number)
-        if published_at is None:
-            continue
-        items.append({
-            'date': published_at.astimezone(MOSCOW).date(),
-            'key': str(link.number),
-            'number': link.number,
-            'anchor': '{}-{}'.format(game.id, link.number),
-            'href': _play_url_for_task_group(game, link.number),
-        })
+    items = build_daily_archive_items(
+        links,
+        game_id=game.id,
+        publish_at_for_number=lambda number: publish_at_for(game, number),
+        href_for_number=lambda number: _play_url_for_task_group(game, number),
+        timezone_name=MOSCOW,
+    )
     meta = SECTION_HUB_META.get(game.id) or {}
     archive_params = request.GET.copy()
     archive_params.pop('month', None)

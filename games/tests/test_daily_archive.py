@@ -1,11 +1,38 @@
-from datetime import date
+from datetime import date, datetime, timezone
+from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
-from games.daily_archive import build_daily_archive_context
+from games.daily_archive import (
+    build_daily_archive_context,
+    build_daily_archive_items,
+)
 
 
 class DailyArchiveContextTests(SimpleTestCase):
+    def test_archive_items_share_one_neutral_shape(self):
+        links = [SimpleNamespace(number=12), SimpleNamespace(number=13)]
+        published = {
+            12: datetime(2026, 5, 9, 12, tzinfo=timezone.utc),
+            13: None,
+        }
+
+        items = build_daily_archive_items(
+            links,
+            game_id='demo',
+            publish_at_for_number=published.get,
+            href_for_number=lambda number: '/demo/{}/'.format(number),
+            timezone_name=timezone.utc,
+        )
+
+        self.assertEqual(items, [{
+            'date': date(2026, 5, 9),
+            'key': '12',
+            'number': 12,
+            'anchor': 'demo-12',
+            'href': '/demo/12/',
+        }])
+
     def items(self):
         return [
             {'date': date(2026, 3, 31), 'key': '1', 'number': 1, 'anchor': 'ladder-1', 'href': '/ladder/1/'},
