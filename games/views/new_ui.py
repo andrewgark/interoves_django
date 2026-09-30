@@ -2546,7 +2546,7 @@ def new_section_results_page(request, game_id):
         actor = row.get('actor')
         row['is_club_subscriber'] = getattr(actor, 'user_id', None) in aggregate_subscriber_ids
     aggregate_column_labels = {}
-    if game_id == ALPHABETTY_GAME_ID:
+    if results_variant == 'alphabetty':
         current_actor = team if play_mode == 'team' else (me_personal or me_anon_participant)
         def actor_identity(actor):
             if getattr(actor, 'is_team_results_row', False):
@@ -2621,7 +2621,7 @@ def new_section_results_page(request, game_id):
     data.update({
         'mode': 'general',
         'section_results': True,
-        'is_ladder_results': game_id == LADDER_GAME_ID,
+        'is_ladder_results': results_variant == 'ladder',
         'results_variant': results_variant,
         'game': game,
         'team': team,
@@ -2670,19 +2670,19 @@ def _render_task_group_results_page(request, game, number, back_url):
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     me_personal, me_anon_participant = _results_me_participants(request, play_mode)
-    alphabetty_sort = 'time' if game.id == ALPHABETTY_GAME_ID and request.GET.get('sort') == 'time' else 'attempts'
-    data = _new_results_compute(
-        game, mode='general', task_group_number=number,
-        alphabetty_sort=alphabetty_sort,
-        actor_types=_results_actor_filter_types(request),
-    )
     daily_definition = get_daily_game(game.id)
     results_variant = (
         daily_definition.task_results_variant
         if daily_definition is not None
         else 'standard'
     )
-    if game.id == 'salad':
+    alphabetty_sort = 'time' if results_variant == 'alphabetty' and request.GET.get('sort') == 'time' else 'attempts'
+    data = _new_results_compute(
+        game, mode='general', task_group_number=number,
+        alphabetty_sort=alphabetty_sort,
+        actor_types=_results_actor_filter_types(request),
+    )
+    if results_variant == 'salad_words':
         data = _word_salad_release_breakdown(data, game, number)
     data = _set_current_result_header_answers(
         data, me_personal or me_anon_participant or team, game=game,
@@ -2698,7 +2698,7 @@ def _render_task_group_results_page(request, game, number, back_url):
             team=team, me_personal=me_personal,
             me_anon_participant=me_anon_participant,
             show_solve_duration=True,
-            show_alphabetty_detail=game.id == ALPHABETTY_GAME_ID,
+            show_alphabetty_detail=results_variant == 'alphabetty',
         )
     return render(request, 'ui/results.html', {
         'mode': 'general',
@@ -2711,7 +2711,7 @@ def _render_task_group_results_page(request, game, number, back_url):
         'back_url': back_url,
         'show_solve_duration': True,
         'alphabetty_sort': alphabetty_sort,
-        'show_alphabetty_detail': game.id == ALPHABETTY_GAME_ID,
+        'show_alphabetty_detail': results_variant == 'alphabetty',
         **data,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
