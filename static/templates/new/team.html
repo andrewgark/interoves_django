@@ -329,6 +329,7 @@
   var joinForm = document.getElementById('new-join-team-form');
   var joinPickTeamErr = document.querySelector('[data-join-pick-team-error]');
   var joinTeamResolved = false;
+  var joinCheckSeq = 0;
   function hideJoinPickTeamErr() {
     if (!joinPickTeamErr) return;
     joinPickTeamErr.textContent = '';
@@ -345,6 +346,7 @@
     if (joinByPassBtn) joinByPassBtn.disabled = !passTrim;
   }
   function checkJoinTeam() {
+    var checkSeq = ++joinCheckSeq;
     var name = (joinName && joinName.value || '').trim();
     if (!name) {
       joinTeamResolved = false;
@@ -356,6 +358,7 @@
     fetch("{{ ui_team_url_info }}?name=" + encodeURIComponent(name), { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        if (checkSeq !== joinCheckSeq) return;
         joinTeamResolved = !!(data && data.ok && data.exists);
         if (joinTeamResolved) hideJoinPickTeamErr();
         if (!data || !data.ok || !data.exists) {
@@ -373,6 +376,7 @@
   }
   if (joinName) {
     joinName.addEventListener('input', function () {
+      joinCheckSeq += 1;
       hideJoinPickTeamErr();
       joinTeamResolved = false;
       updateJoinButtons(false);

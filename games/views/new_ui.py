@@ -4970,6 +4970,39 @@ def _post_make_new_team_primary(request):
     return v not in ('0', 'false', 'no', 'off')
 
 
+def _team_name_key(value):
+    """Comparison key for user-facing team names."""
+    return ' '.join((value or '').split()).casefold()
+
+
+def _find_team_by_input(value):
+    """Resolve a team by its stable name or normalized display name."""
+    name = (value or '').strip()
+    team = Team.objects.filter(name=name).first()
+    if team:
+        return team
+    key = _team_name_key(name)
+    if not key:
+        return None
+    return next(
+        (
+            candidate for candidate in Team.objects.all().only('name', 'visible_name')
+            if _team_name_key(candidate.visible_name or candidate.name) == key
+        ),
+        None,
+    )
+
+
+def _team_display_name_taken(value, *, exclude_name=None):
+    key = _team_name_key(value)
+    if not key:
+        return False
+    teams = Team.objects.all()
+    if exclude_name is not None:
+        teams = teams.exclude(pk=exclude_name)
+    return any(_team_name_key(team.visible_name or team.name) == key for team in teams.only('name', 'visible_name'))
+
+
 def _member_teams_active_first(profile):
     """Все команды членства; активная первая (для переключателя на странице команды)."""
     rows = list(
@@ -5049,7 +5082,10 @@ def _new_team_ui_context(request):
     else:
         back = request.build_absolute_uri('/team/')
         url_map = _main_team_page_urls()
-    teams = sorted(Team.objects.filter(project=project, is_hidden=False), key=lambda t: t.visible_name)
+    teams = sorted(
+        Team.objects.filter(is_hidden=False),
+        key=lambda t: (_team_name_key(t.visible_name or t.name), _team_name_key(t.name)),
+    )
     profile = request.user.profile
     profile.repair_primary_team()
     member_teams, member_teams_others = _member_teams_active_first(profile)
@@ -5786,22 +5822,17 @@ def new_donation_status(request, public_token):
 @login_required
 @require_http_methods(['GET'])
 def new_team_name_check(request, project_id=None):
-    project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     name = (request.GET.get('name') or '').strip()
     if not name:
         return JsonResponse({'ok': True, 'available': False, 'reason': 'empty'})
-    exists = Team.objects.filter(project=project, name=name).exists()
-    return JsonResponse({'ok': True, 'available': not exists})
+    return JsonResponse({'ok': True, 'available': not _team_display_name_taken(name)})
 
 
 @login_required
 @require_http_methods(['GET'])
 def new_team_info(request, project_id=None):
-    project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     name = (request.GET.get('name') or '').strip()
-    team = Team.objects.filter(project=project, name=name).first()
-    if not team:
-        team = Team.objects.filter(project=project, visible_name__iexact=name).first()
+    team = _find_team_by_input(name)
     if not team:
         return JsonResponse({'ok': True, 'exists': False})
     return JsonResponse({'ok': True, 'exists': True, 'n_users': team.get_n_users_on(), 'visible_name': team.visible_name})
@@ -5817,16 +5848,15 @@ def new_team_create(request, project_id=None):
         ctx['team_section'] = 'create'
         ctx['page_title'] = 'Создать команду'
         return render(request, 'ui/team.html', ctx)
-    project = get_object_or_404(Project, id=NEW_UI_PROJECT)
+    scoped = _scoped_project_id(request)
+    project = get_object_or_404(Project, id=scoped or NEW_UI_PROJECT)
     name = (request.POST.get('name') or '').strip()
-    if not name:
-        raise Http404()
-    if Team.objects.filter(project=project, name=name).exists():
+    if not name or _team_display_name_taken(name):
         raise Http404()
     referer_name = (request.POST.get('referer') or '').strip()
     referer = None
     if referer_name:
-        referer = Team.objects.filter(project=project, name=referer_name).first()
+        referer = Team.objects.filter(name=referer_name, is_hidden=False).first()
     team = Team(name=name, project=project, referer=referer)
     team.save()
     request.user.profile.add_team_membership(team, make_primary=_post_make_new_team_primary(request))
@@ -5841,11 +5871,8 @@ def new_team_create(request, project_id=None):
 def new_team_request_join(request, project_id=None):
     if not has_profile(request.user) or request.user.profile.team_requested:
         raise Http404()
-    project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     name = (request.POST.get('name') or '').strip()
-    team = Team.objects.filter(project=project, name=name).first()
-    if not team:
-        team = Team.objects.filter(project=project, visible_name__iexact=name).first()
+    team = _find_team_by_input(name)
     if not team:
         raise Http404()
     if ProfileTeamMembership.objects.filter(profile=request.user.profile, team=team).exists():
@@ -5873,12 +5900,9 @@ def new_team_join_by_password(request, project_id=None):
     if not has_profile(request.user):
         messages.error(request, 'Нельзя вступить в команду сейчас.')
         return _team_join_redirect(request)
-    project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     name = (request.POST.get('name') or '').strip()
     password = (request.POST.get('password') or '').strip()
-    team = Team.objects.filter(project=project, name=name).first()
-    if not team:
-        team = Team.objects.filter(project=project, visible_name__iexact=name).first()
+    team = _find_team_by_input(name)
     if not team:
         messages.error(request, 'Команда не найдена.')
         return _team_join_redirect(request)
@@ -5908,11 +5932,8 @@ def new_team_join_by_password(request, project_id=None):
 def new_team_set_primary(request, project_id=None):
     if not has_profile(request.user):
         raise Http404()
-    project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     team_pk = (request.POST.get('team') or '').strip()
     team = get_object_or_404(Team, pk=team_pk)
-    if team.project_id != project.id:
-        raise Http404()
     if not request.user.profile.set_primary_team(team):
         messages.error(request, 'Нет доступа к этой команде.')
     return _team_redirect(request)
@@ -5943,6 +5964,9 @@ def new_team_rename(request, project_id=None):
     visible_name = (request.POST.get('visible_name') or '').strip()
     if not visible_name:
         messages.error(request, 'Название не может быть пустым.')
+        return _team_redirect(request)
+    if _team_display_name_taken(visible_name, exclude_name=team.pk):
+        messages.error(request, 'Это название уже занято другой командой.')
         return _team_redirect(request)
     team.visible_name = visible_name
     team.save(update_fields=['visible_name'])
