@@ -24,6 +24,19 @@ REGION="$(curl -fsS \
     -H "X-aws-ec2-metadata-token: ${METADATA_TOKEN}" \
     http://169.254.169.254/latest/meta-data/placement/region)"
 
+# The Green source bundle may also be used to create a temporary load-balanced
+# candidate.  Only the instance tagged as the production Green environment may
+# claim the production origin EIP.
+ENVIRONMENT_NAME="$(/usr/bin/aws ec2 describe-instances \
+    --region "${REGION}" \
+    --instance-ids "${INSTANCE_ID}" \
+    --query 'Reservations[0].Instances[0].Tags[?Key==`elasticbeanstalk:environment-name`].Value | [0]' \
+    --output text)"
+if [[ "${ENVIRONMENT_NAME}" != "interoves-web-green" ]]; then
+    echo "Skipping Green origin EIP on environment ${ENVIRONMENT_NAME}"
+    exit 0
+fi
+
 /usr/bin/aws ec2 associate-address \
     --region "${REGION}" \
     --allocation-id "${EIP_ALLOCATION_ID}" \
