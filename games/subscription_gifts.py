@@ -34,7 +34,7 @@ class CreatedGift:
     code: str
 
 
-def create_gift(*, created_by, recipient_telegram_user_id: int, recipient_telegram_username: str = '',
+def create_gift(*, created_by, recipient_telegram_user_id: int | None = None, recipient_telegram_username: str = '',
                duration_months: int | None = None, is_forever: bool = False,
                created_by_telegram_user_id: int | None = None) -> CreatedGift:
     if is_forever == (duration_months is not None):
@@ -46,7 +46,10 @@ def create_gift(*, created_by, recipient_telegram_user_id: int, recipient_telegr
         code = _new_code()
         try:
             gift = SubscriptionGift.objects.create(
-                recipient_telegram_user_id=int(recipient_telegram_user_id),
+                recipient_telegram_user_id=(
+                    int(recipient_telegram_user_id)
+                    if recipient_telegram_user_id is not None else None
+                ),
                 recipient_telegram_username=(recipient_telegram_username or '').strip().lstrip('@')[:64],
                 code_hash=_code_hash(code),
                 duration_months=duration_months,
@@ -87,8 +90,13 @@ def claim_gift(*, code: str, user) -> tuple[SubscriptionGift, ClubEntitlement]:
         raise ValueError('Этот подарок уже использован или отозван')
 
     profile = Profile.objects.filter(user=user).first()
-    if profile is None or profile.telegram_user_id != gift.recipient_telegram_user_id:
-        raise ValueError('Сначала войдите в аккаунт, привязанный к Telegram получателя подарка')
+    if profile is None:
+        raise ValueError('Сначала создайте профиль Inter Oves')
+    if (
+        gift.recipient_telegram_user_id is not None
+        and profile.telegram_user_id != gift.recipient_telegram_user_id
+    ):
+        raise ValueError('Этот подарок предназначен другому Telegram-аккаунту')
 
     now = timezone.now()
     starts_at = _current_access_end(user, now)

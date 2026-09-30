@@ -48,7 +48,7 @@ def _help_text() -> str:
         '/salad — превью сегодняшнего салатика (картинка в этот чат)',
         '/mute &lt;мин&gt; — заглушить рутину',
         '/unmute — включить уведомления',
-        '/gift @username 1|N|forever — подарить подписку',
+        '/gift [@username] 1|N|forever — создать код подарка',
         '',
         'Публичные (личка и чаты): /des, /des_results',
         'Чат-мод: бот шлёт анонсы в группы из TELEGRAM_ANNOUNCE_CHAT_IDS.',
@@ -113,23 +113,30 @@ def _cmd_gift(args, *, telegram_user_id=None) -> str:
     from games.subscription_gifts import create_gift, gift_duration_label
     from games.telegram.api import send_message
 
-    if len(args) != 2:
-        return 'Формат: /gift @username 1|N|forever'
-    recipient = args[0].strip()
-    duration = args[1].strip().lower()
-    profile_qs = Profile.objects.filter(telegram_verified=True)
-    if recipient.startswith('@'):
-        profile = profile_qs.filter(
-            Q(telegram_username__iexact=recipient[1:])
-            | Q(telegram_handle__iexact=recipient[1:])
-        ).first()
+    if len(args) == 1:
+        recipient = ''
+        duration = args[0].strip().lower()
+    elif len(args) == 2:
+        recipient = args[0].strip()
+        duration = args[1].strip().lower()
     else:
-        try:
-            profile = profile_qs.filter(telegram_user_id=int(recipient)).first()
-        except ValueError:
-            profile = None
-    if profile is None or not profile.telegram_user_id:
-        return 'Получатель не найден. Нужен привязанный Telegram @username или numeric Telegram ID.'
+        return 'Формат: /gift [@username|numeric Telegram ID] 1|N|forever'
+
+    profile = None
+    if recipient:
+        profile_qs = Profile.objects.filter(telegram_verified=True)
+        if recipient.startswith('@'):
+            profile = profile_qs.filter(
+                Q(telegram_username__iexact=recipient[1:])
+                | Q(telegram_handle__iexact=recipient[1:])
+            ).first()
+        else:
+            try:
+                profile = profile_qs.filter(telegram_user_id=int(recipient)).first()
+            except ValueError:
+                profile = None
+        if profile is None:
+            return 'Получатель не найден. Для ручного кода используйте /gift 1|N|forever.'
 
     is_forever = duration in ('forever', 'навсегда', '永久')
     try:
@@ -147,8 +154,8 @@ def _cmd_gift(args, *, telegram_user_id=None) -> str:
     try:
         created = create_gift(
             created_by=creator,
-            recipient_telegram_user_id=profile.telegram_user_id,
-            recipient_telegram_username=profile.telegram_username,
+            recipient_telegram_user_id=profile.telegram_user_id if profile else None,
+            recipient_telegram_username=profile.telegram_username if profile else '',
             duration_months=duration_months,
             is_forever=is_forever,
             created_by_telegram_user_id=telegram_user_id,
@@ -164,15 +171,23 @@ def _cmd_gift(args, *, telegram_user_id=None) -> str:
         'Откройте <a href="{}/subscription/">страницу подписки</a> и введите код:\n'
         '<code>{}</code>'
     ).format(gift_duration_label(gift), base_url, created.code)
-    delivered = send_message(profile.telegram_user_id, text)
+    delivered = bool(profile and profile.telegram_user_id and send_message(profile.telegram_user_id, text))
     if delivered:
         gift.sent_at = timezone.now()
         gift.save(update_fields=['sent_at'])
-    return 'Подарок создан для @{} на {}. Код: <code>{}</code>{}'.format(
-        profile.telegram_username or profile.telegram_user_id,
+    recipient_label = (
+        '@{}'.format(profile.telegram_username or profile.telegram_user_id)
+        if profile else 'без привязки Telegram'
+    )
+    delivery_note = '' if delivered else (
+        '\n\n<b>Сообщение для получателя:</b>\n{}\n'
+        'Перешлите этот текст получателю вручную.'
+    ).format(text)
+    return 'Подарок создан для {} на {}. Код: <code>{}</code>{}'.format(
+        recipient_label,
         gift_duration_label(gift),
         created.code,
-        '' if delivered else ' (сообщение не доставлено)',
+        delivery_note,
     )
 
 

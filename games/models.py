@@ -597,6 +597,10 @@ class GameTaskGroup(models.Model):
     number = models.CharField(max_length=20, validators=[GAME_TASK_GROUP_NUMBER_VALIDATOR])
     name = models.CharField(max_length=100)
     share_hash = models.CharField(max_length=32, unique=True, null=True, blank=True)
+    is_deferred = models.BooleanField(
+        default=False,
+        help_text='Временно убрано из расписания support.',
+    )
 
     class Meta:
         constraints = [
@@ -2968,7 +2972,7 @@ class SubscriptionGift(models.Model):
         (STATUS_REVOKED, 'Revoked'),
     )
 
-    recipient_telegram_user_id = models.BigIntegerField(db_index=True)
+    recipient_telegram_user_id = models.BigIntegerField(blank=True, null=True, db_index=True)
     recipient_telegram_username = models.CharField(max_length=64, blank=True, default='')
     code_hash = models.CharField(max_length=64, unique=True, db_index=True)
     duration_months = models.PositiveIntegerField(blank=True, null=True)
