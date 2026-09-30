@@ -112,9 +112,13 @@ class Command(BaseCommand):
         first_category = categories[0]
         second_category = first_category if same_category else categories[1]
         created = []
+        # A team is one actor.  For the bulk scenario use anonymous actors
+        # without a team, otherwise different anon_key values still collapse
+        # to the same ``team:<id>`` ChainTaskState context.
+        actor_team = None if distinct_actors else team
         for index, category in enumerate((first_category, second_category)):
             row = Attempt.manager.create(
-                team=team,
+                team=actor_team,
                 task=task,
                 game=game,
                 task_revision=task.attempt_revision,
@@ -233,13 +237,16 @@ class Command(BaseCommand):
             time.sleep(2)
 
     def _reset(self, task, game, team, marker, attempt_ids, job_ids, checker_data):
-        self._cleanup_records(marker, attempt_ids, job_ids)
+        self._cleanup_records(marker, attempt_ids, job_ids, task=task, game=game)
         task.checker_data = checker_data
         task.save(update_fields=['checker_data'], skip_semantics_reconciliation=True)
         recheck_chain_task(task, team=team, game=game, notify=False)
 
     def _cleanup(self, **kwargs):
-        self._cleanup_records(kwargs['marker'], kwargs['attempt_ids'], kwargs['job_ids'])
+        self._cleanup_records(
+            kwargs['marker'], kwargs['attempt_ids'], kwargs['job_ids'],
+            task=kwargs['task'], game=kwargs['game'],
+        )
         task = kwargs['task']
         task.checker_data = kwargs['checker_data']
         task.save(update_fields=['checker_data'], skip_semantics_reconciliation=True)
@@ -256,10 +263,14 @@ class Command(BaseCommand):
             )
 
     @staticmethod
-    def _cleanup_records(marker, attempt_ids, job_ids):
+    def _cleanup_records(marker, attempt_ids, job_ids, *, task=None, game=None):
         marker_ids = list(Attempt.manager.filter(text__contains=marker).values_list('pk', flat=True))
         with transaction.atomic():
             WordSaladRecheckOutbox.objects.filter(item__job_id__in=job_ids).delete()
             WordSaladRecheckItem.objects.filter(job_id__in=job_ids).delete()
             WordSaladRecheckJob.objects.filter(pk__in=job_ids).delete()
             Attempt.manager.filter(pk__in=set(attempt_ids) | set(marker_ids)).delete()
+            if task is not None and game is not None:
+                ChainTaskState.objects.filter(
+                    task=task, game=game, anon_key__contains=marker,
+                ).delete()
