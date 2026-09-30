@@ -28,16 +28,6 @@
       <p class="new-pay-security">{{ message }}</p>
     {% endfor %}
   {% endif %}
-  <div class="new-card new-pay-payment-card">
-    <h2 class="new-pay-section-title">Подарочная подписка</h2>
-    <p class="new-pay-order__meta">Если вам подарили подписку, введите код. Подарок активируется в текущем аккаунте.</p>
-    <form method="post" action="{% url 'new_subscription_claim_gift' %}">
-      {% csrf_token %}
-      <label for="subscription-gift-code">Код подарка</label>
-      <input id="subscription-gift-code" name="code" type="text" autocomplete="off" placeholder="IO-XXXX-XXXX" required>
-      <button type="submit" class="new-btn">Активировать подарок</button>
-    </form>
-  </div>
   <header class="new-pay-checkout__header">
     <p class="new-pay-checkout__eyebrow">Inter Oves</p>
     <h1 class="new-heading new-heading--page">Клубная подписка</h1>
@@ -300,6 +290,17 @@
       <p id="new-sub-message" class="new-login-hint new-pay-message" aria-live="polite"></p>
     </div>
   {% endif %}
+
+  <div class="new-card new-pay-payment-card">
+    <h2 class="new-pay-section-title">Подарочная подписка</h2>
+    <p class="new-pay-order__meta">Если вам подарили подписку, введите код. Подарок активируется в текущем аккаунте.</p>
+    <form method="post" action="{% url 'new_subscription_claim_gift' %}">
+      {% csrf_token %}
+      <label for="subscription-gift-code">Код подарка</label>
+      <input id="subscription-gift-code" name="code" type="text" autocomplete="off" placeholder="IO-XXXX-XXXX" required>
+      <button type="submit" class="new-btn">Активировать подарок</button>
+    </form>
+  </div>
 </div>
 {% if user.is_authenticated %}
 <script>
