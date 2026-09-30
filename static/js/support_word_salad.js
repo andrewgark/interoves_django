@@ -340,7 +340,10 @@
           '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">править</button>' +
           '<a class="new-btn new-btn--mini new-btn--ghost" href="' + support.escapeHtml(row.site_url || row.play_url) + '" target="_blank" rel="noopener">сайт</a>' +
           revisionBtn +
-          (!row.is_published ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" data-delete="' + row.link_id + '">удалить</button>' : '') +
+          (!row.is_published ?
+            '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-schedule-jump" data-schedule-jump="top" title="Поставить на завтра" aria-label="Поставить на завтра">↑</button>' +
+            '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-schedule-jump" data-schedule-jump="bottom" title="Поставить в конец расписания" aria-label="Поставить в конец расписания">↓</button>' +
+            '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" data-delete="' + row.link_id + '">удалить</button>' : '') +
         '</div>';
       list.appendChild(item);
     });

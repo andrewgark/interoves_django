@@ -229,6 +229,27 @@
       clearMarkers();
     });
     list.addEventListener('dragend', clearMarkers);
+    list.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-schedule-jump]');
+      var item = button && button.closest(itemSelector);
+      if (!button || !item || !canDrag(item) || isBusy()) return;
+      event.preventDefault();
+      var nextOrder = order();
+      var from = nextOrder.indexOf(idFor(item));
+      var floor = minIndex();
+      var to = button.getAttribute('data-schedule-jump') === 'top'
+        ? floor
+        : nextOrder.length - 1;
+      if (from < floor || from === to) return;
+      var moved = nextOrder.splice(from, 1)[0];
+      nextOrder.splice(to, 0, moved);
+      submit(nextOrder, {
+        movedId: moved,
+        from: from,
+        to: to,
+        quickMove: true,
+      });
+    });
     list.addEventListener('keydown', function (event) {
       if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
       var handle = event.target.closest(handleSelector);

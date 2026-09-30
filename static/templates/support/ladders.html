@@ -247,10 +247,6 @@
         ? '<span class="support-ladder-item__handle support-ladder-item__handle--locked" title="Вышла — порядок зафиксирован">·</span>'
         : '<button type="button" class="support-ladder-item__handle support-schedule-handle" aria-label="Перетащить" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>';
       var previewUrl = row.site_url || row.play_url;
-      var revisionBtn = (linkedOffer && linkedOffer.status !== 'draft')
-        ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-revision-link="' +
-            row.link_id + '">на доработку</button>'
-        : '';
       item.innerHTML =
         handle +
         '<div class="support-ladder-item__num">№' + row.number + '</div>' +
@@ -273,9 +269,10 @@
         '<div class="support-ladder-item__actions">' +
           '<button type="button" class="new-btn new-btn--mini" data-edit="' + row.link_id + '">Править</button>' +
           '<a class="new-btn new-btn--mini new-btn--ghost" href="' + previewUrl + '" target="_blank" rel="noopener">как выглядит</a>' +
-          revisionBtn +
           (!row.is_published
-            ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" data-delete="' +
+            ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-schedule-jump" data-schedule-jump="top" title="Поставить на завтра" aria-label="Поставить на завтра">↑</button>' +
+              '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-schedule-jump" data-schedule-jump="bottom" title="Поставить в конец расписания" aria-label="Поставить в конец расписания">↓</button>' +
+              '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" data-delete="' +
                 row.link_id + '" title="Удалить из расписания">удалить</button>'
             : '') +
         '</div>';

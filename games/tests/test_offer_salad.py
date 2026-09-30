@@ -351,7 +351,7 @@ class WordSaladOfferFlowTests(TestCase):
         validate_puzzle(grid, words)
         self.assertEqual(rare_words, ['BCDE'])
         task.refresh_from_db()
-        self.assertEqual(task.tags.get('author'), 'Анна Автор')
+        self.assertEqual(task.tags.get('author'), 'Анна Автор (@salad_author)')
         self.assertEqual(offer.author, 'Анна Автор')
         from games.support.services.word_salad import get_word_salad_detail, list_word_salad_rows
         row = next(item for item in list_word_salad_rows() if item.link_id == offer.accepted_link_id)
@@ -545,4 +545,4 @@ class WordSaladOfferFlowTests(TestCase):
         send_offer(offer)
         accept_offer(offer)
         task = Task.objects.get(task_group=offer.task_group, number='1')
-        self.assertEqual(task.tags.get('author'), 'Гость')
+        self.assertEqual(task.tags.get('author'), 'Гость (@salad_author)')
