@@ -100,6 +100,12 @@ from games.views.alphabetty_views import (  # noqa: E402
     alphabetty_suggest,
     alphabetty_today_page,
 )
+from games.views.censorly_views import (  # noqa: E402
+    censorly_guess,
+    censorly_hub_page,
+    censorly_play_page,
+    censorly_state,
+)
 from games.views.offer_alphabetty import (  # noqa: E402
     offer_alphabetty_create as alphabetty_create_submit,
     offer_alphabetty_detail,

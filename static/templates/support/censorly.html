@@ -1,0 +1,174 @@
+{% extends "support/base.html" %}
+{% load static %}
+
+{% block support_content %}
+{{ rows_json|json_script:"censorly-rows" }}
+
+<h1 class="support-page-title">Цензурки</h1>
+<p class="support-lead">
+  Фаза 1: генерация случайных партий и прорешивание staff/support.
+  Публично на главной пока <strong>не</strong> показываем.
+  <a href="{{ hub_url }}">Список на сайте →</a>
+</p>
+
+<section class="pal-card support-card">
+  <h2 class="pal-title" style="margin-top:0">Создать</h2>
+  <div class="support-action-row">
+    <button type="button" class="new-btn" id="cz-random">Случайная из пула</button>
+    <span class="support-hint" id="cz-status" aria-live="polite"></span>
+  </div>
+  <form class="support-action-row support-action-row--mt" id="cz-title-form">
+    <label class="support-ladders-field" style="flex:1 1 16rem; min-width:0">
+      <span>Заголовок или URL ru.wikipedia.org</span>
+      <input type="text" id="cz-title" placeholder="Москва или https://ru.wikipedia.org/wiki/…" autocomplete="off">
+    </label>
+    <button type="submit" class="new-btn">Создать по title</button>
+  </form>
+  <p class="support-hint support-ladder-edit-error" id="cz-error" hidden></p>
+</section>
+
+<section class="pal-card support-card support-action-row--mt">
+  <h2 class="pal-title" style="margin-top:0">Партии ({{ rows|length }})</h2>
+  {% if rows %}
+  <div class="support-table-wrap">
+    <table class="support-table" id="cz-table">
+      <thead>
+        <tr>
+          <th>Статья</th>
+          <th>Hash</th>
+          <th>Токены</th>
+          <th>Создано</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr data-hash="{{ row.share_hash }}">
+          <td><a href="{{ row.play_url }}" target="_blank" rel="noopener">{{ row.wiki_title }}</a></td>
+          <td><code>{{ row.share_hash }}</code></td>
+          <td>{{ row.token_count }}</td>
+          <td>{{ row.created_at }}</td>
+          <td class="support-action-row">
+            <a class="new-btn new-btn--mini" href="{{ row.play_url }}" target="_blank" rel="noopener">Играть</a>
+            <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-reset="{{ row.share_hash }}">Сбросить мой прогресс</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="support-empty">Пока пусто — нажмите «Случайная из пула».</p>
+  {% endif %}
+</section>
+
+<script>
+(function () {
+  function csrf() {
+    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function setError(msg) {
+    var el = document.getElementById('cz-error');
+    if (!el) return;
+    if (!msg) { el.hidden = true; el.textContent = ''; return; }
+    el.hidden = false;
+    el.textContent = msg;
+  }
+  function setStatus(msg) {
+    var el = document.getElementById('cz-status');
+    if (el) el.textContent = msg || '';
+  }
+  function post(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf(),
+      },
+      body: JSON.stringify(body || {}),
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        return { ok: r.ok && data.ok, data: data, status: r.status };
+      });
+    });
+  }
+  function prependRow(row) {
+    var tbody = document.querySelector('#cz-table tbody');
+    if (!tbody) {
+      location.reload();
+      return;
+    }
+    var tr = document.createElement('tr');
+    tr.dataset.hash = row.share_hash;
+    tr.innerHTML =
+      '<td><a href="' + row.play_url + '" target="_blank" rel="noopener"></a></td>' +
+      '<td><code></code></td>' +
+      '<td></td><td></td>' +
+      '<td class="support-action-row">' +
+      '<a class="new-btn new-btn--mini" href="' + row.play_url + '" target="_blank" rel="noopener">Играть</a> ' +
+      '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-reset="' + row.share_hash + '">Сбросить мой прогресс</button>' +
+      '</td>';
+    tr.querySelector('a').textContent = row.wiki_title;
+    tr.querySelector('code').textContent = row.share_hash;
+    tr.children[2].textContent = String(row.token_count || 0);
+    tr.children[3].textContent = row.created_at || '';
+    tbody.insertBefore(tr, tbody.firstChild);
+  }
+
+  document.getElementById('cz-random').addEventListener('click', function () {
+    setError('');
+    setStatus('Загрузка статьи…');
+    post("{% url 'support:censorly_generate' %}", {}).then(function (pack) {
+      setStatus('');
+      if (!pack.ok) {
+        setError((pack.data && pack.data.error) || 'Ошибка генерации');
+        return;
+      }
+      prependRow(pack.data.row);
+      setStatus('Создано: ' + pack.data.row.wiki_title);
+    }).catch(function () {
+      setStatus('');
+      setError('Сеть недоступна');
+    });
+  });
+
+  document.getElementById('cz-title-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var title = (document.getElementById('cz-title').value || '').trim();
+    if (!title) return;
+    setError('');
+    setStatus('Загрузка…');
+    post("{% url 'support:censorly_from_title' %}", { title: title }).then(function (pack) {
+      setStatus('');
+      if (!pack.ok) {
+        setError((pack.data && pack.data.error) || 'Ошибка');
+        return;
+      }
+      prependRow(pack.data.row);
+      setStatus('Создано: ' + pack.data.row.wiki_title);
+      document.getElementById('cz-title').value = '';
+    }).catch(function () {
+      setStatus('');
+      setError('Сеть недоступна');
+    });
+  });
+
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('[data-cz-reset]');
+    if (!btn) return;
+    var hash = btn.getAttribute('data-cz-reset');
+    if (!hash) return;
+    if (!confirm('Сбросить ваш прогресс по этой цензурке?')) return;
+    post("{% url 'support:censorly_reset_progress' %}", { share_hash: hash }).then(function (pack) {
+      if (!pack.ok) {
+        setError((pack.data && pack.data.error) || 'Не удалось сбросить');
+        return;
+      }
+      setStatus('Прогресс сброшен');
+    });
+  });
+})();
+</script>
+{% endblock %}

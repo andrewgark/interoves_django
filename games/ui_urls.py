@@ -12,7 +12,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|walls|replacements|palindromes|week_task|team|profile|pay|subscription|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|club-archive-offer-action|anon-merge-jobs|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|censorly|walls|replacements|palindromes|week_task|team|profile|pay|subscription|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|club-archive-offer-action|anon-merge-jobs|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     path('start/', ui.start, name='ui_start'),
@@ -136,6 +136,11 @@ urlpatterns = [
     path('alphabetty/results/', ui.section_results_page, {'game_id': 'alphabetty'}, name='ui_alphabetty_results'),
     path('alphabetty/<str:number>/results/', ui.section_task_results_page, {'game_id': 'alphabetty'}, name='ui_alphabetty_task_results'),
     path('alphabetty/<str:number>/', ui.alphabetty_play_page, name='ui_alphabetty_play'),
+    # Цензурки (phase 1: staff/support only; not on hub/nav).
+    path('censorly/', ui.censorly_hub_page, name='ui_censorly_hub'),
+    path('censorly/r/<str:share_hash>/guess/', ui.censorly_guess, name='ui_censorly_guess'),
+    path('censorly/r/<str:share_hash>/state/', ui.censorly_state, name='ui_censorly_state'),
+    path('censorly/r/<str:share_hash>/', ui.censorly_play_page, name='ui_censorly_play'),
     # Keep this before the legacy section redirects below: those redirects only
     # support GET and would otherwise consume the replay POST and return 405.
     path('games/<str:game_id>/<str:task_group_number>/replay/', ui.new_replay_start, name='ui_replay_start'),

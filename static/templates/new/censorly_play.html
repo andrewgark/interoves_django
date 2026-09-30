@@ -1,0 +1,64 @@
+{% extends "new/base.html" %}
+{% load static %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/censorly.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+{% endblock %}
+{% block content %}
+{{ bootstrap|json_script:"censorly-bootstrap" }}
+
+<p class="new-tg-back">
+  <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label|default:"К списку" }}</a>
+</p>
+
+{% include "new/partials/daily_game_header.html" with heading="Цензурка" show_rules=True hide_daily_navigation=True tagline="Угадайте статью русской Википедии слово за словом" %}
+
+{% include "new/_rules_banner.html" %}
+
+<div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-rules-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-rules-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <h2 id="rules-modal-title" class="pal-title">Цензурка</h2>
+    {% include "new/_censorly_rules_body.html" %}
+  </div>
+</div>
+
+<div class="censorly" id="censorly-root"
+     data-guess-url="{{ bootstrap.guess_url }}"
+     data-state-url="{{ bootstrap.state_url }}">
+
+  <div class="censorly__status" id="censorly-status" aria-live="polite">
+    <span id="censorly-attempts">0 попыток</span>
+    <span id="censorly-won" hidden>Решено!</span>
+  </div>
+
+  <h2 class="censorly__title" id="censorly-title" aria-label="Заголовок статьи"></h2>
+  <article class="censorly__body" id="censorly-body" aria-label="Текст статьи"></article>
+
+  <div class="censorly__dock">
+    <form class="censorly__form" id="censorly-form" autocomplete="off">
+      {% csrf_token %}
+      <input type="text"
+             id="censorly-word"
+             class="censorly__input"
+             name="word"
+             maxlength="64"
+             placeholder="Русское слово"
+             autocapitalize="off"
+             autocomplete="off"
+             spellcheck="true"
+             required>
+      <button type="submit" class="new-btn" id="censorly-submit">Угадать</button>
+    </form>
+    <p class="censorly__feedback" id="censorly-feedback" hidden></p>
+    <details class="censorly__history" id="censorly-history-wrap">
+      <summary>История догадок</summary>
+      <ol class="censorly__guess-list" id="censorly-guess-list"></ol>
+    </details>
+  </div>
+</div>
+
+<script src="{% static 'js/censorly_play.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+{% endblock %}

@@ -333,7 +333,7 @@ class Game(models.Model):
     # These section games are daily puzzles, never tournament rounds.  Keep
     # this invariant at the model boundary because ``is_tournament`` defaults
     # to True for the legacy Tenfold games and admin/import code may omit it.
-    DAILY_NON_TOURNAMENT_GAME_IDS = frozenset({'ladder', 'alphabetty', 'salad'})
+    DAILY_NON_TOURNAMENT_GAME_IDS = frozenset({'ladder', 'alphabetty', 'salad', 'censorly'})
 
     id = models.CharField(primary_key=True, max_length=100)
     name = models.TextField()
@@ -1139,6 +1139,7 @@ class Task(models.Model):
         ('raddle', 'raddle'),
         ('alphabetty', 'alphabetty'),
         ('word_salad', 'Салатик'),
+        ('censorly', 'Цензурка'),
         ('grid-puzzle', 'Grid Puzzle'),
     )
 
@@ -4391,6 +4392,28 @@ class RandomAlphabettyGame(models.Model):
 
     def __str__(self):
         return f'Случайная алфавитка #{self.share_hash}: {self.word}'
+
+
+class RandomCensorlyGame(models.Model):
+    """Permanent deduplicated Цензурка from a Russian Wikipedia title."""
+
+    wiki_title = models.CharField(max_length=255, unique=True)
+    share_hash = models.CharField(max_length=32, unique=True, db_index=True)
+    task_group = models.OneToOneField(
+        TaskGroup,
+        related_name='random_censorly_game',
+        on_delete=models.CASCADE,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Случайная цензурка #{self.share_hash}: {self.wiki_title}'
+
+    def play_url(self):
+        return '/censorly/r/{}/'.format(self.share_hash)
 
 
 class AlphabettyOffer(models.Model):

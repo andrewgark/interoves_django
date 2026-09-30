@@ -1,0 +1,143 @@
+/* Цензурки play UI */
+
+.censorly {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding-bottom: 7rem;
+}
+
+.censorly__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: baseline;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.censorly__status #censorly-won {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.censorly__title,
+.censorly__body {
+  font-family: "IBM Plex Serif", "Literata", "Source Serif 4", Georgia, serif;
+  line-height: 1.65;
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+
+.censorly__title {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.5vw, 1.85rem);
+  font-weight: 700;
+}
+
+.censorly__body {
+  margin: 0;
+  font-size: 1.05rem;
+  white-space: pre-wrap;
+}
+
+.censorly-tok {
+  display: inline;
+}
+
+.censorly-tok--mask {
+  display: inline-block;
+  width: calc(var(--ch, 4) * 0.55em + 0.1em);
+  height: 0.85em;
+  margin: 0 0.03em;
+  vertical-align: -0.1em;
+  border-radius: 2px;
+  background: var(--text);
+  opacity: 0.78;
+}
+
+.censorly-tok--revealed {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.18em;
+}
+
+.censorly-tok--just {
+  background: color-mix(in srgb, var(--accent, #c9a227) 35%, transparent);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  animation: censorly-flash 1.6s ease-out;
+}
+
+@keyframes censorly-flash {
+  0% { background: color-mix(in srgb, var(--accent, #c9a227) 55%, transparent); }
+  100% { background: transparent; }
+}
+
+.censorly__dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin: 0 -0.25rem;
+  padding: 0.75rem 0.25rem 0.35rem;
+  background: linear-gradient(to top, var(--bg, #fff) 70%, transparent);
+}
+
+.censorly__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.censorly__input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 1.05rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface, #fff);
+  color: var(--text);
+}
+
+.censorly__feedback {
+  margin: 0.4rem 0 0;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.censorly__feedback.is-error {
+  color: #b42318;
+}
+
+.censorly__feedback.is-ok {
+  color: var(--text);
+}
+
+.censorly__history {
+  margin-top: 0.65rem;
+  font-size: 0.9rem;
+}
+
+.censorly__guess-list {
+  margin: 0.4rem 0 0;
+  padding-left: 1.25rem;
+  max-height: 12rem;
+  overflow: auto;
+}
+
+.censorly__guess-list li[data-hits="0"] {
+  opacity: 0.55;
+}
+
+html.new-ui-dark .censorly__dock {
+  background: linear-gradient(to top, var(--bg, #121212) 70%, transparent);
+}
+
+html.new-ui-dark .censorly-tok--mask {
+  opacity: 0.88;
+}

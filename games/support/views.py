@@ -35,6 +35,13 @@ from games.support.services.alphabetty import (
     defer_alphabetty,
     restore_alphabetty,
 )
+from games.support.services.censorly import (
+    CensorlySupportError,
+    dashboard_context as censorly_dashboard_context,
+    generate_from_title as censorly_generate_from_title,
+    generate_random as censorly_generate_random,
+    reset_my_progress as censorly_reset_my_progress,
+)
 from games.support.services.week_tasks import (
     WeekTaskSupportError,
     create_week_task,
@@ -1342,6 +1349,50 @@ def alphabetty_generate(request):
         'created_count': result['created_count'],
         'rows': result['rows'],
     })
+
+
+@support_console_required
+def censorly_dashboard(request):
+    ctx = censorly_dashboard_context()
+    return render(request, 'support/censorly.html', ctx)
+
+
+@support_console_required
+@require_POST
+def censorly_generate_random(request):
+    try:
+        row = censorly_generate_random()
+    except CensorlySupportError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'row': row.to_dict()})
+
+
+@support_console_required
+@require_POST
+def censorly_generate_from_title(request):
+    body = _json_body(request) or {}
+    title = (body.get('title') or body.get('url') or '').strip()
+    if not title:
+        return JsonResponse({'ok': False, 'error': 'Укажите заголовок или URL'}, status=400)
+    try:
+        row = censorly_generate_from_title(title)
+    except CensorlySupportError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'row': row.to_dict()})
+
+
+@support_console_required
+@require_POST
+def censorly_reset_progress(request):
+    body = _json_body(request) or {}
+    share_hash = (body.get('share_hash') or '').strip()
+    if not share_hash:
+        return JsonResponse({'ok': False, 'error': 'Нужен share_hash'}, status=400)
+    try:
+        deleted = censorly_reset_my_progress(user=request.user, share_hash=share_hash)
+    except CensorlySupportError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'deleted': deleted})
 
 
 @support_console_required
