@@ -403,16 +403,26 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
                         actor_type=actor_data['actor_type'], actor_key=actor_data['actor_key'],
                         defaults=defaults,
                     )
+            if expected_revision is not None and identity:
+                actor_identity = _actor_identity_from_filter(actor_filter)
+                dirty = DailyResultProjectionDirtyActor.objects.filter(
+                    game=game, task_group=group,
+                    actor_type=actor_identity[0], actor_key=actor_identity[1],
+                    source_revision__lte=expected_revision,
+                )
+                dirty.delete()
+            pending = DailyResultProjectionDirtyActor.objects.filter(
+                game=game, task_group=group,
+            ).count()
             if (
                 expected_revision == state.source_revision
                 and state.coverage_complete
                 and not state.full_refresh_required
-                and not DailyResultProjectionDirtyActor.objects.filter(
-                    game=game, task_group=group,
-                ).exists()
+                and pending == 0
             ):
                 state.is_valid = True
-            state.save(update_fields=['is_valid', 'completed_at'])
+            state.pending_actor_refreshes = pending
+            state.save(update_fields=['pending_actor_refreshes', 'is_valid', 'completed_at'])
         return True
     except Exception:
         logger.exception(
@@ -447,11 +457,6 @@ def _refresh_dirty_actors(game_id, group_id):
             expected_revision=row['source_revision'],
         ):
             continue
-        DailyResultProjectionDirtyActor.objects.filter(
-            game_id=game_id, task_group_id=group_id,
-            actor_type=row['actor_type'], actor_key=row['actor_key'],
-            source_revision__lte=row['source_revision'],
-        ).delete()
     game = Game.objects.get(pk=game_id)
     group = TaskGroup.objects.get(pk=group_id)
     with transaction.atomic():
