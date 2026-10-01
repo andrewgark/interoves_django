@@ -767,6 +767,24 @@ class DailyTimingApiTests(TestCase):
             HTTP_X_INTEROVES_ANON=self.anon,
         )
 
+    def _post_at(self, client, payload, at):
+        import json
+        with patch('games.daily.timing.timezone.now', return_value=at):
+            return client.post(
+                '/ladder/91002/timing/',
+                data=json.dumps(payload),
+                content_type='application/json',
+            )
+
+    def _team_client(self, user, team):
+        Profile.objects.create(user=user, first_name=user.username, last_name='T', team_on=team)
+        client = Client()
+        client.force_login(user)
+        session = client.session
+        session['play_mode_sections'] = 'team'
+        session.save()
+        return client
+
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     def test_anonymous_start_and_pause(self, _pub):
         resp = self._post({
@@ -932,6 +950,82 @@ class DailyTimingApiTests(TestCase):
         )
         self.assertEqual(finish.status_code, 200, finish.content)
         self.assertTrue(finish.json()['completed'])
+
+    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.models.Game.has_access', return_value=True)
+    def test_team_http_sessions_pause_locally_and_count_union_once(self, _access, _pub, _club):
+        team = Team.objects.create(name='timing-http-union-team', project_id='sections')
+        first = self._team_client(
+            User.objects.create_user('timing_http_team_a', 'http-a@example.com', 'secret'), team,
+        )
+        second = self._team_client(
+            User.objects.create_user('timing_http_team_b', 'http-b@example.com', 'secret'), team,
+        )
+        session_a, session_b = str(uuid4()), str(uuid4())
+        t0 = datetime(2026, 9, 3, 10, 0, 0, tzinfo=dt_timezone.utc)
+
+        started_a = self._post_at(first, {
+            'action': ACTION_START, 'session_id': session_a, 'event_id': 'http-a-start', 'seq': 1,
+        }, t0)
+        self.assertEqual(started_a.status_code, 200)
+        started_b = self._post_at(second, {
+            'action': ACTION_START, 'session_id': session_b, 'event_id': 'http-b-start', 'seq': 1,
+        }, t0 + timedelta(seconds=5))
+        self.assertEqual(started_b.status_code, 200)
+        self.assertEqual(started_b.json()['active_sessions_count'], 2)
+
+        paused_a = self._post_at(first, {
+            'action': ACTION_PAUSE, 'session_id': session_a, 'event_id': 'http-a-pause', 'seq': 2,
+        }, t0 + timedelta(seconds=15))
+        self.assertEqual(paused_a.status_code, 200)
+        self.assertEqual(paused_a.json()['status'], DailySolveTiming.STATUS_RUNNING)
+        self.assertFalse(paused_a.json()['session_active'])
+        self.assertEqual(paused_a.json()['active_sessions_count'], 1)
+
+        self._post_at(second, {
+            'action': ACTION_HEARTBEAT, 'session_id': session_b,
+            'event_id': 'http-b-heartbeat', 'seq': 2,
+        }, t0 + timedelta(seconds=20))
+        completed = self._post_at(second, {
+            'action': ACTION_COMPLETE, 'session_id': session_b,
+            'event_id': 'http-b-complete', 'seq': 3,
+        }, t0 + timedelta(seconds=30))
+        self.assertEqual(completed.status_code, 200)
+        self.assertEqual(completed.json()['frozen_ms'], 30_000)
+        self.assertEqual(completed.json()['accumulated_ms'], 30_000)
+
+    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.models.Game.has_access', return_value=True)
+    def test_personal_http_sessions_keep_single_active_lease(self, _access, _pub, _game_access):
+        user = User.objects.create_user('timing_http_personal', 'http-personal@example.com', 'secret')
+        Profile.objects.create(user=user, first_name='P', last_name='T')
+        client = Client()
+        client.force_login(user)
+        session_a, session_b = str(uuid4()), str(uuid4())
+        t0 = datetime(2026, 9, 3, 10, 0, 0, tzinfo=dt_timezone.utc)
+
+        self.assertEqual(self._post_at(client, {
+            'action': ACTION_START, 'session_id': session_a, 'event_id': 'personal-a-start', 'seq': 1,
+        }, t0).status_code, 200)
+        self.assertEqual(self._post_at(client, {
+            'action': ACTION_HEARTBEAT, 'session_id': session_a,
+            'event_id': 'personal-a-heartbeat', 'seq': 2,
+        }, t0 + timedelta(seconds=5)).status_code, 200)
+        takeover = self._post_at(client, {
+            'action': ACTION_START, 'session_id': session_b, 'event_id': 'personal-b-start', 'seq': 1,
+        }, t0 + timedelta(seconds=10))
+        self.assertEqual(takeover.status_code, 200)
+        self.assertTrue(takeover.json()['is_authoritative'])
+        self.assertEqual(takeover.json()['committed_ms'], 5_000)
+
+        completed = self._post_at(client, {
+            'action': ACTION_COMPLETE, 'session_id': session_b,
+            'event_id': 'personal-b-complete', 'seq': 2,
+        }, t0 + timedelta(seconds=20))
+        self.assertEqual(completed.status_code, 200)
+        self.assertEqual(completed.json()['frozen_ms'], 15_000)
 
 
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
