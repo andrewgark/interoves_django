@@ -151,6 +151,7 @@ Resources:
             Action:
               - s3:GetObject
               - s3:PutObject
+              - s3:PutObjectAcl
             Resource: !Sub arn:aws:s3:::${SocialQueueS3Bucket}/media/social_queue/*
           - Sid: CheckSocialQueueImageNames
             Effect: Allow

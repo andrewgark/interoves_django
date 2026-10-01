@@ -57,6 +57,7 @@ class RecheckWorkerBundleConfigTests(unittest.TestCase):
         self.assertIn('IsIntegrations', template)
         self.assertIn('s3:GetObject', template)
         self.assertIn('s3:PutObject', template)
+        self.assertIn('s3:PutObjectAcl', template)
         self.assertIn('s3:ListBucket', template)
         self.assertIn('media/social_queue/*', template)
         self.assertIn('/media/social_queue/*', template)
