@@ -89,6 +89,8 @@ class NowPaymentsIpnTests(TestCase):
             'invoice_id': 'inv-1',
             'payment_status': 'finished',
             'order_id': str(ticket.pk),
+            'price_amount': 4000,
+            'price_currency': 'rub',
         })
         self.assertEqual(response.status_code, 200)
         ticket.refresh_from_db()
@@ -113,6 +115,8 @@ class NowPaymentsIpnTests(TestCase):
             'payment_id': 999,
             'payment_status': 'finished',
             'order_id': str(ticket.pk),
+            'price_amount': 4000,
+            'price_currency': 'rub',
         })
         self.assertEqual(response.status_code, 200)
         self.team.refresh_from_db()
@@ -289,6 +293,8 @@ class NowPaymentsDonationIpnTests(TestCase):
             'invoice_id': 'inv-d1',
             'payment_status': 'finished',
             'order_id': donation_order_id(donation.pk),
+            'price_amount': 500,
+            'price_currency': 'rub',
             'pay_amount': 0.00123,
             'pay_currency': 'btc',
         })
@@ -315,6 +321,8 @@ class NowPaymentsDonationIpnTests(TestCase):
             'payment_status': 'finished',
             'pay_amount': '12.5',
             'pay_currency': 'usdttrc20',
+            'price_amount': 1000,
+            'price_currency': 'rub',
         })
         self.assertEqual(response.status_code, 200)
         donation.refresh_from_db()
@@ -353,6 +361,8 @@ class NowPaymentsDonationIpnTests(TestCase):
         response = self._post_ipn({
             'payment_status': 'finished',
             'order_id': donation_order_id(donation.pk),
+            'price_amount': 50,
+            'price_currency': 'rub',
             'pay_amount': '10',
             'pay_currency': 'usdt',
         })
@@ -361,6 +371,23 @@ class NowPaymentsDonationIpnTests(TestCase):
         donation.refresh_from_db()
         self.assertEqual(ticket.status, 'Pending')
         self.assertEqual(donation.status, 'Confirmed')
+
+    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    def test_finished_with_wrong_price_does_not_confirm_donation(self, _verify):
+        donation = Donation.objects.create(amount_rub=500, status='Pending')
+        response = self._post_ipn({
+            'payment_id': 43,
+            'invoice_id': 'inv-d2',
+            'payment_status': 'finished',
+            'order_id': donation_order_id(donation.pk),
+            'price_amount': 50,
+            'price_currency': 'rub',
+            'pay_amount': '0.00123',
+            'pay_currency': 'btc',
+        })
+        self.assertEqual(response.status_code, 200)
+        donation.refresh_from_db()
+        self.assertEqual(donation.status, 'Pending')
 
 
 class CryptoDonationCreateTests(TestCase):

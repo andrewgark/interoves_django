@@ -1,5 +1,6 @@
 import json
 import logging
+from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth.decorators import user_passes_test
 from django.db import transaction
@@ -20,6 +21,20 @@ from yookassa import Payment
 logger = logging.getLogger(__name__)
 
 _TICKET_CUSTOMER_PREFIX = 'ticket:'
+
+
+def _nowpayments_price_matches(event_json: dict, expected_amount) -> bool:
+    """Require the signed IPN to carry the original RUB invoice amount."""
+    raw_amount = event_json.get('price_amount')
+    currency = str(event_json.get('price_currency') or '').strip().lower()
+    if raw_amount in (None, '') or currency != 'rub':
+        return False
+    try:
+        actual = Decimal(str(raw_amount))
+        expected = Decimal(str(expected_amount))
+    except (InvalidOperation, TypeError, ValueError):
+        return False
+    return actual.is_finite() and actual == expected
 
 
 def _parse_ticket_customer_id(customer_id) -> int | None:
@@ -247,6 +262,16 @@ def _nowpayments_handle_donation_ipn(event_json, *, payment_status, order_id, np
             return HttpResponse(status=200)
 
         if payment_status == 'finished':
+            if not _nowpayments_price_matches(event_json, donation.amount_rub):
+                logger.warning(
+                    'nowpayments_ipn: donation amount mismatch donation_id=%s payment_id=%s price_amount=%r price_currency=%r expected_amount=%s',
+                    donation.pk,
+                    payment_id,
+                    event_json.get('price_amount'),
+                    event_json.get('price_currency'),
+                    donation.amount_rub,
+                )
+                return HttpResponse(status=200)
             pay_amount, pay_currency = extract_pay_fields(event_json)
             result = confirm_donation(
                 donation,
@@ -281,7 +306,7 @@ def _nowpayments_handle_donation_ipn(event_json, *, payment_status, order_id, np
     return HttpResponse(status=200)
 
 
-def _nowpayments_handle_ticket_ipn(*, payment_status, order_id, np_id, payment_id):
+def _nowpayments_handle_ticket_ipn(event_json, *, payment_status, order_id, np_id, payment_id):
     notify_event = None
     with transaction.atomic():
         ticket_request = (
@@ -300,6 +325,16 @@ def _nowpayments_handle_ticket_ipn(*, payment_status, order_id, np_id, payment_i
             return HttpResponse(status=200)
 
         if payment_status == 'finished':
+            if not _nowpayments_price_matches(event_json, ticket_request.money):
+                logger.warning(
+                    'nowpayments_ipn: ticket amount mismatch ticket_request_id=%s payment_id=%s price_amount=%r price_currency=%r expected_amount=%s',
+                    ticket_request.pk,
+                    payment_id,
+                    event_json.get('price_amount'),
+                    event_json.get('price_currency'),
+                    ticket_request.money,
+                )
+                return HttpResponse(status=200)
             result = accept_ticket_request(
                 ticket_request,
                 nowpayments_id=np_id,
@@ -407,6 +442,7 @@ def nowpayments_ipn(request):
         )
 
     return _nowpayments_handle_ticket_ipn(
+        event_json,
         payment_status=payment_status,
         order_id=order_id,
         np_id=np_id,
