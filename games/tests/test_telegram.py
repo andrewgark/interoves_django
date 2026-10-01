@@ -423,6 +423,11 @@ class TelegramNotifyTests(TestCase):
     TELEGRAM_WEBHOOK_SECRET='secret',
 )
 class TelegramWebhookTests(TestCase):
+    @override_settings(TELEGRAM_WEBHOOK_SECRET='')
+    def test_webhook_disabled_without_secret(self):
+        response = self.client.post('/telegram/webhook/', data='{}', content_type='application/json')
+        self.assertEqual(response.status_code, 503)
+
     def test_webhook_rejects_bad_secret(self):
         response = self.client.post('/telegram/webhook/wrong/', data='{}', content_type='application/json')
         self.assertEqual(response.status_code, 403)

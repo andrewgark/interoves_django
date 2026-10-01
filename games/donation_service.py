@@ -79,6 +79,16 @@ def confirm_donation(
 ) -> DonationConfirmResult:
     """Idempotently mark a donation Confirmed and store paid amount/currency."""
     already_confirmed = donation.status == 'Confirmed'
+    if donation.status not in ('Pending', 'Confirmed'):
+        # A delayed provider success must not resurrect a failed/expired
+        # donation after a terminal rejection has already been recorded.
+        logger.warning(
+            'confirm_donation: ignored terminal status donation_id=%s status=%s source=%s',
+            donation.pk,
+            donation.status,
+            source,
+        )
+        return DonationConfirmResult(changed=False, already_confirmed=False)
     update_fields = []
 
     if nowpayments_id and not donation.nowpayments_id:

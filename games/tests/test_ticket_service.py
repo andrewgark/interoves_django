@@ -104,6 +104,16 @@ class TicketServiceTests(TestCase):
         self.assertFalse(again.changed)
         self.assertTrue(again.already_final)
 
+    def test_late_accept_does_not_credit_rejected_request(self):
+        ticket = self._pending()
+        reject_ticket_request(ticket, source='webhook')
+        result = accept_ticket_request(ticket, nowpayments_id='late-success', source='nowpayments_ipn')
+        ticket.refresh_from_db()
+        self.team.refresh_from_db()
+        self.assertFalse(result.changed)
+        self.assertEqual(ticket.status, 'Rejected')
+        self.assertEqual(self.team.tickets, 1)
+
     def test_stuck_pending_ticket_count(self):
         recent = self._pending(yookassa_id='recent-pay')
         stuck = self._pending(yookassa_id='stuck-pay')

@@ -45,6 +45,13 @@ class DonationServiceTests(TestCase):
         self.assertTrue(reject_donation(rejected, source='test').changed)
         self.assertFalse(reject_donation(rejected, source='test').changed)
 
+    def test_late_confirmation_does_not_resurrect_rejected_donation(self):
+        donation = Donation.objects.create(amount_rub=100, status='Rejected')
+        result = confirm_donation(donation, pay_amount='1', pay_currency='usdt', source='webhook')
+        donation.refresh_from_db()
+        self.assertFalse(result.changed)
+        self.assertEqual(donation.status, 'Rejected')
+
     def test_recent_donations_for_request_uses_session(self):
         from django.contrib.auth.models import AnonymousUser
         from django.contrib.sessions.backends.db import SessionStore

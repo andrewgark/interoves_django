@@ -63,6 +63,10 @@ def telegram_webhook(request, secret: str = ''):
     from django.conf import settings
 
     configured_secret = getattr(settings, 'TELEGRAM_WEBHOOK_SECRET', '') or ''
+    if not configured_secret:
+        # Without a secret the endpoint is publicly forgeable. Refuse to
+        # process updates until the deployment is configured safely.
+        return HttpResponse(status=503)
     if configured_secret and secret != configured_secret:
         return HttpResponse(status=403)
 

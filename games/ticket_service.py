@@ -42,6 +42,22 @@ def accept_ticket_request(
     Caller should use select_for_update() when handling concurrent updates (webhook, admin).
     """
     already_accepted = ticket_request.status == 'Accepted'
+    if ticket_request.status not in ('Pending', 'Accepted'):
+        # Payment providers can deliver a late success after failed/expired.
+        # Never credit tickets for a request already marked terminally rejected.
+        logger.warning(
+            'accept_ticket_request: ignored terminal status ticket_request_id=%s status=%s source=%s',
+            ticket_request.pk,
+            ticket_request.status,
+            source,
+        )
+        return TicketAcceptResult(
+            changed=False,
+            credited=False,
+            tickets_credited=0,
+            already_accepted=False,
+            no_team=not ticket_request.team_id,
+        )
     update_fields = []
 
     if yookassa_id and not ticket_request.yookassa_id:
