@@ -26,7 +26,7 @@ from games.alphabetty.play import (
 from games.daily.registry import DAILY_GAME_REGISTRY
 
 
-CACHE_VERSION = 13
+CACHE_VERSION = 14
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
@@ -426,6 +426,7 @@ def _alphabet(task, game, actors):
         'summary': {
             'solved': len(actors),
             'median_attempts': _median(attempt_counts),
+            'median_time_seconds': _median(_completed_times(game, task.task_group, actors)),
             'without_hints_percent': _pct(no_hints, len(actors)),
         },
         'distribution': histogram,
@@ -509,6 +510,7 @@ def _censorly(task, game, actors):
         'summary': {
             'solved': len(actors),
             'median_attempts': _median(attempt_counts),
+            'median_time_seconds': _median(_completed_times(game, task.task_group, actors)),
             'without_hints_percent': _pct(no_hints, len(actors)),
         },
         'distribution': histogram,

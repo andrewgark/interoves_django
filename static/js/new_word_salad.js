@@ -514,6 +514,7 @@
       var pathLine = root.querySelector('[data-word-salad-path-line]');
       var linksSvg = root.querySelector('[data-word-salad-links-svg]');
       var solvedEl = root.querySelector('[data-word-salad-solved]');
+      var orientationEl = root.querySelector('[data-word-salad-orientation]');
       var orientationButtons = Array.prototype.slice.call(root.querySelectorAll('[data-word-salad-transform]'));
       var gridRows = Array.prototype.slice.call(root.querySelectorAll('.new-word-salad__row'));
       var orientationKey = orientationStorageKey(root);
@@ -649,9 +650,9 @@
       }
 
       function syncSolvedState() {
-        if (!solvedEl) return;
         var complete = wordRows().length > 0 && wordRows('.new-word-salad__word:not(.is-solved)').length === 0;
-        solvedEl.hidden = !complete;
+        if (solvedEl) solvedEl.hidden = !complete;
+        if (orientationEl) orientationEl.hidden = complete;
       }
 
       function setCellActive(cell, active) {

@@ -57,8 +57,14 @@ class DailyStatisticsTests(TestCase):
                     state=json.dumps({'guesses': guesses, 'won': guess == 'СЛОВО'}),
                 )
             self._complete(tg, user)
+        for user, frozen_ms in zip(self.users, (2000, 5000, 9000)):
+            DailySolveTiming.objects.create(
+                user=user, game=self.game, task_group=tg,
+                status=DailySolveTiming.STATUS_COMPLETED, frozen_ms=frozen_ms,
+            )
         data = build_daily_statistics(self.game, tg)
         self.assertEqual(data['summary']['median_attempts'], 3)
+        self.assertEqual(data['summary']['median_time_seconds'], 5.0)
         self.assertEqual(len(data['distribution']), 30)
         self.assertEqual([row['count'] for row in data['distribution'][:4]], [0, 1, 1, 1])
         self.assertEqual(data['distribution'][-1]['label'], '30+')

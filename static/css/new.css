@@ -8080,6 +8080,8 @@ html.is-age-gated .new-wrap {
 @media (min-width: 920px) {
   .new-daily-statistics { margin-top: 1.25rem; }
   .new-daily-statistics__summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .new-daily-statistics__summary--alphabet,
+  .new-daily-statistics__summary--censorly { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (max-width: 919px) {
   .new-daily-results-layout > .new-raddle-result { align-self: center; }

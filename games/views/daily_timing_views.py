@@ -8,6 +8,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
+from django.db import OperationalError
 
 from games.daily_section import is_scheduled_game, scheduled_number_is_public
 from games.daily_timing import (
@@ -19,6 +20,7 @@ from games.daily_timing import (
     lookup_timing,
     snapshot,
 )
+from games.db_retry import is_mysql_retryable_lock_error
 from games.models import Attempt, Game, GameTaskGroup
 from games.analytics_identity import gameplay_anon_key
 from games.gameplay_context import context_error_response, validate_gameplay_context
@@ -204,20 +206,28 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
         response = context_error_response(context_error)
         if response is not None:
             return response
-    result = apply_timing_event(
-        game=game,
-        task_group=task_group,
-        team=team,
-        user=user,
-        anon_key=anon_key,
-        action=action,
-        session_id=payload.get('session_id'),
-        event_id=payload.get('event_id') or '',
-        seq=payload.get('seq') or 0,
-        claimed_ms=payload.get('claimed_ms'),
-        create=True,
-        replay_slot=replay_slot,
-    )
+    try:
+        result = apply_timing_event(
+            game=game,
+            task_group=task_group,
+            team=team,
+            user=user,
+            anon_key=anon_key,
+            action=action,
+            session_id=payload.get('session_id'),
+            event_id=payload.get('event_id') or '',
+            seq=payload.get('seq') or 0,
+            claimed_ms=payload.get('claimed_ms'),
+            create=True,
+            replay_slot=replay_slot,
+        )
+    except OperationalError as exc:
+        # A competing timing mutation can exhaust the transaction retries.
+        # This is transient contention, not a broken request: let the timer
+        # retry instead of turning it into a Telegram-worthy HTTP 500.
+        if is_mysql_retryable_lock_error(exc):
+            return _json_error('busy', 409)
+        raise
     if not result.get('exists') and action not in (ACTION_START, ACTION_RESUME):
         result['ok'] = False
         result['error'] = 'missing'

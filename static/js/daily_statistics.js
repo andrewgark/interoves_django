@@ -216,9 +216,9 @@
     if (data.exclusion_notice) {
       html += '<p class="new-daily-statistics__exclusion" role="note">' + esc(data.exclusion_notice) + '</p>';
     }
-    html += '<div class="new-daily-statistics__summary">' +
+    html += '<div class="new-daily-statistics__summary new-daily-statistics__summary--' + esc(data.kind || '') + '">' +
       metric('Решили', summary.solved || data.solved || 0);
-    if (data.kind === 'alphabet' || data.kind === 'censorly') html += metric('Медиана попыток', summary.median_attempts == null ? '—' : String(summary.median_attempts).replace('.', ',')) + metric('Без подсказок', percent(summary.without_hints_percent));
+    if (data.kind === 'alphabet' || data.kind === 'censorly') html += metric('Медиана попыток', summary.median_attempts == null ? '—' : String(summary.median_attempts).replace('.', ',')) + metric('Медиана времени', seconds(summary.median_time_seconds)) + metric('Без подсказок', percent(summary.without_hints_percent));
     else html += metric('Медиана времени', seconds(summary.median_time_seconds)) + metric('Без подсказок', percent(summary.without_hints_percent));
     html += '</div>';
     if (data.kind === 'salad') {

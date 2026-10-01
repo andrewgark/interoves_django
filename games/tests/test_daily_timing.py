@@ -800,6 +800,22 @@ class DailyTimingApiTests(TestCase):
         self.assertTrue(data['is_authoritative'])
 
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch(
+        'games.views.daily_timing_views.apply_timing_event',
+        side_effect=OperationalError(1205, 'Lock wait timeout exceeded'),
+    )
+    def test_lock_contention_returns_retryable_conflict_instead_of_500(self, _apply, _pub):
+        response = self._post({
+            'action': ACTION_START,
+            'session_id': str(uuid4()),
+            'event_id': 'busy-start',
+            'seq': 1,
+        })
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()['error'], 'busy')
+        self.assertFalse(response.json()['ok'])
+
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     def test_payload_and_header_cannot_spoof_anonymous_or_registered_actor(self, _pub):
         forged = 'attacker-chosen-anon'
         response = self.client.post(
