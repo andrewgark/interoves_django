@@ -1,5 +1,6 @@
 import html
 import logging
+import socket
 from typing import Iterable
 
 from django.conf import settings
@@ -166,12 +167,24 @@ def notify_admin_site_error(request, *, status_code: int = 500, exception=None) 
             'Путь: <code>{}</code>'.format(_escape(path)),
             'Маршрут: {}'.format(_escape(route_name or '—')),
             'Пользователь: {}'.format(_escape(user_label)),
+            'Тип: {}'.format(
+                'необработанное исключение' if exception is not None else 'готовый HTTP-ответ',
+            ),
         ]
         request_id = getattr(request, 'interoves_request_id', '')
         if request_id:
             lines.append('Request ID: <code>{}</code>'.format(_escape(request_id)))
+        instance = getattr(settings, 'INSTANCE_ID', '') or socket.gethostname() or 'unknown'
+        deploy_version = getattr(settings, 'SITE_DEPLOY_VERSION', '') or 'unknown'
+        lines.append('Инстанс: <code>{}</code>'.format(_escape(instance)))
+        lines.append('Версия: <code>{}</code>'.format(_escape(deploy_version)))
+        duration_ms = getattr(request, '_interoves_elapsed_ms', None)
+        if duration_ms is not None:
+            lines.append('Время обработки: {} мс'.format(int(round(duration_ms))))
         if exception is not None:
-            lines.append('Ошибка: {}'.format(_escape(str(exception)[:500])))
+            lines.append('Ошибка: <code>{}</code>'.format(_escape(
+                '{}: {}'.format(exception.__class__.__name__, str(exception)[:400]),
+            )))
         lines.append('Повторные ошибки этого типа подавлены на 5 минут.')
         return send_admin_message(_join_lines(lines), force=True)
     except Exception:

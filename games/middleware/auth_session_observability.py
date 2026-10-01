@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import re
 import socket
+import time
 import uuid
 from importlib import import_module
 
@@ -30,23 +32,34 @@ from games.middleware.request_timing import timing_phase
 
 logger = logging.getLogger('application')
 
+_SEND_ATTEMPT_PATH = re.compile(r'^/send_attempt/(?P<task_id>\d+)/?$')
+
 
 def _request_error_context(request) -> dict:
     """Return safe request metadata for an HTTP 500 forensic log."""
     resolver_match = getattr(request, 'resolver_match', None)
+    path = getattr(request, 'path', '/') or '/'
+    task_match = _SEND_ATTEMPT_PATH.match(path)
+    elapsed_ms = getattr(request, '_interoves_elapsed_ms', None)
+    if elapsed_ms is None:
+        started_at = getattr(request, '_interoves_started_at', None)
+        if started_at is not None:
+            elapsed_ms = (time.perf_counter() - started_at) * 1000.0
     return {
         'request_id': getattr(request, 'interoves_request_id', 'unavailable'),
         'method': getattr(request, 'method', 'unknown') or 'unknown',
         # Deliberately use path instead of get_full_path(): query parameters can
         # contain OAuth codes, tokens, or user-provided secrets.
-        'path': getattr(request, 'path', '/') or '/',
+        'path': path,
         'route': getattr(resolver_match, 'url_name', None) or 'unavailable',
+        'task_id': task_match.group('task_id') if task_match else 'unavailable',
         'instance': (
             getattr(settings, 'INSTANCE_ID', '')
             or socket.gethostname()
             or 'unknown'
         ),
         'deploy_version': getattr(settings, 'SITE_DEPLOY_VERSION', '') or 'unavailable',
+        'duration_ms': elapsed_ms,
     }
 
 
@@ -78,14 +91,16 @@ def _log_http_500_exception(request, exception) -> None:
     db_code, db_args = _db_error_details(exception)
     logger.exception(
         'http_500_uncaught request_id=%s method=%s path=%s route=%s '
-        'instance=%s deploy_version=%s exception_type=%s db_error_code=%s '
-        'db_error_args=%s',
+        'task_id=%s instance=%s deploy_version=%s duration_ms=%s '
+        'exception_type=%s db_error_code=%s db_error_args=%s',
         context['request_id'],
         context['method'],
         context['path'],
         context['route'],
+        context['task_id'],
         context['instance'],
         context['deploy_version'],
+        _format_duration(context['duration_ms']),
         f'{exception.__class__.__module__}.{exception.__class__.__name__}',
         db_code if db_code is not None else 'unavailable',
         db_args or 'unavailable',
@@ -96,15 +111,23 @@ def _log_http_500_response(request, status_code) -> None:
     context = _request_error_context(request)
     logger.error(
         'http_5xx_response status=%s request_id=%s method=%s path=%s route=%s '
-        'instance=%s deploy_version=%s',
+        'task_id=%s instance=%s deploy_version=%s duration_ms=%s',
         status_code,
         context['request_id'],
         context['method'],
         context['path'],
         context['route'],
+        context['task_id'],
         context['instance'],
         context['deploy_version'],
+        _format_duration(context['duration_ms']),
     )
+
+
+def _format_duration(value):
+    if value is None:
+        return 'unavailable'
+    return '{:.0f}'.format(value)
 
 
 def _is_authenticated_audit_path(path: str) -> bool:

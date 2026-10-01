@@ -46,12 +46,14 @@ class RequestTimingMiddleware:
 
         request._interoves_timing_phases = {}
         t0 = time.perf_counter()
+        request._interoves_started_at = t0
         response = None
         try:
             response = self.get_response(request)
             return response
         finally:
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            request._interoves_elapsed_ms = elapsed_ms
             if elapsed_ms >= self.slow_ms:
                 phases_total_ms = sum(request._interoves_timing_phases.values())
                 unaccounted_ms = max(0.0, elapsed_ms - phases_total_ms)

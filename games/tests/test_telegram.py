@@ -319,6 +319,24 @@ class TelegramNotifyTests(TestCase):
         text = send_message_mock.call_args.args[0]
         self.assertIn('Время: <b>23.09.2026 12:34:56</b>', text)
 
+    @override_settings(INSTANCE_ID='green-test-instance', SITE_DEPLOY_VERSION='deploy-test')
+    @patch('games.telegram.notify.send_admin_message', return_value=True)
+    def test_site_error_notification_includes_safe_diagnostic_context(self, send_message_mock):
+        request = RequestFactory().post('/send_attempt/226/', data={'text': 'secret-answer'})
+        request.interoves_request_id = 'telegram-diagnostic-id'
+        request._interoves_elapsed_ms = 123.4
+
+        self.assertTrue(notify_admin_site_error(request, exception=RuntimeError('database down')))
+
+        text = send_message_mock.call_args.args[0]
+        self.assertIn('Тип: необработанное исключение', text)
+        self.assertIn('Request ID: <code>telegram-diagnostic-id</code>', text)
+        self.assertIn('Инстанс: <code>green-test-instance</code>', text)
+        self.assertIn('Версия: <code>deploy-test</code>', text)
+        self.assertIn('Время обработки: 123 мс', text)
+        self.assertIn('RuntimeError: database down', text)
+        self.assertNotIn('secret-answer', text)
+
     def test_format_payment_message(self):
         ticket = TicketRequest.objects.create(team=self.team, tickets=2, money=4000, status='Accepted')
         text = format_payment_message(ticket, 'payment.succeeded')
