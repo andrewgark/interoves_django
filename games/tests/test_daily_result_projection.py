@@ -76,6 +76,7 @@ class DailyResultProjectionTests(TestCase):
         HintAttempt.objects.create(hint=hint, anon_key='hinted', is_real_request=True)
         result = _canonical_group_results(self.game, self.group)
         self.assertEqual(result[('anon', 'hinted')]['score'], Decimal('7'))
+        self.assertEqual(result[('anon', 'hinted')]['attempts_count'], 2)
         refresh_daily_result_projection(self.game, self.group, results=result)
         self.assertEqual(DailyResultProjection.objects.get().score, Decimal('7'))
 

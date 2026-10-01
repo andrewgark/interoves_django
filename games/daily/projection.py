@@ -176,7 +176,10 @@ def _canonical_group_results(game, task_group, *, actor_filter=None):
             )
             if key[1] is not None:
                 first_times[key] = source['first_at']
-    totals = defaultdict(lambda: {'actor': None, 'score': Decimal('0'), 'first_at': None, 'present': False})
+    totals = defaultdict(lambda: {
+        'actor': None, 'score': Decimal('0'), 'attempts_count': 0,
+        'first_at': None, 'present': False,
+    })
     for task in tasks:
         for actor, info in result_rows.get(task.pk, ()):
             if not (info.attempts or info.hint_attempts):
@@ -188,6 +191,7 @@ def _canonical_group_results(game, task_group, *, actor_filter=None):
             row['actor'] = actor
             row['present'] = True
             row['score'] += Decimal(str(info.get_result_points() or 0))
+            row['attempts_count'] += int(info.get_n_attempts() or 0)
             stamps = [a.time for a in (info.attempts or ()) if getattr(a, 'time', None)]
             if key in first_times:
                 first = first_times[key]
@@ -257,6 +261,7 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
             game=game, task_group=task_group,
             user_id=user_id,
             score=data['score'],
+            attempts_count=data['attempts_count'],
             is_prepublication=_prepublication(game, link, actor, data['first_at']),
             **actor_data,
         ))
@@ -394,6 +399,7 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
                     defaults = {
                         'team': actor_data['team'], 'user_id': user_id,
                         'anon_key': actor_data['anon_key'], 'score': data['score'],
+                        'attempts_count': data['attempts_count'],
                         'is_prepublication': _prepublication(
                             game, link, data['actor'], data['first_at'],
                         ),

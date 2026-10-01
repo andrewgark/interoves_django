@@ -281,7 +281,7 @@ class _AggregatePage:
         return (self.number - 1) * self.paginator.per_page + len(self.object_list)
 
 
-def _projection_rank_page(game, group_ids, page_number, actor_types=None):
+def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggregate_sort='time'):
     """Aggregate, rank and page persisted score rows without hydrating all actors."""
     from django.db import connection
 
@@ -357,7 +357,8 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
     for actor_type, timing_identity in timing_branches:
         actor_total_branches.append(
             f'''SELECT p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key,
-                       SUM(p.score) AS window_score, COUNT(p.id) AS played_count,
+                       SUM(p.score) AS window_score, SUM(p.attempts_count) AS attempts_count,
+                       COUNT(p.id) AS played_count,
                        CASE WHEN COUNT(dt.id) = 0 THEN NULL ELSE SUM(COALESCE(dt.frozen_ms, dt.accumulated_ms)) END AS total_time_ms
                 FROM {projection} p LEFT JOIN canonical_timing dt ON dt.game_id = p.game_id
                   AND dt.task_group_id = p.task_group_id
@@ -374,27 +375,30 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None):
                     {actor_totals_sql}
                 ), ranked AS (
                     SELECT actor_type, actor_key, team_id, user_id, anon_key,
-                           window_score, played_count, total_time_ms,
+                           window_score, attempts_count, played_count, total_time_ms,
                            RANK() OVER (ORDER BY window_score DESC) AS place
                     FROM actor_totals
                 ), numbered AS (
                     SELECT actor_type, actor_key, team_id, user_id, anon_key,
-                           window_score, played_count, total_time_ms, place,
+                           window_score, attempts_count, played_count, total_time_ms, place,
                            COUNT(*) OVER () AS total_count,
                            ROW_NUMBER() OVER (
-                               ORDER BY window_score DESC, total_time_ms IS NULL,
-                                        total_time_ms, actor_type, actor_key
+                               ORDER BY window_score DESC,
+                                        {"attempts_count, total_time_ms IS NULL, total_time_ms" if aggregate_sort == 'attempts' else "total_time_ms IS NULL, total_time_ms, attempts_count"},
+                                        actor_type, actor_key
                            ) AS page_row
                     FROM ranked
                 ) SELECT actor_type, actor_key, team_id, user_id, anon_key,
-                         window_score, played_count, total_time_ms, place,
+                         window_score, attempts_count, played_count, total_time_ms, place,
                          total_count, page_row
                   FROM numbered
                  WHERE page_row > ((CASE WHEN %s < ((total_count + %s - 1) / %s)
                                          THEN %s ELSE ((total_count + %s - 1) / %s) END - 1) * %s)
                    AND page_row <= ((CASE WHEN %s < ((total_count + %s - 1) / %s)
                                           THEN %s ELSE ((total_count + %s - 1) / %s) END) * %s)
-                 ORDER BY window_score DESC, total_time_ms IS NULL, total_time_ms, actor_type, actor_key
+                 ORDER BY window_score DESC,
+                          {"attempts_count, total_time_ms IS NULL, total_time_ms" if aggregate_sort == 'attempts' else "total_time_ms IS NULL, total_time_ms, attempts_count"},
+                          actor_type, actor_key
                  LIMIT %s''',
             [
                 *base_params, *base_params, *base_params,
@@ -723,8 +727,11 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
     except (TypeError, ValueError):
         requested_page = 1
     actor_types = aggregate_actor_filter_types(request)
+    aggregate_sort = request.GET.get('sort') if game.id == 'alphabetty' else 'time'
+    if aggregate_sort not in ('attempts', 'time'):
+        aggregate_sort = 'attempts'
     page_values, total_count, current_page = _projection_rank_page(
-        game, group_ids, requested_page, actor_types,
+        game, group_ids, requested_page, actor_types, aggregate_sort,
     )
     page_obj = _AggregatePage(page_values, current_page, total_count, PAGE_SIZE)
     team_ids = {row['team_id'] for row in page_values if row['team_id']}
@@ -771,6 +778,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
             'score': result['window_score'], 'max_score': window_max,
             'played': result['played_count'], 'time_seconds': elapsed,
             'time_display': _format_aggregate_time(elapsed),
+            'attempts': result['attempts_count'],
             'cells': {
                 link.pk: cells[identity][link.task_group_id]
                 for link in release_links if link.task_group_id in cells[identity]
@@ -802,6 +810,8 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
         'team_to_place': {row['actor']: row['place'] for row in rows},
         'teams_sorted': [row['actor'] for row in rows],
         'aggregate_actor_types': actor_types,
+        'aggregate_sort': aggregate_sort,
+        'aggregate_show_attempts': game.id == 'alphabetty',
     }
     if month_context is not None:
         _, selected_month, previous_month, next_month, _ = month_context
@@ -836,12 +846,6 @@ def build_aggregate_page(request, game):
         month_context = (
             columns, selected_month, previous_month, next_month, published_at_by_link,
         )
-        # Alphabetty's aggregate table exposes the same attempt count and
-        # tie-break sorting as its per-release results. The projection payload
-        # does not persist attempt totals yet, so keep this game on the
-        # canonical legacy aggregator while retaining monthly release scopes.
-        if game.id == 'alphabetty':
-            return _build_legacy_aggregate_page(request, game, month_context=month_context)
         group_ids = [column.link.task_group_id for column in columns]
         states = {
             state.task_group_id: state
@@ -861,10 +865,6 @@ def build_aggregate_page(request, game):
             request, game, columns, aggregate_period='month', month_context=month_context,
         )
 
-    # The projection predates aggregate attempt counts. Keep alphabetty on the
-    # canonical bounded builder until that statistic is persisted there too.
-    if game.id == 'alphabetty':
-        return _build_legacy_aggregate_page(request, game)
     try:
         requested = int(request.GET.get('limit', '10'))
     except (TypeError, ValueError):

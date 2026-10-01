@@ -810,6 +810,7 @@ class DailyResultProjection(models.Model):
     user = models.ForeignKey(User, related_name='daily_result_projections', blank=True, null=True, on_delete=models.CASCADE)
     anon_key = models.CharField(max_length=64, blank=True, null=True)
     score = models.DecimalField(max_digits=12, decimal_places=3)
+    attempts_count = models.PositiveIntegerField(default=0)
     is_prepublication = models.BooleanField(default=False, help_text='Rebuildable eligibility metadata from canonical first-play data.')
     projected_at = models.DateTimeField(auto_now=True)
 
