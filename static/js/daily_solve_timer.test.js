@@ -341,6 +341,7 @@ function parsePostBody(init) {
   var pause = posts.filter(function (body) { return body.action === 'pause'; })[0];
   assert.ok(pause, 'pause request was sent');
   assert.ok(Number(pause.claimed_ms) >= 250000, pause.claimed_ms);
+  assert.ok(Date.parse(pause.client_occurred_at) > 0, pause.client_occurred_at);
   assert.strictEqual(timer.formatElapsed(ctrl.displayedMs()), '4м 20с');
   ctrl.destroy();
 })();

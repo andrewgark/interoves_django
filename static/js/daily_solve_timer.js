@@ -288,6 +288,10 @@
         event_id: extra.event_id || uuid(),
         seq: eventSeq,
         claimed_ms: claimed,
+        // The server clock remains authoritative for duration.  This is only
+        // a bounded ordering hint for event-log replay when requests arrive
+        // out of order.
+        client_occurred_at: new Date().toISOString(),
         anon_key: getAnonKey() || '',
       };
       var headers = {
