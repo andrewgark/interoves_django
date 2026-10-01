@@ -117,6 +117,8 @@ Resources:
 
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
     Properties:
       Family: !Ref ServiceName
       RequiresCompatibilities: [FARGATE]
